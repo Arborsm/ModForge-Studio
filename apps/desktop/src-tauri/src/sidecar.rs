@@ -1,5 +1,6 @@
 use crate::AppHandle;
 use crate::domain;
+use crate::host_commands::HostCommandName;
 use crate::host_runtime::{
     HostCommandCancelPolicy, HostCommandLane, HostCommandMutationPolicy, HostCommandResource,
     HostCommandResourceLocks, HostCommandResponse, HostCommandResponseWriter, HostCommandResult,
@@ -21,6 +22,7 @@ type SidecarSchedulerConfig = HostCommandSchedulerConfig;
 type SidecarScheduler = HostCommandScheduler;
 type SidecarResourceLocks = HostCommandResourceLocks;
 type ResolvedSidecarCommand = ResolvedHostCommand;
+type SidecarCommandName = HostCommandName;
 const NO_RESOURCES: &[HostCommandResource] = &[];
 
 #[derive(Debug, Deserialize)]
@@ -76,7 +78,7 @@ pub(crate) enum ResolvedSidecarCommandOrResponse {
 
 fn sidecar_command<F>(
     id: Value,
-    name: String,
+    name: &SidecarCommandName,
     lane: SidecarLane,
     resources: &'static [SidecarResource],
     run: F,
@@ -86,7 +88,7 @@ where
 {
     ResolvedSidecarCommandOrResponse::Command(ResolvedSidecarCommand {
         id,
-        name,
+        name: name.as_str().to_string(),
         lane,
         resources,
         cancel_policy: HostCommandCancelPolicy::NotCancellable,
@@ -100,28 +102,28 @@ where
     })
 }
 
-fn control<F>(id: Value, name: String, run: F) -> ResolvedSidecarCommandOrResponse
+fn control<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
 where
     F: FnOnce() -> DispatchResult + Send + 'static,
 {
     sidecar_command(id, name, SidecarLane::Control, NO_RESOURCES, run)
 }
 
-fn network<F>(id: Value, name: String, run: F) -> ResolvedSidecarCommandOrResponse
+fn network<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
 where
     F: FnOnce() -> DispatchResult + Send + 'static,
 {
     sidecar_command(id, name, SidecarLane::Network, NO_RESOURCES, run)
 }
 
-fn io_lane<F>(id: Value, name: String, run: F) -> ResolvedSidecarCommandOrResponse
+fn io_lane<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
 where
     F: FnOnce() -> DispatchResult + Send + 'static,
 {
     sidecar_command(id, name, SidecarLane::Io, NO_RESOURCES, run)
 }
 
-fn mutation<F>(id: Value, name: String, run: F) -> ResolvedSidecarCommandOrResponse
+fn mutation<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
 where
     F: FnOnce() -> DispatchResult + Send + 'static,
 {
@@ -130,7 +132,7 @@ where
 
 fn control_with_resources<F>(
     id: Value,
-    name: String,
+    name: &SidecarCommandName,
     resources: &'static [SidecarResource],
     run: F,
 ) -> ResolvedSidecarCommandOrResponse
@@ -142,7 +144,7 @@ where
 
 fn io_with_resources<F>(
     id: Value,
-    name: String,
+    name: &SidecarCommandName,
     resources: &'static [SidecarResource],
     run: F,
 ) -> ResolvedSidecarCommandOrResponse
@@ -154,7 +156,7 @@ where
 
 fn mutation_with_resources<F>(
     id: Value,
-    name: String,
+    name: &SidecarCommandName,
     resources: &'static [SidecarResource],
     run: F,
 ) -> ResolvedSidecarCommandOrResponse
@@ -226,168 +228,197 @@ pub(crate) fn resolve_command(
     request: RpcRequest,
 ) -> ResolvedSidecarCommandOrResponse {
     let RpcRequest { id, command, args } = request;
+    let command_name = SidecarCommandName::from_protocol(command.clone());
 
     match command.as_str() {
-        "detect_default_game_directory" => io_lane(id, command, || {
-            ok(Ok::<_, String>(
-                domain::assets::detect_default_game_directory(),
-            ))
-        }),
-        "list_known_game_directories" => io_lane(id, command, || {
-            ok(Ok::<_, String>(
-                domain::assets::list_known_game_directories(),
-            ))
-        }),
-        "get_file_cache_stats" => {
-            io_lane(id, command, || ok(domain::assets::get_file_cache_stats()))
+        crate::host_command_wire!(detect_default_game_directory) => {
+            io_lane(id, &command_name, || {
+                ok(Ok::<_, String>(
+                    domain::assets::detect_default_game_directory(),
+                ))
+            })
         }
-        "clear_file_cache" => mutation(id, command, || ok(domain::assets::clear_file_cache())),
-        "validate_game_directory" => io_lane(id, command, move || {
-            ok(domain::assets::validate_game_directory(arg(&args, "path")?))
+        crate::host_command_wire!(list_known_game_directories) => {
+            io_lane(id, &command_name, || {
+                ok(Ok::<_, String>(
+                    domain::assets::list_known_game_directories(),
+                ))
+            })
+        }
+        crate::host_command_wire!(get_file_cache_stats) => io_lane(id, &command_name, || {
+            ok(domain::assets::get_file_cache_stats())
         }),
-        "scan_maps" => io_lane(id, command, move || {
+        crate::host_command_wire!(clear_file_cache) => {
+            mutation(id, &command_name, || ok(domain::assets::clear_file_cache()))
+        }
+        crate::host_command_wire!(validate_game_directory) => {
+            io_lane(id, &command_name, move || {
+                ok(domain::assets::validate_game_directory(arg(&args, "path")?))
+            })
+        }
+        crate::host_command_wire!(scan_maps) => io_lane(id, &command_name, move || {
             ok(domain::assets::scan_maps(
                 arg(&args, "path")?,
                 optional_arg(&args, "locale")?,
             ))
         }),
-        "scan_events" => io_lane(id, command, move || {
+        crate::host_command_wire!(scan_events) => io_lane(id, &command_name, move || {
             ok(domain::assets::scan_events(arg(&args, "path")?))
         }),
-        "load_map_asset" => io_lane(id, command, move || {
+        crate::host_command_wire!(load_map_asset) => io_lane(id, &command_name, move || {
             ok(domain::assets::load_map_asset(
                 arg(&args, "rootPath")?,
                 arg(&args, "mapPath")?,
                 optional_arg(&args, "locale")?,
             ))
         }),
-        "load_text_asset" => io_lane(id, command, move || {
+        crate::host_command_wire!(load_text_asset) => io_lane(id, &command_name, move || {
             ok(domain::assets::load_text_asset(
                 arg(&args, "rootPath")?,
                 arg(&args, "assetPath")?,
                 optional_arg(&args, "locale")?,
             ))
         }),
-        "load_text_file" => io_lane(id, command, move || {
+        crate::host_command_wire!(load_text_file) => io_lane(id, &command_name, move || {
             ok(domain::assets::load_text_file(arg(&args, "path")?))
         }),
-        "load_image_data_url" => io_lane(id, command, move || {
+        crate::host_command_wire!(load_image_data_url) => io_lane(id, &command_name, move || {
             ok(domain::assets::load_image_data_url(
                 arg(&args, "path")?,
                 optional_arg(&args, "locale")?,
             ))
         }),
-        "scan_audio_assets" => io_lane(id, command, move || {
+        crate::host_command_wire!(scan_audio_assets) => io_lane(id, &command_name, move || {
             ok(domain::assets::scan_audio_assets(arg(&args, "path")?))
         }),
-        "load_audio_data_url" => io_lane(id, command, move || {
+        crate::host_command_wire!(load_audio_data_url) => io_lane(id, &command_name, move || {
             ok(domain::assets::load_audio_data_url(arg(&args, "path")?))
         }),
-        "load_xact_audio_data_url" => io_lane(id, command, move || {
-            let root_path: String = arg(&args, "rootPath")?;
-            let cue: String = arg(&args, "cue")?;
-            ok(
-                crate::infrastructure::game_formats::xact::load_xact_audio_data_url_for_paths(
-                    &root_path, &cue,
-                ),
-            )
-        }),
-        "load_resource_registry" => io_lane(id, command, move || {
-            ok(domain::resource_registry::load_resource_registry(
-                arg(&args, "rootPath")?,
-                optional_arg(&args, "locale")?,
-            ))
-        }),
-        "scan_default_save_slots" => {
-            io_lane(id, command, || ok(domain::saves::scan_default_save_slots()))
+        crate::host_command_wire!(load_xact_audio_data_url) => {
+            io_lane(id, &command_name, move || {
+                let root_path: String = arg(&args, "rootPath")?;
+                let cue: String = arg(&args, "cue")?;
+                ok(
+                    crate::infrastructure::game_formats::xact::load_xact_audio_data_url_for_paths(
+                        &root_path, &cue,
+                    ),
+                )
+            })
         }
+        crate::host_command_wire!(load_resource_registry) => {
+            io_lane(id, &command_name, move || {
+                ok(domain::resource_registry::load_resource_registry(
+                    arg(&args, "rootPath")?,
+                    optional_arg(&args, "locale")?,
+                ))
+            })
+        }
+        crate::host_command_wire!(scan_default_save_slots) => io_lane(id, &command_name, || {
+            ok(domain::saves::scan_default_save_slots())
+        }),
 
-        "scan_mod_projects" => io_lane(id, command, move || {
+        crate::host_command_wire!(scan_mod_projects) => io_lane(id, &command_name, move || {
             ok(domain::mods::scan_mod_projects(arg(&args, "rootPath")?))
         }),
-        "scan_mod_asset_index" => io_lane(id, command, move || {
+        crate::host_command_wire!(scan_mod_asset_index) => io_lane(id, &command_name, move || {
             ok(domain::mods::scan_mod_asset_index(arg(&args, "rootPath")?))
         }),
-        "load_mod_project" => io_lane(id, command, move || {
+        crate::host_command_wire!(load_mod_project) => io_lane(id, &command_name, move || {
             ok(domain::mods::load_mod_project(arg(&args, "path")?))
         }),
-        "save_mod_project" => mutation(id, command, move || {
+        crate::host_command_wire!(save_mod_project) => mutation(id, &command_name, move || {
             ok(domain::mods::save_mod_project(arg_or_whole(
                 &args, "request",
             )?))
         }),
 
-        "load_content_patcher_project" => io_lane(id, command, move || {
-            ok(domain::content_patcher::project::load_content_patcher_project(arg(&args, "path")?))
-        }),
-        "simulate_content_patcher" => io_lane(id, command, move || {
-            ok(domain::content_patcher::simulate_content_patcher(arg(
-                &args, "request",
-            )?))
-        }),
-        "load_content_patcher_result_asset" => io_lane(id, command, move || {
-            ok(domain::content_patcher::load_content_patcher_result_asset(
-                arg(&args, "request")?,
-            ))
-        }),
-        "export_content_patcher_asset" => mutation(id, command, move || {
-            ok(domain::content_patcher::export_content_patcher_asset(arg(
-                &args, "request",
-            )?))
-        }),
-
-        "list_cp_maker_drafts" => {
-            io_lane(id, command, || ok(domain::cp_maker::list_cp_maker_drafts()))
+        crate::host_command_wire!(load_content_patcher_project) => {
+            io_lane(id, &command_name, move || {
+                ok(
+                    domain::content_patcher::project::load_content_patcher_project(arg(
+                        &args, "path",
+                    )?),
+                )
+            })
         }
-        "load_cp_maker_draft" => io_lane(id, command, move || {
+        crate::host_command_wire!(simulate_content_patcher) => {
+            io_lane(id, &command_name, move || {
+                ok(domain::content_patcher::simulate_content_patcher(arg(
+                    &args, "request",
+                )?))
+            })
+        }
+        crate::host_command_wire!(load_content_patcher_result_asset) => {
+            io_lane(id, &command_name, move || {
+                ok(domain::content_patcher::load_content_patcher_result_asset(
+                    arg(&args, "request")?,
+                ))
+            })
+        }
+        crate::host_command_wire!(export_content_patcher_asset) => {
+            mutation(id, &command_name, move || {
+                ok(domain::content_patcher::export_content_patcher_asset(arg(
+                    &args, "request",
+                )?))
+            })
+        }
+
+        crate::host_command_wire!(list_cp_maker_drafts) => io_lane(id, &command_name, || {
+            ok(domain::cp_maker::list_cp_maker_drafts())
+        }),
+        crate::host_command_wire!(load_cp_maker_draft) => io_lane(id, &command_name, move || {
             ok(domain::cp_maker::load_cp_maker_draft(arg(
                 &args,
                 "draftStorageKey",
             )?))
         }),
-        "save_cp_maker_draft" => mutation(id, command, move || {
+        crate::host_command_wire!(save_cp_maker_draft) => mutation(id, &command_name, move || {
             ok(domain::cp_maker::save_cp_maker_draft(arg(&args, "draft")?))
         }),
-        "delete_cp_maker_draft" => mutation(id, command, move || {
-            ok(domain::cp_maker::delete_cp_maker_draft(arg(
-                &args,
-                "draftStorageKey",
-            )?))
-        }),
-        "copy_cp_maker_draft" => mutation(id, command, move || {
+        crate::host_command_wire!(delete_cp_maker_draft) => {
+            mutation(id, &command_name, move || {
+                ok(domain::cp_maker::delete_cp_maker_draft(arg(
+                    &args,
+                    "draftStorageKey",
+                )?))
+            })
+        }
+        crate::host_command_wire!(copy_cp_maker_draft) => mutation(id, &command_name, move || {
             ok(domain::cp_maker::copy_cp_maker_draft(arg(
                 &args, "request",
             )?))
         }),
-        "export_cp_maker_pack" => mutation(id, command, move || {
+        crate::host_command_wire!(export_cp_maker_pack) => mutation(id, &command_name, move || {
             ok(domain::cp_maker::export_cp_maker_pack(arg(
                 &args, "request",
             )?))
         }),
-        "build_cp_maker_map_asset" => mutation(id, command, move || {
-            ok(domain::cp_maker::build_cp_maker_map_asset(arg(
-                &args, "request",
-            )?))
-        }),
-        "import_cp_maker_pack" => mutation(id, command, move || {
+        crate::host_command_wire!(build_cp_maker_map_asset) => {
+            mutation(id, &command_name, move || {
+                ok(domain::cp_maker::build_cp_maker_map_asset(arg(
+                    &args, "request",
+                )?))
+            })
+        }
+        crate::host_command_wire!(import_cp_maker_pack) => mutation(id, &command_name, move || {
             let mod_directory_path: String = arg(&args, "modDirectoryPath")?;
             ok(domain::cp_maker::import_cp_maker_pack(&mod_directory_path))
         }),
 
-        "load_launcher_settings" => {
+        crate::host_command_wire!(load_launcher_settings) => {
             let app = ctx.app.clone();
             mutation_with_resources(
                 id,
-                command,
+                &command_name,
                 &[SidecarResource::LauncherSettings],
                 move || ok(domain::launcher::settings::load_launcher_settings(app)),
             )
         }
-        "save_launcher_settings" => {
+        crate::host_command_wire!(save_launcher_settings) => {
             let app = ctx.app.clone();
             mutation_with_resources(
                 id,
-                command,
+                &command_name,
                 &[SidecarResource::LauncherSettings],
                 move || {
                     ok(domain::launcher::settings::save_launcher_settings(
@@ -397,20 +428,20 @@ pub(crate) fn resolve_command(
                 },
             )
         }
-        "launch_launcher_game" => {
+        crate::host_command_wire!(launch_launcher_game) => {
             let app = ctx.app.clone();
             control_with_resources(
                 id,
-                command,
+                &command_name,
                 &[SidecarResource::LauncherSettings],
                 move || ok_error_value(domain::launcher::runtime::launch_launcher_game(app)),
             )
         }
-        "get_launcher_backup_directory" => {
+        crate::host_command_wire!(get_launcher_backup_directory) => {
             let app = ctx.app.clone();
             mutation_with_resources(
                 id,
-                command,
+                &command_name,
                 &[SidecarResource::LauncherInstallTree],
                 move || {
                     ok(domain::launcher::runtime::get_launcher_backup_directory(
@@ -419,30 +450,30 @@ pub(crate) fn resolve_command(
                 },
             )
         }
-        "open_launcher_path" => control(id, command, move || {
+        crate::host_command_wire!(open_launcher_path) => control(id, &command_name, move || {
             ok(domain::launcher::runtime::open_launcher_path(arg(
                 &args, "request",
             )?))
         }),
-        "open_launcher_url" => control(id, command, move || {
+        crate::host_command_wire!(open_launcher_url) => control(id, &command_name, move || {
             ok(domain::launcher::runtime::open_launcher_url(arg(
                 &args, "request",
             )?))
         }),
-        "load_launcher_library_state" => {
+        crate::host_command_wire!(load_launcher_library_state) => {
             let app = ctx.app.clone();
             mutation_with_resources(
                 id,
-                command,
+                &command_name,
                 &[SidecarResource::LauncherLibraryState],
                 move || ok(domain::launcher::library::load_launcher_library_state(app)),
             )
         }
-        "save_launcher_library_state" => {
+        crate::host_command_wire!(save_launcher_library_state) => {
             let app = ctx.app.clone();
             mutation_with_resources(
                 id,
-                command,
+                &command_name,
                 &[SidecarResource::LauncherLibraryState],
                 move || {
                     ok(domain::launcher::library::save_launcher_library_state(
@@ -452,20 +483,20 @@ pub(crate) fn resolve_command(
                 },
             )
         }
-        "load_launcher_library_covers" => {
+        crate::host_command_wire!(load_launcher_library_covers) => {
             let app = ctx.app.clone();
             mutation_with_resources(
                 id,
-                command,
+                &command_name,
                 &[SidecarResource::LauncherLibraryCovers],
                 move || ok(domain::launcher::library::load_launcher_library_covers(app)),
             )
         }
-        "set_launcher_library_cover" => {
+        crate::host_command_wire!(set_launcher_library_cover) => {
             let app = ctx.app.clone();
             mutation_with_resources(
                 id,
-                command,
+                &command_name,
                 &[SidecarResource::LauncherLibraryCovers],
                 move || {
                     ok(domain::launcher::library::set_launcher_library_cover(
@@ -475,9 +506,9 @@ pub(crate) fn resolve_command(
                 },
             )
         }
-        "persist_launcher_library_remote_cover" => {
+        crate::host_command_wire!(persist_launcher_library_remote_cover) => {
             let app = ctx.app.clone();
-            network(id, command, move || {
+            network(id, &command_name, move || {
                 ok(block_on(
                     domain::launcher::library::persist_launcher_library_remote_cover(
                         app,
@@ -486,11 +517,11 @@ pub(crate) fn resolve_command(
                 ))
             })
         }
-        "scan_launcher_library" => {
+        crate::host_command_wire!(scan_launcher_library) => {
             let app = ctx.app.clone();
             io_with_resources(
                 id,
-                command,
+                &command_name,
                 &[SidecarResource::LauncherLibraryCovers],
                 move || {
                     ok(domain::launcher::library::scan_launcher_library(
@@ -500,20 +531,20 @@ pub(crate) fn resolve_command(
                 },
             )
         }
-        "load_launcher_runtime_info" => {
+        crate::host_command_wire!(load_launcher_runtime_info) => {
             let app = ctx.app.clone();
             io_with_resources(
                 id,
-                command,
+                &command_name,
                 &[SidecarResource::LauncherSettings],
                 move || ok(domain::launcher::runtime::load_launcher_runtime_info(app)),
             )
         }
-        "set_launcher_mod_enabled" => {
+        crate::host_command_wire!(set_launcher_mod_enabled) => {
             let app = ctx.app.clone();
             mutation_with_resources(
                 id,
-                command,
+                &command_name,
                 &[SidecarResource::LauncherInstallTree],
                 move || {
                     ok(domain::launcher::library::set_launcher_mod_enabled(
@@ -523,11 +554,11 @@ pub(crate) fn resolve_command(
                 },
             )
         }
-        "load_launcher_download_queue" => {
+        crate::host_command_wire!(load_launcher_download_queue) => {
             let app = ctx.app.clone();
             mutation_with_resources(
                 id,
-                command,
+                &command_name,
                 &[SidecarResource::LauncherDownloadQueue],
                 move || {
                     ok(domain::launcher::downloads::load_launcher_download_queue(
@@ -536,11 +567,11 @@ pub(crate) fn resolve_command(
                 },
             )
         }
-        "save_launcher_download_queue" => {
+        crate::host_command_wire!(save_launcher_download_queue) => {
             let app = ctx.app.clone();
             mutation_with_resources(
                 id,
-                command,
+                &command_name,
                 &[SidecarResource::LauncherDownloadQueue],
                 move || {
                     ok(domain::launcher::downloads::save_launcher_download_queue(
@@ -550,24 +581,26 @@ pub(crate) fn resolve_command(
                 },
             )
         }
-        "download_launcher_mod" => {
+        crate::host_command_wire!(download_launcher_mod) => {
             let app = ctx.app.clone();
-            network(id, command, move || {
+            network(id, &command_name, move || {
                 ok(domain::launcher::downloads::download_launcher_mod(
                     app,
                     arg(&args, "request")?,
                 ))
             })
         }
-        "cancel_launcher_download" => control(id, command, move || {
-            ok(domain::launcher::downloads::cancel_launcher_download(arg(
-                &args,
-                "downloadId",
-            )?))
-        }),
-        "search_launcher_catalog" => {
+        crate::host_command_wire!(cancel_launcher_download) => {
+            control(id, &command_name, move || {
+                ok(domain::launcher::downloads::cancel_launcher_download(arg(
+                    &args,
+                    "downloadId",
+                )?))
+            })
+        }
+        crate::host_command_wire!(search_launcher_catalog) => {
             let app = ctx.app.clone();
-            network(id, command, move || {
+            network(id, &command_name, move || {
                 ok(block_on(
                     domain::nexusmods::catalog::search_launcher_catalog(
                         app,
@@ -576,9 +609,9 @@ pub(crate) fn resolve_command(
                 ))
             })
         }
-        "load_launcher_remote_mod_detail" => {
+        crate::host_command_wire!(load_launcher_remote_mod_detail) => {
             let app = ctx.app.clone();
-            network(id, command, move || {
+            network(id, &command_name, move || {
                 ok(block_on(
                     domain::nexusmods::mod_detail::load_launcher_remote_mod_detail(
                         app,
@@ -587,9 +620,9 @@ pub(crate) fn resolve_command(
                 ))
             })
         }
-        "load_launcher_update_changelog" => {
+        crate::host_command_wire!(load_launcher_update_changelog) => {
             let app = ctx.app.clone();
-            network(id, command, move || {
+            network(id, &command_name, move || {
                 ok(block_on(
                     domain::nexusmods::mod_detail::load_launcher_update_changelog(
                         app,
@@ -598,9 +631,9 @@ pub(crate) fn resolve_command(
                 ))
             })
         }
-        "resolve_launcher_image" => {
+        crate::host_command_wire!(resolve_launcher_image) => {
             let app = ctx.app.clone();
-            network(id, command, move || {
+            network(id, &command_name, move || {
                 ok(block_on(
                     domain::launcher::image_cache::resolve_launcher_image(
                         app,
@@ -609,11 +642,11 @@ pub(crate) fn resolve_command(
                 ))
             })
         }
-        "clear_launcher_image_cache" => {
+        crate::host_command_wire!(clear_launcher_image_cache) => {
             let app = ctx.app.clone();
             mutation_with_resources(
                 id,
-                command,
+                &command_name,
                 &[SidecarResource::LauncherImageCache],
                 move || {
                     ok(domain::launcher::image_cache::clear_launcher_image_cache(
@@ -622,15 +655,15 @@ pub(crate) fn resolve_command(
                 },
             )
         }
-        "load_launcher_nexus_diagnostics" => {
+        crate::host_command_wire!(load_launcher_nexus_diagnostics) => {
             let app = ctx.app.clone();
-            network(id, command, move || {
+            network(id, &command_name, move || {
                 ok(domain::nexusmods::diagnostics::load_launcher_nexus_diagnostics(&app))
             })
         }
-        "restart_launcher_nexus_diagnostics" => {
+        crate::host_command_wire!(restart_launcher_nexus_diagnostics) => {
             let app = ctx.app.clone();
-            network(id, command, move || {
+            network(id, &command_name, move || {
                 ok(
                     domain::nexusmods::diagnostics::restart_launcher_nexus_diagnostics_with_app(
                         &app,
@@ -638,9 +671,9 @@ pub(crate) fn resolve_command(
                 )
             })
         }
-        "retry_launcher_nexus_diagnostics_route" => {
+        crate::host_command_wire!(retry_launcher_nexus_diagnostics_route) => {
             let app = ctx.app.clone();
-            network(id, command, move || {
+            network(id, &command_name, move || {
                 ok(
                     domain::nexusmods::diagnostics::retry_launcher_nexus_diagnostics_route(
                         &app,
@@ -649,22 +682,27 @@ pub(crate) fn resolve_command(
                 )
             })
         }
-        "set_launcher_nexus_force_offline" => {
-            let app = ctx.app.clone();
-            mutation_with_resources(id, command, &[SidecarResource::AppUiState], move || {
-                ok(
-                    domain::nexusmods::diagnostics::set_launcher_nexus_force_offline(
-                        &app,
-                        arg(&args, "forceOffline")?,
-                    ),
-                )
-            })
-        }
-        "load_cached_launcher_updates" => {
+        crate::host_command_wire!(set_launcher_nexus_force_offline) => {
             let app = ctx.app.clone();
             mutation_with_resources(
                 id,
-                command,
+                &command_name,
+                &[SidecarResource::AppUiState],
+                move || {
+                    ok(
+                        domain::nexusmods::diagnostics::set_launcher_nexus_force_offline(
+                            &app,
+                            arg(&args, "forceOffline")?,
+                        ),
+                    )
+                },
+            )
+        }
+        crate::host_command_wire!(load_cached_launcher_updates) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
                 &[SidecarResource::LauncherUpdatesCache],
                 move || {
                     ok(domain::launcher::updates::load_cached_launcher_updates(
@@ -674,11 +712,11 @@ pub(crate) fn resolve_command(
                 },
             )
         }
-        "load_suppressed_launcher_update_mod_ids" => {
+        crate::host_command_wire!(load_suppressed_launcher_update_mod_ids) => {
             let app = ctx.app.clone();
             io_with_resources(
                 id,
-                command,
+                &command_name,
                 &[SidecarResource::LauncherUpdatesCache],
                 move || {
                     ok(
@@ -690,25 +728,27 @@ pub(crate) fn resolve_command(
                 },
             )
         }
-        "check_launcher_updates" => {
+        crate::host_command_wire!(check_launcher_updates) => {
             let app = ctx.app.clone();
-            network(id, command, move || {
+            network(id, &command_name, move || {
                 ok(block_on(domain::launcher::updates::check_launcher_updates(
                     app,
                     arg(&args, "request")?,
                 )))
             })
         }
-        "inspect_launcher_archive" => io_lane(id, command, move || {
-            ok(domain::launcher::archive::inspect_launcher_archive(arg(
-                &args, "request",
-            )?))
-        }),
-        "install_launcher_archive" => {
+        crate::host_command_wire!(inspect_launcher_archive) => {
+            io_lane(id, &command_name, move || {
+                ok(domain::launcher::archive::inspect_launcher_archive(arg(
+                    &args, "request",
+                )?))
+            })
+        }
+        crate::host_command_wire!(install_launcher_archive) => {
             let app = ctx.app.clone();
             mutation_with_resources(
                 id,
-                command,
+                &command_name,
                 &[
                     SidecarResource::LauncherSettings,
                     SidecarResource::LauncherInstallTree,
@@ -721,20 +761,20 @@ pub(crate) fn resolve_command(
                 },
             )
         }
-        "list_launcher_install_backups" => {
+        crate::host_command_wire!(list_launcher_install_backups) => {
             let app = ctx.app.clone();
-            io_lane(id, command, move || {
+            io_lane(id, &command_name, move || {
                 ok(domain::launcher::archive::list_launcher_install_backups(
                     app,
                     arg(&args, "request")?,
                 ))
             })
         }
-        "restore_launcher_install_backup" => {
+        crate::host_command_wire!(restore_launcher_install_backup) => {
             let app = ctx.app.clone();
             mutation_with_resources(
                 id,
-                command,
+                &command_name,
                 &[SidecarResource::LauncherInstallTree],
                 move || {
                     ok(domain::launcher::archive::restore_launcher_install_backup(
@@ -744,43 +784,44 @@ pub(crate) fn resolve_command(
                 },
             )
         }
-        "validate_nexus_api_key" => {
+        crate::host_command_wire!(validate_nexus_api_key) => {
             let app = ctx.app.clone();
-            network(id, command, move || {
+            network(id, &command_name, move || {
                 ok(domain::nexusmods::validate_nexus_api_key(app))
             })
         }
-        "start_nexus_sso" => {
+        crate::host_command_wire!(start_nexus_sso) => {
             let app = ctx.app.clone();
-            network(id, command, move || {
+            network(id, &command_name, move || {
                 ok(domain::nexusmods::sso::start_sso_with_status(&app))
             })
         }
-        "get_nexus_sso_status" => control(id, command, || {
+        crate::host_command_wire!(get_nexus_sso_status) => control(id, &command_name, || {
             ok(Ok::<_, String>(domain::nexusmods::sso::get_sso_status()))
         }),
-        "cancel_nexus_sso" => control(id, command, || {
+        crate::host_command_wire!(cancel_nexus_sso) => control(id, &command_name, || {
             domain::nexusmods::sso::cancel_sso();
             Ok(Value::Null)
         }),
 
-        "load_app_ui_state" => {
-            mutation_with_resources(id, command, &[SidecarResource::AppUiState], || {
+        crate::host_command_wire!(load_app_ui_state) => {
+            mutation_with_resources(id, &command_name, &[SidecarResource::AppUiState], || {
                 ok(domain::app_ui::load_app_ui_state())
             })
         }
-        "patch_app_ui_state" => {
-            mutation_with_resources(id, command, &[SidecarResource::AppUiState], move || {
-                ok(domain::app_ui::patch_app_ui_state(arg(&args, "request")?))
-            })
-        }
-        "write_frontend_log" => control(id, command, move || {
+        crate::host_command_wire!(patch_app_ui_state) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::AppUiState],
+            move || ok(domain::app_ui::patch_app_ui_state(arg(&args, "request")?)),
+        ),
+        crate::host_command_wire!(write_frontend_log) => control(id, &command_name, move || {
             logging::write_frontend_log(arg(&args, "request")?);
             Ok(Value::Null)
         }),
-        "set_debug_logging_enabled" => {
+        crate::host_command_wire!(set_debug_logging_enabled) => {
             let debug_logging_state = ctx.debug_logging_state.clone();
-            control(id, command, move || {
+            control(id, &command_name, move || {
                 logging::set_debug_logging_enabled(&debug_logging_state, arg(&args, "enabled")?);
                 Ok(Value::Null)
             })

@@ -3,6 +3,7 @@ extern crate self as modforge_studio_desktop_lib;
 mod commands;
 mod domain;
 mod host;
+pub mod host_commands;
 pub mod host_runtime;
 mod infrastructure;
 pub mod sidecar;

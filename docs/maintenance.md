@@ -21,6 +21,7 @@ pnpm desktop:build
 pnpm lint
 pnpm format:check
 pnpm --filter @modforge/desktop test
+pnpm --filter @modforge/desktop gen:host-commands
 ```
 
 `pnpm dev` starts the Vite-only frontend path. `pnpm desktop:dev` uses the root

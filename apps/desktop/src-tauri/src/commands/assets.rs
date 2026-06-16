@@ -15,7 +15,7 @@ pub fn detect_default_game_directory(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "detect_default_game_directory",
+        crate::host_command_name!(detect_default_game_directory),
         json!({}),
     )
 }
@@ -28,7 +28,7 @@ pub fn list_known_game_directories(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "list_known_game_directories",
+        crate::host_command_name!(list_known_game_directories),
         json!({}),
     )
 }
@@ -41,7 +41,7 @@ pub fn get_file_cache_stats(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "get_file_cache_stats",
+        crate::host_command_name!(get_file_cache_stats),
         json!({}),
     )
 }
@@ -54,7 +54,7 @@ pub fn clear_file_cache(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "clear_file_cache",
+        crate::host_command_name!(clear_file_cache),
         json!({}),
     )
 }
@@ -68,7 +68,7 @@ pub fn validate_game_directory(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "validate_game_directory",
+        crate::host_command_name!(validate_game_directory),
         json!({ "path": path }),
     )
 }
@@ -83,7 +83,7 @@ pub fn scan_maps(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "scan_maps",
+        crate::host_command_name!(scan_maps),
         json!({ "path": path, "locale": locale }),
     )
 }
@@ -97,7 +97,7 @@ pub fn scan_events(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "scan_events",
+        crate::host_command_name!(scan_events),
         json!({ "path": path }),
     )
 }
@@ -113,7 +113,7 @@ pub fn load_map_asset(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_map_asset",
+        crate::host_command_name!(load_map_asset),
         json!({ "rootPath": root_path, "mapPath": map_path, "locale": locale }),
     )
 }
@@ -129,7 +129,7 @@ pub fn load_text_asset(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_text_asset",
+        crate::host_command_name!(load_text_asset),
         json!({ "rootPath": root_path, "assetPath": asset_path, "locale": locale }),
     )
 }
@@ -143,7 +143,7 @@ pub fn load_text_file(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_text_file",
+        crate::host_command_name!(load_text_file),
         json!({ "path": path }),
     )
 }
@@ -158,7 +158,7 @@ pub fn load_image_data_url(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_image_data_url",
+        crate::host_command_name!(load_image_data_url),
         json!({ "path": path, "locale": locale }),
     )
 }
@@ -172,7 +172,7 @@ pub fn scan_audio_assets(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "scan_audio_assets",
+        crate::host_command_name!(scan_audio_assets),
         json!({ "path": path }),
     )
 }
@@ -186,7 +186,7 @@ pub fn load_audio_data_url(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_audio_data_url",
+        crate::host_command_name!(load_audio_data_url),
         json!({ "path": path }),
     )
 }

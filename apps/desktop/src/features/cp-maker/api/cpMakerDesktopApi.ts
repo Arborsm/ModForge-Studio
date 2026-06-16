@@ -1,3 +1,4 @@
+import { HOST_COMMANDS } from '@shared/contracts'
 import { createPromiseCache, readCached, readPending } from '@shared/lib/desktop/cache'
 import { invokeDesktop } from '@shared/lib/desktop/runtime'
 import type { HostCommandPolicy } from '@shared/lib/host-command-client'
@@ -21,14 +22,14 @@ const cpMakerPreviewPoolPolicy = { kind: 'parallelPool', pool: 'cp-maker-preview
 /** Lists saved CP Maker drafts without loading their full editor payload. */
 export function listCpMakerDrafts() {
   return readCached(cpMakerDraftsCache, 'default', () =>
-    invokeDesktop<CpMakerDraftSummary[]>('list_cp_maker_drafts', undefined, cpMakerDraftIoPolicy),
+    invokeDesktop<CpMakerDraftSummary[]>(HOST_COMMANDS.listCpMakerDrafts, undefined, cpMakerDraftIoPolicy),
   )
 }
 
 /** Loads one CP Maker draft by its persistent storage key. */
 export function loadCpMakerDraft(storageKey: string) {
   return readPending(cpMakerDraftCache, storageKey, () =>
-    invokeDesktop<CpMakerDraftRecord>('load_cp_maker_draft', { draftStorageKey: storageKey }, cpMakerDraftIoPolicy),
+    invokeDesktop<CpMakerDraftRecord>(HOST_COMMANDS.loadCpMakerDraft, { draftStorageKey: storageKey }, cpMakerDraftIoPolicy),
   )
 }
 
@@ -37,33 +38,33 @@ export function saveCpMakerDraft(draft: CpMakerDraftRecord) {
   const cacheKey = draft.draftStorageKey
   cpMakerDraftCache.delete(cacheKey)
   cpMakerDraftsCache.delete('default')
-  return invokeDesktop<CpMakerDraftRecord>('save_cp_maker_draft', { draft }, cpMakerDraftQueuePolicy)
+  return invokeDesktop<CpMakerDraftRecord>(HOST_COMMANDS.saveCpMakerDraft, { draft }, cpMakerDraftQueuePolicy)
 }
 
 /** Deletes a CP Maker draft and invalidates draft caches. */
 export function deleteCpMakerDraft(storageKey: string) {
   cpMakerDraftCache.delete(storageKey)
   cpMakerDraftsCache.delete('default')
-  return invokeDesktop<void>('delete_cp_maker_draft', { draftStorageKey: storageKey }, cpMakerDraftQueuePolicy)
+  return invokeDesktop<void>(HOST_COMMANDS.deleteCpMakerDraft, { draftStorageKey: storageKey }, cpMakerDraftQueuePolicy)
 }
 
 /** Duplicates an existing draft and returns the new draft record. */
 export function copyCpMakerDraft(request: CopyCpMakerDraftRequest) {
   cpMakerDraftsCache.delete('default')
-  return invokeDesktop<CpMakerDraftRecord>('copy_cp_maker_draft', { request }, cpMakerDraftQueuePolicy)
+  return invokeDesktop<CpMakerDraftRecord>(HOST_COMMANDS.copyCpMakerDraft, { request }, cpMakerDraftQueuePolicy)
 }
 
 /** Writes a CP Maker draft out as a Content Patcher content pack. */
 export function exportCpMakerPack(request: CpMakerExportRequest) {
-  return invokeDesktop<CpMakerExportResult>('export_cp_maker_pack', { request }, cpMakerDraftExclusivePolicy)
+  return invokeDesktop<CpMakerExportResult>(HOST_COMMANDS.exportCpMakerPack, { request }, cpMakerDraftExclusivePolicy)
 }
 
 /** Builds a virtual map asset preview from the current map document. */
 export function buildCpMakerMapAsset(request: BuildCpMakerMapAssetRequest) {
-  return invokeDesktop<VirtualPreviewAsset>('build_cp_maker_map_asset', { request }, cpMakerPreviewPoolPolicy)
+  return invokeDesktop<VirtualPreviewAsset>(HOST_COMMANDS.buildCpMakerMapAsset, { request }, cpMakerPreviewPoolPolicy)
 }
 
 /** Imports an existing Content Patcher pack directory into a CP Maker draft. */
 export function importCpMakerPack(modDirectoryPath: string) {
-  return invokeDesktop<CpMakerDraftRecord>('import_cp_maker_pack', { modDirectoryPath }, cpMakerDraftExclusivePolicy)
+  return invokeDesktop<CpMakerDraftRecord>(HOST_COMMANDS.importCpMakerPack, { modDirectoryPath }, cpMakerDraftExclusivePolicy)
 }

@@ -1,4 +1,5 @@
 use crate::AppHandle;
+use crate::host_commands::HostCommandName;
 use crate::host_runtime::{
     HostCommandResourceLocks, HostCommandResponse, HostCommandResponseWriter, HostCommandScheduler,
     HostCommandSchedulerConfig,
@@ -87,10 +88,14 @@ fn runtime() -> &'static TauriCommandRuntime {
     TAURI_COMMAND_RUNTIME.get_or_init(TauriCommandRuntime::new)
 }
 
-fn response_to_result<T>(command: &str, response: HostCommandResponse) -> Result<T, String>
+fn response_to_result<T>(
+    command: &HostCommandName,
+    response: HostCommandResponse,
+) -> Result<T, String>
 where
     T: DeserializeOwned,
 {
+    let command = command.as_str();
     if !response.ok {
         return Err(response
             .error
@@ -105,11 +110,15 @@ where
         .map_err(|error| format!("Host command {command} returned an invalid result: {error}"))
 }
 
-fn response_to_typed_result<T, E>(command: &str, response: HostCommandResponse) -> Result<T, E>
+fn response_to_typed_result<T, E>(
+    command: &HostCommandName,
+    response: HostCommandResponse,
+) -> Result<T, E>
 where
     T: DeserializeOwned,
     E: DeserializeOwned + From<String>,
 {
+    let command = command.as_str();
     if !response.ok {
         let error = response
             .error
@@ -131,7 +140,7 @@ where
 pub fn execute_tauri_command<T>(
     app: AppHandle,
     debug_logging_state: State<'_, crate::support::logging::DebugLoggingState>,
-    command: &str,
+    command_name: HostCommandName,
     args: Value,
 ) -> Result<T, String>
 where
@@ -144,21 +153,21 @@ where
         &ctx,
         RpcRequest {
             id: json!(request_id.clone()),
-            command: command.to_string(),
+            command: command_name.as_str().to_string(),
             args,
         },
     ) {
         ResolvedSidecarCommandOrResponse::Command(command) => {
-            let command_name = command.name.clone();
+            let resolved_command_name = command.name.clone();
             let receiver = runtime.writer.register(request_id)?;
             runtime.scheduler.submit(command);
             let response = receiver.recv().map_err(|error| {
-                format!("Host command {command_name} response channel closed: {error}")
+                format!("Host command {resolved_command_name} response channel closed: {error}")
             })?;
-            response_to_result(command_name.as_str(), response)
+            response_to_result(&command_name, response)
         }
         ResolvedSidecarCommandOrResponse::Response(response) => {
-            response_to_result(command, response)
+            response_to_result(&command_name, response)
         }
     }
 }
@@ -166,7 +175,7 @@ where
 pub fn execute_tauri_command_typed_error<T, E>(
     app: AppHandle,
     debug_logging_state: State<'_, crate::support::logging::DebugLoggingState>,
-    command: &str,
+    command_name: HostCommandName,
     args: Value,
 ) -> Result<T, E>
 where
@@ -180,23 +189,23 @@ where
         &ctx,
         RpcRequest {
             id: json!(request_id.clone()),
-            command: command.to_string(),
+            command: command_name.as_str().to_string(),
             args,
         },
     ) {
         ResolvedSidecarCommandOrResponse::Command(command) => {
-            let command_name = command.name.clone();
+            let resolved_command_name = command.name.clone();
             let receiver = runtime.writer.register(request_id).map_err(E::from)?;
             runtime.scheduler.submit(command);
             let response = receiver.recv().map_err(|error| {
                 E::from(format!(
-                    "Host command {command_name} response channel closed: {error}"
+                    "Host command {resolved_command_name} response channel closed: {error}"
                 ))
             })?;
-            response_to_typed_result(command_name.as_str(), response)
+            response_to_typed_result(&command_name, response)
         }
         ResolvedSidecarCommandOrResponse::Response(response) => {
-            response_to_typed_result(command, response)
+            response_to_typed_result(&command_name, response)
         }
     }
 }

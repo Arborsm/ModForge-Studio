@@ -1,4 +1,4 @@
-import type { PlatformPorts } from '@shared/contracts'
+import type { HostCommandName, PlatformPorts } from '@shared/contracts'
 import { createHostCommandClient, type HostCommandClient, type HostCommandPolicy } from '@shared/lib/host-command-client'
 
 let platformPorts: PlatformPorts | null = null
@@ -25,7 +25,7 @@ export function canUseDesktopHost() {
 }
 
 /** Invokes a typed desktop command through the configured file system port. */
-export async function invokeDesktop<T>(command: string, args: Record<string, unknown> | undefined, policy: HostCommandPolicy) {
+export async function invokeDesktop<T>(command: HostCommandName, args: Record<string, unknown> | undefined, policy: HostCommandPolicy) {
   if (!canUseDesktopHost()) {
     throw new Error('This feature is only available in the desktop host.')
   }

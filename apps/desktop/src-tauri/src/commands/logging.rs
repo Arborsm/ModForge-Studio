@@ -12,7 +12,7 @@ pub fn write_frontend_log(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "write_frontend_log",
+        crate::host_command_name!(write_frontend_log),
         json!({ "request": request }),
     )
 }
@@ -26,7 +26,7 @@ pub fn set_debug_logging_enabled(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "set_debug_logging_enabled",
+        crate::host_command_name!(set_debug_logging_enabled),
         json!({ "enabled": enabled }),
     )
 }

@@ -18,7 +18,7 @@ pub fn load_content_patcher_project(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_content_patcher_project",
+        crate::host_command_name!(load_content_patcher_project),
         json!({ "path": path }),
     )
 }
@@ -32,7 +32,7 @@ pub fn simulate_content_patcher(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "simulate_content_patcher",
+        crate::host_command_name!(simulate_content_patcher),
         json!({ "request": request }),
     )
 }
@@ -46,7 +46,7 @@ pub fn load_content_patcher_result_asset(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_content_patcher_result_asset",
+        crate::host_command_name!(load_content_patcher_result_asset),
         json!({ "request": request }),
     )
 }
@@ -60,7 +60,7 @@ pub fn export_content_patcher_asset(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "export_content_patcher_asset",
+        crate::host_command_name!(export_content_patcher_asset),
         json!({ "request": request }),
     )
 }

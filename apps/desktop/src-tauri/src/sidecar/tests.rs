@@ -108,6 +108,10 @@ fn tauri_command_wrappers_route_through_host_runtime() {
             "{name} wrapper should submit through the shared host runtime"
         );
         assert!(
+            source.contains("host_command_name!("),
+            "{name} wrapper should derive the host protocol name from its Tauri command function"
+        );
+        assert!(
             !source.contains("log_tauri_command_error"),
             "{name} wrapper should not keep the old direct logging path"
         );
@@ -115,9 +119,35 @@ fn tauri_command_wrappers_route_through_host_runtime() {
 }
 
 #[test]
+fn sidecar_protocol_names_are_derived_from_command_functions() {
+    let host_commands_source = include_str!("../host_commands.rs");
+    let sidecar_source = include_str!("../sidecar.rs");
+    let wrapper_sources = [
+        include_str!("../commands/app_ui.rs"),
+        include_str!("../commands/assets.rs"),
+        include_str!("../commands/audio.rs"),
+        include_str!("../commands/content_patcher.rs"),
+        include_str!("../commands/cp_maker.rs"),
+        include_str!("../commands/launcher.rs"),
+        include_str!("../commands/logging.rs"),
+        include_str!("../commands/mods.rs"),
+        include_str!("../commands/resource_registry.rs"),
+        include_str!("../commands/saves.rs"),
+    ];
+
+    assert!(host_commands_source.contains("stringify!($command)"));
+    assert!(sidecar_source.contains("host_command_wire!("));
+    assert!(!host_commands_source.contains("define_host_commands"));
+    assert!(!host_commands_source.contains("=> \""));
+
+    for source in wrapper_sources {
+        assert!(!source.contains("HostCommandName::"));
+    }
+}
+
+#[test]
 fn sidecar_resolver_does_not_call_tauri_command_wrappers() {
     let sidecar_source = include_str!("../sidecar.rs");
-    assert!(!sidecar_source.contains("commands::"));
     assert!(!sidecar_source.contains("crate::commands"));
 }
 

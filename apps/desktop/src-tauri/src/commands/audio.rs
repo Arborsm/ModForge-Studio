@@ -13,7 +13,7 @@ pub fn load_xact_audio_data_url(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_xact_audio_data_url",
+        crate::host_command_name!(load_xact_audio_data_url),
         json!({ "rootPath": root_path, "cue": cue }),
     )
 }

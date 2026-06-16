@@ -12,7 +12,7 @@ pub fn scan_default_save_slots(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "scan_default_save_slots",
+        crate::host_command_name!(scan_default_save_slots),
         json!({}),
     )
 }

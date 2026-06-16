@@ -16,7 +16,7 @@ pub fn list_cp_maker_drafts(
     crate::commands::runtime::execute_tauri_command_typed_error(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "list_cp_maker_drafts",
+        crate::host_command_name!(list_cp_maker_drafts),
         json!({}),
     )
 }
@@ -30,7 +30,7 @@ pub fn load_cp_maker_draft(
     crate::commands::runtime::execute_tauri_command_typed_error(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_cp_maker_draft",
+        crate::host_command_name!(load_cp_maker_draft),
         json!({ "draftStorageKey": draft_storage_key }),
     )
 }
@@ -44,7 +44,7 @@ pub fn save_cp_maker_draft(
     crate::commands::runtime::execute_tauri_command_typed_error(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "save_cp_maker_draft",
+        crate::host_command_name!(save_cp_maker_draft),
         json!({ "draft": draft }),
     )
 }
@@ -58,7 +58,7 @@ pub fn delete_cp_maker_draft(
     crate::commands::runtime::execute_tauri_command_typed_error(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "delete_cp_maker_draft",
+        crate::host_command_name!(delete_cp_maker_draft),
         json!({ "draftStorageKey": draft_storage_key }),
     )
 }
@@ -72,7 +72,7 @@ pub fn copy_cp_maker_draft(
     crate::commands::runtime::execute_tauri_command_typed_error(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "copy_cp_maker_draft",
+        crate::host_command_name!(copy_cp_maker_draft),
         json!({ "request": request }),
     )
 }
@@ -86,7 +86,7 @@ pub fn export_cp_maker_pack(
     crate::commands::runtime::execute_tauri_command_typed_error(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "export_cp_maker_pack",
+        crate::host_command_name!(export_cp_maker_pack),
         json!({ "request": request }),
     )
 }
@@ -100,7 +100,7 @@ pub fn build_cp_maker_map_asset(
     crate::commands::runtime::execute_tauri_command_typed_error(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "build_cp_maker_map_asset",
+        crate::host_command_name!(build_cp_maker_map_asset),
         json!({ "request": request }),
     )
 }
@@ -114,7 +114,7 @@ pub fn import_cp_maker_pack(
     crate::commands::runtime::execute_tauri_command_typed_error(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "import_cp_maker_pack",
+        crate::host_command_name!(import_cp_maker_pack),
         json!({ "modDirectoryPath": mod_directory_path }),
     )
 }

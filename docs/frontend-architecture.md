@@ -224,6 +224,7 @@ Rules:
 
 - Electron and Tauri adapters expose raw host transport through platform ports only.
 - Business code must call typed desktop APIs or `HostCommandClient`; it must not call `fileSystem.invokeCommand`, `window.modforgeElectron`, Tauri `invoke`, or Electron preload globals directly.
+- Business code must pass generated `HOST_COMMANDS.*` constants to `invokeDesktop`, not raw protocol strings. `HOST_COMMANDS` is generated from Rust `#[tauri::command] pub fn` wrapper names, so protocol names stay tied to implementation names instead of a separate manifest.
 - `HostCommandClient` owns frontend command policy and maps calls to the shared task runtime.
 - Feature and entity APIs must declare a policy at the call site, such as `latest`, `keyedLatest`, `exclusiveMutation`, `queuedMutation`, `parallelPool`, or `serviceGate`.
 - Hooks should not invent local `cancelled`, `requestId`, or `versionRef` guards when the task runtime can express the same ownership rule.

@@ -30,7 +30,7 @@ pub fn load_launcher_settings(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_launcher_settings",
+        crate::host_command_name!(load_launcher_settings),
         json!({}),
     )
 }
@@ -44,7 +44,7 @@ pub fn save_launcher_settings(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "save_launcher_settings",
+        crate::host_command_name!(save_launcher_settings),
         json!({ "request": request }),
     )
 }
@@ -57,7 +57,7 @@ pub fn launch_launcher_game(
     crate::commands::runtime::execute_tauri_command_typed_error(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "launch_launcher_game",
+        crate::host_command_name!(launch_launcher_game),
         json!({}),
     )
 }
@@ -70,7 +70,7 @@ pub fn get_launcher_backup_directory(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "get_launcher_backup_directory",
+        crate::host_command_name!(get_launcher_backup_directory),
         json!({}),
     )
 }
@@ -84,7 +84,7 @@ pub fn open_launcher_path(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "open_launcher_path",
+        crate::host_command_name!(open_launcher_path),
         json!({ "request": request }),
     )
 }
@@ -98,7 +98,7 @@ pub fn open_launcher_url(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "open_launcher_url",
+        crate::host_command_name!(open_launcher_url),
         json!({ "request": request }),
     )
 }
@@ -111,7 +111,7 @@ pub fn load_launcher_library_state(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_launcher_library_state",
+        crate::host_command_name!(load_launcher_library_state),
         json!({}),
     )
 }
@@ -125,7 +125,7 @@ pub fn save_launcher_library_state(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "save_launcher_library_state",
+        crate::host_command_name!(save_launcher_library_state),
         json!({ "request": request }),
     )
 }
@@ -138,7 +138,7 @@ pub fn load_launcher_library_covers(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_launcher_library_covers",
+        crate::host_command_name!(load_launcher_library_covers),
         json!({}),
     )
 }
@@ -152,7 +152,7 @@ pub fn set_launcher_library_cover(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "set_launcher_library_cover",
+        crate::host_command_name!(set_launcher_library_cover),
         json!({ "request": request }),
     )
 }
@@ -166,7 +166,7 @@ pub fn persist_launcher_library_remote_cover(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "persist_launcher_library_remote_cover",
+        crate::host_command_name!(persist_launcher_library_remote_cover),
         json!({ "request": request }),
     )
 }
@@ -180,7 +180,7 @@ pub fn scan_launcher_library(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "scan_launcher_library",
+        crate::host_command_name!(scan_launcher_library),
         json!({ "request": request }),
     )
 }
@@ -193,7 +193,7 @@ pub fn load_launcher_runtime_info(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_launcher_runtime_info",
+        crate::host_command_name!(load_launcher_runtime_info),
         json!({}),
     )
 }
@@ -207,7 +207,7 @@ pub fn set_launcher_mod_enabled(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "set_launcher_mod_enabled",
+        crate::host_command_name!(set_launcher_mod_enabled),
         json!({ "request": request }),
     )
 }
@@ -220,7 +220,7 @@ pub fn load_launcher_download_queue(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_launcher_download_queue",
+        crate::host_command_name!(load_launcher_download_queue),
         json!({}),
     )
 }
@@ -234,7 +234,7 @@ pub fn save_launcher_download_queue(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "save_launcher_download_queue",
+        crate::host_command_name!(save_launcher_download_queue),
         json!({ "request": request }),
     )
 }
@@ -248,7 +248,7 @@ pub fn download_launcher_mod(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "download_launcher_mod",
+        crate::host_command_name!(download_launcher_mod),
         json!({ "request": request }),
     )
 }
@@ -262,7 +262,7 @@ pub fn cancel_launcher_download(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "cancel_launcher_download",
+        crate::host_command_name!(cancel_launcher_download),
         json!({ "downloadId": download_id }),
     )
 }
@@ -276,7 +276,7 @@ pub fn search_launcher_catalog(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "search_launcher_catalog",
+        crate::host_command_name!(search_launcher_catalog),
         json!({ "request": request }),
     )
 }
@@ -290,7 +290,7 @@ pub fn load_launcher_remote_mod_detail(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_launcher_remote_mod_detail",
+        crate::host_command_name!(load_launcher_remote_mod_detail),
         json!({ "request": request }),
     )
 }
@@ -304,7 +304,7 @@ pub fn load_launcher_update_changelog(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_launcher_update_changelog",
+        crate::host_command_name!(load_launcher_update_changelog),
         json!({ "request": request }),
     )
 }
@@ -318,7 +318,7 @@ pub fn resolve_launcher_image(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "resolve_launcher_image",
+        crate::host_command_name!(resolve_launcher_image),
         json!({ "request": request }),
     )
 }
@@ -331,7 +331,7 @@ pub fn clear_launcher_image_cache(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "clear_launcher_image_cache",
+        crate::host_command_name!(clear_launcher_image_cache),
         json!({}),
     )
 }
@@ -344,7 +344,7 @@ pub fn load_launcher_nexus_diagnostics(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_launcher_nexus_diagnostics",
+        crate::host_command_name!(load_launcher_nexus_diagnostics),
         json!({}),
     )
 }
@@ -357,7 +357,7 @@ pub fn restart_launcher_nexus_diagnostics(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "restart_launcher_nexus_diagnostics",
+        crate::host_command_name!(restart_launcher_nexus_diagnostics),
         json!({}),
     )
 }
@@ -371,7 +371,7 @@ pub fn retry_launcher_nexus_diagnostics_route(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "retry_launcher_nexus_diagnostics_route",
+        crate::host_command_name!(retry_launcher_nexus_diagnostics_route),
         json!({ "routeId": route_id }),
     )
 }
@@ -385,7 +385,7 @@ pub fn set_launcher_nexus_force_offline(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "set_launcher_nexus_force_offline",
+        crate::host_command_name!(set_launcher_nexus_force_offline),
         json!({ "forceOffline": force_offline }),
     )
 }
@@ -399,7 +399,7 @@ pub fn load_cached_launcher_updates(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_cached_launcher_updates",
+        crate::host_command_name!(load_cached_launcher_updates),
         json!({ "request": request }),
     )
 }
@@ -413,7 +413,7 @@ pub fn load_suppressed_launcher_update_mod_ids(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_suppressed_launcher_update_mod_ids",
+        crate::host_command_name!(load_suppressed_launcher_update_mod_ids),
         json!({ "request": request }),
     )
 }
@@ -427,7 +427,7 @@ pub fn check_launcher_updates(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "check_launcher_updates",
+        crate::host_command_name!(check_launcher_updates),
         json!({ "request": request }),
     )
 }
@@ -441,7 +441,7 @@ pub fn install_launcher_archive(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "install_launcher_archive",
+        crate::host_command_name!(install_launcher_archive),
         json!({ "request": request }),
     )
 }
@@ -455,7 +455,7 @@ pub fn list_launcher_install_backups(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "list_launcher_install_backups",
+        crate::host_command_name!(list_launcher_install_backups),
         json!({ "request": request }),
     )
 }
@@ -469,7 +469,7 @@ pub fn restore_launcher_install_backup(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "restore_launcher_install_backup",
+        crate::host_command_name!(restore_launcher_install_backup),
         json!({ "request": request }),
     )
 }
@@ -483,7 +483,7 @@ pub fn inspect_launcher_archive(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "inspect_launcher_archive",
+        crate::host_command_name!(inspect_launcher_archive),
         json!({ "request": request }),
     )
 }
@@ -496,7 +496,7 @@ pub fn validate_nexus_api_key(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "validate_nexus_api_key",
+        crate::host_command_name!(validate_nexus_api_key),
         json!({}),
     )
 }
@@ -509,7 +509,7 @@ pub fn start_nexus_sso(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "start_nexus_sso",
+        crate::host_command_name!(start_nexus_sso),
         json!({}),
     )
 }
@@ -522,7 +522,7 @@ pub fn get_nexus_sso_status(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "get_nexus_sso_status",
+        crate::host_command_name!(get_nexus_sso_status),
         json!({}),
     )
 }
@@ -535,7 +535,7 @@ pub fn cancel_nexus_sso(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "cancel_nexus_sso",
+        crate::host_command_name!(cancel_nexus_sso),
         json!({}),
     )
 }

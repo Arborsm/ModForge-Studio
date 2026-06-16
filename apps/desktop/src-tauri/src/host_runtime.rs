@@ -1,3 +1,4 @@
+use crate::host_commands::HostCommandName;
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::panic::{self, AssertUnwindSafe};
@@ -52,7 +53,7 @@ pub enum HostCommandMutationPolicy {
 #[derive(Debug)]
 pub struct HostCommandEnvelope {
     pub id: Value,
-    pub name: String,
+    pub name: HostCommandName,
     pub args: Value,
 }
 

@@ -12,6 +12,7 @@
     "dev:event-assets": "cargo run --manifest-path src-tauri/Cargo.toml --features dev-asset-bridge --example event_asset_bridge",
     "dev:force": "vite --configLoader runner --force",
     "react:devtools": "react-devtools",
+    "gen:host-commands": "node ./scripts/generate-host-commands.mjs",
     "electron:dev": "node ./scripts/run-electron-dev.mjs",
     "electron:build": "pnpm build:web && cargo build --manifest-path src-tauri/Cargo.toml --release --bin modforge_sidecar && node ./scripts/build-electron-main.mjs && node ./scripts/build-electron-linux.mjs",
     "electron:build:deb": "pnpm build:web && cargo build --manifest-path src-tauri/Cargo.toml --release --bin modforge_sidecar && node ./scripts/build-electron-main.mjs && node ./scripts/build-electron-linux.mjs deb",

@@ -1,5 +1,5 @@
 import { globalTaskRuntime, type TaskScope } from '@shared/lib/task-runtime'
-import type { PlatformPorts } from '@shared/contracts'
+import type { HostCommandName, PlatformPorts } from '@shared/contracts'
 
 export type HostCommandPolicy =
   | { kind: 'latest'; key: string }
@@ -10,7 +10,7 @@ export type HostCommandPolicy =
   | { kind: 'serviceGate'; key: string }
 
 export type HostCommandRequest<TArgs, TResult> = {
-  command: string
+  command: HostCommandName
   args?: TArgs
   policy: HostCommandPolicy
   signal?: AbortSignal

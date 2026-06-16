@@ -12,7 +12,7 @@ pub fn load_app_ui_state(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_app_ui_state",
+        crate::host_command_name!(load_app_ui_state),
         json!({}),
     )
 }
@@ -26,7 +26,7 @@ pub fn patch_app_ui_state(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "patch_app_ui_state",
+        crate::host_command_name!(patch_app_ui_state),
         json!({ "request": request }),
     )
 }

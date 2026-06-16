@@ -33,66 +33,6 @@ fn nexus_http_module_only_contains_transport_helpers() {
     assert!(!source.contains("LauncherNexusRoute"));
 }
 
-#[test]
-fn launcher_nexus_api_key_validation_command_routes_through_host_runtime() {
-    let source = include_str!("../commands/launcher.rs");
-    let command_start = source
-        .find("pub fn validate_nexus_api_key")
-        .expect("validate_nexus_api_key command should exist");
-    let command_source = &source[command_start..];
-    let command_end = command_source
-        .find("pub fn start_nexus_sso")
-        .expect("validate_nexus_api_key command should stay above SSO commands");
-    let command_source = &command_source[..command_end];
-    let sidecar_source = include_str!("../sidecar.rs");
-
-    assert!(command_source.contains("execute_tauri_command"));
-    assert!(command_source.contains("\"validate_nexus_api_key\""));
-    assert!(sidecar_source.contains("\"validate_nexus_api_key\""));
-    assert!(sidecar_source.contains("domain::nexusmods::validate_nexus_api_key"));
-    assert!(sidecar_source.contains("network(id, command"));
-}
-
-#[test]
-fn launcher_archive_inspection_command_routes_through_host_runtime() {
-    let source = include_str!("../commands/launcher.rs");
-    let command_start = source
-        .find("pub fn inspect_launcher_archive")
-        .expect("inspect_launcher_archive command should exist");
-    let command_source = &source[command_start..];
-    let command_end = command_source
-        .find("pub fn validate_nexus_api_key")
-        .expect("inspect_launcher_archive command should stay above Nexus API commands");
-    let command_source = &command_source[..command_end];
-    let sidecar_source = include_str!("../sidecar.rs");
-
-    assert!(command_source.contains("execute_tauri_command"));
-    assert!(command_source.contains("\"inspect_launcher_archive\""));
-    assert!(sidecar_source.contains("\"inspect_launcher_archive\""));
-    assert!(sidecar_source.contains("domain::launcher::archive::inspect_launcher_archive"));
-    assert!(sidecar_source.contains("io_lane(id, command"));
-}
-
-#[test]
-fn launcher_mod_download_command_routes_through_host_runtime() {
-    let source = include_str!("../commands/launcher.rs");
-    let command_start = source
-        .find("pub fn download_launcher_mod")
-        .expect("download_launcher_mod command should exist");
-    let command_source = &source[command_start..];
-    let command_end = command_source
-        .find("pub fn cancel_launcher_download")
-        .expect("download_launcher_mod command should stay above catalog search");
-    let command_source = &command_source[..command_end];
-    let sidecar_source = include_str!("../sidecar.rs");
-
-    assert!(command_source.contains("execute_tauri_command"));
-    assert!(command_source.contains("\"download_launcher_mod\""));
-    assert!(sidecar_source.contains("\"download_launcher_mod\""));
-    assert!(sidecar_source.contains("domain::launcher::downloads::download_launcher_mod"));
-    assert!(sidecar_source.contains("network(id, command"));
-}
-
 fn launcher_settings(api_key: Option<&str>) -> LauncherSettings {
     LauncherSettings {
         game_path: None,

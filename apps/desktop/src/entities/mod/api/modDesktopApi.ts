@@ -1,3 +1,4 @@
+import { HOST_COMMANDS } from '@shared/contracts'
 import { normalizeCachePathSegment } from '@shared/lib/assets'
 import { createPromiseCache, readCached, readPending } from '@shared/lib/desktop/cache'
 import { invokeDesktop } from '@shared/lib/desktop/runtime'
@@ -43,7 +44,7 @@ export function getModApiCacheStats() {
 export function scanModProjects(rootPath: string) {
   const cacheKey = normalizeCachePathSegment(rootPath)
   return readCached(scanModProjectsCache, cacheKey, () =>
-    invokeDesktop<ModProjectSummary[]>('scan_mod_projects', { rootPath }, modIoPoolPolicy),
+    invokeDesktop<ModProjectSummary[]>(HOST_COMMANDS.scanModProjects, { rootPath }, modIoPoolPolicy),
   )
 }
 
@@ -51,21 +52,23 @@ export function scanModProjects(rootPath: string) {
 export function scanModAssetIndex(rootPath: string) {
   const cacheKey = normalizeCachePathSegment(rootPath)
   return readCached(scanModAssetIndexCache, cacheKey, () =>
-    invokeDesktop<ModAssetIndex>('scan_mod_asset_index', { rootPath }, modIoPoolPolicy),
+    invokeDesktop<ModAssetIndex>(HOST_COMMANDS.scanModAssetIndex, { rootPath }, modIoPoolPolicy),
   )
 }
 
 /** Loads a mod project summary, diagnostics, and plugin-specific editable data. */
 export function loadModProject(path: string) {
   const cacheKey = normalizeCachePathSegment(path)
-  return readPending(loadModProjectCache, cacheKey, () => invokeDesktop<ModProjectDetail>('load_mod_project', { path }, modIoPoolPolicy))
+  return readPending(loadModProjectCache, cacheKey, () =>
+    invokeDesktop<ModProjectDetail>(HOST_COMMANDS.loadModProject, { path }, modIoPoolPolicy),
+  )
 }
 
 /** Loads a Content Patcher project snapshot including included source files. */
 export function loadContentPatcherProject(path: string) {
   const cacheKey = normalizeCachePathSegment(path)
   return readPending(loadContentPatcherProjectCache, cacheKey, () =>
-    invokeDesktop<ContentPatcherProjectSnapshot>('load_content_patcher_project', { path }, modIoPoolPolicy),
+    invokeDesktop<ContentPatcherProjectSnapshot>(HOST_COMMANDS.loadContentPatcherProject, { path }, modIoPoolPolicy),
   )
 }
 
@@ -73,7 +76,7 @@ export function loadContentPatcherProject(path: string) {
 export function simulateContentPatcher(request: SimulateContentPatcherRequest) {
   const cacheKey = JSON.stringify(request)
   return readPending(simulateContentPatcherCache, cacheKey, () =>
-    invokeDesktop<ContentPatcherSimulationResult>('simulate_content_patcher', { request }, modIoPoolPolicy),
+    invokeDesktop<ContentPatcherSimulationResult>(HOST_COMMANDS.simulateContentPatcher, { request }, modIoPoolPolicy),
   )
 }
 
@@ -81,18 +84,18 @@ export function simulateContentPatcher(request: SimulateContentPatcherRequest) {
 export function loadContentPatcherResultAsset(request: LoadContentPatcherResultAssetRequest) {
   const cacheKey = JSON.stringify(request)
   return readPending(loadContentPatcherResultAssetCache, cacheKey, () =>
-    invokeDesktop<LoadContentPatcherResultAssetResult>('load_content_patcher_result_asset', { request }, modIoPoolPolicy),
+    invokeDesktop<LoadContentPatcherResultAssetResult>(HOST_COMMANDS.loadContentPatcherResultAsset, { request }, modIoPoolPolicy),
   )
 }
 
 /** Exports one simulated Content Patcher result asset to disk. */
 export function exportContentPatcherAsset(request: ExportContentPatcherAssetRequest) {
-  return invokeDesktop<ExportContentPatcherAssetResult>('export_content_patcher_asset', { request }, modProjectMutationPolicy)
+  return invokeDesktop<ExportContentPatcherAssetResult>(HOST_COMMANDS.exportContentPatcherAsset, { request }, modProjectMutationPolicy)
 }
 
 /** Saves a mod project, then clears project and mod index caches affected by the write. */
 export async function saveModProject(request: SaveModProjectRequest) {
-  const result = await invokeDesktop<SaveModProjectResult>('save_mod_project', { request }, modProjectMutationPolicy)
+  const result = await invokeDesktop<SaveModProjectResult>(HOST_COMMANDS.saveModProject, { request }, modProjectMutationPolicy)
   const normalizedSource = normalizeCachePathSegment(request.sourcePath)
   const normalizedTarget = request.outputPath ? normalizeCachePathSegment(request.outputPath) : normalizedSource
   loadModProjectCache.delete(normalizedSource)

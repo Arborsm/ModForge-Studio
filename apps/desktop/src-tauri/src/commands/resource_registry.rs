@@ -14,7 +14,7 @@ pub fn load_resource_registry(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_resource_registry",
+        crate::host_command_name!(load_resource_registry),
         json!({ "rootPath": root_path, "locale": locale }),
     )
 }

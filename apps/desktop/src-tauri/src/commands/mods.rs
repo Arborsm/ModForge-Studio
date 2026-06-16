@@ -16,7 +16,7 @@ pub fn scan_mod_projects(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "scan_mod_projects",
+        crate::host_command_name!(scan_mod_projects),
         json!({ "rootPath": root_path }),
     )
 }
@@ -30,7 +30,7 @@ pub fn scan_mod_asset_index(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "scan_mod_asset_index",
+        crate::host_command_name!(scan_mod_asset_index),
         json!({ "rootPath": root_path }),
     )
 }
@@ -44,7 +44,7 @@ pub fn load_mod_project(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "load_mod_project",
+        crate::host_command_name!(load_mod_project),
         json!({ "path": path }),
     )
 }
@@ -58,7 +58,7 @@ pub fn save_mod_project(
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state,
-        "save_mod_project",
+        crate::host_command_name!(save_mod_project),
         json!({ "request": request }),
     )
 }

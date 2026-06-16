@@ -76,6 +76,7 @@ MODFORGE_COMMAND_TRACE=1 pnpm desktop:dev
 
 - 后端 command 执行统一走 Host Runtime：Electron sidecar 和 Tauri command wrapper 都必须通过同一套 `host_runtime` / `commands/runtime.rs` 调度，不允许各自绕过 runtime 直接执行耗时业务。
 - `apps/desktop/src-tauri/src/commands` 只做 Tauri command wrapper：构造 command envelope、调用 shared runtime、错误包装和返回结果；业务逻辑放 `domain`。
+- Host command 协议名等于 Tauri wrapper 函数名：Rust wrapper 用 `host_command_name!(function_name)`，sidecar 分发用 `host_command_wire!(function_name)`，前端 `HOST_COMMANDS` 由 `pnpm --filter @modforge/desktop gen:host-commands` 扫描 `#[tauri::command] pub fn` 生成；禁止手写独立 manifest 或字符串清单。
 - `apps/desktop/src-tauri/src/sidecar.rs::resolve_command` 是 Rust command 的唯一绑定点；command 名称、lane、resources、cancel/mutation 策略、参数解析和执行闭包必须在同一个 match arm 声明。
 - 禁止再建 `dispatch_mode(command)`、`defaultHostCommandPolicy` 这类独立硬编码分类表。
 - Host command lane 语义固定：`Control` 处理取消、日志、SSO 状态、打开路径/URL 等轻量控制；`Network` 处理 Nexus/SMAPI/远程图片/下载/更新/API key 等远程请求；`Io` 处理本地读取、扫描、解析、缓存读取和 archive inspect；`Mutation` 处理保存、安装、恢复、清缓存和持久化写入。
