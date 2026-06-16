@@ -9,30 +9,30 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "pnpm --filter @modforge/desktop dev",
+    "dev": "vp run desktop:dev",
+    "web:dev": "vp run --filter @modforge/desktop dev",
     "desktop:dev": "node ./scripts/desktop-host-dispatch.cjs dev",
-    "react:devtools": "pnpm --filter @modforge/desktop react:devtools",
-    "build": "pnpm --filter @modforge/desktop build",
-    "lint": "pnpm --filter @modforge/desktop lint",
+    "react:devtools": "vp run --filter @modforge/desktop react:devtools",
+    "build": "vp run --filter @modforge/desktop build",
+    "lint": "vp run --filter @modforge/desktop lint",
     "desktop:build": "node ./scripts/desktop-host-dispatch.cjs build",
-    "release:linux": "pnpm --filter @modforge/desktop release:linux",
-    "release:linux:deb": "pnpm --filter @modforge/desktop release:linux:deb",
-    "release:linux:rpm": "pnpm --filter @modforge/desktop release:linux:rpm",
-    "release:macos": "pnpm --filter @modforge/desktop release:macos",
-    "release:windows": "pnpm --filter @modforge/desktop release:windows",
-    "release:all": "pnpm --filter @modforge/desktop release:all",
-    "release:collect": "pnpm --filter @modforge/desktop release:collect",
-    "format": "prettier . --write",
-    "format:check": "prettier . --check",
+    "release:linux": "vp run --filter @modforge/desktop release:linux",
+    "release:linux:deb": "vp run --filter @modforge/desktop release:linux:deb",
+    "release:linux:rpm": "vp run --filter @modforge/desktop release:linux:rpm",
+    "release:macos": "vp run --filter @modforge/desktop release:macos",
+    "release:windows": "vp run --filter @modforge/desktop release:windows",
+    "release:all": "vp run --filter @modforge/desktop release:all",
+    "release:collect": "vp run --filter @modforge/desktop release:collect",
+    "format": "vp fmt .",
+    "format:check": "vp fmt . --check",
     "prepare": "husky"
   },
   "lint-staged": {
-    "*": "prettier --ignore-unknown --write"
+    "*": "vp fmt"
   },
   "devDependencies": {
     "husky": "9.1.7",
     "lint-staged": "17.0.7",
-    "prettier": "3.8.3",
-    "prettier-plugin-tailwindcss": "0.8.0"
+    "vite-plus": "catalog:"
   }
 }

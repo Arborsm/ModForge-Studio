@@ -1,5 +1,5 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { loadContentPatcherResultAsset, saveModProject, scanModProjects, simulateContentPatcher } from '@entities/mod/api'
 import { chooseDirectory } from '@shared/lib/desktop'
 import { reportAppEvent } from '@shared/lib/observability'

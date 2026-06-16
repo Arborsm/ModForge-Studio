@@ -24,13 +24,14 @@
 所有命令默认从仓库根目录运行。
 
 ```bash
-pnpm install --frozen-lockfile
-pnpm dev
-pnpm desktop:dev
-pnpm build
-pnpm lint
-pnpm format:check
-pnpm --filter @modforge/desktop test
+vp install --frozen-lockfile
+vp run dev
+vp run web:dev
+vp run desktop:dev
+vp run build
+vp run lint
+vp run format:check
+vp run --filter @modforge/desktop test
 ```
 
 Rust 后端命令必须显式指定 manifest：
@@ -44,7 +45,7 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 Host command 调度追踪：
 
 ```bash
-MODFORGE_COMMAND_TRACE=1 pnpm desktop:dev
+MODFORGE_COMMAND_TRACE=1 vp run desktop:dev
 ```
 
 该变量放行 `HostRuntime` command start/finish/failure debug 日志；应用 debug diagnostics toggle 不应放行 command trace，但仍应放行其他 backend debug/trace。
@@ -76,7 +77,7 @@ MODFORGE_COMMAND_TRACE=1 pnpm desktop:dev
 
 - 后端 command 执行统一走 Host Runtime：Electron sidecar 和 Tauri command wrapper 都必须通过同一套 `host_runtime` / `commands/runtime.rs` 调度，不允许各自绕过 runtime 直接执行耗时业务。
 - `apps/desktop/src-tauri/src/commands` 只做 Tauri command wrapper：构造 command envelope、调用 shared runtime、错误包装和返回结果；业务逻辑放 `domain`。
-- Host command 协议名等于 Tauri wrapper 函数名：Rust wrapper 用 `host_command_name!(function_name)`，sidecar 分发用 `host_command_wire!(function_name)`，前端 `HOST_COMMANDS` 由 `pnpm --filter @modforge/desktop gen:host-commands` 扫描 `#[tauri::command] pub fn` 生成；禁止手写独立 manifest 或字符串清单。
+- Host command 协议名等于 Tauri wrapper 函数名：Rust wrapper 用 `host_command_name!(function_name)`，sidecar 分发用 `host_command_wire!(function_name)`，前端 `HOST_COMMANDS` 由 `vp run --filter @modforge/desktop gen:host-commands` 扫描 `#[tauri::command] pub fn` 生成；禁止手写独立 manifest 或字符串清单。
 - `apps/desktop/src-tauri/src/sidecar.rs::resolve_command` 是 Rust command 的唯一绑定点；command 名称、lane、resources、cancel/mutation 策略、参数解析和执行闭包必须在同一个 match arm 声明。
 - 禁止再建 `dispatch_mode(command)`、`defaultHostCommandPolicy` 这类独立硬编码分类表。
 - Host command lane 语义固定：`Control` 处理取消、日志、SSO 状态、打开路径/URL 等轻量控制；`Network` 处理 Nexus/SMAPI/远程图片/下载/更新/API key 等远程请求；`Io` 处理本地读取、扫描、解析、缓存读取和 archive inspect；`Mutation` 处理保存、安装、恢复、清缓存和持久化写入。
@@ -99,7 +100,7 @@ MODFORGE_COMMAND_TRACE=1 pnpm desktop:dev
 
 ## 验证规则
 
-- 前端改动最终至少说明 `pnpm lint`、`pnpm build`、`pnpm --filter @modforge/desktop test` 是否已跑；未跑要说明原因。
+- 前端改动最终至少说明 `vp run lint`、`vp run build`、`vp run --filter @modforge/desktop test` 是否已跑；未跑要说明原因。
 - Rust 改动先跑 `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`，再跑对应 `cargo check` 或 `cargo test`。
 - 架构迁移必须补充或更新架构测试，覆盖依赖方向、平台 API 泄漏、旧根目录回归、feature 横向依赖和实体层 UI 类型污染。
 - UI/布局变更需要截图、Playwright 验证脚本或明确手动路径证明；不要只凭静态阅读宣布完成。

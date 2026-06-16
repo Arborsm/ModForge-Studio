@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { cleanup } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { LauncherDiscoverDetail, LauncherLibraryItem } from '@features/launcher'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import { createMockLauncherPort } from '@test/launcherTestPort'

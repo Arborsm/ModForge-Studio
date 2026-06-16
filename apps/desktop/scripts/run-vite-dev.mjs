@@ -10,13 +10,17 @@ const require = createRequire(import.meta.url)
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const desktopRoot = path.resolve(__dirname, '..')
-const vitePackageJson = require.resolve('vite/package.json', { paths: [desktopRoot] })
-const viteCliEntry = path.join(path.dirname(vitePackageJson), 'bin', 'vite.js')
+const vitePlusPackageJson = require.resolve('vite-plus/package.json', { paths: [desktopRoot] })
+const vitePlusCliEntry = path.join(path.dirname(vitePlusPackageJson), 'bin', 'vp')
 const reactDevtoolsPackageJson = require.resolve('react-devtools/package.json', { paths: [desktopRoot] })
 const reactDevtoolsCliEntry = path.join(path.dirname(reactDevtoolsPackageJson), 'bin.js')
 
 function envFlagEnabled(value) {
-  return ['1', 'true', 'yes', 'on'].includes(String(value ?? '').trim().toLowerCase())
+  return ['1', 'true', 'yes', 'on'].includes(
+    String(value ?? '')
+      .trim()
+      .toLowerCase(),
+  )
 }
 
 function canStartReactDevtools(env) {
@@ -70,7 +74,7 @@ const reactDevtools = await startReactDevtoolsIfNeeded(runtime.env)
 let result
 
 try {
-  result = spawnSync(process.execPath, [viteCliEntry, '--configLoader', 'runner'], {
+  result = spawnSync(process.execPath, [vitePlusCliEntry, 'dev', '--configLoader', 'runner'], {
     cwd: desktopRoot,
     env: runtime.env,
     stdio: 'inherit',

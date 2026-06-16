@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { render } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { useLauncherImage } from '@features/launcher'
 import { LauncherArtworkCover } from './LauncherArtworkCover'
 

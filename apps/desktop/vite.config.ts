@@ -2,7 +2,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { CodeSplittingGroup } from 'rolldown'
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, type Plugin } from 'vite-plus'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
 import { resolveDevServerHost, resolveDevServerPorts } from './scripts/tauriDevRuntime.mjs'
@@ -32,7 +32,11 @@ function normalizeModuleId(id: string) {
 }
 
 export function shouldInjectReactDevtoolsStandalone(env = process.env) {
-  return ['1', 'true', 'yes', 'on'].includes(String(env.MODFORGE_REACT_DEVTOOLS ?? '').trim().toLowerCase())
+  return ['1', 'true', 'yes', 'on'].includes(
+    String(env.MODFORGE_REACT_DEVTOOLS ?? '')
+      .trim()
+      .toLowerCase(),
+  )
 }
 
 export function reactDevtoolsStandaloneHtmlPlugin(env = process.env): Plugin {
@@ -271,8 +275,14 @@ export default defineConfig({
       '@entities': path.resolve(__dirname, 'src/entities'),
       '@shared': path.resolve(__dirname, 'src/shared'),
       '@platform': path.resolve(__dirname, 'src/platform'),
+      '@test': path.resolve(__dirname, 'src/test'),
       '@locales': path.resolve(__dirname, 'src/locales'),
     },
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/test/setup.ts'],
   },
   build: {
     rolldownOptions: {

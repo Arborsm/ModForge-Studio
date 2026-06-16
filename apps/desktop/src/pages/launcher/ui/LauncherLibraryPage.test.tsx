@@ -1,6 +1,6 @@
 import type { ReactElement, ReactNode } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { LocaleProvider } from '@locales/provider'
 import type {

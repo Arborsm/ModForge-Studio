@@ -70,7 +70,7 @@
   }
 
   .condition-chip + .condition-chip::before {
-    content: "";
+    content: '';
     position: absolute;
     left: -4px;
     width: 1px;

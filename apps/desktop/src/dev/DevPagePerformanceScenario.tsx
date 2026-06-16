@@ -1122,7 +1122,9 @@ function ContentPatcherWorkspaceScenario() {
         onPatchFieldChange={(field, value) => setSelectedPatch((current) => (current ? { ...current, [field]: value } : current))}
         onPatchWhenChange={(value) => setSelectedPatch((current) => (current ? { ...current, When: value } : current))}
         onAddPatch={() =>
-          setSelectedPatch((current) => (current ? { ...current, LogName: `${String(current.LogName ?? '')} + added` } : current))
+          setSelectedPatch((current) =>
+            current ? { ...current, LogName: `${typeof current.LogName === 'string' ? current.LogName : ''} + added` } : current,
+          )
         }
         onRemoveSelectedPatch={() => setSelectedPatch(null)}
         onSaveProject={noop}

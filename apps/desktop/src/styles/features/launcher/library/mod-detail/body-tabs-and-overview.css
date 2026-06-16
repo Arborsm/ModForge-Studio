@@ -117,7 +117,7 @@
     font-weight: 780;
   }
 
-  .launcher-mod-detail-tabs button[aria-selected="true"] {
+  .launcher-mod-detail-tabs button[aria-selected='true'] {
     border-bottom-color: var(--accent);
     color: var(--text-primary);
   }
@@ -204,7 +204,7 @@
     background: var(--bg-elevated);
     color: var(--text-secondary);
     box-shadow: var(--shadow-panel);
-    content: "→";
+    content: '→';
     font-size: 14px;
     font-weight: 760;
     transform: translate(-50%, -50%);
@@ -400,7 +400,7 @@
     height: 88px;
     pointer-events: none;
     background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--bg-panel) 94%, transparent) 70%, var(--bg-panel));
-    content: "";
+    content: '';
   }
 
   .launcher-mod-detail-description .control-button {

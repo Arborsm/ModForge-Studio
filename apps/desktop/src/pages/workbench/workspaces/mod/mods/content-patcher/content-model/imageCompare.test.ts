@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { cropRaster, findChangedBounds, maskUnchangedPixels, type RgbaRaster } from './imageCompare'
 
 function buildRaster(width: number, height: number, colors: Array<[number, number, number, number]>): RgbaRaster {

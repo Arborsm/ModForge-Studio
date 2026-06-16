@@ -1,6 +1,6 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { PropsWithChildren } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { LocaleProvider } from '@locales/provider'
 import { NotificationProvider, clearNotifications } from '@shared/ui/notifications'
 import type { LauncherNexusDiagnosticsResult, LauncherSettings, LauncherUpdateSummary, LauncherUpdatesResult } from '@features/launcher/api'

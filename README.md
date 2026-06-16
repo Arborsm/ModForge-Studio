@@ -62,22 +62,23 @@ product workspace is `apps/desktop`.
   Tailwind CSS 4.
 - UI/runtime libraries: Radix UI, Floating UI, lucide-react, React Resizable
   Panels, TanStack Virtual, XYFlow, Zustand.
-- Testing: Vitest, jsdom, Testing Library, Playwright verification scripts.
-- Package manager: pnpm 11.5.1.
-- Frontend lint/build tooling: Oxlint for `pnpm lint`; Vite/Rolldown for
-  production builds.
+- Testing: Vite+ Test, jsdom, Testing Library, Playwright verification scripts.
+- Package workflow: Vite+ package-management commands backed by pnpm 11.5.1 and
+  `pnpm-lock.yaml`.
+- Frontend tooling: Vite+ for install/run/dev/build/test/lint/format workflows.
 
 ## Quick Start
 
 ```bash
-pnpm install --frozen-lockfile
-pnpm dev
+vp install --frozen-lockfile
+vp run dev
 ```
 
-Use `pnpm desktop:dev` to run the full desktop application with the Rust
-backend. The root dispatcher starts Electron on Linux and Tauri on macOS and
-Windows. Use `pnpm build` for the frontend production build and
-`pnpm desktop:build` for the current platform's desktop build path.
+`vp run dev` runs the full desktop application with the Rust backend by default.
+The root dispatcher starts Electron on Linux and Tauri on macOS and Windows.
+Use `vp run web:dev` for the frontend-only Vite+ dev server, `vp run build` for
+the frontend production build, and `vp run desktop:build` for the current
+platform's desktop build path.
 
 React Compiler is enabled through the Vite React pipeline. Do not add manual
 `useMemo` or `useCallback` only for render performance unless there is a
@@ -89,18 +90,18 @@ contracts.
 Common checks:
 
 ```bash
-pnpm format:check
-pnpm lint
-pnpm build
-pnpm --filter @modforge/desktop test
+vp run format:check
+vp run lint
+vp run build
+vp run --filter @modforge/desktop test
 cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 ```
 
 ## Status
 
-ModForge Studio is in early active development. The repository is structured as
-a pnpm workspace, but `apps/desktop` is currently the only active product
-workspace.
+ModForge Studio is in early active development. The repository uses Vite+ as the
+primary developer entry point over a pnpm-backed workspace, and `apps/desktop`
+is currently the only active product workspace.
 
 Linux builds use Electron packages. Release automation is available, but
 platform signing and distribution credentials are expected to be provided by CI

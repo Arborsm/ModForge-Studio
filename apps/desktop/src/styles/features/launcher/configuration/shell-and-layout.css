@@ -161,7 +161,7 @@
   }
 
   .launcher-config-tag::before {
-    content: "";
+    content: '';
     width: 7px;
     height: 7px;
     border-radius: 999px;
@@ -226,7 +226,7 @@
   }
 
   .launcher-config-panel-head::before {
-    content: "";
+    content: '';
     position: absolute;
     left: 0;
     top: 14px;

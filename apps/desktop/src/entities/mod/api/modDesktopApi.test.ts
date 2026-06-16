@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { invokeDesktop } from '@shared/lib/desktop/runtime'
 import { saveModProject } from './modDesktopApi'
 import type { SaveModProjectRequest, SaveModProjectResult } from './types'

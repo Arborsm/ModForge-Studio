@@ -16,7 +16,7 @@
       "@locales": ["./src/locales/index.ts"],
       "@locales/*": ["./src/locales/*"]
     },
-    "types": ["vite/client"],
+    "types": ["vite-plus/client"],
     "skipLibCheck": true,
 
     /* Bundler mode */

@@ -1,6 +1,6 @@
 import { act, cleanup, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { LocaleProvider } from '@locales/provider'
 import { NotificationProvider, clearNotifications } from '@shared/ui/notifications'
 import { loadLauncherRemoteModDetail } from '@features/launcher/api'

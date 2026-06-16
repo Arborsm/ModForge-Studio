@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ComponentProps } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import SettingsWindow from './SettingsWindow'
 import { THEME_PRESETS } from '@app/app-shell/constants'
 import { getSettingsMenuCopy } from '@locales/api'

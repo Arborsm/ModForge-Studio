@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import type { CpMakerPort } from '@features/cp-maker'

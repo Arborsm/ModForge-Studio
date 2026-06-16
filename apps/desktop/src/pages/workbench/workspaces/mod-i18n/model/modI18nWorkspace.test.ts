@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { buildModI18nEntries, extractI18nTokens, updateI18nFileEntry } from './modI18nWorkspace'
 
 describe('mod i18n workspace model', () => {

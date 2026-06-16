@@ -27,5 +27,5 @@ if (!releaseScript) {
   throw new Error(`Unsupported release platform: ${process.platform}`)
 }
 
-run('pnpm', [releaseScript])
-run('pnpm', ['release:collect'])
+run('vp', ['run', releaseScript])
+run('vp', ['run', 'release:collect'])

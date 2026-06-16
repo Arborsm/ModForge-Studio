@@ -1,5 +1,5 @@
 import type { PlatformPorts } from '@shared/contracts'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { createHostCommandClient } from './index'
 
 function createDeferred<T>() {

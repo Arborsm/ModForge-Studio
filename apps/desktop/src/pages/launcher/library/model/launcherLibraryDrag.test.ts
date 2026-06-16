@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   LAUNCHER_LIBRARY_BLANK_DROP_ID,
   LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX,

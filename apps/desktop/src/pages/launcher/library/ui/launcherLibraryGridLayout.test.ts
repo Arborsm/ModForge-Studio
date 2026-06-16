@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { LauncherLibraryItem, LauncherVirtualFolder } from '@features/launcher/model/types'
 import type { LauncherLibraryDisplayItem } from '../model/launcherLibraryDisplay'
 import { buildLauncherLibraryGridBlocks, getLauncherLibraryPanelPlacement, LAUNCHER_LIBRARY_GRID_GAP_PX } from './launcherLibraryGridLayout'

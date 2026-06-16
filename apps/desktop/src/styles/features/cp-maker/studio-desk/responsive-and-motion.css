@@ -213,7 +213,7 @@
     }
 
     .studio-mark-button::after {
-      content: "";
+      content: '';
       width: 1px;
       height: 24px;
       margin-left: 12px;

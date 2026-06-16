@@ -106,7 +106,7 @@
     color: var(--text-tertiary);
     font-size: 13px;
     line-height: 1.5;
-    content: "›";
+    content: '›';
   }
 
   .launcher-mod-detail-changelog-entry li .nexusmods-bbcode {
@@ -500,7 +500,7 @@
     font-size: 11px;
   }
 
-  .launcher-mod-detail-file-toggle[aria-expanded="true"] .launcher-mod-detail-file-chevron {
+  .launcher-mod-detail-file-toggle[aria-expanded='true'] .launcher-mod-detail-file-chevron {
     transform: rotate(-90deg);
   }
 

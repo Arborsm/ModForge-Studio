@@ -207,7 +207,7 @@
     cursor: pointer;
   }
 
-  .studio-assets-card[aria-disabled="true"] {
+  .studio-assets-card[aria-disabled='true'] {
     cursor: default;
   }
 
@@ -457,7 +457,7 @@
   }
 
   .studio-wip-checklist small::before {
-    content: "";
+    content: '';
     width: 14px;
     height: 8px;
     border: 2px solid color-mix(in srgb, var(--accent) 52%, transparent);

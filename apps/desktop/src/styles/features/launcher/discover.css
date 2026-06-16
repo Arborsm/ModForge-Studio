@@ -1,4 +1,4 @@
-@import "./discover/results-and-pagination.css";
+@import './discover/results-and-pagination.css';
 
 @layer components {
   .launcher-discover-grid {

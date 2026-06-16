@@ -194,7 +194,7 @@
   .launcher-library-dnd-target-box-active::before {
     position: absolute;
     inset: -5px;
-    content: "";
+    content: '';
     border: 2px solid color-mix(in srgb, var(--accent) 72%, var(--bg-panel));
     border-radius: 14px;
     background: color-mix(in srgb, var(--accent) 10%, transparent);

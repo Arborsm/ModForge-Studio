@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react'
 import { cleanup, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import StatusBar from './StatusBar'
 import { editorCopy } from '@locales/api'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'

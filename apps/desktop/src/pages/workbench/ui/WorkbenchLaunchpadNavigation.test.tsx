@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import type { ComponentProps } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { editorCopy } from '@locales/api'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { LocaleProvider } from '@locales/provider'

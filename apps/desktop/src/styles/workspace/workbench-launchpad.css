@@ -73,7 +73,7 @@
   }
 
   .workbench-dock-item-active::after {
-    content: "";
+    content: '';
     position: absolute;
     right: 5px;
     bottom: 5px;
@@ -369,40 +369,40 @@
     color: var(--text-secondary);
   }
 
-  .workbench-launchpad-icon[data-tone="mods"] {
+  .workbench-launchpad-icon[data-tone='mods'] {
     background: #fff7df;
     color: #d79000;
   }
 
-  .workbench-launchpad-icon[data-tone="map"],
-  .workbench-launchpad-icon[data-tone="make-map"] {
+  .workbench-launchpad-icon[data-tone='map'],
+  .workbench-launchpad-icon[data-tone='make-map'] {
     background: #eaf4ff;
     color: #2384e8;
   }
 
-  .workbench-launchpad-icon[data-tone="events"],
-  .workbench-launchpad-icon[data-tone="make-event"] {
+  .workbench-launchpad-icon[data-tone='events'],
+  .workbench-launchpad-icon[data-tone='make-event'] {
     background: #fff0e5;
     color: #df6b24;
   }
 
-  .workbench-launchpad-icon[data-tone="characters"] {
+  .workbench-launchpad-icon[data-tone='characters'] {
     background: #e9f8ef;
     color: #27965b;
   }
 
-  .workbench-launchpad-icon[data-tone="buildings"] {
+  .workbench-launchpad-icon[data-tone='buildings'] {
     background: #fff0f3;
     color: #d94872;
   }
 
-  .workbench-launchpad-icon[data-tone="items"],
-  .workbench-launchpad-icon[data-tone="make-item"] {
+  .workbench-launchpad-icon[data-tone='items'],
+  .workbench-launchpad-icon[data-tone='make-item'] {
     background: #f3efe8;
     color: #9c6a35;
   }
 
-  .workbench-launchpad-icon[data-tone="mod-i18n"] {
+  .workbench-launchpad-icon[data-tone='mod-i18n'] {
     background: #e8f8ff;
     color: #0b92c9;
   }

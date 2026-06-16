@@ -58,7 +58,7 @@
     pointer-events: none;
   }
 
-  .app-window-frame[data-window-border-tone="neutral"] {
+  .app-window-frame[data-window-border-tone='neutral'] {
     --app-window-border-standard: color-mix(in srgb, var(--border-color) 88%, var(--text-primary));
     --app-window-border-thin: color-mix(in srgb, var(--border-color) 72%, transparent);
     --app-window-inner-border-standard: color-mix(in srgb, var(--border-color) 72%, transparent);
@@ -66,20 +66,20 @@
     --app-window-divider-thin: var(--border-color);
   }
 
-  .app-window-frame[data-window-border-weight="thin"] {
+  .app-window-frame[data-window-border-weight='thin'] {
     --app-window-border: var(--app-window-border-thin);
     --app-window-inner-border: transparent;
     --app-window-divider: var(--app-window-divider-thin);
     --app-window-divider-opacity: var(--app-window-divider-opacity-thin);
   }
 
-  .app-window-frame[data-window-border-weight="none"] {
+  .app-window-frame[data-window-border-weight='none'] {
     --app-window-border: transparent;
     --app-window-inner-border: transparent;
     --app-window-divider-opacity: 0;
   }
 
-  .app-window-frame[data-window-edge-to-edge="true"] {
+  .app-window-frame[data-window-edge-to-edge='true'] {
     border: 0;
     border-radius: 0;
     box-shadow: none;

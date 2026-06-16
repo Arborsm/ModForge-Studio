@@ -76,7 +76,7 @@
     border-radius: 999px;
     background: radial-gradient(ellipse at center, rgba(15, 23, 42, 0.16), transparent 70%);
     filter: blur(4px);
-    content: "";
+    content: '';
   }
 
   .launcher-library-folder-preview-shell {
@@ -112,7 +112,7 @@
     border-bottom: 0;
     border-radius: 9px 11px 3px 0;
     background: linear-gradient(180deg, color-mix(in srgb, white 58%, transparent), transparent 44%), var(--launcher-folder-back);
-    content: "";
+    content: '';
   }
 
   .launcher-library-folder-preview-shell::after {
@@ -120,7 +120,7 @@
     inset: 14px 9px auto;
     height: 1px;
     background: color-mix(in srgb, white 54%, transparent);
-    content: "";
+    content: '';
   }
 
   .launcher-library-folder-preview {
@@ -133,11 +133,11 @@
     gap: 7px;
   }
 
-  .launcher-library-folder-preview[data-preview-count="0"] {
+  .launcher-library-folder-preview[data-preview-count='0'] {
     display: block;
   }
 
-  .launcher-library-folder-preview[data-preview-count="0"]::before {
+  .launcher-library-folder-preview[data-preview-count='0']::before {
     position: absolute;
     inset: 5px 8px 8px;
     border-radius: 10px;
@@ -146,10 +146,10 @@
     box-shadow:
       inset 0 1px 0 var(--bevel-highlight),
       inset 0 -14px 18px rgba(15, 23, 42, 0.04);
-    content: "";
+    content: '';
   }
 
-  .launcher-library-folder-preview[data-preview-count="0"]::after {
+  .launcher-library-folder-preview[data-preview-count='0']::after {
     position: absolute;
     left: 22%;
     right: 22%;
@@ -157,10 +157,10 @@
     height: 4px;
     border-radius: 999px;
     background: color-mix(in srgb, var(--launcher-folder-accent) 18%, transparent);
-    content: "";
+    content: '';
   }
 
-  .launcher-library-folder-preview:not([data-preview-count="0"]) {
+  .launcher-library-folder-preview:not([data-preview-count='0']) {
     display: grid;
     width: var(--launcher-folder-content-preview-width);
     height: auto;
@@ -171,30 +171,30 @@
     padding: 0;
   }
 
-  .launcher-library-folder-preview[data-preview-count="1"] {
+  .launcher-library-folder-preview[data-preview-count='1'] {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     padding: 4px 18px;
   }
 
-  .launcher-library-folder-preview[data-preview-count="1"][data-preview-kind="folder"] {
+  .launcher-library-folder-preview[data-preview-count='1'][data-preview-kind='folder'] {
     padding: 7px 22px;
   }
 
-  .launcher-library-folder-preview[data-preview-count="2"] {
+  .launcher-library-folder-preview[data-preview-count='2'] {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     padding: 6px 10px;
   }
 
-  .launcher-library-folder-preview[data-preview-count="4"] {
+  .launcher-library-folder-preview[data-preview-count='4'] {
     grid-template-rows: repeat(2, minmax(0, 1fr));
   }
 
-  .launcher-library-folder-preview[data-preview-count="3"] {
+  .launcher-library-folder-preview[data-preview-count='3'] {
     grid-template-areas:
-      "one two"
-      "three three";
+      'one two'
+      'three three';
   }
 
   .launcher-library-folder-preview-item {
@@ -245,15 +245,15 @@
       12px 12px;
   }
 
-  .launcher-library-folder-preview[data-preview-count="3"] .launcher-library-folder-preview-item:nth-child(1) {
+  .launcher-library-folder-preview[data-preview-count='3'] .launcher-library-folder-preview-item:nth-child(1) {
     grid-area: one;
   }
 
-  .launcher-library-folder-preview[data-preview-count="3"] .launcher-library-folder-preview-item:nth-child(2) {
+  .launcher-library-folder-preview[data-preview-count='3'] .launcher-library-folder-preview-item:nth-child(2) {
     grid-area: two;
   }
 
-  .launcher-library-folder-preview[data-preview-count="3"] .launcher-library-folder-preview-item:nth-child(3) {
+  .launcher-library-folder-preview[data-preview-count='3'] .launcher-library-folder-preview-item:nth-child(3) {
     grid-area: three;
   }
 
@@ -275,7 +275,7 @@
     color: var(--launcher-folder-accent);
   }
 
-  .launcher-library-folder-preview[data-preview-count="1"][data-preview-kind="folder"] .launcher-library-folder-preview-folder {
+  .launcher-library-folder-preview[data-preview-count='1'][data-preview-kind='folder'] .launcher-library-folder-preview-folder {
     border-radius: 10px;
     background:
       linear-gradient(180deg, color-mix(in srgb, white 48%, transparent), transparent 42%),
@@ -302,7 +302,7 @@
     stroke-width: 2.1;
   }
 
-  .launcher-library-folder-preview[data-preview-count="1"][data-preview-kind="folder"] .launcher-library-folder-preview-folder svg {
+  .launcher-library-folder-preview[data-preview-count='1'][data-preview-kind='folder'] .launcher-library-folder-preview-folder svg {
     width: 42px;
     height: 42px;
     stroke-width: 1.9;
@@ -366,24 +366,24 @@
     padding: 7px;
   }
 
-  .launcher-library-folder-drag-preview-grid[data-preview-count="1"] {
+  .launcher-library-folder-drag-preview-grid[data-preview-count='1'] {
     grid-template-columns: minmax(0, 1fr);
     padding: 12px;
   }
 
-  .launcher-library-folder-drag-preview-grid[data-preview-count="1"][data-preview-kind="folder"] {
+  .launcher-library-folder-drag-preview-grid[data-preview-count='1'][data-preview-kind='folder'] {
     padding: 15px;
   }
 
-  .launcher-library-folder-drag-preview-grid[data-preview-count="2"] {
+  .launcher-library-folder-drag-preview-grid[data-preview-count='2'] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     padding: 9px 5px;
   }
 
-  .launcher-library-folder-drag-preview-grid[data-preview-count="3"] {
+  .launcher-library-folder-drag-preview-grid[data-preview-count='3'] {
     grid-template-areas:
-      "one two"
-      "three three";
+      'one two'
+      'three three';
   }
 
   .launcher-library-folder-drag-preview-tile {
@@ -399,15 +399,15 @@
     font-weight: 850;
   }
 
-  .launcher-library-folder-drag-preview-grid[data-preview-count="3"] .launcher-library-folder-drag-preview-tile:nth-child(1) {
+  .launcher-library-folder-drag-preview-grid[data-preview-count='3'] .launcher-library-folder-drag-preview-tile:nth-child(1) {
     grid-area: one;
   }
 
-  .launcher-library-folder-drag-preview-grid[data-preview-count="3"] .launcher-library-folder-drag-preview-tile:nth-child(2) {
+  .launcher-library-folder-drag-preview-grid[data-preview-count='3'] .launcher-library-folder-drag-preview-tile:nth-child(2) {
     grid-area: two;
   }
 
-  .launcher-library-folder-drag-preview-grid[data-preview-count="3"] .launcher-library-folder-drag-preview-tile:nth-child(3) {
+  .launcher-library-folder-drag-preview-grid[data-preview-count='3'] .launcher-library-folder-drag-preview-tile:nth-child(3) {
     grid-area: three;
   }
 
@@ -428,7 +428,7 @@
     border-radius: 3px 3px 2px 2px;
     background: var(--accent);
     clip-path: polygon(0 28%, 35% 28%, 43% 0, 100% 0, 100% 100%, 0 100%);
-    content: "";
+    content: '';
   }
 
   .launcher-library-folder-drag-preview span:last-child {
@@ -454,168 +454,168 @@
     animation: launcher-library-folder-pop 160ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
 
-  .launcher-library-folder-panel[data-folder-tone="blue"] {
+  .launcher-library-folder-panel[data-folder-tone='blue'] {
     --launcher-folder-bg: #f8fbff;
     --launcher-folder-bg-strong: #dbeafe;
     --launcher-folder-border: rgba(96, 165, 250, 0.48);
     --launcher-folder-accent: #2563eb;
   }
 
-  .launcher-library-folder-panel[data-folder-tone="teal"] {
+  .launcher-library-folder-panel[data-folder-tone='teal'] {
     --launcher-folder-bg: #f8fffc;
     --launcher-folder-bg-strong: #ccfbf1;
     --launcher-folder-border: rgba(20, 184, 166, 0.46);
     --launcher-folder-accent: #0f766e;
   }
 
-  .launcher-library-folder-panel[data-folder-tone="amber"] {
+  .launcher-library-folder-panel[data-folder-tone='amber'] {
     --launcher-folder-bg: #fffdf4;
     --launcher-folder-bg-strong: #fde68a;
     --launcher-folder-border: rgba(245, 158, 11, 0.46);
     --launcher-folder-accent: #b45309;
   }
 
-  .launcher-library-folder-panel[data-folder-tone="rose"] {
+  .launcher-library-folder-panel[data-folder-tone='rose'] {
     --launcher-folder-bg: #fff8f9;
     --launcher-folder-bg-strong: #ffe4e6;
     --launcher-folder-border: rgba(244, 63, 94, 0.42);
     --launcher-folder-accent: #be123c;
   }
 
-  .launcher-library-folder-panel[data-folder-tone="violet"] {
+  .launcher-library-folder-panel[data-folder-tone='violet'] {
     --launcher-folder-bg: #fbfaff;
     --launcher-folder-bg-strong: #ede9fe;
     --launcher-folder-border: rgba(139, 92, 246, 0.44);
     --launcher-folder-accent: #6d28d9;
   }
 
-  .launcher-library-folder-panel[data-folder-tone="slate"] {
+  .launcher-library-folder-panel[data-folder-tone='slate'] {
     --launcher-folder-bg: #f8fafc;
     --launcher-folder-bg-strong: #e2e8f0;
     --launcher-folder-border: rgba(100, 116, 139, 0.42);
     --launcher-folder-accent: #475569;
   }
 
-  .launcher-library-folder-panel[data-folder-tone="green"] {
+  .launcher-library-folder-panel[data-folder-tone='green'] {
     --launcher-folder-bg: #f8fff8;
     --launcher-folder-bg-strong: #dcfce7;
     --launcher-folder-border: rgba(34, 197, 94, 0.46);
     --launcher-folder-accent: #16a34a;
   }
 
-  .launcher-library-folder-panel[data-folder-tone="cyan"] {
+  .launcher-library-folder-panel[data-folder-tone='cyan'] {
     --launcher-folder-bg: #f8feff;
     --launcher-folder-bg-strong: #cffafe;
     --launcher-folder-border: rgba(6, 182, 212, 0.44);
     --launcher-folder-accent: #0891b2;
   }
 
-  .launcher-library-folder-panel[data-folder-tone="orange"] {
+  .launcher-library-folder-panel[data-folder-tone='orange'] {
     --launcher-folder-bg: #fffbf6;
     --launcher-folder-bg-strong: #ffedd5;
     --launcher-folder-border: rgba(249, 115, 22, 0.44);
     --launcher-folder-accent: #ea580c;
   }
 
-  .launcher-library-folder-panel[data-folder-tone="pink"] {
+  .launcher-library-folder-panel[data-folder-tone='pink'] {
     --launcher-folder-bg: #fff8fb;
     --launcher-folder-bg-strong: #fce7f3;
     --launcher-folder-border: rgba(236, 72, 153, 0.44);
     --launcher-folder-accent: #db2777;
   }
 
-  .launcher-library-folder-panel[data-folder-tone="indigo"] {
+  .launcher-library-folder-panel[data-folder-tone='indigo'] {
     --launcher-folder-bg: #f8f9ff;
     --launcher-folder-bg-strong: #e0e7ff;
     --launcher-folder-border: rgba(99, 102, 241, 0.44);
     --launcher-folder-accent: #4f46e5;
   }
 
-  .launcher-library-folder-panel[data-folder-tone="lime"] {
+  .launcher-library-folder-panel[data-folder-tone='lime'] {
     --launcher-folder-bg: #fcfff6;
     --launcher-folder-bg-strong: #ecfccb;
     --launcher-folder-border: rgba(132, 204, 22, 0.44);
     --launcher-folder-accent: #65a30d;
   }
 
-  .dark .launcher-library-folder-panel[data-folder-tone="blue"] {
+  .dark .launcher-library-folder-panel[data-folder-tone='blue'] {
     --launcher-folder-bg: #172554;
     --launcher-folder-bg-strong: #1e3a8a;
     --launcher-folder-border: rgba(96, 165, 250, 0.34);
     --launcher-folder-accent: #93c5fd;
   }
 
-  .dark .launcher-library-folder-panel[data-folder-tone="teal"] {
+  .dark .launcher-library-folder-panel[data-folder-tone='teal'] {
     --launcher-folder-bg: #134e4a;
     --launcher-folder-bg-strong: #115e59;
     --launcher-folder-border: rgba(45, 212, 191, 0.32);
     --launcher-folder-accent: #5eead4;
   }
 
-  .dark .launcher-library-folder-panel[data-folder-tone="amber"] {
+  .dark .launcher-library-folder-panel[data-folder-tone='amber'] {
     --launcher-folder-bg: #451a03;
     --launcher-folder-bg-strong: #78350f;
     --launcher-folder-border: rgba(251, 191, 36, 0.32);
     --launcher-folder-accent: #fcd34d;
   }
 
-  .dark .launcher-library-folder-panel[data-folder-tone="rose"] {
+  .dark .launcher-library-folder-panel[data-folder-tone='rose'] {
     --launcher-folder-bg: #4c0519;
     --launcher-folder-bg-strong: #881337;
     --launcher-folder-border: rgba(251, 113, 133, 0.32);
     --launcher-folder-accent: #fda4af;
   }
 
-  .dark .launcher-library-folder-panel[data-folder-tone="violet"] {
+  .dark .launcher-library-folder-panel[data-folder-tone='violet'] {
     --launcher-folder-bg: #2e1065;
     --launcher-folder-bg-strong: #4c1d95;
     --launcher-folder-border: rgba(167, 139, 250, 0.32);
     --launcher-folder-accent: #c4b5fd;
   }
 
-  .dark .launcher-library-folder-panel[data-folder-tone="slate"] {
+  .dark .launcher-library-folder-panel[data-folder-tone='slate'] {
     --launcher-folder-bg: #1e293b;
     --launcher-folder-bg-strong: #334155;
     --launcher-folder-border: rgba(148, 163, 184, 0.28);
     --launcher-folder-accent: #cbd5e1;
   }
 
-  .dark .launcher-library-folder-panel[data-folder-tone="green"] {
+  .dark .launcher-library-folder-panel[data-folder-tone='green'] {
     --launcher-folder-bg: #14532d;
     --launcher-folder-bg-strong: #166534;
     --launcher-folder-border: rgba(74, 222, 128, 0.32);
     --launcher-folder-accent: #86efac;
   }
 
-  .dark .launcher-library-folder-panel[data-folder-tone="cyan"] {
+  .dark .launcher-library-folder-panel[data-folder-tone='cyan'] {
     --launcher-folder-bg: #164e63;
     --launcher-folder-bg-strong: #155e75;
     --launcher-folder-border: rgba(34, 211, 238, 0.32);
     --launcher-folder-accent: #67e8f9;
   }
 
-  .dark .launcher-library-folder-panel[data-folder-tone="orange"] {
+  .dark .launcher-library-folder-panel[data-folder-tone='orange'] {
     --launcher-folder-bg: #7c2d12;
     --launcher-folder-bg-strong: #9a3412;
     --launcher-folder-border: rgba(251, 146, 60, 0.32);
     --launcher-folder-accent: #fdba74;
   }
 
-  .dark .launcher-library-folder-panel[data-folder-tone="pink"] {
+  .dark .launcher-library-folder-panel[data-folder-tone='pink'] {
     --launcher-folder-bg: #831843;
     --launcher-folder-bg-strong: #9d174d;
     --launcher-folder-border: rgba(244, 114, 182, 0.32);
     --launcher-folder-accent: #f9a8d4;
   }
 
-  .dark .launcher-library-folder-panel[data-folder-tone="indigo"] {
+  .dark .launcher-library-folder-panel[data-folder-tone='indigo'] {
     --launcher-folder-bg: #312e81;
     --launcher-folder-bg-strong: #3730a3;
     --launcher-folder-border: rgba(129, 140, 248, 0.32);
     --launcher-folder-accent: #a5b4fc;
   }
 
-  .dark .launcher-library-folder-panel[data-folder-tone="lime"] {
+  .dark .launcher-library-folder-panel[data-folder-tone='lime'] {
     --launcher-folder-bg: #3f6212;
     --launcher-folder-bg-strong: #4d7c0f;
     --launcher-folder-border: rgba(163, 230, 53, 0.32);
@@ -623,7 +623,7 @@
   }
 
   .launcher-library-folder-panel::before {
-    content: "";
+    content: '';
     position: absolute;
     inset: -10px;
     border-radius: 22px;
@@ -638,7 +638,7 @@
   }
 
   .launcher-library-folder-panel::after {
-    content: "";
+    content: '';
     position: absolute;
     inset: -10px;
     border-radius: 22px;

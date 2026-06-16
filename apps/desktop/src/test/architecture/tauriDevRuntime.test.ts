@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 describe('resolveTauriDevRuntime', () => {
   it('uses safe defaults when no overrides are provided', async () => {

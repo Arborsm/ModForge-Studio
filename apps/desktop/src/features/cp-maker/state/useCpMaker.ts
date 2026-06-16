@@ -71,6 +71,20 @@ function ensureUniquePatchIds(patches: DraftPatch[]): DraftPatch[] {
   })
 }
 
+function stringDraftField(value: unknown, fallback = ''): string {
+  if (typeof value === 'string') {
+    return value
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+  return fallback
+}
+
+function formatMapWarp(warp: Record<string, unknown>): string {
+  return ['fromX', 'fromY', 'toMap', 'toX', 'toY'].map((field) => stringDraftField(warp[field])).join(' ')
+}
+
 function parseChangeRegistry(serialized: Record<string, unknown>): DraftPatch[] {
   const patches = Array.isArray(serialized['patches']) ? serialized['patches'] : []
   const parsed = patches
@@ -78,11 +92,11 @@ function parseChangeRegistry(serialized: Record<string, unknown>): DraftPatch[] 
     .map((p) => {
       const rawTargetField = p['targetField']
       return {
-        id: String(p['id'] ?? ''),
-        workspace: String(p['workspace'] ?? 'map') as WorkspaceId,
-        target: String(p['target'] ?? ''),
-        action: String(p['action'] ?? 'EditData') as DraftPatch['action'],
-        logName: String(p['logName'] ?? ''),
+        id: stringDraftField(p['id']),
+        workspace: stringDraftField(p['workspace'], 'map') as WorkspaceId,
+        target: stringDraftField(p['target']),
+        action: stringDraftField(p['action'], 'EditData') as DraftPatch['action'],
+        logName: stringDraftField(p['logName']),
         enabled: typeof p['enabled'] === 'boolean' ? p['enabled'] : typeof p['enabled'] === 'string' ? p['enabled'] : true,
         updatedAt: typeof p['updatedAt'] === 'number' ? p['updatedAt'] : undefined,
         when:
@@ -472,14 +486,16 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
         } else if (patch.action === 'EditMap' && k === 'warps') {
           // Convert structured warps to CP's AddWarps string format
           if (Array.isArray(v)) {
-            change['AddWarps'] = v.map((w: Record<string, unknown>) => `${w['fromX']} ${w['fromY']} ${w['toMap']} ${w['toX']} ${w['toY']}`)
+            change['AddWarps'] = v
+              .filter((w): w is Record<string, unknown> => typeof w === 'object' && w !== null && !Array.isArray(w))
+              .map(formatMapWarp)
           }
         } else if (patch.action === 'EditMap' && k === 'npcWarps') {
           // Convert structured npc warps to CP's AddNpcWarps string format
           if (Array.isArray(v)) {
-            change['AddNpcWarps'] = v.map(
-              (w: Record<string, unknown>) => `${w['fromX']} ${w['fromY']} ${w['toMap']} ${w['toX']} ${w['toY']}`,
-            )
+            change['AddNpcWarps'] = v
+              .filter((w): w is Record<string, unknown> => typeof w === 'object' && w !== null && !Array.isArray(w))
+              .map(formatMapWarp)
           }
         } else if (patch.action === 'EditMap' && k === 'mapTiles') {
           // Convert structured map tiles to CP's MapTiles format

@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { describe, expect, test, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vite-plus/test'
 import { useEffect } from 'react'
 import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'

@@ -1189,7 +1189,7 @@ function LauncherDiscoverPageContent({
               issueSummary={discover.error ?? copy.discover.empty}
               tone="error"
               primaryAction={
-                <button type="button" className="control-button control-button-primary" onClick={() => void discover.refresh()}>
+                <button type="button" className="control-button control-button-primary" onClick={() => discover.refresh()}>
                   <RefreshCw className="h-4 w-4" />
                   <span>{copy.actions.refresh}</span>
                 </button>

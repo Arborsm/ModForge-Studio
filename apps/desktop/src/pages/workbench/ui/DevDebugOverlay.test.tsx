@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { getFileCacheStats } from '@shared/lib/desktop'
 import { DevDebugOverlay } from './DevDebugOverlay'
 

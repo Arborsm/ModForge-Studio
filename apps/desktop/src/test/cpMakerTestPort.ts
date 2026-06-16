@@ -1,4 +1,4 @@
-import { vi } from 'vitest'
+import { vi } from 'vite-plus/test'
 import type { CpMakerPort } from '@features/cp-maker/model/cpMakerPort'
 
 export function createMockCpMakerPort(overrides: Partial<CpMakerPort> = {}): CpMakerPort {

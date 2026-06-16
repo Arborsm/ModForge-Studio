@@ -99,7 +99,10 @@ async function runScenarioInteraction(page, scenario) {
       await page.getByRole('button', { name: /world/i }).click()
     })
     await measureInteraction(page, 'add-query-chip', async () => {
-      await page.getByRole('button', { name: /add condition/i }).first().click()
+      await page
+        .getByRole('button', { name: /add condition/i })
+        .first()
+        .click()
     })
     return
   }

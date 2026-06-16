@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { createAppEventBus } from './appEventBus'
 import { createCommandDispatcher } from './commandDispatcher'
 import type { AppCommand } from '@shared/contracts'

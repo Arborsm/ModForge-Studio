@@ -338,7 +338,7 @@ ipcMain.handle('modforge:open-dialog', async (_event, options?: OpenDialogOption
   return options?.multiple ? result.filePaths : (result.filePaths[0] ?? null)
 })
 
-app.whenReady().then(() => {
+void app.whenReady().then(() => {
   registerLocalFileProtocol()
   sidecarTransport.start()
   createMainWindow()

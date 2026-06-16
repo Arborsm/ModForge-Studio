@@ -1,6 +1,6 @@
 import { fireEvent, render, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
-import { vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vite-plus/test'
+import { vi } from 'vite-plus/test'
 import type { MapDocument } from '@shared/contracts'
 import type { ViewportLabels } from '@locales/api'
 import { MapViewport } from './MapViewport'

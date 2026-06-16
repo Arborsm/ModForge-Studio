@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { editorCopy } from '@locales/api'
 import { openLauncherUrl, type LauncherSettings } from '@features/launcher/api'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'

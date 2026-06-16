@@ -201,7 +201,7 @@
   }
 
   .launcher-config-dash-status::before {
-    content: "";
+    content: '';
     width: 6px;
     height: 6px;
     border-radius: 999px;
@@ -274,7 +274,7 @@
   }
 
   .launcher-config-progress i::after {
-    content: "";
+    content: '';
     position: absolute;
     top: -1px;
     bottom: -1px;
@@ -354,7 +354,7 @@
   }
 
   .launcher-config-api-row-resolved::before {
-    content: "";
+    content: '';
     position: absolute;
     inset: 0;
     z-index: 0;
@@ -492,7 +492,7 @@
   }
 
   .launcher-config-status-tag-ok::before {
-    content: "";
+    content: '';
     width: 5px;
     height: 5px;
     border-radius: 999px;

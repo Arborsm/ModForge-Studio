@@ -83,7 +83,7 @@
     inset: -30% 0;
     border-radius: inherit;
     background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent) 74%, var(--bg-panel)), transparent);
-    content: "";
+    content: '';
     animation: launcher-mod-detail-loading-bar 960ms ease-in-out infinite;
   }
 
@@ -390,7 +390,7 @@
     margin-right: 6px;
     border-radius: 999px;
     background: var(--success);
-    content: "";
+    content: '';
   }
 
   .launcher-mod-detail-version-state.is-off {
@@ -529,7 +529,7 @@
     height: 14px;
     border-radius: 999px;
     background: radial-gradient(circle at 17px 7px, #fff 0 4px, transparent 4.5px), var(--success);
-    content: "";
+    content: '';
   }
 
   .launcher-mod-detail-switch.is-off {

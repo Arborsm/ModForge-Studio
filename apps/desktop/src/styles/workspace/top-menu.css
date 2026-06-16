@@ -14,7 +14,7 @@
   .top-menu-bar input,
   .top-menu-bar select,
   .top-menu-bar textarea,
-  .top-menu-bar [role="button"],
+  .top-menu-bar [role='button'],
   .top-menu-bar .pointer-events-auto {
     -webkit-app-region: no-drag;
   }
@@ -104,7 +104,7 @@
       color 160ms ease;
   }
 
-  .top-menu-module-button[data-active="true"] {
+  .top-menu-module-button[data-active='true'] {
     border-color: color-mix(in srgb, var(--accent) 40%, var(--border-color));
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
   }

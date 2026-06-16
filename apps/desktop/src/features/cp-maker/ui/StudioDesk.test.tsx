@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import type { ComponentProps } from 'react'
-import { describe, expect, test, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vite-plus/test'
 import type { StudioDeskModel } from '../model/studioDeskModel'
 import { formatStudioTimestamp } from '@features/cp-maker'
 import type { EditorCopy } from '@locales'

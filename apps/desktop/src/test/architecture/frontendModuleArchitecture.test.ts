@@ -1,6 +1,6 @@
 import { access, readdir, readFile } from 'node:fs/promises'
 import { dirname, relative, resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 function sourcePath(...segments: string[]) {
   return resolve(process.cwd(), ...segments)
@@ -22,10 +22,10 @@ async function collectSourceFiles(rootPath: string): Promise<string[]> {
         }
 
         if (entry.isFile() && /\.(ts|tsx)$/.test(entry.name)) {
-          return [entryPath]
+          return Promise.resolve([entryPath])
         }
 
-        return []
+        return Promise.resolve([])
       }),
     )
 
@@ -47,10 +47,10 @@ async function collectFiles(rootPath: string, pattern: RegExp): Promise<string[]
         }
 
         if (entry.isFile() && pattern.test(entry.name)) {
-          return [entryPath]
+          return Promise.resolve([entryPath])
         }
 
-        return []
+        return Promise.resolve([])
       }),
     )
 
@@ -292,16 +292,17 @@ describe('frontend module architecture', () => {
     expect(launcherLibraryPage).not.toContain('MeasuringStrategy.Always')
   })
 
-  it('keeps new layer path aliases synchronized across TypeScript, Vite, and Vitest', async () => {
+  it('keeps new layer path aliases synchronized across TypeScript and Vite+', async () => {
     const tsconfig = await readFile(sourcePath('tsconfig.app.json'), 'utf8')
     const viteConfig = await readFile(sourcePath('vite.config.ts'), 'utf8')
-    const vitestConfig = await readFile(sourcePath('vitest.config.ts'), 'utf8')
 
-    for (const alias of ['@app', '@pages', '@widgets', '@entities', '@shared']) {
+    for (const alias of ['@app', '@pages', '@widgets', '@entities', '@shared', '@test']) {
       expect(tsconfig).toContain(`"${alias}/*"`)
       expect(viteConfig).toContain(`'${alias}'`)
-      expect(vitestConfig).toContain(`'${alias}'`)
     }
+
+    expect(viteConfig).toContain("environment: 'jsdom'")
+    expect(viteConfig).toContain("setupFiles: ['./src/test/setup.ts']")
   })
 
   it('blocks raw invoke calls from business layers', async () => {

@@ -9,8 +9,8 @@ const require = createRequire(import.meta.url)
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const desktopRoot = path.resolve(__dirname, '..')
-const vitePackageJson = require.resolve('vite/package.json', { paths: [desktopRoot] })
-const viteCliEntry = path.join(path.dirname(vitePackageJson), 'bin', 'vite.js')
+const vitePlusPackageJson = require.resolve('vite-plus/package.json', { paths: [desktopRoot] })
+const vitePlusCliEntry = path.join(path.dirname(vitePlusPackageJson), 'bin', 'vp')
 
 function runStep(command, args) {
   const result = spawnSync(command, args, {
@@ -89,7 +89,7 @@ runStep(process.execPath, ['scripts/build-electron-main.mjs'])
 
 const runtime = await resolveTauriDevRuntime(process.env)
 const devUrl = runtime.configOverride.build.devUrl
-const vite = spawn(process.execPath, [viteCliEntry, '--configLoader', 'runner'], {
+const vite = spawn(process.execPath, [vitePlusCliEntry, 'dev', '--configLoader', 'runner'], {
   cwd: desktopRoot,
   env: runtime.env,
   stdio: 'inherit',
