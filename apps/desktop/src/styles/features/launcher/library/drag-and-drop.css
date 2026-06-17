@@ -64,11 +64,17 @@
     padding: 12px 20px 20px;
   }
 
+  .launcher-library-box-select-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    pointer-events: none;
+  }
+
   .launcher-library-box-select {
     position: absolute;
     top: 0;
     left: 0;
-    z-index: 6;
     width: 0;
     height: 0;
     pointer-events: none;

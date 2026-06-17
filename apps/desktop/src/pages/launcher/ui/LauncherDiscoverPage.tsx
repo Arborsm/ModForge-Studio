@@ -4,6 +4,7 @@ import { type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEf
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
+import { LoadingMotionFallback, LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import type { LauncherSettings } from '@features/launcher/api'
 import { canUseDesktopHost } from '@shared/lib/desktop'
 import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarState } from '@features/launcher'
@@ -600,9 +601,12 @@ export function LauncherDiscoverPage({ onQueueDownload, onNavigateToDiagnostics,
     }
   }, [desktopHost])
 
+  if (!launcherUiStateReady) {
+    return <LoadingMotionFallback className="launcher-discover-boot-fallback" />
+  }
+
   return (
     <LauncherDiscoverPageContent
-      key={launcherUiStateReady ? 'discover:ready' : 'discover:boot'}
       onQueueDownload={onQueueDownload}
       onNavigateToDiagnostics={onNavigateToDiagnostics}
       onRetryDiagnostics={onRetryDiagnostics}
@@ -673,6 +677,30 @@ function LauncherDiscoverPageContent({
   const popularTags = discover.facets.tags
   const loadingDescription =
     discover.page > 1 || discover.items.length ? copy.discover.loadingPage(discover.page) : copy.discover.loadingResults
+  const resultsRevealKey = [
+    discover.query,
+    discover.sort,
+    discover.ascending ? 'asc' : 'desc',
+    discover.timeRange,
+    discover.page,
+    discover.pageSize,
+    discover.filters.titleQuery,
+    discover.filters.descriptionQuery,
+    discover.filters.authorQuery,
+    discover.filters.uploaderQuery,
+    discover.filters.category,
+    discover.filters.language,
+    discover.filters.tagsInclude,
+    discover.filters.tagsExclude,
+    discover.filters.includeAdult ? 'adult' : 'standard',
+    discover.filters.minFileSize,
+    discover.filters.maxFileSize,
+    discover.filters.minDownloads,
+    discover.filters.maxDownloads,
+    discover.filters.minEndorsements,
+    discover.filters.maxEndorsements,
+    discover.items.map((item) => `${item.modId}:${item.modUrl}`).join('|'),
+  ].join('\u0000')
 
   useEffect(() => {
     if (discover.state === 'loading') {
@@ -807,7 +835,7 @@ function LauncherDiscoverPageContent({
 
   return (
     <section className="launcher-discover-page">
-      <header className="launcher-discover-console panel-surface">
+      <LoadingMotionReveal itemId="launcher-discover-console" index={0} as="header" className="launcher-discover-console panel-surface">
         <div className="launcher-discover-console-top">
           <div className="launcher-discover-console-heading">
             <div className="launcher-discover-console-title-row">
@@ -902,9 +930,13 @@ function LauncherDiscoverPageContent({
             </div>
           </div>
         </div>
-      </header>
+      </LoadingMotionReveal>
 
-      <div className={cx('launcher-discover-shell', effectiveFiltersHidden && 'launcher-discover-shell-filters-hidden')}>
+      <LoadingMotionReveal
+        itemId="launcher-discover-shell"
+        index={1}
+        className={cx('launcher-discover-shell', effectiveFiltersHidden && 'launcher-discover-shell-filters-hidden')}
+      >
         {!effectiveFiltersHidden ? (
           <aside
             className={cx(
@@ -1213,22 +1245,28 @@ function LauncherDiscoverPageContent({
                 onWheelCapture={discover.state === 'loading' ? (event) => event.preventDefault() : undefined}
               >
                 <div className="launcher-discover-wall-shell">
-                  <div className="launcher-discover-wall">
-                    {discover.items.map((item) => (
-                      <LauncherDiscoverCard
+                  <div key={resultsRevealKey} className="launcher-discover-wall">
+                    {discover.items.map((item, index) => (
+                      <LoadingMotionRevealItem
                         key={`${item.modId}:${item.modUrl}`}
-                        item={item}
-                        onOpenDetails={() => setDetailItem(item)}
-                        onQueueDownload={() =>
-                          onQueueDownload({
-                            modId: item.modId,
-                            title: item.title,
-                            imageUrl: item.imageUrl,
-                            version: null,
-                            source: 'discover',
-                          })
-                        }
-                      />
+                        index={Math.floor(index / 4) + 1}
+                        as="div"
+                        className="launcher-discover-wall-reveal"
+                      >
+                        <LauncherDiscoverCard
+                          item={item}
+                          onOpenDetails={() => setDetailItem(item)}
+                          onQueueDownload={() =>
+                            onQueueDownload({
+                              modId: item.modId,
+                              title: item.title,
+                              imageUrl: item.imageUrl,
+                              version: null,
+                              source: 'discover',
+                            })
+                          }
+                        />
+                      </LoadingMotionRevealItem>
                     ))}
                   </div>
                   {discover.state === 'loading' ? (
@@ -1330,7 +1368,7 @@ function LauncherDiscoverPageContent({
             />
           ) : null}
         </div>
-      </div>
+      </LoadingMotionReveal>
     </section>
   )
 }

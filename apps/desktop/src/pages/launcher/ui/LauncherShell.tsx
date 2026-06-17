@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import type { LauncherPage } from '@locales/api'
 import type { LauncherNexusDiagnosticsResult } from '@shared/contracts'
 import { LoadingMotionFallback } from '@shared/ui/loading-motion'
@@ -13,6 +13,8 @@ const LauncherUpdatesPage = lazy(() => import('./LauncherUpdatesPage').then((mod
 const LauncherConfigurationPage = lazy(() =>
   import('./LauncherConfigurationPage').then((module) => ({ default: module.LauncherConfigurationPage })),
 )
+
+const INITIAL_CACHED_PAGES = new Set<LauncherPage>(['library'])
 
 type LauncherShellProps = {
   page: LauncherPage
@@ -51,12 +53,55 @@ export default function LauncherShell({
 }: LauncherShellProps) {
   const activePage = page
   const library = useLauncherLibrary(settingsState.settings)
+  const cachedPagesRef = useRef<Set<LauncherPage>>(new Set([...INITIAL_CACHED_PAGES, activePage]))
+  const [enteringPage, setEnteringPage] = useState<LauncherPage | null>(activePage)
+  const [enterSequence, setEnterSequence] = useState(0)
+  if (!cachedPagesRef.current.has(activePage)) {
+    cachedPagesRef.current.add(activePage)
+  }
 
+  useEffect(() => {
+    setEnteringPage(null)
+    const scheduleFrame =
+      typeof window.requestAnimationFrame === 'function'
+        ? window.requestAnimationFrame.bind(window)
+        : (callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), 0)
+    const cancelFrame =
+      typeof window.cancelAnimationFrame === 'function'
+        ? window.cancelAnimationFrame.bind(window)
+        : (handle: number) => window.clearTimeout(handle)
+    const frameId = scheduleFrame(() => {
+      setEnteringPage(activePage)
+      setEnterSequence((current) => current + 1)
+    })
+
+    return () => cancelFrame(frameId)
+  }, [activePage])
+
+  const getRouteProps = (route: LauncherPage) => {
+    const active = activePage === route
+    const entering = active && enteringPage === route
+
+    return {
+      hidden: !active,
+      className: cx('launcher-shell-route', active && 'launcher-shell-route-active', entering && 'launcher-shell-route-enter'),
+      'data-launcher-route': route,
+      'data-launcher-route-enter': entering ? enterSequence : undefined,
+    }
+  }
+  const shouldRenderRoute = (route: LauncherPage) => cachedPagesRef.current.has(route)
+
+  const libraryRouteEnterSequenceRef = useRef(0)
+  if (activePage === 'library' && enterSequence > 0) {
+    libraryRouteEnterSequenceRef.current = enterSequence
+  }
+  const libraryRouteEnterSequence = libraryRouteEnterSequenceRef.current
   const libraryPage = useMemo(
     () => (
       <LauncherLibraryPageContent
         settings={settingsState.settings}
         library={library}
+        routeEnterSequence={libraryRouteEnterSequence}
         launchGameLabel={launchGameLabel}
         launchGameDisabled={launchGameDisabled}
         launchGameBusy={launchGameBusy}
@@ -82,20 +127,12 @@ export default function LauncherShell({
   return (
     <section className="launcher-shell launcher-shell-routed">
       <div className="launcher-shell-content">
-        <div
-          key="library"
-          hidden={activePage !== 'library'}
-          className={cx('launcher-shell-route', activePage === 'library' && 'launcher-shell-route-active')}
-        >
+        <div key="library" {...getRouteProps('library')}>
           {libraryPage}
         </div>
-        <div
-          key="discover"
-          hidden={activePage !== 'discover'}
-          className={cx('launcher-shell-route', activePage === 'discover' && 'launcher-shell-route-active')}
-        >
-          <Suspense fallback={<LoadingMotionFallback />}>
-            {activePage === 'discover' ? (
+        <div key="discover" {...getRouteProps('discover')}>
+          {shouldRenderRoute('discover') ? (
+            <Suspense fallback={<LoadingMotionFallback />}>
               <LauncherDiscoverPage
                 settings={settingsState.settings}
                 onQueueDownload={downloads.queueDownload}
@@ -103,16 +140,12 @@ export default function LauncherShell({
                 onRetryDiagnostics={onRetryDiagnostics}
                 onNavigateToSettings={onNavigateToSettings}
               />
-            ) : null}
-          </Suspense>
+            </Suspense>
+          ) : null}
         </div>
-        <div
-          key="updates"
-          hidden={activePage !== 'updates'}
-          className={cx('launcher-shell-route', activePage === 'updates' && 'launcher-shell-route-active')}
-        >
-          <Suspense fallback={<LoadingMotionFallback />}>
-            {activePage === 'updates' ? (
+        <div key="updates" {...getRouteProps('updates')}>
+          {shouldRenderRoute('updates') ? (
+            <Suspense fallback={<LoadingMotionFallback />}>
               <LauncherUpdatesPage
                 settings={settingsState.settings}
                 onQueueDownload={downloads.queueDownload}
@@ -121,16 +154,12 @@ export default function LauncherShell({
                 onRetryDiagnostics={onRetryDiagnostics}
                 onNavigateToSettings={onNavigateToSettings}
               />
-            ) : null}
-          </Suspense>
+            </Suspense>
+          ) : null}
         </div>
-        <div
-          key="configuration"
-          hidden={activePage !== 'configuration'}
-          className={cx('launcher-shell-route', activePage === 'configuration' && 'launcher-shell-route-active')}
-        >
-          <Suspense fallback={<LoadingMotionFallback />}>
-            {activePage === 'configuration' ? (
+        <div key="configuration" {...getRouteProps('configuration')}>
+          {shouldRenderRoute('configuration') ? (
+            <Suspense fallback={<LoadingMotionFallback />}>
               <LauncherConfigurationPage
                 debugEnabled={debugEnabled}
                 onToggleDebugMode={onToggleDebugMode}
@@ -138,8 +167,8 @@ export default function LauncherShell({
                 settingsState={settingsState}
                 downloads={downloads}
               />
-            ) : null}
-          </Suspense>
+            </Suspense>
+          ) : null}
         </div>
       </div>
     </section>

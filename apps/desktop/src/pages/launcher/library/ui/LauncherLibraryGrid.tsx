@@ -87,6 +87,7 @@ export type VirtualizedLauncherGridProps = {
   latestVersionByModId?: Record<number, string>
   enableBoxSelection?: boolean
   enableRevealMotion?: boolean
+  routeEnterSequence?: number
   editMode: boolean
   editingSelectionIds: string[]
   boxSelectionIds: string[]
@@ -122,6 +123,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   latestVersionByModId = {},
   enableBoxSelection = true,
   enableRevealMotion = true,
+  routeEnterSequence = 0,
   editMode,
   editingSelectionIds,
   boxSelectionIds,
@@ -163,31 +165,31 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
     clampLibraryRevealBatchSize(FALLBACK_LIBRARY_REVEAL_BATCH_SIZE, items.length),
   )
   const [hasPlayedInitialReveal, setHasPlayedInitialReveal] = useState(false)
-  const [viewportScrollTop, setViewportScrollTop] = useState(0)
-  const [viewportScrollLeft, setViewportScrollLeft] = useState(0)
+  const [activeRevealSequence, setActiveRevealSequence] = useState(routeEnterSequence > 0 ? routeEnterSequence : 0)
   const [isBoxSelecting, setIsBoxSelecting] = useState(false)
   const setViewportNode = useCallback((node: HTMLDivElement | null) => {
     viewportRef.current = node
     setViewportElement((current) => (current === node ? current : node))
   }, [])
+  const originFolderId = getLauncherFolderIdFromBlankDropId(blankDropId)
+  const isFolderGrid = originFolderId !== null
   useEffect(() => {
-    const viewport = viewportRef.current
-    if (!viewport) return
-    const syncScroll = () => {
-      setViewportScrollTop(viewport.scrollTop)
-      setViewportScrollLeft(viewport.scrollLeft)
+    if (!enableRevealMotion || isFolderGrid) {
+      return
     }
-    syncScroll()
-    viewport.addEventListener('scroll', syncScroll, { passive: true })
-    return () => viewport.removeEventListener('scroll', syncScroll)
-  }, [viewportElement])
+
+    setHasPlayedInitialReveal(false)
+    if (routeEnterSequence > 0) {
+      setActiveRevealSequence(routeEnterSequence)
+    }
+    const timeoutId = window.setTimeout(() => setHasPlayedInitialReveal(true), 900)
+    return () => window.clearTimeout(timeoutId)
+  }, [enableRevealMotion, isFolderGrid, routeEnterSequence])
   const selectedIdLookup = useMemo(
     () => new Set(childModSelectionMode ? childModSelectionIds : editMode ? editingSelectionIds : boxSelectionIds),
     [boxSelectionIds, childModSelectionIds, childModSelectionMode, editMode, editingSelectionIds],
   )
   const boxSelectionIdLookup = useMemo(() => new Set(boxSelectionIds), [boxSelectionIds])
-  const originFolderId = getLauncherFolderIdFromBlankDropId(blankDropId)
-  const isFolderGrid = originFolderId !== null
   const shouldRevealItems = enableRevealMotion && (isFolderGrid || !hasPlayedInitialReveal)
   const cardMinWidth = LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX
   const [estimatedRowHeight, setEstimatedRowHeight] = useState(LAUNCHER_LIBRARY_CARD_FALLBACK_ESTIMATED_HEIGHT_PX)
@@ -465,14 +467,6 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
 
   const toggleCardSelection = childModSelectionMode ? onToggleChildModSelection : onToggleSelection
 
-  useEffect(() => {
-    if (!enableRevealMotion || isFolderGrid || hasPlayedInitialReveal) {
-      return
-    }
-    const timeoutId = window.setTimeout(() => setHasPlayedInitialReveal(true), 900)
-    return () => window.clearTimeout(timeoutId)
-  }, [enableRevealMotion, hasPlayedInitialReveal, isFolderGrid])
-
   return (
     <div
       ref={setViewportNode}
@@ -483,13 +477,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       )}
       data-launcher-blank-drop-id={blankDropId}
     >
-      <div
-        style={{
-          position: 'relative',
-          zIndex: 7,
-          transform: `translate(${viewportScrollLeft}px, ${viewportScrollTop}px)`,
-        }}
-      >
+      <div className="launcher-library-box-select-layer" data-launcher-box-select-layer="viewport">
         <DragSelection />
       </div>
       <div
@@ -531,6 +519,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
                   boxSelectionIdLookup={boxSelectionIdLookup}
                   originFolderId={originFolderId}
                   shouldRevealItems={shouldRevealItems}
+                  revealSequence={activeRevealSequence}
                   revealBatchSize={revealBatchSize}
                   estimatedRowHeight={estimatedRowHeight}
                   childCountLabel={childCountLabel}
@@ -600,6 +589,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
   boxSelectionIdLookup,
   originFolderId,
   shouldRevealItems,
+  revealSequence,
   revealBatchSize,
   estimatedRowHeight,
   childCountLabel,
@@ -634,6 +624,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
   boxSelectionIdLookup: Set<string>
   originFolderId: string | null
   shouldRevealItems: boolean
+  revealSequence: number
   revealBatchSize: number
   estimatedRowHeight: number
   childCountLabel: (count: number) => string
@@ -666,7 +657,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
             <Fragment key={`folder-group-${displayItem.folder.id}`}>
               {!folderOpen && shouldRevealItems ? (
                 <LoadingMotionRevealItem
-                  key={`folder-${displayItem.folder.id}`}
+                  key={`folder-${displayItem.folder.id}:${revealSequence}`}
                   index={Math.floor(index / revealBatchSize) + 3}
                   className="launcher-library-grid-reveal"
                   style={{ gridColumnStart: columnStart + 1, gridRowStart: blockRelativeRowStart + 1 }}
@@ -784,7 +775,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
         }
         return (
           <LoadingMotionRevealItem
-            key={`${displayItem.kind}-${item.id}`}
+            key={`${displayItem.kind}-${item.id}:${revealSequence}`}
             index={Math.floor(index / revealBatchSize) + 3}
             className="launcher-library-grid-reveal"
             style={{ gridColumnStart: columnStart + 1, gridRowStart: blockRelativeRowStart + 1 }}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import {
   DndContext,
   DragOverlay,
@@ -110,7 +111,7 @@ function LauncherPendingDragPreview({ drag }: { drag: LauncherDndKitActiveDrag }
   const left = drag.sourceRect.left + drag.latestX - drag.startX
   const top = drag.sourceRect.top + drag.latestY - drag.startY
 
-  return (
+  const preview = (
     <div
       className="launcher-library-pending-drag-preview-layer"
       style={{
@@ -120,6 +121,7 @@ function LauncherPendingDragPreview({ drag }: { drag: LauncherDndKitActiveDrag }
       <LauncherDragPreview source={drag.source} count={drag.modIds.length} pending={!drag.started} />
     </div>
   )
+  return typeof document === 'undefined' ? null : createPortal(preview, document.body)
 }
 
 function getLauncherDndTargetKind(dropId: string) {
@@ -136,13 +138,14 @@ function getLauncherDndTargetKind(dropId: string) {
 }
 
 function LauncherDndKitDropTargetLayer({ targets, activeDropId }: { targets: LauncherDndKitDropTarget[]; activeDropId: string | null }) {
-  return (
+  const layer = (
     <div className="launcher-library-dnd-target-layer" aria-hidden="true">
       {targets.map((target) => (
         <LauncherDndKitDropTargetBox key={target.dropId} target={target} active={target.dropId === activeDropId} />
       ))}
     </div>
   )
+  return typeof document === 'undefined' ? null : createPortal(layer, document.body)
 }
 
 function LauncherDndKitDropTargetBox({ target, active }: { target: LauncherDndKitDropTarget; active: boolean }) {

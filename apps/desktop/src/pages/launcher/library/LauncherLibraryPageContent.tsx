@@ -17,6 +17,7 @@ export type LauncherLibraryPageProps = {
   launchGameLabel: string
   launchGameDisabled: boolean
   launchGameBusy: boolean
+  routeEnterSequence?: number
   onLaunchGame: () => void
   onQueueDownload?: (input: QueueLauncherDownloadInput) => void
   downloadInstallRequest?: { id: number; archivePaths: string[] } | null
@@ -33,6 +34,7 @@ export function LauncherLibraryPageContent({
   launchGameLabel,
   launchGameDisabled,
   launchGameBusy,
+  routeEnterSequence = 0,
   onLaunchGame,
   onQueueDownload,
   downloadInstallRequest,
@@ -171,6 +173,7 @@ export function LauncherLibraryPageContent({
       >
         <section className="launcher-library-page">
           <LauncherLibraryHeader
+            key={`launcher-library-header:${routeEnterSequence}`}
             editMode={editMode}
             childModSelectionMode={Boolean(childModSelection)}
             childModSelectionParentName={childModSelection?.parentMod.name ?? null}
@@ -312,6 +315,7 @@ export function LauncherLibraryPageContent({
                     items={visibleDisplayItems}
                     latestVersionByModId={library.latestVersionByModId}
                     openFolderItemsById={openLibraryFolderItemsById}
+                    routeEnterSequence={routeEnterSequence}
                     editMode={editMode}
                     editingSelectionIds={editingSelectionIds}
                     boxSelectionIds={boxSelectionIds}

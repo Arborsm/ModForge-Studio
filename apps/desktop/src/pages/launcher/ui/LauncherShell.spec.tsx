@@ -1,5 +1,5 @@
-import { cleanup, screen, waitFor, within } from '@testing-library/react'
-import { useRef } from 'react'
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { useRef, useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import LauncherShell from './LauncherShell'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
@@ -7,11 +7,16 @@ import { renderWithLocale } from '@test/renderWithLocale.tsx'
 const configurationPageSpy = vi.fn()
 const libraryRefreshMock = vi.fn(async () => {})
 let libraryPageInstanceCounter = 0
+let discoverPageInstanceCounter = 0
 
 vi.mock('./LauncherLibraryPage', () => ({
-  LauncherLibraryPageContent: ({ launchGameLabel }: { launchGameLabel: string }) => {
+  LauncherLibraryPageContent: ({ launchGameLabel, routeEnterSequence }: { launchGameLabel: string; routeEnterSequence?: number }) => {
     const instanceId = useRef(++libraryPageInstanceCounter)
-    return <div data-loading-section="launcher-library-test">{`library-page:${launchGameLabel}:${instanceId.current}`}</div>
+    return (
+      <div data-loading-section="launcher-library-test" data-library-route-enter={routeEnterSequence ?? 0}>
+        {`library-page:${launchGameLabel}:${instanceId.current}`}
+      </div>
+    )
   },
 }))
 
@@ -67,7 +72,10 @@ vi.mock('@features/launcher/model/useLauncherLibrary', () => ({
 }))
 
 vi.mock('./LauncherDiscoverPage', () => ({
-  LauncherDiscoverPage: () => <div>discover-page</div>,
+  LauncherDiscoverPage: () => {
+    const instanceId = useRef(++discoverPageInstanceCounter)
+    return <div>{`discover-page:${instanceId.current}`}</div>
+  },
 }))
 
 vi.mock('./LauncherUpdatesPage', () => ({
@@ -138,6 +146,7 @@ describe('LauncherShell', () => {
     configurationPageSpy.mockReset()
     libraryRefreshMock.mockClear()
     libraryPageInstanceCounter = 0
+    discoverPageInstanceCounter = 0
   })
 
   it('routes the library page without rendering an in-page launcher navigation rail', () => {
@@ -176,10 +185,14 @@ describe('LauncherShell', () => {
       />,
     )
 
-    expect(await screen.findByText('discover-page')).toBeTruthy()
+    expect(await screen.findByText(/^discover-page:/)).toBeTruthy()
     const activeRoute = container.querySelector('.launcher-shell-route.launcher-shell-route-active')
     expect(activeRoute).toBeTruthy()
-    expect(activeRoute?.textContent).toContain('discover-page')
+    expect(activeRoute?.textContent).toContain('discover-page:')
+    expect(activeRoute?.getAttribute('data-launcher-route')).toBe('discover')
+    await waitFor(() => {
+      expect(activeRoute?.getAttribute('data-launcher-route-enter')).toBeTruthy()
+    })
   })
 
   it('keeps the library page content rendered when switching away from it', async () => {
@@ -215,8 +228,105 @@ describe('LauncherShell', () => {
       />,
     )
 
-    expect(await screen.findByText('discover-page')).toBeTruthy()
+    expect(await screen.findByText(/^discover-page:/)).toBeTruthy()
     expect(screen.getByText(/^library-page:Launch Game:/)).toBeTruthy()
+  })
+
+  it('replays the library route enter token without remounting cached content', async () => {
+    function LauncherShellHarness() {
+      const [page, setPage] = useState<'library' | 'discover'>('library')
+      return (
+        <>
+          <button type="button" onClick={() => setPage('library')}>
+            show library
+          </button>
+          <button type="button" onClick={() => setPage('discover')}>
+            show discover
+          </button>
+          <LauncherShell
+            page={page}
+            debugEnabled={false}
+            settingsState={settingsState as never}
+            downloads={downloads as never}
+            onToggleDebugMode={vi.fn()}
+            onNavigateToSettings={vi.fn()}
+            launchGameLabel="Launch Game"
+            launchGameDisabled={false}
+            launchGameBusy={false}
+            onLaunchGame={vi.fn()}
+          />
+        </>
+      )
+    }
+
+    renderWithLocale(<LauncherShellHarness />)
+
+    const libraryPage = screen.getByText('library-page:Launch Game:1')
+    await waitFor(() => {
+      expect(libraryPage.getAttribute('data-library-route-enter')).toBeTruthy()
+    })
+    const firstEnterToken = libraryPage.getAttribute('data-library-route-enter')
+
+    fireEvent.click(screen.getByRole('button', { name: 'show discover' }))
+    expect(await screen.findByText(/^discover-page:/)).toBeTruthy()
+    expect(screen.getByText('library-page:Launch Game:1')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'show library' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('library-page:Launch Game:1').getAttribute('data-library-route-enter')).not.toBe(firstEnterToken)
+    })
+    expect(screen.getAllByText(/^library-page:/)).toHaveLength(1)
+  })
+
+  it('keeps the discover page mounted after it has been visited', async () => {
+    function LauncherShellHarness() {
+      const [page, setPage] = useState<'library' | 'discover'>('discover')
+      return (
+        <>
+          <button type="button" onClick={() => setPage('library')}>
+            show library
+          </button>
+          <button type="button" onClick={() => setPage('discover')}>
+            show discover
+          </button>
+          <LauncherShell
+            page={page}
+            debugEnabled={false}
+            settingsState={settingsState as never}
+            downloads={downloads as never}
+            onToggleDebugMode={vi.fn()}
+            onNavigateToSettings={vi.fn()}
+            launchGameLabel="Launch Game"
+            launchGameDisabled={false}
+            launchGameBusy={false}
+            onLaunchGame={vi.fn()}
+          />
+        </>
+      )
+    }
+    const { container } = renderWithLocale(<LauncherShellHarness />)
+
+    const discoverPage = await screen.findByText(/^discover-page:/)
+    const discoverPageText = discoverPage.textContent
+    await waitFor(() => {
+      expect(container.querySelector('[data-launcher-route="discover"]')?.getAttribute('data-launcher-route-enter')).toBeTruthy()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'show library' }))
+
+    expect(screen.getByText(discoverPageText ?? '')).toBeTruthy()
+    expect(screen.getByText(/^library-page:Launch Game:/)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'show discover' }))
+
+    expect(await screen.findByText(discoverPageText ?? '')).toBeTruthy()
+    expect(screen.getAllByText(/^discover-page:/)).toHaveLength(1)
+    const discoverRoute = container.querySelector('[data-launcher-route="discover"]')
+    expect(discoverRoute).toHaveClass('launcher-shell-route-active')
+    await waitFor(() => {
+      expect(discoverRoute?.getAttribute('data-launcher-route-enter')).toBeTruthy()
+    })
   })
 
   it('routes the updates page', async () => {

@@ -1783,6 +1783,9 @@ describe('LauncherLibraryPage', () => {
       })
 
       await screen.findByTestId('launcher-library-box-select')
+      const selectionLayer = document.querySelector<HTMLElement>('[data-launcher-box-select-layer="viewport"]')
+      expect(selectionLayer).not.toBeNull()
+      expect(selectionLayer?.style.transform).toBe('')
       await waitFor(() => {
         expect(wrapper).toHaveClass('launcher-library-draggable-card-box-selected')
       })
@@ -1793,6 +1796,42 @@ describe('LauncherLibraryPage', () => {
     } finally {
       boundsSpy.mockRestore()
     }
+  })
+
+  it('replays library grid reveal when the cached route is activated again', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    const { rerender } = renderLibraryPage({ routeEnterSequence: 1 })
+
+    const firstCardWrapper = (await screen.findByRole('article', { name: /npc adventures/i })).closest(
+      '[data-launcher-mod-card-id]',
+    ) as HTMLElement
+    const initialRevealWrapper = firstCardWrapper.closest('.launcher-library-grid-reveal') as HTMLElement
+    expect(initialRevealWrapper).toHaveClass('loading-motion-child-reveal')
+
+    rerender(
+      <LauncherTestWrapper port={launcherPort}>
+        <LocaleProvider locale="en-US">
+          <LauncherLibraryPage
+            settings={createSettings()}
+            launchGameLabel="Launch Game"
+            launchGameDisabled={false}
+            launchGameBusy={false}
+            routeEnterSequence={2}
+            onLaunchGame={vi.fn()}
+          />
+        </LocaleProvider>
+      </LauncherTestWrapper>,
+    )
+
+    const replayedCardWrapper = screen
+      .getByRole('article', { name: /npc adventures/i })
+      .closest('[data-launcher-mod-card-id]') as HTMLElement
+    const replayedRevealWrapper = replayedCardWrapper.closest('.launcher-library-grid-reveal') as HTMLElement
+    expect(replayedRevealWrapper).toHaveClass('loading-motion-child-reveal')
+    expect(replayedRevealWrapper).not.toBe(initialRevealWrapper)
+    expect(document.querySelector('.launcher-library-virtual-grid')).toBeTruthy()
   })
 
   it('shows a lifted drag preview while a library card is being dragged', () => {
@@ -1903,6 +1942,60 @@ describe('LauncherLibraryPage', () => {
       })
     } finally {
       boundsSpy.mockRestore()
+    }
+  })
+
+  it('renders drag target boxes in the body viewport layer so shell transforms cannot offset them', async () => {
+    const library = {
+      ...createLibraryState(),
+      libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+    const sourceMod = card.closest('[data-launcher-mod-card-id]') as HTMLElement
+    const folder = screen.getByRole('button', { name: 'Open folder Visuals' }).closest('[data-launcher-folder-drop-id]') as HTMLElement
+    const blank = card.closest('[data-launcher-blank-drop-id]') as HTMLElement
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this === blank) {
+        return { width: 760, height: 540, top: 80, left: 80, bottom: 620, right: 840, x: 80, y: 80, toJSON: () => ({}) }
+      }
+      if (this === folder) {
+        return { width: 220, height: 180, top: 120, left: 120, bottom: 300, right: 340, x: 120, y: 120, toJSON: () => ({}) }
+      }
+      if (this === sourceMod || this === card) {
+        return { width: 220, height: 180, top: 340, left: 120, bottom: 520, right: 340, x: 120, y: 340, toJSON: () => ({}) }
+      }
+      return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
+    })
+
+    try {
+      pointerDragDown(card, 160, 380)
+      act(() => {
+        pointerDragMove(window, 168, 388)
+      })
+      await screen.findByTestId('launcher-library-drag-preview')
+
+      const targetLayer = document.body.querySelector<HTMLElement>('.launcher-library-dnd-target-layer')
+      expect(targetLayer).not.toBeNull()
+      expect(targetLayer?.parentElement).toBe(document.body)
+      const folderTarget = document.body.querySelector<HTMLElement>('[data-launcher-dnd-target-id="launcher-folder:visuals"]')
+      expect(folderTarget).not.toBeNull()
+      expect(folderTarget?.style.left).toBe('120px')
+      expect(folderTarget?.style.top).toBe('120px')
+      expect(folderTarget?.style.width).toBe('220px')
+      expect(folderTarget?.style.height).toBe('180px')
+
+      const previewLayer = document.body.querySelector<HTMLElement>('.launcher-library-pending-drag-preview-layer')
+      expect(previewLayer?.parentElement).toBe(document.body)
+      expect(previewLayer?.style.transform).toBe('translate3d(128px, 348px, 0)')
+    } finally {
+      boundsSpy.mockRestore()
+      act(() => {
+        pointerDragUp(window, 168, 388)
+      })
     }
   })
 
