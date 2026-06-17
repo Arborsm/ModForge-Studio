@@ -841,6 +841,15 @@
       inset 0 -3px 0 var(--launcher-folder-accent);
   }
 
+  .launcher-library-folder-panel .launcher-library-card-grab-pending .launcher-mod-card,
+  .launcher-library-folder-panel .launcher-library-draggable-card-box-selected .launcher-mod-card {
+    border-color: color-mix(in srgb, var(--accent) 58%, var(--launcher-folder-border));
+    box-shadow:
+      0 18px 34px rgba(15, 23, 42, 0.15),
+      0 0 0 2px color-mix(in srgb, var(--accent) 14%, transparent),
+      inset 0 -3px 0 var(--launcher-folder-accent);
+  }
+
   .launcher-library-folder-panel .launcher-mod-card:hover {
     box-shadow:
       0 12px 24px rgba(15, 23, 42, 0.1),
@@ -853,6 +862,17 @@
     box-shadow:
       0 12px 24px rgba(15, 23, 42, 0.1),
       0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent),
+      inset 0 -3px 0 var(--launcher-folder-accent);
+  }
+
+  .launcher-library-folder-panel .launcher-library-card-grab-pending .launcher-mod-card:hover,
+  .launcher-library-folder-panel .launcher-library-card-grab-pending .launcher-mod-card:focus-within,
+  .launcher-library-folder-panel .launcher-library-draggable-card-box-selected .launcher-mod-card:hover,
+  .launcher-library-folder-panel .launcher-library-draggable-card-box-selected .launcher-mod-card:focus-within {
+    border-color: color-mix(in srgb, var(--accent) 58%, var(--launcher-folder-border));
+    box-shadow:
+      0 18px 34px rgba(15, 23, 42, 0.15),
+      0 0 0 2px color-mix(in srgb, var(--accent) 14%, transparent),
       inset 0 -3px 0 var(--launcher-folder-accent);
   }
 

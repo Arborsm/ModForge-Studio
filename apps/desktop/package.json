@@ -13,6 +13,7 @@
     "dev:force": "vp dev --configLoader runner --force",
     "react:devtools": "react-devtools",
     "gen:host-commands": "node ./scripts/generate-host-commands.mjs",
+    "gen:app-icons": "node ./scripts/generate-app-icons.mjs",
     "electron:dev": "node ./scripts/run-electron-dev.mjs",
     "electron:build": "vp run build:web && cargo build --manifest-path src-tauri/Cargo.toml --release --bin modforge_sidecar && node ./scripts/build-electron-main.mjs && node ./scripts/build-electron-linux.mjs",
     "electron:build:deb": "vp run build:web && cargo build --manifest-path src-tauri/Cargo.toml --release --bin modforge_sidecar && node ./scripts/build-electron-main.mjs && node ./scripts/build-electron-linux.mjs deb",
@@ -86,6 +87,7 @@
   "build": {
     "appId": "studio.modforge.desktop",
     "productName": "ModForge Studio",
+    "icon": "src-tauri/icons/icon.png",
     "beforeBuild": "./scripts/electron-builder-before-build.cjs",
     "files": [
       "dist/**",
@@ -96,6 +98,10 @@
       {
         "from": "src-tauri/target/release/modforge_sidecar",
         "to": "bin/modforge_sidecar"
+      },
+      {
+        "from": "src-tauri/icons/icon.png",
+        "to": "icon.png"
       }
     ],
     "linux": {

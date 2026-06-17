@@ -17,7 +17,6 @@ from the repository root unless a command says otherwise.
 vp install --frozen-lockfile
 vp run dev
 vp run web:dev
-vp run desktop:dev
 vp run build
 vp run desktop:build
 vp run lint
@@ -26,16 +25,15 @@ vp run --filter @modforge/desktop test
 vp run --filter @modforge/desktop gen:host-commands
 ```
 
-`vp run dev` is the default full desktop path and delegates to
-`vp run desktop:dev`. `vp run web:dev` starts the Vite+ frontend-only path.
-`vp run desktop:dev` uses the root desktop host dispatcher: Linux starts
-Electron, while macOS and Windows start Tauri. `vp run desktop:build` uses the
-same platform split for build mode.
+`vp run dev` is the default full desktop path and uses the root desktop host
+dispatcher directly. `vp run web:dev` starts the Vite+ frontend-only path.
+Linux starts Electron, while macOS and Windows start Tauri. `vp run
+desktop:build` uses the same platform split for build mode.
 
 To trace Host Runtime command scheduling, start the desktop host with:
 
 ```bash
-MODFORGE_COMMAND_TRACE=1 vp run desktop:dev
+MODFORGE_COMMAND_TRACE=1 vp run dev
 ```
 
 This enables `HostRuntime` command start/finish/failure debug lines, including

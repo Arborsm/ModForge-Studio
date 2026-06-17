@@ -1663,6 +1663,60 @@ describe('LauncherLibraryPage', () => {
     }
   })
 
+  it('keeps drag-to-select selected styling on cards inside expanded virtual folders', async () => {
+    const library = {
+      ...createLibraryState(),
+      currentPack: null,
+      currentPackId: null,
+      libraryFolders: [
+        {
+          id: 'visuals',
+          name: 'Visuals',
+          parentFolderId: null,
+          modKeys: ['ModForge.NpcAdventures'],
+          coverModKeys: [],
+        },
+      ],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    clickAfterPress(screen.getByRole('button', { name: 'Open folder Visuals' }))
+
+    const folderRegion = screen.getByRole('region', { name: 'Visuals' })
+    const card = within(folderRegion).getByRole('article', { name: /npc adventures/i })
+    const wrapper = card.closest('[data-launcher-mod-card-id]') as HTMLElement
+    const viewport = card.closest('.launcher-library-grid-viewport') as HTMLElement
+    const folderGrid = card.closest('[data-launcher-blank-drop-id]') as HTMLElement
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this === viewport || this === folderGrid) {
+        return { width: 900, height: 640, top: 80, left: 80, bottom: 720, right: 980, x: 80, y: 80, toJSON: () => ({}) }
+      }
+      if (this === wrapper || this === card) {
+        return { width: 220, height: 180, top: 120, left: 120, bottom: 300, right: 340, x: 120, y: 120, toJSON: () => ({}) }
+      }
+      return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
+    })
+
+    try {
+      fireEvent.mouseDown(viewport, { button: 0, buttons: 1, clientX: 100, clientY: 100 })
+      act(() => {
+        fireEvent.mouseMove(viewport, { button: 0, buttons: 1, clientX: 150, clientY: 150 })
+      })
+
+      await screen.findByTestId('launcher-library-box-select')
+      await waitFor(() => {
+        expect(wrapper).toHaveClass('launcher-library-draggable-card-box-selected')
+      })
+    } finally {
+      boundsSpy.mockRestore()
+      act(() => {
+        fireEvent.mouseUp(window, { button: 0, clientX: 150, clientY: 150 })
+      })
+    }
+  })
+
   it('does not select cards that do not intersect the drag-to-select rectangle', async () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)

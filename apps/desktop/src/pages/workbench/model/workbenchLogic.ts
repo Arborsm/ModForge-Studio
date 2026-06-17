@@ -79,7 +79,7 @@ export function deriveWorkspaceStatus({
   modDiagnostics: WorkspaceDiagnostic[]
   modHasUnsavedChanges: boolean
   modProjectsCount: number
-  activeModProjectDetail: unknown | null
+  activeModProjectDetail: object | null
   modStatusMessage: string
 }): WorkspaceStatus {
   if (workspaceMode === 'events') {

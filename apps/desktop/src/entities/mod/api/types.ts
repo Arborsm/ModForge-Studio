@@ -195,6 +195,11 @@ export type SimulateContentPatcherRequest = {
 }
 
 /** Per-patch condition result from a Content Patcher simulation. */
+type ContentPatcherAssetKind = 'json' | 'image' | 'map' | (string & {})
+type ContentPatcherResultState = 'determinate' | 'indeterminate' | 'error' | (string & {})
+type ContentPatcherTraceStatus = 'applied' | 'skipped' | 'indeterminate' | 'error' | (string & {})
+type ContentPatcherExportFormat = 'json' | 'png' | (string & {})
+
 export type ContentPatcherPatchStatus = {
   patchId: string | null
   status: 'applied' | 'skipped' | 'indeterminate'
@@ -204,9 +209,9 @@ export type ContentPatcherPatchStatus = {
 /** Asset target touched by a Content Patcher simulation. */
 export type ContentPatcherTargetSummary = {
   path: string
-  assetKind: 'json' | 'image' | 'map' | string
+  assetKind: ContentPatcherAssetKind
   touchedPatchCount: number
-  resultState: 'determinate' | 'indeterminate' | 'error' | string
+  resultState: ContentPatcherResultState
   patchIds: string[]
 }
 
@@ -216,7 +221,7 @@ export type ContentPatcherTraceEntry = {
   logName: string
   action: string
   sourcePath: string
-  status: 'applied' | 'skipped' | 'indeterminate' | 'error' | string
+  status: ContentPatcherTraceStatus
   reasonSummary: string
   changeSummary: string
   diagnostics: ModProjectDiagnostic[]
@@ -224,8 +229,8 @@ export type ContentPatcherTraceEntry = {
 
 /** Preview payload for one simulated Content Patcher target. */
 export type ContentPatcherResultAssetPayload = {
-  kind: 'json' | 'image' | 'map' | string
-  json: unknown | null
+  kind: ContentPatcherAssetKind
+  json: unknown
   imageDataUrl: string | null
   originalImageDataUrl: string | null
   originalImageSource: string | null
@@ -256,7 +261,7 @@ export type ExportContentPatcherAssetRequest = SimulateContentPatcherRequest & {
 export type ExportContentPatcherAssetResult = {
   target: string
   outputPath: string
-  format: 'json' | 'png' | string
+  format: ContentPatcherExportFormat
   diagnostics: ModProjectDiagnostic[]
 }
 

@@ -9,9 +9,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "vp run desktop:dev",
     "web:dev": "vp run --filter @modforge/desktop dev",
-    "desktop:dev": "node ./scripts/desktop-host-dispatch.cjs dev",
     "react:devtools": "vp run --filter @modforge/desktop react:devtools",
     "build": "vp run --filter @modforge/desktop build",
     "lint": "vp run --filter @modforge/desktop lint",

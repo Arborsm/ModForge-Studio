@@ -139,9 +139,7 @@ export default function TopMenuBar({
       <div className="top-menu-primary">
         <div className="top-menu-cluster top-menu-cluster-start flex min-w-0 items-center gap-4">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="panel-section flex h-8 w-8 items-center justify-center border-[color-mix(in_srgb,var(--accent)_45%,transparent)] bg-(--accent) text-xs font-black tracking-[0.18em] text-white">
-              MF
-            </div>
+            <img className="top-menu-brand-icon" src="/brand/modforge-logo-primary.svg" alt="" aria-hidden="true" />
             <p className="truncate text-sm font-semibold text-(--text-primary)">{copy.brand.name}</p>
           </div>
 

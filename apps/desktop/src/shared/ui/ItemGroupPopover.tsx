@@ -86,22 +86,21 @@ export function ItemGroupPopover<T>({ groupIcon, items, renderItem, title, subti
   const role = useRole(context, { role: 'tooltip' })
 
   const { getReferenceProps, getFloatingProps } = useInteractions([hover, focus, dismiss, role])
-  const { setReference, setFloating, setPositionReference } = refs
 
   const handleReferenceRef = useCallback(
     (node: HTMLDivElement | null) => {
-      setReference(node)
+      refs.setReference(node)
       if (!node) {
-        setPositionReference(null)
+        refs.setPositionReference(null)
         return
       }
 
       const anchor =
         node.querySelector<HTMLElement>('[data-gift-anchor="true"]') ?? node.querySelector<HTMLElement>('[data-popover-anchor="true"]')
 
-      setPositionReference(anchor ?? node)
+      refs.setPositionReference(anchor ?? node)
     },
-    [setPositionReference, setReference],
+    [refs],
   )
 
   const gridStyle: CSSProperties = {
@@ -126,7 +125,7 @@ export function ItemGroupPopover<T>({ groupIcon, items, renderItem, title, subti
       {hasItems && isOpen ? (
         <FloatingPortal>
           <div
-            ref={setFloating}
+            ref={refs.setFloating}
             className="item-group-popover"
             data-placement={placement}
             style={{

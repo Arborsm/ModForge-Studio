@@ -6,12 +6,16 @@ export default defineConfig({
       scripts: true,
       tasks: true,
     },
+    tasks: {
+      dev: {
+        command: 'node ./scripts/desktop-host-dispatch.cjs dev',
+        cache: false,
+      },
+    },
   },
   lint: {
     jsPlugins: [{ name: 'vite-plus', specifier: 'vite-plus/oxlint-plugin' }],
     rules: {
-      '@typescript-eslint/no-redundant-type-constituents': 'off',
-      '@typescript-eslint/unbound-method': 'off',
       'vite-plus/prefer-vite-plus-imports': 'error',
     },
     options: { typeAware: true, typeCheck: true },

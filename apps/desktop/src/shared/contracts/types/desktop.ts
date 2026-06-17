@@ -212,11 +212,15 @@ export type ContentPatcherPatchStatus = {
   reasons: string[]
 }
 
+type ContentPatcherAssetKind = 'json' | 'image' | 'map' | (string & {})
+type ContentPatcherResultState = 'determinate' | 'indeterminate' | 'error' | (string & {})
+type ContentPatcherTraceStatus = 'applied' | 'skipped' | 'indeterminate' | 'error' | (string & {})
+
 export type ContentPatcherTargetSummary = {
   path: string
-  assetKind: 'json' | 'image' | 'map' | string
+  assetKind: ContentPatcherAssetKind
   touchedPatchCount: number
-  resultState: 'determinate' | 'indeterminate' | 'error' | string
+  resultState: ContentPatcherResultState
   patchIds: string[]
 }
 
@@ -225,15 +229,15 @@ export type ContentPatcherTraceEntry = {
   logName: string
   action: string
   sourcePath: string
-  status: 'applied' | 'skipped' | 'indeterminate' | 'error' | string
+  status: ContentPatcherTraceStatus
   reasonSummary: string
   changeSummary: string
   diagnostics: ModProjectDiagnostic[]
 }
 
 export type ContentPatcherResultAssetPayload = {
-  kind: 'json' | 'image' | 'map' | string
-  json: unknown | null
+  kind: ContentPatcherAssetKind
+  json: unknown
   imageDataUrl: string | null
   originalImageDataUrl: string | null
   originalImageSource: string | null

@@ -66,13 +66,15 @@ export type AudioAssetSummary = {
 }
 
 /** Single normalized resource entry from the global desktop resource registry. */
+type ResourceRegistrySourceKind = 'game' | 'mod' | 'project' | 'fallback' | (string & {})
+
 export type ResourceRegistryEntry = {
   id: string
   kind: 'actor' | 'item' | 'location' | 'music' | 'sound'
   value: string
   label: string
   source: string
-  sourceKind: 'game' | 'mod' | 'project' | 'fallback' | string
+  sourceKind: ResourceRegistrySourceKind
   category: string | null
   metadata: Record<string, string>
   relativePath: string | null

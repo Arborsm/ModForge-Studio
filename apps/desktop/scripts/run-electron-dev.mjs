@@ -92,7 +92,7 @@ const devUrl = runtime.configOverride.build.devUrl
 const vite = spawn(process.execPath, [vitePlusCliEntry, 'dev', '--configLoader', 'runner'], {
   cwd: desktopRoot,
   env: runtime.env,
-  stdio: 'inherit',
+  stdio: ['ignore', 'inherit', 'inherit'],
 })
 
 let electron = null
@@ -153,7 +153,7 @@ electron = spawn(electronPath, [`--remote-debugging-port=${remoteDebuggingPort}`
     VITE_DEV_SERVER_URL: devUrl,
     MODFORGE_SIDECAR_PATH: path.join(desktopRoot, 'src-tauri/target/debug/modforge_sidecar'),
   },
-  stdio: ['inherit', 'inherit', 'pipe'],
+  stdio: ['ignore', 'inherit', 'pipe'],
 })
 forwardFilteredElectronStderr(electron.stderr)
 electron.on('exit', (code) => shutdown(code ?? 0))

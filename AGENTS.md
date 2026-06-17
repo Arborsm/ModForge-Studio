@@ -27,7 +27,6 @@
 vp install --frozen-lockfile
 vp run dev
 vp run web:dev
-vp run desktop:dev
 vp run build
 vp run lint
 vp run format:check
@@ -45,7 +44,7 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 Host command 调度追踪：
 
 ```bash
-MODFORGE_COMMAND_TRACE=1 vp run desktop:dev
+MODFORGE_COMMAND_TRACE=1 vp run dev
 ```
 
 该变量放行 `HostRuntime` command start/finish/failure debug 日志；应用 debug diagnostics toggle 不应放行 command trace，但仍应放行其他 backend debug/trace。

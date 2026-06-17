@@ -31,12 +31,12 @@ export type BuildModsWorkspacePanelsOptions = {
   activeModProjectDetail: ModProjectDetail | null
   modManifestEditor: {
     text: string
-    value: unknown | null
+    value: object | null
     error: string | null
   }
   modContentEditor: {
     text: string
-    value: unknown | null
+    value: object | null
     error: string | null
   }
   modContentSummary: {

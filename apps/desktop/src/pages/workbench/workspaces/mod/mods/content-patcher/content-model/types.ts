@@ -13,6 +13,6 @@ export type WorkspacePluginDefinition = {
 
 export type JsonEditorState = {
   text: string
-  value: unknown | null
+  value: object | null
   error: string | null
 }

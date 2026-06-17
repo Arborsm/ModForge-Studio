@@ -28,6 +28,14 @@ const devUrl = process.env.VITE_DEV_SERVER_URL ?? 'http://127.0.0.1:5173'
 let mainWindow: BrowserWindow | null = null
 let closeAllowed = false
 
+function resolveWindowIconPath() {
+  if (isDev) {
+    return path.resolve(__dirname, '../src-tauri/icons/icon.png')
+  }
+
+  return path.join(process.resourcesPath, 'icon.png')
+}
+
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('use-webgpu-adapter', 'opengles')
 }
@@ -245,6 +253,7 @@ function createMainWindow() {
     show: false,
     transparent: true,
     backgroundColor: '#00000000',
+    icon: resolveWindowIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,

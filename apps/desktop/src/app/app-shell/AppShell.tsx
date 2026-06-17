@@ -175,7 +175,7 @@ export default function App() {
     [],
   )
   const workbenchOrchestration = useMemo(
-    () => createWorkbenchOrchestration({ dispatch: appCommandHandler.handleCommand }),
+    () => createWorkbenchOrchestration({ dispatch: (command) => appCommandHandler.handleCommand(command) }),
     [appCommandHandler],
   )
 
@@ -263,10 +263,11 @@ export default function App() {
       return
     }
 
+    const loadDiagnostics = () => launcherPort.loadNexusDiagnostics()
     await launcherPort.restartNexusDiagnostics()
     handleLauncherDiagnosticsUpdate(
       await loadSettledLauncherNexusDiagnostics({
-        loadDiagnostics: launcherPort.loadNexusDiagnostics,
+        loadDiagnostics,
       }),
     )
   }, [desktopHost, handleLauncherDiagnosticsUpdate, launcherPort])
@@ -307,8 +308,10 @@ export default function App() {
 
     let disposed = false
 
+    const loadDiagnostics = () => launcherPort.loadNexusDiagnostics()
+
     void loadSettledLauncherNexusDiagnostics({
-      loadDiagnostics: launcherPort.loadNexusDiagnostics,
+      loadDiagnostics,
     })
       .then((diagnostics) => {
         if (!disposed) {
@@ -703,7 +706,7 @@ export default function App() {
                   onWindowCloseRequestChange={handleWindowCloseRequestChange}
                   onWorkbenchEvent={eventBus.emit}
                   pendingWorkbenchIntent={pendingWorkbenchIntent}
-                  onClearPendingIntent={appCommandHandler.clearPendingIntent}
+                  onClearPendingIntent={() => appCommandHandler.clearPendingIntent()}
                   workbenchActivationKey={workbenchActivationKey}
                 />
               </Suspense>

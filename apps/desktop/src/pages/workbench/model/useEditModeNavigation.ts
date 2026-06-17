@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 export function useEditModeNavigation(enabled: boolean) {
-  const [editNavHistory, setEditNavHistory] = useState<(string | '__LIST__')[]>(['__LIST__'])
+  const [editNavHistory, setEditNavHistory] = useState<string[]>(['__LIST__'])
   const [editNavIndex, setEditNavIndex] = useState(0)
   const [activeEditPatchId, setActiveEditPatchId] = useState<string | null>(null)
 

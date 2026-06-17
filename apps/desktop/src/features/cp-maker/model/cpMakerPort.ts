@@ -54,36 +54,36 @@ export type CpMakerExportResult = {
   virtual_asset_paths: string[]
 }
 
-export interface CpMakerPort {
+export type CpMakerPort = {
   // Draft CRUD
-  listDrafts(): Promise<CpMakerDraftSummary[]>
-  loadDraft(storageKey: string): Promise<CpMakerDraftRecord>
-  saveDraft(draft: CpMakerDraftRecord): Promise<CpMakerDraftRecord>
-  deleteDraft(storageKey: string): Promise<void>
-  copyDraft(sourceDraftStorageKey: string): Promise<CpMakerDraftRecord>
+  listDrafts: () => Promise<CpMakerDraftSummary[]>
+  loadDraft: (storageKey: string) => Promise<CpMakerDraftRecord>
+  saveDraft: (draft: CpMakerDraftRecord) => Promise<CpMakerDraftRecord>
+  deleteDraft: (storageKey: string) => Promise<void>
+  copyDraft: (sourceDraftStorageKey: string) => Promise<CpMakerDraftRecord>
 
   // Import / Export
-  importPack(modDirectoryPath: string): Promise<CpMakerDraftRecord>
-  exportPack(request: CpMakerExportRequest): Promise<CpMakerExportResult>
+  importPack: (modDirectoryPath: string) => Promise<CpMakerDraftRecord>
+  exportPack: (request: CpMakerExportRequest) => Promise<CpMakerExportResult>
 
   // Directory selection
-  chooseDirectory(title?: string): Promise<string | null>
+  chooseDirectory: (title?: string) => Promise<string | null>
 
   // Preview scan / load (simplified return types)
-  scanMaps(path: string, locale?: string): Promise<CpMakerMapAssetSummary[]>
-  scanEvents(path: string): Promise<CpMakerEventAssetSummary[]>
-  scanModProjects(rootPath: string): Promise<CpMakerModProjectSummary[]>
-  loadMapAsset(
+  scanMaps: (path: string, locale?: string) => Promise<CpMakerMapAssetSummary[]>
+  scanEvents: (path: string) => Promise<CpMakerEventAssetSummary[]>
+  scanModProjects: (rootPath: string) => Promise<CpMakerModProjectSummary[]>
+  loadMapAsset: (
     rootPath: string,
     mapPath: string,
     locale?: string,
-  ): Promise<{ name: string; format: string; absolutePath: string; relativePath: string; content: string }>
-  loadTextAsset(
+  ) => Promise<{ name: string; format: string; absolutePath: string; relativePath: string; content: string }>
+  loadTextAsset: (
     rootPath: string,
     assetPath: string,
     locale?: string,
-  ): Promise<{ absolutePath: string; relativePath: string; content: string }>
-  loadImageDataUrl(path: string, locale?: string): Promise<string>
+  ) => Promise<{ absolutePath: string; relativePath: string; content: string }>
+  loadImageDataUrl: (path: string, locale?: string) => Promise<string>
 }
 
 export type CpMakerMapAssetSummary = {

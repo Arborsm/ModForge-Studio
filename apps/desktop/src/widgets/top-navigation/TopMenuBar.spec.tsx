@@ -74,6 +74,15 @@ describe('TopMenuBar', () => {
     expect(screen.queryByRole('button', { name: copy.workbenchNavigation.openLaunchpad })).toBeNull()
   })
 
+  it('renders the ModForge brand icon in the title bar', () => {
+    const { container } = renderWithLocale(<TopMenuBar {...buildProps()} />)
+
+    const brandIcon = container.querySelector<HTMLImageElement>('.top-menu-brand-icon')
+
+    expect(brandIcon?.getAttribute('src')).toBe('/brand/modforge-logo-primary.svg')
+    expect(brandIcon?.getAttribute('aria-hidden')).toBe('true')
+  })
+
   it('renders the workbench quick dock in the title bar center slot', () => {
     const { container } = renderWithLocale(
       <TopMenuBar

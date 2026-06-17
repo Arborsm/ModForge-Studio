@@ -34,12 +34,12 @@ type ContentPatcherWorkspaceProps = {
   gameRootPath: string | null
   manifestEditor: {
     text: string
-    value: unknown | null
+    value: object | null
     error: string | null
   }
   contentEditor: {
     text: string
-    value: unknown | null
+    value: object | null
     error: string | null
   }
   contentSummary: {

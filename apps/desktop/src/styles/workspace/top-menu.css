@@ -87,6 +87,15 @@
     white-space: nowrap;
   }
 
+  .top-menu-brand-icon {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    border-radius: 10px;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-color) 70%, transparent);
+    object-fit: contain;
+  }
+
   .top-menu-workspace-list {
     display: flex;
     align-items: center;

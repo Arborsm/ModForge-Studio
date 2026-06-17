@@ -14,7 +14,7 @@ export function createAppCommandHandler({ setAppMode, onPendingIntent }: AppComm
   let currentPendingIntent: PendingWorkbenchCommandIntent | null = null
 
   return {
-    handleCommand(command: AppCommand) {
+    handleCommand: (command: AppCommand) => {
       if (command.type === 'navigation/open-workbench-view' || command.type === 'workbench/open-asset') {
         nextIntentId += 1
         currentPendingIntent = {
@@ -29,12 +29,12 @@ export function createAppCommandHandler({ setAppMode, onPendingIntent }: AppComm
       // navigation/open-page, unknown: no-op
     },
 
-    clearPendingIntent() {
+    clearPendingIntent: () => {
       currentPendingIntent = null
       onPendingIntent(null)
     },
 
-    getCurrentPendingIntent(): PendingWorkbenchCommandIntent | null {
+    getCurrentPendingIntent: (): PendingWorkbenchCommandIntent | null => {
       return currentPendingIntent
     },
   }

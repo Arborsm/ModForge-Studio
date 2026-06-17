@@ -8,7 +8,7 @@ import type {
 type JsonObject = Record<string, unknown>
 
 type ParsedJsonResult = {
-  value: unknown | null
+  value: object | null
   error: string | null
 }
 
