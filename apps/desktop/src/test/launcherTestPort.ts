@@ -39,6 +39,7 @@ export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): L
     }),
     saveLibraryState: unimplemented('saveLibraryState'),
     loadLibraryCovers: unimplemented('loadLibraryCovers'),
+    loadImageFailures: vi.fn().mockResolvedValue({ entries: [] }),
     setLibraryCover: unimplemented('setLibraryCover'),
     persistLibraryRemoteCover: unimplemented('persistLibraryRemoteCover'),
     loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),

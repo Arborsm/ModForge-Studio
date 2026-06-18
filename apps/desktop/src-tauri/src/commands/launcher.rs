@@ -2,9 +2,9 @@ use crate::domain::launcher::types::{
     CheckLauncherUpdatesRequest, DownloadLauncherModRequest, DownloadLauncherModResult,
     InspectLauncherArchiveRequest, InspectLauncherArchiveResult, InstallLauncherArchiveRequest,
     InstallLauncherArchiveResult, LauncherCatalogPageResult, LauncherDownloadQueueState,
-    LauncherGameLaunchError, LauncherGameLaunchResult, LauncherInstallBackupSummary,
-    LauncherLibraryCoversState, LauncherLibraryScanResult, LauncherLibraryState,
-    LauncherRemoteModDetail, LauncherRuntimeInfo, LauncherSettings,
+    LauncherGameLaunchError, LauncherGameLaunchResult, LauncherImageFailuresState,
+    LauncherInstallBackupSummary, LauncherLibraryCoversState, LauncherLibraryScanResult,
+    LauncherLibraryState, LauncherRemoteModDetail, LauncherRuntimeInfo, LauncherSettings,
     LauncherSuppressedUpdateModIdsResult, LauncherUpdateChangelogResult, LauncherUpdatesResult,
     ListLauncherInstallBackupsRequest, LoadCachedLauncherUpdatesRequest,
     LoadLauncherRemoteModDetailRequest, LoadLauncherUpdateChangelogRequest,
@@ -139,6 +139,19 @@ pub fn load_launcher_library_covers(
         AppHandle::from_tauri(app),
         debug_logging_state,
         crate::host_command_name!(load_launcher_library_covers),
+        json!({}),
+    )
+}
+
+#[tauri::command]
+pub fn load_launcher_image_failures(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<LauncherImageFailuresState, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(load_launcher_image_failures),
         json!({}),
     )
 }

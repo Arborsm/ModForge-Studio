@@ -228,6 +228,22 @@ pub struct LauncherLibraryCoversState {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct LauncherImageFailureEntry {
+    pub mod_key: String,
+    pub failure_count: u32,
+    pub blocked: bool,
+    pub last_error: String,
+    pub last_failed_at_ms: u128,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherImageFailuresState {
+    pub entries: Vec<LauncherImageFailureEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LauncherDownloadQueueItem {
     pub id: String,
     pub mod_id: i64,
@@ -512,6 +528,8 @@ pub struct LauncherUpdateChangelogResult {
 pub struct ResolveLauncherImageRequest {
     pub url: String,
     pub refresh: Option<bool>,
+    #[serde(default)]
+    pub mod_key: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

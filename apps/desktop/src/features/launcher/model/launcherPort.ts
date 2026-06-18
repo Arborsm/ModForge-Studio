@@ -53,6 +53,7 @@ export type LauncherPort = {
   loadLibraryState: () => Promise<LauncherLibraryState>
   saveLibraryState: (request: LauncherLibraryState) => Promise<LauncherLibraryState>
   loadLibraryCovers: () => Promise<LauncherLibraryCoversState>
+  loadImageFailures: () => Promise<import('./launcherContracts').LauncherImageFailuresState>
   setLibraryCover: (request: SetLauncherLibraryCoverRequest) => Promise<LauncherLibraryCoversState>
   persistLibraryRemoteCover: (request: PersistLauncherLibraryRemoteCoverRequest) => Promise<LauncherLibraryCoversState>
   loadDownloadQueue: () => Promise<LauncherDownloadQueueState>

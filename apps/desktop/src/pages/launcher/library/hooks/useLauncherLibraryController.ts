@@ -806,7 +806,11 @@ export function useLauncherLibraryController({
     setGalleryCoverDialog((current) => (current ? { ...current, applying: true } : current))
 
     try {
-      const resolved = await resolveLauncherImage({ url: galleryCoverDialog.selectedImageUrl })
+      const resolved = await resolveLauncherImage({
+        url: galleryCoverDialog.selectedImageUrl,
+        refresh: true,
+        modKey: getLauncherCoverKey(galleryCoverDialog.mod),
+      })
       await setLauncherLibraryCover({
         labelKey: getLauncherCoverKey(galleryCoverDialog.mod),
         imagePath: resolved.localPath,

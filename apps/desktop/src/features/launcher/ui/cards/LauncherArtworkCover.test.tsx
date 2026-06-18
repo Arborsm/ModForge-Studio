@@ -28,7 +28,13 @@ describe('LauncherArtworkCover', () => {
     })
 
     const { container } = render(
-      <LauncherArtworkCover title="NPC Adventures" imageUrl="https://example.com/cover.png" coverStyle={coverStyle} coverWord="NPC" />,
+      <LauncherArtworkCover
+        title="NPC Adventures"
+        imageUrl="https://example.com/cover.png"
+        imageModKey="101"
+        coverStyle={coverStyle}
+        coverWord="NPC"
+      />,
     )
 
     expect(container.querySelector('.launcher-mod-card-cover-image-blur-strip')).toBeTruthy()
@@ -46,7 +52,13 @@ describe('LauncherArtworkCover', () => {
     })
 
     const { container } = render(
-      <LauncherArtworkCover title="NPC Adventures" imageUrl="https://example.com/cover.png" coverStyle={coverStyle} coverWord="NPC" />,
+      <LauncherArtworkCover
+        title="NPC Adventures"
+        imageUrl="https://example.com/cover.png"
+        imageModKey="101"
+        coverStyle={coverStyle}
+        coverWord="NPC"
+      />,
     )
 
     expect(container.firstElementChild).toHaveClass('launcher-mod-card-cover-has-image')
@@ -60,7 +72,13 @@ describe('LauncherArtworkCover', () => {
     })
 
     const { container } = render(
-      <LauncherArtworkCover title="NPC Adventures" imageUrl="https://example.com/cover.png" coverStyle={coverStyle} coverWord="NPC" />,
+      <LauncherArtworkCover
+        title="NPC Adventures"
+        imageUrl="https://example.com/cover.png"
+        imageModKey="101"
+        coverStyle={coverStyle}
+        coverWord="NPC"
+      />,
     )
 
     expect(container.querySelector('.launcher-mod-card-cover-image-shell')).toBeNull()
@@ -73,7 +91,9 @@ describe('LauncherArtworkCover', () => {
       loading: false,
     })
 
-    const { container } = render(<LauncherArtworkCover title="NPC Adventures" imageUrl={null} coverStyle={coverStyle} coverWord="NPC" />)
+    const { container } = render(
+      <LauncherArtworkCover title="NPC Adventures" imageUrl={null} imageModKey="101" coverStyle={coverStyle} coverWord="NPC" />,
+    )
 
     expect(container.querySelector('.launcher-mod-card-cover-image-blur')).toBeNull()
     expect(container.querySelector('.launcher-mod-card-cover-image')).toBeNull()

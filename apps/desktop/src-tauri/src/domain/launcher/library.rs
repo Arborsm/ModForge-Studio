@@ -843,6 +843,7 @@ pub async fn persist_launcher_library_remote_cover(
                 &ResolveLauncherImageRequest {
                     url: image_url.to_string(),
                     refresh: None,
+                    mod_key: Some(label_key.to_string()),
                 },
             )?;
 

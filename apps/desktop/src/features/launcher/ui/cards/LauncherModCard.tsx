@@ -20,6 +20,7 @@ type LauncherModCardProps = {
   version?: string | null
   latestVersion?: string | null
   imageUrl: string | null
+  imageModKey?: string | null
   enabled?: boolean
   onSelect?: () => void
   onOpenDetails?: () => void
@@ -44,6 +45,7 @@ function LauncherModCardContent({
   version,
   latestVersion,
   imageUrl,
+  imageModKey = null,
   enabled = true,
   onSelect,
   onOpenDetails,
@@ -175,7 +177,7 @@ function LauncherModCardContent({
           onClick={handleSelectClick}
           onDoubleClick={handleOpenDirectTargetDoubleClick}
         >
-          <LauncherArtworkCover title={title} imageUrl={imageUrl} coverStyle={coverStyle} coverWord={coverWord} />
+          <LauncherArtworkCover title={title} imageUrl={imageUrl} imageModKey={imageModKey} coverStyle={coverStyle} coverWord={coverWord} />
 
           <div className="launcher-mod-card-copy">
             <p className="launcher-mod-card-title">{title}</p>

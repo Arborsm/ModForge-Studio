@@ -543,6 +543,7 @@ describe('LauncherLibraryPage', () => {
       }),
       openPath: openLauncherPathMock,
       openUrl: openLauncherUrlMock,
+      loadImageFailures: vi.fn().mockResolvedValue({ entries: [] }),
       resolveImage: resolveLauncherImageMock,
       restoreInstallBackup: restoreLauncherInstallBackupMock,
       setLibraryCover: setLauncherLibraryCoverMock,
@@ -1602,7 +1603,11 @@ describe('LauncherLibraryPage', () => {
     renderLibraryPage()
 
     await waitFor(() => {
-      expect(resolveLauncherImageMock).toHaveBeenCalledWith({ url: 'https://example.test/npc-cover.png', refresh: false })
+      expect(resolveLauncherImageMock).toHaveBeenCalledWith({
+        url: 'https://example.test/npc-cover.png',
+        refresh: false,
+        modKey: '101',
+      })
     })
 
     const card = screen.getByRole('article', { name: /npc adventures/i })
@@ -1617,6 +1622,43 @@ describe('LauncherLibraryPage', () => {
     act(() => {
       pointerDragUp(window, 220, 220)
     })
+  })
+
+  it('does not retry blocked launcher library covers when the card remounts', async () => {
+    const library = createLibraryState()
+    const coveredMod = { ...library.mods[0]!, imageUrl: 'https://example.test/blocked-npc-cover.png' }
+    useLauncherLibraryMock.mockReturnValue({
+      ...library,
+      mods: [coveredMod, ...library.mods.slice(1)],
+      filteredMods: [coveredMod, ...library.filteredMods.slice(1)],
+    } as MockLibraryState)
+    launcherPort.loadImageFailures = vi.fn().mockResolvedValue({
+      entries: [
+        {
+          modKey: '101',
+          failureCount: 3,
+          blocked: true,
+          lastError: 'HTTP 404',
+          lastFailedAtMs: 123,
+        },
+      ],
+    })
+    launcherPort.toDesktopAssetUrl = vi.fn((path) => `asset://${path}`)
+
+    const view = renderLibraryPage()
+
+    await waitFor(() => {
+      expect(screen.getByRole('article', { name: /npc adventures/i }).querySelector('img')).toBeNull()
+    })
+    expect(resolveLauncherImageMock).not.toHaveBeenCalled()
+
+    view.unmount()
+    renderLibraryPage()
+
+    await waitFor(() => {
+      expect(screen.getByRole('article', { name: /npc adventures/i }).querySelector('img')).toBeNull()
+    })
+    expect(resolveLauncherImageMock).not.toHaveBeenCalled()
   })
 
   it('uses the drag-to-select package to show a selection rectangle and mark partially intersecting cards', async () => {
@@ -1899,7 +1941,7 @@ describe('LauncherLibraryPage', () => {
     try {
       pointerDragDown(card, 160, 380)
       act(() => {
-        pointerDragMove(window, 168, 388)
+        pointerDragMove(window, 190, 410)
       })
       await screen.findByTestId('launcher-library-drag-preview')
 
@@ -1981,7 +2023,11 @@ describe('LauncherLibraryPage', () => {
       const targetLayer = document.body.querySelector<HTMLElement>('.launcher-library-dnd-target-layer')
       expect(targetLayer).not.toBeNull()
       expect(targetLayer?.parentElement).toBe(document.body)
-      const folderTarget = document.body.querySelector<HTMLElement>('[data-launcher-dnd-target-id="launcher-folder:visuals"]')
+      const folderTarget = await waitFor(() => {
+        const target = document.body.querySelector<HTMLElement>('[data-launcher-dnd-target-id="launcher-folder:visuals"]')
+        expect(target).not.toBeNull()
+        return target
+      })
       expect(folderTarget).not.toBeNull()
       expect(folderTarget?.style.left).toBe('120px')
       expect(folderTarget?.style.top).toBe('120px')
@@ -1994,7 +2040,7 @@ describe('LauncherLibraryPage', () => {
     } finally {
       boundsSpy.mockRestore()
       act(() => {
-        pointerDragUp(window, 168, 388)
+        pointerDragUp(window, 190, 410)
       })
     }
   })
@@ -2187,6 +2233,8 @@ describe('LauncherLibraryPage', () => {
       expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledWith({ modId: 101 })
       expect(resolveLauncherImageMock).toHaveBeenCalledWith({
         url: 'https://staticdelivery.nexusmods.com/mods/1303/images/101/101-gallery-2.png',
+        refresh: true,
+        modKey: '101',
       })
       expect(setLauncherLibraryCoverMock).toHaveBeenCalledWith({
         labelKey: '101',

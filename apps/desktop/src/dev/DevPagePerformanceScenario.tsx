@@ -677,6 +677,7 @@ const performanceLauncherPort: LauncherPort = {
     }) as any,
   saveLibraryState: async (request) => request as any,
   loadLibraryCovers: async () => ({ covers: [] }) as any,
+  loadImageFailures: async () => ({ entries: [] }) as any,
   setLibraryCover: async () => ({ covers: [] }) as any,
   persistLibraryRemoteCover: async () => ({ covers: [] }) as any,
   loadDownloadQueue: async () => ({ items: [] }) as any,

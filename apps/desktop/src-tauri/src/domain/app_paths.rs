@@ -32,6 +32,12 @@ pub(crate) fn launcher_library_covers_path() -> Result<PathBuf, String> {
     Ok(modforge_data_dir()?.join("launcher").join("covers.json"))
 }
 
+pub(crate) fn launcher_image_failures_path() -> Result<PathBuf, String> {
+    Ok(modforge_data_dir()?
+        .join("launcher")
+        .join("image-failures.json"))
+}
+
 pub(crate) fn launcher_updates_cache_path() -> Result<PathBuf, String> {
     Ok(modforge_data_dir()?
         .join("launcher")

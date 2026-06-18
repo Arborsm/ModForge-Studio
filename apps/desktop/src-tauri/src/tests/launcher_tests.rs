@@ -23,8 +23,9 @@ use crate::domain::launcher::trace::format_launcher_trace_message;
 use crate::domain::launcher::types::{
     LauncherArchiveTreeNode, LauncherDownloadQueueItem, LauncherDownloadQueueState,
     LauncherGameLaunchErrorCode, LauncherGameLaunchTarget, LauncherLibraryCover,
-    LauncherLibraryCoversState, LauncherLibraryChildModGroup, LauncherLibraryFolder, LauncherLibraryPackPreset,
-    LauncherLibraryScopeMode, LauncherLibraryState, LauncherLibraryStorageFolder,
+    LauncherLibraryCoversState, LauncherLibraryChildModGroup, LauncherLibraryFolder,
+    LauncherLibraryPackPreset, LauncherLibraryScopeMode, LauncherLibraryState,
+    LauncherLibraryStorageFolder,
     LauncherSettings, LauncherUpdateSummary, LauncherUpdatesResult,
     SearchLauncherCatalogRequest, SetLauncherModEnabledRequest,
 };

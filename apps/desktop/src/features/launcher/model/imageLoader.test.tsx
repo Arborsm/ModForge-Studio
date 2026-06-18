@@ -89,4 +89,63 @@ describe('useLauncherImage', () => {
     expect(second.result.current.loading).toBe(false)
     expect(port.resolveImage).toHaveBeenCalledTimes(1)
   })
+
+  it('does not resolve a launcher image when the mod cover is blocked after repeated failures', async () => {
+    const port = createMockLauncherPort({
+      loadImageFailures: vi.fn().mockResolvedValue({
+        entries: [
+          {
+            modKey: '101',
+            failureCount: 3,
+            blocked: true,
+            lastError: 'HTTP 404',
+            lastFailedAtMs: 123,
+          },
+        ],
+      }),
+      resolveImage: vi.fn().mockResolvedValue({
+        sourceUrl: 'https://example.com/blocked-cover.png',
+        localPath: 'blocked-cover.png',
+        mimeType: 'image/png',
+      }),
+      toDesktopAssetUrl: vi.fn((value: string) => `asset:${value}`),
+    })
+
+    const { result } = renderHook(() => useLauncherImage('https://example.com/blocked-cover.png', '101'), {
+      wrapper: createWrapper(port),
+    })
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+      expect(result.current.error?.error).toContain('disabled')
+    })
+    expect(result.current.imageUrl).toBeNull()
+    expect(port.loadImageFailures).toHaveBeenCalledTimes(1)
+    expect(port.resolveImage).not.toHaveBeenCalled()
+  })
+
+  it('passes the mod key through when resolving an unblocked library cover', async () => {
+    const port = createMockLauncherPort({
+      loadImageFailures: vi.fn().mockResolvedValue({ entries: [] }),
+      resolveImage: vi.fn().mockResolvedValue({
+        sourceUrl: 'https://example.com/library-cover.png',
+        localPath: 'library-cover.png',
+        mimeType: 'image/png',
+      }),
+      toDesktopAssetUrl: vi.fn((value: string) => `asset:${value}`),
+    })
+
+    const { result } = renderHook(() => useLauncherImage('https://example.com/library-cover.png', '101'), {
+      wrapper: createWrapper(port),
+    })
+
+    await waitFor(() => {
+      expect(result.current.imageUrl).toBe('asset:library-cover.png')
+    })
+    expect(port.resolveImage).toHaveBeenCalledWith({
+      url: 'https://example.com/library-cover.png',
+      refresh: false,
+      modKey: '101',
+    })
+  })
 })

@@ -110,6 +110,20 @@ export type LauncherLibraryCoversState = {
   covers: LauncherLibraryCover[]
 }
 
+/** Persistent launcher image failure state used to block repeated bad cover loads. */
+export type LauncherImageFailureEntry = {
+  modKey: string
+  failureCount: number
+  blocked: boolean
+  lastError: string
+  lastFailedAtMs: number
+}
+
+/** Persisted launcher image failure registry. */
+export type LauncherImageFailuresState = {
+  entries: LauncherImageFailureEntry[]
+}
+
 /** Request to assign or clear a local cover image for a library entry. */
 export type SetLauncherLibraryCoverRequest = {
   labelKey: string
@@ -331,6 +345,7 @@ export type SsoSnapshot = {
 export type ResolveLauncherImageRequest = {
   url: string
   refresh?: boolean
+  modKey?: string | null
 }
 
 /** Local cached image result for a remote launcher image. */

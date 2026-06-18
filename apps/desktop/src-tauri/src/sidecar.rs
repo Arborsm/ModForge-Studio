@@ -492,6 +492,12 @@ pub(crate) fn resolve_command(
                 move || ok(domain::launcher::library::load_launcher_library_covers(app)),
             )
         }
+        crate::host_command_wire!(load_launcher_image_failures) => {
+            let app = ctx.app.clone();
+            io_lane(id, &command_name, move || {
+                ok(domain::launcher::image_failures::load_launcher_image_failures(app))
+            })
+        }
         crate::host_command_wire!(set_launcher_library_cover) => {
             let app = ctx.app.clone();
             mutation_with_resources(

@@ -18,6 +18,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { ExternalLink, Folder, Info, X } from 'lucide-react'
 import { cx } from '@shared/lib/cx'
 import { LoadingMotionRevealItem } from '@shared/ui/loading-motion'
+import { getLauncherCoverKey } from '@features/launcher/model/coverKey'
 import { useLauncherImage } from '@features/launcher/model/imageLoader'
 import { normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
 import type { LauncherLibraryItem, LauncherVirtualFolder } from '@features/launcher/model/types'
@@ -830,7 +831,8 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
   getContextActions?: (mod: LauncherLibraryItem) => LauncherContextMenuAction[] | undefined
 }) {
   const pointerDrag = useContext(LauncherPointerDragContext)
-  const cover = useLauncherImage(item.imageUrl)
+  const imageModKey = getLauncherCoverKey(item)
+  const cover = useLauncherImage(item.imageUrl, imageModKey)
   const meta = buildLibraryCardMeta(item, noneLabel)
   const itemRef = useRef(item)
   const toggleParentExpandedRef = useRef(onToggleParentExpanded)
@@ -888,6 +890,7 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
         version={item.version}
         latestVersion={item.nexusModId == null ? null : latestVersionByModId[item.nexusModId]}
         imageUrl={item.imageUrl}
+        imageModKey={imageModKey}
         enabled={item.enabled}
         selectionMode={selectionMode}
         selected={selected || boxSelected}
@@ -1159,7 +1162,8 @@ const DraggableLauncherModuleTile = memo(function DraggableLauncherModuleTile({
   getContextActions?: (mod: LauncherLibraryItem) => LauncherContextMenuAction[] | undefined
 }) {
   const pointerDrag = useContext(LauncherPointerDragContext)
-  const cover = useLauncherImage(item.imageUrl)
+  const imageModKey = getLauncherCoverKey(item)
+  const cover = useLauncherImage(item.imageUrl, imageModKey)
   const meta = buildLibraryCardMeta(item, noneLabel)
   const fallbackPalette = getLauncherCardFallbackPalette(item.name)
   const fallbackWord = getLauncherCardCoverWord(item.name)
@@ -1227,7 +1231,8 @@ const DraggableLauncherModuleTile = memo(function DraggableLauncherModuleTile({
     >
       <LauncherArtworkCover
         title={item.name}
-        imageUrl={cover.imageUrl}
+        imageUrl={item.imageUrl}
+        imageModKey={imageModKey}
         coverStyle={coverStyle}
         coverWord={fallbackWord}
         className="launcher-library-module-thumb"
