@@ -1566,7 +1566,6 @@ describe('LauncherLibraryPage', () => {
     renderLibraryPage()
 
     const card = screen.getByRole('article', { name: /npc adventures/i })
-
     fireEvent.pointerDown(card, { button: 0, buttons: 1, clientX: 160, clientY: 160, isPrimary: true, pointerId: 71 })
 
     expect(screen.queryByTestId('launcher-library-drag-preview')).toBeNull()
@@ -1587,6 +1586,63 @@ describe('LauncherLibraryPage', () => {
     })
     expect(library.addModsToPack).not.toHaveBeenCalled()
     expect(library.addModsToLibraryFolder).not.toHaveBeenCalled()
+  })
+
+  it('suppresses the click emitted after a threshold drag even if dnd-kit never starts an active drag', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+    const releaseTarget = screen.getByRole('article', { name: /vintage interface redux/i })
+    const releaseTargetButton = within(releaseTarget).getByRole('button', { name: /vintage interface redux/i })
+
+    pointerDragDown(card, 160, 160)
+    act(() => {
+      pointerDragMove(window, 168, 160)
+    })
+    await screen.findByTestId('launcher-library-drag-preview')
+
+    act(() => {
+      pointerDragUp(window, 168, 160)
+    })
+    fireEvent.click(releaseTargetButton)
+
+    expect(loadLauncherRemoteModDetailMock).not.toHaveBeenCalled()
+
+    fireEvent.click(releaseTargetButton)
+
+    await waitFor(() => {
+      expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledWith({ modId: 202 })
+    })
+  })
+
+  it('suppresses the release click even when a drag ends over controls outside the library grid', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+    const refreshButton = screen.getByRole('button', { name: 'Refresh' })
+
+    pointerDragDown(card, 160, 160)
+    act(() => {
+      pointerDragMove(window, 168, 160)
+    })
+    await screen.findByTestId('launcher-library-drag-preview')
+
+    act(() => {
+      pointerDragUp(window, 168, 160)
+    })
+    fireEvent.click(refreshButton)
+
+    expect(library.refresh).not.toHaveBeenCalled()
+
+    fireEvent.click(refreshButton)
+
+    expect(library.refresh).toHaveBeenCalledWith()
   })
 
   it('uses the resolved desktop cover image in the pointer drag preview', async () => {
@@ -1704,6 +1760,13 @@ describe('LauncherLibraryPage', () => {
         expect(selectionBox.style.width).toBe('0px')
         expect(wrapper).toHaveClass('launcher-library-draggable-card-box-selected')
       })
+
+      fireEvent.click(viewport, { clientX: 620, clientY: 620 })
+      expect(library.clearSelection).not.toHaveBeenCalled()
+
+      fireEvent.click(viewport, { clientX: 620, clientY: 620 })
+
+      expect(library.clearSelection).toHaveBeenCalled()
     } finally {
       boundsSpy.mockRestore()
     }
@@ -1907,6 +1970,33 @@ describe('LauncherLibraryPage', () => {
     })
 
     return waitFor(() => expect(screen.queryByTestId('launcher-library-drag-preview')).toBeNull())
+  })
+
+  it('keeps the active drag preview outside the launcher route scroll container', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+
+    pointerDragDown(card, 160, 220)
+    act(() => {
+      pointerDragMove(document, 168, 228)
+    })
+
+    const preview = await screen.findByTestId('launcher-library-drag-preview')
+    const routedShell = document.querySelector('.launcher-shell-routed')
+    expect(routedShell).not.toBeNull()
+    expect(routedShell?.contains(preview)).toBe(false)
+    expect(preview.closest('.launcher-shell-route-active')).toBeNull()
+    expect(preview.closest('.launcher-shell-routed')).toBeNull()
+    expect(preview.closest('.launcher-library-drag-portal-scope')).not.toBeNull()
+    expect(document.body.contains(preview)).toBe(true)
+
+    act(() => {
+      pointerDragUp(document, 168, 228)
+    })
   })
 
   it('highlights folder and blank drop targets without activating parent-mod targets', async () => {

@@ -8,6 +8,8 @@ export const LAUNCHER_LIBRARY_BLANK_DROP_ID = 'launcher-library-blank'
 export const LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX = 'launcher-folder-blank:'
 export const LAUNCHER_LIBRARY_ACTIVE_DRAGGABLE_ID = 'launcher-library-active-drag'
 export const LAUNCHER_LIBRARY_DRAG_START_DISTANCE_PX = 6
+/** Body dataset key used to consume only the click emitted by a launcher drag release. */
+export const LAUNCHER_LIBRARY_SUPPRESS_RELEASE_CLICK_DATA_KEY = 'launcherLibrarySuppressReleaseClick'
 
 export const LAUNCHER_LIBRARY_DROP_TARGET_SELECTORS = [
   '[data-launcher-blank-drop-id]',
@@ -48,6 +50,7 @@ export type LauncherDndKitActiveDrag = {
   latestX: number
   latestY: number
   started: boolean
+  shouldSuppressClick: boolean
   modIds: string[]
 }
 

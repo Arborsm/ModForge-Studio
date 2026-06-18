@@ -105,6 +105,7 @@ export type VirtualizedLauncherGridProps = {
   openFolderLabel: (name: string) => string
   closeFolderLabel?: string
   onToggleSelection: (modId: string) => void
+  onClearSelection?: () => void
   onBoxSelectionChange: (modIds: string[]) => void
   onToggleChildModSelection?: (modId: string) => void
   onToggleParentExpanded: (modId: string, anchorElement?: HTMLElement | null) => void
@@ -142,6 +143,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   openFolderLabel,
   closeFolderLabel,
   onToggleSelection,
+  onClearSelection,
   onBoxSelectionChange,
   onToggleChildModSelection,
   onToggleParentExpanded,
@@ -171,6 +173,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   const [hasPlayedInitialReveal, setHasPlayedInitialReveal] = useState(false)
   const [activeRevealSequence, setActiveRevealSequence] = useState(routeEnterSequence > 0 ? routeEnterSequence : 0)
   const [isBoxSelecting, setIsBoxSelecting] = useState(false)
+  const ignoreNextBlankClickRef = useRef(false)
   const setViewportNode = useCallback((node: HTMLDivElement | null) => {
     viewportRef.current = node
     setViewportElement((current) => (current === node ? current : node))
@@ -259,7 +262,10 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
     isEnabled: enableBoxSelection && !editMode && !childModSelectionMode,
     isValidSelectionStart: () => true,
     onSelectionStart: () => setIsBoxSelecting(true),
-    onSelectionEnd: () => setIsBoxSelecting(false),
+    onSelectionEnd: () => {
+      ignoreNextBlankClickRef.current = true
+      setIsBoxSelecting(false)
+    },
     onSelectionChange: updateDragSelection,
     selectionProps: {
       'data-testid': 'launcher-library-box-select',
@@ -475,6 +481,33 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   }, [cardMinWidth, items.length, shouldRevealItems])
 
   const toggleCardSelection = childModSelectionMode ? onToggleChildModSelection : onToggleSelection
+  const handleViewportClick = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (editMode || childModSelectionMode || isBoxSelecting) {
+        return
+      }
+      if (event.defaultPrevented) {
+        return
+      }
+      if (ignoreNextBlankClickRef.current) {
+        ignoreNextBlankClickRef.current = false
+        return
+      }
+      const target = event.target
+      if (!(target instanceof HTMLElement)) {
+        return
+      }
+      if (
+        target.closest(
+          '.launcher-library-draggable-card, .launcher-library-modules-floating-panel, .context-menu-content, button, a, input, textarea, select',
+        )
+      ) {
+        return
+      }
+      onClearSelection?.()
+    },
+    [childModSelectionMode, editMode, isBoxSelecting, onClearSelection],
+  )
 
   return (
     <div
@@ -485,6 +518,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
         isBoxSelecting && 'launcher-library-grid-viewport-selecting',
       )}
       data-launcher-blank-drop-id={blankDropId}
+      onClick={handleViewportClick}
     >
       <div className="launcher-library-box-select-layer" data-launcher-box-select-layer="viewport">
         <DragSelection />
@@ -893,7 +927,6 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
         }
       }}
       onPointerDown={(event) => pointerDrag?.handleDndPointerDown(event)}
-      onClickCapture={(event) => pointerDrag?.suppressClickAfterDrag(event)}
     >
       <LauncherModCard
         title={item.name}
@@ -975,7 +1008,6 @@ const DraggableLauncherFolderCard = memo(function DraggableLauncherFolderCard({
         pointerDrag?.startPointerDrag(dragSource, event)
       }}
       onPointerDown={(event) => pointerDrag?.handleDndPointerDown(event)}
-      onClickCapture={(event) => pointerDrag?.suppressClickAfterDrag(event)}
       onClick={handleOpen}
     >
       <div className="launcher-library-folder-visual" aria-hidden="true">
@@ -1238,7 +1270,6 @@ const DraggableLauncherModuleTile = memo(function DraggableLauncherModuleTile({
         }
       }}
       onPointerDown={(event) => pointerDrag?.handleDndPointerDown(event)}
-      onClickCapture={(event) => pointerDrag?.suppressClickAfterDrag(event)}
       onClick={selectionMode ? handleSelect : handleOpenDetails}
       onDoubleClick={selectionMode ? undefined : handleOpenDirectTarget}
     >

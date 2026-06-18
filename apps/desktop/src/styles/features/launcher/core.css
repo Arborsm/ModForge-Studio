@@ -197,7 +197,8 @@
   .launcher-library-page,
   .launcher-library-dialog,
   .launcher-library-drawer-panel,
-  .launcher-library-browser {
+  .launcher-library-browser,
+  .launcher-library-drag-portal-scope {
     --launcher-surface-base: var(--bg-panel);
     --launcher-surface-muted: color-mix(in srgb, var(--bg-panel-muted) 88%, var(--bg-panel));
     --launcher-surface-subtle: color-mix(in srgb, var(--bg-panel) 92%, var(--bg-panel-muted));

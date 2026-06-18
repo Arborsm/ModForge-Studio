@@ -344,6 +344,10 @@ export function LauncherLibraryPageContent({
                     onCloseLibraryFolder={closeLibraryFolder}
                     getFolderContextActions={directActionsForLibraryFolder}
                     getContextActions={directActionsForMod}
+                    onClearSelection={() => {
+                      library.clearSelection()
+                      updateBoxSelection([])
+                    }}
                   />
                 )}
               </div>
