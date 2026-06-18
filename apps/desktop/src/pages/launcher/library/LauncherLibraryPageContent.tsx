@@ -146,6 +146,7 @@ export function LauncherLibraryPageContent({
     directActionsForLibraryFolder,
     startEditingPack,
     isLibraryFolderOpen,
+    isClosingLibraryFolder,
     toggleLibraryFolderOpen,
     closeLibraryFolder,
   } = controllerActions
@@ -338,6 +339,7 @@ export function LauncherLibraryPageContent({
                     onOpenModDetails={openModDetails}
                     onOpenModFolder={openGridModFolder}
                     isLibraryFolderOpen={isLibraryFolderOpen}
+                    isClosingLibraryFolder={isClosingLibraryFolder}
                     onOpenLibraryFolder={toggleLibraryFolderOpen}
                     onCloseLibraryFolder={closeLibraryFolder}
                     getFolderContextActions={directActionsForLibraryFolder}

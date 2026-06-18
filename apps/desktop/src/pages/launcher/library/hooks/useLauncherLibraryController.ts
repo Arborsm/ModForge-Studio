@@ -52,6 +52,8 @@ const LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID = 'launcher-library-galle
 const LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID = 'launcher-library-archive-preview'
 const LAUNCHER_LIBRARY_ARCHIVE_INSTALL_NOTIFICATION_ID = 'launcher-library-archive-install'
 const LAUNCHER_LIBRARY_INSTALL_RESULT_AUTO_DISMISS_MS = 15_000
+/** Matches the CSS collapse transition on `.launcher-library-folder-panel[data-closing]`. */
+const LAUNCHER_LIBRARY_FOLDER_CLOSE_ANIMATION_MS = 220
 
 function splitDroppedArchivePaths(paths: string[] | undefined): DroppedArchivePaths {
   return (paths ?? []).reduce<DroppedArchivePaths>(
@@ -156,6 +158,7 @@ export function useLauncherLibraryController({
   >(null)
   const [openLibraryFolderIds, setOpenLibraryFolderIds] = useState<string[]>([])
   const [readyLibraryFolderIds, setReadyLibraryFolderIds] = useState<string[]>([])
+  const [closingLibraryFolderIds, setClosingLibraryFolderIds] = useState<string[]>([])
   const lastEditSeedRef = useRef<{ editMode: boolean; packId: string | null }>({ editMode: false, packId: null })
 
   const titleMenuRef = useRef<HTMLDivElement | null>(null)
@@ -200,6 +203,7 @@ export function useLauncherLibraryController({
     editingSelectionIds,
     openLibraryFolderIds,
     readyLibraryFolderIds,
+    closingLibraryFolderIds,
   })
   const {
     packLookup,
@@ -221,6 +225,7 @@ export function useLauncherLibraryController({
     currentPackLabel,
     supportedArchiveFormatsLabel,
     isLibraryFolderOpen,
+    isClosingLibraryFolder,
     getLibraryFolderModIds,
   } = displayState
 
@@ -277,8 +282,13 @@ export function useLauncherLibraryController({
     setOpenLibraryFolderIds((current) => {
       const willClose = current.some((id) => normalizeLookupKey(id) === folderLookup)
       if (willClose) {
-        setReadyLibraryFolderIds((ready) => ready.filter((id) => normalizeLookupKey(id) !== folderLookup))
-        return current.filter((id) => normalizeLookupKey(id) !== folderLookup)
+        // Enter closing state instead of unmounting immediately so the panel
+        // can play a collapse animation. The timer effect below completes the
+        // removal after the animation duration.
+        setClosingLibraryFolderIds((closing) =>
+          closing.some((id) => normalizeLookupKey(id) === folderLookup) ? closing : [...closing, folderId],
+        )
+        return current
       }
       setReadyLibraryFolderIds((ready) => (ready.some((id) => normalizeLookupKey(id) === folderLookup) ? ready : [...ready, folderId]))
       return [...current, folderId]
@@ -287,9 +297,32 @@ export function useLauncherLibraryController({
 
   const closeLibraryFolder = useCallback((folderId: string) => {
     const folderLookup = normalizeLookupKey(folderId)
-    setReadyLibraryFolderIds((current) => current.filter((id) => normalizeLookupKey(id) !== folderLookup))
-    setOpenLibraryFolderIds((current) => current.filter((id) => normalizeLookupKey(id) !== folderLookup))
+    // Same deferred-close path as toggle: mark closing, let the animation run.
+    setClosingLibraryFolderIds((closing) =>
+      closing.some((id) => normalizeLookupKey(id) === folderLookup) ? closing : [...closing, folderId],
+    )
   }, [])
+
+  // Complete the deferred folder close after the collapse animation has had
+  // time to play. Each closing folder gets its own timer; when it fires the
+  // folder is removed from all three state arrays so the panel finally
+  // unmounts.
+  useEffect(() => {
+    if (closingLibraryFolderIds.length === 0) {
+      return
+    }
+    const timers = closingLibraryFolderIds.map((folderId) =>
+      window.setTimeout(() => {
+        const folderLookup = normalizeLookupKey(folderId)
+        setClosingLibraryFolderIds((closing) => closing.filter((id) => normalizeLookupKey(id) !== folderLookup))
+        setReadyLibraryFolderIds((ready) => ready.filter((id) => normalizeLookupKey(id) !== folderLookup))
+        setOpenLibraryFolderIds((current) => current.filter((id) => normalizeLookupKey(id) !== folderLookup))
+      }, LAUNCHER_LIBRARY_FOLDER_CLOSE_ANIMATION_MS),
+    )
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer))
+    }
+  }, [closingLibraryFolderIds])
 
   const closeArchivePreview = useCallback(() => {
     setArchivePreviewState('idle')
@@ -1417,6 +1450,7 @@ export function useLauncherLibraryController({
       setExpandedParentIds,
       setChildModManager,
       isLibraryFolderOpen,
+      isClosingLibraryFolder,
       getLibraryFolderModIds,
       toggleLibraryFolderOpen,
       closeLibraryFolder,

@@ -751,7 +751,7 @@ describe('LauncherLibraryPage', () => {
     expect(library.refresh).toHaveBeenCalledTimes(1)
   })
 
-  it('closes an expanded virtual folder with a single click', () => {
+  it('closes an expanded virtual folder with a single click', async () => {
     const library = {
       ...createLibraryState(),
       libraryFolders: [
@@ -773,7 +773,9 @@ describe('LauncherLibraryPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Close folder' }))
 
-    expect(screen.queryByRole('region', { name: 'Visuals' })).toBeNull()
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: 'Visuals' })).toBeNull()
+    })
     expect(screen.getByRole('button', { name: 'Open folder Visuals' })).not.toBeNull()
   })
 
@@ -828,7 +830,9 @@ describe('LauncherLibraryPage', () => {
     fireEvent.click(within(screen.getByRole('region', { name: 'Gameplay' })).getByRole('button', { name: 'Close folder' }))
 
     expect(screen.getByRole('region', { name: 'Visuals' })).not.toBeNull()
-    expect(screen.queryByRole('region', { name: 'Gameplay' })).toBeNull()
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: 'Gameplay' })).toBeNull()
+    })
   })
 
   it('marks library card versions when a cached update is available', () => {

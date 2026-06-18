@@ -145,4 +145,36 @@ describe('launcherLibraryGridLayout', () => {
       firstBlock?.rowCount ? firstBlock.rowCount * rowHeight + (firstBlock.rowCount - 1) * LAUNCHER_LIBRARY_GRID_GAP_PX : 0,
     )
   })
+
+  it('collapses a closing folder back to a 1x1 card even though isLibraryFolderOpen still returns true', () => {
+    const [placedFolder] =
+      buildLauncherLibraryGridBlocks(
+        [folder('closing-folder', 20)],
+        8,
+        () => true,
+        260,
+        (folderId) => folderId === 'closing-folder',
+      )[0]?.items ?? []
+
+    expect(placedFolder).toMatchObject({
+      columnSpan: 1,
+      rowSpan: 1,
+    })
+  })
+
+  it('keeps a non-closing open folder at its balanced panel placement when another folder is closing', () => {
+    const blocks = buildLauncherLibraryGridBlocks(
+      [folder('open-folder', 20), folder('closing-folder', 20)],
+      8,
+      (folderId) => folderId === 'open-folder' || folderId === 'closing-folder',
+      260,
+      (folderId) => folderId === 'closing-folder',
+    )
+    const items = blocks[0]?.items ?? []
+    const openPlaced = items.find((item) => item.displayItem.kind === 'folder' && item.displayItem.folder.id === 'open-folder')
+    const closingPlaced = items.find((item) => item.displayItem.kind === 'folder' && item.displayItem.folder.id === 'closing-folder')
+
+    expect(openPlaced).toMatchObject({ columnSpan: 5, rowSpan: 4 })
+    expect(closingPlaced).toMatchObject({ columnSpan: 1, rowSpan: 1 })
+  })
 })

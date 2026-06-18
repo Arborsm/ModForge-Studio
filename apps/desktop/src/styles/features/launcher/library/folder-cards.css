@@ -454,6 +454,31 @@
     animation: launcher-library-folder-pop 160ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
 
+  .launcher-library-folder-panel[data-closing] {
+    min-height: 0;
+    overflow: hidden;
+    animation: none;
+    transition:
+      min-height 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      opacity 180ms ease 20ms;
+    opacity: 0;
+  }
+
+  .launcher-library-folder-panel[data-closing] > .launcher-library-folder-panel-sticky-note,
+  .launcher-library-folder-panel[data-closing] > .launcher-library-folder-panel-close {
+    transition: opacity 120ms ease;
+    opacity: 0;
+  }
+
+  .launcher-library-folder-panel[data-closing] > .launcher-library-folder-panel-scroll {
+    transition:
+      max-height 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      opacity 160ms ease;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+  }
+
   .launcher-library-folder-panel[data-folder-tone='blue'] {
     --launcher-folder-bg: #f8fbff;
     --launcher-folder-bg-strong: #dbeafe;

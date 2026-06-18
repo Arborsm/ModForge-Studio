@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -111,6 +112,7 @@ export type VirtualizedLauncherGridProps = {
   onOpenModDetails: (modId: string) => void
   onOpenModFolder: (mod: LauncherLibraryItem) => void
   isLibraryFolderOpen: (folderId: string) => boolean
+  isClosingLibraryFolder?: (folderId: string) => boolean
   onOpenLibraryFolder: (folderId: string) => void
   onCloseLibraryFolder?: (folderId: string) => void
   getFolderContextActions: (folder: LauncherVirtualFolder) => LauncherContextMenuAction[] | undefined
@@ -147,6 +149,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   onOpenModDetails,
   onOpenModFolder,
   isLibraryFolderOpen,
+  isClosingLibraryFolder,
   onOpenLibraryFolder,
   onCloseLibraryFolder,
   getFolderContextActions,
@@ -195,8 +198,15 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   const cardMinWidth = LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX
   const [estimatedRowHeight, setEstimatedRowHeight] = useState(LAUNCHER_LIBRARY_CARD_FALLBACK_ESTIMATED_HEIGHT_PX)
   const gridBlocks = useMemo(
-    () => buildLauncherLibraryGridBlocks(items, gridColumnCount, isLibraryFolderOpen, estimatedRowHeight),
-    [estimatedRowHeight, gridColumnCount, isLibraryFolderOpen, items],
+    () =>
+      buildLauncherLibraryGridBlocks(
+        items,
+        gridColumnCount,
+        isLibraryFolderOpen,
+        estimatedRowHeight,
+        isClosingLibraryFolder ?? (() => false),
+      ),
+    [estimatedRowHeight, gridColumnCount, isClosingLibraryFolder, isLibraryFolderOpen, items],
   )
   // TanStack Virtual owns imperative row measurement for the large launcher grid.
   const rowVirtualizer = useVirtualizer({
@@ -207,20 +217,18 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
     overscan: 1,
     useAnimationFrameWithResizeObserver: true,
   })
-  useEffect(() => {
-    let frameId: number | null = null
-    const measureVisibleRows = () => {
-      frameId = null
-      gridRef.current
-        ?.querySelectorAll<HTMLElement>('.launcher-library-virtual-row[data-index]')
-        .forEach((row) => rowVirtualizer.measureElement(row))
-    }
-    frameId = window.requestAnimationFrame(measureVisibleRows)
-    return () => {
-      if (frameId !== null) {
-        window.cancelAnimationFrame(frameId)
-      }
-    }
+  // Re-measure visible rows synchronously before paint so a stale cached row
+  // size (left over from a block that changed content in place) is corrected
+  // before it can paint a gap. measureElement reads the live DOM height via
+  // measureLauncherLibraryVirtualRow (bypassing the size cache) and calls
+  // resizeItem, whose notify dispatches a re-render from within this layout
+  // effect — React flushes it synchronously before the browser paints.
+  // Pure card blocks have delta≈0 (estimate is exact) so this is a no-op for
+  // them; panel blocks with larger deltas get fixed in one go.
+  useLayoutEffect(() => {
+    gridRef.current
+      ?.querySelectorAll<HTMLElement>('.launcher-library-virtual-row[data-index]')
+      .forEach((row) => rowVirtualizer.measureElement(row))
   }, [gridBlocks, openFolderItemsById, rowVirtualizer])
   const virtualRows = rowVirtualizer.getVirtualItems()
   const updateDragSelection = useCallback(
@@ -536,6 +544,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
                   onOpenModDetails={onOpenModDetails}
                   onOpenModFolder={onOpenModFolder}
                   isLibraryFolderOpen={isLibraryFolderOpen}
+                  isClosingLibraryFolder={isClosingLibraryFolder}
                   onOpenLibraryFolder={onOpenLibraryFolder}
                   onCloseLibraryFolder={onCloseLibraryFolder}
                   getFolderContextActions={getFolderContextActions}
@@ -606,6 +615,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
   onOpenModDetails,
   onOpenModFolder,
   isLibraryFolderOpen,
+  isClosingLibraryFolder,
   onOpenLibraryFolder,
   onCloseLibraryFolder,
   getFolderContextActions,
@@ -641,6 +651,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
   onOpenModDetails: (modId: string) => void
   onOpenModFolder: (mod: LauncherLibraryItem) => void
   isLibraryFolderOpen: (folderId: string) => boolean
+  isClosingLibraryFolder?: (folderId: string) => boolean
   onOpenLibraryFolder: (folderId: string) => void
   onCloseLibraryFolder?: (folderId: string) => void
   getFolderContextActions: (folder: LauncherVirtualFolder) => LauncherContextMenuAction[] | undefined
@@ -652,6 +663,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
         const blockRelativeRowStart = rowStart - block.rowStart
         if (displayItem.kind === 'folder') {
           const folderOpen = isLibraryFolderOpen(displayItem.folder.id)
+          const folderClosing = isClosingLibraryFolder?.(displayItem.folder.id) ?? false
           const folderLookup = normalizeLookupKey(displayItem.folder.id)
           const folderItems = openFolderItemsById?.get(folderLookup) ?? []
           return (
@@ -699,9 +711,10 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
                   items={folderItems}
                   itemCount={displayItem.mods.length + displayItem.childFolders.length}
                   contentReady={Boolean(openFolderItemsById?.has(folderLookup))}
+                  closing={folderClosing}
                   gridColumnCount={columnSpan}
                   columnSpan={columnSpan}
-                  rowSpan={rowSpan}
+                  rowSpan={folderClosing ? 1 : rowSpan}
                   columnStart={columnStart}
                   rowStart={blockRelativeRowStart}
                   blankDropId={`${LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX}${displayItem.folder.id}`}
@@ -1321,6 +1334,7 @@ function LauncherLibraryFolderPanel({
   items,
   itemCount,
   contentReady,
+  closing = false,
   gridColumnCount,
   columnSpan,
   rowSpan,
@@ -1358,6 +1372,7 @@ function LauncherLibraryFolderPanel({
   items: LauncherLibraryDisplayItem[]
   itemCount: number
   contentReady: boolean
+  closing?: boolean
   gridColumnCount: number
   columnSpan: number
   rowSpan: number
@@ -1416,6 +1431,7 @@ function LauncherLibraryFolderPanel({
       role="region"
       aria-label={folder.name}
       data-launcher-folder-panel-id={folder.id}
+      data-closing={closing ? '' : undefined}
       onContextMenuCapture={handleContextMenuCapture}
       style={{
         gridColumn: `${columnStart + 1} / span ${columnSpan}`,

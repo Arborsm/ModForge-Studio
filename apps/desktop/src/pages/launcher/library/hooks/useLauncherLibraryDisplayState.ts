@@ -24,6 +24,7 @@ type LauncherLibraryDisplayStateInput = {
   editingSelectionIds: string[]
   openLibraryFolderIds: string[]
   readyLibraryFolderIds: string[]
+  closingLibraryFolderIds: string[]
 }
 
 /** Derives launcher-library UI lists, lookup maps, and display labels from the current library state. */
@@ -38,6 +39,7 @@ export function useLauncherLibraryDisplayState({
   editingSelectionIds,
   openLibraryFolderIds,
   readyLibraryFolderIds,
+  closingLibraryFolderIds,
 }: LauncherLibraryDisplayStateInput) {
   const packLookup = useMemo(() => buildPackLookup(library.packPresets), [library.packPresets])
   const childGroupLookup = useMemo(() => buildChildModLookup(library.childModGroups), [library.childModGroups])
@@ -142,9 +144,23 @@ export function useLauncherLibraryDisplayState({
   )
 
   const openLibraryFolderIdLookup = useMemo(() => new Set(openLibraryFolderIds.map((id) => normalizeLookupKey(id))), [openLibraryFolderIds])
+  const closingLibraryFolderIdLookup = useMemo(
+    () => new Set(closingLibraryFolderIds.map((id) => normalizeLookupKey(id))),
+    [closingLibraryFolderIds],
+  )
+  // A closing folder is still "open" so the panel keeps rendering during its
+  // collapse animation; it only becomes truly closed once the timer fires and
+  // removes it from openLibraryFolderIds.
   const isLibraryFolderOpen = useCallback(
-    (folderId: string) => openLibraryFolderIdLookup.has(normalizeLookupKey(folderId)),
-    [openLibraryFolderIdLookup],
+    (folderId: string) => {
+      const lookup = normalizeLookupKey(folderId)
+      return openLibraryFolderIdLookup.has(lookup) || closingLibraryFolderIdLookup.has(lookup)
+    },
+    [closingLibraryFolderIdLookup, openLibraryFolderIdLookup],
+  )
+  const isClosingLibraryFolder = useCallback(
+    (folderId: string) => closingLibraryFolderIdLookup.has(normalizeLookupKey(folderId)),
+    [closingLibraryFolderIdLookup],
   )
 
   const visibleDisplayItems = useMemo<LauncherLibraryDisplayItem[]>(() => {
@@ -261,6 +277,7 @@ export function useLauncherLibraryDisplayState({
     currentPackLabel,
     supportedArchiveFormatsLabel,
     isLibraryFolderOpen,
+    isClosingLibraryFolder,
     getLibraryFolderItemCount,
     getLibraryFolderModIds,
   }
