@@ -1,5 +1,7 @@
+import { useId } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import { useModWorkspaceCopy } from '@locales/provider'
-import { AlertTriangle, X } from 'lucide-react'
+import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 type PendingUnsavedChangeDecision = {
   saving: boolean
@@ -92,45 +94,37 @@ export function WorkspaceDecisionDialog({
   onPrimary,
   onSecondary,
 }: WorkspaceDecisionDialogProps) {
-  if (!open) {
-    return null
-  }
+  const titleId = useId()
+  const cancelBlocked = cancelDisabled || saving
 
   return (
-    <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/45">
-      <div className="w-[420px] max-w-[92vw] rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[var(--border-color)] px-4 py-3">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-400" />
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h2>
-          </div>
-          <button type="button" className="icon-button h-7 w-7" disabled={cancelDisabled} onClick={onCancel}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="px-4 py-4">
-          <p className="text-sm text-[var(--text-secondary)]">{message}</p>
-          {error ? <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</p> : null}
-          <div className="mt-5 flex flex-wrap justify-end gap-2">
-            <button type="button" className="control-button text-xs" disabled={cancelDisabled} onClick={onCancel}>
-              {cancelLabel}
-            </button>
-            {secondaryLabel ? (
-              <button
-                type="button"
-                className="control-button text-xs text-amber-300 hover:bg-amber-500/10"
-                disabled={saving}
-                onClick={onSecondary}
-              >
-                {secondaryLabel}
-              </button>
-            ) : null}
-            <button type="button" className="control-button text-xs text-[var(--accent-color)]" disabled={saving} onClick={onPrimary}>
-              {primaryLabel}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <Dialog open={open} onClose={onCancel} size="sm" labelledBy={titleId} closeOnBackdrop={!cancelBlocked} closeOnEscape={!cancelBlocked}>
+      <DialogHeader
+        title={title}
+        tone="warning"
+        icon={<AlertTriangle className="h-4 w-4" />}
+        onClose={onCancel}
+        closeLabel={cancelLabel}
+        closeDisabled={cancelBlocked}
+        id={titleId}
+      />
+      <DialogBody>
+        <p className="text-sm text-[var(--text-secondary)]">{message}</p>
+        {error ? <p className="app-dialog-error mt-3">{error}</p> : null}
+      </DialogBody>
+      <DialogFooter>
+        <DialogAction onClick={onCancel} disabled={cancelBlocked}>
+          {cancelLabel}
+        </DialogAction>
+        {secondaryLabel ? (
+          <DialogAction tone="warning" disabled={saving} onClick={onSecondary}>
+            {secondaryLabel}
+          </DialogAction>
+        ) : null}
+        <DialogAction tone="primary" disabled={saving} onClick={onPrimary}>
+          {primaryLabel}
+        </DialogAction>
+      </DialogFooter>
+    </Dialog>
   )
 }

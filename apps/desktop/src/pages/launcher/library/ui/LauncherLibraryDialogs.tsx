@@ -1,5 +1,5 @@
 import type { Dispatch, RefObject, SetStateAction } from 'react'
-import { createPortal } from 'react-dom'
+import { useId } from 'react'
 import type { InspectLauncherArchiveResult, InstallLauncherArchiveResult, LauncherInstallBackupSummary } from '@features/launcher/api'
 import type { LauncherLibraryItem } from '@features/launcher/model/types'
 import { useLauncherImage } from '@features/launcher/model/imageLoader'
@@ -7,6 +7,7 @@ import { LauncherArchiveInstallDialog } from '@features/launcher/ui/shared/Launc
 import { LauncherInstallBackupsDialog } from '@features/launcher/ui/shared/LauncherInstallBackupsDialog'
 import { LauncherInstallSummaryDialog } from '@features/launcher/ui/shared/LauncherInstallSummaryDialog'
 import { LauncherChildModsDialogs, type LauncherChildModManagerState } from '@features/launcher/ui/shared/LauncherChildModsDialogs'
+import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import type {
   ArchivePreviewState,
   FolderDialogState,
@@ -133,8 +134,12 @@ export function LauncherLibraryDialogs({
   onFolderDialogChange,
   onSubmitFolderDialog,
 }: LauncherLibraryDialogsProps) {
-  return createPortal(
-    <div className="launcher-shell launcher-shell-routed launcher-dialog-portal-root">
+  const galleryTitleId = useId()
+  const packTitleId = useId()
+  const folderTitleId = useId()
+
+  return (
+    <>
       <LauncherArchiveInstallDialog
         open={archivePreviewState !== 'idle'}
         loading={archivePreviewState === 'loading'}
@@ -180,26 +185,23 @@ export function LauncherLibraryDialogs({
       />
 
       {galleryCoverDialog ? (
-        <div
-          className="launcher-modal-backdrop launcher-library-dialog-backdrop"
-          role="presentation"
-          onClick={(event) => {
-            if (event.target === event.currentTarget && !galleryCoverDialog.applying) {
-              onCloseGalleryCoverDialog()
-            }
-          }}
+        <Dialog
+          open
+          onClose={onCloseGalleryCoverDialog}
+          size="xl"
+          labelledBy={galleryTitleId}
+          closeOnBackdrop={!galleryCoverDialog.applying}
+          closeOnEscape={!galleryCoverDialog.applying}
         >
-          <section
-            className="launcher-library-dialog launcher-gallery-cover-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label={labels.galleryCoverTitle}
-          >
-            <div className="launcher-library-dialog-header">
-              <h2 className="launcher-library-dialog-title">{labels.galleryCoverTitle}</h2>
-              <p className="launcher-library-dialog-copy">{labels.galleryCoverSubtitle}</p>
-            </div>
-
+          <DialogHeader
+            title={labels.galleryCoverTitle}
+            subtitle={labels.galleryCoverSubtitle}
+            onClose={onCloseGalleryCoverDialog}
+            closeLabel={labels.cancelEdit}
+            closeDisabled={galleryCoverDialog.applying}
+            id={galleryTitleId}
+          />
+          <DialogBody>
             <div className="launcher-gallery-cover-grid">
               {galleryCoverDialog.imageUrls.map((url, index) => (
                 <GalleryCoverOption
@@ -211,79 +213,40 @@ export function LauncherLibraryDialogs({
                 />
               ))}
             </div>
-
-            <div className="launcher-library-dialog-actions">
-              <button
-                type="button"
-                className="control-button launcher-library-secondary-action"
-                onClick={onCloseGalleryCoverDialog}
-                disabled={galleryCoverDialog.applying}
-              >
-                {labels.cancelEdit}
-              </button>
-              <button
-                type="button"
-                className="control-button control-button-primary"
-                onClick={onApplyGalleryCover}
-                disabled={galleryCoverDialog.applying}
-              >
-                {labels.setCover}
-              </button>
-            </div>
-          </section>
-        </div>
+          </DialogBody>
+          <DialogFooter>
+            <DialogAction onClick={onCloseGalleryCoverDialog} disabled={galleryCoverDialog.applying}>
+              {labels.cancelEdit}
+            </DialogAction>
+            <DialogAction tone="primary" onClick={onApplyGalleryCover} disabled={galleryCoverDialog.applying}>
+              {labels.setCover}
+            </DialogAction>
+          </DialogFooter>
+        </Dialog>
       ) : null}
 
       {packDialog ? (
-        <div
-          className="launcher-modal-backdrop launcher-library-dialog-backdrop"
-          role="presentation"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              onClosePackDialog()
-            }
-          }}
-        >
-          <section
-            className="launcher-library-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label={
+        <Dialog open onClose={onClosePackDialog} size={packDialog.kind === 'delete' ? 'sm' : 'md'} labelledBy={packTitleId}>
+          <DialogHeader
+            title={
               packDialog.kind === 'create'
                 ? labels.createPack
                 : packDialog.kind === 'rename'
                   ? labels.renameCurrentPack
                   : labels.deleteCurrentPack
             }
-          >
-            <div className="launcher-library-dialog-header">
-              <h2 className="launcher-library-dialog-title">
-                {packDialog.kind === 'create'
-                  ? labels.createPack
-                  : packDialog.kind === 'rename'
-                    ? labels.renameCurrentPack
-                    : labels.deleteCurrentPack}
-              </h2>
-              {packDialog.kind === 'rename' ? (
-                <p className="launcher-library-dialog-copy">{labels.renameCurrentPackPrompt(packDialog.pack.name)}</p>
-              ) : null}
-              {packDialog.kind === 'delete' ? (
-                <p className="launcher-library-dialog-copy">{labels.deleteCurrentPackConfirm(packDialog.pack.name)}</p>
-              ) : null}
-            </div>
-
+            subtitle={packDialog.kind === 'rename' ? labels.renameCurrentPackPrompt(packDialog.pack.name) : undefined}
+            tone={packDialog.kind === 'delete' ? 'warning' : 'default'}
+            onClose={onClosePackDialog}
+            closeLabel={labels.cancelEdit}
+            id={packTitleId}
+          />
+          <DialogBody>
             {packDialog.kind === 'delete' ? (
-              <div className="launcher-library-dialog-actions">
-                <button type="button" className="control-button launcher-library-secondary-action" onClick={onClosePackDialog}>
-                  {labels.cancelEdit}
-                </button>
-                <button type="button" className="control-button launcher-library-danger-action" onClick={onSubmitPackDialog}>
-                  {labels.deleteCurrentPack}
-                </button>
-              </div>
+              <p className="text-xs text-[var(--text-secondary)]">{labels.deleteCurrentPackConfirm(packDialog.pack.name)}</p>
             ) : (
               <form
-                className="launcher-library-dialog-form"
+                id="pack-dialog-form"
                 onSubmit={(event) => {
                   event.preventDefault()
                   onSubmitPackDialog()
@@ -294,6 +257,7 @@ export function LauncherLibraryDialogs({
                   <input
                     ref={packDialogInputRef}
                     value={packDialog.value}
+                    autoFocus
                     onChange={(event) =>
                       onPackDialogChange((current) =>
                         current && current.kind !== 'delete'
@@ -308,38 +272,36 @@ export function LauncherLibraryDialogs({
                     spellCheck={false}
                   />
                 </label>
-                <div className="launcher-library-dialog-actions">
-                  <button type="button" className="control-button launcher-library-secondary-action" onClick={onClosePackDialog}>
-                    {labels.cancelEdit}
-                  </button>
-                  <button type="submit" className="control-button control-button-primary launcher-library-primary-action">
-                    {packDialog.kind === 'create' ? labels.createPack : labels.saveChanges}
-                  </button>
-                </div>
               </form>
             )}
-          </section>
-        </div>
+          </DialogBody>
+          <DialogFooter>
+            <DialogAction onClick={onClosePackDialog}>{labels.cancelEdit}</DialogAction>
+            {packDialog.kind === 'delete' ? (
+              <DialogAction tone="danger" onClick={onSubmitPackDialog}>
+                {labels.deleteCurrentPack}
+              </DialogAction>
+            ) : (
+              <DialogAction type="submit" tone="primary" form="pack-dialog-form">
+                {packDialog.kind === 'create' ? labels.createPack : labels.saveChanges}
+              </DialogAction>
+            )}
+          </DialogFooter>
+        </Dialog>
       ) : null}
 
       {folderDialog ? (
-        <div
-          className="launcher-modal-backdrop launcher-library-dialog-backdrop"
-          role="presentation"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              onCloseFolderDialog()
-            }
-          }}
-        >
-          <section className="launcher-library-dialog" role="dialog" aria-modal="true" aria-label={labels.renameLibraryFolder}>
-            <div className="launcher-library-dialog-header">
-              <h2 className="launcher-library-dialog-title">{labels.renameLibraryFolder}</h2>
-              <p className="launcher-library-dialog-copy">{labels.renameLibraryFolderPrompt(folderDialog.folder.name)}</p>
-            </div>
-
+        <Dialog open onClose={onCloseFolderDialog} size="md" labelledBy={folderTitleId}>
+          <DialogHeader
+            title={labels.renameLibraryFolder}
+            subtitle={labels.renameLibraryFolderPrompt(folderDialog.folder.name)}
+            onClose={onCloseFolderDialog}
+            closeLabel={labels.cancelEdit}
+            id={folderTitleId}
+          />
+          <DialogBody>
             <form
-              className="launcher-library-dialog-form"
+              id="folder-dialog-form"
               onSubmit={(event) => {
                 event.preventDefault()
                 onSubmitFolderDialog()
@@ -364,19 +326,16 @@ export function LauncherLibraryDialogs({
                   autoFocus
                 />
               </label>
-              <div className="launcher-library-dialog-actions">
-                <button type="button" className="control-button launcher-library-secondary-action" onClick={onCloseFolderDialog}>
-                  {labels.cancelEdit}
-                </button>
-                <button type="submit" className="control-button control-button-primary launcher-library-primary-action">
-                  {labels.saveChanges}
-                </button>
-              </div>
             </form>
-          </section>
-        </div>
+          </DialogBody>
+          <DialogFooter>
+            <DialogAction onClick={onCloseFolderDialog}>{labels.cancelEdit}</DialogAction>
+            <DialogAction type="submit" tone="primary" form="folder-dialog-form">
+              {labels.saveChanges}
+            </DialogAction>
+          </DialogFooter>
+        </Dialog>
       ) : null}
-    </div>,
-    document.body,
+    </>
   )
 }

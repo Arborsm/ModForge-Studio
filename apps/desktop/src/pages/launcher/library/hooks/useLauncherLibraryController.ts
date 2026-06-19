@@ -262,6 +262,8 @@ export function useLauncherLibraryController({
     return () => window.removeEventListener('mousedown', handlePointerDown)
   }, [packActionMenuId, quickSwitchOpen, sortMenuOpen])
 
+  const packDialogFocusKey = packDialog ? `${packDialog.kind}:${packDialog.kind === 'create' ? '' : packDialog.pack.id}` : null
+
   useEffect(() => {
     if (!packDialog || packDialog.kind === 'delete') {
       return
@@ -274,7 +276,7 @@ export function useLauncherLibraryController({
 
     input.focus()
     input.select()
-  }, [packDialog])
+  }, [packDialogFocusKey])
 
   const toggleLibraryFolderOpen = useCallback((folderId: string) => {
     const folderLookup = normalizeLookupKey(folderId)
@@ -514,11 +516,8 @@ export function useLauncherLibraryController({
   }, [loadInstallBackups])
 
   const openInstallBackupsFromSummary = useCallback(() => {
-    void loadInstallBackups().then((opened) => {
-      if (opened && installBackupsOpenRef.current) {
-        setInstallResult(null)
-      }
-    })
+    setInstallResult(null)
+    void loadInstallBackups()
   }, [loadInstallBackups])
 
   const refreshLibrary = useCallback(async () => {

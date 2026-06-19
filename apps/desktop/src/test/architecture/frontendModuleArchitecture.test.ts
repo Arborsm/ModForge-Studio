@@ -146,6 +146,37 @@ function specifierTargetsSourceRoot(filePath: string, specifier: string, root: s
 
 const TEST_FILE_PATTERN = /\.(test|spec)\.(ts|tsx)$/
 const REMOVED_DESKTOP_FACADE_SPECIFIER = '@platform/' + 'desktop'
+const NON_DIALOG_PRIMITIVE_MODAL_ALLOWLIST = new Set([
+  'src/features/launcher/ui/cards/LauncherModDetailPanel.tsx',
+  'src/pages/workbench/ui/WorkbenchLaunchpadNavigation.tsx',
+  'src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventResourcePicker.tsx',
+])
+// `fixed inset-0 z-[200|220]` was the workbench/cp-maker dialog backdrop pattern.
+const HAND_ROLLED_DIALOG_BACKDROP = /fixed\s+inset-0\s+z-\[2\d\d\]/
+// `bg-black/40` and `bg-black/45` were the literal scrims; dialogs use --scrim now.
+const LITERAL_DIALOG_SCRIM = /bg-black\/4[05]\b/
+const MODAL_DIALOG_ARIA = /aria-modal=(?:"true"|\{'true'\}|\{true\})/
+const SHARED_DIALOG_IMPORT = /from ['"]@shared\/ui\/Dialog['"]/
+
+function collectPrimitiveModalViolations(relativePath: string, source: string) {
+  const violations: string[] = []
+
+  if (HAND_ROLLED_DIALOG_BACKDROP.test(source)) {
+    violations.push(`${relativePath} uses a hand-rolled fixed inset-0 z-[2xx] dialog backdrop; use @shared/ui/Dialog instead`)
+  }
+
+  if (LITERAL_DIALOG_SCRIM.test(source)) {
+    violations.push(`${relativePath} uses a literal bg-black/4x dialog scrim; the Dialog primitive provides the scrim via --scrim`)
+  }
+
+  if (MODAL_DIALOG_ARIA.test(source) && !SHARED_DIALOG_IMPORT.test(source) && !NON_DIALOG_PRIMITIVE_MODAL_ALLOWLIST.has(relativePath)) {
+    violations.push(
+      `${relativePath} declares aria-modal="true" outside @shared/ui/Dialog; migrate the modal or add an explicit allowlist entry`,
+    )
+  }
+
+  return violations
+}
 
 describe('frontend module architecture', () => {
   it('exposes the FSD foundation roots and mounts app/App directly', async () => {
@@ -657,6 +688,35 @@ describe('frontend module architecture', () => {
     expect(workspaceViolations).toEqual([])
     await expect(access(sourcePath('src/features/workspaces'))).rejects.toThrow()
   })
+
+  /**
+   * Dialog backdrop discipline: every modal must go through the shared Dialog
+   * primitive (`@shared/ui/Dialog`), which portals to document.body and clips the
+   * overlay below the titlebar. Hand-rolled `fixed inset-0 z-[2xx]` backdrops and
+   * literal `bg-black/4x` scrims are the old pattern that caused dialogs to cover
+   * the titlebar inconsistently — they must not return.
+   */
+  it('routes every modal through the shared Dialog primitive instead of hand-rolled backdrops', async () => {
+    const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/entities']
+    const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
+    const violations: string[] = []
+
+    for (const filePath of sourceFiles.flat()) {
+      if (TEST_FILE_PATTERN.test(filePath)) {
+        continue
+      }
+
+      const source = await readFile(filePath, 'utf8')
+      const relativePath = relative(sourcePath(), filePath).replaceAll('\\', '/')
+      violations.push(...collectPrimitiveModalViolations(relativePath, source))
+    }
+
+    expect(collectPrimitiveModalViolations('src/features/example/InlineModal.tsx', '<section role="dialog" aria-modal="true" />')).toEqual([
+      'src/features/example/InlineModal.tsx declares aria-modal="true" outside @shared/ui/Dialog; migrate the modal or add an explicit allowlist entry',
+    ])
+
+    expect(violations).toEqual([])
+  }, 10000)
 
   it('keeps shared modules free of upper-layer imports and desktop bridge calls', async () => {
     const sharedSourceFiles = await collectSourceFiles(sourcePath('src/shared'))

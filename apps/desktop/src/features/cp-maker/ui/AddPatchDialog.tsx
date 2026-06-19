@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { X, ChevronRight } from 'lucide-react'
+import { useId } from 'react'
+import { ChevronRight } from 'lucide-react'
 import type { DraftPatch } from '@shared/contracts'
 import type { WorkspaceId } from '@shared/contracts'
 import { useEditorCopy } from '@locales/provider'
+import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 type ActionType = DraftPatch['action']
 
@@ -177,6 +179,7 @@ interface AddPatchDialogProps {
 
 export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDialogProps) {
   const copy = useEditorCopy().studioDesk.addPatchDialog
+  const titleId = useId()
   const allowedActions = WORKSPACE_ACTIONS[workspaceId] ?? ACTION_OPTIONS
   const actionOptions = ACTION_OPTIONS.filter((action) => allowedActions.includes(action))
   const [step, setStep] = useState<1 | 2>(1)
@@ -185,10 +188,9 @@ export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDi
   const [customTarget, setCustomTarget] = useState('')
   const [fromFile, setFromFile] = useState('')
 
-  if (!open) return null
-
   const targetToUse = customTarget.trim() || selectedTarget
   const isInclude = selectedAction === 'Include'
+  const title = step === 1 ? copy.selectActionTitle : isInclude ? copy.includeFileTitle : copy.selectTargetTitle
 
   function handleAdd() {
     if (!selectedAction) return
@@ -209,19 +211,11 @@ export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDi
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
-      <div className="flex max-h-[85vh] w-[440px] max-w-[90vw] flex-col overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] shadow-xl">
-        <div className="flex items-center justify-between border-b border-[var(--border-color)] px-4 py-3">
-          <span className="text-sm font-semibold text-[var(--text-primary)]">
-            {step === 1 ? copy.selectActionTitle : isInclude ? copy.includeFileTitle : copy.selectTargetTitle}
-          </span>
-          <button type="button" className="icon-button h-7 w-7" aria-label={copy.closeLabel} onClick={onClose}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
+    <Dialog open={open} onClose={onClose} size="md" labelledBy={titleId}>
+      <DialogHeader title={title} onClose={onClose} closeLabel={copy.closeLabel} id={titleId} />
+      <DialogBody>
         {step === 1 ? (
-          <div className="space-y-1 overflow-auto px-4 py-3">
+          <div className="space-y-1">
             {actionOptions.map((action) => (
               <button
                 key={action}
@@ -245,7 +239,7 @@ export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDi
             ))}
           </div>
         ) : isInclude ? (
-          <div className="space-y-2 overflow-auto px-4 py-3">
+          <div className="space-y-2">
             <button type="button" className="mb-2 text-xs text-[var(--accent)] hover:underline" onClick={() => setStep(1)}>
               {`← ${copy.back}`}
             </button>
@@ -261,69 +255,50 @@ export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDi
               />
               <p className="mt-1 text-[10px] text-[var(--text-secondary)]">{copy.fromFileDescription}</p>
             </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" className="control-button text-xs" onClick={onClose}>
-                {copy.cancel}
-              </button>
-              <button
-                type="button"
-                className="control-button control-button-primary text-xs"
-                disabled={!fromFile.trim()}
-                onClick={handleAdd}
-              >
-                {copy.addPatch}
-              </button>
-            </div>
           </div>
         ) : (
-          <div className="flex min-h-0 flex-col">
-            <div className="overflow-auto px-4 py-3">
-              <button type="button" className="mb-2 text-xs text-[var(--accent)] hover:underline" onClick={() => setStep(1)}>
-                {`← ${copy.back}`}
-              </button>
+          <div className="space-y-1">
+            <button type="button" className="mb-2 text-xs text-[var(--accent)] hover:underline" onClick={() => setStep(1)}>
+              {`← ${copy.back}`}
+            </button>
 
-              <div className="space-y-1">
-                {selectedAction &&
-                  filterTargetsByWorkspace(COMMON_TARGETS[selectedAction as Exclude<ActionType, 'Include'>], workspaceId).map((target) => (
-                    <button
-                      key={target}
-                      type="button"
-                      className={`w-full rounded-md px-3 py-2 text-left text-xs transition-colors ${
-                        selectedTarget === target
-                          ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
-                          : 'text-[var(--text-secondary)] hover:bg-[var(--bg-panel-muted)]'
-                      }`}
-                      onClick={() => setSelectedTarget(target)}
-                    >
-                      {target}
-                    </button>
-                  ))}
-              </div>
-
-              <div className="pt-2">
-                <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">{copy.customTarget}</span>
-                <input
-                  type="text"
-                  className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                  value={customTarget}
-                  onChange={(e) => setCustomTarget(e.target.value)}
-                  placeholder={copy.customTargetPlaceholder}
-                />
-              </div>
+            <div className="space-y-1">
+              {selectedAction &&
+                filterTargetsByWorkspace(COMMON_TARGETS[selectedAction as Exclude<ActionType, 'Include'>], workspaceId).map((target) => (
+                  <button
+                    key={target}
+                    type="button"
+                    className={`w-full rounded-md px-3 py-2 text-left text-xs transition-colors ${
+                      selectedTarget === target
+                        ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
+                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-panel-muted)]'
+                    }`}
+                    onClick={() => setSelectedTarget(target)}
+                  >
+                    {target}
+                  </button>
+                ))}
             </div>
 
-            <div className="flex justify-end gap-2 border-t border-[var(--border-color)] px-4 py-3">
-              <button type="button" className="control-button text-xs" onClick={onClose}>
-                {copy.cancel}
-              </button>
-              <button type="button" className="control-button control-button-primary text-xs" disabled={!targetToUse} onClick={handleAdd}>
-                {copy.addPatch}
-              </button>
+            <div className="pt-2">
+              <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">{copy.customTarget}</span>
+              <input
+                type="text"
+                className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                value={customTarget}
+                onChange={(e) => setCustomTarget(e.target.value)}
+                placeholder={copy.customTargetPlaceholder}
+              />
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </DialogBody>
+      <DialogFooter>
+        <DialogAction onClick={onClose}>{copy.cancel}</DialogAction>
+        <DialogAction tone="primary" disabled={step === 1 || (isInclude ? !fromFile.trim() : !targetToUse)} onClick={handleAdd}>
+          {copy.addPatch}
+        </DialogAction>
+      </DialogFooter>
+    </Dialog>
   )
 }

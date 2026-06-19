@@ -1,4 +1,4 @@
-import type { ViewportLabels } from '../../../model/workbench'
+import type { ViewportLabels, BuildAssetDialogCopy } from '../../../model/workbench'
 
 const map: ViewportLabels = {
   loadPrompt: '加载 XNB 地图后，这里会变成可平移、可缩放、可右键的主视口。',
@@ -21,4 +21,18 @@ const map: ViewportLabels = {
   failedToLoadTilesetImage: (path) => `无法加载 Tileset 图像: ${path}`,
 }
 
+const buildAssetDialog: BuildAssetDialogCopy = {
+  title: '构建地图资源',
+  building: '构建中...',
+  buildingMessage: '正在将地图序列化为 tBIN 格式...',
+  doneTitle: '构建完成',
+  doneAssetSavedAs: (relativePath) => `资源已保存为 ${relativePath}`,
+  doneSizeKb: (kilobytes) => `大小: ${kilobytes} KB`,
+  errorTitle: '构建失败',
+  doneAction: '完成',
+  closeAction: '关闭',
+  cancelAction: '取消',
+}
+
 export default map
+export { buildAssetDialog }

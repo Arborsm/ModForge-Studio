@@ -8,6 +8,7 @@
 @import './primitives/menu.css';
 @import './primitives/tooltip.css';
 @import './primitives/overlay.css';
+@import './primitives/dialog.css';
 @import './primitives/loading-motion.css';
 @import './primitives/nexusmods-bbcode.css';
 @import './primitives/gooey-nav.css';
@@ -30,5 +31,6 @@
 @source '../shared/ui/nexusmods-bbcode/NexusModsBbcode.tsx';
 @source '../shared/ui/PanelSection.tsx';
 @source '../shared/ui/ProgressRing.tsx';
+@source '../shared/ui/Dialog';
 @source '../widgets/top-navigation';
 @source '../widgets/status-bar';

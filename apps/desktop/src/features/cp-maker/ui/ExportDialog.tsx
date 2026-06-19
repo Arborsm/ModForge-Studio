@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { X, FolderOpen } from 'lucide-react'
+import { useId, useState } from 'react'
+import { FolderOpen } from 'lucide-react'
 import { useCpMakerPort } from '@features/cp-maker/provider'
 import type { EditorCopy } from '@locales'
+import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 interface ExportDialogProps {
   open: boolean
@@ -13,12 +14,18 @@ interface ExportDialogProps {
 }
 
 export function ExportDialog({ open, copy, draftName, fileList, onClose, onExport }: ExportDialogProps) {
+  const titleId = useId()
   const port = useCpMakerPort()
   const [outputPath, setOutputPath] = useState('')
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  if (!open) return null
+  function handleClose() {
+    if (exporting) {
+      return
+    }
+    onClose()
+  }
 
   async function handleSelectDirectory() {
     const selected = await port.chooseDirectory(copy.selectDirectory)
@@ -44,21 +51,10 @@ export function ExportDialog({ open, copy, draftName, fileList, onClose, onExpor
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
-      <div
-        className="w-[480px] max-w-[90vw] rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] shadow-xl"
-        role="dialog"
-        aria-modal="true"
-        aria-label={copy.title}
-      >
-        <div className="flex items-center justify-between border-b border-[var(--border-color)] px-4 py-3">
-          <span className="text-sm font-semibold text-[var(--text-primary)]">{copy.title}</span>
-          <button type="button" className="icon-button h-7 w-7" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="space-y-3 px-4 py-4">
+    <Dialog open={open} onClose={handleClose} size="md" labelledBy={titleId} closeOnBackdrop={!exporting} closeOnEscape={!exporting}>
+      <DialogHeader title={copy.title} onClose={handleClose} closeLabel={copy.cancel} closeDisabled={exporting} id={titleId} />
+      <DialogBody>
+        <div className="space-y-3">
           <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-2">
             <div className="text-xs text-[var(--text-secondary)]">{copy.project}</div>
             <div className="text-sm font-medium text-[var(--text-primary)]">{draftName}</div>
@@ -80,7 +76,7 @@ export function ExportDialog({ open, copy, draftName, fileList, onClose, onExpor
             </div>
           </div>
 
-          {error ? <div className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-400">{error}</div> : null}
+          {error ? <p className="app-dialog-error">{error}</p> : null}
 
           <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-2">
             <div className="text-[10px] text-[var(--text-secondary)]">{copy.filesToExport(fileList.length)}</div>
@@ -90,22 +86,16 @@ export function ExportDialog({ open, copy, draftName, fileList, onClose, onExpor
               ))}
             </ul>
           </div>
-
-          <div className="flex justify-end gap-2 pt-1">
-            <button type="button" className="control-button text-xs" onClick={onClose}>
-              {copy.cancel}
-            </button>
-            <button
-              type="button"
-              className="control-button control-button-primary text-xs"
-              disabled={!outputPath.trim() || exporting}
-              onClick={handleExport}
-            >
-              {exporting ? copy.exporting : copy.export}
-            </button>
-          </div>
         </div>
-      </div>
-    </div>
+      </DialogBody>
+      <DialogFooter>
+        <DialogAction onClick={handleClose} disabled={exporting}>
+          {copy.cancel}
+        </DialogAction>
+        <DialogAction tone="primary" disabled={!outputPath.trim() || exporting} onClick={handleExport}>
+          {exporting ? copy.exporting : copy.export}
+        </DialogAction>
+      </DialogFooter>
+    </Dialog>
   )
 }

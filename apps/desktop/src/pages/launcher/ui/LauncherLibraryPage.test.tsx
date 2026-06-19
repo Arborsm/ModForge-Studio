@@ -1036,7 +1036,10 @@ describe('LauncherLibraryPage', () => {
     })
 
     expect(await screen.findByRole('dialog', { name: 'Archive Preview' })).toBeTruthy()
-    expect(document.body.querySelector('.launcher-dialog-portal-root.launcher-shell-routed')).toBeTruthy()
+    // The Dialog primitive portals the overlay to document.body so the dialog
+    // stays outside the launcher route scroll container even when the route is hidden.
+    expect(document.body.querySelector('.app-dialog-overlay')).toBeTruthy()
+    expect(document.body.querySelector('.app-dialog-overlay [role="dialog"]')).toBeTruthy()
   })
 
   it('keeps archive inspection in a progress notification until the preview is ready', async () => {
@@ -1986,11 +1989,9 @@ describe('LauncherLibraryPage', () => {
     })
 
     const preview = await screen.findByTestId('launcher-library-drag-preview')
-    const routedShell = document.querySelector('.launcher-shell-routed')
-    expect(routedShell).not.toBeNull()
-    expect(routedShell?.contains(preview)).toBe(false)
+    // The drag preview portals to its own scope on document.body, outside the
+    // launcher route scroll container, so shell transforms cannot offset it.
     expect(preview.closest('.launcher-shell-route-active')).toBeNull()
-    expect(preview.closest('.launcher-shell-routed')).toBeNull()
     expect(preview.closest('.launcher-library-drag-portal-scope')).not.toBeNull()
     expect(document.body.contains(preview)).toBe(true)
 
@@ -2511,16 +2512,18 @@ describe('LauncherLibraryPage', () => {
     expect(within(summaryDialog).getByText('install-123')).not.toBeNull()
 
     fireEvent.click(within(summaryDialog).getByRole('button', { name: 'Manage Install Backups' }))
+    expect(screen.queryByRole('dialog', { name: 'Install Summary' })).toBeNull()
 
     await waitFor(() => {
       expect(listLauncherInstallBackupsMock).toHaveBeenCalledWith({
         modsPath: 'E:\\Games\\Stardew Valley\\Mods',
       })
     })
+    expect(screen.queryAllByRole('dialog')).toHaveLength(1)
     expect(await screen.findByRole('dialog', { name: 'Install Backups' })).not.toBeNull()
   })
 
-  it('keeps the install summary visible when opening install backups from the summary fails', async () => {
+  it('keeps install backups mutually exclusive with the install summary when loading from the summary fails', async () => {
     const library = createLibraryState()
     library.installArchive = vi.fn(async () => createInstallArchiveResult())
     useLauncherLibraryMock.mockReturnValue(library)
@@ -2552,6 +2555,7 @@ describe('LauncherLibraryPage', () => {
 
     const summaryDialog = await screen.findByRole('dialog', { name: 'Install Summary' })
     fireEvent.click(within(summaryDialog).getByRole('button', { name: 'Manage Install Backups' }))
+    expect(screen.queryByRole('dialog', { name: 'Install Summary' })).toBeNull()
 
     await waitFor(() => {
       expect(listLauncherInstallBackupsMock).toHaveBeenCalledWith({
@@ -2559,12 +2563,12 @@ describe('LauncherLibraryPage', () => {
       })
     })
 
-    expect(await screen.findByRole('dialog', { name: 'Install Summary' })).not.toBeNull()
     const backupsDialog = await screen.findByRole('dialog', { name: 'Install Backups' })
+    expect(screen.queryAllByRole('dialog')).toHaveLength(1)
     expect(within(backupsDialog).getByText('Backups unavailable')).not.toBeNull()
   })
 
-  it('keeps the install summary visible when the backup dialog is closed before backup loading finishes', async () => {
+  it('does not restore the install summary when backup loading is closed before it finishes', async () => {
     const library = createLibraryState()
     library.installArchive = vi.fn(async () => createInstallArchiveResult())
     useLauncherLibraryMock.mockReturnValue(library)
@@ -2597,6 +2601,7 @@ describe('LauncherLibraryPage', () => {
 
     const summaryDialog = await screen.findByRole('dialog', { name: 'Install Summary' })
     fireEvent.click(within(summaryDialog).getByRole('button', { name: 'Manage Install Backups' }))
+    expect(screen.queryByRole('dialog', { name: 'Install Summary' })).toBeNull()
 
     const backupsDialog = await screen.findByRole('dialog', { name: 'Install Backups' })
     fireEvent.click(within(backupsDialog).getByRole('button', { name: 'Close' }))
@@ -2607,7 +2612,7 @@ describe('LauncherLibraryPage', () => {
     })
 
     expect(screen.queryByRole('dialog', { name: 'Install Backups' })).toBeNull()
-    expect(await screen.findByRole('dialog', { name: 'Install Summary' })).not.toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Install Summary' })).toBeNull()
   })
 
   it('restores an install backup from the backup manager dialog and refreshes the library', async () => {

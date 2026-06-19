@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import { X } from 'lucide-react'
+import { useId } from 'react'
 import type { EditorCopy } from '@locales'
+import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 interface CreateDraftDialogProps {
   open: boolean
@@ -16,6 +17,7 @@ interface CreateDraftDialogProps {
 }
 
 export function CreateDraftDialog({ open, copy, onClose, onCreate }: CreateDraftDialogProps) {
+  const titleId = useId()
   const [form, setForm] = useState({
     projectName: '',
     projectDescription: '',
@@ -23,8 +25,6 @@ export function CreateDraftDialog({ open, copy, onClose, onCreate }: CreateDraft
     projectVersion: '1.0.0',
     projectUniqueId: '',
   })
-
-  if (!open) return null
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -46,21 +46,10 @@ export function CreateDraftDialog({ open, copy, onClose, onCreate }: CreateDraft
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
-      <div
-        className="w-[480px] max-w-[90vw] rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] shadow-xl"
-        role="dialog"
-        aria-modal="true"
-        aria-label={copy.title}
-      >
-        <div className="flex items-center justify-between border-b border-[var(--border-color)] px-4 py-3">
-          <span className="text-sm font-semibold text-[var(--text-primary)]">{copy.title}</span>
-          <button type="button" className="icon-button h-7 w-7" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-3 px-4 py-4">
+    <Dialog open={open} onClose={onClose} size="md" labelledBy={titleId}>
+      <DialogHeader title={copy.title} onClose={onClose} closeLabel={copy.cancel} id={titleId} />
+      <DialogBody>
+        <form id="create-draft-form" onSubmit={handleSubmit} className="space-y-3">
           <label className="block">
             <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.projectName}</span>
             <input
@@ -119,21 +108,19 @@ export function CreateDraftDialog({ open, copy, onClose, onCreate }: CreateDraft
               onChange={(e) => setForm((f) => ({ ...f, projectDescription: e.target.value }))}
             />
           </label>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="control-button text-xs" onClick={onClose}>
-              {copy.cancel}
-            </button>
-            <button
-              type="submit"
-              className="control-button control-button-primary text-xs"
-              disabled={!form.projectName.trim() || !form.projectUniqueId.trim()}
-            >
-              {copy.create}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+      </DialogBody>
+      <DialogFooter>
+        <DialogAction onClick={onClose}>{copy.cancel}</DialogAction>
+        <DialogAction
+          type="submit"
+          tone="primary"
+          form="create-draft-form"
+          disabled={!form.projectName.trim() || !form.projectUniqueId.trim()}
+        >
+          {copy.create}
+        </DialogAction>
+      </DialogFooter>
+    </Dialog>
   )
 }

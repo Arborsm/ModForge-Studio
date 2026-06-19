@@ -1,6 +1,6 @@
 import type { LauncherCopy } from '../launcher'
 import type { WorkbenchShellCopy } from './shell'
-import type { ViewportLabels } from './map'
+import type { ViewportLabels, BuildAssetDialogCopy } from './map'
 import type { StudioDeskCopy } from './studio-desk'
 import type { EventStageCopy } from './event-stage'
 import type { CharactersPanelCopy } from './characters'
@@ -22,11 +22,12 @@ export type EditorCopy = WorkbenchShellCopy & {
   itemsPanel: ItemsPanelCopy
   moduleBlueprints: ModuleBlueprintsCopy
   viewportLabels: ViewportLabels
+  buildAssetDialog: BuildAssetDialogCopy
 }
 
 // Re-export all sub-types for consumer convenience
 export type { WorkbenchShellCopy } from './shell'
-export type { ViewportLabels } from './map'
+export type { ViewportLabels, BuildAssetDialogCopy } from './map'
 export type { StudioDeskCopy } from './studio-desk'
 export type { EventStageCopy } from './event-stage'
 export type { CharactersPanelCopy } from './characters'

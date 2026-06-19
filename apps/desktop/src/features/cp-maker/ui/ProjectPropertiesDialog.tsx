@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { X } from 'lucide-react'
+import { useId } from 'react'
 import type { EditorCopy } from '@locales'
 import type { CpMakerDraft } from '@shared/contracts'
+import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 type ProjectPropertiesMetadata = Pick<
   CpMakerDraft['projectMetadata'],
@@ -17,8 +18,6 @@ type ProjectPropertiesDialogProps = {
 }
 
 export function ProjectPropertiesDialog({ open, copy, metadata, onClose, onSave }: ProjectPropertiesDialogProps) {
-  if (!open) return null
-
   const metadataKey = [
     metadata.projectName,
     metadata.projectDescription,
@@ -27,10 +26,11 @@ export function ProjectPropertiesDialog({ open, copy, metadata, onClose, onSave 
     metadata.projectUniqueId,
   ].join('\0')
 
-  return <ProjectPropertiesDialogForm key={metadataKey} copy={copy} metadata={metadata} onClose={onClose} onSave={onSave} />
+  return <ProjectPropertiesDialogForm key={metadataKey} open={open} copy={copy} metadata={metadata} onClose={onClose} onSave={onSave} />
 }
 
-function ProjectPropertiesDialogForm({ copy, metadata, onClose, onSave }: Omit<ProjectPropertiesDialogProps, 'open'>) {
+function ProjectPropertiesDialogForm({ open, copy, metadata, onClose, onSave }: ProjectPropertiesDialogProps) {
+  const titleId = useId()
   const [form, setForm] = useState(metadata)
 
   function handleSubmit(event: FormEvent) {
@@ -47,21 +47,10 @@ function ProjectPropertiesDialogForm({ copy, metadata, onClose, onSave }: Omit<P
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
-      <div
-        className="w-[520px] max-w-[90vw] rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] shadow-xl"
-        role="dialog"
-        aria-modal="true"
-        aria-label={copy.editProjectProperties}
-      >
-        <div className="flex items-center justify-between border-b border-[var(--border-color)] px-4 py-3">
-          <span className="text-sm font-semibold text-[var(--text-primary)]">{copy.editProjectProperties}</span>
-          <button type="button" className="icon-button h-7 w-7" onClick={onClose}>
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-3 px-4 py-4">
+    <Dialog open={open} onClose={onClose} size="lg" labelledBy={titleId}>
+      <DialogHeader title={copy.editProjectProperties} onClose={onClose} closeLabel={copy.createDialog.cancel} id={titleId} />
+      <DialogBody>
+        <form id="project-properties-form" onSubmit={handleSubmit} className="space-y-3">
           <label className="block">
             <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.createDialog.projectName}</span>
             <input
@@ -112,21 +101,19 @@ function ProjectPropertiesDialogForm({ copy, metadata, onClose, onSave }: Omit<P
               onChange={(event) => setForm((current) => ({ ...current, projectDescription: event.target.value }))}
             />
           </label>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="control-button text-xs" onClick={onClose}>
-              {copy.createDialog.cancel}
-            </button>
-            <button
-              type="submit"
-              className="control-button control-button-primary text-xs"
-              disabled={!form.projectName.trim() || !form.projectUniqueId.trim()}
-            >
-              {copy.toolbar.save}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+      </DialogBody>
+      <DialogFooter>
+        <DialogAction onClick={onClose}>{copy.createDialog.cancel}</DialogAction>
+        <DialogAction
+          type="submit"
+          tone="primary"
+          form="project-properties-form"
+          disabled={!form.projectName.trim() || !form.projectUniqueId.trim()}
+        >
+          {copy.toolbar.save}
+        </DialogAction>
+      </DialogFooter>
+    </Dialog>
   )
 }

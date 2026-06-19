@@ -1,7 +1,9 @@
+import { useId } from 'react'
 import type { LauncherInstallBackupSummary } from '../../model/launcherContracts'
 import { useEditorCopy } from '@locales/provider'
 import { PanelEmptyState } from '@shared/ui/PanelSection'
 import { useState } from 'react'
+import { Dialog, DialogAction, DialogBody, DialogHeader } from '@shared/ui/Dialog'
 
 type LauncherInstallBackupsDialogProps = {
   open: boolean
@@ -24,12 +26,9 @@ export function LauncherInstallBackupsDialog({
   onClose,
   onRestore,
 }: LauncherInstallBackupsDialogProps) {
-  if (!open) {
-    return null
-  }
-
   return (
     <LauncherInstallBackupsDialogContent
+      open={open}
       loading={loading}
       backups={backups}
       error={error}
@@ -41,9 +40,10 @@ export function LauncherInstallBackupsDialog({
   )
 }
 
-type LauncherInstallBackupsDialogContentProps = Omit<LauncherInstallBackupsDialogProps, 'open'>
+type LauncherInstallBackupsDialogContentProps = LauncherInstallBackupsDialogProps
 
 function LauncherInstallBackupsDialogContent({
+  open,
   loading,
   backups,
   error,
@@ -53,34 +53,29 @@ function LauncherInstallBackupsDialogContent({
   onRestore,
 }: LauncherInstallBackupsDialogContentProps) {
   const copy = useEditorCopy().launcher
+  const titleId = useId()
   const [pendingRestoreBackupId, setPendingRestoreBackupId] = useState<string | null>(null)
+  const busy = Boolean(restoringBackupId)
 
   const closeDialog = () => {
+    if (busy) {
+      return
+    }
     setPendingRestoreBackupId(null)
     onClose()
   }
 
   return (
-    <div
-      className="launcher-modal-backdrop launcher-library-dialog-backdrop"
-      role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget && !restoringBackupId) {
-          closeDialog()
-        }
-      }}
-    >
-      <section
-        className="launcher-library-dialog launcher-library-install-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={copy.library.installBackupsTitle}
-      >
-        <div className="launcher-library-dialog-header">
-          <h2 className="launcher-library-dialog-title">{copy.library.installBackupsTitle}</h2>
-          <p className="launcher-library-dialog-copy">{copy.library.installBackupsSubtitle}</p>
-        </div>
-
+    <Dialog open={open} onClose={closeDialog} size="xl" labelledBy={titleId} closeOnBackdrop={!busy} closeOnEscape={!busy}>
+      <DialogHeader
+        title={copy.library.installBackupsTitle}
+        subtitle={copy.library.installBackupsSubtitle}
+        onClose={closeDialog}
+        closeLabel={copy.actions.closeDialog}
+        closeDisabled={busy}
+        id={titleId}
+      />
+      <DialogBody>
         <div className="launcher-library-install-list">
           {loading ? <PanelEmptyState>{copy.library.installBackupsLoading}</PanelEmptyState> : null}
           {!loading && error ? <PanelEmptyState>{error}</PanelEmptyState> : null}
@@ -96,17 +91,12 @@ function LauncherInstallBackupsDialogContent({
                     </div>
                     <p className="launcher-library-install-card-path">{backup.backupPath}</p>
                     <div className="launcher-library-dialog-actions launcher-library-install-card-actions">
-                      <button
-                        type="button"
-                        className="control-button control-button-primary launcher-library-primary-action"
-                        disabled={Boolean(restoringBackupId)}
-                        onClick={() => setPendingRestoreBackupId(backup.backupId)}
-                      >
+                      <DialogAction tone="primary" disabled={busy} onClick={() => setPendingRestoreBackupId(backup.backupId)}>
                         {restoring ? `${copy.library.restoreInstallBackup}...` : copy.library.restoreInstallBackup}
-                      </button>
+                      </DialogAction>
                     </div>
                     {pendingRestoreBackupId === backup.backupId ? (
-                      <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+                      <div className="launcher-library-install-restore-confirm">
                         <p className="text-sm font-semibold text-[var(--text-primary)]">{copy.library.restoreInstallBackupConfirmTitle}</p>
                         <p className="mt-1 text-xs text-[var(--text-secondary)]">
                           {copy.library.restoreInstallBackupConfirmMessage(
@@ -117,22 +107,12 @@ function LauncherInstallBackupsDialogContent({
                           )}
                         </p>
                         <div className="mt-3 flex justify-end gap-2">
-                          <button
-                            type="button"
-                            className="control-button launcher-library-secondary-action"
-                            disabled={Boolean(restoringBackupId)}
-                            onClick={() => setPendingRestoreBackupId(null)}
-                          >
+                          <DialogAction disabled={busy} onClick={() => setPendingRestoreBackupId(null)}>
                             {copy.actions.closeDialog}
-                          </button>
-                          <button
-                            type="button"
-                            className="control-button control-button-primary launcher-library-primary-action"
-                            disabled={Boolean(restoringBackupId)}
-                            onClick={() => onRestore(backup.backupId)}
-                          >
+                          </DialogAction>
+                          <DialogAction tone="primary" disabled={busy} onClick={() => onRestore(backup.backupId)}>
                             {copy.library.restoreInstallBackupConfirmAction}
-                          </button>
+                          </DialogAction>
                         </div>
                       </div>
                     ) : null}
@@ -141,18 +121,7 @@ function LauncherInstallBackupsDialogContent({
               })
             : null}
         </div>
-
-        <div className="launcher-library-dialog-actions">
-          <button
-            type="button"
-            className="control-button launcher-library-secondary-action"
-            onClick={closeDialog}
-            disabled={Boolean(restoringBackupId)}
-          >
-            {copy.actions.closeDialog}
-          </button>
-        </div>
-      </section>
-    </div>
+      </DialogBody>
+    </Dialog>
   )
 }

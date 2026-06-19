@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, CheckCircle2, Crosshair, Hammer, Loader2, Plus, Trash2, X } from 'lucide-react'
+import { useEffect, useId, useMemo, useState } from 'react'
+import { AlertCircle, CheckCircle2, Crosshair, Hammer, Loader2, Plus, Trash2 } from 'lucide-react'
 import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
 import type { VirtualPreviewAsset } from '@shared/contracts'
 import type { TileHoverInfo } from '@shared/contracts'
@@ -8,6 +8,8 @@ import type { MapDocument } from '@shared/contracts'
 import { loadMapAsset } from '@entities/game/api'
 import { buildCpMakerMapAsset } from '@features/cp-maker/api'
 import { MapViewport } from '@entities/map'
+import { useEditorCopy } from '@locales/provider'
+import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 interface MapPatchEditorProps {
   patch: DraftPatch
@@ -353,9 +355,11 @@ type BuildState =
   | { phase: 'error'; message: string }
 
 function BuildAssetDialog({ mapDocument, targetMapName, onClose, onAssetBuilt }: BuildAssetDialogProps) {
+  const copy = useEditorCopy().buildAssetDialog
+  const titleId = useId()
   const [buildState, setBuildState] = useState<BuildState>({
     phase: 'building',
-    message: 'Serializing map to tBIN format...',
+    message: copy.buildingMessage,
   })
 
   useEffect(() => {
@@ -390,72 +394,75 @@ function BuildAssetDialog({ mapDocument, targetMapName, onClose, onAssetBuilt }:
     return () => {
       cancelled = true
     }
-  }, [mapDocument, onAssetBuilt, targetMapName])
+  }, [mapDocument, onAssetBuilt, targetMapName, copy.buildingMessage])
+
+  const building = buildState.phase === 'building'
+  const handleClose = () => {
+    if (building) {
+      return
+    }
+    onClose()
+  }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
-      <div className="w-[400px] max-w-[90vw] rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] shadow-xl">
-        <div className="flex items-center justify-between border-b border-[var(--border-color)] px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Hammer className="h-4 w-4 text-[var(--accent)]" />
-            <span className="text-sm font-semibold text-[var(--text-primary)]">Build Map Asset</span>
+    <Dialog open onClose={handleClose} size="sm" labelledBy={titleId} closeOnBackdrop={!building} closeOnEscape={!building}>
+      <DialogHeader
+        title={copy.title}
+        icon={<Hammer className="h-4 w-4" />}
+        onClose={handleClose}
+        closeLabel={copy.closeAction}
+        closeDisabled={building}
+        id={titleId}
+      />
+      <DialogBody>
+        {buildState.phase === 'building' ? (
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-[var(--accent)]" />
+            <div className="text-center">
+              <p className="text-sm font-medium text-[var(--text-primary)]">{copy.building}</p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">{buildState.message}</p>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-panel-muted)]">
+              <div className="h-full w-2/3 animate-pulse rounded-full bg-[var(--accent)]" />
+            </div>
           </div>
-          <button type="button" className="icon-button h-7 w-7" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+        ) : null}
 
-        <div className="px-4 py-6">
-          {buildState.phase === 'building' ? (
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-[var(--accent)]" />
-              <div className="text-center">
-                <p className="text-sm font-medium text-[var(--text-primary)]">Building...</p>
-                <p className="mt-1 text-xs text-[var(--text-secondary)]">{buildState.message}</p>
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-panel-muted)]">
-                <div className="h-full w-2/3 animate-pulse rounded-full bg-[var(--accent)]" />
-              </div>
+        {buildState.phase === 'done' ? (
+          <div className="flex flex-col items-center gap-3">
+            <CheckCircle2 className="h-8 w-8 text-[var(--success)]" />
+            <div className="text-center">
+              <p className="text-sm font-medium text-[var(--text-primary)]">{copy.doneTitle}</p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">{copy.doneAssetSavedAs(buildState.asset.relativePath)}</p>
+              <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">
+                {copy.doneSizeKb(Math.round((buildState.asset.bytesBase64.length * 3) / 4 / 1024))}
+              </p>
             </div>
-          ) : null}
+          </div>
+        ) : null}
 
-          {buildState.phase === 'done' ? (
-            <div className="flex flex-col items-center gap-3">
-              <CheckCircle2 className="h-8 w-8 text-green-400" />
-              <div className="text-center">
-                <p className="text-sm font-medium text-[var(--text-primary)]">Build Complete</p>
-                <p className="mt-1 text-xs text-[var(--text-secondary)]">Asset saved as {buildState.asset.relativePath}</p>
-                <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">
-                  Size: {Math.round((buildState.asset.bytesBase64.length * 3) / 4 / 1024)} KB
-                </p>
-              </div>
+        {buildState.phase === 'error' ? (
+          <div className="flex flex-col items-center gap-3">
+            <AlertCircle className="h-8 w-8 text-[var(--danger)]" />
+            <div className="text-center">
+              <p className="text-sm font-medium text-[var(--text-primary)]">{copy.errorTitle}</p>
+              <p className="app-dialog-error mt-1">{buildState.message}</p>
             </div>
-          ) : null}
-
-          {buildState.phase === 'error' ? (
-            <div className="flex flex-col items-center gap-3">
-              <AlertCircle className="h-8 w-8 text-red-400" />
-              <div className="text-center">
-                <p className="text-sm font-medium text-[var(--text-primary)]">Build Failed</p>
-                <p className="mt-1 text-xs text-red-400">{buildState.message}</p>
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="flex justify-end gap-2 border-t border-[var(--border-color)] px-4 py-3">
-          {buildState.phase === 'done' || buildState.phase === 'error' ? (
-            <button type="button" className="control-button control-button-primary text-xs" onClick={onClose}>
-              {buildState.phase === 'done' ? 'Done' : 'Close'}
-            </button>
-          ) : (
-            <button type="button" className="control-button text-xs" onClick={onClose}>
-              Cancel
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+          </div>
+        ) : null}
+      </DialogBody>
+      <DialogFooter>
+        {building ? (
+          <DialogAction onClick={handleClose} disabled>
+            {copy.cancelAction}
+          </DialogAction>
+        ) : (
+          <DialogAction tone="primary" onClick={handleClose}>
+            {buildState.phase === 'done' ? copy.doneAction : copy.closeAction}
+          </DialogAction>
+        )}
+      </DialogFooter>
+    </Dialog>
   )
 }
 

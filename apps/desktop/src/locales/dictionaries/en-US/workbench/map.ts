@@ -1,4 +1,4 @@
-import type { ViewportLabels } from '../../../model/workbench'
+import type { ViewportLabels, BuildAssetDialogCopy } from '../../../model/workbench'
 
 const map: ViewportLabels = {
   loadPrompt: 'Load an XNB map and this becomes the pan-able, zoomable main viewport.',
@@ -21,4 +21,18 @@ const map: ViewportLabels = {
   failedToLoadTilesetImage: (path) => `Failed to load tileset image: ${path}`,
 }
 
+const buildAssetDialog: BuildAssetDialogCopy = {
+  title: 'Build Map Asset',
+  building: 'Building...',
+  buildingMessage: 'Serializing map to tBIN format...',
+  doneTitle: 'Build Complete',
+  doneAssetSavedAs: (relativePath) => `Asset saved as ${relativePath}`,
+  doneSizeKb: (kilobytes) => `Size: ${kilobytes} KB`,
+  errorTitle: 'Build Failed',
+  doneAction: 'Done',
+  closeAction: 'Close',
+  cancelAction: 'Cancel',
+}
+
 export default map
+export { buildAssetDialog }

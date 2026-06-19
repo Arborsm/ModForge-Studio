@@ -203,30 +203,8 @@
     line-height: 1.6;
   }
 
-  .launcher-modal-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 160;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    background: var(--scrim);
-    backdrop-filter: blur(10px);
-  }
-
-  .launcher-modal {
-    width: min(1120px, calc(100vw - 48px));
-    max-height: min(88vh, 960px);
-  }
-
-  .launcher-modal-content {
-    padding: 0 14px 14px;
-  }
-
   .launcher-archive-preview-grid {
     display: grid;
-    grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.3fr);
     gap: 14px;
     min-height: 0;
   }
