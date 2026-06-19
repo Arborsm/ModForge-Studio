@@ -148,9 +148,6 @@ export function useLauncherLibraryDisplayState({
     () => new Set(closingLibraryFolderIds.map((id) => normalizeLookupKey(id))),
     [closingLibraryFolderIds],
   )
-  // A closing folder is still "open" so the panel keeps rendering during its
-  // collapse animation; it only becomes truly closed once the timer fires and
-  // removes it from openLibraryFolderIds.
   const isLibraryFolderOpen = useCallback(
     (folderId: string) => {
       const lookup = normalizeLookupKey(folderId)

@@ -103,6 +103,7 @@ MODFORGE_COMMAND_TRACE=1 vp run dev
 - Rust 改动先跑 `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`，再跑对应 `cargo check` 或 `cargo test`。
 - 架构迁移必须补充或更新架构测试，覆盖依赖方向、平台 API 泄漏、旧根目录回归、feature 横向依赖和实体层 UI 类型污染。
 - UI/布局变更需要截图、Playwright 验证脚本或明确手动路径证明；不要只凭静态阅读宣布完成。
+- 测试应覆盖当前真实需求、已确认 bug 和合理相邻回归；不要为了“防止未来有人把行为改回来”添加透支未来的投机断言。
 
 ## Git 规则
 

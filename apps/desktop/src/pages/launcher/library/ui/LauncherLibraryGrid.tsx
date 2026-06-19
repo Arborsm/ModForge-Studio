@@ -717,7 +717,6 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
                     openLabel={openFolderLabel(displayItem.folder.name)}
                     getContextActions={getFolderContextActions}
                     onOpen={onOpenLibraryFolder}
-                    toneIndex={index}
                   />
                 </LoadingMotionRevealItem>
               ) : null}
@@ -735,7 +734,6 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
                     openLabel={openFolderLabel(displayItem.folder.name)}
                     getContextActions={getFolderContextActions}
                     onOpen={onOpenLibraryFolder}
-                    toneIndex={index}
                   />
                 </div>
               ) : null}
@@ -777,7 +775,6 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
                   onCloseLibraryFolder={onCloseLibraryFolder}
                   getFolderContextActions={getFolderContextActions}
                   getContextActions={getContextActions}
-                  toneIndex={index}
                 />
               ) : null}
             </Fragment>
@@ -963,7 +960,6 @@ const DraggableLauncherFolderCard = memo(function DraggableLauncherFolderCard({
   openLabel,
   getContextActions,
   onOpen,
-  toneIndex,
 }: {
   folder: LauncherVirtualFolder
   mods: LauncherLibraryItem[]
@@ -972,14 +968,13 @@ const DraggableLauncherFolderCard = memo(function DraggableLauncherFolderCard({
   openLabel: string
   getContextActions: (folder: LauncherVirtualFolder) => LauncherContextMenuAction[] | undefined
   onOpen: (folderId: string) => void
-  toneIndex?: number
 }) {
   const pointerDrag = useContext(LauncherPointerDragContext)
   const previewItems = buildLauncherFolderPreviewItems(mods, childFolders)
   const previewCount = Math.min(4, previewItems.length)
   const previewKind = previewCount === 1 ? previewItems[0]?.kind : previewCount === 0 ? 'empty' : 'mixed'
   const emptyPreviewItems = Array.from({ length: 4 }, (_, index) => index)
-  const toneStyle = getLauncherFolderToneStyle(toneIndex ?? getLauncherFolderToneIndex(folder.id))
+  const toneStyle = getLauncherFolderToneStyle(getLauncherFolderToneIndex(folder.id))
   const dragSource: LauncherPointerDragSource = { kind: 'folder', folderId: folder.id, title: folder.name, previewItems }
   const [resolvedContextActions, setResolvedContextActions] = useState<LauncherContextMenuAction[] | null>(null)
   const handleOpen = useCallback(() => onOpen(folder.id), [folder.id, onOpen])
@@ -1030,8 +1025,10 @@ const DraggableLauncherFolderCard = memo(function DraggableLauncherFolderCard({
           </span>
         )}
       </div>
-      <span className="launcher-library-folder-card-name">{folder.name}</span>
-      <span className="launcher-library-folder-card-count">{countLabel}</span>
+      <span className="launcher-library-folder-card-copy">
+        <span className="launcher-library-folder-card-name">{folder.name}</span>
+        <span className="launcher-library-folder-card-count">{countLabel}</span>
+      </span>
     </button>
   )
 
@@ -1397,7 +1394,6 @@ function LauncherLibraryFolderPanel({
   onCloseLibraryFolder,
   getFolderContextActions,
   getContextActions,
-  toneIndex,
 }: {
   folder: LauncherVirtualFolder
   items: LauncherLibraryDisplayItem[]
@@ -1435,7 +1431,6 @@ function LauncherLibraryFolderPanel({
   onCloseLibraryFolder?: (folderId: string) => void
   getFolderContextActions: (folder: LauncherVirtualFolder) => LauncherContextMenuAction[] | undefined
   getContextActions: (mod: LauncherLibraryItem) => LauncherContextMenuAction[] | undefined
-  toneIndex?: number
 }) {
   const selectedIdLookup = useMemo(
     () => new Set(childModSelectionMode ? childModSelectionIds : editMode ? editingSelectionIds : boxSelectionIds),
@@ -1467,7 +1462,7 @@ function LauncherLibraryFolderPanel({
       style={{
         gridColumn: `${columnStart + 1} / span ${columnSpan}`,
         gridRow: `${rowStart + 1} / span ${rowSpan}`,
-        ...getLauncherFolderToneStyle(toneIndex ?? getLauncherFolderToneIndex(folder.id)),
+        ...getLauncherFolderToneStyle(getLauncherFolderToneIndex(folder.id)),
       }}
     >
       {onCloseLibraryFolder ? (

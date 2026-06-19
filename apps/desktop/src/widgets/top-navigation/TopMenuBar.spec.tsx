@@ -165,8 +165,10 @@ describe('TopMenuBar', () => {
     const { container } = renderWithLocale(<TopMenuBar {...buildProps()} desktopHost />)
 
     const dragLayer = container.querySelector('.top-menu-drag-layer[data-tauri-drag-region]')
+    const noDragRegions = container.querySelectorAll('[data-top-menu-no-drag="true"]')
 
     expect(dragLayer).toBeTruthy()
+    expect(noDragRegions.length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: 'Minimize window' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Maximize window' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Close window' })).toBeTruthy()
@@ -195,11 +197,46 @@ describe('TopMenuBar', () => {
     const gooeyNav = container.querySelector('.top-menu-gooey-nav')
 
     expect(gooeyNav?.getAttribute('data-variant')).toBe('light')
-    expect(within(launcherNav).getByRole('link', { name: copy.launcher.pages.library })).toBeTruthy()
-    expect(within(launcherNav).getByRole('link', { name: copy.launcher.pages.discover })).toBeTruthy()
-    expect(within(launcherNav).getByRole('link', { name: copy.launcher.pages.updates })).toBeTruthy()
-    expect(within(launcherNav).getByRole('link', { name: copy.launcher.pages.configuration })).toBeTruthy()
+    expect(gooeyNav?.closest('[data-top-menu-no-drag="true"]')).toBeTruthy()
+    expect(within(launcherNav).getByRole('button', { name: copy.launcher.pages.library })).toBeTruthy()
+    expect(within(launcherNav).getByRole('button', { name: copy.launcher.pages.discover })).toBeTruthy()
+    expect(within(launcherNav).getByRole('button', { name: copy.launcher.pages.updates })).toBeTruthy()
+    expect(within(launcherNav).getByRole('button', { name: copy.launcher.pages.configuration })).toBeTruthy()
+    expect(within(launcherNav).queryByRole('link', { name: copy.launcher.pages.library })).toBeNull()
     expect(screen.queryByRole('button', { name: copy.launcher.downloads.title })?.getAttribute('aria-current')).not.toBe('page')
+  })
+
+  it('keeps launcher title bar controls marked as no-drag islands', () => {
+    const launcherChrome = buildProps().launcherChrome!
+    const { container } = renderWithLocale(
+      <TopMenuBar
+        {...buildProps({
+          appMode: 'launcher',
+          desktopHost: true,
+          launcherChrome: {
+            ...launcherChrome,
+            downloadsBadgeCount: 3,
+          },
+        })}
+      />,
+    )
+
+    const controls = [
+      screen.getByRole('button', { name: copy.launcher.pages.library }),
+      screen.getByRole('button', { name: copy.launcher.downloads.title }),
+      screen.getByRole('button', { name: copy.controls.toggleTheme }),
+      screen.getByRole('button', { name: copy.shell.workbench }),
+      screen.getByRole('button', { name: `${settingsMenuCopy.title} Dialog` }),
+      screen.getByRole('button', { name: 'Minimize window' }),
+      screen.getByRole('button', { name: 'Maximize window' }),
+      screen.getByRole('button', { name: 'Close window' }),
+    ]
+
+    for (const control of controls) {
+      expect(control.closest('[data-top-menu-no-drag="true"]')).toBeTruthy()
+    }
+
+    expect(container.querySelector('.top-menu-drag-layer[data-tauri-drag-region]')).toBeTruthy()
   })
 
   it('renders an updates count badge on the updates tab and caps large values', () => {
@@ -216,7 +253,7 @@ describe('TopMenuBar', () => {
       />,
     )
 
-    const updatesLink = screen.getByRole('link', { name: copy.launcher.pages.updates })
+    const updatesLink = screen.getByRole('button', { name: copy.launcher.pages.updates })
     const badge = updatesLink.querySelector('.gooey-nav-item-badge')
     const overlayText = document.querySelector('.top-menu-gooey-nav .effect.text')
 
@@ -238,7 +275,7 @@ describe('TopMenuBar', () => {
       />,
     )
 
-    expect(screen.getByRole('link', { name: copy.launcher.pages.configuration })).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.launcher.pages.configuration })).toBeTruthy()
   })
 
   it('opens the downloads popup as a non-modal launcher popover', () => {
@@ -301,7 +338,7 @@ describe('TopMenuBar', () => {
       />,
     )
 
-    const settingsLink = screen.getAllByRole('link', { name: copy.launcher.pages.configuration }).at(-1)
+    const settingsLink = screen.getAllByRole('button', { name: copy.launcher.pages.configuration }).at(-1)
     expect(settingsLink?.querySelector('.top-menu-warning-dot')).toBeNull()
   })
 })

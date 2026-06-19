@@ -3,7 +3,7 @@ use std::path::PathBuf;
 const APP_DATA_DIR_NAME: &str = "ModForge Studio";
 
 pub(crate) fn modforge_data_dir() -> Result<PathBuf, String> {
-    dirs::data_dir()
+    dirs::config_dir()
         .map(|path| path.join(APP_DATA_DIR_NAME))
         .ok_or_else(|| "Failed to resolve the user data directory.".to_string())
 }

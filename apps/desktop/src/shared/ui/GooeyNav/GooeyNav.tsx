@@ -1,9 +1,9 @@
-import { useRef, useEffect, useId, useState, useCallback, type ReactNode, type MouseEvent, type KeyboardEvent } from 'react'
+import { useRef, useEffect, useId, useState, useCallback, type ReactNode, type MouseEvent } from 'react'
 
 export interface GooeyNavItem {
   /** Visible label text. */
   label: string
-  /** Optional href for the anchor; defaults to '#' when omitted. */
+  /** Optional href for an anchor item; items without href render as buttons. */
   href?: string
   /** Optional icon rendered before the label. */
   icon?: ReactNode
@@ -190,11 +190,10 @@ export default function GooeyNav({
 
   /* ---------- handlers ---------- */
 
-  const handleClick = (e: MouseEvent<HTMLAnchorElement>, index: number) => {
-    e.preventDefault()
+  const activateItem = (element: HTMLElement, index: number) => {
     if (items[index]?.disabled) return
 
-    const liEl = e.currentTarget.parentElement
+    const liEl = element.parentElement
     if (!liEl || activeIndex === index) return
 
     if (!isControlled) {
@@ -221,14 +220,9 @@ export default function GooeyNav({
     }
   }
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLAnchorElement>, index: number) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      const liEl = e.currentTarget.parentElement
-      if (liEl) {
-        handleClick({ currentTarget: e.currentTarget, preventDefault: () => undefined } as MouseEvent<HTMLAnchorElement>, index)
-      }
-    }
+  const handleClick = (e: MouseEvent<HTMLElement>, index: number) => {
+    e.preventDefault()
+    activateItem(e.currentTarget, index)
   }
 
   /* ---------- sync on mount & resize ---------- */
@@ -273,26 +267,48 @@ export default function GooeyNav({
         <ul ref={navRef}>
           {items.map((item, index) => (
             <li key={index} className={activeIndex === index ? 'active' : ''}>
-              <a
-                href={item.href ?? '#'}
-                onClick={(e) => handleClick(e, index)}
-                onKeyDown={(e) => handleKeyDown(e, index)}
-                aria-current={activeIndex === index ? 'page' : undefined}
-                aria-disabled={item.disabled ? true : undefined}
-                title={item.disabled ? item.disabledReason : undefined}
-              >
-                {item.icon ? (
-                  <span className="gooey-nav-item-icon" aria-hidden="true">
-                    {item.icon}
-                  </span>
-                ) : null}
-                <span className="gooey-nav-item-label">{item.label}</span>
-                {item.badge ? (
-                  <span className="gooey-nav-item-badge" aria-hidden="true">
-                    {item.badge}
-                  </span>
-                ) : null}
-              </a>
+              {item.href ? (
+                <a
+                  href={item.href}
+                  draggable={false}
+                  onClick={(e) => handleClick(e, index)}
+                  aria-current={activeIndex === index ? 'page' : undefined}
+                  aria-disabled={item.disabled ? true : undefined}
+                  title={item.disabled ? item.disabledReason : undefined}
+                >
+                  {item.icon ? (
+                    <span className="gooey-nav-item-icon" aria-hidden="true">
+                      {item.icon}
+                    </span>
+                  ) : null}
+                  <span className="gooey-nav-item-label">{item.label}</span>
+                  {item.badge ? (
+                    <span className="gooey-nav-item-badge" aria-hidden="true">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={(e) => handleClick(e, index)}
+                  aria-current={activeIndex === index ? 'page' : undefined}
+                  aria-disabled={item.disabled ? true : undefined}
+                  title={item.disabled ? item.disabledReason : undefined}
+                >
+                  {item.icon ? (
+                    <span className="gooey-nav-item-icon" aria-hidden="true">
+                      {item.icon}
+                    </span>
+                  ) : null}
+                  <span className="gooey-nav-item-label">{item.label}</span>
+                  {item.badge ? (
+                    <span className="gooey-nav-item-badge" aria-hidden="true">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </button>
+              )}
             </li>
           ))}
         </ul>

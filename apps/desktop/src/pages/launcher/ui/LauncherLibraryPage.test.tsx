@@ -627,12 +627,21 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    expect(screen.getByRole('button', { name: 'Open folder Visuals' })).not.toBeNull()
+    const folderButton = screen.getByRole('button', { name: 'Open folder Visuals' })
+    expect(folderButton).not.toBeNull()
+    expect(Array.from(folderButton.children).map((child) => child.className)).toEqual([
+      'launcher-library-folder-visual',
+      'launcher-library-folder-card-copy',
+    ])
+    expect(folderButton.querySelector('.launcher-library-folder-card-copy')?.children).toHaveLength(2)
+    const folderTone = (folderButton as HTMLElement).style.getPropertyValue('--launcher-folder-accent')
+    expect(folderTone).not.toBe('')
     expect(screen.queryByRole('article', { name: /npc adventures/i })).toBeNull()
 
-    clickAfterPress(screen.getByRole('button', { name: 'Open folder Visuals' }))
+    clickAfterPress(folderButton)
 
     const folderRegion = screen.getByRole('region', { name: 'Visuals' })
+    expect((folderRegion as HTMLElement).style.getPropertyValue('--launcher-folder-accent')).toBe(folderTone)
     expect(within(folderRegion).getByRole('article', { name: /npc adventures/i })).not.toBeNull()
   })
 
