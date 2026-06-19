@@ -26,8 +26,8 @@ export function MapViewportEmptyState({ labels, theme, accentColor, viewportBack
       />
       <div className="relative flex h-full items-center justify-center p-10">
         <div className="panel-overlay-card max-w-md px-6 py-5 text-center">
-          <p className="text-xs font-semibold tracking-[0.24em] text-[var(--text-tertiary)] uppercase">{labels.fitMap}</p>
-          <p className="mt-3 text-base font-semibold text-[var(--text-primary)]">{labels.loadPrompt}</p>
+          <p className="text-xs font-semibold tracking-[0.24em] text-(--text-tertiary) uppercase">{labels.fitMap}</p>
+          <p className="mt-3 text-base font-semibold text-(--text-primary)">{labels.loadPrompt}</p>
         </div>
       </div>
     </div>
@@ -66,7 +66,7 @@ export function MapViewportStatsChips({
 
 export function MapViewportImageError({ error }: { error: string }) {
   return (
-    <div className="pointer-events-none absolute bottom-4 left-4 z-10 rounded-lg border border-[color-mix(in_srgb,var(--danger)_32%,transparent)] bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] px-3 py-2 text-xs text-[var(--danger)]">
+    <div className="pointer-events-none absolute bottom-4 left-4 z-10 rounded-lg border border-[color-mix(in_srgb,var(--danger)_32%,transparent)] bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] px-3 py-2 text-xs text-(--danger)">
       {error}
     </div>
   )
@@ -91,7 +91,7 @@ export function MapViewportCanvasLayers({
     <>
       <canvas
         ref={canvasRef}
-        className="pointer-events-none absolute inset-0 z-[1] [image-rendering:pixelated]"
+        className="pointer-events-none absolute inset-0 z-1 [image-rendering:pixelated]"
         style={{
           width: `${viewportSize.width}px`,
           height: `${viewportSize.height}px`,
@@ -101,7 +101,7 @@ export function MapViewportCanvasLayers({
 
       <canvas
         ref={foregroundCanvasRef}
-        className="pointer-events-none absolute inset-0 z-[3] [image-rendering:pixelated]"
+        className="pointer-events-none absolute inset-0 z-3 [image-rendering:pixelated]"
         style={{
           width: `${viewportSize.width}px`,
           height: `${viewportSize.height}px`,

@@ -206,9 +206,7 @@ export function WorkbenchViewHost({
           })}
         </LoadingMotionReveal>
       ) : (
-        <div className="flex h-full items-center justify-center text-xs text-[var(--text-secondary)]">
-          Workbench view is not registered.
-        </div>
+        <div className="flex h-full items-center justify-center text-xs text-(--text-secondary)">Workbench view is not registered.</div>
       )}
     </>
   )

@@ -68,7 +68,7 @@ const kindColors: Record<EventCommandKind, string> = {
   branch: 'border-l-[color-mix(in_srgb,var(--danger)_55%,transparent)]',
   timing: 'border-l-[color-mix(in_srgb,var(--text-secondary)_50%,transparent)]',
   flow: 'border-l-[color-mix(in_srgb,var(--text-secondary)_50%,transparent)]',
-  action: 'border-l-[var(--border-color)]',
+  action: 'border-l-(--border-color)',
 }
 
 const kindBg: Record<EventCommandKind, string> = {
@@ -82,13 +82,13 @@ const kindBg: Record<EventCommandKind, string> = {
 }
 
 const kindIconColor: Record<EventCommandKind, string> = {
-  dialogue: 'text-[var(--warning)]',
-  message: 'text-[var(--success)]',
-  choice: 'text-[var(--accent)]',
-  branch: 'text-[var(--danger)]',
-  timing: 'text-[var(--text-secondary)]',
-  flow: 'text-[var(--text-secondary)]',
-  action: 'text-[var(--text-secondary)]',
+  dialogue: 'text-(--warning)',
+  message: 'text-(--success)',
+  choice: 'text-(--accent)',
+  branch: 'text-(--danger)',
+  timing: 'text-(--text-secondary)',
+  flow: 'text-(--text-secondary)',
+  action: 'text-(--text-secondary)',
 }
 
 type EventCommandPipelineProps = {
@@ -184,10 +184,10 @@ export function CommandEditor({
     <div className="space-y-2 px-3 py-2">
       {argFields.map((field) => (
         <div key={field.index}>
-          <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{field.label}</label>
+          <label className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{field.label}</label>
           {field.label === 'Text' || field.value.length > 40 ? (
             <textarea
-              className="h-16 w-full resize-none rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              className="h-16 w-full resize-none rounded border border-(--border-color) bg-(--bg-app) px-2 py-1 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
               value={stripQuotes(field.value)}
               onChange={(e) => {
                 const text = e.target.value
@@ -199,7 +199,7 @@ export function CommandEditor({
           ) : (
             <input
               type="text"
-              className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
               value={stripQuotes(field.value)}
               onChange={(e) => {
                 const text = e.target.value
@@ -211,7 +211,7 @@ export function CommandEditor({
         </div>
       ))}
       <div className="flex items-center justify-between pt-1">
-        <span className="text-[9px] text-[var(--text-secondary)]">Raw: {command.raw}</span>
+        <span className="text-[9px] text-(--text-secondary)">Raw: {command.raw}</span>
         <button type="button" className="icon-button h-5 w-5 text-red-400" onClick={onDelete} title="Delete">
           <Trash2 className="h-3 w-3" />
         </button>
@@ -268,15 +268,15 @@ export function EventCommandPipeline({
 
   if (commands.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-[var(--border-color)] px-4 py-8">
-        <p className="text-sm text-[var(--text-secondary)]">{labels.empty}</p>
-        <p className="text-[10px] text-[var(--text-tertiary)]">{labels.addHint}</p>
+      <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-(--border-color) px-4 py-8">
+        <p className="text-sm text-(--text-secondary)">{labels.empty}</p>
+        <p className="text-[10px] text-(--text-tertiary)">{labels.addHint}</p>
         <div className="flex flex-wrap justify-center gap-2">
           {QUICK_TEMPLATES.map((t) => (
             <button
               key={t.label}
               type="button"
-              className="flex items-center gap-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-2.5 py-1 text-[10px] text-[var(--text-primary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              className="flex items-center gap-1 rounded-md border border-(--border-color) bg-(--bg-panel-muted) px-2.5 py-1 text-[10px] text-(--text-primary) transition-colors hover:border-(--accent) hover:text-(--accent)"
               onClick={() => onInsertAfter(-1, t.raw)}
             >
               <Plus className="h-3 w-3" /> {t.label}
@@ -302,25 +302,25 @@ export function EventCommandPipeline({
             {/* Connector + timing label (before card, skip first) */}
             {index > 0 && (
               <div className="flex flex-col items-center py-1">
-                <div className="h-3 w-px bg-[var(--border-color)]" />
+                <div className="h-3 w-px bg-(--border-color)" />
                 {hasTiming ? (
-                  <span className="rounded-full bg-[var(--bg-panel-muted)] px-1.5 py-0.5 text-[9px] text-[var(--text-secondary)]">
+                  <span className="rounded-full bg-(--bg-panel-muted) px-1.5 py-0.5 text-[9px] text-(--text-secondary)">
                     {summary.timing}
                   </span>
                 ) : null}
-                <div className="h-3 w-px bg-[var(--border-color)]" />
-                <div className="h-0 w-0 border-t-[4px] border-r-[3px] border-l-[3px] border-t-[var(--border-color)] border-r-transparent border-l-transparent" />
+                <div className="h-3 w-px bg-(--border-color)" />
+                <div className="h-0 w-0 border-t-4 border-r-[3px] border-l-[3px] border-t-(--border-color) border-r-transparent border-l-transparent" />
               </div>
             )}
 
             {/* Card */}
             <div
               className={cx(
-                'group relative w-full cursor-pointer rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] transition-all',
+                'group relative w-full cursor-pointer rounded-lg border border-(--border-color) bg-(--bg-panel-muted) transition-all',
                 'border-l-[3px]',
                 kindColors[cmd.kind],
-                isSelected && 'ring-1 ring-[var(--accent)]',
-                isExpanded && 'bg-[var(--bg-panel)]',
+                isSelected && 'ring-1 ring-(--accent)',
+                isExpanded && 'bg-(--bg-panel)',
               )}
               onClick={() => onSelect(cmd.id)}
             >
@@ -334,17 +334,17 @@ export function EventCommandPipeline({
                 {/* Text */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="truncate text-xs font-medium text-[var(--text-primary)]">{summary.title}</span>
-                    <span className="shrink-0 text-[9px] tracking-wider text-[var(--text-tertiary)] uppercase">{cmd.command}</span>
+                    <span className="truncate text-xs font-medium text-(--text-primary)">{summary.title}</span>
+                    <span className="shrink-0 text-[9px] tracking-wider text-(--text-tertiary) uppercase">{cmd.command}</span>
                   </div>
-                  {summary.subtitle && <p className="truncate text-[11px] text-[var(--text-secondary)]">{summary.subtitle}</p>}
+                  {summary.subtitle && <p className="truncate text-[11px] text-(--text-secondary)">{summary.subtitle}</p>}
                 </div>
 
                 {/* Actions */}
                 <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                   <button
                     type="button"
-                    className="icon-button h-6 w-6 text-[var(--text-secondary)]"
+                    className="icon-button h-6 w-6 text-(--text-secondary)"
                     onClick={(e) => {
                       e.stopPropagation()
                       onToggleExpand(cmd.id)
@@ -369,7 +369,7 @@ export function EventCommandPipeline({
 
               {/* Expanded editor */}
               {isExpanded && (
-                <div className="border-t border-[var(--border-color)]">
+                <div className="border-t border-(--border-color)">
                   <CommandEditor command={cmd} onChange={(newRaw) => onChange(cmd.index, newRaw)} onDelete={() => onDelete(cmd.index)} />
                 </div>
               )}
@@ -378,7 +378,7 @@ export function EventCommandPipeline({
               <div className="absolute -bottom-2 left-1/2 z-10 hidden -translate-x-1/2 group-hover:block">
                 <button
                   type="button"
-                  className="flex h-5 items-center gap-0.5 rounded-full bg-[var(--accent)] px-1.5 text-[9px] font-medium text-white shadow-sm"
+                  className="flex h-5 items-center gap-0.5 rounded-full bg-(--accent) px-1.5 text-[9px] font-medium text-white shadow-sm"
                   onClick={(e) => {
                     e.stopPropagation()
                     // Show a small menu? For now just insert pause
@@ -393,14 +393,14 @@ export function EventCommandPipeline({
             {/* End of pipeline marker */}
             {isLast && (
               <div className="flex flex-col items-center pt-2">
-                <div className="h-3 w-px bg-[var(--border-color)]" />
-                <div className="h-0 w-0 border-t-[4px] border-r-[3px] border-l-[3px] border-t-[var(--border-color)] border-r-transparent border-l-transparent" />
+                <div className="h-3 w-px bg-(--border-color)" />
+                <div className="h-0 w-0 border-t-4 border-r-[3px] border-l-[3px] border-t-(--border-color) border-r-transparent border-l-transparent" />
                 <div className="mt-1 flex flex-wrap justify-center gap-2 pb-2">
                   {QUICK_TEMPLATES.map((t) => (
                     <button
                       key={t.label}
                       type="button"
-                      className="flex items-center gap-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-2 py-0.5 text-[9px] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                      className="flex items-center gap-1 rounded-md border border-(--border-color) bg-(--bg-panel-muted) px-2 py-0.5 text-[9px] text-(--text-secondary) transition-colors hover:border-(--accent) hover:text-(--accent)"
                       onClick={() => onInsertAfter(cmd.index, t.raw)}
                     >
                       <Plus className="h-2.5 w-2.5" /> {t.label}

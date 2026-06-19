@@ -300,7 +300,7 @@ export function ParamPill({
         ? resourceRegistry[resourceKind]
         : (options ?? []).map((option) => optionToResource(resourceKind, option))
 
-  const heightClass = size === 'sm' ? 'h-5 min-h-[20px]' : 'h-6 min-h-[24px]'
+  const heightClass = size === 'sm' ? 'h-5 min-h-5' : 'h-6 min-h-6'
   const textClass = size === 'sm' ? 'text-[11px]' : 'text-xs'
   const pxClass = size === 'sm' ? 'px-1.5' : 'px-2'
 
@@ -311,7 +311,7 @@ export function ParamPill({
           (control === 'npc_selector' || control === 'tile_picker' || control === 'item') && 'accent',
           (control === 'path_picker' || control === 'direction' || control === 'toggle' || control === 'quick_question') && 'muted',
           control === 'textarea' && 'italic',
-          isEmpty && 'text-[var(--text-tertiary)] italic',
+          isEmpty && 'text-(--text-tertiary) italic',
           disabled && 'cursor-not-allowed opacity-50',
         )
       : cx(
@@ -320,8 +320,8 @@ export function ParamPill({
           textClass,
           pxClass,
           isEmpty
-            ? 'border-dashed border-[var(--border-color)] bg-[var(--bg-panel-muted)] text-[var(--text-tertiary)] italic'
-            : 'border-[color-mix(in_srgb,var(--accent)_35%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_60%,transparent)] text-[var(--text-primary)]',
+            ? 'border-dashed border-(--border-color) bg-(--bg-panel-muted) text-(--text-tertiary) italic'
+            : 'border-[color-mix(in_srgb,var(--accent)_35%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_60%,transparent)] text-(--text-primary)',
           disabled && 'opacity-50 cursor-not-allowed',
           !disabled &&
             'hover:border-[color-mix(in_srgb,var(--accent)_60%,var(--border-color))] hover:bg-[color-mix(in_srgb,var(--accent-soft)_90%,transparent)]',
@@ -360,7 +360,7 @@ export function ParamPill({
     if (control === 'npc_selector') {
       return (
         <span
-          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--bg-panel-muted)] text-[10px] font-semibold text-[var(--text-secondary)]"
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-(--bg-panel-muted) text-[10px] font-semibold text-(--text-secondary)"
           aria-hidden
         >
           {actorInitial(value)}
@@ -368,7 +368,7 @@ export function ParamPill({
       )
     }
     if (control === 'item') {
-      return <span className="inline-flex h-2.5 w-2.5 shrink-0 rounded-[3px] bg-[var(--accent)]" aria-hidden />
+      return <span className="inline-flex h-2.5 w-2.5 shrink-0 rounded-[3px] bg-(--accent)" aria-hidden />
     }
     return null
   }
@@ -456,10 +456,10 @@ export function ParamPill({
               key={dir}
               type="button"
               className={cx(
-                'inline-flex h-6 min-h-[24px] items-center justify-center rounded-md border px-1.5 text-[11px] font-medium transition-all',
+                'inline-flex h-6 min-h-6 items-center justify-center rounded-md border px-1.5 text-[11px] font-medium transition-all',
                 value === dir
-                  ? 'border-[color-mix(in_srgb,var(--accent)_60%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_90%,transparent)] text-[var(--text-primary)]'
-                  : 'border-[var(--border-color)] bg-[var(--bg-panel-muted)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]',
+                  ? 'border-[color-mix(in_srgb,var(--accent)_60%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_90%,transparent)] text-(--text-primary)'
+                  : 'border-(--border-color) bg-(--bg-panel-muted) text-(--text-tertiary) hover:text-(--text-primary)',
               )}
               onClick={() => {
                 onChange?.(dir)
@@ -485,13 +485,13 @@ export function ParamPill({
       return (
         <span
           ref={containerRef}
-          className="inline-flex h-7 items-center overflow-hidden rounded-md border border-[var(--accent)] bg-[var(--bg-panel)] shadow-sm"
+          className="inline-flex h-7 items-center overflow-hidden rounded-md border border-(--accent) bg-(--bg-panel) shadow-sm"
           onPointerDown={stopInteractivePropagation}
           onClick={stopInteractivePropagation}
         >
           <button
             type="button"
-            className="inline-flex h-full w-6 items-center justify-center border-r border-[var(--border-color)] text-[var(--text-tertiary)] hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-primary)]"
+            className="inline-flex h-full w-6 items-center justify-center border-r border-(--border-color) text-(--text-tertiary) hover:bg-(--bg-panel-muted) hover:text-(--text-primary)"
             onClick={() => stepNumber(-1)}
             title="Decrease"
           >
@@ -501,7 +501,7 @@ export function ParamPill({
             ref={inputRef}
             type="text"
             inputMode="numeric"
-            className="h-full w-14 bg-transparent px-1 text-center font-mono text-xs font-semibold text-[var(--text-primary)] outline-none"
+            className="h-full w-14 bg-transparent px-1 text-center font-mono text-xs font-semibold text-(--text-primary) outline-none"
             value={draft}
             placeholder={placeholder}
             onChange={(event) => setDraft(event.target.value)}
@@ -526,7 +526,7 @@ export function ParamPill({
           />
           <button
             type="button"
-            className="inline-flex h-full w-6 items-center justify-center border-l border-[var(--border-color)] text-[var(--text-tertiary)] hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-primary)]"
+            className="inline-flex h-full w-6 items-center justify-center border-l border-(--border-color) text-(--text-tertiary) hover:bg-(--bg-panel-muted) hover:text-(--text-primary)"
             onClick={() => stepNumber(1)}
             title="Increase"
           >
@@ -540,19 +540,19 @@ export function ParamPill({
       return (
         <span
           ref={containerRef}
-          className="inline-grid w-[340px] gap-1 rounded-md border border-[var(--accent)] bg-[var(--bg-elevated)] p-2 shadow-[var(--shadow-float)]"
+          className="inline-grid w-85 gap-1 rounded-md border border-(--accent) bg-(--bg-elevated) p-2 shadow-(--shadow-float)"
           onPointerDown={stopInteractivePropagation}
           onClick={stopInteractivePropagation}
         >
           <span className="flex min-w-0 items-center justify-between gap-2">
-            <span className="truncate text-[10px] font-semibold tracking-wide text-[var(--text-tertiary)] uppercase">{label}</span>
-            <span className="text-[10px] text-[var(--text-tertiary)]">Enter apply · Shift+Enter newline</span>
+            <span className="truncate text-[10px] font-semibold tracking-wide text-(--text-tertiary) uppercase">{label}</span>
+            <span className="text-[10px] text-(--text-tertiary)">Enter apply · Shift+Enter newline</span>
           </span>
           <textarea
             ref={inputRef as unknown as React.RefObject<HTMLTextAreaElement>}
             className={cx(
-              'min-h-20 resize-y rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs leading-relaxed text-[var(--text-primary)] outline-none',
-              'focus:ring-1 focus:ring-[var(--accent)]',
+              'min-h-20 resize-y rounded-md border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-xs leading-relaxed text-(--text-primary) outline-none',
+              'focus:ring-1 focus:ring-(--accent)',
             )}
             rows={4}
             value={draft}
@@ -572,7 +572,7 @@ export function ParamPill({
           <span className="flex justify-end gap-1">
             <button
               type="button"
-              className="inline-flex h-7 items-center rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              className="inline-flex h-7 items-center rounded-md border border-(--border-color) bg-(--bg-app) px-2 text-[11px] font-medium text-(--text-secondary) hover:text-(--text-primary)"
               onClick={() => {
                 setEditing(false)
                 setDraft(value)
@@ -582,7 +582,7 @@ export function ParamPill({
             </button>
             <button
               type="button"
-              className="inline-flex h-7 items-center rounded-md border border-[color-mix(in_srgb,var(--accent)_45%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_75%,transparent)] px-2 text-[11px] font-semibold text-[var(--accent)]"
+              className="inline-flex h-7 items-center rounded-md border border-[color-mix(in_srgb,var(--accent)_45%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_75%,transparent)] px-2 text-[11px] font-semibold text-(--accent)"
               onClick={() => {
                 setEditing(false)
                 onChange?.(draft)
@@ -611,10 +611,10 @@ export function ParamPill({
                 key={optValue}
                 type="button"
                 className={cx(
-                  'inline-flex h-6 min-h-[24px] items-center justify-center rounded-md border px-2 text-[11px] font-medium transition-all',
+                  'inline-flex h-6 min-h-6 items-center justify-center rounded-md border px-2 text-[11px] font-medium transition-all',
                   value === optValue
-                    ? 'border-[color-mix(in_srgb,var(--accent)_60%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_90%,transparent)] text-[var(--text-primary)]'
-                    : 'border-[var(--border-color)] bg-[var(--bg-panel-muted)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]',
+                    ? 'border-[color-mix(in_srgb,var(--accent)_60%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_90%,transparent)] text-(--text-primary)'
+                    : 'border-(--border-color) bg-(--bg-panel-muted) text-(--text-tertiary) hover:text-(--text-primary)',
                 )}
                 onClick={() => {
                   onChange?.(optValue)
@@ -634,7 +634,7 @@ export function ParamPill({
       return (
         <span
           ref={containerRef}
-          className="inline-grid w-[300px] gap-2 rounded-md border border-[var(--accent)] bg-[var(--bg-panel)] p-2 shadow-sm"
+          className="inline-grid w-75 gap-2 rounded-md border border-(--accent) bg-(--bg-panel) p-2 shadow-sm"
           onPointerDown={stopInteractivePropagation}
           onClick={stopInteractivePropagation}
         >
@@ -668,10 +668,10 @@ export function ParamPill({
                   type="button"
                   aria-label={resolveOptionLabel(opt)}
                   className={cx(
-                    'flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-md border px-1.5 py-1 text-center transition-all',
+                    'flex min-h-14.5 flex-col items-center justify-center gap-1 rounded-md border px-1.5 py-1 text-center transition-all',
                     selected
                       ? 'border-[color-mix(in_srgb,var(--accent)_70%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_85%,transparent)]'
-                      : 'border-[var(--border-color)] bg-[var(--bg-app)] hover:border-[color-mix(in_srgb,var(--accent)_50%,var(--border-color))]',
+                      : 'border-(--border-color) bg-(--bg-app) hover:border-[color-mix(in_srgb,var(--accent)_50%,var(--border-color))]',
                   )}
                   onMouseDown={(event) => {
                     event.preventDefault()
@@ -686,8 +686,8 @@ export function ParamPill({
                   >
                     {code.replace(/\D/gu, '').slice(-2) || '??'}
                   </span>
-                  <span className="w-full truncate text-[10px] font-medium text-[var(--text-primary)]">{name}</span>
-                  <span className="font-mono text-[9px] text-[var(--text-tertiary)]">{code}</span>
+                  <span className="w-full truncate text-[10px] font-medium text-(--text-primary)">{name}</span>
+                  <span className="font-mono text-[9px] text-(--text-tertiary)">{code}</span>
                 </button>
               )
             })}
@@ -700,7 +700,7 @@ export function ParamPill({
       return (
         <span
           ref={containerRef}
-          className="inline-grid w-[264px] grid-cols-8 gap-1 rounded-md border border-[var(--accent)] bg-[var(--bg-panel)] p-2 shadow-sm"
+          className="inline-grid w-66 grid-cols-8 gap-1 rounded-md border border-(--accent) bg-(--bg-panel) p-2 shadow-sm"
           onPointerDown={stopInteractivePropagation}
           onClick={stopInteractivePropagation}
         >
@@ -714,8 +714,8 @@ export function ParamPill({
                 className={cx(
                   'flex h-8 min-w-0 items-center justify-center rounded-md border font-mono text-[10px] font-semibold transition-all',
                   selected
-                    ? 'border-[color-mix(in_srgb,var(--accent)_70%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_90%,transparent)] text-[var(--accent)]'
-                    : 'border-[var(--border-color)] bg-[var(--bg-app)] text-[var(--text-secondary)] hover:border-[color-mix(in_srgb,var(--accent)_50%,var(--border-color))] hover:text-[var(--text-primary)]',
+                    ? 'border-[color-mix(in_srgb,var(--accent)_70%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_90%,transparent)] text-(--accent)'
+                    : 'border-(--border-color) bg-(--bg-app) text-(--text-secondary) hover:border-[color-mix(in_srgb,var(--accent)_50%,var(--border-color))] hover:text-(--text-primary)',
                 )}
                 onMouseDown={(event) => {
                   event.preventDefault()
@@ -747,10 +747,10 @@ export function ParamPill({
                 key={preset.value}
                 type="button"
                 className={cx(
-                  'inline-flex h-6 min-h-[24px] items-center justify-center rounded-md border px-2 text-[11px] font-medium transition-all',
+                  'inline-flex h-6 min-h-6 items-center justify-center rounded-md border px-2 text-[11px] font-medium transition-all',
                   value === preset.value
-                    ? 'border-[color-mix(in_srgb,var(--accent)_60%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_90%,transparent)] text-[var(--text-primary)]'
-                    : 'border-[var(--border-color)] bg-[var(--bg-panel-muted)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]',
+                    ? 'border-[color-mix(in_srgb,var(--accent)_60%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_90%,transparent)] text-(--text-primary)'
+                    : 'border-(--border-color) bg-(--bg-panel-muted) text-(--text-tertiary) hover:text-(--text-primary)',
                 )}
                 onMouseDown={(event) => {
                   event.preventDefault()
@@ -762,7 +762,7 @@ export function ParamPill({
               </button>
             ))}
           </span>
-          <span className="grid w-56 grid-cols-8 gap-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] p-1">
+          <span className="grid w-56 grid-cols-8 gap-1 rounded-md border border-(--border-color) bg-(--bg-app) p-1">
             {Array.from({ length: 32 }, (_, frame) => String(frame)).map((frame) => {
               const selected = activeFrames.has(frame)
               return (
@@ -772,8 +772,8 @@ export function ParamPill({
                   className={cx(
                     'flex h-6 min-w-0 items-center justify-center rounded border font-mono text-[10px] transition-all',
                     selected
-                      ? 'border-[color-mix(in_srgb,var(--accent)_70%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_90%,transparent)] text-[var(--accent)]'
-                      : 'border-[var(--border-color)] bg-[var(--bg-panel-muted)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]',
+                      ? 'border-[color-mix(in_srgb,var(--accent)_70%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_90%,transparent)] text-(--accent)'
+                      : 'border-(--border-color) bg-(--bg-panel-muted) text-(--text-tertiary) hover:text-(--text-primary)',
                   )}
                   onMouseDown={(event) => {
                     event.preventDefault()
@@ -789,8 +789,8 @@ export function ParamPill({
             ref={inputRef}
             type="text"
             className={cx(
-              'inline-flex h-6 min-h-[24px] w-44 rounded-md border border-[var(--accent)] bg-[var(--bg-panel)] px-2 text-xs text-[var(--text-primary)] shadow-sm outline-none',
-              'focus:ring-1 focus:ring-[var(--accent)]',
+              'inline-flex h-6 min-h-6 w-44 rounded-md border border-(--accent) bg-(--bg-panel) px-2 text-xs text-(--text-primary) shadow-sm outline-none',
+              'focus:ring-1 focus:ring-(--accent)',
             )}
             value={draft}
             placeholder={placeholder}
@@ -819,7 +819,7 @@ export function ParamPill({
       return (
         <span
           ref={containerRef}
-          className="inline-grid w-[360px] gap-1 rounded-md border border-[var(--accent)] bg-[var(--bg-panel)] p-2 shadow-sm"
+          className="inline-grid w-90 gap-1 rounded-md border border-(--accent) bg-(--bg-panel) p-2 shadow-sm"
           onPointerDown={stopInteractivePropagation}
           onClick={stopInteractivePropagation}
         >
@@ -895,10 +895,10 @@ export function ParamPill({
             ref={inputRef}
             type="text"
             className={cx(
-              'inline-flex rounded-md border border-[var(--accent)] bg-[var(--bg-panel)] px-2 text-xs text-[var(--text-primary)] shadow-sm outline-none',
+              'inline-flex rounded-md border border-(--accent) bg-(--bg-panel) px-2 text-xs text-(--text-primary) shadow-sm outline-none',
               heightClass,
               'w-28',
-              'focus:ring-1 focus:ring-[var(--accent)]',
+              'focus:ring-1 focus:ring-(--accent)',
             )}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -916,7 +916,7 @@ export function ParamPill({
           {(control === 'tile_picker' || control === 'npc_selector' || control === 'path_picker') && onPickMode && (
             <button
               type="button"
-              className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--border-color)] bg-[var(--bg-panel-muted)] text-[var(--text-secondary)] transition-colors hover:text-[var(--accent)]"
+              className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-md border border-(--border-color) bg-(--bg-panel-muted) text-(--text-secondary) transition-colors hover:text-(--accent)"
               onClick={() => {
                 setEditing(false)
                 onPickMode()
@@ -928,7 +928,7 @@ export function ParamPill({
           )}
         </span>
         {hasOptions && filteredOptions.length > 0 && (
-          <div className="mt-1 max-h-32 w-40 overflow-auto rounded-md border border-[var(--border-color)] bg-[var(--bg-panel)] p-1 shadow-sm">
+          <div className="mt-1 max-h-32 w-40 overflow-auto rounded-md border border-(--border-color) bg-(--bg-panel) p-1 shadow-sm">
             {filteredOptions.map((opt) => {
               const optValue = resolveOptionValue(opt)
               const optLabel = resolveOptionLabel(opt)
@@ -939,8 +939,8 @@ export function ParamPill({
                   className={cx(
                     'block w-full rounded px-1.5 py-0.5 text-left text-[11px] transition-colors',
                     value === optValue
-                      ? 'bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] font-medium text-[var(--accent)]'
-                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-primary)]',
+                      ? 'bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] font-medium text-(--accent)'
+                      : 'text-(--text-secondary) hover:bg-(--bg-panel-muted) hover:text-(--text-primary)',
                   )}
                   onMouseDown={(event) => {
                     event.preventDefault()
@@ -978,7 +978,7 @@ export function ParamPill({
       title={`${label}${isEmpty ? '' : `: ${value}`}`}
     >
       {variant === 'script' ? renderScriptPrefix() : renderIcon()}
-      <span className="max-w-[140px] truncate">{displayValue}</span>
+      <span className="max-w-35 truncate">{displayValue}</span>
     </button>
   )
 }

@@ -591,7 +591,7 @@ export function EventResourcePicker({
       <button
         type="button"
         className={cx(
-          'inline-flex h-7 cursor-pointer list-none items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 text-[11px] font-medium text-[var(--text-primary)] transition-colors hover:border-[color-mix(in_srgb,var(--accent)_42%,var(--border-color))] [&::-webkit-details-marker]:hidden',
+          'inline-flex h-7 cursor-pointer list-none items-center gap-1.5 rounded-md border border-(--border-color) bg-(--bg-app) px-2 text-[11px] font-medium text-(--text-primary) transition-colors hover:border-[color-mix(in_srgb,var(--accent)_42%,var(--border-color))] [&::-webkit-details-marker]:hidden',
           triggerClassName,
         )}
         title={triggerTitle}

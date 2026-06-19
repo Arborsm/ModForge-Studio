@@ -148,8 +148,8 @@ export default function TopMenuBar({
               <button
                 type="button"
                 className={cx(
-                  'rounded-md px-2 py-1 text-xs transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]',
-                  projectMenu.highlighted ? 'bg-[var(--bg-active)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)]',
+                  'rounded-md px-2 py-1 text-xs transition-colors hover:bg-(--bg-active) hover:text-(--text-primary)',
+                  projectMenu.highlighted ? 'bg-(--bg-active) text-(--text-primary)' : 'text-(--text-secondary)',
                 )}
                 onClick={projectMenu.onOpen}
               >
@@ -160,8 +160,8 @@ export default function TopMenuBar({
                 <button
                   type="button"
                   className={cx(
-                    'rounded-md px-2 py-1 text-xs transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]',
-                    viewMenuOpen ? 'bg-[var(--bg-active)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)]',
+                    'rounded-md px-2 py-1 text-xs transition-colors hover:bg-(--bg-active) hover:text-(--text-primary)',
+                    viewMenuOpen ? 'bg-(--bg-active) text-(--text-primary)' : 'text-(--text-secondary)',
                   )}
                   aria-haspopup="menu"
                   aria-expanded={viewMenuOpen}
@@ -372,7 +372,7 @@ export default function TopMenuBar({
               </button>
               <button
                 type="button"
-                className="window-control-button border-l border-[var(--border-color)]"
+                className="window-control-button border-l border-(--border-color)"
                 onClick={onToggleMaximizeWindow}
                 aria-label="Maximize window"
                 title="Maximize"
@@ -381,7 +381,7 @@ export default function TopMenuBar({
               </button>
               <button
                 type="button"
-                className="window-control-button window-control-close border-l border-[var(--border-color)]"
+                className="window-control-button window-control-close border-l border-(--border-color)"
                 onClick={onCloseWindow}
                 aria-label="Close window"
                 title="Close"

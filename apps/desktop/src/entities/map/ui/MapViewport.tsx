@@ -1330,7 +1330,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   }
 
   const viewportContent = (
-    <div className="panel-canvas relative h-full shadow-[var(--shadow-panel)]" style={viewportBackdropStyle}>
+    <div className="panel-canvas relative h-full shadow-(--shadow-panel)" style={viewportBackdropStyle}>
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -1363,7 +1363,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
 
       {scaleMapOverlayWithViewport && mapOverlay ? (
         <div
-          className="pointer-events-none absolute z-[2]"
+          className="pointer-events-none absolute z-2"
           style={{
             left: `${mapDisplayOffset.left}px`,
             top: `${mapDisplayOffset.top}px`,
@@ -1377,7 +1377,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
         </div>
       ) : null}
 
-      {viewportOverlay ? <div className="pointer-events-none absolute inset-0 z-[4]">{viewportOverlay}</div> : null}
+      {viewportOverlay ? <div className="pointer-events-none absolute inset-0 z-4">{viewportOverlay}</div> : null}
 
       <div ref={frameRef} className="absolute inset-0">
         <div
@@ -1409,7 +1409,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
             />
             {mapOverlay && !scaleMapOverlayWithViewport ? (
               <div
-                className="pointer-events-none absolute z-[2]"
+                className="pointer-events-none absolute z-2"
                 style={{
                   left: `${canvasOffset.left}px`,
                   top: `${canvasOffset.top}px`,
@@ -1422,7 +1422,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
             ) : null}
             {tileInteractionEnabled && (hoveredTile || pickFlash) ? (
               <div
-                className="pointer-events-none absolute z-[5]"
+                className="pointer-events-none absolute z-5"
                 style={{
                   left: `${canvasOffset.left}px`,
                   top: `${canvasOffset.top}px`,

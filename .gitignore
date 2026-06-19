@@ -18,6 +18,9 @@ services/**/obj/
 .dotnet/
 .idea/
 .vscode/
+.zed/
+!apps/desktop/.zed/
+!apps/desktop/.zed/settings.json
 .worktrees/
 .codex/
 .cargo/
@@ -32,7 +35,6 @@ services/**/obj/
 .superpowers
 .claude
 .planning
-.zed/
 package-lock.json
 .omp/
 .codegraph/

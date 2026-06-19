@@ -188,10 +188,10 @@ describe('ModBrowserPanel', () => {
     )
     expect(activeCard.className).not.toContain('panel-list-card')
     expect(inactiveCard.className).toContain('rounded-[20px]')
-    expect(inactiveCard.className).toContain('bg-[var(--bg-panel)]')
+    expect(inactiveCard.className).toContain('bg-(--bg-panel)')
     expect(inactiveCard.className).toContain('px-4')
     expect(inactiveCard.className).toContain('py-3')
-    expect(inactiveCard.className).toContain('hover:bg-[var(--bg-panel-muted)]')
+    expect(inactiveCard.className).toContain('hover:bg-(--bg-panel-muted)')
     expect(inactiveCard.className).not.toContain('panel-list-card')
   })
 
@@ -240,7 +240,7 @@ describe('ModBrowserPanel', () => {
     const badge = screen.getByText('Unknown')
     expect(badge.className).toContain('rounded-md')
     expect(badge.className).toContain('bg-[color-mix(in_srgb,var(--bg-panel-muted)_88%,transparent)]')
-    expect(badge.className).toContain('text-[var(--text-primary)]')
+    expect(badge.className).toContain('text-(--text-primary)')
     expect(badge.className).not.toContain('text-amber-200')
   })
 

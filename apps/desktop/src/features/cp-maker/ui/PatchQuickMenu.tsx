@@ -147,12 +147,12 @@ export function PatchQuickMenu({ patches, activePatchId, onSelectPatch }: PatchQ
               setOpen(false)
             }}
           >
-            <span className="font-semibold text-[var(--text-primary)]">{copy.allPatches}</span>
+            <span className="font-semibold text-(--text-primary)">{copy.allPatches}</span>
             <span className="dock-chip">{patches.length}</span>
           </button>
 
           <div className="relative">
-            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-(--text-tertiary)" />
             <input
               className="control-input h-9 pl-9 text-xs"
               value={query}

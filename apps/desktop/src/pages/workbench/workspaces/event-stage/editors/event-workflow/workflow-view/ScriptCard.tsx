@@ -303,7 +303,7 @@ export function ScriptCard({
 
   function renderTemplateNodes(skipParamIndexes = new Set<number>()) {
     if (!nodes) {
-      return <span className="font-mono text-xs text-[var(--text-secondary)]">{command.raw}</span>
+      return <span className="font-mono text-xs text-(--text-secondary)">{command.raw}</span>
     }
 
     return nodes.map((node, nodeIndex) => {
@@ -312,7 +312,7 @@ export function ScriptCard({
           return null
         }
         return (
-          <span key={nodeIndex} className="text-[var(--text-secondary)]">
+          <span key={nodeIndex} className="text-(--text-secondary)">
             {node.text}
           </span>
         )
@@ -345,7 +345,7 @@ export function ScriptCard({
     }
     return (
       <>
-        <span className="mr-0.5 text-xs font-medium text-[var(--text-tertiary)]">[{schema?.labelZh ?? categoryLabel}]</span>
+        <span className="mr-0.5 text-xs font-medium text-(--text-tertiary)">[{schema?.labelZh ?? categoryLabel}]</span>
         {renderTemplateNodes(new Set([dialogueTextNode?.index ?? -1]))}
       </>
     )
@@ -449,10 +449,10 @@ export function ScriptCard({
 
         {expanded ? (
           <div className="overflow-hidden">
-            <div className="flex flex-col gap-2.5 py-2 pr-1 pl-[68px]">
+            <div className="flex flex-col gap-2.5 py-2 pr-1 pl-17">
               <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold tracking-[0.06em] text-[var(--text-tertiary)] uppercase">{copy.rawCommand}</span>
-                <code className="block rounded-lg border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_76%,transparent)] px-3 py-2 font-mono text-xs leading-[1.55] text-[var(--text-secondary)]">
+                <span className="text-[11px] font-semibold tracking-[0.06em] text-(--text-tertiary) uppercase">{copy.rawCommand}</span>
+                <code className="block rounded-lg border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel-muted)_76%,transparent)] px-3 py-2 font-mono text-xs leading-[1.55] text-(--text-secondary)">
                   {command.raw}
                 </code>
               </div>
@@ -460,9 +460,9 @@ export function ScriptCard({
                 <div className="grid grid-cols-2 gap-2">
                   {command.args.map((arg, argIndex) => (
                     <div key={argIndex} className="flex min-w-0 items-center gap-1.5">
-                      <span className="font-mono text-[10px] text-[var(--text-tertiary)]">[{argIndex}]</span>
-                      <span className="truncate text-[11px] text-[var(--text-primary)]">
-                        {arg || <span className="text-[var(--text-tertiary)] italic">{copy.emptyArg}</span>}
+                      <span className="font-mono text-[10px] text-(--text-tertiary)">[{argIndex}]</span>
+                      <span className="truncate text-[11px] text-(--text-primary)">
+                        {arg || <span className="text-(--text-tertiary) italic">{copy.emptyArg}</span>}
                       </span>
                     </div>
                   ))}
@@ -535,7 +535,7 @@ function InlineDelayControl({
           type="number"
           min={0}
           step={delay.stepMs}
-          className="h-5 w-10 rounded border border-[var(--border-color)] bg-[var(--bg-panel)] px-1 font-mono text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+          className="h-5 w-10 rounded border border-(--border-color) bg-(--bg-panel) px-1 font-mono text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
           value={delay.valueMs}
           aria-label={label}
           onChange={(event) => {
@@ -550,7 +550,7 @@ function InlineDelayControl({
         />
         <button
           type="button"
-          className="flex h-5 w-5 items-center justify-center rounded text-[var(--text-tertiary)] hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] hover:text-[var(--danger)]"
+          className="flex h-5 w-5 items-center justify-center rounded text-(--text-tertiary) hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] hover:text-(--danger)"
           title={copy.removeDelay}
           aria-label={copy.removeDelay}
           onClick={(event) => {
@@ -606,11 +606,11 @@ function CoordinateParamPill({
         onPointerDown={(event) => event.stopPropagation()}
       >
         {(['x', 'y'] as const).map((axis) => (
-          <label key={axis} className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase">
+          <label key={axis} className="inline-flex items-center gap-1 text-[10px] font-semibold text-(--text-tertiary) uppercase">
             {axis === 'x' ? xLabel : yLabel}
             <input
               type="number"
-              className="h-5 w-9 rounded border border-[var(--border-color)] bg-[var(--bg-panel)] px-1 font-mono text-[11px] font-medium text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              className="h-5 w-9 rounded border border-(--border-color) bg-(--bg-panel) px-1 font-mono text-[11px] font-medium text-(--text-primary) outline-none focus:border-(--accent)"
               value={axis === 'x' ? x : y}
               onChange={(event) => onChange(axis, event.target.value)}
             />
@@ -618,7 +618,7 @@ function CoordinateParamPill({
         ))}
         <button
           type="button"
-          className="inline-flex h-5 w-5 items-center justify-center rounded text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-panel-muted)] hover:text-[var(--accent)]"
+          className="inline-flex h-5 w-5 items-center justify-center rounded text-(--text-tertiary) transition-colors hover:bg-(--bg-panel-muted) hover:text-(--accent)"
           title="Pick from map"
           onClick={(event) => {
             event.stopPropagation()

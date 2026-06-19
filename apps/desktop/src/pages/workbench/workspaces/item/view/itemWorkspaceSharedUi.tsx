@@ -50,8 +50,8 @@ export function WorkbenchSignalCard({ card }: { card: SignalCard }) {
     <article className="panel-section px-4 py-3">
       <p className="panel-section-title text-[10px]">{card.label}</p>
       <div className="mt-2 flex items-end justify-between gap-3">
-        <p className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">{card.value}</p>
-        <p className="text-right text-[11px] text-[var(--text-tertiary)]">{card.detail}</p>
+        <p className="text-2xl font-semibold tracking-tight text-(--text-primary)">{card.value}</p>
+        <p className="text-right text-[11px] text-(--text-tertiary)">{card.detail}</p>
       </div>
     </article>
   )
@@ -69,8 +69,8 @@ export function TasteGroup({ title, entries, tone }: { title: string; entries: I
           <Heart className="h-4 w-4" />
         </span>
         <div>
-          <p className="text-sm font-semibold text-[var(--text-primary)]">{title}</p>
-          <p className="text-xs text-[var(--text-secondary)]">{entries.length}</p>
+          <p className="text-sm font-semibold text-(--text-primary)">{title}</p>
+          <p className="text-xs text-(--text-secondary)">{entries.length}</p>
         </div>
       </div>
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
@@ -82,8 +82,8 @@ export function TasteGroup({ title, entries, tone }: { title: string; entries: I
               {npc.displayName.slice(0, 1)}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{npc.displayName}</p>
-              <p className="truncate text-xs text-[var(--text-secondary)]">{npc.internalName}</p>
+              <p className="truncate text-sm font-semibold text-(--text-primary)">{npc.displayName}</p>
+              <p className="truncate text-xs text-(--text-secondary)">{npc.internalName}</p>
             </div>
           </div>
         ))}
@@ -114,7 +114,7 @@ function RelatedVisual({
       className="h-14 w-14 shrink-0"
     />
   ) : (
-    <div className="panel-list-card flex h-14 w-14 shrink-0 items-center justify-center text-sm font-semibold text-[var(--text-secondary)]">
+    <div className="panel-list-card flex h-14 w-14 shrink-0 items-center justify-center text-sm font-semibold text-(--text-secondary)">
       {fallback.slice(0, 1)}
     </div>
   )
@@ -135,7 +135,7 @@ export function SourceGrid({
       <div className="mb-4 flex items-end justify-between gap-3">
         <div>
           <p className="panel-section-title">{copy.sourceSectionTitle}</p>
-          <p className="mt-1 text-sm text-[var(--text-tertiary)]">{cards.length ? `${cards.length}` : copy.noneLabel}</p>
+          <p className="mt-1 text-sm text-(--text-tertiary)">{cards.length ? `${cards.length}` : copy.noneLabel}</p>
         </div>
       </div>
 
@@ -155,14 +155,14 @@ export function SourceGrid({
                     <span className="dock-chip">{card.badge}</span>
                     {card.chance ? <span className="dock-chip">{card.chance}</span> : null}
                   </div>
-                  <p className="mt-3 text-base font-semibold text-[var(--text-primary)]">{card.title}</p>
-                  <p className="mt-1 text-sm text-[var(--text-secondary)]">{card.detail}</p>
+                  <p className="mt-3 text-base font-semibold text-(--text-primary)">{card.title}</p>
+                  <p className="mt-1 text-sm text-(--text-secondary)">{card.detail}</p>
                   {card.meta.length ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {card.meta.map((meta) => (
                         <span
                           key={meta}
-                          className="rounded-full border border-[var(--border-color)] bg-[var(--bg-panel)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)]"
+                          className="rounded-full border border-(--border-color) bg-(--bg-panel) px-2.5 py-1 text-[11px] text-(--text-secondary)"
                         >
                           {meta}
                         </span>
@@ -196,7 +196,7 @@ function FormulaChip({
         'flex items-center gap-2 rounded-2xl border px-3 py-2',
         ingredient.isCurrent
           ? 'border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_18%,transparent)]'
-          : 'border-[var(--border-color)] bg-[var(--bg-panel-muted)]',
+          : 'border-(--border-color) bg-(--bg-panel-muted)',
       )}
     >
       {relatedItem ? (
@@ -208,8 +208,8 @@ function FormulaChip({
         />
       ) : null}
       <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{ingredient.label}</p>
-        <p className="text-xs text-[var(--text-secondary)]">x{ingredient.amount}</p>
+        <p className="truncate text-sm font-semibold text-(--text-primary)">{ingredient.label}</p>
+        <p className="text-xs text-(--text-secondary)">x{ingredient.amount}</p>
       </div>
     </div>
   )
@@ -232,7 +232,7 @@ export function UseGrid({
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="panel-section-title">{title}</p>
-          <p className="text-xs text-[var(--text-secondary)]">{cards.length}</p>
+          <p className="text-xs text-(--text-secondary)">{cards.length}</p>
         </div>
       </div>
 
@@ -247,8 +247,8 @@ export function UseGrid({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <span className="dock-chip">{card.badge}</span>
-                    <p className="mt-3 text-base font-semibold text-[var(--text-primary)]">{card.title}</p>
-                    <p className="mt-1 text-sm text-[var(--text-secondary)]">{card.subtitle}</p>
+                    <p className="mt-3 text-base font-semibold text-(--text-primary)">{card.title}</p>
+                    <p className="mt-1 text-sm text-(--text-secondary)">{card.subtitle}</p>
                   </div>
                   {outputItem ? (
                     <div className="shrink-0 text-right">
@@ -258,7 +258,7 @@ export function UseGrid({
                         scale={getContainedItemSpriteScale(outputItem, 56, 1.75)}
                         className="ml-auto h-14 w-14"
                       />
-                      <p className="mt-2 text-xs text-[var(--text-secondary)]">x{card.outputCount ?? 1}</p>
+                      <p className="mt-2 text-xs text-(--text-secondary)">x{card.outputCount ?? 1}</p>
                     </div>
                   ) : null}
                 </div>
@@ -273,13 +273,13 @@ export function UseGrid({
                     return (
                       <div key={ingredient.key} className="flex items-center gap-2">
                         <FormulaChip ingredient={ingredient} relatedItem={relatedItem} textureState={textureState} />
-                        {index < card.ingredients.length - 1 ? <span className="text-[var(--text-tertiary)]">+</span> : null}
+                        {index < card.ingredients.length - 1 ? <span className="text-(--text-tertiary)">+</span> : null}
                       </div>
                     )
                   })}
                   {outputItem ? (
                     <>
-                      <ArrowRight className="h-4 w-4 text-[var(--text-tertiary)]" />
+                      <ArrowRight className="h-4 w-4 text-(--text-tertiary)" />
                       <div className="panel-list-card flex items-center gap-2 px-3 py-2">
                         <ItemSprite
                           item={outputItem}
@@ -288,8 +288,8 @@ export function UseGrid({
                           className="h-10 w-10 shrink-0"
                         />
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{outputItem.displayName}</p>
-                          <p className="text-xs text-[var(--text-secondary)]">x{card.outputCount ?? 1}</p>
+                          <p className="truncate text-sm font-semibold text-(--text-primary)">{outputItem.displayName}</p>
+                          <p className="text-xs text-(--text-secondary)">x{card.outputCount ?? 1}</p>
                         </div>
                       </div>
                     </>
@@ -313,7 +313,7 @@ export function ItemTooltip({ item }: { item: ItemWorkspaceEntry | null }) {
   }
 
   return (
-    <div className="pointer-events-none absolute right-4 bottom-4 z-10 w-[260px] rounded-2xl border border-white/10 bg-[rgba(10,12,16,0.88)] px-4 py-3 text-white shadow-2xl backdrop-blur-md">
+    <div className="pointer-events-none absolute right-4 bottom-4 z-10 w-65 rounded-2xl border border-white/10 bg-[rgba(10,12,16,0.88)] px-4 py-3 text-white shadow-2xl backdrop-blur-md">
       <div className="flex items-center gap-2">
         <span className="dock-chip">{copy.kindLabels[item.kind]}</span>
       </div>

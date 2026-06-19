@@ -69,22 +69,20 @@ export function CharacterInspectorPanel({ character, activeVariant, assetState, 
                   ? `${assetState.spriteSheetWidth}x${assetState.spriteSheetHeight}`
                   : noneLabel,
               )}
-              <div className="mt-4 border-t border-[var(--border-color)] pt-3">
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">{copy.assetSource}</p>
+              <div className="mt-4 border-t border-(--border-color) pt-3">
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">{copy.assetSource}</p>
                 <div className="mt-3 space-y-3">
                   <div>
-                    <p className="text-[11px] font-semibold tracking-[0.12em] text-[var(--text-secondary)] uppercase">
-                      {copy.spriteAssetLabel}
-                    </p>
-                    <p className="mt-1 text-sm break-all text-[var(--text-primary)]">
+                    <p className="text-[11px] font-semibold tracking-[0.12em] text-(--text-secondary) uppercase">{copy.spriteAssetLabel}</p>
+                    <p className="mt-1 text-sm break-all text-(--text-primary)">
                       {assetState.spritePath ?? activeVariant?.spritePathLabel ?? noneLabel}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold tracking-[0.12em] text-[var(--text-secondary)] uppercase">
+                    <p className="text-[11px] font-semibold tracking-[0.12em] text-(--text-secondary) uppercase">
                       {copy.portraitAssetLabel}
                     </p>
-                    <p className="mt-1 text-sm break-all text-[var(--text-primary)]">
+                    <p className="mt-1 text-sm break-all text-(--text-primary)">
                       {assetState.portraitPath ?? activeVariant?.portraitPathLabel ?? noneLabel}
                     </p>
                   </div>

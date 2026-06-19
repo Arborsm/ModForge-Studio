@@ -369,7 +369,7 @@ export default function SettingsWindow({
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <Palette className="h-4 w-4 text-[var(--accent)]" />
+                      <Palette className="h-4 w-4 text-(--accent)" />
                       <p className="settings-window-section-title">{themeLabel}</p>
                     </div>
                     <p className="settings-window-section-copy">{themeDescription}</p>

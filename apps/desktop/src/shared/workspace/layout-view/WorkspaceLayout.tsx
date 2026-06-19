@@ -250,7 +250,7 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
             [id]: {
               ...currentPanel,
               mode: nextMode,
-              lastMode: !visible || currentPanel.mode === 'hidden' ? currentPanel.lastMode : currentPanel.mode,
+              lastMode: visible! || currentPanel.mode === 'hidden' ? currentPanel.lastMode : currentPanel.mode,
               zIndex: visible && nextMode === 'floating' ? nextZ : currentPanel.zIndex,
             },
           }

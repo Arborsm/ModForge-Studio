@@ -84,7 +84,7 @@ export function EditModeToolbar({
           </>
         ) : (
           <>
-            <Eye className="h-4 w-4 text-[var(--accent)]" />
+            <Eye className="h-4 w-4 text-(--accent)" />
             <span className="edit-mode-toolbar-title">{workspaceLabel}</span>
             <span className="edit-mode-toolbar-subtitle">{toolbar.patchCount(patches.length)}</span>
           </>

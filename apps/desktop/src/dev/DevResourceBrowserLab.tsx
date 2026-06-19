@@ -362,7 +362,7 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
       <header className="dev-resource-browser__header">
         <div className="min-w-0">
           <div className="dev-resource-browser__title-row">
-            <Sparkles className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" />
+            <Sparkles className="h-4 w-4 text-(--accent)" aria-hidden="true" />
             <h1>资源浏览器</h1>
             <span className="dev-resource-browser__badge">DEV</span>
             <span className="dev-resource-browser__badge">{loadState}</span>

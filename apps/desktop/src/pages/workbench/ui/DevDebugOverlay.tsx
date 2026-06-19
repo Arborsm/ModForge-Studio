@@ -276,10 +276,10 @@ export function DevDebugOverlay({
       {items.map(([label, value]) => (
         <div
           key={label}
-          className="rounded-xl border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_74%,transparent)] px-2.5 py-2"
+          className="rounded-xl border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_74%,transparent)] px-2.5 py-2"
         >
-          <p className="text-[10px] font-semibold tracking-[0.16em] text-[var(--text-tertiary)] uppercase">{label}</p>
-          <p className="mt-1 truncate text-xs text-[var(--text-primary)]">{value}</p>
+          <p className="text-[10px] font-semibold tracking-[0.16em] text-(--text-tertiary) uppercase">{label}</p>
+          <p className="mt-1 truncate text-xs text-(--text-primary)">{value}</p>
         </div>
       ))}
     </div>
@@ -288,20 +288,20 @@ export function DevDebugOverlay({
   return (
     <div
       data-testid="app-debug-overlay"
-      className="fixed z-[260] w-[300px] overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--accent)_24%,var(--border-color))] bg-[color-mix(in_srgb,var(--bg-elevated)_92%,transparent)] shadow-[var(--shadow-float)] backdrop-blur"
+      className="fixed z-260 w-75 overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--accent)_24%,var(--border-color))] bg-[color-mix(in_srgb,var(--bg-elevated)_92%,transparent)] shadow-(--shadow-float) backdrop-blur"
       style={{ left: `${position.x}px`, top: `${position.y}px` }}
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
     >
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-2">
+      <div className="flex items-center justify-between gap-3 border-b border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-2">
         <div className="flex-1 cursor-grab select-none active:cursor-grabbing" onPointerDown={beginDrag}>
-          <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">Dev Debug</p>
-          <p className="text-xs text-[var(--text-tertiary)]">workspace diagnostics</p>
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">Dev Debug</p>
+          <p className="text-xs text-(--text-tertiary)">workspace diagnostics</p>
         </div>
         <button
           type="button"
-          className="rounded-lg border border-[var(--border-color)] px-2 py-1 text-[11px] text-[var(--text-secondary)]"
+          className="rounded-lg border border-(--border-color) px-2 py-1 text-[11px] text-(--text-secondary)"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={() => setCollapsed((current) => !current)}
         >
@@ -312,21 +312,21 @@ export function DevDebugOverlay({
       {!collapsed ? (
         <div className="space-y-3 px-3 py-3">
           <div>
-            <p className="mb-2 text-[10px] font-semibold tracking-[0.16em] text-[var(--text-tertiary)] uppercase">Runtime</p>
+            <p className="mb-2 text-[10px] font-semibold tracking-[0.16em] text-(--text-tertiary) uppercase">Runtime</p>
             {renderMetricGrid(runtimeMetrics)}
           </div>
 
           <div>
-            <p className="mb-2 text-[10px] font-semibold tracking-[0.16em] text-[var(--text-tertiary)] uppercase">{contextSectionLabel}</p>
+            <p className="mb-2 text-[10px] font-semibold tracking-[0.16em] text-(--text-tertiary) uppercase">{contextSectionLabel}</p>
             {renderMetricGrid(contextMetrics)}
           </div>
 
           {desktopHost ? (
-            <div className="rounded-xl border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_74%,transparent)] px-3 py-3">
+            <div className="rounded-xl border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_74%,transparent)] px-3 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-semibold tracking-[0.16em] text-[var(--text-tertiary)] uppercase">File Cache</p>
-                  <p className="mt-1 text-xs text-[var(--text-primary)]">
+                  <p className="text-[10px] font-semibold tracking-[0.16em] text-(--text-tertiary) uppercase">File Cache</p>
+                  <p className="mt-1 text-xs text-(--text-primary)">
                     {fileCacheStats
                       ? `${fileCacheStats.entryCount} entries / ${formatOverlayBytes(fileCacheStats.totalSizeBytes)}`
                       : 'Loading...'}
@@ -335,7 +335,7 @@ export function DevDebugOverlay({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    className="rounded-lg border border-[var(--border-color)] px-2 py-1 text-[11px] text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-lg border border-(--border-color) px-2 py-1 text-[11px] text-(--text-secondary) disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={() => void handleRefreshFileCache()}
                     disabled={refreshingFileCache || clearing}
                   >
@@ -343,7 +343,7 @@ export function DevDebugOverlay({
                   </button>
                   <button
                     type="button"
-                    className="rounded-lg border border-[var(--border-color)] px-2 py-1 text-[11px] text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-lg border border-(--border-color) px-2 py-1 text-[11px] text-(--text-secondary) disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={() => void handleClearFileCache()}
                     disabled={clearing || refreshingFileCache}
                   >
@@ -351,8 +351,8 @@ export function DevDebugOverlay({
                   </button>
                 </div>
               </div>
-              <p className="mt-2 text-[11px] break-all text-[var(--text-tertiary)]">{fileCacheStats?.rootPath ?? 'n/a'}</p>
-              {clearMessage ? <p className="mt-2 text-[11px] text-[var(--text-secondary)]">{clearMessage}</p> : null}
+              <p className="mt-2 text-[11px] break-all text-(--text-tertiary)">{fileCacheStats?.rootPath ?? 'n/a'}</p>
+              {clearMessage ? <p className="mt-2 text-[11px] text-(--text-secondary)">{clearMessage}</p> : null}
             </div>
           ) : null}
         </div>

@@ -97,8 +97,8 @@ function LauncherInstallBackupsDialogContent({
                     </div>
                     {pendingRestoreBackupId === backup.backupId ? (
                       <div className="launcher-library-install-restore-confirm">
-                        <p className="text-sm font-semibold text-[var(--text-primary)]">{copy.library.restoreInstallBackupConfirmTitle}</p>
-                        <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                        <p className="text-sm font-semibold text-(--text-primary)">{copy.library.restoreInstallBackupConfirmTitle}</p>
+                        <p className="mt-1 text-xs text-(--text-secondary)">
                           {copy.library.restoreInstallBackupConfirmMessage(
                             backup.backupId,
                             modsPath ?? '',

@@ -683,11 +683,11 @@ export default function PlayerAppearanceWindow({
                     onClick={() => onSelectProfile(profile.id)}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{profile.label}</span>
+                      <span className="truncate text-sm font-semibold text-(--text-primary)">{profile.label}</span>
                       {active ? <span className="player-appearance-badge">{copy.active}</span> : null}
                     </div>
-                    <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{profile.farmerName}</p>
-                    {profile.importedAt ? <p className="mt-2 text-[11px] text-[var(--text-tertiary)]">{copy.imported}</p> : null}
+                    <p className="mt-1 truncate text-xs text-(--text-secondary)">{profile.farmerName}</p>
+                    {profile.importedAt ? <p className="mt-2 text-[11px] text-(--text-tertiary)">{copy.imported}</p> : null}
                   </button>
                 )
               })}

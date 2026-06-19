@@ -53,7 +53,7 @@ export function LayersPanel({ mapDocument, visibleLayerIds, onToggleLayer, onSho
           emptyMessage={copy.center.noSceneLoaded}
         />
       ) : (
-        <div className="px-4 py-5 text-sm text-[var(--text-secondary)]">{copy.center.noSceneLoaded}</div>
+        <div className="px-4 py-5 text-sm text-(--text-secondary)">{copy.center.noSceneLoaded}</div>
       )}
     </PanelFrame>
   )

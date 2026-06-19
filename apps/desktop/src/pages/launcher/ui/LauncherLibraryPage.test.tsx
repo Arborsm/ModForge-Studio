@@ -2911,7 +2911,7 @@ describe('LauncherLibraryPage', () => {
     globalThis.ResizeObserver = OriginalResizeObserver
   })
 
-  it('keeps virtual rows mounted while the library grid is hidden during route switches', async () => {
+  it('keeps virtual rows mounted while the library grid is during route switches', async () => {
     const library = createLargeLibraryState(16)
     let hidden = false
     const resizeCallbacks: ResizeObserverCallback[] = []

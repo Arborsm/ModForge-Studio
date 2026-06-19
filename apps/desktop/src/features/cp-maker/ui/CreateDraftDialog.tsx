@@ -51,10 +51,10 @@ export function CreateDraftDialog({ open, copy, onClose, onCreate }: CreateDraft
       <DialogBody>
         <form id="create-draft-form" onSubmit={handleSubmit} className="space-y-3">
           <label className="block">
-            <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.projectName}</span>
+            <span className="mb-1 block text-xs text-(--text-secondary)">{copy.projectName}</span>
             <input
               type="text"
-              className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-(--accent)"
               value={form.projectName}
               onChange={(e) => {
                 const name = e.target.value
@@ -69,10 +69,10 @@ export function CreateDraftDialog({ open, copy, onClose, onCreate }: CreateDraft
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.uniqueId}</span>
+            <span className="mb-1 block text-xs text-(--text-secondary)">{copy.uniqueId}</span>
             <input
               type="text"
-              className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-(--accent)"
               value={form.projectUniqueId}
               onChange={(e) => setForm((f) => ({ ...f, projectUniqueId: e.target.value }))}
             />
@@ -80,19 +80,19 @@ export function CreateDraftDialog({ open, copy, onClose, onCreate }: CreateDraft
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.author}</span>
+              <span className="mb-1 block text-xs text-(--text-secondary)">{copy.author}</span>
               <input
                 type="text"
-                className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-(--accent)"
                 value={form.projectAuthor}
                 onChange={(e) => setForm((f) => ({ ...f, projectAuthor: e.target.value }))}
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.version}</span>
+              <span className="mb-1 block text-xs text-(--text-secondary)">{copy.version}</span>
               <input
                 type="text"
-                className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-(--accent)"
                 value={form.projectVersion}
                 onChange={(e) => setForm((f) => ({ ...f, projectVersion: e.target.value }))}
               />
@@ -100,10 +100,10 @@ export function CreateDraftDialog({ open, copy, onClose, onCreate }: CreateDraft
           </div>
 
           <label className="block">
-            <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.description}</span>
+            <span className="mb-1 block text-xs text-(--text-secondary)">{copy.description}</span>
             <input
               type="text"
-              className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-(--accent)"
               value={form.projectDescription}
               onChange={(e) => setForm((f) => ({ ...f, projectDescription: e.target.value }))}
             />

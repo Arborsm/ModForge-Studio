@@ -66,7 +66,7 @@ export function DetailPane({
           </div>
         </div>
         <div className="panel-body flex h-full min-h-0 items-center justify-center p-6 text-center">
-          <p className="max-w-md text-sm text-[var(--text-secondary)]">{copy.workspaceEmpty}</p>
+          <p className="max-w-md text-sm text-(--text-secondary)">{copy.workspaceEmpty}</p>
         </div>
       </section>
     )
@@ -86,9 +86,9 @@ export function DetailPane({
         </div>
         <span className="dock-chip">{item.qualifiedItemId}</span>
       </div>
-      <div className="mx-5 mb-5 overflow-hidden rounded-[24px] border border-[var(--border-color)] bg-[linear-gradient(145deg,color-mix(in_srgb,var(--bg-elevated)_94%,transparent),color-mix(in_srgb,var(--accent)_12%,var(--bg-panel)))] px-5 py-5">
+      <div className="mx-5 mb-5 overflow-hidden rounded-3xl border border-(--border-color) bg-[linear-gradient(145deg,color-mix(in_srgb,var(--bg-elevated)_94%,transparent),color-mix(in_srgb,var(--accent)_12%,var(--bg-panel)))] px-5 py-5">
         <div className="grid gap-5 lg:grid-cols-[160px_minmax(0,1fr)]">
-          <div className="panel-section flex min-h-[160px] items-center justify-center bg-[radial-gradient(circle_at_30%_20%,color-mix(in_srgb,var(--accent)_26%,transparent),transparent_38%),radial-gradient(circle_at_70%_78%,rgba(255,255,255,0.08),transparent_34%),var(--bg-panel)] p-5">
+          <div className="panel-section flex min-h-40 items-center justify-center bg-[radial-gradient(circle_at_30%_20%,color-mix(in_srgb,var(--accent)_26%,transparent),transparent_38%),radial-gradient(circle_at_70%_78%,rgba(255,255,255,0.08),transparent_34%),var(--bg-panel)] p-5">
             <ItemSprite
               item={item}
               textureState={textureState}
@@ -105,9 +105,9 @@ export function DetailPane({
               {giftCount ? <span className="dock-chip">{copy.giftSectionTitle}</span> : null}
             </div>
 
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{item.displayName}</h2>
-            <p className="mt-2 truncate text-sm text-[var(--text-secondary)]">{item.internalName}</p>
-            <p className="mt-1 truncate text-xs text-[var(--text-tertiary)]">{item.qualifiedItemId}</p>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-(--text-primary)">{item.displayName}</h2>
+            <p className="mt-2 truncate text-sm text-(--text-secondary)">{item.internalName}</p>
+            <p className="mt-1 truncate text-xs text-(--text-tertiary)">{item.qualifiedItemId}</p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {heroChips.map((chip) => (
@@ -147,7 +147,7 @@ export function DetailPane({
               <DetailSectionCard title={copy.basicsTitle} rows={infoRows} />
 
               <DetailSectionCard title={text.descriptionTitle}>
-                <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">{item.description ?? copy.noDescription}</p>
+                <p className="mt-3 text-sm leading-7 text-(--text-secondary)">{item.description ?? copy.noDescription}</p>
               </DetailSectionCard>
 
               <DetailSectionCard title={copy.giftSectionTitle}>
@@ -216,7 +216,7 @@ export function DetailPane({
                   {objectDataCards.length ? (
                     objectDataCards.map((card) => (
                       <div key={card.key} className="panel-section px-3 py-3">
-                        <p className="mb-3 text-sm font-semibold text-[var(--text-primary)]">{card.title}</p>
+                        <p className="mb-3 text-sm font-semibold text-(--text-primary)">{card.title}</p>
                         <div className="grid gap-2">
                           {card.rows.map((row) => (
                             <RenderKv key={`${card.key}:${row.label}`} label={row.label} value={row.value} />

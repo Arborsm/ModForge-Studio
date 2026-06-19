@@ -158,19 +158,19 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
   let globalIndex = 0
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/20 pt-[15vh]">
+    <div className="fixed inset-0 z-100 flex items-start justify-center bg-black/20 pt-[15vh]">
       <div
         ref={containerRef}
-        className="flex w-[640px] max-w-[90vw] flex-col overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] shadow-[var(--shadow-float)]"
+        className="flex w-160 max-w-[90vw] flex-col overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-panel) shadow-(--shadow-float)"
       >
         {/* Search */}
-        <div className="flex items-center gap-2 border-b border-[var(--border-color)] px-3 py-2">
-          <Search className="h-4 w-4 text-[var(--text-tertiary)]" />
+        <div className="flex items-center gap-2 border-b border-(--border-color) px-3 py-2">
+          <Search className="h-4 w-4 text-(--text-tertiary)" />
           <input
             ref={inputRef}
             type="text"
             placeholder={locale === 'zh-CN' ? '搜索命令或按分类浏览...' : 'Search commands or browse by category...'}
-            className="min-w-0 flex-1 bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]"
+            className="min-w-0 flex-1 bg-transparent text-sm text-(--text-primary) outline-none placeholder:text-(--text-tertiary)"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value)
@@ -180,7 +180,7 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
           {search && (
             <button
               type="button"
-              className="rounded p-0.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-primary)]"
+              className="rounded p-0.5 text-(--text-tertiary) hover:bg-(--bg-panel-muted) hover:text-(--text-primary)"
               onClick={() => {
                 setSearch('')
                 setHighlightedIndex(0)
@@ -192,7 +192,7 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
           )}
           <button
             type="button"
-            className="rounded p-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-primary)]"
+            className="rounded p-1 text-(--text-tertiary) hover:bg-(--bg-panel-muted) hover:text-(--text-primary)"
             onClick={onClose}
           >
             <X className="h-4 w-4" />
@@ -200,14 +200,14 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
         </div>
 
         {/* Category filters */}
-        <div className="flex gap-1 overflow-x-auto border-b border-[var(--border-color)] px-3 py-1.5">
+        <div className="flex gap-1 overflow-x-auto border-b border-(--border-color) px-3 py-1.5">
           <button
             type="button"
             className={cx(
               'shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors',
               activeCategory === null
-                ? 'bg-[var(--accent)] text-[var(--text-inverse)]'
-                : 'bg-[var(--bg-panel-muted)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+                ? 'bg-(--accent) text-(--text-inverse)'
+                : 'bg-(--bg-panel-muted) text-(--text-secondary) hover:text-(--text-primary)',
             )}
             onClick={() => {
               setActiveCategory(null)
@@ -226,8 +226,8 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
                 className={cx(
                   'shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors',
                   activeCategory === cat
-                    ? 'bg-[var(--accent)] text-[var(--text-inverse)]'
-                    : 'bg-[var(--bg-panel-muted)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+                    ? 'bg-(--accent) text-(--text-inverse)'
+                    : 'bg-(--bg-panel-muted) text-(--text-secondary) hover:text-(--text-primary)',
                 )}
                 onClick={() => {
                   setActiveCategory(activeCategory === cat ? null : cat)
@@ -243,14 +243,14 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
         {/* Results */}
         <div ref={resultsRef} className="max-h-[50vh] overflow-y-auto p-2">
           {Array.from(filtered).length === 0 && (
-            <div className="flex flex-col items-center justify-center py-8 text-[var(--text-tertiary)]">
+            <div className="flex flex-col items-center justify-center py-8 text-(--text-tertiary)">
               <Command className="h-8 w-8 opacity-40" />
               <p className="mt-2 text-sm">{locale === 'zh-CN' ? '未找到命令' : 'No commands found'}</p>
             </div>
           )}
           {Array.from(filtered).map(([cat, list]) => (
             <div key={cat} className="mb-2">
-              <div className="sticky top-0 mb-1 bg-[var(--bg-panel)] px-2 py-1 text-[10px] font-semibold tracking-wider text-[var(--text-tertiary)] uppercase">
+              <div className="sticky top-0 mb-1 bg-(--bg-panel) px-2 py-1 text-[10px] font-semibold tracking-wider text-(--text-tertiary) uppercase">
                 {CATEGORY_LABELS[cat]} ({list.length})
               </div>
               <div className="grid grid-cols-2 gap-1">
@@ -267,7 +267,7 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
                         'flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-all',
                         isHighlighted
                           ? 'border-[color-mix(in_srgb,var(--accent)_60%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_50%,transparent)]'
-                          : 'border-[var(--border-color)] bg-[var(--bg-panel-muted)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border-color))] hover:bg-[color-mix(in_srgb,var(--accent-soft)_40%,transparent)]',
+                          : 'border-(--border-color) bg-(--bg-panel-muted) hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border-color))] hover:bg-[color-mix(in_srgb,var(--accent-soft)_40%,transparent)]',
                       )}
                       onClick={() => {
                         onSelect(schema.key)
@@ -285,10 +285,10 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
                         {schema.label.slice(0, 2).toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <div className="text-xs font-medium text-[var(--text-primary)]">
+                        <div className="text-xs font-medium text-(--text-primary)">
                           {locale === 'zh-CN' ? schema.labelZh : schema.label}
                         </div>
-                        <div className="truncate text-[10px] text-[var(--text-tertiary)]">{schema.key}</div>
+                        <div className="truncate text-[10px] text-(--text-tertiary)">{schema.key}</div>
                       </div>
                     </button>
                   )

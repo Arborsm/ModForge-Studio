@@ -1175,7 +1175,7 @@ function EventsEditor({
                 onComplete={pathPickingActive ? finishPickMode : undefined}
                 onClear={pathPickingActive ? clearActivePath : undefined}
                 onCancel={finishPickMode}
-                className="!top-auto !right-auto !bottom-4 !left-4 !justify-start !px-0"
+                className="top-auto! right-auto! bottom-4! left-4! justify-start! px-0!"
               />
             </div>
           </div>
@@ -1366,9 +1366,9 @@ function ComposerSceneStrip({
           onPickCamera()
         }}
       >
-        <Camera className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />
+        <Camera className="h-3.5 w-3.5 text-(--text-tertiary)" />
         <span className="mono">{cameraTarget ? `${cameraTarget.x},${cameraTarget.y}` : (scene.cameraInstruction ?? 'follow')}</span>
-        <MapPin className="h-3.5 w-3.5 text-[var(--accent)]" />
+        <MapPin className="h-3.5 w-3.5 text-(--accent)" />
       </button>
 
       <span className="scene-label">{copy.actors.replace(/:$/u, '')}</span>
@@ -1457,11 +1457,9 @@ function FieldsEditor({
 
   return (
     <div className="flex min-h-0 flex-1">
-      <div className="flex w-64 shrink-0 flex-col border-r border-[var(--border-color)] bg-[var(--bg-panel)]">
-        <div className="flex items-center justify-between border-b border-[var(--border-color)] px-3 py-2">
-          <span className="text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
-            Entries ({entryList.length})
-          </span>
+      <div className="flex w-64 shrink-0 flex-col border-r border-(--border-color) bg-(--bg-panel)">
+        <div className="flex items-center justify-between border-b border-(--border-color) px-3 py-2">
+          <span className="text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">Entries ({entryList.length})</span>
           <button
             type="button"
             className="icon-button h-6 w-6"
@@ -1501,7 +1499,7 @@ function FieldsEditor({
         {selectedFieldMap ? (
           <div className="space-y-3">
             <div className="panel-section-title">
-              Fields for <span className="text-[var(--text-primary)]">{selectedKey}</span>
+              Fields for <span className="text-(--text-primary)">{selectedKey}</span>
             </div>
             {Object.entries(selectedFieldMap).map(([fieldName, fieldValue]) => (
               <div key={fieldName} className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
@@ -1562,7 +1560,7 @@ function FieldsEditor({
             </button>
           </div>
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-[var(--text-secondary)]">
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-(--text-secondary)">
             <Database className="h-8 w-8 opacity-40" />
             <p className="text-xs">Select an entry to edit its fields.</p>
           </div>
@@ -1589,7 +1587,7 @@ function TextOpsEditor({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-[var(--border-color)] px-3 py-2">
+      <div className="flex items-center justify-between border-b border-(--border-color) px-3 py-2">
         <span className="panel-section-title">TextOperations ({ops.length})</span>
         <button
           type="button"
@@ -1626,7 +1624,7 @@ function TextOpsEditor({
                   </button>
                 </div>
                 <div className="grid gap-2 md:grid-cols-2">
-                  <label className="grid gap-1 text-[10px] tracking-wider text-[var(--text-secondary)] uppercase">
+                  <label className="grid gap-1 text-[10px] tracking-wider text-(--text-secondary) uppercase">
                     Target
                     <input
                       type="text"
@@ -1641,7 +1639,7 @@ function TextOpsEditor({
                       }}
                     />
                   </label>
-                  <label className="grid gap-1 text-[10px] tracking-wider text-[var(--text-secondary)] uppercase">
+                  <label className="grid gap-1 text-[10px] tracking-wider text-(--text-secondary) uppercase">
                     Delimiter
                     <input
                       type="text"
@@ -1650,7 +1648,7 @@ function TextOpsEditor({
                       onChange={(event) => updateOp(index, { delimiter: event.target.value || undefined })}
                     />
                   </label>
-                  <label className="grid gap-1 text-[10px] tracking-wider text-[var(--text-secondary)] uppercase md:col-span-2">
+                  <label className="grid gap-1 text-[10px] tracking-wider text-(--text-secondary) uppercase md:col-span-2">
                     {op.operation === 'RemoveDelimited' ? 'Value to remove' : 'Value'}
                     <input
                       type="text"
@@ -1661,7 +1659,7 @@ function TextOpsEditor({
                   </label>
                   {op.operation === 'ReplaceDelimited' || op.operation === 'RemoveDelimited' ? (
                     <>
-                      <label className="grid gap-1 text-[10px] tracking-wider text-[var(--text-secondary)] uppercase">
+                      <label className="grid gap-1 text-[10px] tracking-wider text-(--text-secondary) uppercase">
                         Search
                         <input
                           type="text"
@@ -1670,7 +1668,7 @@ function TextOpsEditor({
                           onChange={(event) => updateOp(index, { search: event.target.value || undefined })}
                         />
                       </label>
-                      <label className="grid gap-1 text-[10px] tracking-wider text-[var(--text-secondary)] uppercase">
+                      <label className="grid gap-1 text-[10px] tracking-wider text-(--text-secondary) uppercase">
                         ReplaceMode
                         <select
                           className="control-input h-9 text-xs tracking-normal normal-case"
@@ -1717,7 +1715,7 @@ function MoveEntriesEditor({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-[var(--border-color)] px-3 py-2">
+      <div className="flex items-center justify-between border-b border-(--border-color) px-3 py-2">
         <span className="panel-section-title">MoveEntries ({moveEntries.length})</span>
         <button type="button" className="control-button" onClick={() => updateMoveEntries([...moveEntries, { id: '' }])}>
           <Plus className="h-4 w-4" />
@@ -1772,7 +1770,7 @@ function MoveEntriesEditor({
 
 function MoveEntryInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
-    <label className="grid gap-1 text-[10px] tracking-wider text-[var(--text-secondary)] uppercase">
+    <label className="grid gap-1 text-[10px] tracking-wider text-(--text-secondary) uppercase">
       {label}
       <input
         type="text"

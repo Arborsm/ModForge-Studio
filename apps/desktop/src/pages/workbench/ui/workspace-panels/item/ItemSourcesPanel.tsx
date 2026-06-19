@@ -12,12 +12,12 @@ function SourceSection({ title, entries, noneLabel }: { title: string; entries: 
     <PanelSection title={title} bodyClassName="space-y-2">
       {entries.length ? (
         entries.map((entry) => (
-          <div key={entry} className="panel-list-card text-sm text-[var(--text-primary)]">
+          <div key={entry} className="panel-list-card text-sm text-(--text-primary)">
             {entry}
           </div>
         ))
       ) : (
-        <p className="text-sm text-[var(--text-secondary)]">{noneLabel}</p>
+        <p className="text-sm text-(--text-secondary)">{noneLabel}</p>
       )}
     </PanelSection>
   )

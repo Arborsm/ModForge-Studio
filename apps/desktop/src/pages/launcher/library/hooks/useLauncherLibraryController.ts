@@ -305,7 +305,7 @@ export function useLauncherLibraryController({
     )
   }, [])
 
-  // Complete the deferred folder close after the collapse animation has had
+  // Complete the deferred folder close after the animation has had
   // time to play. Each closing folder gets its own timer; when it fires the
   // folder is removed from all three state arrays so the panel finally
   // unmounts.

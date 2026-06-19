@@ -44,7 +44,7 @@ export function BuildingPrimaryPreview({
       : 1
 
   return (
-    <div className="panel-canvas flex min-h-[340px] flex-1 items-center justify-center p-6">
+    <div className="panel-canvas flex min-h-85 flex-1 items-center justify-center p-6">
       {isConstructible ? (
         sourceRect && activeTextureState?.url && activeTextureState.width && activeTextureState.height ? (
           <div
@@ -66,7 +66,7 @@ export function BuildingPrimaryPreview({
           <div className="panel-canvas-empty">{copy.noTexture}</div>
         )
       ) : activeExteriorMapDocument ? (
-        <div className="h-full min-h-[340px] w-full">
+        <div className="h-full min-h-85 w-full">
           <MapViewport
             key={`${building.key}:${activeExteriorMapDocument.relativePath}`}
             locale={locale}

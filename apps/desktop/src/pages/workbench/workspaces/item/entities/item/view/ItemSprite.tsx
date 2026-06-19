@@ -45,7 +45,7 @@ export function ItemSprite({ item, textureState, scale = 2, className = '', styl
       className={className}
       style={style}
       fallback={
-        <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-[var(--text-secondary)] uppercase">
+        <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-(--text-secondary) uppercase">
           {item.displayName.slice(0, 1)}
         </div>
       }

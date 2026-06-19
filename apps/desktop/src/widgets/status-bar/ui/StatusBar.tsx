@@ -86,7 +86,7 @@ export default function StatusBar({
       <footer className="status-bar" role="contentinfo">
         {/* Left: Mode + Identity */}
         <div className="status-bar-group status-bar-group-primary" role="group" aria-label={copy.statusBar.design}>
-          <span className="status-pill status-pill-compact bg-[var(--accent)] text-white">{copy.statusBar.design}</span>
+          <span className="status-pill status-pill-compact bg-(--accent) text-white">{copy.statusBar.design}</span>
           {patchName && (
             <div className="status-bar-item status-bar-item-wide">
               <span className="status-bar-label">Patch</span>
@@ -102,7 +102,7 @@ export default function StatusBar({
               </span>
             </div>
           )}
-          {!hasEditorData && <span className="text-[10px] text-[var(--text-tertiary)]">{copy.statusBar.noEditItem}</span>}
+          {!hasEditorData && <span className="text-[10px] text-(--text-tertiary)">{copy.statusBar.noEditItem}</span>}
         </div>
 
         {hasEditorData && (
@@ -154,7 +154,7 @@ export default function StatusBar({
         <div
           className={cx(
             'status-bar-indicator',
-            directoryInfo ? 'status-bar-indicator-ready text-[var(--success)]' : 'status-bar-indicator-warning text-[var(--warning)]',
+            directoryInfo ? 'status-bar-indicator-ready text-(--success)' : 'status-bar-indicator-warning text-(--warning)',
           )}
         >
           {directoryInfo ? <CheckCircle2 className="h-3.5 w-3.5" /> : <TriangleAlert className="h-3.5 w-3.5" />}

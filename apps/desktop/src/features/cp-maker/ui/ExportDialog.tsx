@@ -55,17 +55,17 @@ export function ExportDialog({ open, copy, draftName, fileList, onClose, onExpor
       <DialogHeader title={copy.title} onClose={handleClose} closeLabel={copy.cancel} closeDisabled={exporting} id={titleId} />
       <DialogBody>
         <div className="space-y-3">
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-2">
-            <div className="text-xs text-[var(--text-secondary)]">{copy.project}</div>
-            <div className="text-sm font-medium text-[var(--text-primary)]">{draftName}</div>
+          <div className="rounded-lg border border-(--border-color) bg-(--bg-panel-muted) px-3 py-2">
+            <div className="text-xs text-(--text-secondary)">{copy.project}</div>
+            <div className="text-sm font-medium text-(--text-primary)">{draftName}</div>
           </div>
 
           <div>
-            <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.outputDirectory}</span>
+            <span className="mb-1 block text-xs text-(--text-secondary)">{copy.outputDirectory}</span>
             <div className="flex gap-2">
               <input
                 type="text"
-                className="min-w-0 flex-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                className="min-w-0 flex-1 rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
                 value={outputPath}
                 onChange={(e) => setOutputPath(e.target.value)}
               />
@@ -78,9 +78,9 @@ export function ExportDialog({ open, copy, draftName, fileList, onClose, onExpor
 
           {error ? <p className="app-dialog-error">{error}</p> : null}
 
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-2">
-            <div className="text-[10px] text-[var(--text-secondary)]">{copy.filesToExport(fileList.length)}</div>
-            <ul className="mt-1 max-h-32 space-y-0.5 overflow-auto text-[10px] text-[var(--text-primary)]">
+          <div className="rounded-lg border border-(--border-color) bg-(--bg-panel-muted) px-3 py-2">
+            <div className="text-[10px] text-(--text-secondary)">{copy.filesToExport(fileList.length)}</div>
+            <ul className="mt-1 max-h-32 space-y-0.5 overflow-auto text-[10px] text-(--text-primary)">
               {fileList.map((file) => (
                 <li key={file}>{file}</li>
               ))}

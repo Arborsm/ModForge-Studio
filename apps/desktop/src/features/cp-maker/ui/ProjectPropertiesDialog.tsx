@@ -52,10 +52,10 @@ function ProjectPropertiesDialogForm({ open, copy, metadata, onClose, onSave }: 
       <DialogBody>
         <form id="project-properties-form" onSubmit={handleSubmit} className="space-y-3">
           <label className="block">
-            <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.createDialog.projectName}</span>
+            <span className="mb-1 block text-xs text-(--text-secondary)">{copy.createDialog.projectName}</span>
             <input
               type="text"
-              className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-(--accent)"
               value={form.projectName}
               onChange={(event) => setForm((current) => ({ ...current, projectName: event.target.value }))}
               autoFocus
@@ -63,10 +63,10 @@ function ProjectPropertiesDialogForm({ open, copy, metadata, onClose, onSave }: 
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.createDialog.uniqueId}</span>
+            <span className="mb-1 block text-xs text-(--text-secondary)">{copy.createDialog.uniqueId}</span>
             <input
               type="text"
-              className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-(--accent)"
               value={form.projectUniqueId}
               onChange={(event) => setForm((current) => ({ ...current, projectUniqueId: event.target.value }))}
             />
@@ -74,19 +74,19 @@ function ProjectPropertiesDialogForm({ open, copy, metadata, onClose, onSave }: 
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.createDialog.author}</span>
+              <span className="mb-1 block text-xs text-(--text-secondary)">{copy.createDialog.author}</span>
               <input
                 type="text"
-                className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-(--accent)"
                 value={form.projectAuthor}
                 onChange={(event) => setForm((current) => ({ ...current, projectAuthor: event.target.value }))}
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.createDialog.version}</span>
+              <span className="mb-1 block text-xs text-(--text-secondary)">{copy.createDialog.version}</span>
               <input
                 type="text"
-                className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-(--accent)"
                 value={form.projectVersion}
                 onChange={(event) => setForm((current) => ({ ...current, projectVersion: event.target.value }))}
               />
@@ -94,9 +94,9 @@ function ProjectPropertiesDialogForm({ open, copy, metadata, onClose, onSave }: 
           </div>
 
           <label className="block">
-            <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.createDialog.description}</span>
+            <span className="mb-1 block text-xs text-(--text-secondary)">{copy.createDialog.description}</span>
             <textarea
-              className="min-h-20 w-full resize-none rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              className="min-h-20 w-full resize-none rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-(--accent)"
               value={form.projectDescription}
               onChange={(event) => setForm((current) => ({ ...current, projectDescription: event.target.value }))}
             />

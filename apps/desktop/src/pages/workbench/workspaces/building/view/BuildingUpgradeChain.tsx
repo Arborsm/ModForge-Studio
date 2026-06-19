@@ -34,20 +34,20 @@ function StageCard({
     <button
       type="button"
       className={cx(
-        'panel-list-card panel-list-card-interactive w-[240px] shrink-0 p-3 text-left',
+        'panel-list-card panel-list-card-interactive w-60 shrink-0 p-3 text-left',
         isActive ? 'panel-list-card-active' : 'hover:bg-[color-mix(in_srgb,var(--bg-active)_66%,transparent)]',
       )}
       onClick={onSelect}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{stage.displayName}</p>
-          <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{stage.internalName}</p>
+          <p className="truncate text-sm font-semibold text-(--text-primary)">{stage.displayName}</p>
+          <p className="mt-1 truncate text-xs text-(--text-secondary)">{stage.internalName}</p>
         </div>
         <span className="dock-chip shrink-0">{getStageBadge(copy, stage, isActive ? stage.key : null)}</span>
       </div>
 
-      <div className="panel-canvas-soft mt-3 flex min-h-[152px] items-center justify-center px-3 py-4">
+      <div className="panel-canvas-soft mt-3 flex min-h-38 items-center justify-center px-3 py-4">
         {sourceRect && textureState?.url && textureState.width && textureState.height ? (
           <div
             style={{
@@ -65,11 +65,11 @@ function StageCard({
             }}
           />
         ) : (
-          <p className="text-sm text-[var(--text-secondary)]">{copy.noTexture}</p>
+          <p className="text-sm text-(--text-secondary)">{copy.noTexture}</p>
         )}
       </div>
 
-      <div className="mt-3 space-y-1 text-xs text-[var(--text-secondary)]">
+      <div className="mt-3 space-y-1 text-xs text-(--text-secondary)">
         <p>
           {copy.indoorMapLabel}: {stage.indoorMapAssetName ? stage.indoorMapPathLabel : copy.noneLabel}
         </p>
@@ -93,7 +93,7 @@ export function BuildingUpgradeChain(props: BuildingUpgradeChainProps) {
           <p className="panel-subtitle">{`${props.upgradeChain[0]?.rootKey ?? ''} -> ${props.upgradeChain[props.upgradeChain.length - 1]?.leafKey ?? ''}`}</p>
         </div>
       </div>
-      <div className="panel-body min-h-[260px] overflow-auto p-3">
+      <div className="panel-body min-h-65 overflow-auto p-3">
         <div className="flex gap-3 overflow-x-auto pb-1">
           {props.upgradeChain.map((stage) => (
             <StageCard

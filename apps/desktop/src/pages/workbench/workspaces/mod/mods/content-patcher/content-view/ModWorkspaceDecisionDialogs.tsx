@@ -109,7 +109,7 @@ export function WorkspaceDecisionDialog({
         id={titleId}
       />
       <DialogBody>
-        <p className="text-sm text-[var(--text-secondary)]">{message}</p>
+        <p className="text-sm text-(--text-secondary)">{message}</p>
         {error ? <p className="app-dialog-error mt-3">{error}</p> : null}
       </DialogBody>
       <DialogFooter>

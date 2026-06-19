@@ -53,7 +53,7 @@ export function CharacterBrowserPanel({
     >
       <div className="flex h-full flex-col gap-3 p-3">
         <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-(--text-tertiary)" />
           <input
             className="control-input pl-9"
             value={characterFilter}
@@ -73,12 +73,12 @@ export function CharacterBrowserPanel({
                   key={group.modPath}
                   {...getLoadingMotionChildRevealProps({
                     index: groupIndex,
-                    className: 'overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]',
+                    className: 'overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-panel-muted)',
                   })}
                 >
-                  <div className="border-b border-[var(--border-color)] px-3 py-2">
-                    <p className="truncate text-xs font-semibold tracking-[0.16em] text-[var(--text-primary)] uppercase">{group.modName}</p>
-                    <p className="truncate text-[11px] text-[var(--text-secondary)]">{group.items.length}</p>
+                  <div className="border-b border-(--border-color) px-3 py-2">
+                    <p className="truncate text-xs font-semibold tracking-[0.16em] text-(--text-primary) uppercase">{group.modName}</p>
+                    <p className="truncate text-[11px] text-(--text-secondary)">{group.items.length}</p>
                   </div>
                   <div className="space-y-2 p-2">
                     {group.items.map((entry, itemIndex) => {
@@ -97,10 +97,10 @@ export function CharacterBrowserPanel({
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{character.displayName}</p>
-                              <p className="truncate text-xs text-[var(--text-secondary)]">{targets[0] ?? character.internalName}</p>
+                              <p className="truncate text-sm font-semibold text-(--text-primary)">{character.displayName}</p>
+                              <p className="truncate text-xs text-(--text-secondary)">{targets[0] ?? character.internalName}</p>
                             </div>
-                            <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
+                            <div className="shrink-0 text-right text-[11px] text-(--text-secondary)">
                               <p>{character.variants.length}</p>
                               <p>{character.homeRegion ?? noneLabel}</p>
                             </div>
@@ -112,7 +112,7 @@ export function CharacterBrowserPanel({
                 </section>
               ))
             ) : (
-              <div className="rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+              <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
                 No modded characters match the current filter.
               </div>
             )
@@ -127,10 +127,10 @@ export function CharacterBrowserPanel({
                 <button key={character.key} type="button" {...revealProps} onClick={() => onSelectCharacter(character.key)}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{character.displayName}</p>
-                      <p className="truncate text-xs text-[var(--text-secondary)]">{character.internalName}</p>
+                      <p className="truncate text-sm font-semibold text-(--text-primary)">{character.displayName}</p>
+                      <p className="truncate text-xs text-(--text-secondary)">{character.internalName}</p>
                     </div>
-                    <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
+                    <div className="shrink-0 text-right text-[11px] text-(--text-secondary)">
                       <p>{character.variants.length}</p>
                       <p>{character.homeRegion ?? noneLabel}</p>
                     </div>
@@ -139,7 +139,7 @@ export function CharacterBrowserPanel({
               )
             })
           ) : (
-            <div className="rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+            <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
               {characters.length ? copy.browserFilteredEmpty : copy.browserUnloadedEmpty}
             </div>
           )}

@@ -243,7 +243,7 @@ export function LauncherLibraryDialogs({
           />
           <DialogBody>
             {packDialog.kind === 'delete' ? (
-              <p className="text-xs text-[var(--text-secondary)]">{labels.deleteCurrentPackConfirm(packDialog.pack.name)}</p>
+              <p className="text-xs text-(--text-secondary)">{labels.deleteCurrentPackConfirm(packDialog.pack.name)}</p>
             ) : (
               <form
                 id="pack-dialog-form"

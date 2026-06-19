@@ -36,7 +36,7 @@ export function PatchSummaryCard({ patch, active, compact, onSelect, onEdit, onT
         <span className="min-w-0 flex-1">
           <span className="edit-patch-card-title-row">
             <span className="edit-patch-card-title">{patch.logName || patch.target}</span>
-            {hasWhen ? <AlertCircle className="h-3 w-3 shrink-0 text-[var(--accent)]" /> : null}
+            {hasWhen ? <AlertCircle className="h-3 w-3 shrink-0 text-(--accent)" /> : null}
           </span>
           <span className="edit-patch-card-meta">
             <span>{patch.action}</span>
@@ -57,7 +57,7 @@ export function PatchSummaryCard({ patch, active, compact, onSelect, onEdit, onT
             title={patch.enabled ? catalog.disablePatch : catalog.enablePatch}
             aria-label={patch.enabled ? catalog.disablePatch : catalog.enablePatch}
           >
-            {patch.enabled ? <ToggleRight className="h-4 w-4 text-[var(--accent)]" /> : <ToggleLeft className="h-4 w-4" />}
+            {patch.enabled ? <ToggleRight className="h-4 w-4 text-(--accent)" /> : <ToggleLeft className="h-4 w-4" />}
           </button>
         ) : null}
         {onEdit ? (
@@ -76,7 +76,7 @@ export function PatchSummaryCard({ patch, active, compact, onSelect, onEdit, onT
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         ) : (
-          <MoreHorizontal className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />
+          <MoreHorizontal className="h-3.5 w-3.5 text-(--text-tertiary)" />
         )}
       </div>
     </article>

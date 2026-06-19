@@ -29,7 +29,7 @@ export function ContentPatcherDiagnosticsPanel({ result }: ContentPatcherDiagnos
               subtitle={diagnostic.field ?? copy.noField}
               action={<span className={contentPatcherStatusClass(diagnostic.severity)}>{diagnostic.severity}</span>}
             >
-              <div className="text-xs leading-5 text-[var(--text-secondary)]">{diagnostic.field ?? copy.noFieldInformation}</div>
+              <div className="text-xs leading-5 text-(--text-secondary)">{diagnostic.field ?? copy.noFieldInformation}</div>
             </PanelSection>
           ))
         ) : (

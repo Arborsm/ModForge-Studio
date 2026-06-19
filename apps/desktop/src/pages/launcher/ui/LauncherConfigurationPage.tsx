@@ -1129,7 +1129,7 @@ export function LauncherConfigurationPage({
         forceNonPremium: nextForceNonPremium,
       })
     } catch {
-      // Debug-only account tier override should keep the current visible state on failure.
+      // Debug-only account tier override should keep the current state on failure.
     } finally {
       setForceNonPremiumBusy(false)
     }
