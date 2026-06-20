@@ -12,18 +12,9 @@ import {
   resolveLoadingMotionConfig,
   orderRevealItems,
   validateAnchors,
-  getStyleLabel,
-  getIntensityLabel,
 } from './index'
+import { LOADING_MOTION_INTENSITY_IDS, LOADING_MOTION_SPEED_IDS, LOADING_MOTION_STYLE_IDS } from '@shared/contracts/types/loadingMotion'
 
-import {
-  LOADING_MOTION_STYLE_IDS,
-  LOADING_MOTION_INTENSITY_IDS,
-  LOADING_MOTION_SPEED_IDS,
-  LOADING_MOTION_STYLE_LABELS,
-  LOADING_MOTION_INTENSITY_LABELS,
-  LOADING_MOTION_SPEED_LABELS,
-} from '@shared/contracts/types/loadingMotion'
 /* ------------------------------------------------------------------ */
 /*  LM-02: Lifecycle model awareness (indirect — contracts exist)       */
 /* ------------------------------------------------------------------ */
@@ -320,42 +311,6 @@ describe('validateAnchors', () => {
   })
 })
 
-/* ------------------------------------------------------------------ */
-/*  Product label mapping (LM-04)                                      */
-/* ------------------------------------------------------------------ */
-
-describe('getStyleLabel', () => {
-  it('returns Chinese label for zh-CN locale', () => {
-    expect(getStyleLabel('bounceIn', 'zh-CN')).toBe('跳动出现')
-    expect(getStyleLabel('layeredFadeIn', 'zh-CN')).toBe('层叠浮现')
-    expect(getStyleLabel('slideInPush', 'zh-CN')).toBe('滑入推进')
-    expect(getStyleLabel('softFadeIn', 'zh-CN')).toBe('柔和淡入')
-    expect(getStyleLabel('quietSimplify', 'zh-CN')).toBe('静默简化')
-  })
-
-  it('returns English label for en-US locale', () => {
-    expect(getStyleLabel('bounceIn', 'en-US')).toBe('Bounce In')
-    expect(getStyleLabel('layeredFadeIn', 'en-US')).toBe('Layered Fade')
-    expect(getStyleLabel('slideInPush', 'en-US')).toBe('Slide In')
-    expect(getStyleLabel('softFadeIn', 'en-US')).toBe('Soft Fade')
-    expect(getStyleLabel('quietSimplify', 'en-US')).toBe('Quiet')
-  })
-})
-
-describe('getIntensityLabel', () => {
-  it('returns Chinese label for zh-CN locale', () => {
-    expect(getIntensityLabel('light', 'zh-CN')).toBe('轻')
-    expect(getIntensityLabel('standard', 'zh-CN')).toBe('标准')
-    expect(getIntensityLabel('strong', 'zh-CN')).toBe('强')
-  })
-
-  it('returns English label for en-US locale', () => {
-    expect(getIntensityLabel('light', 'en-US')).toBe('Light')
-    expect(getIntensityLabel('standard', 'en-US')).toBe('Standard')
-    expect(getIntensityLabel('strong', 'en-US')).toBe('Strong')
-  })
-})
-
 describe('speed helpers', () => {
   it('createLoadingMotionPreference fills defaults from partial input', () => {
     expect(createLoadingMotionPreference({ styleId: 'softFadeIn', intensityId: 'standard' })).toEqual({
@@ -392,34 +347,5 @@ describe('speed helpers', () => {
       speedId: 'fast',
       speedMultiplier: 2.2,
     })
-  })
-})
-
-/* ------------------------------------------------------------------ */
-/*  Product label constant completeness                                */
-/* ------------------------------------------------------------------ */
-
-describe('product label tables', () => {
-  it('LOADING_MOTION_STYLE_LABELS covers all five style ids', () => {
-    // LOADING_MOTION_STYLE_LABELS already imported at top
-    const labelledIds = new Set(LOADING_MOTION_STYLE_LABELS.map((e: { id: string }) => e.id))
-    for (const id of LOADING_MOTION_STYLE_IDS) {
-      expect(labelledIds.has(id)).toBe(true)
-    }
-  })
-
-  it('LOADING_MOTION_INTENSITY_LABELS covers all three intensity ids', () => {
-    // LOADING_MOTION_INTENSITY_LABELS already imported at top
-    const labelledIds = new Set(LOADING_MOTION_INTENSITY_LABELS.map((e: { id: string }) => e.id))
-    for (const id of LOADING_MOTION_INTENSITY_IDS) {
-      expect(labelledIds.has(id)).toBe(true)
-    }
-  })
-
-  it('LOADING_MOTION_SPEED_LABELS covers all speed ids', () => {
-    const labelledIds = new Set(LOADING_MOTION_SPEED_LABELS.map((e: { id: string }) => e.id))
-    for (const id of LOADING_MOTION_SPEED_IDS) {
-      expect(labelledIds.has(id)).toBe(true)
-    }
   })
 })

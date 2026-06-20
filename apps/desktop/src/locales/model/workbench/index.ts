@@ -29,7 +29,7 @@ export type EditorCopy = WorkbenchShellCopy & {
 export type { WorkbenchShellCopy } from './shell'
 export type { ViewportLabels, BuildAssetDialogCopy } from './map'
 export type { StudioDeskCopy } from './studio-desk'
-export type { EventStageCopy } from './event-stage'
+export type { EventStageCopy, EventWorkflowCopy, EventWorkflowCommandKey, EventScenarioPresetId, ScriptEditorCopy } from './event-stage'
 export type { CharactersPanelCopy } from './characters'
 export type { BuildingsPanelCopy } from './buildings'
 export type { ItemsPanelCopy } from './items'

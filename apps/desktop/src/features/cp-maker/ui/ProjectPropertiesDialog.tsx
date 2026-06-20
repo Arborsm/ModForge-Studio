@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useId } from 'react'
-import type { EditorCopy } from '@locales'
+import { useEditorCopy } from '@locales/provider'
 import type { CpMakerDraft } from '@shared/contracts'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
@@ -11,13 +11,12 @@ type ProjectPropertiesMetadata = Pick<
 
 type ProjectPropertiesDialogProps = {
   open: boolean
-  copy: EditorCopy['studioDesk']
   metadata: ProjectPropertiesMetadata
   onClose: () => void
   onSave: (metadata: ProjectPropertiesMetadata) => void | Promise<void>
 }
 
-export function ProjectPropertiesDialog({ open, copy, metadata, onClose, onSave }: ProjectPropertiesDialogProps) {
+export function ProjectPropertiesDialog({ open, metadata, onClose, onSave }: ProjectPropertiesDialogProps) {
   const metadataKey = [
     metadata.projectName,
     metadata.projectDescription,
@@ -26,10 +25,11 @@ export function ProjectPropertiesDialog({ open, copy, metadata, onClose, onSave 
     metadata.projectUniqueId,
   ].join('\0')
 
-  return <ProjectPropertiesDialogForm key={metadataKey} open={open} copy={copy} metadata={metadata} onClose={onClose} onSave={onSave} />
+  return <ProjectPropertiesDialogForm key={metadataKey} open={open} metadata={metadata} onClose={onClose} onSave={onSave} />
 }
 
-function ProjectPropertiesDialogForm({ open, copy, metadata, onClose, onSave }: ProjectPropertiesDialogProps) {
+function ProjectPropertiesDialogForm({ open, metadata, onClose, onSave }: ProjectPropertiesDialogProps) {
+  const copy = useEditorCopy().studioDesk
   const titleId = useId()
   const [form, setForm] = useState(metadata)
 

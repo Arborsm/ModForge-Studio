@@ -27,7 +27,6 @@ export function BuildingPrimaryPreview({
   activeExteriorMapDocument,
   activeExteriorMapMessage,
   activeExteriorFocusPoint,
-  viewportLabels,
   locale,
   theme,
   accentColor,
@@ -73,7 +72,6 @@ export function BuildingPrimaryPreview({
             mapDocument={activeExteriorMapDocument}
             visibleLayerIds={exteriorVisibleLayerIds}
             visibleObjectGroupIds={exteriorVisibleObjectGroupIds}
-            labels={viewportLabels}
             theme={theme}
             accentColor={accentColor}
             showGrid={showGrid}

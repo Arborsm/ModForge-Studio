@@ -228,32 +228,6 @@ export function LauncherLibraryPageContent({
             launchGameLabel={launchGameLabel}
             launchGameDisabled={launchGameDisabled}
             launchGameBusy={launchGameBusy}
-            labels={{
-              packTitle: copy.library.packTitle,
-              allPacks: copy.library.allPacks,
-              hiddenMods: copy.library.hiddenMods,
-              createLibraryFolder: copy.library.createLibraryFolder,
-              refresh: copy.actions.refresh,
-              openStorageFolder: copy.actions.openStorageFolder,
-              installArchive: copy.actions.installArchive,
-              installBackupsTitle: copy.library.installBackupsTitle,
-              filterLibrary: copy.fields.filterLibrary,
-              enabledOnly: copy.toggles.enabledOnly,
-              sortLabel: copy.library.sortLabel,
-              editingPackLabel: copy.library.editingPackLabel,
-              choosingChildModsLabel: copy.library.choosingChildModsLabel,
-              includedModsCount: copy.library.includedModsCount,
-              selectedChildModsCount: copy.library.selectedChildModsCount,
-              cancelEdit: copy.library.cancelEdit,
-              saveChanges: copy.library.saveChanges,
-              confirmChildMods: copy.library.confirmChildMods,
-              sortingLabel: copy.library.sortingLabel,
-              sortingDragHint: copy.library.sortingDragHint,
-              sortingDone: copy.library.sortingDone,
-              startSortingLabel: copy.library.startSortingLabel,
-              customSortHint: copy.library.customSortHint,
-              moreActions: copy.library.moreActions,
-            }}
             onToggleDrawer={() => setDrawerOpen((current) => !current)}
             onToggleQuickSwitch={() => setQuickSwitchOpen((current) => !current)}
             onCloseFloatingMenus={() => {
@@ -310,16 +284,6 @@ export function LauncherLibraryPageContent({
               packPresets={library.packPresets}
               packActionMenuId={packActionMenuId}
               drawerPanelRef={drawerPanelRef}
-              labels={{
-                packTitle: copy.library.packTitle,
-                allPacks: copy.library.allPacks,
-                hiddenMods: copy.library.hiddenMods,
-                createPack: copy.actions.createPack,
-                manageCurrentPack: copy.library.manageCurrentPack,
-                editCurrentPack: copy.library.editCurrentPack,
-                renameCurrentPack: copy.library.renameCurrentPack,
-                deleteCurrentPack: copy.library.deleteCurrentPack,
-              }}
               onCreatePack={openCreatePackDialog}
               onSelectPack={(packId) => void selectPack(packId)}
               onSelectHiddenView={() => selectHiddenView()}
@@ -401,33 +365,12 @@ export function LauncherLibraryPageContent({
           <LauncherModDetailPanel
             open={Boolean(detailMod)}
             onClose={() => setDetailModId(null)}
-            closeLabel={copy.actions.closeDialog}
-            title={copy.library.detailsTitle}
-            subtitle={copy.library.detailsSubtitle}
-            empty={copy.library.selectionEmpty}
             mod={detailMod}
-            labels={{
-              currentVersion: copy.fields.currentVersion,
-              uniqueId: copy.fields.uniqueId,
-              path: copy.fields.path,
-              dependencies: copy.fields.dependencies,
-              updateKeys: copy.fields.updateKeys,
-              pack: copy.library.packLabel,
-            }}
-            noSummary={copy.states.noSummary}
             onToggleEnabled={() => {
               if (detailMod) {
                 void library.toggleEnabled(detailMod)
               }
             }}
-            enableLabel={copy.actions.enable}
-            disableLabel={copy.actions.disable}
-            enabledStateLabel={copy.overview.enabledMods}
-            disabledStateLabel={copy.overview.disabledMods}
-            openFolderLabel={copy.actions.openFolder}
-            setCoverLabel={copy.actions.setCover}
-            clearCoverLabel={copy.actions.clearCover}
-            openModPageLabel={copy.actions.openModPage}
             onQueueDownload={onQueueDownload}
             remoteFilesDeferred={Boolean(onQueueDownload)}
             onOpenFolder={() => {
@@ -472,27 +415,6 @@ export function LauncherLibraryPageContent({
           packDialog={packDialog}
           folderDialog={folderDialog}
           packDialogInputRef={packDialogInputRef}
-          labels={{
-            createPack: copy.actions.createPack,
-            renameCurrentPack: copy.library.renameCurrentPack,
-            deleteCurrentPack: copy.library.deleteCurrentPack,
-            renameCurrentPackPrompt: copy.library.renameCurrentPackPrompt,
-            deleteCurrentPackConfirm: copy.library.deleteCurrentPackConfirm,
-            newPackPlaceholder: copy.library.newPackPlaceholder,
-            cancelEdit: copy.library.cancelEdit,
-            saveChanges: copy.library.saveChanges,
-            galleryCoverTitle: copy.library.galleryCoverTitle,
-            galleryCoverSubtitle: copy.library.galleryCoverSubtitle,
-            galleryCoverImageLabel: copy.library.galleryCoverImageLabel,
-            setCover: copy.actions.setCover,
-            manageChildMods: copy.library.manageChildMods,
-            parentModLabel: copy.library.parentModLabel,
-            removeFromParent: copy.library.removeFromParent,
-            closeDialog: copy.actions.closeDialog,
-            renameLibraryFolder: copy.library.renameLibraryFolder,
-            renameLibraryFolderPrompt: copy.library.renameLibraryFolderPrompt,
-            newLibraryFolderName: copy.library.newLibraryFolderName,
-          }}
           onCloseArchivePreview={closeArchivePreview}
           onConfirmArchiveInstall={() => void confirmArchiveInstall()}
           onSelectArchivePreviewPath={setSelectedArchivePreviewPath}

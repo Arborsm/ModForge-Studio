@@ -1,19 +1,19 @@
 import { useId, useState } from 'react'
 import { FolderOpen } from 'lucide-react'
 import { useCpMakerPort } from '@features/cp-maker/provider'
-import type { EditorCopy } from '@locales'
+import { useEditorCopy } from '@locales/provider'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 interface ExportDialogProps {
   open: boolean
-  copy: EditorCopy['studioDesk']['exportDialog']
   draftName: string
   fileList: string[]
   onClose: () => void
   onExport: (outputPath: string) => Promise<void>
 }
 
-export function ExportDialog({ open, copy, draftName, fileList, onClose, onExport }: ExportDialogProps) {
+export function ExportDialog({ open, draftName, fileList, onClose, onExport }: ExportDialogProps) {
+  const copy = useEditorCopy().studioDesk.exportDialog
   const titleId = useId()
   const port = useCpMakerPort()
   const [outputPath, setOutputPath] = useState('')

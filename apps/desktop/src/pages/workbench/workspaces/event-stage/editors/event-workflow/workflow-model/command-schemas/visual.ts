@@ -7,7 +7,6 @@ export const visualCommandSchemas = [
   {
     key: 'emote',
     label: 'Emote',
-    labelZh: '表情',
     category: 'visual',
     color: 'pink',
     icon: 'Smile',
@@ -23,7 +22,6 @@ export const visualCommandSchemas = [
   {
     key: 'animate',
     label: 'Animate',
-    labelZh: '动画',
     category: 'visual',
     color: 'pink',
     icon: 'PlayCircle',
@@ -44,7 +42,6 @@ export const visualCommandSchemas = [
   {
     key: 'stopAnimation',
     label: 'Stop Animation',
-    labelZh: '停止动画',
     category: 'visual',
     color: 'pink',
     icon: 'Square',
@@ -59,7 +56,6 @@ export const visualCommandSchemas = [
   {
     key: 'showFrame',
     label: 'Show Frame',
-    labelZh: '显示帧',
     category: 'visual',
     color: 'pink',
     icon: 'Image',
@@ -74,7 +70,6 @@ export const visualCommandSchemas = [
   {
     key: 'changeSprite',
     label: 'Change Sprite',
-    labelZh: '更换贴图',
     category: 'visual',
     color: 'pink',
     icon: 'Image',
@@ -89,7 +84,6 @@ export const visualCommandSchemas = [
   {
     key: 'changePortrait',
     label: 'Change Portrait',
-    labelZh: '更换头像',
     category: 'visual',
     color: 'pink',
     icon: 'User',
@@ -104,7 +98,6 @@ export const visualCommandSchemas = [
   {
     key: 'eyes',
     label: 'Eyes',
-    labelZh: '眼睛',
     category: 'visual',
     color: 'pink',
     icon: 'Eye',
@@ -119,7 +112,6 @@ export const visualCommandSchemas = [
   {
     key: 'swimming',
     label: 'Swimming',
-    labelZh: '游泳',
     category: 'visual',
     color: 'pink',
     icon: 'Waves',
@@ -133,7 +125,6 @@ export const visualCommandSchemas = [
   {
     key: 'stopSwimming',
     label: 'Stop Swimming',
-    labelZh: '停止游泳',
     category: 'visual',
     color: 'pink',
     icon: 'Waves',
@@ -147,7 +138,6 @@ export const visualCommandSchemas = [
   {
     key: 'glow',
     label: 'Glow',
-    labelZh: '发光',
     category: 'visual',
     color: 'pink',
     icon: 'Sun',
@@ -161,7 +151,6 @@ export const visualCommandSchemas = [
   {
     key: 'stopGlowing',
     label: 'Stop Glowing',
-    labelZh: '停止发光',
     category: 'visual',
     color: 'pink',
     icon: 'Sun',
@@ -175,7 +164,6 @@ export const visualCommandSchemas = [
   {
     key: 'setRunning',
     label: 'Set Running',
-    labelZh: '奔跑',
     category: 'visual',
     color: 'pink',
     icon: 'Footprints',
@@ -189,7 +177,6 @@ export const visualCommandSchemas = [
   {
     key: 'stopRunning',
     label: 'Stop Running',
-    labelZh: '停止奔跑',
     category: 'visual',
     color: 'pink',
     icon: 'Footprints',
@@ -203,7 +190,6 @@ export const visualCommandSchemas = [
   {
     key: 'startJittering',
     label: 'Start Jittering',
-    labelZh: '开始抖动',
     category: 'visual',
     color: 'pink',
     icon: 'Vibrate',
@@ -217,7 +203,6 @@ export const visualCommandSchemas = [
   {
     key: 'stopJittering',
     label: 'Stop Jittering',
-    labelZh: '停止抖动',
     category: 'visual',
     color: 'pink',
     icon: 'Vibrate',
@@ -231,7 +216,6 @@ export const visualCommandSchemas = [
   {
     key: 'shake',
     label: 'Shake',
-    labelZh: '震动',
     category: 'visual',
     color: 'pink',
     icon: 'Vibrate',
@@ -244,7 +228,6 @@ export const visualCommandSchemas = [
   {
     key: 'fade',
     label: 'Fade',
-    labelZh: '淡出',
     category: 'visual',
     color: 'pink',
     icon: 'Moon',
@@ -257,7 +240,6 @@ export const visualCommandSchemas = [
   {
     key: 'globalFade',
     label: 'Global Fade',
-    labelZh: '全局淡出',
     category: 'visual',
     color: 'pink',
     icon: 'Moon',
@@ -270,7 +252,6 @@ export const visualCommandSchemas = [
   {
     key: 'globalFadeToClear',
     label: 'Global Fade To Clear',
-    labelZh: '全局淡入',
     category: 'visual',
     color: 'pink',
     icon: 'Sun',
@@ -283,7 +264,6 @@ export const visualCommandSchemas = [
   {
     key: 'screenFlash',
     label: 'Screen Flash',
-    labelZh: '屏幕闪光',
     category: 'visual',
     color: 'pink',
     icon: 'Zap',
@@ -293,7 +273,6 @@ export const visualCommandSchemas = [
   {
     key: 'ambientLight',
     label: 'Ambient Light',
-    labelZh: '环境光',
     category: 'visual',
     color: 'pink',
     icon: 'Sun',

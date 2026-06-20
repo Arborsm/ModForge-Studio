@@ -1,10 +1,14 @@
 export type { LocaleCode, ThemeMode, CoreWorkspaceMode, WorkspaceMode, AppMode, LauncherPage, WorkspaceTone, ModuleBlueprint } from './core'
 export type { SettingsMenuCopy } from './settings'
 export type { NotificationCopy } from './notifications'
-export type { LauncherCopy } from './launcher'
+export type { LauncherCopy, LauncherUpdatesCopy } from './launcher'
 export type {
   ViewportLabels,
   EventStageCopy,
+  EventWorkflowCopy,
+  EventWorkflowCommandKey,
+  EventScenarioPresetId,
+  ScriptEditorCopy,
   CharactersPanelCopy,
   BuildingsPanelCopy,
   ItemsPanelCopy,

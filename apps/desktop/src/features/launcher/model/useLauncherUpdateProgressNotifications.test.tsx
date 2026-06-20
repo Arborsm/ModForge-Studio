@@ -60,7 +60,7 @@ describe('useLauncherUpdateProgressNotifications', () => {
       }),
     })
 
-    renderHook(() => useLauncherUpdateProgressNotifications('en-US'), { wrapper: Wrapper })
+    renderHook(() => useLauncherUpdateProgressNotifications(), { wrapper: Wrapper })
 
     await act(async () => {
       await vi.runOnlyPendingTimersAsync()
@@ -92,7 +92,7 @@ describe('useLauncherUpdateProgressNotifications', () => {
       }),
     })
 
-    renderHook(() => useLauncherUpdateProgressNotifications('en-US'), { wrapper: Wrapper })
+    renderHook(() => useLauncherUpdateProgressNotifications(), { wrapper: Wrapper })
 
     await act(async () => {})
 

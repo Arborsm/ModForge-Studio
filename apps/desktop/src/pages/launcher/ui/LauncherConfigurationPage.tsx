@@ -2,7 +2,7 @@ import { ArrowUpRight, Database, FolderOpen, HelpCircle, Image, KeyRound, Networ
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state'
 import { cx } from '@shared/lib/cx'
-import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
+import { useEditorCopy } from '@locales/provider'
 import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import {
   clearLauncherImageCache,
@@ -877,8 +877,6 @@ export function LauncherConfigurationPage({
 }: LauncherConfigurationPageProps) {
   const rootCopy = useEditorCopy()
   const copy = rootCopy.launcher
-  const settingsCopy = useSettingsMenuCopy()
-  const commonCopy = rootCopy.common
   const [debugToolsExpanded, setDebugToolsExpanded] = useState(false)
   const [bbcodePreviewExpanded, setBbcodePreviewExpanded] = useState(false)
   const [diagnosticRoutes, setDiagnosticRoutes] = useState<LauncherNexusRouteSnapshot[]>([])
@@ -1198,16 +1196,14 @@ export function LauncherConfigurationPage({
             <ConfigCompletionRail title={copy.settings.completionTitle} steps={stepItems} />
             <ConfigAccountCard
               account={account}
-              copy={copy}
               premiumExpiryLabel={getPremiumExpiryLabel(account.apiKeyStatus, copy)}
               onRefresh={() => void account.refreshApiKeyStatus({ force: true })}
             />
-            <ConfigDownloadDefaults settingsState={settingsState} copy={copy} yesLabel={commonCopy.yes} noLabel={commonCopy.no} />
+            <ConfigDownloadDefaults settingsState={settingsState} />
           </aside>
         </div>
 
         <LauncherConfigurationMoreTools
-          copy={copy}
           debugEnabled={debugEnabled}
           debugToolsExpanded={debugToolsExpanded}
           forceNonPremium={forceNonPremium}
@@ -1216,8 +1212,6 @@ export function LauncherConfigurationPage({
           forceOfflineBusy={forceOfflineBusy}
           bbcodePreviewExpanded={bbcodePreviewExpanded}
           debugSimulationActive={debugSimulationActive}
-          enableDebugModeLabel={settingsCopy.enableDebugModeLabel}
-          disableDebugModeLabel={settingsCopy.disableDebugModeLabel}
           onToggleDebugMode={onToggleDebugMode}
           onToggleForceNonPremium={handleToggleForceNonPremium}
           onToggleForceOffline={handleToggleForceOffline}

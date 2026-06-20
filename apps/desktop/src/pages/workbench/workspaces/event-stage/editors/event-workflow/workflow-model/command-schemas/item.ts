@@ -7,7 +7,6 @@ export const itemCommandSchemas = [
   {
     key: 'addItem',
     label: 'Add Item',
-    labelZh: '添加物品',
     category: 'item',
     color: 'yellow',
     icon: 'Package',
@@ -22,7 +21,6 @@ export const itemCommandSchemas = [
   {
     key: 'removeItem',
     label: 'Remove Item',
-    labelZh: '移除物品',
     category: 'item',
     color: 'yellow',
     icon: 'Package',
@@ -35,7 +33,6 @@ export const itemCommandSchemas = [
   {
     key: 'money',
     label: 'Money',
-    labelZh: '金钱',
     category: 'item',
     color: 'yellow',
     icon: 'Coins',
@@ -48,7 +45,6 @@ export const itemCommandSchemas = [
   {
     key: 'itemAboveHead',
     label: 'Item Above Head',
-    labelZh: '头顶物品',
     category: 'item',
     color: 'yellow',
     icon: 'ArrowUpCircle',
@@ -61,7 +57,6 @@ export const itemCommandSchemas = [
   {
     key: 'friendship',
     label: 'Friendship',
-    labelZh: '好感度',
     category: 'item',
     color: 'yellow',
     icon: 'Heart',

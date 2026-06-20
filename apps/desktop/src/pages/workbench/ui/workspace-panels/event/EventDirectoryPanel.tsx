@@ -3,6 +3,7 @@ import { cx } from '@shared/lib/cx'
 import type { ModSourceEntry } from '@pages/workbench/workspaces/mod'
 import type { EventScript } from '@entities/event'
 import { ModSourceList } from '@shared/ui/ModSourceList'
+import { useEventStageCopy } from '@locales/provider'
 
 type EventDirectoryPanelProps = {
   locale: 'zh-CN' | 'en-US'
@@ -13,27 +14,11 @@ type EventDirectoryPanelProps = {
   onSelectEvent: (eventKey: string) => void
 }
 
-export function EventDirectoryPanel({
-  locale,
-  events,
-  selectedEventKey,
-  subtitle,
-  modSources = [],
-  onSelectEvent,
-}: EventDirectoryPanelProps) {
-  const labels =
-    locale === 'zh-CN'
-      ? {
-          title: '事件目录',
-          empty: '当前事件文件没有可解析的事件。',
-        }
-      : {
-          title: 'Event Directory',
-          empty: 'No events were parsed from this file.',
-        }
+export function EventDirectoryPanel({ events, selectedEventKey, subtitle, modSources = [], onSelectEvent }: EventDirectoryPanelProps) {
+  const labels = useEventStageCopy().workflow.workspacePanels
 
   return (
-    <PanelFrame title={labels.title} subtitle={subtitle} bodyClassName="p-3">
+    <PanelFrame title={labels.directoryTitle} subtitle={subtitle} bodyClassName="p-3">
       <div className="space-y-3">
         <div className="rounded-2xl border border-(--border-color) bg-(--bg-panel-muted) px-3 py-3">
           <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">Mod Sources</p>
@@ -72,7 +57,7 @@ export function EventDirectoryPanel({
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
-              {labels.empty}
+              {labels.directoryEmpty}
             </div>
           )}
         </div>

@@ -17,14 +17,22 @@ function createDeferred<T>() {
 
 vi.mock('@locales/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@locales/api')>()
-  const enUSCopy = {
-    ...actual.getModWorkspaceCopy('en-US'),
-    scanStatus: () => 'TASK2-SCAN-1',
-  }
 
   return {
     ...actual,
-    getModWorkspaceCopy: vi.fn((locale: 'en-US' | 'zh-CN') => (locale === 'en-US' ? enUSCopy : actual.getModWorkspaceCopy(locale))),
+  }
+})
+
+vi.mock('@locales/provider', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@locales/provider')>()
+  const localeApi = await vi.importActual<typeof import('@locales/api')>('@locales/api')
+  const modWorkspaceCopy = {
+    ...localeApi.getModWorkspaceCopy('en-US'),
+    scanStatus: () => 'TASK2-SCAN-1',
+  }
+  return {
+    ...actual,
+    useModWorkspaceCopy: () => modWorkspaceCopy,
   }
 })
 
@@ -172,7 +180,6 @@ describe('useModWorkspace', () => {
           mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
           mapCount: 42,
         },
-        locale: 'en-US',
       }),
     )
 
@@ -190,7 +197,6 @@ describe('useModWorkspace', () => {
           mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
           mapCount: 42,
         },
-        locale: 'en-US',
       }),
     )
 
@@ -210,7 +216,6 @@ describe('useModWorkspace', () => {
           mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
           mapCount: 42,
         },
-        locale: 'en-US',
       }),
     )
 
@@ -291,7 +296,6 @@ describe('useModWorkspace', () => {
           mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
           mapCount: 42,
         },
-        locale: 'en-US',
       }),
     )
 
@@ -372,7 +376,6 @@ describe('useModWorkspace', () => {
           mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
           mapCount: 42,
         },
-        locale: 'en-US',
       }),
     )
 
@@ -410,7 +413,6 @@ describe('useModWorkspace', () => {
           mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
           mapCount: 42,
         },
-        locale: 'en-US',
       }),
     )
 
@@ -447,7 +449,6 @@ describe('useModWorkspace', () => {
           mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
           mapCount: 42,
         },
-        locale: 'en-US',
       }),
     )
 
@@ -489,7 +490,6 @@ describe('useModWorkspace', () => {
           mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
           mapCount: 42,
         },
-        locale: 'en-US',
       }),
     )
 
@@ -535,7 +535,6 @@ describe('useModWorkspace', () => {
           mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
           mapCount: 42,
         },
-        locale: 'en-US',
       }),
     )
 
@@ -598,7 +597,6 @@ describe('useModWorkspace', () => {
           mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
           mapCount: 42,
         },
-        locale: 'en-US',
       }),
     )
 
@@ -646,7 +644,6 @@ describe('useModWorkspace', () => {
           mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
           mapCount: 42,
         },
-        locale: 'en-US',
       }),
     )
 
@@ -692,7 +689,6 @@ describe('useModWorkspace', () => {
           mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
           mapCount: 42,
         },
-        locale: 'en-US',
       }),
     )
 
@@ -743,7 +739,6 @@ describe('useModWorkspace', () => {
           mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
           mapCount: 42,
         },
-        locale: 'en-US',
       }),
     )
 

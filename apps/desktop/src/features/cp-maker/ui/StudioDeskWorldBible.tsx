@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import type { EditorCopy } from '@locales'
+import { useEditorCopy } from '@locales/provider'
 import type { StudioDeskModel, StudioDeskWorldBible, StudioDeskWorldBibleEntry } from '../model/studioDeskModel'
 import { cx } from '@shared/lib/cx'
 
 type StudioDeskWorldBibleProps = {
   id?: string
   className?: string
-  copy: EditorCopy
   bible: StudioDeskWorldBible
   exportSummary: StudioDeskModel['exportSummary']
   isLoading: boolean
@@ -59,13 +59,13 @@ function EntryList({ entries, emptyLabel }: { entries: StudioDeskWorldBibleEntry
 export function StudioDeskWorldBible({
   id,
   className,
-  copy,
   bible,
   exportSummary,
   isLoading,
   onCloseDrawer,
   onExportPack,
 }: StudioDeskWorldBibleProps) {
+  const copy = useEditorCopy()
   const desk = copy.studioDesk
   const [query, setQuery] = useState('')
   const [activeTab, setActiveTab] = useState<BibleTab>('tokens')

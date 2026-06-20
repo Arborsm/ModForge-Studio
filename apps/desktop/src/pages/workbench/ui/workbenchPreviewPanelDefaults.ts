@@ -1,5 +1,5 @@
 import { localeBundles } from '@locales'
-import { getModWorkspaceCopy, type EditorCopy, type LocaleCode, type ThemeMode, type WorkspaceMode } from '@locales/api'
+import type { EditorCopy, LocaleCode, ModWorkspaceCopy, ThemeMode, WorkspaceMode } from '@locales/api'
 import { createDefaultContentPatcherSimulationContext } from '../workspaces/mod'
 import type { BuildWorkspacePanelsOptions } from '../model/workspace-panels/buildWorkspacePanels'
 import type { GameDirectoryInfo, WorkspaceStatus } from '@shared/contracts'
@@ -11,6 +11,7 @@ const EMPTY_WORKSPACE_STATUS: WorkspaceStatus = {
 
 type CreatePreviewPanelDefaultsOptions = {
   copy: EditorCopy
+  modWorkspaceCopy: ModWorkspaceCopy
   locale: LocaleCode
   workspaceMode: WorkspaceMode
   directoryInfo: GameDirectoryInfo | null
@@ -22,6 +23,7 @@ type CreatePreviewPanelDefaultsOptions = {
 /** Provides inert panel options so preview runtimes only override their active workspace fields. */
 export function createPreviewPanelDefaults({
   copy,
+  modWorkspaceCopy,
   locale,
   workspaceMode,
   directoryInfo,
@@ -169,7 +171,7 @@ export function createPreviewPanelDefaults({
     onSelectItem: () => {},
     onSelectModItem: () => {},
     heavyWorkspaceReady,
-    modWorkspaceCopy: getModWorkspaceCopy(locale),
+    modWorkspaceCopy,
     modI18nCopy: localeBundles[locale].modI18n,
     modPluginDefinition: null,
     modProjects: [],

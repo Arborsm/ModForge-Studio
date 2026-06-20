@@ -1,6 +1,6 @@
 import { useState, type CSSProperties, type MouseEvent } from 'react'
 import { CheckSquare, Copy, FilePenLine, MoreHorizontal, Search, Trash2, X } from 'lucide-react'
-import type { EditorCopy } from '@locales'
+import { useEditorCopy } from '@locales/provider'
 import type { StudioDeskGalleryProject, StudioDeskModel } from '../model/studioDeskModel'
 import { cx } from '@shared/lib/cx'
 import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
@@ -9,7 +9,6 @@ import { formatStudioTimestamp, handleStudioKeyboardAction } from '@features/cp-
 
 type StudioDeskProjectGalleryProps = {
   model: StudioDeskModel
-  copy: EditorCopy
   onCreateDraftRequest: () => void
   onImportDraftRequest: () => void | Promise<void>
   onOpenDraft: (draftStorageKey: string) => void | Promise<void>
@@ -25,7 +24,6 @@ type PendingProjectDelete = {
 
 export function StudioDeskProjectGallery({
   model,
-  copy,
   onCreateDraftRequest,
   onImportDraftRequest,
   onOpenDraft,
@@ -33,7 +31,7 @@ export function StudioDeskProjectGallery({
   onDeleteDraft,
   onEditCurrentDraftProperties,
 }: StudioDeskProjectGalleryProps) {
-  const desk = copy.studioDesk
+  const desk = useEditorCopy().studioDesk
   const [projectQuery, setProjectQuery] = useState('')
   const [contextMenu, setContextMenu] = useState<{ draftStorageKey: string; x: number; y: number } | null>(null)
   const [pendingDelete, setPendingDelete] = useState<PendingProjectDelete | null>(null)

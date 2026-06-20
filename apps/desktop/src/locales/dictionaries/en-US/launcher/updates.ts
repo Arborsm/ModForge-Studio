@@ -27,6 +27,11 @@ const updates: LauncherUpdatesCopy = {
   fetchDetailNotice: 'Fetching mod details',
   fetchChangelogNotice: 'Fetching changelog',
   releaseUnknown: 'Release date unavailable',
+  releasedHoursAgo: (hours) => `Released ${hours}h ago`,
+  releasedDaysAgo: (days) => `Released ${days} days ago`,
+  releasedDate: (dateLabel) => dateLabel,
+  releaseDateLocale: 'en-US',
+  releaseDateMonthFormat: 'short',
   sizeUnknown: 'Size unavailable',
   checkingProgressTitle: 'Checking mod updates',
   checkingProgressDetail: (checked, total, currentModName) =>

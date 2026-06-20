@@ -7,6 +7,7 @@ import { LauncherArchiveInstallDialog } from '@features/launcher/ui/shared/Launc
 import { LauncherInstallBackupsDialog } from '@features/launcher/ui/shared/LauncherInstallBackupsDialog'
 import { LauncherInstallSummaryDialog } from '@features/launcher/ui/shared/LauncherInstallSummaryDialog'
 import { LauncherChildModsDialogs, type LauncherChildModManagerState } from '@features/launcher/ui/shared/LauncherChildModsDialogs'
+import { useEditorCopy } from '@locales/provider'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import type {
   ArchivePreviewState,
@@ -15,28 +16,6 @@ import type {
   InstallBackupsState,
   PackDialogState,
 } from '../model/launcherLibraryDialogs'
-
-type LauncherLibraryDialogsLabels = {
-  createPack: string
-  renameCurrentPack: string
-  deleteCurrentPack: string
-  renameCurrentPackPrompt: (name: string) => string
-  deleteCurrentPackConfirm: (name: string) => string
-  newPackPlaceholder: string
-  cancelEdit: string
-  saveChanges: string
-  galleryCoverTitle: string
-  galleryCoverSubtitle: string
-  galleryCoverImageLabel: (index: number) => string
-  setCover: string
-  manageChildMods: string
-  parentModLabel: (name: string) => string
-  removeFromParent: string
-  closeDialog: string
-  renameLibraryFolder: string
-  renameLibraryFolderPrompt: (name: string) => string
-  newLibraryFolderName: string
-}
 
 type LauncherLibraryDialogsProps = {
   archivePreviewState: ArchivePreviewState
@@ -56,7 +35,6 @@ type LauncherLibraryDialogsProps = {
   packDialog: PackDialogState | null
   folderDialog: FolderDialogState | null
   packDialogInputRef: RefObject<HTMLInputElement | null>
-  labels: LauncherLibraryDialogsLabels
   onCloseArchivePreview: () => void
   onConfirmArchiveInstall: () => void
   onSelectArchivePreviewPath: (path: string) => void
@@ -113,7 +91,6 @@ export function LauncherLibraryDialogs({
   packDialog,
   folderDialog,
   packDialogInputRef,
-  labels,
   onCloseArchivePreview,
   onConfirmArchiveInstall,
   onSelectArchivePreviewPath,
@@ -134,6 +111,28 @@ export function LauncherLibraryDialogs({
   onFolderDialogChange,
   onSubmitFolderDialog,
 }: LauncherLibraryDialogsProps) {
+  const copy = useEditorCopy().launcher
+  const labels = {
+    createPack: copy.actions.createPack,
+    renameCurrentPack: copy.library.renameCurrentPack,
+    deleteCurrentPack: copy.library.deleteCurrentPack,
+    renameCurrentPackPrompt: copy.library.renameCurrentPackPrompt,
+    deleteCurrentPackConfirm: copy.library.deleteCurrentPackConfirm,
+    newPackPlaceholder: copy.library.newPackPlaceholder,
+    cancelEdit: copy.library.cancelEdit,
+    saveChanges: copy.library.saveChanges,
+    galleryCoverTitle: copy.library.galleryCoverTitle,
+    galleryCoverSubtitle: copy.library.galleryCoverSubtitle,
+    galleryCoverImageLabel: copy.library.galleryCoverImageLabel,
+    setCover: copy.actions.setCover,
+    manageChildMods: copy.library.manageChildMods,
+    parentModLabel: copy.library.parentModLabel,
+    removeFromParent: copy.library.removeFromParent,
+    closeDialog: copy.actions.closeDialog,
+    renameLibraryFolder: copy.library.renameLibraryFolder,
+    renameLibraryFolderPrompt: copy.library.renameLibraryFolderPrompt,
+    newLibraryFolderName: copy.library.newLibraryFolderName,
+  }
   const galleryTitleId = useId()
   const packTitleId = useId()
   const folderTitleId = useId()
@@ -172,13 +171,6 @@ export function LauncherLibraryDialogs({
 
       <LauncherChildModsDialogs
         manager={childModManager}
-        labels={{
-          cancelEdit: labels.cancelEdit,
-          manageChildMods: labels.manageChildMods,
-          parentModLabel: labels.parentModLabel,
-          removeFromParent: labels.removeFromParent,
-          closeDialog: labels.closeDialog,
-        }}
         onCloseManager={onCloseChildModManager}
         onRemoveChild={onRemoveChildMod}
         onManagerChildrenChange={onChildModManagerChildrenChange}

@@ -934,7 +934,6 @@ function WorkbenchHomeScenario() {
     <ScenarioFrame id="workbench-home">
       <StudioDesk
         model={createStudioDeskModel(360)}
-        copy={editorCopy}
         onCreateDraft={noop}
         onImportDraft={asyncNoop}
         onCreatePatch={noop}

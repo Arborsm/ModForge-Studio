@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vite-plus/test'
+import { editorCopy } from '@locales/api'
 import type { DraftPatch } from '@shared/contracts'
 import { buildEventResourceRegistry } from './eventResourceRegistry'
 
@@ -42,7 +43,7 @@ describe('buildEventResourceRegistry', () => {
           portraitUrl: 'data:image/png;base64,portrait',
         },
       },
-      locale: 'en-US',
+      sourceLabels: editorCopy['en-US'].eventStage.workflow.resourceSources,
     })
 
     expect(registry.music.some((option) => option.value === 'spring2')).toBe(true)

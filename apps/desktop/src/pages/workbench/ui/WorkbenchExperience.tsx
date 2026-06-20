@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkspaceLayoutHandle, WorkspacePanelMeta } from '@shared/contracts'
-import { editorCopy, getModWorkspaceCopy, type AppMode, type LocaleCode, type ThemeMode, type WorkspaceMode } from '@locales/api'
+import { editorCopy, type AppMode, type LocaleCode, type ThemeMode, type WorkspaceMode } from '@locales/api'
+import { useModWorkspaceCopy } from '@locales/provider'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { WorkspaceDecisionDialog } from '../workspaces/mod'
 import type { ModI18nStatusFilter } from '../workspaces/mod-i18n'
@@ -139,7 +140,7 @@ export default function WorkbenchExperience({
     handleDeletePlayerAppearanceProfile,
     handleImportPlayerAppearanceProfile,
     handleChangePlayerAppearanceProfile,
-  } = usePlayerAppearanceState(appUiStateReady, locale)
+  } = usePlayerAppearanceState(appUiStateReady)
 
   const copy = editorCopy[locale]
   const {
@@ -287,7 +288,7 @@ export default function WorkbenchExperience({
     activeProjectDetail: null,
     statusMessage: '',
   })
-  const modWorkspaceCopy = getModWorkspaceCopy(locale)
+  const modWorkspaceCopy = useModWorkspaceCopy()
 
   const runWithModUnsavedGuard = useCallback(
     async (action: () => void | Promise<void>) => {
@@ -781,7 +782,6 @@ export default function WorkbenchExperience({
           <PlayerAppearanceWindow
             key={`player-appearance:${playerAppearanceWindowNonce}`}
             open={playerAppearanceWindowOpen}
-            locale={locale}
             rootPath={directoryInfo?.rootPath ?? null}
             profiles={playerAppearanceProfiles}
             activeProfileId={activePlayerAppearanceProfileId}
@@ -887,7 +887,6 @@ export default function WorkbenchExperience({
                 <WorkbenchViewHost
                   editModeView={editModeView}
                   workspaceMode={workspaceMode}
-                  copy={copy}
                   locale={locale}
                   theme={theme}
                   accentColor={accentColor}

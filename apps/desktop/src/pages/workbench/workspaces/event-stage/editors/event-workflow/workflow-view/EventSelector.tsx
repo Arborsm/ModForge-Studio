@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { ChevronDown, Search, FileText, Sparkles } from 'lucide-react'
 import { cx } from '@shared/lib/cx'
+import { useEventStageCopy } from '@locales/provider'
 
 export type EventSelectorProps = {
   events: Array<{ key: string; isModified?: boolean }>
@@ -12,10 +13,11 @@ export type EventSelectorProps = {
   className?: string
 }
 
-export function EventSelector({ events, selectedKey, onSelect, locale = 'zh-CN', className }: EventSelectorProps) {
+export function EventSelector({ events, selectedKey, onSelect, className }: EventSelectorProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
+  const copy = useEventStageCopy().workflow.eventSelector
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -33,7 +35,7 @@ export function EventSelector({ events, selectedKey, onSelect, locale = 'zh-CN',
     return events.filter((e) => e.key.toLowerCase().includes(q))
   }, [events, search])
 
-  const selectedLabel = selectedKey ?? (locale === 'zh-CN' ? '选择事件...' : 'Select event...')
+  const selectedLabel = selectedKey ?? copy.placeholder
 
   return (
     <div ref={containerRef} className={cx('relative', className)}>
@@ -65,7 +67,7 @@ export function EventSelector({ events, selectedKey, onSelect, locale = 'zh-CN',
               <input
                 type="text"
                 autoFocus
-                placeholder={locale === 'zh-CN' ? '搜索事件...' : 'Search events...'}
+                placeholder={copy.searchPlaceholder}
                 className="min-w-0 flex-1 bg-transparent text-[11px] text-(--text-primary) outline-none placeholder:text-(--text-tertiary)"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -92,11 +94,7 @@ export function EventSelector({ events, selectedKey, onSelect, locale = 'zh-CN',
                 {event.isModified && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-(--accent)" />}
               </button>
             ))}
-            {filtered.length === 0 && (
-              <div className="px-3 py-4 text-center text-[11px] text-(--text-tertiary)">
-                {locale === 'zh-CN' ? '未找到事件' : 'No events found'}
-              </div>
-            )}
+            {filtered.length === 0 && <div className="px-3 py-4 text-center text-[11px] text-(--text-tertiary)">{copy.empty}</div>}
           </div>
         </div>
       )}

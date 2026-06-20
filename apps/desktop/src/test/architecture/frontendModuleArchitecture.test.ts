@@ -145,6 +145,7 @@ function specifierTargetsSourceRoot(filePath: string, specifier: string, root: s
 }
 
 const TEST_FILE_PATTERN = /\.(test|spec)\.(ts|tsx)$/
+const DEV_SOURCE_SEGMENT = /(?:^|\/)src\/dev\//
 const REMOVED_DESKTOP_FACADE_SPECIFIER = '@platform/' + 'desktop'
 const NON_DIALOG_PRIMITIVE_MODAL_ALLOWLIST = new Set([
   'src/features/launcher/ui/cards/LauncherModDetailPanel.tsx',
@@ -226,6 +227,40 @@ describe('frontend module architecture', () => {
     expect(appShellSource).not.toContain("from '../providers/CpMakerPlatformProvider'")
     expect(appShellSource).toContain("import('../providers/CpMakerPlatformProvider')")
     expect(appShellBridge).toContain("from './AppShell'")
+  })
+
+  it('keeps product bilingual UI copy in typed locale bundles', async () => {
+    const sourceFiles = (await collectSourceFiles(sourcePath('src'))).filter((file) => {
+      const relativePath = relative(process.cwd(), file).replaceAll('\\', '/')
+      return !TEST_FILE_PATTERN.test(file) && !DEV_SOURCE_SEGMENT.test(relativePath)
+    })
+    const violations: string[] = []
+    const bilingualFieldPattern = /\b(?:labelZh|labelEn|descriptionZh|descriptionEn)\b/g
+    const inlineLocaleCopyPattern =
+      /locale\s*===\s*['"]zh-CN['"]\s*\?\s*(?:`[^`]*[\u3400-\u9fff][^`]*`|'[^']*[\u3400-\u9fff][^']*'|"[^"]*[\u3400-\u9fff][^"]*")/g
+    const hardcodedEnglishLocaleBranchPattern =
+      /locale\s*===\s*['"]zh-CN['"]\s*\?[^:\n]+:\s*(?:`[^`]*[A-Za-z][^`]*`|'[^']*[A-Za-z][^']*'|"[^"]*[A-Za-z][^"]*")/g
+
+    await Promise.all(
+      sourceFiles.map(async (file) => {
+        const source = await readFile(file, 'utf8')
+        const relativePath = relative(process.cwd(), file).replaceAll('\\', '/')
+
+        for (const match of source.matchAll(bilingualFieldPattern)) {
+          violations.push(`${relativePath}: ${match[0]}`)
+        }
+
+        for (const match of source.matchAll(inlineLocaleCopyPattern)) {
+          violations.push(`${relativePath}: ${match[0].slice(0, 80)}`)
+        }
+
+        for (const match of source.matchAll(hardcodedEnglishLocaleBranchPattern)) {
+          violations.push(`${relativePath}: ${match[0].slice(0, 80)}`)
+        }
+      }),
+    )
+
+    expect(violations.sort()).toEqual([])
   })
 
   it('defines shared contracts without creating runtime instances in shared', async () => {

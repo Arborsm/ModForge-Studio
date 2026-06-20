@@ -5,18 +5,7 @@ import { Search, X, Command } from 'lucide-react'
 import { cx } from '@shared/lib/cx'
 import { getAllSchemas } from '../workflow-model/commandSchemaRegistry'
 import type { CommandCategory } from '../workflow-model/commandSchema'
-
-const CATEGORY_LABELS: Record<CommandCategory, string> = {
-  dialogue: '对话',
-  movement: '移动',
-  visual: '视觉',
-  audio: '音频',
-  logic: '逻辑',
-  scene: '场景',
-  item: '物品',
-  animation: '动画',
-  other: '其他',
-}
+import type { EventWorkflowCopy, EventWorkflowCommandKey } from '@locales/api'
 
 const CATEGORY_ORDER: CommandCategory[] = ['dialogue', 'movement', 'visual', 'audio', 'logic', 'scene', 'item', 'animation', 'other']
 
@@ -37,9 +26,10 @@ export type CommandPaletteProps = {
   onClose: () => void
   onSelect: (commandKey: string) => void
   locale?: 'zh-CN' | 'en-US'
+  copy: EventWorkflowCopy
 }
 
-export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: CommandPaletteProps) {
+export function CommandPalette({ open, onClose, onSelect, copy }: CommandPaletteProps) {
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<CommandCategory | null>(null)
   const [highlightedIndex, setHighlightedIndex] = useState(0)
@@ -73,6 +63,7 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
   }, [open])
 
   const schemas = getAllSchemas()
+  const commandLabel = (key: string) => copy.commandLabels[key as EventWorkflowCommandKey] ?? key
 
   const grouped = useMemo(() => {
     const byCategory = new Map<CommandCategory, typeof schemas>()
@@ -93,13 +84,11 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
     const result = new Map<CommandCategory, typeof schemas>()
     for (const [cat, list] of grouped) {
       if (activeCategory && cat !== activeCategory) continue
-      const filteredList = list.filter(
-        (s) => s.key.toLowerCase().includes(q) || s.label.toLowerCase().includes(q) || s.labelZh.toLowerCase().includes(q),
-      )
+      const filteredList = list.filter((s) => s.key.toLowerCase().includes(q) || commandLabel(s.key).toLowerCase().includes(q))
       if (filteredList.length) result.set(cat, filteredList)
     }
     return result
-  }, [grouped, search, activeCategory])
+  }, [grouped, search, activeCategory, copy.commandLabels])
 
   const flattened = useMemo(() => {
     const items: typeof schemas = []
@@ -169,7 +158,7 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
           <input
             ref={inputRef}
             type="text"
-            placeholder={locale === 'zh-CN' ? '搜索命令或按分类浏览...' : 'Search commands or browse by category...'}
+            placeholder={copy.commandPalette.searchPlaceholder}
             className="min-w-0 flex-1 bg-transparent text-sm text-(--text-primary) outline-none placeholder:text-(--text-tertiary)"
             value={search}
             onChange={(e) => {
@@ -214,7 +203,7 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
               setHighlightedIndex(0)
             }}
           >
-            {locale === 'zh-CN' ? '全部' : 'All'}
+            {copy.commandPalette.all}
           </button>
           {CATEGORY_ORDER.map((cat) => {
             const count = grouped.get(cat)?.length ?? 0
@@ -234,7 +223,7 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
                   setHighlightedIndex(0)
                 }}
               >
-                {CATEGORY_LABELS[cat]}
+                {copy.categoryLabels[cat]}
               </button>
             )
           })}
@@ -245,13 +234,13 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
           {Array.from(filtered).length === 0 && (
             <div className="flex flex-col items-center justify-center py-8 text-(--text-tertiary)">
               <Command className="h-8 w-8 opacity-40" />
-              <p className="mt-2 text-sm">{locale === 'zh-CN' ? '未找到命令' : 'No commands found'}</p>
+              <p className="mt-2 text-sm">{copy.commandPalette.empty}</p>
             </div>
           )}
           {Array.from(filtered).map(([cat, list]) => (
             <div key={cat} className="mb-2">
               <div className="sticky top-0 mb-1 bg-(--bg-panel) px-2 py-1 text-[10px] font-semibold tracking-wider text-(--text-tertiary) uppercase">
-                {CATEGORY_LABELS[cat]} ({list.length})
+                {copy.categoryLabels[cat]} ({list.length})
               </div>
               <div className="grid grid-cols-2 gap-1">
                 {list.map((schema) => {
@@ -282,12 +271,10 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
                           color: SEMANTIC_COLORS[schema.color] ?? '#6b7280',
                         }}
                       >
-                        {schema.label.slice(0, 2).toUpperCase()}
+                        {commandLabel(schema.key).slice(0, 2).toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <div className="text-xs font-medium text-(--text-primary)">
-                          {locale === 'zh-CN' ? schema.labelZh : schema.label}
-                        </div>
+                        <div className="text-xs font-medium text-(--text-primary)">{commandLabel(schema.key)}</div>
                         <div className="truncate text-[10px] text-(--text-tertiary)">{schema.key}</div>
                       </div>
                     </button>

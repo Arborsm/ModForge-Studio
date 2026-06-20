@@ -6,6 +6,7 @@ import { PanelFrame } from '@shared/ui/PanelFrame'
 import { BrowserSourceSwitch } from '@shared/ui/BrowserSourceSwitch'
 import { formatBytes } from '@shared/lib/formatting'
 import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
+import { useEventStageCopy } from '@locales/provider'
 
 type EventBrowserPanelProps = {
   locale: 'zh-CN' | 'en-US'
@@ -23,7 +24,6 @@ type EventBrowserPanelProps = {
 }
 
 export function EventBrowserPanel({
-  locale,
   eventAssets,
   filteredEventAssets,
   browserSourceMode,
@@ -36,26 +36,14 @@ export function EventBrowserPanel({
   onOpenAsset,
   onOpenModAsset,
 }: EventBrowserPanelProps) {
-  const labels =
-    locale === 'zh-CN'
-      ? {
-          title: '事件文件',
-          subtitle: 'Content / Data / Events',
-          placeholder: '按地点名或路径筛选事件文件',
-          empty: eventAssets.length ? '当前筛选没有匹配的事件文件。' : '当前目录没有可加载的 XNB 事件文件。',
-        }
-      : {
-          title: 'Event Files',
-          subtitle: 'Content / Data / Events',
-          placeholder: 'Filter event files by location or path',
-          empty: eventAssets.length ? 'No event files match the current filter.' : 'No loadable XNB event files were found.',
-        }
+  const labels = useEventStageCopy().workflow.workspacePanels
+  const emptyLabel = eventAssets.length ? labels.browserEmptyFiltered : labels.browserEmptyMissing
 
   return (
     <PanelFrame
       hideHeader
-      title={labels.title}
-      subtitle={labels.subtitle}
+      title={labels.browserTitle}
+      subtitle={labels.browserSubtitle}
       className="h-full"
       headerAction={
         <span className="dock-chip">
@@ -72,7 +60,7 @@ export function EventBrowserPanel({
             className="control-input pl-9"
             value={assetFilter}
             onChange={(event) => onAssetFilterChange(event.target.value)}
-            placeholder={labels.placeholder}
+            placeholder={labels.browserPlaceholder}
             spellCheck={false}
           />
         </div>
@@ -122,7 +110,7 @@ export function EventBrowserPanel({
               ))
             ) : (
               <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
-                No modded event files match the current filter.
+                {labels.browserModEmpty}
               </div>
             )
           ) : filteredEventAssets.length ? (
@@ -150,7 +138,7 @@ export function EventBrowserPanel({
             })
           ) : (
             <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
-              {labels.empty}
+              {emptyLabel}
             </div>
           )}
         </div>

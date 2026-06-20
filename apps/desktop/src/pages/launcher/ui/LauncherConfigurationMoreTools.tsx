@@ -1,6 +1,6 @@
 import { ChevronDown, Code2, Crown, Download, MessageSquare, Network, ScrollText } from 'lucide-react'
 import type { Dispatch, SetStateAction } from 'react'
-import type { LauncherCopy } from '@locales/model'
+import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
 import { canUseDesktopHost } from '@shared/lib/desktop'
 import { LoadingMotionReveal } from '@shared/ui/loading-motion'
@@ -15,7 +15,6 @@ import {
 import { nexusModsBbcodeSample } from './launcherConfigurationBbcodeSample'
 
 type LauncherConfigurationMoreToolsProps = {
-  copy: LauncherCopy
   debugEnabled: boolean
   debugToolsExpanded: boolean
   forceNonPremium: boolean
@@ -24,8 +23,6 @@ type LauncherConfigurationMoreToolsProps = {
   forceOfflineBusy: boolean
   bbcodePreviewExpanded: boolean
   debugSimulationActive: boolean
-  enableDebugModeLabel: string
-  disableDebugModeLabel: string
   onToggleDebugMode: () => void
   onToggleForceNonPremium: () => void
   onToggleForceOffline: () => void
@@ -37,7 +34,6 @@ type LauncherConfigurationMoreToolsProps = {
 
 /** Renders the launcher configuration page's debug-only utilities and diagnostics affordances. */
 export function LauncherConfigurationMoreTools({
-  copy,
   debugEnabled,
   debugToolsExpanded,
   forceNonPremium,
@@ -46,8 +42,6 @@ export function LauncherConfigurationMoreTools({
   forceOfflineBusy,
   bbcodePreviewExpanded,
   debugSimulationActive,
-  enableDebugModeLabel,
-  disableDebugModeLabel,
   onToggleDebugMode,
   onToggleForceNonPremium,
   onToggleForceOffline,
@@ -56,6 +50,8 @@ export function LauncherConfigurationMoreTools({
   setDebugToolsExpanded,
   setBbcodePreviewExpanded,
 }: LauncherConfigurationMoreToolsProps) {
+  const copy = useEditorCopy().launcher
+  const settingsCopy = useSettingsMenuCopy()
   return (
     <section className="launcher-config-tools" aria-label={copy.configuration.moreToolsTitle}>
       <LoadingMotionReveal itemId="launcher-debug-tools-toggle" index={3}>
@@ -98,8 +94,8 @@ export function LauncherConfigurationMoreTools({
             <DebugModeSwitch
               checked={debugEnabled}
               title={copy.configuration.debugOnlyTitle}
-              enabledLabel={enableDebugModeLabel}
-              disabledLabel={disableDebugModeLabel}
+              enabledLabel={settingsCopy.enableDebugModeLabel}
+              disabledLabel={settingsCopy.disableDebugModeLabel}
               onToggle={onToggleDebugMode}
             />
           </LoadingMotionReveal>

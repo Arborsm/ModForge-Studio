@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import type { Dispatch, RefObject, SetStateAction } from 'react'
 import { getWorldAtlasViewLabel, type LocaleCode, type ThemeMode } from '@locales/api'
+import { useModWorkspaceCopy } from '@locales/provider'
 import { useMapWorkspace } from '../workspaces/map'
 import { buildCoreWorkspacePanels } from '../model/workspace-panels/core'
 import type { WorkspaceLayoutHandle, WorkspacePanelMeta, WorkspaceStatus } from '@shared/contracts'
@@ -57,6 +58,7 @@ export function WorkbenchMapPreviewRuntime({
   onDirectoryInvalid,
   onStatusSnapshotChange,
 }: WorkbenchMapPreviewRuntimeProps) {
+  const modWorkspaceCopy = useModWorkspaceCopy()
   const mapWorkspace = useMapWorkspace({
     copy,
     locale,
@@ -75,6 +77,7 @@ export function WorkbenchMapPreviewRuntime({
     return buildCoreWorkspacePanels({
       ...createPreviewPanelDefaults({
         copy,
+        modWorkspaceCopy,
         locale,
         workspaceMode: 'map',
         directoryInfo,
@@ -124,7 +127,17 @@ export function WorkbenchMapPreviewRuntime({
       onHoverChange: mapWorkspace.setHoverInfo,
       workspaceStatus: mapWorkspace.workspaceStatus,
     } satisfies Parameters<typeof buildCoreWorkspacePanels>[0])
-  }, [accentColor, copy, directoryInfo, heavyWorkspaceReady, locale, mapWorkspace, theme, visible]) satisfies WorkspacePanelConfig[]
+  }, [
+    accentColor,
+    copy,
+    directoryInfo,
+    heavyWorkspaceReady,
+    locale,
+    mapWorkspace,
+    modWorkspaceCopy,
+    theme,
+    visible,
+  ]) satisfies WorkspacePanelConfig[]
 
   useEffect(() => {
     const snapshot = {

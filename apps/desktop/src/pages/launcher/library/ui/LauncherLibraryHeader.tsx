@@ -24,35 +24,9 @@ import {
 import { cx } from '@shared/lib/cx'
 import { LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import { normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
+import { useEditorCopy } from '@locales/provider'
 import type { LauncherPackPreset } from '@features/launcher/model/types'
 import type { LibrarySortMode } from '../model/launcherLibraryDisplay'
-
-type LauncherLibraryHeaderLabels = {
-  packTitle: string
-  allPacks: string
-  hiddenMods: string
-  createLibraryFolder: string
-  refresh: string
-  openStorageFolder: string
-  installArchive: string
-  installBackupsTitle: string
-  filterLibrary: string
-  enabledOnly: string
-  sortLabel: string
-  editingPackLabel: string
-  choosingChildModsLabel: (name: string) => string
-  includedModsCount: (count: number) => string
-  selectedChildModsCount: (count: number) => string
-  cancelEdit: string
-  saveChanges: string
-  confirmChildMods: string
-  sortingLabel: string
-  sortingDragHint: string
-  sortingDone: string
-  startSortingLabel: string
-  customSortHint: string
-  moreActions: string
-}
 
 type LauncherLibraryHeaderProps = {
   editMode: boolean
@@ -85,7 +59,6 @@ type LauncherLibraryHeaderProps = {
   launchGameLabel: string
   launchGameDisabled: boolean
   launchGameBusy: boolean
-  labels: LauncherLibraryHeaderLabels
   onToggleDrawer: () => void
   onToggleQuickSwitch: () => void
   onCloseFloatingMenus: () => void
@@ -142,7 +115,6 @@ export function LauncherLibraryHeader({
   launchGameLabel,
   launchGameDisabled,
   launchGameBusy,
-  labels,
   onToggleDrawer,
   onToggleQuickSwitch,
   onCloseFloatingMenus,
@@ -167,6 +139,7 @@ export function LauncherLibraryHeader({
   onFinishSorting,
   onStartSortingMode,
 }: LauncherLibraryHeaderProps) {
+  const copy = useEditorCopy().launcher
   const searchRef = useRef<HTMLDivElement | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const searchInputId = useId()
@@ -205,25 +178,25 @@ export function LauncherLibraryHeader({
           <button
             type="button"
             className="launcher-library-icon-button launcher-library-inline-menu-button"
-            aria-label={labels.packTitle}
-            title={labels.packTitle}
+            aria-label={copy.library.packTitle}
+            title={copy.library.packTitle}
             onClick={toggleDrawer}
           >
             <Menu className="h-4 w-4" />
           </button>
           <span className="launcher-library-edit-label">
-            {labels.editingPackLabel} <strong>{currentPack?.name ?? labels.allPacks}</strong>
+            {copy.library.editingPackLabel} <strong>{currentPack?.name ?? copy.library.allPacks}</strong>
           </span>
         </div>
         <div className="launcher-library-edit-bar-center">
-          <span className="launcher-library-edit-label">{labels.includedModsCount(editCount)}</span>
+          <span className="launcher-library-edit-label">{copy.library.includedModsCount(editCount)}</span>
         </div>
         <div className="launcher-library-edit-bar-right">
           <button type="button" className="control-button launcher-library-secondary-action" onClick={onCancelEditMode}>
-            {labels.cancelEdit}
+            {copy.library.cancelEdit}
           </button>
           <button type="button" className="control-button control-button-primary launcher-library-primary-action" onClick={onSaveEditMode}>
-            {labels.saveChanges}
+            {copy.library.saveChanges}
           </button>
         </div>
       </LoadingMotionRevealItem>
@@ -237,29 +210,29 @@ export function LauncherLibraryHeader({
           <button
             type="button"
             className="launcher-library-icon-button launcher-library-inline-menu-button"
-            aria-label={labels.packTitle}
-            title={labels.packTitle}
+            aria-label={copy.library.packTitle}
+            title={copy.library.packTitle}
             onClick={toggleDrawer}
           >
             <Menu className="h-4 w-4" />
           </button>
           <span className="launcher-library-edit-label">
-            {labels.choosingChildModsLabel(childModSelectionParentName ?? labels.allPacks)}
+            {copy.library.choosingChildModsLabel(childModSelectionParentName ?? copy.library.allPacks)}
           </span>
         </div>
         <div className="launcher-library-edit-bar-center">
-          <span className="launcher-library-edit-label">{labels.selectedChildModsCount(childModSelectionCount)}</span>
+          <span className="launcher-library-edit-label">{copy.library.selectedChildModsCount(childModSelectionCount)}</span>
         </div>
         <div className="launcher-library-edit-bar-right">
           <button type="button" className="control-button launcher-library-secondary-action" onClick={onCancelChildModSelection}>
-            {labels.cancelEdit}
+            {copy.library.cancelEdit}
           </button>
           <button
             type="button"
             className="control-button control-button-primary launcher-library-primary-action"
             onClick={onConfirmChildModSelection}
           >
-            {labels.confirmChildMods}
+            {copy.library.confirmChildMods}
           </button>
         </div>
       </LoadingMotionRevealItem>
@@ -273,21 +246,21 @@ export function LauncherLibraryHeader({
           <button
             type="button"
             className="launcher-library-icon-button launcher-library-inline-menu-button"
-            aria-label={labels.packTitle}
-            title={labels.packTitle}
+            aria-label={copy.library.packTitle}
+            title={copy.library.packTitle}
             onClick={toggleDrawer}
           >
             <Menu className="h-4 w-4" />
           </button>
           <span className="launcher-library-edit-label">
             <GripVertical className="h-4 w-4" aria-hidden="true" />
-            <span>{labels.sortingLabel}</span>
+            <span>{copy.library.sortingLabel}</span>
             <strong>{currentPackLabel}</strong>
           </span>
         </div>
         <div className="launcher-library-edit-bar-right">
           <button type="button" className="control-button control-button-primary launcher-library-primary-action" onClick={onFinishSorting}>
-            {labels.sortingDone}
+            {copy.library.sortingDone}
           </button>
         </div>
       </LoadingMotionRevealItem>
@@ -301,8 +274,8 @@ export function LauncherLibraryHeader({
           <button
             type="button"
             className="launcher-library-icon-button launcher-library-inline-menu-button"
-            aria-label={labels.packTitle}
-            title={labels.packTitle}
+            aria-label={copy.library.packTitle}
+            title={copy.library.packTitle}
             onClick={toggleDrawer}
           >
             <Menu className="h-4 w-4" />
@@ -334,20 +307,20 @@ export function LauncherLibraryHeader({
                     'launcher-library-title-menu-item',
                     !hiddenViewOpen && !currentPackId && 'launcher-library-title-menu-item-active',
                   )}
-                  aria-label={labels.allPacks}
+                  aria-label={copy.library.allPacks}
                   onClick={() => onSelectPack(null)}
                 >
-                  <span>{labels.allPacks}</span>
+                  <span>{copy.library.allPacks}</span>
                   <span>{visibleLibraryModsCount}</span>
                 </button>
 
                 <button
                   type="button"
                   className={cx('launcher-library-title-menu-item', hiddenViewOpen && 'launcher-library-title-menu-item-active')}
-                  aria-label={labels.hiddenMods}
+                  aria-label={copy.library.hiddenMods}
                   onClick={onSelectHiddenView}
                 >
-                  <span>{labels.hiddenMods}</span>
+                  <span>{copy.library.hiddenMods}</span>
                   <span>{hiddenModsCount}</span>
                 </button>
 
@@ -378,7 +351,7 @@ export function LauncherLibraryHeader({
             <button
               type="button"
               className="launcher-library-search-trigger"
-              aria-label={labels.filterLibrary}
+              aria-label={copy.fields.filterLibrary}
               aria-expanded={searchExpanded}
               aria-controls={searchInputId}
               tabIndex={searchExpanded ? -1 : 0}
@@ -400,9 +373,9 @@ export function LauncherLibraryHeader({
                   setSearchOpen(false)
                 }
               }}
-              placeholder={labels.filterLibrary}
+              placeholder={copy.fields.filterLibrary}
               spellCheck={false}
-              aria-label={labels.filterLibrary}
+              aria-label={copy.fields.filterLibrary}
               tabIndex={searchExpanded ? 0 : -1}
             />
           </div>
@@ -413,8 +386,8 @@ export function LauncherLibraryHeader({
             type="button"
             className={cx('launcher-library-icon-button', enabledOnly && 'launcher-library-icon-button-accent')}
             aria-pressed={enabledOnly}
-            aria-label={labels.enabledOnly}
-            title={labels.enabledOnly}
+            aria-label={copy.toggles.enabledOnly}
+            title={copy.toggles.enabledOnly}
             onClick={() => onEnabledOnlyChange(!enabledOnly)}
           >
             {enabledOnly ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
@@ -426,7 +399,7 @@ export function LauncherLibraryHeader({
               className={cx('launcher-library-icon-button', sortMenuOpen && 'launcher-library-icon-button-active')}
               aria-haspopup="menu"
               aria-expanded={sortMenuOpen}
-              aria-label={labels.sortLabel}
+              aria-label={copy.library.sortLabel}
               title={currentSortLabel}
               onClick={onToggleSortMenu}
             >
@@ -434,7 +407,7 @@ export function LauncherLibraryHeader({
             </button>
 
             {sortMenuOpen ? (
-              <div className="launcher-library-sort-menu" role="menu" aria-label={labels.sortLabel}>
+              <div className="launcher-library-sort-menu" role="menu" aria-label={copy.library.sortLabel}>
                 {sortOptions.map((option) => {
                   const OptionIcon = sortOptionIcon[option.value]
                   const selected = sortMode === option.value
@@ -459,12 +432,12 @@ export function LauncherLibraryHeader({
                     type="button"
                     role="menuitem"
                     className="launcher-library-sort-option launcher-library-sort-reorder-action"
-                    aria-label={labels.startSortingLabel}
-                    title={labels.customSortHint}
+                    aria-label={copy.library.startSortingLabel}
+                    title={copy.library.customSortHint}
                     onClick={onStartSortingMode}
                   >
                     <Move className="launcher-library-sort-option-icon h-4 w-4" aria-hidden="true" />
-                    <span className="launcher-library-sort-option-label">{labels.startSortingLabel}</span>
+                    <span className="launcher-library-sort-option-label">{copy.library.startSortingLabel}</span>
                   </button>
                 ) : null}
               </div>
@@ -475,8 +448,8 @@ export function LauncherLibraryHeader({
             type="button"
             className="launcher-library-icon-button"
             onClick={onCreateLibraryFolder}
-            aria-label={labels.createLibraryFolder}
-            title={labels.createLibraryFolder}
+            aria-label={copy.library.createLibraryFolder}
+            title={copy.library.createLibraryFolder}
           >
             <FolderPlus className="h-4 w-4" />
           </button>
@@ -484,8 +457,8 @@ export function LauncherLibraryHeader({
             type="button"
             className="launcher-library-icon-button"
             onClick={onRefreshLibrary}
-            aria-label={labels.refresh}
-            title={labels.refresh}
+            aria-label={copy.actions.refresh}
+            title={copy.actions.refresh}
           >
             <RefreshCw className="h-4 w-4" />
           </button>
@@ -496,15 +469,15 @@ export function LauncherLibraryHeader({
               className="launcher-library-icon-button"
               aria-haspopup="menu"
               aria-expanded={actionsMenuOpen}
-              aria-label={labels.moreActions}
-              title={labels.moreActions}
+              aria-label={copy.library.moreActions}
+              title={copy.library.moreActions}
               onClick={onToggleActionsMenu}
             >
               <MoreHorizontal className="h-4 w-4" />
             </button>
 
             {actionsMenuOpen ? (
-              <div className="launcher-library-actions-menu" role="menu" aria-label={labels.moreActions}>
+              <div className="launcher-library-actions-menu" role="menu" aria-label={copy.library.moreActions}>
                 <button
                   type="button"
                   role="menuitem"
@@ -515,7 +488,7 @@ export function LauncherLibraryHeader({
                   }}
                 >
                   <FolderOpen className="h-4 w-4" />
-                  <span>{labels.openStorageFolder}</span>
+                  <span>{copy.actions.openStorageFolder}</span>
                 </button>
                 <button
                   type="button"
@@ -527,7 +500,7 @@ export function LauncherLibraryHeader({
                   }}
                 >
                   <FolderArchive className="h-4 w-4" />
-                  <span>{labels.installArchive}</span>
+                  <span>{copy.actions.installArchive}</span>
                 </button>
                 <button
                   type="button"
@@ -539,7 +512,7 @@ export function LauncherLibraryHeader({
                   }}
                 >
                   <Folder className="h-4 w-4" />
-                  <span>{labels.installBackupsTitle}</span>
+                  <span>{copy.library.installBackupsTitle}</span>
                 </button>
               </div>
             ) : null}

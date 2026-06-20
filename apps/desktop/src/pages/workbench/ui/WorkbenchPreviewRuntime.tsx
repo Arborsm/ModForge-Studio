@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Dispatch, RefObject, SetStateAction } from 'react'
 import type { LocaleCode, ThemeMode, WorkspaceMode } from '@locales/api'
+import { useModWorkspaceCopy } from '@locales/provider'
 import { useEventWorkspace } from '../workspaces/event-stage'
 import { useCharacterWorkspace } from '../workspaces/character'
 import { useBuildingWorkspace } from '../workspaces/building/state/useBuildingWorkspace'
@@ -109,6 +110,7 @@ function EventsPreviewRuntime({
   onLayoutMetaChange,
   onStatusSnapshotChange,
 }: Omit<WorkbenchPreviewRuntimeProps, 'desktopHost' | 'workspaceMode' | 'onDirectoryInvalid' | 'onMapStatusSnapshotChange'>) {
+  const modWorkspaceCopy = useModWorkspaceCopy()
   const eventWorkspace = useEventWorkspace({
     copy,
     locale,
@@ -168,6 +170,7 @@ function EventsPreviewRuntime({
       buildCoreWorkspacePanels({
         ...createPreviewPanelDefaults({
           copy,
+          modWorkspaceCopy,
           locale,
           workspaceMode: 'events',
           directoryInfo,
@@ -210,6 +213,7 @@ function EventsPreviewRuntime({
       handleActivateTimelineEntry,
       heavyWorkspaceReady,
       locale,
+      modWorkspaceCopy,
       onOpenPlayerAppearanceWindow,
       playerAppearanceProfile,
       registerStageSeek,
@@ -251,6 +255,7 @@ function CharactersPreviewRuntime({
   | 'playerAppearanceProfile'
   | 'onOpenPlayerAppearanceWindow'
 >) {
+  const modWorkspaceCopy = useModWorkspaceCopy()
   const characterWorkspace = useCharacterWorkspace({
     directoryInfo,
     locale,
@@ -284,6 +289,7 @@ function CharactersPreviewRuntime({
       buildCoreWorkspacePanels({
         ...createPreviewPanelDefaults({
           copy,
+          modWorkspaceCopy,
           locale,
           workspaceMode: 'characters',
           directoryInfo,
@@ -309,7 +315,7 @@ function CharactersPreviewRuntime({
         onSelectModCharacter: characterWorkspace.handleSelectModCharacter,
         onSelectCharacterVariant: characterWorkspace.handleSelectVariant,
       }),
-    [accentColor, characterWorkspace, copy, directoryInfo, heavyWorkspaceReady, locale, theme],
+    [accentColor, characterWorkspace, copy, directoryInfo, heavyWorkspaceReady, locale, modWorkspaceCopy, theme],
   ) satisfies WorkspacePanelConfig[]
 
   return (
@@ -346,6 +352,7 @@ function BuildingsPreviewRuntime({
   | 'playerAppearanceProfile'
   | 'onOpenPlayerAppearanceWindow'
 >) {
+  const modWorkspaceCopy = useModWorkspaceCopy()
   const buildingWorkspace = useBuildingWorkspace({
     directoryInfo,
     locale,
@@ -379,6 +386,7 @@ function BuildingsPreviewRuntime({
       buildCoreWorkspacePanels({
         ...createPreviewPanelDefaults({
           copy,
+          modWorkspaceCopy,
           locale,
           workspaceMode: 'buildings',
           directoryInfo,
@@ -414,7 +422,7 @@ function BuildingsPreviewRuntime({
         onSelectBuilding: buildingWorkspace.handleSelectBuilding,
         onSelectModBuilding: buildingWorkspace.handleSelectModBuilding,
       }),
-    [accentColor, buildingWorkspace, copy, directoryInfo, heavyWorkspaceReady, locale, theme],
+    [accentColor, buildingWorkspace, copy, directoryInfo, heavyWorkspaceReady, locale, modWorkspaceCopy, theme],
   ) satisfies WorkspacePanelConfig[]
 
   return (
@@ -451,6 +459,7 @@ function ItemsPreviewRuntime({
   | 'playerAppearanceProfile'
   | 'onOpenPlayerAppearanceWindow'
 >) {
+  const modWorkspaceCopy = useModWorkspaceCopy()
   const itemWorkspace = useItemWorkspace({
     directoryInfo,
     locale,
@@ -483,6 +492,7 @@ function ItemsPreviewRuntime({
       buildItemsWorkspacePanels({
         ...createPreviewPanelDefaults({
           copy,
+          modWorkspaceCopy,
           locale,
           workspaceMode: 'items',
           directoryInfo,
@@ -508,7 +518,7 @@ function ItemsPreviewRuntime({
         onSelectItem: itemWorkspace.handleSelectItem,
         onSelectModItem: itemWorkspace.handleSelectModItem,
       }),
-    [accentColor, copy, directoryInfo, heavyWorkspaceReady, itemWorkspace, locale, theme],
+    [accentColor, copy, directoryInfo, heavyWorkspaceReady, itemWorkspace, locale, modWorkspaceCopy, theme],
   ) satisfies WorkspacePanelConfig[]
 
   return (

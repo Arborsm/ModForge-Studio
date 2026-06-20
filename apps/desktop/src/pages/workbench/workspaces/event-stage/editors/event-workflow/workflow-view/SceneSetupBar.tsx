@@ -20,6 +20,8 @@ import { cx } from '@shared/lib/cx'
 import type { EventSceneActor, EventSceneSetup } from '@entities/event'
 import { EventResourcePicker } from './EventResourcePicker'
 import { buildDefaultEventResourceRegistry, type EventResourceRegistry } from './eventResourceRegistry'
+import type { EventWorkflowCopy } from '@locales/api'
+import { useEventStageCopy } from '@locales/provider'
 
 export type SceneSetupBarProps = {
   scene: EventSceneSetup
@@ -35,22 +37,7 @@ export type SceneSetupBarProps = {
   className?: string
 }
 
-type SceneSetupLabels = {
-  music: string
-  camera: string
-  actors: string
-  addActor: string
-  pick: string
-  follow: string
-  current: string
-  target: string
-  duplicate: string
-  remove: string
-  reset: string
-  more: string
-  x: string
-  y: string
-}
+type SceneSetupLabels = EventWorkflowCopy['sceneSetup']
 
 const DIRECTION_OPTIONS = [
   { value: 0, label: 'Up', icon: ArrowUp },
@@ -58,42 +45,6 @@ const DIRECTION_OPTIONS = [
   { value: 2, label: 'Down', icon: ArrowDown },
   { value: 3, label: 'Left', icon: ArrowLeft },
 ] as const
-
-function buildLabels(locale: 'zh-CN' | 'en-US'): SceneSetupLabels {
-  return locale === 'zh-CN'
-    ? {
-        music: '音乐',
-        camera: '镜头',
-        actors: '角色',
-        addActor: '添加角色',
-        pick: '拾取',
-        follow: '跟随',
-        current: '当前位置',
-        target: '坐标',
-        duplicate: '复制',
-        remove: '删除',
-        reset: '重置',
-        more: '更多',
-        x: 'X',
-        y: 'Y',
-      }
-    : {
-        music: 'Music',
-        camera: 'Camera',
-        actors: 'Actors',
-        addActor: 'Add Actor',
-        pick: 'Pick',
-        follow: 'Follow',
-        current: 'Current',
-        target: 'Target',
-        duplicate: 'Duplicate',
-        remove: 'Remove',
-        reset: 'Reset',
-        more: 'More',
-        x: 'X',
-        y: 'Y',
-      }
-}
 
 function actorToken(actor: EventSceneActor) {
   return `${actor.actorName} ${actor.tileX} ${actor.tileY} ${actor.facingDirection}`
@@ -291,7 +242,6 @@ function DirectionSegmentedControl({ value, onChange }: { value: number; onChang
 
 export function SceneSetupBar({
   scene,
-  locale = 'zh-CN',
   pickMode,
   cameraPickMode,
   pickingActorIndex,
@@ -302,8 +252,9 @@ export function SceneSetupBar({
   resourceRegistry,
   className,
 }: SceneSetupBarProps) {
-  const labels = buildLabels(locale)
-  const registry = resourceRegistry ?? buildDefaultEventResourceRegistry(locale)
+  const workflowCopy = useEventStageCopy().workflow
+  const labels = workflowCopy.sceneSetup
+  const registry = resourceRegistry ?? buildDefaultEventResourceRegistry(workflowCopy.resourceSources)
   const actorResourceOptions = registry.actor
   const musicResourceOptions = registry.music
   const cameraTarget = parseCameraTarget(scene.cameraInstruction)

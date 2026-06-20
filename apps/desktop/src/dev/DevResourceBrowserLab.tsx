@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useReducer, useState } from 'react'
 import { Database, Layers3, Music, Package, Search, Sparkles, UserRound, Volume2, Waypoints, type LucideIcon } from 'lucide-react'
 import type { LocaleCode } from '@locales'
+import type { EventWorkflowCopy } from '@locales/api'
+import { useEventStageCopy } from '@locales/provider'
 import type { GameDirectoryInfo } from '@shared/contracts'
 import { loadImageDataUrl, loadResourceRegistry } from '@entities/game/api'
 import type { ResourceRegistry, ResourceRegistryEntry } from '@entities/game/api'
@@ -170,8 +172,12 @@ function pushUniqueResource(registry: EventResourceRegistry, option: EventResour
   target.push(option)
 }
 
-function buildRegistryFromDesktopRegistry(desktopRegistry: ResourceRegistry, locale: LocaleCode): EventResourceRegistry {
-  const registry = buildDefaultEventResourceRegistry(locale)
+function buildRegistryFromDesktopRegistry(
+  desktopRegistry: ResourceRegistry,
+  locale: LocaleCode,
+  sourceLabels: EventWorkflowCopy['resourceSources'],
+): EventResourceRegistry {
+  const registry = buildDefaultEventResourceRegistry(sourceLabels)
 
   for (const entry of desktopRegistry.entries) {
     const option = makeRegistryOption(entry, locale)
@@ -254,13 +260,14 @@ function countResourceSources(options: EventResourceOption[]) {
 }
 
 export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }: DevResourceBrowserLabProps) {
+  const sourceLabels = useEventStageCopy().workflow.resourceSources
   const [detectedDevRootPath, setDetectedDevRootPath] = useState<string | null>(null)
   const [{ registry: collectedRegistry, loadState, loadMessage }, dispatchBrowserRegistry] = useReducer(browserRegistryReducer, {
     registry: null,
     loadState: 'fallback',
     loadMessage: FALLBACK_LOAD_MESSAGE,
   })
-  const registry = useMemo(() => collectedRegistry ?? buildDefaultEventResourceRegistry(locale), [collectedRegistry, locale])
+  const registry = useMemo(() => collectedRegistry ?? buildDefaultEventResourceRegistry(sourceLabels), [collectedRegistry, sourceLabels])
   const [selections, setSelections] = useState<Record<EventResourceKind, string>>(DEFAULT_SELECTIONS)
   const [activeKind, setActiveKind] = useState<EventResourceKind>('actor')
   const effectiveRootPath = directoryInfo?.rootPath ?? detectedDevRootPath
@@ -309,7 +316,7 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
       }
 
       const backendResourceCount = countDesktopRegistryResources(desktopRegistry)
-      const nextRegistry = buildRegistryFromDesktopRegistry(desktopRegistry, locale)
+      const nextRegistry = buildRegistryFromDesktopRegistry(desktopRegistry, locale, sourceLabels)
       if (itemOptionsResult.options.length > 0) {
         nextRegistry.item = itemOptionsResult.options
       }
@@ -346,7 +353,7 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
     return () => {
       cancelled = true
     }
-  }, [effectiveRootPath, locale])
+  }, [effectiveRootPath, locale, sourceLabels])
 
   const totalResources = countRegistryResources(registry)
   const activeResource = RESOURCE_KINDS.find((resource) => resource.kind === activeKind) ?? RESOURCE_KINDS[0]

@@ -82,35 +82,14 @@ function renderPanel(
     <LauncherModDetailPanel
       open={options.open ?? true}
       onClose={vi.fn()}
-      closeLabel="Close"
-      title="Mod Details"
-      subtitle="Inspect metadata"
-      empty="Select a mod"
       mod={mod}
       remoteDetail={remoteDetail}
-      labels={{
-        currentVersion: 'Current Version',
-        uniqueId: 'Unique ID',
-        path: 'Path',
-        dependencies: 'Missing Dependencies',
-        updateKeys: 'Update Keys',
-        pack: 'Pack',
-      }}
-      noSummary="No summary"
       onToggleEnabled={vi.fn()}
-      enableLabel="Enable"
-      disableLabel="Disable"
-      enabledStateLabel="Enabled"
-      disabledStateLabel="Disabled"
-      openFolderLabel="Open Folder"
-      setCoverLabel="Set Cover"
-      clearCoverLabel="Clear Cover"
       remoteLoading={options.remoteLoading}
       remoteFilesDeferred={options.remoteFilesDeferred}
       onOpenFolder={vi.fn()}
       onSetCover={vi.fn()}
       onClearCover={vi.fn()}
-      openModPageLabel="Open Mod Page"
       onQueueDownload={options.onQueueDownload}
     />,
     'en-US',

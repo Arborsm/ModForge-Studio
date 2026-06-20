@@ -69,7 +69,6 @@ export function LauncherPage({
   debugEnabled,
   desktopHost,
   theme,
-  locale,
   onToggleTheme,
   onAppModeChange,
   onWorkspaceChange,
@@ -84,8 +83,8 @@ export function LauncherPage({
   onLauncherDiagnosticsUpdate,
 }: LauncherPageProps) {
   const copy = useEditorCopy()
-  const launcherRuntime = useLauncherRuntime(locale)
-  useLauncherUpdateProgressNotifications(locale)
+  const launcherRuntime = useLauncherRuntime()
+  useLauncherUpdateProgressNotifications()
   const [launchBusy, setLaunchBusy] = useState(false)
   const [downloadInstallRequest, setDownloadInstallRequest] = useState<{ id: number; archivePaths: string[] } | null>(null)
   const launcherPort = useLauncherPort()

@@ -1,18 +1,20 @@
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { CSSProperties, ReactNode, RefObject } from 'react'
-import type { ThemeMode, ViewportLabels } from '@locales/api'
+import { useEditorCopy } from '@locales/provider'
+import type { ThemeMode } from '@locales/api'
 import type { TileHoverInfo } from '@shared/contracts'
 import type { MapDocument, MapLayer, MapObjectGroup } from '@shared/contracts'
 import { rgbaFromHex } from './mapViewportHelpers'
 
 type MapViewportEmptyStateProps = {
-  labels: ViewportLabels
   theme: ThemeMode
   accentColor: string
   viewportBackdropStyle: CSSProperties
 }
 
-export function MapViewportEmptyState({ labels, theme, accentColor, viewportBackdropStyle }: MapViewportEmptyStateProps) {
+export function MapViewportEmptyState({ theme, accentColor, viewportBackdropStyle }: MapViewportEmptyStateProps) {
+  const labels = useEditorCopy().viewportLabels
+
   return (
     <div className="panel-canvas relative h-full" style={viewportBackdropStyle}>
       <div
@@ -35,7 +37,6 @@ export function MapViewportEmptyState({ labels, theme, accentColor, viewportBack
 }
 
 type MapViewportStatsChipsProps = {
-  labels: ViewportLabels
   mapDocument: MapDocument
   tilesetImageCount: number
   visibleLayers: MapLayer[]
@@ -44,13 +45,14 @@ type MapViewportStatsChipsProps = {
 }
 
 export function MapViewportStatsChips({
-  labels,
   mapDocument,
   tilesetImageCount,
   visibleLayers,
   visibleObjectGroups,
   zoom,
 }: MapViewportStatsChipsProps) {
+  const labels = useEditorCopy().viewportLabels
+
   return (
     <div className="absolute top-4 left-4 z-10 flex flex-wrap gap-2">
       <span className="dock-chip">
@@ -113,7 +115,6 @@ export function MapViewportCanvasLayers({
 }
 
 type MapViewportContextMenuProps = {
-  labels: ViewportLabels
   viewportContent: ReactNode
   contextMenuHover: TileHoverInfo | null
   contextMenuExtraItems?: ReactNode
@@ -128,7 +129,6 @@ type MapViewportContextMenuProps = {
 }
 
 export function MapViewportContextMenu({
-  labels,
   viewportContent,
   contextMenuHover,
   contextMenuExtraItems,
@@ -141,6 +141,8 @@ export function MapViewportContextMenu({
   onResetPan,
   onAddObjectHere,
 }: MapViewportContextMenuProps) {
+  const labels = useEditorCopy().viewportLabels
+
   return (
     <ContextMenu.Root
       onOpenChange={(open) => {

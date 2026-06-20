@@ -17,6 +17,7 @@ import { buildEventTimelineEntries, EVENT_SETUP_ENTRY_ID } from '@entities/event
 import type { EventTimelineEntry } from '@entities/event'
 import type { EventScript } from '@entities/event'
 import { cx } from '@shared/lib/cx'
+import { useEventStageCopy } from '@locales/provider'
 
 type EventTimelinePanelProps = {
   locale: 'zh-CN' | 'en-US'
@@ -134,9 +135,9 @@ function getEntryAppearance(entry: EventTimelineEntry) {
   }
 }
 
-function getEntryPrimaryText(entry: EventTimelineEntry, locale: 'zh-CN' | 'en-US') {
+function getEntryPrimaryText(entry: EventTimelineEntry) {
   if (entry.id === EVENT_SETUP_ENTRY_ID) {
-    return locale === 'zh-CN' ? '场景初始化' : 'Scene setup'
+    return entry.title
   }
 
   const command = entry.command
@@ -155,7 +156,7 @@ function getEntryPrimaryText(entry: EventTimelineEntry, locale: 'zh-CN' | 'en-US
   return entry.title
 }
 
-function getEntrySecondaryText(entry: EventTimelineEntry, locale: 'zh-CN' | 'en-US') {
+function getEntrySecondaryText(entry: EventTimelineEntry, noDetailLabel: string) {
   if (entry.id === EVENT_SETUP_ENTRY_ID) {
     return entry.detail
   }
@@ -165,33 +166,24 @@ function getEntrySecondaryText(entry: EventTimelineEntry, locale: 'zh-CN' | 'en-
     return detail
   }
 
-  return locale === 'zh-CN' ? '无详细信息' : 'No detail'
+  return noDetailLabel
 }
 
 export function EventTimelinePanel({
-  locale,
   selectedEvent,
   selectedTimelineEntryId,
   currentCommandId,
   onSelectTimelineEntry,
   onActivateTimelineEntry,
 }: EventTimelinePanelProps) {
-  const labels =
-    locale === 'zh-CN'
-      ? {
-          title: '脚本列表',
-          subtitle: '紧凑顺序视图。选中一条后在右侧查看和编辑详细属性。',
-          current: '当前',
-          empty: '这个事件没有可播放的脚本命令。',
-        }
-      : {
-          title: 'Script List',
-          subtitle: 'Compact sequential view. Select a row to inspect and edit details on the right.',
-          current: 'Current',
-          empty: 'This event has no playable commands.',
-        }
+  const labels = useEventStageCopy().workflow.scriptTimeline
 
-  const entries = buildEventTimelineEntries(selectedEvent, locale)
+  const entries = buildEventTimelineEntries(selectedEvent, {
+    setup: labels.sceneSetup,
+    music: labels.music,
+    camera: labels.camera,
+    actors: labels.actors,
+  })
   const entryRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const activeEntryId = currentCommandId ?? selectedTimelineEntryId
 
@@ -252,13 +244,13 @@ export function EventTimelinePanel({
                 </div>
 
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-(--text-primary)">{getEntryPrimaryText(entry, locale)}</p>
-                  <p className="truncate text-[11px] text-(--text-secondary)">{getEntrySecondaryText(entry, locale)}</p>
+                  <p className="truncate text-sm font-medium text-(--text-primary)">{getEntryPrimaryText(entry)}</p>
+                  <p className="truncate text-[11px] text-(--text-secondary)">{getEntrySecondaryText(entry, labels.noDetail)}</p>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-semibold tracking-[0.14em] text-(--text-tertiary) uppercase">
-                    {entry.id === EVENT_SETUP_ENTRY_ID ? (locale === 'zh-CN' ? '场景' : 'Setup') : entry.kind}
+                    {entry.id === EVENT_SETUP_ENTRY_ID ? labels.setupBadge : entry.kind}
                   </span>
                   {isCurrent ? <span className="dock-chip">{labels.current}</span> : null}
                 </div>

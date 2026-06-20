@@ -44,33 +44,12 @@ function DependencyIcon({ name }: { name: string }) {
 type LauncherModDetailPanelProps = {
   open: boolean
   onClose: () => void
-  closeLabel: string
-  title: string
-  subtitle: string
-  empty: string
   mod: LauncherDetailMod | null
   remoteDetail?: LauncherDiscoverDetail | null
-  labels: {
-    currentVersion: string
-    uniqueId: string
-    path: string
-    dependencies: string
-    updateKeys: string
-    pack: string
-  }
-  noSummary: string
   onToggleEnabled: () => void
-  enableLabel: string
-  disableLabel: string
-  enabledStateLabel: string
-  disabledStateLabel: string
-  openFolderLabel: string
-  setCoverLabel: string
-  clearCoverLabel: string
   onOpenFolder: () => void
   onSetCover: () => void
   onClearCover: () => void
-  openModPageLabel?: string
   packName?: string | null
   onQueueDownload?: (input: QueueLauncherDownloadInput) => void
   remoteLoading?: boolean
@@ -80,26 +59,12 @@ type LauncherModDetailPanelProps = {
 export function LauncherModDetailPanel({
   open,
   onClose,
-  closeLabel,
-  title,
-  subtitle,
-  empty,
   mod,
   remoteDetail,
-  labels,
-  noSummary,
   onToggleEnabled,
-  enableLabel,
-  disableLabel,
-  enabledStateLabel,
-  disabledStateLabel,
-  openFolderLabel,
-  setCoverLabel,
-  clearCoverLabel,
   onOpenFolder,
   onSetCover,
   onClearCover,
-  openModPageLabel,
   packName,
   onQueueDownload,
   remoteLoading = false,
@@ -115,8 +80,8 @@ export function LauncherModDetailPanel({
   const deferDetailContent = shouldDeferDetailContent()
   const [readyContentKey, setReadyContentKey] = useState(() => (!deferDetailContent ? detailContentKey : null))
   const contentReady = !deferDetailContent || readyContentKey === detailContentKey
-  const fallbackPalette = getLauncherCardFallbackPalette(mod?.name ?? remoteDetail?.title ?? title)
-  const coverWord = getLauncherCardCoverWord(mod?.name ?? remoteDetail?.title ?? title)
+  const fallbackPalette = getLauncherCardFallbackPalette(mod?.name ?? remoteDetail?.title ?? launcherCopy.library.detailsTitle)
+  const coverWord = getLauncherCardCoverWord(mod?.name ?? remoteDetail?.title ?? launcherCopy.library.detailsTitle)
   const fetchedRemote = useLauncherRemoteModDetail(
     open && !remoteDetail && mod?.nexusModId ? mod.nexusModId : null,
     remoteFilesDeferred ? { includeFiles: false } : {},
@@ -136,8 +101,8 @@ export function LauncherModDetailPanel({
   const isLocal = Boolean(mod?.absolutePath)
   const isNexus = Boolean(remote)
   const isCombined = isLocal && isNexus
-  const overviewDescription = remote?.summary ?? mod?.description ?? noSummary
-  const fullDescription = remote?.description ?? remote?.summary ?? mod?.description ?? noSummary
+  const overviewDescription = remote?.summary ?? mod?.description ?? launcherCopy.states.noSummary
+  const fullDescription = remote?.description ?? remote?.summary ?? mod?.description ?? launcherCopy.states.noSummary
   const latestVersion = remote?.primaryFileVersion ?? remote?.version ?? null
   const updateAvailable = isCombined && hasUpdate(mod?.version, latestVersion)
   const coverStyle = {
@@ -149,8 +114,8 @@ export function LauncherModDetailPanel({
     '--launcher-cover-shadow': fallbackPalette.shadow,
   } as CSSProperties
 
-  const displayName = mod?.name ?? remote?.title ?? title
-  const displayAuthor = mod?.author ?? remote?.author ?? subtitle
+  const displayName = mod?.name ?? remote?.title ?? launcherCopy.library.detailsTitle
+  const displayAuthor = mod?.author ?? remote?.author ?? launcherCopy.library.detailsSubtitle
   const displayVersion = isCombined
     ? `${detailCopy.installedVersionShort} ${normalizeVersion(mod?.version, copy.common.none)} · ${detailCopy.nexusVersionShort} ${normalizeVersion(latestVersion, copy.common.none)}`
     : normalizeVersion(mod?.version ?? latestVersion, copy.common.none)
@@ -195,7 +160,7 @@ export function LauncherModDetailPanel({
     ? [
         { label: detailCopy.installPath, value: truncatePath(mod?.absolutePath, copy.common.none), title: mod?.absolutePath ?? undefined },
         { label: detailCopy.folder, value: mod?.folderName ?? copy.common.none, title: mod?.folderName ?? undefined },
-        { label: labels.dependencies, value: dependencyText, title: dependencyText },
+        { label: launcherCopy.fields.dependencies, value: dependencyText, title: dependencyText },
       ]
     : []
 
@@ -213,8 +178,8 @@ export function LauncherModDetailPanel({
   ]
 
   const manifestDetails: DetailRow[] = [
-    { label: labels.updateKeys, value: mod?.updateKeys?.[0] ?? '', title: mod?.updateKeys?.join(', ') },
-    { label: labels.pack, value: packName ?? '', title: packName ?? undefined },
+    { label: launcherCopy.fields.updateKeys, value: mod?.updateKeys?.[0] ?? '', title: mod?.updateKeys?.join(', ') },
+    { label: launcherCopy.library.packLabel, value: packName ?? '', title: packName ?? undefined },
   ]
 
   const nexusPageDetails: DetailRow[] = [
@@ -273,7 +238,7 @@ export function LauncherModDetailPanel({
     ? dependencyItems.slice(0, 3)
     : [
         {
-          name: labels.dependencies,
+          name: launcherCopy.fields.dependencies,
           meta: detailCopy.status,
           status: dependencyText,
           missing: Boolean(mod?.missingRequiredDependencies?.length),
@@ -381,7 +346,12 @@ export function LauncherModDetailPanel({
 
   return (
     <aside className={cx('launcher-library-drawer', open && 'launcher-library-drawer-open')}>
-      <button type="button" className="launcher-library-drawer-backdrop" aria-label={closeLabel} onClick={handleClose} />
+      <button
+        type="button"
+        className="launcher-library-drawer-backdrop"
+        aria-label={launcherCopy.actions.closeDialog}
+        onClick={handleClose}
+      />
 
       <section className="launcher-library-drawer-panel launcher-mod-detail-panel" role="dialog" aria-modal="true" aria-label={displayName}>
         {showRemoteLoading ? (
@@ -402,8 +372,8 @@ export function LauncherModDetailPanel({
               type="button"
               className="icon-button launcher-mod-detail-close-button launcher-mod-detail-shell-close-button"
               onClick={handleClose}
-              aria-label={closeLabel}
-              title={closeLabel}
+              aria-label={launcherCopy.actions.closeDialog}
+              title={launcherCopy.actions.closeDialog}
             >
               <X className="h-4 w-4" />
             </button>
@@ -415,7 +385,7 @@ export function LauncherModDetailPanel({
           </>
         ) : !mod && !remote ? (
           <div className="launcher-library-drawer-body">
-            <PanelEmptyState>{empty}</PanelEmptyState>
+            <PanelEmptyState>{launcherCopy.library.selectionEmpty}</PanelEmptyState>
           </div>
         ) : (
           <>
@@ -435,8 +405,8 @@ export function LauncherModDetailPanel({
                   type="button"
                   className="icon-button launcher-mod-detail-close-button"
                   onClick={handleClose}
-                  aria-label={closeLabel}
-                  title={closeLabel}
+                  aria-label={launcherCopy.actions.closeDialog}
+                  title={launcherCopy.actions.closeDialog}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -472,9 +442,9 @@ export function LauncherModDetailPanel({
                             type="button"
                             className={cx('launcher-mod-detail-version-state', !mod?.enabled && 'is-off')}
                             onClick={onToggleEnabled}
-                            title={mod?.enabled ? disableLabel : enableLabel}
+                            title={mod?.enabled ? launcherCopy.actions.disable : launcherCopy.actions.enable}
                           >
-                            {mod?.enabled ? enabledStateLabel : disabledStateLabel} · {dependencyText}
+                            {mod?.enabled ? launcherCopy.overview.enabledMods : launcherCopy.overview.disabledMods} · {dependencyText}
                           </button>
                         </div>
                         <div className="launcher-mod-detail-version-arrow" aria-hidden="true">
@@ -498,9 +468,9 @@ export function LauncherModDetailPanel({
                               type="button"
                               className={cx('launcher-mod-detail-version-state', !mod?.enabled && 'is-off')}
                               onClick={onToggleEnabled}
-                              title={mod?.enabled ? disableLabel : enableLabel}
+                              title={mod?.enabled ? launcherCopy.actions.disable : launcherCopy.actions.enable}
                             >
-                              {mod?.enabled ? enabledStateLabel : disabledStateLabel} · {dependencyText}
+                              {mod?.enabled ? launcherCopy.overview.enabledMods : launcherCopy.overview.disabledMods} · {dependencyText}
                             </button>
                           ) : (
                             <em>
@@ -681,8 +651,8 @@ export function LauncherModDetailPanel({
                     type="button"
                     className="icon-button"
                     onClick={() => setDescriptionReaderOpen(false)}
-                    aria-label={closeLabel}
-                    title={closeLabel}
+                    aria-label={launcherCopy.actions.closeDialog}
+                    title={launcherCopy.actions.closeDialog}
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -700,8 +670,8 @@ export function LauncherModDetailPanel({
                     type="button"
                     className="launcher-mod-detail-tool-button"
                     onClick={onOpenFolder}
-                    title={openFolderLabel}
-                    aria-label={openFolderLabel}
+                    title={launcherCopy.actions.openFolder}
+                    aria-label={launcherCopy.actions.openFolder}
                   >
                     <FolderOpen className="h-4 w-4" />
                   </button>
@@ -711,8 +681,8 @@ export function LauncherModDetailPanel({
                     type="button"
                     className="launcher-mod-detail-tool-button"
                     onClick={mod?.imageUrl ? onClearCover : onSetCover}
-                    title={mod?.imageUrl ? clearCoverLabel : setCoverLabel}
-                    aria-label={mod?.imageUrl ? clearCoverLabel : setCoverLabel}
+                    title={mod?.imageUrl ? launcherCopy.actions.clearCover : launcherCopy.actions.setCover}
+                    aria-label={mod?.imageUrl ? launcherCopy.actions.clearCover : launcherCopy.actions.setCover}
                   >
                     <ImageIcon className="h-4 w-4" />
                   </button>
@@ -722,8 +692,8 @@ export function LauncherModDetailPanel({
                     type="button"
                     className="launcher-mod-detail-tool-button"
                     onClick={openRemotePage}
-                    title={openModPageLabel ?? launcherCopy.actions.openModPage}
-                    aria-label={openModPageLabel ?? launcherCopy.actions.openModPage}
+                    title={launcherCopy.actions.openModPage}
+                    aria-label={launcherCopy.actions.openModPage}
                   >
                     <ExternalLink className="h-4 w-4" />
                   </button>
@@ -761,7 +731,7 @@ export function LauncherModDetailPanel({
                     : detailCopy.reinstall
                   : isNexus
                     ? launcherCopy.actions.queueDownload
-                    : openFolderLabel}
+                    : launcherCopy.actions.openFolder}
               </button>
             </footer>
           </>

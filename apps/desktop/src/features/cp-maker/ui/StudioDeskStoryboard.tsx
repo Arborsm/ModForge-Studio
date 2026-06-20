@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { Copy, Grid3X3, MessageSquare, PackagePlus, Plus, Trash2 } from 'lucide-react'
-import type { EditorCopy } from '@locales'
+import { useEditorCopy } from '@locales/provider'
 import type { StudioDeskInspiration, StudioDeskInspirationKind } from '../model/studioDeskModel'
 import type { DraftPatch } from '@shared/contracts'
 import type { WorkspaceId } from '@shared/contracts'
 import { formatStudioTimestamp } from '@features/cp-maker'
 
 type StudioDeskStoryboardProps = {
-  copy: EditorCopy
   inspirations: StudioDeskInspiration[]
   hasActiveDraft: boolean
   onCreateDraft: () => void
@@ -23,7 +22,6 @@ function iconFor(kind: StudioDeskInspirationKind) {
 }
 
 export function StudioDeskStoryboard({
-  copy,
   inspirations,
   hasActiveDraft,
   onCreateDraft,
@@ -31,7 +29,7 @@ export function StudioDeskStoryboard({
   onOpenPatch,
   onPreviewFocusChange,
 }: StudioDeskStoryboardProps) {
-  const desk = copy.studioDesk
+  const desk = useEditorCopy().studioDesk
   const [query, setQuery] = useState('')
   const normalizedQuery = query.trim().toLowerCase()
   const filteredInspirations = normalizedQuery

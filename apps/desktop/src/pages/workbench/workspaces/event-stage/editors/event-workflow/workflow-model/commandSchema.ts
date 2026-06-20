@@ -39,7 +39,6 @@ export interface StageMeta {
 export interface CommandSchema {
   key: string
   label: string
-  labelZh: string
   category: CommandCategory
   color: SemanticColor
   icon: string

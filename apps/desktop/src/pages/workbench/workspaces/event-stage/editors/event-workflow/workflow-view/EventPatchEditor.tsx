@@ -15,7 +15,7 @@ import {
   UserPlus,
 } from 'lucide-react'
 import type { DraftPatch, CpMakerDraft, GameDirectoryInfo } from '@shared/contracts'
-import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
+import type { EventScenarioPresetId, LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
 import { parseEventCommand, parseEventCommands, parseEventSceneSetup } from '@entities/event'
 import { loadResourceRegistry, type ResourceRegistry } from '@entities/game/api'
 import {
@@ -32,7 +32,7 @@ import { PickModeOverlay } from './PickModeOverlay'
 import { ScriptEditor } from './ScriptEditor'
 import { EventResourcePicker } from './EventResourcePicker'
 import { useEditorStore } from '../workflow-model/editorStore'
-import { useEditorCopy, useLocale } from '@locales/provider'
+import { useEditorCopy, useEventStageCopy, useLocale } from '@locales/provider'
 import { buildEventPatchHubPatches } from '@entities/event'
 import { EventConditionBuilderModal, type EventConditionBuilderResult } from './EventConditionBuilderModal'
 import { scheduleDeferred } from '@shared/lib/react'
@@ -79,11 +79,7 @@ const EMPTY_ENTRIES: Record<string, unknown> = {}
 const EVENT_LOCATIONS = ['Town', 'Beach', 'Mine', 'Forest', 'Saloon', 'Farm', 'Mountain', 'CommunityCenter'] as const
 
 type EventScenarioPreset = {
-  id: string
-  label: string
-  labelZh: string
-  description: string
-  descriptionZh: string
+  id: EventScenarioPresetId
   location: (typeof EVENT_LOCATIONS)[number]
   eventKey: string
   alias: string
@@ -95,11 +91,7 @@ type EventScenarioPreset = {
 
 const EVENT_SCENARIO_PRESETS: EventScenarioPreset[] = [
   {
-    id: 'town-market',
-    label: 'Town market introduction',
-    labelZh: '小镇集市开场',
-    description: 'Town scene with two NPCs, dialogue, movement, emotion, a reward, and a clean ending.',
-    descriptionZh: '小镇双 NPC、对话、移动、表情、奖励与收尾。',
+    id: 'townFairOpening',
     location: 'Town',
     eventKey: '900001/Season spring/Time 900 1400/Weather Sun',
     alias: 'Spring market meeting',
@@ -121,11 +113,7 @@ const EVENT_SCENARIO_PRESETS: EventScenarioPreset[] = [
     ],
   },
   {
-    id: 'beach-find',
-    label: 'Beach lost item',
-    labelZh: '海滩失物',
-    description: 'Beach item event with props, sound, player animation, head-held item, and friendship reward.',
-    descriptionZh: '海滩道具、音效、玩家动画、头顶物品与好感奖励。',
+    id: 'beachLostItem',
     location: 'Beach',
     eventKey: '900002/Season summer/Time 1200 1800',
     alias: 'Lost shell on the pier',
@@ -147,11 +135,7 @@ const EVENT_SCENARIO_PRESETS: EventScenarioPreset[] = [
     ],
   },
   {
-    id: 'mine-rescue',
-    label: 'Mine rescue branch',
-    labelZh: '矿井救援分支',
-    description: 'Mine scene with temporary actor, movement path, animation, sound, shake, choice, and branch hook.',
-    descriptionZh: '矿井临时角色、路径、动画、音效、震屏、选择与分支。',
+    id: 'mineRescueBranch',
     location: 'Mine',
     eventKey: '900003/PlayerGender male female/MailReceived guildMember',
     alias: 'Lantern in the dark',
@@ -274,8 +258,9 @@ function rgbaFromHex(value: string, alpha: number) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
-function getEventComposerCopy(locale: LocaleCode | undefined) {
+function getEventComposerCopy(locale: LocaleCode | undefined, workflowCopy: ReturnType<typeof useEventStageCopy>['workflow']) {
   const zh = locale !== 'en-US'
+  const presets = workflowCopy.presets
   return {
     addEvent: zh ? '新建事件' : 'New event',
     searchEvent: zh ? '搜索事件' : 'Search events',
@@ -295,8 +280,8 @@ function getEventComposerCopy(locale: LocaleCode | undefined) {
     pick: zh ? '拾取' : 'Pick',
     pickCamera: zh ? '拾取镜头位置' : 'Pick camera position',
     commandCountShort: (count: number) => (zh ? `${count} 命令` : `${count} commands`),
-    presetLabel: (preset: EventScenarioPreset) => (zh ? preset.labelZh : preset.label),
-    presetDescription: (preset: EventScenarioPreset) => (zh ? preset.descriptionZh : preset.description),
+    presetLabel: (preset: EventScenarioPreset) => presets[preset.id].label,
+    presetDescription: (preset: EventScenarioPreset) => presets[preset.id].description,
     pathPointHint: (count: number) => (zh ? `已选择 ${count} 个路径点。` : `${count} path points selected.`),
     pathPickHint: zh ? '点击地图格子创建移动路径。' : 'Click map tiles to build the movement path.',
     coordinatePickHint: zh ? '点击地图选择坐标。' : 'Click the map to choose coordinates.',
@@ -673,7 +658,8 @@ function EventsEditor({
   onSaveDraft?: () => void
   isDirty: boolean
 }) {
-  const copy = getEventComposerCopy(locale)
+  const workflowCopy = useEventStageCopy().workflow
+  const copy = getEventComposerCopy(locale, workflowCopy)
   const selectedEntry = selectedKey ? (entries[selectedKey] ?? null) : null
   const selectedEntryString = typeof selectedEntry === 'string' ? selectedEntry : null
   const [pickingActorIndex, setPickingActorIndex] = useState<number | null>(null)
@@ -779,9 +765,18 @@ function EventsEditor({
         globalRegistry: globalResourceRegistry,
         itemCatalog: itemCatalogState.entries,
         itemTexturesByAssetName: itemCatalogState.texturesByAssetName,
-        locale: locale ?? 'zh-CN',
+        sourceLabels: workflowCopy.resourceSources,
       }),
-    [actorAssetPreviews, draftPatches, entries, eventLocations, globalResourceRegistry, itemCatalogState, locale, patch],
+    [
+      actorAssetPreviews,
+      draftPatches,
+      entries,
+      eventLocations,
+      globalResourceRegistry,
+      itemCatalogState,
+      patch,
+      workflowCopy.resourceSources,
+    ],
   )
 
   useEffect(() => {
@@ -1317,7 +1312,8 @@ function ComposerSceneStrip({
   onSceneChange: (scene: EventSceneSetup) => void
   resourceRegistry: EventResourceRegistry
 }) {
-  const copy = getEventComposerCopy(locale)
+  const workflowCopy = useEventStageCopy().workflow
+  const copy = getEventComposerCopy(locale, workflowCopy)
   const musicLabel = copy.music
   const actorLabel = copy.actor
   const pickLabel = copy.pick

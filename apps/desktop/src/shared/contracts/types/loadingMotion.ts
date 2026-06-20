@@ -28,16 +28,7 @@ export type LoadingMotionStage = 'idle' | 'entering' | 'loading' | 'ready' | 'ex
 /*  Style identifiers                                                  */
 /* ------------------------------------------------------------------ */
 
-/**
- * Stable internal id for each motion style.
- *
- * Maps to product-facing labels:
- * - `bounceIn`  → `跳动出现`
- * - `layeredFadeIn` → `层叠浮现`
- * - `slideInPush` → `滑入推进`
- * - `softFadeIn` → `柔和淡入`
- * - `quietSimplify` → `静默简化`
- */
+/** Stable internal id for each motion style. */
 export type LoadingMotionStyleId = 'bounceIn' | 'layeredFadeIn' | 'slideInPush' | 'softFadeIn' | 'quietSimplify'
 
 /** All valid style ids in a stable array (deterministic iteration order). */
@@ -47,22 +38,6 @@ export const LOADING_MOTION_STYLE_IDS: LoadingMotionStyleId[] = [
   'slideInPush',
   'softFadeIn',
   'quietSimplify',
-] as const
-
-/** Product-facing label metadata for each style id. */
-export type LoadingMotionStyleLabelEntry = {
-  id: LoadingMotionStyleId
-  labelZh: string
-  labelEn: string
-}
-
-/** Stable label mapping data — used by settings UI in Phase 2. */
-export const LOADING_MOTION_STYLE_LABELS: LoadingMotionStyleLabelEntry[] = [
-  { id: 'bounceIn', labelZh: '跳动出现', labelEn: 'Bounce In' },
-  { id: 'layeredFadeIn', labelZh: '层叠浮现', labelEn: 'Layered Fade' },
-  { id: 'slideInPush', labelZh: '滑入推进', labelEn: 'Slide In' },
-  { id: 'softFadeIn', labelZh: '柔和淡入', labelEn: 'Soft Fade' },
-  { id: 'quietSimplify', labelZh: '静默简化', labelEn: 'Quiet' },
 ] as const
 
 /* ------------------------------------------------------------------ */
@@ -81,18 +56,6 @@ export type LoadingMotionIntensityId = 'light' | 'standard' | 'strong'
 /** All valid intensity ids in a stable array. */
 export const LOADING_MOTION_INTENSITY_IDS: LoadingMotionIntensityId[] = ['light', 'standard', 'strong'] as const
 
-export type LoadingMotionIntensityLabelEntry = {
-  id: LoadingMotionIntensityId
-  labelZh: string
-  labelEn: string
-}
-
-export const LOADING_MOTION_INTENSITY_LABELS: LoadingMotionIntensityLabelEntry[] = [
-  { id: 'light', labelZh: '轻', labelEn: 'Light' },
-  { id: 'standard', labelZh: '标准', labelEn: 'Standard' },
-  { id: 'strong', labelZh: '强', labelEn: 'Strong' },
-] as const
-
 /* ------------------------------------------------------------------ */
 /*  Speed identifiers                                                 */
 /* ------------------------------------------------------------------ */
@@ -102,18 +65,6 @@ export type LoadingMotionSpeedId = 'slow' | 'standard' | 'fast'
 export type LoadingMotionSpeedMode = 'preset' | 'custom'
 
 export const LOADING_MOTION_SPEED_IDS: LoadingMotionSpeedId[] = ['slow', 'standard', 'fast'] as const
-
-export type LoadingMotionSpeedLabelEntry = {
-  id: LoadingMotionSpeedId
-  labelZh: string
-  labelEn: string
-}
-
-export const LOADING_MOTION_SPEED_LABELS: LoadingMotionSpeedLabelEntry[] = [
-  { id: 'slow', labelZh: '慢', labelEn: 'Slow' },
-  { id: 'standard', labelZh: '标准', labelEn: 'Standard' },
-  { id: 'fast', labelZh: '快', labelEn: 'Fast' },
-] as const
 
 /* ------------------------------------------------------------------ */
 /*  Preference and resolved config                                     */

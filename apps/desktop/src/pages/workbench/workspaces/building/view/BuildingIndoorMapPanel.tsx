@@ -61,7 +61,6 @@ export function BuildingIndoorMapPanel(props: BuildingIndoorMapPanelProps) {
               mapDocument={props.activeIndoorMapDocument}
               visibleLayerIds={props.indoorVisibleLayerIds}
               visibleObjectGroupIds={props.indoorVisibleObjectGroupIds}
-              labels={props.viewportLabels}
               theme={props.theme}
               accentColor={props.accentColor}
               showGrid={props.showGrid}

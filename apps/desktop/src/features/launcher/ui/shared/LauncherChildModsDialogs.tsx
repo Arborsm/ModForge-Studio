@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import type { LauncherLibraryItem } from '@features/launcher/model/types'
+import { useEditorCopy } from '@locales/provider'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 export type LauncherChildModManagerState = {
@@ -7,17 +8,8 @@ export type LauncherChildModManagerState = {
   childMods: LauncherLibraryItem[]
 }
 
-type LauncherChildModsDialogLabels = {
-  cancelEdit: string
-  manageChildMods: string
-  parentModLabel: (name: string) => string
-  removeFromParent: string
-  closeDialog: string
-}
-
 type LauncherChildModsDialogsProps = {
   manager: LauncherChildModManagerState | null
-  labels: LauncherChildModsDialogLabels
   onCloseManager: () => void
   onRemoveChild: (modId: string) => void
   onManagerChildrenChange: (childMods: LauncherLibraryItem[]) => void
@@ -26,11 +18,17 @@ type LauncherChildModsDialogsProps = {
 /** Renders launcher child-mod picker and manager dialogs owned by the launcher feature UI. */
 export function LauncherChildModsDialogs({
   manager,
-  labels,
   onCloseManager,
   onRemoveChild,
   onManagerChildrenChange,
 }: LauncherChildModsDialogsProps) {
+  const copy = useEditorCopy().launcher
+  const labels = {
+    manageChildMods: copy.library.manageChildMods,
+    parentModLabel: copy.library.parentModLabel,
+    removeFromParent: copy.library.removeFromParent,
+    closeDialog: copy.actions.closeDialog,
+  }
   const titleId = useId()
 
   return (

@@ -1,11 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { useId } from 'react'
-import type { EditorCopy } from '@locales'
+import { useEditorCopy } from '@locales/provider'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 interface CreateDraftDialogProps {
   open: boolean
-  copy: EditorCopy['studioDesk']['createDialog']
   onClose: () => void
   onCreate: (metadata: {
     projectName: string
@@ -16,7 +15,8 @@ interface CreateDraftDialogProps {
   }) => void
 }
 
-export function CreateDraftDialog({ open, copy, onClose, onCreate }: CreateDraftDialogProps) {
+export function CreateDraftDialog({ open, onClose, onCreate }: CreateDraftDialogProps) {
+  const copy = useEditorCopy().studioDesk.createDialog
   const titleId = useId()
   const [form, setForm] = useState({
     projectName: '',

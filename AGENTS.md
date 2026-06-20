@@ -71,6 +71,10 @@ MODFORGE_COMMAND_TRACE=1 vp run dev
 - 配色必须走 `tokens.css` 暴露的主题变量；禁止写死 `#fff`、`#xxxxxx`、`rgba()` 或在 `color-mix` 里混入字面白/黑。非主题装饰、封面/分类标识和低 alpha 高光例外。
 - 主题是 `[data-theme]` + `.dark` 正交；新增/调整颜色只改 `tokens.css` 源 token，不要用零散 `.dark` 覆盖补丁。
 - 公共 API 必须有简洁 JSDoc，说明用途、边界、缓存或副作用，不复述实现。
+- Props 是组件的最小必要接口：父组件只传业务数据、业务上下文和业务回调。
+- locale 文案用 `@locales/provider` typed hooks 自消费；禁止透传 copy / labels 对象或纯静态 `*Label` / `*Description` 字段。
+- 响应式用户偏好统一走 zustand preferences store；禁止组件层用散装 `useState` 镜像偏好，禁止为单类偏好新增独立 Provider。
+- 重复结构归一为配置数组或子对象，不要逐项平铺成同类 props。
 
 ## 后端硬规则
 
@@ -102,6 +106,7 @@ MODFORGE_COMMAND_TRACE=1 vp run dev
 - 前端改动最终至少说明 `vp run lint`、`vp run build`、`vp run --filter @modforge/desktop test` 是否已跑；未跑要说明原因。
 - Rust 改动先跑 `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`，再跑对应 `cargo check` 或 `cargo test`。
 - 架构迁移必须补充或更新架构测试，覆盖依赖方向、平台 API 泄漏、旧根目录回归、feature 横向依赖和实体层 UI 类型污染。
+- 删除 locale 行为级测试后，必须用架构测试静态扫描替代护栏：禁 copy / labels props，禁生产代码直接 import imperative locale getter。
 - UI/布局变更需要截图、Playwright 验证脚本或明确手动路径证明；不要只凭静态阅读宣布完成。
 - 测试应覆盖当前真实需求、已确认 bug 和合理相邻回归；不要为了“防止未来有人把行为改回来”添加透支未来的投机断言。
 

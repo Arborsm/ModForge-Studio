@@ -10,31 +10,20 @@ export type EventTimelineEntry = {
   command: EventCommand | null
 }
 
+export type EventTimelineLabels = {
+  setup: string
+  music: string
+  camera: string
+  actors: string
+}
+
 export type EventTimelineBeat = {
   id: string
   primaryEntry: EventTimelineEntry
   supportingEntries: EventTimelineEntry[]
 }
 
-export function buildEventTimelineLabels(locale: 'zh-CN' | 'en-US') {
-  return locale === 'zh-CN'
-    ? {
-        setup: '场景初始化',
-        music: '音乐',
-        camera: '镜头',
-        actors: '角色',
-      }
-    : {
-        setup: 'Scene Setup',
-        music: 'Music',
-        camera: 'Camera',
-        actors: 'Actors',
-      }
-}
-
-export function buildEventSceneSummary(event: EventScript, locale: 'zh-CN' | 'en-US') {
-  const labels = buildEventTimelineLabels(locale)
-
+export function buildEventSceneSummary(event: EventScript, labels: EventTimelineLabels) {
   return [
     `${labels.music}: ${event.scene.musicCue ?? 'none'}`,
     `${labels.camera}: ${event.scene.cameraInstruction ?? 'follow'}`,
@@ -42,7 +31,7 @@ export function buildEventSceneSummary(event: EventScript, locale: 'zh-CN' | 'en
   ].join(' | ')
 }
 
-export function buildEventTimelineEntries(event: EventScript | null, locale: 'zh-CN' | 'en-US'): EventTimelineEntry[] {
+export function buildEventTimelineEntries(event: EventScript | null, labels: EventTimelineLabels): EventTimelineEntry[] {
   if (!event) {
     return []
   }
@@ -50,8 +39,8 @@ export function buildEventTimelineEntries(event: EventScript | null, locale: 'zh
   return [
     {
       id: EVENT_SETUP_ENTRY_ID,
-      title: buildEventTimelineLabels(locale).setup,
-      detail: buildEventSceneSummary(event, locale),
+      title: labels.setup,
+      detail: buildEventSceneSummary(event, labels),
       kind: 'setup',
       command: null,
     },
@@ -86,8 +75,8 @@ function isPrimaryTimelineEntry(entry: EventTimelineEntry) {
   return false
 }
 
-export function buildEventTimelineBeats(event: EventScript | null, locale: 'zh-CN' | 'en-US'): EventTimelineBeat[] {
-  const entries = buildEventTimelineEntries(event, locale)
+export function buildEventTimelineBeats(event: EventScript | null, labels: EventTimelineLabels): EventTimelineBeat[] {
+  const entries = buildEventTimelineEntries(event, labels)
   if (entries.length === 0) {
     return []
   }

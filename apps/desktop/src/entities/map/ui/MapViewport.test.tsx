@@ -2,29 +2,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vite-plus/test'
 import { vi } from 'vite-plus/test'
 import type { MapDocument } from '@shared/contracts'
-import type { ViewportLabels } from '@locales/api'
 import { MapViewport } from './MapViewport'
-
-const labels: ViewportLabels = {
-  loadPrompt: 'Load a map',
-  zoomOut: 'Zoom out',
-  oneToOne: '1:1',
-  fit: 'Fit',
-  zoomIn: 'Zoom in',
-  fitMap: 'Fit map',
-  setOneToOne: 'Set 1:1',
-  centerView: 'Center view',
-  resetPan: 'Reset pan',
-  addObjectHere: 'Add object here',
-  inspectHover: 'Inspect hover',
-  unavailable: 'Unavailable',
-  tilesLabel: 'Tiles',
-  tilesetsLoadedLabel: (loaded, total) => `${loaded}/${total} tilesets`,
-  layersVisibleLabel: (visible, total) => `${visible}/${total} layers`,
-  objectGroupsVisibleLabel: (visible, total) => `${visible}/${total} object groups`,
-  zoomLabel: (zoom) => `${Math.round(zoom * 100)}%`,
-  failedToLoadTilesetImage: (path) => `Failed to load ${path}`,
-}
 
 beforeEach(() => {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
@@ -110,7 +88,6 @@ function renderViewport(onTileClick = vi.fn()) {
       mapDocument={createMapDocument()}
       visibleLayerIds={[1]}
       visibleObjectGroupIds={[]}
-      labels={labels}
       theme="dark"
       accentColor="#3b82f6"
       showGrid

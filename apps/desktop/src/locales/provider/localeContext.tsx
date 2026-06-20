@@ -1,8 +1,7 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
+import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { localeBundles } from '../dictionaries'
 import type { LocaleCode } from '../model'
-
-const LocaleContext = createContext<LocaleCode | null>(null)
 
 type LocaleProviderProps = {
   locale: LocaleCode
@@ -10,16 +9,21 @@ type LocaleProviderProps = {
 }
 
 export function LocaleProvider({ locale, children }: LocaleProviderProps) {
-  return <LocaleContext.Provider value={locale}>{children}</LocaleContext.Provider>
+  const setLocale = usePreferencesStore((state) => state.setLocale)
+
+  useEffect(() => {
+    setLocale(locale)
+  }, [locale, setLocale])
+
+  return <>{children}</>
 }
 
 export function useLocale(): LocaleCode {
-  const locale = useContext(LocaleContext)
-  if (!locale) {
-    throw new Error('useLocale must be used within LocaleProvider')
-  }
+  return usePreferencesStore((state) => state.locale)
+}
 
-  return locale
+export function useSetLocale() {
+  return usePreferencesStore((state) => state.setLocale)
 }
 
 export function useLocaleBundle() {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { Dispatch, RefObject, SetStateAction } from 'react'
 import { localeBundles } from '@locales'
 import { type LocaleCode, type ThemeMode, type WorkspaceMode } from '@locales/api'
+import { useModWorkspaceCopy } from '@locales/provider'
 import { ModWorkspaceDecisionDialogs, useModWorkspace } from '../workspaces/mod'
 import type { ModI18nStatusFilter } from '../workspaces/mod-i18n'
 import { buildWorkspacePanels } from '../model/workspace-panels/buildWorkspacePanels'
@@ -73,9 +74,9 @@ export function WorkbenchModPreviewRuntime({
   onPersistStateChange,
   onLayoutMetaChange,
 }: WorkbenchModPreviewRuntimeProps) {
+  const modWorkspaceCopy = useModWorkspaceCopy()
   const modWorkspace = useModWorkspace({
     directoryInfo,
-    locale,
   })
   const modI18nCopy = localeBundles[locale].modI18n
   const requestUnsavedChangeDecisionRef = useRef(modWorkspace.requestUnsavedChangeDecision)
@@ -154,6 +155,7 @@ export function WorkbenchModPreviewRuntime({
       buildWorkspacePanels({
         ...createPreviewPanelDefaults({
           copy,
+          modWorkspaceCopy,
           locale,
           workspaceMode,
           directoryInfo,

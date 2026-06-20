@@ -530,7 +530,6 @@ export default function EventStageWorkspace({
             mapDocument={mapDocument}
             visibleLayerIds={visibleLayerIds}
             visibleObjectGroupIds={visibleObjectGroupIds}
-            labels={viewportLabels}
             theme={theme}
             accentColor={accentColor}
             showGrid={showGrid}
@@ -588,16 +587,6 @@ export default function EventStageWorkspace({
             canPlay={Boolean(selectedEvent)}
             showGrid={showGrid}
             showPaths={showMapPaths}
-            labels={{
-              ariaLabel: labels.scene,
-              step: labels.step,
-              play: labels.play,
-              pause: labels.pause,
-              reset: labels.reset,
-              resetView: viewportLabels.fitMap,
-              toggleGrid: labels.toggleGrid,
-              togglePaths: labels.showPathsLayer,
-            }}
             gridDisabled={!mapDocument}
             pathsDisabled={!mapDocument}
             onStep={playNextFrame}

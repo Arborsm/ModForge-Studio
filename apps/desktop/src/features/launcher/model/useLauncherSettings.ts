@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { SetStateAction } from 'react'
+import { useEditorCopy } from '@locales/provider'
 import { useLauncherPort } from './launcherPortContext'
 import type { LauncherSettings } from './launcherContracts'
-import { getLauncherCopy, type LocaleCode } from '@locales/api'
 import { reportAppEvent } from '@shared/lib/observability'
 import type { LauncherViewState } from './types'
 
@@ -84,13 +84,9 @@ function launcherSettingsEqual(left: LauncherSettings | null, right: LauncherSet
   )
 }
 
-type UseLauncherSettingsOptions = {
-  locale?: LocaleCode
-}
-
-export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOptions = {}) {
+export function useLauncherSettings() {
   const launcherPort = useLauncherPort()
-  const launcherCopy = getLauncherCopy(locale)
+  const launcherCopy = useEditorCopy().launcher
   const [settings, setSettingsState] = useState<LauncherSettings>(DEFAULT_SETTINGS)
   const [state, setState] = useState<LauncherViewState>('idle')
   const [error, setError] = useState<string | null>(null)

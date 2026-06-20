@@ -68,22 +68,10 @@ import type { EventCommand } from '@entities/event'
 import { getSchema } from '../workflow-model/commandSchemaRegistry'
 import { renderTemplate, type RenderedNode } from '../workflow-model/templateRenderer'
 import { ParamPill } from './ParamPill'
-import type { ScriptEditorCopy } from './ScriptEditor'
 import type { UIControlType } from '../workflow-model/commandSchema'
 import type { EventResourceRegistry } from './eventResourceRegistry'
 import { formatInlineDelay, type InlineDelayCandidate } from '../workflow-model/commandInlineDelay'
-
-const CATEGORY_LABELS: Record<string, string> = {
-  dialogue: '对话',
-  movement: '移动',
-  visual: '视觉',
-  audio: '音频',
-  logic: '逻辑',
-  scene: '场景',
-  item: '物品',
-  animation: '动画',
-  other: '其他',
-}
+import type { EventWorkflowCommandKey, EventWorkflowCopy, ScriptEditorCopy } from '@locales/api'
 
 const BEAT_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   AlertTriangle,
@@ -167,6 +155,7 @@ export type ScriptCardProps = {
   cardView?: 'compact' | 'comfortable'
   locale?: 'zh-CN' | 'en-US'
   copy: ScriptEditorCopy
+  workflowCopy: EventWorkflowCopy
   resourceRegistry?: EventResourceRegistry
   inlineDelay?: InlineDelayCandidate | null
   onSelect?: () => void
@@ -198,6 +187,7 @@ export function ScriptCard({
   cardView = 'comfortable',
   locale = 'zh-CN',
   copy,
+  workflowCopy,
   resourceRegistry,
   inlineDelay = null,
   onSelect,
@@ -217,7 +207,8 @@ export function ScriptCard({
     return renderTemplate(schema, command.args, locale)
   }, [schema, command.args, locale])
 
-  const categoryLabel = schema ? (CATEGORY_LABELS[schema.category] ?? schema.category) : command.kind
+  const commandLabel = schema ? (workflowCopy.commandLabels[schema.key as EventWorkflowCommandKey] ?? schema.key) : command.kind
+  const categoryLabel = schema ? (workflowCopy.categoryLabels[schema.category] ?? schema.category) : command.kind
   const Icon = schema ? (BEAT_ICONS[schema.icon] ?? CATEGORY_FALLBACK_ICONS[schema.category] ?? CircleDot) : CircleDot
   const dialogueTextNode = nodes?.find((node): node is ParamNode => isParamNode(node) && node.control === 'textarea') ?? null
   const actorNode = nodes?.find((node): node is ParamNode => isParamNode(node) && node.control === 'npc_selector') ?? null
@@ -345,7 +336,7 @@ export function ScriptCard({
     }
     return (
       <>
-        <span className="mr-0.5 text-xs font-medium text-(--text-tertiary)">[{schema?.labelZh ?? categoryLabel}]</span>
+        <span className="mr-0.5 text-xs font-medium text-(--text-tertiary)">[{schema ? commandLabel : categoryLabel}]</span>
         {renderTemplateNodes(new Set([dialogueTextNode?.index ?? -1]))}
       </>
     )
@@ -371,7 +362,7 @@ export function ScriptCard({
             type="button"
             className="cmd-grip"
             onClick={(event) => event.stopPropagation()}
-            title="拖动排序"
+            title={copy.dragToSort}
             {...(dragHandleProps as React.ButtonHTMLAttributes<HTMLButtonElement>)}
           >
             <GripVertical className="h-3.5 w-3.5" />
@@ -384,18 +375,12 @@ export function ScriptCard({
           <Icon className="h-4 w-4 stroke-[1.5]" />
         </span>
         <span className="cmd-body" onClick={handleInteractiveContentClick}>
-          {schema?.key === 'viewport' ? <span className="cmd-label">[视角]</span> : null}
+          {schema?.key === 'viewport' ? <span className="cmd-label">[{copy.viewportShortLabel}]</span> : null}
           {isDialogueCard ? renderDialogueHeader() : renderTemplateNodes()}
         </span>
         <span className="cmd-tail">
           {inlineDelay ? (
-            <InlineDelayControl
-              delay={inlineDelay}
-              copy={copy}
-              locale={locale}
-              onSetDelay={onSetInlineDelay}
-              onRemoveDelay={onRemoveInlineDelay}
-            />
+            <InlineDelayControl delay={inlineDelay} copy={copy} onSetDelay={onSetInlineDelay} onRemoveDelay={onRemoveInlineDelay} />
           ) : null}
           <span className="cmd-actions">
             {onPlayFromHere && (
@@ -483,23 +468,18 @@ function isPickControl(control: UIControlType): control is 'tile_picker' | 'npc_
 function InlineDelayControl({
   delay,
   copy,
-  locale,
   onSetDelay,
   onRemoveDelay,
 }: {
   delay: InlineDelayCandidate
   copy: ScriptEditorCopy
-  locale: 'zh-CN' | 'en-US'
   onSetDelay?: (pauseCommandIndex: number | null, valueMs: number) => void
   onRemoveDelay?: (pauseCommandIndex: number) => void
 }) {
   const [editing, setEditing] = useState(false)
   const hasPause = delay.pauseCommandIndex != null
   const label = delay.kind === 'step' ? copy.delayStep : delay.kind === 'hold' ? copy.delayHold : copy.delayGeneric
-  const addLabel =
-    locale === 'zh-CN'
-      ? `+ ${label} ${formatInlineDelay(delay.defaultMs)}`
-      : `+ ${label.toLowerCase()} ${formatInlineDelay(delay.defaultMs)}`
+  const addLabel = copy.addDelay(label, formatInlineDelay(delay.defaultMs))
 
   if (!hasPause) {
     return (

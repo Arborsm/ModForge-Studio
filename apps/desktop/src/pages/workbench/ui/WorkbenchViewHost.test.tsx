@@ -1,7 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vite-plus/test'
-import { editorCopy } from '@locales/api'
 import type { WorkbenchViewRegistration } from '@shared/contracts'
+import { renderWithLocale } from '@test/renderWithLocale'
 import { WorkbenchViewHost } from './WorkbenchViewHost'
 
 function renderHost(editModeView: WorkbenchViewRegistration, overrides: Partial<Parameters<typeof WorkbenchViewHost>[0]> = {}) {
@@ -21,11 +21,10 @@ function renderHost(editModeView: WorkbenchViewRegistration, overrides: Partial<
     return true
   })
 
-  return render(
+  return renderWithLocale(
     <WorkbenchViewHost
       editModeView={editModeView}
       workspaceMode="map"
-      copy={editorCopy['en-US']}
       locale="en-US"
       theme="dark"
       accentColor="#22c55e"

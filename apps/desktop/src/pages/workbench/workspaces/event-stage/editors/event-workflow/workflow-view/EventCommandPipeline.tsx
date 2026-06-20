@@ -32,6 +32,7 @@ import {
 import type { EventCommand, EventCommandKind } from '@entities/event'
 import { getCommandSummary } from '../workflow-model/commandSummary'
 import { cx } from '@shared/lib/cx'
+import { useEventStageCopy } from '@locales/provider'
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   ArrowRightLeft,
@@ -240,12 +241,8 @@ export function EventCommandPipeline({
   onChange,
   onDelete,
   onInsertAfter,
-  locale,
 }: EventCommandPipelineProps) {
-  const labels =
-    locale === 'zh-CN'
-      ? { empty: '这个事件还没有命令', addHint: '从下方选择一个常用命令开始', quickAdd: '快捷添加' }
-      : { empty: 'No commands yet', addHint: 'Pick a common command below to start', quickAdd: 'Quick Add' }
+  const labels = useEventStageCopy().workflow.commandPipeline
 
   const containerRef = useRef<HTMLDivElement>(null)
 

@@ -619,7 +619,6 @@ function MapTilesEditor({
   locale,
   theme,
   accentColor,
-  viewportLabels,
   gameRootPath,
   onBuildAsset,
   mapTiles,
@@ -681,7 +680,6 @@ function MapTilesEditor({
           mapDocument={mapDocument}
           visibleLayerIds={visibleLayerIds}
           visibleObjectGroupIds={[]}
-          labels={viewportLabels}
           theme={theme}
           accentColor={accentColor}
           showGrid={true}

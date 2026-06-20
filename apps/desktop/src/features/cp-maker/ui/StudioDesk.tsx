@@ -1,6 +1,6 @@
 import { useCallback, useState, type PointerEvent } from 'react'
 import { BookOpen, MoreHorizontal } from 'lucide-react'
-import type { EditorCopy } from '@locales'
+import { useEditorCopy } from '@locales/provider'
 import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@shared/contracts'
 import type { StudioDeskInspiration, StudioDeskModel } from '../model/studioDeskModel'
 import { cx } from '@shared/lib/cx'
@@ -20,7 +20,6 @@ type CreateDraftMetadata = Pick<
 
 export type StudioDeskProps = {
   model: StudioDeskModel
-  copy: EditorCopy
   onCreateDraft: (metadata: CreateDraftMetadata) => void | Promise<void>
   onImportDraft: () => void | Promise<void>
   onCreatePatch: (action: DraftPatch['action'], workspace: WorkspaceId) => void
@@ -39,7 +38,6 @@ export type StudioDeskProps = {
 
 export function StudioDesk({
   model,
-  copy,
   onCreateDraft,
   onImportDraft,
   onCreatePatch,
@@ -55,6 +53,7 @@ export function StudioDesk({
   onGalleryOpenChange,
   createDialogOpenSignal,
 }: StudioDeskProps) {
+  const copy = useEditorCopy()
   const [localGalleryOpen, setLocalGalleryOpen] = useState(true)
   const [createDialogState, setCreateDialogState] = useState(() => ({
     open: false,
@@ -128,7 +127,6 @@ export function StudioDesk({
       {galleryOpen ? (
         <StudioDeskProjectGallery
           model={model}
-          copy={copy}
           onCreateDraftRequest={openCreateDialog}
           onImportDraftRequest={onImportDraft}
           onOpenDraft={(draftStorageKey) => {
@@ -200,7 +198,6 @@ export function StudioDesk({
             />
           ) : null}
           <StudioDeskStoryboard
-            copy={copy}
             inspirations={model.recentInspirations}
             hasActiveDraft={model.hasActiveDraft}
             onCreateDraft={openCreateDialog}
@@ -209,7 +206,6 @@ export function StudioDesk({
             onPreviewFocusChange={setPreviewFocus}
           />
           <StudioDeskMainStage
-            copy={copy}
             model={model}
             previewFocus={previewFocus}
             onCreateDraft={openCreateDialog}
@@ -218,7 +214,6 @@ export function StudioDesk({
           <StudioDeskWorldBible
             id={worldBibleId}
             className={cx(worldBibleOpen && 'studio-world-bible-open')}
-            copy={copy}
             bible={model.worldBible}
             exportSummary={model.exportSummary}
             isLoading={isLoading}
@@ -230,7 +225,6 @@ export function StudioDesk({
 
       <CreateDraftDialog
         open={createOpen}
-        copy={desk.createDialog}
         onClose={closeCreateDialog}
         onCreate={(metadata) => {
           closeCreateDialog()
@@ -240,7 +234,6 @@ export function StudioDesk({
       />
       <ProjectPropertiesDialog
         open={propertiesOpen}
-        copy={desk}
         metadata={{
           projectName: model.projectName,
           projectDescription: model.projectDescription,
@@ -253,7 +246,6 @@ export function StudioDesk({
       />
       <ExportDialog
         open={exportOpen}
-        copy={desk.exportDialog}
         draftName={model.projectName || desk.noActiveDraftTitle}
         fileList={model.exportSummary.fileList}
         onClose={() => setExportOpen(false)}

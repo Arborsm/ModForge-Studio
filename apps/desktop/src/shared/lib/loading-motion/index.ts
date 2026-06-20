@@ -17,9 +17,6 @@ import {
   LOADING_MOTION_STYLE_IDS,
   LOADING_MOTION_INTENSITY_IDS,
   LOADING_MOTION_SPEED_IDS,
-  LOADING_MOTION_STYLE_LABELS,
-  LOADING_MOTION_INTENSITY_LABELS,
-  LOADING_MOTION_SPEED_LABELS,
 } from '@shared/contracts/types/loadingMotion'
 
 /* ------------------------------------------------------------------ */
@@ -223,41 +220,4 @@ export function validateAnchors(declaration: PageAnchorDeclaration): AnchorValid
     valid: true,
     anchors: declaration.anchorIds,
   }
-}
-
-/* ------------------------------------------------------------------ */
-/*  Product label lookup                                               */
-/* ------------------------------------------------------------------ */
-
-/**
- * Look up the product-facing label for a style id.
- * Returns the id itself as a fallback if the id is unknown.
- */
-export function getStyleLabel(id: LoadingMotionStyleId, locale: 'zh-CN' | 'en-US'): string {
-  const entry = LOADING_MOTION_STYLE_LABELS.find((e) => e.id === id)
-  if (!entry) {
-    return id
-  }
-  return locale === 'zh-CN' ? entry.labelZh : entry.labelEn
-}
-
-/**
- * Look up the product-facing label for an intensity id.
- * Returns the id itself as a fallback if the id is unknown.
- */
-export function getIntensityLabel(id: LoadingMotionIntensityId, locale: 'zh-CN' | 'en-US'): string {
-  const entry = LOADING_MOTION_INTENSITY_LABELS.find((e) => e.id === id)
-  if (!entry) {
-    return id
-  }
-  return locale === 'zh-CN' ? entry.labelZh : entry.labelEn
-}
-
-/** Looks up the product-facing label for a loading motion speed id. */
-export function getSpeedLabel(id: LoadingMotionSpeedId, locale: 'zh-CN' | 'en-US'): string {
-  const entry = LOADING_MOTION_SPEED_LABELS.find((e) => e.id === id)
-  if (!entry) {
-    return id
-  }
-  return locale === 'zh-CN' ? entry.labelZh : entry.labelEn
 }

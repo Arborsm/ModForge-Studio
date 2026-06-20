@@ -1,6 +1,6 @@
 import { AlertTriangle, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Filter, LayoutGrid, RefreshCw, Search } from 'lucide-react'
 import { createPortal } from 'react-dom'
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
@@ -517,23 +517,13 @@ function mergeDiscoverRemoteDetail(item: DiscoverItem, detail: LauncherDiscoverD
 
 function LauncherDiscoverDetailPanel({
   item,
-  detailLabels,
   onClose,
   onQueueDownload,
 }: {
   item: DiscoverItem
-  detailLabels: {
-    currentVersion: string
-    uniqueId: string
-    path: string
-    dependencies: string
-    updateKeys: string
-    pack: string
-  }
   onClose: () => void
   onQueueDownload: (input: QueueLauncherDownloadInput) => void
 }) {
-  const copy = useEditorCopy().launcher
   const remoteDetail = useLauncherRemoteModDetail(item.modId, { includeFiles: false })
   const fallbackDetail = createDiscoverRemoteDetail(item)
   const displayedDetail = remoteDetail.detail ? mergeDiscoverRemoteDetail(item, remoteDetail.detail) : fallbackDetail
@@ -542,28 +532,14 @@ function LauncherDiscoverDetailPanel({
     <LauncherModDetailPanel
       open={true}
       onClose={onClose}
-      closeLabel={copy.actions.closeDialog}
-      title={copy.library.detailsTitle}
-      subtitle={copy.library.detailsSubtitle}
-      empty={copy.library.selectionEmpty}
       mod={null}
       remoteDetail={displayedDetail}
       remoteFilesDeferred={true}
       remoteLoading={remoteDetail.state === 'loading'}
-      labels={detailLabels}
-      noSummary={copy.states.noSummary}
       onToggleEnabled={() => undefined}
-      enableLabel={copy.actions.enable}
-      disableLabel={copy.actions.disable}
-      enabledStateLabel={copy.overview.enabledMods}
-      disabledStateLabel={copy.overview.disabledMods}
-      openFolderLabel={copy.actions.openFolder}
-      setCoverLabel={copy.actions.setCover}
-      clearCoverLabel={copy.actions.clearCover}
       onOpenFolder={() => undefined}
       onSetCover={() => undefined}
       onClearCover={() => undefined}
-      openModPageLabel={copy.actions.openModPage}
       onQueueDownload={onQueueDownload}
     />
   )
@@ -768,25 +744,6 @@ function LauncherDiscoverPageContent({
   const rangeEnd = resultCount ? Math.min(discover.page * discover.pageSize, resultCount) : 0
   const paginationItems = getDiscoverPaginationItems(discover.page, discover.totalPages)
   const jumpPageValue = jumpPageDirty ? jumpPageDraft : String(discover.page)
-  const detailLabels = useMemo(
-    () => ({
-      currentVersion: copy.fields.currentVersion,
-      uniqueId: copy.fields.uniqueId,
-      path: copy.fields.path,
-      dependencies: copy.fields.dependencies,
-      updateKeys: copy.fields.updateKeys,
-      pack: copy.library.modDetail.file,
-    }),
-    [
-      copy.fields.currentVersion,
-      copy.fields.dependencies,
-      copy.fields.path,
-      copy.fields.uniqueId,
-      copy.fields.updateKeys,
-      copy.library.modDetail.file,
-    ],
-  )
-
   const toggleSection = (section: DiscoverAccordionSection) => {
     setOpenSection(section)
   }
@@ -1360,12 +1317,7 @@ function LauncherDiscoverPageContent({
           ) : null}
 
           {detailItem ? (
-            <LauncherDiscoverDetailPanel
-              item={detailItem}
-              detailLabels={detailLabels}
-              onClose={() => setDetailItem(null)}
-              onQueueDownload={onQueueDownload}
-            />
+            <LauncherDiscoverDetailPanel item={detailItem} onClose={() => setDetailItem(null)} onQueueDownload={onQueueDownload} />
           ) : null}
         </div>
       </LoadingMotionReveal>

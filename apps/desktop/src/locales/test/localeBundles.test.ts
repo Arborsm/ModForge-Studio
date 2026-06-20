@@ -11,6 +11,7 @@ import {
   getViewMenuCopy,
   getWorkspaceModeLabel,
 } from '../api/editor-shell'
+import { LOADING_MOTION_INTENSITY_IDS, LOADING_MOTION_SPEED_IDS, LOADING_MOTION_STYLE_IDS } from '@shared/contracts/types/loadingMotion'
 
 const localeDir = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -81,6 +82,24 @@ describe('typed locale bundles', () => {
     expect(typeof (zhCN.rightDock as Record<string, unknown>).objectGroupSummary).toBe('function')
     expect(typeof (zhCN.rightDock as Record<string, unknown>).objectGroupCollectionSummary).toBe('function')
     expect(typeof (zhCN.itemsPanel as Record<string, unknown>).filtersTitle).toBe('string')
+  })
+
+  it('keeps loading motion labels in settings locale bundles', () => {
+    for (const locale of ALL_LOCALE_CODES) {
+      const settings = getSettingsMenuCopy(locale)
+      for (const id of LOADING_MOTION_STYLE_IDS) {
+        expect(settings.loadingMotionStyleLabels[id]).toBeTruthy()
+      }
+      for (const id of LOADING_MOTION_INTENSITY_IDS) {
+        expect(settings.loadingMotionIntensityLabels[id]).toBeTruthy()
+      }
+      for (const id of LOADING_MOTION_SPEED_IDS) {
+        expect(settings.loadingMotionSpeedLabels[id]).toBeTruthy()
+      }
+    }
+
+    expect(getSettingsMenuCopy('zh-CN').loadingMotionStyleLabels.bounceIn).toBe('跳动出现')
+    expect(getSettingsMenuCopy('en-US').loadingMotionStyleLabels.bounceIn).toBe('Bounce In')
   })
 
   it('exposes Studio Desk copy in both locales', () => {

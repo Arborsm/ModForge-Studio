@@ -263,7 +263,6 @@ export default function CentralWorkspace({
               visibleObjectGroupIds={visibleObjectGroupIds}
               onHoverChange={onHoverChange}
               onAtlasPortalOpen={onOpenAtlasTarget}
-              labels={copy.viewportLabels}
               theme={theme}
               accentColor={accentColor}
               showGrid={showGrid}
