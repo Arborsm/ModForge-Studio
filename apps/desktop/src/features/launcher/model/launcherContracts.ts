@@ -84,6 +84,7 @@ export type LauncherLibraryState = {
   packPresets: LauncherLibraryPackPreset[]
   childModGroups: LauncherLibraryChildModGroup[]
   libraryFolders: LauncherLibraryFolder[]
+  customOrders: Record<string, string[]>
   currentPackId: string | null
   scopeMode: LauncherLibraryScopeMode
 }

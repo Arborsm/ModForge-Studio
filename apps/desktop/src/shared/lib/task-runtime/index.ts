@@ -221,3 +221,8 @@ export function useExclusiveMutationTask(resource: string) {
   const runtime = useMemo(() => createTaskRuntime(), [])
   return useCallback(<T>(task: (scope: TaskScope) => Promise<T>) => runtime.exclusiveMutation(resource, task), [resource, runtime])
 }
+
+export function useQueuedMutationTask(queue: string) {
+  const runtime = useMemo(() => createTaskRuntime(), [])
+  return useCallback(<T>(task: (scope: TaskScope) => Promise<T>) => runtime.queuedMutation(queue, task), [queue, runtime])
+}

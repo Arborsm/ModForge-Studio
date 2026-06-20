@@ -14,6 +14,12 @@ import type {
 import type { AppUiState, PatchAppUiStateRequest } from '@shared/contracts'
 import { DEFAULT_LOADING_MOTION_PREFERENCE } from '@shared/lib/loading-motion'
 
+declare global {
+  interface Window {
+    __modforgeLauncherCustomSortState?: Pick<LauncherLibraryState, 'customOrders' | 'childModGroups'>
+  }
+}
+
 const DEV_LAUNCHER_MOCK_QUERY_PARAM = 'mfLauncherMock'
 const DEV_LAUNCHER_MOCK_MODS_PATH = 'E:\\ModForge Dev\\Stardew Valley\\Mods'
 
@@ -117,6 +123,7 @@ function createInitialLibraryState(mods: LauncherLibraryModSummary[]): LauncherL
         coverModKeys: mods.slice(16, 18).map(getMockModKey),
       },
     ],
+    customOrders: {},
     currentPackId: null,
     scopeMode: 'all',
   }
@@ -169,6 +176,13 @@ function createInitialAppUiState(): AppUiState {
       forceOffline: true,
       forceNonPremium: false,
     },
+  }
+}
+
+function exposeLauncherCustomSortState(state: LauncherLibraryState) {
+  window.__modforgeLauncherCustomSortState = {
+    customOrders: state.customOrders,
+    childModGroups: state.childModGroups,
   }
 }
 
@@ -236,6 +250,7 @@ export function installDevLauncherMock() {
   }
   let libraryState = createInitialLibraryState(mods)
   let queueState: LauncherDownloadQueueState = { items: [] }
+  exposeLauncherCustomSortState(libraryState)
 
   mockWindows('main')
   mockConvertFileSrc('windows')
@@ -253,9 +268,11 @@ export function installDevLauncherMock() {
           settings = { ...settings, ...getMockRequest<Partial<LauncherSettings>>(payload) }
           return settings
         case 'load_launcher_library_state':
+          exposeLauncherCustomSortState(libraryState)
           return libraryState
         case 'save_launcher_library_state':
           libraryState = getMockRequest<LauncherLibraryState>(payload) ?? libraryState
+          exposeLauncherCustomSortState(libraryState)
           return libraryState
         case 'load_launcher_library_covers':
           return { covers: [] } satisfies LauncherLibraryCoversState

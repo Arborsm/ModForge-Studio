@@ -6,7 +6,13 @@ import { getModKey, includesLibraryFilter, normalizeLookupKey } from '@features/
 import type { LauncherLibraryItem, LauncherSettingsDraft, LauncherVirtualFolder } from '@features/launcher/model/types'
 import type { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
 import {
+  applyCustomOrder,
   buildPackLookup,
+  deriveLibraryViewKey,
+  encodeCustomItemKey,
+  getDisplayItemCustomOrderKey,
+  getLibraryFolderOrderContainerKey,
+  getLibraryViewOrderContainerKey,
   shortenLibraryPath,
   sortLibraryMods,
   type LauncherLibraryDisplayItem,
@@ -44,6 +50,15 @@ export function useLauncherLibraryDisplayState({
   const packLookup = useMemo(() => buildPackLookup(library.packPresets), [library.packPresets])
   const childGroupLookup = useMemo(() => buildChildModLookup(library.childModGroups), [library.childModGroups])
   const childParentLookup = useMemo(() => buildParentModLookup(library.childModGroups), [library.childModGroups])
+  const viewKey = useMemo(
+    () =>
+      deriveLibraryViewKey({
+        hiddenViewOpen,
+        scopeMode: library.scopeMode,
+        currentPackId: library.currentPackId,
+      }),
+    [hiddenViewOpen, library.currentPackId, library.scopeMode],
+  )
   const hiddenModKeyLookup = useMemo(
     () => new Set(library.hiddenModKeys.map((value) => normalizeLookupKey(value))),
     [library.hiddenModKeys],
@@ -68,18 +83,25 @@ export function useLauncherLibraryDisplayState({
             .filter((item) => !library.enabledOnly || item.enabled)
         : library.filteredMods
 
-    return sortLibraryMods(browseScoped, sortMode, packLookup, library.currentPackId)
+    const sorted = sortLibraryMods(browseScoped, sortMode)
+    if (sortMode !== 'custom') {
+      return sorted
+    }
+    return applyCustomOrder(sorted, library.customOrders[getLibraryViewOrderContainerKey(viewKey)], (item) =>
+      encodeCustomItemKey('mod', getModKey(item)),
+    )
   }, [
     editMode,
     hiddenMods,
     hiddenViewOpen,
+    library.customOrders,
     library.currentPackId,
     library.enabledOnly,
     library.filterText,
     library.filteredMods,
     library.mods,
-    packLookup,
     sortMode,
+    viewKey,
   ])
 
   const modByKeyLookup = useMemo(() => {
@@ -189,16 +211,21 @@ export function useLauncherLibraryDisplayState({
         .filter((item): item is LauncherLibraryItem => Boolean(item))
       items.push({ kind: 'mod', mod, childMods, isChild: false })
     }
-    return items
+    return sortMode === 'custom'
+      ? applyCustomOrder(items, library.customOrders[getLibraryViewOrderContainerKey(viewKey)], getDisplayItemCustomOrderKey)
+      : items
   }, [
     buildFolderDisplayItem,
     childGroupLookup,
     childParentLookup,
     isLibraryFolderOpen,
+    library.customOrders,
     library.libraryFolders,
     libraryFolderModLookup,
     modByKeyLookup,
     visibleMods,
+    sortMode,
+    viewKey,
   ])
 
   const getLibraryFolderModIds = useCallback(
@@ -235,19 +262,33 @@ export function useLauncherLibraryDisplayState({
           .filter((item): item is LauncherLibraryItem => Boolean(item))
         items.push({ kind: 'mod', mod, childMods, isChild: false })
       }
-      itemsById.set(folderLookup, items)
+      itemsById.set(
+        folderLookup,
+        sortMode === 'custom'
+          ? applyCustomOrder(items, library.customOrders[getLibraryFolderOrderContainerKey(folder.id)], getDisplayItemCustomOrderKey)
+          : items,
+      )
     }
     return itemsById
-  }, [buildFolderDisplayItem, childGroupLookup, library.libraryFolders, modByKeyLookup, readyLibraryFolderIds, visibleMods])
+  }, [
+    buildFolderDisplayItem,
+    childGroupLookup,
+    library.customOrders,
+    library.libraryFolders,
+    modByKeyLookup,
+    readyLibraryFolderIds,
+    sortMode,
+    visibleMods,
+  ])
 
   const shortModsPath = useMemo(() => shortenLibraryPath(settings.modsPath), [settings.modsPath])
   const sortOptions = useMemo(
     () => [
       { value: 'name' as const, label: copy.library.sortByName },
       { value: 'enabled-first' as const, label: copy.library.sortByEnabled },
-      { value: 'pack' as const, label: copy.library.sortByPack },
+      { value: 'custom' as const, label: copy.library.sortByCustom },
     ],
-    [copy.library.sortByEnabled, copy.library.sortByName, copy.library.sortByPack],
+    [copy.library.sortByCustom, copy.library.sortByEnabled, copy.library.sortByName],
   )
   const currentSortLabel = sortOptions.find((option) => option.value === sortMode)?.label ?? copy.library.sortByName
   const editCount = editingSelectionIds.length
@@ -256,6 +297,7 @@ export function useLauncherLibraryDisplayState({
 
   return {
     packLookup,
+    viewKey,
     childGroupLookup,
     childParentLookup,
     hiddenModKeyLookup,

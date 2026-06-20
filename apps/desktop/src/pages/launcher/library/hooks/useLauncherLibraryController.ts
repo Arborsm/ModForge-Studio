@@ -24,7 +24,13 @@ import { getLauncherCoverKey } from '@features/launcher/model/coverKey'
 import { getModKey, normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
 import type { LauncherLibraryItem, LauncherPackPreset, LauncherSettingsDraft, LauncherVirtualFolder } from '@features/launcher/model/types'
 import type { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
-import { getPackModIds, type LibrarySortMode } from '../model/launcherLibraryDisplay'
+import {
+  getDisplayItemCustomOrderKey,
+  getLibraryFolderOrderContainerKey,
+  getLibraryViewOrderContainerKey,
+  getPackModIds,
+  type LibrarySortMode,
+} from '../model/launcherLibraryDisplay'
 import type {
   ArchivePreviewState,
   FolderDialogState,
@@ -136,7 +142,9 @@ export function useLauncherLibraryController({
   const [restoringBackupId, setRestoringBackupId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [sortMode, setSortMode] = useState<LibrarySortMode>('name')
+  const [sortingBannerOpen, setSortingBannerOpen] = useState(false)
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false)
   const [detailModId, setDetailModId] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [quickSwitchOpen, setQuickSwitchOpen] = useState(false)
@@ -162,6 +170,7 @@ export function useLauncherLibraryController({
   const titleMenuRef = useRef<HTMLDivElement | null>(null)
   const drawerPanelRef = useRef<HTMLDivElement | null>(null)
   const sortMenuRef = useRef<HTMLDivElement | null>(null)
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null)
   const packDialogInputRef = useRef<HTMLInputElement | null>(null)
   const lastLoadedModsPathRef = useRef<string | null>(settings.modsPath?.trim() || null)
   const autoRefreshModsPathRef = useRef<string | null>(null)
@@ -205,6 +214,7 @@ export function useLauncherLibraryController({
   })
   const {
     packLookup,
+    viewKey,
     childGroupLookup,
     childParentLookup,
     hiddenModKeyLookup,
@@ -242,23 +252,29 @@ export function useLauncherLibraryController({
   }, [editMode, library.currentPack, library.currentPackId, library.mods])
 
   useEffect(() => {
-    if (!quickSwitchOpen && !packActionMenuId && !sortMenuOpen) {
+    if (!quickSwitchOpen && !packActionMenuId && !sortMenuOpen && !actionsMenuOpen) {
       return
     }
 
     const handlePointerDown = (event: globalThis.MouseEvent) => {
       const target = event.target as Node
-      if (titleMenuRef.current?.contains(target) || drawerPanelRef.current?.contains(target) || sortMenuRef.current?.contains(target)) {
+      if (
+        titleMenuRef.current?.contains(target) ||
+        drawerPanelRef.current?.contains(target) ||
+        sortMenuRef.current?.contains(target) ||
+        actionsMenuRef.current?.contains(target)
+      ) {
         return
       }
       setQuickSwitchOpen(false)
       setPackActionMenuId(null)
       setSortMenuOpen(false)
+      setActionsMenuOpen(false)
     }
 
     window.addEventListener('mousedown', handlePointerDown)
     return () => window.removeEventListener('mousedown', handlePointerDown)
-  }, [packActionMenuId, quickSwitchOpen, sortMenuOpen])
+  }, [actionsMenuOpen, packActionMenuId, quickSwitchOpen, sortMenuOpen])
 
   const packDialogFocusKey = packDialog ? `${packDialog.kind}:${packDialog.kind === 'create' ? '' : packDialog.pack.id}` : null
 
@@ -867,6 +883,7 @@ export function useLauncherLibraryController({
       setQuickSwitchOpen(false)
       setPackActionMenuId(null)
       setSortMenuOpen(false)
+      setSortingBannerOpen(false)
       if (options?.closeDrawer) {
         setDrawerOpen(false)
       }
@@ -880,9 +897,39 @@ export function useLauncherLibraryController({
     setQuickSwitchOpen(false)
     setPackActionMenuId(null)
     setSortMenuOpen(false)
+    setSortingBannerOpen(false)
     if (options?.closeDrawer) {
       setDrawerOpen(false)
     }
+  }, [])
+
+  const changeSortMode = useCallback((nextSortMode: LibrarySortMode) => {
+    setSortMode(nextSortMode)
+    // Selecting "custom" only switches the view to the persisted custom order;
+    // it does not open the reorder banner. The banner is a separate editing
+    // entry (startSortingMode), mirroring how picking a pack (view) and
+    // "Edit pack" (editing) are decoupled.
+    if (nextSortMode !== 'custom') {
+      setSortingBannerOpen(false)
+    }
+    setSortMenuOpen(false)
+  }, [])
+
+  const startSortingMode = useCallback(() => {
+    setSortMode('custom')
+    setSortingBannerOpen(true)
+    setEditMode(false)
+    setEditingSelectionIds([])
+    setBoxSelectionIds([])
+    setChildModSelection(null)
+    setQuickSwitchOpen(false)
+    setPackActionMenuId(null)
+    setSortMenuOpen(false)
+    setDrawerOpen(false)
+  }, [])
+
+  const finishSorting = useCallback(() => {
+    setSortingBannerOpen(false)
   }, [])
 
   const resolveDraggedModIds = useCallback(
@@ -984,6 +1031,7 @@ export function useLauncherLibraryController({
       setEditMode(false)
       setEditingSelectionIds([])
       setBoxSelectionIds([])
+      setSortingBannerOpen(false)
       setQuickSwitchOpen(false)
       setPackActionMenuId(null)
       setSortMenuOpen(false)
@@ -1029,6 +1077,7 @@ export function useLauncherLibraryController({
     setChildModSelection(null)
     setEditingSelectionIds(getPackModIds(library.currentPack, library.mods))
     setEditMode(true)
+    setSortingBannerOpen(false)
     setQuickSwitchOpen(false)
     setPackActionMenuId(null)
     setSortMenuOpen(false)
@@ -1184,6 +1233,36 @@ export function useLauncherLibraryController({
     [library, runLibraryAction],
   )
 
+  const reorderRootItems = useCallback(
+    (fromKey: string, toAfterKey: string) => {
+      const baseOrder = visibleDisplayItems.map(getDisplayItemCustomOrderKey).filter((key): key is string => Boolean(key))
+      void runLibraryAction(async () => {
+        await library.reorderCustomOrder(getLibraryViewOrderContainerKey(viewKey), fromKey, toAfterKey, baseOrder)
+      })
+    },
+    [library, runLibraryAction, viewKey, visibleDisplayItems],
+  )
+
+  const reorderFolderItems = useCallback(
+    (folderId: string, fromKey: string, toAfterKey: string) => {
+      const folderItems = openLibraryFolderItemsById.get(normalizeLookupKey(folderId)) ?? []
+      const baseOrder = folderItems.map(getDisplayItemCustomOrderKey).filter((key): key is string => Boolean(key))
+      void runLibraryAction(async () => {
+        await library.reorderCustomOrder(getLibraryFolderOrderContainerKey(folderId), fromKey, toAfterKey, baseOrder)
+      })
+    },
+    [library, openLibraryFolderItemsById, runLibraryAction],
+  )
+
+  const reorderChildModItems = useCallback(
+    (parentModKey: string, fromKey: string, toAfterKey: string) => {
+      void runLibraryAction(async () => {
+        await library.reorderChildMods(parentModKey, fromKey, toAfterKey)
+      })
+    },
+    [library, runLibraryAction],
+  )
+
   const directActionsForMod = useCallback(
     (mod: LauncherLibraryItem) => {
       const isHidden = hiddenModKeyLookup.has(normalizeLookupKey(getModKey(mod)))
@@ -1278,6 +1357,7 @@ export function useLauncherLibraryController({
   return {
     viewModel: {
       packLookup,
+      viewKey,
       childGroupLookup,
       childParentLookup,
       hiddenModKeyLookup,
@@ -1300,6 +1380,7 @@ export function useLauncherLibraryController({
       titleMenuRef,
       drawerPanelRef,
       sortMenuRef,
+      actionsMenuRef,
       packDialogInputRef,
       installBackupsOpenRef,
     },
@@ -1331,7 +1412,10 @@ export function useLauncherLibraryController({
     shellState: {
       actionError,
       sortMode,
+      sortingBannerOpen,
+      sortingActive: sortMode === 'custom' && sortingBannerOpen,
       sortMenuOpen,
+      actionsMenuOpen,
       drawerOpen,
       quickSwitchOpen,
       packActionMenuId,
@@ -1391,6 +1475,11 @@ export function useLauncherLibraryController({
       openGridModFolder,
       assignDraggedModsToLibraryFolderFromDnd,
       addDraggedModsToPack,
+      reorderRootItems,
+      reorderFolderItems,
+      reorderChildModItems,
+      startSortingMode,
+      finishSorting,
       directActionsForMod,
       directActionsForLibraryFolder,
       setArchivePreviewState,
@@ -1406,7 +1495,10 @@ export function useLauncherLibraryController({
       setRestoringBackupId,
       setActionError,
       setSortMode,
+      setSortingBannerOpen,
+      changeSortMode,
       setSortMenuOpen,
+      setActionsMenuOpen,
       setDetailModId,
       setDrawerOpen,
       setQuickSwitchOpen,

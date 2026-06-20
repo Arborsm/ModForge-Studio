@@ -5,6 +5,10 @@ import {
   LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX,
   LAUNCHER_LIBRARY_PACK_DROP_PREFIX,
   LAUNCHER_LIBRARY_PARENT_DROP_PREFIX,
+  LAUNCHER_LIBRARY_REORDER_FOLDER_PREFIX,
+  getLauncherReorderFolderDropId,
+  getLauncherReorderRootDropId,
+  getLauncherReorderPayloadFromDropId,
   getLauncherDropIdFromElement,
   getLauncherDropTargetAtPoint,
   getLauncherFolderIdFromBlankDropId,
@@ -37,6 +41,20 @@ describe('launcherLibraryDrag', () => {
     expect(getLauncherDropIdFromElement(parent)).toBe(`${LAUNCHER_LIBRARY_PARENT_DROP_PREFIX}mod-a`)
   })
 
+  it('reads reorder drop ids with encoded container and item keys', () => {
+    const card = document.createElement('div')
+    card.setAttribute('data-launcher-reorder-item-key', 'm:Mod.Alpha')
+    card.setAttribute('data-launcher-reorder-container-key', 'folder:visuals')
+
+    const dropId = getLauncherDropIdFromElement(card)
+
+    expect(dropId).toBe(getLauncherReorderFolderDropId('folder:visuals', 'm:Mod.Alpha'))
+    expect(getLauncherReorderPayloadFromDropId(dropId ?? '')).toEqual({
+      containerKey: 'folder:visuals',
+      afterKey: 'm:Mod.Alpha',
+    })
+  })
+
   it('measures visible drop targets and skips source descendants', () => {
     const source = document.createElement('div')
     const skipped = document.createElement('div')
@@ -65,12 +83,12 @@ describe('launcherLibraryDrag', () => {
     const targets = measureLauncherDndKitDropTargets(source)
 
     expect(targets).toEqual([
-      {
+      expect.objectContaining({
         dropId: `${LAUNCHER_LIBRARY_PACK_DROP_PREFIX}pack-a`,
         kind: 'pack',
         containerFolderId: null,
         rect: { left: 1, top: 2, width: 100, height: 50 },
-      },
+      }),
     ])
 
     source.remove()
@@ -143,6 +161,132 @@ describe('launcherLibraryDrag', () => {
     expect(getLauncherDropTargetAtPoint(targets, 80, 80)?.dropId).toBe(`${LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX}gameplay`)
   })
 
+  it('prioritizes compatible reorder targets over assignment targets', () => {
+    const targets = [
+      {
+        dropId: `${LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX}visuals`,
+        kind: 'folder' as const,
+        containerFolderId: null,
+        rect: { left: 0, top: 0, width: 200, height: 200 },
+      },
+      {
+        dropId: getLauncherReorderFolderDropId('folder:visuals', 'm:Mod.Beta'),
+        kind: 'reorderFolder' as const,
+        containerFolderId: 'visuals',
+        containerKey: 'folder:visuals',
+        afterKey: 'm:Mod.Beta',
+        rect: { left: 0, top: 0, width: 200, height: 24 },
+      },
+    ]
+    const source = {
+      kind: 'mod' as const,
+      modId: 'mod-a',
+      modKey: 'Mod.Alpha',
+      title: 'Alpha',
+      meta: '',
+      imageUrl: null,
+      previewImageUrl: null,
+      enabled: true,
+      originFolderId: 'visuals',
+      originParentId: null,
+      originParentKey: null,
+    }
+
+    // The pointer is over the reorder card (rect 0..24) → with "drop onto the
+    // card" semantics the dragged card inserts before it. Since Mod.Beta is the
+    // only/first card in the folder, the slot is __start__.
+    expect(getLauncherDropTargetAtPoint(targets, 20, 12, source)?.dropId).toBe(
+      getLauncherReorderFolderDropId('folder:visuals', '__start__'),
+    )
+  })
+
+  it('resolves reorder insertion slot from the card under the pointer', () => {
+    // Three root cards stacked vertically: Alpha (top), Beta (mid), Gamma (bottom).
+    const cardRect = (top: number) => ({ left: 0, top, width: 200, height: 80 })
+    const targets = [
+      {
+        dropId: getLauncherReorderRootDropId('view:all', 'm:Mod.Alpha'),
+        kind: 'reorderRoot' as const,
+        containerFolderId: null,
+        containerKey: 'view:all',
+        afterKey: 'm:Mod.Alpha',
+        rect: cardRect(0),
+      },
+      {
+        dropId: getLauncherReorderRootDropId('view:all', 'm:Mod.Beta'),
+        kind: 'reorderRoot' as const,
+        containerFolderId: null,
+        containerKey: 'view:all',
+        afterKey: 'm:Mod.Beta',
+        rect: cardRect(100),
+      },
+      {
+        dropId: getLauncherReorderRootDropId('view:all', 'm:Mod.Gamma'),
+        kind: 'reorderRoot' as const,
+        containerFolderId: null,
+        containerKey: 'view:all',
+        afterKey: 'm:Mod.Gamma',
+        rect: cardRect(200),
+      },
+    ]
+    const source = {
+      kind: 'mod' as const,
+      modId: 'mod-d',
+      modKey: 'Mod.Delta',
+      title: 'Delta',
+      meta: '',
+      imageUrl: null,
+      previewImageUrl: null,
+      enabled: true,
+      originFolderId: null,
+      originParentId: null,
+      originParentKey: null,
+    }
+
+    // "Drop onto the card" semantics: dropping onto a card inserts before it
+    // (the dragged card takes that card's position). Dropping onto Alpha → start.
+    expect(getLauncherDropTargetAtPoint(targets, 10, 10, source)?.afterKey).toBe('__start__')
+    // Anywhere over Alpha still inserts before Alpha.
+    expect(getLauncherDropTargetAtPoint(targets, 10, 70, source)?.afterKey).toBe('__start__')
+    // Over Beta → insert before Beta (after Alpha), while the visual hover stays on Beta.
+    const betaTarget = getLauncherDropTargetAtPoint(targets, 10, 170, source)
+    expect(betaTarget?.afterKey).toBe('m:Mod.Alpha')
+    expect(betaTarget?.activeDropId).toBe(getLauncherReorderRootDropId('view:all', 'm:Mod.Beta'))
+    // Below the last card's bottom edge → append after Gamma.
+    expect(getLauncherDropTargetAtPoint(targets, 10, 350, source)?.afterKey).toBe('m:Mod.Gamma')
+  })
+
+  it('returns null when no reorder target is compatible', () => {
+    // Only reorder targets are present (as they would be under reorderOnly
+    // measurement). The source belongs to a different container, so none are
+    // compatible and no assignment fallback exists.
+    const targets = [
+      {
+        dropId: `${LAUNCHER_LIBRARY_REORDER_FOLDER_PREFIX}${encodeURIComponent('folder:visuals')}:${encodeURIComponent('m:Mod.Beta')}`,
+        kind: 'reorderFolder' as const,
+        containerFolderId: 'visuals',
+        containerKey: 'folder:visuals',
+        afterKey: 'm:Mod.Beta',
+        rect: { left: 0, top: 0, width: 200, height: 24 },
+      },
+    ]
+    const source = {
+      kind: 'mod' as const,
+      modId: 'mod-a',
+      modKey: 'Mod.Alpha',
+      title: 'Alpha',
+      meta: '',
+      imageUrl: null,
+      previewImageUrl: null,
+      enabled: true,
+      originFolderId: 'gameplay',
+      originParentId: null,
+      originParentKey: null,
+    }
+
+    expect(getLauncherDropTargetAtPoint(targets, 20, 12, source)).toBeNull()
+  })
+
   it('keeps releases beside an expanded folder on the library blank target', () => {
     const targets = [
       {
@@ -174,6 +318,7 @@ describe('launcherLibraryDrag', () => {
     const source = {
       kind: 'mod' as const,
       modId: 'child-a',
+      modKey: 'Child.A',
       title: 'Child A',
       meta: '',
       imageUrl: null,
@@ -181,6 +326,7 @@ describe('launcherLibraryDrag', () => {
       enabled: true,
       originFolderId: 'visuals',
       originParentId: null,
+      originParentKey: null,
     }
 
     expect(getLauncherDropTargetAtPoint(targets, 80, 80, source)?.dropId).toBe(LAUNCHER_LIBRARY_BLANK_DROP_ID)
@@ -204,6 +350,7 @@ describe('launcherLibraryDrag', () => {
     const source = {
       kind: 'mod' as const,
       modId: 'child-a',
+      modKey: 'Child.A',
       title: 'Child A',
       meta: '',
       imageUrl: null,
@@ -211,6 +358,7 @@ describe('launcherLibraryDrag', () => {
       enabled: true,
       originFolderId: 'visuals',
       originParentId: 'parent-a',
+      originParentKey: 'Parent.A',
     }
 
     expect(getLauncherDropTargetAtPoint(targets, 80, 80, source)?.dropId).toBe(`${LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX}visuals`)
@@ -234,6 +382,7 @@ describe('launcherLibraryDrag', () => {
     const source = {
       kind: 'mod' as const,
       modId: 'child-a',
+      modKey: 'Child.A',
       title: 'Child A',
       meta: '',
       imageUrl: null,
@@ -241,6 +390,7 @@ describe('launcherLibraryDrag', () => {
       enabled: true,
       originFolderId: null,
       originParentId: 'parent-a',
+      originParentKey: 'Parent.A',
     }
 
     expect(getLauncherDropTargetAtPoint(targets, 200, 200, source)?.dropId).toBe(LAUNCHER_LIBRARY_BLANK_DROP_ID)
@@ -258,6 +408,7 @@ describe('launcherLibraryDrag', () => {
     const source = {
       kind: 'mod' as const,
       modId: 'child-a',
+      modKey: 'Child.A',
       title: 'Child A',
       meta: '',
       imageUrl: null,
@@ -265,6 +416,7 @@ describe('launcherLibraryDrag', () => {
       enabled: true,
       originFolderId: null,
       originParentId: 'parent-a',
+      originParentKey: 'Parent.A',
     }
 
     expect(getLauncherDropTargetAtPoint(targets, 300, 300, source)?.dropId).toBe(LAUNCHER_LIBRARY_BLANK_DROP_ID)
@@ -288,6 +440,7 @@ describe('launcherLibraryDrag', () => {
     const source = {
       kind: 'mod' as const,
       modId: 'child-a',
+      modKey: 'Child.A',
       title: 'Child A',
       meta: '',
       imageUrl: null,
@@ -295,6 +448,7 @@ describe('launcherLibraryDrag', () => {
       enabled: true,
       originFolderId: null,
       originParentId: null,
+      originParentKey: null,
     }
 
     expect(getLauncherDropTargetAtPoint(targets, 120, 120, source)?.dropId).toBe(`${LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX}visuals`)

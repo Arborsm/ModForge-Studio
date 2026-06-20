@@ -104,6 +104,16 @@
     will-change: transform;
   }
 
+  .launcher-library-grid-viewport-sorting .launcher-library-draggable-card {
+    cursor: grab;
+    animation: launcher-library-card-wobble 2.6s ease-in-out infinite;
+    animation-delay: var(--launcher-wobble-phase, 0s);
+  }
+
+  .launcher-library-dragging-active .launcher-library-draggable-card.launcher-library-card-grab-pending {
+    animation: none;
+  }
+
   .launcher-library-draggable-card:active {
     z-index: 4;
     cursor: grabbing;
@@ -235,6 +245,26 @@
     box-shadow: inset 0 0 0 1px color-mix(in srgb, white 28%, transparent);
   }
 
+  .launcher-library-reorder-ghost {
+    position: fixed;
+    z-index: 78;
+    pointer-events: none;
+    border-radius: 14px;
+    border: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    opacity: 0.75;
+    overflow: hidden;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent);
+    transition:
+      left 160ms cubic-bezier(0.2, 0.82, 0.24, 1),
+      top 160ms cubic-bezier(0.2, 0.82, 0.24, 1);
+  }
+
+  .launcher-library-reorder-ghost .launcher-library-drag-preview {
+    transform: scale(0.92);
+    opacity: 0.6;
+  }
+
   @keyframes launcher-library-drop-target-pulse {
     from {
       opacity: 0.72;
@@ -244,6 +274,25 @@
     to {
       opacity: 1;
       transform: scale(1.004);
+    }
+  }
+
+  @keyframes launcher-library-card-wobble {
+    0%,
+    100% {
+      transform: rotate(-1deg) scale(0.994);
+    }
+
+    50% {
+      transform: rotate(1deg) scale(1.006);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .launcher-library-grid-viewport-sorting .launcher-library-draggable-card {
+      animation: none;
+      outline: 1px solid var(--accent);
+      outline-offset: 2px;
     }
   }
 

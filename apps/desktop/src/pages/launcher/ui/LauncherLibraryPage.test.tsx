@@ -484,6 +484,15 @@ function renderLibraryPage(overrides: Partial<Parameters<typeof LauncherLibraryP
   }
 }
 
+function getLibraryMoreActionsMenu() {
+  fireEvent.click(screen.getByRole('button', { name: 'More actions' }))
+  return screen.getByRole('menu', { name: 'More actions' })
+}
+
+function clickInstallArchiveAction() {
+  fireEvent.click(within(getLibraryMoreActionsMenu()).getByRole('menuitem', { name: 'Install Archive' }))
+}
+
 function renderHiddenLibraryPage(overrides: Partial<Parameters<typeof LauncherLibraryPage>[0]> = {}) {
   const onLaunchGame = vi.fn()
   function Wrapper({ children }: { children: ReactNode }) {
@@ -584,10 +593,13 @@ describe('LauncherLibraryPage', () => {
     expect(screen.getByRole('button', { name: 'Pack Management' })).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Story Pack' })).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Refresh' })).not.toBeNull()
-    expect(screen.getByRole('button', { name: 'Open Storage Folder' })).not.toBeNull()
-    expect(screen.getByRole('button', { name: 'Install Archive' })).not.toBeNull()
+    const moreActionsMenu = getLibraryMoreActionsMenu()
+    expect(within(moreActionsMenu).getByRole('menuitem', { name: 'Open Storage Folder' })).not.toBeNull()
+    expect(within(moreActionsMenu).getByRole('menuitem', { name: 'Install Archive' })).not.toBeNull()
+    expect(within(moreActionsMenu).getByRole('menuitem', { name: 'Install Backups' })).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Launch Game' })).not.toBeNull()
     expect(screen.queryByRole('button', { name: 'Apply Pack' })).toBeNull()
+    expect(container.querySelector('.launcher-library-console-bottom')).toBeNull()
     expect(container.querySelector('.launcher-library-page > .launcher-library-console')).not.toBeNull()
     expect(container.querySelector('.launcher-library-shell > .launcher-library-sidebar')).not.toBeNull()
     expect(container.querySelector('.launcher-library-shell > .launcher-library-content')).not.toBeNull()
@@ -1327,7 +1339,7 @@ describe('LauncherLibraryPage', () => {
       }),
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open Storage Folder' }))
+    fireEvent.click(within(getLibraryMoreActionsMenu()).getByRole('menuitem', { name: 'Open Storage Folder' }))
     expect(await screen.findByText('Configure the Mods path in Settings before scanning the library.')).not.toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
@@ -1357,7 +1369,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    const enabledSwitch = screen.getByRole('switch', { name: 'Enabled Only' })
+    const enabledSwitch = screen.getByRole('button', { name: 'Enabled Only' })
     fireEvent.click(enabledSwitch)
     expect(library.setEnabledOnly).toHaveBeenCalledWith(true)
 
@@ -1366,8 +1378,11 @@ describe('LauncherLibraryPage', () => {
     expect(screen.queryByRole('combobox', { name: 'Quick Sort' })).toBeNull()
     expect(screen.getByRole('menu', { name: 'Quick Sort' })).not.toBeNull()
 
-    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Pack' }))
-    expect(screen.getByRole('button', { name: 'Quick Sort' }).textContent).toContain('Pack')
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Enabled First' }))
+    // Selecting a sort mode closes the menu; reopen to verify the Enabled First option is checked.
+    expect(screen.queryByRole('menu', { name: 'Quick Sort' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Quick Sort' }))
+    expect(screen.getByRole('menuitemradio', { name: 'Enabled First' })).toHaveAttribute('aria-checked', 'true')
   })
 
   it('opens the left drawer and switches packs from the pack list', async () => {
@@ -2437,7 +2452,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: /install archive/i }))
+    clickInstallArchiveAction()
 
     await waitFor(() => {
       expect(inspectLauncherArchiveMock).toHaveBeenCalledWith({ archivePath: 'E:\\Downloads\\preview.zip' })
@@ -2487,7 +2502,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: /install archive/i }))
+    clickInstallArchiveAction()
     fireEvent.click(await screen.findByRole('button', { name: /^install$/i }))
 
     expect(screen.queryByRole('dialog', { name: 'Install Summary' })).toBeNull()
@@ -2542,7 +2557,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: /install archive/i }))
+    clickInstallArchiveAction()
     fireEvent.click(await screen.findByRole('button', { name: /^install$/i }))
 
     await waitFor(() => {
@@ -2588,7 +2603,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: /install archive/i }))
+    clickInstallArchiveAction()
     fireEvent.click(await screen.findByRole('button', { name: /^install$/i }))
 
     await waitFor(() => {
@@ -2636,7 +2651,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Install Backups' }))
+    fireEvent.click(within(getLibraryMoreActionsMenu()).getByRole('menuitem', { name: 'Install Backups' }))
 
     const backupsDialog = await screen.findByRole('dialog', { name: 'Install Backups' })
     expect(within(backupsDialog).getByText('install-123')).not.toBeNull()
@@ -2672,7 +2687,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Install Backups' }))
+    fireEvent.click(within(getLibraryMoreActionsMenu()).getByRole('menuitem', { name: 'Install Backups' }))
 
     const backupsDialog = await screen.findByRole('dialog', { name: 'Install Backups' })
     fireEvent.click(within(backupsDialog).getByRole('button', { name: 'Restore Backup' }))
@@ -2705,7 +2720,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Install Backups' }))
+    fireEvent.click(within(getLibraryMoreActionsMenu()).getByRole('menuitem', { name: 'Install Backups' }))
 
     const backupsDialog = await screen.findByRole('dialog', { name: 'Install Backups' })
     fireEvent.click(within(backupsDialog).getByRole('button', { name: 'Restore Backup' }))
@@ -2735,7 +2750,7 @@ describe('LauncherLibraryPage', () => {
       if (this.classList.contains('launcher-library-grid-viewport')) {
         return { width: 560, height: 420, top: 0, left: 0, bottom: 420, right: 560, x: 0, y: 0, toJSON: () => ({}) }
       }
-      if (this.classList.contains('launcher-library-grid-reveal')) {
+      if (this.classList.contains('launcher-library-virtual-row') || this.classList.contains('launcher-library-grid-reveal')) {
         return { width: 260, height: 210, top: 0, left: 0, bottom: 210, right: 260, x: 0, y: 0, toJSON: () => ({}) }
       }
       return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0, x: 0, y: 0, toJSON: () => ({}) }
@@ -2748,7 +2763,9 @@ describe('LauncherLibraryPage', () => {
     expect(virtualRows.length).toBeGreaterThan(0)
     expect(measureVirtualGridRowFactoryMock).toHaveBeenCalledWith(expect.any(Function))
     expect(measureVirtualGridRowMock).toHaveBeenCalled()
-    expect(virtualRows[0]?.style.paddingBottom).toBe('20px')
+    expect(virtualRows[0]?.style.paddingBottom).toBe('')
+    const measureVirtualRow = measureVirtualGridRowFactoryMock.mock.calls.at(-1)?.[0]
+    expect(measureVirtualRow?.(virtualRows[0]!)).toBe(230)
     expect(screen.getAllByRole('article').length).toBeLessThanOrEqual(library.mods.length)
 
     boundsSpy.mockRestore()

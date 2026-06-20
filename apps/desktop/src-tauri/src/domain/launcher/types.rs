@@ -1,4 +1,5 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::collections::BTreeMap;
 
 pub(crate) const UNSORTED_STORAGE_FOLDER_ID: &str = "unsorted";
 pub(crate) const UNSORTED_STORAGE_FOLDER_NAME: &str = "Unsorted";
@@ -207,6 +208,8 @@ pub struct LauncherLibraryState {
     pub child_mod_groups: Vec<LauncherLibraryChildModGroup>,
     #[serde(default)]
     pub library_folders: Vec<LauncherLibraryFolder>,
+    #[serde(default)]
+    pub custom_orders: BTreeMap<String, Vec<String>>,
     #[serde(default)]
     pub current_pack_id: Option<String>,
     #[serde(default)]
@@ -778,6 +781,7 @@ impl Default for LauncherLibraryState {
             pack_presets: Vec::new(),
             child_mod_groups: Vec::new(),
             library_folders: Vec::new(),
+            custom_orders: BTreeMap::new(),
             current_pack_id: None,
             scope_mode: LauncherLibraryScopeMode::All,
         }

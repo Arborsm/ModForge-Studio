@@ -161,9 +161,7 @@
     position: relative;
   }
 
-  .launcher-library-pack-trigger,
-  .launcher-library-sort-trigger,
-  .launcher-library-sort-field {
+  .launcher-library-pack-trigger {
     min-height: 36px;
     border: 1px solid transparent;
     border-radius: 999px;
@@ -211,117 +209,36 @@
     color: var(--launcher-text-tertiary);
   }
 
-  .launcher-library-switch-button {
-    max-width: 150px;
-    min-width: 0;
-    min-height: 36px;
-    border: 1px solid var(--launcher-border-soft);
-    border-radius: 999px;
-    background: var(--launcher-surface-base);
-    color: var(--launcher-text-secondary);
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 0 10px 0 8px;
-    font-size: 13px;
-    font-weight: 600;
-    white-space: nowrap;
-    transition:
-      border-color 140ms ease,
-      background-color 140ms ease,
-      color 140ms ease;
-  }
-
-  .launcher-library-switch-button > span:last-child {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .launcher-library-switch-button:hover {
-    border-color: var(--launcher-border-strong);
-    color: var(--launcher-text-primary);
-  }
-
-  .launcher-library-switch-button:focus-visible,
-  .launcher-library-sort-trigger:focus-visible,
   .launcher-library-sort-option:focus-visible,
+  .launcher-library-actions-menu-item:focus-visible,
   .launcher-library-dialog-field input:focus-visible,
   .launcher-library-danger-action:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
     outline-offset: 2px;
   }
 
-  .launcher-library-switch-button-active {
-    color: var(--launcher-text-primary);
+  .launcher-library-edit-bar--sorting {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    min-height: 58px;
+    padding-block: 10px;
   }
 
-  .launcher-library-switch-track {
-    width: 36px;
-    height: 20px;
-    border-radius: 999px;
-    background: var(--launcher-border-strong);
-    padding: 2px;
-    display: inline-flex;
-    align-items: center;
-    flex: 0 0 auto;
-    transition: background-color 160ms ease;
-  }
-
-  .launcher-library-switch-thumb {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--launcher-surface-base);
-    box-shadow:
-      0 1px 2px rgba(15, 23, 42, 0.16),
-      0 2px 6px rgba(15, 23, 42, 0.14);
-    transform: translateX(0);
-    transition: transform 160ms ease;
-  }
-
-  .launcher-library-switch-button-active .launcher-library-switch-track {
-    background: var(--launcher-surface-strong);
-  }
-
-  .launcher-library-switch-button-active .launcher-library-switch-thumb {
-    transform: translateX(16px);
-  }
-
-  .launcher-library-sort-trigger {
-    min-width: 92px;
-    max-width: 120px;
-    min-height: 36px;
-    border: 1px solid var(--launcher-border-soft);
-    border-radius: 6px;
-    background: var(--launcher-surface-base);
-    color: var(--launcher-text-primary);
-    padding: 0 12px;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 13px;
-    font-weight: 600;
-    white-space: nowrap;
-    transition:
-      border-color 140ms ease,
-      background-color 140ms ease,
-      color 140ms ease;
-  }
-
-  .launcher-library-sort-trigger span {
+  .launcher-library-edit-bar--sorting .launcher-library-edit-bar-left {
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    flex-wrap: nowrap;
   }
 
-  .launcher-library-sort-trigger:hover {
-    border-color: var(--launcher-border-strong);
-    background: var(--launcher-surface-subtle);
+  .launcher-library-edit-bar--sorting .launcher-library-edit-label {
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
   }
 
-  .launcher-library-sort-trigger svg {
-    color: var(--launcher-text-tertiary);
+  .launcher-library-edit-bar--sorting .launcher-library-edit-label strong {
+    color: var(--accent);
   }
 
   .launcher-library-sort-menu {
@@ -330,11 +247,113 @@
     right: 0;
   }
 
+  .launcher-library-actions-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    --launcher-menu-min-width: 206px;
+    --launcher-menu-z: 25;
+  }
+
+  .launcher-library-actions-menu-item {
+    min-height: 36px;
+    color: var(--launcher-text-secondary);
+    gap: 10px;
+    transition:
+      background-color 140ms ease,
+      color 140ms ease;
+  }
+
+  .launcher-library-actions-menu-item svg {
+    flex: 0 0 auto;
+    color: var(--launcher-text-tertiary);
+  }
+
+  .launcher-library-actions-menu-item span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .launcher-library-sort-option {
-    min-height: 34px;
+    min-height: 36px;
+    gap: 10px;
+    padding: 0 10px;
     color: var(--launcher-text-secondary);
     transition:
       background-color 140ms ease,
       color 140ms ease;
+  }
+
+  .launcher-library-sort-option-icon {
+    flex: 0 0 auto;
+    color: var(--launcher-text-tertiary);
+    transition: color 140ms ease;
+  }
+
+  .launcher-library-sort-option-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Reserve space for the check so labels stay aligned whether or not the
+   * option is selected. */
+  .launcher-library-sort-option-check {
+    flex: 0 0 auto;
+    color: var(--launcher-text-accent);
+    opacity: 0;
+    transition: opacity 140ms ease;
+  }
+
+  .launcher-library-sort-option:hover {
+    background: var(--launcher-surface-muted);
+    color: var(--launcher-text-primary);
+  }
+
+  .launcher-library-sort-option:hover .launcher-library-sort-option-icon {
+    color: var(--launcher-text-secondary);
+  }
+
+  .launcher-library-sort-option-active {
+    background: var(--launcher-surface-accent);
+    color: var(--launcher-text-accent);
+    font-weight: 600;
+  }
+
+  .launcher-library-sort-option-active .launcher-library-sort-option-icon {
+    color: var(--launcher-text-accent);
+  }
+
+  .launcher-library-sort-option-active .launcher-library-sort-option-check {
+    opacity: 1;
+  }
+
+  /* "Reorder custom order" entry — separated from the sort-mode radio group by
+   * a divider and styled as an action (accent), since it opens the drag-reorder
+   * banner rather than selecting a sort mode. */
+  .launcher-library-sort-reorder-action {
+    margin-top: 4px;
+    border-top: 1px solid var(--launcher-border-soft);
+    border-radius: 0 0 8px 8px;
+    padding-top: 8px;
+    color: var(--launcher-text-accent);
+    font-weight: 600;
+  }
+
+  .launcher-library-sort-reorder-action .launcher-library-sort-option-icon {
+    color: var(--launcher-text-accent);
+  }
+
+  .launcher-library-sort-reorder-action:hover {
+    background: var(--launcher-surface-accent);
+    color: var(--launcher-text-accent);
+  }
+
+  .launcher-library-sort-reorder-action:hover .launcher-library-sort-option-icon {
+    color: var(--launcher-text-accent);
   }
 }

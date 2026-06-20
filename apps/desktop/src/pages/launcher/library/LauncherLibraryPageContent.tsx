@@ -11,6 +11,7 @@ import { LauncherLibraryHeader } from './ui/LauncherLibraryHeader'
 import { LauncherLibraryPackSidebar } from './ui/LauncherLibraryPackSidebar'
 import { LauncherLibraryDialogs } from './ui/LauncherLibraryDialogs'
 import { useLauncherLibraryController } from './hooks/useLauncherLibraryController'
+import { getLibraryViewOrderContainerKey } from './model/launcherLibraryDisplay'
 
 export type LauncherLibraryPageProps = {
   settings: LauncherSettingsDraft
@@ -54,6 +55,7 @@ export function LauncherLibraryPageContent({
   const { viewModel, refs, dialogState, dragState, shellState, actions: controllerActions } = controller
   const {
     packLookup,
+    viewKey,
     hiddenMods,
     visibleLibraryModsCount,
     detailMod,
@@ -66,7 +68,7 @@ export function LauncherLibraryPageContent({
     currentPackLabel,
     supportedArchiveFormatsLabel,
   } = viewModel
-  const { titleMenuRef, drawerPanelRef, sortMenuRef, packDialogInputRef } = refs
+  const { titleMenuRef, drawerPanelRef, sortMenuRef, actionsMenuRef, packDialogInputRef } = refs
   const {
     archivePreviewState,
     archivePreviews,
@@ -85,11 +87,25 @@ export function LauncherLibraryPageContent({
     childModManager,
   } = dialogState
   const { editMode, editingSelectionIds, boxSelectionIds, childModSelection, archiveDropActive } = dragState
-  const { actionError, sortMode, sortMenuOpen, drawerOpen, quickSwitchOpen, packActionMenuId, hiddenViewOpen } = shellState
+  const {
+    actionError,
+    sortMode,
+    sortingBannerOpen,
+    sortingActive,
+    sortMenuOpen,
+    actionsMenuOpen,
+    drawerOpen,
+    quickSwitchOpen,
+    packActionMenuId,
+    hiddenViewOpen,
+  } = shellState
   const {
     setSelectedArchivePreviewPath,
-    setSortMode,
+    changeSortMode,
+    finishSorting,
+    startSortingMode,
     setSortMenuOpen,
+    setActionsMenuOpen,
     setDetailModId,
     setDrawerOpen,
     setQuickSwitchOpen,
@@ -142,6 +158,9 @@ export function LauncherLibraryPageContent({
     openGridModFolder,
     assignDraggedModsToLibraryFolderFromDnd,
     addDraggedModsToPack,
+    reorderRootItems,
+    reorderFolderItems,
+    reorderChildModItems,
     directActionsForMod,
     directActionsForLibraryFolder,
     startEditingPack,
@@ -164,6 +183,7 @@ export function LauncherLibraryPageContent({
   return (
     <>
       <LauncherLibraryDndScope
+        sortingActive={sortingActive}
         resolveDraggedModIds={resolveDraggedModIds}
         onAddModsToPack={addDraggedModsToPack}
         onAssignModsToLibraryFolder={assignDraggedModsToLibraryFolderFromDnd}
@@ -171,6 +191,9 @@ export function LauncherLibraryPageContent({
         onRemoveModsFromLibraryFolders={removeDraggedModsFromLibraryFolders}
         onReleaseModsFromLibraryFolder={removeDraggedModsFromLibraryFolders}
         onMoveFolderToFolder={moveDraggedFolderToFolder}
+        onReorderRoot={reorderRootItems}
+        onReorderFolder={reorderFolderItems}
+        onReorderChildMod={reorderChildModItems}
       >
         <section className="launcher-library-page">
           <LauncherLibraryHeader
@@ -182,8 +205,11 @@ export function LauncherLibraryPageContent({
             drawerOpen={drawerOpen}
             quickSwitchOpen={quickSwitchOpen}
             sortMenuOpen={sortMenuOpen}
+            actionsMenuOpen={actionsMenuOpen}
+            sortingBannerOpen={sortingBannerOpen}
             titleMenuRef={titleMenuRef}
             sortMenuRef={sortMenuRef}
+            actionsMenuRef={actionsMenuRef}
             currentPackLabel={currentPackLabel}
             shortModsPath={shortModsPath}
             modsPath={settings.modsPath}
@@ -221,6 +247,12 @@ export function LauncherLibraryPageContent({
               cancelEdit: copy.library.cancelEdit,
               saveChanges: copy.library.saveChanges,
               confirmChildMods: copy.library.confirmChildMods,
+              sortingLabel: copy.library.sortingLabel,
+              sortingDragHint: copy.library.sortingDragHint,
+              sortingDone: copy.library.sortingDone,
+              startSortingLabel: copy.library.startSortingLabel,
+              customSortHint: copy.library.customSortHint,
+              moreActions: copy.library.moreActions,
             }}
             onToggleDrawer={() => setDrawerOpen((current) => !current)}
             onToggleQuickSwitch={() => setQuickSwitchOpen((current) => !current)}
@@ -228,6 +260,7 @@ export function LauncherLibraryPageContent({
               setQuickSwitchOpen(false)
               setPackActionMenuId(null)
               setSortMenuOpen(false)
+              setActionsMenuOpen(false)
             }}
             onSelectPack={(packId) => void selectPack(packId)}
             onSelectHiddenView={() => selectHiddenView()}
@@ -241,13 +274,22 @@ export function LauncherLibraryPageContent({
             onEnabledOnlyChange={library.setEnabledOnly}
             onToggleSortMenu={() => {
               setSortMenuOpen((current) => !current)
+              setActionsMenuOpen(false)
               setQuickSwitchOpen(false)
               setPackActionMenuId(null)
             }}
-            onSortModeChange={(value) => {
-              setSortMode(value)
+            onToggleActionsMenu={() => {
+              setActionsMenuOpen((current) => !current)
               setSortMenuOpen(false)
+              setQuickSwitchOpen(false)
+              setPackActionMenuId(null)
             }}
+            onCloseActionsMenu={() => setActionsMenuOpen(false)}
+            onSortModeChange={(value) => {
+              changeSortMode(value)
+            }}
+            onFinishSorting={finishSorting}
+            onStartSortingMode={startSortingMode}
             onCancelEditMode={cancelEditMode}
             onSaveEditMode={() => void saveEditMode()}
             onCancelChildModSelection={cancelChildModSelection}
@@ -318,6 +360,8 @@ export function LauncherLibraryPageContent({
                     openFolderItemsById={openLibraryFolderItemsById}
                     routeEnterSequence={routeEnterSequence}
                     editMode={editMode}
+                    sortingActive={sortingActive}
+                    rootOrderContainerKey={getLibraryViewOrderContainerKey(viewKey)}
                     editingSelectionIds={editingSelectionIds}
                     boxSelectionIds={boxSelectionIds}
                     childModSelectionMode={Boolean(childModSelection)}

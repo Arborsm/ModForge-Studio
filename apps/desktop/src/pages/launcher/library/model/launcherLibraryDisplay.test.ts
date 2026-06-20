@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vite-plus/test'
-import type { LauncherLibraryItem, LauncherPackPreset, LauncherVirtualFolder } from '@features/launcher/model/types'
+import type { LauncherLibraryItem, LauncherVirtualFolder } from '@features/launcher/model/types'
 import {
+  applyCustomOrder,
   buildLauncherFolderPreviewItems,
   buildLibraryCardMeta,
-  buildPackLookup,
   computeLibraryRevealBatchSize,
+  deriveLibraryViewKey,
+  encodeCustomItemKey,
   getPackModIds,
   shortenLibraryPath,
   sortLibraryMods,
@@ -55,17 +57,33 @@ describe('launcherLibraryDisplay', () => {
       mod({ id: 'c', name: 'Core', enabled: true }),
     ]
 
-    expect(sortLibraryMods(items, 'enabled-first', new Map(), null).map((item) => item.id)).toEqual(['a', 'c', 'b'])
+    expect(sortLibraryMods(items, 'enabled-first').map((item) => item.id)).toEqual(['a', 'c', 'b'])
   })
 
-  it('sorts by current pack name before mod name', () => {
-    const packs: LauncherPackPreset[] = [
-      { id: 'visuals', name: 'Visuals', modKeys: ['Mod.Beta'] },
-      { id: 'core', name: 'Core', modKeys: ['Mod.Alpha'] },
-    ]
-    const items = [mod({ id: 'b', name: 'Beta', uniqueId: 'Mod.Beta' }), mod({ id: 'a', name: 'Alpha', uniqueId: 'Mod.Alpha' })]
+  it('uses name order as the custom sort fallback before explicit custom order is applied', () => {
+    const items = [mod({ id: 'b', name: 'Beta' }), mod({ id: 'a', name: 'Alpha' })]
 
-    expect(sortLibraryMods(items, 'pack', buildPackLookup(packs), null).map((item) => item.id)).toEqual(['a', 'b'])
+    expect(sortLibraryMods(items, 'custom').map((item) => item.id)).toEqual(['a', 'b'])
+  })
+
+  it('applies known custom order keys and appends unknown items to the end', () => {
+    const items = [
+      mod({ id: 'a', name: 'Alpha', uniqueId: 'Mod.Alpha' }),
+      mod({ id: 'b', name: 'Beta', uniqueId: 'Mod.Beta' }),
+      mod({ id: 'c', name: 'Core', uniqueId: 'Mod.Core' }),
+    ]
+
+    const ordered = applyCustomOrder(items, ['m:Mod.Beta', 'm:Missing', 'm:Mod.Alpha'], (item) =>
+      encodeCustomItemKey('mod', item.uniqueId ?? item.labelKey),
+    )
+
+    expect(ordered.map((item) => item.id)).toEqual(['b', 'a', 'c'])
+  })
+
+  it('derives stable custom-order view keys for hidden, current pack, and all views', () => {
+    expect(deriveLibraryViewKey({ hiddenViewOpen: true, scopeMode: 'current-pack', currentPackId: 'farm' })).toBe('hidden')
+    expect(deriveLibraryViewKey({ hiddenViewOpen: false, scopeMode: 'current-pack', currentPackId: 'farm' })).toBe('pack:farm')
+    expect(deriveLibraryViewKey({ hiddenViewOpen: false, scopeMode: 'all', currentPackId: 'farm' })).toBe('all')
   })
 
   it('builds compact card meta from author and version', () => {

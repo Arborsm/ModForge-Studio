@@ -38,6 +38,9 @@ describe('LauncherLibraryDndScope', () => {
         onRemoveModsFromLibraryFolders={vi.fn()}
         onReleaseModsFromLibraryFolder={vi.fn()}
         onMoveFolderToFolder={vi.fn()}
+        onReorderRoot={vi.fn()}
+        onReorderFolder={vi.fn()}
+        onReorderChildMod={vi.fn()}
       >
         <div />
       </LauncherLibraryDndScope>,

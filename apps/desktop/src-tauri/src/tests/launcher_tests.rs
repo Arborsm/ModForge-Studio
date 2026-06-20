@@ -41,6 +41,7 @@ use crate::domain::launcher::updates::{
     finalize_remote_mod_details_batch, parse_smapi_update_response,
     resolve_smapi_runtime_versions_with_reader, SmapiRuntimeVersions, UpdateCheckCandidate,
 };
+use std::collections::BTreeMap;
 use crate::domain::nexusmods::updates::{
     build_update_batch_graphql_payload, parse_update_batch_graphql_response,
 };
@@ -174,6 +175,7 @@ fn launcher_library_state_create_default_and_save_roundtrip() {
             pack_presets: Vec::new(),
             child_mod_groups: Vec::new(),
             library_folders: Vec::new(),
+            custom_orders: BTreeMap::new(),
             current_pack_id: None,
             scope_mode: LauncherLibraryScopeMode::All,
         }
@@ -213,6 +215,13 @@ fn launcher_library_state_create_default_and_save_roundtrip() {
             mod_keys: vec!["ModForge.Visible".to_string()],
             cover_mod_keys: vec!["ModForge.Visible".to_string()],
         }],
+        custom_orders: BTreeMap::from([
+            (
+                "view:pack:farm".to_string(),
+                vec!["f:visual".to_string(), "m:ModForge.Visible".to_string()],
+            ),
+            ("folder:visual".to_string(), vec!["m:ModForge.Visible".to_string()]),
+        ]),
         current_pack_id: Some("farm".to_string()),
         scope_mode: LauncherLibraryScopeMode::CurrentPack,
     };
@@ -335,6 +344,29 @@ fn launcher_library_state_normalizes_invalid_entries_and_keeps_single_folder_mem
                 cover_mod_keys: Vec::new(),
             },
         ],
+        custom_orders: BTreeMap::from([
+            (
+                "view:pack:seasonal".to_string(),
+                vec![
+                    "f:visual".to_string(),
+                    "f:extras".to_string(),
+                    "m:ModForge.A".to_string(),
+                    "f:missing".to_string(),
+                    "m:ModForge.A".to_string(),
+                    "bad".to_string(),
+                ],
+            ),
+            ("view:pack:missing".to_string(), vec!["m:ModForge.Z".to_string()]),
+            (
+                "folder:visual".to_string(),
+                vec![
+                    "m:ModForge.A".to_string(),
+                    "m:ModForge.C".to_string(),
+                    "f:extras".to_string(),
+                ],
+            ),
+            ("folder:missing".to_string(), vec!["m:ModForge.A".to_string()]),
+        ]),
         current_pack_id: Some("missing-pack".to_string()),
         scope_mode: LauncherLibraryScopeMode::CurrentPack,
     };
@@ -415,12 +447,25 @@ fn launcher_library_state_normalizes_invalid_entries_and_keeps_single_folder_mem
             },
         ]
     );
+    assert_eq!(
+        reloaded.custom_orders,
+        BTreeMap::from([
+            (
+                "folder:visual".to_string(),
+                vec!["m:ModForge.A".to_string(), "f:extras".to_string()],
+            ),
+            (
+                "view:pack:seasonal".to_string(),
+                vec!["f:visual".to_string(), "m:ModForge.A".to_string()],
+            ),
+        ])
+    );
 
     fs::remove_dir_all(root).expect("cleanup");
 }
 
 #[test]
-fn launcher_library_state_reads_legacy_json_without_child_mod_groups() {
+fn launcher_library_state_reads_legacy_json_without_child_mod_groups_or_custom_orders() {
     let root = create_temp_dir("launcher-library-state-legacy-child-groups");
     let state_path = root.join("launcher").join("library.json");
     write_file(
@@ -439,6 +484,51 @@ fn launcher_library_state_reads_legacy_json_without_child_mod_groups() {
 
     assert_eq!(reloaded.child_mod_groups, Vec::<LauncherLibraryChildModGroup>::new());
     assert_eq!(reloaded.library_folders, Vec::<LauncherLibraryFolder>::new());
+    assert_eq!(reloaded.custom_orders, BTreeMap::new());
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn launcher_library_state_preserves_custom_order_roundtrip() {
+    let root = create_temp_dir("launcher-library-state-custom-orders");
+    let state_path = root.join("launcher").join("library.json");
+    let state = LauncherLibraryState {
+        storage_folders: vec![LauncherLibraryStorageFolder {
+            id: "unsorted".to_string(),
+            name: "Unsorted".to_string(),
+            mod_keys: Vec::new(),
+        }],
+        hidden_mod_keys: Vec::new(),
+        pack_presets: vec![LauncherLibraryPackPreset {
+            id: "farm".to_string(),
+            name: "Farm".to_string(),
+            mod_keys: vec!["ModForge.A".to_string()],
+        }],
+        child_mod_groups: Vec::new(),
+        library_folders: vec![LauncherLibraryFolder {
+            id: "visual".to_string(),
+            name: "Visual".to_string(),
+            parent_folder_id: None,
+            mod_keys: vec!["ModForge.A".to_string()],
+            cover_mod_keys: Vec::new(),
+        }],
+        custom_orders: BTreeMap::from([
+            (
+                "view:pack:farm".to_string(),
+                vec!["m:ModForge.A".to_string(), "f:visual".to_string()],
+            ),
+            ("folder:visual".to_string(), vec!["m:ModForge.A".to_string()]),
+        ]),
+        current_pack_id: Some("farm".to_string()),
+        scope_mode: LauncherLibraryScopeMode::CurrentPack,
+    };
+
+    save_library_state_at_path(&state_path, &state).expect("save launcher library state");
+    let reloaded = load_or_create_library_state_at_path(&state_path)
+        .expect("reload saved launcher library state");
+
+    assert_eq!(reloaded.custom_orders, state.custom_orders);
 
     fs::remove_dir_all(root).expect("cleanup");
 }
