@@ -1,7 +1,7 @@
 import { X } from 'lucide-react'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { useId } from 'react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 
 export type DialogHeaderTone = 'default' | 'danger' | 'warning'
 

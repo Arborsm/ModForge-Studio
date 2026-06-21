@@ -1,7 +1,7 @@
 import type { LauncherLibraryItem } from './types'
 
 export const normalizeModKey = (value: string) => value.trim()
-export { normalizeLookupKey } from '@shared/lib/lookup'
+export { normalizeLookupKey } from '@shared/lib/helper'
 
 export function getModKey(item: LauncherLibraryItem) {
   return normalizeModKey(item.uniqueId || item.labelKey || item.id)

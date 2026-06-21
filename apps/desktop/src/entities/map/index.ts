@@ -34,3 +34,4 @@ export { default as MapWorldStatePreviewOverlay } from './ui/MapWorldStatePrevie
 export type { MapViewportHandle } from './ui/MapViewport'
 export type { WarpEntry } from './lib/warps'
 export type { WorldMapLayout, WorldMapLayoutArea } from './lib/world'
+export type * from './lib/types'

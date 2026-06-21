@@ -1,7 +1,7 @@
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vite-plus/test'
 import { vi } from 'vite-plus/test'
-import type { MapDocument } from '@shared/contracts'
+import type { MapDocument } from '@entities/map'
 import { MapViewport } from './MapViewport'
 
 beforeEach(() => {

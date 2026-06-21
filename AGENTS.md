@@ -53,6 +53,7 @@ MODFORGE_COMMAND_TRACE=1 vp run dev
 
 - 目标依赖方向是 `app -> pages -> widgets -> features -> entities -> shared/contracts`；`platform` 是外部 adapter，由 `app/providers` 注入。
 - `shared` 不允许 import `app`、`pages`、`widgets`、`features`、`entities`、`platform`。
+- `shared` 内部分层见 `docs/frontend-architecture.md`：`shared/lib` 保持纯通用，`shared/infra` 只收 game-format/asset-format helper，宿主桥在 `platform/host`。
 - `entities` 不允许 import `pages`、`widgets`、`features`，也不允许引用 panel/layout UI 类型。
 - `features` 不允许横向 import 其他 feature；跨特性联动必须通过 typed event 或 typed command。
 - `widgets` 可以组合 `features` / `entities` 暴露的 hooks、selectors、commands，但不能定义领域数据结构，不能直接调用宿主平台。
@@ -90,6 +91,7 @@ MODFORGE_COMMAND_TRACE=1 vp run dev
 - Host command tracing 只能通过启动环境变量开启，不要做成前端可调用 command，也不要混入应用 debug diagnostics toggle；UI debug 仍应保留其他 backend debug/trace。
 - `domain` 按业务边界组织 launcher、mods、assets、content_patcher、cp_maker、saves、event_project、workbench_project、app_ui 等领域逻辑。
 - `infrastructure` 只放技术实现，如 game formats、filesystem、webview 基础设施；不要混入 launcher/Nexus 等领域规则。
+- 前端 `shared/infra` 对齐 game-format/asset-format 边界，不承载宿主桥、launcher/Nexus 业务规则。
 - 大型 Rust 测试不要新增内联 `#[cfg(test)] mod tests`；优先放 sibling `tests/*.rs` 或 `apps/desktop/src-tauri/tests` 的回归测试。
 - 修改资产解码、解析、安装、启动、路径安全或 fallback 行为时，必须补充或更新回归测试。
 

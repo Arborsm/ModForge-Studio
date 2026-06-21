@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
-import { getFileCacheStats } from '@shared/lib/desktop'
+import { getFileCacheStats } from '@platform/host'
 import { DevDebugOverlay } from './DevDebugOverlay'
 
 const desktopMockState = vi.hoisted(() => ({
@@ -14,7 +14,7 @@ vi.mock('@entities/event', () => ({
   }),
 }))
 
-vi.mock('@shared/lib/desktop', () => ({
+vi.mock('@platform/host', () => ({
   canUseDesktopHost: () => desktopMockState.canUseDesktopHost,
   clearFileCache: vi.fn(),
   getDesktopCacheStats: () => ({

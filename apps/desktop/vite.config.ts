@@ -122,7 +122,7 @@ const namedChunkGroups: NamedChunkGroup[] = [
       id.includes('/src/app/app-shell/PlayerAppearanceWindow') ||
       id.includes('/src/entities/event/model/stage/playerAppearance') ||
       id.includes('/src/entities/event/model/stage/farmerAppearanceRenderer') ||
-      id.includes('/src/shared/lib/clothingSprites'),
+      id.includes('/src/entities/character/lib/clothingSprites'),
   },
   {
     name: 'event-condition-model',

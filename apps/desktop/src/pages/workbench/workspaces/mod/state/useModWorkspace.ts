@@ -17,9 +17,9 @@ import {
   simulateContentPatcher,
 } from '@entities/mod/api'
 import { type GameDirectoryInfo } from '@entities/game/api'
-import { chooseDirectory } from '@shared/lib/desktop'
+import { chooseDirectory } from '@platform/host'
 import { useModWorkspaceCopy } from '@locales/provider'
-import { reportAppEvent } from '@shared/lib/observability'
+import { reportAppEvent } from '@platform/observability'
 import {
   addPatch,
   buildContentPatcherSimulationRequest,

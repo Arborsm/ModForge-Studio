@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLauncherPort } from './launcherPortContext'
 import { useEditorCopy } from '@locales/provider'
-import { TaskCancelledError, useQueuedMutationTask, useTaskScope, type TaskScope } from '@shared/lib/task-runtime'
+import { TaskCancelledError, useQueuedMutationTask, useTaskScope, type TaskScope } from '@platform/task-runtime'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import type {
   LauncherLibraryModSummary,

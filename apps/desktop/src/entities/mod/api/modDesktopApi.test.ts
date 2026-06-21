@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vite-plus/test'
-import { invokeDesktop } from '@shared/lib/desktop/runtime'
+import { invokeDesktop } from '@platform/host/runtime'
 import { saveModProject } from './modDesktopApi'
 import type { SaveModProjectRequest, SaveModProjectResult } from './types'
 
-vi.mock('@shared/lib/desktop/runtime', () => ({
+vi.mock('@platform/host/runtime', () => ({
   invokeDesktop: vi.fn(),
 }))
 

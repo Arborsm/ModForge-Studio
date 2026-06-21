@@ -2,8 +2,8 @@ import { useState, type KeyboardEvent } from 'react'
 import type { EditorCopy } from '@locales'
 import { useEditorCopy } from '@locales/provider'
 import type { StudioDeskInspiration, StudioDeskModel, StudioDeskWorldBibleEntry } from '../model/studioDeskModel'
-import type { WorkspaceId } from '@shared/contracts'
-import { cx } from '@shared/lib/cx'
+import type { WorkspaceId } from '@features/cp-maker'
+import { cx } from '@shared/lib/helper'
 
 type StudioDeskMainStageProps = {
   model: StudioDeskModel

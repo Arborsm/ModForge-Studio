@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, CopyPlus, FolderOpen, Plus, Trash2, UserRound, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { buildGameContentPath } from '@shared/lib/assets'
+import { buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
 import { useEventStageCopy, useLocale } from '@locales/provider'
 import { loadTextFile, scanDefaultSaveSlots, type DefaultSaveSlotSummary } from '@entities/game/api'
 import { loadImageResourceFromPath } from '@shared/lib/assets'
@@ -26,8 +26,8 @@ import {
   getClothingPantsVariantSourceRect,
   getClothingShirtCount,
   getClothingShirtMenuSourceRect,
-} from '@shared/lib/clothingSprites'
-import { cx } from '@shared/lib/cx'
+} from '@entities/character/lib/clothingSprites'
+import { cx } from '@shared/lib/helper'
 
 type PlayerAppearanceWindowProps = {
   open: boolean

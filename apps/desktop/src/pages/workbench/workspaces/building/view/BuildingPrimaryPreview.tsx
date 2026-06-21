@@ -2,7 +2,7 @@ import { useBuildingsCopy } from '@locales/provider'
 import { MapViewport } from '@entities/map'
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../entities/building'
 import type { LocaleCode, ViewportLabels, ThemeMode } from '@locales/api'
-import type { MapDocument, ViewportWorldPoint } from '@shared/contracts'
+import type { MapDocument, ViewportWorldPoint } from '@entities/map'
 import { buildAbsoluteSpriteLayerStyle, getResolvedSourceRect } from './buildingViewHelpers'
 
 export type BuildingPrimaryPreviewProps = {

@@ -31,15 +31,6 @@ export type LoadingMotionStage = 'idle' | 'entering' | 'loading' | 'ready' | 'ex
 /** Stable internal id for each motion style. */
 export type LoadingMotionStyleId = 'bounceIn' | 'layeredFadeIn' | 'slideInPush' | 'softFadeIn' | 'quietSimplify'
 
-/** All valid style ids in a stable array (deterministic iteration order). */
-export const LOADING_MOTION_STYLE_IDS: LoadingMotionStyleId[] = [
-  'bounceIn',
-  'layeredFadeIn',
-  'slideInPush',
-  'softFadeIn',
-  'quietSimplify',
-] as const
-
 /* ------------------------------------------------------------------ */
 /*  Intensity identifiers                                              */
 /* ------------------------------------------------------------------ */
@@ -53,9 +44,6 @@ export const LOADING_MOTION_STYLE_IDS: LoadingMotionStyleId[] = [
  */
 export type LoadingMotionIntensityId = 'light' | 'standard' | 'strong'
 
-/** All valid intensity ids in a stable array. */
-export const LOADING_MOTION_INTENSITY_IDS: LoadingMotionIntensityId[] = ['light', 'standard', 'strong'] as const
-
 /* ------------------------------------------------------------------ */
 /*  Speed identifiers                                                 */
 /* ------------------------------------------------------------------ */
@@ -63,8 +51,6 @@ export const LOADING_MOTION_INTENSITY_IDS: LoadingMotionIntensityId[] = ['light'
 export type LoadingMotionSpeedId = 'slow' | 'standard' | 'fast'
 
 export type LoadingMotionSpeedMode = 'preset' | 'custom'
-
-export const LOADING_MOTION_SPEED_IDS: LoadingMotionSpeedId[] = ['slow', 'standard', 'fast'] as const
 
 /* ------------------------------------------------------------------ */
 /*  Preference and resolved config                                     */

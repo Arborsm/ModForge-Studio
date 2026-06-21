@@ -8,7 +8,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { autoUpdate, flip, FloatingPortal, offset, shift, useFloating } from '@floating-ui/react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 
 export type CompactSelectOption<TValue extends string | number> = {
   value: TValue

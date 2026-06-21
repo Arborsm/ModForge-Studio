@@ -14,7 +14,7 @@ import { EventConditionBuilderModal } from '@entities/event/ui/EventConditionBui
 import { EventGameStateQueryBuilderModal } from '@entities/event/ui/EventGameStateQueryBuilderModal'
 import type { ContentPatcherI18nFile, ModProjectDetail } from '@entities/mod/api'
 import type { EventPatchHubEvent } from '@entities/event'
-import type { DraftPatch, WorkspaceId } from '@shared/contracts'
+import type { DraftPatch, WorkspaceId } from '@features/cp-maker'
 import type { StudioDeskGalleryProject, StudioDeskInspiration, StudioDeskModel, StudioDeskWorldBibleModel } from '@features/cp-maker'
 
 const copy = localeBundles['en-US']

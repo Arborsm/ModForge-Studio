@@ -1,5 +1,6 @@
-import { globalTaskRuntime, type TaskScope } from '@shared/lib/task-runtime'
-import type { HostCommandName, PlatformPorts } from '@shared/contracts'
+import { globalTaskRuntime, type TaskScope } from '@platform/task-runtime'
+import type { PlatformPorts } from '@shared/contracts'
+import type { HostCommandName } from '@platform/host-commands'
 
 export type HostCommandPolicy =
   | { kind: 'latest'; key: string }

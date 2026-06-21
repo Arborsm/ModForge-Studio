@@ -1,4 +1,4 @@
-import type { MapTileset } from '@shared/contracts'
+import type { MapTileset } from '@entities/map'
 
 export type LoadedTilesetImage = {
   image: HTMLImageElement

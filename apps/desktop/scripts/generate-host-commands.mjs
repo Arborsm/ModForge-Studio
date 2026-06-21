@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const desktopRoot = resolve(__dirname, '..')
 const commandsDir = resolve(desktopRoot, 'src-tauri/src/commands')
-const outputPath = resolve(desktopRoot, 'src/shared/contracts/generated/hostCommands.ts')
+const outputPath = resolve(desktopRoot, 'src/platform/host-commands/index.ts')
 
 function toCamelCase(value) {
   return value.replace(/_([a-z0-9])/g, (_, char) => char.toUpperCase())

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { openLauncherUrl } from '@features/launcher/api'
 import { getLauncherCardMonogram, useLauncherImage } from '@features/launcher'
 import { useEditorCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { Tooltip } from '@shared/ui/Tooltip'
 import { formatCompactNumber, formatFileSize, formatRelativeDate } from './launcherDiscoverFormat'
 

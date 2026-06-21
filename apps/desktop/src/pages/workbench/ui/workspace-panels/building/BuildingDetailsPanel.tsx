@@ -1,4 +1,4 @@
-import { formatPoint } from '@shared/lib/geometryFormatting'
+import { formatPoint } from '@shared/infra/game-formats/geometryFormatting'
 import { useBuildingsCopy } from '@locales/provider'
 import type { BuildingWorkspaceEntry } from '../../../workspaces/building'
 import { PanelFrame } from '@shared/ui/PanelFrame'

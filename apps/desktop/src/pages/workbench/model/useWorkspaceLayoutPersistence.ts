@@ -49,6 +49,8 @@ export function useWorkspaceLayoutPersistence(appUiStateReady: boolean, workspac
       workspace: {
         layouts: Object.fromEntries(entries.map(([storageKey, state]) => [storageKey, state as Record<string, unknown>])),
       },
+    }).catch((error) => {
+      console.error('[appUiState] failed to save workspace layout state', error)
     })
   }, [appUiStateReady])
 

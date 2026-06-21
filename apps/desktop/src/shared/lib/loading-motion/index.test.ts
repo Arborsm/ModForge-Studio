@@ -13,7 +13,7 @@ import {
   orderRevealItems,
   validateAnchors,
 } from './index'
-import { LOADING_MOTION_INTENSITY_IDS, LOADING_MOTION_SPEED_IDS, LOADING_MOTION_STYLE_IDS } from '@shared/contracts/types/loadingMotion'
+import { LOADING_MOTION_INTENSITY_IDS, LOADING_MOTION_SPEED_IDS, LOADING_MOTION_STYLE_IDS } from '@shared/lib/loading-motion'
 
 /* ------------------------------------------------------------------ */
 /*  LM-02: Lifecycle model awareness (indirect — contracts exist)       */

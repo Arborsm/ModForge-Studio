@@ -1,4 +1,3 @@
-import type { DraftPatch } from '@shared/contracts'
 import { parseEventCommand, parseEventCommands, parseEventSceneSetup, splitEventPreconditions } from './parser'
 import type { EventCommand, EventSceneActor } from './types'
 import { EventPreconditionParser, type EventPreconditionGroups } from '@entities/event'
@@ -41,10 +40,28 @@ export interface EventPatchHubStats {
   triggers: number
 }
 
+export interface EventPatchHubSourcePatch {
+  id: string
+  workspace: 'mods' | 'map' | 'events' | 'characters' | 'buildings' | 'items'
+  action: 'EditData' | 'EditImage' | 'EditMap' | 'Load' | 'Include'
+  target: string
+  logName: string
+  enabled: boolean | string
+  updatedAt?: number
+  when?: Record<string, unknown>
+  fromFile?: string
+  editorState: unknown
+  targetLocale?: string
+  update?: string
+  priority?: string | number
+  localTokens?: Record<string, unknown>
+  targetField?: string[]
+}
+
 export interface EventPatchHubPatch {
   id: string
   displayName: string
-  action: DraftPatch['action']
+  action: EventPatchHubSourcePatch['action']
   target: string
   enabled: boolean
   conditionSummary: string
@@ -52,7 +69,7 @@ export interface EventPatchHubPatch {
   events: EventPatchHubEvent[]
   stats: EventPatchHubStats
   exportReady: boolean
-  sourcePatch: DraftPatch
+  sourcePatch: EventPatchHubSourcePatch
   searchText: string
 }
 
@@ -60,7 +77,7 @@ function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
 }
 
-function eventEntriesFromPatch(patch: DraftPatch): Array<[string, string]> {
+function eventEntriesFromPatch(patch: EventPatchHubSourcePatch): Array<[string, string]> {
   const state = asRecord(patch.editorState)
   const entries = asRecord(state['entries'])
 
@@ -82,7 +99,7 @@ function formatConditionValue(value: unknown): string {
   return JSON.stringify(value)
 }
 
-export function summarizePatchWhen(when: DraftPatch['when']): string {
+export function summarizePatchWhen(when: EventPatchHubSourcePatch['when']): string {
   if (!when || Object.keys(when).length === 0) {
     return ''
   }
@@ -132,7 +149,7 @@ function buildScriptSteps(commands: EventCommand[]): EventPatchHubScriptStep[] {
   }))
 }
 
-function getDisabledEventKeys(patch: DraftPatch): Set<string> {
+function getDisabledEventKeys(patch: EventPatchHubSourcePatch): Set<string> {
   const state = asRecord(patch.editorState)
   const disabledKeys = Array.isArray(state['disabledEventKeys'])
     ? state['disabledEventKeys'].filter((key): key is string => typeof key === 'string')
@@ -140,14 +157,14 @@ function getDisabledEventKeys(patch: DraftPatch): Set<string> {
   return new Set(disabledKeys)
 }
 
-function getEventAliases(patch: DraftPatch): Record<string, string> {
+function getEventAliases(patch: EventPatchHubSourcePatch): Record<string, string> {
   const state = asRecord(patch.editorState)
   const aliases = asRecord(state['eventAliases'])
   return Object.fromEntries(Object.entries(aliases).filter((entry): entry is [string, string] => typeof entry[1] === 'string'))
 }
 
 function buildHubEvent(
-  patch: DraftPatch,
+  patch: EventPatchHubSourcePatch,
   key: string,
   rawScript: string,
   disabledEventKeys: Set<string>,
@@ -194,7 +211,7 @@ function uniqueActorCount(events: EventPatchHubEvent[]) {
   return actors.size
 }
 
-function buildPatchSearchText(patch: DraftPatch, events: EventPatchHubEvent[]) {
+function buildPatchSearchText(patch: EventPatchHubSourcePatch, events: EventPatchHubEvent[]) {
   return [
     patch.logName,
     patch.action,
@@ -206,7 +223,7 @@ function buildPatchSearchText(patch: DraftPatch, events: EventPatchHubEvent[]) {
     .toLowerCase()
 }
 
-export function buildEventPatchHubPatches(patches: DraftPatch[]): EventPatchHubPatch[] {
+export function buildEventPatchHubPatches(patches: EventPatchHubSourcePatch[]): EventPatchHubPatch[] {
   return patches.map((patch) => {
     const disabledEventKeys = getDisabledEventKeys(patch)
     const eventAliases = getEventAliases(patch)

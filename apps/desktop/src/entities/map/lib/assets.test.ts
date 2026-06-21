@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test'
 import { resolveTilesetImagePath } from './assets'
-import type { MapDocument, MapTileset } from '@shared/contracts'
+import type { MapDocument, MapTileset } from '@entities/map'
 
 function createTileset(overrides: Partial<MapTileset> = {}): MapTileset {
   return {

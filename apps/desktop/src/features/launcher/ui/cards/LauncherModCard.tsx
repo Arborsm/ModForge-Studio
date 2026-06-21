@@ -3,7 +3,7 @@ import type { CSSProperties, MouseEvent } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { ArrowUp, Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { useEditorCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { LauncherArtworkCover } from './LauncherArtworkCover'
 import { getLauncherCardCoverWord, getLauncherCardFallbackPalette } from './launcherCardPresentation'
 

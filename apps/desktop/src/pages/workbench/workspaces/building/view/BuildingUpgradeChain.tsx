@@ -1,7 +1,7 @@
 import { useBuildingsCopy } from '@locales/provider'
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../entities/building'
 import type { BuildingsPanelCopy } from '@locales/api'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { buildAbsoluteSpriteLayerStyle, getResolvedSourceRect, getStageBadge } from './buildingViewHelpers'
 
 export type BuildingUpgradeChainProps = {

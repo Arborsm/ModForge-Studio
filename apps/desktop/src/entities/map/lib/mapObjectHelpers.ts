@@ -1,5 +1,5 @@
 import type { EditorCopy } from '@locales/api'
-import type { MapObject, MapObjectGroup } from '@shared/contracts'
+import type { MapObject, MapObjectGroup } from '@entities/map'
 
 const INTERACTIVE_OBJECT_PROPERTY_KEYS = ['Action', 'TouchAction', 'Warp', 'NPCWarp', 'LockedDoorWarp', 'MagicWarp']
 

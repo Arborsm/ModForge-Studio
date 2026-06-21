@@ -12,14 +12,17 @@ type AppUiStatePersistence = {
 let appUiStatePersistence: AppUiStatePersistence = {
   canPersist: () => false,
   load: async () => snapshot,
-  patch: async (request) => mergePatchIntoSnapshot(snapshot, request),
+  patch: async () => snapshot,
 }
 
 /** Configures the persistence adapter used by app UI state helpers. */
 export function configureAppUiStatePersistence(persistence: AppUiStatePersistence) {
+  if (initializePromise) {
+    throw new Error('configureAppUiStatePersistence must be called before initializeAppUiState')
+  }
+
   appUiStatePersistence = persistence
   snapshot = createDefaultAppUiState()
-  initializePromise = null
   patchQueue = Promise.resolve(snapshot)
 }
 
@@ -246,8 +249,8 @@ export async function initializeAppUiState() {
   return initializePromise
 }
 
-function mergePatchIntoSnapshot(current: AppUiState, patch: PatchAppUiStateRequest): AppUiState {
-  return normalizeAppUiState({
+function applyPatchToSnapshot(current: AppUiState, patch: PatchAppUiStateRequest): AppUiState {
+  return {
     ...current,
     ...(patch.shell ? { shell: patch.shell } : null),
     ...(patch.appearance
@@ -261,6 +264,8 @@ function mergePatchIntoSnapshot(current: AppUiState, patch: PatchAppUiStateReque
     ...(patch.workspace
       ? {
           workspace: {
+            ...current.workspace,
+            ...patch.workspace,
             layouts: mergeWorkspaceLayouts(current.workspace.layouts, patch.workspace.layouts),
           },
         }
@@ -270,24 +275,45 @@ function mergePatchIntoSnapshot(current: AppUiState, patch: PatchAppUiStateReque
           launcher: {
             ...current.launcher,
             ...patch.launcher,
+            ...(patch.launcher.discoverToolbar
+              ? {
+                  discoverToolbar: {
+                    ...current.launcher.discoverToolbar,
+                    ...patch.launcher.discoverToolbar,
+                  },
+                }
+              : null),
           },
         }
       : null),
-  })
+  }
+}
+
+function mergePatchIntoSnapshot(current: AppUiState, patch: PatchAppUiStateRequest): AppUiState {
+  return applyPatchToSnapshot(current, patch)
 }
 
 /** Serializes UI state patches so concurrent callers cannot overwrite each other. */
 export async function applyAppUiStatePatch(patch: PatchAppUiStateRequest) {
-  patchQueue = patchQueue.then(async () => {
-    if (!appUiStatePersistence.canPersist()) {
-      snapshot = mergePatchIntoSnapshot(snapshot, patch)
+  const nextPatch = patchQueue
+    .catch((error) => {
+      console.error('[appUiState] patch failed', error)
       return snapshot
-    }
+    })
+    .then(async () => {
+      if (!appUiStatePersistence.canPersist()) {
+        snapshot = mergePatchIntoSnapshot(snapshot, patch)
+        return snapshot
+      }
 
-    const next = await appUiStatePersistence.patch(patch)
-    snapshot = normalizeAppUiState(next)
+      const next = await appUiStatePersistence.patch(patch)
+      snapshot = normalizeAppUiState(next)
+      return snapshot
+    })
+
+  patchQueue = nextPatch.catch((error) => {
+    console.error('[appUiState] patch failed', error)
     return snapshot
   })
-
-  return patchQueue
+  return nextPatch
 }

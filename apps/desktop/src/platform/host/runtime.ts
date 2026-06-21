@@ -1,5 +1,6 @@
-import type { HostCommandName, PlatformPorts } from '@shared/contracts'
-import { createHostCommandClient, type HostCommandClient, type HostCommandPolicy } from '@shared/lib/host-command-client'
+import type { PlatformPorts } from '@shared/contracts'
+import { createHostCommandClient, type HostCommandClient, type HostCommandPolicy } from '@platform/host-command-client'
+import type { HostCommandName } from '@platform/host-commands'
 
 let platformPorts: PlatformPorts | null = null
 let hostCommandClient: HostCommandClient | null = null

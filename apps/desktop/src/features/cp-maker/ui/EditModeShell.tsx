@@ -1,7 +1,7 @@
 // Edit 模式总壳层：Header + Patch catalog / full-page editor route
 
 import { useEffect, useState } from 'react'
-import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@shared/contracts'
+import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@features/cp-maker'
 import type { GameDirectoryInfo } from '../model/cpMakerPort'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
 import type { PlayerAppearanceProfile } from '@entities/event'

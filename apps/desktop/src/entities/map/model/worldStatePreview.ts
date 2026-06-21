@@ -1,4 +1,4 @@
-import type { MapDocument, MapPropertyValue, MapWorldOverlaySprite } from '@shared/contracts'
+import type { MapDocument, MapPropertyValue, MapWorldOverlaySprite } from '@entities/map'
 import { stripTileGidFlags } from '@entities/map'
 import { findTilesetForGid as resolveTilesetForGid } from '@entities/map'
 

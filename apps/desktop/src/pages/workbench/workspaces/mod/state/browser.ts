@@ -1,7 +1,61 @@
-import { normalizeLookupKey } from '@shared/lib/lookup'
-import type { ModAssetIndexGroup, ModAssetReference, ModBrowserEntry, ModBrowserGroup, ModSourceEntry } from '@shared/contracts'
+import { normalizeLookupKey } from '@shared/lib/helper'
 
-export type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup, ModSourceEntry } from '@shared/contracts'
+export type BrowserSourceMode = 'original' | 'mod'
+
+export type ModAssetReference = {
+  key: string
+  label: string
+  targets: string[]
+  patchIds: string[]
+}
+
+export type ModAssetIndexGroup = {
+  modId: string
+  modName: string
+  modPath: string
+  pluginKind: string
+  maps: ModAssetReference[]
+  events: ModAssetReference[]
+  characters: ModAssetReference[]
+  buildings: ModAssetReference[]
+  items: ModAssetReference[]
+}
+
+export type ModAssetIndex = {
+  mods: ModAssetIndexGroup[]
+}
+
+export type ModBrowserEntry<T> = {
+  selectionId: string
+  modId: string
+  modName: string
+  modPath: string
+  pluginKind: string
+  key: string
+  label: string
+  value: T
+  targets: string[]
+  patchIds: string[]
+}
+
+export type ModBrowserGroup<T> = {
+  modId: string
+  modName: string
+  modPath: string
+  pluginKind: string
+  items: ModBrowserEntry<T>[]
+}
+
+export type ModSourceEntry = {
+  modId: string
+  modName: string
+  modPath: string
+  pluginKind: string
+  key: string
+  label: string
+  targets: string[]
+  patchIds: string[]
+}
 
 export function getModBrowserSelectionId(modId: string, key: string) {
   return `${normalizeLookupKey(modId)}::${normalizeLookupKey(key)}`

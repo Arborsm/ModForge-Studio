@@ -18,7 +18,7 @@ import { MapPatchEditor } from '@pages/workbench/workspaces/map/editors/MapPatch
 import { ContentPatcherWorkspace } from '@pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherWorkspace'
 import type { ContentPatcherBackendSimulationContext } from '@pages/workbench/workspaces/mod/mods/content-patcher/content-model/contentPatcher'
 import type { ContentPatcherSimulationResult, LoadContentPatcherResultAssetResult, ModProjectDetail } from '@entities/mod/api'
-import type { CpMakerDraft, DraftPatch, WorkspaceId } from '@shared/contracts'
+import type { CpMakerDraft, DraftPatch, WorkspaceId } from '@features/cp-maker'
 import type { LauncherPage as LauncherPageId } from '@locales/api'
 
 type PageScenarioId =

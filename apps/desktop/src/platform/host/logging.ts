@@ -1,4 +1,4 @@
-import { HOST_COMMANDS } from '@shared/contracts'
+import { HOST_COMMANDS } from '@platform/host-commands'
 import { canUseDesktopHost, invokeDesktop } from './runtime'
 
 export type FrontendLogLevel = 'debug' | 'info' | 'warning' | 'error'

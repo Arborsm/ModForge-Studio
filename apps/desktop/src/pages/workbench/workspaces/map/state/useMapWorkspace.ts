@@ -1,10 +1,10 @@
 import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { loadImageDataUrl, loadMapAsset, loadTextAsset, scanMaps, type GameDirectoryInfo, type MapAssetSummary } from '@entities/game/api'
-import type { FocusedMapObjectTarget, TileHoverInfo } from '@shared/contracts'
+import type { FocusedMapObjectTarget, TileHoverInfo } from '@entities/map'
 import type { EditorCopy, LocaleCode } from '@locales'
 import { scheduleDeferred } from '@shared/lib/react'
 import { resolveTilesetImagePath } from '@entities/map'
-import type { MapAtlasPlacement, MapDocument } from '@shared/contracts'
+import type { MapAtlasPlacement, MapDocument } from '@entities/map'
 import {
   buildWorldAtlas,
   getExteriorWarpTargetNames,
@@ -46,7 +46,7 @@ import {
 } from '@pages/workbench/workspaces/mod'
 import { useModAssetIndex } from '@pages/workbench/workspaces/mod'
 import { loadModResultMapDocument } from '@pages/workbench/workspaces/mod'
-import type { ResourcePreloadState, WorldAtlasView, WorkspaceStatus } from '@shared/contracts'
+import type { ResourcePreloadState, WorldAtlasView, WorkspaceStatus } from '@entities/map'
 
 const WORLD_ROOT_MAP_NAME = 'Town'
 const REMOTE_WORLD_ROOT_CANDIDATES = ['Island_S', 'Desert', 'Summit', 'Island_W', 'Island_N', 'Island_E', 'Island_SE'] as const

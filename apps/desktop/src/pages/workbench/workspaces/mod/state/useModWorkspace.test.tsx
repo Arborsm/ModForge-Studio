@@ -1,8 +1,8 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { loadContentPatcherResultAsset, saveModProject, scanModProjects, simulateContentPatcher } from '@entities/mod/api'
-import { chooseDirectory } from '@shared/lib/desktop'
-import { reportAppEvent } from '@shared/lib/observability'
+import { chooseDirectory } from '@platform/host'
+import { reportAppEvent } from '@platform/observability'
 import useModWorkspace from './useModWorkspace'
 
 function createDeferred<T>() {
@@ -157,11 +157,11 @@ vi.mock('@entities/mod/api', () => ({
   }),
 }))
 
-vi.mock('@shared/lib/observability', () => ({
+vi.mock('@platform/observability', () => ({
   reportAppEvent: vi.fn(),
 }))
 
-vi.mock('@shared/lib/desktop', () => ({
+vi.mock('@platform/host', () => ({
   chooseDirectory: vi.fn(),
 }))
 

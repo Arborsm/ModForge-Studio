@@ -1,7 +1,7 @@
 // 编辑器路由页：根据 Patch 类型分发对应编辑器
 
-import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
-import type { WorkspaceId } from '@shared/contracts'
+import type { DraftPatch, CpMakerDraft } from '@features/cp-maker'
+import type { WorkspaceId } from '@features/cp-maker'
 import type { GameDirectoryInfo } from '../model/cpMakerPort'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
 import { useEditorCopy } from '@locales/provider'

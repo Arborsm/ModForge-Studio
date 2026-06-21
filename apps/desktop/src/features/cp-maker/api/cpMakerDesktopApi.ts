@@ -1,7 +1,7 @@
-import { HOST_COMMANDS } from '@shared/contracts'
-import { createPromiseCache, readCached, readPending } from '@shared/lib/desktop/cache'
-import { invokeDesktop } from '@shared/lib/desktop/runtime'
-import type { HostCommandPolicy } from '@shared/lib/host-command-client'
+import { HOST_COMMANDS } from '@platform/host-commands'
+import { createPromiseCache, readCached, readPending } from '@shared/lib/cache'
+import { invokeDesktop } from '@platform/host/runtime'
+import type { HostCommandPolicy } from '@platform/host-command-client'
 import type {
   BuildCpMakerMapAssetRequest,
   CopyCpMakerDraftRequest,

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { ChevronDown, Search, FileText, Sparkles } from 'lucide-react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { useEventStageCopy } from '@locales/provider'
 
 export type EventSelectorProps = {

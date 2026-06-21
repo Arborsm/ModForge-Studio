@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { detectDefaultGameDirectory, listKnownGameDirectories, validateGameDirectory, type GameDirectoryInfo } from '@entities/game/api'
-import { canUseDesktopHost, chooseGameDirectory } from '@shared/lib/desktop'
+import { canUseDesktopHost, chooseGameDirectory } from '@platform/host'
 import type { EditorCopy } from '@locales'
-import type { WorkspaceStatus } from '@shared/contracts'
+import type { WorkspaceStatus } from '@entities/map'
 
 type UseWorkbenchGameDirectoryOptions = {
   active: boolean

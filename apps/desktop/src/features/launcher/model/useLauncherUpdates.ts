@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLauncherPort } from './launcherPortContext'
 import { useEditorCopy } from '@locales/provider'
-import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
+import { TaskCancelledError, useLatestTask } from '@platform/task-runtime'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import type { LauncherSettings } from './launcherContracts'
 import type { LauncherUpdateItem, LauncherViewState } from './types'

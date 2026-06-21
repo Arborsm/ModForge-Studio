@@ -1,7 +1,7 @@
 import { ArrowUpRight, Database, FolderOpen, HelpCircle, Image, KeyRound, Network, RefreshCw, Server } from 'lucide-react'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { useEditorCopy } from '@locales/provider'
 import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import {
@@ -12,7 +12,7 @@ import {
   setLauncherNexusForceOffline,
   type LauncherNexusRouteSnapshot,
 } from '@features/launcher/api'
-import { canUseDesktopHost } from '@shared/lib/desktop'
+import { canUseDesktopHost } from '@platform/host'
 import {
   clearCachedLauncherConfigurationDiagnostics,
   getLauncherWarningState,

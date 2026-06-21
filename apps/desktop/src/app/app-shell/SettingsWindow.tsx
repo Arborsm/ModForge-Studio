@@ -1,15 +1,15 @@
 import { Bug, Maximize2, Palette, Settings2, Square, Volume2, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
-import { LOADING_MOTION_INTENSITY_IDS, LOADING_MOTION_SPEED_IDS, LOADING_MOTION_STYLE_IDS } from '@shared/contracts/types/loadingMotion'
-import { cx } from '@shared/lib/cx'
+import { LOADING_MOTION_INTENSITY_IDS, LOADING_MOTION_SPEED_IDS, LOADING_MOTION_STYLE_IDS } from '@shared/lib/loading-motion'
+import { cx } from '@shared/lib/helper'
 import { LoadingMotionFallback } from '@shared/ui/loading-motion'
 import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { THEME_PRESETS } from '@shared/lib/theme/presets'
 import type { LocaleCode } from '@locales/api'
 import { useSettingsMenuCopy } from '@locales/provider'
 import type { SettingsWindowCategory, WindowBorderTone, WindowBorderWeight } from '@shared/contracts'
-import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionStyleId } from '@shared/contracts/types/loadingMotion'
+import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionStyleId } from '@shared/lib/loading-motion'
 
 type ThemeOption = {
   id: string

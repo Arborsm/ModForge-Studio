@@ -4,7 +4,7 @@ import WorkbenchExperience from './WorkbenchExperience'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { LocaleProvider } from '@locales/provider'
 import type { AppEvent, WorkbenchViewRegistration } from '@shared/contracts'
-import type { CpMakerDraft } from '@shared/contracts'
+import type { CpMakerDraft } from '@features/cp-maker'
 import type { ModWorkspaceGuardHandle } from './WorkbenchModPreviewRuntime'
 import { validateGameDirectory } from '@entities/game/api'
 

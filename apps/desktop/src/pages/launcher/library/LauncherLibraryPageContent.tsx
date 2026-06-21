@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useEditorCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { getModKey, normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
 import type { LauncherSettingsDraft, QueueLauncherDownloadInput } from '@features/launcher/model/types'
 import { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'

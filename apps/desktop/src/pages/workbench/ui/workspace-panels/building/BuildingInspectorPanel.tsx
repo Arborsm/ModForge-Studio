@@ -1,5 +1,5 @@
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../../../workspaces/building'
-import { formatPoint, formatRect } from '@shared/lib/geometryFormatting'
+import { formatPoint, formatRect } from '@shared/infra/game-formats/geometryFormatting'
 import type { ModSourceEntry } from '@pages/workbench/workspaces/mod'
 import { useBuildingsCopy } from '@locales/provider'
 import { PanelFrame } from '@shared/ui/PanelFrame'

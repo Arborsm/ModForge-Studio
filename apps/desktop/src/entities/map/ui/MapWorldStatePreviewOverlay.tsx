@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react'
-import type { MapDocument, MapWorldOverlaySprite, OverlayTextureAsset } from '@shared/contracts'
+import type { MapDocument, MapWorldOverlaySprite, OverlayTextureAsset } from '@entities/map'
 
 type MapWorldStatePreviewOverlayProps = {
   mapDocument: MapDocument | null

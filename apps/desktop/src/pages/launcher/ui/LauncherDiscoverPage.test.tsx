@@ -31,7 +31,7 @@ vi.mock('@shared/ui/notifications', () => ({
 vi.mock('@shared/lib/app-state', () => ({
   getAppUiStateSnapshot: vi.fn(),
   initializeAppUiState: vi.fn(),
-  applyAppUiStatePatch: vi.fn(),
+  applyAppUiStatePatch: vi.fn(async () => undefined),
 }))
 
 vi.mock('@features/launcher/api', async () => {

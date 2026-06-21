@@ -1,12 +1,12 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import type { LauncherPage } from '@locales/api'
-import type { LauncherNexusDiagnosticsResult } from '@shared/contracts'
+import type { LauncherNexusDiagnosticsResult } from '@features/launcher/model/launcherContracts'
 import { LoadingMotionFallback } from '@shared/ui/loading-motion'
 import { useLauncherDownloads } from '@features/launcher/model/useLauncherDownloads'
 import { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
 import { useLauncherSettings } from '@features/launcher/model/useLauncherSettings'
 import { LauncherLibraryPageContent } from './LauncherLibraryPage'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 
 const LauncherDiscoverPage = lazy(() => import('./LauncherDiscoverPage').then((module) => ({ default: module.LauncherDiscoverPage })))
 const LauncherUpdatesPage = lazy(() => import('./LauncherUpdatesPage').then((module) => ({ default: module.LauncherUpdatesPage })))

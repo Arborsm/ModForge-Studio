@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { PanelFrame } from '@shared/ui/PanelFrame'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 
 type DeferredWorkspacePlaceholderProps = {
   title: string

@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import type { LauncherCopy } from '@locales/model'
-import { LAUNCHER_ARCHIVE_FILE_SUFFIXES } from '@shared/lib/desktop'
+import { LAUNCHER_ARCHIVE_FILE_SUFFIXES } from '@platform/host'
 import { buildChildModLookup, buildParentModLookup } from '@features/launcher/model/childModRelations'
 import { getModKey, includesLibraryFilter, normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
 import type { LauncherLibraryItem, LauncherSettingsDraft, LauncherVirtualFolder } from '@features/launcher/model/types'

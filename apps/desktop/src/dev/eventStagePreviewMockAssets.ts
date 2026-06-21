@@ -5,7 +5,7 @@
 } from '@entities/game/api/devAssetBridge'
 import { loadImageDataUrl, loadMapAsset, validateGameDirectory, type MapAssetContent } from '@entities/game/api'
 import type { GameDirectoryInfo } from '@entities/game/api'
-import type { MapDocument } from '@shared/contracts'
+import type { MapDocument } from '@entities/map'
 import type { EventStagePreviewAssetLoader } from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventStagePreview'
 
 export function createEventStagePreviewDevAssetLoader(): EventStagePreviewAssetLoader {

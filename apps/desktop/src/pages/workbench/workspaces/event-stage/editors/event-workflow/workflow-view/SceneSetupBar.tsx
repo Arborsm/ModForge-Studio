@@ -16,7 +16,7 @@ import {
   Trash2,
   Users,
 } from 'lucide-react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import type { EventSceneActor, EventSceneSetup } from '@entities/event'
 import { EventResourcePicker } from './EventResourcePicker'
 import { buildDefaultEventResourceRegistry, type EventResourceRegistry } from './eventResourceRegistry'

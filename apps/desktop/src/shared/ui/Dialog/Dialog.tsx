@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 
 export type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'full'
 

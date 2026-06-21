@@ -45,7 +45,7 @@ function createNeverSettledPromise<T>() {
   return new Promise<T>(() => {})
 }
 
-vi.mock('@shared/lib/observability', () => ({
+vi.mock('@platform/observability', () => ({
   reportAppEvent: (...args: unknown[]) => reportAppEvent(...args),
 }))
 
@@ -57,7 +57,7 @@ vi.mock('@features/launcher/api', () => ({
   setLauncherNexusForceOffline: (...args: unknown[]) => setLauncherNexusForceOffline(...args),
 }))
 
-vi.mock('@shared/lib/desktop', () => ({
+vi.mock('@platform/host', () => ({
   canUseDesktopHost: () => true,
 }))
 

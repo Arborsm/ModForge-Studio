@@ -1,6 +1,6 @@
 import type { ContentPatcherI18nFile, ModProjectDetail } from '@entities/mod/api'
 import type { ModI18nWorkspaceCopy } from '@locales'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import {
   buildModI18nEntries,
   createI18nFile,

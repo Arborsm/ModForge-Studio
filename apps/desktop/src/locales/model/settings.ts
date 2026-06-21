@@ -1,5 +1,5 @@
 import type { LocaleCode } from './core'
-import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionStyleId } from '@shared/contracts/types/loadingMotion'
+import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionStyleId } from '@shared/lib/loading-motion'
 
 export type SettingsMenuCopy = {
   title: string

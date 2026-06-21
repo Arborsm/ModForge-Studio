@@ -8,7 +8,7 @@ import {
   type CharacterWorkspaceEntry,
 } from '../entities/character'
 import { useCharactersCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { getScaleUpFrameCount, getScaleUpFramePreviewMetrics } from '@pages/workbench/workspaces/mod'
 import { CharacterGiftTasteSection, type GiftTone } from './CharacterGiftTasteSection'
 import { buildAbsoluteSpriteLayerStyle, buildSpriteStyle } from './characterSpriteStyles'

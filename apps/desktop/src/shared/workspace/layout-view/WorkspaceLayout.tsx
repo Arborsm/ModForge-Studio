@@ -10,7 +10,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { RAIL_DRAG_THRESHOLD, ROOT_PADDING, SLOT_IDS, SPLIT_GAP } from '@shared/workspace/layoutConstants'
 import { findDockTarget, getRailSortTarget, type RailButtonBounds, type RailSortTarget } from '@shared/workspace/layoutDragTargets'
 import { getDockGuideRects, getWorkspaceGeometry } from '@shared/workspace/layoutGeometry'

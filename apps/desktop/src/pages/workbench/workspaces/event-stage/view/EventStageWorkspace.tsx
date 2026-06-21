@@ -13,8 +13,8 @@ import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
 import { MapViewport, type MapViewportHandle } from '@entities/map'
 import { EventStageActorSprite } from './EventStageActorSprite'
 import { EventStagePlaybackToolbar } from './EventStagePlaybackToolbar'
-import type { TileHoverInfo } from '@shared/contracts'
-import { cx } from '@shared/lib/cx'
+import type { TileHoverInfo } from '@entities/map'
+import { cx } from '@shared/lib/helper'
 
 export type EventStageWorkspaceChromeMode = 'workspace' | 'console'
 

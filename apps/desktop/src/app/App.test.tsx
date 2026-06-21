@@ -464,7 +464,7 @@ vi.mock('@features/launcher', async () => {
   }
 })
 
-vi.mock('@shared/lib/desktop', () => ({
+vi.mock('@platform/host', () => ({
   LAUNCHER_ARCHIVE_FILE_SUFFIXES: ['.zip', '.7z', '.rar', '.tar.gz', '.tgz', '.tar'],
   canUseDesktopHost: () => canUseDesktopHostMock(),
   clearDesktopLocaleCache: vi.fn(),
@@ -489,11 +489,11 @@ vi.mock('@shared/lib/desktop', () => ({
   writeFrontendLog: vi.fn(async () => undefined),
 }))
 
-vi.mock('@shared/lib/desktop/runtime', () => ({
+vi.mock('@platform/host/runtime', () => ({
   canUseDesktopHost: () => appUiStateTestState.canUseDesktopHostMock(),
 }))
 
-vi.mock('@shared/lib/desktop/window', () => ({
+vi.mock('@platform/host/window', () => ({
   isCurrentWindowFullscreen: vi.fn(async () => false),
   toggleFullscreenCurrentWindow: vi.fn(async () => false),
 }))

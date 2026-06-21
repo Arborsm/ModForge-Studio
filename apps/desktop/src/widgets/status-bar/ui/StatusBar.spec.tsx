@@ -4,8 +4,8 @@ import { afterEach, describe, expect, it } from 'vite-plus/test'
 import StatusBar from './StatusBar'
 import { editorCopy } from '@locales/api'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
-import type { MapAssetSummary, GameDirectoryInfo } from '@shared/contracts'
-import type { TileHoverInfo } from '@shared/contracts'
+import type { MapAssetSummary, GameDirectoryInfo } from '@entities/game/api'
+import type { TileHoverInfo } from '@entities/map'
 
 const copy = editorCopy['en-US']
 

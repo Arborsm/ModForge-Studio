@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useCallback, useMemo, useRef, type WheelEvent } from 'react'
 import { useItemsCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup } from '@pages/workbench/workspaces/mod'
 import { getContainedItemSpriteScale, type ItemTextureAssetState, type ItemWorkspaceEntry } from '../entities/item'
 import { ItemSprite } from '../entities/item'

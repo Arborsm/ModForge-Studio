@@ -1,6 +1,6 @@
 import { Download } from 'lucide-react'
 import { useState } from 'react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { NexusModsBbcode } from '@shared/ui/nexusmods-bbcode'
 import { PanelEmptyState } from '@shared/ui/PanelSection'
 import type { ChangelogListItem, DependencyListItem, DetailRow, FileListItem } from './launcherModDetailData'

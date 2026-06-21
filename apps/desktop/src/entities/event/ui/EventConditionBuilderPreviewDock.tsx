@@ -1,4 +1,4 @@
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import type { ConditionBuilderCopy } from './eventConditionBuilderTypes'
 
 type EventConditionBuilderPreviewDockProps = {

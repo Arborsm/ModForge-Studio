@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import type { AppUiState, ThemeId, WindowBorderTone, WindowBorderWeight } from '@shared/contracts'
-import type { LoadingMotionPreference } from '@shared/contracts/types/loadingMotion'
-import { canUseDesktopHost } from '@shared/lib/desktop/runtime'
+import type { LoadingMotionPreference } from '@shared/lib/loading-motion'
 import { normalizeLoadingMotionPreference } from '@shared/lib/loading-motion'
 import type { LocaleCode, ThemeMode } from '@locales/model'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from './appUiState'
@@ -33,6 +32,26 @@ export type PreferencesState = PreferencesStateValues & {
 }
 
 type PreferencesStoreSeed = Partial<PreferencesStateValues>
+
+type PreferencesHostAdapter = {
+  canUseDesktopHost: () => boolean
+  isCurrentWindowFullscreen: () => Promise<boolean>
+  toggleFullscreenCurrentWindow: () => Promise<boolean>
+}
+
+let preferencesHostAdapter: PreferencesHostAdapter = {
+  canUseDesktopHost: () => false,
+  isCurrentWindowFullscreen: async () => false,
+  toggleFullscreenCurrentWindow: async () => false,
+}
+
+/** Configures host capabilities used by the preferences store runtime. */
+export function configurePreferencesHostAdapter(adapter: Partial<PreferencesHostAdapter>) {
+  preferencesHostAdapter = {
+    ...preferencesHostAdapter,
+    ...adapter,
+  }
+}
 
 function getPreferredTheme(): ThemeMode {
   if (
@@ -74,7 +93,7 @@ function readPreferencesFromAppUiState(state: AppUiState): PreferencesStateValue
     windowBorderTone: normalizeWindowBorderTone(state.appearance.windowBorderTone),
     windowBorderWeight: normalizeWindowBorderWeight(state.appearance.windowBorderWeight),
     windowIsFullscreen: false,
-    desktopHost: canUseDesktopHost(),
+    desktopHost: preferencesHostAdapter.canUseDesktopHost(),
     debugEnabled: state.shell.debugEnabled,
     notificationSoundEnabled: state.shell.notificationSoundEnabled,
     loadingMotionPreference: normalizeLoadingMotionPreference(state.appearance.loadingMotion),
@@ -93,11 +112,17 @@ function syncDocumentPreferences(state: Pick<PreferencesStateValues, 'theme' | '
 
 function patchShellPreference(patch: Partial<AppUiState['shell']>) {
   const shell = getAppUiStateSnapshot().shell
-  void applyAppUiStatePatch({
+  persistAppUiStatePatch({
     shell: {
       ...shell,
       ...patch,
     },
+  })
+}
+
+function persistAppUiStatePatch(patch: Parameters<typeof applyAppUiStatePatch>[0]) {
+  void applyAppUiStatePatch(patch).catch((error) => {
+    console.error('[appUiState] failed to save preferences state', error)
   })
 }
 
@@ -113,24 +138,23 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
     const nextThemeId = normalizeThemeId(themeId)
     set({ themeId: nextThemeId })
     syncDocumentPreferences({ ...get(), themeId: nextThemeId })
-    void applyAppUiStatePatch({ appearance: { themeId: nextThemeId } })
+    persistAppUiStatePatch({ appearance: { themeId: nextThemeId } })
   },
   setLocale: (locale) => {
     set({ locale })
     syncDocumentPreferences({ ...get(), locale })
-    void applyAppUiStatePatch({ appearance: { locale } })
+    persistAppUiStatePatch({ appearance: { locale } })
   },
   setWindowBorderTone: (windowBorderTone) => {
     set({ windowBorderTone })
-    void applyAppUiStatePatch({ appearance: { windowBorderTone, windowBorderWeight: get().windowBorderWeight } })
+    persistAppUiStatePatch({ appearance: { windowBorderTone, windowBorderWeight: get().windowBorderWeight } })
   },
   setWindowBorderWeight: (windowBorderWeight) => {
     set({ windowBorderWeight })
-    void applyAppUiStatePatch({ appearance: { windowBorderTone: get().windowBorderTone, windowBorderWeight } })
+    persistAppUiStatePatch({ appearance: { windowBorderTone: get().windowBorderTone, windowBorderWeight } })
   },
   toggleFullscreen: async () => {
-    const { toggleFullscreenCurrentWindow } = await import('@shared/lib/desktop/window')
-    const nextFullscreen = await toggleFullscreenCurrentWindow()
+    const nextFullscreen = await preferencesHostAdapter.toggleFullscreenCurrentWindow()
     set({ windowIsFullscreen: nextFullscreen })
     queueFullscreenRefresh()
   },
@@ -145,7 +169,7 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
   setLoadingMotionPreference: (loadingMotionPreference) => {
     const normalizedPreference = normalizeLoadingMotionPreference(loadingMotionPreference)
     set({ loadingMotionPreference: normalizedPreference })
-    void applyAppUiStatePatch({ appearance: { loadingMotion: normalizedPreference } })
+    persistAppUiStatePatch({ appearance: { loadingMotion: normalizedPreference } })
   },
 }))
 
@@ -170,10 +194,8 @@ function queueFullscreenRefresh() {
       return
     }
 
-    void (async () => {
-      const { isCurrentWindowFullscreen } = await import('@shared/lib/desktop/window')
-      return isCurrentWindowFullscreen()
-    })()
+    void preferencesHostAdapter
+      .isCurrentWindowFullscreen()
       .then((windowIsFullscreen) => {
         if (!runtimeDisposed) {
           usePreferencesStore.setState({ windowIsFullscreen })

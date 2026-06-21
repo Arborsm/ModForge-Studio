@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test'
 import { isExteriorWarp, parseWarpEntries, parseWarpProperty } from './warps'
-import type { MapDocument } from '@shared/contracts'
+import type { MapDocument } from '@entities/map'
 
 function createMapDocument(overrides: Partial<MapDocument> = {}): MapDocument {
   return {

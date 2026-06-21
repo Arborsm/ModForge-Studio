@@ -1,8 +1,8 @@
 import { ChevronDown, Eye, EyeOff, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import type { FocusedMapObjectTarget } from '@shared/contracts'
+import type { FocusedMapObjectTarget } from '@entities/map'
 import { useEditorCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { formatObjectPreviewMeta, getObjectDisplayName, getObjectInteractionTag, type ObjectGroupListItem } from '../common/rightShared'
 
 type ObjectGroupListVariant = 'panel' | 'dock'

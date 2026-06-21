@@ -55,7 +55,7 @@ async function loadConfiguredDesktop() {
     },
   }
 
-  const desktop = await import('@shared/lib/desktop')
+  const desktop = await import('@platform/host')
   desktop.configureDesktopPlatformPorts(ports)
 
   return {

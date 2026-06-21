@@ -1,9 +1,9 @@
-import { HOST_COMMANDS } from '@shared/contracts'
+import { HOST_COMMANDS } from '@platform/host-commands'
 import { normalizeCachePathSegment } from '@shared/lib/assets'
-import { createPromiseCache, readCached, readPending } from '@shared/lib/desktop/cache'
-import { canUseDesktopHost, getPlatformPorts, invokeDesktop } from '@shared/lib/desktop/runtime'
-import type { UnlistenFn } from '@shared/lib/desktop/dialogs'
-import type { HostCommandPolicy } from '@shared/lib/host-command-client'
+import { createPromiseCache, readCached, readPending } from '@shared/lib/cache'
+import { canUseDesktopHost, getPlatformPorts, invokeDesktop } from '@platform/host/runtime'
+import type { UnlistenFn } from '@platform/host/dialogs'
+import type { HostCommandPolicy } from '@platform/host-command-client'
 import type {
   CheckLauncherUpdatesRequest,
   DownloadLauncherModRequest,

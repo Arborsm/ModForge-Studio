@@ -19,7 +19,7 @@ import {
   isSupportedLauncherArchivePath,
   listenToLauncherArchiveDragDrop,
   type UnlistenFn,
-} from '@shared/lib/desktop'
+} from '@platform/host'
 import { getLauncherCoverKey } from '@features/launcher/model/coverKey'
 import { getModKey, normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
 import type { LauncherLibraryItem, LauncherPackPreset, LauncherSettingsDraft, LauncherVirtualFolder } from '@features/launcher/model/types'

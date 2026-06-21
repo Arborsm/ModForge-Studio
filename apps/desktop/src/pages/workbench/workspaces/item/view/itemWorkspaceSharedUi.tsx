@@ -1,7 +1,7 @@
 import { ArrowRight, Coins, Heart, Skull } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useItemsCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { getContainedItemSpriteScale, type ItemGiftTasteNpc, type ItemTextureAssetState, type ItemWorkspaceEntry } from '../entities/item'
 import { ItemSprite } from '../entities/item'
 import { formatPrice } from './itemWorkspaceRows'

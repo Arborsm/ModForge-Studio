@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import { getStageMetadataCacheStats } from '@entities/event'
 import { getGameAssetCacheStats } from '@entities/game/api'
 import { getModApiCacheStats } from '@entities/mod/api'
-import { clearFileCache, canUseDesktopHost, getFileCacheStats, type FileCacheStats } from '@shared/lib/desktop'
+import { clearFileCache, canUseDesktopHost, getFileCacheStats, type FileCacheStats } from '@platform/host'
 import { getMapViewportCacheStats } from '@shared/lib/maps'
 import type { WorkspaceMode } from '@locales/api'
 import { formatBytes } from '@shared/lib/formatting'

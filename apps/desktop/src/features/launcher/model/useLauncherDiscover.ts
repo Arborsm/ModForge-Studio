@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLauncherPort } from './launcherPortContext'
-import { TaskCancelledError, useLatestTask, type TaskScope } from '@shared/lib/task-runtime'
+import { TaskCancelledError, useLatestTask, type TaskScope } from '@platform/task-runtime'
 import type { LauncherCatalogFacets, SearchLauncherCatalogRequest } from './launcherContracts'
 import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarState } from './launcherDiscoverToolbarState'
 import { canAutoLoadLauncherDiscover, getLauncherDiscoverUnavailableReason } from './nexusDiagnostics'

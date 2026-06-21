@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react'
 import { useItemsCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { getContainedItemSpriteScale, type ItemTextureAssetState, type ItemWorkspaceEntry } from '../../../workspaces/item'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { ItemSprite } from '../../../workspaces/item'

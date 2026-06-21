@@ -1,5 +1,6 @@
-import { cx } from '@shared/lib/cx'
-import type { BrowserSourceMode } from '@shared/contracts'
+import { cx } from '@shared/lib/helper'
+
+type BrowserSourceMode = 'original' | 'mod'
 
 type BrowserSourceSwitchProps = {
   value: BrowserSourceMode

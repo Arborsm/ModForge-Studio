@@ -4,9 +4,9 @@ import type { EffectAssetState } from '@entities/event'
 import { useEditorCopy, useLocale } from '@locales/provider'
 import type { StageWorldOverlaySprite } from '@entities/map'
 import type { ModuleBlueprint, ThemeMode, WorkspaceMode } from '@locales/api'
-import type { MapDocument } from '@shared/contracts'
-import type { FocusedMapObjectTarget, TileHoverInfo } from '@shared/contracts'
-import { cx } from '@shared/lib/cx'
+import type { MapDocument } from '@entities/map'
+import type { FocusedMapObjectTarget, TileHoverInfo } from '@entities/map'
+import { cx } from '@shared/lib/helper'
 import { MapViewport, MapWorldStatePreviewOverlay, type MapViewportHandle } from '@entities/map'
 
 type CentralWorkspaceProps = {

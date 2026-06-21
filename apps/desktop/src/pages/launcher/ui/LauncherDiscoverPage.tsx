@@ -3,10 +3,11 @@ import { createPortal } from 'react-dom'
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { useEditorCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { LoadingMotionFallback, LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import type { LauncherSettings } from '@features/launcher/api'
-import { canUseDesktopHost } from '@shared/lib/desktop'
+import { canUseDesktopHost } from '@platform/host'
+import { reportAppEvent } from '@platform/observability'
 import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarState } from '@features/launcher'
 import { useLauncherDiscover, useLauncherRemoteModDetail } from '@features/launcher'
 import type { LauncherDiscoverDetail, QueueLauncherDownloadInput } from '@features/launcher'
@@ -736,6 +737,13 @@ function LauncherDiscoverPageContent({
           filtersHidden,
         },
       },
+    }).catch((error) => {
+      reportAppEvent({
+        level: 'error',
+        title: 'Failed to save launcher discover toolbar state',
+        description: error instanceof Error ? error.message : String(error),
+        notify: false,
+      })
     })
   }, [discover.ascending, discover.pageSize, discover.sort, discover.timeRange, filtersHidden, launcherUiStateReady])
 

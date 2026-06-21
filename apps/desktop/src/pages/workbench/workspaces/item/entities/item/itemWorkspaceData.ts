@@ -1,14 +1,16 @@
 import { loadTextAsset } from '@entities/game/api'
 import type { LocaleCode } from '@locales'
 import {
-  CHARACTER_DATA_ASSET_PATH,
-  CHARACTER_GIFT_TASTES_ASSET_PATH,
-  buildGameContentPath,
   getLocalizedImagePathCandidates,
   getLocalizedPathCacheKey,
   loadImageResourceFromPath,
   normalizeCachePathSegment,
 } from '@shared/lib/assets'
+import {
+  CHARACTER_DATA_ASSET_PATH,
+  CHARACTER_GIFT_TASTES_ASSET_PATH,
+  buildGameContentPath,
+} from '@shared/infra/stardew-assets/contentPaths'
 import {
   buildNpcGiftTasteBuckets,
   buildUniversalGiftTasteBuckets,
@@ -16,7 +18,7 @@ import {
   normalizeContextTag,
   normalizeTagFragment,
   parseQualifiedGiftTasteObjectId,
-} from '@shared/lib/giftTasteHelpers'
+} from '@entities/character/lib/giftTasteHelpers'
 import {
   BIG_CRAFTABLE_DATA_ASSET_PATH,
   BOOTS_DATA_ASSET_PATH,

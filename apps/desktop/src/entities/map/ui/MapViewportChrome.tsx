@@ -2,8 +2,8 @@ import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { CSSProperties, ReactNode, RefObject } from 'react'
 import { useEditorCopy } from '@locales/provider'
 import type { ThemeMode } from '@locales/api'
-import type { TileHoverInfo } from '@shared/contracts'
-import type { MapDocument, MapLayer, MapObjectGroup } from '@shared/contracts'
+import type { TileHoverInfo } from '@entities/map'
+import type { MapDocument, MapLayer, MapObjectGroup } from '@entities/map'
 import { rgbaFromHex } from './mapViewportHelpers'
 
 type MapViewportEmptyStateProps = {

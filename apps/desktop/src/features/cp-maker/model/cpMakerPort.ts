@@ -1,4 +1,5 @@
-import type { GameDirectoryInfo, VirtualPreviewAsset } from '@shared/contracts'
+import type { GameDirectoryInfo } from '@entities/game/api'
+import type { VirtualPreviewAsset } from '@features/cp-maker'
 
 export type { GameDirectoryInfo }
 

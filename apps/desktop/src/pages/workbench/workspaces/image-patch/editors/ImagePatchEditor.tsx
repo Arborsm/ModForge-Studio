@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Upload, Trash2, ImageIcon } from 'lucide-react'
-import type { DraftPatch, CpMakerDraft, VirtualPreviewAsset } from '@shared/contracts'
+import type { DraftPatch, CpMakerDraft, VirtualPreviewAsset } from '@features/cp-maker'
 
 interface ImagePatchEditorProps {
   patch: DraftPatch

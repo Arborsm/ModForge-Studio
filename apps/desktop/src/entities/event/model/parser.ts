@@ -1,4 +1,4 @@
-import type { EventAssetSummary } from '@shared/contracts'
+import type { EventAssetSummary } from '@entities/game/api'
 import { getEventCommandKind, getEventCommandTitle, isKnownEventCommand } from '@entities/event'
 import type {
   EventBranchChoice,

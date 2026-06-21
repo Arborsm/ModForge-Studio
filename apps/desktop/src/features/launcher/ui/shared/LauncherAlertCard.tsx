@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { AlertTriangle, CheckCircle2, Info, OctagonAlert } from 'lucide-react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 
 export type LauncherAlertTone = 'info' | 'warning' | 'success' | 'error'
 

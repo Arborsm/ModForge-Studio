@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, 
 import { createPortal } from 'react-dom'
 import { getWorkspaceModeLabel, type WorkspaceMode } from '@locales/api'
 import { useEditorCopy, useLocale } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import type { CpMakerDraftSummary } from '@features/cp-maker'
 import type { WorkbenchViewRegistration } from '@shared/contracts'
 

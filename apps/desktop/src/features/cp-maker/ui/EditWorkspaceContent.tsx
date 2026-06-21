@@ -1,4 +1,5 @@
-import type { GameDirectoryInfo, WorkspaceId } from '@shared/contracts'
+import type { GameDirectoryInfo } from '@entities/game/api'
+import type { WorkspaceId } from '@features/cp-maker'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
 import { EditModeShell } from './EditModeShell'
 import type { UseCpMakerReturn } from '@features/cp-maker'

@@ -31,7 +31,7 @@ import {
 } from 'lucide-react'
 import type { EventCommand, EventCommandKind } from '@entities/event'
 import { getCommandSummary } from '../workflow-model/commandSummary'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { useEventStageCopy } from '@locales/provider'
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {

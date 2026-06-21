@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useId } from 'react'
 import { ChevronRight } from 'lucide-react'
-import type { DraftPatch } from '@shared/contracts'
-import type { WorkspaceId } from '@shared/contracts'
+import type { DraftPatch } from '@features/cp-maker'
+import type { WorkspaceId } from '@features/cp-maker'
 import { useEditorCopy } from '@locales/provider'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 

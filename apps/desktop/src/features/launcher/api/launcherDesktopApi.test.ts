@@ -55,7 +55,7 @@ async function loadConfiguredLauncherDesktop() {
     },
   }
 
-  const sharedDesktopRuntime = await import('@shared/lib/desktop/runtime')
+  const sharedDesktopRuntime = await import('@platform/host/runtime')
   const launcherDesktop = await import('./index')
   sharedDesktopRuntime.configureDesktopPlatformPorts(ports)
 

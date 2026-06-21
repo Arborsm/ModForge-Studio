@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { buildGameContentPath } from '@shared/lib/assets'
+import { buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
 
 describe('contentPaths', () => {
   it('builds a game content path for relative asset names', () => {

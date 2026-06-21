@@ -141,6 +141,119 @@ describe('uiState store', () => {
     })
   })
 
+  it('keeps workspace fields when applying a layout-only patch locally', async () => {
+    const { applyAppUiStatePatch, configureAppUiStatePersistence, getAppUiStateSnapshot } = await import('./appUiState')
+    configureAppUiStatePersistence({
+      canPersist: () => false,
+      load: vi.fn(),
+      patch: vi.fn(),
+    })
+
+    await applyAppUiStatePatch({
+      workspace: {
+        workspaceViewMode: 'preview',
+        cpMaker: {
+          activeGeneratedDraftKey: 'draft-1',
+        },
+      },
+    })
+
+    await applyAppUiStatePatch({
+      workspace: {
+        layouts: {
+          'modforge:workspace-layout:v12:map': { panels: { sidebar: { visible: true } } },
+        },
+      },
+    })
+
+    expect(getAppUiStateSnapshot().workspace).toMatchObject({
+      workspaceViewMode: 'preview',
+      cpMaker: {
+        activeGeneratedDraftKey: 'draft-1',
+      },
+      layouts: {
+        'modforge:workspace-layout:v12:map': { panels: { sidebar: { visible: true } } },
+      },
+    })
+  })
+
+  it('keeps later patches working after a persisted patch rejects', async () => {
+    const { applyAppUiStatePatch, configureAppUiStatePersistence } = await import('./appUiState')
+    const patch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('disk unavailable'))
+      .mockResolvedValueOnce({
+        version: 1,
+        shell: {
+          appMode: 'workbench',
+          launcherPage: 'library',
+          debugEnabled: true,
+          notificationSoundEnabled: true,
+        },
+        appearance: {
+          locale: 'en-US',
+          themeId: 'neutral-tool',
+          windowBorderTone: 'accent',
+          windowBorderWeight: 'standard',
+          recentGameDirectories: [],
+          playerAppearance: {
+            profiles: [],
+            activeProfileId: null,
+          },
+          loadingMotion: createLoadingMotionPreference({}),
+        },
+        workspace: {
+          layouts: {},
+          workspaceViewMode: 'edit',
+          cpMaker: {
+            activeGeneratedDraftKey: null,
+          },
+        },
+        launcher: {
+          discoverToolbar: {
+            sort: 'newest',
+            ascending: false,
+            timeRange: 'all',
+            pageSize: 20,
+            filtersHidden: false,
+          },
+          forceOffline: false,
+          forceNonPremium: false,
+        },
+      } satisfies AppUiState)
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    configureAppUiStatePersistence({
+      canPersist: () => true,
+      load: vi.fn(),
+      patch,
+    })
+
+    await expect(applyAppUiStatePatch({ shell: { ...getDefaultShell(), debugEnabled: true } })).rejects.toThrow('disk unavailable')
+    await expect(applyAppUiStatePatch({ shell: { ...getDefaultShell(), appMode: 'workbench', debugEnabled: true } })).resolves.toBeTruthy()
+    expect(patch).toHaveBeenCalledTimes(2)
+    expect(consoleErrorSpy).toHaveBeenCalledWith('[appUiState] patch failed', expect.any(Error))
+  })
+
+  it('rejects persistence reconfiguration after initialization starts', async () => {
+    const { configureAppUiStatePersistence, initializeAppUiState } = await import('./appUiState')
+    configureAppUiStatePersistence({
+      canPersist: () => false,
+      load: vi.fn(),
+      patch: vi.fn(),
+    })
+
+    await initializeAppUiState()
+
+    expect(() =>
+      configureAppUiStatePersistence({
+        canPersist: () => false,
+        load: vi.fn(),
+        patch: vi.fn(),
+      }),
+    ).toThrow('configureAppUiStatePersistence must be called before initializeAppUiState')
+  })
+
   it('keeps launcher debug override flags in memory when applying launcher patches locally', async () => {
     const { applyAppUiStatePatch, configureAppUiStatePersistence, getAppUiStateSnapshot } = await import('./appUiState')
     configureAppUiStatePersistence({
@@ -165,7 +278,17 @@ describe('uiState store', () => {
   })
 })
 
+function getDefaultShell(): AppUiState['shell'] {
+  return {
+    appMode: 'launcher',
+    launcherPage: 'library',
+    debugEnabled: false,
+    notificationSoundEnabled: true,
+  }
+}
+
 it('includes loading motion preference in default state', async () => {
+  vi.resetModules()
   const { getAppUiStateSnapshot } = await import('./appUiState')
   const snapshot = getAppUiStateSnapshot()
   expect(snapshot.appearance.loadingMotion).toEqual({
@@ -178,6 +301,7 @@ it('includes loading motion preference in default state', async () => {
 })
 
 it('normalizes loading motion from persisted state', async () => {
+  vi.resetModules()
   const { configureAppUiStatePersistence, initializeAppUiState, getAppUiStateSnapshot } = await import('./appUiState')
   const persistedState: AppUiState = {
     version: 1,
@@ -221,6 +345,7 @@ it('normalizes loading motion from persisted state', async () => {
 })
 
 it('migrates legacy window border style into independent tone and weight fields', async () => {
+  vi.resetModules()
   const { configureAppUiStatePersistence, initializeAppUiState, getAppUiStateSnapshot } = await import('./appUiState')
   const persistedState = {
     version: 1,
@@ -254,6 +379,7 @@ it('migrates legacy window border style into independent tone and weight fields'
 })
 
 it('discards legacy accent preset ids and invalid theme ids, falling back to the default theme', async () => {
+  vi.resetModules()
   const { configureAppUiStatePersistence, initializeAppUiState, getAppUiStateSnapshot } = await import('./appUiState')
   const persistedState = {
     version: 1,
@@ -287,6 +413,7 @@ it('discards legacy accent preset ids and invalid theme ids, falling back to the
 })
 
 it('keeps a valid persisted theme id', async () => {
+  vi.resetModules()
   const { configureAppUiStatePersistence, initializeAppUiState, getAppUiStateSnapshot } = await import('./appUiState')
   const persistedState = {
     version: 1,
@@ -318,6 +445,7 @@ it('keeps a valid persisted theme id', async () => {
 })
 
 it('invalid loading style falls back to default without affecting intensity', async () => {
+  vi.resetModules()
   const { createDefaultAppUiState } = await import('./appUiState')
   const defaults = createDefaultAppUiState()
   // Simulate what normalizeAppUiState does with an invalid style

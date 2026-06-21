@@ -1,7 +1,7 @@
 // Pick Mode 视觉反馈覆盖层
 
 import { Check, MousePointerClick, RotateCcw, X } from 'lucide-react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 
 export type PickModeOverlayProps = {
   active: boolean

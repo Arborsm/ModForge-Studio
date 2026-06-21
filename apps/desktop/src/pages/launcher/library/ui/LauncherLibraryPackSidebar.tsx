@@ -1,6 +1,6 @@
 import type { RefObject } from 'react'
 import { Folder, FolderArchive, LayoutGrid, MoreHorizontal, Plus } from 'lucide-react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
 import { useEditorCopy } from '@locales/provider'
 import type { LauncherPackPreset } from '@features/launcher/model/types'

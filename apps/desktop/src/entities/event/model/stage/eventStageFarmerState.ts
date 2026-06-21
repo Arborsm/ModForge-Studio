@@ -1,4 +1,4 @@
-import type { MapDocument, MapLayer, MapTileset } from '@shared/contracts'
+import type { MapDocument, MapLayer, MapTileset } from '@entities/map'
 import type { EventActorState } from '@entities/event'
 
 const FLIPPED_HORIZONTALLY_FLAG = 0x80000000

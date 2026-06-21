@@ -63,7 +63,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import type { EventCommand } from '@entities/event'
 import { getSchema } from '../workflow-model/commandSchemaRegistry'
 import { renderTemplate, type RenderedNode } from '../workflow-model/templateRenderer'

@@ -20,7 +20,7 @@ import {
   restoreLauncherInstallBackup,
   setLauncherLibraryCover,
 } from '@features/launcher/api'
-import { chooseArchiveFiles, chooseImageFile, listenToLauncherArchiveDragDrop } from '@shared/lib/desktop'
+import { chooseArchiveFiles, chooseImageFile, listenToLauncherArchiveDragDrop } from '@platform/host'
 import { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
 import { createMockLauncherPort } from '@test/launcherTestPort.ts'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
@@ -124,8 +124,8 @@ vi.mock('@features/launcher/api', async () => {
   }
 })
 
-vi.mock('@shared/lib/desktop', async () => {
-  const actual = await vi.importActual<typeof import('@shared/lib/desktop')>('@shared/lib/desktop')
+vi.mock('@platform/host', async () => {
+  const actual = await vi.importActual<typeof import('@platform/host')>('@platform/host')
   return {
     ...actual,
     chooseArchiveFiles: vi.fn(),

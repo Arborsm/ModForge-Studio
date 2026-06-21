@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { Search, X, Command } from 'lucide-react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { getAllSchemas } from '../workflow-model/commandSchemaRegistry'
 import type { CommandCategory } from '../workflow-model/commandSchema'
 import type { EventWorkflowCopy, EventWorkflowCommandKey } from '@locales/api'

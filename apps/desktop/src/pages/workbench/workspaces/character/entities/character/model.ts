@@ -1,6 +1,6 @@
-import { buildGameContentPath } from '@shared/lib/assets'
+import { buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
 
-export { buildGameContentPath } from '@shared/lib/assets'
+export { buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
 
 export const CHARACTER_DATA_ASSET_PATH = 'Content\\Data\\Characters.xnb'
 export const CHARACTER_GIFT_TASTES_ASSET_PATH = 'Content\\Data\\NPCGiftTastes.xnb'

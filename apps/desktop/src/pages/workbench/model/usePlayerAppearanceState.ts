@@ -56,6 +56,8 @@ export function usePlayerAppearanceState(appUiStateReady: boolean) {
           activeProfileId: activePlayerAppearanceProfileId,
         },
       },
+    }).catch((error) => {
+      console.error('[appUiState] failed to save player appearance state', error)
     })
   }, [activePlayerAppearanceProfileId, appUiStateReady, playerAppearanceProfiles])
 

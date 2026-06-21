@@ -1,7 +1,7 @@
 import { getSpringObjectsSourceRect } from '@entities/event'
 import type { CharactersPanelCopy } from '@locales/api'
 import { useCharactersCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { ItemGroupPopover } from '@shared/ui/ItemGroupPopover'
 import type { CharacterGiftGroup, CharacterGiftGroupKind, CharacterGiftItem } from '../entities/character'
 import { buildAbsoluteSpriteLayerStyle } from './characterSpriteStyles'

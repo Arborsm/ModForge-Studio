@@ -44,7 +44,7 @@ import {
   subscribeLauncherUpdates,
 } from '@features/launcher/api'
 import { detectDefaultGameDirectory } from '@entities/game/api'
-import { chooseArchiveFile, chooseDirectory, chooseImageFile, toDesktopAssetUrl } from '@shared/lib/desktop'
+import { chooseArchiveFile, chooseDirectory, chooseImageFile, toDesktopAssetUrl } from '@platform/host'
 
 export function createLauncherPortAdapter(): LauncherPort {
   return {

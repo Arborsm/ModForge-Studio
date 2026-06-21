@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vite-plus/test'
-import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
+import type { DraftPatch, CpMakerDraft } from '@features/cp-maker'
 import { buildStudioDeskModel } from '@features/cp-maker'
 
 function patch(overrides: Partial<DraftPatch>): DraftPatch {

@@ -1,4 +1,5 @@
-import { HOST_COMMANDS, type AppUiState, type PatchAppUiStateRequest } from '@shared/contracts'
+import type { AppUiState, PatchAppUiStateRequest } from '@shared/contracts'
+import { HOST_COMMANDS } from '@platform/host-commands'
 import { invokeDesktop } from './runtime'
 
 /** Loads persisted app shell, appearance, workspace, and launcher UI state. */

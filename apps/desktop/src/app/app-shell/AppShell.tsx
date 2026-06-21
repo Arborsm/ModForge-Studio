@@ -3,14 +3,16 @@ import {
   canUseDesktopHost,
   forceCloseCurrentWindow,
   isCurrentWindowMaximized,
+  isCurrentWindowFullscreen,
   listenToWindowCloseRequest,
   loadAppUiState,
   minimizeCurrentWindow,
   patchAppUiState,
   toggleMaximizeCurrentWindow,
+  toggleFullscreenCurrentWindow,
   setDesktopDebugLoggingEnabled,
   writeFrontendLog,
-} from '@shared/lib/desktop'
+} from '@platform/host'
 import { clearGameAssetLocaleCache, loadImageDataUrl } from '@entities/game/api'
 import { editorCopy, type AppMode, type LauncherPage, type LocaleCode } from '@locales/api'
 import { normalizeAppShellState } from '@shared/lib/app-state/appShellState'
@@ -18,8 +20,8 @@ import { LoadingMotionFallback, LoadingMotionProvider } from '@shared/ui/loading
 import { THEME_PRESETS } from '@shared/lib/theme/presets'
 import { clearLocalizedStageMetadataCache } from '@entities/event/model/stage/stageMetadataCache'
 import { LocaleProvider } from '@locales/provider'
-import { NotificationProvider, setNotificationSoundEnabled } from '@shared/ui/notifications'
-import { configureObservability, syncDebugDiagnosticsEnabled } from '@shared/lib/observability'
+import { NotificationProvider, publishNotification, setNotificationSoundEnabled } from '@shared/ui/notifications'
+import { configureObservability, reportAppEvent, setNotificationDispatcher, syncDebugDiagnosticsEnabled } from '@platform/observability'
 import {
   applyAppUiStatePatch,
   configureAppUiStatePersistence,
@@ -30,6 +32,7 @@ import {
   startPreferencesRuntime,
   stopPreferencesRuntime,
   syncPreferencesStoreFromAppUiState,
+  configurePreferencesHostAdapter,
   usePreferencesStore,
 } from '@shared/lib/app-state/preferencesStore'
 import { clearImageMetricsLocaleCache, configureImageDataUrlLoader } from '@shared/lib/assets'
@@ -85,10 +88,16 @@ configureAppUiStatePersistence({
   load: loadAppUiState,
   patch: patchAppUiState,
 })
+configurePreferencesHostAdapter({
+  canUseDesktopHost,
+  isCurrentWindowFullscreen,
+  toggleFullscreenCurrentWindow,
+})
 configureObservability({
   setDebugLoggingEnabled: setDesktopDebugLoggingEnabled,
   writeFrontendLog,
 })
+setNotificationDispatcher(publishNotification)
 
 export default function App() {
   const [initialAppUiState] = useState(() => getAppUiStateSnapshot())
@@ -315,6 +324,13 @@ export default function App() {
         debugEnabled,
         notificationSoundEnabled,
       },
+    }).catch((error) => {
+      reportAppEvent({
+        level: 'error',
+        title: 'Failed to save app shell state',
+        description: error instanceof Error ? error.message : String(error),
+        notify: false,
+      })
     })
   }, [appMode, appUiStateReady, debugEnabled, notificationSoundEnabled])
 

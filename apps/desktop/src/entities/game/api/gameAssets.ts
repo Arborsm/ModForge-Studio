@@ -1,8 +1,8 @@
-import { HOST_COMMANDS } from '@shared/contracts'
+import { HOST_COMMANDS } from '@platform/host-commands'
 import { normalizeCachePathSegment } from '@shared/lib/assets'
-import { createPromiseCache, getLocalizedRootedAssetCacheKey, readCached, readPending } from '@shared/lib/desktop/cache'
-import { invokeDesktop } from '@shared/lib/desktop/runtime'
-import type { HostCommandPolicy } from '@shared/lib/host-command-client'
+import { createPromiseCache, getLocalizedRootedAssetCacheKey, readCached, readPending } from '@shared/lib/cache'
+import { invokeDesktop } from '@platform/host/runtime'
+import type { HostCommandPolicy } from '@platform/host-command-client'
 import { loadImageDataUrlFromDevBridge, loadResourceRegistryFromDevBridge, loadTextAssetFromDevBridge } from './devAssetBridge'
 import type {
   AudioAssetSummary,

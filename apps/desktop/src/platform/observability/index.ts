@@ -1,4 +1,4 @@
-import { publishNotification, type NotificationAction, type NotificationLevel } from '@shared/ui/notifications'
+import type { NotificationAction, NotificationLevel } from '@shared/ui/notifications'
 
 /** Event severity used for both notifications and observability routing. */
 export type AppEventLevel = NotificationLevel
@@ -47,6 +47,15 @@ declare global {
 
 let debugDiagnosticsEnabled = false
 let observabilityAdapter: ObservabilityAdapter = {}
+let notificationDispatcher:
+  | ((request: {
+      level: AppEventLevel
+      title: string
+      description?: string | null
+      action?: NotificationAction
+      autoDismissMs?: number
+    }) => string | null)
+  | null = null
 let consoleBridgeInstalled = false
 let forwardingConsoleLog = false
 
@@ -54,6 +63,21 @@ let forwardingConsoleLog = false
 export function configureObservability(adapter: ObservabilityAdapter) {
   observabilityAdapter = adapter
   installConsoleLogBridge()
+}
+
+/** Injects the UI notification publisher used by reportAppEvent. */
+export function setNotificationDispatcher(
+  dispatcher:
+    | ((request: {
+        level: AppEventLevel
+        title: string
+        description?: string | null
+        action?: NotificationAction
+        autoDismissMs?: number
+      }) => string | null)
+    | null,
+) {
+  notificationDispatcher = dispatcher
 }
 
 function shouldForceNotification(level: AppEventLevel) {
@@ -201,11 +225,13 @@ export function reportAppEvent(request: ReportAppEventRequest) {
     return null
   }
 
-  return publishNotification({
-    level: request.level,
-    title: request.title,
-    description: request.description,
-    action: request.action,
-    autoDismissMs: request.autoDismissMs,
-  })
+  return (
+    notificationDispatcher?.({
+      level: request.level,
+      title: request.title,
+      description: request.description,
+      action: request.action,
+      autoDismissMs: request.autoDismissMs,
+    }) ?? null
+  )
 }

@@ -1,7 +1,7 @@
 ﻿import { Grid2x2, Maximize, Pause, Play, RotateCcw, Route, Settings2, SkipForward } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEventStageCopy, useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 
 type EventStagePlaybackToolbarProps = {
   autoPlay: boolean

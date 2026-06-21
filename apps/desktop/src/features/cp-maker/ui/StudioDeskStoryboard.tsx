@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { Copy, Grid3X3, MessageSquare, PackagePlus, Plus, Trash2 } from 'lucide-react'
 import { useEditorCopy } from '@locales/provider'
 import type { StudioDeskInspiration, StudioDeskInspirationKind } from '../model/studioDeskModel'
-import type { DraftPatch } from '@shared/contracts'
-import type { WorkspaceId } from '@shared/contracts'
+import type { DraftPatch } from '@features/cp-maker'
+import type { WorkspaceId } from '@features/cp-maker'
 import { formatStudioTimestamp } from '@features/cp-maker'
 
 type StudioDeskStoryboardProps = {

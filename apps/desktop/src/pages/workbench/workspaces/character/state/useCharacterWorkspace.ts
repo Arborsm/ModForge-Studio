@@ -29,7 +29,7 @@ import {
   normalizeContextTag,
   normalizeTagFragment,
   parseQualifiedGiftTasteObjectId,
-} from '@shared/lib/giftTasteHelpers'
+} from '@entities/character/lib/giftTasteHelpers'
 import {
   type BrowserSourceMode,
   buildModBrowserGroups,
