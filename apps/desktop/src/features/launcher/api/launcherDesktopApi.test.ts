@@ -454,4 +454,57 @@ describe('launcher desktop API', () => {
       },
     })
   })
+
+  it('short-circuits remote detail requests after Nexus marks a mod unavailable', async () => {
+    const { launcherDesktop, invokeCommand } = await loadConfiguredLauncherDesktop()
+    invokeCommand.mockResolvedValueOnce({
+      modId: 23651,
+      title: 'Nexus #23651',
+      unavailable: true,
+      unavailableReason: 'Nexus mod unavailable: mod_id=Some(23651), status=Some("hidden"), available=Some(false)',
+      summary: null,
+      author: null,
+      version: null,
+      modUrl: 'https://www.nexusmods.com/stardewvalley/mods/23651',
+      imageUrl: null,
+      galleryImages: [],
+    })
+
+    await expect(launcherDesktop.loadLauncherRemoteModDetail({ modId: 23651 })).rejects.toThrow('Nexus mod 23651 is unavailable.')
+    await expect(launcherDesktop.loadLauncherRemoteModDetail({ modId: 23651, includeFiles: false })).rejects.toThrow(
+      'Nexus mod 23651 is unavailable.',
+    )
+
+    expect(launcherDesktop.isLauncherRemoteModIdInvalid(23651)).toBe(true)
+    expect(invokeCommand).toHaveBeenCalledTimes(1)
+    expect(invokeCommand).toHaveBeenCalledWith('load_launcher_remote_mod_detail', {
+      request: { modId: 23651 },
+    })
+  })
+
+  it('uses the cached launcher image host command for local-first cover resolution', async () => {
+    const { launcherDesktop, invokeCommand } = await loadConfiguredLauncherDesktop()
+    const result = {
+      sourceUrl: 'https://example.test/cover.png',
+      localPath: 'C:\\cache\\cover.png',
+      mimeType: 'image/png',
+    }
+    invokeCommand.mockResolvedValueOnce(result)
+
+    await expect(
+      launcherDesktop.resolveCachedLauncherImage({
+        url: 'https://example.test/cover.png',
+        refresh: false,
+        modKey: '20599',
+      }),
+    ).resolves.toEqual(result)
+
+    expect(invokeCommand).toHaveBeenCalledWith('resolve_cached_launcher_image', {
+      request: {
+        url: 'https://example.test/cover.png',
+        refresh: false,
+        modKey: '20599',
+      },
+    })
+  })
 })

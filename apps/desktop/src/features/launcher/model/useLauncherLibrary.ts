@@ -349,6 +349,23 @@ function normalizeSuppressedModIds(values: number[] | null | undefined) {
   return new Set((values ?? []).map((value) => Math.trunc(value)).filter((value) => Number.isFinite(value) && value > 0))
 }
 
+function buildBlockedCoverLookup(entries: { modKey: string; blocked: boolean }[] | null | undefined) {
+  return new Map((entries ?? []).filter((entry) => entry.blocked).map((entry) => [normalizeLookupKey(entry.modKey), entry.modKey] as const))
+}
+
+function getBlockedLauncherCoverMatch(item: LauncherLibraryModSummary, blockedCoverLookup: Map<string, string>) {
+  for (const candidate of getLauncherCoverKeyCandidates(item)) {
+    const blockedKey = blockedCoverLookup.get(normalizeLookupKey(candidate))
+    if (blockedKey) {
+      return {
+        blockedKey,
+        candidate,
+      }
+    }
+  }
+  return null
+}
+
 async function runWithConcurrency<T>(items: T[], limit: number, worker: (item: T) => Promise<void>) {
   let nextIndex = 0
   const workerCount = Math.min(limit, items.length)
@@ -448,7 +465,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
           }
 
           await runWithConcurrency(eligibleMods, LAUNCHER_LIBRARY_AUTO_COVER_CONCURRENCY, async (item) => {
-            if (!isTaskActive() || item.nexusModId == null) {
+            if (!isTaskActive() || item.nexusModId == null || launcherPort.isRemoteModIdInvalid(item.nexusModId)) {
               return
             }
 
@@ -461,6 +478,33 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
 
               const detail = await launcherPort.loadRemoteModDetail({ modId: item.nexusModId })
               if (!isTaskActive()) {
+                return
+              }
+              if (detail.unavailable) {
+                const coverKey = getLauncherCoverKey(item)
+                const message = `Nexus mod ${item.nexusModId} is unavailable.`
+                launcherPort.markRemoteModIdInvalid(item.nexusModId)
+                launcherPort.writeDebugLog({
+                  message: 'launcher.auto-cover.record-failure',
+                  keyValues: {
+                    modName: item.name,
+                    nexusModId: String(item.nexusModId),
+                    coverKey,
+                    stage: activeStage,
+                    error: message,
+                  },
+                })
+                await launcherPort.recordImageFailure({ modKey: coverKey, error: message }).catch((recordError: unknown) => {
+                  launcherPort.writeDebugLog({
+                    message: 'launcher.auto-cover.record-failure-failed',
+                    keyValues: {
+                      modName: item.name,
+                      nexusModId: String(item.nexusModId),
+                      coverKey,
+                      error: recordError instanceof Error ? recordError.message : String(recordError),
+                    },
+                  })
+                })
                 return
               }
 
@@ -502,7 +546,30 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
                   ),
                 )
               }
-            } catch {
+            } catch (nextError: unknown) {
+              const coverKey = getLauncherCoverKey(item)
+              const message = nextError instanceof Error ? nextError.message : String(nextError)
+              launcherPort.writeDebugLog({
+                message: 'launcher.auto-cover.record-failure',
+                keyValues: {
+                  modName: item.name,
+                  nexusModId: item.nexusModId == null ? undefined : String(item.nexusModId),
+                  coverKey,
+                  stage: activeStage,
+                  error: message,
+                },
+              })
+              await launcherPort.recordImageFailure({ modKey: coverKey, error: message }).catch((recordError: unknown) => {
+                launcherPort.writeDebugLog({
+                  message: 'launcher.auto-cover.record-failure-failed',
+                  keyValues: {
+                    modName: item.name,
+                    nexusModId: item.nexusModId == null ? undefined : String(item.nexusModId),
+                    coverKey,
+                    error: recordError instanceof Error ? recordError.message : String(recordError),
+                  },
+                })
+              })
               // Individual auto-cover failures should not fail the library page.
             } finally {
               if (isTaskActive()) {
@@ -549,10 +616,21 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
             ? launcherPort.loadSuppressedUpdateModIds({ modsPath: settings.modsPath }).catch(() => null)
             : Promise.resolve(null)
 
-          const [diagnostics, loadedLibraryState, loadedCovers, scan, suppressedUpdateModIdsResult] = await Promise.all([
+          const imageFailuresPromise = launcherPort.loadImageFailures().catch((nextError: unknown) => {
+            launcherPort.writeDebugLog({
+              message: 'launcher.auto-cover.image-failures-load-failed',
+              keyValues: {
+                error: nextError instanceof Error ? nextError.message : String(nextError),
+              },
+            })
+            return null
+          })
+
+          const [diagnostics, loadedLibraryState, loadedCovers, imageFailures, scan, suppressedUpdateModIdsResult] = await Promise.all([
             launcherPort.loadNexusDiagnostics().catch(() => null),
             launcherPort.loadLibraryState(),
             launcherPort.loadLibraryCovers(),
+            imageFailuresPromise,
             settings.modsPath
               ? launcherPort.scanLibrary({ modsPath: settings.modsPath })
               : Promise.resolve({
@@ -563,14 +641,39 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
           ])
 
           const savedCoverLookup = new Set(loadedCovers.covers.map((cover) => normalizeLookupKey(cover.labelKey)))
+          const blockedCoverLookup = buildBlockedCoverLookup(imageFailures?.entries)
+          launcherPort.writeDebugLog({
+            message: 'launcher.auto-cover.blocked-loaded',
+            keyValues: {
+              blockedCoverCount: String(blockedCoverLookup.size),
+              imageFailureCount: String(imageFailures?.entries.length ?? 0),
+            },
+          })
           const suppressedUpdateModIds = normalizeSuppressedModIds(suppressedUpdateModIdsResult?.modIds)
-          const eligibleMods = scan.mods.filter(
-            (item) =>
+          const eligibleMods = scan.mods.filter((item) => {
+            const blockedMatch = getBlockedLauncherCoverMatch(item, blockedCoverLookup)
+            if (blockedMatch) {
+              launcherPort.writeDebugLog({
+                message: 'launcher.auto-cover.skip-blocked',
+                keyValues: {
+                  modName: item.name,
+                  nexusModId: item.nexusModId == null ? undefined : String(item.nexusModId),
+                  blockedKey: blockedMatch.blockedKey,
+                  matchedCandidate: blockedMatch.candidate,
+                  candidates: getLauncherCoverKeyCandidates(item).join(','),
+                },
+              })
+              return false
+            }
+
+            return (
               item.nexusModId != null &&
               !suppressedUpdateModIds.has(item.nexusModId) &&
+              !launcherPort.isRemoteModIdInvalid(item.nexusModId) &&
               !item.imageUrl?.trim() &&
-              !getLauncherCoverKeyCandidates(item).some((value) => savedCoverLookup.has(normalizeLookupKey(value))),
-          )
+              !getLauncherCoverKeyCandidates(item).some((value) => savedCoverLookup.has(normalizeLookupKey(value)))
+            )
+          })
 
           if (!isRefreshActive()) {
             return

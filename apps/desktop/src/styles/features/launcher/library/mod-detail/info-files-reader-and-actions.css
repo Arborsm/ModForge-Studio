@@ -198,6 +198,121 @@
     padding-bottom: 4px;
   }
 
+  .launcher-mod-detail-dependency-tree,
+  .launcher-mod-detail-dependency-tree-children {
+    display: grid;
+    gap: 7px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .launcher-mod-detail-dependency-tree {
+    overflow: visible;
+    padding-bottom: 4px;
+  }
+
+  .launcher-mod-detail-dependency-tree-children {
+    position: relative;
+    margin-top: 7px;
+    padding-left: 22px;
+  }
+
+  .launcher-mod-detail-dependency-tree-children::before {
+    position: absolute;
+    top: -3px;
+    bottom: 6px;
+    left: 8px;
+    width: 1px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--border-color) 76%, transparent);
+    content: '';
+  }
+
+  .launcher-mod-detail-dependency-tree-entry {
+    display: grid;
+    min-width: 0;
+  }
+
+  .launcher-mod-detail-dependency-node {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    min-height: 50px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 58%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 28%, var(--bg-panel));
+    padding: 8px 10px;
+  }
+
+  .launcher-mod-detail-dependency-node.is-missing,
+  .launcher-mod-detail-dependency-node.is-disabled,
+  .launcher-mod-detail-dependency-node.is-transitive,
+  .launcher-mod-detail-dependency-node.is-error,
+  .launcher-mod-detail-dependency-node.is-downloadable {
+    border-color: color-mix(in srgb, var(--danger) 28%, var(--border-color));
+    background: color-mix(in srgb, var(--danger) 6%, var(--bg-panel));
+  }
+
+  .launcher-mod-detail-dependency-node.is-loading {
+    border-color: color-mix(in srgb, var(--accent) 24%, var(--border-color));
+    background: color-mix(in srgb, var(--accent-soft) 36%, var(--bg-panel));
+  }
+
+  .launcher-mod-detail-dependency-node.is-external,
+  .launcher-mod-detail-dependency-node.is-cycle {
+    background: color-mix(in srgb, var(--bg-panel-muted) 18%, var(--bg-panel));
+  }
+
+  .launcher-mod-detail-dependency-node.is-missing .launcher-mod-detail-data-dot,
+  .launcher-mod-detail-dependency-node.is-disabled .launcher-mod-detail-data-dot,
+  .launcher-mod-detail-dependency-node.is-transitive .launcher-mod-detail-data-dot,
+  .launcher-mod-detail-dependency-node.is-error .launcher-mod-detail-data-dot {
+    background: var(--danger);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 12%, transparent);
+  }
+
+  .launcher-mod-detail-dependency-node.is-loading .launcher-mod-detail-data-dot {
+    background: var(--accent-strong);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  .launcher-mod-detail-dependency-toggle {
+    display: grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--border-color) 58%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--bg-panel) 76%, var(--bg-panel-muted));
+    color: var(--text-tertiary);
+    transition:
+      border-color 150ms ease,
+      background 150ms ease,
+      color 150ms ease;
+  }
+
+  .launcher-mod-detail-dependency-toggle:not(:disabled):hover {
+    border-color: color-mix(in srgb, var(--accent) 30%, var(--border-color));
+    background: color-mix(in srgb, var(--accent-soft) 38%, var(--bg-panel));
+    color: var(--accent-strong);
+  }
+
+  .launcher-mod-detail-dependency-toggle:disabled {
+    opacity: 0.42;
+  }
+
+  .launcher-mod-detail-dependency-toggle svg {
+    transition: transform 150ms ease;
+  }
+
+  .launcher-mod-detail-dependency-toggle svg.is-open {
+    transform: rotate(90deg);
+  }
+
   .launcher-mod-detail-data-loading {
     display: grid;
     align-content: center;
@@ -409,7 +524,35 @@
     color: color-mix(in srgb, var(--success) 78%, var(--text-primary));
   }
 
+  .launcher-mod-detail-data-pill.pending {
+    background: color-mix(in srgb, var(--accent-soft) 78%, var(--bg-panel));
+    color: var(--accent-strong);
+  }
+
   .launcher-mod-detail-data-pill.danger {
+    background: color-mix(in srgb, var(--danger) 10%, var(--bg-panel));
+    color: color-mix(in srgb, var(--danger) 82%, var(--text-primary));
+  }
+
+  .launcher-mod-detail-dependency-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: end;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .launcher-mod-detail-data-item.dependency-item.is-downloadable {
+    border-color: color-mix(in srgb, var(--danger) 32%, var(--border-color));
+    background: color-mix(in srgb, var(--danger) 7%, var(--bg-panel));
+  }
+
+  .launcher-mod-detail-dependency-download {
+    color: var(--danger);
+  }
+
+  .launcher-mod-detail-dependency-download:hover {
+    border-color: color-mix(in srgb, var(--danger) 34%, var(--border-color));
     background: color-mix(in srgb, var(--danger) 10%, var(--bg-panel));
     color: color-mix(in srgb, var(--danger) 82%, var(--text-primary));
   }
@@ -529,108 +672,6 @@
     color: inherit;
     font-size: inherit;
     line-height: inherit;
-  }
-
-  .launcher-mod-detail-key-card {
-    display: grid;
-    align-content: start;
-    gap: 16px;
-    min-width: 0;
-    min-height: 0;
-    border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
-    border-radius: 18px;
-    background: color-mix(in srgb, var(--bg-panel) 70%, transparent);
-    padding: 14px;
-  }
-
-  .launcher-mod-detail-key-card h3 {
-    margin: 0;
-    color: var(--text-primary);
-    font-size: 15px;
-    font-weight: 760;
-  }
-
-  .launcher-mod-detail-key-list {
-    display: grid;
-    gap: 10px;
-    min-width: 0;
-  }
-
-  .launcher-mod-detail-key-item {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-    border: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
-    border-radius: 14px;
-    background: color-mix(in srgb, var(--bg-panel-muted) 34%, var(--bg-panel));
-    padding: 11px 12px;
-  }
-
-  .launcher-mod-detail-key-item.is-missing {
-    border-color: color-mix(in srgb, var(--danger) 24%, var(--border-color));
-    background: color-mix(in srgb, var(--danger) 5%, var(--bg-panel));
-  }
-
-  .launcher-mod-detail-key-icon {
-    display: grid;
-    width: 28px;
-    height: 28px;
-    place-items: center;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--accent-soft) 74%, var(--bg-panel));
-    color: var(--accent-strong);
-  }
-
-  .launcher-mod-detail-key-icon span {
-    font-size: 14px;
-    line-height: 1;
-  }
-
-  .launcher-mod-detail-key-item.is-missing .launcher-mod-detail-key-icon {
-    background: color-mix(in srgb, var(--danger) 10%, var(--bg-panel));
-    color: color-mix(in srgb, var(--danger) 82%, var(--text-primary));
-  }
-
-  .launcher-mod-detail-key-item div {
-    display: grid;
-    gap: 3px;
-    min-width: 0;
-  }
-
-  .launcher-mod-detail-key-item strong,
-  .launcher-mod-detail-key-item span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .launcher-mod-detail-key-item strong {
-    color: var(--text-primary);
-    font-size: 12.5px;
-    font-weight: 760;
-  }
-
-  .launcher-mod-detail-key-item span {
-    color: var(--text-tertiary);
-    font-size: 11px;
-  }
-
-  .launcher-mod-detail-key-item em {
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--success) 11%, var(--bg-panel));
-    color: color-mix(in srgb, var(--success) 78%, var(--text-primary));
-    padding: 2px 7px;
-    font-size: 10px;
-    font-style: normal;
-    font-weight: 760;
-    white-space: nowrap;
-  }
-
-  .launcher-mod-detail-key-item.is-missing em {
-    background: color-mix(in srgb, var(--danger) 10%, var(--bg-panel));
-    color: color-mix(in srgb, var(--danger) 82%, var(--text-primary));
   }
 
   .launcher-mod-detail-reader {

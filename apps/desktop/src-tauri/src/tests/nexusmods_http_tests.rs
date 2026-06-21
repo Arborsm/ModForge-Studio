@@ -112,7 +112,7 @@ fn nexus_request_throttle_does_not_hold_lock_while_request_runs() {
 }
 
 #[test]
-fn launcher_nexus_route_probe_marks_warning_after_three_failed_attempts() {
+fn launcher_nexus_route_probe_does_not_retry_automatically_after_failure() {
     let _guard = launcher_http_test_guard()
         .lock()
         .expect("launcher http test guard should not be poisoned");
@@ -127,11 +127,51 @@ fn launcher_nexus_route_probe_marks_warning_after_three_failed_attempts() {
         false,
     );
 
-    assert_eq!(attempts, 3);
+    assert_eq!(attempts, 1);
     assert_eq!(snapshot.status, NexusRouteStatus::Warning);
-    assert!(!snapshot.available);
-    assert_eq!(snapshot.attempts, 3);
+    assert!(snapshot.available);
+    assert_eq!(snapshot.attempts, 1);
+    assert!(snapshot.message.contains("Failed after 1 attempt"));
     assert!(snapshot.message.contains("connection reset"));
+}
+
+#[test]
+fn launcher_nexus_route_blocks_after_three_separate_failed_probes() {
+    let _guard = launcher_http_test_guard()
+        .lock()
+        .expect("launcher http test guard should not be poisoned");
+    reset_launcher_nexus_diagnostics_for_test();
+    let mut attempts = 0;
+
+    for expected_attempts in 1..=3 {
+        set_launcher_nexus_route_snapshot_from_probe_for_test(
+            LauncherNexusRoute::PublicGraphql,
+            || {
+                attempts += 1;
+                Err("connection reset".to_string())
+            },
+            false,
+        );
+
+        let diagnostics = snapshot_launcher_nexus_diagnostics_for_test();
+        let public_graphql = diagnostics
+            .routes
+            .iter()
+            .find(|route| route.route_id == LauncherNexusRoute::PublicGraphql.id())
+            .expect("public GraphQL route should exist");
+        assert_eq!(public_graphql.status, NexusRouteStatus::Warning);
+        assert_eq!(public_graphql.attempts, expected_attempts);
+        assert_eq!(public_graphql.available, expected_attempts < 3);
+        assert!(
+            public_graphql
+                .message
+                .contains(&format!("Failed after {expected_attempts} attempt"))
+        );
+    }
+
+    assert_eq!(attempts, 3);
+    ensure_launcher_nexus_route_available(LauncherNexusRoute::PublicGraphql)
+        .expect_err("route should be blocked after the third separate failure");
 }
 
 #[test]

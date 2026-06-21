@@ -24,6 +24,8 @@ const noop = () => {}
 const asyncNoop = async () => {}
 
 const launcherPort = {
+  isRemoteModIdInvalid: () => false,
+  markRemoteModIdInvalid: noop,
   loadRemoteModDetail: async () => createRemoteDetail(48),
   openUrl: asyncNoop,
   openPath: asyncNoop,

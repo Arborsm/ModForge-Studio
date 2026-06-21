@@ -724,6 +724,7 @@ function exposePerformanceLauncherLibraryState(state: LauncherLibraryState) {
 
 const performanceLauncherPort: LauncherPort = {
   loadSettings: async () => launcherSettings,
+  writeDebugLog: () => {},
   saveSettings: async (request) => ({ ...launcherSettings, ...request }),
   scanLibrary: async () => ({ modsPath: launcherSettings.modsPath, mods: launcherLibraryMods }),
   loadRuntimeInfo: async () => ({ gameVersion: '1.6.15', smapiVersion: '4.3.0' }),
@@ -739,6 +740,7 @@ const performanceLauncherPort: LauncherPort = {
   },
   loadLibraryCovers: async () => ({ covers: [] }) as any,
   loadImageFailures: async () => ({ entries: [] }) as any,
+  recordImageFailure: async () => ({ entries: [] }) as any,
   setLibraryCover: async () => ({ covers: [] }) as any,
   persistLibraryRemoteCover: async () => ({ covers: [] }) as any,
   loadDownloadQueue: async () => ({ items: [] }) as any,
@@ -773,6 +775,8 @@ const performanceLauncherPort: LauncherPort = {
       results: allResults.slice(offset, offset + pageSize),
     } as any
   },
+  isRemoteModIdInvalid: () => false,
+  markRemoteModIdInvalid: noop,
   loadRemoteModDetail: async (request) =>
     ({
       modId: request.modId,
@@ -830,6 +834,7 @@ const performanceLauncherPort: LauncherPort = {
   restartNexusDiagnostics: async () => launcherDiagnostics as any,
   retryNexusDiagnosticsRoute: async () => launcherDiagnostics as any,
   setNexusForceOffline: async () => launcherDiagnostics as any,
+  resolveCachedImage: async () => null,
   resolveImage: async () => ({ sourceUrl: '', localPath: '', mimeType: '' }) as any,
   loadCachedUpdates: async () =>
     ({ modsPath: launcherSettings.modsPath, checkedAtMs: Date.now(), isComplete: true, updates: createLauncherUpdateResults(72) }) as any,

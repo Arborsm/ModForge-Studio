@@ -12,6 +12,30 @@ export type DependencyListItem = {
   status: string
   missing: boolean
   title: string
+  downloadable?: boolean
+  modId?: number | null
+  url?: string | null
+  imageUrl?: string | null
+  version?: string | null
+}
+
+export type DependencyTreeNodeStatus = 'satisfied' | 'missing' | 'disabled' | 'transitive' | 'external' | 'loading' | 'error' | 'cycle'
+
+export type DependencyTreeNode = {
+  id: string
+  name: string
+  meta: string
+  status: string
+  statusKind: DependencyTreeNodeStatus
+  title: string
+  children: DependencyTreeNode[]
+  downloadable?: boolean
+  loadable?: boolean
+  loading?: boolean
+  modId?: number | null
+  url?: string | null
+  imageUrl?: string | null
+  version?: string | null
 }
 
 export type FileListItem = {

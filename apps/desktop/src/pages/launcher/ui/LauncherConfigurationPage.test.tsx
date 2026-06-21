@@ -51,6 +51,7 @@ vi.mock('@platform/observability', () => ({
 
 vi.mock('@features/launcher/api', () => ({
   clearLauncherImageCache: (...args: unknown[]) => clearLauncherImageCache(...args),
+  isLauncherRemoteModIdInvalid: vi.fn(() => false),
   loadLauncherNexusDiagnostics: (...args: unknown[]) => loadLauncherNexusDiagnostics(...args),
   restartLauncherNexusDiagnostics: (...args: unknown[]) => restartLauncherNexusDiagnostics(...args),
   retryLauncherNexusDiagnosticsRoute: (...args: unknown[]) => retryLauncherNexusDiagnosticsRoute(...args),

@@ -194,6 +194,8 @@ export type LauncherCatalogPageResult = {
 export type LauncherRemoteModDetail = {
   modId: number
   title: string
+  unavailable?: boolean
+  unavailableReason?: string | null
   summary: string | null
   description?: string | null
   author: string | null
@@ -230,6 +232,7 @@ export type LauncherRemoteModRequirement = {
   name: string
   notes?: string | null
   url?: string | null
+  modId?: number | null
   external?: boolean
 }
 
@@ -323,6 +326,11 @@ export type LauncherImageFailureEntry = {
 
 export type LauncherImageFailuresState = {
   entries: LauncherImageFailureEntry[]
+}
+
+export type RecordLauncherImageFailureRequest = {
+  modKey: string
+  error: string
 }
 
 export type CheckLauncherUpdatesRequest = {

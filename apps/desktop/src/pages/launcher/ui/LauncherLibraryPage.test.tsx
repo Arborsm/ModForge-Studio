@@ -114,6 +114,7 @@ vi.mock('@features/launcher/api', async () => {
   return {
     ...actual,
     inspectLauncherArchive: vi.fn(),
+    isLauncherRemoteModIdInvalid: vi.fn(() => false),
     listLauncherInstallBackups: vi.fn(),
     loadLauncherRemoteModDetail: vi.fn(),
     openLauncherUrl: vi.fn(),
@@ -1895,39 +1896,35 @@ describe('LauncherLibraryPage', () => {
     })
   })
 
-  it('does not retry blocked launcher library covers when the card remounts', async () => {
+  it('shows a locally cached launcher library cover without entering the network resolver', async () => {
     const library = createLibraryState()
-    const coveredMod = { ...library.mods[0]!, imageUrl: 'https://example.test/blocked-npc-cover.png' }
+    const coveredMod = { ...library.mods[0]!, imageUrl: 'https://example.test/cached-npc-cover.png' }
     useLauncherLibraryMock.mockReturnValue({
       ...library,
       mods: [coveredMod, ...library.mods.slice(1)],
       filteredMods: [coveredMod, ...library.filteredMods.slice(1)],
     } as MockLibraryState)
-    launcherPort.loadImageFailures = vi.fn().mockResolvedValue({
-      entries: [
-        {
-          modKey: '101',
-          failureCount: 3,
-          blocked: true,
-          lastError: 'HTTP 404',
-          lastFailedAtMs: 123,
-        },
-      ],
+    launcherPort.resolveCachedImage = vi.fn().mockResolvedValue({
+      sourceUrl: 'https://example.test/cached-npc-cover.png',
+      localPath: 'E:\\Covers\\cached-npc-cover.png',
+      mimeType: 'image/png',
     })
     launcherPort.toDesktopAssetUrl = vi.fn((path) => `asset://${path}`)
 
-    const view = renderLibraryPage()
-
-    await waitFor(() => {
-      expect(screen.getByRole('article', { name: /npc adventures/i }).querySelector('img')).toBeNull()
-    })
-    expect(resolveLauncherImageMock).not.toHaveBeenCalled()
-
-    view.unmount()
     renderLibraryPage()
 
     await waitFor(() => {
-      expect(screen.getByRole('article', { name: /npc adventures/i }).querySelector('img')).toBeNull()
+      expect(
+        screen
+          .getByRole('article', { name: /npc adventures/i })
+          .querySelector('img')
+          ?.getAttribute('src'),
+      ).toBe('asset://E:\\Covers\\cached-npc-cover.png')
+    })
+    expect(launcherPort.resolveCachedImage).toHaveBeenCalledWith({
+      url: 'https://example.test/cached-npc-cover.png',
+      refresh: false,
+      modKey: '101',
     })
     expect(resolveLauncherImageMock).not.toHaveBeenCalled()
   })

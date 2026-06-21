@@ -128,6 +128,7 @@ fn parse_public_mod_detail_graphql_response_extracts_detail_fields_and_primary_f
                     "nexusRequirements": {
                         "nodes": [
                             {
+                                "modId": "2400",
                                 "modName": "SMAPI",
                                 "notes": "4.4.0 or later",
                                 "url": "https://www.nexusmods.com/stardewvalley/mods/2400",
@@ -211,6 +212,7 @@ fn parse_public_mod_detail_graphql_response_extracts_detail_fields_and_primary_f
         detail.requirements[0].notes.as_deref(),
         Some("4.4.0 or later")
     );
+    assert_eq!(detail.requirements[0].mod_id, Some(2400));
     assert_eq!(detail.files.len(), 1);
     assert_eq!(detail.files[0].file_id, Some(160463));
     assert_eq!(

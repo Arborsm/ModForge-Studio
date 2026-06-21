@@ -10,7 +10,7 @@ import { PanelEmptyState } from '@shared/ui/PanelSection'
 import type { LauncherDiscoverDetail, LauncherLibraryItem, QueueLauncherDownloadInput } from '../../model/types'
 import { LauncherArtworkCover } from './LauncherArtworkCover'
 import { getLauncherCardCoverWord, getLauncherCardFallbackPalette } from './launcherCardPresentation'
-import { ChangelogList, DependencyList, DetailDataLoading, DetailSection, FileList, PropertyRow } from './LauncherModDetailLists'
+import { ChangelogList, DependencyTree, DetailDataLoading, DetailSection, FileList, PropertyRow } from './LauncherModDetailLists'
 import {
   buildChangelogItems,
   compactNumber,
@@ -20,7 +20,8 @@ import {
   normalizeVersion,
   resolveFileGroup,
   truncatePath,
-  type DependencyListItem,
+  type DependencyTreeNode,
+  type DependencyTreeNodeStatus,
   type DetailRow,
   type FileListItem,
 } from './launcherModDetailData'
@@ -31,14 +32,405 @@ type LauncherDetailMod = Partial<LauncherLibraryItem> & {
   packName?: string | null
 }
 
+type RemoteDependencyLoadState = {
+  state: 'loading' | 'ready' | 'error'
+  detail?: LauncherDiscoverDetail
+  error?: string
+}
+
+type DependencyCopy = {
+  localRequirement: string
+  remoteRequirement: string
+  externalRequirement: string
+  missing: string
+  satisfied: string
+  disabled: string
+  dependencyIssue: string
+  loading: string
+  loadError: string
+  cycle: string
+}
+
 function shouldDeferDetailContent() {
   return import.meta.env.MODE !== 'test' && (typeof navigator === 'undefined' || !navigator.userAgent.toLowerCase().includes('jsdom'))
 }
 
-function DependencyIcon({ name }: { name: string }) {
-  const symbol = name.toLowerCase().includes('smapi') ? '⚙' : '🧩'
+function normalizeDependencyMatchKey(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/gu, '')
+}
 
-  return <span>{symbol}</span>
+type LocalDependencyLookup = {
+  identity: Map<string, LauncherLibraryItem | LauncherDetailMod>
+  display: Map<string, LauncherLibraryItem | LauncherDetailMod>
+}
+
+function findExactDependencyMatchKey(keys: string[], requirementName: string) {
+  const requirementKey = normalizeDependencyMatchKey(requirementName)
+  return keys.find((key) => normalizeDependencyMatchKey(key) === requirementKey)
+}
+
+function uniqueNonEmpty(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+}
+
+function mergeDependencyNames(values: string[]) {
+  const keys: string[] = []
+  const names: string[] = []
+  values
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .forEach((value) => {
+      const matchedKey = findExactDependencyMatchKey(keys, value)
+      if (matchedKey) {
+        return
+      }
+      keys.push(normalizeDependencyMatchKey(value))
+      names.push(value)
+    })
+  return names
+}
+
+function getLocalDependencyIdentityKeys(mod: LauncherDetailMod | LauncherLibraryItem) {
+  return [mod.uniqueId, mod.labelKey].filter((value): value is string => Boolean(value?.trim()))
+}
+
+function getLocalDependencyDisplayKeys(mod: LauncherDetailMod | LauncherLibraryItem) {
+  return [mod.folderName, mod.name].filter((value): value is string => Boolean(value?.trim()))
+}
+
+function buildLocalDependencyLookup(libraryMods: LauncherLibraryItem[], rootMod: LauncherDetailMod | null) {
+  const lookup: LocalDependencyLookup = {
+    identity: new Map(),
+    display: new Map(),
+  }
+  const addMod = (item: LauncherLibraryItem | LauncherDetailMod | null) => {
+    if (!item) {
+      return
+    }
+    getLocalDependencyIdentityKeys(item).forEach((key) => {
+      lookup.identity.set(normalizeDependencyMatchKey(key), item)
+    })
+    getLocalDependencyDisplayKeys(item).forEach((key) => {
+      lookup.display.set(normalizeDependencyMatchKey(key), item)
+    })
+  }
+
+  libraryMods.forEach(addMod)
+  addMod(rootMod)
+  return lookup
+}
+
+function findLocalDependency(lookup: LocalDependencyLookup, name: string) {
+  const key = normalizeDependencyMatchKey(name)
+  return lookup.identity.get(key) ?? lookup.display.get(key) ?? null
+}
+
+function buildRemoteRequirementLookup(requirements: LauncherDiscoverDetail['requirements']) {
+  const lookup = new Map<string, NonNullable<LauncherDiscoverDetail['requirements']>[number]>()
+  ;(requirements ?? []).forEach((requirement) => {
+    if (requirement.name.trim()) {
+      lookup.set(normalizeDependencyMatchKey(requirement.name), requirement)
+    }
+  })
+  return lookup
+}
+
+function findRemoteRequirement(lookup: Map<string, NonNullable<LauncherDiscoverDetail['requirements']>[number]>, name: string) {
+  const direct = lookup.get(normalizeDependencyMatchKey(name))
+  if (direct) {
+    return direct
+  }
+  const matchedKey = findExactDependencyMatchKey(Array.from(lookup.keys()), name)
+  return matchedKey ? (lookup.get(matchedKey) ?? null) : null
+}
+
+function getMissingDependencySet(mod: LauncherDetailMod | LauncherLibraryItem | null | undefined) {
+  return new Set((mod?.missingRequiredDependencies ?? []).map((item) => item.trim()).filter(Boolean))
+}
+
+function resolveDependencyStatusKind({
+  cycle = false,
+  remoteState,
+  external = false,
+  missing = false,
+  disabled = false,
+  transitive = false,
+}: {
+  cycle?: boolean
+  remoteState?: RemoteDependencyLoadState['state']
+  external?: boolean
+  missing?: boolean
+  disabled?: boolean
+  transitive?: boolean
+}): DependencyTreeNodeStatus {
+  if (cycle) return 'cycle'
+  if (remoteState === 'loading') return 'loading'
+  if (remoteState === 'error') return 'error'
+  if (external) return 'external'
+  if (missing) return 'missing'
+  if (disabled) return 'disabled'
+  if (transitive) return 'transitive'
+  return 'satisfied'
+}
+
+function dependencyStatusLabel(statusKind: DependencyTreeNodeStatus, copy: DependencyCopy) {
+  const labels: Record<DependencyTreeNodeStatus, string> = {
+    satisfied: copy.satisfied,
+    missing: copy.missing,
+    disabled: copy.disabled,
+    transitive: copy.dependencyIssue,
+    external: copy.externalRequirement,
+    loading: copy.loading,
+    error: copy.loadError,
+    cycle: copy.cycle,
+  }
+  return labels[statusKind]
+}
+
+function buildLocalDependencyNode({
+  dependencyName,
+  ownerId,
+  localLookup,
+  rootRemoteRequirementLookup,
+  remoteDependencyDetails,
+  copy,
+  rootImageUrl,
+  path,
+}: {
+  dependencyName: string
+  ownerId: string
+  localLookup: LocalDependencyLookup
+  rootRemoteRequirementLookup: Map<string, NonNullable<LauncherDiscoverDetail['requirements']>[number]>
+  remoteDependencyDetails: Record<number, RemoteDependencyLoadState>
+  copy: DependencyCopy
+  rootImageUrl: string | null | undefined
+  path: Set<string>
+}): DependencyTreeNode {
+  const localMatch = findLocalDependency(localLookup, dependencyName)
+  const remoteRequirement = findRemoteRequirement(rootRemoteRequirementLookup, dependencyName)
+  const dependencyKey = normalizeDependencyMatchKey(localMatch?.uniqueId ?? dependencyName)
+  const remoteModId = remoteRequirement?.external ? null : (remoteRequirement?.modId ?? localMatch?.nexusModId ?? null)
+  const nodeId = `${ownerId}:${dependencyKey}:${remoteModId ?? 'local'}`
+  const title = [localMatch?.name ?? dependencyName, localMatch?.uniqueId, remoteRequirement?.notes, remoteRequirement?.url]
+    .filter(Boolean)
+    .join(' · ')
+
+  if (path.has(dependencyKey)) {
+    return {
+      id: `${nodeId}:cycle`,
+      name: localMatch?.name ?? dependencyName,
+      meta: copy.localRequirement,
+      status: copy.cycle,
+      statusKind: 'cycle',
+      title,
+      children: [],
+      modId: remoteModId,
+      url: remoteRequirement?.url ?? localMatch?.modUrl ?? null,
+      imageUrl: localMatch?.imageUrl ?? rootImageUrl ?? null,
+      version: localMatch?.version ?? null,
+    }
+  }
+
+  const localMissingSet = getMissingDependencySet(localMatch)
+  const localChildren = uniqueNonEmpty(localMatch?.requiredDependencies ?? [])
+  const nextPath = new Set(path)
+  nextPath.add(dependencyKey)
+  const children = localChildren.map((childDependency) =>
+    buildLocalDependencyNode({
+      dependencyName: childDependency,
+      ownerId: nodeId,
+      localLookup,
+      rootRemoteRequirementLookup,
+      remoteDependencyDetails,
+      copy,
+      rootImageUrl,
+      path: nextPath,
+    }),
+  )
+
+  const externalOnly = !localMatch && Boolean(remoteRequirement?.external)
+  const missing = !localMatch && !externalOnly
+  const disabled = Boolean(localMatch && localMatch.enabled === false)
+  const transitive = Boolean(localMatch && localMissingSet.size > 0)
+  const remoteLoad = remoteModId ? remoteDependencyDetails[remoteModId] : undefined
+  const remoteChildren =
+    !localMatch && remoteLoad?.state === 'ready'
+      ? uniqueNonEmpty(remoteLoad.detail?.requirements?.map((requirement) => requirement.name) ?? []).map((childDependency) =>
+          buildRemoteDependencyNode({
+            requirementName: childDependency,
+            ownerId: nodeId,
+            localLookup,
+            remoteRequirementLookup: buildRemoteRequirementLookup(remoteLoad.detail?.requirements),
+            remoteDependencyDetails,
+            copy,
+            rootImageUrl: remoteLoad.detail?.imageUrl ?? rootImageUrl,
+            path: nextPath,
+          }),
+        )
+      : []
+  const statusKind = externalOnly ? 'external' : missing ? 'missing' : disabled ? 'disabled' : transitive ? 'transitive' : 'satisfied'
+  const status = externalOnly
+    ? copy.externalRequirement
+    : missing
+      ? copy.missing
+      : disabled
+        ? copy.disabled
+        : transitive
+          ? copy.dependencyIssue
+          : copy.satisfied
+  const meta = [
+    localMatch ? copy.localRequirement : null,
+    remoteRequirement ? (remoteRequirement.external ? copy.externalRequirement : copy.remoteRequirement) : null,
+    localMatch?.version ? normalizeVersion(localMatch.version, '') : null,
+    remoteRequirement?.notes,
+    remoteLoad?.state === 'loading' ? copy.loading : null,
+    remoteLoad?.state === 'error' ? copy.loadError : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  return {
+    id: nodeId,
+    name: localMatch?.name ?? dependencyName,
+    meta,
+    status: remoteLoad?.state === 'loading' ? copy.loading : remoteLoad?.state === 'error' ? copy.loadError : status,
+    statusKind: remoteLoad?.state === 'loading' ? 'loading' : remoteLoad?.state === 'error' ? 'error' : statusKind,
+    title,
+    children: [...children, ...remoteChildren],
+    downloadable: missing && Boolean(remoteModId),
+    loadable: missing && Boolean(remoteModId) && remoteLoad?.state !== 'ready',
+    loading: remoteLoad?.state === 'loading',
+    modId: remoteModId,
+    url: remoteRequirement?.url ?? localMatch?.modUrl ?? null,
+    imageUrl: localMatch?.imageUrl ?? rootImageUrl ?? null,
+    version: localMatch?.version ?? null,
+  }
+}
+
+function buildRemoteDependencyNode({
+  requirementName,
+  ownerId,
+  localLookup,
+  remoteRequirementLookup,
+  remoteDependencyDetails,
+  copy,
+  rootImageUrl,
+  path,
+}: {
+  requirementName: string
+  ownerId: string
+  localLookup: LocalDependencyLookup
+  remoteRequirementLookup: Map<string, NonNullable<LauncherDiscoverDetail['requirements']>[number]>
+  remoteDependencyDetails: Record<number, RemoteDependencyLoadState>
+  copy: DependencyCopy
+  rootImageUrl: string | null | undefined
+  path: Set<string>
+}): DependencyTreeNode {
+  const requirement = findRemoteRequirement(remoteRequirementLookup, requirementName)
+  const localMatch = findLocalDependency(localLookup, requirementName)
+  const modId = requirement?.external ? null : (requirement?.modId ?? null)
+  const key = normalizeDependencyMatchKey(localMatch?.uniqueId ?? requirementName)
+  const nodeId = `${ownerId}:remote:${key}:${modId ?? 'external'}`
+  const remoteLoad = modId ? remoteDependencyDetails[modId] : undefined
+  const cycle = path.has(key)
+  const nextPath = new Set(path)
+  nextPath.add(key)
+  const localMissingSet = getMissingDependencySet(localMatch)
+  const localChildren = uniqueNonEmpty(localMatch?.requiredDependencies ?? [])
+  const localDependencyChildren =
+    !cycle && localChildren.length
+      ? localChildren.map((childDependency) =>
+          buildLocalDependencyNode({
+            dependencyName: childDependency,
+            ownerId: nodeId,
+            localLookup,
+            rootRemoteRequirementLookup: remoteRequirementLookup,
+            remoteDependencyDetails,
+            copy,
+            rootImageUrl,
+            path: nextPath,
+          }),
+        )
+      : []
+  const children =
+    !cycle && remoteLoad?.state === 'ready'
+      ? uniqueNonEmpty(remoteLoad.detail?.requirements?.map((child) => child.name) ?? []).map((childDependency) =>
+          buildRemoteDependencyNode({
+            requirementName: childDependency,
+            ownerId: nodeId,
+            localLookup,
+            remoteRequirementLookup: buildRemoteRequirementLookup(remoteLoad.detail?.requirements),
+            remoteDependencyDetails,
+            copy,
+            rootImageUrl: remoteLoad.detail?.imageUrl ?? rootImageUrl,
+            path: nextPath,
+          }),
+        )
+      : []
+  const external = Boolean(requirement?.external || !modId)
+  const missing = !localMatch && !external
+  const disabled = Boolean(localMatch && localMatch.enabled === false)
+  const transitive = Boolean(localMatch && localMissingSet.size > 0)
+  const statusKind = resolveDependencyStatusKind({
+    cycle,
+    remoteState: remoteLoad?.state,
+    external,
+    missing,
+    disabled,
+    transitive,
+  })
+  const status = dependencyStatusLabel(statusKind, copy)
+
+  return {
+    id: nodeId,
+    name: localMatch?.name ?? requirementName,
+    meta: [
+      localMatch ? copy.localRequirement : null,
+      external ? copy.externalRequirement : copy.remoteRequirement,
+      localMatch?.version ? normalizeVersion(localMatch.version, '') : null,
+      requirement?.notes,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    status,
+    statusKind,
+    title: [localMatch?.name ?? requirementName, localMatch?.uniqueId, requirement?.notes, requirement?.url].filter(Boolean).join(' · '),
+    children: [...localDependencyChildren, ...children],
+    downloadable: missing && Boolean(modId),
+    loadable: Boolean(missing && modId && remoteLoad?.state !== 'ready' && !cycle),
+    loading: remoteLoad?.state === 'loading',
+    modId,
+    url: requirement?.url ?? localMatch?.modUrl ?? null,
+    imageUrl: localMatch?.imageUrl ?? rootImageUrl ?? null,
+    version: localMatch?.version ?? remoteLoad?.detail?.primaryFileVersion ?? remoteLoad?.detail?.version ?? null,
+  }
+}
+
+function collectExpandedDependencyNodeIds(nodes: DependencyTreeNode[], expanded = new Set<string>()) {
+  nodes.forEach((node) => {
+    if (node.children.length > 0) {
+      expanded.add(node.id)
+    }
+    if (node.children.length > 0 && node.statusKind !== 'satisfied') {
+      collectExpandedDependencyNodeIds(node.children, expanded)
+      return
+    }
+    node.children.forEach((child) => {
+      if (child.statusKind !== 'satisfied') {
+        expanded.add(node.id)
+        collectExpandedDependencyNodeIds([child], expanded)
+      }
+    })
+  })
+  return expanded
+}
+
+function countDependencyIssues(nodes: DependencyTreeNode[]): number {
+  return nodes.reduce((count, node) => {
+    const ownIssue =
+      node.statusKind === 'missing' || node.statusKind === 'disabled' || node.statusKind === 'transitive' || node.statusKind === 'error'
+    return count + (ownIssue ? 1 : 0) + countDependencyIssues(node.children)
+  }, 0)
 }
 
 type LauncherModDetailPanelProps = {
@@ -54,6 +446,7 @@ type LauncherModDetailPanelProps = {
   onQueueDownload?: (input: QueueLauncherDownloadInput) => void
   remoteLoading?: boolean
   remoteFilesDeferred?: boolean
+  libraryMods?: LauncherLibraryItem[]
 }
 
 export function LauncherModDetailPanel({
@@ -69,6 +462,7 @@ export function LauncherModDetailPanel({
   onQueueDownload,
   remoteLoading = false,
   remoteFilesDeferred = false,
+  libraryMods = [],
 }: LauncherModDetailPanelProps) {
   const launcherPort = useLauncherPort()
   const copy = useEditorCopy()
@@ -76,6 +470,8 @@ export function LauncherModDetailPanel({
   const detailCopy = launcherCopy.library.modDetail
   const [activeTab, setActiveTab] = useState<LauncherDetailTab>('description')
   const [descriptionReaderOpen, setDescriptionReaderOpen] = useState(false)
+  const [remoteDependencyDetails, setRemoteDependencyDetails] = useState<Record<number, RemoteDependencyLoadState>>({})
+  const [expandedDependencyNodeIds, setExpandedDependencyNodeIds] = useState<Set<string>>(new Set())
   const detailContentKey = `${mod?.id ?? 'empty'}:${remoteDetail?.modId ?? mod?.nexusModId ?? 'local'}`
   const deferDetailContent = shouldDeferDetailContent()
   const [readyContentKey, setReadyContentKey] = useState(() => (!deferDetailContent ? detailContentKey : null))
@@ -129,8 +525,35 @@ export function LauncherModDetailPanel({
   const primaryFileId = remote?.primaryFileId ? `#${remote.primaryFileId}` : copy.common.none
   const primarySize = formatSize(remote?.primaryFileSize ?? remote?.fileSize, remote?.primaryFileSizeBytes, copy.common.none)
   const rawLocalDependencies = mod?.requiredDependencies?.length ? mod.requiredDependencies : (mod?.missingRequiredDependencies ?? [])
-  const localDependencies = Array.from(new Set(rawLocalDependencies.map((item) => item.trim()).filter(Boolean)))
+  const localDependencies = uniqueNonEmpty(rawLocalDependencies)
   const remoteRequirements = (remote?.requirements ?? []).filter((requirement) => requirement.name.trim() !== '')
+  const dependencyCopy: DependencyCopy = {
+    localRequirement: detailCopy.localRequirement,
+    remoteRequirement: detailCopy.remoteRequirement,
+    externalRequirement: detailCopy.externalRequirement,
+    missing: detailCopy.missing,
+    satisfied: detailCopy.satisfied,
+    disabled: detailCopy.disabledDependency,
+    dependencyIssue: detailCopy.dependencyIssue,
+    loading: detailCopy.dependencyLoading,
+    loadError: detailCopy.dependencyLoadError,
+    cycle: detailCopy.dependencyCycle,
+  }
+  const localDependencyLookup = buildLocalDependencyLookup(libraryMods, mod)
+  const rootRemoteRequirementLookup = buildRemoteRequirementLookup(remoteRequirements)
+  const rootDependencyNames = mergeDependencyNames([...localDependencies, ...remoteRequirements.map((requirement) => requirement.name)])
+  const dependencyTreeItems = rootDependencyNames.map((dependencyName) =>
+    buildLocalDependencyNode({
+      dependencyName,
+      ownerId: `root:${mod?.uniqueId ?? remote?.modId ?? 'detail'}`,
+      localLookup: localDependencyLookup,
+      rootRemoteRequirementLookup,
+      remoteDependencyDetails,
+      copy: dependencyCopy,
+      rootImageUrl: remote?.imageUrl ?? mod?.imageUrl ?? null,
+      path: new Set([normalizeDependencyMatchKey(mod?.uniqueId ?? remote?.title ?? '')].filter(Boolean)),
+    }),
+  )
   const remoteFiles = (remote?.files ?? []).filter((file) => (file.name ?? '').trim() !== '' || file.fileId)
   const changelogItems = buildChangelogItems({
     primaryLines: remote?.primaryFileChangelog,
@@ -139,7 +562,7 @@ export function LauncherModDetailPanel({
     files: remoteFiles,
     noneLabel: copy.common.none,
   })
-  const hasDependencyData = localDependencies.length > 0 || remoteRequirements.length > 0
+  const hasDependencyData = dependencyTreeItems.length > 0
   const hasDeferredFileData = Boolean(remoteFilesDeferred && deferredFilesModId && onQueueDownload)
   const hasFileData = isNexus && (remoteFiles.length > 0 || hasDeferredFileData)
   const hasChangelogData = isNexus && (changelogItems.length > 0 || Boolean(remoteFilesDeferred && deferredFilesModId))
@@ -212,39 +635,9 @@ export function LauncherModDetailPanel({
     { label: detailCopy.match, value: fallbackRemoteModId ? detailCopy.exactUpdateKeyMatch : copy.common.none },
   ]
 
-  const missingLocalDependencies = new Set(mod?.missingRequiredDependencies ?? [])
-  const dependencyItems: DependencyListItem[] = [
-    ...localDependencies.map((dependency) => {
-      const missing = missingLocalDependencies.has(dependency)
-      return {
-        name: dependency,
-        meta: detailCopy.localRequirement,
-        status: missing ? detailCopy.missing : detailCopy.satisfied,
-        missing,
-        title: dependency,
-      }
-    }),
-    ...remoteRequirements.map((requirement) => ({
-      name: requirement.name,
-      meta: [requirement.external ? detailCopy.externalRequirement : detailCopy.remoteRequirement, requirement.notes]
-        .filter(Boolean)
-        .join(' · '),
-      status: requirement.external ? detailCopy.externalRequirement : detailCopy.satisfied,
-      missing: false,
-      title: [requirement.name, requirement.notes, requirement.url].filter(Boolean).join(' · '),
-    })),
-  ]
-  const keyStatusItems: DependencyListItem[] = dependencyItems.length
-    ? dependencyItems.slice(0, 3)
-    : [
-        {
-          name: launcherCopy.fields.dependencies,
-          meta: detailCopy.status,
-          status: dependencyText,
-          missing: Boolean(mod?.missingRequiredDependencies?.length),
-          title: dependencyText,
-        },
-      ]
+  const dependencyIssueCount = countDependencyIssues(dependencyTreeItems)
+  const missingDependencyCount = dependencyIssueCount
+  const missingDependencyLabel = missingDependencyCount ? launcherCopy.library.missingDependenciesCount(missingDependencyCount) : null
 
   const fileItems: FileListItem[] = remoteFiles.map((file) => {
     const fileName = file.name ?? (file.fileId ? `#${file.fileId}` : '')
@@ -286,6 +679,14 @@ export function LauncherModDetailPanel({
     }
     setActiveTab(tab)
   }
+
+  useEffect(() => {
+    setRemoteDependencyDetails({})
+  }, [detailContentKey])
+
+  useEffect(() => {
+    setExpandedDependencyNodeIds(collectExpandedDependencyNodeIds(dependencyTreeItems))
+  }, [detailContentKey, dependencyIssueCount, dependencyTreeItems.length])
 
   useEffect(() => {
     if (!open) {
@@ -338,6 +739,60 @@ export function LauncherModDetailPanel({
         source: isLocal ? 'updates' : 'discover',
       })
     }
+  }
+
+  const handleDownloadDependency = (item: DependencyTreeNode) => {
+    if (onQueueDownload && item.modId) {
+      onQueueDownload({
+        modId: item.modId,
+        title: item.name,
+        imageUrl: item.imageUrl ?? null,
+        version: item.version ?? null,
+        source: isLocal ? 'updates' : 'discover',
+      })
+    }
+  }
+
+  const handleOpenDependencyPage = (item: DependencyTreeNode) => {
+    const url = item.url ?? (item.modId ? `https://www.nexusmods.com/stardewvalley/mods/${item.modId}` : null)
+    if (url) {
+      void launcherPort.openUrl({ url })
+    }
+  }
+
+  const handleToggleDependencyNode = (item: DependencyTreeNode) => {
+    setExpandedDependencyNodeIds((current) => {
+      const next = new Set(current)
+      if (next.has(item.id)) {
+        next.delete(item.id)
+      } else {
+        next.add(item.id)
+      }
+      return next
+    })
+
+    if (!item.loadable || !item.modId || remoteDependencyDetails[item.modId]?.state === 'loading') {
+      return
+    }
+
+    setRemoteDependencyDetails((current) => ({
+      ...current,
+      [item.modId as number]: { state: 'loading' },
+    }))
+    void launcherPort
+      .loadRemoteModDetail({ modId: item.modId, includeFiles: false })
+      .then((detail) => {
+        setRemoteDependencyDetails((current) => ({
+          ...current,
+          [item.modId as number]: { state: 'ready', detail },
+        }))
+      })
+      .catch((error: unknown) => {
+        setRemoteDependencyDetails((current) => ({
+          ...current,
+          [item.modId as number]: { state: 'error', error: error instanceof Error ? error.message : String(error) },
+        }))
+      })
   }
 
   if (!open) {
@@ -506,11 +961,23 @@ export function LauncherModDetailPanel({
             </header>
 
             <div className="launcher-mod-detail-body">
-              <main className={cx('launcher-mod-detail-main', !updateAvailable && 'no-status')}>
+              <main className="launcher-mod-detail-main">
                 <div className="launcher-mod-detail-tabs" role="tablist" aria-label={detailCopy.tabsLabel}>
                   {detailTabs.map((tab) => (
-                    <button key={tab} type="button" role="tab" aria-selected={selectedTab === tab} onClick={() => handleSelectTab(tab)}>
-                      {detailCopy.tabs[tab]}
+                    <button
+                      key={tab}
+                      type="button"
+                      role="tab"
+                      aria-selected={selectedTab === tab}
+                      onClick={() => handleSelectTab(tab)}
+                      title={tab === 'dependencies' && missingDependencyLabel ? missingDependencyLabel : undefined}
+                    >
+                      <span>{detailCopy.tabs[tab]}</span>
+                      {tab === 'dependencies' && missingDependencyCount ? (
+                        <strong className="launcher-mod-detail-tab-alert" aria-hidden="true">
+                          {missingDependencyCount}
+                        </strong>
+                      ) : null}
                     </button>
                   ))}
                 </div>
@@ -586,9 +1053,22 @@ export function LauncherModDetailPanel({
                     <div className="launcher-mod-detail-info-layout rich scrollable">
                       <div className="launcher-mod-detail-rich-head">
                         <span>{detailCopy.tabs.dependencies}</span>
-                        <strong>{dependencyItems.length}</strong>
+                        <strong>{dependencyTreeItems.length}</strong>
                       </div>
-                      <DependencyList items={dependencyItems} />
+                      <DependencyTree
+                        items={dependencyTreeItems}
+                        expandedNodeIds={expandedDependencyNodeIds}
+                        labels={{
+                          download: detailCopy.downloadDependency,
+                          openPage: launcherCopy.actions.openModPage,
+                          expand: detailCopy.expandDependency,
+                          collapse: detailCopy.collapseDependency,
+                          loadChildren: detailCopy.loadDependencyChildren,
+                        }}
+                        onToggleNode={handleToggleDependencyNode}
+                        onDownloadDependency={handleDownloadDependency}
+                        onOpenDependencyPage={handleOpenDependencyPage}
+                      />
                     </div>
                   </section>
                 ) : null}
@@ -620,24 +1100,6 @@ export function LauncherModDetailPanel({
                   </section>
                 ) : null}
               </main>
-
-              <aside className="launcher-mod-detail-key-card">
-                <h3>{detailCopy.status}</h3>
-                <div className="launcher-mod-detail-key-list">
-                  {keyStatusItems.map((item) => (
-                    <article className={cx('launcher-mod-detail-key-item', item.missing && 'is-missing')} key={`${item.name}-${item.meta}`}>
-                      <span className="launcher-mod-detail-key-icon" aria-hidden="true">
-                        <DependencyIcon name={item.name} />
-                      </span>
-                      <div>
-                        <strong title={item.title}>{item.name}</strong>
-                        <span>{item.meta}</span>
-                      </div>
-                      <em>{item.status}</em>
-                    </article>
-                  ))}
-                </div>
-              </aside>
             </div>
 
             {showDescriptionReader ? (

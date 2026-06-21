@@ -12,6 +12,16 @@ function createWrapper(port: LauncherPort) {
   }
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
+}
+
 describe('useLauncherImage', () => {
   afterEach(() => {
     vi.clearAllMocks()
@@ -90,7 +100,37 @@ describe('useLauncherImage', () => {
     expect(port.resolveImage).toHaveBeenCalledTimes(1)
   })
 
-  it('does not resolve a launcher image when the mod cover is blocked after repeated failures', async () => {
+  it('uses a local or disk cached launcher image before starting the network resolver', async () => {
+    const port = createMockLauncherPort({
+      resolveCachedImage: vi.fn().mockResolvedValue({
+        sourceUrl: 'https://example.com/local-cover.png',
+        localPath: 'local-cover.png',
+        mimeType: 'image/png',
+      }),
+      resolveImage: vi.fn().mockResolvedValue({
+        sourceUrl: 'https://example.com/local-cover.png',
+        localPath: 'network-cover.png',
+        mimeType: 'image/png',
+      }),
+      toDesktopAssetUrl: vi.fn((value: string) => `asset:${value}`),
+    })
+
+    const { result } = renderHook(() => useLauncherImage('https://example.com/local-cover.png', '101'), {
+      wrapper: createWrapper(port),
+    })
+
+    await waitFor(() => {
+      expect(result.current.imageUrl).toBe('asset:local-cover.png')
+    })
+    expect(port.resolveCachedImage).toHaveBeenCalledWith({
+      url: 'https://example.com/local-cover.png',
+      refresh: false,
+      modKey: '101',
+    })
+    expect(port.resolveImage).not.toHaveBeenCalled()
+  })
+
+  it('surfaces backend disabled errors after the local cache phase misses', async () => {
     const port = createMockLauncherPort({
       loadImageFailures: vi.fn().mockResolvedValue({
         entries: [
@@ -103,11 +143,8 @@ describe('useLauncherImage', () => {
           },
         ],
       }),
-      resolveImage: vi.fn().mockResolvedValue({
-        sourceUrl: 'https://example.com/blocked-cover.png',
-        localPath: 'blocked-cover.png',
-        mimeType: 'image/png',
-      }),
+      resolveCachedImage: vi.fn().mockResolvedValue(null),
+      resolveImage: vi.fn().mockRejectedValue(new Error('Launcher image loading is disabled for mod 101 after repeated failures.')),
       toDesktopAssetUrl: vi.fn((value: string) => `asset:${value}`),
     })
 
@@ -120,13 +157,22 @@ describe('useLauncherImage', () => {
       expect(result.current.error?.error).toContain('disabled')
     })
     expect(result.current.imageUrl).toBeNull()
-    expect(port.loadImageFailures).toHaveBeenCalledTimes(1)
-    expect(port.resolveImage).not.toHaveBeenCalled()
+    expect(port.loadImageFailures).not.toHaveBeenCalled()
+    expect(port.resolveCachedImage).toHaveBeenCalledWith({
+      url: 'https://example.com/blocked-cover.png',
+      refresh: false,
+      modKey: '101',
+    })
+    expect(port.resolveImage).toHaveBeenCalledWith({
+      url: 'https://example.com/blocked-cover.png',
+      refresh: false,
+      modKey: '101',
+    })
   })
 
-  it('passes the mod key through when resolving an unblocked library cover', async () => {
+  it('passes the mod key through when resolving an uncached library cover', async () => {
     const port = createMockLauncherPort({
-      loadImageFailures: vi.fn().mockResolvedValue({ entries: [] }),
+      resolveCachedImage: vi.fn().mockResolvedValue(null),
       resolveImage: vi.fn().mockResolvedValue({
         sourceUrl: 'https://example.com/library-cover.png',
         localPath: 'library-cover.png',
@@ -142,10 +188,59 @@ describe('useLauncherImage', () => {
     await waitFor(() => {
       expect(result.current.imageUrl).toBe('asset:library-cover.png')
     })
+    expect(port.resolveCachedImage).toHaveBeenCalledWith({
+      url: 'https://example.com/library-cover.png',
+      refresh: false,
+      modKey: '101',
+    })
     expect(port.resolveImage).toHaveBeenCalledWith({
       url: 'https://example.com/library-cover.png',
       refresh: false,
       modKey: '101',
+    })
+  })
+
+  it('waits for the current local cache lookup batch before starting network image requests', async () => {
+    const slowLocal = createDeferred<null>()
+    const port = createMockLauncherPort({
+      resolveCachedImage: vi.fn().mockImplementation(async (request) => {
+        if (request.url === 'https://example.com/slow-local.png') {
+          return slowLocal.promise
+        }
+        return null
+      }),
+      resolveImage: vi.fn().mockResolvedValue({
+        sourceUrl: 'https://example.com/network-cover.png',
+        localPath: 'network-cover.png',
+        mimeType: 'image/png',
+      }),
+      toDesktopAssetUrl: vi.fn((value: string) => `asset:${value}`),
+    })
+
+    renderHook(
+      () => {
+        const first = useLauncherImage('https://example.com/slow-local.png', '101')
+        const second = useLauncherImage('https://example.com/network-cover.png', '102')
+        return { first, second }
+      },
+      {
+        wrapper: createWrapper(port),
+      },
+    )
+
+    await waitFor(() => {
+      expect(port.resolveCachedImage).toHaveBeenCalledTimes(2)
+    })
+    expect(port.resolveImage).not.toHaveBeenCalled()
+
+    slowLocal.resolve(null)
+
+    await waitFor(() => {
+      expect(port.resolveImage).toHaveBeenCalledWith({
+        url: 'https://example.com/network-cover.png',
+        refresh: false,
+        modKey: '102',
+      })
     })
   })
 })

@@ -3,6 +3,7 @@ import type { LauncherCopy } from '@locales/model'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import {
   inspectLauncherArchive,
+  isLauncherRemoteModIdInvalid,
   listLauncherInstallBackups,
   loadLauncherRemoteModDetail,
   openLauncherPath,
@@ -769,6 +770,14 @@ export function useLauncherLibraryController({
       setActionError(null)
 
       if (!mod.nexusModId) {
+        publishNotification({
+          level: 'warning',
+          title: copy.actions.chooseGalleryCover,
+          description: copy.library.galleryCoverEmpty,
+        })
+        return
+      }
+      if (isLauncherRemoteModIdInvalid(mod.nexusModId)) {
         publishNotification({
           level: 'warning',
           title: copy.actions.chooseGalleryCover,

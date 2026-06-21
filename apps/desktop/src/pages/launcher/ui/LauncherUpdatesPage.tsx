@@ -7,6 +7,7 @@ import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading
 import {
   loadLauncherRemoteModDetail,
   loadLauncherUpdateChangelog,
+  isLauncherRemoteModIdInvalid,
   openLauncherUrl,
   type LauncherRemoteModDetail,
   type LauncherUpdateChangelogResult,
@@ -196,6 +197,11 @@ export function LauncherUpdatesPage({
   const loadExpandedDetail = (item: (typeof updates.items)[number]) => {
     const key = getUpdateKey(item.modId, item.absolutePath)
     if (detailStateByKey[key] === 'loading' || detailByKey[key]) {
+      return
+    }
+    if (isLauncherRemoteModIdInvalid(item.modId)) {
+      setDetailStateByKey((current) => ({ ...current, [key]: 'error' }))
+      setDetailErrorByKey((current) => ({ ...current, [key]: `Nexus mod ${item.modId} is unavailable.` }))
       return
     }
 

@@ -21,6 +21,7 @@ export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): L
     loadSettings: vi.fn().mockResolvedValue({
       ...defaultSettings,
     }),
+    writeDebugLog: vi.fn(),
     saveSettings: vi.fn().mockImplementation(async (request) => ({
       ...defaultSettings,
       ...request,
@@ -43,11 +44,14 @@ export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): L
     saveLibraryState: unimplemented('saveLibraryState'),
     loadLibraryCovers: unimplemented('loadLibraryCovers'),
     loadImageFailures: vi.fn().mockResolvedValue({ entries: [] }),
+    recordImageFailure: vi.fn().mockResolvedValue({ entries: [] }),
     setLibraryCover: unimplemented('setLibraryCover'),
     persistLibraryRemoteCover: unimplemented('persistLibraryRemoteCover'),
     loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
     saveDownloadQueue: unimplemented('saveDownloadQueue'),
     searchCatalog: unimplemented('searchCatalog'),
+    isRemoteModIdInvalid: vi.fn().mockReturnValue(false),
+    markRemoteModIdInvalid: vi.fn(),
     loadRemoteModDetail: unimplemented('loadRemoteModDetail'),
     loadUpdateChangelog: unimplemented('loadUpdateChangelog'),
     loadNexusDiagnostics: vi.fn().mockResolvedValue({
@@ -67,6 +71,7 @@ export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): L
     restartNexusDiagnostics: vi.fn().mockResolvedValue({ routes: [] }),
     retryNexusDiagnosticsRoute: vi.fn().mockResolvedValue({ routes: [] }),
     setNexusForceOffline: vi.fn().mockResolvedValue({ routes: [] }),
+    resolveCachedImage: vi.fn().mockResolvedValue(null),
     resolveImage: unimplemented('resolveImage'),
     loadCachedUpdates: vi.fn().mockResolvedValue(null),
     loadSuppressedUpdateModIds: vi.fn().mockResolvedValue({ modsPath: '', modIds: [] }),

@@ -165,6 +165,29 @@ describe('observability', () => {
     )
   })
 
+  it('swallows rejected frontend log writes for fire-and-forget app events', async () => {
+    const failingLog = vi.fn(async () => {
+      throw new Error('Task was superseded.')
+    })
+    configureObservability({ setDebugLoggingEnabled, writeFrontendLog: failingLog })
+
+    expect(() => {
+      reportAppEvent({
+        level: 'info',
+        title: 'Launcher debug event',
+        notify: false,
+      })
+    }).not.toThrow()
+
+    await Promise.resolve()
+    expect(failingLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'info',
+        message: 'Launcher debug event',
+      }),
+    )
+  })
+
   it('forwards direct console warnings through the observability adapter', () => {
     console.warn('Failed to sample palette preview row.', new Error('canvas unavailable'))
 

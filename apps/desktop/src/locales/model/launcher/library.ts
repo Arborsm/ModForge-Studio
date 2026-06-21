@@ -84,6 +84,15 @@ export type LauncherLibraryCopy = {
     remoteRequirement: string
     missing: string
     satisfied: string
+    disabledDependency: string
+    dependencyIssue: string
+    dependencyLoading: string
+    dependencyLoadError: string
+    dependencyCycle: string
+    expandDependency: string
+    collapseDependency: string
+    loadDependencyChildren: string
+    downloadDependency: string
     availableFiles: string
     mainFiles: string
     optionalFiles: string
@@ -208,6 +217,7 @@ export type LauncherLibraryCopy = {
   libraryFolderCount: (count: number) => string
   libraryFolderEmpty: string
   openLibraryFolder: (name: string) => string
+  missingDependenciesCount: (count: number) => string
   closeLibraryFolder: string
   loadingMissingCoversTitle: string
   loadingMissingCoversCurrentMod: (name: string) => string

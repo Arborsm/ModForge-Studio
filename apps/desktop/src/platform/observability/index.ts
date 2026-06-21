@@ -151,6 +151,14 @@ function buildConsoleBridgeLogMessage(args: unknown[]) {
   return args.map(stringifyConsoleArgument).join(' ')
 }
 
+function writeFrontendLogSafely(request: FrontendLogRequest) {
+  try {
+    void Promise.resolve(observabilityAdapter.writeFrontendLog?.(request)).catch(() => undefined)
+  } catch {
+    // Logging must not break the UI shell.
+  }
+}
+
 function installConsoleLogBridge() {
   if (consoleBridgeInstalled || typeof console === 'undefined') {
     return
@@ -177,7 +185,7 @@ function installConsoleLogBridge() {
 
       forwardingConsoleLog = true
       try {
-        void observabilityAdapter.writeFrontendLog({
+        writeFrontendLogSafely({
           level: toConsoleBridgeLevel(method),
           message,
           keyValues: {
@@ -214,7 +222,7 @@ export function reportAppEvent(request: ReportAppEventRequest) {
   }
 
   if (request.log !== false) {
-    void observabilityAdapter.writeFrontendLog?.({
+    writeFrontendLogSafely({
       level: toLogLevel(request.level),
       message: buildLogMessage(request),
       keyValues: request.keyValues,

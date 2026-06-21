@@ -378,6 +378,8 @@ export function LauncherLibraryPageContent({
                     folderCountLabel={copy.library.libraryFolderCount}
                     folderEmptyLabel={copy.library.libraryFolderEmpty}
                     openFolderLabel={copy.library.openLibraryFolder}
+                    missingDependenciesLabel={copy.library.missingDependenciesCount}
+                    missingDependenciesBadgeLabel={copy.library.modDetail.missing}
                     closeFolderLabel={copy.library.closeLibraryFolder}
                     onToggleSelection={toggleEditSelection}
                     onBoxSelectionChange={updateBoxSelection}
@@ -406,6 +408,7 @@ export function LauncherLibraryPageContent({
             open={Boolean(detailMod)}
             onClose={() => setDetailModId(null)}
             mod={detailMod}
+            libraryMods={library.mods}
             onToggleEnabled={() => {
               if (detailMod) {
                 void library.toggleEnabled(detailMod)

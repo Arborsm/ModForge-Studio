@@ -16,7 +16,7 @@ import { createPortal } from 'react-dom'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { useSelectionContainer, type Box } from '@air/react-drag-to-select'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ExternalLink, Folder, Info, X } from 'lucide-react'
+import { AlertTriangle, ExternalLink, Folder, Info, X } from 'lucide-react'
 import { cx } from '@shared/lib/helper'
 import { LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import { getLauncherCoverKey } from '@features/launcher/model/coverKey'
@@ -110,6 +110,8 @@ export type VirtualizedLauncherGridProps = {
   folderCountLabel: (count: number) => string
   folderEmptyLabel: string
   openFolderLabel: (name: string) => string
+  missingDependenciesLabel: (count: number) => string
+  missingDependenciesBadgeLabel: string
   closeFolderLabel?: string
   onToggleSelection: (modId: string) => void
   onClearSelection?: () => void
@@ -150,6 +152,8 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   folderCountLabel,
   folderEmptyLabel,
   openFolderLabel,
+  missingDependenciesLabel,
+  missingDependenciesBadgeLabel,
   closeFolderLabel,
   onToggleSelection,
   onClearSelection,
@@ -582,6 +586,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
                   folderCountLabel={folderCountLabel}
                   folderEmptyLabel={folderEmptyLabel}
                   openFolderLabel={openFolderLabel}
+                  missingDependenciesLabel={missingDependenciesLabel}
                   closeFolderLabel={closeFolderLabel}
                   onToggleSelection={toggleCardSelection ?? onToggleSelection}
                   onToggleParentExpanded={handleToggleParentModulesPanel}
@@ -616,6 +621,8 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
           noneLabel={noneLabel}
           childCountLabel={childCountLabel}
           collapseLabel={collapseLabel}
+          missingDependenciesLabel={missingDependenciesLabel}
+          missingDependenciesBadgeLabel={missingDependenciesBadgeLabel}
           onClose={() => {
             setActiveModulesPanel(null)
             onToggleParentExpanded(activeModulesPanel.parentMod.id)
@@ -656,6 +663,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
   folderCountLabel,
   folderEmptyLabel,
   openFolderLabel,
+  missingDependenciesLabel,
   closeFolderLabel,
   onToggleSelection,
   onToggleParentExpanded,
@@ -694,6 +702,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
   folderCountLabel: (count: number) => string
   folderEmptyLabel: string
   openFolderLabel: (name: string) => string
+  missingDependenciesLabel: (count: number) => string
   closeFolderLabel?: string
   onToggleSelection: (modId: string) => void
   onToggleParentExpanded: (modId: string, anchorElement?: HTMLElement | null) => void
@@ -797,6 +806,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
                   folderCountLabel={folderCountLabel}
                   folderEmptyLabel={folderEmptyLabel}
                   openFolderLabel={openFolderLabel}
+                  missingDependenciesLabel={missingDependenciesLabel}
                   closeFolderLabel={closeFolderLabel}
                   onToggleSelection={onToggleSelection}
                   onToggleParentExpanded={onToggleParentExpanded}
@@ -833,6 +843,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
             expanded={expanded}
             expandLabel={childCount ? expandLabel(item.name) : undefined}
             collapseLabel={childCount ? collapseLabel(item.name) : undefined}
+            missingDependenciesLabel={missingDependenciesLabel(item.missingRequiredDependencies.length)}
             reorderItemKey={sortingActive ? (encodeCustomItemKey('mod', getModKey(item)) ?? '') : undefined}
             reorderContainerKey={sortingActive ? rootOrderContainerKey : undefined}
             onToggleParentExpanded={childCount ? onToggleParentExpanded : undefined}
@@ -893,6 +904,7 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
   expanded,
   expandLabel,
   collapseLabel,
+  missingDependenciesLabel,
   reorderItemKey,
   reorderContainerKey,
   onToggleParentExpanded,
@@ -915,6 +927,7 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
   expanded: boolean
   expandLabel?: string
   collapseLabel?: string
+  missingDependenciesLabel?: string
   reorderItemKey?: string
   reorderContainerKey?: string
   onToggleParentExpanded?: (modId: string, anchorElement?: HTMLElement | null) => void
@@ -995,6 +1008,8 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
         expanded={expanded}
         expandLabel={expandLabel}
         collapseLabel={collapseLabel}
+        missingDependencies={item.missingRequiredDependencies}
+        missingDependenciesLabel={missingDependenciesLabel}
         onToggleExpanded={onToggleParentExpanded ? handleToggleExpanded : undefined}
         onSelect={!selectionDisabled && onToggleSelection ? handleSelect : undefined}
         onOpenDetails={onOpenModDetails ? handleOpenDetails : undefined}
@@ -1134,6 +1149,8 @@ function LauncherLibraryModulesFloatingPanel({
   noneLabel,
   childCountLabel,
   collapseLabel,
+  missingDependenciesLabel,
+  missingDependenciesBadgeLabel,
   onClose,
   onToggleSelection,
   onOpenModDetails,
@@ -1154,6 +1171,8 @@ function LauncherLibraryModulesFloatingPanel({
   noneLabel: string
   childCountLabel: (count: number) => string
   collapseLabel: (name: string) => string
+  missingDependenciesLabel: (count: number) => string
+  missingDependenciesBadgeLabel: string
   onClose: () => void
   onToggleSelection: (modId: string) => void
   onOpenModDetails: (modId: string) => void
@@ -1245,6 +1264,8 @@ function LauncherLibraryModulesFloatingPanel({
                 selected={selectedIdLookup.has(childMod.id)}
                 reorderItemKey={sortingActive ? childKey : undefined}
                 reorderContainerKey={sortingActive ? parentOrderContainerKey : undefined}
+                missingDependenciesLabel={missingDependenciesLabel(childMod.missingRequiredDependencies.length)}
+                missingDependenciesBadgeLabel={missingDependenciesBadgeLabel}
                 onToggleSelection={editMode ? onToggleSelection : undefined}
                 onOpenModDetails={editMode ? undefined : onOpenModDetails}
                 onOpenModFolder={editMode ? undefined : onOpenModFolder}
@@ -1269,6 +1290,8 @@ const DraggableLauncherModuleTile = memo(function DraggableLauncherModuleTile({
   selected,
   reorderItemKey,
   reorderContainerKey,
+  missingDependenciesLabel,
+  missingDependenciesBadgeLabel,
   onToggleSelection,
   onOpenModDetails,
   onOpenModFolder,
@@ -1283,6 +1306,8 @@ const DraggableLauncherModuleTile = memo(function DraggableLauncherModuleTile({
   selected: boolean
   reorderItemKey?: string
   reorderContainerKey?: string
+  missingDependenciesLabel?: string
+  missingDependenciesBadgeLabel: string
   onToggleSelection?: (modId: string) => void
   onOpenModDetails?: (modId: string) => void
   onOpenModFolder?: (mod: LauncherLibraryItem) => void
@@ -1359,6 +1384,16 @@ const DraggableLauncherModuleTile = memo(function DraggableLauncherModuleTile({
       onClick={selectionMode ? handleSelect : handleOpenDetails}
       onDoubleClick={selectionMode ? undefined : handleOpenDirectTarget}
     >
+      {item.missingRequiredDependencies.length ? (
+        <span
+          className="launcher-mod-card-missing-dependencies launcher-library-module-missing-dependencies"
+          aria-label={missingDependenciesLabel}
+          data-tooltip={item.missingRequiredDependencies.join(', ')}
+        >
+          <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>{missingDependenciesBadgeLabel}</span>
+        </span>
+      ) : null}
       <LauncherArtworkCover
         title={item.name}
         imageUrl={item.imageUrl}
@@ -1473,6 +1508,7 @@ function LauncherLibraryFolderPanel({
   folderCountLabel,
   folderEmptyLabel,
   openFolderLabel,
+  missingDependenciesLabel,
   closeFolderLabel,
   onToggleSelection,
   onToggleParentExpanded,
@@ -1511,6 +1547,7 @@ function LauncherLibraryFolderPanel({
   folderCountLabel: (count: number) => string
   folderEmptyLabel: string
   openFolderLabel: (name: string) => string
+  missingDependenciesLabel: (count: number) => string
   closeFolderLabel?: string
   onToggleSelection: (modId: string) => void
   onToggleParentExpanded: (modId: string) => void
@@ -1632,6 +1669,7 @@ function LauncherLibraryFolderPanel({
                     expanded={childCount > 0 && isParentExpanded(item.id)}
                     expandLabel={childCount ? expandLabel(item.name) : undefined}
                     collapseLabel={childCount ? collapseLabel(item.name) : undefined}
+                    missingDependenciesLabel={missingDependenciesLabel(item.missingRequiredDependencies.length)}
                     reorderItemKey={sortingActive ? itemKey : undefined}
                     reorderContainerKey={sortingActive ? folderOrderContainerKey : undefined}
                     onToggleParentExpanded={childCount ? onToggleParentExpanded : undefined}

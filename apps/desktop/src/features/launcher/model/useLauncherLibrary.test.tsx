@@ -419,6 +419,324 @@ describe('useLauncherLibrary', () => {
     })
   })
 
+  it('skips automatic remote cover fetching for known invalid Nexus mod ids', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2000-01-01T00:00:00Z'))
+
+    const isRemoteModIdInvalid = vi.fn((modId: number | null | undefined) => modId === 23651)
+
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-hidden',
+          labelKey: 'ModForge.Hidden',
+          uniqueId: 'ModForge.Hidden',
+          nexusModId: 23651,
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Hidden Mod',
+        }),
+        createMod({
+          id: 'mod-eligible',
+          labelKey: 'ModForge.Eligible',
+          uniqueId: 'ModForge.Eligible',
+          nexusModId: 303,
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Eligible Mod',
+        }),
+      ],
+    })
+    loadLauncherRemoteModDetailMock.mockResolvedValue(
+      createRemoteModDetail({
+        modId: 303,
+        title: 'Eligible Mod',
+        imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/303/303-cover.png',
+      }),
+    )
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+    launcherPort = createMockLauncherPort({
+      checkUpdates: checkLauncherUpdatesMock,
+      isRemoteModIdInvalid,
+      loadCachedUpdates: loadCachedLauncherUpdatesMock,
+      loadLibraryCovers: loadLauncherLibraryCoversMock,
+      loadLibraryState: loadLauncherLibraryStateMock,
+      loadNexusDiagnostics: loadLauncherNexusDiagnosticsMock,
+      loadRemoteModDetail: loadLauncherRemoteModDetailMock,
+      persistLibraryRemoteCover: persistLauncherLibraryRemoteCoverMock,
+      scanLibrary: scanLauncherLibraryMock,
+    })
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings({ autoCheckModUpdates: false })), {
+      wrapper: Wrapper,
+    })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    expect(isRemoteModIdInvalid).toHaveBeenCalledWith(23651)
+    expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledTimes(1)
+    expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledWith({ modId: 303 })
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenCalledTimes(1)
+    expect(publishNotificationMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: launcherCopy.library.loadingMissingCoversCurrentMod('Hidden Mod'),
+      }),
+    )
+  })
+
+  it('skips automatic remote cover fetching for mods blocked by repeated cover failures', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2000-01-01T00:00:00Z'))
+
+    const loadImageFailuresMock = vi.fn().mockResolvedValue({
+      entries: [
+        {
+          modKey: '202',
+          failureCount: 3,
+          blocked: true,
+          lastError: 'Launcher image loading is disabled for mod 202 after repeated failures.',
+          lastFailedAtMs: 1,
+        },
+      ],
+    })
+
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-blocked',
+          labelKey: 'ModForge.Blocked',
+          uniqueId: 'ModForge.Blocked',
+          name: 'Blocked Cover',
+          nexusModId: 202,
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Blocked Cover',
+        }),
+        createMod({
+          id: 'mod-eligible',
+          labelKey: 'ModForge.Eligible',
+          uniqueId: 'ModForge.Eligible',
+          name: 'Eligible Cover',
+          nexusModId: 303,
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Eligible Cover',
+        }),
+      ],
+    })
+    loadLauncherRemoteModDetailMock.mockResolvedValue(
+      createRemoteModDetail({
+        modId: 303,
+        title: 'Eligible Cover',
+        imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/303/303-cover.png',
+      }),
+    )
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+    launcherPort = createMockLauncherPort({
+      checkUpdates: checkLauncherUpdatesMock,
+      loadCachedUpdates: loadCachedLauncherUpdatesMock,
+      loadImageFailures: loadImageFailuresMock,
+      loadLibraryCovers: loadLauncherLibraryCoversMock,
+      loadLibraryState: loadLauncherLibraryStateMock,
+      loadNexusDiagnostics: loadLauncherNexusDiagnosticsMock,
+      loadRemoteModDetail: loadLauncherRemoteModDetailMock,
+      persistLibraryRemoteCover: persistLauncherLibraryRemoteCoverMock,
+      scanLibrary: scanLauncherLibraryMock,
+    })
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings({ autoCheckModUpdates: false })), {
+      wrapper: Wrapper,
+    })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    expect(loadImageFailuresMock).toHaveBeenCalledTimes(1)
+    expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledTimes(1)
+    expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledWith({ modId: 303 })
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenCalledTimes(1)
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenCalledWith({
+      labelKey: '303',
+      imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/303/303-cover.png',
+    })
+    expect(publishNotificationMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: launcherCopy.library.loadingMissingCoversCurrentMod('Blocked Cover'),
+      }),
+    )
+    expect(launcherPort.writeDebugLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'launcher.auto-cover.skip-blocked',
+        keyValues: expect.objectContaining({
+          modName: 'Blocked Cover',
+          nexusModId: '202',
+          blockedKey: '202',
+          matchedCandidate: '202',
+        }),
+      }),
+    )
+  })
+
+  it('records automatic cover detail failures into the launcher image failure state', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2000-01-01T00:00:00Z'))
+
+    const recordImageFailureMock = vi.fn().mockResolvedValue({
+      entries: [
+        {
+          modKey: '202',
+          failureCount: 3,
+          blocked: true,
+          lastError: 'Nexus mod 202 is unavailable.',
+          lastFailedAtMs: 1,
+        },
+      ],
+    })
+
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-hidden',
+          labelKey: 'ModForge.Hidden',
+          uniqueId: 'ModForge.Hidden',
+          name: 'Hidden Cover',
+          nexusModId: 202,
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Hidden Cover',
+        }),
+      ],
+    })
+    loadLauncherRemoteModDetailMock.mockRejectedValue(new Error('Nexus mod 202 is unavailable.'))
+    launcherPort = createMockLauncherPort({
+      checkUpdates: checkLauncherUpdatesMock,
+      loadCachedUpdates: loadCachedLauncherUpdatesMock,
+      loadLibraryCovers: loadLauncherLibraryCoversMock,
+      loadLibraryState: loadLauncherLibraryStateMock,
+      loadNexusDiagnostics: loadLauncherNexusDiagnosticsMock,
+      loadRemoteModDetail: loadLauncherRemoteModDetailMock,
+      persistLibraryRemoteCover: persistLauncherLibraryRemoteCoverMock,
+      recordImageFailure: recordImageFailureMock,
+      scanLibrary: scanLauncherLibraryMock,
+    })
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings({ autoCheckModUpdates: false })), {
+      wrapper: Wrapper,
+    })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledWith({ modId: 202 })
+    expect(recordImageFailureMock).toHaveBeenCalledWith({
+      modKey: '202',
+      error: 'Nexus mod 202 is unavailable.',
+    })
+    expect(persistLauncherLibraryRemoteCoverMock).not.toHaveBeenCalled()
+    expect(launcherPort.writeDebugLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'launcher.auto-cover.record-failure',
+        keyValues: expect.objectContaining({
+          modName: 'Hidden Cover',
+          nexusModId: '202',
+          coverKey: '202',
+          stage: 'apiCover',
+          error: 'Nexus mod 202 is unavailable.',
+        }),
+      }),
+    )
+  })
+
+  it('records unavailable automatic cover detail responses into the launcher image failure state', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2000-01-01T00:00:00Z'))
+
+    const recordImageFailureMock = vi.fn().mockResolvedValue({
+      entries: [
+        {
+          modKey: '23651',
+          failureCount: 3,
+          blocked: true,
+          lastError: 'Nexus mod 23651 is unavailable.',
+          lastFailedAtMs: 1,
+        },
+      ],
+    })
+    const markRemoteModIdInvalidMock = vi.fn()
+
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-hidden',
+          labelKey: 'ModForge.Hidden',
+          uniqueId: 'ModForge.Hidden',
+          name: 'Hidden Cover',
+          nexusModId: 23651,
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Hidden Cover',
+        }),
+      ],
+    })
+    loadLauncherRemoteModDetailMock.mockResolvedValue(
+      createRemoteModDetail({
+        modId: 23651,
+        title: 'Nexus mod 23651',
+        unavailable: true,
+        unavailableReason: 'missing field name',
+        imageUrl: null,
+      }),
+    )
+    launcherPort = createMockLauncherPort({
+      checkUpdates: checkLauncherUpdatesMock,
+      loadCachedUpdates: loadCachedLauncherUpdatesMock,
+      loadLibraryCovers: loadLauncherLibraryCoversMock,
+      loadLibraryState: loadLauncherLibraryStateMock,
+      loadNexusDiagnostics: loadLauncherNexusDiagnosticsMock,
+      loadRemoteModDetail: loadLauncherRemoteModDetailMock,
+      markRemoteModIdInvalid: markRemoteModIdInvalidMock,
+      persistLibraryRemoteCover: persistLauncherLibraryRemoteCoverMock,
+      recordImageFailure: recordImageFailureMock,
+      scanLibrary: scanLauncherLibraryMock,
+    })
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings({ autoCheckModUpdates: false })), {
+      wrapper: Wrapper,
+    })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledWith({ modId: 23651 })
+    expect(markRemoteModIdInvalidMock).toHaveBeenCalledWith(23651)
+    expect(recordImageFailureMock).toHaveBeenCalledWith({
+      modKey: '23651',
+      error: 'Nexus mod 23651 is unavailable.',
+    })
+    expect(persistLauncherLibraryRemoteCoverMock).not.toHaveBeenCalled()
+    expect(launcherPort.writeDebugLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'launcher.auto-cover.record-failure',
+        keyValues: expect.objectContaining({
+          modName: 'Hidden Cover',
+          nexusModId: '23651',
+          coverKey: '23651',
+          stage: 'apiCover',
+          error: 'Nexus mod 23651 is unavailable.',
+        }),
+      }),
+    )
+  })
+
   it('starts a non-forced update check only after the library scan completes', async () => {
     const deferredScan = createDeferred<{
       modsPath: string

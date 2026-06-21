@@ -259,6 +259,13 @@ pub struct LauncherImageFailuresState {
     pub entries: Vec<LauncherImageFailureEntry>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordLauncherImageFailureRequest {
+    pub mod_key: String,
+    pub error: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherDownloadQueueItem {
@@ -423,6 +430,10 @@ pub struct LauncherCatalogPageResult {
 pub struct LauncherRemoteModDetail {
     pub mod_id: i64,
     pub title: String,
+    #[serde(default)]
+    pub unavailable: bool,
+    #[serde(default)]
+    pub unavailable_reason: Option<String>,
     pub summary: Option<String>,
     #[serde(default)]
     pub description: Option<String>,
@@ -487,6 +498,8 @@ pub struct LauncherRemoteModRequirement {
     pub notes: Option<String>,
     #[serde(default)]
     pub url: Option<String>,
+    #[serde(default)]
+    pub mod_id: Option<i64>,
     #[serde(default)]
     pub external: bool,
 }

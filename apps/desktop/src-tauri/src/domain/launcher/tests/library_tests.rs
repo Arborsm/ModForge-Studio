@@ -1,11 +1,13 @@
 use super::{
     load_or_create_library_state_at_path, normalize_library_state, save_library_state_at_path,
+    scan_library_at_path,
 };
 use crate::domain::launcher::types::{
     LauncherLibraryFolder, LauncherLibraryFolderClassificationMode, LauncherLibraryPackPreset,
     LauncherLibraryState,
 };
-use crate::test_support::create_temp_dir;
+use crate::test_support::{create_temp_dir, write_file};
+use std::fs;
 
 fn global_folder(id: &str, name: &str, hidden: bool) -> LauncherLibraryFolder {
     LauncherLibraryFolder {
@@ -29,6 +31,34 @@ fn pack_folder(id: &str, name: &str, pack_id: &str, hidden: bool) -> LauncherLib
         mod_keys: Vec::new(),
         cover_mod_keys: Vec::new(),
     }
+}
+
+fn sample_manifest(unique_id: &str) -> String {
+    format!(
+        r#"{{
+  "Name": "Example Mod",
+  "Author": "ModForge",
+  "Version": "1.0.0",
+  "UniqueID": "{unique_id}"
+}}"#
+    )
+}
+
+fn sample_manifest_with_required_dependency(unique_id: &str, dependency_unique_id: &str) -> String {
+    format!(
+        r#"{{
+  "Name": "Consumer Mod",
+  "Author": "ModForge",
+  "Version": "1.0.0",
+  "UniqueID": "{unique_id}",
+  "Dependencies": [
+    {{
+      "UniqueID": "{dependency_unique_id}",
+      "IsRequired": true
+    }}
+  ]
+}}"#
+    )
 }
 
 fn nested_folder(id: &str, name: &str, parent: &str, hidden: bool) -> LauncherLibraryFolder {
@@ -216,4 +246,100 @@ fn save_library_state_roundtrips_hidden_flag_through_serde_string() {
         .expect("folder survives serde roundtrip");
     assert!(visuals.hidden);
     assert!(visuals.pack_id.is_none());
+}
+
+#[test]
+fn scan_library_propagates_transitive_required_dependency_issues() {
+    let root = create_temp_dir("launcher-library-transitive-required-dependency");
+    let consumer = root.join("Mods").join("ConsumerPack");
+    let provider = root.join("Mods").join("ProviderPack");
+
+    write_file(
+        &consumer.join("manifest.json"),
+        &sample_manifest_with_required_dependency("ModForge.ConsumerPack", "ModForge.ProviderPack"),
+    );
+    write_file(
+        &provider.join("manifest.json"),
+        &sample_manifest_with_required_dependency("ModForge.ProviderPack", "ModForge.CorePack"),
+    );
+
+    let scan = scan_library_at_path(&root).expect("scan launcher library");
+    let consumer_summary = scan
+        .mods
+        .iter()
+        .find(|item| item.unique_id.as_deref() == Some("ModForge.ConsumerPack"))
+        .expect("consumer summary");
+    let provider_summary = scan
+        .mods
+        .iter()
+        .find(|item| item.unique_id.as_deref() == Some("ModForge.ProviderPack"))
+        .expect("provider summary");
+
+    assert_eq!(
+        provider_summary.missing_required_dependencies,
+        vec!["ModForge.CorePack".to_string()]
+    );
+    assert_eq!(
+        consumer_summary.missing_required_dependencies,
+        vec!["ModForge.ProviderPack".to_string()]
+    );
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn scan_library_keeps_healthy_dependency_chain_clean() {
+    let root = create_temp_dir("launcher-library-healthy-required-dependency");
+    let consumer = root.join("Mods").join("ConsumerPack");
+    let provider = root.join("Mods").join("ProviderPack");
+    let core = root.join("Mods").join("CorePack");
+
+    write_file(
+        &consumer.join("manifest.json"),
+        &sample_manifest_with_required_dependency("ModForge.ConsumerPack", "ModForge.ProviderPack"),
+    );
+    write_file(
+        &provider.join("manifest.json"),
+        &sample_manifest_with_required_dependency("ModForge.ProviderPack", "ModForge.CorePack"),
+    );
+    write_file(
+        &core.join("manifest.json"),
+        &sample_manifest("ModForge.CorePack"),
+    );
+
+    let scan = scan_library_at_path(&root).expect("scan launcher library");
+    assert_eq!(scan.mods.len(), 3);
+    assert!(
+        scan.mods
+            .iter()
+            .all(|item| item.missing_required_dependencies.is_empty())
+    );
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn scan_library_ignores_required_dependency_cycles() {
+    let root = create_temp_dir("launcher-library-required-dependency-cycle");
+    let first = root.join("Mods").join("FirstPack");
+    let second = root.join("Mods").join("SecondPack");
+
+    write_file(
+        &first.join("manifest.json"),
+        &sample_manifest_with_required_dependency("ModForge.FirstPack", "ModForge.SecondPack"),
+    );
+    write_file(
+        &second.join("manifest.json"),
+        &sample_manifest_with_required_dependency("ModForge.SecondPack", "ModForge.FirstPack"),
+    );
+
+    let scan = scan_library_at_path(&root).expect("scan launcher library");
+    assert_eq!(scan.mods.len(), 2);
+    assert!(
+        scan.mods
+            .iter()
+            .all(|item| item.missing_required_dependencies.is_empty())
+    );
+
+    fs::remove_dir_all(root).expect("cleanup");
 }

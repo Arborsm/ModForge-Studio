@@ -84,6 +84,25 @@ describe('LauncherModCard', () => {
     expect(updateBadge.querySelector('svg')).toBeTruthy()
   })
 
+  it('renders missing dependencies as a badge instead of a numeric count', () => {
+    renderWithLocaleAndLaunchers(
+      <LauncherModCard
+        title="External Pack"
+        meta="Author · v1.0.0"
+        imageUrl={null}
+        missingDependencies={['Dependency.One', 'Dependency.Two']}
+        missingDependenciesLabel="2 missing dependencies"
+      />,
+    )
+
+    const badge = screen.getByLabelText('2 missing dependencies')
+    expect(badge).toHaveClass('launcher-mod-card-missing-dependencies')
+    expect(badge).not.toHaveAttribute('title')
+    expect(badge).toHaveAttribute('data-tooltip', 'Dependency.One, Dependency.Two')
+    expect(badge.textContent).toContain('Missing')
+    expect(badge.textContent).not.toContain('2')
+  })
+
   it('keeps author and version in fixed footer slots with custom hover labels', () => {
     renderWithLocaleAndLaunchers(
       <LauncherModCard

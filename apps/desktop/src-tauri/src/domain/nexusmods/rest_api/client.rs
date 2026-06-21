@@ -95,6 +95,13 @@ pub(crate) enum NexusRestError {
     #[error("Not found: the requested resource does not exist")]
     NotFound,
 
+    #[error("Nexus mod unavailable: mod_id={mod_id:?}, status={status:?}, available={available:?}")]
+    ModUnavailable {
+        mod_id: Option<u64>,
+        status: Option<String>,
+        available: Option<bool>,
+    },
+
     #[error("API error: HTTP {status} — {message}")]
     ApiError { status: u16, message: String },
 }
@@ -168,6 +175,41 @@ pub(crate) struct ModUserInfo {
 
 // ---- Internal helpers ----
 
+fn unavailable_mod_error_from_success_body(body: &Value) -> Option<NexusRestError> {
+    let mod_id = body.get("mod_id").and_then(Value::as_u64);
+    let has_mod_identity = mod_id.is_some()
+        && body
+            .get("domain_name")
+            .and_then(Value::as_str)
+            .is_some_and(|value| !value.trim().is_empty());
+    if !has_mod_identity {
+        return None;
+    }
+
+    let available = body.get("available").and_then(Value::as_bool);
+    let status = body
+        .get("status")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let hidden_or_removed = status.as_deref().is_some_and(|value| {
+        matches!(
+            value.to_ascii_lowercase().as_str(),
+            "hidden" | "removed" | "deleted"
+        )
+    });
+    if available == Some(false) || hidden_or_removed {
+        return Some(NexusRestError::ModUnavailable {
+            mod_id,
+            status,
+            available,
+        });
+    }
+
+    None
+}
+
 /// Send a GET request to a Nexus REST v1 endpoint and deserialize the response.
 ///
 /// Uses send_nexus_request (which handles throttle + retry internally),
@@ -196,6 +238,9 @@ fn send_rest_request<T: serde::de::DeserializeOwned>(
                 status: 200,
                 message: format!("Failed to decode response JSON: {error}"),
             })?;
+            if let Some(error) = unavailable_mod_error_from_success_body(&body) {
+                return Err(error);
+            }
             serde_json::from_value(body).map_err(|error| NexusRestError::ApiError {
                 status: 200,
                 message: format!("Failed to deserialize response: {error}"),
@@ -239,7 +284,7 @@ pub(crate) fn get_mod(api_key: &str, domain: &str, mod_id: u64) -> Result<ModInf
 
 #[cfg(test)]
 mod tests {
-    use super::UserInfo;
+    use super::{NexusRestError, UserInfo, unavailable_mod_error_from_success_body};
     use serde_json::Value;
 
     #[test]
@@ -267,5 +312,52 @@ mod tests {
         );
         assert_eq!(info.is_lifetime_premium, Some(false));
         assert_eq!(info.profile_url, "https://www.nexusmods.com/users/123");
+    }
+
+    #[test]
+    fn hidden_mod_success_body_maps_to_unavailable_error_before_deserialization() {
+        let payload: Value = serde_json::from_str(
+            r#"{
+                "uid": 5596342410339,
+                "mod_id": 23651,
+                "game_id": 1303,
+                "domain_name": "stardewvalley",
+                "version": "1.0.4",
+                "status": "hidden",
+                "available": false
+            }"#,
+        )
+        .expect("hidden mod payload");
+
+        let error = unavailable_mod_error_from_success_body(&payload).expect("unavailable mod");
+
+        match error {
+            NexusRestError::ModUnavailable {
+                mod_id,
+                status,
+                available,
+            } => {
+                assert_eq!(mod_id, Some(23651));
+                assert_eq!(status.as_deref(), Some("hidden"));
+                assert_eq!(available, Some(false));
+            }
+            other => panic!("unexpected error: {other}"),
+        }
+    }
+
+    #[test]
+    fn normal_mod_success_body_does_not_map_to_unavailable_error() {
+        let payload: Value = serde_json::from_str(
+            r#"{
+                "mod_id": 1,
+                "domain_name": "stardewvalley",
+                "name": "The Mane Event",
+                "status": "published",
+                "available": true
+            }"#,
+        )
+        .expect("normal mod payload");
+
+        assert!(unavailable_mod_error_from_success_body(&payload).is_none());
     }
 }
