@@ -896,6 +896,8 @@ describe('App locale ownership', () => {
     getAppUiStateSnapshotMock.mockClear()
     getAppUiStateSnapshotMock.mockImplementation(() => mockAppUiState)
     workspaceLayoutMock.mockClear()
+    vi.mocked(forceCloseCurrentWindow).mockClear()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
     vi.stubGlobal(
       'matchMedia',
       vi.fn().mockImplementation((query: string) => ({
@@ -932,7 +934,7 @@ describe('App locale ownership', () => {
     expect(await screen.findByTestId('workspace-layout')).toBeTruthy()
   })
 
-  it('keeps desktop window controls available when host capability is detected after the preferences seed', async () => {
+  it('confirms before closing from desktop window controls when host capability is detected after the preferences seed', async () => {
     seedAppUiState()
     resetPreferencesStoreForTest({
       theme: 'dark',
@@ -955,7 +957,34 @@ describe('App locale ownership', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Close window' }))
 
+    expect(window.confirm).toHaveBeenCalledWith(editorCopy['en-US'].shell.quitConfirm)
     expect(forceCloseCurrentWindow).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the window open when desktop close confirmation is cancelled', async () => {
+    seedAppUiState()
+    resetPreferencesStoreForTest({
+      theme: 'dark',
+      themeId: mockAppUiState.appearance.themeId as never,
+      locale: 'en-US',
+      windowBorderTone: mockAppUiState.appearance.windowBorderTone,
+      windowBorderWeight: mockAppUiState.appearance.windowBorderWeight,
+      windowIsFullscreen: false,
+      desktopHost: false,
+      debugEnabled: false,
+      notificationSoundEnabled: true,
+      loadingMotionPreference: mockAppUiState.appearance.loadingMotion as never,
+    })
+    canUseDesktopHostMock.mockReturnValue(true)
+    vi.mocked(window.confirm).mockReturnValueOnce(false)
+
+    render(<App />)
+
+    expect(await screen.findByTestId('mock-launcher-page')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Close window' }))
+
+    expect(window.confirm).toHaveBeenCalledWith(editorCopy['en-US'].shell.quitConfirm)
+    expect(forceCloseCurrentWindow).not.toHaveBeenCalled()
   })
 
   it('updates downstream shell copy immediately when locale changes through Settings', async () => {

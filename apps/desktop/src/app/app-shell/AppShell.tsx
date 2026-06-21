@@ -129,9 +129,7 @@ export default function App() {
   const launcherDiagnosticsRetryRef = useRef<(() => Promise<void>) | null>(null)
   const latestLauncherDiagnosticsRef = useRef<LauncherNexusDiagnosticsResult | null>(null)
   const appMountedRef = useRef(true)
-  const windowCloseRequestRef = useRef<() => void>(() => {
-    void forceCloseCurrentWindow()
-  })
+  const windowCloseRequestRef = useRef<() => boolean | Promise<boolean>>(() => false)
 
   const copy = editorCopy[locale]
   const launcherPort = useLauncherPort()
@@ -172,11 +170,18 @@ export default function App() {
 
   useEffect(() => eventBus.subscribe(workbenchOrchestration.handleEvent), [eventBus, workbenchOrchestration])
 
-  useEffect(() => {
-    windowCloseRequestRef.current = () => {
-      void forceCloseCurrentWindow()
+  const confirmAndCloseCurrentWindow = useCallback(async () => {
+    if (!window.confirm(copy.shell.quitConfirm)) {
+      return false
     }
-  }, [])
+
+    await forceCloseCurrentWindow()
+    return true
+  }, [copy.shell.quitConfirm])
+
+  useEffect(() => {
+    windowCloseRequestRef.current = confirmAndCloseCurrentWindow
+  }, [confirmAndCloseCurrentWindow])
 
   useEffect(() => {
     if (!hostAvailable) {
@@ -420,11 +425,14 @@ export default function App() {
   }, [])
 
   const requestGuardedWindowClose = useCallback(() => {
-    windowCloseRequestRef.current()
+    return windowCloseRequestRef.current()
   }, [])
-  const handleWindowCloseRequestChange = useCallback((handler: (() => void) | null) => {
-    windowCloseRequestRef.current = handler ?? (() => void forceCloseCurrentWindow())
-  }, [])
+  const handleWindowCloseRequestChange = useCallback(
+    (handler: (() => boolean | Promise<boolean>) | null) => {
+      windowCloseRequestRef.current = handler ?? confirmAndCloseCurrentWindow
+    },
+    [confirmAndCloseCurrentWindow],
+  )
 
   useEffect(() => {
     if (!hostAvailable) {
@@ -434,9 +442,7 @@ export default function App() {
     let disposed = false
     let unlisten: (() => void) | null = null
 
-    void listenToWindowCloseRequest(() => {
-      requestGuardedWindowClose()
-    })
+    void listenToWindowCloseRequest(requestGuardedWindowClose)
       .then((nextUnlisten) => {
         if (disposed) {
           nextUnlisten()
@@ -506,7 +512,7 @@ export default function App() {
                 onLauncherPageChange={handleLauncherPageChange}
                 onMinimizeWindow={() => void minimizeCurrentWindow()}
                 onToggleMaximizeWindow={() => void handleToggleMaximizeWindow()}
-                onCloseWindow={() => void forceCloseCurrentWindow()}
+                onCloseWindow={() => void requestGuardedWindowClose()}
                 onOpenSettings={openSettingsWindow}
                 onToggleDebugMode={() => {
                   setDebugEnabled(!usePreferencesStore.getState().debugEnabled)
@@ -536,7 +542,7 @@ export default function App() {
                   onOpenSettings={openSettingsWindow}
                   onMinimizeWindow={() => void minimizeCurrentWindow()}
                   onToggleMaximizeWindow={() => void handleToggleMaximizeWindow()}
-                  onCloseWindow={() => void forceCloseCurrentWindow()}
+                  onCloseWindow={confirmAndCloseCurrentWindow}
                   onWindowCloseRequestChange={handleWindowCloseRequestChange}
                   onWorkbenchEvent={eventBus.emit}
                   pendingWorkbenchIntent={pendingWorkbenchIntent}

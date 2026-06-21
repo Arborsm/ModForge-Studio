@@ -27,6 +27,31 @@ type CacheStats = {
 
 type MetricItem = [string, string]
 
+const devDebugOverlayInsetPx = 12
+const fallbackTitlebarHeightPx = 57
+const fallbackInitialDevDebugOverlayTopPx = 84
+
+function getAppTitlebarHeightPx() {
+  if (typeof window === 'undefined') {
+    return fallbackTitlebarHeightPx
+  }
+
+  const rawValue = window.getComputedStyle(document.documentElement).getPropertyValue('--app-titlebar-height').trim()
+  const parsedValue = Number.parseFloat(rawValue)
+  return Number.isFinite(parsedValue) ? parsedValue : fallbackTitlebarHeightPx
+}
+
+function getMinDevDebugOverlayY() {
+  return getAppTitlebarHeightPx() + devDebugOverlayInsetPx
+}
+
+function createInitialDevDebugOverlayPosition() {
+  return {
+    x: 20,
+    y: Math.max(fallbackInitialDevDebugOverlayTopPx, getMinDevDebugOverlayY()),
+  }
+}
+
 function createCacheStatsSnapshot(): CacheStats {
   return {
     desktop: getDesktopCacheStats(),
@@ -101,7 +126,7 @@ export function DevDebugOverlay({
   contextMetrics: externalContextMetrics,
 }: DevDebugOverlayProps) {
   const [collapsed, setCollapsed] = useState(false)
-  const [position, setPosition] = useState({ x: 20, y: 84 })
+  const [position, setPosition] = useState(createInitialDevDebugOverlayPosition)
   const [clearing, setClearing] = useState(false)
   const [refreshingFileCache, setRefreshingFileCache] = useState(false)
   const [clearMessage, setClearMessage] = useState<string | null>(null)
@@ -216,8 +241,8 @@ export function DevDebugOverlay({
     }
 
     setPosition({
-      x: Math.max(12, event.clientX - pointerOffsetRef.current.x),
-      y: Math.max(12, event.clientY - pointerOffsetRef.current.y),
+      x: Math.max(devDebugOverlayInsetPx, event.clientX - pointerOffsetRef.current.x),
+      y: Math.max(getMinDevDebugOverlayY(), event.clientY - pointerOffsetRef.current.y),
     })
   }
 

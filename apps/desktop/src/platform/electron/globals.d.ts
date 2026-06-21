@@ -13,6 +13,7 @@ export type ModforgeElectronApi = {
   openDialog: (options?: OpenDialogOptions) => Promise<string | string[] | null>
   toAssetUrl: (filePath: string) => string
   onHostEvent: <T>(event: string, listener: (payload: T) => void) => PlatformUnlistenFn
+  onWindowCloseRequest: (listener: () => boolean | Promise<boolean>) => PlatformUnlistenFn
   onWindowDragDrop: (listener: (payload: PlatformDragDropPayload) => void) => PlatformUnlistenFn
 }
 

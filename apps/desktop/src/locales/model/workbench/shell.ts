@@ -9,6 +9,7 @@ export type WorkbenchShellCopy = {
     modeLabel: string
     workbench: string
     launcher: string
+    quitConfirm: string
   }
   menus: string[]
   nav: Record<CoreWorkspaceMode, string>

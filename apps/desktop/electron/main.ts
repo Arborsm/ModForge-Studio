@@ -21,12 +21,24 @@ type PendingRpc = {
   reject: (error: unknown) => void
 }
 
+type PendingWindowCloseRequest = {
+  resolve: (accepted: boolean) => void
+  timeout: NodeJS.Timeout
+}
+
 const localFileProtocol = 'modforge-asset'
 const localFileHost = 'local'
+const appDisplayName = process.env.MODFORGE_APP_NAME?.trim() || 'ModForge Studio'
+const appDesktopId = process.env.MODFORGE_DESKTOP_ID?.trim() || 'studio.modforge.desktop'
 const isDev = !app.isPackaged
 const devUrl = process.env.VITE_DEV_SERVER_URL ?? 'http://127.0.0.1:5173'
+const windowCloseRequestTimeoutMs = 1500
+const sidecarStopTimeoutMs = 2500
 let mainWindow: BrowserWindow | null = null
 let closeAllowed = false
+let appShuttingDown = false
+let nextWindowCloseRequestId = 0
+const pendingWindowCloseRequests = new Map<number, PendingWindowCloseRequest>()
 
 function resolveWindowIconPath() {
   if (isDev) {
@@ -37,6 +49,14 @@ function resolveWindowIconPath() {
 }
 
 if (process.platform === 'linux') {
+  app.setName(appDisplayName)
+  app.setAppUserModelId(appDesktopId)
+  // setDesktopName is the only API that actually sets the Wayland xdg_toplevel
+  // app_id (and the X11 WM_CLASS second slot). setName/setAppUserModelId/--class
+  // do not reach the OS on Wayland, so KDE would otherwise fall back to "electron".
+  app.setDesktopName(appDesktopId)
+  app.commandLine.appendSwitch('class', appDesktopId)
+  app.commandLine.appendSwitch('app-id', appDesktopId)
   app.commandLine.appendSwitch('use-webgpu-adapter', 'opengles')
 }
 
@@ -158,10 +178,26 @@ class SidecarTransport {
     return child
   }
 
-  stop() {
+  async stop() {
     const child = this.sidecar
     this.teardown(new Error('ModForge sidecar stopped.'))
-    child?.kill()
+    if (!child || child.exitCode !== null || child.signalCode !== null) {
+      return
+    }
+
+    child.kill()
+    const exited = await Promise.race([
+      new Promise<boolean>((resolve) => {
+        child.once('exit', () => resolve(true))
+      }),
+      new Promise<boolean>((resolve) => {
+        setTimeout(() => resolve(false), sidecarStopTimeoutMs)
+      }),
+    ])
+
+    if (!exited && child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGKILL')
+    }
   }
 
   invoke(command: string, args?: Record<string, unknown>) {
@@ -232,18 +268,74 @@ class SidecarTransport {
 
 const sidecarTransport = new SidecarTransport(forwardHostEvent)
 
-function requestWindowClose(window: BrowserWindow) {
-  if (window.webContents.isDestroyed()) {
-    closeAllowed = true
-    window.destroy()
+function settleWindowCloseRequest(requestId: number, accepted: boolean) {
+  const pending = pendingWindowCloseRequests.get(requestId)
+  if (!pending) {
     return
   }
 
-  forwardHostEvent('app://window-close-requested', {})
+  clearTimeout(pending.timeout)
+  pendingWindowCloseRequests.delete(requestId)
+  pending.resolve(accepted)
+}
+
+function clearWindowCloseRequests(accepted = false) {
+  for (const requestId of pendingWindowCloseRequests.keys()) {
+    settleWindowCloseRequest(requestId, accepted)
+  }
+}
+
+function forceCloseWindow(window: BrowserWindow) {
+  clearWindowCloseRequests(false)
+  closeAllowed = true
+  window.destroy()
+  app.quit()
+}
+
+async function requestWindowClose(window: BrowserWindow) {
+  if (closeAllowed || appShuttingDown) {
+    forceCloseWindow(window)
+    return true
+  }
+
+  if (window.webContents.isDestroyed()) {
+    forceCloseWindow(window)
+    return true
+  }
+
+  if (pendingWindowCloseRequests.size > 0) {
+    return false
+  }
+
+  const requestId = ++nextWindowCloseRequestId
+  const accepted = await new Promise<boolean>((resolve) => {
+    const timeout = setTimeout(() => {
+      pendingWindowCloseRequests.delete(requestId)
+      resolve(true)
+    }, windowCloseRequestTimeoutMs)
+
+    pendingWindowCloseRequests.set(requestId, { resolve, timeout })
+    window.webContents.send('modforge:window-close-request', requestId)
+  })
+
+  if (accepted && !window.isDestroyed()) {
+    forceCloseWindow(window)
+  }
+  return accepted
+}
+
+async function shutdownApp() {
+  if (appShuttingDown) {
+    return
+  }
+  appShuttingDown = true
+  clearWindowCloseRequests(false)
+  await sidecarTransport.stop()
 }
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
+    title: appDisplayName,
     width: 1440,
     height: 940,
     minWidth: 960,
@@ -272,7 +364,7 @@ function createMainWindow() {
     }
 
     event.preventDefault()
-    requestWindowClose(mainWindow!)
+    void requestWindowClose(mainWindow!)
   })
 
   if (isDev) {
@@ -319,9 +411,10 @@ ipcMain.handle('modforge:window-toggle-maximize', () => {
 })
 ipcMain.handle('modforge:window-close', () => requestWindowClose(currentWindow()))
 ipcMain.handle('modforge:window-force-close', () => {
-  const window = currentWindow()
-  closeAllowed = true
-  window.destroy()
+  forceCloseWindow(currentWindow())
+})
+ipcMain.handle('modforge:window-close-request-result', (_event, requestId: number, accepted: boolean) => {
+  settleWindowCloseRequest(requestId, accepted)
 })
 ipcMain.handle('modforge:window-is-maximized', () => currentWindow().isMaximized())
 ipcMain.handle('modforge:window-is-fullscreen', () => currentWindow().isFullScreen())
@@ -359,6 +452,25 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('before-quit', () => {
-  sidecarTransport.stop()
+app.on('before-quit', (event) => {
+  if (appShuttingDown) {
+    return
+  }
+
+  event.preventDefault()
+  void shutdownApp().finally(() => app.quit())
+})
+
+app.on('will-quit', () => {
+  void shutdownApp()
+})
+
+process.once('SIGINT', () => {
+  void shutdownApp().finally(() => process.exit(0))
+})
+process.once('SIGTERM', () => {
+  void shutdownApp().finally(() => process.exit(0))
+})
+process.once('SIGHUP', () => {
+  void shutdownApp().finally(() => process.exit(0))
 })

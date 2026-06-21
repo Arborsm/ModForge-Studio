@@ -343,13 +343,25 @@ describe('frontend module architecture', () => {
 
   it('keeps Electron force close bypassing renderer beforeunload guards', async () => {
     const electronMain = await readFile(sourcePath('electron/main.ts'), 'utf8')
+    const electronPreload = await readFile(sourcePath('electron/preload.ts'), 'utf8')
+    const forceCloseWindow = electronMain.match(/function forceCloseWindow[\s\S]*?\n\}/)?.[0] ?? ''
     const forceCloseHandler = electronMain.match(/ipcMain\.handle\('modforge:window-force-close'[\s\S]*?\n\}\)/)?.[0] ?? ''
 
-    expect(forceCloseHandler).toContain('window.destroy()')
-    expect(forceCloseHandler).not.toContain('window.close()')
+    expect(forceCloseWindow).toContain('window.destroy()')
+    expect(forceCloseWindow).not.toContain('window.close()')
+    expect(forceCloseHandler).toContain('forceCloseWindow(currentWindow())')
     expect(electronMain).toContain('class SidecarTransport')
-    expect(electronMain).toContain('stop()')
+    expect(electronMain).toContain('async stop()')
+    expect(electronMain).toContain("child.kill('SIGKILL')")
     expect(electronMain).toContain('sidecarStdout?.close()')
+    expect(electronMain).toContain("'modforge:window-close-request-result'")
+    expect(electronPreload).toContain('onWindowCloseRequest')
+    expect(electronMain).toContain('app.setName(appDisplayName)')
+    expect(electronMain).toContain('app.setAppUserModelId(appDesktopId)')
+    // setDesktopName is the only call that actually sets the Wayland xdg_toplevel
+    // app_id; setName/setAppUserModelId do not reach the OS on Wayland.
+    expect(electronMain).toContain('app.setDesktopName(appDesktopId)')
+    expect(electronMain).toContain('title: appDisplayName')
   })
 
   it('keeps host command policy declared by call sites instead of a default command table', async () => {

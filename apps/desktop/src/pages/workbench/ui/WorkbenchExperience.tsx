@@ -68,8 +68,8 @@ type WorkbenchExperienceProps = {
   onOpenSettings: (category?: SettingsWindowCategory) => void
   onMinimizeWindow: () => void
   onToggleMaximizeWindow: () => void
-  onCloseWindow: () => void
-  onWindowCloseRequestChange?: (handler: (() => void) | null) => void
+  onCloseWindow: () => boolean | Promise<boolean>
+  onWindowCloseRequestChange?: (handler: (() => boolean | Promise<boolean>) | null) => void
   onWorkbenchEvent: (event: AppEvent) => void
   getWorkbenchViewRegistration: (viewId: string) => WorkbenchViewRegistration | null
   workbenchViews?: readonly WorkbenchViewRegistration[]
@@ -573,19 +573,24 @@ export default function WorkbenchExperience({
     [onSwitchToLauncher, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard, setWorkbenchLaunchpadOpen],
   )
 
-  const handleCloseWindow = useCallback(() => {
+  const handleCloseWindow = useCallback(async () => {
     if (closeGuardArmedRef.current) {
-      onCloseWindow()
-      return
+      return false
     }
 
+    const hasUnsavedCloseGuard = Boolean(modGuardHandle?.hasUnsavedChanges || cpMaker.isDirty)
+    let closeAccepted = false
     closeGuardArmedRef.current = true
-    void runWithModUnsavedGuard(() => {
-      void runWithCpMakerUnsavedGuard(() => {
-        onCloseWindow()
+    await runWithModUnsavedGuard(async () => {
+      await runWithCpMakerUnsavedGuard(async () => {
+        closeAccepted = await onCloseWindow()
       })
     })
-  }, [onCloseWindow, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard])
+    if (!closeAccepted && !hasUnsavedCloseGuard) {
+      closeGuardArmedRef.current = false
+    }
+    return closeAccepted
+  }, [cpMaker.isDirty, modGuardHandle?.hasUnsavedChanges, onCloseWindow, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard])
 
   useEffect(() => {
     if (!active) {

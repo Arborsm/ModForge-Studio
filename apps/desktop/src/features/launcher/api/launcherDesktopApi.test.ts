@@ -51,6 +51,7 @@ async function loadConfiguredLauncherDesktop() {
           eventListeners.delete(event)
         }
       }),
+      listenWindowCloseRequest: vi.fn(async () => () => undefined),
       listenWindowDragDrop: vi.fn(async () => () => undefined),
     },
   }

@@ -9,6 +9,7 @@ const shell: WorkbenchShellCopy = {
     modeLabel: '壳层模式',
     workbench: '工作台',
     launcher: '启动器',
+    quitConfirm: '退出 ModForge Studio？',
   },
   menus: ['文件', '编辑', '视图', '工具', '窗口'],
   nav: {

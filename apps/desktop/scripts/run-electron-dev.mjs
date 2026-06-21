@@ -3,6 +3,15 @@ import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  appDesktopId,
+  appDisplayName,
+  appLinuxClass,
+  buildElectronScopeSpawnArgs,
+  ensureDevDesktopEntry,
+  ensureNamedElectronExecutable,
+  systemdUserScopeAvailable,
+} from './electronDevIdentity.mjs'
 import { resolveTauriDevRuntime } from './tauriDevRuntime.mjs'
 
 const require = createRequire(import.meta.url)
@@ -94,7 +103,7 @@ function delay(ms) {
 }
 
 function childExit(child) {
-  if (!child || child.exitCode !== null) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) {
     return Promise.resolve()
   }
 
@@ -187,7 +196,7 @@ async function shutdown(exitCode = 0) {
   }
   shuttingDown = true
 
-  await Promise.all([stopChild(electron), stopChild(vite, { processGroup: true })])
+  await Promise.all([stopChild(electron, { processGroup: true }), stopChild(vite, { processGroup: true })])
   process.exit(exitCode)
 }
 
@@ -195,6 +204,9 @@ process.on('SIGINT', () => {
   void shutdown(0)
 })
 process.on('SIGTERM', () => {
+  void shutdown(0)
+})
+process.on('SIGHUP', () => {
   void shutdown(0)
 })
 process.on('exit', cleanupManagedProcessGroups)
@@ -234,16 +246,31 @@ function forwardFilteredElectronStderr(stream) {
 try {
   await waitForDevServer(devUrl)
   const electronPath = resolveElectronExecutable()
+  const electronExecutablePath = ensureNamedElectronExecutable(electronPath, { desktopRoot })
+  ensureDevDesktopEntry(electronExecutablePath, { desktopRoot })
   const remoteDebuggingPort = process.env.MODFORGE_ELECTRON_REMOTE_DEBUGGING_PORT ?? '9222'
-  electron = spawn(electronPath, [`--remote-debugging-port=${remoteDebuggingPort}`, 'electron-dist/main.cjs'], {
+  const electronArgs = [
+    `--remote-debugging-port=${remoteDebuggingPort}`,
+    `--class=${appLinuxClass}`,
+    `--app-id=${appDesktopId}`,
+    'electron-dist/main.cjs',
+  ]
+  const useSystemdScope = systemdUserScopeAvailable()
+  const electronSpawnTarget = useSystemdScope ? 'systemd-run' : electronExecutablePath
+  const electronSpawnArgs = useSystemdScope ? buildElectronScopeSpawnArgs(electronExecutablePath, electronArgs) : electronArgs
+  electron = spawn(electronSpawnTarget, electronSpawnArgs, {
     cwd: desktopRoot,
     env: {
       ...runtime.env,
       VITE_DEV_SERVER_URL: devUrl,
       MODFORGE_SIDECAR_PATH: path.join(desktopRoot, 'src-tauri/target/debug/modforge_sidecar'),
+      MODFORGE_DESKTOP_ID: appDesktopId,
+      MODFORGE_APP_NAME: appDisplayName,
     },
     stdio: ['ignore', 'inherit', 'pipe'],
+    detached: canSignalProcessGroup,
   })
+  trackManagedProcessGroup(electron)
   forwardFilteredElectronStderr(electron.stderr)
   electron.on('error', (error) => {
     console.error(error)

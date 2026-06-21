@@ -122,14 +122,18 @@ export function createTauriPlatformPorts(): PlatformPorts {
           return () => {}
         }
 
-        if (event === 'app://window-close-requested') {
-          return getCurrentWindow().onCloseRequested((closeEvent) => {
-            closeEvent.preventDefault()
-            listener({} as T)
-          })
+        return listen<T>(event, (nextEvent) => {
+          listener(nextEvent.payload)
+        })
+      },
+      async listenWindowCloseRequest(listener) {
+        if (!canUseTauriHost()) {
+          return () => {}
         }
-
-        return listen<T>(event, (nextEvent) => listener(nextEvent.payload))
+        return getCurrentWindow().onCloseRequested((closeEvent) => {
+          closeEvent.preventDefault()
+          void listener()
+        })
       },
       async listenWindowDragDrop(listener) {
         if (!canUseTauriHost()) {

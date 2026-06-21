@@ -143,6 +143,32 @@ describe('DevDebugOverlay', () => {
     expect(overlay?.style.top).toBe('184px')
   })
 
+  it('keeps the draggable overlay below the title bar', () => {
+    render(<DevDebugOverlay workspaceMode="map" mapName="Town" eventName={null} currentEventCommandId={null} actorCount={0} />)
+
+    const handle = screen.getByText('Dev Debug').parentElement as HTMLElement | null
+    const overlay = handle?.closest('.fixed') as HTMLElement | null
+
+    fireEvent.pointerDown(handle as HTMLElement, {
+      pointerId: 3,
+      clientX: 60,
+      clientY: 120,
+    })
+    fireEvent.pointerMove(overlay as HTMLElement, {
+      pointerId: 3,
+      clientX: 0,
+      clientY: 0,
+    })
+    fireEvent.pointerUp(overlay as HTMLElement, {
+      pointerId: 3,
+      clientX: 0,
+      clientY: 0,
+    })
+
+    expect(overlay?.style.left).toBe('12px')
+    expect(overlay?.style.top).toBe('69px')
+  })
+
   it('loads file cache stats once and refreshes manually without polling', async () => {
     desktopMockState.canUseDesktopHost = true
     vi.mocked(getFileCacheStats)
