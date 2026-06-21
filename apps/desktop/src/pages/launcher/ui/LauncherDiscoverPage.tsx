@@ -1,6 +1,20 @@
-import { AlertTriangle, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Filter, LayoutGrid, RefreshCw, Search } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowDownUp,
+  ArrowRight,
+  ArrowUp,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Filter,
+  LayoutGrid,
+  RefreshCw,
+  Search,
+} from 'lucide-react'
 import { createPortal } from 'react-dom'
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { type ComponentType, type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
@@ -11,7 +25,7 @@ import { reportAppEvent } from '@platform/observability'
 import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarState } from '@features/launcher'
 import { useLauncherDiscover, useLauncherRemoteModDetail } from '@features/launcher'
 import type { LauncherDiscoverDetail, QueueLauncherDownloadInput } from '@features/launcher'
-import { LauncherBlockedState, LauncherModDetailPanel, LauncherStateBlock } from '@features/launcher'
+import { LauncherBlockedState, LauncherEmptyState, LauncherModDetailPanel } from '@features/launcher'
 import { applyAppUiStatePatch, getAppUiStateSnapshot, initializeAppUiState } from '@shared/lib/app-state'
 import { LauncherDiscoverCard } from './LauncherDiscoverCard'
 import { formatCompactNumber } from './launcherDiscoverFormat'
@@ -118,23 +132,42 @@ function applyTagSuggestion(currentValue: string, tag: string) {
 
 const LAUNCHER_DISCOVER_PROGRESS_NOTIFICATION_ID = 'launcher-discover-progress'
 
-function getDiscoverPaginationItems(page: number, totalPages: number) {
+function getDiscoverPaginationItems(page: number, totalPages: number, capacity: number) {
   if (totalPages <= 0) {
     return []
   }
 
-  const items: Array<number | 'ellipsis'> = []
-  const pages = new Set<number>([1, totalPages, page - 1, page, page + 1])
-  const normalizedPages = [...pages].filter((value) => value >= 1 && value <= totalPages).sort((a, b) => a - b)
-
-  for (const value of normalizedPages) {
-    const previous = items[items.length - 1]
-    if (typeof previous === 'number' && value - previous > 1) {
-      items.push('ellipsis')
-    }
-    items.push(value)
+  //页码全部能塞下时直接铺开 1..totalPages。
+  if (totalPages <= capacity) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
   }
 
+  //塞不下时按容量压缩：首尾各占 1 个槽，省略号各占 1 个槽，剩下的槽围绕当前页居中铺开。
+  //两侧是否需要省略号取决于当前页位置，capacity 始终被填满。
+  const slotsForCenter = Math.max(1, capacity - 2 /* first + last */ - 2 /* two ellipses */)
+
+  let start = page - Math.floor(slotsForCenter / 2)
+  let end = start + slotsForCenter - 1
+  if (start < 2) {
+    start = 2
+    end = Math.min(totalPages - 1, start + slotsForCenter - 1)
+  }
+  if (end > totalPages - 1) {
+    end = totalPages - 1
+    start = Math.max(2, end - slotsForCenter + 1)
+  }
+
+  const items: Array<number | 'ellipsis'> = [1]
+  if (start > 2) {
+    items.push('ellipsis')
+  }
+  for (let value = start; value <= end; value += 1) {
+    items.push(value)
+  }
+  if (end < totalPages - 1) {
+    items.push('ellipsis')
+  }
+  items.push(totalPages)
   return items
 }
 
@@ -171,6 +204,33 @@ function getBlockedReasonLines(reason: string | null | undefined) {
     .filter(Boolean)
 }
 
+function hasActiveDiscoverFilters(query: string, filters: DiscoverFilters) {
+  if (query.trim()) {
+    return true
+  }
+
+  if (filters.includeAdult) {
+    return true
+  }
+
+  return (
+    Boolean(filters.titleQuery.trim()) ||
+    Boolean(filters.descriptionQuery.trim()) ||
+    Boolean(filters.authorQuery.trim()) ||
+    Boolean(filters.uploaderQuery.trim()) ||
+    Boolean(filters.category.trim()) ||
+    Boolean(filters.language.trim()) ||
+    Boolean(filters.tagsInclude.trim()) ||
+    Boolean(filters.tagsExclude.trim()) ||
+    Boolean(filters.minFileSize.trim()) ||
+    Boolean(filters.maxFileSize.trim()) ||
+    Boolean(filters.minDownloads.trim()) ||
+    Boolean(filters.maxDownloads.trim()) ||
+    Boolean(filters.minEndorsements.trim()) ||
+    Boolean(filters.maxEndorsements.trim())
+  )
+}
+
 function DiscoverMenu<T extends string | number>({
   label,
   value,
@@ -179,6 +239,7 @@ function DiscoverMenu<T extends string | number>({
   disabled = false,
   onToggle,
   onSelect,
+  icon: Icon,
 }: {
   label: string
   value: T
@@ -187,20 +248,39 @@ function DiscoverMenu<T extends string | number>({
   disabled?: boolean
   onToggle: () => void
   onSelect: (value: T) => void
+  icon?: ComponentType<{ className?: string }>
 }) {
   const active = options.find((option) => option.value === value) ?? options[0]
+  const isNonDefault = options.length > 0 && options[0]!.value !== value
 
   return (
     <div className="launcher-discover-menu">
+      {/* Ruler: render every option inside a trigger-shaped shell so the menu
+          adopts the width of the longest label and the trigger stays fixed
+          instead of drifting with the active option. Hidden from view and AT. */}
+      <span className="launcher-discover-menu-ruler" aria-hidden="true">
+        {options.map((option) => (
+          <span key={`ruler:${String(option.value)}`} className="launcher-discover-menu-trigger">
+            {Icon ? <span className="launcher-discover-menu-ruler-mark" /> : null}
+            <span>{option.label}</span>
+            <span className="launcher-discover-menu-ruler-mark" />
+          </span>
+        ))}
+      </span>
       <button
         type="button"
-        className="launcher-discover-menu-trigger control-button"
+        className={cx(
+          'launcher-discover-menu-trigger',
+          isNonDefault && 'launcher-discover-menu-trigger-active',
+          open && 'launcher-discover-menu-trigger-open',
+        )}
         onClick={onToggle}
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={open ? 'true' : 'false'}
         disabled={disabled}
       >
+        {Icon ? <Icon className="h-4 w-4" aria-hidden="true" /> : null}
         <span>{active?.label ?? label}</span>
         <ChevronDown className="h-4 w-4" />
       </button>
@@ -617,16 +697,23 @@ function LauncherDiscoverPageContent({
   const [jumpPageDirty, setJumpPageDirty] = useState(false)
   const [detailItem, setDetailItem] = useState<DiscoverItem | null>(null)
   const [advancedLimitId, setAdvancedLimitId] = useState<string | null>(null)
+  const [searchDraft, setSearchDraft] = useState(discover.query)
+  const [pageCapacity, setPageCapacity] = useState(7)
   const resultsViewportRef = useRef<HTMLDivElement | null>(null)
   const contentRef = useRef<HTMLDivElement | null>(null)
+  const paginationRef = useRef<HTMLDivElement | null>(null)
+  const paginationPagesRef = useRef<HTMLDivElement | null>(null)
   const discoverBlocked = Boolean(discover.blockedReason && discover.state !== 'loading')
   const blockedReasonLines = getBlockedReasonLines(discover.blockedReason)
   const primaryBlockedReason = blockedReasonLines[0] ?? null
   const blockedReasonText = blockedReasonLines.join('\n')
   const discoverRequestFailed = !discoverBlocked && discover.state === 'error'
+  const discoverEmpty = !discoverBlocked && discover.state !== 'error' && discover.state !== 'loading' && !discover.items.length
   const effectiveFiltersHidden = filtersHidden || discoverBlocked || discoverRequestFailed
   const effectiveOpenMenuId = discoverBlocked || discoverRequestFailed ? null : openMenuId
   const effectiveBlockedDetailsExpanded = discoverBlocked ? blockedDetailsExpanded : false
+  const normalizedSearchDraft = searchDraft.trim()
+  const searchDirty = normalizedSearchDraft !== discover.query
   const resultCount = discover.totalCount || discover.items.length
   const timeRangeOptions: DiscoverOption<(typeof TIME_RANGE_VALUES)[number]>[] = TIME_RANGE_VALUES.map((value) => ({
     value,
@@ -679,6 +766,47 @@ function LauncherDiscoverPageContent({
     discover.items.map((item) => `${item.modId}:${item.modUrl}`).join('|'),
   ].join('\u0000')
 
+  //Measure the pagination pages container and a single page button to compute
+  //how many page slots fit the available width. Recompute on resize so the
+  //page list auto-fills the middle region instead of using a fixed window.
+  useLayoutEffect(() => {
+    const paginationEl = paginationRef.current
+    const pagesEl = paginationPagesRef.current
+    if (!paginationEl || !pagesEl) {
+      return undefined
+    }
+
+    const compute = () => {
+      const paginationStyle = window.getComputedStyle(paginationEl)
+      const paginationGap = Number.parseFloat(paginationStyle.columnGap || paginationStyle.gap) || 0
+      const paginationWidth = paginationEl.clientWidth
+      const leadingWidth = pagesEl.previousElementSibling?.getBoundingClientRect().width ?? 0
+      const trailingWidth = pagesEl.nextElementSibling?.getBoundingClientRect().width ?? 0
+      const containerWidth = Math.max(0, paginationWidth - leadingWidth - trailingWidth - paginationGap * 2)
+      const pageButtons = pagesEl.querySelectorAll<HTMLButtonElement>('.launcher-discover-pagination-page')
+      const buttonWidth = Math.max(...Array.from(pageButtons, (button) => button.getBoundingClientRect().width))
+      if (containerWidth <= 0 || buttonWidth <= 0) {
+        return
+      }
+
+      const gap = 6
+      //Capacity = how many page buttons fit the container edge to edge.
+      //Ellipsis overhead is handled inside getDiscoverPaginationItems, not here,
+      //so the page list fills the middle region without leaving wide gutters.
+      const capacity = Math.max(7, Math.floor((containerWidth + gap) / (buttonWidth + gap)) - 1)
+      setPageCapacity((current) => (current === capacity ? current : capacity))
+    }
+
+    compute()
+    if (typeof ResizeObserver === 'undefined') {
+      return undefined
+    }
+    const observer = new ResizeObserver(compute)
+    observer.observe(paginationEl)
+    observer.observe(pagesEl)
+    return () => observer.disconnect()
+  }, [discover.items.length])
+
   useEffect(() => {
     if (discover.state === 'loading') {
       publishNotification({
@@ -707,6 +835,10 @@ function LauncherDiscoverPageContent({
       dismissNotification(LAUNCHER_DISCOVER_PROGRESS_NOTIFICATION_ID)
     }
   }, [])
+
+  useEffect(() => {
+    setSearchDraft(discover.query)
+  }, [discover.query])
 
   useEffect(() => {
     const viewport = resultsViewportRef.current
@@ -750,7 +882,7 @@ function LauncherDiscoverPageContent({
   const formattedResultCount = new Intl.NumberFormat('en-US').format(resultCount)
   const rangeStart = resultCount ? (discover.page - 1) * discover.pageSize + 1 : 0
   const rangeEnd = resultCount ? Math.min(discover.page * discover.pageSize, resultCount) : 0
-  const paginationItems = getDiscoverPaginationItems(discover.page, discover.totalPages)
+  const paginationItems = getDiscoverPaginationItems(discover.page, discover.totalPages, pageCapacity)
   const jumpPageValue = jumpPageDirty ? jumpPageDraft : String(discover.page)
   const toggleSection = (section: DiscoverAccordionSection) => {
     setOpenSection(section)
@@ -797,6 +929,12 @@ function LauncherDiscoverPageContent({
       setBlockedRetryPending(false)
     }
   }
+  const submitDiscoverSearch = () => {
+    if (!searchDirty || discoverBlocked || discoverRequestFailed) {
+      return
+    }
+    discover.setQuery(normalizedSearchDraft)
+  }
 
   return (
     <section className="launcher-discover-page">
@@ -809,34 +947,55 @@ function LauncherDiscoverPageContent({
             <p className="launcher-discover-console-subtitle">{copy.discover.resultRange(rangeStart, rangeEnd, formattedResultCount)}</p>
           </div>
           <div className="launcher-discover-console-toolbar">
-            <label className="launcher-discover-searchbar">
-              <Search className="h-4 w-4" aria-hidden="true" />
-              <input
-                className="launcher-discover-searchbar-input"
-                value={discover.query}
-                onChange={(event) => discover.setQuery(event.target.value)}
-                placeholder={copy.discover.searchPlaceholder}
-                aria-label={copy.discover.searchPlaceholder}
-                spellCheck={false}
+            <div className="launcher-discover-toolbar-group">
+              <label className="launcher-discover-searchbar">
+                <input
+                  className="launcher-discover-searchbar-input"
+                  value={searchDraft}
+                  onChange={(event) => setSearchDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      submitDiscoverSearch()
+                    }
+                  }}
+                  placeholder={copy.discover.searchPlaceholder}
+                  aria-label={copy.discover.searchPlaceholder}
+                  spellCheck={false}
+                  disabled={discoverBlocked || discoverRequestFailed}
+                />
+                <button
+                  type="button"
+                  className="launcher-discover-searchbar-button"
+                  onClick={submitDiscoverSearch}
+                  aria-label={copy.discover.searchAction}
+                  title={copy.discover.searchAction}
+                  disabled={!searchDirty || discoverBlocked || discoverRequestFailed}
+                >
+                  <Search className="h-4 w-4" />
+                </button>
+              </label>
+              <button
+                type="button"
+                className={cx('launcher-discover-filters-toggle', !effectiveFiltersHidden && 'launcher-discover-filters-toggle-active')}
+                onClick={() => setFiltersHidden((current) => !current)}
                 disabled={discoverBlocked || discoverRequestFailed}
-              />
-            </label>
-            <button
-              type="button"
-              className="launcher-discover-filters-toggle control-button"
-              onClick={() => setFiltersHidden((current) => !current)}
-              disabled={discoverBlocked || discoverRequestFailed}
-            >
-              <Filter className="h-4 w-4" />
-              <span>{effectiveFiltersHidden ? copy.discover.showFilters : copy.discover.hideFilters}</span>
-            </button>
-            <div className="launcher-discover-console-actions">
+                aria-label={effectiveFiltersHidden ? copy.discover.showFilters : copy.discover.hideFilters}
+                title={effectiveFiltersHidden ? copy.discover.showFilters : copy.discover.hideFilters}
+              >
+                <Filter className="h-4 w-4" />
+              </button>
+            </div>
+
+            <span className="launcher-discover-toolbar-divider" aria-hidden="true" />
+
+            <div className="launcher-discover-console-actions launcher-discover-toolbar-group">
               <DiscoverMenu
                 label={copy.discover.timeRangeLabel}
                 value={discover.timeRange}
                 options={timeRangeOptions}
                 open={effectiveOpenMenuId === 'time'}
                 disabled={discoverBlocked}
+                icon={Clock}
                 onToggle={() => setOpenMenuId((current) => (current === 'time' ? null : 'time'))}
                 onSelect={(value) => {
                   discover.setTimeRange(value)
@@ -849,45 +1008,57 @@ function LauncherDiscoverPageContent({
                 options={sortOptions}
                 open={effectiveOpenMenuId === 'sort'}
                 disabled={discoverBlocked}
+                icon={ArrowDownUp}
                 onToggle={() => setOpenMenuId((current) => (current === 'sort' ? null : 'sort'))}
                 onSelect={(value) => {
                   discover.setSort(value)
                   setOpenMenuId(null)
                 }}
               />
-              <button
-                type="button"
-                className="launcher-discover-order-button control-button"
-                onClick={() => discover.setAscending(!discover.ascending)}
-                disabled={discoverBlocked}
-              >
-                {discover.ascending ? copy.discover.ascendingShort : copy.discover.descendingShort}
-              </button>
               <DiscoverMenu
                 label={copy.discover.pageSizeLabel}
                 value={discover.pageSize}
                 options={pageSizeOptions}
                 open={effectiveOpenMenuId === 'size'}
                 disabled={discoverBlocked}
+                icon={LayoutGrid}
                 onToggle={() => setOpenMenuId((current) => (current === 'size' ? null : 'size'))}
                 onSelect={(value) => {
                   discover.setPageSize(value)
                   setOpenMenuId(null)
                 }}
               />
+            </div>
+
+            <button
+              type="button"
+              className="launcher-discover-icon-button launcher-discover-order-button"
+              onClick={() => discover.setAscending(!discover.ascending)}
+              aria-label={discover.ascending ? copy.discover.ascendingShort : copy.discover.descendingShort}
+              title={discover.ascending ? copy.discover.ascendingShort : copy.discover.descendingShort}
+              disabled={discoverBlocked}
+            >
+              {discover.ascending ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+            </button>
+
+            <span className="launcher-discover-toolbar-divider" aria-hidden="true" />
+
+            <div className="launcher-discover-toolbar-group">
               <button
                 type="button"
-                className="launcher-discover-icon-button control-button"
+                className="launcher-discover-icon-button"
                 aria-label={copy.discover.gridViewLabel}
+                title={copy.discover.gridViewLabel}
                 disabled={discoverBlocked}
               >
                 <LayoutGrid className="h-4 w-4" />
               </button>
               <button
                 type="button"
-                className="launcher-discover-icon-button control-button"
+                className="launcher-discover-icon-button"
                 onClick={discover.refresh}
                 aria-label={copy.actions.refresh}
+                title={copy.actions.refresh}
                 disabled={discoverBlocked}
               >
                 <RefreshCw className="h-4 w-4" />
@@ -1128,6 +1299,7 @@ function LauncherDiscoverPageContent({
             'launcher-discover-content',
             discoverBlocked && 'launcher-discover-content-blocked',
             discoverRequestFailed && 'launcher-discover-content-error',
+            discoverEmpty && 'launcher-discover-content-empty',
           )}
         >
           {discoverBlocked ? (
@@ -1194,8 +1366,26 @@ function LauncherDiscoverPageContent({
             />
           ) : null}
 
-          {!discoverBlocked && discover.state !== 'error' && discover.state !== 'loading' && !discover.items.length ? (
-            <LauncherStateBlock title={copy.discover.empty} detail={copy.discover.subtitle} />
+          {discoverEmpty ? (
+            <LauncherEmptyState
+              eyebrow={copy.discover.title}
+              title={copy.discover.emptyTitle}
+              detail={copy.discover.emptyDetail}
+              illustrationAccent={<Filter className="h-4 w-4" />}
+              primaryAction={
+                hasActiveDiscoverFilters(discover.query, discover.filters) ? (
+                  <button type="button" className="control-button control-button-primary" onClick={discover.resetFilters}>
+                    <Filter className="h-4 w-4" />
+                    <span>{copy.discover.emptyClearFiltersAction}</span>
+                  </button>
+                ) : (
+                  <button type="button" className="control-button control-button-primary" onClick={discover.refresh}>
+                    <RefreshCw className="h-4 w-4" />
+                    <span>{copy.actions.refresh}</span>
+                  </button>
+                )
+              }
+            />
           ) : null}
 
           {!discoverBlocked && discover.state !== 'error' && (discover.items.length > 0 || discover.state === 'loading') ? (
@@ -1249,7 +1439,7 @@ function LauncherDiscoverPageContent({
               </div>
 
               {discover.items.length ? (
-                <div className="launcher-discover-pagination">
+                <div ref={paginationRef} className="launcher-discover-pagination">
                   <button
                     type="button"
                     className="launcher-discover-pagination-button"
@@ -1261,7 +1451,7 @@ function LauncherDiscoverPageContent({
                     <span>{copy.discover.previousPage}</span>
                   </button>
 
-                  <div className="launcher-discover-pagination-pages">
+                  <div ref={paginationPagesRef} className="launcher-discover-pagination-pages">
                     {paginationItems.map((item, index) =>
                       item === 'ellipsis' ? (
                         <span key={`ellipsis:${index}`} className="launcher-discover-pagination-ellipsis">
@@ -1285,40 +1475,42 @@ function LauncherDiscoverPageContent({
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    className="launcher-discover-pagination-button"
-                    aria-label={copy.discover.nextPage}
-                    disabled={discover.totalPages > 0 && discover.page >= discover.totalPages}
-                    onClick={goToNextDiscoverPage}
-                  >
-                    <span>{copy.discover.nextPage}</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
+                  <div className="launcher-discover-pagination-trailing">
+                    <button
+                      type="button"
+                      className="launcher-discover-pagination-button"
+                      aria-label={copy.discover.nextPage}
+                      disabled={discover.totalPages > 0 && discover.page >= discover.totalPages}
+                      onClick={goToNextDiscoverPage}
+                    >
+                      <span>{copy.discover.nextPage}</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
 
-                  <label className="launcher-discover-pagination-jump">
-                    <span>{copy.discover.jumpToPage}</span>
-                    <input
-                      aria-label={copy.discover.jumpToPage}
-                      className="control-input"
-                      value={jumpPageValue}
-                      onChange={(event) => {
-                        setJumpPageDirty(true)
-                        setJumpPageDraft(event.target.value)
-                      }}
-                      onBlur={() => {
-                        setJumpPageDirty(false)
-                        setJumpPageDraft('')
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          submitJumpPage()
-                        }
-                      }}
-                      inputMode="numeric"
-                    />
-                    <span>{copy.discover.pageUnit}</span>
-                  </label>
+                    <label className="launcher-discover-pagination-jump">
+                      <span>{copy.discover.jumpToPage}</span>
+                      <input
+                        aria-label={copy.discover.jumpToPage}
+                        className="control-input"
+                        value={jumpPageValue}
+                        onChange={(event) => {
+                          setJumpPageDirty(true)
+                          setJumpPageDraft(event.target.value)
+                        }}
+                        onBlur={() => {
+                          setJumpPageDirty(false)
+                          setJumpPageDraft('')
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            submitJumpPage()
+                          }
+                        }}
+                        inputMode="numeric"
+                      />
+                      <span>{copy.discover.pageUnit}</span>
+                    </label>
+                  </div>
                 </div>
               ) : null}
             </div>

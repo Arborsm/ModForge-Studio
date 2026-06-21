@@ -101,6 +101,7 @@ function createDiscoverState(overrides: Partial<DiscoverState> = {}): DiscoverSt
     updateFilter: vi.fn(),
     revalidate: vi.fn(),
     refresh: vi.fn(),
+    resetFilters: vi.fn(),
     ...overrides,
   }
 }
@@ -148,10 +149,16 @@ describe('LauncherDiscoverPage', () => {
     fireEvent.click(screen.getByRole('button', { name: copy.discover.searchParametersSection }))
     expect(screen.getByPlaceholderText(copy.discover.titleSearchPlaceholder).hasAttribute('disabled')).toBe(false)
     expect(screen.getByPlaceholderText(copy.discover.titleSearchPlaceholder).className).toContain('control-input')
-    expect(screen.getByRole('button', { name: copy.actions.refresh }).hasAttribute('disabled')).toBe(false)
+    expect(
+      within(container.querySelector('.launcher-discover-console') as HTMLElement)
+        .getByRole('button', {
+          name: copy.actions.refresh,
+        })
+        .hasAttribute('disabled'),
+    ).toBe(false)
   })
 
-  it('binds the discover header search input to the catalog query', () => {
+  it('submits the discover header search manually', () => {
     getAppUiStateSnapshotMock.mockReturnValue({
       launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
     } as never)
@@ -167,8 +174,16 @@ describe('LauncherDiscoverPage', () => {
     expect(searchInput).toHaveValue('tractor')
 
     fireEvent.change(searchInput, { target: { value: 'content patcher' } })
+    expect(setQuery).not.toHaveBeenCalled()
 
+    fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter' })
     expect(setQuery).toHaveBeenCalledWith('content patcher')
+
+    setQuery.mockClear()
+    fireEvent.change(searchInput, { target: { value: 'content patcher ui' } })
+    fireEvent.click(screen.getByRole('button', { name: copy.discover.searchAction }))
+
+    expect(setQuery).toHaveBeenCalledWith('content patcher ui')
   })
 
   it('renders the project-aligned browse shell and result cards for discover browsing', () => {
@@ -793,5 +808,60 @@ describe('LauncherDiscoverPage', () => {
     expect(tagsToggle.getAttribute('aria-expanded')).toBe('true')
     expect(screen.queryByText(copy.discover.categoryLabels['Gameplay Mechanics'])).toBeNull()
     expect(screen.getByText(copy.discover.tagsIncludeLabel)).toBeTruthy()
+  })
+
+  it('renders an empty card with a clear-filters action when no mods match active filters', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    const resetFilters = vi.fn()
+    useLauncherDiscoverMock.mockReturnValue(
+      createDiscoverState({
+        query: 'zzzznomatchzzz',
+        state: 'ready',
+        resetFilters,
+      }),
+    )
+
+    const { container } = renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
+
+    expect(container.querySelector('.launcher-discover-content-empty')).toBeTruthy()
+    expect(container.querySelector('.launcher-empty-card')).toBeTruthy()
+    expect(screen.getByText(copy.discover.emptyTitle)).toBeTruthy()
+    expect(screen.getByText(copy.discover.emptyDetail)).toBeTruthy()
+    const clearButton = screen.getByRole('button', { name: copy.discover.emptyClearFiltersAction })
+    expect(clearButton).toBeTruthy()
+
+    fireEvent.click(clearButton)
+    expect(resetFilters).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders an empty card with a refresh action when no mods match without active filters', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    const refresh = vi.fn()
+    useLauncherDiscoverMock.mockReturnValue(
+      createDiscoverState({
+        state: 'ready',
+        refresh,
+      }),
+    )
+
+    const { container } = renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
+
+    const emptyCard = container.querySelector('.launcher-empty-card')
+    expect(emptyCard).toBeTruthy()
+    expect(screen.getByText(copy.discover.emptyTitle)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: copy.discover.emptyClearFiltersAction })).toBeNull()
+
+    fireEvent.click(within(emptyCard as HTMLElement).getByRole('button', { name: copy.actions.refresh }))
+    expect(refresh).toHaveBeenCalledTimes(1)
   })
 })

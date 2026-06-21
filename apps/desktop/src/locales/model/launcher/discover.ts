@@ -2,6 +2,9 @@ export type LauncherDiscoverCopy = {
   title: string
   subtitle: string
   empty: string
+  emptyTitle: string
+  emptyDetail: string
+  emptyClearFiltersAction: string
   credentialsHint: string
   loadingResults: string
   loadingPage: (page: number) => string
@@ -21,6 +24,7 @@ export type LauncherDiscoverCopy = {
   consoleTitle: string
   resultRange: (start: number, end: number, total: string) => string
   searchPlaceholder: string
+  searchAction: string
   showFilters: string
   hideFilters: string
   timeRangeLabel: string
