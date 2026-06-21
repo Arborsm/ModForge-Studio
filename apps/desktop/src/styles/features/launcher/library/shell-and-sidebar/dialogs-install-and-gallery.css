@@ -3,7 +3,11 @@
     display: grid;
   }
 
-  .launcher-library-dialog-field input {
+  .launcher-library-dialog-field + .launcher-library-dialog-field {
+    margin-top: 12px;
+  }
+
+  .launcher-library-dialog-field input:not([type='checkbox']) {
     width: 100%;
     min-height: 40px;
     border: 1px solid var(--launcher-border-soft);
@@ -17,14 +21,41 @@
       box-shadow 140ms ease;
   }
 
-  .launcher-library-dialog-field input::placeholder {
+  .launcher-library-dialog-field input:not([type='checkbox'])::placeholder {
     color: var(--launcher-text-secondary);
   }
 
-  .launcher-library-dialog-field input:focus {
+  .launcher-library-dialog-field input:not([type='checkbox']):focus {
     border-color: color-mix(in srgb, var(--accent) 48%, transparent);
     box-shadow: 0 0 0 3px var(--focus-ring);
     outline: none;
+  }
+
+  .launcher-library-dialog-checkbox-field {
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    color: var(--launcher-text-primary);
+    font-size: 13px;
+  }
+
+  .launcher-library-dialog-checkbox-field input {
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    accent-color: var(--accent);
+  }
+
+  .launcher-library-dialog-checkbox-field span {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .launcher-library-dialog-checkbox-field small {
+    color: var(--launcher-text-secondary);
+    font-size: 12px;
+    line-height: 1.45;
   }
 
   .launcher-library-dialog-actions {

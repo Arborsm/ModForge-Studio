@@ -368,5 +368,10 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
       manualRefreshBypassRef.current = true
       revalidate()
     },
+    resetFilters: () => {
+      setRequestDelayMs(0)
+      setFilters(DEFAULT_FILTERS)
+      resetToFirstPage()
+    },
   }
 }

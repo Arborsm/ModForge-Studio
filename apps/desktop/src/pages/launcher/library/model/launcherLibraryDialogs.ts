@@ -5,8 +5,8 @@ export type ArchivePreviewState = 'idle' | 'loading' | 'ready' | 'error'
 export type InstallBackupsState = 'idle' | 'loading' | 'ready' | 'error'
 
 export type PackDialogState =
-  | { kind: 'create'; value: string }
-  | { kind: 'rename'; pack: LauncherPackPreset; value: string }
+  | { kind: 'create'; value: string; syncGlobalFolders: boolean }
+  | { kind: 'edit'; pack: LauncherPackPreset; value: string; syncGlobalFolders: boolean }
   | { kind: 'delete'; pack: LauncherPackPreset }
 
 export type FolderDialogState = { kind: 'rename'; folder: LauncherVirtualFolder; value: string }

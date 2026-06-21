@@ -140,8 +140,22 @@ fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState 
             id,
             name: name.to_string(),
             mod_keys,
+            folder_classification_mode: pack.folder_classification_mode,
         });
     }
+
+    let pack_mod_lookup = pack_presets
+        .iter()
+        .map(|pack| {
+            (
+                normalize_unique_id(&pack.id),
+                pack.mod_keys
+                    .iter()
+                    .map(|value| normalize_unique_id(value))
+                    .collect::<BTreeSet<_>>(),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
 
     let current_pack_id = state.current_pack_id.and_then(|value| {
         let value = value.trim();
@@ -203,10 +217,20 @@ fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState 
         if !seen_library_folder_ids.insert(id_lookup.clone()) {
             continue;
         }
-        folder_id_lookup.insert(id_lookup, id.clone());
+        let pack_id = folder.pack_id.and_then(|value| {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                return None;
+            }
+            pack_id_lookup.get(&normalize_unique_id(trimmed)).cloned()
+        });
+        let hidden = pack_id.is_none() && folder.hidden;
+        folder_id_lookup.insert(id_lookup, (id.clone(), pack_id.clone()));
         raw_library_folders.push(LauncherLibraryFolder {
             id,
             name,
+            pack_id,
+            hidden,
             parent_folder_id: folder
                 .parent_folder_id
                 .map(|value| value.trim().to_string())
@@ -216,20 +240,44 @@ fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState 
         });
     }
 
-    let mut seen_library_folder_mods = BTreeSet::new();
+    let mut seen_library_folder_mods_by_scope = BTreeMap::<String, BTreeSet<String>>::new();
     let mut parent_lookup = BTreeMap::new();
     let mut library_folders = raw_library_folders
         .into_iter()
         .map(|folder| {
             let folder_lookup = normalize_unique_id(&folder.id);
+            let folder_scope = folder
+                .pack_id
+                .as_ref()
+                .map(|pack_id| format!("pack:{}", normalize_unique_id(pack_id)))
+                .unwrap_or_else(|| "global".to_string());
             let parent_folder_id = folder.parent_folder_id.and_then(|parent_id| {
                 let parent_lookup = normalize_unique_id(&parent_id);
                 if parent_lookup == folder_lookup {
                     return None;
                 }
-                folder_id_lookup.get(&parent_lookup).cloned()
+                folder_id_lookup
+                    .get(&parent_lookup)
+                    .and_then(|(parent_id, parent_pack_id)| {
+                        let parent_scope = parent_pack_id
+                            .as_ref()
+                            .map(|pack_id| format!("pack:{}", normalize_unique_id(pack_id)))
+                            .unwrap_or_else(|| "global".to_string());
+                        if parent_scope == folder_scope {
+                            Some(parent_id.clone())
+                        } else {
+                            None
+                        }
+                    })
             });
             parent_lookup.insert(folder_lookup, parent_folder_id.clone());
+            let pack_members = folder
+                .pack_id
+                .as_ref()
+                .and_then(|pack_id| pack_mod_lookup.get(&normalize_unique_id(pack_id)));
+            let seen_library_folder_mods = seen_library_folder_mods_by_scope
+                .entry(folder_scope)
+                .or_default();
 
             let mut seen_folder_mods = BTreeSet::new();
             let mod_keys = folder
@@ -239,6 +287,11 @@ fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState 
                 .filter(|value| !value.is_empty())
                 .filter(|value| seen_folder_mods.insert(normalize_unique_id(value)))
                 .filter(|value| seen_library_folder_mods.insert(normalize_unique_id(value)))
+                .filter(|value| {
+                    pack_members
+                        .map(|members| members.contains(&normalize_unique_id(value)))
+                        .unwrap_or(true)
+                })
                 .collect::<Vec<_>>();
 
             let mut seen_cover_mods = BTreeSet::new();
@@ -248,11 +301,18 @@ fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState 
                 .map(|value| value.trim().to_string())
                 .filter(|value| !value.is_empty())
                 .filter(|value| seen_cover_mods.insert(normalize_unique_id(value)))
+                .filter(|value| {
+                    pack_members
+                        .map(|members| members.contains(&normalize_unique_id(value)))
+                        .unwrap_or(true)
+                })
                 .collect::<Vec<_>>();
 
             LauncherLibraryFolder {
                 id: folder.id,
                 name: folder.name,
+                hidden: folder.pack_id.is_none() && folder.hidden,
+                pack_id: folder.pack_id,
                 parent_folder_id,
                 mod_keys,
                 cover_mod_keys,
@@ -1061,3 +1121,7 @@ pub fn set_launcher_mod_enabled(
         })(),
     )
 }
+
+#[cfg(test)]
+#[path = "tests/library_tests.rs"]
+mod library_tests;

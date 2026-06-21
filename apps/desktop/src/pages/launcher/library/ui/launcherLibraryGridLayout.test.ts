@@ -29,6 +29,8 @@ function folder(id: string, modCount: number): LauncherLibraryDisplayItem {
   const virtualFolder: LauncherVirtualFolder = {
     id,
     name: id,
+    packId: null,
+    hidden: false,
     parentFolderId: null,
     modKeys: mods.map((item) => item.uniqueId).filter((value): value is string => Boolean(value)),
     coverModKeys: [],

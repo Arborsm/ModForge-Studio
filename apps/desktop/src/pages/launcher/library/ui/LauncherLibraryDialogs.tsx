@@ -114,9 +114,11 @@ export function LauncherLibraryDialogs({
   const copy = useEditorCopy().launcher
   const labels = {
     createPack: copy.actions.createPack,
-    renameCurrentPack: copy.library.renameCurrentPack,
+    editPackInfo: copy.library.editPackInfo,
     deleteCurrentPack: copy.library.deleteCurrentPack,
-    renameCurrentPackPrompt: copy.library.renameCurrentPackPrompt,
+    editPackInfoPrompt: copy.library.editPackInfoPrompt,
+    syncGlobalFolders: copy.library.syncGlobalFolders,
+    syncGlobalFoldersHint: copy.library.syncGlobalFoldersHint,
     deleteCurrentPackConfirm: copy.library.deleteCurrentPackConfirm,
     newPackPlaceholder: copy.library.newPackPlaceholder,
     cancelEdit: copy.library.cancelEdit,
@@ -221,13 +223,9 @@ export function LauncherLibraryDialogs({
         <Dialog open onClose={onClosePackDialog} size={packDialog.kind === 'delete' ? 'sm' : 'md'} labelledBy={packTitleId}>
           <DialogHeader
             title={
-              packDialog.kind === 'create'
-                ? labels.createPack
-                : packDialog.kind === 'rename'
-                  ? labels.renameCurrentPack
-                  : labels.deleteCurrentPack
+              packDialog.kind === 'create' ? labels.createPack : packDialog.kind === 'edit' ? labels.editPackInfo : labels.deleteCurrentPack
             }
-            subtitle={packDialog.kind === 'rename' ? labels.renameCurrentPackPrompt(packDialog.pack.name) : undefined}
+            subtitle={packDialog.kind === 'edit' ? labels.editPackInfoPrompt(packDialog.pack.name) : undefined}
             tone={packDialog.kind === 'delete' ? 'warning' : 'default'}
             onClose={onClosePackDialog}
             closeLabel={labels.cancelEdit}
@@ -245,7 +243,7 @@ export function LauncherLibraryDialogs({
                 }}
               >
                 <label className="launcher-library-dialog-field">
-                  <span className="sr-only">{packDialog.kind === 'create' ? labels.createPack : labels.renameCurrentPack}</span>
+                  <span className="sr-only">{packDialog.kind === 'create' ? labels.createPack : labels.editPackInfo}</span>
                   <input
                     ref={packDialogInputRef}
                     value={packDialog.value}
@@ -263,6 +261,26 @@ export function LauncherLibraryDialogs({
                     placeholder={labels.newPackPlaceholder}
                     spellCheck={false}
                   />
+                </label>
+                <label className="launcher-library-dialog-field launcher-library-dialog-checkbox-field">
+                  <input
+                    type="checkbox"
+                    checked={packDialog.syncGlobalFolders}
+                    onChange={(event) =>
+                      onPackDialogChange((current) =>
+                        current && current.kind !== 'delete'
+                          ? {
+                              ...current,
+                              syncGlobalFolders: event.target.checked,
+                            }
+                          : current,
+                      )
+                    }
+                  />
+                  <span>
+                    <span>{labels.syncGlobalFolders}</span>
+                    <small>{labels.syncGlobalFoldersHint}</small>
+                  </span>
                 </label>
               </form>
             )}

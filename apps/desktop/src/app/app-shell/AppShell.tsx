@@ -109,6 +109,7 @@ export default function App() {
   const windowBorderTone = usePreferencesStore((state) => state.windowBorderTone)
   const windowBorderWeight = usePreferencesStore((state) => state.windowBorderWeight)
   const desktopHost = usePreferencesStore((state) => state.desktopHost)
+  const hostAvailable = desktopHost || canUseDesktopHost()
   const debugEnabled = usePreferencesStore((state) => state.debugEnabled)
   const notificationSoundEnabled = usePreferencesStore((state) => state.notificationSoundEnabled)
   const loadingMotionPreference = usePreferencesStore((state) => state.loadingMotionPreference)
@@ -157,7 +158,7 @@ export default function App() {
 
   useEffect(() => {
     appMountedRef.current = true
-    startPreferencesRuntime()
+    startPreferencesRuntime(canUseDesktopHost())
 
     return () => {
       appMountedRef.current = false
@@ -178,7 +179,7 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (!desktopHost) {
+    if (!hostAvailable) {
       return
     }
 
@@ -191,7 +192,7 @@ export default function App() {
         }
 
         const nextShellState = normalizeAppShellState(state.shell)
-        syncPreferencesStoreFromAppUiState(state, desktopHost)
+        syncPreferencesStoreFromAppUiState(state, canUseDesktopHost())
         if (nextShellState.appMode === 'workbench') {
           setWorkbenchHasOpened(true)
           setWorkbenchActivationKey((current) => current + 1)
@@ -209,7 +210,7 @@ export default function App() {
     return () => {
       disposed = true
     }
-  }, [desktopHost])
+  }, [hostAvailable])
 
   const handleViewLauncherDiagnostics = useCallback(() => {
     setAppMode('launcher')
@@ -229,7 +230,7 @@ export default function App() {
   )
 
   const refreshLauncherDiagnostics = useCallback(async () => {
-    if (!desktopHost) {
+    if (!hostAvailable) {
       return
     }
 
@@ -240,7 +241,7 @@ export default function App() {
         loadDiagnostics,
       }),
     )
-  }, [desktopHost, handleLauncherDiagnosticsUpdate, launcherPort])
+  }, [hostAvailable, handleLauncherDiagnosticsUpdate, launcherPort])
 
   useEffect(() => {
     launcherDiagnosticsRetryRef.current = async () => {
@@ -272,7 +273,7 @@ export default function App() {
   }, [handleLauncherDiagnosticsUpdate, launcherPort, refreshLauncherDiagnostics])
 
   useEffect(() => {
-    if (!desktopHost || !appUiStateReady) {
+    if (!hostAvailable || !appUiStateReady) {
       return
     }
 
@@ -293,15 +294,15 @@ export default function App() {
     return () => {
       disposed = true
     }
-  }, [appUiStateReady, desktopHost, handleLauncherDiagnosticsUpdate, launcherPort])
+  }, [appUiStateReady, hostAvailable, handleLauncherDiagnosticsUpdate, launcherPort])
 
   useEffect(() => {
-    if (!desktopHost || !appUiStateReady) {
+    if (!hostAvailable || !appUiStateReady) {
       return
     }
 
     void launcherPort.setNexusForceOffline(getAppUiStateSnapshot().launcher.forceOffline).catch(() => {})
-  }, [appUiStateReady, desktopHost, launcherPort])
+  }, [appUiStateReady, hostAvailable, launcherPort])
 
   useEffect(() => {
     if (appMode !== 'workbench') {
@@ -359,7 +360,7 @@ export default function App() {
   const workbenchLoaded = workbenchHasOpened || appMode === 'workbench'
 
   useEffect(() => {
-    if (!desktopHost) {
+    if (!hostAvailable) {
       return
     }
 
@@ -398,7 +399,7 @@ export default function App() {
       }
       window.removeEventListener('resize', syncWindowFrameState)
     }
-  }, [desktopHost, settingsWindowOpen])
+  }, [hostAvailable, settingsWindowOpen])
 
   const handleToggleMaximizeWindow = useCallback(async () => {
     const nextMaximized = await toggleMaximizeCurrentWindow()
@@ -426,7 +427,7 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (!desktopHost) {
+    if (!hostAvailable) {
       return
     }
 
@@ -449,7 +450,7 @@ export default function App() {
       disposed = true
       unlisten?.()
     }
-  }, [desktopHost, requestGuardedWindowClose])
+  }, [hostAvailable, requestGuardedWindowClose])
 
   const handleAppModeChange = useCallback((nextMode: AppMode) => {
     if (nextMode === 'workbench') {
@@ -493,7 +494,7 @@ export default function App() {
               <LauncherPageView
                 page={launcherPage}
                 debugEnabled={debugEnabled}
-                desktopHost={desktopHost}
+                desktopHost={hostAvailable}
                 theme={theme}
                 locale={locale}
                 onToggleTheme={() => {
@@ -526,7 +527,7 @@ export default function App() {
                   theme={theme}
                   locale={locale}
                   accentColor={activeTheme.accent}
-                  desktopHost={desktopHost}
+                  desktopHost={hostAvailable}
                   onToggleTheme={() => {
                     const currentTheme = usePreferencesStore.getState().theme
                     setTheme(currentTheme === 'dark' ? 'light' : 'dark')
@@ -557,11 +558,11 @@ export default function App() {
                   appMode === 'launcher'
                     ? [
                         ['Page', launcherPage],
-                        ['Desktop Host', desktopHost ? 'yes' : 'no'],
+                        ['Desktop Host', hostAvailable ? 'yes' : 'no'],
                       ]
                     : [
                         ['Mode', appMode],
-                        ['Desktop Host', desktopHost ? 'yes' : 'no'],
+                        ['Desktop Host', hostAvailable ? 'yes' : 'no'],
                       ]
                 }
               />

@@ -92,6 +92,7 @@ function createInitialLibraryState(mods: LauncherLibraryModSummary[]): LauncherL
         id: 'dev-pack',
         name: 'Dev Pack',
         modKeys: mods.slice(0, 8).map(getMockModKey),
+        folderClassificationMode: 'global',
       },
     ],
     childModGroups: [
@@ -104,6 +105,8 @@ function createInitialLibraryState(mods: LauncherLibraryModSummary[]): LauncherL
       {
         id: 'visuals',
         name: 'Visuals',
+        packId: null,
+        hidden: false,
         parentFolderId: null,
         modKeys: mods.slice(8, 12).map(getMockModKey),
         coverModKeys: mods.slice(8, 12).map(getMockModKey),
@@ -111,6 +114,8 @@ function createInitialLibraryState(mods: LauncherLibraryModSummary[]): LauncherL
       {
         id: 'gameplay',
         name: 'Gameplay',
+        packId: null,
+        hidden: false,
         parentFolderId: null,
         modKeys: mods.slice(12, 16).map(getMockModKey),
         coverModKeys: mods.slice(12, 16).map(getMockModKey),
@@ -118,6 +123,8 @@ function createInitialLibraryState(mods: LauncherLibraryModSummary[]): LauncherL
       {
         id: 'interface',
         name: 'Interface',
+        packId: null,
+        hidden: false,
         parentFolderId: 'visuals',
         modKeys: mods.slice(16, 18).map(getMockModKey),
         coverModKeys: mods.slice(16, 18).map(getMockModKey),

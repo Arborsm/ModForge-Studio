@@ -164,6 +164,16 @@ pub struct LauncherLibraryPackPreset {
     pub name: String,
     #[serde(default)]
     pub mod_keys: Vec<String>,
+    #[serde(default)]
+    pub folder_classification_mode: LauncherLibraryFolderClassificationMode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum LauncherLibraryFolderClassificationMode {
+    #[default]
+    Global,
+    Independent,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -179,6 +189,10 @@ pub struct LauncherLibraryChildModGroup {
 pub struct LauncherLibraryFolder {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub pack_id: Option<String>,
+    #[serde(default)]
+    pub hidden: bool,
     #[serde(default)]
     pub parent_folder_id: Option<String>,
     #[serde(default)]

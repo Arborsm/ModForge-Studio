@@ -61,6 +61,7 @@ export type LauncherLibraryPackPreset = {
   id: string
   name: string
   modKeys: string[]
+  folderClassificationMode: 'global' | 'independent'
 }
 
 export type LauncherLibraryChildModGroup = {
@@ -71,6 +72,8 @@ export type LauncherLibraryChildModGroup = {
 export type LauncherLibraryFolder = {
   id: string
   name: string
+  packId: string | null
+  hidden: boolean
   parentFolderId: string | null
   modKeys: string[]
   coverModKeys: string[]

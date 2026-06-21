@@ -84,35 +84,123 @@ function waitForDevServer(url) {
   })
 }
 
+const canSignalProcessGroup = process.platform !== 'win32'
+const managedProcessGroupPids = new Set()
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+function childExit(child) {
+  if (!child || child.exitCode !== null) {
+    return Promise.resolve()
+  }
+
+  return new Promise((resolve) => {
+    child.once('exit', () => resolve())
+  })
+}
+
+function signalChild(child, signal, { processGroup = false } = {}) {
+  const pid = child?.pid
+  if (typeof pid !== 'number') {
+    return
+  }
+
+  try {
+    if (processGroup && canSignalProcessGroup) {
+      process.kill(-pid, signal)
+    } else {
+      child.kill(signal)
+    }
+  } catch (error) {
+    if (error?.code !== 'ESRCH') {
+      throw error
+    }
+  }
+}
+
+function trackManagedProcessGroup(child) {
+  if (typeof child.pid === 'number') {
+    managedProcessGroupPids.add(child.pid)
+  }
+  return child
+}
+
+async function stopChild(child, options = {}) {
+  const pid = child?.pid
+  if (typeof pid !== 'number') {
+    return
+  }
+
+  signalChild(child, 'SIGTERM', options)
+
+  try {
+    const exited = await Promise.race([childExit(child).then(() => true), delay(2500).then(() => false)])
+    if (!exited) {
+      signalChild(child, 'SIGKILL', options)
+      await childExit(child)
+    }
+  } finally {
+    managedProcessGroupPids.delete(pid)
+  }
+}
+
+function cleanupManagedProcessGroups() {
+  for (const pid of managedProcessGroupPids) {
+    try {
+      if (canSignalProcessGroup) {
+        process.kill(-pid, 'SIGTERM')
+      } else {
+        process.kill(pid, 'SIGTERM')
+      }
+    } catch (error) {
+      if (error?.code !== 'ESRCH') {
+        throw error
+      }
+    }
+  }
+}
+
 runStep('cargo', ['build', '--manifest-path', 'src-tauri/Cargo.toml', '--bin', 'modforge_sidecar'])
 runStep(process.execPath, ['scripts/build-electron-main.mjs'])
 
 const runtime = await resolveTauriDevRuntime(process.env)
 const devUrl = runtime.configOverride.build.devUrl
-const vite = spawn(process.execPath, [vitePlusCliEntry, 'dev', '--configLoader', 'runner'], {
-  cwd: desktopRoot,
-  env: runtime.env,
-  stdio: ['ignore', 'inherit', 'inherit'],
-})
+const vite = trackManagedProcessGroup(
+  spawn(process.execPath, [vitePlusCliEntry, 'dev', '--configLoader', 'runner'], {
+    cwd: desktopRoot,
+    env: runtime.env,
+    stdio: ['ignore', 'inherit', 'inherit'],
+    detached: canSignalProcessGroup,
+  }),
+)
 
 let electron = null
 let shuttingDown = false
 
-function shutdown(exitCode = 0) {
+async function shutdown(exitCode = 0) {
   if (shuttingDown) {
     return
   }
   shuttingDown = true
-  electron?.kill()
-  vite.kill()
+
+  await Promise.all([stopChild(electron), stopChild(vite, { processGroup: true })])
   process.exit(exitCode)
 }
 
-process.on('SIGINT', () => shutdown(0))
-process.on('SIGTERM', () => shutdown(0))
+process.on('SIGINT', () => {
+  void shutdown(0)
+})
+process.on('SIGTERM', () => {
+  void shutdown(0)
+})
+process.on('exit', cleanupManagedProcessGroups)
 vite.on('exit', (code) => {
   if (!shuttingDown) {
-    shutdown(code ?? 1)
+    void shutdown(code ?? 1)
   }
 })
 
@@ -143,17 +231,28 @@ function forwardFilteredElectronStderr(stream) {
   })
 }
 
-await waitForDevServer(devUrl)
-const electronPath = resolveElectronExecutable()
-const remoteDebuggingPort = process.env.MODFORGE_ELECTRON_REMOTE_DEBUGGING_PORT ?? '9222'
-electron = spawn(electronPath, [`--remote-debugging-port=${remoteDebuggingPort}`, 'electron-dist/main.cjs'], {
-  cwd: desktopRoot,
-  env: {
-    ...runtime.env,
-    VITE_DEV_SERVER_URL: devUrl,
-    MODFORGE_SIDECAR_PATH: path.join(desktopRoot, 'src-tauri/target/debug/modforge_sidecar'),
-  },
-  stdio: ['ignore', 'inherit', 'pipe'],
-})
-forwardFilteredElectronStderr(electron.stderr)
-electron.on('exit', (code) => shutdown(code ?? 0))
+try {
+  await waitForDevServer(devUrl)
+  const electronPath = resolveElectronExecutable()
+  const remoteDebuggingPort = process.env.MODFORGE_ELECTRON_REMOTE_DEBUGGING_PORT ?? '9222'
+  electron = spawn(electronPath, [`--remote-debugging-port=${remoteDebuggingPort}`, 'electron-dist/main.cjs'], {
+    cwd: desktopRoot,
+    env: {
+      ...runtime.env,
+      VITE_DEV_SERVER_URL: devUrl,
+      MODFORGE_SIDECAR_PATH: path.join(desktopRoot, 'src-tauri/target/debug/modforge_sidecar'),
+    },
+    stdio: ['ignore', 'inherit', 'pipe'],
+  })
+  forwardFilteredElectronStderr(electron.stderr)
+  electron.on('error', (error) => {
+    console.error(error)
+    void shutdown(1)
+  })
+  electron.on('exit', (code) => {
+    void shutdown(code ?? 0)
+  })
+} catch (error) {
+  console.error(error)
+  await shutdown(1)
+}

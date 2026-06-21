@@ -30,6 +30,21 @@ const UNSORTED_FOLDER_NAME = 'Unsorted'
 const LAUNCHER_LIBRARY_AUTO_COVER_CONCURRENCY = 3
 const LAUNCHER_LIBRARY_AUTO_COVER_NOTIFICATION_ID = 'launcher-library-auto-cover-progress'
 
+type LauncherPackFolderClassificationMode = LauncherLibraryPackPreset['folderClassificationMode']
+
+type CreatePackPresetOptions = {
+  folderClassificationMode?: LauncherPackFolderClassificationMode
+}
+
+type UpdatePackPresetInput = {
+  name: string
+  folderClassificationMode: LauncherPackFolderClassificationMode
+}
+
+type CreateLibraryFolderOptions = {
+  packId?: string | null
+}
+
 function createDefaultLibraryState(): LauncherLibraryState {
   return {
     storageFolders: [
@@ -273,6 +288,7 @@ function normalizeLibraryState(state: LauncherLibraryState): LauncherLibraryStat
       id,
       name,
       modKeys,
+      folderClassificationMode: pack.folderClassificationMode === 'independent' ? 'independent' : 'global',
     })
   }
 
@@ -294,7 +310,7 @@ function normalizeLibraryState(state: LauncherLibraryState): LauncherLibraryStat
 
   const scopeMode: LauncherLibraryScopeMode = state.scopeMode === 'current-pack' ? 'current-pack' : 'all'
   const childModGroups = normalizeChildModGroups(state.childModGroups ?? [])
-  const libraryFolders = normalizeLibraryFolders(state.libraryFolders ?? [])
+  const libraryFolders = normalizeLibraryFolders(state.libraryFolders ?? [], packPresets)
   const customOrders = normalizeCustomOrders(state.customOrders, packIdLookup, libraryFolders)
 
   return {
@@ -982,7 +998,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
   )
 
   const createPackPreset = useCallback(
-    async (name: string) => {
+    async (name: string, options: CreatePackPresetOptions = {}) => {
       const trimmed = name.trim()
       if (!trimmed) {
         return
@@ -994,16 +1010,24 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       )
       await persistLibraryState({
         ...libraryState,
-        packPresets: [...packPresets, { id, name: trimmed, modKeys: [] }],
+        packPresets: [
+          ...packPresets,
+          {
+            id,
+            name: trimmed,
+            modKeys: [],
+            folderClassificationMode: options.folderClassificationMode === 'independent' ? 'independent' : 'global',
+          },
+        ],
       })
     },
     [libraryState, packPresets, persistLibraryState],
   )
 
-  const renamePackPreset = useCallback(
-    async (packId: string, name: string) => {
+  const updatePackPreset = useCallback(
+    async (packId: string, input: UpdatePackPresetInput) => {
       const normalizedPackId = packId.trim()
-      const trimmed = name.trim()
+      const trimmed = input.name.trim()
       if (!normalizedPackId || !trimmed) {
         return
       }
@@ -1015,6 +1039,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
             ? {
                 ...pack,
                 name: trimmed,
+                folderClassificationMode: input.folderClassificationMode === 'independent' ? 'independent' : 'global',
               }
             : pack,
         ),
@@ -1030,30 +1055,40 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
         return
       }
 
-      const nextCurrentPackId =
-        currentPackId && normalizeLookupKey(currentPackId) === normalizeLookupKey(normalizedPackId) ? null : currentPackId
-
-      await persistLibraryState({
-        ...libraryState,
-        currentPackId: nextCurrentPackId,
-        packPresets: packPresets.filter((pack) => normalizeLookupKey(pack.id) !== normalizeLookupKey(normalizedPackId)),
+      await persistLibraryState((currentState) => {
+        const isDeletingCurrentPack =
+          currentState.currentPackId && normalizeLookupKey(currentState.currentPackId) === normalizeLookupKey(normalizedPackId)
+        return {
+          ...currentState,
+          currentPackId: isDeletingCurrentPack ? null : currentState.currentPackId,
+          // Deleting the current pack drops the user back to the whole library;
+          // reset the scope so filteredMods does not wipe the list with an empty
+          // pack member set while scopeMode is still "current-pack".
+          scopeMode: isDeletingCurrentPack ? 'all' : currentState.scopeMode,
+          packPresets: currentState.packPresets.filter((pack) => normalizeLookupKey(pack.id) !== normalizeLookupKey(normalizedPackId)),
+          libraryFolders: currentState.libraryFolders.filter(
+            (folder) => normalizeLookupKey(folder.packId ?? '') !== normalizeLookupKey(normalizedPackId),
+          ),
+        }
       })
     },
-    [currentPackId, libraryState, packPresets, persistLibraryState],
+    [persistLibraryState],
   )
 
   const setCurrentPackId = useCallback(
     async (nextPackId: string | null) => {
       const normalizedPackId = nextPackId?.trim() || null
-      const validPackId = normalizedPackId
-        ? (packPresets.find((pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(normalizedPackId))?.id ?? null)
-        : null
-      await persistLibraryState({
-        ...libraryState,
-        currentPackId: validPackId,
+      await persistLibraryState((currentState) => {
+        const validPackId = normalizedPackId
+          ? (currentState.packPresets.find((pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(normalizedPackId))?.id ?? null)
+          : null
+        return {
+          ...currentState,
+          currentPackId: validPackId,
+        }
       })
     },
-    [libraryState, packPresets, persistLibraryState],
+    [persistLibraryState],
   )
 
   const replacePackMods = useCallback(
@@ -1140,8 +1175,12 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
   )
 
   const createLibraryFolder = useCallback(
-    async (name?: string) => {
+    async (name?: string, options: CreateLibraryFolderOptions = {}) => {
       const trimmed = name?.trim() || copy.library.newLibraryFolderName
+      const normalizedPackId = options.packId?.trim() || null
+      const packId = normalizedPackId
+        ? (packPresets.find((pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(normalizedPackId))?.id ?? null)
+        : null
       const id = nextUniqueId(
         libraryFolders.map((folder) => folder.id),
         trimmed,
@@ -1149,20 +1188,25 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       )
       await persistLibraryState({
         ...libraryState,
-        libraryFolders: normalizeLibraryFolders([
-          ...libraryFolders,
-          {
-            id,
-            name: trimmed,
-            parentFolderId: null,
-            modKeys: [],
-            coverModKeys: [],
-          },
-        ]),
+        libraryFolders: normalizeLibraryFolders(
+          [
+            ...libraryFolders,
+            {
+              id,
+              name: trimmed,
+              packId,
+              hidden: false,
+              parentFolderId: null,
+              modKeys: [],
+              coverModKeys: [],
+            },
+          ],
+          packPresets,
+        ),
       })
       return id
     },
-    [copy.library.newLibraryFolderName, libraryFolders, libraryState, persistLibraryState],
+    [copy.library.newLibraryFolderName, libraryFolders, libraryState, packPresets, persistLibraryState],
   )
 
   const renameLibraryFolder = useCallback(
@@ -1177,10 +1221,47 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
           libraryFolders.map((folder) =>
             normalizeLookupKey(folder.id) === normalizeLookupKey(folderId) ? { ...folder, name: trimmed } : folder,
           ),
+          packPresets,
         ),
       })
     },
-    [libraryFolders, libraryState, persistLibraryState],
+    [libraryFolders, libraryState, packPresets, persistLibraryState],
+  )
+
+  const hideLibraryFolder = useCallback(
+    async (folderId: string) => {
+      const targetLookup = normalizeLookupKey(folderId)
+      if (!targetLookup) {
+        return
+      }
+      await persistLibraryState({
+        ...libraryState,
+        libraryFolders: normalizeLibraryFolders(
+          libraryFolders.map((folder) =>
+            normalizeLookupKey(folder.id) === targetLookup && !folder.packId ? { ...folder, hidden: true } : folder,
+          ),
+          packPresets,
+        ),
+      })
+    },
+    [libraryFolders, libraryState, packPresets, persistLibraryState],
+  )
+
+  const showLibraryFolder = useCallback(
+    async (folderId: string) => {
+      const targetLookup = normalizeLookupKey(folderId)
+      if (!targetLookup) {
+        return
+      }
+      await persistLibraryState({
+        ...libraryState,
+        libraryFolders: normalizeLibraryFolders(
+          libraryFolders.map((folder) => (normalizeLookupKey(folder.id) === targetLookup ? { ...folder, hidden: false } : folder)),
+          packPresets,
+        ),
+      })
+    },
+    [libraryFolders, libraryState, packPresets, persistLibraryState],
   )
 
   const addModsToLibraryFolder = useCallback(
@@ -1194,10 +1275,10 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       }
       await persistLibraryState({
         ...libraryState,
-        libraryFolders: addModKeysToLibraryFolder(libraryFolders, folderId, modKeys),
+        libraryFolders: addModKeysToLibraryFolder(libraryFolders, folderId, modKeys, packPresets),
       })
     },
-    [libraryFolders, libraryState, mods, persistLibraryState],
+    [libraryFolders, libraryState, mods, packPresets, persistLibraryState],
   )
 
   const removeModsFromLibraryFolders = useCallback(
@@ -1211,20 +1292,20 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       }
       await persistLibraryState({
         ...libraryState,
-        libraryFolders: removeModKeysFromLibraryFolders(libraryFolders, modKeys),
+        libraryFolders: removeModKeysFromLibraryFolders(libraryFolders, modKeys, packPresets),
       })
     },
-    [libraryFolders, libraryState, mods, persistLibraryState],
+    [libraryFolders, libraryState, mods, packPresets, persistLibraryState],
   )
 
   const moveLibraryFolderToFolder = useCallback(
     async (folderId: string, parentFolderId: string | null) => {
       await persistLibraryState({
         ...libraryState,
-        libraryFolders: moveLibraryFolder(libraryFolders, folderId, parentFolderId),
+        libraryFolders: moveLibraryFolder(libraryFolders, folderId, parentFolderId, packPresets),
       })
     },
-    [libraryFolders, libraryState, persistLibraryState],
+    [libraryFolders, libraryState, packPresets, persistLibraryState],
   )
 
   const reorderCustomOrder = useCallback(
@@ -1319,12 +1400,12 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
 
   const setScopeMode = useCallback(
     async (nextScopeMode: LauncherLibraryScopeMode) => {
-      await persistLibraryState({
-        ...libraryState,
+      await persistLibraryState((currentState) => ({
+        ...currentState,
         scopeMode: nextScopeMode,
-      })
+      }))
     },
-    [libraryState, persistLibraryState],
+    [persistLibraryState],
   )
 
   const applyCurrentPack = useCallback(async () => {
@@ -1433,7 +1514,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     hideMods,
     showMods,
     createPackPreset,
-    renamePackPreset,
+    updatePackPreset,
     deletePackPreset,
     replacePackMods,
     setChildMods,
@@ -1441,6 +1522,8 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     replaceChildMods,
     createLibraryFolder,
     renameLibraryFolder,
+    hideLibraryFolder,
+    showLibraryFolder,
     addModsToLibraryFolder,
     removeModsFromLibraryFolders,
     moveLibraryFolderToFolder,

@@ -612,6 +612,8 @@ const launcherLibraryFolders = [
   ...range(12).map((index) => ({
     id: `launcher-perf-folder-${index}`,
     name: `Performance Folder ${index + 1}`,
+    packId: null,
+    hidden: false,
     parentFolderId: null,
     modKeys: launcherLibraryMods
       .slice(index === 0 ? 0 : 24 + (index - 1) * 8, index === 0 ? 22 : 24 + index * 8)
@@ -621,6 +623,8 @@ const launcherLibraryFolders = [
   {
     id: 'launcher-perf-folder-nested',
     name: 'Nested Performance Folder',
+    packId: null,
+    hidden: false,
     parentFolderId: 'launcher-perf-folder-0',
     modKeys: launcherLibraryMods.slice(22, 24).map((mod) => mod.uniqueId),
     coverModKeys: [],

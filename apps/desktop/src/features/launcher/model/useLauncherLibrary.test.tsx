@@ -976,6 +976,8 @@ describe('useLauncherLibrary', () => {
       {
         id: 'gameplay',
         name: 'Gameplay',
+        packId: null,
+        hidden: false,
         parentFolderId: null,
         modKeys: [],
         coverModKeys: [],
@@ -989,6 +991,8 @@ describe('useLauncherLibrary', () => {
             {
               id: 'stale',
               name: 'Stale',
+              packId: null,
+              hidden: false,
               parentFolderId: null,
               modKeys: [],
               coverModKeys: [],
@@ -1004,6 +1008,8 @@ describe('useLauncherLibrary', () => {
       {
         id: 'gameplay',
         name: 'Gameplay',
+        packId: null,
+        hidden: false,
         parentFolderId: null,
         modKeys: [],
         coverModKeys: [],
@@ -1297,6 +1303,7 @@ describe('useLauncherLibrary', () => {
             id: 'farm',
             name: 'Farm',
             modKeys: ['ModForge.A'],
+            folderClassificationMode: 'global',
           },
         ],
         currentPackId: 'farm',
@@ -1332,6 +1339,191 @@ describe('useLauncherLibrary', () => {
       expect(result.current.scopeMode).toBe('current-pack')
       expect(result.current.filteredMods.map((item) => item.id)).toEqual(['mod-a'])
     })
+  })
+
+  it('resets scopeMode to all when deleting the current pack so the list is not wiped', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(
+      createLibraryState({
+        packPresets: [
+          {
+            id: 'farm',
+            name: 'Farm',
+            modKeys: ['ModForge.A'],
+            folderClassificationMode: 'global',
+          },
+        ],
+        currentPackId: 'farm',
+        scopeMode: 'current-pack',
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-a',
+          labelKey: 'ModForge.A',
+          name: 'Farm Animals Expanded',
+          uniqueId: 'ModForge.A',
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Farm Animals Expanded',
+        }),
+        createMod({
+          id: 'mod-b',
+          labelKey: 'ModForge.B',
+          name: 'NPC Adventures',
+          uniqueId: 'ModForge.B',
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\NPC Adventures',
+        }),
+      ],
+    })
+    saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    await waitFor(() => {
+      expect(result.current.scopeMode).toBe('current-pack')
+      expect(result.current.filteredMods.map((item) => item.id)).toEqual(['mod-a'])
+    })
+
+    await act(async () => {
+      await result.current.deletePackPreset('farm')
+    })
+
+    await waitFor(() => {
+      expect(result.current.scopeMode).toBe('all')
+      expect(result.current.currentPackId).toBeNull()
+      // Without the scope reset, filteredMods would be empty because an empty
+      // pack member set combined with scopeMode 'current-pack' drops every mod.
+      expect(result.current.filteredMods.map((item) => item.id)).toEqual(['mod-a', 'mod-b'])
+    })
+  })
+
+  it('defaults older pack and folder JSON to global folder classification', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue({
+      ...createLibraryState(),
+      packPresets: [{ id: 'farm', name: 'Farm', modKeys: ['ModForge.A'] }],
+      libraryFolders: [
+        {
+          id: 'visuals',
+          name: 'Visuals',
+          parentFolderId: null,
+          modKeys: ['ModForge.A'],
+          coverModKeys: ['ModForge.A'],
+        },
+      ],
+    } as LauncherLibraryState)
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [createMod({ id: 'mod-a', labelKey: 'ModForge.A', uniqueId: 'ModForge.A' })],
+    })
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    expect(result.current.packPresets).toEqual([
+      {
+        id: 'farm',
+        name: 'Farm',
+        modKeys: ['ModForge.A'],
+        folderClassificationMode: 'global',
+      },
+    ])
+    expect(result.current.libraryFolders).toEqual([
+      {
+        id: 'visuals',
+        name: 'Visuals',
+        packId: null,
+        hidden: false,
+        parentFolderId: null,
+        modKeys: ['ModForge.A'],
+        coverModKeys: ['ModForge.A'],
+      },
+    ])
+  })
+
+  it('creates and edits pack folder classification mode without changing pack membership', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(
+      createLibraryState({
+        packPresets: [
+          {
+            id: 'farm',
+            name: 'Farm',
+            modKeys: ['ModForge.A'],
+            folderClassificationMode: 'global',
+          },
+        ],
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [createMod({ id: 'mod-a', labelKey: 'ModForge.A', uniqueId: 'ModForge.A' })],
+    })
+    saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    await act(async () => {
+      await result.current.createPackPreset('Independent Pack', { folderClassificationMode: 'independent' })
+    })
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        packPresets: [
+          {
+            id: 'farm',
+            name: 'Farm',
+            modKeys: ['ModForge.A'],
+            folderClassificationMode: 'global',
+          },
+          {
+            id: 'independent-pack',
+            name: 'Independent Pack',
+            modKeys: [],
+            folderClassificationMode: 'independent',
+          },
+        ],
+      }),
+    )
+
+    await act(async () => {
+      await result.current.updatePackPreset('farm', {
+        name: 'Cozy Farm',
+        folderClassificationMode: 'independent',
+      })
+    })
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        packPresets: [
+          {
+            id: 'farm',
+            name: 'Cozy Farm',
+            modKeys: ['ModForge.A'],
+            folderClassificationMode: 'independent',
+          },
+          {
+            id: 'independent-pack',
+            name: 'Independent Pack',
+            modKeys: [],
+            folderClassificationMode: 'independent',
+          },
+        ],
+      }),
+    )
   })
 
   it('hides hidden mods from the default filtered library results', async () => {
@@ -1512,11 +1704,13 @@ describe('useLauncherLibrary', () => {
             id: 'farm',
             name: 'Farm',
             modKeys: ['ModForge.A'],
+            folderClassificationMode: 'global',
           },
           {
             id: 'social',
             name: 'Social',
             modKeys: ['ModForge.B'],
+            folderClassificationMode: 'global',
           },
         ],
       }),
@@ -1567,11 +1761,13 @@ describe('useLauncherLibrary', () => {
             id: 'farm',
             name: 'Farm',
             modKeys: ['ModForge.A'],
+            folderClassificationMode: 'global',
           },
           {
             id: 'social',
             name: 'Social',
             modKeys: ['ModForge.B', 'ModForge.A'],
+            folderClassificationMode: 'global',
           },
         ],
         childModGroups: [],
@@ -1592,6 +1788,7 @@ describe('useLauncherLibrary', () => {
             id: 'farm',
             name: 'Farm',
             modKeys: ['ModForge.A'],
+            folderClassificationMode: 'global',
           },
         ],
         currentPackId: 'farm',
@@ -1652,11 +1849,13 @@ describe('useLauncherLibrary', () => {
             id: 'farm',
             name: 'Farm',
             modKeys: ['ModForge.A'],
+            folderClassificationMode: 'global',
           },
           {
             id: 'social',
             name: 'Social',
             modKeys: ['ModForge.B'],
+            folderClassificationMode: 'global',
           },
         ],
         currentPackId: 'farm',
@@ -1703,11 +1902,13 @@ describe('useLauncherLibrary', () => {
             id: 'farm',
             name: 'Farm',
             modKeys: ['ModForge.B'],
+            folderClassificationMode: 'global',
           },
           {
             id: 'social',
             name: 'Social',
             modKeys: ['ModForge.B'],
+            folderClassificationMode: 'global',
           },
         ],
         childModGroups: [],
@@ -1728,11 +1929,13 @@ describe('useLauncherLibrary', () => {
             id: 'farm',
             name: 'Farm',
             modKeys: ['ModForge.A'],
+            folderClassificationMode: 'global',
           },
           {
             id: 'social',
             name: 'Social',
             modKeys: ['ModForge.B'],
+            folderClassificationMode: 'global',
           },
         ],
       }),
@@ -1778,11 +1981,13 @@ describe('useLauncherLibrary', () => {
             id: 'farm',
             name: 'Farm',
             modKeys: ['ModForge.A'],
+            folderClassificationMode: 'global',
           },
           {
             id: 'social',
             name: 'Social',
             modKeys: ['ModForge.B', 'ModForge.A'],
+            folderClassificationMode: 'global',
           },
         ],
         childModGroups: [],
@@ -1858,6 +2063,8 @@ describe('useLauncherLibrary', () => {
           {
             id: 'visuals',
             name: 'Visuals',
+            packId: null,
+            hidden: false,
             parentFolderId: null,
             modKeys: ['ModForge.A'],
             coverModKeys: ['ModForge.A'],
@@ -1888,6 +2095,8 @@ describe('useLauncherLibrary', () => {
           {
             id: 'visuals',
             name: 'Visuals',
+            packId: null,
+            hidden: false,
             parentFolderId: null,
             modKeys: ['ModForge.A'],
             coverModKeys: ['ModForge.A'],
@@ -1895,6 +2104,8 @@ describe('useLauncherLibrary', () => {
           {
             id: 'gameplay',
             name: 'Gameplay',
+            packId: null,
+            hidden: false,
             parentFolderId: null,
             modKeys: [],
             coverModKeys: [],
@@ -1912,6 +2123,8 @@ describe('useLauncherLibrary', () => {
           {
             id: 'visuals',
             name: 'Visuals',
+            packId: null,
+            hidden: false,
             parentFolderId: null,
             modKeys: [],
             coverModKeys: [],
@@ -1919,9 +2132,341 @@ describe('useLauncherLibrary', () => {
           {
             id: 'gameplay',
             name: 'Gameplay',
+            packId: null,
+            hidden: false,
             parentFolderId: null,
             modKeys: ['ModForge.A', 'ModForge.B'],
             coverModKeys: [],
+          },
+        ],
+      }),
+    )
+  })
+
+  it('keeps global and pack-scoped library folders independent while filtering pack folders to pack members', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(
+      createLibraryState({
+        packPresets: [
+          {
+            id: 'farm',
+            name: 'Farm',
+            modKeys: ['ModForge.A'],
+            folderClassificationMode: 'global',
+          },
+        ],
+        libraryFolders: [
+          {
+            id: 'global-visuals',
+            name: 'Global Visuals',
+            packId: null,
+            hidden: false,
+            parentFolderId: null,
+            modKeys: ['ModForge.A'],
+            coverModKeys: ['ModForge.A'],
+          },
+          {
+            id: 'pack-visuals',
+            name: 'Pack Visuals',
+            packId: 'farm',
+            hidden: false,
+            parentFolderId: null,
+            modKeys: ['ModForge.A', 'ModForge.B'],
+            coverModKeys: ['ModForge.A', 'ModForge.B'],
+          },
+          {
+            id: 'pack-gameplay',
+            name: 'Pack Gameplay',
+            packId: 'farm',
+            hidden: false,
+            parentFolderId: null,
+            modKeys: [],
+            coverModKeys: [],
+          },
+        ],
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({ id: 'mod-a', labelKey: 'ModForge.A', uniqueId: 'ModForge.A' }),
+        createMod({ id: 'mod-b', labelKey: 'ModForge.B', uniqueId: 'ModForge.B' }),
+      ],
+    })
+    saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    expect(result.current.libraryFolders).toEqual([
+      {
+        id: 'global-visuals',
+        name: 'Global Visuals',
+        packId: null,
+        hidden: false,
+        parentFolderId: null,
+        modKeys: ['ModForge.A'],
+        coverModKeys: ['ModForge.A'],
+      },
+      {
+        id: 'pack-visuals',
+        name: 'Pack Visuals',
+        packId: 'farm',
+        hidden: false,
+        parentFolderId: null,
+        modKeys: ['ModForge.A'],
+        coverModKeys: ['ModForge.A'],
+      },
+      {
+        id: 'pack-gameplay',
+        name: 'Pack Gameplay',
+        packId: 'farm',
+        hidden: false,
+        parentFolderId: null,
+        modKeys: [],
+        coverModKeys: [],
+      },
+    ])
+
+    await act(async () => {
+      await result.current.addModsToLibraryFolder('pack-gameplay', ['mod-a', 'mod-b'])
+    })
+
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        libraryFolders: [
+          {
+            id: 'global-visuals',
+            name: 'Global Visuals',
+            packId: null,
+            hidden: false,
+            parentFolderId: null,
+            modKeys: ['ModForge.A'],
+            coverModKeys: ['ModForge.A'],
+          },
+          {
+            id: 'pack-visuals',
+            name: 'Pack Visuals',
+            packId: 'farm',
+            hidden: false,
+            parentFolderId: null,
+            modKeys: [],
+            coverModKeys: [],
+          },
+          {
+            id: 'pack-gameplay',
+            name: 'Pack Gameplay',
+            packId: 'farm',
+            hidden: false,
+            parentFolderId: null,
+            modKeys: ['ModForge.A'],
+            coverModKeys: [],
+          },
+        ],
+      }),
+    )
+  })
+
+  it('creates pack-scoped library folders when a pack id is provided', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(
+      createLibraryState({
+        packPresets: [
+          {
+            id: 'farm',
+            name: 'Farm',
+            modKeys: ['ModForge.A'],
+            folderClassificationMode: 'global',
+          },
+        ],
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [createMod({ id: 'mod-a', labelKey: 'ModForge.A', uniqueId: 'ModForge.A' })],
+    })
+    saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    await act(async () => {
+      await result.current.createLibraryFolder('Pack Folder', { packId: 'farm' })
+    })
+
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        libraryFolders: [
+          {
+            id: 'pack-folder',
+            name: 'Pack Folder',
+            packId: 'farm',
+            hidden: false,
+            parentFolderId: null,
+            modKeys: [],
+            coverModKeys: [],
+          },
+        ],
+      }),
+    )
+  })
+
+  it('hides and shows only global virtual library folders', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(
+      createLibraryState({
+        packPresets: [
+          {
+            id: 'farm',
+            name: 'Farm',
+            modKeys: ['ModForge.A'],
+            folderClassificationMode: 'global',
+          },
+        ],
+        libraryFolders: [
+          {
+            id: 'global-visuals',
+            name: 'Global Visuals',
+            packId: null,
+            hidden: false,
+            parentFolderId: null,
+            modKeys: ['ModForge.A'],
+            coverModKeys: ['ModForge.A'],
+          },
+          {
+            id: 'pack-visuals',
+            name: 'Pack Visuals',
+            packId: 'farm',
+            hidden: true,
+            parentFolderId: null,
+            modKeys: ['ModForge.A'],
+            coverModKeys: ['ModForge.A'],
+          },
+        ],
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [createMod({ id: 'mod-a', labelKey: 'ModForge.A', uniqueId: 'ModForge.A' })],
+    })
+    saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    expect(result.current.libraryFolders).toEqual([
+      {
+        id: 'global-visuals',
+        name: 'Global Visuals',
+        packId: null,
+        hidden: false,
+        parentFolderId: null,
+        modKeys: ['ModForge.A'],
+        coverModKeys: ['ModForge.A'],
+      },
+      {
+        id: 'pack-visuals',
+        name: 'Pack Visuals',
+        packId: 'farm',
+        hidden: false,
+        parentFolderId: null,
+        modKeys: ['ModForge.A'],
+        coverModKeys: ['ModForge.A'],
+      },
+    ])
+
+    await act(async () => {
+      await result.current.hideLibraryFolder('global-visuals')
+    })
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        hiddenModKeys: [],
+        libraryFolders: [
+          {
+            id: 'global-visuals',
+            name: 'Global Visuals',
+            packId: null,
+            hidden: true,
+            parentFolderId: null,
+            modKeys: ['ModForge.A'],
+            coverModKeys: ['ModForge.A'],
+          },
+          {
+            id: 'pack-visuals',
+            name: 'Pack Visuals',
+            packId: 'farm',
+            hidden: false,
+            parentFolderId: null,
+            modKeys: ['ModForge.A'],
+            coverModKeys: ['ModForge.A'],
+          },
+        ],
+      }),
+    )
+
+    await act(async () => {
+      await result.current.showLibraryFolder('global-visuals')
+    })
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        libraryFolders: [
+          {
+            id: 'global-visuals',
+            name: 'Global Visuals',
+            packId: null,
+            hidden: false,
+            parentFolderId: null,
+            modKeys: ['ModForge.A'],
+            coverModKeys: ['ModForge.A'],
+          },
+          {
+            id: 'pack-visuals',
+            name: 'Pack Visuals',
+            packId: 'farm',
+            hidden: false,
+            parentFolderId: null,
+            modKeys: ['ModForge.A'],
+            coverModKeys: ['ModForge.A'],
+          },
+        ],
+      }),
+    )
+
+    await act(async () => {
+      await result.current.hideLibraryFolder('pack-visuals')
+    })
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        libraryFolders: [
+          {
+            id: 'global-visuals',
+            name: 'Global Visuals',
+            packId: null,
+            hidden: false,
+            parentFolderId: null,
+            modKeys: ['ModForge.A'],
+            coverModKeys: ['ModForge.A'],
+          },
+          {
+            id: 'pack-visuals',
+            name: 'Pack Visuals',
+            packId: 'farm',
+            hidden: false,
+            parentFolderId: null,
+            modKeys: ['ModForge.A'],
+            coverModKeys: ['ModForge.A'],
           },
         ],
       }),
@@ -1938,6 +2483,8 @@ describe('useLauncherLibrary', () => {
           {
             id: 'gameplay',
             name: 'Gameplay',
+            packId: null,
+            hidden: false,
             parentFolderId: null,
             modKeys: ['ModForge.A'],
             coverModKeys: ['ModForge.A'],
@@ -1966,6 +2513,8 @@ describe('useLauncherLibrary', () => {
           {
             id: 'gameplay',
             name: 'Core Gameplay',
+            packId: null,
+            hidden: false,
             parentFolderId: null,
             modKeys: ['ModForge.A'],
             coverModKeys: ['ModForge.A'],
@@ -2012,8 +2561,8 @@ describe('useLauncherLibrary', () => {
     loadLauncherLibraryStateMock.mockResolvedValue(
       createLibraryState({
         libraryFolders: [
-          { id: 'root', name: 'Root', parentFolderId: null, modKeys: [], coverModKeys: [] },
-          { id: 'child', name: 'Child', parentFolderId: null, modKeys: [], coverModKeys: [] },
+          { id: 'root', name: 'Root', packId: null, hidden: false, parentFolderId: null, modKeys: [], coverModKeys: [] },
+          { id: 'child', name: 'Child', packId: null, hidden: false, parentFolderId: null, modKeys: [], coverModKeys: [] },
         ],
       }),
     )
@@ -2034,8 +2583,8 @@ describe('useLauncherLibrary', () => {
     expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
         libraryFolders: [
-          { id: 'root', name: 'Root', parentFolderId: null, modKeys: [], coverModKeys: [] },
-          { id: 'child', name: 'Child', parentFolderId: 'root', modKeys: [], coverModKeys: [] },
+          { id: 'root', name: 'Root', packId: null, hidden: false, parentFolderId: null, modKeys: [], coverModKeys: [] },
+          { id: 'child', name: 'Child', packId: null, hidden: false, parentFolderId: 'root', modKeys: [], coverModKeys: [] },
         ],
       }),
     )
@@ -2046,8 +2595,8 @@ describe('useLauncherLibrary', () => {
     expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
         libraryFolders: [
-          { id: 'root', name: 'Root', parentFolderId: null, modKeys: [], coverModKeys: [] },
-          { id: 'child', name: 'Child', parentFolderId: null, modKeys: [], coverModKeys: [] },
+          { id: 'root', name: 'Root', packId: null, hidden: false, parentFolderId: null, modKeys: [], coverModKeys: [] },
+          { id: 'child', name: 'Child', packId: null, hidden: false, parentFolderId: null, modKeys: [], coverModKeys: [] },
         ],
       }),
     )
@@ -2118,7 +2667,7 @@ describe('useLauncherLibrary', () => {
     persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
     loadLauncherLibraryStateMock.mockResolvedValue(
       createLibraryState({
-        packPresets: [{ id: 'farm', name: 'Farm', modKeys: [] }],
+        packPresets: [{ id: 'farm', name: 'Farm', modKeys: [], folderClassificationMode: 'global' }],
         currentPackId: 'farm',
         childModGroups: [{ parentModKey: 'ModForge.Parent', childModKeys: ['ModForge.Child'] }],
       }),
@@ -2163,7 +2712,14 @@ describe('useLauncherLibrary', () => {
     })
     expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        packPresets: [{ id: 'farm', name: 'Farm', modKeys: ['ModForge.Parent', 'ModForge.Child'] }],
+        packPresets: [
+          {
+            id: 'farm',
+            name: 'Farm',
+            modKeys: ['ModForge.Parent', 'ModForge.Child'],
+            folderClassificationMode: 'global',
+          },
+        ],
       }),
     )
 
@@ -2172,7 +2728,14 @@ describe('useLauncherLibrary', () => {
     })
     expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        packPresets: [{ id: 'farm', name: 'Farm', modKeys: ['ModForge.Parent', 'ModForge.Child'] }],
+        packPresets: [
+          {
+            id: 'farm',
+            name: 'Farm',
+            modKeys: ['ModForge.Parent', 'ModForge.Child'],
+            folderClassificationMode: 'global',
+          },
+        ],
       }),
     )
 
@@ -2293,11 +2856,13 @@ describe('useLauncherLibrary', () => {
     loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
     loadLauncherLibraryStateMock.mockResolvedValue(
       createLibraryState({
-        packPresets: [{ id: 'farm', name: 'Farm', modKeys: [] }],
+        packPresets: [{ id: 'farm', name: 'Farm', modKeys: [], folderClassificationMode: 'global' }],
         libraryFolders: [
           {
             id: 'visual',
             name: 'Visual',
+            packId: null,
+            hidden: false,
             parentFolderId: null,
             modKeys: ['ModForge.A'],
             coverModKeys: [],
@@ -2305,6 +2870,8 @@ describe('useLauncherLibrary', () => {
           {
             id: 'extras',
             name: 'Extras',
+            packId: null,
+            hidden: false,
             parentFolderId: 'visual',
             modKeys: ['ModForge.B'],
             coverModKeys: [],
@@ -2312,6 +2879,8 @@ describe('useLauncherLibrary', () => {
           {
             id: 'orphan',
             name: 'Orphan',
+            packId: null,
+            hidden: false,
             parentFolderId: null,
             modKeys: ['ModForge.C'],
             coverModKeys: [],

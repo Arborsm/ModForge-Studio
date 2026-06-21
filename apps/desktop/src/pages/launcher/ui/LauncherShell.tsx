@@ -109,6 +109,7 @@ export default function LauncherShell({
         onQueueDownload={downloads.queueDownload}
         downloadInstallRequest={downloadInstallRequest}
         onDownloadArchivesInstalled={onDownloadArchivesInstalled}
+        onNavigateToSettings={onNavigateToSettings}
       />
     ),
     [
@@ -116,6 +117,7 @@ export default function LauncherShell({
       downloads.queueDownload,
       library,
       onDownloadArchivesInstalled,
+      onNavigateToSettings,
       settingsState.settings,
       launchGameLabel,
       launchGameDisabled,

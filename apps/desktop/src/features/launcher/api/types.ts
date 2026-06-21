@@ -69,6 +69,7 @@ export type LauncherLibraryPackPreset = {
   id: string
   name: string
   modKeys: string[]
+  folderClassificationMode: 'global' | 'independent'
 }
 
 /** One parent mod and its direct ModForge-only child mod assignments. */
@@ -81,6 +82,8 @@ export type LauncherLibraryChildModGroup = {
 export type LauncherLibraryFolder = {
   id: string
   name: string
+  packId: string | null
+  hidden: boolean
   parentFolderId: string | null
   modKeys: string[]
   coverModKeys: string[]
