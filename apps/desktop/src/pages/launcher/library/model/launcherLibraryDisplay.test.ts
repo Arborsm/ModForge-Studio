@@ -28,6 +28,7 @@ function mod(overrides: Partial<LauncherLibraryItem>): LauncherLibraryItem {
     updateKeys: overrides.updateKeys ?? [],
     modUrl: overrides.modUrl ?? null,
     imageUrl: overrides.imageUrl ?? null,
+    dependencies: overrides.dependencies ?? [],
     requiredDependencies: overrides.requiredDependencies ?? [],
     missingRequiredDependencies: overrides.missingRequiredDependencies ?? [],
     ...overrides,

@@ -114,6 +114,13 @@ pub struct ScanLauncherLibraryRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct LauncherLibraryDependency {
+    pub unique_id: String,
+    pub required: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LauncherLibraryModSummary {
     pub id: String,
     pub label_key: String,
@@ -129,6 +136,8 @@ pub struct LauncherLibraryModSummary {
     pub update_keys: Vec<String>,
     pub mod_url: Option<String>,
     pub image_url: Option<String>,
+    #[serde(default)]
+    pub dependencies: Vec<LauncherLibraryDependency>,
     #[serde(default)]
     pub required_dependencies: Vec<String>,
     pub missing_required_dependencies: Vec<String>,

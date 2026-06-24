@@ -142,6 +142,7 @@ function createMod(overrides: Partial<LauncherLibraryModSummary> = {}): Launcher
     updateKeys: ['Nexus:101'],
     modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
     imageUrl: null,
+    dependencies: [],
     requiredDependencies: [],
     missingRequiredDependencies: [],
     ...overrides,

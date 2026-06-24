@@ -101,6 +101,7 @@ function createLibraryMod(overrides: Partial<LauncherLibraryModSummary> = {}): L
     updateKeys: ['Nexus:101'],
     modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
     imageUrl: null,
+    dependencies: [],
     requiredDependencies: [],
     missingRequiredDependencies: [],
     ...overrides,
@@ -180,6 +181,7 @@ describe('LauncherConfigurationPage', () => {
     expect(screen.getByRole('button', { name: copy.settings.configurationRunDiagnostics })).toBeTruthy()
     expect(screen.getByRole('button', { name: copy.settings.configurationViewLogs })).toBeTruthy()
     expect(screen.getByTestId('launcher-config-completion-rail')).toBeTruthy()
+    expect(screen.queryByTestId('launcher-config-downloads-step')).toBeNull()
     expect(screen.getByTestId('launcher-config-download-defaults')).toBeTruthy()
     expect(screen.getByRole('region', { name: copy.settings.pathsTitle })).toHaveClass('launcher-config-paths')
     expect(screen.getByRole('region', { name: copy.settings.nexusAccessTitle })).toHaveClass('launcher-config-nexus')
@@ -460,6 +462,7 @@ describe('LauncherConfigurationPage', () => {
 
     expect(screen.getByTestId('launcher-config-paths-step').textContent).toContain('1 / 3')
     expect(screen.getByTestId('launcher-config-nexus-step')).toHaveClass('launcher-config-step-danger')
+    expect(screen.queryByTestId('launcher-config-downloads-step')).toBeNull()
     expect(screen.getByTestId('launcher-config-download-defaults').textContent).toContain(copy.toggles.autoCheckModUpdates)
     expect(screen.getByText(copy.settings.configurationNeedsReview, { exact: false })).toBeTruthy()
     await waitFor(() => {

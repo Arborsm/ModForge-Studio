@@ -64,6 +64,7 @@ function createMockMod(index: number): LauncherLibraryModSummary {
     updateKeys: index <= 12 ? [`Nexus:${20_000 + index}`] : [],
     modUrl: index <= 12 ? `https://www.nexusmods.com/stardewvalley/mods/${20_000 + index}` : null,
     imageUrl: null,
+    dependencies: [],
     requiredDependencies: [],
     missingRequiredDependencies: [],
   }

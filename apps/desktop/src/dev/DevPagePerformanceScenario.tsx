@@ -602,6 +602,7 @@ function createLauncherLibraryMods(count: number) {
     updateKeys: [`Nexus:${950000 + index}`],
     modUrl: `https://example.invalid/mods/${950000 + index}`,
     imageUrl: null,
+    dependencies: [],
     requiredDependencies: [],
     missingRequiredDependencies: [],
   }))

@@ -392,7 +392,8 @@ fn parse_first_requirement_text(node: &Value) -> Option<String> {
         .and_then(Value::as_array)?;
 
     requirements.iter().find_map(|requirement| {
-        let name = string_field(requirement, "modName");
+        let mod_id = requirement_mod_id(requirement);
+        let name = requirement_name(requirement, mod_id);
         let notes = string_field(requirement, "notes");
         match (name, notes) {
             (Some(name), Some(notes)) if !notes.eq_ignore_ascii_case(&name) => {
@@ -403,6 +404,39 @@ fn parse_first_requirement_text(node: &Value) -> Option<String> {
             _ => None,
         }
     })
+}
+
+fn parse_nexus_mod_id_from_url(value: &str) -> Option<i64> {
+    let marker = "/mods/";
+    let normalized = value.to_ascii_lowercase();
+    let tail_start = normalized.find(marker)? + marker.len();
+    let id = value[tail_start..]
+        .chars()
+        .take_while(|character| character.is_ascii_digit())
+        .collect::<String>();
+    id.parse::<i64>().ok().filter(|mod_id| *mod_id > 0)
+}
+
+fn requirement_mod_id(requirement: &Value) -> Option<i64> {
+    requirement
+        .get("modId")
+        .and_then(|value| {
+            value
+                .as_i64()
+                .or_else(|| value.as_str()?.trim().parse::<i64>().ok())
+        })
+        .filter(|mod_id| *mod_id > 0)
+        .or_else(|| {
+            string_field(requirement, "url")
+                .as_deref()
+                .and_then(parse_nexus_mod_id_from_url)
+        })
+}
+
+fn requirement_name(requirement: &Value, mod_id: Option<i64>) -> Option<String> {
+    string_field(requirement, "modName")
+        .or_else(|| string_field(requirement, "name"))
+        .or_else(|| mod_id.map(|value| format!("Nexus #{value}")))
 }
 
 fn parse_mod_requirements(node: &Value) -> Vec<RemoteModRequirement> {
@@ -418,17 +452,13 @@ fn parse_mod_requirements(node: &Value) -> Vec<RemoteModRequirement> {
     requirements
         .iter()
         .filter_map(|requirement| {
-            let name = string_field(requirement, "modName")
-                .or_else(|| string_field(requirement, "notes"))?;
+            let mod_id = requirement_mod_id(requirement);
+            let name = requirement_name(requirement, mod_id)?;
             Some(RemoteModRequirement {
                 name,
                 notes: string_field(requirement, "notes"),
                 url: string_field(requirement, "url"),
-                mod_id: requirement.get("modId").and_then(|value| {
-                    value
-                        .as_i64()
-                        .or_else(|| value.as_str()?.trim().parse::<i64>().ok())
-                }),
+                mod_id,
                 external: requirement
                     .get("externalRequirement")
                     .and_then(Value::as_bool)

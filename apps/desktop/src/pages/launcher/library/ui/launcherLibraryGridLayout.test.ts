@@ -19,6 +19,7 @@ function mod(id: string): LauncherLibraryItem {
     updateKeys: [],
     modUrl: null,
     imageUrl: null,
+    dependencies: [],
     requiredDependencies: [],
     missingRequiredDependencies: [],
   }

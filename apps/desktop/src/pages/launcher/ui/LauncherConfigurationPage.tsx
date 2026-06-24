@@ -909,12 +909,6 @@ export function LauncherConfigurationPage({
       tone: hasCredentials ? 'ok' : 'danger',
     },
     {
-      id: 'downloads',
-      label: copy.settings.stepDownloads,
-      detail: settingsState.settings.autoCheckModUpdates ? copy.settings.downloadsReady : copy.settings.downloadsLimited,
-      tone: settingsState.settings.autoCheckModUpdates ? 'ok' : 'warn',
-    },
-    {
       id: 'diagnostics',
       label: copy.settings.stepDiagnostics,
       detail: warningDiagnostics ? copy.settings.diagnosticsReview : copy.settings.diagnosticsHealthy,

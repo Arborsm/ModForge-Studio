@@ -186,6 +186,52 @@ describe('LauncherDiscoverPage', () => {
     expect(setQuery).toHaveBeenCalledWith('content patcher ui')
   })
 
+  it('applies dependency search requests by clearing filters and replacing the discover query', async () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    const resetFilters = vi.fn()
+    const setQuery = vi.fn()
+    useLauncherDiscoverMock.mockReturnValue(
+      createDiscoverState({
+        query: 'old search',
+        filters: {
+          titleQuery: 'old title',
+          descriptionQuery: '',
+          authorQuery: '',
+          uploaderQuery: '',
+          category: 'Maps',
+          language: '',
+          tagsInclude: 'SMAPI',
+          tagsExclude: '',
+          includeAdult: false,
+          minFileSize: '',
+          maxFileSize: '',
+          minDownloads: '',
+          maxDownloads: '',
+          minEndorsements: '',
+          maxEndorsements: '',
+        },
+        resetFilters,
+        setQuery,
+      }),
+    )
+
+    renderWithLocale(
+      <LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} searchRequest={{ id: 1, query: 'Custom Bush' }} />,
+      'zh-CN',
+    )
+
+    await waitFor(() => {
+      expect(resetFilters).toHaveBeenCalledTimes(1)
+      expect(setQuery).toHaveBeenCalledWith('Custom Bush')
+    })
+    expect(screen.getByRole('textbox', { name: copy.discover.searchPlaceholder })).toHaveValue('Custom Bush')
+  })
+
   it('renders the project-aligned browse shell and result cards for discover browsing', () => {
     getAppUiStateSnapshotMock.mockReturnValue({
       launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },

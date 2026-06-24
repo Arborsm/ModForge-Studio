@@ -37,8 +37,14 @@ export type LauncherLibraryModSummary = {
   updateKeys: string[]
   modUrl: string | null
   imageUrl: string | null
+  dependencies: LauncherLibraryDependency[]
   requiredDependencies: string[]
   missingRequiredDependencies: string[]
+}
+
+export type LauncherLibraryDependency = {
+  uniqueId: string
+  required: boolean
 }
 
 export type LauncherLibraryScanResult = {

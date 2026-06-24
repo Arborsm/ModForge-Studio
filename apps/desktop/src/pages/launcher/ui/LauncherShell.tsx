@@ -7,6 +7,7 @@ import { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
 import { useLauncherSettings } from '@features/launcher/model/useLauncherSettings'
 import { LauncherLibraryPageContent } from './LauncherLibraryPage'
 import { cx } from '@shared/lib/helper'
+import type { LauncherDiscoverSearchRequest } from '../model/launcherDiscoverSearchRequest'
 
 const LauncherDiscoverPage = lazy(() => import('./LauncherDiscoverPage').then((module) => ({ default: module.LauncherDiscoverPage })))
 const LauncherUpdatesPage = lazy(() => import('./LauncherUpdatesPage').then((module) => ({ default: module.LauncherUpdatesPage })))
@@ -26,8 +27,10 @@ type LauncherShellProps = {
   settingsState: ReturnType<typeof useLauncherSettings>
   downloads: ReturnType<typeof useLauncherDownloads>
   downloadInstallRequest?: { id: number; archivePaths: string[] } | null
+  discoverSearchRequest?: LauncherDiscoverSearchRequest | null
   onDownloadArchivesInstalled?: (archivePaths: string[]) => void
   onNavigateToSettings: () => void
+  onSearchDiscover?: (query: string) => void
   launchGameLabel: string
   launchGameDisabled: boolean
   launchGameBusy: boolean
@@ -44,8 +47,10 @@ export default function LauncherShell({
   settingsState,
   downloads,
   downloadInstallRequest,
+  discoverSearchRequest,
   onDownloadArchivesInstalled,
   onNavigateToSettings,
+  onSearchDiscover,
   launchGameLabel,
   launchGameDisabled,
   launchGameBusy,
@@ -107,6 +112,7 @@ export default function LauncherShell({
         launchGameBusy={launchGameBusy}
         onLaunchGame={onLaunchGame}
         onQueueDownload={downloads.queueDownload}
+        onSearchDiscover={onSearchDiscover}
         downloadInstallRequest={downloadInstallRequest}
         onDownloadArchivesInstalled={onDownloadArchivesInstalled}
         onNavigateToSettings={onNavigateToSettings}
@@ -118,6 +124,7 @@ export default function LauncherShell({
       library,
       onDownloadArchivesInstalled,
       onNavigateToSettings,
+      onSearchDiscover,
       settingsState.settings,
       launchGameLabel,
       launchGameDisabled,
@@ -141,6 +148,7 @@ export default function LauncherShell({
                 onNavigateToDiagnostics={onNavigateToDiagnostics}
                 onRetryDiagnostics={onRetryDiagnostics}
                 onNavigateToSettings={onNavigateToSettings}
+                searchRequest={discoverSearchRequest}
               />
             </Suspense>
           ) : null}

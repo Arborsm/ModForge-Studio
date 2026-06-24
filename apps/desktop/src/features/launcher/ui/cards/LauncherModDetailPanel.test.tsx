@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { cleanup } from '@testing-library/react'
+import { cleanup, type RenderResult } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vite-plus/test'
 import type { LauncherDiscoverDetail, LauncherLibraryItem } from '@features/launcher'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
@@ -23,6 +23,7 @@ function createLocalMod(overrides: Partial<LauncherLibraryItem> = {}): LauncherL
     updateKeys: ['Nexus:1915'],
     modUrl: 'https://www.nexusmods.com/stardewvalley/mods/1915',
     imageUrl: null,
+    dependencies: [],
     requiredDependencies: [],
     missingRequiredDependencies: [],
     ...overrides,
@@ -69,8 +70,9 @@ function renderPanel(
     remoteFilesDeferred?: boolean
     loadRemoteModDetail?: LauncherPort['loadRemoteModDetail']
     libraryMods?: LauncherLibraryItem[]
+    onSearchDependency?: Parameters<typeof LauncherModDetailPanel>[0]['onSearchDependency']
   } = {},
-) {
+): LauncherPort & { renderResult: RenderResult } {
   const port = createMockLauncherPort({
     loadRemoteModDetail: options.loadRemoteModDetail ?? vi.fn().mockResolvedValue(remoteDetail ?? createRemoteDetail()),
     openPath: vi.fn().mockResolvedValue(undefined),
@@ -79,7 +81,7 @@ function renderPanel(
     toDesktopAssetUrl: vi.fn().mockReturnValue(''),
   })
 
-  renderWithLocaleAndLaunchers(
+  const renderResult = renderWithLocaleAndLaunchers(
     <LauncherModDetailPanel
       open={options.open ?? true}
       onClose={vi.fn()}
@@ -93,13 +95,14 @@ function renderPanel(
       onSetCover={vi.fn()}
       onClearCover={vi.fn()}
       onQueueDownload={options.onQueueDownload}
+      onSearchDependency={options.onSearchDependency}
     />,
     'en-US',
     undefined,
     port,
   )
 
-  return port
+  return Object.assign(port, { renderResult })
 }
 
 describe('LauncherModDetailPanel', () => {
@@ -108,6 +111,15 @@ describe('LauncherModDetailPanel', () => {
 
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(document.querySelector('.launcher-library-drawer')).toBeNull()
+  })
+
+  it('mounts the drawer at body level while keeping the titlebar outside the backdrop', () => {
+    const { renderResult } = renderPanel(createLocalMod(), createRemoteDetail())
+    const drawer = document.querySelector('.launcher-library-drawer')
+
+    expect(drawer?.parentElement).toBe(document.body)
+    expect(renderResult.container.querySelector('.launcher-library-drawer')).toBeNull()
+    expect(drawer).toHaveClass('launcher-library-drawer-open')
   })
 
   it('keeps local-only details focused on install and manifest fields', () => {
@@ -153,7 +165,7 @@ describe('LauncherModDetailPanel', () => {
   })
 
   it('adds a dependencies tab only when dependency data exists', () => {
-    renderPanel(createLocalMod({ missingRequiredDependencies: ['Pathoschild.SMAPI'] }), null)
+    renderPanel(createLocalMod({ missingRequiredDependencies: ['ModForge.MissingCore'] }), null)
 
     const dependenciesTab = screen.getByRole('tab', { name: 'Dependencies' })
     expect(dependenciesTab).toHaveAttribute('title', '1 missing dependency')
@@ -162,7 +174,7 @@ describe('LauncherModDetailPanel', () => {
     fireEvent.click(dependenciesTab)
 
     const dependenciesPanel = screen.getByRole('tabpanel')
-    expect(within(dependenciesPanel).getByText('Pathoschild.SMAPI')).toBeTruthy()
+    expect(within(dependenciesPanel).getByText('ModForge.MissingCore')).toBeTruthy()
   })
 
   it('renders a local dependency tree and keeps transitive issue paths expanded', () => {
@@ -204,7 +216,149 @@ describe('LauncherModDetailPanel', () => {
     expect(within(dependenciesPanel).getByText('ModForge.CorePack')).toBeTruthy()
     expect(within(dependenciesPanel).getByText('Dependency issue')).toBeTruthy()
     expect(within(dependenciesPanel).getByText('Missing')).toBeTruthy()
-    expect(within(dependenciesPanel).getByRole('button', { name: 'Collapse dependency Provider Pack' })).toBeTruthy()
+    const providerRow = within(dependenciesPanel).getByRole('button', { name: 'Collapse dependency Provider Pack' })
+    expect(providerRow).toHaveAttribute('aria-expanded', 'true')
+
+    fireEvent.click(providerRow)
+    expect(providerRow).toHaveAttribute('aria-expanded', 'false')
+
+    fireEvent.click(providerRow)
+    expect(providerRow).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('does not collapse a dependency row when its download action is clicked', () => {
+    const onQueueDownload = vi.fn()
+    const consumer = createLocalMod({
+      id: 'consumer-pack',
+      labelKey: 'ModForge.ConsumerPack',
+      name: 'Consumer Pack',
+      uniqueId: 'ModForge.ConsumerPack',
+      folderName: 'ConsumerPack',
+      requiredDependencies: ['ModForge.ProviderPack'],
+      missingRequiredDependencies: [],
+      nexusModId: null,
+      updateKeys: [],
+      modUrl: null,
+    })
+    const provider = createLocalMod({
+      id: 'provider-pack',
+      labelKey: 'ModForge.ProviderPack',
+      name: 'Provider Pack',
+      uniqueId: 'ModForge.ProviderPack',
+      folderName: 'ProviderPack',
+      requiredDependencies: ['ModForge.CorePack'],
+      missingRequiredDependencies: [],
+      nexusModId: 9999,
+      modUrl: 'https://www.nexusmods.com/stardewvalley/mods/9999',
+      updateKeys: [],
+    })
+    const core = createLocalMod({
+      id: 'core-pack',
+      labelKey: 'ModForge.CorePack',
+      name: 'Core Pack',
+      uniqueId: 'ModForge.CorePack',
+      folderName: 'CorePack',
+      requiredDependencies: [],
+      missingRequiredDependencies: [],
+      nexusModId: null,
+      updateKeys: [],
+      modUrl: null,
+    })
+
+    renderPanel(consumer, null, { libraryMods: [consumer, provider, core], onQueueDownload })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Dependencies' }))
+    const dependenciesPanel = screen.getByRole('tabpanel')
+    const providerRow = within(dependenciesPanel).getByRole('button', { name: 'Collapse dependency Provider Pack' })
+    expect(providerRow).toHaveAttribute('aria-expanded', 'true')
+
+    const openPageButton = within(providerRow).getByRole('button', { name: 'Open Mod Page Provider Pack' })
+    fireEvent.click(openPageButton)
+
+    expect(onQueueDownload).not.toHaveBeenCalled()
+    expect(providerRow).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('disables download and search buttons without callbacks on external requirements without a mod id', () => {
+    const remoteDetail = createRemoteDetail({
+      requirements: [
+        {
+          name: 'SMAPI Runtime',
+          notes: 'System prerequisite',
+          url: null,
+          modId: null,
+          external: true,
+        },
+      ],
+    })
+
+    renderPanel(null, remoteDetail, { onQueueDownload: vi.fn() })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Dependencies' }))
+    const dependenciesPanel = screen.getByRole('tabpanel')
+
+    const downloadButton = within(dependenciesPanel).getByRole('button', { name: 'Download dependency SMAPI Runtime' })
+    const searchButton = within(dependenciesPanel).getByRole('button', { name: 'Search Nexus mods SMAPI Runtime' })
+    expect(downloadButton).toBeDisabled()
+    expect(searchButton).toBeDisabled()
+  })
+
+  it('searches discover for no-id dependency names with word splitting', () => {
+    const onSearchDependency = vi.fn()
+    const consumer = createLocalMod({
+      id: 'bush-consumer',
+      labelKey: 'ModForge.BushConsumer',
+      name: 'Bush Consumer',
+      uniqueId: 'ModForge.BushConsumer',
+      folderName: 'BushConsumer',
+      requiredDependencies: ['furypx639.CustomBush'],
+      missingRequiredDependencies: ['furypx639.CustomBush'],
+      nexusModId: null,
+      updateKeys: [],
+      modUrl: null,
+    })
+
+    renderPanel(consumer, null, { onSearchDependency })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Dependencies' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Search Nexus mods furypx639.CustomBush' }))
+
+    expect(onSearchDependency).toHaveBeenCalledWith('Custom Bush')
+  })
+
+  it('prefers the installed dependency display name for no-id local dependency search', () => {
+    const onSearchDependency = vi.fn()
+    const consumer = createLocalMod({
+      id: 'flower-consumer',
+      labelKey: 'ModForge.FlowerConsumer',
+      name: 'Flower Consumer',
+      uniqueId: 'ModForge.FlowerConsumer',
+      folderName: 'FlowerConsumer',
+      requiredDependencies: ['Cornucopia.MoreFlowers'],
+      missingRequiredDependencies: [],
+      nexusModId: null,
+      updateKeys: [],
+      modUrl: null,
+    })
+    const provider = createLocalMod({
+      id: 'more-flowers',
+      labelKey: 'Cornucopia.MoreFlowers',
+      name: 'Cornucopia - More Flowers',
+      uniqueId: 'Cornucopia.MoreFlowers',
+      folderName: 'MoreFlowers',
+      requiredDependencies: [],
+      missingRequiredDependencies: [],
+      nexusModId: null,
+      updateKeys: [],
+      modUrl: null,
+    })
+
+    renderPanel(consumer, null, { libraryMods: [consumer, provider], onSearchDependency })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Dependencies' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Search Nexus mods Cornucopia - More Flowers' }))
+
+    expect(onSearchDependency).toHaveBeenCalledWith('Cornucopia More Flowers')
   })
 
   it('does not satisfy a dependency from a partial UniqueID match', () => {
@@ -243,7 +397,178 @@ describe('LauncherModDetailPanel', () => {
     expect(within(dependenciesPanel).queryByText('Core Plus')).toBeNull()
   })
 
-  it('loads remote dependency children on demand through the existing Nexus detail request', async () => {
+  it('merges local UniqueID dependencies with matching Nexus requirement names', () => {
+    const consumer = createLocalMod({
+      id: 'immersive-family',
+      labelKey: 'XiaoLeiWen.ImmersiveFamily',
+      name: 'Immersive Family',
+      uniqueId: 'XiaoLeiWen.ImmersiveFamily',
+      folderName: '[CP] Immersive Family',
+      requiredDependencies: ['TheMightyAmondee.CustomTokens'],
+      missingRequiredDependencies: ['TheMightyAmondee.CustomTokens'],
+      nexusModId: 999,
+      updateKeys: ['Nexus:999'],
+    })
+    const remoteDetail = createRemoteDetail({
+      modId: 999,
+      requirements: [
+        {
+          name: 'Custom Tokens',
+          notes: 'Required',
+          url: 'https://www.nexusmods.com/stardewvalley/mods/2400',
+          modId: 2400,
+          external: false,
+        },
+      ],
+    })
+
+    renderPanel(consumer, remoteDetail)
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Dependencies' }))
+    const dependenciesPanel = screen.getByRole('tabpanel')
+
+    expect(within(dependenciesPanel).getByText('TheMightyAmondee.CustomTokens')).toBeTruthy()
+    expect(within(dependenciesPanel).queryByText('Custom Tokens')).toBeNull()
+    expect(within(dependenciesPanel).getByText(/Local manifest .* Nexus requirement .* Required/u)).toBeTruthy()
+  })
+
+  it('treats SMAPI requirements as the mod loader instead of a downloadable mod dependency', () => {
+    const remoteDetail = createRemoteDetail({
+      requirements: [
+        {
+          name: 'SMAPI - Stardew Modding API',
+          notes: null,
+          url: 'https://smapi.io/',
+          modId: 2400,
+          external: false,
+        },
+      ],
+    })
+
+    renderPanel(null, remoteDetail, { onQueueDownload: vi.fn() })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Dependencies' }))
+    const dependenciesPanel = screen.getByRole('tabpanel')
+
+    expect(within(dependenciesPanel).getByText('SMAPI - Stardew Modding API')).toBeTruthy()
+    expect(within(dependenciesPanel).getByText('Mod loader')).toBeTruthy()
+    expect(within(dependenciesPanel).getByRole('button', { name: 'Download dependency SMAPI - Stardew Modding API' })).toBeDisabled()
+  })
+
+  it('renders serialized local optional dependencies without marking them missing', () => {
+    const consumer = createLocalMod({
+      id: 'optional-consumer',
+      labelKey: 'ModForge.OptionalConsumer',
+      name: 'Optional Consumer',
+      uniqueId: 'ModForge.OptionalConsumer',
+      folderName: 'OptionalConsumer',
+      dependencies: [{ uniqueId: 'ModForge.OptionalPack', required: false }],
+      requiredDependencies: [],
+      missingRequiredDependencies: [],
+      nexusModId: null,
+      updateKeys: [],
+      modUrl: null,
+    })
+
+    renderPanel(consumer, null, { onQueueDownload: vi.fn() })
+
+    const dependenciesTab = screen.getByRole('tab', { name: 'Dependencies' })
+    expect(dependenciesTab).not.toHaveAttribute('title')
+    expect(within(dependenciesTab).queryByText('1')).toBeNull()
+
+    fireEvent.click(dependenciesTab)
+    const dependenciesPanel = screen.getByRole('tabpanel')
+    expect(within(dependenciesPanel).getByText('ModForge.OptionalPack')).toBeTruthy()
+    expect(within(dependenciesPanel).getByText('Optional')).toBeTruthy()
+    expect(within(dependenciesPanel).queryByText('Missing')).toBeNull()
+    expect(within(dependenciesPanel).queryByText('Dependency issue')).toBeNull()
+    expect(within(dependenciesPanel).getByRole('button', { name: 'Download dependency ModForge.OptionalPack' })).toBeDisabled()
+  })
+
+  it('keeps missing children under a local optional dependency out of issue counts', () => {
+    const consumer = createLocalMod({
+      id: 'optional-consumer',
+      labelKey: 'ModForge.OptionalConsumer',
+      name: 'Optional Consumer',
+      uniqueId: 'ModForge.OptionalConsumer',
+      folderName: 'OptionalConsumer',
+      dependencies: [{ uniqueId: 'ModForge.OptionalProvider', required: false }],
+      requiredDependencies: [],
+      missingRequiredDependencies: [],
+      nexusModId: null,
+      updateKeys: [],
+      modUrl: null,
+    })
+    const provider = createLocalMod({
+      id: 'optional-provider',
+      labelKey: 'ModForge.OptionalProvider',
+      name: 'Optional Provider',
+      uniqueId: 'ModForge.OptionalProvider',
+      folderName: 'OptionalProvider',
+      dependencies: [{ uniqueId: 'ModForge.OptionalCore', required: true }],
+      requiredDependencies: ['ModForge.OptionalCore'],
+      missingRequiredDependencies: ['ModForge.OptionalCore'],
+      nexusModId: null,
+      updateKeys: [],
+      modUrl: null,
+    })
+
+    renderPanel(consumer, null, { libraryMods: [consumer, provider] })
+
+    const dependenciesTab = screen.getByRole('tab', { name: 'Dependencies' })
+    expect(dependenciesTab).not.toHaveAttribute('title')
+    expect(within(dependenciesTab).queryByText('1')).toBeNull()
+
+    fireEvent.click(dependenciesTab)
+    const dependenciesPanel = screen.getByRole('tabpanel')
+    expect(within(dependenciesPanel).getByText('Optional Provider')).toBeTruthy()
+    expect(within(dependenciesPanel).getByText('ModForge.OptionalCore')).toBeTruthy()
+    expect(within(dependenciesPanel).getAllByText('Optional')).toHaveLength(2)
+    expect(within(dependenciesPanel).queryByText('Missing')).toBeNull()
+    expect(within(dependenciesPanel).queryByText('Dependency issue')).toBeNull()
+    expect(within(dependenciesPanel).queryByText(/issue/u)).toBeNull()
+  })
+
+  it('treats Nexus requirement notes that say optional or not required as optional dependencies', () => {
+    const onQueueDownload = vi.fn()
+    const loadRemoteModDetail = vi.fn().mockResolvedValue(createRemoteDetail())
+    const remoteDetail = createRemoteDetail({
+      requirements: [
+        {
+          name: 'Optional Remote Pack',
+          notes: "Not required, but won't do anything without it.",
+          url: 'https://www.nexusmods.com/stardewvalley/mods/2600',
+          modId: 2600,
+          external: false,
+        },
+        {
+          name: 'Recommended Remote Pack',
+          notes: 'Optional but highly recommended',
+          url: 'https://www.nexusmods.com/stardewvalley/mods/2700',
+          modId: 2700,
+          external: false,
+        },
+      ],
+    })
+
+    renderPanel(null, remoteDetail, { onQueueDownload, loadRemoteModDetail })
+
+    const dependenciesTab = screen.getByRole('tab', { name: 'Dependencies' })
+    expect(dependenciesTab).not.toHaveAttribute('title')
+
+    fireEvent.click(dependenciesTab)
+    const dependenciesPanel = screen.getByRole('tabpanel')
+    expect(within(dependenciesPanel).getByText('Optional Remote Pack')).toBeTruthy()
+    expect(within(dependenciesPanel).getByText('Recommended Remote Pack')).toBeTruthy()
+    expect(within(dependenciesPanel).getAllByText('Optional')).toHaveLength(2)
+    expect(within(dependenciesPanel).queryByText('Missing')).toBeNull()
+    expect(within(dependenciesPanel).getByRole('button', { name: 'Download dependency Optional Remote Pack' })).toBeDisabled()
+    expect(within(dependenciesPanel).getByRole('button', { name: 'Download dependency Recommended Remote Pack' })).toBeDisabled()
+    expect(loadRemoteModDetail).not.toHaveBeenCalled()
+    expect(onQueueDownload).not.toHaveBeenCalled()
+  })
+
+  it('loads remote dependency children when the dependencies tab opens', async () => {
     const remoteDetail = createRemoteDetail({
       requirements: [
         {
@@ -268,16 +593,60 @@ describe('LauncherModDetailPanel', () => {
         },
       ],
     })
-    const loadRemoteModDetail = vi.fn().mockResolvedValue(remoteDependencyDetail)
+    const remoteChildDetail = createRemoteDetail({ modId: 2500, title: 'Remote Child', requirements: [] })
+    const loadRemoteModDetail = vi.fn(({ modId }: { modId: number }) =>
+      Promise.resolve(modId === 2500 ? remoteChildDetail : remoteDependencyDetail),
+    )
     const port = renderPanel(null, remoteDetail, { onQueueDownload: vi.fn(), loadRemoteModDetail })
 
     fireEvent.click(screen.getByRole('tab', { name: 'Dependencies' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Load child dependencies Remote Core' }))
 
     await waitFor(() => {
       expect(port.loadRemoteModDetail).toHaveBeenCalledWith({ modId: 2400, includeFiles: false })
     })
     expect(await screen.findByText('Remote Child')).toBeTruthy()
+  })
+
+  it('uses a parsed off-site Nexus mod id to preload and replace fallback dependency names', async () => {
+    const remoteDetail = createRemoteDetail({
+      modId: 999,
+      title: 'Remote Host Mod',
+      requirements: [
+        {
+          name: 'Nexus #1915',
+          notes: 'REQUIRED',
+          url: 'https://www.nexusmods.com/stardewvalley/mods/1915',
+          modId: 1915,
+          external: true,
+        },
+      ],
+    })
+    let resolveRemoteDependencyDetail: (detail: LauncherDiscoverDetail) => void = () => {}
+    const remoteDependencyDetail = createRemoteDetail({
+      modId: 1915,
+      title: 'Content Patcher',
+      requirements: [],
+    })
+    const loadRemoteModDetail = vi.fn(
+      () =>
+        new Promise<LauncherDiscoverDetail>((resolve) => {
+          resolveRemoteDependencyDetail = resolve
+        }),
+    )
+    const port = renderPanel(null, remoteDetail, { onQueueDownload: vi.fn(), loadRemoteModDetail })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Dependencies' }))
+    const dependenciesPanel = screen.getByRole('tabpanel')
+
+    expect(within(dependenciesPanel).getByText('Nexus #1915')).toBeTruthy()
+    expect(within(dependenciesPanel).queryByText('REQUIRED', { selector: 'strong' })).toBeNull()
+    await waitFor(() => {
+      expect(port.loadRemoteModDetail).toHaveBeenCalledWith({ modId: 1915, includeFiles: false })
+    })
+    resolveRemoteDependencyDetail(remoteDependencyDetail)
+    expect(await within(dependenciesPanel).findByText('Content Patcher')).toBeTruthy()
+    expect(within(dependenciesPanel).queryByText('Nexus #1915')).toBeNull()
+    expect(within(dependenciesPanel).getByText(/External requirement .* REQUIRED/u)).toBeTruthy()
   })
 
   it('marks unloaded remote child dependencies as missing and downloadable', async () => {
@@ -306,19 +675,21 @@ describe('LauncherModDetailPanel', () => {
         },
       ],
     })
-    const loadRemoteModDetail = vi.fn().mockResolvedValue(remoteDependencyDetail)
+    const remoteChildDetail = createRemoteDetail({ modId: 2500, title: 'Remote Child', requirements: [] })
+    const loadRemoteModDetail = vi.fn(({ modId }: { modId: number }) =>
+      Promise.resolve(modId === 2500 ? remoteChildDetail : remoteDependencyDetail),
+    )
 
     renderPanel(null, remoteDetail, { onQueueDownload, loadRemoteModDetail })
 
     fireEvent.click(screen.getByRole('tab', { name: 'Dependencies' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Load child dependencies Remote Core' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Download dependency Remote Child' }))
 
     expect(onQueueDownload).toHaveBeenCalledWith({
       modId: 2500,
       title: 'Remote Child',
       imageUrl: null,
-      version: null,
+      version: '2.9.1',
       source: 'discover',
     })
   })
@@ -603,7 +974,7 @@ describe('LauncherModDetailPanel', () => {
     expect(await screen.findByRole('button', { name: 'Queue Download Content Patcher 2.9.1' })).toBeTruthy()
   })
 
-  it('queues missing Nexus dependencies from the dependency list', () => {
+  it('does not queue SMAPI from the dependency list because it is the mod loader', () => {
     const onQueueDownload = vi.fn()
     const remoteDetail = createRemoteDetail({
       requirements: [
@@ -626,15 +997,8 @@ describe('LauncherModDetailPanel', () => {
     )
 
     fireEvent.click(screen.getByRole('tab', { name: 'Dependencies' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Download dependency Pathoschild.SMAPI' }))
-
-    expect(onQueueDownload).toHaveBeenCalledWith({
-      modId: 2400,
-      title: 'Pathoschild.SMAPI',
-      imageUrl: null,
-      version: null,
-      source: 'updates',
-    })
+    expect(screen.getByRole('button', { name: 'Download dependency Pathoschild.SMAPI' })).toBeDisabled()
+    expect(onQueueDownload).not.toHaveBeenCalled()
   })
 
   it('queues the exact file from the file list and lets the backend resolve direct/manual download behavior', () => {

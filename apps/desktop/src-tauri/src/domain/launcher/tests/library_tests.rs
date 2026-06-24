@@ -61,6 +61,23 @@ fn sample_manifest_with_required_dependency(unique_id: &str, dependency_unique_i
     )
 }
 
+fn sample_manifest_with_optional_dependency(unique_id: &str, dependency_unique_id: &str) -> String {
+    format!(
+        r#"{{
+  "Name": "Consumer Mod",
+  "Author": "ModForge",
+  "Version": "1.0.0",
+  "UniqueID": "{unique_id}",
+  "Dependencies": [
+    {{
+      "UniqueID": "{dependency_unique_id}",
+      "IsRequired": false
+    }}
+  ]
+}}"#
+    )
+}
+
 fn nested_folder(id: &str, name: &str, parent: &str, hidden: bool) -> LauncherLibraryFolder {
     LauncherLibraryFolder {
         id: id.to_string(),
@@ -283,6 +300,36 @@ fn scan_library_propagates_transitive_required_dependency_issues() {
         consumer_summary.missing_required_dependencies,
         vec!["ModForge.ProviderPack".to_string()]
     );
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn scan_library_serializes_optional_dependencies_without_marking_missing() {
+    let root = create_temp_dir("launcher-library-optional-dependency");
+    let consumer = root.join("Mods").join("ConsumerPack");
+
+    write_file(
+        &consumer.join("manifest.json"),
+        &sample_manifest_with_optional_dependency("ModForge.ConsumerPack", "ModForge.OptionalPack"),
+    );
+
+    let scan = scan_library_at_path(&root).expect("scan launcher library");
+    let consumer_summary = scan
+        .mods
+        .iter()
+        .find(|item| item.unique_id.as_deref() == Some("ModForge.ConsumerPack"))
+        .expect("consumer summary");
+
+    assert_eq!(
+        consumer_summary.dependencies,
+        vec![crate::domain::launcher::types::LauncherLibraryDependency {
+            unique_id: "ModForge.OptionalPack".to_string(),
+            required: false,
+        }]
+    );
+    assert!(consumer_summary.required_dependencies.is_empty());
+    assert!(consumer_summary.missing_required_dependencies.is_empty());
 
     fs::remove_dir_all(root).expect("cleanup");
 }

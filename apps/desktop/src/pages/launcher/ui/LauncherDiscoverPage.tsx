@@ -29,6 +29,7 @@ import { LauncherBlockedState, LauncherEmptyState, LauncherModDetailPanel } from
 import { applyAppUiStatePatch, getAppUiStateSnapshot, initializeAppUiState } from '@shared/lib/app-state'
 import { LauncherDiscoverCard } from './LauncherDiscoverCard'
 import { formatCompactNumber } from './launcherDiscoverFormat'
+import type { LauncherDiscoverSearchRequest } from '../model/launcherDiscoverSearchRequest'
 
 type LauncherDiscoverPageProps = {
   settings: LauncherSettings
@@ -36,6 +37,7 @@ type LauncherDiscoverPageProps = {
   onNavigateToSettings?: () => void
   onNavigateToDiagnostics?: () => void
   onRetryDiagnostics?: (() => Promise<void> | void) | null
+  searchRequest?: LauncherDiscoverSearchRequest | null
 }
 
 type DiscoverOption<T extends string | number> = {
@@ -626,7 +628,12 @@ function LauncherDiscoverDetailPanel({
   )
 }
 
-export function LauncherDiscoverPage({ onQueueDownload, onNavigateToDiagnostics, onRetryDiagnostics }: LauncherDiscoverPageProps) {
+export function LauncherDiscoverPage({
+  onQueueDownload,
+  onNavigateToDiagnostics,
+  onRetryDiagnostics,
+  searchRequest,
+}: LauncherDiscoverPageProps) {
   const desktopHost = canUseDesktopHost()
   const [hydratedToolbarState, setHydratedToolbarState] = useState<LauncherDiscoverToolbarState>(() => getInitialDiscoverToolbarState())
   const [launcherUiStateReady, setLauncherUiStateReady] = useState(() => !desktopHost)
@@ -667,6 +674,7 @@ export function LauncherDiscoverPage({ onQueueDownload, onNavigateToDiagnostics,
       onQueueDownload={onQueueDownload}
       onNavigateToDiagnostics={onNavigateToDiagnostics}
       onRetryDiagnostics={onRetryDiagnostics}
+      searchRequest={searchRequest}
       initialToolbarState={hydratedToolbarState}
       launcherUiStateReady={launcherUiStateReady}
     />
@@ -677,12 +685,14 @@ function LauncherDiscoverPageContent({
   onQueueDownload,
   onNavigateToDiagnostics,
   onRetryDiagnostics,
+  searchRequest,
   initialToolbarState,
   launcherUiStateReady,
 }: {
   onQueueDownload: (input: QueueLauncherDownloadInput) => void
   onNavigateToDiagnostics?: () => void
   onRetryDiagnostics?: (() => Promise<void> | void) | null
+  searchRequest?: LauncherDiscoverSearchRequest | null
   initialToolbarState: LauncherDiscoverToolbarState
   launcherUiStateReady: boolean
 }) {
@@ -698,6 +708,7 @@ function LauncherDiscoverPageContent({
   const [detailItem, setDetailItem] = useState<DiscoverItem | null>(null)
   const [advancedLimitId, setAdvancedLimitId] = useState<string | null>(null)
   const [searchDraft, setSearchDraft] = useState(discover.query)
+  const handledSearchRequestIdRef = useRef<number | null>(null)
   const [pageCapacity, setPageCapacity] = useState(7)
   const resultsViewportRef = useRef<HTMLDivElement | null>(null)
   const contentRef = useRef<HTMLDivElement | null>(null)
@@ -839,6 +850,23 @@ function LauncherDiscoverPageContent({
   useEffect(() => {
     setSearchDraft(discover.query)
   }, [discover.query])
+
+  useEffect(() => {
+    if (!searchRequest || handledSearchRequestIdRef.current === searchRequest.id) {
+      return
+    }
+    const query = searchRequest.query.trim()
+    handledSearchRequestIdRef.current = searchRequest.id
+    if (!query) {
+      return
+    }
+
+    setSearchDraft(query)
+    setOpenMenuId(null)
+    setOpenSection(DEFAULT_DISCOVER_OPEN_SECTION)
+    discover.resetFilters()
+    discover.setQuery(query)
+  })
 
   useEffect(() => {
     const viewport = resultsViewportRef.current

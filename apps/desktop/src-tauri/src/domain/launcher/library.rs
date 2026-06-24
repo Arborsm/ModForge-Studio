@@ -6,17 +6,18 @@ use super::paths::{
 use super::trace::log_launcher_trace;
 use super::types::{
     LauncherLibraryChildModGroup, LauncherLibraryCover, LauncherLibraryCoversState,
-    LauncherLibraryFolder, LauncherLibraryModSummary, LauncherLibraryPackPreset,
-    LauncherLibraryScanResult, LauncherLibraryState, LauncherLibraryStorageFolder,
-    PersistLauncherLibraryRemoteCoverRequest, ResolveLauncherImageRequest,
-    ScanLauncherLibraryRequest, SetLauncherLibraryCoverRequest, SetLauncherModEnabledRequest,
-    SetLauncherModEnabledResult, UNSORTED_STORAGE_FOLDER_ID, UNSORTED_STORAGE_FOLDER_NAME,
+    LauncherLibraryDependency, LauncherLibraryFolder, LauncherLibraryModSummary,
+    LauncherLibraryPackPreset, LauncherLibraryScanResult, LauncherLibraryState,
+    LauncherLibraryStorageFolder, PersistLauncherLibraryRemoteCoverRequest,
+    ResolveLauncherImageRequest, ScanLauncherLibraryRequest, SetLauncherLibraryCoverRequest,
+    SetLauncherModEnabledRequest, SetLauncherModEnabledResult, UNSORTED_STORAGE_FOLDER_ID,
+    UNSORTED_STORAGE_FOLDER_NAME,
 };
 use super::update_cache::invalidate_launcher_updates_cache_at_path;
 use crate::AppHandle;
 use crate::domain::manifest::{
-    normalize_unique_id, project_name_from_manifest, required_dependency_ids, string_array_field,
-    string_field,
+    manifest_dependencies, normalize_unique_id, project_name_from_manifest,
+    required_dependency_ids, string_array_field, string_field,
 };
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use serde_json::Value;
@@ -846,6 +847,13 @@ fn build_mod_summary(
         .to_string();
     let update_keys = string_array_field(&project.manifest, "UpdateKeys");
     let nexus_mod_id = extract_nexus_mod_id(&update_keys);
+    let dependencies = manifest_dependencies(&project.manifest)
+        .into_iter()
+        .map(|dependency| LauncherLibraryDependency {
+            unique_id: dependency.unique_id,
+            required: dependency.is_required,
+        })
+        .collect::<Vec<_>>();
     let required_dependencies = required_dependency_ids(&project.manifest);
     let missing_required_dependencies =
         missing_required_dependencies_for_project(project, dependency_health_graph);
@@ -869,6 +877,7 @@ fn build_mod_summary(
         update_keys,
         mod_url: nexus_mod_id.map(build_mod_page_url),
         image_url: None,
+        dependencies,
         required_dependencies,
         missing_required_dependencies,
     }

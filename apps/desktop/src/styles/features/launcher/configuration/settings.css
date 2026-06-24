@@ -51,13 +51,15 @@
 
   .launcher-config-stepper {
     display: grid;
-    align-content: space-between;
+    align-content: stretch;
+    grid-auto-rows: minmax(0, 1fr);
     gap: 13px;
   }
 
   .launcher-config-step {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
     gap: 10px;
     min-width: 0;
   }

@@ -269,6 +269,7 @@ function createLocalMod(): LauncherLibraryItem {
     updateKeys: ['Nexus:900001'],
     modUrl: 'https://example.invalid/mods/performance',
     imageUrl: null,
+    dependencies: range(20).map((index) => ({ uniqueId: `Required dependency ${index}`, required: true })),
     requiredDependencies: range(20).map((index) => `Required dependency ${index}`),
     missingRequiredDependencies: range(4).map((index) => `Missing dependency ${index}`),
   }

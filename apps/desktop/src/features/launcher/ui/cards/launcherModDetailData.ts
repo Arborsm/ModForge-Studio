@@ -1,5 +1,7 @@
 import type { LauncherDiscoverDetail } from '../../model/types'
 
+export type LauncherDetailTab = 'description' | 'changelog' | 'details' | 'dependencies' | 'files'
+
 export type DetailRow = {
   label: string
   value: string
@@ -15,11 +17,21 @@ export type DependencyListItem = {
   downloadable?: boolean
   modId?: number | null
   url?: string | null
+  searchQuery?: string | null
   imageUrl?: string | null
   version?: string | null
 }
 
-export type DependencyTreeNodeStatus = 'satisfied' | 'missing' | 'disabled' | 'transitive' | 'external' | 'loading' | 'error' | 'cycle'
+export type DependencyTreeNodeStatus =
+  | 'satisfied'
+  | 'missing'
+  | 'disabled'
+  | 'transitive'
+  | 'external'
+  | 'optional'
+  | 'loading'
+  | 'error'
+  | 'cycle'
 
 export type DependencyTreeNode = {
   id: string
@@ -34,6 +46,7 @@ export type DependencyTreeNode = {
   loading?: boolean
   modId?: number | null
   url?: string | null
+  searchQuery?: string | null
   imageUrl?: string | null
   version?: string | null
 }

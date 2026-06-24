@@ -119,9 +119,17 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
+    gap: 10px;
     min-width: 0;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 66%, transparent);
     padding-bottom: 8px;
+  }
+
+  .launcher-mod-detail-rich-head-title {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
   }
 
   .launcher-mod-detail-rich-head span {
@@ -135,6 +143,17 @@
     font-size: 18px;
     font-weight: 760;
     line-height: 1;
+  }
+
+  .launcher-mod-detail-dependency-issues-badge {
+    margin-left: auto;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--danger) 10%, var(--bg-panel));
+    color: color-mix(in srgb, var(--danger) 86%, var(--text-primary));
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 760;
+    white-space: nowrap;
   }
 
   .launcher-detail-info-section {
@@ -201,7 +220,8 @@
   .launcher-mod-detail-dependency-tree,
   .launcher-mod-detail-dependency-tree-children {
     display: grid;
-    gap: 7px;
+    align-content: start;
+    gap: 2px;
     min-width: 0;
     margin: 0;
     padding: 0;
@@ -215,15 +235,16 @@
 
   .launcher-mod-detail-dependency-tree-children {
     position: relative;
-    margin-top: 7px;
-    padding-left: 22px;
+    margin-top: 2px;
+    padding-left: 20px;
   }
 
+  /* guide thread: sits at x = 10px inside the indented children block */
   .launcher-mod-detail-dependency-tree-children::before {
     position: absolute;
-    top: -3px;
-    bottom: 6px;
-    left: 8px;
+    top: -1px;
+    bottom: 8px;
+    left: 10px;
     width: 1px;
     border-radius: 999px;
     background: color-mix(in srgb, var(--border-color) 76%, transparent);
@@ -235,82 +256,118 @@
     min-width: 0;
   }
 
+  /* unified light-grey bordered row — no per-status red/yellow tints */
   .launcher-mod-detail-dependency-node {
-    display: grid;
-    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     min-width: 0;
-    min-height: 50px;
-    border: 1px solid color-mix(in srgb, var(--border-color) 58%, transparent);
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--bg-panel-muted) 28%, var(--bg-panel));
-    padding: 8px 10px;
-  }
-
-  .launcher-mod-detail-dependency-node.is-missing,
-  .launcher-mod-detail-dependency-node.is-disabled,
-  .launcher-mod-detail-dependency-node.is-transitive,
-  .launcher-mod-detail-dependency-node.is-error,
-  .launcher-mod-detail-dependency-node.is-downloadable {
-    border-color: color-mix(in srgb, var(--danger) 28%, var(--border-color));
-    background: color-mix(in srgb, var(--danger) 6%, var(--bg-panel));
-  }
-
-  .launcher-mod-detail-dependency-node.is-loading {
-    border-color: color-mix(in srgb, var(--accent) 24%, var(--border-color));
-    background: color-mix(in srgb, var(--accent-soft) 36%, var(--bg-panel));
-  }
-
-  .launcher-mod-detail-dependency-node.is-external,
-  .launcher-mod-detail-dependency-node.is-cycle {
-    background: color-mix(in srgb, var(--bg-panel-muted) 18%, var(--bg-panel));
-  }
-
-  .launcher-mod-detail-dependency-node.is-missing .launcher-mod-detail-data-dot,
-  .launcher-mod-detail-dependency-node.is-disabled .launcher-mod-detail-data-dot,
-  .launcher-mod-detail-dependency-node.is-transitive .launcher-mod-detail-data-dot,
-  .launcher-mod-detail-dependency-node.is-error .launcher-mod-detail-data-dot {
-    background: var(--danger);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 12%, transparent);
-  }
-
-  .launcher-mod-detail-dependency-node.is-loading .launcher-mod-detail-data-dot {
-    background: var(--accent-strong);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent);
-  }
-
-  .launcher-mod-detail-dependency-toggle {
-    display: grid;
-    width: 24px;
-    height: 24px;
-    place-items: center;
-    border: 1px solid color-mix(in srgb, var(--border-color) 58%, transparent);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--bg-panel) 76%, var(--bg-panel-muted));
-    color: var(--text-tertiary);
+    height: 36px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 52%, transparent);
+    border-radius: 10px;
+    background: var(--bg-panel);
+    padding: 0 8px 0 6px;
+    text-align: left;
+    width: 100%;
+    font: inherit;
+    color: inherit;
     transition:
-      border-color 150ms ease,
-      background 150ms ease,
-      color 150ms ease;
+      background 140ms ease,
+      border-color 140ms ease;
   }
 
-  .launcher-mod-detail-dependency-toggle:not(:disabled):hover {
-    border-color: color-mix(in srgb, var(--accent) 30%, var(--border-color));
-    background: color-mix(in srgb, var(--accent-soft) 38%, var(--bg-panel));
-    color: var(--accent-strong);
+  .launcher-mod-detail-dependency-node.is-toggleable {
+    cursor: pointer;
   }
 
-  .launcher-mod-detail-dependency-toggle:disabled {
-    opacity: 0.42;
+  .launcher-mod-detail-dependency-node.is-toggleable:hover,
+  .launcher-mod-detail-dependency-node:focus-visible {
+    border-color: color-mix(in srgb, var(--accent) 28%, var(--border-color));
+    background: color-mix(in srgb, var(--accent) 6%, var(--bg-panel));
+    outline: none;
   }
 
-  .launcher-mod-detail-dependency-toggle svg {
-    transition: transform 150ms ease;
+  .launcher-mod-detail-dependency-node:focus-visible {
+    border-color: color-mix(in srgb, var(--accent) 34%, var(--border-color));
   }
 
-  .launcher-mod-detail-dependency-toggle svg.is-open {
-    transform: rotate(90deg);
+  /* equal-width node mark column: > collapsed, v expanded, - leaf */
+  .launcher-mod-detail-dependency-mark {
+    display: grid;
+    width: 16px;
+    flex: 0 0 auto;
+    place-items: center;
+    color: var(--text-tertiary);
+    z-index: 1;
+  }
+
+  .launcher-mod-detail-dependency-mark svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* node copy: single baseline row, name + meta */
+  .launcher-mod-detail-dependency-copy {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .launcher-mod-detail-dependency-copy strong {
+    overflow: hidden;
+    flex: 0 1 auto;
+    color: var(--text-primary);
+    font-size: 12.5px;
+    font-weight: 760;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-mod-detail-dependency-detail {
+    overflow: hidden;
+    flex: 1 1 auto;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* indeterminate theme-color progress bar sweeping across loading rows */
+  .launcher-mod-detail-dependency-node.is-loading {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .launcher-mod-detail-dependency-node.is-loading::after {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--accent) 14%, transparent) 35%,
+      color-mix(in srgb, var(--accent) 26%, transparent) 50%,
+      color-mix(in srgb, var(--accent) 14%, transparent) 65%,
+      transparent 100%
+    );
+    filter: blur(2px);
+    transform: translateX(-100%);
+    pointer-events: none;
+    content: '';
+    animation: launcher-mod-detail-dependency-loading-sweep 1.4s ease-in-out infinite;
+  }
+
+  @keyframes launcher-mod-detail-dependency-loading-sweep {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
   }
 
   .launcher-mod-detail-data-loading {
@@ -534,6 +591,26 @@
     color: color-mix(in srgb, var(--danger) 82%, var(--text-primary));
   }
 
+  .launcher-mod-detail-data-pill.warning {
+    background: color-mix(in srgb, var(--warning) 12%, var(--bg-panel));
+    color: color-mix(in srgb, var(--warning) 84%, var(--text-primary));
+  }
+
+  .launcher-mod-detail-data-pill.muted {
+    background: color-mix(in srgb, var(--bg-panel-muted) 60%, var(--bg-panel));
+    color: var(--text-tertiary);
+  }
+
+  .launcher-mod-detail-data-pill.optional {
+    background: color-mix(in srgb, var(--accent-soft) 76%, var(--bg-panel));
+    color: var(--accent-strong);
+  }
+
+  .launcher-mod-detail-data-pill.info {
+    background: color-mix(in srgb, var(--info) 12%, var(--bg-panel));
+    color: color-mix(in srgb, var(--info) 86%, var(--text-primary));
+  }
+
   .launcher-mod-detail-dependency-actions {
     display: inline-flex;
     align-items: center;
@@ -604,6 +681,17 @@
     border-color: color-mix(in srgb, var(--accent) 32%, var(--border-color));
     background: color-mix(in srgb, var(--accent-soft) 42%, var(--bg-panel));
     color: var(--accent-strong);
+  }
+
+  .launcher-mod-detail-file-action:disabled {
+    opacity: 0.42;
+    cursor: not-allowed;
+  }
+
+  .launcher-mod-detail-file-action:disabled:hover {
+    border-color: color-mix(in srgb, var(--border-color) 68%, transparent);
+    background: color-mix(in srgb, var(--bg-panel) 76%, var(--bg-panel-muted));
+    color: var(--text-secondary);
   }
 
   .launcher-mod-detail-file-archive-toggle {

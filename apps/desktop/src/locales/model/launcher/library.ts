@@ -78,12 +78,14 @@ export type LauncherLibraryCopy = {
     reinstall: string
     requirementNotes: string
     externalRequirement: string
+    modLoaderRequirement: string
     fileCategory: string
     scanStatus: string
     localRequirement: string
     remoteRequirement: string
     missing: string
     satisfied: string
+    optionalDependency: string
     disabledDependency: string
     dependencyIssue: string
     dependencyLoading: string
@@ -93,6 +95,7 @@ export type LauncherLibraryCopy = {
     collapseDependency: string
     loadDependencyChildren: string
     downloadDependency: string
+    dependencyIssues: (count: number) => string
     availableFiles: string
     mainFiles: string
     optionalFiles: string

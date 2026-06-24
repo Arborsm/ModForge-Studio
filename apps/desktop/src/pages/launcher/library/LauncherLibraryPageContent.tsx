@@ -23,6 +23,7 @@ export type LauncherLibraryPageProps = {
   routeEnterSequence?: number
   onLaunchGame: () => void
   onQueueDownload?: (input: QueueLauncherDownloadInput) => void
+  onSearchDiscover?: (query: string) => void
   downloadInstallRequest?: { id: number; archivePaths: string[] } | null
   onDownloadArchivesInstalled?: (archivePaths: string[]) => void
   onNavigateToSettings?: () => void
@@ -41,6 +42,7 @@ export function LauncherLibraryPageContent({
   routeEnterSequence = 0,
   onLaunchGame,
   onQueueDownload,
+  onSearchDiscover,
   downloadInstallRequest,
   onDownloadArchivesInstalled,
   onNavigateToSettings,
@@ -431,6 +433,7 @@ export function LauncherLibraryPageContent({
                 void clearModCover(detailMod)
               }
             }}
+            onSearchDependency={onSearchDiscover}
             packName={
               detailMod
                 ? (packLookup
