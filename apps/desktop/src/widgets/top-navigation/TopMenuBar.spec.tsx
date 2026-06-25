@@ -71,7 +71,7 @@ describe('TopMenuBar', () => {
 
     expect(screen.queryByRole('navigation', { name: copy.center.moduleWorkspace })).toBeNull()
     expect(container.querySelector('.top-menu-gooey-nav')).toBeNull()
-    expect(screen.queryByRole('button', { name: copy.workbenchNavigation.openLaunchpad })).toBeNull()
+    expect(screen.queryByRole('button', { name: copy.workbenchNavigation.title })).toBeNull()
   })
 
   it('renders the ModForge brand icon in the title bar', () => {
@@ -114,7 +114,7 @@ describe('TopMenuBar', () => {
     const { container } = renderWithLocale(<TopMenuBar {...buildProps({ theme: 'light' })} />)
 
     expect(container.querySelector('.top-menu-gooey-nav')).toBeNull()
-    expect(screen.queryByRole('button', { name: copy.workbenchNavigation.openLaunchpad })).toBeNull()
+    expect(screen.queryByRole('button', { name: copy.workbenchNavigation.title })).toBeNull()
   })
 
   it('opens the view menu with expanded state and a labeled menu', () => {

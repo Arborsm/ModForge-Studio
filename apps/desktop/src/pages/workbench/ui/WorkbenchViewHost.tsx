@@ -1,7 +1,7 @@
 import { createElement, type ComponentType } from 'react'
 import type { AppEvent } from '@shared/contracts'
 import type { WorkbenchViewRegistration } from '@shared/contracts'
-import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@features/cp-maker'
+import type { DraftPatch, WorkspaceId } from '@features/cp-maker'
 import type { GameDirectoryInfo } from '@entities/game/api'
 import type { LocaleCode, ThemeMode } from '@locales/api'
 import { useEditorCopy } from '@locales/provider'
@@ -29,9 +29,8 @@ type WorkbenchViewHostProps = {
   onRunWithModUnsavedGuard: (action: () => void | Promise<void>) => Promise<boolean>
   onRunWithCpMakerUnsavedGuard: (action: () => void | Promise<void>) => Promise<boolean>
   onSetWorkspaceViewMode: (mode: 'edit' | 'preview') => void
-  studioDeskGalleryOpen: boolean
-  onStudioDeskGalleryOpenChange: (open: boolean) => void
-  studioDeskCreateDialogOpenSignal: number
+  onStudioDeskCreateDraftRequest: () => void
+  onStudioDeskExportPackRequest: () => void
   activeEditPatchId: string | null
   playerAppearanceProfile?: PlayerAppearanceProfile | null
   onOpenPlayerAppearanceWindow?: () => void
@@ -54,11 +53,9 @@ export function WorkbenchViewHost({
   navigateToPatch,
   onSetWorkspaceMode,
   onRunWithModUnsavedGuard,
-  onRunWithCpMakerUnsavedGuard,
   onSetWorkspaceViewMode,
-  studioDeskGalleryOpen,
-  onStudioDeskGalleryOpenChange,
-  studioDeskCreateDialogOpenSignal,
+  onStudioDeskCreateDraftRequest,
+  onStudioDeskExportPackRequest,
   activeEditPatchId,
   playerAppearanceProfile,
   onOpenPlayerAppearanceWindow,
@@ -71,37 +68,7 @@ export function WorkbenchViewHost({
         <LoadingMotionReveal itemId="workbench-edit-studio-desk" index={0} className="h-full min-h-0">
           {createElement(editModeView.component as ComponentType<Record<string, unknown>>, {
             model: studioDeskModel,
-            onCreateDraft: (
-              metadata: Pick<
-                CpMakerDraft['projectMetadata'],
-                'projectName' | 'projectDescription' | 'projectAuthor' | 'projectVersion' | 'projectUniqueId'
-              >,
-            ) => {
-              void onRunWithCpMakerUnsavedGuard(() => {
-                void cpMaker.createDraft({
-                  ...metadata,
-                  gameRootPath: directoryInfo?.rootPath ?? null,
-                })
-              })
-            },
-            onImportDraft: async () => {
-              await onRunWithModUnsavedGuard(async () => {
-                await onRunWithCpMakerUnsavedGuard(async () => {
-                  const selectedPath = await cpMaker.chooseDirectory(copy.studioDesk.importDraft)
-                  if (!selectedPath) {
-                    return
-                  }
-                  const draft = await cpMaker.importPack(selectedPath)
-                  onWorkbenchEvent({
-                    type: 'cp-maker/draft-selected',
-                    draftKey: draft.draftStorageKey,
-                  })
-                  onSetWorkspaceMode('mods')
-                  onSetWorkspaceViewMode('edit')
-                  navigateToPatch(null)
-                })
-              })
-            },
+            onCreateDraftRequest: onStudioDeskCreateDraftRequest,
             onCreatePatch: (action: DraftPatch['action'], nextWorkspace: WorkspaceId) => {
               if (!cpMaker.activeDraft) {
                 return
@@ -143,37 +110,8 @@ export function WorkbenchViewHost({
                 navigateToPatch(patchId)
               })
             },
-            onOpenDraft: (draftStorageKey: string) => {
-              void onRunWithModUnsavedGuard(async () => {
-                await onRunWithCpMakerUnsavedGuard(async () => {
-                  await cpMaker.loadDraft(draftStorageKey)
-                  onWorkbenchEvent({
-                    type: 'cp-maker/draft-selected',
-                    draftKey: draftStorageKey,
-                  })
-                  onSetWorkspaceMode('mods')
-                  onSetWorkspaceViewMode('edit')
-                  navigateToPatch(null)
-                })
-              })
-            },
-            onCopyDraft: (draftStorageKey: string) => {
-              void cpMaker.copyDraft(draftStorageKey)
-            },
-            onDeleteDraft: (draftStorageKey: string) => {
-              void cpMaker.deleteDraft(draftStorageKey)
-            },
-            onUpdateDraftMetadata: (metadata: Partial<CpMakerDraft['projectMetadata']>) => {
-              cpMaker.updateMetadata(metadata)
-            },
-            onExportPack: async (outputPath: string) => {
-              const result = await cpMaker.exportPack(outputPath)
-              void result
-            },
+            onExportPackRequest: onStudioDeskExportPackRequest,
             isLoading: cpMaker.draftLoading,
-            galleryOpen: studioDeskGalleryOpen,
-            onGalleryOpenChange: onStudioDeskGalleryOpenChange,
-            createDialogOpenSignal: studioDeskCreateDialogOpenSignal,
           })}
         </LoadingMotionReveal>
       ) : editModeView?.viewId === 'workspace-editor' ? (

@@ -77,11 +77,15 @@ export type WorkbenchShellCopy = {
     moduleInspector: string
   }
   workbenchNavigation: {
-    openLaunchpad: string
-    closeLaunchpad: string
     title: string
     eyebrow: string
+    homeDescription: string
+    backToWorkspace: string
+    backToWorkspaceHint: string
     searchPlaceholder: string
+    searchShortcut: string
+    searchResults: string
+    searchEmpty: (query: string) => string
     rootPages: string
     projectChildren: string
     currentPage: string
@@ -89,22 +93,58 @@ export type WorkbenchShellCopy = {
     rootModeLabels: Record<WorkspaceMode, string>
     rootModeCodes: Record<WorkspaceMode, string>
     currentMarker: string
-    projectRequiredLabel: string
-    projectToolLocked: string
+    devModeCode: string
+    pendingProjectMarker: string
+    projectToolNeedsSelection: string
     openProjectTool: string
-    projectRequiredTitle: string
-    projectRequiredChooseDescription: string
-    projectRequiredCreateDescription: string
-    selectProjectAction: string
     createProjectAction: string
+    newProjectAction: string
+    newProjectCode: string
+    newProjectHint: string
+    importProjectAction: string
+    importProjectCode: string
+    importProjectHint: string
     recentPages: string
     home: string
     projectLobby: string
-    chooseProjectTitle: string
-    cancelProjectSelection: string
+    projectLibraryTitle: string
+    projectLibraryCode: string
+    projectLibraryHint: string
+    makeLauncher: string
+    makeLauncherCode: string
+    gameDirectoryMissingTitle: string
+    gameDirectoryMissingDescription: string
+    gameDirectoryAction: string
+    gameDirectoryRequiredShort: string
+    statusMonitorTitle: string
+    noCurrentProject: string
+    noCurrentProjectHint: string
+    currentProjectMeta: (uniqueId: string) => string
+    pendingExportCount: (count: number) => string
+    pendingExportDetail: string
+    conflictCount: (count: number) => string
+    conflictDetail: string
+    taskCenterTitle: string
+    taskCenterSubtitle: string
+    closeTaskCenter: string
+    taskCenterRealDataNote: string
+    gameDirectoryTaskTitle: string
+    gameDirectoryTaskIdle: string
+    makerDialogTitle: string
+    makerDialogSubtitle: string
+    closeDialog: string
+    continueCurrentProject: (projectName: string) => string
+    chooseProjectStep: string
+    continueMakerCta: (modeLabel: string) => string
+    enterMakerCta: (modeLabel: string) => string
+    makerPendingFormat: (modeLabel: string) => string
+    useProjectFor: (modeLabel: string) => string
+    cancelMakerPending: string
     mapMaking: string
     eventMaking: string
     itemMaking: string
+    devToolsTitle: string
+    collapseDevTools: string
   }
   rightDock: {
     title: string

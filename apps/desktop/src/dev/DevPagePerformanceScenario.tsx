@@ -1,4 +1,5 @@
 import { useDeferredValue, useState, type ReactNode } from 'react'
+import '../styles/workbench.css'
 import { localeBundles } from '@locales'
 import { LocaleProvider } from '@locales/provider'
 import { CpMakerPortContext } from '@features/cp-maker/model/cpMakerPortContext'
@@ -7,8 +8,8 @@ import { LauncherPortContext } from '@features/launcher/model/launcherPortContex
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import type { LauncherLibraryState } from '@features/launcher/model/launcherContracts'
 import { LauncherPage } from '@pages/launcher/LauncherPage'
-import { StudioDesk } from '@features/cp-maker'
 import type { StudioDeskGalleryProject, StudioDeskInspiration, StudioDeskModel, StudioDeskWorldBibleModel } from '@features/cp-maker'
+import WorkbenchHomePage from '@pages/workbench/ui/WorkbenchHomePage'
 import { EventPatchEditor } from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventPatchEditor'
 import ItemWorkspace from '@pages/workbench/workspaces/item/view/ItemWorkspace'
 import type { ItemTextureAssetState, ItemWorkspaceEntry } from '@pages/workbench/workspaces/item/entities/item'
@@ -940,23 +941,52 @@ function ScenarioFrame({ id, children }: { id: PageScenarioId; children: ReactNo
 }
 
 function WorkbenchHomeScenario() {
+  const state = new URLSearchParams(window.location.search).get('mfHomeState')
+  const model = createStudioDeskModel(state === 'empty' ? 0 : 48)
+  const hasActiveProject = state !== 'no-current' && state !== 'empty'
+  const gameDirectoryReady = state !== 'no-game-dir'
+  const gameDirectoryStatus = gameDirectoryReady
+    ? { tone: 'ready' as const, message: 'Validated /dev/Stardew Valley' }
+    : { tone: 'idle' as const, message: '' }
+  const effectiveModel = hasActiveProject
+    ? model
+    : {
+        ...model,
+        hasActiveDraft: false,
+        gallery: {
+          ...model.gallery,
+          projects: model.gallery.projects.map((project) => ({ ...project, isCurrent: false })),
+        },
+      }
+
   return (
     <ScenarioFrame id="workbench-home">
-      <StudioDesk
-        model={createStudioDeskModel(360)}
-        onCreateDraft={noop}
-        onImportDraft={asyncNoop}
-        onCreatePatch={noop}
-        onOpenWorkspace={noop}
-        onOpenPatch={noop}
-        onOpenDraft={asyncNoop}
-        onCopyDraft={asyncNoop}
-        onDeleteDraft={asyncNoop}
-        onUpdateDraftMetadata={asyncNoop}
-        onExportPack={asyncNoop}
-        isLoading={false}
-        galleryOpen={false}
-        onGalleryOpenChange={noop}
+      <WorkbenchHomePage
+        workspaceMode="mods"
+        workspaceViewMode="edit"
+        hasActiveProject={hasActiveProject}
+        gameDirectoryReady={gameDirectoryReady}
+        gameDirectoryStatus={gameDirectoryStatus}
+        studioDeskModel={effectiveModel}
+        makerPending={null}
+        taskSummary={{
+          exportCount: effectiveModel.gallery.projects.filter((project) => project.statuses.includes('export')).length,
+          conflictCount: effectiveModel.stats.conflictCount,
+          directoryStatus: gameDirectoryStatus,
+        }}
+        dock={null}
+        devViews={[]}
+        onBackToWorkspace={noop}
+        onRootWorkspaceOpen={noop}
+        onProjectWorkspaceOpen={noop}
+        onProjectCreateOpen={noop}
+        onProjectImport={asyncNoop}
+        onProjectSelect={asyncNoop}
+        onProjectCopy={asyncNoop}
+        onProjectDelete={asyncNoop}
+        onProjectPropertiesOpen={noop}
+        onMakerPendingChange={noop}
+        onGameDirectoryAction={noop}
       />
     </ScenarioFrame>
   )

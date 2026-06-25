@@ -44,9 +44,8 @@ function renderHost(editModeView: WorkbenchViewRegistration, overrides: Partial<
       }}
       onRunWithCpMakerUnsavedGuard={onRunWithCpMakerUnsavedGuard}
       onSetWorkspaceViewMode={vi.fn()}
-      studioDeskGalleryOpen={false}
-      onStudioDeskGalleryOpenChange={vi.fn()}
-      studioDeskCreateDialogOpenSignal={0}
+      onStudioDeskCreateDraftRequest={vi.fn()}
+      onStudioDeskExportPackRequest={vi.fn()}
       activeEditPatchId={null}
       {...overrides}
     />,
@@ -84,35 +83,12 @@ describe('WorkbenchViewHost', () => {
     )
   })
 
-  it('runs studio desk draft replacement actions through the CP Maker unsaved guard', () => {
-    const createDraft = vi.fn()
-    const onRunWithCpMakerUnsavedGuard = vi.fn(async (action: () => void | Promise<void>) => {
-      await action()
-      return true
-    })
+  it('passes studio desk create requests to the workbench shell owner', () => {
+    const onStudioDeskCreateDraftRequest = vi.fn()
 
-    function StudioDeskStub(props: {
-      onCreateDraft: (metadata: {
-        projectName: string
-        projectDescription: string
-        projectAuthor: string
-        projectVersion: string
-        projectUniqueId: string
-      }) => void
-    }) {
+    function StudioDeskStub(props: { onCreateDraftRequest: () => void }) {
       return (
-        <button
-          type="button"
-          onClick={() =>
-            props.onCreateDraft({
-              projectName: 'Guarded',
-              projectDescription: '',
-              projectAuthor: '',
-              projectVersion: '1.0.0',
-              projectUniqueId: 'Author.Guarded',
-            })
-          }
-        >
+        <button type="button" onClick={props.onCreateDraftRequest}>
           Create guarded draft
         </button>
       )
@@ -127,19 +103,12 @@ describe('WorkbenchViewHost', () => {
         component: StudioDeskStub,
       },
       {
-        cpMaker: { activeDraft: null, createDraft } as never,
-        onRunWithCpMakerUnsavedGuard,
+        onStudioDeskCreateDraftRequest,
       },
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Create guarded draft' }))
 
-    expect(onRunWithCpMakerUnsavedGuard).toHaveBeenCalledTimes(1)
-    expect(createDraft).toHaveBeenCalledWith(
-      expect.objectContaining({
-        projectName: 'Guarded',
-        gameRootPath: null,
-      }),
-    )
+    expect(onStudioDeskCreateDraftRequest).toHaveBeenCalledTimes(1)
   })
 })

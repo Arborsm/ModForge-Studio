@@ -1,0 +1,1832 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ModForge Studio — Workbench Launchpad</title>
+    <style>
+      :root {
+        --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        --accent: #6366f1;
+        --accent-soft: rgba(99, 102, 241, 0.14);
+        --bg-app: #f4f5f7;
+        --bg-panel: rgba(255, 255, 255, 0.9);
+        --bg-panel-solid: #ffffff;
+        --bg-panel-muted: #f0f1f5;
+        --bg-active: #eaecf5;
+        --text-primary: #1a1b22;
+        --text-secondary: #5e6278;
+        --text-tertiary: #8b90a7;
+        --border-color: #d9dce8;
+        --shadow-panel: 0 1.008px 2px rgba(16, 18, 37, 0.05), 0 6px 24px rgba(16, 18, 37, 0.05);
+        --shadow-float: 0 12px 40px rgba(16, 18, 37, 0.16);
+        --shadow-dialog: 0 24px 80px rgba(16, 18, 37, 0.24);
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --success: #22c55e;
+
+        /* 动态基准：以 16px 为 1rem，随视口在 14px~20px 之间缩放 */
+        font-size: clamp(14px, 0.75vw + 12px, 20px);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        font-family: var(--font-sans);
+        color: var(--text-primary);
+        overflow: hidden;
+      }
+
+      .launchpad {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        background:
+          linear-gradient(135deg, color-mix(in srgb, var(--accent) 3%, transparent) 0 0.063rem, transparent 0.063rem 5rem),
+          linear-gradient(90deg, color-mix(in srgb, var(--border-color) 20%, transparent) 0 0.063rem, transparent 0.063rem 10rem),
+          linear-gradient(180deg, color-mix(in srgb, var(--border-color) 16%, transparent) 0 0.063rem, transparent 0.063rem 10rem),
+          var(--bg-app);
+        background-size:
+          auto,
+          10rem 10rem,
+          10rem 10rem,
+          auto;
+        overflow: hidden;
+      }
+
+      .search-wrap {
+        position: absolute;
+        top: clamp(3.5rem, 9vh, 7rem);
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(38rem, 90vw);
+        z-index: 10;
+      }
+
+      .search {
+        width: 100%;
+        height: 3.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        border: 0.063rem solid color-mix(in srgb, var(--border-color) 80%, transparent);
+        border-radius: 999.008px;
+        background: var(--bg-panel);
+        box-shadow: var(--shadow-float);
+        padding: 0 1.25rem;
+        backdrop-filter: blur(12px);
+        color: var(--text-secondary);
+      }
+      .search input {
+        flex: 1;
+        border: 0;
+        background: transparent;
+        outline: 0;
+        font-size: 1rem;
+        color: var(--text-primary);
+      }
+      .search kbd {
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.5rem;
+        background: var(--bg-panel-muted);
+        color: var(--text-tertiary);
+        font-size: 0.75rem;
+        font-family: inherit;
+      }
+
+      .game-dir-banner {
+        position: absolute;
+        top: clamp(5rem, 12vh, 8rem);
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(42rem, 92vw);
+        display: none;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        border: 0.063rem solid color-mix(in srgb, var(--warning) 40%, transparent);
+        border-radius: 0.75rem;
+        background: color-mix(in srgb, var(--warning) 8%, var(--bg-panel-solid));
+        box-shadow: var(--shadow-panel);
+        font-size: 0.875rem;
+        color: var(--text-primary);
+        z-index: 12;
+      }
+      .game-dir-banner.is-open {
+        display: flex;
+      }
+      .game-dir-banner__icon {
+        color: var(--warning);
+        flex: 0 0 auto;
+      }
+      .game-dir-banner__body b {
+        font-weight: 900;
+      }
+      .game-dir-banner__link {
+        margin-left: auto;
+        color: var(--accent);
+        font-weight: 800;
+        cursor: pointer;
+        text-decoration: none;
+      }
+
+      .stage {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: clamp(2rem, 5vh, 3.5rem);
+        margin-top: clamp(-2rem, -2vh, 0rem);
+      }
+
+      .section__title {
+        text-align: center;
+        margin: 0 0 1rem;
+        font-size: 0.75rem;
+        font-weight: 900;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--text-tertiary);
+      }
+
+      .app-grid {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(5rem, 7.5rem));
+        gap: clamp(1rem, 2.5vw, 1.75rem);
+        justify-content: center;
+      }
+      .app-grid--workbench {
+        grid-template-columns: repeat(4, minmax(5rem, 7.5rem));
+      }
+      .app {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.625rem;
+        cursor: pointer;
+        transition: transform 160ms ease;
+      }
+      .app:hover {
+        transform: scale(1.06);
+      }
+      .app__icon {
+        width: clamp(4rem, 7vw, 5.75rem);
+        height: clamp(4rem, 7vw, 5.75rem);
+        display: grid;
+        place-items: center;
+        border-radius: clamp(1rem, 1.8vw, 1.5rem);
+        background: var(--bg-panel-solid);
+        box-shadow: var(--shadow-panel);
+        color: var(--text-secondary);
+        transition: box-shadow 160ms ease;
+      }
+      .app:hover .app__icon {
+        box-shadow: var(--shadow-float);
+      }
+      .app__icon svg {
+        width: clamp(1.625rem, 2.8vw, 2.125rem);
+        height: clamp(1.625rem, 2.8vw, 2.125rem);
+      }
+      .app__icon--map {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .app__icon--events {
+        background: #fef3c7;
+        color: #b45309;
+      }
+      .app__icon--characters {
+        background: #dcfce7;
+        color: #15803d;
+      }
+      .app__icon--buildings {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+      .app__icon--items {
+        background: #fff7ed;
+        color: #c2410c;
+      }
+      .app__icon--i18n {
+        background: #eef2ff;
+        color: var(--accent);
+      }
+      .app__icon--projects {
+        background: #f3f4f6;
+        color: var(--text-secondary);
+      }
+      .app__label {
+        text-align: center;
+        font-size: clamp(0.8rem, 1.2vw, 0.95rem);
+        font-weight: 700;
+        color: var(--text-primary);
+        line-height: 1.25;
+      }
+      .app__code {
+        font-size: 0.625rem;
+        font-weight: 900;
+        color: var(--text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .status-monitor {
+        position: absolute;
+        bottom: clamp(5rem, 13vh, 7rem);
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        border: 0.063rem solid color-mix(in srgb, var(--border-color) 80%, transparent);
+        border-radius: 1.125rem;
+        background: var(--bg-panel);
+        box-shadow: var(--shadow-panel);
+        padding: 0.625rem 0.875rem;
+        backdrop-filter: blur(12px);
+      }
+      .status-monitor__back {
+        width: 2.25rem;
+        height: 2.25rem;
+        display: grid;
+        place-items: center;
+        border: 0;
+        border-radius: 0.625rem;
+        background: var(--bg-panel-muted);
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition:
+          background 160ms ease,
+          color 160ms ease;
+      }
+      .status-monitor__back:hover {
+        background: var(--bg-active);
+        color: var(--text-primary);
+      }
+      .status-monitor__project {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding-right: 0.875rem;
+        border-right: 0.063rem solid color-mix(in srgb, var(--border-color) 60%, transparent);
+      }
+      .status-monitor__cover {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 0.625rem;
+        background: #334155;
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-size: 0.875rem;
+        font-weight: 900;
+      }
+      .status-monitor__name {
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: var(--text-primary);
+      }
+      .status-monitor__meta {
+        font-size: 0.75rem;
+        color: var(--text-tertiary);
+      }
+      .status-monitor__stats {
+        display: flex;
+        gap: 0.875rem;
+      }
+      .status-stat {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        font-size: 0.8rem;
+        font-weight: 800;
+        color: var(--text-secondary);
+      }
+      .status-stat__dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+        background: var(--text-tertiary);
+      }
+      .status-stat__dot--export {
+        background: var(--warning);
+      }
+      .status-stat__dot--ok {
+        background: var(--success);
+      }
+
+      .dock {
+        position: absolute;
+        bottom: clamp(1.25rem, 4vh, 2rem);
+        left: 50%;
+        transform: translateX(-50%);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        border: 0.063rem solid color-mix(in srgb, var(--border-color) 80%, transparent);
+        border-radius: 999.008px;
+        background: var(--bg-panel);
+        box-shadow: var(--shadow-float);
+        padding: 0.625rem 0.875rem;
+        backdrop-filter: blur(14px);
+      }
+      .dock__item {
+        height: 2.75rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        border: 0;
+        border-radius: 999.008px;
+        background: transparent;
+        color: var(--text-secondary);
+        padding: 0 1rem;
+        font-size: 0.875rem;
+        font-weight: 800;
+        cursor: pointer;
+        transition:
+          background 160ms ease,
+          color 160ms ease,
+          transform 160ms ease;
+      }
+      .dock__item:hover {
+        background: var(--bg-active);
+        color: var(--text-primary);
+        transform: translateY(-2px);
+      }
+
+      /* Dialog */
+      .dialog-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.25);
+        backdrop-filter: blur(2px);
+        display: grid;
+        place-items: center;
+        z-index: 100;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 200ms ease;
+      }
+      .dialog-overlay.is-open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .dialog {
+        width: min(38rem, 92vw);
+        max-height: 80vh;
+        border: 0.063rem solid color-mix(in srgb, var(--border-color) 80%, transparent);
+        border-radius: 1.25rem;
+        background: var(--bg-panel-solid);
+        box-shadow: var(--shadow-dialog);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .dialog__header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1.25rem 1.25rem 0.875rem;
+        border-bottom: 0.063rem solid color-mix(in srgb, var(--border-color) 60%, transparent);
+      }
+      .dialog__header h2 {
+        margin: 0;
+        font-size: 1.125rem;
+        font-weight: 950;
+      }
+      .dialog__header p {
+        margin: 0.25rem 0 0;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+      }
+      .dialog__close {
+        width: 2rem;
+        height: 2rem;
+        display: grid;
+        place-items: center;
+        border: 0;
+        border-radius: 0.5rem;
+        background: var(--bg-panel-muted);
+        color: var(--text-secondary);
+        cursor: pointer;
+      }
+      .dialog__body {
+        padding: 1rem 1.25rem 1.25rem;
+        overflow-y: auto;
+      }
+
+      .maker-choice {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.625rem;
+        margin-bottom: 1rem;
+      }
+      .maker-choice__item {
+        min-height: 5.5rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        border: 0.063rem solid var(--border-color);
+        border-radius: 0.875rem;
+        background: var(--bg-panel-muted);
+        cursor: pointer;
+        transition:
+          border-color 160ms ease,
+          background 160ms ease;
+      }
+      .maker-choice__item:hover,
+      .maker-choice__item.is-selected {
+        border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+        background: var(--accent-soft);
+      }
+      .maker-choice__icon {
+        width: 2.25rem;
+        height: 2.25rem;
+        display: grid;
+        place-items: center;
+        border-radius: 0.625rem;
+        background: var(--bg-panel-solid);
+        color: var(--text-secondary);
+      }
+      .maker-choice__icon svg {
+        width: 1.125rem;
+        height: 1.125rem;
+      }
+      .maker-choice__item.is-selected .maker-choice__icon {
+        background: var(--accent);
+        color: #fff;
+      }
+      .maker-choice__label {
+        font-size: 0.8rem;
+        font-weight: 800;
+        color: var(--text-primary);
+      }
+
+      .maker-continue {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.625rem 0.75rem;
+        border: 0.063rem solid color-mix(in srgb, var(--accent) 30%, transparent);
+        border-radius: 0.75rem;
+        background: var(--accent-soft);
+        margin-bottom: 1rem;
+        font-size: 0.8rem;
+        cursor: pointer;
+      }
+      .maker-continue__check {
+        width: 1rem;
+        height: 1rem;
+        border-radius: 0.25rem;
+        border: 0.1rem solid var(--accent);
+        display: grid;
+        place-items: center;
+        color: #fff;
+        flex: 0 0 auto;
+      }
+      .maker-continue__check svg {
+        width: 0.625rem;
+        height: 0.625rem;
+        display: none;
+      }
+      .maker-continue.is-on .maker-continue__check {
+        background: var(--accent);
+      }
+      .maker-continue.is-on .maker-continue__check svg {
+        display: block;
+      }
+      .maker-continue.is-on ~ .maker-step-project {
+        display: none;
+      }
+
+      .project-list {
+        display: grid;
+        gap: 0.5rem;
+      }
+      .project-row {
+        display: grid;
+        grid-template-columns: 3rem 1fr auto;
+        align-items: center;
+        gap: 0.75rem;
+        min-height: 4.5rem;
+        border: 0.063rem solid var(--border-color);
+        border-radius: 0.875rem;
+        background: var(--bg-panel-muted);
+        padding: 0.75rem;
+        cursor: pointer;
+        transition: border-color 160ms ease;
+      }
+      .project-row:hover,
+      .project-row.is-selected {
+        border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+      }
+      .project-row.is-selected {
+        background: var(--accent-soft);
+      }
+      .project-row.is-broken {
+        border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+        background: color-mix(in srgb, var(--danger) 5%, var(--bg-panel-muted));
+      }
+      .project-row.is-broken .project-open {
+        display: none;
+      }
+      .project-row.is-broken .project-broken-badge {
+        display: inline-flex;
+      }
+      .project-cover {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 0.75rem;
+        background: #334155;
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-weight: 900;
+        font-size: 1rem;
+      }
+      .project-info {
+        min-width: 0;
+      }
+      .project-name {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        font-size: 0.9rem;
+        font-weight: 900;
+      }
+      .pill {
+        padding: 0.125rem 0.375rem;
+        border-radius: 999.008px;
+        background: #fef3c7;
+        color: #b45309;
+        font-size: 0.625rem;
+        font-weight: 800;
+      }
+      .pill--current {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .project-meta {
+        margin-top: 0.25rem;
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+      }
+      .project-broken-badge {
+        display: none;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0 0.75rem;
+        height: 1.75rem;
+        border-radius: 0.5rem;
+        background: color-mix(in srgb, var(--danger) 12%, transparent);
+        color: var(--danger);
+        font-size: 0.7rem;
+        font-weight: 800;
+      }
+      .project-broken-badge svg {
+        width: 0.75rem;
+        height: 0.75rem;
+      }
+
+      .dialog__footer {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.625rem;
+        padding: 0.875rem 1.25rem;
+        border-top: 0.063rem solid color-mix(in srgb, var(--border-color) 60%, transparent);
+      }
+      .btn {
+        height: 2.25rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.375rem;
+        border: 0.063rem solid var(--border-color);
+        border-radius: 0.625rem;
+        background: var(--bg-panel-muted);
+        color: var(--text-primary);
+        padding: 0 0.875rem;
+        font-size: 0.8rem;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      .btn--primary {
+        border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .library-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.875rem;
+      }
+      .library-toolbar__search {
+        flex: 1;
+        height: 2.125rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        border: 0.063rem solid var(--border-color);
+        border-radius: 0.625rem;
+        background: var(--bg-panel-muted);
+        padding: 0 0.75rem;
+        color: var(--text-tertiary);
+      }
+      .library-toolbar__search input {
+        flex: 1;
+        border: 0;
+        background: transparent;
+        outline: 0;
+        font-size: 0.75rem;
+        color: var(--text-primary);
+      }
+      .library-count {
+        font-size: 0.7rem;
+        font-weight: 800;
+        color: var(--text-tertiary);
+      }
+
+      .project-empty {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        padding: 2.25rem 1.25rem;
+        text-align: center;
+        border: 0.063rem dashed color-mix(in srgb, var(--border-color) 90%, transparent);
+        border-radius: 1.125rem;
+        background: var(--bg-panel-muted);
+      }
+      .project-empty.is-open {
+        display: flex;
+      }
+      .project-empty__title {
+        font-size: 0.95rem;
+        font-weight: 900;
+      }
+      .project-empty__hint {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        max-width: 22rem;
+      }
+      .project-empty__actions {
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      /* 状态切换演示工具条 */
+      .state-switch {
+        position: absolute;
+        top: 1rem;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem;
+        border: 0.063rem solid color-mix(in srgb, var(--border-color) 80%, transparent);
+        border-radius: 999.008px;
+        background: var(--bg-panel);
+        box-shadow: var(--shadow-panel);
+        z-index: 30;
+      }
+      .state-switch__label {
+        padding: 0 0.5rem;
+        font-size: 0.65rem;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-tertiary);
+      }
+      .state-switch__btn {
+        height: 1.625rem;
+        border: 0;
+        border-radius: 999.008px;
+        background: transparent;
+        color: var(--text-secondary);
+        padding: 0 0.625rem;
+        font-size: 0.7rem;
+        font-weight: 800;
+        cursor: pointer;
+        transition:
+          background 160ms ease,
+          color 160ms ease;
+      }
+      .state-switch__btn:hover {
+        background: var(--bg-active);
+        color: var(--text-primary);
+      }
+      .state-switch__btn.is-active {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      /* 搜索结果层 */
+      .search-results {
+        position: absolute;
+        top: calc(100% + 0.5rem);
+        left: 0;
+        right: 0;
+        display: none;
+        flex-direction: column;
+        border: 0.063rem solid color-mix(in srgb, var(--border-color) 80%, transparent);
+        border-radius: 1rem;
+        background: var(--bg-panel-solid);
+        box-shadow: var(--shadow-float);
+        padding: 0.5rem;
+        max-height: 22rem;
+        overflow-y: auto;
+        z-index: 20;
+      }
+      .search-results.is-open {
+        display: flex;
+      }
+      .search-results__group + .search-results__group {
+        margin-top: 0.375rem;
+        padding-top: 0.375rem;
+        border-top: 0.063rem solid color-mix(in srgb, var(--border-color) 60%, transparent);
+      }
+      .search-results__group-title {
+        padding: 0.125rem 0.625rem 0.375rem;
+        font-size: 0.65rem;
+        font-weight: 900;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-tertiary);
+      }
+      .search-results__item {
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        height: 2.5rem;
+        padding: 0 0.625rem;
+        border-radius: 0.625rem;
+        cursor: pointer;
+        color: var(--text-primary);
+        transition: background 120ms ease;
+      }
+      .search-results__item.is-active {
+        background: var(--accent-soft);
+      }
+      .search-results__item-icon {
+        width: 1.625rem;
+        height: 1.625rem;
+        display: grid;
+        place-items: center;
+        border-radius: 0.5rem;
+        background: var(--bg-panel-muted);
+        color: var(--text-secondary);
+        flex: 0 0 auto;
+      }
+      .search-results__item-icon svg {
+        width: 0.875rem;
+        height: 0.875rem;
+      }
+      .search-results__item-body {
+        min-width: 0;
+        flex: 1;
+      }
+      .search-results__item-name {
+        font-size: 0.8rem;
+        font-weight: 800;
+      }
+      .search-results__item-hint {
+        font-size: 0.65rem;
+        color: var(--text-tertiary);
+      }
+      .search-results__item-kind {
+        font-size: 0.6rem;
+        font-weight: 900;
+        color: var(--text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .search-results__empty {
+        padding: 1.125rem 0.625rem;
+        text-align: center;
+        font-size: 0.8rem;
+        color: var(--text-tertiary);
+      }
+
+      /* 任务中心面板 */
+      .task-panel {
+        display: none;
+        position: fixed;
+        right: 1.5rem;
+        bottom: clamp(5rem, 14vh, 6.5rem);
+        width: min(24rem, 92vw);
+        border: 0.063rem solid color-mix(in srgb, var(--border-color) 80%, transparent);
+        border-radius: 1rem;
+        background: var(--bg-panel-solid);
+        box-shadow: var(--shadow-float);
+        z-index: 80;
+        overflow: hidden;
+        flex-direction: column;
+      }
+      .task-panel.is-open {
+        display: flex;
+      }
+      .task-panel__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.625rem;
+        padding: 0.75rem 1rem;
+        border-bottom: 0.063rem solid color-mix(in srgb, var(--border-color) 60%, transparent);
+      }
+      .task-panel__title {
+        font-size: 0.85rem;
+        font-weight: 900;
+      }
+      .task-panel__sub {
+        font-size: 0.65rem;
+        color: var(--text-tertiary);
+        margin-top: 0.125rem;
+      }
+      .task-panel__body {
+        max-height: 18rem;
+        overflow-y: auto;
+        padding: 0.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.375rem;
+      }
+      .task-item {
+        display: grid;
+        grid-template-columns: 1.75rem 1fr auto;
+        align-items: center;
+        gap: 0.625rem;
+        padding: 0.625rem 0.75rem;
+        border: 0.063rem solid var(--border-color);
+        border-radius: 0.75rem;
+        background: var(--bg-panel-muted);
+      }
+      .task-item__icon {
+        width: 1.75rem;
+        height: 1.75rem;
+        display: grid;
+        place-items: center;
+        border-radius: 0.5rem;
+        background: var(--bg-panel-solid);
+        color: var(--text-secondary);
+      }
+      .task-item__icon svg {
+        width: 0.875rem;
+        height: 0.875rem;
+      }
+      .task-item__name {
+        font-size: 0.8rem;
+        font-weight: 800;
+      }
+      .task-item__meta {
+        font-size: 0.65rem;
+        color: var(--text-tertiary);
+        margin-top: 0.125rem;
+      }
+      .task-item__progress {
+        height: 0.375rem;
+        border-radius: 999.008px;
+        background: var(--bg-panel-solid);
+        overflow: hidden;
+        margin-top: 0.375rem;
+        display: none;
+      }
+      .task-item__progress-bar {
+        height: 100%;
+        background: var(--accent);
+      }
+      .task-item--running .task-item__progress {
+        display: block;
+      }
+      .task-badge {
+        font-size: 0.6rem;
+        font-weight: 900;
+        padding: 0.25rem 0.5rem;
+        border-radius: 999.008px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .task-badge--running {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .task-badge--done {
+        background: color-mix(in srgb, var(--success) 14%, transparent);
+        color: var(--success);
+      }
+      .task-badge--failed {
+        background: color-mix(in srgb, var(--danger) 12%, transparent);
+        color: var(--danger);
+      }
+      .task-panel__empty {
+        padding: 1.75rem 0.875rem;
+        text-align: center;
+        font-size: 0.8rem;
+        color: var(--text-tertiary);
+      }
+      .task-panel__foot {
+        padding: 0.625rem 0.875rem;
+        border-top: 0.063rem solid color-mix(in srgb, var(--border-color) 60%, transparent);
+        font-size: 0.7rem;
+        color: var(--text-tertiary);
+      }
+
+      .task-center-btn {
+        width: 2.25rem;
+        height: 2.25rem;
+        display: grid;
+        place-items: center;
+        border: 0;
+        border-radius: 0.625rem;
+        background: var(--bg-panel-muted);
+        color: var(--text-secondary);
+        cursor: pointer;
+        position: relative;
+        transition:
+          background 160ms ease,
+          color 160ms ease;
+      }
+      .task-center-btn:hover {
+        background: var(--bg-active);
+        color: var(--text-primary);
+      }
+      .task-center-btn__dot {
+        position: absolute;
+        top: 0.375rem;
+        right: 0.375rem;
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+        background: var(--warning);
+        display: none;
+      }
+      .task-center-btn__dot.is-on {
+        display: block;
+      }
+
+      /* Toast */
+      .toast {
+        position: fixed;
+        bottom: 2.5rem;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        padding: 0.625rem 1rem;
+        border: 0.063rem solid color-mix(in srgb, var(--border-color) 80%, transparent);
+        border-radius: 0.625rem;
+        background: var(--bg-panel-solid);
+        box-shadow: var(--shadow-float);
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          opacity 200ms ease,
+          transform 200ms ease;
+        z-index: 200;
+      }
+      .toast.is-open {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+
+      .launchpad.is-game-dir-missing .app {
+        cursor: not-allowed;
+        opacity: 0.55;
+        pointer-events: none;
+      }
+
+      .status-monitor__project,
+      .status-stat {
+        cursor: pointer;
+        border: 0;
+        background: transparent;
+        padding: 0.125rem 0.25rem;
+        border-radius: 0.5rem;
+        transition: background 160ms ease;
+      }
+      .status-monitor__project:hover,
+      .status-stat:hover {
+        background: var(--bg-active);
+      }
+      .status-monitor__project {
+        padding: 0.125rem 0.375rem 0.125rem 0.25rem;
+      }
+
+      /* 响应式 */
+      @media (max-width: 720px) {
+        :root {
+          font-size: 14px;
+        }
+        .app-grid {
+          grid-template-columns: repeat(3, minmax(4.5rem, 5.5rem));
+          gap: 1rem;
+        }
+        .app__icon {
+          width: clamp(3.5rem, 16vw, 4.5rem);
+          height: clamp(3.5rem, 16vw, 4.5rem);
+        }
+        .app__icon svg {
+          width: clamp(1.25rem, 6vw, 1.75rem);
+          height: clamp(1.25rem, 6vw, 1.75rem);
+        }
+        .status-monitor {
+          padding: 0.5rem 0.75rem;
+        }
+        .status-monitor__stats {
+          display: none;
+        }
+        .dock {
+          padding: 0.5rem 0.75rem;
+        }
+        .dock__item {
+          height: 2.5rem;
+          padding: 0 0.75rem;
+        }
+        .maker-choice {
+          grid-template-columns: 1fr;
+        }
+        .dialog {
+          width: 96vw;
+          max-height: 88vh;
+        }
+      }
+
+      @media (min-width: 1600px) {
+        :root {
+          font-size: 20px;
+        }
+      }
+
+      @media (max-height: 700px) {
+        .search-wrap {
+          top: 3rem;
+        }
+        .stage {
+          gap: 1.5rem;
+          margin-top: 2rem;
+        }
+        .status-monitor {
+          bottom: 4.5rem;
+        }
+        .dock {
+          bottom: 0.75rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="launchpad" id="launchpad">
+      <!-- 演示用：首页状态切换。真实实现里这些是应用状态，非用户开关。 -->
+      <div class="state-switch" role="toolbar" aria-label="首页状态预览">
+        <span class="state-switch__label">预览</span>
+        <button class="state-switch__btn is-active" data-state="normal">正常</button>
+        <button class="state-switch__btn" data-state="no-current">无当前项目</button>
+        <button class="state-switch__btn" data-state="no-projects">无项目</button>
+        <button class="state-switch__btn" data-state="no-game-dir">游戏目录未配</button>
+        <button class="state-switch__btn" data-state="broken">项目损坏</button>
+      </div>
+
+      <div class="game-dir-banner" id="gameDirBanner">
+        <svg class="game-dir-banner__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+        <div class="game-dir-banner__body"><b>未配置游戏目录</b> — 模块浏览与项目导入需要先指定游戏安装路径。</div>
+        <a class="game-dir-banner__link" onclick="toast('跳转到 设置 → 游戏目录')">去设置</a>
+      </div>
+
+      <div class="search-wrap">
+        <label class="search">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+          <input type="search" placeholder="搜索模块、项目、命令..." />
+          <kbd>Ctrl K</kbd>
+        </label>
+        <div class="search-results" id="searchResults" role="listbox" aria-label="搜索结果"></div>
+      </div>
+
+      <main class="stage">
+        <section>
+          <h2 class="section__title">全局浏览</h2>
+          <div class="app-grid">
+            <article class="app">
+              <span class="app__icon app__icon--map"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /></svg
+              ></span>
+              <span class="app__label">地图浏览</span>
+              <span class="app__code">Map</span>
+            </article>
+            <article class="app">
+              <span class="app__icon app__icon--events"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="18" cy="5" r="3" />
+                  <path d="M6 9l6 6 3-3 5 5" />
+                  <path d="M21 21H3V3h9" /></svg
+              ></span>
+              <span class="app__label">事件浏览</span>
+              <span class="app__code">Events</span>
+            </article>
+            <article class="app">
+              <span class="app__icon app__icon--characters"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="8.5" cy="7" r="4" />
+                  <path d="M20 8v6m3-3h-6" /></svg
+              ></span>
+              <span class="app__label">角色浏览</span>
+              <span class="app__code">Chars</span>
+            </article>
+            <article class="app">
+              <span class="app__icon app__icon--buildings"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 22V12a3 3 0 0 0-3-3H6a3 3 0 0 0-3 3v10" />
+                  <path d="M18 22V5a2 2 0 0 0-2-2h-3" />
+                  <path d="M22 22V9a2 2 0 0 0-2-2h-2" /></svg
+              ></span>
+              <span class="app__label">建筑浏览</span>
+              <span class="app__code">Build</span>
+            </article>
+            <article class="app">
+              <span class="app__icon app__icon--items"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="m7.5 4.27 9 5.15" />
+                  <path
+                    d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"
+                  />
+                  <path d="m3.3 7 8.7 5 8.7-5" />
+                  <path d="M12 22V12" /></svg
+              ></span>
+              <span class="app__label">物品浏览</span>
+              <span class="app__code">Items</span>
+            </article>
+            <article class="app">
+              <span class="app__icon app__icon--i18n"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="m5 8 6 6" />
+                  <path d="m4 14 6-6 2-3" />
+                  <path d="M2 5h12" />
+                  <path d="M7 2h1" />
+                  <path d="m22 22-5-10-5 10" />
+                  <path d="M14 18h6" /></svg
+              ></span>
+              <span class="app__label">翻译浏览</span>
+              <span class="app__code">I18N</span>
+            </article>
+          </div>
+        </section>
+
+        <section>
+          <h2 class="section__title">项目工作台</h2>
+          <div class="app-grid app-grid--workbench">
+            <article class="app" onclick="document.getElementById('makerDialog').classList.add('is-open')">
+              <span class="app__icon"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg
+              ></span>
+              <span class="app__label">制作</span>
+              <span class="app__code">Make</span>
+            </article>
+            <article class="app" onclick="document.getElementById('projectDialog').classList.add('is-open')">
+              <span class="app__icon app__icon--projects"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" /></svg
+              ></span>
+              <span class="app__label">项目库</span>
+              <span class="app__code">Projects</span>
+            </article>
+            <article class="app">
+              <span class="app__icon app__icon--projects"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 5v14M5 12h14" /></svg
+              ></span>
+              <span class="app__label">新建项目</span>
+              <span class="app__code">New</span>
+            </article>
+            <article class="app">
+              <span class="app__icon app__icon--projects"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <path d="M17 8l-5-5-5 5" />
+                  <path d="M12 3v12" /></svg
+              ></span>
+              <span class="app__label">导入项目</span>
+              <span class="app__code">Import</span>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <aside class="status-monitor" id="statusMonitor">
+        <button
+          class="task-center-btn"
+          type="button"
+          aria-label="任务中心"
+          title="任务中心"
+          onclick="document.getElementById('taskPanel').classList.toggle('is-open')"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            <path d="M12 7v5l3 2" />
+          </svg>
+          <span class="task-center-btn__dot is-on" title="有进行中的任务"></span>
+        </button>
+        <button class="status-monitor__project" type="button" title="打开项目库并聚焦到当前项目" onclick="openProjectLibrary()">
+          <div class="status-monitor__cover">SV</div>
+          <div>
+            <div class="status-monitor__name">星露谷扩展包</div>
+            <div class="status-monitor__meta">当前项目 · 2 小时前编辑</div>
+          </div>
+        </button>
+        <div class="status-monitor__stats">
+          <button class="status-stat" type="button" title="跳转到导出队列" onclick="toast('跳转到 导出队列（当前项目 › 制作工作台）')">
+            <span class="status-stat__dot status-stat__dot--export"></span>待导出 2
+          </button>
+          <button class="status-stat" type="button" title="跳转到冲突检测结果" onclick="toast('跳转到 冲突检测结果（当前项目 › 校验）')">
+            <span class="status-stat__dot status-stat__dot--ok"></span>冲突 0
+          </button>
+        </div>
+        <button
+          class="status-monitor__back"
+          type="button"
+          aria-label="返回工作区"
+          title="返回上一个工作区视图"
+          onclick="toast('返回上一个工作区视图')"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+        </button>
+      </aside>
+    </div>
+
+    <!-- Maker Dialog -->
+    <div class="dialog-overlay" id="makerDialog">
+      <div class="dialog">
+        <div class="dialog__header">
+          <div>
+            <h2>选择制作工具</h2>
+            <p>先选择要进入的制作工具，再选择对应的项目。</p>
+          </div>
+          <button class="dialog__close" onclick="document.getElementById('makerDialog').classList.remove('is-open')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="dialog__body">
+          <div class="maker-choice">
+            <div class="maker-choice__item is-selected">
+              <span class="maker-choice__icon"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /></svg
+              ></span>
+              <span class="maker-choice__label">地图制作</span>
+            </div>
+            <div class="maker-choice__item">
+              <span class="maker-choice__icon"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="18" cy="5" r="3" />
+                  <path d="M6 9l6 6 3-3 5 5" />
+                  <path d="M21 21H3V3h9" /></svg
+              ></span>
+              <span class="maker-choice__label">事件制作</span>
+            </div>
+            <div class="maker-choice__item">
+              <span class="maker-choice__icon"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="m7.5 4.27 9 5.15" />
+                  <path
+                    d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"
+                  />
+                  <path d="m3.3 7 8.7 5 8.7-5" />
+                  <path d="M12 22V12" /></svg
+              ></span>
+              <span class="maker-choice__label">物品制作</span>
+            </div>
+          </div>
+
+          <div
+            class="maker-continue is-on"
+            id="makerContinue"
+            onclick="
+              this.classList.toggle('is-on')
+              updateMakerCta()
+            "
+          >
+            <span class="maker-continue__check">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5" /></svg>
+            </span>
+            <span>使用当前项目「星露谷扩展包」继续制作（取消勾选可改为选择其他项目）</span>
+          </div>
+
+          <div class="maker-step-project">
+            <h3
+              style="
+                margin: 0 0 0.625rem;
+                font-size: 0.75rem;
+                font-weight: 900;
+                color: var(--text-tertiary);
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+              "
+            >
+              选择项目
+            </h3>
+            <div class="project-list">
+              <article class="project-row is-selected">
+                <div class="project-cover">SV</div>
+                <div class="project-info">
+                  <div class="project-name">星露谷扩展包 <span class="pill pill--current">当前</span><span class="pill">待导出</span></div>
+                  <div class="project-meta">UniqueID Author.StardewExpansion · 编辑 2 小时前</div>
+                </div>
+              </article>
+              <article class="project-row">
+                <div class="project-cover" style="background: #7c3aed">FD</div>
+                <div class="project-info">
+                  <div class="project-name">Festival Dialogue</div>
+                  <div class="project-meta">UniqueID Author.FestivalDialogue · 编辑 3 天前</div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+        <div class="dialog__footer">
+          <button class="btn" onclick="document.getElementById('makerDialog').classList.remove('is-open')">取消</button>
+          <button class="btn btn--primary" id="makerCta">进入地图制作</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Project Library Dialog -->
+    <div class="dialog-overlay" id="projectDialog">
+      <div class="dialog">
+        <div class="dialog__header">
+          <div>
+            <h2>项目库</h2>
+            <p>管理所有 Content Patcher 项目。</p>
+          </div>
+          <button class="dialog__close" onclick="document.getElementById('projectDialog').classList.remove('is-open')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="dialog__body">
+          <div class="library-toolbar">
+            <label class="library-toolbar__search">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+              <input type="search" id="librarySearch" placeholder="按项目名或 UniqueID 过滤..." />
+            </label>
+            <span class="library-count" id="libraryCount">3 个项目</span>
+          </div>
+          <div class="project-list" id="projectList">
+            <article class="project-row">
+              <div class="project-cover">SV</div>
+              <div class="project-info">
+                <div class="project-name">星露谷扩展包 <span class="pill pill--current">当前</span><span class="pill">待导出</span></div>
+                <div class="project-meta">UniqueID Author.StardewExpansion · 编辑 2 小时前</div>
+              </div>
+              <button class="btn btn--primary project-open" style="height: 2rem; padding: 0 0.75rem">打开</button>
+            </article>
+            <article class="project-row">
+              <div class="project-cover" style="background: #7c3aed">FD</div>
+              <div class="project-info">
+                <div class="project-name">Festival Dialogue</div>
+                <div class="project-meta">UniqueID Author.FestivalDialogue · 编辑 3 天前</div>
+              </div>
+              <button class="btn project-open" style="height: 2rem; padding: 0 0.75rem">打开</button>
+            </article>
+            <article class="project-row is-broken">
+              <div class="project-cover" style="background: #9ca3af">??</div>
+              <div class="project-info">
+                <div class="project-name">Corrupted Mod Pack</div>
+                <div class="project-meta">manifest.json 解析失败 · 上次编辑 17 天前 · 已不可打开</div>
+              </div>
+              <span class="project-broken-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z" />
+                  <path d="M12 9v4M12 17h.01" />
+                </svg>
+                损坏
+              </span>
+            </article>
+          </div>
+          <div class="project-empty" id="projectEmpty">
+            <div class="project-empty__title">还没有项目</div>
+            <div class="project-empty__hint">新建一个 Content Patcher 项目开始制作，或从已存在的项目文件夹导入。</div>
+            <div class="project-empty__actions">
+              <button class="btn" onclick="toast('开始导入项目')">导入项目</button>
+              <button class="btn btn--primary" onclick="toast('开始新建项目')">新建项目</button>
+            </div>
+          </div>
+        </div>
+        <div class="dialog__footer">
+          <button class="btn">导入项目</button>
+          <button class="btn btn--primary">新建项目</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Task Center Panel -->
+    <div class="task-panel" id="taskPanel" role="dialog" aria-label="任务中心">
+      <div class="task-panel__head">
+        <div>
+          <div class="task-panel__title">任务中心</div>
+          <div class="task-panel__sub">导入 / 导出 / 扫描 / 校验 等后台任务</div>
+        </div>
+        <button class="dialog__close" onclick="document.getElementById('taskPanel').classList.remove('is-open')" aria-label="关闭">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="task-panel__body" id="taskPanelBody">
+        <div class="task-item task-item--running">
+          <span class="task-item__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <path d="M17 8l-5-5-5 5" />
+              <path d="M12 3v12" />
+            </svg>
+          </span>
+          <div>
+            <div class="task-item__name">导入项目 · Festival Dialogue</div>
+            <div class="task-item__meta">正在解压与校验依赖 · 2 分钟前启动</div>
+            <div class="task-item__progress"><div class="task-item__progress-bar" style="width: 64%"></div></div>
+          </div>
+          <span class="task-badge task-badge--running">进行中</span>
+        </div>
+        <div class="task-item">
+          <span class="task-item__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z" />
+            </svg>
+          </span>
+          <div>
+            <div class="task-item__name">导出 · 星露谷扩展包</div>
+            <div class="task-item__meta">2 个待导出条目 · 当前项目</div>
+          </div>
+          <span class="task-badge task-badge--running">待开始</span>
+        </div>
+        <div class="task-item">
+          <span class="task-item__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 4 20 20M4 20 20 4" />
+              <path d="M12 2v4M12 18v4" />
+            </svg>
+          </span>
+          <div>
+            <div class="task-item__name">冲突检测 · 星露谷扩展包</div>
+            <div class="task-item__meta">完成于 12:04 · 未发现冲突</div>
+          </div>
+          <span class="task-badge task-badge--done">完成</span>
+        </div>
+        <div class="task-item">
+          <span class="task-item__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />
+            </svg>
+          </span>
+          <div>
+            <div class="task-item__name">扫描游戏目录</div>
+            <div class="task-item__meta">失败 · 游戏目录未配置</div>
+          </div>
+          <span class="task-badge task-badge--failed">失败</span>
+        </div>
+      </div>
+      <div class="task-panel__foot">任务完成后自动从列表清理 · 仅保留最近完成与失败</div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      const toastEl = document.getElementById('toast')
+      let toastTimer = null
+      function toast(message) {
+        toastEl.textContent = message
+        toastEl.classList.add('is-open')
+        if (toastTimer !== null) window.clearTimeout(toastTimer)
+        toastTimer = window.setTimeout(() => toastEl.classList.remove('is-open'), 1800)
+      }
+
+      function openProjectLibrary() {
+        document.getElementById('projectDialog').classList.add('is-open')
+        const current = document.querySelector('#projectList .project-row:first-child')
+        if (current && typeof current.scrollIntoView === 'function') {
+          current.scrollIntoView({ block: 'nearest' })
+        }
+      }
+
+      ;(function () {
+        const libSearch = document.getElementById('librarySearch')
+        const count = document.getElementById('libraryCount')
+        if (!libSearch) return
+        libSearch.addEventListener('input', (e) => {
+          const q = e.target.value.trim().toLowerCase()
+          const rows = document.querySelectorAll('#projectList .project-row')
+          let visible = 0
+          rows.forEach((row) => {
+            const name = (row.querySelector('.project-name')?.textContent || '').toLowerCase()
+            const meta = (row.querySelector('.project-meta')?.textContent || '').toLowerCase()
+            const match = q === '' || name.includes(q) || meta.includes(q)
+            row.style.display = match ? '' : 'none'
+            if (match) visible += 1
+          })
+          count.textContent = q ? `命中 ${visible} / ${rows.length}` : `${rows.length} 个项目`
+        })
+      })()
+
+      function updateMakerCta() {
+        const cont = document.getElementById('makerContinue')
+        const cta = document.getElementById('makerCta')
+        const selected = document.querySelector('.maker-choice__item.is-selected .maker-choice__label')
+        const verb = cont.classList.contains('is-on') ? '继续' : '进入'
+        const what = selected ? selected.textContent : '制作'
+        cta.textContent = verb + what
+      }
+      ;(function () {
+        const choices = document.querySelectorAll('.maker-choice__item')
+        choices.forEach((item) => {
+          item.addEventListener('click', () => {
+            choices.forEach((c) => c.classList.remove('is-selected'))
+            item.classList.add('is-selected')
+            updateMakerCta()
+          })
+        })
+        updateMakerCta()
+      })()
+
+      const CATALOG_ROOT_MODULES = [
+        { code: 'map', title: '地图浏览', hint: '查看与编辑游戏地图资产' },
+        { code: 'events', title: '事件浏览', hint: '事件脚本与对话' },
+        { code: 'characters', title: '角色浏览', hint: 'NPC 数据与立绘' },
+        { code: 'buildings', title: '建筑浏览', hint: '建筑布局与外观' },
+        { code: 'items', title: '物品浏览', hint: '物品数据与图标' },
+        { code: 'mod-i18n', title: '翻译浏览', hint: '模组本地化文案' },
+      ]
+      const CATALOG_PROJECTS = [
+        { key: 'sv', title: '星露谷扩展包', meta: 'Author.StardewExpansion · 2 小时前', current: true },
+        { key: 'fd', title: 'Festival Dialogue', meta: 'Author.FestivalDialogue · 3 天前' },
+        { key: 'cmp', title: 'Corrupted Mod Pack', meta: 'manifest.json 解析失败 · 不可打开', broken: true },
+      ]
+      const CATALOG_COMMANDS = [
+        { id: 'new', title: '新建项目', hint: '创建一个 Content Patcher 项目' },
+        { id: 'import', title: '导入项目', hint: '从已有文件夹导入项目' },
+        { id: 'switch', title: '切换当前项目', hint: '在项目库里把另一个项目设为当前' },
+        { id: 'library', title: '打开项目库', hint: '管理全部项目' },
+        { id: 'tasks', title: '打开任务中心', hint: '查看导入/导出/扫描/校验等后台任务' },
+        { id: 'back', title: '返回工作区', hint: '回到上一个工作台视图' },
+      ]
+
+      const searchInput = document.querySelector('.search input')
+      const searchResults = document.getElementById('searchResults')
+      let activeIndex = -1
+      let flatItems = []
+
+      function highlight(text, query) {
+        if (!query) return text
+        const idx = text.toLowerCase().indexOf(query.toLowerCase())
+        if (idx === -1) return text
+        return (
+          text.slice(0, idx) +
+          '<mark style="background:rgba(99,102,241,.18);border-radius:3px">' +
+          text.slice(idx, idx + query.length) +
+          '</mark>' +
+          text.slice(idx + query.length)
+        )
+      }
+
+      function renderResults(query) {
+        const q = query.trim()
+        const ql = q.toLowerCase()
+        const rootHits = q
+          ? CATALOG_ROOT_MODULES.filter((m) => m.title.toLowerCase().includes(ql) || m.code.toLowerCase().includes(ql))
+          : []
+        const projectHits = q ? CATALOG_PROJECTS.filter((p) => p.title.toLowerCase().includes(ql)) : []
+        const commandHits = q ? CATALOG_COMMANDS.filter((c) => c.title.toLowerCase().includes(ql)) : CATALOG_COMMANDS
+
+        const groups = []
+        if (rootHits.length) groups.push({ kind: 'module', title: '模块', items: rootHits })
+        if (projectHits.length) groups.push({ kind: 'project', title: '项目', items: projectHits })
+        groups.push({ kind: 'command', title: '命令', items: commandHits })
+
+        if (q && !rootHits.length && !projectHits.length && !commandHits.length) {
+          searchResults.innerHTML = `<div class="search-results__empty">没有匹配 “${q}”。按 Esc 关闭。</div>`
+          flatItems = []
+          activeIndex = -1
+          return
+        }
+
+        flatItems = []
+        let html = ''
+        for (const g of groups) {
+          html += `<div class="search-results__group"><div class="search-results__group-title">${g.title}</div>`
+          g.items.forEach((it) => {
+            const name = it.title
+            const hint = it.hint || it.meta || ''
+            const mk = g.kind === 'module' ? 'Module' : g.kind === 'project' ? 'Project' : 'Command'
+            html += `<div class="search-results__item" data-kind="${g.kind}" data-id="${it.code || it.key || it.id}" role="option">
+              <span class="search-results__item-icon">${iconFor(g.kind, it.code)}</span>
+              <span class="search-results__item-body">
+                <div class="search-results__item-name">${highlight(name, q)}</div>
+                <div class="search-results__item-hint">${hint}</div>
+              </span>
+              <span class="search-results__item-kind">${mk}</span>
+            </div>`
+            flatItems.push({ kind: g.kind, id: it.code || it.key || it.id })
+          })
+          html += '</div>'
+        }
+        searchResults.innerHTML = html
+        activeIndex = flatItems.length ? 0 : -1
+        paintActive()
+
+        searchResults.querySelectorAll('.search-results__item').forEach((el, i) => {
+          el.addEventListener('click', () => executeResult(flatItems[i]))
+        })
+      }
+
+      function iconFor(kind, code) {
+        if (kind === 'module') {
+          const map = {
+            map: 'M3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21',
+            events: 'M18 5a3 3 0 1 0 0 .01',
+            characters: 'M8.5 7a4 4 0 1 0 0 .01',
+            buildings: 'M15 22V12a3 3 0 0 0-3-3H6a3 3 0 0 0-3 3v10',
+            items: 'M7.5 4.27 16.5 9.4',
+            'mod-i18n': 'M5 8 11 14',
+          }
+          return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="${map[code] || 'M5 5 19 19'}"/></svg>`
+        }
+        if (kind === 'project')
+          return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"/></svg>`
+        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17 14 7M9 6h3v3"/></svg>`
+      }
+
+      function paintActive() {
+        searchResults.querySelectorAll('.search-results__item').forEach((el, i) => {
+          el.classList.toggle('is-active', i === activeIndex)
+        })
+        const active = searchResults.querySelectorAll('.search-results__item')[activeIndex]
+        if (active && typeof active.scrollIntoView === 'function') active.scrollIntoView({ block: 'nearest' })
+      }
+
+      function executeResult(item) {
+        if (!item) return
+        if (item.kind === 'module') {
+          toast('进入 模块浏览：' + item.id)
+        } else if (item.kind === 'project') {
+          toast('打开 / 切换到项目：' + item.id)
+        } else {
+          const labels = {
+            new: '新建项目',
+            import: '导入项目',
+            switch: '切换当前项目',
+            library: '打开项目库',
+            tasks: '打开任务中心',
+            back: '返回工作区',
+          }
+          const action = labels[item.id] || item.id
+          if (item.id === 'library') {
+            openProjectLibrary()
+          } else if (item.id === 'back') {
+            toast('返回上一个工作区视图')
+          } else {
+            toast(action)
+          }
+        }
+        closeResults()
+      }
+
+      function closeResults() {
+        searchResults.classList.remove('is-open')
+        activeIndex = -1
+      }
+
+      searchInput.addEventListener('input', (e) => {
+        const q = e.target.value
+        if (q.trim() === '') {
+          closeResults()
+        } else {
+          searchResults.classList.add('is-open')
+          renderResults(q)
+        }
+      })
+      searchInput.addEventListener('focus', () => {
+        if (searchInput.value.trim() !== '') {
+          searchResults.classList.add('is-open')
+          renderResults(searchInput.value)
+        }
+      })
+      searchInput.addEventListener('keydown', (e) => {
+        const open = searchResults.classList.contains('is-open')
+        if (!open) return
+        if (e.key === 'ArrowDown') {
+          e.preventDefault()
+          if (flatItems.length) {
+            activeIndex = (activeIndex + 1) % flatItems.length
+            paintActive()
+          }
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault()
+          if (flatItems.length) {
+            activeIndex = (activeIndex - 1 + flatItems.length) % flatItems.length
+            paintActive()
+          }
+        } else if (e.key === 'Enter') {
+          e.preventDefault()
+          executeResult(flatItems[activeIndex])
+        } else if (e.key === 'Escape') {
+          e.preventDefault()
+          searchInput.value = ''
+          closeResults()
+          searchInput.blur()
+        }
+      })
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+          e.preventDefault()
+          searchInput.focus()
+          if (searchInput.value.trim() === '') {
+            searchResults.classList.add('is-open')
+            renderResults('')
+          }
+        }
+        if (e.key === 'Escape' && !searchResults.classList.contains('is-open')) {
+          ;[document.getElementById('makerDialog'), document.getElementById('projectDialog'), document.getElementById('taskPanel')].forEach(
+            (d) => d.classList.remove('is-open'),
+          )
+        }
+      })
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-wrap')) closeResults()
+      })
+
+      const stateBtns = document.querySelectorAll('.state-switch__btn')
+      const launchpad = document.getElementById('launchpad')
+      const statusMonitor = document.getElementById('statusMonitor')
+      const gameDirBanner = document.getElementById('gameDirBanner')
+      const projectList = document.getElementById('projectList')
+      const projectEmpty = document.getElementById('projectEmpty')
+
+      function applyState(state) {
+        launchpad.classList.remove('is-game-dir-missing')
+        gameDirBanner.classList.toggle('is-open', state === 'no-game-dir')
+        launchpad.classList.toggle('is-game-dir-missing', state === 'no-game-dir')
+
+        const showStatus = state === 'normal'
+        statusMonitor.style.display = showStatus ? '' : 'none'
+
+        if (state === 'no-projects') {
+          projectList.style.display = 'none'
+          projectEmpty.classList.add('is-open')
+        } else {
+          projectList.style.display = ''
+          projectEmpty.classList.remove('is-open')
+        }
+
+        const brokenRow = document.querySelector('#projectList .project-row.is-broken')
+        if (brokenRow) brokenRow.style.display = state === 'broken' ? '' : 'none'
+
+        if (state === 'no-current') {
+          document.querySelectorAll('#projectList .pill--current').forEach((p) => (p.style.display = 'none'))
+        } else {
+          document.querySelectorAll('#projectList .pill--current').forEach((p) => (p.style.display = ''))
+        }
+      }
+
+      stateBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          stateBtns.forEach((b) => b.classList.remove('is-active'))
+          btn.classList.add('is-active')
+          applyState(btn.dataset.state)
+        })
+      })
+      applyState('normal')
+    </script>
+  </body>
+</html>

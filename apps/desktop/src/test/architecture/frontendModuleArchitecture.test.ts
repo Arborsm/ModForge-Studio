@@ -149,7 +149,6 @@ const DEV_SOURCE_SEGMENT = /(?:^|\/)src\/dev\//
 const REMOVED_DESKTOP_FACADE_SPECIFIER = '@platform/' + 'desktop'
 const NON_DIALOG_PRIMITIVE_MODAL_ALLOWLIST = new Set([
   'src/features/launcher/ui/cards/LauncherModDetailPanel.tsx',
-  'src/pages/workbench/ui/WorkbenchLaunchpadNavigation.tsx',
   'src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventResourcePicker.tsx',
 ])
 // `fixed inset-0 z-[200|220]` was the workbench/cp-maker dialog backdrop pattern.
@@ -157,6 +156,8 @@ const HAND_ROLLED_DIALOG_BACKDROP = /fixed\s+inset-0\s+z-\[2\d\d\]/
 // `bg-black/40` and `bg-black/45` were the literal scrims; dialogs use --scrim now.
 const LITERAL_DIALOG_SCRIM = /bg-black\/4[05]\b/
 const MODAL_DIALOG_ARIA = /aria-modal=(?:"true"|\{'true'\}|\{true\})/
+const CREATE_PORTAL_USAGE = /\bcreatePortal\b/
+const WORKBENCH_HOME_SOURCE_SEGMENT = /\/workbench\/ui\/(?:WorkbenchHomePage|WorkbenchLaunchpad(?:Dock|Page|Navigation))\.tsx$/
 const SHARED_DIALOG_IMPORT = /from ['"]@shared\/ui\/Dialog['"]/
 const PLATFORM_IMPORT_ALLOWLIST = new Set([
   'src/features/cp-maker/api/cpMakerDesktopApi.ts',
@@ -184,6 +185,10 @@ function collectPrimitiveModalViolations(relativePath: string, source: string) {
     violations.push(
       `${relativePath} declares aria-modal="true" outside @shared/ui/Dialog; migrate the modal or add an explicit allowlist entry`,
     )
+  }
+
+  if (CREATE_PORTAL_USAGE.test(source) && WORKBENCH_HOME_SOURCE_SEGMENT.test(relativePath)) {
+    violations.push(`${relativePath} uses createPortal in the workbench home; render it as an in-flow routed page`)
   }
 
   return violations
@@ -372,6 +377,19 @@ describe('frontend module architecture', () => {
     expect(hostCommandClient).not.toContain('defaultHostCommandPolicy')
     expect(runtime).toContain('policy: HostCommandPolicy')
     expect(runtime).not.toContain('policy?: HostCommandPolicy')
+  })
+
+  it('keeps workbench home as the project library route instead of StudioDesk gallery routing', async () => {
+    const workbenchExperience = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchExperience.tsx'), 'utf8')
+    const workbenchViewHost = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchViewHost.tsx'), 'utf8')
+    const studioDesk = await readFile(sourcePath('src/features/cp-maker/ui/StudioDesk.tsx'), 'utf8')
+
+    expect(workbenchExperience).toContain("useState<'home' | 'workspace'>('home')")
+    expect(workbenchExperience).not.toContain('studioDeskGalleryOpen')
+    expect(workbenchExperience).not.toContain("'launchpad' | 'workspace'")
+    expect(workbenchViewHost).not.toContain('studioDeskGalleryOpen')
+    expect(studioDesk).not.toContain('StudioDeskProjectGallery')
+    expect(studioDesk).not.toContain('galleryOpen')
   })
 
   it('keeps launcher library drag measuring out of the always-on layout path', async () => {
