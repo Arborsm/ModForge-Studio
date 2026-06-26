@@ -1,15 +1,23 @@
 import {
   ArrowLeft,
+  ArrowRight,
   Beaker,
+  BookOpenCheck,
   Castle,
-  Check,
+  CheckCircle2,
   Clock3,
+  Download,
+  Edit3,
+  Eye,
   FolderOpen,
   GitMerge,
   Languages,
   Library,
+  Lock,
   Map,
   Package,
+  PenLine,
+  Play,
   Plus,
   Search,
   TriangleAlert,
@@ -17,12 +25,11 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { useEffect, useId, useRef, useState, type ComponentType, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ComponentType, type KeyboardEvent } from 'react'
 import { type WorkspaceMode } from '@locales/api'
 import { useEditorCopy, useLocale } from '@locales/provider'
-import { StudioDeskProjectGallery, type StudioDeskModel } from '@features/cp-maker'
+import { StudioDeskProjectGallery, type StudioDeskGalleryProject, type StudioDeskModel } from '@features/cp-maker'
 import { cx } from '@shared/lib/helper'
-import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import type { WorkbenchViewRegistration } from '@shared/contracts'
 import type { WorkspaceStatus } from '@entities/map'
 
@@ -46,8 +53,8 @@ type WorkbenchHomePageProps = {
   gameDirectoryStatus: WorkspaceStatus
   studioDeskModel: StudioDeskModel
   makerPending: MakerWorkspaceMode | null
+  projectLibraryFocusKey?: number
   taskSummary: WorkbenchHomeTaskSummary
-  dock?: ReactNode
   devViews?: readonly DevWorkbenchViewNavigationItem[]
   onBackToWorkspace: () => void
   onRootWorkspaceOpen: (mode: WorkspaceMode) => void
@@ -59,6 +66,7 @@ type WorkbenchHomePageProps = {
   onProjectCopy: (draftStorageKey: string) => void | Promise<void>
   onProjectDelete: (draftStorageKey: string) => void | Promise<void>
   onProjectPropertiesOpen: () => void
+  onExportProject: () => void
   onMakerPendingChange: (mode: MakerWorkspaceMode | null) => void
   onGameDirectoryAction: () => void
 }
@@ -67,6 +75,10 @@ type HomeApp = {
   id: string
   title: string
   code: string
+  hint: string
+  capability?: string
+  capabilityLabel?: string
+  capabilityTone?: 'view' | 'edit'
   icon: ComponentType<{ className?: string }>
   tone: string
   active?: boolean
@@ -105,6 +117,18 @@ function getCurrentProject(model: StudioDeskModel) {
   return model.gallery.projects.find((project) => project.isCurrent) ?? null
 }
 
+function getProjectInitials(project: StudioDeskGalleryProject | null) {
+  if (!project) return 'MS'
+  return (
+    project.title
+      .split(/\s+/)
+      .map((part) => part[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'MF'
+  )
+}
+
 function matchesSearch(locale: string, query: string, values: readonly string[]) {
   const normalizedQuery = query.trim().toLocaleLowerCase(locale)
   return !normalizedQuery || values.some((value) => value.toLocaleLowerCase(locale).includes(normalizedQuery))
@@ -118,8 +142,8 @@ export default function WorkbenchHomePage({
   gameDirectoryStatus,
   studioDeskModel,
   makerPending,
+  projectLibraryFocusKey = 0,
   taskSummary,
-  dock,
   devViews = [],
   onBackToWorkspace,
   onRootWorkspaceOpen,
@@ -131,6 +155,7 @@ export default function WorkbenchHomePage({
   onProjectCopy,
   onProjectDelete,
   onProjectPropertiesOpen,
+  onExportProject,
   onMakerPendingChange,
   onGameDirectoryAction,
 }: WorkbenchHomePageProps) {
@@ -138,30 +163,55 @@ export default function WorkbenchHomePage({
   const locale = useLocale()
   const navCopy = copy.workbenchNavigation
   const searchListId = useId()
-  const makerTitleId = useId()
-  const projectTitleId = useId()
   const taskTitleId = useId()
   const [query, setQuery] = useState('')
+  const [projectQuery, setProjectQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [activeSearchIndex, setActiveSearchIndex] = useState(0)
-  const [makerDialogOpen, setMakerDialogOpen] = useState(Boolean(makerPending))
-  const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [taskPanelOpen, setTaskPanelOpen] = useState(false)
-  const [selectedMakerMode, setSelectedMakerMode] = useState<MakerWorkspaceMode>(makerPending ?? 'map')
-  const [useCurrentProject, setUseCurrentProject] = useState(hasActiveProject)
-  const [devExpanded, setDevExpanded] = useState(false)
+  const [libraryFocused, setLibraryFocused] = useState(false)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const libraryRef = useRef<HTMLElement | null>(null)
   const currentProject = getCurrentProject(studioDeskModel)
-  const currentProjectInitials =
-    currentProject?.title
-      .split(/\s+/)
-      .map((part) => part[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase() || 'MF'
   const hasProjects = studioDeskModel.gallery.projects.length > 0
-  const selectedMakerLabel = getMakerLabel(navCopy, selectedMakerMode)
-  const makerPendingLabel = makerPending ? getMakerLabel(navCopy, makerPending) : selectedMakerLabel
+  const currentProjectInitials = getProjectInitials(currentProject)
+  const makerPendingLabel = makerPending ? getMakerLabel(navCopy, makerPending) : ''
+  const homeState = !gameDirectoryReady ? 'no-game-dir' : !hasProjects ? 'no-projects' : currentProject ? 'normal' : 'no-current'
+
+  function focusProjectLibrary() {
+    setLibraryFocused(true)
+    if (typeof libraryRef.current?.scrollIntoView === 'function') {
+      libraryRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    window.setTimeout(() => setLibraryFocused(false), 1600)
+  }
+
+  function requestProjectForMaker(mode: MakerWorkspaceMode) {
+    onMakerPendingChange(mode)
+    focusProjectLibrary()
+    if (!hasProjects) {
+      onProjectCreateOpen()
+    }
+  }
+
+  function openMaker(mode: MakerWorkspaceMode) {
+    if (hasActiveProject && currentProject) {
+      onMakerPendingChange(null)
+      onProjectWorkspaceOpen(mode)
+      return
+    }
+    requestProjectForMaker(mode)
+  }
+
+  useEffect(() => {
+    if (!makerPending) return
+    focusProjectLibrary()
+  }, [makerPending])
+
+  useEffect(() => {
+    if (projectLibraryFocusKey === 0) return
+    focusProjectLibrary()
+  }, [projectLibraryFocusKey])
 
   useEffect(() => {
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -176,22 +226,16 @@ export default function WorkbenchHomePage({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  useEffect(() => {
-    if (!makerPending) {
-      return
-    }
-    setSelectedMakerMode(makerPending)
-    setUseCurrentProject(Boolean(hasActiveProject && currentProject))
-    setMakerDialogOpen(true)
-    setProjectDialogOpen(true)
-  }, [currentProject, hasActiveProject, makerPending])
-
   const rootApps: HomeApp[] = ROOT_MODES.map((mode) => ({
     id: mode,
     title: navCopy.rootModeLabels[mode],
     code: navCopy.rootModeCodes[mode],
+    hint: navCopy.globalBrowseHint(mode),
+    capability: navCopy.globalBrowseCapability(mode),
+    capabilityLabel: navCopy.globalBrowseCapabilityLabel(mode),
+    capabilityTone: mode === 'mod-i18n' ? 'edit' : 'view',
     icon: ICON_BY_MODE[mode],
-    tone: mode,
+    tone: mode === 'mod-i18n' ? 'i18n' : mode,
     active: workspaceMode === mode && workspaceViewMode === 'preview',
     disabled: !gameDirectoryReady,
     onOpen: () => {
@@ -203,10 +247,21 @@ export default function WorkbenchHomePage({
       onRootWorkspaceOpen(mode)
     },
   }))
+  const makerApps: HomeApp[] = MAKER_MODES.map((mode) => ({
+    id: `maker:${mode}`,
+    title: getMakerLabel(navCopy, mode),
+    code: navCopy.makerModeCodes[mode],
+    hint: navCopy.makerModeHint(mode),
+    icon: ICON_BY_MODE[mode],
+    tone: mode,
+    active: workspaceMode === mode && workspaceViewMode === 'edit',
+    onOpen: () => openMaker(mode),
+  }))
   const devApps: HomeApp[] = devViews.map((view) => ({
     id: view.viewId,
     title: view.title,
     code: navCopy.devModeCode,
+    hint: navCopy.devToolsTitle,
     icon: Beaker,
     tone: 'dev',
     active: view.active,
@@ -216,49 +271,6 @@ export default function WorkbenchHomePage({
       onDevViewOpen?.(view.viewId)
     },
   }))
-  const visibleDevApps = devExpanded ? devApps : []
-  const makerApps: HomeApp[] = [
-    {
-      id: 'make',
-      title: navCopy.makeLauncher,
-      code: navCopy.makeLauncherCode,
-      icon: GitMerge,
-      tone: 'make',
-      active: workspaceViewMode === 'edit' && workspaceMode !== 'mods',
-      onOpen: () => {
-        setSelectedMakerMode(makerPending ?? 'map')
-        setUseCurrentProject(Boolean(hasActiveProject && currentProject))
-        setMakerDialogOpen(true)
-      },
-    },
-    {
-      id: 'projects',
-      title: navCopy.projectLibraryTitle,
-      code: navCopy.projectLibraryCode,
-      icon: FolderOpen,
-      tone: 'projects',
-      active: workspaceMode === 'mods' && workspaceViewMode === 'edit',
-      onOpen: () => setProjectDialogOpen(true),
-    },
-    {
-      id: 'new-project',
-      title: navCopy.newProjectAction,
-      code: navCopy.newProjectCode,
-      icon: Plus,
-      tone: 'projects',
-      onOpen: onProjectCreateOpen,
-    },
-    {
-      id: 'import-project',
-      title: navCopy.importProjectAction,
-      code: navCopy.importProjectCode,
-      icon: Upload,
-      tone: 'projects',
-      onOpen: onProjectImport,
-    },
-  ]
-  const visibleRootApps = rootApps.filter((app) => matchesSearch(locale, query, [app.title, app.code]))
-  const visibleMakerApps = makerApps.filter((app) => matchesSearch(locale, query, [app.title, app.code]))
   const commandResults: SearchResult[] = [
     {
       id: 'command:new',
@@ -282,7 +294,7 @@ export default function WorkbenchHomePage({
       title: navCopy.projectLibraryTitle,
       hint: navCopy.projectLibraryHint,
       icon: FolderOpen,
-      onSelect: () => setProjectDialogOpen(true),
+      onSelect: focusProjectLibrary,
     },
     {
       id: 'command:tasks',
@@ -303,12 +315,32 @@ export default function WorkbenchHomePage({
   ]
   const searchResults: SearchResult[] = [
     ...rootApps
-      .filter((app) => matchesSearch(locale, query, [app.title, app.code]))
+      .filter((app) => matchesSearch(locale, query, [app.title, app.code, app.hint]))
       .map((app) => ({
         id: `module:${app.id}`,
         kind: 'module' as const,
         title: app.title,
-        hint: app.disabled ? navCopy.gameDirectoryRequiredShort : app.code,
+        hint: app.disabled ? navCopy.gameDirectoryRequiredShort : app.hint,
+        icon: app.icon,
+        onSelect: app.onOpen,
+      })),
+    ...makerApps
+      .filter((app) => matchesSearch(locale, query, [app.title, app.code, app.hint]))
+      .map((app) => ({
+        id: `command:${app.id}`,
+        kind: 'command' as const,
+        title: app.title,
+        hint: app.hint,
+        icon: app.icon,
+        onSelect: app.onOpen,
+      })),
+    ...devApps
+      .filter((app) => matchesSearch(locale, query, [app.title, app.code, app.hint]))
+      .map((app) => ({
+        id: `dev:${app.id}`,
+        kind: 'module' as const,
+        title: app.title,
+        hint: app.hint,
         icon: app.icon,
         onSelect: app.onOpen,
       })),
@@ -320,12 +352,14 @@ export default function WorkbenchHomePage({
         title: project.title,
         hint: project.uniqueId || copy.studioDesk.metadataIncomplete,
         icon: FolderOpen,
-        onSelect: () => onProjectSelect(project.draftStorageKey),
+        onSelect: () => onProjectSelect(project.draftStorageKey, makerPending),
       })),
     ...commandResults.filter((item) => matchesSearch(locale, query, [item.title, item.hint])),
   ]
   const visibleSearchResults = query.trim() ? searchResults : commandResults
   const activeSearchResult = visibleSearchResults[activeSearchIndex] ?? visibleSearchResults[0] ?? null
+  const globalApps = [...rootApps, ...devApps]
+  const filteredGlobalApps = globalApps.filter((app) => matchesSearch(locale, query, [app.title, app.code, app.hint]))
 
   function closeSearch() {
     setSearchOpen(false)
@@ -339,9 +373,7 @@ export default function WorkbenchHomePage({
   }
 
   function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (!searchOpen) {
-      return
-    }
+    if (!searchOpen) return
     if (event.key === 'ArrowDown') {
       event.preventDefault()
       setActiveSearchIndex((index) => (visibleSearchResults.length ? (index + 1) % visibleSearchResults.length : 0))
@@ -367,256 +399,228 @@ export default function WorkbenchHomePage({
     }
   }
 
-  function selectMakerWithProject(draftStorageKey: string) {
-    void onProjectSelect(draftStorageKey, selectedMakerMode)
-    setMakerDialogOpen(false)
-    setProjectDialogOpen(false)
-    onMakerPendingChange(null)
-  }
-
-  function continueMaker() {
-    if (useCurrentProject && hasActiveProject) {
-      onMakerPendingChange(null)
-      onProjectWorkspaceOpen(selectedMakerMode)
-      setMakerDialogOpen(false)
-      return
-    }
-
-    onMakerPendingChange(selectedMakerMode)
-    if (!hasProjects) {
-      onProjectCreateOpen()
-      return
-    }
-    setProjectDialogOpen(true)
+  function selectProject(draftStorageKey: string) {
+    void onProjectSelect(draftStorageKey, makerPending)
   }
 
   return (
-    <section className={cx('workbench-home-page', !gameDirectoryReady && 'is-game-dir-missing')} aria-label={navCopy.title}>
-      {!gameDirectoryReady ? (
-        <div className="workbench-home-game-dir-banner" role="status">
-          <TriangleAlert className="h-5 w-5" aria-hidden="true" />
-          <div>
-            <strong>{navCopy.gameDirectoryMissingTitle}</strong>
-            <span>{navCopy.gameDirectoryMissingDescription}</span>
-          </div>
-          <button type="button" onClick={onGameDirectoryAction}>
-            {navCopy.gameDirectoryAction}
-          </button>
-        </div>
-      ) : null}
-
-      <div className="workbench-home-search-wrap">
-        <label className="workbench-home-search">
-          <Search className="workbench-home-search-icon" aria-hidden="true" />
-          <input
-            ref={searchInputRef}
-            type="search"
-            role="combobox"
-            aria-expanded={searchOpen}
-            aria-controls={searchListId}
-            aria-activedescendant={activeSearchResult ? `${searchListId}-${activeSearchResult.id}` : undefined}
-            value={query}
-            onFocus={() => setSearchOpen(true)}
-            onChange={(event) => {
-              setQuery(event.currentTarget.value)
-              setSearchOpen(true)
-              setActiveSearchIndex(0)
-            }}
-            onKeyDown={handleSearchKeyDown}
-            placeholder={navCopy.searchPlaceholder}
-          />
-          <kbd>{navCopy.searchShortcut}</kbd>
-        </label>
-        {searchOpen ? (
-          <div className="workbench-home-search-results" id={searchListId} role="listbox" aria-label={navCopy.searchResults}>
-            {visibleSearchResults.length ? (
-              <SearchResultGroup
-                items={visibleSearchResults}
-                activeIndex={activeSearchIndex}
-                listId={searchListId}
-                onSelect={runSearchResult}
-              />
-            ) : (
-              <div className="workbench-home-search-empty">{navCopy.searchEmpty(query.trim())}</div>
-            )}
-          </div>
-        ) : null}
-      </div>
-
-      <main className="workbench-home-stage">
-        <HomeAppSection title={navCopy.rootPages} apps={visibleRootApps} />
-        <HomeAppSection title={navCopy.projectChildren} apps={visibleMakerApps} compact />
-        {devApps.length > 0 && devExpanded ? (
-          <>
-            <HomeAppSection title={navCopy.devToolsTitle} apps={visibleDevApps} compact dev />
-            <button type="button" className="workbench-home-dev-toggle" onClick={() => setDevExpanded(false)}>
-              {navCopy.collapseDevTools}
-            </button>
-          </>
-        ) : null}
-        {devApps.length > 0 && !devExpanded ? (
-          <button type="button" className="workbench-home-dev-toggle" onClick={() => setDevExpanded(true)}>
-            {navCopy.devToolsTitle}
-          </button>
-        ) : null}
-      </main>
-
-      <aside className="workbench-home-status-monitor" aria-label={navCopy.statusMonitorTitle}>
-        <button
-          className="workbench-home-task-button"
-          type="button"
-          aria-label={navCopy.taskCenterTitle}
-          title={navCopy.taskCenterTitle}
-          onClick={() => setTaskPanelOpen((open) => !open)}
-        >
-          <Clock3 className="h-4 w-4" aria-hidden="true" />
-          {taskSummary.exportCount > 0 || taskSummary.conflictCount > 0 || gameDirectoryStatus.tone === 'working' ? (
-            <span className="workbench-home-task-dot" aria-hidden="true" />
-          ) : null}
-        </button>
-        <button
-          type="button"
-          className="workbench-home-current-project"
-          onClick={() => setProjectDialogOpen(true)}
-          disabled={!currentProject}
-        >
-          <span
-            className={cx('workbench-home-current-cover', currentProject && `studio-cover-${currentProject.coverTone}`)}
-            aria-hidden="true"
-          >
-            {currentProject ? currentProjectInitials : '--'}
-          </span>
-          <span>
-            <strong>{currentProject?.title ?? navCopy.noCurrentProject}</strong>
-            <em>
-              {currentProject
-                ? navCopy.currentProjectMeta(currentProject.uniqueId || copy.studioDesk.metadataIncomplete)
-                : navCopy.noCurrentProjectHint}
-            </em>
-          </span>
-        </button>
-        <div className="workbench-home-status-stats">
-          <button type="button" onClick={() => setTaskPanelOpen(true)}>
-            <span className="workbench-home-status-dot workbench-home-status-dot-export" aria-hidden="true" />
-            {navCopy.pendingExportCount(taskSummary.exportCount)}
-          </button>
-          <button type="button" onClick={() => setTaskPanelOpen(true)}>
-            <span className="workbench-home-status-dot workbench-home-status-dot-ok" aria-hidden="true" />
-            {navCopy.conflictCount(taskSummary.conflictCount)}
-          </button>
-        </div>
-        <button type="button" className="workbench-home-status-back" aria-label={navCopy.backToWorkspace} onClick={onBackToWorkspace}>
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        </button>
-      </aside>
-
-      {taskPanelOpen ? (
-        <section className="workbench-home-task-panel" role="dialog" aria-labelledby={taskTitleId}>
-          <header>
+    <section className="workbench-home-page" aria-label={navCopy.title} data-state={homeState}>
+      <div className="workbench-home-inner">
+        {!gameDirectoryReady ? (
+          <div className="workbench-home-game-dir-banner" role="status">
+            <span className="workbench-home-game-dir-icon" aria-hidden="true">
+              <TriangleAlert className="h-5 w-5" />
+            </span>
             <div>
-              <h2 id={taskTitleId}>{navCopy.taskCenterTitle}</h2>
-              <p>{navCopy.taskCenterSubtitle}</p>
+              <strong>{navCopy.gameDirectoryMissingTitle}</strong>
+              <span>{navCopy.gameDirectoryMissingDescription}</span>
             </div>
-            <button type="button" className="icon-button" aria-label={navCopy.closeTaskCenter} onClick={() => setTaskPanelOpen(false)}>
-              <X className="h-4 w-4" aria-hidden="true" />
+            <button type="button" onClick={onGameDirectoryAction}>
+              {navCopy.gameDirectoryAction}
             </button>
-          </header>
-          <div className="workbench-home-task-list">
-            <TaskSummaryRow
-              tone="export"
-              title={navCopy.pendingExportCount(taskSummary.exportCount)}
-              detail={navCopy.pendingExportDetail}
-            />
-            <TaskSummaryRow tone="ok" title={navCopy.conflictCount(taskSummary.conflictCount)} detail={navCopy.conflictDetail} />
-            <TaskSummaryRow
-              tone={gameDirectoryStatus.tone}
-              title={navCopy.gameDirectoryTaskTitle}
-              detail={gameDirectoryStatus.message || navCopy.gameDirectoryTaskIdle}
-            />
           </div>
-          <footer>{navCopy.taskCenterRealDataNote}</footer>
-        </section>
-      ) : null}
+        ) : null}
 
-      <Dialog open={makerDialogOpen} onClose={() => setMakerDialogOpen(false)} size="lg" labelledBy={makerTitleId}>
-        <DialogHeader
-          id={makerTitleId}
-          title={navCopy.makerDialogTitle}
-          subtitle={navCopy.makerDialogSubtitle}
-          closeLabel={navCopy.closeDialog}
-          onClose={() => setMakerDialogOpen(false)}
-        />
-        <DialogBody>
-          <div className="workbench-maker-choice" role="radiogroup" aria-label={navCopy.makerDialogTitle}>
-            {MAKER_MODES.map((mode) => {
-              const Icon = ICON_BY_MODE[mode]
-              const selected = selectedMakerMode === mode
-              return (
-                <button
-                  key={mode}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  className={cx('workbench-maker-choice-item', selected && 'is-selected')}
-                  onClick={() => setSelectedMakerMode(mode)}
-                >
-                  <span className="workbench-maker-choice-icon">
-                    <Icon className="h-5 w-5" aria-hidden="true" />
-                  </span>
-                  <span>{getMakerLabel(navCopy, mode)}</span>
-                </button>
-              )
-            })}
-          </div>
-
-          {hasActiveProject && currentProject ? (
-            <button
-              type="button"
-              className={cx('workbench-maker-continue', useCurrentProject && 'is-on')}
-              onClick={() => setUseCurrentProject((current) => !current)}
-            >
-              <span className="workbench-maker-continue-check" aria-hidden="true">
-                {useCurrentProject ? <Check className="h-3 w-3" /> : null}
-              </span>
-              <span>{navCopy.continueCurrentProject(currentProject.title)}</span>
-            </button>
-          ) : null}
-
-          {!useCurrentProject ? (
-            <div className="workbench-maker-project-step">
-              <h3>{navCopy.chooseProjectStep}</h3>
-              <StudioDeskProjectGallery
-                model={studioDeskModel}
-                pendingActionLabel={navCopy.useProjectFor(selectedMakerLabel)}
-                onCreateDraftRequest={onProjectCreateOpen}
-                onImportDraftRequest={onProjectImport}
-                onOpenDraft={selectMakerWithProject}
-                onCopyDraft={onProjectCopy}
-                onDeleteDraft={onProjectDelete}
-                onEditCurrentDraftProperties={onProjectPropertiesOpen}
+        <section className="workbench-home-hero" aria-label={navCopy.heroTitle}>
+          <div className="workbench-home-search-wrap">
+            <label className="workbench-home-search">
+              <Search className="workbench-home-search-icon" aria-hidden="true" />
+              <input
+                ref={searchInputRef}
+                type="search"
+                role="combobox"
+                aria-expanded={searchOpen}
+                aria-controls={searchListId}
+                aria-activedescendant={activeSearchResult ? `${searchListId}-${activeSearchResult.id}` : undefined}
+                value={query}
+                onFocus={() => setSearchOpen(true)}
+                onChange={(event) => {
+                  setQuery(event.currentTarget.value)
+                  setSearchOpen(true)
+                  setActiveSearchIndex(0)
+                }}
+                onKeyDown={handleSearchKeyDown}
+                placeholder={navCopy.searchPlaceholder}
               />
-            </div>
-          ) : null}
-        </DialogBody>
-        <DialogFooter>
-          <DialogAction onClick={() => setMakerDialogOpen(false)}>{navCopy.cancelMakerPending}</DialogAction>
-          <DialogAction tone="primary" onClick={continueMaker}>
-            {useCurrentProject ? navCopy.continueMakerCta(selectedMakerLabel) : navCopy.enterMakerCta(selectedMakerLabel)}
-          </DialogAction>
-        </DialogFooter>
-      </Dialog>
+              <kbd>{navCopy.searchShortcut}</kbd>
+            </label>
+            {searchOpen ? (
+              <div className="workbench-home-search-results" id={searchListId} role="listbox" aria-label={navCopy.searchResults}>
+                {visibleSearchResults.length ? (
+                  <SearchResultGroup
+                    items={visibleSearchResults}
+                    activeIndex={activeSearchIndex}
+                    listId={searchListId}
+                    onSelect={runSearchResult}
+                  />
+                ) : (
+                  <div className="workbench-home-search-empty">{navCopy.searchEmpty(query.trim())}</div>
+                )}
+              </div>
+            ) : null}
+          </div>
 
-      <Dialog open={projectDialogOpen} onClose={() => setProjectDialogOpen(false)} size="xl" labelledBy={projectTitleId}>
-        <DialogHeader
-          id={projectTitleId}
-          title={navCopy.projectLibraryTitle}
-          subtitle={navCopy.projectLibraryHint}
-          closeLabel={navCopy.closeDialog}
-          onClose={() => setProjectDialogOpen(false)}
-        />
-        <DialogBody>
+          <div className="workbench-home-hero-grid">
+            <article className={cx('workbench-home-current-card', !currentProject && 'is-empty')}>
+              <div className="workbench-home-current-top">
+                <span
+                  className={cx(
+                    'workbench-home-current-cover',
+                    currentProject ? `studio-cover-${currentProject.coverTone}` : 'studio-cover-festival',
+                  )}
+                  aria-hidden="true"
+                >
+                  {currentProjectInitials}
+                </span>
+                <div className="workbench-home-current-copy">
+                  <span className="workbench-home-current-label">
+                    {currentProject ? <span className="workbench-home-current-pulse" aria-hidden="true" /> : null}
+                    {currentProject ? navCopy.currentProjectLabel : navCopy.noCurrentProject}
+                  </span>
+                  <h2 className={!currentProject ? 'workbench-home-no-current-title' : undefined}>
+                    {currentProject?.title ?? navCopy.noCurrentProjectTitle}
+                  </h2>
+                  <p>
+                    {currentProject
+                      ? navCopy.currentProjectMeta(currentProject.uniqueId || copy.studioDesk.metadataIncomplete)
+                      : navCopy.noCurrentProjectHint}
+                  </p>
+                </div>
+                {currentProject ? (
+                  <button
+                    type="button"
+                    className="workbench-home-icon-button"
+                    aria-label={copy.studioDesk.editProjectProperties}
+                    onClick={onProjectPropertiesOpen}
+                  >
+                    <Edit3 className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="workbench-home-makerbar" aria-label={navCopy.projectChildren}>
+                {MAKER_MODES.map((mode) => {
+                  const Icon = ICON_BY_MODE[mode]
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      className="workbench-home-maker-button"
+                      aria-label={getMakerLabel(navCopy, mode)}
+                      onClick={() => openMaker(mode)}
+                    >
+                      <span className="workbench-home-maker-icon" data-tone={mode} aria-hidden="true">
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span>
+                        <strong>{getMakerLabel(navCopy, mode)}</strong>
+                        <em>{navCopy.makerModeHint(mode)}</em>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="workbench-home-current-actions">
+                {currentProject ? (
+                  <>
+                    <button type="button" className="control-button control-button-primary" onClick={() => onProjectWorkspaceOpen('map')}>
+                      <Play className="h-4 w-4" aria-hidden="true" />
+                      {navCopy.continueProjectAction}
+                    </button>
+                    <button type="button" className="control-button" onClick={onExportProject}>
+                      <Download className="h-4 w-4" aria-hidden="true" />
+                      {copy.studioDesk.publishPack}
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className="control-button control-button-primary" onClick={focusProjectLibrary}>
+                    <FolderOpen className="h-4 w-4" aria-hidden="true" />
+                    {navCopy.openProjectLibraryAction}
+                  </button>
+                )}
+              </div>
+            </article>
+
+            <div className="workbench-home-metrics" aria-label={navCopy.statusMonitorTitle}>
+              <button type="button" className="workbench-home-metric" data-tone="warning" onClick={() => setTaskPanelOpen(true)}>
+                <span className="workbench-home-metric-icon" aria-hidden="true">
+                  <Download className="h-4 w-4" />
+                </span>
+                <span>
+                  <strong>{taskSummary.exportCount}</strong>
+                  <em>{navCopy.pendingExportMetric}</em>
+                </span>
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <button type="button" className="workbench-home-metric" data-tone="success" onClick={() => setTaskPanelOpen(true)}>
+                <span className="workbench-home-metric-icon" aria-hidden="true">
+                  <CheckCircle2 className="h-4 w-4" />
+                </span>
+                <span>
+                  <strong>{taskSummary.conflictCount}</strong>
+                  <em>{navCopy.conflictMetric}</em>
+                </span>
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <button type="button" className="workbench-home-metric" data-tone={gameDirectoryStatus.tone} onClick={onGameDirectoryAction}>
+                <span className="workbench-home-metric-icon" aria-hidden="true">
+                  <BookOpenCheck className="h-4 w-4" />
+                </span>
+                <span>
+                  <strong>{navCopy.gameDirectoryTaskTitle}</strong>
+                  <em>{gameDirectoryStatus.message || navCopy.gameDirectoryTaskIdle}</em>
+                </span>
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section
+          ref={libraryRef}
+          className={cx('workbench-home-library', (libraryFocused || makerPending) && 'is-focus', makerPending && 'is-pending')}
+          aria-label={navCopy.projectLibraryTitle}
+        >
+          <header className="workbench-home-library-head">
+            <div className="workbench-home-library-title">
+              <FolderOpen className="h-4 w-4" aria-hidden="true" />
+              <h2>{navCopy.projectLibraryTitle}</h2>
+              <span>{copy.studioDesk.projectCount(studioDeskModel.gallery.counts.all)}</span>
+            </div>
+            <label className="workbench-home-library-search">
+              <Search className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="sr-only">{copy.studioDesk.searchProjects}</span>
+              <input
+                type="search"
+                aria-label={copy.studioDesk.searchProjects}
+                value={projectQuery}
+                onChange={(event) => setProjectQuery(event.currentTarget.value)}
+                placeholder={copy.studioDesk.searchProjects}
+              />
+            </label>
+            <div className="workbench-home-library-actions">
+              <button type="button" className="control-button workbench-home-small-button" onClick={onProjectImport}>
+                <Upload className="h-4 w-4" aria-hidden="true" />
+                {navCopy.importProjectAction}
+              </button>
+              <button
+                type="button"
+                className="control-button control-button-primary workbench-home-small-button"
+                onClick={onProjectCreateOpen}
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                {navCopy.newProjectAction}
+              </button>
+            </div>
+          </header>
           <StudioDeskProjectGallery
+            className="workbench-home-gallery"
             model={studioDeskModel}
+            query={projectQuery}
+            onQueryChange={setProjectQuery}
+            variant="cards"
+            toolbar={false}
             pendingActionLabel={makerPending ? navCopy.useProjectFor(makerPendingLabel) : null}
             pendingBanner={
               makerPending ? (
@@ -630,33 +634,67 @@ export default function WorkbenchHomePage({
             }
             onCreateDraftRequest={onProjectCreateOpen}
             onImportDraftRequest={onProjectImport}
-            onOpenDraft={(draftStorageKey) => {
-              void onProjectSelect(draftStorageKey, makerPending)
-              setProjectDialogOpen(false)
-            }}
+            onOpenDraft={selectProject}
             onCopyDraft={onProjectCopy}
             onDeleteDraft={onProjectDelete}
             onEditCurrentDraftProperties={onProjectPropertiesOpen}
           />
-        </DialogBody>
-        <DialogFooter>
-          <DialogAction onClick={onProjectImport}>{copy.studioDesk.importDraft}</DialogAction>
-          <DialogAction tone="primary" onClick={onProjectCreateOpen}>
-            {copy.studioDesk.createDraft}
-          </DialogAction>
-        </DialogFooter>
-      </Dialog>
+        </section>
 
-      {dock}
+        <HomeAppSection title={navCopy.rootPages} hint={navCopy.rootPagesHint} apps={filteredGlobalApps} />
+      </div>
+
+      <button type="button" className="workbench-home-back" aria-label={navCopy.backToWorkspace} onClick={onBackToWorkspace}>
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+      </button>
+
+      {taskPanelOpen ? (
+        <>
+          <button
+            type="button"
+            className="workbench-home-task-scrim"
+            aria-label={navCopy.closeTaskCenter}
+            onClick={() => setTaskPanelOpen(false)}
+          />
+          <section className="workbench-home-task-panel" role="dialog" aria-labelledby={taskTitleId}>
+            <header>
+              <div>
+                <h2 id={taskTitleId}>{navCopy.taskCenterTitle}</h2>
+                <p>{navCopy.taskCenterSubtitle}</p>
+              </div>
+              <button type="button" className="icon-button" aria-label={navCopy.closeTaskCenter} onClick={() => setTaskPanelOpen(false)}>
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </header>
+            <div className="workbench-home-task-list">
+              <TaskSummaryRow
+                tone="export"
+                title={navCopy.pendingExportCount(taskSummary.exportCount)}
+                detail={navCopy.pendingExportDetail}
+              />
+              <TaskSummaryRow tone="ok" title={navCopy.conflictCount(taskSummary.conflictCount)} detail={navCopy.conflictDetail} />
+              <TaskSummaryRow
+                tone={gameDirectoryStatus.tone}
+                title={navCopy.gameDirectoryTaskTitle}
+                detail={gameDirectoryStatus.message || navCopy.gameDirectoryTaskIdle}
+              />
+            </div>
+            <footer>{navCopy.taskCenterRealDataNote}</footer>
+          </section>
+        </>
+      ) : null}
     </section>
   )
 }
 
-function HomeAppSection({ title, apps, compact, dev }: { title: string; apps: HomeApp[]; compact?: boolean; dev?: boolean }) {
+function HomeAppSection({ title, hint, apps, compact }: { title: string; hint?: string; apps: HomeApp[]; compact?: boolean }) {
   return (
-    <section>
-      <h2 className="workbench-home-section-title">{title}</h2>
-      <div className={cx('workbench-home-app-grid', compact && 'workbench-home-app-grid-workbench', dev && 'workbench-home-app-grid-dev')}>
+    <section className="workbench-home-section">
+      <div className="workbench-home-section-head">
+        <h2>{title}</h2>
+        {hint ? <small>{hint}</small> : null}
+      </div>
+      <div className={cx('workbench-home-card-grid', compact && 'workbench-home-card-grid-compact')}>
         {apps.map((app) => (
           <HomeAppButton key={app.id} app={app} />
         ))}
@@ -671,16 +709,35 @@ function HomeAppButton({ app }: { app: HomeApp }) {
   return (
     <button
       type="button"
-      className={cx('workbench-home-app', app.active && 'is-active', app.disabled && 'is-disabled')}
+      className={cx('workbench-home-card', app.active && 'is-active', app.disabled && 'is-disabled')}
       aria-label={app.title}
-      aria-disabled={app.disabled || undefined}
       onClick={app.onOpen}
     >
-      <span className="workbench-home-app-icon" data-tone={app.tone} aria-hidden="true">
-        <Icon className="h-8 w-8" />
+      <span className="workbench-home-card-icon" data-tone={app.tone} aria-hidden="true">
+        <Icon className="h-5 w-5" />
       </span>
-      <span className="workbench-home-app-label">{app.title}</span>
-      <span className="workbench-home-app-code">{app.code}</span>
+      <span className="workbench-home-card-title">{app.title}</span>
+      <span className="workbench-home-card-hint">{app.hint}</span>
+      {app.capability ? (
+        <span
+          className={cx('workbench-home-card-cap', app.capabilityTone === 'edit' && 'workbench-home-card-cap-edit')}
+          aria-label={app.capabilityLabel}
+        >
+          {app.capabilityTone === 'edit' ? (
+            <PenLine className="h-3 w-3" aria-hidden="true" />
+          ) : (
+            <Eye className="h-3 w-3" aria-hidden="true" />
+          )}
+          {app.capability}
+        </span>
+      ) : (
+        <span className="workbench-home-card-code">{app.code}</span>
+      )}
+      {app.capability ? (
+        <span className="workbench-home-card-lock" aria-hidden="true">
+          <Lock className="h-3.5 w-3.5" />
+        </span>
+      ) : null}
     </button>
   )
 }

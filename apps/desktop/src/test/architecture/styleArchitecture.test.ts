@@ -78,10 +78,10 @@ describe('style architecture', () => {
     expect(violations).toEqual([])
   })
 
-  it('does not let export center metadata styles override the publish button label', async () => {
-    const source = await readFile(join(STYLES_DIR, 'features/cp-maker/studio-world-bible.css'), 'utf8')
+  it('does not import removed studio desk page styles from the workbench entry', async () => {
+    const source = await readFile(join(STYLES_DIR, 'workbench.css'), 'utf8')
 
-    expect(source).not.toMatch(/\.studio-export-center\s+span\s*\{/)
+    expect(source).not.toMatch(/studio-(?:desk|workspace|pulse|world-bible)\.css/)
   })
 
   it('keeps launcher grid card hover rings inside a padded paint area', async () => {

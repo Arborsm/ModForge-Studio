@@ -4,7 +4,7 @@ import type { PageRegistration, WorkbenchViewRegistration, WorkspacePanelRegistr
 
 describe('registry setup', () => {
   it('publishes the initial static workbench views and workspace panels', () => {
-    expect(appRegistry.workbenchViews.map((view) => view.viewId)).toEqual(['studio-desk', 'workspace-editor', 'dev-resource-browser'])
+    expect(appRegistry.workbenchViews.map((view) => view.viewId)).toEqual(['workspace-editor', 'dev-resource-browser'])
     expect(appRegistry.workspacePanels.map((panel) => panel.panelId)).toEqual([
       'assets',
       'viewport',
@@ -60,7 +60,7 @@ describe('registry setup', () => {
   })
 
   it('resolves the registered workbench view and workspace panel by id', () => {
-    expect(getWorkbenchViewRegistration('studio-desk')?.viewId).toBe('studio-desk')
+    expect(getWorkbenchViewRegistration('studio-desk')).toBeNull()
     expect(getWorkbenchViewRegistration('workspace-editor')?.viewId).toBe('workspace-editor')
     expect(getWorkbenchViewRegistration('missing-view')).toBeNull()
 

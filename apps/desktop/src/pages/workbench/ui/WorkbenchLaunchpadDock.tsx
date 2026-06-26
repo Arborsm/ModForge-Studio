@@ -30,7 +30,7 @@ type WorkbenchLaunchpadDockProps = {
   onToggleHome: () => void
   onRootWorkspaceOpen: (mode: WorkspaceMode) => void
   onProjectWorkspaceOpen: (mode: WorkspaceMode) => void
-  onOpenProjectPage: () => void
+  onOpenProjectLibrary: () => void
   onDevViewOpen?: (viewId: string) => void
 }
 
@@ -44,7 +44,7 @@ export default function WorkbenchLaunchpadDock({
   onToggleHome,
   onRootWorkspaceOpen,
   onProjectWorkspaceOpen,
-  onOpenProjectPage,
+  onOpenProjectLibrary,
   onDevViewOpen,
 }: WorkbenchLaunchpadDockProps) {
   const copy = useEditorCopy()
@@ -109,7 +109,7 @@ export default function WorkbenchLaunchpadDock({
               }
 
               if (page.mode === 'mods') {
-                onOpenProjectPage()
+                onOpenProjectLibrary()
                 return
               }
 

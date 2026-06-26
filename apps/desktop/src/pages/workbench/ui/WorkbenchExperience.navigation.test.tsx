@@ -296,7 +296,7 @@ describe('WorkbenchExperience launchpad navigation', () => {
     expect(home).toHaveAttribute('aria-current', 'page')
     expect(home).toHaveClass('workbench-dock-item-active')
     expect(within(dock).queryByRole('button', { name: 'Project Library' })).toBeNull()
-    expect(within(screen.getByRole('region', { name: 'Workbench Home' })).getByRole('button', { name: 'Project Library' })).toBeTruthy()
+    expect(within(screen.getByRole('region', { name: 'Workbench Home' })).getByRole('region', { name: 'Project Library' })).toBeTruthy()
   })
 
   it('opens root browse pages in preview mode from the launchpad', async () => {
@@ -304,7 +304,7 @@ describe('WorkbenchExperience launchpad navigation', () => {
     await configureGameDirectory()
 
     const dialog = screen.getByRole('region', { name: 'Workbench Home' })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Map Browser' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Maps' }))
 
     await waitFor(() => {
       expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
@@ -358,7 +358,7 @@ describe('WorkbenchExperience launchpad navigation', () => {
     await configureGameDirectory()
 
     const dialog = screen.getByRole('region', { name: 'Workbench Home' })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Translation Browser' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Translations' }))
 
     await waitFor(() => {
       expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
@@ -417,7 +417,7 @@ describe('WorkbenchExperience launchpad navigation', () => {
 
     await configureGameDirectory()
 
-    fireEvent.click(within(screen.getByRole('region', { name: 'Workbench Home' })).getByRole('button', { name: 'Translation Browser' }))
+    fireEvent.click(within(screen.getByRole('region', { name: 'Workbench Home' })).getByRole('button', { name: 'Translations' }))
 
     await waitFor(() => {
       expect(screen.getByText('Mods preview')).toBeTruthy()
@@ -476,7 +476,7 @@ describe('WorkbenchExperience launchpad navigation', () => {
 
     await configureGameDirectory()
 
-    fireEvent.click(within(screen.getByRole('region', { name: 'Workbench Home' })).getByRole('button', { name: 'Translation Browser' }))
+    fireEvent.click(within(screen.getByRole('region', { name: 'Workbench Home' })).getByRole('button', { name: 'Translations' }))
 
     await waitFor(() => {
       expect(screen.getByText('Mods preview')).toBeTruthy()
@@ -496,12 +496,12 @@ describe('WorkbenchExperience launchpad navigation', () => {
     renderExperience()
 
     const home = screen.getByRole('region', { name: 'Workbench Home' })
-    const make = within(home).getByRole('button', { name: 'Make' })
+    const make = within(home).getByRole('button', { name: 'Map Making' })
 
     expect(make).not.toBeDisabled()
     fireEvent.click(make)
-    fireEvent.click(screen.getByRole('button', { name: 'Enter Map Making' }))
 
+    expect(within(home).getByText('Choose a project for Map Making')).toBeTruthy()
     expect(screen.getByRole('dialog', { name: 'Create New Project' })).toBeTruthy()
   })
 
@@ -509,8 +509,7 @@ describe('WorkbenchExperience launchpad navigation', () => {
     useCpMakerState.activeDraft = draft('festival-dialogue')
     renderExperience()
 
-    fireEvent.click(within(screen.getByRole('region', { name: 'Workbench Home' })).getByRole('button', { name: 'Make' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Continue Map Making' }))
+    fireEvent.click(within(screen.getByRole('region', { name: 'Workbench Home' })).getByRole('button', { name: 'Map Making' }))
 
     await waitFor(() => {
       expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
@@ -523,7 +522,7 @@ describe('WorkbenchExperience launchpad navigation', () => {
     const home = screen.getByRole('region', { name: 'Workbench Home' })
 
     expect(within(home).queryByRole('button', { name: 'Project Page' })).toBeNull()
-    expect(within(home).getByRole('button', { name: 'Make' })).not.toBeDisabled()
+    expect(within(home).getByRole('button', { name: 'Map Making' })).not.toBeDisabled()
   })
 
   it('loads a selected project before entering pending making pages', async () => {
@@ -539,12 +538,33 @@ describe('WorkbenchExperience launchpad navigation', () => {
     renderExperience()
 
     const home = screen.getByRole('region', { name: 'Workbench Home' })
-    fireEvent.click(within(home).getByRole('button', { name: 'Make' }))
+    fireEvent.click(within(home).getByRole('button', { name: 'Map Making' }))
     fireEvent.click(screen.getByRole('button', { name: 'Use for Map Making' }))
 
     await waitFor(() => {
       expect(loadDraftSpy).toHaveBeenCalledWith('festival-dialogue')
     })
+  })
+
+  it('keeps the home page open when selecting a project without a pending maker intent', async () => {
+    useCpMakerState.drafts = [
+      {
+        draftStorageKey: 'festival-dialogue',
+        projectName: 'Festival Dialogue Pack',
+        projectUniqueId: 'Author.FestivalDialogue',
+        lastDraftSavedAt: null,
+        lastExportedAt: null,
+      },
+    ]
+    renderExperience()
+
+    const home = screen.getByRole('region', { name: 'Workbench Home' })
+    fireEvent.click(within(home).getByRole('button', { name: 'Open Project Festival Dialogue Pack' }))
+
+    await waitFor(() => {
+      expect(loadDraftSpy).toHaveBeenCalledWith('festival-dialogue')
+    })
+    expect(screen.getByRole('region', { name: 'Workbench Home' })).toBeTruthy()
   })
 
   it('does not reselect the same draft when patch edits replace the active draft object', async () => {
@@ -605,7 +625,7 @@ describe('WorkbenchExperience launchpad navigation', () => {
     renderExperience()
 
     const dialog = screen.getByRole('region', { name: 'Workbench Home' })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Map Browser' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Maps' }))
 
     expect(applyAppUiStatePatchSpy).not.toHaveBeenCalledWith({
       workspace: {
@@ -630,7 +650,6 @@ describe('WorkbenchExperience launchpad navigation', () => {
     await configureGameDirectory()
 
     const dialog = screen.getByRole('region', { name: 'Workbench Home' })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Developer Tools' }))
     fireEvent.click(within(dialog).getByRole('button', { name: '资源浏览器' }))
 
     await waitFor(() => {

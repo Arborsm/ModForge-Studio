@@ -551,8 +551,7 @@ vi.mock('@features/cp-maker', () => ({
     inspirations: [],
     projectStatus: 'idle',
   }),
-  getEditModeRoute: () => 'studio-desk',
-  StudioDesk: () => <div data-testid="studio-desk" />,
+  getEditModeRoute: () => 'workspace-editor',
   EditWorkspaceContent: () => <div data-testid="mock-edit-workspace-content" />,
   EditModeShell: () => <div data-testid="edit-mode-shell" />,
 }))
@@ -657,10 +656,16 @@ vi.mock('@pages/workbench', () => ({
     active: boolean
     locale: 'en-US' | 'zh-CN'
     debugEnabled: boolean
+    onHomeRouteActiveChange?: (active: boolean) => void
     onOpenSettings: (category?: 'appearance' | 'launcher' | 'interaction' | 'debug') => void
   }) {
     const copy = editorCopy[props.locale]
     const viewMenuCopy = getViewMenuCopy(props.locale)
+
+    useEffect(() => {
+      props.onHomeRouteActiveChange?.(props.active)
+      return () => props.onHomeRouteActiveChange?.(false)
+    }, [props.active, props.onHomeRouteActiveChange])
 
     useEffect(() => {
       if (!props.active || !mapWorkspaceState.resourcePreloadState.active) {
@@ -1343,7 +1348,7 @@ describe('App locale ownership', () => {
     })
   })
 
-  it('shows the debug overlay when debug mode is enabled from persisted shell state', () => {
+  it('keeps the debug overlay hidden on the workbench home when debug mode is enabled from persisted shell state', () => {
     seedAppUiState({
       shell: {
         appMode: 'workbench',
@@ -1354,7 +1359,8 @@ describe('App locale ownership', () => {
     render(<App />)
 
     return waitFor(() => {
-      expect(screen.getByTestId('app-debug-overlay')).toBeTruthy()
+      expect(screen.getByTestId('mock-workbench-experience')).toBeTruthy()
+      expect(screen.queryByTestId('app-debug-overlay')).toBeNull()
     })
   })
 
@@ -1387,7 +1393,7 @@ describe('App locale ownership', () => {
 
     await waitFor(() => {
       expect(mockAppUiState.shell.debugEnabled).toBe(true)
-      expect(screen.getByTestId('app-debug-overlay')).toBeTruthy()
+      expect(screen.queryByTestId('app-debug-overlay')).toBeNull()
     })
   })
 

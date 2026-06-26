@@ -12,14 +12,6 @@ export type WorkbenchOrchestrationDependencies = {
 export function createWorkbenchOrchestration({ dispatch }: WorkbenchOrchestrationDependencies): WorkbenchOrchestration {
   return {
     handleEvent(event) {
-      if (event.type === 'cp-maker/draft-selected') {
-        void dispatch({
-          type: 'navigation/open-workbench-view',
-          viewId: 'studio-desk',
-        })
-        return
-      }
-
       if (event.type === 'cp-maker/asset-selected') {
         void dispatch({
           type: 'workbench/open-asset',

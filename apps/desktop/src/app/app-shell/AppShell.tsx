@@ -118,6 +118,7 @@ export default function App() {
   const setDebugEnabled = usePreferencesStore((state) => state.setDebugEnabled)
   const [appMode, setAppMode] = useState<AppMode>(initialShellState.appMode)
   const [launcherPage, setLauncherPage] = useState<LauncherPage>(initialShellState.launcherPage)
+  const [workbenchHomeActive, setWorkbenchHomeActive] = useState(initialShellState.appMode === 'workbench')
   const [appUiStateReady, setAppUiStateReady] = useState(!canUseDesktopHost())
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
   const [settingsWindowCategory, setSettingsWindowCategory] = useState<SettingsWindowCategory>('appearance')
@@ -544,6 +545,7 @@ export default function App() {
                   onToggleMaximizeWindow={() => void handleToggleMaximizeWindow()}
                   onCloseWindow={confirmAndCloseCurrentWindow}
                   onWindowCloseRequestChange={handleWindowCloseRequestChange}
+                  onHomeRouteActiveChange={setWorkbenchHomeActive}
                   onWorkbenchEvent={eventBus.emit}
                   pendingWorkbenchIntent={pendingWorkbenchIntent}
                   onClearPendingIntent={() => appCommandHandler.clearPendingIntent()}
@@ -552,7 +554,7 @@ export default function App() {
               </Suspense>
             ) : null}
 
-            {debugEnabled ? (
+            {debugEnabled && !(appMode === 'workbench' && workbenchHomeActive) ? (
               <DevDebugOverlay
                 workspaceMode={appMode === 'launcher' ? 'launcher' : 'map'}
                 mapName={null}

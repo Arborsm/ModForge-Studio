@@ -63,14 +63,14 @@ describe('createAppCommandHandler', () => {
 
     handler.handleCommand({
       type: 'navigation/open-workbench-view',
-      viewId: 'studio-desk',
+      viewId: 'workspace-editor',
     })
 
     expect(onPendingIntent).toHaveBeenCalledTimes(1)
     const nextPending = handler.getCurrentPendingIntent()
     expect(nextPending?.command).toEqual({
       type: 'navigation/open-workbench-view',
-      viewId: 'studio-desk',
+      viewId: 'workspace-editor',
     })
   })
 
@@ -87,7 +87,7 @@ describe('createAppCommandHandler', () => {
 
     handler.handleCommand({
       type: 'navigation/open-workbench-view',
-      viewId: 'studio-desk',
+      viewId: 'workspace-editor',
     })
 
     expect(onPendingIntent).toHaveBeenCalledTimes(1)
@@ -117,7 +117,7 @@ describe('createAppCommandHandler', () => {
 
     handler.handleCommand({
       type: 'navigation/open-workbench-view',
-      viewId: 'studio-desk',
+      viewId: 'workspace-editor',
     })
     const id1 = onPendingIntent.mock.calls[0][0].id
 

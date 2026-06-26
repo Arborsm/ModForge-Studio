@@ -122,7 +122,7 @@ describe('resolveWorkbenchOpenAssetTarget', () => {
 })
 
 describe('useWorkbenchCommandIntent', () => {
-  it('consumes a navigation/open-workbench-view intent for studio-desk', async () => {
+  it('consumes a navigation/open-workbench-view intent for workspace editor', async () => {
     const setWorkspaceMode = vi.fn()
     const setWorkspaceViewMode = vi.fn()
     const navigateToPatch = vi.fn()
@@ -130,7 +130,7 @@ describe('useWorkbenchCommandIntent', () => {
 
     const intent: PendingWorkbenchCommandIntent = {
       id: 'intent-1',
-      command: { type: 'navigation/open-workbench-view', viewId: 'studio-desk' },
+      command: { type: 'navigation/open-workbench-view', viewId: 'workspace-editor' },
     }
 
     const { result } = renderHook(
@@ -152,7 +152,7 @@ describe('useWorkbenchCommandIntent', () => {
       expect(result.current.consumedIntentId).toBe('intent-1')
     })
 
-    expect(setWorkspaceMode).toHaveBeenCalledWith('mods')
+    expect(setWorkspaceMode).not.toHaveBeenCalled()
     expect(setWorkspaceViewMode).toHaveBeenCalledWith('edit')
     expect(navigateToPatch).toHaveBeenCalledWith(null)
     expect(clearPendingIntent).toHaveBeenCalled()
@@ -467,7 +467,7 @@ describe('useWorkbenchCommandIntent', () => {
 
     const intent: PendingWorkbenchCommandIntent = {
       id: 'intent-replay',
-      command: { type: 'navigation/open-workbench-view', viewId: 'studio-desk' },
+      command: { type: 'navigation/open-workbench-view', viewId: 'workspace-editor' },
     }
 
     const { result, rerender } = renderHook(
@@ -494,7 +494,7 @@ describe('useWorkbenchCommandIntent', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 10))
 
-    expect(setWorkspaceMode).toHaveBeenCalledTimes(1)
+    expect(setWorkspaceMode).not.toHaveBeenCalled()
     expect(setWorkspaceViewMode).toHaveBeenCalledTimes(1)
     expect(navigateToPatch).toHaveBeenCalledTimes(1)
     expect(clearPendingIntent).toHaveBeenCalledTimes(1)

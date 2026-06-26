@@ -17,7 +17,7 @@ export function useWorkbenchModeTransitions({
   setWorkspaceViewMode,
   resetNavigation,
 }: UseWorkbenchModeTransitionsOptions) {
-  const openStudioDeskRoute = useCallback(() => {
+  const openProjectEditRoute = useCallback(() => {
     setWorkspaceMode('mods')
     setWorkspaceViewMode('edit')
     resetNavigation()
@@ -26,28 +26,28 @@ export function useWorkbenchModeTransitions({
   const handleWorkspaceChange = useCallback(
     (mode: WorkspaceMode) => {
       if (mode === 'mods' && workspaceViewMode === 'edit') {
-        openStudioDeskRoute()
+        openProjectEditRoute()
         return
       }
 
       setWorkspaceMode(mode)
     },
-    [openStudioDeskRoute, setWorkspaceMode, workspaceViewMode],
+    [openProjectEditRoute, setWorkspaceMode, workspaceViewMode],
   )
 
   const handleWorkspaceViewModeChange = useCallback(
     (mode: WorkspaceViewMode) => {
       if (mode === 'edit') {
-        openStudioDeskRoute()
+        openProjectEditRoute()
       } else {
         setWorkspaceViewMode(mode)
       }
     },
-    [openStudioDeskRoute, setWorkspaceViewMode],
+    [openProjectEditRoute, setWorkspaceViewMode],
   )
 
   return {
-    openStudioDeskRoute,
+    openProjectEditRoute,
     handleWorkspaceChange,
     handleWorkspaceViewModeChange,
   }

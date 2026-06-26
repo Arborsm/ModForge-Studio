@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { EditWorkspaceContent, StudioDesk } from '@features/cp-maker'
+import { EditWorkspaceContent } from '@features/cp-maker'
 import type {
   AppRegistry,
   AppRegistryInput,
@@ -20,18 +20,10 @@ function eraseWorkbenchViewProps<TProps>(view: WorkbenchViewRegistration<TProps>
 
 const coreWorkbenchViews: WorkbenchViewRegistration<never>[] = [
   eraseWorkbenchViewProps({
-    id: 'studio-desk',
-    kind: 'workbench-view',
-    title: 'Studio Desk',
-    order: 10,
-    viewId: 'studio-desk',
-    component: StudioDesk,
-  }),
-  eraseWorkbenchViewProps({
     id: 'workspace-editor',
     kind: 'workbench-view',
     title: 'Workspace Editor',
-    order: 20,
+    order: 10,
     viewId: 'workspace-editor',
     component: EditWorkspaceContent,
   }),

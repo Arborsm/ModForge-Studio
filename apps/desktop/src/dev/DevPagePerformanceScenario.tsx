@@ -10,6 +10,7 @@ import type { LauncherLibraryState } from '@features/launcher/model/launcherCont
 import { LauncherPage } from '@pages/launcher/LauncherPage'
 import type { StudioDeskGalleryProject, StudioDeskInspiration, StudioDeskModel, StudioDeskWorldBibleModel } from '@features/cp-maker'
 import WorkbenchHomePage from '@pages/workbench/ui/WorkbenchHomePage'
+import type { MakerWorkspaceMode } from '@pages/workbench/ui/WorkbenchHomePage'
 import { EventPatchEditor } from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventPatchEditor'
 import ItemWorkspace from '@pages/workbench/workspaces/item/view/ItemWorkspace'
 import type { ItemTextureAssetState, ItemWorkspaceEntry } from '@pages/workbench/workspaces/item/entities/item'
@@ -941,8 +942,11 @@ function ScenarioFrame({ id, children }: { id: PageScenarioId; children: ReactNo
 }
 
 function WorkbenchHomeScenario() {
-  const state = new URLSearchParams(window.location.search).get('mfHomeState')
-  const model = createStudioDeskModel(state === 'empty' ? 0 : 48)
+  const params = new URLSearchParams(window.location.search)
+  const state = params.get('mfHomeState')
+  const projectCount = Number(params.get('mfHomeCount') ?? '3')
+  const [makerPending, setMakerPending] = useState<MakerWorkspaceMode | null>(null)
+  const model = createStudioDeskModel(state === 'empty' ? 0 : Math.max(1, projectCount))
   const hasActiveProject = state !== 'no-current' && state !== 'empty'
   const gameDirectoryReady = state !== 'no-game-dir'
   const gameDirectoryStatus = gameDirectoryReady
@@ -968,24 +972,24 @@ function WorkbenchHomeScenario() {
         gameDirectoryReady={gameDirectoryReady}
         gameDirectoryStatus={gameDirectoryStatus}
         studioDeskModel={effectiveModel}
-        makerPending={null}
+        makerPending={makerPending}
         taskSummary={{
           exportCount: effectiveModel.gallery.projects.filter((project) => project.statuses.includes('export')).length,
           conflictCount: effectiveModel.stats.conflictCount,
           directoryStatus: gameDirectoryStatus,
         }}
-        dock={null}
         devViews={[]}
         onBackToWorkspace={noop}
         onRootWorkspaceOpen={noop}
         onProjectWorkspaceOpen={noop}
         onProjectCreateOpen={noop}
         onProjectImport={asyncNoop}
-        onProjectSelect={asyncNoop}
+        onProjectSelect={() => setMakerPending(null)}
         onProjectCopy={asyncNoop}
         onProjectDelete={asyncNoop}
         onProjectPropertiesOpen={noop}
-        onMakerPendingChange={noop}
+        onExportProject={noop}
+        onMakerPendingChange={setMakerPending}
         onGameDirectoryAction={noop}
       />
     </ScenarioFrame>

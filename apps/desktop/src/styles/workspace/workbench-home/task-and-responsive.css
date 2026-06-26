@@ -1,0 +1,216 @@
+@layer components {
+  .workbench-home-back {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 8;
+    width: 36px;
+    height: 36px;
+    box-shadow: var(--shadow-panel);
+  }
+
+  .workbench-home-task-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    border: 0;
+    background: var(--scrim);
+  }
+
+  .workbench-home-task-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 75;
+    width: min(416px, 92vw);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-left: 1px solid var(--border-color);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-float);
+  }
+
+  .workbench-home-task-panel header,
+  .workbench-home-task-panel footer {
+    padding: 14px 18px;
+  }
+
+  .workbench-home-task-panel header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .workbench-home-task-panel h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 900;
+  }
+
+  .workbench-home-task-panel p,
+  .workbench-home-task-panel footer {
+    margin: 2px 0 0;
+    color: var(--text-tertiary);
+    font-size: 11px;
+  }
+
+  .workbench-home-task-list {
+    flex: 1;
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    overflow-y: auto;
+    padding: 12px;
+  }
+
+  .workbench-home-task-row {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--bg-panel-muted);
+    padding: 10px 12px;
+  }
+
+  .workbench-home-task-row-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: var(--bg-panel);
+  }
+
+  .workbench-home-task-row[data-tone='export'] .workbench-home-task-row-icon,
+  .workbench-home-task-row[data-tone='working'] .workbench-home-task-row-icon {
+    background: var(--warning-soft);
+  }
+
+  .workbench-home-task-row[data-tone='ok'] .workbench-home-task-row-icon,
+  .workbench-home-task-row[data-tone='ready'] .workbench-home-task-row-icon {
+    background: var(--success-soft);
+  }
+
+  .workbench-home-task-row[data-tone='error'] .workbench-home-task-row-icon {
+    background: var(--danger-soft);
+  }
+
+  .workbench-home-task-row div {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  .workbench-home-task-row strong,
+  .workbench-home-task-row span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .workbench-home-task-row strong {
+    font-size: 12px;
+    font-weight: 850;
+  }
+
+  .workbench-home-task-row span {
+    color: var(--text-tertiary);
+    font-size: 11px;
+  }
+
+  @media (max-width: 900px) {
+    .workbench-home-inner {
+      width: min(100vw - 28px, 720px);
+    }
+
+    .workbench-home-hero-grid,
+    .workbench-home-card-grid-compact {
+      grid-template-columns: 1fr;
+    }
+
+    .workbench-home-metrics {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .workbench-home-metric {
+      grid-template-columns: 30px minmax(0, 1fr);
+    }
+
+    .workbench-home-metric > svg {
+      display: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .workbench-home-inner {
+      width: calc(100vw - 24px);
+      padding-top: 18px;
+    }
+
+    .workbench-home-current-top,
+    .workbench-home-library-head,
+    .workbench-home-game-dir-banner {
+      align-items: flex-start;
+    }
+
+    .workbench-home-game-dir-banner,
+    .workbench-home-library-head {
+      flex-direction: column;
+    }
+
+    .workbench-home-game-dir-banner button,
+    .workbench-home-library-search,
+    .workbench-home-library-actions {
+      margin-left: 0;
+      width: 100%;
+    }
+
+    .workbench-home-library-actions,
+    .workbench-home-current-actions,
+    .workbench-home-makerbar,
+    .workbench-home-metrics {
+      grid-template-columns: 1fr;
+      flex-direction: column;
+    }
+
+    .workbench-home-library-actions .control-button,
+    .workbench-home-current-actions .control-button {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .workbench-home-gallery .studio-project-gallery-list {
+      padding: 14px;
+    }
+
+    .workbench-home-gallery .studio-project-gallery-row-card {
+      min-height: 118px;
+      padding: 12px;
+    }
+
+    .workbench-home-gallery .studio-project-gallery-card-foot {
+      flex-wrap: wrap;
+    }
+
+    .workbench-home-gallery .studio-project-gallery-card-time {
+      flex-basis: 100%;
+      margin-left: 0;
+    }
+
+    .workbench-home-back {
+      right: 14px;
+      bottom: 14px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .workbench-home-page *,
+    .workbench-quick-dock * {
+      transition: none !important;
+    }
+  }
+}

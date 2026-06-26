@@ -135,4 +135,12 @@ describe('StudioDeskProjectGallery', () => {
 
     expect(onCopyDraft).toHaveBeenCalledWith('festival-dialogue')
   })
+
+  it('opens the context menu from the MoreVertical button in card variant', () => {
+    renderGallery({ variant: 'cards', toolbar: false })
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for Festival Dialogue' }))
+
+    expect(screen.getByRole('menu')).toBeTruthy()
+  })
 })

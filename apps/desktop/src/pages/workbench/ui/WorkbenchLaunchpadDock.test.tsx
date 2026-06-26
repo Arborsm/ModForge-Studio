@@ -14,7 +14,7 @@ function renderDock(overrides: Partial<Parameters<typeof WorkbenchLaunchpadDock>
     onToggleHome: vi.fn(),
     onRootWorkspaceOpen: vi.fn(),
     onProjectWorkspaceOpen: vi.fn(),
-    onOpenProjectPage: vi.fn(),
+    onOpenProjectLibrary: vi.fn(),
     onDevViewOpen: vi.fn(),
     ...overrides,
   }

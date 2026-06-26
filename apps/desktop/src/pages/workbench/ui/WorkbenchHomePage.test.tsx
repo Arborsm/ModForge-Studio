@@ -83,6 +83,7 @@ function renderHome(overrides: Partial<Parameters<typeof WorkbenchHomePage>[0]> 
     onProjectCopy: vi.fn(),
     onProjectDelete: vi.fn(),
     onProjectPropertiesOpen: vi.fn(),
+    onExportProject: vi.fn(),
     onMakerPendingChange: vi.fn(),
     onGameDirectoryAction: vi.fn(),
     ...overrides,
@@ -114,14 +115,14 @@ describe('WorkbenchHomePage', () => {
 
     expect(screen.getByText('Game directory not configured')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Map Browser' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Maps' }))
     expect(onGameDirectoryAction).toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: 'New Project' }))
     expect(onProjectCreateOpen).toHaveBeenCalled()
   })
 
-  it('opens the maker dialog and continues with the current project', () => {
+  it('opens project making directly when a project is active', () => {
     const onProjectWorkspaceOpen = vi.fn()
     renderHome({
       hasActiveProject: true,
@@ -148,21 +149,31 @@ describe('WorkbenchHomePage', () => {
       onProjectWorkspaceOpen,
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Make' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Continue Map Making' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Map Making' }))
 
     expect(onProjectWorkspaceOpen).toHaveBeenCalledWith('map')
   })
 
-  it('opens the project library dialog and selects a project', () => {
+  it('focuses the in-flow project library for pending maker selection', () => {
+    const onMakerPendingChange = vi.fn()
+    renderHome({ onMakerPendingChange })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Map Making' }))
+
+    expect(onMakerPendingChange).toHaveBeenCalledWith('map')
+    expect(screen.getByRole('region', { name: 'Project Library' }).className).toContain('is-focus')
+    expect(screen.queryByRole('dialog', { name: 'Project Library' })).toBeNull()
+  })
+
+  it('selects a project from the in-flow library with the pending maker mode', () => {
     const onProjectSelect = vi.fn()
-    renderHome({ onProjectSelect })
+    renderHome({ makerPending: 'map', onProjectSelect })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Project Library' }))
-    const dialog = screen.getByRole('dialog', { name: 'Project Library' })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Open Project Festival Dialogue Pack' }))
+    const library = screen.getByRole('region', { name: 'Project Library' })
+    expect(within(library).getByText('Choose a project for Map Making')).toBeTruthy()
+    fireEvent.click(within(library).getByRole('button', { name: 'Open Project Festival Dialogue Pack' }))
 
-    expect(onProjectSelect).toHaveBeenCalledWith('festival-dialogue', null)
+    expect(onProjectSelect).toHaveBeenCalledWith('festival-dialogue', 'map')
   })
 
   it('runs command search results from the keyboard', () => {

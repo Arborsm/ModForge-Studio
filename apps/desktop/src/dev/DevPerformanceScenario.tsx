@@ -7,8 +7,6 @@ import type { LauncherDiscoverDetail, LauncherLibraryItem } from '@features/laun
 import { LauncherModDetailPanel } from '@features/launcher/ui/cards/LauncherModDetailPanel'
 import { PatchQuickMenu } from '@features/cp-maker/ui/PatchQuickMenu'
 import { StudioDeskProjectGallery } from '@features/cp-maker/ui/StudioDeskProjectGallery'
-import { StudioDeskStoryboard } from '@features/cp-maker/ui/StudioDeskStoryboard'
-import { StudioDeskWorldBible } from '@features/cp-maker/ui/StudioDeskWorldBible'
 import { ModI18nWorkspace } from '@pages/workbench/workspaces/mod-i18n'
 import { EventConditionBuilderModal } from '@entities/event/ui/EventConditionBuilderModal'
 import { EventGameStateQueryBuilderModal } from '@entities/event/ui/EventGameStateQueryBuilderModal'
@@ -38,8 +36,6 @@ const launcherPort = {
 
 type ScenarioId =
   | 'cp-maker-patch-menu'
-  | 'cp-maker-world-bible'
-  | 'cp-maker-storyboard'
   | 'cp-maker-project-gallery'
   | 'mod-i18n'
   | 'event-condition-builder'
@@ -48,8 +44,6 @@ type ScenarioId =
 
 const scenarioIds: ScenarioId[] = [
   'cp-maker-patch-menu',
-  'cp-maker-world-bible',
-  'cp-maker-storyboard',
   'cp-maker-project-gallery',
   'mod-i18n',
   'event-condition-builder',
@@ -351,36 +345,6 @@ function PatchMenuScenario() {
   )
 }
 
-function WorldBibleScenario() {
-  return (
-    <ScenarioFrame id="cp-maker-world-bible">
-      <StudioDeskWorldBible
-        id="perf-world-bible"
-        bible={createWorldBible(260)}
-        exportSummary={{ lastExportedAt: Date.now() - 60_000, fileList: range(72).map((index) => `file-${index}.json`) }}
-        isLoading={false}
-        onCloseDrawer={noop}
-        onExportPack={noop}
-      />
-    </ScenarioFrame>
-  )
-}
-
-function StoryboardScenario() {
-  return (
-    <ScenarioFrame id="cp-maker-storyboard">
-      <StudioDeskStoryboard
-        inspirations={createInspirations(520)}
-        hasActiveDraft
-        onCreateDraft={noop}
-        onCreatePatch={noop}
-        onOpenPatch={noop}
-        onPreviewFocusChange={noop}
-      />
-    </ScenarioFrame>
-  )
-}
-
 function ProjectGalleryScenario() {
   return (
     <ScenarioFrame id="cp-maker-project-gallery">
@@ -475,8 +439,6 @@ function LauncherDetailScenario() {
 
 function scenarioFor(id: ScenarioId) {
   if (id === 'cp-maker-patch-menu') return <PatchMenuScenario />
-  if (id === 'cp-maker-world-bible') return <WorldBibleScenario />
-  if (id === 'cp-maker-storyboard') return <StoryboardScenario />
   if (id === 'cp-maker-project-gallery') return <ProjectGalleryScenario />
   if (id === 'mod-i18n') return <ModI18nScenario />
   if (id === 'event-condition-builder') return <EventConditionScenario />

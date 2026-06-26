@@ -86,6 +86,7 @@ type WorkbenchExperienceProps = {
   onToggleMaximizeWindow: () => void
   onCloseWindow: () => boolean | Promise<boolean>
   onWindowCloseRequestChange?: (handler: (() => boolean | Promise<boolean>) | null) => void
+  onHomeRouteActiveChange?: (active: boolean) => void
   onWorkbenchEvent: (event: AppEvent) => void
   getWorkbenchViewRegistration: (viewId: string) => WorkbenchViewRegistration | null
   workbenchViews?: readonly WorkbenchViewRegistration[]
@@ -108,6 +109,7 @@ export default function WorkbenchExperience({
   onToggleMaximizeWindow,
   onCloseWindow,
   onWindowCloseRequestChange,
+  onHomeRouteActiveChange,
   onWorkbenchEvent,
   getWorkbenchViewRegistration,
   workbenchViews = [],
@@ -135,6 +137,7 @@ export default function WorkbenchExperience({
     resetNavigation,
   })
   const [makerPending, setMakerPending] = useState<MakerWorkspaceMode | null>(null)
+  const [projectLibraryFocusKey, setProjectLibraryFocusKey] = useState(0)
   const [createDraftDialogOpen, setCreateDraftDialogOpen] = useState(false)
   const [projectPropertiesDialogOpen, setProjectPropertiesDialogOpen] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
@@ -177,6 +180,11 @@ export default function WorkbenchExperience({
     copy,
   })
   const workbenchHomeActive = workbenchRoute === 'home'
+
+  useEffect(() => {
+    onHomeRouteActiveChange?.(active && workbenchHomeActive)
+    return () => onHomeRouteActiveChange?.(false)
+  }, [active, onHomeRouteActiveChange, workbenchHomeActive])
   const setWorkbenchRouteToWorkspace = useCallback(() => setWorkbenchRoute('workspace'), [])
 
   useEffect(() => {
@@ -699,17 +707,10 @@ export default function WorkbenchExperience({
     [rememberRecentPage, resetNavigation, runWithModUnsavedGuard, setWorkbenchRouteToWorkspace],
   )
 
-  const handleOpenProjectPage = useCallback(() => {
-    void runWithModUnsavedGuard(() => {
-      void runWithCpMakerUnsavedGuard(() => {
-        setRegisteredWorkbenchViewId(null)
-        setWorkspaceMode('mods')
-        setWorkspaceViewMode('edit')
-        resetNavigation()
-        setWorkbenchRouteToWorkspace()
-      })
-    })
-  }, [resetNavigation, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard, setWorkbenchRouteToWorkspace])
+  const handleOpenProjectLibrary = useCallback(() => {
+    setWorkbenchRoute('home')
+    setProjectLibraryFocusKey((key) => key + 1)
+  }, [])
 
   const handleOpenProjectCreate = useCallback(() => {
     setCreateDraftDialogOpen(true)
@@ -773,12 +774,25 @@ export default function WorkbenchExperience({
             type: 'cp-maker/draft-selected',
             draftKey: draftStorageKey,
           })
-          openLoadedDraftWorkspace(pendingMode ?? 'mods')
+          if (pendingMode) {
+            openLoadedDraftWorkspace(pendingMode)
+          } else {
+            resetNavigation()
+            setWorkbenchRoute('home')
+          }
           setMakerPending(null)
         })
       })
     },
-    [cpMaker, makerPending, onWorkbenchEvent, openLoadedDraftWorkspace, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard],
+    [
+      cpMaker,
+      makerPending,
+      onWorkbenchEvent,
+      openLoadedDraftWorkspace,
+      resetNavigation,
+      runWithCpMakerUnsavedGuard,
+      runWithModUnsavedGuard,
+    ],
   )
 
   const handleCopyProject = useCallback(
@@ -869,7 +883,7 @@ export default function WorkbenchExperience({
       onRootWorkspaceOpen={handleOpenRootWorkspace}
       onProjectWorkspaceOpen={(mode) => {
         if (mode === 'mods') {
-          handleOpenProjectPage()
+          handleOpenProjectLibrary()
           return
         }
 
@@ -887,7 +901,7 @@ export default function WorkbenchExperience({
           setWorkbenchRouteToWorkspace()
         })
       }}
-      onOpenProjectPage={handleOpenProjectPage}
+      onOpenProjectLibrary={handleOpenProjectLibrary}
       onDevViewOpen={handleOpenDevView}
     />
   )
@@ -1049,15 +1063,12 @@ export default function WorkbenchExperience({
                   onGoBack={goBack}
                   onGoForward={goForward}
                   cpMaker={cpMaker}
-                  studioDeskModel={studioDeskModel}
                   onWorkbenchEvent={onWorkbenchEvent}
                   navigateToPatch={navigateToPatch}
                   onSetWorkspaceMode={setWorkspaceMode}
                   onRunWithModUnsavedGuard={runWithModUnsavedGuard}
                   onRunWithCpMakerUnsavedGuard={runWithCpMakerUnsavedGuard}
                   onSetWorkspaceViewMode={setWorkspaceViewMode}
-                  onStudioDeskCreateDraftRequest={handleOpenProjectCreate}
-                  onStudioDeskExportPackRequest={() => setExportDialogOpen(true)}
                   activeEditPatchId={activeEditPatchId}
                   playerAppearanceProfile={activePlayerAppearanceProfile}
                   onOpenPlayerAppearanceWindow={openAppearanceWindow}
@@ -1066,38 +1077,39 @@ export default function WorkbenchExperience({
             )}
           </div>
         )}
-      </div>
 
-      {workbenchRoute === 'home' ? (
-        <WorkbenchHomePage
-          workspaceMode={workspaceMode}
-          workspaceViewMode={workspaceViewMode}
-          hasActiveProject={Boolean(cpMaker.activeDraft)}
-          gameDirectoryReady={Boolean(directoryInfo)}
-          gameDirectoryStatus={directoryStatus}
-          studioDeskModel={studioDeskModel}
-          makerPending={makerPending}
-          taskSummary={{
-            exportCount: studioDeskModel.gallery.projects.filter((project) => project.statuses.includes('export')).length,
-            conflictCount: studioDeskModel.stats.conflictCount,
-            directoryStatus,
-          }}
-          dock={null}
-          devViews={devWorkbenchViews}
-          onBackToWorkspace={setWorkbenchRouteToWorkspace}
-          onRootWorkspaceOpen={handleOpenRootWorkspace}
-          onProjectWorkspaceOpen={handleOpenProjectWorkspace}
-          onDevViewOpen={handleOpenDevView}
-          onProjectCreateOpen={handleOpenProjectCreate}
-          onProjectImport={handleImportDraft}
-          onProjectSelect={handleSelectProjectFromHome}
-          onProjectCopy={handleCopyProject}
-          onProjectDelete={handleDeleteProject}
-          onProjectPropertiesOpen={() => setProjectPropertiesDialogOpen(true)}
-          onMakerPendingChange={setMakerPending}
-          onGameDirectoryAction={() => setProjectOverlayOpen(true)}
-        />
-      ) : null}
+        {workbenchRoute === 'home' ? (
+          <WorkbenchHomePage
+            workspaceMode={workspaceMode}
+            workspaceViewMode={workspaceViewMode}
+            hasActiveProject={Boolean(cpMaker.activeDraft)}
+            gameDirectoryReady={Boolean(directoryInfo)}
+            gameDirectoryStatus={directoryStatus}
+            studioDeskModel={studioDeskModel}
+            makerPending={makerPending}
+            projectLibraryFocusKey={projectLibraryFocusKey}
+            taskSummary={{
+              exportCount: studioDeskModel.gallery.projects.filter((project) => project.statuses.includes('export')).length,
+              conflictCount: studioDeskModel.stats.conflictCount,
+              directoryStatus,
+            }}
+            devViews={devWorkbenchViews}
+            onBackToWorkspace={setWorkbenchRouteToWorkspace}
+            onRootWorkspaceOpen={handleOpenRootWorkspace}
+            onProjectWorkspaceOpen={handleOpenProjectWorkspace}
+            onDevViewOpen={handleOpenDevView}
+            onProjectCreateOpen={handleOpenProjectCreate}
+            onProjectImport={handleImportDraft}
+            onProjectSelect={handleSelectProjectFromHome}
+            onProjectCopy={handleCopyProject}
+            onProjectDelete={handleDeleteProject}
+            onProjectPropertiesOpen={() => setProjectPropertiesDialogOpen(true)}
+            onExportProject={() => setExportDialogOpen(true)}
+            onMakerPendingChange={setMakerPending}
+            onGameDirectoryAction={() => setProjectOverlayOpen(true)}
+          />
+        ) : null}
+      </div>
 
       <CreateDraftDialog open={createDraftDialogOpen} onClose={() => setCreateDraftDialogOpen(false)} onCreate={handleCreateDraft} />
       <ProjectPropertiesDialog

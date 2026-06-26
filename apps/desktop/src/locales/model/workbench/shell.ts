@@ -86,12 +86,20 @@ export type WorkbenchShellCopy = {
     searchShortcut: string
     searchResults: string
     searchEmpty: (query: string) => string
+    heroTitle: string
     rootPages: string
+    rootPagesHint: string
     projectChildren: string
+    projectChildrenHint: string
     currentPage: string
     rootPage: string
     rootModeLabels: Record<WorkspaceMode, string>
     rootModeCodes: Record<WorkspaceMode, string>
+    globalBrowseHint: (mode: WorkspaceMode) => string
+    globalBrowseCapability: (mode: WorkspaceMode) => string
+    globalBrowseCapabilityLabel: (mode: WorkspaceMode) => string
+    makerModeCodes: Record<'map' | 'events' | 'items', string>
+    makerModeHint: (mode: 'map' | 'events' | 'items') => string
     currentMarker: string
     devModeCode: string
     pendingProjectMarker: string
@@ -117,12 +125,18 @@ export type WorkbenchShellCopy = {
     gameDirectoryAction: string
     gameDirectoryRequiredShort: string
     statusMonitorTitle: string
+    currentProjectLabel: string
     noCurrentProject: string
+    noCurrentProjectTitle: string
     noCurrentProjectHint: string
     currentProjectMeta: (uniqueId: string) => string
+    openProjectLibraryAction: string
+    continueProjectAction: string
     pendingExportCount: (count: number) => string
+    pendingExportMetric: string
     pendingExportDetail: string
     conflictCount: (count: number) => string
+    conflictMetric: string
     conflictDetail: string
     taskCenterTitle: string
     taskCenterSubtitle: string
@@ -130,8 +144,6 @@ export type WorkbenchShellCopy = {
     taskCenterRealDataNote: string
     gameDirectoryTaskTitle: string
     gameDirectoryTaskIdle: string
-    makerDialogTitle: string
-    makerDialogSubtitle: string
     closeDialog: string
     continueCurrentProject: (projectName: string) => string
     chooseProjectStep: string
@@ -144,7 +156,6 @@ export type WorkbenchShellCopy = {
     eventMaking: string
     itemMaking: string
     devToolsTitle: string
-    collapseDevTools: string
   }
   rightDock: {
     title: string

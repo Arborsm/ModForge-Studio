@@ -61,13 +61,7 @@ export function useWorkbenchCommandIntent({
       const cmd = intent.command
 
       if (cmd.type === 'navigation/open-workbench-view') {
-        if (cmd.viewId === 'studio-desk') {
-          void runWithModUnsavedGuard(() => {
-            setWorkspaceMode('mods')
-            setWorkspaceViewMode('edit')
-            navigateToPatch(null)
-          })
-        } else if (cmd.viewId === 'workspace-editor') {
+        if (cmd.viewId === 'workspace-editor') {
           void runWithModUnsavedGuard(() => {
             // Preserve current workspace, switch to edit mode
             setWorkspaceViewMode('edit')

@@ -1,32 +1,91 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="neutral-tool">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ModForge Studio — Workbench Launchpad</title>
+    <title>ModForge Studio — 工作台首页（page）</title>
     <style>
+      /* =========================================================================
+       * 令牌对齐 apps/desktop/src/styles/tokens.css 的 neutral-tool 主题（明/暗）。
+       * 这是「page」级原型：外层应用已有真实标题栏(TopMenuBar)，此处不画顶栏，
+       * 也没有侧栏；整页内容自上而下、可滚动。
+       *
+       * 结构：
+       *   Hero —— 全局搜索 + 当前项目卡(含 地图/事件/物品制作 + 导出主操作) + 指标列
+       *   全局浏览 —— 6 张横向卡片（无需项目，进预览）
+       *   项目库 —— 主工作区（卡片、状态、损坏/空态、pending）
+       * ========================================================================= */
       :root {
-        --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        --accent: #6366f1;
-        --accent-soft: rgba(99, 102, 241, 0.14);
-        --bg-app: #f4f5f7;
-        --bg-panel: rgba(255, 255, 255, 0.9);
-        --bg-panel-solid: #ffffff;
-        --bg-panel-muted: #f0f1f5;
-        --bg-active: #eaecf5;
-        --text-primary: #1a1b22;
-        --text-secondary: #5e6278;
-        --text-tertiary: #8b90a7;
-        --border-color: #d9dce8;
-        --shadow-panel: 0 1.008px 2px rgba(16, 18, 37, 0.05), 0 6px 24px rgba(16, 18, 37, 0.05);
-        --shadow-float: 0 12px 40px rgba(16, 18, 37, 0.16);
-        --shadow-dialog: 0 24px 80px rgba(16, 18, 37, 0.24);
-        --danger: #ef4444;
-        --warning: #f59e0b;
-        --success: #22c55e;
+        --color-accent: #2563eb;
+        --color-success: #16a34a;
+        --color-warning: #d97706;
+        --color-danger: #dc2626;
+        --color-info: #0e9aa8;
+        --surface-app: #f1f1f2;
+        --surface-panel: #fbfbfc;
+        --surface-panel-muted: #ececed;
+        --surface-viewport: #e3e3e5;
+        --surface-active: #e3ecfd;
+        --surface-elevated: rgba(255, 255, 255, 0.95);
+        --text-primary: #1c1c20;
+        --text-secondary: #52535a;
+        --text-tertiary: #86878e;
+        --border-subtle: rgba(110, 112, 120, 0.24);
+        --accent-soft: rgba(37, 99, 235, 0.11);
+        --grid-minor: rgba(110, 112, 120, 0.1);
+        --grid-major: rgba(110, 112, 120, 0.16);
+        --shadow-panel: 0 1px 2px rgba(20, 22, 30, 0.05), 0 8px 18px rgba(20, 22, 30, 0.07);
+        --shadow-float: 0 18px 30px rgba(20, 22, 30, 0.18), 0 8px 18px rgba(20, 22, 30, 0.12);
 
-        /* 动态基准：以 16px 为 1rem，随视口在 14px~20px 之间缩放 */
-        font-size: clamp(14px, 0.75vw + 12px, 20px);
+        --accent: var(--color-accent);
+        --success: var(--color-success);
+        --warning: var(--color-warning);
+        --danger: var(--color-danger);
+        --info: var(--color-info);
+        --bg-app: var(--surface-app);
+        --bg-panel: var(--surface-panel);
+        --bg-panel-muted: var(--surface-panel-muted);
+        --bg-active: var(--surface-active);
+        --bg-elevated: var(--surface-elevated);
+        --border-color: var(--border-subtle);
+        --accent-contrast: #f8fbff;
+        --success-soft: color-mix(in srgb, var(--success) 14%, var(--bg-panel));
+        --warning-soft: color-mix(in srgb, var(--warning) 14%, var(--bg-panel));
+        --danger-soft: color-mix(in srgb, var(--danger) 14%, var(--bg-panel));
+        --scrim: rgba(15, 23, 42, 0.34);
+
+        --font-sans: 'Segoe UI Variable Text', 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei UI', system-ui, sans-serif;
+        --font-mono: 'IBM Plex Mono', 'Cascadia Mono', 'JetBrains Mono', monospace;
+
+        --radius-card: 14px;
+        --radius-panel: 18px;
+
+        font-size: clamp(14px, 0.5vw + 11.5px, 17px);
+        color-scheme: light;
+      }
+      :root.dark {
+        --color-accent: #5b8def;
+        --color-success: #22c55e;
+        --color-warning: #f59e0b;
+        --color-danger: #f87171;
+        --color-info: #2dd4bf;
+        --surface-app: #131418;
+        --surface-panel: #1b1c21;
+        --surface-panel-muted: #16171b;
+        --surface-viewport: #0a0b0d;
+        --surface-active: #25324a;
+        --surface-elevated: rgba(24, 25, 30, 0.96);
+        --text-primary: #f3f4f7;
+        --text-secondary: #b6b8c0;
+        --text-tertiary: #7e8088;
+        --border-subtle: rgba(170, 174, 186, 0.18);
+        --accent-soft: rgba(91, 141, 239, 0.18);
+        --grid-minor: rgba(255, 255, 255, 0.05);
+        --grid-major: rgba(255, 255, 255, 0.08);
+        --shadow-panel: 0 1px 1px rgba(0, 0, 0, 0.28), 0 16px 28px rgba(0, 0, 0, 0.22);
+        --shadow-float: 0 24px 44px rgba(0, 0, 0, 0.38), 0 10px 24px rgba(0, 0, 0, 0.26);
+        --scrim: rgba(0, 0, 0, 0.5);
+        color-scheme: dark;
       }
 
       * {
@@ -36,1730 +95,2715 @@
       body {
         margin: 0;
         height: 100%;
+      }
+      body {
         font-family: var(--font-sans);
         color: var(--text-primary);
-        overflow: hidden;
+        background: var(--bg-app);
+        -webkit-font-smoothing: antialiased;
       }
-
-      .launchpad {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 1.5rem;
-        background:
-          linear-gradient(135deg, color-mix(in srgb, var(--accent) 3%, transparent) 0 0.063rem, transparent 0.063rem 5rem),
-          linear-gradient(90deg, color-mix(in srgb, var(--border-color) 20%, transparent) 0 0.063rem, transparent 0.063rem 10rem),
-          linear-gradient(180deg, color-mix(in srgb, var(--border-color) 16%, transparent) 0 0.063rem, transparent 0.063rem 10rem),
-          var(--bg-app);
-        background-size:
-          auto,
-          10rem 10rem,
-          10rem 10rem,
-          auto;
-        overflow: hidden;
-      }
-
-      .search-wrap {
-        position: absolute;
-        top: clamp(3.5rem, 9vh, 7rem);
-        left: 50%;
-        transform: translateX(-50%);
-        width: min(38rem, 90vw);
-        z-index: 10;
-      }
-
-      .search {
-        width: 100%;
-        height: 3.25rem;
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        border: 0.063rem solid color-mix(in srgb, var(--border-color) 80%, transparent);
-        border-radius: 999.008px;
-        background: var(--bg-panel);
-        box-shadow: var(--shadow-float);
-        padding: 0 1.25rem;
-        backdrop-filter: blur(12px);
-        color: var(--text-secondary);
-      }
-      .search input {
-        flex: 1;
-        border: 0;
-        background: transparent;
-        outline: 0;
-        font-size: 1rem;
-        color: var(--text-primary);
-      }
-      .search kbd {
-        padding: 0.25rem 0.5rem;
-        border-radius: 0.5rem;
-        background: var(--bg-panel-muted);
-        color: var(--text-tertiary);
-        font-size: 0.75rem;
+      button {
         font-family: inherit;
-      }
-
-      .game-dir-banner {
-        position: absolute;
-        top: clamp(5rem, 12vh, 8rem);
-        left: 50%;
-        transform: translateX(-50%);
-        width: min(42rem, 92vw);
-        display: none;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.75rem 1rem;
-        border: 0.063rem solid color-mix(in srgb, var(--warning) 40%, transparent);
-        border-radius: 0.75rem;
-        background: color-mix(in srgb, var(--warning) 8%, var(--bg-panel-solid));
-        box-shadow: var(--shadow-panel);
-        font-size: 0.875rem;
-        color: var(--text-primary);
-        z-index: 12;
-      }
-      .game-dir-banner.is-open {
-        display: flex;
-      }
-      .game-dir-banner__icon {
-        color: var(--warning);
-        flex: 0 0 auto;
-      }
-      .game-dir-banner__body b {
-        font-weight: 900;
-      }
-      .game-dir-banner__link {
-        margin-left: auto;
-        color: var(--accent);
-        font-weight: 800;
         cursor: pointer;
-        text-decoration: none;
+      }
+      ::selection {
+        background: color-mix(in srgb, var(--accent) 26%, transparent);
       }
 
-      .stage {
+      .scroll {
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in srgb, var(--text-tertiary) 40%, transparent) transparent;
+      }
+      .scroll::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      .scroll::-webkit-scrollbar-thumb {
+        border: 3px solid transparent;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--text-tertiary) 38%, transparent) padding-box;
+      }
+      .scroll::-webkit-scrollbar-thumb:hover {
+        background: color-mix(in srgb, var(--text-tertiary) 60%, transparent) padding-box;
+      }
+
+      /* =========================================================================
+       * page 根容器
+       * ========================================================================= */
+      .home {
+        position: relative;
+        height: 100%;
+        overflow-y: auto;
+        background:
+          radial-gradient(circle 520px at 14% -6%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 68%),
+          radial-gradient(circle 460px at 98% -2%, color-mix(in srgb, var(--info) 6%, transparent), transparent 70%),
+          linear-gradient(var(--grid-minor) 1px, transparent 1px) 0 0 / 100% 2.5rem,
+          linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px) 0 0 / 2.5rem 100%,
+          var(--bg-app);
+      }
+      .home__inner {
+        max-width: 72rem;
+        margin: 0 auto;
+        padding: 2rem 2rem 4rem;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        gap: clamp(2rem, 5vh, 3.5rem);
-        margin-top: clamp(-2rem, -2vh, 0rem);
+        gap: 1.75rem;
       }
 
-      .section__title {
-        text-align: center;
-        margin: 0 0 1rem;
+      .section__head {
+        display: flex;
+        align-items: baseline;
+        gap: 0.625rem;
+        margin: 0 0 0.875rem;
+        padding: 0 0.125rem;
+      }
+      .section__head h2 {
+        margin: 0;
         font-size: 0.75rem;
-        font-weight: 900;
-        letter-spacing: 0.14em;
+        font-weight: 800;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
         color: var(--text-tertiary);
       }
+      .section__head small {
+        font-size: 0.6875rem;
+        color: var(--text-tertiary);
+        opacity: 0.85;
+      }
 
-      .app-grid {
-        display: grid;
-        grid-template-columns: repeat(6, minmax(5rem, 7.5rem));
-        gap: clamp(1rem, 2.5vw, 1.75rem);
-        justify-content: center;
-      }
-      .app-grid--workbench {
-        grid-template-columns: repeat(4, minmax(5rem, 7.5rem));
-      }
-      .app {
-        display: flex;
-        flex-direction: column;
+      /* =========================================================================
+       * 通用按钮 / 封面 / chip
+       * ========================================================================= */
+      .btn {
+        display: inline-flex;
         align-items: center;
-        gap: 0.625rem;
-        cursor: pointer;
-        transition: transform 160ms ease;
+        justify-content: center;
+        gap: 0.4375rem;
+        height: 2.125rem;
+        padding: 0 0.875rem;
+        border: 1px solid var(--border-color);
+        border-radius: 9px;
+        background: var(--bg-panel-muted);
+        color: var(--text-primary);
+        font-size: 0.8125rem;
+        font-weight: 650;
+        white-space: nowrap;
+        transition:
+          background 140ms ease,
+          border-color 140ms ease,
+          transform 100ms ease;
       }
-      .app:hover {
-        transform: scale(1.06);
+      .btn:hover {
+        background: var(--bg-active);
       }
-      .app__icon {
-        width: clamp(4rem, 7vw, 5.75rem);
-        height: clamp(4rem, 7vw, 5.75rem);
+      .btn:active {
+        transform: translateY(1px);
+      }
+      .btn svg {
+        width: 1rem;
+        height: 1rem;
+      }
+      .btn--primary {
+        border-color: transparent;
+        background: var(--accent);
+        color: var(--accent-contrast);
+        box-shadow: 0 1px 2px color-mix(in srgb, var(--accent) 45%, transparent);
+      }
+      .btn--primary:hover {
+        background: color-mix(in srgb, var(--accent) 88%, #000);
+      }
+      .btn--sm {
+        height: 1.875rem;
+        padding: 0 0.6875rem;
+        font-size: 0.75rem;
+      }
+
+      .cover {
+        flex: 0 0 auto;
         display: grid;
         place-items: center;
-        border-radius: clamp(1rem, 1.8vw, 1.5rem);
-        background: var(--bg-panel-solid);
+        border-radius: 12px;
+        color: #fff;
+        font-weight: 800;
+        letter-spacing: 0.02em;
         box-shadow: var(--shadow-panel);
+      }
+      .cover--lg {
+        width: 3.5rem;
+        height: 3.5rem;
+        font-size: 1.125rem;
+        border-radius: 14px;
+      }
+      .cover--md {
+        width: 2.75rem;
+        height: 2.75rem;
+        font-size: 0.9375rem;
+      }
+      .cover--sm {
+        width: 2rem;
+        height: 2rem;
+        font-size: 0.75rem;
+        border-radius: 9px;
+      }
+      .cover[data-tone='indigo'] {
+        background: linear-gradient(150deg, #6366f1, #4338ca);
+      }
+      .cover[data-tone='violet'] {
+        background: linear-gradient(150deg, #8b5cf6, #6d28d9);
+      }
+      .cover[data-tone='emerald'] {
+        background: linear-gradient(150deg, #10b981, #047857);
+      }
+      .cover[data-tone='broken'] {
+        background: repeating-linear-gradient(45deg, #9ca3af, #9ca3af 6px, #6b7280 6px, #6b7280 12px);
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.1875rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.6875rem;
+        font-weight: 750;
+        background: var(--bg-panel);
         color: var(--text-secondary);
-        transition: box-shadow 160ms ease;
+        border: 1px solid var(--border-color);
       }
-      .app:hover .app__icon {
-        box-shadow: var(--shadow-float);
+      .chip svg {
+        width: 0.75rem;
+        height: 0.75rem;
       }
-      .app__icon svg {
-        width: clamp(1.625rem, 2.8vw, 2.125rem);
-        height: clamp(1.625rem, 2.8vw, 2.125rem);
+      .chip--current {
+        background: var(--accent-soft);
+        color: var(--accent);
+        border-color: transparent;
       }
-      .app__icon--map {
+      .chip--export {
+        background: var(--warning-soft);
+        color: color-mix(in srgb, var(--warning) 84%, var(--text-primary));
+        border-color: transparent;
+      }
+      .chip--dirty {
+        background: color-mix(in srgb, var(--info) 14%, var(--bg-panel));
+        color: color-mix(in srgb, var(--info) 82%, var(--text-primary));
+        border-color: transparent;
+      }
+      .chip--broken {
+        background: var(--danger-soft);
+        color: var(--danger);
+        border-color: transparent;
+      }
+
+      /* 类目色调（小图标底片，不铺满） */
+      .tone[data-tone='map'] {
         background: var(--accent-soft);
         color: var(--accent);
       }
-      .app__icon--events {
-        background: #fef3c7;
-        color: #b45309;
+      .tone[data-tone='events'] {
+        background: var(--warning-soft);
+        color: color-mix(in srgb, var(--warning) 82%, var(--text-primary));
       }
-      .app__icon--characters {
-        background: #dcfce7;
-        color: #15803d;
+      .tone[data-tone='characters'] {
+        background: var(--success-soft);
+        color: color-mix(in srgb, var(--success) 78%, var(--text-primary));
       }
-      .app__icon--buildings {
-        background: #fee2e2;
-        color: #b91c1c;
+      .tone[data-tone='buildings'] {
+        background: var(--danger-soft);
+        color: color-mix(in srgb, var(--danger) 78%, var(--text-primary));
       }
-      .app__icon--items {
-        background: #fff7ed;
-        color: #c2410c;
+      .tone[data-tone='items'] {
+        background: color-mix(in srgb, var(--info) 14%, var(--bg-panel));
+        color: color-mix(in srgb, var(--info) 80%, var(--text-primary));
       }
-      .app__icon--i18n {
-        background: #eef2ff;
+      .tone[data-tone='i18n'] {
+        background: color-mix(in srgb, var(--accent-soft) 60%, var(--success-soft));
         color: var(--accent);
       }
-      .app__icon--projects {
-        background: #f3f4f6;
-        color: var(--text-secondary);
-      }
-      .app__label {
-        text-align: center;
-        font-size: clamp(0.8rem, 1.2vw, 0.95rem);
-        font-weight: 700;
-        color: var(--text-primary);
-        line-height: 1.25;
-      }
-      .app__code {
-        font-size: 0.625rem;
-        font-weight: 900;
-        color: var(--text-tertiary);
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-      }
 
-      .status-monitor {
-        position: absolute;
-        bottom: clamp(5rem, 13vh, 7rem);
-        left: 50%;
-        transform: translateX(-50%);
+      /* =========================================================================
+       * Hero：搜索 + 当前项目卡(含制作主操作) + 指标
+       * ========================================================================= */
+      .hero__search {
+        position: relative;
+        margin-bottom: 1.5rem;
+      }
+      .searchbar {
         display: flex;
         align-items: center;
         gap: 0.75rem;
-        border: 0.063rem solid color-mix(in srgb, var(--border-color) 80%, transparent);
-        border-radius: 1.125rem;
-        background: var(--bg-panel);
+        height: 3rem;
+        padding: 0 0.75rem 0 1.125rem;
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--bg-panel) 92%, transparent);
         box-shadow: var(--shadow-panel);
-        padding: 0.625rem 0.875rem;
-        backdrop-filter: blur(12px);
-      }
-      .status-monitor__back {
-        width: 2.25rem;
-        height: 2.25rem;
-        display: grid;
-        place-items: center;
-        border: 0;
-        border-radius: 0.625rem;
-        background: var(--bg-panel-muted);
-        color: var(--text-secondary);
-        cursor: pointer;
+        color: var(--text-tertiary);
         transition:
-          background 160ms ease,
-          color 160ms ease;
+          border-color 140ms ease,
+          box-shadow 140ms ease;
       }
-      .status-monitor__back:hover {
-        background: var(--bg-active);
+      .searchbar:focus-within {
+        border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+        box-shadow:
+          0 0 0 3px var(--accent-soft),
+          var(--shadow-panel);
+      }
+      .searchbar > svg {
+        width: 1.125rem;
+        height: 1.125rem;
+        flex: 0 0 auto;
+      }
+      .searchbar input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
         color: var(--text-primary);
+        font-size: 0.9375rem;
       }
-      .status-monitor__project {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding-right: 0.875rem;
-        border-right: 0.063rem solid color-mix(in srgb, var(--border-color) 60%, transparent);
-      }
-      .status-monitor__cover {
-        width: 2.5rem;
-        height: 2.5rem;
-        border-radius: 0.625rem;
-        background: #334155;
-        color: #fff;
-        display: grid;
-        place-items: center;
-        font-size: 0.875rem;
-        font-weight: 900;
-      }
-      .status-monitor__name {
-        font-size: 0.95rem;
-        font-weight: 800;
-        color: var(--text-primary);
-      }
-      .status-monitor__meta {
-        font-size: 0.75rem;
+      .searchbar input::placeholder {
         color: var(--text-tertiary);
       }
-      .status-monitor__stats {
-        display: flex;
-        gap: 0.875rem;
-      }
-      .status-stat {
-        display: flex;
-        align-items: center;
-        gap: 0.375rem;
-        font-size: 0.8rem;
-        font-weight: 800;
-        color: var(--text-secondary);
-      }
-      .status-stat__dot {
-        width: 0.5rem;
-        height: 0.5rem;
-        border-radius: 50%;
-        background: var(--text-tertiary);
-      }
-      .status-stat__dot--export {
-        background: var(--warning);
-      }
-      .status-stat__dot--ok {
-        background: var(--success);
-      }
-
-      .dock {
-        position: absolute;
-        bottom: clamp(1.25rem, 4vh, 2rem);
-        left: 50%;
-        transform: translateX(-50%);
+      kbd {
         display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
-        border: 0.063rem solid color-mix(in srgb, var(--border-color) 80%, transparent);
-        border-radius: 999.008px;
-        background: var(--bg-panel);
-        box-shadow: var(--shadow-float);
-        padding: 0.625rem 0.875rem;
-        backdrop-filter: blur(14px);
-      }
-      .dock__item {
-        height: 2.75rem;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        border: 0;
-        border-radius: 999.008px;
-        background: transparent;
-        color: var(--text-secondary);
-        padding: 0 1rem;
-        font-size: 0.875rem;
-        font-weight: 800;
-        cursor: pointer;
-        transition:
-          background 160ms ease,
-          color 160ms ease,
-          transform 160ms ease;
-      }
-      .dock__item:hover {
-        background: var(--bg-active);
-        color: var(--text-primary);
-        transform: translateY(-2px);
+        padding: 0.1875rem 0.5rem;
+        border-radius: 6px;
+        background: var(--bg-panel-muted);
+        border: 1px solid var(--border-color);
+        color: var(--text-tertiary);
+        font-family: var(--font-sans);
+        font-size: 0.6875rem;
+        font-weight: 700;
       }
 
-      /* Dialog */
-      .dialog-overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.25);
-        backdrop-filter: blur(2px);
+      .hero {
         display: grid;
-        place-items: center;
-        z-index: 100;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 200ms ease;
+        grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+        gap: 1rem;
       }
-      .dialog-overlay.is-open {
-        opacity: 1;
-        pointer-events: auto;
-      }
-      .dialog {
-        width: min(38rem, 92vw);
-        max-height: 80vh;
-        border: 0.063rem solid color-mix(in srgb, var(--border-color) 80%, transparent);
-        border-radius: 1.25rem;
-        background: var(--bg-panel-solid);
-        box-shadow: var(--shadow-dialog);
+      .currentcard {
+        position: relative;
         display: flex;
         flex-direction: column;
+        gap: 1rem;
+        padding: 1.125rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-panel);
+        background: linear-gradient(150deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 52%), var(--bg-panel);
+        box-shadow: var(--shadow-panel);
         overflow: hidden;
       }
-      .dialog__header {
+      .currentcard__top {
         display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 1rem;
-        padding: 1.25rem 1.25rem 0.875rem;
-        border-bottom: 0.063rem solid color-mix(in srgb, var(--border-color) 60%, transparent);
+        align-items: center;
+        gap: 0.875rem;
       }
-      .dialog__header h2 {
-        margin: 0;
-        font-size: 1.125rem;
-        font-weight: 950;
+      .currentcard__id {
+        min-width: 0;
+        flex: 1;
       }
-      .dialog__header p {
+      .currentcard__label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        font-size: 0.6875rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      .currentcard__label .pulse {
+        width: 0.4375rem;
+        height: 0.4375rem;
+        border-radius: 999px;
+        background: var(--accent);
+        animation: pulse 2.4s ease-out infinite;
+      }
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
+        }
+        70% {
+          box-shadow: 0 0 0 6px transparent;
+        }
+        100% {
+          box-shadow: 0 0 0 0 transparent;
+        }
+      }
+      .currentcard__name {
         margin: 0.25rem 0 0;
-        font-size: 0.8rem;
-        color: var(--text-secondary);
+        font-size: 1.1875rem;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
-      .dialog__close {
+      .currentcard__meta {
+        margin-top: 0.1875rem;
+        font-size: 0.75rem;
+        color: var(--text-tertiary);
+        font-family: var(--font-mono);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .currentcard__edit {
+        flex: 0 0 auto;
         width: 2rem;
         height: 2rem;
         display: grid;
         place-items: center;
-        border: 0;
-        border-radius: 0.5rem;
-        background: var(--bg-panel-muted);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background: var(--bg-panel);
         color: var(--text-secondary);
-        cursor: pointer;
+        transition:
+          background 140ms ease,
+          color 140ms ease;
       }
-      .dialog__body {
-        padding: 1rem 1.25rem 1.25rem;
-        overflow-y: auto;
+      .currentcard__edit:hover {
+        background: var(--bg-active);
+        color: var(--text-primary);
+      }
+      .currentcard__edit svg {
+        width: 1rem;
+        height: 1rem;
       }
 
-      .maker-choice {
+      /* 制作主操作：地图/事件/物品 三个按钮 + 导出 */
+      .makerbar {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 0.625rem;
-        margin-bottom: 1rem;
-      }
-      .maker-choice__item {
-        min-height: 5.5rem;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
         gap: 0.5rem;
-        border: 0.063rem solid var(--border-color);
-        border-radius: 0.875rem;
+      }
+      .makerbtn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.625rem;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
         background: var(--bg-panel-muted);
-        cursor: pointer;
+        color: var(--text-primary);
+        text-align: left;
         transition:
-          border-color 160ms ease,
-          background 160ms ease;
+          border-color 140ms ease,
+          background 140ms ease,
+          transform 100ms ease;
       }
-      .maker-choice__item:hover,
-      .maker-choice__item.is-selected {
-        border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-        background: var(--accent-soft);
+      .makerbtn:hover {
+        border-color: color-mix(in srgb, var(--accent) 40%, var(--border-color));
+        background: color-mix(in srgb, var(--accent-soft) 45%, var(--bg-panel-muted));
+        transform: translateY(-1px);
       }
-      .maker-choice__icon {
-        width: 2.25rem;
-        height: 2.25rem;
+      .makerbtn__ic {
+        width: 1.875rem;
+        height: 1.875rem;
+        flex: 0 0 auto;
         display: grid;
         place-items: center;
-        border-radius: 0.625rem;
-        background: var(--bg-panel-solid);
-        color: var(--text-secondary);
+        border-radius: 8px;
       }
-      .maker-choice__icon svg {
+      .makerbtn__ic svg {
+        width: 1.0625rem;
+        height: 1.0625rem;
+      }
+      .makerbtn__tx {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        line-height: 1.15;
+      }
+      .makerbtn__tx b {
+        font-size: 0.8125rem;
+        font-weight: 700;
+      }
+      .makerbtn__tx span {
+        font-size: 0.625rem;
+        color: var(--text-tertiary);
+      }
+      .currentcard__foot {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .currentcard__foot .btn {
+        flex: 1;
+      }
+      .currentcard__foot .btn--icon {
+        flex: 0 0 auto;
+        width: 2.125rem;
+        padding: 0;
+      }
+
+      /* 无当前项目：制作区降级为引导 */
+      .currentcard.is-empty .currentcard__label {
+        color: var(--text-tertiary);
+      }
+      .currentcard.is-empty .pulse {
+        display: none;
+      }
+      .home[data-state='no-current'] .is-current-only,
+      .home:not([data-state='no-current']) .no-current-only {
+        display: none !important;
+      }
+      .no-current-only {
+        display: none;
+      }
+      /* 无项目态：当前项目卡也无当前项目 */
+      .home[data-state='no-projects'] .is-current-only {
+        display: none !important;
+      }
+      .home[data-state='no-projects'] .no-current-only {
+        display: revert;
+      }
+      .home[data-state='no-projects'] .makerbar .makerbtn {
+        opacity: 0.55;
+        pointer-events: none;
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-rows: repeat(3, 1fr);
+        gap: 0.625rem;
+      }
+      .metric {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6875rem 0.875rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-card);
+        background: var(--bg-panel);
+        box-shadow: var(--shadow-panel);
+        text-align: left;
+        width: 100%;
+        transition:
+          border-color 140ms ease,
+          transform 100ms ease;
+      }
+      .metric:hover {
+        border-color: color-mix(in srgb, var(--accent) 30%, var(--border-color));
+        transform: translateY(-1px);
+      }
+      .metric__icon {
+        width: 2.25rem;
+        height: 2.25rem;
+        flex: 0 0 auto;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+      }
+      .metric__icon svg {
         width: 1.125rem;
         height: 1.125rem;
       }
-      .maker-choice__item.is-selected .maker-choice__icon {
-        background: var(--accent);
-        color: #fff;
+      .metric[data-tone='warning'] .metric__icon {
+        background: var(--warning-soft);
+        color: var(--warning);
       }
-      .maker-choice__label {
-        font-size: 0.8rem;
+      .metric[data-tone='success'] .metric__icon {
+        background: var(--success-soft);
+        color: var(--success);
+      }
+      .metric[data-tone='danger'] .metric__icon {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+      .metric__body {
+        min-width: 0;
+        flex: 1;
+      }
+      .metric__value {
+        font-size: 1.0625rem;
         font-weight: 800;
-        color: var(--text-primary);
+        line-height: 1.1;
       }
-
-      .maker-continue {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.625rem 0.75rem;
-        border: 0.063rem solid color-mix(in srgb, var(--accent) 30%, transparent);
-        border-radius: 0.75rem;
-        background: var(--accent-soft);
-        margin-bottom: 1rem;
-        font-size: 0.8rem;
-        cursor: pointer;
+      .metric__value small {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-tertiary);
+        margin-left: 0.25rem;
       }
-      .maker-continue__check {
+      .metric__label {
+        margin-top: 0.0625rem;
+        font-size: 0.75rem;
+        color: var(--text-tertiary);
+      }
+      .metric__go {
+        flex: 0 0 auto;
+        color: var(--text-tertiary);
+        opacity: 0;
+        transition: opacity 140ms ease;
+      }
+      .metric:hover .metric__go {
+        opacity: 0.8;
+      }
+      .metric__go svg {
         width: 1rem;
         height: 1rem;
-        border-radius: 0.25rem;
-        border: 0.1rem solid var(--accent);
-        display: grid;
-        place-items: center;
-        color: #fff;
-        flex: 0 0 auto;
-      }
-      .maker-continue__check svg {
-        width: 0.625rem;
-        height: 0.625rem;
-        display: none;
-      }
-      .maker-continue.is-on .maker-continue__check {
-        background: var(--accent);
-      }
-      .maker-continue.is-on .maker-continue__check svg {
         display: block;
       }
-      .maker-continue.is-on ~ .maker-step-project {
-        display: none;
-      }
 
-      .project-list {
+      /* =========================================================================
+       * 全局浏览：横向卡片
+       * ========================================================================= */
+      .cardrow {
         display: grid;
-        gap: 0.5rem;
-      }
-      .project-row {
-        display: grid;
-        grid-template-columns: 3rem 1fr auto;
-        align-items: center;
+        grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
         gap: 0.75rem;
-        min-height: 4.5rem;
-        border: 0.063rem solid var(--border-color);
-        border-radius: 0.875rem;
-        background: var(--bg-panel-muted);
-        padding: 0.75rem;
+      }
+      .ecard {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 0.625rem;
+        padding: 0.875rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-card);
+        background: var(--bg-panel);
+        box-shadow: var(--shadow-panel);
+        text-align: left;
         cursor: pointer;
-        transition: border-color 160ms ease;
+        transition:
+          border-color 140ms ease,
+          box-shadow 160ms ease,
+          transform 120ms ease;
       }
-      .project-row:hover,
-      .project-row.is-selected {
-        border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+      .ecard:hover {
+        border-color: color-mix(in srgb, var(--accent) 40%, var(--border-color));
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-float);
       }
-      .project-row.is-selected {
-        background: var(--accent-soft);
+      .ecard.is-active {
+        border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+        box-shadow:
+          0 0 0 2px var(--accent-soft),
+          var(--shadow-panel);
       }
-      .project-row.is-broken {
-        border-color: color-mix(in srgb, var(--danger) 40%, transparent);
-        background: color-mix(in srgb, var(--danger) 5%, var(--bg-panel-muted));
-      }
-      .project-row.is-broken .project-open {
-        display: none;
-      }
-      .project-row.is-broken .project-broken-badge {
-        display: inline-flex;
-      }
-      .project-cover {
-        width: 3rem;
-        height: 3rem;
-        border-radius: 0.75rem;
-        background: #334155;
-        color: #fff;
+      .ecard__ic {
+        width: 2.5rem;
+        height: 2.5rem;
         display: grid;
         place-items: center;
-        font-weight: 900;
-        font-size: 1rem;
-      }
-      .project-info {
-        min-width: 0;
-      }
-      .project-name {
-        display: flex;
-        align-items: center;
-        gap: 0.375rem;
-        font-size: 0.9rem;
-        font-weight: 900;
-      }
-      .pill {
-        padding: 0.125rem 0.375rem;
-        border-radius: 999.008px;
-        background: #fef3c7;
-        color: #b45309;
-        font-size: 0.625rem;
-        font-weight: 800;
-      }
-      .pill--current {
-        background: var(--accent-soft);
-        color: var(--accent);
-      }
-      .project-meta {
-        margin-top: 0.25rem;
-        font-size: 0.7rem;
+        border-radius: 11px;
+        background: var(--bg-panel-muted);
         color: var(--text-secondary);
       }
-      .project-broken-badge {
-        display: none;
+      .ecard__ic svg {
+        width: 1.25rem;
+        height: 1.25rem;
+      }
+      .ecard__title {
+        font-size: 0.875rem;
+        font-weight: 750;
+      }
+      .ecard__hint {
+        font-size: 0.6875rem;
+        color: var(--text-tertiary);
+        line-height: 1.35;
+      }
+      /* 能力角标：标明该领域支持的操作（查看 / 校对·编辑） */
+      .ecard__cap {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+        display: inline-flex;
         align-items: center;
         gap: 0.25rem;
-        padding: 0 0.75rem;
-        height: 1.75rem;
-        border-radius: 0.5rem;
-        background: color-mix(in srgb, var(--danger) 12%, transparent);
-        color: var(--danger);
-        font-size: 0.7rem;
-        font-weight: 800;
+        padding: 0.125rem 0.4375rem;
+        border-radius: 999px;
+        background: var(--bg-panel-muted);
+        color: var(--text-tertiary);
+        font-size: 0.625rem;
+        font-weight: 750;
+        letter-spacing: 0.01em;
       }
-      .project-broken-badge svg {
+      .ecard__cap svg {
         width: 0.75rem;
         height: 0.75rem;
       }
+      .ecard__cap--edit {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .ecard__lock {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+        color: var(--text-tertiary);
+        opacity: 0.7;
+        display: none;
+      }
+      .ecard__lock svg {
+        width: 0.875rem;
+        height: 0.875rem;
+        display: block;
+      }
+      /* 目录未配锁定时，用锁图标取代能力角标 */
+      .home[data-state='no-game-dir'] .browse .ecard__cap {
+        display: none;
+      }
+      /* 游戏目录未配：浏览类目锁定 */
+      .home[data-state='no-game-dir'] .browse .ecard {
+        opacity: 0.55;
+        pointer-events: none;
+      }
+      .home[data-state='no-game-dir'] .browse .ecard__lock {
+        display: block;
+      }
 
-      .dialog__footer {
+      /* =========================================================================
+       * 项目库
+       * ========================================================================= */
+      .library {
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-panel);
+        background: var(--bg-panel);
+        box-shadow: var(--shadow-panel);
+        overflow: hidden;
+        transition: box-shadow 200ms ease;
+        scroll-margin-top: 1rem;
+      }
+      .library.is-focus {
+        box-shadow:
+          0 0 0 3px var(--accent-soft),
+          var(--shadow-float);
+      }
+      .library__head {
         display: flex;
         align-items: center;
-        justify-content: flex-end;
-        gap: 0.625rem;
-        padding: 0.875rem 1.25rem;
-        border-top: 0.063rem solid color-mix(in srgb, var(--border-color) 60%, transparent);
+        gap: 0.875rem;
+        padding: 0.875rem 1.125rem;
+        border-bottom: 1px solid var(--border-color);
       }
-      .btn {
-        height: 2.25rem;
+      .library__title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9375rem;
+        font-weight: 800;
+      }
+      .library__count {
         display: inline-flex;
+        align-items: center;
+        padding: 0.125rem 0.5rem;
+        border-radius: 999px;
+        background: var(--bg-panel-muted);
+        color: var(--text-tertiary);
+        font-size: 0.6875rem;
+        font-weight: 800;
+      }
+      .library__search {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: 14rem;
+        height: 2rem;
+        padding: 0 0.75rem;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background: var(--bg-panel-muted);
+        color: var(--text-tertiary);
+        transition:
+          border-color 140ms ease,
+          box-shadow 140ms ease;
+      }
+      .library__search:focus-within {
+        border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+        background: var(--bg-panel);
+      }
+      .library__search svg {
+        width: 0.875rem;
+        height: 0.875rem;
+        flex: 0 0 auto;
+      }
+      .library__search input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--text-primary);
+        font-size: 0.75rem;
+      }
+      .library__actions {
+        display: flex;
+        gap: 0.5rem;
+      }
+      .pendingbar {
+        display: none;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6875rem 1.125rem;
+        background: var(--accent-soft);
+        border-bottom: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+        color: var(--text-primary);
+        font-size: 0.8125rem;
+      }
+      .pendingbar.is-open {
+        display: flex;
+      }
+      .pendingbar__icon {
+        flex: 0 0 auto;
+        color: var(--accent);
+        display: grid;
+        place-items: center;
+      }
+      .pendingbar__icon svg {
+        width: 1.125rem;
+        height: 1.125rem;
+      }
+      .pendingbar b {
+        font-weight: 800;
+      }
+      .pendingbar__cancel {
+        margin-left: auto;
+        height: 1.875rem;
+        padding: 0 0.75rem;
+        border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--bg-panel) 70%, transparent);
+        color: var(--accent);
+        font-size: 0.75rem;
+        font-weight: 700;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(16.5rem, 1fr));
+        gap: 0.75rem;
+        padding: 1.125rem;
+      }
+      .pcard {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        padding: 0.875rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-card);
+        background: var(--bg-panel-muted);
+        text-align: left;
+        cursor: pointer;
+        transition:
+          border-color 140ms ease,
+          background 140ms ease,
+          box-shadow 160ms ease,
+          transform 120ms ease;
+      }
+      .pcard:hover {
+        border-color: color-mix(in srgb, var(--accent) 40%, var(--border-color));
+        box-shadow: var(--shadow-panel);
+        transform: translateY(-2px);
+      }
+      .pcard.is-current {
+        border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+        background: color-mix(in srgb, var(--accent-soft) 60%, var(--bg-panel-muted));
+      }
+      .pcard.is-broken {
+        display: none;
+        border-color: color-mix(in srgb, var(--danger) 38%, transparent);
+        background: color-mix(in srgb, var(--danger) 5%, var(--bg-panel-muted));
+        cursor: default;
+      }
+      .home[data-state='broken'] .pcard.is-broken {
+        display: flex;
+      }
+      .pcard.is-broken:hover {
+        transform: none;
+        box-shadow: none;
+      }
+      .pcard__top {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+      }
+      .pcard__id {
+        min-width: 0;
+        flex: 1;
+      }
+      .pcard__name {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        font-size: 0.875rem;
+        font-weight: 750;
+        line-height: 1.25;
+      }
+      .pcard__name > span:first-child {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pcard__uid {
+        margin-top: 0.25rem;
+        font-size: 0.6875rem;
+        color: var(--text-tertiary);
+        font-family: var(--font-mono);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pcard__menu {
+        flex: 0 0 auto;
+        width: 1.75rem;
+        height: 1.75rem;
+        display: grid;
+        place-items: center;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--text-tertiary);
+        opacity: 0;
+        transition:
+          opacity 130ms ease,
+          background 130ms ease,
+          color 130ms ease;
+      }
+      .pcard:hover .pcard__menu {
+        opacity: 1;
+      }
+      .pcard__menu:hover {
+        background: var(--bg-active);
+        color: var(--text-primary);
+      }
+      .pcard__menu svg {
+        width: 1rem;
+        height: 1rem;
+      }
+      .pcard__foot {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .pcard__time {
+        margin-left: auto;
+        font-size: 0.6875rem;
+        color: var(--text-tertiary);
+        white-space: nowrap;
+      }
+      .pcard__use {
+        display: none;
         align-items: center;
         justify-content: center;
         gap: 0.375rem;
-        border: 0.063rem solid var(--border-color);
-        border-radius: 0.625rem;
-        background: var(--bg-panel-muted);
-        color: var(--text-primary);
-        padding: 0 0.875rem;
-        font-size: 0.8rem;
-        font-weight: 800;
-        cursor: pointer;
-      }
-      .btn--primary {
-        border-color: color-mix(in srgb, var(--accent) 50%, transparent);
-        background: var(--accent);
-        color: #fff;
-      }
-
-      .library-toolbar {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.875rem;
-      }
-      .library-toolbar__search {
-        flex: 1;
-        height: 2.125rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        border: 0.063rem solid var(--border-color);
-        border-radius: 0.625rem;
-        background: var(--bg-panel-muted);
-        padding: 0 0.75rem;
-        color: var(--text-tertiary);
-      }
-      .library-toolbar__search input {
-        flex: 1;
-        border: 0;
-        background: transparent;
-        outline: 0;
+        height: 1.875rem;
+        margin-top: 0.125rem;
+        border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--accent) 12%, transparent);
+        color: var(--accent);
         font-size: 0.75rem;
-        color: var(--text-primary);
+        font-weight: 750;
       }
-      .library-count {
-        font-size: 0.7rem;
-        font-weight: 800;
-        color: var(--text-tertiary);
+      .pcard__use svg {
+        width: 0.875rem;
+        height: 0.875rem;
       }
-
-      .project-empty {
+      .library.is-pending .pcard:not(.is-current):not(.is-broken) .pcard__use {
+        display: flex;
+      }
+      .empty {
         display: none;
         flex-direction: column;
         align-items: center;
         gap: 1rem;
-        padding: 2.25rem 1.25rem;
+        padding: 3rem 1.5rem;
+        margin: 1.125rem;
         text-align: center;
-        border: 0.063rem dashed color-mix(in srgb, var(--border-color) 90%, transparent);
-        border-radius: 1.125rem;
+        border: 1px dashed color-mix(in srgb, var(--border-color) 130%, transparent);
+        border-radius: var(--radius-card);
         background: var(--bg-panel-muted);
       }
-      .project-empty.is-open {
+      .home[data-state='no-projects'] .empty {
         display: flex;
       }
-      .project-empty__title {
-        font-size: 0.95rem;
-        font-weight: 900;
+      .home[data-state='no-projects'] .grid,
+      .home[data-state='no-projects'] .library__search,
+      .home[data-state='no-projects'] .pendingbar {
+        display: none;
       }
-      .project-empty__hint {
-        font-size: 0.8rem;
+      .empty__art {
+        width: 3.5rem;
+        height: 3.5rem;
+        display: grid;
+        place-items: center;
+        border-radius: 16px;
+        background: var(--bg-panel);
+        color: var(--text-tertiary);
+        box-shadow: var(--shadow-panel);
+      }
+      .empty__art svg {
+        width: 1.75rem;
+        height: 1.75rem;
+      }
+      .empty__title {
+        font-size: 1rem;
+        font-weight: 800;
+      }
+      .empty__hint {
+        max-width: 24rem;
+        font-size: 0.8125rem;
+        line-height: 1.5;
         color: var(--text-secondary);
-        max-width: 22rem;
       }
-      .project-empty__actions {
+      .empty__actions {
         display: flex;
         gap: 0.5rem;
+        margin-top: 0.25rem;
       }
 
-      /* 状态切换演示工具条 */
-      .state-switch {
-        position: absolute;
-        top: 1rem;
-        left: 50%;
-        transform: translateX(-50%);
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-        padding: 0.25rem;
-        border: 0.063rem solid color-mix(in srgb, var(--border-color) 80%, transparent);
-        border-radius: 999.008px;
-        background: var(--bg-panel);
-        box-shadow: var(--shadow-panel);
-        z-index: 30;
+      /* 无当前项目态：项目库里的“当前”标识淡化 */
+      .home[data-state='no-current'] .pcard.is-current {
+        border-color: var(--border-color);
+        background: var(--bg-panel-muted);
       }
-      .state-switch__label {
-        padding: 0 0.5rem;
-        font-size: 0.65rem;
-        font-weight: 900;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--text-tertiary);
-      }
-      .state-switch__btn {
-        height: 1.625rem;
-        border: 0;
-        border-radius: 999.008px;
-        background: transparent;
-        color: var(--text-secondary);
-        padding: 0 0.625rem;
-        font-size: 0.7rem;
-        font-weight: 800;
-        cursor: pointer;
-        transition:
-          background 160ms ease,
-          color 160ms ease;
-      }
-      .state-switch__btn:hover {
-        background: var(--bg-active);
-        color: var(--text-primary);
-      }
-      .state-switch__btn.is-active {
-        background: var(--accent);
-        color: #fff;
+      .home[data-state='no-current'] .pcard .chip--current {
+        display: none;
       }
 
-      /* 搜索结果层 */
-      .search-results {
+      /* =========================================================================
+       * 搜索结果下拉
+       * ========================================================================= */
+      .results {
         position: absolute;
         top: calc(100% + 0.5rem);
         left: 0;
         right: 0;
         display: none;
         flex-direction: column;
-        border: 0.063rem solid color-mix(in srgb, var(--border-color) 80%, transparent);
-        border-radius: 1rem;
-        background: var(--bg-panel-solid);
-        box-shadow: var(--shadow-float);
-        padding: 0.5rem;
-        max-height: 22rem;
+        max-height: 24rem;
         overflow-y: auto;
-        z-index: 20;
+        padding: 0.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        background: var(--bg-elevated);
+        box-shadow: var(--shadow-float);
+        backdrop-filter: blur(12px);
+        z-index: 60;
       }
-      .search-results.is-open {
+      .results.is-open {
         display: flex;
       }
-      .search-results__group + .search-results__group {
-        margin-top: 0.375rem;
-        padding-top: 0.375rem;
-        border-top: 0.063rem solid color-mix(in srgb, var(--border-color) 60%, transparent);
+      .results__group + .results__group {
+        margin-top: 0.25rem;
+        padding-top: 0.25rem;
+        border-top: 1px solid var(--border-color);
       }
-      .search-results__group-title {
-        padding: 0.125rem 0.625rem 0.375rem;
-        font-size: 0.65rem;
-        font-weight: 900;
+      .results__gtitle {
+        padding: 0.25rem 0.625rem 0.375rem;
+        font-size: 0.625rem;
+        font-weight: 800;
         letter-spacing: 0.1em;
         text-transform: uppercase;
         color: var(--text-tertiary);
       }
-      .search-results__item {
+      .result {
         display: flex;
         align-items: center;
         gap: 0.625rem;
-        height: 2.5rem;
-        padding: 0 0.625rem;
-        border-radius: 0.625rem;
-        cursor: pointer;
+        padding: 0.4375rem 0.625rem;
+        border: 0;
+        border-radius: 9px;
+        background: transparent;
         color: var(--text-primary);
-        transition: background 120ms ease;
+        text-align: left;
+        width: 100%;
       }
-      .search-results__item.is-active {
+      .result.is-active,
+      .result:hover {
         background: var(--accent-soft);
       }
-      .search-results__item-icon {
-        width: 1.625rem;
-        height: 1.625rem;
+      .result__icon {
+        width: 1.75rem;
+        height: 1.75rem;
+        flex: 0 0 auto;
         display: grid;
         place-items: center;
-        border-radius: 0.5rem;
+        border-radius: 7px;
         background: var(--bg-panel-muted);
         color: var(--text-secondary);
-        flex: 0 0 auto;
       }
-      .search-results__item-icon svg {
-        width: 0.875rem;
-        height: 0.875rem;
+      .result__icon svg {
+        width: 0.9375rem;
+        height: 0.9375rem;
       }
-      .search-results__item-body {
+      .result__body {
         min-width: 0;
         flex: 1;
       }
-      .search-results__item-name {
-        font-size: 0.8rem;
+      .result__name {
+        font-size: 0.8125rem;
+        font-weight: 700;
+      }
+      .result__name mark {
+        background: color-mix(in srgb, var(--accent) 22%, transparent);
+        color: inherit;
+        border-radius: 3px;
+        padding: 0 1px;
+      }
+      .result__hint {
+        font-size: 0.6875rem;
+        color: var(--text-tertiary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .result__kind {
+        flex: 0 0 auto;
+        font-size: 0.625rem;
         font-weight: 800;
-      }
-      .search-results__item-hint {
-        font-size: 0.65rem;
-        color: var(--text-tertiary);
-      }
-      .search-results__item-kind {
-        font-size: 0.6rem;
-        font-weight: 900;
-        color: var(--text-tertiary);
         text-transform: uppercase;
         letter-spacing: 0.04em;
+        color: var(--text-tertiary);
       }
-      .search-results__empty {
-        padding: 1.125rem 0.625rem;
+      .result__empty {
+        padding: 1.25rem 0.625rem;
         text-align: center;
-        font-size: 0.8rem;
+        font-size: 0.8125rem;
         color: var(--text-tertiary);
       }
 
-      /* 任务中心面板 */
-      .task-panel {
-        display: none;
+      /* =========================================================================
+       * 任务中心抽屉
+       * ========================================================================= */
+      .drawer-scrim {
         position: fixed;
-        right: 1.5rem;
-        bottom: clamp(5rem, 14vh, 6.5rem);
-        width: min(24rem, 92vw);
-        border: 0.063rem solid color-mix(in srgb, var(--border-color) 80%, transparent);
-        border-radius: 1rem;
-        background: var(--bg-panel-solid);
+        inset: 0;
+        background: var(--scrim);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 200ms ease;
+        z-index: 70;
+      }
+      .drawer-scrim.is-open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: min(26rem, 92vw);
+        display: flex;
+        flex-direction: column;
+        background: var(--bg-panel);
+        border-left: 1px solid var(--border-color);
         box-shadow: var(--shadow-float);
-        z-index: 80;
-        overflow: hidden;
-        flex-direction: column;
+        transform: translateX(100%);
+        transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+        z-index: 75;
       }
-      .task-panel.is-open {
-        display: flex;
+      .drawer.is-open {
+        transform: translateX(0);
       }
-      .task-panel__head {
+      .drawer__head {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 0.625rem;
-        padding: 0.75rem 1rem;
-        border-bottom: 0.063rem solid color-mix(in srgb, var(--border-color) 60%, transparent);
+        gap: 0.75rem;
+        padding: 1rem 1.125rem;
+        border-bottom: 1px solid var(--border-color);
       }
-      .task-panel__title {
-        font-size: 0.85rem;
-        font-weight: 900;
+      .drawer__head h2 {
+        margin: 0;
+        font-size: 0.9375rem;
+        font-weight: 800;
       }
-      .task-panel__sub {
-        font-size: 0.65rem;
+      .drawer__head p {
+        margin: 0.125rem 0 0;
+        font-size: 0.6875rem;
         color: var(--text-tertiary);
-        margin-top: 0.125rem;
       }
-      .task-panel__body {
-        max-height: 18rem;
+      .drawer__head .iconbtn {
+        margin-left: auto;
+      }
+      .iconbtn {
+        width: 2rem;
+        height: 2rem;
+        display: grid;
+        place-items: center;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--text-secondary);
+        transition:
+          background 140ms ease,
+          color 140ms ease;
+      }
+      .iconbtn:hover {
+        background: var(--bg-active);
+        color: var(--text-primary);
+      }
+      .iconbtn svg {
+        width: 1.125rem;
+        height: 1.125rem;
+      }
+      .drawer__body {
+        flex: 1;
         overflow-y: auto;
-        padding: 0.5rem;
+        padding: 0.75rem;
         display: flex;
         flex-direction: column;
-        gap: 0.375rem;
+        gap: 0.5rem;
       }
-      .task-item {
+      .task {
         display: grid;
-        grid-template-columns: 1.75rem 1fr auto;
-        align-items: center;
-        gap: 0.625rem;
-        padding: 0.625rem 0.75rem;
-        border: 0.063rem solid var(--border-color);
-        border-radius: 0.75rem;
+        grid-template-columns: 2rem 1fr auto;
+        align-items: start;
+        gap: 0.75rem;
+        padding: 0.75rem 0.875rem;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
         background: var(--bg-panel-muted);
       }
-      .task-item__icon {
+      .task__icon {
+        width: 2rem;
+        height: 2rem;
+        display: grid;
+        place-items: center;
+        border-radius: 9px;
+        background: var(--bg-panel);
+        color: var(--text-secondary);
+      }
+      .task__icon svg {
+        width: 1rem;
+        height: 1rem;
+      }
+      .task[data-tone='running'] .task__icon {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .task[data-tone='warning'] .task__icon {
+        background: var(--warning-soft);
+        color: var(--warning);
+      }
+      .task[data-tone='done'] .task__icon {
+        background: var(--success-soft);
+        color: var(--success);
+      }
+      .task[data-tone='failed'] .task__icon {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+      .task__body {
+        min-width: 0;
+      }
+      .task__name {
+        font-size: 0.8125rem;
+        font-weight: 700;
+      }
+      .task__meta {
+        margin-top: 0.125rem;
+        font-size: 0.6875rem;
+        color: var(--text-tertiary);
+      }
+      .task__bar {
+        height: 0.375rem;
+        margin-top: 0.5rem;
+        border-radius: 999px;
+        background: var(--bg-panel);
+        overflow: hidden;
+      }
+      .task__bar > i {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+        background: var(--accent);
+      }
+      .badge {
+        align-self: center;
+        padding: 0.1875rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.625rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+      .badge--running {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .badge--warning {
+        background: var(--warning-soft);
+        color: var(--warning);
+      }
+      .badge--done {
+        background: var(--success-soft);
+        color: var(--success);
+      }
+      .badge--failed {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+      .drawer__foot {
+        padding: 0.75rem 1.125rem;
+        border-top: 1px solid var(--border-color);
+        font-size: 0.6875rem;
+        color: var(--text-tertiary);
+      }
+
+      /* =========================================================================
+       * 制作 / 导出 对话框
+       * ========================================================================= */
+      .modal-scrim {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 2rem;
+        background: var(--scrim);
+        backdrop-filter: blur(3px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 180ms ease;
+        z-index: 90;
+      }
+      .modal-scrim.is-open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .modal {
+        width: min(34rem, 100%);
+        max-height: 84vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-panel);
+        background: var(--bg-panel);
+        box-shadow: var(--shadow-float);
+        transform: translateY(8px) scale(0.98);
+        transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .modal-scrim.is-open .modal {
+        transform: translateY(0) scale(1);
+      }
+      .modal__head {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: 1.125rem 1.25rem 0.875rem;
+        border-bottom: 1px solid var(--border-color);
+      }
+      .modal__head h2 {
+        margin: 0;
+        font-size: 1.0625rem;
+        font-weight: 800;
+      }
+      .modal__head p {
+        margin: 0.25rem 0 0;
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+      }
+      .modal__head .iconbtn {
+        margin-left: auto;
+      }
+      .modal__body {
+        padding: 1.125rem 1.25rem;
+        overflow-y: auto;
+      }
+      .modal__foot {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.625rem;
+        padding: 0.875rem 1.25rem;
+        border-top: 1px solid var(--border-color);
+      }
+      .modal__stepnote {
+        margin: 1rem 0 0.625rem;
+        font-size: 0.6875rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-tertiary);
+      }
+      .miniproj {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.625rem 0.75rem;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        background: var(--bg-panel-muted);
+        cursor: pointer;
+        transition: border-color 140ms ease;
+      }
+      .miniproj + .miniproj {
+        margin-top: 0.5rem;
+      }
+      .miniproj:hover {
+        border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+      }
+      .miniproj__id {
+        min-width: 0;
+        flex: 1;
+      }
+      .miniproj__name {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        font-size: 0.8125rem;
+        font-weight: 750;
+      }
+      .miniproj__uid {
+        margin-top: 0.125rem;
+        font-size: 0.6875rem;
+        color: var(--text-tertiary);
+        font-family: var(--font-mono);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* =========================================================================
+       * 原型工具条（状态预览 + 主题/任务）—— 原型专属，非产品 UI
+       * ========================================================================= */
+      .devbar {
+        position: fixed;
+        left: 50%;
+        bottom: 1rem;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.3125rem;
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        background: var(--bg-elevated);
+        box-shadow: var(--shadow-float);
+        backdrop-filter: blur(12px);
+        z-index: 85;
+        max-width: calc(100vw - 2rem);
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .devbar__label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3125rem;
+        padding: 0 0.375rem 0 0.625rem;
+        font-size: 0.625rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-tertiary);
+      }
+      .devbar__label svg {
+        width: 0.875rem;
+        height: 0.875rem;
+      }
+      .devbar__btn {
+        height: 1.75rem;
+        padding: 0 0.6875rem;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        font-weight: 700;
+        transition:
+          background 140ms ease,
+          color 140ms ease;
+      }
+      .devbar__btn:hover {
+        background: var(--bg-active);
+        color: var(--text-primary);
+      }
+      .devbar__btn.is-active {
+        background: var(--accent);
+        color: var(--accent-contrast);
+      }
+      .devbar__sep {
+        width: 1px;
+        height: 1.25rem;
+        background: var(--border-color);
+        margin: 0 0.125rem;
+      }
+      .devbar__icon {
         width: 1.75rem;
         height: 1.75rem;
         display: grid;
         place-items: center;
-        border-radius: 0.5rem;
-        background: var(--bg-panel-solid);
-        color: var(--text-secondary);
-      }
-      .task-item__icon svg {
-        width: 0.875rem;
-        height: 0.875rem;
-      }
-      .task-item__name {
-        font-size: 0.8rem;
-        font-weight: 800;
-      }
-      .task-item__meta {
-        font-size: 0.65rem;
-        color: var(--text-tertiary);
-        margin-top: 0.125rem;
-      }
-      .task-item__progress {
-        height: 0.375rem;
-        border-radius: 999.008px;
-        background: var(--bg-panel-solid);
-        overflow: hidden;
-        margin-top: 0.375rem;
-        display: none;
-      }
-      .task-item__progress-bar {
-        height: 100%;
-        background: var(--accent);
-      }
-      .task-item--running .task-item__progress {
-        display: block;
-      }
-      .task-badge {
-        font-size: 0.6rem;
-        font-weight: 900;
-        padding: 0.25rem 0.5rem;
-        border-radius: 999.008px;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-      }
-      .task-badge--running {
-        background: var(--accent-soft);
-        color: var(--accent);
-      }
-      .task-badge--done {
-        background: color-mix(in srgb, var(--success) 14%, transparent);
-        color: var(--success);
-      }
-      .task-badge--failed {
-        background: color-mix(in srgb, var(--danger) 12%, transparent);
-        color: var(--danger);
-      }
-      .task-panel__empty {
-        padding: 1.75rem 0.875rem;
-        text-align: center;
-        font-size: 0.8rem;
-        color: var(--text-tertiary);
-      }
-      .task-panel__foot {
-        padding: 0.625rem 0.875rem;
-        border-top: 0.063rem solid color-mix(in srgb, var(--border-color) 60%, transparent);
-        font-size: 0.7rem;
-        color: var(--text-tertiary);
-      }
-
-      .task-center-btn {
-        width: 2.25rem;
-        height: 2.25rem;
-        display: grid;
-        place-items: center;
         border: 0;
-        border-radius: 0.625rem;
-        background: var(--bg-panel-muted);
+        border-radius: 999px;
+        background: transparent;
         color: var(--text-secondary);
-        cursor: pointer;
-        position: relative;
-        transition:
-          background 160ms ease,
-          color 160ms ease;
       }
-      .task-center-btn:hover {
+      .devbar__icon:hover {
         background: var(--bg-active);
         color: var(--text-primary);
       }
-      .task-center-btn__dot {
-        position: absolute;
-        top: 0.375rem;
-        right: 0.375rem;
-        width: 0.5rem;
-        height: 0.5rem;
-        border-radius: 50%;
-        background: var(--warning);
-        display: none;
-      }
-      .task-center-btn__dot.is-on {
-        display: block;
+      .devbar__icon svg {
+        width: 1rem;
+        height: 1rem;
       }
 
-      /* Toast */
       .toast {
         position: fixed;
-        bottom: 2.5rem;
         left: 50%;
-        transform: translateX(-50%) translateY(20px);
+        bottom: 4rem;
+        transform: translate(-50%, 12px);
         padding: 0.625rem 1rem;
-        border: 0.063rem solid color-mix(in srgb, var(--border-color) 80%, transparent);
-        border-radius: 0.625rem;
-        background: var(--bg-panel-solid);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        background: var(--bg-elevated);
         box-shadow: var(--shadow-float);
-        font-size: 0.8rem;
-        font-weight: 700;
         color: var(--text-primary);
+        font-size: 0.8125rem;
+        font-weight: 650;
         opacity: 0;
         pointer-events: none;
         transition:
           opacity 200ms ease,
           transform 200ms ease;
-        z-index: 200;
+        z-index: 120;
       }
       .toast.is-open {
         opacity: 1;
-        transform: translateX(-50%) translateY(0);
+        transform: translate(-50%, 0);
       }
 
-      .launchpad.is-game-dir-missing .app {
-        cursor: not-allowed;
-        opacity: 0.55;
-        pointer-events: none;
+      /* 游戏目录未配 banner */
+      .gamedir-banner {
+        display: none;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+        border-radius: var(--radius-card);
+        background: var(--warning-soft);
+        color: var(--text-primary);
+        font-size: 0.8125rem;
       }
-
-      .status-monitor__project,
-      .status-stat {
-        cursor: pointer;
+      .home[data-state='no-game-dir'] .gamedir-banner {
+        display: flex;
+      }
+      .gamedir-banner__ic {
+        flex: 0 0 auto;
+        color: var(--warning);
+        display: grid;
+        place-items: center;
+      }
+      .gamedir-banner__ic svg {
+        width: 1.125rem;
+        height: 1.125rem;
+      }
+      .gamedir-banner b {
+        font-weight: 800;
+      }
+      .gamedir-banner__link {
+        margin-left: auto;
         border: 0;
         background: transparent;
-        padding: 0.125rem 0.25rem;
-        border-radius: 0.5rem;
-        transition: background 160ms ease;
-      }
-      .status-monitor__project:hover,
-      .status-stat:hover {
-        background: var(--bg-active);
-      }
-      .status-monitor__project {
-        padding: 0.125rem 0.375rem 0.125rem 0.25rem;
+        color: var(--accent);
+        font-size: 0.8125rem;
+        font-weight: 800;
       }
 
-      /* 响应式 */
-      @media (max-width: 720px) {
-        :root {
-          font-size: 14px;
-        }
-        .app-grid {
-          grid-template-columns: repeat(3, minmax(4.5rem, 5.5rem));
-          gap: 1rem;
-        }
-        .app__icon {
-          width: clamp(3.5rem, 16vw, 4.5rem);
-          height: clamp(3.5rem, 16vw, 4.5rem);
-        }
-        .app__icon svg {
-          width: clamp(1.25rem, 6vw, 1.75rem);
-          height: clamp(1.25rem, 6vw, 1.75rem);
-        }
-        .status-monitor {
-          padding: 0.5rem 0.75rem;
-        }
-        .status-monitor__stats {
-          display: none;
-        }
-        .dock {
-          padding: 0.5rem 0.75rem;
-        }
-        .dock__item {
-          height: 2.5rem;
-          padding: 0 0.75rem;
-        }
-        .maker-choice {
+      /* =========================================================================
+       * 响应式
+       * ========================================================================= */
+      @media (max-width: 1024px) {
+        .hero {
           grid-template-columns: 1fr;
         }
-        .dialog {
-          width: 96vw;
-          max-height: 88vh;
+        .metrics {
+          grid-template-rows: none;
+          grid-template-columns: repeat(3, 1fr);
         }
       }
-
-      @media (min-width: 1600px) {
-        :root {
-          font-size: 20px;
+      @media (max-width: 640px) {
+        .home__inner {
+          padding: 1.25rem 1rem 4rem;
+        }
+        .metrics {
+          grid-template-columns: 1fr;
+        }
+        .makerbar {
+          grid-template-columns: 1fr;
+        }
+        .library__search {
+          display: none;
+        }
+        .library__actions .btn span {
+          display: none;
         }
       }
-
-      @media (max-height: 700px) {
-        .search-wrap {
-          top: 3rem;
-        }
-        .stage {
-          gap: 1.5rem;
-          margin-top: 2rem;
-        }
-        .status-monitor {
-          bottom: 4.5rem;
-        }
-        .dock {
-          bottom: 0.75rem;
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
         }
       }
     </style>
   </head>
   <body>
-    <div class="launchpad" id="launchpad">
-      <!-- 演示用：首页状态切换。真实实现里这些是应用状态，非用户开关。 -->
-      <div class="state-switch" role="toolbar" aria-label="首页状态预览">
-        <span class="state-switch__label">预览</span>
-        <button class="state-switch__btn is-active" data-state="normal">正常</button>
-        <button class="state-switch__btn" data-state="no-current">无当前项目</button>
-        <button class="state-switch__btn" data-state="no-projects">无项目</button>
-        <button class="state-switch__btn" data-state="no-game-dir">游戏目录未配</button>
-        <button class="state-switch__btn" data-state="broken">项目损坏</button>
-      </div>
-
-      <div class="game-dir-banner" id="gameDirBanner">
-        <svg class="game-dir-banner__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-          <line x1="12" y1="9" x2="12" y2="13" />
-          <line x1="12" y1="17" x2="12.01" y2="17" />
-        </svg>
-        <div class="game-dir-banner__body"><b>未配置游戏目录</b> — 模块浏览与项目导入需要先指定游戏安装路径。</div>
-        <a class="game-dir-banner__link" onclick="toast('跳转到 设置 → 游戏目录')">去设置</a>
-      </div>
-
-      <div class="search-wrap">
-        <label class="search">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.35-4.35" />
-          </svg>
-          <input type="search" placeholder="搜索模块、项目、命令..." />
-          <kbd>Ctrl K</kbd>
-        </label>
-        <div class="search-results" id="searchResults" role="listbox" aria-label="搜索结果"></div>
-      </div>
-
-      <main class="stage">
-        <section>
-          <h2 class="section__title">全局浏览</h2>
-          <div class="app-grid">
-            <article class="app">
-              <span class="app__icon app__icon--map"
-                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /></svg
-              ></span>
-              <span class="app__label">地图浏览</span>
-              <span class="app__code">Map</span>
-            </article>
-            <article class="app">
-              <span class="app__icon app__icon--events"
-                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="18" cy="5" r="3" />
-                  <path d="M6 9l6 6 3-3 5 5" />
-                  <path d="M21 21H3V3h9" /></svg
-              ></span>
-              <span class="app__label">事件浏览</span>
-              <span class="app__code">Events</span>
-            </article>
-            <article class="app">
-              <span class="app__icon app__icon--characters"
-                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                  <circle cx="8.5" cy="7" r="4" />
-                  <path d="M20 8v6m3-3h-6" /></svg
-              ></span>
-              <span class="app__label">角色浏览</span>
-              <span class="app__code">Chars</span>
-            </article>
-            <article class="app">
-              <span class="app__icon app__icon--buildings"
-                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M15 22V12a3 3 0 0 0-3-3H6a3 3 0 0 0-3 3v10" />
-                  <path d="M18 22V5a2 2 0 0 0-2-2h-3" />
-                  <path d="M22 22V9a2 2 0 0 0-2-2h-2" /></svg
-              ></span>
-              <span class="app__label">建筑浏览</span>
-              <span class="app__code">Build</span>
-            </article>
-            <article class="app">
-              <span class="app__icon app__icon--items"
-                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="m7.5 4.27 9 5.15" />
-                  <path
-                    d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"
-                  />
-                  <path d="m3.3 7 8.7 5 8.7-5" />
-                  <path d="M12 22V12" /></svg
-              ></span>
-              <span class="app__label">物品浏览</span>
-              <span class="app__code">Items</span>
-            </article>
-            <article class="app">
-              <span class="app__icon app__icon--i18n"
-                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="m5 8 6 6" />
-                  <path d="m4 14 6-6 2-3" />
-                  <path d="M2 5h12" />
-                  <path d="M7 2h1" />
-                  <path d="m22 22-5-10-5 10" />
-                  <path d="M14 18h6" /></svg
-              ></span>
-              <span class="app__label">翻译浏览</span>
-              <span class="app__code">I18N</span>
-            </article>
-          </div>
-        </section>
-
-        <section>
-          <h2 class="section__title">项目工作台</h2>
-          <div class="app-grid app-grid--workbench">
-            <article class="app" onclick="document.getElementById('makerDialog').classList.add('is-open')">
-              <span class="app__icon"
-                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 20h9" />
-                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg
-              ></span>
-              <span class="app__label">制作</span>
-              <span class="app__code">Make</span>
-            </article>
-            <article class="app" onclick="document.getElementById('projectDialog').classList.add('is-open')">
-              <span class="app__icon app__icon--projects"
-                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" /></svg
-              ></span>
-              <span class="app__label">项目库</span>
-              <span class="app__code">Projects</span>
-            </article>
-            <article class="app">
-              <span class="app__icon app__icon--projects"
-                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 5v14M5 12h14" /></svg
-              ></span>
-              <span class="app__label">新建项目</span>
-              <span class="app__code">New</span>
-            </article>
-            <article class="app">
-              <span class="app__icon app__icon--projects"
-                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <path d="M17 8l-5-5-5 5" />
-                  <path d="M12 3v12" /></svg
-              ></span>
-              <span class="app__label">导入项目</span>
-              <span class="app__code">Import</span>
-            </article>
-          </div>
-        </section>
-      </main>
-
-      <aside class="status-monitor" id="statusMonitor">
-        <button
-          class="task-center-btn"
-          type="button"
-          aria-label="任务中心"
-          title="任务中心"
-          onclick="document.getElementById('taskPanel').classList.toggle('is-open')"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-            <path d="M12 7v5l3 2" />
-          </svg>
-          <span class="task-center-btn__dot is-on" title="有进行中的任务"></span>
-        </button>
-        <button class="status-monitor__project" type="button" title="打开项目库并聚焦到当前项目" onclick="openProjectLibrary()">
-          <div class="status-monitor__cover">SV</div>
-          <div>
-            <div class="status-monitor__name">星露谷扩展包</div>
-            <div class="status-monitor__meta">当前项目 · 2 小时前编辑</div>
-          </div>
-        </button>
-        <div class="status-monitor__stats">
-          <button class="status-stat" type="button" title="跳转到导出队列" onclick="toast('跳转到 导出队列（当前项目 › 制作工作台）')">
-            <span class="status-stat__dot status-stat__dot--export"></span>待导出 2
-          </button>
-          <button class="status-stat" type="button" title="跳转到冲突检测结果" onclick="toast('跳转到 冲突检测结果（当前项目 › 校验）')">
-            <span class="status-stat__dot status-stat__dot--ok"></span>冲突 0
-          </button>
-        </div>
-        <button
-          class="status-monitor__back"
-          type="button"
-          aria-label="返回工作区"
-          title="返回上一个工作区视图"
-          onclick="toast('返回上一个工作区视图')"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-        </button>
-      </aside>
-    </div>
-
-    <!-- Maker Dialog -->
-    <div class="dialog-overlay" id="makerDialog">
-      <div class="dialog">
-        <div class="dialog__header">
-          <div>
-            <h2>选择制作工具</h2>
-            <p>先选择要进入的制作工具，再选择对应的项目。</p>
-          </div>
-          <button class="dialog__close" onclick="document.getElementById('makerDialog').classList.remove('is-open')">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 6 6 18M6 6l12 12" />
+    <div class="home scroll" id="home" data-state="normal">
+      <div class="home__inner">
+        <!-- 游戏目录未配 banner -->
+        <div class="gamedir-banner" role="status">
+          <span class="gamedir-banner__ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
             </svg>
-          </button>
+          </span>
+          <div><b>未配置游戏目录</b> —— 模块浏览与项目导入需要先指定游戏安装路径。</div>
+          <button class="gamedir-banner__link" type="button" onclick="toast('跳转到 设置 › 游戏目录')">去设置 →</button>
         </div>
-        <div class="dialog__body">
-          <div class="maker-choice">
-            <div class="maker-choice__item is-selected">
-              <span class="maker-choice__icon"
-                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /></svg
-              ></span>
-              <span class="maker-choice__label">地图制作</span>
-            </div>
-            <div class="maker-choice__item">
-              <span class="maker-choice__icon"
-                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="18" cy="5" r="3" />
-                  <path d="M6 9l6 6 3-3 5 5" />
-                  <path d="M21 21H3V3h9" /></svg
-              ></span>
-              <span class="maker-choice__label">事件制作</span>
-            </div>
-            <div class="maker-choice__item">
-              <span class="maker-choice__icon"
-                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="m7.5 4.27 9 5.15" />
-                  <path
-                    d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"
-                  />
-                  <path d="m3.3 7 8.7 5 8.7-5" />
-                  <path d="M12 22V12" /></svg
-              ></span>
-              <span class="maker-choice__label">物品制作</span>
-            </div>
-          </div>
 
-          <div
-            class="maker-continue is-on"
-            id="makerContinue"
-            onclick="
-              this.classList.toggle('is-on')
-              updateMakerCta()
-            "
-          >
-            <span class="maker-continue__check">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5" /></svg>
-            </span>
-            <span>使用当前项目「星露谷扩展包」继续制作（取消勾选可改为选择其他项目）</span>
-          </div>
-
-          <div class="maker-step-project">
-            <h3
-              style="
-                margin: 0 0 0.625rem;
-                font-size: 0.75rem;
-                font-weight: 900;
-                color: var(--text-tertiary);
-                text-transform: uppercase;
-                letter-spacing: 0.08em;
-              "
-            >
-              选择项目
-            </h3>
-            <div class="project-list">
-              <article class="project-row is-selected">
-                <div class="project-cover">SV</div>
-                <div class="project-info">
-                  <div class="project-name">星露谷扩展包 <span class="pill pill--current">当前</span><span class="pill">待导出</span></div>
-                  <div class="project-meta">UniqueID Author.StardewExpansion · 编辑 2 小时前</div>
-                </div>
-              </article>
-              <article class="project-row">
-                <div class="project-cover" style="background: #7c3aed">FD</div>
-                <div class="project-info">
-                  <div class="project-name">Festival Dialogue</div>
-                  <div class="project-meta">UniqueID Author.FestivalDialogue · 编辑 3 天前</div>
-                </div>
-              </article>
-            </div>
-          </div>
-        </div>
-        <div class="dialog__footer">
-          <button class="btn" onclick="document.getElementById('makerDialog').classList.remove('is-open')">取消</button>
-          <button class="btn btn--primary" id="makerCta">进入地图制作</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Project Library Dialog -->
-    <div class="dialog-overlay" id="projectDialog">
-      <div class="dialog">
-        <div class="dialog__header">
-          <div>
-            <h2>项目库</h2>
-            <p>管理所有 Content Patcher 项目。</p>
-          </div>
-          <button class="dialog__close" onclick="document.getElementById('projectDialog').classList.remove('is-open')">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div class="dialog__body">
-          <div class="library-toolbar">
-            <label class="library-toolbar__search">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <!-- ============ Hero ============ -->
+        <section>
+          <div class="hero__search">
+            <label class="searchbar">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
                 <circle cx="11" cy="11" r="8" />
                 <path d="m21 21-4.35-4.35" />
               </svg>
-              <input type="search" id="librarySearch" placeholder="按项目名或 UniqueID 过滤..." />
+              <input id="search" type="search" placeholder="搜索浏览模块、项目、命令…" autocomplete="off" />
+              <kbd>Ctrl K</kbd>
             </label>
-            <span class="library-count" id="libraryCount">3 个项目</span>
+            <div class="results" id="results" role="listbox" aria-label="搜索结果"></div>
           </div>
-          <div class="project-list" id="projectList">
-            <article class="project-row">
-              <div class="project-cover">SV</div>
-              <div class="project-info">
-                <div class="project-name">星露谷扩展包 <span class="pill pill--current">当前</span><span class="pill">待导出</span></div>
-                <div class="project-meta">UniqueID Author.StardewExpansion · 编辑 2 小时前</div>
+
+          <div class="hero">
+            <!-- 当前项目卡（含制作主操作） -->
+            <article class="currentcard" id="currentCard">
+              <div class="currentcard__top">
+                <span class="cover cover--lg" data-tone="indigo" aria-hidden="true">SV</span>
+                <div class="currentcard__id">
+                  <span class="currentcard__label is-current-only"><span class="pulse"></span>当前项目</span>
+                  <span class="currentcard__label no-current-only">未选择当前项目</span>
+                  <h2 class="currentcard__name is-current-only">星露谷扩展包</h2>
+                  <h2 class="currentcard__name no-current-only" style="color: var(--text-secondary)">先选择一个项目</h2>
+                  <div class="currentcard__meta is-current-only">Author.StardewExpansion · v1.4.0</div>
+                  <div class="currentcard__meta no-current-only" style="font-family: var(--font-sans)">在下方项目库打开或新建项目</div>
+                </div>
+                <button
+                  class="currentcard__edit is-current-only"
+                  type="button"
+                  title="项目属性"
+                  aria-label="项目属性"
+                  onclick="toast('打开 项目属性')"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" />
+                  </svg>
+                </button>
               </div>
-              <button class="btn btn--primary project-open" style="height: 2rem; padding: 0 0.75rem">打开</button>
-            </article>
-            <article class="project-row">
-              <div class="project-cover" style="background: #7c3aed">FD</div>
-              <div class="project-info">
-                <div class="project-name">Festival Dialogue</div>
-                <div class="project-meta">UniqueID Author.FestivalDialogue · 编辑 3 天前</div>
+
+              <!-- 制作：地图 / 事件 / 物品 -->
+              <div class="makerbar">
+                <button class="makerbtn" type="button" onclick="startMaker('map')">
+                  <span class="makerbtn__ic tone" data-tone="map" aria-hidden="true"
+                    ><svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /></svg
+                  ></span>
+                  <span class="makerbtn__tx"><b>地图制作</b><span>瓦片 · 传送</span></span>
+                </button>
+                <button class="makerbtn" type="button" onclick="startMaker('events')">
+                  <span class="makerbtn__ic tone" data-tone="events" aria-hidden="true"
+                    ><svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <circle cx="18" cy="18" r="3" />
+                      <circle cx="6" cy="6" r="3" />
+                      <path d="M6 9v6a3 3 0 0 0 3 3h6" /></svg
+                  ></span>
+                  <span class="makerbtn__tx"><b>事件制作</b><span>脚本 · 演出</span></span>
+                </button>
+                <button class="makerbtn" type="button" onclick="startMaker('items')">
+                  <span class="makerbtn__ic tone" data-tone="items" aria-hidden="true"
+                    ><svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path
+                        d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+                      />
+                      <path d="m3.3 7 8.7 5 8.7-5M12 22V12" /></svg
+                  ></span>
+                  <span class="makerbtn__tx"><b>物品制作</b><span>商店 · 掉落</span></span>
+                </button>
               </div>
-              <button class="btn project-open" style="height: 2rem; padding: 0 0.75rem">打开</button>
-            </article>
-            <article class="project-row is-broken">
-              <div class="project-cover" style="background: #9ca3af">??</div>
-              <div class="project-info">
-                <div class="project-name">Corrupted Mod Pack</div>
-                <div class="project-meta">manifest.json 解析失败 · 上次编辑 17 天前 · 已不可打开</div>
+
+              <div class="currentcard__foot">
+                <button class="btn btn--primary is-current-only" type="button" onclick="toast('继续编辑 星露谷扩展包')">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M5 3l14 9-14 9V3z" />
+                  </svg>
+                  继续制作
+                </button>
+                <button class="btn is-current-only" type="button" onclick="openExport()">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <path d="M7 10l5 5 5-5" />
+                    <path d="M12 15V3" />
+                  </svg>
+                  导出
+                </button>
+                <button class="btn btn--primary no-current-only" type="button" onclick="scrollToLibrary()">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />
+                  </svg>
+                  打开项目库
+                </button>
               </div>
-              <span class="project-broken-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z" />
-                  <path d="M12 9v4M12 17h.01" />
-                </svg>
-                损坏
-              </span>
             </article>
-          </div>
-          <div class="project-empty" id="projectEmpty">
-            <div class="project-empty__title">还没有项目</div>
-            <div class="project-empty__hint">新建一个 Content Patcher 项目开始制作，或从已存在的项目文件夹导入。</div>
-            <div class="project-empty__actions">
-              <button class="btn" onclick="toast('开始导入项目')">导入项目</button>
-              <button class="btn btn--primary" onclick="toast('开始新建项目')">新建项目</button>
+
+            <!-- 指标列 -->
+            <div class="metrics">
+              <button class="metric" data-tone="warning" type="button" onclick="openTasks()">
+                <span class="metric__icon" aria-hidden="true"
+                  ><svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <path d="M7 10l5 5 5-5" />
+                    <path d="M12 15V3" /></svg
+                ></span>
+                <span class="metric__body"
+                  ><div class="metric__value">2 <small>个条目</small></div>
+                  <div class="metric__label">待导出</div></span
+                >
+                <span class="metric__go" aria-hidden="true"
+                  ><svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M9 18l6-6-6-6" /></svg
+                ></span>
+              </button>
+              <button class="metric" data-tone="success" type="button" onclick="openTasks()">
+                <span class="metric__icon" aria-hidden="true"
+                  ><svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <path d="M22 4 12 14.01l-3-3" /></svg
+                ></span>
+                <span class="metric__body"
+                  ><div class="metric__value">0 <small>处冲突</small></div>
+                  <div class="metric__label">冲突检测</div></span
+                >
+                <span class="metric__go" aria-hidden="true"
+                  ><svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M9 18l6-6-6-6" /></svg
+                ></span>
+              </button>
+              <button class="metric" data-tone="success" type="button" id="dirMetric" onclick="toast('打开 设置 › 游戏目录')">
+                <span class="metric__icon" aria-hidden="true"
+                  ><svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg
+                ></span>
+                <span class="metric__body"
+                  ><div class="metric__value" id="dirValue">已连接</div>
+                  <div class="metric__label" id="dirLabel">游戏目录</div></span
+                >
+                <span class="metric__go" aria-hidden="true"
+                  ><svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M9 18l6-6-6-6" /></svg
+                ></span>
+              </button>
             </div>
           </div>
-        </div>
-        <div class="dialog__footer">
-          <button class="btn">导入项目</button>
-          <button class="btn btn--primary">新建项目</button>
-        </div>
+        </section>
+
+        <!-- ============ 项目库 ============ -->
+        <section class="library" id="library">
+          <header class="library__head">
+            <div class="library__title">
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />
+              </svg>
+              项目库
+              <span class="library__count" id="libCount">3 个项目</span>
+            </div>
+            <label class="library__search">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+              <input id="libSearch" type="search" placeholder="按名称或 UniqueID 过滤…" autocomplete="off" />
+            </label>
+            <div class="library__actions">
+              <button class="btn btn--sm" type="button" onclick="toast('开始 导入项目')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <path d="M17 8l-5-5-5 5" />
+                  <path d="M12 3v12" />
+                </svg>
+                <span>导入</span>
+              </button>
+              <button class="btn btn--primary btn--sm" type="button" onclick="toast('开始 新建项目')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                <span>新建</span>
+              </button>
+            </div>
+          </header>
+
+          <div class="pendingbar" id="pendingBar">
+            <span class="pendingbar__icon" aria-hidden="true"
+              ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path
+                  d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
+                /></svg
+            ></span>
+            <span>为 <b id="pendingMode">地图制作</b> 选择一个项目，或在下方卡片点「使用此项目」。</span>
+            <button class="pendingbar__cancel" type="button" onclick="cancelPending()">取消</button>
+          </div>
+
+          <div class="grid" id="grid">
+            <article class="pcard is-current" onclick="toast('打开 星露谷扩展包')">
+              <div class="pcard__top">
+                <span class="cover cover--md" data-tone="indigo" aria-hidden="true">SV</span>
+                <div class="pcard__id">
+                  <div class="pcard__name"><span>星露谷扩展包</span></div>
+                  <div class="pcard__uid">Author.StardewExpansion</div>
+                </div>
+                <button
+                  class="pcard__menu"
+                  type="button"
+                  title="更多操作"
+                  onclick="
+                    event.stopPropagation()
+                    toast('右键菜单：打开 / 属性 / 复制 / 删除 / 清除选中')
+                  "
+                  aria-label="更多操作"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="5" r="1" />
+                    <circle cx="12" cy="12" r="1" />
+                    <circle cx="12" cy="19" r="1" />
+                  </svg>
+                </button>
+              </div>
+              <div class="pcard__foot">
+                <span class="chip chip--current"
+                  ><svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M20 6 9 17l-5-5" /></svg
+                  >当前</span
+                >
+                <span class="chip chip--export">待导出 2</span>
+                <span class="pcard__time">2 小时前</span>
+              </div>
+              <div
+                class="pcard__use"
+                onclick="
+                  event.stopPropagation()
+                  selectForMaker('星露谷扩展包')
+                "
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 12h14M13 5l7 7-7 7" /></svg
+                >使用此项目
+              </div>
+            </article>
+
+            <article class="pcard" onclick="toast('打开 Festival Dialogue')">
+              <div class="pcard__top">
+                <span class="cover cover--md" data-tone="violet" aria-hidden="true">FD</span>
+                <div class="pcard__id">
+                  <div class="pcard__name"><span>Festival Dialogue</span></div>
+                  <div class="pcard__uid">Author.FestivalDialogue</div>
+                </div>
+                <button
+                  class="pcard__menu"
+                  type="button"
+                  title="更多操作"
+                  onclick="
+                    event.stopPropagation()
+                    toast('右键菜单：打开 / 属性 / 复制 / 删除')
+                  "
+                  aria-label="更多操作"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="5" r="1" />
+                    <circle cx="12" cy="12" r="1" />
+                    <circle cx="12" cy="19" r="1" />
+                  </svg>
+                </button>
+              </div>
+              <div class="pcard__foot">
+                <span class="chip chip--dirty"
+                  ><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="7" /></svg>未保存</span
+                >
+                <span class="pcard__time">3 天前</span>
+              </div>
+              <div
+                class="pcard__use"
+                onclick="
+                  event.stopPropagation()
+                  selectForMaker('Festival Dialogue')
+                "
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 12h14M13 5l7 7-7 7" /></svg
+                >使用此项目
+              </div>
+            </article>
+
+            <article class="pcard" onclick="toast('打开 Seasonal Crops Plus')">
+              <div class="pcard__top">
+                <span class="cover cover--md" data-tone="emerald" aria-hidden="true">SC</span>
+                <div class="pcard__id">
+                  <div class="pcard__name"><span>Seasonal Crops Plus</span></div>
+                  <div class="pcard__uid">Author.SeasonalCrops</div>
+                </div>
+                <button
+                  class="pcard__menu"
+                  type="button"
+                  title="更多操作"
+                  onclick="
+                    event.stopPropagation()
+                    toast('右键菜单：打开 / 属性 / 复制 / 删除')
+                  "
+                  aria-label="更多操作"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="5" r="1" />
+                    <circle cx="12" cy="12" r="1" />
+                    <circle cx="12" cy="19" r="1" />
+                  </svg>
+                </button>
+              </div>
+              <div class="pcard__foot">
+                <span class="chip">42 个补丁</span>
+                <span class="pcard__time">上周</span>
+              </div>
+              <div
+                class="pcard__use"
+                onclick="
+                  event.stopPropagation()
+                  selectForMaker('Seasonal Crops Plus')
+                "
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 12h14M13 5l7 7-7 7" /></svg
+                >使用此项目
+              </div>
+            </article>
+
+            <article class="pcard is-broken">
+              <div class="pcard__top">
+                <span class="cover cover--md" data-tone="broken" aria-hidden="true">??</span>
+                <div class="pcard__id">
+                  <div class="pcard__name"><span>Corrupted Mod Pack</span></div>
+                  <div class="pcard__uid">manifest.json 解析失败</div>
+                </div>
+                <button
+                  class="pcard__menu"
+                  type="button"
+                  title="更多操作"
+                  onclick="
+                    event.stopPropagation()
+                    toast('右键菜单：在文件夹中显示 / 删除')
+                  "
+                  aria-label="更多操作"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="5" r="1" />
+                    <circle cx="12" cy="12" r="1" />
+                    <circle cx="12" cy="19" r="1" />
+                  </svg>
+                </button>
+              </div>
+              <div class="pcard__foot">
+                <span class="chip chip--broken"
+                  ><svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z" />
+                    <path d="M12 9v4M12 17h.01" /></svg
+                  >损坏 · 不可打开</span
+                >
+                <span class="pcard__time">17 天前</span>
+              </div>
+            </article>
+          </div>
+
+          <div class="empty">
+            <span class="empty__art" aria-hidden="true"
+              ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />
+                <path d="M12 11v5M9.5 13.5h5" /></svg
+            ></span>
+            <div class="empty__title">还没有项目</div>
+            <div class="empty__hint">新建一个 Content Patcher 项目开始制作，或从已存在的项目文件夹导入。</div>
+            <div class="empty__actions">
+              <button class="btn" type="button" onclick="toast('开始 导入项目')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <path d="M17 8l-5-5-5 5" />
+                  <path d="M12 3v12" /></svg
+                >导入项目
+              </button>
+              <button class="btn btn--primary" type="button" onclick="toast('开始 新建项目')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 5v14M5 12h14" /></svg
+                >新建项目
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ 全局领域（游戏资源） ============ -->
+        <section class="browse">
+          <div class="section__head">
+            <h2>全局领域</h2>
+            <small>无需项目 · 查看游戏资源，翻译领域可直接校对编辑</small>
+          </div>
+          <div class="cardrow">
+            <button class="ecard is-active" type="button" onclick="toast('进入 地图（查看）')">
+              <span class="ecard__ic tone" data-tone="map" aria-hidden="true"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+                  <line x1="9" y1="3" x2="9" y2="18" />
+                  <line x1="15" y1="6" x2="15" y2="21" /></svg
+              ></span>
+              <span class="ecard__title">地图</span>
+              <span class="ecard__hint">地图资产 · 瓦片 · 传送</span>
+              <span class="ecard__cap" aria-label="可查看"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+                  <circle cx="12" cy="12" r="3" /></svg
+                >查看</span
+              >
+              <span class="ecard__lock" aria-hidden="true"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg
+              ></span>
+            </button>
+            <button class="ecard" type="button" onclick="toast('进入 事件（查看）')">
+              <span class="ecard__ic tone" data-tone="events" aria-hidden="true"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="18" cy="18" r="3" />
+                  <circle cx="6" cy="6" r="3" />
+                  <path d="M6 9v6a3 3 0 0 0 3 3h6" /></svg
+              ></span>
+              <span class="ecard__title">事件</span>
+              <span class="ecard__hint">事件脚本 · 对话 · 演出</span>
+              <span class="ecard__cap" aria-label="可查看"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+                  <circle cx="12" cy="12" r="3" /></svg
+                >查看</span
+              >
+              <span class="ecard__lock" aria-hidden="true"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg
+              ></span>
+            </button>
+            <button class="ecard" type="button" onclick="toast('进入 角色（查看）')">
+              <span class="ecard__ic tone" data-tone="characters" aria-hidden="true"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87" /></svg
+              ></span>
+              <span class="ecard__title">角色</span>
+              <span class="ecard__hint">NPC 数据 · 立绘 · 礼物</span>
+              <span class="ecard__cap" aria-label="可查看"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+                  <circle cx="12" cy="12" r="3" /></svg
+                >查看</span
+              >
+              <span class="ecard__lock" aria-hidden="true"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg
+              ></span>
+            </button>
+            <button class="ecard" type="button" onclick="toast('进入 建筑（查看）')">
+              <span class="ecard__ic tone" data-tone="buildings" aria-hidden="true"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4" /></svg
+              ></span>
+              <span class="ecard__title">建筑</span>
+              <span class="ecard__hint">外观 · 布局 · 内容</span>
+              <span class="ecard__cap" aria-label="可查看"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+                  <circle cx="12" cy="12" r="3" /></svg
+                >查看</span
+              >
+              <span class="ecard__lock" aria-hidden="true"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg
+              ></span>
+            </button>
+            <button class="ecard" type="button" onclick="toast('进入 物品（查看）')">
+              <span class="ecard__ic tone" data-tone="items" aria-hidden="true"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path
+                    d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+                  />
+                  <path d="m3.3 7 8.7 5 8.7-5M12 22V12" /></svg
+              ></span>
+              <span class="ecard__title">物品</span>
+              <span class="ecard__hint">定义 · 图标 · 掉落</span>
+              <span class="ecard__cap" aria-label="可查看"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+                  <circle cx="12" cy="12" r="3" /></svg
+                >查看</span
+              >
+              <span class="ecard__lock" aria-hidden="true"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg
+              ></span>
+            </button>
+            <button class="ecard" type="button" onclick="toast('进入 翻译（校对 · 编辑）')">
+              <span class="ecard__ic tone" data-tone="i18n" aria-hidden="true"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1" />
+                  <path d="m22 22-5-10-5 10M14 18h6" /></svg
+              ></span>
+              <span class="ecard__title">翻译</span>
+              <span class="ecard__hint">本地化校对与编辑</span>
+              <span class="ecard__cap ecard__cap--edit" aria-label="可校对与编辑"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg
+                >校对 · 编辑</span
+              >
+              <span class="ecard__lock" aria-hidden="true"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg
+              ></span>
+            </button>
+          </div>
+        </section>
       </div>
     </div>
 
-    <!-- Task Center Panel -->
-    <div class="task-panel" id="taskPanel" role="dialog" aria-label="任务中心">
-      <div class="task-panel__head">
+    <!-- ================= 任务中心抽屉 ================= -->
+    <div class="drawer-scrim" id="drawerScrim" onclick="closeTasks()"></div>
+    <aside class="drawer" id="drawer" role="dialog" aria-label="任务中心">
+      <header class="drawer__head">
         <div>
-          <div class="task-panel__title">任务中心</div>
-          <div class="task-panel__sub">导入 / 导出 / 扫描 / 校验 等后台任务</div>
+          <h2>任务中心</h2>
+          <p>导入 / 导出 / 扫描 / 校验 等后台任务</p>
         </div>
-        <button class="dialog__close" onclick="document.getElementById('taskPanel').classList.remove('is-open')" aria-label="关闭">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button class="iconbtn" type="button" aria-label="关闭" onclick="closeTasks()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>
         </button>
-      </div>
-      <div class="task-panel__body" id="taskPanelBody">
-        <div class="task-item task-item--running">
-          <span class="task-item__icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      </header>
+      <div class="drawer__body scroll">
+        <article class="task" data-tone="running">
+          <span class="task__icon" aria-hidden="true"
+            ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <path d="M17 8l-5-5-5 5" />
-              <path d="M12 3v12" />
-            </svg>
-          </span>
-          <div>
-            <div class="task-item__name">导入项目 · Festival Dialogue</div>
-            <div class="task-item__meta">正在解压与校验依赖 · 2 分钟前启动</div>
-            <div class="task-item__progress"><div class="task-item__progress-bar" style="width: 64%"></div></div>
+              <path d="M12 3v12" /></svg
+          ></span>
+          <div class="task__body">
+            <div class="task__name">导入项目 · Festival Dialogue</div>
+            <div class="task__meta">正在解压与校验依赖 · 2 分钟前启动</div>
+            <div class="task__bar"><i style="width: 64%"></i></div>
           </div>
-          <span class="task-badge task-badge--running">进行中</span>
-        </div>
-        <div class="task-item">
-          <span class="task-item__icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 20h9" />
-              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z" />
-            </svg>
-          </span>
-          <div>
-            <div class="task-item__name">导出 · 星露谷扩展包</div>
-            <div class="task-item__meta">2 个待导出条目 · 当前项目</div>
+          <span class="badge badge--running">进行中</span>
+        </article>
+        <article class="task" data-tone="warning">
+          <span class="task__icon" aria-hidden="true"
+            ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <path d="M7 10l5 5 5-5" />
+              <path d="M12 15V3" /></svg
+          ></span>
+          <div class="task__body">
+            <div class="task__name">导出 · 星露谷扩展包</div>
+            <div class="task__meta">2 个待导出条目 · 当前项目</div>
           </div>
-          <span class="task-badge task-badge--running">待开始</span>
-        </div>
-        <div class="task-item">
-          <span class="task-item__icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M4 4 20 20M4 20 20 4" />
-              <path d="M12 2v4M12 18v4" />
-            </svg>
-          </span>
-          <div>
-            <div class="task-item__name">冲突检测 · 星露谷扩展包</div>
-            <div class="task-item__meta">完成于 12:04 · 未发现冲突</div>
+          <span class="badge badge--warning">待开始</span>
+        </article>
+        <article class="task" data-tone="done">
+          <span class="task__icon" aria-hidden="true"
+            ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <path d="M22 4 12 14.01l-3-3" /></svg
+          ></span>
+          <div class="task__body">
+            <div class="task__name">冲突检测 · 星露谷扩展包</div>
+            <div class="task__meta">完成于 12:04 · 未发现冲突</div>
           </div>
-          <span class="task-badge task-badge--done">完成</span>
-        </div>
-        <div class="task-item">
-          <span class="task-item__icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />
-            </svg>
-          </span>
-          <div>
-            <div class="task-item__name">扫描游戏目录</div>
-            <div class="task-item__meta">失败 · 游戏目录未配置</div>
+          <span class="badge badge--done">完成</span>
+        </article>
+        <article class="task" data-tone="failed">
+          <span class="task__icon" aria-hidden="true"
+            ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              <path d="m9.5 10.5 5 5M14.5 10.5l-5 5" /></svg
+          ></span>
+          <div class="task__body">
+            <div class="task__name">扫描游戏目录</div>
+            <div class="task__meta">失败 · 游戏目录未配置</div>
           </div>
-          <span class="task-badge task-badge--failed">失败</span>
-        </div>
+          <span class="badge badge--failed">失败</span>
+        </article>
       </div>
-      <div class="task-panel__foot">任务完成后自动从列表清理 · 仅保留最近完成与失败</div>
+      <footer class="drawer__foot">任务完成后自动从列表清理 · 仅保留最近完成与失败</footer>
+    </aside>
+
+    <!-- ================= 制作对话框 ================= -->
+    <div class="modal-scrim" id="makerScrim">
+      <div class="modal" role="dialog" aria-label="选择项目以制作" aria-modal="true">
+        <header class="modal__head">
+          <div>
+            <h2 id="makerTitle">选择项目 · 地图制作</h2>
+            <p>当前没有活动项目，选择一个项目以进入此制作工具。</p>
+          </div>
+          <button class="iconbtn" type="button" aria-label="关闭" onclick="closeMaker()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </header>
+        <div class="modal__body scroll">
+          <div class="modal__stepnote">项目库</div>
+          <div class="miniproj" onclick="enterMakerWith('星露谷扩展包')">
+            <span class="cover cover--sm" data-tone="indigo" aria-hidden="true">SV</span>
+            <div class="miniproj__id">
+              <div class="miniproj__name">
+                <span>星露谷扩展包</span><span class="chip chip--current" style="padding: 0 0.375rem">当前</span>
+              </div>
+              <div class="miniproj__uid">Author.StardewExpansion</div>
+            </div>
+          </div>
+          <div class="miniproj" onclick="enterMakerWith('Festival Dialogue')">
+            <span class="cover cover--sm" data-tone="violet" aria-hidden="true">FD</span>
+            <div class="miniproj__id">
+              <div class="miniproj__name"><span>Festival Dialogue</span></div>
+              <div class="miniproj__uid">Author.FestivalDialogue</div>
+            </div>
+          </div>
+          <div class="miniproj" onclick="enterMakerWith('Seasonal Crops Plus')">
+            <span class="cover cover--sm" data-tone="emerald" aria-hidden="true">SC</span>
+            <div class="miniproj__id">
+              <div class="miniproj__name"><span>Seasonal Crops Plus</span></div>
+              <div class="miniproj__uid">Author.SeasonalCrops</div>
+            </div>
+          </div>
+        </div>
+        <footer class="modal__foot">
+          <button class="btn" type="button" onclick="closeMaker()">取消</button>
+          <button
+            class="btn btn--primary"
+            type="button"
+            onclick="
+              toast('新建项目以开始制作')
+              closeMaker()
+            "
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5v14M5 12h14" /></svg
+            >新建项目
+          </button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- ================= 导出对话框 ================= -->
+    <div class="modal-scrim" id="exportScrim">
+      <div class="modal" role="dialog" aria-label="导出模组包" aria-modal="true" style="width: min(32rem, 100%)">
+        <header class="modal__head">
+          <div>
+            <h2>导出模组包</h2>
+            <p>将「星露谷扩展包」导出为可分发的 Content Patcher 包。</p>
+          </div>
+          <button class="iconbtn" type="button" aria-label="关闭" onclick="closeExport()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </header>
+        <div class="modal__body scroll">
+          <div class="modal__stepnote">将写出 4 个文件</div>
+          <div class="miniproj" style="cursor: default">
+            <span class="task__icon" aria-hidden="true" style="background: var(--bg-panel)"
+              ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" /></svg
+            ></span>
+            <div class="miniproj__id">
+              <div class="miniproj__name">manifest.json</div>
+              <div class="miniproj__uid" style="font-family: var(--font-sans)">模组清单 · UniqueID Author.StardewExpansion</div>
+            </div>
+          </div>
+          <div class="miniproj" style="cursor: default">
+            <span class="task__icon" aria-hidden="true" style="background: var(--bg-panel)"
+              ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" /></svg
+            ></span>
+            <div class="miniproj__id">
+              <div class="miniproj__name">content.json</div>
+              <div class="miniproj__uid" style="font-family: var(--font-sans)">补丁定义 · 42 个 Changes</div>
+            </div>
+          </div>
+        </div>
+        <footer class="modal__foot">
+          <button class="btn" type="button" onclick="closeExport()">取消</button>
+          <button
+            class="btn btn--primary"
+            type="button"
+            onclick="
+              closeExport()
+              toast('开始导出…')
+            "
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <path d="M7 10l5 5 5-5" />
+              <path d="M12 15V3" /></svg
+            >导出到文件夹…
+          </button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- ================= 原型工具条（状态预览 + 主题/任务） ================= -->
+    <div class="devbar" role="toolbar" aria-label="原型预览工具">
+      <span class="devbar__label"
+        ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+          <circle cx="12" cy="12" r="3" /></svg
+        >状态</span
+      >
+      <button class="devbar__btn is-active" type="button" data-state="normal">正常</button>
+      <button class="devbar__btn" type="button" data-state="no-current">无当前项目</button>
+      <button class="devbar__btn" type="button" data-state="no-projects">无项目</button>
+      <button class="devbar__btn" type="button" data-state="no-game-dir">目录未配</button>
+      <button class="devbar__btn" type="button" data-state="broken">项目损坏</button>
+      <span class="devbar__sep"></span>
+      <button class="devbar__icon" type="button" id="taskBtn" title="任务中心" aria-label="任务中心">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          <path d="M12 7v5l3 2" />
+        </svg>
+      </button>
+      <button class="devbar__icon" type="button" id="themeBtn" title="切换明暗" aria-label="切换明暗">
+        <svg
+          id="themeIcon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+        </svg>
+      </button>
     </div>
 
     <div class="toast" id="toast"></div>
 
     <script>
-      const toastEl = document.getElementById('toast')
+      const $ = (s) => document.querySelector(s)
+      const $$ = (s) => Array.from(document.querySelectorAll(s))
+      const home = $('#home')
+
       let toastTimer = null
-      function toast(message) {
-        toastEl.textContent = message
-        toastEl.classList.add('is-open')
-        if (toastTimer !== null) window.clearTimeout(toastTimer)
-        toastTimer = window.setTimeout(() => toastEl.classList.remove('is-open'), 1800)
+      function toast(msg) {
+        const el = $('#toast')
+        el.textContent = msg
+        el.classList.add('is-open')
+        if (toastTimer) clearTimeout(toastTimer)
+        toastTimer = setTimeout(() => el.classList.remove('is-open'), 1900)
       }
 
-      function openProjectLibrary() {
-        document.getElementById('projectDialog').classList.add('is-open')
-        const current = document.querySelector('#projectList .project-row:first-child')
-        if (current && typeof current.scrollIntoView === 'function') {
-          current.scrollIntoView({ block: 'nearest' })
-        }
+      /* 主题切换 */
+      $('#themeBtn').addEventListener('click', () => {
+        const dark = document.documentElement.classList.toggle('dark')
+        $('#themeIcon').innerHTML = dark
+          ? '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" />'
+          : '<circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />'
+      })
+
+      /* 任务抽屉 */
+      function openTasks() {
+        $('#drawer').classList.add('is-open')
+        $('#drawerScrim').classList.add('is-open')
       }
-
-      ;(function () {
-        const libSearch = document.getElementById('librarySearch')
-        const count = document.getElementById('libraryCount')
-        if (!libSearch) return
-        libSearch.addEventListener('input', (e) => {
-          const q = e.target.value.trim().toLowerCase()
-          const rows = document.querySelectorAll('#projectList .project-row')
-          let visible = 0
-          rows.forEach((row) => {
-            const name = (row.querySelector('.project-name')?.textContent || '').toLowerCase()
-            const meta = (row.querySelector('.project-meta')?.textContent || '').toLowerCase()
-            const match = q === '' || name.includes(q) || meta.includes(q)
-            row.style.display = match ? '' : 'none'
-            if (match) visible += 1
-          })
-          count.textContent = q ? `命中 ${visible} / ${rows.length}` : `${rows.length} 个项目`
-        })
-      })()
-
-      function updateMakerCta() {
-        const cont = document.getElementById('makerContinue')
-        const cta = document.getElementById('makerCta')
-        const selected = document.querySelector('.maker-choice__item.is-selected .maker-choice__label')
-        const verb = cont.classList.contains('is-on') ? '继续' : '进入'
-        const what = selected ? selected.textContent : '制作'
-        cta.textContent = verb + what
+      function closeTasks() {
+        $('#drawer').classList.remove('is-open')
+        $('#drawerScrim').classList.remove('is-open')
       }
-      ;(function () {
-        const choices = document.querySelectorAll('.maker-choice__item')
-        choices.forEach((item) => {
-          item.addEventListener('click', () => {
-            choices.forEach((c) => c.classList.remove('is-selected'))
-            item.classList.add('is-selected')
-            updateMakerCta()
-          })
-        })
-        updateMakerCta()
-      })()
+      $('#taskBtn').addEventListener('click', () => ($('#drawer').classList.contains('is-open') ? closeTasks() : openTasks()))
 
-      const CATALOG_ROOT_MODULES = [
-        { code: 'map', title: '地图浏览', hint: '查看与编辑游戏地图资产' },
-        { code: 'events', title: '事件浏览', hint: '事件脚本与对话' },
-        { code: 'characters', title: '角色浏览', hint: 'NPC 数据与立绘' },
-        { code: 'buildings', title: '建筑浏览', hint: '建筑布局与外观' },
-        { code: 'items', title: '物品浏览', hint: '物品数据与图标' },
-        { code: 'mod-i18n', title: '翻译浏览', hint: '模组本地化文案' },
-      ]
-      const CATALOG_PROJECTS = [
-        { key: 'sv', title: '星露谷扩展包', meta: 'Author.StardewExpansion · 2 小时前', current: true },
-        { key: 'fd', title: 'Festival Dialogue', meta: 'Author.FestivalDialogue · 3 天前' },
-        { key: 'cmp', title: 'Corrupted Mod Pack', meta: 'manifest.json 解析失败 · 不可打开', broken: true },
-      ]
-      const CATALOG_COMMANDS = [
-        { id: 'new', title: '新建项目', hint: '创建一个 Content Patcher 项目' },
-        { id: 'import', title: '导入项目', hint: '从已有文件夹导入项目' },
-        { id: 'switch', title: '切换当前项目', hint: '在项目库里把另一个项目设为当前' },
-        { id: 'library', title: '打开项目库', hint: '管理全部项目' },
-        { id: 'tasks', title: '打开任务中心', hint: '查看导入/导出/扫描/校验等后台任务' },
-        { id: 'back', title: '返回工作区', hint: '回到上一个工作台视图' },
-      ]
-
-      const searchInput = document.querySelector('.search input')
-      const searchResults = document.getElementById('searchResults')
-      let activeIndex = -1
-      let flatItems = []
-
-      function highlight(text, query) {
-        if (!query) return text
-        const idx = text.toLowerCase().indexOf(query.toLowerCase())
-        if (idx === -1) return text
-        return (
-          text.slice(0, idx) +
-          '<mark style="background:rgba(99,102,241,.18);border-radius:3px">' +
-          text.slice(idx, idx + query.length) +
-          '</mark>' +
-          text.slice(idx + query.length)
-        )
+      /* 项目库聚焦 / pending */
+      function scrollToLibrary() {
+        const lib = $('#library')
+        lib.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        lib.classList.add('is-focus')
+        setTimeout(() => lib.classList.remove('is-focus'), 1600)
       }
-
-      function renderResults(query) {
-        const q = query.trim()
-        const ql = q.toLowerCase()
-        const rootHits = q
-          ? CATALOG_ROOT_MODULES.filter((m) => m.title.toLowerCase().includes(ql) || m.code.toLowerCase().includes(ql))
-          : []
-        const projectHits = q ? CATALOG_PROJECTS.filter((p) => p.title.toLowerCase().includes(ql)) : []
-        const commandHits = q ? CATALOG_COMMANDS.filter((c) => c.title.toLowerCase().includes(ql)) : CATALOG_COMMANDS
-
-        const groups = []
-        if (rootHits.length) groups.push({ kind: 'module', title: '模块', items: rootHits })
-        if (projectHits.length) groups.push({ kind: 'project', title: '项目', items: projectHits })
-        groups.push({ kind: 'command', title: '命令', items: commandHits })
-
-        if (q && !rootHits.length && !projectHits.length && !commandHits.length) {
-          searchResults.innerHTML = `<div class="search-results__empty">没有匹配 “${q}”。按 Esc 关闭。</div>`
-          flatItems = []
-          activeIndex = -1
+      const MAKER_LABELS = { map: '地图制作', events: '事件制作', items: '物品制作' }
+      let pendingMaker = null
+      function startMaker(mode) {
+        // 有当前项目（正常/无项目以外的状态）→ 直接进入对应制作
+        if (home.dataset.state !== 'no-current' && home.dataset.state !== 'no-projects') {
+          toast('进入 ' + MAKER_LABELS[mode] + '（当前项目：星露谷扩展包）')
           return
         }
+        // 无当前项目但有项目 → 聚焦项目库 + pending 横条
+        if (home.dataset.state === 'no-current') {
+          setPending(mode)
+          return
+        }
+        // 无项目 → 打开“选项目/新建”对话框
+        openMaker(mode)
+      }
+      function setPending(mode) {
+        pendingMaker = mode
+        $('#pendingMode').textContent = MAKER_LABELS[mode]
+        $('#pendingBar').classList.add('is-open')
+        $('#library').classList.add('is-pending')
+        scrollToLibrary()
+      }
+      function cancelPending() {
+        pendingMaker = null
+        $('#pendingBar').classList.remove('is-open')
+        $('#library').classList.remove('is-pending')
+      }
+      function selectForMaker(name) {
+        toast('用「' + name + '」进入 ' + (MAKER_LABELS[pendingMaker] || '制作'))
+        cancelPending()
+      }
 
-        flatItems = []
+      /* 制作对话框（无项目时选/建项目） */
+      let makerDialogMode = 'map'
+      function openMaker(mode) {
+        makerDialogMode = mode || 'map'
+        $('#makerTitle').textContent = '选择项目 · ' + MAKER_LABELS[makerDialogMode]
+        $('#makerScrim').classList.add('is-open')
+      }
+      function closeMaker() {
+        $('#makerScrim').classList.remove('is-open')
+      }
+      function enterMakerWith(name) {
+        toast('用「' + name + '」进入 ' + MAKER_LABELS[makerDialogMode])
+        closeMaker()
+      }
+
+      /* 导出 */
+      function openExport() {
+        $('#exportScrim').classList.add('is-open')
+      }
+      function closeExport() {
+        $('#exportScrim').classList.remove('is-open')
+      }
+
+      /* 项目库内过滤 */
+      $('#libSearch').addEventListener('input', (e) => {
+        const q = e.target.value.trim().toLowerCase()
+        const cards = $$('#grid .pcard')
+        let visible = 0
+        cards.forEach((card) => {
+          if (card.classList.contains('is-broken') && home.dataset.state !== 'broken') return
+          const name = card.querySelector('.pcard__name')?.textContent.toLowerCase() || ''
+          const uid = card.querySelector('.pcard__uid')?.textContent.toLowerCase() || ''
+          const hit = !q || name.includes(q) || uid.includes(q)
+          card.style.display = hit ? '' : 'none'
+          if (hit) visible++
+        })
+        const total = cards.filter((c) => !(c.classList.contains('is-broken') && home.dataset.state !== 'broken')).length
+        $('#libCount').textContent = q ? `命中 ${visible} / ${total}` : `${total} 个项目`
+      })
+
+      /* ---- 全局搜索 ---- */
+      const MODULES = [
+        { id: 'map', title: '地图', hint: '查看 · 地图资产 · 瓦片 · 传送' },
+        { id: 'events', title: '事件', hint: '查看 · 事件脚本与对话' },
+        { id: 'characters', title: '角色', hint: '查看 · NPC 数据与立绘' },
+        { id: 'buildings', title: '建筑', hint: '查看 · 建筑布局与外观' },
+        { id: 'items', title: '物品', hint: '查看 · 物品数据与图标' },
+        { id: 'i18n', title: '翻译', hint: '校对 · 编辑 · 模组本地化文案' },
+      ]
+      const PROJECTS = [
+        { id: 'sv', title: '星露谷扩展包', hint: 'Author.StardewExpansion · 当前项目' },
+        { id: 'fd', title: 'Festival Dialogue', hint: 'Author.FestivalDialogue' },
+        { id: 'sc', title: 'Seasonal Crops Plus', hint: 'Author.SeasonalCrops' },
+      ]
+      const COMMANDS = [
+        { id: 'new', title: '新建项目', hint: '创建一个 Content Patcher 项目' },
+        { id: 'import', title: '导入项目', hint: '从已有文件夹导入' },
+        { id: 'library', title: '打开项目库', hint: '管理全部项目', act: scrollToLibrary },
+        { id: 'tasks', title: '打开任务中心', hint: '查看后台任务', act: openTasks },
+        { id: 'back', title: '返回工作区', hint: '回到上一个工作台视图' },
+      ]
+      const MOD_ICONS = {
+        map: '<polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />',
+        events: '<circle cx="18" cy="18" r="3" /><circle cx="6" cy="6" r="3" /><path d="M6 9v6a3 3 0 0 0 3 3h6" />',
+        characters: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />',
+        buildings: '<path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4" />',
+        items:
+          '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />',
+        i18n: '<path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1" /><path d="m22 22-5-10-5 10M14 18h6" />',
+      }
+      const ICON_PROJECT = '<path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />'
+
+      const searchInput = $('#search')
+      const results = $('#results')
+      let flat = []
+      let activeIdx = -1
+      function esc(s) {
+        return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
+      }
+      function mark(t, q) {
+        if (!q) return esc(t)
+        const i = t.toLowerCase().indexOf(q.toLowerCase())
+        if (i < 0) return esc(t)
+        return esc(t.slice(0, i)) + '<mark>' + esc(t.slice(i, i + q.length)) + '</mark>' + esc(t.slice(i + q.length))
+      }
+      function iconFor(kind, id) {
+        const inner = kind === 'module' ? MOD_ICONS[id] : kind === 'project' ? ICON_PROJECT : '<path d="M9 18l6-6-6-6" />'
+        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`
+      }
+      function renderResults(q) {
+        const ql = q.toLowerCase()
+        const mods = q ? MODULES.filter((m) => m.title.toLowerCase().includes(ql) || m.id.includes(ql)) : []
+        const projs = q ? PROJECTS.filter((p) => p.title.toLowerCase().includes(ql) || p.hint.toLowerCase().includes(ql)) : []
+        const cmds = q ? COMMANDS.filter((c) => c.title.toLowerCase().includes(ql)) : COMMANDS
+        const groups = []
+        if (mods.length) groups.push({ kind: 'module', title: '浏览模块', items: mods })
+        if (projs.length) groups.push({ kind: 'project', title: '项目', items: projs })
+        if (cmds.length) groups.push({ kind: 'command', title: '命令', items: cmds })
+        flat = []
+        if (!groups.length) {
+          results.innerHTML = `<div class="result__empty">没有匹配 “${esc(q)}” · 按 Esc 关闭</div>`
+          activeIdx = -1
+          return
+        }
         let html = ''
-        for (const g of groups) {
-          html += `<div class="search-results__group"><div class="search-results__group-title">${g.title}</div>`
+        groups.forEach((g) => {
+          html += `<div class="results__group"><div class="results__gtitle">${g.title}</div>`
           g.items.forEach((it) => {
-            const name = it.title
-            const hint = it.hint || it.meta || ''
-            const mk = g.kind === 'module' ? 'Module' : g.kind === 'project' ? 'Project' : 'Command'
-            html += `<div class="search-results__item" data-kind="${g.kind}" data-id="${it.code || it.key || it.id}" role="option">
-              <span class="search-results__item-icon">${iconFor(g.kind, it.code)}</span>
-              <span class="search-results__item-body">
-                <div class="search-results__item-name">${highlight(name, q)}</div>
-                <div class="search-results__item-hint">${hint}</div>
-              </span>
-              <span class="search-results__item-kind">${mk}</span>
-            </div>`
-            flatItems.push({ kind: g.kind, id: it.code || it.key || it.id })
+            const idx = flat.length
+            const kindLabel = g.kind === 'module' ? 'Module' : g.kind === 'project' ? 'Project' : 'Command'
+            html += `<button class="result" type="button" role="option" data-idx="${idx}"><span class="result__icon">${iconFor(g.kind, it.id)}</span><span class="result__body"><div class="result__name">${mark(it.title, q)}</div><div class="result__hint">${esc(it.hint)}</div></span><span class="result__kind">${kindLabel}</span></button>`
+            flat.push({ kind: g.kind, ...it })
           })
           html += '</div>'
-        }
-        searchResults.innerHTML = html
-        activeIndex = flatItems.length ? 0 : -1
-        paintActive()
-
-        searchResults.querySelectorAll('.search-results__item').forEach((el, i) => {
-          el.addEventListener('click', () => executeResult(flatItems[i]))
+        })
+        results.innerHTML = html
+        activeIdx = 0
+        paint()
+        $$('#results .result').forEach((el) => {
+          el.addEventListener('mousedown', (e) => e.preventDefault())
+          el.addEventListener('click', () => runResult(Number(el.dataset.idx)))
         })
       }
-
-      function iconFor(kind, code) {
-        if (kind === 'module') {
-          const map = {
-            map: 'M3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21',
-            events: 'M18 5a3 3 0 1 0 0 .01',
-            characters: 'M8.5 7a4 4 0 1 0 0 .01',
-            buildings: 'M15 22V12a3 3 0 0 0-3-3H6a3 3 0 0 0-3 3v10',
-            items: 'M7.5 4.27 16.5 9.4',
-            'mod-i18n': 'M5 8 11 14',
-          }
-          return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="${map[code] || 'M5 5 19 19'}"/></svg>`
-        }
-        if (kind === 'project')
-          return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"/></svg>`
-        return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17 14 7M9 6h3v3"/></svg>`
+      function paint() {
+        $$('#results .result').forEach((el, i) => el.classList.toggle('is-active', i === activeIdx))
+        const el = $$('#results .result')[activeIdx]
+        if (el) el.scrollIntoView({ block: 'nearest' })
       }
-
-      function paintActive() {
-        searchResults.querySelectorAll('.search-results__item').forEach((el, i) => {
-          el.classList.toggle('is-active', i === activeIndex)
-        })
-        const active = searchResults.querySelectorAll('.search-results__item')[activeIndex]
-        if (active && typeof active.scrollIntoView === 'function') active.scrollIntoView({ block: 'nearest' })
-      }
-
-      function executeResult(item) {
-        if (!item) return
-        if (item.kind === 'module') {
-          toast('进入 模块浏览：' + item.id)
-        } else if (item.kind === 'project') {
-          toast('打开 / 切换到项目：' + item.id)
-        } else {
-          const labels = {
-            new: '新建项目',
-            import: '导入项目',
-            switch: '切换当前项目',
-            library: '打开项目库',
-            tasks: '打开任务中心',
-            back: '返回工作区',
-          }
-          const action = labels[item.id] || item.id
-          if (item.id === 'library') {
-            openProjectLibrary()
-          } else if (item.id === 'back') {
-            toast('返回上一个工作区视图')
-          } else {
-            toast(action)
-          }
-        }
+      function runResult(i) {
+        const it = flat[i]
+        if (!it) return
+        if (it.act) it.act()
+        else if (it.kind === 'module') toast('进入 ' + it.title)
+        else if (it.kind === 'project') toast('打开 / 切换到 ' + it.title)
+        else toast(it.title)
         closeResults()
       }
-
-      function closeResults() {
-        searchResults.classList.remove('is-open')
-        activeIndex = -1
+      function openResults() {
+        results.classList.add('is-open')
+        renderResults(searchInput.value.trim())
       }
-
-      searchInput.addEventListener('input', (e) => {
-        const q = e.target.value
-        if (q.trim() === '') {
-          closeResults()
-        } else {
-          searchResults.classList.add('is-open')
-          renderResults(q)
-        }
-      })
-      searchInput.addEventListener('focus', () => {
-        if (searchInput.value.trim() !== '') {
-          searchResults.classList.add('is-open')
-          renderResults(searchInput.value)
-        }
+      function closeResults() {
+        results.classList.remove('is-open')
+        activeIdx = -1
+      }
+      searchInput.addEventListener('focus', openResults)
+      searchInput.addEventListener('input', () => {
+        results.classList.add('is-open')
+        renderResults(searchInput.value.trim())
       })
       searchInput.addEventListener('keydown', (e) => {
-        const open = searchResults.classList.contains('is-open')
-        if (!open) return
+        if (!results.classList.contains('is-open')) return
         if (e.key === 'ArrowDown') {
           e.preventDefault()
-          if (flatItems.length) {
-            activeIndex = (activeIndex + 1) % flatItems.length
-            paintActive()
+          if (flat.length) {
+            activeIdx = (activeIdx + 1) % flat.length
+            paint()
           }
         } else if (e.key === 'ArrowUp') {
           e.preventDefault()
-          if (flatItems.length) {
-            activeIndex = (activeIndex - 1 + flatItems.length) % flatItems.length
-            paintActive()
+          if (flat.length) {
+            activeIdx = (activeIdx - 1 + flat.length) % flat.length
+            paint()
           }
         } else if (e.key === 'Enter') {
           e.preventDefault()
-          executeResult(flatItems[activeIndex])
+          runResult(activeIdx)
         } else if (e.key === 'Escape') {
           e.preventDefault()
           searchInput.value = ''
@@ -1767,61 +2811,45 @@
           searchInput.blur()
         }
       })
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.hero__search')) closeResults()
+      })
       document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
           e.preventDefault()
           searchInput.focus()
-          if (searchInput.value.trim() === '') {
-            searchResults.classList.add('is-open')
-            renderResults('')
-          }
+          openResults()
         }
-        if (e.key === 'Escape' && !searchResults.classList.contains('is-open')) {
-          ;[document.getElementById('makerDialog'), document.getElementById('projectDialog'), document.getElementById('taskPanel')].forEach(
-            (d) => d.classList.remove('is-open'),
-          )
+        if (e.key === 'Escape') {
+          if (results.classList.contains('is-open')) return
+          if ($('#makerScrim').classList.contains('is-open')) return closeMaker()
+          if ($('#exportScrim').classList.contains('is-open')) return closeExport()
+          if ($('#drawer').classList.contains('is-open')) return closeTasks()
         }
       })
-      document.addEventListener('click', (e) => {
-        if (!e.target.closest('.search-wrap')) closeResults()
-      })
 
-      const stateBtns = document.querySelectorAll('.state-switch__btn')
-      const launchpad = document.getElementById('launchpad')
-      const statusMonitor = document.getElementById('statusMonitor')
-      const gameDirBanner = document.getElementById('gameDirBanner')
-      const projectList = document.getElementById('projectList')
-      const projectEmpty = document.getElementById('projectEmpty')
-
+      /* ---- 状态预览 ---- */
       function applyState(state) {
-        launchpad.classList.remove('is-game-dir-missing')
-        gameDirBanner.classList.toggle('is-open', state === 'no-game-dir')
-        launchpad.classList.toggle('is-game-dir-missing', state === 'no-game-dir')
-
-        const showStatus = state === 'normal'
-        statusMonitor.style.display = showStatus ? '' : 'none'
-
-        if (state === 'no-projects') {
-          projectList.style.display = 'none'
-          projectEmpty.classList.add('is-open')
+        home.dataset.state = state
+        $('#currentCard').classList.toggle('is-empty', state === 'no-current' || state === 'no-projects')
+        const dirMetric = $('#dirMetric')
+        if (state === 'no-game-dir') {
+          dirMetric.dataset.tone = 'danger'
+          $('#dirValue').textContent = '未配置'
+          $('#dirLabel').textContent = '游戏目录 · 需设置'
         } else {
-          projectList.style.display = ''
-          projectEmpty.classList.remove('is-open')
+          dirMetric.dataset.tone = 'success'
+          $('#dirValue').textContent = '已连接'
+          $('#dirLabel').textContent = '游戏目录'
         }
-
-        const brokenRow = document.querySelector('#projectList .project-row.is-broken')
-        if (brokenRow) brokenRow.style.display = state === 'broken' ? '' : 'none'
-
-        if (state === 'no-current') {
-          document.querySelectorAll('#projectList .pill--current').forEach((p) => (p.style.display = 'none'))
-        } else {
-          document.querySelectorAll('#projectList .pill--current').forEach((p) => (p.style.display = ''))
-        }
+        if (state !== 'normal' && state !== 'no-current') cancelPending()
+        const total = $$('#grid .pcard').filter((c) => !(c.classList.contains('is-broken') && state !== 'broken')).length
+        $('#libCount').textContent = state === 'no-projects' ? '0 个项目' : `${total} 个项目`
+        $('#libSearch').value = ''
       }
-
-      stateBtns.forEach((btn) => {
+      $$('.devbar__btn').forEach((btn) => {
         btn.addEventListener('click', () => {
-          stateBtns.forEach((b) => b.classList.remove('is-active'))
+          $$('.devbar__btn').forEach((b) => b.classList.remove('is-active'))
           btn.classList.add('is-active')
           applyState(btn.dataset.state)
         })

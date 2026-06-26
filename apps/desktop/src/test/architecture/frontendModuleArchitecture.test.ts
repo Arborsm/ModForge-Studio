@@ -302,7 +302,7 @@ describe('frontend module architecture', () => {
     expect(platform).toContain('export interface DialogPort')
     expect(platform).toContain('export interface PlatformPorts')
     expect(registrySetup).toContain('createAppRegistry(')
-    expect(registrySetup).toContain("viewId: 'studio-desk'")
+    expect(registrySetup).not.toContain("viewId: 'studio-desk'")
     expect(registrySetup).toContain("viewId: 'workspace-editor'")
     expect(registrySetup).toContain("panelId: 'assets'")
     expect(registrySetup).toContain("panelId: 'viewport'")
@@ -382,14 +382,30 @@ describe('frontend module architecture', () => {
   it('keeps workbench home as the project library route instead of StudioDesk gallery routing', async () => {
     const workbenchExperience = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchExperience.tsx'), 'utf8')
     const workbenchViewHost = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchViewHost.tsx'), 'utf8')
-    const studioDesk = await readFile(sourcePath('src/features/cp-maker/ui/StudioDesk.tsx'), 'utf8')
+    const registrySetup = await readFile(sourcePath('src/app/registry-setup.ts'), 'utf8')
 
     expect(workbenchExperience).toContain("useState<'home' | 'workspace'>('home')")
     expect(workbenchExperience).not.toContain('studioDeskGalleryOpen')
     expect(workbenchExperience).not.toContain("'launchpad' | 'workspace'")
+    expect(workbenchExperience).not.toContain('<WorkbenchLaunchpadPage')
+    expect(workbenchExperience).not.toContain('<WorkbenchLaunchpadNavigation')
     expect(workbenchViewHost).not.toContain('studioDeskGalleryOpen')
-    expect(studioDesk).not.toContain('StudioDeskProjectGallery')
-    expect(studioDesk).not.toContain('galleryOpen')
+    expect(workbenchViewHost).not.toContain("viewId === 'studio-desk'")
+    expect(registrySetup).not.toContain("viewId: 'studio-desk'")
+    expect(registrySetup).not.toContain('StudioDesk')
+  })
+
+  it('keeps the workbench home project library in-flow instead of a dialog picker', async () => {
+    const workbenchHome = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchHomePage.tsx'), 'utf8')
+    const workbenchDock = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchLaunchpadDock.tsx'), 'utf8')
+
+    expect(workbenchHome).not.toContain("from '@shared/ui/Dialog'")
+    expect(workbenchHome).not.toContain('makerDialogOpen')
+    expect(workbenchHome).not.toContain('projectDialogOpen')
+    expect(workbenchHome).toContain('StudioDeskProjectGallery')
+    expect(workbenchHome).toContain('workbench-home-library')
+    expect(workbenchDock).toContain('onOpenProjectLibrary')
+    expect(workbenchDock).not.toContain('onOpenProjectPage')
   })
 
   it('keeps launcher library drag measuring out of the always-on layout path', async () => {

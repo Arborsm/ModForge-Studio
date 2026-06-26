@@ -19,7 +19,7 @@ describe('app event bus and command dispatcher', () => {
     })
     bus.emit({
       type: 'workbench/view-selected',
-      viewId: 'studio-desk',
+      viewId: 'workspace-editor',
     })
     unsubscribe()
     bus.emit({
@@ -29,7 +29,7 @@ describe('app event bus and command dispatcher', () => {
 
     expect(received).toEqual([
       { type: 'app/locale-changed', locale: 'zh-CN' },
-      { type: 'workbench/view-selected', viewId: 'studio-desk' },
+      { type: 'workbench/view-selected', viewId: 'workspace-editor' },
     ])
   })
 

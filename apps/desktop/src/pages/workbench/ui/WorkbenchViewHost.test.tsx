@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vite-plus/test'
 import type { WorkbenchViewRegistration } from '@shared/contracts'
 import { renderWithLocale } from '@test/renderWithLocale'
@@ -34,7 +34,6 @@ function renderHost(editModeView: WorkbenchViewRegistration, overrides: Partial<
       onGoBack={vi.fn()}
       onGoForward={vi.fn()}
       cpMaker={cpMaker}
-      studioDeskModel={{} as never}
       onWorkbenchEvent={vi.fn()}
       navigateToPatch={vi.fn()}
       onSetWorkspaceMode={vi.fn()}
@@ -44,8 +43,6 @@ function renderHost(editModeView: WorkbenchViewRegistration, overrides: Partial<
       }}
       onRunWithCpMakerUnsavedGuard={onRunWithCpMakerUnsavedGuard}
       onSetWorkspaceViewMode={vi.fn()}
-      onStudioDeskCreateDraftRequest={vi.fn()}
-      onStudioDeskExportPackRequest={vi.fn()}
       activeEditPatchId={null}
       {...overrides}
     />,
@@ -53,21 +50,6 @@ function renderHost(editModeView: WorkbenchViewRegistration, overrides: Partial<
 }
 
 describe('WorkbenchViewHost', () => {
-  it('wraps the studio desk edit page with loading reveal hooks', () => {
-    renderHost({
-      id: 'studio-desk',
-      kind: 'workbench-view',
-      viewId: 'studio-desk',
-      title: 'Studio Desk',
-      component: () => <div>Studio desk body</div>,
-    })
-
-    expect(screen.getByText('Studio desk body').closest('[data-loading-section]')).toHaveAttribute(
-      'data-loading-section',
-      'workbench-edit-studio-desk',
-    )
-  })
-
   it('wraps the workspace editor edit page with mode-specific loading reveal hooks', () => {
     renderHost({
       id: 'workspace-editor',
@@ -81,34 +63,5 @@ describe('WorkbenchViewHost', () => {
       'data-loading-section',
       'workbench-edit-workspace-editor:map',
     )
-  })
-
-  it('passes studio desk create requests to the workbench shell owner', () => {
-    const onStudioDeskCreateDraftRequest = vi.fn()
-
-    function StudioDeskStub(props: { onCreateDraftRequest: () => void }) {
-      return (
-        <button type="button" onClick={props.onCreateDraftRequest}>
-          Create guarded draft
-        </button>
-      )
-    }
-
-    renderHost(
-      {
-        id: 'studio-desk',
-        kind: 'workbench-view',
-        viewId: 'studio-desk',
-        title: 'Studio Desk',
-        component: StudioDeskStub,
-      },
-      {
-        onStudioDeskCreateDraftRequest,
-      },
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: 'Create guarded draft' }))
-
-    expect(onStudioDeskCreateDraftRequest).toHaveBeenCalledTimes(1)
   })
 })
