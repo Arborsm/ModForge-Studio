@@ -21,7 +21,7 @@
 
   .panel-title {
     color: var(--text-secondary);
-    @apply text-[11px] font-semibold tracking-[0.18em] uppercase;
+    @apply text-[0.6875rem] font-semibold tracking-[0.18em] uppercase;
   }
 
   .panel-subtitle {
@@ -59,12 +59,12 @@
 
   .panel-section-title {
     color: var(--text-secondary);
-    @apply text-[11px] font-semibold tracking-[0.18em] uppercase;
+    @apply text-[0.6875rem] font-semibold tracking-[0.18em] uppercase;
   }
 
   .panel-section-subtitle {
     color: var(--text-tertiary);
-    @apply mt-1 text-[11px] leading-4;
+    @apply mt-1 text-[0.6875rem] leading-4;
   }
 
   .panel-section-body {
@@ -122,12 +122,12 @@
   }
 
   .compact-metric-card {
-    padding: 8px 10px;
+    padding: 0.5rem 0.625rem;
   }
 
   .metric-label {
     color: var(--text-secondary);
-    @apply text-[11px] tracking-[0.16em] uppercase;
+    @apply text-[0.6875rem] tracking-[0.16em] uppercase;
   }
 
   .metric-value {
@@ -136,13 +136,13 @@
   }
 
   .compact-metric-card .metric-label {
-    font-size: 10px;
+    font-size: 0.625rem;
     letter-spacing: 0.12em;
   }
 
   .compact-metric-card .metric-value {
-    margin-top: 4px;
-    font-size: 13px;
+    margin-top: 0.25rem;
+    font-size: 0.8125rem;
     line-height: 1.2;
   }
 
@@ -152,9 +152,9 @@
   }
 
   .compact-kv-row {
-    gap: 10px;
-    padding-top: 7px;
-    padding-bottom: 7px;
+    gap: 0.625rem;
+    padding-top: 0.4375rem;
+    padding-bottom: 0.4375rem;
   }
 
   .kv-row span:first-child {
@@ -168,14 +168,14 @@
   }
 
   .compact-kv-row span:first-child {
-    flex: 0 0 88px;
-    font-size: 11px;
+    flex: 0 0 5.5rem;
+    font-size: 0.6875rem;
   }
 
   .compact-kv-row span:last-child {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 }

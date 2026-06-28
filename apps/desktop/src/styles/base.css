@@ -1,4 +1,12 @@
 @layer base {
+  :root {
+    /* Fluid root font size: 1rem (16px) at 80rem (1280px) viewport.
+     * Scales up to 1.25rem (20px) at 120rem (1920px) and stays there
+     * on larger screens so small windows stay readable without looking
+     * oversized. */
+    font-size: clamp(1rem, 0.625vw + 8px, 1.25rem);
+  }
+
   * {
     box-sizing: border-box;
   }
@@ -17,7 +25,7 @@
     background: transparent;
     color: var(--text-primary);
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: 0.875rem;
     line-height: 1.45;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -48,7 +56,7 @@
 
   .app-window-titlebar-divider {
     position: absolute;
-    top: 56px;
+    top: var(--app-titlebar-height);
     right: 0;
     left: 0;
     z-index: 135;
@@ -101,8 +109,8 @@
   }
 
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 0.5rem;
+    height: 0.5rem;
   }
 
   ::-webkit-scrollbar-track {
@@ -111,7 +119,7 @@
 
   ::-webkit-scrollbar-thumb {
     background: color-mix(in srgb, var(--text-secondary) 50%, transparent);
-    border-radius: 999px;
+    border-radius: 62.4375rem;
   }
 
   ::-webkit-scrollbar-thumb:hover {

@@ -246,6 +246,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       ?.querySelectorAll<HTMLElement>('.launcher-library-virtual-row[data-index]')
       .forEach((row) => rowVirtualizer.measureElement(row))
   }, [gridBlocks, openFolderItemsById, rowVirtualizer])
+  const rootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16
   const virtualRows = rowVirtualizer.getVirtualItems()
   const updateDragSelection = useCallback(
     (box: Box) => {
@@ -423,12 +424,14 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       const viewportStyle = window.getComputedStyle(viewport)
       const horizontalPadding = Number.parseFloat(viewportStyle.paddingLeft) + Number.parseFloat(viewportStyle.paddingRight)
       const viewportWidth = Math.max(0, viewport.getBoundingClientRect().width - horizontalPadding)
-      const nextColumnCount = Math.max(
-        1,
-        Math.floor((viewportWidth + LAUNCHER_LIBRARY_GRID_GAP_PX) / (cardMinWidth + LAUNCHER_LIBRARY_GRID_GAP_PX)),
-      )
+      // Convert design-token pixel values to the current rem size so column math
+      // matches the rem-based CSS grid, which scales with the root font size.
+      const rootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize)
+      const scaledCardMinWidth = (LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX / 16) * rootFontSize
+      const scaledGridGap = (LAUNCHER_LIBRARY_GRID_GAP_PX / 16) * rootFontSize
+      const nextColumnCount = Math.max(1, Math.floor((viewportWidth + scaledGridGap) / (scaledCardMinWidth + scaledGridGap)))
       setGridColumnCount((current) => (current === nextColumnCount ? current : nextColumnCount))
-      const cardWidth = (viewportWidth - Math.max(0, nextColumnCount - 1) * LAUNCHER_LIBRARY_GRID_GAP_PX) / nextColumnCount
+      const cardWidth = (viewportWidth - Math.max(0, nextColumnCount - 1) * scaledGridGap) / nextColumnCount
       const nextEstimatedRowHeight = estimateLauncherLibraryCardHeight(cardWidth)
       setEstimatedRowHeight((current) => (current === nextEstimatedRowHeight ? current : nextEstimatedRowHeight))
     }
@@ -555,8 +558,8 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
               data-index={virtualRow.index}
               style={{
                 transform: `translateY(${virtualRow.start + LAUNCHER_LIBRARY_VIRTUAL_GRID_TOP_PADDING_PX}px)`,
-                gridTemplateColumns: `repeat(${gridColumnCount}, minmax(${LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX}px, 1fr))`,
-                gridTemplateRows: `repeat(${blockRowCount}, minmax(${estimatedRowHeight}px, auto))`,
+                gridTemplateColumns: `repeat(${gridColumnCount}, minmax(${LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX / 16}rem, 1fr))`,
+                gridTemplateRows: `repeat(${blockRowCount}, minmax(${estimatedRowHeight / rootFontSize}rem, auto))`,
               }}
             >
               {block ? (
@@ -1226,9 +1229,9 @@ function LauncherLibraryModulesFloatingPanel({
         {
           '--launcher-modules-panel-left': `${left}px`,
           '--launcher-modules-panel-top': `${top}px`,
-          '--launcher-modules-panel-width': `${panelWidth}px`,
-          '--launcher-modules-panel-height': `${panelHeight}px`,
-          '--launcher-modules-panel-card-width': `${moduleCardWidth}px`,
+          '--launcher-modules-panel-width': `${panelWidth / 16}rem`,
+          '--launcher-modules-panel-height': `${panelHeight / 16}rem`,
+          '--launcher-modules-panel-card-width': `${moduleCardWidth / 16}rem`,
           '--launcher-modules-panel-columns': placement.columnSpan,
           '--launcher-modules-panel-arrow-left': `${arrowLeft}px`,
         } as CSSProperties
@@ -1622,8 +1625,8 @@ function LauncherLibraryFolderPanel({
             className="launcher-library-folder-panel-grid"
             data-launcher-blank-drop-id={blankDropId}
             style={{
-              gridTemplateColumns: `repeat(${gridColumnCount}, minmax(${LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX}px, 1fr))`,
-              gridAutoRows: `minmax(${estimatedRowHeight}px, auto)`,
+              gridTemplateColumns: `repeat(${gridColumnCount}, minmax(${LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX / 16}rem, 1fr))`,
+              gridAutoRows: `minmax(${estimatedRowHeight / rootFontSize}rem, auto)`,
             }}
           >
             {items.map((displayItem) => {

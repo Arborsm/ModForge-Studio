@@ -6,7 +6,7 @@
     min-width: 0;
     align-items: center;
     justify-content: center;
-    padding: 24px;
+    padding: 1.5rem;
     z-index: var(--z-dialog);
   }
 
@@ -19,30 +19,30 @@
     position: absolute;
     inset: 0;
     background: var(--scrim);
-    backdrop-filter: blur(6px);
+    backdrop-filter: blur(0.375rem);
   }
 
   .launcher-library-drawer-panel {
     position: relative;
-    width: min(1680px, calc(100vw - 48px));
-    height: min(1100px, calc(100vh - 104px));
-    min-width: min(1120px, calc(100vw - 32px));
-    min-height: min(720px, calc(100vh - 88px));
+    width: min(105rem, calc(100vw - 3rem));
+    height: min(68.75rem, calc(100vh - 6.5rem));
+    min-width: min(70rem, calc(100vw - 2rem));
+    min-height: min(45rem, calc(100vh - 5.5rem));
     margin: 0;
-    border-radius: 22px;
+    border-radius: 1.375rem;
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--bg-panel-muted) 94%, var(--bg-panel) 6%),
       color-mix(in srgb, var(--bg-panel) 100%, transparent)
     );
-    box-shadow: 0 28px 60px rgba(15, 23, 42, 0.26);
+    box-shadow: 0 1.75rem 3.75rem rgba(15, 23, 42, 0.26);
     overflow: hidden;
   }
 
   .launcher-mod-detail-panel {
     display: grid;
     resize: both;
-    grid-template-rows: auto minmax(0, 1fr) 64px;
+    grid-template-rows: auto minmax(0, 1fr) 4rem;
   }
 
   .launcher-mod-detail-loading-overlay {
@@ -53,28 +53,28 @@
     align-items: flex-start;
     justify-content: flex-end;
     background: color-mix(in srgb, var(--bg-panel) 42%, transparent);
-    padding: 18px;
+    padding: 1.125rem;
     pointer-events: none;
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(0.125rem);
   }
 
   .launcher-mod-detail-loading-card {
     display: grid;
-    grid-template-columns: 3px minmax(0, 1fr);
-    gap: 11px;
-    width: min(300px, calc(100% - 24px));
+    grid-template-columns: 0.1875rem minmax(0, 1fr);
+    gap: 0.6875rem;
+    width: min(18.75rem, calc(100% - 1.5rem));
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
-    border-radius: 14px;
+    border-radius: 0.875rem;
     background: color-mix(in srgb, var(--bg-panel) 86%, transparent);
-    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
-    padding: 12px;
+    box-shadow: 0 0.875rem 1.875rem rgba(15, 23, 42, 0.12);
+    padding: 0.75rem;
   }
 
   .launcher-mod-detail-loading-bar {
     position: relative;
     overflow: hidden;
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: color-mix(in srgb, var(--accent) 12%, var(--bg-panel-muted));
   }
 
@@ -89,22 +89,22 @@
 
   .launcher-mod-detail-loading-card div {
     display: grid;
-    gap: 7px;
+    gap: 0.4375rem;
     min-width: 0;
   }
 
   .launcher-mod-detail-loading-card span {
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 720;
   }
 
   .launcher-mod-detail-loading-card i {
     display: block;
     width: 72%;
-    height: 7px;
+    height: 0.4375rem;
     overflow: hidden;
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: linear-gradient(
       90deg,
       color-mix(in srgb, var(--bg-panel-muted) 88%, var(--bg-panel)),
@@ -133,9 +133,9 @@
 
   .launcher-mod-detail-hero {
     display: grid;
-    grid-template-columns: minmax(300px, 34%) minmax(0, 1fr);
-    height: clamp(310px, 29vh, 350px);
-    min-height: 300px;
+    grid-template-columns: minmax(18.75rem, 34%) minmax(0, 1fr);
+    height: clamp(19.375rem, 29vh, 21.875rem);
+    min-height: 18.75rem;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
     background: linear-gradient(
       90deg,
@@ -148,9 +148,9 @@
     display: grid;
     min-width: 0;
     min-height: 0;
-    margin: 16px 0 16px 16px;
+    margin: 1rem 0 1rem 1rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
-    border-radius: 18px;
+    border-radius: 1.125rem;
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--bg-panel) 78%, var(--bg-panel-muted)),
@@ -166,7 +166,7 @@
     height: 100%;
     min-height: 0;
     aspect-ratio: auto;
-    border-radius: 17px;
+    border-radius: 1.0625rem;
   }
 
   .launcher-mod-detail-cover.launcher-mod-card-cover-has-image {
@@ -185,14 +185,14 @@
     position: relative;
     display: flex;
     align-items: stretch;
-    padding: 30px 32px;
+    padding: 1.875rem 2rem;
     background: color-mix(in srgb, var(--bg-panel) 28%, transparent);
   }
 
   .launcher-mod-detail-close-button {
     position: absolute;
-    top: 18px;
-    right: 18px;
+    top: 1.125rem;
+    right: 1.125rem;
     z-index: 2;
   }
 
@@ -202,16 +202,16 @@
 
   .launcher-mod-detail-shell-pending {
     display: grid;
-    gap: 18px;
+    gap: 1.125rem;
     align-content: start;
     min-height: 0;
-    padding: 32px;
+    padding: 2rem;
   }
 
   .launcher-mod-detail-shell-pending span {
     display: block;
-    height: 96px;
-    border-radius: 18px;
+    height: 6rem;
+    border-radius: 1.125rem;
     background: linear-gradient(
       110deg,
       color-mix(in srgb, var(--bg-panel-muted) 82%, transparent),
@@ -221,17 +221,17 @@
   }
 
   .launcher-mod-detail-shell-pending span:first-child {
-    height: 180px;
+    height: 11.25rem;
   }
 
   .launcher-mod-detail-status-overview {
     display: grid;
-    grid-template-columns: minmax(0, 7fr) minmax(300px, 5fr);
+    grid-template-columns: minmax(0, 7fr) minmax(18.75rem, 5fr);
     align-items: stretch;
-    gap: clamp(28px, 3vw, 48px);
+    gap: clamp(1.75rem, 3vw, 3rem);
     width: 100%;
     min-width: 0;
-    padding-right: 72px;
+    padding-right: 4.5rem;
   }
 
   .launcher-mod-detail-status-primary {
@@ -239,7 +239,7 @@
     min-width: 0;
     flex-direction: column;
     justify-content: space-around;
-    gap: clamp(22px, 2.2vw, 32px);
+    gap: clamp(1.375rem, 2.2vw, 2rem);
   }
 
   .launcher-mod-detail-status-heading {
@@ -251,8 +251,8 @@
     overflow: hidden;
     margin: 0;
     color: var(--text-primary);
-    max-width: 760px;
-    font-size: clamp(25px, 1.85vw, 34px);
+    max-width: 47.5rem;
+    font-size: clamp(1.5625rem, 1.85vw, 2.125rem);
     font-weight: 820;
     letter-spacing: 0;
     line-height: 1.12;
@@ -263,16 +263,16 @@
   .launcher-mod-detail-status-meta-line {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 0.625rem;
     min-width: 0;
-    margin-top: 8px;
+    margin-top: 0.5rem;
   }
 
   .launcher-mod-detail-status-meta-line p {
     overflow: hidden;
     margin: 0;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 0.75rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -286,13 +286,13 @@
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
-    min-height: 21px;
+    min-height: 1.3125rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
-    border-radius: 6px;
+    border-radius: 0.375rem;
     background: color-mix(in srgb, var(--bg-panel-muted) 72%, var(--bg-panel));
     color: var(--text-secondary);
-    padding: 0 8px;
-    font-size: 10px;
+    padding: 0 0.5rem;
+    font-size: 0.625rem;
     font-weight: 760;
     white-space: nowrap;
   }
@@ -306,16 +306,16 @@
   .launcher-mod-detail-version-compare {
     display: flex;
     align-items: center;
-    gap: 24px;
+    gap: 1.5rem;
     min-width: 0;
     border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
-    border-radius: 16px;
+    border-radius: 1rem;
     background: color-mix(in srgb, var(--bg-panel-muted) 50%, var(--bg-panel));
-    padding: 17px 18px;
+    padding: 1.0625rem 1.125rem;
   }
 
   .launcher-mod-detail-version-compare.single {
-    width: min(460px, 100%);
+    width: min(28.75rem, 100%);
   }
 
   .launcher-mod-detail-version-node {
@@ -328,7 +328,7 @@
   .launcher-mod-detail-version-node > span {
     overflow: hidden;
     color: var(--text-tertiary);
-    font-size: 10px;
+    font-size: 0.625rem;
     font-weight: 760;
     letter-spacing: 0.05em;
     text-overflow: ellipsis;
@@ -338,9 +338,9 @@
 
   .launcher-mod-detail-version-node > strong {
     overflow: hidden;
-    margin-top: 2px;
+    margin-top: 0.125rem;
     color: var(--text-primary);
-    font-size: clamp(26px, 2.3vw, 36px);
+    font-size: clamp(1.625rem, 2.3vw, 2.25rem);
     font-weight: 880;
     line-height: 1.05;
     text-overflow: ellipsis;
@@ -354,9 +354,9 @@
   .launcher-mod-detail-version-node > em {
     display: block;
     overflow: hidden;
-    margin-top: 10px;
+    margin-top: 0.625rem;
     color: var(--text-tertiary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-style: normal;
     font-weight: 680;
     text-overflow: ellipsis;
@@ -368,14 +368,14 @@
     align-items: center;
     width: fit-content;
     max-width: 100%;
-    min-height: 20px;
+    min-height: 1.25rem;
     overflow: hidden;
     border: 0;
     background: transparent;
     color: var(--success);
-    margin-top: 10px;
+    margin-top: 0.625rem;
     padding: 0;
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 680;
     text-align: left;
     text-overflow: ellipsis;
@@ -384,11 +384,11 @@
 
   .launcher-mod-detail-version-state::before {
     display: block;
-    width: 6px;
-    height: 6px;
+    width: 0.375rem;
+    height: 0.375rem;
     flex-shrink: 0;
-    margin-right: 6px;
-    border-radius: 999px;
+    margin-right: 0.375rem;
+    border-radius: 62.4375rem;
     background: var(--success);
     content: '';
   }
@@ -403,22 +403,22 @@
 
   .launcher-mod-detail-version-arrow {
     display: grid;
-    width: 32px;
-    height: 32px;
+    width: 2rem;
+    height: 2rem;
     flex-shrink: 0;
     place-items: center;
     border: 1px solid color-mix(in srgb, var(--border-color) 86%, transparent);
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: var(--bg-elevated);
     color: var(--text-tertiary);
-    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06);
-    font-size: 16px;
+    box-shadow: 0 0.375rem 0.875rem rgba(15, 23, 42, 0.06);
+    font-size: 1rem;
     font-weight: 760;
   }
 
   .launcher-mod-detail-hero-summary {
     overflow: hidden;
-    max-width: 760px;
+    max-width: 47.5rem;
     color: var(--text-secondary);
   }
 
@@ -428,7 +428,7 @@
     max-height: calc(1.48em * 3);
     margin: 0;
     color: inherit;
-    font-size: 12.5px;
+    font-size: 0.7812rem;
     line-height: 1.48;
   }
 
@@ -437,25 +437,25 @@
     min-width: 0;
     flex-direction: column;
     justify-content: center;
-    gap: 18px;
+    gap: 1.125rem;
     border-left: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
-    padding-left: clamp(24px, 2.5vw, 32px);
+    padding-left: clamp(1.5rem, 2.5vw, 2rem);
   }
 
   .launcher-mod-detail-status-group {
     display: grid;
-    gap: 12px;
+    gap: 0.75rem;
     min-width: 0;
   }
 
   .launcher-mod-detail-status-group + .launcher-mod-detail-status-group {
     border-top: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
-    padding-top: 16px;
+    padding-top: 1rem;
   }
 
   .launcher-mod-detail-status-group .launcher-mod-detail-property {
-    grid-template-columns: 88px minmax(0, 1fr);
-    gap: 18px;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    gap: 1.125rem;
   }
 
   .launcher-mod-detail-status-group .launcher-mod-detail-property strong {
@@ -466,20 +466,20 @@
   .launcher-mod-detail-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
+    gap: 0.3125rem;
   }
 
   .launcher-mod-detail-badge {
     display: inline-flex;
     align-items: center;
-    max-width: 160px;
-    min-height: 20px;
+    max-width: 10rem;
+    min-height: 1.25rem;
     overflow: hidden;
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: color-mix(in srgb, var(--bg-panel-muted) 88%, var(--bg-panel));
     color: var(--text-secondary);
-    padding: 0 8px;
-    font-size: 10px;
+    padding: 0 0.5rem;
+    font-size: 0.625rem;
     font-weight: 760;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -496,11 +496,11 @@
   }
 
   .launcher-mod-detail-tags .launcher-mod-detail-badge {
-    min-height: 19px;
-    max-width: 190px;
+    min-height: 1.1875rem;
+    max-width: 11.875rem;
     background: color-mix(in srgb, var(--accent-soft) 72%, var(--bg-panel));
     color: var(--accent-strong);
-    font-size: 10px;
+    font-size: 0.625rem;
   }
 
   .launcher-mod-detail-tags .launcher-mod-detail-badge:first-child,
@@ -512,23 +512,23 @@
   .launcher-mod-detail-switch {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    min-height: 28px;
+    gap: 0.5rem;
+    min-height: 1.75rem;
     border: 0;
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: var(--success-soft);
     color: var(--success);
-    padding: 0 10px 0 7px;
-    font-size: 11.5px;
+    padding: 0 0.625rem 0 0.4375rem;
+    font-size: 0.7188rem;
     font-weight: 800;
   }
 
   .launcher-mod-detail-switch::before {
     display: block;
-    width: 24px;
-    height: 14px;
-    border-radius: 999px;
-    background: radial-gradient(circle at 17px 7px, #fff 0 4px, transparent 4.5px), var(--success);
+    width: 1.5rem;
+    height: 0.875rem;
+    border-radius: 62.4375rem;
+    background: radial-gradient(circle at 1.0625rem 0.4375rem, #fff 0 0.25rem, transparent 0.2812rem), var(--success);
     content: '';
   }
 
@@ -538,6 +538,6 @@
   }
 
   .launcher-mod-detail-switch.is-off::before {
-    background: radial-gradient(circle at 7px 7px, #fff 0 4px, transparent 4.5px), var(--text-tertiary);
+    background: radial-gradient(circle at 0.4375rem 0.4375rem, #fff 0 0.25rem, transparent 0.2812rem), var(--text-tertiary);
   }
 }

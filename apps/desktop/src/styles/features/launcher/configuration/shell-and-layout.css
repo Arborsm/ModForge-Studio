@@ -2,7 +2,7 @@
   .launcher-shell-routed {
     display: block;
     height: 100%;
-    padding: 18px;
+    padding: 1.125rem;
     background: transparent;
   }
 
@@ -19,7 +19,7 @@
     display: grid;
     margin-top: 0;
     overflow: hidden;
-    padding-right: 2px;
+    padding-right: 0.125rem;
   }
 
   .launcher-shell-route {
@@ -40,7 +40,7 @@
   @keyframes launcher-shell-route-enter {
     from {
       opacity: 0;
-      transform: translateY(8px) scale(0.994);
+      transform: translateY(0.5rem) scale(0.994);
     }
 
     to {
@@ -79,41 +79,41 @@
     --config-faint: var(--text-tertiary);
     --config-brand-ink: var(--accent);
     --config-shadow: var(--shadow-panel), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    --config-glow: 0 0 30px color-mix(in srgb, var(--accent) 8%, transparent);
-    --launcher-config-top-card-height: 258px;
+    --config-glow: 0 0 1.875rem color-mix(in srgb, var(--accent) 8%, transparent);
+    --launcher-config-top-card-height: 16.125rem;
 
     min-height: 100%;
-    padding: 24px 28px 44px;
+    padding: 1.5rem 1.75rem 2.75rem;
     background: transparent;
     color: var(--config-text);
   }
 
   .launcher-configuration-canvas {
-    max-width: 1180px;
+    max-width: 73.75rem;
     margin: 0 auto;
     display: grid;
-    gap: 18px;
+    gap: 1.125rem;
   }
 
   .launcher-configuration-page-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 24px;
+    gap: 1.5rem;
     min-width: 0;
-    padding: 2px 4px 14px;
+    padding: 0.125rem 0.25rem 0.875rem;
     border-bottom: 1px solid color-mix(in srgb, var(--config-line) 55%, transparent);
   }
 
   .launcher-config-title-cluster {
     display: grid;
-    gap: 4px;
+    gap: 0.25rem;
     min-width: 0;
   }
 
   .launcher-config-breadcrumb {
     color: var(--config-muted);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 700;
     line-height: 1.25;
   }
@@ -121,7 +121,7 @@
   .launcher-configuration-page-title {
     margin: 0;
     color: var(--config-text);
-    font-size: 24px;
+    font-size: 1.5rem;
     font-weight: 900;
     line-height: 1.12;
     letter-spacing: 0;
@@ -130,7 +130,7 @@
   .launcher-config-header-status {
     margin: 0;
     color: var(--config-muted);
-    font-size: 12.5px;
+    font-size: 0.7812rem;
     line-height: 1.45;
     letter-spacing: 0.01em;
   }
@@ -140,7 +140,7 @@
     align-items: center;
     flex: 0 0 auto;
     justify-content: flex-end;
-    gap: 12px;
+    gap: 0.75rem;
     min-width: 0;
   }
 
@@ -148,7 +148,7 @@
   .launcher-config-header-button-group {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.5rem;
     flex-wrap: wrap;
     justify-content: flex-end;
   }
@@ -156,13 +156,13 @@
   .launcher-config-env-tag {
     display: inline-flex;
     align-items: center;
-    min-height: 26px;
+    min-height: 1.625rem;
     border: 0;
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: color-mix(in srgb, var(--config-primary-light) 48%, var(--config-surface-soft));
     color: var(--config-muted);
-    padding: 0 10px;
-    font-size: 11.5px;
+    padding: 0 0.625rem;
+    font-size: 0.7188rem;
     font-weight: 750;
     white-space: nowrap;
   }
@@ -170,23 +170,23 @@
   .launcher-config-tag {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    min-height: 24px;
+    gap: 0.4375rem;
+    min-height: 1.5rem;
     min-width: 0;
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: var(--config-primary-light);
     color: var(--config-primary);
-    padding: 0 11px;
-    font-size: 11px;
+    padding: 0 0.6875rem;
+    font-size: 0.6875rem;
     font-weight: 650;
     white-space: nowrap;
   }
 
   .launcher-config-tag::before {
     content: '';
-    width: 7px;
-    height: 7px;
-    border-radius: 999px;
+    width: 0.4375rem;
+    height: 0.4375rem;
+    border-radius: 62.4375rem;
     background: currentColor;
   }
 
@@ -207,15 +207,15 @@
 
   .launcher-config-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 290px;
+    grid-template-columns: minmax(0, 1fr) 18.125rem;
     align-items: stretch;
-    gap: 18px;
+    gap: 1.125rem;
   }
 
   .launcher-config-main-column,
   .launcher-config-rail {
     display: grid;
-    gap: 18px;
+    gap: 1.125rem;
     min-width: 0;
   }
 
@@ -227,7 +227,7 @@
     min-width: 0;
     overflow: hidden;
     border: 1px solid var(--config-line);
-    border-radius: 16px;
+    border-radius: 1rem;
     background: var(--config-surface);
     box-shadow: var(--config-shadow);
   }
@@ -241,36 +241,36 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 16px;
-    min-height: 58px;
+    gap: 1rem;
+    min-height: 3.625rem;
     border-bottom: 1px solid color-mix(in srgb, var(--config-line) 50%, transparent);
-    padding: 18px 20px 14px 24px;
+    padding: 1.125rem 1.25rem 0.875rem 1.5rem;
   }
 
   .launcher-config-panel-head::before {
     content: '';
     position: absolute;
     left: 0;
-    top: 14px;
-    width: 4px;
-    height: 26px;
-    border-radius: 0 4px 4px 0;
+    top: 0.875rem;
+    width: 0.25rem;
+    height: 1.625rem;
+    border-radius: 0 0.25rem 0.25rem 0;
     background: var(--config-primary);
-    box-shadow: 2px 0 12px color-mix(in srgb, var(--accent) 25%, transparent);
+    box-shadow: 0.125rem 0 0.75rem color-mix(in srgb, var(--accent) 25%, transparent);
   }
 
   .launcher-config-panel-head h2 {
     margin: 0;
     color: var(--config-text);
-    font-size: 17px;
+    font-size: 1.0625rem;
     font-weight: 800;
     line-height: 1.2;
   }
 
   .launcher-config-panel-head p {
-    margin: 4px 0 0;
+    margin: 0.25rem 0 0;
     color: var(--config-muted);
-    font-size: 12.5px;
+    font-size: 0.7812rem;
     line-height: 1.5;
   }
 
@@ -278,7 +278,7 @@
   .launcher-config-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.5rem;
     flex-wrap: wrap;
   }
 
@@ -286,14 +286,14 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 32px;
+    min-height: 2rem;
     border: 1px solid var(--config-line);
-    border-radius: 10px;
+    border-radius: 0.625rem;
     background: var(--config-surface-soft);
     color: var(--config-text);
     cursor: pointer;
-    padding: 0 14px;
-    font-size: 12px;
+    padding: 0 0.875rem;
+    font-size: 0.75rem;
     font-weight: 700;
     transition:
       border-color 160ms ease,
@@ -316,7 +316,7 @@
     border-color: transparent;
     background: var(--config-primary);
     color: var(--text-inverse);
-    box-shadow: 0 4px 20px color-mix(in srgb, var(--accent) 30%, transparent);
+    box-shadow: 0 0.25rem 1.25rem color-mix(in srgb, var(--accent) 30%, transparent);
   }
 
   .launcher-config-button-brand {
@@ -341,10 +341,10 @@
   .launcher-config-help {
     display: inline-grid;
     place-items: center;
-    width: 22px;
-    height: 22px;
+    width: 1.375rem;
+    height: 1.375rem;
     border: 1px solid var(--config-line);
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: var(--config-surface-soft);
     color: var(--config-muted);
   }
@@ -360,12 +360,12 @@
 
   .launcher-config-path-row {
     display: grid;
-    grid-template-columns: 135px minmax(0, 1fr);
-    gap: 16px;
+    grid-template-columns: 8.4375rem minmax(0, 1fr);
+    gap: 1rem;
     align-items: center;
-    min-height: 60px;
+    min-height: 3.75rem;
     border-bottom: 1px solid color-mix(in srgb, var(--config-line) 50%, transparent);
-    padding: 10px 18px;
+    padding: 0.625rem 1.125rem;
   }
 
   .launcher-config-path-row:last-child {
@@ -378,20 +378,20 @@
 
   .launcher-config-path-label {
     display: grid;
-    gap: 3px;
+    gap: 0.1875rem;
     min-width: 0;
   }
 
   .launcher-config-path-label strong {
     color: var(--config-text);
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 650;
     line-height: 1.25;
   }
 
   .launcher-config-path-label span {
     color: var(--config-muted);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 450;
     line-height: 1.35;
   }
@@ -399,14 +399,14 @@
   .launcher-config-path-field {
     position: relative;
     min-width: 0;
-    height: 38px;
+    height: 2.375rem;
     display: flex;
     align-items: center;
     border: 1px solid transparent;
-    border-radius: 10px;
+    border-radius: 0.625rem;
     background: var(--config-surface-soft);
     color: var(--config-muted);
-    padding: 0 74px 0 12px;
+    padding: 0 4.625rem 0 0.75rem;
     transition: border-color 160ms ease;
   }
 
@@ -419,25 +419,25 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 12.5px;
+    font-size: 0.7812rem;
     font-variant-numeric: tabular-nums;
   }
 
   .launcher-config-path-actions {
     position: absolute;
-    top: 4px;
-    right: 4px;
+    top: 0.25rem;
+    right: 0.25rem;
     display: flex;
-    gap: 4px;
+    gap: 0.25rem;
   }
 
   .launcher-config-icon-button {
-    width: 30px;
-    height: 30px;
+    width: 1.875rem;
+    height: 1.875rem;
     display: inline-grid;
     place-items: center;
     border: 1px solid var(--config-line);
-    border-radius: 8px;
+    border-radius: 0.5rem;
     background: var(--config-surface-soft);
     color: var(--config-faint);
     cursor: pointer;
@@ -459,8 +459,8 @@
   }
 
   .launcher-config-refresh-button {
-    min-height: 28px;
-    width: 28px;
-    height: 28px;
+    min-height: 1.75rem;
+    width: 1.75rem;
+    height: 1.75rem;
   }
 }

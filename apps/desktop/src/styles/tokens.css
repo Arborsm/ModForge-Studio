@@ -8,7 +8,7 @@
     /* Theme-agnostic structural tokens (do not vary per theme). */
     --text-inverse: #f8fbff;
     --surface-inverse: #0f172a;
-    --app-window-radius: 12px;
+    --app-window-radius: 0.75rem;
     --cp-logic: #22c55e;
     --cp-file: #3b82f6;
     --cp-data: #f97316;
@@ -51,14 +51,14 @@
     --bevel-highlight: rgba(255, 255, 255, 0.5); /* 卡片/面板顶部 inset 高光斜面 */
     --bg-overlay: var(--bg-elevated); /* 浮层/下拉/tooltip 面板底(可叠 backdrop-blur) */
 
-    /* Titlebar height — the titlebar (h-14 = 56px) plus its 1px divider.
+    /* Titlebar height — the titlebar (h-14 = 3.5rem) plus its 1px divider.
      * Dialog overlays are clipped to below this line via `inset` so the titlebar
      * stays visible and interactive. Mirrored in CSS by .app-titlebar-height. */
-    --app-titlebar-height: 57px;
+    --app-titlebar-height: 3.5625rem;
 
     /* Z-index scale — single source of truth for stacking order across the app.
      * Dialogs sit above the titlebar (z-titlebar) but their overlay is clipped to
-     * below the titlebar via `inset: 57px 0 0`, so the titlebar stays visible and
+     * below the titlebar via `inset: 3.5625rem 0 0`, so the titlebar stays visible and
      * interactive while the dialog layer can never be pierced by popovers. */
     --z-base: 0;
     --z-dock: 100; /* workspace dock surfaces */
@@ -102,8 +102,8 @@
     --accent-soft: rgba(91, 84, 214, 0.13);
     --grid-minor: rgba(120, 110, 95, 0.1);
     --grid-major: rgba(120, 110, 95, 0.16);
-    --shadow-panel: 0 1px 2px rgba(80, 70, 55, 0.05), 0 8px 18px rgba(80, 70, 55, 0.07);
-    --shadow-float: 0 18px 30px rgba(80, 70, 55, 0.18), 0 8px 18px rgba(80, 70, 55, 0.12);
+    --shadow-panel: 0 0.0625rem 0.125rem rgba(80, 70, 55, 0.05), 0 0.5rem 1.125rem rgba(80, 70, 55, 0.07);
+    --shadow-float: 0 1.125rem 1.875rem rgba(80, 70, 55, 0.18), 0 0.5rem 1.125rem rgba(80, 70, 55, 0.12);
   }
 
   [data-theme='warm-paper'].dark {
@@ -125,8 +125,8 @@
     --accent-soft: rgba(137, 131, 232, 0.18);
     --grid-minor: rgba(255, 255, 255, 0.05);
     --grid-major: rgba(255, 255, 255, 0.08);
-    --shadow-panel: 0 1px 1px rgba(0, 0, 0, 0.28), 0 16px 28px rgba(0, 0, 0, 0.22);
-    --shadow-float: 0 24px 44px rgba(0, 0, 0, 0.38), 0 10px 24px rgba(0, 0, 0, 0.26);
+    --shadow-panel: 0 0.0625rem 0.0625rem rgba(0, 0, 0, 0.28), 0 1rem 1.75rem rgba(0, 0, 0, 0.22);
+    --shadow-float: 0 1.5rem 2.75rem rgba(0, 0, 0, 0.38), 0 0.625rem 1.5rem rgba(0, 0, 0, 0.26);
   }
 
   :root,
@@ -149,8 +149,8 @@
     --accent-soft: rgba(37, 99, 235, 0.11);
     --grid-minor: rgba(110, 112, 120, 0.1);
     --grid-major: rgba(110, 112, 120, 0.16);
-    --shadow-panel: 0 1px 2px rgba(20, 22, 30, 0.05), 0 8px 18px rgba(20, 22, 30, 0.07);
-    --shadow-float: 0 18px 30px rgba(20, 22, 30, 0.18), 0 8px 18px rgba(20, 22, 30, 0.12);
+    --shadow-panel: 0 0.0625rem 0.125rem rgba(20, 22, 30, 0.05), 0 0.5rem 1.125rem rgba(20, 22, 30, 0.07);
+    --shadow-float: 0 1.125rem 1.875rem rgba(20, 22, 30, 0.18), 0 0.5rem 1.125rem rgba(20, 22, 30, 0.12);
   }
 
   :root.dark,
@@ -173,8 +173,8 @@
     --accent-soft: rgba(91, 141, 239, 0.18);
     --grid-minor: rgba(255, 255, 255, 0.05);
     --grid-major: rgba(255, 255, 255, 0.08);
-    --shadow-panel: 0 1px 1px rgba(0, 0, 0, 0.28), 0 16px 28px rgba(0, 0, 0, 0.22);
-    --shadow-float: 0 24px 44px rgba(0, 0, 0, 0.38), 0 10px 24px rgba(0, 0, 0, 0.26);
+    --shadow-panel: 0 0.0625rem 0.0625rem rgba(0, 0, 0, 0.28), 0 1rem 1.75rem rgba(0, 0, 0, 0.22);
+    --shadow-float: 0 1.5rem 2.75rem rgba(0, 0, 0, 0.38), 0 0.625rem 1.5rem rgba(0, 0, 0, 0.26);
   }
 
   [data-theme='slate-blue'] {
@@ -195,8 +195,8 @@
     --accent-soft: rgba(14, 116, 144, 0.12);
     --grid-minor: rgba(90, 105, 125, 0.1);
     --grid-major: rgba(90, 105, 125, 0.16);
-    --shadow-panel: 0 1px 2px rgba(20, 35, 55, 0.05), 0 8px 18px rgba(20, 35, 55, 0.07);
-    --shadow-float: 0 18px 30px rgba(20, 35, 55, 0.18), 0 8px 18px rgba(20, 35, 55, 0.12);
+    --shadow-panel: 0 0.0625rem 0.125rem rgba(20, 35, 55, 0.05), 0 0.5rem 1.125rem rgba(20, 35, 55, 0.07);
+    --shadow-float: 0 1.125rem 1.875rem rgba(20, 35, 55, 0.18), 0 0.5rem 1.125rem rgba(20, 35, 55, 0.12);
   }
 
   [data-theme='slate-blue'].dark {
@@ -217,8 +217,8 @@
     --accent-soft: rgba(43, 182, 212, 0.18);
     --grid-minor: rgba(255, 255, 255, 0.05);
     --grid-major: rgba(255, 255, 255, 0.08);
-    --shadow-panel: 0 1px 1px rgba(0, 0, 0, 0.28), 0 16px 28px rgba(0, 0, 0, 0.22);
-    --shadow-float: 0 24px 44px rgba(0, 0, 0, 0.38), 0 10px 24px rgba(0, 0, 0, 0.26);
+    --shadow-panel: 0 0.0625rem 0.0625rem rgba(0, 0, 0, 0.28), 0 1rem 1.75rem rgba(0, 0, 0, 0.22);
+    --shadow-float: 0 1.5rem 2.75rem rgba(0, 0, 0, 0.38), 0 0.625rem 1.5rem rgba(0, 0, 0, 0.26);
   }
 
   [data-theme='forest'] {
@@ -239,8 +239,8 @@
     --accent-soft: rgba(63, 143, 79, 0.13);
     --grid-minor: rgba(100, 115, 85, 0.1);
     --grid-major: rgba(100, 115, 85, 0.16);
-    --shadow-panel: 0 1px 2px rgba(50, 65, 40, 0.05), 0 8px 18px rgba(50, 65, 40, 0.07);
-    --shadow-float: 0 18px 30px rgba(50, 65, 40, 0.18), 0 8px 18px rgba(50, 65, 40, 0.12);
+    --shadow-panel: 0 0.0625rem 0.125rem rgba(50, 65, 40, 0.05), 0 0.5rem 1.125rem rgba(50, 65, 40, 0.07);
+    --shadow-float: 0 1.125rem 1.875rem rgba(50, 65, 40, 0.18), 0 0.5rem 1.125rem rgba(50, 65, 40, 0.12);
   }
 
   [data-theme='forest'].dark {
@@ -261,8 +261,8 @@
     --accent-soft: rgba(95, 185, 111, 0.18);
     --grid-minor: rgba(255, 255, 255, 0.05);
     --grid-major: rgba(255, 255, 255, 0.08);
-    --shadow-panel: 0 1px 1px rgba(0, 0, 0, 0.28), 0 16px 28px rgba(0, 0, 0, 0.22);
-    --shadow-float: 0 24px 44px rgba(0, 0, 0, 0.38), 0 10px 24px rgba(0, 0, 0, 0.26);
+    --shadow-panel: 0 0.0625rem 0.0625rem rgba(0, 0, 0, 0.28), 0 1rem 1.75rem rgba(0, 0, 0, 0.22);
+    --shadow-float: 0 1.5rem 2.75rem rgba(0, 0, 0, 0.38), 0 0.625rem 1.5rem rgba(0, 0, 0, 0.26);
   }
 
   [data-theme='twilight'] {
@@ -283,8 +283,8 @@
     --accent-soft: rgba(124, 92, 214, 0.13);
     --grid-minor: rgba(115, 105, 130, 0.1);
     --grid-major: rgba(115, 105, 130, 0.16);
-    --shadow-panel: 0 1px 2px rgba(60, 50, 75, 0.05), 0 8px 18px rgba(60, 50, 75, 0.07);
-    --shadow-float: 0 18px 30px rgba(60, 50, 75, 0.18), 0 8px 18px rgba(60, 50, 75, 0.12);
+    --shadow-panel: 0 0.0625rem 0.125rem rgba(60, 50, 75, 0.05), 0 0.5rem 1.125rem rgba(60, 50, 75, 0.07);
+    --shadow-float: 0 1.125rem 1.875rem rgba(60, 50, 75, 0.18), 0 0.5rem 1.125rem rgba(60, 50, 75, 0.12);
   }
 
   [data-theme='twilight'].dark {
@@ -305,8 +305,8 @@
     --accent-soft: rgba(163, 133, 238, 0.18);
     --grid-minor: rgba(255, 255, 255, 0.05);
     --grid-major: rgba(255, 255, 255, 0.08);
-    --shadow-panel: 0 1px 1px rgba(0, 0, 0, 0.28), 0 16px 28px rgba(0, 0, 0, 0.22);
-    --shadow-float: 0 24px 44px rgba(0, 0, 0, 0.38), 0 10px 24px rgba(0, 0, 0, 0.26);
+    --shadow-panel: 0 0.0625rem 0.0625rem rgba(0, 0, 0, 0.28), 0 1rem 1.75rem rgba(0, 0, 0, 0.22);
+    --shadow-float: 0 1.5rem 2.75rem rgba(0, 0, 0, 0.38), 0 0.625rem 1.5rem rgba(0, 0, 0, 0.26);
   }
 
   [data-theme='stardew-wood'] {
@@ -327,8 +327,8 @@
     --accent-soft: rgba(199, 125, 46, 0.14);
     --grid-minor: rgba(140, 115, 75, 0.11);
     --grid-major: rgba(140, 115, 75, 0.17);
-    --shadow-panel: 0 1px 2px rgba(90, 70, 40, 0.06), 0 8px 18px rgba(90, 70, 40, 0.08);
-    --shadow-float: 0 18px 30px rgba(90, 70, 40, 0.18), 0 8px 18px rgba(90, 70, 40, 0.12);
+    --shadow-panel: 0 0.0625rem 0.125rem rgba(90, 70, 40, 0.06), 0 0.5rem 1.125rem rgba(90, 70, 40, 0.08);
+    --shadow-float: 0 1.125rem 1.875rem rgba(90, 70, 40, 0.18), 0 0.5rem 1.125rem rgba(90, 70, 40, 0.12);
   }
 
   [data-theme='stardew-wood'].dark {
@@ -349,8 +349,8 @@
     --accent-soft: rgba(224, 154, 79, 0.18);
     --grid-minor: rgba(255, 255, 255, 0.05);
     --grid-major: rgba(255, 255, 255, 0.08);
-    --shadow-panel: 0 1px 1px rgba(0, 0, 0, 0.3), 0 16px 28px rgba(0, 0, 0, 0.24);
-    --shadow-float: 0 24px 44px rgba(0, 0, 0, 0.4), 0 10px 24px rgba(0, 0, 0, 0.28);
+    --shadow-panel: 0 0.0625rem 0.0625rem rgba(0, 0, 0, 0.3), 0 1rem 1.75rem rgba(0, 0, 0, 0.24);
+    --shadow-float: 0 1.5rem 2.75rem rgba(0, 0, 0, 0.4), 0 0.625rem 1.5rem rgba(0, 0, 0, 0.28);
   }
 
   [data-theme='crimson'] {
@@ -371,8 +371,8 @@
     --accent-soft: rgba(212, 50, 74, 0.13);
     --grid-minor: rgba(140, 100, 95, 0.1);
     --grid-major: rgba(140, 100, 95, 0.16);
-    --shadow-panel: 0 1px 2px rgba(90, 50, 45, 0.05), 0 8px 18px rgba(90, 50, 45, 0.07);
-    --shadow-float: 0 18px 30px rgba(90, 50, 45, 0.18), 0 8px 18px rgba(90, 50, 45, 0.12);
+    --shadow-panel: 0 0.0625rem 0.125rem rgba(90, 50, 45, 0.05), 0 0.5rem 1.125rem rgba(90, 50, 45, 0.07);
+    --shadow-float: 0 1.125rem 1.875rem rgba(90, 50, 45, 0.18), 0 0.5rem 1.125rem rgba(90, 50, 45, 0.12);
   }
 
   [data-theme='crimson'].dark {
@@ -393,8 +393,8 @@
     --accent-soft: rgba(236, 90, 112, 0.18);
     --grid-minor: rgba(255, 255, 255, 0.05);
     --grid-major: rgba(255, 255, 255, 0.08);
-    --shadow-panel: 0 1px 1px rgba(0, 0, 0, 0.3), 0 16px 28px rgba(0, 0, 0, 0.24);
-    --shadow-float: 0 24px 44px rgba(0, 0, 0, 0.4), 0 10px 24px rgba(0, 0, 0, 0.28);
+    --shadow-panel: 0 0.0625rem 0.0625rem rgba(0, 0, 0, 0.3), 0 1rem 1.75rem rgba(0, 0, 0, 0.24);
+    --shadow-float: 0 1.5rem 2.75rem rgba(0, 0, 0, 0.4), 0 0.625rem 1.5rem rgba(0, 0, 0, 0.28);
   }
 
   [data-theme='blossom'] {
@@ -415,8 +415,8 @@
     --accent-soft: rgba(219, 39, 119, 0.13);
     --grid-minor: rgba(150, 100, 120, 0.1);
     --grid-major: rgba(150, 100, 120, 0.16);
-    --shadow-panel: 0 1px 2px rgba(95, 45, 65, 0.05), 0 8px 18px rgba(95, 45, 65, 0.07);
-    --shadow-float: 0 18px 30px rgba(95, 45, 65, 0.18), 0 8px 18px rgba(95, 45, 65, 0.12);
+    --shadow-panel: 0 0.0625rem 0.125rem rgba(95, 45, 65, 0.05), 0 0.5rem 1.125rem rgba(95, 45, 65, 0.07);
+    --shadow-float: 0 1.125rem 1.875rem rgba(95, 45, 65, 0.18), 0 0.5rem 1.125rem rgba(95, 45, 65, 0.12);
   }
 
   [data-theme='blossom'].dark {
@@ -437,7 +437,7 @@
     --accent-soft: rgba(242, 95, 160, 0.18);
     --grid-minor: rgba(255, 255, 255, 0.05);
     --grid-major: rgba(255, 255, 255, 0.08);
-    --shadow-panel: 0 1px 1px rgba(0, 0, 0, 0.3), 0 16px 28px rgba(0, 0, 0, 0.24);
-    --shadow-float: 0 24px 44px rgba(0, 0, 0, 0.4), 0 10px 24px rgba(0, 0, 0, 0.28);
+    --shadow-panel: 0 0.0625rem 0.0625rem rgba(0, 0, 0, 0.3), 0 1rem 1.75rem rgba(0, 0, 0, 0.24);
+    --shadow-float: 0 1.5rem 2.75rem rgba(0, 0, 0, 0.4), 0 0.625rem 1.5rem rgba(0, 0, 0, 0.28);
   }
 }

@@ -3,16 +3,16 @@
     border: 1px solid var(--border-color);
     background: color-mix(in srgb, var(--bg-panel-muted) 88%, transparent);
     color: var(--text-secondary);
-    @apply inline-flex items-center rounded-md px-2 py-1 text-[11px] font-medium;
+    @apply inline-flex items-center rounded-md px-2 py-1 text-[0.6875rem] font-medium;
   }
 
   .status-pill {
-    @apply inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold;
+    @apply inline-flex items-center gap-1 rounded-md px-2 py-1 text-[0.6875rem] font-semibold;
   }
 
   .status-pill-compact {
-    padding: 2px 8px;
-    font-size: 10px;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.625rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);

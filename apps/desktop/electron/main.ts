@@ -336,10 +336,10 @@ async function shutdownApp() {
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     title: appDisplayName,
-    width: 1440,
-    height: 940,
-    minWidth: 960,
-    minHeight: 640,
+    width: 1600,
+    height: 1000,
+    minWidth: 1280,
+    minHeight: 800,
     frame: false,
     resizable: true,
     show: false,

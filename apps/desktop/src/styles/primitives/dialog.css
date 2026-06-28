@@ -10,10 +10,10 @@
     z-index: var(--z-dialog);
     display: grid;
     place-items: center;
-    padding: 24px;
+    padding: 1.5rem;
     background: var(--scrim);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(0.5rem);
+    -webkit-backdrop-filter: blur(0.5rem);
   }
 
   .app-dialog-overlay[data-dialog-stacked='true'] {
@@ -26,34 +26,34 @@
   .app-dialog {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
-    width: min(var(--app-dialog-width), calc(100vw - 48px));
-    max-height: calc(100vh - var(--app-titlebar-height) - 48px);
+    width: min(var(--app-dialog-width), calc(100vw - 3rem));
+    max-height: calc(100vh - var(--app-titlebar-height) - 3rem);
     overflow: hidden;
     border: 1px solid var(--border-color);
-    border-radius: 14px;
+    border-radius: 0.875rem;
     background: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 96%, transparent), var(--bg-panel));
     box-shadow: var(--shadow-float);
     color: var(--text-primary);
   }
 
   .app-dialog-size-sm {
-    --app-dialog-width: 380px;
+    --app-dialog-width: 23.75rem;
   }
 
   .app-dialog-size-md {
-    --app-dialog-width: 480px;
+    --app-dialog-width: 30rem;
   }
 
   .app-dialog-size-lg {
-    --app-dialog-width: 560px;
+    --app-dialog-width: 35rem;
   }
 
   .app-dialog-size-xl {
-    --app-dialog-width: 860px;
+    --app-dialog-width: 53.75rem;
   }
 
   .app-dialog-size-full {
-    --app-dialog-width: 1120px;
+    --app-dialog-width: 70rem;
   }
 
   /* Bare variant: drop the fixed header/body/footer grid, max-height, and
@@ -87,21 +87,21 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 16px 20px;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
   }
 
   .app-dialog-heading {
     display: grid;
-    gap: 4px;
+    gap: 0.25rem;
     min-width: 0;
   }
 
   .app-dialog-title-row {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.5rem;
     min-width: 0;
   }
 
@@ -121,7 +121,7 @@
   .app-dialog-title {
     margin: 0;
     color: var(--text-primary);
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 600;
     line-height: 1.4;
     overflow: hidden;
@@ -131,7 +131,7 @@
   .app-dialog-subtitle {
     margin: 0;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.5;
   }
 
@@ -144,21 +144,21 @@
     overflow: auto;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
-    padding: 20px;
+    padding: 1.25rem;
   }
 
   /* When a dialog has no footer, drop the body's bottom padding so the card
    * closes cleanly under the last content row. */
   .app-dialog[data-dialog-has-footer='false'] .app-dialog-body {
-    padding-bottom: 20px;
+    padding-bottom: 1.25rem;
   }
 
   .app-dialog-footer {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 8px;
-    padding: 14px 20px;
+    gap: 0.5rem;
+    padding: 0.875rem 1.25rem;
     border-top: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
   }
 
@@ -178,11 +178,11 @@
   .app-dialog-error {
     margin: 0;
     border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
-    border-radius: 10px;
+    border-radius: 0.625rem;
     background: var(--danger-soft);
-    padding: 8px 12px;
+    padding: 0.5rem 0.75rem;
     color: var(--danger);
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.5;
   }
 }

@@ -11,15 +11,15 @@
 
   .studio-tree-search {
     display: grid;
-    grid-template-columns: 14px minmax(0, 1fr);
+    grid-template-columns: 0.875rem minmax(0, 1fr);
     align-items: center;
-    gap: 7px;
-    min-height: 36px;
-    margin: 12px 12px 10px;
+    gap: 0.4375rem;
+    min-height: 2.25rem;
+    margin: 0.75rem 0.75rem 0.625rem;
     border: 1px solid var(--border-color);
-    border-radius: 9px;
+    border-radius: 0.5625rem;
     background: var(--bg-panel);
-    padding: 0 9px;
+    padding: 0 0.5625rem;
     color: var(--text-secondary);
   }
 
@@ -29,26 +29,26 @@
     outline: 0;
     background: transparent;
     color: var(--text-primary);
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .studio-tree-scroll {
     min-height: 0;
     overflow: auto;
-    padding: 0 10px 16px;
+    padding: 0 0.625rem 1rem;
   }
 
   .studio-tree-group {
     display: grid;
-    gap: 6px;
-    margin-top: 10px;
+    gap: 0.375rem;
+    margin-top: 0.625rem;
     padding: 0;
   }
 
   .studio-tree-group-title {
-    padding: 8px 6px 6px;
+    padding: 0.5rem 0.375rem 0.375rem;
     color: var(--text-tertiary);
-    font-size: 10px;
+    font-size: 0.625rem;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -58,7 +58,7 @@
   .studio-tree-filter-list,
   .studio-tree-block {
     display: grid;
-    gap: 5px;
+    gap: 0.3125rem;
   }
 
   .studio-tree-item,
@@ -79,11 +79,11 @@
   }
 
   .studio-tree-item {
-    grid-template-columns: 18px minmax(0, 1fr) auto;
-    gap: 8px;
-    min-height: 36px;
-    border-radius: 9px;
-    padding: 0 9px;
+    grid-template-columns: 1.125rem minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    min-height: 2.25rem;
+    border-radius: 0.5625rem;
+    padding: 0 0.5625rem;
   }
 
   .studio-tree-item:hover,
@@ -112,7 +112,7 @@
   .studio-tree-item-copy {
     display: grid;
     min-width: 0;
-    gap: 2px;
+    gap: 0.125rem;
   }
 
   .studio-tree-item-copy strong,
@@ -123,30 +123,30 @@
   }
 
   .studio-tree-item-copy strong {
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 760;
   }
 
   .studio-tree-item-copy span {
     overflow: hidden;
     color: var(--text-secondary);
-    font-size: 10px;
+    font-size: 0.625rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .studio-tree-count {
     display: inline-flex;
-    min-width: 20px;
-    height: 18px;
+    min-width: 1.25rem;
+    height: 1.125rem;
     align-items: center;
     justify-content: center;
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: var(--bg-panel-muted);
     color: var(--text-secondary);
-    padding: 0 6px;
+    padding: 0 0.375rem;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 0.625rem;
     font-weight: 800;
   }
 
@@ -158,19 +158,19 @@
 
   .studio-tree-child-list {
     display: grid;
-    gap: 2px;
-    margin: 4px 0 8px 26px;
-    padding-left: 10px;
+    gap: 0.125rem;
+    margin: 0.25rem 0 0.5rem 1.625rem;
+    padding-left: 0.625rem;
     border-left: 1px solid var(--border-color);
   }
 
   .studio-tree-child-item {
-    grid-template-columns: 28px minmax(0, 1fr);
-    gap: 6px;
-    min-height: 28px;
-    border-radius: 7px;
+    grid-template-columns: 1.75rem minmax(0, 1fr);
+    gap: 0.375rem;
+    min-height: 1.75rem;
+    border-radius: 0.4375rem;
     color: var(--text-secondary);
-    padding: 0 7px;
+    padding: 0 0.4375rem;
   }
 
   .studio-tree-child-item.active {
@@ -193,22 +193,22 @@
   .studio-tree-child-item span {
     color: var(--text-tertiary);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 0.625rem;
     font-weight: 800;
   }
 
   .studio-tree-child-item strong {
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 720;
   }
 
   .studio-tree-filter-row {
-    grid-template-columns: 18px minmax(0, 1fr) auto;
-    gap: 8px;
-    min-height: 34px;
-    border-radius: 9px;
-    padding: 0 9px;
-    font-size: 12px;
+    grid-template-columns: 1.125rem minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    min-height: 2.125rem;
+    border-radius: 0.5625rem;
+    padding: 0 0.5625rem;
+    font-size: 0.75rem;
     font-weight: 720;
   }
 
@@ -230,13 +230,13 @@
   .studio-tree-footer {
     border-top: 1px solid var(--border-color);
     background: var(--bg-panel-muted);
-    padding: 10px;
+    padding: 0.625rem;
   }
 
   .studio-tree-footer-button {
-    min-height: 36px;
+    min-height: 2.25rem;
     border-color: var(--border-color);
-    border-radius: 9px;
+    border-radius: 0.5625rem;
     background: var(--bg-panel);
     color: var(--text-primary);
     box-shadow: var(--shadow-panel);

@@ -6,20 +6,20 @@
     isolation: isolate;
     overflow-y: auto;
     background:
-      radial-gradient(circle 520px at 14% -6%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 68%),
-      radial-gradient(circle 460px at 98% -2%, color-mix(in srgb, var(--info) 6%, transparent), transparent 70%),
-      linear-gradient(color-mix(in srgb, var(--border-color) 22%, transparent) 1px, transparent 1px) 0 0 / 40px 40px,
-      linear-gradient(90deg, color-mix(in srgb, var(--border-color) 22%, transparent) 1px, transparent 1px) 0 0 / 40px 40px,
+      radial-gradient(circle 32.5rem at 14% -6%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 68%),
+      radial-gradient(circle 28.75rem at 98% -2%, color-mix(in srgb, var(--info) 6%, transparent), transparent 70%),
+      linear-gradient(color-mix(in srgb, var(--border-color) 22%, transparent) 1px, transparent 1px) 0 0 / 2.5rem 2.5rem,
+      linear-gradient(90deg, color-mix(in srgb, var(--border-color) 22%, transparent) 1px, transparent 1px) 0 0 / 2.5rem 2.5rem,
       var(--bg-app);
   }
 
   .workbench-home-page::before {
     content: none;
     position: fixed;
-    right: 28px;
-    bottom: 28px;
-    width: min(260px, 32vw);
-    height: min(260px, 32vw);
+    right: 1.75rem;
+    bottom: 1.75rem;
+    width: min(16.25rem, 32vw);
+    height: min(16.25rem, 32vw);
     pointer-events: none;
     opacity: 0.34;
     background:
@@ -27,32 +27,32 @@
         100% no-repeat,
       linear-gradient(90deg, color-mix(in srgb, var(--accent) 34%, transparent), color-mix(in srgb, var(--accent) 34%, transparent)) 0 50% /
         100% 1px no-repeat,
-      radial-gradient(circle, color-mix(in srgb, var(--text-tertiary) 34%, transparent) 1px, transparent 1px) 0 0 / 14px 14px;
+      radial-gradient(circle, color-mix(in srgb, var(--text-tertiary) 34%, transparent) 1px, transparent 1px) 0 0 / 0.875rem 0.875rem;
   }
 
   .workbench-home-inner {
     position: relative;
     z-index: 1;
-    width: min(1152px, calc(100vw - 64px));
+    width: min(110rem, calc(100vw - 4rem));
     min-height: 100%;
     display: flex;
     flex-direction: column;
-    gap: 28px;
+    gap: 1.75rem;
     margin: 0 auto;
-    padding: 32px 0 72px;
+    padding: 2rem 0 4.5rem;
   }
 
   .workbench-home-game-dir-banner {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 0.75rem;
     border: 1px solid color-mix(in srgb, var(--warning) 38%, transparent);
-    border-radius: 14px;
+    border-radius: 0.875rem;
     background: color-mix(in srgb, var(--warning-soft) 80%, transparent);
     box-shadow: var(--shadow-panel);
     color: var(--text-primary);
-    padding: 12px 16px;
-    backdrop-filter: blur(6px);
+    padding: 0.75rem 1rem;
+    backdrop-filter: blur(0.375rem);
   }
 
   .workbench-home-game-dir-icon {
@@ -62,7 +62,7 @@
 
   .workbench-home-game-dir-banner div {
     min-width: 0;
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .workbench-home-game-dir-banner strong {
@@ -78,14 +78,14 @@
     border: 0;
     background: transparent;
     color: var(--accent);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 850;
     white-space: nowrap;
   }
 
   .workbench-home-hero {
     display: grid;
-    gap: 24px;
+    gap: 1.5rem;
   }
 
   .workbench-home-search-wrap {
@@ -95,29 +95,29 @@
 
   .workbench-home-search {
     width: 100%;
-    height: 48px;
+    height: 3rem;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 0.75rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
     box-shadow: var(--shadow-panel);
     color: var(--text-secondary);
-    padding: 0 18px;
-    backdrop-filter: blur(10px);
+    padding: 0 1.125rem;
+    backdrop-filter: blur(0.625rem);
   }
 
   .workbench-home-search:focus-within {
     border-color: color-mix(in srgb, var(--accent) 50%, transparent);
     box-shadow:
-      0 0 0 3px var(--accent-soft),
+      0 0 0 0.1875rem var(--accent-soft),
       var(--shadow-panel);
   }
 
   .workbench-home-search-icon {
-    width: 18px;
-    height: 18px;
+    width: 1.125rem;
+    height: 1.125rem;
     flex: 0 0 auto;
   }
 
@@ -127,49 +127,49 @@
     border: 0;
     background: transparent;
     color: var(--text-primary);
-    font-size: 15px;
+    font-size: 0.9375rem;
     outline: 0;
   }
 
   .workbench-home-search kbd {
     border: 1px solid var(--border-color);
-    border-radius: 7px;
+    border-radius: 0.4375rem;
     background: var(--bg-panel-muted);
     color: var(--text-tertiary);
-    padding: 3px 8px;
+    padding: 0.1875rem 0.5rem;
     font-family: var(--font-sans);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 800;
   }
 
   .workbench-home-search-results {
     position: absolute;
-    top: calc(100% + 8px);
+    top: calc(100% + 0.5rem);
     left: 0;
     right: 0;
     display: grid;
-    gap: 4px;
-    max-height: 384px;
+    gap: 0.25rem;
+    max-height: 24rem;
     overflow-y: auto;
     border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
-    border-radius: 14px;
+    border-radius: 0.875rem;
     background: var(--bg-elevated);
     box-shadow: var(--shadow-float);
-    padding: 8px;
-    backdrop-filter: blur(12px);
+    padding: 0.5rem;
+    backdrop-filter: blur(0.75rem);
   }
 
   .workbench-home-search-result {
     display: grid;
-    grid-template-columns: 28px minmax(0, 1fr) auto;
+    grid-template-columns: 1.75rem minmax(0, 1fr) auto;
     align-items: center;
-    gap: 10px;
-    min-height: 44px;
+    gap: 0.625rem;
+    min-height: 2.75rem;
     border: 0;
-    border-radius: 10px;
+    border-radius: 0.625rem;
     background: transparent;
     color: var(--text-primary);
-    padding: 0 10px;
+    padding: 0 0.625rem;
     text-align: left;
   }
 
@@ -179,11 +179,11 @@
   }
 
   .workbench-home-search-result-icon {
-    width: 26px;
-    height: 26px;
+    width: 1.625rem;
+    height: 1.625rem;
     display: grid;
     place-items: center;
-    border-radius: 8px;
+    border-radius: 0.5rem;
     background: var(--bg-panel-muted);
     color: var(--text-secondary);
   }
@@ -202,14 +202,14 @@
   }
 
   .workbench-home-search-result-body strong {
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 850;
   }
 
   .workbench-home-search-result-body em,
   .workbench-home-search-result-kind {
     color: var(--text-tertiary);
-    font-size: 10px;
+    font-size: 0.625rem;
     font-style: normal;
     font-weight: 800;
   }
@@ -220,16 +220,16 @@
   }
 
   .workbench-home-search-empty {
-    padding: 18px 10px;
+    padding: 1.125rem 0.625rem;
     text-align: center;
     color: var(--text-tertiary);
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .workbench-home-hero-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
-    gap: 16px;
+    grid-template-columns: minmax(0, 1.7fr) minmax(22rem, 1fr);
+    gap: 1rem;
   }
 
   .workbench-home-current-card,
@@ -239,15 +239,15 @@
     border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
     background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
     box-shadow: var(--shadow-panel);
-    backdrop-filter: blur(6px);
+    backdrop-filter: blur(0.375rem);
   }
 
   .workbench-home-current-card {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    border-radius: 18px;
-    padding: 18px;
+    gap: 1rem;
+    border-radius: 1.125rem;
+    padding: 1.125rem;
     overflow: hidden;
     background:
       linear-gradient(145deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 54%),
@@ -257,19 +257,19 @@
   .workbench-home-current-top {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 0.875rem;
   }
 
   .workbench-home-current-cover {
-    width: 56px;
-    height: 56px;
+    width: 3.5rem;
+    height: 3.5rem;
     display: grid;
     flex: 0 0 auto;
     place-items: center;
-    border-radius: 14px;
+    border-radius: 0.875rem;
     background: var(--bg-panel-muted);
     color: var(--accent-contrast);
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 950;
     box-shadow: var(--shadow-panel);
   }
@@ -292,22 +292,22 @@
   }
 
   .workbench-home-current-cover.studio-cover-archive {
-    background: repeating-linear-gradient(45deg, #9ca3af, #9ca3af 6px, #6b7280 6px, #6b7280 12px);
+    background: repeating-linear-gradient(45deg, #9ca3af, #9ca3af 0.375rem, #6b7280 0.375rem, #6b7280 0.75rem);
   }
 
   .workbench-home-current-copy {
     min-width: 0;
     flex: 1;
     display: grid;
-    gap: 3px;
+    gap: 0.1875rem;
   }
 
   .workbench-home-current-label {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 0.375rem;
     color: var(--accent);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 900;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -318,11 +318,11 @@
   }
 
   .workbench-home-current-pulse {
-    width: 7px;
-    height: 7px;
-    border-radius: 999px;
+    width: 0.4375rem;
+    height: 0.4375rem;
+    border-radius: 62.4375rem;
     background: var(--accent);
-    box-shadow: 0 0 0 4px var(--accent-soft);
+    box-shadow: 0 0 0 0.25rem var(--accent-soft);
   }
 
   .workbench-home-current-copy h2 {
@@ -331,7 +331,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--text-primary);
-    font-size: 19px;
+    font-size: 1.1875rem;
     font-weight: 900;
     letter-spacing: 0;
   }
@@ -346,7 +346,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--text-tertiary);
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .workbench-home-icon-button,
@@ -354,32 +354,32 @@
     display: grid;
     place-items: center;
     border: 1px solid var(--border-color);
-    border-radius: 9px;
+    border-radius: 0.5625rem;
     background: var(--bg-panel-muted);
     color: var(--text-secondary);
   }
 
   .workbench-home-icon-button {
-    width: 32px;
-    height: 32px;
+    width: 2rem;
+    height: 2rem;
   }
 
   .workbench-home-makerbar {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
+    gap: 0.5rem;
   }
 
   .workbench-home-maker-button {
     display: flex;
     align-items: center;
-    gap: 9px;
+    gap: 0.5625rem;
     min-width: 0;
     border: 1px solid var(--border-color);
-    border-radius: 11px;
+    border-radius: 0.6875rem;
     background: var(--bg-panel-muted);
     color: var(--text-primary);
-    padding: 9px;
+    padding: 0.5625rem;
     text-align: left;
     transition:
       background 140ms ease,
@@ -392,7 +392,7 @@
     border-color: color-mix(in srgb, var(--accent) 38%, var(--border-color));
     background: color-mix(in srgb, var(--accent-soft) 45%, var(--bg-panel-muted));
     outline: 0;
-    transform: translateY(-1px);
+    transform: translateY(-0.0625rem);
   }
 
   .workbench-home-maker-icon,
@@ -401,18 +401,18 @@
     display: grid;
     flex: 0 0 auto;
     place-items: center;
-    border-radius: 9px;
+    border-radius: 0.5625rem;
   }
 
   .workbench-home-maker-icon {
-    width: 30px;
-    height: 30px;
+    width: 1.875rem;
+    height: 1.875rem;
   }
 
   .workbench-home-maker-button span:last-child {
     min-width: 0;
     display: grid;
-    gap: 2px;
+    gap: 0.125rem;
   }
 
   .workbench-home-maker-button strong,
@@ -423,39 +423,39 @@
   }
 
   .workbench-home-maker-button strong {
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 820;
   }
 
   .workbench-home-maker-button em {
     color: var(--text-tertiary);
-    font-size: 10px;
+    font-size: 0.625rem;
     font-style: normal;
   }
 
   .workbench-home-current-actions {
     display: flex;
-    gap: 8px;
+    gap: 0.5rem;
   }
 
   .workbench-home-current-actions .control-button {
-    gap: 7px;
+    gap: 0.4375rem;
   }
 
   .workbench-home-metrics {
     display: grid;
-    gap: 10px;
+    gap: 0.625rem;
   }
 
   .workbench-home-metric {
     width: 100%;
     display: grid;
-    grid-template-columns: 36px minmax(0, 1fr) auto;
+    grid-template-columns: 2.25rem minmax(0, 1fr) auto;
     align-items: center;
-    gap: 12px;
-    border-radius: 14px;
+    gap: 0.75rem;
+    border-radius: 0.875rem;
     color: var(--text-primary);
-    padding: 12px 14px;
+    padding: 0.75rem 0.875rem;
     text-align: left;
     transition:
       border-color 140ms ease,
@@ -466,12 +466,12 @@
   .workbench-home-metric:focus-visible {
     border-color: color-mix(in srgb, var(--accent) 32%, var(--border-color));
     outline: 0;
-    transform: translateY(-1px);
+    transform: translateY(-0.0625rem);
   }
 
   .workbench-home-metric-icon {
-    width: 36px;
-    height: 36px;
+    width: 2.25rem;
+    height: 2.25rem;
     background: var(--bg-panel-muted);
     color: var(--text-secondary);
   }
@@ -479,7 +479,7 @@
   .workbench-home-metric span:nth-child(2) {
     min-width: 0;
     display: grid;
-    gap: 2px;
+    gap: 0.125rem;
   }
 
   .workbench-home-metric strong,
@@ -490,13 +490,13 @@
   }
 
   .workbench-home-metric strong {
-    font-size: 17px;
+    font-size: 1.0625rem;
     font-weight: 900;
   }
 
   .workbench-home-metric em {
     color: var(--text-tertiary);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-style: normal;
   }
 

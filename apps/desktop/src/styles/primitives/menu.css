@@ -3,7 +3,7 @@
     border: 1px solid var(--border-color);
     background: var(--bg-overlay);
     box-shadow: var(--shadow-float);
-    @apply z-50 w-max max-w-[240px] min-w-[136px] rounded-xl p-1 backdrop-blur-xl;
+    @apply z-50 w-max max-w-[15rem] min-w-[8.5rem] rounded-xl p-1 backdrop-blur-xl;
   }
 
   .context-menu-item {
@@ -30,11 +30,11 @@
   }
 
   .context-menu-subcontent {
-    @apply min-w-[170px];
+    @apply min-w-[10.625rem];
   }
 
   .context-menu-subhint {
     color: var(--text-tertiary);
-    @apply text-[11px];
+    @apply text-[0.6875rem];
   }
 }

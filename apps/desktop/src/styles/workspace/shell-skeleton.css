@@ -11,12 +11,12 @@
 
   .workbench-shell-skeleton-topbar {
     display: grid;
-    height: 48px;
-    grid-template-columns: minmax(180px, 1fr) auto minmax(180px, 1fr);
+    height: 3rem;
+    grid-template-columns: minmax(11.25rem, 1fr) auto minmax(11.25rem, 1fr);
     align-items: center;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
     background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
-    padding: 0 14px;
+    padding: 0 0.875rem;
   }
 
   .workbench-shell-skeleton-brand,
@@ -24,7 +24,7 @@
   .workbench-shell-skeleton-nav {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 0.625rem;
   }
 
   .workbench-shell-skeleton-actions {
@@ -56,19 +56,19 @@
   }
 
   .workbench-shell-skeleton-mark {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
   }
 
   .workbench-shell-skeleton-line {
-    height: 10px;
-    width: 88px;
-    border-radius: 999px;
+    height: 0.625rem;
+    width: 5.5rem;
+    border-radius: 62.4375rem;
   }
 
   .workbench-shell-skeleton-line-brand {
-    width: 128px;
+    width: 8rem;
   }
 
   .workbench-shell-skeleton-line-wide {
@@ -80,24 +80,24 @@
   }
 
   .workbench-shell-skeleton-pill {
-    width: 74px;
-    height: 28px;
-    border-radius: 999px;
+    width: 4.625rem;
+    height: 1.75rem;
+    border-radius: 62.4375rem;
   }
 
   .workbench-shell-skeleton-dot {
-    width: 28px;
-    height: 28px;
-    border-radius: 10px;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.625rem;
   }
 
   .workbench-shell-skeleton-body {
     display: grid;
     min-height: 0;
     flex: 1;
-    grid-template-columns: minmax(190px, 0.22fr) minmax(320px, 1fr) minmax(210px, 0.24fr);
-    gap: 12px;
-    padding: 12px;
+    grid-template-columns: minmax(11.875rem, 0.22fr) minmax(20rem, 1fr) minmax(13.125rem, 0.24fr);
+    gap: 0.75rem;
+    padding: 0.75rem;
   }
 
   .workbench-shell-skeleton-panel {
@@ -105,12 +105,12 @@
     min-width: 0;
     min-height: 0;
     flex-direction: column;
-    gap: 14px;
+    gap: 0.875rem;
     border: 1px solid var(--border-color);
-    border-radius: 14px;
+    border-radius: 0.875rem;
     background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
     box-shadow: var(--shadow-panel);
-    padding: 14px;
+    padding: 0.875rem;
   }
 
   .workbench-shell-skeleton-main {
@@ -120,14 +120,14 @@
   .workbench-shell-skeleton-canvas {
     flex: 1;
     min-height: 0;
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background:
       linear-gradient(color-mix(in srgb, var(--border-color) 36%, transparent) 1px, transparent 1px),
       linear-gradient(90deg, color-mix(in srgb, var(--border-color) 36%, transparent) 1px, transparent 1px),
       color-mix(in srgb, var(--bg-panel-muted) 76%, transparent);
     background-size:
-      36px 36px,
-      36px 36px,
+      2.25rem 2.25rem,
+      2.25rem 2.25rem,
       auto;
   }
 

@@ -3,17 +3,17 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: 1rem;
     border: 1px dashed var(--border-color);
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background: var(--config-surface);
-    padding: 16px 20px;
+    padding: 1rem 1.25rem;
     box-shadow: var(--config-shadow);
   }
 
   .launcher-debug-more-button {
     flex: 0 0 auto;
-    min-width: 96px;
+    min-width: 6rem;
     justify-content: center;
   }
 
@@ -24,24 +24,24 @@
   .launcher-debug-overview-card {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
+    gap: 0.875rem;
   }
 
   .launcher-debug-stat-card {
     display: grid;
-    gap: 8px;
-    padding: 22px 24px;
+    gap: 0.5rem;
+    padding: 1.375rem 1.5rem;
   }
 
   .launcher-debug-overview-label {
     color: var(--config-muted);
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.4;
   }
 
   .launcher-debug-overview-value {
     color: var(--config-primary);
-    font-size: 52px;
+    font-size: 3.25rem;
     font-weight: 700;
     line-height: 0.95;
     letter-spacing: 0;
@@ -54,13 +54,13 @@
   .launcher-debug-stack,
   .launcher-debug-tools-stack {
     display: grid;
-    gap: 12px;
+    gap: 0.75rem;
   }
 
   .launcher-debug-section-title {
-    margin: 24px 0 8px;
+    margin: 1.5rem 0 0.5rem;
     color: var(--config-muted);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 850;
     line-height: 1.2;
     letter-spacing: 0.02em;
@@ -69,7 +69,7 @@
   .launcher-debug-tool-card {
     border: 1px solid color-mix(in srgb, var(--config-line) 82%, transparent);
     background: color-mix(in srgb, var(--config-surface) 92%, var(--config-surface-soft));
-    padding: 18px 20px;
+    padding: 1.125rem 1.25rem;
     box-shadow: var(--shadow-panel);
   }
 
@@ -77,7 +77,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 14px;
+    gap: 0.875rem;
   }
 
   .launcher-debug-tool-header-center {
@@ -92,12 +92,12 @@
   .launcher-debug-tool-copy {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
+    gap: 0.75rem;
   }
 
   .launcher-debug-tool-text {
     display: grid;
-    gap: 4px;
+    gap: 0.25rem;
     min-width: 0;
     align-self: center;
   }
@@ -106,7 +106,7 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 10px;
+    gap: 0.625rem;
     margin-left: auto;
     flex: 0 0 auto;
     min-width: 0;
@@ -119,24 +119,24 @@
 
   .launcher-debug-tool-header-actions .launcher-toolbar {
     justify-content: flex-end;
-    gap: 8px;
+    gap: 0.5rem;
     flex-wrap: wrap;
   }
 
   .launcher-debug-tool-header-actions .launcher-debug-action-segmented {
     justify-content: flex-end;
-    width: min(100%, 560px);
+    width: min(100%, 35rem);
   }
 
   .launcher-debug-tools-stack .control-button,
   .launcher-debug-more-button {
-    min-height: 36px;
+    min-height: 2.25rem;
     border: 0;
-    border-radius: 8px;
+    border-radius: 0.5rem;
     background: var(--accent-soft);
     color: var(--accent);
-    padding: 0 12px;
-    font-size: 12px;
+    padding: 0 0.75rem;
+    font-size: 0.75rem;
     font-weight: 800;
     box-shadow: none;
     white-space: nowrap;
@@ -169,19 +169,19 @@
   }
 
   .launcher-debug-tools-stack .dock-chip {
-    min-height: 32px;
-    border-radius: 8px;
+    min-height: 2rem;
+    border-radius: 0.5rem;
     background: var(--bg-active);
     color: var(--text-secondary);
-    padding: 0 11px;
-    font-size: 11px;
+    padding: 0 0.6875rem;
+    font-size: 0.6875rem;
     font-weight: 800;
   }
 
   .launcher-debug-tool-title {
     margin: 0;
     color: var(--config-text);
-    font-size: 15px;
+    font-size: 0.9375rem;
     font-weight: 700;
     line-height: 1.35;
     letter-spacing: 0;
@@ -190,7 +190,7 @@
   .launcher-debug-tool-subtitle {
     margin: 0;
     color: var(--config-faint);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 700;
     line-height: 1.35;
     letter-spacing: 0;
@@ -199,7 +199,7 @@
   .launcher-debug-setting {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 0.875rem;
     min-width: 0;
   }
 
@@ -209,10 +209,10 @@
     align-items: center;
     justify-content: center;
     flex: 0 0 auto;
-    width: 36px;
-    height: 36px;
+    width: 2.25rem;
+    height: 2.25rem;
     border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
-    border-radius: 10px;
+    border-radius: 0.625rem;
     background: var(--config-primary-light);
     color: var(--config-primary);
   }
@@ -265,8 +265,8 @@
   .launcher-debug-tool-tray {
     display: flex;
     justify-content: flex-start;
-    gap: 12px;
-    margin-top: 16px;
+    gap: 0.75rem;
+    margin-top: 1rem;
     padding: 0;
     border: 0;
     border-radius: 0;
@@ -274,23 +274,23 @@
   }
 
   .launcher-debug-bbcode-preview {
-    max-height: 460px;
+    max-height: 28.75rem;
     overflow: auto;
-    padding: 18px 20px;
+    padding: 1.125rem 1.25rem;
     border: 1px solid var(--config-line);
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background: color-mix(in srgb, var(--config-surface) 88%, var(--config-surface-soft));
   }
 
   .launcher-debug-level-button {
     flex: 0 0 auto;
-    min-width: 92px;
-    min-height: 34px;
+    min-width: 5.75rem;
+    min-height: 2.125rem;
     border: 0;
     border-radius: 0;
     background: transparent;
     color: var(--accent);
-    padding: 0 11px;
+    padding: 0 0.6875rem;
     box-shadow: none;
   }
 
@@ -324,7 +324,7 @@
   .launcher-debug-route-loading {
     margin: 0;
     color: var(--config-muted);
-    font-size: 13px;
+    font-size: 0.8125rem;
     line-height: 1.7;
   }
 
@@ -332,22 +332,22 @@
     display: grid;
     gap: 0;
     overflow: hidden;
-    border-radius: 12px;
+    border-radius: 0.75rem;
   }
 
   .launcher-debug-api-status-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: 0.625rem;
   }
 
   .launcher-debug-route-row {
     display: grid;
-    grid-template-columns: minmax(300px, 0.7fr) minmax(420px, 1fr);
-    gap: 28px;
+    grid-template-columns: minmax(18.75rem, 0.7fr) minmax(26.25rem, 1fr);
+    gap: 1.75rem;
     align-items: start;
     min-width: 0;
-    padding: 16px 12px;
+    padding: 1rem 0.75rem;
     border: 0;
     border-bottom: 1px solid var(--config-line);
     border-radius: 0;
@@ -356,7 +356,7 @@
   }
 
   .launcher-debug-route-row-api {
-    grid-template-columns: minmax(300px, 0.7fr) minmax(420px, 1fr);
+    grid-template-columns: minmax(18.75rem, 0.7fr) minmax(26.25rem, 1fr);
   }
 
   .launcher-debug-route-row:last-child {
@@ -378,18 +378,18 @@
     margin: 0;
     min-width: 0;
     color: var(--config-text);
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 700;
     line-height: 1.35;
   }
 
   .launcher-debug-route-endpoint {
     display: flex;
-    gap: 6px;
-    margin: 4px 0 0;
+    gap: 0.375rem;
+    margin: 0.25rem 0 0;
     min-width: 0;
     color: var(--config-muted);
-    font-size: 11px;
+    font-size: 0.6875rem;
     line-height: 1.35;
   }
 
@@ -409,7 +409,7 @@
   .launcher-debug-route-details {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 6px 14px;
+    gap: 0.375rem 0.875rem;
     align-items: center;
   }
 
@@ -421,13 +421,13 @@
   .launcher-debug-route-result-head {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 0.625rem;
     min-width: 0;
   }
 
   .launcher-debug-route-result-label {
     color: var(--config-faint);
-    font-size: 10px;
+    font-size: 0.625rem;
     font-weight: 700;
     letter-spacing: 0.04em;
   }
@@ -435,7 +435,7 @@
   .launcher-debug-route-message {
     grid-column: 1;
     color: var(--config-text);
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.45;
   }
 
@@ -449,9 +449,9 @@
     grid-column: 1;
     display: flex;
     flex-wrap: wrap;
-    gap: 6px 12px;
+    gap: 0.375rem 0.75rem;
     color: var(--config-muted);
-    font-size: 11px;
+    font-size: 0.6875rem;
     line-height: 1.45;
   }
 
@@ -459,13 +459,13 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 74px;
-    height: 24px;
+    min-width: 4.625rem;
+    height: 1.5rem;
     box-sizing: border-box;
     border: 0;
-    border-radius: 999px;
-    padding: 0 10px;
-    font-size: 11px;
+    border-radius: 62.4375rem;
+    padding: 0 0.625rem;
+    font-size: 0.6875rem;
     font-weight: 700;
     line-height: 1;
     text-align: center;
@@ -504,7 +504,7 @@
   .launcher-debug-route-actions-wide,
   .launcher-debug-route-actions-wide .launcher-toolbar {
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 0.5rem;
   }
 
   .launcher-debug-route-actions-wide .launcher-toolbar {
@@ -512,10 +512,10 @@
   }
 
   .launcher-debug-route-retry {
-    width: 32px;
-    height: 32px;
-    min-height: 32px;
-    border-radius: 999px;
+    width: 2rem;
+    height: 2rem;
+    min-height: 2rem;
+    border-radius: 62.4375rem;
     background: transparent;
     color: var(--config-muted);
     padding: 0;
