@@ -40,5 +40,7 @@ package-lock.json
 .codegraph/
 .bitfun/
 
+skills-lock.json
+
 CLAUDE.md
 /.bitfun/search/flashgrep-index/
