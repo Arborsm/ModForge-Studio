@@ -20,6 +20,8 @@ describe('uiState store', () => {
         launcherPage: 'library',
         debugEnabled: false,
         notificationSoundEnabled: true,
+        windowCloseBehavior: 'quit',
+        rememberCloseChoice: false,
       },
       appearance: {
         locale: 'en-US',
@@ -94,6 +96,8 @@ describe('uiState store', () => {
           launcherPage: 'library',
           debugEnabled: true,
           notificationSoundEnabled: false,
+          windowCloseBehavior: 'quit',
+          rememberCloseChoice: false,
         },
       }),
     ).resolves.toMatchObject({
@@ -189,6 +193,8 @@ describe('uiState store', () => {
           launcherPage: 'library',
           debugEnabled: true,
           notificationSoundEnabled: true,
+          windowCloseBehavior: 'quit',
+          rememberCloseChoice: false,
         },
         appearance: {
           locale: 'en-US',
@@ -284,6 +290,8 @@ function getDefaultShell(): AppUiState['shell'] {
     launcherPage: 'library',
     debugEnabled: false,
     notificationSoundEnabled: true,
+    windowCloseBehavior: 'quit',
+    rememberCloseChoice: false,
   }
 }
 
@@ -305,7 +313,14 @@ it('normalizes loading motion from persisted state', async () => {
   const { configureAppUiStatePersistence, initializeAppUiState, getAppUiStateSnapshot } = await import('./appUiState')
   const persistedState: AppUiState = {
     version: 1,
-    shell: { appMode: 'launcher', launcherPage: 'library', debugEnabled: false, notificationSoundEnabled: true },
+    shell: {
+      appMode: 'launcher',
+      launcherPage: 'library',
+      debugEnabled: false,
+      notificationSoundEnabled: true,
+      windowCloseBehavior: 'quit',
+      rememberCloseChoice: false,
+    },
     appearance: {
       locale: 'en-US',
       themeId: 'warm-paper',

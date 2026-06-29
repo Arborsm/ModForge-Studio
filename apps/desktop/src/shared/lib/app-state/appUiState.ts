@@ -1,4 +1,4 @@
-import type { AppUiState, PatchAppUiStateRequest, WindowBorderTone, WindowBorderWeight } from '@shared/contracts'
+import type { AppUiState, PatchAppUiStateRequest, WindowBorderTone, WindowBorderWeight, WindowCloseBehavior } from '@shared/contracts'
 import { DEFAULT_LOADING_MOTION_PREFERENCE } from '@shared/lib/loading-motion'
 import { normalizeLoadingMotionPreference } from '@shared/lib/loading-motion'
 import { DEFAULT_THEME_ID, normalizeThemeId } from './theme'
@@ -42,6 +42,10 @@ function normalizeWindowBorderWeight(value: unknown): WindowBorderWeight {
   return value === 'thin' || value === 'none' ? value : 'standard'
 }
 
+function normalizeWindowCloseBehavior(value: unknown): WindowCloseBehavior {
+  return value === 'minimizeToTray' ? 'minimizeToTray' : 'quit'
+}
+
 function readLegacyWindowBorderStyle(value: unknown) {
   if (!isRecord(value)) {
     return undefined
@@ -59,6 +63,8 @@ export function createDefaultAppUiState(): AppUiState {
       launcherPage: 'library',
       debugEnabled: false,
       notificationSoundEnabled: true,
+      windowCloseBehavior: 'quit',
+      rememberCloseChoice: false,
     },
     appearance: {
       locale: defaultLocale(),
@@ -123,6 +129,11 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
         typeof raw?.shell?.notificationSoundEnabled === 'boolean'
           ? raw.shell.notificationSoundEnabled
           : defaults.shell.notificationSoundEnabled,
+      windowCloseBehavior: normalizeWindowCloseBehavior(raw?.shell?.windowCloseBehavior),
+      rememberCloseChoice:
+        typeof raw?.shell?.rememberCloseChoice === 'boolean'
+          ? raw.shell.rememberCloseChoice
+          : defaults.shell.rememberCloseChoice,
     },
     appearance: {
       locale:

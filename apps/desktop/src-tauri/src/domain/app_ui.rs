@@ -45,6 +45,10 @@ pub(crate) struct AppUiShellState {
     pub(crate) debug_enabled: bool,
     #[serde(default = "default_notification_sound_enabled")]
     pub(crate) notification_sound_enabled: bool,
+    #[serde(default = "default_window_close_behavior")]
+    pub(crate) window_close_behavior: String,
+    #[serde(default)]
+    pub(crate) remember_close_choice: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -194,6 +198,10 @@ fn default_notification_sound_enabled() -> bool {
     true
 }
 
+fn default_window_close_behavior() -> String {
+    "quit".to_string()
+}
+
 fn default_locale() -> String {
     "zh-CN".to_string()
 }
@@ -245,6 +253,8 @@ impl Default for AppUiShellState {
             launcher_page: default_launcher_page(),
             debug_enabled: false,
             notification_sound_enabled: default_notification_sound_enabled(),
+            window_close_behavior: default_window_close_behavior(),
+            remember_close_choice: false,
         }
     }
 }
@@ -329,6 +339,13 @@ fn normalize_window_border_weight(value: &str) -> String {
     match value.trim() {
         "standard" | "thin" | "none" => value.trim().to_string(),
         _ => default_window_border_weight(),
+    }
+}
+
+fn normalize_window_close_behavior(value: &str) -> String {
+    match value.trim() {
+        "minimizeToTray" => "minimizeToTray".to_string(),
+        _ => default_window_close_behavior(),
     }
 }
 
@@ -441,6 +458,10 @@ fn normalize_app_ui_state(state: AppUiState) -> AppUiState {
             launcher_page: normalize_launcher_page(&state.shell.launcher_page),
             debug_enabled: state.shell.debug_enabled,
             notification_sound_enabled: state.shell.notification_sound_enabled,
+            window_close_behavior: normalize_window_close_behavior(
+                &state.shell.window_close_behavior,
+            ),
+            remember_close_choice: state.shell.remember_close_choice,
         },
         appearance: AppUiAppearanceState {
             locale: normalize_locale(&state.appearance.locale),
@@ -528,6 +549,8 @@ pub(crate) fn patch_app_ui_state_at_path(
             launcher_page: normalize_launcher_page(&shell.launcher_page),
             debug_enabled: shell.debug_enabled,
             notification_sound_enabled: shell.notification_sound_enabled,
+            window_close_behavior: normalize_window_close_behavior(&shell.window_close_behavior),
+            remember_close_choice: shell.remember_close_choice,
         };
     }
     if let Some(appearance) = patch.appearance {

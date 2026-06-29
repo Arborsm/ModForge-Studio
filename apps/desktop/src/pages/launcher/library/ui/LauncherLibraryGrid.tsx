@@ -1563,6 +1563,7 @@ function LauncherLibraryFolderPanel({
   getContextActions: (mod: LauncherLibraryItem) => LauncherContextMenuAction[] | undefined
   sortingActive: boolean
 }) {
+  const rootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16
   const selectedIdLookup = useMemo(
     () => new Set(childModSelectionMode ? childModSelectionIds : editMode ? editingSelectionIds : boxSelectionIds),
     [boxSelectionIds, childModSelectionIds, childModSelectionMode, editMode, editingSelectionIds],

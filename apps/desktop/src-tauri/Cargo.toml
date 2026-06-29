@@ -37,7 +37,7 @@ base64 = "0.22.1"
 brotli = "8.0.3"
 thiserror = "2.0.18"
 tungstenite = { version = "0.29.0", default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
-tauri = { version = "2.11.2", features = ["protocol-asset", "unstable"] }
+tauri = { version = "2.11.2", features = ["protocol-asset", "tray-icon", "unstable"] }
 tauri-plugin-dialog = "2.7.1"
 sheen = { version = "0.3.0", features = ["log"] }
 lz4_flex = "0.13.1"

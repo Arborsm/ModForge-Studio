@@ -105,8 +105,9 @@ MODFORGE_COMMAND_TRACE=1 vp run dev
 
 ## 验证规则
 
-- 前端改动最终至少说明 `vp run lint`、`vp run build`、`vp run --filter @modforge/desktop test` 是否已跑；未跑要说明原因。
-- Rust 改动先跑 `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`，再跑对应 `cargo check` 或 `cargo test`。
+- 只跑改动相关的验证，不要每次收尾都跑完整前端或 Rust 套件；改动面广或 targeted run 出现无关失败时再回退到全量。
+- 前端改动最终至少说明 `vp run lint`、`vp run build`、受影响的测试文件是否已跑；未跑要说明原因。
+- Rust 改动先跑 `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`，再跑对应 `cargo check` 或具体测试模块；除非跨模块影响，否则不必全量 `cargo test`。
 - 架构迁移必须补充或更新架构测试，覆盖依赖方向、平台 API 泄漏、旧根目录回归、feature 横向依赖和实体层 UI 类型污染。
 - 删除 locale 行为级测试后，必须用架构测试静态扫描替代护栏：禁 copy / labels props，禁生产代码直接 import imperative locale getter。
 - UI/布局变更需要截图、Playwright 验证脚本或明确手动路径证明；不要只凭静态阅读宣布完成。

@@ -9,7 +9,6 @@ const shell: WorkbenchShellCopy = {
     modeLabel: 'Shell mode',
     workbench: 'Workbench',
     launcher: 'Launcher',
-    quitConfirm: 'Quit ModForge Studio?',
   },
   menus: ['File', 'Edit', 'View', 'Tools', 'Window'],
   nav: {

@@ -2,6 +2,7 @@ import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionSpeed
 
 export type WindowBorderTone = 'accent' | 'neutral'
 export type WindowBorderWeight = 'standard' | 'thin' | 'none'
+export type WindowCloseBehavior = 'quit' | 'minimizeToTray'
 
 /** Full color theme ids. Each owns its accent + neutral scale + status colors in `styles/tokens.css`. */
 export type ThemeId = 'warm-paper' | 'neutral-tool' | 'slate-blue' | 'forest' | 'twilight' | 'stardew-wood' | 'crimson' | 'blossom'
@@ -11,6 +12,8 @@ export type AppUiShellState = {
   launcherPage: string
   debugEnabled: boolean
   notificationSoundEnabled: boolean
+  windowCloseBehavior: WindowCloseBehavior
+  rememberCloseChoice: boolean
 }
 
 export type AppUiAppearanceState = {

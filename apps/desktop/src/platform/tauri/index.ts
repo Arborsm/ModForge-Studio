@@ -80,6 +80,18 @@ export function createTauriPlatformPorts(): PlatformPorts {
           await getCurrentWindow().destroy()
         }
       },
+      async hide() {
+        if (canUseTauriHost()) {
+          await getCurrentWindow().hide()
+        }
+      },
+      async show() {
+        if (canUseTauriHost()) {
+          const currentWindow = getCurrentWindow()
+          await currentWindow.show()
+          await currentWindow.setFocus()
+        }
+      },
       async isFullscreen() {
         return canUseTauriHost() ? getCurrentWindow().isFullscreen() : false
       },

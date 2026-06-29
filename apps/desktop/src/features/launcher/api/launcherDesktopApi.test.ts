@@ -28,6 +28,8 @@ async function loadConfiguredLauncherDesktop() {
       toggleMaximize: vi.fn(),
       close: vi.fn(),
       forceClose: vi.fn(),
+      hide: vi.fn(),
+      show: vi.fn(),
       isMaximized: vi.fn(),
       isFullscreen: vi.fn(),
       setFullscreen: vi.fn(),

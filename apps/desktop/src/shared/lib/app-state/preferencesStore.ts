@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AppUiState, ThemeId, WindowBorderTone, WindowBorderWeight } from '@shared/contracts'
+import type { AppUiState, ThemeId, WindowBorderTone, WindowBorderWeight, WindowCloseBehavior } from '@shared/contracts'
 import type { LoadingMotionPreference } from '@shared/lib/loading-motion'
 import { normalizeLoadingMotionPreference } from '@shared/lib/loading-motion'
 import type { LocaleCode, ThemeMode } from '@locales/model'
@@ -17,6 +17,8 @@ type PreferencesStateValues = {
   debugEnabled: boolean
   notificationSoundEnabled: boolean
   loadingMotionPreference: LoadingMotionPreference
+  windowCloseBehavior: WindowCloseBehavior
+  rememberCloseChoice: boolean
 }
 
 export type PreferencesState = PreferencesStateValues & {
@@ -29,6 +31,8 @@ export type PreferencesState = PreferencesStateValues & {
   setDebugEnabled: (enabled: boolean) => void
   setNotificationSoundEnabled: (enabled: boolean) => void
   setLoadingMotionPreference: (preference: LoadingMotionPreference) => void
+  setWindowCloseBehavior: (behavior: WindowCloseBehavior) => void
+  setRememberCloseChoice: (remember: boolean) => void
 }
 
 type PreferencesStoreSeed = Partial<PreferencesStateValues>
@@ -85,6 +89,10 @@ function normalizeWindowBorderWeight(value: unknown): WindowBorderWeight {
   return value === 'thin' || value === 'none' ? value : 'standard'
 }
 
+function normalizeWindowCloseBehavior(value: unknown): WindowCloseBehavior {
+  return value === 'minimizeToTray' ? 'minimizeToTray' : 'quit'
+}
+
 function readPreferencesFromAppUiState(state: AppUiState): PreferencesStateValues {
   return {
     theme: getPreferredTheme(),
@@ -97,6 +105,8 @@ function readPreferencesFromAppUiState(state: AppUiState): PreferencesStateValue
     debugEnabled: state.shell.debugEnabled,
     notificationSoundEnabled: state.shell.notificationSoundEnabled,
     loadingMotionPreference: normalizeLoadingMotionPreference(state.appearance.loadingMotion),
+    windowCloseBehavior: normalizeWindowCloseBehavior(state.shell.windowCloseBehavior),
+    rememberCloseChoice: typeof state.shell.rememberCloseChoice === 'boolean' ? state.shell.rememberCloseChoice : false,
   }
 }
 
@@ -170,6 +180,14 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
     const normalizedPreference = normalizeLoadingMotionPreference(loadingMotionPreference)
     set({ loadingMotionPreference: normalizedPreference })
     persistAppUiStatePatch({ appearance: { loadingMotion: normalizedPreference } })
+  },
+  setWindowCloseBehavior: (windowCloseBehavior) => {
+    set({ windowCloseBehavior })
+    patchShellPreference({ windowCloseBehavior })
+  },
+  setRememberCloseChoice: (rememberCloseChoice) => {
+    set({ rememberCloseChoice })
+    patchShellPreference({ rememberCloseChoice })
   },
 }))
 

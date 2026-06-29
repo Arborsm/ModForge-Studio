@@ -1,4 +1,5 @@
-import type { PlatformDragDropPayload, PlatformPorts } from '@shared/contracts'
+import type { AppUiState, PlatformDragDropPayload, PlatformPorts } from '@shared/contracts'
+import { createLoadingMotionPreference } from '@shared/lib/loading-motion'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 
 async function loadConfiguredDesktop() {
@@ -14,6 +15,8 @@ async function loadConfiguredDesktop() {
     toggleMaximize: vi.fn(),
     close: vi.fn(),
     forceClose: vi.fn(),
+    hide: vi.fn(),
+    show: vi.fn(),
     isMaximized: vi.fn(),
     isFullscreen: vi.fn(),
     setFullscreen: vi.fn(),
@@ -194,13 +197,15 @@ describe('desktop facade', () => {
 
   it('routes app UI commands through the configured file system port', async () => {
     const { desktop, invokeCommand } = await loadConfiguredDesktop()
-    const appUiState = {
+    const appUiState: AppUiState = {
       version: 1,
       shell: {
         appMode: 'launcher',
         launcherPage: 'library',
         debugEnabled: false,
         notificationSoundEnabled: true,
+        windowCloseBehavior: 'quit',
+        rememberCloseChoice: false,
       },
       appearance: {
         locale: 'zh-CN',
@@ -212,6 +217,7 @@ describe('desktop facade', () => {
           profiles: [],
           activeProfileId: null,
         },
+        loadingMotion: createLoadingMotionPreference({}),
       },
       workspace: {
         layouts: {},
@@ -225,6 +231,7 @@ describe('desktop facade', () => {
           filtersHidden: false,
         },
         forceOffline: false,
+        forceNonPremium: false,
       },
     }
     invokeCommand.mockResolvedValueOnce(appUiState)

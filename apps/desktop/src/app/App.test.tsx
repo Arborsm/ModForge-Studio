@@ -2,8 +2,9 @@ import { useEffect, type ReactNode } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import App from './App'
-import { forceCloseCurrentWindow } from '@platform/host'
+import { forceCloseCurrentWindow, minimizeCurrentWindowToTray } from '@platform/host'
 import type { LauncherNexusDiagnosticsResult } from '@features/launcher/api'
+import type { WindowCloseBehavior } from '@shared/contracts'
 import { editorCopy, getModWorkspaceCopy, getSettingsMenuCopy, getViewMenuCopy } from '@locales/api'
 import { resetPreferencesStoreForTest } from '@shared/lib/app-state/preferencesStore'
 import { clearNotifications, dismissNotification, publishNotification } from '@shared/ui/notifications'
@@ -82,6 +83,8 @@ type MockAppUiState = {
     launcherPage: string
     debugEnabled: boolean
     notificationSoundEnabled: boolean
+    windowCloseBehavior: string
+    rememberCloseChoice: boolean
   }
   appearance: {
     locale: string
@@ -156,6 +159,8 @@ function createMockAppUiState(overrides: MockAppUiStateOverrides = {}): MockAppU
       launcherPage: overrides.shell?.launcherPage ?? 'library',
       debugEnabled: overrides.shell?.debugEnabled ?? false,
       notificationSoundEnabled: overrides.shell?.notificationSoundEnabled ?? true,
+      windowCloseBehavior: overrides.shell?.windowCloseBehavior ?? 'quit',
+      rememberCloseChoice: overrides.shell?.rememberCloseChoice ?? false,
     },
     appearance: {
       locale: overrides.appearance?.locale ?? 'en-US',
@@ -325,6 +330,8 @@ function seedAppUiState(overrides: MockAppUiStateOverrides = {}) {
     debugEnabled: mockAppUiState.shell.debugEnabled,
     notificationSoundEnabled: mockAppUiState.shell.notificationSoundEnabled,
     loadingMotionPreference: mockAppUiState.appearance.loadingMotion as never,
+    windowCloseBehavior: mockAppUiState.shell.windowCloseBehavior as WindowCloseBehavior,
+    rememberCloseChoice: mockAppUiState.shell.rememberCloseChoice,
   })
 }
 
@@ -482,6 +489,7 @@ vi.mock('@platform/host', () => ({
   listenToWindowCloseRequest: vi.fn(async () => () => {}),
   listenToLauncherArchiveDragDrop: vi.fn(async () => () => {}),
   minimizeCurrentWindow: vi.fn(),
+  minimizeCurrentWindowToTray: vi.fn(),
   patchAppUiState: (patch: MockAppUiStatePatch) => applyAppUiStatePatchMock(patch),
   setDesktopDebugLoggingEnabled: vi.fn(async () => undefined),
   toggleFullscreenCurrentWindow: vi.fn(async () => false),
@@ -941,20 +949,8 @@ describe('App locale ownership', () => {
     expect(await screen.findByTestId('workspace-layout')).toBeTruthy()
   })
 
-  it('confirms before closing from desktop window controls when host capability is detected after the preferences seed', async () => {
+  it('shows a custom quit dialog before closing from desktop window controls', async () => {
     seedAppUiState()
-    resetPreferencesStoreForTest({
-      theme: 'dark',
-      themeId: mockAppUiState.appearance.themeId as never,
-      locale: 'en-US',
-      windowBorderTone: mockAppUiState.appearance.windowBorderTone,
-      windowBorderWeight: mockAppUiState.appearance.windowBorderWeight,
-      windowIsFullscreen: false,
-      desktopHost: false,
-      debugEnabled: false,
-      notificationSoundEnabled: true,
-      loadingMotionPreference: mockAppUiState.appearance.loadingMotion as never,
-    })
     canUseDesktopHostMock.mockReturnValue(true)
 
     render(<App />)
@@ -964,33 +960,45 @@ describe('App locale ownership', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Close window' }))
 
-    expect(window.confirm).toHaveBeenCalledWith(editorCopy['en-US'].shell.quitConfirm)
+    const englishSettingsCopy = getSettingsMenuCopy('en-US')
+    expect(await screen.findByRole('dialog', { name: englishSettingsCopy.quitDialogTitle })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: englishSettingsCopy.quitActionLabel }))
+
     expect(forceCloseCurrentWindow).toHaveBeenCalledTimes(1)
+    expect(minimizeCurrentWindowToTray).not.toHaveBeenCalled()
   })
 
-  it('keeps the window open when desktop close confirmation is cancelled', async () => {
+  it('keeps the window open when desktop close dialog is cancelled', async () => {
     seedAppUiState()
-    resetPreferencesStoreForTest({
-      theme: 'dark',
-      themeId: mockAppUiState.appearance.themeId as never,
-      locale: 'en-US',
-      windowBorderTone: mockAppUiState.appearance.windowBorderTone,
-      windowBorderWeight: mockAppUiState.appearance.windowBorderWeight,
-      windowIsFullscreen: false,
-      desktopHost: false,
-      debugEnabled: false,
-      notificationSoundEnabled: true,
-      loadingMotionPreference: mockAppUiState.appearance.loadingMotion as never,
-    })
     canUseDesktopHostMock.mockReturnValue(true)
-    vi.mocked(window.confirm).mockReturnValueOnce(false)
 
     render(<App />)
 
     expect(await screen.findByTestId('mock-launcher-page')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Close window' }))
 
-    expect(window.confirm).toHaveBeenCalledWith(editorCopy['en-US'].shell.quitConfirm)
+    const englishSettingsCopy = getSettingsMenuCopy('en-US')
+    expect(await screen.findByRole('dialog', { name: englishSettingsCopy.quitDialogTitle })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: englishSettingsCopy.cancelActionLabel }))
+
+    expect(forceCloseCurrentWindow).not.toHaveBeenCalled()
+    expect(minimizeCurrentWindowToTray).not.toHaveBeenCalled()
+  })
+
+  it('minimizes to tray when remembered close behavior is minimize-to-tray', async () => {
+    seedAppUiState({
+      shell: { windowCloseBehavior: 'minimizeToTray', rememberCloseChoice: true },
+    })
+    canUseDesktopHostMock.mockReturnValue(true)
+
+    render(<App />)
+
+    expect(await screen.findByTestId('mock-launcher-page')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Close window' }))
+
+    await waitFor(() => {
+      expect(minimizeCurrentWindowToTray).toHaveBeenCalledTimes(1)
+    })
     expect(forceCloseCurrentWindow).not.toHaveBeenCalled()
   })
 
