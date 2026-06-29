@@ -131,9 +131,7 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
           : defaults.shell.notificationSoundEnabled,
       windowCloseBehavior: normalizeWindowCloseBehavior(raw?.shell?.windowCloseBehavior),
       rememberCloseChoice:
-        typeof raw?.shell?.rememberCloseChoice === 'boolean'
-          ? raw.shell.rememberCloseChoice
-          : defaults.shell.rememberCloseChoice,
+        typeof raw?.shell?.rememberCloseChoice === 'boolean' ? raw.shell.rememberCloseChoice : defaults.shell.rememberCloseChoice,
     },
     appearance: {
       locale:

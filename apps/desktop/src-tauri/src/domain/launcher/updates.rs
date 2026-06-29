@@ -1236,5 +1236,5 @@ fn check_launcher_updates_blocking(
 }
 
 #[cfg(test)]
-#[path = "../../tests/launcher_update_suppression_tests.rs"]
+#[path = "../../tests/integration/launcher_update_suppression_tests.rs"]
 mod launcher_update_suppression_tests;

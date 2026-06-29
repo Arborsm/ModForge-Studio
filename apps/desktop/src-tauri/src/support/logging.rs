@@ -705,5 +705,5 @@ pub fn set_debug_logging_enabled(state: &DebugLoggingState, enabled: bool) {
 }
 
 #[cfg(test)]
-#[path = "logging/tests/logging_tests.rs"]
+#[path = "../tests/unit/support/logging_tests.rs"]
 mod tests;

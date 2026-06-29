@@ -12,27 +12,13 @@ export type QuitDialogProps = {
   onRememberChoiceChange: (remember: boolean) => void
 }
 
-export function QuitDialog({
-  open,
-  onClose,
-  onQuit,
-  onMinimizeToTray,
-  rememberChoice,
-  onRememberChoiceChange,
-}: QuitDialogProps) {
+export function QuitDialog({ open, onClose, onQuit, onMinimizeToTray, rememberChoice, onRememberChoiceChange }: QuitDialogProps) {
   const copy = useSettingsMenuCopy()
   const titleId = useId()
   const descriptionId = useId()
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      size="sm"
-      labelledBy={titleId}
-      describedBy={descriptionId}
-      closeOnBackdrop={false}
-    >
+    <Dialog open={open} onClose={onClose} size="sm" labelledBy={titleId} describedBy={descriptionId} closeOnBackdrop={false}>
       <DialogHeader
         id={titleId}
         title={copy.quitDialogTitle}

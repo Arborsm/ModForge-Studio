@@ -1279,5 +1279,5 @@ impl InstallOperation {
 }
 
 #[cfg(test)]
-#[path = "tests/install_manager_tests.rs"]
+#[path = "../../tests/unit/domain/launcher/install_manager_tests.rs"]
 mod tests;

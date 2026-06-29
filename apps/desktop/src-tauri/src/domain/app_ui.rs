@@ -637,5 +637,5 @@ pub(crate) fn patch_app_ui_state(request: AppUiStatePatch) -> Result<AppUiState,
 }
 
 #[cfg(test)]
-#[path = "../tests/ui_state_tests.rs"]
+#[path = "../tests/integration/ui_state_tests.rs"]
 mod tests;

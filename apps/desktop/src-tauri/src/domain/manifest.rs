@@ -99,5 +99,5 @@ pub(crate) fn manifest_dependencies(manifest: &Value) -> Vec<ManifestDependency>
 }
 
 #[cfg(test)]
-#[path = "../tests/manifest_tests.rs"]
+#[path = "../tests/integration/manifest_tests.rs"]
 mod tests;

@@ -144,5 +144,5 @@ pub(crate) fn load_user_avatar(api_key: &str, user_id: u64) -> Result<Option<Str
 }
 
 #[cfg(test)]
-#[path = "graphql/tests/account_tests.rs"]
+#[path = "../../tests/unit/domain/nexusmods/graphql/account_tests.rs"]
 mod account_tests;

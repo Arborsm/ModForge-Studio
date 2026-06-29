@@ -88,6 +88,7 @@ export function buildLauncherLibraryGridBlocks(
   estimatedRowHeight: number,
   isClosingLibraryFolder: (folderId: string) => boolean = () => false,
 ) {
+  const safeColumnCount = Number.isFinite(gridColumnCount) && gridColumnCount > 0 ? gridColumnCount : 1
   const occupiedRows: boolean[][] = []
   const occupiedColumnCounts: number[] = []
   const placedItems: LauncherLibraryGridRowItem[] = []
@@ -97,14 +98,14 @@ export function buildLauncherLibraryGridBlocks(
     const isClosingFolder = displayItem.kind === 'folder' && isClosingLibraryFolder(displayItem.folder.id)
     const placement =
       isOpenFolder && !isClosingFolder
-        ? getLauncherLibraryPanelPlacement(displayItem.mods.length + displayItem.childFolders.length, gridColumnCount, 1, 'balanced')
+        ? getLauncherLibraryPanelPlacement(displayItem.mods.length + displayItem.childFolders.length, safeColumnCount, 1, 'balanced')
         : { columnSpan: 1, rowSpan: 1 }
 
     let rowStart = firstOpenRow
     let columnStart = 0
     let placed = false
     while (!placed) {
-      for (let candidateColumn = 0; candidateColumn <= gridColumnCount - placement.columnSpan; candidateColumn += 1) {
+      for (let candidateColumn = 0; candidateColumn <= safeColumnCount - placement.columnSpan; candidateColumn += 1) {
         if (canPlaceLauncherLibraryGridItem(occupiedRows, rowStart, candidateColumn, placement.columnSpan, placement.rowSpan)) {
           columnStart = candidateColumn
           placed = true
@@ -125,7 +126,7 @@ export function buildLauncherLibraryGridBlocks(
         }
       }
     }
-    while ((occupiedColumnCounts[firstOpenRow] ?? 0) >= gridColumnCount) {
+    while ((occupiedColumnCounts[firstOpenRow] ?? 0) >= safeColumnCount) {
       firstOpenRow += 1
     }
 

@@ -653,5 +653,5 @@ pub(crate) fn build_best_sound_offsets(
 }
 
 #[cfg(test)]
-#[path = "tests/xsb_tests.rs"]
+#[path = "../../../tests/unit/infrastructure/game_formats/xact/xsb_tests.rs"]
 mod tests;

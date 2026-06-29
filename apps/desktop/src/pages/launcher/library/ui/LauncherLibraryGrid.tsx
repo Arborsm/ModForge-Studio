@@ -426,7 +426,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       const viewportWidth = Math.max(0, viewport.getBoundingClientRect().width - horizontalPadding)
       // Convert design-token pixel values to the current rem size so column math
       // matches the rem-based CSS grid, which scales with the root font size.
-      const rootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize)
+      const rootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16
       const scaledCardMinWidth = (LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX / 16) * rootFontSize
       const scaledGridGap = (LAUNCHER_LIBRARY_GRID_GAP_PX / 16) * rootFontSize
       const nextColumnCount = Math.max(1, Math.floor((viewportWidth + scaledGridGap) / (scaledCardMinWidth + scaledGridGap)))

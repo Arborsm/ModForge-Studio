@@ -25,37 +25,37 @@ path = "examples/event_asset_bridge.rs"
 required-features = ["dev-asset-bridge"]
 
 [build-dependencies]
-tauri-build = { version = "2.6.2", features = [] }
+tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
 dirs = "6.0.0"
 serde_json = "1.0.150"
 serde = { version = "1.0.228", features = ["derive"] }
-log = "0.4.31"
-owo-colors = "4.2.3"
+log = "0.4.33"
+owo-colors = "4.3.0"
 base64 = "0.22.1"
-brotli = "8.0.3"
+brotli = "8.0.4"
 thiserror = "2.0.18"
 tungstenite = { version = "0.29.0", default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
-tauri = { version = "2.11.2", features = ["protocol-asset", "tray-icon", "unstable"] }
+tauri = { version = "2.11.3", features = ["protocol-asset", "tray-icon", "unstable"] }
 tauri-plugin-dialog = "2.7.1"
 sheen = { version = "0.3.0", features = ["log"] }
 lz4_flex = "0.13.1"
-lzxd = "0.2.6"
+lzxd = "0.2.7"
 flate2 = "1.1.9"
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 sha2 = "0.11.0"
-regex = "1.12.3"
+regex = "1.12.4"
 reqwest = { version = "0.13.4", default-features = false, features = ["blocking", "cookies", "form", "json", "rustls"] }
 cookie_store = "0.22.1"
 semver = "1.0.28"
 sevenz-rust = { version = "0.6.1", features = ["compress"] }
 tar = "0.4.46"
-time = { version = "0.3.47", features = ["formatting", "local-offset"] }
+time = { version = "0.3.51", features = ["formatting", "local-offset"] }
 unrar = "0.5.8"
 url = "2.5.8"
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
-uuid = { version = "1.23.2", features = ["v4"] }
+uuid = { version = "1.23.4", features = ["v4"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56.0"

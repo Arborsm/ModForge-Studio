@@ -302,7 +302,7 @@ Rules:
 - Preserve cascade order during a split. The original file should become a thin `@import` aggregator, and imported files should appear in the same order the rules previously appeared.
 - Put split files in a same-name directory beside the aggregator, for example `launcher/configuration.css` importing files from `launcher/configuration/`.
 - Each split file should declare its own `@layer components`; do not rely on an aggregator to wrap imported files in a layer.
-- Update style architecture tests when style ownership rules change. The line-count guard and any rules that inspect imported CSS belong in `src/test/architecture/styleArchitecture.test.ts`.
+- Update style architecture tests when style ownership rules change. The line-count guard and any rules that inspect imported CSS belong in `src/tests/architecture/styleArchitecture.test.ts`.
 
 ## Boundary Debt
 
@@ -324,3 +324,14 @@ Architecture tests should guard these rules:
 - Registry interfaces and registry instances stay separated.
 
 These tests are mandatory because documentation alone will not stop architectural drift.
+
+## Test Organization
+
+Tests are centralized under `apps/desktop/src/tests/` and must not live next to source files.
+
+- `src/tests/unit/` — component and module tests, arranged to mirror the source path they exercise. For example, a test for `src/features/launcher/model/useLauncher.ts` belongs at `src/tests/unit/features/launcher/model/useLauncher.test.ts`.
+- `src/tests/architecture/` — architecture and repository-shape assertions, including dependency direction, style ownership, and code-splitting rules.
+- `src/tests/integration/` — cross-module integration tests.
+- `src/tests/support/` — shared test infrastructure only: `setup.ts`, render helpers, mock ports, and test assets. Consume these through the `@test/*` alias, which resolves to `src/tests/support`.
+
+Source folders (`src/app`, `src/pages`, `src/widgets`, `src/features`, `src/entities`, `src/shared`, `src/platform`, `src/locales`) must not contain `*.test.ts` or `*.test.tsx` files.

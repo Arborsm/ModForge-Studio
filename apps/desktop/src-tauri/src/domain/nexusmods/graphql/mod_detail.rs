@@ -1089,5 +1089,5 @@ fn load_launcher_update_changelog_blocking(
 }
 
 #[cfg(test)]
-#[path = "../../../tests/nexusmods_mod_detail_tests.rs"]
+#[path = "../../../tests/integration/nexusmods_mod_detail_tests.rs"]
 mod nexusmods_mod_detail_tests;

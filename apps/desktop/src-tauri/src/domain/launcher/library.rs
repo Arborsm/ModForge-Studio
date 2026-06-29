@@ -1186,5 +1186,5 @@ pub fn set_launcher_mod_enabled(
 }
 
 #[cfg(test)]
-#[path = "tests/library_tests.rs"]
+#[path = "../../tests/unit/domain/launcher/library_tests.rs"]
 mod library_tests;

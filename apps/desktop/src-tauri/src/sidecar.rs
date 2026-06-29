@@ -969,4 +969,6 @@ pub fn run_stdio() -> Result<(), String> {
 }
 
 #[cfg(test)]
+#[cfg(test)]
+#[path = "tests/unit/sidecar/tests.rs"]
 mod tests;

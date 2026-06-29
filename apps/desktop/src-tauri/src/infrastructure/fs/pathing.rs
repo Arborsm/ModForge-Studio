@@ -511,5 +511,5 @@ fn tokenize_vdf(content: &str) -> Vec<VdfToken> {
 }
 
 #[cfg(test)]
-#[path = "../../tests/pathing_tests.rs"]
+#[path = "../../tests/integration/pathing_tests.rs"]
 mod tests;

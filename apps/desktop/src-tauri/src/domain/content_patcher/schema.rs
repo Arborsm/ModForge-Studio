@@ -30,5 +30,5 @@ pub(crate) fn coerce_u32(value: &Value) -> Option<u32> {
 }
 
 #[cfg(test)]
-#[path = "tests/schema_tests.rs"]
+#[path = "../../tests/unit/domain/content_patcher/schema_tests.rs"]
 mod tests;

@@ -548,5 +548,5 @@ pub fn crop_image_area(
 }
 
 #[cfg(test)]
-#[path = "tests/assets_tests.rs"]
+#[path = "../../tests/unit/domain/content_patcher/assets_tests.rs"]
 mod tests;

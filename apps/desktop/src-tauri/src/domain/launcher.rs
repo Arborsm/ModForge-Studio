@@ -12,3 +12,7 @@ pub mod trace;
 pub mod types;
 pub mod update_cache;
 pub mod updates;
+
+#[cfg(test)]
+#[path = "../tests/integration/launcher_tests.rs"]
+mod launcher_tests;

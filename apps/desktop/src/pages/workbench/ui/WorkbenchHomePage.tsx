@@ -172,6 +172,7 @@ export default function WorkbenchHomePage({
   const [libraryFocused, setLibraryFocused] = useState(false)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const libraryRef = useRef<HTMLElement | null>(null)
+  const focusTimeoutRef = useRef<number | null>(null)
   const currentProject = getCurrentProject(studioDeskModel)
   const hasProjects = studioDeskModel.gallery.projects.length > 0
   const currentProjectInitials = getProjectInitials(currentProject)
@@ -183,7 +184,10 @@ export default function WorkbenchHomePage({
     if (typeof libraryRef.current?.scrollIntoView === 'function') {
       libraryRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
-    window.setTimeout(() => setLibraryFocused(false), 1600)
+    if (focusTimeoutRef.current) {
+      clearTimeout(focusTimeoutRef.current)
+    }
+    focusTimeoutRef.current = window.setTimeout(() => setLibraryFocused(false), 1600)
   }
 
   function requestProjectForMaker(mode: MakerWorkspaceMode) {
@@ -212,6 +216,14 @@ export default function WorkbenchHomePage({
     if (projectLibraryFocusKey === 0) return
     focusProjectLibrary()
   }, [projectLibraryFocusKey])
+
+  useEffect(() => {
+    return () => {
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {

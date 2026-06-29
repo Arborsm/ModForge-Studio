@@ -58,5 +58,5 @@ pub(crate) fn when_to_value(when: &BTreeMap<String, Value>) -> Value {
 }
 
 #[cfg(test)]
-#[path = "tests/common_tests.rs"]
+#[path = "../../tests/unit/domain/content_patcher/common_tests.rs"]
 mod tests;

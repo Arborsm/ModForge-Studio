@@ -30,7 +30,8 @@ vp run web:dev
 vp run build
 vp run lint
 vp run format:check
-vp run --filter @modforge/desktop test
+# 前端单元测试：必须用 `test run`，裸 `vp test` 会进入 watch 模式并在非交互式 shell 中挂起
+vp test run --configLoader runner
 ```
 
 Rust 后端命令必须显式指定 manifest：
@@ -63,6 +64,7 @@ MODFORGE_COMMAND_TRACE=1 vp run dev
 - `HostCommandClient` 负责前端 command policy；业务 API 必须声明 `latest`、`keyedLatest`、`exclusiveMutation`、`queuedMutation`、`parallelPool` 或 `serviceGate` 等策略。
 - 不要用散装 `cancelled`、`requestId`、`versionRef` 替代 Task Runtime 能表达的所有权规则。DOM、timer、animation cleanup 可以保留局部 cleanup。
 - React Compiler 已启用；不要为默认渲染性能新增手写 `useMemo` / `useCallback`。只在 provider value、effect 依赖稳定性、external store、virtualizer、拖拽或第三方 callback identity 需要时保留稳定引用。
+- 前端测试集中到 `apps/desktop/src/tests/`，按 `unit/`、`architecture/`、`integration/` 分组；共享测试基础设施放 `src/tests/support/`，通过 `@test/*` 引用。源码目录禁止存放 `*.test.ts` / `*.test.tsx`。
 
 ## 前端实现规则
 
@@ -92,7 +94,7 @@ MODFORGE_COMMAND_TRACE=1 vp run dev
 - `domain` 按业务边界组织 launcher、mods、assets、content_patcher、cp_maker、saves、event_project、workbench_project、app_ui 等领域逻辑。
 - `infrastructure` 只放技术实现，如 game formats、filesystem、webview 基础设施；不要混入 launcher/Nexus 等领域规则。
 - 前端 `shared/infra` 对齐 game-format/asset-format 边界，不承载宿主桥、launcher/Nexus 业务规则。
-- 大型 Rust 测试不要新增内联 `#[cfg(test)] mod tests`；优先放 sibling `tests/*.rs` 或 `apps/desktop/src-tauri/tests` 的回归测试。
+- 大型 Rust 测试不要新增内联 `#[cfg(test)] mod tests`；单元测试放 `apps/desktop/src-tauri/src/tests/unit/`，跨模块集成测试放 `apps/desktop/src-tauri/src/tests/integration/`，回归测试放 `apps/desktop/src-tauri/tests/`。
 - 修改资产解码、解析、安装、启动、路径安全或 fallback 行为时，必须补充或更新回归测试。
 
 ## 完整性要求
