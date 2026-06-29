@@ -1,7 +1,7 @@
 @layer components {
   .launcher-library-grid {
     display: grid;
-    gap: 1.25rem;
+    gap: 1rem;
     grid-template-columns: repeat(auto-fill, minmax(16.25rem, 1fr));
     align-items: start;
     padding-top: 0.375rem;
@@ -19,17 +19,21 @@
     left: 0;
     display: grid;
     width: 100%;
-    gap: 1.25rem;
+    gap: 1rem;
     align-items: start;
     will-change: transform;
+  }
+
+  .launcher-library-grid-viewport-scrolling .launcher-library-grid-reveal,
+  .launcher-library-grid-viewport-scrolling .loading-motion-child-reveal {
+    animation: none !important;
+    transition: none !important;
   }
 
   .launcher-library-grid-reveal {
     min-width: 0;
     margin: -0.375rem;
     padding: 0.375rem;
-    content-visibility: auto;
-    contain-intrinsic-size: 13.25rem 16.25rem;
   }
 
   .launcher-library-modules-floating-panel {

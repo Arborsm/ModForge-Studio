@@ -80,13 +80,6 @@ export function doesLauncherLibrarySelectionIntersect(selectionBox: LauncherLibr
   )
 }
 
-function measureLauncherLibraryVirtualRow(element: Element) {
-  // Add the inter-block gap to the measured height so the virtualizer reserves
-  // space between blocks (positioning gap) without rendering visible padding
-  // inside the row itself.
-  return Math.ceil(element.getBoundingClientRect().height) + LAUNCHER_LIBRARY_GRID_GAP_PX
-}
-
 export type VirtualizedLauncherGridProps = {
   items: LauncherLibraryDisplayItem[]
   blankDropId?: string
@@ -186,6 +179,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   const [hasPlayedInitialReveal, setHasPlayedInitialReveal] = useState(false)
   const [activeRevealSequence, setActiveRevealSequence] = useState(routeEnterSequence > 0 ? routeEnterSequence : 0)
   const [isBoxSelecting, setIsBoxSelecting] = useState(false)
+  const scrollTimeoutRef = useRef<number | null>(null)
   const ignoreNextBlankClickRef = useRef(false)
   const setViewportNode = useCallback((node: HTMLDivElement | null) => {
     viewportRef.current = node
@@ -212,6 +206,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   const boxSelectionIdLookup = useMemo(() => new Set(boxSelectionIds), [boxSelectionIds])
   const shouldRevealItems = enableRevealMotion && (isFolderGrid || !hasPlayedInitialReveal)
   const cardMinWidth = LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX
+  const [rootFontSize, setRootFontSize] = useState(16)
   const [estimatedRowHeight, setEstimatedRowHeight] = useState(LAUNCHER_LIBRARY_CARD_FALLBACK_ESTIMATED_HEIGHT_PX)
   const gridBlocks = useMemo(
     () =>
@@ -221,22 +216,33 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
         isLibraryFolderOpen,
         estimatedRowHeight,
         isClosingLibraryFolder ?? (() => false),
+        rootFontSize,
       ),
-    [estimatedRowHeight, gridColumnCount, isClosingLibraryFolder, isLibraryFolderOpen, items],
+    [estimatedRowHeight, gridColumnCount, isClosingLibraryFolder, isLibraryFolderOpen, items, rootFontSize],
+  )
+  const remScale = rootFontSize / 16
+  const scaledInterBlockGap = LAUNCHER_LIBRARY_GRID_GAP_PX * remScale
+  const estimateVirtualRowSize = useCallback(
+    (index: number) => (gridBlocks[index]?.estimatedHeight ?? estimatedRowHeight) + scaledInterBlockGap,
+    [gridBlocks, estimatedRowHeight, scaledInterBlockGap],
+  )
+  const measureVirtualRowElement = useCallback(
+    (element: Element) => Math.ceil(element.getBoundingClientRect().height) + scaledInterBlockGap,
+    [scaledInterBlockGap],
   )
   // TanStack Virtual owns imperative row measurement for the large launcher grid.
   const rowVirtualizer = useVirtualizer({
     count: gridBlocks.length,
     getScrollElement: () => viewportElement,
-    estimateSize: (index) => (gridBlocks[index]?.estimatedHeight ?? estimatedRowHeight) + LAUNCHER_LIBRARY_GRID_GAP_PX,
-    measureElement: measureLauncherLibraryVirtualRow,
-    overscan: 1,
+    estimateSize: estimateVirtualRowSize,
+    measureElement: measureVirtualRowElement,
+    overscan: 2,
     useAnimationFrameWithResizeObserver: true,
   })
   // Re-measure visible rows synchronously before paint so a stale cached row
   // size (left over from a block that changed content in place) is corrected
   // before it can paint a gap. measureElement reads the live DOM height via
-  // measureLauncherLibraryVirtualRow (bypassing the size cache) and calls
+  // measureVirtualRowElement (bypassing the size cache) and calls
   // resizeItem, whose notify dispatches a re-render from within this layout
   // effect — React flushes it synchronously before the browser paints.
   // Pure card blocks have delta≈0 (estimate is exact) so this is a no-op for
@@ -246,7 +252,6 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       ?.querySelectorAll<HTMLElement>('.launcher-library-virtual-row[data-index]')
       .forEach((row) => rowVirtualizer.measureElement(row))
   }, [gridBlocks, openFolderItemsById, rowVirtualizer])
-  const rootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16
   const virtualRows = rowVirtualizer.getVirtualItems()
   const updateDragSelection = useCallback(
     (box: Box) => {
@@ -364,6 +369,35 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   }, [activeModulesPanel, viewportElement])
 
   useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) {
+      return
+    }
+
+    const handleScroll = () => {
+      if (scrollTimeoutRef.current !== null) {
+        window.clearTimeout(scrollTimeoutRef.current)
+      } else {
+        viewport.classList.add('launcher-library-grid-viewport-scrolling')
+      }
+      scrollTimeoutRef.current = window.setTimeout(() => {
+        scrollTimeoutRef.current = null
+        viewport.classList.remove('launcher-library-grid-viewport-scrolling')
+      }, 150)
+    }
+
+    viewport.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      viewport.removeEventListener('scroll', handleScroll)
+      if (scrollTimeoutRef.current !== null) {
+        window.clearTimeout(scrollTimeoutRef.current)
+        scrollTimeoutRef.current = null
+      }
+      viewport.classList.remove('launcher-library-grid-viewport-scrolling')
+    }
+  }, [])
+
+  useEffect(() => {
     if (!activeModulesPanel) {
       return
     }
@@ -426,13 +460,14 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       const viewportWidth = Math.max(0, viewport.getBoundingClientRect().width - horizontalPadding)
       // Convert design-token pixel values to the current rem size so column math
       // matches the rem-based CSS grid, which scales with the root font size.
-      const rootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16
-      const scaledCardMinWidth = (LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX / 16) * rootFontSize
-      const scaledGridGap = (LAUNCHER_LIBRARY_GRID_GAP_PX / 16) * rootFontSize
+      const nextRootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16
+      setRootFontSize((current) => (current === nextRootFontSize ? current : nextRootFontSize))
+      const scaledCardMinWidth = (LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX / 16) * nextRootFontSize
+      const scaledGridGap = (LAUNCHER_LIBRARY_GRID_GAP_PX / 16) * nextRootFontSize
       const nextColumnCount = Math.max(1, Math.floor((viewportWidth + scaledGridGap) / (scaledCardMinWidth + scaledGridGap)))
       setGridColumnCount((current) => (current === nextColumnCount ? current : nextColumnCount))
       const cardWidth = (viewportWidth - Math.max(0, nextColumnCount - 1) * scaledGridGap) / nextColumnCount
-      const nextEstimatedRowHeight = estimateLauncherLibraryCardHeight(cardWidth)
+      const nextEstimatedRowHeight = estimateLauncherLibraryCardHeight(cardWidth, nextRootFontSize)
       setEstimatedRowHeight((current) => (current === nextEstimatedRowHeight ? current : nextEstimatedRowHeight))
     }
 
@@ -719,6 +754,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
   getFolderContextActions: (folder: LauncherVirtualFolder) => LauncherContextMenuAction[] | undefined
   getContextActions: (mod: LauncherLibraryItem) => LauncherContextMenuAction[] | undefined
 }) {
+  const shouldReveal = shouldRevealItems
   return (
     <>
       {block.items.map(({ displayItem, index, columnSpan, rowSpan, columnStart, rowStart }) => {
@@ -730,7 +766,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
           const folderItems = openFolderItemsById?.get(folderLookup) ?? []
           return (
             <Fragment key={`folder-group-${displayItem.folder.id}`}>
-              {!folderOpen && shouldRevealItems ? (
+              {!folderOpen && shouldReveal ? (
                 <LoadingMotionRevealItem
                   key={`folder-${displayItem.folder.id}:${revealSequence}`}
                   index={Math.floor(index / revealBatchSize) + 3}
@@ -756,7 +792,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
                   />
                 </LoadingMotionRevealItem>
               ) : null}
-              {!folderOpen && !shouldRevealItems ? (
+              {!folderOpen && !shouldReveal ? (
                 <div
                   key={`folder-${displayItem.folder.id}`}
                   className="launcher-library-grid-reveal"
@@ -856,7 +892,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
             getContextActions={editMode || childModSelectionMode ? undefined : getContextActions}
           />
         )
-        if (!shouldRevealItems) {
+        if (!shouldReveal) {
           return (
             <Fragment key={`${displayItem.kind}-${item.id}`}>
               <div

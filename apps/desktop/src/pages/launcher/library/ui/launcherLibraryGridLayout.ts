@@ -1,22 +1,26 @@
 import type { LauncherLibraryDisplayItem } from '../model/launcherLibraryDisplay'
 
-export const LAUNCHER_LIBRARY_GRID_GAP_PX = 20
+export const LAUNCHER_LIBRARY_GRID_GAP_PX = 16
 export const LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX = 260
 export const LAUNCHER_LIBRARY_CARD_FALLBACK_ESTIMATED_HEIGHT_PX = 260
-export const LAUNCHER_LIBRARY_CARD_HORIZONTAL_PADDING_PX = 6
+// Total horizontal padding around the card cover: reveal wrapper padding + card padding.
+export const LAUNCHER_LIBRARY_CARD_HORIZONTAL_PADDING_PX = 12
 export const LAUNCHER_LIBRARY_CARD_COPY_HEIGHT_PX = 54
 export const LAUNCHER_LIBRARY_CARD_COVER_ASPECT_RATIO = 96 / 55
 export const LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT = 3
 export const LAUNCHER_LIBRARY_VIRTUAL_GRID_TOP_PADDING_PX = 18
 
-export function estimateLauncherLibraryCardHeight(cardWidth: number) {
+export function estimateLauncherLibraryCardHeight(cardWidth: number, rootFontSize = 16) {
   if (!Number.isFinite(cardWidth) || cardWidth <= 0) {
     return LAUNCHER_LIBRARY_CARD_FALLBACK_ESTIMATED_HEIGHT_PX
   }
 
-  const contentWidth = Math.max(0, cardWidth - LAUNCHER_LIBRARY_CARD_HORIZONTAL_PADDING_PX * 2)
+  const scale = rootFontSize / 16
+  const horizontalPadding = LAUNCHER_LIBRARY_CARD_HORIZONTAL_PADDING_PX * scale
+  const copyHeight = LAUNCHER_LIBRARY_CARD_COPY_HEIGHT_PX * scale
+  const contentWidth = Math.max(0, cardWidth - horizontalPadding * 2)
   const coverHeight = contentWidth / LAUNCHER_LIBRARY_CARD_COVER_ASPECT_RATIO
-  return Math.ceil(LAUNCHER_LIBRARY_CARD_HORIZONTAL_PADDING_PX * 2 + coverHeight + LAUNCHER_LIBRARY_CARD_COPY_HEIGHT_PX)
+  return Math.ceil(horizontalPadding * 2 + coverHeight + copyHeight)
 }
 
 export type LauncherLibraryGridRowItem = {
@@ -87,8 +91,10 @@ export function buildLauncherLibraryGridBlocks(
   isLibraryFolderOpen: (folderId: string) => boolean,
   estimatedRowHeight: number,
   isClosingLibraryFolder: (folderId: string) => boolean = () => false,
+  rootFontSize = 16,
 ) {
   const safeColumnCount = Number.isFinite(gridColumnCount) && gridColumnCount > 0 ? gridColumnCount : 1
+  const scaledGridGap = LAUNCHER_LIBRARY_GRID_GAP_PX * (rootFontSize / 16)
   const occupiedRows: boolean[][] = []
   const occupiedColumnCounts: number[] = []
   const placedItems: LauncherLibraryGridRowItem[] = []
@@ -171,9 +177,9 @@ export function buildLauncherLibraryGridBlocks(
       rowCount,
       estimatedHeight: Math.max(
         ...blockItems.map((item) => {
-          return item.rowSpan * estimatedRowHeight + Math.max(0, item.rowSpan - 1) * LAUNCHER_LIBRARY_GRID_GAP_PX
+          return item.rowSpan * estimatedRowHeight + Math.max(0, item.rowSpan - 1) * scaledGridGap
         }),
-        rowCount * estimatedRowHeight + Math.max(0, rowCount - 1) * LAUNCHER_LIBRARY_GRID_GAP_PX,
+        rowCount * estimatedRowHeight + Math.max(0, rowCount - 1) * scaledGridGap,
       ),
     })
 

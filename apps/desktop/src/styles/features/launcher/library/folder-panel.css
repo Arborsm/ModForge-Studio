@@ -260,7 +260,7 @@
     display: grid;
     width: 100%;
     margin: 0;
-    gap: 1.25rem;
+    gap: 1rem;
     justify-content: start;
     align-items: start;
   }
@@ -388,10 +388,6 @@
       color-mix(in srgb, var(--launcher-surface-raised) 92%, transparent),
       color-mix(in srgb, var(--launcher-surface-muted) 82%, transparent)
     );
-  }
-
-  .launcher-library-folder-panel .launcher-library-grid-reveal {
-    contain-intrinsic-size: 16.25rem 14.125rem;
   }
 
   .launcher-library-folder-panel .launcher-library-folder-card {

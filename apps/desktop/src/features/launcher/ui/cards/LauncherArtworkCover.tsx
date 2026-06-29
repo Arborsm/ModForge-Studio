@@ -20,12 +20,14 @@ export function LauncherArtworkCover({ title, imageUrl, imageModKey = null, cove
       <span className="launcher-mod-card-cover-meta" />
       {cover.imageUrl ? (
         <span className="launcher-mod-card-cover-image-blur-strip" aria-hidden="true">
-          <img src={cover.imageUrl} alt="" className="launcher-mod-card-cover-image-blur" draggable={false} />
-          <img src={cover.imageUrl} alt="" className="launcher-mod-card-cover-image-blur-clone" draggable={false} />
+          <img src={cover.imageUrl} alt="" className="launcher-mod-card-cover-image-blur" draggable={false} loading="lazy" />
+          <img src={cover.imageUrl} alt="" className="launcher-mod-card-cover-image-blur-clone" draggable={false} loading="lazy" />
         </span>
       ) : null}
       <span className="launcher-mod-card-cover-aura" aria-hidden="true" />
-      {cover.imageUrl ? <img src={cover.imageUrl} alt="" className="launcher-mod-card-cover-image" draggable={false} /> : null}
+      {cover.imageUrl ? (
+        <img src={cover.imageUrl} alt="" className="launcher-mod-card-cover-image" draggable={false} loading="lazy" />
+      ) : null}
       {!cover.imageUrl ? (
         <span className="launcher-mod-card-cover-fallback">
           <span className="launcher-mod-card-cover-word">{fallbackWord}</span>
