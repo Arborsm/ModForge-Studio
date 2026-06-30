@@ -154,7 +154,7 @@ describe('WorkbenchHomePage', () => {
     expect(onProjectWorkspaceOpen).toHaveBeenCalledWith('map')
   })
 
-  it('focuses the in-flow project library for pending maker selection', () => {
+  it('focuses the project library for pending maker selection', () => {
     const onMakerPendingChange = vi.fn()
     renderHome({ onMakerPendingChange })
 
@@ -185,5 +185,125 @@ describe('WorkbenchHomePage', () => {
     fireEvent.keyDown(search, { key: 'Enter' })
 
     expect(onProjectImport).toHaveBeenCalled()
+  })
+
+  it('opens the pending export status dialog from the metric', () => {
+    const onProjectSelect = vi.fn()
+    renderHome({
+      studioDeskModel: createModel({
+        gallery: {
+          counts: { all: 2 },
+          projects: [
+            {
+              draftStorageKey: 'festival-dialogue',
+              title: 'Festival Dialogue Pack',
+              uniqueId: 'Author.FestivalDialogue',
+              lastEditedAt: null,
+              lastExportedAt: null,
+              isCurrent: false,
+              statuses: ['export'],
+              searchText: 'Festival Dialogue Pack Author.FestivalDialogue festival-dialogue',
+              coverTone: 'festival',
+              conflictCount: 0,
+              needsMetadata: false,
+            },
+            {
+              draftStorageKey: 'forest-map',
+              title: 'Forest Map Pack',
+              uniqueId: 'Author.ForestMap',
+              lastEditedAt: null,
+              lastExportedAt: null,
+              isCurrent: false,
+              statuses: ['neverExported'],
+              searchText: 'Forest Map Pack Author.ForestMap forest-map',
+              coverTone: 'forest',
+              conflictCount: 0,
+              needsMetadata: false,
+            },
+          ],
+        },
+      }),
+      taskSummary: {
+        exportCount: 1,
+        conflictCount: 0,
+        directoryStatus: { tone: 'ready', message: 'Validated directory' },
+      },
+      onProjectSelect,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Pending export/ }))
+
+    const dialog = screen.getByRole('dialog', { name: 'Pending export' })
+    expect(within(dialog).getByRole('button', { name: 'Open Project Festival Dialogue Pack' })).toBeTruthy()
+    expect(within(dialog).queryByText('Forest Map Pack')).toBeNull()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Open Project Festival Dialogue Pack' }))
+
+    expect(onProjectSelect).toHaveBeenCalledWith('festival-dialogue', null)
+    expect(screen.queryByRole('dialog', { name: 'Task Center' })).toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Project Library' })).toBeNull()
+  })
+
+  it('opens the conflict status dialog from the metric', () => {
+    renderHome({
+      studioDeskModel: createModel({
+        gallery: {
+          counts: { all: 2 },
+          projects: [
+            {
+              draftStorageKey: 'festival-dialogue',
+              title: 'Festival Dialogue Pack',
+              uniqueId: 'Author.FestivalDialogue',
+              lastEditedAt: null,
+              lastExportedAt: null,
+              isCurrent: false,
+              statuses: ['export'],
+              searchText: 'Festival Dialogue Pack Author.FestivalDialogue festival-dialogue',
+              coverTone: 'festival',
+              conflictCount: 0,
+              needsMetadata: false,
+            },
+            {
+              draftStorageKey: 'forest-map',
+              title: 'Forest Map Pack',
+              uniqueId: 'Author.ForestMap',
+              lastEditedAt: null,
+              lastExportedAt: null,
+              isCurrent: false,
+              statuses: ['conflict'],
+              searchText: 'Forest Map Pack Author.ForestMap forest-map',
+              coverTone: 'forest',
+              conflictCount: 2,
+              needsMetadata: false,
+            },
+          ],
+        },
+      }),
+      taskSummary: {
+        exportCount: 1,
+        conflictCount: 2,
+        directoryStatus: { tone: 'ready', message: 'Validated directory' },
+      },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Conflicts/ }))
+
+    const dialog = screen.getByRole('dialog', { name: 'Conflicts' })
+    expect(within(dialog).getByRole('button', { name: 'Open Project Forest Map Pack' })).toBeTruthy()
+    expect(within(dialog).queryByText('Festival Dialogue Pack')).toBeNull()
+  })
+
+  it('opens the game directory status dialog from the metric', () => {
+    const onGameDirectoryAction = vi.fn()
+    renderHome({ onGameDirectoryAction })
+
+    fireEvent.click(screen.getByRole('button', { name: /Game directory/ }))
+
+    const dialog = screen.getByRole('dialog', { name: 'Game directory' })
+    expect(within(dialog).getByText('Game directory is ready')).toBeTruthy()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Configure' }))
+
+    expect(onGameDirectoryAction).toHaveBeenCalledTimes(1)
   })
 })

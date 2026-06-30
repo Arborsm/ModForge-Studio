@@ -5,7 +5,12 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    background: var(--bg-app);
+    background:
+      radial-gradient(circle 32.5rem at 14% -6%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 68%),
+      radial-gradient(circle 28.75rem at 98% -2%, color-mix(in srgb, var(--info) 6%, transparent), transparent 70%),
+      linear-gradient(color-mix(in srgb, var(--border-color) 22%, transparent) 1px, transparent 1px) 0 0 / 2.5rem 2.5rem,
+      linear-gradient(90deg, color-mix(in srgb, var(--border-color) 22%, transparent) 1px, transparent 1px) 0 0 / 2.5rem 2.5rem,
+      var(--bg-app);
     animation: loading-motion-section-quiet 220ms ease-out both;
   }
 
@@ -17,13 +22,22 @@
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
     background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
     padding: 0 0.875rem;
+    backdrop-filter: blur(0.625rem);
+  }
+
+  .workbench-shell-skeleton-brand,
+  .workbench-shell-skeleton-actions,
+  .workbench-shell-skeleton-nav,
+  .workbench-shell-skeleton-maker-chip,
+  .workbench-shell-skeleton-metric,
+  .workbench-shell-skeleton-project-row {
+    display: flex;
+    align-items: center;
   }
 
   .workbench-shell-skeleton-brand,
   .workbench-shell-skeleton-actions,
   .workbench-shell-skeleton-nav {
-    display: flex;
-    align-items: center;
     gap: 0.625rem;
   }
 
@@ -35,23 +49,39 @@
   .workbench-shell-skeleton-dot,
   .workbench-shell-skeleton-pill,
   .workbench-shell-skeleton-line,
-  .workbench-shell-skeleton-canvas {
+  .workbench-shell-skeleton-search-icon,
+  .workbench-shell-skeleton-keycap,
+  .workbench-shell-skeleton-cover,
+  .workbench-shell-skeleton-maker-icon,
+  .workbench-shell-skeleton-metric-icon,
+  .workbench-shell-skeleton-app-icon,
+  .workbench-shell-skeleton-library-action,
+  .workbench-shell-skeleton-project-cover,
+  .workbench-shell-skeleton-project-pill {
     display: block;
-    background: color-mix(in srgb, var(--bg-panel-muted) 72%, var(--border-color));
-    overflow: hidden;
     position: relative;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--bg-panel-muted) 72%, var(--border-color));
   }
 
   .workbench-shell-skeleton-mark::after,
   .workbench-shell-skeleton-dot::after,
   .workbench-shell-skeleton-pill::after,
   .workbench-shell-skeleton-line::after,
-  .workbench-shell-skeleton-canvas::after {
+  .workbench-shell-skeleton-search-icon::after,
+  .workbench-shell-skeleton-keycap::after,
+  .workbench-shell-skeleton-cover::after,
+  .workbench-shell-skeleton-maker-icon::after,
+  .workbench-shell-skeleton-metric-icon::after,
+  .workbench-shell-skeleton-app-icon::after,
+  .workbench-shell-skeleton-library-action::after,
+  .workbench-shell-skeleton-project-cover::after,
+  .workbench-shell-skeleton-project-pill::after {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text-primary) 7%, transparent), transparent);
-    animation: workbench-shell-skeleton-shimmer 1.4s ease-in-out infinite;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text-primary) 8%, transparent), transparent);
+    animation: workbench-shell-skeleton-shimmer 1.45s ease-in-out infinite;
     transform: translateX(-100%);
   }
 
@@ -72,11 +102,25 @@
   }
 
   .workbench-shell-skeleton-line-wide {
-    width: 72%;
+    width: min(100%, 12rem);
   }
 
   .workbench-shell-skeleton-line-mid {
-    width: 52%;
+    width: min(70%, 8rem);
+  }
+
+  .workbench-shell-skeleton-line-short {
+    width: 4.25rem;
+  }
+
+  .workbench-shell-skeleton-line-title {
+    width: min(58%, 15rem);
+    height: 0.875rem;
+  }
+
+  .workbench-shell-skeleton-search-line {
+    flex: 1;
+    width: auto;
   }
 
   .workbench-shell-skeleton-pill {
@@ -91,44 +135,281 @@
     border-radius: 0.625rem;
   }
 
-  .workbench-shell-skeleton-body {
-    display: grid;
+  .workbench-shell-skeleton-home {
+    display: flex;
     min-height: 0;
     flex: 1;
-    grid-template-columns: minmax(11.875rem, 0.22fr) minmax(20rem, 1fr) minmax(13.125rem, 0.24fr);
+    flex-direction: column;
+    gap: 1.5rem;
+    width: min(110rem, calc(100vw - 4rem));
+    margin: 0 auto;
+    padding: 2rem 0 4.5rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .workbench-shell-skeleton-search {
+    display: flex;
+    align-items: center;
     gap: 0.75rem;
+    height: 3rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    border-radius: 62.4375rem;
+    background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
+    box-shadow: var(--shadow-panel);
+    padding: 0 1.125rem;
+    backdrop-filter: blur(0.625rem);
+  }
+
+  .workbench-shell-skeleton-search-icon {
+    width: 1.125rem;
+    height: 1.125rem;
+    flex: 0 0 auto;
+    border-radius: 62.4375rem;
+  }
+
+  .workbench-shell-skeleton-keycap {
+    width: 3.125rem;
+    height: 1.25rem;
+    border-radius: 0.4375rem;
+  }
+
+  .workbench-shell-skeleton-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.42fr);
+    gap: 1.5rem;
+  }
+
+  .workbench-shell-skeleton-current-card,
+  .workbench-shell-skeleton-metric,
+  .workbench-shell-skeleton-app-card,
+  .workbench-shell-skeleton-library,
+  .workbench-shell-skeleton-project-row {
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    background: color-mix(in srgb, var(--bg-panel) 92%, transparent);
+    box-shadow: var(--shadow-panel);
+    backdrop-filter: blur(0.75rem);
+  }
+
+  .workbench-shell-skeleton-current-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 1rem;
+    min-height: 16rem;
+    border-radius: 1rem;
+    padding: 1.25rem;
+  }
+
+  .workbench-shell-skeleton-cover {
+    width: clamp(5rem, 12vw, 8rem);
+    aspect-ratio: 1;
+    border-radius: 1rem;
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--accent) 20%, transparent), transparent),
+      color-mix(in srgb, var(--bg-panel-muted) 82%, var(--border-color));
+  }
+
+  .workbench-shell-skeleton-current-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.875rem;
+    align-self: center;
+  }
+
+  .workbench-shell-skeleton-makerbar {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    align-self: end;
+  }
+
+  .workbench-shell-skeleton-maker-chip {
+    gap: 0.625rem;
+    min-height: 4.25rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    border-radius: 0.875rem;
+    background: color-mix(in srgb, var(--bg-panel-muted) 76%, transparent);
     padding: 0.75rem;
   }
 
-  .workbench-shell-skeleton-panel {
-    display: flex;
-    min-width: 0;
-    min-height: 0;
-    flex-direction: column;
+  .workbench-shell-skeleton-maker-icon,
+  .workbench-shell-skeleton-metric-icon,
+  .workbench-shell-skeleton-app-icon {
+    flex: 0 0 auto;
+    border-radius: 0.75rem;
+  }
+
+  .workbench-shell-skeleton-maker-icon {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .workbench-shell-skeleton-metrics {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .workbench-shell-skeleton-metric {
     gap: 0.875rem;
-    border: 1px solid var(--border-color);
+    min-height: 5rem;
     border-radius: 0.875rem;
-    background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
-    box-shadow: var(--shadow-panel);
     padding: 0.875rem;
   }
 
-  .workbench-shell-skeleton-main {
-    justify-content: stretch;
+  .workbench-shell-skeleton-metric-icon {
+    width: 2.25rem;
+    height: 2.25rem;
   }
 
-  .workbench-shell-skeleton-canvas {
-    flex: 1;
+  .workbench-shell-skeleton-section {
+    display: grid;
+    gap: 0.875rem;
+  }
+
+  .workbench-shell-skeleton-section-head,
+  .workbench-shell-skeleton-library-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .workbench-shell-skeleton-section-head {
+    padding: 0 0.125rem;
+  }
+
+  .workbench-shell-skeleton-app-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.875rem;
+  }
+
+  .workbench-shell-skeleton-app-card {
+    display: flex;
+    min-height: 8.75rem;
+    flex-direction: column;
+    justify-content: space-between;
+    border-radius: 1rem;
+    padding: 1rem;
+  }
+
+  .workbench-shell-skeleton-app-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .workbench-shell-skeleton-library {
+    display: grid;
+    gap: 1rem;
     min-height: 0;
+    border-radius: 1rem;
+    padding: 1rem;
+  }
+
+  .workbench-shell-skeleton-library-head > div,
+  .workbench-shell-skeleton-project-copy {
+    display: grid;
+    min-width: 0;
+    gap: 0.625rem;
+  }
+
+  .workbench-shell-skeleton-library-action {
+    width: 8rem;
+    height: 2.25rem;
+    flex: 0 0 auto;
+    border-radius: 62.4375rem;
+  }
+
+  .workbench-shell-skeleton-project-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .workbench-shell-skeleton-project-row {
+    gap: 0.875rem;
+    min-height: 5rem;
+    border-radius: 0.875rem;
+    padding: 0.75rem;
+  }
+
+  .workbench-shell-skeleton-project-cover {
+    width: 3.25rem;
+    height: 3.25rem;
+    flex: 0 0 auto;
     border-radius: 0.75rem;
-    background:
-      linear-gradient(color-mix(in srgb, var(--border-color) 36%, transparent) 1px, transparent 1px),
-      linear-gradient(90deg, color-mix(in srgb, var(--border-color) 36%, transparent) 1px, transparent 1px),
-      color-mix(in srgb, var(--bg-panel-muted) 76%, transparent);
-    background-size:
-      2.25rem 2.25rem,
-      2.25rem 2.25rem,
-      auto;
+  }
+
+  .workbench-shell-skeleton-project-copy {
+    flex: 1;
+  }
+
+  .workbench-shell-skeleton-project-pill {
+    width: 4.25rem;
+    height: 1.5rem;
+    flex: 0 0 auto;
+    border-radius: 62.4375rem;
+  }
+
+  @media (max-width: 86rem) {
+    .workbench-shell-skeleton-app-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 56rem) {
+    .workbench-shell-skeleton-topbar {
+      grid-template-columns: 1fr auto;
+    }
+
+    .workbench-shell-skeleton-nav {
+      display: none;
+    }
+
+    .workbench-shell-skeleton-home {
+      width: min(100%, calc(100vw - 1.75rem));
+      padding: 1rem 0 2rem;
+    }
+
+    .workbench-shell-skeleton-hero,
+    .workbench-shell-skeleton-current-card,
+    .workbench-shell-skeleton-makerbar {
+      grid-template-columns: 1fr;
+    }
+
+    .workbench-shell-skeleton-app-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .workbench-shell-skeleton-keycap,
+    .workbench-shell-skeleton-library-action,
+    .workbench-shell-skeleton-project-pill {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .workbench-shell-skeleton {
+      animation: none;
+    }
+
+    .workbench-shell-skeleton-mark::after,
+    .workbench-shell-skeleton-dot::after,
+    .workbench-shell-skeleton-pill::after,
+    .workbench-shell-skeleton-line::after,
+    .workbench-shell-skeleton-search-icon::after,
+    .workbench-shell-skeleton-keycap::after,
+    .workbench-shell-skeleton-cover::after,
+    .workbench-shell-skeleton-maker-icon::after,
+    .workbench-shell-skeleton-metric-icon::after,
+    .workbench-shell-skeleton-app-icon::after,
+    .workbench-shell-skeleton-library-action::after,
+    .workbench-shell-skeleton-project-cover::after,
+    .workbench-shell-skeleton-project-pill::after {
+      animation: none;
+      transform: none;
+    }
   }
 
   @keyframes workbench-shell-skeleton-shimmer {

@@ -945,7 +945,7 @@ export default function WorkbenchExperience({
       />
 
       {playerAppearanceWindowOpen ? (
-        <Suspense fallback={<LoadingMotionFallback />}>
+        <Suspense fallback={<LoadingMotionFallback className="workbench-loading-motion-fallback" />}>
           <PlayerAppearanceWindow
             key={`player-appearance:${playerAppearanceWindowNonce}`}
             open={playerAppearanceWindowOpen}

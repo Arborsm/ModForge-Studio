@@ -134,15 +134,20 @@ export type WorkbenchShellCopy = {
     pendingExportCount: (count: number) => string
     pendingExportMetric: string
     pendingExportDetail: string
+    pendingExportEmptyTitle: string
+    pendingExportEmptyDescription: string
     conflictCount: (count: number) => string
     conflictMetric: string
     conflictDetail: string
+    conflictEmptyTitle: string
+    conflictEmptyDescription: string
     taskCenterTitle: string
     taskCenterSubtitle: string
     closeTaskCenter: string
     taskCenterRealDataNote: string
     gameDirectoryTaskTitle: string
     gameDirectoryTaskIdle: string
+    gameDirectoryReadyTitle: string
     closeDialog: string
     continueCurrentProject: (projectName: string) => string
     chooseProjectStep: string

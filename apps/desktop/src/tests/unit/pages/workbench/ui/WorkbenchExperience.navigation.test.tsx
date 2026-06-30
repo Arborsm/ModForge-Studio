@@ -501,7 +501,7 @@ describe('WorkbenchExperience launchpad navigation', () => {
     expect(make).not.toBeDisabled()
     fireEvent.click(make)
 
-    expect(within(home).getByText('Choose a project for Map Making')).toBeTruthy()
+    expect(within(home).getByRole('region', { name: 'Project Library' }).className).toContain('is-focus')
     expect(screen.getByRole('dialog', { name: 'Create New Project' })).toBeTruthy()
   })
 
@@ -539,11 +539,34 @@ describe('WorkbenchExperience launchpad navigation', () => {
 
     const home = screen.getByRole('region', { name: 'Workbench Home' })
     fireEvent.click(within(home).getByRole('button', { name: 'Map Making' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Use for Map Making' }))
+    const library = within(home).getByRole('region', { name: 'Project Library' })
+    expect(library.className).toContain('is-focus')
+    fireEvent.click(within(library).getByRole('button', { name: 'Open Project Festival Dialogue Pack' }))
 
     await waitFor(() => {
       expect(loadDraftSpy).toHaveBeenCalledWith('festival-dialogue')
     })
+  })
+
+  it('focuses the in-page project library from the home action', () => {
+    useCpMakerState.drafts = [
+      {
+        draftStorageKey: 'festival-dialogue',
+        projectName: 'Festival Dialogue Pack',
+        projectUniqueId: 'Author.FestivalDialogue',
+        lastDraftSavedAt: null,
+        lastExportedAt: null,
+      },
+    ]
+    renderExperience()
+
+    const home = screen.getByRole('region', { name: 'Workbench Home' })
+    fireEvent.click(within(home).getByRole('button', { name: 'Open Project Library' }))
+
+    const library = within(home).getByRole('region', { name: 'Project Library' })
+    expect(library.className).toContain('is-focus')
+    expect(within(library).getByRole('button', { name: 'Open Project Festival Dialogue Pack' })).toBeTruthy()
+    expect(screen.queryByRole('dialog', { name: 'Project Library' })).toBeNull()
   })
 
   it('keeps the home page open when selecting a project without a pending maker intent', async () => {

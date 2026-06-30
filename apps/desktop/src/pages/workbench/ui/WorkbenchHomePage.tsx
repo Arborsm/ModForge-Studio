@@ -5,7 +5,6 @@ import {
   BookOpenCheck,
   Castle,
   CheckCircle2,
-  Clock3,
   Download,
   Edit3,
   Eye,
@@ -23,13 +22,14 @@ import {
   TriangleAlert,
   Upload,
   Users,
-  X,
 } from 'lucide-react'
-import { useEffect, useId, useRef, useState, type ComponentType, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, useState, type ComponentType, type KeyboardEvent, type ReactNode } from 'react'
 import { type WorkspaceMode } from '@locales/api'
 import { useEditorCopy, useLocale } from '@locales/provider'
-import { StudioDeskProjectGallery, type StudioDeskGalleryProject, type StudioDeskModel } from '@features/cp-maker'
+import { StudioDeskProjectGallery } from '@features/cp-maker'
+import type { StudioDeskGalleryProject, StudioDeskModel } from '@features/cp-maker'
 import { cx } from '@shared/lib/helper'
+import { Dialog, DialogBody, DialogHeader } from '@shared/ui/Dialog'
 import type { WorkbenchViewRegistration } from '@shared/contracts'
 import type { WorkspaceStatus } from '@entities/map'
 
@@ -38,6 +38,8 @@ type DevWorkbenchViewNavigationItem = WorkbenchViewRegistration & {
 }
 
 type MakerWorkspaceMode = Extract<WorkspaceMode, 'map' | 'events' | 'items'>
+
+type WorkbenchHomeStatusDialog = 'exports' | 'conflicts' | 'directory'
 
 type WorkbenchHomeTaskSummary = {
   exportCount: number
@@ -139,7 +141,6 @@ export default function WorkbenchHomePage({
   workspaceViewMode,
   hasActiveProject,
   gameDirectoryReady,
-  gameDirectoryStatus,
   studioDeskModel,
   makerPending,
   projectLibraryFocusKey = 0,
@@ -163,12 +164,12 @@ export default function WorkbenchHomePage({
   const locale = useLocale()
   const navCopy = copy.workbenchNavigation
   const searchListId = useId()
-  const taskTitleId = useId()
+  const statusDialogTitleId = useId()
   const [query, setQuery] = useState('')
   const [projectQuery, setProjectQuery] = useState('')
+  const [statusDialog, setStatusDialog] = useState<WorkbenchHomeStatusDialog | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [activeSearchIndex, setActiveSearchIndex] = useState(0)
-  const [taskPanelOpen, setTaskPanelOpen] = useState(false)
   const [libraryFocused, setLibraryFocused] = useState(false)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const libraryRef = useRef<HTMLElement | null>(null)
@@ -178,6 +179,31 @@ export default function WorkbenchHomePage({
   const currentProjectInitials = getProjectInitials(currentProject)
   const makerPendingLabel = makerPending ? getMakerLabel(navCopy, makerPending) : ''
   const homeState = !gameDirectoryReady ? 'no-game-dir' : !hasProjects ? 'no-projects' : currentProject ? 'normal' : 'no-current'
+  const directoryStatus = taskSummary.directoryStatus
+  const pendingExportProjects = studioDeskModel.gallery.projects.filter((project) => project.statuses.includes('export'))
+  const conflictProjects = studioDeskModel.gallery.projects.filter(
+    (project) => project.statuses.includes('conflict') || project.conflictCount > 0,
+  )
+  const statusDialogTitle =
+    statusDialog === 'exports'
+      ? navCopy.pendingExportMetric
+      : statusDialog === 'conflicts'
+        ? navCopy.conflictMetric
+        : navCopy.gameDirectoryTaskTitle
+  const statusDialogSubtitle =
+    statusDialog === 'exports'
+      ? navCopy.pendingExportDetail
+      : statusDialog === 'conflicts'
+        ? navCopy.conflictDetail
+        : directoryStatus.message || navCopy.gameDirectoryTaskIdle
+  const statusDialogIcon =
+    statusDialog === 'exports' ? (
+      <Download className="h-4 w-4" />
+    ) : statusDialog === 'conflicts' ? (
+      <TriangleAlert className="h-4 w-4" />
+    ) : (
+      <BookOpenCheck className="h-4 w-4" />
+    )
 
   function focusProjectLibrary() {
     setLibraryFocused(true)
@@ -192,10 +218,11 @@ export default function WorkbenchHomePage({
 
   function requestProjectForMaker(mode: MakerWorkspaceMode) {
     onMakerPendingChange(mode)
-    focusProjectLibrary()
     if (!hasProjects) {
       onProjectCreateOpen()
+      return
     }
+    focusProjectLibrary()
   }
 
   function openMaker(mode: MakerWorkspaceMode) {
@@ -307,14 +334,6 @@ export default function WorkbenchHomePage({
       hint: navCopy.projectLibraryHint,
       icon: FolderOpen,
       onSelect: focusProjectLibrary,
-    },
-    {
-      id: 'command:tasks',
-      kind: 'command',
-      title: navCopy.taskCenterTitle,
-      hint: navCopy.taskCenterSubtitle,
-      icon: Clock3,
-      onSelect: () => setTaskPanelOpen((open) => !open),
     },
     {
       id: 'command:back',
@@ -555,7 +574,7 @@ export default function WorkbenchHomePage({
             </article>
 
             <div className="workbench-home-metrics" aria-label={navCopy.statusMonitorTitle}>
-              <button type="button" className="workbench-home-metric" data-tone="warning" onClick={() => setTaskPanelOpen(true)}>
+              <button type="button" className="workbench-home-metric" data-tone="warning" onClick={() => setStatusDialog('exports')}>
                 <span className="workbench-home-metric-icon" aria-hidden="true">
                   <Download className="h-4 w-4" />
                 </span>
@@ -565,9 +584,9 @@ export default function WorkbenchHomePage({
                 </span>
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </button>
-              <button type="button" className="workbench-home-metric" data-tone="success" onClick={() => setTaskPanelOpen(true)}>
+              <button type="button" className="workbench-home-metric" data-tone="warning" onClick={() => setStatusDialog('conflicts')}>
                 <span className="workbench-home-metric-icon" aria-hidden="true">
-                  <CheckCircle2 className="h-4 w-4" />
+                  <TriangleAlert className="h-4 w-4" />
                 </span>
                 <span>
                   <strong>{taskSummary.conflictCount}</strong>
@@ -575,13 +594,18 @@ export default function WorkbenchHomePage({
                 </span>
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </button>
-              <button type="button" className="workbench-home-metric" data-tone={gameDirectoryStatus.tone} onClick={onGameDirectoryAction}>
+              <button
+                type="button"
+                className="workbench-home-metric"
+                data-tone={directoryStatus.tone}
+                onClick={() => setStatusDialog('directory')}
+              >
                 <span className="workbench-home-metric-icon" aria-hidden="true">
                   <BookOpenCheck className="h-4 w-4" />
                 </span>
                 <span>
                   <strong>{navCopy.gameDirectoryTaskTitle}</strong>
-                  <em>{gameDirectoryStatus.message || navCopy.gameDirectoryTaskIdle}</em>
+                  <em>{directoryStatus.message || navCopy.gameDirectoryTaskIdle}</em>
                 </span>
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -660,42 +684,175 @@ export default function WorkbenchHomePage({
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
       </button>
 
-      {taskPanelOpen ? (
-        <>
+      <Dialog
+        open={statusDialog !== null}
+        onClose={() => setStatusDialog(null)}
+        size={statusDialog === 'directory' ? 'md' : 'lg'}
+        labelledBy={statusDialogTitleId}
+        className="workbench-home-status-dialog"
+      >
+        <DialogHeader
+          title={statusDialogTitle}
+          subtitle={statusDialogSubtitle}
+          icon={statusDialogIcon}
+          tone={statusDialog === 'conflicts' ? 'warning' : 'default'}
+          onClose={() => setStatusDialog(null)}
+          closeLabel={navCopy.closeDialog}
+          id={statusDialogTitleId}
+        />
+        <DialogBody className="workbench-home-status-dialog-body">
+          {statusDialog === 'exports' ? (
+            <ProjectStatusDialogContent
+              projects={pendingExportProjects}
+              emptyTitle={navCopy.pendingExportEmptyTitle}
+              emptyDescription={navCopy.pendingExportEmptyDescription}
+              emptyIcon={<Download className="h-5 w-5" />}
+              actionLabel={copy.studioDesk.openProject}
+              onOpenProject={(project) => {
+                setStatusDialog(null)
+                selectProject(project.draftStorageKey)
+              }}
+              currentProjectActionLabel={copy.studioDesk.publishPack}
+              onCurrentProjectAction={(project) => {
+                if (!project.isCurrent) return
+                setStatusDialog(null)
+                onExportProject()
+              }}
+            />
+          ) : null}
+
+          {statusDialog === 'conflicts' ? (
+            <ProjectStatusDialogContent
+              projects={conflictProjects}
+              emptyTitle={navCopy.conflictEmptyTitle}
+              emptyDescription={navCopy.conflictEmptyDescription}
+              emptyIcon={<CheckCircle2 className="h-5 w-5" />}
+              actionLabel={copy.studioDesk.openProject}
+              onOpenProject={(project) => {
+                setStatusDialog(null)
+                selectProject(project.draftStorageKey)
+              }}
+            />
+          ) : null}
+
+          {statusDialog === 'directory' ? (
+            <section className="workbench-home-directory-dialog" data-tone={directoryStatus.tone}>
+              <div className="workbench-home-directory-dialog-state">
+                <span className="workbench-home-directory-dialog-icon" aria-hidden="true">
+                  <BookOpenCheck className="h-5 w-5" />
+                </span>
+                <div>
+                  <strong>{gameDirectoryReady ? navCopy.gameDirectoryReadyTitle : navCopy.gameDirectoryMissingTitle}</strong>
+                  <p>{directoryStatus.message || navCopy.gameDirectoryTaskIdle}</p>
+                </div>
+              </div>
+              {!gameDirectoryReady ? <p>{navCopy.gameDirectoryMissingDescription}</p> : null}
+              <button
+                type="button"
+                className="control-button control-button-primary"
+                onClick={() => {
+                  setStatusDialog(null)
+                  onGameDirectoryAction()
+                }}
+              >
+                {navCopy.gameDirectoryAction}
+              </button>
+            </section>
+          ) : null}
+        </DialogBody>
+      </Dialog>
+    </section>
+  )
+}
+
+function ProjectStatusDialogContent({
+  projects,
+  emptyTitle,
+  emptyDescription,
+  emptyIcon,
+  actionLabel,
+  currentProjectActionLabel,
+  onOpenProject,
+  onCurrentProjectAction,
+}: {
+  projects: StudioDeskGalleryProject[]
+  emptyTitle: string
+  emptyDescription: string
+  emptyIcon: ReactNode
+  actionLabel: string
+  currentProjectActionLabel?: string
+  onOpenProject: (project: StudioDeskGalleryProject) => void
+  onCurrentProjectAction?: (project: StudioDeskGalleryProject) => void
+}) {
+  const copy = useEditorCopy().studioDesk
+
+  if (!projects.length) {
+    return (
+      <section className="workbench-home-status-empty" aria-label={emptyTitle}>
+        <span aria-hidden="true">{emptyIcon}</span>
+        <strong>{emptyTitle}</strong>
+        <p>{emptyDescription}</p>
+      </section>
+    )
+  }
+
+  return (
+    <div className="workbench-home-status-list" aria-label={copy.projectList}>
+      {projects.map((project) => (
+        <article key={project.draftStorageKey} className={cx('workbench-home-status-row', project.isCurrent && 'is-current')}>
           <button
             type="button"
-            className="workbench-home-task-scrim"
-            aria-label={navCopy.closeTaskCenter}
-            onClick={() => setTaskPanelOpen(false)}
-          />
-          <section className="workbench-home-task-panel" role="dialog" aria-labelledby={taskTitleId}>
-            <header>
-              <div>
-                <h2 id={taskTitleId}>{navCopy.taskCenterTitle}</h2>
-                <p>{navCopy.taskCenterSubtitle}</p>
-              </div>
-              <button type="button" className="icon-button" aria-label={navCopy.closeTaskCenter} onClick={() => setTaskPanelOpen(false)}>
-                <X className="h-4 w-4" aria-hidden="true" />
+            className="workbench-home-status-row-main"
+            aria-label={project.title}
+            onClick={() => onOpenProject(project)}
+          >
+            <span className={cx('workbench-home-status-cover', `studio-cover-${project.coverTone}`)} aria-hidden="true">
+              {getProjectInitials(project)}
+            </span>
+            <span className="workbench-home-status-copy">
+              <strong>{project.title}</strong>
+              <em>{project.uniqueId || copy.metadataIncomplete}</em>
+            </span>
+          </button>
+
+          <div className="workbench-home-status-meta">
+            {project.isCurrent ? (
+              <span className="studio-project-gallery-pill studio-project-gallery-pill-current">{copy.currentActive}</span>
+            ) : null}
+            {project.statuses.includes('export') ? (
+              <span className="studio-project-gallery-pill studio-project-gallery-pill-export">{copy.pendingExport}</span>
+            ) : null}
+            {project.statuses.includes('conflict') || project.conflictCount > 0 ? (
+              <span className="studio-project-gallery-pill studio-project-gallery-pill-conflict">{copy.hasConflict}</span>
+            ) : null}
+            {project.needsMetadata ? (
+              <span className="studio-project-gallery-pill studio-project-gallery-pill-incomplete">{copy.metadataIncomplete}</span>
+            ) : null}
+          </div>
+
+          <div className="workbench-home-status-actions">
+            {project.isCurrent && currentProjectActionLabel && onCurrentProjectAction ? (
+              <button
+                type="button"
+                className="control-button control-button-primary"
+                aria-label={`${currentProjectActionLabel} ${project.title}`}
+                onClick={() => onCurrentProjectAction(project)}
+              >
+                {currentProjectActionLabel}
               </button>
-            </header>
-            <div className="workbench-home-task-list">
-              <TaskSummaryRow
-                tone="export"
-                title={navCopy.pendingExportCount(taskSummary.exportCount)}
-                detail={navCopy.pendingExportDetail}
-              />
-              <TaskSummaryRow tone="ok" title={navCopy.conflictCount(taskSummary.conflictCount)} detail={navCopy.conflictDetail} />
-              <TaskSummaryRow
-                tone={gameDirectoryStatus.tone}
-                title={navCopy.gameDirectoryTaskTitle}
-                detail={gameDirectoryStatus.message || navCopy.gameDirectoryTaskIdle}
-              />
-            </div>
-            <footer>{navCopy.taskCenterRealDataNote}</footer>
-          </section>
-        </>
-      ) : null}
-    </section>
+            ) : null}
+            <button
+              type="button"
+              className="control-button"
+              aria-label={`${actionLabel} ${project.title}`}
+              onClick={() => onOpenProject(project)}
+            >
+              {actionLabel}
+            </button>
+          </div>
+        </article>
+      ))}
+    </div>
   )
 }
 
@@ -792,18 +949,6 @@ function SearchResultGroup({
         )
       })}
     </>
-  )
-}
-
-function TaskSummaryRow({ tone, title, detail }: { tone: string; title: string; detail: string }) {
-  return (
-    <article className="workbench-home-task-row" data-tone={tone}>
-      <span className="workbench-home-task-row-icon" aria-hidden="true" />
-      <div>
-        <strong>{title}</strong>
-        <span>{detail}</span>
-      </div>
-    </article>
   )
 }
 

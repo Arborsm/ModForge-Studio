@@ -13,6 +13,37 @@
       var(--bg-app);
   }
 
+  .workbench-loading-motion-fallback {
+    min-height: 16rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    border-radius: 1rem;
+    background:
+      radial-gradient(circle 18rem at 16% 12%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
+      color-mix(in srgb, var(--bg-panel) 92%, transparent);
+    box-shadow: var(--shadow-panel);
+    backdrop-filter: blur(0.75rem);
+  }
+
+  .workbench-loading-motion-fallback .loading-motion-visual {
+    width: 9rem;
+    height: 6rem;
+  }
+
+  .workbench-loading-motion-fallback .loading-motion-layer-primary {
+    width: 2.375rem;
+    height: 2.375rem;
+    border-radius: 0.875rem;
+    background: var(--accent);
+    box-shadow:
+      0 1.125rem 2.625rem color-mix(in srgb, var(--accent) 28%, transparent),
+      0 0 0 0.5rem color-mix(in srgb, var(--accent-soft) 70%, transparent);
+  }
+
+  .workbench-loading-motion-fallback .loading-motion-layer-secondary,
+  .workbench-loading-motion-fallback .loading-motion-layer-tertiary {
+    border-radius: 0.875rem;
+  }
+
   .workbench-home-page::before {
     content: none;
     position: fixed;
