@@ -7,35 +7,6 @@ const launcherImageCache = createResourceCache<string>({
   maxEntries: 96,
 })
 
-let pendingLocalImageLoads = 0
-const localImageBatchWaiters = new Set<() => void>()
-
-function beginLocalImageLoad() {
-  pendingLocalImageLoads += 1
-}
-
-function finishLocalImageLoad() {
-  pendingLocalImageLoads = Math.max(0, pendingLocalImageLoads - 1)
-  if (pendingLocalImageLoads > 0) {
-    return
-  }
-
-  for (const resolve of localImageBatchWaiters) {
-    resolve()
-  }
-  localImageBatchWaiters.clear()
-}
-
-function waitForLocalImageBatch() {
-  if (pendingLocalImageLoads === 0) {
-    return Promise.resolve()
-  }
-
-  return new Promise<void>((resolve) => {
-    localImageBatchWaiters.add(resolve)
-  })
-}
-
 export async function loadLauncherImageUrl(url: string, launcherPort: LauncherPort, refresh = false, modKey: string | null = null) {
   if (refresh) {
     launcherImageCache.invalidate(url)
@@ -43,14 +14,12 @@ export async function loadLauncherImageUrl(url: string, launcherPort: LauncherPo
 
   return launcherImageCache.load(url, async () => {
     if (!refresh) {
-      beginLocalImageLoad()
-      const cached = await launcherPort.resolveCachedImage({ url, refresh, modKey }).finally(finishLocalImageLoad)
+      const cached = await launcherPort.resolveCachedImage({ url, refresh, modKey })
       if (cached) {
         return {
           value: launcherPort.toDesktopAssetUrl(cached.localPath),
         }
       }
-      await waitForLocalImageBatch()
     }
 
     const result = await launcherPort.resolveImage({ url, refresh, modKey })

@@ -59,6 +59,10 @@ fn resolve_command_declares_lane_at_binding_site() {
         Some(SidecarLane::Control)
     );
     assert_eq!(
+        command_lane("print_host_runtime_diagnostics"),
+        Some(SidecarLane::Control)
+    );
+    assert_eq!(
         command_lane("load_launcher_settings"),
         Some(SidecarLane::Mutation)
     );
@@ -108,6 +112,14 @@ fn tauri_command_wrappers_route_through_host_runtime() {
             "{name} wrapper should submit through the shared host runtime"
         );
         assert!(
+            !source.contains("pub fn "),
+            "{name} wrapper should be async so Tauri command handlers do not block while host runtime work is pending"
+        );
+        assert!(
+            source.contains("pub async fn "),
+            "{name} wrapper should expose async Tauri commands"
+        );
+        assert!(
             source.contains("host_command_name!("),
             "{name} wrapper should derive the host protocol name from its Tauri command function"
         );
@@ -116,6 +128,54 @@ fn tauri_command_wrappers_route_through_host_runtime() {
             "{name} wrapper should not keep the old direct logging path"
         );
     }
+}
+
+fn command_execution_pool(command: &str) -> Option<HostCommandExecutionPool> {
+    let ctx = SidecarContext {
+        app: AppHandle::sidecar(|_, _| Ok(())),
+        debug_logging_state: DebugLoggingState::new(),
+    };
+    match resolve_command(
+        &ctx,
+        RpcRequest {
+            id: json!(1),
+            command: command.to_string(),
+            args: Value::Null,
+        },
+    ) {
+        ResolvedSidecarCommandOrResponse::Command(command) => Some(command.execution_pool),
+        ResolvedSidecarCommandOrResponse::Response(_) => None,
+    }
+}
+
+#[test]
+fn tauri_host_runtime_waits_on_async_response_channel() {
+    let tauri_runtime_source = include_str!("../../../commands/runtime.rs");
+    assert!(tauri_runtime_source.contains("tauri::async_runtime"));
+    assert!(tauri_runtime_source.contains("channel as async_channel"));
+    assert!(tauri_runtime_source.contains("receiver.recv().await"));
+    assert!(!tauri_runtime_source.contains("std::sync::{Arc, Mutex, OnceLock, mpsc}"));
+    assert!(!tauri_runtime_source.contains("std::sync::mpsc"));
+    assert!(!tauri_runtime_source.contains("receiver.recv().map_err"));
+    assert!(!tauri_runtime_source.contains("spawn_blocking"));
+}
+
+#[test]
+fn launcher_image_cdn_has_dedicated_host_pool() {
+    let config = SidecarSchedulerConfig::default();
+    assert_eq!(config.network_max_concurrency, 32);
+    assert_eq!(
+        config.launcher_image_cdn_max_concurrency,
+        crate::domain::nexusmods::endpoints::IMAGE_CDN_DEFAULT_CONCURRENCY
+    );
+    assert_eq!(
+        command_execution_pool("resolve_launcher_image"),
+        Some(HostCommandExecutionPool::LauncherImageCdn)
+    );
+    assert_eq!(
+        command_execution_pool("load_launcher_remote_mod_detail"),
+        Some(HostCommandExecutionPool::Lane)
+    );
 }
 
 #[test]
@@ -149,6 +209,25 @@ fn sidecar_protocol_names_are_derived_from_command_functions() {
 fn sidecar_resolver_does_not_call_tauri_command_wrappers() {
     let sidecar_source = include_str!("../../../sidecar.rs");
     assert!(!sidecar_source.contains("crate::commands"));
+}
+
+#[test]
+fn sidecar_resolver_avoids_async_domain_wrappers_that_spawn_blocking() {
+    let sidecar_source = include_str!("../../../sidecar.rs");
+    assert!(!sidecar_source.contains("block_on("));
+    for expected in [
+        "persist_launcher_library_remote_cover_blocking",
+        "search_launcher_catalog_blocking",
+        "load_launcher_remote_mod_detail_blocking",
+        "load_launcher_update_changelog_blocking",
+        "resolve_cached_launcher_image_blocking",
+        "check_launcher_updates_blocking",
+    ] {
+        assert!(
+            sidecar_source.contains(expected),
+            "sidecar should call {expected} directly"
+        );
+    }
 }
 
 #[test]
@@ -196,7 +275,7 @@ fn mutable_cache_commands_declare_resource_locks_at_binding_site() {
 }
 
 struct TestResponseWriter {
-    completed: Mutex<mpsc::Sender<RpcResponse>>,
+    completed: Mutex<mpsc::SyncSender<RpcResponse>>,
 }
 
 impl HostCommandResponseWriter for TestResponseWriter {
@@ -204,7 +283,7 @@ impl HostCommandResponseWriter for TestResponseWriter {
         self.completed
             .lock()
             .map_err(|_| "test response writer lock poisoned".to_string())?
-            .send(response.clone())
+            .try_send(response.clone())
             .map_err(|error| format!("test response send failed: {error}"))
     }
 }
@@ -214,14 +293,42 @@ struct TestSchedulerHarness {
     completed: mpsc::Receiver<RpcResponse>,
 }
 
+struct FailingResponseWriter;
+
+impl HostCommandResponseWriter for FailingResponseWriter {
+    fn write_response(&self, _response: &RpcResponse) -> Result<(), String> {
+        Err("simulated writer failure".to_string())
+    }
+}
+
+fn test_config(
+    control_max_concurrency: usize,
+    network_max_concurrency: usize,
+    io_max_concurrency: usize,
+    mutation_max_concurrency: usize,
+    pool_queue_capacity: usize,
+) -> SidecarSchedulerConfig {
+    SidecarSchedulerConfig {
+        control_max_concurrency,
+        network_max_concurrency,
+        io_max_concurrency,
+        mutation_max_concurrency,
+        launcher_image_cdn_max_concurrency: SidecarSchedulerConfig::default()
+            .launcher_image_cdn_max_concurrency,
+        pool_queue_capacity,
+    }
+}
+
 impl TestSchedulerHarness {
     fn new(config: SidecarSchedulerConfig) -> Self {
-        let (completed_tx, completed_rx) = mpsc::channel();
+        let (completed_tx, completed_rx) = mpsc::sync_channel(128);
         let writer = Arc::new(TestResponseWriter {
             completed: Mutex::new(completed_tx),
         });
         let resources = Arc::new(SidecarResourceLocks::new());
-        let scheduler = SidecarScheduler::new(writer, resources, config);
+        let debug_logging_state = DebugLoggingState::new();
+        debug_logging_state.set_enabled(true);
+        let scheduler = SidecarScheduler::new(writer, resources, config, debug_logging_state);
         Self {
             scheduler,
             completed: completed_rx,
@@ -246,9 +353,26 @@ impl TestSchedulerHarness {
             "no command should complete yet"
         );
     }
+
+    fn diagnostics_summary(&self) -> String {
+        self.scheduler
+            .diagnostics_summary("test")
+            .expect("debug-enabled test scheduler should produce diagnostics")
+            .summary
+    }
 }
 
 fn create_test_command(
+    lane: SidecarLane,
+    name: &str,
+    resources: &'static [SidecarResource],
+    run: impl FnOnce() -> DispatchResult + Send + 'static,
+) -> ResolvedSidecarCommand {
+    create_test_command_on_pool(HostCommandExecutionPool::Lane, lane, name, resources, run)
+}
+
+fn create_test_command_on_pool(
+    execution_pool: HostCommandExecutionPool,
     lane: SidecarLane,
     name: &str,
     resources: &'static [SidecarResource],
@@ -258,6 +382,7 @@ fn create_test_command(
         id: json!(name),
         name: name.to_string(),
         lane,
+        execution_pool,
         resources,
         cancel_policy: HostCommandCancelPolicy::NotCancellable,
         mutation_policy: if resources.is_empty() {
@@ -266,6 +391,7 @@ fn create_test_command(
             HostCommandMutationPolicy::ExclusiveResources
         },
         submitted_at: Instant::now(),
+        record_telemetry: false,
         run: Box::new(move |_| run()),
     }
 }
@@ -292,13 +418,7 @@ impl Drop for PanicHookGuard {
 
 #[test]
 fn network_flood_does_not_delay_control() {
-    let scheduler = TestSchedulerHarness::new(SidecarSchedulerConfig {
-        control_workers: 1,
-        network_workers: 1,
-        io_workers: 1,
-        mutation_workers: 1,
-        lane_queue_capacity: 8,
-    });
+    let scheduler = TestSchedulerHarness::new(test_config(1, 1, 1, 1, 8));
     let (network_started_tx, network_started_rx) = mpsc::channel();
     let (release_network_tx, release_network_rx) = mpsc::channel();
     scheduler.submit(create_test_command(
@@ -336,14 +456,107 @@ fn network_flood_does_not_delay_control() {
 }
 
 #[test]
-fn network_flood_does_not_delay_io() {
+fn network_pool_dispatcher_preserves_configured_concurrency() {
+    let scheduler = TestSchedulerHarness::new(test_config(1, 2, 1, 1, 8));
+    let active = Arc::new(AtomicUsize::new(0));
+    let max_active = Arc::new(AtomicUsize::new(0));
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_a_tx, release_a_rx) = mpsc::channel();
+    let (release_b_tx, release_b_rx) = mpsc::channel();
+
+    for (name, release_rx) in [("network-a", release_a_rx), ("network-b", release_b_rx)] {
+        let active = Arc::clone(&active);
+        let max_active = Arc::clone(&max_active);
+        let started_tx = started_tx.clone();
+        scheduler.submit(create_test_command(
+            SidecarLane::Network,
+            name,
+            NO_RESOURCES,
+            move || {
+                let current = active.fetch_add(1, Ordering::SeqCst) + 1;
+                max_active.fetch_max(current, Ordering::SeqCst);
+                started_tx.send(()).expect("network should signal start");
+                release_rx.recv().expect("network should be released");
+                active.fetch_sub(1, Ordering::SeqCst);
+                Ok(Value::Null)
+            },
+        ));
+    }
+
+    started_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("first network command should start");
+    started_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("second network command should start concurrently");
+    assert_eq!(max_active.load(Ordering::SeqCst), 2);
+
+    release_a_tx.send(()).expect("first command should release");
+    release_b_tx
+        .send(())
+        .expect("second command should release");
+    let completed = [scheduler.recv().id, scheduler.recv().id];
+    assert!(completed.contains(&json!("network-a")));
+    assert!(completed.contains(&json!("network-b")));
+}
+
+#[test]
+fn launcher_image_cdn_pool_does_not_share_network_lane_workers() {
     let scheduler = TestSchedulerHarness::new(SidecarSchedulerConfig {
-        control_workers: 1,
-        network_workers: 1,
-        io_workers: 1,
-        mutation_workers: 1,
-        lane_queue_capacity: 8,
+        launcher_image_cdn_max_concurrency: 1,
+        ..test_config(1, 1, 1, 1, 8)
     });
+    let (network_started_tx, network_started_rx) = mpsc::channel();
+    let (release_network_tx, release_network_rx) = mpsc::channel();
+    scheduler.submit(create_test_command(
+        SidecarLane::Network,
+        "blocked-network",
+        NO_RESOURCES,
+        move || {
+            network_started_tx
+                .send(())
+                .expect("network should signal start");
+            release_network_rx
+                .recv()
+                .expect("network command should be released");
+            Ok(Value::Null)
+        },
+    ));
+    network_started_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("network command should start");
+
+    let (cover_started_tx, cover_started_rx) = mpsc::channel();
+    scheduler.submit(create_test_command_on_pool(
+        HostCommandExecutionPool::LauncherImageCdn,
+        SidecarLane::Network,
+        "cover",
+        NO_RESOURCES,
+        move || {
+            cover_started_tx
+                .send(())
+                .expect("cover should signal start");
+            Ok(Value::Null)
+        },
+    ));
+    cover_started_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("cover command should start on the dedicated CDN pool");
+    let response = scheduler.recv();
+    assert_eq!(response.id, json!("cover"));
+    assert!(response.ok);
+
+    release_network_tx
+        .send(())
+        .expect("network command should be releasable");
+    let response = scheduler.recv();
+    assert_eq!(response.id, json!("blocked-network"));
+    assert!(response.ok);
+}
+
+#[test]
+fn network_flood_does_not_delay_io() {
+    let scheduler = TestSchedulerHarness::new(test_config(1, 1, 1, 1, 8));
     let (network_started_tx, network_started_rx) = mpsc::channel();
     let (release_network_tx, release_network_rx) = mpsc::channel();
     scheduler.submit(create_test_command(
@@ -382,13 +595,7 @@ fn network_flood_does_not_delay_io() {
 
 #[test]
 fn same_resource_commands_do_not_overlap_across_lanes() {
-    let scheduler = TestSchedulerHarness::new(SidecarSchedulerConfig {
-        control_workers: 1,
-        network_workers: 1,
-        io_workers: 1,
-        mutation_workers: 1,
-        lane_queue_capacity: 8,
-    });
+    let scheduler = TestSchedulerHarness::new(test_config(1, 1, 1, 1, 8));
     let active = Arc::new(AtomicUsize::new(0));
     let max_active = Arc::new(AtomicUsize::new(0));
     let (network_entered_tx, network_entered_rx) = mpsc::channel();
@@ -440,13 +647,7 @@ fn same_resource_commands_do_not_overlap_across_lanes() {
 
 #[test]
 fn remote_cover_network_work_does_not_delay_library_state_mutation() {
-    let scheduler = TestSchedulerHarness::new(SidecarSchedulerConfig {
-        control_workers: 1,
-        network_workers: 1,
-        io_workers: 1,
-        mutation_workers: 1,
-        lane_queue_capacity: 8,
-    });
+    let scheduler = TestSchedulerHarness::new(test_config(1, 1, 1, 1, 8));
     let (cover_started_tx, cover_started_rx) = mpsc::channel();
     let (release_cover_tx, release_cover_rx) = mpsc::channel();
     scheduler.submit(create_test_command(
@@ -485,13 +686,7 @@ fn remote_cover_network_work_does_not_delay_library_state_mutation() {
 
 #[test]
 fn long_network_launcher_commands_do_not_hold_sidecar_resource_locks() {
-    let scheduler = TestSchedulerHarness::new(SidecarSchedulerConfig {
-        control_workers: 1,
-        network_workers: 2,
-        io_workers: 1,
-        mutation_workers: 1,
-        lane_queue_capacity: 8,
-    });
+    let scheduler = TestSchedulerHarness::new(test_config(1, 2, 1, 1, 8));
     let (download_started_tx, download_started_rx) = mpsc::channel();
     let (release_download_tx, release_download_rx) = mpsc::channel();
     scheduler.submit(create_test_command(
@@ -561,13 +756,7 @@ fn long_network_launcher_commands_do_not_hold_sidecar_resource_locks() {
 
 #[test]
 fn resource_locked_network_command_does_not_delay_control_without_same_resource() {
-    let scheduler = TestSchedulerHarness::new(SidecarSchedulerConfig {
-        control_workers: 1,
-        network_workers: 1,
-        io_workers: 1,
-        mutation_workers: 1,
-        lane_queue_capacity: 8,
-    });
+    let scheduler = TestSchedulerHarness::new(test_config(1, 1, 1, 1, 8));
     let (network_started_tx, network_started_rx) = mpsc::channel();
     let (release_network_tx, release_network_rx) = mpsc::channel();
     scheduler.submit(create_test_command(
@@ -602,13 +791,13 @@ fn resource_locked_network_command_does_not_delay_control_without_same_resource(
 
 #[test]
 fn mutation_is_serial() {
-    let scheduler = TestSchedulerHarness::new(SidecarSchedulerConfig {
-        control_workers: 2,
-        network_workers: 1,
-        io_workers: 1,
-        mutation_workers: SidecarSchedulerConfig::default().mutation_workers,
-        lane_queue_capacity: 8,
-    });
+    let scheduler = TestSchedulerHarness::new(test_config(
+        2,
+        1,
+        1,
+        SidecarSchedulerConfig::default().mutation_max_concurrency,
+        8,
+    ));
     let active = Arc::new(AtomicUsize::new(0));
     let max_active = Arc::new(AtomicUsize::new(0));
     let (first_entered_tx, first_entered_rx) = mpsc::channel();
@@ -660,13 +849,7 @@ fn mutation_is_serial() {
 
 #[test]
 fn enqueue_failure_returns_error_response_for_request_id() {
-    let scheduler = TestSchedulerHarness::new(SidecarSchedulerConfig {
-        control_workers: 1,
-        network_workers: 1,
-        io_workers: 1,
-        mutation_workers: 1,
-        lane_queue_capacity: 1,
-    });
+    let scheduler = TestSchedulerHarness::new(test_config(1, 1, 1, 1, 1));
     let (first_started_tx, first_started_rx) = mpsc::channel();
     let (release_first_tx, release_first_rx) = mpsc::channel();
     scheduler.submit(create_test_command(
@@ -703,18 +886,59 @@ fn enqueue_failure_returns_error_response_for_request_id() {
         .expect("first command should be releasable");
     assert_eq!(scheduler.recv().id, json!("first"));
     assert_eq!(scheduler.recv().id, json!("queued"));
+    let summary = scheduler.diagnostics_summary();
+    assert!(summary.contains("HostRuntime stats summary"));
+    assert!(summary.contains("Pools"));
+    assert!(summary.contains("usage="));
+    assert!(summary.contains("jobs="));
+    assert!(summary.contains("Network/Lane"));
+    assert!(summary.contains("rej=1"));
+}
+
+#[test]
+fn writer_failure_records_diagnostics_and_releases_active_slot() {
+    let debug_logging_state = DebugLoggingState::new();
+    debug_logging_state.set_enabled(true);
+    let scheduler = SidecarScheduler::new(
+        Arc::new(FailingResponseWriter),
+        Arc::new(SidecarResourceLocks::new()),
+        test_config(1, 1, 1, 1, 8),
+        debug_logging_state,
+    );
+    scheduler.submit(create_test_command(
+        SidecarLane::Io,
+        "writer-fails",
+        NO_RESOURCES,
+        || Ok(Value::Null),
+    ));
+
+    let deadline = std::time::Instant::now() + Duration::from_secs(1);
+    let summary = loop {
+        let summary = scheduler
+            .diagnostics_summary("test")
+            .expect("debug-enabled scheduler should produce diagnostics")
+            .summary;
+        if summary.contains("writerFailed")
+            && summary.contains("Io/Lane")
+            && summary.contains("active=0/1")
+            && summary.contains("peak=1/1")
+            && summary.contains("writerFailed=1")
+        {
+            break summary;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "writer failure should be reflected in diagnostics: {summary}"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    assert!(summary.contains("Anomalies"));
 }
 
 #[test]
 fn panic_returns_error_and_worker_survives() {
     let _panic_hook_guard = PanicHookGuard::silence();
-    let scheduler = TestSchedulerHarness::new(SidecarSchedulerConfig {
-        control_workers: 1,
-        network_workers: 1,
-        io_workers: 1,
-        mutation_workers: 1,
-        lane_queue_capacity: 8,
-    });
+    let scheduler = TestSchedulerHarness::new(test_config(1, 1, 1, 1, 8));
     scheduler.submit(create_test_command(
         SidecarLane::Io,
         "panic",
@@ -736,4 +960,56 @@ fn panic_returns_error_and_worker_survives() {
     let response = scheduler.recv();
     assert_eq!(response.id, json!("after"));
     assert!(response.ok);
+    let summary = scheduler.diagnostics_summary();
+    assert!(summary.contains("Anomalies"));
+    assert!(summary.contains("Io/Lane"));
+    assert!(summary.contains("panicked"));
+    assert!(summary.contains("panicked=1"));
+    assert!(summary.contains("fail=1"));
+}
+
+#[test]
+fn telemetry_uses_per_command_sampling_when_debug_changes_mid_run() {
+    let debug_logging_state = DebugLoggingState::new();
+    let (completed_tx, completed_rx) = mpsc::sync_channel(128);
+    let writer = Arc::new(TestResponseWriter {
+        completed: Mutex::new(completed_tx),
+    });
+    let scheduler = SidecarScheduler::new(
+        writer,
+        Arc::new(SidecarResourceLocks::new()),
+        test_config(1, 1, 1, 1, 8),
+        debug_logging_state.clone(),
+    );
+    scheduler.submit(create_test_command(
+        SidecarLane::Network,
+        "before-debug",
+        NO_RESOURCES,
+        || Ok(Value::Null),
+    ));
+    let response = completed_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("first command should complete");
+    assert_eq!(response.id, json!("before-debug"));
+
+    debug_logging_state.set_enabled(true);
+    scheduler.submit(create_test_command(
+        SidecarLane::Network,
+        "after-debug",
+        NO_RESOURCES,
+        || Ok(Value::Null),
+    ));
+    let response = completed_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("second command should complete");
+    assert_eq!(response.id, json!("after-debug"));
+
+    let summary = scheduler
+        .diagnostics_summary("test")
+        .expect("debug-enabled scheduler should produce diagnostics")
+        .summary;
+    assert!(
+        summary.contains("jobs=1 ok=1"),
+        "debug-enabled command should keep jobs and ok counts aligned: {summary}"
+    );
 }

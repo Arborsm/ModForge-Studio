@@ -1,7 +1,9 @@
+import { waitFor } from '@testing-library/react'
 import type { PlatformPorts } from '@shared/contracts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 
 const LAUNCHER_UPDATE_PROGRESS_EVENT = 'launcher://update-check-progress'
+const LAUNCHER_IMAGE_FETCH_DISCONNECTED_EVENT = 'launcher://image-fetch-disconnected'
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -393,6 +395,24 @@ describe('launcher desktop API', () => {
     unlisten()
   })
 
+  it('forwards launcher image fetch disconnect events from the host', async () => {
+    const { launcherDesktop, eventListeners } = await loadConfiguredLauncherDesktop()
+    const listener = vi.fn()
+    const unlisten = await launcherDesktop.listenToLauncherImageFetchDisconnected(listener)
+    const payload = {
+      sourceUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/20599/cover.webp',
+      modKey: '20599',
+      error: 'connection reset by peer',
+      elapsedMs: 1204,
+    }
+
+    eventListeners.get(LAUNCHER_IMAGE_FETCH_DISCONNECTED_EVENT)?.(payload)
+
+    expect(listener).toHaveBeenCalledWith(payload)
+
+    unlisten()
+  })
+
   it('invalidates launcher cover and scan caches when clearing launcher image cache', async () => {
     const { launcherDesktop, invokeCommand } = await loadConfiguredLauncherDesktop()
     const firstCovers = { covers: [{ labelKey: '20599', imagePath: 'C:\\cache\\cover-1.webp' }] }
@@ -457,6 +477,59 @@ describe('launcher desktop API', () => {
     })
   })
 
+  it('allows forty remote launcher image resolves to run before queueing the next one', async () => {
+    const { launcherDesktop, invokeCommand } = await loadConfiguredLauncherDesktop()
+    const pending = Array.from({ length: 41 }, () =>
+      createDeferred<{
+        sourceUrl: string
+        localPath: string
+        mimeType: string
+      }>(),
+    )
+    invokeCommand.mockImplementation((_command, args) => {
+      const index =
+        Number(
+          String(args?.request?.url ?? '')
+            .split('/cover-')[1]
+            ?.split('.')[0] ?? '0',
+        ) - 1
+      return pending[index]?.promise
+    })
+
+    const requests = pending.map((_, index) =>
+      launcherDesktop.resolveLauncherImage({
+        url: `https://example.test/cover-${index + 1}.png`,
+        refresh: false,
+        modKey: String(index + 1),
+      }),
+    )
+
+    await waitFor(() => {
+      expect(invokeCommand).toHaveBeenCalledTimes(40)
+    })
+    expect(invokeCommand).toHaveBeenCalledTimes(40)
+
+    pending[0]!.resolve({
+      sourceUrl: 'https://example.test/cover-1.png',
+      localPath: 'C:\\cache\\cover-1.png',
+      mimeType: 'image/png',
+    })
+
+    await waitFor(() => {
+      expect(invokeCommand).toHaveBeenCalledTimes(41)
+    })
+
+    for (let index = 1; index < pending.length; index += 1) {
+      pending[index]!.resolve({
+        sourceUrl: `https://example.test/cover-${index + 1}.png`,
+        localPath: `C:\\cache\\cover-${index + 1}.png`,
+        mimeType: 'image/png',
+      })
+    }
+
+    await Promise.all(requests)
+  })
+
   it('short-circuits remote detail requests after Nexus marks a mod unavailable', async () => {
     const { launcherDesktop, invokeCommand } = await loadConfiguredLauncherDesktop()
     invokeCommand.mockResolvedValueOnce({
@@ -508,5 +581,44 @@ describe('launcher desktop API', () => {
         modKey: '20599',
       },
     })
+  })
+
+  it('uses a wider dedicated pool for cached launcher image probes', async () => {
+    const { launcherDesktop, invokeCommand } = await loadConfiguredLauncherDesktop()
+    const pending = Array.from({ length: 9 }, () => createDeferred<null>())
+    invokeCommand.mockImplementation((_command, args) => {
+      const index =
+        Number(
+          String(args?.request?.url ?? '')
+            .split('/cached-')[1]
+            ?.split('.')[0] ?? '0',
+        ) - 1
+      return pending[index]?.promise
+    })
+
+    const requests = pending.map((_, index) =>
+      launcherDesktop.resolveCachedLauncherImage({
+        url: `https://example.test/cached-${index + 1}.png`,
+        refresh: false,
+        modKey: String(index + 1),
+      }),
+    )
+
+    await waitFor(() => {
+      expect(invokeCommand).toHaveBeenCalledTimes(8)
+    })
+    expect(invokeCommand).toHaveBeenCalledTimes(8)
+
+    pending[0]!.resolve(null)
+
+    await waitFor(() => {
+      expect(invokeCommand).toHaveBeenCalledTimes(9)
+    })
+
+    for (let index = 1; index < pending.length; index += 1) {
+      pending[index]!.resolve(null)
+    }
+
+    await Promise.all(requests)
   })
 })

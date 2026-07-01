@@ -184,18 +184,16 @@ function draft(draftStorageKey: string): CpMakerDraft {
   }
 }
 
-function renderExperience({
-  onWorkbenchEvent = vi.fn(),
-  workbenchActivationKey,
-  workbenchViews,
-}: {
+type RenderExperienceOptions = {
   onWorkbenchEvent?: (event: AppEvent) => void
   workbenchActivationKey?: number
   workbenchViews?: readonly WorkbenchViewRegistration[]
-} = {}) {
+}
+
+function renderExperienceElement({ onWorkbenchEvent = vi.fn(), workbenchActivationKey, workbenchViews }: RenderExperienceOptions = {}) {
   const registeredViews = workbenchViews ?? []
 
-  return renderWithLocale(
+  return (
     <WorkbenchExperience
       pendingWorkbenchIntent={null}
       onClearPendingIntent={vi.fn()}
@@ -215,8 +213,12 @@ function renderExperience({
       getWorkbenchViewRegistration={(viewId) => registeredViews.find((view) => view.viewId === viewId) ?? viewRegistration(viewId)}
       workbenchViews={workbenchViews}
       workbenchActivationKey={workbenchActivationKey}
-    />,
+    />
   )
+}
+
+function renderExperience(options: RenderExperienceOptions = {}) {
+  return renderWithLocale(renderExperienceElement(options))
 }
 
 async function configureGameDirectory() {
@@ -657,6 +659,20 @@ describe('WorkbenchExperience launchpad navigation', () => {
     })
   })
 
+  it('does not patch recent game directories again when the same directory list rerenders', async () => {
+    const { rerender } = renderExperience()
+    await configureGameDirectory()
+
+    applyAppUiStatePatchSpy.mockClear()
+
+    rerender(<LocaleProvider locale="en-US">{renderExperienceElement()}</LocaleProvider>)
+    rerender(<LocaleProvider locale="en-US">{renderExperienceElement()}</LocaleProvider>)
+
+    await waitFor(() => {
+      expect(applyAppUiStatePatchSpy).not.toHaveBeenCalled()
+    })
+  })
+
   it('opens dev-only registered workbench views from the launchpad', async () => {
     renderExperience({
       workbenchViews: [
@@ -682,5 +698,33 @@ describe('WorkbenchExperience launchpad navigation', () => {
     const dock = getDock()
     expect(within(dock).queryByRole('button', { name: 'Project Library' })).toBeNull()
     expect(within(dock).getByRole('button', { name: '资源浏览器' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('does not reopen the launchpad when a late workbench activation arrives after opening a dev view', async () => {
+    const workbenchViews: readonly WorkbenchViewRegistration[] = [
+      {
+        id: 'dev-resource-browser',
+        kind: 'workbench-view',
+        title: '资源浏览器',
+        viewId: 'dev-resource-browser',
+        devOnly: true,
+        component: () => <div>Resource Browser Lab</div>,
+      },
+    ]
+    const { rerender } = renderExperience({ workbenchActivationKey: 0, workbenchViews })
+    await configureGameDirectory()
+
+    fireEvent.click(within(screen.getByRole('region', { name: 'Workbench Home' })).getByRole('button', { name: '资源浏览器' }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
+    })
+
+    rerender(<LocaleProvider locale="en-US">{renderExperienceElement({ workbenchActivationKey: 1, workbenchViews })}</LocaleProvider>)
+
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
+    })
+    expect(screen.getByText('Resource Browser Lab')).toBeTruthy()
   })
 })

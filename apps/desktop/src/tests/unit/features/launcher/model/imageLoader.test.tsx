@@ -200,7 +200,7 @@ describe('useLauncherImage', () => {
     })
   })
 
-  it('waits for the current local cache lookup batch before starting network image requests', async () => {
+  it('does not wait for unrelated local cache lookups before starting a network image request', async () => {
     const slowLocal = createDeferred<null>()
     const port = createMockLauncherPort({
       resolveCachedImage: vi.fn().mockImplementation(async (request) => {
@@ -231,15 +231,27 @@ describe('useLauncherImage', () => {
     await waitFor(() => {
       expect(port.resolveCachedImage).toHaveBeenCalledTimes(2)
     })
-    expect(port.resolveImage).not.toHaveBeenCalled()
-
-    slowLocal.resolve(null)
 
     await waitFor(() => {
       expect(port.resolveImage).toHaveBeenCalledWith({
         url: 'https://example.com/network-cover.png',
         refresh: false,
         modKey: '102',
+      })
+    })
+    expect(port.resolveImage).not.toHaveBeenCalledWith({
+      url: 'https://example.com/slow-local.png',
+      refresh: false,
+      modKey: '101',
+    })
+
+    slowLocal.resolve(null)
+
+    await waitFor(() => {
+      expect(port.resolveImage).toHaveBeenCalledWith({
+        url: 'https://example.com/slow-local.png',
+        refresh: false,
+        modKey: '101',
       })
     })
   })

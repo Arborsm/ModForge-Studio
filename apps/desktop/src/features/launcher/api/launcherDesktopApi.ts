@@ -15,6 +15,7 @@ import type {
   LauncherCatalogPageResult,
   LauncherDownloadProgressPayload,
   LauncherDownloadQueueState,
+  LauncherImageFetchDisconnectedPayload,
   LauncherGameLaunchResult,
   LauncherInstallBackupSummary,
   LauncherLibraryCoversState,
@@ -72,6 +73,7 @@ const invalidLauncherRemoteModIds = new Set<number>()
 let launcherUpdatesProgressBridgePromise: Promise<void> | null = null
 let launcherUpdatesSessionCounter = 0
 
+const LAUNCHER_IMAGE_FETCH_DISCONNECTED_EVENT = 'launcher://image-fetch-disconnected'
 const launcherSettingsMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherSettings' } satisfies HostCommandPolicy
 const launcherLibraryMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherLibraryState' } satisfies HostCommandPolicy
 const launcherCoversMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherLibraryCovers' } satisfies HostCommandPolicy
@@ -80,7 +82,11 @@ const launcherInstallMutationPolicy = { kind: 'exclusiveMutation', resource: 'La
 const launcherImageCacheMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherImageCache' } satisfies HostCommandPolicy
 const launcherIoPoolPolicy = { kind: 'parallelPool', pool: 'launcher-io', limit: 2 } satisfies HostCommandPolicy
 const launcherNetworkPoolPolicy = { kind: 'parallelPool', pool: 'launcher-network', limit: 4 } satisfies HostCommandPolicy
-const launcherImagePoolPolicy = { kind: 'parallelPool', pool: 'launcher-images', limit: 4 } satisfies HostCommandPolicy
+const launcherCachedImagePoolPolicy = { kind: 'parallelPool', pool: 'launcher-cached-images', limit: 8 } satisfies HostCommandPolicy
+// Launcher cover probe 2026-07-01: Nexus image CDN completed 24/32/40/48/56
+// concurrent GET body downloads with HTTP 200; 64+ became unstable with TLS
+// ECONNRESET, not HTTP 429. Keep the cover pool below that cliff.
+const launcherImagePoolPolicy = { kind: 'parallelPool', pool: 'launcher-images', limit: 40 } satisfies HostCommandPolicy
 const launcherDownloadPoolPolicy = { kind: 'parallelPool', pool: 'launcher-downloads', limit: 2 } satisfies HostCommandPolicy
 const launcherArchiveIoPolicy = { kind: 'parallelPool', pool: 'launcher-archive-io', limit: 2 } satisfies HostCommandPolicy
 const launcherUpdatesNetworkPoolPolicy = { kind: 'parallelPool', pool: 'launcher-updates', limit: 2 } satisfies HostCommandPolicy
@@ -544,7 +550,11 @@ export function resolveLauncherImage(request: ResolveLauncherImageRequest) {
 
 /** Resolves a launcher image only when it is already local or cached on disk. */
 export function resolveCachedLauncherImage(request: ResolveLauncherImageRequest) {
-  return invokeDesktop<ResolveLauncherImageResult | null>(HOST_COMMANDS.resolveCachedLauncherImage, { request }, launcherIoPoolPolicy)
+  return invokeDesktop<ResolveLauncherImageResult | null>(
+    HOST_COMMANDS.resolveCachedLauncherImage,
+    { request },
+    launcherCachedImagePoolPolicy,
+  )
 }
 
 /** Returns the directory used for launcher install backups. */
@@ -644,6 +654,13 @@ export function listenToLauncherUpdateProgress(listener: (payload: LauncherUpdat
     }
     listener(payload)
   })
+}
+
+/** Listens to launcher cover fetch disconnects emitted by the desktop backend. */
+export function listenToLauncherImageFetchDisconnected(
+  listener: (payload: LauncherImageFetchDisconnectedPayload) => void,
+): Promise<UnlistenFn> {
+  return getPlatformPorts().hostEvents.listen<LauncherImageFetchDisconnectedPayload>(LAUNCHER_IMAGE_FETCH_DISCONNECTED_EVENT, listener)
 }
 
 /** Queues or starts a remote mod archive download. */

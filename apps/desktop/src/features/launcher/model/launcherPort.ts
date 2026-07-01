@@ -40,6 +40,7 @@ import type {
   SetLauncherModEnabledRequest,
   SetLauncherModEnabledResult,
   LauncherDownloadProgressPayload,
+  LauncherImageFetchDisconnectedPayload,
   LauncherUpdateProgressPayload,
   RecordLauncherImageFailureRequest,
   SaveLauncherSettingsRequest,
@@ -81,6 +82,7 @@ export type LauncherPort = {
   loadSuppressedUpdateModIds: (request: LoadSuppressedLauncherUpdateModIdsRequest) => Promise<LauncherSuppressedUpdateModIdsResult>
   checkUpdates: (request: CheckLauncherUpdatesRequest) => Promise<LauncherUpdatesResult>
   listenToUpdateProgress: (listener: (payload: LauncherUpdateProgressPayload) => void) => Promise<() => void>
+  listenToImageFetchDisconnected: (listener: (payload: LauncherImageFetchDisconnectedPayload) => void) => Promise<() => void>
   downloadMod: (request: DownloadLauncherModRequest) => Promise<DownloadLauncherModResult>
   cancelDownload: (downloadId: string) => Promise<void>
   listenToDownloadProgress: (listener: (payload: LauncherDownloadProgressPayload) => void) => Promise<() => void>

@@ -963,6 +963,47 @@ describe('useLauncherLibrary', () => {
     expect(checkLauncherUpdatesMock).not.toHaveBeenCalled()
   })
 
+  it('applies live update snapshots from the shared updates subscription', async () => {
+    let subscriptionListener:
+      | ((result: { modsPath: string; checkedAtMs: number; updates: Array<{ modId: number; latestVersion: string }> }) => void)
+      | null = null
+
+    vi.mocked(launcherPort.subscribeUpdates).mockImplementation((_modsPath, listener) => {
+      subscriptionListener = listener as typeof subscriptionListener
+      return () => {}
+    })
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+
+    await waitFor(() => {
+      expect(launcherPort.subscribeUpdates).toHaveBeenCalledWith('E:\\Games\\Stardew Valley\\Mods', expect.any(Function))
+    })
+
+    await act(async () => {
+      subscriptionListener?.({
+        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+        checkedAtMs: 123,
+        updates: [{ modId: 101, latestVersion: '1.2.0' }],
+      })
+      await flushAsyncWork()
+    })
+
+    expect(result.current.latestVersionByModId).toEqual({
+      101: '1.2.0',
+    })
+
+    await act(async () => {
+      subscriptionListener?.({
+        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+        checkedAtMs: 456,
+        updates: [],
+      })
+      await flushAsyncWork()
+    })
+
+    expect(result.current.latestVersionByModId).toEqual({})
+  })
+
   it('writes the persisted local cover path back into the current mod state', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2000-01-01T00:05:00Z'))

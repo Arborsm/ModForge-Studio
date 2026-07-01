@@ -2,6 +2,7 @@ use reqwest::StatusCode;
 use reqwest::blocking::{Client, Response};
 use reqwest::header::{ACCEPT, HeaderMap, HeaderValue, USER_AGENT};
 use serde_json::Value;
+use std::error::Error;
 use std::sync::{
     Mutex, OnceLock,
     atomic::{AtomicU64, Ordering},
@@ -16,7 +17,57 @@ pub(crate) const LAUNCHER_APP_VERSION: &str = "0.1";
 
 const NEXUS_REQUEST_INTERVAL_MIN_MS: u64 = 45;
 const NEXUS_REQUEST_INTERVAL_MAX_MS: u64 = 80;
-const NEXUS_RETRY_ATTEMPTS: usize = 4;
+const NEXUS_DEFAULT_RETRY_ATTEMPTS: usize = 4;
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum NexusRetryDelay {
+    HeaderOrJitter,
+    Exponential { base_ms: u64, max_ms: u64 },
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct NexusRetryPolicy {
+    label: &'static str,
+    max_retries: usize,
+    delay: NexusRetryDelay,
+    throttle: bool,
+}
+
+impl NexusRetryPolicy {
+    const fn new(
+        label: &'static str,
+        max_retries: usize,
+        delay: NexusRetryDelay,
+        throttle: bool,
+    ) -> Self {
+        Self {
+            label,
+            max_retries,
+            delay,
+            throttle,
+        }
+    }
+
+    pub(crate) fn max_retries(self) -> usize {
+        self.max_retries
+    }
+}
+
+const DEFAULT_NEXUS_RETRY_POLICY: NexusRetryPolicy = NexusRetryPolicy::new(
+    "nexus",
+    NEXUS_DEFAULT_RETRY_ATTEMPTS,
+    NexusRetryDelay::HeaderOrJitter,
+    true,
+);
+pub(crate) const LAUNCHER_IMAGE_CDN_RETRY_POLICY: NexusRetryPolicy = NexusRetryPolicy::new(
+    "launcher image CDN",
+    3,
+    NexusRetryDelay::Exponential {
+        base_ms: 250,
+        max_ms: 2_000,
+    },
+    false,
+);
 
 #[derive(Debug)]
 struct NexusThrottleState {
@@ -148,46 +199,95 @@ pub(crate) fn retry_delay_from_headers(headers: &HeaderMap, attempt: usize) -> D
         })
 }
 
-fn retry_delay(response: Option<&Response>, attempt: usize) -> Duration {
-    let retry_after = response.map(|value| retry_delay_from_headers(value.headers(), attempt));
-    retry_after.unwrap_or_else(|| retry_delay_from_headers(&HeaderMap::new(), attempt))
+fn exponential_retry_delay(base_ms: u64, max_ms: u64, attempt: usize) -> Duration {
+    let multiplier = 1_u64.checked_shl(attempt as u32).unwrap_or(u64::MAX);
+    Duration::from_millis(base_ms.saturating_mul(multiplier).min(max_ms))
+}
+
+pub(crate) fn retry_delay_for_policy(
+    policy: NexusRetryPolicy,
+    headers: Option<&HeaderMap>,
+    attempt: usize,
+) -> Duration {
+    if let Some(delay) = headers.and_then(|value| {
+        parse_retry_after_seconds(value).or_else(|| parse_rate_limit_reset_delay(value))
+    }) {
+        return delay;
+    }
+
+    match policy.delay {
+        NexusRetryDelay::HeaderOrJitter => retry_delay_from_headers(&HeaderMap::new(), attempt),
+        NexusRetryDelay::Exponential { base_ms, max_ms } => {
+            exponential_retry_delay(base_ms, max_ms, attempt)
+        }
+    }
+}
+
+fn reqwest_error_with_sources(error: &reqwest::Error) -> String {
+    let mut message = error.to_string();
+    let mut source = error.source();
+    while let Some(error_source) = source {
+        message.push_str("; cause=");
+        message.push_str(&error_source.to_string());
+        source = error_source.source();
+    }
+    message
 }
 
 pub(crate) fn send_nexus_request<F>(mut send: F) -> Result<Response, String>
 where
     F: FnMut() -> Result<Response, reqwest::Error>,
 {
+    send_nexus_request_with_policy(DEFAULT_NEXUS_RETRY_POLICY, &mut send)
+}
+
+pub(crate) fn send_nexus_request_with_policy<F>(
+    policy: NexusRetryPolicy,
+    mut send: F,
+) -> Result<Response, String>
+where
+    F: FnMut() -> Result<Response, reqwest::Error>,
+{
     let mut last_error = None;
 
-    for attempt in 0..=NEXUS_RETRY_ATTEMPTS {
-        let outcome = with_nexus_request_slot(&mut send);
+    for attempt in 0..=policy.max_retries {
+        let outcome = if policy.throttle {
+            with_nexus_request_slot(&mut send)
+        } else {
+            send()
+        };
         match outcome {
             Ok(response)
-                if should_retry_status(response.status()) && attempt < NEXUS_RETRY_ATTEMPTS =>
+                if should_retry_status(response.status()) && attempt < policy.max_retries =>
             {
-                let delay = retry_delay(Some(&response), attempt);
+                let delay = retry_delay_for_policy(policy, Some(response.headers()), attempt);
                 log::warn!(
-                    "retrying nexus request after HTTP {} in {:?} (attempt {})",
+                    "retrying {} request after HTTP {} in {:?} (retry {}/{})",
+                    policy.label,
                     response.status(),
                     delay,
-                    attempt + 1
+                    attempt + 1,
+                    policy.max_retries
                 );
                 thread::sleep(delay);
             }
             Ok(response) => return Ok(response),
-            Err(error) if attempt < NEXUS_RETRY_ATTEMPTS => {
-                let delay = retry_delay(None, attempt);
+            Err(error) if attempt < policy.max_retries => {
+                let delay = retry_delay_for_policy(policy, None, attempt);
+                let error_message = reqwest_error_with_sources(&error);
                 log::warn!(
-                    "retrying nexus request after transport error in {:?} (attempt {}): {}",
+                    "retrying {} request after transport error in {:?} (retry {}/{}): {}",
+                    policy.label,
                     delay,
                     attempt + 1,
-                    error
+                    policy.max_retries,
+                    error_message
                 );
                 thread::sleep(delay);
-                last_error = Some(error.to_string());
+                last_error = Some(error_message);
             }
             Err(error) => {
-                last_error = Some(error.to_string());
+                last_error = Some(reqwest_error_with_sources(&error));
                 break;
             }
         }
@@ -200,19 +300,29 @@ pub(crate) fn read_nexus_response_body_with_retry<F>(mut read_body: F) -> Result
 where
     F: FnMut() -> Result<Vec<u8>, String>,
 {
+    read_nexus_response_body_with_retry_policy(DEFAULT_NEXUS_RETRY_POLICY, &mut read_body)
+}
+
+pub(crate) fn read_nexus_response_body_with_retry_policy<T, F>(
+    policy: NexusRetryPolicy,
+    mut read_body: F,
+) -> Result<T, String>
+where
+    F: FnMut() -> Result<T, String>,
+{
     let mut last_error = None;
 
-    for attempt in 0..=NEXUS_RETRY_ATTEMPTS {
+    for attempt in 0..=policy.max_retries {
         match read_body() {
             Ok(body) => return Ok(body),
-            Err(error)
-                if attempt < NEXUS_RETRY_ATTEMPTS && should_retry_body_read_error(&error) =>
-            {
-                let delay = retry_delay(None, attempt);
+            Err(error) if attempt < policy.max_retries && should_retry_body_read_error(&error) => {
+                let delay = retry_delay_for_policy(policy, None, attempt);
                 log::warn!(
-                    "retrying nexus request after body read error in {:?} (attempt {}): {}",
+                    "retrying {} request after body read error in {:?} (retry {}/{}): {}",
+                    policy.label,
                     delay,
                     attempt + 1,
+                    policy.max_retries,
                     error
                 );
                 thread::sleep(delay);

@@ -7,18 +7,40 @@ use crate::domain::launcher::image_failures::{
     record_launcher_image_failure,
 };
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
-use crate::domain::nexusmods::http::launcher_http_client;
+use crate::domain::nexusmods::http::{
+    LAUNCHER_IMAGE_CDN_RETRY_POLICY, launcher_http_client,
+    read_nexus_response_body_with_retry_policy, send_nexus_request_with_policy,
+};
 use crate::domain::nexusmods::routes::launcher_nexus_route_for_url;
 use crate::infrastructure::fs::pathing::normalize_path;
 use reqwest::header::CONTENT_TYPE;
+use reqwest::{StatusCode, header::HeaderMap};
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard, OnceLock};
+use std::time::Instant;
 
 static LAUNCHER_IMAGE_CACHE_FILE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 static LAUNCHER_IMAGE_CACHE_GENERATION: AtomicU64 = AtomicU64::new(0);
+const LAUNCHER_IMAGE_DISCONNECT_EVENT: &str = "launcher://image-fetch-disconnected";
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LauncherImageFetchDisconnectedPayload {
+    source_url: String,
+    mod_key: Option<String>,
+    error: String,
+    elapsed_ms: u128,
+}
+
+struct LauncherImageFetchResult {
+    status: StatusCode,
+    headers: HeaderMap,
+    bytes: Vec<u8>,
+}
 
 fn lock_launcher_image_cache_files() -> MutexGuard<'static, ()> {
     match LAUNCHER_IMAGE_CACHE_FILE_LOCK
@@ -126,6 +148,74 @@ fn mime_type_from_path(path: &Path) -> String {
     }
 }
 
+fn is_launcher_image_disconnect_error(error: &str) -> bool {
+    let normalized = error.trim().to_ascii_lowercase();
+    normalized.contains("econnreset")
+        || normalized.contains("connection reset")
+        || normalized.contains("connection was reset")
+        || normalized.contains("disconnected before secure tls connection")
+        || normalized.contains("unexpected eof")
+}
+
+fn emit_launcher_image_disconnect(
+    app: &AppHandle,
+    url: &str,
+    mod_key: Option<&str>,
+    error: &str,
+    elapsed_ms: u128,
+) {
+    if !is_launcher_image_disconnect_error(error) {
+        return;
+    }
+
+    if let Err(emit_error) = app.emit(
+        LAUNCHER_IMAGE_DISCONNECT_EVENT,
+        LauncherImageFetchDisconnectedPayload {
+            source_url: url.to_string(),
+            mod_key: mod_key.map(ToOwned::to_owned),
+            error: error.to_string(),
+            elapsed_ms,
+        },
+    ) {
+        log::warn!(
+            target: "Launcher",
+            "launcher.image.cover.disconnect-notify.failed error=\"{}\"",
+            emit_error
+        );
+    }
+}
+
+fn fetch_launcher_image_with_retry(
+    client: &reqwest::blocking::Client,
+    url: &str,
+) -> Result<LauncherImageFetchResult, String> {
+    read_nexus_response_body_with_retry_policy(LAUNCHER_IMAGE_CDN_RETRY_POLICY, || {
+        let response = send_nexus_request_with_policy(LAUNCHER_IMAGE_CDN_RETRY_POLICY, || {
+            client.get(url).send()
+        })
+        .map_err(|error| format!("Failed to fetch launcher image: {error}"))?;
+        let status = response.status();
+        let headers = response.headers().clone();
+        if !status.is_success() {
+            return Ok(LauncherImageFetchResult {
+                status,
+                headers,
+                bytes: Vec::new(),
+            });
+        }
+
+        let bytes = response
+            .bytes()
+            .map(|bytes| bytes.to_vec())
+            .map_err(|error| format!("Failed to read launcher image bytes: {error}"))?;
+        Ok(LauncherImageFetchResult {
+            status,
+            headers,
+            bytes,
+        })
+    })
+}
+
 pub(crate) fn clear_launcher_image_cache_dir(cache_dir: &Path) -> Result<(), String> {
     let _cache_file_guard = lock_launcher_image_cache_files();
     LAUNCHER_IMAGE_CACHE_GENERATION.fetch_add(1, Ordering::SeqCst);
@@ -159,7 +249,7 @@ fn cover_mod_key(request: &ResolveLauncherImageRequest) -> Option<String> {
 }
 
 pub(crate) fn resolve_launcher_image_blocking(
-    _app: &AppHandle,
+    app: &AppHandle,
     request: &ResolveLauncherImageRequest,
 ) -> Result<ResolveLauncherImageResult, String> {
     let request = request;
@@ -207,24 +297,39 @@ pub(crate) fn resolve_launcher_image_blocking(
                 return Err(error);
             }
         }
-        let response = client
-            .get(url)
-            .send()
-            .map_err(|error| format!("Failed to fetch launcher image: {error}"));
-        let response = match response {
-            Ok(response) => response,
+        let fetch_started_at = Instant::now();
+        let fetch_result = fetch_launcher_image_with_retry(&client, url);
+        let fetch_result = match fetch_result {
+            Ok(fetch_result) => fetch_result,
             Err(error) => {
+                let elapsed_ms = fetch_started_at.elapsed().as_millis();
+                log::warn!(
+                    target: "Launcher",
+                    "launcher.image.cover.fetch.failed phase=\"network\" url-hash=\"{}\" mod-key=\"{}\" retries={} elapsed-ms={} error=\"{}\"",
+                    cache_key,
+                    mod_key.as_deref().unwrap_or(""),
+                    LAUNCHER_IMAGE_CDN_RETRY_POLICY.max_retries(),
+                    elapsed_ms,
+                    error
+                );
+                emit_launcher_image_disconnect(app, url, mod_key.as_deref(), &error, elapsed_ms);
                 if let Some(mod_key) = mod_key.as_deref() {
                     record_launcher_image_failure(mod_key, &error)?;
                 }
                 return Err(error);
             }
         };
-        if !response.status().is_success() {
-            let error = format!(
-                "Failed to fetch launcher image {}: HTTP {}",
-                url,
-                response.status()
+        let status = fetch_result.status;
+        if !status.is_success() {
+            let error = format!("Failed to fetch launcher image {}: HTTP {}", url, status);
+            log::warn!(
+                target: "Launcher",
+                "launcher.image.cover.fetch.failed phase=\"status\" url-hash=\"{}\" mod-key=\"{}\" status={} elapsed-ms={} error=\"{}\"",
+                cache_key,
+                mod_key.as_deref().unwrap_or(""),
+                status,
+                fetch_started_at.elapsed().as_millis(),
+                error
             );
             if let Some(mod_key) = mod_key.as_deref() {
                 record_launcher_image_failure(mod_key, &error)?;
@@ -232,8 +337,8 @@ pub(crate) fn resolve_launcher_image_blocking(
             return Err(error);
         }
 
-        let content_type = response
-            .headers()
+        let content_type = fetch_result
+            .headers
             .get(CONTENT_TYPE)
             .and_then(|value| value.to_str().ok())
             .unwrap_or("image/jpeg")
@@ -242,18 +347,8 @@ pub(crate) fn resolve_launcher_image_blocking(
             .or_else(|| extension_from_url(url))
             .unwrap_or_else(|| "jpg".to_string());
         let target_path = cache_dir.join(format!("{cache_key}.{extension}"));
-        let bytes = response
-            .bytes()
-            .map_err(|error| format!("Failed to read launcher image bytes: {error}"));
-        let bytes = match bytes {
-            Ok(bytes) => bytes,
-            Err(error) => {
-                if let Some(mod_key) = mod_key.as_deref() {
-                    record_launcher_image_failure(mod_key, &error)?;
-                }
-                return Err(error);
-            }
-        };
+        let bytes = fetch_result.bytes;
+        let bytes_len = bytes.len();
 
         let _cache_file_guard = lock_launcher_image_cache_files();
         if LAUNCHER_IMAGE_CACHE_GENERATION.load(Ordering::SeqCst) != cache_generation {
@@ -287,6 +382,17 @@ pub(crate) fn resolve_launcher_image_blocking(
         if let Some(mod_key) = mod_key.as_deref() {
             clear_launcher_image_failure_for_mod_at_path(&failures_path, mod_key)?;
         }
+
+        log::debug!(
+            target: "Launcher",
+            "launcher.image.cover.fetch.succeeded url-hash=\"{}\" mod-key=\"{}\" status={} elapsed-ms={} bytes={} mime-type=\"{}\"",
+            cache_key,
+            mod_key.as_deref().unwrap_or(""),
+            status,
+            fetch_started_at.elapsed().as_millis(),
+            bytes_len,
+            content_type
+        );
 
         Ok(ResolveLauncherImageResult {
             source_url: url.to_string(),
@@ -355,34 +461,6 @@ pub(crate) fn resolve_cached_launcher_image_blocking(
     resolve_launcher_image_local_or_cached_at_paths(request, &cache_dir, &failures_path)
 }
 
-pub async fn resolve_launcher_image(
-    app: AppHandle,
-    request: ResolveLauncherImageRequest,
-) -> Result<ResolveLauncherImageResult, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
-        "resolve_launcher_image",
-        tauri::async_runtime::spawn_blocking(move || {
-            resolve_launcher_image_blocking(&app, &request)
-        })
-        .await
-        .map_err(|error| format!("Failed to join launcher image task: {error}"))?,
-    )
-}
-
-pub async fn resolve_cached_launcher_image(
-    app: AppHandle,
-    request: ResolveLauncherImageRequest,
-) -> Result<Option<ResolveLauncherImageResult>, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
-        "resolve_cached_launcher_image",
-        tauri::async_runtime::spawn_blocking(move || {
-            resolve_cached_launcher_image_blocking(&app, &request)
-        })
-        .await
-        .map_err(|error| format!("Failed to join cached launcher image task: {error}"))?,
-    )
-}
-
 pub fn clear_launcher_image_cache(_app: AppHandle) -> Result<(), String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "clear_launcher_image_cache",
@@ -401,7 +479,9 @@ mod tests {
         get_launcher_image_failure_entry, record_launcher_image_failure_at_path,
     };
     use crate::test_support::{create_temp_dir, write_file};
+    use reqwest::header::HeaderValue;
     use std::fs;
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn clear_launcher_image_cache_removes_cached_files_and_failure_blocks() {
@@ -544,5 +624,84 @@ mod tests {
         assert!(get_launcher_image_failure_entry(&failures, "ModForge.NPCAdventures").is_none());
 
         fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn launcher_image_disconnect_event_emits_only_for_disconnect_errors() {
+        let events = Arc::new(Mutex::new(Vec::<(String, serde_json::Value)>::new()));
+        let app = AppHandle::sidecar({
+            let events = Arc::clone(&events);
+            move |event, payload| {
+                events
+                    .lock()
+                    .expect("events lock")
+                    .push((event.to_string(), payload));
+                Ok(())
+            }
+        });
+
+        emit_launcher_image_disconnect(
+            &app,
+            "https://example.test/cover.webp",
+            Some("20599"),
+            "Failed to fetch launcher image https://example.test/cover.webp: HTTP 404",
+            12,
+        );
+        assert!(events.lock().expect("events lock").is_empty());
+
+        emit_launcher_image_disconnect(
+            &app,
+            "https://example.test/cover.webp",
+            Some("20599"),
+            "connection reset by peer",
+            42,
+        );
+
+        let events = events.lock().expect("events lock");
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].0, LAUNCHER_IMAGE_DISCONNECT_EVENT);
+        assert_eq!(
+            events[0].1,
+            serde_json::json!({
+                "sourceUrl": "https://example.test/cover.webp",
+                "modKey": "20599",
+                "error": "connection reset by peer",
+                "elapsedMs": 42
+            })
+        );
+    }
+
+    #[test]
+    fn launcher_image_body_retry_keeps_final_fetch_metadata() {
+        let mut attempts = 0;
+        let result = read_nexus_response_body_with_retry_policy(
+            LAUNCHER_IMAGE_CDN_RETRY_POLICY,
+            || -> Result<LauncherImageFetchResult, String> {
+                attempts += 1;
+                if attempts == 1 {
+                    return Err("unexpected eof while reading body".to_string());
+                }
+
+                let mut headers = HeaderMap::new();
+                headers.insert(CONTENT_TYPE, HeaderValue::from_static("image/webp"));
+                Ok(LauncherImageFetchResult {
+                    status: StatusCode::OK,
+                    headers,
+                    bytes: b"webp-bytes".to_vec(),
+                })
+            },
+        )
+        .expect("launcher image body read should retry after EOF");
+
+        assert_eq!(attempts, 2);
+        assert_eq!(result.status, StatusCode::OK);
+        assert_eq!(result.bytes, b"webp-bytes".to_vec());
+        assert_eq!(
+            result
+                .headers
+                .get(CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok()),
+            Some("image/webp")
+        );
     }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { PanelFrame } from '@shared/ui/PanelFrame'
+import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
 import { cx } from '@shared/lib/helper'
 
 type DeferredWorkspacePlaceholderProps = {
@@ -8,22 +9,10 @@ type DeferredWorkspacePlaceholderProps = {
   lines?: number
 }
 
-export function DeferredWorkspacePlaceholder({ title, subtitle, lines = 3 }: DeferredWorkspacePlaceholderProps) {
+export function DeferredWorkspacePlaceholder({ title, subtitle }: DeferredWorkspacePlaceholderProps) {
   return (
-    <PanelFrame title={title} subtitle={subtitle} className="h-full">
-      <div className="flex h-full flex-col gap-3 p-3">
-        <div className="panel-section panel-section-muted">
-          <div className="panel-section-body space-y-3">
-            <div className="h-4 w-40 rounded-full bg-[color-mix(in_srgb,var(--border-color)_80%,transparent)]" />
-            {Array.from({ length: lines }, (_, index) => (
-              <div
-                key={`${title}:${index}`}
-                className="h-10 rounded-2xl bg-[linear-gradient(90deg,color-mix(in_srgb,var(--bg-panel-muted)_92%,transparent),color-mix(in_srgb,var(--bg-elevated)_88%,transparent),color-mix(in_srgb,var(--bg-panel-muted)_92%,transparent))]"
-              />
-            ))}
-          </div>
-        </div>
-      </div>
+    <PanelFrame title={title} subtitle={subtitle} className="h-full" bodyClassName="empty-state-card-fill">
+      <EmptyStateCard title={title} detail={subtitle} density="compact" />
     </PanelFrame>
   )
 }

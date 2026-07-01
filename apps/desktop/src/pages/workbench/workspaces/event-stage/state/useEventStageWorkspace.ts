@@ -260,10 +260,24 @@ export function useEventStageWorkspace({
   const lastSyncedMusicCueKeyRef = useRef<string | null>(null)
   const lastAnimationNowMsRef = useRef(animationNowMs)
   const onSelectTimelineEntryRef = useRef(onSelectTimelineEntry)
+  const onPlaybackCommandChangeRef = useRef(onPlaybackCommandChange)
 
   useEffect(() => {
     onSelectTimelineEntryRef.current = onSelectTimelineEntry
   }, [onSelectTimelineEntry])
+
+  useEffect(() => {
+    onPlaybackCommandChangeRef.current = onPlaybackCommandChange
+  }, [onPlaybackCommandChange])
+
+  useEffect(() => {
+    return () => {
+      resetAudioPreview()
+      lastAudioCommandIdRef.current = null
+      lastSyncedMusicCueKeyRef.current = null
+      onPlaybackCommandChangeRef.current(null)
+    }
+  }, [])
 
   function createStageReadyPlaybackState(event: EventScript | null, mapName: string | null) {
     const initialState = createInitialPlaybackState(event, mapName)

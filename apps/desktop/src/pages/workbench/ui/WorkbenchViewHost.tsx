@@ -9,6 +9,7 @@ import type { UseCpMakerReturn } from '@features/cp-maker'
 import type { WorkspaceMode } from '@locales/api'
 import type { PlayerAppearanceProfile } from '@entities/event'
 import { LoadingMotionReveal } from '@shared/ui/loading-motion'
+import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
 
 type WorkbenchViewHostProps = {
   editModeView: WorkbenchViewRegistration | null
@@ -84,7 +85,13 @@ export function WorkbenchViewHost({
           })}
         </LoadingMotionReveal>
       ) : (
-        <div className="flex h-full items-center justify-center text-xs text-(--text-secondary)">Workbench view is not registered.</div>
+        <div className="empty-state-card-fill">
+          <EmptyStateCard
+            title={copy.messages.workbenchViewUnavailableTitle}
+            detail={copy.messages.workbenchViewUnavailableDetail}
+            density="compact"
+          />
+        </div>
       )}
     </>
   )

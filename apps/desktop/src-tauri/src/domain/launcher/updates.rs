@@ -936,21 +936,7 @@ pub fn load_suppressed_launcher_update_mod_ids(
     )
 }
 
-pub async fn check_launcher_updates(
-    app: AppHandle,
-    request: CheckLauncherUpdatesRequest,
-) -> Result<LauncherUpdatesResult, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
-        "check_launcher_updates",
-        tauri::async_runtime::spawn_blocking(move || {
-            check_launcher_updates_blocking(&app, &request)
-        })
-        .await
-        .map_err(|error| format!("Failed to join launcher update check task: {error}"))?,
-    )
-}
-
-fn check_launcher_updates_blocking(
+pub(crate) fn check_launcher_updates_blocking(
     app: &AppHandle,
     request: &CheckLauncherUpdatesRequest,
 ) -> Result<LauncherUpdatesResult, String> {

@@ -15,6 +15,11 @@ export type LauncherSharedCopy = {
     completedDownloads: string
     pendingUpdates: string
   }
+  notifications: {
+    imageFetchDisconnectedTitle: string
+    imageFetchDisconnectedDetail: (count: number) => string
+    imageFetchDisconnectedNote: string
+  }
   actions: {
     refresh: string
     launchGame: string

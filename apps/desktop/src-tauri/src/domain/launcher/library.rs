@@ -1064,13 +1064,13 @@ pub fn set_launcher_library_cover(
     )
 }
 
-pub async fn persist_launcher_library_remote_cover(
-    app: AppHandle,
-    request: PersistLauncherLibraryRemoteCoverRequest,
+pub(crate) fn persist_launcher_library_remote_cover_blocking(
+    app: &AppHandle,
+    request: &PersistLauncherLibraryRemoteCoverRequest,
 ) -> Result<LauncherLibraryCoversState, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "persist_launcher_library_remote_cover",
-        tauri::async_runtime::spawn_blocking(move || {
+        (|| {
             let label_key = request.label_key.trim();
             if label_key.is_empty() {
                 return Err("labelKey is required.".to_string());
@@ -1093,7 +1093,7 @@ pub async fn persist_launcher_library_remote_cover(
             }
 
             let resolved = resolve_launcher_image_blocking(
-                &app,
+                app,
                 &ResolveLauncherImageRequest {
                     url: image_url.to_string(),
                     refresh: None,
@@ -1106,9 +1106,7 @@ pub async fn persist_launcher_library_remote_cover(
                 label_key,
                 &clean_input_path(&resolved.local_path),
             )
-        })
-        .await
-        .map_err(|error| format!("Failed to join launcher remote cover task: {error}"))?,
+        })(),
     )
 }
 

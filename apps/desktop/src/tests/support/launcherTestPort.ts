@@ -77,6 +77,7 @@ export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): L
     loadSuppressedUpdateModIds: vi.fn().mockResolvedValue({ modsPath: '', modIds: [] }),
     checkUpdates: unimplemented('checkUpdates'),
     listenToUpdateProgress: vi.fn().mockResolvedValue(() => {}),
+    listenToImageFetchDisconnected: vi.fn().mockResolvedValue(() => {}),
     downloadMod: unimplemented('downloadMod'),
     cancelDownload: vi.fn().mockResolvedValue(undefined),
     listenToDownloadProgress: vi.fn().mockResolvedValue(() => {}),

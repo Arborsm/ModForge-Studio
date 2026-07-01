@@ -387,6 +387,16 @@ function isTaskCancelled(error: unknown) {
   return error instanceof TaskCancelledError || (error instanceof DOMException && error.name === 'AbortError')
 }
 
+function buildLatestVersionLookup(updates: LauncherUpdateSummary[] | null | undefined) {
+  if (!updates) {
+    return null
+  }
+
+  return Object.fromEntries(
+    updates.filter((update) => update.latestVersion.trim()).map((update) => [update.modId, update.latestVersion.trim()]),
+  )
+}
+
 export function useLauncherLibrary(settings: LauncherSettingsDraft) {
   const launcherPort = useLauncherPort()
   const runLibraryStateSaveTask = useQueuedMutationTask('LauncherLibraryState')
@@ -599,6 +609,27 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     }
   }, [cancelAutoCoverFetch])
 
+  useEffect(() => {
+    const subscribedModsPath = settings.modsPath?.trim() || null
+    if (!subscribedModsPath) {
+      setLatestVersionByModId({})
+      return
+    }
+
+    return launcherPort.subscribeUpdates(subscribedModsPath, (result) => {
+      if (result.modsPath.trim() !== subscribedModsPath) {
+        return
+      }
+
+      const nextLookup = buildLatestVersionLookup(result.updates)
+      if (!nextLookup) {
+        return
+      }
+
+      setLatestVersionByModId(nextLookup)
+    })
+  }, [launcherPort, settings.modsPath])
+
   const refresh = useCallback(async () => {
     await libraryRefreshTaskScope.runtime
       .latest(libraryRefreshTaskScope.key, async (scope: TaskScope) => {
@@ -692,15 +723,16 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
           const updateModsPath = scan.modsPath || settings.modsPath || ''
           if (settings.autoCheckModUpdates && scan.mods.length > 0 && updateModsPath && canAutoCheckLauncherUpdates(diagnostics)) {
             const applyUpdateHints = (updates: LauncherUpdateSummary[] | null | undefined) => {
-              if (!updates?.length || !isRefreshActive()) {
+              if (!isRefreshActive()) {
                 return
               }
 
-              setLatestVersionByModId(
-                Object.fromEntries(
-                  updates.filter((update) => update.latestVersion.trim()).map((update) => [update.modId, update.latestVersion.trim()]),
-                ),
-              )
+              const nextLookup = buildLatestVersionLookup(updates)
+              if (!nextLookup) {
+                return
+              }
+
+              setLatestVersionByModId(nextLookup)
             }
 
             void launcherPort

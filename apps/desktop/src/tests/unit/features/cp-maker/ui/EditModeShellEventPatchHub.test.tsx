@@ -81,6 +81,36 @@ function draft(patches: DraftPatch[]): CpMakerDraft {
 }
 
 describe('EditModeShell event patch hub header', () => {
+  test('renders WIP edit workspaces with the shared empty-state card', () => {
+    const { container } = renderWithLocale(
+      <EditModeShell
+        workspaceId="map"
+        draft={draft([])}
+        patches={[]}
+        activePatchId={null}
+        onSelectPatch={vi.fn()}
+        onPatchAdd={vi.fn()}
+        onPatchRemove={vi.fn()}
+        onPatchUpdate={vi.fn()}
+        onConfigSchemaChange={vi.fn()}
+        onSaveDraft={vi.fn()}
+        isDirty={false}
+        onAddVirtualAsset={vi.fn()}
+        onRemoveVirtualAsset={vi.fn()}
+        canGoBack={false}
+        canGoForward={false}
+        onGoBack={vi.fn()}
+        onGoForward={vi.fn()}
+      />,
+      'zh-CN',
+    )
+
+    expect(container.querySelector('.edit-mode-wip-page')).not.toBeNull()
+    expect(container.querySelector('.empty-state-card')).not.toBeNull()
+    expect(screen.getByText('WIP')).toBeInTheDocument()
+    expect(screen.getByText('地图工作台正在搭建')).toBeInTheDocument()
+  })
+
   test('renders event patch workspace actions in the header', () => {
     const patches = [eventPatch()]
     const onSaveDraft = vi.fn()

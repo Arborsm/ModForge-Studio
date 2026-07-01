@@ -8,6 +8,7 @@ import type { SettingsWindowCategory, WorkspacePanelMeta } from '@shared/contrac
 import type { LauncherNexusDiagnosticsResult } from '@features/launcher/model/launcherContracts'
 import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { useLauncherRuntime } from '@features/launcher/model/useLauncherRuntime'
+import { useLauncherImageFetchNotifications } from '@features/launcher/model/useLauncherImageFetchNotifications'
 import { useLauncherUpdateProgressNotifications } from '@features/launcher/model/useLauncherUpdateProgressNotifications'
 import { publishNotification } from '@shared/ui/notifications'
 import type { LocaleCode } from '@locales'
@@ -85,6 +86,7 @@ export function LauncherPage({
 }: LauncherPageProps) {
   const copy = useEditorCopy()
   const launcherRuntime = useLauncherRuntime()
+  useLauncherImageFetchNotifications()
   useLauncherUpdateProgressNotifications()
   const [launchBusy, setLaunchBusy] = useState(false)
   const [downloadInstallRequest, setDownloadInstallRequest] = useState<{ id: number; archivePaths: string[] } | null>(null)

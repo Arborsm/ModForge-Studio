@@ -1,17 +1,35 @@
 use crate::host_commands::HostCommandName;
+use crate::support::logging::DebugLoggingState;
 use serde::Serialize;
 use serde_json::{Value, json};
+use std::collections::VecDeque;
+use std::fmt::Write as _;
 use std::panic::{self, AssertUnwindSafe};
-use std::sync::{Arc, Mutex, MutexGuard, mpsc};
-use std::thread;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore, mpsc};
+
+const HOST_RUNTIME_LOG_TARGET: &str = "HostRuntime";
+const HOST_RUNTIME_STATS_ENV: &str = "MODFORGE_HOST_RUNTIME_STATS";
+const HOST_RUNTIME_RECENT_EVENTS_LIMIT: usize = 128;
+const HOST_RUNTIME_SLOW_SAMPLE_LIMIT: usize = 5;
+const HOST_RUNTIME_SLOW_SAMPLE_MIN_MS: u128 = 250;
 
 pub type HostCommandResult = Result<Value, Value>;
 pub type HostCommandRunner =
     Box<dyn FnOnce(HostCommandContext) -> HostCommandResult + Send + 'static>;
 
-#[derive(Debug, Clone)]
-pub struct HostCommandContext;
+#[derive(Clone)]
+pub struct HostCommandContext {
+    telemetry: HostRuntimeTelemetry,
+}
+
+impl HostCommandContext {
+    pub fn print_diagnostics_summary(&self, reason: &str) {
+        self.telemetry.print_summary_now(reason);
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum HostCommandLane {
@@ -19,6 +37,12 @@ pub enum HostCommandLane {
     Network,
     Io,
     Mutation,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum HostCommandExecutionPool {
+    Lane,
+    LauncherImageCdn,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -59,21 +83,26 @@ pub struct HostCommandEnvelope {
 
 #[derive(Debug, Clone, Copy)]
 pub struct HostCommandSchedulerConfig {
-    pub control_workers: usize,
-    pub network_workers: usize,
-    pub io_workers: usize,
-    pub mutation_workers: usize,
-    pub lane_queue_capacity: usize,
+    pub control_max_concurrency: usize,
+    pub network_max_concurrency: usize,
+    pub io_max_concurrency: usize,
+    pub mutation_max_concurrency: usize,
+    pub launcher_image_cdn_max_concurrency: usize,
+    pub pool_queue_capacity: usize,
 }
 
 impl Default for HostCommandSchedulerConfig {
     fn default() -> Self {
         Self {
-            control_workers: 2,
-            network_workers: 3,
-            io_workers: 2,
-            mutation_workers: 1,
-            lane_queue_capacity: 256,
+            control_max_concurrency: 8,
+            network_max_concurrency: 32,
+            io_max_concurrency: 16,
+            // Mutation commands stay serial by default. Raising this requires re-auditing every
+            // mutation binding's resource declarations.
+            mutation_max_concurrency: 1,
+            launcher_image_cdn_max_concurrency:
+                crate::domain::nexusmods::endpoints::IMAGE_CDN_DEFAULT_CONCURRENCY,
+            pool_queue_capacity: 256,
         }
     }
 }
@@ -81,11 +110,12 @@ impl Default for HostCommandSchedulerConfig {
 impl HostCommandSchedulerConfig {
     pub fn normalized(self) -> Self {
         Self {
-            control_workers: self.control_workers.max(1),
-            network_workers: self.network_workers.max(1),
-            io_workers: self.io_workers.max(1),
-            mutation_workers: self.mutation_workers.max(1),
-            lane_queue_capacity: self.lane_queue_capacity.max(1),
+            control_max_concurrency: self.control_max_concurrency.max(1),
+            network_max_concurrency: self.network_max_concurrency.max(1),
+            io_max_concurrency: self.io_max_concurrency.max(1),
+            mutation_max_concurrency: self.mutation_max_concurrency.max(1),
+            launcher_image_cdn_max_concurrency: self.launcher_image_cdn_max_concurrency.max(1),
+            pool_queue_capacity: self.pool_queue_capacity.max(1),
         }
     }
 }
@@ -94,10 +124,12 @@ pub struct ResolvedHostCommand {
     pub id: Value,
     pub name: String,
     pub lane: HostCommandLane,
+    pub execution_pool: HostCommandExecutionPool,
     pub resources: &'static [HostCommandResource],
     pub cancel_policy: HostCommandCancelPolicy,
     pub mutation_policy: HostCommandMutationPolicy,
     pub submitted_at: Instant,
+    pub(crate) record_telemetry: bool,
     pub run: HostCommandRunner,
 }
 
@@ -113,6 +145,496 @@ pub struct HostCommandResponse {
 
 pub trait HostCommandResponseWriter: Send + Sync {
     fn write_response(&self, response: &HostCommandResponse) -> Result<(), String>;
+}
+
+#[derive(Debug, Clone)]
+pub struct HostRuntimeTelemetrySnapshot {
+    pub summary: String,
+}
+
+#[derive(Clone)]
+struct HostRuntimeTelemetry {
+    started_at: Instant,
+    debug_logging_state: DebugLoggingState,
+    pools: Arc<[HostRuntimePoolTelemetry]>,
+}
+
+#[derive(Clone)]
+struct HostRuntimePoolTelemetry {
+    lane: HostCommandLane,
+    execution_pool: HostCommandExecutionPool,
+    max_concurrency: usize,
+    queue_capacity: usize,
+    submitted: Arc<AtomicU64>,
+    rejected: Arc<AtomicU64>,
+    started: Arc<AtomicU64>,
+    succeeded: Arc<AtomicU64>,
+    failed: Arc<AtomicU64>,
+    panicked: Arc<AtomicU64>,
+    join_failed: Arc<AtomicU64>,
+    writer_failed: Arc<AtomicU64>,
+    active: Arc<AtomicUsize>,
+    peak_active: Arc<AtomicUsize>,
+    queued: Arc<AtomicUsize>,
+    peak_queue: Arc<AtomicUsize>,
+    queued_ms: Arc<AtomicU64>,
+    elapsed_ms: Arc<AtomicU64>,
+    resource_wait_ms: Arc<AtomicU64>,
+    busy_slot_ms: Arc<AtomicU64>,
+    recent_events: Arc<Mutex<VecDeque<HostRuntimeRecentEvent>>>,
+}
+
+#[derive(Debug, Clone)]
+struct HostRuntimeRecentEvent {
+    pool: String,
+    command: String,
+    outcome: &'static str,
+    queued_ms: u128,
+    elapsed_ms: u128,
+}
+
+#[derive(Debug)]
+struct HostRuntimePoolSnapshot {
+    lane: HostCommandLane,
+    execution_pool: HostCommandExecutionPool,
+    max_concurrency: usize,
+    queue_capacity: usize,
+    submitted: u64,
+    rejected: u64,
+    started: u64,
+    succeeded: u64,
+    failed: u64,
+    panicked: u64,
+    join_failed: u64,
+    writer_failed: u64,
+    active: usize,
+    peak_active: usize,
+    queued: usize,
+    peak_queue: usize,
+    queued_ms: u64,
+    elapsed_ms: u64,
+    resource_wait_ms: u64,
+    busy_slot_ms: u64,
+}
+
+struct HostRuntimeAnomalySnapshot {
+    pool: String,
+    failed: u64,
+    rejected: u64,
+    writer_failed: u64,
+    panicked: u64,
+    join_failed: u64,
+}
+
+impl HostRuntimeAnomalySnapshot {
+    fn format(&self) -> String {
+        format!(
+            "{} fail={} rej={} writerFailed={} panicked={} joinFailed={}",
+            self.pool,
+            self.failed,
+            self.rejected,
+            self.writer_failed,
+            self.panicked,
+            self.join_failed
+        )
+    }
+}
+
+impl HostRuntimeTelemetry {
+    fn new(debug_logging_state: DebugLoggingState, pools: &[HostRuntimePoolDescriptor]) -> Self {
+        Self {
+            started_at: Instant::now(),
+            debug_logging_state,
+            pools: pools
+                .iter()
+                .map(HostRuntimePoolTelemetry::new)
+                .collect::<Vec<_>>()
+                .into(),
+        }
+    }
+
+    fn pool(
+        &self,
+        lane: HostCommandLane,
+        execution_pool: HostCommandExecutionPool,
+    ) -> HostRuntimePoolTelemetry {
+        self.pools
+            .iter()
+            .find(|pool| pool.lane == lane && pool.execution_pool == execution_pool)
+            .cloned()
+            .expect("host runtime telemetry pool should exist")
+    }
+
+    fn summary(&self, reason: &str) -> Option<HostRuntimeTelemetrySnapshot> {
+        if !self.should_print_summary() {
+            return None;
+        }
+        Some(self.build_summary(reason))
+    }
+
+    fn build_summary(&self, reason: &str) -> HostRuntimeTelemetrySnapshot {
+        let elapsed_ms = self.started_at.elapsed().as_millis().max(1);
+        let snapshots = self
+            .pools
+            .iter()
+            .map(HostRuntimePoolTelemetry::snapshot)
+            .collect::<Vec<_>>();
+        let mut summary = String::new();
+        let _ = writeln!(
+            summary,
+            "HostRuntime stats summary reason={reason} uptime={}",
+            format_duration_ms(elapsed_ms)
+        );
+        let _ = writeln!(summary, "Pools");
+        let mut recent_events = Vec::new();
+        let mut anomaly_rows = Vec::new();
+        for snapshot in &snapshots {
+            // usagePercent measures slot occupancy across the scheduler lifetime:
+            // busy_slot_ms / (max_concurrency * scheduler_wall_ms) * 100.
+            let usage_percent = percentage(
+                snapshot.busy_slot_ms as u128,
+                snapshot.max_concurrency as u128 * elapsed_ms,
+            );
+            let peak_active_percent = percentage(
+                snapshot.peak_active as u128,
+                snapshot.max_concurrency as u128,
+            );
+            let peak_queue_percent =
+                percentage(snapshot.peak_queue as u128, snapshot.queue_capacity as u128);
+            let avg_queue_ms = average_ms(snapshot.queued_ms, snapshot.started);
+            let avg_elapsed_ms = average_ms(snapshot.elapsed_ms, snapshot.started);
+            let avg_resource_wait_ms = average_ms(snapshot.resource_wait_ms, snapshot.started);
+            let pool_name = pool_label(snapshot.lane, snapshot.execution_pool);
+            let _ = writeln!(summary, "  {pool_name}");
+            let _ = writeln!(
+                summary,
+                "    load active={}/{} peak={}/{} {:.1}% {} usage={:.1}% {}",
+                snapshot.active,
+                snapshot.max_concurrency,
+                snapshot.peak_active,
+                snapshot.max_concurrency,
+                peak_active_percent,
+                progress_bar(peak_active_percent),
+                usage_percent,
+                progress_bar(usage_percent)
+            );
+            let _ = writeln!(
+                summary,
+                "    work jobs={} ok={} fail={} rej={} queue={}/{} peakQ={}/{} {:.1}%",
+                snapshot.submitted,
+                snapshot.succeeded,
+                snapshot.failed,
+                snapshot.rejected,
+                snapshot.queued,
+                snapshot.queue_capacity,
+                snapshot.peak_queue,
+                snapshot.queue_capacity,
+                peak_queue_percent
+            );
+            let _ = writeln!(
+                summary,
+                "    time avgQ={} avgRun={} avgLock={}",
+                format_ms(avg_queue_ms),
+                format_ms(avg_elapsed_ms),
+                format_ms(avg_resource_wait_ms)
+            );
+            if snapshot.failed > 0
+                || snapshot.rejected > 0
+                || snapshot.writer_failed > 0
+                || snapshot.panicked > 0
+                || snapshot.join_failed > 0
+            {
+                anomaly_rows.push(HostRuntimeAnomalySnapshot {
+                    pool: pool_name.clone(),
+                    failed: snapshot.failed,
+                    rejected: snapshot.rejected,
+                    writer_failed: snapshot.writer_failed,
+                    panicked: snapshot.panicked,
+                    join_failed: snapshot.join_failed,
+                });
+            }
+            if let Some(pool) = self.pools.iter().find(|pool| {
+                pool.lane == snapshot.lane && pool.execution_pool == snapshot.execution_pool
+            }) {
+                recent_events.extend(pool.recent_events());
+            }
+        }
+        if !anomaly_rows.is_empty() {
+            let _ = writeln!(summary, "\nAnomalies");
+            for anomaly in anomaly_rows {
+                let _ = writeln!(summary, "  {}", anomaly.format());
+            }
+        }
+        let mut slow_events = recent_events
+            .into_iter()
+            .filter(|event| {
+                event.outcome != "ok" || event.elapsed_ms >= HOST_RUNTIME_SLOW_SAMPLE_MIN_MS
+            })
+            .collect::<Vec<_>>();
+        slow_events.sort_by(|left, right| {
+            right
+                .elapsed_ms
+                .cmp(&left.elapsed_ms)
+                .then_with(|| right.queued_ms.cmp(&left.queued_ms))
+        });
+        if !slow_events.is_empty() {
+            let _ = writeln!(summary, "\nRecent slow/failure samples");
+            for event in slow_events.into_iter().take(HOST_RUNTIME_SLOW_SAMPLE_LIMIT) {
+                let _ = writeln!(
+                    summary,
+                    "  {:>7} {:<10} {:<26} {} q={}",
+                    format_duration_ms(event.elapsed_ms),
+                    event.outcome,
+                    event.pool,
+                    event.command,
+                    format_duration_ms(event.queued_ms)
+                );
+            }
+        }
+        HostRuntimeTelemetrySnapshot { summary }
+    }
+
+    fn print_summary(&self, reason: &str) {
+        let Some(snapshot) = self.summary(reason) else {
+            return;
+        };
+        self.print_snapshot(snapshot);
+    }
+
+    fn print_summary_now(&self, reason: &str) {
+        self.print_snapshot(self.build_summary(reason));
+    }
+
+    fn print_snapshot(&self, snapshot: HostRuntimeTelemetrySnapshot) {
+        if self.has_failures() {
+            log_summary_lines(log::Level::Warn, &snapshot.summary);
+        } else {
+            log_summary_lines(log::Level::Info, &snapshot.summary);
+        }
+    }
+
+    fn should_record(&self) -> bool {
+        self.debug_logging_state.is_enabled() || env_flag_is_enabled(HOST_RUNTIME_STATS_ENV)
+    }
+
+    fn should_print_summary(&self) -> bool {
+        match std::env::var(HOST_RUNTIME_STATS_ENV) {
+            Ok(value) => env_flag_is_enabled_value(&value),
+            Err(_) => self.debug_logging_state.is_enabled(),
+        }
+    }
+
+    fn has_failures(&self) -> bool {
+        self.pools.iter().any(|pool| {
+            let snapshot = pool.snapshot();
+            snapshot.rejected > 0
+                || snapshot.failed > 0
+                || snapshot.panicked > 0
+                || snapshot.join_failed > 0
+                || snapshot.writer_failed > 0
+        })
+    }
+}
+
+impl HostRuntimePoolTelemetry {
+    fn new(descriptor: &HostRuntimePoolDescriptor) -> Self {
+        Self {
+            lane: descriptor.lane,
+            execution_pool: descriptor.execution_pool,
+            max_concurrency: descriptor.max_concurrency,
+            queue_capacity: descriptor.queue_capacity,
+            submitted: Arc::new(AtomicU64::new(0)),
+            rejected: Arc::new(AtomicU64::new(0)),
+            started: Arc::new(AtomicU64::new(0)),
+            succeeded: Arc::new(AtomicU64::new(0)),
+            failed: Arc::new(AtomicU64::new(0)),
+            panicked: Arc::new(AtomicU64::new(0)),
+            join_failed: Arc::new(AtomicU64::new(0)),
+            writer_failed: Arc::new(AtomicU64::new(0)),
+            active: Arc::new(AtomicUsize::new(0)),
+            peak_active: Arc::new(AtomicUsize::new(0)),
+            queued: Arc::new(AtomicUsize::new(0)),
+            peak_queue: Arc::new(AtomicUsize::new(0)),
+            queued_ms: Arc::new(AtomicU64::new(0)),
+            elapsed_ms: Arc::new(AtomicU64::new(0)),
+            resource_wait_ms: Arc::new(AtomicU64::new(0)),
+            busy_slot_ms: Arc::new(AtomicU64::new(0)),
+            recent_events: Arc::new(Mutex::new(VecDeque::new())),
+        }
+    }
+
+    fn record_submitted(&self, record_telemetry: bool) {
+        if !record_telemetry {
+            return;
+        }
+        self.submitted.fetch_add(1, Ordering::Relaxed);
+        let queued = self.queued.fetch_add(1, Ordering::SeqCst) + 1;
+        self.peak_queue.fetch_max(queued, Ordering::SeqCst);
+    }
+
+    fn record_rejected(&self, record_telemetry: bool, command: &str) {
+        if !record_telemetry {
+            return;
+        }
+        self.submitted.fetch_add(1, Ordering::Relaxed);
+        self.rejected.fetch_add(1, Ordering::Relaxed);
+        self.push_recent(command, "rejected", 0, 0, true);
+    }
+
+    fn record_started(&self, record_telemetry: bool, queued_ms: u128) -> usize {
+        let active = self.active.fetch_add(1, Ordering::SeqCst) + 1;
+        self.peak_active.fetch_max(active, Ordering::SeqCst);
+        if record_telemetry {
+            self.started.fetch_add(1, Ordering::Relaxed);
+            self.queued_ms
+                .fetch_add(saturating_u128_to_u64(queued_ms), Ordering::Relaxed);
+            self.decrement_queue();
+        }
+        active
+    }
+
+    fn record_finished(
+        &self,
+        record_telemetry: bool,
+        command: &str,
+        response: &HostCommandResponse,
+        queued_ms: u128,
+        elapsed_ms: u128,
+        resource_wait_ms: u128,
+    ) {
+        self.decrement_active();
+        if !record_telemetry {
+            return;
+        }
+        if response.ok {
+            self.succeeded.fetch_add(1, Ordering::Relaxed);
+        } else {
+            self.failed.fetch_add(1, Ordering::Relaxed);
+        }
+        self.elapsed_ms
+            .fetch_add(saturating_u128_to_u64(elapsed_ms), Ordering::Relaxed);
+        self.resource_wait_ms
+            .fetch_add(saturating_u128_to_u64(resource_wait_ms), Ordering::Relaxed);
+        self.busy_slot_ms
+            .fetch_add(saturating_u128_to_u64(elapsed_ms), Ordering::Relaxed);
+        self.push_recent(
+            command,
+            if response.ok { "ok" } else { "failed" },
+            queued_ms,
+            elapsed_ms,
+            false,
+        );
+    }
+
+    fn record_panicked(&self, record_telemetry: bool) {
+        if record_telemetry {
+            self.panicked.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    fn record_join_failed(&self, record_telemetry: bool, command: &str) {
+        self.decrement_active();
+        if record_telemetry {
+            self.join_failed.fetch_add(1, Ordering::Relaxed);
+            self.failed.fetch_add(1, Ordering::Relaxed);
+            self.push_recent(command, "joinFailed", 0, 0, true);
+        }
+    }
+
+    fn record_writer_failed(&self, record_telemetry: bool, command: &str) {
+        if record_telemetry {
+            self.writer_failed.fetch_add(1, Ordering::Relaxed);
+            self.push_recent(command, "writerFailed", 0, 0, true);
+        }
+    }
+
+    fn snapshot(&self) -> HostRuntimePoolSnapshot {
+        HostRuntimePoolSnapshot {
+            lane: self.lane,
+            execution_pool: self.execution_pool,
+            max_concurrency: self.max_concurrency,
+            queue_capacity: self.queue_capacity,
+            submitted: self.submitted.load(Ordering::Relaxed),
+            rejected: self.rejected.load(Ordering::Relaxed),
+            started: self.started.load(Ordering::Relaxed),
+            succeeded: self.succeeded.load(Ordering::Relaxed),
+            failed: self.failed.load(Ordering::Relaxed),
+            panicked: self.panicked.load(Ordering::Relaxed),
+            join_failed: self.join_failed.load(Ordering::Relaxed),
+            writer_failed: self.writer_failed.load(Ordering::Relaxed),
+            active: self.active.load(Ordering::Relaxed),
+            peak_active: self.peak_active.load(Ordering::Relaxed),
+            queued: self.queued.load(Ordering::Relaxed),
+            peak_queue: self.peak_queue.load(Ordering::Relaxed),
+            queued_ms: self.queued_ms.load(Ordering::Relaxed),
+            elapsed_ms: self.elapsed_ms.load(Ordering::Relaxed),
+            resource_wait_ms: self.resource_wait_ms.load(Ordering::Relaxed),
+            busy_slot_ms: self.busy_slot_ms.load(Ordering::Relaxed),
+        }
+    }
+
+    fn decrement_queue(&self) {
+        let mut current = self.queued.load(Ordering::SeqCst);
+        while current > 0 {
+            match self.queued.compare_exchange(
+                current,
+                current - 1,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            ) {
+                Ok(_) => break,
+                Err(next) => current = next,
+            }
+        }
+    }
+
+    fn decrement_active(&self) {
+        let mut current = self.active.load(Ordering::SeqCst);
+        while current > 0 {
+            match self.active.compare_exchange(
+                current,
+                current - 1,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            ) {
+                Ok(_) => break,
+                Err(next) => current = next,
+            }
+        }
+    }
+
+    fn push_recent(
+        &self,
+        command: &str,
+        outcome: &'static str,
+        queued_ms: u128,
+        elapsed_ms: u128,
+        force: bool,
+    ) {
+        if !force && outcome == "ok" && elapsed_ms < HOST_RUNTIME_SLOW_SAMPLE_MIN_MS {
+            return;
+        }
+        let Ok(mut recent_events) = self.recent_events.lock() else {
+            return;
+        };
+        if recent_events.len() == HOST_RUNTIME_RECENT_EVENTS_LIMIT {
+            recent_events.pop_front();
+        }
+        recent_events.push_back(HostRuntimeRecentEvent {
+            pool: pool_label(self.lane, self.execution_pool),
+            command: command.to_string(),
+            outcome,
+            queued_ms,
+            elapsed_ms,
+        });
+    }
+
+    fn recent_events(&self) -> Vec<HostRuntimeRecentEvent> {
+        self.recent_events
+            .lock()
+            .map(|events| events.iter().cloned().collect())
+            .unwrap_or_default()
+    }
 }
 
 pub struct HostCommandResourceLocks {
@@ -195,7 +717,17 @@ impl Default for HostCommandResourceLocks {
 #[derive(Clone)]
 struct HostCommandLaneSender {
     lane: HostCommandLane,
-    sender: mpsc::SyncSender<ResolvedHostCommand>,
+    execution_pool: HostCommandExecutionPool,
+    sender: mpsc::Sender<ResolvedHostCommand>,
+    telemetry: HostRuntimePoolTelemetry,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct HostRuntimePoolDescriptor {
+    lane: HostCommandLane,
+    execution_pool: HostCommandExecutionPool,
+    max_concurrency: usize,
+    queue_capacity: usize,
 }
 
 pub struct HostCommandScheduler {
@@ -203,7 +735,9 @@ pub struct HostCommandScheduler {
     network: HostCommandLaneSender,
     io: HostCommandLaneSender,
     mutation: HostCommandLaneSender,
+    launcher_image_cdn: HostCommandLaneSender,
     writer: Arc<dyn HostCommandResponseWriter>,
+    telemetry: HostRuntimeTelemetry,
 }
 
 impl HostCommandScheduler {
@@ -211,228 +745,357 @@ impl HostCommandScheduler {
         writer: Arc<dyn HostCommandResponseWriter>,
         resources: Arc<HostCommandResourceLocks>,
         config: HostCommandSchedulerConfig,
+        debug_logging_state: DebugLoggingState,
     ) -> Self {
         let config = config.normalized();
+        let pool_descriptors = [
+            HostRuntimePoolDescriptor {
+                lane: HostCommandLane::Control,
+                execution_pool: HostCommandExecutionPool::Lane,
+                max_concurrency: config.control_max_concurrency,
+                queue_capacity: config.pool_queue_capacity,
+            },
+            HostRuntimePoolDescriptor {
+                lane: HostCommandLane::Network,
+                execution_pool: HostCommandExecutionPool::Lane,
+                max_concurrency: config.network_max_concurrency,
+                queue_capacity: config.pool_queue_capacity,
+            },
+            HostRuntimePoolDescriptor {
+                lane: HostCommandLane::Io,
+                execution_pool: HostCommandExecutionPool::Lane,
+                max_concurrency: config.io_max_concurrency,
+                queue_capacity: config.pool_queue_capacity,
+            },
+            HostRuntimePoolDescriptor {
+                lane: HostCommandLane::Mutation,
+                execution_pool: HostCommandExecutionPool::Lane,
+                max_concurrency: config.mutation_max_concurrency,
+                queue_capacity: config.pool_queue_capacity,
+            },
+            HostRuntimePoolDescriptor {
+                lane: HostCommandLane::Network,
+                execution_pool: HostCommandExecutionPool::LauncherImageCdn,
+                max_concurrency: config.launcher_image_cdn_max_concurrency,
+                queue_capacity: config.pool_queue_capacity,
+            },
+        ];
+        let telemetry = HostRuntimeTelemetry::new(debug_logging_state, &pool_descriptors);
         Self {
-            control: spawn_lane(
-                HostCommandLane::Control,
-                config.control_workers,
-                config.lane_queue_capacity,
+            control: spawn_pool(
+                pool_descriptors[0],
                 Arc::clone(&writer),
                 Arc::clone(&resources),
+                telemetry.pool(pool_descriptors[0].lane, pool_descriptors[0].execution_pool),
+                telemetry.clone(),
             ),
-            network: spawn_lane(
-                HostCommandLane::Network,
-                config.network_workers,
-                config.lane_queue_capacity,
+            network: spawn_pool(
+                pool_descriptors[1],
                 Arc::clone(&writer),
                 Arc::clone(&resources),
+                telemetry.pool(pool_descriptors[1].lane, pool_descriptors[1].execution_pool),
+                telemetry.clone(),
             ),
-            io: spawn_lane(
-                HostCommandLane::Io,
-                config.io_workers,
-                config.lane_queue_capacity,
+            io: spawn_pool(
+                pool_descriptors[2],
                 Arc::clone(&writer),
                 Arc::clone(&resources),
+                telemetry.pool(pool_descriptors[2].lane, pool_descriptors[2].execution_pool),
+                telemetry.clone(),
             ),
-            mutation: spawn_lane(
-                HostCommandLane::Mutation,
-                config.mutation_workers,
-                config.lane_queue_capacity,
+            mutation: spawn_pool(
+                pool_descriptors[3],
                 Arc::clone(&writer),
-                resources,
+                Arc::clone(&resources),
+                telemetry.pool(pool_descriptors[3].lane, pool_descriptors[3].execution_pool),
+                telemetry.clone(),
+            ),
+            launcher_image_cdn: spawn_pool(
+                pool_descriptors[4],
+                Arc::clone(&writer),
+                Arc::clone(&resources),
+                telemetry.pool(pool_descriptors[4].lane, pool_descriptors[4].execution_pool),
+                telemetry.clone(),
             ),
             writer,
+            telemetry,
         }
     }
 
-    pub fn submit(&self, command: ResolvedHostCommand) {
-        let sender = match command.lane {
-            HostCommandLane::Control => &self.control,
-            HostCommandLane::Network => &self.network,
-            HostCommandLane::Io => &self.io,
-            HostCommandLane::Mutation => &self.mutation,
+    pub fn submit(&self, mut command: ResolvedHostCommand) {
+        let sender = match command.execution_pool {
+            HostCommandExecutionPool::LauncherImageCdn => &self.launcher_image_cdn,
+            HostCommandExecutionPool::Lane => match command.lane {
+                HostCommandLane::Control => &self.control,
+                HostCommandLane::Network => &self.network,
+                HostCommandLane::Io => &self.io,
+                HostCommandLane::Mutation => &self.mutation,
+            },
         };
-        if let Err(error) = sender.sender.try_send(command) {
-            let (command, reason) = match error {
-                mpsc::TrySendError::Full(command) => (command, "lane queue is full"),
-                mpsc::TrySendError::Disconnected(command) => {
-                    (command, "lane workers are not available")
-                }
-            };
-            let response = HostCommandResponse {
-                id: command.id,
-                ok: false,
-                result: None,
-                error: Some(json!(format!(
-                    "Host command {} could not be scheduled: {reason}.",
-                    command.name
-                ))),
-            };
-            log::error!(
-                target: "HostRuntime",
-                "Failed to enqueue host command: id={} command={} lane={:?} reason={}",
-                response.id,
-                command.name,
-                sender.lane,
-                reason
-            );
-            if let Err(error) = self.writer.write_response(&response) {
+        command.record_telemetry = self.telemetry.should_record();
+        let record_telemetry = command.record_telemetry;
+        match sender.sender.try_reserve() {
+            Ok(permit) => {
+                sender.telemetry.record_submitted(record_telemetry);
+                permit.send(command);
+            }
+            Err(error) => {
+                let reason = match error {
+                    mpsc::error::TrySendError::Full(()) => "pool queue is full",
+                    mpsc::error::TrySendError::Closed(()) => "pool dispatcher is not available",
+                };
+                sender
+                    .telemetry
+                    .record_rejected(record_telemetry, &command.name);
+                let response = HostCommandResponse {
+                    id: command.id.clone(),
+                    ok: false,
+                    result: None,
+                    error: Some(json!(format!(
+                        "Host command {} could not be scheduled: {reason}.",
+                        command.name
+                    ))),
+                };
                 log::error!(
-                    target: "HostRuntime",
-                    "Failed to write host command enqueue error response: id={} command={} lane={:?} error={}",
+                    target: HOST_RUNTIME_LOG_TARGET,
+                    "Failed to enqueue host command: id={} command={} lane={:?} pool={:?} reason={}",
                     response.id,
                     command.name,
                     sender.lane,
-                    error
+                    sender.execution_pool,
+                    reason
                 );
+                if let Err(error) = self.writer.write_response(&response) {
+                    sender
+                        .telemetry
+                        .record_writer_failed(record_telemetry, &command.name);
+                    log::error!(
+                        target: HOST_RUNTIME_LOG_TARGET,
+                        "Failed to write host command enqueue error response: id={} command={} lane={:?} pool={:?} error={}",
+                        response.id,
+                        command.name,
+                        sender.lane,
+                        sender.execution_pool,
+                        error
+                    );
+                }
             }
         }
     }
+
+    pub fn diagnostics_summary(&self, reason: &str) -> Option<HostRuntimeTelemetrySnapshot> {
+        self.telemetry.summary(reason)
+    }
+
+    pub fn print_diagnostics_summary(&self, reason: &str) {
+        self.telemetry.print_summary(reason);
+    }
 }
 
-fn spawn_lane(
-    lane: HostCommandLane,
-    worker_count: usize,
-    queue_capacity: usize,
+fn spawn_pool(
+    descriptor: HostRuntimePoolDescriptor,
     writer: Arc<dyn HostCommandResponseWriter>,
     resources: Arc<HostCommandResourceLocks>,
+    pool_telemetry: HostRuntimePoolTelemetry,
+    telemetry: HostRuntimeTelemetry,
 ) -> HostCommandLaneSender {
-    let (sender, receiver) = mpsc::sync_channel::<ResolvedHostCommand>(queue_capacity);
-    let receiver = Arc::new(Mutex::new(receiver));
-    for worker_id in 0..worker_count {
-        let worker_receiver = Arc::clone(&receiver);
-        let worker_writer = Arc::clone(&writer);
-        let worker_resources = Arc::clone(&resources);
-        thread::spawn(move || {
-            run_lane_worker(
-                lane,
-                worker_id,
-                worker_receiver,
-                worker_writer,
-                worker_resources,
-            )
+    let (sender, receiver) = mpsc::channel::<ResolvedHostCommand>(descriptor.queue_capacity);
+    let semaphore = Arc::new(Semaphore::new(descriptor.max_concurrency));
+    tauri::async_runtime::spawn(run_pool_dispatcher(
+        descriptor,
+        receiver,
+        semaphore,
+        writer,
+        resources,
+        pool_telemetry.clone(),
+        telemetry,
+    ));
+    HostCommandLaneSender {
+        lane: descriptor.lane,
+        execution_pool: descriptor.execution_pool,
+        sender,
+        telemetry: pool_telemetry,
+    }
+}
+
+async fn run_pool_dispatcher(
+    descriptor: HostRuntimePoolDescriptor,
+    mut receiver: mpsc::Receiver<ResolvedHostCommand>,
+    semaphore: Arc<Semaphore>,
+    writer: Arc<dyn HostCommandResponseWriter>,
+    resources: Arc<HostCommandResourceLocks>,
+    pool_telemetry: HostRuntimePoolTelemetry,
+    telemetry: HostRuntimeTelemetry,
+) {
+    loop {
+        let Some(command) = receiver.recv().await else {
+            break;
+        };
+        let permit = match Arc::clone(&semaphore).acquire_owned().await {
+            Ok(permit) => permit,
+            Err(error) => {
+                log::error!(
+                    target: HOST_RUNTIME_LOG_TARGET,
+                    "Host command pool semaphore closed: lane={:?} pool={:?} error={}",
+                    descriptor.lane,
+                    descriptor.execution_pool,
+                    error
+                );
+                break;
+            }
+        };
+
+        let command_id = command.id.clone();
+        let command_name = command.name.clone();
+        let record_telemetry = command.record_telemetry;
+        let blocking_writer = Arc::clone(&writer);
+        let failure_writer = Arc::clone(&writer);
+        let blocking_resources = Arc::clone(&resources);
+        let blocking_pool_telemetry = pool_telemetry.clone();
+        let blocking_telemetry = telemetry.clone();
+        let failure_pool_telemetry = pool_telemetry.clone();
+        tauri::async_runtime::spawn(async move {
+            let join = tauri::async_runtime::spawn_blocking(move || {
+                run_resolved_command(
+                    descriptor,
+                    &blocking_writer,
+                    &blocking_resources,
+                    command,
+                    &blocking_telemetry,
+                    &blocking_pool_telemetry,
+                    permit,
+                );
+            })
+            .await;
+            if let Err(error) = join {
+                failure_pool_telemetry.record_join_failed(record_telemetry, &command_name);
+                let response = HostCommandResponse {
+                    id: command_id,
+                    ok: false,
+                    result: None,
+                    error: Some(json!(format!(
+                        "Host command {command_name} failed to join its blocking task: {error}."
+                    ))),
+                };
+                log::error!(
+                    target: HOST_RUNTIME_LOG_TARGET,
+                    "Host command blocking task join failed: id={} command={} lane={:?} pool={:?} error={}",
+                    response.id,
+                    command_name,
+                    descriptor.lane,
+                    descriptor.execution_pool,
+                    error
+                );
+                let write_pool_telemetry = failure_pool_telemetry.clone();
+                let write_command_name = command_name.clone();
+                let write_descriptor = descriptor;
+                let write_join = tauri::async_runtime::spawn_blocking(move || {
+                    if let Err(write_error) = failure_writer.write_response(&response) {
+                        write_pool_telemetry
+                            .record_writer_failed(record_telemetry, &write_command_name);
+                        log::error!(
+                            target: HOST_RUNTIME_LOG_TARGET,
+                            "Failed to write host command join failure response: id={} command={} lane={:?} pool={:?} error={}",
+                            response.id,
+                            write_command_name,
+                            write_descriptor.lane,
+                            write_descriptor.execution_pool,
+                            write_error
+                        );
+                    }
+                })
+                .await;
+                if let Err(write_join_error) = write_join {
+                    failure_pool_telemetry.record_writer_failed(record_telemetry, &command_name);
+                    log::error!(
+                        target: HOST_RUNTIME_LOG_TARGET,
+                        "Host command join failure response writer task failed: command={} lane={:?} pool={:?} error={}",
+                        command_name,
+                        descriptor.lane,
+                        descriptor.execution_pool,
+                        write_join_error
+                    );
+                }
+            }
         });
     }
-    HostCommandLaneSender { lane, sender }
 }
 
-fn next_lane_command(
-    lane: HostCommandLane,
-    receiver: &Mutex<mpsc::Receiver<ResolvedHostCommand>>,
-) -> Option<ResolvedHostCommand> {
-    match receiver.lock() {
-        Ok(receiver) => receiver.recv().ok(),
-        Err(poisoned) => {
-            log::error!(
-                target: "HostRuntime",
-                "Host command lane receiver lock was poisoned: lane={:?}",
-                lane
-            );
-            poisoned.into_inner().recv().ok()
-        }
-    }
-}
-
-fn run_lane_worker(
-    lane: HostCommandLane,
-    worker_id: usize,
-    receiver: Arc<Mutex<mpsc::Receiver<ResolvedHostCommand>>>,
-    writer: Arc<dyn HostCommandResponseWriter>,
-    resources: Arc<HostCommandResourceLocks>,
-) {
-    while let Some(command) = next_lane_command(lane, &receiver) {
-        run_resolved_command(lane, worker_id, &writer, &resources, command);
-    }
-}
-
-pub fn run_resolved_command(
-    lane: HostCommandLane,
-    worker_id: usize,
+fn run_resolved_command(
+    descriptor: HostRuntimePoolDescriptor,
     writer: &Arc<dyn HostCommandResponseWriter>,
     resources: &HostCommandResourceLocks,
     command: ResolvedHostCommand,
+    telemetry: &HostRuntimeTelemetry,
+    pool_telemetry: &HostRuntimePoolTelemetry,
+    _permit: OwnedSemaphorePermit,
 ) {
     let id = command.id;
     let name = command.name;
     let command_resources = command.resources;
     let cancel_policy = command.cancel_policy;
     let mutation_policy = command.mutation_policy;
+    let record_telemetry = command.record_telemetry;
     let queued_ms = command.submitted_at.elapsed().as_millis();
     let started_at = Instant::now();
+    let active = pool_telemetry.record_started(record_telemetry, queued_ms);
     log::debug!(
-        target: "HostRuntime",
-        "Host command started: id={} command={} lane={:?} worker={} resources={:?} cancelPolicy={:?} mutationPolicy={:?} queuedMs={}",
+        target: HOST_RUNTIME_LOG_TARGET,
+        "Host command started: id={} command={} lane={:?} pool={:?} active={} maxConcurrency={} resources={:?} cancelPolicy={:?} mutationPolicy={:?} queuedMs={}",
         id,
         name,
-        lane,
-        worker_id,
+        descriptor.lane,
+        descriptor.execution_pool,
+        active,
+        descriptor.max_concurrency,
         command_resources,
         cancel_policy,
         mutation_policy,
         queued_ms
     );
+    let resource_wait_started_at = Instant::now();
     let _resource_guards = resources.lock_many(command_resources);
-    let response =
-        panic_safe_dispatch_response(id.clone(), &name, || (command.run)(HostCommandContext));
-    log_host_command_finished(
-        &id,
-        &name,
-        lane,
-        worker_id,
-        queued_ms,
-        started_at.elapsed().as_millis(),
-        &response,
-    );
+    let resource_wait_ms = resource_wait_started_at.elapsed().as_millis();
+    let context = HostCommandContext {
+        telemetry: telemetry.clone(),
+    };
+    let (response, panicked) =
+        panic_safe_dispatch_outcome(id.clone(), &name, || (command.run)(context));
+    if panicked {
+        pool_telemetry.record_panicked(record_telemetry);
+    }
     if let Err(error) = writer.write_response(&response) {
+        pool_telemetry.record_writer_failed(record_telemetry, &name);
         log::error!(
-            target: "HostRuntime",
-            "Failed to write host command response: id={} command={} lane={:?} worker={} error={}",
+            target: HOST_RUNTIME_LOG_TARGET,
+            "Failed to write host command response: id={} command={} lane={:?} pool={:?} error={}",
             id,
             name,
-            lane,
-            worker_id,
+            descriptor.lane,
+            descriptor.execution_pool,
             error
         );
     }
-}
-
-pub fn execute_resolved_blocking(
-    resources: &HostCommandResourceLocks,
-    command: ResolvedHostCommand,
-) -> HostCommandResponse {
-    let id = command.id;
-    let name = command.name;
-    let lane = command.lane;
-    let command_resources = command.resources;
-    let cancel_policy = command.cancel_policy;
-    let mutation_policy = command.mutation_policy;
-    let queued_ms = command.submitted_at.elapsed().as_millis();
-    let started_at = Instant::now();
-    log::debug!(
-        target: "HostRuntime",
-        "Host command executing inline: id={} command={} lane={:?} resources={:?} cancelPolicy={:?} mutationPolicy={:?} queuedMs={}",
-        id,
-        name,
-        lane,
-        command_resources,
-        cancel_policy,
-        mutation_policy,
-        queued_ms
-    );
-    let _resource_guards = resources.lock_many(command_resources);
-    let response =
-        panic_safe_dispatch_response(id.clone(), &name, || (command.run)(HostCommandContext));
+    let elapsed_ms = started_at.elapsed().as_millis();
     log_host_command_finished(
         &id,
         &name,
-        lane,
-        0,
+        descriptor.lane,
+        descriptor.execution_pool,
+        pool_telemetry.active.load(Ordering::Relaxed),
+        descriptor.max_concurrency,
         queued_ms,
-        started_at.elapsed().as_millis(),
+        elapsed_ms,
         &response,
     );
-    response
+    pool_telemetry.record_finished(
+        record_telemetry,
+        &name,
+        &response,
+        queued_ms,
+        elapsed_ms,
+        resource_wait_ms,
+    );
 }
 
 fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
@@ -466,25 +1129,39 @@ pub fn panic_safe_dispatch_response<F>(id: Value, command: &str, dispatch: F) ->
 where
     F: FnOnce() -> HostCommandResult,
 {
+    panic_safe_dispatch_outcome(id, command, dispatch).0
+}
+
+fn panic_safe_dispatch_outcome<F>(
+    id: Value,
+    command: &str,
+    dispatch: F,
+) -> (HostCommandResponse, bool)
+where
+    F: FnOnce() -> HostCommandResult,
+{
     match panic::catch_unwind(AssertUnwindSafe(dispatch)) {
-        Ok(result) => dispatch_result_to_response(id, result),
+        Ok(result) => (dispatch_result_to_response(id, result), false),
         Err(payload) => {
             let message = panic_message(payload.as_ref());
             log::error!(
-                target: "HostRuntime",
+                target: HOST_RUNTIME_LOG_TARGET,
                 "Host command panicked: id={} command={} panic={}",
                 id,
                 command,
                 message
             );
-            HostCommandResponse {
-                id,
-                ok: false,
-                result: None,
-                error: Some(json!(format!(
-                    "Host command {command} panicked before returning a response."
-                ))),
-            }
+            (
+                HostCommandResponse {
+                    id,
+                    ok: false,
+                    result: None,
+                    error: Some(json!(format!(
+                        "Host command {command} panicked before returning a response."
+                    ))),
+                },
+                true,
+            )
         }
     }
 }
@@ -493,30 +1170,36 @@ fn log_host_command_finished(
     id: &Value,
     command: &str,
     lane: HostCommandLane,
-    worker_id: usize,
+    execution_pool: HostCommandExecutionPool,
+    active: usize,
+    max_concurrency: usize,
     queued_ms: u128,
     elapsed_ms: u128,
     response: &HostCommandResponse,
 ) {
     if response.ok {
         log::debug!(
-            target: "HostRuntime",
-            "Host command finished: id={} command={} lane={:?} worker={} queuedMs={} elapsedMs={}",
+            target: HOST_RUNTIME_LOG_TARGET,
+            "Host command finished: id={} command={} lane={:?} pool={:?} active={} maxConcurrency={} queuedMs={} elapsedMs={}",
             id,
             command,
             lane,
-            worker_id,
+            execution_pool,
+            active,
+            max_concurrency,
             queued_ms,
             elapsed_ms
         );
     } else {
         log::warn!(
-            target: "HostRuntime",
-            "Host command failed: id={} command={} lane={:?} worker={} queuedMs={} elapsedMs={} error={}",
+            target: HOST_RUNTIME_LOG_TARGET,
+            "Host command failed: id={} command={} lane={:?} pool={:?} active={} maxConcurrency={} queuedMs={} elapsedMs={} error={}",
             id,
             command,
             lane,
-            worker_id,
+            execution_pool,
+            active,
+            max_concurrency,
             queued_ms,
             elapsed_ms,
             response
@@ -525,5 +1208,64 @@ fn log_host_command_finished(
                 .map(Value::to_string)
                 .unwrap_or_else(|| "null".to_string())
         );
+    }
+}
+
+fn env_flag_is_enabled(name: &str) -> bool {
+    std::env::var(name).is_ok_and(|value| env_flag_is_enabled_value(&value))
+}
+
+fn env_flag_is_enabled_value(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "1" | "true" | "yes" | "on"
+    )
+}
+
+fn saturating_u128_to_u64(value: u128) -> u64 {
+    value.min(u64::MAX as u128) as u64
+}
+
+fn percentage(numerator: u128, denominator: u128) -> f64 {
+    if denominator == 0 {
+        0.0
+    } else {
+        numerator as f64 * 100.0 / denominator as f64
+    }
+}
+
+fn average_ms(total_ms: u64, count: u64) -> f64 {
+    if count == 0 {
+        0.0
+    } else {
+        total_ms as f64 / count as f64
+    }
+}
+
+fn log_summary_lines(level: log::Level, summary: &str) {
+    for line in summary.trim_end().lines() {
+        log::log!(target: HOST_RUNTIME_LOG_TARGET, level, "{line}");
+    }
+}
+
+fn progress_bar(percent: f64) -> String {
+    const WIDTH: usize = 10;
+    let filled = ((percent.clamp(0.0, 100.0) / 100.0) * WIDTH as f64).round() as usize;
+    format!("[{}{}]", "#".repeat(filled), ".".repeat(WIDTH - filled))
+}
+
+fn pool_label(lane: HostCommandLane, execution_pool: HostCommandExecutionPool) -> String {
+    format!("{lane:?}/{execution_pool:?}")
+}
+
+fn format_ms(value: f64) -> String {
+    format!("{value:.1}ms")
+}
+
+fn format_duration_ms(value: u128) -> String {
+    if value >= 1_000 {
+        format!("{:.1}s", value as f64 / 1_000.0)
+    } else {
+        format!("{value}ms")
     }
 }

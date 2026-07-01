@@ -96,6 +96,10 @@ impl DebugLoggingState {
         self.apply_global_level_filter();
     }
 
+    pub fn is_enabled(&self) -> bool {
+        self.enabled.load(Ordering::Relaxed)
+    }
+
     fn max_level_filter(&self) -> LevelFilter {
         if self.enabled.load(Ordering::Relaxed)
             || self.command_trace_enabled.load(Ordering::Relaxed)

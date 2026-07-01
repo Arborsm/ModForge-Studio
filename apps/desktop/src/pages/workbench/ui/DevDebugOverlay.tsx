@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import { getStageMetadataCacheStats } from '@entities/event'
 import { getGameAssetCacheStats } from '@entities/game/api'
 import { getModApiCacheStats } from '@entities/mod/api'
-import { clearFileCache, canUseDesktopHost, getFileCacheStats, type FileCacheStats } from '@platform/host'
+import { clearFileCache, canUseDesktopHost, getFileCacheStats, printHostRuntimeDiagnostics, type FileCacheStats } from '@platform/host'
 import { getMapViewportCacheStats } from '@shared/lib/maps'
 import type { WorkspaceMode } from '@locales/api'
 import { formatBytes } from '@shared/lib/formatting'
@@ -129,6 +129,7 @@ export function DevDebugOverlay({
   const [position, setPosition] = useState(createInitialDevDebugOverlayPosition)
   const [clearing, setClearing] = useState(false)
   const [refreshingFileCache, setRefreshingFileCache] = useState(false)
+  const [printingHostRuntime, setPrintingHostRuntime] = useState(false)
   const [clearMessage, setClearMessage] = useState<string | null>(null)
   const [cacheStats, setCacheStats] = useState<CacheStats>(() => createCacheStatsSnapshot())
   const [fileCacheStats, setFileCacheStats] = useState<FileCacheStats | null>(null)
@@ -296,6 +297,19 @@ export function DevDebugOverlay({
     }
   }
 
+  const handlePrintHostRuntimeDiagnostics = async () => {
+    if (!desktopHost || printingHostRuntime) {
+      return
+    }
+
+    setPrintingHostRuntime(true)
+    try {
+      await printHostRuntimeDiagnostics()
+    } finally {
+      setPrintingHostRuntime(false)
+    }
+  }
+
   const renderMetricGrid = (items: MetricItem[]) => (
     <div className="grid grid-cols-2 gap-x-3 gap-y-2">
       {items.map(([label, value]) => (
@@ -347,37 +361,56 @@ export function DevDebugOverlay({
           </div>
 
           {desktopHost ? (
-            <div className="rounded-xl border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_74%,transparent)] px-3 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-semibold tracking-[0.16em] text-(--text-tertiary) uppercase">File Cache</p>
-                  <p className="mt-1 text-xs text-(--text-primary)">
-                    {fileCacheStats
-                      ? `${fileCacheStats.entryCount} entries / ${formatOverlayBytes(fileCacheStats.totalSizeBytes)}`
-                      : 'Loading...'}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
+            <div className="space-y-2">
+              <div className="rounded-xl border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_74%,transparent)] px-3 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold tracking-[0.16em] text-(--text-tertiary) uppercase">Host Runtime</p>
+                    <p className="mt-1 text-xs text-(--text-primary)">Print scheduler snapshot to host log</p>
+                  </div>
                   <button
                     type="button"
                     className="rounded-lg border border-(--border-color) px-2 py-1 text-[11px] text-(--text-secondary) disabled:cursor-not-allowed disabled:opacity-60"
-                    onClick={() => void handleRefreshFileCache()}
-                    disabled={refreshingFileCache || clearing}
+                    onClick={() => void handlePrintHostRuntimeDiagnostics()}
+                    disabled={printingHostRuntime}
                   >
-                    {refreshingFileCache ? 'Refreshing...' : 'Refresh'}
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-lg border border-(--border-color) px-2 py-1 text-[11px] text-(--text-secondary) disabled:cursor-not-allowed disabled:opacity-60"
-                    onClick={() => void handleClearFileCache()}
-                    disabled={clearing || refreshingFileCache}
-                  >
-                    {clearing ? 'Clearing...' : 'Clear'}
+                    {printingHostRuntime ? 'Printing...' : 'Output'}
                   </button>
                 </div>
               </div>
-              <p className="mt-2 text-[11px] break-all text-(--text-tertiary)">{fileCacheStats?.rootPath ?? 'n/a'}</p>
-              {clearMessage ? <p className="mt-2 text-[11px] text-(--text-secondary)">{clearMessage}</p> : null}
+
+              <div className="rounded-xl border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_74%,transparent)] px-3 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold tracking-[0.16em] text-(--text-tertiary) uppercase">File Cache</p>
+                    <p className="mt-1 text-xs text-(--text-primary)">
+                      {fileCacheStats
+                        ? `${fileCacheStats.entryCount} entries / ${formatOverlayBytes(fileCacheStats.totalSizeBytes)}`
+                        : 'Loading...'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="rounded-lg border border-(--border-color) px-2 py-1 text-[11px] text-(--text-secondary) disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={() => void handleRefreshFileCache()}
+                      disabled={refreshingFileCache || clearing}
+                    >
+                      {refreshingFileCache ? 'Refreshing...' : 'Refresh'}
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-(--border-color) px-2 py-1 text-[11px] text-(--text-secondary) disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={() => void handleClearFileCache()}
+                      disabled={clearing || refreshingFileCache}
+                    >
+                      {clearing ? 'Clearing...' : 'Clear'}
+                    </button>
+                  </div>
+                </div>
+                <p className="mt-2 text-[11px] break-all text-(--text-tertiary)">{fileCacheStats?.rootPath ?? 'n/a'}</p>
+                {clearMessage ? <p className="mt-2 text-[11px] text-(--text-secondary)">{clearMessage}</p> : null}
+              </div>
             </div>
           ) : null}
         </div>

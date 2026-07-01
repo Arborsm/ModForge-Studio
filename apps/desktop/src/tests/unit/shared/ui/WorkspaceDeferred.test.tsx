@@ -1,6 +1,16 @@
 import { act, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vite-plus/test'
-import { DeferredWorkspaceCrossfade, DeferredWorkspaceReveal } from '@shared/ui/WorkspaceDeferred'
+import { DeferredWorkspaceCrossfade, DeferredWorkspacePlaceholder, DeferredWorkspaceReveal } from '@shared/ui/WorkspaceDeferred'
+
+describe('DeferredWorkspacePlaceholder', () => {
+  it('renders the shared empty-state card presentation', () => {
+    const { container } = render(<DeferredWorkspacePlaceholder title="Viewport" subtitle="Active document" lines={5} />)
+
+    expect(container.querySelector('.empty-state-card')).not.toBeNull()
+    expect(screen.getAllByText('Viewport')).toHaveLength(2)
+    expect(screen.getAllByText('Active document')).toHaveLength(2)
+  })
+})
 
 describe('DeferredWorkspaceReveal', () => {
   it('schedules a reveal on mount', () => {

@@ -25,6 +25,12 @@ const shared: LauncherSharedCopy = {
     completedDownloads: '已完成下载',
     pendingUpdates: '待更新',
   },
+  notifications: {
+    imageFetchDisconnectedTitle: '封面图片连接中断',
+    imageFetchDisconnectedDetail: (count) =>
+      count > 1 ? `${count} 个启动器封面请求在读取 Nexus 图片时断连。` : '有一个启动器封面请求在读取 Nexus 图片时断连。',
+    imageFetchDisconnectedNote: 'ModForge 会继续使用已缓存封面，并在下次刷新时重试失败的封面。',
+  },
   actions: {
     refresh: '刷新',
     launchGame: '启动游戏',

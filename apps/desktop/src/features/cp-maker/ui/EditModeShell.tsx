@@ -11,6 +11,7 @@ import { EditModeToolbar } from './EditModeToolbar'
 import { PatchListPage } from './PatchListPage'
 import { EditorPage } from './EditorPage'
 import { useEditorCopy } from '@locales/provider'
+import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
 
 interface EditModeShellProps {
   workspaceId: WorkspaceId
@@ -46,21 +47,8 @@ function EditModeWipPage({ workspaceId }: { workspaceId: WorkspaceId }) {
   const title = workspaceId === 'mods' ? copy.leftDock.project : copy.nav[workspaceId]
 
   return (
-    <section className="edit-mode-wip-page" aria-label={desk.wipTitle(title)}>
-      <div className="edit-mode-wip-card">
-        <div className="studio-wip-blueprint" aria-hidden="true">
-          <span className="studio-wip-node studio-wip-node-a" />
-          <span className="studio-wip-node studio-wip-node-b" />
-          <span className="studio-wip-node studio-wip-node-c" />
-          <span className="studio-wip-line studio-wip-line-a" />
-          <span className="studio-wip-line studio-wip-line-b" />
-        </div>
-        <div className="studio-wip-copy">
-          <span className="studio-wip-badge">{desk.wipBadge}</span>
-          <h3>{desk.wipTitle(title)}</h3>
-          <p>{desk.wipDescription}</p>
-        </div>
-      </div>
+    <section className="edit-mode-wip-page empty-state-card-fill" aria-label={desk.wipTitle(title)}>
+      <EmptyStateCard eyebrow={desk.wipBadge} title={desk.wipTitle(title)} detail={desk.wipDescription} />
     </section>
   )
 }

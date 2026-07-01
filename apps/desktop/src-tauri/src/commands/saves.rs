@@ -5,14 +5,15 @@ use serde_json::json;
 use tauri::State;
 
 #[tauri::command]
-pub fn scan_default_save_slots(
+pub async fn scan_default_save_slots(
     app: tauri::AppHandle<AppRuntime>,
     debug_logging_state: State<'_, DebugLoggingState>,
 ) -> Result<Vec<DefaultSaveSlotSummary>, String> {
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
-        debug_logging_state,
+        debug_logging_state.inner().clone(),
         crate::host_command_name!(scan_default_save_slots),
         json!({}),
     )
+    .await
 }

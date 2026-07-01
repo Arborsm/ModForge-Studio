@@ -51,6 +51,7 @@ export const HOST_COMMANDS = {
   openLauncherUrl: 'open_launcher_url',
   patchAppUiState: 'patch_app_ui_state',
   persistLauncherLibraryRemoteCover: 'persist_launcher_library_remote_cover',
+  printHostRuntimeDiagnostics: 'print_host_runtime_diagnostics',
   recordLauncherImageFailure: 'record_launcher_image_failure',
   resolveCachedLauncherImage: 'resolve_cached_launcher_image',
   resolveLauncherImage: 'resolve_launcher_image',

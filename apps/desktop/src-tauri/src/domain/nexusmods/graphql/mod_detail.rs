@@ -1011,35 +1011,7 @@ fn to_launcher_remote_mod_detail(detail: RemoteModDetail) -> LauncherRemoteModDe
     }
 }
 
-pub async fn load_launcher_remote_mod_detail(
-    app: AppHandle,
-    request: LoadLauncherRemoteModDetailRequest,
-) -> Result<LauncherRemoteModDetail, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
-        "load_launcher_remote_mod_detail",
-        tauri::async_runtime::spawn_blocking(move || {
-            load_launcher_remote_mod_detail_blocking(&app, &request)
-        })
-        .await
-        .map_err(|error| format!("Failed to join launcher mod detail task: {error}"))?,
-    )
-}
-
-pub async fn load_launcher_update_changelog(
-    app: AppHandle,
-    request: LoadLauncherUpdateChangelogRequest,
-) -> Result<LauncherUpdateChangelogResult, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
-        "load_launcher_update_changelog",
-        tauri::async_runtime::spawn_blocking(move || {
-            load_launcher_update_changelog_blocking(&app, &request)
-        })
-        .await
-        .map_err(|error| format!("Failed to join launcher update changelog task: {error}"))?,
-    )
-}
-
-fn load_launcher_remote_mod_detail_blocking(
+pub(crate) fn load_launcher_remote_mod_detail_blocking(
     _app: &AppHandle,
     request: &LoadLauncherRemoteModDetailRequest,
 ) -> Result<LauncherRemoteModDetail, String> {
@@ -1073,7 +1045,7 @@ fn load_launcher_remote_mod_detail_blocking(
     Ok(to_launcher_remote_mod_detail(detail))
 }
 
-fn load_launcher_update_changelog_blocking(
+pub(crate) fn load_launcher_update_changelog_blocking(
     _app: &AppHandle,
     request: &LoadLauncherUpdateChangelogRequest,
 ) -> Result<LauncherUpdateChangelogResult, String> {

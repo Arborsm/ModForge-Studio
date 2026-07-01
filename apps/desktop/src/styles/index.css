@@ -3,6 +3,7 @@
 @import './tokens.css';
 @import './base.css';
 @import './primitives/panel.css';
+@import './primitives/empty-state-card.css';
 @import './primitives/controls.css';
 @import './primitives/status.css';
 @import './primitives/menu.css';
@@ -22,7 +23,10 @@
 @source '../app/App.tsx';
 @source '../app/app-shell/AppShell.tsx';
 @source '../app/app-shell/SettingsWindow.tsx';
+@source '../shared/ui/EmptyStateCard.tsx';
+@source '../shared/ui/WorkspaceDeferred.tsx';
 @source '../shared/ui/WorkbenchShellSkeleton.tsx';
+@source '../pages/workbench/ui/WorkbenchViewHost.tsx';
 @source '../pages/workbench/ui/DevDebugOverlay.tsx';
 @source '../pages/launcher';
 @source '../features/launcher';

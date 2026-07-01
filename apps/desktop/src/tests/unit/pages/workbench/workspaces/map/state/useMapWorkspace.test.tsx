@@ -239,6 +239,45 @@ describe('useMapWorkspace', () => {
     })
   })
 
+  it('clears the preload notification state before the idle full atlas rebuild settles', async () => {
+    const fullAtlasWorldMap = createDeferred<TextAssetContent>()
+    let worldMapLoadCount = 0
+    vi.mocked(loadTextAsset).mockImplementation(async (rootPath, assetPath) => {
+      if (!/WorldMap\.xnb$/iu.test(assetPath)) {
+        return makeWorldMapAsset(rootPath)
+      }
+
+      worldMapLoadCount += 1
+      if (worldMapLoadCount === 3) {
+        return fullAtlasWorldMap.promise
+      }
+      return makeWorldMapAsset(rootPath)
+    })
+
+    const { result } = renderHook(() =>
+      useMapWorkspace({
+        copy: editorCopy['en-US'],
+        locale: 'en-US',
+        desktopHost: true,
+        active: true,
+        directoryInfo: gameDirectoryInfo,
+        getWorldAtlasViewLabel,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(worldMapLoadCount).toBe(3)
+    })
+    await waitFor(() => {
+      expect(result.current.resourcePreloadState.active).toBe(false)
+    })
+
+    await act(async () => {
+      fullAtlasWorldMap.resolve(makeWorldMapAsset())
+      await fullAtlasWorldMap.promise
+    })
+  })
+
   it('does not let an older directory scan publish after the directory changes', async () => {
     const oldScan = createDeferred<MapAssetSummary[]>()
     vi.mocked(scanMaps).mockReturnValueOnce(oldScan.promise).mockResolvedValueOnce([alternateTownAsset])

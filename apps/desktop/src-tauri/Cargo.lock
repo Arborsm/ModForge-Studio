@@ -2071,6 +2071,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "thiserror 2.0.18",
  "time",
+ "tokio",
  "tungstenite",
  "unrar",
  "url",
