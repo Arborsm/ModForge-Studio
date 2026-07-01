@@ -11,6 +11,7 @@ const updates: LauncherUpdatesCopy = {
   updateSelected: 'Update All Selected',
   updateOne: 'Update This Item',
   expandDetails: 'Expand Details',
+  viewDetails: 'View Details',
   viewChangelog: 'Changelog',
   fetchDetails: 'Fetch Details',
   fetchChangelog: 'Fetch Changelog',

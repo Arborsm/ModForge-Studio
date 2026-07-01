@@ -140,7 +140,9 @@ describe('NexusModsBbcode', () => {
       <NexusModsBbcode source="[center][b][color=#f6b26b][size=3]Basic Bedroom Furniture[/size][/color][/b][/center] [url=https://www.nexusmods.com/stardewvalley/mods/23073]catalogue[/url][list][*]green = [color=#93c47d]NEW[/color][/list]" />,
     )
 
-    expect(screen.getByText('Basic Bedroom Furniture')).toHaveStyle({ color: '#f6b26b' })
+    const title = screen.getByText('Basic Bedroom Furniture')
+    expect(title).toHaveClass('nexusmods-bbcode-color')
+    expect(title).toHaveAttribute('style', expect.stringContaining('color:'))
     expect(screen.getByRole('link', { name: 'catalogue' })).toHaveAttribute('href', 'https://www.nexusmods.com/stardewvalley/mods/23073')
     expect(container.querySelector('.nexusmods-bbcode-align-center')).toBeTruthy()
     expect(container.querySelector('ul')).toBeTruthy()

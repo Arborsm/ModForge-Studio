@@ -1,4 +1,4 @@
-import { isValidElement, memo, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { isValidElement, memo, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   getNexusModsBbcodeTextContent,
   parseNexusModsBbcode,
@@ -55,6 +55,141 @@ function sanitizeColor(value: string | undefined) {
 
   const lowerColor = color.toLowerCase()
   return safeNamedColors.has(lowerColor) ? lowerColor : null
+}
+
+const namedColorHexMap: Record<string, string> = {
+  black: '#000000',
+  blue: '#0000ff',
+  brown: '#a52a2a',
+  cyan: '#00ffff',
+  gray: '#808080',
+  green: '#008000',
+  grey: '#808080',
+  lime: '#00ff00',
+  magenta: '#ff00ff',
+  navy: '#000080',
+  orange: '#ffa500',
+  pink: '#ffc0cb',
+  purple: '#800080',
+  red: '#ff0000',
+  silver: '#c0c0c0',
+  teal: '#008080',
+  transparent: '#00000000',
+  violet: '#ee82ee',
+  white: '#ffffff',
+  yellow: '#ffff00',
+}
+
+type RgbaColor = { r: number; g: number; b: number; a: number }
+
+function parseHexColor(value: string): RgbaColor | null {
+  const hex = value.replace(/^#/, '')
+  if (!/^(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(hex)) {
+    return null
+  }
+
+  const full =
+    hex.length === 3 || hex.length === 4
+      ? hex
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : hex
+
+  return {
+    r: Number.parseInt(full.slice(0, 2), 16),
+    g: Number.parseInt(full.slice(2, 4), 16),
+    b: Number.parseInt(full.slice(4, 6), 16),
+    a: full.length === 8 ? Number.parseInt(full.slice(6, 8), 16) / 255 : 1,
+  }
+}
+
+function parseColor(value: string): RgbaColor | null {
+  const lower = value.toLowerCase()
+  return parseHexColor(namedColorHexMap[lower] ?? value)
+}
+
+function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  const rNorm = r / 255
+  const gNorm = g / 255
+  const bNorm = b / 255
+  const max = Math.max(rNorm, gNorm, bNorm)
+  const min = Math.min(rNorm, gNorm, bNorm)
+  let h = 0
+  let s = 0
+  const l = (max + min) / 2
+
+  if (max !== min) {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    switch (max) {
+      case rNorm:
+        h = (gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0)
+        break
+      case gNorm:
+        h = (bNorm - rNorm) / d + 2
+        break
+      case bNorm:
+        h = (rNorm - gNorm) / d + 4
+        break
+    }
+    h /= 6
+  }
+
+  return { h, s, l }
+}
+
+function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
+  if (s === 0) {
+    const value = Math.round(l * 255)
+    return { r: value, g: value, b: value }
+  }
+
+  const hue2rgb = (p: number, q: number, t: number) => {
+    let tt = t
+    if (tt < 0) tt += 1
+    if (tt > 1) tt -= 1
+    if (tt < 1 / 6) return p + (q - p) * 6 * tt
+    if (tt < 1 / 2) return q
+    if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6
+    return p
+  }
+
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+  const p = 2 * l - q
+
+  return {
+    r: Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
+    g: Math.round(hue2rgb(p, q, h) * 255),
+    b: Math.round(hue2rgb(p, q, h - 1 / 3) * 255),
+  }
+}
+
+function formatColor({ r, g, b, a }: RgbaColor): string {
+  if (a < 1) {
+    return `rgba(${r}, ${g}, ${b}, ${a})`
+  }
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+}
+
+function adaptColor(value: string, isDark: boolean): string {
+  const parsed = parseColor(value)
+  if (!parsed) return value
+
+  const { r, g, b, a } = parsed
+  const { h, s, l } = rgbToHsl(r, g, b)
+
+  const lightCap = 0.56
+  const darkFloor = 0.52
+
+  let adjustedL = l
+  if (!isDark && l > lightCap) {
+    adjustedL = lightCap
+  } else if (isDark && l < darkFloor) {
+    adjustedL = darkFloor
+  }
+
+  return formatColor({ ...hslToRgb(h, s, adjustedL), a })
 }
 
 function sanitizeFontFamily(value: string | undefined) {
@@ -282,7 +417,7 @@ function renderStyledContainer(
   style: CSSProperties,
   children: ReactNode,
   key: string,
-  options: { block?: boolean; preserveEmptySpacing?: boolean } = {},
+  options: { block?: boolean; preserveEmptySpacing?: boolean; className?: string } = {},
 ) {
   if (!hasSubstantiveRenderedContent(children)) {
     if (hasSpacingRenderedContent(children)) {
@@ -292,16 +427,18 @@ function renderStyledContainer(
     return options.preserveEmptySpacing ? renderSoftSpacer(key) : null
   }
 
+  const blockClassName = options.className ? `nexusmods-bbcode-block ${options.className}` : 'nexusmods-bbcode-block'
+
   if (options.block || hasRenderedBlockContent(children)) {
     return (
-      <div key={key} className="nexusmods-bbcode-block" style={style}>
+      <div key={key} className={blockClassName} style={style}>
         {children}
       </div>
     )
   }
 
-  return Object.keys(style).length > 0 ? (
-    <span key={key} style={style}>
+  return Object.keys(style).length > 0 || options.className ? (
+    <span key={key} className={options.className} style={style}>
       {children}
     </span>
   ) : (
@@ -414,27 +551,46 @@ function hasSourceLineBreak(nodes: NexusModsBbcodeNode[]): boolean {
   return nodes.some((node) => node.type === 'element' && (node.tag === 'br' || hasSourceLineBreak(node.children)))
 }
 
-function renderSectionHeading(node: NexusModsBbcodeElementNode, key: string) {
+function useColorScheme() {
+  const [isDark, setIsDark] = useState(() => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'))
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    const observer = new MutationObserver(() => {
+      setIsDark(root.classList.contains('dark'))
+    })
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+
+  return isDark
+}
+
+function renderSectionHeading(node: NexusModsBbcodeElementNode, key: string, isDark: boolean) {
   return (
     <span key={key} className="nexusmods-bbcode-section-heading">
-      {renderNodes(node.children, key, false)}
+      {renderNodes(node.children, key, false, isDark)}
     </span>
   )
 }
 
-function renderAlignmentLines(node: NexusModsBbcodeElementNode, key: string, allowSectionHeadings: boolean) {
+function renderAlignmentLines(node: NexusModsBbcodeElementNode, key: string, allowSectionHeadings: boolean, isDark: boolean) {
   const lines = splitSourceLines(node.children)
   if (lines.length <= 1) {
-    return renderNodes(node.children, key, allowSectionHeadings)
+    return renderNodes(node.children, key, allowSectionHeadings, isDark)
   }
 
   return lines.map((line, index) =>
-    renderLine(`${key}-line-${index}`, renderNodes(line, `${key}-line-${index}`, allowSectionHeadings, { wrapHorizontalRule: false })),
+    renderLine(
+      `${key}-line-${index}`,
+      renderNodes(line, `${key}-line-${index}`, allowSectionHeadings, isDark, { wrapHorizontalRule: false }),
+    ),
   )
 }
 
-function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSectionHeadings: boolean): ReactNode {
-  const children = renderNodes(node.children, key, allowSectionHeadings)
+function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSectionHeadings: boolean, isDark: boolean): ReactNode {
+  const children = renderNodes(node.children, key, allowSectionHeadings, isDark)
 
   if (node.tag === 'b') {
     if (!hasSubstantiveRenderedContent(children)) {
@@ -454,7 +610,7 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
 
   if (node.tag === 'i') {
     if (allowSectionHeadings && isFurnitureSectionHeading(node)) {
-      return renderSectionHeading(node, key)
+      return renderSectionHeading(node, key, isDark)
     }
 
     if (!hasSubstantiveRenderedContent(children)) {
@@ -466,7 +622,7 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
 
   if (node.tag === 'u') {
     if (allowSectionHeadings && isFurnitureSectionHeading(node)) {
-      return renderSectionHeading(node, key)
+      return renderSectionHeading(node, key, isDark)
     }
 
     if (!hasSubstantiveRenderedContent(children)) {
@@ -489,10 +645,12 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
   }
 
   if (node.tag === 'color') {
-    const color = sanitizeColor(node.attrs.color)
-    return renderStyledContainer(color == null ? {} : { color }, children, key, {
+    const rawColor = sanitizeColor(node.attrs.color)
+    const adaptedColor = rawColor == null ? null : adaptColor(rawColor, isDark)
+    return renderStyledContainer(adaptedColor == null ? {} : { color: adaptedColor }, children, key, {
       block: node.attrs.block === 'true' || hasBlockChildren(node.children),
       preserveEmptySpacing: hasSourceLineBreak(node.children),
+      className: adaptedColor == null ? undefined : 'nexusmods-bbcode-color',
     })
   }
 
@@ -545,7 +703,7 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
 
     return (
       <div key={key} className={`nexusmods-bbcode-align-${node.tag}`}>
-        {renderAlignmentLines(node, key, allowSectionHeadings)}
+        {renderAlignmentLines(node, key, allowSectionHeadings, isDark)}
       </div>
     )
   }
@@ -672,6 +830,7 @@ function renderNodes(
   nodes: NexusModsBbcodeNode[],
   keyPrefix: string,
   allowSectionHeadings = true,
+  isDark: boolean,
   options: { wrapHorizontalRule?: boolean } = { wrapHorizontalRule: true },
 ): ReactNode[] {
   const renderedNodes: ReactNode[] = []
@@ -688,11 +847,14 @@ function renderNodes(
     }
 
     if (isStandaloneLineBlockNode(node, nodes[index + 1])) {
-      appendRenderedNode(renderedNodes, renderElement({ ...node, attrs: { ...node.attrs, block: 'true' } }, key, allowSectionHeadings))
+      appendRenderedNode(
+        renderedNodes,
+        renderElement({ ...node, attrs: { ...node.attrs, block: 'true' } }, key, allowSectionHeadings, isDark),
+      )
       return
     }
 
-    appendRenderedNode(renderedNodes, renderElement(node, key, allowSectionHeadings))
+    appendRenderedNode(renderedNodes, renderElement(node, key, allowSectionHeadings, isDark))
   })
 
   return renderedNodes
@@ -700,6 +862,7 @@ function renderNodes(
 
 export const NexusModsBbcode = memo(function NexusModsBbcode({ source }: NexusModsBbcodeProps) {
   const document = useMemo(() => parseNexusModsBbcode(source), [source])
+  const isDark = useColorScheme()
 
-  return <div className="nexusmods-bbcode">{renderNodes(document.children, 'bbcode')}</div>
+  return <div className="nexusmods-bbcode">{renderNodes(document.children, 'bbcode', true, isDark)}</div>
 })

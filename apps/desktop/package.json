@@ -129,5 +129,10 @@
     "rpm": {
       "packageName": "modforge-studio"
     }
+  },
+  "dependencies": {
+    "@bbob/plugin-helper": "^4.3.1",
+    "@bbob/preset": "^4.3.1",
+    "@bbob/react": "^4.3.1"
   }
 }

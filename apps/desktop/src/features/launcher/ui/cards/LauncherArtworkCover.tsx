@@ -9,16 +9,25 @@ type LauncherArtworkCoverProps = {
   coverStyle: CSSProperties
   coverWord: string
   className?: string
+  showBlurStrip?: boolean
 }
 
-export function LauncherArtworkCover({ title, imageUrl, imageModKey = null, coverStyle, coverWord, className }: LauncherArtworkCoverProps) {
+export function LauncherArtworkCover({
+  title,
+  imageUrl,
+  imageModKey = null,
+  coverStyle,
+  coverWord,
+  className,
+  showBlurStrip = true,
+}: LauncherArtworkCoverProps) {
   const cover = useLauncherImage(imageUrl, imageModKey)
   const fallbackWord = coverWord.trim() || title.trim().slice(0, 3).toUpperCase() || 'MOD'
 
   return (
     <div className={cx('launcher-mod-card-cover', cover.imageUrl && 'launcher-mod-card-cover-has-image', className)} style={coverStyle}>
       <span className="launcher-mod-card-cover-meta" />
-      {cover.imageUrl ? (
+      {cover.imageUrl && showBlurStrip ? (
         <span className="launcher-mod-card-cover-image-blur-strip" aria-hidden="true">
           <img src={cover.imageUrl} alt="" className="launcher-mod-card-cover-image-blur" draggable={false} loading="lazy" />
           <img src={cover.imageUrl} alt="" className="launcher-mod-card-cover-image-blur-clone" draggable={false} loading="lazy" />

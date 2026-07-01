@@ -317,6 +317,7 @@ export function LauncherModDetailPanel({
                   coverStyle={coverStyle}
                   coverWord={coverWord}
                   className="launcher-mod-detail-cover"
+                  showBlurStrip={false}
                 />
               </div>
 

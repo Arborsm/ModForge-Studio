@@ -11,6 +11,7 @@ const updates: LauncherUpdatesCopy = {
   updateSelected: '一键更新所有勾选项',
   updateOne: '更新此项',
   expandDetails: '展开详情',
+  viewDetails: '查看详情',
   viewChangelog: '更新日志',
   fetchDetails: '抓取详情',
   fetchChangelog: '抓取更新日志',

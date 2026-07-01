@@ -140,4 +140,26 @@
   .nexusmods-bbcode-spoiler > div {
     padding: 0 0.625rem 0.625rem;
   }
+
+  .nexusmods-bbcode::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .nexusmods-bbcode::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .nexusmods-bbcode::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--text-primary) 26%, transparent);
+    border-radius: 3px;
+  }
+
+  .nexusmods-bbcode::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--text-primary) 40%, transparent);
+  }
+
+  .nexusmods-bbcode {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--text-primary) 26%, transparent) transparent;
+  }
 }
