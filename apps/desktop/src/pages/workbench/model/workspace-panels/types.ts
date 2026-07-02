@@ -107,6 +107,7 @@ export type BuildWorkspacePanelsOptions = Omit<BuildModWorkspacePanelsOptions, '
   characterFilter: string
   characterStatusMessage: string
   activeCharacterAssetState: CharacterVisualAssetState
+  activeCharacterAssetLoading: boolean
   onCharacterFilterChange: (value: string) => void
   onSelectCharacter: (characterKey: string) => void
   onSelectModCharacter: (entry: ModBrowserEntry<CharacterWorkspaceEntry>) => void

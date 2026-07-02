@@ -28,6 +28,7 @@ import {
   getClothingShirtMenuSourceRect,
 } from '@entities/character/lib/clothingSprites'
 import { cx } from '@shared/lib/helper'
+import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 
 type PlayerAppearanceWindowProps = {
   open: boolean
@@ -609,9 +610,9 @@ export default function PlayerAppearanceWindow({
                   </div>
                 </div>
 
-                <div className="appearance-window-stage">
+                <div className="appearance-window-stage" aria-busy={loadingAssets ? 'true' : undefined}>
                   {loadingAssets ? (
-                    <div className="appearance-window-placeholder">{copy.loadingAssets}</div>
+                    <ImageSkeleton overlay rounded={false} className="appearance-window-stage-skeleton" />
                   ) : rootPath ? (
                     <FarmerPreviewSprite profile={activeProfile} assets={previewAssets} scale={6} />
                   ) : (
@@ -795,7 +796,7 @@ export default function PlayerAppearanceWindow({
                     {!rootPath ? (
                       <div className="appearance-window-placeholder">{copy.assetMissing}</div>
                     ) : loadingAssets ? (
-                      <div className="appearance-window-placeholder">{copy.loadingAssets}</div>
+                      <ImageSkeleton className="appearance-window-placeholder-skeleton" />
                     ) : pagedItems.length === 0 ? (
                       <div className="appearance-window-placeholder">{copy.sectionEmpty}</div>
                     ) : (
@@ -857,7 +858,7 @@ export default function PlayerAppearanceWindow({
               </div>
 
               <div className="appearance-window-modal-body">
-                {saveLoading ? <div className="appearance-window-placeholder">{copy.loadingAssets}</div> : null}
+                {saveLoading ? <ImageSkeleton className="appearance-window-placeholder-skeleton" /> : null}
                 {!saveLoading && saveLoadError ? (
                   <div className="appearance-window-placeholder">
                     {copy.importLoadFailed}: {saveLoadError}

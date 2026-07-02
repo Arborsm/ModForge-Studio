@@ -6,6 +6,7 @@
   type ActorAssetState,
   type EventActorState,
 } from '@entities/event'
+import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 
 type EventStageActorSpriteProps = {
   actor: EventActorState
@@ -74,6 +75,23 @@ export function EventStageActorSprite({
     : renderState.flip
       ? `translateX(${actorWidth}px) scale(${-spriteScale}, ${spriteScale})`
       : `scale(${spriteScale}, ${spriteScale})`
+
+  if (asset?.loading) {
+    return (
+      <div
+        className="absolute"
+        data-event-stage-actor={normalizeActorName(actor.actorName)}
+        style={{
+          transform: `translate(${Math.round(pixelX)}px, ${Math.round(pixelY)}px)`,
+          width: `${actorWidth}px`,
+          height: `${actorHeight}px`,
+          zIndex: Math.round(renderState.tileY * 100) + 50,
+        }}
+      >
+        <ImageSkeleton overlay rounded={false} />
+      </div>
+    )
+  }
 
   return (
     <div

@@ -171,6 +171,15 @@
     background: color-mix(in srgb, var(--bg-panel) 70%, transparent);
   }
 
+  .appearance-window-stage-skeleton {
+    border-radius: inherit;
+  }
+
+  .appearance-window-placeholder-skeleton {
+    width: 100%;
+    min-height: 6rem;
+  }
+
   .appearance-window-tab-row {
     display: flex;
     flex-wrap: wrap;

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useModWorkspaceCopy } from '@locales/provider'
+import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { measureImageDimensions } from '@shared/lib/assets'
 import {
   getScaleUpEditorState,
@@ -229,6 +230,7 @@ export function ContentPatcherScaleUpPanel({
     resultImage?: ScaleUpImageDimensions | null
     originalImage?: ScaleUpImageDimensions | null
   }>({})
+  const [imagesLoading, setImagesLoading] = useState(true)
   const editorState = useMemo(
     () =>
       getScaleUpEditorState(content, targetPath, {
@@ -251,6 +253,7 @@ export function ContentPatcherScaleUpPanel({
   useEffect(() => {
     let cancelled = false
 
+    setImagesLoading(true)
     void Promise.all([
       measureImageDimensions(resultImageDataUrl).catch(() => null),
       originalImageDataUrl ? measureImageDimensions(originalImageDataUrl).catch(() => null) : Promise.resolve(null),
@@ -260,6 +263,7 @@ export function ContentPatcherScaleUpPanel({
           resultImage,
           originalImage,
         })
+        setImagesLoading(false)
       }
     })
 
@@ -364,7 +368,7 @@ export function ContentPatcherScaleUpPanel({
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <section className={sectionCardClass(activeSection === 'preview')}>
+        <section className={sectionCardClass(activeSection === 'preview')} aria-busy={imagesLoading ? 'true' : undefined}>
           <header className="mb-3">
             <h4 className="text-base font-semibold text-(--text-primary)">{copy.renderPreviewTitle}</h4>
             <p className="mt-1 text-sm text-(--text-secondary)">{copy.renderPreviewDescription}</p>
@@ -372,6 +376,7 @@ export function ContentPatcherScaleUpPanel({
 
           <div className="rounded-3xl border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel-muted)_84%,white_8%)] p-3">
             <div className="relative overflow-hidden rounded-[20px] border border-(--border-color)">
+              {imagesLoading ? <ImageSkeleton overlay rounded={false} className="cp-scale-up-preview-skeleton" /> : null}
               <img src={resultImageDataUrl} alt={copy.sheetAlt(targetPath)} className="block h-auto w-full" style={imageStyle()} />
               <div className="pointer-events-none absolute inset-0">
                 {preview.headshot ? (

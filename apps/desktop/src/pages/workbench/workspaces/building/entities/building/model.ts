@@ -223,6 +223,7 @@ export type ConstructibleBuildingGroup = {
 }
 
 export type BuildingTextureAssetState = {
+  loading?: boolean
   path: string | null
   url: string | null
   width: number | null

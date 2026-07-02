@@ -64,6 +64,16 @@
     @apply overflow-hidden rounded-2xl;
   }
 
+  .map-viewport-skeleton {
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  .map-overlay-sprite-skeleton {
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
   .panel-canvas-soft {
     border: 1px solid var(--border-color);
     background:

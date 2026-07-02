@@ -120,6 +120,16 @@
     padding: 1rem;
   }
 
+  .cp-debugger-image-stage-skeleton {
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  .cp-scale-up-preview-skeleton {
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
   .cp-debugger-image-stage-with-toolbar {
     padding-bottom: 5.75rem;
   }

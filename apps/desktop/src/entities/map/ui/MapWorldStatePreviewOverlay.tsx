@@ -1,4 +1,5 @@
 import { memo, useMemo } from 'react'
+import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import type { MapDocument, MapWorldOverlaySprite, OverlayTextureAsset } from '@entities/map'
 
 type MapWorldStatePreviewOverlayProps = {
@@ -19,7 +20,8 @@ type RenderableOverlaySprite = {
   width: number
   height: number
   zIndex: number
-  assetUrl: string
+  assetUrl: string | null
+  loading: boolean
 }
 
 function MapWorldStatePreviewOverlay({ mapDocument, viewportZoom, sprites, textureAssets }: MapWorldStatePreviewOverlayProps) {
@@ -27,23 +29,22 @@ function MapWorldStatePreviewOverlay({ mapDocument, viewportZoom, sprites, textu
     () =>
       sprites.flatMap((sprite) => {
         const asset = textureAssets[sprite.textureName]
-        return asset?.url
-          ? [
-              {
-                id: sprite.id,
-                sourceX: sprite.sourceX,
-                sourceY: sprite.sourceY,
-                sourceWidth: sprite.sourceWidth,
-                sourceHeight: sprite.sourceHeight,
-                pixelX: sprite.pixelX,
-                pixelY: sprite.pixelY,
-                width: sprite.width,
-                height: sprite.height,
-                zIndex: sprite.zIndex,
-                assetUrl: asset.url,
-              } satisfies RenderableOverlaySprite,
-            ]
-          : []
+        return [
+          {
+            id: sprite.id,
+            sourceX: sprite.sourceX,
+            sourceY: sprite.sourceY,
+            sourceWidth: sprite.sourceWidth,
+            sourceHeight: sprite.sourceHeight,
+            pixelX: sprite.pixelX,
+            pixelY: sprite.pixelY,
+            width: sprite.width,
+            height: sprite.height,
+            zIndex: sprite.zIndex,
+            assetUrl: asset?.url ?? null,
+            loading: !asset?.url,
+          } satisfies RenderableOverlaySprite,
+        ]
       }),
     [sprites, textureAssets],
   )
@@ -73,18 +74,22 @@ function MapWorldStatePreviewOverlay({ mapDocument, viewportZoom, sprites, textu
               zIndex: sprite.zIndex,
             }}
           >
-            <div
-              style={{
-                width: `${sprite.sourceWidth}px`,
-                height: `${sprite.sourceHeight}px`,
-                transform: `scale(${width / sprite.sourceWidth}, ${height / sprite.sourceHeight})`,
-                transformOrigin: 'top left',
-                backgroundImage: `url("${sprite.assetUrl}")`,
-                backgroundPosition: `-${sprite.sourceX}px -${sprite.sourceY}px`,
-                backgroundRepeat: 'no-repeat',
-                imageRendering: 'pixelated',
-              }}
-            />
+            {sprite.loading ? (
+              <ImageSkeleton overlay rounded={false} className="map-overlay-sprite-skeleton" />
+            ) : (
+              <div
+                style={{
+                  width: `${sprite.sourceWidth}px`,
+                  height: `${sprite.sourceHeight}px`,
+                  transform: `scale(${width / sprite.sourceWidth}, ${height / sprite.sourceHeight})`,
+                  transformOrigin: 'top left',
+                  backgroundImage: `url("${sprite.assetUrl}")`,
+                  backgroundPosition: `-${sprite.sourceX}px -${sprite.sourceY}px`,
+                  backgroundRepeat: 'no-repeat',
+                  imageRendering: 'pixelated',
+                }}
+              />
+            )}
           </div>
         )
       })}

@@ -1,5 +1,6 @@
 import { useBuildingsCopy } from '@locales/provider'
 import { MapViewport } from '@entities/map'
+import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../entities/building'
 import type { LocaleCode, ViewportLabels, ThemeMode } from '@locales/api'
 import type { MapDocument, ViewportWorldPoint } from '@entities/map'
@@ -43,27 +44,30 @@ export function BuildingPrimaryPreview({
       : 1
 
   return (
-    <div className="panel-canvas flex min-h-85 flex-1 items-center justify-center p-6">
+    <div className="panel-canvas relative flex min-h-85 flex-1 items-center justify-center p-6">
       {isConstructible ? (
-        sourceRect && activeTextureState?.url && activeTextureState.width && activeTextureState.height ? (
-          <div
-            style={{
-              ...buildAbsoluteSpriteLayerStyle({
-                url: activeTextureState.url,
-                sheetWidth: activeTextureState.width,
-                sheetHeight: activeTextureState.height,
-                sourceX: sourceRect.X,
-                sourceY: sourceRect.Y,
-                width: sourceRect.Width,
-                height: sourceRect.Height,
-              }),
-              transform: `scale(${previewScale})`,
-              transformOrigin: 'center center',
-            }}
-          />
-        ) : (
-          <div className="panel-canvas-empty">{copy.noTexture}</div>
-        )
+        <>
+          {sourceRect && activeTextureState?.url && activeTextureState.width && activeTextureState.height ? (
+            <div
+              style={{
+                ...buildAbsoluteSpriteLayerStyle({
+                  url: activeTextureState.url,
+                  sheetWidth: activeTextureState.width,
+                  sheetHeight: activeTextureState.height,
+                  sourceX: sourceRect.X,
+                  sourceY: sourceRect.Y,
+                  width: sourceRect.Width,
+                  height: sourceRect.Height,
+                }),
+                transform: `scale(${previewScale})`,
+                transformOrigin: 'center center',
+              }}
+            />
+          ) : (
+            <div className="panel-canvas-empty">{copy.noTexture}</div>
+          )}
+          {activeTextureState?.loading ? <ImageSkeleton overlay className="building-primary-skeleton" rounded={false} /> : null}
+        </>
       ) : activeExteriorMapDocument ? (
         <div className="h-full min-h-85 w-full">
           <MapViewport

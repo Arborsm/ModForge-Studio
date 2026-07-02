@@ -194,6 +194,7 @@
   }
 
   .launcher-updates-artwork {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;

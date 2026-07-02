@@ -868,6 +868,7 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
     springObjectsSheetWidth: null,
     springObjectsSheetHeight: null,
   })
+  const [assetLoading, setAssetLoading] = useState(false)
   const { modIndex } = useModAssetIndex(directoryInfo)
 
   const deferredFilter = useDeferredValue(characterFilter.trim().toLowerCase())
@@ -1053,6 +1054,8 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
       const { spritePath, portraitPath } = resolveCharacterVariantPaths(directoryInfo?.rootPath ?? null, activeVariant)
       const springObjectsPath = directoryInfo?.rootPath ? `${directoryInfo.rootPath}\\${SPRING_OBJECTS_ASSET_PATH}` : null
 
+      setAssetLoading(true)
+
       if (!enableVisualAssets) {
         setAssetState({
           spritePath,
@@ -1070,6 +1073,7 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
           springObjectsSheetWidth: null,
           springObjectsSheetHeight: null,
         })
+        setAssetLoading(false)
         return
       }
 
@@ -1090,6 +1094,7 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
           springObjectsSheetWidth: null,
           springObjectsSheetHeight: null,
         })
+        setAssetLoading(false)
         return
       }
 
@@ -1160,6 +1165,7 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
             springObjectsSheetWidth: springObjects.width,
             springObjectsSheetHeight: springObjects.height,
           })
+          setAssetLoading(false)
         } catch {
           if (!cancelled) {
             setAssetState({
@@ -1178,6 +1184,7 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
               springObjectsSheetWidth: null,
               springObjectsSheetHeight: null,
             })
+            setAssetLoading(false)
           }
         }
       })()
@@ -1234,6 +1241,7 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
     activeVariant,
     characterStatusMessage,
     assetState,
+    assetLoading,
     handleSelectCharacter,
     handleSelectModCharacter,
     handleSelectVariant,

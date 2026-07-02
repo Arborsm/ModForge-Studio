@@ -1,0 +1,40 @@
+@layer components {
+  .image-skeleton {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--bg-panel-muted) 72%, var(--border-color));
+  }
+
+  .image-skeleton-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+
+  .image-skeleton-rounded {
+    border-radius: 1rem;
+  }
+
+  .image-skeleton::after {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text-primary) 8%, transparent), transparent);
+    content: '';
+    transform: translateX(-100%);
+    animation: image-skeleton-shimmer 1.45s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .image-skeleton::after {
+      animation: none;
+      transform: none;
+    }
+  }
+
+  @keyframes image-skeleton-shimmer {
+    to {
+      transform: translateX(100%);
+    }
+  }
+}

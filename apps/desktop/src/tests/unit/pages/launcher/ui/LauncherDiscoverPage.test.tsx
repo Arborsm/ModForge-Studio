@@ -584,8 +584,9 @@ describe('LauncherDiscoverPage', () => {
 
     const { container } = renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
 
-    expect(screen.getByText(copy.discover.loadingCover)).toBeTruthy()
-    expect(container.querySelector('.launcher-discover-wall-cover-fallback')).toBeTruthy()
+    expect(container.querySelector('.launcher-discover-wall-cover-skeleton')).toBeTruthy()
+    expect(container.querySelector('.image-skeleton')).toBeTruthy()
+    expect(container.querySelector('.launcher-discover-wall-cover-fallback')).toBeNull()
   })
 
   it('renders a centered blocked-state card with retry, diagnostics, and expandable technical details', async () => {

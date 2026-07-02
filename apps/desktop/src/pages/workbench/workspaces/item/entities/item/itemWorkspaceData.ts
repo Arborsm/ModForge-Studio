@@ -85,6 +85,7 @@ async function loadImageState(path: string | null, locale: LocaleCode): Promise<
       url: null,
       width: null,
       height: null,
+      loading: false,
     }
   }
 
@@ -103,6 +104,7 @@ async function loadImageState(path: string | null, locale: LocaleCode): Promise<
           url: resource.url,
           width: resource.width,
           height: resource.height,
+          loading: false,
         }
       } catch (error) {
         lastError = error
@@ -612,6 +614,7 @@ export async function loadItemTextureAssetState(rootPath: string, assetName: str
       url: null,
       width: null,
       height: null,
+      loading: false,
     }
   }
 }

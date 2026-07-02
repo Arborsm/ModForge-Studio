@@ -436,6 +436,10 @@
     padding: 0.875rem;
   }
 
+  .launcher-mod-card-cover-skeleton {
+    border-radius: inherit;
+  }
+
   .launcher-mod-card-cover-word {
     position: absolute;
     inset: 50% auto auto 50%;

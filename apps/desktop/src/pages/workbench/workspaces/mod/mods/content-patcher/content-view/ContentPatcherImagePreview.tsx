@@ -5,6 +5,7 @@ import { usePanZoomViewport } from '@shared/lib/viewports'
 import { ContentPatcherSimulationForm } from './ContentPatcherSimulationForm'
 import { prepareImageCompareAssets, type ImageCompareBounds, type PreparedImageCompareAssets } from '../content-model/imageCompare'
 import { useModWorkspaceCopy } from '@locales/provider'
+import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 
 type CompareMode = 'layers' | 'split'
 
@@ -106,6 +107,7 @@ export function ContentPatcherImagePreview({
     key: string
     assets: PreparedImageCompareAssets
   } | null>(null)
+  const [compareAssetsLoading, setCompareAssetsLoading] = useState(false)
   const simulationMenuRef = useRef<HTMLDivElement | null>(null)
   const compareKey = originalImageDataUrl ? `${originalImageDataUrl}::${imageDataUrl}` : null
   const compareAssets = compareAssetState?.key === compareKey ? compareAssetState.assets : null
@@ -114,11 +116,13 @@ export function ContentPatcherImagePreview({
     let cancelled = false
 
     if (!compareKey || !originalImageDataUrl) {
+      setCompareAssetsLoading(false)
       return () => {
         cancelled = true
       }
     }
 
+    setCompareAssetsLoading(true)
     void prepareImageCompareAssets(originalImageDataUrl, imageDataUrl)
       .then((next) => {
         if (!cancelled) {
@@ -126,9 +130,14 @@ export function ContentPatcherImagePreview({
             key: compareKey,
             assets: next,
           })
+          setCompareAssetsLoading(false)
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) {
+          setCompareAssetsLoading(false)
+        }
+      })
 
     return () => {
       cancelled = true
@@ -180,7 +189,9 @@ export function ContentPatcherImagePreview({
             ? 'cp-debugger-image-stage cp-debugger-image-stage-with-toolbar cp-debugger-image-stage-focused'
             : 'cp-debugger-image-stage cp-debugger-image-stage-with-toolbar'
         }
+        aria-busy={compareAssetsLoading ? 'true' : undefined}
       >
+        {compareAssetsLoading ? <ImageSkeleton overlay rounded={false} className="cp-debugger-image-stage-skeleton" /> : null}
         {compareEnabled && compareMode === 'split' ? (
           <div className="cp-debugger-compare-split">
             <figure className="cp-debugger-compare-pane">

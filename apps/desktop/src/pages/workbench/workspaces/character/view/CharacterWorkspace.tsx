@@ -9,6 +9,7 @@ import {
 } from '../entities/character'
 import { useCharactersCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
+import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { getScaleUpFrameCount, getScaleUpFramePreviewMetrics } from '@pages/workbench/workspaces/mod'
 import { CharacterGiftTasteSection, type GiftTone } from './CharacterGiftTasteSection'
 import { buildAbsoluteSpriteLayerStyle, buildSpriteStyle } from './characterSpriteStyles'
@@ -17,6 +18,7 @@ type CharacterWorkspaceProps = {
   character: CharacterWorkspaceEntry | null
   activeVariant: CharacterAppearanceVariant | null
   assetState: CharacterVisualAssetState
+  assetLoading?: boolean
 }
 
 const WALK_DIRECTIONS = [
@@ -291,8 +293,9 @@ const BreathingPreviewCanvas = memo(function BreathingPreviewCanvas({
   )
 })
 
-export default function CharacterWorkspace({ character, activeVariant, assetState }: CharacterWorkspaceProps) {
+export default function CharacterWorkspace({ character, activeVariant, assetState, assetLoading = false }: CharacterWorkspaceProps) {
   const copy = useCharactersCopy()
+  const isAssetLoading = assetLoading
   const frameWidth = character?.spriteWidth ?? 16
   const frameHeight = character ? Math.max(character.spriteHeight, getActorSpriteFrameHeight(character.internalName)) : 32
   const spriteColumns =
@@ -423,7 +426,7 @@ export default function CharacterWorkspace({ character, activeVariant, assetStat
                   </div>
                   <span className="dock-chip">{`${frameWidth}x${frameHeight}`}</span>
                 </div>
-                <div className="flex-1">
+                <div className="relative flex-1">
                   <BreathingPreviewCanvas
                     character={character}
                     activeVariant={activeVariant}
@@ -432,6 +435,7 @@ export default function CharacterWorkspace({ character, activeVariant, assetStat
                     frameHeight={frameHeight}
                     spriteColumns={spriteColumns}
                   />
+                  {isAssetLoading ? <ImageSkeleton overlay className="character-breathing-skeleton" /> : null}
                 </div>
               </div>
 
@@ -443,7 +447,7 @@ export default function CharacterWorkspace({ character, activeVariant, assetStat
                   <span className="dock-chip">{WALK_DIRECTIONS.length}</span>
                 </div>
                 {spriteUrl && spriteSheetWidth && spriteSheetHeight ? (
-                  <div className="grid gap-2.5 sm:grid-cols-2">
+                  <div className="relative grid gap-2.5 sm:grid-cols-2">
                     {WALK_DIRECTIONS.map(({ id, direction }) => (
                       <MemoizedWalkCyclePreviewTile
                         key={id}
@@ -456,6 +460,7 @@ export default function CharacterWorkspace({ character, activeVariant, assetStat
                         frames={getActorWalkAnimationState(character.internalName, direction).frames}
                       />
                     ))}
+                    {isAssetLoading ? <ImageSkeleton overlay className="character-walking-skeleton" /> : null}
                   </div>
                 ) : (
                   <div className="panel-canvas-empty min-h-55">{copy.spriteMissing}</div>
@@ -499,7 +504,7 @@ export default function CharacterWorkspace({ character, activeVariant, assetStat
             </div>
             <span className="dock-chip">{portraitCount || 0}</span>
           </div>
-          <div className="panel-body min-h-0 overflow-auto p-3">
+          <div className="panel-body relative min-h-0 overflow-auto p-3">
             {portraitUrl && portraitSheetWidth && portraitSheetHeight ? (
               <div className="grid gap-2.5 sm:grid-cols-2">
                 {Array.from({ length: portraitCount }, (_, index) => {
@@ -549,6 +554,7 @@ export default function CharacterWorkspace({ character, activeVariant, assetStat
             ) : (
               <div className="panel-canvas-empty min-h-60">{copy.portraitMissing}</div>
             )}
+            {isAssetLoading ? <ImageSkeleton overlay className="character-portrait-skeleton" /> : null}
           </div>
         </aside>
       </div>

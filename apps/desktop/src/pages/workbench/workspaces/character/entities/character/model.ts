@@ -158,6 +158,7 @@ export type CharacterWorkspaceEntry = {
 }
 
 export type CharacterVisualAssetState = {
+  loading?: boolean
   spritePath: string | null
   portraitPath: string | null
   spriteUrl: string | null

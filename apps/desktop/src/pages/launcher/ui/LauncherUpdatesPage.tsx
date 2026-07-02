@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
+import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { openLauncherPath } from '@features/launcher/api'
 import { useLauncherImage } from '@features/launcher'
 import { useLauncherUpdates } from '@features/launcher'
@@ -45,9 +46,10 @@ function UpdateArtwork({ title, imageUrl, className }: { title: string; imageUrl
   const monogram = getLauncherCardMonogram(title)
 
   return (
-    <div className={cx('launcher-updates-artwork', className)}>
+    <div className={cx('launcher-updates-artwork', className)} aria-busy={image.loading ? 'true' : undefined}>
+      {image.loading ? <ImageSkeleton overlay rounded={false} className="launcher-updates-artwork-skeleton" /> : null}
       {image.imageUrl ? <img src={image.imageUrl} alt="" className="launcher-updates-artwork-image" /> : null}
-      {!image.imageUrl ? <span className="launcher-updates-artwork-fallback">{monogram}</span> : null}
+      {!image.imageUrl && !image.loading ? <span className="launcher-updates-artwork-fallback">{monogram}</span> : null}
     </div>
   )
 }

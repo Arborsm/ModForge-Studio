@@ -7,6 +7,7 @@ import { getActorSpriteFrameHeight, getStageEffectPlayback, getStageEffectSortVa
 import { MapWorldStatePreviewOverlay } from '@entities/map'
 import type { PlayerAppearanceProfile } from '@entities/event'
 import { useEventStageCopy } from '@locales/provider'
+import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { useEventStageWorkspace } from '../state/useEventStageWorkspace'
 import { type GameDirectoryInfo, type MapAssetContent } from '@entities/game/api'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
@@ -202,6 +203,30 @@ export default function EventStageWorkspace({
     const worldEffects = worldEffectEntries
       .map(({ effect, asset }) => {
         const playback = getStageEffectPlayback(effect, animationNowMs)
+        const isLoading = asset?.loading
+
+        if (isLoading) {
+          const pixelX = (effect.baseX + playback.offsetX) * gamePixelScale * viewportZoom
+          const pixelY = (effect.baseY + playback.offsetY) * gamePixelScale * viewportZoom
+          const width = effect.sourceWidth * playback.scale * gamePixelScale * viewportZoom
+          const height = effect.sourceHeight * playback.scale * gamePixelScale * viewportZoom
+
+          return (
+            <div
+              key={effect.id}
+              className="absolute"
+              style={{
+                transform: `translate(${pixelX}px, ${pixelY}px)`,
+                width: `${width}px`,
+                height: `${height}px`,
+                zIndex: getStageEffectSortValue(effect),
+              }}
+            >
+              <ImageSkeleton overlay rounded={false} />
+            </div>
+          )
+        }
+
         if (!playback.visible || !asset?.url) {
           return null
         }
@@ -276,6 +301,31 @@ export default function EventStageWorkspace({
     const effects = screenEffectEntries
       .map(({ effect, asset }) => {
         const playback = getStageEffectPlayback(effect, animationNowMs)
+        const isLoading = asset?.loading
+
+        if (isLoading) {
+          const width = effect.sourceWidth * playback.scale
+          const height = effect.sourceHeight * playback.scale
+          const leftPercent = ((effect.baseX + playback.offsetX) / EFFECT_VIEWPORT_BASE_WIDTH) * 100
+          const topPercent = ((effect.baseY + playback.offsetY) / EFFECT_VIEWPORT_BASE_HEIGHT) * 100
+
+          return (
+            <div
+              key={effect.id}
+              className="absolute"
+              style={{
+                left: `${leftPercent}%`,
+                top: `${topPercent}%`,
+                width: `${width}px`,
+                height: `${height}px`,
+                zIndex: getStageEffectSortValue(effect),
+              }}
+            >
+              <ImageSkeleton overlay rounded={false} />
+            </div>
+          )
+        }
+
         if (!playback.visible || !asset?.url) {
           return null
         }
@@ -399,7 +449,9 @@ export default function EventStageWorkspace({
                       className={`panel-list-card flex items-center gap-3 px-3 py-2 shadow-(--shadow-panel) backdrop-blur ${toneClassName}`}
                     >
                       <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-elevated)">
-                        {notice.icon && iconAsset?.url ? (
+                        {notice.icon && iconAsset?.loading ? (
+                          <ImageSkeleton overlay rounded={false} />
+                        ) : notice.icon && iconAsset?.url ? (
                           <div
                             className="absolute top-1/2 left-1/2"
                             style={{
@@ -456,8 +508,10 @@ export default function EventStageWorkspace({
           </div>
         ) : playbackState.currentEntry ? (
           <div className="panel-overlay-card pointer-events-none flex w-full max-w-4xl items-end gap-4">
-            <div className="hidden h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-(--border-color) bg-(--bg-panel) sm:block">
-              {currentDialogueActorAsset?.portraitUrl ? (
+            <div className="relative hidden h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-(--border-color) bg-(--bg-panel) sm:block">
+              {currentDialogueActorAsset?.loading ? (
+                <ImageSkeleton overlay rounded={false} />
+              ) : currentDialogueActorAsset?.portraitUrl ? (
                 <div className="relative h-full w-full overflow-hidden">
                   <div
                     aria-label={currentDialogueActor?.actorName ?? playbackState.currentEntry.title}

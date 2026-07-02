@@ -4,6 +4,7 @@ import { openLauncherUrl } from '@features/launcher/api'
 import { getLauncherCardMonogram, useLauncherImage } from '@features/launcher'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
+import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { Tooltip } from '@shared/ui/Tooltip'
 import { formatCompactNumber, formatFileSize, formatRelativeDate } from './launcherDiscoverFormat'
 
@@ -143,13 +144,13 @@ export function LauncherDiscoverCard({ item, onOpenDetails, onQueueDownload }: L
           onClick={scheduleOpenDetails}
           onDoubleClick={openModPage}
         >
+          {image.loading ? <ImageSkeleton overlay rounded={false} className="launcher-discover-wall-cover-skeleton" /> : null}
           {image.imageUrl ? <img src={image.imageUrl} alt="" className="launcher-discover-card-image" /> : null}
-          {!image.imageUrl ? (
+          {!image.imageUrl && !image.loading ? (
             <span className="launcher-discover-wall-cover-fallback">
               <span className="launcher-discover-wall-cover-monogram" aria-hidden="true">
                 {coverMonogram}
               </span>
-              {image.loading ? <span className="launcher-discover-wall-cover-status">{copy.discover.loadingCover}</span> : null}
             </span>
           ) : null}
           {item.updateAvailable ? <span className="launcher-discover-wall-badge">{copy.discover.updateAvailable}</span> : null}

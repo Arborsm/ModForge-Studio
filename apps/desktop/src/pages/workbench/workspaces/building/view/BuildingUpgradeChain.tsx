@@ -1,6 +1,7 @@
 import { useBuildingsCopy } from '@locales/provider'
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../entities/building'
 import type { BuildingsPanelCopy } from '@locales/api'
+import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { cx } from '@shared/lib/helper'
 import { buildAbsoluteSpriteLayerStyle, getResolvedSourceRect, getStageBadge } from './buildingViewHelpers'
 
@@ -47,7 +48,7 @@ function StageCard({
         <span className="dock-chip shrink-0">{getStageBadge(copy, stage, isActive ? stage.key : null)}</span>
       </div>
 
-      <div className="panel-canvas-soft mt-3 flex min-h-38 items-center justify-center px-3 py-4">
+      <div className="panel-canvas-soft relative mt-3 flex min-h-38 items-center justify-center px-3 py-4">
         {sourceRect && textureState?.url && textureState.width && textureState.height ? (
           <div
             style={{
@@ -67,6 +68,7 @@ function StageCard({
         ) : (
           <p className="text-sm text-(--text-secondary)">{copy.noTexture}</p>
         )}
+        {textureState?.loading ? <ImageSkeleton overlay className="building-stage-skeleton" rounded={false} /> : null}
       </div>
 
       <div className="mt-3 space-y-1 text-xs text-(--text-secondary)">

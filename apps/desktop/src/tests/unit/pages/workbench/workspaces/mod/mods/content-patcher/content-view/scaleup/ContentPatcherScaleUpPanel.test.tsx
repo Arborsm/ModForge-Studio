@@ -22,6 +22,32 @@ afterEach(() => {
 })
 
 describe('ContentPatcherScaleUpPanel', () => {
+  it('renders a skeleton overlay while measuring image dimensions', async () => {
+    const onContentChange = vi.fn()
+
+    const { container } = renderWithLocale(
+      <ContentPatcherScaleUpPanel
+        targetPath="Characters/Lewis"
+        focusSection="preview"
+        content={{
+          Format: '2.0.0',
+          Changes: [],
+        }}
+        resultImageDataUrl="result-url"
+        originalImageDataUrl="original-url"
+        onContentChange={onContentChange}
+        onClose={vi.fn()}
+      />,
+    )
+
+    expect(container.querySelector('.cp-scale-up-preview-skeleton')).toBeTruthy()
+    expect(container.querySelector('.image-skeleton')).toBeTruthy()
+
+    await waitFor(() => {
+      expect(container.querySelector('.cp-scale-up-preview-skeleton')).toBeNull()
+    })
+  })
+
   it('derives ScaleUp defaults, renders preview tabs, and writes content updates from settings', async () => {
     const onContentChange = vi.fn()
 

@@ -11,6 +11,7 @@ export type ItemRecipeKind = 'crafting' | 'cooking'
 export type ItemBrowseCategory = 'all' | 'mineral' | 'cooking' | 'fish' | 'crop' | 'equipment' | 'apparel' | 'furniture' | 'crafting'
 
 export type ItemTextureAssetState = {
+  loading?: boolean
   path: string | null
   url: string | null
   width: number | null

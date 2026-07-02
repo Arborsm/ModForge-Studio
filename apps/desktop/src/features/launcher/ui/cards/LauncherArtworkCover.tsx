@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { cx } from '@shared/lib/helper'
+import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { useLauncherImage } from '../../model/imageLoader'
 
 type LauncherArtworkCoverProps = {
@@ -25,7 +26,11 @@ export function LauncherArtworkCover({
   const fallbackWord = coverWord.trim() || title.trim().slice(0, 3).toUpperCase() || 'MOD'
 
   return (
-    <div className={cx('launcher-mod-card-cover', cover.imageUrl && 'launcher-mod-card-cover-has-image', className)} style={coverStyle}>
+    <div
+      className={cx('launcher-mod-card-cover', cover.imageUrl && 'launcher-mod-card-cover-has-image', className)}
+      style={coverStyle}
+      aria-busy={cover.loading ? 'true' : undefined}
+    >
       <span className="launcher-mod-card-cover-meta" />
       {cover.imageUrl && showBlurStrip ? (
         <span className="launcher-mod-card-cover-image-blur-strip" aria-hidden="true">
@@ -37,7 +42,8 @@ export function LauncherArtworkCover({
       {cover.imageUrl ? (
         <img src={cover.imageUrl} alt="" className="launcher-mod-card-cover-image" draggable={false} loading="lazy" />
       ) : null}
-      {!cover.imageUrl ? (
+      {cover.loading ? <ImageSkeleton overlay rounded={false} className="launcher-mod-card-cover-skeleton" /> : null}
+      {!cover.imageUrl && !cover.loading ? (
         <span className="launcher-mod-card-cover-fallback">
           <span className="launcher-mod-card-cover-word">{fallbackWord}</span>
         </span>

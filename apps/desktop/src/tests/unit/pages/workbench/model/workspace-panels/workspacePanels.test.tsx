@@ -109,6 +109,7 @@ function buildOptions(overrides: Partial<BuildOptions> = {}): BuildOptions {
     characterFilter: '',
     characterStatusMessage: '',
     activeCharacterAssetState: {} as CharacterVisualAssetState,
+    activeCharacterAssetLoading: false,
     onCharacterFilterChange: noop,
     onSelectCharacter: noop,
     onSelectModCharacter: noop,

@@ -123,6 +123,7 @@ export function createPreviewPanelDefaults({
     characterFilter: '',
     characterStatusMessage: '',
     activeCharacterAssetState: {} as never,
+    activeCharacterAssetLoading: false,
     onCharacterFilterChange: () => {},
     onSelectCharacter: () => {},
     onSelectModCharacter: () => {},
