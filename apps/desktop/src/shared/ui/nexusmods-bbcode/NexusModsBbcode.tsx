@@ -1,3 +1,4 @@
+import { Play } from 'lucide-react'
 import { isValidElement, memo, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   getNexusModsBbcodeTextContent,
@@ -57,139 +58,30 @@ function sanitizeColor(value: string | undefined) {
   return safeNamedColors.has(lowerColor) ? lowerColor : null
 }
 
-const namedColorHexMap: Record<string, string> = {
-  black: '#000000',
-  blue: '#0000ff',
-  brown: '#a52a2a',
-  cyan: '#00ffff',
-  gray: '#808080',
-  green: '#008000',
-  grey: '#808080',
-  lime: '#00ff00',
-  magenta: '#ff00ff',
-  navy: '#000080',
-  orange: '#ffa500',
-  pink: '#ffc0cb',
-  purple: '#800080',
-  red: '#ff0000',
-  silver: '#c0c0c0',
-  teal: '#008080',
-  transparent: '#00000000',
-  violet: '#ee82ee',
-  white: '#ffffff',
-  yellow: '#ffff00',
-}
-
-type RgbaColor = { r: number; g: number; b: number; a: number }
-
-function parseHexColor(value: string): RgbaColor | null {
-  const hex = value.replace(/^#/, '')
-  if (!/^(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(hex)) {
+function sanitizeClassName(value: string | undefined) {
+  const className = value?.trim()
+  if (!className || className.length > 120 || !/^[\w\s-]+$/u.test(className)) {
     return null
   }
 
-  const full =
-    hex.length === 3 || hex.length === 4
-      ? hex
-          .split('')
-          .map((c) => c + c)
-          .join('')
-      : hex
-
-  return {
-    r: Number.parseInt(full.slice(0, 2), 16),
-    g: Number.parseInt(full.slice(2, 4), 16),
-    b: Number.parseInt(full.slice(4, 6), 16),
-    a: full.length === 8 ? Number.parseInt(full.slice(6, 8), 16) / 255 : 1,
-  }
+  return className
+    .split(/\s+/u)
+    .filter((part) => part.length > 0)
+    .join(' ')
 }
 
-function parseColor(value: string): RgbaColor | null {
-  const lower = value.toLowerCase()
-  return parseHexColor(namedColorHexMap[lower] ?? value)
+function classList(value: string | undefined): string[] {
+  const className = sanitizeClassName(value)
+  return className ? className.split(/\s+/u) : []
 }
 
-function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
-  const rNorm = r / 255
-  const gNorm = g / 255
-  const bNorm = b / 255
-  const max = Math.max(rNorm, gNorm, bNorm)
-  const min = Math.min(rNorm, gNorm, bNorm)
-  let h = 0
-  let s = 0
-  const l = (max + min) / 2
-
-  if (max !== min) {
-    const d = max - min
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
-    switch (max) {
-      case rNorm:
-        h = (gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0)
-        break
-      case gNorm:
-        h = (bNorm - rNorm) / d + 2
-        break
-      case bNorm:
-        h = (rNorm - gNorm) / d + 4
-        break
-    }
-    h /= 6
-  }
-
-  return { h, s, l }
-}
-
-function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
-  if (s === 0) {
-    const value = Math.round(l * 255)
-    return { r: value, g: value, b: value }
-  }
-
-  const hue2rgb = (p: number, q: number, t: number) => {
-    let tt = t
-    if (tt < 0) tt += 1
-    if (tt > 1) tt -= 1
-    if (tt < 1 / 6) return p + (q - p) * 6 * tt
-    if (tt < 1 / 2) return q
-    if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6
-    return p
-  }
-
-  const q = l < 0.5 ? l * (1 + s) : l + s - l * s
-  const p = 2 * l - q
-
-  return {
-    r: Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
-    g: Math.round(hue2rgb(p, q, h) * 255),
-    b: Math.round(hue2rgb(p, q, h - 1 / 3) * 255),
-  }
-}
-
-function formatColor({ r, g, b, a }: RgbaColor): string {
-  if (a < 1) {
-    return `rgba(${r}, ${g}, ${b}, ${a})`
-  }
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+function hasClass(value: string | undefined, name: string) {
+  return classList(value).includes(name)
 }
 
 function adaptColor(value: string, isDark: boolean): string {
-  const parsed = parseColor(value)
-  if (!parsed) return value
-
-  const { r, g, b, a } = parsed
-  const { h, s, l } = rgbToHsl(r, g, b)
-
-  const lightCap = 0.56
-  const darkFloor = 0.52
-
-  let adjustedL = l
-  if (!isDark && l > lightCap) {
-    adjustedL = lightCap
-  } else if (isDark && l < darkFloor) {
-    adjustedL = darkFloor
-  }
-
-  return formatColor({ ...hslToRgb(h, s, adjustedL), a })
+  void isDark
+  return value
 }
 
 function sanitizeFontFamily(value: string | undefined) {
@@ -219,10 +111,36 @@ function sanitizeSize(value: string | undefined) {
   return null
 }
 
-function sanitizeUrl(value: string | undefined) {
-  const href = value?.trim()
-  if (!href) {
+function decodeUrlEntities(value: string): string {
+  return value
+    .replace(/&amp;/giu, '&')
+    .replace(/&lt;/giu, '<')
+    .replace(/&gt;/giu, '>')
+    .replace(/&quot;/giu, '"')
+    .replace(/&apos;/giu, "'")
+    .replace(/&#0*39;/giu, "'")
+    .replace(/&#x0*27;/giu, "'")
+}
+
+function sanitizeUrl(value: string | undefined, allowDataUri = false) {
+  const rawHref = value?.trim()
+  if (!rawHref) {
     return null
+  }
+
+  if (allowDataUri && /^data:image\/[\w+.-]+;base64,/iu.test(rawHref)) {
+    return rawHref
+  }
+
+  const href = decodeUrlEntities(rawHref)
+
+  if (href.startsWith('#')) {
+    return href
+  }
+
+  const lowerHref = href.toLowerCase()
+  if (lowerHref === 'http:' || lowerHref === 'https:' || lowerHref === 'http://' || lowerHref === 'https://') {
+    return href
   }
 
   try {
@@ -249,14 +167,58 @@ function renderLine(key: string, children: ReactNode[]) {
   )
 }
 
-function NexusModsBbcodeImage({ src, alt }: { src: string; alt: string }) {
+function NexusModsBbcodeImage({ src, alt, width, height }: { src: string; alt: string; width?: string; height?: string }) {
   const [failed, setFailed] = useState(false)
 
   if (failed) {
     return null
   }
 
-  return <img src={src} alt={alt} loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} />
+  return (
+    <img src={src} alt={alt} width={width} height={height} loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} />
+  )
+}
+
+function renderEmbedButton(href: string, key: string) {
+  const hostname = (() => {
+    try {
+      return new URL(href).hostname.replace(/^www\./u, '')
+    } catch {
+      return href
+    }
+  })()
+
+  return (
+    <a
+      key={key}
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-panel)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-panel-hover)] hover:text-[var(--text-primary)]"
+    >
+      <Play className="h-3.5 w-3.5 fill-current" />
+      <span>{hostname}</span>
+    </a>
+  )
+}
+
+function hasBlockOrItemDescendant(nodes: NexusModsBbcodeNode[]): boolean {
+  return nodes.some(
+    (node) =>
+      node.type === 'element' &&
+      (node.tag === 'item' ||
+        node.tag === 'list' ||
+        node.tag === 'quote' ||
+        node.tag === 'spoiler' ||
+        node.tag === 'code' ||
+        node.tag === 'center' ||
+        node.tag === 'left' ||
+        node.tag === 'right' ||
+        node.tag === 'justify' ||
+        node.tag === 'div' ||
+        node.tag === 'hr' ||
+        hasBlockOrItemDescendant(node.children)),
+  )
 }
 
 function isHorizontalRuleText(value: string) {
@@ -459,21 +421,24 @@ function renderText(
     .replace(/&amp;/giu, '&')
     .replace(/&lt;/giu, '<')
     .replace(/&gt;/giu, '>')
-  const parts = decoded
-    .replace(/[\u00A0\uFEFF]/gu, ' ')
-    .split(/\r?\n/u)
-    .map((part) => part.replace(/[^\S\r\n]+/gu, ' ').trim())
+
+  const normalized = decoded.replace(/[\u00A0\uFEFF]/gu, ' ').replace(/[^\S\r\n]+/gu, ' ')
+  const parts = normalized.split(/\r?\n/u)
 
   return parts.flatMap((part, index) => {
     const nodes: ReactNode[] = []
-    if (part) {
+    const collapsed = part.replace(/[^\S\r\n]+/gu, ' ')
+    const hasContent = collapsed.trim().length > 0
+    const text = hasContent ? collapsed : ''
+
+    if (text) {
       nodes.push(
-        options.wrapHorizontalRule && isHorizontalRuleText(part) ? (
+        options.wrapHorizontalRule && isHorizontalRuleText(text) ? (
           <span key={`${keyPrefix}-text-${index}`} className="nexusmods-bbcode-line">
-            {part}
+            {text}
           </span>
         ) : (
-          part
+          text
         ),
       )
     }
@@ -504,7 +469,7 @@ function hasSubstantiveRenderedContent(node: ReactNode): boolean {
       return false
     }
 
-    if (node.type === 'img' || node.type === 'hr' || node.type === NexusModsBbcodeImage) {
+    if (node.type === 'img' || node.type === 'hr' || node.type === 'a' || node.type === NexusModsBbcodeImage) {
       return true
     }
 
@@ -551,6 +516,42 @@ function hasSourceLineBreak(nodes: NexusModsBbcodeNode[]): boolean {
   return nodes.some((node) => node.type === 'element' && (node.tag === 'br' || hasSourceLineBreak(node.children)))
 }
 
+function stripTrailingLineBreaks(nodes: NexusModsBbcodeNode[]): NexusModsBbcodeNode[] {
+  let endIndex = nodes.length
+  while (endIndex > 0) {
+    const node = nodes[endIndex - 1]
+    if (node?.type === 'element' && node.tag === 'br') {
+      endIndex -= 1
+    } else if (node?.type === 'text' && node.value.trim().length === 0) {
+      endIndex -= 1
+    } else {
+      break
+    }
+  }
+
+  const result = nodes.slice(0, endIndex)
+  const lastNode = result[result.length - 1]
+  if (lastNode?.type === 'text') {
+    const trimmed = lastNode.value.replace(/[\r\n]+[\t ]*$/u, '')
+    if (trimmed !== lastNode.value) {
+      result[result.length - 1] = { ...lastNode, value: trimmed }
+    }
+  }
+  return result
+}
+
+function stripTrailingLineBreaksDeep(nodes: NexusModsBbcodeNode[]): NexusModsBbcodeNode[] {
+  const result = stripTrailingLineBreaks(nodes)
+  const lastNode = result[result.length - 1]
+  if (lastNode?.type === 'element' && canSplitNodeAcrossSourceLines(lastNode)) {
+    const strippedChildren = stripTrailingLineBreaksDeep(lastNode.children)
+    if (strippedChildren !== lastNode.children) {
+      result[result.length - 1] = { ...lastNode, children: strippedChildren }
+    }
+  }
+  return result
+}
+
 function useColorScheme() {
   const [isDark, setIsDark] = useState(() => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'))
 
@@ -570,7 +571,7 @@ function useColorScheme() {
 function renderSectionHeading(node: NexusModsBbcodeElementNode, key: string, isDark: boolean) {
   return (
     <span key={key} className="nexusmods-bbcode-section-heading">
-      {renderNodes(node.children, key, false, isDark)}
+      {renderNodes(stripTrailingLineBreaksDeep(node.children), key, false, isDark)}
     </span>
   )
 }
@@ -671,13 +672,28 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
   }
 
   if (node.tag === 'url') {
-    const href = sanitizeUrl(node.attrs.href ?? getNexusModsBbcodeTextContent(node.children))
-    if (!hasSubstantiveRenderedContent(children)) {
-      return hasSourceLineBreak(node.children) || hasSpacingRenderedContent(children) ? renderSoftSpacer(key) : null
+    if (hasBlockOrItemDescendant(node.children)) {
+      return (
+        <span key={key}>
+          [url={node.attrs.href}]{children}
+        </span>
+      )
     }
 
+    const textHref = getNexusModsBbcodeTextContent(node.children)
+    const fallbackHref = /^https?:\/\//iu.test(textHref.trim()) ? sanitizeUrl(textHref) : null
+    const href = sanitizeUrl(node.attrs.href ?? textHref) ?? fallbackHref
+
     if (href == null) {
-      return <span key={key}>{children}</span>
+      if (!hasSubstantiveRenderedContent(children)) {
+        return hasSourceLineBreak(node.children) || hasSpacingRenderedContent(children) ? renderSoftSpacer(key) : null
+      }
+
+      return <a key={key}>{children}</a>
+    }
+
+    if (!hasSubstantiveRenderedContent(children)) {
+      return <a key={key} href={href} target="_blank" rel="noreferrer" />
     }
 
     return (
@@ -688,12 +704,43 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
   }
 
   if (node.tag === 'img') {
-    const src = sanitizeUrl(node.attrs.src ?? getNexusModsBbcodeTextContent(node.children))
-    return src == null ? (
-      <span key={key}>{children}</span>
-    ) : (
-      <NexusModsBbcodeImage key={key} src={src} alt={getNexusModsBbcodeTextContent(node.children)} />
+    const src = sanitizeUrl(node.attrs.src ?? getNexusModsBbcodeTextContent(node.children), true)
+    if (src == null) {
+      return <span key={key}>{children}</span>
+    }
+
+    const width = /^(?:\d+|\d+px)$/i.test(node.attrs.width ?? '') ? node.attrs.width : undefined
+    const height = /^(?:\d+|\d+px)$/i.test(node.attrs.height ?? '') ? node.attrs.height : undefined
+    const alt = getNexusModsBbcodeTextContent(node.children)
+
+    return (
+      <div key={key} className="nexusmods-bbcode-img-wrapper">
+        <NexusModsBbcodeImage src={src} alt={alt} width={width} height={height} />
+      </div>
     )
+  }
+
+  if (node.tag === 'iframe') {
+    const src = sanitizeUrl(node.attrs.src)
+    if (src == null) {
+      return null
+    }
+
+    return renderEmbedButton(src, key)
+  }
+
+  if (node.tag === 'youtube') {
+    const videoId = getNexusModsBbcodeTextContent(node.children).trim()
+    if (!videoId) {
+      return null
+    }
+
+    const href = sanitizeUrl(`https://www.youtube.com/watch?v=${videoId}`)
+    if (href == null) {
+      return null
+    }
+
+    return renderEmbedButton(href, key)
   }
 
   if (node.tag === 'center' || node.tag === 'left' || node.tag === 'right' || node.tag === 'justify') {
@@ -708,27 +755,117 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
     )
   }
 
-  if (node.tag === 'list') {
+  if (node.tag === 'div') {
+    const className = node.attrs.class
+
+    if (hasClass(className, 'bbc_spoiler_show')) {
+      return null
+    }
+
+    if (hasClass(className, 'bbc_spoiler_content')) {
+      return (
+        <div key={key} className="nexusmods-bbcode-spoiler-content">
+          {children}
+        </div>
+      )
+    }
+
+    if (hasClass(className, 'bbc_spoiler')) {
+      const contentIndex = node.children.findIndex(
+        (child) => child.type === 'element' && child.tag === 'div' && hasClass(child.attrs.class, 'bbc_spoiler_content'),
+      )
+
+      const spoilerChildren =
+        contentIndex >= 0
+          ? (node.children[contentIndex] as NexusModsBbcodeElementNode).children
+          : node.children.filter(
+              (child) => !(child.type === 'element' && child.tag === 'div' && hasClass(child.attrs.class, 'bbc_spoiler_show')),
+            )
+
+      const spoilerContent = renderNodes(spoilerChildren, `${key}-spoiler`, allowSectionHeadings, isDark)
+      if (!hasSubstantiveRenderedContent(spoilerContent)) {
+        return hasSourceLineBreak(spoilerChildren) || hasSpacingRenderedContent(spoilerContent) ? renderSoftSpacer(key) : null
+      }
+
+      return (
+        <details key={key} className="nexusmods-bbcode-spoiler">
+          <summary>{node.attrs.title || 'Spoiler'}</summary>
+          <div>{spoilerContent}</div>
+        </details>
+      )
+    }
+
     if (!hasSubstantiveRenderedContent(children)) {
       return hasSourceLineBreak(node.children) || hasSpacingRenderedContent(children) ? renderSoftSpacer(key) : null
     }
 
+    if (hasClass(className, 'line')) {
+      return <hr key={key} />
+    }
+
+    if (hasClass(className, 'img-wrapper')) {
+      return (
+        <div key={key} className="nexusmods-bbcode-img-wrapper">
+          {children}
+        </div>
+      )
+    }
+
+    if (hasClass(className, 'youtube_container')) {
+      return (
+        <div key={key} className="nexusmods-bbcode-youtube-container">
+          {children}
+        </div>
+      )
+    }
+
+    if (hasClass(className, 'container') || hasClass(className, 'mod_description_container') || hasClass(className, 'condensed')) {
+      return <>{children}</>
+    }
+
+    const sanitizedClassName = sanitizeClassName(className)
+    if (hasBlockChildren(node.children)) {
+      return (
+        <div key={key} className={sanitizedClassName ? `nexusmods-bbcode-div ${sanitizedClassName}` : 'nexusmods-bbcode-div'}>
+          {children}
+        </div>
+      )
+    }
+
+    return (
+      <span
+        key={key}
+        className={sanitizedClassName ? `nexusmods-bbcode-div ${sanitizedClassName}` : 'nexusmods-bbcode-div'}
+        style={{ display: 'inline-block' }}
+      >
+        {children}
+      </span>
+    )
+  }
+
+  if (node.tag === 'list') {
+    const listChildren = node.children.filter(
+      (child) => !(child.type === 'element' && child.tag === 'br') && !(child.type === 'text' && child.value.trim().length === 0),
+    )
+    const listContent = renderNodes(listChildren, key, allowSectionHeadings, isDark)
+
     const ordered = node.attrs.list === '1' || node.attrs.list?.toLowerCase() === 'decimal'
     return ordered ? (
       <ol key={key} className="nexusmods-bbcode-list nexusmods-bbcode-list-ordered">
-        {children}
+        {listContent}
       </ol>
     ) : (
       <ul key={key} className="nexusmods-bbcode-list nexusmods-bbcode-list-bulleted">
-        {children}
+        {listContent}
       </ul>
     )
   }
 
   if (node.tag === 'item') {
+    const itemChildren = stripTrailingLineBreaksDeep(node.children)
     return (
       <li key={key} className="nexusmods-bbcode-list-item">
-        {children}
+        {renderNodes(itemChildren, key, allowSectionHeadings, isDark)}
       </li>
     )
   }
@@ -814,7 +951,7 @@ function appendRenderedNode(nodes: ReactNode[], node: ReactNode) {
   }
 
   if (isLineBreakNode(node)) {
-    if (nodes.length === 0 || countTrailingLineBreaks(nodes) >= 1) {
+    if (nodes.length === 0 || countTrailingLineBreaks(nodes) >= 2) {
       return
     }
   }
@@ -842,7 +979,12 @@ function renderNodes(
     }
 
     if (node.type === 'text') {
-      appendRenderedNodes(renderedNodes, renderText(node.value, key, options))
+      const prevNode = nodes[index - 1]
+      const nextNode = nodes[index + 1]
+      const prevIsBr = prevNode?.type === 'element' && prevNode.tag === 'br'
+      const nextIsBr = nextNode?.type === 'element' && nextNode.tag === 'br'
+      const value = prevIsBr || nextIsBr ? node.value.replace(/\r?\n/gu, ' ') : node.value
+      appendRenderedNodes(renderedNodes, renderText(value, key, options))
       return
     }
 

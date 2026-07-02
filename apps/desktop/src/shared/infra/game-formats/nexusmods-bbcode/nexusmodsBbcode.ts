@@ -8,10 +8,13 @@ export type NexusModsBbcodeTag =
   | 'font'
   | 'url'
   | 'img'
+  | 'iframe'
+  | 'youtube'
   | 'center'
   | 'left'
   | 'right'
   | 'justify'
+  | 'div'
   | 'list'
   | 'item'
   | 'quote'
@@ -64,10 +67,13 @@ const supportedTags = new Set<string>([
   'font',
   'url',
   'img',
+  'iframe',
+  'youtube',
   'center',
   'left',
   'right',
   'justify',
+  'div',
   'list',
   'quote',
   'spoiler',
@@ -85,6 +91,7 @@ const htmlTagMap: Record<string, NexusModsBbcodeTag> = {
   em: 'i',
   hr: 'hr',
   i: 'i',
+  iframe: 'iframe',
   img: 'img',
   li: 'item',
   ol: 'list',
@@ -103,6 +110,10 @@ function normalizeTag(tag: string): NexusModsBbcodeTag | null {
 
   if (lowerTag === 'strike') {
     return 's'
+  }
+
+  if (lowerTag === 'line') {
+    return 'hr'
   }
 
   return supportedTags.has(lowerTag) ? (lowerTag as NexusModsBbcodeTag) : null
@@ -191,7 +202,11 @@ function createHtmlDivToken(rawAttributes: string): Pick<ParsedHtmlToken & { sup
     return { tag: align, attrs: {}, closingTags: ['center', 'left', 'right', 'justify'] }
   }
 
-  return { tag: 'left', attrs: {}, closingTags: ['center', 'left', 'right', 'justify'] }
+  if (align === 'left') {
+    return { tag: 'left', attrs: {}, closingTags: ['center', 'left', 'right', 'justify'] }
+  }
+
+  return { tag: 'div', attrs: createHtmlAttributes('div', rawAttributes), closingTags: ['div'] }
 }
 
 function createHtmlTokenForTag(
@@ -216,6 +231,12 @@ function createHtmlTokenForTag(
     return { tag, attrs: { list: '1' }, closingTags: [tag] }
   }
 
+  if (lowerTag === 'ul') {
+    const className = readHtmlAttribute(rawAttributes, 'class')?.toLowerCase() ?? ''
+    const isOrdered = className.includes('content_list_ordered')
+    return { tag, attrs: isOrdered ? { list: '1' } : createHtmlAttributes(tag, rawAttributes), closingTags: [tag] }
+  }
+
   return { tag, attrs: createHtmlAttributes(tag, rawAttributes), closingTags: [tag] }
 }
 
@@ -230,9 +251,19 @@ function createHtmlAttributes(tag: NexusModsBbcodeTag, rawAttributes: string): R
     return src == null ? {} : { src }
   }
 
+  if (tag === 'iframe') {
+    const src = readHtmlAttribute(rawAttributes, 'src')
+    return src == null ? {} : { src }
+  }
+
   if (tag === 'quote') {
     const cite = readHtmlAttribute(rawAttributes, 'cite')
     return cite == null ? {} : { cite }
+  }
+
+  if (tag === 'div') {
+    const className = readHtmlAttribute(rawAttributes, 'class')
+    return className == null ? {} : { class: className }
   }
 
   return {}
@@ -250,7 +281,7 @@ function parseHtmlToken(rawToken: string): ParsedHtmlToken {
     return { supported: false }
   }
 
-  const isVoidTag = token.tag === 'br' || token.tag === 'hr' || token.tag === 'img'
+  const isVoidTag = token.tag === 'br' || token.tag === 'hr' || token.tag === 'img' || token.tag === 'iframe'
   return {
     supported: true,
     closing: Boolean(closingSlash),
@@ -281,10 +312,6 @@ function closeOpenListItem(stack: StackFrame[]) {
   if (stack.length > 1 && top.type === 'element' && top.tag === 'item') {
     stack.pop()
   }
-}
-
-function hasListAncestor(stack: StackFrame[]) {
-  return stack.some((frame) => frame.type === 'element' && frame.tag === 'list')
 }
 
 function closeMatchingTag(stack: StackFrame[], tags: NexusModsBbcodeTag | readonly NexusModsBbcodeTag[]) {
@@ -350,11 +377,6 @@ export function parseNexusModsBbcode(source: string): NexusModsBbcodeDocument {
     }
 
     if (tag === 'item') {
-      if (!hasListAncestor(stack)) {
-        appendText(topOf(stack), rawToken)
-        continue
-      }
-
       closeOpenListItem(stack)
     }
 
