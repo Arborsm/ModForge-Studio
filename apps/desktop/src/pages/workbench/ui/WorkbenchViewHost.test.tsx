@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { editorCopy } from '@locales/editor-shell'
+import { editorCopy } from '@locales/api'
 import type { WorkbenchViewRegistration } from '@shared/contracts'
 import { WorkbenchViewHost } from './WorkbenchViewHost'
 

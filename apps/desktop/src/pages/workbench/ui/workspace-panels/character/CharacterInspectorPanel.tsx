@@ -1,4 +1,4 @@
-import { useCharactersCopy, useEditorCopy } from '@locales/localeContext'
+import { useCharactersCopy, useEditorCopy } from '@locales/provider'
 import type { CharacterAppearanceVariant, CharacterVisualAssetState, CharacterWorkspaceEntry } from '../../../workspaces/character'
 import type { ModSourceEntry } from '@pages/workbench/workspaces/mod'
 import { PanelFrame } from '@shared/ui/PanelFrame'

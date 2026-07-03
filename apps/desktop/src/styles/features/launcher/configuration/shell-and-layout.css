@@ -41,22 +41,22 @@
     --config-primary-light: color-mix(in srgb, var(--accent-soft) 100%, transparent);
     --config-primary-light-hover: color-mix(in srgb, var(--accent-soft) 82%, var(--accent) 8%);
     --config-success-bg: color-mix(in srgb, var(--success) 13%, transparent);
-    --config-success-text: color-mix(in srgb, var(--success) 72%, #111827);
+    --config-success-text: color-mix(in srgb, var(--success) 72%, var(--text-primary));
     --config-warning-bg: color-mix(in srgb, var(--warning) 15%, transparent);
-    --config-warning-text: color-mix(in srgb, var(--warning) 72%, #111827);
+    --config-warning-text: color-mix(in srgb, var(--warning) 72%, var(--text-primary));
     --config-error-bg: color-mix(in srgb, var(--danger) 12%, transparent);
-    --config-error-text: color-mix(in srgb, var(--danger) 76%, #111827);
-    --config-info-bg: color-mix(in srgb, #2563eb 10%, transparent);
-    --config-info-text: #1d4ed8;
-    --config-neutral-bg: color-mix(in srgb, var(--bg-panel-muted) 78%, white 22%);
+    --config-error-text: color-mix(in srgb, var(--danger) 76%, var(--text-primary));
+    --config-info-bg: color-mix(in srgb, var(--accent) 10%, transparent);
+    --config-info-text: var(--accent);
+    --config-neutral-bg: color-mix(in srgb, var(--bg-panel-muted) 78%, var(--bg-panel) 22%);
     --config-row-hover: color-mix(in srgb, var(--config-primary) 5%, var(--bg-panel));
     --config-line: color-mix(in srgb, var(--border-color) 74%, transparent);
-    --config-input: color-mix(in srgb, var(--bg-panel-muted) 82%, white 18%);
+    --config-input: color-mix(in srgb, var(--bg-panel-muted) 82%, var(--bg-panel) 18%);
     --config-text: var(--text-primary);
     --config-muted: var(--text-secondary);
     --config-faint: var(--text-tertiary);
     --config-brand-ink: var(--accent);
-    --config-shadow: 0 4px 20px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    --config-shadow: var(--shadow-panel), inset 0 1px 0 rgba(255, 255, 255, 0.06);
     --config-glow: 0 0 30px color-mix(in srgb, var(--accent) 8%, transparent);
     --launcher-config-top-card-height: 258px;
 
@@ -107,7 +107,7 @@
 
   .launcher-config-header-status {
     margin: 0;
-    color: #4b5563;
+    color: var(--config-muted);
     font-size: 12.5px;
     line-height: 1.45;
     letter-spacing: 0.01em;
@@ -293,7 +293,7 @@
   .launcher-config-button-primary {
     border-color: transparent;
     background: var(--config-primary);
-    color: white;
+    color: var(--text-inverse);
     box-shadow: 0 4px 20px color-mix(in srgb, var(--accent) 30%, transparent);
   }
 

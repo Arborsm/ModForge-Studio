@@ -95,7 +95,7 @@
   }
 
   .launcher-discover-pagination-page-active:hover {
-    background: color-mix(in srgb, var(--accent) 88%, var(--surface-inverse));
+    background: var(--accent-strong);
   }
 
   .launcher-discover-pagination-button:disabled {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import type { Dispatch, RefObject, SetStateAction } from 'react'
-import { getWorldAtlasViewLabel, type LocaleCode, type ThemeMode } from '@locales/editor-shell'
+import { getWorldAtlasViewLabel, type LocaleCode, type ThemeMode } from '@locales/api'
 import { useMapWorkspace } from '../workspaces/map'
 import { buildCoreWorkspacePanels } from '../model/workspace-panels/core'
 import type { WorkspaceLayoutHandle, WorkspacePanelMeta, WorkspaceStatus } from '@shared/contracts'
@@ -20,7 +20,7 @@ type MapPreviewStatusSnapshot = {
 }
 
 type WorkbenchMapPreviewRuntimeProps = {
-  copy: (typeof import('@locales/editor-shell').editorCopy)[LocaleCode]
+  copy: (typeof import('@locales/api').editorCopy)[LocaleCode]
   locale: LocaleCode
   theme: ThemeMode
   accentColor: string

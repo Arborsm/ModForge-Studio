@@ -9,8 +9,15 @@ export type MapWorkspaceTab = {
   dirty: boolean
 }
 
-export type AccentPreset = {
+export type ThemePreset = {
   id: string
   label: string
-  color: string
+  /** Accent hex consumed by canvas/preview renderers that need a raw color value. */
+  accent: string
+  /** Representative colors shown in the settings theme card. */
+  preview: {
+    surface: string
+    panel: string
+    text: string
+  }
 }

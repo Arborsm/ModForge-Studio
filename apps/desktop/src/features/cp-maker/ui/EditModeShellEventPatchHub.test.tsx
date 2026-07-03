@@ -1,8 +1,42 @@
-import { fireEvent, screen } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, test, vi } from 'vitest'
+import { useEffect } from 'react'
 import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
+import { registerWorkspacePlugin } from '../model/workspaceRegistry'
 import { EditModeShell } from './EditModeShell'
+
+registerWorkspacePlugin({
+  id: 'events',
+  label: 'Events',
+  icon: 'Calendar',
+  editMode: {
+    patchListFields: [],
+    targetPicker: () => null,
+    editor: ({ patch, selectedEventKey, onSelectedEventKeyChange }) => {
+      const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
+      const entries = (editorState.entries as Record<string, unknown> | undefined) ?? {}
+      const eventAliases = (editorState.eventAliases as Record<string, string> | undefined) ?? {}
+      useEffect(() => {
+        onSelectedEventKeyChange?.(selectedEventKey ?? Object.keys(entries)[0] ?? null)
+      }, [entries, onSelectedEventKeyChange, selectedEventKey])
+
+      return (
+        <div>
+          <aside className="border-l">
+            script tools
+            <span data-testid="selected-event-key">{selectedEventKey}</span>
+            <span data-testid="selected-event-alias">{selectedEventKey ? eventAliases[selectedEventKey] : null}</span>
+          </aside>
+        </div>
+      )
+    },
+  },
+  serializer: {
+    toChangeEntry: () => ({}),
+    fromChangeEntry: () => ({}),
+  },
+})
 
 function eventPatch(): DraftPatch {
   return {
@@ -15,6 +49,9 @@ function eventPatch(): DraftPatch {
     editorState: {
       entries: {
         event_square_meeting_1900: 'spring/Farmer 12 45/Abigail 12 45 2 Sam 13 45 2/message "今天广场的人比平时多"',
+      },
+      eventAliases: {
+        event_square_meeting_1900: 'Square meeting',
       },
     },
   }
@@ -77,5 +114,38 @@ describe('EditModeShell event patch hub header', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /未保存/u }))
     expect(onSaveDraft).toHaveBeenCalledTimes(1)
+  })
+
+  test('moves the selected event key into the event editor context', async () => {
+    const patches = [eventPatch()]
+    const { container } = renderWithLocale(
+      <EditModeShell
+        workspaceId="events"
+        draft={draft(patches)}
+        patches={patches}
+        activePatchId="patch-town"
+        onSelectPatch={vi.fn()}
+        onPatchAdd={vi.fn()}
+        onPatchRemove={vi.fn()}
+        onPatchUpdate={vi.fn()}
+        onConfigSchemaChange={vi.fn()}
+        onSaveDraft={vi.fn()}
+        isDirty={false}
+        onAddVirtualAsset={vi.fn()}
+        onRemoveVirtualAsset={vi.fn()}
+        canGoBack={false}
+        canGoForward={false}
+        onGoBack={vi.fn()}
+        onGoForward={vi.fn()}
+      />,
+      'zh-CN',
+    )
+
+    expect(container.querySelector('.edit-mode-toolbar-context')).toBeNull()
+    await waitFor(() => expect(screen.getByTestId('selected-event-key').textContent).toBe('event_square_meeting_1900'))
+    expect(screen.getByTestId('selected-event-alias').textContent).toBe('Square meeting')
+
+    const scriptPanel = container.querySelector('aside.border-l') as HTMLElement
+    expect(within(scriptPanel).getByText('script tools')).toBeTruthy()
   })
 })

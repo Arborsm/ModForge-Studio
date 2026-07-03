@@ -44,7 +44,7 @@
     --gooey-active-color: var(--text-inverse);
     --gooey-focus-ring: color-mix(in srgb, var(--accent) 64%, var(--bg-panel));
     --gooey-color-1: var(--accent);
-    --gooey-color-2: color-mix(in srgb, var(--accent) 78%, var(--text-primary) 22%);
+    --gooey-color-2: var(--accent-strong);
     --gooey-color-3: color-mix(in srgb, var(--accent) 64%, var(--bg-active) 36%);
     --gooey-color-4: color-mix(in srgb, var(--accent) 46%, var(--bg-panel) 54%);
     overflow: visible;
@@ -172,7 +172,7 @@
     border-radius: 999px;
     padding: 0 6px;
     background: color-mix(in srgb, var(--accent) 82%, white 18%);
-    color: white;
+    color: var(--accent-contrast);
     font-size: 10px;
     font-weight: 800;
     line-height: 1;

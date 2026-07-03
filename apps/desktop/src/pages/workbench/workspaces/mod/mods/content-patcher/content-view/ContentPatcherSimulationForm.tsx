@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ContentPatcherBackendSimulationContext } from '../content-model/contentPatcher'
-import { useModWorkspaceCopy } from '@locales/localeContext'
+import { useModWorkspaceCopy } from '@locales/provider'
 
 type ContentPatcherSimulationConfigEntry = {
   key: string

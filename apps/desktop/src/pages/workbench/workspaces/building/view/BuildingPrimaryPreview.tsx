@@ -1,7 +1,7 @@
-import { useBuildingsCopy } from '@locales/localeContext'
+import { useBuildingsCopy } from '@locales/provider'
 import { MapViewport } from '@entities/map'
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../entities/building'
-import type { LocaleCode, ViewportLabels, ThemeMode } from '@locales/editor-shell'
+import type { LocaleCode, ViewportLabels, ThemeMode } from '@locales/api'
 import type { MapDocument, ViewportWorldPoint } from '@shared/contracts'
 import { buildAbsoluteSpriteLayerStyle, getResolvedSourceRect } from './buildingViewHelpers'
 

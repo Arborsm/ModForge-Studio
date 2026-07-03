@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Dispatch, RefObject, SetStateAction } from 'react'
-import type { LocaleCode, ThemeMode, WorkspaceMode } from '@locales/editor-shell'
+import type { LocaleCode, ThemeMode, WorkspaceMode } from '@locales/api'
 import { useEventWorkspace } from '../workspaces/event-stage'
 import { useCharacterWorkspace } from '../workspaces/character'
 import { useBuildingWorkspace } from '../workspaces/building/state/useBuildingWorkspace'
@@ -42,7 +42,7 @@ type PreviewStatusSnapshot = {
 }
 
 type WorkbenchPreviewRuntimeProps = {
-  copy: (typeof import('@locales/editor-shell').editorCopy)[LocaleCode]
+  copy: (typeof import('@locales/api').editorCopy)[LocaleCode]
   locale: LocaleCode
   theme: ThemeMode
   accentColor: string

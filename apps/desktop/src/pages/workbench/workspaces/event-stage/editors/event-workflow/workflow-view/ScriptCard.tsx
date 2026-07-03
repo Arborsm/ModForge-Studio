@@ -1,72 +1,77 @@
-// 剧本卡片 — 标签+编号+自然语言句子
+// 剧本卡片 — 按 beat_card_lucide.html 草图组织的 4 列剧本行
 
-import { useMemo, useState, type MouseEvent } from 'react'
-import { GripVertical, Trash2, Copy, ChevronDown, ChevronUp, Play, MapPin, TimerReset, X } from 'lucide-react'
+import { useMemo, useState, type ComponentType, type MouseEvent } from 'react'
+import {
+  AlertTriangle,
+  ArrowRightLeft,
+  ArrowUp,
+  ArrowUpCircle,
+  Box,
+  ChefHat,
+  CircleDot,
+  Clapperboard,
+  Coins,
+  Compass,
+  Copy,
+  Eye,
+  EyeOff,
+  FastForward,
+  Footprints,
+  Gamepad2,
+  Gift,
+  GitBranch,
+  GitFork,
+  GripVertical,
+  Hammer,
+  Heart,
+  Image as ImageIcon,
+  Lamp,
+  Layers,
+  ListChecks,
+  Mail,
+  MailCheck,
+  Map as MapIcon,
+  MapPin,
+  MessageCircle,
+  MessageSquare,
+  MessageSquareText,
+  Moon,
+  MousePointerClick,
+  Move as MoveIcon,
+  Music,
+  Octagon,
+  Package,
+  Play,
+  PlayCircle,
+  Route,
+  Scan,
+  Scroll,
+  Smile,
+  Square,
+  Sun,
+  TimerReset,
+  Trash2,
+  TreePine,
+  Type as TypeIcon,
+  User,
+  UserPlus,
+  UserX,
+  Vibrate,
+  Volume2,
+  VolumeX,
+  Waves,
+  X,
+  Zap,
+} from 'lucide-react'
 import { cx } from '@shared/lib/cx'
 import type { EventCommand } from '@entities/event'
 import { getSchema } from '../workflow-model/commandSchemaRegistry'
-import { renderTemplate } from '../workflow-model/templateRenderer'
+import { renderTemplate, type RenderedNode } from '../workflow-model/templateRenderer'
 import { ParamPill } from './ParamPill'
+import type { ScriptEditorCopy } from './ScriptEditor'
 import type { UIControlType } from '../workflow-model/commandSchema'
 import type { EventResourceRegistry } from './eventResourceRegistry'
 import { formatInlineDelay, type InlineDelayCandidate } from '../workflow-model/commandInlineDelay'
-
-const COLOR_MAP: Record<string, { bg: string; border: string; tag: string; text: string }> = {
-  blue: {
-    bg: 'bg-[color-mix(in_srgb,#3b82f6_8%,transparent)]',
-    border: 'border-l-[color-mix(in_srgb,#3b82f6_70%,transparent)]',
-    tag: 'bg-[color-mix(in_srgb,#3b82f6_15%,transparent)] text-[#2563eb]',
-    text: 'text-[#2563eb]',
-  },
-  purple: {
-    bg: 'bg-[color-mix(in_srgb,#8b5cf6_8%,transparent)]',
-    border: 'border-l-[color-mix(in_srgb,#8b5cf6_70%,transparent)]',
-    tag: 'bg-[color-mix(in_srgb,#8b5cf6_15%,transparent)] text-[#7c3aed]',
-    text: 'text-[#7c3aed]',
-  },
-  orange: {
-    bg: 'bg-[color-mix(in_srgb,#f97316_8%,transparent)]',
-    border: 'border-l-[color-mix(in_srgb,#f97316_70%,transparent)]',
-    tag: 'bg-[color-mix(in_srgb,#f97316_15%,transparent)] text-[#ea580c]',
-    text: 'text-[#ea580c]',
-  },
-  pink: {
-    bg: 'bg-[color-mix(in_srgb,#ec4899_8%,transparent)]',
-    border: 'border-l-[color-mix(in_srgb,#ec4899_70%,transparent)]',
-    tag: 'bg-[color-mix(in_srgb,#ec4899_15%,transparent)] text-[#db2777]',
-    text: 'text-[#db2777]',
-  },
-  green: {
-    bg: 'bg-[color-mix(in_srgb,#22c55e_8%,transparent)]',
-    border: 'border-l-[color-mix(in_srgb,#22c55e_70%,transparent)]',
-    tag: 'bg-[color-mix(in_srgb,#22c55e_15%,transparent)] text-[#16a34a]',
-    text: 'text-[#16a34a]',
-  },
-  cyan: {
-    bg: 'bg-[color-mix(in_srgb,#06b6d4_8%,transparent)]',
-    border: 'border-l-[color-mix(in_srgb,#06b6d4_70%,transparent)]',
-    tag: 'bg-[color-mix(in_srgb,#06b6d4_15%,transparent)] text-[#0891b2]',
-    text: 'text-[#0891b2]',
-  },
-  yellow: {
-    bg: 'bg-[color-mix(in_srgb,#eab308_8%,transparent)]',
-    border: 'border-l-[color-mix(in_srgb,#eab308_70%,transparent)]',
-    tag: 'bg-[color-mix(in_srgb,#eab308_15%,transparent)] text-[#ca8a04]',
-    text: 'text-[#ca8a04]',
-  },
-  red: {
-    bg: 'bg-[color-mix(in_srgb,#ef4444_8%,transparent)]',
-    border: 'border-l-[color-mix(in_srgb,#ef4444_70%,transparent)]',
-    tag: 'bg-[color-mix(in_srgb,#ef4444_15%,transparent)] text-[#dc2626]',
-    text: 'text-[#dc2626]',
-  },
-  gray: {
-    bg: 'bg-[color-mix(in_srgb,#6b7280_8%,transparent)]',
-    border: 'border-l-[color-mix(in_srgb,#6b7280_70%,transparent)]',
-    tag: 'bg-[color-mix(in_srgb,#6b7280_15%,transparent)] text-[#4b5563]',
-    text: 'text-[#4b5563]',
-  },
-}
 
 const CATEGORY_LABELS: Record<string, string> = {
   dialogue: '对话',
@@ -80,6 +85,78 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: '其他',
 }
 
+const BEAT_ICONS: Record<string, ComponentType<{ className?: string }>> = {
+  AlertTriangle,
+  ArrowRightLeft,
+  ArrowUp,
+  ArrowUpCircle,
+  Box,
+  ChefHat,
+  CircleDot,
+  Clapperboard,
+  Coins,
+  Compass,
+  Eye,
+  EyeOff,
+  FastForward,
+  Footprints,
+  Gamepad2,
+  Gift,
+  GitBranch,
+  GitFork,
+  Hammer,
+  Heart,
+  Image: ImageIcon,
+  Lamp,
+  Layers,
+  ListChecks,
+  Mail,
+  MailCheck,
+  Map: MapIcon,
+  MapPin,
+  MessageCircle,
+  MessageSquare,
+  MessageSquareText,
+  Moon,
+  MousePointerClick,
+  Move: MoveIcon,
+  Music,
+  MusicOff: Music,
+  Octagon,
+  Package,
+  PlayCircle,
+  Route,
+  Scan,
+  Scroll,
+  Smile,
+  Square,
+  Sun,
+  Timer: TimerReset,
+  TimerReset,
+  TreePine,
+  Type: TypeIcon,
+  User,
+  UserPlus,
+  UserX,
+  Vibrate,
+  Volume2,
+  VolumeX,
+  Waves,
+  Zap,
+}
+
+const CATEGORY_FALLBACK_ICONS: Record<string, ComponentType<{ className?: string }>> = {
+  dialogue: MessageSquareText,
+  movement: MoveIcon,
+  visual: Eye,
+  audio: Music,
+  logic: GitBranch,
+  scene: MapIcon,
+  item: Gift,
+  animation: User,
+  other: CircleDot,
+}
+
 export type ScriptCardProps = {
   command: EventCommand
   index: number
@@ -89,6 +166,7 @@ export type ScriptCardProps = {
   showLineNumber?: boolean
   cardView?: 'compact' | 'comfortable'
   locale?: 'zh-CN' | 'en-US'
+  copy: ScriptEditorCopy
   resourceRegistry?: EventResourceRegistry
   inlineDelay?: InlineDelayCandidate | null
   onSelect?: () => void
@@ -104,6 +182,12 @@ export type ScriptCardProps = {
   dragHandleProps?: Record<string, unknown>
 }
 
+type ParamNode = Extract<RenderedNode, { type: 'param' }>
+
+function isParamNode(node: RenderedNode): node is ParamNode {
+  return node.type === 'param'
+}
+
 export function ScriptCard({
   command,
   index,
@@ -113,10 +197,10 @@ export function ScriptCard({
   showLineNumber = true,
   cardView = 'comfortable',
   locale = 'zh-CN',
+  copy,
   resourceRegistry,
   inlineDelay = null,
   onSelect,
-  onToggleExpand,
   onUpdateArg,
   onEnterPickMode,
   onUpdateArgs,
@@ -127,15 +211,18 @@ export function ScriptCard({
   onPlayFromHere,
   dragHandleProps,
 }: ScriptCardProps) {
-  const [hovered, setHovered] = useState(false)
   const schema = useMemo(() => getSchema(command.command), [command.command])
   const nodes = useMemo(() => {
     if (!schema) return null
     return renderTemplate(schema, command.args, locale)
   }, [schema, command.args, locale])
 
-  const colors = schema ? (COLOR_MAP[schema.color] ?? COLOR_MAP.gray) : COLOR_MAP.gray
   const categoryLabel = schema ? (CATEGORY_LABELS[schema.category] ?? schema.category) : command.kind
+  const Icon = schema ? (BEAT_ICONS[schema.icon] ?? CATEGORY_FALLBACK_ICONS[schema.category] ?? CircleDot) : CircleDot
+  const dialogueTextNode = nodes?.find((node): node is ParamNode => isParamNode(node) && node.control === 'textarea') ?? null
+  const actorNode = nodes?.find((node): node is ParamNode => isParamNode(node) && node.control === 'npc_selector') ?? null
+  const isDialogueCard = schema?.category === 'dialogue' && dialogueTextNode != null
+
   const handleInteractiveContentClick = (event: MouseEvent<HTMLDivElement>) => {
     const target = event.target
     if (!(target instanceof Element)) {
@@ -146,17 +233,17 @@ export function ScriptCard({
     }
   }
 
-  function resolveCoordinatePair(index: number) {
+  function resolveCoordinatePair(nodeIndex: number) {
     if (!nodes) return null
-    const node = nodes[index]
+    const node = nodes[nodeIndex]
     if (node?.type !== 'param' || node.control !== 'tile_picker') {
       return null
     }
-    const immediateNext = nodes[index + 1]
+    const immediateNext = nodes[nodeIndex + 1]
     if (immediateNext?.type === 'param' && immediateNext.control === 'tile_picker' && immediateNext.index === node.index + 1) {
       return { xNode: node, yNode: immediateNext, delimiterIndex: null }
     }
-    const afterDelimiter = nodes[index + 2]
+    const afterDelimiter = nodes[nodeIndex + 2]
     if (
       immediateNext?.type === 'static' &&
       immediateNext.text.trim() === ',' &&
@@ -164,221 +251,227 @@ export function ScriptCard({
       afterDelimiter.control === 'tile_picker' &&
       afterDelimiter.index === node.index + 1
     ) {
-      return { xNode: node, yNode: afterDelimiter, delimiterIndex: index + 1 }
+      return { xNode: node, yNode: afterDelimiter, delimiterIndex: nodeIndex + 1 }
     }
     return null
   }
 
-  function isCoordinatePairContinuation(index: number) {
+  function isCoordinatePairContinuation(nodeIndex: number) {
     if (!nodes) return false
-    const previousPair = resolveCoordinatePair(index - 1)
-    if (previousPair?.yNode === nodes[index]) {
+    const previousPair = resolveCoordinatePair(nodeIndex - 1)
+    if (previousPair?.yNode === nodes[nodeIndex]) {
       return true
     }
-    const pairBeforeDelimiter = resolveCoordinatePair(index - 2)
-    return pairBeforeDelimiter?.delimiterIndex === index - 1 && pairBeforeDelimiter.yNode === nodes[index]
+    const pairBeforeDelimiter = resolveCoordinatePair(nodeIndex - 2)
+    return pairBeforeDelimiter?.delimiterIndex === nodeIndex - 1 && pairBeforeDelimiter.yNode === nodes[nodeIndex]
   }
 
-  function isCoordinatePairDelimiter(index: number) {
+  function isCoordinatePairDelimiter(nodeIndex: number) {
     if (!nodes) return false
-    const previousPair = resolveCoordinatePair(index - 1)
-    return previousPair?.delimiterIndex === index
+    const previousPair = resolveCoordinatePair(nodeIndex - 1)
+    return previousPair?.delimiterIndex === nodeIndex
   }
+
+  function renderParamNode(node: ParamNode, nodeIndex: number) {
+    const pickControl = isPickControl(node.control) ? node.control : null
+    return (
+      <ParamPill
+        key={nodeIndex}
+        control={node.control}
+        value={node.value}
+        label={node.label}
+        placeholder={node.placeholder}
+        options={node.options}
+        resourceRegistry={resourceRegistry}
+        size={cardView === 'compact' ? 'sm' : 'md'}
+        variant="script"
+        onChange={(value) => {
+          if (node.control === 'animation_frames') {
+            onUpdateArgs?.(node.index, value.trim().split(/\s+/u).filter(Boolean))
+            return
+          }
+          if (node.control === 'quick_question') {
+            onUpdateArgs?.(node.index, [value])
+            return
+          }
+          onUpdateArg?.(node.index, value)
+        }}
+        onPickMode={pickControl ? () => onEnterPickMode?.(node.index, pickControl) : undefined}
+      />
+    )
+  }
+
+  function renderTemplateNodes(skipParamIndexes = new Set<number>()) {
+    if (!nodes) {
+      return <span className="font-mono text-xs text-[var(--text-secondary)]">{command.raw}</span>
+    }
+
+    return nodes.map((node, nodeIndex) => {
+      if (node.type === 'static') {
+        if (isCoordinatePairDelimiter(nodeIndex)) {
+          return null
+        }
+        return (
+          <span key={nodeIndex} className="text-[var(--text-secondary)]">
+            {node.text}
+          </span>
+        )
+      }
+
+      if (skipParamIndexes.has(node.index) || isCoordinatePairContinuation(nodeIndex)) {
+        return null
+      }
+      const coordinatePair = resolveCoordinatePair(nodeIndex)
+      if (coordinatePair) {
+        return (
+          <CoordinateParamPill
+            key={nodeIndex}
+            x={coordinatePair.xNode.value}
+            y={coordinatePair.yNode.value}
+            xLabel={coordinatePair.xNode.label}
+            yLabel={coordinatePair.yNode.label}
+            onChange={(axis, value) => onUpdateArg?.(axis === 'x' ? coordinatePair.xNode.index : coordinatePair.yNode.index, value)}
+            onPickMode={() => onEnterPickMode?.(coordinatePair.xNode.index, 'tile_picker')}
+          />
+        )
+      }
+      return renderParamNode(node, nodeIndex)
+    })
+  }
+
+  function renderDialogueHeader() {
+    if (actorNode) {
+      return renderParamNode(actorNode, nodes?.indexOf(actorNode) ?? 0)
+    }
+    return (
+      <>
+        <span className="mr-0.5 text-xs font-medium text-[var(--text-tertiary)]">[{schema?.labelZh ?? categoryLabel}]</span>
+        {renderTemplateNodes(new Set([dialogueTextNode?.index ?? -1]))}
+      </>
+    )
+  }
+
+  const beatTone = playing ? 'playing' : selected ? 'selected' : 'default'
+  const isCompact = cardView === 'compact'
+  const categoryClass = schema ? `cat-${schema.category}` : 'cat-other'
 
   return (
-    <div
-      className={cx(
-        'group relative rounded-md border border-[var(--border-color)] bg-[var(--bg-panel)] transition-all',
-        'border-l-[3px]',
-        colors.border,
-        selected && 'shadow-sm ring-1 ring-[var(--accent)]',
-        playing &&
-          'bg-[color-mix(in_srgb,var(--accent-soft)_38%,var(--bg-panel))] ring-1 ring-[color-mix(in_srgb,var(--accent)_42%,transparent)]',
-        hovered && !selected && 'border-[color-mix(in_srgb,var(--accent)_40%,var(--border-color))]',
-        'hover:shadow-sm',
-      )}
-      onClick={onSelect}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <div className={cx('flex min-h-9 items-center gap-2', cardView === 'compact' ? 'px-2 py-1' : 'px-2.5 py-1.5')}>
-        {dragHandleProps && (
+    <div className={cx('relative', isCompact ? 'mb-1' : 'mb-1.5')}>
+      <div
+        className={cx(
+          'cmd',
+          isDialogueCard && 'dialogue',
+          beatTone === 'selected' && 'script-card-selected',
+          beatTone === 'playing' && 'script-card-playing',
+        )}
+        onClick={onSelect}
+      >
+        {dragHandleProps ? (
           <button
             type="button"
-            className={cx(
-              'cursor-grab rounded p-1 text-[var(--text-tertiary)] opacity-0 transition-all hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-secondary)] active:cursor-grabbing',
-              (hovered || selected) && 'opacity-100',
-            )}
-            onClick={(e) => e.stopPropagation()}
+            className="cmd-grip"
+            onClick={(event) => event.stopPropagation()}
+            title="拖动排序"
             {...(dragHandleProps as React.ButtonHTMLAttributes<HTMLButtonElement>)}
           >
             <GripVertical className="h-3.5 w-3.5" />
           </button>
-        )}
-
-        {showLineNumber && (
-          <span className="flex h-6 min-w-[24px] items-center justify-center rounded bg-[var(--bg-panel-muted)] px-1 font-mono text-[10px] font-semibold text-[var(--text-tertiary)]">
-            {index + 1}
-          </span>
-        )}
-
-        <span className={cx('rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase', colors.tag)}>{categoryLabel}</span>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-xs font-semibold text-[var(--text-primary)]">{command.title || command.command}</span>
-            <span className="font-mono text-[10px] text-[var(--text-tertiary)] opacity-70">{command.command}</span>
-          </div>
-          {command.detail ? <p className="truncate text-[10px] text-[var(--text-tertiary)]">{command.detail}</p> : null}
-        </div>
-
-        {playing ? (
-          <span className="inline-flex h-6 shrink-0 items-center rounded border border-[color-mix(in_srgb,var(--accent)_34%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-1.5 text-[10px] font-semibold text-[var(--accent)]">
-            {locale === 'zh-CN' ? '播放中' : 'Playing'}
-          </span>
-        ) : null}
-        {inlineDelay ? (
-          <InlineDelayControl delay={inlineDelay} locale={locale} onSetDelay={onSetInlineDelay} onRemoveDelay={onRemoveInlineDelay} />
-        ) : null}
-        <div className={cx('flex items-center gap-0.5 opacity-0 transition-opacity', (hovered || selected) && 'opacity-100')}>
-          {onPlayFromHere && (
-            <button
-              type="button"
-              className="rounded p-1 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-panel-muted)] hover:text-[var(--accent)]"
-              onClick={(e) => {
-                e.stopPropagation()
-                onPlayFromHere()
-              }}
-              title={locale === 'zh-CN' ? '从这里播放' : 'Play from here'}
-            >
-              <Play className="h-3 w-3" />
-            </button>
-          )}
-          {onDuplicate && (
-            <button
-              type="button"
-              className="rounded p-1 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-primary)]"
-              onClick={(e) => {
-                e.stopPropagation()
-                onDuplicate()
-              }}
-              title="复制"
-            >
-              <Copy className="h-3 w-3" />
-            </button>
-          )}
-          {onDelete && (
-            <button
-              type="button"
-              className="rounded p-1 text-[var(--text-tertiary)] transition-colors hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] hover:text-[var(--danger)]"
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete()
-              }}
-              title="删除"
-            >
-              <Trash2 className="h-3 w-3" />
-            </button>
-          )}
-          {onToggleExpand && (
-            <button
-              type="button"
-              className="rounded p-1 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-primary)]"
-              onClick={(e) => {
-                e.stopPropagation()
-                onToggleExpand()
-              }}
-            >
-              {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Sentence Body */}
-      <div className={cx(cardView === 'compact' ? 'px-2 pb-1.5' : 'px-2.5 pb-2')} onClick={handleInteractiveContentClick}>
-        {schema && nodes ? (
-          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 text-sm leading-relaxed text-[var(--text-primary)]">
-            {nodes.map((node, i) => {
-              if (node.type === 'static') {
-                if (isCoordinatePairDelimiter(i)) {
-                  return null
-                }
-                return (
-                  <span key={i} className="text-[var(--text-secondary)]">
-                    {node.text}
-                  </span>
-                )
-              }
-              if (isCoordinatePairContinuation(i)) {
-                return null
-              }
-              const coordinatePair = resolveCoordinatePair(i)
-              if (coordinatePair) {
-                return (
-                  <CoordinateParamPill
-                    key={i}
-                    x={coordinatePair.xNode.value}
-                    y={coordinatePair.yNode.value}
-                    xLabel={coordinatePair.xNode.label}
-                    yLabel={coordinatePair.yNode.label}
-                    size={cardView === 'compact' ? 'sm' : 'md'}
-                    onChange={(axis, value) => onUpdateArg?.(axis === 'x' ? coordinatePair.xNode.index : coordinatePair.yNode.index, value)}
-                    onPickMode={() => onEnterPickMode?.(coordinatePair.xNode.index, 'tile_picker')}
-                  />
-                )
-              }
-              const pickControl = isPickControl(node.control) ? node.control : null
-              return (
-                <ParamPill
-                  key={i}
-                  control={node.control}
-                  value={node.value}
-                  label={node.label}
-                  placeholder={node.placeholder}
-                  options={node.options}
-                  resourceRegistry={resourceRegistry}
-                  size={cardView === 'compact' ? 'sm' : 'md'}
-                  onChange={(v) => {
-                    if (node.control === 'animation_frames') {
-                      onUpdateArgs?.(node.index, v.trim().split(/\s+/u).filter(Boolean))
-                      return
-                    }
-                    if (node.control === 'quick_question') {
-                      onUpdateArgs?.(node.index, [v])
-                      return
-                    }
-                    onUpdateArg?.(node.index, v)
-                  }}
-                  onPickMode={pickControl ? () => onEnterPickMode?.(node.index, pickControl) : undefined}
-                />
-              )
-            })}
-          </div>
         ) : (
-          <p className="font-mono text-xs text-[var(--text-secondary)]">{command.raw}</p>
+          <span className="cmd-grip" aria-hidden />
         )}
-      </div>
+        <span className="cmd-num">{showLineNumber ? index + 1 : null}</span>
+        <span className={cx('cmd-icon', categoryClass)}>
+          <Icon className="h-4 w-4 stroke-[1.5]" />
+        </span>
+        <span className="cmd-body" onClick={handleInteractiveContentClick}>
+          {schema?.key === 'viewport' ? <span className="cmd-label">[视角]</span> : null}
+          {isDialogueCard ? renderDialogueHeader() : renderTemplateNodes()}
+        </span>
+        <span className="cmd-tail">
+          {inlineDelay ? (
+            <InlineDelayControl
+              delay={inlineDelay}
+              copy={copy}
+              locale={locale}
+              onSetDelay={onSetInlineDelay}
+              onRemoveDelay={onRemoveInlineDelay}
+            />
+          ) : null}
+          <span className="cmd-actions">
+            {onPlayFromHere && (
+              <button
+                type="button"
+                className="play"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onPlayFromHere()
+                }}
+                title={copy.playFromHere}
+              >
+                <Play className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {onDuplicate && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onDuplicate()
+                }}
+                title={copy.duplicate}
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                className="del"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onDelete()
+                }}
+                title={copy.delete}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </span>
+        </span>
 
-      {/* Raw expansion */}
-      {expanded && (
-        <div className="border-t border-[var(--border-color)] px-3 py-2">
-          <p className="mb-1 text-[10px] font-semibold tracking-wide text-[var(--text-tertiary)] uppercase">原始命令</p>
-          <code className="block rounded bg-[var(--bg-app)] px-2 py-1.5 font-mono text-[11px] text-[var(--text-secondary)]">
-            {command.raw}
-          </code>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {command.args.map((arg, i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                <span className="font-mono text-[10px] text-[var(--text-tertiary)]">[{i}]</span>
-                <span className="truncate text-[11px] text-[var(--text-primary)]">
-                  {arg || <span className="text-[var(--text-tertiary)] italic">空</span>}
-                </span>
-              </div>
-            ))}
+        {isDialogueCard && dialogueTextNode ? (
+          <div className="cmd-quote" onClick={handleInteractiveContentClick}>
+            <span>"</span>
+            {renderParamNode(dialogueTextNode, nodes?.indexOf(dialogueTextNode) ?? 0)}
+            <span>"</span>
           </div>
-        </div>
-      )}
+        ) : null}
+
+        {expanded ? (
+          <div className="overflow-hidden">
+            <div className="flex flex-col gap-2.5 py-2 pr-1 pl-[68px]">
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-semibold tracking-[0.06em] text-[var(--text-tertiary)] uppercase">{copy.rawCommand}</span>
+                <code className="block rounded-lg border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_76%,transparent)] px-3 py-2 font-mono text-xs leading-[1.55] text-[var(--text-secondary)]">
+                  {command.raw}
+                </code>
+              </div>
+              {command.args.length > 0 ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {command.args.map((arg, argIndex) => (
+                    <div key={argIndex} className="flex min-w-0 items-center gap-1.5">
+                      <span className="font-mono text-[10px] text-[var(--text-tertiary)]">[{argIndex}]</span>
+                      <span className="truncate text-[11px] text-[var(--text-primary)]">
+                        {arg || <span className="text-[var(--text-tertiary)] italic">{copy.emptyArg}</span>}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -389,39 +482,30 @@ function isPickControl(control: UIControlType): control is 'tile_picker' | 'npc_
 
 function InlineDelayControl({
   delay,
+  copy,
   locale,
   onSetDelay,
   onRemoveDelay,
 }: {
   delay: InlineDelayCandidate
+  copy: ScriptEditorCopy
   locale: 'zh-CN' | 'en-US'
   onSetDelay?: (pauseCommandIndex: number | null, valueMs: number) => void
   onRemoveDelay?: (pauseCommandIndex: number) => void
 }) {
+  const [editing, setEditing] = useState(false)
   const hasPause = delay.pauseCommandIndex != null
-  const label =
-    delay.kind === 'step'
-      ? locale === 'zh-CN'
-        ? '帧延迟'
-        : 'Step delay'
-      : delay.kind === 'hold'
-        ? locale === 'zh-CN'
-          ? '停留'
-          : 'Hold'
-        : locale === 'zh-CN'
-          ? '延迟'
-          : 'Delay'
+  const label = delay.kind === 'step' ? copy.delayStep : delay.kind === 'hold' ? copy.delayHold : copy.delayGeneric
   const addLabel =
     locale === 'zh-CN'
       ? `+ ${label} ${formatInlineDelay(delay.defaultMs)}`
       : `+ ${label.toLowerCase()} ${formatInlineDelay(delay.defaultMs)}`
-  const removeLabel = locale === 'zh-CN' ? '移除延迟' : 'Remove delay'
 
   if (!hasPause) {
     return (
       <button
         type="button"
-        className="inline-flex h-6 shrink-0 items-center gap-1 rounded border border-dashed border-[color-mix(in_srgb,var(--accent)_30%,var(--border-color))] bg-[color-mix(in_srgb,var(--bg-panel-muted)_48%,transparent)] px-1.5 text-[10px] font-semibold text-[var(--text-tertiary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+        className="delay"
         title={addLabel}
         onClick={(event) => {
           event.stopPropagation()
@@ -429,8 +513,7 @@ function InlineDelayControl({
         }}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <TimerReset className="h-3 w-3" />
-        {formatInlineDelay(delay.defaultMs)}
+        ◦ {formatInlineDelay(delay.defaultMs)}
       </button>
     )
   }
@@ -440,63 +523,60 @@ function InlineDelayControl({
     return null
   }
 
-  return (
-    <span
-      className="inline-flex h-7 shrink-0 items-center overflow-hidden rounded border border-[color-mix(in_srgb,var(--accent)_34%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_44%,transparent)] text-[var(--text-primary)]"
-      title={`${label}: ${formatInlineDelay(delay.valueMs)}`}
-      onClick={(event) => event.stopPropagation()}
-      onPointerDown={(event) => event.stopPropagation()}
-    >
-      <span className="inline-flex h-full items-center gap-1 border-r border-[color-mix(in_srgb,var(--accent)_18%,var(--border-color))] px-1.5 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase">
-        <TimerReset className="h-3 w-3" />
-        {delay.kind === 'step' ? 'STEP' : delay.kind === 'hold' ? 'HOLD' : 'WAIT'}
-      </span>
-      <input
-        type="number"
-        min={0}
-        step={delay.stepMs}
-        className="h-full w-14 bg-transparent px-1.5 font-mono text-[11px] font-semibold text-[var(--text-primary)] outline-none"
-        value={delay.valueMs}
-        aria-label={label}
-        onChange={(event) => {
-          const parsed = Number.parseInt(event.target.value, 10)
-          onSetDelay?.(pauseCommandIndex, Number.isFinite(parsed) ? Math.max(0, parsed) : 0)
-        }}
-      />
-      <span className="pr-1.5 text-[10px] font-semibold text-[var(--text-tertiary)]">ms</span>
-      <span className="hidden h-full items-center border-l border-[color-mix(in_srgb,var(--accent)_18%,var(--border-color))] px-1 sm:inline-flex">
-        <select
-          className="h-full max-w-20 bg-transparent text-[10px] font-semibold text-[var(--text-tertiary)] outline-none"
-          aria-label={locale === 'zh-CN' ? '常用延迟' : 'Common delay'}
-          value={delay.quickValues.includes(delay.valueMs) ? delay.valueMs : ''}
+  if (editing) {
+    return (
+      <span
+        className="inline-flex shrink-0 items-center gap-0.5"
+        title={`${label}: ${formatInlineDelay(delay.valueMs)}`}
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <input
+          type="number"
+          min={0}
+          step={delay.stepMs}
+          className="h-5 w-10 rounded border border-[var(--border-color)] bg-[var(--bg-panel)] px-1 font-mono text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+          value={delay.valueMs}
+          aria-label={label}
           onChange={(event) => {
             const parsed = Number.parseInt(event.target.value, 10)
-            if (Number.isFinite(parsed)) {
-              onSetDelay?.(pauseCommandIndex, parsed)
+            onSetDelay?.(pauseCommandIndex, Number.isFinite(parsed) ? Math.max(0, parsed) : 0)
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === 'Escape') {
+              setEditing(false)
             }
           }}
+        />
+        <button
+          type="button"
+          className="flex h-5 w-5 items-center justify-center rounded text-[var(--text-tertiary)] hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] hover:text-[var(--danger)]"
+          title={copy.removeDelay}
+          aria-label={copy.removeDelay}
+          onClick={(event) => {
+            event.stopPropagation()
+            onRemoveDelay?.(pauseCommandIndex)
+          }}
         >
-          <option value="">{locale === 'zh-CN' ? '常用' : 'Preset'}</option>
-          {delay.quickValues.map((value) => (
-            <option key={value} value={value}>
-              {formatInlineDelay(value)}
-            </option>
-          ))}
-        </select>
+          <X className="h-3 w-3" />
+        </button>
       </span>
-      <button
-        type="button"
-        className="inline-flex h-full w-6 items-center justify-center border-l border-[color-mix(in_srgb,var(--accent)_18%,var(--border-color))] text-[var(--text-tertiary)] transition-colors hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] hover:text-[var(--danger)]"
-        title={removeLabel}
-        aria-label={removeLabel}
-        onClick={(event) => {
-          event.stopPropagation()
-          onRemoveDelay?.(pauseCommandIndex)
-        }}
-      >
-        <X className="h-3 w-3" />
-      </button>
-    </span>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      className="delay"
+      title={`${label}: ${formatInlineDelay(delay.valueMs)}`}
+      onClick={(event) => {
+        event.stopPropagation()
+        setEditing(true)
+      }}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      ◦ {formatInlineDelay(delay.valueMs)}
+    </button>
   )
 }
 
@@ -505,7 +585,6 @@ function CoordinateParamPill({
   y,
   xLabel,
   yLabel,
-  size,
   onChange,
   onPickMode,
 }: {
@@ -513,48 +592,57 @@ function CoordinateParamPill({
   y: string
   xLabel: string
   yLabel: string
-  size: 'sm' | 'md'
   onChange: (axis: 'x' | 'y', value: string) => void
   onPickMode: () => void
 }) {
-  const height = size === 'sm' ? 'h-6' : 'h-7'
-  const inputWidth = size === 'sm' ? 'w-8' : 'w-10'
+  const [editing, setEditing] = useState(false)
+
+  if (editing) {
+    return (
+      <span
+        className="pill accent"
+        title={`${xLabel}: ${x}, ${yLabel}: ${y}`}
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        {(['x', 'y'] as const).map((axis) => (
+          <label key={axis} className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase">
+            {axis === 'x' ? xLabel : yLabel}
+            <input
+              type="number"
+              className="h-5 w-9 rounded border border-[var(--border-color)] bg-[var(--bg-panel)] px-1 font-mono text-[11px] font-medium text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              value={axis === 'x' ? x : y}
+              onChange={(event) => onChange(axis, event.target.value)}
+            />
+          </label>
+        ))}
+        <button
+          type="button"
+          className="inline-flex h-5 w-5 items-center justify-center rounded text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-panel-muted)] hover:text-[var(--accent)]"
+          title="Pick from map"
+          onClick={(event) => {
+            event.stopPropagation()
+            onPickMode()
+          }}
+        >
+          <MapPin className="h-3 w-3" />
+        </button>
+      </span>
+    )
+  }
 
   return (
-    <span
-      className={cx(
-        'inline-flex items-center overflow-hidden rounded-md border border-[color-mix(in_srgb,var(--accent)_35%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_52%,transparent)] text-[var(--text-primary)]',
-        height,
-      )}
+    <button
+      type="button"
+      className="pill accent"
       title={`${xLabel}: ${x}, ${yLabel}: ${y}`}
-      onClick={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation()
+        setEditing(true)
+      }}
       onPointerDown={(event) => event.stopPropagation()}
     >
-      {(['x', 'y'] as const).map((axis) => (
-        <label
-          key={axis}
-          className="inline-flex h-full items-center gap-1 border-r border-[color-mix(in_srgb,var(--accent)_18%,var(--border-color))] px-1.5 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase last:border-r-0"
-        >
-          {axis === 'x' ? xLabel : yLabel}
-          <input
-            type="number"
-            className={cx('h-full bg-transparent font-mono text-[11px] font-semibold text-[var(--text-primary)] outline-none', inputWidth)}
-            value={axis === 'x' ? x : y}
-            onChange={(event) => onChange(axis, event.target.value)}
-          />
-        </label>
-      ))}
-      <button
-        type="button"
-        className="inline-flex h-full w-7 items-center justify-center border-l border-[color-mix(in_srgb,var(--accent)_18%,var(--border-color))] text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-panel-muted)] hover:text-[var(--accent)]"
-        title="Pick from map"
-        onClick={(event) => {
-          event.stopPropagation()
-          onPickMode()
-        }}
-      >
-        <MapPin className="h-3 w-3" />
-      </button>
-    </span>
+      {x}, {y}
+    </button>
   )
 }

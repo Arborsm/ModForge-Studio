@@ -13,7 +13,7 @@ import {
 } from 'react'
 import { getObjectInteractionTag } from '@entities/map'
 import { resolveTilesetImagePath } from '../lib/assets'
-import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
+import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
 import { PAN_ZOOM_TOOLBAR_ZOOM_FACTOR, PAN_ZOOM_WHEEL_INTENSITY } from '@shared/lib/viewports'
 import type { FocusedMapObjectTarget, TileHoverInfo, ViewportWorldPoint } from '@shared/contracts'
 import type { MapDocument } from '@shared/contracts'

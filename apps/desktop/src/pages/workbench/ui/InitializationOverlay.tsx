@@ -1,6 +1,6 @@
 import { X } from 'lucide-react'
 import { useEffect } from 'react'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 
 type InitializationOverlayProps = {
   desktopHost: boolean

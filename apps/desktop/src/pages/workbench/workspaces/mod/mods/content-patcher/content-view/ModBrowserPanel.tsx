@@ -1,6 +1,6 @@
 import { Filter, FolderOpen, RefreshCw, Search, Upload } from 'lucide-react'
 import type { ModProjectSummary } from '@entities/mod/api'
-import { useModWorkspaceCopy } from '@locales/localeContext'
+import { useModWorkspaceCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
 import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
 

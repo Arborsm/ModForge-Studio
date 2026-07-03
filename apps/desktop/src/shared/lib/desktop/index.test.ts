@@ -198,7 +198,7 @@ describe('desktop facade', () => {
       },
       appearance: {
         locale: 'zh-CN',
-        accentPresetId: 'indigo',
+        themeId: 'warm-paper',
         windowBorderTone: 'accent',
         windowBorderWeight: 'standard',
         recentGameDirectories: [],

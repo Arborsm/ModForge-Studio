@@ -4,7 +4,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    border: 1px dashed #e2e8f0;
+    border: 1px dashed var(--border-color);
     border-radius: 12px;
     background: var(--config-surface);
     padding: 16px 20px;
@@ -70,7 +70,7 @@
     border: 1px solid color-mix(in srgb, var(--config-line) 82%, transparent);
     background: color-mix(in srgb, var(--config-surface) 92%, var(--config-surface-soft));
     padding: 18px 20px;
-    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+    box-shadow: var(--shadow-panel);
   }
 
   .launcher-debug-tool-header {
@@ -133,8 +133,8 @@
     min-height: 36px;
     border: 0;
     border-radius: 8px;
-    background: color-mix(in srgb, #dbeafe 82%, white);
-    color: #0b73f6;
+    background: var(--accent-soft);
+    color: var(--accent);
     padding: 0 12px;
     font-size: 12px;
     font-weight: 800;
@@ -144,35 +144,35 @@
 
   .launcher-debug-tools-stack .control-button:hover,
   .launcher-debug-more-button:hover {
-    background: color-mix(in srgb, #bfdbfe 88%, white);
-    color: #075fc7;
+    background: color-mix(in srgb, var(--accent) 18%, var(--bg-panel));
+    color: var(--accent);
   }
 
   .launcher-debug-tools-stack .control-button-primary {
-    background: #0b73f6;
-    color: white;
+    background: var(--accent);
+    color: var(--text-inverse);
   }
 
   .launcher-debug-tools-stack .control-button-primary:hover {
-    background: #075fc7;
+    background: var(--accent-strong);
   }
 
   .launcher-debug-tools-stack .launcher-config-danger-button {
-    background: color-mix(in srgb, #fee2e2 82%, white);
-    color: #b91c1c;
+    background: color-mix(in srgb, var(--danger) 16%, var(--bg-panel));
+    color: var(--danger);
   }
 
   .launcher-debug-tools-stack .launcher-config-danger-button:hover,
   .launcher-debug-tools-stack .launcher-config-danger-button-active {
-    background: #ef4444;
-    color: white;
+    background: var(--danger);
+    color: var(--text-inverse);
   }
 
   .launcher-debug-tools-stack .dock-chip {
     min-height: 32px;
     border-radius: 8px;
-    background: color-mix(in srgb, #e2e8f0 72%, white);
-    color: #475569;
+    background: var(--bg-active);
+    color: var(--text-secondary);
     padding: 0 11px;
     font-size: 11px;
     font-weight: 800;
@@ -223,42 +223,42 @@
   }
 
   .launcher-debug-icon-debug-mode {
-    background: color-mix(in srgb, #e0e7ff 76%, white);
+    background: color-mix(in srgb, #e0e7ff 76%, var(--bg-panel));
     color: #4f46e5;
   }
 
   .launcher-debug-icon-offline {
-    background: color-mix(in srgb, #fee2e2 76%, white);
+    background: color-mix(in srgb, #fee2e2 76%, var(--bg-panel));
     color: #dc2626;
   }
 
   .launcher-debug-icon-account {
-    background: color-mix(in srgb, #fef3c7 78%, white);
+    background: color-mix(in srgb, #fef3c7 78%, var(--bg-panel));
     color: #b45309;
   }
 
   .launcher-debug-icon-notifications {
-    background: color-mix(in srgb, #e0f2fe 76%, white);
+    background: color-mix(in srgb, #e0f2fe 76%, var(--bg-panel));
     color: #0284c7;
   }
 
   .launcher-debug-icon-logs {
-    background: color-mix(in srgb, #eef2ff 76%, white);
+    background: color-mix(in srgb, #eef2ff 76%, var(--bg-panel));
     color: #64748b;
   }
 
   .launcher-debug-icon-cache {
-    background: color-mix(in srgb, #ccfbf1 66%, white);
+    background: color-mix(in srgb, #ccfbf1 66%, var(--bg-panel));
     color: #0f766e;
   }
 
   .launcher-debug-icon-code {
-    background: color-mix(in srgb, #f3e8ff 72%, white);
+    background: color-mix(in srgb, #f3e8ff 72%, var(--bg-panel));
     color: #7e22ce;
   }
 
   .launcher-debug-icon-download {
-    background: color-mix(in srgb, #dcfce7 72%, white);
+    background: color-mix(in srgb, #dcfce7 72%, var(--bg-panel));
     color: #15803d;
   }
 
@@ -289,18 +289,18 @@
     border: 0;
     border-radius: 0;
     background: transparent;
-    color: #0b73f6;
+    color: var(--accent);
     padding: 0 11px;
     box-shadow: none;
   }
 
   .launcher-debug-action-segmented .launcher-debug-level-button + .launcher-debug-level-button {
-    border-left: 1px solid color-mix(in srgb, #bfdbfe 70%, transparent);
+    border-left: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   }
 
   .launcher-debug-action-segmented .launcher-debug-level-button:hover {
-    background: color-mix(in srgb, #dbeafe 78%, white);
-    color: #075fc7;
+    background: var(--accent-soft);
+    color: var(--accent);
   }
 
   .launcher-debug-level-button-debug,
@@ -309,7 +309,7 @@
   .launcher-debug-level-button-warning,
   .launcher-debug-level-button-error {
     background: transparent;
-    color: #0b73f6;
+    color: var(--accent);
   }
 
   .launcher-debug-level-button-debug:hover,
@@ -317,8 +317,8 @@
   .launcher-debug-level-button-success:hover,
   .launcher-debug-level-button-warning:hover,
   .launcher-debug-level-button-error:hover {
-    background: color-mix(in srgb, #dbeafe 78%, white);
-    color: #075fc7;
+    background: var(--accent-soft);
+    color: var(--accent);
   }
 
   .launcher-debug-route-loading {

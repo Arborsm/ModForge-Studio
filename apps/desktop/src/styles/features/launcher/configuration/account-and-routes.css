@@ -92,10 +92,10 @@
     height: 96px;
     display: inline-grid;
     place-items: center;
-    border: 3px solid white;
+    border: 3px solid var(--bg-panel);
     border-radius: 28px;
-    background: linear-gradient(145deg, color-mix(in srgb, var(--config-primary) 76%, white), var(--config-primary));
-    color: white;
+    background: linear-gradient(145deg, color-mix(in srgb, var(--config-primary) 76%, var(--bg-panel)), var(--config-primary));
+    color: var(--text-inverse);
     font-size: 30px;
     font-weight: 900;
     box-shadow: 0 18px 40px color-mix(in srgb, var(--accent) 9%, transparent);
@@ -104,7 +104,7 @@
   .launcher-config-avatar-image {
     display: block;
     object-fit: cover;
-    background: color-mix(in srgb, var(--config-primary) 12%, white);
+    background: color-mix(in srgb, var(--config-primary) 12%, var(--bg-panel));
   }
 
   .launcher-config-online-dot {
@@ -113,10 +113,10 @@
     bottom: 4px;
     width: 18px;
     height: 18px;
-    border: 2px solid white;
+    border: 2px solid var(--bg-panel);
     border-radius: 999px;
     background: var(--success);
-    box-shadow: 0 0 5px rgba(93, 216, 149, 0.34);
+    box-shadow: 0 0 5px color-mix(in srgb, var(--success) 34%, transparent);
   }
 
   .launcher-config-online-dot-danger {
@@ -150,7 +150,7 @@
     justify-content: center;
     min-height: 24px;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--accent-soft) 86%, white 14%);
+    background: color-mix(in srgb, var(--accent-soft) 86%, var(--bg-panel) 14%);
     color: var(--accent);
     padding: 0 11px;
     font-size: 10px;
@@ -167,9 +167,9 @@
     justify-content: center;
     min-height: 24px;
     border-radius: 999px;
-    border: 1px solid color-mix(in srgb, #94a3b8 34%, transparent);
-    background: color-mix(in srgb, #f8fafc 82%, white);
-    color: #475569;
+    border: 1px solid color-mix(in srgb, var(--border-color) 34%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-muted) 82%, var(--bg-panel));
+    color: var(--text-secondary);
     padding: 0 12px;
     font-size: 10px;
     font-weight: 850;
@@ -206,7 +206,7 @@
     height: 6px;
     border-radius: 999px;
     background: var(--success);
-    box-shadow: 0 0 6px rgba(93, 216, 149, 0.4);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--success) 40%, transparent);
   }
 
   .launcher-config-dash-status-danger::before {
@@ -346,7 +346,7 @@
   }
 
   .launcher-config-api-row:hover {
-    background: #f8fafc;
+    background: var(--bg-active);
   }
 
   .launcher-config-api-row:last-child {
@@ -425,27 +425,27 @@
   }
 
   .launcher-config-api-icon-publicGraphql {
-    background: color-mix(in srgb, #2563eb 14%, white);
+    background: color-mix(in srgb, #2563eb 14%, var(--bg-panel));
     color: #2563eb;
   }
 
   .launcher-config-api-icon-nexusImages {
-    background: color-mix(in srgb, #14b8a6 16%, white);
+    background: color-mix(in srgb, #14b8a6 16%, var(--bg-panel));
     color: #0f766e;
   }
 
   .launcher-config-api-icon-smapi {
-    background: color-mix(in srgb, #22c55e 16%, white);
+    background: color-mix(in srgb, #22c55e 16%, var(--bg-panel));
     color: #15803d;
   }
 
   .launcher-config-api-icon-privateGraphql {
-    background: color-mix(in srgb, #8b5cf6 15%, white);
+    background: color-mix(in srgb, #8b5cf6 15%, var(--bg-panel));
     color: #7c3aed;
   }
 
   .launcher-config-api-icon-nexusApi {
-    background: color-mix(in srgb, #f59e0b 18%, white);
+    background: color-mix(in srgb, #f59e0b 18%, var(--bg-panel));
     color: #b45309;
   }
 

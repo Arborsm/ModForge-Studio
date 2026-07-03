@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { localeBundles } from '.'
+import { localeBundles } from '../dictionaries'
 import {
   getEditorCopy,
   getLauncherCopy,
@@ -10,11 +10,46 @@ import {
   getSettingsMenuCopy,
   getViewMenuCopy,
   getWorkspaceModeLabel,
-} from '@locales/editor-shell'
+} from '../api/editor-shell'
 
-const localeDir = dirname(fileURLToPath(import.meta.url))
+const localeDir = join(dirname(fileURLToPath(import.meta.url)), '..')
+
+/** All valid LocaleCode values, kept in sync with model/core.ts */
+const ALL_LOCALE_CODES = ['zh-CN', 'en-US'] as const
+
+/** Domain files that exist per language directory */
+const DOMAIN_FILES = [
+  'index.ts',
+  'notifications.ts',
+  'settings.ts',
+  'launcher/index.ts',
+  'launcher/shared.ts',
+  'launcher/library.ts',
+  'launcher/discover.ts',
+  'launcher/updates.ts',
+  'launcher/configuration.ts',
+  'workbench/index.ts',
+  'workbench/shell.ts',
+  'workbench/map.ts',
+  'workbench/studio-desk.ts',
+  'workbench/mods.ts',
+  'workbench/mod-i18n.ts',
+  'workbench/event-stage.ts',
+  'workbench/characters.ts',
+  'workbench/buildings.ts',
+  'workbench/items.ts',
+  'workbench/module-blueprints.ts',
+  'workbench/view-menu.ts',
+  'workbench/world-atlas.ts',
+]
 
 describe('typed locale bundles', () => {
+  it('registers a bundle for every LocaleCode', () => {
+    const registered = Object.keys(localeBundles).sort()
+    const expected = [...ALL_LOCALE_CODES].sort()
+    expect(registered).toEqual(expected)
+  })
+
   it('exposes locale copy through typed bundle accessors', () => {
     expect(getEditorCopy('en-US').messages.loadedMapAssets(3, 'xnb')).toBe('Loaded 3 XNB map assets.')
     expect(getEditorCopy('en-US').viewportLabels.zoomLabel(1.25)).toBe('Zoom 125%')
@@ -113,8 +148,12 @@ describe('typed locale bundles', () => {
     )
   })
 
-  it('keeps locale bundles typechecked without ts-nocheck', async () => {
-    await expect(readFile(join(localeDir, 'en-US.ts'), 'utf8')).resolves.not.toContain('@ts-nocheck')
-    await expect(readFile(join(localeDir, 'zh-CN.ts'), 'utf8')).resolves.not.toContain('@ts-nocheck')
+  it('keeps all domain locale files typechecked without ts-nocheck', async () => {
+    for (const code of ALL_LOCALE_CODES) {
+      for (const file of DOMAIN_FILES) {
+        const filePath = join(localeDir, 'dictionaries', code, file)
+        await expect(readFile(filePath, 'utf8')).resolves.not.toContain('@ts-nocheck')
+      }
+    }
   })
 })

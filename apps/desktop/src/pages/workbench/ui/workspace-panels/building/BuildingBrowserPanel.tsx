@@ -1,7 +1,7 @@
 import { Search } from 'lucide-react'
 import type { ConstructibleBuildingGroup, BuildingWorkspaceEntry } from '../../../workspaces/building'
 import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup } from '@pages/workbench/workspaces/mod'
-import { useBuildingsCopy } from '@locales/localeContext'
+import { useBuildingsCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { PanelEmptyState, PanelSection } from '@shared/ui/PanelSection'

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { EditorCopy } from '@locales/editor-shell'
+import type { EditorCopy } from '@locales/api'
 import type { MapObject, MapObjectGroup } from '@shared/contracts'
 import {
   formatObjectPreviewMeta,

@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronUp, Download, ExternalLink, RefreshCw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
-import { useEditorCopy, useLocale, useSettingsMenuCopy } from '@locales/localeContext'
+import { useEditorCopy, useLocale, useSettingsMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
 import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import {

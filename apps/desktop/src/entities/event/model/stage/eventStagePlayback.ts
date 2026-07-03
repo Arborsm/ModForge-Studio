@@ -1,5 +1,5 @@
 import { parseEventCommand, EVENT_SETUP_ENTRY_ID } from '@entities/event'
-import type { EventStageCopy } from '@locales/editor-shell'
+import type { EventStageCopy } from '@locales/api'
 import type { EventCommand, EventDialoguePage, EventScript } from '@entities/event'
 import {
   applyAnimateCommand,

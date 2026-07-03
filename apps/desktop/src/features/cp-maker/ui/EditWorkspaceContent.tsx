@@ -1,5 +1,5 @@
 import type { GameDirectoryInfo, WorkspaceId } from '@shared/contracts'
-import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
+import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
 import { EditModeShell } from './EditModeShell'
 import type { UseCpMakerReturn } from '@features/cp-maker'
 import type { PlayerAppearanceProfile } from '@entities/event'

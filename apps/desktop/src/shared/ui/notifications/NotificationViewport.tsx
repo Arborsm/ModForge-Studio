@@ -1,7 +1,7 @@
 import { Bug, CheckCircle2, CircleAlert, CircleX, Info, TriangleAlert, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { useNotificationCopy } from '@locales/localeContext'
+import { useNotificationCopy } from '@locales/provider'
 import type { PublishedNotification } from './notifications'
 
 type NotificationViewportProps = {

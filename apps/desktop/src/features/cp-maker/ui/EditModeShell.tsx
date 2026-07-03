@@ -3,14 +3,14 @@
 import { useEffect, useState } from 'react'
 import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@shared/contracts'
 import type { GameDirectoryInfo } from '../model/cpMakerPort'
-import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
+import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
 import type { PlayerAppearanceProfile } from '@entities/event'
 import { AddPatchDialog } from './AddPatchDialog'
 import { ConfigSchemaDialog } from './ConfigSchemaDialog'
 import { EditModeToolbar } from './EditModeToolbar'
 import { PatchListPage } from './PatchListPage'
 import { EditorPage } from './EditorPage'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 
 interface EditModeShellProps {
   workspaceId: WorkspaceId
@@ -104,13 +104,24 @@ export function EditModeShell({
 }: EditModeShellProps) {
   const activePatch = activePatchId ? (patches.find((p) => p.id === activePatchId) ?? null) : null
   const [activeEventKey, setActiveEventKey] = useState<string | null>(null)
-  const [editorViewMode, setEditorViewMode] = useState<'editor' | 'reference'>('editor')
   const [addPatchDialogOpen, setAddPatchDialogOpen] = useState(false)
   const [configDialogOpen, setConfigDialogOpen] = useState(false)
-  const showReference = Boolean(gameRootPath && directoryInfo && locale && theme)
-  const activeEditorViewMode = showReference ? editorViewMode : 'editor'
   const isWipWorkspace = workspaceId !== 'events'
   const isEventPatchHub = !isWipWorkspace && activePatchId === null
+  const isEventScriptEditor = workspaceId === 'events' && activePatchId !== null
+  const eventAliases =
+    workspaceId === 'events' &&
+    activePatch?.editorState &&
+    typeof activePatch.editorState === 'object' &&
+    !Array.isArray(activePatch.editorState) &&
+    'eventAliases' in activePatch.editorState &&
+    typeof activePatch.editorState.eventAliases === 'object' &&
+    activePatch.editorState.eventAliases !== null &&
+    !Array.isArray(activePatch.editorState.eventAliases)
+      ? (activePatch.editorState.eventAliases as Record<string, string>)
+      : {}
+  const toolbarContextTitle = workspaceId === 'events' && activeEventKey ? activeEventKey : null
+  const toolbarContextSubtitle = toolbarContextTitle ? (eventAliases[toolbarContextTitle] ?? null) : null
 
   function handleSelectPatch(patchId: string | null) {
     if (patchId === null) {
@@ -158,21 +169,20 @@ export function EditModeShell({
 
   return (
     <div className="edit-mode-shell">
-      {!isEventPatchHub ? (
+      {!isEventPatchHub && !isEventScriptEditor ? (
         <EditModeToolbar
           workspaceId={workspaceId}
           patches={patches}
           activePatchId={activePatchId}
           activePatch={activePatch}
-          viewMode={activeEditorViewMode}
-          showReference={showReference}
+          contextTitle={toolbarContextTitle}
+          contextSubtitle={toolbarContextSubtitle}
           isDirty={isDirty}
           canGoBack={canGoBack}
           canGoForward={canGoForward}
           onGoBack={onGoBack}
           onGoForward={onGoForward}
           onSelectPatch={handleSelectPatch}
-          onViewModeChange={setEditorViewMode}
           onAddPatch={() => {
             setAddPatchDialogOpen(true)
           }}
@@ -221,7 +231,10 @@ export function EditModeShell({
             directoryInfo={directoryInfo ?? null}
             playerAppearanceProfile={playerAppearanceProfile}
             onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
-            viewMode={activeEditorViewMode}
+            onSelectedEventKeyChange={setActiveEventKey}
+            onOpenConfig={() => setConfigDialogOpen(true)}
+            onSaveDraft={onSaveDraft}
+            isDirty={isDirty}
           />
         )}
       </div>

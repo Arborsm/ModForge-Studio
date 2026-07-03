@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { X, ChevronRight } from 'lucide-react'
 import type { DraftPatch } from '@shared/contracts'
 import type { WorkspaceId } from '@shared/contracts'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 
 type ActionType = DraftPatch['action']
 

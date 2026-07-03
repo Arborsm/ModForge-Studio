@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import type { LauncherNexusDiagnosticsResult } from '@features/launcher/api'
-import { editorCopy, getModWorkspaceCopy, getSettingsMenuCopy, getViewMenuCopy } from '@locales/editor-shell'
+import { editorCopy, getModWorkspaceCopy, getSettingsMenuCopy, getViewMenuCopy } from '@locales/api'
 import { clearNotifications, dismissNotification, publishNotification } from '@shared/ui/notifications'
 
 const mapWorkspaceState = {
@@ -22,7 +22,7 @@ type MockAppUiState = {
   }
   appearance: {
     locale: string
-    accentPresetId: string
+    themeId: string
     windowBorderTone: 'accent' | 'neutral'
     windowBorderWeight: 'standard' | 'thin' | 'none'
     recentGameDirectories: string[]
@@ -95,7 +95,7 @@ function createMockAppUiState(overrides: MockAppUiStateOverrides = {}): MockAppU
     },
     appearance: {
       locale: overrides.appearance?.locale ?? 'en-US',
-      accentPresetId: overrides.appearance?.accentPresetId ?? 'indigo',
+      themeId: overrides.appearance?.themeId ?? 'warm-paper',
       windowBorderTone: overrides.appearance?.windowBorderTone ?? 'accent',
       windowBorderWeight: overrides.appearance?.windowBorderWeight ?? 'standard',
       recentGameDirectories: overrides.appearance?.recentGameDirectories ?? [],

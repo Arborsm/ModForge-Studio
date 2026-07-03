@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react'
 import type { DraftPatch, CpMakerDraft, GameDirectoryInfo, WorkspaceId } from '@shared/contracts'
-import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
+import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
 import type { PlayerAppearanceProfile } from '@entities/event'
 
 export interface PatchListField {
@@ -35,20 +35,10 @@ export type EditorComponent = ComponentType<{
   directoryInfo?: GameDirectoryInfo | null
   playerAppearanceProfile?: PlayerAppearanceProfile | null
   onOpenPlayerAppearanceWindow?: () => void
-}>
-
-export type PreviewRendererComponent = ComponentType<{
-  gameRootPath: string | null
-  directoryInfo: {
-    rootPath: string
-    executablePath: string
-    mapsPath: string | null
-    mapCount: number
-  } | null
-  locale: LocaleCode
-  theme: ThemeMode
-  accentColor: string
-  viewportLabels: ViewportLabels
+  onSelectedEventKeyChange?: (eventKey: string | null) => void
+  onOpenConfig?: () => void
+  onSaveDraft?: () => void
+  isDirty?: boolean
 }>
 
 export interface WorkspacePlugin {
@@ -59,9 +49,6 @@ export interface WorkspacePlugin {
     patchListFields: PatchListField[]
     targetPicker: TargetPickerComponent
     editor: EditorComponent
-  }
-  previewMode?: {
-    renderer: PreviewRendererComponent
   }
   serializer: {
     toChangeEntry: (patch: DraftPatch) => Record<string, unknown>

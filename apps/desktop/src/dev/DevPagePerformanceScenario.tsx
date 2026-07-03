@@ -1,6 +1,6 @@
 import { useDeferredValue, useState, type ReactNode } from 'react'
 import { localeBundles } from '@locales'
-import { LocaleProvider } from '@locales/localeContext'
+import { LocaleProvider } from '@locales/provider'
 import { CpMakerPortContext } from '@features/cp-maker/model/cpMakerPortContext'
 import type { CpMakerPort } from '@features/cp-maker/model/cpMakerPort'
 import { LauncherPortContext } from '@features/launcher/model/launcherPortContext'
@@ -18,7 +18,7 @@ import { ContentPatcherWorkspace } from '@pages/workbench/workspaces/mod/mods/co
 import type { ContentPatcherBackendSimulationContext } from '@pages/workbench/workspaces/mod/mods/content-patcher/content-model/contentPatcher'
 import type { ContentPatcherSimulationResult, LoadContentPatcherResultAssetResult, ModProjectDetail } from '@entities/mod/api'
 import type { CpMakerDraft, DraftPatch, WorkspaceId } from '@shared/contracts'
-import type { LauncherPage as LauncherPageId } from '@locales/editor-shell'
+import type { LauncherPage as LauncherPageId } from '@locales/api'
 
 type PageScenarioId =
   | 'workbench-home'
@@ -635,15 +635,16 @@ const performanceLauncherPort: LauncherPort = {
   saveSettings: async (request) => ({ ...launcherSettings, ...request }),
   scanLibrary: async () => ({ modsPath: launcherSettings.modsPath, mods: [] }),
   loadRuntimeInfo: async () => ({ gameVersion: '1.6.15', smapiVersion: '4.3.0' }),
-  loadLibraryState: async () => ({
-    storageFolders: [],
-    hiddenModKeys: [],
-    packPresets: [],
-    childModGroups: [],
-    libraryFolders: [],
-    currentPackId: null,
-    scopeMode: 'all',
-  }) as any,
+  loadLibraryState: async () =>
+    ({
+      storageFolders: [],
+      hiddenModKeys: [],
+      packPresets: [],
+      childModGroups: [],
+      libraryFolders: [],
+      currentPackId: null,
+      scopeMode: 'all',
+    }) as any,
   saveLibraryState: async (request) => request as any,
   loadLibraryCovers: async () => ({ covers: [] }) as any,
   setLibraryCover: async () => ({ covers: [] }) as any,
@@ -680,106 +681,113 @@ const performanceLauncherPort: LauncherPort = {
       results: allResults.slice(offset, offset + pageSize),
     } as any
   },
-  loadRemoteModDetail: async (request) => ({
-    modId: request.modId,
-    title: `Launcher Performance Mod ${request.modId}`,
-    summary: 'Remote mod detail fixture',
-    description: 'Large remote mod detail fixture\n'.repeat(40),
-    author: 'ModForge',
-    version: '2.0.0',
-    modUrl: `https://example.invalid/mods/${request.modId}`,
-    imageUrl: null,
-    galleryImages: [],
-    updatedAt: new Date().toISOString(),
-    fileSize: 24_000_000,
-    category: 'Gameplay Mechanics',
-    downloads: 250_000,
-    endorsements: 32_000,
-    directDownloadEnabled: true,
-    supportsVortex: true,
-    primaryFileId: request.modId + 10,
-    primaryFileName: 'Page performance mod.zip',
-    primaryFileVersion: '2.0.0',
-    primaryFileSize: 24_000_000,
-    primaryFileSizeBytes: 24_000_000,
-    primaryFileChangelog: range(12).map((index) => `Changelog entry ${index}`),
-    requirements: range(8).map((index) => ({
-      name: `Requirement ${index}`,
-      notes: `Requirement note ${index}`,
-      url: 'https://example.invalid/requirement',
-      external: index % 3 === 0,
-    })),
-    files: range(20).map((index) => ({
-      fileId: request.modId * 10 + index,
-      name: `Performance file ${index}.zip`,
-      version: `2.${index}.0`,
-      category: index % 5 === 0 ? 'optional' : 'main',
-      uploadedAt: new Date(Date.now() - index * 86_400_000).toISOString(),
-      description: `File description ${index}`,
-      uniqueDownloads: 1000 + index,
-      totalDownloads: 4000 + index,
-      managerDownloadEnabled: true,
-      size: 12_000_000 + index,
-      sizeBytes: 12_000_000 + index,
-      primary: index === 0,
-      archiveType: 'zip',
-      changelog: [`File changelog ${index}`],
-    })),
-  }) as any,
-  loadUpdateChangelog: async (request) => ({
-    modId: request.modId,
-    version: '2.0.0',
-    changelog: 'Page performance changelog\n'.repeat(16),
-  }) as any,
+  loadRemoteModDetail: async (request) =>
+    ({
+      modId: request.modId,
+      title: `Launcher Performance Mod ${request.modId}`,
+      summary: 'Remote mod detail fixture',
+      description: 'Large remote mod detail fixture\n'.repeat(40),
+      author: 'ModForge',
+      version: '2.0.0',
+      modUrl: `https://example.invalid/mods/${request.modId}`,
+      imageUrl: null,
+      galleryImages: [],
+      updatedAt: new Date().toISOString(),
+      fileSize: 24_000_000,
+      category: 'Gameplay Mechanics',
+      downloads: 250_000,
+      endorsements: 32_000,
+      directDownloadEnabled: true,
+      supportsVortex: true,
+      primaryFileId: request.modId + 10,
+      primaryFileName: 'Page performance mod.zip',
+      primaryFileVersion: '2.0.0',
+      primaryFileSize: 24_000_000,
+      primaryFileSizeBytes: 24_000_000,
+      primaryFileChangelog: range(12).map((index) => `Changelog entry ${index}`),
+      requirements: range(8).map((index) => ({
+        name: `Requirement ${index}`,
+        notes: `Requirement note ${index}`,
+        url: 'https://example.invalid/requirement',
+        external: index % 3 === 0,
+      })),
+      files: range(20).map((index) => ({
+        fileId: request.modId * 10 + index,
+        name: `Performance file ${index}.zip`,
+        version: `2.${index}.0`,
+        category: index % 5 === 0 ? 'optional' : 'main',
+        uploadedAt: new Date(Date.now() - index * 86_400_000).toISOString(),
+        description: `File description ${index}`,
+        uniqueDownloads: 1000 + index,
+        totalDownloads: 4000 + index,
+        managerDownloadEnabled: true,
+        size: 12_000_000 + index,
+        sizeBytes: 12_000_000 + index,
+        primary: index === 0,
+        archiveType: 'zip',
+        changelog: [`File changelog ${index}`],
+      })),
+    }) as any,
+  loadUpdateChangelog: async (request) =>
+    ({
+      modId: request.modId,
+      version: '2.0.0',
+      changelog: 'Page performance changelog\n'.repeat(16),
+    }) as any,
   loadNexusDiagnostics: async () => launcherDiagnostics as any,
   restartNexusDiagnostics: async () => launcherDiagnostics as any,
   retryNexusDiagnosticsRoute: async () => launcherDiagnostics as any,
   setNexusForceOffline: async () => launcherDiagnostics as any,
   resolveImage: async () => ({ sourceUrl: '', localPath: '', mimeType: '' }) as any,
-  loadCachedUpdates: async () => ({ modsPath: launcherSettings.modsPath, checkedAtMs: Date.now(), isComplete: true, updates: createLauncherUpdateResults(72) }) as any,
+  loadCachedUpdates: async () =>
+    ({ modsPath: launcherSettings.modsPath, checkedAtMs: Date.now(), isComplete: true, updates: createLauncherUpdateResults(72) }) as any,
   loadSuppressedUpdateModIds: async () => ({ modsPath: launcherSettings.modsPath, modIds: [] }) as any,
-  checkUpdates: async () => ({ modsPath: launcherSettings.modsPath, checkedAtMs: Date.now(), isComplete: true, updates: createLauncherUpdateResults(72) }) as any,
+  checkUpdates: async () =>
+    ({ modsPath: launcherSettings.modsPath, checkedAtMs: Date.now(), isComplete: true, updates: createLauncherUpdateResults(72) }) as any,
   listenToUpdateProgress: async () => noop,
-  downloadMod: async () => ({ downloadId: 'page-performance-download', archivePath: null, installed: false, installedTargetPath: null, version: '2.0.0' } as any),
+  downloadMod: async () =>
+    ({ downloadId: 'page-performance-download', archivePath: null, installed: false, installedTargetPath: null, version: '2.0.0' }) as any,
   cancelDownload: async () => {},
   listenToDownloadProgress: async () => noop,
-  installArchive: async () => ({ installedTargetPath: 'E:/ModForge Dev/Stardew Valley/Mods/PagePerformance', backupPath: null } as any),
+  installArchive: async () => ({ installedTargetPath: 'E:/ModForge Dev/Stardew Valley/Mods/PagePerformance', backupPath: null }) as any,
   listInstallBackups: async () => [] as any,
-  restoreInstallBackup: async () => ({ restoredPath: 'E:/ModForge Dev/Stardew Valley/Mods/PagePerformance' } as any),
-  inspectArchive: async () => ({ archivePath: 'E:/ModForge Dev/Downloads/PagePerformance.zip', entries: [], rootDirectories: [] } as any),
-  launchGame: async () => ({ started: true, executablePath: 'E:/ModForge Dev/Stardew Valley/Stardew Valley.exe' } as any),
+  restoreInstallBackup: async () => ({ restoredPath: 'E:/ModForge Dev/Stardew Valley/Mods/PagePerformance' }) as any,
+  inspectArchive: async () => ({ archivePath: 'E:/ModForge Dev/Downloads/PagePerformance.zip', entries: [], rootDirectories: [] }) as any,
+  launchGame: async () => ({ started: true, executablePath: 'E:/ModForge Dev/Stardew Valley/Stardew Valley.exe' }) as any,
   openPath: async () => {},
   openUrl: async () => {},
   clearLibraryReadCaches: noop,
   chooseArchiveFile: async () => null,
   chooseImageFile: async () => null,
   getBackupDirectory: async () => 'E:\\ModForge Dev\\Backups',
-  setModEnabled: async (request) => ({ absolutePath: request.modPath, enabled: request.enabled } as any),
+  setModEnabled: async (request) => ({ absolutePath: request.modPath, enabled: request.enabled }) as any,
   chooseDirectory: async () => null,
   detectDefaultGameDirectory: async () => launcherSettings.gamePath,
   toDesktopAssetUrl: (path) => path,
   subscribeUpdates: () => noop,
-  validateNexusApiKey: async () => ({
-    userName: 'PerfUser',
-    avatarUrl: null,
-    profileUrl: null,
-    isPremium: true,
-    isLifetimePremium: true,
-    premiumExpiresAt: null,
-    dailyRemaining: 900,
-    hourlyRemaining: 450,
-    dailyResetAt: null,
-    hourlyResetAt: null,
-  }) as any,
-  startNexusSso: async () => ({ ssoId: 'perf-sso', status: 'idle' } as any),
-  getNexusSsoStatus: async () => ({
-    status: 'authorized',
-    errorKind: null,
-    errorMessage: null,
-    userName: 'PerfUser',
-    isPremium: true,
-    ssoId: 'perf-sso',
-  } as any),
+  validateNexusApiKey: async () =>
+    ({
+      userName: 'PerfUser',
+      avatarUrl: null,
+      profileUrl: null,
+      isPremium: true,
+      isLifetimePremium: true,
+      premiumExpiresAt: null,
+      dailyRemaining: 900,
+      hourlyRemaining: 450,
+      dailyResetAt: null,
+      hourlyResetAt: null,
+    }) as any,
+  startNexusSso: async () => ({ ssoId: 'perf-sso', status: 'idle' }) as any,
+  getNexusSsoStatus: async () =>
+    ({
+      status: 'authorized',
+      errorKind: null,
+      errorMessage: null,
+      userName: 'PerfUser',
+      isPremium: true,
+      ssoId: 'perf-sso',
+    }) as any,
   cancelNexusSso: async () => {},
 }
 
@@ -805,19 +813,20 @@ const performanceCpMakerPort: CpMakerPort = {
       customLocations: [],
       aliasTokenNames: {},
       eventSourceSnapshotsByTarget: {},
-    } as any),
+    }) as any,
   saveDraft: async (draft) => draft as any,
   deleteDraft: async () => {},
-  copyDraft: async (sourceDraftStorageKey) => ({ draftStorageKey: `${sourceDraftStorageKey}-copy` } as any),
-  importPack: async (modDirectoryPath) => ({ draftStorageKey: modDirectoryPath } as any),
-  exportPack: async (request) => ({ outputPath: request.output_path ?? '', archivePath: request.output_path ?? '' } as any),
+  copyDraft: async (sourceDraftStorageKey) => ({ draftStorageKey: `${sourceDraftStorageKey}-copy` }) as any,
+  importPack: async (modDirectoryPath) => ({ draftStorageKey: modDirectoryPath }) as any,
+  exportPack: async (request) => ({ outputPath: request.output_path ?? '', archivePath: request.output_path ?? '' }) as any,
   chooseDirectory: async () => 'E:\\ModForge Dev\\Exports',
   scanMaps: async () => [] as any,
   scanEvents: async () => [] as any,
   scanModProjects: async () => [] as any,
   loadMapAsset: async () => ({ name: '', format: 'xnb', absolutePath: '', relativePath: '', content: '{}' }) as any,
   loadTextAsset: async () => ({ absolutePath: '', relativePath: '', content: '{}' }) as any,
-  loadImageDataUrl: async () => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO9nQ1YAAAAASUVORK5CYII=',
+  loadImageDataUrl: async () =>
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO9nQ1YAAAAASUVORK5CYII=',
 }
 
 function ScenarioFrame({ id, children }: { id: PageScenarioId; children: ReactNode }) {
@@ -1025,7 +1034,9 @@ function ContentPatcherWorkspaceScenario() {
     result: {
       kind: 'json',
       json: {
-        entries: Object.fromEntries(range(80).map((index) => [`Entry${index}`, { value: `Generated value ${index}`, enabled: index % 2 === 0 }])),
+        entries: Object.fromEntries(
+          range(80).map((index) => [`Entry${index}`, { value: `Generated value ${index}`, enabled: index % 2 === 0 }]),
+        ),
       },
     },
     diagnostics: [],
@@ -1078,9 +1089,7 @@ function ContentPatcherWorkspaceScenario() {
         onManifestFieldChange={noop}
         onManifestTextChange={noop}
         onContentTextChange={noop}
-        onPatchFieldChange={(field, value) =>
-          setSelectedPatch((current) => (current ? { ...current, [field]: value } : current))
-        }
+        onPatchFieldChange={(field, value) => setSelectedPatch((current) => (current ? { ...current, [field]: value } : current))}
         onPatchWhenChange={(value) => setSelectedPatch((current) => (current ? { ...current, When: value } : current))}
         onAddPatch={() =>
           setSelectedPatch((current) => (current ? { ...current, LogName: `${String(current.LogName ?? '')} + added` } : current))

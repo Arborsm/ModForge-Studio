@@ -4,7 +4,7 @@
     max-width: min(320px, calc(100vw - 20px));
     border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-color));
     border-radius: 7px;
-    background: color-mix(in srgb, var(--bg-elevated) 96%, var(--bg-panel));
+    background: var(--bg-overlay);
     color: var(--text-primary);
     padding: 6px 8px;
     font-size: 11px;

@@ -1,7 +1,7 @@
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { ContentPatcherPatchStatus, ContentPatcherPlannedPatch, ContentPatcherTargetSummary } from '@entities/mod/api'
 import { contentPatcherStatusClass } from '../content-model/presentation'
-import { useModWorkspaceCopy } from '@locales/localeContext'
+import { useModWorkspaceCopy } from '@locales/provider'
 
 type ContentPatcherNavigatorProps = {
   mode: 'patches' | 'targets'

@@ -1,6 +1,7 @@
 import type { AppUiState, PatchAppUiStateRequest, WindowBorderTone, WindowBorderWeight } from '@shared/contracts'
 import { DEFAULT_LOADING_MOTION_PREFERENCE } from '@shared/lib/loading-motion'
 import { normalizeLoadingMotionPreference } from '@shared/lib/loading-motion'
+import { DEFAULT_THEME_ID, normalizeThemeId } from './theme'
 
 type AppUiStatePersistence = {
   canPersist: () => boolean
@@ -58,7 +59,7 @@ export function createDefaultAppUiState(): AppUiState {
     },
     appearance: {
       locale: defaultLocale(),
-      accentPresetId: 'indigo',
+      themeId: DEFAULT_THEME_ID,
       windowBorderTone: 'accent',
       windowBorderWeight: 'standard',
       recentGameDirectories: [],
@@ -123,10 +124,7 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
     appearance: {
       locale:
         raw?.appearance?.locale === 'zh-CN' || raw?.appearance?.locale === 'en-US' ? raw.appearance.locale : defaults.appearance.locale,
-      accentPresetId:
-        typeof raw?.appearance?.accentPresetId === 'string' && raw.appearance.accentPresetId.trim()
-          ? raw.appearance.accentPresetId
-          : defaults.appearance.accentPresetId,
+      themeId: normalizeThemeId(raw?.appearance?.themeId),
       windowBorderTone: normalizeWindowBorderTone(raw?.appearance?.windowBorderTone ?? readLegacyWindowBorderStyle(raw?.appearance)),
       windowBorderWeight: normalizeWindowBorderWeight(
         raw?.appearance?.windowBorderWeight ??

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { GroupedVisibilityList } from './VisibilityList'
 import { getVisibilityGroupLabel, type LayersPanelProps, type VisibilityListItem } from '../common/rightShared'

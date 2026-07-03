@@ -1,6 +1,6 @@
-import { useBuildingsCopy } from '@locales/localeContext'
+import { useBuildingsCopy } from '@locales/provider'
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../entities/building'
-import type { BuildingsPanelCopy } from '@locales/editor-shell'
+import type { BuildingsPanelCopy } from '@locales/api'
 import { cx } from '@shared/lib/cx'
 import { buildAbsoluteSpriteLayerStyle, getResolvedSourceRect, getStageBadge } from './buildingViewHelpers'
 

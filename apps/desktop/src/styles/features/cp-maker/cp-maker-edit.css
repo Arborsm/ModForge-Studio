@@ -59,7 +59,6 @@
     min-width: 12px;
   }
 
-  .edit-mode-view-switch,
   .event-edit-section-tabs {
     display: inline-flex;
     align-items: center;
@@ -70,7 +69,6 @@
     padding: 3px;
   }
 
-  .edit-mode-view-switch-button,
   .event-edit-section-tab {
     display: inline-flex;
     height: 28px;
@@ -86,13 +84,11 @@
       color 160ms ease;
   }
 
-  .edit-mode-view-switch-button:hover,
   .event-edit-section-tab:hover {
     background: color-mix(in srgb, var(--bg-active) 72%, transparent);
     color: var(--text-primary);
   }
 
-  .edit-mode-view-switch-button-active,
   .event-edit-section-tab-active,
   .edit-mode-button-active {
     background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
@@ -337,6 +333,7 @@
     flex-direction: column;
     overflow: hidden;
     background: var(--bg-app);
+    color: var(--text-primary);
   }
 
   .event-edit-toolbar {
@@ -384,6 +381,64 @@
     text-transform: uppercase;
   }
 
+  .new-event-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .preset-head {
+    margin: 10px 2px 4px;
+    color: var(--text-tertiary);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .preset-item {
+    display: flex;
+    width: 100%;
+    align-items: flex-start;
+    gap: 7px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    padding: 6px 8px;
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .preset-item:hover {
+    background: color-mix(in srgb, var(--bg-active) 60%, transparent);
+  }
+
+  .preset-item .ic {
+    margin-top: 1px;
+    flex: 0 0 auto;
+    color: var(--accent);
+    font-size: 11px;
+  }
+
+  .preset-item b {
+    display: block;
+    overflow: hidden;
+    font-size: 11px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .preset-item small {
+    display: block;
+    max-width: 190px;
+    overflow: hidden;
+    color: var(--text-tertiary);
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   @media (max-width: 980px) {
     .edit-mode-toolbar,
     .event-edit-toolbar,
@@ -394,7 +449,6 @@
     }
 
     .edit-patch-menu,
-    .edit-mode-view-switch,
     .event-edit-section-tabs {
       width: 100%;
     }

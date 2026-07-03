@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LoadContentPatcherResultAssetResult } from '@entities/mod/api'
 import { createDefaultContentPatcherSimulationContext } from '../content-model/contentPatcher'
 import { ContentPatcherResultPreview } from './ContentPatcherResultPreview'
-import { LocaleProvider } from '@locales/localeContext'
+import { LocaleProvider } from '@locales/provider'
 
 afterEach(() => {
   cleanup()

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useModWorkspaceCopy } from '@locales/localeContext'
+import { useModWorkspaceCopy } from '@locales/provider'
 import { measureImageDimensions } from '@shared/lib/assets'
 import {
   getScaleUpEditorState,

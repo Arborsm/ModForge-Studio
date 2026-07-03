@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 import { publishNotification } from '@shared/ui/notifications'
 import type { DownloadLauncherModResult, LauncherDownloadProgressPayload, LauncherSettings } from './launcherContracts'
 import { useLauncherPort } from './launcherPortContext'

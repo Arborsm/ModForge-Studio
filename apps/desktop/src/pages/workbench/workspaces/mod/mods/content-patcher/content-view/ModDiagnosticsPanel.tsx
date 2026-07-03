@@ -1,5 +1,5 @@
 import type { ModProjectDetail, ModProjectDiagnostic, SaveModProjectResult } from '@entities/mod/api'
-import { useModWorkspaceCopy } from '@locales/localeContext'
+import { useModWorkspaceCopy } from '@locales/provider'
 import type { WorkspacePluginDefinition } from '../content-model/types'
 
 type ModDiagnosticsPanelProps = {

@@ -1,5 +1,5 @@
-import { useEditorCopy } from '@locales/localeContext'
-import { getWorkspaceModeLabel } from '@locales/editor-shell'
+import { useEditorCopy } from '@locales/provider'
+import { getWorkspaceModeLabel } from '@locales/api'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import type { ProjectPanelProps } from '../common/leftShared'
 

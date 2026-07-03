@@ -4,7 +4,7 @@ import type { ContentPatcherBackendSimulationContext } from '../content-model/co
 import { usePanZoomViewport } from '@shared/lib/viewports'
 import { ContentPatcherSimulationForm } from './ContentPatcherSimulationForm'
 import { prepareImageCompareAssets, type ImageCompareBounds, type PreparedImageCompareAssets } from '../content-model/imageCompare'
-import { useModWorkspaceCopy } from '@locales/localeContext'
+import { useModWorkspaceCopy } from '@locales/provider'
 
 type CompareMode = 'layers' | 'split'
 

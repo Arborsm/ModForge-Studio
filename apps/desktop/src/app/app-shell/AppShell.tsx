@@ -14,7 +14,7 @@ import {
   writeFrontendLog,
 } from '@shared/lib/desktop'
 import { clearGameAssetLocaleCache, loadImageDataUrl } from '@entities/game/api'
-import { editorCopy, getSettingsMenuCopy, type AppMode, type LauncherPage, type LocaleCode, type ThemeMode } from '@locales/editor-shell'
+import { editorCopy, getSettingsMenuCopy, type AppMode, type LauncherPage, type LocaleCode, type ThemeMode } from '@locales/api'
 import { normalizeAppShellState } from '@shared/lib/app-state'
 import { normalizeLoadingMotionPreference } from '@shared/lib/loading-motion'
 import {
@@ -29,10 +29,9 @@ import type {
   LoadingMotionSpeedId,
 } from '@shared/contracts/types/loadingMotion'
 import { LoadingMotionFallback, LoadingMotionProvider } from '@shared/ui/loading-motion'
-import { rgbaFromHex } from '@app/app-shell/color'
-import { ACCENT_PRESETS } from './constants'
+import { THEME_PRESETS } from './constants'
 import { clearLocalizedStageMetadataCache } from '@entities/event/model/stage/stageMetadataCache'
-import { LocaleProvider } from '@locales/localeContext'
+import { LocaleProvider } from '@locales/provider'
 import { NotificationProvider, setNotificationSoundEnabled } from '@shared/ui/notifications'
 import { configureObservability, syncDebugDiagnosticsEnabled } from '@shared/lib/observability'
 import { applyAppUiStatePatch, configureAppUiStatePersistence, getAppUiStateSnapshot, initializeAppUiState } from '@shared/lib/app-state'
@@ -126,7 +125,7 @@ export default function App() {
     typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark',
   )
   const [locale, setLocale] = useState<LocaleCode>(() => resolveLocale(initialAppUiState.appearance.locale))
-  const [accentPresetId, setAccentPresetId] = useState<string>(() => initialAppUiState.appearance.accentPresetId || ACCENT_PRESETS[0].id)
+  const [themeId, setThemeId] = useState<string>(() => initialAppUiState.appearance.themeId || THEME_PRESETS[0].id)
   const [windowBorderTone, setWindowBorderTone] = useState<WindowBorderTone>(() =>
     normalizeWindowBorderTone(initialAppUiState.appearance.windowBorderTone),
   )
@@ -208,7 +207,7 @@ export default function App() {
         const nextLocale = resolveLocale(state.appearance.locale)
 
         setLocale(nextLocale)
-        setAccentPresetId(state.appearance.accentPresetId || ACCENT_PRESETS[0].id)
+        setThemeId(state.appearance.themeId || THEME_PRESETS[0].id)
         setWindowBorderTone(normalizeWindowBorderTone(state.appearance.windowBorderTone))
         setWindowBorderWeight(normalizeWindowBorderWeight(state.appearance.windowBorderWeight))
         if (nextShellState.appMode === 'workbench') {
@@ -324,8 +323,9 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
+    document.documentElement.dataset.theme = themeId
     document.documentElement.lang = locale
-  }, [locale, theme])
+  }, [locale, theme, themeId])
 
   useEffect(() => {
     if (appMode !== 'workbench') {
@@ -380,29 +380,16 @@ export default function App() {
     previousLocaleRef.current = locale
   }, [locale])
 
-  const activeAccentPreset = ACCENT_PRESETS.find((preset) => preset.id === accentPresetId) ?? ACCENT_PRESETS[0]
+  const activeTheme = THEME_PRESETS.find((preset) => preset.id === themeId) ?? THEME_PRESETS[0]
   const workbenchLoaded = workbenchHasOpened || appMode === 'workbench'
-
-  useEffect(() => {
-    const root = document.documentElement
-    const accent = activeAccentPreset.color
-    const accentSoft = rgbaFromHex(accent, theme === 'dark' ? 0.18 : 0.14)
-    const activeSurface = theme === 'dark' ? rgbaFromHex(accent, 0.22) : rgbaFromHex(accent, 0.12)
-
-    root.style.setProperty('--color-accent', accent)
-    root.style.setProperty('--accent', accent)
-    root.style.setProperty('--accent-soft', accentSoft)
-    root.style.setProperty('--surface-active', activeSurface)
-    root.style.setProperty('--bg-active', activeSurface)
-  }, [activeAccentPreset.color, activeAccentPreset.id, theme])
 
   useEffect(() => {
     if (!appUiStateReady) {
       return
     }
 
-    void applyAppUiStatePatch({ appearance: { accentPresetId: activeAccentPreset.id } })
-  }, [activeAccentPreset.id, appUiStateReady])
+    void applyAppUiStatePatch({ appearance: { themeId: activeTheme.id } })
+  }, [activeTheme.id, appUiStateReady])
 
   useEffect(() => {
     if (!appUiStateReady) {
@@ -678,7 +665,7 @@ export default function App() {
                   appUiStateReady={appUiStateReady}
                   theme={theme}
                   locale={locale}
-                  accentColor={activeAccentPreset.color}
+                  accentColor={activeTheme.accent}
                   desktopHost={desktopHost}
                   onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
                   onSwitchToLauncher={handleSwitchToLauncher}
@@ -724,9 +711,9 @@ export default function App() {
                   title={settingsMenuCopy.title}
                   categories={settingsMenuCopy.categories}
                   categoryDescriptions={settingsMenuCopy.categoryDescriptions}
-                  accentLabel={settingsMenuCopy.accentLabel}
-                  resetAccentLabel={settingsMenuCopy.resetAccentLabel}
-                  accentDescription={settingsMenuCopy.accentDescription}
+                  themeLabel={settingsMenuCopy.themeLabel}
+                  resetThemeLabel={settingsMenuCopy.resetThemeLabel}
+                  themeDescription={settingsMenuCopy.themeDescription}
                   languageLabel={settingsMenuCopy.languageLabel}
                   languageDescription={settingsMenuCopy.languageDescription}
                   localeOptions={localeOptions}
@@ -760,10 +747,15 @@ export default function App() {
                   disableNotificationSoundLabel={settingsMenuCopy.disableNotificationSoundLabel}
                   notificationSoundEnabled={notificationSoundEnabled}
                   activeCategory={settingsWindowCategory}
-                  accentOptions={ACCENT_PRESETS}
-                  activeAccentId={activeAccentPreset.id}
-                  onSelectAccent={setAccentPresetId}
-                  onResetAccent={() => setAccentPresetId(ACCENT_PRESETS[0].id)}
+                  themeOptions={THEME_PRESETS.map((preset) => ({
+                    id: preset.id,
+                    label: settingsMenuCopy.themeLabels[preset.id] ?? preset.label,
+                    accent: preset.accent,
+                    preview: preset.preview,
+                  }))}
+                  activeThemeId={activeTheme.id}
+                  onSelectTheme={setThemeId}
+                  onResetTheme={() => setThemeId(THEME_PRESETS[0].id)}
                   onSelectLocale={setLocale}
                   onSelectWindowBorderTone={setWindowBorderTone}
                   onSelectWindowBorderWeight={setWindowBorderWeight}

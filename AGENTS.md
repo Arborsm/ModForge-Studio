@@ -67,6 +67,8 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 - 样式入口是 `apps/desktop/src/styles/index.css`；工作台专属样式通过 `styles/workbench.css` 懒加载。
 - 样式按 `styles/primitives`、`styles/workspace`、`styles/features` 落位；不要跨目录重复规则。
 - `src/styles` 下单个 CSS 文件必须保持在架构测试限制内；拆分样式时用薄 `@import` 聚合文件加聚焦子文件。
+- **配色全部走主题 token，禁止硬编码颜色**：背景、文字、边框、强调、状态、阴影只能用 `tokens.css` 暴露的 CSS 变量。基础组:`--bg-*`/`--surface-*`、`--text-*`、`--border-color`、`--accent`/`--accent-soft`、`--success`/`--warning`/`--danger`、`--shadow-*`、`--grid-*`。语义扩展组:`--accent-strong`(accent 加深,hover/active)、`--accent-contrast`(accent 实底上的前景色,取代写死的白字)、`--bg-hover`(通用 hover 底,区别于选中态 `--bg-active`)、`--focus-ring`(键盘聚焦环)、`--success-soft`/`--warning-soft`/`--danger-soft`(状态淡底)、`--scrim`(模态遮罩)、`--bevel-highlight`(顶部 inset 高光斜面,暗色自动调淡)、`--bg-overlay`(浮层/下拉/tooltip 面板底)。写死 `#fff`/`#xxxxxx`/`rgba()` 或在 `color-mix` 里混入字面白/黑，会在暗色模式或非默认主题下泄漏、对比度失效。唯一例外是与主题无关的装饰：彩色封面/分类标识、`alpha<0.3` 的高光叠加、中性灰黑投影——这些可保留。
+- **配色主题是 `[data-theme]` + `.dark` 正交**:8 套完整主题(`THEME_PRESETS`,见 `app/app-shell/constants.ts`)各自在 `tokens.css` 的 `[data-theme="x"]`(浅)/`[data-theme="x"].dark`(暗)定义全套 token;明暗是独立 toggle。新增/调整颜色只在 `tokens.css` 改源 token,别名靠级联跟随;受架构测试守卫的 token 只能定义在 `basename` 为 `tokens.css` 的文件。不要为暗色单独加 `.dark` 覆盖来打补丁——根因是该用 token 而没用。
 - 公共 API 必须有简洁 JSDoc，覆盖 slice/entity 的 `index.ts`、`features/*/api`、`entities/*/api`、`shared/lib/*`、`shared/contracts/*`、复用 hook/helper。注释说明用途、边界、缓存或副作用，不复述实现。
 
 ## 后端规则

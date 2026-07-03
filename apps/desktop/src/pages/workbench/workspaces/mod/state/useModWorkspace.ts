@@ -17,7 +17,7 @@ import {
 } from '@entities/mod/api'
 import { type GameDirectoryInfo } from '@entities/game/api'
 import { chooseDirectory } from '@shared/lib/desktop'
-import { getModWorkspaceCopy, type LocaleCode } from '@locales/editor-shell'
+import { getModWorkspaceCopy, type LocaleCode } from '@locales/api'
 import { reportAppEvent } from '@shared/lib/observability'
 import {
   addPatch,

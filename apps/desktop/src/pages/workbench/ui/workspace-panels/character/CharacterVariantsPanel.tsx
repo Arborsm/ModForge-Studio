@@ -1,5 +1,5 @@
 import { cx } from '@shared/lib/cx'
-import { useCharactersCopy, useEditorCopy } from '@locales/localeContext'
+import { useCharactersCopy, useEditorCopy } from '@locales/provider'
 import type { CharacterAppearanceVariant, CharacterWorkspaceEntry } from '../../../workspaces/character'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { PanelEmptyState } from '@shared/ui/PanelSection'

@@ -56,7 +56,7 @@
 
   .launcher-library-dialog-field input:focus {
     border-color: color-mix(in srgb, var(--accent) 48%, transparent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+    box-shadow: 0 0 0 3px var(--focus-ring);
     outline: none;
   }
 
@@ -240,7 +240,7 @@
   }
 
   .launcher-gallery-cover-option-selected {
-    border-color: color-mix(in srgb, var(--accent) 70%, white);
+    border-color: color-mix(in srgb, var(--accent) 70%, var(--bg-panel));
     box-shadow:
       0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent),
       0 18px 32px color-mix(in srgb, var(--accent) 16%, transparent);

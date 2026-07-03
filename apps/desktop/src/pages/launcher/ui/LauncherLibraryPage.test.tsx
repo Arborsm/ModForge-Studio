@@ -2,7 +2,7 @@ import type { ReactElement, ReactNode } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
-import { LocaleProvider } from '@locales/localeContext'
+import { LocaleProvider } from '@locales/provider'
 import type {
   InspectLauncherArchiveResult,
   InstallLauncherArchiveResult,

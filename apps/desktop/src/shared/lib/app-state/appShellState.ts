@@ -1,4 +1,4 @@
-import type { AppMode, LauncherPage } from '@locales/editor-shell'
+import type { AppMode, LauncherPage } from '@locales/api'
 
 /** Minimal app shell state kept for legacy/local callers that do not need full AppUiState. */
 export type AppShellState = {

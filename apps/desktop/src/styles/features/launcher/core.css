@@ -203,9 +203,9 @@
     --launcher-surface-subtle: color-mix(in srgb, var(--bg-panel) 92%, var(--bg-panel-muted));
     --launcher-surface-accent: color-mix(in srgb, var(--accent-soft) 100%, var(--bg-panel));
     --launcher-surface-active: color-mix(in srgb, var(--bg-active) 82%, var(--bg-panel));
-    --launcher-surface-strong: color-mix(in srgb, var(--accent) 86%, var(--surface-inverse));
+    --launcher-surface-strong: var(--accent-strong);
     --launcher-surface-danger: color-mix(in srgb, var(--danger) 90%, var(--surface-inverse));
-    --launcher-surface-danger-soft: color-mix(in srgb, var(--danger) 12%, var(--bg-panel));
+    --launcher-surface-danger-soft: var(--danger-soft);
     --launcher-surface-danger-border: color-mix(in srgb, var(--danger) 32%, var(--border-color));
     --launcher-surface-overlay: color-mix(in srgb, var(--bg-elevated) 78%, transparent);
     --launcher-surface-overlay-strong: color-mix(in srgb, var(--surface-inverse) 82%, transparent);
@@ -218,7 +218,7 @@
     --launcher-text-secondary: var(--text-secondary);
     --launcher-text-tertiary: var(--text-tertiary);
     --launcher-text-accent: var(--accent);
-    --launcher-text-accent-strong: color-mix(in srgb, var(--accent) 72%, var(--text-primary));
+    --launcher-text-accent-strong: var(--accent-strong);
     --launcher-text-inverse: var(--text-inverse);
   }
 }

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ModBrowserPanel } from './ModBrowserPanel'
-import { getModWorkspaceCopy } from '@locales/editor-shell'
+import { getModWorkspaceCopy } from '@locales/api'
 import { renderWithLocale } from '@test/renderWithLocale'
 
 const copy = getModWorkspaceCopy('en-US')

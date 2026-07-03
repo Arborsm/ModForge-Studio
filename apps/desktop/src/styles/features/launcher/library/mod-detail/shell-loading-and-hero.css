@@ -18,7 +18,7 @@
     display: block;
     position: absolute;
     inset: 0;
-    background: rgba(8, 12, 20, 0.34);
+    background: var(--scrim);
     backdrop-filter: blur(6px);
   }
 
@@ -32,7 +32,7 @@
     border-radius: 22px;
     background: linear-gradient(
       180deg,
-      color-mix(in srgb, var(--bg-panel-muted) 94%, white 6%),
+      color-mix(in srgb, var(--bg-panel-muted) 94%, var(--bg-panel) 6%),
       color-mix(in srgb, var(--bg-panel) 100%, transparent)
     );
     box-shadow: 0 28px 60px rgba(15, 23, 42, 0.26);
@@ -82,7 +82,7 @@
     position: absolute;
     inset: -30% 0;
     border-radius: inherit;
-    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent) 74%, white), transparent);
+    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent) 74%, var(--bg-panel)), transparent);
     content: "";
     animation: launcher-mod-detail-loading-bar 960ms ease-in-out infinite;
   }
@@ -156,7 +156,7 @@
       color-mix(in srgb, var(--bg-panel) 78%, var(--bg-panel-muted)),
       color-mix(in srgb, var(--bg-panel-muted) 88%, var(--bg-panel))
     );
-    box-shadow: inset 0 1px 0 color-mix(in srgb, white 72%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-inverse) 24%, transparent);
     padding: 0;
     overflow: hidden;
   }
@@ -487,11 +487,11 @@
 
   .launcher-mod-detail-badge.blue {
     background: color-mix(in srgb, var(--accent-soft) 100%, var(--bg-panel));
-    color: color-mix(in srgb, var(--accent) 72%, var(--text-primary));
+    color: var(--accent-strong);
   }
 
   .launcher-mod-detail-badge.green {
-    background: color-mix(in srgb, var(--success) 12%, var(--bg-panel));
+    background: var(--success-soft);
     color: var(--success);
   }
 
@@ -499,13 +499,13 @@
     min-height: 19px;
     max-width: 190px;
     background: color-mix(in srgb, var(--accent-soft) 72%, var(--bg-panel));
-    color: color-mix(in srgb, var(--accent) 70%, var(--text-primary));
+    color: var(--accent-strong);
     font-size: 10px;
   }
 
   .launcher-mod-detail-tags .launcher-mod-detail-badge:first-child,
   .launcher-mod-detail-tags .launcher-mod-detail-badge:last-child {
-    background: color-mix(in srgb, var(--success) 14%, var(--bg-panel));
+    background: var(--success-soft);
     color: color-mix(in srgb, var(--success) 82%, var(--text-primary));
   }
 
@@ -516,7 +516,7 @@
     min-height: 28px;
     border: 0;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--success) 12%, var(--bg-panel));
+    background: var(--success-soft);
     color: var(--success);
     padding: 0 10px 0 7px;
     font-size: 11.5px;

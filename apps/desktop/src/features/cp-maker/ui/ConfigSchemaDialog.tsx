@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { X, Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import type { ConfigSchemaEntry, DraftPatch } from '@shared/contracts'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 
 interface ConfigSchemaDialogProps {
   open: boolean

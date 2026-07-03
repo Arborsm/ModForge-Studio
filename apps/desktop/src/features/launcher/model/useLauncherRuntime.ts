@@ -1,5 +1,5 @@
 import type { LauncherSettings } from './launcherContracts'
-import type { LocaleCode } from '@locales/editor-shell'
+import type { LocaleCode } from '@locales/api'
 import { useLauncherDownloads } from './useLauncherDownloads'
 import { useLauncherUpdatesBadgeCount } from './useLauncherUpdatesBadgeCount'
 import { useLauncherSettings } from './useLauncherSettings'

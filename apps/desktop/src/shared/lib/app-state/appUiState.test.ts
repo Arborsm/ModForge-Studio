@@ -23,7 +23,7 @@ describe('uiState store', () => {
       },
       appearance: {
         locale: 'en-US',
-        accentPresetId: 'cyan',
+        themeId: 'slate-blue',
         windowBorderTone: 'neutral',
         windowBorderWeight: 'thin',
         recentGameDirectories: ['C:\\Games\\Stardew Valley'],
@@ -184,7 +184,7 @@ it('normalizes loading motion from persisted state', async () => {
     shell: { appMode: 'launcher', launcherPage: 'library', debugEnabled: false, notificationSoundEnabled: true },
     appearance: {
       locale: 'en-US',
-      accentPresetId: 'indigo',
+      themeId: 'warm-paper',
       windowBorderTone: 'accent',
       windowBorderWeight: 'thin',
       recentGameDirectories: [],
@@ -227,7 +227,7 @@ it('migrates legacy window border style into independent tone and weight fields'
     shell: { appMode: 'launcher', launcherPage: 'library', debugEnabled: false, notificationSoundEnabled: true },
     appearance: {
       locale: 'en-US',
-      accentPresetId: 'indigo',
+      themeId: 'warm-paper',
       windowBorderStyle: 'subtle',
       recentGameDirectories: [],
       playerAppearance: { profiles: [], activeProfileId: null },
@@ -251,6 +251,70 @@ it('migrates legacy window border style into independent tone and weight fields'
     windowBorderTone: 'accent',
     windowBorderWeight: 'thin',
   })
+})
+
+it('discards legacy accent preset ids and invalid theme ids, falling back to the default theme', async () => {
+  const { configureAppUiStatePersistence, initializeAppUiState, getAppUiStateSnapshot } = await import('./appUiState')
+  const persistedState = {
+    version: 1,
+    shell: { appMode: 'launcher', launcherPage: 'library', debugEnabled: false, notificationSoundEnabled: true },
+    appearance: {
+      locale: 'en-US',
+      // Legacy field name + value that no longer maps to any theme.
+      accentPresetId: 'indigo',
+      themeId: 'not-a-real-theme',
+      windowBorderTone: 'accent',
+      windowBorderWeight: 'standard',
+      recentGameDirectories: [],
+      playerAppearance: { profiles: [], activeProfileId: null },
+      loadingMotion: createLoadingMotionPreference({}),
+    },
+    workspace: { layouts: {} },
+    launcher: {
+      discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false },
+      forceOffline: false,
+      forceNonPremium: false,
+    },
+  }
+
+  configureAppUiStatePersistence({
+    canPersist: () => true,
+    load: vi.fn(async () => persistedState as unknown as AppUiState),
+    patch: vi.fn(),
+  })
+  await initializeAppUiState()
+  expect(getAppUiStateSnapshot().appearance.themeId).toBe('warm-paper')
+})
+
+it('keeps a valid persisted theme id', async () => {
+  const { configureAppUiStatePersistence, initializeAppUiState, getAppUiStateSnapshot } = await import('./appUiState')
+  const persistedState = {
+    version: 1,
+    shell: { appMode: 'launcher', launcherPage: 'library', debugEnabled: false, notificationSoundEnabled: true },
+    appearance: {
+      locale: 'en-US',
+      themeId: 'stardew-wood',
+      windowBorderTone: 'accent',
+      windowBorderWeight: 'standard',
+      recentGameDirectories: [],
+      playerAppearance: { profiles: [], activeProfileId: null },
+      loadingMotion: createLoadingMotionPreference({}),
+    },
+    workspace: { layouts: {} },
+    launcher: {
+      discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false },
+      forceOffline: false,
+      forceNonPremium: false,
+    },
+  }
+
+  configureAppUiStatePersistence({
+    canPersist: () => true,
+    load: vi.fn(async () => persistedState as unknown as AppUiState),
+    patch: vi.fn(),
+  })
+  await initializeAppUiState()
+  expect(getAppUiStateSnapshot().appearance.themeId).toBe('stardew-wood')
 })
 
 it('invalid loading style falls back to default without affecting intensity', async () => {

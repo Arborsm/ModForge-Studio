@@ -2,7 +2,7 @@ import { AlertTriangle, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Filt
 import { createPortal } from 'react-dom'
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
 import type { LauncherSettings } from '@features/launcher/api'
 import { canUseDesktopHost } from '@shared/lib/desktop'

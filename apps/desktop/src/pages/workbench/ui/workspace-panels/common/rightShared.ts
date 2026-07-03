@@ -8,7 +8,7 @@ export {
 } from '@entities/map'
 import type { ModSourceEntry } from '@pages/workbench/workspaces/mod'
 import type { GameDirectoryInfo } from '@shared/contracts'
-import type { ModuleBlueprint, WorkspaceTone } from '@locales/editor-shell'
+import type { ModuleBlueprint, WorkspaceTone } from '@locales/api'
 import type { MapDocument, MapObject, MapObjectGroup } from '@shared/contracts'
 
 export type VisibilityListItem = {

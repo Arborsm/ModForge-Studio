@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkspaceLayoutHandle, WorkspacePanelMeta } from '@shared/contracts'
-import { editorCopy, getModWorkspaceCopy, type AppMode, type LocaleCode, type ThemeMode, type WorkspaceMode } from '@locales/editor-shell'
+import { editorCopy, getModWorkspaceCopy, type AppMode, type LocaleCode, type ThemeMode, type WorkspaceMode } from '@locales/api'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { WorkspaceDecisionDialog } from '../workspaces/mod'
 import type { ModI18nStatusFilter } from '../workspaces/mod-i18n'

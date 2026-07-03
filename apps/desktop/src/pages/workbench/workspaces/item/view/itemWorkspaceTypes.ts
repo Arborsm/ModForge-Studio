@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react'
 import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup, ModSourceEntry } from '@pages/workbench/workspaces/mod'
 import type { ItemBrowseCategory, ItemTextureAssetState, ItemWorkspaceEntry } from '../entities/item'
 
-export type ItemsCopy = import('@locales/editor-shell').ItemsPanelCopy
+export type ItemsCopy = import('@locales/api').ItemsPanelCopy
 
 export type ItemWorkspaceProps = {
   item: ItemWorkspaceEntry | null

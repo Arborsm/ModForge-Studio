@@ -1,9 +1,9 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { editorCopy } from '@locales/editor-shell'
+import { editorCopy } from '@locales/api'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
-import { LocaleProvider } from '@locales/localeContext'
+import { LocaleProvider } from '@locales/provider'
 import WorkbenchLaunchpadNavigation from './WorkbenchLaunchpadNavigation'
 
 const copy = editorCopy['en-US'].workbenchNavigation

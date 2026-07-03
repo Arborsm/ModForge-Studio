@@ -1,5 +1,5 @@
 import { formatPoint } from '@shared/lib/geometryFormatting'
-import { useBuildingsCopy } from '@locales/localeContext'
+import { useBuildingsCopy } from '@locales/provider'
 import type { BuildingWorkspaceEntry } from '../../../workspaces/building'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { PanelEmptyState, PanelSection } from '@shared/ui/PanelSection'

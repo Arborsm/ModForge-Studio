@@ -501,7 +501,7 @@
     align-items: center;
     justify-content: center;
     padding: 20px;
-    background: color-mix(in srgb, var(--bg-app) 18%, rgba(15, 23, 42, 0.48));
+    background: var(--scrim);
     backdrop-filter: blur(10px);
   }
 

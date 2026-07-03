@@ -15,7 +15,7 @@
   }
 
   .launcher-library-link-button {
-    color: #2563eb;
+    color: var(--accent);
     font-size: 12px;
     font-weight: 800;
     text-decoration: none;
@@ -68,8 +68,8 @@
   }
 
   .launcher-library-child-picker-row-selected {
-    border-color: color-mix(in srgb, #2563eb 60%, transparent);
-    background: color-mix(in srgb, #2563eb 10%, var(--launcher-surface-base));
+    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+    background: color-mix(in srgb, var(--accent) 10%, var(--launcher-surface-base));
   }
 
   .launcher-library-child-picker-check {
@@ -78,9 +78,9 @@
     justify-content: center;
     width: 20px;
     height: 20px;
-    border: 1px solid color-mix(in srgb, #2563eb 38%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
     border-radius: 999px;
-    color: #2563eb;
+    color: var(--accent);
     font-size: 12px;
     font-weight: 900;
   }

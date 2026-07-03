@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import type { AppEvent, PendingWorkbenchCommandIntent, WorkbenchViewRegistration } from '@shared/contracts'
-import type { LocaleCode, ThemeMode } from '@locales/editor-shell'
+import type { LocaleCode, ThemeMode } from '@locales/api'
 import type { SettingsWindowCategory } from '@shared/contracts'
 import { WorkbenchShellSkeleton } from '@shared/ui/WorkbenchShellSkeleton'
 

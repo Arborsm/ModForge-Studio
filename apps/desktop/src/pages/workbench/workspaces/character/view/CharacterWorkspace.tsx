@@ -7,7 +7,7 @@ import {
   type CharacterVisualAssetState,
   type CharacterWorkspaceEntry,
 } from '../entities/character'
-import { useCharactersCopy } from '@locales/localeContext'
+import { useCharactersCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
 import { getScaleUpFrameCount, getScaleUpFramePreviewMetrics } from '@pages/workbench/workspaces/mod'
 import { CharacterGiftTasteSection, type GiftTone } from './CharacterGiftTasteSection'

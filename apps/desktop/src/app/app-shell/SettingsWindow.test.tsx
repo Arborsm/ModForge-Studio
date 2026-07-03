@@ -2,8 +2,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import SettingsWindow from './SettingsWindow'
-import { ACCENT_PRESETS } from '@app/app-shell/constants'
-import { getSettingsMenuCopy } from '@locales/editor-shell'
+import { THEME_PRESETS } from '@app/app-shell/constants'
+import { getSettingsMenuCopy } from '@locales/api'
 
 const copy = getSettingsMenuCopy('en-US')
 
@@ -32,9 +32,9 @@ describe('SettingsWindow', () => {
         launcher: 'Game paths, downloads, and Nexus integration.',
         debug: 'Diagnostics, overlays, notifications, and logs.',
       },
-      accentLabel: copy.accentLabel,
-      resetAccentLabel: copy.resetAccentLabel,
-      accentDescription: copy.accentDescription,
+      themeLabel: copy.themeLabel,
+      resetThemeLabel: copy.resetThemeLabel,
+      themeDescription: copy.themeDescription,
       languageLabel: copy.languageLabel,
       languageDescription: copy.languageDescription,
       localeOptions: [
@@ -42,8 +42,13 @@ describe('SettingsWindow', () => {
         { id: 'en-US', label: copy.localeLabels['en-US'] },
       ],
       activeLocale: 'en-US',
-      accentOptions: ACCENT_PRESETS,
-      activeAccentId: ACCENT_PRESETS[0].id,
+      themeOptions: THEME_PRESETS.map((preset) => ({
+        id: preset.id,
+        label: copy.themeLabels[preset.id] ?? preset.label,
+        accent: preset.accent,
+        preview: preset.preview,
+      })),
+      activeThemeId: THEME_PRESETS[0].id,
       windowModeLabel: 'Window mode',
       windowBorderToneLabel: copy.windowBorderToneLabel,
       windowBorderToneDescription: copy.windowBorderToneDescription,
@@ -111,8 +116,8 @@ describe('SettingsWindow', () => {
         { id: 'standard', label: 'Standard' },
         { id: 'fast', label: 'Fast' },
       ],
-      onSelectAccent: vi.fn(),
-      onResetAccent: vi.fn(),
+      onSelectTheme: vi.fn(),
+      onResetTheme: vi.fn(),
       onSelectLocale: vi.fn(),
       onSelectWindowBorderTone: vi.fn(),
       onSelectWindowBorderWeight: vi.fn(),
@@ -289,7 +294,7 @@ describe('SettingsWindow', () => {
   it('keeps loading motion controls out of appearance settings', () => {
     const { container } = renderWindow()
 
-    expect(screen.getByText(copy.accentLabel)).toBeTruthy()
+    expect(screen.getByText(copy.themeLabel)).toBeTruthy()
     expect(screen.queryByText('Loading Animation Style')).toBeNull()
     expect(container.querySelector('.settings-loading-preview')).toBeNull()
   })

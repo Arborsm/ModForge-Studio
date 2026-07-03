@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react'
 import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup } from '@pages/workbench/workspaces/mod'
-import { useCharactersCopy, useEditorCopy } from '@locales/localeContext'
+import { useCharactersCopy, useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
 import type { CharacterWorkspaceEntry } from '../../../workspaces/character'
 import { PanelFrame } from '@shared/ui/PanelFrame'

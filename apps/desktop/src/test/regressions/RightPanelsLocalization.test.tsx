@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { editorCopy } from '@locales/editor-shell'
+import { editorCopy } from '@locales/api'
 import { renderWithLocale } from '../renderWithLocale'
 import { DiagnosticsPanel } from '@pages/workbench/ui/workspace-panels/map/DiagnosticsPanel.tsx'
 import { InspectorPanel } from '@pages/workbench/ui/workspace-panels/map/InspectorPanel.tsx'

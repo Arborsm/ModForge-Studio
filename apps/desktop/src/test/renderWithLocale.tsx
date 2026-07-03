@@ -1,6 +1,6 @@
 import { render, type RenderOptions } from '@testing-library/react'
 import type { ReactElement } from 'react'
-import { LocaleProvider } from '@locales/localeContext'
+import { LocaleProvider } from '@locales/provider'
 import type { LocaleCode } from '@locales'
 
 export function renderWithLocale(ui: ReactElement, locale: LocaleCode = 'en-US', options?: Omit<RenderOptions, 'wrapper'>) {

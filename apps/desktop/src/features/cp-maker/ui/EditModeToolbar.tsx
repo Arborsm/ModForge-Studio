@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowRight, Eye, Plus, Save, Settings } from 'lucide-react'
 import type { DraftPatch } from '@shared/contracts'
 import type { WorkspaceId } from '@shared/contracts'
 import { cx } from '@shared/lib/cx'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 import { PatchQuickMenu } from './PatchQuickMenu'
 import { PatchActionIcon } from './PatchActionIcon'
 import { getPatchActionColor } from '../model/patchActionColor'
@@ -12,15 +12,14 @@ type EditModeToolbarProps = {
   patches: DraftPatch[]
   activePatchId: string | null
   activePatch: DraftPatch | null
-  viewMode: 'editor' | 'reference'
-  showReference: boolean
+  contextTitle?: string | null
+  contextSubtitle?: string | null
   isDirty: boolean
   canGoBack: boolean
   canGoForward: boolean
   onGoBack: () => void
   onGoForward: () => void
   onSelectPatch: (patchId: string | null) => void
-  onViewModeChange: (mode: 'editor' | 'reference') => void
   onAddPatch: () => void
   onOpenConfig: () => void
   onSaveDraft: () => void
@@ -31,15 +30,14 @@ export function EditModeToolbar({
   patches,
   activePatchId,
   activePatch,
-  viewMode,
-  showReference,
+  contextTitle,
+  contextSubtitle,
   isDirty,
   canGoBack,
   canGoForward,
   onGoBack,
   onGoForward,
   onSelectPatch,
-  onViewModeChange,
   onAddPatch,
   onOpenConfig,
   onSaveDraft,
@@ -81,8 +79,8 @@ export function EditModeToolbar({
             <span className={cx('edit-mode-toolbar-context-icon', getPatchActionColor(activePatch.action))}>
               <PatchActionIcon action={activePatch.action} />
             </span>
-            <span className="edit-mode-toolbar-title">{activePatch.logName || activePatch.target}</span>
-            <span className="edit-mode-toolbar-subtitle">{`${activePatch.action} -> ${activePatch.target}`}</span>
+            <span className="edit-mode-toolbar-title">{contextTitle || activePatch.logName || activePatch.target}</span>
+            {contextSubtitle ? <span className="edit-mode-toolbar-subtitle">{contextSubtitle}</span> : null}
           </>
         ) : (
           <>
@@ -94,31 +92,6 @@ export function EditModeToolbar({
       </div>
 
       <div className="edit-mode-toolbar-spacer" />
-
-      {activePatch ? (
-        <div className="edit-mode-view-switch" role="tablist" aria-label={toolbar.editView}>
-          <button
-            type="button"
-            className={cx('edit-mode-view-switch-button', viewMode === 'editor' && 'edit-mode-view-switch-button-active')}
-            onClick={() => onViewModeChange('editor')}
-            aria-selected={viewMode === 'editor'}
-            role="tab"
-          >
-            {toolbar.editor}
-          </button>
-          {showReference ? (
-            <button
-              type="button"
-              className={cx('edit-mode-view-switch-button', viewMode === 'reference' && 'edit-mode-view-switch-button-active')}
-              onClick={() => onViewModeChange('reference')}
-              aria-selected={viewMode === 'reference'}
-              role="tab"
-            >
-              {toolbar.reference}
-            </button>
-          ) : null}
-        </div>
-      ) : null}
 
       <span className={cx('status-pill', isDirty ? 'status-pill-working' : 'status-pill-ready')}>
         {isDirty ? toolbar.unsaved : toolbar.saved}

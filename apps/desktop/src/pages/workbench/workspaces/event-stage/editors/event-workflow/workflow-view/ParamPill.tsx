@@ -18,6 +18,7 @@ export type ParamPillProps = {
   resourceRegistry?: EventResourceRegistry
   disabled?: boolean
   size?: 'sm' | 'md'
+  variant?: 'default' | 'script'
 }
 
 function resolveOptionValue(item: OptionItem): string {
@@ -130,6 +131,25 @@ function directionLabel(value: string) {
   return DIRECTION_LABELS[value] ?? value
 }
 
+function directionTokenLabel(value: string) {
+  const arrows: Record<string, string> = {
+    '0': '↑',
+    '1': '→',
+    '2': '↓',
+    '3': '←',
+    up: '↑',
+    right: '→',
+    down: '↓',
+    left: '←',
+  }
+  const arrow = arrows[value]
+  return arrow ? `${arrow} ${directionLabel(value)}` : directionLabel(value)
+}
+
+function actorInitial(value: string) {
+  return (value.trim().match(/[A-Za-z0-9]/u)?.[0] ?? value.trim().slice(0, 1) ?? '?').toUpperCase()
+}
+
 function swatchColorForValue(value: string, index: number) {
   let hash = index
   for (const char of value) {
@@ -223,6 +243,7 @@ export function ParamPill({
   resourceRegistry,
   disabled,
   size = 'md',
+  variant = 'default',
 }: ParamPillProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
@@ -246,7 +267,7 @@ export function ParamPill({
   const isEmpty = !value
 
   function resolveDisplayValue(rawValue: string): string {
-    if (control === 'direction') return directionLabel(rawValue)
+    if (control === 'direction') return variant === 'script' ? directionTokenLabel(rawValue) : directionLabel(rawValue)
     if (control === 'toggle') {
       return rawValue === 'true' ? '是' : rawValue === 'false' ? '否' : rawValue
     }
@@ -283,18 +304,28 @@ export function ParamPill({
   const textClass = size === 'sm' ? 'text-[11px]' : 'text-xs'
   const pxClass = size === 'sm' ? 'px-1.5' : 'px-2'
 
-  const baseClasses = cx(
-    'inline-flex items-center gap-1 rounded-md border font-medium transition-all cursor-pointer select-none',
-    heightClass,
-    textClass,
-    pxClass,
-    isEmpty
-      ? 'border-dashed border-[var(--border-color)] bg-[var(--bg-panel-muted)] text-[var(--text-tertiary)] italic'
-      : 'border-[color-mix(in_srgb,var(--accent)_35%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_60%,transparent)] text-[var(--text-primary)]',
-    disabled && 'opacity-50 cursor-not-allowed',
-    !disabled &&
-      'hover:border-[color-mix(in_srgb,var(--accent)_60%,var(--border-color))] hover:bg-[color-mix(in_srgb,var(--accent-soft)_90%,transparent)]',
-  )
+  const baseClasses =
+    variant === 'script'
+      ? cx(
+          'pill',
+          (control === 'npc_selector' || control === 'tile_picker' || control === 'item') && 'accent',
+          (control === 'path_picker' || control === 'direction' || control === 'toggle' || control === 'quick_question') && 'muted',
+          control === 'textarea' && 'italic',
+          isEmpty && 'text-[var(--text-tertiary)] italic',
+          disabled && 'cursor-not-allowed opacity-50',
+        )
+      : cx(
+          'inline-flex items-center gap-1 rounded-md border font-medium transition-all cursor-pointer select-none',
+          heightClass,
+          textClass,
+          pxClass,
+          isEmpty
+            ? 'border-dashed border-[var(--border-color)] bg-[var(--bg-panel-muted)] text-[var(--text-tertiary)] italic'
+            : 'border-[color-mix(in_srgb,var(--accent)_35%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_60%,transparent)] text-[var(--text-primary)]',
+          disabled && 'opacity-50 cursor-not-allowed',
+          !disabled &&
+            'hover:border-[color-mix(in_srgb,var(--accent)_60%,var(--border-color))] hover:bg-[color-mix(in_srgb,var(--accent-soft)_90%,transparent)]',
+        )
 
   const iconSize = size === 'sm' ? 'h-3 w-3' : 'h-3.5 w-3.5'
 
@@ -325,23 +356,49 @@ export function ParamPill({
     }
   }
 
+  function renderScriptPrefix() {
+    if (control === 'npc_selector') {
+      return (
+        <span
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--bg-panel-muted)] text-[10px] font-semibold text-[var(--text-secondary)]"
+          aria-hidden
+        >
+          {actorInitial(value)}
+        </span>
+      )
+    }
+    if (control === 'item') {
+      return <span className="inline-flex h-2.5 w-2.5 shrink-0 rounded-[3px] bg-[var(--accent)]" aria-hidden />
+    }
+    return null
+  }
+
   if (resourceKind && resourceOptions.length > 0) {
     return (
       <span
         ref={containerRef}
-        className={cx(baseClasses, 'relative p-0 pr-1')}
+        className={cx(baseClasses, 'relative', variant === 'script' ? 'gap-1 py-px pr-1 pl-0.5' : 'p-0 pr-1')}
         onPointerDown={stopInteractivePropagation}
         onClick={stopInteractivePropagation}
         title={`${label}${isEmpty ? '' : `: ${value}`}`}
       >
-        <span className={cx('inline-flex items-center justify-center pl-1.5', iconSize)}>{renderIcon()}</span>
+        {variant === 'script' ? (
+          renderScriptPrefix()
+        ) : (
+          <span className={cx('inline-flex items-center justify-center pl-1.5', iconSize)}>{renderIcon()}</span>
+        )}
         <EventResourcePicker
           value={value}
           label={label}
           placeholder={placeholder ?? label}
           options={resourceOptions}
           onSelect={(nextValue) => onChange?.(nextValue)}
-          triggerClassName={cx('h-5 border-0 bg-transparent px-1', size === 'sm' ? 'max-w-28' : 'max-w-36')}
+          triggerClassName={cx(
+            variant === 'script'
+              ? 'h-auto min-h-0 border-0 bg-transparent px-0 py-0 font-mono text-xs font-medium leading-none text-inherit hover:border-transparent'
+              : 'h-5 border-0 bg-transparent px-1',
+            size === 'sm' ? 'max-w-28' : 'max-w-36',
+          )}
         />
       </span>
     )
@@ -920,7 +977,7 @@ export function ParamPill({
       }}
       title={`${label}${isEmpty ? '' : `: ${value}`}`}
     >
-      {renderIcon()}
+      {variant === 'script' ? renderScriptPrefix() : renderIcon()}
       <span className="max-w-[140px] truncate">{displayValue}</span>
     </button>
   )

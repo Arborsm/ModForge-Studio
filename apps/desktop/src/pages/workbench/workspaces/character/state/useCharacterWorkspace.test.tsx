@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { editorCopy } from '@locales/editor-shell'
+import { editorCopy } from '@locales/api'
 import { useCharacterWorkspace } from './useCharacterWorkspace'
 
 vi.mock('@entities/game/api', () => ({

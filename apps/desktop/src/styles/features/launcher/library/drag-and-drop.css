@@ -18,7 +18,8 @@
     justify-content: center;
     padding: 24px;
     background:
-      linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), rgba(15, 23, 42, 0.08)), rgba(248, 250, 252, 0.92);
+      linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), rgba(15, 23, 42, 0.08)),
+      color-mix(in srgb, var(--launcher-surface-subtle) 92%, transparent);
     backdrop-filter: blur(10px);
     pointer-events: none;
   }
@@ -32,7 +33,7 @@
     padding: 22px 24px;
     border: 1px dashed color-mix(in srgb, var(--accent) 48%, rgba(15, 23, 42, 0.18));
     border-radius: 20px;
-    background: color-mix(in srgb, var(--launcher-surface-base) 88%, white);
+    background: color-mix(in srgb, var(--launcher-surface-base) 88%, var(--bg-panel));
     box-shadow:
       0 20px 48px rgba(15, 23, 42, 0.18),
       inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
@@ -69,9 +70,9 @@
     width: 0;
     height: 0;
     pointer-events: none;
-    border: 1px solid color-mix(in srgb, #2563eb 64%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 64%, transparent);
     border-radius: 8px;
-    background: color-mix(in srgb, #2563eb 12%, transparent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
     box-shadow:
       inset 0 0 0 1px color-mix(in srgb, white 34%, transparent),
       0 10px 24px rgba(37, 99, 235, 0.12);
@@ -109,10 +110,10 @@
   .launcher-library-draggable-card-box-selected .launcher-mod-card,
   .launcher-library-card-grab-pending.launcher-library-folder-card,
   .launcher-library-draggable-card-box-selected.launcher-library-folder-card {
-    border-color: color-mix(in srgb, #2563eb 50%, var(--launcher-border-subtle));
+    border-color: color-mix(in srgb, var(--accent) 50%, var(--launcher-border-subtle));
     box-shadow:
       0 18px 34px rgba(15, 23, 42, 0.15),
-      0 0 0 2px color-mix(in srgb, #2563eb 12%, transparent);
+      0 0 0 2px color-mix(in srgb, var(--accent) 12%, transparent);
   }
 
   .launcher-library-dragging-active .launcher-mod-card:hover,
@@ -123,7 +124,7 @@
   .launcher-library-dragging-active .launcher-mod-card-selected:focus-within {
     z-index: auto;
     transform: none;
-    border-color: rgba(229, 231, 235, 0.92);
+    border-color: var(--launcher-border-soft);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   }
 
@@ -186,9 +187,9 @@
     position: absolute;
     inset: -5px;
     content: "";
-    border: 2px solid color-mix(in srgb, #2563eb 72%, white);
+    border: 2px solid color-mix(in srgb, var(--accent) 72%, var(--bg-panel));
     border-radius: 14px;
-    background: color-mix(in srgb, #2563eb 10%, transparent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
     box-shadow:
       0 18px 42px rgba(37, 99, 235, 0.18),
       inset 0 0 0 1px color-mix(in srgb, white 38%, transparent);
@@ -239,11 +240,11 @@
 
   .launcher-library-drag-preview .launcher-mod-card {
     min-height: 210px;
-    border-color: color-mix(in srgb, #2563eb 42%, white);
+    border-color: color-mix(in srgb, var(--accent) 42%, var(--bg-panel));
     box-shadow:
       0 24px 54px rgba(15, 23, 42, 0.28),
       0 10px 24px rgba(37, 99, 235, 0.16),
-      0 0 0 1px color-mix(in srgb, #2563eb 16%, transparent);
+      0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
     transform: rotate(1deg) scale(1.015);
   }
 
@@ -254,15 +255,14 @@
     grid-template-columns: 82px minmax(0, 1fr);
     align-items: center;
     gap: 14px;
-    border: 1px solid color-mix(in srgb, #2563eb 58%, white);
+    border: 1px solid color-mix(in srgb, var(--accent) 58%, var(--bg-panel));
     border-radius: 10px;
-    background: #ffffff;
-    background: color-mix(in srgb, var(--launcher-surface-raised, #ffffff) 98%, white 2%);
+    background: color-mix(in srgb, var(--launcher-surface-raised, var(--launcher-surface-base)) 98%, var(--bg-panel) 2%);
     padding: 12px;
     box-shadow:
       0 28px 64px rgba(15, 23, 42, 0.32),
       0 14px 30px rgba(37, 99, 235, 0.18),
-      0 0 0 2px color-mix(in srgb, #2563eb 18%, transparent);
+      0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
     transform: rotate(0.6deg) scale(1.01);
   }
 
@@ -273,7 +273,7 @@
     height: 82px;
     place-items: center;
     border-radius: 10px;
-    background: linear-gradient(135deg, #2563eb, #0f766e);
+    background: linear-gradient(135deg, var(--accent), #0f766e);
     color: var(--launcher-text-inverse);
     font-size: 22px;
     font-weight: 850;
@@ -309,11 +309,6 @@
     opacity: 0.9;
   }
 
-  .dark .launcher-library-mod-drag-preview-card {
-    background: #111827;
-    background: color-mix(in srgb, var(--launcher-surface-raised, #111827) 96%, #111827 4%);
-  }
-
   .launcher-library-drag-preview-count {
     position: absolute;
     top: -8px;
@@ -324,7 +319,7 @@
     min-width: 24px;
     height: 24px;
     border-radius: 999px;
-    background: #2563eb;
+    background: var(--accent);
     color: var(--launcher-text-inverse);
     font-size: 11px;
     font-weight: 850;

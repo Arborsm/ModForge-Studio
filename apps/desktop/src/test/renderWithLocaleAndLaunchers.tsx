@@ -1,6 +1,6 @@
 import { render, type RenderOptions } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
-import { LocaleProvider } from '@locales/localeContext'
+import { LocaleProvider } from '@locales/provider'
 import type { LocaleCode } from '@locales'
 import { LauncherTestWrapper } from './launcherTestWrapper'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
