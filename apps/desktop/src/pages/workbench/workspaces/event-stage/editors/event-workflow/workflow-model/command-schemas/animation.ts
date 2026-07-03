@@ -6,25 +6,37 @@ export const animationCommandSchemas = [
 
   {
     key: 'farmerAnimation',
-    label: 'Farmer Animation',
     category: 'animation',
     color: 'red',
     icon: 'User',
     template: [
-      { type: 'text', value: '玩家动画' },
-      { type: 'param', index: 1, label: '动画', ui: 'choice', placeholder: '0-7', options: FARMER_ANIMATION_OPTIONS },
+      { type: 'text', copyKey: 'farmerAnimation.template1' },
+      {
+        type: 'param',
+        index: 1,
+        labelKey: 'farmerAnimation.param1.label',
+        ui: 'choice',
+        placeholderKey: 'farmerAnimation.param1.placeholder',
+        options: FARMER_ANIMATION_OPTIONS,
+      },
     ],
   },
 
   {
     key: 'farmerEat',
-    label: 'Farmer Eat',
     category: 'animation',
     color: 'red',
     icon: 'User',
     template: [
-      { type: 'text', value: '玩家进食' },
-      { type: 'param', index: 1, label: '物品', ui: 'item', placeholder: 'ItemId', options: ITEM_OPTIONS },
+      { type: 'text', copyKey: 'farmerEat.template1' },
+      {
+        type: 'param',
+        index: 1,
+        labelKey: 'farmerEat.param1.label',
+        ui: 'item',
+        placeholderKey: 'farmerEat.param1.placeholder',
+        options: ITEM_OPTIONS,
+      },
     ],
   },
 ] satisfies CommandSchema[]

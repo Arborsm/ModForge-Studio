@@ -174,6 +174,7 @@ export type ScriptEditorCopy = {
 
 export type EventWorkflowCopy = {
   commandLabels: Record<EventWorkflowCommandKey, string>
+  commandFields: Record<string, string>
   categoryLabels: Record<EventWorkflowCommandCategory, string>
   commandPalette: {
     searchPlaceholder: string

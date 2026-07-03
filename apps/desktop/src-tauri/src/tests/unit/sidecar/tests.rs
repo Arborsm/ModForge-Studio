@@ -274,6 +274,27 @@ fn mutable_cache_commands_declare_resource_locks_at_binding_site() {
     );
 }
 
+#[test]
+fn project_and_cp_maker_mutations_declare_resource_locks_at_binding_site() {
+    assert_eq!(
+        command_resources("save_mod_project"),
+        Some(&[SidecarResource::ModProject][..])
+    );
+    assert_eq!(
+        command_resources("save_cp_maker_draft"),
+        Some(&[SidecarResource::CpMakerDrafts][..])
+    );
+    assert_eq!(
+        command_resources("copy_cp_maker_draft"),
+        Some(&[SidecarResource::CpMakerDrafts][..])
+    );
+    assert_eq!(
+        command_resources("export_cp_maker_pack"),
+        Some(&[SidecarResource::ModProject][..])
+    );
+    assert_eq!(command_resources("import_cp_maker_pack"), Some(&[][..]));
+}
+
 struct TestResponseWriter {
     completed: Mutex<mpsc::SyncSender<RpcResponse>>,
 }

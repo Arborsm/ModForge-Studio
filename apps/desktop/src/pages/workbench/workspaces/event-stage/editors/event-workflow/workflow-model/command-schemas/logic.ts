@@ -5,116 +5,106 @@ export const logicCommandSchemas = [
 
   {
     key: 'question',
-    label: 'Question',
     category: 'logic',
     color: 'orange',
     icon: 'ListChecks',
     template: [
-      { type: 'text', value: '提问:' },
-      { type: 'param', index: 1, label: '键', ui: 'text', placeholder: 'questionKey' },
-      { type: 'text', value: '选项:' },
-      { type: 'param', index: 2, label: '选项', ui: 'textarea', placeholder: '选项1#选项2#选项3' },
+      { type: 'text', copyKey: 'question.template1' },
+      { type: 'param', index: 1, labelKey: 'question.param1.label', ui: 'text', placeholderKey: 'question.param1.placeholder' },
+      { type: 'text', copyKey: 'question.template2' },
+      { type: 'param', index: 2, labelKey: 'question.param2.label', ui: 'textarea', placeholderKey: 'question.param2.placeholder' },
     ],
   },
 
   {
     key: 'quickQuestion',
-    label: 'Quick Question',
     category: 'logic',
     color: 'orange',
     icon: 'GitBranch',
     template: [
-      { type: 'text', value: '快速选择:' },
+      { type: 'text', copyKey: 'quickQuestion.template1' },
       {
         type: 'param',
         index: 1,
-        label: '问题和分支',
+        labelKey: 'quickQuestion.param1.label',
         ui: 'quick_question',
-        placeholder: '问题#Yes#No\\yesCommand\\noCommand',
+        placeholderKey: 'quickQuestion.param1.placeholder',
       },
     ],
   },
 
   {
     key: 'fork',
-    label: 'Fork',
     category: 'logic',
     color: 'orange',
     icon: 'GitFork',
     template: [
-      { type: 'text', value: '如果' },
-      { type: 'param', index: 1, label: '条件', ui: 'text', placeholder: 'flagId' },
-      { type: 'text', value: '则跳转至' },
-      { type: 'param', index: 2, label: '目标', ui: 'text', placeholder: 'eventKey' },
+      { type: 'text', copyKey: 'fork.template1' },
+      { type: 'param', index: 1, labelKey: 'fork.param1.label', ui: 'text', placeholderKey: 'fork.param1.placeholder' },
+      { type: 'text', copyKey: 'fork.template2' },
+      { type: 'param', index: 2, labelKey: 'fork.param2.label', ui: 'text', placeholderKey: 'fork.param2.placeholder' },
     ],
   },
 
   {
     key: 'switchEvent',
-    label: 'Switch Event',
     category: 'logic',
     color: 'orange',
     icon: 'ArrowRightLeft',
     template: [
-      { type: 'text', value: '切换至事件' },
-      { type: 'param', index: 1, label: '目标', ui: 'text', placeholder: 'eventKey' },
+      { type: 'text', copyKey: 'switchEvent.template1' },
+      { type: 'param', index: 1, labelKey: 'switchEvent.param1.label', ui: 'text', placeholderKey: 'switchEvent.param1.placeholder' },
     ],
   },
 
   {
     key: 'pause',
-    label: 'Pause',
     category: 'logic',
     color: 'yellow',
     icon: 'Timer',
     template: [
-      { type: 'text', value: '暂停' },
-      { type: 'param', index: 1, label: '毫秒', ui: 'number', placeholder: '1000' },
+      { type: 'text', copyKey: 'pause.template1' },
+      { type: 'param', index: 1, labelKey: 'pause.param1.label', ui: 'number', placeholderKey: 'pause.param1.placeholder' },
     ],
   },
 
   {
     key: 'waitForAllStationary',
-    label: 'Wait For All Stationary',
     category: 'logic',
     color: 'yellow',
     icon: 'Timer',
-    template: [{ type: 'text', value: '等待所有角色静止' }],
+    template: [{ type: 'text', copyKey: 'waitForAllStationary.template1' }],
   },
 
   {
     key: 'waitForOtherPlayers',
-    label: 'Wait For Other Players',
     category: 'logic',
     color: 'yellow',
     icon: 'Timer',
-    template: [{ type: 'text', value: '等待其他玩家' }],
+    template: [{ type: 'text', copyKey: 'waitForOtherPlayers.template1' }],
   },
 
   {
     key: 'beginSimultaneousCommand',
-    label: 'Begin Simultaneous',
     category: 'logic',
     color: 'yellow',
     icon: 'Layers',
-    template: [{ type: 'text', value: '开始同步执行' }],
+    template: [{ type: 'text', copyKey: 'beginSimultaneousCommand.template1' }],
   },
 
   {
     key: 'endSimultaneousCommand',
-    label: 'End Simultaneous',
     category: 'logic',
     color: 'yellow',
     icon: 'Layers',
-    template: [{ type: 'text', value: '结束同步执行' }],
+    template: [{ type: 'text', copyKey: 'endSimultaneousCommand.template1' }],
   },
 
   {
     key: 'skippable',
-    label: 'Skippable',
     category: 'logic',
     color: 'yellow',
     icon: 'FastForward',
-    template: [{ type: 'text', value: '标记以下为可跳过' }],
+    template: [{ type: 'text', copyKey: 'skippable.template1' }],
   },
 ] satisfies CommandSchema[]

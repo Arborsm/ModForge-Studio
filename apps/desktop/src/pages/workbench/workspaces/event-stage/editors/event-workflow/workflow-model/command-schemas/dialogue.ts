@@ -6,55 +6,72 @@ export const dialogueCommandSchemas = [
 
   {
     key: 'speak',
-    label: 'Speak',
     category: 'dialogue',
     color: 'blue',
     icon: 'MessageSquareText',
     template: [
-      { type: 'text', value: '让' },
-      { type: 'param', index: 1, label: '角色', ui: 'npc_selector', placeholder: 'NPC 名称', options: ACTOR_OPTIONS },
-      { type: 'text', value: '说：' },
-      { type: 'param', index: 2, label: '内容', ui: 'textarea', placeholder: '对话内容' },
+      { type: 'text', copyKey: 'speak.template1' },
+      {
+        type: 'param',
+        index: 1,
+        labelKey: 'speak.param1.label',
+        ui: 'npc_selector',
+        placeholderKey: 'speak.param1.placeholder',
+        options: ACTOR_OPTIONS,
+      },
+      { type: 'text', copyKey: 'speak.template2' },
+      { type: 'param', index: 2, labelKey: 'speak.param2.label', ui: 'textarea', placeholderKey: 'speak.param2.placeholder' },
     ],
     stageMeta: { affectsActorEmotion: true },
   },
 
   {
     key: 'splitSpeak',
-    label: 'Split Speak',
     category: 'dialogue',
     color: 'blue',
     icon: 'MessageSquareText',
     template: [
-      { type: 'text', value: '让' },
-      { type: 'param', index: 1, label: '角色', ui: 'npc_selector', placeholder: 'NPC 名称', options: ACTOR_OPTIONS },
-      { type: 'text', value: '分页说：' },
-      { type: 'param', index: 2, label: '内容', ui: 'textarea', placeholder: '使用 # 分页' },
+      { type: 'text', copyKey: 'splitSpeak.template1' },
+      {
+        type: 'param',
+        index: 1,
+        labelKey: 'splitSpeak.param1.label',
+        ui: 'npc_selector',
+        placeholderKey: 'splitSpeak.param1.placeholder',
+        options: ACTOR_OPTIONS,
+      },
+      { type: 'text', copyKey: 'splitSpeak.template2' },
+      { type: 'param', index: 2, labelKey: 'splitSpeak.param2.label', ui: 'textarea', placeholderKey: 'splitSpeak.param2.placeholder' },
     ],
     stageMeta: { affectsActorEmotion: true },
   },
 
   {
     key: 'message',
-    label: 'Message',
     category: 'dialogue',
     color: 'blue',
     icon: 'MessageSquare',
     template: [
-      { type: 'text', value: '显示消息：' },
-      { type: 'param', index: 1, label: '内容', ui: 'textarea', placeholder: '消息内容' },
+      { type: 'text', copyKey: 'message.template1' },
+      { type: 'param', index: 1, labelKey: 'message.param1.label', ui: 'textarea', placeholderKey: 'message.param1.placeholder' },
     ],
   },
 
   {
     key: 'end',
-    label: 'End',
     category: 'dialogue',
     color: 'gray',
     icon: 'Octagon',
     template: [
-      { type: 'text', value: '结束事件' },
-      { type: 'param', index: 1, label: '模式', ui: 'choice', placeholder: 'dialogue / none', options: END_MODE_OPTIONS },
+      { type: 'text', copyKey: 'end.template1' },
+      {
+        type: 'param',
+        index: 1,
+        labelKey: 'end.param1.label',
+        ui: 'choice',
+        placeholderKey: 'end.param1.placeholder',
+        options: END_MODE_OPTIONS,
+      },
     ],
   },
 ] satisfies CommandSchema[]

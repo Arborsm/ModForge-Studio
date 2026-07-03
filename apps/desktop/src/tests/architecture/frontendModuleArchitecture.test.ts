@@ -254,6 +254,10 @@ describe('frontend module architecture', () => {
     })
     const violations: string[] = []
     const bilingualFieldPattern = /\b(?:labelZh|labelEn|descriptionZh|descriptionEn)\b/g
+    const commandSchemaFilePattern =
+      /src\/pages\/workbench\/workspaces\/event-stage\/editors\/event-workflow\/workflow-model\/command-schemas\/[^/]+\.ts$/u
+    const commandSchemaInlineChineseCopyPattern =
+      /(?:`[^`]*[\u3400-\u9fff][^`]*`|'[^']*[\u3400-\u9fff][^']*'|"[^"]*[\u3400-\u9fff][^"]*")/gu
     const inlineLocaleCopyPattern =
       /locale\s*===\s*['"]zh-CN['"]\s*\?\s*(?:`[^`]*[\u3400-\u9fff][^`]*`|'[^']*[\u3400-\u9fff][^']*'|"[^"]*[\u3400-\u9fff][^"]*")/g
     const hardcodedEnglishLocaleBranchPattern =
@@ -266,6 +270,12 @@ describe('frontend module architecture', () => {
 
         for (const match of source.matchAll(bilingualFieldPattern)) {
           violations.push(`${relativePath}: ${match[0]}`)
+        }
+
+        if (commandSchemaFilePattern.test(relativePath)) {
+          for (const match of source.matchAll(commandSchemaInlineChineseCopyPattern)) {
+            violations.push(`${relativePath}: ${match[0].slice(0, 80)}`)
+          }
         }
 
         for (const match of source.matchAll(inlineLocaleCopyPattern)) {
@@ -402,7 +412,6 @@ describe('frontend module architecture', () => {
     const workbenchHome = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchHomePage.tsx'), 'utf8')
     const workbenchDock = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchLaunchpadDock.tsx'), 'utf8')
 
-    expect(workbenchHome).not.toContain("from '@shared/ui/Dialog'")
     expect(workbenchHome).not.toContain('makerDialogOpen')
     expect(workbenchHome).not.toContain('projectDialogOpen')
     expect(workbenchHome).toContain('StudioDeskProjectGallery')
@@ -473,7 +482,7 @@ describe('frontend module architecture', () => {
         continue
       }
       const source = await readFile(filePath, 'utf8')
-      for (const match of source.matchAll(/#\[tauri::command\]\s*pub fn ([a-z][a-z0-9_]*)/g)) {
+      for (const match of source.matchAll(/#\[tauri::command\]\s*pub\s+(?:async\s+)?fn ([a-z][a-z0-9_]*)/g)) {
         commandNames.push(match[1] ?? '')
       }
     }

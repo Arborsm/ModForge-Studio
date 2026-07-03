@@ -356,11 +356,16 @@ pub(crate) fn resolve_command(
         crate::host_command_wire!(load_mod_project) => io_lane(id, &command_name, move || {
             ok(domain::mods::load_mod_project(arg(&args, "path")?))
         }),
-        crate::host_command_wire!(save_mod_project) => mutation(id, &command_name, move || {
-            ok(domain::mods::save_mod_project(arg_or_whole(
-                &args, "request",
-            )?))
-        }),
+        crate::host_command_wire!(save_mod_project) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::ModProject],
+            move || {
+                ok(domain::mods::save_mod_project(arg_or_whole(
+                    &args, "request",
+                )?))
+            },
+        ),
 
         crate::host_command_wire!(load_content_patcher_project) => {
             io_lane(id, &command_name, move || {
@@ -402,9 +407,12 @@ pub(crate) fn resolve_command(
                 "draftStorageKey",
             )?))
         }),
-        crate::host_command_wire!(save_cp_maker_draft) => mutation(id, &command_name, move || {
-            ok(domain::cp_maker::save_cp_maker_draft(arg(&args, "draft")?))
-        }),
+        crate::host_command_wire!(save_cp_maker_draft) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || ok(domain::cp_maker::save_cp_maker_draft(arg(&args, "draft")?)),
+        ),
         crate::host_command_wire!(delete_cp_maker_draft) => {
             mutation(id, &command_name, move || {
                 ok(domain::cp_maker::delete_cp_maker_draft(arg(
@@ -413,16 +421,26 @@ pub(crate) fn resolve_command(
                 )?))
             })
         }
-        crate::host_command_wire!(copy_cp_maker_draft) => mutation(id, &command_name, move || {
-            ok(domain::cp_maker::copy_cp_maker_draft(arg(
-                &args, "request",
-            )?))
-        }),
-        crate::host_command_wire!(export_cp_maker_pack) => mutation(id, &command_name, move || {
-            ok(domain::cp_maker::export_cp_maker_pack(arg(
-                &args, "request",
-            )?))
-        }),
+        crate::host_command_wire!(copy_cp_maker_draft) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                ok(domain::cp_maker::copy_cp_maker_draft(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
+        crate::host_command_wire!(export_cp_maker_pack) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::ModProject],
+            move || {
+                ok(domain::cp_maker::export_cp_maker_pack(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
         crate::host_command_wire!(build_cp_maker_map_asset) => {
             mutation(id, &command_name, move || {
                 ok(domain::cp_maker::build_cp_maker_map_asset(arg(
@@ -431,6 +449,8 @@ pub(crate) fn resolve_command(
             })
         }
         crate::host_command_wire!(import_cp_maker_pack) => mutation(id, &command_name, move || {
+            // Import reads a caller-selected content pack and returns an in-memory draft record;
+            // it does not write draft storage or the source mod directory.
             let mod_directory_path: String = arg(&args, "modDirectoryPath")?;
             ok(domain::cp_maker::import_cp_maker_pack(&mod_directory_path))
         }),

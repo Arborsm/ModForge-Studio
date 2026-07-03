@@ -21,9 +21,21 @@ export type UIControlType =
 
 export type OptionItem = string | { value: string; label: string }
 
+export type TemplateCopyKey = string
+
 export type TemplateItem =
-  | { type: 'text'; value: string }
-  | { type: 'param'; index: number; label?: string; ui: UIControlType; placeholder?: string; options?: OptionItem[] }
+  | { type: 'text'; value: string; copyKey?: never }
+  | { type: 'text'; value?: never; copyKey: TemplateCopyKey }
+  | {
+      type: 'param'
+      index: number
+      label?: string
+      labelKey?: TemplateCopyKey
+      ui: UIControlType
+      placeholder?: string
+      placeholderKey?: TemplateCopyKey
+      options?: OptionItem[]
+    }
 
 export type CommandCategory = 'dialogue' | 'movement' | 'visual' | 'audio' | 'logic' | 'scene' | 'item' | 'animation' | 'other'
 
@@ -38,7 +50,6 @@ export interface StageMeta {
 
 export interface CommandSchema {
   key: string
-  label: string
   category: CommandCategory
   color: SemanticColor
   icon: string
