@@ -153,6 +153,8 @@ function createInitialAppUiState(): AppUiState {
       launcherPage: 'library',
       debugEnabled: false,
       notificationSoundEnabled: false,
+      windowCloseBehavior: 'quit',
+      rememberCloseChoice: false,
     },
     appearance: {
       locale: 'en-US',

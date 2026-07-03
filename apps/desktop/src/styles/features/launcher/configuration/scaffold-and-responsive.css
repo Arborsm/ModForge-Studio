@@ -1,7 +1,7 @@
 @layer components {
   .launcher-page-scaffold {
     display: grid;
-    gap: 16px;
+    gap: 1rem;
     min-height: 100%;
   }
 
@@ -9,15 +9,15 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 16px;
+    gap: 1rem;
     border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--border-color));
-    border-radius: 22px;
+    border-radius: 1.375rem;
     background: linear-gradient(
       145deg,
       color-mix(in srgb, var(--bg-panel) 97%, transparent),
       color-mix(in srgb, var(--bg-panel-muted) 88%, transparent)
     );
-    padding: 18px 20px;
+    padding: 1.125rem 1.25rem;
     box-shadow: var(--shadow-panel);
   }
 
@@ -28,26 +28,26 @@
   .launcher-page-shell-eyebrow {
     margin: 0;
     color: var(--accent);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.16em;
     text-transform: uppercase;
   }
 
   .launcher-page-shell-title {
-    margin: 8px 0 0;
+    margin: 0.5rem 0 0;
     color: var(--text-primary);
-    font-size: 28px;
+    font-size: 1.75rem;
     font-weight: 800;
     letter-spacing: -0.03em;
     line-height: 1.05;
   }
 
   .launcher-page-shell-subtitle {
-    margin: 10px 0 0;
+    margin: 0.625rem 0 0;
     max-width: 78ch;
     color: var(--text-secondary);
-    font-size: 13px;
+    font-size: 0.8125rem;
     line-height: 1.65;
   }
 
@@ -56,7 +56,7 @@
     align-items: flex-start;
     justify-content: flex-end;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 0.5rem;
   }
 
   .launcher-page-shell-stats,
@@ -66,8 +66,8 @@
 
   .launcher-page-stats-grid {
     display: grid;
-    gap: 12px;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
   }
 
   .launcher-page-stats-grid-compact {
@@ -75,24 +75,24 @@
   }
 
   .launcher-control-bar {
-    border-radius: 20px;
+    border-radius: 1.25rem;
   }
 
   .launcher-control-bar-body {
     display: grid;
-    gap: 12px;
+    gap: 0.75rem;
   }
 
   .launcher-split-layout {
     display: grid;
-    gap: 16px;
-    grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.92fr);
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1.15fr) minmax(20rem, 0.92fr);
     min-height: 0;
     align-items: start;
   }
 
   .launcher-split-layout-triple {
-    grid-template-columns: minmax(250px, 0.72fr) minmax(0, 1.2fr) minmax(320px, 0.94fr);
+    grid-template-columns: minmax(15.625rem, 0.72fr) minmax(0, 1.2fr) minmax(20rem, 0.94fr);
   }
 
   .launcher-split-layout-panel {
@@ -104,15 +104,15 @@
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 12px;
+    gap: 0.75rem;
     border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-color));
-    border-radius: 10px;
+    border-radius: 0.625rem;
     background: linear-gradient(
       145deg,
       color-mix(in srgb, var(--accent-soft) 48%, transparent),
       color-mix(in srgb, var(--bg-panel) 92%, transparent)
     );
-    padding: 12px;
+    padding: 0.75rem;
   }
 
   .launcher-state-block-warning {
@@ -135,16 +135,16 @@
 
   .launcher-state-block-compact {
     grid-template-columns: minmax(0, 1fr);
-    padding: 10px 12px;
+    padding: 0.625rem 0.75rem;
   }
 
   .launcher-state-block-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
-    border-radius: 12px;
+    width: 2.125rem;
+    height: 2.125rem;
+    border-radius: 0.75rem;
     background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
     color: var(--accent);
   }
@@ -164,14 +164,14 @@
   .launcher-state-block-title {
     margin: 0;
     color: var(--text-primary);
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 700;
   }
 
   .launcher-state-block-detail {
-    margin: 4px 0 0;
+    margin: 0.25rem 0 0;
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     line-height: 1.5;
   }
 
@@ -184,12 +184,12 @@
   .launcher-library-feed,
   .launcher-update-list {
     display: grid;
-    gap: 12px;
+    gap: 0.75rem;
   }
 
   .launcher-settings-index {
     display: grid;
-    gap: 8px;
+    gap: 0.5rem;
   }
 
   .launcher-settings-index-item {
@@ -198,15 +198,15 @@
     align-items: center;
     justify-content: flex-start;
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
-    border-radius: 14px;
+    border-radius: 0.875rem;
     background: linear-gradient(
       155deg,
       color-mix(in srgb, var(--bg-panel) 95%, transparent),
       color-mix(in srgb, var(--bg-panel-muted) 90%, transparent)
     );
     color: var(--text-secondary);
-    padding: 10px 12px;
-    font-size: 12px;
+    padding: 0.625rem 0.75rem;
+    font-size: 0.75rem;
     font-weight: 600;
     text-align: left;
   }

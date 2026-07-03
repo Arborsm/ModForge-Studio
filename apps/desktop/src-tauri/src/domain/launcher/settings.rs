@@ -246,5 +246,5 @@ pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
 }
 
 #[cfg(test)]
-#[path = "tests/settings_tests.rs"]
+#[path = "../../tests/unit/domain/launcher/settings_tests.rs"]
 mod settings_tests;

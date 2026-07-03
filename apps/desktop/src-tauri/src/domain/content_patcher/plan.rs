@@ -1273,5 +1273,5 @@ pub fn build_patch_plan_with_context(
 }
 
 #[cfg(test)]
-#[path = "tests/plan_tests.rs"]
+#[path = "../../tests/unit/domain/content_patcher/plan_tests.rs"]
 mod tests;

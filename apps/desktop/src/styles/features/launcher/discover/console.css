@@ -4,27 +4,27 @@
     z-index: 20;
     isolation: isolate;
     overflow: visible;
-    border-radius: 10px;
+    border-radius: 0.625rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
     background: var(--bg-panel);
     box-shadow: var(--shadow-panel);
-    padding: 14px 18px;
+    padding: 0.875rem 1.125rem;
     display: grid;
-    gap: 10px;
+    gap: 0.625rem;
   }
 
   .launcher-discover-console-top {
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr);
     align-items: center;
-    gap: 12px;
+    gap: 0.75rem;
   }
 
   .launcher-discover-console-toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 0.75rem;
     flex-wrap: nowrap;
     min-width: 0;
   }
@@ -32,20 +32,20 @@
   .launcher-discover-console-heading {
     min-width: 0;
     display: grid;
-    gap: 2px;
+    gap: 0.125rem;
   }
 
   .launcher-discover-console-title-row {
     display: flex;
     align-items: baseline;
-    gap: 10px;
+    gap: 0.625rem;
     flex-wrap: wrap;
   }
 
   .launcher-discover-console-title {
     margin: 0;
     color: var(--text-primary);
-    font-size: 20px;
+    font-size: 1.25rem;
     line-height: 1.1;
     font-weight: 700;
   }
@@ -53,14 +53,14 @@
   .launcher-discover-console-subtitle {
     margin: 0;
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     line-height: 1.35;
   }
 
   .launcher-discover-console-summary {
     margin: 0;
     color: color-mix(in srgb, var(--text-primary) 72%, var(--text-secondary));
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 600;
     line-height: 1.4;
   }
@@ -69,13 +69,13 @@
     width: 100%;
     justify-content: flex-end;
     flex-wrap: wrap;
-    gap: 14px;
+    gap: 0.875rem;
   }
 
   .launcher-discover-toolbar-group {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 0.375rem;
     min-width: 0;
     flex-wrap: wrap;
   }
@@ -93,29 +93,29 @@
   .launcher-discover-toolbar-divider {
     width: 1px;
     align-self: stretch;
-    margin: 6px 2px;
+    margin: 0.375rem 0.125rem;
     flex: 0 0 auto;
     background: var(--launcher-border-soft);
   }
 
   .launcher-discover-console-actions {
     flex: 0 0 auto;
-    gap: 6px;
+    gap: 0.375rem;
     flex-wrap: nowrap;
   }
 
   .launcher-discover-searchbar {
-    min-width: 180px;
-    flex: 1 1 180px;
-    max-width: 320px;
-    height: 36px;
+    min-width: 11.25rem;
+    flex: 1 1 11.25rem;
+    max-width: 20rem;
+    height: 2.25rem;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.5rem;
     border: 1px solid var(--launcher-border-soft);
-    border-radius: 10px;
+    border-radius: 0.625rem;
     background: var(--launcher-surface-base);
-    padding: 0 12px;
+    padding: 0 0.75rem;
     color: var(--launcher-text-tertiary);
     transition:
       border-color 140ms ease,
@@ -131,7 +131,7 @@
 
   .launcher-discover-searchbar:focus-within {
     border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-soft) 60%, transparent);
+    box-shadow: 0 0 0 0.1875rem color-mix(in srgb, var(--accent-soft) 60%, transparent);
     color: var(--launcher-text-accent);
   }
 
@@ -142,7 +142,7 @@
     background: transparent;
     color: var(--launcher-text-primary);
     font: inherit;
-    font-size: 13px;
+    font-size: 0.8125rem;
     outline: none;
   }
 
@@ -151,10 +151,10 @@
   }
 
   .launcher-discover-searchbar .launcher-discover-searchbar-button {
-    width: 28px;
-    min-height: 28px;
+    width: 1.75rem;
+    min-height: 1.75rem;
     border: 0;
-    border-radius: 8px;
+    border-radius: 0.5rem;
     background: transparent;
     color: var(--launcher-text-tertiary);
     padding: 0;
@@ -201,15 +201,15 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 0.5rem;
     min-width: 0;
-    min-height: 36px;
+    min-height: 2.25rem;
     border: 1px solid var(--launcher-border-soft);
-    border-radius: 10px;
+    border-radius: 0.625rem;
     background: var(--launcher-surface-base);
     color: var(--launcher-text-primary);
-    padding: 0 12px;
-    font-size: 13px;
+    padding: 0 0.75rem;
+    font-size: 0.8125rem;
     font-weight: 600;
     white-space: nowrap;
     transition:
@@ -243,15 +243,15 @@
   .launcher-discover-icon-button:focus-visible,
   .launcher-discover-rail-field input:focus-visible,
   .launcher-discover-range-row input:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
-    outline-offset: 2px;
+    outline: 0.125rem solid color-mix(in srgb, var(--accent) 28%, transparent);
+    outline-offset: 0.125rem;
   }
 
   /* Filters toggle — circular icon button; accent tint marks the open panel. */
   .launcher-discover-filters-toggle {
-    width: 36px;
+    width: 2.25rem;
     padding: 0;
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     color: var(--launcher-text-secondary);
   }
 
@@ -271,9 +271,9 @@
   }
 
   .launcher-discover-icon-button {
-    width: 36px;
+    width: 2.25rem;
     padding: 0;
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     color: var(--launcher-text-secondary);
   }
 
@@ -283,9 +283,9 @@
 
   /* Order button — round icon button (replaces text asc/desc label). */
   .launcher-discover-order-button {
-    width: 36px;
+    width: 2.25rem;
     padding: 0;
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     color: var(--launcher-text-secondary);
   }
 
@@ -370,9 +370,9 @@
 
   .launcher-discover-menu-popover {
     position: absolute;
-    top: calc(100% + 8px);
+    top: calc(100% + 0.5rem);
     /* Stretch to the menu width (the longest option) so the popover aligns
-       with the trigger instead of falling back to the shared 180px floor. */
+       with the trigger instead of falling back to the shared 11.25rem floor. */
     left: 0;
     right: 0;
     --launcher-menu-min-width: 0;
@@ -383,7 +383,7 @@
 
   .launcher-discover-menu-option {
     justify-content: flex-start;
-    min-height: 36px;
+    min-height: 2.25rem;
     color: var(--launcher-text-secondary);
     font-weight: 600;
   }

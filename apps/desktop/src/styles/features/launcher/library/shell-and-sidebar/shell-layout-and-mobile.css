@@ -5,21 +5,21 @@
     min-height: 0;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
-    gap: 14px;
+    gap: 0.875rem;
     overflow: hidden;
   }
 
   .launcher-library-shell {
-    --launcher-library-sidebar-width: 240px;
+    --launcher-library-sidebar-width: 15rem;
     display: grid;
     grid-template-columns: minmax(0, var(--launcher-library-sidebar-width)) minmax(0, 1fr);
     height: 100%;
     min-height: 0;
     overflow: hidden;
     border: 1px solid var(--launcher-border-soft);
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background: var(--launcher-surface-base);
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    box-shadow: 0 1px 0.1875rem rgba(15, 23, 42, 0.06);
   }
 
   .launcher-library-shell-sidebar-collapsed {
@@ -30,7 +30,7 @@
     background: var(--launcher-surface-base);
     border: 0;
     border-right: 1px solid var(--launcher-border-soft);
-    border-radius: 12px 0 0 12px;
+    border-radius: 0.75rem 0 0 0.75rem;
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -50,10 +50,10 @@
     min-height: 0;
     display: grid;
     grid-template-rows: minmax(0, 1fr);
-    gap: 12px;
-    padding: 12px 14px;
+    gap: 0.75rem;
+    padding: 0.75rem 0.875rem;
     overflow: hidden;
-    border-radius: 0 12px 12px 0;
+    border-radius: 0 0.75rem 0.75rem 0;
     align-content: start;
   }
 

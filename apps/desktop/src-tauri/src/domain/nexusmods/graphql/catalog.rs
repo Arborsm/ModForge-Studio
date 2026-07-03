@@ -845,5 +845,5 @@ fn search_launcher_catalog_blocking(
 }
 
 #[cfg(test)]
-#[path = "../../../tests/nexusmods_catalog_tests.rs"]
+#[path = "../../../tests/integration/nexusmods_catalog_tests.rs"]
 mod nexusmods_catalog_tests;

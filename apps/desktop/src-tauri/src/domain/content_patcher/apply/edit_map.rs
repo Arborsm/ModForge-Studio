@@ -1002,5 +1002,5 @@ pub fn apply_edit_map_patch(
 }
 
 #[cfg(test)]
-#[path = "tests/edit_map_tests.rs"]
+#[path = "../../../tests/unit/domain/content_patcher/apply/edit_map_tests.rs"]
 mod tests;

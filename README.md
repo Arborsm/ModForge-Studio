@@ -13,8 +13,11 @@ product workspace is `apps/desktop`.
 
 - `apps/desktop/src` - React application code organized by app, pages, widgets,
   features, entities, shared contracts, platform adapters, locales, and styles.
+- `apps/desktop/src/tests` - centralized frontend tests: unit, architecture,
+  integration, and shared test support under `support/`.
 - `apps/desktop/src-tauri` - Rust backend, Tauri commands, domain logic,
-  infrastructure, and regression tests.
+  infrastructure, and tests under `src/tests/unit/`, `src/tests/integration/`,
+  and top-level `tests/`.
 - `apps/desktop/electron` - Electron host code used for Linux development and
   packaging.
 - `apps/desktop/scripts` - desktop host dispatch, Vite/Tauri/Electron helpers,
@@ -124,7 +127,7 @@ or the local release environment.
   `apps/desktop/src/locales`; do not hard-code UI strings inside React
   components.
 - Architecture changes: update `docs/frontend-architecture.md` and the relevant
-  tests under `apps/desktop/src/test/architecture`.
+  tests under `apps/desktop/src/tests/architecture`.
 
 ## Documentation
 

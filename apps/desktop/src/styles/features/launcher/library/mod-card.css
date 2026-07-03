@@ -2,15 +2,15 @@
   .launcher-mod-card {
     position: relative;
     height: 100%;
-    min-height: 200px;
-    padding: 6px;
+    min-height: 12.5rem;
+    padding: 0.375rem;
     border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background: var(--launcher-surface-base);
-    box-shadow: 0 1px 3px color-mix(in srgb, var(--surface-inverse) 10%, transparent);
+    box-shadow: 0 1px 0.1875rem color-mix(in srgb, var(--surface-inverse) 10%, transparent);
     overflow: hidden;
     contain: content;
-    contain-intrinsic-size: 200px 260px;
+    contain-intrinsic-size: 12.5rem 16.25rem;
     transition:
       transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
       box-shadow 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -30,11 +30,11 @@
   }
 
   .launcher-mod-card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-0.125rem);
     border-color: color-mix(in srgb, var(--accent) 54%, transparent);
     box-shadow:
-      0 10px 20px color-mix(in srgb, var(--surface-inverse) 7%, transparent),
-      0 4px 10px color-mix(in srgb, var(--surface-inverse) 5%, transparent),
+      0 0.625rem 1.25rem color-mix(in srgb, var(--surface-inverse) 7%, transparent),
+      0 0.25rem 0.625rem color-mix(in srgb, var(--surface-inverse) 5%, transparent),
       0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
   }
 
@@ -45,8 +45,8 @@
     border-color: color-mix(in srgb, var(--accent) 54%, transparent);
     background: color-mix(in srgb, var(--launcher-surface-muted) 72%, var(--launcher-surface-base));
     box-shadow:
-      inset 0 0 0 2px color-mix(in srgb, var(--accent) 10%, transparent),
-      0 0 0 3px color-mix(in srgb, var(--accent) 8%, transparent);
+      inset 0 0 0 0.125rem color-mix(in srgb, var(--accent) 10%, transparent),
+      0 0 0 0.1875rem color-mix(in srgb, var(--accent) 8%, transparent);
   }
 
   .launcher-mod-card-dragging .launcher-mod-card-stack {
@@ -68,17 +68,17 @@
   }
 
   .launcher-mod-card:focus-within {
-    transform: translateY(-2px);
+    transform: translateY(-0.125rem);
     border-color: color-mix(in srgb, var(--accent) 58%, transparent);
     box-shadow:
-      0 10px 20px color-mix(in srgb, var(--surface-inverse) 7%, transparent),
-      0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+      0 0.625rem 1.25rem color-mix(in srgb, var(--surface-inverse) 7%, transparent),
+      0 0 0 0.1875rem color-mix(in srgb, var(--accent) 14%, transparent);
   }
 
   .launcher-mod-card-disabled {
     border-color: color-mix(in srgb, var(--danger) 50%, transparent);
     box-shadow:
-      0 1px 3px rgba(0, 0, 0, 0.08),
+      0 1px 0.1875rem rgba(0, 0, 0, 0.08),
       inset 0 0 0 1px color-mix(in srgb, var(--danger) 8%, transparent);
   }
 
@@ -86,8 +86,8 @@
   .launcher-mod-card-disabled:focus-within {
     border-color: color-mix(in srgb, var(--danger) 72%, transparent);
     box-shadow:
-      0 12px 24px rgba(15, 23, 42, 0.08),
-      0 4px 12px rgba(15, 23, 42, 0.06),
+      0 0.75rem 1.5rem rgba(15, 23, 42, 0.08),
+      0 0.25rem 0.75rem rgba(15, 23, 42, 0.06),
       0 0 0 1px color-mix(in srgb, var(--danger) 16%, transparent);
   }
 
@@ -106,7 +106,7 @@
     height: auto;
     min-height: 0;
     aspect-ratio: 96 / 55;
-    border-radius: 10px;
+    border-radius: 0.625rem;
     background: linear-gradient(
       180deg,
       var(--launcher-cover-bright, var(--accent)),
@@ -170,14 +170,14 @@
     display: grid;
     align-content: start;
     min-height: auto;
-    padding: 8px 10px;
+    padding: 0.5rem 0.625rem;
     gap: 0;
   }
 
   .launcher-mod-card-title {
     margin: 0;
     color: var(--launcher-text-primary);
-    font-size: 14px;
+    font-size: 0.875rem;
     line-height: 1.35;
     font-weight: 700;
     white-space: nowrap;
@@ -187,13 +187,13 @@
 
   .launcher-mod-card-meta {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(48px, max-content);
+    grid-template-columns: minmax(0, 1fr) minmax(3rem, max-content);
     align-items: center;
-    gap: 8px;
+    gap: 0.5rem;
     min-width: 0;
-    margin: 2px 0 0;
+    margin: 0.125rem 0 0;
     color: var(--launcher-text-secondary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     line-height: 1.3;
     white-space: nowrap;
     overflow: hidden;
@@ -215,7 +215,7 @@
   .launcher-mod-card-version {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
+    gap: 0.125rem;
     justify-self: end;
     max-width: 100%;
     text-align: right;
@@ -237,22 +237,22 @@
     content: attr(data-tooltip);
     position: absolute;
     left: 50%;
-    bottom: calc(100% + 9px);
+    bottom: calc(100% + 0.5625rem);
     z-index: 8;
     width: max-content;
-    max-width: 220px;
-    transform: translate(-50%, 3px);
+    max-width: 13.75rem;
+    transform: translate(-50%, 0.1875rem);
     border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
-    border-radius: 6px;
+    border-radius: 0.375rem;
     background: color-mix(in srgb, var(--bg-panel) 98%, var(--accent) 2%);
     color: var(--text-primary);
-    padding: 5px 7px;
-    font-size: 11px;
+    padding: 0.3125rem 0.4375rem;
+    font-size: 0.6875rem;
     font-weight: 700;
     line-height: 1.25;
     opacity: 0;
     pointer-events: none;
-    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 0.625rem 1.375rem rgba(15, 23, 42, 0.12);
     transition:
       opacity 120ms ease,
       transform 120ms ease;
@@ -264,11 +264,11 @@
     content: '';
     position: absolute;
     left: 50%;
-    bottom: calc(100% + 4px);
+    bottom: calc(100% + 0.25rem);
     z-index: 9;
-    width: 8px;
-    height: 8px;
-    transform: translate(-50%, 3px) rotate(45deg);
+    width: 0.5rem;
+    height: 0.5rem;
+    transform: translate(-50%, 0.1875rem) rotate(45deg);
     border-right: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
     border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
     background: color-mix(in srgb, var(--bg-panel) 98%, var(--accent) 2%);
@@ -289,19 +289,19 @@
   .launcher-mod-card-missing-dependencies::after {
     left: 0;
     bottom: auto;
-    top: calc(100% + 9px);
-    max-width: min(260px, 72vw);
-    transform: translate(0, -3px);
+    top: calc(100% + 0.5625rem);
+    max-width: min(16.25rem, 72vw);
+    transform: translate(0, -0.1875rem);
     border-color: color-mix(in srgb, var(--danger) 22%, transparent);
     background: color-mix(in srgb, var(--bg-panel) 96%, var(--danger) 4%);
     white-space: normal;
   }
 
   .launcher-mod-card-missing-dependencies::before {
-    left: 14px;
+    left: 0.875rem;
     bottom: auto;
-    top: calc(100% + 4px);
-    transform: translate(0, -3px) rotate(45deg);
+    top: calc(100% + 0.25rem);
+    transform: translate(0, -0.1875rem) rotate(45deg);
     border-right: 0;
     border-bottom: 0;
     border-left: 1px solid color-mix(in srgb, var(--danger) 22%, transparent);
@@ -362,23 +362,23 @@
 
   .launcher-mod-card-missing-dependencies {
     position: absolute;
-    top: 10px;
-    left: 10px;
+    top: 0.625rem;
+    left: 0.625rem;
     z-index: 3;
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    min-width: 28px;
-    height: 22px;
+    gap: 0.1875rem;
+    min-width: 1.75rem;
+    height: 1.375rem;
     border: 1px solid color-mix(in srgb, var(--danger) 36%, var(--border-color));
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: color-mix(in srgb, var(--danger) 14%, var(--bg-panel));
     color: var(--danger);
-    padding: 0 7px;
-    font-size: 11px;
+    padding: 0 0.4375rem;
+    font-size: 0.6875rem;
     font-weight: 850;
     line-height: 1;
-    box-shadow: 0 6px 14px color-mix(in srgb, var(--danger) 14%, transparent);
+    box-shadow: 0 0.375rem 0.875rem color-mix(in srgb, var(--danger) 14%, transparent);
   }
 
   .launcher-mod-card-missing-dependencies svg {
@@ -386,22 +386,22 @@
   }
 
   .launcher-library-module-missing-dependencies {
-    top: 7px;
-    left: 7px;
-    height: 20px;
-    min-width: 26px;
-    padding: 0 6px;
+    top: 0.4375rem;
+    left: 0.4375rem;
+    height: 1.25rem;
+    min-width: 1.625rem;
+    padding: 0 0.375rem;
   }
 
   .launcher-mod-card-selection-toggle {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 0.625rem;
+    right: 0.625rem;
     z-index: 3;
-    width: 22px;
-    height: 22px;
-    border-radius: 999px;
-    border: 2px solid rgba(255, 255, 255, 0.92);
+    width: 1.375rem;
+    height: 1.375rem;
+    border-radius: 62.4375rem;
+    border: 0.125rem solid rgba(255, 255, 255, 0.92);
     background: rgba(255, 255, 255, 0.24);
     color: transparent;
     display: inline-flex;
@@ -414,7 +414,7 @@
     background: var(--accent);
     color: var(--launcher-text-inverse);
     box-shadow:
-      0 6px 14px color-mix(in srgb, var(--accent) 26%, transparent),
+      0 0.375rem 0.875rem color-mix(in srgb, var(--accent) 26%, transparent),
       0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
   }
 
@@ -422,8 +422,8 @@
     border-color: color-mix(in srgb, var(--accent) 72%, transparent);
     background: var(--launcher-surface-base);
     box-shadow:
-      0 10px 22px rgba(15, 23, 42, 0.1),
-      0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent),
+      0 0.625rem 1.375rem rgba(15, 23, 42, 0.1),
+      0 0 0 0.1875rem color-mix(in srgb, var(--accent) 16%, transparent),
       inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
   }
 
@@ -431,8 +431,8 @@
   .launcher-mod-card-selected:focus-within {
     border-color: var(--accent);
     box-shadow:
-      0 14px 26px rgba(15, 23, 42, 0.12),
-      0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent),
+      0 0.875rem 1.625rem rgba(15, 23, 42, 0.12),
+      0 0 0 0.1875rem color-mix(in srgb, var(--accent) 18%, transparent),
       inset 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
   }
 

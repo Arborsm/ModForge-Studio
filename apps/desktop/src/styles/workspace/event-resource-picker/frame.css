@@ -6,9 +6,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 18px;
+    padding: 1.125rem;
     background: color-mix(in srgb, var(--surface-inverse) 38%, transparent);
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(0.5rem);
   }
 
   .resource-picker__dialog {
@@ -17,15 +17,15 @@
     position: relative;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
-    width: min(1100px, calc(100vw - 36px));
-    height: min(760px, calc(100vh - 44px));
+    width: min(68.75rem, calc(100vw - 2.25rem));
+    height: min(47.5rem, calc(100vh - 2.75rem));
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
-    border-radius: 16px;
+    border-radius: 1rem;
     background: var(--bg-panel);
     box-shadow: var(--shadow-float);
     color: var(--text-primary);
-    font-size: 12.5px;
+    font-size: 0.7812rem;
     line-height: 1.45;
   }
 
@@ -35,12 +35,12 @@
     flex-shrink: 0;
     align-items: center;
     justify-content: space-between;
-    gap: 14px;
+    gap: 0.875rem;
     background: color-mix(in srgb, var(--bg-panel) 96%, white 4%);
   }
 
   .resource-picker__header {
-    padding: 14px 18px 13px;
+    padding: 0.875rem 1.125rem 0.8125rem;
     border-bottom: 1px solid var(--resource-picker-divider);
   }
 
@@ -48,17 +48,17 @@
     display: flex;
     min-width: 0;
     align-items: center;
-    gap: 10px;
+    gap: 0.625rem;
   }
 
   .resource-picker__title-icon {
     display: inline-flex;
-    width: 28px;
-    height: 28px;
+    width: 1.75rem;
+    height: 1.75rem;
     flex: 0 0 auto;
     align-items: center;
     justify-content: center;
-    border-radius: 9px;
+    border-radius: 0.5625rem;
     background: color-mix(in srgb, var(--accent) 9%, white);
     color: var(--accent);
   }
@@ -71,7 +71,7 @@
     min-width: 0;
     overflow: hidden;
     color: var(--text-primary);
-    font-size: 15px;
+    font-size: 0.9375rem;
     font-weight: 800;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -81,7 +81,7 @@
     min-width: 0;
     overflow: hidden;
     color: var(--text-tertiary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -93,15 +93,15 @@
     align-items: center;
     justify-content: center;
     border: 0;
-    border-radius: 8px;
+    border-radius: 0.5rem;
     background: transparent;
     color: var(--text-secondary);
     cursor: pointer;
   }
 
   .resource-picker__icon-button {
-    width: 34px;
-    height: 34px;
+    width: 2.125rem;
+    height: 2.125rem;
   }
 
   .resource-picker__icon-button:hover,

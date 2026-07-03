@@ -836,5 +836,5 @@ pub fn restore_launcher_install_backup(
 }
 
 #[cfg(test)]
-#[path = "tests/archive_tests.rs"]
+#[path = "../../tests/unit/domain/launcher/archive_tests.rs"]
 mod tests;

@@ -53,5 +53,5 @@ pub(crate) fn parse_from_file_values(patch: &Map<String, Value>) -> Vec<Option<S
 }
 
 #[cfg(test)]
-#[path = "tests/patch_fields_tests.rs"]
+#[path = "../../tests/unit/domain/content_patcher/patch_fields_tests.rs"]
 mod tests;

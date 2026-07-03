@@ -49,6 +49,8 @@ export function createElectronPlatformPorts(): PlatformPorts {
       toggleMaximize: () => getElectronApi().toggleMaximize(),
       close: () => getElectronApi().close(),
       forceClose: () => getElectronApi().forceClose(),
+      hide: () => getElectronApi().hide(),
+      show: () => getElectronApi().show(),
       isMaximized: () => getElectronApi().isMaximized(),
       isFullscreen: () => getElectronApi().isFullscreen(),
       setFullscreen: (fullscreen) => getElectronApi().setFullscreen(fullscreen),

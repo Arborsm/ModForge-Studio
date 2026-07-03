@@ -275,5 +275,5 @@ pub(crate) fn api_headers(api_key: &str) -> Result<HeaderMap, String> {
 }
 
 #[cfg(test)]
-#[path = "../../tests/nexusmods_http_tests.rs"]
+#[path = "../../tests/integration/nexusmods_http_tests.rs"]
 mod nexusmods_http_tests;

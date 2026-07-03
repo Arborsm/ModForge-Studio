@@ -197,5 +197,5 @@ pub fn apply_edit_image_patch(
 }
 
 #[cfg(test)]
-#[path = "tests/edit_image_tests.rs"]
+#[path = "../../../tests/unit/domain/content_patcher/apply/edit_image_tests.rs"]
 mod tests;

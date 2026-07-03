@@ -415,5 +415,5 @@ pub fn load_target_result(
 }
 
 #[cfg(test)]
-#[path = "apply/tests/mod_tests.rs"]
+#[path = "../../tests/unit/domain/content_patcher/apply/mod_tests.rs"]
 mod tests;

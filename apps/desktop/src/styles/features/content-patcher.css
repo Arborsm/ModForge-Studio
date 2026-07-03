@@ -5,9 +5,9 @@
     min-height: 0;
     flex: 1;
     flex-direction: column;
-    gap: 10px;
+    gap: 0.625rem;
     overflow: hidden;
-    padding: 12px;
+    padding: 0.75rem;
     background:
       linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 96%, white 4%), var(--bg-panel)),
       radial-gradient(circle at top right, color-mix(in srgb, var(--accent-soft) 56%, transparent), transparent 34%);
@@ -18,27 +18,27 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 10px 12px;
+    gap: 0.625rem 0.75rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
-    border-radius: 18px;
+    border-radius: 1.125rem;
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--bg-elevated) 98%, transparent),
       color-mix(in srgb, var(--bg-panel) 92%, transparent)
     );
     box-shadow: var(--shadow-panel);
-    padding: 12px 14px;
+    padding: 0.75rem 0.875rem;
   }
 
   .cp-debugger-title-group {
     display: grid;
-    gap: 4px;
+    gap: 0.25rem;
   }
 
   .cp-debugger-title {
     margin: 0;
     color: var(--text-primary);
-    font-size: 18px;
+    font-size: 1.125rem;
     font-weight: 700;
     line-height: 1.05;
   }
@@ -48,7 +48,7 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
-    gap: 6px;
+    gap: 0.375rem;
   }
 
   .cp-debugger-body {
@@ -66,7 +66,7 @@
   .cp-debugger-preview {
     min-height: 0;
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
-    border-radius: 20px;
+    border-radius: 1.25rem;
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--bg-elevated) 98%, transparent),
@@ -89,13 +89,13 @@
     min-height: 0;
     flex-direction: column;
     overflow: hidden;
-    padding: 16px;
+    padding: 1rem;
   }
 
   .cp-debugger-preview-title {
-    margin: 0 0 12px;
+    margin: 0 0 0.75rem;
     color: var(--text-primary);
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 700;
     letter-spacing: 0.04em;
   }
@@ -109,7 +109,7 @@
     justify-content: center;
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
-    border-radius: 14px;
+    border-radius: 0.875rem;
     background:
       radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 36%),
       linear-gradient(
@@ -117,11 +117,11 @@
         color-mix(in srgb, var(--bg-panel-muted) 76%, transparent),
         color-mix(in srgb, var(--bg-app) 16%, transparent)
       );
-    padding: 16px;
+    padding: 1rem;
   }
 
   .cp-debugger-image-stage-with-toolbar {
-    padding-bottom: 92px;
+    padding-bottom: 5.75rem;
   }
 
   .cp-debugger-image-stage-focused {
@@ -134,13 +134,13 @@
     min-height: 0;
     flex: 1;
     flex-direction: column;
-    gap: 12px;
+    gap: 0.75rem;
   }
 
   .cp-debugger-image-meta {
     margin: 0;
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     line-height: 1.5;
     word-break: break-word;
   }
@@ -165,19 +165,19 @@
     height: 100%;
     min-height: 0;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    gap: 0.75rem;
   }
 
   .cp-debugger-compare-pane {
     display: grid;
     min-height: 0;
     grid-template-rows: auto minmax(0, 1fr);
-    gap: 8px;
+    gap: 0.5rem;
     margin: 0;
     border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background: color-mix(in srgb, var(--bg-panel) 76%, transparent);
-    padding: 10px;
+    padding: 0.625rem;
   }
 
   .cp-debugger-compare-pane-body {
@@ -190,7 +190,7 @@
 
   .cp-debugger-compare-label {
     color: var(--text-secondary);
-    font-size: 10px;
+    font-size: 0.625rem;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -255,7 +255,7 @@
 
   .cp-debugger-patch-bounds {
     position: absolute;
-    border: 2px dashed color-mix(in srgb, var(--accent) 84%, white 16%);
+    border: 0.125rem dashed color-mix(in srgb, var(--accent) 84%, white 16%);
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg-app) 70%, transparent);
     pointer-events: none;
   }
@@ -263,22 +263,22 @@
   .cp-debugger-toolbar-badge {
     display: inline-flex;
     align-items: center;
-    min-height: 28px;
-    border-radius: 999px;
+    min-height: 1.75rem;
+    border-radius: 62.4375rem;
     background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
     color: var(--text-primary);
-    padding: 0 10px;
-    font-size: 11px;
+    padding: 0 0.625rem;
+    font-size: 0.6875rem;
     font-weight: 700;
   }
 
   .cp-debugger-toolbar-slider {
     display: flex;
-    min-width: min(240px, 100%);
+    min-width: min(15rem, 100%);
     align-items: center;
-    gap: 10px;
+    gap: 0.625rem;
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 700;
   }
 
@@ -290,9 +290,9 @@
   .cp-debugger-toolbar-popup {
     position: absolute;
     right: 0;
-    bottom: calc(100% + 10px);
+    bottom: calc(100% + 0.625rem);
     z-index: 4;
-    width: min(360px, calc(100vw - 56px));
+    width: min(22.5rem, calc(100vw - 3.5rem));
   }
 
   .cp-debugger-code {
@@ -301,16 +301,16 @@
     overflow: auto;
     margin: 0;
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
-    border-radius: 16px;
+    border-radius: 1rem;
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--bg-panel-muted) 76%, transparent),
       color-mix(in srgb, var(--bg-app) 16%, transparent)
     );
     color: var(--text-primary);
-    padding: 14px;
+    padding: 0.875rem;
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.65;
     white-space: pre-wrap;
     word-break: break-word;
@@ -320,17 +320,17 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     flex-shrink: 0;
-    gap: 8px;
-    padding: 14px 14px 0;
+    gap: 0.5rem;
+    padding: 0.875rem 0.875rem 0;
   }
 
   .cp-debugger-tab {
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background: color-mix(in srgb, var(--bg-panel-muted) 84%, transparent);
     color: var(--text-secondary);
-    padding: 10px 12px;
-    font-size: 11px;
+    padding: 0.625rem 0.75rem;
+    font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -361,18 +361,18 @@
 
   .cp-debugger-list {
     display: grid;
-    gap: 8px;
+    gap: 0.5rem;
     margin: 0;
-    padding: 14px;
+    padding: 0.875rem;
     list-style: none;
   }
 
   .cp-debugger-list-item {
     width: 100%;
     border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
-    border-radius: 14px;
+    border-radius: 0.875rem;
     background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
-    padding: 12px;
+    padding: 0.75rem;
     text-align: left;
     transition:
       border-color 160ms ease,
@@ -383,7 +383,7 @@
   .cp-debugger-list-item:hover {
     border-color: color-mix(in srgb, var(--accent) 32%, var(--border-color));
     background: color-mix(in srgb, var(--bg-active) 76%, transparent);
-    transform: translateY(-1px);
+    transform: translateY(-0.0625rem);
   }
 
   .cp-debugger-list-item-active {
@@ -395,37 +395,37 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 0.625rem;
   }
 
   .cp-debugger-list-title {
     min-width: 0;
     overflow: hidden;
     color: var(--text-primary);
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 700;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .cp-debugger-list-meta {
-    margin: 6px 0 0;
+    margin: 0.375rem 0 0;
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     line-height: 1.5;
     word-break: break-word;
   }
 
   .cp-debugger-target-groups {
     display: grid;
-    gap: 12px;
-    padding: 14px;
+    gap: 0.75rem;
+    padding: 0.875rem;
   }
 
   .cp-debugger-target-group {
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
-    border-radius: 16px;
+    border-radius: 1rem;
     background: color-mix(in srgb, var(--bg-panel) 80%, transparent);
   }
 
@@ -433,38 +433,38 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 0.75rem;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
     background: color-mix(in srgb, var(--bg-panel-muted) 82%, transparent);
-    padding: 12px 14px;
+    padding: 0.75rem 0.875rem;
   }
 
   .cp-debugger-target-group-title {
     margin: 0;
     color: var(--text-primary);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
   .cp-debugger-target-group-meta {
-    margin: 4px 0 0;
+    margin: 0.25rem 0 0;
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .cp-debugger-target-group-body {
     display: grid;
-    gap: 8px;
-    padding: 12px;
+    gap: 0.5rem;
+    padding: 0.75rem;
   }
 
   .cp-debugger-pill {
     border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
-    border-radius: 999px;
-    padding: 3px 8px;
-    font-size: 10px;
+    border-radius: 62.4375rem;
+    padding: 0.1875rem 0.5rem;
+    font-size: 0.625rem;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -498,16 +498,16 @@
     flex-direction: column;
     flex: 1 1 auto;
     align-items: stretch;
-    gap: 10px;
+    gap: 0.625rem;
     min-height: 0;
     overflow: auto;
-    padding: 12px;
+    padding: 0.75rem;
   }
 
   .cp-debugger-rail-top {
     display: flex;
     flex: 0 0 auto;
-    padding: 12px 12px 10px;
+    padding: 0.75rem 0.75rem 0.625rem;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
     background: color-mix(in srgb, var(--bg-elevated) 84%, transparent);
   }
@@ -519,16 +519,16 @@
 
   .cp-debugger-card {
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
-    border-radius: 14px;
+    border-radius: 0.875rem;
     background: color-mix(in srgb, var(--bg-panel) 84%, transparent);
     min-height: 0;
-    padding: 12px;
+    padding: 0.75rem;
   }
 
   .cp-debugger-card-title {
-    margin: 0 0 8px;
+    margin: 0 0 0.5rem;
     color: var(--text-secondary);
-    font-size: 10px;
+    font-size: 0.625rem;
     font-weight: 700;
     letter-spacing: 0.16em;
     text-transform: uppercase;
@@ -539,26 +539,26 @@
   }
 
   .cp-debugger-context-card {
-    padding: 10px 12px;
+    padding: 0.625rem 0.75rem;
   }
 
   .cp-debugger-form-grid {
     display: grid;
-    gap: 8px;
+    gap: 0.5rem;
   }
 
   .cp-debugger-form-grid-compact {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(8.75rem, 1fr));
   }
 
   .cp-debugger-field {
     display: grid;
-    gap: 4px;
+    gap: 0.25rem;
   }
 
   .cp-debugger-field span {
     color: var(--text-secondary);
-    font-size: 10px;
+    font-size: 0.625rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -567,16 +567,16 @@
   .cp-debugger-field input,
   .cp-debugger-field select {
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background: color-mix(in srgb, var(--bg-panel-muted) 80%, transparent);
     color: var(--text-primary);
-    min-height: 34px;
-    padding: 0 10px;
+    min-height: 2.125rem;
+    padding: 0 0.625rem;
   }
 
   .cp-debugger-trace-list {
     display: grid;
-    gap: 6px;
+    gap: 0.375rem;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -584,9 +584,9 @@
 
   .cp-debugger-trace-item {
     border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background: color-mix(in srgb, var(--bg-panel-muted) 82%, transparent);
-    padding: 10px;
+    padding: 0.625rem;
   }
 
   .cp-debugger-dock-card {
@@ -599,11 +599,11 @@
     width: 100%;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 0.625rem;
     border: 0;
     background: transparent;
     color: inherit;
-    padding: 12px;
+    padding: 0.75rem;
     text-align: left;
   }
 
@@ -615,7 +615,7 @@
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
-    gap: 8px;
+    gap: 0.5rem;
   }
 
   .cp-debugger-dock-chevron {
@@ -629,8 +629,8 @@
 
   .cp-debugger-dock-body {
     display: grid;
-    gap: 8px;
-    padding: 0 12px 12px;
+    gap: 0.5rem;
+    padding: 0 0.75rem 0.75rem;
     border-top: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
   }
 }

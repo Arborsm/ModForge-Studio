@@ -1,11 +1,9 @@
 import type { WorkspaceMode } from '@locales'
 
-export type EditModeRoute = 'studio-desk' | 'workspace-editor'
+export type EditModeRoute = 'workspace-editor'
 
 export function getEditModeRoute(workspaceMode: WorkspaceMode, hasActiveDraft: boolean): EditModeRoute {
-  if (workspaceMode === 'mods' || !hasActiveDraft) {
-    return 'studio-desk'
-  }
-
+  void workspaceMode
+  void hasActiveDraft
   return 'workspace-editor'
 }

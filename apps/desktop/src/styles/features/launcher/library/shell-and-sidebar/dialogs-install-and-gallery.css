@@ -4,18 +4,18 @@
   }
 
   .launcher-library-dialog-field + .launcher-library-dialog-field {
-    margin-top: 12px;
+    margin-top: 0.75rem;
   }
 
   .launcher-library-dialog-field input:not([type='checkbox']) {
     width: 100%;
-    min-height: 40px;
+    min-height: 2.5rem;
     border: 1px solid var(--launcher-border-soft);
-    border-radius: 8px;
+    border-radius: 0.5rem;
     background: var(--launcher-surface-base);
     color: var(--launcher-text-primary);
-    padding: 0 12px;
-    font-size: 14px;
+    padding: 0 0.75rem;
+    font-size: 0.875rem;
     transition:
       border-color 140ms ease,
       box-shadow 140ms ease;
@@ -27,50 +27,50 @@
 
   .launcher-library-dialog-field input:not([type='checkbox']):focus {
     border-color: color-mix(in srgb, var(--accent) 48%, transparent);
-    box-shadow: 0 0 0 3px var(--focus-ring);
+    box-shadow: 0 0 0 0.1875rem var(--focus-ring);
     outline: none;
   }
 
   .launcher-library-dialog-checkbox-field {
     grid-template-columns: max-content minmax(0, 1fr);
     align-items: start;
-    gap: 10px;
+    gap: 0.625rem;
     color: var(--launcher-text-primary);
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
 
   .launcher-library-dialog-checkbox-field input {
-    width: 16px;
-    height: 16px;
-    margin-top: 2px;
+    width: 1rem;
+    height: 1rem;
+    margin-top: 0.125rem;
     accent-color: var(--accent);
   }
 
   .launcher-library-dialog-checkbox-field span {
     display: grid;
-    gap: 4px;
+    gap: 0.25rem;
     min-width: 0;
   }
 
   .launcher-library-dialog-checkbox-field small {
     color: var(--launcher-text-secondary);
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.45;
   }
 
   .launcher-library-dialog-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
+    gap: 0.625rem;
   }
 
   .launcher-library-install-dialog-grid {
     display: grid;
-    gap: 16px;
+    gap: 1rem;
   }
 
   .launcher-archive-preview-grid {
-    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+    grid-template-columns: minmax(15rem, 18.75rem) minmax(0, 1fr);
     align-items: stretch;
   }
 
@@ -84,7 +84,7 @@
   .launcher-archive-preview-list,
   .launcher-archive-preview-detail-scroll {
     min-height: 0;
-    max-height: min(56vh, 620px);
+    max-height: min(56vh, 38.75rem);
     overflow: auto;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
@@ -93,17 +93,17 @@
   .launcher-archive-preview-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding-right: 4px;
+    gap: 0.625rem;
+    padding-right: 0.25rem;
   }
 
   .launcher-archive-preview-list-item {
     width: 100%;
     display: grid;
-    gap: 6px;
-    padding: 12px 13px;
+    gap: 0.375rem;
+    padding: 0.75rem 0.8125rem;
     border: 1px solid color-mix(in srgb, var(--launcher-border-soft) 88%, transparent);
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background: color-mix(in srgb, var(--launcher-surface-muted) 84%, transparent);
     color: var(--launcher-text-secondary);
     text-align: left;
@@ -116,7 +116,7 @@
   }
 
   .launcher-archive-preview-list-item:hover {
-    transform: translateY(-1px);
+    transform: translateY(-0.0625rem);
     border-color: color-mix(in srgb, var(--accent) 30%, var(--launcher-border-soft));
     background: color-mix(in srgb, var(--launcher-surface-accent) 88%, transparent);
   }
@@ -125,16 +125,16 @@
     border-color: color-mix(in srgb, var(--accent) 42%, var(--launcher-border-soft));
     background: color-mix(in srgb, var(--launcher-surface-accent) 94%, transparent);
     color: var(--launcher-text-accent);
-    box-shadow: 0 10px 22px color-mix(in srgb, var(--accent) 12%, transparent);
+    box-shadow: 0 0.625rem 1.375rem color-mix(in srgb, var(--accent) 12%, transparent);
   }
 
   .launcher-archive-preview-list-item-title {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.5rem;
     min-width: 0;
     color: var(--launcher-text-primary);
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 700;
   }
 
@@ -146,28 +146,28 @@
 
   .launcher-archive-preview-list-item-path {
     color: var(--launcher-text-secondary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     line-height: 1.5;
     overflow-wrap: anywhere;
   }
 
   .launcher-archive-preview-detail-scroll {
     display: grid;
-    gap: 14px;
-    padding-right: 4px;
+    gap: 0.875rem;
+    padding-right: 0.25rem;
   }
 
   .launcher-library-install-list {
     display: grid;
-    gap: 12px;
+    gap: 0.75rem;
   }
 
   .launcher-library-install-card {
     display: grid;
-    gap: 8px;
-    padding: 14px 16px;
+    gap: 0.5rem;
+    padding: 0.875rem 1rem;
     border: 1px solid color-mix(in srgb, var(--launcher-border-soft) 92%, transparent);
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background: color-mix(in srgb, var(--launcher-surface-muted) 84%, transparent);
   }
 
@@ -175,7 +175,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 0.75rem;
     color: var(--launcher-text-primary);
   }
 
@@ -183,19 +183,19 @@
   .launcher-library-install-card-meta {
     margin: 0;
     color: var(--launcher-text-secondary);
-    font-size: 13px;
+    font-size: 0.8125rem;
     line-height: 1.5;
     overflow-wrap: anywhere;
   }
 
   .launcher-library-install-card-meta {
     display: grid;
-    gap: 2px;
+    gap: 0.125rem;
   }
 
   .launcher-library-install-backup-card {
     display: grid;
-    gap: 10px;
+    gap: 0.625rem;
   }
 
   .launcher-library-install-card-actions {
@@ -203,17 +203,17 @@
   }
 
   .launcher-library-install-restore-confirm {
-    margin-top: 12px;
+    margin-top: 0.75rem;
     border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background: var(--warning-soft);
-    padding: 12px;
+    padding: 0.75rem;
   }
 
   .launcher-gallery-cover-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(11.25rem, 1fr));
+    gap: 0.875rem;
   }
 
   .launcher-gallery-cover-option {
@@ -221,7 +221,7 @@
     width: 100%;
     padding: 0;
     border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
-    border-radius: 18px;
+    border-radius: 1.125rem;
     overflow: hidden;
     background: color-mix(in srgb, var(--bg-panel-muted) 88%, transparent);
     transition:
@@ -231,16 +231,16 @@
   }
 
   .launcher-gallery-cover-option:hover {
-    transform: translateY(-1px);
+    transform: translateY(-0.0625rem);
     border-color: color-mix(in srgb, var(--accent) 46%, var(--border-color));
-    box-shadow: 0 16px 28px color-mix(in srgb, var(--accent) 14%, transparent);
+    box-shadow: 0 1rem 1.75rem color-mix(in srgb, var(--accent) 14%, transparent);
   }
 
   .launcher-gallery-cover-option-selected {
     border-color: color-mix(in srgb, var(--accent) 70%, var(--bg-panel));
     box-shadow:
       0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent),
-      0 18px 32px color-mix(in srgb, var(--accent) 16%, transparent);
+      0 1.125rem 2rem color-mix(in srgb, var(--accent) 16%, transparent);
   }
 
   .launcher-gallery-cover-frame {
@@ -265,20 +265,20 @@
   }
 
   .launcher-gallery-cover-loading {
-    padding: 18px;
+    padding: 1.125rem;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.5;
     text-align: center;
   }
 
   .launcher-library-danger-action {
-    min-height: 36px;
-    border-radius: 6px;
+    min-height: 2.25rem;
+    border-radius: 0.375rem;
     border: 1px solid color-mix(in srgb, var(--danger) 18%, transparent);
     background: var(--launcher-surface-danger);
     color: var(--launcher-text-inverse);
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 600;
   }
 
@@ -287,12 +287,12 @@
   }
 
   .launcher-library-edit-bar {
-    padding: 14px 18px;
+    padding: 0.875rem 1.125rem;
   }
 
   .launcher-library-edit-label {
     color: var(--launcher-text-secondary);
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 600;
   }
 

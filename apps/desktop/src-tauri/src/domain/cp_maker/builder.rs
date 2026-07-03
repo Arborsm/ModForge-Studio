@@ -807,5 +807,5 @@ fn read_failed(path: &Path, message: impl Into<String>) -> CpMakerDraftError {
 // ─── Tests ────────────────────────────────────────────────────────────
 
 #[cfg(test)]
-#[path = "tests/builder_tests.rs"]
+#[path = "../../tests/unit/domain/cp_maker/builder_tests.rs"]
 mod tests;

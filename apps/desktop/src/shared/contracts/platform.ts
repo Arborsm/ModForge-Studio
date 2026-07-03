@@ -38,6 +38,8 @@ export interface DesktopWindowPort {
   toggleMaximize: () => Promise<boolean>
   close: () => Promise<void>
   forceClose: () => Promise<void>
+  hide: () => Promise<void>
+  show: () => Promise<void>
   isMaximized: () => Promise<boolean>
   isFullscreen: () => Promise<boolean>
   setFullscreen: (fullscreen: boolean) => Promise<void>

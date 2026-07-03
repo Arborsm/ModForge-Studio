@@ -847,5 +847,5 @@ pub fn evaluate_patch_status(
 }
 
 #[cfg(test)]
-#[path = "tests/conditions_tests.rs"]
+#[path = "../../tests/unit/domain/content_patcher/conditions_tests.rs"]
 mod tests;

@@ -267,22 +267,25 @@ export default defineConfig({
   plugins: [reactDevtoolsStandaloneHtmlPlugin(), reactCompilerRuntimeInteropPlugin(), react(), babel({ presets: [reactCompilerPreset()] })],
   cacheDir: resolveViteCacheDir(),
   resolve: {
-    alias: {
-      '@app': path.resolve(__dirname, 'src/app'),
-      '@pages': path.resolve(__dirname, 'src/pages'),
-      '@widgets': path.resolve(__dirname, 'src/widgets'),
-      '@features': path.resolve(__dirname, 'src/features'),
-      '@entities': path.resolve(__dirname, 'src/entities'),
-      '@shared': path.resolve(__dirname, 'src/shared'),
-      '@platform': path.resolve(__dirname, 'src/platform'),
-      '@test': path.resolve(__dirname, 'src/test'),
-      '@locales': path.resolve(__dirname, 'src/locales'),
-    },
+    alias: [
+      { find: '@app', replacement: path.resolve(__dirname, 'src/app') },
+      { find: '@pages', replacement: path.resolve(__dirname, 'src/pages') },
+      { find: '@widgets', replacement: path.resolve(__dirname, 'src/widgets') },
+      { find: '@features', replacement: path.resolve(__dirname, 'src/features') },
+      { find: '@entities', replacement: path.resolve(__dirname, 'src/entities') },
+      { find: '@shared', replacement: path.resolve(__dirname, 'src/shared') },
+      { find: '@platform', replacement: path.resolve(__dirname, 'src/platform') },
+      { find: '@test', replacement: path.resolve(__dirname, 'src/tests/support') },
+      { find: /^@locales$/, replacement: path.resolve(__dirname, 'src/locales/index.ts') },
+      { find: /^@locales\/(.*)$/, replacement: path.resolve(__dirname, 'src/locales/$1') },
+    ],
   },
   test: {
     environment: 'jsdom',
     globals: true,
-    setupFiles: ['./src/test/setup.ts'],
+    setupFiles: ['./src/tests/support/setup.ts'],
+    include: ['src/tests/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['**/node_modules/**', '**/dist/**', 'src/dev/**'],
   },
   build: {
     rolldownOptions: {

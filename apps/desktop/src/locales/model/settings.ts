@@ -11,6 +11,8 @@ export type SettingsMenuCopy = {
     launcher: string
     debug: string
   }
+  closeDialogLabel: string
+  cancelActionLabel: string
   themeLabel: string
   resetThemeLabel: string
   themeDescription: string
@@ -25,6 +27,10 @@ export type SettingsMenuCopy = {
   windowBorderWeightLabel: string
   windowBorderWeightDescription: string
   windowBorderWeightOptions: Record<'standard' | 'thin' | 'none', string>
+  closeBehaviorLabel: string
+  closeBehaviorDescription: string
+  closeBehaviorOptions: Record<'quit' | 'minimizeToTray', string>
+  rememberCloseChoiceLabel: string
   borderlessFullscreenLabel: string
   borderlessFullscreenDescription: string
   enableBorderlessFullscreenLabel: string
@@ -51,6 +57,11 @@ export type SettingsMenuCopy = {
   loadingMotionCustomSpeedToggleLabel: string
   loadingMotionPresetSpeedToggleLabel: string
   loadingMotionSpeedValueLabel: (value: number) => string
+  quitDialogTitle: string
+  quitDialogMessage: string
+  quitDialogDescription: string
+  quitActionLabel: string
+  minimizeToTrayActionLabel: string
   futureLabel: string
   futureDescription: string
   categoryDescriptions: {

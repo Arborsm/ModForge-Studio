@@ -12,14 +12,14 @@
     display: grid;
     height: 100%;
     min-height: 0;
-    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-columns: 16.25rem minmax(0, 1fr);
     overflow: hidden;
     background:
-      linear-gradient(90deg, color-mix(in srgb, var(--border-color) 18%, transparent) 0 1px, transparent 1px 64px),
-      linear-gradient(180deg, color-mix(in srgb, var(--border-color) 14%, transparent) 0 1px, transparent 1px 64px), var(--ephub-shell-bg);
+      linear-gradient(90deg, color-mix(in srgb, var(--border-color) 18%, transparent) 0 1px, transparent 1px 4rem),
+      linear-gradient(180deg, color-mix(in srgb, var(--border-color) 14%, transparent) 0 1px, transparent 1px 4rem), var(--ephub-shell-bg);
     background-size:
-      64px 64px,
-      64px 64px,
+      4rem 4rem,
+      4rem 4rem,
       auto;
     color: var(--text-primary);
   }
@@ -42,7 +42,7 @@
 
   .event-patch-main {
     display: grid;
-    grid-template-rows: 64px auto minmax(0, 1fr);
+    grid-template-rows: 4rem auto minmax(0, 1fr);
     overflow: auto;
     background: transparent;
   }
@@ -52,23 +52,23 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 0.625rem;
     border-bottom: 0;
   }
 
   .event-patch-workspace-header {
-    min-height: 64px;
+    min-height: 4rem;
     border-bottom: 1px solid var(--ephub-line);
     background: color-mix(in srgb, var(--ephub-surface-strong) 72%, transparent);
-    backdrop-filter: blur(12px) saturate(1.1);
-    padding: 0 24px;
+    backdrop-filter: blur(0.75rem) saturate(1.1);
+    padding: 0 1.5rem;
   }
 
   .event-patch-hub-header {
-    width: min(1000px, calc(100% - 64px));
+    width: min(62.5rem, calc(100% - 4rem));
     min-height: auto;
-    margin: 0 auto 20px;
-    padding: 32px 28px 0;
+    margin: 0 auto 1.25rem;
+    padding: 2rem 1.75rem 0;
   }
 
   .event-patch-workspace-nav,
@@ -78,13 +78,13 @@
     display: flex;
     min-width: 0;
     align-items: center;
-    gap: 8px;
+    gap: 0.5rem;
   }
 
   .event-patch-breadcrumbs {
     overflow: hidden;
     color: var(--text-tertiary);
-    font-size: 12px;
+    font-size: 0.75rem;
     white-space: nowrap;
   }
 
@@ -92,12 +92,12 @@
   .event-patch-breadcrumbs strong {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    min-height: 30px;
-    border-radius: 10px;
+    gap: 0.4375rem;
+    min-height: 1.875rem;
+    border-radius: 0.625rem;
     background: var(--ephub-surface-muted);
     color: var(--text-secondary);
-    padding: 0 10px;
+    padding: 0 0.625rem;
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -111,14 +111,14 @@
   .event-patch-save-state {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    min-height: 32px;
+    gap: 0.375rem;
+    min-height: 2rem;
     border: 1px solid color-mix(in srgb, var(--success) 24%, var(--ephub-border-soft));
-    border-radius: 10px;
+    border-radius: 0.625rem;
     background: color-mix(in srgb, var(--success) 10%, var(--ephub-surface-muted));
     color: var(--success);
-    padding: 0 10px;
-    font-size: 12px;
+    padding: 0 0.625rem;
+    font-size: 0.75rem;
     font-weight: 700;
     cursor: pointer;
     transition:
@@ -127,9 +127,9 @@
   }
 
   .event-patch-save-state > span {
-    width: 7px;
-    height: 7px;
-    border-radius: 999px;
+    width: 0.4375rem;
+    height: 0.4375rem;
+    border-radius: 62.4375rem;
     background: currentColor;
   }
 
@@ -154,7 +154,7 @@
     margin: 0;
     overflow: hidden;
     color: var(--text-primary);
-    font-size: 24px;
+    font-size: 1.5rem;
     font-weight: 700;
     letter-spacing: 0;
     line-height: 1.25;
@@ -165,16 +165,16 @@
   .event-patch-heading span,
   .event-storyboard-head span {
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .event-patch-hub-body {
     display: grid;
-    width: min(1000px, calc(100% - 64px));
+    width: min(62.5rem, calc(100% - 4rem));
     min-height: 0;
     margin: 0 auto;
     overflow: visible;
-    padding: 0 28px 64px;
+    padding: 0 1.75rem 4rem;
   }
 
   .event-storyboard {
@@ -189,23 +189,23 @@
     display: none;
     align-items: center;
     justify-content: space-between;
-    min-height: 48px;
+    min-height: 3rem;
     border-bottom: 1px solid var(--ephub-line);
-    padding: 0 14px;
+    padding: 0 0.875rem;
   }
 
   .event-scene-list {
     display: grid;
-    gap: 10px;
+    gap: 0.625rem;
     padding: 0;
   }
 
   .event-scene-row {
     overflow: hidden;
     border: 1px solid var(--ephub-border-soft);
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background: var(--ephub-surface);
-    box-shadow: 0 2px 8px var(--ephub-shadow);
+    box-shadow: 0 0.125rem 0.5rem var(--ephub-shadow);
     transition:
       transform 180ms ease,
       background-color 180ms ease,
@@ -214,9 +214,9 @@
   }
 
   .event-scene-row:hover {
-    transform: translateY(-1px);
+    transform: translateY(-0.0625rem);
     background: color-mix(in srgb, var(--ephub-surface) 92%, var(--ephub-surface-accent) 8%);
-    box-shadow: 0 8px 24px var(--ephub-shadow);
+    box-shadow: 0 0.5rem 1.5rem var(--ephub-shadow);
     border-color: color-mix(in srgb, var(--accent) 24%, var(--ephub-border-soft));
   }
 
@@ -224,28 +224,28 @@
   .event-scene-row.expanded {
     border-color: color-mix(in srgb, var(--accent) 35%, var(--ephub-border-soft));
     background: var(--ephub-surface);
-    box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 8%, var(--ephub-shadow));
+    box-shadow: 0 0.25rem 1rem color-mix(in srgb, var(--accent) 8%, var(--ephub-shadow));
   }
 
   .event-scene-row.selected {
     border-color: color-mix(in srgb, var(--accent) 55%, var(--ephub-border-soft));
     box-shadow:
       0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent),
-      0 4px 16px color-mix(in srgb, var(--accent) 8%, var(--ephub-shadow));
+      0 0.25rem 1rem color-mix(in srgb, var(--accent) 8%, var(--ephub-shadow));
   }
 
   .event-scene-summary {
     display: flex;
     align-items: center;
-    min-height: 64px;
-    padding: 0 16px 0 0;
+    min-height: 4rem;
+    padding: 0 1rem 0 0;
     cursor: pointer;
   }
 
   .event-scene-drag-handle {
     display: grid;
-    width: 24px;
-    flex: 0 0 24px;
+    width: 1.5rem;
+    flex: 0 0 1.5rem;
     place-items: center;
     color: var(--text-tertiary);
   }
@@ -256,13 +256,13 @@
 
   .event-scene-select {
     display: inline-grid;
-    width: 28px;
-    height: 28px;
-    flex: 0 0 28px;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: 0 0 1.75rem;
     place-items: center;
-    margin: 0 8px 0 12px;
+    margin: 0 0.5rem 0 0.75rem;
     border: 1px solid var(--ephub-border-soft);
-    border-radius: 8px;
+    border-radius: 0.5rem;
     background: var(--ephub-surface-strong);
     color: var(--text-tertiary);
     cursor: pointer;
@@ -281,16 +281,16 @@
   }
 
   .event-scene-select + .event-scene-drag-handle {
-    width: 18px;
-    flex-basis: 18px;
+    width: 1.125rem;
+    flex-basis: 1.125rem;
   }
 
   .event-scene-index {
     flex: 0 0 auto;
-    margin-right: 16px;
+    margin-right: 1rem;
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 700;
   }
 
@@ -298,13 +298,13 @@
     display: flex;
     min-width: 0;
     align-items: center;
-    gap: 8px;
+    gap: 0.5rem;
   }
 
   .event-scene-title strong {
     overflow: hidden;
     color: var(--text-primary);
-    font-size: 16px;
+    font-size: 1rem;
     font-weight: 500;
     line-height: 1.25;
     text-overflow: ellipsis;
@@ -314,17 +314,17 @@
   .event-disabled-badge {
     display: inline-flex;
     align-items: center;
-    min-height: 20px;
-    border-radius: 999px;
+    min-height: 1.25rem;
+    border-radius: 62.4375rem;
     background: var(--ephub-line);
     color: var(--text-secondary);
-    padding: 0 8px;
-    font-size: 10px;
+    padding: 0 0.5rem;
+    font-size: 0.625rem;
     font-weight: 700;
   }
 
   .event-scene-spacer {
-    min-width: 24px;
+    min-width: 1.5rem;
     flex: 1 1 auto;
   }
 
@@ -332,37 +332,37 @@
     display: flex;
     flex: 0 0 auto;
     justify-content: flex-end;
-    margin-right: 18px;
-    padding-left: 8px;
+    margin-right: 1.125rem;
+    padding-left: 0.5rem;
   }
 
   .event-scene-actors i {
     display: inline-grid;
-    width: 28px;
-    height: 28px;
+    width: 1.75rem;
+    height: 1.75rem;
     place-items: center;
-    border: 2px solid var(--ephub-surface);
-    border-radius: 999px;
+    border: 0.125rem solid var(--ephub-surface);
+    border-radius: 62.4375rem;
     background: var(--ephub-surface-accent);
     color: var(--accent);
-    font-size: 10px;
+    font-size: 0.625rem;
     font-style: normal;
     font-weight: 800;
-    box-shadow: 0 1px 3px var(--ephub-shadow);
+    box-shadow: 0 1px 0.1875rem var(--ephub-shadow);
   }
 
   .event-scene-actors i + i {
-    margin-left: -8px;
+    margin-left: -0.5rem;
   }
 
   .event-scene-edit-button {
-    min-height: 36px;
+    min-height: 2.25rem;
     border: 0;
-    border-radius: 10px;
+    border-radius: 0.625rem;
     background: var(--ephub-surface-accent);
     color: var(--accent);
-    padding: 0 12px;
-    font-size: 12px;
+    padding: 0 0.75rem;
+    font-size: 0.75rem;
     font-weight: 700;
     white-space: nowrap;
     transition:
@@ -384,13 +384,13 @@
   .event-scene-panel {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 40px;
+    gap: 2.5rem;
     border-top: 0;
-    border-radius: 0 0 12px 12px;
+    border-radius: 0 0 0.75rem 0.75rem;
     background: var(--ephub-surface-muted);
     min-height: 0;
     overflow: hidden;
-    padding: 24px 64px;
+    padding: 1.5rem 4rem;
   }
 
   .event-scene-detail-column {
@@ -400,10 +400,10 @@
   .event-scene-detail-column h3 {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin: 0 0 14px;
+    gap: 0.5rem;
+    margin: 0 0 0.875rem;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -411,14 +411,14 @@
 
   .event-scene-detail-column h3 svg,
   .event-scene-detail-row svg {
-    width: 20px;
-    height: 20px;
-    flex: 0 0 20px;
+    width: 1.25rem;
+    height: 1.25rem;
+    flex: 0 0 1.25rem;
   }
 
   .event-scene-detail-list {
     display: grid;
-    gap: 12px;
+    gap: 0.75rem;
     min-width: 0;
   }
 
@@ -426,9 +426,9 @@
     display: flex;
     min-width: 0;
     align-items: center;
-    gap: 10px;
+    gap: 0.625rem;
     color: var(--text-primary);
-    font-size: 13px;
+    font-size: 0.8125rem;
     line-height: 1.35;
   }
 
@@ -441,44 +441,44 @@
 
   .event-scene-detail-list i {
     display: grid;
-    width: 20px;
-    height: 20px;
-    flex: 0 0 20px;
+    width: 1.25rem;
+    height: 1.25rem;
+    flex: 0 0 1.25rem;
     place-items: center;
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: var(--ephub-surface-accent);
     color: var(--accent);
-    font-size: 9px;
+    font-size: 0.5625rem;
     font-style: normal;
     font-weight: 800;
   }
 
   .event-storyboard-empty {
     display: grid;
-    min-height: 220px;
+    min-height: 13.75rem;
     place-items: center;
     align-content: center;
-    gap: 8px;
+    gap: 0.5rem;
     color: var(--text-secondary);
-    padding: 24px;
+    padding: 1.5rem;
     text-align: center;
   }
 
   .event-storyboard-empty strong {
     color: var(--text-primary);
-    font-size: 15px;
+    font-size: 0.9375rem;
   }
 
   .event-patch-context-menu {
     position: fixed;
     z-index: 80;
     display: grid;
-    min-width: 190px;
+    min-width: 11.875rem;
     border: 1px solid var(--ephub-border-soft);
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background: var(--ephub-surface-strong);
-    padding: 6px;
-    box-shadow: 0 18px 48px var(--ephub-shadow-strong);
+    padding: 0.375rem;
+    box-shadow: 0 1.125rem 3rem var(--ephub-shadow-strong);
     transform-origin: top left;
     animation: eventPatchMenuPop 120ms ease-out both;
   }
@@ -486,16 +486,16 @@
   .event-patch-context-menu button {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.5rem;
     width: 100%;
-    min-height: 32px;
+    min-height: 2rem;
     border: 0;
-    border-radius: 8px;
+    border-radius: 0.5rem;
     background: transparent;
     color: var(--text-primary);
-    padding: 0 9px;
+    padding: 0 0.5625rem;
     text-align: left;
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
     transition:
@@ -529,7 +529,7 @@
   @keyframes eventPatchMenuPop {
     from {
       opacity: 0;
-      transform: scale(0.98) translateY(-2px);
+      transform: scale(0.98) translateY(-0.125rem);
     }
 
     to {

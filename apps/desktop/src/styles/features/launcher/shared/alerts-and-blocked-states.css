@@ -1,16 +1,16 @@
 @layer components {
   .launcher-alert-card {
     display: grid;
-    gap: 14px;
+    gap: 0.875rem;
     border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-color));
-    border-radius: 22px;
+    border-radius: 1.375rem;
     background: linear-gradient(
       145deg,
       color-mix(in srgb, var(--accent-soft) 42%, transparent),
       color-mix(in srgb, var(--bg-panel) 96%, transparent)
     );
-    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
-    padding: 18px;
+    box-shadow: 0 1.125rem 2.75rem rgba(15, 23, 42, 0.08);
+    padding: 1.125rem;
   }
 
   .launcher-alert-card-warning {
@@ -43,23 +43,23 @@
   .launcher-alert-card-head,
   .launcher-alert-card-body {
     display: grid;
-    gap: 12px;
+    gap: 0.75rem;
   }
 
   .launcher-alert-card-title-row {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
+    gap: 0.75rem;
   }
 
   .launcher-alert-card-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 2.25rem;
+    height: 2.25rem;
     flex: 0 0 auto;
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background: color-mix(in srgb, var(--bg-panel) 86%, transparent);
     color: var(--accent);
   }
@@ -79,13 +79,13 @@
   .launcher-alert-card-copy {
     min-width: 0;
     display: grid;
-    gap: 4px;
+    gap: 0.25rem;
   }
 
   .launcher-alert-card-eyebrow {
     margin: 0;
     color: var(--accent);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -106,7 +106,7 @@
   .launcher-alert-card-title {
     margin: 0;
     color: var(--text-primary);
-    font-size: 18px;
+    font-size: 1.125rem;
     line-height: 1.15;
     font-weight: 800;
     letter-spacing: -0.02em;
@@ -115,24 +115,24 @@
   .launcher-alert-card-subtitle {
     margin: 0;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.55;
   }
 
   .launcher-alert-card-detail {
     margin: 0;
     color: var(--text-primary);
-    font-size: 13px;
+    font-size: 0.8125rem;
     line-height: 1.65;
   }
 
   .launcher-alert-card-note {
     margin: 0;
-    padding: 10px 12px;
-    border-radius: 14px;
+    padding: 0.625rem 0.75rem;
+    border-radius: 0.875rem;
     background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.6;
     white-space: pre-line;
   }
@@ -141,20 +141,20 @@
   .launcher-alert-card-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.5rem;
     flex-wrap: wrap;
   }
 
   .launcher-alert-card-chip {
     display: inline-flex;
     align-items: center;
-    min-height: 28px;
-    padding: 0 10px;
-    border-radius: 999px;
+    min-height: 1.75rem;
+    padding: 0 0.625rem;
+    border-radius: 62.4375rem;
     border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border-color));
     background: color-mix(in srgb, var(--accent-soft) 66%, transparent);
     color: var(--accent);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 700;
     line-height: 1;
     white-space: nowrap;
@@ -179,37 +179,37 @@
   }
 
   .launcher-nexus-message-card {
-    border-radius: 10px;
-    padding: 12px;
+    border-radius: 0.625rem;
+    padding: 0.75rem;
     box-shadow: none;
   }
 
   .launcher-nexus-message-card .launcher-alert-card-title {
-    font-size: 13px;
+    font-size: 0.8125rem;
     line-height: 1.25;
   }
 
   .launcher-nexus-message-card .launcher-alert-card-icon {
-    width: 30px;
-    height: 30px;
-    border-radius: 10px;
+    width: 1.875rem;
+    height: 1.875rem;
+    border-radius: 0.625rem;
   }
 
   .launcher-blocked-state {
-    width: min(100%, 760px);
+    width: min(100%, 47.5rem);
     display: grid;
     justify-items: center;
-    gap: 18px;
-    padding: clamp(24px, 4vw, 36px);
+    gap: 1.125rem;
+    padding: clamp(1.5rem, 4vw, 2.25rem);
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
-    border-radius: 28px;
+    border-radius: 1.75rem;
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--bg-panel) 96%, var(--bg-panel) 4%),
       color-mix(in srgb, var(--bg-panel-muted) 86%, var(--bg-panel) 14%)
     );
     box-shadow:
-      0 24px 48px rgba(15, 23, 42, 0.08),
+      0 1.5rem 3rem rgba(15, 23, 42, 0.08),
       inset 0 1px 0 color-mix(in srgb, var(--text-inverse) 30%, transparent);
     text-align: center;
   }
@@ -224,21 +224,21 @@
 
   .launcher-blocked-illustration {
     position: relative;
-    width: 116px;
-    height: 116px;
+    width: 7.25rem;
+    height: 7.25rem;
   }
 
   .launcher-blocked-illustration-orb {
     position: absolute;
-    border-radius: 999px;
+    border-radius: 62.4375rem;
   }
 
   .launcher-blocked-illustration-orb-back {
-    inset: 8px;
+    inset: 0.5rem;
     background:
       radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--warning) 18%, white), transparent 62%),
       color-mix(in srgb, var(--warning) 10%, var(--bg-panel));
-    filter: blur(0.5px);
+    filter: blur(0.0312rem);
   }
 
   .launcher-blocked-state-error .launcher-blocked-illustration-orb-back {
@@ -248,7 +248,7 @@
   }
 
   .launcher-blocked-illustration-orb-front {
-    inset: 20px;
+    inset: 1.25rem;
     border: 1px solid color-mix(in srgb, var(--warning) 26%, transparent);
     background: color-mix(in srgb, var(--bg-panel) 92%, var(--bg-panel) 8%);
   }
@@ -263,13 +263,13 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 0.625rem 1.5rem rgba(15, 23, 42, 0.08);
   }
 
   .launcher-blocked-illustration-core {
-    inset: 30px;
+    inset: 1.875rem;
     background: color-mix(in srgb, var(--warning) 16%, var(--bg-panel));
     color: color-mix(in srgb, var(--warning) 82%, var(--text-primary));
   }
@@ -280,24 +280,24 @@
   }
 
   .launcher-blocked-illustration-accent {
-    right: 10px;
-    bottom: 12px;
-    width: 34px;
-    height: 34px;
+    right: 0.625rem;
+    bottom: 0.75rem;
+    width: 2.125rem;
+    height: 2.125rem;
     background: var(--bg-elevated);
     color: var(--text-secondary);
   }
 
   .launcher-blocked-copy {
     display: grid;
-    gap: 10px;
+    gap: 0.625rem;
     max-width: 56ch;
   }
 
   .launcher-blocked-eyebrow {
     margin: 0;
     color: var(--text-tertiary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -306,7 +306,7 @@
   .launcher-blocked-title {
     margin: 0;
     color: var(--text-primary);
-    font-size: clamp(26px, 3vw, 34px);
+    font-size: clamp(1.625rem, 3vw, 2.125rem);
     font-weight: 800;
     line-height: 1.08;
     letter-spacing: -0.03em;
@@ -315,16 +315,16 @@
   .launcher-blocked-detail {
     margin: 0;
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: 0.875rem;
     line-height: 1.7;
   }
 
   .launcher-blocked-highlight {
-    width: min(100%, 560px);
+    width: min(100%, 35rem);
     display: grid;
-    gap: 6px;
-    padding: 14px 16px;
-    border-radius: 18px;
+    gap: 0.375rem;
+    padding: 0.875rem 1rem;
+    border-radius: 1.125rem;
     background: var(--warning-soft);
     border: 1px solid color-mix(in srgb, var(--warning) 22%, transparent);
     text-align: left;
@@ -337,7 +337,7 @@
 
   .launcher-blocked-highlight-label {
     color: var(--text-tertiary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -346,35 +346,35 @@
   .launcher-blocked-highlight-value {
     min-width: 0;
     color: var(--text-primary);
-    font-size: 13px;
+    font-size: 0.8125rem;
     line-height: 1.65;
     word-break: break-word;
   }
 
   .launcher-blocked-details {
-    width: min(100%, 560px);
+    width: min(100%, 35rem);
     display: grid;
-    gap: 10px;
+    gap: 0.625rem;
   }
 
   .launcher-blocked-details-toolbar {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 0.625rem;
     flex-wrap: wrap;
   }
 
   .launcher-blocked-pre {
     margin: 0;
     width: 100%;
-    max-height: 220px;
+    max-height: 13.75rem;
     overflow: auto;
-    padding: 14px 16px;
-    border-radius: 18px;
+    padding: 0.875rem 1rem;
+    border-radius: 1.125rem;
     background: #1f2937;
     color: #e5eef9;
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.65;
     text-align: left;
     white-space: pre-wrap;
@@ -386,56 +386,56 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    gap: 0.75rem;
     flex-wrap: wrap;
   }
 
   .launcher-blocked-actions .control-button {
-    min-height: 42px;
-    padding-inline: 16px;
-    border-radius: 999px;
+    min-height: 2.625rem;
+    padding-inline: 1rem;
+    border-radius: 62.4375rem;
   }
 
   .launcher-empty-card {
-    width: min(100%, 760px);
+    width: min(100%, 47.5rem);
     display: grid;
     justify-items: center;
-    gap: 18px;
-    padding: clamp(24px, 4vw, 36px);
+    gap: 1.125rem;
+    padding: clamp(1.5rem, 4vw, 2.25rem);
     border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border-color));
-    border-radius: 28px;
+    border-radius: 1.75rem;
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--bg-panel) 96%, var(--bg-panel) 4%),
       color-mix(in srgb, var(--bg-panel-muted) 86%, var(--bg-panel) 14%)
     );
     box-shadow:
-      0 24px 48px rgba(15, 23, 42, 0.08),
+      0 1.5rem 3rem rgba(15, 23, 42, 0.08),
       inset 0 1px 0 color-mix(in srgb, var(--text-inverse) 30%, transparent);
     text-align: center;
   }
 
   .launcher-empty-card-illustration {
     position: relative;
-    width: 116px;
-    height: 116px;
+    width: 7.25rem;
+    height: 7.25rem;
   }
 
   .launcher-empty-card-illustration-orb {
     position: absolute;
-    border-radius: 999px;
+    border-radius: 62.4375rem;
   }
 
   .launcher-empty-card-illustration-orb-back {
-    inset: 8px;
+    inset: 0.5rem;
     background:
       radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--accent) 18%, white), transparent 62%),
       color-mix(in srgb, var(--accent) 10%, var(--bg-panel));
-    filter: blur(0.5px);
+    filter: blur(0.0312rem);
   }
 
   .launcher-empty-card-illustration-orb-front {
-    inset: 20px;
+    inset: 1.25rem;
     border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
     background: color-mix(in srgb, var(--bg-panel) 92%, var(--bg-panel) 8%);
   }
@@ -446,36 +446,36 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 0.625rem 1.5rem rgba(15, 23, 42, 0.08);
   }
 
   .launcher-empty-card-illustration-core {
-    inset: 30px;
+    inset: 1.875rem;
     background: color-mix(in srgb, var(--accent) 16%, var(--bg-panel));
     color: color-mix(in srgb, var(--accent) 82%, var(--text-primary));
   }
 
   .launcher-empty-card-illustration-accent {
-    right: 10px;
-    bottom: 12px;
-    width: 34px;
-    height: 34px;
+    right: 0.625rem;
+    bottom: 0.75rem;
+    width: 2.125rem;
+    height: 2.125rem;
     background: var(--bg-elevated);
     color: var(--text-secondary);
   }
 
   .launcher-empty-card-copy {
     display: grid;
-    gap: 10px;
+    gap: 0.625rem;
     max-width: 56ch;
   }
 
   .launcher-empty-card-eyebrow {
     margin: 0;
     color: var(--text-tertiary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -484,7 +484,7 @@
   .launcher-empty-card-title {
     margin: 0;
     color: var(--text-primary);
-    font-size: clamp(26px, 3vw, 34px);
+    font-size: clamp(1.625rem, 3vw, 2.125rem);
     font-weight: 800;
     line-height: 1.08;
     letter-spacing: -0.03em;
@@ -493,7 +493,7 @@
   .launcher-empty-card-detail {
     margin: 0;
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: 0.875rem;
     line-height: 1.7;
   }
 
@@ -501,14 +501,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    gap: 0.75rem;
     flex-wrap: wrap;
   }
 
   .launcher-empty-card-actions .control-button {
-    min-height: 42px;
-    padding-inline: 16px;
-    border-radius: 999px;
+    min-height: 2.625rem;
+    padding-inline: 1rem;
+    border-radius: 62.4375rem;
   }
 
   @media (max-width: 720px) {

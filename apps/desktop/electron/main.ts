@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, Tray } from 'electron'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import fs from 'node:fs/promises'
 import { createInterface, type Interface as ReadlineInterface } from 'node:readline'
@@ -35,6 +35,7 @@ const devUrl = process.env.VITE_DEV_SERVER_URL ?? 'http://127.0.0.1:5173'
 const windowCloseRequestTimeoutMs = 1500
 const sidecarStopTimeoutMs = 2500
 let mainWindow: BrowserWindow | null = null
+let tray: Tray | null = null
 let closeAllowed = false
 let appShuttingDown = false
 let nextWindowCloseRequestId = 0
@@ -311,7 +312,7 @@ async function requestWindowClose(window: BrowserWindow) {
   const accepted = await new Promise<boolean>((resolve) => {
     const timeout = setTimeout(() => {
       pendingWindowCloseRequests.delete(requestId)
-      resolve(true)
+      resolve(false)
     }, windowCloseRequestTimeoutMs)
 
     pendingWindowCloseRequests.set(requestId, { resolve, timeout })
@@ -336,10 +337,10 @@ async function shutdownApp() {
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     title: appDisplayName,
-    width: 1440,
-    height: 940,
-    minWidth: 960,
-    minHeight: 640,
+    width: 1600,
+    height: 1000,
+    minWidth: 1280,
+    minHeight: 800,
     frame: false,
     resizable: true,
     show: false,
@@ -387,6 +388,47 @@ function createMainWindow() {
   }
 }
 
+function createTray() {
+  const iconPath = resolveWindowIconPath()
+  tray = new Tray(iconPath)
+  tray.setToolTip(appDisplayName)
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: `Show ${appDisplayName}`,
+      click: () => {
+        mainWindow?.show()
+        mainWindow?.focus()
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        closeAllowed = true
+        app.quit()
+      },
+    },
+  ])
+
+  tray.on('click', () => {
+    if (!mainWindow) {
+      return
+    }
+
+    if (mainWindow.isVisible()) {
+      mainWindow.hide()
+    } else {
+      mainWindow.show()
+      mainWindow.focus()
+    }
+  })
+
+  tray.on('right-click', () => {
+    tray?.popUpContextMenu(contextMenu)
+  })
+}
+
 function currentWindow() {
   const window = BrowserWindow.getFocusedWindow() ?? mainWindow
   if (!window) {
@@ -412,6 +454,13 @@ ipcMain.handle('modforge:window-toggle-maximize', () => {
 ipcMain.handle('modforge:window-close', () => requestWindowClose(currentWindow()))
 ipcMain.handle('modforge:window-force-close', () => {
   forceCloseWindow(currentWindow())
+})
+ipcMain.handle('modforge:window-hide', () => {
+  currentWindow().hide()
+})
+ipcMain.handle('modforge:window-show', () => {
+  mainWindow?.show()
+  mainWindow?.focus()
 })
 ipcMain.handle('modforge:window-close-request-result', (_event, requestId: number, accepted: boolean) => {
   settleWindowCloseRequest(requestId, accepted)
@@ -444,12 +493,15 @@ void app.whenReady().then(() => {
   registerLocalFileProtocol()
   sidecarTransport.start()
   createMainWindow()
+  createTray()
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
+  if (appShuttingDown || tray) {
+    return
   }
+
+  app.quit()
 })
 
 app.on('before-quit', (event) => {
@@ -463,6 +515,11 @@ app.on('before-quit', (event) => {
 
 app.on('will-quit', () => {
   void shutdownApp()
+})
+
+app.on('quit', () => {
+  tray?.destroy()
+  tray = null
 })
 
 process.once('SIGINT', () => {

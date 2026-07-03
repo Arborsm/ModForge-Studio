@@ -4,8 +4,8 @@
 @layer components {
   .launcher-discover-grid {
     display: grid;
-    gap: 14px;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.875rem;
+    grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr));
   }
 
   .launcher-discover-page {
@@ -13,7 +13,7 @@
     min-height: 0;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
-    gap: 14px;
+    gap: 0.875rem;
   }
 
   .launcher-discover-shell {
@@ -21,11 +21,11 @@
     min-height: 0;
     display: grid;
     gap: 0;
-    grid-template-columns: minmax(250px, 290px) minmax(0, 1fr);
+    grid-template-columns: minmax(15.625rem, 18.125rem) minmax(0, 1fr);
     align-items: stretch;
     overflow: visible;
     border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background: var(--bg-panel);
     box-shadow: var(--shadow-panel);
   }
@@ -42,7 +42,7 @@
     align-self: stretch;
     border: 0;
     border-right: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
-    border-radius: 12px 0 0 12px;
+    border-radius: 0.75rem 0 0 0.75rem;
     background: var(--bg-panel);
     padding: 0;
     overflow: hidden;
@@ -76,7 +76,7 @@
       color-mix(in srgb, var(--bg-panel) 72%, transparent),
       color-mix(in srgb, var(--bg-panel-muted) 84%, transparent)
     );
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(0.625rem);
     color: color-mix(in srgb, var(--warning) 82%, var(--text-primary));
     pointer-events: none;
   }
@@ -86,21 +86,21 @@
     min-width: 0;
     display: grid;
     grid-template-rows: minmax(0, 1fr);
-    gap: 12px;
+    gap: 0.75rem;
     min-height: 0;
     /* No bottom padding/radius: the results wall and translucent pagination
      * footer run flush to the shell's bottom edge. */
-    padding: 12px 14px;
+    padding: 0.75rem 0.875rem;
     overflow: hidden;
     align-content: start;
-    border-radius: 0 12px 12px 0;
+    border-radius: 0 0.75rem 0.75rem 0;
   }
 
   .launcher-discover-content-blocked,
   .launcher-discover-content-error,
   .launcher-discover-content-empty {
     place-items: center;
-    padding: clamp(20px, 3vw, 32px);
+    padding: clamp(1.25rem, 3vw, 2rem);
   }
 
   .launcher-discover-content-blocked,
@@ -139,7 +139,7 @@
     justify-content: space-between;
     border: 0;
     background: transparent;
-    padding: 14px 16px;
+    padding: 0.875rem 1rem;
     text-align: left;
   }
 
@@ -154,8 +154,8 @@
 
   .launcher-discover-rail-body {
     display: grid;
-    gap: 10px;
-    padding: 0 16px 14px;
+    gap: 0.625rem;
+    padding: 0 1rem 0.875rem;
   }
 
   .launcher-discover-sidebar-accordion {
@@ -171,10 +171,10 @@
 
   .launcher-discover-category-list {
     display: grid;
-    gap: 4px;
-    max-height: 328px;
+    gap: 0.25rem;
+    max-height: 20.5rem;
     overflow: auto;
-    padding-right: 2px;
+    padding-right: 0.125rem;
     scrollbar-width: thin;
   }
 
@@ -183,15 +183,15 @@
     display: inline-flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 8px;
+    gap: 0.5rem;
     width: 100%;
-    min-height: 34px;
+    min-height: 2.125rem;
     border: 1px solid transparent;
-    border-radius: 8px;
+    border-radius: 0.5rem;
     color: color-mix(in srgb, var(--text-primary) 78%, var(--text-secondary));
     background: transparent;
-    padding: 0 8px;
-    font-size: 12px;
+    padding: 0 0.5rem;
+    font-size: 0.75rem;
     text-align: left;
     cursor: pointer;
     box-sizing: border-box;
@@ -202,8 +202,8 @@
   }
 
   .launcher-discover-category-item input {
-    width: 14px;
-    height: 14px;
+    width: 0.875rem;
+    height: 0.875rem;
     margin: 0;
     accent-color: var(--accent);
   }
@@ -223,29 +223,29 @@
   .launcher-discover-chip-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 0.5rem;
   }
 
   .launcher-discover-rail-field {
     display: grid;
-    gap: 6px;
+    gap: 0.375rem;
   }
 
   .launcher-discover-rail-field span {
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 600;
   }
 
   .launcher-discover-rail-field input,
   .launcher-discover-range-row input {
-    min-height: 36px;
+    min-height: 2.25rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
-    border-radius: 8px;
+    border-radius: 0.5rem;
     background: var(--bg-panel);
     color: var(--text-primary);
-    padding: 0 10px;
-    font-size: 13px;
+    padding: 0 0.625rem;
+    font-size: 0.8125rem;
     outline: none;
     transition:
       border-color 140ms ease,
@@ -275,29 +275,29 @@
     position: fixed;
     z-index: 500;
     display: grid;
-    gap: 4px;
+    gap: 0.25rem;
     overflow: auto;
     border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
-    border-radius: 10px;
+    border-radius: 0.625rem;
     background: var(--bg-elevated);
     box-shadow: var(--shadow-float);
-    padding: 6px;
+    padding: 0.375rem;
     scrollbar-width: thin;
   }
 
   .launcher-discover-tag-suggestion {
     width: 100%;
-    min-height: 34px;
+    min-height: 2.125rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 0.625rem;
     border: 0;
-    border-radius: 8px;
+    border-radius: 0.5rem;
     background: transparent;
     color: var(--text-secondary);
-    padding: 0 10px;
-    font-size: 13px;
+    padding: 0 0.625rem;
+    font-size: 0.8125rem;
     font-weight: 600;
     text-align: left;
     transition:
@@ -320,45 +320,45 @@
   .launcher-discover-tag-suggestion span:last-child {
     flex: 0 0 auto;
     color: var(--text-tertiary);
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .launcher-discover-toggle-row {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 0.625rem;
     color: color-mix(in srgb, var(--text-primary) 78%, var(--text-secondary));
-    font-size: 13px;
-    min-height: 34px;
+    font-size: 0.8125rem;
+    min-height: 2.125rem;
   }
 
   .launcher-discover-toggle-row input {
-    width: 15px;
-    height: 15px;
+    width: 0.9375rem;
+    height: 0.9375rem;
     accent-color: var(--accent);
   }
 
   .launcher-discover-range-row {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    gap: 0.5rem;
   }
 
   .launcher-discover-range-group {
     display: grid;
-    gap: 6px;
+    gap: 0.375rem;
   }
 
   .launcher-discover-range-heading {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 0.5rem;
   }
 
   .launcher-discover-range-label {
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0;
   }
@@ -368,7 +368,7 @@
     background: transparent;
     color: var(--text-tertiary);
     padding: 0;
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 700;
     cursor: pointer;
   }
@@ -380,18 +380,18 @@
   .launcher-discover-range-presets {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
+    gap: 0.375rem;
   }
 
   .launcher-discover-range-preset {
     min-width: 0;
-    min-height: 30px;
+    min-height: 1.875rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
-    border-radius: 8px;
+    border-radius: 0.5rem;
     background: color-mix(in srgb, var(--bg-panel) 86%, var(--bg-panel-muted));
     color: color-mix(in srgb, var(--text-primary) 76%, var(--text-secondary));
-    padding: 0 8px;
-    font-size: 11px;
+    padding: 0 0.5rem;
+    font-size: 0.6875rem;
     font-weight: 700;
     cursor: pointer;
   }
@@ -409,9 +409,9 @@
 
   .launcher-discover-wall {
     display: grid;
-    gap: 16px;
+    gap: 1rem;
     padding-inline: 0;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(16.25rem, 1fr));
     align-items: stretch;
   }
 
@@ -421,7 +421,7 @@
     flex-direction: column;
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background: var(--bg-panel);
     padding: 0;
     box-shadow: var(--shadow-panel);
@@ -433,7 +433,7 @@
   }
 
   .launcher-discover-wall-card:hover {
-    transform: translateY(-1px);
+    transform: translateY(-0.0625rem);
     border-color: color-mix(in srgb, var(--accent) 48%, transparent);
     box-shadow:
       var(--shadow-float),
@@ -484,7 +484,7 @@
 
   .launcher-discover-wall-cover-monogram {
     color: color-mix(in srgb, var(--text-primary) 82%, var(--text-secondary));
-    font-size: clamp(22px, 2.4vw, 34px);
+    font-size: clamp(1.375rem, 2.4vw, 2.125rem);
     font-weight: 900;
     letter-spacing: 0.16em;
     text-transform: uppercase;
@@ -494,36 +494,36 @@
 
   .launcher-discover-wall-cover-status {
     position: absolute;
-    inset: auto 12px 12px 12px;
+    inset: auto 0.75rem 0.75rem 0.75rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 28px;
-    border-radius: 999px;
+    min-height: 1.75rem;
+    border-radius: 62.4375rem;
     background: color-mix(in srgb, var(--surface-inverse) 82%, transparent);
     color: var(--text-inverse);
-    padding: 0 10px;
-    font-size: 11px;
+    padding: 0 0.625rem;
+    font-size: 0.6875rem;
     font-weight: 700;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(0.625rem);
   }
 
   .launcher-discover-wall-cover-overlay {
     position: absolute;
-    bottom: 10px;
-    right: 10px;
+    bottom: 0.625rem;
+    right: 0.625rem;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    min-height: 28px;
-    border-radius: 999px;
+    gap: 0.375rem;
+    min-height: 1.75rem;
+    border-radius: 62.4375rem;
     background: color-mix(in srgb, var(--surface-inverse) 82%, transparent);
     color: var(--text-inverse);
-    padding: 0 10px;
-    font-size: 11px;
+    padding: 0 0.625rem;
+    font-size: 0.6875rem;
     font-weight: 700;
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(0.25rem);
     transition:
       background 160ms ease,
       box-shadow 160ms ease,
@@ -545,9 +545,9 @@
     background: var(--accent-strong);
     box-shadow:
       0 0 0 1px color-mix(in srgb, var(--text-inverse) 22%, transparent),
-      0 8px 20px color-mix(in srgb, var(--shadow-color) 32%, transparent);
+      0 0.5rem 1.25rem color-mix(in srgb, var(--shadow-color) 32%, transparent);
     color: var(--text-inverse);
-    transform: translateY(-1px);
+    transform: translateY(-0.0625rem);
   }
 
   .launcher-discover-wall-cover-overlay:active {
@@ -557,24 +557,24 @@
   }
 
   .launcher-discover-wall-cover-overlay:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--accent) 72%, white);
-    outline-offset: 2px;
+    outline: 0.125rem solid color-mix(in srgb, var(--accent) 72%, white);
+    outline-offset: 0.125rem;
   }
 
   .launcher-discover-wall-badge {
     position: absolute;
-    top: 10px;
-    left: 10px;
+    top: 0.625rem;
+    left: 0.625rem;
     z-index: 1;
     display: inline-flex;
     align-items: center;
-    min-height: 24px;
-    border-radius: 999px;
+    min-height: 1.5rem;
+    border-radius: 62.4375rem;
     border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
     background: color-mix(in srgb, var(--accent-soft) 82%, var(--bg-panel));
     color: var(--accent);
-    padding: 0 8px;
-    font-size: 11px;
+    padding: 0 0.5rem;
+    font-size: 0.6875rem;
     font-weight: 700;
   }
 
@@ -583,12 +583,12 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
-    padding: 14px 14px 12px;
+    padding: 0.875rem 0.875rem 0.75rem;
   }
 
   .launcher-discover-wall-copy {
-    flex: 0 0 128px;
-    min-height: 128px;
+    flex: 0 0 8rem;
+    min-height: 8rem;
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -611,7 +611,7 @@
 
   .launcher-discover-wall-title {
     color: var(--text-primary);
-    font-size: 16px;
+    font-size: 1rem;
     font-weight: 700;
     line-height: 1.35;
     display: block;
@@ -631,7 +631,7 @@
   }
 
   .launcher-discover-wall-title-marquee .launcher-discover-wall-title-text {
-    padding-right: 24px;
+    padding-right: 1.5rem;
   }
 
   .launcher-discover-wall-title-marquee:hover .launcher-discover-wall-title-text,
@@ -648,20 +648,20 @@
   }
 
   .launcher-discover-wall-author {
-    margin-top: 4px;
+    margin-top: 0.25rem;
     color: color-mix(in srgb, var(--text-primary) 72%, var(--text-secondary));
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .launcher-discover-wall-category {
-    margin-top: 2px;
+    margin-top: 0.125rem;
     color: var(--text-tertiary);
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .launcher-discover-wall-summary {
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.55;
     display: -webkit-box;
     line-clamp: 2;
@@ -675,7 +675,7 @@
     min-height: 0;
     display: flex;
     align-items: flex-start;
-    margin-top: 8px;
+    margin-top: 0.5rem;
   }
 
   .launcher-discover-wall-meta {
@@ -683,20 +683,20 @@
     min-width: 0;
     display: flex;
     flex-wrap: wrap;
-    gap: 7px 8px;
+    gap: 0.4375rem 0.5rem;
     color: var(--text-tertiary);
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .launcher-discover-wall-meta-chip {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    min-height: 24px;
+    gap: 0.25rem;
+    min-height: 1.5rem;
     max-width: 100%;
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: color-mix(in srgb, var(--bg-panel-muted) 82%, var(--bg-panel));
-    padding: 0 8px;
+    padding: 0 0.5rem;
     color: var(--text-secondary);
     font-weight: 600;
     white-space: nowrap;
@@ -713,21 +713,21 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
-    margin: 12px -14px -12px;
+    gap: 0.625rem;
+    margin: 0.75rem -0.875rem -0.75rem;
     border-top: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
-    padding: 11px 14px 12px;
+    padding: 0.6875rem 0.875rem 0.75rem;
   }
 
   .launcher-discover-card-quick-action {
-    flex: 0 0 32px;
+    flex: 0 0 2rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 2rem;
+    height: 2rem;
     border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
     color: var(--accent);
     transition:
@@ -739,7 +739,7 @@
   .launcher-discover-card-quick-action:hover {
     border-color: color-mix(in srgb, var(--accent) 50%, transparent);
     background: color-mix(in srgb, var(--accent) 16%, transparent);
-    transform: translateY(-1px);
+    transform: translateY(-0.0625rem);
   }
 
   @keyframes launcher-discover-spinner {

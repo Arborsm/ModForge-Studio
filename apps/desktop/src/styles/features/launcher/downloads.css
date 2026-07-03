@@ -1,18 +1,18 @@
 @layer components {
   .launcher-downloads-popover {
-    width: min(560px, calc(100vw - 36px));
+    width: min(35rem, calc(100vw - 2.25rem));
     display: grid;
-    gap: 14px;
+    gap: 0.875rem;
   }
 
   .launcher-downloads-float {
     position: absolute;
-    top: calc(100% + 12px);
+    top: calc(100% + 0.75rem);
     right: 0;
     z-index: 185;
-    width: min(760px, calc(100vw - 48px));
-    max-height: min(78vh, 840px);
-    padding: 18px;
+    width: min(47.5rem, calc(100vw - 3rem));
+    max-height: min(78vh, 52.5rem);
+    padding: 1.125rem;
   }
 
   .launcher-downloads-float .launcher-downloads-popover {
@@ -23,20 +23,20 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 12px;
+    gap: 0.75rem;
   }
 
   .launcher-downloads-popover-title {
     margin: 0;
     color: var(--text-primary);
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 700;
   }
 
   .launcher-downloads-popover-subtitle {
-    margin: 6px 0 0;
+    margin: 0.375rem 0 0;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.5;
     max-width: 38ch;
   }
@@ -46,37 +46,37 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 8px;
+    gap: 0.5rem;
     flex-wrap: wrap;
   }
 
   .launcher-downloads-popover-metrics {
     display: grid;
-    gap: 10px;
+    gap: 0.625rem;
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .launcher-downloads-popover-body {
     display: grid;
-    gap: 14px;
+    gap: 0.875rem;
   }
 
   .launcher-downloads-popover-section {
     display: grid;
-    gap: 10px;
+    gap: 0.625rem;
   }
 
   .launcher-downloads-popover-section-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 0.75rem;
   }
 
   .launcher-downloads-popover-section-title {
     margin: 0;
     color: var(--text-primary);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -84,17 +84,17 @@
 
   .launcher-downloads-popover-list {
     display: grid;
-    gap: 10px;
+    gap: 0.625rem;
   }
 
   .launcher-empty-state-detail {
-    margin: 6px 0 0;
+    margin: 0.375rem 0 0;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.6;
   }
 
   .launcher-empty-state-action {
-    margin-top: 10px;
+    margin-top: 0.625rem;
   }
 }

@@ -180,5 +180,5 @@ fn format_float_text(mut text: String) -> String {
 }
 
 #[cfg(test)]
-#[path = "tests/values_tests.rs"]
+#[path = "../../../tests/unit/infrastructure/game_formats/xnb/values_tests.rs"]
 mod tests;

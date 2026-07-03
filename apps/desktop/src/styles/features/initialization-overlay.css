@@ -6,9 +6,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding-inline: 24px;
+    padding-inline: 1.5rem;
     background: color-mix(in srgb, var(--bg-app) 72%, transparent);
-    backdrop-filter: blur(3px);
+    backdrop-filter: blur(0.1875rem);
   }
 
   .initialization-overlay-panel {
@@ -16,25 +16,25 @@
     width: 100%;
     max-width: 42rem;
     border: 1px solid var(--border-color);
-    border-radius: 28px;
+    border-radius: 1.75rem;
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--bg-panel) 96%, transparent),
       color-mix(in srgb, var(--bg-elevated) 96%, transparent)
     );
-    padding: 24px;
+    padding: 1.5rem;
     box-shadow: var(--shadow-panel);
   }
 
   .initialization-overlay-close {
     position: absolute;
-    top: 16px;
-    right: 16px;
+    top: 1rem;
+    right: 1rem;
     border: 1px solid var(--border-color);
-    border-radius: 10px;
+    border-radius: 0.625rem;
     background: var(--bg-panel-muted);
     color: var(--text-secondary);
-    padding: 8px;
+    padding: 0.5rem;
     transition:
       background-color 160ms ease,
       color 160ms ease;
@@ -52,70 +52,70 @@
   .initialization-overlay-eyebrow {
     margin: 0;
     color: var(--text-tertiary);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.24em;
     text-transform: uppercase;
   }
 
   .initialization-overlay-title {
-    margin: 8px 0 0;
+    margin: 0.5rem 0 0;
     color: var(--text-primary);
-    font-size: 24px;
+    font-size: 1.5rem;
     font-weight: 600;
   }
 
   .initialization-overlay-subtitle {
-    margin: 8px 0 0;
+    margin: 0.5rem 0 0;
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: 0.875rem;
     line-height: 1.5;
   }
 
   .initialization-overlay-directory-field {
-    margin-top: 24px;
+    margin-top: 1.5rem;
     display: grid;
-    gap: 8px;
+    gap: 0.5rem;
   }
 
   .initialization-overlay-directory-label {
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 600;
     letter-spacing: 0.18em;
     text-transform: uppercase;
   }
 
   .initialization-overlay-actions {
-    margin-top: 16px;
+    margin-top: 1rem;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    gap: 0.5rem;
   }
 
   .initialization-overlay-host,
   .initialization-overlay-detected {
-    margin-top: 20px;
+    margin-top: 1.25rem;
     border: 1px solid var(--border-color);
-    border-radius: 16px;
+    border-radius: 1rem;
     background: var(--bg-panel-muted);
-    padding: 12px 16px;
+    padding: 0.75rem 1rem;
   }
 
   .initialization-overlay-host-label,
   .initialization-overlay-detected-label {
     margin: 0;
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 600;
     letter-spacing: 0.16em;
     text-transform: uppercase;
   }
 
   .initialization-overlay-host-value {
-    margin: 8px 0 0;
+    margin: 0.5rem 0 0;
     color: var(--text-primary);
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
   }
 
@@ -123,30 +123,30 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 0.75rem;
   }
 
   .initialization-overlay-detected-hint {
     color: var(--text-tertiary);
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 
   .initialization-overlay-detected-list {
-    margin-top: 12px;
+    margin-top: 0.75rem;
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 0.5rem;
   }
 
   .initialization-overlay-detected-chip {
     max-width: 100%;
     border: 1px solid var(--border-color);
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: var(--bg-elevated);
     color: var(--text-primary);
-    padding: 6px 12px;
+    padding: 0.375rem 0.75rem;
     text-align: left;
-    font-size: 12px;
+    font-size: 0.75rem;
     transition:
       border-color 160ms ease,
       color 160ms ease;
@@ -167,7 +167,7 @@
   .initialization-overlay-empty {
     margin: 0;
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: 0.875rem;
   }
 
   .initialization-preload-backdrop {
@@ -179,65 +179,65 @@
     align-items: center;
     justify-content: center;
     background: color-mix(in srgb, var(--bg-app) 64%, transparent);
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(0.125rem);
   }
 
   .initialization-preload-panel {
     width: 100%;
     max-width: 28rem;
     border: 1px solid var(--border-color);
-    border-radius: 16px;
+    border-radius: 1rem;
     background: var(--bg-elevated);
-    padding: 20px 24px;
+    padding: 1.25rem 1.5rem;
     box-shadow: var(--shadow-panel);
   }
 
   .initialization-preload-eyebrow {
     margin: 0;
     color: var(--text-tertiary);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.24em;
     text-transform: uppercase;
   }
 
   .initialization-preload-title {
-    margin: 12px 0 0;
+    margin: 0.75rem 0 0;
     color: var(--text-primary);
-    font-size: 16px;
+    font-size: 1rem;
     font-weight: 600;
   }
 
   .initialization-preload-current-label {
-    margin: 8px 0 0;
+    margin: 0.5rem 0 0;
     overflow: hidden;
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: 0.875rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .initialization-preload-progress-track {
-    margin-top: 16px;
-    height: 8px;
-    border-radius: 999px;
+    margin-top: 1rem;
+    height: 0.5rem;
+    border-radius: 62.4375rem;
     background: var(--bg-panel-muted);
   }
 
   .initialization-preload-progress-fill {
     height: 100%;
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: var(--accent);
     transition: width 200ms;
   }
 
   .initialization-preload-meta {
-    margin-top: 12px;
+    margin-top: 0.75rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   @media (max-width: 700px) {

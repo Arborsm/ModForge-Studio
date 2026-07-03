@@ -808,5 +808,5 @@ pub fn apply_edit_data_patch(
 }
 
 #[cfg(test)]
-#[path = "tests/edit_data_tests.rs"]
+#[path = "../../../tests/unit/domain/content_patcher/apply/edit_data_tests.rs"]
 mod tests;

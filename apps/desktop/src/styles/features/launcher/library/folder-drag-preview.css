@@ -1,49 +1,49 @@
 @layer components {
   .launcher-library-folder-drag-preview {
     display: grid;
-    width: 236px;
-    max-width: calc(100vw - 24px);
-    grid-template-columns: 58px minmax(0, 1fr);
+    width: 14.75rem;
+    max-width: calc(100vw - 1.5rem);
+    grid-template-columns: 3.625rem minmax(0, 1fr);
     align-items: center;
-    gap: 11px;
+    gap: 0.6875rem;
     border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--launcher-border-subtle));
-    border-radius: 8px;
+    border-radius: 0.5rem;
     background: var(--launcher-surface-base);
-    padding: 10px;
+    padding: 0.625rem;
     color: var(--launcher-text-primary);
     font-weight: 850;
     box-shadow:
-      0 24px 54px rgba(15, 23, 42, 0.24),
-      0 10px 24px rgba(37, 99, 235, 0.14),
+      0 1.5rem 3.375rem rgba(15, 23, 42, 0.24),
+      0 0.625rem 1.5rem rgba(37, 99, 235, 0.14),
       0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
     transform: rotate(1deg) scale(1.015);
   }
 
   .launcher-library-folder-drag-preview-grid {
     display: grid;
-    width: 58px;
-    height: 58px;
+    width: 3.625rem;
+    height: 3.625rem;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 5px;
+    gap: 0.3125rem;
     place-items: center;
     border: 1px solid color-mix(in srgb, var(--launcher-border-soft) 74%, var(--bg-panel));
-    border-radius: 16px;
+    border-radius: 1rem;
     background: linear-gradient(145deg, var(--launcher-surface-base), var(--launcher-surface-muted));
-    padding: 7px;
+    padding: 0.4375rem;
   }
 
   .launcher-library-folder-drag-preview-grid[data-preview-count='1'] {
     grid-template-columns: minmax(0, 1fr);
-    padding: 12px;
+    padding: 0.75rem;
   }
 
   .launcher-library-folder-drag-preview-grid[data-preview-count='1'][data-preview-kind='folder'] {
-    padding: 15px;
+    padding: 0.9375rem;
   }
 
   .launcher-library-folder-drag-preview-grid[data-preview-count='2'] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding: 9px 5px;
+    padding: 0.5625rem 0.3125rem;
   }
 
   .launcher-library-folder-drag-preview-grid[data-preview-count='3'] {
@@ -58,10 +58,10 @@
     height: 100%;
     place-items: center;
     overflow: hidden;
-    border-radius: 7px;
+    border-radius: 0.4375rem;
     background: linear-gradient(145deg, var(--accent-soft), color-mix(in srgb, var(--accent) 22%, var(--bg-panel)));
     color: var(--accent);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 850;
   }
 
@@ -89,9 +89,9 @@
   }
 
   .launcher-library-folder-drag-preview-folder-glyph {
-    width: 17px;
-    height: 13px;
-    border-radius: 3px 3px 2px 2px;
+    width: 1.0625rem;
+    height: 0.8125rem;
+    border-radius: 0.1875rem 0.1875rem 0.125rem 0.125rem;
     background: var(--accent);
     clip-path: polygon(0 28%, 35% 28%, 43% 0, 100% 0, 100% 100%, 0 100%);
     content: '';

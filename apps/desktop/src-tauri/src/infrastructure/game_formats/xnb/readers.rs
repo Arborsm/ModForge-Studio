@@ -625,7 +625,7 @@ fn parse_bracket_subtypes(full: &str) -> Vec<String> {
 }
 
 #[cfg(test)]
-#[path = "tests/readers_tests.rs"]
+#[path = "../../../tests/unit/infrastructure/game_formats/xnb/readers_tests.rs"]
 mod tests;
 
 fn parse_angle_subtypes(full: &str) -> Option<Vec<String>> {

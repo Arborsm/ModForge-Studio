@@ -80,4 +80,6 @@ pub fn copy_cp_maker_draft(
 }
 
 #[cfg(test)]
+#[cfg(test)]
+#[path = "../tests/unit/domain/cp_maker/mod.rs"]
 mod tests;

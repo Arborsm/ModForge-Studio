@@ -9,7 +9,6 @@ export type WorkbenchShellCopy = {
     modeLabel: string
     workbench: string
     launcher: string
-    quitConfirm: string
   }
   menus: string[]
   nav: Record<CoreWorkspaceMode, string>
@@ -77,34 +76,90 @@ export type WorkbenchShellCopy = {
     moduleInspector: string
   }
   workbenchNavigation: {
-    openLaunchpad: string
-    closeLaunchpad: string
     title: string
     eyebrow: string
+    homeDescription: string
+    backToWorkspace: string
+    backToWorkspaceHint: string
     searchPlaceholder: string
+    searchShortcut: string
+    searchResults: string
+    searchEmpty: (query: string) => string
+    heroTitle: string
     rootPages: string
+    rootPagesHint: string
     projectChildren: string
+    projectChildrenHint: string
     currentPage: string
     rootPage: string
     rootModeLabels: Record<WorkspaceMode, string>
     rootModeCodes: Record<WorkspaceMode, string>
+    globalBrowseHint: (mode: WorkspaceMode) => string
+    globalBrowseCapability: (mode: WorkspaceMode) => string
+    globalBrowseCapabilityLabel: (mode: WorkspaceMode) => string
+    makerModeCodes: Record<'map' | 'events' | 'items', string>
+    makerModeHint: (mode: 'map' | 'events' | 'items') => string
     currentMarker: string
-    projectRequiredLabel: string
-    projectToolLocked: string
+    devModeCode: string
+    pendingProjectMarker: string
+    projectToolNeedsSelection: string
     openProjectTool: string
-    projectRequiredTitle: string
-    projectRequiredChooseDescription: string
-    projectRequiredCreateDescription: string
-    selectProjectAction: string
     createProjectAction: string
+    newProjectAction: string
+    newProjectCode: string
+    newProjectHint: string
+    importProjectAction: string
+    importProjectCode: string
+    importProjectHint: string
     recentPages: string
     home: string
     projectLobby: string
-    chooseProjectTitle: string
-    cancelProjectSelection: string
+    projectLibraryTitle: string
+    projectLibraryCode: string
+    projectLibraryHint: string
+    makeLauncher: string
+    makeLauncherCode: string
+    gameDirectoryMissingTitle: string
+    gameDirectoryMissingDescription: string
+    gameDirectoryAction: string
+    gameDirectoryRequiredShort: string
+    statusMonitorTitle: string
+    currentProjectLabel: string
+    noCurrentProject: string
+    noCurrentProjectTitle: string
+    noCurrentProjectHint: string
+    currentProjectMeta: (uniqueId: string) => string
+    openProjectLibraryAction: string
+    continueProjectAction: string
+    pendingExportCount: (count: number) => string
+    pendingExportMetric: string
+    pendingExportDetail: string
+    pendingExportEmptyTitle: string
+    pendingExportEmptyDescription: string
+    conflictCount: (count: number) => string
+    conflictMetric: string
+    conflictDetail: string
+    conflictEmptyTitle: string
+    conflictEmptyDescription: string
+    taskCenterTitle: string
+    taskCenterSubtitle: string
+    closeTaskCenter: string
+    taskCenterRealDataNote: string
+    gameDirectoryTaskTitle: string
+    gameDirectoryTaskIdle: string
+    gameDirectoryReadyTitle: string
+    closeDialog: string
+    continueCurrentProject: (projectName: string) => string
+    chooseProjectStep: string
+    continueMakerCta: (modeLabel: string) => string
+    enterMakerCta: (modeLabel: string) => string
+    makerPendingFormat: (modeLabel: string) => string
+    useProjectFor: (modeLabel: string) => string
+    cancelMakerPending: string
     mapMaking: string
     eventMaking: string
     itemMaking: string
+    devToolsTitle: string
   }
   rightDock: {
     title: string

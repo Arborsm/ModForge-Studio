@@ -173,5 +173,5 @@ fn normalize_attached_api_target(target: &str) -> String {
 }
 
 #[cfg(test)]
-#[path = "../../tests/attached_api_tests.rs"]
+#[path = "../../tests/integration/attached_api_tests.rs"]
 mod tests;

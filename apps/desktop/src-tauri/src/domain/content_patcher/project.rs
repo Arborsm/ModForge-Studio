@@ -200,5 +200,5 @@ pub fn load_content_patcher_project(path: String) -> Result<ContentPatcherProjec
 }
 
 #[cfg(test)]
-#[path = "tests/project_tests.rs"]
+#[path = "../../tests/unit/domain/content_patcher/project_tests.rs"]
 mod tests;

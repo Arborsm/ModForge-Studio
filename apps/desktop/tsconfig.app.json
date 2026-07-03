@@ -12,7 +12,7 @@
       "@entities/*": ["./src/entities/*"],
       "@shared/*": ["./src/shared/*"],
       "@platform/*": ["./src/platform/*"],
-      "@test/*": ["./src/test/*"],
+      "@test/*": ["./src/tests/support/*"],
       "@locales": ["./src/locales/index.ts"],
       "@locales/*": ["./src/locales/*"]
     },

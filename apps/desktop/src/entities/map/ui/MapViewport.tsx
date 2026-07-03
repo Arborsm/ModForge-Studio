@@ -289,8 +289,8 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
           `linear-gradient(${rgbaFromHex(accentColor, 0.04)} 1px, transparent 1px)`,
           `linear-gradient(90deg, ${rgbaFromHex(accentColor, 0.04)} 1px, transparent 1px)`,
         ].join(', '),
-        backgroundSize: ['100px 100px', '100px 100px', '20px 20px', '20px 20px'].join(', '),
-        backgroundPosition: ['-1px -1px', '-1px -1px', '-1px -1px', '-1px -1px'].join(', '),
+        backgroundSize: ['6.25rem 6.25rem', '6.25rem 6.25rem', '1.25rem 1.25rem', '1.25rem 1.25rem'].join(', '),
+        backgroundPosition: ['-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem'].join(', '),
       } satisfies CSSProperties
     }
 
@@ -303,8 +303,10 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
         `linear-gradient(${rgbaFromHex(accentColor, 0.05)} 1px, transparent 1px)`,
         `linear-gradient(90deg, ${rgbaFromHex(accentColor, 0.05)} 1px, transparent 1px)`,
       ].join(', '),
-      backgroundSize: ['auto', '100px 100px', '100px 100px', '20px 20px', '20px 20px'].join(', '),
-      backgroundPosition: ['0 0', '-1px -1px', '-1px -1px', '-1px -1px', '-1px -1px'].join(', '),
+      backgroundSize: ['auto', '6.25rem 6.25rem', '6.25rem 6.25rem', '1.25rem 1.25rem', '1.25rem 1.25rem'].join(', '),
+      backgroundPosition: ['0 0', '-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem'].join(
+        ', ',
+      ),
     } satisfies CSSProperties
   }, [accentColor, theme])
   const highlightedObject = useMemo(() => {

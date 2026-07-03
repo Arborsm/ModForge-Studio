@@ -1,10 +1,10 @@
 @layer components {
   .launcher-library-grid {
     display: grid;
-    gap: 20px;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(16.25rem, 1fr));
     align-items: start;
-    padding-top: 6px;
+    padding-top: 0.375rem;
   }
 
   .launcher-library-virtual-grid {
@@ -19,17 +19,21 @@
     left: 0;
     display: grid;
     width: 100%;
-    gap: 20px;
+    gap: 1rem;
     align-items: start;
     will-change: transform;
   }
 
+  .launcher-library-grid-viewport-scrolling .launcher-library-grid-reveal,
+  .launcher-library-grid-viewport-scrolling .loading-motion-child-reveal {
+    animation: none !important;
+    transition: none !important;
+  }
+
   .launcher-library-grid-reveal {
     min-width: 0;
-    margin: -6px;
-    padding: 6px;
-    content-visibility: auto;
-    contain-intrinsic-size: 212px 260px;
+    margin: -0.375rem;
+    padding: 0.375rem;
   }
 
   .launcher-library-modules-floating-panel {
@@ -37,18 +41,18 @@
     top: var(--launcher-modules-panel-top);
     left: var(--launcher-modules-panel-left);
     z-index: 72;
-    width: min(var(--launcher-modules-panel-width), calc(100vw - 24px));
-    height: min(var(--launcher-modules-panel-height), calc(100vh - 24px));
+    width: min(var(--launcher-modules-panel-width), calc(100vw - 1.5rem));
+    height: min(var(--launcher-modules-panel-height), calc(100vh - 1.5rem));
     min-width: 0;
     --launcher-modules-panel-surface: #ffffff;
     --launcher-modules-panel-grid-surface: #f8fafc;
     --launcher-modules-panel-soft: var(--accent-soft);
     border: 1px solid color-mix(in srgb, var(--launcher-border) 92%, white);
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background: var(--launcher-modules-panel-surface);
     box-shadow:
-      0 18px 42px rgba(15, 23, 42, 0.13),
-      0 4px 12px rgba(15, 23, 42, 0.05);
+      0 1.125rem 2.625rem rgba(15, 23, 42, 0.13),
+      0 0.25rem 0.75rem rgba(15, 23, 42, 0.05);
     overflow: visible;
     animation: launcher-library-modules-panel-in 180ms ease-out;
     transform-origin: var(--launcher-modules-panel-arrow-left) top;
@@ -60,10 +64,10 @@
 
   .launcher-library-modules-floating-panel::before {
     position: absolute;
-    top: -7px;
+    top: -0.4375rem;
     left: var(--launcher-modules-panel-arrow-left);
-    width: 12px;
-    height: 12px;
+    width: 0.75rem;
+    height: 0.75rem;
     border-top: 1px solid color-mix(in srgb, var(--launcher-border) 86%, white);
     border-left: 1px solid color-mix(in srgb, var(--launcher-border) 86%, white);
     background: var(--launcher-modules-panel-surface);
@@ -73,7 +77,7 @@
 
   .launcher-library-modules-floating-panel[data-placement='top']::before {
     top: auto;
-    bottom: -7px;
+    bottom: -0.4375rem;
     border: 0;
     border-right: 1px solid color-mix(in srgb, var(--launcher-border) 86%, white);
     border-bottom: 1px solid color-mix(in srgb, var(--launcher-border) 86%, white);
@@ -84,11 +88,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    height: 56px;
-    padding: 10px 12px 9px 14px;
+    gap: 0.75rem;
+    height: 3.5rem;
+    padding: 0.625rem 0.75rem 0.5625rem 0.875rem;
     border-bottom: 1px solid color-mix(in srgb, var(--launcher-border) 72%, transparent);
-    border-radius: 12px 12px 0 0;
+    border-radius: 0.75rem 0.75rem 0 0;
     background: linear-gradient(180deg, color-mix(in srgb, var(--launcher-modules-panel-soft) 58%, transparent), transparent);
   }
 
@@ -107,25 +111,25 @@
 
   .launcher-library-modules-floating-title strong {
     color: var(--launcher-text-primary);
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 800;
     letter-spacing: 0;
   }
 
   .launcher-library-modules-floating-title span {
-    margin-top: 2px;
+    margin-top: 0.125rem;
     color: var(--launcher-text-muted);
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .launcher-library-modules-floating-close {
     flex: 0 0 auto;
     display: inline-grid;
     place-items: center;
-    width: 26px;
-    height: 26px;
+    width: 1.625rem;
+    height: 1.625rem;
     border: 1px solid color-mix(in srgb, var(--launcher-border) 78%, transparent);
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: var(--launcher-modules-panel-surface);
     color: var(--launcher-text-muted);
     transition:
@@ -139,20 +143,20 @@
   .launcher-library-modules-floating-close:focus-visible {
     color: var(--accent);
     border-color: color-mix(in srgb, var(--accent) 34%, transparent);
-    box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 12%, transparent);
-    transform: translateY(-1px);
+    box-shadow: 0 0.5rem 1.125rem color-mix(in srgb, var(--accent) 12%, transparent);
+    transform: translateY(-0.0625rem);
   }
 
   .launcher-library-modules-floating-grid {
     display: grid;
     grid-template-columns: repeat(var(--launcher-modules-panel-columns), minmax(var(--launcher-modules-panel-card-width), 1fr));
-    gap: 12px;
-    height: calc(100% - 56px);
-    padding: 12px;
+    gap: 0.75rem;
+    height: calc(100% - 3.5rem);
+    padding: 0.75rem;
     overflow: hidden;
     overflow-x: hidden;
     background: var(--launcher-modules-panel-grid-surface);
-    border-radius: 0 0 12px 12px;
+    border-radius: 0 0 0.75rem 0.75rem;
   }
 
   .dark .launcher-library-modules-floating-panel {
@@ -168,23 +172,23 @@
 
   .launcher-library-module-reveal {
     content-visibility: auto;
-    contain-intrinsic-size: 260px 84px;
+    contain-intrinsic-size: 16.25rem 5.25rem;
   }
 
   .launcher-library-module-tile {
     position: relative;
     display: grid;
-    grid-template-columns: 56px minmax(0, 1fr);
-    gap: 10px;
+    grid-template-columns: 3.5rem minmax(0, 1fr);
+    gap: 0.625rem;
     align-items: center;
-    min-height: 84px;
-    max-height: 84px;
-    padding: 8px;
+    min-height: 5.25rem;
+    max-height: 5.25rem;
+    padding: 0.5rem;
     border: 1px solid color-mix(in srgb, var(--launcher-border) 86%, transparent);
-    border-radius: 8px;
+    border-radius: 0.5rem;
     background: var(--launcher-modules-panel-surface);
     box-shadow:
-      0 1px 2px rgba(15, 23, 42, 0.04),
+      0 1px 0.125rem rgba(15, 23, 42, 0.04),
       inset 0 1px 0 var(--bevel-highlight);
     cursor: pointer;
     transition:
@@ -198,9 +202,9 @@
   .launcher-library-module-tile:focus-within {
     border-color: color-mix(in srgb, var(--accent) 38%, var(--launcher-border));
     box-shadow:
-      0 8px 16px rgba(15, 23, 42, 0.08),
+      0 0.5rem 1rem rgba(15, 23, 42, 0.08),
       0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
-    transform: translateY(-1px);
+    transform: translateY(-0.0625rem);
   }
 
   .launcher-library-module-tile-disabled {
@@ -210,15 +214,15 @@
   .launcher-library-module-tile-selected {
     border-color: color-mix(in srgb, var(--accent) 58%, var(--launcher-border));
     box-shadow:
-      0 10px 22px color-mix(in srgb, var(--accent) 12%, transparent),
-      0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+      0 0.625rem 1.375rem color-mix(in srgb, var(--accent) 12%, transparent),
+      0 0 0 0.125rem color-mix(in srgb, var(--accent) 18%, transparent);
   }
 
   .launcher-library-module-thumb {
-    width: 56px;
-    height: 56px;
-    min-height: 56px;
-    border-radius: 8px;
+    width: 3.5rem;
+    height: 3.5rem;
+    min-height: 3.5rem;
+    border-radius: 0.5rem;
     aspect-ratio: 1;
   }
 
@@ -227,7 +231,7 @@
   }
 
   .launcher-library-module-thumb .launcher-mod-card-cover-word {
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .launcher-library-module-main {
@@ -246,30 +250,30 @@
 
   .launcher-library-module-main strong {
     color: var(--launcher-text-primary);
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 800;
     line-height: 1.2;
   }
 
   .launcher-library-module-main span {
-    margin-top: 3px;
+    margin-top: 0.1875rem;
     color: var(--launcher-text-muted);
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .launcher-library-module-actions {
     display: flex;
-    gap: 5px;
-    margin-top: 7px;
+    gap: 0.3125rem;
+    margin-top: 0.4375rem;
   }
 
   .launcher-library-module-actions button {
     display: grid;
     place-items: center;
-    width: 26px;
-    height: 24px;
+    width: 1.625rem;
+    height: 1.5rem;
     border: 1px solid color-mix(in srgb, var(--launcher-border) 92%, var(--launcher-text-muted));
-    border-radius: 6px;
+    border-radius: 0.375rem;
     background: color-mix(in srgb, var(--launcher-modules-panel-surface) 88%, var(--launcher-modules-panel-soft));
     color: var(--launcher-text-muted);
     box-shadow: inset 0 1px 0 var(--bevel-highlight);
@@ -284,14 +288,14 @@
   .launcher-library-module-actions button:focus-visible {
     color: var(--accent);
     border-color: color-mix(in srgb, var(--accent) 34%, transparent);
-    box-shadow: 0 7px 14px color-mix(in srgb, var(--accent) 10%, transparent);
-    transform: translateY(-1px);
+    box-shadow: 0 0.4375rem 0.875rem color-mix(in srgb, var(--accent) 10%, transparent);
+    transform: translateY(-0.0625rem);
   }
 
   @keyframes launcher-library-modules-panel-in {
     from {
       opacity: 0;
-      transform: translateY(-6px) scale(0.985);
+      transform: translateY(-0.375rem) scale(0.985);
     }
 
     to {
@@ -304,7 +308,7 @@
     position: relative;
     display: grid;
     height: 100%;
-    gap: 12px;
+    gap: 0.75rem;
   }
 
   .launcher-mod-card-has-modules .launcher-mod-card-stack {
@@ -314,34 +318,34 @@
 
   .launcher-mod-card-child-tools {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 0.625rem;
+    right: 0.625rem;
     left: auto;
     z-index: 4;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    max-width: calc(100% - 20px);
+    gap: 0.25rem;
+    max-width: calc(100% - 1.25rem);
   }
 
   .launcher-mod-card-child-count {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    min-height: 24px;
-    max-width: 124px;
-    padding: 4px 6px 4px 8px;
+    gap: 0.25rem;
+    min-height: 1.5rem;
+    max-width: 7.75rem;
+    padding: 0.25rem 0.375rem 0.25rem 0.5rem;
     border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
-    border-radius: 999px;
+    border-radius: 62.4375rem;
     background: color-mix(in srgb, var(--accent) 14%, color-mix(in srgb, var(--bg-panel) 94%, transparent));
     color: color-mix(in srgb, var(--accent) 82%, var(--launcher-text-primary));
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 800;
     line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.14);
+    box-shadow: 0 0.375rem 0.875rem rgba(15, 23, 42, 0.14);
     cursor: pointer;
     transition:
       border-color 140ms ease,
@@ -360,8 +364,8 @@
 
   .launcher-mod-card-child-count-icon {
     flex: 0 0 auto;
-    width: 12px;
-    height: 12px;
+    width: 0.75rem;
+    height: 0.75rem;
     opacity: 0.88;
   }
 
@@ -376,8 +380,8 @@
     border-color: color-mix(in srgb, var(--accent) 36%, transparent);
     background: color-mix(in srgb, var(--accent-soft) 92%, var(--launcher-surface-base));
     color: var(--accent);
-    box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 10%, transparent);
-    transform: translateY(-1px);
+    box-shadow: 0 0.5rem 1.125rem color-mix(in srgb, var(--accent) 10%, transparent);
+    transform: translateY(-0.0625rem);
   }
 
   .launcher-mod-card-cover-image-blur-strip {
@@ -398,7 +402,7 @@
     height: 100%;
     object-fit: cover;
     object-position: center;
-    filter: blur(10px) saturate(1.04);
+    filter: blur(0.625rem) saturate(1.04);
     transform: scale(1.03);
     transform-origin: center;
     opacity: 0.64;
@@ -429,7 +433,7 @@
     inset: 0;
     z-index: 1;
     display: block;
-    padding: 14px;
+    padding: 0.875rem;
   }
 
   .launcher-mod-card-cover-word {
@@ -437,16 +441,16 @@
     inset: 50% auto auto 50%;
     z-index: 1;
     transform: translate(-50%, -50%);
-    max-width: calc(100% - 28px);
+    max-width: calc(100% - 1.75rem);
     color: rgba(255, 255, 255, 0.82);
-    font-size: clamp(30px, 2.5vw, 44px);
+    font-size: clamp(1.875rem, 2.5vw, 2.75rem);
     font-weight: 900;
     line-height: 0.9;
     letter-spacing: 0.04em;
     text-align: center;
     text-transform: uppercase;
     opacity: 0.82;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+    text-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.12);
     user-select: none;
     pointer-events: none;
   }
@@ -457,15 +461,15 @@
     z-index: 1;
     opacity: 0.018;
     background-image:
-      radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.9) 0 0.8px, transparent 1px),
-      radial-gradient(circle at 74% 34%, rgba(255, 255, 255, 0.86) 0 0.7px, transparent 1px),
-      radial-gradient(circle at 46% 72%, rgba(255, 255, 255, 0.78) 0 0.6px, transparent 1px),
-      radial-gradient(circle at 82% 82%, rgba(255, 255, 255, 0.8) 0 0.8px, transparent 1px);
+      radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.9) 0 0.05rem, transparent 1px),
+      radial-gradient(circle at 74% 34%, rgba(255, 255, 255, 0.86) 0 0.0437rem, transparent 1px),
+      radial-gradient(circle at 46% 72%, rgba(255, 255, 255, 0.78) 0 0.0375rem, transparent 1px),
+      radial-gradient(circle at 82% 82%, rgba(255, 255, 255, 0.8) 0 0.05rem, transparent 1px);
     background-size:
-      18px 18px,
-      22px 22px,
-      16px 16px,
-      24px 24px;
+      1.125rem 1.125rem,
+      1.375rem 1.375rem,
+      1rem 1rem,
+      1.5rem 1.5rem;
     mix-blend-mode: soft-light;
     pointer-events: none;
   }
@@ -482,7 +486,7 @@
   .launcher-mod-card-summary {
     margin: 0;
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     line-height: 1.45;
   }
 }

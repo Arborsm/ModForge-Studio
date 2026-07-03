@@ -76,6 +76,25 @@ artifacts. macOS and Windows releases continue to use Tauri packaging.
 Linux-specific package scripts can be run directly when only one package format
 is needed: `vp run release:linux:deb` or `vp run release:linux:rpm`.
 
+## Test Layout
+
+Tests are kept out of source folders and grouped by type.
+
+Frontend tests live under `apps/desktop/src/tests/`:
+
+- `src/tests/unit/` — component and module tests, mirroring the source path they exercise.
+- `src/tests/architecture/` — architecture and repository-shape assertions.
+- `src/tests/integration/` — cross-module integration tests.
+- `src/tests/support/` — shared test infrastructure: `setup.ts`, render helpers, mock ports, and test assets. Imported via the `@test/*` alias.
+
+Rust tests are centralized by type under `apps/desktop/src-tauri/`:
+
+- `src-tauri/src/tests/unit/` — unit tests for domain/infrastructure modules.
+- `src-tauri/src/tests/integration/` — cross-module integration tests.
+- `src-tauri/tests/` — top-level Cargo regression and report tests.
+
+Unit and integration Rust tests are declared from source files via `#[cfg(test)] #[path = "..."] mod ...;`. Top-level regression tests are discovered by Cargo from `tests/**/*.rs`.
+
 ## Validation Expectations
 
 Run the smallest useful check while iterating, but report the final validation
@@ -109,7 +128,7 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 
 UI and layout changes should be verified with a screenshot, Playwright-backed
 interaction script, or a clear manual path. Architecture changes should update
-or add tests under `apps/desktop/src/test/architecture`.
+or add tests under `apps/desktop/src/tests/architecture`.
 
 ## Implementation Completeness
 

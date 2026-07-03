@@ -7,6 +7,7 @@ import {
   listenToWindowCloseRequest,
   loadAppUiState,
   minimizeCurrentWindow,
+  minimizeCurrentWindowToTray,
   patchAppUiState,
   toggleMaximizeCurrentWindow,
   toggleFullscreenCurrentWindow,
@@ -51,6 +52,7 @@ import { createWorkbenchOrchestration } from '../providers/workbenchOrchestratio
 import { LauncherPage as LauncherPageView } from '@pages/launcher'
 import { DevDebugOverlay } from '@pages/workbench/ui/DevDebugOverlay'
 import type { PendingWorkbenchCommandIntent, SettingsWindowCategory } from '@shared/contracts'
+import { QuitDialog } from '@widgets/quit-dialog'
 import { WorkbenchShellSkeleton } from '@shared/ui/WorkbenchShellSkeleton'
 
 const SettingsWindow = lazy(() => import('./SettingsWindow'))
@@ -118,9 +120,12 @@ export default function App() {
   const setDebugEnabled = usePreferencesStore((state) => state.setDebugEnabled)
   const [appMode, setAppMode] = useState<AppMode>(initialShellState.appMode)
   const [launcherPage, setLauncherPage] = useState<LauncherPage>(initialShellState.launcherPage)
+  const [workbenchHomeActive, setWorkbenchHomeActive] = useState(initialShellState.appMode === 'workbench')
   const [appUiStateReady, setAppUiStateReady] = useState(!canUseDesktopHost())
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
   const [settingsWindowCategory, setSettingsWindowCategory] = useState<SettingsWindowCategory>('appearance')
+  const [quitDialogOpen, setQuitDialogOpen] = useState(false)
+  const [quitDialogRemember, setQuitDialogRemember] = useState(false)
   const [windowIsMaximized, setWindowIsMaximized] = useState(false)
   const [workbenchHasOpened, setWorkbenchHasOpened] = useState(initialShellState.appMode === 'workbench')
   const [workbenchActivationKey, setWorkbenchActivationKey] = useState(0)
@@ -171,13 +176,48 @@ export default function App() {
   useEffect(() => eventBus.subscribe(workbenchOrchestration.handleEvent), [eventBus, workbenchOrchestration])
 
   const confirmAndCloseCurrentWindow = useCallback(async () => {
-    if (!window.confirm(copy.shell.quitConfirm)) {
-      return false
+    const { windowCloseBehavior, rememberCloseChoice } = usePreferencesStore.getState()
+
+    if (rememberCloseChoice) {
+      if (windowCloseBehavior === 'minimizeToTray') {
+        await minimizeCurrentWindowToTray()
+      } else {
+        await forceCloseCurrentWindow()
+      }
+
+      return windowCloseBehavior === 'quit'
+    }
+
+    setQuitDialogOpen(true)
+    setQuitDialogRemember(false)
+    return false
+  }, [])
+
+  const handleQuitConfirm = useCallback(async () => {
+    setQuitDialogOpen(false)
+
+    if (quitDialogRemember) {
+      usePreferencesStore.getState().setWindowCloseBehavior('quit')
+      usePreferencesStore.getState().setRememberCloseChoice(true)
     }
 
     await forceCloseCurrentWindow()
-    return true
-  }, [copy.shell.quitConfirm])
+  }, [quitDialogRemember])
+
+  const handleMinimizeToTray = useCallback(async () => {
+    setQuitDialogOpen(false)
+
+    if (quitDialogRemember) {
+      usePreferencesStore.getState().setWindowCloseBehavior('minimizeToTray')
+      usePreferencesStore.getState().setRememberCloseChoice(true)
+    }
+
+    await minimizeCurrentWindowToTray()
+  }, [quitDialogRemember])
+
+  const handleQuitDialogClose = useCallback(() => {
+    setQuitDialogOpen(false)
+  }, [])
 
   useEffect(() => {
     windowCloseRequestRef.current = confirmAndCloseCurrentWindow
@@ -329,6 +369,8 @@ export default function App() {
         launcherPage: launcherPageRef.current,
         debugEnabled,
         notificationSoundEnabled,
+        windowCloseBehavior: usePreferencesStore.getState().windowCloseBehavior,
+        rememberCloseChoice: usePreferencesStore.getState().rememberCloseChoice,
       },
     }).catch((error) => {
       reportAppEvent({
@@ -544,6 +586,7 @@ export default function App() {
                   onToggleMaximizeWindow={() => void handleToggleMaximizeWindow()}
                   onCloseWindow={confirmAndCloseCurrentWindow}
                   onWindowCloseRequestChange={handleWindowCloseRequestChange}
+                  onHomeRouteActiveChange={setWorkbenchHomeActive}
                   onWorkbenchEvent={eventBus.emit}
                   pendingWorkbenchIntent={pendingWorkbenchIntent}
                   onClearPendingIntent={() => appCommandHandler.clearPendingIntent()}
@@ -552,7 +595,7 @@ export default function App() {
               </Suspense>
             ) : null}
 
-            {debugEnabled ? (
+            {debugEnabled && !(appMode === 'workbench' && workbenchHomeActive) ? (
               <DevDebugOverlay
                 workspaceMode={appMode === 'launcher' ? 'launcher' : 'map'}
                 mapName={null}
@@ -584,6 +627,15 @@ export default function App() {
                 />
               </Suspense>
             ) : null}
+
+            <QuitDialog
+              open={quitDialogOpen}
+              onClose={handleQuitDialogClose}
+              onQuit={handleQuitConfirm}
+              onMinimizeToTray={handleMinimizeToTray}
+              rememberChoice={quitDialogRemember}
+              onRememberChoiceChange={setQuitDialogRemember}
+            />
             <div className="app-window-titlebar-divider" aria-hidden="true" />
           </div>
         </LoadingMotionProvider>

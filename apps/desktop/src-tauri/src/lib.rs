@@ -58,6 +58,9 @@ use commands::mods::{load_mod_project, save_mod_project, scan_mod_asset_index, s
 use commands::resource_registry::load_resource_registry;
 use commands::saves::scan_default_save_slots;
 use support::logging::{DebugLoggingState, init_host_logging};
+use tauri::Manager;
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::tray::{TrayIconBuilder, TrayIconEvent};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -87,6 +90,53 @@ pub fn run() {
                     "Startup diagnostics probe could not start: error={error}"
                 );
             }
+
+            let tray_menu = Menu::with_items(
+                app,
+                &[
+                    &MenuItem::with_id(app, "show", "Show ModForge Studio", true, None::<&str>)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?,
+                ],
+            )?;
+
+            let _tray = TrayIconBuilder::with_id("main")
+                .icon(
+                    app.default_window_icon()
+                        .cloned()
+                        .expect("default window icon is not set"),
+                )
+                .tooltip("ModForge Studio")
+                .menu(&tray_menu)
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click { .. } = event {
+                        if let Some(window) = tray.app_handle().get_webview_window("main") {
+                            match window.is_visible() {
+                                Ok(true) => {
+                                    let _ = window.hide();
+                                }
+                                _ => {
+                                    let _ = window.show();
+                                    let _ = window.set_focus();
+                                }
+                            }
+                        }
+                    }
+                })
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .build(app)?;
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

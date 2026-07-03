@@ -15,11 +15,14 @@ export {
 export {
   closeCurrentWindow,
   forceCloseCurrentWindow,
+  hideCurrentWindow,
   isCurrentWindowFullscreen,
   isCurrentWindowMaximized,
   listenToWindowCloseRequest,
   minimizeCurrentWindow,
+  minimizeCurrentWindowToTray,
   setFullscreenCurrentWindow,
+  showCurrentWindow,
   toggleFullscreenCurrentWindow,
   toggleMaximizeCurrentWindow,
 } from './window'

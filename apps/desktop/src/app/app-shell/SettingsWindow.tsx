@@ -1,4 +1,4 @@
-import { Bug, Maximize2, Palette, Settings2, Square, Volume2, X } from 'lucide-react'
+import { Bug, LogOut, Maximize2, Palette, Settings2, Square, Volume2, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { LOADING_MOTION_INTENSITY_IDS, LOADING_MOTION_SPEED_IDS, LOADING_MOTION_STYLE_IDS } from '@shared/lib/loading-motion'
@@ -8,7 +8,7 @@ import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { THEME_PRESETS } from '@shared/lib/theme/presets'
 import type { LocaleCode } from '@locales/api'
 import { useSettingsMenuCopy } from '@locales/provider'
-import type { SettingsWindowCategory, WindowBorderTone, WindowBorderWeight } from '@shared/contracts'
+import type { SettingsWindowCategory, WindowBorderTone, WindowBorderWeight, WindowCloseBehavior } from '@shared/contracts'
 import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionStyleId } from '@shared/lib/loading-motion'
 
 type ThemeOption = {
@@ -100,6 +100,8 @@ export default function SettingsWindow({
   const activeThemeId = usePreferencesStore((state) => state.themeId)
   const activeWindowBorderTone = usePreferencesStore((state) => state.windowBorderTone)
   const activeWindowBorderWeight = usePreferencesStore((state) => state.windowBorderWeight)
+  const activeWindowCloseBehavior = usePreferencesStore((state) => state.windowCloseBehavior)
+  const rememberCloseChoice = usePreferencesStore((state) => state.rememberCloseChoice)
   const borderlessFullscreenEnabled = usePreferencesStore((state) => state.windowIsFullscreen)
   const debugModeEnabled = usePreferencesStore((state) => state.debugEnabled)
   const notificationSoundEnabled = usePreferencesStore((state) => state.notificationSoundEnabled)
@@ -108,6 +110,8 @@ export default function SettingsWindow({
   const onSelectLocale = usePreferencesStore((state) => state.setLocale)
   const onSelectWindowBorderTone = usePreferencesStore((state) => state.setWindowBorderTone)
   const onSelectWindowBorderWeight = usePreferencesStore((state) => state.setWindowBorderWeight)
+  const onSelectWindowCloseBehavior = usePreferencesStore((state) => state.setWindowCloseBehavior)
+  const setRememberCloseChoice = usePreferencesStore((state) => state.setRememberCloseChoice)
   const onToggleBorderlessFullscreen = usePreferencesStore((state) => state.toggleFullscreen)
   const setDebugModeEnabled = usePreferencesStore((state) => state.setDebugEnabled)
   const setNotificationSoundEnabled = usePreferencesStore((state) => state.setNotificationSoundEnabled)
@@ -144,6 +148,12 @@ export default function SettingsWindow({
   const windowBorderWeightOptions = (Object.entries(settingsCopy.windowBorderWeightOptions) as Array<[WindowBorderWeight, string]>).map(
     ([id, label]) => ({ id, label }),
   )
+  const closeBehaviorLabel = settingsCopy.closeBehaviorLabel
+  const closeBehaviorDescription = settingsCopy.closeBehaviorDescription
+  const closeBehaviorOptions = (Object.entries(settingsCopy.closeBehaviorOptions) as Array<[WindowCloseBehavior, string]>).map(
+    ([id, label]) => ({ id, label }),
+  )
+  const rememberCloseChoiceLabel = settingsCopy.rememberCloseChoiceLabel
   const borderlessFullscreenLabel = settingsCopy.borderlessFullscreenLabel
   const borderlessFullscreenDescription = settingsCopy.borderlessFullscreenDescription
   const enableBorderlessFullscreenLabel = settingsCopy.enableBorderlessFullscreenLabel
@@ -579,6 +589,64 @@ export default function SettingsWindow({
                   disabledLabel={disableBorderlessFullscreenLabel}
                   onToggle={() => void onToggleBorderlessFullscreen()}
                 />
+
+                <div className="settings-window-control-card">
+                  <div className="settings-window-control-meta">
+                    <span className="settings-window-control-icon" aria-hidden="true">
+                      <LogOut className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="settings-window-section-title">{closeBehaviorLabel}</p>
+                      <p className="settings-window-section-copy mt-2">{closeBehaviorDescription}</p>
+                    </div>
+                  </div>
+                  <div className="settings-window-option-grid" role="radiogroup" aria-label={closeBehaviorLabel}>
+                    {closeBehaviorOptions.map((option) => {
+                      const active = option.id === activeWindowCloseBehavior
+
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          className={cx('settings-window-option-button', active && 'settings-window-option-button-active')}
+                          role="radio"
+                          aria-checked={active}
+                          onClick={() => {
+                            if (!active) {
+                              onSelectWindowCloseBehavior(option.id)
+                            }
+                          }}
+                        >
+                          {option.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="settings-window-control-card">
+                  <div className="settings-window-control-meta">
+                    <span className="settings-window-control-icon" aria-hidden="true">
+                      <LogOut className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="settings-window-section-title">{rememberCloseChoiceLabel}</p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className={cx('settings-switch', rememberCloseChoice && 'settings-switch-active')}
+                    role="switch"
+                    aria-checked={rememberCloseChoice}
+                    onClick={() => setRememberCloseChoice(!rememberCloseChoice)}
+                  >
+                    <span className="settings-switch-copy">{rememberCloseChoice ? 'On' : 'Off'}</span>
+                    <span className="settings-switch-track" aria-hidden="true">
+                      <span className="settings-switch-thumb" />
+                    </span>
+                  </button>
+                </div>
               </section>
             ) : null}
 
