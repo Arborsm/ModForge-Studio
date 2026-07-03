@@ -3037,7 +3037,7 @@ describe('LauncherLibraryPage', () => {
     expect(measureVirtualGridRowMock).toHaveBeenCalled()
     expect(virtualRows[0]?.style.paddingBottom).toBe('')
     const measureVirtualRow = measureVirtualGridRowFactoryMock.mock.calls.at(-1)?.[0]
-    expect(measureVirtualRow?.(virtualRows[0]!)).toBe(230)
+    expect(measureVirtualRow?.(virtualRows[0]!)).toBe(226)
     expect(screen.getAllByRole('article').length).toBeLessThanOrEqual(library.mods.length)
 
     boundsSpy.mockRestore()

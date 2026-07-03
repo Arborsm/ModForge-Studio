@@ -16,6 +16,7 @@ import { EventStageActorSprite } from './EventStageActorSprite'
 import { EventStagePlaybackToolbar } from './EventStagePlaybackToolbar'
 import type { TileHoverInfo } from '@entities/map'
 import { cx } from '@shared/lib/helper'
+import type { EventStageAssetImageLoader } from '@entities/event'
 
 export type EventStageWorkspaceChromeMode = 'workspace' | 'console'
 
@@ -42,6 +43,7 @@ type EventStageWorkspaceProps = {
   onContextMenuAction?: (action: 'addActor' | 'setCamera' | 'addWarp' | 'conditionBuilder', tileX: number, tileY: number) => void
   conditionBuilderLabel?: string
   mapAssetLoader?: (gameRootPath: string, mapPath: string, locale: string) => Promise<MapAssetContent>
+  imageResourceLoader?: EventStageAssetImageLoader
   onActorAssetsChange?: (assets: Record<string, { spriteUrl: string | null; portraitUrl: string | null }>) => void
 }
 
@@ -68,6 +70,7 @@ export default function EventStageWorkspace({
   onContextMenuAction,
   conditionBuilderLabel,
   mapAssetLoader,
+  imageResourceLoader,
   onActorAssetsChange,
 }: EventStageWorkspaceProps) {
   const copy = useEventStageCopy()
@@ -115,6 +118,7 @@ export default function EventStageWorkspace({
     onSelectTimelineEntry,
     onPlaybackCommandChange,
     mapAssetLoader,
+    imageResourceLoader,
   })
   const noticeSymbolIcon = {
     music: Music2,

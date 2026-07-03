@@ -9,7 +9,7 @@ import {
   type FarmerRenderState,
 } from './farmerAppearanceRenderer'
 import type { LocaleCode } from '@locales/api'
-import { loadImageResourceFromPath } from '@shared/lib/assets'
+import { loadImageResourceFromPath, type LoadedImageResource } from '@shared/lib/assets'
 import type { PlayerAppearanceProfile } from '@entities/event'
 import { buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
 import {
@@ -585,20 +585,22 @@ function getStageEffectSortValue(effect: StageEffectState) {
   return Math.round(effect.baseY)
 }
 
+export type EventStageAssetImageLoader = (path: string, locale?: LocaleCode) => Promise<LoadedImageResource | null>
+
 function buildAssetPath(rootPath: string, folderName: 'Characters' | 'Portraits', textureName: string) {
   return `${rootPath}\\Content\\${folderName}\\${textureName}.xnb`
 }
 
-function preloadImage(path: string) {
-  return loadImageResourceFromPath(path)
+function preloadImage(path: string, imageLoader: EventStageAssetImageLoader = loadImageResourceFromPath) {
+  return imageLoader(path)
 }
 
-async function resolveContentImage(rootPath: string, textureName: string) {
+async function resolveContentImage(rootPath: string, textureName: string, imageLoader?: EventStageAssetImageLoader) {
   const path = buildGameContentPath(rootPath, textureName)
   if (!path) {
     return null
   }
-  const image = await preloadImage(path)
+  const image = await preloadImage(path, imageLoader)
   if (!image) {
     return null
   }
@@ -617,10 +619,11 @@ async function resolveFirstExistingImage(
   rootPath: string,
   folderName: 'Characters' | 'Portraits',
   textureCandidates: string[],
+  imageLoader?: EventStageAssetImageLoader,
 ): Promise<ResolvedAssetCandidate | null> {
   for (const textureName of textureCandidates) {
     const path = buildAssetPath(rootPath, folderName, textureName)
-    const image = await preloadImage(path)
+    const image = await preloadImage(path, imageLoader)
     if (image) {
       return { textureName, path, url: image.url, width: image.width, height: image.height, image: image.image }
     }
@@ -629,7 +632,11 @@ async function resolveFirstExistingImage(
   return null
 }
 
-async function resolveEffectAsset(textureName: string, rootPath: string | null): Promise<EffectAssetState> {
+async function resolveEffectAsset(
+  textureName: string,
+  rootPath: string | null,
+  imageLoader?: EventStageAssetImageLoader,
+): Promise<EffectAssetState> {
   if (!rootPath) {
     return {
       requestKey: `${rootPath ?? ''}::${textureName}`,
@@ -654,7 +661,7 @@ async function resolveEffectAsset(textureName: string, rootPath: string | null):
       loading: false,
     }
   }
-  const image = await preloadImage(path)
+  const image = await preloadImage(path, imageLoader)
 
   return {
     requestKey: `${rootPath}::${textureName}`,
@@ -673,11 +680,12 @@ async function resolveFarmerHairVariant(
   fallbackHairAsset: ResolvedAssetCandidate | null,
   hairMetadataIndex: Record<string, FarmerHairMetadataEntry>,
   hairStyleIndex: number,
+  imageLoader?: EventStageAssetImageLoader,
 ) {
   const metadata = hairMetadataIndex[String(hairStyleIndex)] ?? null
   const hairAsset =
     metadata && metadata.textureName && metadata.textureName !== 'hairstyles'
-      ? await resolveContentImage(rootPath, `Characters/Farmer/${metadata.textureName}`)
+      ? await resolveContentImage(rootPath, `Characters/Farmer/${metadata.textureName}`, imageLoader)
       : fallbackHairAsset
 
   return {
@@ -727,16 +735,17 @@ async function resolveFarmerAppearanceAssets(
   spriteAsset: ResolvedAssetCandidate | null,
   profile: PlayerAppearanceProfile | null,
   locale: LocaleCode,
+  imageLoader?: EventStageAssetImageLoader,
 ): Promise<FarmerAppearanceAssetState | null> {
   const isFemale = profile?.isFemale ?? spriteAsset?.textureName?.includes('girl') ?? false
   const [hairAsset, shirtsAsset, pantsAsset, accessoriesAsset, hatsAsset, skinColorsAsset, shoeColorsAsset] = await Promise.all([
-    resolveContentImage(rootPath, 'Characters/Farmer/hairstyles'),
-    resolveContentImage(rootPath, 'Characters/Farmer/shirts'),
-    resolveContentImage(rootPath, 'Characters/Farmer/pants'),
-    resolveContentImage(rootPath, 'Characters/Farmer/accessories'),
-    resolveContentImage(rootPath, 'Characters/Farmer/hats'),
-    resolveContentImage(rootPath, 'Characters/Farmer/skinColors'),
-    resolveContentImage(rootPath, 'Characters/Farmer/shoeColors'),
+    resolveContentImage(rootPath, 'Characters/Farmer/hairstyles', imageLoader),
+    resolveContentImage(rootPath, 'Characters/Farmer/shirts', imageLoader),
+    resolveContentImage(rootPath, 'Characters/Farmer/pants', imageLoader),
+    resolveContentImage(rootPath, 'Characters/Farmer/accessories', imageLoader),
+    resolveContentImage(rootPath, 'Characters/Farmer/hats', imageLoader),
+    resolveContentImage(rootPath, 'Characters/Farmer/skinColors', imageLoader),
+    resolveContentImage(rootPath, 'Characters/Farmer/shoeColors', imageLoader),
   ])
 
   if (!spriteAsset && !hairAsset && !shirtsAsset && !pantsAsset && !accessoriesAsset && !hatsAsset) {
@@ -754,8 +763,8 @@ async function resolveFarmerAppearanceAssets(
       ? obscuredHairMetadata.coveredIndex
       : obscuredHairBaseIndex
   const [rawHairVariant, obscuredHairVariant] = await Promise.all([
-    resolveFarmerHairVariant(rootPath, profile, hairAsset, hairMetadataIndex, hairStyleIndex),
-    resolveFarmerHairVariant(rootPath, profile, hairAsset, hairMetadataIndex, obscuredHairStyleIndex),
+    resolveFarmerHairVariant(rootPath, profile, hairAsset, hairMetadataIndex, hairStyleIndex, imageLoader),
+    resolveFarmerHairVariant(rootPath, profile, hairAsset, hairMetadataIndex, obscuredHairStyleIndex, imageLoader),
   ])
 
   return {
@@ -792,7 +801,12 @@ async function resolveFarmerAppearanceAssets(
   }
 }
 
-async function resolveActorAssets(request: ActorAssetRequest, rootPath: string | null, locale: LocaleCode): Promise<ActorAssetState> {
+async function resolveActorAssets(
+  request: ActorAssetRequest,
+  rootPath: string | null,
+  locale: LocaleCode,
+  imageLoader?: EventStageAssetImageLoader,
+): Promise<ActorAssetState> {
   if (!rootPath || request.spriteTextureCandidates.length === 0) {
     return {
       requestKey: request.requestKey,
@@ -814,13 +828,13 @@ async function resolveActorAssets(request: ActorAssetRequest, rootPath: string |
   }
 
   const [spriteAsset, portraitAsset] = await Promise.all([
-    resolveFirstExistingImage(rootPath, 'Characters', request.spriteTextureCandidates),
-    resolveFirstExistingImage(rootPath, 'Portraits', request.portraitTextureCandidates),
+    resolveFirstExistingImage(rootPath, 'Characters', request.spriteTextureCandidates, imageLoader),
+    resolveFirstExistingImage(rootPath, 'Portraits', request.portraitTextureCandidates, imageLoader),
   ])
   const normalizedActorName = normalizeActorName(request.actorName)
   const farmerAppearance =
     normalizedActorName === 'farmer' || isFarmerActor(normalizedActorName)
-      ? await resolveFarmerAppearanceAssets(rootPath, spriteAsset, request.farmerAppearanceProfile, locale)
+      ? await resolveFarmerAppearanceAssets(rootPath, spriteAsset, request.farmerAppearanceProfile, locale, imageLoader)
       : null
 
   return {

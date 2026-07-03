@@ -12,6 +12,12 @@ export function createEventStagePreviewTestAssetLoader(): EventStagePreviewAsset
       content: JSON.stringify(createFallbackMapDocument('Town')),
     }),
     loadOptionalImageDataUrl: async (path) => createFallbackActorSpriteUrl(path),
+    loadOptionalImageResource: async (path) => ({
+      image: {} as HTMLImageElement,
+      url: createFallbackActorSpriteUrl(path),
+      width: path.includes('Portraits') ? 128 : 64,
+      height: path.includes('Portraits') ? 128 : 128,
+    }),
     validateGameDirectory: async (): Promise<GameDirectoryInfo> => ({
       rootPath: 'E:\\Games\\Stardew Valley',
       executablePath: 'E:\\Games\\Stardew Valley\\Stardew Valley.exe',

@@ -13,6 +13,7 @@ export type ElectronDevDesktopEntryOptions = {
 export type SystemdAvailabilityOptions = {
   env?: ElectronDevIdentityEnv
   spawnSyncFn?: (command: string, args: string[], options: { stdio: 'ignore' }) => { status: number | null }
+  platform?: NodeJS.Platform
   fsModule?: {
     statSync(path: string): {
       isSocket(): boolean

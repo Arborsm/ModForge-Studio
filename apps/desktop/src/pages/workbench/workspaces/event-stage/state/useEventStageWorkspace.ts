@@ -38,6 +38,7 @@ import {
   getPortraitFrameBounds,
   getTextureCandidates,
   resolveActorAssets,
+  type EventStageAssetImageLoader,
   resolveEffectAsset,
 } from '@entities/event'
 import { buildBuildingDataIndex, buildStageWorldOverlaySprites, type StageWorldOverlaySprite } from '@entities/map'
@@ -55,6 +56,7 @@ type UseEventStageWorkspaceOptions = {
   onSelectTimelineEntry: (entryId: string) => void
   onPlaybackCommandChange: (commandId: string | null) => void
   mapAssetLoader?: (gameRootPath: string, mapPath: string, locale: string) => Promise<MapAssetContent>
+  imageResourceLoader?: EventStageAssetImageLoader
 }
 
 type BuildingDataIndex = Record<
@@ -226,6 +228,7 @@ export function useEventStageWorkspace({
   onSelectTimelineEntry,
   onPlaybackCommandChange,
   mapAssetLoader = loadMapAsset,
+  imageResourceLoader,
 }: UseEventStageWorkspaceOptions) {
   const initialMapName = normalizeStageMapName(parsedEventAsset?.asset.name)
   const [autoPlay, setAutoPlay] = useState(false)
@@ -261,6 +264,13 @@ export function useEventStageWorkspace({
   const lastAnimationNowMsRef = useRef(animationNowMs)
   const onSelectTimelineEntryRef = useRef(onSelectTimelineEntry)
   const onPlaybackCommandChangeRef = useRef(onPlaybackCommandChange)
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     onSelectTimelineEntryRef.current = onSelectTimelineEntry
@@ -629,8 +639,6 @@ export function useEventStageWorkspace({
       return
     }
 
-    let cancelled = false
-
     setActorAssets((current) => ({
       ...current,
       ...Object.fromEntries(
@@ -660,10 +668,11 @@ export function useEventStageWorkspace({
     void (async () => {
       const resolvedEntries = await Promise.all(
         pendingActorAssetRequests.map(
-          async (request) => [request.actorKey, await resolveActorAssets(request, directoryInfo.rootPath, locale)] as const,
+          async (request) =>
+            [request.actorKey, await resolveActorAssets(request, directoryInfo.rootPath, locale, imageResourceLoader)] as const,
         ),
       )
-      if (cancelled) {
+      if (!mountedRef.current) {
         return
       }
 
@@ -672,11 +681,7 @@ export function useEventStageWorkspace({
         ...Object.fromEntries(resolvedEntries),
       }))
     })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [directoryInfo?.rootPath, locale, pendingActorAssetRequests])
+  }, [directoryInfo?.rootPath, imageResourceLoader, locale, pendingActorAssetRequests])
 
   useEffect(() => {
     const nowMs = performance.now()
@@ -831,7 +836,6 @@ export function useEventStageWorkspace({
       return
     }
 
-    let cancelled = false
     const rootPath = directoryInfo.rootPath
 
     setEffectAssets((current) => ({
@@ -854,9 +858,11 @@ export function useEventStageWorkspace({
 
     void (async () => {
       const resolvedEntries = await Promise.all(
-        pendingEffectTextureRequests.map(async (textureName) => [textureName, await resolveEffectAsset(textureName, rootPath)] as const),
+        pendingEffectTextureRequests.map(
+          async (textureName) => [textureName, await resolveEffectAsset(textureName, rootPath, imageResourceLoader)] as const,
+        ),
       )
-      if (cancelled) {
+      if (!mountedRef.current) {
         return
       }
 
@@ -865,11 +871,7 @@ export function useEventStageWorkspace({
         ...Object.fromEntries(resolvedEntries),
       }))
     })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [directoryInfo?.rootPath, pendingEffectTextureRequests])
+  }, [directoryInfo?.rootPath, imageResourceLoader, pendingEffectTextureRequests])
 
   const focusWorldPoint = useMemo<ViewportWorldPoint | null>(() => {
     if (!mapDocument || !renderedPlaybackState.focusTile) {

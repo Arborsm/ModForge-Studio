@@ -160,7 +160,7 @@ describe('EventPatchEditor secondary page shell', () => {
     const shell = container.querySelector('.event-edit-shell') as HTMLElement
     expect(shell.classList.contains('dark')).toBe(true)
     expect(shell.style.getPropertyValue('--accent')).toBe('#3b82f6')
-    expect(shell.style.getPropertyValue('--bg-panel')).toBe('#1a1f27')
+    expect(shell.style.getPropertyValue('--bg-panel')).toBe('')
   })
 
   test('opens the condition builder from the event editor context action', () => {

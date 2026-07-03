@@ -7,19 +7,6 @@ import { renderWithLocale } from '@test/renderWithLocale'
 import { EventStagePreview } from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventStagePreview'
 import { createEventStagePreviewTestAssetLoader } from '@test/eventStagePreviewTestAssets'
 
-vi.mock('@shared/lib/assets', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@shared/lib/assets')>()
-  return {
-    ...actual,
-    loadImageResourceFromPath: vi.fn(async (path: string) => ({
-      image: {} as HTMLImageElement,
-      url: `data:test/${encodeURIComponent(path)}`,
-      width: path.includes('Portraits') ? 128 : 64,
-      height: path.includes('Portraits') ? 128 : 128,
-    })),
-  }
-})
-
 vi.mock('@entities/map', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@entities/map')>()
   return {
@@ -106,7 +93,11 @@ describe('EventStagePreview playback authoring surface', () => {
     expect(actorFrame?.style.transform).toBe('translate(480px, 1760px)')
     expect(actorFrame?.style.width).toBe('40px')
     expect(actorFrame?.style.height).toBe('80px')
-    expect((container.querySelector('[data-event-stage-actor-sprite="Abigail"]') as HTMLElement).style.transformOrigin).toBe('top left')
+    await waitFor(() => {
+      expect((container.querySelector('[data-event-stage-actor-sprite="Abigail"]') as HTMLElement | null)?.style.transformOrigin).toBe(
+        'top left',
+      )
+    })
   })
 
   test('steps playback commands into the rendered actor state', async () => {

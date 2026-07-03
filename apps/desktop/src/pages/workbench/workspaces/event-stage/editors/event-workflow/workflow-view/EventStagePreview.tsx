@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { EVENT_SETUP_ENTRY_ID } from '@entities/event'
+import { loadImageResource, type LoadedImageResource } from '@shared/lib/assets'
 import type { EventAssetSummary } from '@entities/game/api'
 import type { GameDirectoryInfo, MapAssetContent } from '@entities/game/api'
 import { validateGameDirectory } from '@entities/game/api'
@@ -11,6 +12,7 @@ import { useEditorStore } from '../workflow-model/editorStore'
 export type EventStagePreviewAssetLoader = {
   loadMapAsset: (gameRootPath: string, mapPath: string, locale: string) => Promise<MapAssetContent>
   loadOptionalImageDataUrl: (path: string, locale?: string) => Promise<string | null>
+  loadOptionalImageResource?: (path: string, locale?: string) => Promise<LoadedImageResource | null>
   validateGameDirectory: (gameRootPath: string) => Promise<GameDirectoryInfo>
 }
 
@@ -92,6 +94,19 @@ export function EventStagePreview({
   const selectedCommandIndex = useEditorStore((state) => state.selectedCommandIndex)
   const selectedCommandId = selectedCommandIndex == null ? EVENT_SETUP_ENTRY_ID : (eventScript?.commands[selectedCommandIndex]?.id ?? null)
   const effectiveViewportLabels = useMemo(() => mergeViewportLabels(viewportLabels), [viewportLabels])
+  const imageResourceLoader = useCallback(
+    async (path: string, imageLocale?: string) => {
+      if (!assetLoader) {
+        return null
+      }
+      if (assetLoader.loadOptionalImageResource) {
+        return assetLoader.loadOptionalImageResource(path, imageLocale)
+      }
+      const dataUrl = await assetLoader.loadOptionalImageDataUrl(path, imageLocale)
+      return dataUrl ? loadImageResource(dataUrl).catch(() => null) : null
+    },
+    [assetLoader],
+  )
 
   const effectiveDirectoryInfo = useMemo<GameDirectoryInfo | null>(() => {
     if (directoryInfo) {
@@ -179,6 +194,7 @@ export function EventStagePreview({
       onContextMenuAction={onContextMenuAction}
       conditionBuilderLabel={conditionBuilderLabel}
       mapAssetLoader={assetLoader?.loadMapAsset}
+      imageResourceLoader={assetLoader ? imageResourceLoader : undefined}
       onActorAssetsChange={onActorAssetsChange}
     />
   )

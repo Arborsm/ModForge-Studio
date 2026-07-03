@@ -21,10 +21,13 @@ use std::env;
 use std::fs;
 use std::io;
 use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tar::Archive as TarArchive;
 use unrar::Archive as RarArchive;
 use zip::ZipArchive;
+
+static TEMP_WORK_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum LauncherArchiveFormat {
@@ -313,7 +316,11 @@ fn temp_work_dir(name: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
-    env::temp_dir().join(format!("modforge-{name}-{unique}"))
+    let counter = TEMP_WORK_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
+    env::temp_dir().join(format!(
+        "modforge-{name}-{}-{unique}-{counter}",
+        std::process::id()
+    ))
 }
 
 fn with_temp_work_dir<T>(

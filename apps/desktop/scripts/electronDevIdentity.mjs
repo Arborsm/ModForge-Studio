@@ -114,7 +114,12 @@ export function quoteDesktopExecPart(part) {
 }
 
 export function buildDevDesktopEntry({ electronPath, desktopRoot }) {
-  const execLine = [electronPath, `--class=${appLinuxClass}`, `--app-id=${appDesktopId}`, path.join(desktopRoot, 'electron-dist/main.cjs')]
+  const execLine = [
+    electronPath,
+    `--class=${appLinuxClass}`,
+    `--app-id=${appDesktopId}`,
+    path.posix.join(desktopRoot, 'electron-dist/main.cjs'),
+  ]
     .map(quoteDesktopExecPart)
     .join(' ')
 
@@ -163,16 +168,16 @@ export function ensureDevDesktopEntry(electronPath, { env = process.env, desktop
   return desktopFilePath
 }
 
-export function systemdUserScopeAvailable({ env = process.env, spawnSyncFn = spawnSync, fsModule = fs } = {}) {
-  if (process.platform !== 'linux') {
+export function systemdUserScopeAvailable({ env = process.env, spawnSyncFn = spawnSync, fsModule = fs, platform = process.platform } = {}) {
+  if (platform !== 'linux') {
     return false
   }
 
-  if (!env.XDG_RUNTIME_DIR || !path.isAbsolute(env.XDG_RUNTIME_DIR)) {
+  if (!env.XDG_RUNTIME_DIR || !path.posix.isAbsolute(env.XDG_RUNTIME_DIR)) {
     return false
   }
 
-  const sessionSocket = path.join(env.XDG_RUNTIME_DIR, 'systemd', 'private')
+  const sessionSocket = path.posix.join(env.XDG_RUNTIME_DIR, 'systemd', 'private')
   try {
     if (!fsModule.statSync(sessionSocket).isSocket()) {
       return false

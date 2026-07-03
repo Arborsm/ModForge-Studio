@@ -58,12 +58,11 @@ describe('electron dev identity helpers', () => {
         env: { XDG_RUNTIME_DIR: '/run/user/1000' },
         fsModule,
         spawnSyncFn,
+        platform: 'linux',
       }),
-    ).toBe(process.platform === 'linux')
+    ).toBe(true)
 
     expect(fsModule.statSync).toHaveBeenCalledWith('/run/user/1000/systemd/private')
-    if (process.platform === 'linux') {
-      expect(spawnSyncFn).toHaveBeenCalledWith('systemd-run', ['--version'], { stdio: 'ignore' })
-    }
+    expect(spawnSyncFn).toHaveBeenCalledWith('systemd-run', ['--version'], { stdio: 'ignore' })
   })
 })

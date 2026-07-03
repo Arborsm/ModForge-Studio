@@ -488,7 +488,7 @@ describe('frontend module architecture', () => {
     }
 
     const generated = await readFile(sourcePath('src/platform/host-commands/index.ts'), 'utf8')
-    expect(generated).toBe(renderGeneratedHostCommands(commandNames.filter(Boolean)))
+    expect(generated.replace(/\r\n/g, '\n')).toBe(renderGeneratedHostCommands(commandNames.filter(Boolean)))
   })
 
   it('requires typed host command constants for desktop business invocations', async () => {
