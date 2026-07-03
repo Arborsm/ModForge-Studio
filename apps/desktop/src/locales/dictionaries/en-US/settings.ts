@@ -62,6 +62,23 @@ const settings: SettingsMenuCopy = {
   loadingMotionIntensityDescription: 'Adjust how pronounced the animation feels.',
   loadingMotionSpeedLabel: 'Animation Speed',
   loadingMotionSpeedDescription: 'Choose a preset speed or switch to fine and extreme adjustment.',
+  loadingMotionStyleLabels: {
+    bounceIn: 'Bounce In',
+    layeredFadeIn: 'Layered Fade',
+    slideInPush: 'Slide In',
+    softFadeIn: 'Soft Fade',
+    quietSimplify: 'Quiet',
+  },
+  loadingMotionIntensityLabels: {
+    light: 'Light',
+    standard: 'Standard',
+    strong: 'Strong',
+  },
+  loadingMotionSpeedLabels: {
+    slow: 'Slow',
+    standard: 'Standard',
+    fast: 'Fast',
+  },
   loadingMotionCustomSpeedLabel: 'Fine and extreme speed',
   loadingMotionCustomSpeedDescription: 'Use the slider to stretch or tighten animation timing.',
   loadingMotionCustomSpeedToggleLabel: 'Fine / extreme',

@@ -154,8 +154,14 @@ export type LauncherLibraryCopy = {
   sortLabel: string
   sortByName: string
   sortByEnabled: string
-  sortByPack: string
   sortByFolder: string
+  sortByCustom: string
+  sortingLabel: string
+  sortingDragHint: string
+  sortingDone: string
+  startSortingLabel: string
+  customSortHint: string
+  moreActions: string
   storageTargetLabel: string
   packTargetLabel: string
   noCover: string

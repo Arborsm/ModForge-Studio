@@ -38,7 +38,7 @@ export function BuildingIndoorMapPanel(props: BuildingIndoorMapPanelProps) {
           <p className="panel-title">{props.copy.interiorTitle}</p>
           <p className="panel-subtitle">{props.activeIndoorMapPath ?? props.building.indoorMapPathLabel}</p>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-1">
+        <div className="flex items-center gap-1 rounded-lg border border-(--border-color) bg-(--bg-panel) p-1">
           <button
             type="button"
             className={cx('tool-button', props.showGrid && 'tool-button-active')}
@@ -53,7 +53,7 @@ export function BuildingIndoorMapPanel(props: BuildingIndoorMapPanelProps) {
 
       <div className="panel-body flex h-full min-h-0 flex-col gap-3 p-3">
         {props.activeIndoorMapDocument ? (
-          <div className="relative min-h-[420px] flex-1">
+          <div className="relative min-h-105 flex-1">
             <MapViewport
               key={`${props.building.key}:${props.activeIndoorMapDocument.relativePath}`}
               locale={props.locale}
@@ -61,7 +61,6 @@ export function BuildingIndoorMapPanel(props: BuildingIndoorMapPanelProps) {
               mapDocument={props.activeIndoorMapDocument}
               visibleLayerIds={props.indoorVisibleLayerIds}
               visibleObjectGroupIds={props.indoorVisibleObjectGroupIds}
-              labels={props.viewportLabels}
               theme={props.theme}
               accentColor={props.accentColor}
               showGrid={props.showGrid}
@@ -70,7 +69,7 @@ export function BuildingIndoorMapPanel(props: BuildingIndoorMapPanelProps) {
             />
           </div>
         ) : (
-          <div className="panel-canvas-empty min-h-[420px] flex-1 px-6">
+          <div className="panel-canvas-empty min-h-105 flex-1 px-6">
             {props.building.indoorMapAssetName || props.building.nonInstancedIndoorLocation
               ? props.activeIndoorMapMessage || props.copy.noIndoorMap
               : props.copy.noIndoorMap}
@@ -79,7 +78,7 @@ export function BuildingIndoorMapPanel(props: BuildingIndoorMapPanelProps) {
 
         <div className="panel-section p-3">
           <p className="panel-section-title">{isConstructible ? props.copy.indoorDataTitle : props.copy.exteriorDataTitle}</p>
-          <div className="mt-3 space-y-2 text-sm text-[var(--text-primary)]">
+          <div className="mt-3 space-y-2 text-sm text-(--text-primary)">
             <p>
               {props.copy.indoorMapLabel}: {props.building.indoorMapAssetName ? props.building.indoorMapPathLabel : props.copy.noneLabel}
             </p>

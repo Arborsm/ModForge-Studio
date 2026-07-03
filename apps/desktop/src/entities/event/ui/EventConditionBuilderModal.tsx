@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useState, type PointerEvent } from 'react'
 import { cx } from '@shared/lib/cx'
+import { Dialog } from '@shared/ui/Dialog'
 import { EventGameStateQueryBuilderModal, type GameStateQueryBuilderResult } from './EventGameStateQueryBuilderModal'
 import { EventConditionBuilderLogicChain } from './EventConditionBuilderLogicChain'
 import { EventConditionBuilderPreviewDock } from './EventConditionBuilderPreviewDock'
@@ -1067,9 +1068,9 @@ export function EventConditionBuilderModal({ event, allEvents, alias, hubCopy, c
   }
 
   return (
-    <div className="event-condition-builder-backdrop" role="presentation" onClick={onCancel}>
-      <div className="event-condition-builder-stack" onClick={(event) => event.stopPropagation()}>
-        <section className="event-condition-builder-modal" role="dialog" aria-modal="true" aria-label={copy.title}>
+    <Dialog open onClose={onCancel} size="full" bare ariaLabel={copy.title}>
+      <div className="event-condition-builder-stack">
+        <section className="event-condition-builder-modal">
           <header className="condition-builder-header">
             <div>
               <h2>{copy.title}</h2>
@@ -1172,6 +1173,6 @@ export function EventConditionBuilderModal({ event, allEvents, alias, hubCopy, c
           />
         ) : null}
       </div>
-    </div>
+    </Dialog>
   )
 }

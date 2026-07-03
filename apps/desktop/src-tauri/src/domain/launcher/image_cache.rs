@@ -1,6 +1,11 @@
-use super::paths::launcher_image_cache_dir;
+use super::paths::{launcher_image_cache_dir, launcher_image_failures_path};
 use super::types::{ResolveLauncherImageRequest, ResolveLauncherImageResult};
 use crate::AppHandle;
+use crate::domain::launcher::image_failures::{
+    clear_launcher_image_failure_entries_at_path, clear_launcher_image_failure_for_mod,
+    is_launcher_image_blocked, load_or_create_launcher_image_failures,
+    record_launcher_image_failure,
+};
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::http::launcher_http_client;
 use crate::domain::nexusmods::routes::launcher_nexus_route_for_url;
@@ -136,6 +141,23 @@ pub(crate) fn clear_launcher_image_cache_dir(cache_dir: &Path) -> Result<(), Str
     })
 }
 
+pub(crate) fn clear_launcher_image_cache_dir_and_failures_at_path(
+    cache_dir: &Path,
+    failures_path: &Path,
+) -> Result<(), String> {
+    clear_launcher_image_cache_dir(cache_dir)?;
+    clear_launcher_image_failure_entries_at_path(failures_path)
+}
+
+fn cover_mod_key(request: &ResolveLauncherImageRequest) -> Option<String> {
+    request
+        .mod_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
 pub(crate) fn resolve_launcher_image_blocking(
     _app: &AppHandle,
     request: &ResolveLauncherImageRequest,
@@ -146,9 +168,24 @@ pub(crate) fn resolve_launcher_image_blocking(
         if url.is_empty() {
             return Err("url is required.".to_string());
         }
+        let mod_key = cover_mod_key(request);
+
+        if let Some(mod_key) = mod_key.as_deref() {
+            if !request.refresh.unwrap_or(false) {
+                let failures = load_or_create_launcher_image_failures()?;
+                if is_launcher_image_blocked(&failures, mod_key) {
+                    return Err(format!(
+                        "Launcher image loading is disabled for mod {mod_key} after repeated failures."
+                    ));
+                }
+            }
+        }
 
         let local_source = Path::new(url);
         if local_source.is_file() {
+            if let Some(mod_key) = mod_key.as_deref() {
+                clear_launcher_image_failure_for_mod(mod_key)?;
+            }
             return Ok(ResolveLauncherImageResult {
                 source_url: normalize_path(local_source),
                 mime_type: mime_type_from_path(local_source),
@@ -170,6 +207,9 @@ pub(crate) fn resolve_launcher_image_blocking(
                 find_cached_image_path(&cache_dir, &cache_key)?
             };
             if let Some(existing_path) = cached {
+                if let Some(mod_key) = mod_key.as_deref() {
+                    clear_launcher_image_failure_for_mod(mod_key)?;
+                }
                 return Ok(ResolveLauncherImageResult {
                     source_url: url.to_string(),
                     mime_type: mime_type_from_path(&existing_path),
@@ -181,18 +221,36 @@ pub(crate) fn resolve_launcher_image_blocking(
 
         let client = launcher_http_client()?;
         if let Some(route) = launcher_nexus_route_for_url(url) {
-            probe_blocked_launcher_nexus_route(&client, None, route)?;
+            if let Err(error) = probe_blocked_launcher_nexus_route(&client, None, route) {
+                if let Some(mod_key) = mod_key.as_deref() {
+                    record_launcher_image_failure(mod_key, &error)?;
+                }
+                return Err(error);
+            }
         }
         let response = client
             .get(url)
             .send()
-            .map_err(|error| format!("Failed to fetch launcher image: {error}"))?;
+            .map_err(|error| format!("Failed to fetch launcher image: {error}"));
+        let response = match response {
+            Ok(response) => response,
+            Err(error) => {
+                if let Some(mod_key) = mod_key.as_deref() {
+                    record_launcher_image_failure(mod_key, &error)?;
+                }
+                return Err(error);
+            }
+        };
         if !response.status().is_success() {
-            return Err(format!(
+            let error = format!(
                 "Failed to fetch launcher image {}: HTTP {}",
                 url,
                 response.status()
-            ));
+            );
+            if let Some(mod_key) = mod_key.as_deref() {
+                record_launcher_image_failure(mod_key, &error)?;
+            }
+            return Err(error);
         }
 
         let content_type = response
@@ -207,7 +265,16 @@ pub(crate) fn resolve_launcher_image_blocking(
         let target_path = cache_dir.join(format!("{cache_key}.{extension}"));
         let bytes = response
             .bytes()
-            .map_err(|error| format!("Failed to read launcher image bytes: {error}"))?;
+            .map_err(|error| format!("Failed to read launcher image bytes: {error}"));
+        let bytes = match bytes {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                if let Some(mod_key) = mod_key.as_deref() {
+                    record_launcher_image_failure(mod_key, &error)?;
+                }
+                return Err(error);
+            }
+        };
 
         let _cache_file_guard = lock_launcher_image_cache_files();
         if LAUNCHER_IMAGE_CACHE_GENERATION.load(Ordering::SeqCst) != cache_generation {
@@ -221,6 +288,9 @@ pub(crate) fn resolve_launcher_image_blocking(
         })?;
         if !request.refresh.unwrap_or(false) {
             if let Some(existing_path) = find_cached_image_path(&cache_dir, &cache_key)? {
+                if let Some(mod_key) = mod_key.as_deref() {
+                    clear_launcher_image_failure_for_mod(mod_key)?;
+                }
                 return Ok(ResolveLauncherImageResult {
                     source_url: url.to_string(),
                     mime_type: mime_type_from_path(&existing_path),
@@ -235,6 +305,9 @@ pub(crate) fn resolve_launcher_image_blocking(
                 normalize_path(&target_path)
             )
         })?;
+        if let Some(mod_key) = mod_key.as_deref() {
+            clear_launcher_image_failure_for_mod(mod_key)?;
+        }
 
         Ok(ResolveLauncherImageResult {
             source_url: url.to_string(),
@@ -263,7 +336,49 @@ pub fn clear_launcher_image_cache(_app: AppHandle) -> Result<(), String> {
         "clear_launcher_image_cache",
         (|| {
             let cache_dir = launcher_image_cache_dir()?;
-            clear_launcher_image_cache_dir(&cache_dir)
+            let failures_path = launcher_image_failures_path()?;
+            clear_launcher_image_cache_dir_and_failures_at_path(&cache_dir, &failures_path)
         })(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::launcher::image_failures::{
+        get_launcher_image_failure_entry, record_launcher_image_failure_at_path,
+    };
+    use crate::test_support::{create_temp_dir, write_file};
+    use std::fs;
+
+    #[test]
+    fn clear_launcher_image_cache_removes_cached_files_and_failure_blocks() {
+        let root = create_temp_dir("launcher-image-cache-clear");
+        let cache_dir = root.join("launcher").join("images");
+        let failures_path = root.join("launcher").join("image-failures.json");
+        write_file(&cache_dir.join("cover.webp"), "cached");
+        record_launcher_image_failure_at_path(&failures_path, "ModForge.NPCAdventures", "boom 1")
+            .expect("record first failure");
+        record_launcher_image_failure_at_path(&failures_path, "ModForge.NPCAdventures", "boom 2")
+            .expect("record second failure");
+        let failures = record_launcher_image_failure_at_path(
+            &failures_path,
+            "ModForge.NPCAdventures",
+            "boom 3",
+        )
+        .expect("record blocked failure");
+        assert!(
+            get_launcher_image_failure_entry(&failures, "ModForge.NPCAdventures")
+                .expect("blocked entry")
+                .blocked
+        );
+
+        clear_launcher_image_cache_dir_and_failures_at_path(&cache_dir, &failures_path)
+            .expect("clear launcher image cache and failures");
+
+        assert!(!cache_dir.exists());
+        assert!(!failures_path.exists());
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
 }

@@ -16,15 +16,15 @@ export function InspectorPanel({ mapDocument, modSources = [], moduleBlueprint }
         headerAction={<span className="dock-chip">{moduleBlueprint.state}</span>}
       >
         <div className="space-y-4 p-3">
-          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-3">
-            <p className="text-sm font-semibold text-[var(--text-primary)]">{moduleBlueprint.title}</p>
-            <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">{moduleBlueprint.summary}</p>
+          <div className="rounded-xl border border-(--border-color) bg-(--bg-panel-muted) p-3">
+            <p className="text-sm font-semibold text-(--text-primary)">{moduleBlueprint.title}</p>
+            <p className="mt-2 text-xs leading-5 text-(--text-secondary)">{moduleBlueprint.summary}</p>
           </div>
           <div className="space-y-2">
             {moduleBlueprint.bullets.map((bullet) => (
               <div
                 key={bullet}
-                className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-3 text-xs text-[var(--text-secondary)]"
+                className="rounded-xl border border-(--border-color) bg-(--bg-panel-muted) px-3 py-3 text-xs text-(--text-secondary)"
               >
                 {bullet}
               </div>
@@ -47,7 +47,7 @@ export function InspectorPanel({ mapDocument, modSources = [], moduleBlueprint }
       hideHeader
       title={copy.rightDock.inspector}
       subtitle={copy.rightDock.sceneSummary}
-      headerAction={<Settings2 className="h-4 w-4 text-[var(--text-secondary)]" />}
+      headerAction={<Settings2 className="h-4 w-4 text-(--text-secondary)" />}
     >
       <div className="space-y-2.5 p-2.5">
         {mapDocument ? (
@@ -75,7 +75,7 @@ export function InspectorPanel({ mapDocument, modSources = [], moduleBlueprint }
               </div>
             </div>
 
-            <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-2.5">
+            <div className="rounded-xl border border-(--border-color) bg-(--bg-panel-muted) px-2.5">
               <div className="kv-row compact-kv-row">
                 <span>{copy.common.path}</span>
                 <span>{mapDocument.relativePath}</span>
@@ -93,15 +93,15 @@ export function InspectorPanel({ mapDocument, modSources = [], moduleBlueprint }
                 <span>{mapDocument.format.toUpperCase()}</span>
               </div>
             </div>
-            <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-3">
-              <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">Mod Sources</p>
+            <div className="rounded-xl border border-(--border-color) bg-(--bg-panel-muted) px-3 py-3">
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">Mod Sources</p>
               <div className="mt-3">
                 <ModSourceList sources={modSources} />
               </div>
             </div>
           </>
         ) : (
-          <div className="rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+          <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
             {copy.center.noSceneLoaded}
           </div>
         )}

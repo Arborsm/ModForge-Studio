@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEventStageCopy } from '@locales/provider'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state'
 import {
   clonePlayerAppearanceProfile,
@@ -7,13 +8,13 @@ import {
   sanitizePlayerAppearanceProfile,
   type PlayerAppearanceProfile,
 } from '@entities/event'
-import type { LocaleCode } from '@locales/api'
 
 function normalizePlayerAppearanceState(profiles: unknown[] | null | undefined, activeProfileId: string | null | undefined) {
   return readStoredPlayerAppearanceState(JSON.stringify(Array.isArray(profiles) ? profiles : []), activeProfileId ?? null)
 }
 
-export function usePlayerAppearanceState(appUiStateReady: boolean, locale: LocaleCode) {
+export function usePlayerAppearanceState(appUiStateReady: boolean) {
+  const playerAppearanceCopy = useEventStageCopy().playerAppearance
   const [initialState] = useState(() => getAppUiStateSnapshot())
 
   const initialPlayerAppearanceState = normalizePlayerAppearanceState(
@@ -64,12 +65,10 @@ export function usePlayerAppearanceState(appUiStateReady: boolean, locale: Local
   )
 
   const handleCreatePlayerAppearanceProfile = useCallback(() => {
-    const nextProfile = createDefaultPlayerAppearanceProfile(
-      locale === 'zh-CN' ? `\u73a9\u5bb6 ${playerAppearanceProfiles.length + 1}` : `Player ${playerAppearanceProfiles.length + 1}`,
-    )
+    const nextProfile = createDefaultPlayerAppearanceProfile(playerAppearanceCopy.nextProfileName(playerAppearanceProfiles.length + 1))
     setPlayerAppearanceProfiles((current) => [...current, nextProfile])
     setActivePlayerAppearanceProfileId(nextProfile.id)
-  }, [locale, playerAppearanceProfiles.length])
+  }, [playerAppearanceCopy, playerAppearanceProfiles.length])
 
   const handleDuplicatePlayerAppearanceProfile = useCallback(() => {
     if (!activePlayerAppearanceProfile) {
@@ -88,7 +87,7 @@ export function usePlayerAppearanceState(appUiStateReady: boolean, locale: Local
 
     const remainingProfiles = playerAppearanceProfiles.filter((profile) => profile.id !== activePlayerAppearanceProfile.id)
     if (remainingProfiles.length === 0) {
-      const fallback = createDefaultPlayerAppearanceProfile(locale === 'zh-CN' ? '\u9ed8\u8ba4\u73a9\u5bb6' : 'Default Player')
+      const fallback = createDefaultPlayerAppearanceProfile(playerAppearanceCopy.defaultProfileName)
       setPlayerAppearanceProfiles([fallback])
       setActivePlayerAppearanceProfileId(fallback.id)
       return
@@ -96,7 +95,7 @@ export function usePlayerAppearanceState(appUiStateReady: boolean, locale: Local
 
     setPlayerAppearanceProfiles(remainingProfiles)
     setActivePlayerAppearanceProfileId(remainingProfiles[0]?.id ?? null)
-  }, [activePlayerAppearanceProfile, locale, playerAppearanceProfiles])
+  }, [activePlayerAppearanceProfile, playerAppearanceCopy, playerAppearanceProfiles])
 
   const handleChangePlayerAppearanceProfile = useCallback((nextProfile: PlayerAppearanceProfile) => {
     const sanitized = sanitizePlayerAppearanceProfile(nextProfile)

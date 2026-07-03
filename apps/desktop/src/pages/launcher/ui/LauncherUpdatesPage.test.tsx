@@ -71,7 +71,7 @@ const subscribeLauncherUpdatesMock = vi.mocked(subscribeLauncherUpdates)
 let launcherPort: LauncherPort
 
 function UpdateProgressNotificationBridge() {
-  useLauncherUpdateProgressNotifications('zh-CN')
+  useLauncherUpdateProgressNotifications()
   return null
 }
 

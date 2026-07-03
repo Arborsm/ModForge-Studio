@@ -1,6 +1,6 @@
 import { AlertTriangle, Check, Crown, RefreshCw, X } from 'lucide-react'
 import { useState } from 'react'
-import type { LauncherCopy } from '@locales/model'
+import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
 import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import type { useLauncherSettings } from '@features/launcher'
@@ -73,17 +73,9 @@ export function ConfigCompletionRail({ title, steps }: { title: string; steps: C
   )
 }
 
-export function ConfigDownloadDefaults({
-  settingsState,
-  copy,
-  yesLabel,
-  noLabel,
-}: {
-  settingsState: ReturnType<typeof useLauncherSettings>
-  copy: LauncherCopy
-  yesLabel: string
-  noLabel: string
-}) {
+export function ConfigDownloadDefaults({ settingsState }: { settingsState: ReturnType<typeof useLauncherSettings> }) {
+  const rootCopy = useEditorCopy()
+  const copy = rootCopy.launcher
   const { settings } = settingsState
   const defaults = [
     {
@@ -122,7 +114,7 @@ export function ConfigDownloadDefaults({
               aria-checked={item.checked}
               className={cx('launcher-config-mini-switch', item.checked && 'launcher-config-mini-switch-active')}
               aria-label={item.label}
-              title={item.checked ? yesLabel : noLabel}
+              title={item.checked ? rootCopy.common.yes : rootCopy.common.no}
               onClick={() => settingsState.updateField(item.field, !item.checked)}
             >
               <span aria-hidden="true" />
@@ -146,12 +138,12 @@ type ConfigAccountCardProps = {
     apiKeyChecking: boolean
     hasApiKey: boolean
   }
-  copy: LauncherCopy
   premiumExpiryLabel: string | null
   onRefresh: () => void
 }
 
-export function ConfigAccountCard({ account, copy, premiumExpiryLabel, onRefresh }: ConfigAccountCardProps) {
+export function ConfigAccountCard({ account, premiumExpiryLabel, onRefresh }: ConfigAccountCardProps) {
+  const copy = useEditorCopy().launcher
   const accountName = account.apiKeyStatus?.userName ?? 'Nexus'
   const avatarUrl = account.apiKeyStatus?.avatarUrl?.trim() || null
   const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null)

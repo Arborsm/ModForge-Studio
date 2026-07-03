@@ -3,7 +3,7 @@ use std::path::PathBuf;
 const APP_DATA_DIR_NAME: &str = "ModForge Studio";
 
 pub(crate) fn modforge_data_dir() -> Result<PathBuf, String> {
-    dirs::data_dir()
+    dirs::config_dir()
         .map(|path| path.join(APP_DATA_DIR_NAME))
         .ok_or_else(|| "Failed to resolve the user data directory.".to_string())
 }
@@ -30,6 +30,12 @@ pub(crate) fn launcher_download_queue_path() -> Result<PathBuf, String> {
 
 pub(crate) fn launcher_library_covers_path() -> Result<PathBuf, String> {
     Ok(modforge_data_dir()?.join("launcher").join("covers.json"))
+}
+
+pub(crate) fn launcher_image_failures_path() -> Result<PathBuf, String> {
+    Ok(modforge_data_dir()?
+        .join("launcher")
+        .join("image-failures.json"))
 }
 
 pub(crate) fn launcher_updates_cache_path() -> Result<PathBuf, String> {

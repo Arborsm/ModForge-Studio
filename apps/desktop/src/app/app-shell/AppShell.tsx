@@ -2,39 +2,36 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 import {
   canUseDesktopHost,
   forceCloseCurrentWindow,
-  isCurrentWindowFullscreen,
   isCurrentWindowMaximized,
   listenToWindowCloseRequest,
   loadAppUiState,
   minimizeCurrentWindow,
   patchAppUiState,
-  toggleFullscreenCurrentWindow,
   toggleMaximizeCurrentWindow,
   setDesktopDebugLoggingEnabled,
   writeFrontendLog,
 } from '@shared/lib/desktop'
 import { clearGameAssetLocaleCache, loadImageDataUrl } from '@entities/game/api'
-import { editorCopy, getSettingsMenuCopy, type AppMode, type LauncherPage, type LocaleCode, type ThemeMode } from '@locales/api'
-import { normalizeAppShellState } from '@shared/lib/app-state'
-import { normalizeLoadingMotionPreference } from '@shared/lib/loading-motion'
-import {
-  LOADING_MOTION_STYLE_LABELS,
-  LOADING_MOTION_INTENSITY_LABELS,
-  LOADING_MOTION_SPEED_LABELS,
-} from '@shared/contracts/types/loadingMotion'
-import type {
-  LoadingMotionPreference,
-  LoadingMotionStyleId,
-  LoadingMotionIntensityId,
-  LoadingMotionSpeedId,
-} from '@shared/contracts/types/loadingMotion'
+import { editorCopy, type AppMode, type LauncherPage, type LocaleCode } from '@locales/api'
+import { normalizeAppShellState } from '@shared/lib/app-state/appShellState'
 import { LoadingMotionFallback, LoadingMotionProvider } from '@shared/ui/loading-motion'
-import { THEME_PRESETS } from './constants'
+import { THEME_PRESETS } from '@shared/lib/theme/presets'
 import { clearLocalizedStageMetadataCache } from '@entities/event/model/stage/stageMetadataCache'
 import { LocaleProvider } from '@locales/provider'
 import { NotificationProvider, setNotificationSoundEnabled } from '@shared/ui/notifications'
 import { configureObservability, syncDebugDiagnosticsEnabled } from '@shared/lib/observability'
-import { applyAppUiStatePatch, configureAppUiStatePersistence, getAppUiStateSnapshot, initializeAppUiState } from '@shared/lib/app-state'
+import {
+  applyAppUiStatePatch,
+  configureAppUiStatePersistence,
+  getAppUiStateSnapshot,
+  initializeAppUiState,
+} from '@shared/lib/app-state/appUiState'
+import {
+  startPreferencesRuntime,
+  stopPreferencesRuntime,
+  syncPreferencesStoreFromAppUiState,
+  usePreferencesStore,
+} from '@shared/lib/app-state/preferencesStore'
 import { clearImageMetricsLocaleCache, configureImageDataUrlLoader } from '@shared/lib/assets'
 import type { LauncherNexusDiagnosticsResult } from '@features/launcher/model/launcherContracts'
 import {
@@ -50,7 +47,7 @@ import { createAppCommandHandler } from '../providers/appCommandRouting'
 import { createWorkbenchOrchestration } from '../providers/workbenchOrchestration'
 import { LauncherPage as LauncherPageView } from '@pages/launcher'
 import { DevDebugOverlay } from '@pages/workbench/ui/DevDebugOverlay'
-import type { PendingWorkbenchCommandIntent, SettingsWindowCategory, WindowBorderTone, WindowBorderWeight } from '@shared/contracts'
+import type { PendingWorkbenchCommandIntent, SettingsWindowCategory } from '@shared/contracts'
 import { WorkbenchShellSkeleton } from '@shared/ui/WorkbenchShellSkeleton'
 
 const SettingsWindow = lazy(() => import('./SettingsWindow'))
@@ -93,56 +90,27 @@ configureObservability({
   writeFrontendLog,
 })
 
-function getNavigatorLocale(): LocaleCode {
-  if (typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh')) {
-    return 'zh-CN'
-  }
-
-  return 'en-US'
-}
-
-function resolveLocale(value: string | null | undefined): LocaleCode {
-  if (value === 'zh-CN' || value === 'en-US') {
-    return value
-  }
-
-  return getNavigatorLocale()
-}
-
-function normalizeWindowBorderTone(value: unknown): WindowBorderTone {
-  return value === 'neutral' ? 'neutral' : 'accent'
-}
-
-function normalizeWindowBorderWeight(value: unknown): WindowBorderWeight {
-  return value === 'thin' || value === 'none' ? value : 'standard'
-}
-
 export default function App() {
   const [initialAppUiState] = useState(() => getAppUiStateSnapshot())
   const initialShellState = normalizeAppShellState(initialAppUiState.shell)
 
-  const [theme, setTheme] = useState<ThemeMode>(() =>
-    typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark',
-  )
-  const [locale, setLocale] = useState<LocaleCode>(() => resolveLocale(initialAppUiState.appearance.locale))
-  const [themeId, setThemeId] = useState<string>(() => initialAppUiState.appearance.themeId || THEME_PRESETS[0].id)
-  const [windowBorderTone, setWindowBorderTone] = useState<WindowBorderTone>(() =>
-    normalizeWindowBorderTone(initialAppUiState.appearance.windowBorderTone),
-  )
-  const [windowBorderWeight, setWindowBorderWeight] = useState<WindowBorderWeight>(() =>
-    normalizeWindowBorderWeight(initialAppUiState.appearance.windowBorderWeight),
-  )
+  const theme = usePreferencesStore((state) => state.theme)
+  const locale = usePreferencesStore((state) => state.locale)
+  const themeId = usePreferencesStore((state) => state.themeId)
+  const windowBorderTone = usePreferencesStore((state) => state.windowBorderTone)
+  const windowBorderWeight = usePreferencesStore((state) => state.windowBorderWeight)
+  const desktopHost = usePreferencesStore((state) => state.desktopHost)
+  const debugEnabled = usePreferencesStore((state) => state.debugEnabled)
+  const notificationSoundEnabled = usePreferencesStore((state) => state.notificationSoundEnabled)
+  const loadingMotionPreference = usePreferencesStore((state) => state.loadingMotionPreference)
+  const windowIsFullscreen = usePreferencesStore((state) => state.windowIsFullscreen)
+  const setTheme = usePreferencesStore((state) => state.setTheme)
+  const setDebugEnabled = usePreferencesStore((state) => state.setDebugEnabled)
   const [appMode, setAppMode] = useState<AppMode>(initialShellState.appMode)
   const [launcherPage, setLauncherPage] = useState<LauncherPage>(initialShellState.launcherPage)
-  const [debugEnabled, setDebugEnabled] = useState(initialShellState.debugEnabled)
-  const [notificationSoundEnabled, setNotificationSoundEnabledState] = useState(initialShellState.notificationSoundEnabled)
-  const [loadingMotionPreference, setLoadingMotionPreference] = useState<LoadingMotionPreference>(() =>
-    normalizeLoadingMotionPreference(initialAppUiState.appearance?.loadingMotion),
-  )
   const [appUiStateReady, setAppUiStateReady] = useState(!canUseDesktopHost())
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
   const [settingsWindowCategory, setSettingsWindowCategory] = useState<SettingsWindowCategory>('appearance')
-  const [windowIsFullscreen, setWindowIsFullscreen] = useState(false)
   const [windowIsMaximized, setWindowIsMaximized] = useState(false)
   const [workbenchHasOpened, setWorkbenchHasOpened] = useState(initialShellState.appMode === 'workbench')
   const [workbenchActivationKey, setWorkbenchActivationKey] = useState(0)
@@ -156,7 +124,6 @@ export default function App() {
   })
 
   const copy = editorCopy[locale]
-  const desktopHost = canUseDesktopHost()
   const launcherPort = useLauncherPort()
   const eventBus = useMemo(() => createAppEventBus(), [])
   const [pendingWorkbenchIntent, setPendingWorkbenchIntent] = useState<PendingWorkbenchCommandIntent | null>(null)
@@ -181,9 +148,11 @@ export default function App() {
 
   useEffect(() => {
     appMountedRef.current = true
+    startPreferencesRuntime()
 
     return () => {
       appMountedRef.current = false
+      stopPreferencesRuntime()
     }
   }, [])
 
@@ -213,21 +182,13 @@ export default function App() {
         }
 
         const nextShellState = normalizeAppShellState(state.shell)
-        const nextLocale = resolveLocale(state.appearance.locale)
-
-        setLocale(nextLocale)
-        setThemeId(state.appearance.themeId || THEME_PRESETS[0].id)
-        setWindowBorderTone(normalizeWindowBorderTone(state.appearance.windowBorderTone))
-        setWindowBorderWeight(normalizeWindowBorderWeight(state.appearance.windowBorderWeight))
+        syncPreferencesStoreFromAppUiState(state, desktopHost)
         if (nextShellState.appMode === 'workbench') {
           setWorkbenchHasOpened(true)
           setWorkbenchActivationKey((current) => current + 1)
         }
         setAppMode(nextShellState.appMode)
         setLauncherPage(nextShellState.launcherPage)
-        setDebugEnabled(nextShellState.debugEnabled)
-        setNotificationSoundEnabledState(nextShellState.notificationSoundEnabled)
-        setLoadingMotionPreference(normalizeLoadingMotionPreference(state.appearance?.loadingMotion))
         setAppUiStateReady(true)
       })
       .catch(() => {
@@ -334,12 +295,6 @@ export default function App() {
   }, [appUiStateReady, desktopHost, launcherPort])
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark')
-    document.documentElement.dataset.theme = themeId
-    document.documentElement.lang = locale
-  }, [locale, theme, themeId])
-
-  useEffect(() => {
     if (appMode !== 'workbench') {
       return
     }
@@ -347,14 +302,6 @@ export default function App() {
     workbenchStylesPromise ??= import('../../styles/workbench.css')
     void workbenchStylesPromise
   }, [appMode])
-
-  useEffect(() => {
-    if (!appUiStateReady) {
-      return
-    }
-
-    void applyAppUiStatePatch({ appearance: { locale } })
-  }, [appUiStateReady, locale])
 
   useEffect(() => {
     if (!appUiStateReady) {
@@ -396,22 +343,6 @@ export default function App() {
   const workbenchLoaded = workbenchHasOpened || appMode === 'workbench'
 
   useEffect(() => {
-    if (!appUiStateReady) {
-      return
-    }
-
-    void applyAppUiStatePatch({ appearance: { themeId: activeTheme.id } })
-  }, [activeTheme.id, appUiStateReady])
-
-  useEffect(() => {
-    if (!appUiStateReady) {
-      return
-    }
-
-    void applyAppUiStatePatch({ appearance: { windowBorderTone, windowBorderWeight } })
-  }, [appUiStateReady, windowBorderTone, windowBorderWeight])
-
-  useEffect(() => {
     if (!desktopHost) {
       return
     }
@@ -427,16 +358,14 @@ export default function App() {
       frameId = window.requestAnimationFrame(() => {
         frameId = null
 
-        void Promise.all([isCurrentWindowFullscreen(), isCurrentWindowMaximized()])
-          .then(([fullscreen, maximized]) => {
+        void isCurrentWindowMaximized()
+          .then((maximized) => {
             if (!disposed) {
-              setWindowIsFullscreen(fullscreen)
               setWindowIsMaximized(maximized)
             }
           })
           .catch(() => {
             if (!disposed) {
-              setWindowIsFullscreen(false)
               setWindowIsMaximized(false)
             }
           })
@@ -454,28 +383,6 @@ export default function App() {
       window.removeEventListener('resize', syncWindowFrameState)
     }
   }, [desktopHost, settingsWindowOpen])
-
-  const handleToggleBorderlessFullscreen = useCallback(async () => {
-    const nextFullscreen = await toggleFullscreenCurrentWindow()
-    if (!appMountedRef.current) {
-      return
-    }
-
-    setWindowIsFullscreen(nextFullscreen)
-    if (nextFullscreen) {
-      setWindowIsMaximized(false)
-    }
-    window.requestAnimationFrame(() => {
-      void Promise.all([isCurrentWindowFullscreen(), isCurrentWindowMaximized()]).then(([fullscreen, maximized]) => {
-        if (!appMountedRef.current) {
-          return
-        }
-
-        setWindowIsFullscreen(fullscreen)
-        setWindowIsMaximized(maximized)
-      })
-    })
-  }, [])
 
   const handleToggleMaximizeWindow = useCallback(async () => {
     const nextMaximized = await toggleMaximizeCurrentWindow()
@@ -556,104 +463,6 @@ export default function App() {
     setSettingsWindowOpen(true)
   }, [])
 
-  const handleLoadingMotionChange = useCallback(
-    (nextLoadingMotion: LoadingMotionPreference) => {
-      setLoadingMotionPreference(nextLoadingMotion)
-
-      if (!appUiStateReady) {
-        return
-      }
-
-      void applyAppUiStatePatch({
-        appearance: {
-          loadingMotion: nextLoadingMotion,
-        },
-      })
-    },
-    [appUiStateReady],
-  )
-
-  const handleSelectLoadingStyle = useCallback(
-    (styleId: LoadingMotionStyleId) => {
-      handleLoadingMotionChange({
-        styleId,
-        intensityId: loadingMotionPreference.intensityId,
-        speedMode: loadingMotionPreference.speedMode,
-        speedId: loadingMotionPreference.speedId,
-        speedMultiplier: loadingMotionPreference.speedMultiplier,
-      })
-    },
-    [
-      handleLoadingMotionChange,
-      loadingMotionPreference.intensityId,
-      loadingMotionPreference.speedId,
-      loadingMotionPreference.speedMode,
-      loadingMotionPreference.speedMultiplier,
-    ],
-  )
-
-  const handleSelectLoadingIntensity = useCallback(
-    (intensityId: LoadingMotionIntensityId) => {
-      handleLoadingMotionChange({
-        styleId: loadingMotionPreference.styleId,
-        intensityId,
-        speedMode: loadingMotionPreference.speedMode,
-        speedId: loadingMotionPreference.speedId,
-        speedMultiplier: loadingMotionPreference.speedMultiplier,
-      })
-    },
-    [
-      handleLoadingMotionChange,
-      loadingMotionPreference.speedId,
-      loadingMotionPreference.speedMode,
-      loadingMotionPreference.speedMultiplier,
-      loadingMotionPreference.styleId,
-    ],
-  )
-
-  const handleSelectLoadingSpeed = useCallback(
-    (speedId: LoadingMotionSpeedId) => {
-      handleLoadingMotionChange({
-        styleId: loadingMotionPreference.styleId,
-        intensityId: loadingMotionPreference.intensityId,
-        speedMode: 'preset',
-        speedId,
-        speedMultiplier: loadingMotionPreference.speedMultiplier,
-      })
-    },
-    [
-      handleLoadingMotionChange,
-      loadingMotionPreference.intensityId,
-      loadingMotionPreference.styleId,
-      loadingMotionPreference.speedMultiplier,
-    ],
-  )
-
-  const handleSelectCustomLoadingSpeed = useCallback(
-    (speedMultiplier: number) => {
-      handleLoadingMotionChange({
-        styleId: loadingMotionPreference.styleId,
-        intensityId: loadingMotionPreference.intensityId,
-        speedMode: 'custom',
-        speedId: loadingMotionPreference.speedId,
-        speedMultiplier,
-      })
-    },
-    [handleLoadingMotionChange, loadingMotionPreference.intensityId, loadingMotionPreference.speedId, loadingMotionPreference.styleId],
-  )
-
-  const settingsMenuCopy = getSettingsMenuCopy(locale)
-  const localeOptions =
-    locale === 'en-US'
-      ? [
-          { id: 'en-US' as const, label: settingsMenuCopy.localeLabels['en-US'] },
-          { id: 'zh-CN' as const, label: settingsMenuCopy.localeLabels['zh-CN'] },
-        ]
-      : [
-          { id: 'zh-CN' as const, label: settingsMenuCopy.localeLabels['zh-CN'] },
-          { id: 'en-US' as const, label: settingsMenuCopy.localeLabels['en-US'] },
-        ]
-
   return (
     <LocaleProvider locale={locale}>
       <NotificationProvider>
@@ -671,7 +480,10 @@ export default function App() {
                 desktopHost={desktopHost}
                 theme={theme}
                 locale={locale}
-                onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+                onToggleTheme={() => {
+                  const currentTheme = usePreferencesStore.getState().theme
+                  setTheme(currentTheme === 'dark' ? 'light' : 'dark')
+                }}
                 onAppModeChange={handleAppModeChange}
                 onWorkspaceChange={() => {}}
                 onLauncherPageChange={handleLauncherPageChange}
@@ -679,7 +491,9 @@ export default function App() {
                 onToggleMaximizeWindow={() => void handleToggleMaximizeWindow()}
                 onCloseWindow={() => void forceCloseCurrentWindow()}
                 onOpenSettings={openSettingsWindow}
-                onToggleDebugMode={() => setDebugEnabled((current) => !current)}
+                onToggleDebugMode={() => {
+                  setDebugEnabled(!usePreferencesStore.getState().debugEnabled)
+                }}
                 onNavigateToDiagnostics={handleViewLauncherDiagnostics}
                 onRetryDiagnostics={
                   getAppUiStateSnapshot().launcher.forceOffline ? null : async () => launcherDiagnosticsRetryRef.current?.()
@@ -697,7 +511,10 @@ export default function App() {
                   locale={locale}
                   accentColor={activeTheme.accent}
                   desktopHost={desktopHost}
-                  onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+                  onToggleTheme={() => {
+                    const currentTheme = usePreferencesStore.getState().theme
+                    setTheme(currentTheme === 'dark' ? 'light' : 'dark')
+                  }}
                   onSwitchToLauncher={handleSwitchToLauncher}
                   onOpenSettings={openSettingsWindow}
                   onMinimizeWindow={() => void minimizeCurrentWindow()}
@@ -738,92 +555,7 @@ export default function App() {
               <Suspense fallback={<LoadingMotionFallback />}>
                 <SettingsWindow
                   open={settingsWindowOpen}
-                  title={settingsMenuCopy.title}
-                  categories={settingsMenuCopy.categories}
-                  categoryDescriptions={settingsMenuCopy.categoryDescriptions}
-                  themeLabel={settingsMenuCopy.themeLabel}
-                  resetThemeLabel={settingsMenuCopy.resetThemeLabel}
-                  themeDescription={settingsMenuCopy.themeDescription}
-                  languageLabel={settingsMenuCopy.languageLabel}
-                  languageDescription={settingsMenuCopy.languageDescription}
-                  localeOptions={localeOptions}
-                  activeLocale={locale}
-                  windowModeLabel={settingsMenuCopy.windowModeLabel}
-                  windowBorderToneLabel={settingsMenuCopy.windowBorderToneLabel}
-                  windowBorderToneDescription={settingsMenuCopy.windowBorderToneDescription}
-                  windowBorderToneOptions={(
-                    Object.entries(settingsMenuCopy.windowBorderToneOptions) as Array<[WindowBorderTone, string]>
-                  ).map(([id, label]) => ({ id, label }))}
-                  activeWindowBorderTone={windowBorderTone}
-                  windowBorderWeightLabel={settingsMenuCopy.windowBorderWeightLabel}
-                  windowBorderWeightDescription={settingsMenuCopy.windowBorderWeightDescription}
-                  windowBorderWeightOptions={(
-                    Object.entries(settingsMenuCopy.windowBorderWeightOptions) as Array<[WindowBorderWeight, string]>
-                  ).map(([id, label]) => ({ id, label }))}
-                  activeWindowBorderWeight={windowBorderWeight}
-                  borderlessFullscreenLabel={settingsMenuCopy.borderlessFullscreenLabel}
-                  borderlessFullscreenDescription={settingsMenuCopy.borderlessFullscreenDescription}
-                  enableBorderlessFullscreenLabel={settingsMenuCopy.enableBorderlessFullscreenLabel}
-                  disableBorderlessFullscreenLabel={settingsMenuCopy.disableBorderlessFullscreenLabel}
-                  borderlessFullscreenEnabled={desktopHost ? windowIsFullscreen : false}
-                  debugModeLabel={settingsMenuCopy.debugModeLabel}
-                  debugModeDescription={settingsMenuCopy.debugModeDescription}
-                  enableDebugModeLabel={settingsMenuCopy.enableDebugModeLabel}
-                  disableDebugModeLabel={settingsMenuCopy.disableDebugModeLabel}
-                  debugModeEnabled={debugEnabled}
-                  notificationSoundLabel={settingsMenuCopy.notificationSoundLabel}
-                  notificationSoundDescription={settingsMenuCopy.notificationSoundDescription}
-                  enableNotificationSoundLabel={settingsMenuCopy.enableNotificationSoundLabel}
-                  disableNotificationSoundLabel={settingsMenuCopy.disableNotificationSoundLabel}
-                  notificationSoundEnabled={notificationSoundEnabled}
                   activeCategory={settingsWindowCategory}
-                  themeOptions={THEME_PRESETS.map((preset) => ({
-                    id: preset.id,
-                    label: settingsMenuCopy.themeLabels[preset.id] ?? preset.label,
-                    accent: preset.accent,
-                    preview: preset.preview,
-                  }))}
-                  activeThemeId={activeTheme.id}
-                  onSelectTheme={setThemeId}
-                  onResetTheme={() => setThemeId(THEME_PRESETS[0].id)}
-                  onSelectLocale={setLocale}
-                  onSelectWindowBorderTone={setWindowBorderTone}
-                  onSelectWindowBorderWeight={setWindowBorderWeight}
-                  onToggleBorderlessFullscreen={() => void handleToggleBorderlessFullscreen()}
-                  onToggleNotificationSound={() => setNotificationSoundEnabledState((current) => !current)}
-                  onToggleDebugMode={() => setDebugEnabled((current) => !current)}
-                  loadingMotionStyleLabel={settingsMenuCopy.loadingMotionStyleLabel}
-                  loadingMotionStyleDescription={settingsMenuCopy.loadingMotionStyleDescription}
-                  loadingMotionIntensityLabel={settingsMenuCopy.loadingMotionIntensityLabel}
-                  loadingMotionIntensityDescription={settingsMenuCopy.loadingMotionIntensityDescription}
-                  loadingMotionSpeedLabel={settingsMenuCopy.loadingMotionSpeedLabel}
-                  loadingMotionSpeedDescription={settingsMenuCopy.loadingMotionSpeedDescription}
-                  loadingMotionCustomSpeedLabel={settingsMenuCopy.loadingMotionCustomSpeedLabel}
-                  loadingMotionCustomSpeedDescription={settingsMenuCopy.loadingMotionCustomSpeedDescription}
-                  loadingMotionCustomSpeedToggleLabel={settingsMenuCopy.loadingMotionCustomSpeedToggleLabel}
-                  loadingMotionPresetSpeedToggleLabel={settingsMenuCopy.loadingMotionPresetSpeedToggleLabel}
-                  loadingMotionSpeedValueLabel={settingsMenuCopy.loadingMotionSpeedValueLabel}
-                  activeLoadingStyleId={loadingMotionPreference.styleId}
-                  activeLoadingIntensityId={loadingMotionPreference.intensityId}
-                  activeLoadingSpeedMode={loadingMotionPreference.speedMode}
-                  activeLoadingSpeedId={loadingMotionPreference.speedId}
-                  activeLoadingSpeedMultiplier={loadingMotionPreference.speedMultiplier}
-                  onSelectLoadingStyle={handleSelectLoadingStyle}
-                  onSelectLoadingIntensity={handleSelectLoadingIntensity}
-                  onSelectLoadingSpeed={handleSelectLoadingSpeed}
-                  onSelectCustomLoadingSpeed={handleSelectCustomLoadingSpeed}
-                  loadingStyleOptions={LOADING_MOTION_STYLE_LABELS.map((entry) => ({
-                    id: entry.id,
-                    label: locale === 'zh-CN' ? entry.labelZh : entry.labelEn,
-                  }))}
-                  loadingIntensityOptions={LOADING_MOTION_INTENSITY_LABELS.map((entry) => ({
-                    id: entry.id,
-                    label: locale === 'zh-CN' ? entry.labelZh : entry.labelEn,
-                  }))}
-                  loadingSpeedOptions={LOADING_MOTION_SPEED_LABELS.map((entry) => ({
-                    id: entry.id,
-                    label: locale === 'zh-CN' ? entry.labelZh : entry.labelEn,
-                  }))}
                   onActiveCategoryChange={setSettingsWindowCategory}
                   onClose={() => setSettingsWindowOpen(false)}
                 />

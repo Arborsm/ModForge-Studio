@@ -20,6 +20,8 @@ function buildProps(): ComponentProps<typeof ContentPatcherWorkspace> {
       pluginKind: 'content-patcher' as const,
       capabilities: ['edit', 'save', 'export', 'validate'] as WorkspacePluginCapability[],
       futureScopes: ['wizard'],
+      displayName: { 'zh-CN': 'Content Patcher', 'en-US': 'Content Patcher' },
+      description: { 'zh-CN': '测试插件', 'en-US': 'Test plugin' },
       getDisplayName: () => 'Content Patcher',
       getDescription: () => 'Test plugin',
     },

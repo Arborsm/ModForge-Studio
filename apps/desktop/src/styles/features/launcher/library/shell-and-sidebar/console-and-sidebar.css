@@ -40,9 +40,9 @@
   }
 
   .launcher-library-console {
-    padding: 14px 18px;
+    padding: 12px 16px;
     display: grid;
-    gap: 10px;
+    gap: 0;
   }
 
   .launcher-library-console-top,
@@ -53,7 +53,8 @@
   }
 
   .launcher-library-console-top {
-    grid-template-columns: minmax(0, 1fr) max-content;
+    grid-template-columns: minmax(180px, 1fr) minmax(0, max-content);
+    min-height: 38px;
   }
 
   .launcher-library-console-bottom {
@@ -161,6 +162,10 @@
     flex-wrap: nowrap;
   }
 
+  .launcher-library-console-actions {
+    gap: 8px;
+  }
+
   .launcher-library-console-left {
     min-width: 0;
   }
@@ -191,17 +196,48 @@
     background: color-mix(in srgb, var(--border-color) 78%, var(--bg-panel-muted));
   }
 
+  .launcher-library-icon-button:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
+    outline-offset: 2px;
+  }
+
   .launcher-library-inline-menu-button {
     flex: 0 0 auto;
     background: color-mix(in srgb, var(--accent) 10%, transparent);
     color: var(--accent);
   }
 
+  /* Accent state shared by the enabled-only toggle and the sort button —
+   * highlights the active/pressed control without a separate chrome. */
+  .launcher-library-icon-button-accent {
+    background: var(--launcher-surface-accent);
+    color: var(--launcher-text-accent);
+    border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+  }
+
+  .launcher-library-icon-button-accent:hover {
+    background: color-mix(in srgb, var(--accent) 18%, var(--bg-panel));
+    color: var(--launcher-text-accent);
+    border-color: color-mix(in srgb, var(--accent) 44%, transparent);
+  }
+
+  /* Active (menu open) state — solid accent ring, stronger than the accent tint
+   * so the open control reads as the current focus. */
+  .launcher-library-icon-button-active {
+    border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+    background: color-mix(in srgb, var(--accent) 16%, var(--bg-panel));
+    color: var(--launcher-text-accent);
+  }
+
+  .launcher-library-icon-button-active:hover {
+    background: color-mix(in srgb, var(--accent) 24%, var(--bg-panel));
+  }
+
   .launcher-library-secondary-action,
   .launcher-library-primary-action {
     min-width: 0;
     min-height: 36px;
-    border-radius: 999px;
+    border-radius: 10px;
     font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
@@ -221,41 +257,96 @@
     color: var(--launcher-text-inverse);
   }
 
+  /* Collapsible search field — collapsed to a round icon button by default,
+   * expanded on click (and kept open while a filter value is present). */
   .launcher-library-search {
-    width: 100%;
-    min-width: 0;
-    max-width: 240px;
+    --launcher-search-width: 220px;
+    width: 36px;
     height: 36px;
+    flex: 0 0 auto;
+    min-width: 0;
+    max-width: var(--launcher-search-width);
     border: 1px solid transparent;
     border-radius: 999px;
     background: var(--launcher-surface-muted);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
-    padding: 0 12px;
+    padding: 0;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    color: var(--text-tertiary);
+    gap: 0;
+    overflow: hidden;
     transition:
-      border-color 180ms ease,
-      background-color 180ms ease,
-      box-shadow 180ms ease;
+      width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 140ms ease,
+      background-color 140ms ease;
   }
 
-  .launcher-library-search:focus-within {
-    border-color: color-mix(in srgb, var(--accent) 20%, transparent);
-    background: var(--launcher-surface-base);
-    box-shadow:
-      inset 0 1px 0 var(--bevel-highlight),
-      0 0 0 3px color-mix(in srgb, var(--accent-soft) 48%, transparent);
+  .launcher-library-search-trigger {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 140ms ease;
+  }
+
+  .launcher-library-search-trigger:hover {
+    color: var(--text-primary);
+  }
+
+  .launcher-library-search-trigger:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
+    outline-offset: 2px;
   }
 
   .launcher-library-search input {
+    width: 0;
     min-width: 0;
-    flex: 1;
+    flex: 0 0 auto;
     border: 0;
     background: transparent;
     color: var(--launcher-text-primary);
     outline: none;
+    font: inherit;
+    font-size: 13px;
+    opacity: 0;
+    padding: 0;
+    transition: opacity 160ms ease 60ms;
+  }
+
+  .launcher-library-search.is-open {
+    width: var(--launcher-search-width);
+    background: var(--launcher-surface-base);
+    border-color: var(--launcher-border-soft);
+    padding-right: 12px;
+    gap: 8px;
+  }
+
+  .launcher-library-search.is-open .launcher-library-search-trigger {
+    color: var(--launcher-text-accent);
+  }
+
+  .launcher-library-search.is-open input {
+    width: auto;
+    flex: 1 1 auto;
+    opacity: 1;
+  }
+
+  .launcher-library-search.is-open:focus-within {
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-soft) 60%, transparent);
+  }
+
+  .launcher-library-toolbar-divider {
+    width: 1px;
+    align-self: stretch;
+    margin: 6px 2px;
+    flex: 0 0 auto;
+    background: var(--launcher-border-soft);
   }
 
   .launcher-library-sidebar-header {

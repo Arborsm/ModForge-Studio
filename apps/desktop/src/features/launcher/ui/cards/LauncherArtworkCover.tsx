@@ -5,13 +5,14 @@ import { useLauncherImage } from '../../model/imageLoader'
 type LauncherArtworkCoverProps = {
   title: string
   imageUrl: string | null
+  imageModKey?: string | null
   coverStyle: CSSProperties
   coverWord: string
   className?: string
 }
 
-export function LauncherArtworkCover({ title, imageUrl, coverStyle, coverWord, className }: LauncherArtworkCoverProps) {
-  const cover = useLauncherImage(imageUrl)
+export function LauncherArtworkCover({ title, imageUrl, imageModKey = null, coverStyle, coverWord, className }: LauncherArtworkCoverProps) {
+  const cover = useLauncherImage(imageUrl, imageModKey)
   const fallbackWord = coverWord.trim() || title.trim().slice(0, 3).toUpperCase() || 'MOD'
 
   return (

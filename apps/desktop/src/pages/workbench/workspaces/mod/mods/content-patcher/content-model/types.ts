@@ -7,6 +7,8 @@ export type WorkspacePluginDefinition = {
   pluginKind: 'content-patcher'
   capabilities: WorkspacePluginCapability[]
   futureScopes: string[]
+  displayName: Record<LocaleCode, string>
+  description: Record<LocaleCode, string>
   getDisplayName: (locale: LocaleCode) => string
   getDescription: (locale: LocaleCode) => string
 }

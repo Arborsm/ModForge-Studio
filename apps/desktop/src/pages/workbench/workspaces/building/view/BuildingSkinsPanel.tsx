@@ -23,7 +23,7 @@ export function BuildingSkinsPanel(props: BuildingSkinsPanelProps) {
           </p>
         </div>
       </div>
-      <div className="panel-body min-h-[180px] overflow-auto p-3">
+      <div className="panel-body min-h-45 overflow-auto p-3">
         {isConstructible ? (
           props.building.skins.length ? (
             <div className="space-y-2">
@@ -31,12 +31,12 @@ export function BuildingSkinsPanel(props: BuildingSkinsPanelProps) {
                 <div key={`${props.building.key}:${skin.id}`} className="panel-list-card px-3 py-2">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{skin.displayName}</p>
-                      <p className="truncate text-xs text-[var(--text-secondary)]">{skin.texturePathLabel}</p>
+                      <p className="truncate text-sm font-semibold text-(--text-primary)">{skin.displayName}</p>
+                      <p className="truncate text-xs text-(--text-secondary)">{skin.texturePathLabel}</p>
                     </div>
                     {skin.showAsSeparateConstructionEntry ? <span className="dock-chip">{props.copy.separateBuildBadge}</span> : null}
                   </div>
-                  <p className="mt-2 line-clamp-2 text-xs leading-5 text-[var(--text-secondary)]">
+                  <p className="mt-2 line-clamp-2 text-xs leading-5 text-(--text-secondary)">
                     {skin.description ?? skin.condition ?? props.copy.noneLabel}
                   </p>
                 </div>
@@ -47,7 +47,7 @@ export function BuildingSkinsPanel(props: BuildingSkinsPanelProps) {
           )
         ) : (
           <div className="panel-section p-3">
-            <div className="space-y-2 text-sm text-[var(--text-primary)]">
+            <div className="space-y-2 text-sm text-(--text-primary)">
               <p>
                 {props.copy.sourceMapLabel}: {props.building.exteriorMapName ?? props.copy.noneLabel}
               </p>

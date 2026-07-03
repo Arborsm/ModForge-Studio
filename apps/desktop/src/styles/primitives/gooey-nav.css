@@ -86,23 +86,33 @@
     color: var(--gooey-idle-color);
   }
 
-  .gooey-nav-container nav ul li a {
+  .gooey-nav-container nav ul li a,
+  .gooey-nav-container nav ul li button {
     display: inline-flex;
     align-items: center;
     gap: 0.5em;
     position: relative;
     z-index: 12;
+    border: 0;
     padding: 0.6em 1em;
+    background: transparent;
     color: inherit;
+    font: inherit;
     text-decoration: none;
   }
 
-  .gooey-nav-container nav ul li a[aria-disabled='true'] {
+  .gooey-nav-container nav ul li button {
+    cursor: inherit;
+  }
+
+  .gooey-nav-container nav ul li a[aria-disabled='true'],
+  .gooey-nav-container nav ul li button[aria-disabled='true'] {
     cursor: not-allowed;
     opacity: 0.45;
   }
 
-  .gooey-nav-container nav ul li:has(a[aria-disabled='true']) {
+  .gooey-nav-container nav ul li:has(a[aria-disabled='true']),
+  .gooey-nav-container nav ul li:has(button[aria-disabled='true']) {
     cursor: not-allowed;
   }
 

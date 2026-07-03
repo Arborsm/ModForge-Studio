@@ -11,7 +11,7 @@ type BuildingDetailsPanelProps = {
 function renderDictionary(entries: Record<string, string>, noneLabel: string) {
   const keys = Object.keys(entries)
   if (keys.length === 0) {
-    return <p className="text-sm text-[var(--text-secondary)]">{noneLabel}</p>
+    return <p className="text-sm text-(--text-secondary)">{noneLabel}</p>
   }
 
   return (
@@ -42,7 +42,7 @@ export function BuildingDetailsPanel({ building }: BuildingDetailsPanelProps) {
           <>
             <PanelSection title={building.sourceKind === 'constructible' ? copy.placementTitle : copy.worldEntrancesTitle}>
               {building.sourceKind === 'constructible' ? (
-                <div className="space-y-2 text-sm text-[var(--text-primary)]">
+                <div className="space-y-2 text-sm text-(--text-primary)">
                   <p>
                     {copy.additionalPlacementTilesLabel}: {building.additionalPlacementTiles.length}
                   </p>
@@ -62,27 +62,27 @@ export function BuildingDetailsPanel({ building }: BuildingDetailsPanelProps) {
               ) : building.worldEntrances.length ? (
                 <div className="space-y-2">
                   {building.worldEntrances.map((entrance, index) => (
-                    <div key={`${building.key}:${index}`} className="panel-list-card px-3 py-2 text-sm text-[var(--text-primary)]">
+                    <div key={`${building.key}:${index}`} className="panel-list-card px-3 py-2 text-sm text-(--text-primary)">
                       <p className="font-semibold">{entrance.sourceMapName}</p>
-                      <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                      <p className="mt-1 text-xs text-(--text-secondary)">
                         {copy.triggerLabel}: {entrance.trigger}
                       </p>
-                      <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                      <p className="mt-1 text-xs text-(--text-secondary)">
                         {copy.sourceTileLabel}: {formatPoint(entrance.sourceTile, copy.noneLabel)}
                       </p>
-                      <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                      <p className="mt-1 text-xs text-(--text-secondary)">
                         {copy.targetTileLabel}: {formatPoint(entrance.targetTile, copy.noneLabel)}
                       </p>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-sm text-[var(--text-secondary)]">{copy.worldEntrancesEmpty}</div>
+                <div className="text-sm text-(--text-secondary)">{copy.worldEntrancesEmpty}</div>
               )}
             </PanelSection>
 
             <PanelSection title={copy.runtimeDataTitle}>
-              <div className="space-y-2 text-sm text-[var(--text-primary)]">
+              <div className="space-y-2 text-sm text-(--text-primary)">
                 <p>
                   {copy.chestsLabel}: {building.chests.length}
                 </p>
@@ -113,17 +113,15 @@ export function BuildingDetailsPanel({ building }: BuildingDetailsPanelProps) {
             <PanelSection title={copy.metadataTitle}>
               <div className="space-y-3">
                 <div>
-                  <p className="text-[11px] font-semibold tracking-[0.14em] text-[var(--text-secondary)] uppercase">{copy.metadataLabel}</p>
+                  <p className="text-[11px] font-semibold tracking-[0.14em] text-(--text-secondary) uppercase">{copy.metadataLabel}</p>
                   <div className="mt-2">{renderDictionary(building.metadata, copy.noneLabel)}</div>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold tracking-[0.14em] text-[var(--text-secondary)] uppercase">{copy.modDataLabel}</p>
+                  <p className="text-[11px] font-semibold tracking-[0.14em] text-(--text-secondary) uppercase">{copy.modDataLabel}</p>
                   <div className="mt-2">{renderDictionary(building.modData, copy.noneLabel)}</div>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold tracking-[0.14em] text-[var(--text-secondary)] uppercase">
-                    {copy.customFieldsLabel}
-                  </p>
+                  <p className="text-[11px] font-semibold tracking-[0.14em] text-(--text-secondary) uppercase">{copy.customFieldsLabel}</p>
                   <div className="mt-2">{renderDictionary(building.customFields, copy.noneLabel)}</div>
                 </div>
               </div>

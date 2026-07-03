@@ -6,7 +6,6 @@ export const logicCommandSchemas = [
   {
     key: 'question',
     label: 'Question',
-    labelZh: '选择问题',
     category: 'logic',
     color: 'orange',
     icon: 'ListChecks',
@@ -21,7 +20,6 @@ export const logicCommandSchemas = [
   {
     key: 'quickQuestion',
     label: 'Quick Question',
-    labelZh: '快速选择',
     category: 'logic',
     color: 'orange',
     icon: 'GitBranch',
@@ -40,7 +38,6 @@ export const logicCommandSchemas = [
   {
     key: 'fork',
     label: 'Fork',
-    labelZh: '条件分支',
     category: 'logic',
     color: 'orange',
     icon: 'GitFork',
@@ -55,7 +52,6 @@ export const logicCommandSchemas = [
   {
     key: 'switchEvent',
     label: 'Switch Event',
-    labelZh: '切换事件',
     category: 'logic',
     color: 'orange',
     icon: 'ArrowRightLeft',
@@ -68,7 +64,6 @@ export const logicCommandSchemas = [
   {
     key: 'pause',
     label: 'Pause',
-    labelZh: '暂停',
     category: 'logic',
     color: 'yellow',
     icon: 'Timer',
@@ -81,7 +76,6 @@ export const logicCommandSchemas = [
   {
     key: 'waitForAllStationary',
     label: 'Wait For All Stationary',
-    labelZh: '等待静止',
     category: 'logic',
     color: 'yellow',
     icon: 'Timer',
@@ -91,7 +85,6 @@ export const logicCommandSchemas = [
   {
     key: 'waitForOtherPlayers',
     label: 'Wait For Other Players',
-    labelZh: '等待其他玩家',
     category: 'logic',
     color: 'yellow',
     icon: 'Timer',
@@ -101,7 +94,6 @@ export const logicCommandSchemas = [
   {
     key: 'beginSimultaneousCommand',
     label: 'Begin Simultaneous',
-    labelZh: '开始同步',
     category: 'logic',
     color: 'yellow',
     icon: 'Layers',
@@ -111,7 +103,6 @@ export const logicCommandSchemas = [
   {
     key: 'endSimultaneousCommand',
     label: 'End Simultaneous',
-    labelZh: '结束同步',
     category: 'logic',
     color: 'yellow',
     icon: 'Layers',
@@ -121,7 +112,6 @@ export const logicCommandSchemas = [
   {
     key: 'skippable',
     label: 'Skippable',
-    labelZh: '可跳过',
     category: 'logic',
     color: 'yellow',
     icon: 'FastForward',

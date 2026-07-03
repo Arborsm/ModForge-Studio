@@ -18,6 +18,7 @@ import type {
   LauncherGameLaunchResult,
   LauncherInstallBackupSummary,
   LauncherLibraryCoversState,
+  LauncherImageFailuresState,
   LauncherLibraryScanResult,
   LauncherLibraryState,
   LauncherNexusDiagnosticsResult,
@@ -269,6 +270,11 @@ export function loadLauncherLibraryCovers() {
   return readPending(loadLauncherLibraryCoversCache, 'default', () =>
     invokeDesktop<LauncherLibraryCoversState>(HOST_COMMANDS.loadLauncherLibraryCovers, undefined, launcherIoPoolPolicy),
   )
+}
+
+/** Loads persisted launcher image failure metadata. */
+export function loadLauncherImageFailures() {
+  return invokeDesktop<LauncherImageFailuresState>(HOST_COMMANDS.loadLauncherImageFailures, undefined, launcherIoPoolPolicy)
 }
 
 /** Loads persisted launcher download queue state. */

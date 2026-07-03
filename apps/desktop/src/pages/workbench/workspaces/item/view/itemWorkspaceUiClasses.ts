@@ -7,14 +7,14 @@ export function getToneClass(tone: Tone) {
     case 'danger':
       return 'border-rose-400/25 bg-rose-500/10 text-rose-200'
     case 'accent':
-      return 'border-[color-mix(in_srgb,var(--accent)_36%,transparent)] bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] text-[var(--text-primary)]'
+      return 'border-[color-mix(in_srgb,var(--accent)_36%,transparent)] bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] text-(--text-primary)'
     default:
-      return 'border-[var(--border-color)] bg-[var(--bg-panel)] text-[var(--text-primary)]'
+      return 'border-(--border-color) bg-(--bg-panel) text-(--text-primary)'
   }
 }
 
 export function getPillClass(isActive: boolean) {
   return isActive
-    ? 'border-transparent bg-[var(--accent)] text-white shadow-[0_12px_28px_color-mix(in_srgb,var(--accent)_28%,transparent)]'
-    : 'border-[var(--border-color)] bg-[var(--bg-panel)] text-[var(--text-secondary)] hover:bg-[var(--bg-panel-muted)]'
+    ? 'border-transparent bg-(--accent) text-white shadow-[0_12px_28px_color-mix(in_srgb,var(--accent)_28%,transparent)]'
+    : 'border-(--border-color) bg-(--bg-panel) text-(--text-secondary) hover:bg-(--bg-panel-muted)'
 }

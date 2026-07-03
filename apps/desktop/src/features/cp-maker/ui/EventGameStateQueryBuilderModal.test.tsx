@@ -8,7 +8,7 @@ const hubCopy = localeBundles['zh-CN'].editor.studioDesk.eventPatchHub
 describe('EventGameStateQueryBuilderModal', () => {
   test('renders GameStateQuery choices as event-condition style visual cards', () => {
     const onApply = vi.fn()
-    const { container } = render(
+    render(
       <EventGameStateQueryBuilderModal
         copy={hubCopy.conditionBuilder.gameStateQueryBuilder}
         hubCopy={hubCopy}
@@ -22,8 +22,8 @@ describe('EventGameStateQueryBuilderModal', () => {
       .map((node) => node.closest('.condition-catalog-option'))
       .find(Boolean)
     expect(timeCard).toBeTruthy()
-    expect(container.querySelector('.game-state-query-definition-list')).toBeNull()
-    expect(container.querySelector('.game-state-query-editor-card')).toBeNull()
+    expect(document.body.querySelector('.game-state-query-definition-list')).toBeNull()
+    expect(document.body.querySelector('.game-state-query-editor-card')).toBeNull()
 
     fireEvent.click(within(timeCard as HTMLElement).getByRole('button', { name: '加入条件' }))
     fireEvent.click(screen.getByRole('button', { name: '加入查询' }))
@@ -52,7 +52,7 @@ describe('EventGameStateQueryBuilderModal', () => {
   })
 
   test('mounts preview and confirm actions outside the modal like event conditions', () => {
-    const { container } = render(
+    render(
       <EventGameStateQueryBuilderModal
         copy={hubCopy.conditionBuilder.gameStateQueryBuilder}
         hubCopy={hubCopy}
@@ -61,7 +61,7 @@ describe('EventGameStateQueryBuilderModal', () => {
       />,
     )
 
-    const previewDock = container.querySelector('.condition-builder-preview-dock.game-state-query-preview-dock')
+    const previewDock = document.body.querySelector('.condition-builder-preview-dock.game-state-query-preview-dock')
     expect(previewDock).toBeTruthy()
     expect(previewDock?.closest('.game-state-query-modal')).toBeNull()
     expect(previewDock?.querySelector('.condition-builder-previews')).toBeTruthy()
@@ -70,7 +70,7 @@ describe('EventGameStateQueryBuilderModal', () => {
   })
 
   test('mounts logic chain controls outside the modal above the preview dock', () => {
-    const { container } = render(
+    render(
       <EventGameStateQueryBuilderModal
         copy={hubCopy.conditionBuilder.gameStateQueryBuilder}
         hubCopy={hubCopy}
@@ -79,7 +79,7 @@ describe('EventGameStateQueryBuilderModal', () => {
       />,
     )
 
-    const chainDock = container.querySelector('.condition-builder-chain-dock.game-state-query-chain-dock')
+    const chainDock = document.body.querySelector('.condition-builder-chain-dock.game-state-query-chain-dock')
     expect(chainDock).toBeTruthy()
     expect(chainDock?.closest('.game-state-query-modal')).toBeNull()
     expect(within(chainDock as HTMLElement).getByText('主逻辑链')).toBeTruthy()
@@ -87,7 +87,7 @@ describe('EventGameStateQueryBuilderModal', () => {
   })
 
   test('uses translated condition chips and hides empty-field placeholder text', () => {
-    const { container } = render(
+    render(
       <EventGameStateQueryBuilderModal
         copy={hubCopy.conditionBuilder.gameStateQueryBuilder}
         hubCopy={hubCopy}
@@ -104,7 +104,7 @@ describe('EventGameStateQueryBuilderModal', () => {
       .find(Boolean)
     fireEvent.click(within(timeCard as HTMLElement).getByRole('button', { name: '加入条件' }))
 
-    const chainDock = container.querySelector('.condition-builder-chain-dock.game-state-query-chain-dock')
+    const chainDock = document.body.querySelector('.condition-builder-chain-dock.game-state-query-chain-dock')
     expect(chainDock?.querySelector('.condition-chip')).toBeTruthy()
     expect(within(chainDock as HTMLElement).getByText('19:00 - 23:00')).toBeTruthy()
     expect(within(chainDock as HTMLElement).queryByText('TIME 1900 2300')).toBeNull()

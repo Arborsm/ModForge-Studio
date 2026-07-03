@@ -4,6 +4,7 @@ import { getItemKindLabel, type ItemTextureAssetState, type ItemWorkspaceEntry }
 import type { DraftPatch } from '@shared/contracts'
 import { ACTOR_OPTIONS, ITEM_OPTIONS, MAP_OPTIONS, MUSIC_OPTIONS, SOUND_OPTIONS } from '../workflow-model/commandOptions'
 import type { EventResourceKind, EventResourceOption } from './EventResourcePicker'
+import type { EventWorkflowCopy } from '@locales/api'
 
 export type EventActorAssetPreview = {
   spriteUrl: string | null
@@ -21,7 +22,7 @@ type BuildEventResourceRegistryOptions = {
   globalRegistry?: ResourceRegistry | null
   itemCatalog?: ItemWorkspaceEntry[]
   itemTexturesByAssetName?: Record<string, ItemTextureAssetState>
-  locale?: 'zh-CN' | 'en-US'
+  sourceLabels: EventWorkflowCopy['resourceSources']
 }
 
 const EMPTY_ENTRIES: Record<string, unknown> = {}
@@ -73,18 +74,18 @@ function pushUnique(target: EventResourceOption[], option: EventResourceOption) 
   }
 }
 
-function sourceLabelForEntry(source: string, sourceKind: string, locale: 'zh-CN' | 'en-US') {
+function sourceLabelForEntry(source: string, sourceKind: string, labels: EventWorkflowCopy['resourceSources']) {
   if (sourceKind === 'game') {
-    return locale === 'zh-CN' ? '游戏资源' : 'Game assets'
+    return labels.gameAssets
   }
   return source
 }
 
 export function buildEventResourceRegistryFromGlobal(
   globalRegistry: ResourceRegistry | null | undefined,
-  locale: 'zh-CN' | 'en-US' = 'zh-CN',
+  sourceLabels: EventWorkflowCopy['resourceSources'],
 ): EventResourceRegistry {
-  const registry = buildDefaultEventResourceRegistry(locale)
+  const registry = buildDefaultEventResourceRegistry(sourceLabels)
 
   for (const entry of globalRegistry?.entries ?? []) {
     if (!['actor', 'item', 'location', 'music', 'sound'].includes(entry.kind)) {
@@ -92,7 +93,7 @@ export function buildEventResourceRegistryFromGlobal(
     }
 
     const kind = entry.kind as EventResourceKind
-    const source = sourceLabelForEntry(entry.source, entry.sourceKind, locale)
+    const source = sourceLabelForEntry(entry.source, entry.sourceKind, sourceLabels)
     pushUnique(registry[kind], {
       ...makeOption(kind, entry.value, entry.label || entry.value, source, entry.absolutePath ?? entry.relativePath ?? null),
       category: entry.category ?? source,
@@ -123,16 +124,15 @@ function buildItemMeta(entry: ItemWorkspaceEntry) {
 function makeItemCatalogOption(
   entry: ItemWorkspaceEntry,
   textureState: ItemTextureAssetState | null,
-  locale: 'zh-CN' | 'en-US',
+  sourceLabels: EventWorkflowCopy['resourceSources'],
 ): EventResourceOption {
-  const source = locale === 'zh-CN' ? '物品目录' : 'Item catalog'
   return {
     id: `item:${entry.qualifiedItemId}`,
     value: entry.qualifiedItemId,
     label: entry.displayName,
     kind: 'item',
     subtitle: entry.internalName,
-    badge: source,
+    badge: sourceLabels.itemCatalog,
     category: getItemPrimaryCategory(entry),
     meta: buildItemMeta(entry),
     sourcePath: entry.texturePathLabel,
@@ -145,14 +145,14 @@ function applyItemCatalog(
   registry: EventResourceRegistry,
   itemCatalog: ItemWorkspaceEntry[] | null | undefined,
   itemTexturesByAssetName: Record<string, ItemTextureAssetState> | null | undefined,
-  locale: 'zh-CN' | 'en-US',
+  sourceLabels: EventWorkflowCopy['resourceSources'],
 ) {
   if (!itemCatalog?.length) {
     return
   }
 
   registry.item = itemCatalog.map((entry) =>
-    makeItemCatalogOption(entry, entry.textureAssetName ? (itemTexturesByAssetName?.[entry.textureAssetName] ?? null) : null, locale),
+    makeItemCatalogOption(entry, entry.textureAssetName ? (itemTexturesByAssetName?.[entry.textureAssetName] ?? null) : null, sourceLabels),
   )
 }
 
@@ -222,8 +222,8 @@ function collectResourcesFromRawScript(
   }
 }
 
-export function buildDefaultEventResourceRegistry(locale: 'zh-CN' | 'en-US' = 'zh-CN'): EventResourceRegistry {
-  const source = locale === 'zh-CN' ? '原版资源' : 'Vanilla'
+export function buildDefaultEventResourceRegistry(sourceLabels: EventWorkflowCopy['resourceSources']): EventResourceRegistry {
+  const source = sourceLabels.vanilla
   return {
     actor: ACTOR_OPTIONS.map((value) => makeOption('actor', value, value, source)),
     item: ITEM_OPTIONS.map((option) => makeOption('item', optionValue(option), optionLabel(option), source)),
@@ -242,12 +242,12 @@ export function buildEventResourceRegistry({
   globalRegistry,
   itemCatalog,
   itemTexturesByAssetName,
-  locale = 'zh-CN',
+  sourceLabels,
 }: BuildEventResourceRegistryOptions): EventResourceRegistry {
-  const registry = buildEventResourceRegistryFromGlobal(globalRegistry, locale)
-  applyItemCatalog(registry, itemCatalog, itemTexturesByAssetName, locale)
-  const draftSource = locale === 'zh-CN' ? '当前项目' : 'Project'
-  const patchSource = locale === 'zh-CN' ? '当前补丁' : 'Patch'
+  const registry = buildEventResourceRegistryFromGlobal(globalRegistry, sourceLabels)
+  applyItemCatalog(registry, itemCatalog, itemTexturesByAssetName, sourceLabels)
+  const draftSource = sourceLabels.project
+  const patchSource = sourceLabels.patch
 
   for (const location of Object.values(eventLocations ?? {})) {
     if (location) {

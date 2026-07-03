@@ -49,6 +49,24 @@
     --scrim: rgba(15, 23, 42, 0.32); /* 模态/弹层背后的遮罩 */
     --bevel-highlight: rgba(255, 255, 255, 0.5); /* 卡片/面板顶部 inset 高光斜面 */
     --bg-overlay: var(--bg-elevated); /* 浮层/下拉/tooltip 面板底(可叠 backdrop-blur) */
+
+    /* Titlebar height — the titlebar (h-14 = 56px) plus its 1px divider.
+     * Dialog overlays are clipped to below this line via `inset` so the titlebar
+     * stays visible and interactive. Mirrored in CSS by .app-titlebar-height. */
+    --app-titlebar-height: 57px;
+
+    /* Z-index scale — single source of truth for stacking order across the app.
+     * Dialogs sit above the titlebar (z-titlebar) but their overlay is clipped to
+     * below the titlebar via `inset: 57px 0 0`, so the titlebar stays visible and
+     * interactive while the dialog layer can never be pierced by popovers. */
+    --z-base: 0;
+    --z-dock: 100; /* workspace dock surfaces */
+    --z-popover: 180; /* dropdowns, floats, compact-select menus */
+    --z-titlebar-divider: 135; /* the 1px divider under the titlebar */
+    --z-titlebar: 260; /* the titlebar itself */
+    --z-dialog: 300; /* dialog overlay (always below-titlebar-inset) */
+    --z-dialog-stack: 310; /* nested dialog (opened from within a dialog) */
+    --z-toast: 400; /* notifications */
   }
 
   :root.dark {

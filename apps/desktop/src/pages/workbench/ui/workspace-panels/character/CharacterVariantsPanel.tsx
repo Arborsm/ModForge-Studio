@@ -34,14 +34,14 @@ export function CharacterVariantsPanel({ character, activeVariant, onSelectVaria
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{variant.label}</p>
-                    <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{variant.id}</p>
+                    <p className="truncate text-sm font-semibold text-(--text-primary)">{variant.label}</p>
+                    <p className="mt-1 truncate text-xs text-(--text-secondary)">{variant.id}</p>
                   </div>
                   <span className="dock-chip shrink-0">
                     {variant.kind === 'default' ? copy.defaultBadgeShort : copy.alternateBadgeShort}
                   </span>
                 </div>
-                <div className="mt-3 space-y-1 text-xs text-[var(--text-secondary)]">
+                <div className="mt-3 space-y-1 text-xs text-(--text-secondary)">
                   <p>
                     {copy.conditionLabel}: {variant.condition ?? noneLabel}
                   </p>

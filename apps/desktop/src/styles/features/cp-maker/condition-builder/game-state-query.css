@@ -1,14 +1,4 @@
 @layer components {
-  .game-state-query-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 140;
-    display: grid;
-    place-items: center;
-    background: color-mix(in srgb, var(--surface-inverse) 32%, transparent);
-    padding: 24px 24px 170px;
-  }
-
   .game-state-query-stack {
     display: grid;
     width: min(980px, calc(100vw - 48px));

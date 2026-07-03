@@ -28,8 +28,11 @@
     "release:all": "node ./scripts/release-current-platform.cjs",
     "release:collect": "node ./scripts/collect-release-artifacts.cjs",
     "lint": "vp lint .",
+    "lint:tailwind": "tailwind-lint --config src/styles/index.css \"src/**/*.{ts,tsx}\"",
+    "lint:tailwind:fix": "tailwind-lint --config src/styles/index.css \"src/**/*.{ts,tsx}\" --fix",
     "test": "node ./scripts/cleanup-vitest-processes.cjs && vp test run --configLoader runner --pool=threads --maxWorkers=3",
     "test:cleanup": "node ./scripts/cleanup-vitest-processes.cjs",
+    "test:launcher-custom-sort": "node ./scripts/verify-launcher-custom-sort.mjs",
     "test:launcher-drag": "node ./scripts/verify-launcher-drag.mjs",
     "test:launcher-fast-scroll": "node ./scripts/verify-launcher-fast-scroll.mjs",
     "test:launcher-performance": "node ./scripts/verify-launcher-performance.mjs",
@@ -78,10 +81,11 @@
     "react-dom": "^19.2.7",
     "react-resizable-panels": "^4.11.2",
     "rolldown": "1.0.3",
+    "tailwind-lint": "0.12.0",
     "tailwindcss": "^4.3.0",
     "typescript": "~6.0.3",
-    "zustand": "^5.0.14",
-    "vite-plus": "catalog:"
+    "vite-plus": "catalog:",
+    "zustand": "^5.0.14"
   },
   "main": "electron-dist/main.cjs",
   "build": {

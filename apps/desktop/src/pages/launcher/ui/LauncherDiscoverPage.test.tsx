@@ -220,6 +220,9 @@ describe('LauncherDiscoverPage', () => {
     expect(screen.getByRole('button', { name: copy.actions.queueDownload })).toBeTruthy()
     expect(container.querySelector('.launcher-discover-sidebar-accordion')).toBeTruthy()
     expect(container.querySelector('.launcher-discover-wall-card.panel-section')).toBeTruthy()
+    expect(container.querySelector('.launcher-discover-console.loading-motion-reveal')).toBeTruthy()
+    expect(container.querySelector('.launcher-discover-shell.loading-motion-reveal')).toBeTruthy()
+    expect(container.querySelector('.launcher-discover-wall-reveal.loading-motion-child-reveal')).toBeTruthy()
     expect(container.querySelector('.launcher-discover-wall-title-slot')).toBeTruthy()
     expect(container.querySelector('.launcher-discover-wall-summary-slot')).toBeTruthy()
     expect(container.querySelector('.launcher-discover-wall')?.getAttribute('data-columns')).toBeNull()
@@ -397,14 +400,38 @@ describe('LauncherDiscoverPage', () => {
     )
   })
 
-  it('shows a circular loading overlay instead of the generic loading copy while discover is loading', () => {
+  it('shows a circular loading overlay while keeping existing discover results mounted', () => {
     getAppUiStateSnapshotMock.mockReturnValue({
       launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
     } as never)
     initializeAppUiStateMock.mockResolvedValue({
       launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
     } as never)
-    useLauncherDiscoverMock.mockReturnValue(createDiscoverState({ state: 'loading' }))
+    useLauncherDiscoverMock.mockReturnValue(
+      createDiscoverState({
+        state: 'loading',
+        items: [
+          {
+            modId: 44722,
+            title: 'Joja Civic Center',
+            summary: 'Welcome to the Joja Civic Center.',
+            author: 'blue704',
+            uploader: 'blue704',
+            modUrl: 'https://www.nexusmods.com/stardewvalley/mods/44722',
+            imageUrl: null,
+            category: 'Maps',
+            createdAt: null,
+            updatedAt: null,
+            downloads: 12_345,
+            endorsements: 678,
+            fileSize: 512_000,
+            updateAvailable: false,
+          },
+        ],
+        totalCount: 1,
+        totalPages: 1,
+      }),
+    )
 
     const { container } = renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
     const resultsViewport = container.querySelector('.launcher-discover-results-viewport')
@@ -412,6 +439,8 @@ describe('LauncherDiscoverPage', () => {
     const wheelEvent = new WheelEvent('wheel', { bubbles: true, cancelable: true })
 
     expect(loadingOverlay).toBeTruthy()
+    expect(screen.getByText('Joja Civic Center')).toBeTruthy()
+    expect(container.querySelector('.launcher-discover-wall-reveal.loading-motion-child-reveal')).toBeTruthy()
     expect(screen.queryByText(copy.states.loading)).toBeNull()
     expect(screen.queryByText(copy.discover.empty)).toBeNull()
     expect(resultsViewport?.getAttribute('aria-busy')).toBe('true')
@@ -422,7 +451,7 @@ describe('LauncherDiscoverPage', () => {
     expect(wheelEvent.defaultPrevented).toBe(true)
     expect(publishNotificationMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        description: copy.discover.loadingResults,
+        description: copy.discover.loadingPage(1),
       }),
     )
     expect(dismissNotificationMock).not.toHaveBeenCalled()

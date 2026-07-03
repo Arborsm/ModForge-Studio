@@ -50,7 +50,7 @@ export function NavigationPane({
       </div>
       <div className="panel-body min-h-0 overflow-auto p-4">
         <div className="relative mb-4">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-(--text-tertiary)" />
           <input
             className="control-input pl-9"
             value={itemFilter}
@@ -81,24 +81,24 @@ export function NavigationPane({
                   <span
                     className={cx(
                       'inline-flex h-10 w-10 shrink-0 items-center justify-center border',
-                      isActive ? 'border-white/15 bg-white/10 text-white' : 'border-[var(--border-color)] bg-[var(--bg-panel-muted)]',
+                      isActive ? 'border-white/15 bg-white/10 text-white' : 'border-(--border-color) bg-(--bg-panel-muted)',
                     )}
                   >
                     <tab.Icon className="h-4 w-4" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold">{tab.label}</span>
-                    <span className={cx('block text-xs', isActive ? 'text-white/80' : 'text-[var(--text-tertiary)]')}>{tab.count}</span>
+                    <span className={cx('block text-xs', isActive ? 'text-white/80' : 'text-(--text-tertiary)')}>{tab.count}</span>
                   </span>
                 </button>
               )
             })}
           </div>
         ) : (
-          <div className="panel-section p-3 text-sm text-[var(--text-secondary)]">Grouped by mod. Only modified items are shown.</div>
+          <div className="panel-section p-3 text-sm text-(--text-secondary)">Grouped by mod. Only modified items are shown.</div>
         )}
 
-        <section className="mt-4 border-t border-[var(--border-color)] pt-4">
+        <section className="mt-4 border-t border-(--border-color) pt-4">
           {item ? (
             <div className="panel-section p-3">
               <div className="flex items-center gap-3">
@@ -111,8 +111,8 @@ export function NavigationPane({
                   />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.displayName}</p>
-                  <p className="truncate text-xs text-[var(--text-secondary)]">{item.qualifiedItemId}</p>
+                  <p className="truncate text-sm font-semibold text-(--text-primary)">{item.displayName}</p>
+                  <p className="truncate text-xs text-(--text-secondary)">{item.qualifiedItemId}</p>
                 </div>
               </div>
             </div>

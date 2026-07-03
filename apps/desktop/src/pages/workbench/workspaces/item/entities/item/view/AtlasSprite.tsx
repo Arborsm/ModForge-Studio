@@ -107,7 +107,7 @@ export function AtlasSprite({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] ${className}`}
+      className={`relative overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-panel-muted) ${className}`}
       style={{ isolation: 'isolate', ...style }}
     >
       {hasSprite ? (

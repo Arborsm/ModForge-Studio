@@ -86,6 +86,7 @@ export function buildLauncherLibraryGridBlocks(
   gridColumnCount: number,
   isLibraryFolderOpen: (folderId: string) => boolean,
   estimatedRowHeight: number,
+  isClosingLibraryFolder: (folderId: string) => boolean = () => false,
 ) {
   const occupiedRows: boolean[][] = []
   const occupiedColumnCounts: number[] = []
@@ -93,9 +94,11 @@ export function buildLauncherLibraryGridBlocks(
   let firstOpenRow = 0
   items.forEach((displayItem, index) => {
     const isOpenFolder = displayItem.kind === 'folder' && isLibraryFolderOpen(displayItem.folder.id)
-    const placement = isOpenFolder
-      ? getLauncherLibraryPanelPlacement(displayItem.mods.length + displayItem.childFolders.length, gridColumnCount, 1, 'balanced')
-      : { columnSpan: 1, rowSpan: 1 }
+    const isClosingFolder = displayItem.kind === 'folder' && isClosingLibraryFolder(displayItem.folder.id)
+    const placement =
+      isOpenFolder && !isClosingFolder
+        ? getLauncherLibraryPanelPlacement(displayItem.mods.length + displayItem.childFolders.length, gridColumnCount, 1, 'balanced')
+        : { columnSpan: 1, rowSpan: 1 }
 
     let rowStart = firstOpenRow
     let columnStart = 0

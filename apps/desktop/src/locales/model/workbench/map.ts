@@ -18,3 +18,17 @@ export type ViewportLabels = {
   zoomLabel: (zoom: number) => string
   failedToLoadTilesetImage: (path: string) => string
 }
+
+/** Copy for the map asset build dialog rendered by MapPatchEditor. */
+export type BuildAssetDialogCopy = {
+  title: string
+  building: string
+  buildingMessage: string
+  doneTitle: string
+  doneAssetSavedAs: (relativePath: string) => string
+  doneSizeKb: (kilobytes: number) => string
+  errorTitle: string
+  doneAction: string
+  closeAction: string
+  cancelAction: string
+}

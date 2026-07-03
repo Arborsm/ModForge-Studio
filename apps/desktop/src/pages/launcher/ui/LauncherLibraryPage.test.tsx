@@ -484,6 +484,15 @@ function renderLibraryPage(overrides: Partial<Parameters<typeof LauncherLibraryP
   }
 }
 
+function getLibraryMoreActionsMenu() {
+  fireEvent.click(screen.getByRole('button', { name: 'More actions' }))
+  return screen.getByRole('menu', { name: 'More actions' })
+}
+
+function clickInstallArchiveAction() {
+  fireEvent.click(within(getLibraryMoreActionsMenu()).getByRole('menuitem', { name: 'Install Archive' }))
+}
+
 function renderHiddenLibraryPage(overrides: Partial<Parameters<typeof LauncherLibraryPage>[0]> = {}) {
   const onLaunchGame = vi.fn()
   function Wrapper({ children }: { children: ReactNode }) {
@@ -543,6 +552,7 @@ describe('LauncherLibraryPage', () => {
       }),
       openPath: openLauncherPathMock,
       openUrl: openLauncherUrlMock,
+      loadImageFailures: vi.fn().mockResolvedValue({ entries: [] }),
       resolveImage: resolveLauncherImageMock,
       restoreInstallBackup: restoreLauncherInstallBackupMock,
       setLibraryCover: setLauncherLibraryCoverMock,
@@ -583,10 +593,13 @@ describe('LauncherLibraryPage', () => {
     expect(screen.getByRole('button', { name: 'Pack Management' })).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Story Pack' })).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Refresh' })).not.toBeNull()
-    expect(screen.getByRole('button', { name: 'Open Storage Folder' })).not.toBeNull()
-    expect(screen.getByRole('button', { name: 'Install Archive' })).not.toBeNull()
+    const moreActionsMenu = getLibraryMoreActionsMenu()
+    expect(within(moreActionsMenu).getByRole('menuitem', { name: 'Open Storage Folder' })).not.toBeNull()
+    expect(within(moreActionsMenu).getByRole('menuitem', { name: 'Install Archive' })).not.toBeNull()
+    expect(within(moreActionsMenu).getByRole('menuitem', { name: 'Install Backups' })).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Launch Game' })).not.toBeNull()
     expect(screen.queryByRole('button', { name: 'Apply Pack' })).toBeNull()
+    expect(container.querySelector('.launcher-library-console-bottom')).toBeNull()
     expect(container.querySelector('.launcher-library-page > .launcher-library-console')).not.toBeNull()
     expect(container.querySelector('.launcher-library-shell > .launcher-library-sidebar')).not.toBeNull()
     expect(container.querySelector('.launcher-library-shell > .launcher-library-content')).not.toBeNull()
@@ -626,12 +639,21 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    expect(screen.getByRole('button', { name: 'Open folder Visuals' })).not.toBeNull()
+    const folderButton = screen.getByRole('button', { name: 'Open folder Visuals' })
+    expect(folderButton).not.toBeNull()
+    expect(Array.from(folderButton.children).map((child) => child.className)).toEqual([
+      'launcher-library-folder-visual',
+      'launcher-library-folder-card-copy',
+    ])
+    expect(folderButton.querySelector('.launcher-library-folder-card-copy')?.children).toHaveLength(2)
+    const folderTone = (folderButton as HTMLElement).style.getPropertyValue('--launcher-folder-accent')
+    expect(folderTone).not.toBe('')
     expect(screen.queryByRole('article', { name: /npc adventures/i })).toBeNull()
 
-    clickAfterPress(screen.getByRole('button', { name: 'Open folder Visuals' }))
+    clickAfterPress(folderButton)
 
     const folderRegion = screen.getByRole('region', { name: 'Visuals' })
+    expect((folderRegion as HTMLElement).style.getPropertyValue('--launcher-folder-accent')).toBe(folderTone)
     expect(within(folderRegion).getByRole('article', { name: /npc adventures/i })).not.toBeNull()
   })
 
@@ -750,7 +772,7 @@ describe('LauncherLibraryPage', () => {
     expect(library.refresh).toHaveBeenCalledTimes(1)
   })
 
-  it('closes an expanded virtual folder with a single click', () => {
+  it('closes an expanded virtual folder with a single click', async () => {
     const library = {
       ...createLibraryState(),
       libraryFolders: [
@@ -772,7 +794,9 @@ describe('LauncherLibraryPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Close folder' }))
 
-    expect(screen.queryByRole('region', { name: 'Visuals' })).toBeNull()
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: 'Visuals' })).toBeNull()
+    })
     expect(screen.getByRole('button', { name: 'Open folder Visuals' })).not.toBeNull()
   })
 
@@ -827,7 +851,9 @@ describe('LauncherLibraryPage', () => {
     fireEvent.click(within(screen.getByRole('region', { name: 'Gameplay' })).getByRole('button', { name: 'Close folder' }))
 
     expect(screen.getByRole('region', { name: 'Visuals' })).not.toBeNull()
-    expect(screen.queryByRole('region', { name: 'Gameplay' })).toBeNull()
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: 'Gameplay' })).toBeNull()
+    })
   })
 
   it('marks library card versions when a cached update is available', () => {
@@ -1031,7 +1057,10 @@ describe('LauncherLibraryPage', () => {
     })
 
     expect(await screen.findByRole('dialog', { name: 'Archive Preview' })).toBeTruthy()
-    expect(document.body.querySelector('.launcher-dialog-portal-root.launcher-shell-routed')).toBeTruthy()
+    // The Dialog primitive portals the overlay to document.body so the dialog
+    // stays outside the launcher route scroll container even when the route is hidden.
+    expect(document.body.querySelector('.app-dialog-overlay')).toBeTruthy()
+    expect(document.body.querySelector('.app-dialog-overlay [role="dialog"]')).toBeTruthy()
   })
 
   it('keeps archive inspection in a progress notification until the preview is ready', async () => {
@@ -1310,7 +1339,7 @@ describe('LauncherLibraryPage', () => {
       }),
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open Storage Folder' }))
+    fireEvent.click(within(getLibraryMoreActionsMenu()).getByRole('menuitem', { name: 'Open Storage Folder' }))
     expect(await screen.findByText('Configure the Mods path in Settings before scanning the library.')).not.toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
@@ -1340,7 +1369,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    const enabledSwitch = screen.getByRole('switch', { name: 'Enabled Only' })
+    const enabledSwitch = screen.getByRole('button', { name: 'Enabled Only' })
     fireEvent.click(enabledSwitch)
     expect(library.setEnabledOnly).toHaveBeenCalledWith(true)
 
@@ -1349,8 +1378,11 @@ describe('LauncherLibraryPage', () => {
     expect(screen.queryByRole('combobox', { name: 'Quick Sort' })).toBeNull()
     expect(screen.getByRole('menu', { name: 'Quick Sort' })).not.toBeNull()
 
-    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Pack' }))
-    expect(screen.getByRole('button', { name: 'Quick Sort' }).textContent).toContain('Pack')
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Enabled First' }))
+    // Selecting a sort mode closes the menu; reopen to verify the Enabled First option is checked.
+    expect(screen.queryByRole('menu', { name: 'Quick Sort' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Quick Sort' }))
+    expect(screen.getByRole('menuitemradio', { name: 'Enabled First' })).toHaveAttribute('aria-checked', 'true')
   })
 
   it('opens the left drawer and switches packs from the pack list', async () => {
@@ -1561,7 +1593,6 @@ describe('LauncherLibraryPage', () => {
     renderLibraryPage()
 
     const card = screen.getByRole('article', { name: /npc adventures/i })
-
     fireEvent.pointerDown(card, { button: 0, buttons: 1, clientX: 160, clientY: 160, isPrimary: true, pointerId: 71 })
 
     expect(screen.queryByTestId('launcher-library-drag-preview')).toBeNull()
@@ -1584,6 +1615,63 @@ describe('LauncherLibraryPage', () => {
     expect(library.addModsToLibraryFolder).not.toHaveBeenCalled()
   })
 
+  it('suppresses the click emitted after a threshold drag even if dnd-kit never starts an active drag', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+    const releaseTarget = screen.getByRole('article', { name: /vintage interface redux/i })
+    const releaseTargetButton = within(releaseTarget).getByRole('button', { name: /vintage interface redux/i })
+
+    pointerDragDown(card, 160, 160)
+    act(() => {
+      pointerDragMove(window, 168, 160)
+    })
+    await screen.findByTestId('launcher-library-drag-preview')
+
+    act(() => {
+      pointerDragUp(window, 168, 160)
+    })
+    fireEvent.click(releaseTargetButton)
+
+    expect(loadLauncherRemoteModDetailMock).not.toHaveBeenCalled()
+
+    fireEvent.click(releaseTargetButton)
+
+    await waitFor(() => {
+      expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledWith({ modId: 202 })
+    })
+  })
+
+  it('suppresses the release click even when a drag ends over controls outside the library grid', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+    const refreshButton = screen.getByRole('button', { name: 'Refresh' })
+
+    pointerDragDown(card, 160, 160)
+    act(() => {
+      pointerDragMove(window, 168, 160)
+    })
+    await screen.findByTestId('launcher-library-drag-preview')
+
+    act(() => {
+      pointerDragUp(window, 168, 160)
+    })
+    fireEvent.click(refreshButton)
+
+    expect(library.refresh).not.toHaveBeenCalled()
+
+    fireEvent.click(refreshButton)
+
+    expect(library.refresh).toHaveBeenCalledWith()
+  })
+
   it('uses the resolved desktop cover image in the pointer drag preview', async () => {
     const library = createLibraryState()
     const coveredMod = { ...library.mods[0]!, imageUrl: 'https://example.test/npc-cover.png' }
@@ -1602,7 +1690,11 @@ describe('LauncherLibraryPage', () => {
     renderLibraryPage()
 
     await waitFor(() => {
-      expect(resolveLauncherImageMock).toHaveBeenCalledWith({ url: 'https://example.test/npc-cover.png', refresh: false })
+      expect(resolveLauncherImageMock).toHaveBeenCalledWith({
+        url: 'https://example.test/npc-cover.png',
+        refresh: false,
+        modKey: '101',
+      })
     })
 
     const card = screen.getByRole('article', { name: /npc adventures/i })
@@ -1617,6 +1709,43 @@ describe('LauncherLibraryPage', () => {
     act(() => {
       pointerDragUp(window, 220, 220)
     })
+  })
+
+  it('does not retry blocked launcher library covers when the card remounts', async () => {
+    const library = createLibraryState()
+    const coveredMod = { ...library.mods[0]!, imageUrl: 'https://example.test/blocked-npc-cover.png' }
+    useLauncherLibraryMock.mockReturnValue({
+      ...library,
+      mods: [coveredMod, ...library.mods.slice(1)],
+      filteredMods: [coveredMod, ...library.filteredMods.slice(1)],
+    } as MockLibraryState)
+    launcherPort.loadImageFailures = vi.fn().mockResolvedValue({
+      entries: [
+        {
+          modKey: '101',
+          failureCount: 3,
+          blocked: true,
+          lastError: 'HTTP 404',
+          lastFailedAtMs: 123,
+        },
+      ],
+    })
+    launcherPort.toDesktopAssetUrl = vi.fn((path) => `asset://${path}`)
+
+    const view = renderLibraryPage()
+
+    await waitFor(() => {
+      expect(screen.getByRole('article', { name: /npc adventures/i }).querySelector('img')).toBeNull()
+    })
+    expect(resolveLauncherImageMock).not.toHaveBeenCalled()
+
+    view.unmount()
+    renderLibraryPage()
+
+    await waitFor(() => {
+      expect(screen.getByRole('article', { name: /npc adventures/i }).querySelector('img')).toBeNull()
+    })
+    expect(resolveLauncherImageMock).not.toHaveBeenCalled()
   })
 
   it('uses the drag-to-select package to show a selection rectangle and mark partially intersecting cards', async () => {
@@ -1658,6 +1787,13 @@ describe('LauncherLibraryPage', () => {
         expect(selectionBox.style.width).toBe('0px')
         expect(wrapper).toHaveClass('launcher-library-draggable-card-box-selected')
       })
+
+      fireEvent.click(viewport, { clientX: 620, clientY: 620 })
+      expect(library.clearSelection).not.toHaveBeenCalled()
+
+      fireEvent.click(viewport, { clientX: 620, clientY: 620 })
+
+      expect(library.clearSelection).toHaveBeenCalled()
     } finally {
       boundsSpy.mockRestore()
     }
@@ -1783,6 +1919,9 @@ describe('LauncherLibraryPage', () => {
       })
 
       await screen.findByTestId('launcher-library-box-select')
+      const selectionLayer = document.querySelector<HTMLElement>('[data-launcher-box-select-layer="viewport"]')
+      expect(selectionLayer).not.toBeNull()
+      expect(selectionLayer?.style.transform).toBe('')
       await waitFor(() => {
         expect(wrapper).toHaveClass('launcher-library-draggable-card-box-selected')
       })
@@ -1793,6 +1932,42 @@ describe('LauncherLibraryPage', () => {
     } finally {
       boundsSpy.mockRestore()
     }
+  })
+
+  it('replays library grid reveal when the cached route is activated again', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    const { rerender } = renderLibraryPage({ routeEnterSequence: 1 })
+
+    const firstCardWrapper = (await screen.findByRole('article', { name: /npc adventures/i })).closest(
+      '[data-launcher-mod-card-id]',
+    ) as HTMLElement
+    const initialRevealWrapper = firstCardWrapper.closest('.launcher-library-grid-reveal') as HTMLElement
+    expect(initialRevealWrapper).toHaveClass('loading-motion-child-reveal')
+
+    rerender(
+      <LauncherTestWrapper port={launcherPort}>
+        <LocaleProvider locale="en-US">
+          <LauncherLibraryPage
+            settings={createSettings()}
+            launchGameLabel="Launch Game"
+            launchGameDisabled={false}
+            launchGameBusy={false}
+            routeEnterSequence={2}
+            onLaunchGame={vi.fn()}
+          />
+        </LocaleProvider>
+      </LauncherTestWrapper>,
+    )
+
+    const replayedCardWrapper = screen
+      .getByRole('article', { name: /npc adventures/i })
+      .closest('[data-launcher-mod-card-id]') as HTMLElement
+    const replayedRevealWrapper = replayedCardWrapper.closest('.launcher-library-grid-reveal') as HTMLElement
+    expect(replayedRevealWrapper).toHaveClass('loading-motion-child-reveal')
+    expect(replayedRevealWrapper).not.toBe(initialRevealWrapper)
+    expect(document.querySelector('.launcher-library-virtual-grid')).toBeTruthy()
   })
 
   it('shows a lifted drag preview while a library card is being dragged', () => {
@@ -1822,6 +1997,31 @@ describe('LauncherLibraryPage', () => {
     })
 
     return waitFor(() => expect(screen.queryByTestId('launcher-library-drag-preview')).toBeNull())
+  })
+
+  it('keeps the active drag preview outside the launcher route scroll container', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+
+    pointerDragDown(card, 160, 220)
+    act(() => {
+      pointerDragMove(document, 168, 228)
+    })
+
+    const preview = await screen.findByTestId('launcher-library-drag-preview')
+    // The drag preview portals to its own scope on document.body, outside the
+    // launcher route scroll container, so shell transforms cannot offset it.
+    expect(preview.closest('.launcher-shell-route-active')).toBeNull()
+    expect(preview.closest('.launcher-library-drag-portal-scope')).not.toBeNull()
+    expect(document.body.contains(preview)).toBe(true)
+
+    act(() => {
+      pointerDragUp(document, 168, 228)
+    })
   })
 
   it('highlights folder and blank drop targets without activating parent-mod targets', async () => {
@@ -1860,7 +2060,7 @@ describe('LauncherLibraryPage', () => {
     try {
       pointerDragDown(card, 160, 380)
       act(() => {
-        pointerDragMove(window, 168, 388)
+        pointerDragMove(window, 190, 410)
       })
       await screen.findByTestId('launcher-library-drag-preview')
 
@@ -1903,6 +2103,64 @@ describe('LauncherLibraryPage', () => {
       })
     } finally {
       boundsSpy.mockRestore()
+    }
+  })
+
+  it('renders drag target boxes in the body viewport layer so shell transforms cannot offset them', async () => {
+    const library = {
+      ...createLibraryState(),
+      libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+    const sourceMod = card.closest('[data-launcher-mod-card-id]') as HTMLElement
+    const folder = screen.getByRole('button', { name: 'Open folder Visuals' }).closest('[data-launcher-folder-drop-id]') as HTMLElement
+    const blank = card.closest('[data-launcher-blank-drop-id]') as HTMLElement
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this === blank) {
+        return { width: 760, height: 540, top: 80, left: 80, bottom: 620, right: 840, x: 80, y: 80, toJSON: () => ({}) }
+      }
+      if (this === folder) {
+        return { width: 220, height: 180, top: 120, left: 120, bottom: 300, right: 340, x: 120, y: 120, toJSON: () => ({}) }
+      }
+      if (this === sourceMod || this === card) {
+        return { width: 220, height: 180, top: 340, left: 120, bottom: 520, right: 340, x: 120, y: 340, toJSON: () => ({}) }
+      }
+      return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
+    })
+
+    try {
+      pointerDragDown(card, 160, 380)
+      act(() => {
+        pointerDragMove(window, 168, 388)
+      })
+      await screen.findByTestId('launcher-library-drag-preview')
+
+      const targetLayer = document.body.querySelector<HTMLElement>('.launcher-library-dnd-target-layer')
+      expect(targetLayer).not.toBeNull()
+      expect(targetLayer?.parentElement).toBe(document.body)
+      const folderTarget = await waitFor(() => {
+        const target = document.body.querySelector<HTMLElement>('[data-launcher-dnd-target-id="launcher-folder:visuals"]')
+        expect(target).not.toBeNull()
+        return target
+      })
+      expect(folderTarget).not.toBeNull()
+      expect(folderTarget?.style.left).toBe('120px')
+      expect(folderTarget?.style.top).toBe('120px')
+      expect(folderTarget?.style.width).toBe('220px')
+      expect(folderTarget?.style.height).toBe('180px')
+
+      const previewLayer = document.body.querySelector<HTMLElement>('.launcher-library-pending-drag-preview-layer')
+      expect(previewLayer?.parentElement).toBe(document.body)
+      expect(previewLayer?.style.transform).toBe('translate3d(128px, 348px, 0)')
+    } finally {
+      boundsSpy.mockRestore()
+      act(() => {
+        pointerDragUp(window, 190, 410)
+      })
     }
   })
 
@@ -2094,6 +2352,8 @@ describe('LauncherLibraryPage', () => {
       expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledWith({ modId: 101 })
       expect(resolveLauncherImageMock).toHaveBeenCalledWith({
         url: 'https://staticdelivery.nexusmods.com/mods/1303/images/101/101-gallery-2.png',
+        refresh: true,
+        modKey: '101',
       })
       expect(setLauncherLibraryCoverMock).toHaveBeenCalledWith({
         labelKey: '101',
@@ -2192,7 +2452,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: /install archive/i }))
+    clickInstallArchiveAction()
 
     await waitFor(() => {
       expect(inspectLauncherArchiveMock).toHaveBeenCalledWith({ archivePath: 'E:\\Downloads\\preview.zip' })
@@ -2242,7 +2502,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: /install archive/i }))
+    clickInstallArchiveAction()
     fireEvent.click(await screen.findByRole('button', { name: /^install$/i }))
 
     expect(screen.queryByRole('dialog', { name: 'Install Summary' })).toBeNull()
@@ -2276,16 +2536,18 @@ describe('LauncherLibraryPage', () => {
     expect(within(summaryDialog).getByText('install-123')).not.toBeNull()
 
     fireEvent.click(within(summaryDialog).getByRole('button', { name: 'Manage Install Backups' }))
+    expect(screen.queryByRole('dialog', { name: 'Install Summary' })).toBeNull()
 
     await waitFor(() => {
       expect(listLauncherInstallBackupsMock).toHaveBeenCalledWith({
         modsPath: 'E:\\Games\\Stardew Valley\\Mods',
       })
     })
+    expect(screen.queryAllByRole('dialog')).toHaveLength(1)
     expect(await screen.findByRole('dialog', { name: 'Install Backups' })).not.toBeNull()
   })
 
-  it('keeps the install summary visible when opening install backups from the summary fails', async () => {
+  it('keeps install backups mutually exclusive with the install summary when loading from the summary fails', async () => {
     const library = createLibraryState()
     library.installArchive = vi.fn(async () => createInstallArchiveResult())
     useLauncherLibraryMock.mockReturnValue(library)
@@ -2295,7 +2557,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: /install archive/i }))
+    clickInstallArchiveAction()
     fireEvent.click(await screen.findByRole('button', { name: /^install$/i }))
 
     await waitFor(() => {
@@ -2317,6 +2579,7 @@ describe('LauncherLibraryPage', () => {
 
     const summaryDialog = await screen.findByRole('dialog', { name: 'Install Summary' })
     fireEvent.click(within(summaryDialog).getByRole('button', { name: 'Manage Install Backups' }))
+    expect(screen.queryByRole('dialog', { name: 'Install Summary' })).toBeNull()
 
     await waitFor(() => {
       expect(listLauncherInstallBackupsMock).toHaveBeenCalledWith({
@@ -2324,12 +2587,12 @@ describe('LauncherLibraryPage', () => {
       })
     })
 
-    expect(await screen.findByRole('dialog', { name: 'Install Summary' })).not.toBeNull()
     const backupsDialog = await screen.findByRole('dialog', { name: 'Install Backups' })
+    expect(screen.queryAllByRole('dialog')).toHaveLength(1)
     expect(within(backupsDialog).getByText('Backups unavailable')).not.toBeNull()
   })
 
-  it('keeps the install summary visible when the backup dialog is closed before backup loading finishes', async () => {
+  it('does not restore the install summary when backup loading is closed before it finishes', async () => {
     const library = createLibraryState()
     library.installArchive = vi.fn(async () => createInstallArchiveResult())
     useLauncherLibraryMock.mockReturnValue(library)
@@ -2340,7 +2603,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: /install archive/i }))
+    clickInstallArchiveAction()
     fireEvent.click(await screen.findByRole('button', { name: /^install$/i }))
 
     await waitFor(() => {
@@ -2362,6 +2625,7 @@ describe('LauncherLibraryPage', () => {
 
     const summaryDialog = await screen.findByRole('dialog', { name: 'Install Summary' })
     fireEvent.click(within(summaryDialog).getByRole('button', { name: 'Manage Install Backups' }))
+    expect(screen.queryByRole('dialog', { name: 'Install Summary' })).toBeNull()
 
     const backupsDialog = await screen.findByRole('dialog', { name: 'Install Backups' })
     fireEvent.click(within(backupsDialog).getByRole('button', { name: 'Close' }))
@@ -2372,7 +2636,7 @@ describe('LauncherLibraryPage', () => {
     })
 
     expect(screen.queryByRole('dialog', { name: 'Install Backups' })).toBeNull()
-    expect(await screen.findByRole('dialog', { name: 'Install Summary' })).not.toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Install Summary' })).toBeNull()
   })
 
   it('restores an install backup from the backup manager dialog and refreshes the library', async () => {
@@ -2387,7 +2651,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Install Backups' }))
+    fireEvent.click(within(getLibraryMoreActionsMenu()).getByRole('menuitem', { name: 'Install Backups' }))
 
     const backupsDialog = await screen.findByRole('dialog', { name: 'Install Backups' })
     expect(within(backupsDialog).getByText('install-123')).not.toBeNull()
@@ -2423,7 +2687,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Install Backups' }))
+    fireEvent.click(within(getLibraryMoreActionsMenu()).getByRole('menuitem', { name: 'Install Backups' }))
 
     const backupsDialog = await screen.findByRole('dialog', { name: 'Install Backups' })
     fireEvent.click(within(backupsDialog).getByRole('button', { name: 'Restore Backup' }))
@@ -2456,7 +2720,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Install Backups' }))
+    fireEvent.click(within(getLibraryMoreActionsMenu()).getByRole('menuitem', { name: 'Install Backups' }))
 
     const backupsDialog = await screen.findByRole('dialog', { name: 'Install Backups' })
     fireEvent.click(within(backupsDialog).getByRole('button', { name: 'Restore Backup' }))
@@ -2486,7 +2750,7 @@ describe('LauncherLibraryPage', () => {
       if (this.classList.contains('launcher-library-grid-viewport')) {
         return { width: 560, height: 420, top: 0, left: 0, bottom: 420, right: 560, x: 0, y: 0, toJSON: () => ({}) }
       }
-      if (this.classList.contains('launcher-library-grid-reveal')) {
+      if (this.classList.contains('launcher-library-virtual-row') || this.classList.contains('launcher-library-grid-reveal')) {
         return { width: 260, height: 210, top: 0, left: 0, bottom: 210, right: 260, x: 0, y: 0, toJSON: () => ({}) }
       }
       return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0, x: 0, y: 0, toJSON: () => ({}) }
@@ -2499,7 +2763,9 @@ describe('LauncherLibraryPage', () => {
     expect(virtualRows.length).toBeGreaterThan(0)
     expect(measureVirtualGridRowFactoryMock).toHaveBeenCalledWith(expect.any(Function))
     expect(measureVirtualGridRowMock).toHaveBeenCalled()
-    expect(virtualRows[0]?.style.paddingBottom).toBe('20px')
+    expect(virtualRows[0]?.style.paddingBottom).toBe('')
+    const measureVirtualRow = measureVirtualGridRowFactoryMock.mock.calls.at(-1)?.[0]
+    expect(measureVirtualRow?.(virtualRows[0]!)).toBe(230)
     expect(screen.getAllByRole('article').length).toBeLessThanOrEqual(library.mods.length)
 
     boundsSpy.mockRestore()
@@ -2671,7 +2937,7 @@ describe('LauncherLibraryPage', () => {
     globalThis.ResizeObserver = OriginalResizeObserver
   })
 
-  it('keeps virtual rows mounted while the library grid is hidden during route switches', async () => {
+  it('keeps virtual rows mounted while the library grid is during route switches', async () => {
     const library = createLargeLibraryState(16)
     let hidden = false
     const resizeCallbacks: ResizeObserverCallback[] = []

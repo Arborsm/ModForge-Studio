@@ -83,7 +83,7 @@ export function ContentPatcherExportPanel({
         ) : (
           <>
             <PanelSection title={exportCopy.resultTargetTitle} subtitle={selectedTargetPath}>
-              <div className="text-xs leading-5 text-[var(--text-secondary)]">
+              <div className="text-xs leading-5 text-(--text-secondary)">
                 {result.exportable ? exportCopy.exportableDescription : exportCopy.blockedDescription}
               </div>
             </PanelSection>
@@ -105,7 +105,7 @@ export function ContentPatcherExportPanel({
 
             {exportStatus ? (
               <PanelSection title={exportCopy.lastExportTitle} subtitle={exportCopy.lastExportSubtitle}>
-                <div className="text-xs leading-5 text-[var(--text-secondary)]">{exportStatus}</div>
+                <div className="text-xs leading-5 text-(--text-secondary)">{exportStatus}</div>
               </PanelSection>
             ) : null}
           </>

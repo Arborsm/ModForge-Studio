@@ -11,12 +11,14 @@ import { LauncherLibraryHeader } from './ui/LauncherLibraryHeader'
 import { LauncherLibraryPackSidebar } from './ui/LauncherLibraryPackSidebar'
 import { LauncherLibraryDialogs } from './ui/LauncherLibraryDialogs'
 import { useLauncherLibraryController } from './hooks/useLauncherLibraryController'
+import { getLibraryViewOrderContainerKey } from './model/launcherLibraryDisplay'
 
 export type LauncherLibraryPageProps = {
   settings: LauncherSettingsDraft
   launchGameLabel: string
   launchGameDisabled: boolean
   launchGameBusy: boolean
+  routeEnterSequence?: number
   onLaunchGame: () => void
   onQueueDownload?: (input: QueueLauncherDownloadInput) => void
   downloadInstallRequest?: { id: number; archivePaths: string[] } | null
@@ -33,6 +35,7 @@ export function LauncherLibraryPageContent({
   launchGameLabel,
   launchGameDisabled,
   launchGameBusy,
+  routeEnterSequence = 0,
   onLaunchGame,
   onQueueDownload,
   downloadInstallRequest,
@@ -52,6 +55,7 @@ export function LauncherLibraryPageContent({
   const { viewModel, refs, dialogState, dragState, shellState, actions: controllerActions } = controller
   const {
     packLookup,
+    viewKey,
     hiddenMods,
     visibleLibraryModsCount,
     detailMod,
@@ -64,7 +68,7 @@ export function LauncherLibraryPageContent({
     currentPackLabel,
     supportedArchiveFormatsLabel,
   } = viewModel
-  const { titleMenuRef, drawerPanelRef, sortMenuRef, packDialogInputRef } = refs
+  const { titleMenuRef, drawerPanelRef, sortMenuRef, actionsMenuRef, packDialogInputRef } = refs
   const {
     archivePreviewState,
     archivePreviews,
@@ -83,11 +87,25 @@ export function LauncherLibraryPageContent({
     childModManager,
   } = dialogState
   const { editMode, editingSelectionIds, boxSelectionIds, childModSelection, archiveDropActive } = dragState
-  const { actionError, sortMode, sortMenuOpen, drawerOpen, quickSwitchOpen, packActionMenuId, hiddenViewOpen } = shellState
+  const {
+    actionError,
+    sortMode,
+    sortingBannerOpen,
+    sortingActive,
+    sortMenuOpen,
+    actionsMenuOpen,
+    drawerOpen,
+    quickSwitchOpen,
+    packActionMenuId,
+    hiddenViewOpen,
+  } = shellState
   const {
     setSelectedArchivePreviewPath,
-    setSortMode,
+    changeSortMode,
+    finishSorting,
+    startSortingMode,
     setSortMenuOpen,
+    setActionsMenuOpen,
     setDetailModId,
     setDrawerOpen,
     setQuickSwitchOpen,
@@ -140,10 +158,14 @@ export function LauncherLibraryPageContent({
     openGridModFolder,
     assignDraggedModsToLibraryFolderFromDnd,
     addDraggedModsToPack,
+    reorderRootItems,
+    reorderFolderItems,
+    reorderChildModItems,
     directActionsForMod,
     directActionsForLibraryFolder,
     startEditingPack,
     isLibraryFolderOpen,
+    isClosingLibraryFolder,
     toggleLibraryFolderOpen,
     closeLibraryFolder,
   } = controllerActions
@@ -161,6 +183,7 @@ export function LauncherLibraryPageContent({
   return (
     <>
       <LauncherLibraryDndScope
+        sortingActive={sortingActive}
         resolveDraggedModIds={resolveDraggedModIds}
         onAddModsToPack={addDraggedModsToPack}
         onAssignModsToLibraryFolder={assignDraggedModsToLibraryFolderFromDnd}
@@ -168,9 +191,13 @@ export function LauncherLibraryPageContent({
         onRemoveModsFromLibraryFolders={removeDraggedModsFromLibraryFolders}
         onReleaseModsFromLibraryFolder={removeDraggedModsFromLibraryFolders}
         onMoveFolderToFolder={moveDraggedFolderToFolder}
+        onReorderRoot={reorderRootItems}
+        onReorderFolder={reorderFolderItems}
+        onReorderChildMod={reorderChildModItems}
       >
         <section className="launcher-library-page">
           <LauncherLibraryHeader
+            key={`launcher-library-header:${routeEnterSequence}`}
             editMode={editMode}
             childModSelectionMode={Boolean(childModSelection)}
             childModSelectionParentName={childModSelection?.parentMod.name ?? null}
@@ -178,8 +205,11 @@ export function LauncherLibraryPageContent({
             drawerOpen={drawerOpen}
             quickSwitchOpen={quickSwitchOpen}
             sortMenuOpen={sortMenuOpen}
+            actionsMenuOpen={actionsMenuOpen}
+            sortingBannerOpen={sortingBannerOpen}
             titleMenuRef={titleMenuRef}
             sortMenuRef={sortMenuRef}
+            actionsMenuRef={actionsMenuRef}
             currentPackLabel={currentPackLabel}
             shortModsPath={shortModsPath}
             modsPath={settings.modsPath}
@@ -198,32 +228,13 @@ export function LauncherLibraryPageContent({
             launchGameLabel={launchGameLabel}
             launchGameDisabled={launchGameDisabled}
             launchGameBusy={launchGameBusy}
-            labels={{
-              packTitle: copy.library.packTitle,
-              allPacks: copy.library.allPacks,
-              hiddenMods: copy.library.hiddenMods,
-              createLibraryFolder: copy.library.createLibraryFolder,
-              refresh: copy.actions.refresh,
-              openStorageFolder: copy.actions.openStorageFolder,
-              installArchive: copy.actions.installArchive,
-              installBackupsTitle: copy.library.installBackupsTitle,
-              filterLibrary: copy.fields.filterLibrary,
-              enabledOnly: copy.toggles.enabledOnly,
-              sortLabel: copy.library.sortLabel,
-              editingPackLabel: copy.library.editingPackLabel,
-              choosingChildModsLabel: copy.library.choosingChildModsLabel,
-              includedModsCount: copy.library.includedModsCount,
-              selectedChildModsCount: copy.library.selectedChildModsCount,
-              cancelEdit: copy.library.cancelEdit,
-              saveChanges: copy.library.saveChanges,
-              confirmChildMods: copy.library.confirmChildMods,
-            }}
             onToggleDrawer={() => setDrawerOpen((current) => !current)}
             onToggleQuickSwitch={() => setQuickSwitchOpen((current) => !current)}
             onCloseFloatingMenus={() => {
               setQuickSwitchOpen(false)
               setPackActionMenuId(null)
               setSortMenuOpen(false)
+              setActionsMenuOpen(false)
             }}
             onSelectPack={(packId) => void selectPack(packId)}
             onSelectHiddenView={() => selectHiddenView()}
@@ -237,13 +248,22 @@ export function LauncherLibraryPageContent({
             onEnabledOnlyChange={library.setEnabledOnly}
             onToggleSortMenu={() => {
               setSortMenuOpen((current) => !current)
+              setActionsMenuOpen(false)
               setQuickSwitchOpen(false)
               setPackActionMenuId(null)
             }}
-            onSortModeChange={(value) => {
-              setSortMode(value)
+            onToggleActionsMenu={() => {
+              setActionsMenuOpen((current) => !current)
               setSortMenuOpen(false)
+              setQuickSwitchOpen(false)
+              setPackActionMenuId(null)
             }}
+            onCloseActionsMenu={() => setActionsMenuOpen(false)}
+            onSortModeChange={(value) => {
+              changeSortMode(value)
+            }}
+            onFinishSorting={finishSorting}
+            onStartSortingMode={startSortingMode}
             onCancelEditMode={cancelEditMode}
             onSaveEditMode={() => void saveEditMode()}
             onCancelChildModSelection={cancelChildModSelection}
@@ -264,16 +284,6 @@ export function LauncherLibraryPageContent({
               packPresets={library.packPresets}
               packActionMenuId={packActionMenuId}
               drawerPanelRef={drawerPanelRef}
-              labels={{
-                packTitle: copy.library.packTitle,
-                allPacks: copy.library.allPacks,
-                hiddenMods: copy.library.hiddenMods,
-                createPack: copy.actions.createPack,
-                manageCurrentPack: copy.library.manageCurrentPack,
-                editCurrentPack: copy.library.editCurrentPack,
-                renameCurrentPack: copy.library.renameCurrentPack,
-                deleteCurrentPack: copy.library.deleteCurrentPack,
-              }}
               onCreatePack={openCreatePackDialog}
               onSelectPack={(packId) => void selectPack(packId)}
               onSelectHiddenView={() => selectHiddenView()}
@@ -312,7 +322,10 @@ export function LauncherLibraryPageContent({
                     items={visibleDisplayItems}
                     latestVersionByModId={library.latestVersionByModId}
                     openFolderItemsById={openLibraryFolderItemsById}
+                    routeEnterSequence={routeEnterSequence}
                     editMode={editMode}
+                    sortingActive={sortingActive}
+                    rootOrderContainerKey={getLibraryViewOrderContainerKey(viewKey)}
                     editingSelectionIds={editingSelectionIds}
                     boxSelectionIds={boxSelectionIds}
                     childModSelectionMode={Boolean(childModSelection)}
@@ -334,10 +347,15 @@ export function LauncherLibraryPageContent({
                     onOpenModDetails={openModDetails}
                     onOpenModFolder={openGridModFolder}
                     isLibraryFolderOpen={isLibraryFolderOpen}
+                    isClosingLibraryFolder={isClosingLibraryFolder}
                     onOpenLibraryFolder={toggleLibraryFolderOpen}
                     onCloseLibraryFolder={closeLibraryFolder}
                     getFolderContextActions={directActionsForLibraryFolder}
                     getContextActions={directActionsForMod}
+                    onClearSelection={() => {
+                      library.clearSelection()
+                      updateBoxSelection([])
+                    }}
                   />
                 )}
               </div>
@@ -347,33 +365,12 @@ export function LauncherLibraryPageContent({
           <LauncherModDetailPanel
             open={Boolean(detailMod)}
             onClose={() => setDetailModId(null)}
-            closeLabel={copy.actions.closeDialog}
-            title={copy.library.detailsTitle}
-            subtitle={copy.library.detailsSubtitle}
-            empty={copy.library.selectionEmpty}
             mod={detailMod}
-            labels={{
-              currentVersion: copy.fields.currentVersion,
-              uniqueId: copy.fields.uniqueId,
-              path: copy.fields.path,
-              dependencies: copy.fields.dependencies,
-              updateKeys: copy.fields.updateKeys,
-              pack: copy.library.packLabel,
-            }}
-            noSummary={copy.states.noSummary}
             onToggleEnabled={() => {
               if (detailMod) {
                 void library.toggleEnabled(detailMod)
               }
             }}
-            enableLabel={copy.actions.enable}
-            disableLabel={copy.actions.disable}
-            enabledStateLabel={copy.overview.enabledMods}
-            disabledStateLabel={copy.overview.disabledMods}
-            openFolderLabel={copy.actions.openFolder}
-            setCoverLabel={copy.actions.setCover}
-            clearCoverLabel={copy.actions.clearCover}
-            openModPageLabel={copy.actions.openModPage}
             onQueueDownload={onQueueDownload}
             remoteFilesDeferred={Boolean(onQueueDownload)}
             onOpenFolder={() => {
@@ -418,27 +415,6 @@ export function LauncherLibraryPageContent({
           packDialog={packDialog}
           folderDialog={folderDialog}
           packDialogInputRef={packDialogInputRef}
-          labels={{
-            createPack: copy.actions.createPack,
-            renameCurrentPack: copy.library.renameCurrentPack,
-            deleteCurrentPack: copy.library.deleteCurrentPack,
-            renameCurrentPackPrompt: copy.library.renameCurrentPackPrompt,
-            deleteCurrentPackConfirm: copy.library.deleteCurrentPackConfirm,
-            newPackPlaceholder: copy.library.newPackPlaceholder,
-            cancelEdit: copy.library.cancelEdit,
-            saveChanges: copy.library.saveChanges,
-            galleryCoverTitle: copy.library.galleryCoverTitle,
-            galleryCoverSubtitle: copy.library.galleryCoverSubtitle,
-            galleryCoverImageLabel: copy.library.galleryCoverImageLabel,
-            setCover: copy.actions.setCover,
-            manageChildMods: copy.library.manageChildMods,
-            parentModLabel: copy.library.parentModLabel,
-            removeFromParent: copy.library.removeFromParent,
-            closeDialog: copy.actions.closeDialog,
-            renameLibraryFolder: copy.library.renameLibraryFolder,
-            renameLibraryFolderPrompt: copy.library.renameLibraryFolderPrompt,
-            newLibraryFolderName: copy.library.newLibraryFolderName,
-          }}
           onCloseArchivePreview={closeArchivePreview}
           onConfirmArchiveInstall={() => void confirmArchiveInstall()}
           onSelectArchivePreviewPath={setSelectedArchivePreviewPath}

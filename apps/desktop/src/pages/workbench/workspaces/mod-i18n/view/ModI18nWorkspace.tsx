@@ -119,17 +119,17 @@ export function ModI18nWorkspace({
   }
 
   return (
-    <div className="mod-i18n-workspace flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-app)]">
-      <header className="border-b border-[var(--border-color)] bg-[var(--bg-panel)] px-4 py-3">
+    <div className="mod-i18n-workspace flex h-full min-h-0 flex-col overflow-hidden bg-(--bg-app)">
+      <header className="border-b border-(--border-color) bg-(--bg-panel) px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold tracking-[0.16em] text-[var(--text-secondary)] uppercase">{copy.workspaceSubtitle}</p>
-            <h2 className="truncate text-lg font-semibold text-[var(--text-primary)]">{projectDetail.summary.name}</h2>
+            <p className="text-[10px] font-semibold tracking-[0.16em] text-(--text-secondary) uppercase">{copy.workspaceSubtitle}</p>
+            <h2 className="truncate text-lg font-semibold text-(--text-primary)">{projectDetail.summary.name}</h2>
           </div>
           <div className="flex items-center gap-2">
             <div className="hidden min-w-32 text-right sm:block">
-              <p className="text-[10px] text-[var(--text-secondary)]">{copy.progressLabel}</p>
-              <p className="font-mono text-sm font-semibold text-[var(--text-primary)]">{progress}%</p>
+              <p className="text-[10px] text-(--text-secondary)">{copy.progressLabel}</p>
+              <p className="font-mono text-sm font-semibold text-(--text-primary)">{progress}%</p>
             </div>
             <button type="button" className="control-button h-8" onClick={addLocale}>
               {copy.addLocale}
@@ -140,7 +140,7 @@ export function ModI18nWorkspace({
           </div>
         </div>
         <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(140px,0.7fr)_minmax(140px,0.7fr)_minmax(220px,1.4fr)_minmax(150px,0.6fr)]">
-          <label className="grid gap-1 text-[10px] font-semibold text-[var(--text-secondary)] uppercase">
+          <label className="grid gap-1 text-[10px] font-semibold text-(--text-secondary) uppercase">
             {copy.sourceLabel}
             <select className="control-input h-8" value={sourceLocale} onChange={(event) => onSourceLocaleChange(event.target.value)}>
               {i18nFiles.map((file) => (
@@ -150,7 +150,7 @@ export function ModI18nWorkspace({
               ))}
             </select>
           </label>
-          <label className="grid gap-1 text-[10px] font-semibold text-[var(--text-secondary)] uppercase">
+          <label className="grid gap-1 text-[10px] font-semibold text-(--text-secondary) uppercase">
             {copy.targetLabel}
             <select className="control-input h-8" value={targetLocale} onChange={(event) => onTargetLocaleChange(event.target.value)}>
               {i18nFiles.map((file) => (
@@ -160,7 +160,7 @@ export function ModI18nWorkspace({
               ))}
             </select>
           </label>
-          <label className="grid gap-1 text-[10px] font-semibold text-[var(--text-secondary)] uppercase">
+          <label className="grid gap-1 text-[10px] font-semibold text-(--text-secondary) uppercase">
             {copy.fileLabel}
             <input
               className="control-input h-8"
@@ -169,7 +169,7 @@ export function ModI18nWorkspace({
               placeholder={copy.searchPlaceholder}
             />
           </label>
-          <label className="grid gap-1 text-[10px] font-semibold text-[var(--text-secondary)] uppercase">
+          <label className="grid gap-1 text-[10px] font-semibold text-(--text-secondary) uppercase">
             {copy.allStatus}
             <select
               className="control-input h-8"
@@ -189,25 +189,25 @@ export function ModI18nWorkspace({
       <main className="min-h-0 flex-1 overflow-auto px-4 py-4">
         {i18nFiles.length ? (
           <div className="mx-auto grid max-w-6xl gap-3">
-            <div className="flex items-center justify-between gap-3 text-xs text-[var(--text-secondary)]">
+            <div className="flex items-center justify-between gap-3 text-xs text-(--text-secondary)">
               <span>{copy.entriesLabel(entries.length)}</span>
               <span>{targetFile?.relativePath ?? `i18n/${targetLocale}.json`}</span>
             </div>
             {entries.map((entry) => (
               <article key={entry.key} className="panel-surface panel-surface-muted overflow-hidden">
-                <div className="flex items-center justify-between gap-3 border-b border-[var(--border-color)] px-3 py-2">
-                  <code className="min-w-0 truncate text-[11px] text-[var(--text-secondary)]">{entry.key}</code>
+                <div className="flex items-center justify-between gap-3 border-b border-(--border-color) px-3 py-2">
+                  <code className="min-w-0 truncate text-[11px] text-(--text-secondary)">{entry.key}</code>
                   <span className={cx('status-pill shrink-0', statusClass(entry.status))}>{statusLabel(copy, entry.status)}</span>
                 </div>
                 <div className="grid gap-3 p-3 md:grid-cols-2">
                   <div className="grid gap-1">
-                    <p className="text-[10px] font-semibold tracking-[0.14em] text-[var(--text-secondary)] uppercase">{sourceLocale}</p>
-                    <div className="min-h-20 rounded-md border border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-3 text-sm leading-6 text-[var(--text-secondary)]">
+                    <p className="text-[10px] font-semibold tracking-[0.14em] text-(--text-secondary) uppercase">{sourceLocale}</p>
+                    <div className="min-h-20 rounded-md border border-(--border-color) bg-(--bg-panel-muted) p-3 text-sm leading-6 text-(--text-secondary)">
                       {entry.sourceText}
                     </div>
                   </div>
                   <div className="grid gap-1">
-                    <p className="text-[10px] font-semibold tracking-[0.14em] text-[var(--text-secondary)] uppercase">{targetLocale}</p>
+                    <p className="text-[10px] font-semibold tracking-[0.14em] text-(--text-secondary) uppercase">{targetLocale}</p>
                     <textarea
                       className="control-input min-h-20 resize-y p-3 text-sm leading-6"
                       value={entry.targetText}
@@ -216,7 +216,7 @@ export function ModI18nWorkspace({
                   </div>
                 </div>
                 {entry.missingTokens.length ? (
-                  <div className="border-t border-[color-mix(in_srgb,var(--danger)_30%,transparent)] bg-[color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-xs text-[var(--danger)]">
+                  <div className="border-t border-[color-mix(in_srgb,var(--danger)_30%,transparent)] bg-[color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-xs text-(--danger)">
                     {copy.missingTokens(entry.missingTokens.join(', '))}
                   </div>
                 ) : null}

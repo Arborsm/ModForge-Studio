@@ -8,8 +8,8 @@ import { CSS } from '@dnd-kit/utilities'
 import type { EventCommand } from '@entities/event'
 import { useEditorStore } from '../workflow-model/editorStore'
 import { ScriptCard } from './ScriptCard'
-import type { ScriptEditorCopy } from './ScriptEditor'
 import type { EventResourceRegistry } from './eventResourceRegistry'
+import type { EventWorkflowCopy, ScriptEditorCopy } from '@locales/api'
 import {
   getInlineDelayCandidate,
   getVisiblePlaybackCommandIndex,
@@ -21,6 +21,7 @@ export type ScriptTimelineProps = {
   commands: EventCommand[]
   locale?: 'zh-CN' | 'en-US'
   copy: ScriptEditorCopy
+  workflowCopy: EventWorkflowCopy
   resourceRegistry?: EventResourceRegistry
   currentPlaybackCommandId?: string | null
   onUpdateArg: (commandIndex: number, argIndex: number, value: string) => void
@@ -51,6 +52,7 @@ function SortableScriptCard({
   cardView,
   locale,
   copy,
+  workflowCopy,
   resourceRegistry,
   inlineDelay,
   onSelect,
@@ -75,6 +77,7 @@ function SortableScriptCard({
   cardView: 'compact' | 'comfortable'
   locale: 'zh-CN' | 'en-US'
   copy: ScriptEditorCopy
+  workflowCopy: EventWorkflowCopy
   resourceRegistry?: EventResourceRegistry
   inlineDelay: InlineDelayCandidate | null
   onSelect: () => void
@@ -118,6 +121,7 @@ function SortableScriptCard({
           cardView={cardView}
           locale={locale}
           copy={copy}
+          workflowCopy={workflowCopy}
           resourceRegistry={resourceRegistry}
           onSelect={onSelect}
           onToggleExpand={onToggleExpand}
@@ -137,7 +141,7 @@ function SortableScriptCard({
   )
 }
 
-function getBranchLabel(previousCommand: EventCommand | undefined, command: EventCommand, locale: 'zh-CN' | 'en-US') {
+function getBranchLabel(previousCommand: EventCommand | undefined, command: EventCommand, copy: ScriptEditorCopy) {
   if (command.command !== 'switchEvent' || previousCommand?.command !== 'quickQuestion') {
     return null
   }
@@ -145,10 +149,8 @@ function getBranchLabel(previousCommand: EventCommand | undefined, command: Even
   if (!choice) {
     return null
   }
-  if (locale === 'zh-CN') {
-    if (/^yes$/iu.test(choice)) return '是 · Yes'
-    if (/^no$/iu.test(choice)) return '否 · No'
-  }
+  if (/^yes$/iu.test(choice)) return copy.yesChoiceLabel
+  if (/^no$/iu.test(choice)) return copy.noChoiceLabel
   return choice
 }
 
@@ -156,6 +158,7 @@ export function ScriptTimeline({
   commands,
   locale = 'zh-CN',
   copy,
+  workflowCopy,
   resourceRegistry,
   currentPlaybackCommandId = null,
   onUpdateArg,
@@ -298,7 +301,7 @@ export function ScriptTimeline({
               <SortableScriptCard
                 cmd={cmd}
                 index={i}
-                branchLabel={getBranchLabel(visibleCommandEntries[visibleIndex - 1]?.cmd, cmd, locale)}
+                branchLabel={getBranchLabel(visibleCommandEntries[visibleIndex - 1]?.cmd, cmd, copy)}
                 selected={selectedCommandIndex === i}
                 playing={playbackCommandIndex === i}
                 expanded={expandedCards.has(cmd.id)}
@@ -306,6 +309,7 @@ export function ScriptTimeline({
                 cardView={cardView}
                 locale={locale}
                 copy={copy}
+                workflowCopy={workflowCopy}
                 resourceRegistry={resourceRegistry}
                 inlineDelay={getInlineDelayCandidate(commands, i)}
                 onSelect={() => handleSelect(i)}
@@ -330,12 +334,12 @@ export function ScriptTimeline({
         {commands.length === 0 && (
           <div className="script-empty">
             <ListPlus className="h-7 w-7 opacity-40" />
-            <p className="text-sm font-medium text-[var(--text-secondary)]">{copy.emptyTitle}</p>
+            <p className="text-sm font-medium text-(--text-secondary)">{copy.emptyTitle}</p>
             <p className="text-[11px]">{copy.emptyHint}</p>
             <button
               type="button"
               onClick={() => handleInsert(0)}
-              className="mt-1 inline-flex items-center gap-1 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--text-inverse)] transition-opacity hover:opacity-90"
+              className="mt-1 inline-flex items-center gap-1 rounded-md bg-(--accent) px-3 py-1.5 text-xs font-medium text-(--text-inverse) transition-opacity hover:opacity-90"
             >
               <Plus className="h-3.5 w-3.5" />
               {copy.emptyAction}

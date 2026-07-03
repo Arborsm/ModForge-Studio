@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, CopyPlus, FolderOpen, Plus, Trash2, UserRound, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { buildGameContentPath } from '@shared/lib/assets'
-import type { LocaleCode } from '@locales/api'
+import { useEventStageCopy, useLocale } from '@locales/provider'
 import { loadTextFile, scanDefaultSaveSlots, type DefaultSaveSlotSummary } from '@entities/game/api'
 import { loadImageResourceFromPath } from '@shared/lib/assets'
 import {
@@ -31,7 +31,6 @@ import { cx } from '@shared/lib/cx'
 
 type PlayerAppearanceWindowProps = {
   open: boolean
-  locale: LocaleCode
   rootPath: string | null
   profiles: PlayerAppearanceProfile[]
   activeProfileId: string | null
@@ -90,118 +89,6 @@ const EMPTY_APPEARANCE_ASSETS: AppearanceAssets = {
   hats: null,
   skinColors: null,
   shoeColors: null,
-}
-
-function buildCopy(locale: LocaleCode) {
-  return locale === 'zh-CN'
-    ? {
-        title: 'Player 外观',
-        subtitle: '独立配置窗口，当前激活槽位会直接用于事件里的 player / farmer。',
-        importSave: '导入存档',
-        importSaveTitle: '默认存档预览',
-        importSaveCopy: '直接扫描默认存档目录，选中后会把该外观导入为新的槽位。',
-        importEmpty: '默认存档目录里没有找到可导入的存档。',
-        importLoadFailed: '读取默认存档失败',
-        importUse: '导入此外观',
-        newSlot: '新建槽位',
-        duplicateSlot: '复制',
-        deleteSlot: '删除',
-        slotName: '槽位名',
-        farmerName: '玩家名',
-        slots: '保存槽位',
-        active: '当前使用',
-        imported: '已导入',
-        body: '身体',
-        hair: '发型',
-        shirt: '上衣',
-        pants: '裤子',
-        accessory: '配饰',
-        hat: '帽子',
-        bodyTitle: '基础身体',
-        bodyCopy: '这里放基础身份、肤色和颜色。服装与部件在右侧分页预览里选。',
-        previewTitle: '实时预览',
-        previewCopy: '使用当前槽位渲染 player。事件舞台会直接读取这个结果。',
-        bodyType: '体型',
-        female: '女',
-        male: '男',
-        skin: '肤色',
-        shoes: '鞋色',
-        hairColor: '发色',
-        eyeColor: '眼睛',
-        shirtColor: '上衣颜色',
-        pantsColor: '裤子颜色',
-        sectionEmpty: '当前游戏目录下没有加载到这个部件的预览素材。',
-        assetMissing: '先载入正确的 Stardew Valley 游戏目录，才能显示外观素材预览。',
-        loadingAssets: '正在加载人物外观素材...',
-        page: (current: number, total: number) => `第 ${current} / ${total} 页`,
-        none: '无',
-        importedMeta: '导入信息',
-        saveFolder: '存档目录',
-        sourceFile: '来源文件',
-        importedAt: '导入时间',
-        customHair: 'FashionSense 发型',
-        customHat: 'FashionSense 帽子',
-        customShirt: 'FashionSense 上衣',
-        customPants: 'FashionSense 裤子',
-        notSet: '未设置',
-        unsupported:
-          '当前窗口已经补上原版 farmer 的基础身体分层预览，但肤色、鞋色和 FashionSense 自定义资源仍未做到与游戏本体完全一致的逐像素重绘。',
-        deleteConfirm: (label: string) => `删除外观槽位“${label}”？`,
-      }
-    : {
-        title: 'Player Appearance',
-        subtitle: 'Standalone editor window. The active slot is used directly for the player / farmer in event playback.',
-        importSave: 'Import Save',
-        importSaveTitle: 'Default Save Browser',
-        importSaveCopy: 'Scans the default Stardew Valley saves folder and lets you import an appearance directly from a preview card.',
-        importEmpty: 'No importable save slots were found in the default saves folder.',
-        importLoadFailed: 'Failed to read default save slots',
-        importUse: 'Import This Look',
-        newSlot: 'New Slot',
-        duplicateSlot: 'Duplicate',
-        deleteSlot: 'Delete',
-        slotName: 'Slot Name',
-        farmerName: 'Farmer Name',
-        slots: 'Saved Slots',
-        active: 'Active',
-        imported: 'Imported',
-        body: 'Body',
-        hair: 'Hair',
-        shirt: 'Shirt',
-        pants: 'Pants',
-        accessory: 'Accessory',
-        hat: 'Hat',
-        bodyTitle: 'Base Body',
-        bodyCopy: 'Identity, skin, and color settings live here. Outfit parts are selected from the preview pages on the right.',
-        previewTitle: 'Live Preview',
-        previewCopy: 'This renders the current slot exactly as the player preview source for the event stage.',
-        bodyType: 'Body Type',
-        female: 'Female',
-        male: 'Male',
-        skin: 'Skin Tone',
-        shoes: 'Shoe Color',
-        hairColor: 'Hair Color',
-        eyeColor: 'Eye Color',
-        shirtColor: 'Shirt Color',
-        pantsColor: 'Pants Color',
-        sectionEmpty: 'No preview assets for this part were found in the selected game directory.',
-        assetMissing: 'Load a valid Stardew Valley game directory first to preview appearance assets.',
-        loadingAssets: 'Loading appearance assets...',
-        page: (current: number, total: number) => `Page ${current} / ${total}`,
-        none: 'None',
-        importedMeta: 'Imported Metadata',
-        saveFolder: 'Save Folder',
-        sourceFile: 'Source File',
-        importedAt: 'Imported At',
-        customHair: 'FashionSense Hair',
-        customHat: 'FashionSense Hat',
-        customShirt: 'FashionSense Shirt',
-        customPants: 'FashionSense Pants',
-        notSet: 'Not set',
-        unsupported:
-          'This window now restores the core farmer body layering, but skin tone, shoe color, and FashionSense custom resources are still not a 1:1 pixel-perfect recreation of the game renderer yet.',
-        deleteConfirm: (label: string) => `Delete appearance slot "${label}"?`,
-      }
 }
 
 function buildCharactersPath(rootPath: string, textureName: string) {
@@ -440,7 +327,6 @@ function FarmerPreviewSprite({ profile, assets, scale }: { profile: PlayerAppear
 
 export default function PlayerAppearanceWindow({
   open,
-  locale,
   rootPath,
   profiles,
   activeProfileId,
@@ -452,7 +338,8 @@ export default function PlayerAppearanceWindow({
   onChangeProfile,
   onClose,
 }: PlayerAppearanceWindowProps) {
-  const copy = buildCopy(locale)
+  const locale = useLocale()
+  const copy = useEventStageCopy().playerAppearance
   const activeProfile = profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0] ?? null
   const [activeSection, setActiveSection] = useState<AppearanceSection>('body')
   const [page, setPage] = useState(0)
@@ -683,11 +570,11 @@ export default function PlayerAppearanceWindow({
                     onClick={() => onSelectProfile(profile.id)}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{profile.label}</span>
+                      <span className="truncate text-sm font-semibold text-(--text-primary)">{profile.label}</span>
                       {active ? <span className="player-appearance-badge">{copy.active}</span> : null}
                     </div>
-                    <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{profile.farmerName}</p>
-                    {profile.importedAt ? <p className="mt-2 text-[11px] text-[var(--text-tertiary)]">{copy.imported}</p> : null}
+                    <p className="mt-1 truncate text-xs text-(--text-secondary)">{profile.farmerName}</p>
+                    {profile.importedAt ? <p className="mt-2 text-[11px] text-(--text-tertiary)">{copy.imported}</p> : null}
                   </button>
                 )
               })}

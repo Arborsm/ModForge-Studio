@@ -42,7 +42,7 @@ export function ToolWindowMenu({
               onSelect={() => onDock(target.area)}
             >
               <span>{target.label}</span>
-              <target.icon className="h-3.5 w-3.5 text-[var(--text-secondary)]" />
+              <target.icon className="h-3.5 w-3.5 text-(--text-secondary)" />
             </ContextMenu.Item>
           ))}
         </ContextMenu.Content>

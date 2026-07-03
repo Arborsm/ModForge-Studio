@@ -243,9 +243,9 @@ export default function ItemWorkspace({ ...props }: ItemWorkspaceProps) {
   const view = useItemWorkspaceViewModel(props)
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[var(--bg-app)]">
+    <div className="flex h-full flex-col overflow-hidden bg-(--bg-app)">
       <div className="min-h-0 flex-1 overflow-auto px-4 py-4 xl:px-5 xl:py-5">
-        <div className="mx-auto grid w-full max-w-[1760px] gap-5 xl:grid-cols-[minmax(220px,0.72fr)_minmax(420px,1.18fr)_minmax(520px,1.6fr)]">
+        <div className="mx-auto grid w-full max-w-440 gap-5 xl:grid-cols-[minmax(220px,0.72fr)_minmax(420px,1.18fr)_minmax(520px,1.6fr)]">
           <NavigationPane
             text={view.text}
             browserSourceMode={view.browserSourceMode}

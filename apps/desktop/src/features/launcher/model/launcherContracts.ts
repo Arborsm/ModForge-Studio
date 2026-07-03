@@ -84,6 +84,7 @@ export type LauncherLibraryState = {
   packPresets: LauncherLibraryPackPreset[]
   childModGroups: LauncherLibraryChildModGroup[]
   libraryFolders: LauncherLibraryFolder[]
+  customOrders: Record<string, string[]>
   currentPackId: string | null
   scopeMode: LauncherLibraryScopeMode
 }
@@ -300,12 +301,25 @@ export type SsoSnapshot = {
 export type ResolveLauncherImageRequest = {
   url: string
   refresh?: boolean
+  modKey?: string | null
 }
 
 export type ResolveLauncherImageResult = {
   sourceUrl: string
   localPath: string
   mimeType: string
+}
+
+export type LauncherImageFailureEntry = {
+  modKey: string
+  failureCount: number
+  blocked: boolean
+  lastError: string
+  lastFailedAtMs: number
+}
+
+export type LauncherImageFailuresState = {
+  entries: LauncherImageFailureEntry[]
 }
 
 export type CheckLauncherUpdatesRequest = {

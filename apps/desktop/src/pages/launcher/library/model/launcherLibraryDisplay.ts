@@ -1,7 +1,7 @@
-import { getModKey, normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
+import { getModKey, normalizeLookupKey, normalizeModKey } from '@features/launcher/model/libraryHelpers'
 import type { LauncherLibraryItem, LauncherPackPreset, LauncherVirtualFolder } from '@features/launcher/model/types'
 
-export type LibrarySortMode = 'name' | 'enabled-first' | 'pack'
+export type LibrarySortMode = 'name' | 'enabled-first' | 'custom'
 
 export type LauncherLibraryDisplayItem =
   | { kind: 'mod'; mod: LauncherLibraryItem; childMods: LauncherLibraryItem[]; isChild: false }
@@ -14,6 +14,7 @@ export type LauncherFolderPreviewItem =
 const MAX_LIBRARY_REVEAL_BATCH_SIZE = 4
 const TARGET_LIBRARY_REVEAL_WAVES = 4
 export const FALLBACK_LIBRARY_REVEAL_BATCH_SIZE = 2
+export const LAUNCHER_LIBRARY_CUSTOM_ORDER_START_KEY = '__start__'
 
 export function shortenLibraryPath(value: string | null | undefined) {
   if (!value) {
@@ -47,27 +48,119 @@ function compareText(left: string | null | undefined, right: string | null | und
   return (left ?? '').localeCompare(right ?? '', undefined, { sensitivity: 'base' })
 }
 
-export function sortLibraryMods(
-  items: LauncherLibraryItem[],
-  sortMode: LibrarySortMode,
-  packLookup: Map<string, LauncherPackPreset[]>,
-  currentPackId: string | null,
-) {
-  return [...items].sort((left, right) => {
-    const leftKey = normalizeLookupKey(getModKey(left))
-    const rightKey = normalizeLookupKey(getModKey(right))
-    const leftPacks = packLookup.get(leftKey) ?? []
-    const rightPacks = packLookup.get(rightKey) ?? []
-    const leftPack =
-      leftPacks.find((pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(currentPackId ?? ''))?.name ?? leftPacks[0]?.name ?? ''
-    const rightPack =
-      rightPacks.find((pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(currentPackId ?? ''))?.name ?? rightPacks[0]?.name ?? ''
+export function deriveLibraryViewKey({
+  hiddenViewOpen,
+  scopeMode,
+  currentPackId,
+}: {
+  hiddenViewOpen: boolean
+  scopeMode: 'all' | 'current-pack'
+  currentPackId: string | null
+}) {
+  if (hiddenViewOpen) {
+    return 'hidden'
+  }
+  if (scopeMode === 'current-pack' && currentPackId?.trim()) {
+    return `pack:${currentPackId.trim()}`
+  }
+  return 'all'
+}
 
+export function getLibraryViewOrderContainerKey(viewKey: string) {
+  return `view:${viewKey.trim() || 'all'}`
+}
+
+export function getLibraryFolderOrderContainerKey(folderId: string) {
+  return `folder:${folderId.trim()}`
+}
+
+export function encodeCustomItemKey(kind: 'folder' | 'mod', id: string) {
+  const value = kind === 'mod' ? normalizeModKey(id) : id.trim()
+  if (!value) {
+    return null
+  }
+  return `${kind === 'folder' ? 'f' : 'm'}:${value}`
+}
+
+export function decodeCustomItemKey(value: string) {
+  const trimmed = value.trim()
+  const separatorIndex = trimmed.indexOf(':')
+  if (separatorIndex <= 0) {
+    return null
+  }
+  const prefix = trimmed.slice(0, separatorIndex)
+  const id = trimmed.slice(separatorIndex + 1).trim()
+  if (!id) {
+    return null
+  }
+  if (prefix === 'f') {
+    return { kind: 'folder' as const, id }
+  }
+  if (prefix === 'm') {
+    const modKey = normalizeModKey(id)
+    return modKey ? { kind: 'mod' as const, id: modKey } : null
+  }
+  return null
+}
+
+export function getDisplayItemCustomOrderKey(item: LauncherLibraryDisplayItem) {
+  return item.kind === 'folder' ? encodeCustomItemKey('folder', item.folder.id) : encodeCustomItemKey('mod', getModKey(item.mod))
+}
+
+export function applyCustomOrder<T>(items: T[], order: readonly string[] | null | undefined, getItemKey: (item: T) => string | null) {
+  if (!order?.length || items.length <= 1) {
+    return [...items]
+  }
+
+  const itemByKey = new Map<string, T>()
+  const itemKeyLookup = new Map<T, string>()
+  for (const item of items) {
+    const key = getItemKey(item)
+    if (!key) {
+      continue
+    }
+    const lookup = normalizeLookupKey(key)
+    itemByKey.set(lookup, item)
+    itemKeyLookup.set(item, lookup)
+  }
+
+  const used = new Set<string>()
+  const sorted: T[] = []
+  for (const key of order) {
+    const item = itemByKey.get(normalizeLookupKey(key))
+    if (!item) {
+      continue
+    }
+    const lookup = itemKeyLookup.get(item)
+    if (!lookup || used.has(lookup)) {
+      continue
+    }
+    used.add(lookup)
+    sorted.push(item)
+  }
+
+  for (const item of items) {
+    const lookup = itemKeyLookup.get(item)
+    if (!lookup) {
+      sorted.push(item)
+      continue
+    }
+    if (used.has(lookup)) {
+      continue
+    }
+    used.add(lookup)
+    sorted.push(item)
+  }
+
+  return sorted
+}
+
+export function sortLibraryMods(items: LauncherLibraryItem[], sortMode: LibrarySortMode) {
+  return [...items].sort((left, right) => {
     if (sortMode === 'enabled-first') {
       if (left.enabled !== right.enabled) return left.enabled ? -1 : 1
       return compareText(left.name, right.name)
     }
-    if (sortMode === 'pack') return compareText(leftPack, rightPack) || compareText(left.name, right.name)
     return compareText(left.name, right.name)
   })
 }

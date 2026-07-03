@@ -7,7 +7,6 @@ export const otherCommandSchemas = [
   {
     key: 'textAboveHead',
     label: 'Text Above Head',
-    labelZh: '头顶文字',
     category: 'other',
     color: 'gray',
     icon: 'Type',
@@ -22,7 +21,6 @@ export const otherCommandSchemas = [
   {
     key: 'playerControl',
     label: 'Player Control',
-    labelZh: '玩家控制',
     category: 'other',
     color: 'gray',
     icon: 'Gamepad2',
@@ -32,7 +30,6 @@ export const otherCommandSchemas = [
   {
     key: 'halt',
     label: 'Halt',
-    labelZh: '停止',
     category: 'other',
     color: 'gray',
     icon: 'Octagon',
@@ -42,7 +39,6 @@ export const otherCommandSchemas = [
   {
     key: 'ignoreMovementAnimation',
     label: 'Ignore Movement Animation',
-    labelZh: '忽略移动动画',
     category: 'other',
     color: 'gray',
     icon: 'EyeOff',
@@ -56,7 +52,6 @@ export const otherCommandSchemas = [
   {
     key: 'ignoreCollisions',
     label: 'Ignore Collisions',
-    labelZh: '忽略碰撞',
     category: 'other',
     color: 'gray',
     icon: 'EyeOff',
@@ -70,7 +65,6 @@ export const otherCommandSchemas = [
   {
     key: 'doAction',
     label: 'Do Action',
-    labelZh: '执行动作',
     category: 'other',
     color: 'gray',
     icon: 'MousePointerClick',

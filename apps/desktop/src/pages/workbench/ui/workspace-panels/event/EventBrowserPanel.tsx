@@ -6,6 +6,7 @@ import { PanelFrame } from '@shared/ui/PanelFrame'
 import { BrowserSourceSwitch } from '@shared/ui/BrowserSourceSwitch'
 import { formatBytes } from '@shared/lib/formatting'
 import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
+import { useEventStageCopy } from '@locales/provider'
 
 type EventBrowserPanelProps = {
   locale: 'zh-CN' | 'en-US'
@@ -23,7 +24,6 @@ type EventBrowserPanelProps = {
 }
 
 export function EventBrowserPanel({
-  locale,
   eventAssets,
   filteredEventAssets,
   browserSourceMode,
@@ -36,26 +36,14 @@ export function EventBrowserPanel({
   onOpenAsset,
   onOpenModAsset,
 }: EventBrowserPanelProps) {
-  const labels =
-    locale === 'zh-CN'
-      ? {
-          title: '事件文件',
-          subtitle: 'Content / Data / Events',
-          placeholder: '按地点名或路径筛选事件文件',
-          empty: eventAssets.length ? '当前筛选没有匹配的事件文件。' : '当前目录没有可加载的 XNB 事件文件。',
-        }
-      : {
-          title: 'Event Files',
-          subtitle: 'Content / Data / Events',
-          placeholder: 'Filter event files by location or path',
-          empty: eventAssets.length ? 'No event files match the current filter.' : 'No loadable XNB event files were found.',
-        }
+  const labels = useEventStageCopy().workflow.workspacePanels
+  const emptyLabel = eventAssets.length ? labels.browserEmptyFiltered : labels.browserEmptyMissing
 
   return (
     <PanelFrame
       hideHeader
-      title={labels.title}
-      subtitle={labels.subtitle}
+      title={labels.browserTitle}
+      subtitle={labels.browserSubtitle}
       className="h-full"
       headerAction={
         <span className="dock-chip">
@@ -67,12 +55,12 @@ export function EventBrowserPanel({
     >
       <div className="flex h-full flex-col gap-3 p-3">
         <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-(--text-tertiary)" />
           <input
             className="control-input pl-9"
             value={assetFilter}
             onChange={(event) => onAssetFilterChange(event.target.value)}
-            placeholder={labels.placeholder}
+            placeholder={labels.browserPlaceholder}
             spellCheck={false}
           />
         </div>
@@ -87,12 +75,12 @@ export function EventBrowserPanel({
                   key={group.modPath}
                   {...getLoadingMotionChildRevealProps({
                     index: groupIndex,
-                    className: 'overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]',
+                    className: 'overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-panel-muted)',
                   })}
                 >
-                  <div className="border-b border-[var(--border-color)] px-3 py-2">
-                    <p className="truncate text-xs font-semibold tracking-[0.16em] text-[var(--text-primary)] uppercase">{group.modName}</p>
-                    <p className="truncate text-[11px] text-[var(--text-secondary)]">{group.items.length}</p>
+                  <div className="border-b border-(--border-color) px-3 py-2">
+                    <p className="truncate text-xs font-semibold tracking-[0.16em] text-(--text-primary) uppercase">{group.modName}</p>
+                    <p className="truncate text-[11px] text-(--text-secondary)">{group.items.length}</p>
                   </div>
                   <div className="space-y-2 p-2">
                     {group.items.map((entry, itemIndex) => {
@@ -106,10 +94,10 @@ export function EventBrowserPanel({
                         <button key={`${group.modId}:${asset.id}`} type="button" {...revealProps} onClick={() => onOpenModAsset(entry)}>
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{asset.name}</p>
-                              <p className="truncate text-xs text-[var(--text-secondary)]">{targets[0] ?? asset.relativePath}</p>
+                              <p className="truncate text-sm font-semibold text-(--text-primary)">{asset.name}</p>
+                              <p className="truncate text-xs text-(--text-secondary)">{targets[0] ?? asset.relativePath}</p>
                             </div>
-                            <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
+                            <div className="shrink-0 text-right text-[11px] text-(--text-secondary)">
                               <p>XNB</p>
                               <p>{formatBytes(asset.sizeBytes)}</p>
                             </div>
@@ -121,8 +109,8 @@ export function EventBrowserPanel({
                 </section>
               ))
             ) : (
-              <div className="rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
-                No modded event files match the current filter.
+              <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
+                {labels.browserModEmpty}
               </div>
             )
           ) : filteredEventAssets.length ? (
@@ -137,10 +125,10 @@ export function EventBrowserPanel({
                 <button key={asset.id} type="button" {...revealProps} onClick={() => onOpenAsset(asset)}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{asset.name}</p>
-                      <p className="truncate text-xs text-[var(--text-secondary)]">{asset.relativePath}</p>
+                      <p className="truncate text-sm font-semibold text-(--text-primary)">{asset.name}</p>
+                      <p className="truncate text-xs text-(--text-secondary)">{asset.relativePath}</p>
                     </div>
-                    <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
+                    <div className="shrink-0 text-right text-[11px] text-(--text-secondary)">
                       <p>XNB</p>
                       <p>{formatBytes(asset.sizeBytes)}</p>
                     </div>
@@ -149,8 +137,8 @@ export function EventBrowserPanel({
               )
             })
           ) : (
-            <div className="rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
-              {labels.empty}
+            <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
+              {emptyLabel}
             </div>
           )}
         </div>

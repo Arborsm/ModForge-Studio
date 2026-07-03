@@ -6,7 +6,6 @@ export const mailQuestCommandSchemas = [
   {
     key: 'mail',
     label: 'Mail',
-    labelZh: '邮件',
     category: 'item',
     color: 'yellow',
     icon: 'Mail',
@@ -19,7 +18,6 @@ export const mailQuestCommandSchemas = [
   {
     key: 'mailToday',
     label: 'Mail Today',
-    labelZh: '今日邮件',
     category: 'item',
     color: 'yellow',
     icon: 'Mail',
@@ -32,7 +30,6 @@ export const mailQuestCommandSchemas = [
   {
     key: 'mailReceived',
     label: 'Mail Received',
-    labelZh: '标记收到邮件',
     category: 'item',
     color: 'yellow',
     icon: 'MailCheck',
@@ -45,7 +42,6 @@ export const mailQuestCommandSchemas = [
   {
     key: 'addQuest',
     label: 'Add Quest',
-    labelZh: '添加任务',
     category: 'item',
     color: 'yellow',
     icon: 'Scroll',
@@ -58,7 +54,6 @@ export const mailQuestCommandSchemas = [
   {
     key: 'removeQuest',
     label: 'Remove Quest',
-    labelZh: '移除任务',
     category: 'item',
     color: 'yellow',
     icon: 'Scroll',
@@ -71,7 +66,6 @@ export const mailQuestCommandSchemas = [
   {
     key: 'addSpecialOrder',
     label: 'Add Special Order',
-    labelZh: '添加特殊订单',
     category: 'item',
     color: 'yellow',
     icon: 'Scroll',
@@ -84,7 +78,6 @@ export const mailQuestCommandSchemas = [
   {
     key: 'removeSpecialOrder',
     label: 'Remove Special Order',
-    labelZh: '移除特殊订单',
     category: 'item',
     color: 'yellow',
     icon: 'Scroll',
@@ -97,7 +90,6 @@ export const mailQuestCommandSchemas = [
   {
     key: 'addCookingRecipe',
     label: 'Add Cooking Recipe',
-    labelZh: '添加食谱',
     category: 'item',
     color: 'yellow',
     icon: 'ChefHat',
@@ -110,7 +102,6 @@ export const mailQuestCommandSchemas = [
   {
     key: 'addCraftingRecipe',
     label: 'Add Crafting Recipe',
-    labelZh: '添加配方',
     category: 'item',
     color: 'yellow',
     icon: 'Hammer',
@@ -123,7 +114,6 @@ export const mailQuestCommandSchemas = [
   {
     key: 'addConversationTopic',
     label: 'Add Conversation Topic',
-    labelZh: '添加话题',
     category: 'item',
     color: 'yellow',
     icon: 'MessageCircle',

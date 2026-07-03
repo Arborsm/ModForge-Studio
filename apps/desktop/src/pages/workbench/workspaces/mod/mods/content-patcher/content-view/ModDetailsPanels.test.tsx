@@ -16,6 +16,8 @@ describe('ModDiagnosticsPanel', () => {
           pluginKind: 'content-patcher',
           capabilities: ['edit', 'save', 'export', 'validate'],
           futureScopes: ['wizard'],
+          displayName: { 'zh-CN': 'Content Patcher', 'en-US': 'Content Patcher' },
+          description: { 'zh-CN': '插件', 'en-US': 'Plugin' },
           getDisplayName: () => 'Content Patcher',
           getDescription: () => 'Plugin',
         }}

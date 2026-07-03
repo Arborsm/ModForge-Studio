@@ -1,9 +1,10 @@
 import { AlertTriangle, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Filter, LayoutGrid, RefreshCw, Search } from 'lucide-react'
 import { createPortal } from 'react-dom'
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
+import { LoadingMotionFallback, LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import type { LauncherSettings } from '@features/launcher/api'
 import { canUseDesktopHost } from '@shared/lib/desktop'
 import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarState } from '@features/launcher'
@@ -516,23 +517,13 @@ function mergeDiscoverRemoteDetail(item: DiscoverItem, detail: LauncherDiscoverD
 
 function LauncherDiscoverDetailPanel({
   item,
-  detailLabels,
   onClose,
   onQueueDownload,
 }: {
   item: DiscoverItem
-  detailLabels: {
-    currentVersion: string
-    uniqueId: string
-    path: string
-    dependencies: string
-    updateKeys: string
-    pack: string
-  }
   onClose: () => void
   onQueueDownload: (input: QueueLauncherDownloadInput) => void
 }) {
-  const copy = useEditorCopy().launcher
   const remoteDetail = useLauncherRemoteModDetail(item.modId, { includeFiles: false })
   const fallbackDetail = createDiscoverRemoteDetail(item)
   const displayedDetail = remoteDetail.detail ? mergeDiscoverRemoteDetail(item, remoteDetail.detail) : fallbackDetail
@@ -541,28 +532,14 @@ function LauncherDiscoverDetailPanel({
     <LauncherModDetailPanel
       open={true}
       onClose={onClose}
-      closeLabel={copy.actions.closeDialog}
-      title={copy.library.detailsTitle}
-      subtitle={copy.library.detailsSubtitle}
-      empty={copy.library.selectionEmpty}
       mod={null}
       remoteDetail={displayedDetail}
       remoteFilesDeferred={true}
       remoteLoading={remoteDetail.state === 'loading'}
-      labels={detailLabels}
-      noSummary={copy.states.noSummary}
       onToggleEnabled={() => undefined}
-      enableLabel={copy.actions.enable}
-      disableLabel={copy.actions.disable}
-      enabledStateLabel={copy.overview.enabledMods}
-      disabledStateLabel={copy.overview.disabledMods}
-      openFolderLabel={copy.actions.openFolder}
-      setCoverLabel={copy.actions.setCover}
-      clearCoverLabel={copy.actions.clearCover}
       onOpenFolder={() => undefined}
       onSetCover={() => undefined}
       onClearCover={() => undefined}
-      openModPageLabel={copy.actions.openModPage}
       onQueueDownload={onQueueDownload}
     />
   )
@@ -600,9 +577,12 @@ export function LauncherDiscoverPage({ onQueueDownload, onNavigateToDiagnostics,
     }
   }, [desktopHost])
 
+  if (!launcherUiStateReady) {
+    return <LoadingMotionFallback className="launcher-discover-boot-fallback" />
+  }
+
   return (
     <LauncherDiscoverPageContent
-      key={launcherUiStateReady ? 'discover:ready' : 'discover:boot'}
       onQueueDownload={onQueueDownload}
       onNavigateToDiagnostics={onNavigateToDiagnostics}
       onRetryDiagnostics={onRetryDiagnostics}
@@ -673,6 +653,30 @@ function LauncherDiscoverPageContent({
   const popularTags = discover.facets.tags
   const loadingDescription =
     discover.page > 1 || discover.items.length ? copy.discover.loadingPage(discover.page) : copy.discover.loadingResults
+  const resultsRevealKey = [
+    discover.query,
+    discover.sort,
+    discover.ascending ? 'asc' : 'desc',
+    discover.timeRange,
+    discover.page,
+    discover.pageSize,
+    discover.filters.titleQuery,
+    discover.filters.descriptionQuery,
+    discover.filters.authorQuery,
+    discover.filters.uploaderQuery,
+    discover.filters.category,
+    discover.filters.language,
+    discover.filters.tagsInclude,
+    discover.filters.tagsExclude,
+    discover.filters.includeAdult ? 'adult' : 'standard',
+    discover.filters.minFileSize,
+    discover.filters.maxFileSize,
+    discover.filters.minDownloads,
+    discover.filters.maxDownloads,
+    discover.filters.minEndorsements,
+    discover.filters.maxEndorsements,
+    discover.items.map((item) => `${item.modId}:${item.modUrl}`).join('|'),
+  ].join('\u0000')
 
   useEffect(() => {
     if (discover.state === 'loading') {
@@ -740,25 +744,6 @@ function LauncherDiscoverPageContent({
   const rangeEnd = resultCount ? Math.min(discover.page * discover.pageSize, resultCount) : 0
   const paginationItems = getDiscoverPaginationItems(discover.page, discover.totalPages)
   const jumpPageValue = jumpPageDirty ? jumpPageDraft : String(discover.page)
-  const detailLabels = useMemo(
-    () => ({
-      currentVersion: copy.fields.currentVersion,
-      uniqueId: copy.fields.uniqueId,
-      path: copy.fields.path,
-      dependencies: copy.fields.dependencies,
-      updateKeys: copy.fields.updateKeys,
-      pack: copy.library.modDetail.file,
-    }),
-    [
-      copy.fields.currentVersion,
-      copy.fields.dependencies,
-      copy.fields.path,
-      copy.fields.uniqueId,
-      copy.fields.updateKeys,
-      copy.library.modDetail.file,
-    ],
-  )
-
   const toggleSection = (section: DiscoverAccordionSection) => {
     setOpenSection(section)
   }
@@ -807,7 +792,7 @@ function LauncherDiscoverPageContent({
 
   return (
     <section className="launcher-discover-page">
-      <header className="launcher-discover-console panel-surface">
+      <LoadingMotionReveal itemId="launcher-discover-console" index={0} as="header" className="launcher-discover-console panel-surface">
         <div className="launcher-discover-console-top">
           <div className="launcher-discover-console-heading">
             <div className="launcher-discover-console-title-row">
@@ -902,9 +887,13 @@ function LauncherDiscoverPageContent({
             </div>
           </div>
         </div>
-      </header>
+      </LoadingMotionReveal>
 
-      <div className={cx('launcher-discover-shell', effectiveFiltersHidden && 'launcher-discover-shell-filters-hidden')}>
+      <LoadingMotionReveal
+        itemId="launcher-discover-shell"
+        index={1}
+        className={cx('launcher-discover-shell', effectiveFiltersHidden && 'launcher-discover-shell-filters-hidden')}
+      >
         {!effectiveFiltersHidden ? (
           <aside
             className={cx(
@@ -1213,22 +1202,28 @@ function LauncherDiscoverPageContent({
                 onWheelCapture={discover.state === 'loading' ? (event) => event.preventDefault() : undefined}
               >
                 <div className="launcher-discover-wall-shell">
-                  <div className="launcher-discover-wall">
-                    {discover.items.map((item) => (
-                      <LauncherDiscoverCard
+                  <div key={resultsRevealKey} className="launcher-discover-wall">
+                    {discover.items.map((item, index) => (
+                      <LoadingMotionRevealItem
                         key={`${item.modId}:${item.modUrl}`}
-                        item={item}
-                        onOpenDetails={() => setDetailItem(item)}
-                        onQueueDownload={() =>
-                          onQueueDownload({
-                            modId: item.modId,
-                            title: item.title,
-                            imageUrl: item.imageUrl,
-                            version: null,
-                            source: 'discover',
-                          })
-                        }
-                      />
+                        index={Math.floor(index / 4) + 1}
+                        as="div"
+                        className="launcher-discover-wall-reveal"
+                      >
+                        <LauncherDiscoverCard
+                          item={item}
+                          onOpenDetails={() => setDetailItem(item)}
+                          onQueueDownload={() =>
+                            onQueueDownload({
+                              modId: item.modId,
+                              title: item.title,
+                              imageUrl: item.imageUrl,
+                              version: null,
+                              source: 'discover',
+                            })
+                          }
+                        />
+                      </LoadingMotionRevealItem>
                     ))}
                   </div>
                   {discover.state === 'loading' ? (
@@ -1322,15 +1317,10 @@ function LauncherDiscoverPageContent({
           ) : null}
 
           {detailItem ? (
-            <LauncherDiscoverDetailPanel
-              item={detailItem}
-              detailLabels={detailLabels}
-              onClose={() => setDetailItem(null)}
-              onQueueDownload={onQueueDownload}
-            />
+            <LauncherDiscoverDetailPanel item={detailItem} onClose={() => setDetailItem(null)} onQueueDownload={onQueueDownload} />
           ) : null}
         </div>
-      </div>
+      </LoadingMotionReveal>
     </section>
   )
 }

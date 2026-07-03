@@ -7,7 +7,6 @@ export const movementCommandSchemas = [
   {
     key: 'move',
     label: 'Move',
-    labelZh: '移动',
     category: 'movement',
     color: 'green',
     icon: 'Move',
@@ -23,7 +22,6 @@ export const movementCommandSchemas = [
   {
     key: 'warp',
     label: 'Warp',
-    labelZh: '传送',
     category: 'movement',
     color: 'green',
     icon: 'MapPin',
@@ -43,7 +41,6 @@ export const movementCommandSchemas = [
   {
     key: 'faceDirection',
     label: 'Face Direction',
-    labelZh: '转向',
     category: 'movement',
     color: 'green',
     icon: 'Compass',
@@ -59,7 +56,6 @@ export const movementCommandSchemas = [
   {
     key: 'positionOffset',
     label: 'Position Offset',
-    labelZh: '位置偏移',
     category: 'movement',
     color: 'green',
     icon: 'ArrowRightLeft',
@@ -77,7 +73,6 @@ export const movementCommandSchemas = [
   {
     key: 'jump',
     label: 'Jump',
-    labelZh: '跳跃',
     category: 'movement',
     color: 'green',
     icon: 'ArrowUp',
@@ -91,7 +86,6 @@ export const movementCommandSchemas = [
   {
     key: 'speed',
     label: 'Speed',
-    labelZh: '速度',
     category: 'movement',
     color: 'green',
     icon: 'Zap',
@@ -106,7 +100,6 @@ export const movementCommandSchemas = [
   {
     key: 'advancedMove',
     label: 'Advanced Move',
-    labelZh: '高级移动',
     category: 'movement',
     color: 'green',
     icon: 'Route',
@@ -122,7 +115,6 @@ export const movementCommandSchemas = [
   {
     key: 'warpFarmers',
     label: 'Warp Farmers',
-    labelZh: '传送玩家',
     category: 'movement',
     color: 'green',
     icon: 'MapPin',

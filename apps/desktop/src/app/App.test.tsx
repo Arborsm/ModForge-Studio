@@ -4,7 +4,69 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import App from './App'
 import type { LauncherNexusDiagnosticsResult } from '@features/launcher/api'
 import { editorCopy, getModWorkspaceCopy, getSettingsMenuCopy, getViewMenuCopy } from '@locales/api'
+import { resetPreferencesStoreForTest } from '@shared/lib/app-state/preferencesStore'
 import { clearNotifications, dismissNotification, publishNotification } from '@shared/ui/notifications'
+
+const appUiStateTestState = vi.hoisted(() => {
+  type State = {
+    version: number
+    shell: Record<string, unknown>
+    appearance: Record<string, unknown>
+    workspace: Record<string, unknown>
+    launcher: Record<string, unknown>
+  }
+  const defaultState = {
+    version: 1,
+    shell: {
+      appMode: 'launcher',
+      launcherPage: 'library',
+      debugEnabled: false,
+      notificationSoundEnabled: true,
+    },
+    appearance: {
+      locale: 'en-US',
+      themeId: 'neutral-tool',
+      windowBorderTone: 'accent',
+      windowBorderWeight: 'standard',
+      recentGameDirectories: [],
+      playerAppearance: {
+        profiles: [],
+        activeProfileId: null,
+      },
+      loadingMotion: {
+        styleId: 'softFadeIn',
+        intensityId: 'standard',
+        speedMode: 'preset',
+        speedId: 'standard',
+        speedMultiplier: 1,
+      },
+    },
+    workspace: {
+      layouts: {},
+    },
+    launcher: {
+      discoverToolbar: {
+        sort: 'newest',
+        ascending: false,
+        timeRange: 'all',
+        pageSize: 20,
+        filtersHidden: false,
+      },
+      forceOffline: false,
+    },
+  }
+  let state: State = defaultState
+
+  return {
+    setState: (nextState: State) => {
+      state = nextState
+    },
+    canUseDesktopHostMock: vi.fn(() => false),
+    initializeAppUiStateMock: vi.fn(async () => state),
+    applyAppUiStatePatchMock: vi.fn(async (_patch: unknown) => state),
+    getAppUiStateSnapshotMock: vi.fn(() => state),
+  }
+})
 
 const mapWorkspaceState = {
   workspaceStatus: { tone: 'ready', message: '' },
@@ -55,6 +117,7 @@ type MockAppUiState = {
 
 type MockAppUiStateOverrides = {
   version?: number
+  desktopHost?: boolean
   shell?: Partial<MockAppUiState['shell']>
   appearance?: Partial<Omit<MockAppUiState['appearance'], 'playerAppearance' | 'loadingMotion'>> & {
     loadingMotion?: MockAppUiState['appearance']['loadingMotion']
@@ -170,15 +233,16 @@ function applyMockAppUiStatePatch(patch: MockAppUiStatePatch) {
       : null),
   }
 
+  appUiStateTestState.setState(mockAppUiState as never)
   return mockAppUiState
 }
 
 let mockAppUiState = createMockAppUiState()
-const initializeAppUiStateMock = vi.fn(async () => mockAppUiState)
-const applyAppUiStatePatchMock = vi.fn(async (patch: MockAppUiStatePatch) => applyMockAppUiStatePatch(patch))
-const getAppUiStateSnapshotMock = vi.fn(() => mockAppUiState)
+const initializeAppUiStateMock = appUiStateTestState.initializeAppUiStateMock
+const applyAppUiStatePatchMock = appUiStateTestState.applyAppUiStatePatchMock
+const getAppUiStateSnapshotMock = appUiStateTestState.getAppUiStateSnapshotMock
 const workspaceLayoutMock = vi.fn((props: Record<string, unknown>) => props)
-const canUseDesktopHostMock = vi.fn(() => false)
+const canUseDesktopHostMock = appUiStateTestState.canUseDesktopHostMock
 function createLauncherNexusDiagnosticsResult(routes: LauncherNexusDiagnosticsResult['routes'] = []): LauncherNexusDiagnosticsResult {
   return { routes }
 }
@@ -238,6 +302,29 @@ const useCpMakerMock = vi.fn(() => ({
 
 function seedAppUiState(overrides: MockAppUiStateOverrides = {}) {
   mockAppUiState = createMockAppUiState(overrides)
+  if (typeof overrides.desktopHost === 'boolean') {
+    canUseDesktopHostMock.mockReturnValue(overrides.desktopHost)
+  }
+  appUiStateTestState.setState(mockAppUiState as never)
+  resetPreferencesStoreForTest({
+    theme: 'dark',
+    themeId: mockAppUiState.appearance.themeId as never,
+    locale:
+      mockAppUiState.appearance.locale === 'zh-CN'
+        ? 'zh-CN'
+        : mockAppUiState.appearance.locale === 'en-US'
+          ? 'en-US'
+          : window.navigator.language.toLowerCase().startsWith('zh')
+            ? 'zh-CN'
+            : 'en-US',
+    windowBorderTone: mockAppUiState.appearance.windowBorderTone,
+    windowBorderWeight: mockAppUiState.appearance.windowBorderWeight,
+    windowIsFullscreen: false,
+    desktopHost: canUseDesktopHostMock(),
+    debugEnabled: mockAppUiState.shell.debugEnabled,
+    notificationSoundEnabled: mockAppUiState.shell.notificationSoundEnabled,
+    loadingMotionPreference: mockAppUiState.appearance.loadingMotion as never,
+  })
 }
 
 function createMockWorkspaceLayoutState() {
@@ -400,6 +487,15 @@ vi.mock('@shared/lib/desktop', () => ({
   toggleMaximizeCurrentWindow: vi.fn(async () => false),
   toDesktopAssetUrl: vi.fn((value: string) => `asset:${value}`),
   writeFrontendLog: vi.fn(async () => undefined),
+}))
+
+vi.mock('@shared/lib/desktop/runtime', () => ({
+  canUseDesktopHost: () => appUiStateTestState.canUseDesktopHostMock(),
+}))
+
+vi.mock('@shared/lib/desktop/window', () => ({
+  isCurrentWindowFullscreen: vi.fn(async () => false),
+  toggleFullscreenCurrentWindow: vi.fn(async () => false),
 }))
 
 vi.mock('@features/launcher/api', () => ({
@@ -738,9 +834,12 @@ vi.mock('@shared/lib/app-state', () => ({
     debugEnabled: input?.debugEnabled === true,
     notificationSoundEnabled: input?.notificationSoundEnabled !== false,
   }),
-  initializeAppUiState: () => initializeAppUiStateMock(),
-  applyAppUiStatePatch: (patch: MockAppUiStatePatch) => applyAppUiStatePatchMock(patch),
-  getAppUiStateSnapshot: () => getAppUiStateSnapshotMock(),
+}))
+
+vi.mock('@shared/lib/app-state/appUiState', () => ({
+  initializeAppUiState: () => appUiStateTestState.initializeAppUiStateMock(),
+  applyAppUiStatePatch: (patch: MockAppUiStatePatch) => appUiStateTestState.applyAppUiStatePatchMock(patch),
+  getAppUiStateSnapshot: () => appUiStateTestState.getAppUiStateSnapshotMock(),
   configureAppUiStatePersistence: vi.fn(),
 }))
 
@@ -770,9 +869,20 @@ describe('App locale ownership', () => {
       autoCheckModUpdates: true,
     }))
     initializeAppUiStateMock.mockClear()
-    initializeAppUiStateMock.mockImplementation(async () => mockAppUiState)
+    initializeAppUiStateMock.mockImplementation(async () => {
+      if (mockAppUiState.appearance.locale !== 'zh-CN' && mockAppUiState.appearance.locale !== 'en-US') {
+        mockAppUiState = {
+          ...mockAppUiState,
+          appearance: {
+            ...mockAppUiState.appearance,
+            locale: window.navigator.language.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US',
+          },
+        }
+      }
+      return mockAppUiState
+    })
     applyAppUiStatePatchMock.mockClear()
-    applyAppUiStatePatchMock.mockImplementation(async (patch: MockAppUiStatePatch) => applyMockAppUiStatePatch(patch))
+    applyAppUiStatePatchMock.mockImplementation(async (patch: unknown) => applyMockAppUiStatePatch(patch as MockAppUiStatePatch))
     getAppUiStateSnapshotMock.mockClear()
     getAppUiStateSnapshotMock.mockImplementation(() => mockAppUiState)
     workspaceLayoutMock.mockClear()
@@ -852,13 +962,13 @@ describe('App locale ownership', () => {
   })
 
   it('falls back from an invalid stored locale to navigator language heuristics', async () => {
-    seedAppUiState({
-      appearance: { locale: 'es-ES' },
-      shell: { appMode: 'workbench' },
-    })
     Object.defineProperty(window.navigator, 'language', {
       configurable: true,
       value: 'zh-CN',
+    })
+    seedAppUiState({
+      appearance: { locale: 'es-ES' },
+      shell: { appMode: 'workbench' },
     })
 
     render(<App />)
@@ -1007,9 +1117,9 @@ describe('App locale ownership', () => {
 
   it('publishes a startup warning notification when launcher diagnostics settle with failed routes', async () => {
     seedAppUiState({
+      desktopHost: true,
       shell: { appMode: 'launcher' },
     })
-    canUseDesktopHostMock.mockReturnValue(true)
     loadLauncherNexusDiagnosticsMock.mockResolvedValue({
       routes: [
         {
@@ -1040,10 +1150,10 @@ describe('App locale ownership', () => {
 
   it('does not expose a diagnostics retry action while launcher Nexus routes are forced offline', async () => {
     seedAppUiState({
+      desktopHost: true,
       shell: { appMode: 'launcher' },
       launcher: { forceOffline: true },
     })
-    canUseDesktopHostMock.mockReturnValue(true)
     loadLauncherNexusDiagnosticsMock.mockResolvedValue({
       routes: [
         {
@@ -1068,9 +1178,9 @@ describe('App locale ownership', () => {
 
   it('opens the launcher configuration page from the diagnostics notification detail button', async () => {
     seedAppUiState({
+      desktopHost: true,
       shell: { appMode: 'launcher' },
     })
-    canUseDesktopHostMock.mockReturnValue(true)
     loadLauncherNexusDiagnosticsMock.mockResolvedValue({
       routes: [
         {
@@ -1099,9 +1209,9 @@ describe('App locale ownership', () => {
 
   it('retries only failed Nexus diagnostics routes from the diagnostics notification retry button', async () => {
     seedAppUiState({
+      desktopHost: true,
       shell: { appMode: 'launcher' },
     })
-    canUseDesktopHostMock.mockReturnValue(true)
     loadLauncherNexusDiagnosticsMock.mockResolvedValue({
       routes: [
         {
@@ -1154,10 +1264,10 @@ describe('App locale ownership', () => {
 
   it('applies the persisted launcher force-offline override during startup hydration', async () => {
     seedAppUiState({
+      desktopHost: true,
       shell: { appMode: 'launcher' },
       launcher: { forceOffline: true },
     })
-    canUseDesktopHostMock.mockReturnValue(true)
 
     render(<App />)
 

@@ -2,18 +2,8 @@ import type { RefObject } from 'react'
 import { Folder, FolderArchive, LayoutGrid, MoreHorizontal, Plus } from 'lucide-react'
 import { cx } from '@shared/lib/cx'
 import { normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
+import { useEditorCopy } from '@locales/provider'
 import type { LauncherPackPreset } from '@features/launcher/model/types'
-
-type LauncherLibraryPackSidebarLabels = {
-  packTitle: string
-  allPacks: string
-  hiddenMods: string
-  createPack: string
-  manageCurrentPack: string
-  editCurrentPack: string
-  renameCurrentPack: string
-  deleteCurrentPack: string
-}
 
 type LauncherLibraryPackSidebarProps = {
   drawerOpen: boolean
@@ -24,7 +14,6 @@ type LauncherLibraryPackSidebarProps = {
   packPresets: LauncherPackPreset[]
   packActionMenuId: string | null
   drawerPanelRef: RefObject<HTMLDivElement | null>
-  labels: LauncherLibraryPackSidebarLabels
   onCreatePack: () => void
   onSelectPack: (packId: string | null) => void
   onSelectHiddenView: () => void
@@ -43,7 +32,6 @@ export function LauncherLibraryPackSidebar({
   packPresets,
   packActionMenuId,
   drawerPanelRef,
-  labels,
   onCreatePack,
   onSelectPack,
   onSelectHiddenView,
@@ -52,6 +40,17 @@ export function LauncherLibraryPackSidebar({
   onRenamePack,
   onDeletePack,
 }: LauncherLibraryPackSidebarProps) {
+  const copy = useEditorCopy().launcher
+  const labels = {
+    packTitle: copy.library.packTitle,
+    allPacks: copy.library.allPacks,
+    hiddenMods: copy.library.hiddenMods,
+    createPack: copy.actions.createPack,
+    manageCurrentPack: copy.library.manageCurrentPack,
+    editCurrentPack: copy.library.editCurrentPack,
+    renameCurrentPack: copy.library.renameCurrentPack,
+    deleteCurrentPack: copy.library.deleteCurrentPack,
+  }
   return (
     <aside
       className={cx('launcher-library-sidebar', drawerOpen ? 'launcher-library-sidebar-open' : 'launcher-library-sidebar-collapsed')}

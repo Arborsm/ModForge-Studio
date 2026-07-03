@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronUp, Download, ExternalLink, RefreshCw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
-import { useEditorCopy, useLocale, useSettingsMenuCopy } from '@locales/provider'
+import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
 import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import {
@@ -15,6 +15,7 @@ import { useLauncherImage } from '@features/launcher'
 import { useLauncherUpdates } from '@features/launcher'
 import type { LauncherSettingsDraft, QueueLauncherDownloadInput } from '@features/launcher'
 import { getLauncherCardMonogram, LauncherBlockedState, LauncherStateBlock } from '@features/launcher'
+import type { LauncherUpdatesCopy } from '@locales/api'
 
 type LauncherUpdatesPageProps = {
   settings: LauncherSettingsDraft
@@ -61,9 +62,9 @@ function formatFileSize(bytes: number | null | undefined, fallback: string) {
   return `${current.toFixed(precision)} ${units[unitIndex]}`
 }
 
-function formatRelativeUpdateDate(value: string | null | undefined, locale: string, fallback: string) {
+function formatRelativeUpdateDate(value: string | null | undefined, copy: LauncherUpdatesCopy) {
   if (!value) {
-    return fallback
+    return copy.releaseUnknown
   }
 
   const date = new Date(value)
@@ -76,24 +77,20 @@ function formatRelativeUpdateDate(value: string | null | undefined, locale: stri
   const days = Math.max(1, Math.round(diffMs / 86_400_000))
 
   if (diffMs < 86_400_000) {
-    return locale === 'zh-CN' ? `${hours}小时前发布` : `Released ${hours}h ago`
+    return copy.releasedHoursAgo(hours)
   }
 
   if (diffMs < 31 * 86_400_000) {
-    return locale === 'zh-CN' ? `${days}天前发布` : `Released ${days} days ago`
+    return copy.releasedDaysAgo(days)
   }
 
-  return locale === 'zh-CN'
-    ? date.toLocaleDateString('zh-CN', {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-      })
-    : date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      })
+  return copy.releasedDate(
+    date.toLocaleDateString(copy.releaseDateLocale, {
+      year: 'numeric',
+      month: copy.releaseDateMonthFormat,
+      day: 'numeric',
+    }),
+  )
 }
 
 function getStatusReasonLines(reason: string | null | undefined) {
@@ -124,7 +121,6 @@ export function LauncherUpdatesPage({
   onRetryDiagnostics,
 }: LauncherUpdatesPageProps) {
   const copy = useEditorCopy().launcher
-  const locale = useLocale()
   const settingsMenuCopy = useSettingsMenuCopy()
   const updates = useLauncherUpdates(settings)
   const mountedRef = useRef(true)
@@ -461,11 +457,7 @@ export function LauncherUpdatesPage({
                 const changelog = changelogByKey[key] ?? null
                 const changelogState = changelogStateByKey[key] ?? 'idle'
                 const changelogError = changelogErrorByKey[key] ?? null
-                const detailDate = formatRelativeUpdateDate(
-                  detail?.updatedAt ?? item.updatedAt ?? null,
-                  locale,
-                  copy.updates.releaseUnknown,
-                )
+                const detailDate = formatRelativeUpdateDate(detail?.updatedAt ?? item.updatedAt ?? null, copy.updates)
                 const detailSize = formatFileSize(detail?.fileSize ?? item.fileSize ?? null, copy.updates.sizeUnknown)
 
                 return (

@@ -1,5 +1,5 @@
 @layer components {
-  .event-condition-builder-backdrop {
+  .event-condition-builder-stack {
     --ephub-surface: color-mix(in srgb, var(--bg-panel) 94%, var(--bg-elevated) 6%);
     --ephub-surface-strong: var(--bg-panel);
     --ephub-surface-muted: color-mix(in srgb, var(--bg-panel-muted) 88%, var(--bg-panel) 12%);
@@ -8,16 +8,6 @@
     --ephub-line: color-mix(in srgb, var(--border-color) 70%, transparent);
     --ephub-shadow: rgba(15, 23, 42, 0.08);
     --ephub-shadow-strong: rgba(15, 23, 42, 0.18);
-    position: fixed;
-    inset: 0;
-    z-index: 120;
-    display: grid;
-    place-items: center;
-    background: color-mix(in srgb, var(--surface-inverse) 28%, transparent);
-    padding: 24px 24px 104px;
-  }
-
-  .event-condition-builder-stack {
     display: grid;
     width: min(900px, calc(100vw - 48px));
     gap: 8px;

@@ -329,8 +329,8 @@ function ScenarioFrame({ id, children }: { id: ScenarioId; children: ReactNode }
   return (
     <div className="dev-performance-scenario" data-mf-perf-scenario={id}>
       <header className="panel-surface p-3">
-        <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase">Compiler cleanup performance scenario</p>
-        <h1 className="text-lg font-semibold text-[var(--text-primary)]">{id}</h1>
+        <p className="text-xs font-semibold text-(--text-secondary) uppercase">Compiler cleanup performance scenario</p>
+        <h1 className="text-lg font-semibold text-(--text-primary)">{id}</h1>
       </header>
       <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
     </div>
@@ -353,7 +353,6 @@ function WorldBibleScenario() {
     <ScenarioFrame id="cp-maker-world-bible">
       <StudioDeskWorldBible
         id="perf-world-bible"
-        copy={editorCopy}
         bible={createWorldBible(260)}
         exportSummary={{ lastExportedAt: Date.now() - 60_000, fileList: range(72).map((index) => `file-${index}.json`) }}
         isLoading={false}
@@ -368,7 +367,6 @@ function StoryboardScenario() {
   return (
     <ScenarioFrame id="cp-maker-storyboard">
       <StudioDeskStoryboard
-        copy={editorCopy}
         inspirations={createInspirations(520)}
         hasActiveDraft
         onCreateDraft={noop}
@@ -385,7 +383,6 @@ function ProjectGalleryScenario() {
     <ScenarioFrame id="cp-maker-project-gallery">
       <StudioDeskProjectGallery
         model={createStudioDeskModel(420)}
-        copy={editorCopy}
         onCreateDraftRequest={noop}
         onImportDraftRequest={asyncNoop}
         onOpenDraft={asyncNoop}
@@ -461,29 +458,9 @@ function LauncherDetailScenario() {
       <LauncherModDetailPanel
         open
         onClose={noop}
-        closeLabel="Close"
-        title="Performance Expansion"
-        subtitle="ModForge"
-        empty="No mod selected"
         mod={createLocalMod()}
         remoteDetail={createRemoteDetail(72)}
-        labels={{
-          currentVersion: 'Current version',
-          uniqueId: 'Unique ID',
-          path: 'Path',
-          dependencies: 'Dependencies',
-          updateKeys: 'Update keys',
-          pack: 'Pack',
-        }}
-        noSummary="No summary"
         onToggleEnabled={noop}
-        enableLabel="Enable"
-        disableLabel="Disable"
-        enabledStateLabel="Enabled"
-        disabledStateLabel="Disabled"
-        openFolderLabel="Open folder"
-        setCoverLabel="Set cover"
-        clearCoverLabel="Clear cover"
         onOpenFolder={noop}
         onSetCover={noop}
         onClearCover={noop}

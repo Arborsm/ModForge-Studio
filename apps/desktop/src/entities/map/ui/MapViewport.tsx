@@ -13,7 +13,8 @@ import {
 } from 'react'
 import { getObjectInteractionTag } from '@entities/map'
 import { resolveTilesetImagePath } from '../lib/assets'
-import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
+import type { LocaleCode, ThemeMode } from '@locales/api'
+import { useEditorCopy } from '@locales/provider'
 import { PAN_ZOOM_TOOLBAR_ZOOM_FACTOR, PAN_ZOOM_WHEEL_INTENSITY } from '@shared/lib/viewports'
 import type { FocusedMapObjectTarget, TileHoverInfo, ViewportWorldPoint } from '@shared/contracts'
 import type { MapDocument } from '@shared/contracts'
@@ -51,7 +52,6 @@ type MapViewportProps = {
   visibleObjectGroupIds: number[]
   onHoverChange?: (info: TileHoverInfo | null) => void
   onAtlasPortalOpen?: (targetMapName: string) => void
-  labels: ViewportLabels
   theme: ThemeMode
   accentColor: string
   showGrid: boolean
@@ -125,7 +125,6 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     visibleObjectGroupIds,
     onHoverChange,
     onAtlasPortalOpen,
-    labels,
     theme,
     accentColor,
     showGrid,
@@ -143,6 +142,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   },
   ref,
 ) {
+  const labels = useEditorCopy().viewportLabels
   const initialDefaultViewportState = useMemo(() => getDefaultViewportState(mapDocument), [mapDocument])
   const resolvedInitialZoom = clampZoom(initialZoom ?? initialDefaultViewportState?.zoom ?? 1)
   const frameRef = useRef<HTMLDivElement | null>(null)
@@ -1326,11 +1326,11 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   }
 
   if (!mapDocument) {
-    return <MapViewportEmptyState labels={labels} theme={theme} accentColor={accentColor} viewportBackdropStyle={viewportBackdropStyle} />
+    return <MapViewportEmptyState theme={theme} accentColor={accentColor} viewportBackdropStyle={viewportBackdropStyle} />
   }
 
   const viewportContent = (
-    <div className="panel-canvas relative h-full shadow-[var(--shadow-panel)]" style={viewportBackdropStyle}>
+    <div className="panel-canvas relative h-full shadow-(--shadow-panel)" style={viewportBackdropStyle}>
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -1343,7 +1343,6 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
 
       {showStatsChips ? (
         <MapViewportStatsChips
-          labels={labels}
           mapDocument={mapDocument}
           tilesetImageCount={Object.keys(tilesetImages).length}
           visibleLayers={visibleLayers}
@@ -1363,7 +1362,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
 
       {scaleMapOverlayWithViewport && mapOverlay ? (
         <div
-          className="pointer-events-none absolute z-[2]"
+          className="pointer-events-none absolute z-2"
           style={{
             left: `${mapDisplayOffset.left}px`,
             top: `${mapDisplayOffset.top}px`,
@@ -1377,7 +1376,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
         </div>
       ) : null}
 
-      {viewportOverlay ? <div className="pointer-events-none absolute inset-0 z-[4]">{viewportOverlay}</div> : null}
+      {viewportOverlay ? <div className="pointer-events-none absolute inset-0 z-4">{viewportOverlay}</div> : null}
 
       <div ref={frameRef} className="absolute inset-0">
         <div
@@ -1409,7 +1408,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
             />
             {mapOverlay && !scaleMapOverlayWithViewport ? (
               <div
-                className="pointer-events-none absolute z-[2]"
+                className="pointer-events-none absolute z-2"
                 style={{
                   left: `${canvasOffset.left}px`,
                   top: `${canvasOffset.top}px`,
@@ -1422,7 +1421,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
             ) : null}
             {tileInteractionEnabled && (hoveredTile || pickFlash) ? (
               <div
-                className="pointer-events-none absolute z-[5]"
+                className="pointer-events-none absolute z-5"
                 style={{
                   left: `${canvasOffset.left}px`,
                   top: `${canvasOffset.top}px`,
@@ -1474,7 +1473,6 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
 
   return (
     <MapViewportContextMenu
-      labels={labels}
       viewportContent={viewportContent}
       contextMenuHover={contextMenuHover}
       contextMenuExtraItems={contextMenuExtraItems}

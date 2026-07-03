@@ -3,6 +3,7 @@ import { cx } from '@shared/lib/cx'
 import type { ModSourceEntry } from '@pages/workbench/workspaces/mod'
 import type { EventScript } from '@entities/event'
 import { ModSourceList } from '@shared/ui/ModSourceList'
+import { useEventStageCopy } from '@locales/provider'
 
 type EventDirectoryPanelProps = {
   locale: 'zh-CN' | 'en-US'
@@ -13,30 +14,14 @@ type EventDirectoryPanelProps = {
   onSelectEvent: (eventKey: string) => void
 }
 
-export function EventDirectoryPanel({
-  locale,
-  events,
-  selectedEventKey,
-  subtitle,
-  modSources = [],
-  onSelectEvent,
-}: EventDirectoryPanelProps) {
-  const labels =
-    locale === 'zh-CN'
-      ? {
-          title: '事件目录',
-          empty: '当前事件文件没有可解析的事件。',
-        }
-      : {
-          title: 'Event Directory',
-          empty: 'No events were parsed from this file.',
-        }
+export function EventDirectoryPanel({ events, selectedEventKey, subtitle, modSources = [], onSelectEvent }: EventDirectoryPanelProps) {
+  const labels = useEventStageCopy().workflow.workspacePanels
 
   return (
-    <PanelFrame title={labels.title} subtitle={subtitle} bodyClassName="p-3">
+    <PanelFrame title={labels.directoryTitle} subtitle={subtitle} bodyClassName="p-3">
       <div className="space-y-3">
-        <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-3">
-          <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">Mod Sources</p>
+        <div className="rounded-2xl border border-(--border-color) bg-(--bg-panel-muted) px-3 py-3">
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">Mod Sources</p>
           <div className="mt-3">
             <ModSourceList sources={modSources} />
           </div>
@@ -53,16 +38,14 @@ export function EventDirectoryPanel({
                     type="button"
                     className={cx(
                       'w-full rounded-2xl border px-3 py-3 text-left transition-colors',
-                      isActive
-                        ? 'border-[var(--accent)] bg-[var(--bg-active)]'
-                        : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-elevated)]',
+                      isActive ? 'border-(--accent) bg-(--bg-active)' : 'border-(--border-color) bg-(--bg-panel) hover:bg-(--bg-elevated)',
                     )}
                     onClick={() => onSelectEvent(event.key)}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{event.eventId}</p>
-                        <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">
+                        <p className="truncate text-sm font-semibold text-(--text-primary)">{event.eventId}</p>
+                        <p className="mt-1 truncate text-xs text-(--text-secondary)">
                           {event.preconditions.slice(1).join(' / ') || event.key}
                         </p>
                       </div>
@@ -73,8 +56,8 @@ export function EventDirectoryPanel({
               })}
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
-              {labels.empty}
+            <div className="rounded-2xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
+              {labels.directoryEmpty}
             </div>
           )}
         </div>

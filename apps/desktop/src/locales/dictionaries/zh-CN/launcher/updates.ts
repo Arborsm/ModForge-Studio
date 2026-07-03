@@ -27,6 +27,11 @@ const updates: LauncherUpdatesCopy = {
   fetchDetailNotice: '正在抓取模组详情',
   fetchChangelogNotice: '正在抓取更新日志',
   releaseUnknown: '发布时间未知',
+  releasedHoursAgo: (hours) => `${hours}小时前发布`,
+  releasedDaysAgo: (days) => `${days}天前发布`,
+  releasedDate: (dateLabel) => dateLabel,
+  releaseDateLocale: 'zh-CN',
+  releaseDateMonthFormat: 'numeric',
   sizeUnknown: '大小未知',
   checkingProgressTitle: '检查模组更新',
   checkingProgressDetail: (checked, total, currentModName) =>

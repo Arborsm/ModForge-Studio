@@ -1,16 +1,15 @@
 import { Bug, Maximize2, Palette, Settings2, Square, Volume2, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
+import { LOADING_MOTION_INTENSITY_IDS, LOADING_MOTION_SPEED_IDS, LOADING_MOTION_STYLE_IDS } from '@shared/contracts/types/loadingMotion'
 import { cx } from '@shared/lib/cx'
 import { LoadingMotionFallback } from '@shared/ui/loading-motion'
+import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
+import { THEME_PRESETS } from '@shared/lib/theme/presets'
 import type { LocaleCode } from '@locales/api'
+import { useSettingsMenuCopy } from '@locales/provider'
 import type { SettingsWindowCategory, WindowBorderTone, WindowBorderWeight } from '@shared/contracts'
-import type {
-  LoadingMotionIntensityId,
-  LoadingMotionSpeedId,
-  LoadingMotionSpeedMode,
-  LoadingMotionStyleId,
-} from '@shared/contracts/types/loadingMotion'
+import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionStyleId } from '@shared/contracts/types/loadingMotion'
 
 type ThemeOption = {
   id: string
@@ -28,100 +27,9 @@ type LocaleOption = {
   label: string
 }
 
-type WindowBorderToneOption = {
-  id: WindowBorderTone
-  label: string
-}
-
-type WindowBorderWeightOption = {
-  id: WindowBorderWeight
-  label: string
-}
-
 type SettingsWindowProps = {
   open: boolean
-  title: string
-  categories: {
-    appearance: string
-    loading: string
-    view: string
-    interaction: string
-    launcher: string
-    debug: string
-  }
-  categoryDescriptions: {
-    appearance: string
-    loading: string
-    view: string
-    interaction: string
-    launcher: string
-    debug: string
-  }
-  themeLabel: string
-  resetThemeLabel: string
-  themeDescription: string
-  languageLabel: string
-  languageDescription: string
-  localeOptions: LocaleOption[]
-  activeLocale: LocaleCode
-  windowModeLabel: string
-  windowBorderToneLabel: string
-  windowBorderToneDescription: string
-  windowBorderToneOptions: WindowBorderToneOption[]
-  activeWindowBorderTone: WindowBorderTone
-  windowBorderWeightLabel: string
-  windowBorderWeightDescription: string
-  windowBorderWeightOptions: WindowBorderWeightOption[]
-  activeWindowBorderWeight: WindowBorderWeight
-  borderlessFullscreenLabel: string
-  borderlessFullscreenDescription: string
-  enableBorderlessFullscreenLabel: string
-  disableBorderlessFullscreenLabel: string
-  borderlessFullscreenEnabled: boolean
-  debugModeLabel: string
-  debugModeDescription: string
-  enableDebugModeLabel: string
-  disableDebugModeLabel: string
-  debugModeEnabled: boolean
-  notificationSoundLabel: string
-  notificationSoundDescription: string
-  enableNotificationSoundLabel: string
-  disableNotificationSoundLabel: string
-  notificationSoundEnabled: boolean
   activeCategory?: SettingsWindowCategory
-  themeOptions: ThemeOption[]
-  activeThemeId: string
-  onSelectTheme: (id: string) => void
-  onResetTheme: () => void
-  onSelectLocale: (locale: LocaleCode) => void
-  onSelectWindowBorderTone: (tone: WindowBorderTone) => void
-  onSelectWindowBorderWeight: (weight: WindowBorderWeight) => void
-  onToggleBorderlessFullscreen: () => void
-  onToggleNotificationSound: () => void
-  onToggleDebugMode: () => void
-  loadingMotionStyleLabel: string
-  loadingMotionStyleDescription: string
-  loadingMotionIntensityLabel: string
-  loadingMotionIntensityDescription: string
-  loadingMotionSpeedLabel: string
-  loadingMotionSpeedDescription: string
-  loadingMotionCustomSpeedLabel: string
-  loadingMotionCustomSpeedDescription: string
-  loadingMotionCustomSpeedToggleLabel: string
-  loadingMotionPresetSpeedToggleLabel: string
-  loadingMotionSpeedValueLabel: (value: number) => string
-  activeLoadingStyleId: LoadingMotionStyleId
-  activeLoadingIntensityId: LoadingMotionIntensityId
-  activeLoadingSpeedMode: LoadingMotionSpeedMode
-  activeLoadingSpeedId: LoadingMotionSpeedId
-  activeLoadingSpeedMultiplier: number
-  onSelectLoadingStyle: (styleId: LoadingMotionStyleId) => void
-  onSelectLoadingIntensity: (intensityId: LoadingMotionIntensityId) => void
-  onSelectLoadingSpeed: (speedId: LoadingMotionSpeedId) => void
-  onSelectCustomLoadingSpeed: (speedMultiplier: number) => void
-  loadingStyleOptions: Array<{ id: LoadingMotionStyleId; label: string }>
-  loadingIntensityOptions: Array<{ id: LoadingMotionIntensityId; label: string }>
-  loadingSpeedOptions: Array<{ id: LoadingMotionSpeedId; label: string }>
   onActiveCategoryChange?: (category: SettingsWindowCategory) => void
   onClose: () => void
 }
@@ -183,80 +91,118 @@ function SettingsBooleanSwitch({
 
 export default function SettingsWindow({
   open,
-  title,
-  categories,
-  categoryDescriptions,
-  themeLabel,
-  resetThemeLabel,
-  themeDescription,
-  languageLabel,
-  languageDescription,
-  localeOptions,
-  activeLocale,
-  windowModeLabel,
-  windowBorderToneLabel,
-  windowBorderToneDescription,
-  windowBorderToneOptions,
-  activeWindowBorderTone,
-  windowBorderWeightLabel,
-  windowBorderWeightDescription,
-  windowBorderWeightOptions,
-  activeWindowBorderWeight,
-  borderlessFullscreenLabel,
-  borderlessFullscreenDescription,
-  enableBorderlessFullscreenLabel,
-  disableBorderlessFullscreenLabel,
-  borderlessFullscreenEnabled,
-  debugModeLabel,
-  debugModeDescription,
-  enableDebugModeLabel,
-  disableDebugModeLabel,
-  debugModeEnabled,
-  notificationSoundLabel,
-  notificationSoundDescription,
-  enableNotificationSoundLabel,
-  disableNotificationSoundLabel,
-  notificationSoundEnabled,
   activeCategory: controlledActiveCategory,
-  themeOptions,
-  activeThemeId,
-  onSelectTheme,
-  onResetTheme,
-  onSelectLocale,
-  onSelectWindowBorderTone,
-  onSelectWindowBorderWeight,
-  onToggleBorderlessFullscreen,
-  onToggleNotificationSound,
-  onToggleDebugMode,
-  loadingMotionStyleLabel,
-  loadingMotionStyleDescription,
-  loadingMotionIntensityLabel,
-  loadingMotionIntensityDescription,
-  loadingMotionSpeedLabel,
-  loadingMotionSpeedDescription,
-  loadingMotionCustomSpeedLabel,
-  loadingMotionCustomSpeedDescription,
-  loadingMotionCustomSpeedToggleLabel,
-  loadingMotionPresetSpeedToggleLabel,
-  loadingMotionSpeedValueLabel,
-  activeLoadingStyleId,
-  activeLoadingIntensityId,
-  activeLoadingSpeedMode,
-  activeLoadingSpeedId,
-  activeLoadingSpeedMultiplier,
-  onSelectLoadingStyle,
-  onSelectLoadingIntensity,
-  onSelectLoadingSpeed,
-  onSelectCustomLoadingSpeed,
-  loadingStyleOptions,
-  loadingIntensityOptions,
-  loadingSpeedOptions,
   onActiveCategoryChange,
   onClose,
 }: SettingsWindowProps) {
+  const settingsCopy = useSettingsMenuCopy()
+  const activeLocale = usePreferencesStore((state) => state.locale)
+  const activeThemeId = usePreferencesStore((state) => state.themeId)
+  const activeWindowBorderTone = usePreferencesStore((state) => state.windowBorderTone)
+  const activeWindowBorderWeight = usePreferencesStore((state) => state.windowBorderWeight)
+  const borderlessFullscreenEnabled = usePreferencesStore((state) => state.windowIsFullscreen)
+  const debugModeEnabled = usePreferencesStore((state) => state.debugEnabled)
+  const notificationSoundEnabled = usePreferencesStore((state) => state.notificationSoundEnabled)
+  const loadingMotionPreference = usePreferencesStore((state) => state.loadingMotionPreference)
+  const onSelectTheme = usePreferencesStore((state) => state.setThemeId)
+  const onSelectLocale = usePreferencesStore((state) => state.setLocale)
+  const onSelectWindowBorderTone = usePreferencesStore((state) => state.setWindowBorderTone)
+  const onSelectWindowBorderWeight = usePreferencesStore((state) => state.setWindowBorderWeight)
+  const onToggleBorderlessFullscreen = usePreferencesStore((state) => state.toggleFullscreen)
+  const setDebugModeEnabled = usePreferencesStore((state) => state.setDebugEnabled)
+  const setNotificationSoundEnabled = usePreferencesStore((state) => state.setNotificationSoundEnabled)
+  const setLoadingMotionPreference = usePreferencesStore((state) => state.setLoadingMotionPreference)
   const [uncontrolledActiveCategory, setUncontrolledActiveCategory] = useState<SettingsWindowCategory>('appearance')
   const languageTitleId = useId()
   const languageDescriptionId = useId()
+  const title = settingsCopy.title
+  const categories = settingsCopy.categories
+  const categoryDescriptions = settingsCopy.categoryDescriptions
+  const themeLabel = settingsCopy.themeLabel
+  const resetThemeLabel = settingsCopy.resetThemeLabel
+  const themeDescription = settingsCopy.themeDescription
+  const languageLabel = settingsCopy.languageLabel
+  const languageDescription = settingsCopy.languageDescription
+  const localeOptions: LocaleOption[] =
+    activeLocale === 'en-US'
+      ? [
+          { id: 'en-US', label: settingsCopy.localeLabels['en-US'] },
+          { id: 'zh-CN', label: settingsCopy.localeLabels['zh-CN'] },
+        ]
+      : [
+          { id: 'zh-CN', label: settingsCopy.localeLabels['zh-CN'] },
+          { id: 'en-US', label: settingsCopy.localeLabels['en-US'] },
+        ]
+  const windowModeLabel = settingsCopy.windowModeLabel
+  const windowBorderToneLabel = settingsCopy.windowBorderToneLabel
+  const windowBorderToneDescription = settingsCopy.windowBorderToneDescription
+  const windowBorderToneOptions = (Object.entries(settingsCopy.windowBorderToneOptions) as Array<[WindowBorderTone, string]>).map(
+    ([id, label]) => ({ id, label }),
+  )
+  const windowBorderWeightLabel = settingsCopy.windowBorderWeightLabel
+  const windowBorderWeightDescription = settingsCopy.windowBorderWeightDescription
+  const windowBorderWeightOptions = (Object.entries(settingsCopy.windowBorderWeightOptions) as Array<[WindowBorderWeight, string]>).map(
+    ([id, label]) => ({ id, label }),
+  )
+  const borderlessFullscreenLabel = settingsCopy.borderlessFullscreenLabel
+  const borderlessFullscreenDescription = settingsCopy.borderlessFullscreenDescription
+  const enableBorderlessFullscreenLabel = settingsCopy.enableBorderlessFullscreenLabel
+  const disableBorderlessFullscreenLabel = settingsCopy.disableBorderlessFullscreenLabel
+  const debugModeLabel = settingsCopy.debugModeLabel
+  const debugModeDescription = settingsCopy.debugModeDescription
+  const enableDebugModeLabel = settingsCopy.enableDebugModeLabel
+  const disableDebugModeLabel = settingsCopy.disableDebugModeLabel
+  const notificationSoundLabel = settingsCopy.notificationSoundLabel
+  const notificationSoundDescription = settingsCopy.notificationSoundDescription
+  const enableNotificationSoundLabel = settingsCopy.enableNotificationSoundLabel
+  const disableNotificationSoundLabel = settingsCopy.disableNotificationSoundLabel
+  const themeOptions: ThemeOption[] = THEME_PRESETS.map((preset) => ({
+    id: preset.id,
+    label: settingsCopy.themeLabels[preset.id] ?? preset.label,
+    accent: preset.accent,
+    preview: preset.preview,
+  }))
+  const onResetTheme = () => onSelectTheme(THEME_PRESETS[0].id)
+  const loadingMotionStyleLabel = settingsCopy.loadingMotionStyleLabel
+  const loadingMotionStyleDescription = settingsCopy.loadingMotionStyleDescription
+  const loadingMotionIntensityLabel = settingsCopy.loadingMotionIntensityLabel
+  const loadingMotionIntensityDescription = settingsCopy.loadingMotionIntensityDescription
+  const loadingMotionSpeedLabel = settingsCopy.loadingMotionSpeedLabel
+  const loadingMotionSpeedDescription = settingsCopy.loadingMotionSpeedDescription
+  const loadingMotionCustomSpeedLabel = settingsCopy.loadingMotionCustomSpeedLabel
+  const loadingMotionCustomSpeedDescription = settingsCopy.loadingMotionCustomSpeedDescription
+  const loadingMotionCustomSpeedToggleLabel = settingsCopy.loadingMotionCustomSpeedToggleLabel
+  const loadingMotionPresetSpeedToggleLabel = settingsCopy.loadingMotionPresetSpeedToggleLabel
+  const loadingMotionSpeedValueLabel = settingsCopy.loadingMotionSpeedValueLabel
+  const activeLoadingStyleId = loadingMotionPreference.styleId
+  const activeLoadingIntensityId = loadingMotionPreference.intensityId
+  const activeLoadingSpeedMode = loadingMotionPreference.speedMode
+  const activeLoadingSpeedId = loadingMotionPreference.speedId
+  const activeLoadingSpeedMultiplier = loadingMotionPreference.speedMultiplier
+  const loadingStyleOptions: Array<{ id: LoadingMotionStyleId; label: string }> = LOADING_MOTION_STYLE_IDS.map((id) => ({
+    id,
+    label: settingsCopy.loadingMotionStyleLabels[id],
+  }))
+  const loadingIntensityOptions: Array<{ id: LoadingMotionIntensityId; label: string }> = LOADING_MOTION_INTENSITY_IDS.map((id) => ({
+    id,
+    label: settingsCopy.loadingMotionIntensityLabels[id],
+  }))
+  const loadingSpeedOptions: Array<{ id: LoadingMotionSpeedId; label: string }> = LOADING_MOTION_SPEED_IDS.map((id) => ({
+    id,
+    label: settingsCopy.loadingMotionSpeedLabels[id],
+  }))
+  const onSelectLoadingStyle = (styleId: LoadingMotionStyleId) => {
+    setLoadingMotionPreference({ ...loadingMotionPreference, styleId })
+  }
+  const onSelectLoadingIntensity = (intensityId: LoadingMotionIntensityId) => {
+    setLoadingMotionPreference({ ...loadingMotionPreference, intensityId })
+  }
+  const onSelectLoadingSpeed = (speedId: LoadingMotionSpeedId) => {
+    setLoadingMotionPreference({ ...loadingMotionPreference, speedMode: 'preset', speedId })
+  }
+  const onSelectCustomLoadingSpeed = (speedMultiplier: number) => {
+    setLoadingMotionPreference({ ...loadingMotionPreference, speedMode: 'custom', speedMultiplier })
+  }
   const localeOptionRefs = useRef<Array<HTMLButtonElement | null>>([])
   const activeLocaleIndex = localeOptions.findIndex((option) => option.id === activeLocale)
   const focusableLocaleIndex = activeLocaleIndex === -1 ? 0 : activeLocaleIndex
@@ -369,7 +315,7 @@ export default function SettingsWindow({
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <Palette className="h-4 w-4 text-[var(--accent)]" />
+                      <Palette className="h-4 w-4 text-(--accent)" />
                       <p className="settings-window-section-title">{themeLabel}</p>
                     </div>
                     <p className="settings-window-section-copy">{themeDescription}</p>
@@ -631,7 +577,7 @@ export default function SettingsWindow({
                   checked={borderlessFullscreenEnabled}
                   enabledLabel={enableBorderlessFullscreenLabel}
                   disabledLabel={disableBorderlessFullscreenLabel}
-                  onToggle={onToggleBorderlessFullscreen}
+                  onToggle={() => void onToggleBorderlessFullscreen()}
                 />
               </section>
             ) : null}
@@ -648,7 +594,7 @@ export default function SettingsWindow({
                     checked={notificationSoundEnabled}
                     enabledLabel={enableNotificationSoundLabel}
                     disabledLabel={disableNotificationSoundLabel}
-                    onToggle={onToggleNotificationSound}
+                    onToggle={() => setNotificationSoundEnabled(!notificationSoundEnabled)}
                   />
                 </div>
               </section>
@@ -666,7 +612,7 @@ export default function SettingsWindow({
                     checked={debugModeEnabled}
                     enabledLabel={enableDebugModeLabel}
                     disabledLabel={disableDebugModeLabel}
-                    onToggle={onToggleDebugMode}
+                    onToggle={() => setDebugModeEnabled(!debugModeEnabled)}
                   />
                 </div>
               </section>

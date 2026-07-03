@@ -4,6 +4,8 @@
 @import './library/drag-and-drop.css';
 @import './library/folder-card-tones.css';
 @import './library/folder-cards.css';
+@import './library/folder-drag-preview.css';
+@import './library/folder-panel.css';
 @import './library/child-mods.css';
 @import './library/mod-card.css';
 @import './library/responsive.css';

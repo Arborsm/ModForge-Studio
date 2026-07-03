@@ -124,10 +124,10 @@ function WorldBuildingButton({
     <button type="button" {...revealProps} onClick={onSelect}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{building.displayName}</p>
-          <p className="truncate text-xs text-[var(--text-secondary)]">{building.exteriorMapName ?? building.internalName}</p>
+          <p className="truncate text-sm font-semibold text-(--text-primary)">{building.displayName}</p>
+          <p className="truncate text-xs text-(--text-secondary)">{building.exteriorMapName ?? building.internalName}</p>
         </div>
-        <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
+        <div className="shrink-0 text-right text-[11px] text-(--text-secondary)">
           <p>{building.worldEntrances.length}</p>
           <p>{badgeLabel}</p>
         </div>
@@ -157,10 +157,10 @@ function ConstructibleGroupButton({
     <button type="button" {...revealProps} onClick={onSelect}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{group.displayName}</p>
-          <p className="truncate text-xs text-[var(--text-secondary)]">{group.entries.map((entry) => entry.displayName).join(' / ')}</p>
+          <p className="truncate text-sm font-semibold text-(--text-primary)">{group.displayName}</p>
+          <p className="truncate text-xs text-(--text-secondary)">{group.entries.map((entry) => entry.displayName).join(' / ')}</p>
         </div>
-        <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
+        <div className="shrink-0 text-right text-[11px] text-(--text-secondary)">
           <p>{group.stageCount}</p>
           <p>{copy.browserConstructibleBadge}</p>
         </div>
@@ -172,7 +172,7 @@ function ConstructibleGroupButton({
 function SubsectionTitle({ title, count }: { title: string; count: number }) {
   return (
     <div className="flex items-center justify-between gap-3 px-1">
-      <p className="text-[11px] font-semibold tracking-[0.14em] text-[var(--text-tertiary)] uppercase">{title}</p>
+      <p className="text-[11px] font-semibold tracking-[0.14em] text-(--text-tertiary) uppercase">{title}</p>
       <span className="dock-chip shrink-0">{count}</span>
     </div>
   )
@@ -218,7 +218,7 @@ export function BuildingBrowserPanel({
     >
       <div className="flex h-full flex-col gap-3 p-3">
         <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-(--text-tertiary)" />
           <input
             className="control-input pl-9"
             value={buildingFilter}
@@ -256,10 +256,10 @@ export function BuildingBrowserPanel({
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{building.displayName}</p>
-                            <p className="truncate text-xs text-[var(--text-secondary)]">{targets[0] ?? building.internalName}</p>
+                            <p className="truncate text-sm font-semibold text-(--text-primary)">{building.displayName}</p>
+                            <p className="truncate text-xs text-(--text-secondary)">{targets[0] ?? building.internalName}</p>
                           </div>
-                          <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
+                          <div className="shrink-0 text-right text-[11px] text-(--text-secondary)">
                             <p>{building.sourceKind === 'constructible' ? copy.browserConstructibleBadge : copy.browserWorldBadge}</p>
                             <p>{building.stageCount}</p>
                           </div>

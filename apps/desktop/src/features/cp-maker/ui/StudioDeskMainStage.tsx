@@ -1,11 +1,11 @@
 import { useState, type KeyboardEvent } from 'react'
 import type { EditorCopy } from '@locales'
+import { useEditorCopy } from '@locales/provider'
 import type { StudioDeskInspiration, StudioDeskModel, StudioDeskWorldBibleEntry } from '../model/studioDeskModel'
 import type { WorkspaceId } from '@shared/contracts'
 import { cx } from '@shared/lib/cx'
 
 type StudioDeskMainStageProps = {
-  copy: EditorCopy
   model: StudioDeskModel
   previewFocus: StudioDeskInspiration | null
   onCreateDraft: () => void
@@ -14,6 +14,7 @@ type StudioDeskMainStageProps = {
 
 type StudioStagePage = 'script' | 'map' | 'actors' | 'props'
 type StudioWipStagePage = Exclude<StudioStagePage, 'script'>
+type StudioDeskCopy = EditorCopy['studioDesk']
 
 function entryCount(model: StudioDeskModel, workspaceId: WorkspaceId) {
   return model.workspaceEntrypoints.find((entry) => entry.workspaceId === workspaceId)?.patchCount ?? 0
@@ -52,17 +53,16 @@ function entryCards(entries: StudioDeskWorldBibleEntry[], emptyLabel: string) {
 }
 
 function StudioWipStagePanel({
-  copy,
+  desk,
   page,
   hasActiveDraft,
   onOpenWorkspace,
 }: {
-  copy: EditorCopy
+  desk: StudioDeskCopy
   page: StudioWipStagePage
   hasActiveDraft: boolean
   onOpenWorkspace: (workspace: WorkspaceId) => void
 }) {
-  const desk = copy.studioDesk
   const title = desk.stageTabs[page]
   const workspace = wipWorkspaceForStagePage(page)
 
@@ -97,9 +97,7 @@ function StudioWipStagePanel({
   )
 }
 
-function StudioWipMini({ copy, title }: { copy: EditorCopy; title: string }) {
-  const desk = copy.studioDesk
-
+function StudioWipMini({ desk, title }: { desk: StudioDeskCopy; title: string }) {
   return (
     <div className="studio-wip-mini">
       <span className="studio-wip-badge">{desk.wipBadge}</span>
@@ -114,7 +112,8 @@ function StudioWipMini({ copy, title }: { copy: EditorCopy; title: string }) {
   )
 }
 
-export function StudioDeskMainStage({ copy, model, previewFocus, onCreateDraft, onOpenWorkspace }: StudioDeskMainStageProps) {
+export function StudioDeskMainStage({ model, previewFocus, onCreateDraft, onOpenWorkspace }: StudioDeskMainStageProps) {
+  const copy = useEditorCopy()
   const desk = copy.studioDesk
   const [stagePage, setStagePage] = useState<StudioStagePage>('script')
   const hasActiveDraft = model.hasActiveDraft
@@ -231,15 +230,15 @@ export function StudioDeskMainStage({ copy, model, previewFocus, onCreateDraft, 
             ) : null}
 
             {stagePage === 'map' ? (
-              <StudioWipStagePanel copy={copy} page="map" hasActiveDraft={hasActiveDraft} onOpenWorkspace={onOpenWorkspace} />
+              <StudioWipStagePanel desk={desk} page="map" hasActiveDraft={hasActiveDraft} onOpenWorkspace={onOpenWorkspace} />
             ) : null}
 
             {stagePage === 'actors' ? (
-              <StudioWipStagePanel copy={copy} page="actors" hasActiveDraft={hasActiveDraft} onOpenWorkspace={onOpenWorkspace} />
+              <StudioWipStagePanel desk={desk} page="actors" hasActiveDraft={hasActiveDraft} onOpenWorkspace={onOpenWorkspace} />
             ) : null}
 
             {stagePage === 'props' ? (
-              <StudioWipStagePanel copy={copy} page="props" hasActiveDraft={hasActiveDraft} onOpenWorkspace={onOpenWorkspace} />
+              <StudioWipStagePanel desk={desk} page="props" hasActiveDraft={hasActiveDraft} onOpenWorkspace={onOpenWorkspace} />
             ) : null}
           </div>
 
@@ -267,7 +266,7 @@ export function StudioDeskMainStage({ copy, model, previewFocus, onCreateDraft, 
             </div>
             <span className="studio-card-pill">{desk.wipBadge}</span>
           </div>
-          <StudioWipMini copy={copy} title={desk.castAndProps} />
+          <StudioWipMini desk={desk} title={desk.castAndProps} />
         </article>
 
         <article
@@ -285,7 +284,7 @@ export function StudioDeskMainStage({ copy, model, previewFocus, onCreateDraft, 
             <span className="studio-card-pill">{desk.wipBadge}</span>
           </div>
           <button type="button" className="studio-wip-mini-button" disabled={!hasActiveDraft} onClick={() => onOpenWorkspace('map')}>
-            <StudioWipMini copy={copy} title={desk.cartographer} />
+            <StudioWipMini desk={desk} title={desk.cartographer} />
           </button>
         </article>
       </div>

@@ -10,6 +10,8 @@ import { ScriptTimeline } from './ScriptTimeline'
 import { CommandPalette } from './CommandPalette'
 import { COMMAND_TEMPLATES } from '../workflow-model/commandTemplates'
 import type { EventResourceRegistry } from './eventResourceRegistry'
+import type { EventWorkflowCopy } from '@locales/api'
+import { useEventStageCopy } from '@locales/provider'
 
 export type ScriptEditorProps = {
   script: EventScript | null
@@ -19,38 +21,6 @@ export type ScriptEditorProps = {
   eventId?: string | null
   onScriptChange?: (script: EventScript) => void
   className?: string
-}
-
-export type ScriptEditorCopy = ReturnType<typeof getScriptEditorCopy>
-
-export function getScriptEditorCopy(locale: 'zh-CN' | 'en-US') {
-  const zh = locale === 'zh-CN'
-  return {
-    heading: zh ? '剧本' : 'Script',
-    addCommand: zh ? '添加命令' : 'Add command',
-    insertCommand: zh ? '在此处添加命令' : 'Insert command here',
-    addCommandShortcut: zh ? '添加命令 (Ctrl/Cmd+K)' : 'Add command (Ctrl/Cmd+K)',
-    lineNumbers: zh ? '行号' : 'Line numbers',
-    compactView: zh ? '紧凑视图' : 'Compact view',
-    comfortableView: zh ? '舒适视图' : 'Comfortable view',
-    mapPickMode: zh ? '地图拾取中' : 'Map pick mode',
-    commandsCount: (count: number) => (zh ? `${count} 条命令` : `${count} commands`),
-    // Timeline 空状态
-    emptyTitle: zh ? '暂无命令' : 'No commands',
-    emptyHint: zh ? '按 Ctrl/Cmd+K 添加命令' : 'Press Ctrl/Cmd+K to add a command',
-    emptyAction: zh ? '添加命令' : 'Add command',
-    // ScriptCard 行内操作 / 标签
-    playFromHere: zh ? '从这里播放' : 'Play from here',
-    duplicate: zh ? '复制' : 'Duplicate',
-    delete: zh ? '删除' : 'Delete',
-    removeDelay: zh ? '移除延迟' : 'Remove delay',
-    rawCommand: zh ? '原始命令' : 'Raw command',
-    emptyArg: zh ? '空' : 'empty',
-    delayStep: zh ? '帧延迟' : 'Step delay',
-    delayHold: zh ? '停留' : 'Hold',
-    delayGeneric: zh ? '延迟' : 'Delay',
-    branchWhenChoice: zh ? '当选择' : 'When choosing',
-  }
 }
 
 export function ScriptEditor({
@@ -123,7 +93,8 @@ export function ScriptEditor({
     }
     return script?.commands ?? []
   }, [currentScript, script])
-  const copy = getScriptEditorCopy(locale)
+  const workflowCopy: EventWorkflowCopy = useEventStageCopy().workflow
+  const copy = workflowCopy.scriptEditor
 
   const handleUpdateArg = useCallback(
     (commandIndex: number, argIndex: number, value: string) => {
@@ -258,6 +229,7 @@ export function ScriptEditor({
           commands={commands}
           locale={locale}
           copy={copy}
+          workflowCopy={workflowCopy}
           resourceRegistry={resourceRegistry}
           currentPlaybackCommandId={currentPlaybackCommandId}
           onUpdateArg={handleUpdateArg}
@@ -302,6 +274,7 @@ export function ScriptEditor({
           nextState.insertCommandAt(insertIndex, template)
         }}
         locale={locale}
+        copy={workflowCopy}
       />
     </div>
   )

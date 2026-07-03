@@ -1,24 +1,13 @@
 ﻿import { Grid2x2, Maximize, Pause, Play, RotateCcw, Route, Settings2, SkipForward } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useEventStageCopy, useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
-
-type EventStagePlaybackToolbarLabels = {
-  ariaLabel: string
-  step: string
-  play: string
-  pause: string
-  reset: string
-  resetView: string
-  toggleGrid: string
-  togglePaths: string
-}
 
 type EventStagePlaybackToolbarProps = {
   autoPlay: boolean
   canPlay: boolean
   showGrid: boolean
   showPaths: boolean
-  labels: EventStagePlaybackToolbarLabels
   gridDisabled?: boolean
   pathsDisabled?: boolean
   onStep: () => void
@@ -35,7 +24,6 @@ export function EventStagePlaybackToolbar({
   canPlay,
   showGrid,
   showPaths,
-  labels,
   gridDisabled = false,
   pathsDisabled = false,
   onStep,
@@ -46,11 +34,15 @@ export function EventStagePlaybackToolbar({
   onTogglePaths,
   extraControls,
 }: EventStagePlaybackToolbarProps) {
+  const labels = useEventStageCopy()
+  const viewportLabels = useEditorCopy().viewportLabels
+  const settingsCopy = useSettingsMenuCopy()
+
   return (
     <div
       className="workspace-viewport-toolbar"
       role="toolbar"
-      aria-label={labels.ariaLabel}
+      aria-label={labels.scene}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >
@@ -92,8 +84,8 @@ export function EventStagePlaybackToolbar({
         <button
           type="button"
           className="workspace-viewport-toolbar-icon-button"
-          title={labels.resetView}
-          aria-label={labels.resetView}
+          title={viewportLabels.fitMap}
+          aria-label={viewportLabels.fitMap}
           onClick={onResetView}
         >
           <Maximize className="h-4 w-4" />
@@ -112,8 +104,8 @@ export function EventStagePlaybackToolbar({
         <button
           type="button"
           className={cx('workspace-viewport-toolbar-icon-button', showPaths && 'workspace-viewport-toolbar-button-active')}
-          title={labels.togglePaths}
-          aria-label={labels.togglePaths}
+          title={labels.showPathsLayer}
+          aria-label={labels.showPathsLayer}
           aria-pressed={showPaths}
           disabled={pathsDisabled}
           onClick={onTogglePaths}
@@ -124,8 +116,8 @@ export function EventStagePlaybackToolbar({
           <details className="workspace-viewport-toolbar-more">
             <summary
               className="workspace-viewport-toolbar-icon-button"
-              title="Settings"
-              aria-label="Settings"
+              title={settingsCopy.title}
+              aria-label={settingsCopy.title}
               onClick={(event) => event.stopPropagation()}
             >
               <Settings2 className="h-4 w-4" />

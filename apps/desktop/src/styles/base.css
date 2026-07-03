@@ -118,10 +118,3 @@
     background: color-mix(in srgb, var(--text-secondary) 80%, transparent);
   }
 }
-
-@layer utilities {
-  .app-window-frame :where(.fixed.inset-0) {
-    position: absolute;
-    inset: 57px 0 0;
-  }
-}

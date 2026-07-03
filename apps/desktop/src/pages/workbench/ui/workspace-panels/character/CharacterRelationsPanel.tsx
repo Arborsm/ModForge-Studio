@@ -25,15 +25,15 @@ export function CharacterRelationsPanel({ character }: CharacterRelationsPanelPr
                     key={`${home.Location ?? 'home'}:${home.Tile?.X ?? 0}:${home.Tile?.Y ?? 0}:${index}`}
                     className="panel-list-card px-3 py-2"
                   >
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">{home.Location ?? noneLabel}</p>
-                    <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                    <p className="text-sm font-semibold text-(--text-primary)">{home.Location ?? noneLabel}</p>
+                    <p className="mt-1 text-xs text-(--text-secondary)">
                       {home.Tile ? `${home.Tile.X}, ${home.Tile.Y}` : noneLabel}
                       {home.Condition ? ` / ${home.Condition}` : ''}
                     </p>
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-[var(--text-secondary)]">{noneLabel}</p>
+                <p className="text-sm text-(--text-secondary)">{noneLabel}</p>
               )}
             </PanelSection>
 
@@ -46,12 +46,12 @@ export function CharacterRelationsPanel({ character }: CharacterRelationsPanelPr
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-[var(--text-secondary)]">{noneLabel}</p>
+                <p className="text-sm text-(--text-secondary)">{noneLabel}</p>
               )}
             </PanelSection>
 
             <PanelSection title={copy.flags}>
-              <div className="space-y-2 text-sm text-[var(--text-primary)]">
+              <div className="space-y-2 text-sm text-(--text-primary)">
                 <p>
                   {copy.formerNamesLabel}: {character.formerCharacterNames.join(', ') || noneLabel}
                 </p>

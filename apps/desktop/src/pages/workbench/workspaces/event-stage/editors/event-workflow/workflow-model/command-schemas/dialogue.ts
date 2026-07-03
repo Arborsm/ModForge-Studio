@@ -7,7 +7,6 @@ export const dialogueCommandSchemas = [
   {
     key: 'speak',
     label: 'Speak',
-    labelZh: '对话',
     category: 'dialogue',
     color: 'blue',
     icon: 'MessageSquareText',
@@ -23,7 +22,6 @@ export const dialogueCommandSchemas = [
   {
     key: 'splitSpeak',
     label: 'Split Speak',
-    labelZh: '分页对话',
     category: 'dialogue',
     color: 'blue',
     icon: 'MessageSquareText',
@@ -39,7 +37,6 @@ export const dialogueCommandSchemas = [
   {
     key: 'message',
     label: 'Message',
-    labelZh: '消息',
     category: 'dialogue',
     color: 'blue',
     icon: 'MessageSquare',
@@ -52,7 +49,6 @@ export const dialogueCommandSchemas = [
   {
     key: 'end',
     label: 'End',
-    labelZh: '结束',
     category: 'dialogue',
     color: 'gray',
     icon: 'Octagon',

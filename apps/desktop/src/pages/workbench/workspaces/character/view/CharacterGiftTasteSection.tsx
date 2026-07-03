@@ -20,27 +20,27 @@ const GIFT_TONE_STYLES: Record<
   love: {
     sectionClassName:
       'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--success)_12%,var(--bg-panel)),color-mix(in_srgb,var(--success)_6%,var(--bg-panel-muted)))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--success)_18%,transparent)]',
-    dotClassName: 'bg-[var(--success)]',
+    dotClassName: 'bg-(--success)',
   },
   like: {
     sectionClassName:
       'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--accent)_12%,var(--bg-panel)),color-mix(in_srgb,var(--accent-soft)_92%,var(--bg-panel-muted)))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_18%,transparent)]',
-    dotClassName: 'bg-[var(--accent)]',
+    dotClassName: 'bg-(--accent)',
   },
   neutral: {
     sectionClassName:
       'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--bg-elevated)_76%,var(--bg-panel)),color-mix(in_srgb,var(--bg-panel-muted)_92%,var(--bg-panel)))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--border-color)_72%,transparent)]',
-    dotClassName: 'bg-[var(--text-tertiary)]',
+    dotClassName: 'bg-(--text-tertiary)',
   },
   dislike: {
     sectionClassName:
       'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--warning)_12%,var(--bg-panel)),color-mix(in_srgb,var(--warning)_6%,var(--bg-panel-muted)))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--warning)_18%,transparent)]',
-    dotClassName: 'bg-[var(--warning)]',
+    dotClassName: 'bg-(--warning)',
   },
   hate: {
     sectionClassName:
       'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--danger)_12%,var(--bg-panel)),color-mix(in_srgb,var(--danger)_6%,var(--bg-panel-muted)))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--danger)_18%,transparent)]',
-    dotClassName: 'bg-[var(--danger)]',
+    dotClassName: 'bg-(--danger)',
   },
 }
 
@@ -51,7 +51,7 @@ const GIFT_GROUP_KIND_STYLES: Record<
   }
 > = {
   item: {
-    cardClassName: 'border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_94%,transparent)]',
+    cardClassName: 'border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_94%,transparent)]',
   },
   category: {
     cardClassName:
@@ -61,7 +61,7 @@ const GIFT_GROUP_KIND_STYLES: Record<
     cardClassName: 'border-[color-mix(in_srgb,var(--warning)_28%,transparent)] bg-[color-mix(in_srgb,var(--warning)_10%,var(--bg-panel))]',
   },
   default: {
-    cardClassName: 'border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-elevated)_72%,var(--bg-panel))]',
+    cardClassName: 'border-(--border-color) bg-[color-mix(in_srgb,var(--bg-elevated)_72%,var(--bg-panel))]',
   },
   special: {
     cardClassName: 'border-[color-mix(in_srgb,var(--success)_28%,transparent)] bg-[color-mix(in_srgb,var(--success)_12%,var(--bg-panel))]',
@@ -351,7 +351,7 @@ function formatGiftTagLabel(copy: CharactersPanelCopy, rawLabel: string) {
 }
 
 function GiftItemName({ label }: { label: string }) {
-  return <p className="line-clamp-2 w-full text-center text-[12px] leading-4 text-[var(--text-primary)]">{label}</p>
+  return <p className="line-clamp-2 w-full text-center text-[12px] leading-4 text-(--text-primary)">{label}</p>
 }
 
 function GiftItemTile({
@@ -402,9 +402,9 @@ function GiftItemTile({
     <div
       className={cx(
         absolute
-          ? 'pointer-events-none absolute h-[58px] w-[58px]'
-          : 'rounded-2xl border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_92%,transparent)] px-2 py-2.5 shadow-[0_6px_16px_rgba(15,23,42,0.06)]',
-        absolute ? '' : fluid ? 'w-full min-w-0' : 'w-[88px]',
+          ? 'pointer-events-none absolute h-14.5 w-14.5'
+          : 'rounded-2xl border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_92%,transparent)] px-2 py-2.5 shadow-[0_6px_16px_rgba(15,23,42,0.06)]',
+        absolute ? '' : fluid ? 'w-full min-w-0' : 'w-22',
       )}
       title={item.displayName}
       style={{
@@ -428,15 +428,15 @@ function GiftItemTile({
       <div className={cx('flex flex-col items-center gap-2', absolute && 'h-full w-full justify-center')}>
         <div
           className={cx(
-            'relative shrink-0 overflow-hidden border border-[var(--border-color)] bg-[var(--bg-panel-muted)]',
+            'relative shrink-0 overflow-hidden border border-(--border-color) bg-(--bg-panel-muted)',
             absolute
-              ? 'h-[52px] w-[52px] rounded-full bg-[radial-gradient(circle_at_32%_28%,color-mix(in_srgb,var(--bg-panel)_96%,rgba(255,255,255,0.14)),color-mix(in_srgb,var(--bg-panel-muted)_86%,transparent)_58%,transparent)] shadow-[0_12px_28px_color-mix(in_srgb,var(--accent)_18%,transparent)]'
+              ? 'h-13 w-13 rounded-full bg-[radial-gradient(circle_at_32%_28%,color-mix(in_srgb,var(--bg-panel)_96%,rgba(255,255,255,0.14)),color-mix(in_srgb,var(--bg-panel-muted)_86%,transparent)_58%,transparent)] shadow-[0_12px_28px_color-mix(in_srgb,var(--accent)_18%,transparent)]'
               : 'h-10 w-10 rounded-xl',
           )}
         >
           {absolute ? (
             <>
-              <div className="pointer-events-none absolute inset-[5px] rounded-full border border-[color-mix(in_srgb,var(--accent)_18%,transparent)]" />
+              <div className="pointer-events-none absolute inset-1.25 rounded-full border border-[color-mix(in_srgb,var(--accent)_18%,transparent)]" />
               <div className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,color-mix(in_srgb,var(--accent)_12%,transparent),transparent_68%)]" />
             </>
           ) : null}
@@ -458,7 +458,7 @@ function GiftItemTile({
               }}
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tracking-[0.08em] text-[var(--text-secondary)] uppercase">
+            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tracking-[0.08em] text-(--text-secondary) uppercase">
               ?
             </div>
           )}
@@ -490,7 +490,7 @@ function GiftGroupCard({
   return (
     <div
       className={cx(
-        'relative w-[96px] rounded-2xl border px-2 py-2.5 text-left transition-all duration-200',
+        'relative w-24 rounded-2xl border px-2 py-2.5 text-left transition-all duration-200',
         kindStyle.cardClassName,
         isActive &&
           'scale-[1.035] border-[color-mix(in_srgb,var(--accent)_42%,transparent)] shadow-[0_12px_30px_color-mix(in_srgb,var(--accent)_18%,transparent)] ring-2 ring-[color-mix(in_srgb,var(--accent)_24%,transparent)]',
@@ -510,7 +510,7 @@ function GiftGroupCard({
         <div
           data-gift-anchor="true"
           className={cx(
-            'relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] transition-transform duration-200',
+            'relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-panel-muted) transition-transform duration-200',
             isActive && 'scale-110',
           )}
         >
@@ -532,17 +532,17 @@ function GiftGroupCard({
               }}
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tracking-[0.08em] text-[var(--text-secondary)] uppercase">
+            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tracking-[0.08em] text-(--text-secondary) uppercase">
               ?
             </div>
           )}
         </div>
 
         <div className="w-full space-y-1 text-center">
-          <p className="truncate text-[10px] font-semibold tracking-[0.12em] text-[var(--text-secondary)] uppercase">
+          <p className="truncate text-[10px] font-semibold tracking-[0.12em] text-(--text-secondary) uppercase">
             {getGiftGroupKindLabel(copy, group.kind)}
           </p>
-          <p className="line-clamp-2 text-[12px] leading-4 text-[var(--text-primary)]">{getGiftGroupDisplayLabel(copy, group)}</p>
+          <p className="line-clamp-2 text-[12px] leading-4 text-(--text-primary)">{getGiftGroupDisplayLabel(copy, group)}</p>
         </div>
       </div>
     </div>

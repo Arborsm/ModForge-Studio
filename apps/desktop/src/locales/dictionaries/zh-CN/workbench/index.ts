@@ -1,7 +1,7 @@
 import type { EditorCopy } from '../../../model/workbench'
 import launcher from '../launcher'
 import shell from './shell'
-import viewportLabels from './map'
+import viewportLabels, { buildAssetDialog } from './map'
 import studioDesk from './studio-desk'
 import eventStage from './event-stage'
 import charactersPanel from './characters'
@@ -13,6 +13,7 @@ const editor: EditorCopy = {
   ...shell,
   launcher,
   viewportLabels,
+  buildAssetDialog,
   studioDesk,
   eventStage,
   charactersPanel,

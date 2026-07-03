@@ -54,26 +54,26 @@ function parseIntegerInput(
 
 function sectionButtonClass(active: boolean) {
   return active
-    ? 'rounded-full bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-white shadow-sm'
-    : 'rounded-full border border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)]'
+    ? 'rounded-full bg-(--accent) px-3 py-1.5 text-xs font-semibold text-white shadow-sm'
+    : 'rounded-full border border-(--border-color) bg-(--bg-panel) px-3 py-1.5 text-xs font-semibold text-(--text-secondary)'
 }
 
 function sectionCardClass(active: boolean) {
   return active
-    ? 'rounded-[24px] border border-[color-mix(in_srgb,var(--accent)_28%,var(--border-color))] bg-[color-mix(in_srgb,var(--bg-panel)_94%,white_6%)] p-4 shadow-[0_12px_28px_rgba(15,23,42,0.08)]'
-    : 'rounded-[24px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4'
+    ? 'rounded-3xl border border-[color-mix(in_srgb,var(--accent)_28%,var(--border-color))] bg-[color-mix(in_srgb,var(--bg-panel)_94%,white_6%)] p-4 shadow-[0_12px_28px_rgba(15,23,42,0.08)]'
+    : 'rounded-3xl border border-(--border-color) bg-(--bg-panel) p-4'
 }
 
 function metricCardClass() {
-  return 'rounded-2xl border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_78%,white_10%)] px-3 py-2'
+  return 'rounded-2xl border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel-muted)_78%,white_10%)] px-3 py-2'
 }
 
 function fieldClass() {
-  return 'w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-2 text-sm text-[var(--text-primary)]'
+  return 'w-full rounded-xl border border-(--border-color) bg-(--bg-panel) px-3 py-2 text-sm text-(--text-primary)'
 }
 
 function labelClass() {
-  return 'text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]'
+  return 'text-xs font-semibold uppercase tracking-[0.12em] text-(--text-tertiary)'
 }
 
 function imageStyle() {
@@ -163,13 +163,13 @@ function CropPreview({ title, imageDataUrl, sheetWidth, sheetHeight, rect, rende
   const offsetY = (renderOffset?.y ?? 0) * previewScale
 
   return (
-    <article className="rounded-2xl border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_92%,white_8%)] p-3">
+    <article className="rounded-2xl border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_92%,white_8%)] p-3">
       <header className="mb-2 flex items-center justify-between gap-2">
-        <h4 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h4>
-        <span className="text-[11px] text-[var(--text-tertiary)]">{`${rect.width}x${rect.height}`}</span>
+        <h4 className="text-sm font-semibold text-(--text-primary)">{title}</h4>
+        <span className="text-[11px] text-(--text-tertiary)">{`${rect.width}x${rect.height}`}</span>
       </header>
       <div
-        className="relative overflow-hidden rounded-xl border border-[var(--border-color)] bg-[linear-gradient(180deg,rgba(15,23,42,0.04),rgba(15,23,42,0.1))]"
+        className="relative overflow-hidden rounded-xl border border-(--border-color) bg-[linear-gradient(180deg,rgba(15,23,42,0.04),rgba(15,23,42,0.1))]"
         style={{ width: `${frameWidth}px`, height: `${frameHeight}px`, maxWidth: '100%' }}
       >
         <img
@@ -303,18 +303,18 @@ export function ContentPatcherScaleUpPanel({
   }
 
   return (
-    <section className="mt-4 min-h-0 flex-1 overflow-auto rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
+    <section className="mt-4 min-h-0 flex-1 overflow-auto rounded-[28px] border border-(--border-color) bg-(--bg-panel) p-4">
       <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="mb-1 flex items-center gap-2">
-            <span className="rounded-full bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] px-2.5 py-1 text-[11px] font-semibold tracking-[0.12em] text-[var(--accent)] uppercase">
+            <span className="rounded-full bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] px-2.5 py-1 text-[11px] font-semibold tracking-[0.12em] text-(--accent) uppercase">
               ScaleUp
             </span>
-            <span className="text-xs text-[var(--text-tertiary)]">
+            <span className="text-xs text-(--text-tertiary)">
               {editorState.source === 'existing' ? copy.sourceExisting : copy.sourceDerived}
             </span>
           </div>
-          <h3 className="text-lg font-semibold text-[var(--text-primary)]">{targetPath}</h3>
+          <h3 className="text-lg font-semibold text-(--text-primary)">{targetPath}</h3>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -336,7 +336,7 @@ export function ContentPatcherScaleUpPanel({
           </button>
           <button
             type="button"
-            className="rounded-full border border-[var(--border-color)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)]"
+            className="rounded-full border border-(--border-color) px-3 py-1.5 text-xs font-semibold text-(--text-secondary)"
             onClick={onClose}
           >
             {copy.close}
@@ -347,31 +347,31 @@ export function ContentPatcherScaleUpPanel({
       <div className="mb-4 grid gap-3 md:grid-cols-4">
         <div className={metricCardClass()}>
           <p className={labelClass()}>{copy.metrics.scale}</p>
-          <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">{draft.scale}</p>
+          <p className="mt-1 text-base font-semibold text-(--text-primary)">{draft.scale}</p>
         </div>
         <div className={metricCardClass()}>
           <p className={labelClass()}>{copy.metrics.padding}</p>
-          <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">{`${draft.paddingWidth} x ${draft.paddingHeight}`}</p>
+          <p className="mt-1 text-base font-semibold text-(--text-primary)">{`${draft.paddingWidth} x ${draft.paddingHeight}`}</p>
         </div>
         <div className={metricCardClass()}>
           <p className={labelClass()}>{copy.metrics.resultSheet}</p>
-          <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">{`${preview.sheet.width} x ${preview.sheet.height}`}</p>
+          <p className="mt-1 text-base font-semibold text-(--text-primary)">{`${preview.sheet.width} x ${preview.sheet.height}`}</p>
         </div>
         <div className={metricCardClass()}>
           <p className={labelClass()}>{copy.metrics.originalSheet}</p>
-          <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">{`${preview.sheet.originalWidth} x ${preview.sheet.originalHeight}`}</p>
+          <p className="mt-1 text-base font-semibold text-(--text-primary)">{`${preview.sheet.originalWidth} x ${preview.sheet.originalHeight}`}</p>
         </div>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
         <section className={sectionCardClass(activeSection === 'preview')}>
           <header className="mb-3">
-            <h4 className="text-base font-semibold text-[var(--text-primary)]">{copy.renderPreviewTitle}</h4>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">{copy.renderPreviewDescription}</p>
+            <h4 className="text-base font-semibold text-(--text-primary)">{copy.renderPreviewTitle}</h4>
+            <p className="mt-1 text-sm text-(--text-secondary)">{copy.renderPreviewDescription}</p>
           </header>
 
-          <div className="rounded-[24px] border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_84%,white_8%)] p-3">
-            <div className="relative overflow-hidden rounded-[20px] border border-[var(--border-color)]">
+          <div className="rounded-3xl border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel-muted)_84%,white_8%)] p-3">
+            <div className="relative overflow-hidden rounded-[20px] border border-(--border-color)">
               <img src={resultImageDataUrl} alt={copy.sheetAlt(targetPath)} className="block h-auto w-full" style={imageStyle()} />
               <div className="pointer-events-none absolute inset-0">
                 {preview.headshot ? (
@@ -416,7 +416,7 @@ export function ContentPatcherScaleUpPanel({
                 renderOffset={preview.headshot.renderOffset}
               />
             ) : (
-              <article className="rounded-2xl border border-dashed border-[var(--border-color)] p-3 text-sm text-[var(--text-secondary)]">
+              <article className="rounded-2xl border border-dashed border-(--border-color) p-3 text-sm text-(--text-secondary)">
                 {copy.cropPreviews.headshot}
               </article>
             )}
@@ -429,7 +429,7 @@ export function ContentPatcherScaleUpPanel({
                 rect={preview.miniMap.sourceRect}
               />
             ) : (
-              <article className="rounded-2xl border border-dashed border-[var(--border-color)] p-3 text-sm text-[var(--text-secondary)]">
+              <article className="rounded-2xl border border-dashed border-(--border-color) p-3 text-sm text-(--text-secondary)">
                 {copy.cropPreviews.minimap}
               </article>
             )}
@@ -438,8 +438,8 @@ export function ContentPatcherScaleUpPanel({
 
         <section className={sectionCardClass(activeSection === 'settings')}>
           <header className="mb-3">
-            <h4 className="text-base font-semibold text-[var(--text-primary)]">{copy.parameterSettingsTitle}</h4>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">{copy.parameterSettingsDescription}</p>
+            <h4 className="text-base font-semibold text-(--text-primary)">{copy.parameterSettingsTitle}</h4>
+            <p className="mt-1 text-sm text-(--text-secondary)">{copy.parameterSettingsDescription}</p>
           </header>
 
           <div className="grid gap-3 md:grid-cols-2">
@@ -560,7 +560,7 @@ export function ContentPatcherScaleUpPanel({
               </div>
             </>
           ) : (
-            <p className="mt-4 text-sm text-[var(--text-secondary)]">{copy.noSpriteSettings}</p>
+            <p className="mt-4 text-sm text-(--text-secondary)">{copy.noSpriteSettings}</p>
           )}
         </section>
       </div>

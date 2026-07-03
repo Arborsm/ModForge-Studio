@@ -3,7 +3,8 @@ import type { AppEvent } from '@shared/contracts'
 import type { WorkbenchViewRegistration } from '@shared/contracts'
 import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@shared/contracts'
 import type { GameDirectoryInfo } from '@shared/contracts'
-import type { LocaleCode, ThemeMode, EditorCopy } from '@locales/api'
+import type { LocaleCode, ThemeMode } from '@locales/api'
+import { useEditorCopy } from '@locales/provider'
 import type { StudioDeskModel, UseCpMakerReturn } from '@features/cp-maker'
 import type { WorkspaceMode } from '@locales/api'
 import type { PlayerAppearanceProfile } from '@entities/event'
@@ -12,7 +13,6 @@ import { LoadingMotionReveal } from '@shared/ui/loading-motion'
 type WorkbenchViewHostProps = {
   editModeView: WorkbenchViewRegistration | null
   workspaceMode: WorkspaceMode
-  copy: EditorCopy
   locale: LocaleCode
   theme: ThemeMode
   accentColor: string
@@ -40,7 +40,6 @@ type WorkbenchViewHostProps = {
 export function WorkbenchViewHost({
   editModeView,
   workspaceMode,
-  copy,
   locale,
   theme,
   accentColor,
@@ -64,13 +63,14 @@ export function WorkbenchViewHost({
   playerAppearanceProfile,
   onOpenPlayerAppearanceWindow,
 }: WorkbenchViewHostProps) {
+  const copy = useEditorCopy()
+
   return (
     <>
       {editModeView?.viewId === 'studio-desk' ? (
         <LoadingMotionReveal itemId="workbench-edit-studio-desk" index={0} className="h-full min-h-0">
           {createElement(editModeView.component as ComponentType<Record<string, unknown>>, {
             model: studioDeskModel,
-            copy,
             onCreateDraft: (
               metadata: Pick<
                 CpMakerDraft['projectMetadata'],
@@ -206,9 +206,7 @@ export function WorkbenchViewHost({
           })}
         </LoadingMotionReveal>
       ) : (
-        <div className="flex h-full items-center justify-center text-xs text-[var(--text-secondary)]">
-          Workbench view is not registered.
-        </div>
+        <div className="flex h-full items-center justify-center text-xs text-(--text-secondary)">Workbench view is not registered.</div>
       )}
     </>
   )

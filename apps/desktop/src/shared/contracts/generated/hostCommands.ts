@@ -32,6 +32,7 @@ export const HOST_COMMANDS = {
   loadCpMakerDraft: 'load_cp_maker_draft',
   loadImageDataUrl: 'load_image_data_url',
   loadLauncherDownloadQueue: 'load_launcher_download_queue',
+  loadLauncherImageFailures: 'load_launcher_image_failures',
   loadLauncherLibraryCovers: 'load_launcher_library_covers',
   loadLauncherLibraryState: 'load_launcher_library_state',
   loadLauncherNexusDiagnostics: 'load_launcher_nexus_diagnostics',

@@ -1,8 +1,13 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react'
-import { describe, expect, test, vi } from 'vite-plus/test'
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, test, vi } from 'vite-plus/test'
 import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { PatchListPage } from './PatchListPage'
+
+afterEach(() => {
+  cleanup()
+  document.body.style.overflow = ''
+})
 
 function eventPatch(overrides: Partial<DraftPatch> = {}): DraftPatch {
   return {
@@ -198,7 +203,7 @@ describe('PatchListPage event hub', () => {
       }),
     )
 
-    fireEvent.contextMenu(screen.getByRole('button', { name: '进入编辑器 event_square_meeting_1900' }))
+    fireEvent.contextMenu(screen.getByRole('button', { name: '#02event_square_meeting_1900' }))
     fireEvent.click(screen.getByRole('menuitem', { name: '删除事件' }))
     expect(onPatchUpdate).toHaveBeenLastCalledWith(
       'patch-town',
@@ -239,16 +244,19 @@ describe('PatchListPage event hub', () => {
       'zh-CN',
     )
 
-    fireEvent.contextMenu(screen.getByRole('button', { name: '进入编辑器 event_square_meeting_1900' }))
+    fireEvent.contextMenu(screen.getByRole('button', { name: '#02event_square_meeting_1900' }))
     fireEvent.click(screen.getByRole('menuitem', { name: '设计触发条件' }))
 
-    const dialog = await screen.findByRole('dialog', { name: '触发条件设计器' })
+    const dialog = await screen.findByRole('dialog', { name: '触发条件设计器' }, { timeout: 3000 })
     const dock = await screen.findByLabelText('窗口外预览')
     expect(dialog).toBeTruthy()
     expect(dock).toBeTruthy()
-    expect(dialog.contains(dock)).toBe(false)
+    // The preview/chain docks live as siblings of the modal panel inside the
+    // dialog card (rendered above/below it), not nested inside the panel.
+    const modalPanel = document.body.querySelector('.event-condition-builder-modal')
+    expect(modalPanel?.contains(dock)).toBe(false)
     expect(screen.getByText('像配置拍摄现场一样选择触发条件')).toBeTruthy()
-    expect(dialog.contains(screen.getByLabelText('逻辑链条预览'))).toBe(false)
+    expect(modalPanel?.contains(screen.getByLabelText('逻辑链条预览'))).toBe(false)
 
     fireEvent.change(screen.getByLabelText('Event ID'), { target: { value: '' } })
     expect(screen.getByText('ID 不能为空')).toBeTruthy()
@@ -316,7 +324,7 @@ describe('PatchListPage event hub', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: '设计触发条件' }))
 
     const chain = await waitFor(() => {
-      const element = container.querySelector('.condition-chip-scroll.compact')
+      const element = document.body.querySelector('.condition-chip-scroll.compact')
       expect(element).toBeTruthy()
       return element
     })
@@ -324,5 +332,44 @@ describe('PatchListPage event hub', () => {
     expect(chain?.querySelectorAll('.condition-chip').length).toBeGreaterThanOrEqual(7)
     expect(chain?.querySelector('.condition-chip-compact')?.textContent).toContain('19-23')
     expect(chain?.querySelector('.condition-chip-full')).toBeTruthy()
+  })
+
+  test('closes only the nested GameStateQuery builder on Escape', async () => {
+    renderWithLocale(
+      <PatchListPage
+        patches={[eventPatch()]}
+        onEditPatch={vi.fn()}
+        onAddPatchRequest={vi.fn()}
+        onRemovePatch={vi.fn()}
+        onTogglePatch={vi.fn()}
+        onPatchUpdate={vi.fn()}
+        canGoBack={false}
+        canGoForward={false}
+        onGoBack={vi.fn()}
+        onGoForward={vi.fn()}
+        onOpenConfig={vi.fn()}
+        onSaveDraft={vi.fn()}
+        workspaceId="events"
+        draft={draft()}
+        isDirty={false}
+      />,
+      'zh-CN',
+    )
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: '#02event_square_meeting_1900' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '设计触发条件' }))
+
+    const parentDialog = await screen.findByRole('dialog', { name: '触发条件设计器' })
+    fireEvent.click(screen.getByRole('button', { name: /高级查询/u }))
+    fireEvent.click(screen.getByRole('button', { name: '打开 GameStateQuery 构建器' }))
+
+    expect(await screen.findByRole('dialog', { name: 'GameStateQuery 构建器' })).toBeTruthy()
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'GameStateQuery 构建器' })).toBeNull()
+    })
+    expect(parentDialog).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: '触发条件设计器' })).toBeTruthy()
   })
 })

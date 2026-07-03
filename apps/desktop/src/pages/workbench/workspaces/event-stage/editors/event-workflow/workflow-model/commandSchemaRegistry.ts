@@ -45,9 +45,7 @@ export function getSchemasByCategory(category: CommandCategory): CommandSchema[]
 
 export function searchSchemas(query: string): CommandSchema[] {
   const q = query.toLowerCase()
-  return Array.from(registry.values()).filter(
-    (s) => s.key.toLowerCase().includes(q) || s.label.toLowerCase().includes(q) || s.labelZh.toLowerCase().includes(q),
-  )
+  return Array.from(registry.values()).filter((s) => s.key.toLowerCase().includes(q) || s.label.toLowerCase().includes(q))
 }
 
 export function getKnownCommandKeys(): string[] {

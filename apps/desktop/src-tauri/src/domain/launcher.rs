@@ -2,6 +2,7 @@ pub mod archive;
 pub mod downloads;
 pub mod fs;
 pub mod image_cache;
+pub mod image_failures;
 pub mod install_manager;
 pub mod library;
 pub mod paths;

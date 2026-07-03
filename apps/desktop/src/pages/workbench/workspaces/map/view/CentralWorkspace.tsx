@@ -102,8 +102,8 @@ export default function CentralWorkspace({
   const gridToggleLabel = showGrid ? copy.center.hideGrid : copy.center.showGrid
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[var(--bg-viewport)]">
-      <div className="flex h-10 items-end gap-1 overflow-x-auto border-b border-[var(--border-color)] bg-[var(--bg-panel)] px-2">
+    <div className="flex h-full flex-col overflow-hidden bg-(--bg-viewport)">
+      <div className="flex h-10 items-end gap-1 overflow-x-auto border-b border-(--border-color) bg-(--bg-panel) px-2">
         <div className="flex min-w-0 flex-1 items-end gap-1">
           {workspaceMode === 'map' ? (
             tabs.map((tab) => {
@@ -118,10 +118,10 @@ export default function CentralWorkspace({
                   className={cx(
                     'group flex h-9 shrink-0 items-center gap-2 rounded-t-lg border-x border-t px-3 text-xs transition-colors',
                     isActive
-                      ? 'border-[var(--border-color)] bg-[var(--bg-active)] text-[var(--text-primary)]'
-                      : 'border-transparent bg-[var(--bg-panel-muted)] text-[var(--text-secondary)] hover:border-[var(--border-color)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]',
+                      ? 'border-(--border-color) bg-(--bg-active) text-(--text-primary)'
+                      : 'border-transparent bg-(--bg-panel-muted) text-(--text-secondary) hover:border-(--border-color) hover:bg-(--bg-elevated) hover:text-(--text-primary)',
                     isDragged && 'opacity-50',
-                    isDropTarget && 'border-[var(--accent)]',
+                    isDropTarget && 'border-(--accent)',
                   )}
                   onDragStart={(event) => {
                     if (!tab.closable) {
@@ -158,13 +158,13 @@ export default function CentralWorkspace({
                   }}
                 >
                   <button type="button" className="flex min-w-0 flex-1 items-center gap-2" onClick={() => onSelectTab(tab.id)}>
-                    {tab.pinned ? <Pin className="h-3.5 w-3.5 text-[var(--accent)]" /> : <MapIcon className="h-3.5 w-3.5" />}
+                    {tab.pinned ? <Pin className="h-3.5 w-3.5 text-(--accent)" /> : <MapIcon className="h-3.5 w-3.5" />}
                     <span className="max-w-44 truncate font-semibold">{tab.title}</span>
                   </button>
                   {tab.closable ? (
                     <button
                       type="button"
-                      className="rounded p-0.5 text-[var(--text-tertiary)] opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-[var(--bg-panel)] hover:text-[var(--text-primary)]"
+                      className="rounded p-0.5 text-(--text-tertiary) opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-(--bg-panel) hover:text-(--text-primary)"
                       onClick={() => onCloseTab(tab.id)}
                     >
                       <X className="h-3.5 w-3.5" />
@@ -174,8 +174,8 @@ export default function CentralWorkspace({
               )
             })
           ) : (
-            <div className="flex h-9 items-center gap-2 rounded-t-lg border-x border-t border-[var(--border-color)] bg-[var(--bg-active)] px-4 text-xs text-[var(--text-primary)]">
-              <MapIcon className="h-3.5 w-3.5 text-[var(--accent)]" />
+            <div className="flex h-9 items-center gap-2 rounded-t-lg border-x border-t border-(--border-color) bg-(--bg-active) px-4 text-xs text-(--text-primary)">
+              <MapIcon className="h-3.5 w-3.5 text-(--accent)" />
               <span className="font-semibold">{moduleBlueprint?.title ?? copy.center.viewport}</span>
             </div>
           )}
@@ -183,9 +183,9 @@ export default function CentralWorkspace({
       </div>
 
       {workspaceMode !== 'map' ? (
-        <div className="flex h-11 items-center justify-between gap-3 border-b border-[var(--border-color)] bg-[var(--bg-app)] px-3">
+        <div className="flex h-11 items-center justify-between gap-3 border-b border-(--border-color) bg-(--bg-app) px-3">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-1">
+            <div className="flex items-center gap-1 rounded-lg border border-(--border-color) bg-(--bg-panel) p-1">
               <button
                 type="button"
                 className={cx('tool-button', toolMode === 'select' && 'tool-button-active')}
@@ -207,7 +207,7 @@ export default function CentralWorkspace({
             <span className="dock-chip">{copy.center.rightClick}</span>
           </div>
 
-          <div className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-1">
+          <div className="flex items-center gap-1 rounded-lg border border-(--border-color) bg-(--bg-panel) p-1">
             <button
               type="button"
               className={cx('tool-button', showGrid && 'tool-button-active')}
@@ -217,7 +217,7 @@ export default function CentralWorkspace({
             >
               <Grid2x2 className="h-4 w-4" />
             </button>
-            <span className="mx-1 h-4 w-px bg-[var(--border-color)]" />
+            <span className="mx-1 h-4 w-px bg-(--border-color)" />
             <button
               type="button"
               className="tool-button"
@@ -234,11 +234,11 @@ export default function CentralWorkspace({
             >
               <Grip className="h-4 w-4" />
             </button>
-            <div className="min-w-14 px-2 text-center font-mono text-xs text-[var(--text-secondary)]">{zoomLabel}</div>
+            <div className="min-w-14 px-2 text-center font-mono text-xs text-(--text-secondary)">{zoomLabel}</div>
             <button type="button" className="tool-button" onClick={() => viewportRef.current?.zoomIn()} title={copy.viewportLabels.zoomIn}>
               <ZoomIn className="h-4 w-4" />
             </button>
-            <span className="mx-1 h-4 w-px bg-[var(--border-color)]" />
+            <span className="mx-1 h-4 w-px bg-(--border-color)" />
             <button
               type="button"
               className="tool-button"
@@ -263,7 +263,6 @@ export default function CentralWorkspace({
               visibleObjectGroupIds={visibleObjectGroupIds}
               onHoverChange={onHoverChange}
               onAtlasPortalOpen={onOpenAtlasTarget}
-              labels={copy.viewportLabels}
               theme={theme}
               accentColor={accentColor}
               showGrid={showGrid}
@@ -416,7 +415,7 @@ export default function CentralWorkspace({
             </div>
           </div>
         ) : moduleBlueprint ? (
-          <div className="panel-surface h-full border-[var(--border-color)] bg-[var(--bg-panel)]">
+          <div className="panel-surface h-full border-(--border-color) bg-(--bg-panel)">
             <div className="panel-header">
               <div>
                 <p className="panel-title">{copy.center.moduleWorkspace}</p>
@@ -426,7 +425,7 @@ export default function CentralWorkspace({
             </div>
 
             <div className="panel-body grid gap-3 p-3 xl:grid-cols-[240px_minmax(0,1fr)]">
-              <div className="panel-surface border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+              <div className="panel-surface border-(--border-color) bg-(--bg-panel-muted)">
                 <div className="panel-header">
                   <div>
                     <p className="panel-title">{moduleBlueprint.listTitle}</p>
@@ -436,14 +435,14 @@ export default function CentralWorkspace({
                 <div className="panel-body space-y-2 p-3">
                   {moduleBlueprint.list.map((item) => (
                     <div key={item} className="panel-list-card px-3 py-2">
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">{item}</p>
-                      <p className="mt-1 text-xs text-[var(--text-secondary)]">{moduleBlueprint.state}</p>
+                      <p className="text-sm font-semibold text-(--text-primary)">{item}</p>
+                      <p className="mt-1 text-xs text-(--text-secondary)">{moduleBlueprint.state}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="panel-surface border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+              <div className="panel-surface border-(--border-color) bg-(--bg-panel-muted)">
                 <div className="panel-header">
                   <div>
                     <p className="panel-title">{copy.center.moduleCanvas}</p>
@@ -451,7 +450,7 @@ export default function CentralWorkspace({
                   </div>
                 </div>
                 <div className="panel-body p-3">
-                  <div className="panel-canvas relative h-full bg-[var(--bg-viewport)]">
+                  <div className="panel-canvas relative h-full bg-(--bg-viewport)">
                     <div
                       className="absolute inset-0"
                       style={{
@@ -469,25 +468,25 @@ export default function CentralWorkspace({
                         return (
                           <div
                             key={node.title}
-                            className={`panel-section absolute ${positions[index] ?? 'top-10 left-10'} px-4 py-3 shadow-[var(--shadow-panel)]`}
+                            className={`panel-section absolute ${positions[index] ?? 'top-10 left-10'} px-4 py-3 shadow-(--shadow-panel)`}
                           >
-                            <p className="text-sm font-semibold text-[var(--text-primary)]">{node.title}</p>
-                            <p className="mt-1 text-xs text-[var(--text-secondary)]">{node.detail}</p>
+                            <p className="text-sm font-semibold text-(--text-primary)">{node.title}</p>
+                            <p className="mt-1 text-xs text-(--text-secondary)">{node.detail}</p>
                           </div>
                         )
                       })
                     ) : (
                       <div className="flex h-full flex-col justify-between p-6">
                         <div>
-                          <p className="text-lg font-semibold text-[var(--text-primary)]">{moduleBlueprint.summary}</p>
-                          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
+                          <p className="text-lg font-semibold text-(--text-primary)">{moduleBlueprint.summary}</p>
+                          <p className="mt-2 max-w-2xl text-sm leading-6 text-(--text-secondary)">
                             {copy.center.moduleInspector} and {copy.center.moduleCanvas.toLowerCase()} stay docked while the workspace swaps
                             to the selected editor module.
                           </p>
                         </div>
                         <div className="grid gap-3 md:grid-cols-2">
                           {moduleBlueprint.lanes.map((lane) => (
-                            <div key={lane} className="panel-section px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+                            <div key={lane} className="panel-section px-4 py-3 text-sm font-medium text-(--text-primary)">
                               {lane}
                             </div>
                           ))}

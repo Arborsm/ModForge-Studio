@@ -25,7 +25,7 @@ export function ProjectPanel({
     <PanelFrame title={copy.leftDock.project} subtitle={copy.leftDock.projectSubtitle} hideHeader>
       <div className="space-y-2.5 p-2.5">
         <div className="grid gap-1.5">
-          <label className="text-[10px] font-semibold tracking-[0.16em] text-[var(--text-secondary)] uppercase">
+          <label className="text-[10px] font-semibold tracking-[0.16em] text-(--text-secondary) uppercase">
             {copy.leftDock.gameDirectory}
           </label>
           <input
@@ -73,7 +73,7 @@ export function ProjectPanel({
           </div>
         </div>
 
-        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-2.5 py-1.5">
+        <div className="rounded-xl border border-(--border-color) bg-(--bg-panel-muted) px-2.5 py-1.5">
           <div className="kv-row compact-kv-row">
             <span>{copy.leftDock.installState}</span>
             <span>{directoryInfo ? copy.statusTone.ready : copy.statusTone.idle}</span>

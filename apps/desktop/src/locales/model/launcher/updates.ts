@@ -25,6 +25,11 @@ export type LauncherUpdatesCopy = {
   fetchDetailNotice: string
   fetchChangelogNotice: string
   releaseUnknown: string
+  releasedHoursAgo: (hours: number) => string
+  releasedDaysAgo: (days: number) => string
+  releasedDate: (dateLabel: string) => string
+  releaseDateLocale: string
+  releaseDateMonthFormat: 'numeric' | 'short'
   sizeUnknown: string
   checkingProgressTitle: string
   checkingProgressDetail: (checked: number, total: number, currentModName: string | null) => string

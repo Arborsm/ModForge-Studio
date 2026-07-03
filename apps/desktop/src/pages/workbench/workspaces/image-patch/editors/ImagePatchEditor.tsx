@@ -103,19 +103,19 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center border-b border-[var(--border-color)] px-3 py-2">
-        <span className="text-xs font-medium text-[var(--text-primary)]">{patch.target}</span>
-        <span className="ml-2 text-[10px] text-[var(--text-secondary)]">({patch.action})</span>
+      <div className="flex items-center border-b border-(--border-color) px-3 py-2">
+        <span className="text-xs font-medium text-(--text-primary)">{patch.target}</span>
+        <span className="ml-2 text-[10px] text-(--text-secondary)">({patch.action})</span>
       </div>
 
       <div className="flex min-h-0 flex-1">
         {/* Left: Image Upload / Preview */}
-        <div className="flex w-1/2 shrink-0 flex-col border-r border-[var(--border-color)] p-3">
-          <span className="mb-2 text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">Replacement Image</span>
+        <div className="flex w-1/2 shrink-0 flex-col border-r border-(--border-color) p-3">
+          <span className="mb-2 text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">Replacement Image</span>
 
           {displayUrl ? (
             <div className="flex min-h-0 flex-1 flex-col gap-2">
-              <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] p-2">
+              <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-lg border border-(--border-color) bg-(--bg-app) p-2">
                 <img
                   src={displayUrl}
                   alt="Preview"
@@ -124,7 +124,7 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
                 />
               </div>
               <div className="flex items-center justify-between">
-                <span className="truncate text-[10px] text-[var(--text-secondary)]">{patch.fromFile ?? 'Unsaved'}</span>
+                <span className="truncate text-[10px] text-(--text-secondary)">{patch.fromFile ?? 'Unsaved'}</span>
                 <button
                   type="button"
                   className="icon-button h-6 w-6 text-red-400"
@@ -145,15 +145,15 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
             </div>
           ) : (
             <div
-              className="flex min-h-0 flex-1 cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-[var(--border-color)] bg-[var(--bg-panel-muted)] transition-colors hover:border-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_3%,var(--bg-panel-muted))]"
+              className="flex min-h-0 flex-1 cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-(--border-color) bg-(--bg-panel-muted) transition-colors hover:border-(--accent) hover:bg-[color-mix(in_srgb,var(--accent)_3%,var(--bg-panel-muted))]"
               onClick={() => fileInputRef.current?.click()}
               onDrop={handleDrop}
               onDragOver={(e) => e.preventDefault()}
             >
-              <ImageIcon className="h-10 w-10 text-[var(--text-secondary)] opacity-40" />
+              <ImageIcon className="h-10 w-10 text-(--text-secondary) opacity-40" />
               <div className="text-center">
-                <p className="text-xs text-[var(--text-primary)]">Click or drag image here</p>
-                <p className="mt-1 text-[10px] text-[var(--text-secondary)]">PNG recommended for best quality</p>
+                <p className="text-xs text-(--text-primary)">Click or drag image here</p>
+                <p className="mt-1 text-[10px] text-(--text-secondary)">PNG recommended for best quality</p>
               </div>
             </div>
           )}
@@ -177,9 +177,9 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
         <div className="min-w-0 flex-1 overflow-auto p-3">
           <div className="space-y-4">
             {isLoad ? (
-              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-3">
-                <p className="text-xs font-medium text-[var(--text-primary)]">Load Action</p>
-                <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+              <div className="rounded-lg border border-(--border-color) bg-(--bg-panel-muted) p-3">
+                <p className="text-xs font-medium text-(--text-primary)">Load Action</p>
+                <p className="mt-1 text-[10px] text-(--text-secondary)">
                   This patch will replace the entire target asset with the uploaded file. No area or mode options are available for Load
                   patches.
                 </p>
@@ -188,11 +188,11 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
               <div className="space-y-4">
                 {/* Patch Mode */}
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
+                  <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
                     Patch Mode
                   </label>
                   <select
-                    className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                    className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
                     value={patchMode}
                     onChange={(e) => updateEditorState({ patchMode: e.target.value })}
                   >
@@ -200,23 +200,23 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
                     <option value="Overlay">Overlay</option>
                     <option value="Mask">Mask</option>
                   </select>
-                  <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+                  <p className="mt-1 text-[10px] text-(--text-secondary)">
                     Replace: overwrite the entire target image. Overlay: blend on top. Mask: apply as transparency mask (CP 2.9.0).
                   </p>
                 </div>
 
                 {/* From Area */}
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
+                  <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
                     From Area (Source Crop)
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {(['x', 'y', 'width', 'height'] as const).map((field) => (
                       <div key={field}>
-                        <span className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{field}</span>
+                        <span className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{field}</span>
                         <input
                           type="text"
-                          className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                          className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
                           value={fromArea?.[field] ?? ''}
                           placeholder="0"
                           onChange={(e) => updateArea('fromArea', field, e.target.value)}
@@ -224,23 +224,23 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
                       </div>
                     ))}
                   </div>
-                  <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+                  <p className="mt-1 text-[10px] text-(--text-secondary)">
                     Crop region from your replacement image. Numbers or tokens like {'{{X}}'}.
                   </p>
                 </div>
 
                 {/* To Area */}
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
+                  <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
                     To Area (Target Position)
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {(['x', 'y', 'width', 'height'] as const).map((field) => (
                       <div key={field}>
-                        <span className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{field}</span>
+                        <span className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{field}</span>
                         <input
                           type="text"
-                          className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                          className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
                           value={toArea?.[field] ?? ''}
                           placeholder="0"
                           onChange={(e) => updateArea('toArea', field, e.target.value)}
@@ -248,7 +248,7 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
                       </div>
                     ))}
                   </div>
-                  <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+                  <p className="mt-1 text-[10px] text-(--text-secondary)">
                     Position on the target image. Numbers or tokens like {'{{X}}'}.
                   </p>
                 </div>

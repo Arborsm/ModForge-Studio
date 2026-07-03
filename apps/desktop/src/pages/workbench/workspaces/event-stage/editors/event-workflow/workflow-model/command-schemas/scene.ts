@@ -7,7 +7,6 @@ export const sceneCommandSchemas = [
   {
     key: 'viewport',
     label: 'Viewport',
-    labelZh: '视角',
     category: 'scene',
     color: 'cyan',
     icon: 'Scan',
@@ -23,7 +22,6 @@ export const sceneCommandSchemas = [
   {
     key: 'changeLocation',
     label: 'Change Location',
-    labelZh: '切换地点',
     category: 'scene',
     color: 'cyan',
     icon: 'Map',
@@ -36,7 +34,6 @@ export const sceneCommandSchemas = [
   {
     key: 'changeToTemporaryMap',
     label: 'Change To Temporary Map',
-    labelZh: '临时地图',
     category: 'scene',
     color: 'cyan',
     icon: 'Map',
@@ -49,7 +46,6 @@ export const sceneCommandSchemas = [
   {
     key: 'addTemporaryActor',
     label: 'Add Temporary Actor',
-    labelZh: '添加临时角色',
     category: 'scene',
     color: 'cyan',
     icon: 'UserPlus',
@@ -71,7 +67,6 @@ export const sceneCommandSchemas = [
   {
     key: 'removeSprite',
     label: 'Remove Sprite',
-    labelZh: '移除角色',
     category: 'scene',
     color: 'cyan',
     icon: 'UserX',
@@ -84,7 +79,6 @@ export const sceneCommandSchemas = [
   {
     key: 'addObject',
     label: 'Add Object',
-    labelZh: '添加物体',
     category: 'scene',
     color: 'cyan',
     icon: 'Box',
@@ -101,7 +95,6 @@ export const sceneCommandSchemas = [
   {
     key: 'removeObject',
     label: 'Remove Object',
-    labelZh: '移除物体',
     category: 'scene',
     color: 'cyan',
     icon: 'Box',
@@ -117,7 +110,6 @@ export const sceneCommandSchemas = [
   {
     key: 'addProp',
     label: 'Add Prop',
-    labelZh: '添加道具',
     category: 'scene',
     color: 'cyan',
     icon: 'TreePine',
@@ -134,7 +126,6 @@ export const sceneCommandSchemas = [
   {
     key: 'addBigProp',
     label: 'Add Big Prop',
-    labelZh: '添加大道具',
     category: 'scene',
     color: 'cyan',
     icon: 'TreePine',
@@ -151,7 +142,6 @@ export const sceneCommandSchemas = [
   {
     key: 'addFloorProp',
     label: 'Add Floor Prop',
-    labelZh: '添加地面道具',
     category: 'scene',
     color: 'cyan',
     icon: 'TreePine',
@@ -168,7 +158,6 @@ export const sceneCommandSchemas = [
   {
     key: 'addLantern',
     label: 'Add Lantern',
-    labelZh: '添加灯笼',
     category: 'scene',
     color: 'cyan',
     icon: 'Lamp',
@@ -184,7 +173,6 @@ export const sceneCommandSchemas = [
   {
     key: 'cutscene',
     label: 'Cutscene',
-    labelZh: '过场动画',
     category: 'scene',
     color: 'cyan',
     icon: 'Clapperboard',

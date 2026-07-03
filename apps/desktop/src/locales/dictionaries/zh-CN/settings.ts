@@ -61,6 +61,23 @@ const settings: SettingsMenuCopy = {
   loadingMotionIntensityDescription: '调整动画的显著程度。',
   loadingMotionSpeedLabel: '动画速度',
   loadingMotionSpeedDescription: '先选预设速度，或切换到精细和极端调节。',
+  loadingMotionStyleLabels: {
+    bounceIn: '跳动出现',
+    layeredFadeIn: '层叠浮现',
+    slideInPush: '滑入推进',
+    softFadeIn: '柔和淡入',
+    quietSimplify: '静默简化',
+  },
+  loadingMotionIntensityLabels: {
+    light: '轻',
+    standard: '标准',
+    strong: '强',
+  },
+  loadingMotionSpeedLabels: {
+    slow: '慢',
+    standard: '标准',
+    fast: '快',
+  },
   loadingMotionCustomSpeedLabel: '精细和极端速度',
   loadingMotionCustomSpeedDescription: '用滑杆拉长或压缩动画时序。',
   loadingMotionCustomSpeedToggleLabel: '精细 / 极端',

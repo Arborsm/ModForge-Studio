@@ -1,4 +1,5 @@
 import type { LocaleCode } from './core'
+import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionStyleId } from '@shared/contracts/types/loadingMotion'
 
 export type SettingsMenuCopy = {
   title: string
@@ -42,6 +43,9 @@ export type SettingsMenuCopy = {
   loadingMotionIntensityDescription: string
   loadingMotionSpeedLabel: string
   loadingMotionSpeedDescription: string
+  loadingMotionStyleLabels: Record<LoadingMotionStyleId, string>
+  loadingMotionIntensityLabels: Record<LoadingMotionIntensityId, string>
+  loadingMotionSpeedLabels: Record<LoadingMotionSpeedId, string>
   loadingMotionCustomSpeedLabel: string
   loadingMotionCustomSpeedDescription: string
   loadingMotionCustomSpeedToggleLabel: string

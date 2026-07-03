@@ -7,7 +7,6 @@ export const animationCommandSchemas = [
   {
     key: 'farmerAnimation',
     label: 'Farmer Animation',
-    labelZh: '玩家动画',
     category: 'animation',
     color: 'red',
     icon: 'User',
@@ -20,7 +19,6 @@ export const animationCommandSchemas = [
   {
     key: 'farmerEat',
     label: 'Farmer Eat',
-    labelZh: '玩家进食',
     category: 'animation',
     color: 'red',
     icon: 'User',

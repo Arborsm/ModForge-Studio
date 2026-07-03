@@ -7,6 +7,7 @@ import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import { CpMakerProvider } from '@features/cp-maker/model/cpMakerProvider'
 import type { CpMakerPort } from '@features/cp-maker/model/cpMakerPort'
 import { createMockLauncherPort } from './launcherTestPort'
+import { resetPreferencesStoreForTest } from '@shared/lib/app-state/preferencesStore'
 
 export function renderWithLocaleAndLaunchers(
   ui: ReactElement,
@@ -15,6 +16,7 @@ export function renderWithLocaleAndLaunchers(
   port?: LauncherPort,
   cpMakerPort?: CpMakerPort,
 ) {
+  resetPreferencesStoreForTest({ locale })
   const launcherPort = port ?? createMockLauncherPort()
 
   function Wrapper({ children }: { children: ReactNode }) {

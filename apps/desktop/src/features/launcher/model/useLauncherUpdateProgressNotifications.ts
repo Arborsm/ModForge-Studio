@@ -1,13 +1,13 @@
 import { useEffect } from 'react'
+import { useEditorCopy } from '@locales/provider'
 import { useLauncherPort } from './launcherPortContext'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import type { LauncherUpdateProgressPayload } from './launcherContracts'
-import { getLauncherCopy, type LocaleCode } from '@locales/api'
 
 export const LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID = 'launcher-updates-progress'
 const LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_THROTTLE_MS = 250
 
-type LauncherUpdatesCopy = ReturnType<typeof getLauncherCopy>['updates']
+type LauncherUpdatesCopy = ReturnType<typeof useEditorCopy>['launcher']['updates']
 
 export function getLauncherUpdateNotificationProgress(payload: LauncherUpdateProgressPayload) {
   if (payload.total <= 0) {
@@ -32,10 +32,11 @@ export function publishLauncherUpdateProgressNotification(copy: LauncherUpdatesC
   })
 }
 
-export function useLauncherUpdateProgressNotifications(locale: LocaleCode) {
+export function useLauncherUpdateProgressNotifications() {
   const launcherPort = useLauncherPort()
+  const copy = useEditorCopy().launcher.updates
+
   useEffect(() => {
-    const copy = getLauncherCopy(locale).updates
     let active = true
     let unlisten: (() => void) | null = null
     let pendingPayload: LauncherUpdateProgressPayload | null = null
@@ -98,5 +99,5 @@ export function useLauncherUpdateProgressNotifications(locale: LocaleCode) {
       clearPendingProgress()
       dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
     }
-  }, [launcherPort, locale])
+  }, [copy, launcherPort])
 }

@@ -5,6 +5,7 @@ import { CpMakerPortContext } from '@features/cp-maker/model/cpMakerPortContext'
 import type { CpMakerPort } from '@features/cp-maker/model/cpMakerPort'
 import { LauncherPortContext } from '@features/launcher/model/launcherPortContext'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
+import type { LauncherLibraryState } from '@features/launcher/model/launcherContracts'
 import { LauncherPage } from '@pages/launcher/LauncherPage'
 import { StudioDesk } from '@features/cp-maker'
 import type { StudioDeskGalleryProject, StudioDeskInspiration, StudioDeskModel, StudioDeskWorldBibleModel } from '@features/cp-maker'
@@ -607,13 +608,24 @@ function createLauncherLibraryMods(count: number) {
 }
 
 const launcherLibraryMods = createLauncherLibraryMods(120)
-const launcherLibraryFolders = range(12).map((index) => ({
-  id: `launcher-perf-folder-${index}`,
-  name: `Performance Folder ${index + 1}`,
-  parentFolderId: null,
-  modKeys: launcherLibraryMods.slice(index === 0 ? 0 : 24 + (index - 1) * 8, index === 0 ? 24 : 24 + index * 8).map((mod) => mod.uniqueId),
-  coverModKeys: [],
-}))
+const launcherLibraryFolders = [
+  ...range(12).map((index) => ({
+    id: `launcher-perf-folder-${index}`,
+    name: `Performance Folder ${index + 1}`,
+    parentFolderId: null,
+    modKeys: launcherLibraryMods
+      .slice(index === 0 ? 0 : 24 + (index - 1) * 8, index === 0 ? 22 : 24 + index * 8)
+      .map((mod) => mod.uniqueId),
+    coverModKeys: [],
+  })),
+  {
+    id: 'launcher-perf-folder-nested',
+    name: 'Nested Performance Folder',
+    parentFolderId: 'launcher-perf-folder-0',
+    modKeys: launcherLibraryMods.slice(22, 24).map((mod) => mod.uniqueId),
+    coverModKeys: [],
+  },
+]
 
 const launcherSettings = {
   gamePath: 'E:\\ModForge Dev\\Stardew Valley',
@@ -660,23 +672,69 @@ const launcherDiagnostics = {
   ],
 }
 
+const PERFORMANCE_LAUNCHER_LIBRARY_STATE_STORAGE_KEY = 'modforge.performanceLauncherLibraryState'
+
+function createPerformanceLauncherLibraryState(): LauncherLibraryState {
+  return {
+    storageFolders: [],
+    hiddenModKeys: [],
+    packPresets: [],
+    childModGroups: [{ parentModKey: 'ModForge.Performance.112', childModKeys: ['ModForge.Performance.113', 'ModForge.Performance.114'] }],
+    libraryFolders: launcherLibraryFolders,
+    customOrders: {},
+    currentPackId: null,
+    scopeMode: 'all',
+  }
+}
+
+function loadPerformanceLauncherLibraryState(): LauncherLibraryState {
+  try {
+    const raw = window.sessionStorage.getItem(PERFORMANCE_LAUNCHER_LIBRARY_STATE_STORAGE_KEY)
+    if (raw) {
+      return JSON.parse(raw) as LauncherLibraryState
+    }
+  } catch {
+    window.sessionStorage.removeItem(PERFORMANCE_LAUNCHER_LIBRARY_STATE_STORAGE_KEY)
+  }
+  return createPerformanceLauncherLibraryState()
+}
+
+let performanceLauncherLibraryState: LauncherLibraryState | null = null
+
+function getPerformanceLauncherLibraryState() {
+  performanceLauncherLibraryState ??= loadPerformanceLauncherLibraryState()
+  return performanceLauncherLibraryState
+}
+
+function savePerformanceLauncherLibraryState(state: LauncherLibraryState) {
+  performanceLauncherLibraryState = state
+  window.sessionStorage.setItem(PERFORMANCE_LAUNCHER_LIBRARY_STATE_STORAGE_KEY, JSON.stringify(state))
+}
+
+function exposePerformanceLauncherLibraryState(state: LauncherLibraryState) {
+  window.__modforgeLauncherCustomSortState = {
+    customOrders: state.customOrders,
+    childModGroups: state.childModGroups,
+  }
+}
+
 const performanceLauncherPort: LauncherPort = {
   loadSettings: async () => launcherSettings,
   saveSettings: async (request) => ({ ...launcherSettings, ...request }),
   scanLibrary: async () => ({ modsPath: launcherSettings.modsPath, mods: launcherLibraryMods }),
   loadRuntimeInfo: async () => ({ gameVersion: '1.6.15', smapiVersion: '4.3.0' }),
-  loadLibraryState: async () =>
-    ({
-      storageFolders: [],
-      hiddenModKeys: [],
-      packPresets: [],
-      childModGroups: [{ parentModKey: 'ModForge.Performance.0', childModKeys: ['ModForge.Performance.1', 'ModForge.Performance.2'] }],
-      libraryFolders: launcherLibraryFolders,
-      currentPackId: null,
-      scopeMode: 'all',
-    }) as any,
-  saveLibraryState: async (request) => request as any,
+  loadLibraryState: async () => {
+    const state = getPerformanceLauncherLibraryState()
+    exposePerformanceLauncherLibraryState(state)
+    return state
+  },
+  saveLibraryState: async (request) => {
+    savePerformanceLauncherLibraryState(request)
+    exposePerformanceLauncherLibraryState(request)
+    return request
+  },
   loadLibraryCovers: async () => ({ covers: [] }) as any,
+  loadImageFailures: async () => ({ entries: [] }) as any,
   setLibraryCover: async () => ({ covers: [] }) as any,
   persistLibraryRemoteCover: async () => ({ covers: [] }) as any,
   loadDownloadQueue: async () => ({ items: [] }) as any,
@@ -863,8 +921,8 @@ function ScenarioFrame({ id, children }: { id: PageScenarioId; children: ReactNo
   return (
     <div className="dev-performance-scenario dev-page-performance-scenario" data-mf-page-perf-scenario={id}>
       <header className="panel-surface p-3">
-        <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase">Page performance scenario</p>
-        <h1 className="text-lg font-semibold text-[var(--text-primary)]">{id}</h1>
+        <p className="text-xs font-semibold text-(--text-secondary) uppercase">Page performance scenario</p>
+        <h1 className="text-lg font-semibold text-(--text-primary)">{id}</h1>
       </header>
       <main className="dev-page-performance-scenario-main">{children}</main>
     </div>
@@ -876,7 +934,6 @@ function WorkbenchHomeScenario() {
     <ScenarioFrame id="workbench-home">
       <StudioDesk
         model={createStudioDeskModel(360)}
-        copy={editorCopy}
         onCreateDraft={noop}
         onImportDraft={asyncNoop}
         onCreatePatch={noop}

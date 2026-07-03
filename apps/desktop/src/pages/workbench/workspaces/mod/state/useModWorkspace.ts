@@ -18,7 +18,7 @@ import {
 } from '@entities/mod/api'
 import { type GameDirectoryInfo } from '@entities/game/api'
 import { chooseDirectory } from '@shared/lib/desktop'
-import { getModWorkspaceCopy, type LocaleCode } from '@locales/api'
+import { useModWorkspaceCopy } from '@locales/provider'
 import { reportAppEvent } from '@shared/lib/observability'
 import {
   addPatch,
@@ -39,7 +39,6 @@ import { scheduleDeferred } from '@shared/lib/react'
 
 type UseModWorkspaceOptions = {
   directoryInfo: GameDirectoryInfo | null
-  locale: LocaleCode
 }
 
 type PendingUnsavedChangeDecision = {
@@ -162,8 +161,8 @@ function createDefaultSimulationContext(): ContentPatcherBackendSimulationContex
   }
 }
 
-function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
-  const copy = getModWorkspaceCopy(locale)
+function useModWorkspace({ directoryInfo }: UseModWorkspaceOptions) {
+  const copy = useModWorkspaceCopy()
   const pluginDefinition = getWorkspacePluginDefinition('content-patcher')
   const [modProjects, setModProjects] = useState<ModProjectSummary[]>([])
   const [modFilter, setModFilter] = useState('')

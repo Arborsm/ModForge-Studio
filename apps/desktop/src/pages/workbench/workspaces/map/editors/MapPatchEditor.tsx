@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, CheckCircle2, Crosshair, Hammer, Loader2, Plus, Trash2, X } from 'lucide-react'
+import { useEffect, useId, useMemo, useState } from 'react'
+import { AlertCircle, CheckCircle2, Crosshair, Hammer, Loader2, Plus, Trash2 } from 'lucide-react'
 import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
 import type { VirtualPreviewAsset } from '@shared/contracts'
 import type { TileHoverInfo } from '@shared/contracts'
@@ -8,6 +8,8 @@ import type { MapDocument } from '@shared/contracts'
 import { loadMapAsset } from '@entities/game/api'
 import { buildCpMakerMapAsset } from '@features/cp-maker/api'
 import { MapViewport } from '@entities/map'
+import { useEditorCopy } from '@locales/provider'
+import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 interface MapPatchEditorProps {
   patch: DraftPatch
@@ -173,21 +175,19 @@ export function MapPatchEditor({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center border-b border-[var(--border-color)] px-3 py-2">
-        <span className="text-xs font-medium text-[var(--text-primary)]">{patch.target}</span>
-        <span className="ml-2 text-[10px] text-[var(--text-secondary)]">({patch.action})</span>
+      <div className="flex items-center border-b border-(--border-color) px-3 py-2">
+        <span className="text-xs font-medium text-(--text-primary)">{patch.target}</span>
+        <span className="ml-2 text-[10px] text-(--text-secondary)">({patch.action})</span>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-0.5 border-b border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-2 py-1">
+      <div className="flex gap-0.5 border-b border-(--border-color) bg-(--bg-panel-muted) px-2 py-1">
         {(['properties', 'warps', 'tiles', 'file'] as MapEditorTab[]).map((tab) => (
           <button
             key={tab}
             type="button"
             className={`rounded-md px-3 py-1 text-[11px] font-medium transition-colors ${
-              activeTab === tab
-                ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              activeTab === tab ? 'bg-(--bg-active) text-(--text-primary)' : 'text-(--text-secondary) hover:text-(--text-primary)'
             }`}
             onClick={() => setActiveTab(tab)}
           >
@@ -238,31 +238,27 @@ export function MapPatchEditor({
           <div className="space-y-4 p-3">
             {/* FromFile */}
             <div>
-              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
-                FromFile
-              </label>
+              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">FromFile</label>
               <input
                 type="text"
                 placeholder="assets/CustomMap.tbin"
-                className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
                 value={patch.fromFile ?? ''}
                 onChange={(e) => {
                   const val = e.target.value.trim()
                   onPatchChange(patch.id, { fromFile: val || undefined })
                 }}
               />
-              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+              <p className="mt-1 text-[10px] text-(--text-secondary)">
                 Path to a .tbin, .tmx, or .xnb map file to overlay onto the target.
               </p>
             </div>
 
             {/* PatchMode */}
             <div>
-              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
-                Patch Mode
-              </label>
+              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">Patch Mode</label>
               <select
-                className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
                 value={patchMode}
                 onChange={(e) => updateEditorState({ patchMode: e.target.value })}
               >
@@ -270,23 +266,23 @@ export function MapPatchEditor({
                 <option value="Overlay">Overlay</option>
                 <option value="Replace">Replace</option>
               </select>
-              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+              <p className="mt-1 text-[10px] text-(--text-secondary)">
                 ReplaceByLayer: replace matching layers. Overlay: merge layers. Replace: replace entire map.
               </p>
             </div>
 
             {/* FromArea */}
             <div>
-              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
+              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
                 From Area (Source Crop)
               </label>
               <div className="grid grid-cols-4 gap-2">
                 {(['x', 'y', 'width', 'height'] as const).map((field) => (
                   <div key={field}>
-                    <span className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{field}</span>
+                    <span className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{field}</span>
                     <input
                       type="text"
-                      className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                      className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
                       value={fromArea?.[field] ?? ''}
                       placeholder="0"
                       onChange={(e) => updateArea('fromArea', field, e.target.value)}
@@ -294,23 +290,21 @@ export function MapPatchEditor({
                   </div>
                 ))}
               </div>
-              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
-                Crop region from the source map. Numbers or tokens like {'{{X}}'}.
-              </p>
+              <p className="mt-1 text-[10px] text-(--text-secondary)">Crop region from the source map. Numbers or tokens like {'{{X}}'}.</p>
             </div>
 
             {/* ToArea */}
             <div>
-              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
+              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
                 To Area (Target Position)
               </label>
               <div className="grid grid-cols-4 gap-2">
                 {(['x', 'y', 'width', 'height'] as const).map((field) => (
                   <div key={field}>
-                    <span className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{field}</span>
+                    <span className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{field}</span>
                     <input
                       type="text"
-                      className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                      className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
                       value={toArea?.[field] ?? ''}
                       placeholder="0"
                       onChange={(e) => updateArea('toArea', field, e.target.value)}
@@ -318,7 +312,7 @@ export function MapPatchEditor({
                   </div>
                 ))}
               </div>
-              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">Position on the target map. Numbers or tokens like {'{{X}}'}.</p>
+              <p className="mt-1 text-[10px] text-(--text-secondary)">Position on the target map. Numbers or tokens like {'{{X}}'}.</p>
             </div>
           </div>
         )}
@@ -353,9 +347,11 @@ type BuildState =
   | { phase: 'error'; message: string }
 
 function BuildAssetDialog({ mapDocument, targetMapName, onClose, onAssetBuilt }: BuildAssetDialogProps) {
+  const copy = useEditorCopy().buildAssetDialog
+  const titleId = useId()
   const [buildState, setBuildState] = useState<BuildState>({
     phase: 'building',
-    message: 'Serializing map to tBIN format...',
+    message: copy.buildingMessage,
   })
 
   useEffect(() => {
@@ -390,72 +386,75 @@ function BuildAssetDialog({ mapDocument, targetMapName, onClose, onAssetBuilt }:
     return () => {
       cancelled = true
     }
-  }, [mapDocument, onAssetBuilt, targetMapName])
+  }, [mapDocument, onAssetBuilt, targetMapName, copy.buildingMessage])
+
+  const building = buildState.phase === 'building'
+  const handleClose = () => {
+    if (building) {
+      return
+    }
+    onClose()
+  }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
-      <div className="w-[400px] max-w-[90vw] rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] shadow-xl">
-        <div className="flex items-center justify-between border-b border-[var(--border-color)] px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Hammer className="h-4 w-4 text-[var(--accent)]" />
-            <span className="text-sm font-semibold text-[var(--text-primary)]">Build Map Asset</span>
+    <Dialog open onClose={handleClose} size="sm" labelledBy={titleId} closeOnBackdrop={!building} closeOnEscape={!building}>
+      <DialogHeader
+        title={copy.title}
+        icon={<Hammer className="h-4 w-4" />}
+        onClose={handleClose}
+        closeLabel={copy.closeAction}
+        closeDisabled={building}
+        id={titleId}
+      />
+      <DialogBody>
+        {buildState.phase === 'building' ? (
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-(--accent)" />
+            <div className="text-center">
+              <p className="text-sm font-medium text-(--text-primary)">{copy.building}</p>
+              <p className="mt-1 text-xs text-(--text-secondary)">{buildState.message}</p>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-(--bg-panel-muted)">
+              <div className="h-full w-2/3 animate-pulse rounded-full bg-(--accent)" />
+            </div>
           </div>
-          <button type="button" className="icon-button h-7 w-7" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+        ) : null}
 
-        <div className="px-4 py-6">
-          {buildState.phase === 'building' ? (
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-[var(--accent)]" />
-              <div className="text-center">
-                <p className="text-sm font-medium text-[var(--text-primary)]">Building...</p>
-                <p className="mt-1 text-xs text-[var(--text-secondary)]">{buildState.message}</p>
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-panel-muted)]">
-                <div className="h-full w-2/3 animate-pulse rounded-full bg-[var(--accent)]" />
-              </div>
+        {buildState.phase === 'done' ? (
+          <div className="flex flex-col items-center gap-3">
+            <CheckCircle2 className="h-8 w-8 text-(--success)" />
+            <div className="text-center">
+              <p className="text-sm font-medium text-(--text-primary)">{copy.doneTitle}</p>
+              <p className="mt-1 text-xs text-(--text-secondary)">{copy.doneAssetSavedAs(buildState.asset.relativePath)}</p>
+              <p className="mt-0.5 text-[10px] text-(--text-secondary)">
+                {copy.doneSizeKb(Math.round((buildState.asset.bytesBase64.length * 3) / 4 / 1024))}
+              </p>
             </div>
-          ) : null}
+          </div>
+        ) : null}
 
-          {buildState.phase === 'done' ? (
-            <div className="flex flex-col items-center gap-3">
-              <CheckCircle2 className="h-8 w-8 text-green-400" />
-              <div className="text-center">
-                <p className="text-sm font-medium text-[var(--text-primary)]">Build Complete</p>
-                <p className="mt-1 text-xs text-[var(--text-secondary)]">Asset saved as {buildState.asset.relativePath}</p>
-                <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">
-                  Size: {Math.round((buildState.asset.bytesBase64.length * 3) / 4 / 1024)} KB
-                </p>
-              </div>
+        {buildState.phase === 'error' ? (
+          <div className="flex flex-col items-center gap-3">
+            <AlertCircle className="h-8 w-8 text-(--danger)" />
+            <div className="text-center">
+              <p className="text-sm font-medium text-(--text-primary)">{copy.errorTitle}</p>
+              <p className="app-dialog-error mt-1">{buildState.message}</p>
             </div>
-          ) : null}
-
-          {buildState.phase === 'error' ? (
-            <div className="flex flex-col items-center gap-3">
-              <AlertCircle className="h-8 w-8 text-red-400" />
-              <div className="text-center">
-                <p className="text-sm font-medium text-[var(--text-primary)]">Build Failed</p>
-                <p className="mt-1 text-xs text-red-400">{buildState.message}</p>
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="flex justify-end gap-2 border-t border-[var(--border-color)] px-4 py-3">
-          {buildState.phase === 'done' || buildState.phase === 'error' ? (
-            <button type="button" className="control-button control-button-primary text-xs" onClick={onClose}>
-              {buildState.phase === 'done' ? 'Done' : 'Close'}
-            </button>
-          ) : (
-            <button type="button" className="control-button text-xs" onClick={onClose}>
-              Cancel
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+          </div>
+        ) : null}
+      </DialogBody>
+      <DialogFooter>
+        {building ? (
+          <DialogAction onClick={handleClose} disabled>
+            {copy.cancelAction}
+          </DialogAction>
+        ) : (
+          <DialogAction tone="primary" onClick={handleClose}>
+            {buildState.phase === 'done' ? copy.doneAction : copy.closeAction}
+          </DialogAction>
+        )}
+      </DialogFooter>
+    </Dialog>
   )
 }
 
@@ -489,13 +488,13 @@ function MapPropertiesEditor({
 
   return (
     <div className="space-y-2">
-      <p className="text-[10px] text-[var(--text-secondary)]">Edit map properties (Music, Outdoors, Warp, etc.)</p>
+      <p className="text-[10px] text-(--text-secondary)">Edit map properties (Music, Outdoors, Warp, etc.)</p>
       {entries.map((entry, index) => (
         <div key={index} className="flex items-center gap-2">
           <input
             type="text"
             placeholder="Property"
-            className="flex-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+            className="flex-1 rounded-md border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
             value={entry.key}
             onChange={(e) => {
               const next = [...entries]
@@ -507,7 +506,7 @@ function MapPropertiesEditor({
           <input
             type="text"
             placeholder="Value"
-            className="flex-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+            className="flex-1 rounded-md border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
             value={entry.value}
             onChange={(e) => {
               const next = [...entries]
@@ -531,7 +530,7 @@ function MapPropertiesEditor({
       ))}
       <button
         type="button"
-        className="flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
+        className="flex items-center gap-1 text-xs text-(--accent) hover:underline"
         onClick={() => {
           const next = [...entries, { key: '', value: '' }]
           setEntries(next)
@@ -556,20 +555,17 @@ function MapWarpsEditor({
 }) {
   return (
     <div className="space-y-2">
-      <div className="text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">{title}</div>
-      <p className="text-[10px] text-[var(--text-secondary)]">{description}</p>
+      <div className="text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">{title}</div>
+      <p className="text-[10px] text-(--text-secondary)">{description}</p>
       {warps.map((warp, index) => (
-        <div
-          key={index}
-          className="flex items-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-2"
-        >
+        <div key={index} className="flex items-center gap-1.5 rounded-lg border border-(--border-color) bg-(--bg-panel-muted) p-2">
           <div className="grid flex-1 grid-cols-5 gap-1.5">
             {(['fromX', 'fromY', 'toMap', 'toX', 'toY'] as const).map((field) => (
               <div key={field}>
-                <span className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{field}</span>
+                <span className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{field}</span>
                 <input
                   type={field === 'toMap' ? 'text' : 'number'}
-                  className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  className="w-full rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-1 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
                   value={warp[field]}
                   onChange={(e) => {
                     const next = [...warps]
@@ -594,7 +590,7 @@ function MapWarpsEditor({
       ))}
       <button
         type="button"
-        className="flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
+        className="flex items-center gap-1 text-xs text-(--accent) hover:underline"
         onClick={() => onChange([...warps, { fromX: 0, fromY: 0, toMap: '', toX: 0, toY: 0 }])}
       >
         <Plus className="h-3 w-3" /> Add warp
@@ -623,7 +619,6 @@ function MapTilesEditor({
   locale,
   theme,
   accentColor,
-  viewportLabels,
   gameRootPath,
   onBuildAsset,
   mapTiles,
@@ -646,7 +641,7 @@ function MapTilesEditor({
 }) {
   if (!gameRootPath) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 text-[var(--text-secondary)]">
+      <div className="flex h-full flex-col items-center justify-center gap-2 text-(--text-secondary)">
         <Crosshair className="h-8 w-8 opacity-30" />
         <p className="text-xs">No game root path configured.</p>
         <p className="text-[10px]">Set the game directory in draft settings to load the map.</p>
@@ -655,12 +650,12 @@ function MapTilesEditor({
   }
 
   if (mapLoading) {
-    return <div className="flex h-full items-center justify-center text-sm text-[var(--text-secondary)]">Loading map...</div>
+    return <div className="flex h-full items-center justify-center text-sm text-(--text-secondary)">Loading map...</div>
   }
 
   if (mapError) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 text-[var(--text-secondary)]">
+      <div className="flex h-full flex-col items-center justify-center gap-2 text-(--text-secondary)">
         <Crosshair className="h-8 w-8 opacity-30" />
         <p className="text-sm text-red-400">{mapError}</p>
       </div>
@@ -669,7 +664,7 @@ function MapTilesEditor({
 
   if (!mapDocument) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 text-[var(--text-secondary)]">
+      <div className="flex h-full flex-col items-center justify-center gap-2 text-(--text-secondary)">
         <Crosshair className="h-8 w-8 opacity-30" />
         <p className="text-xs">Unable to load map for preview.</p>
       </div>
@@ -685,7 +680,6 @@ function MapTilesEditor({
           mapDocument={mapDocument}
           visibleLayerIds={visibleLayerIds}
           visibleObjectGroupIds={[]}
-          labels={viewportLabels}
           theme={theme}
           accentColor={accentColor}
           showGrid={true}
@@ -696,11 +690,11 @@ function MapTilesEditor({
       </div>
 
       {/* Toolbar */}
-      <div className="flex shrink-0 items-center justify-between border-t border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-1.5">
-        <div className="flex items-center gap-2 text-[10px] text-[var(--text-secondary)]">
+      <div className="flex shrink-0 items-center justify-between border-t border-(--border-color) bg-(--bg-panel) px-3 py-1.5">
+        <div className="flex items-center gap-2 text-[10px] text-(--text-secondary)">
           {hoverInfo ? (
             <>
-              <span className="text-[var(--text-primary)]">
+              <span className="text-(--text-primary)">
                 Tile: ({hoverInfo.tileX}, {hoverInfo.tileY})
               </span>
               {hoverInfo.layerName && <span>Layer: {hoverInfo.layerName}</span>}
@@ -715,7 +709,7 @@ function MapTilesEditor({
           {hoverInfo?.layerName && (
             <button
               type="button"
-              className="flex items-center gap-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-2 py-1 text-[10px] font-medium text-[var(--text-primary)] hover:bg-[var(--bg-active)]"
+              className="flex items-center gap-1 rounded-md border border-(--border-color) bg-(--bg-panel-muted) px-2 py-1 text-[10px] font-medium text-(--text-primary) hover:bg-(--bg-active)"
               onClick={() => {
                 onMapTilesChange([
                   ...mapTiles,
@@ -734,7 +728,7 @@ function MapTilesEditor({
           )}
           <button
             type="button"
-            className="flex items-center gap-1 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[10px] font-medium text-white hover:opacity-90"
+            className="flex items-center gap-1 rounded-md bg-(--accent) px-2.5 py-1 text-[10px] font-medium text-white hover:opacity-90"
             onClick={onBuildAsset}
           >
             <Hammer className="h-3 w-3" /> Build Asset
@@ -744,17 +738,17 @@ function MapTilesEditor({
 
       {/* MapTiles Editor */}
       {mapTiles.length > 0 && (
-        <div className="max-h-[180px] shrink-0 overflow-auto border-t border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-2">
-          <div className="mb-1.5 text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
+        <div className="max-h-45 shrink-0 overflow-auto border-t border-(--border-color) bg-(--bg-panel-muted) px-3 py-2">
+          <div className="mb-1.5 text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
             MapTiles Edits ({mapTiles.length})
           </div>
           <div className="space-y-1.5">
             {mapTiles.map((tile, index) => (
-              <div key={index} className="flex items-center gap-1.5 rounded border border-[var(--border-color)] bg-[var(--bg-panel)] p-1.5">
+              <div key={index} className="flex items-center gap-1.5 rounded border border-(--border-color) bg-(--bg-panel) p-1.5">
                 <input
                   type="text"
                   placeholder="Layer"
-                  className="w-20 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  className="w-20 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
                   value={tile.layer}
                   onChange={(e) => {
                     const next = [...mapTiles]
@@ -765,7 +759,7 @@ function MapTilesEditor({
                 <input
                   type="number"
                   placeholder="X"
-                  className="w-12 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  className="w-12 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
                   value={tile.x}
                   onChange={(e) => {
                     const next = [...mapTiles]
@@ -776,7 +770,7 @@ function MapTilesEditor({
                 <input
                   type="number"
                   placeholder="Y"
-                  className="w-12 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  className="w-12 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
                   value={tile.y}
                   onChange={(e) => {
                     const next = [...mapTiles]
@@ -787,7 +781,7 @@ function MapTilesEditor({
                 <input
                   type="text"
                   placeholder="Tilesheet"
-                  className="w-20 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  className="w-20 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
                   value={tile.setTilesheet ?? ''}
                   onChange={(e) => {
                     const next = [...mapTiles]
@@ -799,7 +793,7 @@ function MapTilesEditor({
                 <input
                   type="text"
                   placeholder="Index"
-                  className="w-14 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  className="w-14 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
                   value={tile.setIndex ?? ''}
                   onChange={(e) => {
                     const next = [...mapTiles]
@@ -815,7 +809,7 @@ function MapTilesEditor({
                     onMapTilesChange(next)
                   }}
                 />
-                <label className="flex items-center gap-1 text-[10px] text-[var(--text-secondary)]">
+                <label className="flex items-center gap-1 text-[10px] text-(--text-secondary)">
                   <input
                     type="checkbox"
                     checked={tile.remove ?? false}
@@ -830,7 +824,7 @@ function MapTilesEditor({
                 <input
                   type="text"
                   placeholder="Props (key=value,...)"
-                  className="min-w-0 flex-1 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  className="min-w-0 flex-1 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
                   value={
                     tile.setProperties
                       ? Object.entries(tile.setProperties)

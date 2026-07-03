@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLauncherPort } from './launcherPortContext'
 import { useEditorCopy } from '@locales/provider'
-import { TaskCancelledError, useLatestTask, useTaskScope, type TaskScope } from '@shared/lib/task-runtime'
+import { TaskCancelledError, useQueuedMutationTask, useTaskScope, type TaskScope } from '@shared/lib/task-runtime'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import type {
   LauncherLibraryModSummary,
@@ -43,9 +43,142 @@ function createDefaultLibraryState(): LauncherLibraryState {
     packPresets: [],
     childModGroups: [],
     libraryFolders: [],
+    customOrders: {},
     currentPackId: null,
     scopeMode: 'all',
   }
+}
+
+function encodeLibraryFolderOrderKey(folderId: string) {
+  return `f:${folderId.trim()}`
+}
+
+function encodeLibraryModOrderKey(modKey: string) {
+  return `m:${normalizeModKey(modKey)}`
+}
+
+function decodeLibraryOrderKey(value: string) {
+  const trimmed = value.trim()
+  const separatorIndex = trimmed.indexOf(':')
+  if (separatorIndex <= 0) {
+    return null
+  }
+  const kind = trimmed.slice(0, separatorIndex)
+  const id = trimmed.slice(separatorIndex + 1).trim()
+  if (!id) {
+    return null
+  }
+  if (kind === 'f') {
+    return { kind: 'folder' as const, id }
+  }
+  if (kind === 'm') {
+    const modKey = normalizeModKey(id)
+    return modKey ? { kind: 'mod' as const, id: modKey } : null
+  }
+  return null
+}
+
+function normalizeCustomOrders(
+  customOrders: Record<string, string[]> | null | undefined,
+  packIdLookup: Map<string, string>,
+  libraryFolders: LauncherLibraryState['libraryFolders'],
+) {
+  const folderIdLookup = new Map(libraryFolders.map((folder) => [normalizeLookupKey(folder.id), folder.id]))
+  const rootFolderItemLookup = new Set(
+    libraryFolders.filter((folder) => !folder.parentFolderId).map((folder) => normalizeLookupKey(encodeLibraryFolderOrderKey(folder.id))),
+  )
+  const folderItemLookup = new Map(
+    libraryFolders.map((folder) => {
+      const validItems = new Set(folder.modKeys.map((modKey) => normalizeLookupKey(encodeLibraryModOrderKey(modKey))))
+      for (const childFolder of libraryFolders) {
+        if (normalizeLookupKey(childFolder.parentFolderId ?? '') === normalizeLookupKey(folder.id)) {
+          validItems.add(normalizeLookupKey(encodeLibraryFolderOrderKey(childFolder.id)))
+        }
+      }
+      return [normalizeLookupKey(folder.id), validItems]
+    }),
+  )
+  const normalized: Record<string, string[]> = {}
+
+  for (const [rawContainerKey, rawOrder] of Object.entries(customOrders ?? {})) {
+    const containerKey = rawContainerKey.trim()
+    if (!containerKey || !Array.isArray(rawOrder)) {
+      continue
+    }
+
+    let canonicalContainerKey: string | null = null
+    if (containerKey === 'view:all' || containerKey === 'view:hidden') {
+      canonicalContainerKey = containerKey
+    } else if (containerKey.startsWith('view:pack:')) {
+      const packId = containerKey.slice('view:pack:'.length).trim()
+      const canonicalPackId = packIdLookup.get(normalizeLookupKey(packId))
+      canonicalContainerKey = canonicalPackId ? `view:pack:${canonicalPackId}` : null
+    } else if (containerKey.startsWith('folder:')) {
+      const folderId = containerKey.slice('folder:'.length).trim()
+      const canonicalFolderId = folderIdLookup.get(normalizeLookupKey(folderId))
+      canonicalContainerKey = canonicalFolderId ? `folder:${canonicalFolderId}` : null
+    }
+
+    if (!canonicalContainerKey) {
+      continue
+    }
+
+    const seenItems = new Set<string>()
+    const order: string[] = []
+    for (const rawItemKey of rawOrder) {
+      const decoded = decodeLibraryOrderKey(rawItemKey)
+      if (!decoded) {
+        continue
+      }
+      const itemKey =
+        decoded.kind === 'folder'
+          ? folderIdLookup.get(normalizeLookupKey(decoded.id))
+            ? encodeLibraryFolderOrderKey(folderIdLookup.get(normalizeLookupKey(decoded.id))!)
+            : null
+          : encodeLibraryModOrderKey(decoded.id)
+      if (!itemKey) {
+        continue
+      }
+      const itemLookup = normalizeLookupKey(itemKey)
+      if (seenItems.has(itemLookup)) {
+        continue
+      }
+      if (itemKey.startsWith('f:') && canonicalContainerKey.startsWith('view:') && !rootFolderItemLookup.has(itemLookup)) {
+        continue
+      }
+      if (canonicalContainerKey.startsWith('folder:')) {
+        const folderId = canonicalContainerKey.slice('folder:'.length)
+        if (!folderItemLookup.get(normalizeLookupKey(folderId))?.has(itemLookup)) {
+          continue
+        }
+      }
+      seenItems.add(itemLookup)
+      order.push(itemKey)
+    }
+
+    if (order.length) {
+      normalized[canonicalContainerKey] = order
+    }
+  }
+
+  return normalized
+}
+
+function reorderOrderKeys(order: string[], fromKey: string, toAfterKey: string) {
+  const fromLookup = normalizeLookupKey(fromKey)
+  const withoutSource = order.filter((key) => normalizeLookupKey(key) !== fromLookup)
+  const normalizedSourceKey = order.find((key) => normalizeLookupKey(key) === fromLookup) ?? fromKey
+
+  if (toAfterKey === '__start__') {
+    return [normalizedSourceKey, ...withoutSource]
+  }
+
+  const afterIndex = withoutSource.findIndex((key) => normalizeLookupKey(key) === normalizeLookupKey(toAfterKey))
+  if (afterIndex < 0) {
+    return [...withoutSource, normalizedSourceKey]
+  }
+
+  return [...withoutSource.slice(0, afterIndex + 1), normalizedSourceKey, ...withoutSource.slice(afterIndex + 1)]
 }
 
 function normalizeLibraryState(state: LauncherLibraryState): LauncherLibraryState {
@@ -162,6 +295,7 @@ function normalizeLibraryState(state: LauncherLibraryState): LauncherLibraryStat
   const scopeMode: LauncherLibraryScopeMode = state.scopeMode === 'current-pack' ? 'current-pack' : 'all'
   const childModGroups = normalizeChildModGroups(state.childModGroups ?? [])
   const libraryFolders = normalizeLibraryFolders(state.libraryFolders ?? [])
+  const customOrders = normalizeCustomOrders(state.customOrders, packIdLookup, libraryFolders)
 
   return {
     storageFolders,
@@ -169,6 +303,7 @@ function normalizeLibraryState(state: LauncherLibraryState): LauncherLibraryStat
     packPresets,
     childModGroups,
     libraryFolders,
+    customOrders,
     currentPackId,
     scopeMode,
   }
@@ -221,12 +356,13 @@ function isTaskCancelled(error: unknown) {
 
 export function useLauncherLibrary(settings: LauncherSettingsDraft) {
   const launcherPort = useLauncherPort()
-  const runLibraryStateSaveTask = useLatestTask('launcher-library-state-save')
+  const runLibraryStateSaveTask = useQueuedMutationTask('LauncherLibraryState')
   const libraryRefreshTaskScope = useTaskScope('launcher-library-refresh')
   const autoCoverTaskScope = useTaskScope('launcher-library-auto-cover')
   const copy = useEditorCopy().launcher
   const [mods, setMods] = useState<LauncherLibraryModSummary[]>([])
   const [libraryState, setLibraryState] = useState<LauncherLibraryState>(createDefaultLibraryState())
+  const libraryStateRef = useRef(libraryState)
   const [selectedModIds, setSelectedModIds] = useState<string[]>([])
   const [selectedModId, setSelectedModId] = useState<string | null>(null)
   const [activeStorageFolderId, setActiveStorageFolderId] = useState<string | null>(null)
@@ -238,14 +374,14 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
   const autoCoverFetchInFlightRef = useRef(false)
 
   const persistLibraryState = useCallback(
-    async (nextState: LauncherLibraryState) => {
+    async (nextStateOrUpdater: LauncherLibraryState | ((currentState: LauncherLibraryState) => LauncherLibraryState)) => {
       libraryRefreshTaskScope.cancel(new TaskCancelledError('Launcher library state was mutated.'))
-      return runLibraryStateSaveTask(async (scope) => {
+      return runLibraryStateSaveTask(async () => {
+        const nextState = typeof nextStateOrUpdater === 'function' ? nextStateOrUpdater(libraryStateRef.current) : nextStateOrUpdater
         const persisted = await launcherPort.saveLibraryState(normalizeLibraryState(nextState))
         const normalized = normalizeLibraryState(persisted)
-        if (scope.isCurrent()) {
-          setLibraryState(normalized)
-        }
+        libraryStateRef.current = normalized
+        setLibraryState(normalized)
         return normalized
       })
     },
@@ -424,7 +560,9 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
             return
           }
 
-          setLibraryState(normalizeLibraryState(loadedLibraryState))
+          const normalizedLibraryState = normalizeLibraryState(loadedLibraryState)
+          libraryStateRef.current = normalizedLibraryState
+          setLibraryState(normalizedLibraryState)
           setMods(scan.mods)
           setSelectedModId((current) => current ?? scan.mods[0]?.id ?? null)
           setSelectedModIds((current) => current.filter((id) => scan.mods.some((item) => item.id === id)))
@@ -491,6 +629,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
   const packPresets = libraryState.packPresets
   const childModGroups = libraryState.childModGroups
   const libraryFolders = libraryState.libraryFolders
+  const customOrders = libraryState.customOrders
   const scopeMode = libraryState.scopeMode
   const currentPackId = libraryState.currentPackId
 
@@ -1088,6 +1227,78 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     [libraryFolders, libraryState, persistLibraryState],
   )
 
+  const reorderCustomOrder = useCallback(
+    async (containerKey: string, fromKey: string, toAfterKey: string, baseOrder: string[] = []) => {
+      const normalizedContainerKey = containerKey.trim()
+      const normalizedFromKey = fromKey.trim()
+      const normalizedToAfterKey = toAfterKey.trim()
+      if (!normalizedContainerKey || !normalizedFromKey || !normalizedToAfterKey) {
+        return
+      }
+
+      await persistLibraryState((currentState) => {
+        const existingOrder = currentState.customOrders[normalizedContainerKey] ?? []
+        const mergedOrder = [...existingOrder]
+        const seen = new Set(existingOrder.map((key) => normalizeLookupKey(key)))
+        for (const key of baseOrder) {
+          const trimmed = key.trim()
+          const lookup = normalizeLookupKey(trimmed)
+          if (!trimmed || seen.has(lookup)) {
+            continue
+          }
+          seen.add(lookup)
+          mergedOrder.push(trimmed)
+        }
+        if (!seen.has(normalizeLookupKey(normalizedFromKey))) {
+          mergedOrder.push(normalizedFromKey)
+        }
+
+        return {
+          ...currentState,
+          customOrders: {
+            ...currentState.customOrders,
+            [normalizedContainerKey]: reorderOrderKeys(mergedOrder, normalizedFromKey, normalizedToAfterKey),
+          },
+        }
+      })
+    },
+    [persistLibraryState],
+  )
+
+  const reorderChildMods = useCallback(
+    async (parentModKey: string, fromKey: string, toAfterKey: string) => {
+      const decodedFrom = decodeLibraryOrderKey(fromKey)
+      const decodedAfter = toAfterKey === '__start__' ? null : decodeLibraryOrderKey(toAfterKey)
+      if (decodedFrom?.kind !== 'mod' || (toAfterKey !== '__start__' && decodedAfter?.kind !== 'mod')) {
+        return
+      }
+
+      await persistLibraryState((currentState) => {
+        const parentLookup = normalizeLookupKey(parentModKey)
+        const nextGroups = currentState.childModGroups.map((group) => {
+          if (normalizeLookupKey(group.parentModKey) !== parentLookup) {
+            return group
+          }
+          const encodedOrder = group.childModKeys.map(encodeLibraryModOrderKey)
+          const reordered = reorderOrderKeys(encodedOrder, encodeLibraryModOrderKey(decodedFrom.id), toAfterKey)
+          return {
+            ...group,
+            childModKeys: reordered
+              .map(decodeLibraryOrderKey)
+              .filter((item): item is { kind: 'mod'; id: string } => item?.kind === 'mod')
+              .map((item) => item.id),
+          }
+        })
+
+        return {
+          ...currentState,
+          childModGroups: nextGroups,
+        }
+      })
+    },
+    [persistLibraryState],
+  )
+
   const setModsEnabled = useCallback(
     async (modIds: string[], enabled: boolean) => {
       const targetIds = new Set(modIds)
@@ -1188,6 +1399,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     packPresets,
     childModGroups,
     libraryFolders,
+    customOrders,
     scopeMode,
     currentPackId,
     currentPack,
@@ -1232,6 +1444,8 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     addModsToLibraryFolder,
     removeModsFromLibraryFolders,
     moveLibraryFolderToFolder,
+    reorderCustomOrder,
+    reorderChildMods,
     setModsEnabled,
     setCurrentPackId,
     setScopeMode,

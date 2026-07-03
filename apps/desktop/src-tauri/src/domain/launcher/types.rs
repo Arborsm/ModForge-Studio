@@ -1,4 +1,5 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::collections::BTreeMap;
 
 pub(crate) const UNSORTED_STORAGE_FOLDER_ID: &str = "unsorted";
 pub(crate) const UNSORTED_STORAGE_FOLDER_NAME: &str = "Unsorted";
@@ -208,6 +209,8 @@ pub struct LauncherLibraryState {
     #[serde(default)]
     pub library_folders: Vec<LauncherLibraryFolder>,
     #[serde(default)]
+    pub custom_orders: BTreeMap<String, Vec<String>>,
+    #[serde(default)]
     pub current_pack_id: Option<String>,
     #[serde(default)]
     pub scope_mode: LauncherLibraryScopeMode,
@@ -224,6 +227,22 @@ pub struct LauncherLibraryCover {
 #[serde(rename_all = "camelCase")]
 pub struct LauncherLibraryCoversState {
     pub covers: Vec<LauncherLibraryCover>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherImageFailureEntry {
+    pub mod_key: String,
+    pub failure_count: u32,
+    pub blocked: bool,
+    pub last_error: String,
+    pub last_failed_at_ms: u128,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherImageFailuresState {
+    pub entries: Vec<LauncherImageFailureEntry>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -512,6 +531,8 @@ pub struct LauncherUpdateChangelogResult {
 pub struct ResolveLauncherImageRequest {
     pub url: String,
     pub refresh: Option<bool>,
+    #[serde(default)]
+    pub mod_key: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -760,6 +781,7 @@ impl Default for LauncherLibraryState {
             pack_presets: Vec::new(),
             child_mod_groups: Vec::new(),
             library_folders: Vec::new(),
+            custom_orders: BTreeMap::new(),
             current_pack_id: None,
             scope_mode: LauncherLibraryScopeMode::All,
         }

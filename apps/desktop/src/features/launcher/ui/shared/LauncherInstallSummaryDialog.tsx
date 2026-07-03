@@ -1,6 +1,8 @@
+import { useId } from 'react'
 import type { InstallLauncherArchiveResult } from '../../model/launcherContracts'
 import { useEditorCopy } from '@locales/provider'
 import { PanelSection } from '@shared/ui/PanelSection'
+import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 type LauncherInstallSummaryDialogProps = {
   open: boolean
@@ -12,24 +14,22 @@ type LauncherInstallSummaryDialogProps = {
 export function LauncherInstallSummaryDialog({ open, result, onClose, onManageBackups }: LauncherInstallSummaryDialogProps) {
   const editorCopy = useEditorCopy()
   const copy = editorCopy.launcher
+  const titleId = useId()
 
-  if (!open || !result) {
+  if (!result) {
     return null
   }
 
   return (
-    <div className="launcher-modal-backdrop launcher-library-dialog-backdrop" role="presentation">
-      <section
-        className="launcher-library-dialog launcher-library-install-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={copy.library.installSummaryTitle}
-      >
-        <div className="launcher-library-dialog-header">
-          <h2 className="launcher-library-dialog-title">{copy.library.installSummaryTitle}</h2>
-          <p className="launcher-library-dialog-copy">{copy.library.installSummarySubtitle}</p>
-        </div>
-
+    <Dialog open={open} onClose={onClose} size="xl" labelledBy={titleId}>
+      <DialogHeader
+        title={copy.library.installSummaryTitle}
+        subtitle={copy.library.installSummarySubtitle}
+        onClose={onClose}
+        closeLabel={copy.actions.closeDialog}
+        id={titleId}
+      />
+      <DialogBody>
         <div className="launcher-library-install-dialog-grid">
           <PanelSection title={result.modName} subtitle={result.targetPath}>
             <div className="launcher-stats-row">
@@ -81,16 +81,13 @@ export function LauncherInstallSummaryDialog({ open, result, onClose, onManageBa
             </div>
           </PanelSection>
         </div>
-
-        <div className="launcher-library-dialog-actions">
-          <button type="button" className="control-button launcher-library-secondary-action" onClick={onClose}>
-            {copy.actions.closeDialog}
-          </button>
-          <button type="button" className="control-button control-button-primary launcher-library-primary-action" onClick={onManageBackups}>
-            {copy.library.manageInstallBackups}
-          </button>
-        </div>
-      </section>
-    </div>
+      </DialogBody>
+      <DialogFooter>
+        <DialogAction onClick={onClose}>{copy.actions.closeDialog}</DialogAction>
+        <DialogAction tone="primary" onClick={onManageBackups}>
+          {copy.library.manageInstallBackups}
+        </DialogAction>
+      </DialogFooter>
+    </Dialog>
   )
 }

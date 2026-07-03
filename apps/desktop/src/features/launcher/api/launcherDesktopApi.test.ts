@@ -393,30 +393,64 @@ describe('launcher desktop API', () => {
   it('invalidates launcher cover and scan caches when clearing launcher image cache', async () => {
     const { launcherDesktop, invokeCommand } = await loadConfiguredLauncherDesktop()
     const firstCovers = { covers: [{ labelKey: '20599', imagePath: 'C:\\cache\\cover-1.webp' }] }
+    const firstFailures = { entries: [{ modKey: '20599', failureCount: 3, blocked: true, lastError: 'HTTP 404', lastFailedAtMs: 1 }] }
     const firstScan = { modsPath: 'C:\\Games\\Stardew Valley\\Mods', mods: [{ id: 'mod-20599' }] }
     const secondCovers = { covers: [] }
+    const secondFailures = { entries: [] }
     const secondScan = { modsPath: 'C:\\Games\\Stardew Valley\\Mods', mods: [] }
     invokeCommand
       .mockResolvedValueOnce(firstCovers)
+      .mockResolvedValueOnce(firstFailures)
       .mockResolvedValueOnce(firstScan)
       .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce(secondCovers)
+      .mockResolvedValueOnce(secondFailures)
       .mockResolvedValueOnce(secondScan)
 
     await expect(launcherDesktop.loadLauncherLibraryCovers()).resolves.toEqual(firstCovers)
+    await expect(launcherDesktop.loadLauncherImageFailures()).resolves.toEqual(firstFailures)
     await expect(launcherDesktop.scanLauncherLibrary({ modsPath: 'C:\\Games\\Stardew Valley\\Mods' })).resolves.toEqual(firstScan)
     await expect(launcherDesktop.clearLauncherImageCache()).resolves.toBeUndefined()
     await expect(launcherDesktop.loadLauncherLibraryCovers()).resolves.toEqual(secondCovers)
+    await expect(launcherDesktop.loadLauncherImageFailures()).resolves.toEqual(secondFailures)
     await expect(launcherDesktop.scanLauncherLibrary({ modsPath: 'C:\\Games\\Stardew Valley\\Mods' })).resolves.toEqual(secondScan)
 
     expect(invokeCommand).toHaveBeenNthCalledWith(1, 'load_launcher_library_covers', undefined)
-    expect(invokeCommand).toHaveBeenNthCalledWith(2, 'scan_launcher_library', {
+    expect(invokeCommand).toHaveBeenNthCalledWith(2, 'load_launcher_image_failures', undefined)
+    expect(invokeCommand).toHaveBeenNthCalledWith(3, 'scan_launcher_library', {
       request: { modsPath: 'C:\\Games\\Stardew Valley\\Mods' },
     })
-    expect(invokeCommand).toHaveBeenNthCalledWith(3, 'clear_launcher_image_cache', undefined)
-    expect(invokeCommand).toHaveBeenNthCalledWith(4, 'load_launcher_library_covers', undefined)
-    expect(invokeCommand).toHaveBeenNthCalledWith(5, 'scan_launcher_library', {
+    expect(invokeCommand).toHaveBeenNthCalledWith(4, 'clear_launcher_image_cache', undefined)
+    expect(invokeCommand).toHaveBeenNthCalledWith(5, 'load_launcher_library_covers', undefined)
+    expect(invokeCommand).toHaveBeenNthCalledWith(6, 'load_launcher_image_failures', undefined)
+    expect(invokeCommand).toHaveBeenNthCalledWith(7, 'scan_launcher_library', {
       request: { modsPath: 'C:\\Games\\Stardew Valley\\Mods' },
+    })
+  })
+
+  it('passes launcher image mod keys through to the host command', async () => {
+    const { launcherDesktop, invokeCommand } = await loadConfiguredLauncherDesktop()
+    const result = {
+      sourceUrl: 'https://example.test/cover.png',
+      localPath: 'C:\\cache\\cover.png',
+      mimeType: 'image/png',
+    }
+    invokeCommand.mockResolvedValueOnce(result)
+
+    await expect(
+      launcherDesktop.resolveLauncherImage({
+        url: 'https://example.test/cover.png',
+        refresh: true,
+        modKey: '20599',
+      }),
+    ).resolves.toEqual(result)
+
+    expect(invokeCommand).toHaveBeenCalledWith('resolve_launcher_image', {
+      request: {
+        url: 'https://example.test/cover.png',
+        refresh: true,
+        modKey: '20599',
+      },
     })
   })
 })

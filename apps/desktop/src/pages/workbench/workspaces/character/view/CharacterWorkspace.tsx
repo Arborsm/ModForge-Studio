@@ -103,8 +103,8 @@ function WalkCyclePreviewTile({
   const sourceY = Math.floor(currentFrame / spriteColumns) * frameHeight
 
   return (
-    <div className="rounded-[24px] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] p-3 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--border-color)_72%,transparent)]">
-      <div className="panel-canvas-soft flex min-h-[136px] items-center justify-center border-0 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-elevated)_82%,transparent),color-mix(in_srgb,var(--bg-panel-muted)_96%,var(--bg-panel)))]">
+    <div className="rounded-3xl bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] p-3 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--border-color)_72%,transparent)]">
+      <div className="panel-canvas-soft flex min-h-34 items-center justify-center border-0 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-elevated)_82%,transparent),color-mix(in_srgb,var(--bg-panel-muted)_96%,var(--bg-panel)))]">
         <div
           style={buildSpriteStyle({
             url: spriteUrl,
@@ -122,10 +122,7 @@ function WalkCyclePreviewTile({
         {frames.map((frame, index) => (
           <span
             key={`${frame}:${index}`}
-            className={cx(
-              'h-1.5 w-5 rounded-full transition-colors',
-              index === frameIndex ? 'bg-[var(--accent)]' : 'bg-[var(--border-color)]',
-            )}
+            className={cx('h-1.5 w-5 rounded-full transition-colors', index === frameIndex ? 'bg-(--accent)' : 'bg-(--border-color)')}
           />
         ))}
       </div>
@@ -224,11 +221,11 @@ const BreathingPreviewCanvas = memo(function BreathingPreviewCanvas({
   })()
 
   if (!spriteUrl || !spriteSheetWidth || !spriteSheetHeight) {
-    return <div className="panel-canvas-empty h-full min-h-[360px]">{copy.spriteMissing}</div>
+    return <div className="panel-canvas-empty h-full min-h-90">{copy.spriteMissing}</div>
   }
 
   return (
-    <div className="panel-canvas relative flex h-full min-h-[360px] items-center justify-center">
+    <div className="panel-canvas relative flex h-full min-h-90 items-center justify-center">
       <div
         className="absolute inset-0 opacity-40"
         style={{
@@ -461,7 +458,7 @@ export default function CharacterWorkspace({ character, activeVariant, assetStat
                     ))}
                   </div>
                 ) : (
-                  <div className="panel-canvas-empty min-h-[220px]">{copy.spriteMissing}</div>
+                  <div className="panel-canvas-empty min-h-55">{copy.spriteMissing}</div>
                 )}
               </div>
             </div>
@@ -518,7 +515,7 @@ export default function CharacterWorkspace({ character, activeVariant, assetStat
                       className="rounded-[22px] bg-[color-mix(in_srgb,var(--bg-panel)_78%,transparent)] p-2.5 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--border-color)_64%,transparent)]"
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <p className="text-[11px] font-semibold tracking-[0.16em] text-[var(--text-secondary)] uppercase">#{index}</p>
+                        <p className="text-[11px] font-semibold tracking-[0.16em] text-(--text-secondary) uppercase">#{index}</p>
                         {character.shakePortraits.includes(index) ? <span className="dock-chip">{copy.shakeBadge}</span> : null}
                       </div>
                       <div className="mt-2.5 flex justify-center">
@@ -550,7 +547,7 @@ export default function CharacterWorkspace({ character, activeVariant, assetStat
                 })}
               </div>
             ) : (
-              <div className="panel-canvas-empty min-h-[240px]">{copy.portraitMissing}</div>
+              <div className="panel-canvas-empty min-h-60">{copy.portraitMissing}</div>
             )}
           </div>
         </aside>

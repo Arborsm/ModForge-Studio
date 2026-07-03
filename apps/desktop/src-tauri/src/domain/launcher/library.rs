@@ -290,14 +290,145 @@ fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState 
             .retain(|value| mod_lookup.contains(&normalize_unique_id(value)));
     }
 
+    let custom_orders =
+        normalize_custom_orders(state.custom_orders, &pack_id_lookup, &library_folders);
+
     LauncherLibraryState {
         storage_folders,
         hidden_mod_keys,
         pack_presets,
         child_mod_groups,
         library_folders,
+        custom_orders,
         current_pack_id,
         scope_mode: state.scope_mode,
+    }
+}
+
+fn normalize_custom_orders(
+    custom_orders: BTreeMap<String, Vec<String>>,
+    pack_id_lookup: &BTreeMap<String, String>,
+    library_folders: &[LauncherLibraryFolder],
+) -> BTreeMap<String, Vec<String>> {
+    let folder_id_lookup = library_folders
+        .iter()
+        .map(|folder| (normalize_unique_id(&folder.id), folder.id.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let root_folder_ids = library_folders
+        .iter()
+        .filter(|folder| folder.parent_folder_id.is_none())
+        .map(|folder| normalize_unique_id(&folder.id))
+        .collect::<BTreeSet<_>>();
+    let folder_item_lookup = library_folders
+        .iter()
+        .map(|folder| {
+            let mut valid_items = folder
+                .mod_keys
+                .iter()
+                .map(|value| format!("m:{}", value.trim()))
+                .map(|value| normalize_unique_id(&value))
+                .collect::<BTreeSet<_>>();
+            valid_items.extend(
+                library_folders
+                    .iter()
+                    .filter(|candidate| {
+                        candidate
+                            .parent_folder_id
+                            .as_deref()
+                            .is_some_and(|parent_id| {
+                                normalize_unique_id(parent_id) == normalize_unique_id(&folder.id)
+                            })
+                    })
+                    .map(|candidate| normalize_unique_id(&format!("f:{}", candidate.id))),
+            );
+            (normalize_unique_id(&folder.id), valid_items)
+        })
+        .collect::<BTreeMap<_, _>>();
+
+    let mut normalized = BTreeMap::new();
+    for (container_key, order) in custom_orders {
+        let Some(canonical_container_key) =
+            normalize_custom_order_container_key(&container_key, pack_id_lookup, &folder_id_lookup)
+        else {
+            continue;
+        };
+        let is_view_container = canonical_container_key.starts_with("view:");
+        let valid_folder_items = canonical_container_key
+            .strip_prefix("folder:")
+            .and_then(|folder_id| folder_item_lookup.get(&normalize_unique_id(folder_id)));
+        let mut seen = BTreeSet::new();
+        let mut normalized_order = Vec::new();
+        for item_key in order {
+            let Some(canonical_item_key) =
+                normalize_custom_order_item_key(&item_key, &folder_id_lookup)
+            else {
+                continue;
+            };
+            let normalized_item_key = normalize_unique_id(&canonical_item_key);
+            if is_view_container
+                && canonical_item_key.starts_with("f:")
+                && !root_folder_ids.contains(&normalize_unique_id(
+                    canonical_item_key.trim_start_matches("f:"),
+                ))
+            {
+                continue;
+            }
+            if valid_folder_items.is_some_and(|items| !items.contains(&normalized_item_key)) {
+                continue;
+            }
+            if seen.insert(normalized_item_key) {
+                normalized_order.push(canonical_item_key);
+            }
+        }
+
+        if !normalized_order.is_empty() {
+            normalized.insert(canonical_container_key, normalized_order);
+        }
+    }
+    normalized
+}
+
+fn normalize_custom_order_container_key(
+    container_key: &str,
+    pack_id_lookup: &BTreeMap<String, String>,
+    folder_id_lookup: &BTreeMap<String, String>,
+) -> Option<String> {
+    let container_key = container_key.trim();
+    if container_key == "view:all" || container_key == "view:hidden" {
+        return Some(container_key.to_string());
+    }
+    if let Some(pack_id) = container_key.strip_prefix("view:pack:") {
+        return pack_id_lookup
+            .get(&normalize_unique_id(pack_id.trim()))
+            .map(|id| format!("view:pack:{id}"));
+    }
+    if let Some(folder_id) = container_key.strip_prefix("folder:") {
+        return folder_id_lookup
+            .get(&normalize_unique_id(folder_id.trim()))
+            .map(|id| format!("folder:{id}"));
+    }
+    None
+}
+
+fn normalize_custom_order_item_key(
+    item_key: &str,
+    folder_id_lookup: &BTreeMap<String, String>,
+) -> Option<String> {
+    let item_key = item_key.trim();
+    let (kind, value) = item_key.split_once(':')?;
+    let value = value.trim();
+    if value.is_empty() {
+        return None;
+    }
+    match kind {
+        "f" => {
+            let normalized_folder_id = normalize_unique_id(value);
+            folder_id_lookup
+                .get(&normalized_folder_id)
+                .map(|id| format!("f:{id}"))
+        }
+        "m" => Some(format!("m:{value}")),
+        _ => None,
     }
 }
 
@@ -843,6 +974,7 @@ pub async fn persist_launcher_library_remote_cover(
                 &ResolveLauncherImageRequest {
                     url: image_url.to_string(),
                     refresh: None,
+                    mod_key: Some(label_key.to_string()),
                 },
             )?;
 

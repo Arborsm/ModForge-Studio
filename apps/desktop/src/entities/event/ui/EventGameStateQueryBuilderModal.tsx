@@ -1,6 +1,7 @@
 import { Clock, Code2, Compass, Database, Layers3, PackageSearch, Search, UserRound, X } from 'lucide-react'
 import { useState } from 'react'
 import { cx } from '@shared/lib/cx'
+import { Dialog } from '@shared/ui/Dialog'
 import type { EditorCopy } from '@locales'
 import {
   createDefaultGameStateQueryClause,
@@ -335,9 +336,9 @@ export function EventGameStateQueryBuilderModal({ copy, hubCopy, initialQuery, o
   }
 
   return (
-    <div className="game-state-query-backdrop" role="presentation" onClick={onCancel}>
-      <div className="game-state-query-stack" onClick={(event) => event.stopPropagation()}>
-        <section className="game-state-query-modal" role="dialog" aria-modal="true" aria-label={copy.title}>
+    <Dialog open onClose={onCancel} size="full" stack bare ariaLabel={copy.title}>
+      <div className="game-state-query-stack">
+        <section className="game-state-query-modal">
           <header className="game-state-query-header">
             <div>
               <h2>{copy.title}</h2>
@@ -441,6 +442,6 @@ export function EventGameStateQueryBuilderModal({ copy, hubCopy, initialQuery, o
           </div>
         </aside>
       </div>
-    </div>
+    </Dialog>
   )
 }

@@ -112,6 +112,7 @@ function createLibraryState(overrides: Partial<LauncherLibraryState> = {}): Laun
     packPresets: [],
     childModGroups: [],
     libraryFolders: [],
+    customOrders: {},
     currentPackId: null,
     scopeMode: 'all',
     ...overrides,
@@ -2186,6 +2187,254 @@ describe('useLauncherLibrary', () => {
       modPath: 'E:\\Games\\Stardew Valley\\Mods\\Child',
       enabled: true,
     })
+  })
+
+  it('persists custom container order changes', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(
+      createLibraryState({
+        customOrders: {
+          'view:all': ['m:Mod.Alpha', 'm:Mod.Beta'],
+        },
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({ id: 'mod-a', labelKey: 'Mod.Alpha', uniqueId: 'Mod.Alpha' }),
+        createMod({ id: 'mod-b', labelKey: 'Mod.Beta', uniqueId: 'Mod.Beta' }),
+      ],
+    })
+    saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    await act(async () => {
+      await result.current.reorderCustomOrder('view:all', 'm:Mod.Beta', '__start__', ['m:Mod.Alpha', 'm:Mod.Beta'])
+    })
+
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        customOrders: {
+          'view:all': ['m:Mod.Beta', 'm:Mod.Alpha'],
+        },
+      }),
+    )
+  })
+
+  it('queues custom reorder saves and computes each reorder from the latest persisted state', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(
+      createLibraryState({
+        customOrders: {
+          'view:all': ['m:Mod.Alpha', 'm:Mod.Beta', 'm:Mod.Core'],
+        },
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({ id: 'mod-a', labelKey: 'Mod.Alpha', uniqueId: 'Mod.Alpha' }),
+        createMod({ id: 'mod-b', labelKey: 'Mod.Beta', uniqueId: 'Mod.Beta' }),
+        createMod({ id: 'mod-c', labelKey: 'Mod.Core', uniqueId: 'Mod.Core' }),
+      ],
+    })
+    const firstSave = createDeferred<LauncherLibraryState>()
+    saveLauncherLibraryStateMock.mockImplementationOnce(() => firstSave.promise).mockImplementation(async (request) => request)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    let firstReorder!: Promise<void>
+    let secondReorder!: Promise<void>
+    await act(async () => {
+      firstReorder = result.current.reorderCustomOrder('view:all', 'm:Mod.Core', '__start__', ['m:Mod.Alpha', 'm:Mod.Beta', 'm:Mod.Core'])
+      secondReorder = result.current.reorderCustomOrder('view:all', 'm:Mod.Beta', 'm:Mod.Core', ['m:Mod.Alpha', 'm:Mod.Beta', 'm:Mod.Core'])
+      await Promise.resolve()
+    })
+
+    expect(saveLauncherLibraryStateMock).toHaveBeenCalledTimes(1)
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        customOrders: {
+          'view:all': ['m:Mod.Core', 'm:Mod.Alpha', 'm:Mod.Beta'],
+        },
+      }),
+    )
+
+    await act(async () => {
+      firstSave.resolve(
+        createLibraryState({
+          customOrders: {
+            'view:all': ['m:Mod.Core', 'm:Mod.Alpha', 'm:Mod.Beta'],
+          },
+        }),
+      )
+      await firstReorder
+      await secondReorder
+    })
+
+    expect(saveLauncherLibraryStateMock).toHaveBeenCalledTimes(2)
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        customOrders: {
+          'view:all': ['m:Mod.Core', 'm:Mod.Beta', 'm:Mod.Alpha'],
+        },
+      }),
+    )
+  })
+
+  it('normalizes custom orders to the active root and folder containers', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(
+      createLibraryState({
+        packPresets: [{ id: 'farm', name: 'Farm', modKeys: [] }],
+        libraryFolders: [
+          {
+            id: 'visual',
+            name: 'Visual',
+            parentFolderId: null,
+            modKeys: ['ModForge.A'],
+            coverModKeys: [],
+          },
+          {
+            id: 'extras',
+            name: 'Extras',
+            parentFolderId: 'visual',
+            modKeys: ['ModForge.B'],
+            coverModKeys: [],
+          },
+          {
+            id: 'orphan',
+            name: 'Orphan',
+            parentFolderId: null,
+            modKeys: ['ModForge.C'],
+            coverModKeys: [],
+          },
+        ],
+        customOrders: {
+          'view:all': ['f:extras', 'f:visual', 'm:ModForge.A', 'f:missing', 'm:ModForge.A', 'bad'],
+          'view:pack:FARM': ['f:extras', 'f:orphan', 'm:ModForge.A'],
+          'folder:visual': ['f:orphan', 'f:extras', 'm:ModForge.A', 'm:ModForge.Z'],
+          'folder:extras': ['f:visual', 'm:ModForge.B'],
+          'folder:missing': ['m:ModForge.A'],
+        },
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({ id: 'mod-a', labelKey: 'ModForge.A', uniqueId: 'ModForge.A' }),
+        createMod({ id: 'mod-b', labelKey: 'ModForge.B', uniqueId: 'ModForge.B' }),
+      ],
+    })
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    expect(result.current.customOrders).toEqual({
+      'folder:extras': ['m:ModForge.B'],
+      'folder:visual': ['f:extras', 'm:ModForge.A'],
+      'view:all': ['f:visual', 'm:ModForge.A'],
+      'view:pack:farm': ['f:orphan', 'm:ModForge.A'],
+    })
+  })
+
+  it('persists child mod reorder changes on the parent group', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(
+      createLibraryState({
+        childModGroups: [{ parentModKey: 'ModForge.Parent', childModKeys: ['ModForge.A', 'ModForge.B'] }],
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({ id: 'mod-parent', labelKey: 'ModForge.Parent', uniqueId: 'ModForge.Parent' }),
+        createMod({ id: 'mod-a', labelKey: 'ModForge.A', uniqueId: 'ModForge.A' }),
+        createMod({ id: 'mod-b', labelKey: 'ModForge.B', uniqueId: 'ModForge.B' }),
+      ],
+    })
+    saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    await act(async () => {
+      await result.current.reorderChildMods('ModForge.Parent', 'm:ModForge.B', '__start__')
+    })
+
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        childModGroups: [{ parentModKey: 'ModForge.Parent', childModKeys: ['ModForge.B', 'ModForge.A'] }],
+      }),
+    )
+  })
+
+  it('queues child mod reorder saves and computes each reorder from the latest persisted state', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(
+      createLibraryState({
+        childModGroups: [{ parentModKey: 'ModForge.Parent', childModKeys: ['ModForge.A', 'ModForge.B', 'ModForge.C'] }],
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({ id: 'mod-parent', labelKey: 'ModForge.Parent', uniqueId: 'ModForge.Parent' }),
+        createMod({ id: 'mod-a', labelKey: 'ModForge.A', uniqueId: 'ModForge.A' }),
+        createMod({ id: 'mod-b', labelKey: 'ModForge.B', uniqueId: 'ModForge.B' }),
+        createMod({ id: 'mod-c', labelKey: 'ModForge.C', uniqueId: 'ModForge.C' }),
+      ],
+    })
+    const firstSave = createDeferred<LauncherLibraryState>()
+    saveLauncherLibraryStateMock.mockImplementationOnce(() => firstSave.promise).mockImplementation(async (request) => request)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    let firstReorder!: Promise<void>
+    let secondReorder!: Promise<void>
+    await act(async () => {
+      firstReorder = result.current.reorderChildMods('ModForge.Parent', 'm:ModForge.C', '__start__')
+      secondReorder = result.current.reorderChildMods('ModForge.Parent', 'm:ModForge.B', 'm:ModForge.C')
+      await Promise.resolve()
+    })
+
+    expect(saveLauncherLibraryStateMock).toHaveBeenCalledTimes(1)
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        childModGroups: [{ parentModKey: 'ModForge.Parent', childModKeys: ['ModForge.C', 'ModForge.A', 'ModForge.B'] }],
+      }),
+    )
+
+    await act(async () => {
+      firstSave.resolve(
+        createLibraryState({
+          childModGroups: [{ parentModKey: 'ModForge.Parent', childModKeys: ['ModForge.C', 'ModForge.A', 'ModForge.B'] }],
+        }),
+      )
+      await firstReorder
+      await secondReorder
+    })
+
+    expect(saveLauncherLibraryStateMock).toHaveBeenCalledTimes(2)
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        childModGroups: [{ parentModKey: 'ModForge.Parent', childModKeys: ['ModForge.C', 'ModForge.B', 'ModForge.A'] }],
+      }),
+    )
   })
 
   it('installArchive resolves with the install result even when a follow-up refresh would fail', async () => {

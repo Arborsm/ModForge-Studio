@@ -144,12 +144,16 @@ export default function TopMenuBar({
           </div>
 
           {!launcherModeActive ? (
-            <nav className="top-menu-menus pointer-events-auto hidden items-center gap-2 xl:flex" aria-label="Main menus">
+            <nav
+              className="top-menu-menus pointer-events-auto hidden items-center gap-2 xl:flex"
+              aria-label="Main menus"
+              data-top-menu-no-drag="true"
+            >
               <button
                 type="button"
                 className={cx(
-                  'rounded-md px-2 py-1 text-xs transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]',
-                  projectMenu.highlighted ? 'bg-[var(--bg-active)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)]',
+                  'rounded-md px-2 py-1 text-xs transition-colors hover:bg-(--bg-active) hover:text-(--text-primary)',
+                  projectMenu.highlighted ? 'bg-(--bg-active) text-(--text-primary)' : 'text-(--text-secondary)',
                 )}
                 onClick={projectMenu.onOpen}
               >
@@ -160,8 +164,8 @@ export default function TopMenuBar({
                 <button
                   type="button"
                   className={cx(
-                    'rounded-md px-2 py-1 text-xs transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]',
-                    viewMenuOpen ? 'bg-[var(--bg-active)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)]',
+                    'rounded-md px-2 py-1 text-xs transition-colors hover:bg-(--bg-active) hover:text-(--text-primary)',
+                    viewMenuOpen ? 'bg-(--bg-active) text-(--text-primary)' : 'text-(--text-secondary)',
                   )}
                   aria-haspopup="menu"
                   aria-expanded={viewMenuOpen}
@@ -252,7 +256,7 @@ export default function TopMenuBar({
 
         <div className="top-menu-center flex min-w-0 items-center justify-self-center">
           {launcherNav ? (
-            <div className="top-menu-workspace pointer-events-auto">
+            <div className="top-menu-workspace pointer-events-auto" data-top-menu-no-drag="true">
               <div className="top-menu-workspace-list">
                 <GooeyNav
                   items={launcherNav.visiblePages.map((page) => {
@@ -279,10 +283,11 @@ export default function TopMenuBar({
           className="top-menu-cluster top-menu-controls flex min-w-0 items-center gap-2 justify-self-end"
           role="group"
           aria-label="Shell controls"
+          data-top-menu-no-drag="true"
         >
           <span className={cx('status-pill status-pill-compact', `status-pill-${statusTone}`)}>{copy.statusTone[statusTone]}</span>
           {launcherNav ? (
-            <div className="top-menu-launcher-tools pointer-events-auto" ref={downloadsMenuRef}>
+            <div className="top-menu-launcher-tools pointer-events-auto" ref={downloadsMenuRef} data-top-menu-no-drag="true">
               <button
                 type="button"
                 className={cx(
@@ -360,7 +365,10 @@ export default function TopMenuBar({
             <Settings2 className="h-4 w-4" />
           </button>
           {desktopHost ? (
-            <div className="panel-section-muted panel-section pointer-events-auto ml-1 flex items-center overflow-hidden rounded-lg">
+            <div
+              className="panel-section-muted panel-section pointer-events-auto ml-1 flex items-center overflow-hidden rounded-lg"
+              data-top-menu-no-drag="true"
+            >
               <button
                 type="button"
                 className="window-control-button"
@@ -372,7 +380,7 @@ export default function TopMenuBar({
               </button>
               <button
                 type="button"
-                className="window-control-button border-l border-[var(--border-color)]"
+                className="window-control-button border-l border-(--border-color)"
                 onClick={onToggleMaximizeWindow}
                 aria-label="Maximize window"
                 title="Maximize"
@@ -381,7 +389,7 @@ export default function TopMenuBar({
               </button>
               <button
                 type="button"
-                className="window-control-button window-control-close border-l border-[var(--border-color)]"
+                className="window-control-button window-control-close border-l border-(--border-color)"
                 onClick={onCloseWindow}
                 aria-label="Close window"
                 title="Close"

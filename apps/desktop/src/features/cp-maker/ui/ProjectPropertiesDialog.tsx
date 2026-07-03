@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { X } from 'lucide-react'
-import type { EditorCopy } from '@locales'
+import { useId } from 'react'
+import { useEditorCopy } from '@locales/provider'
 import type { CpMakerDraft } from '@shared/contracts'
+import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 type ProjectPropertiesMetadata = Pick<
   CpMakerDraft['projectMetadata'],
@@ -10,15 +11,12 @@ type ProjectPropertiesMetadata = Pick<
 
 type ProjectPropertiesDialogProps = {
   open: boolean
-  copy: EditorCopy['studioDesk']
   metadata: ProjectPropertiesMetadata
   onClose: () => void
   onSave: (metadata: ProjectPropertiesMetadata) => void | Promise<void>
 }
 
-export function ProjectPropertiesDialog({ open, copy, metadata, onClose, onSave }: ProjectPropertiesDialogProps) {
-  if (!open) return null
-
+export function ProjectPropertiesDialog({ open, metadata, onClose, onSave }: ProjectPropertiesDialogProps) {
   const metadataKey = [
     metadata.projectName,
     metadata.projectDescription,
@@ -27,10 +25,12 @@ export function ProjectPropertiesDialog({ open, copy, metadata, onClose, onSave 
     metadata.projectUniqueId,
   ].join('\0')
 
-  return <ProjectPropertiesDialogForm key={metadataKey} copy={copy} metadata={metadata} onClose={onClose} onSave={onSave} />
+  return <ProjectPropertiesDialogForm key={metadataKey} open={open} metadata={metadata} onClose={onClose} onSave={onSave} />
 }
 
-function ProjectPropertiesDialogForm({ copy, metadata, onClose, onSave }: Omit<ProjectPropertiesDialogProps, 'open'>) {
+function ProjectPropertiesDialogForm({ open, metadata, onClose, onSave }: ProjectPropertiesDialogProps) {
+  const copy = useEditorCopy().studioDesk
+  const titleId = useId()
   const [form, setForm] = useState(metadata)
 
   function handleSubmit(event: FormEvent) {
@@ -47,26 +47,15 @@ function ProjectPropertiesDialogForm({ copy, metadata, onClose, onSave }: Omit<P
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
-      <div
-        className="w-[520px] max-w-[90vw] rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] shadow-xl"
-        role="dialog"
-        aria-modal="true"
-        aria-label={copy.editProjectProperties}
-      >
-        <div className="flex items-center justify-between border-b border-[var(--border-color)] px-4 py-3">
-          <span className="text-sm font-semibold text-[var(--text-primary)]">{copy.editProjectProperties}</span>
-          <button type="button" className="icon-button h-7 w-7" onClick={onClose}>
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-3 px-4 py-4">
+    <Dialog open={open} onClose={onClose} size="lg" labelledBy={titleId}>
+      <DialogHeader title={copy.editProjectProperties} onClose={onClose} closeLabel={copy.createDialog.cancel} id={titleId} />
+      <DialogBody>
+        <form id="project-properties-form" onSubmit={handleSubmit} className="space-y-3">
           <label className="block">
-            <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.createDialog.projectName}</span>
+            <span className="mb-1 block text-xs text-(--text-secondary)">{copy.createDialog.projectName}</span>
             <input
               type="text"
-              className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-(--accent)"
               value={form.projectName}
               onChange={(event) => setForm((current) => ({ ...current, projectName: event.target.value }))}
               autoFocus
@@ -74,10 +63,10 @@ function ProjectPropertiesDialogForm({ copy, metadata, onClose, onSave }: Omit<P
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.createDialog.uniqueId}</span>
+            <span className="mb-1 block text-xs text-(--text-secondary)">{copy.createDialog.uniqueId}</span>
             <input
               type="text"
-              className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-(--accent)"
               value={form.projectUniqueId}
               onChange={(event) => setForm((current) => ({ ...current, projectUniqueId: event.target.value }))}
             />
@@ -85,19 +74,19 @@ function ProjectPropertiesDialogForm({ copy, metadata, onClose, onSave }: Omit<P
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.createDialog.author}</span>
+              <span className="mb-1 block text-xs text-(--text-secondary)">{copy.createDialog.author}</span>
               <input
                 type="text"
-                className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-(--accent)"
                 value={form.projectAuthor}
                 onChange={(event) => setForm((current) => ({ ...current, projectAuthor: event.target.value }))}
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.createDialog.version}</span>
+              <span className="mb-1 block text-xs text-(--text-secondary)">{copy.createDialog.version}</span>
               <input
                 type="text"
-                className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-(--accent)"
                 value={form.projectVersion}
                 onChange={(event) => setForm((current) => ({ ...current, projectVersion: event.target.value }))}
               />
@@ -105,28 +94,26 @@ function ProjectPropertiesDialogForm({ copy, metadata, onClose, onSave }: Omit<P
           </div>
 
           <label className="block">
-            <span className="mb-1 block text-xs text-[var(--text-secondary)]">{copy.createDialog.description}</span>
+            <span className="mb-1 block text-xs text-(--text-secondary)">{copy.createDialog.description}</span>
             <textarea
-              className="min-h-20 w-full resize-none rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              className="min-h-20 w-full resize-none rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-(--accent)"
               value={form.projectDescription}
               onChange={(event) => setForm((current) => ({ ...current, projectDescription: event.target.value }))}
             />
           </label>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="control-button text-xs" onClick={onClose}>
-              {copy.createDialog.cancel}
-            </button>
-            <button
-              type="submit"
-              className="control-button control-button-primary text-xs"
-              disabled={!form.projectName.trim() || !form.projectUniqueId.trim()}
-            >
-              {copy.toolbar.save}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+      </DialogBody>
+      <DialogFooter>
+        <DialogAction onClick={onClose}>{copy.createDialog.cancel}</DialogAction>
+        <DialogAction
+          type="submit"
+          tone="primary"
+          form="project-properties-form"
+          disabled={!form.projectName.trim() || !form.projectUniqueId.trim()}
+        >
+          {copy.toolbar.save}
+        </DialogAction>
+      </DialogFooter>
+    </Dialog>
   )
 }

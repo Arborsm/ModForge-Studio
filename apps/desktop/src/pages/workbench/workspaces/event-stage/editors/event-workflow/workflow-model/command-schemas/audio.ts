@@ -7,7 +7,6 @@ export const audioCommandSchemas = [
   {
     key: 'playMusic',
     label: 'Play Music',
-    labelZh: '播放音乐',
     category: 'audio',
     color: 'purple',
     icon: 'Music',
@@ -20,7 +19,6 @@ export const audioCommandSchemas = [
   {
     key: 'stopMusic',
     label: 'Stop Music',
-    labelZh: '停止音乐',
     category: 'audio',
     color: 'purple',
     icon: 'MusicOff',
@@ -30,7 +28,6 @@ export const audioCommandSchemas = [
   {
     key: 'playSound',
     label: 'Play Sound',
-    labelZh: '播放音效',
     category: 'audio',
     color: 'purple',
     icon: 'Volume2',
@@ -43,7 +40,6 @@ export const audioCommandSchemas = [
   {
     key: 'stopSound',
     label: 'Stop Sound',
-    labelZh: '停止音效',
     category: 'audio',
     color: 'purple',
     icon: 'VolumeX',

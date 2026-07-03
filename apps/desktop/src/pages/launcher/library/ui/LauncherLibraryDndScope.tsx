@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import {
   DndContext,
   DragOverlay,
@@ -19,7 +20,12 @@ import {
   LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX,
   LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX,
   LAUNCHER_LIBRARY_PACK_DROP_PREFIX,
+  LAUNCHER_LIBRARY_REORDER_FOLDER_PREFIX,
+  LAUNCHER_LIBRARY_REORDER_PARENT_PREFIX,
+  LAUNCHER_LIBRARY_REORDER_ROOT_PREFIX,
+  LAUNCHER_LIBRARY_SUPPRESS_RELEASE_CLICK_DATA_KEY,
   getLauncherDropTargetAtPoint,
+  getLauncherReorderPayloadFromDropId,
   measureLauncherDndKitDropTargets,
   type LauncherDndKitActiveDrag,
   type LauncherDndKitDropData,
@@ -110,9 +116,9 @@ function LauncherPendingDragPreview({ drag }: { drag: LauncherDndKitActiveDrag }
   const left = drag.sourceRect.left + drag.latestX - drag.startX
   const top = drag.sourceRect.top + drag.latestY - drag.startY
 
-  return (
+  const preview = (
     <div
-      className="launcher-library-pending-drag-preview-layer"
+      className="launcher-library-drag-portal-scope launcher-library-pending-drag-preview-layer"
       style={{
         transform: `translate3d(${left}px, ${top}px, 0)`,
       }}
@@ -120,9 +126,28 @@ function LauncherPendingDragPreview({ drag }: { drag: LauncherDndKitActiveDrag }
       <LauncherDragPreview source={drag.source} count={drag.modIds.length} pending={!drag.started} />
     </div>
   )
+  return typeof document === 'undefined' ? null : createPortal(preview, document.body)
+}
+
+function LauncherActiveDragOverlay({ drag }: { drag: LauncherDndKitActiveDrag | null }) {
+  const overlay = (
+    <div className="launcher-library-drag-portal-scope">
+      <DragOverlay dropAnimation={null} zIndex={80}>
+        {drag ? <LauncherDragPreview source={drag.source} count={drag.modIds.length} /> : null}
+      </DragOverlay>
+    </div>
+  )
+  return typeof document === 'undefined' ? null : createPortal(overlay, document.body)
 }
 
 function getLauncherDndTargetKind(dropId: string) {
+  if (
+    dropId.startsWith(LAUNCHER_LIBRARY_REORDER_ROOT_PREFIX) ||
+    dropId.startsWith(LAUNCHER_LIBRARY_REORDER_FOLDER_PREFIX) ||
+    dropId.startsWith(LAUNCHER_LIBRARY_REORDER_PARENT_PREFIX)
+  ) {
+    return 'reorder'
+  }
   if (dropId === LAUNCHER_LIBRARY_BLANK_DROP_ID) {
     return 'blank'
   }
@@ -136,13 +161,33 @@ function getLauncherDndTargetKind(dropId: string) {
 }
 
 function LauncherDndKitDropTargetLayer({ targets, activeDropId }: { targets: LauncherDndKitDropTarget[]; activeDropId: string | null }) {
-  return (
+  const layer = (
     <div className="launcher-library-dnd-target-layer" aria-hidden="true">
       {targets.map((target) => (
         <LauncherDndKitDropTargetBox key={target.dropId} target={target} active={target.dropId === activeDropId} />
       ))}
     </div>
   )
+  return typeof document === 'undefined' ? null : createPortal(layer, document.body)
+}
+
+/** Ghost outline showing where the dragged card will land during a custom reorder. */
+function LauncherReorderGhost({ target, drag }: { target: LauncherDndKitDropTarget; drag: LauncherDndKitActiveDrag }) {
+  const ghost = (
+    <div
+      className="launcher-library-reorder-ghost"
+      aria-hidden="true"
+      style={{
+        left: target.rect.left,
+        top: target.rect.top,
+        width: target.rect.width,
+        height: target.rect.height,
+      }}
+    >
+      <LauncherDragPreview source={drag.source} count={drag.modIds.length} />
+    </div>
+  )
+  return typeof document === 'undefined' ? null : createPortal(ghost, document.body)
 }
 
 function LauncherDndKitDropTargetBox({ target, active }: { target: LauncherDndKitDropTarget; active: boolean }) {
@@ -174,12 +219,14 @@ function LauncherLibraryDndBridge({
   onControlsChange,
   dropTargets,
   activeDropId,
+  activeReorderTarget,
   pendingOverlay,
   activeOverlay,
 }: {
   onControlsChange: (controls: LauncherDndKitControls | null) => void
   dropTargets: LauncherDndKitDropTarget[]
   activeDropId: string | null
+  activeReorderTarget: LauncherDndKitDropTarget | null
   pendingOverlay: LauncherDndKitActiveDrag | null
   activeOverlay: LauncherDndKitActiveDrag | null
 }) {
@@ -215,16 +262,16 @@ function LauncherLibraryDndBridge({
   return (
     <>
       <LauncherDndKitDropTargetLayer targets={dropTargets} activeDropId={activeDropId} />
+      {activeReorderTarget && activeOverlay ? <LauncherReorderGhost target={activeReorderTarget} drag={activeOverlay} /> : null}
       {pendingOverlay ? <LauncherPendingDragPreview drag={pendingOverlay} /> : null}
-      <DragOverlay dropAnimation={null} zIndex={80}>
-        {activeOverlay ? <LauncherDragPreview source={activeOverlay.source} count={activeOverlay.modIds.length} /> : null}
-      </DragOverlay>
+      <LauncherActiveDragOverlay drag={activeOverlay} />
     </>
   )
 }
 
 export function LauncherLibraryDndScope({
   children,
+  sortingActive = false,
   resolveDraggedModIds,
   onAddModsToPack,
   onAssignModsToLibraryFolder,
@@ -232,8 +279,12 @@ export function LauncherLibraryDndScope({
   onRemoveModsFromLibraryFolders,
   onReleaseModsFromLibraryFolder,
   onMoveFolderToFolder,
+  onReorderRoot,
+  onReorderFolder,
+  onReorderChildMod,
 }: {
   children: ReactNode
+  sortingActive?: boolean
   resolveDraggedModIds: (modId: string) => string[]
   onAddModsToPack: (packId: string, modIds: string[]) => void
   onAssignModsToLibraryFolder: (folderId: string, modIds: string[]) => void
@@ -241,19 +292,37 @@ export function LauncherLibraryDndScope({
   onRemoveModsFromLibraryFolders: (modIds: string[]) => void
   onReleaseModsFromLibraryFolder: (modIds: string[]) => void
   onMoveFolderToFolder: (folderId: string, parentFolderId: string | null) => void
+  onReorderRoot: (fromKey: string, toAfterKey: string) => void
+  onReorderFolder: (folderId: string, fromKey: string, toAfterKey: string) => void
+  onReorderChildMod: (parentModKey: string, fromKey: string, toAfterKey: string) => void
 }) {
   const pendingDragRef = useRef<LauncherDndKitActiveDrag | null>(null)
   const activeDragRef = useRef<LauncherDndKitActiveDrag | null>(null)
-  const suppressClickRef = useRef<{ element: HTMLElement; expiresAt: number } | null>(null)
   const [pendingOverlay, setPendingOverlay] = useState<LauncherDndKitActiveDrag | null>(null)
   const [activeOverlay, setActiveOverlay] = useState<LauncherDndKitActiveDrag | null>(null)
   const [dropTargets, setDropTargets] = useState<LauncherDndKitDropTarget[]>([])
   const [activeDropId, setActiveDropId] = useState<string | null>(null)
+  const [activeReorderTarget, setActiveReorderTarget] = useState<LauncherDndKitDropTarget | null>(null)
   const [dndKitControls, setDndKitControls] = useState<LauncherDndKitControls | null>(null)
   const latestPointerRef = useRef<{ clientX: number; clientY: number } | null>(null)
   const dropTargetsRef = useRef<LauncherDndKitDropTarget[]>([])
   const activeDropIdRef = useRef<string | null>(null)
+  const releaseClickSuppressionTimeoutRef = useRef<number | null>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: LAUNCHER_LIBRARY_DRAG_START_DISTANCE_PX } }))
+  const sortingActiveRef = useRef(sortingActive)
+  useEffect(() => {
+    sortingActiveRef.current = sortingActive
+  }, [sortingActive])
+  const commitActiveDropTarget = useCallback((target: LauncherDndKitDropTarget | null) => {
+    const nextDropId = target?.dropId ?? null
+    const nextActiveDropId = target?.activeDropId ?? nextDropId
+    const isReorder = target?.kind === 'reorderRoot' || target?.kind === 'reorderFolder' || target?.kind === 'reorderParent'
+    activeDropIdRef.current = nextDropId
+    setActiveDropId((current) => (current === nextActiveDropId ? current : nextActiveDropId))
+    setActiveReorderTarget((current) =>
+      current?.dropId === nextDropId && isReorder === Boolean(current) ? current : isReorder ? target : null,
+    )
+  }, [])
   const measuring = useMemo(
     () => ({
       droppable: {
@@ -263,13 +332,27 @@ export function LauncherLibraryDndScope({
     [],
   )
 
+  const clearReleaseClickSuppression = useCallback(() => {
+    if (releaseClickSuppressionTimeoutRef.current !== null) {
+      window.clearTimeout(releaseClickSuppressionTimeoutRef.current)
+      releaseClickSuppressionTimeoutRef.current = null
+    }
+    delete document.body.dataset[LAUNCHER_LIBRARY_SUPPRESS_RELEASE_CLICK_DATA_KEY]
+  }, [])
+
+  const armReleaseClickSuppression = useCallback(() => {
+    clearReleaseClickSuppression()
+    document.body.dataset[LAUNCHER_LIBRARY_SUPPRESS_RELEASE_CLICK_DATA_KEY] = 'true'
+    releaseClickSuppressionTimeoutRef.current = window.setTimeout(clearReleaseClickSuppression, 80)
+  }, [clearReleaseClickSuppression])
+
   const activatePendingDrag = useCallback(() => {
     const drag = pendingDragRef.current
     if (!drag || activeDragRef.current) {
       return null
     }
-    const activeDrag = { ...drag, started: true }
-    const nextTargets = measureLauncherDndKitDropTargets(drag.sourceElement)
+    const activeDrag = { ...drag, started: true, shouldSuppressClick: true }
+    const nextTargets = measureLauncherDndKitDropTargets(drag.sourceElement, { reorderOnly: sortingActiveRef.current })
     activeDragRef.current = activeDrag
     pendingDragRef.current = null
     setPendingOverlay(null)
@@ -292,20 +375,46 @@ export function LauncherLibraryDndScope({
       activeDropIdRef.current = null
       setDropTargets([])
       setActiveDropId(null)
+      setActiveReorderTarget(null)
       drag?.sourceElement.classList.remove('launcher-library-card-grab-pending')
       document.body.classList.remove('launcher-library-dragging-active')
+      if (drag?.shouldSuppressClick) {
+        armReleaseClickSuppression()
+      }
       if (!drag || cancelled) {
         return
       }
       if (!drag.started) {
         return
       }
-      suppressClickRef.current = { element: drag.sourceElement, expiresAt: Date.now() + 500 }
 
       const effectiveOverId = overDropId ?? null
       const modIds = drag.source.kind === 'mod' ? drag.modIds : []
       const folderDragId = drag.source.kind === 'folder' ? drag.source.folderId : null
       const originFolderId = drag.source.kind === 'mod' ? drag.source.originFolderId : null
+      const fromKey = drag.source.kind === 'folder' ? `f:${drag.source.folderId}` : `m:${drag.source.modKey}`
+      const reorderPayload = effectiveOverId ? getLauncherReorderPayloadFromDropId(effectiveOverId) : null
+
+      if (reorderPayload && effectiveOverId?.startsWith(LAUNCHER_LIBRARY_REORDER_ROOT_PREFIX)) {
+        onReorderRoot(fromKey, reorderPayload.afterKey)
+        return
+      }
+      if (reorderPayload && effectiveOverId?.startsWith(LAUNCHER_LIBRARY_REORDER_FOLDER_PREFIX)) {
+        const folderId = reorderPayload.containerKey.startsWith('folder:')
+          ? reorderPayload.containerKey.slice('folder:'.length)
+          : reorderPayload.containerKey
+        onReorderFolder(folderId, fromKey, reorderPayload.afterKey)
+        return
+      }
+      if (
+        reorderPayload &&
+        effectiveOverId?.startsWith(LAUNCHER_LIBRARY_REORDER_PARENT_PREFIX) &&
+        drag.source.kind === 'mod' &&
+        drag.source.originParentKey
+      ) {
+        onReorderChildMod(drag.source.originParentKey, fromKey, reorderPayload.afterKey)
+        return
+      }
       const targetFolderBlankId = effectiveOverId?.startsWith(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX)
         ? effectiveOverId.slice(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX.length)
         : null
@@ -349,25 +458,33 @@ export function LauncherLibraryDndScope({
       onAddModsToPack,
       onAssignModsToLibraryFolder,
       onMoveFolderToFolder,
+      onReorderChildMod,
+      onReorderFolder,
+      onReorderRoot,
       onRemoveChildModsFromParent,
       onRemoveModsFromLibraryFolders,
       onReleaseModsFromLibraryFolder,
+      armReleaseClickSuppression,
     ],
   )
 
-  const suppressClickAfterDrag = useCallback((event: MouseEvent<HTMLElement>) => {
-    const suppressClick = suppressClickRef.current
-    if (!suppressClick || Date.now() > suppressClick.expiresAt) {
-      suppressClickRef.current = null
-      return
+  useEffect(() => {
+    const suppressDocumentClickAfterDrag = (event: globalThis.MouseEvent) => {
+      if (
+        !document.body.classList.contains('launcher-library-dragging-active') &&
+        document.body.dataset[LAUNCHER_LIBRARY_SUPPRESS_RELEASE_CLICK_DATA_KEY] !== 'true'
+      ) {
+        return
+      }
+      clearReleaseClickSuppression()
+      event.preventDefault()
+      event.stopPropagation()
+      event.stopImmediatePropagation()
     }
-    if (event.currentTarget !== suppressClick.element) {
-      return
-    }
-    suppressClickRef.current = null
-    event.preventDefault()
-    event.stopPropagation()
-  }, [])
+
+    document.addEventListener('click', suppressDocumentClickAfterDrag, { capture: true })
+    return () => document.removeEventListener('click', suppressDocumentClickAfterDrag, { capture: true })
+  }, [clearReleaseClickSuppression])
 
   const startPointerDrag = useCallback(
     (source: LauncherPointerDragSource, event: PointerEvent<HTMLElement>) => {
@@ -394,6 +511,7 @@ export function LauncherLibraryDndScope({
         latestX: event.clientX,
         latestY: event.clientY,
         started: false,
+        shouldSuppressClick: false,
         modIds,
       }
       pendingDragRef.current = drag
@@ -414,7 +532,7 @@ export function LauncherLibraryDndScope({
       if (distance < LAUNCHER_LIBRARY_DRAG_START_DISTANCE_PX) {
         return
       }
-      const nextDrag = { ...drag, latestX: event.clientX, latestY: event.clientY }
+      const nextDrag = { ...drag, latestX: event.clientX, latestY: event.clientY, shouldSuppressClick: true }
       pendingDragRef.current = nextDrag
       nextDrag.sourceElement.classList.add('launcher-library-card-grab-pending')
       document.body.classList.add('launcher-library-dragging-active')
@@ -424,11 +542,12 @@ export function LauncherLibraryDndScope({
       window.requestAnimationFrame(() => {
         if (pendingDragRef.current || activeDragRef.current) {
           setDropTargets((current) => {
-            const nextTargets = current.length ? current : measureLauncherDndKitDropTargets(nextDrag.sourceElement)
+            const nextTargets = current.length
+              ? current
+              : measureLauncherDndKitDropTargets(nextDrag.sourceElement, { reorderOnly: sortingActiveRef.current })
             const target = getLauncherDropTargetAtPoint(nextTargets, pointerX, pointerY, nextDrag.source)
             dropTargetsRef.current = nextTargets
-            activeDropIdRef.current = target?.dropId ?? null
-            setActiveDropId((activeDropId) => (activeDropId === (target?.dropId ?? null) ? activeDropId : (target?.dropId ?? null)))
+            commitActiveDropTarget(target)
             return nextTargets
           })
         }
@@ -476,8 +595,7 @@ export function LauncherLibraryDndScope({
       const drag = activeDragRef.current ?? pendingDragRef.current
       const target = getLauncherDropTargetAtPoint(dropTargets, event.clientX, event.clientY, drag?.source)
       latestPointerRef.current = { clientX: event.clientX, clientY: event.clientY }
-      activeDropIdRef.current = target?.dropId ?? null
-      setActiveDropId((current) => (current === (target?.dropId ?? null) ? current : (target?.dropId ?? null)))
+      commitActiveDropTarget(target)
     }
 
     window.addEventListener('pointermove', updateActiveDropTargetFromPointer, { passive: true })
@@ -521,25 +639,26 @@ export function LauncherLibraryDndScope({
       window.removeEventListener('pointercancel', handleWindowBlur)
       window.removeEventListener('blur', handleWindowBlur)
       finishPointerDrag(true)
+      clearReleaseClickSuppression()
     }
-  }, [finishPointerDrag, getDropIdAtLatestPointer])
+  }, [clearReleaseClickSuppression, finishPointerDrag, getDropIdAtLatestPointer])
 
   return (
     <LauncherPointerDragContext.Provider
       value={useMemo(
         () => ({
           startPointerDrag,
-          suppressClickAfterDrag,
           handleDndPointerDown: (event: PointerEvent<HTMLElement>) => dndKitControls?.handleDndPointerDown(event),
           setDraggableActivatorNodeRef: (node: HTMLElement | null) => {
             dndKitControls?.setDraggableActivatorNodeRef(node)
           },
         }),
-        [dndKitControls, startPointerDrag, suppressClickAfterDrag],
+        [dndKitControls, startPointerDrag],
       )}
     >
       {children}
       <DndContext
+        autoScroll={false}
         sensors={sensors}
         measuring={measuring}
         collisionDetection={pointerWithin}
@@ -551,6 +670,7 @@ export function LauncherLibraryDndScope({
           onControlsChange={setDndKitControls}
           dropTargets={dropTargets}
           activeDropId={activeDropId}
+          activeReorderTarget={activeReorderTarget}
           pendingOverlay={pendingOverlay}
           activeOverlay={activeOverlay}
         />
