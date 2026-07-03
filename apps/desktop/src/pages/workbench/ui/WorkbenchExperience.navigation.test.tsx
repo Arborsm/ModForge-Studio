@@ -5,6 +5,8 @@ import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { LocaleProvider } from '@locales/localeContext'
 import type { AppEvent, WorkbenchViewRegistration } from '@shared/contracts'
 import type { CpMakerDraft } from '@shared/contracts'
+import type { ModWorkspaceGuardHandle } from './WorkbenchModPreviewRuntime'
+import { validateGameDirectory } from '@entities/game/api'
 
 const applyAppUiStatePatchSpy = vi.hoisted(() => vi.fn(() => Promise.resolve()))
 
@@ -43,6 +45,12 @@ const useCpMakerState = vi.hoisted(() => ({
     lastExportedAt: number | null
   }>,
 }))
+const modPreviewState = vi.hoisted(() => ({
+  dirty: false,
+  pending: false,
+  requested: false,
+}))
+const mapRuntimeRenderSpy = vi.hoisted(() => vi.fn())
 
 vi.mock('@features/cp-maker', async () => {
   const actual = await vi.importActual<typeof import('@features/cp-maker')>('@features/cp-maker')
@@ -56,6 +64,63 @@ vi.mock('@features/cp-maker', async () => {
       isDirty: false,
       loadDraft: loadDraftSpy,
     }),
+  }
+})
+
+vi.mock('@entities/game/api', () => ({
+  detectDefaultGameDirectory: vi.fn().mockResolvedValue(null),
+  listKnownGameDirectories: vi.fn().mockResolvedValue([]),
+  scanMaps: vi.fn().mockResolvedValue([]),
+  validateGameDirectory: vi.fn(),
+}))
+
+const validateGameDirectoryMock = vi.mocked(validateGameDirectory)
+
+vi.mock('./WorkbenchPreviewRuntime', () => ({
+  WorkbenchPreviewRuntime: ({ workspaceMode }: { workspaceMode: string }) => (
+    <div>{workspaceMode === 'map' ? 'Viewport' : `${workspaceMode} preview`}</div>
+  ),
+}))
+
+vi.mock('./WorkbenchMapPreviewRuntime', () => ({
+  WorkbenchMapPreviewRuntime: (props: { active: boolean; visible: boolean }) => {
+    mapRuntimeRenderSpy({
+      active: props.active,
+      visible: props.visible,
+    })
+    return props.visible ? <div>Viewport</div> : null
+  },
+}))
+
+vi.mock('./WorkbenchModPreviewRuntime', async () => {
+  const { useEffect } = await vi.importActual<typeof import('react')>('react')
+  return {
+    WorkbenchModPreviewRuntime: ({
+      onGuardHandleChange,
+    }: {
+      onGuardHandleChange: (
+        update: ModWorkspaceGuardHandle | null | ((current: ModWorkspaceGuardHandle | null) => ModWorkspaceGuardHandle | null),
+      ) => void
+    }) => {
+      useEffect(() => {
+        if (!modPreviewState.dirty) {
+          onGuardHandleChange(null)
+          return
+        }
+
+        onGuardHandleChange({
+          hasUnsavedChanges: true,
+          hasPendingUnsavedDecision: modPreviewState.pending,
+          requestUnsavedChangeDecision: async () => {
+            modPreviewState.requested = true
+            modPreviewState.pending = true
+            return false
+          },
+        })
+      }, [onGuardHandleChange])
+
+      return <div>Mods preview</div>
+    },
   }
 })
 
@@ -131,8 +196,13 @@ describe('WorkbenchExperience launchpad navigation', () => {
   beforeEach(() => {
     useCpMakerState.activeDraft = null
     useCpMakerState.drafts = []
+    modPreviewState.dirty = false
+    modPreviewState.pending = false
+    modPreviewState.requested = false
     loadDraftSpy.mockClear()
+    mapRuntimeRenderSpy.mockClear()
     applyAppUiStatePatchSpy.mockClear()
+    validateGameDirectoryMock.mockReset()
   })
 
   it('opens the launchpad by default without restoring the previous workspace page', () => {
@@ -149,6 +219,25 @@ describe('WorkbenchExperience launchpad navigation', () => {
     expect(screen.getAllByText('Game directory').length).toBeGreaterThan(0)
   })
 
+  it('mounts the map resource runtime at the workbench level before the map page is visible', () => {
+    renderExperience()
+
+    expect(mapRuntimeRenderSpy).toHaveBeenCalledWith({ active: true, visible: false })
+    expect(screen.queryByText('Viewport')).toBeNull()
+  })
+
+  it('keeps home active instead of project manager while the launchpad is open', () => {
+    renderExperience()
+
+    const home = screen.getByRole('button', { name: 'Home' })
+    const projectManager = screen.getByRole('button', { name: 'Project Manager' })
+
+    expect(home).toHaveAttribute('aria-current', 'page')
+    expect(home).toHaveClass('workbench-dock-item-active')
+    expect(projectManager).not.toHaveAttribute('aria-current')
+    expect(projectManager).not.toHaveClass('workbench-dock-item-active')
+  })
+
   it('opens root browse pages in preview mode from the launchpad', async () => {
     renderExperience()
 
@@ -160,6 +249,118 @@ describe('WorkbenchExperience launchpad navigation', () => {
     })
     expect(screen.getByText('Viewport')).toBeTruthy()
     expect(screen.queryByText('studio-desk')).toBeNull()
+  })
+
+  it('closes the launchpad when switching back to launcher mode', () => {
+    const onSwitchToLauncher = vi.fn()
+
+    renderWithLocale(
+      <WorkbenchExperience
+        pendingWorkbenchIntent={null}
+        onClearPendingIntent={vi.fn()}
+        active
+        appUiStateReady
+        theme="light"
+        locale="en-US"
+        accentColor="#2278f2"
+        desktopHost={false}
+        onToggleTheme={vi.fn()}
+        onSwitchToLauncher={onSwitchToLauncher}
+        onOpenSettings={vi.fn()}
+        onMinimizeWindow={vi.fn()}
+        onToggleMaximizeWindow={vi.fn()}
+        onCloseWindow={vi.fn()}
+        onWorkbenchEvent={vi.fn()}
+        getWorkbenchViewRegistration={(viewId) => viewRegistration(viewId)}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Launcher' }))
+
+    expect(onSwitchToLauncher).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('dialog', { name: 'Workbench Navigation' })).toBeNull()
+  })
+
+  it('guards game directory validation before committing a new root while mod preview has unsaved edits', async () => {
+    modPreviewState.dirty = true
+    renderExperience()
+
+    const dialog = screen.getByRole('dialog', { name: 'Workbench Navigation' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Translation Browser' }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Workbench Navigation' })).toBeNull()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Project' }))
+    fireEvent.change(screen.getByPlaceholderText('Select the Stardew Valley install folder'), {
+      target: { value: '/tmp/Stardew Valley' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Scan and Load Resources' }))
+
+    await waitFor(() => {
+      expect(modPreviewState.requested).toBe(true)
+    })
+    expect(validateGameDirectoryMock).not.toHaveBeenCalled()
+  })
+
+  it('forces close on a repeated close request after the unsaved guard is already pending', async () => {
+    modPreviewState.dirty = true
+    const onCloseWindow = vi.fn()
+    let closeHandler: () => void = () => {
+      throw new Error('Window close handler was not registered.')
+    }
+
+    renderWithLocale(
+      <WorkbenchExperience
+        pendingWorkbenchIntent={null}
+        onClearPendingIntent={vi.fn()}
+        active
+        appUiStateReady
+        theme="light"
+        locale="en-US"
+        accentColor="#2278f2"
+        desktopHost={false}
+        onToggleTheme={vi.fn()}
+        onSwitchToLauncher={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onMinimizeWindow={vi.fn()}
+        onToggleMaximizeWindow={vi.fn()}
+        onCloseWindow={onCloseWindow}
+        onWindowCloseRequestChange={(handler) => {
+          closeHandler =
+            handler ??
+            (() => {
+              throw new Error('Window close handler was cleared.')
+            })
+        }}
+        onWorkbenchEvent={vi.fn()}
+        getWorkbenchViewRegistration={(viewId) => viewRegistration(viewId)}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(closeHandler).toBeTypeOf('function')
+    })
+
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: 'Workbench Navigation' })).getByRole('button', { name: 'Translation Browser' }),
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Mods preview')).toBeTruthy()
+    })
+
+    closeHandler()
+
+    await waitFor(() => {
+      expect(modPreviewState.requested).toBe(true)
+    })
+    expect(onCloseWindow).not.toHaveBeenCalled()
+
+    closeHandler()
+
+    expect(onCloseWindow).toHaveBeenCalledTimes(1)
   })
 
   it('keeps the project page locked while no project is active', () => {
@@ -297,5 +498,8 @@ describe('WorkbenchExperience launchpad navigation', () => {
       expect(screen.queryByRole('dialog', { name: 'Workbench Navigation' })).toBeNull()
     })
     expect(screen.getByText('Resource Browser Lab')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Project Manager' })).not.toHaveAttribute('aria-current')
+    expect(screen.getByRole('button', { name: 'Project Manager' })).not.toHaveClass('workbench-dock-item-active')
+    expect(screen.getByRole('button', { name: '资源浏览器' })).toHaveAttribute('aria-current', 'page')
   })
 })

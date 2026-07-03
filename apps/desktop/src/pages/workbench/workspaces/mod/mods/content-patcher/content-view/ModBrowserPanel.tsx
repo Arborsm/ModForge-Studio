@@ -19,7 +19,7 @@ type ModBrowserPanelProps = {
   onRefreshProjects: () => void
 }
 
-function getPluginKindBadge(project: ModProjectSummary) {
+function getPluginKindBadge(project: ModProjectSummary, copy: ReturnType<typeof useModWorkspaceCopy>) {
   if (project.pluginKind === 'content-patcher') {
     return {
       label: 'Content Patcher',
@@ -29,7 +29,7 @@ function getPluginKindBadge(project: ModProjectSummary) {
   }
 
   return {
-    label: 'Unknown',
+    label: copy.unknownLabel,
     className: 'border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_88%,transparent)] text-[var(--text-primary)]',
   }
 }
@@ -58,7 +58,7 @@ function ProjectRow({
   onSelect: () => void
 }) {
   const copy = useModWorkspaceCopy()
-  const pluginKindBadge = getPluginKindBadge(project)
+  const pluginKindBadge = getPluginKindBadge(project, copy)
   const statusBadge = getProjectStatusBadge(project, copy)
   const isIncompatible = project.status === 'incompatible'
 
@@ -143,7 +143,7 @@ export function ModBrowserPanel({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold tracking-[0.16em] text-[var(--text-tertiary)] uppercase">{copy.browserTitle}</p>
-            <h2 className="mt-2 text-lg font-semibold text-[var(--text-primary)]">Get Started</h2>
+            <h2 className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{copy.browserQuickStartTitle}</h2>
           </div>
           <div className="grid shrink-0 gap-2 sm:grid-cols-2">
             <button type="button" className="control-button control-button-primary" onClick={onImportProject}>
@@ -215,14 +215,12 @@ export function ModBrowserPanel({
       <section className="panel-surface min-h-0 flex-1 p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold tracking-[0.16em] text-[var(--text-tertiary)] uppercase">Project Library</p>
+            <p className="text-[11px] font-semibold tracking-[0.16em] text-[var(--text-tertiary)] uppercase">{copy.browserLibraryTitle}</p>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              {filteredProjects.length
-                ? 'Choose one project to open it in the workspace.'
-                : 'Import a mod or refresh the scan to populate the workspace list.'}
+              {filteredProjects.length ? copy.browserLibraryHasProjectsDescription : copy.browserLibraryEmptyDescription}
             </p>
           </div>
-          {activeProjectPath ? <span className="dock-chip">Active</span> : null}
+          {activeProjectPath ? <span className="dock-chip">{copy.browserLibraryActive}</span> : null}
         </div>
 
         <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-auto pr-1">
@@ -239,10 +237,8 @@ export function ModBrowserPanel({
           ) : (
             <div className="panel-empty-state flex min-h-48 items-center justify-center text-center">
               <div>
-                <p className="text-base font-semibold text-[var(--text-primary)]">No projects yet</p>
-                <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-                  Import a mod or refresh the scan to populate the workspace list.
-                </p>
+                <p className="text-base font-semibold text-[var(--text-primary)]">{copy.browserLibraryEmptyTitle}</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{copy.browserLibraryEmptyDescription}</p>
               </div>
             </div>
           )}

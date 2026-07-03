@@ -14,6 +14,7 @@ mod infrastructure;
 mod test_support;
 
 #[test]
+#[ignore = "manual regression against installed Stardew Content (unpacked) data"]
 fn loads_structured_text_assets_via_unpacked_json_fallback() {
     let game_root = test_support::resolve_game_root();
     assert!(

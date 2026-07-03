@@ -1,34 +1,21 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkspaceLayoutHandle, WorkspacePanelMeta } from '@shared/contracts'
-import {
-  editorCopy,
-  getWorldAtlasViewLabel,
-  type AppMode,
-  type LocaleCode,
-  type ThemeMode,
-  type WorkspaceMode,
-} from '@locales/editor-shell'
-import { localeBundles } from '@locales'
-import { useEventWorkspace } from '../workspaces/event-stage'
-import { useMapWorkspace } from '../workspaces/map'
-import { useCharacterWorkspace } from '../workspaces/character'
-import { useBuildingWorkspace } from '../workspaces/building/state/useBuildingWorkspace'
-import { useItemWorkspace } from '../workspaces/item'
+import { editorCopy, getModWorkspaceCopy, type AppMode, type LocaleCode, type ThemeMode, type WorkspaceMode } from '@locales/editor-shell'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
-import { useModWorkspace } from '../workspaces/mod'
+import { WorkspaceDecisionDialog } from '../workspaces/mod'
 import type { ModI18nStatusFilter } from '../workspaces/mod-i18n'
 import { useCpMaker, getEditModeRoute, buildStudioDeskModel } from '@features/cp-maker'
-import { buildWorkspacePanels } from '../model/workspace-panels/buildWorkspacePanels'
 import StatusBar from '@widgets/status-bar'
 import TopMenuBar from '@widgets/top-navigation'
 import '../model/builtInWorkspaces'
 import { scheduleDeferred } from '@shared/lib/react'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state'
 import type { SettingsWindowCategory } from '@shared/contracts'
-import { listKnownGameDirectories } from '@entities/game/api'
 import type { AppEvent, PendingWorkbenchCommandIntent, WorkbenchViewRegistration } from '@shared/contracts'
 import InitializationOverlay from './InitializationOverlay'
-import { WorkbenchLayoutHost } from './WorkbenchLayoutHost'
+import { WorkbenchMapPreviewRuntime, type MapPreviewStatusSnapshot } from './WorkbenchMapPreviewRuntime'
+import { WorkbenchPreviewRuntime, type PreviewStatusSnapshot } from './WorkbenchPreviewRuntime'
+import { WorkbenchModPreviewRuntime, type ModPreviewStatusSnapshot, type ModWorkspaceGuardHandle } from './WorkbenchModPreviewRuntime'
 import WorkbenchLaunchpadNavigation from './WorkbenchLaunchpadNavigation'
 import { WorkbenchViewHost } from './WorkbenchViewHost'
 import { useEditModeNavigation } from '../model/useEditModeNavigation'
@@ -37,10 +24,23 @@ import { useWorkspaceLayoutPersistence } from '../model/useWorkspaceLayoutPersis
 import { useWorkbenchModeTransitions } from '../model/useWorkbenchModeTransitions'
 import { useWorkbenchCommandIntent } from '../model/workbenchCommandIntent'
 import { useWorkbenchStatus } from '../model/useWorkbenchStatus'
+import { useWorkbenchGameDirectory } from '../model/useWorkbenchGameDirectory'
 import { LoadingMotionFallback, LoadingMotionReveal } from '@shared/ui/loading-motion'
+import type { ResourcePreloadState, WorkspaceStatus } from '@shared/contracts'
 
 const PlayerAppearanceWindow = lazy(() => import('./PlayerAppearanceWindow'))
 const RESOURCE_PRELOAD_NOTIFICATION_ID = 'app-resource-preload'
+const EMPTY_RESOURCE_PRELOAD_STATE: ResourcePreloadState = {
+  active: false,
+  message: '',
+  completed: 0,
+  total: 0,
+  currentLabel: '',
+}
+const EMPTY_WORKSPACE_STATUS: WorkspaceStatus = {
+  tone: 'idle',
+  message: '',
+}
 
 type IdleDeadlineLike = {
   didTimeout: boolean
@@ -67,6 +67,7 @@ type WorkbenchExperienceProps = {
   onMinimizeWindow: () => void
   onToggleMaximizeWindow: () => void
   onCloseWindow: () => void
+  onWindowCloseRequestChange?: (handler: (() => void) | null) => void
   onWorkbenchEvent: (event: AppEvent) => void
   getWorkbenchViewRegistration: (viewId: string) => WorkbenchViewRegistration | null
   workbenchViews?: readonly WorkbenchViewRegistration[]
@@ -88,6 +89,7 @@ export default function WorkbenchExperience({
   onMinimizeWindow,
   onToggleMaximizeWindow,
   onCloseWindow,
+  onWindowCloseRequestChange,
   onWorkbenchEvent,
   getWorkbenchViewRegistration,
   workbenchViews = [],
@@ -96,10 +98,9 @@ export default function WorkbenchExperience({
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('mods')
   const [workspaceViewMode, setWorkspaceViewMode] = useState<'edit' | 'preview'>('edit')
   const [deferredHeavyWorkspaceMode, setDeferredHeavyWorkspaceMode] = useState<WorkspaceMode | null>(null)
-  const [knownGameDirectories, setKnownGameDirectories] = useState<string[]>([])
   const [projectOverlayOpen, setProjectOverlayOpen] = useState(false)
   const [closedWorkbenchLaunchpadKey, setClosedWorkbenchLaunchpadKey] = useState<number | null>(null)
-  const [devWorkbenchViewId, setDevWorkbenchViewId] = useState<string | null>(null)
+  const [registeredWorkbenchViewId, setRegisteredWorkbenchViewId] = useState<string | null>(null)
   const [modI18nSourceLocale, setModI18nSourceLocale] = useState('default')
   const [modI18nTargetLocale, setModI18nTargetLocale] = useState('zh-CN')
   const [modI18nQuery, setModI18nQuery] = useState('')
@@ -117,14 +118,17 @@ export default function WorkbenchExperience({
   })
   const [studioDeskGalleryOpen, setStudioDeskGalleryOpen] = useState(true)
   const [studioDeskCreateDialogOpenSignal, setStudioDeskCreateDialogOpenSignal] = useState(0)
+  const [pendingCpMakerUnsavedAction, setPendingCpMakerUnsavedAction] = useState<(() => void | Promise<void>) | null>(null)
+  const [cpMakerUnsavedSaving, setCpMakerUnsavedSaving] = useState(false)
+  const [cpMakerUnsavedError, setCpMakerUnsavedError] = useState<string | null>(null)
 
   const storedRecentGameDirectories = getAppUiStateSnapshot()?.appearance.recentGameDirectories ?? []
   const [viewMenuPanelItems, setViewMenuPanelItems] = useState<WorkspacePanelMeta[]>([])
   const [viewMenuPresetNames, setViewMenuPresetNames] = useState<string[]>([])
-  const [currentEventCommandId, setCurrentEventCommandId] = useState<string | null>(null)
   const [playerAppearanceWindowOpen, setPlayerAppearanceWindowOpen] = useState(false)
   const [playerAppearanceWindowNonce, setPlayerAppearanceWindowNonce] = useState(0)
   const workspaceLayoutRef = useRef<WorkspaceLayoutHandle | null>(null)
+  const closeGuardArmedRef = useRef(false)
   const {
     playerAppearanceProfiles,
     activePlayerAppearanceProfileId,
@@ -138,6 +142,20 @@ export default function WorkbenchExperience({
   } = usePlayerAppearanceState(appUiStateReady, locale)
 
   const copy = editorCopy[locale]
+  const {
+    gameDirectory,
+    setGameDirectory,
+    directoryInfo,
+    knownGameDirectories,
+    directoryStatus,
+    handleDirectoryInvalid,
+    validateCurrentDirectory,
+    chooseDirectory,
+  } = useWorkbenchGameDirectory({
+    active,
+    desktopHost,
+    copy,
+  })
   const workbenchLaunchpadOpen = closedWorkbenchLaunchpadKey !== workbenchActivationKey
   const setWorkbenchLaunchpadOpen = useCallback(
     (open: boolean) => {
@@ -225,234 +243,155 @@ export default function WorkbenchExperience({
     workspaceMode,
   )
 
-  const {
-    workspaceStatus,
-    resourcePreloadState,
-    gameDirectory,
-    setGameDirectory,
-    directoryInfo,
-    mapAssets,
-    filteredAssets,
-    browserSourceMode: mapBrowserSourceMode,
-    setBrowserSourceMode: setMapBrowserSourceMode,
-    modMapGroups,
-    activeModMapSelectionId,
-    activeMapModSources,
-    activeMapId,
-    activeAsset,
-    assetFilter,
-    setAssetFilter,
-    mapDocument,
-    worldAtlasViews,
-    activeWorldAtlasViewId,
-    workspaceTabs,
-    activeTabId,
-    hoverInfo,
-    setHoverInfo,
-    visibleLayerIds,
-    visibleObjectGroupIds,
-    focusedObjectTarget,
-    showGameWorldAdditions,
-    setShowGameWorldAdditions,
-    worldOverlaySprites,
-    worldOverlayTextureAssets,
-    worldAtlasDocument,
-    openMap,
-    handleOpenModMapAsset,
-    handleSelectWorldAtlasView,
-    handleSelectWorkspaceTab,
-    handleCloseWorkspaceTab,
-    handleReorderWorkspaceTabs,
-    handleOpenAtlasTarget,
-    handleScanAndOpenTown,
-    handleChooseDirectory,
-    toggleLayer,
-    toggleObjectGroup,
-    setAllLayers,
-    setAllObjectGroups,
-    focusObject,
-  } = useMapWorkspace({
-    copy,
-    locale,
-    desktopHost,
-    getWorldAtlasViewLabel,
+  const [mapPreviewSnapshot, setMapPreviewSnapshot] = useState<MapPreviewStatusSnapshot>({
+    workspaceStatus: EMPTY_WORKSPACE_STATUS,
+    resourcePreloadState: EMPTY_RESOURCE_PRELOAD_STATE,
+    mapAssets: [],
+    activeAsset: null,
+    mapDocument: null,
+    worldAtlasDocument: null,
+    hoverInfo: null,
   })
-
-  const {
-    eventAssets,
-    filteredEventAssets,
-    browserSourceMode: eventBrowserSourceMode,
-    setBrowserSourceMode: setEventBrowserSourceMode,
-    modEventGroups,
-    activeModEventSelectionId,
-    activeEventModSources,
-    eventAssetFilter,
-    setEventAssetFilter,
-    activeEventAssetId,
-    parsedEventAsset,
-    selectedEventKey,
-    selectedEvent,
-    selectedTimelineEntryId,
-    setSelectedTimelineEntryId,
-    eventStatusMessage,
-    handleOpenEventAsset,
-    handleOpenModEventAsset,
-    handleSelectEvent,
-  } = useEventWorkspace({
-    copy,
-    locale,
-    directoryInfo,
+  const [previewStatusSnapshot, setPreviewStatusSnapshot] = useState<PreviewStatusSnapshot>({
+    workspaceStatus: EMPTY_WORKSPACE_STATUS,
+    resourcePreloadState: EMPTY_RESOURCE_PRELOAD_STATE,
+    eventCount: 0,
+    eventStatusMessage: '',
+    characterCount: 0,
+    characterStatusMessage: '',
+    buildingBrowserCount: 0,
+    buildingStatusMessage: '',
+    itemCount: 0,
+    itemStatusMessage: '',
+    selectedEvent: null,
+    parsedEventAsset: null,
+    selectedTimelineEntryId: '',
+    currentEventCommandId: null,
   })
-
-  const {
-    characters,
-    filteredCharacters,
-    browserSourceMode: characterBrowserSourceMode,
-    setBrowserSourceMode: setCharacterBrowserSourceMode,
-    modCharacterGroups,
-    activeModCharacterSelectionId,
-    activeCharacterModSources,
-    characterFilter,
-    setCharacterFilter,
-    activeCharacterId,
-    activeCharacter,
-    activeVariant: activeCharacterVariant,
-    characterStatusMessage,
-    assetState: activeCharacterAssetState,
-    handleSelectCharacter,
-    handleSelectModCharacter,
-    handleSelectVariant: handleSelectCharacterVariant,
-  } = useCharacterWorkspace({
-    directoryInfo,
-    locale,
-    copy: copy.charactersPanel,
-    enableVisualAssets: workspaceMode === 'characters' && deferredHeavyWorkspaceMode === 'characters',
+  const workspaceStatus = workspaceMode === 'map' ? mapPreviewSnapshot.workspaceStatus : previewStatusSnapshot.workspaceStatus
+  const currentModeResourcePreloadState =
+    workspaceMode === 'map' ? mapPreviewSnapshot.resourcePreloadState : previewStatusSnapshot.resourcePreloadState
+  const resourcePreloadState = mapPreviewSnapshot.resourcePreloadState.active
+    ? mapPreviewSnapshot.resourcePreloadState
+    : currentModeResourcePreloadState
+  const mapAssets = workspaceMode === 'map' ? mapPreviewSnapshot.mapAssets : []
+  const activeAsset = workspaceMode === 'map' ? mapPreviewSnapshot.activeAsset : null
+  const mapDocument = workspaceMode === 'map' ? mapPreviewSnapshot.mapDocument : null
+  const worldAtlasDocument = workspaceMode === 'map' ? mapPreviewSnapshot.worldAtlasDocument : null
+  const hoverInfo = workspaceMode === 'map' ? mapPreviewSnapshot.hoverInfo : null
+  const [modGuardHandle, setModGuardHandle] = useState<ModWorkspaceGuardHandle | null>(null)
+  const [modPreviewStatusSnapshot, setModPreviewStatusSnapshot] = useState<ModPreviewStatusSnapshot>({
+    diagnostics: [],
+    hasUnsavedChanges: false,
+    projectsCount: 0,
+    activeProjectDetail: null,
+    statusMessage: '',
   })
+  const modWorkspaceCopy = getModWorkspaceCopy(locale)
 
-  const {
-    constructibleGroups,
-    filteredConstructibleGroups,
-    worldBuildings,
-    filteredWorldBuildings,
-    browserSourceMode: buildingBrowserSourceMode,
-    setBrowserSourceMode: setBuildingBrowserSourceMode,
-    modBuildingGroups,
-    activeModBuildingSelectionId,
-    activeBuildingModSources,
-    buildingFilter,
-    setBuildingFilter,
-    activeBuildingId,
-    activeBuilding,
-    activeUpgradeChain,
-    buildingStatusMessage,
-    activeTextureState: activeBuildingTextureState,
-    activeChainTextureStates: activeBuildingChainTextureStates,
-    activeIndoorMapDocument: activeBuildingIndoorMapDocument,
-    activeIndoorMapPath: activeBuildingIndoorMapPath,
-    activeIndoorMapMessage: activeBuildingIndoorMapMessage,
-    activeExteriorMapDocument: activeBuildingExteriorMapDocument,
-    activeExteriorMapPath: activeBuildingExteriorMapPath,
-    activeExteriorMapMessage: activeBuildingExteriorMapMessage,
-    activeExteriorFocusPoint: activeBuildingExteriorFocusPoint,
-    springObjectsState: buildingSpringObjectsState,
-    handleSelectBuilding,
-    handleSelectModBuilding,
-  } = useBuildingWorkspace({
-    directoryInfo,
-    locale,
-    copy: copy.buildingsPanel,
-  })
+  const runWithModUnsavedGuard = useCallback(
+    async (action: () => void | Promise<void>) => {
+      if (!modGuardHandle) {
+        await action()
+        return true
+      }
 
-  const {
-    items,
-    filteredItems,
-    browserSourceMode: itemBrowserSourceMode,
-    setBrowserSourceMode: setItemBrowserSourceMode,
-    modItemGroups,
-    activeModItemSelectionId,
-    activeItemModSources,
-    itemFilter,
-    setItemFilter,
-    activeItemId,
-    activeItem,
-    itemLookup,
-    itemStatusMessage,
-    textureStatesByAssetName: itemTextureStatesByAssetName,
-    ensureTextureAssetStates: ensureItemTextureAssetStates,
-    handleSelectItem,
-    handleSelectModItem,
-  } = useItemWorkspace({
-    directoryInfo,
-    locale,
-    copy: copy.itemsPanel,
-  })
+      return modGuardHandle.requestUnsavedChangeDecision(action)
+    },
+    [modGuardHandle],
+  )
+  const handleWorkspaceChangeWithModGuard = useCallback(
+    (mode: WorkspaceMode) => {
+      if (mode === workspaceMode) {
+        handleWorkspaceChange(mode)
+        return
+      }
 
-  const {
-    copy: modWorkspaceCopy,
-    pluginDefinition: modPluginDefinition,
-    modProjects,
-    filteredModProjects,
-    modFilter,
-    setModFilter,
-    contentPatcherOnly,
-    setContentPatcherOnly,
-    compatibleOnly,
-    setCompatibleOnly,
-    activeProjectPath,
-    activeProject,
-    projectDetail: activeModProjectDetail,
-    manifestEditor: modManifestEditor,
-    contentEditor: modContentEditor,
-    contentSummary: modContentSummary,
-    diagnostics: modDiagnostics,
-    selectedPatchId: activeModPatchId,
-    setSelectedPatchId: setActiveModPatchId,
-    selectedPatch: activeModPatch,
-    patchWhenError: modPatchWhenError,
-    statusMessage: modStatusMessage,
-    hasUnsavedChanges: modHasUnsavedChanges,
-    canPersist: modCanPersist,
-    lastSaveResult: modLastSaveResult,
-    contentPatcherSnapshot,
-    contentPatcherSimulation,
-    contentPatcherResultAsset,
-    contentPatcherResultLoading,
-    contentPatcherResultError,
-    simulationContext,
-    i18nFiles: modI18nFiles,
-    setI18nFiles: setModI18nFiles,
-    navigatorMode,
-    setNavigatorMode,
-    selectedTargetPath,
-    setSelectedTargetPath,
-    scaleUpEditor,
-    handleSelectProject: handleSelectModProject,
-    handleImportProject: handleImportModProject,
-    handleRefreshProjects: handleRefreshModProjects,
-    handleManifestFieldChange: handleModManifestFieldChange,
-    handleManifestTextChange: handleModManifestTextChange,
-    handleContentTextChange: handleModContentTextChange,
-    handleAddPatch: handleAddModPatch,
-    handleRemoveSelectedPatch: handleRemoveModPatch,
-    handlePatchFieldChange: handleModPatchFieldChange,
-    handlePatchWhenChange: handleModPatchWhenChange,
-    handleSaveProject: handleSaveModProject,
-    handleExportProject: handleExportModProject,
-    handleSimulationContextChange,
-    handleOpenScaleUpEditor,
-    handleCloseScaleUpEditor,
-    handleScaleUpContentChange,
-  } = useModWorkspace({
-    directoryInfo,
-    locale,
-  })
-
+      runWithModUnsavedGuard(() => handleWorkspaceChange(mode))
+    },
+    [handleWorkspaceChange, runWithModUnsavedGuard, workspaceMode],
+  )
   const cpMaker = useCpMaker()
-  const modI18nCopy = localeBundles[locale].modI18n
+  const runWithCpMakerUnsavedGuard = useCallback(
+    async (action: () => void | Promise<void>) => {
+      if (!cpMaker.isDirty) {
+        await action()
+        return true
+      }
+
+      setCpMakerUnsavedError(null)
+      setPendingCpMakerUnsavedAction(() => action)
+      return false
+    },
+    [cpMaker.isDirty],
+  )
+  const handleWorkspaceViewModeChangeWithGuards = useCallback(
+    (mode: 'edit' | 'preview') => {
+      if (mode === workspaceViewMode) {
+        handleWorkspaceViewModeChange(mode)
+        return
+      }
+
+      void runWithModUnsavedGuard(() => {
+        void runWithCpMakerUnsavedGuard(() => {
+          handleWorkspaceViewModeChange(mode)
+        })
+      })
+    },
+    [handleWorkspaceViewModeChange, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard, workspaceViewMode],
+  )
+  const confirmCpMakerUnsavedSaveAndContinue = useCallback(async () => {
+    if (!pendingCpMakerUnsavedAction) {
+      return
+    }
+
+    setCpMakerUnsavedSaving(true)
+    setCpMakerUnsavedError(null)
+    try {
+      const saved = await cpMaker.saveDraft()
+      if (!saved) {
+        setCpMakerUnsavedError(cpMaker.draftError ?? modWorkspaceCopy.saveFailed)
+        return
+      }
+
+      const action = pendingCpMakerUnsavedAction
+      setPendingCpMakerUnsavedAction(null)
+      await action()
+    } catch (error) {
+      setCpMakerUnsavedError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setCpMakerUnsavedSaving(false)
+    }
+  }, [cpMaker, modWorkspaceCopy.saveFailed, pendingCpMakerUnsavedAction])
+  const confirmCpMakerUnsavedDiscardAndContinue = useCallback(async () => {
+    if (!pendingCpMakerUnsavedAction) {
+      return
+    }
+
+    const action = pendingCpMakerUnsavedAction
+    setPendingCpMakerUnsavedAction(null)
+    setCpMakerUnsavedError(null)
+    await action()
+  }, [pendingCpMakerUnsavedAction])
+  const cancelCpMakerUnsavedDecision = useCallback(() => {
+    if (cpMakerUnsavedSaving) {
+      return
+    }
+    setPendingCpMakerUnsavedAction(null)
+    setCpMakerUnsavedError(null)
+  }, [cpMakerUnsavedSaving])
+
+  useEffect(() => {
+    if (!modGuardHandle?.hasPendingUnsavedDecision && !pendingCpMakerUnsavedAction) {
+      closeGuardArmedRef.current = false
+    }
+  }, [modGuardHandle?.hasPendingUnsavedDecision, pendingCpMakerUnsavedAction])
   useWorkbenchCommandIntent({
     pendingIntent: pendingWorkbenchIntent,
     cpMaker,
-    setWorkspaceMode: (mode: string) => (setWorkspaceMode as (value: string) => void)(mode),
+    setWorkspaceMode: (mode: string) => setWorkspaceMode(mode as WorkspaceMode),
+    runWithModUnsavedGuard,
+    runWithCpMakerUnsavedGuard,
     setWorkspaceViewMode,
     navigateToPatch,
     clearPendingIntent: onClearPendingIntent,
@@ -469,7 +408,7 @@ export default function WorkbenchExperience({
       }),
     [cpMaker.activeDraft, cpMaker.drafts, cpMaker.patchCountByWorkspace, cpMaker.dirtyPatchIds, cpMaker.isDirty],
   )
-  const editModeRoute = devWorkbenchViewId ?? getEditModeRoute(workspaceMode, Boolean(cpMaker.activeDraft))
+  const editModeRoute = registeredWorkbenchViewId ?? getEditModeRoute(workspaceMode, Boolean(cpMaker.activeDraft))
   const editModeView = getWorkbenchViewRegistration(editModeRoute)
   const devWorkbenchViews = useMemo(
     () =>
@@ -478,44 +417,46 @@ export default function WorkbenchExperience({
             .filter((view) => view.devOnly)
             .map((view) => ({
               ...view,
-              active: view.viewId === devWorkbenchViewId,
+              active: view.viewId === registeredWorkbenchViewId,
             }))
             .slice()
             .sort((left, right) => (left.order ?? 0) - (right.order ?? 0))
         : [],
-    [devWorkbenchViewId, workbenchViews],
+    [registeredWorkbenchViewId, workbenchViews],
   )
 
-  const moduleBlueprint =
-    workspaceMode === 'map' || workspaceMode === 'events' || workspaceMode === 'mods' || workspaceMode === 'mod-i18n'
-      ? undefined
-      : copy.moduleBlueprints[workspaceMode]
-  const activeAssetName = mapDocument?.name ?? activeAsset?.name
   const needsInitialization = !directoryInfo
-  const interactionLocked = resourcePreloadState.active
-  const showProjectOverlay = !devWorkbenchViewId && (needsInitialization || projectOverlayOpen) && !interactionLocked
 
   const { currentWorkspaceStatus, recentGameDirectories, resourcePreloadProgress } = useWorkbenchStatus({
     workspaceMode,
     directoryInfoPresent: Boolean(directoryInfo),
     workspaceStatus,
-    eventCount: eventAssets.length,
-    eventStatusMessage,
-    characterCount: characters.length,
-    characterStatusMessage,
-    buildingBrowserCount: constructibleGroups.length + worldBuildings.length,
-    buildingStatusMessage,
-    itemCount: items.length,
-    itemStatusMessage,
-    modDiagnostics,
-    modHasUnsavedChanges,
-    modProjectsCount: modProjects.length,
-    activeModProjectDetail,
-    modStatusMessage,
+    eventCount: previewStatusSnapshot.eventCount,
+    eventStatusMessage: previewStatusSnapshot.eventStatusMessage,
+    characterCount: previewStatusSnapshot.characterCount,
+    characterStatusMessage: previewStatusSnapshot.characterStatusMessage,
+    buildingBrowserCount: previewStatusSnapshot.buildingBrowserCount,
+    buildingStatusMessage: previewStatusSnapshot.buildingStatusMessage,
+    itemCount: previewStatusSnapshot.itemCount,
+    itemStatusMessage: previewStatusSnapshot.itemStatusMessage,
+    modDiagnostics: modPreviewStatusSnapshot.diagnostics,
+    modHasUnsavedChanges: modPreviewStatusSnapshot.hasUnsavedChanges,
+    modProjectsCount: modPreviewStatusSnapshot.projectsCount,
+    activeModProjectDetail: modPreviewStatusSnapshot.activeProjectDetail,
+    modStatusMessage: modPreviewStatusSnapshot.statusMessage,
     resourcePreloadState,
     storedRecentGameDirectories,
     currentRootPath: directoryInfo?.rootPath ?? null,
   })
+  const interactionLocked = resourcePreloadState.active || directoryStatus.tone === 'working'
+  const showProjectOverlay = !registeredWorkbenchViewId && (needsInitialization || projectOverlayOpen)
+  const overlayStatus = directoryStatus.message || (currentWorkspaceStatus.tone === 'error' ? null : currentWorkspaceStatus.message)
+  const overlayError =
+    directoryStatus.tone === 'error'
+      ? directoryStatus.message
+      : currentWorkspaceStatus.tone === 'error'
+        ? currentWorkspaceStatus.message
+        : null
 
   useEffect(() => {
     if (!resourcePreloadState.active) {
@@ -554,26 +495,8 @@ export default function WorkbenchExperience({
   }, [cpMaker.activeDraft?.draftStorageKey, onWorkbenchEvent])
 
   useEffect(() => {
-    if (workspaceMode !== 'events' || !currentEventCommandId) {
-      return
-    }
-
-    workspaceLayoutRef.current?.setPanelVisibility('diagnostics', true)
-  }, [currentEventCommandId, workspaceMode])
-
-  useEffect(() => {
     resetNavigation()
   }, [resetNavigation, workspaceMode])
-
-  const modI18nLocales = useMemo(() => modI18nFiles.map((file) => file.locale), [modI18nFiles])
-  const normalizedModI18nSourceLocale = modI18nLocales.includes(modI18nSourceLocale)
-    ? modI18nSourceLocale
-    : modI18nLocales.includes('default')
-      ? 'default'
-      : (modI18nLocales[0] ?? 'default')
-  const normalizedModI18nTargetLocale = modI18nLocales.includes(modI18nTargetLocale)
-    ? modI18nTargetLocale
-    : (modI18nLocales.find((candidate) => candidate !== normalizedModI18nSourceLocale) ?? normalizedModI18nSourceLocale)
 
   const handleModI18nSourceLocaleChange = useCallback((nextLocale: string) => {
     setModI18nSourceLocale(nextLocale)
@@ -594,245 +517,10 @@ export default function WorkbenchExperience({
     })
   }, [appUiStateReady, recentGameDirectories])
 
-  useEffect(() => {
-    if (!desktopHost) {
-      return
-    }
-
-    let disposed = false
-
-    void listKnownGameDirectories()
-      .then((paths) => {
-        if (!disposed) {
-          setKnownGameDirectories(paths)
-        }
-      })
-      .catch(() => {
-        if (!disposed) {
-          setKnownGameDirectories([])
-        }
-      })
-
-    return () => {
-      disposed = true
-    }
-  }, [desktopHost])
-
   const openAppearanceWindow = useCallback(() => {
     setPlayerAppearanceWindowNonce((current) => current + 1)
     setPlayerAppearanceWindowOpen(true)
   }, [])
-  const [stageSeek, setStageSeek] = useState<((entryId: string) => void) | null>(null)
-  const registerStageSeek = useCallback((seekTimelineEntry: (entryId: string) => void) => {
-    setStageSeek(() => seekTimelineEntry)
-    return () => setStageSeek(null)
-  }, [])
-  const handleActivateTimelineEntry = useCallback(
-    (entryId: string) => {
-      stageSeek?.(entryId)
-    },
-    [stageSeek],
-  )
-
-  const workspacePanels = buildWorkspacePanels({
-    copy,
-    locale,
-    workspaceMode,
-    gameRootPath: directoryInfo?.rootPath ?? null,
-    directoryInfo,
-    mapAssets,
-    filteredAssets,
-    mapBrowserSourceMode,
-    onMapBrowserSourceModeChange: setMapBrowserSourceMode,
-    modMapGroups,
-    activeModMapSelectionId,
-    activeMapModSources,
-    activeMapId,
-    activeAssetName,
-    assetFilter,
-    onAssetFilterChange: setAssetFilter,
-    onOpenAsset: (asset) => void openMap(asset),
-    onOpenModAsset: handleOpenModMapAsset,
-    workspaceTabs,
-    activeTabId,
-    onSelectWorkspaceTab: handleSelectWorkspaceTab,
-    onCloseWorkspaceTab: handleCloseWorkspaceTab,
-    onReorderWorkspaceTabs: handleReorderWorkspaceTabs,
-    mapDocument,
-    worldAtlasViews,
-    activeWorldAtlasViewId,
-    onSelectWorldAtlasView: handleSelectWorldAtlasView,
-    onOpenAtlasTarget: handleOpenAtlasTarget,
-    theme,
-    accentColor,
-    visibleLayerIds,
-    onToggleLayer: toggleLayer,
-    onShowAllLayers: () => setAllLayers(true),
-    onHideAllLayers: () => setAllLayers(false),
-    visibleObjectGroupIds,
-    onToggleObjectGroup: toggleObjectGroup,
-    onShowAllObjectGroups: () => setAllObjectGroups(true),
-    onHideAllObjectGroups: () => setAllObjectGroups(false),
-    focusedObjectTarget,
-    showGameWorldAdditions,
-    onToggleGameWorldAdditions: () => setShowGameWorldAdditions((current) => !current),
-    worldOverlaySprites,
-    worldOverlayTextureAssets,
-    onFocusObject: focusObject,
-    onHoverChange: setHoverInfo,
-    workspaceStatus: currentWorkspaceStatus,
-    moduleBlueprint,
-    eventAssets,
-    filteredEventAssets,
-    eventBrowserSourceMode,
-    onEventBrowserSourceModeChange: setEventBrowserSourceMode,
-    modEventGroups,
-    activeModEventSelectionId,
-    activeEventModSources,
-    activeEventAssetId,
-    eventAssetFilter,
-    onEventAssetFilterChange: setEventAssetFilter,
-    onOpenEventAsset: handleOpenEventAsset,
-    onOpenModEventAsset: handleOpenModEventAsset,
-    parsedEventAsset,
-    selectedEventKey,
-    selectedEvent,
-    selectedTimelineEntryId,
-    currentEventCommandId,
-    eventStatusMessage,
-    onSelectEvent: handleSelectEvent,
-    onSelectTimelineEntry: setSelectedTimelineEntryId,
-    onActivateTimelineEntry: handleActivateTimelineEntry,
-    onPlaybackCommandChange: setCurrentEventCommandId,
-    onStageSeekReady: registerStageSeek,
-    activePlayerAppearanceProfile,
-    onOpenPlayerAppearanceWindow: openAppearanceWindow,
-    characters,
-    filteredCharacters,
-    characterBrowserSourceMode,
-    onCharacterBrowserSourceModeChange: setCharacterBrowserSourceMode,
-    modCharacterGroups,
-    activeModCharacterSelectionId,
-    activeCharacterModSources,
-    activeCharacterId,
-    activeCharacter,
-    activeCharacterVariant,
-    characterFilter,
-    characterStatusMessage,
-    activeCharacterAssetState,
-    onCharacterFilterChange: setCharacterFilter,
-    onSelectCharacter: handleSelectCharacter,
-    onSelectModCharacter: handleSelectModCharacter,
-    onSelectCharacterVariant: handleSelectCharacterVariant,
-    constructibleGroups,
-    filteredConstructibleGroups,
-    worldBuildings,
-    filteredWorldBuildings,
-    buildingBrowserSourceMode,
-    onBuildingBrowserSourceModeChange: setBuildingBrowserSourceMode,
-    modBuildingGroups,
-    activeModBuildingSelectionId,
-    activeBuildingModSources,
-    activeBuildingId,
-    activeBuilding,
-    activeUpgradeChain,
-    buildingFilter,
-    buildingStatusMessage,
-    activeBuildingTextureState,
-    activeBuildingChainTextureStates,
-    activeBuildingIndoorMapDocument,
-    activeBuildingIndoorMapPath,
-    activeBuildingIndoorMapMessage,
-    activeBuildingExteriorMapDocument,
-    activeBuildingExteriorMapPath,
-    activeBuildingExteriorMapMessage,
-    activeBuildingExteriorFocusPoint,
-    buildingSpringObjectsState,
-    onBuildingFilterChange: setBuildingFilter,
-    onSelectBuilding: handleSelectBuilding,
-    onSelectModBuilding: handleSelectModBuilding,
-    items,
-    filteredItems,
-    itemBrowserSourceMode,
-    onItemBrowserSourceModeChange: setItemBrowserSourceMode,
-    modItemGroups,
-    activeModItemSelectionId,
-    activeItemModSources,
-    activeItemId,
-    activeItem,
-    itemLookup,
-    itemFilter,
-    itemStatusMessage,
-    itemTextureStatesByAssetName,
-    ensureItemTextureAssetStates,
-    onItemFilterChange: setItemFilter,
-    onSelectItem: handleSelectItem,
-    onSelectModItem: handleSelectModItem,
-    modWorkspaceCopy,
-    modI18nCopy,
-    modPluginDefinition,
-    modProjects,
-    filteredModProjects,
-    activeProjectPath,
-    activeProject: activeProject ?? null,
-    modFilter,
-    contentPatcherOnly,
-    compatibleOnly,
-    onModFilterChange: setModFilter,
-    onContentPatcherOnlyChange: setContentPatcherOnly,
-    onCompatibleOnlyChange: setCompatibleOnly,
-    onSelectModProject: handleSelectModProject,
-    onImportModProject: () => void handleImportModProject(),
-    onRefreshModProjects: () => void handleRefreshModProjects(),
-    activeModProjectDetail,
-    modManifestEditor,
-    modContentEditor,
-    modContentSummary,
-    modDiagnostics,
-    activeModPatchId,
-    onSelectModPatch: setActiveModPatchId,
-    activeModPatch: activeModPatch ?? null,
-    modPatchWhenError,
-    modHasUnsavedChanges,
-    modCanPersist,
-    modStatusMessage,
-    modLastSaveResult: modLastSaveResult ?? null,
-    contentPatcherSnapshot,
-    contentPatcherSimulation,
-    contentPatcherResultAsset,
-    contentPatcherResultLoading,
-    contentPatcherResultError,
-    simulationContext,
-    modI18nFiles,
-    modI18nSourceLocale: normalizedModI18nSourceLocale,
-    modI18nTargetLocale: normalizedModI18nTargetLocale,
-    modI18nQuery,
-    modI18nStatusFilter,
-    onModI18nSourceLocaleChange: handleModI18nSourceLocaleChange,
-    onModI18nTargetLocaleChange: handleModI18nTargetLocaleChange,
-    onModI18nQueryChange: setModI18nQuery,
-    onModI18nStatusFilterChange: setModI18nStatusFilter,
-    onModI18nFilesChange: setModI18nFiles,
-    navigatorMode,
-    selectedTargetPath,
-    onNavigatorModeChange: setNavigatorMode,
-    scaleUpEditor,
-    onModManifestFieldChange: handleModManifestFieldChange,
-    onModManifestTextChange: handleModManifestTextChange,
-    onModContentTextChange: handleModContentTextChange,
-    onAddModPatch: handleAddModPatch,
-    onRemoveModPatch: handleRemoveModPatch,
-    onModPatchFieldChange: handleModPatchFieldChange,
-    onModPatchWhenChange: handleModPatchWhenChange,
-    onSaveModProject: () => void handleSaveModProject(),
-    onExportModProject: () => void handleExportModProject(),
-    onSimulationContextChange: handleSimulationContextChange,
-    onSelectTarget: setSelectedTargetPath,
-    onOpenScaleUp: handleOpenScaleUpEditor,
-    onScaleUpContentChange: handleScaleUpContentChange,
-    onCloseScaleUpEditor: handleCloseScaleUpEditor,
-    heavyWorkspaceReady: deferredHeavyWorkspaceMode === workspaceMode,
-  })
 
   const handleLayoutMetaChange = useCallback(({ panelItems, presetNames }: { panelItems: WorkspacePanelMeta[]; presetNames: string[] }) => {
     setViewMenuPanelItems((current) => {
@@ -865,68 +553,155 @@ export default function WorkbenchExperience({
   const handleAppModeChange = useCallback(
     (nextMode: AppMode) => {
       if (nextMode === 'launcher') {
-        onSwitchToLauncher()
+        void runWithModUnsavedGuard(() => {
+          void runWithCpMakerUnsavedGuard(() => {
+            setWorkbenchLaunchpadOpen(false)
+            onSwitchToLauncher()
+          })
+        })
       }
     },
-    [onSwitchToLauncher],
+    [onSwitchToLauncher, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard, setWorkbenchLaunchpadOpen],
   )
+
+  const handleCloseWindow = useCallback(() => {
+    if (closeGuardArmedRef.current) {
+      onCloseWindow()
+      return
+    }
+
+    closeGuardArmedRef.current = true
+    void runWithModUnsavedGuard(() => {
+      void runWithCpMakerUnsavedGuard(() => {
+        onCloseWindow()
+      })
+    })
+  }, [onCloseWindow, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard])
+
+  useEffect(() => {
+    if (!active) {
+      return
+    }
+
+    onWindowCloseRequestChange?.(handleCloseWindow)
+    return () => onWindowCloseRequestChange?.(null)
+  }, [active, handleCloseWindow, onWindowCloseRequestChange])
+
+  useEffect(() => {
+    if (!modGuardHandle?.hasUnsavedChanges && !cpMaker.isDirty) {
+      return
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [cpMaker.isDirty, modGuardHandle?.hasUnsavedChanges])
 
   const handleOpenRootWorkspace = useCallback(
     (mode: WorkspaceMode) => {
-      setDevWorkbenchViewId(null)
       if (mode === 'mods') {
+        setRegisteredWorkbenchViewId(null)
         handleWorkspaceChange(mode)
         return
       }
 
-      setWorkspaceViewMode('preview')
-      setWorkspaceMode(mode)
+      runWithModUnsavedGuard(() => {
+        setRegisteredWorkbenchViewId(null)
+        setWorkspaceViewMode('preview')
+        setWorkspaceMode(mode)
+      })
     },
-    [handleWorkspaceChange],
+    [handleWorkspaceChange, runWithModUnsavedGuard],
   )
 
   const handleOpenProjectWorkspace = useCallback(
     (mode: WorkspaceMode) => {
-      setDevWorkbenchViewId(null)
-      setWorkspaceViewMode('edit')
-      setWorkspaceMode(mode)
-      resetNavigation()
+      runWithModUnsavedGuard(() => {
+        setRegisteredWorkbenchViewId(null)
+        setWorkspaceViewMode('edit')
+        setWorkspaceMode(mode)
+        resetNavigation()
+      })
     },
-    [resetNavigation],
+    [resetNavigation, runWithModUnsavedGuard],
   )
 
   const handleOpenProjectPage = useCallback(() => {
-    setDevWorkbenchViewId(null)
-    setWorkspaceMode('mods')
-    setWorkspaceViewMode('edit')
-    setStudioDeskGalleryOpen(false)
-    resetNavigation()
-  }, [resetNavigation])
+    void runWithModUnsavedGuard(() => {
+      void runWithCpMakerUnsavedGuard(() => {
+        setRegisteredWorkbenchViewId(null)
+        setWorkspaceMode('mods')
+        setWorkspaceViewMode('edit')
+        setStudioDeskGalleryOpen(false)
+        resetNavigation()
+      })
+    })
+  }, [resetNavigation, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard])
 
   const handleOpenProjectManagement = useCallback(() => {
-    setDevWorkbenchViewId(null)
-    setWorkspaceMode('mods')
-    setWorkspaceViewMode('edit')
-    setStudioDeskGalleryOpen(true)
-    resetNavigation()
-  }, [resetNavigation])
+    void runWithModUnsavedGuard(() => {
+      void runWithCpMakerUnsavedGuard(() => {
+        setRegisteredWorkbenchViewId(null)
+        setWorkspaceMode('mods')
+        setWorkspaceViewMode('edit')
+        setStudioDeskGalleryOpen(true)
+        resetNavigation()
+      })
+    })
+  }, [resetNavigation, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard])
 
   const handleOpenProjectCreate = useCallback(() => {
-    handleOpenProjectManagement()
-    setStudioDeskCreateDialogOpenSignal((current) => current + 1)
-  }, [handleOpenProjectManagement])
+    void runWithModUnsavedGuard(() => {
+      void runWithCpMakerUnsavedGuard(() => {
+        setRegisteredWorkbenchViewId(null)
+        setWorkspaceMode('mods')
+        setWorkspaceViewMode('edit')
+        setStudioDeskGalleryOpen(true)
+        setStudioDeskCreateDialogOpenSignal((current) => current + 1)
+        resetNavigation()
+      })
+    })
+  }, [resetNavigation, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard])
 
   const handleSelectProjectForLaunchpad = useCallback(
     (draftStorageKey: string) => {
-      void cpMaker.loadDraft(draftStorageKey)
-      onWorkbenchEvent({
-        type: 'cp-maker/draft-selected',
-        draftKey: draftStorageKey,
+      void runWithModUnsavedGuard(async () => {
+        await runWithCpMakerUnsavedGuard(async () => {
+          await cpMaker.loadDraft(draftStorageKey)
+          onWorkbenchEvent({
+            type: 'cp-maker/draft-selected',
+            draftKey: draftStorageKey,
+          })
+        })
       })
     },
-    [cpMaker, onWorkbenchEvent],
+    [cpMaker, onWorkbenchEvent, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard],
   )
 
+  const handleChooseGameDirectory = useCallback(() => {
+    void chooseDirectory()
+  }, [chooseDirectory])
+
+  const handleValidateGameDirectory = useCallback(async () => {
+    void runWithModUnsavedGuard(() => {
+      void runWithCpMakerUnsavedGuard(async () => {
+        const info = await validateCurrentDirectory()
+        if (!info) {
+          return
+        }
+
+        setProjectOverlayOpen(false)
+        setWorkspaceMode('map')
+        setWorkspaceViewMode('preview')
+      })
+    })
+  }, [runWithCpMakerUnsavedGuard, runWithModUnsavedGuard, validateCurrentDirectory])
+
+  const projectManagementActive = editModeView?.viewId === 'studio-desk' && workspaceViewMode === 'edit' && studioDeskGalleryOpen
   const workbenchQuickDock = (
     <WorkbenchLaunchpadNavigation
       open={workbenchLaunchpadOpen}
@@ -934,6 +709,7 @@ export default function WorkbenchExperience({
       workspaceViewMode={workspaceViewMode}
       dockPlacement="titlebar"
       hasActiveProject={Boolean(cpMaker.activeDraft)}
+      projectManagementActive={projectManagementActive}
       projectSummaries={cpMaker.drafts}
       devViews={devWorkbenchViews}
       onOpenChange={setWorkbenchLaunchpadOpen}
@@ -947,10 +723,14 @@ export default function WorkbenchExperience({
         handleOpenProjectWorkspace(mode)
       }}
       onDevViewOpen={(viewId) => {
-        setDevWorkbenchViewId(viewId)
-        setWorkspaceViewMode('edit')
-        setWorkbenchLaunchpadOpen(false)
-        resetNavigation()
+        void runWithModUnsavedGuard(() => {
+          void runWithCpMakerUnsavedGuard(() => {
+            setRegisteredWorkbenchViewId(viewId)
+            setWorkspaceViewMode('edit')
+            setWorkbenchLaunchpadOpen(false)
+            resetNavigation()
+          })
+        })
       }}
       onProjectManagementOpen={handleOpenProjectManagement}
       onProjectCreateOpen={handleOpenProjectCreate}
@@ -964,17 +744,17 @@ export default function WorkbenchExperience({
         appMode="workbench"
         onAppModeChange={handleAppModeChange}
         workspaceMode={workspaceMode}
-        onWorkspaceChange={handleWorkspaceChange}
+        onWorkspaceChange={handleWorkspaceChangeWithModGuard}
         workspaceNavigationDisabled={workspaceViewMode === 'edit' && !cpMaker.activeDraft}
         workspaceViewMode={workspaceViewMode}
-        onWorkspaceViewModeChange={handleWorkspaceViewModeChange}
+        onWorkspaceViewModeChange={handleWorkspaceViewModeChangeWithGuards}
         theme={theme}
         onToggleTheme={onToggleTheme}
         statusTone={currentWorkspaceStatus.tone}
         desktopHost={desktopHost}
         onMinimizeWindow={onMinimizeWindow}
         onToggleMaximizeWindow={onToggleMaximizeWindow}
-        onCloseWindow={onCloseWindow}
+        onCloseWindow={handleCloseWindow}
         viewMenu={{
           panelItems: viewMenuPanelItems,
           presetNames: viewMenuPresetNames,
@@ -1016,49 +796,125 @@ export default function WorkbenchExperience({
         </Suspense>
       ) : null}
 
+      <WorkspaceDecisionDialog
+        open={Boolean(pendingCpMakerUnsavedAction)}
+        title={modWorkspaceCopy.unsavedChangesTitle}
+        message={copy.studioDesk.unsavedChangesMessage}
+        error={cpMakerUnsavedError}
+        saving={cpMakerUnsavedSaving}
+        cancelLabel={modWorkspaceCopy.unsavedCancel}
+        secondaryLabel={modWorkspaceCopy.unsavedDiscardAndContinue}
+        primaryLabel={modWorkspaceCopy.unsavedSaveAndContinue}
+        cancelDisabled={cpMakerUnsavedSaving}
+        onCancel={cancelCpMakerUnsavedDecision}
+        onSecondary={() => void confirmCpMakerUnsavedDiscardAndContinue()}
+        onPrimary={() => void confirmCpMakerUnsavedSaveAndContinue()}
+      />
+
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        <div className="absolute inset-0 min-h-0 overflow-hidden">
-          {workspaceViewMode === 'preview' ? (
-            <LoadingMotionReveal itemId="workbench-preview-mode" index={0} className="h-full min-h-0">
-              <WorkbenchLayoutHost
-                workspaceLayoutRef={workspaceLayoutRef}
-                workspaceLayoutStorageKey={workspaceLayoutStorageKey}
-                workspaceLayouts={workspaceLayouts}
-                workspacePanels={workspacePanels}
-                onPersistStateChange={handleWorkspacePersistStateChange}
-                onLayoutMetaChange={handleLayoutMetaChange}
-              />
-            </LoadingMotionReveal>
-          ) : (
-            <LoadingMotionReveal itemId="workbench-project-mode" index={0} className="h-full min-h-0">
-              <WorkbenchViewHost
-                editModeView={editModeView}
-                workspaceMode={workspaceMode}
-                copy={copy}
-                locale={locale}
-                theme={theme}
-                accentColor={accentColor}
-                directoryInfo={directoryInfo}
-                canGoBack={canGoBack}
-                canGoForward={canGoForward}
-                onGoBack={goBack}
-                onGoForward={goForward}
-                cpMaker={cpMaker}
-                studioDeskModel={studioDeskModel}
-                onWorkbenchEvent={onWorkbenchEvent}
-                navigateToPatch={navigateToPatch}
-                onSetWorkspaceMode={setWorkspaceMode}
-                onSetWorkspaceViewMode={setWorkspaceViewMode}
-                studioDeskGalleryOpen={studioDeskGalleryOpen}
-                onStudioDeskGalleryOpenChange={setStudioDeskGalleryOpen}
-                studioDeskCreateDialogOpenSignal={studioDeskCreateDialogOpenSignal}
-                activeEditPatchId={activeEditPatchId}
-                playerAppearanceProfile={activePlayerAppearanceProfile}
-                onOpenPlayerAppearanceWindow={openAppearanceWindow}
-              />
-            </LoadingMotionReveal>
-          )}
-        </div>
+        <WorkbenchMapPreviewRuntime
+          copy={copy}
+          locale={locale}
+          theme={theme}
+          accentColor={accentColor}
+          desktopHost={desktopHost}
+          active={active}
+          visible={workspaceViewMode === 'preview' && workspaceMode === 'map'}
+          directoryInfo={directoryInfo}
+          heavyWorkspaceReady={deferredHeavyWorkspaceMode === 'map'}
+          workspaceLayoutRef={workspaceLayoutRef}
+          workspaceLayoutStorageKey={workspaceLayoutStorageKey}
+          workspaceLayouts={workspaceLayouts}
+          onPersistStateChange={handleWorkspacePersistStateChange}
+          onLayoutMetaChange={handleLayoutMetaChange}
+          onDirectoryInvalid={handleDirectoryInvalid}
+          onStatusSnapshotChange={setMapPreviewSnapshot}
+        />
+        {workspaceViewMode === 'preview' && workspaceMode === 'map' ? null : (
+          <div className="absolute inset-0 min-h-0 overflow-hidden">
+            {workspaceViewMode === 'preview' ? (
+              <LoadingMotionReveal itemId="workbench-preview-mode" index={0} className="h-full min-h-0">
+                {workspaceMode === 'mods' || workspaceMode === 'mod-i18n' ? (
+                  <WorkbenchModPreviewRuntime
+                    copy={copy}
+                    locale={locale}
+                    theme={theme}
+                    accentColor={accentColor}
+                    workspaceMode={workspaceMode}
+                    directoryInfo={directoryInfo}
+                    heavyWorkspaceReady={deferredHeavyWorkspaceMode === workspaceMode}
+                    workspaceLayoutRef={workspaceLayoutRef}
+                    workspaceLayoutStorageKey={workspaceLayoutStorageKey}
+                    workspaceLayouts={workspaceLayouts}
+                    modI18nSourceLocale={modI18nSourceLocale}
+                    modI18nTargetLocale={modI18nTargetLocale}
+                    modI18nQuery={modI18nQuery}
+                    modI18nStatusFilter={modI18nStatusFilter}
+                    onModI18nSourceLocaleChange={handleModI18nSourceLocaleChange}
+                    onModI18nTargetLocaleChange={handleModI18nTargetLocaleChange}
+                    onModI18nQueryChange={setModI18nQuery}
+                    onModI18nStatusFilterChange={setModI18nStatusFilter}
+                    onGuardHandleChange={setModGuardHandle}
+                    onStatusSnapshotChange={setModPreviewStatusSnapshot}
+                    onPersistStateChange={handleWorkspacePersistStateChange}
+                    onLayoutMetaChange={handleLayoutMetaChange}
+                  />
+                ) : (
+                  <WorkbenchPreviewRuntime
+                    copy={copy}
+                    locale={locale}
+                    theme={theme}
+                    accentColor={accentColor}
+                    desktopHost={desktopHost}
+                    workspaceMode={workspaceMode}
+                    directoryInfo={directoryInfo}
+                    heavyWorkspaceReady={deferredHeavyWorkspaceMode === workspaceMode}
+                    workspaceLayoutRef={workspaceLayoutRef}
+                    workspaceLayoutStorageKey={workspaceLayoutStorageKey}
+                    workspaceLayouts={workspaceLayouts}
+                    onPersistStateChange={handleWorkspacePersistStateChange}
+                    onLayoutMetaChange={handleLayoutMetaChange}
+                    onDirectoryInvalid={handleDirectoryInvalid}
+                    onMapStatusSnapshotChange={setMapPreviewSnapshot}
+                    onStatusSnapshotChange={setPreviewStatusSnapshot}
+                    playerAppearanceProfile={activePlayerAppearanceProfile}
+                    onOpenPlayerAppearanceWindow={openAppearanceWindow}
+                  />
+                )}
+              </LoadingMotionReveal>
+            ) : (
+              <LoadingMotionReveal itemId="workbench-project-mode" index={0} className="h-full min-h-0">
+                <WorkbenchViewHost
+                  editModeView={editModeView}
+                  workspaceMode={workspaceMode}
+                  copy={copy}
+                  locale={locale}
+                  theme={theme}
+                  accentColor={accentColor}
+                  directoryInfo={directoryInfo}
+                  canGoBack={canGoBack}
+                  canGoForward={canGoForward}
+                  onGoBack={goBack}
+                  onGoForward={goForward}
+                  cpMaker={cpMaker}
+                  studioDeskModel={studioDeskModel}
+                  onWorkbenchEvent={onWorkbenchEvent}
+                  navigateToPatch={navigateToPatch}
+                  onSetWorkspaceMode={setWorkspaceMode}
+                  onRunWithModUnsavedGuard={runWithModUnsavedGuard}
+                  onRunWithCpMakerUnsavedGuard={runWithCpMakerUnsavedGuard}
+                  onSetWorkspaceViewMode={setWorkspaceViewMode}
+                  studioDeskGalleryOpen={studioDeskGalleryOpen}
+                  onStudioDeskGalleryOpenChange={setStudioDeskGalleryOpen}
+                  studioDeskCreateDialogOpenSignal={studioDeskCreateDialogOpenSignal}
+                  activeEditPatchId={activeEditPatchId}
+                  playerAppearanceProfile={activePlayerAppearanceProfile}
+                  onOpenPlayerAppearanceWindow={openAppearanceWindow}
+                />
+              </LoadingMotionReveal>
+            )}
+          </div>
+        )}
       </div>
 
       {showProjectOverlay ? (
@@ -1066,10 +922,15 @@ export default function WorkbenchExperience({
           desktopHost={desktopHost}
           gameDirectory={gameDirectory}
           detectedDirectories={knownGameDirectories}
+          loading={interactionLocked}
+          status={overlayError ? null : overlayStatus}
+          error={overlayError}
           onGameDirectoryChange={setGameDirectory}
           onSelectDirectory={setGameDirectory}
-          onChooseDirectory={() => void handleChooseDirectory()}
-          onScanAndOpenTown={() => void handleScanAndOpenTown()}
+          onChooseDirectory={handleChooseGameDirectory}
+          onScanAndOpenTown={() => void handleValidateGameDirectory()}
+          onRetry={() => void handleValidateGameDirectory()}
+          onChooseDirectoryAction={handleChooseGameDirectory}
           onClose={needsInitialization ? undefined : () => setProjectOverlayOpen(false)}
         />
       ) : null}
@@ -1087,17 +948,18 @@ export default function WorkbenchExperience({
           mapDocument={mapDocument}
           pathLabel={mapDocument?.relativePath ?? activeAsset?.relativePath ?? worldAtlasDocument?.relativePath ?? copy.common.none}
           hoverInfo={hoverInfo}
-          eventName={selectedEvent?.eventId ?? null}
-          eventPreconditions={selectedEvent?.preconditions}
-          eventCommandCount={selectedEvent?.commands.length ?? 0}
-          eventActorCount={selectedEvent?.scene.actors.length ?? 0}
-          currentEventCommandId={currentEventCommandId}
+          eventName={previewStatusSnapshot.selectedEvent?.eventId ?? null}
+          eventPreconditions={previewStatusSnapshot.selectedEvent?.preconditions}
+          eventCommandCount={previewStatusSnapshot.selectedEvent?.commands.length ?? 0}
+          eventActorCount={previewStatusSnapshot.selectedEvent?.scene.actors.length ?? 0}
+          currentEventCommandId={previewStatusSnapshot.currentEventCommandId}
           patchName={activeEditPatchId ?? null}
-          scriptLength={selectedEvent?.rawScript.length}
+          scriptLength={previewStatusSnapshot.selectedEvent?.rawScript.length}
           isModified={
-            selectedEvent
-              ? selectedEvent.rawScript !==
-                (parsedEventAsset?.events.find((e) => e.key === selectedEvent.key)?.rawScript ?? selectedEvent.rawScript)
+            previewStatusSnapshot.selectedEvent
+              ? previewStatusSnapshot.selectedEvent.rawScript !==
+                (previewStatusSnapshot.parsedEventAsset?.events.find((event) => event.key === previewStatusSnapshot.selectedEvent?.key)
+                  ?.rawScript ?? previewStatusSnapshot.selectedEvent.rawScript)
               : false
           }
         />

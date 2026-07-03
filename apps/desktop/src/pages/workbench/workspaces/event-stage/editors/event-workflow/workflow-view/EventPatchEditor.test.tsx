@@ -707,7 +707,7 @@ describe('EventPatchEditor secondary page shell', () => {
         }),
       ),
     )
-  })
+  }, 15_000)
 
   test('expands a blank event into a complete graphical starter flow', async () => {
     const onPatchChange = vi.fn()

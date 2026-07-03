@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { ExternalLink, FolderOpen, ImageIcon, X } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useEditorCopy } from '@locales/localeContext'
 import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { useLauncherRemoteModDetail } from '@features/launcher/model/useLauncherRemoteModDetail'
@@ -117,9 +117,10 @@ export function LauncherModDetailPanel({
   const contentReady = !deferDetailContent || readyContentKey === detailContentKey
   const fallbackPalette = getLauncherCardFallbackPalette(mod?.name ?? remoteDetail?.title ?? title)
   const coverWord = getLauncherCardCoverWord(mod?.name ?? remoteDetail?.title ?? title)
-  const fetchedRemote = useLauncherRemoteModDetail(open && !remoteDetail && mod?.nexusModId ? mod.nexusModId : null, {
-    ...(remoteFilesDeferred ? { includeFiles: false } : {}),
-  })
+  const fetchedRemote = useLauncherRemoteModDetail(
+    open && !remoteDetail && mod?.nexusModId ? mod.nexusModId : null,
+    remoteFilesDeferred ? { includeFiles: false } : {},
+  )
   const deferredFilesModId = remoteDetail?.modId ?? fetchedRemote.detail?.modId ?? mod?.nexusModId ?? null
   const shouldFetchDeferredFiles =
     open && remoteFilesDeferred && (activeTab === 'files' || activeTab === 'changelog') && deferredFilesModId ? deferredFilesModId : null
@@ -164,40 +165,30 @@ export function LauncherModDetailPanel({
   const primarySize = formatSize(remote?.primaryFileSize ?? remote?.fileSize, remote?.primaryFileSizeBytes, copy.common.none)
   const rawLocalDependencies = mod?.requiredDependencies?.length ? mod.requiredDependencies : (mod?.missingRequiredDependencies ?? [])
   const localDependencies = Array.from(new Set(rawLocalDependencies.map((item) => item.trim()).filter(Boolean)))
-  const remoteRequirements = useMemo(
-    () => (remote?.requirements ?? []).filter((requirement) => requirement.name.trim() !== ''),
-    [remote?.requirements],
-  )
-  const remoteFiles = useMemo(() => (remote?.files ?? []).filter((file) => (file.name ?? '').trim() !== '' || file.fileId), [remote?.files])
-  const changelogItems = useMemo(
-    () =>
-      buildChangelogItems({
-        primaryLines: remote?.primaryFileChangelog,
-        primarySource: primaryFileName ?? detailCopy.primaryFile,
-        primaryVersion: latestVersion,
-        files: remoteFiles,
-        noneLabel: copy.common.none,
-      }),
-    [copy.common.none, detailCopy.primaryFile, latestVersion, primaryFileName, remote?.primaryFileChangelog, remoteFiles],
-  )
+  const remoteRequirements = (remote?.requirements ?? []).filter((requirement) => requirement.name.trim() !== '')
+  const remoteFiles = (remote?.files ?? []).filter((file) => (file.name ?? '').trim() !== '' || file.fileId)
+  const changelogItems = buildChangelogItems({
+    primaryLines: remote?.primaryFileChangelog,
+    primarySource: primaryFileName ?? detailCopy.primaryFile,
+    primaryVersion: latestVersion,
+    files: remoteFiles,
+    noneLabel: copy.common.none,
+  })
   const hasDependencyData = localDependencies.length > 0 || remoteRequirements.length > 0
   const hasDeferredFileData = Boolean(remoteFilesDeferred && deferredFilesModId && onQueueDownload)
   const hasFileData = isNexus && (remoteFiles.length > 0 || hasDeferredFileData)
   const hasChangelogData = isNexus && (changelogItems.length > 0 || Boolean(remoteFilesDeferred && deferredFilesModId))
-  const detailTabs = useMemo<LauncherDetailTab[]>(() => {
-    const tabs: LauncherDetailTab[] = ['description']
-    if (hasChangelogData) {
-      tabs.push('changelog')
-    }
-    tabs.push('details')
-    if (hasDependencyData) {
-      tabs.push('dependencies')
-    }
-    if (hasFileData) {
-      tabs.push('files')
-    }
-    return tabs
-  }, [hasChangelogData, hasDependencyData, hasFileData])
+  const detailTabs: LauncherDetailTab[] = ['description']
+  if (hasChangelogData) {
+    detailTabs.push('changelog')
+  }
+  detailTabs.push('details')
+  if (hasDependencyData) {
+    detailTabs.push('dependencies')
+  }
+  if (hasFileData) {
+    detailTabs.push('files')
+  }
   const selectedTab = detailTabs.includes(activeTab) ? activeTab : 'description'
   const showDescriptionReader = open && selectedTab === 'description' && descriptionReaderOpen
   const localHeroRows: DetailRow[] = isLocal
@@ -297,8 +288,8 @@ export function LauncherModDetailPanel({
       file.category ?? null,
       file.uploadedAt ? formatDate(file.uploadedAt, copy.common.none) : null,
       formatSize(file.size, file.sizeBytes, copy.common.none),
-      file.uniqueDownloads ? `Unique ${compactNumber(file.uniqueDownloads, copy.common.none)}` : null,
-      file.totalDownloads ? `Total ${compactNumber(file.totalDownloads, copy.common.none)}` : null,
+      file.uniqueDownloads ? detailCopy.uniqueDownloads(compactNumber(file.uniqueDownloads, copy.common.none)) : null,
+      file.totalDownloads ? detailCopy.totalDownloads(compactNumber(file.totalDownloads, copy.common.none)) : null,
     ]
       .filter(Boolean)
       .join(' · ')
@@ -306,7 +297,7 @@ export function LauncherModDetailPanel({
     return {
       id: `${file.fileId ?? fileName}`,
       name: fileName,
-      meta: [meta, file.archiveType, file.managerDownloadEnabled ? 'Mod manager' : null].filter(Boolean).join(' · '),
+      meta: [meta, file.archiveType, file.managerDownloadEnabled ? detailCopy.modManagerDownload : null].filter(Boolean).join(' · '),
       status: '',
       description,
       fileId: file.fileId ?? null,

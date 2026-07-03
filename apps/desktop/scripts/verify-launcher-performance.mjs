@@ -329,6 +329,7 @@ async function runDragScenario(page) {
   await page.mouse.move(start.x, start.y)
   await page.mouse.down()
   await measureInPage(page, 'drag-feedback', async () => {
+    await page.mouse.move(start.x + 12, start.y + 12)
     await page.waitForSelector('[data-testid="launcher-library-drag-preview"]', { state: 'visible', timeout: 1_000 })
   })
 

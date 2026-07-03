@@ -9,6 +9,7 @@ import type { LauncherNexusDiagnosticsResult } from '@features/launcher/model/la
 import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { useLauncherRuntime } from '@features/launcher/model/useLauncherRuntime'
 import { useLauncherUpdateProgressNotifications } from '@features/launcher/model/useLauncherUpdateProgressNotifications'
+import { publishNotification } from '@shared/ui/notifications'
 import type { LocaleCode } from '@locales'
 
 type LauncherPageProps = {
@@ -29,6 +30,28 @@ type LauncherPageProps = {
   onNavigateToDiagnostics?: () => void
   onRetryDiagnostics?: (() => Promise<void> | void) | null
   onLauncherDiagnosticsUpdate?: (diagnostics: LauncherNexusDiagnosticsResult) => void
+}
+
+type LauncherLaunchErrorDetails = {
+  code: string | null
+  message: string
+}
+
+function launcherLaunchErrorDetails(error: unknown): LauncherLaunchErrorDetails {
+  if (error instanceof Error) {
+    return { code: null, message: error.message }
+  }
+
+  if (error && typeof error === 'object') {
+    const record = error as Record<string, unknown>
+    const message = typeof record.message === 'string' && record.message.trim() ? record.message : JSON.stringify(record)
+    return {
+      code: typeof record.code === 'string' ? record.code : null,
+      message,
+    }
+  }
+
+  return { code: null, message: String(error) }
 }
 
 const EMPTY_VIEW_MENU = {
@@ -89,12 +112,29 @@ export function LauncherPage({
     setLaunchBusy(true)
     try {
       await launcherPort.launchGame()
-    } catch {
-      onOpenSettings('launcher')
+    } catch (error) {
+      const { code, message } = launcherLaunchErrorDetails(error)
+      const normalizedCode = code?.toLowerCase() ?? ''
+      const normalizedMessage = message.toLowerCase()
+      if (normalizedCode === 'missinggamepath' || normalizedMessage.includes('game path')) {
+        onOpenSettings('launcher')
+      }
+      publishNotification({
+        level: 'error',
+        title: copy.launcher.actions.launchFailed,
+        description: message,
+      })
     } finally {
       setLaunchBusy(false)
     }
-  }, [desktopHost, launchBusy, launcherPort, launcherRuntime.settingsState.settings.gamePath, onOpenSettings])
+  }, [
+    copy.launcher.actions.launchFailed,
+    desktopHost,
+    launchBusy,
+    launcherPort,
+    launcherRuntime.settingsState.settings.gamePath,
+    onOpenSettings,
+  ])
 
   return (
     <div className="flex h-full flex-col">

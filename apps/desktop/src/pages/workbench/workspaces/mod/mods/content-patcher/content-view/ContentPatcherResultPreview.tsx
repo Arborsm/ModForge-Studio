@@ -1,6 +1,7 @@
 import type { LoadContentPatcherResultAssetResult } from '@entities/mod/api'
 import type { ContentPatcherBackendSimulationContext } from '../content-model/contentPatcher'
 import { ContentPatcherImagePreview } from './ContentPatcherImagePreview'
+import { useModWorkspaceCopy } from '@locales/localeContext'
 
 type ContentPatcherResultPreviewProps = {
   result: LoadContentPatcherResultAssetResult | null
@@ -24,10 +25,12 @@ export function ContentPatcherResultPreview({
   onSimulationContextChange,
   dynamicTokens,
 }: ContentPatcherResultPreviewProps) {
+  const copy = useModWorkspaceCopy().contentPatcherPreview
+
   if (loading) {
     return (
       <section className="cp-debugger-preview">
-        <p className="panel-empty-state">Loading simulated target result...</p>
+        <p className="panel-empty-state">{copy.loading}</p>
       </section>
     )
   }
@@ -43,7 +46,7 @@ export function ContentPatcherResultPreview({
   if (!result) {
     return (
       <section className="cp-debugger-preview">
-        <p className="panel-empty-state">Select a target to preview the final simulated result.</p>
+        <p className="panel-empty-state">{copy.empty}</p>
       </section>
     )
   }
@@ -51,7 +54,7 @@ export function ContentPatcherResultPreview({
   if (result.result.kind === 'image' && result.result.imageDataUrl) {
     return (
       <section className="cp-debugger-preview">
-        <h2 className="cp-debugger-preview-title">{`Target: ${result.target.path}`}</h2>
+        <h2 className="cp-debugger-preview-title">{copy.targetTitle(result.target.path)}</h2>
         <ContentPatcherImagePreview
           targetPath={result.target.path}
           imageDataUrl={result.result.imageDataUrl}
@@ -70,8 +73,8 @@ export function ContentPatcherResultPreview({
 
   return (
     <section className="cp-debugger-preview">
-      <h2 className="cp-debugger-preview-title">{`Target: ${result.target.path}`}</h2>
-      <pre className="cp-debugger-code" aria-label="target result preview">
+      <h2 className="cp-debugger-preview-title">{copy.targetTitle(result.target.path)}</h2>
+      <pre className="cp-debugger-code" aria-label={copy.previewAriaLabel}>
         {JSON.stringify(payload ?? {}, null, 2)}
       </pre>
     </section>

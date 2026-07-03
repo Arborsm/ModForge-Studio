@@ -20,6 +20,8 @@ fn load_app_ui_state_creates_defaults_when_file_is_missing() {
     assert_eq!(state.shell.launcher_page, "library");
     assert_eq!(state.appearance.locale, "zh-CN");
     assert_eq!(state.appearance.accent_preset_id, "indigo");
+    assert_eq!(state.appearance.window_border_tone, "accent");
+    assert_eq!(state.appearance.window_border_weight, "standard");
     assert!(state.workspace.layouts.is_empty());
     assert_eq!(state.workspace.workspace_view_mode, "edit");
     assert!(
@@ -45,6 +47,8 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
         AppUiStatePatch {
             appearance: Some(AppUiAppearanceStatePatch {
                 locale: Some("en-US".to_string()),
+                window_border_tone: Some("neutral".to_string()),
+                window_border_weight: Some("thin".to_string()),
                 ..Default::default()
             }),
             ..Default::default()
@@ -52,6 +56,8 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
     )
     .expect("save appearance");
     assert_eq!(saved.appearance.locale, "en-US");
+    assert_eq!(saved.appearance.window_border_tone, "neutral");
+    assert_eq!(saved.appearance.window_border_weight, "thin");
 
     let saved = patch_app_ui_state_at_path(
         &path,
@@ -96,6 +102,8 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
     .expect("patch launcher");
 
     assert_eq!(patched.appearance.locale, "en-US");
+    assert_eq!(patched.appearance.window_border_tone, "neutral");
+    assert_eq!(patched.appearance.window_border_weight, "thin");
     assert_eq!(patched.launcher.discover_toolbar.sort, "downloads");
     assert!(patched.launcher.discover_toolbar.filters_hidden);
     assert!(!patched.launcher.force_offline);
@@ -204,6 +212,37 @@ fn load_app_ui_state_discards_non_session_cp_maker_payloads() {
     let saved = fs::read_to_string(&path).expect("read sanitized file");
     assert!(!saved.contains("projectMetadata"));
     assert!(!saved.contains("serializedChangeRegistry"));
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn load_app_ui_state_migrates_legacy_window_border_style() {
+    let root = create_temp_dir("app-ui-state-legacy-window-border");
+    let path = root.join("app").join("ui-state.json");
+    fs::create_dir_all(path.parent().expect("state parent")).expect("create state dir");
+    fs::write(
+        &path,
+        r#"{
+  "version": 1,
+  "appearance": {
+    "locale": "en-US",
+    "accentPresetId": "indigo",
+    "windowBorderStyle": "subtle"
+  }
+}
+"#,
+    )
+    .expect("write legacy state");
+
+    let state = load_or_create_app_ui_state_at_path(&path).expect("load legacy state");
+
+    assert_eq!(state.appearance.window_border_tone, "accent");
+    assert_eq!(state.appearance.window_border_weight, "thin");
+    let saved = fs::read_to_string(&path).expect("read migrated state");
+    assert!(!saved.contains("windowBorderStyle"));
+    assert!(saved.contains("windowBorderTone"));
+    assert!(saved.contains("windowBorderWeight"));
 
     fs::remove_dir_all(root).expect("cleanup");
 }

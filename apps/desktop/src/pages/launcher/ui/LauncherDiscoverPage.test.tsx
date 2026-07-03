@@ -142,12 +142,12 @@ describe('LauncherDiscoverPage', () => {
     const { container } = renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
 
     expect(screen.queryByText(copy.states.credentialsRequired)).toBeNull()
-    expect(screen.getByText('Search Parameters')).toBeTruthy()
+    expect(screen.getByText(copy.discover.searchParametersSection)).toBeTruthy()
     expect(container.querySelector('.launcher-discover-console.panel-surface')).toBeTruthy()
     expect(container.querySelector('.launcher-discover-sidebar.panel-surface')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Search Parameters' }))
-    expect(screen.getByPlaceholderText('Search titles').hasAttribute('disabled')).toBe(false)
-    expect(screen.getByPlaceholderText('Search titles').className).toContain('control-input')
+    fireEvent.click(screen.getByRole('button', { name: copy.discover.searchParametersSection }))
+    expect(screen.getByPlaceholderText(copy.discover.titleSearchPlaceholder).hasAttribute('disabled')).toBe(false)
+    expect(screen.getByPlaceholderText(copy.discover.titleSearchPlaceholder).className).toContain('control-input')
     expect(screen.getByRole('button', { name: copy.actions.refresh }).hasAttribute('disabled')).toBe(false)
   })
 
@@ -163,7 +163,7 @@ describe('LauncherDiscoverPage', () => {
 
     renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
 
-    const searchInput = screen.getByRole('textbox', { name: 'Search Nexus Mods' })
+    const searchInput = screen.getByRole('textbox', { name: copy.discover.searchPlaceholder })
     expect(searchInput).toHaveValue('tractor')
 
     fireEvent.change(searchInput, { target: { value: 'content patcher' } })
@@ -211,9 +211,9 @@ describe('LauncherDiscoverPage', () => {
 
     const { container } = renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
 
-    expect(screen.getByText('Nexus Mods')).toBeTruthy()
-    expect(screen.getByText('Category')).toBeTruthy()
-    expect(screen.getByText((_, element) => element?.textContent === 'Showing 1 - 20 of 28,891 results')).toBeTruthy()
+    expect(screen.getByText(copy.discover.consoleTitle)).toBeTruthy()
+    expect(screen.getByText(copy.discover.categorySection)).toBeTruthy()
+    expect(screen.getByText((_, element) => element?.textContent === copy.discover.resultRange(1, 20, '28,891'))).toBeTruthy()
     expect(screen.queryByText("Browse the internet's best mods")).toBeNull()
     expect(screen.getByText('Joja Civic Center')).toBeTruthy()
     expect(screen.getByRole('button', { name: `${copy.library.detailsTitle}: Joja Civic Center` })).toBeTruthy()
@@ -357,14 +357,14 @@ describe('LauncherDiscoverPage', () => {
 
     renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Time range' }))
-    expect(screen.getByRole('menu', { name: 'Time range' })).toBeTruthy()
-    expect(screen.getByRole('menuitemradio', { name: '24 hours' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: copy.discover.timeRangeLabel }))
+    expect(screen.getByRole('menu', { name: copy.discover.timeRangeLabel })).toBeTruthy()
+    expect(screen.getByRole('menuitemradio', { name: copy.discover.timeRangeOptions.day })).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sort' }))
-    const sortMenu = screen.getByRole('menu', { name: 'Sort' })
+    fireEvent.click(screen.getByRole('button', { name: copy.discover.sortLabel }))
+    const sortMenu = screen.getByRole('menu', { name: copy.discover.sortLabel })
     expect(sortMenu).toBeTruthy()
-    expect(sortMenu.textContent).toContain('Downloads')
+    expect(sortMenu.textContent).toContain(copy.discover.sortOptions.downloads)
   })
 
   it('restores and persists the top bar filter visibility state', () => {
@@ -378,13 +378,13 @@ describe('LauncherDiscoverPage', () => {
 
     const { container } = renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
 
-    const filtersToggle = screen.getByRole('button', { name: /Show filters/i })
+    const filtersToggle = screen.getByRole('button', { name: copy.discover.showFilters })
     expect(filtersToggle).toBeTruthy()
     expect(container.querySelector('.launcher-discover-sidebar')).toBeNull()
 
     fireEvent.click(filtersToggle)
 
-    expect(screen.getByRole('button', { name: /Hide filters/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.discover.hideFilters })).toBeTruthy()
     expect(container.querySelector('.launcher-discover-sidebar')).toBeTruthy()
     expect(applyAppUiStatePatchMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -408,7 +408,7 @@ describe('LauncherDiscoverPage', () => {
 
     const { container } = renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
     const resultsViewport = container.querySelector('.launcher-discover-results-viewport')
-    const loadingOverlay = screen.getByRole('status', { name: 'Loading discover results' })
+    const loadingOverlay = screen.getByRole('status', { name: copy.discover.loadingResultsLabel })
     const wheelEvent = new WheelEvent('wheel', { bubbles: true, cancelable: true })
 
     expect(loadingOverlay).toBeTruthy()
@@ -446,7 +446,7 @@ describe('LauncherDiscoverPage', () => {
 
     expect(container.querySelector('.launcher-discover-shell-filters-hidden')).toBeTruthy()
     expect(container.querySelector('.launcher-discover-sidebar')).toBeNull()
-    expect(screen.getByRole('button', { name: /Show filters/i }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('button', { name: copy.discover.showFilters }).hasAttribute('disabled')).toBe(true)
     expect(
       applyAppUiStatePatchMock.mock.calls.some(
         ([payload]) =>
@@ -574,7 +574,7 @@ describe('LauncherDiscoverPage', () => {
 
     expect(container.querySelector('.launcher-discover-shell-filters-hidden')).toBeTruthy()
     expect(container.querySelector('.launcher-discover-sidebar')).toBeNull()
-    expect(screen.getByRole('button', { name: /Show filters/i }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('button', { name: copy.discover.showFilters }).hasAttribute('disabled')).toBe(true)
     expect(
       applyAppUiStatePatchMock.mock.calls.some(
         ([payload]) =>
@@ -608,12 +608,12 @@ describe('LauncherDiscoverPage', () => {
 
     renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
 
-    expect(screen.queryByRole('listbox', { name: 'Includes suggestions' })).toBeNull()
+    expect(screen.queryByRole('listbox', { name: copy.discover.tagsIncludeSuggestionsLabel })).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tags' }))
-    fireEvent.focus(screen.getByPlaceholderText('e.g. expansion, ui'))
+    fireEvent.click(screen.getByRole('button', { name: copy.discover.tagsSection }))
+    fireEvent.focus(screen.getByPlaceholderText(copy.discover.tagsIncludePlaceholder))
 
-    expect(screen.getByRole('listbox', { name: 'Includes suggestions' })).toBeTruthy()
+    expect(screen.getByRole('listbox', { name: copy.discover.tagsIncludeSuggestionsLabel })).toBeTruthy()
     expect(screen.getByRole('option', { name: /Remote tag 72/i })).toBeTruthy()
     fireEvent.click(screen.getByRole('option', { name: /SMAPI/i }))
 
@@ -632,15 +632,19 @@ describe('LauncherDiscoverPage', () => {
 
     renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Limits' }))
-    expect(screen.queryByPlaceholderText('No min')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: copy.discover.limitsSection }))
+    expect(screen.queryByPlaceholderText(copy.discover.noMinimumPlaceholder)).toBeNull()
 
-    fireEvent.click(within(screen.getByRole('group', { name: 'Downloads presets' })).getByRole('button', { name: '10K+' }))
+    fireEvent.click(
+      within(screen.getByRole('group', { name: copy.discover.rangePresetsLabel(copy.discover.downloadsLabel) })).getByRole('button', {
+        name: copy.discover.rangePresetLabels['10kPlus'],
+      }),
+    )
     expect(updateFilter).toHaveBeenCalledWith('minDownloads', '10000')
     expect(updateFilter).toHaveBeenCalledWith('maxDownloads', '')
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Advanced' })[1])
-    fireEvent.change(screen.getByPlaceholderText('No min'), { target: { value: '12345' } })
+    fireEvent.click(screen.getAllByRole('button', { name: copy.discover.advancedAction })[1])
+    fireEvent.change(screen.getByPlaceholderText(copy.discover.noMinimumPlaceholder), { target: { value: '12345' } })
     expect(updateFilter).toHaveBeenCalledWith('minDownloads', '12345')
   })
 
@@ -702,34 +706,34 @@ describe('LauncherDiscoverPage', () => {
       }),
     })
 
-    expect(screen.getByRole('button', { name: 'Previous page' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Next page' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Page 3' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.discover.previousPage })).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.discover.nextPage })).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.discover.pageLabel(3) })).toBeTruthy()
     expect(screen.getByText('1445')).toBeTruthy()
-    expect(screen.getByLabelText('Jump to page')).toBeTruthy()
+    expect(screen.getByLabelText(copy.discover.jumpToPage)).toBeTruthy()
 
     resultsViewport.scrollTop = 480
     discoverContent.scrollTop = 80
-    fireEvent.click(screen.getByRole('button', { name: 'Next page' }))
+    fireEvent.click(screen.getByRole('button', { name: copy.discover.nextPage }))
     expect(goToNextPage).toHaveBeenCalled()
     expect(resultsViewport.scrollTop).toBe(0)
     expect(discoverContent.scrollTop).toBe(0)
 
     resultsViewport.scrollTop = 360
     discoverContent.scrollTop = 60
-    fireEvent.click(screen.getByRole('button', { name: 'Previous page' }))
+    fireEvent.click(screen.getByRole('button', { name: copy.discover.previousPage }))
     expect(goToPreviousPage).toHaveBeenCalled()
     expect(resultsViewport.scrollTop).toBe(0)
     expect(discoverContent.scrollTop).toBe(0)
 
     resultsViewport.scrollTop = 240
-    fireEvent.click(screen.getByRole('button', { name: 'Page 2' }))
+    fireEvent.click(screen.getByRole('button', { name: copy.discover.pageLabel(2) }))
     expect(setPage).toHaveBeenCalledWith(2)
     expect(resultsViewport.scrollTop).toBe(0)
 
     resultsViewport.scrollTop = 120
-    fireEvent.change(screen.getByLabelText('Jump to page'), { target: { value: '120' } })
-    fireEvent.keyDown(screen.getByLabelText('Jump to page'), { key: 'Enter', code: 'Enter' })
+    fireEvent.change(screen.getByLabelText(copy.discover.jumpToPage), { target: { value: '120' } })
+    fireEvent.keyDown(screen.getByLabelText(copy.discover.jumpToPage), { key: 'Enter', code: 'Enter' })
     expect(setPage).toHaveBeenCalledWith(120)
     expect(resultsViewport.scrollTop).toBe(0)
   })
@@ -745,20 +749,20 @@ describe('LauncherDiscoverPage', () => {
 
     renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
 
-    const categoryToggle = screen.getByRole('button', { name: 'Category' })
-    const tagsToggle = screen.getByRole('button', { name: 'Tags' })
+    const categoryToggle = screen.getByRole('button', { name: copy.discover.categorySection })
+    const tagsToggle = screen.getByRole('button', { name: copy.discover.tagsSection })
 
     expect(categoryToggle.getAttribute('aria-expanded')).toBe('true')
     expect(categoryToggle.getAttribute('aria-controls')).toBe('launcher-discover-rail-body-category')
     expect(tagsToggle.getAttribute('aria-expanded')).toBe('false')
-    expect(screen.getByText('Gameplay Mechanics')).toBeTruthy()
-    expect(screen.queryByText('Includes')).toBeNull()
+    expect(screen.getByText(copy.discover.categoryLabels['Gameplay Mechanics'])).toBeTruthy()
+    expect(screen.queryByText(copy.discover.tagsIncludeLabel)).toBeNull()
 
     fireEvent.click(tagsToggle)
 
     expect(categoryToggle.getAttribute('aria-expanded')).toBe('false')
     expect(tagsToggle.getAttribute('aria-expanded')).toBe('true')
-    expect(screen.queryByText('Gameplay Mechanics')).toBeNull()
-    expect(screen.getByText('Includes')).toBeTruthy()
+    expect(screen.queryByText(copy.discover.categoryLabels['Gameplay Mechanics'])).toBeNull()
+    expect(screen.getByText(copy.discover.tagsIncludeLabel)).toBeTruthy()
   })
 })

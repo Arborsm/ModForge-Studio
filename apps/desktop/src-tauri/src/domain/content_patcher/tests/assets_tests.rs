@@ -1,4 +1,7 @@
-use super::{infer_target_asset_kind, load_map_patch_asset, with_virtual_preview_assets};
+use super::{
+    infer_target_asset_kind, load_json_patch_asset, load_map_patch_asset,
+    with_virtual_preview_assets,
+};
 use crate::domain::content_patcher::types::{
     ContentPatcherProjectSnapshot, ContentPatcherProjectSummary, VirtualPreviewAsset,
 };
@@ -86,4 +89,39 @@ fn load_map_patch_asset_uses_virtual_asset_path_relative_to_included_source() {
     assert!(error.contains("File is not a tbin file."));
     assert!(!error.contains("Unable to resolve FromFile"));
     assert!(!error.contains("Failed to read map patch asset"));
+}
+
+#[cfg(unix)]
+#[test]
+fn load_json_patch_asset_rejects_symlink_escape_outside_project_root() {
+    use std::os::unix::fs::symlink;
+
+    let temp_dir = std::env::temp_dir().join("modforge-cp-fromfile-symlink-escape");
+    let pack_root = temp_dir.join("pack");
+    let outside_root = temp_dir.join("outside");
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    std::fs::create_dir_all(pack_root.join("assets")).expect("pack assets dir");
+    std::fs::create_dir_all(&outside_root).expect("outside dir");
+    std::fs::write(outside_root.join("secret.json"), r#"{"Secret": true}"#).expect("outside json");
+    symlink(
+        outside_root.join("secret.json"),
+        pack_root.join("assets").join("secret.json"),
+    )
+    .expect("symlink");
+
+    let snapshot = ContentPatcherProjectSnapshot {
+        summary: ContentPatcherProjectSummary {
+            absolute_path: Some(pack_root.to_string_lossy().into_owned()),
+            ..Default::default()
+        },
+        sources: Vec::new(),
+        include_tree: Vec::new(),
+        diagnostics: Vec::new(),
+    };
+
+    let error = load_json_patch_asset(&snapshot, "content.json", "assets/secret.json")
+        .expect_err("symlink escape");
+    assert!(error.contains("outside the content pack root"));
+
+    std::fs::remove_dir_all(temp_dir).expect("cleanup");
 }

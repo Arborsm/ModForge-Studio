@@ -14,9 +14,7 @@
   body {
     margin: 0;
     overflow: hidden;
-    background:
-      radial-gradient(circle at top left, color-mix(in srgb, var(--accent-soft) 70%, transparent), transparent 35%),
-      linear-gradient(180deg, color-mix(in srgb, var(--bg-app) 96%, white 4%), var(--bg-app));
+    background: transparent;
     color: var(--text-primary);
     font-family: var(--font-sans);
     font-size: 14px;
@@ -25,6 +23,68 @@
     -moz-osx-font-smoothing: grayscale;
     overscroll-behavior: none;
     user-select: none;
+  }
+
+  #root {
+    background: transparent;
+  }
+
+  .app-window-frame {
+    --app-window-border: var(--app-window-border-standard);
+    --app-window-inner-border: var(--app-window-inner-border-standard);
+    --app-window-divider: var(--app-window-divider-standard);
+    --app-window-divider-opacity: var(--app-window-divider-opacity-standard);
+    position: relative;
+    isolation: isolate;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    border: 1px solid var(--app-window-border);
+    border-radius: var(--app-window-radius);
+    background:
+      radial-gradient(circle at top left, color-mix(in srgb, var(--accent-soft) 70%, transparent), transparent 35%),
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-app) 96%, white 4%), var(--bg-app));
+    box-shadow: inset 0 0 0 1px var(--app-window-inner-border);
+    color: var(--text-primary);
+  }
+
+  .app-window-titlebar-divider {
+    position: absolute;
+    top: 56px;
+    right: 0;
+    left: 0;
+    z-index: 135;
+    height: 1px;
+    background: var(--app-window-divider);
+    opacity: var(--app-window-divider-opacity);
+    pointer-events: none;
+  }
+
+  .app-window-frame[data-window-border-tone="neutral"] {
+    --app-window-border-standard: color-mix(in srgb, var(--border-color) 88%, var(--text-primary));
+    --app-window-border-thin: color-mix(in srgb, var(--border-color) 72%, transparent);
+    --app-window-inner-border-standard: color-mix(in srgb, var(--border-color) 72%, transparent);
+    --app-window-divider-standard: color-mix(in srgb, var(--border-color) 92%, var(--text-primary));
+    --app-window-divider-thin: var(--border-color);
+  }
+
+  .app-window-frame[data-window-border-weight="thin"] {
+    --app-window-border: var(--app-window-border-thin);
+    --app-window-inner-border: transparent;
+    --app-window-divider: var(--app-window-divider-thin);
+    --app-window-divider-opacity: var(--app-window-divider-opacity-thin);
+  }
+
+  .app-window-frame[data-window-border-weight="none"] {
+    --app-window-border: transparent;
+    --app-window-inner-border: transparent;
+    --app-window-divider-opacity: 0;
+  }
+
+  .app-window-frame[data-window-edge-to-edge="true"] {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   button,
@@ -58,5 +118,12 @@
 
   ::-webkit-scrollbar-thumb:hover {
     background: color-mix(in srgb, var(--text-secondary) 80%, transparent);
+  }
+}
+
+@layer utilities {
+  .app-window-frame :where(.fixed.inset-0) {
+    position: absolute;
+    inset: 57px 0 0;
   }
 }

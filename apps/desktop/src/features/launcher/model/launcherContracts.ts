@@ -276,6 +276,8 @@ export type ValidateApiKeyResult = {
   avatarUrl: string | null
   profileUrl: string | null
   isPremium: boolean
+  premiumExpiresAt?: string | null
+  isLifetimePremium?: boolean | null
   dailyRemaining: number | null
   hourlyRemaining: number | null
   dailyResetAt: number | null
@@ -354,10 +356,18 @@ export type LauncherUpdateProgressPayload = {
 }
 
 export type DownloadLauncherModRequest = {
+  downloadId?: string | null
   modId: number
   fileId?: number | null
   version?: string | null
   title?: string | null
+}
+
+export type LauncherDownloadProgressPayload = {
+  downloadId: string
+  downloadedBytes: number
+  totalBytes?: number | null
+  bytesPerSecond?: number | null
 }
 
 export type DownloadLauncherModResult = {
@@ -430,6 +440,8 @@ export type InstallLauncherArchiveResult = {
 export type LauncherInstallBackupSummary = {
   backupId: string
   backupPath: string
+  deleteCount: number
+  overwriteCount: number
 }
 
 export type ListLauncherInstallBackupsRequest = {

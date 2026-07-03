@@ -5,6 +5,7 @@ import { LocaleProvider } from '@locales/localeContext'
 import { localeBundles } from '@locales'
 import { detectDefaultGameDirectory, loadImageDataUrl } from '@entities/game/api'
 import { detectDefaultGameDirectoryFromDevBridge, loadImageDataUrlFromDevBridge } from '@entities/game/api/devAssetBridge'
+import { createElectronPlatformPorts, isElectronHost } from '@platform/electron'
 import { createTauriPlatformPorts } from '@platform/tauri'
 import { canUseDesktopHost, configureDesktopPlatformPorts } from '@shared/lib/desktop'
 import { configureImageDataUrlLoader } from '@shared/lib/assets'
@@ -87,7 +88,7 @@ export function DevEventPatchEditorMock() {
   const assetLoader = useMemo(() => createEventStagePreviewDevAssetLoader(), [])
 
   useEffect(() => {
-    configureDesktopPlatformPorts(createTauriPlatformPorts())
+    configureDesktopPlatformPorts(isElectronHost() ? createElectronPlatformPorts() : createTauriPlatformPorts())
     configureImageDataUrlLoader(
       async (path, nextLocale) => (await loadImageDataUrlFromDevBridge(path, nextLocale)) ?? loadImageDataUrl(path, nextLocale),
     )

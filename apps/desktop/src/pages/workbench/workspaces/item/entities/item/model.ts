@@ -48,12 +48,77 @@ type RawObjectDataEntry = {
   Price?: number | null
   Texture?: string | null
   SpriteIndex?: number | null
+  ColorOverlayFromNextIndex?: boolean | null
   Edibility?: number | null
   IsDrink?: boolean | null
+  Buffs?: RawObjectBuffDataEntry[] | null
+  GeodeDropsDefaultItems?: boolean | null
+  GeodeDrops?: RawObjectGeodeDropDataEntry[] | null
+  ArtifactSpotChances?: Record<string, number> | null
   CanBeGivenAsGift?: boolean | null
   CanBeTrashed?: boolean | null
+  ExcludeFromFishingCollection?: boolean | null
+  ExcludeFromShippingCollection?: boolean | null
+  ExcludeFromRandomSale?: boolean | null
   ContextTags?: string[] | null
   CustomFields?: Record<string, string> | null
+}
+
+type RawObjectBuffAttributesData = {
+  CombatLevel?: number | null
+  FarmingLevel?: number | null
+  FishingLevel?: number | null
+  MiningLevel?: number | null
+  LuckLevel?: number | null
+  ForagingLevel?: number | null
+  MaxStamina?: number | null
+  MagneticRadius?: number | null
+  Speed?: number | null
+  Defense?: number | null
+  Attack?: number | null
+  AttackMultiplier?: number | null
+  Immunity?: number | null
+  KnockbackMultiplier?: number | null
+  WeaponSpeedMultiplier?: number | null
+  CriticalChanceMultiplier?: number | null
+  CriticalPowerMultiplier?: number | null
+  WeaponPrecisionMultiplier?: number | null
+}
+
+type RawObjectBuffDataEntry = {
+  Id?: string | null
+  BuffId?: string | null
+  IconTexture?: string | null
+  IconSpriteIndex?: number | null
+  Duration?: number | null
+  IsDebuff?: boolean | null
+  GlowColor?: string | null
+  CustomAttributes?: RawObjectBuffAttributesData | null
+  CustomFields?: Record<string, string> | null
+}
+
+type RawQuantityModifier = {
+  Id?: string | null
+  Condition?: string | null
+  Modification?: string | number | null
+  Amount?: number | null
+  RandomAmount?: number[] | null
+}
+
+type RawObjectGeodeDropDataEntry = RawSpawnEntry & {
+  ObjectInternalName?: string | null
+  ObjectDisplayName?: string | null
+  ObjectColor?: string | null
+  ToolUpgradeLevel?: number | null
+  IsRecipe?: boolean | null
+  StackModifiers?: RawQuantityModifier[] | null
+  StackModifierMode?: string | number | null
+  QualityModifiers?: RawQuantityModifier[] | null
+  QualityModifierMode?: string | number | null
+  ModData?: Record<string, string> | null
+  PerItemCondition?: string | null
+  SetFlagOnPickup?: string | null
+  Precedence?: number | null
 }
 
 type RawBigCraftableDataEntry = {
@@ -163,10 +228,13 @@ type RawCropDataEntry = {
 }
 
 type RawSpawnEntry = {
+  Id?: string | null
   ItemId?: string | null
   RandomItemId?: string[] | null
+  MaxItems?: number | null
   MinStack?: number | null
   MaxStack?: number | null
+  Quality?: number | null
   Chance?: number | null
   Condition?: string | null
   Season?: string | null
@@ -264,6 +332,88 @@ function normalizeAssetName(assetName: string | null | undefined) {
 
 function buildTexturePathLabel(assetName: string | null) {
   return assetName ? assetName.replaceAll('/', '\\') : 'Unknown'
+}
+
+function normalizeStringRecord(value: Record<string, string> | null | undefined) {
+  return value ? { ...value } : {}
+}
+
+function normalizeNumberRecord(value: Record<string, number> | null | undefined) {
+  return value ? { ...value } : {}
+}
+
+function createObjectBuffAttributes(input: RawObjectBuffAttributesData | null | undefined) {
+  return {
+    combatLevel: input?.CombatLevel ?? 0,
+    farmingLevel: input?.FarmingLevel ?? 0,
+    fishingLevel: input?.FishingLevel ?? 0,
+    miningLevel: input?.MiningLevel ?? 0,
+    luckLevel: input?.LuckLevel ?? 0,
+    foragingLevel: input?.ForagingLevel ?? 0,
+    maxStamina: input?.MaxStamina ?? 0,
+    magneticRadius: input?.MagneticRadius ?? 0,
+    speed: input?.Speed ?? 0,
+    defense: input?.Defense ?? 0,
+    attack: input?.Attack ?? 0,
+    attackMultiplier: input?.AttackMultiplier ?? 0,
+    immunity: input?.Immunity ?? 0,
+    knockbackMultiplier: input?.KnockbackMultiplier ?? 0,
+    weaponSpeedMultiplier: input?.WeaponSpeedMultiplier ?? 0,
+    criticalChanceMultiplier: input?.CriticalChanceMultiplier ?? 0,
+    criticalPowerMultiplier: input?.CriticalPowerMultiplier ?? 0,
+    weaponPrecisionMultiplier: input?.WeaponPrecisionMultiplier ?? 0,
+  }
+}
+
+function createQuantityModifiers(input: RawQuantityModifier[] | null | undefined) {
+  return (input ?? []).map((modifier) => ({
+    id: trimString(modifier.Id),
+    condition: trimString(modifier.Condition),
+    modification: modifier.Modification ?? null,
+    amount: modifier.Amount ?? 0,
+    randomAmount: [...(modifier.RandomAmount ?? [])],
+  }))
+}
+
+function createObjectBuffs(input: RawObjectBuffDataEntry[] | null | undefined) {
+  return (input ?? []).map((buff) => ({
+    id: trimString(buff.Id),
+    buffId: trimString(buff.BuffId),
+    iconTexture: normalizeAssetName(buff.IconTexture),
+    iconSpriteIndex: buff.IconSpriteIndex ?? 0,
+    duration: buff.Duration ?? 0,
+    isDebuff: Boolean(buff.IsDebuff),
+    glowColor: trimString(buff.GlowColor),
+    customAttributes: createObjectBuffAttributes(buff.CustomAttributes),
+    customFields: normalizeStringRecord(buff.CustomFields),
+  }))
+}
+
+function createObjectGeodeDrops(input: RawObjectGeodeDropDataEntry[] | null | undefined) {
+  return (input ?? []).map((drop) => ({
+    id: trimString(drop.Id),
+    itemId: trimString(drop.ItemId),
+    randomItemIds: [...(drop.RandomItemId ?? [])],
+    maxItems: drop.MaxItems ?? null,
+    minStack: drop.MinStack ?? -1,
+    maxStack: drop.MaxStack ?? -1,
+    quality: drop.Quality ?? -1,
+    objectInternalName: trimString(drop.ObjectInternalName),
+    objectDisplayName: trimString(drop.ObjectDisplayName),
+    objectColor: trimString(drop.ObjectColor),
+    toolUpgradeLevel: drop.ToolUpgradeLevel ?? -1,
+    isRecipe: Boolean(drop.IsRecipe),
+    stackModifiers: createQuantityModifiers(drop.StackModifiers),
+    stackModifierMode: drop.StackModifierMode ?? null,
+    qualityModifiers: createQuantityModifiers(drop.QualityModifiers),
+    qualityModifierMode: drop.QualityModifierMode ?? null,
+    modData: normalizeStringRecord(drop.ModData),
+    perItemCondition: trimString(drop.PerItemCondition),
+    condition: trimString(drop.Condition),
+    chance: drop.Chance ?? 1,
+    setFlagOnPickup: trimString(drop.SetFlagOnPickup),
+    precedence: drop.Precedence ?? 0,
+  }))
 }
 
 function getFurnitureTypeKey(rawType: string | null | undefined) {
@@ -485,6 +635,7 @@ function createBaseEntry(input: {
   searchParts: Array<string | number | null | undefined>
   contextTags?: string[]
   customFields?: Record<string, string>
+  objectStats?: ItemWorkspaceEntry['objectStats']
   weaponStats?: ItemWorkspaceEntry['weaponStats']
   toolStats?: ItemWorkspaceEntry['toolStats']
   apparelStats?: ItemWorkspaceEntry['apparelStats']
@@ -527,6 +678,7 @@ function createBaseEntry(input: {
     categorySearchTokens: ['all'],
     contextTags: [...(input.contextTags ?? [])],
     customFields: input.customFields ?? {},
+    objectStats: input.objectStats ?? null,
     cropData: null,
     cropHarvests: [],
     fishData: null,
@@ -607,6 +759,16 @@ export function createObjectEntryIndex(content: string) {
       searchParts: [itemId, entry.Name, entry.DisplayName, entry.Description, entry.Type, entry.Category, ...(entry.ContextTags ?? [])],
       contextTags: entry.ContextTags ?? [],
       customFields: entry.CustomFields ?? {},
+      objectStats: {
+        colorOverlayFromNextIndex: Boolean(entry.ColorOverlayFromNextIndex),
+        buffs: createObjectBuffs(entry.Buffs),
+        geodeDropsDefaultItems: Boolean(entry.GeodeDropsDefaultItems),
+        geodeDrops: createObjectGeodeDrops(entry.GeodeDrops),
+        artifactSpotChances: normalizeNumberRecord(entry.ArtifactSpotChances),
+        excludeFromFishingCollection: Boolean(entry.ExcludeFromFishingCollection),
+        excludeFromShippingCollection: Boolean(entry.ExcludeFromShippingCollection),
+        excludeFromRandomSale: Boolean(entry.ExcludeFromRandomSale),
+      },
     }),
   )
 }

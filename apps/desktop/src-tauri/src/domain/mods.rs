@@ -110,6 +110,8 @@ pub struct ModProjectDetail {
 pub struct SaveModProjectRequest {
     pub source_path: String,
     pub output_path: Option<String>,
+    #[serde(default)]
+    pub overwrite_existing_export: bool,
     pub manifest_json: String,
     pub content_json: String,
     #[serde(default)]
@@ -1274,6 +1276,29 @@ fn remove_dir_contents(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn directory_has_entries(path: &Path) -> Result<bool, String> {
+    if !path.exists() {
+        return Ok(false);
+    }
+
+    let mut entries = fs::read_dir(path).map_err(|error| {
+        format!(
+            "Failed to read target directory {}: {error}",
+            normalize_path(path)
+        )
+    })?;
+    Ok(entries
+        .next()
+        .transpose()
+        .map_err(|error| {
+            format!(
+                "Failed to inspect target directory {}: {error}",
+                normalize_path(path)
+            )
+        })?
+        .is_some())
+}
+
 fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
     fs::create_dir_all(target).map_err(|error| {
         format!(
@@ -1470,16 +1495,48 @@ pub(crate) fn save_mod_project(
         return Err("Only Content Patcher projects can be saved right now.".to_string());
     }
 
-    let normalized_source = normalize_path(&source_path).to_ascii_lowercase();
-    let normalized_target = normalize_path(&target_path).to_ascii_lowercase();
-    let source_is_target = normalized_source == normalized_target;
+    let canonical_source = source_path.canonicalize().map_err(|error| {
+        format!(
+            "Failed to resolve source mod directory {}: {error}",
+            normalize_path(&source_path)
+        )
+    })?;
+    let canonical_target_parent = target_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .canonicalize()
+        .map_err(|error| {
+            format!(
+                "Failed to resolve export parent directory {}: {error}",
+                normalize_path(target_path.parent().unwrap_or_else(|| Path::new(".")))
+            )
+        })?;
+    let canonical_target = if target_path.exists() {
+        target_path.canonicalize().map_err(|error| {
+            format!(
+                "Failed to resolve export directory {}: {error}",
+                normalize_path(&target_path)
+            )
+        })?
+    } else {
+        canonical_target_parent.join(
+            target_path
+                .file_name()
+                .ok_or_else(|| "Export target must include a directory name.".to_string())?,
+        )
+    };
+    let source_is_target = canonical_source == canonical_target;
 
     if !source_is_target {
-        if normalized_target.starts_with(&(normalized_source.clone() + "\\"))
-            || normalized_target.starts_with(&(normalized_source + "/"))
-        {
+        if canonical_target.starts_with(&canonical_source) {
             return Err(
                 "Export target cannot be nested inside the source mod directory.".to_string(),
+            );
+        }
+        if canonical_source.starts_with(&canonical_target) {
+            return Err(
+                "Export target cannot be the source mod directory's parent or ancestor."
+                    .to_string(),
             );
         }
 
@@ -1489,7 +1546,15 @@ pub(crate) fn save_mod_project(
                 normalize_path(&target_path)
             )
         })?;
-        remove_dir_contents(&target_path)?;
+        if directory_has_entries(&target_path)? {
+            if !request.overwrite_existing_export {
+                return Err(format!(
+                    "Export target {} is not empty. Choose an empty folder or confirm overwrite.",
+                    normalize_path(&target_path)
+                ));
+            }
+            remove_dir_contents(&target_path)?;
+        }
         copy_dir_recursive(&source_path, &target_path)?;
     }
 

@@ -116,15 +116,44 @@ vite.on('exit', (code) => {
   }
 })
 
+function shouldSuppressElectronStderrLine(line) {
+  return line.includes('ui/ozone/')
+}
+
+function forwardFilteredElectronStderr(stream) {
+  let buffer = ''
+
+  stream.on('data', (chunk) => {
+    buffer += String(chunk)
+    const lines = buffer.split(/\r?\n/)
+    buffer = lines.pop() ?? ''
+
+    for (const line of lines) {
+      if (!shouldSuppressElectronStderrLine(line)) {
+        process.stderr.write(`${line}\n`)
+      }
+    }
+  })
+
+  stream.on('end', () => {
+    if (buffer && !shouldSuppressElectronStderrLine(buffer)) {
+      process.stderr.write(buffer)
+    }
+    buffer = ''
+  })
+}
+
 await waitForDevServer(devUrl)
 const electronPath = resolveElectronExecutable()
-electron = spawn(electronPath, ['electron-dist/main.cjs'], {
+const remoteDebuggingPort = process.env.MODFORGE_ELECTRON_REMOTE_DEBUGGING_PORT ?? '9222'
+electron = spawn(electronPath, [`--remote-debugging-port=${remoteDebuggingPort}`, 'electron-dist/main.cjs'], {
   cwd: desktopRoot,
   env: {
     ...runtime.env,
     VITE_DEV_SERVER_URL: devUrl,
     MODFORGE_SIDECAR_PATH: path.join(desktopRoot, 'src-tauri/target/debug/modforge_sidecar'),
   },
-  stdio: 'inherit',
+  stdio: ['inherit', 'inherit', 'pipe'],
 })
+forwardFilteredElectronStderr(electron.stderr)
 electron.on('exit', (code) => shutdown(code ?? 0))

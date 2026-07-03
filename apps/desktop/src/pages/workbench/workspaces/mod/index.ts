@@ -3,6 +3,7 @@ export { ContentPatcherExportPanel } from './mods/content-patcher/content-view/C
 export { ContentPatcherNavigator } from './mods/content-patcher/content-view/ContentPatcherNavigator'
 export { ContentPatcherTracePanel } from './mods/content-patcher/content-view/ContentPatcherTracePanel'
 export { ContentPatcherWorkspace } from './mods/content-patcher/content-view/ContentPatcherWorkspace'
+export { ModWorkspaceDecisionDialogs, WorkspaceDecisionDialog } from './mods/content-patcher/content-view/ModWorkspaceDecisionDialogs'
 export { ModBrowserPanel } from './mods/content-patcher/content-view/ModBrowserPanel'
 export type { ContentPatcherBackendSimulationContext } from './mods/content-patcher/content-model/contentPatcher'
 export { createDefaultContentPatcherSimulationContext } from './mods/content-patcher/content-model/contentPatcher'

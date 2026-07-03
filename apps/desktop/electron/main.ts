@@ -1,7 +1,9 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { createInterface } from 'node:readline'
+import fs from 'node:fs/promises'
+import { createInterface, type Interface as ReadlineInterface } from 'node:readline'
 import path from 'node:path'
+import type { OpenDialogOptions } from '../src/shared/contracts/platform'
 
 type RpcResponse = {
   id?: number
@@ -14,12 +16,77 @@ type RpcResponse = {
   }
 }
 
+const localFileProtocol = 'modforge-asset'
+const localFileHost = 'local'
 const isDev = !app.isPackaged
 const devUrl = process.env.VITE_DEV_SERVER_URL ?? 'http://127.0.0.1:5173'
 let mainWindow: BrowserWindow | null = null
 let sidecar: ChildProcessWithoutNullStreams | null = null
+let sidecarStdout: ReadlineInterface | null = null
 let nextRpcId = 0
+let closeAllowed = false
 const pendingRpc = new Map<number, { resolve: (value: unknown) => void; reject: (reason?: unknown) => void }>()
+
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('use-webgpu-adapter', 'opengles')
+}
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: localFileProtocol,
+    privileges: {
+      standard: true,
+      secure: true,
+    },
+  },
+])
+
+function registerLocalFileProtocol() {
+  protocol.handle(localFileProtocol, async (request) => {
+    const url = new URL(request.url)
+    if (url.hostname !== localFileHost) {
+      return new Response('Unknown local file host.', { status: 404 })
+    }
+
+    const filePath = decodeLocalFilePath(url)
+    if (!path.isAbsolute(filePath)) {
+      return new Response('Local file path must be absolute.', { status: 400 })
+    }
+
+    try {
+      const bytes = await fs.readFile(filePath)
+      return new Response(bytes, {
+        headers: {
+          'content-type': mimeTypeFromPath(filePath),
+        },
+      })
+    } catch {
+      return new Response('Local file was not found.', { status: 404 })
+    }
+  })
+}
+
+function decodeLocalFilePath(url: URL) {
+  return decodeURIComponent(url.pathname.slice(1))
+}
+
+function mimeTypeFromPath(filePath: string) {
+  switch (path.extname(filePath).toLowerCase()) {
+    case '.png':
+      return 'image/png'
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg'
+    case '.webp':
+      return 'image/webp'
+    case '.gif':
+      return 'image/gif'
+    case '.svg':
+      return 'image/svg+xml'
+    default:
+      return 'application/octet-stream'
+  }
+}
 
 function resolveSidecarPath() {
   if (process.env.MODFORGE_SIDECAR_PATH?.trim()) {
@@ -37,6 +104,23 @@ function forwardHostEvent(event: string, payload: unknown) {
   mainWindow?.webContents.send('modforge:host-event', event, payload)
 }
 
+function stopSidecar() {
+  sidecarStdout?.close()
+  sidecarStdout = null
+  sidecar?.kill()
+  sidecar = null
+}
+
+function requestWindowClose(window: BrowserWindow) {
+  if (window.webContents.isDestroyed()) {
+    closeAllowed = true
+    window.destroy()
+    return
+  }
+
+  forwardHostEvent('app://window-close-requested', {})
+}
+
 function startSidecar() {
   if (sidecar) {
     return sidecar
@@ -44,10 +128,16 @@ function startSidecar() {
 
   sidecar = spawn(resolveSidecarPath(), [], {
     cwd: isDev ? path.resolve(__dirname, '..') : process.resourcesPath,
+    env: {
+      ...process.env,
+      MODFORGE_LOG_COLOR: process.env.MODFORGE_LOG_COLOR ?? (isDev ? 'always' : 'auto'),
+    },
     stdio: ['pipe', 'pipe', 'pipe'],
   })
 
   sidecar.on('exit', () => {
+    sidecarStdout?.close()
+    sidecarStdout = null
     sidecar = null
     for (const { reject } of pendingRpc.values()) {
       reject(new Error('ModForge sidecar exited.'))
@@ -56,10 +146,11 @@ function startSidecar() {
   })
 
   sidecar.stderr.on('data', (chunk) => {
-    console.error(`[modforge-sidecar] ${String(chunk).trimEnd()}`)
+    console.error(String(chunk).trimEnd())
   })
 
-  createInterface({ input: sidecar.stdout }).on('line', (line) => {
+  sidecarStdout = createInterface({ input: sidecar.stdout })
+  sidecarStdout.on('line', (line) => {
     let frame: RpcResponse
     try {
       frame = JSON.parse(line) as RpcResponse
@@ -117,7 +208,8 @@ function createMainWindow() {
     frame: false,
     resizable: true,
     show: false,
-    backgroundColor: '#101620',
+    transparent: true,
+    backgroundColor: '#00000000',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -127,10 +219,33 @@ function createMainWindow() {
   })
 
   mainWindow.once('ready-to-show', () => mainWindow?.show())
+  mainWindow.once('closed', () => {
+    mainWindow = null
+  })
+  mainWindow.on('close', (event) => {
+    if (closeAllowed) {
+      return
+    }
+
+    event.preventDefault()
+    requestWindowClose(mainWindow!)
+  })
+
+  if (isDev) {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      const key = input.key.toLowerCase()
+      const togglesDevTools =
+        input.type === 'keyDown' && (key === 'f12' || (key === 'i' && input.shift && (input.control || (input.meta && input.alt))))
+
+      if (togglesDevTools) {
+        event.preventDefault()
+        mainWindow?.webContents.toggleDevTools()
+      }
+    })
+  }
 
   if (isDev) {
     void mainWindow.loadURL(devUrl)
-    mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
     void mainWindow.loadFile(path.resolve(__dirname, '../dist/index.html'))
   }
@@ -150,11 +265,19 @@ ipcMain.handle('modforge:window-toggle-maximize', () => {
   const window = currentWindow()
   if (window.isMaximized()) {
     window.unmaximize()
+    return false
   } else {
     window.maximize()
+    return true
   }
 })
-ipcMain.handle('modforge:window-close', () => currentWindow().close())
+ipcMain.handle('modforge:window-close', () => requestWindowClose(currentWindow()))
+ipcMain.handle('modforge:window-force-close', () => {
+  const window = currentWindow()
+  closeAllowed = true
+  window.destroy()
+})
+ipcMain.handle('modforge:window-is-maximized', () => currentWindow().isMaximized())
 ipcMain.handle('modforge:window-is-fullscreen', () => currentWindow().isFullScreen())
 ipcMain.handle('modforge:window-set-fullscreen', (_event, fullscreen: boolean) => currentWindow().setFullScreen(fullscreen))
 ipcMain.handle('modforge:window-toggle-fullscreen', () => {
@@ -163,13 +286,13 @@ ipcMain.handle('modforge:window-toggle-fullscreen', () => {
   window.setFullScreen(nextFullscreen)
   return nextFullscreen
 })
-ipcMain.handle('modforge:open-dialog', async (_event, options?: Electron.OpenDialogOptions) => {
+ipcMain.handle('modforge:open-dialog', async (_event, options?: OpenDialogOptions) => {
   const result = await dialog.showOpenDialog(currentWindow(), {
     title: options?.title,
     properties: [options?.directory ? 'openDirectory' : 'openFile', options?.multiple ? 'multiSelections' : undefined].filter(
       Boolean,
     ) as Electron.OpenDialogOptions['properties'],
-    filters: options?.filters,
+    filters: options?.filters?.map((filter) => ({ name: filter.name, extensions: [...filter.extensions] })),
   })
 
   if (result.canceled) {
@@ -179,6 +302,7 @@ ipcMain.handle('modforge:open-dialog', async (_event, options?: Electron.OpenDia
 })
 
 app.whenReady().then(() => {
+  registerLocalFileProtocol()
   startSidecar()
   createMainWindow()
 })
@@ -190,6 +314,5 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
-  sidecar?.kill()
-  sidecar = null
+  stopSidecar()
 })

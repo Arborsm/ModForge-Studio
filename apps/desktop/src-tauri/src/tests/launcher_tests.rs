@@ -117,15 +117,15 @@ fn launcher_trace_message_prefixes_action_and_quotes_values() {
     let message = format_launcher_trace_message(
         "install.start",
         &[
-            ("archivePath", r"E:\Downloads\Example Pack.zip".to_string()),
-            ("modsPath", r"E:\Games\Stardew Valley\Mods".to_string()),
-            ("hasBackupRoot", "true".to_string()),
+            ("archive-path", r"E:\Downloads\Example Pack.zip".to_string()),
+            ("mods-path", r"E:\Games\Stardew Valley\Mods".to_string()),
+            ("has-backup-root", "true".to_string()),
         ],
     );
 
     assert_eq!(
         message,
-        r#"launcher.install.start archivePath="E:\\Downloads\\Example Pack.zip" modsPath="E:\\Games\\Stardew Valley\\Mods" hasBackupRoot="true""#
+        r#"launcher.install.start archive-path="E:\\Downloads\\Example Pack.zip" mods-path="E:\\Games\\Stardew Valley\\Mods" has-backup-root="true""#
     );
 }
 
@@ -134,7 +134,7 @@ fn launcher_trace_message_skips_blank_values() {
     let message = format_launcher_trace_message(
         "toggle.complete",
         &[
-            ("modPath", r"E:\Games\Mods\ExamplePack".to_string()),
+            ("mod-path", r"E:\Games\Mods\ExamplePack".to_string()),
             ("reason", "   ".to_string()),
             ("enabled", "false".to_string()),
         ],
@@ -142,7 +142,7 @@ fn launcher_trace_message_skips_blank_values() {
 
     assert_eq!(
         message,
-        r#"launcher.toggle.complete modPath="E:\\Games\\Mods\\ExamplePack" enabled="false""#
+        r#"launcher.toggle.complete mod-path="E:\\Games\\Mods\\ExamplePack" enabled="false""#
     );
 }
 
@@ -1023,7 +1023,7 @@ fn parse_catalog_graphql_response_builds_catalog_page_result() {
                         "uploader": null
                     }
                 ],
-                "totalCount": 45,
+                "total": 45,
                 "facetsData": {
                     "categoryName": {
                         "Gameplay Mechanics": 2800,
@@ -1078,7 +1078,7 @@ fn parse_catalog_graphql_response_falls_back_to_public_thumbnail_url() {
                         }
                     }
                 ],
-                "totalCount": 1
+                "total": 1
             }
         }
     });

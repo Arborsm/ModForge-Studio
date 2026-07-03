@@ -312,6 +312,8 @@ function createInstallBackupSummary(overrides: Partial<LauncherInstallBackupSumm
   return {
     backupId: 'install-123',
     backupPath: 'E:\\Games\\Stardew Valley\\Backups\\install-123',
+    deleteCount: 3,
+    overwriteCount: 2,
     ...overrides,
   }
 }
@@ -2239,6 +2241,11 @@ describe('LauncherLibraryPage', () => {
     expect(within(backupsDialog).getByText('install-123')).not.toBeNull()
 
     fireEvent.click(within(backupsDialog).getByRole('button', { name: 'Restore Backup' }))
+    expect(within(backupsDialog).getByText('Confirm Backup Restore')).not.toBeNull()
+    expect(within(backupsDialog).getByText(/E:\\Games\\Stardew Valley\\Mods/)).not.toBeNull()
+    expect(within(backupsDialog).getByText(/delete 3 files or folders/)).not.toBeNull()
+    expect(within(backupsDialog).getByText(/overwrite 2 backed-up files/)).not.toBeNull()
+    fireEvent.click(within(backupsDialog).getByRole('button', { name: 'Confirm Restore' }))
 
     await waitFor(() => {
       expect(restoreLauncherInstallBackupMock).toHaveBeenCalledWith({
@@ -2268,6 +2275,7 @@ describe('LauncherLibraryPage', () => {
 
     const backupsDialog = await screen.findByRole('dialog', { name: 'Install Backups' })
     fireEvent.click(within(backupsDialog).getByRole('button', { name: 'Restore Backup' }))
+    fireEvent.click(within(backupsDialog).getByRole('button', { name: 'Confirm Restore' }))
 
     await waitFor(() => {
       expect(restoreLauncherInstallBackupMock).toHaveBeenCalledWith({
@@ -2286,6 +2294,23 @@ describe('LauncherLibraryPage', () => {
 
     expect(screen.queryByRole('dialog', { name: 'Install Backups' })).toBeNull()
     expect(await screen.findByText('Refresh failed')).not.toBeNull()
+  })
+
+  it('shows backup restore failures inside the backup manager dialog', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+    listLauncherInstallBackupsMock.mockResolvedValue([createInstallBackupSummary()])
+    restoreLauncherInstallBackupMock.mockRejectedValue(new Error('Restore failed'))
+
+    renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Install Backups' }))
+
+    const backupsDialog = await screen.findByRole('dialog', { name: 'Install Backups' })
+    fireEvent.click(within(backupsDialog).getByRole('button', { name: 'Restore Backup' }))
+    fireEvent.click(within(backupsDialog).getByRole('button', { name: 'Confirm Restore' }))
+
+    expect(await within(backupsDialog).findByText('Restore failed')).not.toBeNull()
   })
 
   it('virtualizes the large-library grid instead of rendering every card', async () => {

@@ -402,6 +402,7 @@ export function LauncherLibraryPageContent({
           installBackups={installBackups}
           installBackupsError={installBackupsError}
           restoringBackupId={restoringBackupId}
+          modsPath={settings.modsPath}
           childModPicker={childModPicker}
           childModManager={childModManager}
           mods={library.mods}

@@ -1,8 +1,10 @@
 use super::{
-    default_download_path, load_or_create_settings_at_path, normalize_settings,
-    save_settings_at_path,
+    default_download_path, load_or_create_settings_at_path, merge_launcher_settings,
+    normalize_settings, save_settings_at_path,
 };
-use crate::domain::launcher::types::LauncherSettings;
+use crate::domain::launcher::types::{
+    LauncherSettings, NullablePatch, SaveLauncherSettingsRequest,
+};
 use crate::test_support::create_temp_dir;
 use std::fs;
 
@@ -54,4 +56,47 @@ fn launcher_settings_backfills_missing_download_path_from_system_downloads() {
         settings.download_path,
         default_download_path().map(|path| path.to_string_lossy().to_string())
     );
+}
+
+#[test]
+fn save_launcher_settings_request_distinguishes_missing_null_and_value_api_key() {
+    let omitted: SaveLauncherSettingsRequest = serde_json::from_str("{}").expect("omitted key");
+    assert_eq!(omitted.nexus_api_key, NullablePatch::Missing);
+
+    let null: SaveLauncherSettingsRequest =
+        serde_json::from_str(r#"{"nexusApiKey":null}"#).expect("null key");
+    assert_eq!(null.nexus_api_key, NullablePatch::Null);
+
+    let value: SaveLauncherSettingsRequest =
+        serde_json::from_str(r#"{"nexusApiKey":"updated-key"}"#).expect("value key");
+    assert_eq!(
+        value.nexus_api_key,
+        NullablePatch::Value("updated-key".to_string())
+    );
+}
+
+#[test]
+fn merge_launcher_settings_clears_preserves_and_updates_api_key() {
+    let existing = LauncherSettings {
+        nexus_api_key: Some("existing-key".to_string()),
+        ..LauncherSettings::default()
+    };
+
+    let preserved = merge_launcher_settings(
+        existing.clone(),
+        serde_json::from_str("{}").expect("omitted key request"),
+    );
+    assert_eq!(preserved.nexus_api_key.as_deref(), Some("existing-key"));
+
+    let cleared = merge_launcher_settings(
+        existing.clone(),
+        serde_json::from_str(r#"{"nexusApiKey":null}"#).expect("null key request"),
+    );
+    assert_eq!(cleared.nexus_api_key, None);
+
+    let updated = normalize_settings(merge_launcher_settings(
+        existing,
+        serde_json::from_str(r#"{"nexusApiKey":" updated-key "}"#).expect("value key request"),
+    ));
+    assert_eq!(updated.nexus_api_key.as_deref(), Some("updated-key"));
 }

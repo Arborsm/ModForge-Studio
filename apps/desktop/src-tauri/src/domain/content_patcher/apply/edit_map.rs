@@ -561,8 +561,8 @@ fn apply_map_patch(
         }
     }
 
-    // Replace mode: add layers that exist in source but not in target
-    if is_replace {
+    // ReplaceByLayer and Replace both materialize layers that exist only in the patch source.
+    if !is_overlay {
         for source_layer in &source.layers {
             if !document.layers.iter().any(|l| l.name == source_layer.name) {
                 let mut new_gids = vec![0u32; (document.width * document.height) as usize];
@@ -686,7 +686,7 @@ fn apply_add_layer(
         document.layers.push(MapLayer {
             id: new_id,
             name: name.clone(),
-            kind: "TileLayer".to_string(),
+            kind: "tile".to_string(),
             width: document.width,
             height: document.height,
             visible: true,

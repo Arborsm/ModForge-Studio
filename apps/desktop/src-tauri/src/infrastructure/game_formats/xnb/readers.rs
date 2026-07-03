@@ -176,11 +176,17 @@ impl TypeReader {
                 let width = reader.read_u32_le()?;
                 let height = reader.read_u32_le()?;
                 let mip_count = reader.read_u32_le()?;
-                if mip_count > 1 {
-                    // Only the first mip level is used.
+                if mip_count == 0 {
+                    return Err("Texture2D declared zero mip levels.".to_string());
                 }
-                let data_size = reader.read_u32_le()? as usize;
-                let data = reader.read_bytes(data_size)?;
+                let first_data_size = reader.read_u32_le()? as usize;
+                let data = reader.read_bytes(first_data_size)?;
+                for mip_index in 1..mip_count {
+                    let data_size = reader.read_u32_le()? as usize;
+                    reader
+                        .read_bytes(data_size)
+                        .map_err(|error| format!("Texture2D mip level {mip_index}: {error}"))?;
+                }
                 let rgba = decode_texture_data(format, width as usize, height as usize, &data)?;
                 Ok(XnbValue::Texture(TextureData {
                     width,

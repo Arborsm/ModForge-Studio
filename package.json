@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "pnpm --filter @modforge/desktop dev",
     "desktop:dev": "node ./scripts/desktop-host-dispatch.cjs dev",
+    "react:devtools": "pnpm --filter @modforge/desktop react:devtools",
     "build": "pnpm --filter @modforge/desktop build",
     "lint": "pnpm --filter @modforge/desktop lint",
     "desktop:build": "node ./scripts/desktop-host-dispatch.cjs build",
@@ -29,7 +30,6 @@
     "*": "prettier --ignore-unknown --write"
   },
   "devDependencies": {
-    "eslint-config-prettier": "10.1.8",
     "husky": "9.1.7",
     "lint-staged": "17.0.7",
     "prettier": "3.8.3",

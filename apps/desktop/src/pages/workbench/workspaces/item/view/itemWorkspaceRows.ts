@@ -1,6 +1,17 @@
 import { Armchair, ChefHat, Fish as FishIcon, Gem, Grid2x2, Shirt, Sprout, Sword, Wrench } from 'lucide-react'
 import type { ItemBrowseCategory, ItemMachineLink, ItemRecipeEntry, ItemTextureAssetState, ItemWorkspaceEntry } from '../entities/item'
-import type { AsideRow, AsideSection, BrowseTab, HeroChip, ItemsCopy, SignalCard, SourceCard, Tone, UseCard } from './itemWorkspaceTypes'
+import type {
+  AsideRow,
+  AsideSection,
+  BrowseTab,
+  HeroChip,
+  ItemsCopy,
+  ObjectDataCard,
+  SignalCard,
+  SourceCard,
+  Tone,
+  UseCard,
+} from './itemWorkspaceTypes'
 
 const BROWSE_TAB_ORDER: ItemBrowseCategory[] = [
   'all',
@@ -34,6 +45,48 @@ export function formatEdibility(item: ItemWorkspaceEntry, copy: ItemsCopy) {
   }
 
   return String(item.edibility)
+}
+
+function formatBoolean(value: boolean, copy: ItemsCopy) {
+  return value ? copy.yesLabel : copy.noLabel
+}
+
+function formatChance(value: number, copy: ItemsCopy) {
+  if (!Number.isFinite(value)) {
+    return copy.noneLabel
+  }
+
+  return `${Math.round(value * 1000) / 10}%`
+}
+
+function formatItemOutput(itemId: string | null, randomItemIds: string[], copy: ItemsCopy) {
+  if (itemId) {
+    return itemId
+  }
+  if (randomItemIds.length) {
+    return randomItemIds.join(' / ')
+  }
+  return copy.noneLabel
+}
+
+function getNonZeroAttributeRows(item: ItemWorkspaceEntry, copy: ItemsCopy): AsideRow[] {
+  const stats = item.objectStats
+  if (!stats) {
+    return []
+  }
+
+  return stats.buffs.flatMap((buff) =>
+    Object.entries(buff.customAttributes).flatMap(([key, value]) =>
+      value !== 0
+        ? [
+            {
+              label: `${buff.id ?? copy.buffDataTitle}:${key}`,
+              value: String(value),
+            },
+          ]
+        : [],
+    ),
+  )
 }
 
 function getChipToneForEdibility(value: number | null | undefined): Tone {
@@ -452,6 +505,24 @@ export function buildSpecificSections(item: ItemWorkspaceEntry, copy: ItemsCopy)
     })
   }
 
+  if (item.objectStats) {
+    const objectRows: AsideRow[] = [
+      { label: copy.giftableLabel, value: formatBoolean(item.canBeGivenAsGift, copy) },
+      { label: copy.trashableLabel, value: formatBoolean(item.canBeTrashed, copy) },
+      { label: copy.colorOverlayLabel, value: formatBoolean(item.objectStats.colorOverlayFromNextIndex, copy) },
+      { label: copy.geodeDefaultDropsLabel, value: formatBoolean(item.objectStats.geodeDropsDefaultItems, copy) },
+      { label: copy.excludeFishingCollectionLabel, value: formatBoolean(item.objectStats.excludeFromFishingCollection, copy) },
+      { label: copy.excludeShippingCollectionLabel, value: formatBoolean(item.objectStats.excludeFromShippingCollection, copy) },
+      { label: copy.excludeRandomSaleLabel, value: formatBoolean(item.objectStats.excludeFromRandomSale, copy) },
+    ]
+
+    sections.push({
+      key: 'object-data',
+      title: copy.kindLabels.object,
+      rows: objectRows,
+    })
+  }
+
   return sections
 }
 
@@ -462,8 +533,84 @@ export function buildInfoRows(item: ItemWorkspaceEntry, copy: ItemsCopy) {
     { label: copy.typeLabel, value: item.kindMetaLabel ?? copy.noneLabel },
     { label: copy.priceLabel, value: formatPrice(item.price ?? item.salePrice, copy) },
     { label: copy.edibilityLabel, value: formatEdibility(item, copy) },
+    { label: copy.giftableLabel, value: formatBoolean(item.canBeGivenAsGift, copy) },
+    { label: copy.trashableLabel, value: formatBoolean(item.canBeTrashed, copy) },
     { label: copy.internalNameLabel, value: item.internalName },
   ] satisfies AsideRow[]
+}
+
+export function buildObjectDataCards(item: ItemWorkspaceEntry, copy: ItemsCopy) {
+  const stats = item.objectStats
+  if (!stats) {
+    return [] satisfies ObjectDataCard[]
+  }
+
+  const cards: ObjectDataCard[] = []
+
+  cards.push(
+    ...stats.buffs.map((buff, index) => {
+      const attributeRows = Object.entries(buff.customAttributes).flatMap(([key, value]) =>
+        value !== 0 ? [{ label: `${copy.attributesLabel}:${key}`, value: String(value) }] : [],
+      )
+
+      return {
+        key: `buff:${buff.id ?? index}`,
+        title: buff.id ?? buff.buffId ?? `${copy.buffDataTitle} ${index + 1}`,
+        rows: [
+          { label: copy.buffIdLabel, value: buff.buffId ?? copy.noneLabel },
+          { label: copy.durationLabel, value: String(buff.duration) },
+          { label: copy.debuffLabel, value: formatBoolean(buff.isDebuff, copy) },
+          { label: copy.iconLabel, value: buff.iconTexture ? `${buff.iconTexture}:${buff.iconSpriteIndex}` : String(buff.iconSpriteIndex) },
+          { label: copy.glowColorLabel, value: buff.glowColor ?? copy.noneLabel },
+          ...attributeRows,
+        ],
+      }
+    }),
+  )
+
+  cards.push(
+    ...stats.geodeDrops.map((drop, index) => ({
+      key: `geode:${drop.id ?? index}`,
+      title: drop.id ?? `${copy.geodeDropsTitle} ${index + 1}`,
+      rows: [
+        { label: copy.outputLabel, value: formatItemOutput(drop.itemId, drop.randomItemIds, copy) },
+        { label: copy.chanceLabel, value: formatChance(drop.chance, copy) },
+        { label: copy.conditionLabel, value: drop.condition ?? copy.noneLabel },
+        { label: copy.stackLabel, value: `${drop.minStack}-${drop.maxStack}` },
+        { label: copy.maxItemsLabel, value: drop.maxItems != null ? String(drop.maxItems) : copy.noneLabel },
+        { label: copy.qualityLabel, value: String(drop.quality) },
+        { label: copy.toolUpgradeLabel, value: String(drop.toolUpgradeLevel) },
+        { label: copy.recipeLabel, value: formatBoolean(drop.isRecipe, copy) },
+        { label: copy.setFlagLabel, value: drop.setFlagOnPickup ?? copy.noneLabel },
+        { label: copy.precedenceLabel, value: String(drop.precedence) },
+        { label: copy.stackModeLabel, value: drop.stackModifierMode != null ? String(drop.stackModifierMode) : copy.noneLabel },
+        { label: copy.qualityModeLabel, value: drop.qualityModifierMode != null ? String(drop.qualityModifierMode) : copy.noneLabel },
+        { label: copy.stackModifiersLabel, value: drop.stackModifiers.length ? String(drop.stackModifiers.length) : copy.noneLabel },
+        { label: copy.qualityModifiersLabel, value: drop.qualityModifiers.length ? String(drop.qualityModifiers.length) : copy.noneLabel },
+        { label: copy.modDataLabel, value: Object.keys(drop.modData).length ? String(Object.keys(drop.modData).length) : copy.noneLabel },
+        { label: copy.perItemConditionLabel, value: drop.perItemCondition ?? copy.noneLabel },
+      ],
+    })),
+  )
+
+  cards.push(
+    ...Object.entries(stats.artifactSpotChances).map(([location, chance]) => ({
+      key: `artifact-chance:${location}`,
+      title: location,
+      rows: [{ label: copy.chanceLabel, value: formatChance(chance, copy) }],
+    })),
+  )
+
+  const attributeRows = getNonZeroAttributeRows(item, copy)
+  if (attributeRows.length) {
+    cards.push({
+      key: 'buff-attribute-summary',
+      title: copy.attributesLabel,
+      rows: attributeRows,
+    })
+  }
+
+  return cards
 }
 
 export function buildResourceRows(

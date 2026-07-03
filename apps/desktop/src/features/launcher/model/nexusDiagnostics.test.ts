@@ -327,7 +327,7 @@ describe('configuration diagnostics cache', () => {
     ).toBe(true)
   })
 
-  it('reuses cached API key validation until it expires or the API key changes', () => {
+  it('keeps expired API key validation visible while marking it for refresh', () => {
     const status = {
       userName: 'ApiPilot',
       avatarUrl: 'https://staticdelivery.nexusmods.com/Images/Users/123/avatar.png',
@@ -354,20 +354,53 @@ describe('configuration diagnostics cache', () => {
       readCachedLauncherConfigurationApiKeyStatus({
         now: 1_000 + 4 * 60 * 1000,
         apiKeySignature: 'api-key',
-      })?.status,
-    ).toEqual(status)
+      }),
+    ).toEqual(expect.objectContaining({ status, shouldRefresh: false }))
     expect(
       readCachedLauncherConfigurationApiKeyStatus({
         now: 1_000 + 6 * 60 * 1000,
         apiKeySignature: 'api-key',
       }),
-    ).toBeNull()
+    ).toEqual(expect.objectContaining({ status, shouldRefresh: true }))
     expect(
       readCachedLauncherConfigurationApiKeyStatus({
         now: 1_100,
         apiKeySignature: 'different-key',
       }),
     ).toBeNull()
+  })
+
+  it('never auto-refreshes permanent API key validation entries', () => {
+    const status = {
+      userName: 'LifetimePilot',
+      avatarUrl: null,
+      profileUrl: 'https://www.nexusmods.com/users/124',
+      isPremium: true,
+      isLifetimePremium: true,
+      dailyRemaining: 42,
+      hourlyRemaining: 24,
+      dailyResetAt: null,
+      hourlyResetAt: null,
+    }
+
+    writeCachedLauncherConfigurationApiKeyStatus(
+      {
+        status,
+        error: null,
+      },
+      {
+        now: 1_000,
+        expiresAtMs: null,
+        apiKeySignature: 'api-key',
+      },
+    )
+
+    expect(
+      readCachedLauncherConfigurationApiKeyStatus({
+        now: 1_000 + 365 * 24 * 60 * 60 * 1000,
+        apiKeySignature: 'api-key',
+      }),
+    ).toEqual(expect.objectContaining({ status, shouldRefresh: false }))
   })
 })
 

@@ -1,10 +1,26 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '@locales/editor-shell'
 import type { WorkbenchViewRegistration } from '@shared/contracts'
 import { WorkbenchViewHost } from './WorkbenchViewHost'
 
-function renderHost(editModeView: WorkbenchViewRegistration) {
+function renderHost(editModeView: WorkbenchViewRegistration, overrides: Partial<Parameters<typeof WorkbenchViewHost>[0]> = {}) {
+  const cpMaker = {
+    activeDraft: null,
+    drafts: [],
+    createDraft: vi.fn(),
+    addPatch: vi.fn(),
+    loadDraft: vi.fn(),
+    chooseDirectory: vi.fn(),
+    importPack: vi.fn(),
+    copyDraft: vi.fn(),
+    deleteDraft: vi.fn(),
+  } as never
+  const onRunWithCpMakerUnsavedGuard = vi.fn(async (action: () => void | Promise<void>) => {
+    await action()
+    return true
+  })
+
   return render(
     <WorkbenchViewHost
       editModeView={editModeView}
@@ -18,16 +34,22 @@ function renderHost(editModeView: WorkbenchViewRegistration) {
       canGoForward={false}
       onGoBack={vi.fn()}
       onGoForward={vi.fn()}
-      cpMaker={{ activeDraft: null, createDraft: vi.fn(), addPatch: vi.fn() } as never}
+      cpMaker={cpMaker}
       studioDeskModel={{} as never}
       onWorkbenchEvent={vi.fn()}
       navigateToPatch={vi.fn()}
       onSetWorkspaceMode={vi.fn()}
+      onRunWithModUnsavedGuard={async (action) => {
+        await action()
+        return true
+      }}
+      onRunWithCpMakerUnsavedGuard={onRunWithCpMakerUnsavedGuard}
       onSetWorkspaceViewMode={vi.fn()}
       studioDeskGalleryOpen={false}
       onStudioDeskGalleryOpenChange={vi.fn()}
       studioDeskCreateDialogOpenSignal={0}
       activeEditPatchId={null}
+      {...overrides}
     />,
   )
 }
@@ -60,6 +82,65 @@ describe('WorkbenchViewHost', () => {
     expect(screen.getByText('Workspace editor body').closest('[data-loading-section]')).toHaveAttribute(
       'data-loading-section',
       'workbench-edit-workspace-editor:map',
+    )
+  })
+
+  it('runs studio desk draft replacement actions through the CP Maker unsaved guard', () => {
+    const createDraft = vi.fn()
+    const onRunWithCpMakerUnsavedGuard = vi.fn(async (action: () => void | Promise<void>) => {
+      await action()
+      return true
+    })
+
+    function StudioDeskStub(props: {
+      onCreateDraft: (metadata: {
+        projectName: string
+        projectDescription: string
+        projectAuthor: string
+        projectVersion: string
+        projectUniqueId: string
+      }) => void
+    }) {
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            props.onCreateDraft({
+              projectName: 'Guarded',
+              projectDescription: '',
+              projectAuthor: '',
+              projectVersion: '1.0.0',
+              projectUniqueId: 'Author.Guarded',
+            })
+          }
+        >
+          Create guarded draft
+        </button>
+      )
+    }
+
+    renderHost(
+      {
+        id: 'studio-desk',
+        kind: 'workbench-view',
+        viewId: 'studio-desk',
+        title: 'Studio Desk',
+        component: StudioDeskStub,
+      },
+      {
+        cpMaker: { activeDraft: null, createDraft } as never,
+        onRunWithCpMakerUnsavedGuard,
+      },
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create guarded draft' }))
+
+    expect(onRunWithCpMakerUnsavedGuard).toHaveBeenCalledTimes(1)
+    expect(createDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectName: 'Guarded',
+        gameRootPath: null,
+      }),
     )
   })
 })

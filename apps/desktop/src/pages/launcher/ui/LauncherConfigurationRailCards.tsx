@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Crown, X } from 'lucide-react'
+import { AlertTriangle, Check, Crown, RefreshCw, X } from 'lucide-react'
 import { useState } from 'react'
 import type { LauncherCopy } from '@locales/schema'
 import { cx } from '@shared/lib/cx'
@@ -74,26 +74,30 @@ export function ConfigCompletionRail({ title, steps }: { title: string; steps: C
 }
 
 export function ConfigDownloadDefaults({
-  settings,
+  settingsState,
   copy,
   yesLabel,
   noLabel,
 }: {
-  settings: ReturnType<typeof useLauncherSettings>['settings']
+  settingsState: ReturnType<typeof useLauncherSettings>
   copy: LauncherCopy
   yesLabel: string
   noLabel: string
 }) {
+  const { settings } = settingsState
   const defaults = [
     {
+      field: 'autoCheckModUpdates' as const,
       label: copy.toggles.autoCheckModUpdates,
       checked: settings.autoCheckModUpdates,
     },
     {
+      field: 'autoInstallDownloads' as const,
       label: copy.toggles.autoInstallDownloads,
       checked: settings.autoInstallDownloads,
     },
     {
+      field: 'keepDownloadedArchives' as const,
       label: copy.toggles.keepDownloadedArchives,
       checked: settings.keepDownloadedArchives,
     },
@@ -112,12 +116,17 @@ export function ConfigDownloadDefaults({
         {defaults.map((item, index) => (
           <LoadingMotionRevealItem key={item.label} index={index} as="div" className="launcher-config-default-row">
             <span>{item.label}</span>
-            <span
+            <button
+              type="button"
+              role="switch"
+              aria-checked={item.checked}
               className={cx('launcher-config-mini-switch', item.checked && 'launcher-config-mini-switch-active')}
-              aria-label={item.checked ? yesLabel : noLabel}
+              aria-label={item.label}
+              title={item.checked ? yesLabel : noLabel}
+              onClick={() => settingsState.updateField(item.field, !item.checked)}
             >
               <span aria-hidden="true" />
-            </span>
+            </button>
           </LoadingMotionRevealItem>
         ))}
       </div>
@@ -127,13 +136,22 @@ export function ConfigDownloadDefaults({
 
 type ConfigAccountCardProps = {
   account: {
-    apiKeyStatus: { userName?: string | null; avatarUrl?: string | null; isPremium?: boolean | null } | null
+    apiKeyStatus: {
+      userName?: string | null
+      avatarUrl?: string | null
+      isPremium?: boolean | null
+      premiumExpiresAt?: string | null
+    } | null
     apiKeyError: string | null
+    apiKeyChecking: boolean
+    hasApiKey: boolean
   }
   copy: LauncherCopy
+  premiumExpiryLabel: string | null
+  onRefresh: () => void
 }
 
-export function ConfigAccountCard({ account, copy }: ConfigAccountCardProps) {
+export function ConfigAccountCard({ account, copy, premiumExpiryLabel, onRefresh }: ConfigAccountCardProps) {
   const accountName = account.apiKeyStatus?.userName ?? 'Nexus'
   const avatarUrl = account.apiKeyStatus?.avatarUrl?.trim() || null
   const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null)
@@ -151,6 +169,17 @@ export function ConfigAccountCard({ account, copy }: ConfigAccountCardProps) {
       data-testid="launcher-config-account-card"
     >
       <div className="launcher-config-account-cover" aria-hidden="true" />
+      <button
+        type="button"
+        className="launcher-config-account-refresh"
+        disabled={!account.hasApiKey || account.apiKeyChecking}
+        aria-busy={account.apiKeyChecking}
+        aria-label={copy.diagnostics.validateApiKeyAction}
+        title={copy.diagnostics.validateApiKeyAction}
+        onClick={onRefresh}
+      >
+        <RefreshCw className={cx('h-4 w-4', account.apiKeyChecking && 'animate-spin')} aria-hidden="true" />
+      </button>
       <div className="launcher-config-account-card">
         <div className="launcher-config-avatar-wrap">
           {shouldShowAvatarImage ? (
@@ -180,6 +209,7 @@ export function ConfigAccountCard({ account, copy }: ConfigAccountCardProps) {
             {isPremium ? <Crown className="h-3.5 w-3.5" aria-hidden="true" /> : null}
             {isPremium ? tierLabel.toUpperCase() : tierLabel}
           </span>
+          {premiumExpiryLabel ? <span className="launcher-config-premium-expiry">{premiumExpiryLabel}</span> : null}
         </div>
       </div>
     </LoadingMotionReveal>

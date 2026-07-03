@@ -13,6 +13,7 @@ use image::{ColorType, GenericImageView, ImageEncoder, RgbaImage};
 use serde_json::{Map, Value};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 thread_local! {
@@ -155,10 +156,26 @@ fn resolve_from_file_path(
     let root = snapshot.summary.absolute_path.as_ref().ok_or_else(|| {
         format!("Unable to resolve FromFile `{from_file}` without project root path.")
     })?;
-    Ok(Path::new(root).join(relative_from))
+    let root_path = Path::new(root);
+    let candidate = root_path.join(relative_from);
+    let root_canonical = fs::canonicalize(root_path)
+        .map_err(|err| format!("Failed to resolve Content Patcher project root {root}: {err}"))?;
+    let candidate_canonical = fs::canonicalize(&candidate).map_err(|err| {
+        format!(
+            "Failed to resolve FromFile `{from_file}` at {}: {err}",
+            candidate.display()
+        )
+    })?;
+    if !candidate_canonical.starts_with(&root_canonical) {
+        return Err(format!(
+            "FromFile `{from_file}` resolves outside the content pack root."
+        ));
+    }
+
+    Ok(candidate_canonical)
 }
 
-pub fn load_base_json_asset(target: &str, game_root_path: Option<&str>) -> Value {
+pub fn load_base_json_asset(target: &str, game_root_path: Option<&str>) -> Result<Value, String> {
     if let Some(root) = game_root_path {
         if let Some(base_path) = build_target_asset_base_path(root, target) {
             for candidate in [
@@ -177,32 +194,31 @@ pub fn load_base_json_asset(target: &str, game_root_path: Option<&str>) -> Value
                 if extension.eq_ignore_ascii_case("xnb") {
                     match read_xnb_from_path(&candidate) {
                         Ok(xnb) => {
-                            return xnb.content.to_json();
+                            return Ok(xnb.content.to_json());
                         }
                         Err(error) => {
-                            log::warn!(
+                            return Err(format!(
                                 "Failed to load base JSON asset {}: {error}",
                                 candidate.display()
-                            );
+                            ));
                         }
                     }
-                    continue;
                 }
 
                 match parse_json_file(&candidate) {
-                    Ok((_, parsed)) => return parsed,
+                    Ok((_, parsed)) => return Ok(parsed),
                     Err(error) => {
-                        log::warn!(
+                        return Err(format!(
                             "Failed to load base JSON asset {}: {error}",
                             candidate.display()
-                        );
+                        ));
                     }
                 }
             }
         }
     }
 
-    Value::Object(Map::new())
+    Ok(Value::Object(Map::new()))
 }
 
 fn build_target_asset_base_path(game_root_path: &str, target: &str) -> Option<PathBuf> {
@@ -276,7 +292,10 @@ fn describe_base_image_source(game_root_path: &str, candidate: &Path) -> String 
     format!("Game content -> {relative}")
 }
 
-pub fn load_base_image_asset(target: &str, game_root_path: Option<&str>) -> LoadedBaseImageAsset {
+pub fn load_base_image_asset(
+    target: &str,
+    game_root_path: Option<&str>,
+) -> Result<LoadedBaseImageAsset, String> {
     if let Some(root) = game_root_path {
         if let Some(base_path) = build_target_asset_base_path(root, target) {
             for candidate in [
@@ -290,23 +309,23 @@ pub fn load_base_image_asset(target: &str, game_root_path: Option<&str>) -> Load
 
                 match load_image_from_asset_path(&candidate) {
                     Ok(image) => {
-                        return LoadedBaseImageAsset {
+                        return Ok(LoadedBaseImageAsset {
                             image,
                             source: describe_base_image_source(root, &candidate),
-                        };
+                        });
                     }
                     Err(error) => {
-                        log::warn!("{error}");
+                        return Err(error);
                     }
                 }
             }
         }
     }
 
-    LoadedBaseImageAsset {
+    Ok(LoadedBaseImageAsset {
         image: RgbaImage::from_pixel(1, 1, image::Rgba([0, 0, 0, 0])),
         source: format!("No game base image found for `{target}`. Using transparent fallback."),
-    }
+    })
 }
 
 fn build_map_debug_summary(document: &MapDocument) -> ContentPatcherMapDebugSummary {
@@ -355,7 +374,10 @@ fn create_empty_map_document(target: &str) -> MapDocument {
     }
 }
 
-pub fn load_base_map_asset(target: &str, game_root_path: Option<&str>) -> LoadedMapAsset {
+pub fn load_base_map_asset(
+    target: &str,
+    game_root_path: Option<&str>,
+) -> Result<LoadedMapAsset, String> {
     if let Some(root) = game_root_path {
         if let Some(base_path) = build_target_asset_base_path(root, target) {
             let candidate = base_path.with_extension("xnb");
@@ -372,13 +394,13 @@ pub fn load_base_map_asset(target: &str, game_root_path: Option<&str>) -> Loaded
                 }) {
                     Ok(document) => {
                         let debug = build_map_debug_summary(&document);
-                        return LoadedMapAsset { document, debug };
+                        return Ok(LoadedMapAsset { document, debug });
                     }
                     Err(error) => {
-                        log::warn!(
+                        return Err(format!(
                             "Failed to load base map asset {}: {error}",
                             candidate.display()
-                        );
+                        ));
                     }
                 }
             }
@@ -386,10 +408,10 @@ pub fn load_base_map_asset(target: &str, game_root_path: Option<&str>) -> Loaded
     }
 
     let document = create_empty_map_document(target);
-    LoadedMapAsset {
+    Ok(LoadedMapAsset {
         debug: build_map_debug_summary(&document),
         document,
-    }
+    })
 }
 
 pub fn load_json_patch_asset(

@@ -549,22 +549,25 @@ fn load_remote_mod_details_batch(
     log_launcher_trace(
         "update-check.smapi",
         &[
-            ("candidateCount", candidates.len().to_string()),
-            ("smapiCandidateCount", smapi_candidate_count.to_string()),
+            ("candidate-count", candidates.len().to_string()),
+            ("smapi-candidate-count", smapi_candidate_count.to_string()),
             (
-                "skippedNoUniqueIdCount",
+                "skipped-no-unique-id-count",
                 candidates
                     .len()
                     .saturating_sub(smapi_candidate_count)
                     .to_string(),
             ),
-            ("resolvedCount", details.len().to_string()),
-            ("missingCount", missing_after_smapi.len().to_string()),
+            ("resolved-count", details.len().to_string()),
+            ("missing-count", missing_after_smapi.len().to_string()),
             (
-                "missingUniqueCount",
+                "missing-unique-count",
                 unique_missing_after_smapi.len().to_string(),
             ),
-            ("missingModIds", format!("{missing_after_smapi_mod_ids:?}")),
+            (
+                "missing-mod-ids",
+                format!("{missing_after_smapi_mod_ids:?}"),
+            ),
         ],
     );
     if missing_after_smapi.is_empty() {
@@ -609,17 +612,17 @@ fn load_remote_mod_details_batch(
         "update-check.graphql",
         &[
             ("enabled", can_use_graphql.to_string()),
-            ("requestedCount", mod_ids.len().to_string()),
+            ("requested-count", mod_ids.len().to_string()),
             (
-                "resolvedCount",
+                "resolved-count",
                 details
                     .len()
                     .saturating_sub(detail_count_before_graphql)
                     .to_string(),
             ),
-            ("missingCount", missing_after_graphql.len().to_string()),
+            ("missing-count", missing_after_graphql.len().to_string()),
             (
-                "missingModIds",
+                "missing-mod-ids",
                 format!("{missing_after_graphql_mod_ids:?}"),
             ),
         ],
@@ -652,12 +655,15 @@ fn load_remote_mod_details_batch(
         "update-check.public-fallback",
         &[
             (
-                "candidateCount",
+                "candidate-count",
                 public_fallback_candidate_count.to_string(),
             ),
-            ("publicGraphqlResolved", public_graphql_resolved.to_string()),
-            ("unresolvedCount", unresolved_mod_ids.len().to_string()),
-            ("unresolvedModIds", format!("{unresolved_mod_ids:?}")),
+            (
+                "public-graphql-resolved",
+                public_graphql_resolved.to_string(),
+            ),
+            ("unresolved-count", unresolved_mod_ids.len().to_string()),
+            ("unresolved-mod-ids", format!("{unresolved_mod_ids:?}")),
         ],
     );
 
@@ -698,32 +704,35 @@ fn log_launcher_updates_cache_trace(
     extra_fields: &[(&str, String)],
 ) {
     let mut fields = vec![
-        ("modsPath", mods_path.to_string()),
-        ("cacheKey", inspection.cache_key.clone().unwrap_or_default()),
-        ("entryState", inspection.entry_state.as_str().to_string()),
+        ("mods-path", mods_path.to_string()),
         (
-            "checkedAtMs",
+            "cache-key",
+            inspection.cache_key.clone().unwrap_or_default(),
+        ),
+        ("entry-state", inspection.entry_state.as_str().to_string()),
+        (
+            "checked-at-ms",
             format_optional_u128(inspection.checked_at_ms),
         ),
         (
-            "expiresAtMs",
+            "expires-at-ms",
             format_optional_u128(inspection.expires_at_ms),
         ),
-        ("isComplete", format_optional_bool(inspection.is_complete)),
+        ("is-complete", format_optional_bool(inspection.is_complete)),
         (
-            "ttlRemainingMs",
+            "ttl-remaining-ms",
             format_optional_u128(inspection.ttl_remaining_ms),
         ),
         (
-            "expiredByMs",
+            "expired-by-ms",
             format_optional_u128(inspection.expired_by_ms),
         ),
         (
-            "inProgressActiveCount",
+            "active-checks",
             inspection.in_progress_active_count.to_string(),
         ),
         (
-            "inProgressStartedAtMs",
+            "in-progress-started-at-ms",
             format_optional_u128(inspection.in_progress_started_at_ms),
         ),
     ];
@@ -767,11 +776,11 @@ fn save_incremental_launcher_updates_cache(
         mods_path,
         &inspection,
         &[
-            ("ttlMs", LAUNCHER_UPDATES_CACHE_TTL_MS.to_string()),
-            ("checkedCount", checked_count.to_string()),
-            ("totalCount", total_count.to_string()),
-            ("updateCount", partial_result.updates.len().to_string()),
-            ("sessionId", session_id.to_string()),
+            ("ttl-ms", LAUNCHER_UPDATES_CACHE_TTL_MS.to_string()),
+            ("checked-count", checked_count.to_string()),
+            ("total", total_count.to_string()),
+            ("update-count", partial_result.updates.len().to_string()),
+            ("session-id", session_id.to_string()),
         ],
     );
     Ok(partial_result)
@@ -864,7 +873,7 @@ pub fn load_cached_launcher_updates(
                     "update-cache.clear-in-progress",
                     mods_path,
                     &inspection_after_clear,
-                    &[("hadActiveCheck", had_active_check.to_string())],
+                    &[("had-active-check", had_active_check.to_string())],
                 );
             }
 
@@ -883,7 +892,7 @@ pub fn load_cached_launcher_updates(
                 },
                 mods_path,
                 &inspection_after_clear,
-                &[("hadActiveCheck", had_active_check.to_string())],
+                &[("had-active-check", had_active_check.to_string())],
             );
             Ok(cached)
         })(),
@@ -968,13 +977,13 @@ fn check_launcher_updates_blocking(
                     "update-check.cache-hit",
                     mods_path,
                     &inspection,
-                    &[("updateCount", cached.updates.len().to_string())],
+                    &[("update-count", cached.updates.len().to_string())],
                 );
                 log_launcher_trace(
                     "update-check.cache-hit",
                     &[
-                        ("modsPath", cached.mods_path.clone()),
-                        ("updateCount", cached.updates.len().to_string()),
+                        ("mods-path", cached.mods_path.clone()),
+                        ("update-count", cached.updates.len().to_string()),
                     ],
                 );
                 return Ok(cached);
@@ -984,7 +993,7 @@ fn check_launcher_updates_blocking(
                 "update-check.cache-partial",
                 mods_path,
                 &inspection,
-                &[("updateCount", cached.updates.len().to_string())],
+                &[("update-count", cached.updates.len().to_string())],
             );
         }
         log_launcher_updates_cache_trace("update-check.cache-miss", mods_path, &inspection, &[]);
@@ -995,7 +1004,7 @@ fn check_launcher_updates_blocking(
             "update-check.cache-bypass",
             mods_path,
             &inspection,
-            &[("reason", "forceRefresh".to_string())],
+            &[("reason", "force-refresh".to_string())],
         );
     }
     let active_cache_key = begin_launcher_update_check_activity(mods_path);
@@ -1008,7 +1017,7 @@ fn check_launcher_updates_blocking(
             "update-check.cache-mark-in-progress",
             mods_path,
             &in_progress_inspection,
-            &[("sessionId", session_id.to_string())],
+            &[("session-id", session_id.to_string())],
         );
 
         let settings_path = launcher_settings_path()?;
@@ -1044,9 +1053,9 @@ fn check_launcher_updates_blocking(
             log_launcher_trace(
                 "update-check.auto-suppressed",
                 &[
-                    ("modsPath", mods_path.to_string()),
-                    ("skippedCount", skipped_mod_ids.len().to_string()),
-                    ("skippedModIds", format!("{skipped_mod_ids:?}")),
+                    ("mods-path", mods_path.to_string()),
+                    ("skipped-count", skipped_mod_ids.len().to_string()),
+                    ("skipped-mod-ids", format!("{skipped_mod_ids:?}")),
                     (
                         "threshold",
                         AUTO_UPDATE_FAILURE_SUPPRESSION_THRESHOLD.to_string(),
@@ -1057,9 +1066,9 @@ fn check_launcher_updates_blocking(
         log_launcher_trace(
             "update-check.start",
             &[
-                ("modsPath", mods_path.to_string()),
-                ("candidateCount", total.to_string()),
-                ("skippedCount", skipped_mod_ids.len().to_string()),
+                ("mods-path", mods_path.to_string()),
+                ("candidate-count", total.to_string()),
+                ("skipped-count", skipped_mod_ids.len().to_string()),
             ],
         );
         let mut updates = Vec::new();
@@ -1078,8 +1087,8 @@ fn check_launcher_updates_blocking(
             log_launcher_trace(
                 "update-check.batch",
                 &[
-                    ("batchSize", batch.len().to_string()),
-                    ("modIds", format!("{mod_ids:?}")),
+                    ("batch-size", batch.len().to_string()),
+                    ("mod-ids", format!("{mod_ids:?}")),
                 ],
             );
             let remote_details =
@@ -1113,9 +1122,9 @@ fn check_launcher_updates_blocking(
                     log_launcher_trace(
                         "update-check.auto-failure",
                         &[
-                            ("modsPath", mods_path.to_string()),
-                            ("modId", mod_id.to_string()),
-                            ("failureCount", failure.failure_count.to_string()),
+                            ("mods-path", mods_path.to_string()),
+                            ("mod-id", mod_id.to_string()),
+                            ("failure-count", failure.failure_count.to_string()),
                             (
                                 "suppressed",
                                 (failure.failure_count
@@ -1179,9 +1188,9 @@ fn check_launcher_updates_blocking(
         log_launcher_trace(
             "update-check.complete",
             &[
-                ("modsPath", result.mods_path.clone()),
-                ("checkedCount", checked.to_string()),
-                ("updateCount", result.updates.len().to_string()),
+                ("mods-path", result.mods_path.clone()),
+                ("checked-count", checked.to_string()),
+                ("update-count", result.updates.len().to_string()),
             ],
         );
         Ok(result)

@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 pub(crate) const UNSORTED_STORAGE_FOLDER_ID: &str = "unsorted";
 pub(crate) const UNSORTED_STORAGE_FOLDER_NAME: &str = "Unsorted";
@@ -35,13 +35,52 @@ impl Default for LauncherSettings {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NullablePatch<T> {
+    Missing,
+    Null,
+    Value(T),
+}
+
+impl<T> NullablePatch<T> {
+    pub fn state_label(&self) -> &'static str {
+        match self {
+            Self::Missing => "missing",
+            Self::Null => "null",
+            Self::Value(_) => "value",
+        }
+    }
+}
+
+impl<T> Default for NullablePatch<T> {
+    fn default() -> Self {
+        Self::Missing
+    }
+}
+
+impl<'de, T> Deserialize<'de> for NullablePatch<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Option::<T>::deserialize(deserializer).map(|value| match value {
+            Some(value) => Self::Value(value),
+            None => Self::Null,
+        })
+    }
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveLauncherSettingsRequest {
     pub game_path: Option<String>,
     pub mods_path: Option<String>,
     pub download_path: Option<String>,
-    pub nexus_api_key: Option<String>,
+    #[serde(default)]
+    pub nexus_api_key: NullablePatch<String>,
     pub auto_install_downloads: Option<bool>,
     pub keep_downloaded_archives: Option<bool>,
     pub auto_check_mod_updates: Option<bool>,
@@ -184,6 +223,12 @@ pub struct LauncherDownloadQueueItem {
     pub error: Option<String>,
     pub added_at: u128,
     pub completed_at: Option<u128>,
+    #[serde(default)]
+    pub total_bytes: Option<u64>,
+    #[serde(default)]
+    pub downloaded_bytes: Option<u64>,
+    #[serde(default)]
+    pub bytes_per_second: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -497,6 +542,15 @@ pub struct LauncherUpdateProgressPayload {
     pub updates: Option<Vec<LauncherUpdateSummary>>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherDownloadProgressPayload {
+    pub download_id: String,
+    pub downloaded_bytes: u64,
+    pub total_bytes: Option<u64>,
+    pub bytes_per_second: Option<u64>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherUpdateSummary {
@@ -532,6 +586,7 @@ fn default_launcher_updates_result_is_complete() -> bool {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DownloadLauncherModRequest {
+    pub download_id: Option<String>,
     pub mod_id: i64,
     pub file_id: Option<i64>,
     pub version: Option<String>,
@@ -588,6 +643,8 @@ pub struct InstallLauncherArchiveResult {
 pub struct LauncherInstallBackupSummary {
     pub backup_id: String,
     pub backup_path: String,
+    pub delete_count: usize,
+    pub overwrite_count: usize,
 }
 
 #[derive(Debug, Clone, Deserialize)]

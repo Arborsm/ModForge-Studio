@@ -41,6 +41,12 @@ pub(crate) struct AppUiAppearanceState {
     pub(crate) locale: String,
     #[serde(default = "default_accent_preset_id")]
     pub(crate) accent_preset_id: String,
+    #[serde(default = "default_window_border_tone")]
+    pub(crate) window_border_tone: String,
+    #[serde(default = "default_window_border_weight")]
+    pub(crate) window_border_weight: String,
+    #[serde(default, rename = "windowBorderStyle", skip_serializing)]
+    legacy_window_border_style: String,
     #[serde(default)]
     pub(crate) recent_game_directories: Vec<String>,
     #[serde(default)]
@@ -121,6 +127,10 @@ pub(crate) struct AppUiAppearanceStatePatch {
     #[serde(default)]
     pub(crate) accent_preset_id: Option<String>,
     #[serde(default)]
+    pub(crate) window_border_tone: Option<String>,
+    #[serde(default)]
+    pub(crate) window_border_weight: Option<String>,
+    #[serde(default)]
     pub(crate) recent_game_directories: Option<Vec<String>>,
     #[serde(default)]
     pub(crate) player_appearance: Option<AppUiPlayerAppearanceState>,
@@ -179,6 +189,14 @@ fn default_accent_preset_id() -> String {
     "indigo".to_string()
 }
 
+fn default_window_border_tone() -> String {
+    "accent".to_string()
+}
+
+fn default_window_border_weight() -> String {
+    "standard".to_string()
+}
+
 fn default_workspace_view_mode() -> String {
     "edit".to_string()
 }
@@ -223,6 +241,9 @@ impl Default for AppUiAppearanceState {
         Self {
             locale: default_locale(),
             accent_preset_id: default_accent_preset_id(),
+            window_border_tone: default_window_border_tone(),
+            window_border_weight: default_window_border_weight(),
+            legacy_window_border_style: String::new(),
             recent_game_directories: Vec::new(),
             player_appearance: AppUiPlayerAppearanceState::default(),
         }
@@ -281,6 +302,43 @@ fn normalize_accent_preset_id(value: &str) -> String {
     match value.trim() {
         "indigo" | "blue" | "cyan" | "emerald" | "amber" | "rose" => value.trim().to_string(),
         _ => default_accent_preset_id(),
+    }
+}
+
+fn normalize_window_border_tone(value: &str) -> String {
+    match value.trim() {
+        "accent" | "neutral" => value.trim().to_string(),
+        _ => default_window_border_tone(),
+    }
+}
+
+fn normalize_window_border_weight(value: &str) -> String {
+    match value.trim() {
+        "standard" | "thin" | "none" => value.trim().to_string(),
+        _ => default_window_border_weight(),
+    }
+}
+
+fn migrate_legacy_window_border_tone(legacy: &str, current: &str) -> String {
+    if !legacy.trim().is_empty() && current.trim() == default_window_border_tone() {
+        match legacy.trim() {
+            "neutral" => "neutral".to_string(),
+            _ => default_window_border_tone(),
+        }
+    } else {
+        normalize_window_border_tone(current)
+    }
+}
+
+fn migrate_legacy_window_border_weight(legacy: &str, current: &str) -> String {
+    if !legacy.trim().is_empty() && current.trim() == default_window_border_weight() {
+        match legacy.trim() {
+            "subtle" => "thin".to_string(),
+            "none" => "none".to_string(),
+            _ => default_window_border_weight(),
+        }
+    } else {
+        normalize_window_border_weight(current)
     }
 }
 
@@ -374,6 +432,15 @@ fn normalize_app_ui_state(state: AppUiState) -> AppUiState {
         appearance: AppUiAppearanceState {
             locale: normalize_locale(&state.appearance.locale),
             accent_preset_id: normalize_accent_preset_id(&state.appearance.accent_preset_id),
+            window_border_tone: migrate_legacy_window_border_tone(
+                &state.appearance.legacy_window_border_style,
+                &state.appearance.window_border_tone,
+            ),
+            window_border_weight: migrate_legacy_window_border_weight(
+                &state.appearance.legacy_window_border_style,
+                &state.appearance.window_border_weight,
+            ),
+            legacy_window_border_style: String::new(),
             recent_game_directories: normalize_string_vec(state.appearance.recent_game_directories),
             player_appearance: normalize_player_appearance(state.appearance.player_appearance),
         },
@@ -450,6 +517,13 @@ pub(crate) fn patch_app_ui_state_at_path(
         }
         if let Some(accent_preset_id) = appearance.accent_preset_id {
             state.appearance.accent_preset_id = normalize_accent_preset_id(&accent_preset_id);
+        }
+        if let Some(window_border_tone) = appearance.window_border_tone {
+            state.appearance.window_border_tone = normalize_window_border_tone(&window_border_tone);
+        }
+        if let Some(window_border_weight) = appearance.window_border_weight {
+            state.appearance.window_border_weight =
+                normalize_window_border_weight(&window_border_weight);
         }
         if let Some(recent_game_directories) = appearance.recent_game_directories {
             state.appearance.recent_game_directories =

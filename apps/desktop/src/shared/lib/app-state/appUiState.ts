@@ -1,4 +1,4 @@
-import type { AppUiState, PatchAppUiStateRequest } from '@shared/contracts'
+import type { AppUiState, PatchAppUiStateRequest, WindowBorderTone, WindowBorderWeight } from '@shared/contracts'
 import { DEFAULT_LOADING_MOTION_PREFERENCE } from '@shared/lib/loading-motion'
 import { normalizeLoadingMotionPreference } from '@shared/lib/loading-motion'
 
@@ -30,6 +30,22 @@ function defaultLocale() {
   return 'en-US'
 }
 
+function normalizeWindowBorderTone(value: unknown): WindowBorderTone {
+  return value === 'neutral' ? 'neutral' : 'accent'
+}
+
+function normalizeWindowBorderWeight(value: unknown): WindowBorderWeight {
+  return value === 'thin' || value === 'none' ? value : 'standard'
+}
+
+function readLegacyWindowBorderStyle(value: unknown) {
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  return value.windowBorderStyle
+}
+
 /** Creates a normalized default UI state for first launch or non-desktop fallback. */
 export function createDefaultAppUiState(): AppUiState {
   return {
@@ -43,6 +59,8 @@ export function createDefaultAppUiState(): AppUiState {
     appearance: {
       locale: defaultLocale(),
       accentPresetId: 'indigo',
+      windowBorderTone: 'accent',
+      windowBorderWeight: 'standard',
       recentGameDirectories: [],
       playerAppearance: {
         profiles: [],
@@ -109,6 +127,11 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
         typeof raw?.appearance?.accentPresetId === 'string' && raw.appearance.accentPresetId.trim()
           ? raw.appearance.accentPresetId
           : defaults.appearance.accentPresetId,
+      windowBorderTone: normalizeWindowBorderTone(raw?.appearance?.windowBorderTone ?? readLegacyWindowBorderStyle(raw?.appearance)),
+      windowBorderWeight: normalizeWindowBorderWeight(
+        raw?.appearance?.windowBorderWeight ??
+          (readLegacyWindowBorderStyle(raw?.appearance) === 'subtle' ? 'thin' : readLegacyWindowBorderStyle(raw?.appearance)),
+      ),
       recentGameDirectories: Array.isArray(raw?.appearance?.recentGameDirectories)
         ? raw.appearance.recentGameDirectories.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
         : defaults.appearance.recentGameDirectories,

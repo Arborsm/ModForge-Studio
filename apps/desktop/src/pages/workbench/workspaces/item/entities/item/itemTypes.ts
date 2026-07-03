@@ -138,6 +138,88 @@ export type ItemFishPondProfile = {
   producedItemCount: number
 }
 
+/** Normalized Stardew ObjectData buff stat deltas used by object inspectors without exposing raw PascalCase fields. */
+export type ItemObjectBuffAttributes = {
+  combatLevel: number
+  farmingLevel: number
+  fishingLevel: number
+  miningLevel: number
+  luckLevel: number
+  foragingLevel: number
+  maxStamina: number
+  magneticRadius: number
+  speed: number
+  defense: number
+  attack: number
+  attackMultiplier: number
+  immunity: number
+  knockbackMultiplier: number
+  weaponSpeedMultiplier: number
+  criticalChanceMultiplier: number
+  criticalPowerMultiplier: number
+  weaponPrecisionMultiplier: number
+}
+
+/** Quantity modifier attached to generated object drops; values are kept structured for future rule editors. */
+export type ItemQuantityModifier = {
+  id: string | null
+  condition: string | null
+  modification: string | number | null
+  amount: number
+  randomAmount: number[]
+}
+
+/** ObjectData Buffs entry preserved from edible/drink objects, including icon metadata and custom fields. */
+export type ItemObjectBuff = {
+  id: string | null
+  buffId: string | null
+  iconTexture: string | null
+  iconSpriteIndex: number
+  duration: number
+  isDebuff: boolean
+  glowColor: string | null
+  customAttributes: ItemObjectBuffAttributes
+  customFields: Record<string, string>
+}
+
+/** ObjectData GeodeDrops entry with generic spawn fields plus geode-specific condition and precedence data. */
+export type ItemObjectGeodeDrop = {
+  id: string | null
+  itemId: string | null
+  randomItemIds: string[]
+  maxItems: number | null
+  minStack: number
+  maxStack: number
+  quality: number
+  objectInternalName: string | null
+  objectDisplayName: string | null
+  objectColor: string | null
+  toolUpgradeLevel: number
+  isRecipe: boolean
+  stackModifiers: ItemQuantityModifier[]
+  stackModifierMode: string | number | null
+  qualityModifiers: ItemQuantityModifier[]
+  qualityModifierMode: string | number | null
+  modData: Record<string, string>
+  perItemCondition: string | null
+  condition: string | null
+  chance: number
+  setFlagOnPickup: string | null
+  precedence: number
+}
+
+/** Object-only Stardew fields that do not apply to other item kinds but must survive catalog normalization. */
+export type ItemObjectStats = {
+  colorOverlayFromNextIndex: boolean
+  buffs: ItemObjectBuff[]
+  geodeDropsDefaultItems: boolean
+  geodeDrops: ItemObjectGeodeDrop[]
+  artifactSpotChances: Record<string, number>
+  excludeFromFishingCollection: boolean
+  excludeFromShippingCollection: boolean
+  excludeFromRandomSale: boolean
+}
+
 export type ItemGiftTasteNpc = {
   internalName: string
   displayName: string
@@ -174,6 +256,7 @@ export type ItemWorkspaceEntry = {
   categorySearchTokens: string[]
   contextTags: string[]
   customFields: Record<string, string>
+  objectStats: ItemObjectStats | null
   cropData: ItemCropEntry | null
   cropHarvests: ItemCropEntry[]
   fishData: ItemFishData | null

@@ -8,7 +8,7 @@ import { getWorkspaceText } from './itemWorkspaceRows'
 import { DetailSectionCard, EmptyNotice, HeroStatChip, SourceGrid, TasteGroup, UseGrid, WorkbenchSignalCard } from './itemWorkspaceSharedUi'
 import { getPillClass } from './itemWorkspaceUiClasses'
 import { RenderKv } from './itemWorkspaceRenderKv'
-import type { AsideRow, AsideSection, DetailTab, HeroChip, SignalCard, SourceCard, UseCard } from './itemWorkspaceTypes'
+import type { AsideRow, AsideSection, DetailTab, HeroChip, ObjectDataCard, SignalCard, SourceCard, UseCard } from './itemWorkspaceTypes'
 
 export function DetailPane({
   text,
@@ -18,6 +18,7 @@ export function DetailPane({
   signalCards,
   infoRows,
   resourceRows,
+  objectDataCards,
   modSources,
   sourceCards,
   recipeUseCards,
@@ -36,6 +37,7 @@ export function DetailPane({
   signalCards: SignalCard[]
   infoRows: AsideRow[]
   resourceRows: AsideRow[]
+  objectDataCards: ObjectDataCard[]
   modSources: ModSourceEntry[]
   sourceCards: SourceCard[]
   recipeUseCards: UseCard[]
@@ -209,7 +211,26 @@ export function DetailPane({
             <div className="space-y-4">
               <DetailSectionCard title={copy.assetTitle} rows={resourceRows} />
 
-              <DetailSectionCard title="Mod Sources">
+              <DetailSectionCard title={copy.objectDataTitle}>
+                <div className="mt-3 grid gap-3 xl:grid-cols-2">
+                  {objectDataCards.length ? (
+                    objectDataCards.map((card) => (
+                      <div key={card.key} className="panel-section px-3 py-3">
+                        <p className="mb-3 text-sm font-semibold text-[var(--text-primary)]">{card.title}</p>
+                        <div className="grid gap-2">
+                          {card.rows.map((row) => (
+                            <RenderKv key={`${card.key}:${row.label}`} label={row.label} value={row.value} />
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <EmptyNotice message={copy.objectDataEmpty} />
+                  )}
+                </div>
+              </DetailSectionCard>
+
+              <DetailSectionCard title={copy.modSourcesTitle}>
                 <div className="mt-3">
                   <ModSourceList sources={modSources} />
                 </div>

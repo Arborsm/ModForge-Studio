@@ -217,6 +217,7 @@ describe('LauncherConfigurationPage', () => {
       avatarUrl: 'https://staticdelivery.nexusmods.com/Images/Users/123/avatar.png',
       profileUrl: 'https://www.nexusmods.com/users/123',
       isPremium: true,
+      premiumExpiresAt: '2026-12-31T23:59:59Z',
       dailyRemaining: 18742,
       hourlyRemaining: 500,
       dailyResetAt: null,
@@ -242,6 +243,35 @@ describe('LauncherConfigurationPage', () => {
     expect(accountCard.textContent).not.toContain('500')
     expect(nexusPanel.textContent).toContain('18,742')
     expect(nexusPanel.textContent).toContain('500')
+    expect(accountCard.textContent).toContain('Premium 到期：')
+
+    fireEvent.click(within(accountCard).getByRole('button', { name: copy.diagnostics.validateApiKeyAction }))
+    await waitFor(() => {
+      expect(validateNexusApiKey).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  it('renders permanent Premium accounts without an expiry date', async () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    const validateNexusApiKey = vi.fn().mockResolvedValue({
+      userName: 'LifetimePilot',
+      avatarUrl: null,
+      profileUrl: 'https://www.nexusmods.com/users/124',
+      isPremium: true,
+      isLifetimePremium: true,
+      premiumExpiresAt: null,
+      dailyRemaining: 18742,
+      hourlyRemaining: 500,
+      dailyResetAt: null,
+      hourlyResetAt: null,
+    })
+
+    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+
+    const accountCard = await screen.findByTestId('launcher-config-account-card')
+
+    expect(accountCard.textContent).toContain(copy.diagnostics.premiumLifetime)
+    expect(accountCard.textContent).not.toContain('Premium 到期：')
   })
 
   it('uses a distinct free-account presentation instead of premium chrome', async () => {
@@ -686,10 +716,11 @@ describe('LauncherConfigurationPage', () => {
       ssoId: 'test-sso-id',
     })
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ startNexusSso, getNexusSsoStatus }))
+    const settingsState = createSettingsState(createSettings({ nexusApiKey: null }))
+    renderConfigurationPage({ settingsState: settingsState as never }, createMockLauncherPort({ startNexusSso, getNexusSsoStatus }))
 
     const nexusPanel = screen.getByRole('region', { name: copy.settings.nexusAccessTitle })
-    fireEvent.click(screen.getByRole('button', { name: copy.settings.nexusReauthorize }))
+    fireEvent.click(screen.getByRole('button', { name: copy.settings.nexusSignInAction }))
     fireEvent.click(screen.getByRole('button', { name: copy.configuration.nexusDiagnosticsTitle }))
 
     await waitFor(() => {
@@ -712,9 +743,10 @@ describe('LauncherConfigurationPage', () => {
     const pendingStart = createDeferred<{ ssoId: string; status: 'connecting' }>()
     const startNexusSso = vi.fn().mockReturnValue(pendingStart.promise)
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ startNexusSso }))
+    const settingsState = createSettingsState(createSettings({ nexusApiKey: null }))
+    renderConfigurationPage({ settingsState: settingsState as never }, createMockLauncherPort({ startNexusSso }))
 
-    const signInButton = screen.getByRole('button', { name: copy.settings.nexusReauthorize })
+    const signInButton = screen.getByRole('button', { name: copy.settings.nexusSignInAction })
     fireEvent.click(signInButton)
 
     expect(signInButton).toBeDisabled()
@@ -931,8 +963,13 @@ describe('LauncherConfigurationPage', () => {
     expect(await screen.findByText('Log: network timeout')).toBeTruthy()
 
     const apiRouteRow = screen.getByRole('heading', { name: copy.settings.nexusApiRest, level: 3 }).closest('.launcher-config-api-row')
+    const privateGraphqlRouteRow = screen
+      .getByRole('heading', { name: 'Nexus Private GraphQL', level: 3 })
+      .closest('.launcher-config-api-row')
     expect(apiRouteRow).not.toHaveClass('launcher-config-api-row-ok')
     expect(apiRouteRow).toHaveClass('launcher-config-api-row-danger')
+    expect(privateGraphqlRouteRow).not.toHaveClass('launcher-config-api-row-loading')
+    expect(privateGraphqlRouteRow).toHaveClass('launcher-config-api-row-danger')
   })
 
   it('keeps debug utilities collapsed until more is requested', async () => {

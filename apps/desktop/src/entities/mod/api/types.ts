@@ -249,7 +249,7 @@ export type LoadContentPatcherResultAssetResult = {
 /** Request to export one simulated target to disk. */
 export type ExportContentPatcherAssetRequest = SimulateContentPatcherRequest & {
   target: string
-  outputPath: string
+  outputDirectory: string
 }
 
 /** Result of exporting one simulated Content Patcher target. */
@@ -273,6 +273,7 @@ export type ContentPatcherSimulationResult = {
 export type SaveModProjectRequest = {
   sourcePath: string
   outputPath?: string | null
+  overwriteExistingExport?: boolean
   manifestJson: string
   contentJson: string
   i18nFiles?: Array<{

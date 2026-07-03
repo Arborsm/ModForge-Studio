@@ -305,6 +305,8 @@ export type ValidateApiKeyResult = {
   avatarUrl: string | null
   profileUrl: string | null
   isPremium: boolean
+  premiumExpiresAt?: string | null
+  isLifetimePremium?: boolean | null
   dailyRemaining: number | null
   hourlyRemaining: number | null
   dailyResetAt: number | null
@@ -394,10 +396,19 @@ export type LauncherUpdateProgressPayload = {
 
 /** Request to download one remote mod archive. */
 export type DownloadLauncherModRequest = {
+  downloadId?: string | null
   modId: number
   fileId?: number | null
   version?: string | null
   title?: string | null
+}
+
+/** Progress payload emitted while one remote mod archive is downloading. */
+export type LauncherDownloadProgressPayload = {
+  downloadId: string
+  downloadedBytes: number
+  totalBytes?: number | null
+  bytesPerSecond?: number | null
 }
 
 /** Download result and optional auto-install target. */
@@ -478,6 +489,8 @@ export type InstallLauncherArchiveResult = {
 export type LauncherInstallBackupSummary = {
   backupId: string
   backupPath: string
+  deleteCount: number
+  overwriteCount: number
 }
 
 /** Request to list install backups for a Mods folder. */

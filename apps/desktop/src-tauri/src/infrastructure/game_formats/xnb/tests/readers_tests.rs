@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
-use super::{TypeReader, build_reader_from_type_name, format_flags_enum};
+use super::super::XnbValue;
+use super::super::buffer::CursorReader;
+use super::{ReaderResolver, TypeReader, build_reader_from_type_name, format_flags_enum};
 
 #[test]
 fn parses_bracket_generic_array_subtypes() {
@@ -63,4 +65,34 @@ fn formats_flags_enum_combinations() {
         Some("ItemPlacedInMachine, OutputCollected".to_string())
     );
     assert_eq!(format_flags_enum(&values, 16), None);
+}
+
+#[test]
+fn texture_reader_consumes_all_mip_levels() {
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(&0i32.to_le_bytes());
+    bytes.extend_from_slice(&1u32.to_le_bytes());
+    bytes.extend_from_slice(&1u32.to_le_bytes());
+    bytes.extend_from_slice(&2u32.to_le_bytes());
+    bytes.extend_from_slice(&4u32.to_le_bytes());
+    bytes.extend_from_slice(&[255, 0, 0, 255]);
+    bytes.extend_from_slice(&4u32.to_le_bytes());
+    bytes.extend_from_slice(&[0, 0, 0, 0]);
+    bytes.extend_from_slice(&1234u32.to_le_bytes());
+
+    let mut reader = CursorReader::new(bytes);
+    let resolver = ReaderResolver::new(Vec::new());
+    let value = TypeReader::Texture2D
+        .read(&mut reader, &resolver)
+        .expect("texture");
+
+    match value {
+        XnbValue::Texture(texture) => {
+            assert_eq!(texture.width, 1);
+            assert_eq!(texture.height, 1);
+            assert_eq!(texture.rgba, vec![255, 0, 0, 255]);
+        }
+        other => panic!("expected texture, got {other:?}"),
+    }
+    assert_eq!(reader.read_u32_le().expect("trailing value"), 1234);
 }

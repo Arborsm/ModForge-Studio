@@ -768,7 +768,7 @@ export function useCpMaker() {
 
   // 保存草稿
   const saveDraft = useCallback(async () => {
-    if (!activeDraft) return
+    if (!activeDraft) return false
     setDraftLoading(true)
     setDraftError(null)
     try {
@@ -777,8 +777,10 @@ export function useCpMaker() {
       setIsDirty(false)
       setDirtyPatchIds(new Set())
       await refreshDrafts()
+      return true
     } catch (error) {
       setDraftError(error instanceof Error ? error.message : String(error))
+      return false
     } finally {
       setDraftLoading(false)
     }

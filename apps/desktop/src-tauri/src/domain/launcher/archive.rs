@@ -48,7 +48,7 @@ pub(crate) fn inspect_archive_at_path(
 ) -> Result<InspectLauncherArchiveResult, String> {
     log_launcher_trace(
         "inspect.start",
-        &[("archivePath", normalize_path(archive_path))],
+        &[("archive-path", normalize_path(archive_path))],
     );
     if !archive_path.is_file() {
         return Err(format!(
@@ -76,9 +76,9 @@ pub(crate) fn inspect_archive_at_path(
         log_launcher_trace(
             "inspect.complete",
             &[
-                ("archivePath", result.archive_path.clone()),
-                ("modRootCount", result.mod_roots.len().to_string()),
-                ("totalFiles", result.total_files.to_string()),
+                ("archive-path", result.archive_path.clone()),
+                ("mod-root-count", result.mod_roots.len().to_string()),
+                ("total-files", result.total_files.to_string()),
             ],
         );
         Ok(result)
@@ -196,10 +196,10 @@ pub(crate) fn install_archive_at_path(
     log_launcher_trace(
         "install.start",
         &[
-            ("archivePath", normalize_path(archive_path)),
-            ("modsPath", normalize_path(&mods_path)),
+            ("archive-path", normalize_path(archive_path)),
+            ("mods-path", normalize_path(&mods_path)),
             (
-                "hasBackupRoot",
+                "has-backup-root",
                 backup_root.map(Path::to_path_buf).is_some().to_string(),
             ),
         ],
@@ -254,10 +254,10 @@ pub(crate) fn install_archive_at_path(
     log_launcher_trace(
         "install.complete",
         &[
-            ("targetPath", public_result.target_path.clone()),
-            ("modName", public_result.mod_name.clone()),
+            ("target-path", public_result.target_path.clone()),
+            ("mod-name", public_result.mod_name.clone()),
             (
-                "uniqueId",
+                "unique-id",
                 public_result
                     .unique_id
                     .clone()
@@ -271,10 +271,10 @@ pub(crate) fn install_archive_at_path(
                     .unwrap_or_else(|| "unknown".to_string()),
             ),
             (
-                "installedModCount",
+                "installed-mod-count",
                 public_result.installed_mods.len().to_string(),
             ),
-            ("backupId", public_result.backup_id.clone()),
+            ("backup-id", public_result.backup_id.clone()),
         ],
     );
     Ok(public_result)
@@ -787,6 +787,8 @@ pub fn list_launcher_install_backups(
                 .map(|session| LauncherInstallBackupSummary {
                     backup_id: session.backup_id,
                     backup_path: session.backup_path,
+                    delete_count: session.delete_count,
+                    overwrite_count: session.overwrite_count,
                 })
                 .collect())
         })(),

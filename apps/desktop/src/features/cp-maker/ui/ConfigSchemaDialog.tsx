@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { X, Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import type { ConfigSchemaEntry, DraftPatch } from '@shared/contracts'
+import { useEditorCopy } from '@locales/localeContext'
 
 interface ConfigSchemaDialogProps {
   open: boolean
@@ -21,6 +22,7 @@ export function ConfigSchemaDialog({
   onPatchPropertiesChange,
   onConfigSchemaChange,
 }: ConfigSchemaDialogProps) {
+  const copy = useEditorCopy().studioDesk.configSchemaDialog
   const [activeTab, setActiveTab] = useState<'properties' | 'config'>(initialMode)
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
 
@@ -176,7 +178,7 @@ export function ConfigSchemaDialog({
               }`}
               onClick={() => setActiveTab('properties')}
             >
-              Properties
+              {copy.propertiesTab}
             </button>
             <button
               type="button"
@@ -187,10 +189,10 @@ export function ConfigSchemaDialog({
               }`}
               onClick={() => setActiveTab('config')}
             >
-              ConfigSchema
+              {copy.configTab}
             </button>
           </div>
-          <button type="button" className="icon-button h-7 w-7" onClick={onClose}>
+          <button type="button" className="icon-button h-7 w-7" aria-label={copy.closeLabel} onClick={onClose}>
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -200,16 +202,16 @@ export function ConfigSchemaDialog({
           {activeTab === 'properties' ? (
             <div className="space-y-4">
               <p className="text-xs text-[var(--text-secondary)]">
-                {patch ? `Edit properties for: ${patch.logName}` : 'Select a patch to edit its properties.'}
+                {patch ? copy.patchPropertiesTitle(patch.logName) : copy.noPatchSelected}
               </p>
 
               {/* Priority */}
               <div>
-                <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">Priority</label>
+                <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{copy.priority}</label>
                 <input
                   type="text"
                   list="priority-options"
-                  placeholder={patch?.action === 'Load' ? 'e.g. Low, Medium, High, Exclusive' : 'e.g. Early, Default, Late, or Default + 2'}
+                  placeholder={patch?.action === 'Load' ? copy.priorityLoadPlaceholder : copy.priorityPatchPlaceholder}
                   className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                   value={priority}
                   onChange={(e) => setPriority(e.target.value)}
@@ -234,7 +236,7 @@ export function ConfigSchemaDialog({
 
               {/* Enabled */}
               <div>
-                <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">Enabled</label>
+                <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{copy.enabled}</label>
                 <select
                   className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                   value={enabledMode}
@@ -246,8 +248,8 @@ export function ConfigSchemaDialog({
                     }
                   }}
                 >
-                  <option value="bool">Enabled / Disabled</option>
-                  <option value="token">Custom Token</option>
+                  <option value="bool">{copy.enabledModeBoolean}</option>
+                  <option value="token">{copy.enabledModeToken}</option>
                 </select>
                 {enabledMode === 'bool' ? (
                   <label className="mt-1.5 flex items-center gap-2 text-xs text-[var(--text-primary)]">
@@ -257,7 +259,7 @@ export function ConfigSchemaDialog({
                       checked={enabledBool}
                       onChange={(e) => setEnabledBool(e.target.checked)}
                     />
-                    {enabledBool ? 'Enabled' : 'Disabled'}
+                    {enabledBool ? copy.enabledState : copy.disabledState}
                   </label>
                 ) : (
                   <input
@@ -265,17 +267,17 @@ export function ConfigSchemaDialog({
                     className="mt-1.5 w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                     value={enabledToken}
                     onChange={(e) => setEnabledToken(e.target.value)}
-                    placeholder="e.g. {{EnableEdit}}"
+                    placeholder={copy.enabledTokenPlaceholder}
                   />
                 )}
               </div>
 
               {/* TargetLocale */}
               <div>
-                <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">TargetLocale</label>
+                <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{copy.targetLocale}</label>
                 <input
                   type="text"
-                  placeholder="e.g. zh-CN, fr-FR"
+                  placeholder={copy.targetLocalePlaceholder}
                   className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                   value={targetLocale}
                   onChange={(e) => setTargetLocale(e.target.value)}
@@ -284,13 +286,13 @@ export function ConfigSchemaDialog({
 
               {/* Update */}
               <div>
-                <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">Update</label>
+                <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{copy.update}</label>
                 <select
                   className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                   value={update}
                   onChange={(e) => setUpdate(e.target.value)}
                 >
-                  <option value="">Default</option>
+                  <option value="">{copy.updateDefault}</option>
                   <option value="OnDayStart">OnDayStart</option>
                   <option value="OnLocationChange">OnLocationChange</option>
                   <option value="OnTimeChange">OnTimeChange</option>
@@ -299,13 +301,13 @@ export function ConfigSchemaDialog({
 
               {/* When conditions */}
               <div className="border-t border-[var(--border-color)] pt-2">
-                <span className="text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">When</span>
+                <span className="text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">{copy.when}</span>
                 <div className="mt-1.5 space-y-2">
                   {whenEntries.map((entry, index) => (
                     <div key={index} className="flex items-center gap-2">
                       <input
                         type="text"
-                        placeholder="Key (e.g. Season)"
+                        placeholder={copy.whenKeyPlaceholder}
                         className="flex-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                         value={entry.key}
                         onChange={(e) => {
@@ -316,7 +318,7 @@ export function ConfigSchemaDialog({
                       />
                       <input
                         type="text"
-                        placeholder="Value (e.g. spring)"
+                        placeholder={copy.whenValuePlaceholder}
                         className="flex-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                         value={entry.value}
                         onChange={(e) => {
@@ -339,20 +341,20 @@ export function ConfigSchemaDialog({
                     className="flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
                     onClick={() => setWhenEntries([...whenEntries, { key: '', value: '' }])}
                   >
-                    <Plus className="h-3 w-3" /> Add condition
+                    <Plus className="h-3 w-3" /> {copy.addCondition}
                   </button>
                 </div>
               </div>
 
               {/* LocalTokens */}
               <div className="border-t border-[var(--border-color)] pt-2">
-                <span className="text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">LocalTokens</span>
+                <span className="text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">{copy.localTokens}</span>
                 <div className="mt-1.5 space-y-2">
                   {localTokens.map((entry, index) => (
                     <div key={index} className="flex items-center gap-2">
                       <input
                         type="text"
-                        placeholder="Token name"
+                        placeholder={copy.tokenNamePlaceholder}
                         className="flex-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                         value={entry.key}
                         onChange={(e) => {
@@ -363,7 +365,7 @@ export function ConfigSchemaDialog({
                       />
                       <input
                         type="text"
-                        placeholder="Value"
+                        placeholder={copy.valuePlaceholder}
                         className="flex-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                         value={entry.value}
                         onChange={(e) => {
@@ -386,14 +388,14 @@ export function ConfigSchemaDialog({
                     className="flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
                     onClick={() => setLocalTokens([...localTokens, { key: '', value: '' }])}
                   >
-                    <Plus className="h-3 w-3" /> Add token
+                    <Plus className="h-3 w-3" /> {copy.addToken}
                   </button>
                 </div>
               </div>
             </div>
           ) : (
             <div className="space-y-2">
-              <p className="text-xs text-[var(--text-secondary)]">Define ConfigSchema entries for your mod.</p>
+              <p className="text-xs text-[var(--text-secondary)]">{copy.configDescription}</p>
               {schemaEntries.map((entry, index) => (
                 <div key={index} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
                   {/* Collapsed row */}
@@ -407,14 +409,14 @@ export function ConfigSchemaDialog({
                     </button>
                     <input
                       type="text"
-                      placeholder="Key"
+                      placeholder={copy.keyPlaceholder}
                       className="min-w-0 flex-1 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                       value={entry.key}
                       onChange={(e) => updateSchemaEntry(index, { key: e.target.value })}
                     />
                     <input
                       type="text"
-                      placeholder="Default"
+                      placeholder={copy.defaultPlaceholder}
                       className="min-w-0 flex-1 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                       value={
                         entry.defaultValue === null
@@ -445,12 +447,10 @@ export function ConfigSchemaDialog({
                   {expandedRows.has(index) && (
                     <div className="space-y-2 border-t border-[var(--border-color)] px-2.5 py-2">
                       <div>
-                        <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">
-                          AllowValues (comma-separated)
-                        </label>
+                        <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{copy.allowValuesLabel}</label>
                         <input
                           type="text"
-                          placeholder="spring, summer, fall, winter"
+                          placeholder={copy.allowValuesPlaceholder}
                           className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                           value={entry.allowValues ?? ''}
                           onChange={(e) => updateSchemaEntry(index, { allowValues: e.target.value || undefined })}
@@ -458,10 +458,10 @@ export function ConfigSchemaDialog({
                       </div>
 
                       <div>
-                        <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">Description</label>
+                        <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{copy.descriptionLabel}</label>
                         <input
                           type="text"
-                          placeholder="Explain this option to players"
+                          placeholder={copy.descriptionPlaceholder}
                           className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                           value={entry.description ?? ''}
                           onChange={(e) => updateSchemaEntry(index, { description: e.target.value || undefined })}
@@ -469,10 +469,10 @@ export function ConfigSchemaDialog({
                       </div>
 
                       <div>
-                        <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">Section</label>
+                        <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{copy.sectionLabel}</label>
                         <input
                           type="text"
-                          placeholder="Group name (optional)"
+                          placeholder={copy.sectionPlaceholder}
                           className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                           value={entry.section ?? ''}
                           onChange={(e) => updateSchemaEntry(index, { section: e.target.value || undefined })}
@@ -487,7 +487,7 @@ export function ConfigSchemaDialog({
                             checked={entry.allowBlank ?? false}
                             onChange={(e) => updateSchemaEntry(index, { allowBlank: e.target.checked || undefined })}
                           />
-                          AllowBlank
+                          {copy.allowBlank}
                         </label>
                         <label className="flex items-center gap-1.5 text-[11px] text-[var(--text-primary)]">
                           <input
@@ -496,7 +496,7 @@ export function ConfigSchemaDialog({
                             checked={entry.allowMultiple ?? false}
                             onChange={(e) => updateSchemaEntry(index, { allowMultiple: e.target.checked || undefined })}
                           />
-                          AllowMultiple
+                          {copy.allowMultiple}
                         </label>
                       </div>
                     </div>
@@ -508,7 +508,7 @@ export function ConfigSchemaDialog({
                 className="flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
                 onClick={() => setSchemaEntries([...schemaEntries, { key: '', defaultValue: null }])}
               >
-                <Plus className="h-3 w-3" /> Add config entry
+                <Plus className="h-3 w-3" /> {copy.addConfigEntry}
               </button>
             </div>
           )}
@@ -517,10 +517,10 @@ export function ConfigSchemaDialog({
         {/* Footer */}
         <div className="flex justify-end gap-2 border-t border-[var(--border-color)] px-4 py-3">
           <button type="button" className="control-button text-xs" onClick={onClose}>
-            Cancel
+            {copy.cancel}
           </button>
           <button type="button" className="control-button control-button-primary text-xs" onClick={handleSave}>
-            Save
+            {copy.save}
           </button>
         </div>
       </div>

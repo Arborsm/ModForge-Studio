@@ -17,19 +17,6 @@ type ContentPatcherExportPanelProps = {
   result: LoadContentPatcherResultAssetResult | null
 }
 
-function inferExportExtension(result: LoadContentPatcherResultAssetResult) {
-  if (result.result.kind === 'image') {
-    return 'png'
-  }
-  return 'json'
-}
-
-function toExportFilename(target: string, extension: string) {
-  const normalizedTarget = target.replaceAll('/', '-').replaceAll('\\', '-')
-  const safeTarget = normalizedTarget.replace(/[<>:"|?*]/g, '_').trim() || 'content-patcher-result'
-  return `${safeTarget}.${extension}`
-}
-
 export function ContentPatcherExportPanel({
   projectPath,
   gameRootPath,
@@ -41,6 +28,7 @@ export function ContentPatcherExportPanel({
   result,
 }: ContentPatcherExportPanelProps) {
   const copy = useModWorkspaceCopy()
+  const exportCopy = copy.contentPatcherExport
   const [exportStatus, setExportStatus] = useState('')
 
   const simulationRequest = useMemo(() => {
@@ -65,14 +53,11 @@ export function ContentPatcherExportPanel({
       return
     }
 
-    const extension = inferExportExtension(result)
-    const outputPath = `${folder}\\${toExportFilename(selectedTargetPath, extension)}`
-
     try {
       const exported = await exportContentPatcherAsset({
         ...simulationRequest,
         target: selectedTargetPath,
-        outputPath,
+        outputDirectory: folder,
       })
       setExportStatus(copy.exportSuccess(exported.outputPath))
     } catch (error) {
@@ -82,26 +67,24 @@ export function ContentPatcherExportPanel({
 
   return (
     <PanelFrame
-      title="Export"
-      subtitle={selectedTargetPath ?? 'Selected target export'}
+      title={exportCopy.title}
+      subtitle={selectedTargetPath ?? exportCopy.defaultSubtitle}
       className="h-full"
       bodyClassName="overflow-auto"
       headerAction={
         <span className={result?.exportable ? 'cp-debugger-pill cp-debugger-pill-ok' : 'cp-debugger-pill cp-debugger-pill-warn'}>
-          {result?.exportable ? 'ready' : 'blocked'}
+          {result?.exportable ? exportCopy.readyLabel : exportCopy.blockedLabel}
         </span>
       }
     >
       <div className="space-y-3 p-3">
         {!selectedTargetPath || !result ? (
-          <PanelEmptyState>Select a target to export its result.</PanelEmptyState>
+          <PanelEmptyState>{exportCopy.empty}</PanelEmptyState>
         ) : (
           <>
-            <PanelSection title="Result Target" subtitle={selectedTargetPath}>
+            <PanelSection title={exportCopy.resultTargetTitle} subtitle={selectedTargetPath}>
               <div className="text-xs leading-5 text-[var(--text-secondary)]">
-                {result.exportable
-                  ? 'The selected target can be exported from the current simulation.'
-                  : 'This target is indeterminate or errored, so export is blocked.'}
+                {result.exportable ? exportCopy.exportableDescription : exportCopy.blockedDescription}
               </div>
             </PanelSection>
 
@@ -113,11 +96,15 @@ export function ContentPatcherExportPanel({
               }}
               disabled={!result.exportable}
             >
-              {result.result.kind === 'image' ? 'Export PNG Result' : 'Export JSON Result'}
+              {result.result.kind === 'image'
+                ? exportCopy.exportPngResult
+                : result.result.kind === 'map'
+                  ? exportCopy.exportMapResult
+                  : exportCopy.exportJsonResult}
             </button>
 
             {exportStatus ? (
-              <PanelSection title="Last Export" subtitle="Most recent result">
+              <PanelSection title={exportCopy.lastExportTitle} subtitle={exportCopy.lastExportSubtitle}>
                 <div className="text-xs leading-5 text-[var(--text-secondary)]">{exportStatus}</div>
               </PanelSection>
             ) : null}

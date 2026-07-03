@@ -2,16 +2,11 @@ import { useState } from 'react'
 import { X, ChevronRight } from 'lucide-react'
 import type { DraftPatch } from '@shared/contracts'
 import type { WorkspaceId } from '@shared/contracts'
+import { useEditorCopy } from '@locales/localeContext'
 
 type ActionType = DraftPatch['action']
 
-const ACTION_OPTIONS: { value: ActionType; label: string; description: string }[] = [
-  { value: 'EditData', label: 'Edit Data', description: 'Modify JSON data files (events, items, NPCs...)' },
-  { value: 'EditImage', label: 'Edit Image', description: 'Replace or patch image assets (textures, portraits...)' },
-  { value: 'EditMap', label: 'Edit Map', description: 'Modify map properties and tile data' },
-  { value: 'Load', label: 'Load', description: 'Replace entire asset files' },
-  { value: 'Include', label: 'Include', description: 'Include changes from another content file' },
-]
+const ACTION_OPTIONS: ActionType[] = ['EditData', 'EditImage', 'EditMap', 'Load', 'Include']
 
 const WORKSPACE_ACTIONS: Record<WorkspaceId, ActionType[]> = {
   map: ['EditMap', 'EditData', 'Load'],
@@ -181,8 +176,9 @@ interface AddPatchDialogProps {
 }
 
 export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDialogProps) {
-  const allowedActions = WORKSPACE_ACTIONS[workspaceId] ?? ACTION_OPTIONS.map((a) => a.value)
-  const actionOptions = ACTION_OPTIONS.filter((a) => allowedActions.includes(a.value))
+  const copy = useEditorCopy().studioDesk.addPatchDialog
+  const allowedActions = WORKSPACE_ACTIONS[workspaceId] ?? ACTION_OPTIONS
+  const actionOptions = ACTION_OPTIONS.filter((action) => allowedActions.includes(action))
   const [step, setStep] = useState<1 | 2>(1)
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null)
   const [selectedTarget, setSelectedTarget] = useState<string>('')
@@ -217,9 +213,9 @@ export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDi
       <div className="flex max-h-[85vh] w-[440px] max-w-[90vw] flex-col overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] shadow-xl">
         <div className="flex items-center justify-between border-b border-[var(--border-color)] px-4 py-3">
           <span className="text-sm font-semibold text-[var(--text-primary)]">
-            {step === 1 ? 'Select Action' : isInclude ? 'Include File' : 'Select Target'}
+            {step === 1 ? copy.selectActionTitle : isInclude ? copy.includeFileTitle : copy.selectTargetTitle}
           </span>
-          <button type="button" className="icon-button h-7 w-7" onClick={onClose}>
+          <button type="button" className="icon-button h-7 w-7" aria-label={copy.closeLabel} onClick={onClose}>
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -228,21 +224,21 @@ export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDi
           <div className="space-y-1 overflow-auto px-4 py-3">
             {actionOptions.map((action) => (
               <button
-                key={action.value}
+                key={action}
                 type="button"
                 className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                  selectedAction === action.value
+                  selectedAction === action
                     ? 'border-[color-mix(in_srgb,var(--accent)_30%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent)_6%,var(--bg-panel))]'
                     : 'border-transparent hover:bg-[var(--bg-panel-muted)]'
                 }`}
                 onClick={() => {
-                  setSelectedAction(action.value)
+                  setSelectedAction(action)
                   setStep(2)
                 }}
               >
                 <div className="flex-1">
-                  <div className="text-xs font-medium text-[var(--text-primary)]">{action.label}</div>
-                  <div className="mt-0.5 text-[10px] text-[var(--text-secondary)]">{action.description}</div>
+                  <div className="text-xs font-medium text-[var(--text-primary)]">{copy.actionLabels[action]}</div>
+                  <div className="mt-0.5 text-[10px] text-[var(--text-secondary)]">{copy.actionDescriptions[action]}</div>
                 </div>
                 <ChevronRight className="h-4 w-4 text-[var(--text-secondary)]" />
               </button>
@@ -251,7 +247,7 @@ export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDi
         ) : isInclude ? (
           <div className="space-y-2 overflow-auto px-4 py-3">
             <button type="button" className="mb-2 text-xs text-[var(--accent)] hover:underline" onClick={() => setStep(1)}>
-              ← Back
+              {`← ${copy.back}`}
             </button>
 
             <div>
@@ -261,14 +257,14 @@ export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDi
                 className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                 value={fromFile}
                 onChange={(e) => setFromFile(e.target.value)}
-                placeholder="e.g. assets/sub-content.json"
+                placeholder={copy.includeFromFilePlaceholder}
               />
-              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">Relative path to the content file to include.</p>
+              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">{copy.fromFileDescription}</p>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" className="control-button text-xs" onClick={onClose}>
-                Cancel
+                {copy.cancel}
               </button>
               <button
                 type="button"
@@ -276,7 +272,7 @@ export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDi
                 disabled={!fromFile.trim()}
                 onClick={handleAdd}
               >
-                Add Patch
+                {copy.addPatch}
               </button>
             </div>
           </div>
@@ -284,7 +280,7 @@ export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDi
           <div className="flex min-h-0 flex-col">
             <div className="overflow-auto px-4 py-3">
               <button type="button" className="mb-2 text-xs text-[var(--accent)] hover:underline" onClick={() => setStep(1)}>
-                ← Back
+                {`← ${copy.back}`}
               </button>
 
               <div className="space-y-1">
@@ -306,23 +302,23 @@ export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDi
               </div>
 
               <div className="pt-2">
-                <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">Custom Target</span>
+                <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">{copy.customTarget}</span>
                 <input
                   type="text"
                   className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                   value={customTarget}
                   onChange={(e) => setCustomTarget(e.target.value)}
-                  placeholder="e.g. Data/Events/Custom"
+                  placeholder={copy.customTargetPlaceholder}
                 />
               </div>
             </div>
 
             <div className="flex justify-end gap-2 border-t border-[var(--border-color)] px-4 py-3">
               <button type="button" className="control-button text-xs" onClick={onClose}>
-                Cancel
+                {copy.cancel}
               </button>
               <button type="button" className="control-button control-button-primary text-xs" disabled={!targetToUse} onClick={handleAdd}>
-                Add Patch
+                {copy.addPatch}
               </button>
             </div>
           </div>

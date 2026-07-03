@@ -38,6 +38,8 @@ pub(crate) struct InstallManagerSessionResult {
 pub(crate) struct InstallManagerBackupSummary {
     pub backup_id: String,
     pub backup_path: String,
+    pub delete_count: usize,
+    pub overwrite_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -307,6 +309,16 @@ pub(crate) fn list_backup_sessions_at_root(
         sessions.push(InstallManagerBackupSummary {
             backup_id: metadata.backup_id,
             backup_path: metadata.backup_path,
+            delete_count: metadata
+                .entries
+                .iter()
+                .map(|entry| entry.added_paths.len())
+                .sum(),
+            overwrite_count: metadata
+                .entries
+                .iter()
+                .map(|entry| entry.saved_paths.len())
+                .sum(),
         });
     }
 

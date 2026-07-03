@@ -142,6 +142,8 @@ function createInitialAppUiState(): AppUiState {
     appearance: {
       locale: 'en-US',
       accentPresetId: 'blue',
+      windowBorderTone: 'accent',
+      windowBorderWeight: 'standard',
       recentGameDirectories: [],
       playerAppearance: {
         profiles: [],
@@ -207,7 +209,7 @@ function applyMockAppUiStatePatch(current: AppUiState, patch: PatchAppUiStateReq
             ...patch.launcher,
             discoverToolbar: {
               ...current.launcher.discoverToolbar,
-              ...(patch.launcher.discoverToolbar ?? {}),
+              ...patch.launcher.discoverToolbar,
             },
           },
         }
@@ -248,7 +250,7 @@ export function installDevLauncherMock() {
         case 'load_launcher_settings':
           return settings
         case 'save_launcher_settings':
-          settings = { ...settings, ...(getMockRequest<Partial<LauncherSettings>>(payload) ?? {}) }
+          settings = { ...settings, ...getMockRequest<Partial<LauncherSettings>>(payload) }
           return settings
         case 'load_launcher_library_state':
           return libraryState

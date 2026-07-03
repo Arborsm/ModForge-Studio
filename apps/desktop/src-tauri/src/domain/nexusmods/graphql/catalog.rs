@@ -739,7 +739,7 @@ fn search_launcher_catalog_blocking(
         "catalog.search.start",
         &[
             ("page", page.to_string()),
-            ("pageSize", page_size.to_string()),
+            ("page-size", page_size.to_string()),
             ("sort", sort.clone()),
             ("ascending", ascending.to_string()),
             ("query", query.clone().unwrap_or_default()),
@@ -762,8 +762,8 @@ fn search_launcher_catalog_blocking(
                     "catalog.search.complete",
                     &[
                         ("page", result.page.to_string()),
-                        ("resultCount", result.results.len().to_string()),
-                        ("hasMore", result.has_more.to_string()),
+                        ("results", result.results.len().to_string()),
+                        ("has-more", result.has_more.to_string()),
                         ("source", "trending".to_string()),
                     ],
                 );
@@ -778,10 +778,10 @@ fn search_launcher_catalog_blocking(
             "catalog.search.complete",
             &[
                 ("page", result.page.to_string()),
-                ("pageSize", result.page_size.to_string()),
-                ("totalCount", result.total_count.to_string()),
-                ("resultCount", result.results.len().to_string()),
-                ("hasMore", result.has_more.to_string()),
+                ("page-size", result.page_size.to_string()),
+                ("total", result.total_count.to_string()),
+                ("results", result.results.len().to_string()),
+                ("has-more", result.has_more.to_string()),
                 ("source", "public-graphql".to_string()),
             ],
         );
@@ -794,10 +794,10 @@ fn search_launcher_catalog_blocking(
             "catalog.search.complete",
             &[
                 ("page", result.page.to_string()),
-                ("pageSize", result.page_size.to_string()),
-                ("totalCount", result.total_count.to_string()),
-                ("resultCount", result.results.len().to_string()),
-                ("hasMore", result.has_more.to_string()),
+                ("page-size", result.page_size.to_string()),
+                ("total", result.total_count.to_string()),
+                ("results", result.results.len().to_string()),
+                ("has-more", result.has_more.to_string()),
                 ("source", "public-graphql".to_string()),
             ],
         );
@@ -812,10 +812,10 @@ fn search_launcher_catalog_blocking(
                 "catalog.search.complete",
                 &[
                     ("page", result.page.to_string()),
-                    ("pageSize", result.page_size.to_string()),
-                    ("totalCount", result.total_count.to_string()),
-                    ("resultCount", result.results.len().to_string()),
-                    ("hasMore", result.has_more.to_string()),
+                    ("page-size", result.page_size.to_string()),
+                    ("total", result.total_count.to_string()),
+                    ("results", result.results.len().to_string()),
+                    ("has-more", result.has_more.to_string()),
                     ("source", "graphql".to_string()),
                 ],
             );
@@ -830,10 +830,10 @@ fn search_launcher_catalog_blocking(
                 "catalog.search.complete",
                 &[
                     ("page", result.page.to_string()),
-                    ("pageSize", result.page_size.to_string()),
-                    ("totalCount", result.total_count.to_string()),
-                    ("resultCount", result.results.len().to_string()),
-                    ("hasMore", result.has_more.to_string()),
+                    ("page-size", result.page_size.to_string()),
+                    ("total", result.total_count.to_string()),
+                    ("results", result.results.len().to_string()),
+                    ("has-more", result.has_more.to_string()),
                     ("source", "public-graphql-fallback".to_string()),
                 ],
             );

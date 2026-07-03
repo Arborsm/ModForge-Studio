@@ -24,8 +24,16 @@
     --surface-inverse: #0f172a;
 
     --border-subtle: rgba(91, 104, 126, 0.32);
+    --app-window-border-standard: color-mix(in srgb, var(--accent) 68%, transparent);
+    --app-window-border-thin: color-mix(in srgb, var(--accent) 32%, transparent);
+    --app-window-inner-border-standard: color-mix(in srgb, var(--accent) 18%, white);
+    --app-window-divider-standard: color-mix(in srgb, var(--border-color) 78%, var(--text-primary));
+    --app-window-divider-thin: color-mix(in srgb, var(--accent) 26%, var(--border-color));
+    --app-window-divider-opacity-standard: 0.58;
+    --app-window-divider-opacity-thin: 0.36;
     --shadow-panel: 0 1px 1px rgba(15, 23, 42, 0.05), 0 8px 16px rgba(15, 23, 42, 0.08);
     --shadow-float: 0 18px 30px rgba(15, 23, 42, 0.18), 0 8px 18px rgba(15, 23, 42, 0.12);
+    --app-window-radius: 12px;
 
     --grid-minor: rgba(92, 104, 124, 0.13);
     --grid-major: rgba(92, 104, 124, 0.19);
@@ -67,6 +75,13 @@
     --surface-inverse: #05070c;
 
     --border-subtle: rgba(166, 176, 192, 0.2);
+    --app-window-border-standard: color-mix(in srgb, var(--accent) 62%, transparent);
+    --app-window-border-thin: color-mix(in srgb, var(--accent) 34%, transparent);
+    --app-window-inner-border-standard: color-mix(in srgb, var(--accent) 22%, transparent);
+    --app-window-divider-standard: color-mix(in srgb, var(--border-color) 82%, var(--text-primary));
+    --app-window-divider-thin: color-mix(in srgb, var(--accent) 28%, var(--border-color));
+    --app-window-divider-opacity-standard: 0.52;
+    --app-window-divider-opacity-thin: 0.34;
     --shadow-panel: 0 1px 1px rgba(0, 0, 0, 0.28), 0 16px 28px rgba(0, 0, 0, 0.22);
     --shadow-float: 0 24px 44px rgba(0, 0, 0, 0.38), 0 10px 24px rgba(0, 0, 0, 0.26);
 

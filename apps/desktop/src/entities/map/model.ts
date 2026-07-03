@@ -1,7 +1,7 @@
 import type { MapAssetSummary } from '@shared/contracts'
 import type { MapDocument } from '@shared/contracts'
 import type { WorldAtlasViewId } from '@shared/contracts'
-import { getWorldAtlasNameAliases } from './lib/world'
+import { getWorldAtlasNameAliases, getWorldAtlasSeedNames, type WorldMapLayout } from './lib/world'
 
 /** Stable tab id for the generated world atlas view. */
 export const WORLD_ATLAS_TAB_ID = 'world-atlas'
@@ -62,6 +62,12 @@ export function getPreferredScene(assets: MapAssetSummary[]) {
   return (
     assets.find((asset) => asset.format === 'xnb' && /^town$/i.test(asset.name)) ?? assets.find((asset) => asset.format === 'xnb') ?? null
   )
+}
+
+/** Builds the map names that should be synchronously parsed for the first atlas paint. */
+export function getInitialWorldAtlasSeedNames(worldRootName: string, worldMapLayout?: WorldMapLayout) {
+  const seedNames = new Set([worldRootName, ...getWorldAtlasSeedNames(), ...(worldMapLayout ? Object.keys(worldMapLayout) : [])])
+  return [seedNames.values().next().value ?? worldRootName]
 }
 
 /** Adds view metadata and default viewport hints to a generated world atlas document. */

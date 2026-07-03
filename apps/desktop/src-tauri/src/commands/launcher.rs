@@ -168,6 +168,11 @@ pub async fn download_launcher_mod(
 }
 
 #[tauri::command]
+pub fn cancel_launcher_download(download_id: String) -> Result<(), String> {
+    downloads::cancel_launcher_download(download_id)
+}
+
+#[tauri::command]
 pub async fn search_launcher_catalog(
     app: AppHandle,
     request: SearchLauncherCatalogRequest,
@@ -316,10 +321,29 @@ pub struct ValidateApiKeyResult {
     pub avatar_url: Option<String>,
     pub profile_url: Option<String>,
     pub is_premium: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub premium_expires_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_lifetime_premium: Option<bool>,
     pub daily_remaining: Option<u64>,
     pub hourly_remaining: Option<u64>,
     pub daily_reset_at: Option<u64>,
     pub hourly_reset_at: Option<u64>,
+}
+
+fn optional_nexus_value_as_string(value: Option<serde_json::Value>) -> Option<String> {
+    match value? {
+        serde_json::Value::String(value) => {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        }
+        serde_json::Value::Number(value) => Some(value.to_string()),
+        _ => None,
+    }
 }
 
 #[tauri::command]
@@ -332,10 +356,16 @@ pub async fn validate_nexus_api_key(app: AppHandle) -> Result<ValidateApiKeyResu
 fn validate_nexus_api_key_blocking(app: AppHandle) -> Result<ValidateApiKeyResult, String> {
     let settings = settings::load_launcher_settings(app)?;
     let api_key = settings.nexus_api_key.as_deref().unwrap_or("");
+    log::info!(
+        target: "Nexus",
+        "Validate API key requested: api-key-present={} api-key-length={}",
+        !api_key.trim().is_empty(),
+        api_key.len()
+    );
     let user_info = rest_api::validate_user(api_key).map_err(|e| e.to_string())?;
     let avatar_url = graphql::load_user_avatar(api_key, user_info.user_id)
         .map_err(|error| {
-            log::warn!("launcher Nexus user avatar lookup failed: {error}");
+            log::warn!(target: "Nexus", "User avatar lookup failed: error={error}");
             error
         })
         .ok()
@@ -345,6 +375,8 @@ fn validate_nexus_api_key_blocking(app: AppHandle) -> Result<ValidateApiKeyResul
         avatar_url,
         profile_url: Some(user_info.profile_url),
         is_premium: user_info.is_premium,
+        premium_expires_at: optional_nexus_value_as_string(user_info.premium_expires_at),
+        is_lifetime_premium: user_info.is_lifetime_premium,
         daily_remaining: rest_api::daily_quota_remaining(),
         hourly_remaining: rest_api::hourly_quota_remaining(),
         daily_reset_at: rest_api::daily_quota_reset_at(),

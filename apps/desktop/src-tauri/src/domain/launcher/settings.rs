@@ -1,5 +1,5 @@
 use super::paths::launcher_settings_path;
-use super::types::{LauncherSettings, SaveLauncherSettingsRequest};
+use super::types::{LauncherSettings, NullablePatch, SaveLauncherSettingsRequest};
 use crate::AppHandle;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use std::fs;
@@ -49,6 +49,14 @@ pub(crate) fn normalize_optional_text(value: Option<String>) -> Option<String> {
             Some(trimmed.to_string())
         }
     })
+}
+
+fn optional_text_present(value: &Option<String>) -> bool {
+    value
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_some()
 }
 
 pub(crate) fn load_or_create_settings_at_path(
@@ -123,9 +131,40 @@ pub fn load_launcher_settings(_app: AppHandle) -> Result<LauncherSettings, Strin
         "load_launcher_settings",
         (|| {
             let settings_path = launcher_settings_path()?;
-            load_or_create_settings_at_path(&settings_path)
+            let settings = load_or_create_settings_at_path(&settings_path)?;
+            log::info!(
+                target: "Launcher Settings",
+                "Loaded settings: api-key-present={}",
+                optional_text_present(&settings.nexus_api_key)
+            );
+            Ok(settings)
         })(),
     )
+}
+
+pub(crate) fn merge_launcher_settings(
+    existing: LauncherSettings,
+    request: SaveLauncherSettingsRequest,
+) -> LauncherSettings {
+    LauncherSettings {
+        game_path: request.game_path.or(existing.game_path),
+        mods_path: request.mods_path.or(existing.mods_path),
+        download_path: request.download_path.or(existing.download_path),
+        nexus_api_key: match request.nexus_api_key {
+            NullablePatch::Missing => existing.nexus_api_key,
+            NullablePatch::Null => None,
+            NullablePatch::Value(value) => Some(value),
+        },
+        auto_install_downloads: request
+            .auto_install_downloads
+            .unwrap_or(existing.auto_install_downloads),
+        keep_downloaded_archives: request
+            .keep_downloaded_archives
+            .unwrap_or(existing.keep_downloaded_archives),
+        auto_check_mod_updates: request
+            .auto_check_mod_updates
+            .unwrap_or(existing.auto_check_mod_updates),
+    }
 }
 
 pub fn save_launcher_settings(
@@ -137,22 +176,21 @@ pub fn save_launcher_settings(
         (|| {
             let settings_path = launcher_settings_path()?;
             let existing = load_or_create_settings_at_path(&settings_path)?;
-            let merged = LauncherSettings {
-                game_path: request.game_path.or(existing.game_path),
-                mods_path: request.mods_path.or(existing.mods_path),
-                download_path: request.download_path.or(existing.download_path),
-                nexus_api_key: request.nexus_api_key.or(existing.nexus_api_key),
-                auto_install_downloads: request
-                    .auto_install_downloads
-                    .unwrap_or(existing.auto_install_downloads),
-                keep_downloaded_archives: request
-                    .keep_downloaded_archives
-                    .unwrap_or(existing.keep_downloaded_archives),
-                auto_check_mod_updates: request
-                    .auto_check_mod_updates
-                    .unwrap_or(existing.auto_check_mod_updates),
-            };
+            let nexus_api_key_request_state = request.nexus_api_key.state_label();
+            log::info!(
+                target: "Launcher Settings",
+                "Save settings request: api-key={} existing-api-key-present={}",
+                nexus_api_key_request_state,
+                optional_text_present(&existing.nexus_api_key)
+            );
+
+            let merged = merge_launcher_settings(existing, request);
             let normalized = normalize_settings(merged);
+            log::info!(
+                target: "Launcher Settings",
+                "Saved settings: api-key-present={}",
+                optional_text_present(&normalized.nexus_api_key)
+            );
             save_settings_at_path(&settings_path, &normalized)?;
             restart_launcher_nexus_diagnostics_with_app(&app, &normalized);
             Ok(normalized)
@@ -164,6 +202,11 @@ pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
     app: &AppHandle,
     settings: &LauncherSettings,
 ) {
+    log::info!(
+        target: "Launcher Settings",
+        "Restart Nexus diagnostics after settings save: api-key-present={}",
+        optional_text_present(&settings.nexus_api_key)
+    );
     crate::domain::nexusmods::diagnostics::restart_launcher_nexus_diagnostics_with_handle(
         Some(app),
         settings,

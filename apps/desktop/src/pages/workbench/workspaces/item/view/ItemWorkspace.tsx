@@ -9,6 +9,7 @@ import { NavigationPane } from './ItemNavigationPane'
 import {
   buildHeroChips,
   buildInfoRows,
+  buildObjectDataCards,
   buildResourceRows,
   buildSignalCards,
   buildSourceCards,
@@ -88,6 +89,7 @@ function useItemWorkspaceViewModel({
   const signalCards = item ? buildSignalCards(item, copy, sourceCards, recipeUseCards, machineUseCards, recipeOutputCards) : []
   const infoRows = item ? buildInfoRows(item, copy) : []
   const resourceRows = item ? buildResourceRows(item, activeTextureState, copy, text.spriteSizeLabel) : []
+  const objectDataCards = item ? buildObjectDataCards(item, copy) : []
   const specificSections = item ? buildSpecificSections(item, copy) : []
 
   const handleSelectItem = useCallback(
@@ -147,6 +149,7 @@ function useItemWorkspaceViewModel({
     signalCards,
     infoRows,
     resourceRows,
+    objectDataCards,
     modSources: activeItemModSources,
     specificSections,
     activeBrowseTab: ui.activeBrowseTab,
@@ -221,6 +224,7 @@ export function ItemDetailPanel(props: ItemWorkspaceProps) {
       signalCards={view.signalCards}
       infoRows={view.infoRows}
       resourceRows={view.resourceRows}
+      objectDataCards={view.objectDataCards}
       modSources={view.modSources}
       sourceCards={view.sourceCards}
       recipeUseCards={view.recipeUseCards}
@@ -285,6 +289,7 @@ export default function ItemWorkspace({ ...props }: ItemWorkspaceProps) {
             signalCards={view.signalCards}
             infoRows={view.infoRows}
             resourceRows={view.resourceRows}
+            objectDataCards={view.objectDataCards}
             modSources={view.modSources}
             sourceCards={view.sourceCards}
             recipeUseCards={view.recipeUseCards}

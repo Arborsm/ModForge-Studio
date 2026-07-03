@@ -67,6 +67,11 @@
     color: #4f6681;
   }
 
+  .workbench-dock-home.workbench-dock-item-active,
+  .workbench-dock-project.workbench-dock-item-active {
+    color: #2278f2;
+  }
+
   .workbench-dock-item-active::after {
     content: "";
     position: absolute;
@@ -94,12 +99,14 @@
   }
 
   .workbench-launchpad {
-    position: fixed;
-    inset: 56px 0 0;
-    z-index: 130;
+    position: absolute;
+    inset: 57px 0 0;
+    z-index: 110;
     display: grid;
     place-items: center;
-    background: #f5f9fd;
+    background:
+      radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.54), transparent 44%), color-mix(in srgb, var(--bg-app) 58%, transparent);
+    backdrop-filter: blur(18px) saturate(1.12);
   }
 
   .workbench-launchpad-panel {
@@ -437,8 +444,8 @@
   }
 
   .workbench-project-picker {
-    position: fixed;
-    inset: 56px 0 0;
+    position: absolute;
+    inset: 57px 0 0;
     z-index: 150;
     display: grid;
     place-items: center;

@@ -1,6 +1,7 @@
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { ContentPatcherPatchStatus, ContentPatcherPlannedPatch, ContentPatcherTargetSummary } from '@entities/mod/api'
 import { contentPatcherStatusClass } from '../content-model/presentation'
+import { useModWorkspaceCopy } from '@locales/localeContext'
 
 type ContentPatcherNavigatorProps = {
   mode: 'patches' | 'targets'
@@ -21,12 +22,15 @@ type TargetGroup = {
   targets: ContentPatcherTargetSummary[]
 }
 
-function groupTargets(targets: ContentPatcherTargetSummary[]): TargetGroup[] {
+function groupTargets(
+  targets: ContentPatcherTargetSummary[],
+  copy: ReturnType<typeof useModWorkspaceCopy>['contentPatcherNavigator'],
+): TargetGroup[] {
   const orderedGroups = new Map<string, TargetGroup>()
   const preferredGroups = [
-    { key: 'json', title: 'JSON Targets' },
-    { key: 'image', title: 'Image Targets' },
-    { key: 'map', title: 'Map Targets' },
+    { key: 'json', title: copy.jsonTargets },
+    { key: 'image', title: copy.imageTargets },
+    { key: 'map', title: copy.mapTargets },
   ]
 
   for (const { key, title } of preferredGroups) {
@@ -42,7 +46,7 @@ function groupTargets(targets: ContentPatcherTargetSummary[]): TargetGroup[] {
     if (!orderedGroups.has(key)) {
       orderedGroups.set(key, {
         key,
-        title: `${key.charAt(0).toUpperCase()}${key.slice(1)} Targets`,
+        title: copy.otherTargets(key),
         targets: [],
       })
     }
@@ -64,12 +68,13 @@ export function ContentPatcherNavigator({
   onSelectTarget,
   onOpenScaleUp,
 }: ContentPatcherNavigatorProps) {
+  const copy = useModWorkspaceCopy().contentPatcherNavigator
   const statusByPatchId = new Map(
     patchStatuses
       .filter((entry): entry is ContentPatcherPatchStatus & { patchId: string } => Boolean(entry.patchId))
       .map((entry) => [entry.patchId, entry]),
   )
-  const targetGroups = groupTargets(targets)
+  const targetGroups = groupTargets(targets, copy)
 
   function renderTargetButton(target: ContentPatcherTargetSummary) {
     const button = (
@@ -82,7 +87,7 @@ export function ContentPatcherNavigator({
           <span className="cp-debugger-list-title">{target.path}</span>
           <span className={contentPatcherStatusClass(target.resultState)}>{target.resultState}</span>
         </div>
-        <p className="cp-debugger-list-meta">{`${target.touchedPatchCount} patches`}</p>
+        <p className="cp-debugger-list-meta">{copy.patchesMeta(target.touchedPatchCount)}</p>
       </button>
     )
 
@@ -97,8 +102,8 @@ export function ContentPatcherNavigator({
           <ContextMenu.Content className="context-menu-content" collisionPadding={12} forceMount>
             <ContextMenu.Sub>
               <ContextMenu.SubTrigger className="context-menu-item context-menu-subtrigger">
-                ScaleUp
-                <span className="context-menu-subhint">Open</span>
+                {copy.scaleUp}
+                <span className="context-menu-subhint">{copy.openHint}</span>
               </ContextMenu.SubTrigger>
               <ContextMenu.Portal>
                 <ContextMenu.SubContent
@@ -114,7 +119,7 @@ export function ContentPatcherNavigator({
                       onOpenScaleUp(target.path, 'preview')
                     }}
                   >
-                    Render Preview
+                    {copy.renderPreview}
                   </ContextMenu.Item>
                   <ContextMenu.Item
                     className="context-menu-item"
@@ -123,7 +128,7 @@ export function ContentPatcherNavigator({
                       onOpenScaleUp(target.path, 'settings')
                     }}
                   >
-                    Parameter Settings
+                    {copy.parameterSettings}
                   </ContextMenu.Item>
                 </ContextMenu.SubContent>
               </ContextMenu.Portal>
@@ -142,14 +147,14 @@ export function ContentPatcherNavigator({
           className={mode === 'patches' ? 'cp-debugger-tab cp-debugger-tab-active' : 'cp-debugger-tab'}
           onClick={() => onModeChange('patches')}
         >
-          Patches
+          {copy.patchesTab}
         </button>
         <button
           type="button"
           className={mode === 'targets' ? 'cp-debugger-tab cp-debugger-tab-active' : 'cp-debugger-tab'}
           onClick={() => onModeChange('targets')}
         >
-          Targets
+          {copy.targetsTab}
         </button>
       </div>
 
@@ -188,7 +193,7 @@ export function ContentPatcherNavigator({
                   <header className="cp-debugger-target-group-header">
                     <div>
                       <h3 className="cp-debugger-target-group-title">{group.title}</h3>
-                      <p className="cp-debugger-target-group-meta">{`${group.targets.length} targets`}</p>
+                      <p className="cp-debugger-target-group-meta">{copy.targetsMeta(group.targets.length)}</p>
                     </div>
                     <span className="cp-debugger-pill cp-debugger-pill-muted">{group.targets.length}</span>
                   </header>
@@ -201,7 +206,7 @@ export function ContentPatcherNavigator({
                 </section>
               ))
             ) : (
-              <p className="panel-empty-state">No targets in the current simulation.</p>
+              <p className="panel-empty-state">{copy.noTargets}</p>
             )}
           </div>
         )}

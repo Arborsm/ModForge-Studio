@@ -4,7 +4,8 @@ import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
 import type { WorkspaceId } from '@shared/contracts'
 import type { GameDirectoryInfo } from '../model/cpMakerPort'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
-import { getWorkspacePlugin } from '@platform/plugins/workspaceRegistry'
+import { useEditorCopy } from '@locales/localeContext'
+import { getWorkspacePlugin } from '../model/workspaceRegistry'
 import { PreviewModeShell } from './PreviewModeShell'
 import type { PlayerAppearanceProfile } from '@entities/event'
 
@@ -45,10 +46,11 @@ export function EditorPage({
   onOpenPlayerAppearanceWindow,
   viewMode,
 }: EditorPageProps) {
+  const copy = useEditorCopy().studioDesk.editorPage
   const showReferenceTab = Boolean(gameRootPath && directoryInfo && locale && theme)
 
   if (!patch || !draft) {
-    return <div className="flex h-full items-center justify-center text-xs text-(--text-secondary)">Patch not found.</div>
+    return <div className="flex h-full items-center justify-center text-xs text-(--text-secondary)">{copy.patchNotFound}</div>
   }
 
   const plugin = getWorkspacePlugin(workspaceId)
@@ -87,7 +89,7 @@ export function EditorPage({
           />
         ) : (
           <div className="flex h-full items-center justify-center text-xs text-(--text-secondary)">
-            No editor registered for {workspaceId} workspace.
+            {copy.noEditorRegistered(workspaceId)}
           </div>
         )}
       </div>

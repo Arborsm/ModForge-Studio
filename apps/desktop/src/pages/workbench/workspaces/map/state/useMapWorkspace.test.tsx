@@ -1,0 +1,234 @@
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { editorCopy, getWorldAtlasViewLabel } from '@locales/editor-shell'
+import { loadMapAsset, loadTextAsset, scanMaps } from '@entities/game/api'
+import type { GameDirectoryInfo, MapAssetContent, MapAssetSummary, TextAssetContent } from '@entities/game/api'
+import type { MapDocument } from '@shared/contracts'
+import { WORLD_ATLAS_TAB_ID } from '@entities/map'
+import { useMapWorkspace } from './useMapWorkspace'
+
+vi.mock('@entities/game/api', () => ({
+  loadImageDataUrl: vi.fn().mockResolvedValue('data:image/png;base64,'),
+  loadMapAsset: vi.fn(),
+  loadTextAsset: vi.fn(),
+  scanMaps: vi.fn(),
+}))
+
+vi.mock('@pages/workbench/workspaces/mod', () => ({
+  buildModBrowserGroups: vi.fn(() => []),
+  buildModEntryLookup: vi.fn(() => new Map()),
+  findModBrowserEntry: vi.fn(() => null),
+  findModSources: vi.fn(() => []),
+  loadModResultMapDocument: vi.fn(),
+  useModAssetIndex: vi.fn(() => ({
+    modIndex: { mods: [] },
+    modIndexError: null,
+  })),
+}))
+
+type Deferred<T> = {
+  promise: Promise<T>
+  resolve: (value: T) => void
+  reject: (error: unknown) => void
+}
+
+const gameDirectoryInfo: GameDirectoryInfo = {
+  rootPath: 'E:\\Games\\Stardew Valley',
+  executablePath: 'E:\\Games\\Stardew Valley\\Stardew Valley.exe',
+  mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
+  mapCount: 2,
+}
+
+const townAsset = makeMapAsset('Town')
+const forestAsset = makeMapAsset('Forest')
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void
+  let reject!: (error: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+
+  return { promise, resolve, reject }
+}
+
+function makeMapAsset(name: string): MapAssetSummary {
+  return {
+    id: `asset-${name.toLowerCase()}`,
+    name,
+    fileName: `${name}.xnb`,
+    format: 'xnb',
+    absolutePath: `E:\\Games\\Stardew Valley\\Content\\Maps\\${name}.xnb`,
+    relativePath: `Content\\Maps\\${name}.xnb`,
+    sizeBytes: 128,
+  }
+}
+
+function makeMapDocument(name: string): MapDocument {
+  return {
+    name,
+    format: 'xnb',
+    sourcePath: `E:\\Games\\Stardew Valley\\Content\\Maps\\${name}.xnb`,
+    relativePath: `Content\\Maps\\${name}.xnb`,
+    width: 4,
+    height: 4,
+    tileWidth: 16,
+    tileHeight: 16,
+    orientation: 'orthogonal',
+    renderOrder: 'right-down',
+    properties: {
+      Outdoors: true,
+    },
+    tilesets: [],
+    layers: [
+      {
+        id: 1,
+        name: 'Back',
+        kind: 'tile',
+        width: 4,
+        height: 4,
+        visible: true,
+        opacity: 1,
+        offsetX: 0,
+        offsetY: 0,
+        properties: {},
+        gids: Array.from({ length: 16 }, () => 0) as unknown as Uint32Array,
+        nonEmptyTiles: 0,
+      },
+    ],
+    objectGroups: [],
+  }
+}
+
+function makeMapAssetContent(name: string): MapAssetContent {
+  const document = makeMapDocument(name)
+  return {
+    name,
+    format: 'xnb',
+    absolutePath: document.sourcePath,
+    relativePath: document.relativePath,
+    content: JSON.stringify(document),
+  }
+}
+
+function makeWorldMapAsset(): TextAssetContent {
+  return {
+    absolutePath: 'E:\\Games\\Stardew Valley\\Content\\Data\\WorldMap.xnb',
+    relativePath: 'Content\\Data\\WorldMap.xnb',
+    content: JSON.stringify({
+      Default: {
+        MapAreas: [
+          {
+            Id: 'Town',
+            Condition: null,
+            PixelArea: { X: 0, Y: 0, Width: 64, Height: 64 },
+          },
+          {
+            Id: 'Forest',
+            Condition: null,
+            PixelArea: { X: 96, Y: 0, Width: 64, Height: 64 },
+          },
+        ],
+      },
+    }),
+  }
+}
+
+describe('useMapWorkspace', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    Object.defineProperty(window, 'requestIdleCallback', {
+      configurable: true,
+      value: (callback: IdleRequestCallback) => {
+        queueMicrotask(() => callback({ didTimeout: false, timeRemaining: () => 50 }))
+        return 1
+      },
+    })
+
+    vi.mocked(scanMaps).mockResolvedValue([townAsset, forestAsset])
+    vi.mocked(loadTextAsset).mockResolvedValue(makeWorldMapAsset())
+    vi.mocked(loadMapAsset).mockImplementation(async (_rootPath, mapPath) => {
+      if (/Town\.xnb$/iu.test(mapPath)) {
+        return makeMapAssetContent('Town')
+      }
+      if (/Forest\.xnb$/iu.test(mapPath)) {
+        return makeMapAssetContent('Forest')
+      }
+      throw new Error(`Unexpected map path: ${mapPath}`)
+    })
+  })
+
+  afterEach(() => {
+    cleanup()
+    Reflect.deleteProperty(window, 'requestIdleCallback')
+  })
+
+  it('does not let an idle full atlas rebuild steal focus from a map tab', async () => {
+    const fullAtlasWorldMap = createDeferred<TextAssetContent>()
+    vi.mocked(loadTextAsset)
+      .mockResolvedValueOnce(makeWorldMapAsset())
+      .mockResolvedValueOnce(makeWorldMapAsset())
+      .mockReturnValueOnce(fullAtlasWorldMap.promise)
+
+    const { result } = renderHook(() =>
+      useMapWorkspace({
+        copy: editorCopy['en-US'],
+        locale: 'en-US',
+        desktopHost: true,
+        active: true,
+        directoryInfo: gameDirectoryInfo,
+        getWorldAtlasViewLabel,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(loadTextAsset).toHaveBeenCalledTimes(3)
+      expect(result.current.activeTabId).toBe(WORLD_ATLAS_TAB_ID)
+    })
+
+    await act(async () => {
+      await result.current.openMap(townAsset, gameDirectoryInfo, 2)
+    })
+
+    await waitFor(() => {
+      expect(result.current.activeTabId).toBe('map:preview')
+      expect(result.current.mapDocument?.name).toBe('Town')
+      expect(result.current.workspaceStatus.message).toContain('Town is active')
+    })
+
+    await act(async () => {
+      fullAtlasWorldMap.resolve(makeWorldMapAsset())
+      await fullAtlasWorldMap.promise
+    })
+
+    await waitFor(() => {
+      expect(result.current.activeTabId).toBe('map:preview')
+      expect(result.current.mapDocument?.name).toBe('Town')
+      expect(result.current.workspaceStatus.message).toContain('Town is active')
+      expect(result.current.worldAtlasViews).toHaveLength(1)
+    })
+  })
+
+  it('clears the preload notification state after idle resource preload completes', async () => {
+    const { result } = renderHook(() =>
+      useMapWorkspace({
+        copy: editorCopy['en-US'],
+        locale: 'en-US',
+        desktopHost: true,
+        active: true,
+        directoryInfo: gameDirectoryInfo,
+        getWorldAtlasViewLabel,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(result.current.mapAssets).toHaveLength(2)
+    })
+
+    await waitFor(() => {
+      expect(result.current.resourcePreloadState.active).toBe(false)
+    })
+  })
+})

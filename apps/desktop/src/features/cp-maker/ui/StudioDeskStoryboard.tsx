@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Copy, Grid3X3, MessageSquare, PackagePlus, Plus, Trash2 } from 'lucide-react'
 import type { EditorCopy } from '@locales'
 import type { StudioDeskInspiration, StudioDeskInspirationKind } from '../model/studioDeskModel'
@@ -34,10 +34,9 @@ export function StudioDeskStoryboard({
   const desk = copy.studioDesk
   const [query, setQuery] = useState('')
   const normalizedQuery = query.trim().toLowerCase()
-  const filteredInspirations = useMemo(() => {
-    if (!normalizedQuery) return inspirations
-    return inspirations.filter((item) => `${item.title} ${item.target} ${item.action}`.toLowerCase().includes(normalizedQuery))
-  }, [inspirations, normalizedQuery])
+  const filteredInspirations = normalizedQuery
+    ? inspirations.filter((item) => `${item.title} ${item.target} ${item.action}`.toLowerCase().includes(normalizedQuery))
+    : inspirations
   const handlePrimaryCreate = () => {
     if (hasActiveDraft) {
       onCreatePatch('EditData', 'events')

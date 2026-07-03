@@ -4,7 +4,7 @@ This document records the current product shape, visual language, and design pri
 
 ## Product Purpose
 
-ModForge Studio is a Tauri v2 desktop workbench for Stardew Valley. The README leads with one broad product promise: mod creation, asset viewing, Content Patcher project editing, mod management, and game launching in one desktop workspace.
+ModForge Studio is a desktop workbench for Stardew Valley. The current host path is Linux Electron for the active local development/runtime path and macOS/Windows Tauri for the packaged desktop path. The README leads with one broad product promise: mod creation, asset viewing, Content Patcher project editing, mod management, and game launching in one desktop workspace.
 
 The product name is `ModForge Studio`. The in-app English tagline is `Professional mod authoring workspace`.
 
@@ -193,6 +193,8 @@ Core light tokens:
 - Secondary text: `#4f5968`
 - Tertiary text: `#7d8798`
 
+The token accent is user/theme selectable. Do not infer a fixed hue from one screenshot: `Indigo`, `Blue`, and other accent presets can all be valid. When matching launcher configuration references, preserve the usage balance: neutral gray-blue surfaces, subtle borders, white/soft panels, and sparse token-accent emphasis.
+
 Core dark tokens:
 
 - Accent: `#6366f1`
@@ -216,6 +218,17 @@ Common component language:
 - Studio Desk uses a three-column grid, soft grid backgrounds, cover cards, status dots, and creation-focused panels.
 - Workbench uses floating/docked panels, viewport chrome, tool rails, resizers, drop zones, and drag previews.
 
+Launcher-style visual treatment:
+
+- Launcher-style prototypes should borrow the launcher configuration page's visual language without copying its internal class names, markup, layout, or product responsibilities.
+- Preserve the target flow's existing job and interaction shape. For example, an ObjectData item picker remains an item-selection dialog with category rail, search, grid/list results, pagination, selected item footer, and optional item detail view.
+- Apply the launcher configuration feel through surfaces, borders, shadows, typography, chips, buttons, inputs, status colors, and density rather than by moving the screen into a configuration-page layout.
+- Buttons and inputs should match the launcher configuration feel: flat borderless accent buttons, compact icon buttons, transparent `2px` focus-border inputs, and compact neutral chips.
+- The launcher configuration feel is mainly neutral gray-blue surfaces, subtle dividers, compact cards, and sparse current-token accent emphasis. Do not hardcode the hue from a single screenshot, and do not turn the accent into broad saturated surfaces.
+- Detail or inspector dialogs should use the same configuration-page grammar: panel sections with slim headers, field rows/cards, neutral chips, semantic status colors, and one restrained primary action. Avoid large saturated tag blocks or inline one-off colors.
+- Icons should follow the project’s lucide-style line icon language, not emoji. Colorful icons are allowed for category/type affordance, but keep the color on the icon or its small backing chip; do not expand those colors into large selected backgrounds or panel surfaces.
+- For ObjectData browser design work, do not change the picker into a settings/configuration page unless the product requirement explicitly changes its function.
+
 Critical visual files:
 
 - `apps/desktop/src/styles/tokens.css`
@@ -223,6 +236,9 @@ Critical visual files:
 - `apps/desktop/src/styles/workspace/layout.css`
 - `apps/desktop/src/styles/workspace/top-menu.css`
 - `apps/desktop/src/styles/features/launcher/core.css`
+- `apps/desktop/src/styles/features/launcher/configuration/shell-and-layout.css`
+- `apps/desktop/src/styles/features/launcher/configuration/account-and-routes.css`
+- `apps/desktop/src/styles/features/launcher/configuration/settings.css`
 - `apps/desktop/src/styles/features/launcher/library/mod-card.css`
 - `apps/desktop/src/styles/features/cp-maker/studio-desk/gallery-and-controls.css`
 - `apps/desktop/src/styles/features/cp-maker/studio-workspace/stage-and-cards.css`
@@ -248,7 +264,7 @@ Use existing terminology exactly when designing new UI:
 
 ## Desktop Backend Responsibilities
 
-Rust owns desktop capabilities and domain-heavy operations. Tauri commands should stay thin wrappers around domain modules.
+Rust owns desktop capabilities and domain-heavy operations. Host command adapters, whether called from Electron sidecar routing on Linux or Tauri command registration on macOS/Windows, should stay thin wrappers around domain modules.
 
 Critical backend files:
 

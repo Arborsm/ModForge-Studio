@@ -2,6 +2,12 @@ import { canUseDesktopHost, invokeDesktop } from './runtime'
 
 export type FrontendLogLevel = 'debug' | 'info' | 'warning' | 'error'
 
+declare global {
+  interface Window {
+    __MODFORGE_MIRRORING_FRONTEND_LOG__?: boolean
+  }
+}
+
 /** Structured frontend log entry forwarded to the desktop logger. */
 export type FrontendLogRequest = {
   level: FrontendLogLevel
@@ -33,13 +39,21 @@ function mirrorFrontendLogToConsole(request: FrontendLogRequest) {
 
   const entries = Object.entries(metadata).filter(([, value]) => value !== undefined)
   const logMethod = toConsoleLogMethod(request.level)
+  const levelLabel = request.level === 'warning' ? 'WARN' : request.level.toUpperCase()
+  const metadataText = entries.map(([key, value]) => `${key}=${value}`).join(' ')
+  const message = [`[webview][${levelLabel}]`, request.message, metadataText].filter(Boolean).join(' ')
 
-  if (!entries.length) {
-    logMethod(request.message)
-    return
+  if (typeof window !== 'undefined') {
+    window.__MODFORGE_MIRRORING_FRONTEND_LOG__ = true
   }
 
-  logMethod(request.message, Object.fromEntries(entries))
+  try {
+    logMethod(message)
+  } finally {
+    if (typeof window !== 'undefined') {
+      window.__MODFORGE_MIRRORING_FRONTEND_LOG__ = false
+    }
+  }
 }
 
 /** Mirrors a frontend log to the browser console and forwards it to the desktop logger when available. */

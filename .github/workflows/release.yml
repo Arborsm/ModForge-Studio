@@ -64,6 +64,24 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Lint frontend
+        run: pnpm lint
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Run frontend tests
+        run: pnpm --filter @modforge/desktop test
+
+      - name: Check Rust
+        run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
+
+      - name: Run Rust tests
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+
       - name: Prepare macOS notarization key
         if: matrix.platform == 'macos'
         env:

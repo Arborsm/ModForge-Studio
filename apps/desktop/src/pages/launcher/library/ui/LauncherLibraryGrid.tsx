@@ -149,7 +149,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
     () => buildLauncherLibraryGridBlocks(items, gridColumnCount, isLibraryFolderOpen, estimatedRowHeight),
     [estimatedRowHeight, gridColumnCount, isLibraryFolderOpen, items],
   )
-  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual owns imperative row measurement for the large launcher grid.
+  // TanStack Virtual owns imperative row measurement for the large launcher grid.
   const rowVirtualizer = useVirtualizer({
     count: gridBlocks.length,
     getScrollElement: () => viewportElement,

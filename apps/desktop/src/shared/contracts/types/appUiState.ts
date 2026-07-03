@@ -1,5 +1,8 @@
 import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionSpeedMode, LoadingMotionStyleId } from './loadingMotion'
 
+export type WindowBorderTone = 'accent' | 'neutral'
+export type WindowBorderWeight = 'standard' | 'thin' | 'none'
+
 export type AppUiShellState = {
   appMode: string
   launcherPage: string
@@ -10,6 +13,8 @@ export type AppUiShellState = {
 export type AppUiAppearanceState = {
   locale: string
   accentPresetId: string
+  windowBorderTone: WindowBorderTone
+  windowBorderWeight: WindowBorderWeight
   recentGameDirectories: string[]
   playerAppearance: {
     profiles: unknown[]

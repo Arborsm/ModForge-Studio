@@ -21,7 +21,6 @@ services/**/obj/
 .worktrees/
 .codex/
 .cargo/
-AGENTS.md
 .uv-roaming/
 .tmp-pywinauto-stdout.txt
 .tmp-pywinauto-stderr.txt
@@ -35,5 +34,5 @@ AGENTS.md
 .planning
 .zed/
 package-lock.json
-
+.omp/
 .codegraph/

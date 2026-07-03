@@ -1,6 +1,9 @@
 @layer components {
   .top-menu-bar {
-    border-bottom: 1px solid var(--border-color);
+    position: relative;
+    z-index: 260;
+    overflow: visible;
+    border-bottom: 0;
     background: color-mix(in srgb, var(--bg-panel) 94%, transparent);
     backdrop-filter: blur(24px);
     -webkit-app-region: drag;

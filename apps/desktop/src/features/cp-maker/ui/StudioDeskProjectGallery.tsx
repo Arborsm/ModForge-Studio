@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type MouseEvent } from 'react'
+import { useState, type CSSProperties, type MouseEvent } from 'react'
 import { CheckSquare, Copy, FilePenLine, MoreHorizontal, Search, Trash2, X } from 'lucide-react'
 import type { EditorCopy } from '@locales'
 import type { StudioDeskGalleryProject, StudioDeskModel } from '../model/studioDeskModel'
@@ -39,12 +39,10 @@ export function StudioDeskProjectGallery({
   const [pendingDelete, setPendingDelete] = useState<PendingProjectDelete | null>(null)
   const normalizedProjectQuery = projectQuery.trim().toLowerCase()
 
-  const filteredProjects = useMemo(() => {
-    return model.gallery.projects.filter((project) => {
-      const matchesQuery = normalizedProjectQuery === '' || project.searchText.toLowerCase().includes(normalizedProjectQuery)
-      return matchesQuery
-    })
-  }, [model.gallery.projects, normalizedProjectQuery])
+  const filteredProjects = model.gallery.projects.filter((project) => {
+    const matchesQuery = normalizedProjectQuery === '' || project.searchText.toLowerCase().includes(normalizedProjectQuery)
+    return matchesQuery
+  })
 
   const contextProject = contextMenu
     ? (model.gallery.projects.find((project) => project.draftStorageKey === contextMenu.draftStorageKey) ?? null)

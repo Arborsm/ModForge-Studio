@@ -52,6 +52,7 @@ type NexusApiAccountStatus = {
   apiKeyStatus: ValidateApiKeyResult | null
   apiKeyError: string | null
   apiKeyChecking: boolean
+  hasApiKey: boolean
   ssoAuthorized: boolean
   ssoStarting: boolean
   refreshApiKeyStatus: (options?: { force?: boolean; forceNonPremium?: boolean }) => Promise<void>
@@ -191,6 +192,53 @@ function getQuotaDetail(limit: string, resetAt: number | null | undefined, fallb
   return resetDetail == null ? limit : `${limit} · ${resetDetail}`
 }
 
+function getPremiumExpiryLabel(status: ValidateApiKeyResult | null, copy: LauncherCopy) {
+  if (!status?.isPremium) {
+    return null
+  }
+
+  if (status.isLifetimePremium) {
+    return copy.diagnostics.premiumLifetime
+  }
+
+  const rawValue = status.premiumExpiresAt?.trim()
+  if (!rawValue) {
+    return null
+  }
+
+  const timestampMs = Number(rawValue)
+  const date =
+    Number.isFinite(timestampMs) && timestampMs > 0
+      ? new Date(timestampMs < 10_000_000_000 ? timestampMs * 1000 : timestampMs)
+      : new Date(rawValue)
+  const displayValue = Number.isNaN(date.getTime()) ? rawValue : date.toLocaleDateString()
+
+  return copy.diagnostics.premiumExpiresAt(displayValue)
+}
+
+function getPremiumCacheExpiresAtMs(status: ValidateApiKeyResult | null) {
+  if (!status?.isPremium) {
+    return undefined
+  }
+
+  if (status.isLifetimePremium) {
+    return null
+  }
+
+  const rawValue = status.premiumExpiresAt?.trim()
+  if (!rawValue) {
+    return undefined
+  }
+
+  const timestampMs = Number(rawValue)
+  const date =
+    Number.isFinite(timestampMs) && timestampMs > 0
+      ? new Date(timestampMs < 10_000_000_000 ? timestampMs * 1000 : timestampMs)
+      : new Date(rawValue)
+
+  return Number.isNaN(date.getTime()) ? undefined : date.getTime()
+}
+
 function getDiagnosticsAgeLabel(timestamp: number | null, copy: LauncherCopy) {
   if (timestamp == null) {
     return copy.settings.configurationDiagnosticsJustNow
@@ -281,6 +329,10 @@ function getRouteRowTone(route: LauncherNexusRouteSnapshot | undefined, account:
   if (route?.routeId === 'nexusApi') {
     const restTone: ApiRouteTone = account.apiKeyError ? 'danger' : account.apiKeyChecking ? 'loading' : getRouteTone(route)
     return isAuthorized ? restTone : 'danger'
+  }
+
+  if (route?.routeId === 'privateGraphql' && (account.apiKeyError || !isAuthorized)) {
+    return 'danger'
   }
 
   const routeTone = getRouteTone(route)
@@ -406,7 +458,11 @@ function applyForcedNonPremiumStatus(status: ValidateApiKeyResult | null, forceN
   return status && forceNonPremium ? { ...status, isPremium: false } : status
 }
 
-function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSettings>, forceNonPremium: boolean): NexusApiAccountStatus {
+function useNexusApiAccountStatus(
+  settingsState: ReturnType<typeof useLauncherSettings>,
+  forceNonPremium: boolean,
+  onAuthorized?: () => void,
+): NexusApiAccountStatus {
   const launcherPort = useLauncherPort()
   const { settings, refresh } = settingsState
   const [apiKeyStatus, setApiKeyStatus] = useState<ValidateApiKeyResult | null>(null)
@@ -424,19 +480,20 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
 
   const writeApiKeyStatusCache = useCallback(
     (status: ValidateApiKeyResult | null, error: string | null, overrideForceNonPremium = forceNonPremium) => {
+      const cachedStatus = applyDebugAccountTier(status, overrideForceNonPremium)
       writeCachedLauncherConfigurationApiKeyStatus(
         {
-          status: applyDebugAccountTier(status, overrideForceNonPremium),
+          status: cachedStatus,
           error,
         },
         {
           apiKeySignature,
+          expiresAtMs: getPremiumCacheExpiresAtMs(cachedStatus),
         },
       )
     },
     [apiKeySignature, applyDebugAccountTier, forceNonPremium],
   )
-
   const refreshApiKeyStatus = useCallback(
     async (options: { force?: boolean; forceNonPremium?: boolean } = {}) => {
       const effectiveForceNonPremium = options.forceNonPremium ?? forceNonPremium
@@ -453,7 +510,9 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
         if (cached) {
           setApiKeyStatus(applyDebugAccountTier(cached.status, effectiveForceNonPremium))
           setApiKeyError(cached.error)
-          return
+          if (!cached.shouldRefresh) {
+            return
+          }
         }
       }
 
@@ -495,9 +554,15 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
           setApiKeyStatus(applyDebugAccountTier(cached.status))
           setApiKeyError(cached.error)
         }
-        return
+        if (!cached.shouldRefresh) {
+          return
+        }
       }
 
+      if (!cancelled) {
+        setApiKeyChecking(true)
+        setApiKeyError(null)
+      }
       try {
         const nextStatus = applyDebugAccountTier(await launcherPort.validateNexusApiKey())
         writeApiKeyStatusCache(nextStatus, null)
@@ -511,6 +576,10 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
         if (!cancelled) {
           setApiKeyStatus(null)
           setApiKeyError(errorMessage)
+        }
+      } finally {
+        if (!cancelled) {
+          setApiKeyChecking(false)
         }
       }
     })()
@@ -567,6 +636,7 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
         writeCachedLauncherConfigurationSsoStatus(snapshot)
         await refresh()
         await refreshApiKeyStatus({ force: true })
+        onAuthorized?.()
       }
     } catch (nextError) {
       setApiKeyError(nextError instanceof Error ? nextError.message : String(nextError))
@@ -574,12 +644,13 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
       cancelled = true
       setSsoStarting(false)
     }
-  }, [launcherPort, refresh, refreshApiKeyStatus])
+  }, [launcherPort, onAuthorized, refresh, refreshApiKeyStatus])
 
   return {
     apiKeyStatus,
     apiKeyError,
     apiKeyChecking,
+    hasApiKey,
     ssoAuthorized,
     ssoStarting,
     refreshApiKeyStatus,
@@ -701,16 +772,6 @@ function ConfigNexusPanel({
           <div className="launcher-config-actions">
             <button
               type="button"
-              className="launcher-config-button launcher-config-button-brand"
-              disabled={account.ssoStarting}
-              aria-busy={account.ssoStarting}
-              onClick={() => void account.startSso()}
-            >
-              {account.ssoStarting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
-              {isAuthorized ? copy.settings.nexusReauthorize : copy.settings.nexusSignInAction}
-            </button>
-            <button
-              type="button"
               className="launcher-config-button"
               disabled={!hasApiKey}
               onClick={() => settingsState.updateField('nexusApiKey', null)}
@@ -734,53 +795,53 @@ function ConfigNexusPanel({
         }
       />
 
-      {isAuthorized ? (
-        <div className="launcher-config-dashboard">
-          <div className="launcher-config-dash-metrics">
-            <ConfigMetric
-              title={copy.settings.nexusQuotaDaily}
-              value={formatNumber(account.apiKeyStatus?.dailyRemaining)}
-              percent={dailyPercent}
-              limit={dailyLimit}
-            />
-            <ConfigMetric
-              title={copy.settings.nexusQuotaHourly}
-              value={formatNumber(account.apiKeyStatus?.hourlyRemaining)}
-              percent={hourlyPercent}
-              limit={hourlyLimit}
-              warn
-            />
+      <div className="launcher-config-account-slot">
+        {isAuthorized ? (
+          <div className="launcher-config-dashboard">
+            <div className="launcher-config-dash-metrics">
+              <ConfigMetric
+                title={copy.settings.nexusQuotaDaily}
+                value={formatNumber(account.apiKeyStatus?.dailyRemaining)}
+                percent={dailyPercent}
+                limit={dailyLimit}
+              />
+              <ConfigMetric
+                title={copy.settings.nexusQuotaHourly}
+                value={formatNumber(account.apiKeyStatus?.hourlyRemaining)}
+                percent={hourlyPercent}
+                limit={hourlyLimit}
+                warn
+              />
+            </div>
           </div>
-        </div>
-      ) : null}
-
-      {!isAuthorized ? (
-        <div className="launcher-config-guest-hero">
-          <div>
-            <h3>{copy.settings.nexusGuestTitle}</h3>
-            <p>{copy.settings.nexusGuestSubtitle}</p>
+        ) : (
+          <div className="launcher-config-guest-hero">
+            <div>
+              <h3>{copy.settings.nexusGuestTitle}</h3>
+              <p>{copy.settings.nexusGuestSubtitle}</p>
+            </div>
+            <div className="launcher-config-actions">
+              <button
+                type="button"
+                className="launcher-config-button launcher-config-button-primary"
+                disabled={account.ssoStarting}
+                aria-busy={account.ssoStarting}
+                onClick={() => void account.startSso()}
+              >
+                {account.ssoStarting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
+                {copy.settings.nexusSignInAction}
+              </button>
+              <button
+                type="button"
+                className="launcher-config-button"
+                onClick={() => settingsState.updateField('nexusApiKey', settingsState.settings.nexusApiKey ?? '')}
+              >
+                {copy.settings.nexusPasteApiKeyAction}
+              </button>
+            </div>
           </div>
-          <div className="launcher-config-actions">
-            <button
-              type="button"
-              className="launcher-config-button launcher-config-button-primary"
-              disabled={account.ssoStarting}
-              aria-busy={account.ssoStarting}
-              onClick={() => void account.startSso()}
-            >
-              {account.ssoStarting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
-              {copy.settings.nexusSignInAction}
-            </button>
-            <button
-              type="button"
-              className="launcher-config-button"
-              onClick={() => settingsState.updateField('nexusApiKey', settingsState.settings.nexusApiKey ?? '')}
-            >
-              {copy.settings.nexusPasteApiKeyAction}
-            </button>
-          </div>
-        </div>
-      ) : null}
+        )}
+      </div>
 
       <div className="launcher-config-api-list">
         {displayedRoutes.map((route, index) => {
@@ -832,7 +893,6 @@ export function LauncherConfigurationPage({
   const [installedModCount, setInstalledModCount] = useState<number | null>(null)
   const [runtimeInfo, setRuntimeInfo] = useState<LauncherRuntimeInfo | null>(null)
   const launcherPort = useLauncherPort()
-  const account = useNexusApiAccountStatus(settingsState, forceNonPremium)
   const warningState = getLauncherWarningState(settingsState.settings)
   const configuredPaths = countConfiguredPaths(settingsState.settings)
   const hasCredentials = !warningState.missingCredentials
@@ -884,6 +944,12 @@ export function LauncherConfigurationPage({
     },
     [onLauncherDiagnosticsUpdate],
   )
+  const handleRefreshDiagnostics = useCallback(() => {
+    setDiagnosticsRefreshing(true)
+    setDiagnosticRoutes(getDefaultConfigRoutes(copy))
+    setDiagnosticsRestartNonce((value) => value + 1)
+  }, [copy])
+  const account = useNexusApiAccountStatus(settingsState, forceNonPremium, handleRefreshDiagnostics)
   useEffect(() => {
     let disposed = false
     const modsPath = settingsState.settings.modsPath?.trim()
@@ -1013,11 +1079,6 @@ export function LauncherConfigurationPage({
       }
     }
   }, [diagnosticsApiKeySignature, diagnosticsPollNonce, diagnosticsRestartNonce, handleDiagnosticsUpdate, onLauncherDiagnosticsUpdate])
-  const handleRefreshDiagnostics = useCallback(() => {
-    setDiagnosticsRefreshing(true)
-    setDiagnosticRoutes(getDefaultConfigRoutes(copy))
-    setDiagnosticsRestartNonce((value) => value + 1)
-  }, [copy])
   const handleViewLogs = useCallback(() => {
     setDebugToolsExpanded(true)
     window.requestAnimationFrame(() => {
@@ -1135,8 +1196,13 @@ export function LauncherConfigurationPage({
 
           <aside className="launcher-config-rail">
             <ConfigCompletionRail title={copy.settings.completionTitle} steps={stepItems} />
-            <ConfigAccountCard account={account} copy={copy} />
-            <ConfigDownloadDefaults settings={settingsState.settings} copy={copy} yesLabel={commonCopy.yes} noLabel={commonCopy.no} />
+            <ConfigAccountCard
+              account={account}
+              copy={copy}
+              premiumExpiryLabel={getPremiumExpiryLabel(account.apiKeyStatus, copy)}
+              onRefresh={() => void account.refreshApiKeyStatus({ force: true })}
+            />
+            <ConfigDownloadDefaults settingsState={settingsState} copy={copy} yesLabel={commonCopy.yes} noLabel={commonCopy.no} />
           </aside>
         </div>
 

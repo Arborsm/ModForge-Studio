@@ -8,7 +8,7 @@ The frontend architecture is suitable for a complex desktop workbench:
 - Clean Architecture dependency direction.
 - Static registry for workbench/page composition.
 - Typed Event + Command for cross-feature communication.
-- Platform DI for Tauri and desktop capabilities.
+- Platform DI for Electron, Tauri, and desktop capabilities.
 
 ## Target Layers
 
@@ -20,7 +20,9 @@ Target dependency direction:
 app -> pages -> widgets -> features -> entities -> shared/contracts
 ```
 
-`platform` is an external adapter. It is implemented in the platform layer and injected by `app/providers`. Business code should depend on contracts, not on Tauri. Cross-page or cross-feature orchestration belongs in `app/` or in the relevant feature slice; do not add a separate `processes` layer.
+`platform` is an external adapter. It is implemented in the platform layer and injected by `app/providers`. Business code should depend on contracts, not on Electron, Tauri, or host globals. Cross-page or cross-feature orchestration belongs in `app/` or in the relevant feature slice; do not add a separate `processes` layer.
+
+Use Feature-Sliced Design pragmatically: start page-specific code in `pages/`, extract only when the same code is actively reused and the boundary is stable. Do not create empty layers, speculative entities, or feature slices just because a concept might be reused later.
 
 ## Layer Responsibilities
 
@@ -73,7 +75,7 @@ Rules:
 
 - Widgets may call `features` and `entities` hooks/selectors/commands.
 - Widgets must not define domain data structures.
-- Widgets must not directly import Tauri or platform adapters.
+- Widgets must not directly import Electron/Tauri APIs or platform adapters.
 
 ### features
 
@@ -156,6 +158,7 @@ Rules:
 - `platform/electron` and `platform/tauri` implement `shared/contracts/platform.ts`.
 - Business layers must not import `@tauri-apps/api`.
 - Business layers must not call `invoke(` directly.
+- Business layers must not access Electron preload globals directly.
 
 ## Registry
 
@@ -213,6 +216,17 @@ Rules:
 
 This keeps entities/features testable and prevents host APIs from leaking into business code.
 
+## Implementation Completeness
+
+Architecture boundaries are not a reason to ship hollow slices. Do not add placeholder UI, no-op commands, fake data, TODO flows, silent catches, or happy-path-only implementations just to satisfy a visible acceptance point.
+
+Rules:
+
+- New flows must cover real data loading, state updates, loading states, empty states, error states, persistence, host permission/path checks, localization, and tests according to their impact.
+- Bug fixes must address the root cause and adjacent regression risk. Do not hide a defect with hard-coded fallbacks, swallowed errors, or bypassed validation.
+- If a requested change is too large, split it into independently usable vertical slices. Each slice must work for a real user without depending on a future cleanup task.
+- Temporary adapters, compatibility shims, debug code, one-off migration entries, and unused exports must be removed in the same change that makes them unnecessary.
+
 ## Cleanup Rules
 
 New and moved code must use the target layers. Do not recreate old catch-all roots such as `components`, `lib`, or `processes`, and do not add re-export shims or compatibility directories for old import paths. If a short-lived compatibility layer is unavoidable, document the deletion condition and remove the shim as soon as the change lands.
@@ -269,6 +283,7 @@ Architecture tests should guard these rules:
 
 - Business layers do not import `@tauri-apps/api`.
 - Business layers do not call `invoke(` directly.
+- Business layers do not access Electron preload globals directly.
 - `features` do not import other `features`.
 - `entities` do not import `widgets`, `pages`, or `features`.
 - `shared` does not import app/pages/widgets/features/entities/platform.

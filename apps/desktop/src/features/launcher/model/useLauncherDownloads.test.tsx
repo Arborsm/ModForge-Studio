@@ -80,6 +80,48 @@ describe('useLauncherDownloads', () => {
     expect(result.current.items[0]?.id).toBe('persisted-job')
   })
 
+  it('normalizes stale persisted downloading items back to queued', async () => {
+    const port = createMockLauncherPort({
+      loadDownloadQueue: vi.fn().mockResolvedValue({
+        items: [
+          {
+            id: 'stale-download',
+            modId: 101,
+            fileId: null,
+            title: 'NPC Adventures',
+            version: '1.0.0',
+            imageUrl: null,
+            source: 'discover',
+            status: 'downloading',
+            archivePath: null,
+            installedTargetPath: null,
+            error: null,
+            addedAt: 1,
+            completedAt: null,
+            totalBytes: 100,
+            downloadedBytes: 42,
+            bytesPerSecond: 7,
+          },
+        ],
+      }),
+      saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+    })
+
+    const { result } = renderHook(() => useLauncherDownloads(createSettings()), { wrapper: createWrapper(port) })
+    await waitFor(() => {
+      expect(result.current.items).toHaveLength(1)
+    })
+
+    expect(result.current.items[0]).toEqual(
+      expect.objectContaining({
+        id: 'stale-download',
+        status: 'queued',
+        downloadedBytes: null,
+        bytesPerSecond: null,
+      }),
+    )
+  })
+
   it('persists queue changes through the desktop bridge instead of browser storage', async () => {
     vi.useFakeTimers()
     const port = createMockLauncherPort({
@@ -376,12 +418,194 @@ describe('useLauncherDownloads', () => {
     await waitFor(() => {
       expect(port.downloadMod).toHaveBeenCalled()
     })
-    expect(port.downloadMod).toHaveBeenCalledWith({
-      modId: 1915,
-      fileId: 160463,
-      version: '2.9.1',
-      title: 'Content Patcher',
+    expect(port.downloadMod).toHaveBeenCalledWith(
+      expect.objectContaining({
+        downloadId: expect.stringContaining('1915:160463:2.9.1'),
+        modId: 1915,
+        fileId: 160463,
+        version: '2.9.1',
+        title: 'Content Patcher',
+      }),
+    )
+  })
+
+  it('updates the active download row from backend progress events', async () => {
+    let progressListener:
+      | ((payload: { downloadId: string; downloadedBytes: number; totalBytes?: number | null; bytesPerSecond?: number | null }) => void)
+      | null = null
+    const pendingDownload = new Promise<never>(() => {})
+    const port = createMockLauncherPort({
+      loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      listenToDownloadProgress: vi.fn(async (listener) => {
+        progressListener = listener
+        return () => {
+          progressListener = null
+        }
+      }),
+      downloadMod: vi.fn().mockReturnValue(pendingDownload),
     })
+
+    const { result } = renderHook(
+      () =>
+        useLauncherDownloads(
+          createSettings({
+            nexusApiKey: 'api-key',
+          }),
+        ),
+      { wrapper: createWrapper(port) },
+    )
+
+    await waitFor(() => {
+      expect(port.loadDownloadQueue).toHaveBeenCalledTimes(1)
+    })
+
+    act(() => {
+      result.current.queueDownload({
+        modId: 1915,
+        fileId: 160463,
+        title: 'Content Patcher',
+        imageUrl: null,
+        version: '2.9.1',
+        source: 'updates',
+      })
+    })
+
+    await waitFor(() => {
+      expect(result.current.activeItems).toHaveLength(1)
+    })
+    const downloadId = result.current.activeItems[0]?.id ?? ''
+
+    act(() => {
+      progressListener?.({
+        downloadId,
+        downloadedBytes: 512,
+        totalBytes: 1024,
+        bytesPerSecond: 256,
+      })
+    })
+
+    expect(result.current.activeItems[0]).toEqual(
+      expect.objectContaining({
+        downloadedBytes: null,
+        totalBytes: null,
+        bytesPerSecond: null,
+      }),
+    )
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 160))
+    })
+
+    expect(result.current.activeItems[0]).toEqual(
+      expect.objectContaining({
+        downloadedBytes: 512,
+        totalBytes: 1024,
+        bytesPerSecond: 256,
+      }),
+    )
+    expect(result.current.downloadProgressPercent).toBe(50)
+  })
+
+  it('cancels active downloads and persists them as resumable queued items when unmounted', async () => {
+    const pendingDownload = new Promise<never>(() => {})
+    const port = createMockLauncherPort({
+      loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      downloadMod: vi.fn().mockReturnValue(pendingDownload),
+      cancelDownload: vi.fn().mockResolvedValue(undefined),
+    })
+
+    const { result, unmount } = renderHook(
+      () =>
+        useLauncherDownloads(
+          createSettings({
+            nexusApiKey: 'api-key',
+          }),
+        ),
+      { wrapper: createWrapper(port) },
+    )
+
+    await waitFor(() => {
+      expect(port.loadDownloadQueue).toHaveBeenCalledTimes(1)
+    })
+
+    act(() => {
+      result.current.queueDownload({
+        modId: 1915,
+        fileId: 160463,
+        title: 'Content Patcher',
+        imageUrl: null,
+        version: '2.9.1',
+        source: 'updates',
+      })
+    })
+
+    await waitFor(() => {
+      expect(result.current.activeItems).toHaveLength(1)
+    })
+    const downloadId = result.current.activeItems[0]?.id ?? ''
+
+    unmount()
+
+    expect(port.cancelDownload).toHaveBeenCalledWith(downloadId)
+    expect(port.saveDownloadQueue).toHaveBeenLastCalledWith({
+      items: [
+        expect.objectContaining({
+          id: downloadId,
+          status: 'queued',
+          downloadedBytes: null,
+          bytesPerSecond: null,
+        }),
+      ],
+    })
+  })
+
+  it('cancels backend downloads when an active queue item is removed', async () => {
+    const pendingDownload = new Promise<never>(() => {})
+    const port = createMockLauncherPort({
+      loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      downloadMod: vi.fn().mockReturnValue(pendingDownload),
+      cancelDownload: vi.fn().mockResolvedValue(undefined),
+    })
+
+    const { result } = renderHook(
+      () =>
+        useLauncherDownloads(
+          createSettings({
+            nexusApiKey: 'api-key',
+          }),
+        ),
+      { wrapper: createWrapper(port) },
+    )
+
+    await waitFor(() => {
+      expect(port.loadDownloadQueue).toHaveBeenCalledTimes(1)
+    })
+
+    act(() => {
+      result.current.queueDownload({
+        modId: 1915,
+        fileId: 160463,
+        title: 'Content Patcher',
+        imageUrl: null,
+        version: '2.9.1',
+        source: 'updates',
+      })
+    })
+
+    await waitFor(() => {
+      expect(result.current.activeItems).toHaveLength(1)
+    })
+    const downloadId = result.current.activeItems[0]?.id ?? ''
+
+    act(() => {
+      result.current.removeItem(downloadId)
+    })
+
+    expect(port.cancelDownload).toHaveBeenCalledWith(downloadId)
+    expect(result.current.items).toHaveLength(0)
   })
 
   it('removes manual browser downloads from the queue and publishes one visible info notification', async () => {

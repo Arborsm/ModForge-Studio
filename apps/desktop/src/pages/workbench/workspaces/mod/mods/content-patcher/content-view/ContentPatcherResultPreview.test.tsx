@@ -1,8 +1,10 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LoadContentPatcherResultAssetResult } from '@entities/mod/api'
 import { createDefaultContentPatcherSimulationContext } from '../content-model/contentPatcher'
 import { ContentPatcherResultPreview } from './ContentPatcherResultPreview'
+import { LocaleProvider } from '@locales/localeContext'
 
 afterEach(() => {
   cleanup()
@@ -60,9 +62,13 @@ function buildSimulationContext() {
   return createDefaultContentPatcherSimulationContext()
 }
 
+function renderWithLocale(ui: ReactElement) {
+  return render(<LocaleProvider locale="en-US">{ui}</LocaleProvider>)
+}
+
 describe('ContentPatcherResultPreview', () => {
   it('renders image results inside a dedicated preview stage', async () => {
-    const { container } = render(
+    const { container } = renderWithLocale(
       <ContentPatcherResultPreview
         result={buildImageResult()}
         loading={false}
@@ -82,7 +88,7 @@ describe('ContentPatcherResultPreview', () => {
   })
 
   it('shows split compare by default and keeps the toolbar floating inside the stage', async () => {
-    const { container } = render(
+    const { container } = renderWithLocale(
       <ContentPatcherResultPreview
         result={buildImageResult()}
         loading={false}
@@ -105,7 +111,7 @@ describe('ContentPatcherResultPreview', () => {
   })
 
   it('switches to layers mode and reveals layer controls', async () => {
-    const { container } = render(
+    const { container } = renderWithLocale(
       <ContentPatcherResultPreview
         result={buildImageResult()}
         loading={false}
@@ -132,7 +138,7 @@ describe('ContentPatcherResultPreview', () => {
   })
 
   it('keeps correct original and patched sources when diff-only is enabled in split mode', async () => {
-    render(
+    renderWithLocale(
       <ContentPatcherResultPreview
         result={buildImageResult()}
         loading={false}
@@ -160,7 +166,7 @@ describe('ContentPatcherResultPreview', () => {
   it('opens simulation context as a popup from the toolbar and shows defaults', async () => {
     const onSimulationContextChange = vi.fn()
 
-    render(
+    renderWithLocale(
       <ContentPatcherResultPreview
         result={buildImageResult()}
         loading={false}
@@ -178,13 +184,13 @@ describe('ContentPatcherResultPreview', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Simulation Context' }))
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Simulation Season')).toBeTruthy()
+      expect(screen.getByLabelText('Season')).toBeTruthy()
       expect(screen.getByDisplayValue('festive')).toBeTruthy()
     })
   })
 
   it('reuses shared pan-zoom controls and keyboard shortcuts for image preview without transform scaling the image frame', async () => {
-    const { container } = render(
+    const { container } = renderWithLocale(
       <ContentPatcherResultPreview
         result={buildImageResult()}
         loading={false}

@@ -25,6 +25,7 @@ type CachedConfigurationApiKeyStatus = {
   status: ValidateApiKeyResult | null
   error: string | null
   cachedAt: number
+  expiresAtMs?: number | null
   apiKeySignature: string
 }
 
@@ -43,6 +44,12 @@ type CachedConfigurationRuntimeInfo = {
 type CachedConfigurationSsoStatus = {
   snapshot: SsoSnapshot
   cachedAt: number
+}
+
+function getCachedConfigurationApiKeyStatusExpiresAt(cached: CachedConfigurationApiKeyStatus) {
+  return Object.prototype.hasOwnProperty.call(cached, 'expiresAtMs')
+    ? (cached.expiresAtMs ?? null)
+    : cached.cachedAt + CONFIGURATION_API_ROUTE_CACHE_TTL_MS
 }
 
 let cachedConfigurationDiagnostics: CachedConfigurationDiagnostics | null = null
@@ -162,7 +169,9 @@ export function clearCachedLauncherConfigurationDiagnostics() {
 
 /**
  * Reads cached Nexus API-key validation for the configuration page.
- * The cache is keyed by the API-key signature and expires with API routes.
+ * Expired entries are returned with shouldRefresh=true so the UI can keep
+ * showing the cached avatar/tier while a background validation refreshes it.
+ * Entries with expiresAtMs=null are permanent and never auto-refresh.
  */
 export function readCachedLauncherConfigurationApiKeyStatus(
   options: {
@@ -181,11 +190,13 @@ export function readCachedLauncherConfigurationApiKeyStatus(
     return null
   }
 
-  if (now - cached.cachedAt > CONFIGURATION_API_ROUTE_CACHE_TTL_MS) {
-    return null
-  }
+  const expiresAtMs = getCachedConfigurationApiKeyStatusExpiresAt(cached)
 
-  return cached
+  return {
+    ...cached,
+    expiresAtMs,
+    shouldRefresh: expiresAtMs !== null && now > expiresAtMs,
+  }
 }
 
 /** Stores Nexus API-key validation for configuration-page remounts. */
@@ -196,12 +207,15 @@ export function writeCachedLauncherConfigurationApiKeyStatus(
   },
   options: {
     now?: number
+    expiresAtMs?: number | null
     apiKeySignature?: string | null
   } = {},
 ) {
+  const now = options.now ?? Date.now()
   cachedConfigurationApiKeyStatus = {
     ...value,
-    cachedAt: options.now ?? Date.now(),
+    cachedAt: now,
+    expiresAtMs: options.expiresAtMs === undefined ? now + CONFIGURATION_API_ROUTE_CACHE_TTL_MS : options.expiresAtMs,
     apiKeySignature: options.apiKeySignature ?? '',
   }
 }

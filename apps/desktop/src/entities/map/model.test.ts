@@ -7,6 +7,7 @@ import {
   getMapDocumentDisplayTitle,
   getMapDocumentPathLabel,
   getMapWorkspaceTabId,
+  getInitialWorldAtlasSeedNames,
   getPreferredScene,
   isRemoteWorldAtlasDocument,
   pickWorldAtlasRootMapName,
@@ -157,6 +158,21 @@ describe('getPreferredScene', () => {
 
   it('returns null for empty assets', () => {
     expect(getPreferredScene([])).toBeNull()
+  })
+})
+
+describe('getInitialWorldAtlasSeedNames', () => {
+  it('keeps first atlas paint limited to the requested root map', () => {
+    expect(
+      getInitialWorldAtlasSeedNames('Town', {
+        Farm: { x: 0, y: 0, width: 1, height: 1 },
+        Forest: { x: 1, y: 0, width: 1, height: 1 },
+      }),
+    ).toEqual(['Town'])
+  })
+
+  it('preserves custom root map names for targeted initial loads', () => {
+    expect(getInitialWorldAtlasSeedNames('Island_S')).toEqual(['Island_S'])
   })
 })
 

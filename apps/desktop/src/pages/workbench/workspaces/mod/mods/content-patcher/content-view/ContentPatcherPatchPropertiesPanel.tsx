@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useModWorkspaceCopy } from '@locales/localeContext'
 
 type ContentPatcherPatchPropertiesPanelProps = {
   patch: Record<string, unknown> | null
@@ -50,6 +51,7 @@ export function ContentPatcherPatchPropertiesPanel({
   onAddPatch,
   onRemoveSelectedPatch,
 }: ContentPatcherPatchPropertiesPanelProps) {
+  const copy = useModWorkspaceCopy().contentPatcherPatchProperties
   const enabledIsBoolean = useMemo(() => typeof patch?.Enabled === 'boolean', [patch?.Enabled])
 
   // Local draft for When to preserve user input on parse errors
@@ -85,19 +87,19 @@ export function ContentPatcherPatchPropertiesPanel({
   return (
     <section className="cp-debugger-card" style={{ flex: '0 0 auto', maxHeight: '50%', overflow: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 10 }}>
-        <h3 className="cp-debugger-card-title cp-debugger-card-title-tight">Patch Properties</h3>
+        <h3 className="cp-debugger-card-title cp-debugger-card-title-tight">{copy.title}</h3>
         <div style={{ display: 'flex', gap: 6 }}>
           <button type="button" className="control-button" onClick={onAddPatch}>
-            Add
+            {copy.add}
           </button>
           <button type="button" className="control-button" disabled={!patch} onClick={onRemoveSelectedPatch}>
-            Remove
+            {copy.remove}
           </button>
         </div>
       </div>
 
       {!patch ? (
-        <p className="panel-empty-state">Select a patch to edit its properties.</p>
+        <p className="panel-empty-state">{copy.empty}</p>
       ) : (
         <div className="cp-debugger-form-grid cp-debugger-form-grid-compact">
           <label className="cp-debugger-field">
@@ -149,7 +151,7 @@ export function ContentPatcherPatchPropertiesPanel({
             <label className="cp-debugger-field">
               <span>PatchMode</span>
               <select value={patchMode} onChange={(event) => onFieldChange('PatchMode', event.target.value)} aria-label="Patch PatchMode">
-                <option value="">Default</option>
+                <option value="">{copy.defaultPatchMode}</option>
                 {patchModeOptions.map((mode) => (
                   <option key={mode} value={mode}>
                     {mode}
@@ -182,7 +184,7 @@ export function ContentPatcherPatchPropertiesPanel({
                   color: 'var(--text-secondary)',
                   cursor: 'pointer',
                 }}
-                aria-label="Toggle Enabled type"
+                aria-label={copy.toggleEnabledType}
               >
                 {enabledIsBoolean ? 'bool' : 'text'}
               </button>
@@ -214,7 +216,7 @@ export function ContentPatcherPatchPropertiesPanel({
                 value={enabledStringValue}
                 onChange={(event) => onFieldChange('Enabled', event.target.value)}
                 aria-label="Patch Enabled"
-                placeholder="{{Token}} or true/false"
+                placeholder={copy.enabledTokenPlaceholder}
               />
             )}
           </label>

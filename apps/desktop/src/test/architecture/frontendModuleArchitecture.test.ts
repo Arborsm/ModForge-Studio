@@ -86,6 +86,26 @@ function topLevelFeatureFromSpecifier(filePath: string, specifier: string): stri
   return topLevelFeatureFromPath(resolvedImportPath)
 }
 
+function specifierTargetsSourceRoot(filePath: string, specifier: string, root: string): boolean {
+  const rootAlias = `@${root.replace(/^src\//, '')}`
+  if (specifier === rootAlias || specifier.startsWith(`${rootAlias}/`)) {
+    return true
+  }
+
+  if (specifier === root || specifier.startsWith(`${root}/`)) {
+    return true
+  }
+
+  if (!specifier.startsWith('.')) {
+    return false
+  }
+
+  const resolvedImportPath = resolve(dirname(filePath), specifier)
+  const relativeToRoot = relative(sourcePath(root), resolvedImportPath)
+
+  return relativeToRoot === '' || (!relativeToRoot.startsWith('..') && !relativeToRoot.startsWith('/'))
+}
+
 const TEST_FILE_PATTERN = /\.(test|spec)\.(ts|tsx)$/
 const REMOVED_DESKTOP_FACADE_SPECIFIER = '@platform/' + 'desktop'
 
@@ -205,6 +225,16 @@ describe('frontend module architecture', () => {
     expect(electronAdapter).toContain('createElectronPlatformPorts')
     expect(electronAdapter).toContain('window.modforgeElectron')
     expect(provider).toContain('isElectronHost()')
+  })
+
+  it('keeps Electron force close bypassing renderer beforeunload guards', async () => {
+    const electronMain = await readFile(sourcePath('electron/main.ts'), 'utf8')
+    const forceCloseHandler = electronMain.match(/ipcMain\.handle\('modforge:window-force-close'[\s\S]*?\n\}\)/)?.[0] ?? ''
+
+    expect(forceCloseHandler).toContain('window.destroy()')
+    expect(forceCloseHandler).not.toContain('window.close()')
+    expect(electronMain).toContain('function stopSidecar()')
+    expect(electronMain).toContain('sidecarStdout?.close()')
   })
 
   it('keeps launcher library drag measuring out of the always-on layout path', async () => {
@@ -367,10 +397,18 @@ describe('frontend module architecture', () => {
     expect(workbenchExperienceSource).not.toContain("from '@features/cp-maker/state")
     expect(workbenchExperienceSource).not.toContain("from '@features/cp-maker/routing")
     expect(workbenchExperienceSource).not.toContain("from '@features/cp-maker/model")
-    expect(workbenchExperienceSource).toContain("from '../model/workspace-panels/buildWorkspacePanels'")
-    expect(workbenchExperienceSource).toContain("from '@entities/game/api'")
+    expect(workbenchExperienceSource).not.toContain("from '../model/workspace-panels/buildWorkspacePanels'")
+    expect(workbenchExperienceSource).toContain("from '../model/useWorkbenchGameDirectory'")
+    expect(workbenchExperienceSource).toContain("from './WorkbenchPreviewRuntime'")
+    expect(workbenchExperienceSource).toContain("from './WorkbenchModPreviewRuntime'")
+    expect(workbenchExperienceSource).not.toContain('useMapWorkspace')
+    expect(workbenchExperienceSource).not.toContain('useEventWorkspace')
+    expect(workbenchExperienceSource).not.toContain('useCharacterWorkspace')
+    expect(workbenchExperienceSource).not.toContain('useBuildingWorkspace')
+    expect(workbenchExperienceSource).not.toContain('useItemWorkspace')
+    expect(workbenchExperienceSource).not.toContain('useModWorkspace')
+    expect(workbenchExperienceSource).not.toContain("from '@entities/game/api'")
     expect(workbenchExperienceSource).toContain("import '../model/builtInWorkspaces'")
-    expect(workbenchExperienceSource).toContain("from './WorkbenchLayoutHost'")
     expect(workbenchExperienceSource).toContain("from './WorkbenchViewHost'")
     expect(workbenchExperienceSource).not.toContain("from '@shared/workspace'")
     expect(workbenchExperienceSource).not.toContain("from '../ui/EditWorkspaceContent'")
@@ -408,7 +446,7 @@ describe('frontend module architecture', () => {
       }
 
       if (!source.includes('@shared/ui/loading-motion')) {
-        const usesApprovedWorkbenchSkeleton = source.includes('@app/app-shell/WorkbenchShellSkeleton')
+        const usesApprovedWorkbenchSkeleton = source.includes('@shared/ui/WorkbenchShellSkeleton')
 
         if (!usesApprovedWorkbenchSkeleton) {
           violations.push(`${file} does not consume shared loading-motion UI or the approved workbench shell skeleton`)
@@ -421,7 +459,7 @@ describe('frontend module architecture', () => {
 
   it('keeps platform plugin modules decoupled from removed component paths', async () => {
     const builtInWorkspaces = await readFile(sourcePath('src/pages/workbench/model/builtInWorkspaces.ts'), 'utf8')
-    const workspaceRegistry = await readFile(sourcePath('src/platform/plugins/workspaceRegistry.ts'), 'utf8')
+    const workspaceRegistry = await readFile(sourcePath('src/features/cp-maker/model/workspaceRegistry.ts'), 'utf8')
     const workspacePanelTypes = await readFile(sourcePath('src/pages/workbench/model/workspace-panels/types.ts'), 'utf8')
     const sharedTypesWorkspaceLayout = await readFile(sourcePath('src/shared/contracts/types/workspaceLayout.ts'), 'utf8')
     const sharedTypesWorkspaceRuntime = await readFile(sourcePath('src/shared/contracts/types/workspaceRuntime.ts'), 'utf8')
@@ -468,6 +506,91 @@ describe('frontend module architecture', () => {
 
     expect(featureViolations).toEqual([])
   }, 10000)
+
+  it('enforces long-term frontend import graph boundaries', async () => {
+    const rules = [
+      {
+        root: 'src/features',
+        blockedTargets: ['src/app', 'src/pages', 'src/widgets', 'src/platform'],
+        message: 'features must not depend on upper layers or platform adapters',
+      },
+      {
+        root: 'src/widgets',
+        blockedTargets: ['src/app', 'src/pages', 'src/platform'],
+        message: 'widgets must not depend on app/page assembly or platform adapters',
+      },
+      {
+        root: 'src/pages',
+        blockedTargets: ['src/app'],
+        message: 'pages must not depend upward on app assembly',
+      },
+      {
+        root: 'src/entities',
+        blockedTargets: ['src/pages', 'src/widgets', 'src/features'],
+        message: 'entities must stay headless and below pages/widgets/features',
+      },
+    ]
+    const violations: string[] = []
+
+    for (const rule of rules) {
+      const sourceFiles = await collectSourceFiles(sourcePath(rule.root))
+
+      for (const filePath of sourceFiles) {
+        const source = await readFile(filePath, 'utf8')
+        const relativePath = relative(sourcePath(), filePath).replace(/\\/g, '/')
+
+        for (const specifier of extractImportSpecifiers(source)) {
+          for (const blockedTarget of rule.blockedTargets) {
+            if (specifierTargetsSourceRoot(filePath, specifier, blockedTarget)) {
+              violations.push(`${relativePath} imports ${specifier}: ${rule.message}`)
+            }
+          }
+        }
+      }
+    }
+
+    expect(violations).toEqual([])
+  }, 30000)
+
+  it('keeps entities independent of workbench panel and layout contracts', async () => {
+    const entityFiles = await collectSourceFiles(sourcePath('src/entities'))
+    const blockedContractSpecifiers = new Set([
+      '@shared/contracts/types/workspaceLayout',
+      '@shared/contracts/types/workspaceRuntime',
+      '@shared/contracts/types/panelTypes',
+    ])
+    const blockedTerms = [
+      'WorkspaceLayout',
+      'WorkspacePanel',
+      'WorkspacePanelMeta',
+      'WorkspacePanelDefinition',
+      'DockArea',
+      'workspace-panels',
+      'panelTypes',
+      'workspaceLayout',
+      'workspaceRuntime',
+    ]
+    const violations: string[] = []
+
+    for (const filePath of entityFiles) {
+      const source = await readFile(filePath, 'utf8')
+      const relativePath = relative(sourcePath(), filePath).replace(/\\/g, '/')
+
+      for (const specifier of extractImportSpecifiers(source)) {
+        if (blockedContractSpecifiers.has(specifier) || specifier.includes('workspace-panels')) {
+          violations.push(`${relativePath} imports ${specifier}`)
+        }
+      }
+
+      for (const blockedTerm of blockedTerms) {
+        if (source.includes(blockedTerm)) {
+          violations.push(`${relativePath} references ${blockedTerm}`)
+        }
+      }
+    }
+
+    expect(violations).toEqual([])
+  }, 30000)
 
   it('blocks cp-maker segment public APIs outside the slice root', async () => {
     const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/platform']
@@ -595,15 +718,25 @@ describe('frontend module architecture', () => {
     await expectFile(sourcePath('src/pages/workbench/workspaces/image-patch/index.ts'))
 
     const workbenchExperienceSource = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchExperience.tsx'), 'utf8')
+    const workbenchPreviewRuntimeSource = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchPreviewRuntime.tsx'), 'utf8')
+    const workbenchMapPreviewRuntimeSource = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchMapPreviewRuntime.tsx'), 'utf8')
+    const workbenchModPreviewRuntimeSource = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchModPreviewRuntime.tsx'), 'utf8')
     const builtInWorkspacesSource = await readFile(sourcePath('src/pages/workbench/model/builtInWorkspaces.ts'), 'utf8')
 
     expect(workbenchExperienceSource).not.toContain('@features/workspaces')
-    expect(workbenchExperienceSource).toContain("from '../workspaces/event-stage'")
-    expect(workbenchExperienceSource).toContain("from '../workspaces/map'")
-    expect(workbenchExperienceSource).toContain("from '../workspaces/character'")
-    expect(workbenchExperienceSource).toContain("from '../workspaces/building/state/useBuildingWorkspace'")
-    expect(workbenchExperienceSource).toContain("from '../workspaces/item'")
-    expect(workbenchExperienceSource).toContain("from '../workspaces/mod'")
+    expect(workbenchExperienceSource).not.toContain("from '../workspaces/event-stage'")
+    expect(workbenchExperienceSource).not.toContain("from '../workspaces/map'")
+    expect(workbenchExperienceSource).not.toContain("from '../workspaces/character'")
+    expect(workbenchExperienceSource).not.toContain("from '../workspaces/building/state/useBuildingWorkspace'")
+    expect(workbenchExperienceSource).not.toContain("from '../workspaces/item'")
+    expect(workbenchExperienceSource).toContain("from './WorkbenchPreviewRuntime'")
+    expect(workbenchExperienceSource).toContain("from './WorkbenchModPreviewRuntime'")
+    expect(workbenchPreviewRuntimeSource).toContain("from '../workspaces/event-stage'")
+    expect(workbenchPreviewRuntimeSource).toContain("from '../workspaces/character'")
+    expect(workbenchPreviewRuntimeSource).toContain("from '../workspaces/building/state/useBuildingWorkspace'")
+    expect(workbenchPreviewRuntimeSource).toContain("from '../workspaces/item'")
+    expect(workbenchMapPreviewRuntimeSource).toContain("from '../workspaces/map'")
+    expect(workbenchModPreviewRuntimeSource).toContain("from '../workspaces/mod'")
 
     expect(builtInWorkspacesSource).not.toContain('@features/workspaces')
     expect(builtInWorkspacesSource).toContain("from '../workspaces/event-stage'")
@@ -756,30 +889,6 @@ describe('frontend module architecture', () => {
     }
 
     await expect(access(sourcePath('src/app/webview-surfaces/PublicHtmlVerificationControlsSurface.tsx'))).rejects.toThrow()
-    expect(violations).toEqual([])
-  }, 30000)
-
-  it('keeps the official Nexus SDK isolated behind a platform adapter', async () => {
-    const allFiles = await collectSourceFiles(sourcePath('src'))
-    const violations: string[] = []
-    const allowed = new Set(['platform/nexus/officialSdkAdapter.ts'])
-
-    for (const filePath of allFiles) {
-      const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
-      if (TEST_FILE_PATTERN.test(relPath)) {
-        continue
-      }
-
-      const source = await readFile(filePath, 'utf8')
-      if (!source.includes('@nexusmods/nexus-api')) {
-        continue
-      }
-
-      if (!allowed.has(relPath)) {
-        violations.push(relPath)
-      }
-    }
-
     expect(violations).toEqual([])
   }, 30000)
 

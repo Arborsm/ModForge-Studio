@@ -1,5 +1,5 @@
 import { Clock, Code2, Compass, Database, Layers3, PackageSearch, Search, UserRound, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { cx } from '@shared/lib/cx'
 import type { EditorCopy } from '@locales'
 import {
@@ -105,19 +105,17 @@ export function EventGameStateQueryBuilderModal({ copy, hubCopy, initialQuery, o
   const [clauses, setClauses] = useState<GameStateQueryClauseDraft[]>(() => parseGameStateQueryClauses(initialQuery ?? ''))
   const [anyBranches, setAnyBranches] = useState<GameStateQueryClauseDraft[]>([])
 
-  const filteredDefinitions = useMemo(() => {
-    const normalizedSearch = searchText.trim().toLowerCase()
-    return CATALOG_DEFINITIONS.filter((definition) => {
-      const definitionCopy = copyForDefinition(definition, hubCopy)
-      const matchesCategory = normalizedSearch.length > 0 || activeCategory === 'all' || definition.category === activeCategory
-      const matchesSearch =
-        !normalizedSearch ||
-        definition.key.toLowerCase().includes(normalizedSearch) ||
-        definitionCopy.title.toLowerCase().includes(normalizedSearch) ||
-        definitionCopy.description.toLowerCase().includes(normalizedSearch)
-      return matchesCategory && matchesSearch
-    })
-  }, [activeCategory, hubCopy, searchText])
+  const normalizedSearch = searchText.trim().toLowerCase()
+  const filteredDefinitions = CATALOG_DEFINITIONS.filter((definition) => {
+    const definitionCopy = copyForDefinition(definition, hubCopy)
+    const matchesCategory = normalizedSearch.length > 0 || activeCategory === 'all' || definition.category === activeCategory
+    const matchesSearch =
+      !normalizedSearch ||
+      definition.key.toLowerCase().includes(normalizedSearch) ||
+      definitionCopy.title.toLowerCase().includes(normalizedSearch) ||
+      definitionCopy.description.toLowerCase().includes(normalizedSearch)
+    return matchesCategory && matchesSearch
+  })
 
   const query = serializeGameStateQueryClauses(clauses)
   const natural = query ? formatGameStateQueryForHub(query, hubCopy) : copy.emptyPreview

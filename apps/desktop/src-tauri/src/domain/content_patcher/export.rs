@@ -1,8 +1,107 @@
 use base64::Engine;
 use std::fs;
+use std::path::{Component, Path, PathBuf};
 
 use super::types::{ContentPatcherResultAsset, ExportContentPatcherAssetResult};
+use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use crate::infrastructure::game_formats::tbin::{MapDocument, serialize_tbin_map};
+
+fn reject_symlink_directory_or_parent(directory: &Path) -> Result<(), String> {
+    for ancestor in directory.ancestors() {
+        if ancestor.as_os_str().is_empty() {
+            continue;
+        }
+        if ancestor.is_symlink() {
+            return Err(format!(
+                "Export directory {} cannot be a symbolic link.",
+                normalize_path(ancestor)
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn sanitize_export_stem(target: &str) -> String {
+    let stem = target
+        .replace('\\', "/")
+        .split('/')
+        .filter_map(|segment| {
+            let trimmed = segment.trim();
+            (!trimmed.is_empty()).then_some(trimmed)
+        })
+        .collect::<Vec<_>>()
+        .join("-");
+    let sanitized = stem
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string();
+
+    if sanitized.is_empty() {
+        "content-patcher-result".to_string()
+    } else {
+        sanitized
+    }
+}
+
+fn export_extension(result: &ContentPatcherResultAsset) -> Result<&'static str, String> {
+    match result.kind.as_str() {
+        "json" => Ok("json"),
+        "image" => Ok("png"),
+        "map" => Ok("tbin"),
+        unsupported => Err(format!("unsupported export kind `{unsupported}`")),
+    }
+}
+
+pub fn build_export_output_path(
+    target: &str,
+    output_directory: &str,
+    result: &ContentPatcherResultAsset,
+) -> Result<PathBuf, String> {
+    let directory = clean_input_path(output_directory);
+    if directory
+        .components()
+        .any(|component| matches!(component, Component::ParentDir))
+    {
+        return Err("Export directory cannot contain parent path segments.".to_string());
+    }
+    reject_symlink_directory_or_parent(&directory)?;
+    fs::create_dir_all(&directory).map_err(|error| {
+        format!(
+            "Failed to create export directory {}: {error}",
+            normalize_path(&directory)
+        )
+    })?;
+
+    let canonical_directory = directory.canonicalize().map_err(|error| {
+        format!(
+            "Failed to resolve export directory {}: {error}",
+            normalize_path(&directory)
+        )
+    })?;
+    let filename = format!(
+        "{}.{}",
+        sanitize_export_stem(target),
+        export_extension(result)?
+    );
+    let output_path = canonical_directory.join(filename);
+    let parent = output_path
+        .parent()
+        .ok_or_else(|| "Export output path has no parent directory.".to_string())?;
+    if parent != Path::new(&canonical_directory) {
+        return Err("Export output path escaped the selected directory.".to_string());
+    }
+
+    Ok(output_path)
+}
 
 pub fn write_result_asset(
     target: &str,

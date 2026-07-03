@@ -294,6 +294,7 @@ describe('LauncherModDetailPanel', () => {
     expect(within(filesPanel).getByText(/2026-07-02/)).toBeTruthy()
     expect(within(filesPanel).getByText(/Unique 346K/)).toBeTruthy()
     expect(within(filesPanel).getByText(/Total 458\.5K/)).toBeTruthy()
+    expect(within(filesPanel).getByText(/Mod manager/)).toBeTruthy()
     expect(within(filesPanel).getByText('Adds')).toBeTruthy()
     expect(within(filesPanel).getByText('the latest Stardew Valley support.')).toBeTruthy()
     expect(within(filesPanel).queryByRole('link', { name: 'Install guide' })).toBeNull()

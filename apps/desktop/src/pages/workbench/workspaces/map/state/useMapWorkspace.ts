@@ -1,17 +1,8 @@
 import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  detectDefaultGameDirectory,
-  loadImageDataUrl,
-  loadMapAsset,
-  loadTextAsset,
-  scanMaps,
-  validateGameDirectory,
-  type GameDirectoryInfo,
-  type MapAssetSummary,
-} from '@entities/game/api'
-import { canUseDesktopHost, chooseGameDirectory } from '@shared/lib/desktop'
+import { loadImageDataUrl, loadMapAsset, loadTextAsset, scanMaps, type GameDirectoryInfo, type MapAssetSummary } from '@entities/game/api'
 import type { FocusedMapObjectTarget, TileHoverInfo } from '@shared/contracts'
 import type { EditorCopy, LocaleCode } from '@locales'
+import { scheduleDeferred } from '@shared/lib/react'
 import { resolveTilesetImagePath } from '@entities/map'
 import type { MapAtlasPlacement, MapDocument } from '@shared/contracts'
 import {
@@ -31,6 +22,7 @@ import {
   getMapDocumentDisplayTitle,
   getMapWorkspaceTabId,
   getDefaultVisibleObjectGroupIds,
+  getInitialWorldAtlasSeedNames,
   getPreferredScene,
   isRemoteWorldAtlasDocument,
   matchesWorldAtlasMapName,
@@ -63,11 +55,19 @@ type UseMapWorkspaceOptions = {
   copy: EditorCopy
   locale: LocaleCode
   desktopHost: boolean
+  active: boolean
+  directoryInfo: GameDirectoryInfo | null
+  onDirectoryInvalid?: (message: string) => void
   getWorldAtlasViewLabel: (locale: LocaleCode, viewId: WorldAtlasView['id']) => string
 }
 
 type OpenMapOptions = {
   forceReload?: boolean
+}
+
+type OpenWorldAtlasOptions = {
+  initialOnly?: boolean
+  preserveActiveTab?: boolean
 }
 
 type WorldAtlasCacheEntry = {
@@ -83,20 +83,7 @@ const EMPTY_RESOURCE_PRELOAD_STATE: ResourcePreloadState = {
   currentLabel: '',
 }
 
-async function runWithConcurrency<T>(items: T[], concurrency: number, worker: (item: T, index: number) => Promise<void>) {
-  let nextIndex = 0
-
-  async function consumeNext() {
-    while (nextIndex < items.length) {
-      const currentIndex = nextIndex
-      nextIndex += 1
-      await worker(items[currentIndex], currentIndex)
-    }
-  }
-
-  const workerCount = Math.max(1, Math.min(concurrency, items.length))
-  await Promise.all(Array.from({ length: workerCount }, () => consumeNext()))
-}
+const PRELOAD_STATE_THROTTLE_MS = 150
 
 function formatPreloadError(error: unknown) {
   return error instanceof Error ? error.message : String(error)
@@ -167,14 +154,37 @@ function cloneMapDocumentCache(cache: Map<string, MapDocument>) {
   return new Map(cache)
 }
 
-export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLabel }: UseMapWorkspaceOptions) {
+function waitForIdlePreloadTurn(isCancelled: () => boolean) {
+  return new Promise<void>((resolve) => {
+    if (isCancelled()) {
+      resolve()
+      return
+    }
+
+    if (typeof window === 'undefined' || typeof window.requestIdleCallback !== 'function') {
+      setTimeout(resolve, 0)
+      return
+    }
+
+    window.requestIdleCallback(() => resolve(), { timeout: 250 })
+  })
+}
+
+export function useMapWorkspace({
+  copy,
+  locale,
+  desktopHost,
+  active,
+  directoryInfo,
+  onDirectoryInvalid,
+  getWorldAtlasViewLabel,
+}: UseMapWorkspaceOptions) {
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus>({ tone: 'idle', message: '' })
   const [resourcePreloadState, setResourcePreloadState] = useState<ResourcePreloadState>(EMPTY_RESOURCE_PRELOAD_STATE)
-  const [gameDirectory, setGameDirectory] = useState('')
-  const [directoryInfo, setDirectoryInfo] = useState<GameDirectoryInfo | null>(null)
   const [mapAssets, setMapAssets] = useState<MapAssetSummary[]>([])
   const [mapTabs, setMapTabs] = useState<MapWorkspaceTab[]>([])
   const [activeTabId, setActiveTabId] = useState<string>(WORLD_ATLAS_TAB_ID)
+  const activeTabIdRef = useRef(activeTabId)
   const [activeMapId, setActiveMapId] = useState<string | null>(null)
   const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
   const [worldAtlasViews, setWorldAtlasViews] = useState<WorldAtlasView[]>([])
@@ -194,6 +204,7 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
   const [activeModMapSelectionId, setActiveModMapSelectionId] = useState<string | null>(null)
   const parsedMapCacheRef = useRef(new Map<string, MapDocument>())
   const worldAtlasCacheRef = useRef(new Map<string, WorldAtlasCacheEntry>())
+  const idleResourcePreloadCancelRef = useRef<() => void>(() => {})
   const loadedResourceLocaleRef = useRef<LocaleCode | null>(null)
   const [parsedMapCacheSnapshot, setParsedMapCacheSnapshot] = useState(() => new Map<string, MapDocument>())
   const { modIndex } = useModAssetIndex(directoryInfo)
@@ -269,14 +280,21 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
     })
   }
 
+  function selectActiveTab(tabId: string) {
+    activeTabIdRef.current = tabId
+    setActiveTabId(tabId)
+  }
+
   function resetLoadedMaps() {
+    idleResourcePreloadCancelRef.current()
+    idleResourcePreloadCancelRef.current = () => {}
     parsedMapCacheRef.current.clear()
     setParsedMapCacheSnapshot(new Map())
     worldAtlasCacheRef.current.clear()
     loadedResourceLocaleRef.current = null
     setMapAssets([])
     setMapTabs([])
-    setActiveTabId(WORLD_ATLAS_TAB_ID)
+    selectActiveTab(WORLD_ATLAS_TAB_ID)
     setWorldAtlasViews([])
     setActiveWorldAtlasViewId(null)
     setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
@@ -284,6 +302,41 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
   }
 
   useEffect(() => {
+    if (!active) {
+      idleResourcePreloadCancelRef.current()
+      idleResourcePreloadCancelRef.current = () => {}
+      return
+    }
+  }, [active])
+
+  useEffect(() => {
+    if (!active) {
+      return
+    }
+
+    if (!directoryInfo?.rootPath) {
+      return scheduleDeferred(resetLoadedMaps)
+    }
+
+    if (loadedResourceLocaleRef.current === locale && mapAssets.length > 0) {
+      return
+    }
+
+    let cancelled = false
+    void loadGameDirectoryInBackground(directoryInfo, () => cancelled)
+
+    return () => {
+      cancelled = true
+      idleResourcePreloadCancelRef.current()
+      idleResourcePreloadCancelRef.current = () => {}
+    }
+  }, [active, directoryInfo?.rootPath, locale])
+
+  useEffect(() => {
+    if (!active) {
+      return
+    }
+
     if (!directoryInfo?.rootPath) {
       return
     }
@@ -309,79 +362,13 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
     return () => {
       cancelled = true
     }
-  }, [directoryInfo?.rootPath, locale])
+  }, [active, directoryInfo?.rootPath, locale])
 
-  const loadGameDirectoryInBackgroundRef = useRef(loadGameDirectoryInBackground)
-
-  useEffect(() => {
-    if (!desktopHost) {
-      return
-    }
-
-    let cancelled = false
-
-    async function detectKnownPath() {
-      setWorkspaceStatus({ tone: 'working', message: copy.messages.detectingDefaultInstall })
-
-      try {
-        const detectedPath = await detectDefaultGameDirectory()
-        if (cancelled) {
-          return
-        }
-
-        if (detectedPath) {
-          setGameDirectory(detectedPath)
-          await loadGameDirectoryInBackgroundRef.current(detectedPath, () => cancelled)
-          if (cancelled) {
-            return
-          }
-        } else {
-          setWorkspaceStatus({ tone: 'idle', message: copy.messages.automaticDetectionFailed })
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setWorkspaceStatus({
-            tone: 'error',
-            message: `${copy.messages.automaticDetectionFailed} ${error instanceof Error ? error.message : String(error)}`,
-          })
-        }
-      }
-    }
-
-    void detectKnownPath()
-
-    return () => {
-      cancelled = true
-    }
-  }, [copy.messages, desktopHost])
-
-  async function ensureValidatedDirectory(currentPath: string) {
-    const trimmedPath = currentPath.trim()
-    if (!trimmedPath) {
-      setWorkspaceStatus({ tone: 'error', message: copy.messages.enterFolderBeforeValidating })
-      return null
-    }
-
-    setWorkspaceStatus({ tone: 'working', message: copy.messages.validatingDirectory })
-
-    try {
-      const info = await validateGameDirectory(trimmedPath)
-      setDirectoryInfo(info)
-      setGameDirectory(info.rootPath)
-      setWorkspaceStatus({ tone: 'ready', message: copy.messages.validatedDirectory(info.rootPath) })
-      return info
-    } catch (error) {
-      setDirectoryInfo(null)
-      resetLoadedMaps()
-      setWorkspaceStatus({
-        tone: 'error',
-        message: `${copy.messages.validationFailed} ${error instanceof Error ? error.message : String(error)}`,
-      })
-      return null
-    }
+  function publishParsedMapCacheSnapshot() {
+    setParsedMapCacheSnapshot(cloneMapDocumentCache(parsedMapCacheRef.current))
   }
 
-  async function loadParsedMap(summary: MapAssetSummary, info: GameDirectoryInfo) {
+  async function loadParsedMap(summary: MapAssetSummary, info: GameDirectoryInfo, options?: { publishCacheSnapshot?: boolean }) {
     const cachedDocument = parsedMapCacheRef.current.get(summary.absolutePath)
     if (cachedDocument) {
       return cachedDocument
@@ -398,16 +385,28 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
       relativePath: asset.relativePath,
     })
     parsedMapCacheRef.current.set(summary.absolutePath, parsedDocument)
-    setParsedMapCacheSnapshot(cloneMapDocumentCache(parsedMapCacheRef.current))
+    if (options?.publishCacheSnapshot !== false) {
+      publishParsedMapCacheSnapshot()
+    }
     return parsedDocument
   }
 
-  async function preloadResources(assets: MapAssetSummary[], info: GameDirectoryInfo) {
+  async function preloadResources(assets: MapAssetSummary[], info: GameDirectoryInfo, isCancelled = () => false) {
     const xnbAssets = assets.filter((asset) => asset.format === 'xnb')
     let completed = 0
     let total = xnbAssets.length + 1
+    let lastPublishedAt = 0
 
-    function updatePreloadState(message: string, currentLabel = '') {
+    function updatePreloadState(message: string, currentLabel = '', force = false) {
+      if (isCancelled()) {
+        return
+      }
+
+      const now = Date.now()
+      if (!force && now - lastPublishedAt < PRELOAD_STATE_THROTTLE_MS) {
+        return
+      }
+      lastPublishedAt = now
       setResourcePreloadState({
         active: true,
         message,
@@ -417,20 +416,30 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
       })
     }
 
-    updatePreloadState(copy.messages.preloadingWorldData, 'Content\\Data\\WorldMap.xnb')
+    updatePreloadState(copy.messages.preloadingWorldData, 'Content\\Data\\WorldMap.xnb', true)
     try {
       await loadTextAsset(info.rootPath, 'Content\\Data\\WorldMap.xnb', locale)
     } catch {
       // WorldMap is optional; atlas construction already has its own fallback path.
     }
+    if (isCancelled()) {
+      return
+    }
     completed += 1
-    updatePreloadState(copy.messages.preloadingMaps)
+    updatePreloadState(copy.messages.preloadingMaps, '', true)
 
     const tilesetImagePaths = new Set<string>()
-    await runWithConcurrency(xnbAssets, 4, async (asset) => {
+    for (const asset of xnbAssets) {
+      if (isCancelled()) {
+        return
+      }
+      await waitForIdlePreloadTurn(isCancelled)
+      if (isCancelled()) {
+        return
+      }
       updatePreloadState(copy.messages.preloadingMaps, asset.relativePath)
       try {
-        const document = await loadParsedMap(asset, info)
+        const document = await loadParsedMap(asset, info, { publishCacheSnapshot: false })
         for (const tileset of document.tilesets) {
           const resolvedPath = resolveTilesetImagePath(document, tileset)
           if (resolvedPath) {
@@ -442,13 +451,23 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
       }
       completed += 1
       updatePreloadState(copy.messages.preloadingMaps, asset.relativePath)
-    })
+    }
+    if (!isCancelled()) {
+      publishParsedMapCacheSnapshot()
+    }
 
     const imagePaths = Array.from(tilesetImagePaths)
     total += imagePaths.length
-    updatePreloadState(copy.messages.preloadingTilesets)
+    updatePreloadState(copy.messages.preloadingTilesets, '', true)
 
-    await runWithConcurrency(imagePaths, 6, async (imagePath) => {
+    for (const imagePath of imagePaths) {
+      if (isCancelled()) {
+        return
+      }
+      await waitForIdlePreloadTurn(isCancelled)
+      if (isCancelled()) {
+        return
+      }
       updatePreloadState(copy.messages.preloadingTilesets, formatPreloadLabel(info.rootPath, imagePath))
       try {
         await loadImageDataUrl(imagePath, locale)
@@ -457,7 +476,7 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
       }
       completed += 1
       updatePreloadState(copy.messages.preloadingTilesets, formatPreloadLabel(info.rootPath, imagePath))
-    })
+    }
 
     setResourcePreloadState({
       active: true,
@@ -468,31 +487,44 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
     })
   }
 
-  async function loadGameDirectoryInBackground(currentPath: string, isCancelled = () => false) {
-    const trimmedPath = currentPath.trim()
-    if (!trimmedPath) {
-      return null
-    }
+  function startIdleResourcePreload(assets: MapAssetSummary[], info: GameDirectoryInfo, isCancelled = () => false) {
+    let cancelled = false
 
+    void (async () => {
+      await waitForIdlePreloadTurn(() => cancelled || isCancelled())
+      if (cancelled || isCancelled()) {
+        return
+      }
+      try {
+        await preloadResources(assets, info, () => cancelled || isCancelled())
+        if (!cancelled && !isCancelled() && activeTabIdRef.current === WORLD_ATLAS_TAB_ID) {
+          await openWorldAtlasRef.current(assets, info, WORLD_ROOT_MAP_NAME, { preserveActiveTab: true })
+        }
+      } catch (error) {
+        console.warn(`[resource-preload] skipped idle preload: ${formatPreloadError(error)}`)
+      } finally {
+        if (!cancelled && !isCancelled()) {
+          setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }
+
+  async function loadGameDirectoryInBackground(info: GameDirectoryInfo, isCancelled = () => false) {
     setResourcePreloadState({
       active: true,
       message: copy.messages.validatingAndScanning,
       completed: 0,
       total: 0,
-      currentLabel: trimmedPath,
+      currentLabel: info.rootPath,
     })
     setWorkspaceStatus({ tone: 'working', message: copy.messages.validatingAndScanning })
 
     try {
-      const info = await validateGameDirectory(trimmedPath)
-      if (isCancelled()) {
-        return null
-      }
-
-      setDirectoryInfo(info)
-      setGameDirectory(info.rootPath)
-      setWorkspaceStatus({ tone: 'ready', message: copy.messages.validatedDirectory(info.rootPath) })
-
       const assets = await scanMaps(info.rootPath, locale)
       if (isCancelled()) {
         return null
@@ -501,25 +533,22 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
       setMapAssets(assets)
       loadedResourceLocaleRef.current = locale
 
-      await preloadResources(assets, info)
-      if (isCancelled()) {
-        return null
-      }
-
-      await openWorldAtlas(assets, info)
+      await openWorldAtlas(assets, info, WORLD_ROOT_MAP_NAME, { initialOnly: true })
       if (!isCancelled()) {
-        setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
+        idleResourcePreloadCancelRef.current()
+        idleResourcePreloadCancelRef.current = startIdleResourcePreload(assets, info, isCancelled)
       }
       return info
     } catch (error) {
       if (!isCancelled()) {
         setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
-        setDirectoryInfo(null)
         resetLoadedMaps()
+        const message = `${copy.messages.resourcePreloadFailed} ${error instanceof Error ? error.message : String(error)}`
         setWorkspaceStatus({
           tone: 'error',
-          message: `${copy.messages.resourcePreloadFailed} ${error instanceof Error ? error.message : String(error)}`,
+          message,
         })
+        onDirectoryInvalid?.(message)
       }
       return null
     }
@@ -548,8 +577,9 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
     knownMapCount = mapAssets.length,
     options?: OpenMapOptions,
   ) {
-    const info = knownDirectoryInfo ?? directoryInfo ?? (await ensureValidatedDirectory(gameDirectory))
+    const info = knownDirectoryInfo ?? directoryInfo
     if (!info) {
+      setWorkspaceStatus({ tone: 'error', message: copy.messages.enterFolderBeforeScanning })
       return
     }
 
@@ -564,7 +594,7 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
       const forceReload = options?.forceReload === true
       const existingTab = mapTabs.find((tab) => tab.assetId === summary.id)
       if (existingTab && !forceReload) {
-        setActiveTabId(existingTab.id)
+        selectActiveTab(existingTab.id)
         applyMapDocument(existingTab.document, summary.id)
         setWorkspaceStatus({
           tone: 'ready',
@@ -591,7 +621,7 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
 
         return current.map((tab) => (tab.id === reusableTabId ? nextTab : tab))
       })
-      setActiveTabId(nextTab.id)
+      selectActiveTab(nextTab.id)
       applyMapDocument(parsedDocument, summary.id)
 
       setWorkspaceStatus({
@@ -612,8 +642,9 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
     knownMapCount = mapAssets.length,
     options?: OpenMapOptions,
   ) {
-    const info = knownDirectoryInfo ?? directoryInfo ?? (await ensureValidatedDirectory(gameDirectory))
+    const info = knownDirectoryInfo ?? directoryInfo
     if (!info) {
+      setWorkspaceStatus({ tone: 'error', message: copy.messages.enterFolderBeforeScanning })
       return
     }
 
@@ -631,7 +662,7 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
       const tabId = getMapWorkspaceTabId(entry.selectionId)
       const existingTab = mapTabs.find((tab) => tab.id === tabId)
       if (existingTab && !forceReload) {
-        setActiveTabId(existingTab.id)
+        selectActiveTab(existingTab.id)
         applyMapDocument(existingTab.document, summary.id)
         setWorkspaceStatus({
           tone: 'ready',
@@ -670,7 +701,7 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
 
         return current.map((tab) => (tab.id === reusableTabId ? nextTab : tab))
       })
-      setActiveTabId(nextTab.id)
+      selectActiveTab(nextTab.id)
       applyMapDocument(parsedDocument, summary.id)
       setWorkspaceStatus({
         tone: 'ready',
@@ -684,15 +715,23 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
     }
   }
 
-  async function openWorldAtlas(assets: MapAssetSummary[], info: GameDirectoryInfo, worldRootName = WORLD_ROOT_MAP_NAME) {
+  async function openWorldAtlas(
+    assets: MapAssetSummary[],
+    info: GameDirectoryInfo,
+    worldRootName = WORLD_ROOT_MAP_NAME,
+    options?: OpenWorldAtlasOptions,
+  ) {
     const atlasCacheKey = getWorldAtlasCacheKey(info.rootPath, locale, assets, worldRootName)
+    const preserveActiveTab = options?.preserveActiveTab === true
 
-    setMapTabs((current) => current.filter((tab) => tab.dirty))
-    setActiveTabId(WORLD_ATLAS_TAB_ID)
-    setWorldAtlasViews([])
-    setActiveWorldAtlasViewId(null)
-    applyMapDocument(null, null)
-    setWorkspaceStatus({ tone: 'working', message: copy.messages.loadingMap })
+    if (!preserveActiveTab) {
+      setMapTabs((current) => current.filter((tab) => tab.dirty))
+      selectActiveTab(WORLD_ATLAS_TAB_ID)
+      setWorldAtlasViews([])
+      setActiveWorldAtlasViewId(null)
+      applyMapDocument(null, null)
+      setWorkspaceStatus({ tone: 'working', message: copy.messages.loadingMap })
+    }
 
     const cachedAtlas = worldAtlasCacheRef.current.get(atlasCacheKey)
     if (cachedAtlas) {
@@ -707,17 +746,19 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
       }
 
       setWorldAtlasViews(cachedAtlas.views)
-      setActiveWorldAtlasViewId(nextWorldAtlasView.id)
-      setActiveTabId(WORLD_ATLAS_TAB_ID)
-      applyMapDocument(nextWorldAtlasView.document, null)
-      setWorkspaceStatus({
-        tone: 'ready',
-        message: copy.messages.loadedMapAssetsWithActiveMap(
-          assets.length,
-          nextWorldAtlasView.document.format,
-          nextWorldAtlasView.document.name,
-        ),
-      })
+      if (!preserveActiveTab || activeTabIdRef.current === WORLD_ATLAS_TAB_ID) {
+        setActiveWorldAtlasViewId(nextWorldAtlasView.id)
+        selectActiveTab(WORLD_ATLAS_TAB_ID)
+        applyMapDocument(nextWorldAtlasView.document, null)
+        setWorkspaceStatus({
+          tone: 'ready',
+          message: copy.messages.loadedMapAssetsWithActiveMap(
+            assets.length,
+            nextWorldAtlasView.document.format,
+            nextWorldAtlasView.document.name,
+          ),
+        })
+      }
       return
     }
 
@@ -737,9 +778,9 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
         }
       }
     }
-    const pendingNames = Array.from(
-      new Set([worldRootName, ...getWorldAtlasSeedNames(), ...(worldMapLayout ? Object.keys(worldMapLayout) : [])]),
-    )
+    const pendingNames = options?.initialOnly
+      ? getInitialWorldAtlasSeedNames(worldRootName, worldMapLayout)
+      : Array.from(new Set([worldRootName, ...getWorldAtlasSeedNames(), ...(worldMapLayout ? Object.keys(worldMapLayout) : [])]))
     const loadedDocuments = new Map<string, MapDocument>()
     const resolvedNames = new Set<string>()
 
@@ -771,10 +812,12 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
         resolvedNames.add(alias)
       }
 
-      for (const targetName of getExteriorWarpTargetNames(document)) {
-        const normalizedTargetName = targetName.trim().toLowerCase()
-        if (!resolvedNames.has(normalizedTargetName) && xnbAssetsByAlias.has(normalizedTargetName)) {
-          pendingNames.push(targetName)
+      if (!options?.initialOnly) {
+        for (const targetName of getExteriorWarpTargetNames(document)) {
+          const normalizedTargetName = targetName.trim().toLowerCase()
+          if (!resolvedNames.has(normalizedTargetName) && xnbAssetsByAlias.has(normalizedTargetName)) {
+            pendingNames.push(targetName)
+          }
         }
       }
     }
@@ -812,35 +855,41 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
 
     if (!nextWorldAtlasViews.length) {
       const preferredScene = getPreferredScene(assets)
-      if (preferredScene) {
+      if (preferredScene && !preserveActiveTab) {
         await openMap(preferredScene, info, assets.length)
         return
       }
 
-      setWorkspaceStatus({
-        tone: 'ready',
-        message: copy.messages.loadedMapAssets(assets.length, 'xnb'),
-      })
+      if (!preserveActiveTab || activeTabIdRef.current === WORLD_ATLAS_TAB_ID) {
+        setWorkspaceStatus({
+          tone: 'ready',
+          message: copy.messages.loadedMapAssets(assets.length, 'xnb'),
+        })
+      }
       return
     }
 
     const nextWorldAtlasView = nextWorldAtlasViews[0]
-    worldAtlasCacheRef.current.set(atlasCacheKey, {
-      views: nextWorldAtlasViews,
-      sourceDocuments,
-    })
+    if (!options?.initialOnly) {
+      worldAtlasCacheRef.current.set(atlasCacheKey, {
+        views: nextWorldAtlasViews,
+        sourceDocuments,
+      })
+    }
     setWorldAtlasViews(nextWorldAtlasViews)
-    setActiveWorldAtlasViewId(nextWorldAtlasView.id)
-    setActiveTabId(WORLD_ATLAS_TAB_ID)
-    applyMapDocument(nextWorldAtlasView.document, null)
-    setWorkspaceStatus({
-      tone: 'ready',
-      message: copy.messages.loadedMapAssetsWithActiveMap(
-        assets.length,
-        nextWorldAtlasView.document.format,
-        nextWorldAtlasView.document.name,
-      ),
-    })
+    if (!preserveActiveTab || activeTabIdRef.current === WORLD_ATLAS_TAB_ID) {
+      setActiveWorldAtlasViewId(nextWorldAtlasView.id)
+      selectActiveTab(WORLD_ATLAS_TAB_ID)
+      applyMapDocument(nextWorldAtlasView.document, null)
+      setWorkspaceStatus({
+        tone: 'ready',
+        message: copy.messages.loadedMapAssetsWithActiveMap(
+          assets.length,
+          nextWorldAtlasView.document.format,
+          nextWorldAtlasView.document.name,
+        ),
+      })
+    }
   }
 
   function handleSelectWorldAtlasView(viewId: WorldAtlasView['id']) {
@@ -850,7 +899,7 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
     }
 
     setActiveWorldAtlasViewId(viewId)
-    setActiveTabId(WORLD_ATLAS_TAB_ID)
+    selectActiveTab(WORLD_ATLAS_TAB_ID)
     applyMapDocument(nextWorldAtlasView.document, null)
     setWorkspaceStatus({
       tone: 'ready',
@@ -864,8 +913,14 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
 
   function handleSelectWorkspaceTab(tabId: string) {
     if (tabId === WORLD_ATLAS_TAB_ID) {
-      setActiveTabId(WORLD_ATLAS_TAB_ID)
+      selectActiveTab(WORLD_ATLAS_TAB_ID)
       applyMapDocument(worldAtlasDocument, null)
+      if (directoryInfo && mapAssets.length) {
+        const atlasCacheKey = getWorldAtlasCacheKey(directoryInfo.rootPath, locale, mapAssets, WORLD_ROOT_MAP_NAME)
+        if (!worldAtlasCacheRef.current.has(atlasCacheKey)) {
+          void openWorldAtlas(mapAssets, directoryInfo)
+        }
+      }
       return
     }
 
@@ -874,7 +929,7 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
       return
     }
 
-    setActiveTabId(nextTab.id)
+    selectActiveTab(nextTab.id)
     applyMapDocument(nextTab.document, nextTab.assetId)
   }
 
@@ -897,12 +952,12 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
 
     const fallbackTab = nextTabs[index] ?? nextTabs[index - 1] ?? null
     if (fallbackTab) {
-      setActiveTabId(fallbackTab.id)
+      selectActiveTab(fallbackTab.id)
       applyMapDocument(fallbackTab.document, fallbackTab.assetId)
       return
     }
 
-    setActiveTabId(WORLD_ATLAS_TAB_ID)
+    selectActiveTab(WORLD_ATLAS_TAB_ID)
     applyMapDocument(worldAtlasDocument, null)
   }
 
@@ -945,24 +1000,25 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
     })
   }
 
-  function handleValidateOnly() {
-    void ensureValidatedDirectory(gameDirectory)
-  }
-
   const preloadResourcesRef = useRef(preloadResources)
   const openWorldAtlasRef = useRef(openWorldAtlas)
   const openMapRef = useRef(openMap)
   const openModMapRef = useRef(openModMapEntry)
+  const startIdleResourcePreloadRef = useRef(startIdleResourcePreload)
 
   useEffect(() => {
     preloadResourcesRef.current = preloadResources
     openWorldAtlasRef.current = openWorldAtlas
     openMapRef.current = openMap
     openModMapRef.current = openModMapEntry
-    loadGameDirectoryInBackgroundRef.current = loadGameDirectoryInBackground
+    startIdleResourcePreloadRef.current = startIdleResourcePreload
   })
 
   useEffect(() => {
+    if (!active) {
+      return
+    }
+
     if (!directoryInfo?.rootPath || !mapAssets.length) {
       return
     }
@@ -999,11 +1055,6 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
         const nextAsset =
           assets.find((asset) => asset.id === activeMapId) ?? assets.find((asset) => asset.name === mapDocument?.name) ?? assets[0] ?? null
 
-        await preloadResourcesRef.current(assets, info)
-        if (cancelled) {
-          return
-        }
-
         if (activeTabId === WORLD_ATLAS_TAB_ID || worldAtlasViews.length) {
           await openWorldAtlasRef.current(assets, info)
           if (cancelled) {
@@ -1016,7 +1067,8 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
         }
 
         if (!cancelled) {
-          setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
+          idleResourcePreloadCancelRef.current()
+          idleResourcePreloadCancelRef.current = startIdleResourcePreloadRef.current(assets, info, () => cancelled)
         }
       } catch (error) {
         if (!cancelled) {
@@ -1034,6 +1086,8 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
 
     return () => {
       cancelled = true
+      idleResourcePreloadCancelRef.current()
+      idleResourcePreloadCancelRef.current = () => {}
     }
   }, [
     activeMapId,
@@ -1045,60 +1099,14 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
     mapAssets.length,
     mapDocument?.name,
     worldAtlasViews.length,
+    active,
   ])
 
-  async function handleScanAndOpenTown() {
-    const trimmedPath = gameDirectory.trim()
-    if (!trimmedPath) {
-      setWorkspaceStatus({ tone: 'error', message: copy.messages.enterFolderBeforeScanning })
-      return
-    }
+  const visibleResourcePreloadState = active ? resourcePreloadState : EMPTY_RESOURCE_PRELOAD_STATE
 
-    await loadGameDirectoryInBackground(trimmedPath)
-  }
-
-  async function handleChooseDirectory() {
-    try {
-      const selectedPath = await chooseGameDirectory()
-      if (!selectedPath) {
-        return
-      }
-
-      setGameDirectory(selectedPath)
-      setWorkspaceStatus({ tone: 'idle', message: copy.messages.detectedKnownPath(selectedPath) })
-    } catch (error) {
-      setWorkspaceStatus({
-        tone: 'error',
-        message: `${copy.messages.directorySelectionFailed} ${error instanceof Error ? error.message : String(error)}`,
-      })
-    }
-  }
-
-  async function handleUseKnownPath() {
-    if (!canUseDesktopHost()) {
-      setWorkspaceStatus({ tone: 'error', message: copy.messages.browserHostPrompt })
-      return
-    }
-
-    setWorkspaceStatus({ tone: 'working', message: copy.messages.detectingDefaultInstall })
-
-    try {
-      const detectedPath = await detectDefaultGameDirectory()
-      if (!detectedPath) {
-        setWorkspaceStatus({ tone: 'error', message: copy.messages.automaticDetectionFailed })
-        return
-      }
-
-      setGameDirectory(detectedPath)
-      setWorkspaceStatus({ tone: 'ready', message: copy.messages.detectedKnownPath(detectedPath) })
-      void loadGameDirectoryInBackground(detectedPath)
-    } catch (error) {
-      setWorkspaceStatus({
-        tone: 'error',
-        message: `${copy.messages.automaticDetectionFailed} ${error instanceof Error ? error.message : String(error)}`,
-      })
-    }
-  }
+  useEffect(() => {
+    activeTabIdRef.current = activeTabId
+  }, [activeTabId])
 
   function toggleLayer(id: number) {
     setVisibleLayerIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]))
@@ -1152,6 +1160,10 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
   )
 
   useEffect(() => {
+    if (!active) {
+      return
+    }
+
     if (!directoryInfo?.rootPath || pendingWorldOverlayTextureRequests.length === 0) {
       return
     }
@@ -1177,9 +1189,13 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
     return () => {
       cancelled = true
     }
-  }, [directoryInfo?.rootPath, pendingWorldOverlayTextureRequests])
+  }, [active, directoryInfo?.rootPath, pendingWorldOverlayTextureRequests])
 
   useEffect(() => {
+    if (!active) {
+      return
+    }
+
     if (browserSourceMode !== 'mod') {
       return
     }
@@ -1197,7 +1213,7 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
     if (nextEntry.selectionId !== activeModMapSelectionId || nextEntry.value.id !== activeMapId) {
       void openModMapRef.current(nextEntry)
     }
-  }, [activeMapId, activeModMapEntry, activeModMapSelectionId, browserSourceMode, modMapGroups])
+  }, [active, activeMapId, activeModMapEntry, activeModMapSelectionId, browserSourceMode, modMapGroups])
 
   function handleSetBrowserSourceMode(mode: BrowserSourceMode) {
     setBrowserSourceMode(mode)
@@ -1212,9 +1228,7 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
 
   return {
     workspaceStatus: desktopHost ? workspaceStatus : ({ tone: 'idle', message: copy.messages.browserHostPrompt } satisfies WorkspaceStatus),
-    resourcePreloadState,
-    gameDirectory,
-    setGameDirectory,
+    resourcePreloadState: visibleResourcePreloadState,
     directoryInfo,
     mapAssets,
     filteredAssets,
@@ -1249,10 +1263,6 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
     handleCloseWorkspaceTab,
     handleReorderWorkspaceTabs,
     handleOpenAtlasTarget,
-    handleValidateOnly,
-    handleScanAndOpenTown,
-    handleChooseDirectory,
-    handleUseKnownPath,
     toggleLayer,
     toggleObjectGroup,
     setAllLayers,

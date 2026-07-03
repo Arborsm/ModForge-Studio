@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ContentPatcherBackendSimulationContext } from '../content-model/contentPatcher'
+import { useModWorkspaceCopy } from '@locales/localeContext'
 
 type ContentPatcherSimulationConfigEntry = {
   key: string
@@ -139,160 +140,159 @@ function parseRelationships(value: string): Record<string, string> {
 export function ContentPatcherSimulationForm({
   compact = false,
   showTitle = true,
-  title = 'Simulation Context',
+  title,
   configEntries,
   value,
   onChange,
   dynamicTokens,
 }: ContentPatcherSimulationFormProps) {
+  const copy = useModWorkspaceCopy().contentPatcherSimulation
+  const fields = copy.fields
   const [showAdvanced, setShowAdvanced] = useState(false)
   const dynamicTokenEntries = Object.entries(dynamicTokens ?? {})
+  const resolvedTitle = title ?? copy.title
 
   return (
     <section className={compact ? 'cp-debugger-card cp-debugger-context-card' : 'cp-debugger-card'}>
-      {showTitle ? <h3 className="cp-debugger-card-title">{title}</h3> : null}
+      {showTitle ? <h3 className="cp-debugger-card-title">{resolvedTitle}</h3> : null}
       <div className={compact ? 'cp-debugger-form-grid cp-debugger-form-grid-compact' : 'cp-debugger-form-grid'}>
         <label className="cp-debugger-field cp-debugger-field-full">
-          <span>Ignore Entry When Conditions</span>
+          <span>{copy.ignoreEntryWhenConditions}</span>
           <select
             value={value.ignoreEntryWhenConditions ? 'true' : 'false'}
             onChange={(event) => onChange({ ...value, ignoreEntryWhenConditions: event.target.value === 'true' })}
-            aria-label="Ignore Entry When Conditions"
+            aria-label={copy.ignoreEntryWhenConditionsAria}
           >
-            <option value="false">No (respect When conditions inside Entries)</option>
-            <option value="true">Yes (show all entries regardless of When)</option>
+            <option value="false">{copy.ignoreWhenNo}</option>
+            <option value="true">{copy.ignoreWhenYes}</option>
           </select>
         </label>
         <label className="cp-debugger-field">
-          <span>Season</span>
-          <select
-            value={value.season}
-            onChange={(event) => onChange({ ...value, season: event.target.value })}
-            aria-label="Simulation Season"
-          >
-            <option value="">Any</option>
-            <option value="spring">Spring</option>
-            <option value="summer">Summer</option>
-            <option value="fall">Fall</option>
-            <option value="winter">Winter</option>
+          <span>{fields.season}</span>
+          <select value={value.season} onChange={(event) => onChange({ ...value, season: event.target.value })} aria-label={fields.season}>
+            <option value="">{copy.any}</option>
+            <option value="spring">{copy.options.seasons.spring}</option>
+            <option value="summer">{copy.options.seasons.summer}</option>
+            <option value="fall">{copy.options.seasons.fall}</option>
+            <option value="winter">{copy.options.seasons.winter}</option>
           </select>
         </label>
         <label className="cp-debugger-field">
-          <span>Weather</span>
+          <span>{fields.weather}</span>
           <select
             value={value.weather}
             onChange={(event) => onChange({ ...value, weather: event.target.value })}
-            aria-label="Simulation Weather"
+            aria-label={fields.weather}
           >
-            <option value="">Any</option>
-            <option value="sunny">Sunny</option>
-            <option value="rain">Rain</option>
-            <option value="storm">Storm</option>
-            <option value="snow">Snow</option>
+            <option value="">{copy.any}</option>
+            <option value="sunny">{copy.options.weather.sunny}</option>
+            <option value="rain">{copy.options.weather.rain}</option>
+            <option value="storm">{copy.options.weather.storm}</option>
+            <option value="snow">{copy.options.weather.snow}</option>
           </select>
         </label>
         <label className="cp-debugger-field">
-          <span>Day</span>
+          <span>{fields.day}</span>
           <input
             type="number"
             value={value.day ?? ''}
             onChange={(event) => onChange({ ...value, day: parseOptionalNumber(event.target.value) })}
-            aria-label="Simulation Day"
-            placeholder="Any"
+            aria-label={fields.day}
+            placeholder={copy.any}
           />
         </label>
         <label className="cp-debugger-field">
-          <span>Day of Week</span>
+          <span>{fields.dayOfWeek}</span>
           <select
             value={value.dayOfWeek}
             onChange={(event) => onChange({ ...value, dayOfWeek: event.target.value })}
-            aria-label="Simulation Day of Week"
+            aria-label={fields.dayOfWeek}
           >
-            <option value="">Any</option>
-            <option value="Monday">Monday</option>
-            <option value="Tuesday">Tuesday</option>
-            <option value="Wednesday">Wednesday</option>
-            <option value="Thursday">Thursday</option>
-            <option value="Friday">Friday</option>
-            <option value="Saturday">Saturday</option>
-            <option value="Sunday">Sunday</option>
+            <option value="">{copy.any}</option>
+            <option value="Monday">{copy.options.daysOfWeek.Monday}</option>
+            <option value="Tuesday">{copy.options.daysOfWeek.Tuesday}</option>
+            <option value="Wednesday">{copy.options.daysOfWeek.Wednesday}</option>
+            <option value="Thursday">{copy.options.daysOfWeek.Thursday}</option>
+            <option value="Friday">{copy.options.daysOfWeek.Friday}</option>
+            <option value="Saturday">{copy.options.daysOfWeek.Saturday}</option>
+            <option value="Sunday">{copy.options.daysOfWeek.Sunday}</option>
           </select>
         </label>
         <label className="cp-debugger-field">
-          <span>Year</span>
+          <span>{fields.year}</span>
           <input
             type="number"
             value={value.year ?? ''}
             onChange={(event) => onChange({ ...value, year: parseOptionalNumber(event.target.value) })}
-            aria-label="Simulation Year"
-            placeholder="Any"
+            aria-label={fields.year}
+            placeholder={copy.any}
           />
         </label>
         <label className="cp-debugger-field">
-          <span>Time</span>
+          <span>{fields.time}</span>
           <input
             type="number"
             value={value.time ?? ''}
             onChange={(event) => onChange({ ...value, time: parseOptionalNumber(event.target.value) })}
-            aria-label="Simulation Time"
-            placeholder="Any"
+            aria-label={fields.time}
+            placeholder={copy.any}
           />
         </label>
         <label className="cp-debugger-field">
-          <span>Player Name</span>
+          <span>{fields.playerName}</span>
           <input
             value={value.playerName}
             onChange={(event) => onChange({ ...value, playerName: event.target.value })}
-            aria-label="Simulation Player Name"
-            placeholder="Any"
+            aria-label={fields.playerName}
+            placeholder={copy.any}
           />
         </label>
         <label className="cp-debugger-field">
-          <span>Player Gender</span>
+          <span>{fields.playerGender}</span>
           <select
             value={value.playerGender}
             onChange={(event) => onChange({ ...value, playerGender: event.target.value })}
-            aria-label="Simulation Player Gender"
+            aria-label={fields.playerGender}
           >
-            <option value="">Any</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
+            <option value="">{copy.any}</option>
+            <option value="Male">{copy.options.playerGender.Male}</option>
+            <option value="Female">{copy.options.playerGender.Female}</option>
           </select>
         </label>
         <label className="cp-debugger-field">
-          <span>Farm Type</span>
+          <span>{fields.farmType}</span>
           <select
             value={value.farmType}
             onChange={(event) => onChange({ ...value, farmType: event.target.value })}
-            aria-label="Simulation Farm Type"
+            aria-label={fields.farmType}
           >
-            <option value="">Any</option>
-            <option value="Standard">Standard</option>
-            <option value="Riverland">Riverland</option>
-            <option value="Forest">Forest</option>
-            <option value="Hill-top">Hill-top</option>
-            <option value="Wilderness">Wilderness</option>
-            <option value="Four Corners">Four Corners</option>
-            <option value="Beach">Beach</option>
-            <option value="Meadowlands">Meadowlands</option>
+            <option value="">{copy.any}</option>
+            <option value="Standard">{copy.options.farmType.Standard}</option>
+            <option value="Riverland">{copy.options.farmType.Riverland}</option>
+            <option value="Forest">{copy.options.farmType.Forest}</option>
+            <option value="Hill-top">{copy.options.farmType['Hill-top']}</option>
+            <option value="Wilderness">{copy.options.farmType.Wilderness}</option>
+            <option value="Four Corners">{copy.options.farmType['Four Corners']}</option>
+            <option value="Beach">{copy.options.farmType.Beach}</option>
+            <option value="Meadowlands">{copy.options.farmType.Meadowlands}</option>
           </select>
         </label>
         <label className="cp-debugger-field">
-          <span>Has Flags</span>
+          <span>{fields.hasFlags}</span>
           <input
             value={stringifyArray(value.hasFlags)}
             onChange={(event) => onChange({ ...value, hasFlags: parseArray(event.target.value) })}
-            aria-label="Simulation Has Flags"
-            placeholder="comma,separated"
+            aria-label={fields.hasFlags}
+            placeholder={copy.commaSeparatedPlaceholder}
           />
         </label>
         <label className="cp-debugger-field">
-          <span>Has Seen Events</span>
+          <span>{fields.hasSeenEvents}</span>
           <input
             value={stringifyArray(value.hasSeenEvents)}
             onChange={(event) => onChange({ ...value, hasSeenEvents: parseArray(event.target.value) })}
-            aria-label="Simulation Has Seen Events"
-            placeholder="comma,separated"
+            aria-label={fields.hasSeenEvents}
+            placeholder={copy.commaSeparatedPlaceholder}
           />
         </label>
         {configEntries.map(({ key, defaultValue }) => {
@@ -301,7 +301,7 @@ export function ContentPatcherSimulationForm({
 
           return (
             <label key={key} className="cp-debugger-field">
-              <span>{`Config ${key}`}</span>
+              <span>{copy.configLabel(key)}</span>
               <input
                 value={displayedValue}
                 onChange={(event) => {
@@ -314,457 +314,457 @@ export function ContentPatcherSimulationForm({
                   }
                   onChange({ ...value, config: nextConfig })
                 }}
-                aria-label={`Config ${key}`}
-                placeholder={defaultValue == null ? 'Any' : stringifyDisplayValue(defaultValue)}
+                aria-label={copy.configLabel(key)}
+                placeholder={defaultValue == null ? copy.any : stringifyDisplayValue(defaultValue)}
               />
             </label>
           )
         })}
       </div>
       <button type="button" className="cp-debugger-advanced-toggle" onClick={() => setShowAdvanced((prev) => !prev)}>
-        {showAdvanced ? 'Hide Advanced' : 'Show Advanced'}
+        {showAdvanced ? copy.hideAdvanced : copy.showAdvanced}
       </button>
       {showAdvanced ? (
         <div className={compact ? 'cp-debugger-form-grid cp-debugger-form-grid-compact' : 'cp-debugger-form-grid'}>
           <label className="cp-debugger-field">
-            <span>Days Played</span>
+            <span>{fields.daysPlayed}</span>
             <input
               type="number"
               value={value.daysPlayed ?? ''}
               onChange={(event) => onChange({ ...value, daysPlayed: parseOptionalNumber(event.target.value) })}
-              aria-label="Simulation Days Played"
-              placeholder="Any"
+              aria-label={fields.daysPlayed}
+              placeholder={copy.any}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Farm Name</span>
+            <span>{fields.farmName}</span>
             <input
               value={value.farmName}
               onChange={(event) => onChange({ ...value, farmName: event.target.value })}
-              aria-label="Simulation Farm Name"
-              placeholder="Any"
+              aria-label={fields.farmName}
+              placeholder={copy.any}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Location Name</span>
+            <span>{fields.locationName}</span>
             <input
               value={value.locationName}
               onChange={(event) => onChange({ ...value, locationName: event.target.value })}
-              aria-label="Simulation Location Name"
-              placeholder="Any"
+              aria-label={fields.locationName}
+              placeholder={copy.any}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Spouse</span>
+            <span>{fields.spouse}</span>
             <input
               value={value.spouse}
               onChange={(event) => onChange({ ...value, spouse: event.target.value })}
-              aria-label="Simulation Spouse"
-              placeholder="Any"
+              aria-label={fields.spouse}
+              placeholder={copy.any}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Is Main Player</span>
+            <span>{fields.isMainPlayer}</span>
             <select
               value={value.isMainPlayer === undefined ? '' : String(value.isMainPlayer)}
               onChange={(event) => onChange({ ...value, isMainPlayer: parseOptionalBool(event.target.value) })}
-              aria-label="Simulation Is Main Player"
+              aria-label={fields.isMainPlayer}
             >
-              <option value="">Any</option>
-              <option value="true">True</option>
-              <option value="false">False</option>
+              <option value="">{copy.any}</option>
+              <option value="true">{copy.trueLabel}</option>
+              <option value="false">{copy.falseLabel}</option>
             </select>
           </label>
           <label className="cp-debugger-field">
-            <span>Stardrop Count</span>
+            <span>{fields.stardropCount}</span>
             <input
               type="number"
               value={value.stardropCount ?? ''}
               onChange={(event) => onChange({ ...value, stardropCount: parseOptionalNumber(event.target.value) })}
-              aria-label="Simulation Stardrop Count"
-              placeholder="Any"
+              aria-label={fields.stardropCount}
+              placeholder={copy.any}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Has Pet</span>
+            <span>{fields.hasPet}</span>
             <select
               value={value.hasPet === undefined ? '' : String(value.hasPet)}
               onChange={(event) => onChange({ ...value, hasPet: parseOptionalBool(event.target.value) })}
-              aria-label="Simulation Has Pet"
+              aria-label={fields.hasPet}
             >
-              <option value="">Any</option>
-              <option value="true">True</option>
-              <option value="false">False</option>
+              <option value="">{copy.any}</option>
+              <option value="true">{copy.trueLabel}</option>
+              <option value="false">{copy.falseLabel}</option>
             </select>
           </label>
           <label className="cp-debugger-field">
-            <span>Pet Type</span>
+            <span>{fields.petType}</span>
             <select
               value={value.petType}
               onChange={(event) => onChange({ ...value, petType: event.target.value })}
-              aria-label="Simulation Pet Type"
+              aria-label={fields.petType}
             >
-              <option value="">Any</option>
-              <option value="Cat">Cat</option>
-              <option value="Dog">Dog</option>
-              <option value="Turtle">Turtle</option>
+              <option value="">{copy.any}</option>
+              <option value="Cat">{copy.options.petType.Cat}</option>
+              <option value="Dog">{copy.options.petType.Dog}</option>
+              <option value="Turtle">{copy.options.petType.Turtle}</option>
             </select>
           </label>
           <label className="cp-debugger-field">
-            <span>Has Children</span>
+            <span>{fields.hasChildren}</span>
             <select
               value={value.hasChildren === undefined ? '' : String(value.hasChildren)}
               onChange={(event) => onChange({ ...value, hasChildren: parseOptionalBool(event.target.value) })}
-              aria-label="Simulation Has Children"
+              aria-label={fields.hasChildren}
             >
-              <option value="">Any</option>
-              <option value="true">True</option>
-              <option value="false">False</option>
+              <option value="">{copy.any}</option>
+              <option value="true">{copy.trueLabel}</option>
+              <option value="false">{copy.falseLabel}</option>
             </select>
           </label>
           <label className="cp-debugger-field">
-            <span>Child Count</span>
+            <span>{fields.childCount}</span>
             <input
               type="number"
               value={value.childCount ?? ''}
               onChange={(event) => onChange({ ...value, childCount: parseOptionalNumber(event.target.value) })}
-              aria-label="Simulation Child Count"
-              placeholder="Any"
+              aria-label={fields.childCount}
+              placeholder={copy.any}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Farmhouse Upgrade</span>
+            <span>{fields.farmhouseUpgrade}</span>
             <input
               type="number"
               value={value.farmhouseUpgrade ?? ''}
               onChange={(event) => onChange({ ...value, farmhouseUpgrade: parseOptionalNumber(event.target.value) })}
-              aria-label="Simulation Farmhouse Upgrade"
-              placeholder="Any"
+              aria-label={fields.farmhouseUpgrade}
+              placeholder={copy.any}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Community Center Complete</span>
+            <span>{fields.communityCenterComplete}</span>
             <select
               value={value.isCommunityCenterComplete === undefined ? '' : String(value.isCommunityCenterComplete)}
               onChange={(event) => onChange({ ...value, isCommunityCenterComplete: parseOptionalBool(event.target.value) })}
-              aria-label="Simulation Community Center Complete"
+              aria-label={fields.communityCenterComplete}
             >
-              <option value="">Any</option>
-              <option value="true">True</option>
-              <option value="false">False</option>
+              <option value="">{copy.any}</option>
+              <option value="true">{copy.trueLabel}</option>
+              <option value="false">{copy.falseLabel}</option>
             </select>
           </label>
           <label className="cp-debugger-field">
-            <span>Joja Mart Complete</span>
+            <span>{fields.jojaMartComplete}</span>
             <select
               value={value.isJojaMartComplete === undefined ? '' : String(value.isJojaMartComplete)}
               onChange={(event) => onChange({ ...value, isJojaMartComplete: parseOptionalBool(event.target.value) })}
-              aria-label="Simulation Joja Mart Complete"
+              aria-label={fields.jojaMartComplete}
             >
-              <option value="">Any</option>
-              <option value="true">True</option>
-              <option value="false">False</option>
+              <option value="">{copy.any}</option>
+              <option value="true">{copy.trueLabel}</option>
+              <option value="false">{copy.falseLabel}</option>
             </select>
           </label>
           <label className="cp-debugger-field">
-            <span>Language</span>
+            <span>{fields.language}</span>
             <input
               value={value.language}
               onChange={(event) => onChange({ ...value, language: event.target.value })}
-              aria-label="Simulation Language"
-              placeholder="Any"
+              aria-label={fields.language}
+              placeholder={copy.any}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Day Event</span>
+            <span>{fields.dayEvent}</span>
             <input
               value={value.dayEvent}
               onChange={(event) => onChange({ ...value, dayEvent: event.target.value })}
-              aria-label="Simulation Day Event"
-              placeholder="Any"
+              aria-label={fields.dayEvent}
+              placeholder={copy.any}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Daily Luck</span>
+            <span>{fields.dailyLuck}</span>
             <input
               type="number"
               step="0.01"
               value={value.dailyLuck ?? ''}
               onChange={(event) => onChange({ ...value, dailyLuck: parseOptionalNumber(event.target.value) })}
-              aria-label="Simulation Daily Luck"
-              placeholder="Any"
+              aria-label={fields.dailyLuck}
+              placeholder={copy.any}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Location Context</span>
+            <span>{fields.locationContext}</span>
             <input
               value={value.locationContext}
               onChange={(event) => onChange({ ...value, locationContext: event.target.value })}
-              aria-label="Simulation Location Context"
-              placeholder="Any"
+              aria-label={fields.locationContext}
+              placeholder={copy.any}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Location Unique Name</span>
+            <span>{fields.locationUniqueName}</span>
             <input
               value={value.locationUniqueName}
               onChange={(event) => onChange({ ...value, locationUniqueName: event.target.value })}
-              aria-label="Simulation Location Unique Name"
-              placeholder="Any"
+              aria-label={fields.locationUniqueName}
+              placeholder={copy.any}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Location Owner Id</span>
+            <span>{fields.locationOwnerId}</span>
             <input
               value={value.locationOwnerId}
               onChange={(event) => onChange({ ...value, locationOwnerId: event.target.value })}
-              aria-label="Simulation Location Owner Id"
-              placeholder="Any"
+              aria-label={fields.locationOwnerId}
+              placeholder={copy.any}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Is Outdoors</span>
+            <span>{fields.isOutdoors}</span>
             <select
               value={value.isOutdoors === undefined ? '' : String(value.isOutdoors)}
               onChange={(event) => onChange({ ...value, isOutdoors: parseOptionalBool(event.target.value) })}
-              aria-label="Simulation Is Outdoors"
+              aria-label={fields.isOutdoors}
             >
-              <option value="">Any</option>
-              <option value="true">True</option>
-              <option value="false">False</option>
+              <option value="">{copy.any}</option>
+              <option value="true">{copy.trueLabel}</option>
+              <option value="false">{copy.falseLabel}</option>
             </select>
           </label>
           <label className="cp-debugger-field">
-            <span>Preferred Pet</span>
+            <span>{fields.preferredPet}</span>
             <select
               value={value.preferredPet}
               onChange={(event) => onChange({ ...value, preferredPet: event.target.value })}
-              aria-label="Simulation Preferred Pet"
+              aria-label={fields.preferredPet}
             >
-              <option value="">Any</option>
-              <option value="Cat">Cat</option>
-              <option value="Dog">Dog</option>
-              <option value="Turtle">Turtle</option>
+              <option value="">{copy.any}</option>
+              <option value="Cat">{copy.options.petType.Cat}</option>
+              <option value="Dog">{copy.options.petType.Dog}</option>
+              <option value="Turtle">{copy.options.petType.Turtle}</option>
             </select>
           </label>
           <label className="cp-debugger-field">
-            <span>Roommate</span>
+            <span>{fields.roommate}</span>
             <input
               value={value.roommate}
               onChange={(event) => onChange({ ...value, roommate: event.target.value })}
-              aria-label="Simulation Roommate"
-              placeholder="Any"
+              aria-label={fields.roommate}
+              placeholder={copy.any}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Hearts</span>
+            <span>{fields.hearts}</span>
             <input
               value={stringifyHearts(value.hearts)}
               onChange={(event) => onChange({ ...value, hearts: parseHearts(event.target.value) })}
-              aria-label="Simulation Hearts"
+              aria-label={fields.hearts}
               placeholder="Abigail:10, Sebastian:8"
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Skill Levels</span>
+            <span>{fields.skillLevels}</span>
             <input
               value={stringifySkillLevels(value.skillLevels)}
               onChange={(event) => onChange({ ...value, skillLevels: parseSkillLevels(event.target.value) })}
-              aria-label="Simulation Skill Levels"
+              aria-label={fields.skillLevels}
               placeholder="Farming:10, Mining:5"
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Relationships</span>
+            <span>{fields.relationships}</span>
             <input
               value={stringifyRelationships(value.relationships)}
               onChange={(event) => onChange({ ...value, relationships: parseRelationships(event.target.value) })}
-              aria-label="Simulation Relationships"
+              aria-label={fields.relationships}
               placeholder="Abigail:Married, Sebastian:Dating"
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Farm Cave</span>
+            <span>{fields.farmCave}</span>
             <select
               value={value.farmCave}
               onChange={(event) => onChange({ ...value, farmCave: event.target.value })}
-              aria-label="Simulation Farm Cave"
+              aria-label={fields.farmCave}
             >
-              <option value="">Any</option>
-              <option value="Bats">Bats</option>
-              <option value="Mushrooms">Mushrooms</option>
+              <option value="">{copy.any}</option>
+              <option value="Bats">{copy.options.farmCave.Bats}</option>
+              <option value="Mushrooms">{copy.options.farmCave.Mushrooms}</option>
             </select>
           </label>
           <label className="cp-debugger-field">
-            <span>Farm Map Asset</span>
+            <span>{fields.farmMapAsset}</span>
             <input
               value={value.farmMapAsset}
               onChange={(event) => onChange({ ...value, farmMapAsset: event.target.value })}
-              aria-label="Simulation Farm Map Asset"
-              placeholder="Any"
+              aria-label={fields.farmMapAsset}
+              placeholder={copy.any}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Having Child</span>
+            <span>{fields.havingChild}</span>
             <select
               value={value.havingChild === undefined ? '' : String(value.havingChild)}
               onChange={(event) => onChange({ ...value, havingChild: parseOptionalBool(event.target.value) })}
-              aria-label="Simulation Having Child"
+              aria-label={fields.havingChild}
             >
-              <option value="">Any</option>
-              <option value="true">True</option>
-              <option value="false">False</option>
+              <option value="">{copy.any}</option>
+              <option value="true">{copy.trueLabel}</option>
+              <option value="false">{copy.falseLabel}</option>
             </select>
           </label>
           <label className="cp-debugger-field">
-            <span>Pregnant</span>
+            <span>{fields.pregnant}</span>
             <select
               value={value.pregnant === undefined ? '' : String(value.pregnant)}
               onChange={(event) => onChange({ ...value, pregnant: parseOptionalBool(event.target.value) })}
-              aria-label="Simulation Pregnant"
+              aria-label={fields.pregnant}
             >
-              <option value="">Any</option>
-              <option value="true">True</option>
-              <option value="false">False</option>
+              <option value="">{copy.any}</option>
+              <option value="true">{copy.trueLabel}</option>
+              <option value="false">{copy.falseLabel}</option>
             </select>
           </label>
           <label className="cp-debugger-field">
-            <span>Has Caught Fish</span>
+            <span>{fields.hasCaughtFish}</span>
             <input
               value={stringifyArray(value.hasCaughtFish)}
               onChange={(event) => onChange({ ...value, hasCaughtFish: parseArray(event.target.value) })}
-              aria-label="Simulation Has Caught Fish"
-              placeholder="comma,separated"
+              aria-label={fields.hasCaughtFish}
+              placeholder={copy.commaSeparatedPlaceholder}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Has Read Letters</span>
+            <span>{fields.hasReadLetters}</span>
             <input
               value={stringifyArray(value.hasReadLetters)}
               onChange={(event) => onChange({ ...value, hasReadLetters: parseArray(event.target.value) })}
-              aria-label="Simulation Has Read Letters"
-              placeholder="comma,separated"
+              aria-label={fields.hasReadLetters}
+              placeholder={copy.commaSeparatedPlaceholder}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Has Visited Locations</span>
+            <span>{fields.hasVisitedLocations}</span>
             <input
               value={stringifyArray(value.hasVisitedLocations)}
               onChange={(event) => onChange({ ...value, hasVisitedLocations: parseArray(event.target.value) })}
-              aria-label="Simulation Has Visited Locations"
-              placeholder="comma,separated"
+              aria-label={fields.hasVisitedLocations}
+              placeholder={copy.commaSeparatedPlaceholder}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Child Names</span>
+            <span>{fields.childNames}</span>
             <input
               value={stringifyArray(value.childNames)}
               onChange={(event) => onChange({ ...value, childNames: parseArray(event.target.value) })}
-              aria-label="Simulation Child Names"
-              placeholder="comma,separated"
+              aria-label={fields.childNames}
+              placeholder={copy.commaSeparatedPlaceholder}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Child Genders</span>
+            <span>{fields.childGenders}</span>
             <input
               value={stringifyArray(value.childGenders)}
               onChange={(event) => onChange({ ...value, childGenders: parseArray(event.target.value) })}
-              aria-label="Simulation Child Genders"
-              placeholder="comma,separated"
+              aria-label={fields.childGenders}
+              placeholder={copy.commaSeparatedPlaceholder}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Has Professions</span>
+            <span>{fields.hasProfessions}</span>
             <input
               value={stringifyArray(value.hasProfessions)}
               onChange={(event) => onChange({ ...value, hasProfessions: parseArray(event.target.value) })}
-              aria-label="Simulation Has Professions"
-              placeholder="comma,separated"
+              aria-label={fields.hasProfessions}
+              placeholder={copy.commaSeparatedPlaceholder}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Has Wallet Items</span>
+            <span>{fields.hasWalletItems}</span>
             <input
               value={stringifyArray(value.hasWalletItems)}
               onChange={(event) => onChange({ ...value, hasWalletItems: parseArray(event.target.value) })}
-              aria-label="Simulation Has Wallet Items"
-              placeholder="comma,separated"
+              aria-label={fields.hasWalletItems}
+              placeholder={copy.commaSeparatedPlaceholder}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Has Crafting Recipes</span>
+            <span>{fields.hasCraftingRecipes}</span>
             <input
               value={stringifyArray(value.hasCraftingRecipes)}
               onChange={(event) => onChange({ ...value, hasCraftingRecipes: parseArray(event.target.value) })}
-              aria-label="Simulation Has Crafting Recipes"
-              placeholder="comma,separated"
+              aria-label={fields.hasCraftingRecipes}
+              placeholder={copy.commaSeparatedPlaceholder}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Has Cooking Recipes</span>
+            <span>{fields.hasCookingRecipes}</span>
             <input
               value={stringifyArray(value.hasCookingRecipes)}
               onChange={(event) => onChange({ ...value, hasCookingRecipes: parseArray(event.target.value) })}
-              aria-label="Simulation Has Cooking Recipes"
-              placeholder="comma,separated"
+              aria-label={fields.hasCookingRecipes}
+              placeholder={copy.commaSeparatedPlaceholder}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Has Items</span>
+            <span>{fields.hasItems}</span>
             <input
               value={stringifyArray(value.hasItems)}
               onChange={(event) => onChange({ ...value, hasItems: parseArray(event.target.value) })}
-              aria-label="Simulation Has Items"
-              placeholder="comma,separated"
+              aria-label={fields.hasItems}
+              placeholder={copy.commaSeparatedPlaceholder}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Has Active Quests</span>
+            <span>{fields.hasActiveQuests}</span>
             <input
               value={stringifyArray(value.hasActiveQuests)}
               onChange={(event) => onChange({ ...value, hasActiveQuests: parseArray(event.target.value) })}
-              aria-label="Simulation Has Active Quests"
-              placeholder="comma,separated"
+              aria-label={fields.hasActiveQuests}
+              placeholder={copy.commaSeparatedPlaceholder}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Has Completed Quests</span>
+            <span>{fields.hasCompletedQuests}</span>
             <input
               value={stringifyArray(value.hasCompletedQuests)}
               onChange={(event) => onChange({ ...value, hasCompletedQuests: parseArray(event.target.value) })}
-              aria-label="Simulation Has Completed Quests"
-              placeholder="comma,separated"
+              aria-label={fields.hasCompletedQuests}
+              placeholder={copy.commaSeparatedPlaceholder}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Has Conversation Topics</span>
+            <span>{fields.hasConversationTopics}</span>
             <input
               value={stringifyArray(value.hasConversationTopics)}
               onChange={(event) => onChange({ ...value, hasConversationTopics: parseArray(event.target.value) })}
-              aria-label="Simulation Has Conversation Topics"
-              placeholder="comma,separated"
+              aria-label={fields.hasConversationTopics}
+              placeholder={copy.commaSeparatedPlaceholder}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Has Dialogue Answers</span>
+            <span>{fields.hasDialogueAnswers}</span>
             <input
               value={stringifyArray(value.hasDialogueAnswers)}
               onChange={(event) => onChange({ ...value, hasDialogueAnswers: parseArray(event.target.value) })}
-              aria-label="Simulation Has Dialogue Answers"
-              placeholder="comma,separated"
+              aria-label={fields.hasDialogueAnswers}
+              placeholder={copy.commaSeparatedPlaceholder}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Installed Mods</span>
+            <span>{fields.installedMods}</span>
             <input
               value={stringifyArray(value.installedMods)}
               onChange={(event) => onChange({ ...value, installedMods: parseArray(event.target.value) })}
-              aria-label="Simulation Installed Mods"
-              placeholder="comma,separated"
+              aria-label={fields.installedMods}
+              placeholder={copy.commaSeparatedPlaceholder}
             />
           </label>
           <label className="cp-debugger-field">
-            <span>Custom Tokens</span>
+            <span>{fields.customTokens}</span>
             <input
               value={(() => {
                 try {
@@ -788,7 +788,7 @@ export function ContentPatcherSimulationForm({
                   // ignore invalid JSON while typing
                 }
               }}
-              aria-label="Simulation Custom Tokens"
+              aria-label={fields.customTokens}
               placeholder='{"TokenName": "value"}'
             />
           </label>
@@ -797,7 +797,7 @@ export function ContentPatcherSimulationForm({
       {dynamicTokenEntries.length > 0 ? (
         <div className={compact ? 'cp-debugger-form-grid cp-debugger-form-grid-compact' : 'cp-debugger-form-grid'}>
           <div className="cp-debugger-field cp-debugger-field-full">
-            <span>Dynamic Tokens</span>
+            <span>{copy.dynamicTokens}</span>
             <div className="cp-debugger-dynamic-tokens">
               {dynamicTokenEntries.map(([name, tokenValue]) => (
                 <div key={name} className="cp-debugger-dynamic-token-row">

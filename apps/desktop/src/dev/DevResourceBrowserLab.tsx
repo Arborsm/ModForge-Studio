@@ -14,6 +14,7 @@ import {
 } from '@pages/workbench/workspaces/item/entities/item'
 import { configureImageDataUrlLoader } from '@shared/lib/assets'
 import { configureDesktopPlatformPorts } from '@shared/lib/desktop'
+import { createElectronPlatformPorts, isElectronHost } from '@platform/electron'
 import { createTauriPlatformPorts } from '@platform/tauri'
 import {
   EventResourcePicker,
@@ -31,7 +32,7 @@ type DevResourceBrowserLabProps = {
 }
 
 if (import.meta.env.DEV) {
-  configureDesktopPlatformPorts(createTauriPlatformPorts())
+  configureDesktopPlatformPorts(isElectronHost() ? createElectronPlatformPorts() : createTauriPlatformPorts())
   configureImageDataUrlLoader(loadImageDataUrl)
 }
 
@@ -411,6 +412,7 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
                     label={`${resource.title}资源浏览器`}
                     placeholder={resource.placeholder}
                     options={registry[resource.kind]}
+                    selectionMode="confirm"
                     onSelect={(value) => {
                       setActiveKind(resource.kind)
                       setSelections((current) => ({

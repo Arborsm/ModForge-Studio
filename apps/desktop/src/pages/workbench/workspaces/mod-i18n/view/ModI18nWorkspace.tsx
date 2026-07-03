@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import type { ContentPatcherI18nFile, ModProjectDetail } from '@entities/mod/api'
 import type { ModI18nWorkspaceCopy } from '@locales'
 import { cx } from '@shared/lib/cx'
@@ -74,16 +73,12 @@ export function ModI18nWorkspace({
 }: ModI18nWorkspaceProps) {
   const sourceFile = findFile(i18nFiles, sourceLocale)
   const targetFile = findFile(i18nFiles, targetLocale)
-  const entries = useMemo(
-    () =>
-      buildModI18nEntries({
-        sourceFile,
-        targetFile,
-        query,
-        status: statusFilter,
-      }),
-    [query, sourceFile, statusFilter, targetFile],
-  )
+  const entries = buildModI18nEntries({
+    sourceFile,
+    targetFile,
+    query,
+    status: statusFilter,
+  })
   const progress = getProgress(
     buildModI18nEntries({
       sourceFile,

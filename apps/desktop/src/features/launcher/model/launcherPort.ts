@@ -39,6 +39,7 @@ import type {
   ResolveLauncherImageResult,
   SetLauncherModEnabledRequest,
   SetLauncherModEnabledResult,
+  LauncherDownloadProgressPayload,
   LauncherUpdateProgressPayload,
   SaveLauncherSettingsRequest,
   LauncherGameLaunchResult,
@@ -69,6 +70,8 @@ export type LauncherPort = {
   checkUpdates(request: CheckLauncherUpdatesRequest): Promise<LauncherUpdatesResult>
   listenToUpdateProgress(listener: (payload: LauncherUpdateProgressPayload) => void): Promise<() => void>
   downloadMod(request: DownloadLauncherModRequest): Promise<DownloadLauncherModResult>
+  cancelDownload(downloadId: string): Promise<void>
+  listenToDownloadProgress(listener: (payload: LauncherDownloadProgressPayload) => void): Promise<() => void>
   installArchive(request: InstallLauncherArchiveRequest): Promise<InstallLauncherArchiveResult>
   listInstallBackups(request: ListLauncherInstallBackupsRequest): Promise<LauncherInstallBackupSummary[]>
   restoreInstallBackup(request: RestoreLauncherInstallBackupRequest): Promise<RestoreLauncherInstallBackupResult>
