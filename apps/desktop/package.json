@@ -10,31 +10,33 @@
   "scripts": {
     "dev": "node ./scripts/run-vite-dev.mjs",
     "dev:event-assets": "cargo run --manifest-path src-tauri/Cargo.toml --features dev-asset-bridge --example event_asset_bridge",
-    "dev:force": "vite --configLoader runner --force",
+    "dev:force": "vp dev --configLoader runner --force",
     "react:devtools": "react-devtools",
+    "gen:host-commands": "node ./scripts/generate-host-commands.mjs",
+    "gen:app-icons": "node ./scripts/generate-app-icons.mjs",
     "electron:dev": "node ./scripts/run-electron-dev.mjs",
-    "electron:build": "pnpm build:web && cargo build --manifest-path src-tauri/Cargo.toml --release --bin modforge_sidecar && node ./scripts/build-electron-main.mjs && node ./scripts/build-electron-linux.mjs",
-    "electron:build:deb": "pnpm build:web && cargo build --manifest-path src-tauri/Cargo.toml --release --bin modforge_sidecar && node ./scripts/build-electron-main.mjs && node ./scripts/build-electron-linux.mjs deb",
-    "electron:build:rpm": "pnpm build:web && cargo build --manifest-path src-tauri/Cargo.toml --release --bin modforge_sidecar && node ./scripts/build-electron-main.mjs && node ./scripts/build-electron-linux.mjs rpm",
-    "build": "pnpm build:web",
-    "build:web": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.electron.json && vite build --configLoader runner",
-    "release:linux": "pnpm electron:build",
-    "release:linux:deb": "pnpm electron:build:deb",
-    "release:linux:rpm": "pnpm electron:build:rpm",
+    "electron:build": "vp run build:web && cargo build --manifest-path src-tauri/Cargo.toml --release --bin modforge_sidecar && node ./scripts/build-electron-main.mjs && node ./scripts/build-electron-linux.mjs",
+    "electron:build:deb": "vp run build:web && cargo build --manifest-path src-tauri/Cargo.toml --release --bin modforge_sidecar && node ./scripts/build-electron-main.mjs && node ./scripts/build-electron-linux.mjs deb",
+    "electron:build:rpm": "vp run build:web && cargo build --manifest-path src-tauri/Cargo.toml --release --bin modforge_sidecar && node ./scripts/build-electron-main.mjs && node ./scripts/build-electron-linux.mjs rpm",
+    "build": "vp run build:web",
+    "build:web": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.electron.json && vp build --configLoader runner",
+    "release:linux": "vp run electron:build",
+    "release:linux:deb": "vp run electron:build:deb",
+    "release:linux:rpm": "vp run electron:build:rpm",
     "release:macos": "node ./scripts/release-macos.cjs",
-    "release:windows": "pnpm tauri build --bundles nsis",
+    "release:windows": "vp run tauri build --bundles nsis",
     "release:all": "node ./scripts/release-current-platform.cjs",
     "release:collect": "node ./scripts/collect-release-artifacts.cjs",
-    "lint": "oxlint .",
-    "test": "node ./scripts/cleanup-vitest-processes.cjs && vitest run --configLoader runner --pool=threads --maxWorkers=3",
+    "lint": "vp lint .",
+    "test": "node ./scripts/cleanup-vitest-processes.cjs && vp test run --configLoader runner --pool=threads --maxWorkers=3",
     "test:cleanup": "node ./scripts/cleanup-vitest-processes.cjs",
     "test:launcher-drag": "node ./scripts/verify-launcher-drag.mjs",
     "test:launcher-fast-scroll": "node ./scripts/verify-launcher-fast-scroll.mjs",
     "test:launcher-performance": "node ./scripts/verify-launcher-performance.mjs",
     "test:performance:pages": "node ./scripts/verify-page-performance.mjs",
     "test:performance:compiler-cleanup": "node ./scripts/verify-compiler-cleanup-performance.mjs",
-    "test:performance": "pnpm test:launcher-fast-scroll && pnpm test:launcher-performance && pnpm test:launcher-drag && pnpm test:performance:compiler-cleanup && pnpm test:performance:pages",
-    "preview": "vite preview --configLoader runner",
+    "test:performance": "vp run test:launcher-fast-scroll && vp run test:launcher-performance && vp run test:launcher-drag && vp run test:performance:compiler-cleanup && vp run test:performance:pages",
+    "preview": "vp preview --configLoader runner",
     "tauri": "node ./scripts/run-tauri-cli.cjs"
   },
   "optionalDependencies": {
@@ -69,7 +71,6 @@
     "electron-builder": "^26.8.1",
     "jsdom": "^29.1.1",
     "lucide-react": "^1.17.0",
-    "oxlint": "1.69.0",
     "playwright": "^1.60.0",
     "postcss": "^8.5.15",
     "react": "^19.2.7",
@@ -79,14 +80,14 @@
     "rolldown": "1.0.3",
     "tailwindcss": "^4.3.0",
     "typescript": "~6.0.3",
-    "vite": "^8.0.16",
-    "vitest": "^4.1.8",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.14",
+    "vite-plus": "catalog:"
   },
   "main": "electron-dist/main.cjs",
   "build": {
     "appId": "studio.modforge.desktop",
     "productName": "ModForge Studio",
+    "icon": "src-tauri/icons/icon.png",
     "beforeBuild": "./scripts/electron-builder-before-build.cjs",
     "files": [
       "dist/**",
@@ -97,6 +98,10 @@
       {
         "from": "src-tauri/target/release/modforge_sidecar",
         "to": "bin/modforge_sidecar"
+      },
+      {
+        "from": "src-tauri/icons/icon.png",
+        "to": "icon.png"
       }
     ],
     "linux": {

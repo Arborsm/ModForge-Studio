@@ -38,7 +38,7 @@ export function useWorkbenchStatus({
   modDiagnostics: Array<{ severity: 'info' | 'warning' | 'error' }>
   modHasUnsavedChanges: boolean
   modProjectsCount: number
-  activeModProjectDetail: unknown | null
+  activeModProjectDetail: object | null
   modStatusMessage: string
   resourcePreloadState: { active: boolean; message: string; completed: number; total: number; currentLabel: string }
   storedRecentGameDirectories: string[]

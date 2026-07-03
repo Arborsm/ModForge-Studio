@@ -9,8 +9,8 @@ const require = createRequire(import.meta.url)
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const desktopRoot = path.resolve(__dirname, '..')
-const vitePackageJson = require.resolve('vite/package.json', { paths: [desktopRoot] })
-const viteCliEntry = path.join(path.dirname(vitePackageJson), 'bin', 'vite.js')
+const vitePlusPackageJson = require.resolve('vite-plus/package.json', { paths: [desktopRoot] })
+const vitePlusCliEntry = path.join(path.dirname(vitePlusPackageJson), 'bin', 'vp')
 
 function runStep(command, args) {
   const result = spawnSync(command, args, {
@@ -89,10 +89,10 @@ runStep(process.execPath, ['scripts/build-electron-main.mjs'])
 
 const runtime = await resolveTauriDevRuntime(process.env)
 const devUrl = runtime.configOverride.build.devUrl
-const vite = spawn(process.execPath, [viteCliEntry, '--configLoader', 'runner'], {
+const vite = spawn(process.execPath, [vitePlusCliEntry, 'dev', '--configLoader', 'runner'], {
   cwd: desktopRoot,
   env: runtime.env,
-  stdio: 'inherit',
+  stdio: ['ignore', 'inherit', 'inherit'],
 })
 
 let electron = null
@@ -153,7 +153,7 @@ electron = spawn(electronPath, [`--remote-debugging-port=${remoteDebuggingPort}`
     VITE_DEV_SERVER_URL: devUrl,
     MODFORGE_SIDECAR_PATH: path.join(desktopRoot, 'src-tauri/target/debug/modforge_sidecar'),
   },
-  stdio: ['inherit', 'inherit', 'pipe'],
+  stdio: ['ignore', 'inherit', 'pipe'],
 })
 forwardFilteredElectronStderr(electron.stderr)
 electron.on('exit', (code) => shutdown(code ?? 0))

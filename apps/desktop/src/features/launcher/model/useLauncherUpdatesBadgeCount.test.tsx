@@ -1,6 +1,6 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { LauncherSettings, LauncherUpdateSummary, LauncherUpdatesResult } from '@features/launcher/api'
 import { useLauncherUpdatesBadgeCount } from './useLauncherUpdatesBadgeCount'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
@@ -45,11 +45,12 @@ function createUpdate(index: number): LauncherUpdateSummary {
   }
 }
 
-function createResult(count: number): LauncherUpdatesResult {
+function createResult(count: number, overrides: Partial<LauncherUpdatesResult> = {}): LauncherUpdatesResult {
   return {
     modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     checkedAtMs: 123,
     updates: Array.from({ length: count }, (_, index) => createUpdate(index + 1)),
+    ...overrides,
   }
 }
 
@@ -112,6 +113,43 @@ describe('useLauncherUpdatesBadgeCount', () => {
     })
 
     expect(result.current).toBe(4)
+  })
+
+  it('ignores stale subscription results from a previous mods path', async () => {
+    const subscriptionListeners = new Map<string, (result: LauncherUpdatesResult) => void>()
+    const firstPath = 'E:\\Games\\Stardew Valley\\Mods'
+    const secondPath = 'D:\\Portable\\Stardew Valley\\Mods'
+    const port = createMockLauncherPort({
+      loadCachedUpdates: vi
+        .fn()
+        .mockResolvedValueOnce(createResult(2, { modsPath: firstPath }))
+        .mockResolvedValueOnce(createResult(5, { modsPath: secondPath })),
+      subscribeUpdates: vi.fn().mockImplementation((modsPath, listener) => {
+        subscriptionListeners.set(modsPath, listener)
+        return () => {}
+      }),
+    })
+
+    const { result, rerender } = renderHook(({ settings }) => useLauncherUpdatesBadgeCount(settings), {
+      initialProps: { settings: createSettings({ modsPath: firstPath }) },
+      wrapper: createWrapper(port),
+    })
+
+    await waitFor(() => {
+      expect(result.current).toBe(2)
+    })
+
+    rerender({ settings: createSettings({ modsPath: secondPath }) })
+
+    await waitFor(() => {
+      expect(result.current).toBe(5)
+    })
+
+    await act(async () => {
+      subscriptionListeners.get(firstPath)?.(createResult(9, { modsPath: firstPath }))
+    })
+
+    expect(result.current).toBe(5)
   })
 
   it('returns zero and skips loading when no mods path is configured', () => {

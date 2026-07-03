@@ -1,33 +1,39 @@
 use crate::AppHandle;
-use crate::commands;
 use crate::domain;
+use crate::host_commands::HostCommandName;
+use crate::host_runtime::{
+    HostCommandCancelPolicy, HostCommandLane, HostCommandMutationPolicy, HostCommandResource,
+    HostCommandResourceLocks, HostCommandResponse, HostCommandResponseWriter, HostCommandResult,
+    HostCommandScheduler, HostCommandSchedulerConfig, ResolvedHostCommand,
+};
 use crate::support::logging::{self, DebugLoggingState};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::io::{self, BufRead, Write};
 use std::sync::{Arc, Mutex};
-use std::thread;
+use std::time::Instant;
 
-type DispatchResult = Result<Value, Value>;
+type DispatchResult = HostCommandResult;
+type SidecarLane = HostCommandLane;
+type SidecarResource = HostCommandResource;
+type SidecarResponse = HostCommandResponse;
+type SidecarSchedulerConfig = HostCommandSchedulerConfig;
+type SidecarScheduler = HostCommandScheduler;
+type SidecarResourceLocks = HostCommandResourceLocks;
+type ResolvedSidecarCommand = ResolvedHostCommand;
+type SidecarCommandName = HostCommandName;
+const NO_RESOURCES: &[HostCommandResource] = &[];
 
 #[derive(Debug, Deserialize)]
-struct RpcRequest {
-    id: Value,
-    command: String,
+pub(crate) struct RpcRequest {
+    pub(crate) id: Value,
+    pub(crate) command: String,
     #[serde(default)]
-    args: Value,
+    pub(crate) args: Value,
 }
 
-#[derive(Debug, Serialize)]
-struct RpcResponse {
-    id: Value,
-    ok: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    result: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<Value>,
-}
+type RpcResponse = SidecarResponse;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -42,7 +48,7 @@ struct RpcEventFrame<'a> {
     event: HostEventFrame<'a>,
 }
 
-struct SidecarContext {
+pub(crate) struct SidecarContext {
     app: AppHandle,
     debug_logging_state: DebugLoggingState,
 }
@@ -54,6 +60,110 @@ impl Clone for SidecarContext {
             debug_logging_state: self.debug_logging_state.clone(),
         }
     }
+}
+
+impl SidecarContext {
+    pub(crate) fn new(app: AppHandle, debug_logging_state: DebugLoggingState) -> Self {
+        Self {
+            app,
+            debug_logging_state,
+        }
+    }
+}
+
+pub(crate) enum ResolvedSidecarCommandOrResponse {
+    Command(ResolvedSidecarCommand),
+    Response(RpcResponse),
+}
+
+fn sidecar_command<F>(
+    id: Value,
+    name: &SidecarCommandName,
+    lane: SidecarLane,
+    resources: &'static [SidecarResource],
+    run: F,
+) -> ResolvedSidecarCommandOrResponse
+where
+    F: FnOnce() -> DispatchResult + Send + 'static,
+{
+    ResolvedSidecarCommandOrResponse::Command(ResolvedSidecarCommand {
+        id,
+        name: name.as_str().to_string(),
+        lane,
+        resources,
+        cancel_policy: HostCommandCancelPolicy::NotCancellable,
+        mutation_policy: if resources.is_empty() {
+            HostCommandMutationPolicy::Concurrent
+        } else {
+            HostCommandMutationPolicy::ExclusiveResources
+        },
+        submitted_at: Instant::now(),
+        run: Box::new(move |_| run()),
+    })
+}
+
+fn control<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
+where
+    F: FnOnce() -> DispatchResult + Send + 'static,
+{
+    sidecar_command(id, name, SidecarLane::Control, NO_RESOURCES, run)
+}
+
+fn network<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
+where
+    F: FnOnce() -> DispatchResult + Send + 'static,
+{
+    sidecar_command(id, name, SidecarLane::Network, NO_RESOURCES, run)
+}
+
+fn io_lane<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
+where
+    F: FnOnce() -> DispatchResult + Send + 'static,
+{
+    sidecar_command(id, name, SidecarLane::Io, NO_RESOURCES, run)
+}
+
+fn mutation<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
+where
+    F: FnOnce() -> DispatchResult + Send + 'static,
+{
+    sidecar_command(id, name, SidecarLane::Mutation, NO_RESOURCES, run)
+}
+
+fn control_with_resources<F>(
+    id: Value,
+    name: &SidecarCommandName,
+    resources: &'static [SidecarResource],
+    run: F,
+) -> ResolvedSidecarCommandOrResponse
+where
+    F: FnOnce() -> DispatchResult + Send + 'static,
+{
+    sidecar_command(id, name, SidecarLane::Control, resources, run)
+}
+
+fn io_with_resources<F>(
+    id: Value,
+    name: &SidecarCommandName,
+    resources: &'static [SidecarResource],
+    run: F,
+) -> ResolvedSidecarCommandOrResponse
+where
+    F: FnOnce() -> DispatchResult + Send + 'static,
+{
+    sidecar_command(id, name, SidecarLane::Io, resources, run)
+}
+
+fn mutation_with_resources<F>(
+    id: Value,
+    name: &SidecarCommandName,
+    resources: &'static [SidecarResource],
+    run: F,
+) -> ResolvedSidecarCommandOrResponse
+where
+    F: FnOnce() -> DispatchResult + Send + 'static,
+{
+    sidecar_command(id, name, SidecarLane::Mutation, resources, run)
 }
 
 fn arg<T>(args: &Value, key: &str) -> Result<T, Value>
@@ -113,246 +223,615 @@ fn block_on<T>(future: impl std::future::Future<Output = T>) -> T {
     tauri::async_runtime::block_on(future)
 }
 
-fn dispatch(ctx: &SidecarContext, command: &str, args: &Value) -> DispatchResult {
-    match command {
-        "detect_default_game_directory" => ok(Ok::<_, String>(
-            commands::assets::detect_default_game_directory(),
-        )),
-        "list_known_game_directories" => ok(Ok::<_, String>(
-            commands::assets::list_known_game_directories(),
-        )),
-        "get_file_cache_stats" => ok(commands::assets::get_file_cache_stats()),
-        "clear_file_cache" => ok(commands::assets::clear_file_cache()),
-        "validate_game_directory" => ok(commands::assets::validate_game_directory(arg(
-            args, "path",
-        )?)),
-        "scan_maps" => ok(commands::assets::scan_maps(
-            arg(args, "path")?,
-            optional_arg(args, "locale")?,
-        )),
-        "scan_events" => ok(commands::assets::scan_events(arg(args, "path")?)),
-        "load_map_asset" => ok(commands::assets::load_map_asset(
-            arg(args, "rootPath")?,
-            arg(args, "mapPath")?,
-            optional_arg(args, "locale")?,
-        )),
-        "load_text_asset" => ok(commands::assets::load_text_asset(
-            arg(args, "rootPath")?,
-            arg(args, "assetPath")?,
-            optional_arg(args, "locale")?,
-        )),
-        "load_text_file" => ok(commands::assets::load_text_file(arg(args, "path")?)),
-        "load_image_data_url" => ok(commands::assets::load_image_data_url(
-            arg(args, "path")?,
-            optional_arg(args, "locale")?,
-        )),
-        "scan_audio_assets" => ok(commands::assets::scan_audio_assets(arg(args, "path")?)),
-        "load_audio_data_url" => ok(commands::assets::load_audio_data_url(arg(args, "path")?)),
-        "load_xact_audio_data_url" => ok(commands::audio::load_xact_audio_data_url(
-            arg(args, "rootPath")?,
-            arg(args, "cue")?,
-        )),
-        "load_resource_registry" => ok(commands::resource_registry::load_resource_registry(
-            arg(args, "rootPath")?,
-            optional_arg(args, "locale")?,
-        )),
-        "scan_default_save_slots" => ok(commands::saves::scan_default_save_slots()),
+pub(crate) fn resolve_command(
+    ctx: &SidecarContext,
+    request: RpcRequest,
+) -> ResolvedSidecarCommandOrResponse {
+    let RpcRequest { id, command, args } = request;
+    let command_name = SidecarCommandName::from_protocol(command.clone());
 
-        "scan_mod_projects" => ok(commands::mods::scan_mod_projects(arg(args, "rootPath")?)),
-        "scan_mod_asset_index" => ok(commands::mods::scan_mod_asset_index(arg(args, "rootPath")?)),
-        "load_mod_project" => ok(commands::mods::load_mod_project(arg(args, "path")?)),
-        "save_mod_project" => ok(commands::mods::save_mod_project(arg_or_whole(
-            args, "request",
-        )?)),
-
-        "load_content_patcher_project" => ok(
-            commands::content_patcher::load_content_patcher_project(arg(args, "path")?),
-        ),
-        "simulate_content_patcher" => ok(commands::content_patcher::simulate_content_patcher(arg(
-            args, "request",
-        )?)),
-        "load_content_patcher_result_asset" => {
-            ok(commands::content_patcher::load_content_patcher_result_asset(arg(args, "request")?))
+    match command.as_str() {
+        crate::host_command_wire!(detect_default_game_directory) => {
+            io_lane(id, &command_name, || {
+                ok(Ok::<_, String>(
+                    domain::assets::detect_default_game_directory(),
+                ))
+            })
         }
-        "export_content_patcher_asset" => ok(
-            commands::content_patcher::export_content_patcher_asset(arg(args, "request")?),
-        ),
-
-        "list_cp_maker_drafts" => ok(commands::cp_maker::list_cp_maker_drafts()),
-        "load_cp_maker_draft" => ok(commands::cp_maker::load_cp_maker_draft(arg(
-            args,
-            "draftStorageKey",
-        )?)),
-        "save_cp_maker_draft" => ok(commands::cp_maker::save_cp_maker_draft(arg(args, "draft")?)),
-        "delete_cp_maker_draft" => ok(commands::cp_maker::delete_cp_maker_draft(arg(
-            args,
-            "draftStorageKey",
-        )?)),
-        "copy_cp_maker_draft" => ok(commands::cp_maker::copy_cp_maker_draft(arg(
-            args, "request",
-        )?)),
-        "export_cp_maker_pack" => ok(commands::cp_maker::export_cp_maker_pack(arg(
-            args, "request",
-        )?)),
-        "build_cp_maker_map_asset" => ok(commands::cp_maker::build_cp_maker_map_asset(arg(
-            args, "request",
-        )?)),
-        "import_cp_maker_pack" => ok(commands::cp_maker::import_cp_maker_pack(arg(
-            args,
-            "modDirectoryPath",
-        )?)),
-
-        "load_launcher_settings" => ok(commands::launcher::load_launcher_settings(ctx.app.clone())),
-        "save_launcher_settings" => ok(commands::launcher::save_launcher_settings(
-            ctx.app.clone(),
-            arg(args, "request")?,
-        )),
-        "launch_launcher_game" => {
-            ok_error_value(commands::launcher::launch_launcher_game(ctx.app.clone()))
+        crate::host_command_wire!(list_known_game_directories) => {
+            io_lane(id, &command_name, || {
+                ok(Ok::<_, String>(
+                    domain::assets::list_known_game_directories(),
+                ))
+            })
         }
-        "get_launcher_backup_directory" => ok(commands::launcher::get_launcher_backup_directory(
-            ctx.app.clone(),
-        )),
-        "open_launcher_path" => ok(commands::launcher::open_launcher_path(arg(
-            args, "request",
-        )?)),
-        "open_launcher_url" => ok(commands::launcher::open_launcher_url(arg(args, "request")?)),
-        "load_launcher_library_state" => ok(commands::launcher::load_launcher_library_state(
-            ctx.app.clone(),
-        )),
-        "save_launcher_library_state" => ok(commands::launcher::save_launcher_library_state(
-            ctx.app.clone(),
-            arg(args, "request")?,
-        )),
-        "load_launcher_library_covers" => ok(commands::launcher::load_launcher_library_covers(
-            ctx.app.clone(),
-        )),
-        "set_launcher_library_cover" => ok(commands::launcher::set_launcher_library_cover(
-            ctx.app.clone(),
-            arg(args, "request")?,
-        )),
-        "persist_launcher_library_remote_cover" => ok(block_on(
-            commands::launcher::persist_launcher_library_remote_cover(
-                ctx.app.clone(),
-                arg(args, "request")?,
-            ),
-        )),
-        "scan_launcher_library" => ok(commands::launcher::scan_launcher_library(
-            ctx.app.clone(),
-            arg(args, "request")?,
-        )),
-        "load_launcher_runtime_info" => ok(commands::launcher::load_launcher_runtime_info(
-            ctx.app.clone(),
-        )),
-        "set_launcher_mod_enabled" => ok(commands::launcher::set_launcher_mod_enabled(
-            ctx.app.clone(),
-            arg(args, "request")?,
-        )),
-        "load_launcher_download_queue" => ok(commands::launcher::load_launcher_download_queue(
-            ctx.app.clone(),
-        )),
-        "save_launcher_download_queue" => ok(commands::launcher::save_launcher_download_queue(
-            ctx.app.clone(),
-            arg(args, "request")?,
-        )),
-        "download_launcher_mod" => ok(block_on(commands::launcher::download_launcher_mod(
-            ctx.app.clone(),
-            arg(args, "request")?,
-        ))),
-        "cancel_launcher_download" => ok(commands::launcher::cancel_launcher_download(arg(
-            args,
-            "downloadId",
-        )?)),
-        "search_launcher_catalog" => ok(block_on(commands::launcher::search_launcher_catalog(
-            ctx.app.clone(),
-            arg(args, "request")?,
-        ))),
-        "load_launcher_remote_mod_detail" => ok(block_on(
-            commands::launcher::load_launcher_remote_mod_detail(
-                ctx.app.clone(),
-                arg(args, "request")?,
-            ),
-        )),
-        "load_launcher_update_changelog" => ok(block_on(
-            commands::launcher::load_launcher_update_changelog(
-                ctx.app.clone(),
-                arg(args, "request")?,
-            ),
-        )),
-        "resolve_launcher_image" => ok(block_on(commands::launcher::resolve_launcher_image(
-            ctx.app.clone(),
-            arg(args, "request")?,
-        ))),
-        "clear_launcher_image_cache" => ok(commands::launcher::clear_launcher_image_cache(
-            ctx.app.clone(),
-        )),
-        "load_launcher_nexus_diagnostics" => ok(block_on(
-            commands::launcher::load_launcher_nexus_diagnostics(ctx.app.clone()),
-        )),
-        "restart_launcher_nexus_diagnostics" => ok(block_on(
-            commands::launcher::restart_launcher_nexus_diagnostics(ctx.app.clone()),
-        )),
-        "retry_launcher_nexus_diagnostics_route" => ok(block_on(
-            commands::launcher::retry_launcher_nexus_diagnostics_route(
-                ctx.app.clone(),
-                arg(args, "routeId")?,
-            ),
-        )),
-        "set_launcher_nexus_force_offline" => ok(block_on(
-            commands::launcher::set_launcher_nexus_force_offline(
-                ctx.app.clone(),
-                arg(args, "forceOffline")?,
-            ),
-        )),
-        "load_cached_launcher_updates" => ok(commands::launcher::load_cached_launcher_updates(
-            ctx.app.clone(),
-            arg(args, "request")?,
-        )),
-        "load_suppressed_launcher_update_mod_ids" => {
-            ok(commands::launcher::load_suppressed_launcher_update_mod_ids(
-                ctx.app.clone(),
-                arg(args, "request")?,
+        crate::host_command_wire!(get_file_cache_stats) => io_lane(id, &command_name, || {
+            ok(domain::assets::get_file_cache_stats())
+        }),
+        crate::host_command_wire!(clear_file_cache) => {
+            mutation(id, &command_name, || ok(domain::assets::clear_file_cache()))
+        }
+        crate::host_command_wire!(validate_game_directory) => {
+            io_lane(id, &command_name, move || {
+                ok(domain::assets::validate_game_directory(arg(&args, "path")?))
+            })
+        }
+        crate::host_command_wire!(scan_maps) => io_lane(id, &command_name, move || {
+            ok(domain::assets::scan_maps(
+                arg(&args, "path")?,
+                optional_arg(&args, "locale")?,
             ))
-        }
-        "check_launcher_updates" => ok(block_on(commands::launcher::check_launcher_updates(
-            ctx.app.clone(),
-            arg(args, "request")?,
-        ))),
-        "inspect_launcher_archive" => ok(block_on(commands::launcher::inspect_launcher_archive(
-            arg(args, "request")?,
-        ))),
-        "install_launcher_archive" => ok(block_on(commands::launcher::install_launcher_archive(
-            ctx.app.clone(),
-            arg(args, "request")?,
-        ))),
-        "list_launcher_install_backups" => ok(commands::launcher::list_launcher_install_backups(
-            ctx.app.clone(),
-            arg(args, "request")?,
-        )),
-        "restore_launcher_install_backup" => {
-            ok(commands::launcher::restore_launcher_install_backup(
-                ctx.app.clone(),
-                arg(args, "request")?,
+        }),
+        crate::host_command_wire!(scan_events) => io_lane(id, &command_name, move || {
+            ok(domain::assets::scan_events(arg(&args, "path")?))
+        }),
+        crate::host_command_wire!(load_map_asset) => io_lane(id, &command_name, move || {
+            ok(domain::assets::load_map_asset(
+                arg(&args, "rootPath")?,
+                arg(&args, "mapPath")?,
+                optional_arg(&args, "locale")?,
             ))
+        }),
+        crate::host_command_wire!(load_text_asset) => io_lane(id, &command_name, move || {
+            ok(domain::assets::load_text_asset(
+                arg(&args, "rootPath")?,
+                arg(&args, "assetPath")?,
+                optional_arg(&args, "locale")?,
+            ))
+        }),
+        crate::host_command_wire!(load_text_file) => io_lane(id, &command_name, move || {
+            ok(domain::assets::load_text_file(arg(&args, "path")?))
+        }),
+        crate::host_command_wire!(load_image_data_url) => io_lane(id, &command_name, move || {
+            ok(domain::assets::load_image_data_url(
+                arg(&args, "path")?,
+                optional_arg(&args, "locale")?,
+            ))
+        }),
+        crate::host_command_wire!(scan_audio_assets) => io_lane(id, &command_name, move || {
+            ok(domain::assets::scan_audio_assets(arg(&args, "path")?))
+        }),
+        crate::host_command_wire!(load_audio_data_url) => io_lane(id, &command_name, move || {
+            ok(domain::assets::load_audio_data_url(arg(&args, "path")?))
+        }),
+        crate::host_command_wire!(load_xact_audio_data_url) => {
+            io_lane(id, &command_name, move || {
+                let root_path: String = arg(&args, "rootPath")?;
+                let cue: String = arg(&args, "cue")?;
+                ok(
+                    crate::infrastructure::game_formats::xact::load_xact_audio_data_url_for_paths(
+                        &root_path, &cue,
+                    ),
+                )
+            })
         }
-        "validate_nexus_api_key" => ok(block_on(commands::launcher::validate_nexus_api_key(
-            ctx.app.clone(),
-        ))),
-        "start_nexus_sso" => ok(commands::launcher::start_nexus_sso(ctx.app.clone())),
-        "get_nexus_sso_status" => ok(commands::launcher::get_nexus_sso_status()),
-        "cancel_nexus_sso" => ok(commands::launcher::cancel_nexus_sso()),
+        crate::host_command_wire!(load_resource_registry) => {
+            io_lane(id, &command_name, move || {
+                ok(domain::resource_registry::load_resource_registry(
+                    arg(&args, "rootPath")?,
+                    optional_arg(&args, "locale")?,
+                ))
+            })
+        }
+        crate::host_command_wire!(scan_default_save_slots) => io_lane(id, &command_name, || {
+            ok(domain::saves::scan_default_save_slots())
+        }),
 
-        "load_app_ui_state" => ok(commands::app_ui::load_app_ui_state()),
-        "patch_app_ui_state" => ok(commands::app_ui::patch_app_ui_state(arg(args, "request")?)),
-        "write_frontend_log" => {
-            logging::write_frontend_log(arg(args, "request")?);
-            Ok(Value::Null)
+        crate::host_command_wire!(scan_mod_projects) => io_lane(id, &command_name, move || {
+            ok(domain::mods::scan_mod_projects(arg(&args, "rootPath")?))
+        }),
+        crate::host_command_wire!(scan_mod_asset_index) => io_lane(id, &command_name, move || {
+            ok(domain::mods::scan_mod_asset_index(arg(&args, "rootPath")?))
+        }),
+        crate::host_command_wire!(load_mod_project) => io_lane(id, &command_name, move || {
+            ok(domain::mods::load_mod_project(arg(&args, "path")?))
+        }),
+        crate::host_command_wire!(save_mod_project) => mutation(id, &command_name, move || {
+            ok(domain::mods::save_mod_project(arg_or_whole(
+                &args, "request",
+            )?))
+        }),
+
+        crate::host_command_wire!(load_content_patcher_project) => {
+            io_lane(id, &command_name, move || {
+                ok(
+                    domain::content_patcher::project::load_content_patcher_project(arg(
+                        &args, "path",
+                    )?),
+                )
+            })
         }
-        "set_debug_logging_enabled" => {
-            logging::set_debug_logging_enabled(&ctx.debug_logging_state, arg(args, "enabled")?);
-            Ok(Value::Null)
+        crate::host_command_wire!(simulate_content_patcher) => {
+            io_lane(id, &command_name, move || {
+                ok(domain::content_patcher::simulate_content_patcher(arg(
+                    &args, "request",
+                )?))
+            })
         }
-        _ => Err(json!(format!("Unknown sidecar command: {command}"))),
+        crate::host_command_wire!(load_content_patcher_result_asset) => {
+            io_lane(id, &command_name, move || {
+                ok(domain::content_patcher::load_content_patcher_result_asset(
+                    arg(&args, "request")?,
+                ))
+            })
+        }
+        crate::host_command_wire!(export_content_patcher_asset) => {
+            mutation(id, &command_name, move || {
+                ok(domain::content_patcher::export_content_patcher_asset(arg(
+                    &args, "request",
+                )?))
+            })
+        }
+
+        crate::host_command_wire!(list_cp_maker_drafts) => io_lane(id, &command_name, || {
+            ok(domain::cp_maker::list_cp_maker_drafts())
+        }),
+        crate::host_command_wire!(load_cp_maker_draft) => io_lane(id, &command_name, move || {
+            ok(domain::cp_maker::load_cp_maker_draft(arg(
+                &args,
+                "draftStorageKey",
+            )?))
+        }),
+        crate::host_command_wire!(save_cp_maker_draft) => mutation(id, &command_name, move || {
+            ok(domain::cp_maker::save_cp_maker_draft(arg(&args, "draft")?))
+        }),
+        crate::host_command_wire!(delete_cp_maker_draft) => {
+            mutation(id, &command_name, move || {
+                ok(domain::cp_maker::delete_cp_maker_draft(arg(
+                    &args,
+                    "draftStorageKey",
+                )?))
+            })
+        }
+        crate::host_command_wire!(copy_cp_maker_draft) => mutation(id, &command_name, move || {
+            ok(domain::cp_maker::copy_cp_maker_draft(arg(
+                &args, "request",
+            )?))
+        }),
+        crate::host_command_wire!(export_cp_maker_pack) => mutation(id, &command_name, move || {
+            ok(domain::cp_maker::export_cp_maker_pack(arg(
+                &args, "request",
+            )?))
+        }),
+        crate::host_command_wire!(build_cp_maker_map_asset) => {
+            mutation(id, &command_name, move || {
+                ok(domain::cp_maker::build_cp_maker_map_asset(arg(
+                    &args, "request",
+                )?))
+            })
+        }
+        crate::host_command_wire!(import_cp_maker_pack) => mutation(id, &command_name, move || {
+            let mod_directory_path: String = arg(&args, "modDirectoryPath")?;
+            ok(domain::cp_maker::import_cp_maker_pack(&mod_directory_path))
+        }),
+
+        crate::host_command_wire!(load_launcher_settings) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherSettings],
+                move || ok(domain::launcher::settings::load_launcher_settings(app)),
+            )
+        }
+        crate::host_command_wire!(save_launcher_settings) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherSettings],
+                move || {
+                    ok(domain::launcher::settings::save_launcher_settings(
+                        app,
+                        arg(&args, "request")?,
+                    ))
+                },
+            )
+        }
+        crate::host_command_wire!(launch_launcher_game) => {
+            let app = ctx.app.clone();
+            control_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherSettings],
+                move || ok_error_value(domain::launcher::runtime::launch_launcher_game(app)),
+            )
+        }
+        crate::host_command_wire!(get_launcher_backup_directory) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherInstallTree],
+                move || {
+                    ok(domain::launcher::runtime::get_launcher_backup_directory(
+                        app,
+                    ))
+                },
+            )
+        }
+        crate::host_command_wire!(open_launcher_path) => control(id, &command_name, move || {
+            ok(domain::launcher::runtime::open_launcher_path(arg(
+                &args, "request",
+            )?))
+        }),
+        crate::host_command_wire!(open_launcher_url) => control(id, &command_name, move || {
+            ok(domain::launcher::runtime::open_launcher_url(arg(
+                &args, "request",
+            )?))
+        }),
+        crate::host_command_wire!(load_launcher_library_state) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherLibraryState],
+                move || ok(domain::launcher::library::load_launcher_library_state(app)),
+            )
+        }
+        crate::host_command_wire!(save_launcher_library_state) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherLibraryState],
+                move || {
+                    ok(domain::launcher::library::save_launcher_library_state(
+                        app,
+                        arg(&args, "request")?,
+                    ))
+                },
+            )
+        }
+        crate::host_command_wire!(load_launcher_library_covers) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherLibraryCovers],
+                move || ok(domain::launcher::library::load_launcher_library_covers(app)),
+            )
+        }
+        crate::host_command_wire!(set_launcher_library_cover) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherLibraryCovers],
+                move || {
+                    ok(domain::launcher::library::set_launcher_library_cover(
+                        app,
+                        arg(&args, "request")?,
+                    ))
+                },
+            )
+        }
+        crate::host_command_wire!(persist_launcher_library_remote_cover) => {
+            let app = ctx.app.clone();
+            network(id, &command_name, move || {
+                ok(block_on(
+                    domain::launcher::library::persist_launcher_library_remote_cover(
+                        app,
+                        arg(&args, "request")?,
+                    ),
+                ))
+            })
+        }
+        crate::host_command_wire!(scan_launcher_library) => {
+            let app = ctx.app.clone();
+            io_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherLibraryCovers],
+                move || {
+                    ok(domain::launcher::library::scan_launcher_library(
+                        app,
+                        arg(&args, "request")?,
+                    ))
+                },
+            )
+        }
+        crate::host_command_wire!(load_launcher_runtime_info) => {
+            let app = ctx.app.clone();
+            io_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherSettings],
+                move || ok(domain::launcher::runtime::load_launcher_runtime_info(app)),
+            )
+        }
+        crate::host_command_wire!(set_launcher_mod_enabled) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherInstallTree],
+                move || {
+                    ok(domain::launcher::library::set_launcher_mod_enabled(
+                        app,
+                        arg(&args, "request")?,
+                    ))
+                },
+            )
+        }
+        crate::host_command_wire!(load_launcher_download_queue) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherDownloadQueue],
+                move || {
+                    ok(domain::launcher::downloads::load_launcher_download_queue(
+                        app,
+                    ))
+                },
+            )
+        }
+        crate::host_command_wire!(save_launcher_download_queue) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherDownloadQueue],
+                move || {
+                    ok(domain::launcher::downloads::save_launcher_download_queue(
+                        app,
+                        arg(&args, "request")?,
+                    ))
+                },
+            )
+        }
+        crate::host_command_wire!(download_launcher_mod) => {
+            let app = ctx.app.clone();
+            network(id, &command_name, move || {
+                ok(domain::launcher::downloads::download_launcher_mod(
+                    app,
+                    arg(&args, "request")?,
+                ))
+            })
+        }
+        crate::host_command_wire!(cancel_launcher_download) => {
+            control(id, &command_name, move || {
+                ok(domain::launcher::downloads::cancel_launcher_download(arg(
+                    &args,
+                    "downloadId",
+                )?))
+            })
+        }
+        crate::host_command_wire!(search_launcher_catalog) => {
+            let app = ctx.app.clone();
+            network(id, &command_name, move || {
+                ok(block_on(
+                    domain::nexusmods::catalog::search_launcher_catalog(
+                        app,
+                        arg(&args, "request")?,
+                    ),
+                ))
+            })
+        }
+        crate::host_command_wire!(load_launcher_remote_mod_detail) => {
+            let app = ctx.app.clone();
+            network(id, &command_name, move || {
+                ok(block_on(
+                    domain::nexusmods::mod_detail::load_launcher_remote_mod_detail(
+                        app,
+                        arg(&args, "request")?,
+                    ),
+                ))
+            })
+        }
+        crate::host_command_wire!(load_launcher_update_changelog) => {
+            let app = ctx.app.clone();
+            network(id, &command_name, move || {
+                ok(block_on(
+                    domain::nexusmods::mod_detail::load_launcher_update_changelog(
+                        app,
+                        arg(&args, "request")?,
+                    ),
+                ))
+            })
+        }
+        crate::host_command_wire!(resolve_launcher_image) => {
+            let app = ctx.app.clone();
+            network(id, &command_name, move || {
+                ok(block_on(
+                    domain::launcher::image_cache::resolve_launcher_image(
+                        app,
+                        arg(&args, "request")?,
+                    ),
+                ))
+            })
+        }
+        crate::host_command_wire!(clear_launcher_image_cache) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherImageCache],
+                move || {
+                    ok(domain::launcher::image_cache::clear_launcher_image_cache(
+                        app,
+                    ))
+                },
+            )
+        }
+        crate::host_command_wire!(load_launcher_nexus_diagnostics) => {
+            let app = ctx.app.clone();
+            network(id, &command_name, move || {
+                ok(domain::nexusmods::diagnostics::load_launcher_nexus_diagnostics(&app))
+            })
+        }
+        crate::host_command_wire!(restart_launcher_nexus_diagnostics) => {
+            let app = ctx.app.clone();
+            network(id, &command_name, move || {
+                ok(
+                    domain::nexusmods::diagnostics::restart_launcher_nexus_diagnostics_with_app(
+                        &app,
+                    ),
+                )
+            })
+        }
+        crate::host_command_wire!(retry_launcher_nexus_diagnostics_route) => {
+            let app = ctx.app.clone();
+            network(id, &command_name, move || {
+                ok(
+                    domain::nexusmods::diagnostics::retry_launcher_nexus_diagnostics_route(
+                        &app,
+                        arg(&args, "routeId")?,
+                    ),
+                )
+            })
+        }
+        crate::host_command_wire!(set_launcher_nexus_force_offline) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::AppUiState],
+                move || {
+                    ok(
+                        domain::nexusmods::diagnostics::set_launcher_nexus_force_offline(
+                            &app,
+                            arg(&args, "forceOffline")?,
+                        ),
+                    )
+                },
+            )
+        }
+        crate::host_command_wire!(load_cached_launcher_updates) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherUpdatesCache],
+                move || {
+                    ok(domain::launcher::updates::load_cached_launcher_updates(
+                        app,
+                        arg(&args, "request")?,
+                    ))
+                },
+            )
+        }
+        crate::host_command_wire!(load_suppressed_launcher_update_mod_ids) => {
+            let app = ctx.app.clone();
+            io_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherUpdatesCache],
+                move || {
+                    ok(
+                        domain::launcher::updates::load_suppressed_launcher_update_mod_ids(
+                            app,
+                            arg(&args, "request")?,
+                        ),
+                    )
+                },
+            )
+        }
+        crate::host_command_wire!(check_launcher_updates) => {
+            let app = ctx.app.clone();
+            network(id, &command_name, move || {
+                ok(block_on(domain::launcher::updates::check_launcher_updates(
+                    app,
+                    arg(&args, "request")?,
+                )))
+            })
+        }
+        crate::host_command_wire!(inspect_launcher_archive) => {
+            io_lane(id, &command_name, move || {
+                ok(domain::launcher::archive::inspect_launcher_archive(arg(
+                    &args, "request",
+                )?))
+            })
+        }
+        crate::host_command_wire!(install_launcher_archive) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
+                &[
+                    SidecarResource::LauncherSettings,
+                    SidecarResource::LauncherInstallTree,
+                ],
+                move || {
+                    ok(domain::launcher::archive::install_launcher_archive(
+                        app,
+                        arg(&args, "request")?,
+                    ))
+                },
+            )
+        }
+        crate::host_command_wire!(list_launcher_install_backups) => {
+            let app = ctx.app.clone();
+            io_lane(id, &command_name, move || {
+                ok(domain::launcher::archive::list_launcher_install_backups(
+                    app,
+                    arg(&args, "request")?,
+                ))
+            })
+        }
+        crate::host_command_wire!(restore_launcher_install_backup) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherInstallTree],
+                move || {
+                    ok(domain::launcher::archive::restore_launcher_install_backup(
+                        app,
+                        arg(&args, "request")?,
+                    ))
+                },
+            )
+        }
+        crate::host_command_wire!(validate_nexus_api_key) => {
+            let app = ctx.app.clone();
+            network(id, &command_name, move || {
+                ok(domain::nexusmods::validate_nexus_api_key(app))
+            })
+        }
+        crate::host_command_wire!(start_nexus_sso) => {
+            let app = ctx.app.clone();
+            network(id, &command_name, move || {
+                ok(domain::nexusmods::sso::start_sso_with_status(&app))
+            })
+        }
+        crate::host_command_wire!(get_nexus_sso_status) => control(id, &command_name, || {
+            ok(Ok::<_, String>(domain::nexusmods::sso::get_sso_status()))
+        }),
+        crate::host_command_wire!(cancel_nexus_sso) => control(id, &command_name, || {
+            domain::nexusmods::sso::cancel_sso();
+            Ok(Value::Null)
+        }),
+
+        crate::host_command_wire!(load_app_ui_state) => {
+            mutation_with_resources(id, &command_name, &[SidecarResource::AppUiState], || {
+                ok(domain::app_ui::load_app_ui_state())
+            })
+        }
+        crate::host_command_wire!(patch_app_ui_state) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::AppUiState],
+            move || ok(domain::app_ui::patch_app_ui_state(arg(&args, "request")?)),
+        ),
+        crate::host_command_wire!(write_frontend_log) => control(id, &command_name, move || {
+            logging::write_frontend_log(arg(&args, "request")?);
+            Ok(Value::Null)
+        }),
+        crate::host_command_wire!(set_debug_logging_enabled) => {
+            let debug_logging_state = ctx.debug_logging_state.clone();
+            control(id, &command_name, move || {
+                logging::set_debug_logging_enabled(&debug_logging_state, arg(&args, "enabled")?);
+                Ok(Value::Null)
+            })
+        }
+        _ => ResolvedSidecarCommandOrResponse::Response(RpcResponse {
+            id,
+            ok: false,
+            result: None,
+            error: Some(json!(format!("Unknown sidecar command: {command}"))),
+        }),
     }
 }
 
@@ -370,24 +849,13 @@ fn write_json_line<T: Serialize>(stdout: &Arc<Mutex<io::Stdout>>, value: &T) -> 
         .map_err(|error| format!("Failed to flush sidecar frame: {error}"))
 }
 
-fn dispatches_in_background(command: &str) -> bool {
-    matches!(command, "download_launcher_mod")
+struct StdoutResponseWriter {
+    stdout: Arc<Mutex<io::Stdout>>,
 }
 
-fn dispatch_response(ctx: &SidecarContext, request: RpcRequest) -> RpcResponse {
-    match dispatch(ctx, &request.command, &request.args) {
-        Ok(result) => RpcResponse {
-            id: request.id,
-            ok: true,
-            result: Some(result),
-            error: None,
-        },
-        Err(error) => RpcResponse {
-            id: request.id,
-            ok: false,
-            result: None,
-            error: Some(error),
-        },
+impl HostCommandResponseWriter for StdoutResponseWriter {
+    fn write_response(&self, response: &RpcResponse) -> Result<(), String> {
+        write_json_line(&self.stdout, response)
     }
 }
 
@@ -410,8 +878,6 @@ pub fn run_stdio() -> Result<(), String> {
             format!("modforge sidecar logging init failed: {error}"),
         );
     }
-    debug_logging_state.set_enabled(false);
-
     let diagnostics_start_result = domain::app_ui::load_app_ui_state()
         .map(|state| state.launcher.force_offline)
         .and_then(|force_offline| {
@@ -433,6 +899,13 @@ pub fn run_stdio() -> Result<(), String> {
         app,
         debug_logging_state,
     };
+    let scheduler = SidecarScheduler::new(
+        Arc::new(StdoutResponseWriter {
+            stdout: Arc::clone(&stdout),
+        }),
+        Arc::new(SidecarResourceLocks::new()),
+        SidecarSchedulerConfig::default(),
+    );
 
     for line in io::stdin().lock().lines() {
         let line = line.map_err(|error| format!("Failed to read sidecar stdin: {error}"))?;
@@ -441,18 +914,13 @@ pub fn run_stdio() -> Result<(), String> {
         }
 
         let response = match serde_json::from_str::<RpcRequest>(&line) {
-            Ok(request) if dispatches_in_background(&request.command) => {
-                let thread_ctx = ctx.clone();
-                let thread_stdout = Arc::clone(&stdout);
-                thread::spawn(move || {
-                    let response = dispatch_response(&thread_ctx, request);
-                    if let Err(error) = write_json_line(&thread_stdout, &response) {
-                        log::error!(target: "Sidecar", "Failed to write async sidecar response: {error}");
-                    }
-                });
-                continue;
-            }
-            Ok(request) => dispatch_response(&ctx, request),
+            Ok(request) => match resolve_command(&ctx, request) {
+                ResolvedSidecarCommandOrResponse::Command(command) => {
+                    scheduler.submit(command);
+                    continue;
+                }
+                ResolvedSidecarCommandOrResponse::Response(response) => response,
+            },
             Err(error) => RpcResponse {
                 id: Value::Null,
                 ok: false,
@@ -466,3 +934,6 @@ pub fn run_stdio() -> Result<(), String> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

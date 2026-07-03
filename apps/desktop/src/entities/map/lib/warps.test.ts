@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { isExteriorWarp, parseWarpEntries, parseWarpProperty } from './warps'
 import type { MapDocument } from '@shared/contracts'
 

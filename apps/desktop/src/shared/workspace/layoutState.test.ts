@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { movePanelInOrder, normalizeChrome, sanitizeStoredState } from '@shared/workspace/layoutState'
 import { getHorizontalUsableWidth, getResolvedSidePanelWidths } from '@shared/workspace/layoutSizing'
 import type { WorkspacePanelConfig, WorkspaceSize } from '@shared/contracts'

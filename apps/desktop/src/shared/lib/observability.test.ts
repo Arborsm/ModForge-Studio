@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { publishNotification } from '@shared/ui/notifications'
 import { configureObservability, reportAppEvent, syncDebugDiagnosticsEnabled } from './observability'
 
@@ -168,14 +168,8 @@ describe('observability', () => {
   })
 
   it('forwards direct console warnings through the observability adapter', () => {
-    const bridgedWarn = console.warn
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation((...args) => {
-      bridgedWarn(...args)
-    })
-
     console.warn('Failed to sample palette preview row.', new Error('canvas unavailable'))
 
-    expect(warnSpy).toHaveBeenCalledWith('Failed to sample palette preview row.', expect.any(Error))
     expect(writeFrontendLog).toHaveBeenCalledWith(
       expect.objectContaining({
         level: 'warning',

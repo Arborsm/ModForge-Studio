@@ -1,6 +1,6 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { PropsWithChildren } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { LocaleProvider } from '@locales/provider'
 import { NotificationProvider, clearNotifications } from '@shared/ui/notifications'
 import type { LauncherNexusDiagnosticsResult, LauncherSettings, LauncherUpdateSummary, LauncherUpdatesResult } from '@features/launcher/api'
@@ -247,6 +247,61 @@ describe('useLauncherUpdates', () => {
     expect(result.current.selectedCount).toBe(2)
     expect(result.current.allSelected).toBe(true)
     expect(result.current.isSelected(addedItem)).toBe(true)
+  })
+
+  it('ignores stale subscription results from a previous mods path', async () => {
+    const subscriptionListeners = new Map<string, (result: LauncherUpdatesResult) => void>()
+    const firstPath = 'E:\\Games\\Stardew Valley\\Mods'
+    const secondPath = 'D:\\Portable\\Stardew Valley\\Mods'
+    const secondUpdate = createUpdate({
+      modId: 202,
+      name: 'Portable Update',
+      absolutePath: 'D:\\Portable\\Stardew Valley\\Mods\\Portable Update',
+      modUrl: 'https://www.nexusmods.com/stardewvalley/mods/202',
+    })
+
+    vi.mocked(launcherPort.subscribeUpdates).mockImplementation((modsPath, listener) => {
+      subscriptionListeners.set(modsPath, listener)
+      return () => {}
+    })
+    vi.mocked(launcherPort.loadCachedUpdates)
+      .mockResolvedValueOnce(
+        createResult([createUpdate()], {
+          modsPath: firstPath,
+        }),
+      )
+      .mockResolvedValueOnce(
+        createResult([secondUpdate], {
+          modsPath: secondPath,
+        }),
+      )
+
+    const { result, rerender } = renderHook(({ settings }) => useLauncherUpdates(settings), {
+      initialProps: { settings: createSettings({ modsPath: firstPath }) },
+      wrapper: Wrapper,
+    })
+
+    await waitFor(() => {
+      expect(result.current.items).toEqual([createUpdate()])
+    })
+
+    rerender({ settings: createSettings({ modsPath: secondPath }) })
+
+    await waitFor(() => {
+      expect(result.current.items).toEqual([secondUpdate])
+    })
+
+    await act(async () => {
+      subscriptionListeners.get(firstPath)?.(
+        createResult([
+          createUpdate({
+            latestVersion: '9.9.9',
+          }),
+        ]),
+      )
+    })
+
+    expect(result.current.items).toEqual([secondUpdate])
   })
 
   it('skips automatic update checks when all update routes are unavailable but still allows manual refresh', async () => {

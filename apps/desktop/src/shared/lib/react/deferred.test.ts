@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { deferToAnimationFrame, deferToTimeout, scheduleDeferred } from './deferred'
 
 describe('deferred scheduling helpers', () => {

@@ -5,4 +5,4 @@
 export type { CpMakerProviderProps } from './model/cpMakerProvider'
 export { CpMakerProvider } from './model/cpMakerProvider'
 export { useCpMakerPort } from './model/useCpMakerPort'
-export type { CpMakerPort } from './model/cpMakerPort'
+export type { CpMakerDraftRecord, CpMakerPort } from './model/cpMakerPort'

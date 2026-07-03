@@ -23,12 +23,27 @@ use std::collections::HashSet;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::Instant;
 
 const NEXUS_STARDEW_VALLEY_GAME_ID: i64 = 1303;
 const LAUNCHER_DOWNLOAD_PROGRESS_EVENT: &str = "launcher://download-progress";
 const DOWNLOAD_CHUNK_SIZE: usize = 64 * 1024;
+
+static LAUNCHER_DOWNLOAD_QUEUE_FILE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn lock_launcher_download_queue_file() -> MutexGuard<'static, ()> {
+    match LAUNCHER_DOWNLOAD_QUEUE_FILE_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+    {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            log::error!(target: "Launcher Downloads", "Launcher download queue file lock was poisoned");
+            poisoned.into_inner()
+        }
+    }
+}
 
 fn cancelled_launcher_downloads() -> &'static Mutex<HashSet<String>> {
     static STATE: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
@@ -233,6 +248,13 @@ fn normalize_download_queue_state(state: LauncherDownloadQueueState) -> Launcher
 pub(crate) fn load_or_create_download_queue_at_path(
     queue_path: &Path,
 ) -> Result<LauncherDownloadQueueState, String> {
+    let _queue_file_guard = lock_launcher_download_queue_file();
+    load_or_create_download_queue_at_path_unlocked(queue_path)
+}
+
+fn load_or_create_download_queue_at_path_unlocked(
+    queue_path: &Path,
+) -> Result<LauncherDownloadQueueState, String> {
     if queue_path.is_file() {
         let content = fs::read_to_string(queue_path).map_err(|error| {
             format!(
@@ -251,11 +273,19 @@ pub(crate) fn load_or_create_download_queue_at_path(
     }
 
     let defaults = LauncherDownloadQueueState { items: Vec::new() };
-    save_download_queue_at_path(queue_path, &defaults)?;
+    save_download_queue_at_path_unlocked(queue_path, &defaults)?;
     Ok(defaults)
 }
 
 pub(crate) fn save_download_queue_at_path(
+    queue_path: &Path,
+    state: &LauncherDownloadQueueState,
+) -> Result<(), String> {
+    let _queue_file_guard = lock_launcher_download_queue_file();
+    save_download_queue_at_path_unlocked(queue_path, state)
+}
+
+fn save_download_queue_at_path_unlocked(
     queue_path: &Path,
     state: &LauncherDownloadQueueState,
 ) -> Result<(), String> {

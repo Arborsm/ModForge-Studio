@@ -1,33 +1,66 @@
-use crate::domain::content_patcher;
 use crate::domain::content_patcher::types::{
     ContentPatcherProjectSnapshot, ExportContentPatcherAssetRequest,
     ExportContentPatcherAssetResult, LoadContentPatcherResultAssetRequest,
     LoadContentPatcherResultAssetResult, SimulateContentPatcherRequest,
     SimulateContentPatcherResult,
 };
+use crate::support::logging::DebugLoggingState;
+use crate::{AppHandle, AppRuntime};
+use serde_json::json;
+use tauri::State;
 
 #[tauri::command]
-pub fn load_content_patcher_project(path: String) -> Result<ContentPatcherProjectSnapshot, String> {
-    content_patcher::project::load_content_patcher_project(path)
+pub fn load_content_patcher_project(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    path: String,
+) -> Result<ContentPatcherProjectSnapshot, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(load_content_patcher_project),
+        json!({ "path": path }),
+    )
 }
 
 #[tauri::command]
 pub fn simulate_content_patcher(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: SimulateContentPatcherRequest,
 ) -> Result<SimulateContentPatcherResult, String> {
-    content_patcher::simulate_content_patcher(request)
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(simulate_content_patcher),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
 pub fn load_content_patcher_result_asset(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: LoadContentPatcherResultAssetRequest,
 ) -> Result<LoadContentPatcherResultAssetResult, String> {
-    content_patcher::load_content_patcher_result_asset(request)
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(load_content_patcher_result_asset),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
 pub fn export_content_patcher_asset(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: ExportContentPatcherAssetRequest,
 ) -> Result<ExportContentPatcherAssetResult, String> {
-    content_patcher::export_content_patcher_asset(request)
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(export_content_patcher_asset),
+        json!({ "request": request }),
+    )
 }

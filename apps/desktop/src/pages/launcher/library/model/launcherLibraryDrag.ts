@@ -1,12 +1,11 @@
 import type { UniqueIdentifier } from '@dnd-kit/core'
 import type { LauncherFolderPreviewItem } from './launcherLibraryDisplay'
 
-export const LAUNCHER_LIBRARY_PARENT_DROP_PREFIX = 'launcher-parent:'
 export const LAUNCHER_LIBRARY_PACK_DROP_PREFIX = 'launcher-pack:'
 export const LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX = 'launcher-folder:'
+export const LAUNCHER_LIBRARY_PARENT_DROP_PREFIX = 'launcher-parent:'
 export const LAUNCHER_LIBRARY_BLANK_DROP_ID = 'launcher-library-blank'
 export const LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX = 'launcher-folder-blank:'
-export const LAUNCHER_LIBRARY_PARENT_DROP_ATTRIBUTE = 'data-launcher-parent-drop-id'
 export const LAUNCHER_LIBRARY_ACTIVE_DRAGGABLE_ID = 'launcher-library-active-drag'
 export const LAUNCHER_LIBRARY_DRAG_START_DISTANCE_PX = 6
 
@@ -14,7 +13,7 @@ export const LAUNCHER_LIBRARY_DROP_TARGET_SELECTORS = [
   '[data-launcher-blank-drop-id]',
   '[data-launcher-folder-drop-id]',
   '[data-launcher-pack-drop-id]',
-  `[${LAUNCHER_LIBRARY_PARENT_DROP_ATTRIBUTE}]`,
+  '[data-launcher-parent-drop-id]',
 ]
 
 export type LauncherPointerDragSource =
@@ -96,21 +95,10 @@ export function getLauncherDropTargetAtPoint(
   const blankTarget = sameFolderBlankTarget ?? anyFolderBlankTarget ?? libraryBlankTarget
 
   if (source?.kind === 'mod' && source.originParentId) {
-    const sameFolderParent =
-      sourceFolderId == null
-        ? null
-        : concreteTargets.find((target) => target.kind === 'parent' && target.containerFolderId === sourceFolderId)
-    if (sameFolderParent) {
-      return sameFolderParent
-    }
     return sameFolderBlankTarget ?? libraryBlankTarget ?? globalBlankTarget
   }
 
   if (source?.kind === 'mod' && source.originFolderId) {
-    const sameFolderParent = concreteTargets.find((target) => target.kind === 'parent' && target.containerFolderId === sourceFolderId)
-    if (sameFolderParent) {
-      return sameFolderParent
-    }
     return blankTarget ?? globalBlankTarget
   }
 
@@ -125,10 +113,6 @@ export function getLauncherDropTargetAtPoint(
   const packTarget = concreteTargets.find((target) => target.kind === 'pack')
   if (packTarget) {
     return packTarget
-  }
-  const parentTarget = concreteTargets.find((target) => target.kind === 'parent')
-  if (parentTarget) {
-    return parentTarget
   }
   return blankTarget
 }
@@ -146,7 +130,10 @@ function getLauncherDropTargetKind(dropId: string): LauncherDndKitDropTarget['ki
   if (dropId.startsWith(LAUNCHER_LIBRARY_PACK_DROP_PREFIX)) {
     return 'pack'
   }
-  return 'parent'
+  if (dropId.startsWith(LAUNCHER_LIBRARY_PARENT_DROP_PREFIX)) {
+    return 'parent'
+  }
+  return 'blank'
 }
 
 function getLauncherDropTargetContainerFolderId(element: HTMLElement, dropId: string) {
@@ -154,21 +141,6 @@ function getLauncherDropTargetContainerFolderId(element: HTMLElement, dropId: st
     return dropId.slice(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX.length)
   }
   return element.closest<HTMLElement>('[data-launcher-folder-panel-id]')?.getAttribute('data-launcher-folder-panel-id') ?? null
-}
-
-export function getLauncherDropTargetById(
-  targets: LauncherDndKitDropTarget[],
-  dropId: string | null,
-  source?: LauncherPointerDragSource | null,
-) {
-  if (!dropId) {
-    return null
-  }
-  const target = targets.find((item) => item.dropId === dropId)
-  if (!target) {
-    return null
-  }
-  return getLauncherDropTargetAtPoint(targets, target.rect.left + target.rect.width / 2, target.rect.top + target.rect.height / 2, source)
 }
 
 export function getLauncherFolderIdFromBlankDropId(blankDropId: string) {
@@ -190,7 +162,7 @@ export function getLauncherDropIdFromElement(element: HTMLElement) {
   if (packDropId) {
     return `${LAUNCHER_LIBRARY_PACK_DROP_PREFIX}${packDropId}`
   }
-  const parentDropId = element.getAttribute(LAUNCHER_LIBRARY_PARENT_DROP_ATTRIBUTE)
+  const parentDropId = element.getAttribute('data-launcher-parent-drop-id')
   if (parentDropId) {
     return `${LAUNCHER_LIBRARY_PARENT_DROP_PREFIX}${parentDropId}`
   }

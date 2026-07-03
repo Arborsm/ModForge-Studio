@@ -25,7 +25,9 @@ function scenarioUrl(id) {
 }
 
 async function fillFirstSearch(page, text) {
-  const search = page.locator('input[type="search"], input[placeholder*="Search"], input[placeholder*="search"], input[aria-label*="Search"]').first()
+  const search = page
+    .locator('input[type="search"], input[placeholder*="Search"], input[placeholder*="search"], input[aria-label*="Search"]')
+    .first()
   await search.waitFor({ state: 'visible', timeout: 10_000 })
   await search.fill(text)
 }
@@ -33,10 +35,16 @@ async function fillFirstSearch(page, text) {
 async function runScenarioInteraction(page, scenario) {
   if (scenario === 'workbench-home') {
     await measureInteraction(page, 'open-world-bible', async () => {
-      await page.getByRole('button', { name: /world bible/i }).first().click()
+      await page
+        .getByRole('button', { name: /world bible/i })
+        .first()
+        .click()
     })
     await measureInteraction(page, 'close-world-bible', async () => {
-      await page.getByRole('button', { name: /world bible/i }).first().click()
+      await page
+        .getByRole('button', { name: /world bible/i })
+        .first()
+        .click()
     })
     return
   }

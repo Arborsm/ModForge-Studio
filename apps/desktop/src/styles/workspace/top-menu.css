@@ -14,7 +14,7 @@
   .top-menu-bar input,
   .top-menu-bar select,
   .top-menu-bar textarea,
-  .top-menu-bar [role="button"],
+  .top-menu-bar [role='button'],
   .top-menu-bar .pointer-events-auto {
     -webkit-app-region: no-drag;
   }
@@ -87,6 +87,15 @@
     white-space: nowrap;
   }
 
+  .top-menu-brand-icon {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    border-radius: 10px;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-color) 70%, transparent);
+    object-fit: contain;
+  }
+
   .top-menu-workspace-list {
     display: flex;
     align-items: center;
@@ -104,7 +113,7 @@
       color 160ms ease;
   }
 
-  .top-menu-module-button[data-active="true"] {
+  .top-menu-module-button[data-active='true'] {
     border-color: color-mix(in srgb, var(--accent) 40%, var(--border-color));
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
   }

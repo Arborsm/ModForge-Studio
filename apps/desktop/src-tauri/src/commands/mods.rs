@@ -1,37 +1,64 @@
-use crate::domain::mods as domain_mods;
 pub use crate::domain::mods::SaveModProjectRequest;
 use crate::domain::mods::{
     ModAssetIndex, ModProjectDetail, ModProjectSummary, SaveModProjectResult,
 };
+use crate::support::logging::DebugLoggingState;
+use crate::{AppHandle, AppRuntime};
+use serde_json::json;
+use tauri::State;
 
 #[tauri::command]
-pub fn scan_mod_projects(root_path: String) -> Result<Vec<ModProjectSummary>, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
-        "scan_mod_projects",
-        domain_mods::scan_mod_projects(root_path),
+pub fn scan_mod_projects(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    root_path: String,
+) -> Result<Vec<ModProjectSummary>, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(scan_mod_projects),
+        json!({ "rootPath": root_path }),
     )
 }
 
 #[tauri::command]
-pub fn scan_mod_asset_index(root_path: String) -> Result<ModAssetIndex, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
-        "scan_mod_asset_index",
-        domain_mods::scan_mod_asset_index(root_path),
+pub fn scan_mod_asset_index(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    root_path: String,
+) -> Result<ModAssetIndex, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(scan_mod_asset_index),
+        json!({ "rootPath": root_path }),
     )
 }
 
 #[tauri::command]
-pub fn load_mod_project(path: String) -> Result<ModProjectDetail, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
-        "load_mod_project",
-        domain_mods::load_mod_project(path),
+pub fn load_mod_project(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    path: String,
+) -> Result<ModProjectDetail, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(load_mod_project),
+        json!({ "path": path }),
     )
 }
 
 #[tauri::command]
-pub fn save_mod_project(request: SaveModProjectRequest) -> Result<SaveModProjectResult, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
-        "save_mod_project",
-        domain_mods::save_mod_project(request),
+pub fn save_mod_project(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    request: SaveModProjectRequest,
+) -> Result<SaveModProjectResult, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(save_mod_project),
+        json!({ "request": request }),
     )
 }

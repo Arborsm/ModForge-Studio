@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { invokeDesktop } from '@shared/lib/desktop/runtime'
 import { saveModProject } from './modDesktopApi'
 import type { SaveModProjectRequest, SaveModProjectResult } from './types'
@@ -28,6 +28,6 @@ describe('modDesktopApi', () => {
     vi.mocked(invokeDesktop).mockResolvedValueOnce(result)
 
     await expect(saveModProject(request)).resolves.toBe(result)
-    expect(invokeDesktop).toHaveBeenCalledWith('save_mod_project', { request })
+    expect(invokeDesktop).toHaveBeenCalledWith('save_mod_project', { request }, { kind: 'exclusiveMutation', resource: 'ModProject' })
   })
 })

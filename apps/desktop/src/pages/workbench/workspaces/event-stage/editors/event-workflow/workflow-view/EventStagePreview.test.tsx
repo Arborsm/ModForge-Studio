@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
-import { describe, expect, test, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vite-plus/test'
 import { useEffect, type ComponentProps, type ReactNode } from 'react'
 import { parseEventCommand, parseEventCommands, parseEventSceneSetup, type EventScript } from '@entities/event'
 import { LocaleProvider } from '@locales/provider'

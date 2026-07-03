@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { getDockGuideRects, getWorkspaceGeometry } from '@shared/workspace/layoutGeometry'
 import { buildDefaultSnapshot } from '@shared/workspace/layoutState'
 import { ROOT_PADDING, TOOL_WINDOW_RAIL_GAP, TOOL_WINDOW_RAIL_WIDTH } from '@shared/workspace/layoutConstants'

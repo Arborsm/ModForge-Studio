@@ -1,6 +1,8 @@
+import { HOST_COMMANDS } from '@shared/contracts'
 import { normalizeCachePathSegment } from '@shared/lib/assets'
 import { createPromiseCache, readCached, readPending } from '@shared/lib/desktop/cache'
 import { invokeDesktop } from '@shared/lib/desktop/runtime'
+import type { HostCommandPolicy } from '@shared/lib/host-command-client'
 import type {
   ContentPatcherProjectSnapshot,
   ContentPatcherSimulationResult,
@@ -23,6 +25,9 @@ const loadContentPatcherProjectCache = createPromiseCache<ContentPatcherProjectS
 const simulateContentPatcherCache = createPromiseCache<ContentPatcherSimulationResult>()
 const loadContentPatcherResultAssetCache = createPromiseCache<LoadContentPatcherResultAssetResult>()
 
+const modIoPoolPolicy = { kind: 'parallelPool', pool: 'mod-project-io', limit: 2 } satisfies HostCommandPolicy
+const modProjectMutationPolicy = { kind: 'exclusiveMutation', resource: 'ModProject' } satisfies HostCommandPolicy
+
 /** Returns cache sizes for mod and Content Patcher desktop APIs. */
 export function getModApiCacheStats() {
   return {
@@ -38,26 +43,32 @@ export function getModApiCacheStats() {
 /** Scans a Mods folder for supported and unsupported mod projects. */
 export function scanModProjects(rootPath: string) {
   const cacheKey = normalizeCachePathSegment(rootPath)
-  return readCached(scanModProjectsCache, cacheKey, () => invokeDesktop<ModProjectSummary[]>('scan_mod_projects', { rootPath }))
+  return readCached(scanModProjectsCache, cacheKey, () =>
+    invokeDesktop<ModProjectSummary[]>(HOST_COMMANDS.scanModProjects, { rootPath }, modIoPoolPolicy),
+  )
 }
 
 /** Builds a cross-mod index of assets touched by installed content packs. */
 export function scanModAssetIndex(rootPath: string) {
   const cacheKey = normalizeCachePathSegment(rootPath)
-  return readCached(scanModAssetIndexCache, cacheKey, () => invokeDesktop<ModAssetIndex>('scan_mod_asset_index', { rootPath }))
+  return readCached(scanModAssetIndexCache, cacheKey, () =>
+    invokeDesktop<ModAssetIndex>(HOST_COMMANDS.scanModAssetIndex, { rootPath }, modIoPoolPolicy),
+  )
 }
 
 /** Loads a mod project summary, diagnostics, and plugin-specific editable data. */
 export function loadModProject(path: string) {
   const cacheKey = normalizeCachePathSegment(path)
-  return readPending(loadModProjectCache, cacheKey, () => invokeDesktop<ModProjectDetail>('load_mod_project', { path }))
+  return readPending(loadModProjectCache, cacheKey, () =>
+    invokeDesktop<ModProjectDetail>(HOST_COMMANDS.loadModProject, { path }, modIoPoolPolicy),
+  )
 }
 
 /** Loads a Content Patcher project snapshot including included source files. */
 export function loadContentPatcherProject(path: string) {
   const cacheKey = normalizeCachePathSegment(path)
   return readPending(loadContentPatcherProjectCache, cacheKey, () =>
-    invokeDesktop<ContentPatcherProjectSnapshot>('load_content_patcher_project', { path }),
+    invokeDesktop<ContentPatcherProjectSnapshot>(HOST_COMMANDS.loadContentPatcherProject, { path }, modIoPoolPolicy),
   )
 }
 
@@ -65,7 +76,7 @@ export function loadContentPatcherProject(path: string) {
 export function simulateContentPatcher(request: SimulateContentPatcherRequest) {
   const cacheKey = JSON.stringify(request)
   return readPending(simulateContentPatcherCache, cacheKey, () =>
-    invokeDesktop<ContentPatcherSimulationResult>('simulate_content_patcher', { request }),
+    invokeDesktop<ContentPatcherSimulationResult>(HOST_COMMANDS.simulateContentPatcher, { request }, modIoPoolPolicy),
   )
 }
 
@@ -73,18 +84,18 @@ export function simulateContentPatcher(request: SimulateContentPatcherRequest) {
 export function loadContentPatcherResultAsset(request: LoadContentPatcherResultAssetRequest) {
   const cacheKey = JSON.stringify(request)
   return readPending(loadContentPatcherResultAssetCache, cacheKey, () =>
-    invokeDesktop<LoadContentPatcherResultAssetResult>('load_content_patcher_result_asset', { request }),
+    invokeDesktop<LoadContentPatcherResultAssetResult>(HOST_COMMANDS.loadContentPatcherResultAsset, { request }, modIoPoolPolicy),
   )
 }
 
 /** Exports one simulated Content Patcher result asset to disk. */
 export function exportContentPatcherAsset(request: ExportContentPatcherAssetRequest) {
-  return invokeDesktop<ExportContentPatcherAssetResult>('export_content_patcher_asset', { request })
+  return invokeDesktop<ExportContentPatcherAssetResult>(HOST_COMMANDS.exportContentPatcherAsset, { request }, modProjectMutationPolicy)
 }
 
 /** Saves a mod project, then clears project and mod index caches affected by the write. */
 export async function saveModProject(request: SaveModProjectRequest) {
-  const result = await invokeDesktop<SaveModProjectResult>('save_mod_project', { request })
+  const result = await invokeDesktop<SaveModProjectResult>(HOST_COMMANDS.saveModProject, { request }, modProjectMutationPolicy)
   const normalizedSource = normalizeCachePathSegment(request.sourcePath)
   const normalizedTarget = request.outputPath ? normalizeCachePathSegment(request.outputPath) : normalizedSource
   loadModProjectCache.delete(normalizedSource)

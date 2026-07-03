@@ -6,6 +6,10 @@ function getUpdatesCount(result: LauncherUpdatesResult | null) {
   return result?.updates.length ?? 0
 }
 
+function isUpdatesResultForModsPath(result: LauncherUpdatesResult | null, modsPath: string) {
+  return result?.modsPath.trim() === modsPath
+}
+
 export function useLauncherUpdatesBadgeCount(settings: LauncherSettings) {
   const launcherPort = useLauncherPort()
   const modsPath = settings.modsPath?.trim() || null
@@ -27,6 +31,9 @@ export function useLauncherUpdatesBadgeCount(settings: LauncherSettings) {
     }
 
     const unsubscribe = launcherPort.subscribeUpdates(modsPath, (result) => {
+      if (!isUpdatesResultForModsPath(result, modsPath)) {
+        return
+      }
       liveSnapshotSeen = true
       applyCount(getUpdatesCount(result))
     })
@@ -34,7 +41,7 @@ export function useLauncherUpdatesBadgeCount(settings: LauncherSettings) {
     void launcherPort
       .loadCachedUpdates({ modsPath })
       .then((result) => {
-        if (liveSnapshotSeen) {
+        if (liveSnapshotSeen || !isUpdatesResultForModsPath(result, modsPath)) {
           return
         }
         applyCount(getUpdatesCount(result))

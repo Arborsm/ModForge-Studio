@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://127.0.0.1:5173",
-    "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build"
+    "beforeDevCommand": "vp run --filter @modforge/desktop dev",
+    "beforeBuildCommand": "vp run --filter @modforge/desktop build"
   },
   "app": {
     "windows": [

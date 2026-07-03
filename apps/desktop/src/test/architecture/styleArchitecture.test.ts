@@ -1,6 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { basename, dirname, join, relative, resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const STYLES_DIR = resolve(process.cwd(), 'src/styles')
 
@@ -26,7 +26,7 @@ async function listCssFiles(directory: string): Promise<string[]> {
 
 async function readCssWithImports(filePath: string): Promise<string> {
   const source = await readFile(filePath, 'utf8')
-  const importMatches = Array.from(source.matchAll(/@import\s+"(?<path>[^"]+)";/g))
+  const importMatches = Array.from(source.matchAll(/@import\s+['"](?<path>[^'"]+)['"];/g))
   if (!importMatches.length) {
     return source
   }

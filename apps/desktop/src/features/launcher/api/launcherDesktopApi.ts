@@ -1,7 +1,9 @@
+import { HOST_COMMANDS } from '@shared/contracts'
 import { normalizeCachePathSegment } from '@shared/lib/assets'
 import { createPromiseCache, readCached, readPending } from '@shared/lib/desktop/cache'
 import { canUseDesktopHost, getPlatformPorts, invokeDesktop } from '@shared/lib/desktop/runtime'
 import type { UnlistenFn } from '@shared/lib/desktop/dialogs'
+import type { HostCommandPolicy } from '@shared/lib/host-command-client'
 import type {
   CheckLauncherUpdatesRequest,
   DownloadLauncherModRequest,
@@ -66,6 +68,22 @@ const launcherUpdatesRequestVersions = new Map<string, number>()
 const launcherUpdatesActiveSessions = new Map<string, string>()
 let launcherUpdatesProgressBridgePromise: Promise<void> | null = null
 let launcherUpdatesSessionCounter = 0
+
+const launcherSettingsMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherSettings' } satisfies HostCommandPolicy
+const launcherLibraryMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherLibraryState' } satisfies HostCommandPolicy
+const launcherCoversMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherLibraryCovers' } satisfies HostCommandPolicy
+const launcherDownloadQueueMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherDownloadQueue' } satisfies HostCommandPolicy
+const launcherInstallMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherInstallTree' } satisfies HostCommandPolicy
+const launcherIoPoolPolicy = { kind: 'parallelPool', pool: 'launcher-io', limit: 2 } satisfies HostCommandPolicy
+const launcherNetworkPoolPolicy = { kind: 'parallelPool', pool: 'launcher-network', limit: 4 } satisfies HostCommandPolicy
+const launcherImagePoolPolicy = { kind: 'parallelPool', pool: 'launcher-images', limit: 4 } satisfies HostCommandPolicy
+const launcherDownloadPoolPolicy = { kind: 'parallelPool', pool: 'launcher-downloads', limit: 2 } satisfies HostCommandPolicy
+const launcherArchiveIoPolicy = { kind: 'parallelPool', pool: 'launcher-archive-io', limit: 2 } satisfies HostCommandPolicy
+const launcherUpdatesNetworkPoolPolicy = { kind: 'parallelPool', pool: 'launcher-updates', limit: 2 } satisfies HostCommandPolicy
+
+function launcherControlPolicy(key: string): HostCommandPolicy {
+  return { kind: 'serviceGate', key: `launcher-control:${key}` }
+}
 
 function getLauncherUpdatesCacheKey(modsPath: string) {
   return normalizeCachePathSegment(modsPath)
@@ -226,7 +244,7 @@ export function subscribeLauncherUpdates(modsPath: string, listener: (result: La
 
 /** Clears cached launcher cover images and invalidates cover/library read caches. */
 export async function clearLauncherImageCache() {
-  const result = await invokeDesktop<void>('clear_launcher_image_cache')
+  const result = await invokeDesktop<void>(HOST_COMMANDS.clearLauncherImageCache, undefined, launcherCoversMutationPolicy)
   loadLauncherLibraryCoversCache.delete('default')
   scanLauncherLibraryCache.clear()
   return result
@@ -234,25 +252,29 @@ export async function clearLauncherImageCache() {
 
 /** Loads persisted launcher settings. */
 export function loadLauncherSettings() {
-  return readCached(loadLauncherSettingsCache, 'default', () => invokeDesktop<LauncherSettings>('load_launcher_settings'))
+  return readCached(loadLauncherSettingsCache, 'default', () =>
+    invokeDesktop<LauncherSettings>(HOST_COMMANDS.loadLauncherSettings, undefined, launcherIoPoolPolicy),
+  )
 }
 
 /** Loads persisted launcher library organization state. */
 export function loadLauncherLibraryState() {
-  return readPending(loadLauncherLibraryStateCache, 'default', () => invokeDesktop<LauncherLibraryState>('load_launcher_library_state'))
+  return readPending(loadLauncherLibraryStateCache, 'default', () =>
+    invokeDesktop<LauncherLibraryState>(HOST_COMMANDS.loadLauncherLibraryState, undefined, launcherIoPoolPolicy),
+  )
 }
 
 /** Loads locally assigned or cached launcher library cover images. */
 export function loadLauncherLibraryCovers() {
   return readPending(loadLauncherLibraryCoversCache, 'default', () =>
-    invokeDesktop<LauncherLibraryCoversState>('load_launcher_library_covers'),
+    invokeDesktop<LauncherLibraryCoversState>(HOST_COMMANDS.loadLauncherLibraryCovers, undefined, launcherIoPoolPolicy),
   )
 }
 
 /** Loads persisted launcher download queue state. */
 export function loadLauncherDownloadQueue() {
   return readCached(loadLauncherDownloadQueueCache, 'default', () =>
-    invokeDesktop<LauncherDownloadQueueState>('load_launcher_download_queue'),
+    invokeDesktop<LauncherDownloadQueueState>(HOST_COMMANDS.loadLauncherDownloadQueue, undefined, launcherIoPoolPolicy),
   )
 }
 
@@ -269,7 +291,7 @@ export function clearLauncherLibraryReadCaches(modsPath?: string | null) {
 
 /** Saves launcher settings and invalidates derived library/update caches. */
 export async function saveLauncherSettings(request: SaveLauncherSettingsRequest) {
-  const result = await invokeDesktop<LauncherSettings>('save_launcher_settings', { request })
+  const result = await invokeDesktop<LauncherSettings>(HOST_COMMANDS.saveLauncherSettings, { request }, launcherSettingsMutationPolicy)
   loadLauncherSettingsCache.delete('default')
   scanLauncherLibraryCache.clear()
   invalidateLauncherUpdatesState(result.modsPath)
@@ -278,14 +300,22 @@ export async function saveLauncherSettings(request: SaveLauncherSettingsRequest)
 
 /** Saves launcher library organization state. */
 export async function saveLauncherLibraryState(request: LauncherLibraryState) {
-  const result = await invokeDesktop<LauncherLibraryState>('save_launcher_library_state', { request })
+  const result = await invokeDesktop<LauncherLibraryState>(
+    HOST_COMMANDS.saveLauncherLibraryState,
+    { request },
+    launcherLibraryMutationPolicy,
+  )
   loadLauncherLibraryStateCache.delete('default')
   return result
 }
 
 /** Assigns or clears a local cover image for one launcher library mod. */
 export async function setLauncherLibraryCover(request: SetLauncherLibraryCoverRequest) {
-  const result = await invokeDesktop<LauncherLibraryCoversState>('set_launcher_library_cover', { request })
+  const result = await invokeDesktop<LauncherLibraryCoversState>(
+    HOST_COMMANDS.setLauncherLibraryCover,
+    { request },
+    launcherCoversMutationPolicy,
+  )
   loadLauncherLibraryCoversCache.delete('default')
   scanLauncherLibraryCache.clear()
   return result
@@ -293,7 +323,11 @@ export async function setLauncherLibraryCover(request: SetLauncherLibraryCoverRe
 
 /** Downloads and persists a remote image as a library cover for one mod. */
 export async function persistLauncherLibraryRemoteCover(request: PersistLauncherLibraryRemoteCoverRequest) {
-  const result = await invokeDesktop<LauncherLibraryCoversState>('persist_launcher_library_remote_cover', { request })
+  const result = await invokeDesktop<LauncherLibraryCoversState>(
+    HOST_COMMANDS.persistLauncherLibraryRemoteCover,
+    { request },
+    launcherCoversMutationPolicy,
+  )
   loadLauncherLibraryCoversCache.delete('default')
   scanLauncherLibraryCache.clear()
   return result
@@ -301,7 +335,11 @@ export async function persistLauncherLibraryRemoteCover(request: PersistLauncher
 
 /** Persists launcher download queue state. */
 export async function saveLauncherDownloadQueue(request: LauncherDownloadQueueState) {
-  const result = await invokeDesktop<LauncherDownloadQueueState>('save_launcher_download_queue', { request })
+  const result = await invokeDesktop<LauncherDownloadQueueState>(
+    HOST_COMMANDS.saveLauncherDownloadQueue,
+    { request },
+    launcherDownloadQueueMutationPolicy,
+  )
   loadLauncherDownloadQueueCache.delete('default')
   return result
 }
@@ -310,23 +348,27 @@ export async function saveLauncherDownloadQueue(request: LauncherDownloadQueueSt
 export function scanLauncherLibrary(request: ScanLauncherLibraryRequest) {
   const cacheKey = normalizeCachePathSegment(request.modsPath)
   return readPending(scanLauncherLibraryCache, cacheKey, () =>
-    invokeDesktop<LauncherLibraryScanResult>('scan_launcher_library', { request }),
+    invokeDesktop<LauncherLibraryScanResult>(HOST_COMMANDS.scanLauncherLibrary, { request }, launcherIoPoolPolicy),
   )
 }
 
 /** Loads detected Stardew Valley and SMAPI runtime versions for the launcher header. */
 export function loadLauncherRuntimeInfo() {
-  return invokeDesktop<LauncherRuntimeInfo>('load_launcher_runtime_info')
+  return invokeDesktop<LauncherRuntimeInfo>(HOST_COMMANDS.loadLauncherRuntimeInfo, undefined, launcherIoPoolPolicy)
 }
 
 /** Launches Stardew Valley through the preferred launcher target. */
 export function launchLauncherGame() {
-  return invokeDesktop<LauncherGameLaunchResult>('launch_launcher_game')
+  return invokeDesktop<LauncherGameLaunchResult>(HOST_COMMANDS.launchLauncherGame, undefined, launcherControlPolicy('launch-game'))
 }
 
 /** Enables or disables one mod folder and invalidates library/update caches. */
 export async function setLauncherModEnabled(request: SetLauncherModEnabledRequest) {
-  const result = await invokeDesktop<SetLauncherModEnabledResult>('set_launcher_mod_enabled', { request })
+  const result = await invokeDesktop<SetLauncherModEnabledResult>(
+    HOST_COMMANDS.setLauncherModEnabled,
+    { request },
+    launcherInstallMutationPolicy,
+  )
   scanLauncherLibraryCache.clear()
   invalidateLauncherUpdatesState(parentDirectoryFromPath(request.modPath))
   return result
@@ -358,7 +400,7 @@ export function searchLauncherCatalog(request: SearchLauncherCatalogRequest) {
     maxEndorsements: request.maxEndorsements ?? null,
   })
   return readPending(searchLauncherCatalogCache, cacheKey, () =>
-    invokeDesktop<LauncherCatalogPageResult>('search_launcher_catalog', { request }),
+    invokeDesktop<LauncherCatalogPageResult>(HOST_COMMANDS.searchLauncherCatalog, { request }, launcherNetworkPoolPolicy),
   )
 }
 
@@ -366,7 +408,7 @@ export function searchLauncherCatalog(request: SearchLauncherCatalogRequest) {
 export function loadLauncherRemoteModDetail(request: LoadLauncherRemoteModDetailRequest) {
   const cacheKey = `${request.modId}:${(request.includeFiles ?? true) ? 'files' : 'meta'}`
   return readPending(loadLauncherRemoteModDetailCache, cacheKey, () =>
-    invokeDesktop<LauncherRemoteModDetail>('load_launcher_remote_mod_detail', { request }),
+    invokeDesktop<LauncherRemoteModDetail>(HOST_COMMANDS.loadLauncherRemoteModDetail, { request }, launcherNetworkPoolPolicy),
   )
 }
 
@@ -374,67 +416,82 @@ export function loadLauncherRemoteModDetail(request: LoadLauncherRemoteModDetail
 export function loadLauncherUpdateChangelog(request: LoadLauncherUpdateChangelogRequest) {
   const cacheKey = String(request.modId)
   return readPending(loadLauncherUpdateChangelogCache, cacheKey, () =>
-    invokeDesktop<LauncherUpdateChangelogResult>('load_launcher_update_changelog', { request }),
+    invokeDesktop<LauncherUpdateChangelogResult>(HOST_COMMANDS.loadLauncherUpdateChangelog, { request }, launcherNetworkPoolPolicy),
   )
 }
 
 /** Loads current Nexus route diagnostics without forcing a restart. */
 export function loadLauncherNexusDiagnostics() {
-  return invokeDesktop<LauncherNexusDiagnosticsResult>('load_launcher_nexus_diagnostics')
+  return invokeDesktop<LauncherNexusDiagnosticsResult>(HOST_COMMANDS.loadLauncherNexusDiagnostics, undefined, launcherNetworkPoolPolicy)
 }
 
 /** Restarts all Nexus diagnostics routes and returns fresh snapshots. */
 export function restartLauncherNexusDiagnostics() {
-  return invokeDesktop<LauncherNexusDiagnosticsResult>('restart_launcher_nexus_diagnostics')
+  return invokeDesktop<LauncherNexusDiagnosticsResult>(HOST_COMMANDS.restartLauncherNexusDiagnostics, undefined, {
+    kind: 'exclusiveMutation',
+    resource: 'NexusDiagnosticsRoute',
+  })
 }
 
 /** Retries one failed or warning Nexus diagnostics route. */
 export function retryLauncherNexusDiagnosticsRoute(routeId: string) {
-  return invokeDesktop<LauncherNexusDiagnosticsResult>('retry_launcher_nexus_diagnostics_route', { routeId })
+  return invokeDesktop<LauncherNexusDiagnosticsResult>(
+    HOST_COMMANDS.retryLauncherNexusDiagnosticsRoute,
+    { routeId },
+    { kind: 'exclusiveMutation', resource: `NexusDiagnosticsRoute:${routeId}` },
+  )
 }
 
 /** Sets the launcher Nexus force-offline override and returns updated diagnostics. */
 export function setLauncherNexusForceOffline(forceOffline: boolean) {
-  return invokeDesktop<LauncherNexusDiagnosticsResult>('set_launcher_nexus_force_offline', { forceOffline })
+  return invokeDesktop<LauncherNexusDiagnosticsResult>(
+    HOST_COMMANDS.setLauncherNexusForceOffline,
+    { forceOffline },
+    { kind: 'exclusiveMutation', resource: 'NexusDiagnosticsRoute' },
+  )
 }
 /** Validates the configured Nexus API key and returns account/quota data. */
 export function validateNexusApiKey() {
-  return invokeDesktop<ValidateApiKeyResult>('validate_nexus_api_key')
+  return invokeDesktop<ValidateApiKeyResult>(HOST_COMMANDS.validateNexusApiKey, undefined, launcherNetworkPoolPolicy)
 }
 
 /** Starts the Nexus SSO authorization flow. */
 export function startNexusSso() {
-  return invokeDesktop<{ ssoId: string; status: SsoConnectionStatus }>('start_nexus_sso')
+  return invokeDesktop<{ ssoId: string; status: SsoConnectionStatus }>(
+    HOST_COMMANDS.startNexusSso,
+    undefined,
+    launcherControlPolicy('nexus-sso'),
+  )
 }
 
 /** Reads the current Nexus SSO flow status. */
 export function getNexusSsoStatus() {
-  return invokeDesktop<SsoSnapshot>('get_nexus_sso_status')
+  return invokeDesktop<SsoSnapshot>(HOST_COMMANDS.getNexusSsoStatus, undefined, launcherControlPolicy('nexus-sso-status'))
 }
 
 /** Cancels the active Nexus SSO flow, if any. */
 export function cancelNexusSso() {
-  return invokeDesktop<void>('cancel_nexus_sso')
+  return invokeDesktop<void>(HOST_COMMANDS.cancelNexusSso, undefined, launcherControlPolicy('nexus-sso'))
 }
 
 /** Resolves a remote launcher image into a local cached image file. */
 export function resolveLauncherImage(request: ResolveLauncherImageRequest) {
-  return invokeDesktop<ResolveLauncherImageResult>('resolve_launcher_image', { request })
+  return invokeDesktop<ResolveLauncherImageResult>(HOST_COMMANDS.resolveLauncherImage, { request }, launcherImagePoolPolicy)
 }
 
 /** Returns the directory used for launcher install backups. */
 export function getLauncherBackupDirectory() {
-  return invokeDesktop<string>('get_launcher_backup_directory')
+  return invokeDesktop<string>(HOST_COMMANDS.getLauncherBackupDirectory, undefined, launcherIoPoolPolicy)
 }
 
 /** Opens a local path in the host file manager. */
 export function openLauncherPath(request: OpenLauncherPathRequest) {
-  return invokeDesktop<void>('open_launcher_path', { request })
+  return invokeDesktop<void>(HOST_COMMANDS.openLauncherPath, { request }, launcherControlPolicy('open-path'))
 }
 
 /** Opens an external URL in the host browser. */
 export function openLauncherUrl(request: OpenLauncherUrlRequest) {
-  return invokeDesktop<void>('open_launcher_url', { request })
+  return invokeDesktop<void>(HOST_COMMANDS.openLauncherUrl, { request }, launcherControlPolicy('open-url'))
 }
 
 /** Loads a fresh cached update result from memory or the desktop backend. */
@@ -444,13 +501,21 @@ export async function loadCachedLauncherUpdates(request: LoadCachedLauncherUpdat
     return localCached
   }
 
-  const result = await invokeDesktop<LauncherUpdatesResult | null>('load_cached_launcher_updates', { request })
+  const result = await invokeDesktop<LauncherUpdatesResult | null>(
+    HOST_COMMANDS.loadCachedLauncherUpdates,
+    { request },
+    launcherIoPoolPolicy,
+  )
   return result ? storeLauncherUpdatesResult(result, isLauncherUpdatesResultComplete(result)) : null
 }
 
 /** Loads Nexus mod IDs suppressed from launcher update notifications. */
 export async function loadSuppressedLauncherUpdateModIds(request: LoadSuppressedLauncherUpdateModIdsRequest) {
-  return invokeDesktop<LauncherSuppressedUpdateModIdsResult>('load_suppressed_launcher_update_mod_ids', { request })
+  return invokeDesktop<LauncherSuppressedUpdateModIdsResult>(
+    HOST_COMMANDS.loadSuppressedLauncherUpdateModIds,
+    { request },
+    launcherIoPoolPolicy,
+  )
 }
 
 /** Checks installed mods for remote updates and streams progress by session id. */
@@ -467,12 +532,16 @@ export function checkLauncherUpdates(request: CheckLauncherUpdatesRequest) {
   const sessionId = nextLauncherUpdatesSessionId()
   launcherUpdatesActiveSessions.set(cacheKey, sessionId)
   void ensureLauncherUpdatesProgressBridge()
-  const promise = invokeDesktop<LauncherUpdatesResult>('check_launcher_updates', {
-    request: {
-      ...request,
-      sessionId,
+  const promise = invokeDesktop<LauncherUpdatesResult>(
+    HOST_COMMANDS.checkLauncherUpdates,
+    {
+      request: {
+        ...request,
+        sessionId,
+      },
     },
-  })
+    launcherUpdatesNetworkPoolPolicy,
+  )
     .then((result) => {
       if (launcherUpdatesRequestVersions.get(cacheKey) === requestVersion) {
         storeLauncherUpdatesResult(result, isLauncherUpdatesResultComplete(result), sessionId)
@@ -511,12 +580,12 @@ export function listenToLauncherUpdateProgress(listener: (payload: LauncherUpdat
 
 /** Queues or starts a remote mod archive download. */
 export function downloadLauncherMod(request: DownloadLauncherModRequest) {
-  return invokeDesktop<DownloadLauncherModResult>('download_launcher_mod', { request })
+  return invokeDesktop<DownloadLauncherModResult>(HOST_COMMANDS.downloadLauncherMod, { request }, launcherDownloadPoolPolicy)
 }
 
 /** Cancels one in-flight launcher download by queue item id. */
 export function cancelLauncherDownload(downloadId: string) {
-  return invokeDesktop<void>('cancel_launcher_download', { downloadId })
+  return invokeDesktop<void>(HOST_COMMANDS.cancelLauncherDownload, { downloadId }, launcherControlPolicy(`cancel-download:${downloadId}`))
 }
 
 /** Listens to chunk-level progress events emitted by active launcher downloads. */
@@ -526,7 +595,11 @@ export function listenToLauncherDownloadProgress(listener: (payload: LauncherDow
 
 /** Installs a local archive into the Mods folder and invalidates library/update caches. */
 export async function installLauncherArchive(request: InstallLauncherArchiveRequest) {
-  const result = await invokeDesktop<InstallLauncherArchiveResult>('install_launcher_archive', { request })
+  const result = await invokeDesktop<InstallLauncherArchiveResult>(
+    HOST_COMMANDS.installLauncherArchive,
+    { request },
+    launcherInstallMutationPolicy,
+  )
   scanLauncherLibraryCache.clear()
   invalidateLauncherUpdatesState(request.modsPath)
   return result
@@ -534,12 +607,16 @@ export async function installLauncherArchive(request: InstallLauncherArchiveRequ
 
 /** Lists install backups available for a Mods folder. */
 export function listLauncherInstallBackups(request: ListLauncherInstallBackupsRequest) {
-  return invokeDesktop<LauncherInstallBackupSummary[]>('list_launcher_install_backups', { request })
+  return invokeDesktop<LauncherInstallBackupSummary[]>(HOST_COMMANDS.listLauncherInstallBackups, { request }, launcherArchiveIoPolicy)
 }
 
 /** Restores an install backup and invalidates affected library/update caches. */
 export async function restoreLauncherInstallBackup(request: RestoreLauncherInstallBackupRequest) {
-  const result = await invokeDesktop<RestoreLauncherInstallBackupResult>('restore_launcher_install_backup', { request })
+  const result = await invokeDesktop<RestoreLauncherInstallBackupResult>(
+    HOST_COMMANDS.restoreLauncherInstallBackup,
+    { request },
+    launcherInstallMutationPolicy,
+  )
   scanLauncherLibraryCache.clear()
   for (const restoredPath of result.restoredPaths) {
     invalidateLauncherUpdatesState(parentDirectoryFromPath(restoredPath))
@@ -549,5 +626,5 @@ export async function restoreLauncherInstallBackup(request: RestoreLauncherInsta
 
 /** Inspects an archive before install and returns its file tree and detected mod roots. */
 export function inspectLauncherArchive(request: InspectLauncherArchiveRequest) {
-  return invokeDesktop<InspectLauncherArchiveResult>('inspect_launcher_archive', { request })
+  return invokeDesktop<InspectLauncherArchiveResult>(HOST_COMMANDS.inspectLauncherArchive, { request }, launcherArchiveIoPolicy)
 }

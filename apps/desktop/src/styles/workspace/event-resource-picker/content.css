@@ -149,7 +149,7 @@
     height: 22px;
     border-radius: 0 12px;
     background: var(--accent);
-    content: "";
+    content: '';
   }
 
   .resource-picker__item-card.is-selected::before {
@@ -161,7 +161,7 @@
     height: 5px;
     border-bottom: 2px solid var(--text-inverse);
     border-left: 2px solid var(--text-inverse);
-    content: "";
+    content: '';
     transform: rotate(-45deg);
   }
 

@@ -1,5 +1,5 @@
 import type { PlatformDragDropPayload, PlatformPorts } from '@shared/contracts'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 
 async function loadConfiguredDesktop() {
   vi.resetModules()
@@ -198,7 +198,7 @@ describe('desktop facade', () => {
       },
       appearance: {
         locale: 'zh-CN',
-        themeId: 'warm-paper',
+        themeId: 'neutral-tool',
         windowBorderTone: 'accent',
         windowBorderWeight: 'standard',
         recentGameDirectories: [],

@@ -67,7 +67,7 @@
     }
 
     .studio-live-inspector span::after {
-      content: "";
+      content: '';
       position: absolute;
       right: 10px;
       width: 26px;

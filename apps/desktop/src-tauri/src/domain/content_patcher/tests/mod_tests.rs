@@ -1,7 +1,6 @@
 use super::{
     export_content_patcher_asset, load_content_patcher_result_asset, simulate_content_patcher,
 };
-use crate::commands::content_patcher as content_patcher_commands;
 use crate::domain::content_patcher::context::SimulationContext;
 use crate::domain::content_patcher::types::{
     ContentPatcherPreviewFingerprint, ContentPatcherProjectSnapshot, ContentPatcherProjectSummary,
@@ -61,7 +60,7 @@ fn virtual_png_asset(relative_path: &str, image: &RgbaImage) -> VirtualPreviewAs
 }
 
 #[test]
-fn commands_module_reexports_simulate_content_patcher() {
+fn content_patcher_module_reexports_simulate_content_patcher() {
     let request = SimulateContentPatcherRequest {
         path: None,
         game_root_path: None,
@@ -85,7 +84,7 @@ fn commands_module_reexports_simulate_content_patcher() {
         ..Default::default()
     };
 
-    let result = content_patcher_commands::simulate_content_patcher(request).expect("simulate");
+    let result = simulate_content_patcher(request).expect("simulate");
     assert!(result.patch_statuses.is_empty());
 }
 

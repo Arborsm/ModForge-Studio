@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test } from 'vite-plus/test'
 import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
 import { buildStudioDeskModel } from '@features/cp-maker'
 

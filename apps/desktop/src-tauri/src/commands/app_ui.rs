@@ -1,18 +1,32 @@
-use crate::domain::app_ui as domain_app_ui;
 use crate::domain::app_ui::{AppUiState, AppUiStatePatch};
+use crate::support::logging::DebugLoggingState;
+use crate::{AppHandle, AppRuntime};
+use serde_json::json;
+use tauri::State;
 
 #[tauri::command]
-pub fn load_app_ui_state() -> Result<AppUiState, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
-        "load_app_ui_state",
-        domain_app_ui::load_app_ui_state(),
+pub fn load_app_ui_state(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<AppUiState, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(load_app_ui_state),
+        json!({}),
     )
 }
 
 #[tauri::command]
-pub fn patch_app_ui_state(request: AppUiStatePatch) -> Result<AppUiState, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
-        "patch_app_ui_state",
-        domain_app_ui::patch_app_ui_state(request),
+pub fn patch_app_ui_state(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    request: AppUiStatePatch,
+) -> Result<AppUiState, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(patch_app_ui_state),
+        json!({ "request": request }),
     )
 }

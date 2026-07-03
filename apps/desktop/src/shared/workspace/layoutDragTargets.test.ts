@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { findDockTarget, getRailSortTarget, type RailButtonBounds } from '@shared/workspace/layoutDragTargets'
 import type { DockGuide } from '@shared/workspace/layoutGeometry'
 import type { DockArea, SlotId, WorkspacePanelConfig, WorkspacePanelState, WorkspaceSlotState } from '@shared/contracts'

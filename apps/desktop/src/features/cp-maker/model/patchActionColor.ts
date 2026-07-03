@@ -1,6 +1,6 @@
 import type { DraftPatch } from '@shared/contracts'
 
-export function getPatchActionColor(action: DraftPatch['action'] | string): string {
+export function getPatchActionColor(action: DraftPatch['action']): string {
   switch (action) {
     case 'EditData':
       return 'text-blue-400'

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { EditorCopy } from '@locales/api'
 import type { MapObject, MapObjectGroup } from '@shared/contracts'
 import {

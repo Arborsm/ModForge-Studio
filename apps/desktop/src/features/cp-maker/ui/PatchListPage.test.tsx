@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
-import { describe, expect, test, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vite-plus/test'
 import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { PatchListPage } from './PatchListPage'

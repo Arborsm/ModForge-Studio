@@ -30,7 +30,7 @@
   }
 
   .studio-pulse-line::before {
-    content: "";
+    content: '';
     position: absolute;
     left: 18px;
     right: 18px;
@@ -80,7 +80,7 @@
   }
 
   .studio-resource-popover::after {
-    content: "";
+    content: '';
     position: absolute;
     left: 18px;
     top: 100%;
@@ -109,7 +109,7 @@
   }
 
   .studio-pulse-item::before {
-    content: "";
+    content: '';
     position: absolute;
     left: 0;
     top: 5px;
@@ -156,7 +156,7 @@
   }
 
   .studio-pulse-placeholder::before {
-    content: "";
+    content: '';
     position: absolute;
     left: 0;
     top: 5px;

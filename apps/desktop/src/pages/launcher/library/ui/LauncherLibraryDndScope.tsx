@@ -9,8 +9,6 @@ import {
   useDroppable,
   useSensor,
   useSensors,
-  type DragEndEvent,
-  type DragOverEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { cx } from '@shared/lib/cx'
@@ -21,8 +19,6 @@ import {
   LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX,
   LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX,
   LAUNCHER_LIBRARY_PACK_DROP_PREFIX,
-  LAUNCHER_LIBRARY_PARENT_DROP_PREFIX,
-  getLauncherDropTargetById,
   getLauncherDropTargetAtPoint,
   measureLauncherDndKitDropTargets,
   type LauncherDndKitActiveDrag,
@@ -133,9 +129,6 @@ function getLauncherDndTargetKind(dropId: string) {
   if (dropId.startsWith(LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX) || dropId.startsWith(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX)) {
     return 'folder'
   }
-  if (dropId.startsWith(LAUNCHER_LIBRARY_PARENT_DROP_PREFIX)) {
-    return 'parent'
-  }
   if (dropId.startsWith(LAUNCHER_LIBRARY_PACK_DROP_PREFIX)) {
     return 'pack'
   }
@@ -234,7 +227,6 @@ export function LauncherLibraryDndScope({
   children,
   resolveDraggedModIds,
   onAddModsToPack,
-  onAssignModsToParent,
   onAssignModsToLibraryFolder,
   onRemoveChildModsFromParent,
   onRemoveModsFromLibraryFolders,
@@ -244,7 +236,6 @@ export function LauncherLibraryDndScope({
   children: ReactNode
   resolveDraggedModIds: (modId: string) => string[]
   onAddModsToPack: (packId: string, modIds: string[]) => void
-  onAssignModsToParent: (parentModId: string, modIds: string[]) => void
   onAssignModsToLibraryFolder: (folderId: string, modIds: string[]) => void
   onRemoveChildModsFromParent: (modIds: string[]) => void
   onRemoveModsFromLibraryFolders: (modIds: string[]) => void
@@ -259,6 +250,9 @@ export function LauncherLibraryDndScope({
   const [dropTargets, setDropTargets] = useState<LauncherDndKitDropTarget[]>([])
   const [activeDropId, setActiveDropId] = useState<string | null>(null)
   const [dndKitControls, setDndKitControls] = useState<LauncherDndKitControls | null>(null)
+  const latestPointerRef = useRef<{ clientX: number; clientY: number } | null>(null)
+  const dropTargetsRef = useRef<LauncherDndKitDropTarget[]>([])
+  const activeDropIdRef = useRef<string | null>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: LAUNCHER_LIBRARY_DRAG_START_DISTANCE_PX } }))
   const measuring = useMemo(
     () => ({
@@ -275,11 +269,13 @@ export function LauncherLibraryDndScope({
       return null
     }
     const activeDrag = { ...drag, started: true }
+    const nextTargets = measureLauncherDndKitDropTargets(drag.sourceElement)
     activeDragRef.current = activeDrag
     pendingDragRef.current = null
     setPendingOverlay(null)
     setActiveOverlay(activeDrag)
-    setDropTargets(measureLauncherDndKitDropTargets(drag.sourceElement))
+    dropTargetsRef.current = nextTargets
+    setDropTargets(nextTargets)
     drag.sourceElement.classList.add('launcher-library-card-grab-pending')
     document.body.classList.add('launcher-library-dragging-active')
     return activeDrag
@@ -292,6 +288,8 @@ export function LauncherLibraryDndScope({
       pendingDragRef.current = null
       setActiveOverlay(null)
       setPendingOverlay(null)
+      dropTargetsRef.current = []
+      activeDropIdRef.current = null
       setDropTargets([])
       setActiveDropId(null)
       drag?.sourceElement.classList.remove('launcher-library-card-grab-pending')
@@ -329,8 +327,6 @@ export function LauncherLibraryDndScope({
         onAssignModsToLibraryFolder(targetFolderBlankId, modIds)
       } else if (modIds.length && effectiveOverId?.startsWith(LAUNCHER_LIBRARY_PACK_DROP_PREFIX)) {
         onAddModsToPack(effectiveOverId.slice(LAUNCHER_LIBRARY_PACK_DROP_PREFIX.length), modIds)
-      } else if (modIds.length && effectiveOverId?.startsWith(LAUNCHER_LIBRARY_PARENT_DROP_PREFIX)) {
-        onAssignModsToParent(effectiveOverId.slice(LAUNCHER_LIBRARY_PARENT_DROP_PREFIX.length), modIds)
       } else if (modIds.length && targetDropFolderId) {
         onAssignModsToLibraryFolder(targetDropFolderId, modIds)
       } else if (modIds.length && effectiveOverId === LAUNCHER_LIBRARY_BLANK_DROP_ID) {
@@ -352,7 +348,6 @@ export function LauncherLibraryDndScope({
     [
       onAddModsToPack,
       onAssignModsToLibraryFolder,
-      onAssignModsToParent,
       onMoveFolderToFolder,
       onRemoveChildModsFromParent,
       onRemoveModsFromLibraryFolders,
@@ -431,6 +426,8 @@ export function LauncherLibraryDndScope({
           setDropTargets((current) => {
             const nextTargets = current.length ? current : measureLauncherDndKitDropTargets(nextDrag.sourceElement)
             const target = getLauncherDropTargetAtPoint(nextTargets, pointerX, pointerY, nextDrag.source)
+            dropTargetsRef.current = nextTargets
+            activeDropIdRef.current = target?.dropId ?? null
             setActiveDropId((activeDropId) => (activeDropId === (target?.dropId ?? null) ? activeDropId : (target?.dropId ?? null)))
             return nextTargets
           })
@@ -478,6 +475,8 @@ export function LauncherLibraryDndScope({
       }
       const drag = activeDragRef.current ?? pendingDragRef.current
       const target = getLauncherDropTargetAtPoint(dropTargets, event.clientX, event.clientY, drag?.source)
+      latestPointerRef.current = { clientX: event.clientX, clientY: event.clientY }
+      activeDropIdRef.current = target?.dropId ?? null
       setActiveDropId((current) => (current === (target?.dropId ?? null) ? current : (target?.dropId ?? null)))
     }
 
@@ -485,47 +484,45 @@ export function LauncherLibraryDndScope({
     return () => window.removeEventListener('pointermove', updateActiveDropTargetFromPointer)
   }, [dropTargets])
 
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const overDropId = (event.over?.data.current as LauncherDndKitDropData | undefined)?.dropId ?? String(event.over?.id ?? '')
-      const drag = activeDragRef.current ?? pendingDragRef.current
-      const prioritizedTarget = getLauncherDropTargetById(dropTargets, activeDropId ?? overDropId, drag?.source)
-      finishPointerDrag(false, prioritizedTarget?.dropId ?? (overDropId || null))
-    },
-    [activeDropId, dropTargets, finishPointerDrag],
-  )
+  const getDropIdAtLatestPointer = useCallback(() => {
+    const drag = activeDragRef.current ?? pendingDragRef.current
+    const pointer = latestPointerRef.current
+    if (!drag || !pointer) {
+      return activeDropIdRef.current
+    }
+    return (
+      getLauncherDropTargetAtPoint(dropTargetsRef.current, pointer.clientX, pointer.clientY, drag.source)?.dropId ?? activeDropIdRef.current
+    )
+  }, [])
 
-  const handleDragOver = useCallback(
-    (event: DragOverEvent) => {
-      const overDropId = (event.over?.data.current as LauncherDndKitDropData | undefined)?.dropId ?? String(event.over?.id ?? '')
-      const drag = activeDragRef.current ?? pendingDragRef.current
-      const prioritizedTarget = getLauncherDropTargetById(dropTargets, overDropId, drag?.source)
-      setActiveDropId(prioritizedTarget?.dropId ?? (overDropId || null))
-    },
-    [dropTargets],
-  )
+  const handleDragEnd = useCallback(() => {
+    finishPointerDrag(false, getDropIdAtLatestPointer())
+  }, [finishPointerDrag, getDropIdAtLatestPointer])
 
   const handleDragCancel = useCallback(() => {
     finishPointerDrag(true)
   }, [finishPointerDrag])
 
   useEffect(() => {
-    const cancelPendingDrag = () => {
-      if (pendingDragRef.current || activeDragRef.current) {
+    const finishDragFromPointer = (event: globalThis.PointerEvent) => {
+      latestPointerRef.current = { clientX: event.clientX, clientY: event.clientY }
+      if (activeDragRef.current) {
+        finishPointerDrag(false, getDropIdAtLatestPointer())
+      } else if (pendingDragRef.current) {
         finishPointerDrag(true)
       }
     }
     const handleWindowBlur = () => finishPointerDrag(true)
-    window.addEventListener('pointerup', cancelPendingDrag)
-    window.addEventListener('pointercancel', cancelPendingDrag)
+    window.addEventListener('pointerup', finishDragFromPointer)
+    window.addEventListener('pointercancel', handleWindowBlur)
     window.addEventListener('blur', handleWindowBlur)
     return () => {
-      window.removeEventListener('pointerup', cancelPendingDrag)
-      window.removeEventListener('pointercancel', cancelPendingDrag)
+      window.removeEventListener('pointerup', finishDragFromPointer)
+      window.removeEventListener('pointercancel', handleWindowBlur)
       window.removeEventListener('blur', handleWindowBlur)
       finishPointerDrag(true)
     }
-  }, [finishPointerDrag])
+  }, [finishPointerDrag, getDropIdAtLatestPointer])
 
   return (
     <LauncherPointerDragContext.Provider
@@ -547,7 +544,6 @@ export function LauncherLibraryDndScope({
         measuring={measuring}
         collisionDetection={pointerWithin}
         onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >

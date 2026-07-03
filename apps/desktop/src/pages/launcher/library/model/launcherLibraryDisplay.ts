@@ -115,13 +115,37 @@ export function buildLauncherFolderPreviewItems(
   return [...previewMods, ...previewFolders]
 }
 
-export function getLauncherFolderTone(folderId: string) {
-  const tones = ['blue', 'teal', 'amber', 'rose', 'violet', 'slate'] as const
+/**
+ * Golden-angle hue distribution — guarantees adjacent indices get visually distinct hues
+ * with no repeats. 137.508° is the golden angle, which produces the most uniform
+ * distribution on the color wheel for any number of items.
+ */
+const FOLDER_TONE_GOLDEN_ANGLE = 137.508
+
+function folderToneHue(index: number) {
+  return Math.round((index * FOLDER_TONE_GOLDEN_ANGLE) % 360)
+}
+
+/** CSS custom properties for a folder card / panel, using light-dark() for theme support. */
+export function getLauncherFolderToneStyle(index: number): Record<string, string> {
+  const h = folderToneHue(index)
+  return {
+    '--launcher-folder-bg': `light-dark(hsl(${h}, 40%, 96%), hsl(${h}, 32%, 10%))`,
+    '--launcher-folder-bg-strong': `light-dark(hsl(${h}, 55%, 88%), hsl(${h}, 32%, 16%))`,
+    '--launcher-folder-border': `light-dark(hsla(${h}, 55%, 62%, 0.42), hsla(${h}, 42%, 45%, 0.32))`,
+    '--launcher-folder-accent': `light-dark(hsl(${h}, 60%, 40%), hsl(${h}, 52%, 62%))`,
+    '--launcher-folder-front': `light-dark(hsl(${h}, 55%, 82%), hsl(${h}, 36%, 20%))`,
+    '--launcher-folder-back': `light-dark(hsl(${h}, 45%, 92%), hsl(${h}, 30%, 13%))`,
+  }
+}
+
+/** Hash-based hue index as fallback when grid index isn't available. */
+export function getLauncherFolderToneIndex(folderId: string): number {
   let hash = 0
   for (const character of folderId) {
     hash = (hash * 31 + character.charCodeAt(0)) >>> 0
   }
-  return tones[hash % tones.length]
+  return hash
 }
 
 export function clampLibraryRevealBatchSize(value: number, itemCount: number) {

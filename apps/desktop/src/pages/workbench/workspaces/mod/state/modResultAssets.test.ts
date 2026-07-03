@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { loadContentPatcherResultAsset } from '@entities/mod/api'
 import { loadImageResource } from '@shared/lib/assets'
 import type { MapDocument } from '@shared/contracts'

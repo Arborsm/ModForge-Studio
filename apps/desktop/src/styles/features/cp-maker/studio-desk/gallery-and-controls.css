@@ -76,7 +76,7 @@
   }
 
   .studio-gallery-view::before {
-    content: "";
+    content: '';
     position: absolute;
     right: clamp(28px, 6vw, 120px);
     bottom: clamp(42px, 7vh, 120px);
@@ -250,7 +250,7 @@
   }
 
   .studio-project-row.is-current::before {
-    content: "";
+    content: '';
     position: absolute;
     left: 0;
     top: 13px;

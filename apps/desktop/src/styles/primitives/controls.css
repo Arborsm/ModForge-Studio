@@ -113,7 +113,7 @@
   }
 
   .compact-select__trigger:hover,
-  .compact-select__trigger[aria-expanded="true"] {
+  .compact-select__trigger[aria-expanded='true'] {
     border-color: color-mix(in srgb, var(--accent) 42%, var(--border-color));
     background: color-mix(in srgb, var(--bg-active) 76%, var(--bg-panel));
     color: var(--text-primary);

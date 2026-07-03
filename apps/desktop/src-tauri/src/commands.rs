@@ -7,4 +7,5 @@ pub mod launcher;
 pub mod logging;
 pub mod mods;
 pub mod resource_registry;
+pub mod runtime;
 pub mod saves;

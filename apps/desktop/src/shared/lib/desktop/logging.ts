@@ -1,3 +1,4 @@
+import { HOST_COMMANDS } from '@shared/contracts'
 import { canUseDesktopHost, invokeDesktop } from './runtime'
 
 export type FrontendLogLevel = 'debug' | 'info' | 'warning' | 'error'
@@ -64,7 +65,7 @@ export async function writeFrontendLog(request: FrontendLogRequest) {
     return
   }
 
-  await invokeDesktop<void>('write_frontend_log', { request })
+  await invokeDesktop<void>(HOST_COMMANDS.writeFrontendLog, { request }, { kind: 'serviceGate', key: 'frontend-log' })
 }
 
 /** Enables or disables verbose desktop-side debug logging. */
@@ -73,5 +74,5 @@ export async function setDesktopDebugLoggingEnabled(enabled: boolean) {
     return
   }
 
-  await invokeDesktop<void>('set_debug_logging_enabled', { enabled })
+  await invokeDesktop<void>(HOST_COMMANDS.setDebugLoggingEnabled, { enabled }, { kind: 'serviceGate', key: 'debug-logging' })
 }

@@ -1,11 +1,12 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactElement } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type {
   LauncherNexusDiagnosticsResult,
   LauncherRemoteModDetail,
   LauncherSettings,
   LauncherUpdateChangelogResult,
+  LauncherUpdateProgressPayload,
   LauncherUpdateSummary,
   LauncherUpdatesResult,
 } from '@features/launcher/api'
@@ -225,9 +226,9 @@ describe('LauncherUpdatesPage', () => {
       loadNexusDiagnostics: loadLauncherNexusDiagnosticsMock,
       loadRemoteModDetail: loadLauncherRemoteModDetailMock,
       loadUpdateChangelog: loadLauncherUpdateChangelogMock,
-      listenToUpdateProgress: vi.fn(async (listener: (payload: unknown) => void) => {
+      listenToUpdateProgress: vi.fn(async (listener: (payload: LauncherUpdateProgressPayload) => void) => {
         eventListeners.set('launcher://update-check-progress', (event: { payload: unknown }) => {
-          listener(event.payload)
+          listener(event.payload as LauncherUpdateProgressPayload)
         })
         return () => {
           eventListeners.delete('launcher://update-check-progress')

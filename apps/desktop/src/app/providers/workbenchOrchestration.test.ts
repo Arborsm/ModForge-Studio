@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { createWorkbenchOrchestration } from './workbenchOrchestration'
 import type { AppCommand } from '@shared/contracts'
 import type { AppEvent } from '@shared/contracts'

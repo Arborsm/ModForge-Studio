@@ -1,5 +1,5 @@
 import { screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { BuildingWorkspaceEntry, ConstructibleBuildingGroup } from '@pages/workbench/workspaces/building'
 import { editorCopy } from '@locales/api'
 import { AssetBrowserPanel } from '@pages/workbench/ui/workspace-panels/map/AssetBrowserPanel.tsx'

@@ -21,8 +21,10 @@ const HOST_LOG_PREFIX: &str = "modforge-host";
 const SIDECAR_LOG_PREFIX: &str = "modforge-sidecar";
 const DEV_ASSET_BRIDGE_LOG_PREFIX: &str = "modforge-dev-asset-bridge";
 const LOG_COLOR_ENV: &str = "MODFORGE_LOG_COLOR";
+const COMMAND_TRACE_ENV: &str = "MODFORGE_COMMAND_TRACE";
 const FRONTEND_LOG_TARGET: &str = "Webview";
 const COMMAND_LOG_TARGET: &str = "Tauri Command";
+const HOST_RUNTIME_LOG_TARGET: &str = "HostRuntime";
 const SYSTEM_CERTIFICATE_LOG_TARGET: &str = "rustls_platform_verifier::verification::others";
 const REQWEST_CONNECT_LOG_TARGET: &str = "reqwest::connect";
 
@@ -43,7 +45,7 @@ pub fn log_file_config() -> Result<LogFileConfig, String> {
     })
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FrontendLogRequest {
     level: FrontendLogLevel,
@@ -53,7 +55,7 @@ pub struct FrontendLogRequest {
     key_values: Option<HashMap<String, String>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 enum FrontendLogLevel {
     Debug,
@@ -76,26 +78,45 @@ impl FrontendLogLevel {
 #[derive(Clone)]
 pub struct DebugLoggingState {
     enabled: Arc<AtomicBool>,
+    command_trace_enabled: Arc<AtomicBool>,
 }
 
 impl DebugLoggingState {
     pub fn new() -> Self {
         Self {
             enabled: Arc::new(AtomicBool::new(false)),
+            command_trace_enabled: Arc::new(AtomicBool::new(
+                std::env::var(COMMAND_TRACE_ENV).is_ok_and(|value| env_flag_is_enabled(&value)),
+            )),
         }
     }
 
     pub fn set_enabled(&self, enabled: bool) {
         self.enabled.store(enabled, Ordering::Relaxed);
-        log::set_max_level(if enabled {
+        self.apply_global_level_filter();
+    }
+
+    fn max_level_filter(&self) -> LevelFilter {
+        if self.enabled.load(Ordering::Relaxed)
+            || self.command_trace_enabled.load(Ordering::Relaxed)
+        {
             LevelFilter::Debug
         } else {
             LevelFilter::Info
-        });
+        }
+    }
+
+    fn apply_global_level_filter(&self) {
+        log::set_max_level(self.max_level_filter());
     }
 
     fn level_enabled(&self, metadata: &Metadata<'_>) -> bool {
         match metadata.level() {
+            log::Level::Debug | log::Level::Trace
+                if metadata.target() == HOST_RUNTIME_LOG_TARGET =>
+            {
+                self.command_trace_enabled.load(Ordering::Relaxed)
+            }
             log::Level::Debug | log::Level::Trace => self.enabled.load(Ordering::Relaxed),
             _ => true,
         }
@@ -573,7 +594,7 @@ pub fn init_sidecar_logging(state: &DebugLoggingState) -> Result<(), log::SetLog
         state: state.clone(),
         terminal_noise: TerminalNoiseState::new(),
     }))?;
-    log::set_max_level(LevelFilter::Info);
+    state.apply_global_level_filter();
     Ok(())
 }
 
@@ -584,7 +605,7 @@ pub fn init_host_logging(state: &DebugLoggingState) -> Result<(), String> {
         file: Mutex::new(HostLogFile::new(log_file_config()?)?),
     }))
     .map_err(|error| format!("Failed to install ModForge host logger: {error}"))?;
-    log::set_max_level(LevelFilter::Info);
+    state.apply_global_level_filter();
     Ok(())
 }
 

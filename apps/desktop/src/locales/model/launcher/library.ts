@@ -171,10 +171,10 @@ export type LauncherLibraryCopy = {
   saveChanges: string
   renameCurrentPackPrompt: (name: string) => string
   deleteCurrentPackConfirm: (name: string) => string
-  setAsChildMod: string
   chooseChildMods: string
-  chooseChildModsSubtitle: (name: string) => string
+  choosingChildModsLabel: (name: string) => string
   confirmChildMods: string
+  selectedChildModsCount: (count: number) => string
   childModsCount: (count: number) => string
   expandChildMods: (name: string) => string
   collapseChildMods: (name: string) => string
@@ -188,6 +188,7 @@ export type LauncherLibraryCopy = {
   enableLibraryFolder: string
   disableLibraryFolder: string
   libraryFolderCount: (count: number) => string
+  libraryFolderEmpty: string
   openLibraryFolder: (name: string) => string
   closeLibraryFolder: string
   loadingMissingCoversTitle: string

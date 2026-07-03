@@ -121,6 +121,7 @@ export const GAME_STATE_QUERY_KEYS = [
 ] as const
 
 export type GameStateQueryKey = (typeof GAME_STATE_QUERY_KEYS)[number]
+type CustomGameStateQueryKey = string & {}
 
 export interface ParsedGameStateQuerySet {
   raw: string
@@ -130,7 +131,7 @@ export interface ParsedGameStateQuerySet {
 export interface ParsedGameStateQueryClause {
   raw: string
   key: string
-  canonicalKey: GameStateQueryKey | string
+  canonicalKey: GameStateQueryKey | CustomGameStateQueryKey
   args: string[]
   negated: boolean
   isKnown: boolean

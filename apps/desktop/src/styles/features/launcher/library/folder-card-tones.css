@@ -1,0 +1,217 @@
+@layer components {
+  .launcher-library-folder-card[data-folder-tone='blue'] {
+    --launcher-folder-bg: #f8fbff;
+    --launcher-folder-bg-strong: #dbeafe;
+    --launcher-folder-border: rgba(96, 165, 250, 0.42);
+    --launcher-folder-accent: #2563eb;
+    --launcher-folder-front: #bfdbfe;
+    --launcher-folder-back: #dbeafe;
+  }
+
+  .launcher-library-folder-card[data-folder-tone='teal'] {
+    --launcher-folder-bg: #f8fffc;
+    --launcher-folder-bg-strong: #ccfbf1;
+    --launcher-folder-border: rgba(20, 184, 166, 0.38);
+    --launcher-folder-accent: #0f766e;
+    --launcher-folder-front: #99f6e4;
+    --launcher-folder-back: #ccfbf1;
+  }
+
+  .launcher-library-folder-card[data-folder-tone='amber'] {
+    --launcher-folder-bg: #fffdf4;
+    --launcher-folder-bg-strong: #fde68a;
+    --launcher-folder-border: rgba(245, 158, 11, 0.38);
+    --launcher-folder-accent: #b45309;
+    --launcher-folder-front: #fde68a;
+    --launcher-folder-back: #fef3c7;
+  }
+
+  .launcher-library-folder-card[data-folder-tone='rose'] {
+    --launcher-folder-bg: #fff8f9;
+    --launcher-folder-bg-strong: #ffe4e6;
+    --launcher-folder-border: rgba(244, 63, 94, 0.34);
+    --launcher-folder-accent: #be123c;
+    --launcher-folder-front: #fecdd3;
+    --launcher-folder-back: #ffe4e6;
+  }
+
+  .launcher-library-folder-card[data-folder-tone='violet'] {
+    --launcher-folder-bg: #fbfaff;
+    --launcher-folder-bg-strong: #ede9fe;
+    --launcher-folder-border: rgba(139, 92, 246, 0.36);
+    --launcher-folder-accent: #6d28d9;
+    --launcher-folder-front: #ddd6fe;
+    --launcher-folder-back: #ede9fe;
+  }
+
+  .launcher-library-folder-card[data-folder-tone='slate'] {
+    --launcher-folder-bg: #f8fafc;
+    --launcher-folder-bg-strong: #e2e8f0;
+    --launcher-folder-border: rgba(100, 116, 139, 0.34);
+    --launcher-folder-accent: #475569;
+    --launcher-folder-front: #e2e8f0;
+    --launcher-folder-back: #f1f5f9;
+  }
+
+  .launcher-library-folder-card[data-folder-tone='green'] {
+    --launcher-folder-bg: #f8fff8;
+    --launcher-folder-bg-strong: #dcfce7;
+    --launcher-folder-border: rgba(34, 197, 94, 0.38);
+    --launcher-folder-accent: #16a34a;
+    --launcher-folder-front: #bbf7d0;
+    --launcher-folder-back: #dcfce7;
+  }
+
+  .launcher-library-folder-card[data-folder-tone='cyan'] {
+    --launcher-folder-bg: #f8feff;
+    --launcher-folder-bg-strong: #cffafe;
+    --launcher-folder-border: rgba(6, 182, 212, 0.38);
+    --launcher-folder-accent: #0891b2;
+    --launcher-folder-front: #a5f3fc;
+    --launcher-folder-back: #cffafe;
+  }
+
+  .launcher-library-folder-card[data-folder-tone='orange'] {
+    --launcher-folder-bg: #fffbf6;
+    --launcher-folder-bg-strong: #ffedd5;
+    --launcher-folder-border: rgba(249, 115, 22, 0.38);
+    --launcher-folder-accent: #ea580c;
+    --launcher-folder-front: #fed7aa;
+    --launcher-folder-back: #ffedd5;
+  }
+
+  .launcher-library-folder-card[data-folder-tone='pink'] {
+    --launcher-folder-bg: #fff8fb;
+    --launcher-folder-bg-strong: #fce7f3;
+    --launcher-folder-border: rgba(236, 72, 153, 0.38);
+    --launcher-folder-accent: #db2777;
+    --launcher-folder-front: #fbcfe8;
+    --launcher-folder-back: #fce7f3;
+  }
+
+  .launcher-library-folder-card[data-folder-tone='indigo'] {
+    --launcher-folder-bg: #f8f9ff;
+    --launcher-folder-bg-strong: #e0e7ff;
+    --launcher-folder-border: rgba(99, 102, 241, 0.38);
+    --launcher-folder-accent: #4f46e5;
+    --launcher-folder-front: #c7d2fe;
+    --launcher-folder-back: #e0e7ff;
+  }
+
+  .launcher-library-folder-card[data-folder-tone='lime'] {
+    --launcher-folder-bg: #fcfff6;
+    --launcher-folder-bg-strong: #ecfccb;
+    --launcher-folder-border: rgba(132, 204, 22, 0.38);
+    --launcher-folder-accent: #65a30d;
+    --launcher-folder-front: #d9f99d;
+    --launcher-folder-back: #ecfccb;
+  }
+
+  .dark .launcher-library-folder-card[data-folder-tone='blue'] {
+    --launcher-folder-bg: #172554;
+    --launcher-folder-bg-strong: #1e3a8a;
+    --launcher-folder-border: rgba(96, 165, 250, 0.3);
+    --launcher-folder-accent: #93c5fd;
+    --launcher-folder-front: #1e40af;
+    --launcher-folder-back: #1e3a8a;
+  }
+
+  .dark .launcher-library-folder-card[data-folder-tone='teal'] {
+    --launcher-folder-bg: #134e4a;
+    --launcher-folder-bg-strong: #115e59;
+    --launcher-folder-border: rgba(45, 212, 191, 0.28);
+    --launcher-folder-accent: #5eead4;
+    --launcher-folder-front: #0f766e;
+    --launcher-folder-back: #115e59;
+  }
+
+  .dark .launcher-library-folder-card[data-folder-tone='amber'] {
+    --launcher-folder-bg: #451a03;
+    --launcher-folder-bg-strong: #78350f;
+    --launcher-folder-border: rgba(251, 191, 36, 0.28);
+    --launcher-folder-accent: #fcd34d;
+    --launcher-folder-front: #92400e;
+    --launcher-folder-back: #78350f;
+  }
+
+  .dark .launcher-library-folder-card[data-folder-tone='rose'] {
+    --launcher-folder-bg: #4c0519;
+    --launcher-folder-bg-strong: #881337;
+    --launcher-folder-border: rgba(251, 113, 133, 0.28);
+    --launcher-folder-accent: #fda4af;
+    --launcher-folder-front: #9f1239;
+    --launcher-folder-back: #881337;
+  }
+
+  .dark .launcher-library-folder-card[data-folder-tone='violet'] {
+    --launcher-folder-bg: #2e1065;
+    --launcher-folder-bg-strong: #4c1d95;
+    --launcher-folder-border: rgba(167, 139, 250, 0.28);
+    --launcher-folder-accent: #c4b5fd;
+    --launcher-folder-front: #5b21b6;
+    --launcher-folder-back: #4c1d95;
+  }
+
+  .dark .launcher-library-folder-card[data-folder-tone='slate'] {
+    --launcher-folder-bg: #1e293b;
+    --launcher-folder-bg-strong: #334155;
+    --launcher-folder-border: rgba(148, 163, 184, 0.24);
+    --launcher-folder-accent: #cbd5e1;
+    --launcher-folder-front: #475569;
+    --launcher-folder-back: #334155;
+  }
+
+  .dark .launcher-library-folder-card[data-folder-tone='green'] {
+    --launcher-folder-bg: #14532d;
+    --launcher-folder-bg-strong: #166534;
+    --launcher-folder-border: rgba(74, 222, 128, 0.28);
+    --launcher-folder-accent: #86efac;
+    --launcher-folder-front: #15803d;
+    --launcher-folder-back: #166534;
+  }
+
+  .dark .launcher-library-folder-card[data-folder-tone='cyan'] {
+    --launcher-folder-bg: #164e63;
+    --launcher-folder-bg-strong: #155e75;
+    --launcher-folder-border: rgba(34, 211, 238, 0.28);
+    --launcher-folder-accent: #67e8f9;
+    --launcher-folder-front: #0e7490;
+    --launcher-folder-back: #155e75;
+  }
+
+  .dark .launcher-library-folder-card[data-folder-tone='orange'] {
+    --launcher-folder-bg: #7c2d12;
+    --launcher-folder-bg-strong: #9a3412;
+    --launcher-folder-border: rgba(251, 146, 60, 0.28);
+    --launcher-folder-accent: #fdba74;
+    --launcher-folder-front: #c2410c;
+    --launcher-folder-back: #9a3412;
+  }
+
+  .dark .launcher-library-folder-card[data-folder-tone='pink'] {
+    --launcher-folder-bg: #831843;
+    --launcher-folder-bg-strong: #9d174d;
+    --launcher-folder-border: rgba(244, 114, 182, 0.28);
+    --launcher-folder-accent: #f9a8d4;
+    --launcher-folder-front: #be185d;
+    --launcher-folder-back: #9d174d;
+  }
+
+  .dark .launcher-library-folder-card[data-folder-tone='indigo'] {
+    --launcher-folder-bg: #312e81;
+    --launcher-folder-bg-strong: #3730a3;
+    --launcher-folder-border: rgba(129, 140, 248, 0.28);
+    --launcher-folder-accent: #a5b4fc;
+    --launcher-folder-front: #4338ca;
+    --launcher-folder-back: #3730a3;
+  }
+
+  .dark .launcher-library-folder-card[data-folder-tone='lime'] {
+    --launcher-folder-bg: #3f6212;
+    --launcher-folder-bg-strong: #4d7c0f;
+    --launcher-folder-border: rgba(163, 230, 53, 0.28);
+    --launcher-folder-accent: #bef264;
+    --launcher-folder-front: #65a30d;
+    --launcher-folder-back: #4d7c0f;
+  }
+}

@@ -6,26 +6,41 @@ from the repository root unless a command says otherwise.
 ## Prerequisites
 
 - Node.js compatible with the locked dependency graph.
-- pnpm 11.5.1, as declared in the root `packageManager` field.
+- Vite+ (`vp`) as the primary development entry point. It delegates package
+  management to pnpm 11.5.1, as declared in the root `packageManager` field.
 - Rust stable with the toolchain required by `apps/desktop/src-tauri/Cargo.toml`.
 - Platform build dependencies for Tauri, Electron, and native package generation.
 
 ## Development Commands
 
 ```bash
-pnpm install --frozen-lockfile
-pnpm dev
-pnpm desktop:dev
-pnpm build
-pnpm desktop:build
-pnpm lint
-pnpm format:check
-pnpm --filter @modforge/desktop test
+vp install --frozen-lockfile
+vp run dev
+vp run web:dev
+vp run build
+vp run desktop:build
+vp run lint
+vp run format:check
+vp run --filter @modforge/desktop test
+vp run --filter @modforge/desktop gen:host-commands
 ```
 
-`pnpm dev` starts the Vite-only frontend path. `pnpm desktop:dev` uses the root
-desktop host dispatcher: Linux starts Electron, while macOS and Windows start
-Tauri. `pnpm desktop:build` uses the same platform split for build mode.
+`vp run dev` is the default full desktop path and uses the root desktop host
+dispatcher directly. `vp run web:dev` starts the Vite+ frontend-only path.
+Linux starts Electron, while macOS and Windows start Tauri. `vp run
+desktop:build` uses the same platform split for build mode.
+
+To trace Host Runtime command scheduling, start the desktop host with:
+
+```bash
+MODFORGE_COMMAND_TRACE=1 vp run dev
+```
+
+This enables `HostRuntime` command start/finish/failure debug lines, including
+command id, command name, lane, worker, queue time, elapsed time, resources, and
+error state. It is intentionally separate from the in-app debug diagnostics
+toggle: UI debug keeps other backend debug/trace output, while command
+scheduler traces require `MODFORGE_COMMAND_TRACE`.
 
 Rust backend checks:
 
@@ -41,13 +56,13 @@ Current release entry points are exposed from the root package and delegated to
 `apps/desktop`:
 
 ```bash
-pnpm release:linux
-pnpm release:linux:deb
-pnpm release:linux:rpm
-pnpm release:macos
-pnpm release:windows
-pnpm release:all
-pnpm release:collect
+vp run release:linux
+vp run release:linux:deb
+vp run release:linux:rpm
+vp run release:macos
+vp run release:windows
+vp run release:all
+vp run release:collect
 ```
 
 `release:all` runs the current platform's release path and then collects
@@ -59,7 +74,7 @@ Linux releases use Electron Builder to generate Debian, RPM, and AppImage
 artifacts. macOS and Windows releases continue to use Tauri packaging.
 
 Linux-specific package scripts can be run directly when only one package format
-is needed: `pnpm release:linux:deb` or `pnpm release:linux:rpm`.
+is needed: `vp run release:linux:deb` or `vp run release:linux:rpm`.
 
 ## Validation Expectations
 
@@ -69,13 +84,13 @@ surface before handing work back.
 Frontend changes normally need:
 
 ```bash
-pnpm lint
-pnpm build
-pnpm --filter @modforge/desktop test
+vp run lint
+vp run build
+vp run --filter @modforge/desktop test
 ```
 
-`pnpm lint` uses Oxlint as the default frontend linter. `pnpm build` keeps the
-TypeScript `tsc --noEmit` checks and then runs the Vite 8 production build on
+`vp run lint` uses Vite+ lint. `vp run build` keeps the
+TypeScript `tsc --noEmit` checks and then runs the Vite+ production build on
 Rolldown. React Compiler is enabled in the Vite React pipeline; do not add
 manual `useMemo` or `useCallback` solely for render performance unless a
 measurement or compiler diagnostic proves it is needed. Existing memoization
@@ -116,7 +131,8 @@ The release workflow should build each supported host on its matching runner:
 - macOS: app bundle and distributable archive or disk image.
 - Windows: NSIS installer.
 
-CI should cache pnpm store data, Rust registry data, Rust git dependencies, and
+CI should run Vite+ package-management commands such as `vp install` and cache
+pnpm store data, Rust registry data, Rust git dependencies, and
 `apps/desktop/src-tauri/target` where practical. Cache keys should include the
 OS, architecture, lockfiles, and Rust manifest files.
 
@@ -139,10 +155,12 @@ release credentials.
 
 ## Repository Hygiene
 
-- pnpm is the only JavaScript package manager for this repository. Keep
-  `pnpm-lock.yaml` and do not commit `package-lock.json`.
-- Keep the root `packageManager` field and documentation in sync when the pnpm
-  version changes.
+- Use `vp install`, `vp add`, `vp remove`, and related Vite+ commands for
+  package-management workflows. They delegate to the package manager declared by
+  the repository.
+- pnpm is the underlying JavaScript package manager for this repository. Keep
+  `pnpm-lock.yaml`, keep the root `packageManager` field, and do not commit
+  `package-lock.json`.
 - Keep required `apps/desktop` configuration files in place, including
   `package.json`, `vite.config.ts`, `tsconfig*.json`, `postcss.config.cjs`, and
   `index.html`.

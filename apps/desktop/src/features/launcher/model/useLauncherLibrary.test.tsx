@@ -1,6 +1,6 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { LocaleProvider } from '@locales/provider'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import type {
@@ -946,6 +946,68 @@ describe('useLauncherLibrary', () => {
     })
 
     expect(result.current.mods.map((mod) => mod.id)).toEqual(['mod-new'])
+  })
+
+  it('does not let a slow refresh overwrite library state saved after it started', async () => {
+    const loadStateRequest = createDeferred<LauncherLibraryState>()
+    let refreshPromise!: Promise<void>
+
+    loadLauncherLibraryStateMock.mockReturnValue(loadStateRequest.promise)
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [createMod({ id: 'mod-a', labelKey: 'ModForge.A', uniqueId: 'ModForge.A' })],
+    })
+    saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+
+    await act(async () => {
+      refreshPromise = result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    await act(async () => {
+      await result.current.createLibraryFolder('Gameplay')
+    })
+
+    expect(result.current.libraryFolders).toEqual([
+      {
+        id: 'gameplay',
+        name: 'Gameplay',
+        parentFolderId: null,
+        modKeys: [],
+        coverModKeys: [],
+      },
+    ])
+
+    await act(async () => {
+      loadStateRequest.resolve(
+        createLibraryState({
+          libraryFolders: [
+            {
+              id: 'stale',
+              name: 'Stale',
+              parentFolderId: null,
+              modKeys: [],
+              coverModKeys: [],
+            },
+          ],
+        }),
+      )
+      await refreshPromise
+      await flushAsyncWork()
+    })
+
+    expect(result.current.libraryFolders).toEqual([
+      {
+        id: 'gameplay',
+        name: 'Gameplay',
+        parentFolderId: null,
+        modKeys: [],
+        coverModKeys: [],
+      },
+    ])
   })
 
   it.skip('publishes an auto-cover loading notification while missing covers are being fetched', async () => {

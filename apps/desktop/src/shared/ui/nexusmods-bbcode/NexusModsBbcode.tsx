@@ -615,7 +615,7 @@ function removeDanglingHeadingPrefix(nodes: ReactNode[]) {
     }
 
     if (node.trim().length === 0) {
-      nodes.splice(index, 1)
+      void nodes.splice(index, 1)
       continue
     }
 
@@ -624,7 +624,7 @@ function removeDanglingHeadingPrefix(nodes: ReactNode[]) {
       if (cleaned.length > 0) {
         nodes[index] = cleaned
       } else {
-        nodes.splice(index, 1)
+        void nodes.splice(index, 1)
       }
     }
 

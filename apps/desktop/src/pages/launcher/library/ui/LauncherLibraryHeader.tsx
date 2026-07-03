@@ -19,13 +19,19 @@ type LauncherLibraryHeaderLabels = {
   enabledOnly: string
   sortLabel: string
   editingPackLabel: string
+  choosingChildModsLabel: (name: string) => string
   includedModsCount: (count: number) => string
+  selectedChildModsCount: (count: number) => string
   cancelEdit: string
   saveChanges: string
+  confirmChildMods: string
 }
 
 type LauncherLibraryHeaderProps = {
   editMode: boolean
+  childModSelectionMode: boolean
+  childModSelectionParentName: string | null
+  childModSelectionCount: number
   drawerOpen: boolean
   quickSwitchOpen: boolean
   sortMenuOpen: boolean
@@ -67,10 +73,15 @@ type LauncherLibraryHeaderProps = {
   onSortModeChange: (sortMode: LibrarySortMode) => void
   onCancelEditMode: () => void
   onSaveEditMode: () => void
+  onCancelChildModSelection: () => void
+  onConfirmChildModSelection: () => void
 }
 
 export function LauncherLibraryHeader({
   editMode,
+  childModSelectionMode,
+  childModSelectionParentName,
+  childModSelectionCount,
   drawerOpen,
   quickSwitchOpen,
   sortMenuOpen,
@@ -112,6 +123,8 @@ export function LauncherLibraryHeader({
   onSortModeChange,
   onCancelEditMode,
   onSaveEditMode,
+  onCancelChildModSelection,
+  onConfirmChildModSelection,
 }: LauncherLibraryHeaderProps) {
   const toggleDrawer = () => {
     onToggleDrawer()
@@ -144,6 +157,42 @@ export function LauncherLibraryHeader({
           </button>
           <button type="button" className="control-button control-button-primary launcher-library-primary-action" onClick={onSaveEditMode}>
             {labels.saveChanges}
+          </button>
+        </div>
+      </LoadingMotionRevealItem>
+    )
+  }
+
+  if (childModSelectionMode) {
+    return (
+      <LoadingMotionRevealItem index={0} as="section" className="launcher-library-edit-bar">
+        <div className="launcher-library-edit-bar-left">
+          <button
+            type="button"
+            className="launcher-library-icon-button launcher-library-inline-menu-button"
+            aria-label={labels.packTitle}
+            title={labels.packTitle}
+            onClick={toggleDrawer}
+          >
+            <Menu className="h-4 w-4" />
+          </button>
+          <span className="launcher-library-edit-label">
+            {labels.choosingChildModsLabel(childModSelectionParentName ?? labels.allPacks)}
+          </span>
+        </div>
+        <div className="launcher-library-edit-bar-center">
+          <span className="launcher-library-edit-label">{labels.selectedChildModsCount(childModSelectionCount)}</span>
+        </div>
+        <div className="launcher-library-edit-bar-right">
+          <button type="button" className="control-button launcher-library-secondary-action" onClick={onCancelChildModSelection}>
+            {labels.cancelEdit}
+          </button>
+          <button
+            type="button"
+            className="control-button control-button-primary launcher-library-primary-action"
+            onClick={onConfirmChildModSelection}
+          >
+            {labels.confirmChildMods}
           </button>
         </div>
       </LoadingMotionRevealItem>

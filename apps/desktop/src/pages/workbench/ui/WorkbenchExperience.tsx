@@ -307,7 +307,7 @@ export default function WorkbenchExperience({
         return
       }
 
-      runWithModUnsavedGuard(() => handleWorkspaceChange(mode))
+      void runWithModUnsavedGuard(() => handleWorkspaceChange(mode))
     },
     [handleWorkspaceChange, runWithModUnsavedGuard, workspaceMode],
   )
@@ -609,7 +609,7 @@ export default function WorkbenchExperience({
         return
       }
 
-      runWithModUnsavedGuard(() => {
+      void runWithModUnsavedGuard(() => {
         setRegisteredWorkbenchViewId(null)
         setWorkspaceViewMode('preview')
         setWorkspaceMode(mode)
@@ -620,7 +620,7 @@ export default function WorkbenchExperience({
 
   const handleOpenProjectWorkspace = useCallback(
     (mode: WorkspaceMode) => {
-      runWithModUnsavedGuard(() => {
+      void runWithModUnsavedGuard(() => {
         setRegisteredWorkbenchViewId(null)
         setWorkspaceViewMode('edit')
         setWorkspaceMode(mode)

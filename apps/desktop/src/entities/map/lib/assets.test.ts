@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { resolveTilesetImagePath } from './assets'
 import type { MapDocument, MapTileset } from '@shared/contracts'
 

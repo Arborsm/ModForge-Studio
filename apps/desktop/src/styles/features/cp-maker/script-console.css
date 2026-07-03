@@ -126,7 +126,7 @@
     inset: 0;
     pointer-events: none;
     background: radial-gradient(circle at 50% 42%, transparent 58%, rgb(0 0 0 / 40%));
-    content: "";
+    content: '';
   }
 
   .canvas-with-map {
@@ -187,7 +187,7 @@
     height: 20px;
     margin: 0 6px;
     background: var(--border-color);
-    content: "";
+    content: '';
   }
 
   .event-stage-console-surface
@@ -660,7 +660,7 @@
     width: 2px;
     border-radius: 2px;
     background: color-mix(in srgb, var(--warning) 45%, var(--border-color));
-    content: "";
+    content: '';
   }
 
   .branch .cmd::before {
@@ -671,7 +671,7 @@
     height: 2px;
     border-radius: 2px;
     background: color-mix(in srgb, var(--warning) 45%, var(--border-color));
-    content: "";
+    content: '';
   }
 
   .branch-label {

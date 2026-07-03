@@ -1,4 +1,4 @@
-import { vi } from 'vitest'
+import { vi } from 'vite-plus/test'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 
 export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): LauncherPort {

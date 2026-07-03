@@ -141,7 +141,7 @@
     background: var(--bg-panel);
   }
 
-  .dev-resource-browser__dialog-row[data-active="true"] {
+  .dev-resource-browser__dialog-row[data-active='true'] {
     outline: 1px solid color-mix(in srgb, var(--accent) 36%, var(--border-color));
     outline-offset: -1px;
     background: color-mix(in srgb, var(--accent-soft) 24%, var(--bg-panel));

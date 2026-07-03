@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { WorkspaceLayout, type WorkspacePanelConfig } from './WorkspaceLayout'
 import { buildDefaultSnapshot, sanitizeStoredState } from '@shared/workspace/layoutState'
 import type { WorkspaceStoredState } from '@shared/contracts'

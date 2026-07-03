@@ -16,16 +16,25 @@ type RpcResponse = {
   }
 }
 
+type PendingRpc = {
+  resolve: (value: unknown) => void
+  reject: (error: unknown) => void
+}
+
 const localFileProtocol = 'modforge-asset'
 const localFileHost = 'local'
 const isDev = !app.isPackaged
 const devUrl = process.env.VITE_DEV_SERVER_URL ?? 'http://127.0.0.1:5173'
 let mainWindow: BrowserWindow | null = null
-let sidecar: ChildProcessWithoutNullStreams | null = null
-let sidecarStdout: ReadlineInterface | null = null
-let nextRpcId = 0
 let closeAllowed = false
-const pendingRpc = new Map<number, { resolve: (value: unknown) => void; reject: (reason?: unknown) => void }>()
+
+function resolveWindowIconPath() {
+  if (isDev) {
+    return path.resolve(__dirname, '../src-tauri/icons/icon.png')
+  }
+
+  return path.join(process.resourcesPath, 'icon.png')
+}
 
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('use-webgpu-adapter', 'opengles')
@@ -104,53 +113,78 @@ function forwardHostEvent(event: string, payload: unknown) {
   mainWindow?.webContents.send('modforge:host-event', event, payload)
 }
 
-function stopSidecar() {
-  sidecarStdout?.close()
-  sidecarStdout = null
-  sidecar?.kill()
-  sidecar = null
-}
+class SidecarTransport {
+  private sidecar: ChildProcessWithoutNullStreams | null = null
+  private sidecarStdout: ReadlineInterface | null = null
+  private nextRpcId = 0
+  private pendingRpc = new Map<number, PendingRpc>()
+  private readonly forwardEvent: (event: string, payload: unknown) => void
 
-function requestWindowClose(window: BrowserWindow) {
-  if (window.webContents.isDestroyed()) {
-    closeAllowed = true
-    window.destroy()
-    return
+  constructor(forwardEvent: (event: string, payload: unknown) => void) {
+    this.forwardEvent = forwardEvent
   }
 
-  forwardHostEvent('app://window-close-requested', {})
-}
-
-function startSidecar() {
-  if (sidecar) {
-    return sidecar
-  }
-
-  sidecar = spawn(resolveSidecarPath(), [], {
-    cwd: isDev ? path.resolve(__dirname, '..') : process.resourcesPath,
-    env: {
-      ...process.env,
-      MODFORGE_LOG_COLOR: process.env.MODFORGE_LOG_COLOR ?? (isDev ? 'always' : 'auto'),
-    },
-    stdio: ['pipe', 'pipe', 'pipe'],
-  })
-
-  sidecar.on('exit', () => {
-    sidecarStdout?.close()
-    sidecarStdout = null
-    sidecar = null
-    for (const { reject } of pendingRpc.values()) {
-      reject(new Error('ModForge sidecar exited.'))
+  start() {
+    if (this.sidecar) {
+      return this.sidecar
     }
-    pendingRpc.clear()
-  })
 
-  sidecar.stderr.on('data', (chunk) => {
-    console.error(String(chunk).trimEnd())
-  })
+    const child = spawn(resolveSidecarPath(), [], {
+      cwd: isDev ? path.resolve(__dirname, '..') : process.resourcesPath,
+      env: {
+        ...process.env,
+        MODFORGE_LOG_COLOR: process.env.MODFORGE_LOG_COLOR ?? (isDev ? 'always' : 'auto'),
+      },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
 
-  sidecarStdout = createInterface({ input: sidecar.stdout })
-  sidecarStdout.on('line', (line) => {
+    this.sidecar = child
+
+    child.on('exit', () => {
+      this.teardown(new Error('ModForge sidecar exited.'))
+    })
+
+    child.on('error', (error) => {
+      this.teardown(error)
+    })
+
+    child.stderr.on('data', (chunk) => {
+      console.error(String(chunk).trimEnd())
+    })
+
+    this.sidecarStdout = createInterface({ input: child.stdout })
+    this.sidecarStdout.on('line', (line) => this.handleFrameLine(line))
+
+    return child
+  }
+
+  stop() {
+    const child = this.sidecar
+    this.teardown(new Error('ModForge sidecar stopped.'))
+    child?.kill()
+  }
+
+  invoke(command: string, args?: Record<string, unknown>) {
+    const child = this.start()
+    const id = ++this.nextRpcId
+
+    return new Promise((resolve, reject) => {
+      if (child.stdin.destroyed || !child.stdin.writable) {
+        reject(new Error('ModForge sidecar stdin is not writable.'))
+        return
+      }
+
+      this.pendingRpc.set(id, { resolve, reject })
+      child.stdin.write(`${JSON.stringify({ id, command, args: args ?? {} })}\n`, (error) => {
+        if (error) {
+          this.pendingRpc.delete(id)
+          reject(error)
+        }
+      })
+    })
+  }
+
+  private handleFrameLine(line: string) {
     let frame: RpcResponse
     try {
       frame = JSON.parse(line) as RpcResponse
@@ -160,7 +194,7 @@ function startSidecar() {
     }
 
     if (frame.event) {
-      forwardHostEvent(frame.event.event, frame.event.payload)
+      this.forwardEvent(frame.event.event, frame.event.payload)
       return
     }
 
@@ -168,35 +202,44 @@ function startSidecar() {
       return
     }
 
-    const pending = pendingRpc.get(frame.id)
+    const pending = this.pendingRpc.get(frame.id)
     if (!pending) {
       return
     }
-    pendingRpc.delete(frame.id)
+    this.pendingRpc.delete(frame.id)
 
     if (frame.ok) {
       pending.resolve(frame.result)
     } else {
       pending.reject(frame.error ?? 'Sidecar command failed.')
     }
-  })
+  }
 
-  return sidecar
+  private teardown(error: Error) {
+    this.sidecarStdout?.close()
+    this.sidecarStdout = null
+    this.sidecar = null
+    this.rejectPendingRpc(error)
+  }
+
+  private rejectPendingRpc(error: Error) {
+    for (const { reject } of this.pendingRpc.values()) {
+      reject(error)
+    }
+    this.pendingRpc.clear()
+  }
 }
 
-function invokeSidecar(command: string, args?: Record<string, unknown>) {
-  const process = startSidecar()
-  const id = ++nextRpcId
+const sidecarTransport = new SidecarTransport(forwardHostEvent)
 
-  return new Promise((resolve, reject) => {
-    pendingRpc.set(id, { resolve, reject })
-    process.stdin.write(`${JSON.stringify({ id, command, args: args ?? {} })}\n`, (error) => {
-      if (error) {
-        pendingRpc.delete(id)
-        reject(error)
-      }
-    })
-  })
+function requestWindowClose(window: BrowserWindow) {
+  if (window.webContents.isDestroyed()) {
+    closeAllowed = true
+    window.destroy()
+    return
+  }
+
+  forwardHostEvent('app://window-close-requested', {})
 }
 
 function createMainWindow() {
@@ -210,6 +253,7 @@ function createMainWindow() {
     show: false,
     transparent: true,
     backgroundColor: '#00000000',
+    icon: resolveWindowIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -259,7 +303,9 @@ function currentWindow() {
   return window
 }
 
-ipcMain.handle('modforge:invoke-command', (_event, command: string, args?: Record<string, unknown>) => invokeSidecar(command, args))
+ipcMain.handle('modforge:invoke-command', (_event, command: string, args?: Record<string, unknown>) =>
+  sidecarTransport.invoke(command, args),
+)
 ipcMain.handle('modforge:window-minimize', () => currentWindow().minimize())
 ipcMain.handle('modforge:window-toggle-maximize', () => {
   const window = currentWindow()
@@ -301,9 +347,9 @@ ipcMain.handle('modforge:open-dialog', async (_event, options?: OpenDialogOption
   return options?.multiple ? result.filePaths : (result.filePaths[0] ?? null)
 })
 
-app.whenReady().then(() => {
+void app.whenReady().then(() => {
   registerLocalFileProtocol()
-  startSidecar()
+  sidecarTransport.start()
   createMainWindow()
 })
 
@@ -314,5 +360,5 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
-  stopSidecar()
+  sidecarTransport.stop()
 })

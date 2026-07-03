@@ -45,7 +45,7 @@ function stringifyDisplayValue(value: unknown) {
   try {
     return JSON.stringify(value)
   } catch {
-    return String(value)
+    return ''
   }
 }
 

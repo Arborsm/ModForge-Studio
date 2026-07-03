@@ -23,6 +23,22 @@ use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard, OnceLock};
+
+static LAUNCHER_LIBRARY_COVERS_FILE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn lock_launcher_library_covers_files() -> MutexGuard<'static, ()> {
+    match LAUNCHER_LIBRARY_COVERS_FILE_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+    {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            log::error!(target: "Launcher", "Launcher library covers file lock was poisoned");
+            poisoned.into_inner()
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 struct ScannedLauncherMod {
@@ -375,6 +391,13 @@ pub(crate) fn save_library_state_at_path(
 pub(crate) fn load_or_create_library_covers_at_path(
     covers_path: &Path,
 ) -> Result<LauncherLibraryCoversState, String> {
+    let _covers_file_guard = lock_launcher_library_covers_files();
+    load_or_create_library_covers_at_path_unlocked(covers_path)
+}
+
+fn load_or_create_library_covers_at_path_unlocked(
+    covers_path: &Path,
+) -> Result<LauncherLibraryCoversState, String> {
     if covers_path.is_file() {
         let content = fs::read_to_string(covers_path).map_err(|error| {
             format!(
@@ -392,17 +415,17 @@ pub(crate) fn load_or_create_library_covers_at_path(
         let normalized = normalize_library_covers(parsed);
         let pruned = prune_missing_library_covers(normalized.clone());
         if pruned != normalized {
-            save_library_covers_at_path(covers_path, &pruned)?;
+            save_library_covers_at_path_unlocked(covers_path, &pruned)?;
         }
         return Ok(pruned);
     }
 
     let defaults = LauncherLibraryCoversState { covers: Vec::new() };
-    save_library_covers_at_path(covers_path, &defaults)?;
+    save_library_covers_at_path_unlocked(covers_path, &defaults)?;
     Ok(defaults)
 }
 
-pub(crate) fn save_library_covers_at_path(
+fn save_library_covers_at_path_unlocked(
     covers_path: &Path,
     state: &LauncherLibraryCoversState,
 ) -> Result<(), String> {
@@ -443,7 +466,8 @@ pub(crate) fn persist_auto_library_cover_at_path(
         ));
     }
 
-    let current = load_or_create_library_covers_at_path(covers_path)?;
+    let _covers_file_guard = lock_launcher_library_covers_files();
+    let current = load_or_create_library_covers_at_path_unlocked(covers_path)?;
     let normalized_key = normalize_unique_id(label_key);
     if current
         .covers
@@ -460,7 +484,7 @@ pub(crate) fn persist_auto_library_cover_at_path(
     });
 
     let normalized = normalize_library_covers(LauncherLibraryCoversState { covers });
-    save_library_covers_at_path(covers_path, &normalized)?;
+    save_library_covers_at_path_unlocked(covers_path, &normalized)?;
     Ok(normalized)
 }
 
@@ -751,7 +775,8 @@ pub fn set_launcher_library_cover(
             }
 
             let covers_path = launcher_library_covers_path()?;
-            let current = load_or_create_library_covers_at_path(&covers_path)?;
+            let _covers_file_guard = lock_launcher_library_covers_files();
+            let current = load_or_create_library_covers_at_path_unlocked(&covers_path)?;
             let normalized_key = normalize_unique_id(label_key);
             let mut covers = current
                 .covers
@@ -779,7 +804,7 @@ pub fn set_launcher_library_cover(
             }
 
             let normalized = normalize_library_covers(LauncherLibraryCoversState { covers });
-            save_library_covers_at_path(&covers_path, &normalized)?;
+            save_library_covers_at_path_unlocked(&covers_path, &normalized)?;
             Ok(normalized)
         })(),
     )

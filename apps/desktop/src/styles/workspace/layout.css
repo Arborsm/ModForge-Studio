@@ -227,7 +227,7 @@
   }
 
   .workspace-dock-resizer::before {
-    content: "";
+    content: '';
     position: absolute;
     border-radius: 999px;
     background: color-mix(in srgb, var(--border-color) 84%, transparent);
@@ -267,7 +267,7 @@
   }
 
   .workspace-split-resizer::before {
-    content: "";
+    content: '';
     position: absolute;
     inset: 0;
     border-radius: 999px;

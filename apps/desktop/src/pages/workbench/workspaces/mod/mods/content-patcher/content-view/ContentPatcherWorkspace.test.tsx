@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react'
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { getModWorkspaceCopy } from '@locales/api'
 import { createDefaultContentPatcherSimulationContext } from '../content-model/contentPatcher'
 import type { WorkspacePluginCapability } from '../content-model/types'

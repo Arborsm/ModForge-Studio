@@ -1,10 +1,3 @@
-use crate::AppHandle;
-use crate::domain::launcher::archive;
-use crate::domain::launcher::downloads;
-use crate::domain::launcher::image_cache;
-use crate::domain::launcher::library;
-use crate::domain::launcher::runtime;
-use crate::domain::launcher::settings;
 use crate::domain::launcher::types::{
     CheckLauncherUpdatesRequest, DownloadLauncherModRequest, DownloadLauncherModResult,
     InspectLauncherArchiveRequest, InspectLauncherArchiveResult, InstallLauncherArchiveRequest,
@@ -22,392 +15,527 @@ use crate::domain::launcher::types::{
     SearchLauncherCatalogRequest, SetLauncherLibraryCoverRequest, SetLauncherModEnabledRequest,
     SetLauncherModEnabledResult,
 };
-use crate::domain::launcher::updates;
-use crate::domain::nexusmods::catalog;
-use crate::domain::nexusmods::diagnostics;
-use crate::domain::nexusmods::graphql;
-use crate::domain::nexusmods::mod_detail;
-use crate::domain::nexusmods::rest_api;
-use crate::domain::nexusmods::sso::{SsoConnectionStatus, SsoSnapshot};
-use crate::domain::nexusmods::types::NexusDiagnosticsResult;
-use serde::{Deserialize, Serialize};
+use crate::domain::nexusmods::sso::{SsoSnapshot, SsoStartResult};
+use crate::domain::nexusmods::types::{NexusDiagnosticsResult, ValidateApiKeyResult};
+use crate::support::logging::DebugLoggingState;
+use crate::{AppHandle, AppRuntime};
+use serde_json::json;
+use tauri::State;
 
 #[tauri::command]
-pub fn load_launcher_settings(app: AppHandle) -> Result<LauncherSettings, String> {
-    settings::load_launcher_settings(app)
+pub fn load_launcher_settings(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<LauncherSettings, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(load_launcher_settings),
+        json!({}),
+    )
 }
 
 #[tauri::command]
 pub fn save_launcher_settings(
-    app: AppHandle,
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: SaveLauncherSettingsRequest,
 ) -> Result<LauncherSettings, String> {
-    settings::save_launcher_settings(app, request)
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(save_launcher_settings),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
 pub fn launch_launcher_game(
-    app: AppHandle,
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
 ) -> Result<LauncherGameLaunchResult, LauncherGameLaunchError> {
-    runtime::launch_launcher_game(app)
+    crate::commands::runtime::execute_tauri_command_typed_error(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(launch_launcher_game),
+        json!({}),
+    )
 }
 
 #[tauri::command]
-pub fn get_launcher_backup_directory(app: AppHandle) -> Result<String, String> {
-    runtime::get_launcher_backup_directory(app)
+pub fn get_launcher_backup_directory(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<String, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(get_launcher_backup_directory),
+        json!({}),
+    )
 }
 
 #[tauri::command]
-pub fn open_launcher_path(request: OpenLauncherPathRequest) -> Result<(), String> {
-    runtime::open_launcher_path(request)
+pub fn open_launcher_path(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    request: OpenLauncherPathRequest,
+) -> Result<(), String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(open_launcher_path),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
-pub fn open_launcher_url(request: OpenLauncherUrlRequest) -> Result<(), String> {
-    runtime::open_launcher_url(request)
+pub fn open_launcher_url(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    request: OpenLauncherUrlRequest,
+) -> Result<(), String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(open_launcher_url),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
-pub fn load_launcher_library_state(app: AppHandle) -> Result<LauncherLibraryState, String> {
-    library::load_launcher_library_state(app)
+pub fn load_launcher_library_state(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<LauncherLibraryState, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(load_launcher_library_state),
+        json!({}),
+    )
 }
 
 #[tauri::command]
 pub fn save_launcher_library_state(
-    app: AppHandle,
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: LauncherLibraryState,
 ) -> Result<LauncherLibraryState, String> {
-    library::save_launcher_library_state(app, request)
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(save_launcher_library_state),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
-pub fn load_launcher_library_covers(app: AppHandle) -> Result<LauncherLibraryCoversState, String> {
-    library::load_launcher_library_covers(app)
+pub fn load_launcher_library_covers(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<LauncherLibraryCoversState, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(load_launcher_library_covers),
+        json!({}),
+    )
 }
 
 #[tauri::command]
 pub fn set_launcher_library_cover(
-    app: AppHandle,
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: SetLauncherLibraryCoverRequest,
 ) -> Result<LauncherLibraryCoversState, String> {
-    library::set_launcher_library_cover(app, request)
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(set_launcher_library_cover),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
-pub async fn persist_launcher_library_remote_cover(
-    app: AppHandle,
+pub fn persist_launcher_library_remote_cover(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: PersistLauncherLibraryRemoteCoverRequest,
 ) -> Result<LauncherLibraryCoversState, String> {
-    library::persist_launcher_library_remote_cover(app, request).await
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(persist_launcher_library_remote_cover),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
 pub fn scan_launcher_library(
-    app: AppHandle,
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: ScanLauncherLibraryRequest,
 ) -> Result<LauncherLibraryScanResult, String> {
-    library::scan_launcher_library(app, request)
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(scan_launcher_library),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
-pub fn load_launcher_runtime_info(app: AppHandle) -> Result<LauncherRuntimeInfo, String> {
-    let settings = settings::load_launcher_settings(app)?;
-    let Some(game_path) = settings
-        .game_path
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    else {
-        return Ok(LauncherRuntimeInfo {
-            game_version: None,
-            smapi_version: None,
-        });
-    };
-
-    let game_root = crate::infrastructure::fs::pathing::clean_input_path(game_path);
-    let versions = updates::resolve_smapi_runtime_versions_with_reader(
-        Some(game_root.as_path()),
-        updates::read_windows_file_version,
-    );
-
-    Ok(LauncherRuntimeInfo {
-        game_version: Some(versions.game_version),
-        smapi_version: Some(versions.api_version),
-    })
+pub fn load_launcher_runtime_info(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<LauncherRuntimeInfo, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(load_launcher_runtime_info),
+        json!({}),
+    )
 }
 
 #[tauri::command]
 pub fn set_launcher_mod_enabled(
-    app: AppHandle,
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: SetLauncherModEnabledRequest,
 ) -> Result<SetLauncherModEnabledResult, String> {
-    library::set_launcher_mod_enabled(app, request)
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(set_launcher_mod_enabled),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
-pub fn load_launcher_download_queue(app: AppHandle) -> Result<LauncherDownloadQueueState, String> {
-    downloads::load_launcher_download_queue(app)
+pub fn load_launcher_download_queue(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<LauncherDownloadQueueState, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(load_launcher_download_queue),
+        json!({}),
+    )
 }
 
 #[tauri::command]
 pub fn save_launcher_download_queue(
-    app: AppHandle,
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: LauncherDownloadQueueState,
 ) -> Result<LauncherDownloadQueueState, String> {
-    downloads::save_launcher_download_queue(app, request)
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(save_launcher_download_queue),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
-pub async fn download_launcher_mod(
-    app: AppHandle,
+pub fn download_launcher_mod(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: DownloadLauncherModRequest,
 ) -> Result<DownloadLauncherModResult, String> {
-    tauri::async_runtime::spawn_blocking(move || downloads::download_launcher_mod(app, request))
-        .await
-        .map_err(|error| format!("launcher mod download task failed: {error}"))?
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(download_launcher_mod),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
-pub fn cancel_launcher_download(download_id: String) -> Result<(), String> {
-    downloads::cancel_launcher_download(download_id)
+pub fn cancel_launcher_download(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    download_id: String,
+) -> Result<(), String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(cancel_launcher_download),
+        json!({ "downloadId": download_id }),
+    )
 }
 
 #[tauri::command]
-pub async fn search_launcher_catalog(
-    app: AppHandle,
+pub fn search_launcher_catalog(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: SearchLauncherCatalogRequest,
 ) -> Result<LauncherCatalogPageResult, String> {
-    catalog::search_launcher_catalog(app, request).await
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(search_launcher_catalog),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
-pub async fn load_launcher_remote_mod_detail(
-    app: AppHandle,
+pub fn load_launcher_remote_mod_detail(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: LoadLauncherRemoteModDetailRequest,
 ) -> Result<LauncherRemoteModDetail, String> {
-    mod_detail::load_launcher_remote_mod_detail(app, request).await
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(load_launcher_remote_mod_detail),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
-pub async fn load_launcher_update_changelog(
-    app: AppHandle,
+pub fn load_launcher_update_changelog(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: LoadLauncherUpdateChangelogRequest,
 ) -> Result<LauncherUpdateChangelogResult, String> {
-    mod_detail::load_launcher_update_changelog(app, request).await
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(load_launcher_update_changelog),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
-pub async fn resolve_launcher_image(
-    app: AppHandle,
+pub fn resolve_launcher_image(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: ResolveLauncherImageRequest,
 ) -> Result<ResolveLauncherImageResult, String> {
-    image_cache::resolve_launcher_image(app, request).await
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(resolve_launcher_image),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
-pub fn clear_launcher_image_cache(app: AppHandle) -> Result<(), String> {
-    image_cache::clear_launcher_image_cache(app)
+pub fn clear_launcher_image_cache(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<(), String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(clear_launcher_image_cache),
+        json!({}),
+    )
 }
 
 #[tauri::command]
-pub async fn load_launcher_nexus_diagnostics(
-    app: AppHandle,
+pub fn load_launcher_nexus_diagnostics(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
 ) -> Result<NexusDiagnosticsResult, String> {
-    tauri::async_runtime::spawn_blocking(move || diagnostics::load_launcher_nexus_diagnostics(&app))
-        .await
-        .map_err(|error| format!("launcher nexus diagnostics task failed: {error}"))?
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(load_launcher_nexus_diagnostics),
+        json!({}),
+    )
 }
 
 #[tauri::command]
-pub async fn restart_launcher_nexus_diagnostics(
-    app: AppHandle,
+pub fn restart_launcher_nexus_diagnostics(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
 ) -> Result<NexusDiagnosticsResult, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        diagnostics::restart_launcher_nexus_diagnostics_with_app(&app)
-    })
-    .await
-    .map_err(|error| format!("launcher nexus diagnostics restart task failed: {error}"))?
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(restart_launcher_nexus_diagnostics),
+        json!({}),
+    )
 }
 
 #[tauri::command]
-pub async fn retry_launcher_nexus_diagnostics_route(
-    app: AppHandle,
+pub fn retry_launcher_nexus_diagnostics_route(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     route_id: String,
 ) -> Result<NexusDiagnosticsResult, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        diagnostics::retry_launcher_nexus_diagnostics_route(&app, route_id)
-    })
-    .await
-    .map_err(|error| format!("launcher nexus diagnostics retry task failed: {error}"))?
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(retry_launcher_nexus_diagnostics_route),
+        json!({ "routeId": route_id }),
+    )
 }
 
 #[tauri::command]
-pub async fn set_launcher_nexus_force_offline(
-    app: AppHandle,
+pub fn set_launcher_nexus_force_offline(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     force_offline: bool,
 ) -> Result<NexusDiagnosticsResult, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        diagnostics::set_launcher_nexus_force_offline(&app, force_offline)
-    })
-    .await
-    .map_err(|error| format!("launcher nexus force-offline task failed: {error}"))?
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(set_launcher_nexus_force_offline),
+        json!({ "forceOffline": force_offline }),
+    )
 }
 
 #[tauri::command]
 pub fn load_cached_launcher_updates(
-    app: AppHandle,
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: LoadCachedLauncherUpdatesRequest,
 ) -> Result<Option<LauncherUpdatesResult>, String> {
-    updates::load_cached_launcher_updates(app, request)
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(load_cached_launcher_updates),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
 pub fn load_suppressed_launcher_update_mod_ids(
-    app: AppHandle,
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: LoadSuppressedLauncherUpdateModIdsRequest,
 ) -> Result<LauncherSuppressedUpdateModIdsResult, String> {
-    updates::load_suppressed_launcher_update_mod_ids(app, request)
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(load_suppressed_launcher_update_mod_ids),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
-pub async fn check_launcher_updates(
-    app: AppHandle,
+pub fn check_launcher_updates(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: CheckLauncherUpdatesRequest,
 ) -> Result<LauncherUpdatesResult, String> {
-    updates::check_launcher_updates(app, request).await
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(check_launcher_updates),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
-pub async fn install_launcher_archive(
-    app: AppHandle,
+pub fn install_launcher_archive(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: InstallLauncherArchiveRequest,
 ) -> Result<InstallLauncherArchiveResult, String> {
-    tauri::async_runtime::spawn_blocking(move || archive::install_launcher_archive(app, request))
-        .await
-        .map_err(|error| format!("launcher archive install task failed: {error}"))?
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(install_launcher_archive),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
 pub fn list_launcher_install_backups(
-    app: AppHandle,
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: ListLauncherInstallBackupsRequest,
 ) -> Result<Vec<LauncherInstallBackupSummary>, String> {
-    archive::list_launcher_install_backups(app, request)
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(list_launcher_install_backups),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
 pub fn restore_launcher_install_backup(
-    app: AppHandle,
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: RestoreLauncherInstallBackupRequest,
 ) -> Result<RestoreLauncherInstallBackupResult, String> {
-    archive::restore_launcher_install_backup(app, request)
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(restore_launcher_install_backup),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
-pub async fn inspect_launcher_archive(
+pub fn inspect_launcher_archive(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: InspectLauncherArchiveRequest,
 ) -> Result<InspectLauncherArchiveResult, String> {
-    tauri::async_runtime::spawn_blocking(move || archive::inspect_launcher_archive(request))
-        .await
-        .map_err(|error| error.to_string())?
-}
-
-// ---- REST API v1 Commands ----
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ValidateApiKeyResult {
-    pub user_name: String,
-    pub avatar_url: Option<String>,
-    pub profile_url: Option<String>,
-    pub is_premium: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub premium_expires_at: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub is_lifetime_premium: Option<bool>,
-    pub daily_remaining: Option<u64>,
-    pub hourly_remaining: Option<u64>,
-    pub daily_reset_at: Option<u64>,
-    pub hourly_reset_at: Option<u64>,
-}
-
-fn optional_nexus_value_as_string(value: Option<serde_json::Value>) -> Option<String> {
-    match value? {
-        serde_json::Value::String(value) => {
-            let trimmed = value.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(trimmed.to_string())
-            }
-        }
-        serde_json::Value::Number(value) => Some(value.to_string()),
-        _ => None,
-    }
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(inspect_launcher_archive),
+        json!({ "request": request }),
+    )
 }
 
 #[tauri::command]
-pub async fn validate_nexus_api_key(app: AppHandle) -> Result<ValidateApiKeyResult, String> {
-    tauri::async_runtime::spawn_blocking(move || validate_nexus_api_key_blocking(app))
-        .await
-        .map_err(|error| format!("launcher Nexus API key validation task failed: {error}"))?
-}
-
-fn validate_nexus_api_key_blocking(app: AppHandle) -> Result<ValidateApiKeyResult, String> {
-    let settings = settings::load_launcher_settings(app)?;
-    let api_key = settings.nexus_api_key.as_deref().unwrap_or("");
-    log::info!(
-        target: "Nexus",
-        "Validate API key requested: api-key-present={} api-key-length={}",
-        !api_key.trim().is_empty(),
-        api_key.len()
-    );
-    let user_info = rest_api::validate_user(api_key).map_err(|e| e.to_string())?;
-    let avatar_url = graphql::load_user_avatar(api_key, user_info.user_id)
-        .map_err(|error| {
-            log::warn!(target: "Nexus", "User avatar lookup failed: error={error}");
-            error
-        })
-        .ok()
-        .flatten();
-    Ok(ValidateApiKeyResult {
-        user_name: user_info.name,
-        avatar_url,
-        profile_url: Some(user_info.profile_url),
-        is_premium: user_info.is_premium,
-        premium_expires_at: optional_nexus_value_as_string(user_info.premium_expires_at),
-        is_lifetime_premium: user_info.is_lifetime_premium,
-        daily_remaining: rest_api::daily_quota_remaining(),
-        hourly_remaining: rest_api::hourly_quota_remaining(),
-        daily_reset_at: rest_api::daily_quota_reset_at(),
-        hourly_reset_at: rest_api::hourly_quota_reset_at(),
-    })
-}
-
-// ---- SSO Commands ----
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SsoStartResult {
-    pub sso_id: String,
-    pub status: SsoConnectionStatus,
+pub fn validate_nexus_api_key(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<ValidateApiKeyResult, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(validate_nexus_api_key),
+        json!({}),
+    )
 }
 
 #[tauri::command]
-pub fn start_nexus_sso(app: AppHandle) -> Result<SsoStartResult, String> {
-    let sso_id = crate::domain::nexusmods::sso::start_sso(&app)?;
-    std::thread::sleep(std::time::Duration::from_millis(100));
-    let status = crate::domain::nexusmods::sso::get_sso_status().status;
-    Ok(SsoStartResult { sso_id, status })
+pub fn start_nexus_sso(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<SsoStartResult, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(start_nexus_sso),
+        json!({}),
+    )
 }
 
 #[tauri::command]
-pub fn get_nexus_sso_status() -> Result<SsoSnapshot, String> {
-    Ok(crate::domain::nexusmods::sso::get_sso_status())
+pub fn get_nexus_sso_status(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<SsoSnapshot, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(get_nexus_sso_status),
+        json!({}),
+    )
 }
 
 #[tauri::command]
-pub fn cancel_nexus_sso() -> Result<(), String> {
-    crate::domain::nexusmods::sso::cancel_sso();
-    Ok(())
+pub fn cancel_nexus_sso(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<(), String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(cancel_nexus_sso),
+        json!({}),
+    )
 }

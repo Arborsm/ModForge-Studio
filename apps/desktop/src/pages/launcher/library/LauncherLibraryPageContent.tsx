@@ -81,9 +81,8 @@ export function LauncherLibraryPageContent({
     folderDialog,
     galleryCoverDialog,
     childModManager,
-    childModPicker,
   } = dialogState
-  const { editMode, editingSelectionIds, boxSelectionIds, archiveDropActive } = dragState
+  const { editMode, editingSelectionIds, boxSelectionIds, childModSelection, archiveDropActive } = dragState
   const { actionError, sortMode, sortMenuOpen, drawerOpen, quickSwitchOpen, packActionMenuId, hiddenViewOpen } = shellState
   const {
     setSelectedArchivePreviewPath,
@@ -97,7 +96,6 @@ export function LauncherLibraryPageContent({
     setFolderDialog,
     setGalleryCoverDialog,
     setChildModManager,
-    setChildModPicker,
     closeArchivePreview,
     closeInstallSummary,
     closeInstallBackupsDialog,
@@ -126,8 +124,9 @@ export function LauncherLibraryPageContent({
     moveDraggedFolderToFolder,
     toggleParentExpanded,
     removeChildMod,
-    toggleChildModPickerSelection,
-    submitChildModPicker,
+    toggleChildModSelection,
+    cancelChildModSelection,
+    submitChildModSelection,
     cancelEditMode,
     saveEditMode,
     openCreatePackDialog,
@@ -139,7 +138,6 @@ export function LauncherLibraryPageContent({
     submitFolderDialog,
     isParentExpanded,
     openGridModFolder,
-    assignDraggedModsToParentFromDnd,
     assignDraggedModsToLibraryFolderFromDnd,
     addDraggedModsToPack,
     directActionsForMod,
@@ -165,7 +163,6 @@ export function LauncherLibraryPageContent({
       <LauncherLibraryDndScope
         resolveDraggedModIds={resolveDraggedModIds}
         onAddModsToPack={addDraggedModsToPack}
-        onAssignModsToParent={assignDraggedModsToParentFromDnd}
         onAssignModsToLibraryFolder={assignDraggedModsToLibraryFolderFromDnd}
         onRemoveChildModsFromParent={removeDraggedChildModsFromParent}
         onRemoveModsFromLibraryFolders={removeDraggedModsFromLibraryFolders}
@@ -175,6 +172,9 @@ export function LauncherLibraryPageContent({
         <section className="launcher-library-page">
           <LauncherLibraryHeader
             editMode={editMode}
+            childModSelectionMode={Boolean(childModSelection)}
+            childModSelectionParentName={childModSelection?.parentMod.name ?? null}
+            childModSelectionCount={childModSelection?.selectedModIds.length ?? 0}
             drawerOpen={drawerOpen}
             quickSwitchOpen={quickSwitchOpen}
             sortMenuOpen={sortMenuOpen}
@@ -211,9 +211,12 @@ export function LauncherLibraryPageContent({
               enabledOnly: copy.toggles.enabledOnly,
               sortLabel: copy.library.sortLabel,
               editingPackLabel: copy.library.editingPackLabel,
+              choosingChildModsLabel: copy.library.choosingChildModsLabel,
               includedModsCount: copy.library.includedModsCount,
+              selectedChildModsCount: copy.library.selectedChildModsCount,
               cancelEdit: copy.library.cancelEdit,
               saveChanges: copy.library.saveChanges,
+              confirmChildMods: copy.library.confirmChildMods,
             }}
             onToggleDrawer={() => setDrawerOpen((current) => !current)}
             onToggleQuickSwitch={() => setQuickSwitchOpen((current) => !current)}
@@ -243,6 +246,8 @@ export function LauncherLibraryPageContent({
             }}
             onCancelEditMode={cancelEditMode}
             onSaveEditMode={() => void saveEditMode()}
+            onCancelChildModSelection={cancelChildModSelection}
+            onConfirmChildModSelection={() => void submitChildModSelection()}
           />
           <div
             className={cx(
@@ -310,15 +315,20 @@ export function LauncherLibraryPageContent({
                     editMode={editMode}
                     editingSelectionIds={editingSelectionIds}
                     boxSelectionIds={boxSelectionIds}
+                    childModSelectionMode={Boolean(childModSelection)}
+                    childModSelectionParentId={childModSelection?.parentMod.id ?? null}
+                    childModSelectionIds={childModSelection?.selectedModIds ?? []}
                     noneLabel={editorCopy.common.none}
                     childCountLabel={copy.library.childModsCount}
                     expandLabel={copy.library.expandChildMods}
                     collapseLabel={copy.library.collapseChildMods}
                     folderCountLabel={copy.library.libraryFolderCount}
+                    folderEmptyLabel={copy.library.libraryFolderEmpty}
                     openFolderLabel={copy.library.openLibraryFolder}
                     closeFolderLabel={copy.library.closeLibraryFolder}
                     onToggleSelection={toggleEditSelection}
                     onBoxSelectionChange={updateBoxSelection}
+                    onToggleChildModSelection={toggleChildModSelection}
                     onToggleParentExpanded={toggleParentExpanded}
                     isParentExpanded={isParentExpanded}
                     onOpenModDetails={openModDetails}
@@ -403,9 +413,7 @@ export function LauncherLibraryPageContent({
           installBackupsError={installBackupsError}
           restoringBackupId={restoringBackupId}
           modsPath={settings.modsPath}
-          childModPicker={childModPicker}
           childModManager={childModManager}
-          mods={library.mods}
           galleryCoverDialog={galleryCoverDialog}
           packDialog={packDialog}
           folderDialog={folderDialog}
@@ -423,9 +431,6 @@ export function LauncherLibraryPageContent({
             galleryCoverSubtitle: copy.library.galleryCoverSubtitle,
             galleryCoverImageLabel: copy.library.galleryCoverImageLabel,
             setCover: copy.actions.setCover,
-            chooseChildMods: copy.library.chooseChildMods,
-            chooseChildModsSubtitle: copy.library.chooseChildModsSubtitle,
-            confirmChildMods: copy.library.confirmChildMods,
             manageChildMods: copy.library.manageChildMods,
             parentModLabel: copy.library.parentModLabel,
             removeFromParent: copy.library.removeFromParent,
@@ -441,9 +446,6 @@ export function LauncherLibraryPageContent({
           onOpenInstallBackupsFromSummary={openInstallBackupsFromSummary}
           onCloseInstallBackupsDialog={closeInstallBackupsDialog}
           onRestoreInstallBackup={(backupId) => void restoreInstallBackupSession(backupId)}
-          onCloseChildModPicker={() => setChildModPicker(null)}
-          onToggleChildModPickerSelection={toggleChildModPickerSelection}
-          onSubmitChildModPicker={() => void submitChildModPicker()}
           onCloseChildModManager={() => setChildModManager(null)}
           onRemoveChildMod={removeChildMod}
           onChildModManagerChildrenChange={(childMods) =>

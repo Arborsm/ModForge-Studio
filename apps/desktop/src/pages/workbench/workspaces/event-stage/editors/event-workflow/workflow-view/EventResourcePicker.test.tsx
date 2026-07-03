@@ -1,5 +1,5 @@
 import { fireEvent, screen, within } from '@testing-library/react'
-import { describe, expect, test, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vite-plus/test'
 import { renderWithLocale } from '@test/renderWithLocale'
 import { EventResourcePicker, type EventResourceOption } from './EventResourcePicker'
 

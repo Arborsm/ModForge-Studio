@@ -87,6 +87,16 @@ function normalizeLoadedQueue(items: LauncherDownloadQueueItem[]) {
     .map(normalizeQueueItem)
 }
 
+function mergeLoadedQueueItems(current: LauncherDownloadQueueItem[], loaded: LauncherDownloadQueueItem[]) {
+  if (!current.length) {
+    return loaded
+  }
+
+  const currentIds = new Set(current.map((item) => item.id))
+  const missingLoadedItems = loaded.filter((item) => !currentIds.has(item.id))
+  return missingLoadedItems.length ? [...missingLoadedItems, ...current] : current
+}
+
 function updateQueueItem(
   items: LauncherDownloadQueueItem[],
   id: string,
@@ -267,7 +277,8 @@ export function useLauncherDownloads(settings: LauncherSettings) {
         if (!active) {
           return
         }
-        setItems(normalizeLoadedQueue(result.items as LauncherDownloadQueueItem[]))
+        const loadedItems = normalizeLoadedQueue(result.items as LauncherDownloadQueueItem[])
+        setItems((current) => mergeLoadedQueueItems(current, loadedItems))
         hydratedRef.current = true
       })
       .catch(() => {

@@ -23,7 +23,7 @@ function getStringValue(value: unknown): string {
   try {
     return JSON.stringify(value)
   } catch {
-    return String(value)
+    return ''
   }
 }
 
@@ -34,7 +34,7 @@ function stringifyWhen(value: unknown): string {
   try {
     return JSON.stringify(value, null, 2)
   } catch {
-    return String(value)
+    return ''
   }
 }
 
@@ -168,7 +168,7 @@ export function ContentPatcherPatchPropertiesPanel({
                 type="button"
                 onClick={() => {
                   if (enabledIsBoolean) {
-                    onFieldChange('Enabled', String(patch?.Enabled ?? ''))
+                    onFieldChange('Enabled', getStringValue(patch?.Enabled))
                   } else {
                     onFieldChange('Enabled', patch?.Enabled === 'true' || patch?.Enabled === true)
                   }

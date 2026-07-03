@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { LauncherNexusDiagnosticsResult } from '@features/launcher/api'
 import { useLauncherDiscover } from '@features/launcher'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
@@ -49,6 +49,17 @@ function createLauncherDiagnosticsResult(
 }
 
 let launcherPort: LauncherPort
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
+  })
+
+  return { promise, resolve, reject }
+}
 
 function Wrapper({ children }: { children: ReactNode }) {
   return <LauncherTestWrapper port={launcherPort}>{children}</LauncherTestWrapper>
@@ -501,5 +512,117 @@ describe('useLauncherDiscover', () => {
     expect(launcherPort.searchCatalog).not.toHaveBeenCalled()
     expect(result.current.blockedReason).toContain('Nexus Public GraphQL')
     expect(result.current.blockedReason).toContain('Forced offline by debug override.')
+  })
+
+  it('keeps a faster newer search result when an older search resolves later', async () => {
+    const firstSearch = createDeferred<Awaited<ReturnType<LauncherPort['searchCatalog']>>>()
+    vi.mocked(launcherPort.searchCatalog)
+      .mockReturnValueOnce(firstSearch.promise)
+      .mockResolvedValueOnce({
+        page: 1,
+        pageSize: 20,
+        totalCount: 1,
+        hasMore: false,
+        facets: { categories: [], languages: [], tags: [] },
+        results: [
+          {
+            modId: 101,
+            title: 'New Result',
+            summary: 'new',
+            author: null,
+            uploader: null,
+            imageUrl: null,
+            modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
+            category: null,
+            createdAt: null,
+            downloads: 10,
+            endorsements: 1,
+            fileSize: null,
+            updatedAt: null,
+            updateAvailable: false,
+          },
+        ],
+      })
+
+    const { result } = renderHook(() => useLauncherDiscover(), { wrapper: Wrapper })
+    await act(async () => {
+      vi.runOnlyPendingTimers()
+      await Promise.resolve()
+    })
+
+    act(() => {
+      result.current.setQuery('new')
+    })
+
+    await act(async () => {
+      vi.advanceTimersByTime(320)
+      await Promise.resolve()
+    })
+
+    expect(result.current.items.map((item) => item.modId)).toEqual([101])
+
+    firstSearch.resolve({
+      page: 1,
+      pageSize: 20,
+      totalCount: 1,
+      hasMore: false,
+      facets: { categories: [], languages: [], tags: [] },
+      results: [
+        {
+          modId: 100,
+          title: 'Old Result',
+          summary: 'old',
+          author: null,
+          uploader: null,
+          imageUrl: null,
+          modUrl: 'https://www.nexusmods.com/stardewvalley/mods/100',
+          category: null,
+          createdAt: null,
+          downloads: 5,
+          endorsements: 0,
+          fileSize: null,
+          updatedAt: null,
+          updateAvailable: false,
+        },
+      ],
+    })
+
+    await act(async () => {
+      await firstSearch.promise
+      await Promise.resolve()
+    })
+
+    expect(result.current.items.map((item) => item.modId)).toEqual([101])
+  })
+
+  it('ignores a discover result that resolves after unmount', async () => {
+    const deferredSearch = createDeferred<Awaited<ReturnType<LauncherPort['searchCatalog']>>>()
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(launcherPort.searchCatalog).mockReturnValue(deferredSearch.promise)
+
+    const { unmount } = renderHook(() => useLauncherDiscover(), { wrapper: Wrapper })
+    await act(async () => {
+      vi.runOnlyPendingTimers()
+      await Promise.resolve()
+    })
+
+    unmount()
+
+    deferredSearch.resolve({
+      page: 1,
+      pageSize: 20,
+      totalCount: 1,
+      hasMore: false,
+      facets: { categories: [], languages: [], tags: [] },
+      results: [],
+    })
+
+    await act(async () => {
+      await deferredSearch.promise
+      await Promise.resolve()
+    })
+
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    consoleErrorSpy.mockRestore()
   })
 })

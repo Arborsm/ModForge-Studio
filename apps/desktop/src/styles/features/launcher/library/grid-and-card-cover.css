@@ -54,7 +54,7 @@
     transform-origin: var(--launcher-modules-panel-arrow-left) top;
   }
 
-  .launcher-library-modules-floating-panel[data-placement="top"] {
+  .launcher-library-modules-floating-panel[data-placement='top'] {
     transform-origin: var(--launcher-modules-panel-arrow-left) bottom;
   }
 
@@ -67,11 +67,11 @@
     border-top: 1px solid color-mix(in srgb, var(--launcher-border) 86%, white);
     border-left: 1px solid color-mix(in srgb, var(--launcher-border) 86%, white);
     background: var(--launcher-modules-panel-surface);
-    content: "";
+    content: '';
     transform: rotate(45deg);
   }
 
-  .launcher-library-modules-floating-panel[data-placement="top"]::before {
+  .launcher-library-modules-floating-panel[data-placement='top']::before {
     top: auto;
     bottom: -7px;
     border: 0;
@@ -161,7 +161,7 @@
     --launcher-modules-panel-soft: #1f2a3a;
   }
 
-  .launcher-library-modules-floating-grid[data-scrollable="true"] {
+  .launcher-library-modules-floating-grid[data-scrollable='true'] {
     overflow-y: auto;
     overflow-x: hidden;
   }
@@ -364,7 +364,7 @@
     opacity: 0.88;
   }
 
-  .launcher-mod-card-child-count[aria-expanded="true"] {
+  .launcher-mod-card-child-count[aria-expanded='true'] {
     border-color: color-mix(in srgb, var(--accent) 42%, transparent);
     background: color-mix(in srgb, var(--accent-soft) 94%, var(--launcher-surface-base));
     color: var(--accent);

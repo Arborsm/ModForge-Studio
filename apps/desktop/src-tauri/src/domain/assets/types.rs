@@ -1,6 +1,6 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameDirectoryInfo {
     pub root_path: String,
@@ -9,7 +9,7 @@ pub struct GameDirectoryInfo {
     pub map_count: usize,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MapAssetSummary {
     pub id: String,
@@ -21,7 +21,7 @@ pub struct MapAssetSummary {
     pub size_bytes: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EventAssetSummary {
     pub id: String,
@@ -32,7 +32,7 @@ pub struct EventAssetSummary {
     pub size_bytes: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MapAssetContent {
     pub name: String,
@@ -42,7 +42,7 @@ pub struct MapAssetContent {
     pub content: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TextAssetContent {
     pub absolute_path: String,
@@ -50,14 +50,14 @@ pub struct TextAssetContent {
     pub content: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LocalTextFileContent {
     pub absolute_path: String,
     pub content: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioAssetSummary {
     pub cue: String,
@@ -66,7 +66,7 @@ pub struct AudioAssetSummary {
     pub relative_path: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileCacheStats {
     pub root_path: String,

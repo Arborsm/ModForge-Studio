@@ -2,7 +2,7 @@ import { Database, FileCode, Image, MapPin } from 'lucide-react'
 import type { DraftPatch } from '@shared/contracts'
 
 type PatchActionIconProps = {
-  action: DraftPatch['action'] | string
+  action: DraftPatch['action']
 }
 
 export function PatchActionIcon({ action }: PatchActionIconProps) {

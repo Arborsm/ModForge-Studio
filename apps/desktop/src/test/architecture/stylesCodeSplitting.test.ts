@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const MAIN_PATH = resolve(process.cwd(), 'src/main.tsx')
 const APP_PATH = resolve(process.cwd(), 'src/app/app-shell/AppShell.tsx')
@@ -19,6 +19,14 @@ function expectImportsBeforeSources(source: string) {
   expect(Math.max(...importIndexes)).toBeLessThan(Math.min(...sourceIndexes))
 }
 
+function expectCssImport(source: string, path: string, suffix = '') {
+  expect(source).toMatch(new RegExp(`@import ['"]${path.replaceAll('.', '\\.')}['"]${suffix};`))
+}
+
+function expectCssSource(source: string, path: string) {
+  expect(source).toMatch(new RegExp(`@source ['"]${path.replaceAll('.', '\\.')}['"];`))
+}
+
 describe('style code splitting', () => {
   it('keeps the launcher stylesheet as the initial entrypoint and lazy-loads workbench styles', async () => {
     const [mainSource, appSource, indexStyles, workbenchStyles] = await Promise.all([
@@ -31,34 +39,34 @@ describe('style code splitting', () => {
     expect(mainSource).toContain("import './styles/index.css'")
     expect(appSource).toContain("import('../../styles/workbench.css')")
 
-    expect(indexStyles).toContain('@import "tailwindcss" source(none);')
-    expect(indexStyles).toContain('@source "../main.tsx";')
-    expect(indexStyles).toContain('@source "../app/App.tsx";')
-    expect(indexStyles).toContain('@source "../app/app-shell/AppShell.tsx";')
-    expect(indexStyles).toContain('@source "../app/app-shell/SettingsWindow.tsx";')
-    expect(indexStyles).toContain('@source "../shared/ui/WorkbenchShellSkeleton.tsx";')
-    expect(indexStyles).toContain('@source "../pages/launcher";')
-    expect(indexStyles).toContain('@source "../features/launcher";')
-    expect(indexStyles).toContain('@source "../shared/ui/loading-motion/LoadingMotionHost.tsx";')
-    expect(indexStyles).toContain('@source "../shared/ui/notifications/NotificationViewport.tsx";')
-    expect(indexStyles).toContain('@source "../shared/ui/nexusmods-bbcode/NexusModsBbcode.tsx";')
-    expect(indexStyles).toContain('@source "../shared/ui/PanelSection.tsx";')
-    expect(indexStyles).toContain('@source "../shared/ui/ProgressRing.tsx";')
-    expect(indexStyles).toContain('@source "../widgets/top-navigation";')
-    expect(indexStyles).toContain('@source "../widgets/status-bar";')
+    expectCssImport(indexStyles, 'tailwindcss', ' source\\(none\\)')
+    expectCssSource(indexStyles, '../main.tsx')
+    expectCssSource(indexStyles, '../app/App.tsx')
+    expectCssSource(indexStyles, '../app/app-shell/AppShell.tsx')
+    expectCssSource(indexStyles, '../app/app-shell/SettingsWindow.tsx')
+    expectCssSource(indexStyles, '../shared/ui/WorkbenchShellSkeleton.tsx')
+    expectCssSource(indexStyles, '../pages/launcher')
+    expectCssSource(indexStyles, '../features/launcher')
+    expectCssSource(indexStyles, '../shared/ui/loading-motion/LoadingMotionHost.tsx')
+    expectCssSource(indexStyles, '../shared/ui/notifications/NotificationViewport.tsx')
+    expectCssSource(indexStyles, '../shared/ui/nexusmods-bbcode/NexusModsBbcode.tsx')
+    expectCssSource(indexStyles, '../shared/ui/PanelSection.tsx')
+    expectCssSource(indexStyles, '../shared/ui/ProgressRing.tsx')
+    expectCssSource(indexStyles, '../widgets/top-navigation')
+    expectCssSource(indexStyles, '../widgets/status-bar')
     expect(indexStyles).not.toContain('@source "../app/app-shell";')
     expect(indexStyles).not.toContain('@source "../shared";')
     expect(indexStyles).not.toContain('@source "../pages";')
     expect(indexStyles).not.toContain('@source "../features";')
     expect(indexStyles).not.toContain('@source "../widgets";')
     expect(indexStyles).not.toContain('@source "../platform";')
-    expect(indexStyles).not.toContain('@import "./workspace/layout.css";')
-    expect(indexStyles).not.toContain('@import "./features/content-patcher.css";')
+    expect(indexStyles).not.toMatch(/@import ['"]\.\/workspace\/layout\.css['"];/)
+    expect(indexStyles).not.toMatch(/@import ['"]\.\/features\/content-patcher\.css['"];/)
     expectImportsBeforeSources(indexStyles)
 
-    expect(workbenchStyles).toContain('@import "tailwindcss" source(none);')
-    expect(workbenchStyles).toContain('@import "./workspace/layout.css";')
-    expect(workbenchStyles).toContain('@import "./features/content-patcher.css";')
+    expectCssImport(workbenchStyles, 'tailwindcss', ' source\\(none\\)')
+    expectCssImport(workbenchStyles, './workspace/layout.css')
+    expectCssImport(workbenchStyles, './features/content-patcher.css')
     expectImportsBeforeSources(workbenchStyles)
   })
 })

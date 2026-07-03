@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { AppUiState } from '@shared/contracts'
 import { createLoadingMotionPreference } from '@shared/lib/loading-motion'
 
@@ -283,7 +283,7 @@ it('discards legacy accent preset ids and invalid theme ids, falling back to the
     patch: vi.fn(),
   })
   await initializeAppUiState()
-  expect(getAppUiStateSnapshot().appearance.themeId).toBe('warm-paper')
+  expect(getAppUiStateSnapshot().appearance.themeId).toBe('neutral-tool')
 })
 
 it('keeps a valid persisted theme id', async () => {

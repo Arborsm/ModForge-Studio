@@ -9,6 +9,24 @@ use reqwest::header::CONTENT_TYPE;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Mutex, MutexGuard, OnceLock};
+
+static LAUNCHER_IMAGE_CACHE_FILE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static LAUNCHER_IMAGE_CACHE_GENERATION: AtomicU64 = AtomicU64::new(0);
+
+fn lock_launcher_image_cache_files() -> MutexGuard<'static, ()> {
+    match LAUNCHER_IMAGE_CACHE_FILE_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+    {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            log::error!(target: "Launcher", "Launcher image cache file lock was poisoned");
+            poisoned.into_inner()
+        }
+    }
+}
 
 fn hash_string(value: &str) -> String {
     let mut digest = Sha256::new();
@@ -104,6 +122,8 @@ fn mime_type_from_path(path: &Path) -> String {
 }
 
 pub(crate) fn clear_launcher_image_cache_dir(cache_dir: &Path) -> Result<(), String> {
+    let _cache_file_guard = lock_launcher_image_cache_files();
+    LAUNCHER_IMAGE_CACHE_GENERATION.fetch_add(1, Ordering::SeqCst);
     if !cache_dir.exists() {
         return Ok(());
     }
@@ -137,16 +157,19 @@ pub(crate) fn resolve_launcher_image_blocking(
         }
 
         let cache_dir = launcher_image_cache_dir()?;
-        fs::create_dir_all(&cache_dir).map_err(|error| {
-            format!(
-                "Failed to create launcher image cache directory {}: {error}",
-                normalize_path(&cache_dir)
-            )
-        })?;
-
         let cache_key = hash_string(url);
         if !request.refresh.unwrap_or(false) {
-            if let Some(existing_path) = find_cached_image_path(&cache_dir, &cache_key)? {
+            let cached = {
+                let _cache_file_guard = lock_launcher_image_cache_files();
+                fs::create_dir_all(&cache_dir).map_err(|error| {
+                    format!(
+                        "Failed to create launcher image cache directory {}: {error}",
+                        normalize_path(&cache_dir)
+                    )
+                })?;
+                find_cached_image_path(&cache_dir, &cache_key)?
+            };
+            if let Some(existing_path) = cached {
                 return Ok(ResolveLauncherImageResult {
                     source_url: url.to_string(),
                     mime_type: mime_type_from_path(&existing_path),
@@ -154,6 +177,7 @@ pub(crate) fn resolve_launcher_image_blocking(
                 });
             }
         }
+        let cache_generation = LAUNCHER_IMAGE_CACHE_GENERATION.load(Ordering::SeqCst);
 
         let client = launcher_http_client()?;
         if let Some(route) = launcher_nexus_route_for_url(url) {
@@ -185,6 +209,25 @@ pub(crate) fn resolve_launcher_image_blocking(
             .bytes()
             .map_err(|error| format!("Failed to read launcher image bytes: {error}"))?;
 
+        let _cache_file_guard = lock_launcher_image_cache_files();
+        if LAUNCHER_IMAGE_CACHE_GENERATION.load(Ordering::SeqCst) != cache_generation {
+            return Err("Launcher image cache was cleared while fetching image.".to_string());
+        }
+        fs::create_dir_all(&cache_dir).map_err(|error| {
+            format!(
+                "Failed to create launcher image cache directory {}: {error}",
+                normalize_path(&cache_dir)
+            )
+        })?;
+        if !request.refresh.unwrap_or(false) {
+            if let Some(existing_path) = find_cached_image_path(&cache_dir, &cache_key)? {
+                return Ok(ResolveLauncherImageResult {
+                    source_url: url.to_string(),
+                    mime_type: mime_type_from_path(&existing_path),
+                    local_path: normalize_path(&existing_path),
+                });
+            }
+        }
         clear_cached_files_for_key(&cache_dir, &cache_key)?;
         fs::write(&target_path, &bytes).map_err(|error| {
             format!(

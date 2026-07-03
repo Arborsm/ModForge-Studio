@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import { describe, expect, test, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vite-plus/test'
 import { localeBundles } from '@locales'
 import { EventGameStateQueryBuilderModal } from './EventGameStateQueryBuilderModal'
 

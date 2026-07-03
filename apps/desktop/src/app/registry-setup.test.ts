@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { appRegistry, createAppRegistry, getWorkbenchViewRegistration, getWorkspacePanelRegistration } from './registry-setup'
 import type { PageRegistration, WorkbenchViewRegistration, WorkspacePanelRegistration } from '@shared/contracts'
 

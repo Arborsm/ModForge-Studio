@@ -1,7 +1,7 @@
 import { createRef } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { render, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { WorkbenchModPreviewRuntime, type ModWorkspaceGuardHandle } from './WorkbenchModPreviewRuntime'
 import type { WorkspaceLayoutHandle } from '@shared/contracts'
 

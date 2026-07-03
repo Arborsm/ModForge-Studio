@@ -105,6 +105,10 @@ function getWorldAtlasCacheKey(rootPath: string, locale: LocaleCode, assets: Map
   return `${rootPath.replaceAll('/', '\\')}::${locale}::${worldRootName}::${signature}`
 }
 
+function getMapWorkspaceSignature(rootPath: string, locale: LocaleCode) {
+  return `${rootPath.replaceAll('/', '\\')}::${locale}`
+}
+
 function normalizeLoadedMapDocument(
   parsedDocument: MapDocument,
   asset: {
@@ -206,6 +210,7 @@ export function useMapWorkspace({
   const worldAtlasCacheRef = useRef(new Map<string, WorldAtlasCacheEntry>())
   const idleResourcePreloadCancelRef = useRef<() => void>(() => {})
   const loadedResourceLocaleRef = useRef<LocaleCode | null>(null)
+  const workspaceSignatureRef = useRef(active && directoryInfo?.rootPath ? getMapWorkspaceSignature(directoryInfo.rootPath, locale) : '')
   const [parsedMapCacheSnapshot, setParsedMapCacheSnapshot] = useState(() => new Map<string, MapDocument>())
   const { modIndex } = useModAssetIndex(directoryInfo)
   const buildingDataIndex = useMemo(
@@ -257,6 +262,15 @@ export function useMapWorkspace({
   const activeAsset = mapAssets.find((asset) => asset.id === activeMapId) ?? null
   const worldAtlasDocument = activeAtlasView?.document ?? null
   const workspaceTabs = useMemo(() => buildMapWorkspaceTabs(worldAtlasDocument, mapTabs), [worldAtlasDocument, mapTabs])
+
+  useEffect(() => {
+    workspaceSignatureRef.current = active && directoryInfo?.rootPath ? getMapWorkspaceSignature(directoryInfo.rootPath, locale) : ''
+  }, [active, directoryInfo?.rootPath, locale])
+
+  function isCurrentWorkspace(info: GameDirectoryInfo) {
+    return workspaceSignatureRef.current === getMapWorkspaceSignature(info.rootPath, locale)
+  }
+
   const worldOverlaySprites = useMemo(() => {
     if (!showGameWorldAdditions || !mapDocument) {
       return []
@@ -370,7 +384,7 @@ export function useMapWorkspace({
 
   async function loadParsedMap(summary: MapAssetSummary, info: GameDirectoryInfo, options?: { publishCacheSnapshot?: boolean }) {
     const cachedDocument = parsedMapCacheRef.current.get(summary.absolutePath)
-    if (cachedDocument) {
+    if (cachedDocument && isCurrentWorkspace(info)) {
       return cachedDocument
     }
 
@@ -384,6 +398,10 @@ export function useMapWorkspace({
       absolutePath: asset.absolutePath,
       relativePath: asset.relativePath,
     })
+    if (!isCurrentWorkspace(info)) {
+      return parsedDocument
+    }
+
     parsedMapCacheRef.current.set(summary.absolutePath, parsedDocument)
     if (options?.publishCacheSnapshot !== false) {
       publishParsedMapCacheSnapshot()
@@ -515,6 +533,10 @@ export function useMapWorkspace({
   }
 
   async function loadGameDirectoryInBackground(info: GameDirectoryInfo, isCancelled = () => false) {
+    if (!isCurrentWorkspace(info)) {
+      return null
+    }
+
     setResourcePreloadState({
       active: true,
       message: copy.messages.validatingAndScanning,
@@ -526,7 +548,7 @@ export function useMapWorkspace({
 
     try {
       const assets = await scanMaps(info.rootPath, locale)
-      if (isCancelled()) {
+      if (isCancelled() || !isCurrentWorkspace(info)) {
         return null
       }
 
@@ -534,7 +556,7 @@ export function useMapWorkspace({
       loadedResourceLocaleRef.current = locale
 
       await openWorldAtlas(assets, info, WORLD_ROOT_MAP_NAME, { initialOnly: true })
-      if (!isCancelled()) {
+      if (!isCancelled() && isCurrentWorkspace(info)) {
         idleResourcePreloadCancelRef.current()
         idleResourcePreloadCancelRef.current = startIdleResourcePreload(assets, info, isCancelled)
       }
@@ -583,6 +605,10 @@ export function useMapWorkspace({
       return
     }
 
+    if (!isCurrentWorkspace(info)) {
+      return
+    }
+
     if (summary.format !== 'xnb') {
       setWorkspaceStatus({ tone: 'error', message: copy.messages.onlyTmxSupported })
       return
@@ -604,6 +630,10 @@ export function useMapWorkspace({
       }
 
       const parsedDocument = await loadParsedMap(summary, info)
+      if (!isCurrentWorkspace(info)) {
+        return
+      }
+
       const reusablePreviewTab = existingTab ?? mapTabs.find((tab) => tab.preview && !tab.dirty) ?? null
       const nextTab = {
         id: reusablePreviewTab?.id ?? MAP_PREVIEW_TAB_ID,
@@ -629,6 +659,10 @@ export function useMapWorkspace({
         message: copy.messages.loadedMapAssetsWithActiveMap(knownMapCount, parsedDocument.format, parsedDocument.name),
       })
     } catch (error) {
+      if (!isCurrentWorkspace(info)) {
+        return
+      }
+
       setWorkspaceStatus({
         tone: 'error',
         message: `${copy.messages.loadingMapFailed} ${error instanceof Error ? error.message : String(error)}`,
@@ -645,6 +679,10 @@ export function useMapWorkspace({
     const info = knownDirectoryInfo ?? directoryInfo
     if (!info) {
       setWorkspaceStatus({ tone: 'error', message: copy.messages.enterFolderBeforeScanning })
+      return
+    }
+
+    if (!isCurrentWorkspace(info)) {
       return
     }
 
@@ -684,6 +722,10 @@ export function useMapWorkspace({
           fallbackRelativePath: summary.relativePath,
           fallbackSourcePath: summary.absolutePath,
         })) ?? (await loadParsedMap(summary, info))
+      if (!isCurrentWorkspace(info)) {
+        return
+      }
+
       const reusablePreviewTab = existingTab ?? mapTabs.find((tab) => tab.preview && !tab.dirty) ?? null
       const nextTab = {
         id: reusablePreviewTab?.id ?? tabId,
@@ -708,6 +750,10 @@ export function useMapWorkspace({
         message: copy.messages.loadedMapAssetsWithActiveMap(knownMapCount, parsedDocument.format, parsedDocument.name),
       })
     } catch (error) {
+      if (!isCurrentWorkspace(info)) {
+        return
+      }
+
       setWorkspaceStatus({
         tone: 'error',
         message: `${copy.messages.loadingMapFailed} ${error instanceof Error ? error.message : String(error)}`,
@@ -721,6 +767,10 @@ export function useMapWorkspace({
     worldRootName = WORLD_ROOT_MAP_NAME,
     options?: OpenWorldAtlasOptions,
   ) {
+    if (!isCurrentWorkspace(info)) {
+      return
+    }
+
     const atlasCacheKey = getWorldAtlasCacheKey(info.rootPath, locale, assets, worldRootName)
     const preserveActiveTab = options?.preserveActiveTab === true
 
@@ -735,6 +785,10 @@ export function useMapWorkspace({
 
     const cachedAtlas = worldAtlasCacheRef.current.get(atlasCacheKey)
     if (cachedAtlas) {
+      if (!isCurrentWorkspace(info)) {
+        return
+      }
+
       for (const document of cachedAtlas.sourceDocuments) {
         parsedMapCacheRef.current.set(document.sourcePath, document)
       }
@@ -765,8 +819,16 @@ export function useMapWorkspace({
     let worldMapLayout
     try {
       const worldMapAsset = await loadTextAsset(info.rootPath, 'Content\\Data\\WorldMap.xnb', locale)
+      if (!isCurrentWorkspace(info)) {
+        return
+      }
+
       worldMapLayout = parseWorldMapLayout(worldMapAsset.content)
     } catch {
+      if (!isCurrentWorkspace(info)) {
+        return
+      }
+
       worldMapLayout = undefined
     }
 
@@ -805,6 +867,10 @@ export function useMapWorkspace({
       let document = loadedDocuments.get(summaryName)
       if (!document) {
         document = await loadParsedMap(summary, info)
+        if (!isCurrentWorkspace(info)) {
+          return
+        }
+
         loadedDocuments.set(summaryName, document)
       }
 
@@ -870,6 +936,10 @@ export function useMapWorkspace({
     }
 
     const nextWorldAtlasView = nextWorldAtlasViews[0]
+    if (!isCurrentWorkspace(info)) {
+      return
+    }
+
     if (!options?.initialOnly) {
       worldAtlasCacheRef.current.set(atlasCacheKey, {
         views: nextWorldAtlasViews,

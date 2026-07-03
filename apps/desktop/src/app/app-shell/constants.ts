@@ -18,8 +18,8 @@ export const WORKSPACE_LAYOUT_VERSION = 'v11'
  * hex here is for renderers that need a raw value; `preview` drives the settings card.
  */
 export const THEME_PRESETS: ThemePreset[] = [
-  { id: 'warm-paper', label: 'Warm Paper', accent: '#5b54d6', preview: { surface: '#f4f2ee', panel: '#fbfaf7', text: '#2c2823' } },
   { id: 'neutral-tool', label: 'Neutral Tool', accent: '#2563eb', preview: { surface: '#f1f1f2', panel: '#fbfbfc', text: '#1c1c20' } },
+  { id: 'warm-paper', label: 'Warm Paper', accent: '#5b54d6', preview: { surface: '#f4f2ee', panel: '#fbfaf7', text: '#2c2823' } },
   { id: 'slate-blue', label: 'Slate Blue', accent: '#0e7490', preview: { surface: '#eef1f4', panel: '#f9fbfc', text: '#1a2330' } },
   { id: 'forest', label: 'Forest', accent: '#3f8f4f', preview: { surface: '#f1f3ec', panel: '#f9faf4', text: '#262b22' } },
   { id: 'twilight', label: 'Twilight', accent: '#7c5cd6', preview: { surface: '#f3f1f5', panel: '#faf9fc', text: '#29242f' } },

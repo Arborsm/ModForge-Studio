@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import App from './App'
 import type { LauncherNexusDiagnosticsResult } from '@features/launcher/api'
 import { editorCopy, getModWorkspaceCopy, getSettingsMenuCopy, getViewMenuCopy } from '@locales/api'
@@ -95,7 +95,7 @@ function createMockAppUiState(overrides: MockAppUiStateOverrides = {}): MockAppU
     },
     appearance: {
       locale: overrides.appearance?.locale ?? 'en-US',
-      themeId: overrides.appearance?.themeId ?? 'warm-paper',
+      themeId: overrides.appearance?.themeId ?? 'neutral-tool',
       windowBorderTone: overrides.appearance?.windowBorderTone ?? 'accent',
       windowBorderWeight: overrides.appearance?.windowBorderWeight ?? 'standard',
       recentGameDirectories: overrides.appearance?.recentGameDirectories ?? [],
@@ -313,7 +313,7 @@ vi.mock('@widgets/status-bar', () => ({
 vi.mock('@shared/workspace', () => ({
   WorkspaceLayout: (props: Record<string, unknown>) => {
     workspaceLayoutMock(props)
-    return <div data-testid="workspace-layout" data-storage-key={String(props.storageKey ?? '')} />
+    return <div data-testid="workspace-layout" data-storage-key={typeof props.storageKey === 'string' ? props.storageKey : ''} />
   },
 }))
 

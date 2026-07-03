@@ -1,5 +1,5 @@
 import { fireEvent, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { ItemCatalogPanel } from './ItemWorkspace'
 import { renderWithLocale } from '@test/renderWithLocale'
 import type { ItemWorkspaceEntry } from '../entities/item'

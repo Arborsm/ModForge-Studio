@@ -1,5 +1,5 @@
 import { fireEvent, screen, within, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import WorkbenchExperience from './WorkbenchExperience'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { LocaleProvider } from '@locales/provider'

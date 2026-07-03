@@ -4,6 +4,22 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::Path;
+use std::sync::{Mutex, MutexGuard, OnceLock};
+
+static LAUNCHER_UPDATES_CACHE_FILE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn lock_launcher_updates_cache_file() -> MutexGuard<'static, ()> {
+    match LAUNCHER_UPDATES_CACHE_FILE_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+    {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            log::error!(target: "Launcher", "Launcher updates cache file lock was poisoned");
+            poisoned.into_inner()
+        }
+    }
+}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -160,6 +176,7 @@ pub(crate) fn load_cached_launcher_updates_at_path(
     mods_path: &str,
     now_ms: u128,
 ) -> Result<Option<LauncherUpdatesResult>, String> {
+    let _cache_file_guard = lock_launcher_updates_cache_file();
     let Some(cache_key) = normalize_launcher_updates_cache_key(mods_path) else {
         return Ok(None);
     };
@@ -184,6 +201,7 @@ pub(crate) fn inspect_launcher_updates_cache_at_path(
     mods_path: &str,
     now_ms: u128,
 ) -> Result<LauncherUpdatesCacheInspection, String> {
+    let _cache_file_guard = lock_launcher_updates_cache_file();
     let cache_key = normalize_launcher_updates_cache_key(mods_path);
     let Some(cache_key_value) = cache_key.clone() else {
         return Ok(LauncherUpdatesCacheInspection {
@@ -250,6 +268,7 @@ pub(crate) fn save_launcher_updates_cache_at_path(
     now_ms: u128,
     ttl_ms: u128,
 ) -> Result<(), String> {
+    let _cache_file_guard = lock_launcher_updates_cache_file();
     let Some(cache_key) = normalize_launcher_updates_cache_key(&result.mods_path) else {
         return Ok(());
     };
@@ -275,6 +294,7 @@ pub(crate) fn load_launcher_update_auto_failures_at_path(
     mods_path: &str,
     mod_id: i64,
 ) -> Result<Option<LauncherUpdateAutoFailureEntry>, String> {
+    let _cache_file_guard = lock_launcher_updates_cache_file();
     if mod_id <= 0 {
         return Ok(None);
     }
@@ -296,6 +316,7 @@ pub(crate) fn load_suppressed_launcher_update_mod_ids_at_path(
     mods_path: &str,
     threshold: u32,
 ) -> Result<HashSet<i64>, String> {
+    let _cache_file_guard = lock_launcher_updates_cache_file();
     let Some(cache_key) = normalize_launcher_updates_cache_key(mods_path) else {
         return Ok(HashSet::new());
     };
@@ -319,6 +340,7 @@ pub(crate) fn record_launcher_update_auto_failure_at_path(
     failed_at_ms: u128,
     error: Option<&str>,
 ) -> Result<LauncherUpdateAutoFailureEntry, String> {
+    let _cache_file_guard = lock_launcher_updates_cache_file();
     let Some(cache_key) = normalize_launcher_updates_cache_key(mods_path) else {
         return Err("modsPath is required.".to_string());
     };
@@ -359,6 +381,7 @@ pub(crate) fn clear_launcher_update_auto_failures_at_path(
     mods_path: &str,
     mod_ids: &[i64],
 ) -> Result<(), String> {
+    let _cache_file_guard = lock_launcher_updates_cache_file();
     if mod_ids.is_empty() || !cache_path.is_file() {
         return Ok(());
     }
@@ -393,6 +416,7 @@ pub(crate) fn mark_launcher_updates_check_in_progress_at_path(
     mods_path: &str,
     started_at_ms: u128,
 ) -> Result<(), String> {
+    let _cache_file_guard = lock_launcher_updates_cache_file();
     let Some(cache_key) = normalize_launcher_updates_cache_key(mods_path) else {
         return Ok(());
     };
@@ -419,6 +443,7 @@ pub(crate) fn clear_launcher_updates_check_in_progress_at_path(
     cache_path: &Path,
     mods_path: Option<&str>,
 ) -> Result<(), String> {
+    let _cache_file_guard = lock_launcher_updates_cache_file();
     if !cache_path.is_file() {
         return Ok(());
     }
@@ -459,6 +484,7 @@ pub(crate) fn invalidate_launcher_updates_cache_at_path(
     cache_path: &Path,
     mods_path: Option<&str>,
 ) -> Result<(), String> {
+    let _cache_file_guard = lock_launcher_updates_cache_file();
     if !cache_path.is_file() {
         return Ok(());
     }

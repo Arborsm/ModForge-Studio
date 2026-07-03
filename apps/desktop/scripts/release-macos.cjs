@@ -38,7 +38,7 @@ function hasOfficialSigningConfig(env) {
 }
 
 function runOfficialRelease() {
-  run('pnpm', ['tauri', 'build'])
+  run('vp', ['run', 'tauri', 'build'])
 }
 
 function withoutAppleSigningEnv() {
@@ -52,7 +52,7 @@ function withoutAppleSigningEnv() {
 }
 
 function runAdHocRelease() {
-  run('pnpm', ['tauri', 'build', '--bundles', 'app'], {
+  run('vp', ['run', 'tauri', 'build', '--bundles', 'app'], {
     env: withoutAppleSigningEnv(),
   })
 

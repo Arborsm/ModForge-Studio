@@ -1,9 +1,9 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 use crate::domain::assets;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResourceRegistryEntry {
     pub id: String,
@@ -18,7 +18,7 @@ pub struct ResourceRegistryEntry {
     pub absolute_path: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResourceRegistry {
     pub entries: Vec<ResourceRegistryEntry>,

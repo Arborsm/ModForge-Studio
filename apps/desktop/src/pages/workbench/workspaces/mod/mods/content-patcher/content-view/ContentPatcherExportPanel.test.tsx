@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { exportContentPatcherAsset, type LoadContentPatcherResultAssetResult } from '@entities/mod/api'
 import { chooseDirectory } from '@shared/lib/desktop'
 import { createDefaultContentPatcherSimulationContext } from '../content-model/contentPatcher'

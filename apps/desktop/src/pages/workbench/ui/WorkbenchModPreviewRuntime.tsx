@@ -19,7 +19,7 @@ type ModPreviewStatusSnapshot = {
   diagnostics: Array<{ severity: 'info' | 'warning' | 'error' }>
   hasUnsavedChanges: boolean
   projectsCount: number
-  activeProjectDetail: unknown | null
+  activeProjectDetail: object | null
   statusMessage: string
 }
 
