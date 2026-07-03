@@ -411,7 +411,15 @@ function createTray() {
     },
   ])
 
+  if (process.platform === 'linux') {
+    tray.setContextMenu(contextMenu)
+  }
+
   tray.on('click', () => {
+    if (process.platform === 'linux') {
+      return
+    }
+
     if (!mainWindow) {
       return
     }
@@ -425,6 +433,10 @@ function createTray() {
   })
 
   tray.on('right-click', () => {
+    if (process.platform === 'linux') {
+      return
+    }
+
     tray?.popUpContextMenu(contextMenu)
   })
 }

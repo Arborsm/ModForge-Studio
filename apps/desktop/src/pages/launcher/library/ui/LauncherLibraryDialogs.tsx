@@ -9,6 +9,7 @@ import { LauncherInstallSummaryDialog } from '@features/launcher/ui/shared/Launc
 import { LauncherChildModsDialogs, type LauncherChildModManagerState } from '@features/launcher/ui/shared/LauncherChildModsDialogs'
 import { useEditorCopy } from '@locales/provider'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
+import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import type {
   ArchivePreviewState,
   FolderDialogState,
@@ -63,11 +64,13 @@ function GalleryCoverOption({ url, selected, label, onSelect }: { url: string; s
       type="button"
       className={selected ? 'launcher-gallery-cover-option launcher-gallery-cover-option-selected' : 'launcher-gallery-cover-option'}
       aria-label={label}
+      aria-busy={image.loading ? 'true' : undefined}
       onClick={onSelect}
     >
       <div className="launcher-gallery-cover-frame">
+        {image.loading ? <ImageSkeleton overlay rounded={false} className="launcher-gallery-cover-skeleton" /> : null}
         {image.imageUrl ? <img src={image.imageUrl} alt="" className="launcher-gallery-cover-image" /> : null}
-        {!image.imageUrl ? <span className="launcher-gallery-cover-loading">{label}</span> : null}
+        {!image.imageUrl && !image.loading ? <span className="launcher-gallery-cover-loading">{label}</span> : null}
       </div>
     </button>
   )

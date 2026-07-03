@@ -374,6 +374,14 @@ export type ResolveLauncherImageResult = {
   mimeType: string
 }
 
+/** Event payload emitted when a remote launcher cover fetch disconnects mid-request. */
+export type LauncherImageFetchDisconnectedPayload = {
+  sourceUrl: string
+  modKey?: string | null
+  error: string
+  elapsedMs: number
+}
+
 /** Request to check installed mods for remote updates. */
 export type CheckLauncherUpdatesRequest = {
   modsPath: string

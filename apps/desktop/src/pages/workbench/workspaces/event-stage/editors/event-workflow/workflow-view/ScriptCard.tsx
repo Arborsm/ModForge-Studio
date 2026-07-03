@@ -204,8 +204,8 @@ export function ScriptCard({
   const schema = useMemo(() => getSchema(command.command), [command.command])
   const nodes = useMemo(() => {
     if (!schema) return null
-    return renderTemplate(schema, command.args, locale)
-  }, [schema, command.args, locale])
+    return renderTemplate(schema, command.args, locale, workflowCopy)
+  }, [schema, command.args, locale, workflowCopy])
 
   const commandLabel = schema ? (workflowCopy.commandLabels[schema.key as EventWorkflowCommandKey] ?? schema.key) : command.kind
   const categoryLabel = schema ? (workflowCopy.categoryLabels[schema.category] ?? schema.category) : command.kind

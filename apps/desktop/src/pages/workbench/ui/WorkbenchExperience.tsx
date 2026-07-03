@@ -55,6 +55,22 @@ const EMPTY_WORKSPACE_STATUS: WorkspaceStatus = {
   message: '',
 }
 
+function arePathListsEqual(left: readonly string[], right: readonly string[]) {
+  if (left === right) {
+    return true
+  }
+
+  if (left.length !== right.length) {
+    return false
+  }
+
+  return left.every((value, index) => value === right[index])
+}
+
+function getPathListKey(paths: readonly string[]) {
+  return paths.join('\u0000')
+}
+
 type IdleDeadlineLike = {
   didTimeout: boolean
   timeRemaining: () => number
@@ -180,6 +196,7 @@ export default function WorkbenchExperience({
     copy,
   })
   const workbenchHomeActive = workbenchRoute === 'home'
+  const previousActiveRef = useRef(active)
 
   useEffect(() => {
     onHomeRouteActiveChange?.(active && workbenchHomeActive)
@@ -188,8 +205,13 @@ export default function WorkbenchExperience({
   const setWorkbenchRouteToWorkspace = useCallback(() => setWorkbenchRoute('workspace'), [])
 
   useEffect(() => {
-    setWorkbenchRoute('home')
-  }, [workbenchActivationKey])
+    const wasActive = previousActiveRef.current
+    previousActiveRef.current = active
+
+    if (active && !wasActive) {
+      setWorkbenchRoute('home')
+    }
+  }, [active, workbenchActivationKey])
 
   useEffect(() => {
     if (!active) {
@@ -342,6 +364,7 @@ export default function WorkbenchExperience({
     statusMessage: '',
   })
   const modWorkspaceCopy = useModWorkspaceCopy()
+  const recentGameDirectoriesPatchKeyRef = useRef<string | null>(null)
 
   const runWithModUnsavedGuard = useCallback(
     async (action: () => void | Promise<void>) => {
@@ -570,6 +593,18 @@ export default function WorkbenchExperience({
       return
     }
 
+    const nextKey = getPathListKey(recentGameDirectories)
+    const persistedRecentGameDirectories = getAppUiStateSnapshot().appearance.recentGameDirectories ?? []
+    if (arePathListsEqual(persistedRecentGameDirectories, recentGameDirectories)) {
+      recentGameDirectoriesPatchKeyRef.current = nextKey
+      return
+    }
+
+    if (recentGameDirectoriesPatchKeyRef.current === nextKey) {
+      return
+    }
+
+    recentGameDirectoriesPatchKeyRef.current = nextKey
     void applyAppUiStatePatch({
       appearance: {
         recentGameDirectories,

@@ -7,15 +7,18 @@ use crate::host_runtime::{
 use crate::sidecar::{
     ResolvedSidecarCommandOrResponse, RpcRequest, SidecarContext, resolve_command,
 };
+use crate::support::logging::DebugLoggingState;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, OnceLock, mpsc};
-use tauri::State;
+use std::sync::{Arc, Mutex, OnceLock};
+use tauri::async_runtime::{
+    Receiver as AsyncReceiver, Sender as AsyncSender, channel as async_channel,
+};
 
 struct TauriCommandResponseWriter {
-    pending: Mutex<HashMap<String, mpsc::Sender<HostCommandResponse>>>,
+    pending: Mutex<HashMap<String, AsyncSender<HostCommandResponse>>>,
 }
 
 impl TauriCommandResponseWriter {
@@ -25,8 +28,8 @@ impl TauriCommandResponseWriter {
         }
     }
 
-    fn register(&self, id: String) -> Result<mpsc::Receiver<HostCommandResponse>, String> {
-        let (sender, receiver) = mpsc::channel();
+    fn register(&self, id: String) -> Result<AsyncReceiver<HostCommandResponse>, String> {
+        let (sender, receiver) = async_channel(1);
         let mut pending = self
             .pending
             .lock()
@@ -51,7 +54,7 @@ impl HostCommandResponseWriter for TauriCommandResponseWriter {
             .remove(id)
             .ok_or_else(|| format!("No pending Tauri host command for response id {id}."))?;
         sender
-            .send(response.clone())
+            .try_send(response.clone())
             .map_err(|error| format!("Failed to deliver Tauri host command response: {error}"))
     }
 }
@@ -63,12 +66,13 @@ struct TauriCommandRuntime {
 }
 
 impl TauriCommandRuntime {
-    fn new() -> Self {
+    fn new(debug_logging_state: DebugLoggingState) -> Self {
         let writer = Arc::new(TauriCommandResponseWriter::new());
         let scheduler = HostCommandScheduler::new(
             writer.clone(),
             Arc::new(HostCommandResourceLocks::new()),
             HostCommandSchedulerConfig::default(),
+            debug_logging_state,
         );
         Self {
             scheduler,
@@ -84,8 +88,14 @@ impl TauriCommandRuntime {
 
 static TAURI_COMMAND_RUNTIME: OnceLock<TauriCommandRuntime> = OnceLock::new();
 
-fn runtime() -> &'static TauriCommandRuntime {
-    TAURI_COMMAND_RUNTIME.get_or_init(TauriCommandRuntime::new)
+fn runtime(debug_logging_state: DebugLoggingState) -> &'static TauriCommandRuntime {
+    TAURI_COMMAND_RUNTIME.get_or_init(|| TauriCommandRuntime::new(debug_logging_state))
+}
+
+pub fn print_host_runtime_diagnostics_summary(reason: &str) {
+    if let Some(runtime) = TAURI_COMMAND_RUNTIME.get() {
+        runtime.scheduler.print_diagnostics_summary(reason);
+    }
 }
 
 fn response_to_result<T>(
@@ -137,17 +147,17 @@ where
     })
 }
 
-pub fn execute_tauri_command<T>(
+pub async fn execute_tauri_command<T>(
     app: AppHandle,
-    debug_logging_state: State<'_, crate::support::logging::DebugLoggingState>,
+    debug_logging_state: DebugLoggingState,
     command_name: HostCommandName,
     args: Value,
 ) -> Result<T, String>
 where
     T: DeserializeOwned,
 {
-    let ctx = SidecarContext::new(app, debug_logging_state.inner().clone());
-    let runtime = runtime();
+    let runtime = runtime(debug_logging_state.clone());
+    let ctx = SidecarContext::new(app, debug_logging_state);
     let request_id = runtime.next_request_id();
     match resolve_command(
         &ctx,
@@ -159,10 +169,10 @@ where
     ) {
         ResolvedSidecarCommandOrResponse::Command(command) => {
             let resolved_command_name = command.name.clone();
-            let receiver = runtime.writer.register(request_id)?;
+            let mut receiver = runtime.writer.register(request_id)?;
             runtime.scheduler.submit(command);
-            let response = receiver.recv().map_err(|error| {
-                format!("Host command {resolved_command_name} response channel closed: {error}")
+            let response = receiver.recv().await.ok_or_else(|| {
+                format!("Host command {resolved_command_name} response channel closed.")
             })?;
             response_to_result(&command_name, response)
         }
@@ -172,9 +182,9 @@ where
     }
 }
 
-pub fn execute_tauri_command_typed_error<T, E>(
+pub async fn execute_tauri_command_typed_error<T, E>(
     app: AppHandle,
-    debug_logging_state: State<'_, crate::support::logging::DebugLoggingState>,
+    debug_logging_state: DebugLoggingState,
     command_name: HostCommandName,
     args: Value,
 ) -> Result<T, E>
@@ -182,8 +192,8 @@ where
     T: DeserializeOwned,
     E: DeserializeOwned + From<String>,
 {
-    let ctx = SidecarContext::new(app, debug_logging_state.inner().clone());
-    let runtime = runtime();
+    let runtime = runtime(debug_logging_state.clone());
+    let ctx = SidecarContext::new(app, debug_logging_state);
     let request_id = runtime.next_request_id();
     match resolve_command(
         &ctx,
@@ -195,11 +205,11 @@ where
     ) {
         ResolvedSidecarCommandOrResponse::Command(command) => {
             let resolved_command_name = command.name.clone();
-            let receiver = runtime.writer.register(request_id).map_err(E::from)?;
+            let mut receiver = runtime.writer.register(request_id).map_err(E::from)?;
             runtime.scheduler.submit(command);
-            let response = receiver.recv().map_err(|error| {
+            let response = receiver.recv().await.ok_or_else(|| {
                 E::from(format!(
-                    "Host command {resolved_command_name} response channel closed: {error}"
+                    "Host command {resolved_command_name} response channel closed."
                 ))
             })?;
             response_to_typed_result(&command_name, response)

@@ -15,6 +15,7 @@ import { getObjectInteractionTag } from '@entities/map'
 import { resolveTilesetImagePath } from '../lib/assets'
 import type { LocaleCode, ThemeMode } from '@locales/api'
 import { useEditorCopy } from '@locales/provider'
+import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { PAN_ZOOM_TOOLBAR_ZOOM_FACTOR, PAN_ZOOM_WHEEL_INTENSITY } from '@shared/lib/viewports'
 import type { FocusedMapObjectTarget, TileHoverInfo, ViewportWorldPoint } from '@entities/map'
 import type { MapDocument } from '@entities/map'
@@ -72,6 +73,7 @@ type TilesetImageState = {
   sourcePath: string | null
   items: Record<number, LoadedTilesetImage>
   error: string | null
+  loading: boolean
 }
 
 type FocusWorldPoint = ViewportWorldPoint
@@ -171,6 +173,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     sourcePath: null,
     items: {},
     error: null,
+    loading: false,
   })
   const [manualZoom, setManualZoom] = useState(() => resolvedInitialZoom)
   const [zoomMode, setZoomMode] = useState<'fit' | 'manual'>(() => (initialZoom != null || initialDefaultViewportState ? 'manual' : 'fit'))
@@ -210,6 +213,8 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
 
     let disposed = false
 
+    setTilesetImageState((current) => ({ ...current, sourcePath: mapDocument.sourcePath, loading: true }))
+
     void (async () => {
       try {
         const entries = await Promise.all(
@@ -232,6 +237,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
           sourcePath: mapDocument.sourcePath,
           items: Object.fromEntries(entries.filter((entry): entry is readonly [number, LoadedTilesetImage] => entry !== null)),
           error: null,
+          loading: false,
         })
       } catch (error) {
         if (!disposed) {
@@ -239,6 +245,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
             sourcePath: mapDocument.sourcePath,
             items: {},
             error: error instanceof Error ? error.message : String(error),
+            loading: false,
           })
         }
       }
@@ -255,6 +262,10 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   )
   const imageError = useMemo(
     () => (mapDocument && tilesetImageState.sourcePath === mapDocument.sourcePath ? tilesetImageState.error : null),
+    [mapDocument, tilesetImageState],
+  )
+  const tilesetLoading = useMemo(
+    () => Boolean(mapDocument && tilesetImageState.sourcePath === mapDocument.sourcePath && tilesetImageState.loading),
     [mapDocument, tilesetImageState],
   )
   const visibleLayerIdSet = useMemo(() => new Set(visibleLayerIds), [visibleLayerIds])
@@ -1332,7 +1343,11 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   }
 
   const viewportContent = (
-    <div className="panel-canvas relative h-full shadow-(--shadow-panel)" style={viewportBackdropStyle}>
+    <div
+      className="panel-canvas relative h-full shadow-(--shadow-panel)"
+      style={viewportBackdropStyle}
+      aria-busy={tilesetLoading ? 'true' : undefined}
+    >
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -1342,6 +1357,8 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
               : `radial-gradient(circle at top left, ${rgbaFromHex(accentColor, 0.08)}, transparent 28%)`,
         }}
       />
+
+      {tilesetLoading ? <ImageSkeleton overlay rounded={false} className="map-viewport-skeleton" /> : null}
 
       {showStatsChips ? (
         <MapViewportStatsChips

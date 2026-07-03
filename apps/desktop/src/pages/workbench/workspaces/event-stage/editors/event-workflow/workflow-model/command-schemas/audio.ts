@@ -6,43 +6,53 @@ export const audioCommandSchemas = [
 
   {
     key: 'playMusic',
-    label: 'Play Music',
     category: 'audio',
     color: 'purple',
     icon: 'Music',
     template: [
-      { type: 'text', value: '播放音乐' },
-      { type: 'param', index: 1, label: '音乐', ui: 'music', placeholder: 'musicId', options: MUSIC_OPTIONS },
+      { type: 'text', copyKey: 'playMusic.template1' },
+      {
+        type: 'param',
+        index: 1,
+        labelKey: 'playMusic.param1.label',
+        ui: 'music',
+        placeholderKey: 'playMusic.param1.placeholder',
+        options: MUSIC_OPTIONS,
+      },
     ],
   },
 
   {
     key: 'stopMusic',
-    label: 'Stop Music',
     category: 'audio',
     color: 'purple',
     icon: 'MusicOff',
-    template: [{ type: 'text', value: '停止音乐' }],
+    template: [{ type: 'text', copyKey: 'stopMusic.template1' }],
   },
 
   {
     key: 'playSound',
-    label: 'Play Sound',
     category: 'audio',
     color: 'purple',
     icon: 'Volume2',
     template: [
-      { type: 'text', value: '播放音效' },
-      { type: 'param', index: 1, label: '音效', ui: 'sound', placeholder: 'soundId', options: SOUND_OPTIONS },
+      { type: 'text', copyKey: 'playSound.template1' },
+      {
+        type: 'param',
+        index: 1,
+        labelKey: 'playSound.param1.label',
+        ui: 'sound',
+        placeholderKey: 'playSound.param1.placeholder',
+        options: SOUND_OPTIONS,
+      },
     ],
   },
 
   {
     key: 'stopSound',
-    label: 'Stop Sound',
     category: 'audio',
     color: 'purple',
     icon: 'VolumeX',
-    template: [{ type: 'text', value: '停止音效' }],
+    template: [{ type: 'text', copyKey: 'stopSound.template1' }],
   },
 ] satisfies CommandSchema[]

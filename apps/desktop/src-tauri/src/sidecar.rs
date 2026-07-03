@@ -2,9 +2,10 @@ use crate::AppHandle;
 use crate::domain;
 use crate::host_commands::HostCommandName;
 use crate::host_runtime::{
-    HostCommandCancelPolicy, HostCommandLane, HostCommandMutationPolicy, HostCommandResource,
-    HostCommandResourceLocks, HostCommandResponse, HostCommandResponseWriter, HostCommandResult,
-    HostCommandScheduler, HostCommandSchedulerConfig, ResolvedHostCommand,
+    HostCommandCancelPolicy, HostCommandContext, HostCommandExecutionPool, HostCommandLane,
+    HostCommandMutationPolicy, HostCommandResource, HostCommandResourceLocks, HostCommandResponse,
+    HostCommandResponseWriter, HostCommandResult, HostCommandScheduler, HostCommandSchedulerConfig,
+    ResolvedHostCommand,
 };
 use crate::support::logging::{self, DebugLoggingState};
 use serde::de::DeserializeOwned;
@@ -84,12 +85,13 @@ fn sidecar_command<F>(
     run: F,
 ) -> ResolvedSidecarCommandOrResponse
 where
-    F: FnOnce() -> DispatchResult + Send + 'static,
+    F: FnOnce(HostCommandContext) -> DispatchResult + Send + 'static,
 {
     ResolvedSidecarCommandOrResponse::Command(ResolvedSidecarCommand {
         id,
         name: name.as_str().to_string(),
         lane,
+        execution_pool: HostCommandExecutionPool::Lane,
         resources,
         cancel_policy: HostCommandCancelPolicy::NotCancellable,
         mutation_policy: if resources.is_empty() {
@@ -98,13 +100,43 @@ where
             HostCommandMutationPolicy::ExclusiveResources
         },
         submitted_at: Instant::now(),
-        run: Box::new(move |_| run()),
+        record_telemetry: false,
+        run: Box::new(run),
     })
+}
+
+fn network_on_pool<F>(
+    id: Value,
+    name: &SidecarCommandName,
+    execution_pool: HostCommandExecutionPool,
+    run: F,
+) -> ResolvedSidecarCommandOrResponse
+where
+    F: FnOnce() -> DispatchResult + Send + 'static,
+{
+    match sidecar_command(id, name, SidecarLane::Network, NO_RESOURCES, move |_| run()) {
+        ResolvedSidecarCommandOrResponse::Command(mut command) => {
+            command.execution_pool = execution_pool;
+            ResolvedSidecarCommandOrResponse::Command(command)
+        }
+        response => response,
+    }
 }
 
 fn control<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
 where
     F: FnOnce() -> DispatchResult + Send + 'static,
+{
+    sidecar_command(id, name, SidecarLane::Control, NO_RESOURCES, move |_| run())
+}
+
+fn control_with_context<F>(
+    id: Value,
+    name: &SidecarCommandName,
+    run: F,
+) -> ResolvedSidecarCommandOrResponse
+where
+    F: FnOnce(HostCommandContext) -> DispatchResult + Send + 'static,
 {
     sidecar_command(id, name, SidecarLane::Control, NO_RESOURCES, run)
 }
@@ -113,21 +145,23 @@ fn network<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCo
 where
     F: FnOnce() -> DispatchResult + Send + 'static,
 {
-    sidecar_command(id, name, SidecarLane::Network, NO_RESOURCES, run)
+    sidecar_command(id, name, SidecarLane::Network, NO_RESOURCES, move |_| run())
 }
 
 fn io_lane<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
 where
     F: FnOnce() -> DispatchResult + Send + 'static,
 {
-    sidecar_command(id, name, SidecarLane::Io, NO_RESOURCES, run)
+    sidecar_command(id, name, SidecarLane::Io, NO_RESOURCES, move |_| run())
 }
 
 fn mutation<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
 where
     F: FnOnce() -> DispatchResult + Send + 'static,
 {
-    sidecar_command(id, name, SidecarLane::Mutation, NO_RESOURCES, run)
+    sidecar_command(id, name, SidecarLane::Mutation, NO_RESOURCES, move |_| {
+        run()
+    })
 }
 
 fn control_with_resources<F>(
@@ -139,7 +173,7 @@ fn control_with_resources<F>(
 where
     F: FnOnce() -> DispatchResult + Send + 'static,
 {
-    sidecar_command(id, name, SidecarLane::Control, resources, run)
+    sidecar_command(id, name, SidecarLane::Control, resources, move |_| run())
 }
 
 fn io_with_resources<F>(
@@ -151,7 +185,7 @@ fn io_with_resources<F>(
 where
     F: FnOnce() -> DispatchResult + Send + 'static,
 {
-    sidecar_command(id, name, SidecarLane::Io, resources, run)
+    sidecar_command(id, name, SidecarLane::Io, resources, move |_| run())
 }
 
 fn mutation_with_resources<F>(
@@ -163,7 +197,7 @@ fn mutation_with_resources<F>(
 where
     F: FnOnce() -> DispatchResult + Send + 'static,
 {
-    sidecar_command(id, name, SidecarLane::Mutation, resources, run)
+    sidecar_command(id, name, SidecarLane::Mutation, resources, move |_| run())
 }
 
 fn arg<T>(args: &Value, key: &str) -> Result<T, Value>
@@ -217,10 +251,6 @@ where
         Ok(value) => Ok(serde_json::to_value(value).unwrap_or(Value::Null)),
         Err(error) => Err(serde_json::to_value(error).unwrap_or_else(|_| json!("Command failed."))),
     }
-}
-
-fn block_on<T>(future: impl std::future::Future<Output = T>) -> T {
-    tauri::async_runtime::block_on(future)
 }
 
 pub(crate) fn resolve_command(
@@ -326,11 +356,16 @@ pub(crate) fn resolve_command(
         crate::host_command_wire!(load_mod_project) => io_lane(id, &command_name, move || {
             ok(domain::mods::load_mod_project(arg(&args, "path")?))
         }),
-        crate::host_command_wire!(save_mod_project) => mutation(id, &command_name, move || {
-            ok(domain::mods::save_mod_project(arg_or_whole(
-                &args, "request",
-            )?))
-        }),
+        crate::host_command_wire!(save_mod_project) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::ModProject],
+            move || {
+                ok(domain::mods::save_mod_project(arg_or_whole(
+                    &args, "request",
+                )?))
+            },
+        ),
 
         crate::host_command_wire!(load_content_patcher_project) => {
             io_lane(id, &command_name, move || {
@@ -372,9 +407,12 @@ pub(crate) fn resolve_command(
                 "draftStorageKey",
             )?))
         }),
-        crate::host_command_wire!(save_cp_maker_draft) => mutation(id, &command_name, move || {
-            ok(domain::cp_maker::save_cp_maker_draft(arg(&args, "draft")?))
-        }),
+        crate::host_command_wire!(save_cp_maker_draft) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || ok(domain::cp_maker::save_cp_maker_draft(arg(&args, "draft")?)),
+        ),
         crate::host_command_wire!(delete_cp_maker_draft) => {
             mutation(id, &command_name, move || {
                 ok(domain::cp_maker::delete_cp_maker_draft(arg(
@@ -383,16 +421,26 @@ pub(crate) fn resolve_command(
                 )?))
             })
         }
-        crate::host_command_wire!(copy_cp_maker_draft) => mutation(id, &command_name, move || {
-            ok(domain::cp_maker::copy_cp_maker_draft(arg(
-                &args, "request",
-            )?))
-        }),
-        crate::host_command_wire!(export_cp_maker_pack) => mutation(id, &command_name, move || {
-            ok(domain::cp_maker::export_cp_maker_pack(arg(
-                &args, "request",
-            )?))
-        }),
+        crate::host_command_wire!(copy_cp_maker_draft) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                ok(domain::cp_maker::copy_cp_maker_draft(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
+        crate::host_command_wire!(export_cp_maker_pack) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::ModProject],
+            move || {
+                ok(domain::cp_maker::export_cp_maker_pack(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
         crate::host_command_wire!(build_cp_maker_map_asset) => {
             mutation(id, &command_name, move || {
                 ok(domain::cp_maker::build_cp_maker_map_asset(arg(
@@ -401,6 +449,8 @@ pub(crate) fn resolve_command(
             })
         }
         crate::host_command_wire!(import_cp_maker_pack) => mutation(id, &command_name, move || {
+            // Import reads a caller-selected content pack and returns an in-memory draft record;
+            // it does not write draft storage or the source mod directory.
             let mod_directory_path: String = arg(&args, "modDirectoryPath")?;
             ok(domain::cp_maker::import_cp_maker_pack(&mod_directory_path))
         }),
@@ -531,12 +581,12 @@ pub(crate) fn resolve_command(
         crate::host_command_wire!(persist_launcher_library_remote_cover) => {
             let app = ctx.app.clone();
             network(id, &command_name, move || {
-                ok(block_on(
-                    domain::launcher::library::persist_launcher_library_remote_cover(
-                        app,
-                        arg(&args, "request")?,
+                let request = arg(&args, "request")?;
+                ok(
+                    domain::launcher::library::persist_launcher_library_remote_cover_blocking(
+                        &app, &request,
                     ),
-                ))
+                )
             })
         }
         crate::host_command_wire!(scan_launcher_library) => {
@@ -623,56 +673,60 @@ pub(crate) fn resolve_command(
         crate::host_command_wire!(search_launcher_catalog) => {
             let app = ctx.app.clone();
             network(id, &command_name, move || {
-                ok(block_on(
-                    domain::nexusmods::catalog::search_launcher_catalog(
-                        app,
-                        arg(&args, "request")?,
-                    ),
-                ))
+                let request = arg(&args, "request")?;
+                ok(domain::nexusmods::catalog::search_launcher_catalog_blocking(&app, &request))
             })
         }
         crate::host_command_wire!(load_launcher_remote_mod_detail) => {
             let app = ctx.app.clone();
             network(id, &command_name, move || {
-                ok(block_on(
-                    domain::nexusmods::mod_detail::load_launcher_remote_mod_detail(
-                        app,
-                        arg(&args, "request")?,
+                let request = arg(&args, "request")?;
+                ok(
+                    domain::nexusmods::mod_detail::load_launcher_remote_mod_detail_blocking(
+                        &app, &request,
                     ),
-                ))
+                )
             })
         }
         crate::host_command_wire!(load_launcher_update_changelog) => {
             let app = ctx.app.clone();
             network(id, &command_name, move || {
-                ok(block_on(
-                    domain::nexusmods::mod_detail::load_launcher_update_changelog(
-                        app,
-                        arg(&args, "request")?,
+                let request = arg(&args, "request")?;
+                ok(
+                    domain::nexusmods::mod_detail::load_launcher_update_changelog_blocking(
+                        &app, &request,
                     ),
-                ))
+                )
             })
         }
         crate::host_command_wire!(resolve_launcher_image) => {
             let app = ctx.app.clone();
-            network(id, &command_name, move || {
-                ok(block_on(
-                    domain::launcher::image_cache::resolve_launcher_image(
-                        app,
-                        arg(&args, "request")?,
-                    ),
-                ))
-            })
+            network_on_pool(
+                id,
+                &command_name,
+                HostCommandExecutionPool::LauncherImageCdn,
+                move || {
+                    let request = arg(&args, "request")?;
+                    ok(
+                        modforge_studio_desktop_lib::logging::log_tauri_command_error(
+                            "resolve_launcher_image",
+                            domain::launcher::image_cache::resolve_launcher_image_blocking(
+                                &app, &request,
+                            ),
+                        ),
+                    )
+                },
+            )
         }
         crate::host_command_wire!(resolve_cached_launcher_image) => {
             let app = ctx.app.clone();
             io_lane(id, &command_name, move || {
-                ok(block_on(
-                    domain::launcher::image_cache::resolve_cached_launcher_image(
-                        app,
-                        arg(&args, "request")?,
+                let request = arg(&args, "request")?;
+                ok(
+                    domain::launcher::image_cache::resolve_cached_launcher_image_blocking(
+                        &app, &request,
                     ),
-                ))
+                )
             })
         }
         crate::host_command_wire!(clear_launcher_image_cache) => {
@@ -764,10 +818,10 @@ pub(crate) fn resolve_command(
         crate::host_command_wire!(check_launcher_updates) => {
             let app = ctx.app.clone();
             network(id, &command_name, move || {
-                ok(block_on(domain::launcher::updates::check_launcher_updates(
-                    app,
-                    arg(&args, "request")?,
-                )))
+                let request = arg(&args, "request")?;
+                ok(domain::launcher::updates::check_launcher_updates_blocking(
+                    &app, &request,
+                ))
             })
         }
         crate::host_command_wire!(inspect_launcher_archive) => {
@@ -859,6 +913,12 @@ pub(crate) fn resolve_command(
                 Ok(Value::Null)
             })
         }
+        crate::host_command_wire!(print_host_runtime_diagnostics) => {
+            control_with_context(id, &command_name, move |command_context| {
+                command_context.print_diagnostics_summary("manual snapshot");
+                Ok(Value::Null)
+            })
+        }
         _ => ResolvedSidecarCommandOrResponse::Response(RpcResponse {
             id,
             ok: false,
@@ -930,7 +990,7 @@ pub fn run_stdio() -> Result<(), String> {
 
     let ctx = SidecarContext {
         app,
-        debug_logging_state,
+        debug_logging_state: debug_logging_state.clone(),
     };
     let scheduler = SidecarScheduler::new(
         Arc::new(StdoutResponseWriter {
@@ -938,6 +998,7 @@ pub fn run_stdio() -> Result<(), String> {
         }),
         Arc::new(SidecarResourceLocks::new()),
         SidecarSchedulerConfig::default(),
+        debug_logging_state,
     );
 
     for line in io::stdin().lock().lines() {
@@ -965,6 +1026,7 @@ pub fn run_stdio() -> Result<(), String> {
         write_json_line(&stdout, &response)?;
     }
 
+    scheduler.print_diagnostics_summary("sidecar shutdown");
     Ok(())
 }
 

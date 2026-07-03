@@ -496,13 +496,9 @@ export function useMapWorkspace({
       updatePreloadState(copy.messages.preloadingTilesets, formatPreloadLabel(info.rootPath, imagePath))
     }
 
-    setResourcePreloadState({
-      active: true,
-      message: copy.messages.loadingMap,
-      completed,
-      total,
-      currentLabel: '',
-    })
+    if (!isCancelled()) {
+      setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
+    }
   }
 
   function startIdleResourcePreload(assets: MapAssetSummary[], info: GameDirectoryInfo, isCancelled = () => false) {
@@ -557,6 +553,7 @@ export function useMapWorkspace({
 
       await openWorldAtlas(assets, info, WORLD_ROOT_MAP_NAME, { initialOnly: true })
       if (!isCancelled() && isCurrentWorkspace(info)) {
+        setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
         idleResourcePreloadCancelRef.current()
         idleResourcePreloadCancelRef.current = startIdleResourcePreload(assets, info, isCancelled)
       }

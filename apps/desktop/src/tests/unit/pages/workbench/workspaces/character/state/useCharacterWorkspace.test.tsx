@@ -7,12 +7,21 @@ vi.mock('@entities/game/api', () => ({
   loadTextAsset: vi.fn(),
 }))
 
+vi.mock('@shared/lib/assets', async () => {
+  const actual = await vi.importActual<typeof import('@shared/lib/assets')>('@shared/lib/assets')
+  return {
+    ...actual,
+    loadImageResourceFromPath: vi.fn(() => new Promise(() => {})),
+  }
+})
+
 vi.mock('@entities/mod/api', () => ({
   scanModAssetIndex: vi.fn(),
   loadContentPatcherResultAsset: vi.fn(),
 }))
 
 import { loadTextAsset } from '@entities/game/api'
+import { loadImageResourceFromPath } from '@shared/lib/assets'
 import { loadContentPatcherResultAsset, scanModAssetIndex } from '@entities/mod/api'
 
 const copy = editorCopy['en-US'].charactersPanel
@@ -170,5 +179,29 @@ describe('useCharacterWorkspace', () => {
       gameRootPath: 'E:\\Games\\Stardew Valley',
       target: 'Data/Characters',
     })
+  })
+
+  it('exposes assetLoading while visual assets are being resolved', async () => {
+    vi.mocked(loadImageResourceFromPath).mockImplementation(() => new Promise(() => {}))
+
+    const { result } = renderHook(() =>
+      useCharacterWorkspace({
+        directoryInfo: {
+          rootPath: 'E:\\Games\\Stardew Valley',
+          executablePath: 'E:\\Games\\Stardew Valley\\Stardew Valley.exe',
+          mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
+          mapCount: 42,
+        },
+        locale: 'en-US',
+        copy,
+        enableVisualAssets: true,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(result.current.activeCharacter?.key).toBe('Emily')
+    })
+
+    expect(result.current.assetLoading).toBe(true)
   })
 })

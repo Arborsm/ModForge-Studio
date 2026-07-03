@@ -51,6 +51,20 @@ describe('CharacterWorkspace', () => {
     vi.restoreAllMocks()
   })
 
+  it('renders full-cover skeleton overlays while character visual assets are loading', () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1)
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined)
+
+    const character = createCharacter()
+    const assetState = createAssetState()
+
+    const { container } = renderWithLocale(
+      <CharacterWorkspace character={character} activeVariant={character.variants[0] ?? null} assetState={assetState} assetLoading />,
+    )
+
+    expect(container.querySelectorAll('.image-skeleton')).toHaveLength(3)
+  })
+
   it('does not render the breathing hint copy beneath the breathing preview', () => {
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1)
     vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined)

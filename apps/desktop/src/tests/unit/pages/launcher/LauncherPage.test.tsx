@@ -59,6 +59,10 @@ vi.mock('@features/launcher/model/useLauncherUpdateProgressNotifications', () =>
   useLauncherUpdateProgressNotifications: () => {},
 }))
 
+vi.mock('@features/launcher/model/useLauncherImageFetchNotifications', () => ({
+  useLauncherImageFetchNotifications: () => {},
+}))
+
 vi.mock('@features/launcher/model/launcherPortContext', () => ({
   useLauncherPort: () => ({
     launchGame: vi.fn(),

@@ -322,6 +322,13 @@ export type ResolveLauncherImageResult = {
   mimeType: string
 }
 
+export type LauncherImageFetchDisconnectedPayload = {
+  sourceUrl: string
+  modKey?: string | null
+  error: string
+  elapsedMs: number
+}
+
 export type LauncherImageFailureEntry = {
   modKey: string
   failureCount: number

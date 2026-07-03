@@ -313,6 +313,7 @@ function CharactersPreviewRuntime({
         characterFilter: characterWorkspace.characterFilter,
         characterStatusMessage: characterWorkspace.characterStatusMessage,
         activeCharacterAssetState: characterWorkspace.assetState,
+        activeCharacterAssetLoading: characterWorkspace.assetLoading,
         onCharacterFilterChange: characterWorkspace.setCharacterFilter,
         onSelectCharacter: characterWorkspace.handleSelectCharacter,
         onSelectModCharacter: characterWorkspace.handleSelectModCharacter,

@@ -31,6 +31,7 @@ const launcherPort = {
   resolveImage: async () => ({ sourceUrl: '', localPath: '', mimeType: '' }),
   subscribeUpdates: () => noop,
   listenToUpdateProgress: async () => noop,
+  listenToImageFetchDisconnected: async () => noop,
   listenToDownloadProgress: async () => noop,
 } as unknown as LauncherPort
 

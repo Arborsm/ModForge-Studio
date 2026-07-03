@@ -5,7 +5,6 @@ import type {
   LauncherNexusDiagnosticsResult,
   LauncherRemoteModDetail,
   LauncherSettings,
-  LauncherUpdateChangelogResult,
   LauncherUpdateProgressPayload,
   LauncherUpdateSummary,
   LauncherUpdatesResult,
@@ -15,7 +14,6 @@ import {
   loadCachedLauncherUpdates,
   loadLauncherNexusDiagnostics,
   loadLauncherRemoteModDetail,
-  loadLauncherUpdateChangelog,
   subscribeLauncherUpdates,
 } from '@features/launcher/api'
 import { LocaleProvider } from '@locales/provider'
@@ -37,7 +35,6 @@ vi.mock('@features/launcher/api', async () => {
     loadCachedLauncherUpdates: vi.fn(),
     loadLauncherNexusDiagnostics: vi.fn(),
     loadLauncherRemoteModDetail: vi.fn(),
-    loadLauncherUpdateChangelog: vi.fn(),
     listenToLauncherUpdateProgress: vi.fn(async (listener: (payload: unknown) => void) => {
       eventListeners.set('launcher://update-check-progress', (event: { payload: unknown }) => {
         listener(event.payload)
@@ -67,7 +64,6 @@ const checkLauncherUpdatesMock = vi.mocked(checkLauncherUpdates)
 const loadCachedLauncherUpdatesMock = vi.mocked(loadCachedLauncherUpdates)
 const loadLauncherNexusDiagnosticsMock = vi.mocked(loadLauncherNexusDiagnostics)
 const loadLauncherRemoteModDetailMock = vi.mocked(loadLauncherRemoteModDetail)
-const loadLauncherUpdateChangelogMock = vi.mocked(loadLauncherUpdateChangelog)
 const subscribeLauncherUpdatesMock = vi.mocked(subscribeLauncherUpdates)
 let launcherPort: LauncherPort
 
@@ -193,15 +189,6 @@ function createRemoteDetail(overrides: Partial<LauncherRemoteModDetail> = {}): L
   }
 }
 
-function createChangelog(overrides: Partial<LauncherUpdateChangelogResult> = {}): LauncherUpdateChangelogResult {
-  return {
-    modId: 101,
-    version: '1.2.0',
-    changelog: '- 修复了在冬季由于雪地渲染导致的菜单闪烁 Bug\n- 增加了对 SMAPI 4.0 的完美支持',
-    ...overrides,
-  }
-}
-
 describe('LauncherUpdatesPage', () => {
   afterEach(() => {
     cleanup()
@@ -216,7 +203,6 @@ describe('LauncherUpdatesPage', () => {
     loadCachedLauncherUpdatesMock.mockReset()
     loadLauncherNexusDiagnosticsMock.mockReset()
     loadLauncherRemoteModDetailMock.mockReset()
-    loadLauncherUpdateChangelogMock.mockReset()
     subscribeLauncherUpdatesMock.mockReset()
     loadCachedLauncherUpdatesMock.mockResolvedValue(null)
     loadLauncherNexusDiagnosticsMock.mockResolvedValue(createLauncherDiagnosticsResult())
@@ -226,7 +212,6 @@ describe('LauncherUpdatesPage', () => {
       loadCachedUpdates: loadCachedLauncherUpdatesMock,
       loadNexusDiagnostics: loadLauncherNexusDiagnosticsMock,
       loadRemoteModDetail: loadLauncherRemoteModDetailMock,
-      loadUpdateChangelog: loadLauncherUpdateChangelogMock,
       listenToUpdateProgress: vi.fn(async (listener: (payload: LauncherUpdateProgressPayload) => void) => {
         eventListeners.set('launcher://update-check-progress', (event: { payload: unknown }) => {
           listener(event.payload as LauncherUpdateProgressPayload)
@@ -239,10 +224,8 @@ describe('LauncherUpdatesPage', () => {
     })
   })
 
-  it('expands update rows without loading remote content until the fetch buttons are clicked', async () => {
+  it('opens the shared mod detail panel when clicking view details', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-04-12T08:00:00.000Z').getTime())
-    const detailPending = createDeferred<LauncherRemoteModDetail>()
-    const changelogPending = createDeferred<LauncherUpdateChangelogResult>()
 
     checkLauncherUpdatesMock.mockResolvedValue(
       createResult([
@@ -259,8 +242,7 @@ describe('LauncherUpdatesPage', () => {
         }),
       ]),
     )
-    loadLauncherRemoteModDetailMock.mockImplementation(() => detailPending.promise)
-    loadLauncherUpdateChangelogMock.mockImplementation(() => changelogPending.promise)
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteDetail())
 
     renderWithProviders(<LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />)
 
@@ -270,49 +252,18 @@ describe('LauncherUpdatesPage', () => {
     expect(screen.getByRole('button', { name: '重新检查' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '取消全选' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '一键更新所有勾选项' })).toBeTruthy()
-    expect(screen.queryByText(/修复了在冬季由于雪地渲染导致的菜单闪烁 Bug/)).toBeNull()
+    expect(document.body.querySelector('.launcher-mod-detail-panel')).toBeNull()
     expect(loadLauncherRemoteModDetailMock).not.toHaveBeenCalled()
-    expect(loadLauncherUpdateChangelogMock).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getAllByRole('button', { name: '展开详情' })[0]!)
-
-    expect(screen.getByText('3天前发布')).toBeTruthy()
-    expect(screen.getByText('12.5 MB')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '抓取详情' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: '抓取更新日志' })).toBeTruthy()
-    expect(loadLauncherRemoteModDetailMock).not.toHaveBeenCalled()
-    expect(loadLauncherUpdateChangelogMock).not.toHaveBeenCalled()
-
-    fireEvent.click(screen.getByRole('button', { name: '抓取详情' }))
+    fireEvent.click(screen.getAllByRole('button', { name: '查看详情' })[0]!)
 
     await waitFor(() => {
-      expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledWith({ modId: 101 })
+      expect(document.body.querySelector('.launcher-mod-detail-panel')).toBeTruthy()
     })
-    expect(screen.getByText('正在抓取模组详情')).toBeTruthy()
-
-    await act(async () => {
-      detailPending.resolve(createRemoteDetail())
-      await Promise.resolve()
-    })
-
-    expect(await screen.findByText('Help villagers travel farther and react smarter.')).toBeTruthy()
-    expect(loadLauncherUpdateChangelogMock).not.toHaveBeenCalled()
-
-    fireEvent.click(screen.getByRole('button', { name: '抓取更新日志' }))
-
+    expect(document.body.querySelector('[role="dialog"]')).toHaveAttribute('aria-label', 'NPC Adventures')
     await waitFor(() => {
-      expect(loadLauncherUpdateChangelogMock).toHaveBeenCalledWith({ modId: 101 })
+      expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledWith({ modId: 101, includeFiles: false })
     })
-    expect(screen.getByText('正在抓取更新日志')).toBeTruthy()
-
-    await act(async () => {
-      changelogPending.resolve(createChangelog())
-      await Promise.resolve()
-    })
-
-    expect(await screen.findByText(/修复了在冬季由于雪地渲染导致的菜单闪烁 Bug/)).toBeTruthy()
-    expect(screen.getByRole('button', { name: '前往模组主页' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: '查看评论区' })).toBeTruthy()
   })
 
   it('shows diagnostics details when automatic update checks are blocked by unavailable routes', async () => {
@@ -408,7 +359,7 @@ describe('LauncherUpdatesPage', () => {
     expect(notificationToast).toBeTruthy()
     expect(container.querySelector('.launcher-blocked-highlight')).toBeNull()
     expect(container.querySelector('.launcher-blocked-details')).toBeNull()
-    expect(screen.queryByRole('button', { name: '展开详情' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '查看详情' })).toBeNull()
     expect(screen.queryByRole('button', { name: '复制日志' })).toBeNull()
     expect(screen.getByRole('button', { name: '前往通路诊断' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '重新检查' })).toBeTruthy()
@@ -493,31 +444,6 @@ describe('LauncherUpdatesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '全选' }))
     expect(firstCheckbox).toHaveProperty('checked', true)
     expect(secondCheckbox).toHaveProperty('checked', true)
-  })
-
-  it('allows closing the expanded panel while an explicit detail fetch is still loading', async () => {
-    checkLauncherUpdatesMock.mockResolvedValue(createResult([createUpdate()]))
-    loadLauncherRemoteModDetailMock.mockImplementation(() => new Promise(() => {}))
-
-    renderWithProviders(<LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />)
-
-    const toggle = await waitFor(() => {
-      const button = screen.getAllByRole('button').find((candidate) => candidate.hasAttribute('aria-expanded'))
-      expect(button).toBeTruthy()
-      return button as HTMLButtonElement
-    })
-
-    fireEvent.click(toggle)
-    fireEvent.click(await screen.findByRole('button', { name: '抓取详情' }))
-    await waitFor(() => {
-      expect(toggle.getAttribute('aria-expanded')).toBe('true')
-    })
-
-    fireEvent.click(toggle)
-
-    expect(toggle.getAttribute('aria-expanded')).toBe('false')
-    expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledTimes(1)
-    expect(loadLauncherUpdateChangelogMock).not.toHaveBeenCalled()
   })
 
   it('shows update-check progress in the global notification viewport', async () => {

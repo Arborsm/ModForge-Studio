@@ -5,7 +5,7 @@ use serde_json::json;
 use tauri::State;
 
 #[tauri::command]
-pub fn load_resource_registry(
+pub async fn load_resource_registry(
     app: tauri::AppHandle<AppRuntime>,
     debug_logging_state: State<'_, DebugLoggingState>,
     root_path: String,
@@ -13,8 +13,9 @@ pub fn load_resource_registry(
 ) -> Result<ResourceRegistry, String> {
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
-        debug_logging_state,
+        debug_logging_state.inner().clone(),
         crate::host_command_name!(load_resource_registry),
         json!({ "rootPath": root_path, "locale": locale }),
     )
+    .await
 }

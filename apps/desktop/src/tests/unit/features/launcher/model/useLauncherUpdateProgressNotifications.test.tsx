@@ -6,8 +6,9 @@ import { dismissNotification, publishNotification } from '@shared/ui/notificatio
 import { LauncherTestWrapper } from '@test/launcherTestWrapper'
 import { createMockLauncherPort } from '@test/launcherTestPort'
 import { useLauncherUpdateProgressNotifications } from '@features/launcher/model/useLauncherUpdateProgressNotifications'
+import { useLauncherImageFetchNotifications } from '@features/launcher/model/useLauncherImageFetchNotifications'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
-import type { LauncherUpdateProgressPayload } from '@features/launcher/model/launcherContracts'
+import type { LauncherImageFetchDisconnectedPayload, LauncherUpdateProgressPayload } from '@features/launcher/model/launcherContracts'
 
 vi.mock('@shared/ui/notifications', async () => {
   const actual = await vi.importActual<typeof import('@shared/ui/notifications')>('@shared/ui/notifications')
@@ -22,6 +23,7 @@ const publishNotificationMock = vi.mocked(publishNotification)
 
 let launcherPort: LauncherPort
 let progressListener: ((payload: LauncherUpdateProgressPayload) => void) | null = null
+let imageFetchDisconnectedListener: ((payload: LauncherImageFetchDisconnectedPayload) => void) | null = null
 
 function Wrapper({ children }: PropsWithChildren) {
   return (
@@ -43,12 +45,25 @@ function createProgressPayload(overrides: Partial<LauncherUpdateProgressPayload>
   }
 }
 
+function createImageFetchDisconnectedPayload(
+  overrides: Partial<LauncherImageFetchDisconnectedPayload> = {},
+): LauncherImageFetchDisconnectedPayload {
+  return {
+    sourceUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/20599/cover.webp',
+    modKey: '20599',
+    error: 'connection reset by peer',
+    elapsedMs: 1204,
+    ...overrides,
+  }
+}
+
 describe('useLauncherUpdateProgressNotifications', () => {
   afterEach(() => {
     cleanup()
     vi.useRealTimers()
     vi.clearAllMocks()
     progressListener = null
+    imageFetchDisconnectedListener = null
   })
 
   it('throttles high-frequency update progress notification writes', async () => {
@@ -102,5 +117,63 @@ describe('useLauncherUpdateProgressNotifications', () => {
 
     expect(dismissNotification).toHaveBeenCalledWith('launcher-updates-progress')
     expect(publishNotificationMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('useLauncherImageFetchNotifications', () => {
+  afterEach(() => {
+    cleanup()
+    vi.clearAllMocks()
+    imageFetchDisconnectedListener = null
+  })
+
+  it('publishes a warning notification when launcher cover fetches disconnect', async () => {
+    launcherPort = createMockLauncherPort({
+      listenToImageFetchDisconnected: vi.fn(async (listener) => {
+        imageFetchDisconnectedListener = listener
+        return () => {}
+      }),
+    })
+
+    renderHook(() => useLauncherImageFetchNotifications(), { wrapper: Wrapper })
+
+    await act(async () => {})
+
+    act(() => {
+      imageFetchDisconnectedListener?.(createImageFetchDisconnectedPayload())
+    })
+
+    expect(publishNotificationMock).toHaveBeenCalledWith({
+      id: 'launcher-image-fetch-disconnected',
+      level: 'warning',
+      title: 'Cover image connection interrupted',
+      description: 'A launcher cover request was disconnected while reading Nexus images.',
+      note: 'ModForge will keep using cached covers and retry failed covers on the next refresh.',
+    })
+  })
+
+  it('updates the same notification with the disconnect count', async () => {
+    launcherPort = createMockLauncherPort({
+      listenToImageFetchDisconnected: vi.fn(async (listener) => {
+        imageFetchDisconnectedListener = listener
+        return () => {}
+      }),
+    })
+
+    renderHook(() => useLauncherImageFetchNotifications(), { wrapper: Wrapper })
+
+    await act(async () => {})
+
+    act(() => {
+      imageFetchDisconnectedListener?.(createImageFetchDisconnectedPayload({ modKey: '20599' }))
+      imageFetchDisconnectedListener?.(createImageFetchDisconnectedPayload({ modKey: '24070' }))
+    })
+
+    expect(publishNotificationMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        id: 'launcher-image-fetch-disconnected',
+        description: '2 launcher cover requests were disconnected while reading Nexus images.',
+      }),
+    )
   })
 })

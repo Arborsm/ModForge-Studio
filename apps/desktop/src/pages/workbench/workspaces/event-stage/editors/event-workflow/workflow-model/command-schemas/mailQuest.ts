@@ -5,123 +5,149 @@ export const mailQuestCommandSchemas = [
 
   {
     key: 'mail',
-    label: 'Mail',
     category: 'item',
     color: 'yellow',
     icon: 'Mail',
     template: [
-      { type: 'text', value: '发送邮件' },
-      { type: 'param', index: 1, label: '邮件', ui: 'text', placeholder: 'LetterId' },
+      { type: 'text', copyKey: 'mail.template1' },
+      { type: 'param', index: 1, labelKey: 'mail.param1.label', ui: 'text', placeholderKey: 'mail.param1.placeholder' },
     ],
   },
 
   {
     key: 'mailToday',
-    label: 'Mail Today',
     category: 'item',
     color: 'yellow',
     icon: 'Mail',
     template: [
-      { type: 'text', value: '今日发送邮件' },
-      { type: 'param', index: 1, label: '邮件', ui: 'text', placeholder: 'LetterId' },
+      { type: 'text', copyKey: 'mailToday.template1' },
+      { type: 'param', index: 1, labelKey: 'mailToday.param1.label', ui: 'text', placeholderKey: 'mailToday.param1.placeholder' },
     ],
   },
 
   {
     key: 'mailReceived',
-    label: 'Mail Received',
     category: 'item',
     color: 'yellow',
     icon: 'MailCheck',
     template: [
-      { type: 'text', value: '标记已收到邮件' },
-      { type: 'param', index: 1, label: '邮件', ui: 'text', placeholder: 'LetterId' },
+      { type: 'text', copyKey: 'mailReceived.template1' },
+      { type: 'param', index: 1, labelKey: 'mailReceived.param1.label', ui: 'text', placeholderKey: 'mailReceived.param1.placeholder' },
     ],
   },
 
   {
     key: 'addQuest',
-    label: 'Add Quest',
     category: 'item',
     color: 'yellow',
     icon: 'Scroll',
     template: [
-      { type: 'text', value: '添加任务' },
-      { type: 'param', index: 1, label: '任务', ui: 'text', placeholder: 'QuestId' },
+      { type: 'text', copyKey: 'addQuest.template1' },
+      { type: 'param', index: 1, labelKey: 'addQuest.param1.label', ui: 'text', placeholderKey: 'addQuest.param1.placeholder' },
     ],
   },
 
   {
     key: 'removeQuest',
-    label: 'Remove Quest',
     category: 'item',
     color: 'yellow',
     icon: 'Scroll',
     template: [
-      { type: 'text', value: '移除任务' },
-      { type: 'param', index: 1, label: '任务', ui: 'text', placeholder: 'QuestId' },
+      { type: 'text', copyKey: 'removeQuest.template1' },
+      { type: 'param', index: 1, labelKey: 'removeQuest.param1.label', ui: 'text', placeholderKey: 'removeQuest.param1.placeholder' },
     ],
   },
 
   {
     key: 'addSpecialOrder',
-    label: 'Add Special Order',
     category: 'item',
     color: 'yellow',
     icon: 'Scroll',
     template: [
-      { type: 'text', value: '添加特殊订单' },
-      { type: 'param', index: 1, label: '订单', ui: 'text', placeholder: 'OrderId' },
+      { type: 'text', copyKey: 'addSpecialOrder.template1' },
+      {
+        type: 'param',
+        index: 1,
+        labelKey: 'addSpecialOrder.param1.label',
+        ui: 'text',
+        placeholderKey: 'addSpecialOrder.param1.placeholder',
+      },
     ],
   },
 
   {
     key: 'removeSpecialOrder',
-    label: 'Remove Special Order',
     category: 'item',
     color: 'yellow',
     icon: 'Scroll',
     template: [
-      { type: 'text', value: '移除特殊订单' },
-      { type: 'param', index: 1, label: '订单', ui: 'text', placeholder: 'OrderId' },
+      { type: 'text', copyKey: 'removeSpecialOrder.template1' },
+      {
+        type: 'param',
+        index: 1,
+        labelKey: 'removeSpecialOrder.param1.label',
+        ui: 'text',
+        placeholderKey: 'removeSpecialOrder.param1.placeholder',
+      },
     ],
   },
 
   {
     key: 'addCookingRecipe',
-    label: 'Add Cooking Recipe',
     category: 'item',
     color: 'yellow',
     icon: 'ChefHat',
     template: [
-      { type: 'text', value: '添加食谱' },
-      { type: 'param', index: 1, label: '食谱', ui: 'text', placeholder: 'RecipeName' },
+      { type: 'text', copyKey: 'addCookingRecipe.template1' },
+      {
+        type: 'param',
+        index: 1,
+        labelKey: 'addCookingRecipe.param1.label',
+        ui: 'text',
+        placeholderKey: 'addCookingRecipe.param1.placeholder',
+      },
     ],
   },
 
   {
     key: 'addCraftingRecipe',
-    label: 'Add Crafting Recipe',
     category: 'item',
     color: 'yellow',
     icon: 'Hammer',
     template: [
-      { type: 'text', value: '添加配方' },
-      { type: 'param', index: 1, label: '配方', ui: 'text', placeholder: 'RecipeName' },
+      { type: 'text', copyKey: 'addCraftingRecipe.template1' },
+      {
+        type: 'param',
+        index: 1,
+        labelKey: 'addCraftingRecipe.param1.label',
+        ui: 'text',
+        placeholderKey: 'addCraftingRecipe.param1.placeholder',
+      },
     ],
   },
 
   {
     key: 'addConversationTopic',
-    label: 'Add Conversation Topic',
     category: 'item',
     color: 'yellow',
     icon: 'MessageCircle',
     template: [
-      { type: 'text', value: '添加话题' },
-      { type: 'param', index: 1, label: '话题', ui: 'text', placeholder: 'TopicId' },
-      { type: 'text', value: '持续天数' },
-      { type: 'param', index: 2, label: '天数', ui: 'number', placeholder: '7' },
+      { type: 'text', copyKey: 'addConversationTopic.template1' },
+      {
+        type: 'param',
+        index: 1,
+        labelKey: 'addConversationTopic.param1.label',
+        ui: 'text',
+        placeholderKey: 'addConversationTopic.param1.placeholder',
+      },
+      { type: 'text', copyKey: 'addConversationTopic.template2' },
+      {
+        type: 'param',
+        index: 2,
+        labelKey: 'addConversationTopic.param2.label',
+        ui: 'number',
+        placeholderKey: 'addConversationTopic.param2.placeholder',
+      },
     ],
   },
 ] satisfies CommandSchema[]

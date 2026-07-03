@@ -134,8 +134,8 @@
   .launcher-mod-detail-hero {
     display: grid;
     grid-template-columns: minmax(18.75rem, 34%) minmax(0, 1fr);
-    height: clamp(19.375rem, 29vh, 21.875rem);
-    min-height: 18.75rem;
+    min-height: clamp(19.375rem, 29vh, 21.875rem);
+    max-height: min(26rem, 40vh);
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
     background: linear-gradient(
       90deg,
@@ -148,7 +148,12 @@
     display: grid;
     min-width: 0;
     min-height: 0;
-    margin: 1rem 0 1rem 1rem;
+    align-self: center;
+    justify-self: center;
+    width: calc(100% - 2rem);
+    max-height: 100%;
+    aspect-ratio: 16 / 9;
+    margin: 0;
     border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
     border-radius: 1.125rem;
     background: linear-gradient(
@@ -170,10 +175,22 @@
   }
 
   .launcher-mod-detail-cover.launcher-mod-card-cover-has-image {
-    background: color-mix(in srgb, var(--launcher-cover-base, var(--accent)) 10%, var(--bg-panel-muted));
+    background: transparent;
+  }
+
+  .launcher-mod-detail-cover-frame:has(.launcher-mod-card-cover-has-image) {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
   }
 
   .launcher-mod-detail-cover .launcher-mod-card-cover-image-blur-strip {
+    display: none;
+  }
+
+  .launcher-mod-detail-cover .launcher-mod-card-cover-gradient,
+  .launcher-mod-detail-cover .launcher-mod-card-cover-aura,
+  .launcher-mod-detail-cover .launcher-mod-card-cover-noise {
     display: none;
   }
 

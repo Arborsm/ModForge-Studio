@@ -53,14 +53,17 @@ use commands::launcher::{
     set_launcher_mod_enabled, set_launcher_nexus_force_offline, start_nexus_sso,
     validate_nexus_api_key,
 };
-use commands::logging::{set_debug_logging_enabled, write_frontend_log};
+use commands::logging::{
+    print_host_runtime_diagnostics, set_debug_logging_enabled, write_frontend_log,
+};
 use commands::mods::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects};
 use commands::resource_registry::load_resource_registry;
 use commands::saves::scan_default_save_slots;
 use support::logging::{DebugLoggingState, init_host_logging};
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
-use tauri::tray::{TrayIconBuilder, TrayIconEvent};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::{RunEvent, generate_context};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -108,8 +111,14 @@ pub fn run() {
                 )
                 .tooltip("ModForge Studio")
                 .menu(&tray_menu)
+                .show_menu_on_left_click(false)
                 .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click { .. } = event {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
                         if let Some(window) = tray.app_handle().get_webview_window("main") {
                             match window.is_visible() {
                                 Ok(true) => {
@@ -211,6 +220,7 @@ pub fn run() {
             restore_launcher_install_backup,
             load_app_ui_state,
             patch_app_ui_state,
+            print_host_runtime_diagnostics,
             set_debug_logging_enabled,
             write_frontend_log,
             validate_nexus_api_key,
@@ -218,6 +228,11 @@ pub fn run() {
             get_nexus_sso_status,
             cancel_nexus_sso,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, event| {
+            if matches!(event, RunEvent::Exit) {
+                commands::runtime::print_host_runtime_diagnostics_summary("tauri exit");
+            }
+        });
 }

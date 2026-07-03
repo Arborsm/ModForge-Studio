@@ -222,7 +222,7 @@ export function EventTimelinePanel({
                   entryRefs.current[entry.id] = node
                 }}
                 className={cx(
-                  'grid w-full grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 border-b border-(--border-color) px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-[color-mix(in_srgb,var(--bg-active)_65%,transparent)]',
+                  'grid w-full grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-(--border-color) px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-[color-mix(in_srgb,var(--bg-active)_65%,transparent)]',
                   isSelected && 'bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg-panel))]',
                   isCurrent && 'bg-[color-mix(in_srgb,var(--accent)_14%,var(--bg-panel))]',
                 )}
@@ -231,7 +231,7 @@ export function EventTimelinePanel({
                   onActivateTimelineEntry(entry.id)
                 }}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   <span
                     className={cx(
                       'inline-flex h-7 min-w-7 items-center justify-center rounded-full text-[10px] font-semibold text-white',

@@ -316,6 +316,7 @@ export function installDevLauncherMock() {
         case 'open_launcher_path':
         case 'open_launcher_url':
         case 'write_frontend_log':
+        case 'print_host_runtime_diagnostics':
           return null
         case 'get_launcher_backup_directory':
           return 'E:\\ModForge Dev\\Backups'

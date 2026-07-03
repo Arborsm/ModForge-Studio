@@ -399,22 +399,10 @@
     min-width: 0;
     min-height: 0;
     margin: 0;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     font-size: 0.8125rem;
-    line-height: 1.55;
+    line-height: 1.6;
     padding: 1.125rem 1.25rem 4.875rem;
-    scrollbar-width: thin;
-  }
-
-  .launcher-mod-detail-description::after {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    height: 5.5rem;
-    pointer-events: none;
-    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--bg-panel) 94%, transparent) 70%, var(--bg-panel));
-    content: '';
   }
 
   .launcher-mod-detail-description .control-button {
@@ -423,6 +411,5 @@
     bottom: 1rem;
     z-index: 1;
     width: fit-content;
-    box-shadow: 0 0.75rem 1.5rem rgba(15, 23, 42, 0.12);
   }
 }

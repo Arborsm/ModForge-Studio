@@ -138,6 +138,22 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
         return
       }
 
+      setTextureStatesByAssetName((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          pendingAssetNames.map((assetName) => [
+            assetName,
+            {
+              path: null,
+              url: null,
+              width: null,
+              height: null,
+              loading: true,
+            } satisfies ItemTextureAssetState,
+          ]),
+        ),
+      }))
+
       void (async () => {
         const requestRootPath = rootPath
         const requestLocale = locale
@@ -175,10 +191,23 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
     }
 
     let cancelled = false
+    const textureAssetName = activeItem.textureAssetName
+
+    setModTextureStatesByAssetName((current) => ({
+      ...current,
+      [textureAssetName]: {
+        path: null,
+        url: null,
+        width: null,
+        height: null,
+        loading: true,
+      } satisfies ItemTextureAssetState,
+    }))
+
     void loadModResultImageState({
       rootPath,
       entry: activeModItemEntry,
-      preferredTargets: [activeItem.textureAssetName],
+      preferredTargets: [textureAssetName],
       fallbackPathLabel: activeItem.texturePathLabel,
     })
       .then((result) => {
@@ -188,15 +217,29 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
 
         setModTextureStatesByAssetName((current) => ({
           ...current,
-          [activeItem.textureAssetName as string]: {
+          [textureAssetName]: {
             path: result.path,
             url: result.url,
             width: result.width,
             height: result.height,
+            loading: false,
           },
         }))
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) {
+          setModTextureStatesByAssetName((current) => ({
+            ...current,
+            [textureAssetName]: {
+              path: null,
+              url: null,
+              width: null,
+              height: null,
+              loading: false,
+            },
+          }))
+        }
+      })
 
     return () => {
       cancelled = true

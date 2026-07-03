@@ -35,6 +35,7 @@
     "test:launcher-custom-sort": "node ./scripts/verify-launcher-custom-sort.mjs",
     "test:launcher-drag": "node ./scripts/verify-launcher-drag.mjs",
     "test:launcher-fast-scroll": "node ./scripts/verify-launcher-fast-scroll.mjs",
+    "test:launcher-cover-api-concurrency": "node ./scripts/probe-launcher-cover-api-concurrency.mjs --discover",
     "test:launcher-performance": "node ./scripts/verify-launcher-performance.mjs",
     "test:performance:pages": "node ./scripts/verify-page-performance.mjs",
     "test:performance:compiler-cleanup": "node ./scripts/verify-compiler-cleanup-performance.mjs",
@@ -128,5 +129,10 @@
     "rpm": {
       "packageName": "modforge-studio"
     }
+  },
+  "dependencies": {
+    "@bbob/plugin-helper": "^4.3.1",
+    "@bbob/preset": "^4.3.1",
+    "@bbob/react": "^4.3.1"
   }
 }

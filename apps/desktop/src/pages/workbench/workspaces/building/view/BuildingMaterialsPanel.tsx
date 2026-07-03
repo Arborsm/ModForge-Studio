@@ -2,6 +2,7 @@ import { getSpringObjectsSourceRect } from '@entities/event'
 import { buildAbsoluteSpriteLayerStyle } from './buildingViewHelpers'
 import { formatPoint } from '@shared/infra/game-formats/geometryFormatting'
 import { useBuildingsCopy } from '@locales/provider'
+import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry, WorldBuildingEntrance } from '../entities/building'
 import type { BuildingsPanelCopy } from '@locales/api'
 
@@ -27,7 +28,9 @@ function MaterialChip({
   return (
     <div className="panel-list-card flex items-center gap-2 px-3 py-2">
       <div className="relative h-10 w-10 overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-panel-muted)">
-        {sourceRect && springObjectsState.url && springObjectsState.width && springObjectsState.height ? (
+        {springObjectsState.loading && sourceRect ? (
+          <ImageSkeleton overlay rounded={false} />
+        ) : sourceRect && springObjectsState.url && springObjectsState.width && springObjectsState.height ? (
           <div
             className="absolute top-1/2 left-1/2"
             style={{

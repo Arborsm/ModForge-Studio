@@ -271,4 +271,13 @@ describe('desktop facade', () => {
     })
     expect(warnSpy).toHaveBeenCalledWith('[webview][WARN] Launcher settings save failed source=launcher-settings')
   })
+
+  it('prints host runtime diagnostics through desktop ports', async () => {
+    const { desktop, invokeCommand } = await loadConfiguredDesktop()
+    invokeCommand.mockResolvedValueOnce(undefined)
+
+    await expect(desktop.printHostRuntimeDiagnostics()).resolves.toBeUndefined()
+
+    expect(invokeCommand).toHaveBeenCalledWith('print_host_runtime_diagnostics', undefined)
+  })
 })

@@ -50,36 +50,40 @@
 
   .workspace-tool-button {
     display: inline-flex;
-    height: 1.875rem;
-    width: 1.875rem;
+    height: 2rem;
+    width: 2rem;
+    flex: 0 0 2rem;
     align-items: center;
     justify-content: center;
-    border: 1px solid transparent;
-    border-radius: 0.75rem;
+    border: 0;
+    border-radius: 0.875rem;
     background: transparent;
     color: var(--text-secondary);
+    line-height: 0;
     transition:
       background-color 160ms ease,
-      border-color 160ms ease,
       color 160ms ease;
+  }
+
+  .workspace-tool-button > svg {
+    display: block;
+    width: 1.0625rem;
+    height: 1.0625rem;
+    flex: 0 0 1.0625rem;
+    stroke-width: 2.15;
   }
 
   .workspace-tool-button:hover {
     background: color-mix(in srgb, var(--bg-active) 84%, transparent);
-    border-color: color-mix(in srgb, var(--border-color) 92%, transparent);
     color: var(--text-primary);
   }
 
   .workspace-tool-button-current {
-    border-color: color-mix(in srgb, var(--border-color) 96%, transparent);
-    background: color-mix(in srgb, var(--bg-panel-muted) 90%, transparent);
     color: var(--text-primary);
   }
 
   .workspace-tool-button-active {
-    border-color: color-mix(in srgb, var(--accent) 52%, transparent);
-    background: color-mix(in srgb, var(--accent-soft) 90%, transparent);
-    color: var(--text-primary);
+    color: var(--accent);
   }
 
   .workspace-tool-button-dragging {
@@ -88,7 +92,6 @@
   }
 
   .workspace-tool-button-drop-target {
-    border-color: color-mix(in srgb, var(--accent) 58%, transparent);
     box-shadow: inset 0 0.125rem 0 color-mix(in srgb, var(--accent) 90%, transparent);
   }
 

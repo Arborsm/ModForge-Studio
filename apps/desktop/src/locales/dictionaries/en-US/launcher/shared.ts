@@ -25,6 +25,14 @@ const shared: LauncherSharedCopy = {
     completedDownloads: 'Completed Downloads',
     pendingUpdates: 'Pending Updates',
   },
+  notifications: {
+    imageFetchDisconnectedTitle: 'Cover image connection interrupted',
+    imageFetchDisconnectedDetail: (count) =>
+      count > 1
+        ? `${count} launcher cover requests were disconnected while reading Nexus images.`
+        : 'A launcher cover request was disconnected while reading Nexus images.',
+    imageFetchDisconnectedNote: 'ModForge will keep using cached covers and retry failed covers on the next refresh.',
+  },
   actions: {
     refresh: 'Refresh',
     launchGame: 'Launch Game',

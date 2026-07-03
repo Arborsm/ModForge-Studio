@@ -26,6 +26,12 @@ export {
   toggleFullscreenCurrentWindow,
   toggleMaximizeCurrentWindow,
 } from './window'
-export { setDesktopDebugLoggingEnabled, writeFrontendLog, type FrontendLogLevel, type FrontendLogRequest } from './logging'
+export {
+  printHostRuntimeDiagnostics,
+  setDesktopDebugLoggingEnabled,
+  writeFrontendLog,
+  type FrontendLogLevel,
+  type FrontendLogRequest,
+} from './logging'
 export { loadAppUiState, patchAppUiState } from './appUi'
 export { clearFileCache, getFileCacheStats, type FileCacheStats } from './fileCache'

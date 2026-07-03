@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
-import { getFileCacheStats } from '@platform/host'
+import { getFileCacheStats, printHostRuntimeDiagnostics } from '@platform/host'
 import { DevDebugOverlay } from '@pages/workbench/ui/DevDebugOverlay'
 
 const desktopMockState = vi.hoisted(() => ({
@@ -24,6 +24,7 @@ vi.mock('@platform/host', () => ({
     imageDataUrl: 4,
   }),
   getFileCacheStats: vi.fn(),
+  printHostRuntimeDiagnostics: vi.fn(),
 }))
 
 vi.mock('@shared/lib/maps', () => ({
@@ -69,6 +70,7 @@ beforeAll(() => {
 beforeEach(() => {
   desktopMockState.canUseDesktopHost = false
   vi.mocked(getFileCacheStats).mockReset()
+  vi.mocked(printHostRuntimeDiagnostics).mockReset()
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1)
   vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined)
 })
@@ -200,5 +202,27 @@ describe('DevDebugOverlay', () => {
     expect(getFileCacheStats).toHaveBeenCalledTimes(2)
     expect(screen.getByText(/3 entries/)).toBeInTheDocument()
     expect(setIntervalSpy).not.toHaveBeenCalled()
+  })
+
+  it('prints a host runtime diagnostics snapshot on demand', async () => {
+    desktopMockState.canUseDesktopHost = true
+    vi.mocked(getFileCacheStats).mockResolvedValue({
+      rootPath: 'C:/cache/assets-v1',
+      entryCount: 2,
+      totalSizeBytes: 2048,
+    })
+    vi.mocked(printHostRuntimeDiagnostics).mockResolvedValueOnce(undefined)
+
+    render(<DevDebugOverlay workspaceMode="map" mapName="Town" eventName={null} currentEventCommandId={null} actorCount={0} />)
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Output' }))
+      await Promise.resolve()
+    })
+
+    expect(printHostRuntimeDiagnostics).toHaveBeenCalledTimes(1)
   })
 })

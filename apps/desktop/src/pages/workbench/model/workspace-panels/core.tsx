@@ -113,6 +113,7 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
     characterFilter,
     characterStatusMessage,
     activeCharacterAssetState,
+    activeCharacterAssetLoading,
     onCharacterFilterChange,
     onSelectCharacter,
     onSelectModCharacter,
@@ -289,6 +290,7 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
                   character={activeCharacter}
                   activeVariant={activeCharacterVariant}
                   assetState={activeCharacterAssetState}
+                  assetLoading={activeCharacterAssetLoading}
                 />,
               )}
             </DeferredWorkspaceReveal>

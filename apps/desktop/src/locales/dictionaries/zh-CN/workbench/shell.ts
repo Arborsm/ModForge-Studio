@@ -294,6 +294,8 @@ const shell: WorkbenchShellCopy = {
     preloadingMaps: '正在预加载地图资源...',
     preloadingTilesets: '正在预加载 Tileset 图像...',
     resourcePreloadFailed: '资源预加载失败。',
+    workbenchViewUnavailableTitle: '工作台视图未注册',
+    workbenchViewUnavailableDetail: '当前模式没有可用的视图注册项，请返回工作台首页后重新进入。',
     onlyTmxSupported: '当前只支持 XNB 地图加载。',
     directorySelectionFailed: '目录选择失败。',
     detectedKnownPath: (path) => `检测到目录: ${path}`,

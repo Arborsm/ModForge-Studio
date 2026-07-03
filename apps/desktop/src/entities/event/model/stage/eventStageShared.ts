@@ -262,6 +262,7 @@ type ActorAssetRequest = {
 }
 
 type ActorAssetState = {
+  loading?: boolean
   requestKey: string
   textureName: string | null
   spriteTextureName: string | null
@@ -290,6 +291,7 @@ type ResolvedAssetCandidate = {
 }
 
 type EffectAssetState = {
+  loading?: boolean
   requestKey: string
   textureName: string
   path: string | null

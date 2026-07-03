@@ -638,6 +638,7 @@ async function resolveEffectAsset(textureName: string, rootPath: string | null):
       url: null,
       width: null,
       height: null,
+      loading: false,
     }
   }
 
@@ -650,6 +651,7 @@ async function resolveEffectAsset(textureName: string, rootPath: string | null):
       url: null,
       width: null,
       height: null,
+      loading: false,
     }
   }
   const image = await preloadImage(path)
@@ -661,6 +663,7 @@ async function resolveEffectAsset(textureName: string, rootPath: string | null):
     url: image?.url ?? null,
     width: image?.width ?? null,
     height: image?.height ?? null,
+    loading: false,
   }
 }
 
@@ -806,6 +809,7 @@ async function resolveActorAssets(request: ActorAssetRequest, rootPath: string |
       portraitSheetHeight: null,
       farmerAppearance: null,
       characterMetadata: request.characterMetadata,
+      loading: false,
     }
   }
 
@@ -839,6 +843,7 @@ async function resolveActorAssets(request: ActorAssetRequest, rootPath: string |
     portraitSheetHeight: portraitAsset?.height ?? null,
     farmerAppearance,
     characterMetadata: request.characterMetadata,
+    loading: false,
   }
 }
 

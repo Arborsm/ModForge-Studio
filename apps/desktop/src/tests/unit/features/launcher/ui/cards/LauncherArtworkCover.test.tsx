@@ -42,6 +42,7 @@ describe('LauncherArtworkCover', () => {
     expect(container.querySelector('.launcher-mod-card-cover-image-blur-clone')).toBeTruthy()
     expect(container.querySelector('.launcher-mod-card-cover-image')).toBeTruthy()
     expect(container.querySelector('.launcher-mod-card-cover-fallback')).toBeNull()
+    expect(container.querySelector('.launcher-mod-card-cover-skeleton')).toBeNull()
   })
 
   it('marks image-backed covers so fallback gradient chrome can be disabled', () => {
@@ -98,5 +99,53 @@ describe('LauncherArtworkCover', () => {
     expect(container.querySelector('.launcher-mod-card-cover-image-blur')).toBeNull()
     expect(container.querySelector('.launcher-mod-card-cover-image')).toBeNull()
     expect(container.querySelector('.launcher-mod-card-cover-fallback')).toBeTruthy()
+    expect(container.querySelector('.launcher-mod-card-cover-skeleton')).toBeNull()
+    expect(container.firstElementChild).not.toHaveAttribute('aria-busy')
+  })
+
+  it('renders a full-cover skeleton while the image is loading', () => {
+    useLauncherImageMock.mockReturnValue({
+      imageUrl: null,
+      error: null,
+      loading: true,
+    })
+
+    const { container } = render(
+      <LauncherArtworkCover
+        title="NPC Adventures"
+        imageUrl="https://example.com/cover.png"
+        imageModKey="101"
+        coverStyle={coverStyle}
+        coverWord="NPC"
+      />,
+    )
+
+    expect(container.querySelector('.launcher-mod-card-cover-skeleton')).toBeTruthy()
+    expect(container.querySelector('.image-skeleton')).toBeTruthy()
+    expect(container.querySelector('.launcher-mod-card-cover-image')).toBeNull()
+    expect(container.querySelector('.launcher-mod-card-cover-fallback')).toBeNull()
+    expect(container.firstElementChild).toHaveAttribute('aria-busy', 'true')
+  })
+
+  it('keeps fallback presentation when loading errors', () => {
+    useLauncherImageMock.mockReturnValue({
+      imageUrl: null,
+      error: { url: 'https://example.com/cover.png', error: 'Network error' },
+      loading: false,
+    })
+
+    const { container } = render(
+      <LauncherArtworkCover
+        title="NPC Adventures"
+        imageUrl="https://example.com/cover.png"
+        imageModKey="101"
+        coverStyle={coverStyle}
+        coverWord="NPC"
+      />,
+    )
+
+    expect(container.querySelector('.launcher-mod-card-cover-image')).toBeNull()
+    expect(container.querySelector('.launcher-mod-card-cover-fallback')).toBeTruthy()
+    expect(container.querySelector('.launcher-mod-card-cover-skeleton')).toBeNull()
   })
 })

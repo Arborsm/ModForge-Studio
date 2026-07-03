@@ -709,21 +709,7 @@ fn load_trending_catalog_page(
     parse_trending_catalog_response(&response_payload, page, ascending)
 }
 
-pub async fn search_launcher_catalog(
-    app: AppHandle,
-    request: SearchLauncherCatalogRequest,
-) -> Result<LauncherCatalogPageResult, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
-        "search_launcher_catalog",
-        tauri::async_runtime::spawn_blocking(move || {
-            search_launcher_catalog_blocking(&app, &request)
-        })
-        .await
-        .map_err(|error| format!("Failed to join launcher catalog search task: {error}"))?,
-    )
-}
-
-fn search_launcher_catalog_blocking(
+pub(crate) fn search_launcher_catalog_blocking(
     _app: &AppHandle,
     request: &SearchLauncherCatalogRequest,
 ) -> Result<LauncherCatalogPageResult, String> {

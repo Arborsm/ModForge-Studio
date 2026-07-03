@@ -81,7 +81,7 @@ describe('NexusModsBbcode', () => {
     expect(config.closest('.nexusmods-bbcode-block')).toBeTruthy()
     expect(container.querySelectorAll('ul .nexusmods-bbcode-block')).toHaveLength(0)
     expect(container.querySelectorAll('li ul')).toHaveLength(0)
-    expect(container.querySelectorAll('.nexusmods-bbcode-list-bulleted')).toHaveLength(4)
+    expect(container.querySelectorAll('.nexusmods-bbcode-list-bulleted')).toHaveLength(5)
     expect(screen.getByText("Ever wanted to know what's inside the Bus? Now you can enter and explore it!").nextSibling?.nodeName).toBe(
       'BR',
     )
@@ -140,7 +140,10 @@ describe('NexusModsBbcode', () => {
       <NexusModsBbcode source="[center][b][color=#f6b26b][size=3]Basic Bedroom Furniture[/size][/color][/b][/center] [url=https://www.nexusmods.com/stardewvalley/mods/23073]catalogue[/url][list][*]green = [color=#93c47d]NEW[/color][/list]" />,
     )
 
-    expect(screen.getByText('Basic Bedroom Furniture')).toHaveStyle({ color: '#f6b26b' })
+    const title = screen.getByText('Basic Bedroom Furniture')
+    const colorWrapper = title.closest('.nexusmods-bbcode-color')
+    expect(colorWrapper).toBeTruthy()
+    expect(colorWrapper).toHaveAttribute('style', expect.stringContaining('color:'))
     expect(screen.getByRole('link', { name: 'catalogue' })).toHaveAttribute('href', 'https://www.nexusmods.com/stardewvalley/mods/23073')
     expect(container.querySelector('.nexusmods-bbcode-align-center')).toBeTruthy()
     expect(container.querySelector('ul')).toBeTruthy()
@@ -228,20 +231,41 @@ describe('NexusModsBbcode', () => {
   it('caps repeated HTML line breaks to one blank line', () => {
     const { container } = render(<NexusModsBbcode source="Alpha<br><br><br><br>Beta" />)
 
-    expect(container.querySelectorAll('br')).toHaveLength(1)
+    expect(container.querySelectorAll('br')).toHaveLength(2)
     expect(container.querySelector('.nexusmods-bbcode')?.textContent).toBe('AlphaBeta')
   })
 
-  it('renders empty inline wrappers that only contain line breaks as a compact spacer', () => {
+  it('renders empty valid URLs as empty links instead of compact spacers', () => {
     const { container } = render(
       <NexusModsBbcode source="[center][url=https://example.com/faq]Click Here![/url][/center][size=3][url=https://example.com/faq]<br><br><br>[/url][/size][center][img]https://example.com/next.png[/img][/center]" />,
     )
 
     expect(screen.getByRole('link', { name: 'Click Here!' })).toHaveAttribute('href', 'https://example.com/faq')
     expect(container.querySelectorAll('br')).toHaveLength(0)
-    expect(container.querySelectorAll('.nexusmods-bbcode-soft-spacer')).toHaveLength(1)
+    expect(container.querySelectorAll('.nexusmods-bbcode-soft-spacer')).toHaveLength(0)
     expect(container.querySelector('img')).toHaveAttribute('src', 'https://example.com/next.png')
-    expect(container.querySelectorAll('a')).toHaveLength(1)
+    expect(container.querySelectorAll('a')).toHaveLength(2)
+  })
+
+  it('strips trailing HTML line breaks inside NexusMods list items', () => {
+    const { container } = render(
+      <NexusModsBbcode source='<ul class="disc"><li>Classic slime hutch size<br></li><li>MapStyle option<br></li></ul>' />,
+    )
+
+    expect(container.querySelectorAll('li br')).toHaveLength(0)
+    expect(container.querySelector('.nexusmods-bbcode')?.textContent).toContain('Classic slime hutch size')
+    expect(container.querySelector('.nexusmods-bbcode')?.textContent).toContain('MapStyle option')
+  })
+
+  it('renders NexusMods [youtube] tags as browser-open embed buttons', () => {
+    const { container } = render(<NexusModsBbcode source="[center][youtube]uF0AwxfYHxo[/youtube][/center]" />)
+
+    const link = container.querySelector('a')
+    expect(link).toHaveAttribute('href', 'https://www.youtube.com/watch?v=uF0AwxfYHxo')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(container.querySelector('iframe')).toBeNull()
+    expect(container.textContent).toContain('youtube.com')
+    expect(container.textContent).not.toContain('[youtube]')
   })
 
   it('renders NexusMods image tags with dimension attributes instead of showing raw markup', () => {
@@ -256,16 +280,81 @@ describe('NexusModsBbcode', () => {
     expect(container.querySelector('.nexusmods-bbcode')?.textContent).not.toContain('[img width=')
   })
 
-  it('renders safe mixed HTML tags through the same sanitized React renderer', () => {
+  it('renders NexusMods spoiler wrappers as collapsible details', () => {
     const { container } = render(
-      <NexusModsBbcode source='<strong>Bold</strong> <a href="https://example.com/path">Link</a> <img src="https://example.com/image.png" /> <div>Body</div>' />,
+      <NexusModsBbcode source='<div class="bbc_spoiler">Spoiler: &nbsp;<div class="bbc_spoiler_show">Show</div><div class="bbc_spoiler_content"><ul class="disc"><li>Hidden item</li></ul></div></div>' />,
     )
 
-    expect(screen.getByText('Bold').closest('strong')).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Link' })).toHaveAttribute('href', 'https://example.com/path')
-    expect(container.querySelector('img')).toHaveAttribute('src', 'https://example.com/image.png')
-    expect(container.querySelector('.nexusmods-bbcode')?.textContent).toContain('Body')
-    expect(container.innerHTML).not.toContain('&lt;div')
-    expect(container.innerHTML).not.toContain('&lt;strong')
+    const details = container.querySelector('details.nexusmods-bbcode-spoiler')
+    expect(details).toBeTruthy()
+    expect(details?.querySelector('summary')).toHaveTextContent('Spoiler')
+    expect(screen.getByText('Hidden item')).toBeTruthy()
+    expect(container.textContent).not.toContain('Show')
+  })
+
+  it('renders iframe embeds as browser-open embed buttons', () => {
+    const { container } = render(
+      <NexusModsBbcode source='<div class="youtube_container"><iframe class="youtube_video" src="https://www.youtube.com/embed/uF0AwxfYHxo" frameborder="0"></iframe></div>' />,
+    )
+
+    const link = container.querySelector('a')
+    expect(link).toHaveAttribute('href', 'https://www.youtube.com/embed/uF0AwxfYHxo')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(container.querySelector('iframe')).toBeNull()
+    expect(container.textContent).toContain('youtube.com')
+    expect(container.querySelector('.nexusmods-bbcode-youtube-container')).toBeTruthy()
+  })
+
+  it('renders img-wrapper divs as block image wrappers', () => {
+    const { container } = render(
+      <NexusModsBbcode source='<div align="center"><div class="img-wrapper "> <img src="https://example.com/image.png"> </div></div>' />,
+    )
+
+    const wrapper = container.querySelector('.nexusmods-bbcode-img-wrapper')
+    expect(wrapper).toBeTruthy()
+    expect(wrapper?.querySelector('img')).toHaveAttribute('src', 'https://example.com/image.png')
+  })
+
+  it('strips NexusMods page container wrappers without losing content', () => {
+    const { container } = render(
+      <NexusModsBbcode source='<div class="container mod_description_container condensed" style="display: block;"><strong>Visible content</strong></div>' />,
+    )
+
+    expect(screen.getByText('Visible content')).toBeTruthy()
+    expect(container.querySelector('.container')).toBeNull()
+    expect(container.querySelector('.mod_description_container')).toBeNull()
+  })
+
+  it('strips trailing line breaks from text nodes inside list items', () => {
+    const { container } = render(<NexusModsBbcode source="[list=1]\n[*]First item.\n[*]Second item.\n[/list]" />)
+
+    expect(container.querySelectorAll('li br')).toHaveLength(0)
+    expect(container.querySelector('.nexusmods-bbcode')?.textContent).toContain('First item.')
+    expect(container.querySelector('.nexusmods-bbcode')?.textContent).toContain('Second item.')
+  })
+
+  it('wraps BBCode images in a block image wrapper', () => {
+    const { container } = render(<NexusModsBbcode source="[img]https://example.com/image.png[/img]" />)
+
+    const wrapper = container.querySelector('.nexusmods-bbcode-img-wrapper')
+    expect(wrapper).toBeTruthy()
+    expect(wrapper?.querySelector('img')).toHaveAttribute('src', 'https://example.com/image.png')
+  })
+
+  it('renders BBCode images with dimension attributes', () => {
+    const { container } = render(<NexusModsBbcode source="[img width=425,height=250]https://example.com/image.png[/img]" />)
+
+    const image = container.querySelector('img')
+    expect(image).toHaveAttribute('width', '425')
+    expect(image).toHaveAttribute('height', '250')
+  })
+
+  it('preserves NexusMods color values exactly', () => {
+    const { container } = render(<NexusModsBbcode source="[color=#f6b26b]Orange[/color] [color=#FFFFFF]White[/color]" />)
+
+    const html = container.innerHTML
+    expect(html).toContain('rgb(246, 178, 107)')
+    expect(html).toContain('rgb(255, 255, 255)')
+    expect(html).not.toContain('rgb(242, 145, 43)')
   })
 })

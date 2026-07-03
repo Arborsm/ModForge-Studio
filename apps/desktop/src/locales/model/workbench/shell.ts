@@ -241,6 +241,8 @@ export type WorkbenchShellCopy = {
     preloadingMaps: string
     preloadingTilesets: string
     resourcePreloadFailed: string
+    workbenchViewUnavailableTitle: string
+    workbenchViewUnavailableDetail: string
     onlyTmxSupported: string
     directorySelectionFailed: string
     loadedMapAssets: (count: number, format: string) => string

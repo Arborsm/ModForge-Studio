@@ -1,4 +1,5 @@
-import { isValidElement, memo, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { Play } from 'lucide-react'
+import { isValidElement, memo, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   getNexusModsBbcodeTextContent,
   parseNexusModsBbcode,
@@ -57,6 +58,32 @@ function sanitizeColor(value: string | undefined) {
   return safeNamedColors.has(lowerColor) ? lowerColor : null
 }
 
+function sanitizeClassName(value: string | undefined) {
+  const className = value?.trim()
+  if (!className || className.length > 120 || !/^[\w\s-]+$/u.test(className)) {
+    return null
+  }
+
+  return className
+    .split(/\s+/u)
+    .filter((part) => part.length > 0)
+    .join(' ')
+}
+
+function classList(value: string | undefined): string[] {
+  const className = sanitizeClassName(value)
+  return className ? className.split(/\s+/u) : []
+}
+
+function hasClass(value: string | undefined, name: string) {
+  return classList(value).includes(name)
+}
+
+function adaptColor(value: string, isDark: boolean): string {
+  void isDark
+  return value
+}
+
 function sanitizeFontFamily(value: string | undefined) {
   const family = value?.trim()
   if (!family || family.length > 80 || !/^[\w\s"',.-]+$/.test(family)) {
@@ -84,10 +111,36 @@ function sanitizeSize(value: string | undefined) {
   return null
 }
 
-function sanitizeUrl(value: string | undefined) {
-  const href = value?.trim()
-  if (!href) {
+function decodeUrlEntities(value: string): string {
+  return value
+    .replace(/&amp;/giu, '&')
+    .replace(/&lt;/giu, '<')
+    .replace(/&gt;/giu, '>')
+    .replace(/&quot;/giu, '"')
+    .replace(/&apos;/giu, "'")
+    .replace(/&#0*39;/giu, "'")
+    .replace(/&#x0*27;/giu, "'")
+}
+
+function sanitizeUrl(value: string | undefined, allowDataUri = false) {
+  const rawHref = value?.trim()
+  if (!rawHref) {
     return null
+  }
+
+  if (allowDataUri && /^data:image\/[\w+.-]+;base64,/iu.test(rawHref)) {
+    return rawHref
+  }
+
+  const href = decodeUrlEntities(rawHref)
+
+  if (href.startsWith('#')) {
+    return href
+  }
+
+  const lowerHref = href.toLowerCase()
+  if (lowerHref === 'http:' || lowerHref === 'https:' || lowerHref === 'http://' || lowerHref === 'https://') {
+    return href
   }
 
   try {
@@ -114,14 +167,58 @@ function renderLine(key: string, children: ReactNode[]) {
   )
 }
 
-function NexusModsBbcodeImage({ src, alt }: { src: string; alt: string }) {
+function NexusModsBbcodeImage({ src, alt, width, height }: { src: string; alt: string; width?: string; height?: string }) {
   const [failed, setFailed] = useState(false)
 
   if (failed) {
     return null
   }
 
-  return <img src={src} alt={alt} loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} />
+  return (
+    <img src={src} alt={alt} width={width} height={height} loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} />
+  )
+}
+
+function renderEmbedButton(href: string, key: string) {
+  const hostname = (() => {
+    try {
+      return new URL(href).hostname.replace(/^www\./u, '')
+    } catch {
+      return href
+    }
+  })()
+
+  return (
+    <a
+      key={key}
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-panel)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-panel-hover)] hover:text-[var(--text-primary)]"
+    >
+      <Play className="h-3.5 w-3.5 fill-current" />
+      <span>{hostname}</span>
+    </a>
+  )
+}
+
+function hasBlockOrItemDescendant(nodes: NexusModsBbcodeNode[]): boolean {
+  return nodes.some(
+    (node) =>
+      node.type === 'element' &&
+      (node.tag === 'item' ||
+        node.tag === 'list' ||
+        node.tag === 'quote' ||
+        node.tag === 'spoiler' ||
+        node.tag === 'code' ||
+        node.tag === 'center' ||
+        node.tag === 'left' ||
+        node.tag === 'right' ||
+        node.tag === 'justify' ||
+        node.tag === 'div' ||
+        node.tag === 'hr' ||
+        hasBlockOrItemDescendant(node.children)),
+  )
 }
 
 function isHorizontalRuleText(value: string) {
@@ -282,7 +379,7 @@ function renderStyledContainer(
   style: CSSProperties,
   children: ReactNode,
   key: string,
-  options: { block?: boolean; preserveEmptySpacing?: boolean } = {},
+  options: { block?: boolean; preserveEmptySpacing?: boolean; className?: string } = {},
 ) {
   if (!hasSubstantiveRenderedContent(children)) {
     if (hasSpacingRenderedContent(children)) {
@@ -292,16 +389,18 @@ function renderStyledContainer(
     return options.preserveEmptySpacing ? renderSoftSpacer(key) : null
   }
 
+  const blockClassName = options.className ? `nexusmods-bbcode-block ${options.className}` : 'nexusmods-bbcode-block'
+
   if (options.block || hasRenderedBlockContent(children)) {
     return (
-      <div key={key} className="nexusmods-bbcode-block" style={style}>
+      <div key={key} className={blockClassName} style={style}>
         {children}
       </div>
     )
   }
 
-  return Object.keys(style).length > 0 ? (
-    <span key={key} style={style}>
+  return Object.keys(style).length > 0 || options.className ? (
+    <span key={key} className={options.className} style={style}>
       {children}
     </span>
   ) : (
@@ -322,21 +421,24 @@ function renderText(
     .replace(/&amp;/giu, '&')
     .replace(/&lt;/giu, '<')
     .replace(/&gt;/giu, '>')
-  const parts = decoded
-    .replace(/[\u00A0\uFEFF]/gu, ' ')
-    .split(/\r?\n/u)
-    .map((part) => part.replace(/[^\S\r\n]+/gu, ' ').trim())
+
+  const normalized = decoded.replace(/[\u00A0\uFEFF]/gu, ' ').replace(/[^\S\r\n]+/gu, ' ')
+  const parts = normalized.split(/\r?\n/u)
 
   return parts.flatMap((part, index) => {
     const nodes: ReactNode[] = []
-    if (part) {
+    const collapsed = part.replace(/[^\S\r\n]+/gu, ' ')
+    const hasContent = collapsed.trim().length > 0
+    const text = hasContent ? collapsed : ''
+
+    if (text) {
       nodes.push(
-        options.wrapHorizontalRule && isHorizontalRuleText(part) ? (
+        options.wrapHorizontalRule && isHorizontalRuleText(text) ? (
           <span key={`${keyPrefix}-text-${index}`} className="nexusmods-bbcode-line">
-            {part}
+            {text}
           </span>
         ) : (
-          part
+          text
         ),
       )
     }
@@ -367,7 +469,7 @@ function hasSubstantiveRenderedContent(node: ReactNode): boolean {
       return false
     }
 
-    if (node.type === 'img' || node.type === 'hr' || node.type === NexusModsBbcodeImage) {
+    if (node.type === 'img' || node.type === 'hr' || node.type === 'a' || node.type === NexusModsBbcodeImage) {
       return true
     }
 
@@ -414,27 +516,82 @@ function hasSourceLineBreak(nodes: NexusModsBbcodeNode[]): boolean {
   return nodes.some((node) => node.type === 'element' && (node.tag === 'br' || hasSourceLineBreak(node.children)))
 }
 
-function renderSectionHeading(node: NexusModsBbcodeElementNode, key: string) {
+function stripTrailingLineBreaks(nodes: NexusModsBbcodeNode[]): NexusModsBbcodeNode[] {
+  let endIndex = nodes.length
+  while (endIndex > 0) {
+    const node = nodes[endIndex - 1]
+    if (node?.type === 'element' && node.tag === 'br') {
+      endIndex -= 1
+    } else if (node?.type === 'text' && node.value.trim().length === 0) {
+      endIndex -= 1
+    } else {
+      break
+    }
+  }
+
+  const result = nodes.slice(0, endIndex)
+  const lastNode = result[result.length - 1]
+  if (lastNode?.type === 'text') {
+    const trimmed = lastNode.value.replace(/[\r\n]+[\t ]*$/u, '')
+    if (trimmed !== lastNode.value) {
+      result[result.length - 1] = { ...lastNode, value: trimmed }
+    }
+  }
+  return result
+}
+
+function stripTrailingLineBreaksDeep(nodes: NexusModsBbcodeNode[]): NexusModsBbcodeNode[] {
+  const result = stripTrailingLineBreaks(nodes)
+  const lastNode = result[result.length - 1]
+  if (lastNode?.type === 'element' && canSplitNodeAcrossSourceLines(lastNode)) {
+    const strippedChildren = stripTrailingLineBreaksDeep(lastNode.children)
+    if (strippedChildren !== lastNode.children) {
+      result[result.length - 1] = { ...lastNode, children: strippedChildren }
+    }
+  }
+  return result
+}
+
+function useColorScheme() {
+  const [isDark, setIsDark] = useState(() => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'))
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    const observer = new MutationObserver(() => {
+      setIsDark(root.classList.contains('dark'))
+    })
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+
+  return isDark
+}
+
+function renderSectionHeading(node: NexusModsBbcodeElementNode, key: string, isDark: boolean) {
   return (
     <span key={key} className="nexusmods-bbcode-section-heading">
-      {renderNodes(node.children, key, false)}
+      {renderNodes(stripTrailingLineBreaksDeep(node.children), key, false, isDark)}
     </span>
   )
 }
 
-function renderAlignmentLines(node: NexusModsBbcodeElementNode, key: string, allowSectionHeadings: boolean) {
+function renderAlignmentLines(node: NexusModsBbcodeElementNode, key: string, allowSectionHeadings: boolean, isDark: boolean) {
   const lines = splitSourceLines(node.children)
   if (lines.length <= 1) {
-    return renderNodes(node.children, key, allowSectionHeadings)
+    return renderNodes(node.children, key, allowSectionHeadings, isDark)
   }
 
   return lines.map((line, index) =>
-    renderLine(`${key}-line-${index}`, renderNodes(line, `${key}-line-${index}`, allowSectionHeadings, { wrapHorizontalRule: false })),
+    renderLine(
+      `${key}-line-${index}`,
+      renderNodes(line, `${key}-line-${index}`, allowSectionHeadings, isDark, { wrapHorizontalRule: false }),
+    ),
   )
 }
 
-function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSectionHeadings: boolean): ReactNode {
-  const children = renderNodes(node.children, key, allowSectionHeadings)
+function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSectionHeadings: boolean, isDark: boolean): ReactNode {
+  const children = renderNodes(node.children, key, allowSectionHeadings, isDark)
 
   if (node.tag === 'b') {
     if (!hasSubstantiveRenderedContent(children)) {
@@ -454,7 +611,7 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
 
   if (node.tag === 'i') {
     if (allowSectionHeadings && isFurnitureSectionHeading(node)) {
-      return renderSectionHeading(node, key)
+      return renderSectionHeading(node, key, isDark)
     }
 
     if (!hasSubstantiveRenderedContent(children)) {
@@ -466,7 +623,7 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
 
   if (node.tag === 'u') {
     if (allowSectionHeadings && isFurnitureSectionHeading(node)) {
-      return renderSectionHeading(node, key)
+      return renderSectionHeading(node, key, isDark)
     }
 
     if (!hasSubstantiveRenderedContent(children)) {
@@ -489,10 +646,12 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
   }
 
   if (node.tag === 'color') {
-    const color = sanitizeColor(node.attrs.color)
-    return renderStyledContainer(color == null ? {} : { color }, children, key, {
+    const rawColor = sanitizeColor(node.attrs.color)
+    const adaptedColor = rawColor == null ? null : adaptColor(rawColor, isDark)
+    return renderStyledContainer(adaptedColor == null ? {} : { color: adaptedColor }, children, key, {
       block: node.attrs.block === 'true' || hasBlockChildren(node.children),
       preserveEmptySpacing: hasSourceLineBreak(node.children),
+      className: adaptedColor == null ? undefined : 'nexusmods-bbcode-color',
     })
   }
 
@@ -513,13 +672,28 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
   }
 
   if (node.tag === 'url') {
-    const href = sanitizeUrl(node.attrs.href ?? getNexusModsBbcodeTextContent(node.children))
-    if (!hasSubstantiveRenderedContent(children)) {
-      return hasSourceLineBreak(node.children) || hasSpacingRenderedContent(children) ? renderSoftSpacer(key) : null
+    if (hasBlockOrItemDescendant(node.children)) {
+      return (
+        <span key={key}>
+          [url={node.attrs.href}]{children}
+        </span>
+      )
     }
 
+    const textHref = getNexusModsBbcodeTextContent(node.children)
+    const fallbackHref = /^https?:\/\//iu.test(textHref.trim()) ? sanitizeUrl(textHref) : null
+    const href = sanitizeUrl(node.attrs.href ?? textHref) ?? fallbackHref
+
     if (href == null) {
-      return <span key={key}>{children}</span>
+      if (!hasSubstantiveRenderedContent(children)) {
+        return hasSourceLineBreak(node.children) || hasSpacingRenderedContent(children) ? renderSoftSpacer(key) : null
+      }
+
+      return <a key={key}>{children}</a>
+    }
+
+    if (!hasSubstantiveRenderedContent(children)) {
+      return <a key={key} href={href} target="_blank" rel="noreferrer" />
     }
 
     return (
@@ -530,12 +704,43 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
   }
 
   if (node.tag === 'img') {
-    const src = sanitizeUrl(node.attrs.src ?? getNexusModsBbcodeTextContent(node.children))
-    return src == null ? (
-      <span key={key}>{children}</span>
-    ) : (
-      <NexusModsBbcodeImage key={key} src={src} alt={getNexusModsBbcodeTextContent(node.children)} />
+    const src = sanitizeUrl(node.attrs.src ?? getNexusModsBbcodeTextContent(node.children), true)
+    if (src == null) {
+      return <span key={key}>{children}</span>
+    }
+
+    const width = /^(?:\d+|\d+px)$/i.test(node.attrs.width ?? '') ? node.attrs.width : undefined
+    const height = /^(?:\d+|\d+px)$/i.test(node.attrs.height ?? '') ? node.attrs.height : undefined
+    const alt = getNexusModsBbcodeTextContent(node.children)
+
+    return (
+      <div key={key} className="nexusmods-bbcode-img-wrapper">
+        <NexusModsBbcodeImage src={src} alt={alt} width={width} height={height} />
+      </div>
     )
+  }
+
+  if (node.tag === 'iframe') {
+    const src = sanitizeUrl(node.attrs.src)
+    if (src == null) {
+      return null
+    }
+
+    return renderEmbedButton(src, key)
+  }
+
+  if (node.tag === 'youtube') {
+    const videoId = getNexusModsBbcodeTextContent(node.children).trim()
+    if (!videoId) {
+      return null
+    }
+
+    const href = sanitizeUrl(`https://www.youtube.com/watch?v=${videoId}`)
+    if (href == null) {
+      return null
+    }
+
+    return renderEmbedButton(href, key)
   }
 
   if (node.tag === 'center' || node.tag === 'left' || node.tag === 'right' || node.tag === 'justify') {
@@ -545,32 +750,122 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
 
     return (
       <div key={key} className={`nexusmods-bbcode-align-${node.tag}`}>
-        {renderAlignmentLines(node, key, allowSectionHeadings)}
+        {renderAlignmentLines(node, key, allowSectionHeadings, isDark)}
       </div>
     )
   }
 
-  if (node.tag === 'list') {
+  if (node.tag === 'div') {
+    const className = node.attrs.class
+
+    if (hasClass(className, 'bbc_spoiler_show')) {
+      return null
+    }
+
+    if (hasClass(className, 'bbc_spoiler_content')) {
+      return (
+        <div key={key} className="nexusmods-bbcode-spoiler-content">
+          {children}
+        </div>
+      )
+    }
+
+    if (hasClass(className, 'bbc_spoiler')) {
+      const contentIndex = node.children.findIndex(
+        (child) => child.type === 'element' && child.tag === 'div' && hasClass(child.attrs.class, 'bbc_spoiler_content'),
+      )
+
+      const spoilerChildren =
+        contentIndex >= 0
+          ? (node.children[contentIndex] as NexusModsBbcodeElementNode).children
+          : node.children.filter(
+              (child) => !(child.type === 'element' && child.tag === 'div' && hasClass(child.attrs.class, 'bbc_spoiler_show')),
+            )
+
+      const spoilerContent = renderNodes(spoilerChildren, `${key}-spoiler`, allowSectionHeadings, isDark)
+      if (!hasSubstantiveRenderedContent(spoilerContent)) {
+        return hasSourceLineBreak(spoilerChildren) || hasSpacingRenderedContent(spoilerContent) ? renderSoftSpacer(key) : null
+      }
+
+      return (
+        <details key={key} className="nexusmods-bbcode-spoiler">
+          <summary>{node.attrs.title || 'Spoiler'}</summary>
+          <div>{spoilerContent}</div>
+        </details>
+      )
+    }
+
     if (!hasSubstantiveRenderedContent(children)) {
       return hasSourceLineBreak(node.children) || hasSpacingRenderedContent(children) ? renderSoftSpacer(key) : null
     }
 
+    if (hasClass(className, 'line')) {
+      return <hr key={key} />
+    }
+
+    if (hasClass(className, 'img-wrapper')) {
+      return (
+        <div key={key} className="nexusmods-bbcode-img-wrapper">
+          {children}
+        </div>
+      )
+    }
+
+    if (hasClass(className, 'youtube_container')) {
+      return (
+        <div key={key} className="nexusmods-bbcode-youtube-container">
+          {children}
+        </div>
+      )
+    }
+
+    if (hasClass(className, 'container') || hasClass(className, 'mod_description_container') || hasClass(className, 'condensed')) {
+      return <>{children}</>
+    }
+
+    const sanitizedClassName = sanitizeClassName(className)
+    if (hasBlockChildren(node.children)) {
+      return (
+        <div key={key} className={sanitizedClassName ? `nexusmods-bbcode-div ${sanitizedClassName}` : 'nexusmods-bbcode-div'}>
+          {children}
+        </div>
+      )
+    }
+
+    return (
+      <span
+        key={key}
+        className={sanitizedClassName ? `nexusmods-bbcode-div ${sanitizedClassName}` : 'nexusmods-bbcode-div'}
+        style={{ display: 'inline-block' }}
+      >
+        {children}
+      </span>
+    )
+  }
+
+  if (node.tag === 'list') {
+    const listChildren = node.children.filter(
+      (child) => !(child.type === 'element' && child.tag === 'br') && !(child.type === 'text' && child.value.trim().length === 0),
+    )
+    const listContent = renderNodes(listChildren, key, allowSectionHeadings, isDark)
+
     const ordered = node.attrs.list === '1' || node.attrs.list?.toLowerCase() === 'decimal'
     return ordered ? (
       <ol key={key} className="nexusmods-bbcode-list nexusmods-bbcode-list-ordered">
-        {children}
+        {listContent}
       </ol>
     ) : (
       <ul key={key} className="nexusmods-bbcode-list nexusmods-bbcode-list-bulleted">
-        {children}
+        {listContent}
       </ul>
     )
   }
 
   if (node.tag === 'item') {
+    const itemChildren = stripTrailingLineBreaksDeep(node.children)
     return (
       <li key={key} className="nexusmods-bbcode-list-item">
-        {children}
+        {renderNodes(itemChildren, key, allowSectionHeadings, isDark)}
       </li>
     )
   }
@@ -656,7 +951,7 @@ function appendRenderedNode(nodes: ReactNode[], node: ReactNode) {
   }
 
   if (isLineBreakNode(node)) {
-    if (nodes.length === 0 || countTrailingLineBreaks(nodes) >= 1) {
+    if (nodes.length === 0 || countTrailingLineBreaks(nodes) >= 2) {
       return
     }
   }
@@ -672,6 +967,7 @@ function renderNodes(
   nodes: NexusModsBbcodeNode[],
   keyPrefix: string,
   allowSectionHeadings = true,
+  isDark: boolean,
   options: { wrapHorizontalRule?: boolean } = { wrapHorizontalRule: true },
 ): ReactNode[] {
   const renderedNodes: ReactNode[] = []
@@ -683,16 +979,24 @@ function renderNodes(
     }
 
     if (node.type === 'text') {
-      appendRenderedNodes(renderedNodes, renderText(node.value, key, options))
+      const prevNode = nodes[index - 1]
+      const nextNode = nodes[index + 1]
+      const prevIsBr = prevNode?.type === 'element' && prevNode.tag === 'br'
+      const nextIsBr = nextNode?.type === 'element' && nextNode.tag === 'br'
+      const value = prevIsBr || nextIsBr ? node.value.replace(/\r?\n/gu, ' ') : node.value
+      appendRenderedNodes(renderedNodes, renderText(value, key, options))
       return
     }
 
     if (isStandaloneLineBlockNode(node, nodes[index + 1])) {
-      appendRenderedNode(renderedNodes, renderElement({ ...node, attrs: { ...node.attrs, block: 'true' } }, key, allowSectionHeadings))
+      appendRenderedNode(
+        renderedNodes,
+        renderElement({ ...node, attrs: { ...node.attrs, block: 'true' } }, key, allowSectionHeadings, isDark),
+      )
       return
     }
 
-    appendRenderedNode(renderedNodes, renderElement(node, key, allowSectionHeadings))
+    appendRenderedNode(renderedNodes, renderElement(node, key, allowSectionHeadings, isDark))
   })
 
   return renderedNodes
@@ -700,6 +1004,7 @@ function renderNodes(
 
 export const NexusModsBbcode = memo(function NexusModsBbcode({ source }: NexusModsBbcodeProps) {
   const document = useMemo(() => parseNexusModsBbcode(source), [source])
+  const isDark = useColorScheme()
 
-  return <div className="nexusmods-bbcode">{renderNodes(document.children, 'bbcode')}</div>
+  return <div className="nexusmods-bbcode">{renderNodes(document.children, 'bbcode', true, isDark)}</div>
 })

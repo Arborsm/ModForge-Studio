@@ -14,7 +14,7 @@ function toCamelCase(value) {
 
 function extractCommands(source) {
   const commands = []
-  const pattern = /#\[tauri::command\]\s*pub fn ([a-z][a-z0-9_]*)/g
+  const pattern = /#\[tauri::command\]\s*pub\s+(?:async\s+)?fn\s+([a-z][a-z0-9_]*)/g
 
   for (const match of source.matchAll(pattern)) {
     const wireName = match[1]

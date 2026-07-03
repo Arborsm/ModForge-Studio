@@ -845,6 +845,7 @@ const performanceLauncherPort: LauncherPort = {
   checkUpdates: async () =>
     ({ modsPath: launcherSettings.modsPath, checkedAtMs: Date.now(), isComplete: true, updates: createLauncherUpdateResults(72) }) as any,
   listenToUpdateProgress: async () => noop,
+  listenToImageFetchDisconnected: async () => noop,
   downloadMod: async () =>
     ({ downloadId: 'page-performance-download', archivePath: null, installed: false, installedTargetPath: null, version: '2.0.0' }) as any,
   cancelDownload: async () => {},

@@ -287,6 +287,14 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
     let cancelled = false
     const springObjectsPath = buildGameContentPath(directoryInfo.rootPath, SPRING_OBJECTS_ASSET_PATH)
 
+    setSpringObjectsState({
+      path: springObjectsPath,
+      url: null,
+      width: null,
+      height: null,
+      loading: true,
+    })
+
     void loadImageState(springObjectsPath, locale)
       .then((state) => {
         if (!cancelled) {
@@ -300,6 +308,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
             url: null,
             width: null,
             height: null,
+            loading: false,
           })
         }
       })
@@ -318,6 +327,21 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
     }
 
     let cancelled = false
+
+    setActiveChainTextureStates(
+      Object.fromEntries(
+        activeUpgradeChain.map((entry) => [
+          entry.key,
+          {
+            path: null,
+            url: null,
+            width: null,
+            height: null,
+            loading: true,
+          } satisfies BuildingTextureAssetState,
+        ]),
+      ),
+    )
 
     void (async () => {
       const entries = await loadChainTextureStates(activeUpgradeChain, directoryInfo.rootPath, locale)
@@ -361,6 +385,15 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
     }
 
     let cancelled = false
+
+    setActiveModTextureState({
+      path: null,
+      url: null,
+      width: null,
+      height: null,
+      loading: true,
+    })
+
     void loadModResultImageState({
       rootPath: directoryInfo.rootPath,
       entry: activeModBuildingEntry,
@@ -377,11 +410,18 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
           url: result.url,
           width: result.width,
           height: result.height,
+          loading: false,
         })
       })
       .catch(() => {
         if (!cancelled) {
-          setActiveModTextureState(null)
+          setActiveModTextureState({
+            path: null,
+            url: null,
+            width: null,
+            height: null,
+            loading: false,
+          })
         }
       })
 

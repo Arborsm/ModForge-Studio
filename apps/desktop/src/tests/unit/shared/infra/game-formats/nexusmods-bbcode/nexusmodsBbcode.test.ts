@@ -73,6 +73,43 @@ describe('parseNexusModsBbcode', () => {
     ])
   })
 
+  it('maps iframe tags to a placeholder node preserving the embed src', () => {
+    const document = parseNexusModsBbcode(
+      '<div class="youtube_container"><iframe class="youtube_video" src="https://www.youtube.com/embed/uF0AwxfYHxo" frameborder="0"></iframe></div>',
+    )
+
+    expect(document.children).toMatchObject([
+      {
+        type: 'element',
+        tag: 'div',
+        attrs: { class: 'youtube_container' },
+        children: [
+          {
+            type: 'element',
+            tag: 'iframe',
+            attrs: { src: 'https://www.youtube.com/embed/uF0AwxfYHxo' },
+          },
+        ],
+      },
+    ])
+  })
+
+  it('treats ul.content_list_ordered as an ordered list', () => {
+    const document = parseNexusModsBbcode('<ul class="content_list content_list_ordered"><li>First</li><li>Second</li></ul>')
+
+    expect(document.children).toMatchObject([
+      {
+        type: 'element',
+        tag: 'list',
+        attrs: { list: '1' },
+        children: [
+          { type: 'element', tag: 'item', children: [{ type: 'text', value: 'First' }] },
+          { type: 'element', tag: 'item', children: [{ type: 'text', value: 'Second' }] },
+        ],
+      },
+    ])
+  })
+
   it('parses NexusMods image tags with comma separated dimension attributes', () => {
     const document = parseNexusModsBbcode('[img width=425,height=250]https://example.com/image.png[/img]')
 
@@ -92,7 +129,7 @@ describe('parseNexusModsBbcode', () => {
     expect(document.children).toEqual([
       {
         type: 'element',
-        tag: 'left',
+        tag: 'div',
         attrs: {},
         children: [{ type: 'text', value: 'Visible' }],
       },

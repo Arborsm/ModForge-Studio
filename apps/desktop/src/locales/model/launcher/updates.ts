@@ -9,6 +9,7 @@ export type LauncherUpdatesCopy = {
   updateSelected: string
   updateOne: string
   expandDetails: string
+  viewDetails: string
   viewChangelog: string
   fetchDetails: string
   fetchChangelog: string

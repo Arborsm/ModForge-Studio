@@ -260,10 +260,24 @@ export function useEventStageWorkspace({
   const lastSyncedMusicCueKeyRef = useRef<string | null>(null)
   const lastAnimationNowMsRef = useRef(animationNowMs)
   const onSelectTimelineEntryRef = useRef(onSelectTimelineEntry)
+  const onPlaybackCommandChangeRef = useRef(onPlaybackCommandChange)
 
   useEffect(() => {
     onSelectTimelineEntryRef.current = onSelectTimelineEntry
   }, [onSelectTimelineEntry])
+
+  useEffect(() => {
+    onPlaybackCommandChangeRef.current = onPlaybackCommandChange
+  }, [onPlaybackCommandChange])
+
+  useEffect(() => {
+    return () => {
+      resetAudioPreview()
+      lastAudioCommandIdRef.current = null
+      lastSyncedMusicCueKeyRef.current = null
+      onPlaybackCommandChangeRef.current(null)
+    }
+  }, [])
 
   function createStageReadyPlaybackState(event: EventScript | null, mapName: string | null) {
     const initialState = createInitialPlaybackState(event, mapName)
@@ -617,6 +631,32 @@ export function useEventStageWorkspace({
 
     let cancelled = false
 
+    setActorAssets((current) => ({
+      ...current,
+      ...Object.fromEntries(
+        pendingActorAssetRequests.map((request) => [
+          request.actorKey,
+          {
+            requestKey: request.requestKey,
+            loading: true,
+            textureName: null,
+            spriteTextureName: null,
+            portraitTextureName: null,
+            spritePath: null,
+            spriteUrl: null,
+            spriteSheetWidth: null,
+            spriteSheetHeight: null,
+            portraitPath: null,
+            portraitUrl: null,
+            portraitSheetWidth: null,
+            portraitSheetHeight: null,
+            farmerAppearance: null,
+            characterMetadata: request.characterMetadata,
+          } satisfies ActorAssetState,
+        ]),
+      ),
+    }))
+
     void (async () => {
       const resolvedEntries = await Promise.all(
         pendingActorAssetRequests.map(
@@ -792,12 +832,29 @@ export function useEventStageWorkspace({
     }
 
     let cancelled = false
+    const rootPath = directoryInfo.rootPath
+
+    setEffectAssets((current) => ({
+      ...current,
+      ...Object.fromEntries(
+        pendingEffectTextureRequests.map((textureName) => [
+          textureName,
+          {
+            requestKey: `${rootPath}::${textureName}`,
+            textureName,
+            loading: true,
+            path: null,
+            url: null,
+            width: null,
+            height: null,
+          } satisfies EffectAssetState,
+        ]),
+      ),
+    }))
 
     void (async () => {
       const resolvedEntries = await Promise.all(
-        pendingEffectTextureRequests.map(
-          async (textureName) => [textureName, await resolveEffectAsset(textureName, directoryInfo.rootPath)] as const,
-        ),
+        pendingEffectTextureRequests.map(async (textureName) => [textureName, await resolveEffectAsset(textureName, rootPath)] as const),
       )
       if (cancelled) {
         return

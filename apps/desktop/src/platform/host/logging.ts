@@ -76,3 +76,15 @@ export async function setDesktopDebugLoggingEnabled(enabled: boolean) {
 
   await invokeDesktop<void>(HOST_COMMANDS.setDebugLoggingEnabled, { enabled }, { kind: 'serviceGate', key: 'debug-logging' })
 }
+
+/** Prints the current Host Runtime diagnostics snapshot to the desktop host log. */
+export async function printHostRuntimeDiagnostics() {
+  if (!canUseDesktopHost()) {
+    return
+  }
+
+  await invokeDesktop<void>(HOST_COMMANDS.printHostRuntimeDiagnostics, undefined, {
+    kind: 'serviceGate',
+    key: 'host-runtime-diagnostics',
+  })
+}

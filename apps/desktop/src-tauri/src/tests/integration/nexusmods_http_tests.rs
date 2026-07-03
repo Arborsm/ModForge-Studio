@@ -1,5 +1,6 @@
 use super::{
-    nexus_request_delay_for_test, read_nexus_response_body_with_retry, retry_delay_from_headers,
+    LAUNCHER_IMAGE_CDN_RETRY_POLICY, nexus_request_delay_for_test,
+    read_nexus_response_body_with_retry, retry_delay_for_policy, retry_delay_from_headers,
     with_nexus_request_slot,
 };
 use crate::domain::launcher::types::LauncherSettings;
@@ -222,6 +223,23 @@ fn retry_delay_prefers_retry_after_header() {
     let delay = retry_delay_from_headers(&headers, 0);
 
     assert_eq!(delay, Duration::from_secs(7));
+}
+
+#[test]
+fn launcher_image_cdn_retry_policy_uses_three_exponential_retries() {
+    assert_eq!(LAUNCHER_IMAGE_CDN_RETRY_POLICY.max_retries(), 3);
+    assert_eq!(
+        retry_delay_for_policy(LAUNCHER_IMAGE_CDN_RETRY_POLICY, None, 0),
+        Duration::from_millis(250)
+    );
+    assert_eq!(
+        retry_delay_for_policy(LAUNCHER_IMAGE_CDN_RETRY_POLICY, None, 1),
+        Duration::from_millis(500)
+    );
+    assert_eq!(
+        retry_delay_for_policy(LAUNCHER_IMAGE_CDN_RETRY_POLICY, None, 2),
+        Duration::from_millis(1_000)
+    );
 }
 
 #[test]

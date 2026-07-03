@@ -396,121 +396,6 @@
     border-radius: 62.4375rem;
   }
 
-  .launcher-empty-card {
-    width: min(100%, 47.5rem);
-    display: grid;
-    justify-items: center;
-    gap: 1.125rem;
-    padding: clamp(1.5rem, 4vw, 2.25rem);
-    border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border-color));
-    border-radius: 1.75rem;
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--bg-panel) 96%, var(--bg-panel) 4%),
-      color-mix(in srgb, var(--bg-panel-muted) 86%, var(--bg-panel) 14%)
-    );
-    box-shadow:
-      0 1.5rem 3rem rgba(15, 23, 42, 0.08),
-      inset 0 1px 0 color-mix(in srgb, var(--text-inverse) 30%, transparent);
-    text-align: center;
-  }
-
-  .launcher-empty-card-illustration {
-    position: relative;
-    width: 7.25rem;
-    height: 7.25rem;
-  }
-
-  .launcher-empty-card-illustration-orb {
-    position: absolute;
-    border-radius: 62.4375rem;
-  }
-
-  .launcher-empty-card-illustration-orb-back {
-    inset: 0.5rem;
-    background:
-      radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--accent) 18%, white), transparent 62%),
-      color-mix(in srgb, var(--accent) 10%, var(--bg-panel));
-    filter: blur(0.0312rem);
-  }
-
-  .launcher-empty-card-illustration-orb-front {
-    inset: 1.25rem;
-    border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
-    background: color-mix(in srgb, var(--bg-panel) 92%, var(--bg-panel) 8%);
-  }
-
-  .launcher-empty-card-illustration-core,
-  .launcher-empty-card-illustration-accent {
-    position: absolute;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 62.4375rem;
-    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
-    box-shadow: 0 0.625rem 1.5rem rgba(15, 23, 42, 0.08);
-  }
-
-  .launcher-empty-card-illustration-core {
-    inset: 1.875rem;
-    background: color-mix(in srgb, var(--accent) 16%, var(--bg-panel));
-    color: color-mix(in srgb, var(--accent) 82%, var(--text-primary));
-  }
-
-  .launcher-empty-card-illustration-accent {
-    right: 0.625rem;
-    bottom: 0.75rem;
-    width: 2.125rem;
-    height: 2.125rem;
-    background: var(--bg-elevated);
-    color: var(--text-secondary);
-  }
-
-  .launcher-empty-card-copy {
-    display: grid;
-    gap: 0.625rem;
-    max-width: 56ch;
-  }
-
-  .launcher-empty-card-eyebrow {
-    margin: 0;
-    color: var(--text-tertiary);
-    font-size: 0.6875rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-  }
-
-  .launcher-empty-card-title {
-    margin: 0;
-    color: var(--text-primary);
-    font-size: clamp(1.625rem, 3vw, 2.125rem);
-    font-weight: 800;
-    line-height: 1.08;
-    letter-spacing: -0.03em;
-  }
-
-  .launcher-empty-card-detail {
-    margin: 0;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    line-height: 1.7;
-  }
-
-  .launcher-empty-card-actions {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-  }
-
-  .launcher-empty-card-actions .control-button {
-    min-height: 2.625rem;
-    padding-inline: 1rem;
-    border-radius: 62.4375rem;
-  }
-
   @media (max-width: 720px) {
     .launcher-alert-card {
       padding: 16px;
@@ -533,16 +418,6 @@
     .launcher-blocked-highlight,
     .launcher-blocked-details {
       width: 100%;
-    }
-
-    .launcher-empty-card {
-      gap: 16px;
-      padding: 22px 18px;
-      border-radius: 22px;
-    }
-
-    .launcher-empty-card-title {
-      font-size: 24px;
     }
   }
 }

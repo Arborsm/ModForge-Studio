@@ -295,6 +295,8 @@ const shell: WorkbenchShellCopy = {
     preloadingMaps: 'Preloading map assets...',
     preloadingTilesets: 'Preloading tileset images...',
     resourcePreloadFailed: 'Resource preload failed.',
+    workbenchViewUnavailableTitle: 'Workbench view is not registered',
+    workbenchViewUnavailableDetail: 'This mode has no available view registration. Return to Workbench Home and enter it again.',
     onlyTmxSupported: 'Only XNB map loading is supported right now.',
     directorySelectionFailed: 'Directory selection failed.',
     detectedKnownPath: (path) => `Detected directory: ${path}`,

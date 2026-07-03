@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 
 export type AtlasSpriteRect = {
   x: number
@@ -8,6 +9,7 @@ export type AtlasSpriteRect = {
 }
 
 export type AtlasSpriteTexture = {
+  loading?: boolean
   url: string | null
   width: number | null
   height: number | null
@@ -104,13 +106,16 @@ export function AtlasSprite({
   fallback = null,
 }: AtlasSpriteProps) {
   const hasSprite = sourceRect && texture?.url && texture.width && texture.height
+  const isLoading = texture?.loading
 
   return (
     <div
       className={`relative overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-panel-muted) ${className}`}
       style={{ isolation: 'isolate', ...style }}
     >
-      {hasSprite ? (
+      {isLoading ? (
+        <ImageSkeleton overlay rounded={false} />
+      ) : hasSprite ? (
         <>
           <div
             className="absolute top-1/2 left-1/2"
