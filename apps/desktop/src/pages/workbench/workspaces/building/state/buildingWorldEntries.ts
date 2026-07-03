@@ -1,4 +1,4 @@
-import type { MapDocument, MapPropertyValue } from '@shared/contracts'
+import type { MapDocument, MapPropertyValue } from '@entities/map'
 import {
   normalizeMapName,
   getWorldAtlasNameAliases,

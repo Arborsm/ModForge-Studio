@@ -1,9 +1,9 @@
-import { Download } from 'lucide-react'
-import { useState } from 'react'
-import { cx } from '@shared/lib/cx'
+import { ChevronDown, ChevronRight, Download, ExternalLink, Minus, Search } from 'lucide-react'
+import { useState, type KeyboardEvent, type MouseEvent } from 'react'
+import { cx } from '@shared/lib/helper'
 import { NexusModsBbcode } from '@shared/ui/nexusmods-bbcode'
 import { PanelEmptyState } from '@shared/ui/PanelSection'
-import type { ChangelogListItem, DependencyListItem, DetailRow, FileListItem } from './launcherModDetailData'
+import type { ChangelogListItem, DependencyListItem, DependencyTreeNode, DetailRow, FileListItem } from './launcherModDetailData'
 
 export function PropertyRow({ row }: { row: DetailRow }) {
   return (
@@ -44,12 +44,28 @@ function DetailRowView({ row }: { row: DetailRow }) {
   )
 }
 
-export function DependencyList({ items }: { items: DependencyListItem[] }) {
+export function DependencyList({
+  items,
+  downloadLabel,
+  openPageLabel,
+  onDownloadDependency,
+  onOpenDependencyPage,
+}: {
+  items: DependencyListItem[]
+  downloadLabel?: string
+  openPageLabel?: string
+  onDownloadDependency?: (item: DependencyListItem) => void
+  onOpenDependencyPage?: (item: DependencyListItem) => void
+}) {
   return (
     <div className="launcher-mod-detail-data-list dependency-list">
       {items.map((item) => (
         <div
-          className={cx('launcher-mod-detail-data-item dependency-item', item.missing && 'is-missing')}
+          className={cx(
+            'launcher-mod-detail-data-item dependency-item',
+            item.missing && 'is-missing',
+            item.downloadable && 'is-downloadable',
+          )}
           key={item.title}
           title={item.title}
         >
@@ -58,10 +74,223 @@ export function DependencyList({ items }: { items: DependencyListItem[] }) {
             <strong>{item.name}</strong>
             <span>{item.meta}</span>
           </div>
-          <span className={cx('launcher-mod-detail-data-pill', item.missing ? 'danger' : 'ready')}>{item.status}</span>
+          <div className="launcher-mod-detail-dependency-actions">
+            <span className={cx('launcher-mod-detail-data-pill', item.missing ? 'danger' : 'ready')}>{item.status}</span>
+            {item.downloadable && downloadLabel && onDownloadDependency ? (
+              <button
+                type="button"
+                className="launcher-mod-detail-file-action launcher-mod-detail-dependency-download"
+                aria-label={`${downloadLabel} ${item.name}`}
+                title={`${downloadLabel} ${item.name}`}
+                onClick={() => onDownloadDependency(item)}
+              >
+                <Download className="h-4 w-4" />
+              </button>
+            ) : null}
+            {!item.downloadable && item.modId && openPageLabel && onOpenDependencyPage ? (
+              <button
+                type="button"
+                className="launcher-mod-detail-file-action launcher-mod-detail-dependency-download"
+                aria-label={`${openPageLabel} ${item.name}`}
+                title={`${openPageLabel} ${item.name}`}
+                onClick={() => onOpenDependencyPage(item)}
+              >
+                <ExternalLink className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
         </div>
       ))}
     </div>
+  )
+}
+
+function dependencyStateTone(statusKind: DependencyTreeNode['statusKind']): 'ready' | 'danger' | 'warning' | 'info' | 'muted' | 'optional' {
+  if (statusKind === 'missing' || statusKind === 'error') return 'danger'
+  if (statusKind === 'transitive' || statusKind === 'cycle') return 'warning'
+  if (statusKind === 'optional') return 'optional'
+  if (statusKind === 'loading') return 'info'
+  if (statusKind === 'external' || statusKind === 'disabled') return 'muted'
+  return 'ready'
+}
+
+function DependencyTreeItem({
+  item,
+  expandedNodeIds,
+  labels,
+  onToggleNode,
+  onDownloadDependency,
+  onOpenDependencyPage,
+  onSearchDependency,
+}: {
+  item: DependencyTreeNode
+  expandedNodeIds: Set<string>
+  labels: {
+    download: string
+    openPage: string
+    search: string
+    expand: string
+    collapse: string
+    loadChildren: string
+  }
+  onToggleNode: (item: DependencyTreeNode) => void
+  onDownloadDependency?: (item: DependencyTreeNode) => void
+  onOpenDependencyPage?: (item: DependencyTreeNode) => void
+  onSearchDependency?: (item: DependencyTreeNode) => void
+}) {
+  const expanded = expandedNodeIds.has(item.id)
+  const hasChildren = item.children.length > 0
+  const canToggle = hasChildren || item.loadable
+  const toggleLabel = expanded ? labels.collapse : item.loadable && !hasChildren ? labels.loadChildren : labels.expand
+
+  const stopActionPropagation = (event: MouseEvent) => {
+    event.stopPropagation()
+  }
+
+  const canDownload = Boolean(item.downloadable && item.modId) && Boolean(onDownloadDependency)
+  const canOpenPage = Boolean(item.url || item.modId) && Boolean(onOpenDependencyPage)
+  const canSearch = !canOpenPage && Boolean(item.searchQuery?.trim()) && Boolean(onSearchDependency)
+  const secondaryActionLabel = canOpenPage ? labels.openPage : labels.search
+  const SecondaryActionIcon = canOpenPage ? ExternalLink : Search
+
+  const renderRow = (props: {
+    role?: 'button'
+    tabIndex?: number
+    'aria-expanded'?: boolean
+    'aria-label'?: string
+    onClick?: () => void
+    onKeyDown?: (event: KeyboardEvent) => void
+  }) => (
+    <div
+      className={cx(
+        'launcher-mod-detail-dependency-node',
+        `is-${item.statusKind}`,
+        canToggle && 'is-toggleable',
+        canToggle && expanded && 'is-open',
+      )}
+      role={props.role}
+      tabIndex={props.tabIndex}
+      aria-expanded={props['aria-expanded']}
+      aria-label={props['aria-label']}
+      title={item.title}
+      onClick={props.onClick}
+      onKeyDown={props.onKeyDown}
+    >
+      <span className="launcher-mod-detail-dependency-mark" aria-hidden="true">
+        {canToggle ? expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
+      </span>
+      <div className="launcher-mod-detail-dependency-copy">
+        <strong>{item.name}</strong>
+        <span className="launcher-mod-detail-dependency-detail">{item.meta}</span>
+      </div>
+      <div className="launcher-mod-detail-dependency-actions" onClick={stopActionPropagation}>
+        <span className={cx('launcher-mod-detail-data-pill', dependencyStateTone(item.statusKind))}>{item.status}</span>
+        <button
+          type="button"
+          className="launcher-mod-detail-file-action launcher-mod-detail-dependency-download"
+          aria-label={`${labels.download} ${item.name}`}
+          title={`${labels.download} ${item.name}`}
+          disabled={!canDownload}
+          onClick={() => onDownloadDependency?.(item)}
+        >
+          <Download className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          className="launcher-mod-detail-file-action launcher-mod-detail-dependency-download"
+          aria-label={`${secondaryActionLabel} ${item.name}`}
+          title={`${secondaryActionLabel} ${item.name}`}
+          disabled={!canOpenPage && !canSearch}
+          onClick={() => {
+            if (canOpenPage) {
+              onOpenDependencyPage?.(item)
+              return
+            }
+            onSearchDependency?.(item)
+          }}
+        >
+          <SecondaryActionIcon className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  )
+
+  return (
+    <li className="launcher-mod-detail-dependency-tree-entry">
+      {canToggle
+        ? renderRow({
+            role: 'button',
+            tabIndex: 0,
+            'aria-expanded': expanded,
+            'aria-label': `${toggleLabel} ${item.name}`,
+            onClick: () => onToggleNode(item),
+            onKeyDown: (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                onToggleNode(item)
+              }
+            },
+          })
+        : renderRow({})}
+      {expanded && hasChildren ? (
+        <ul className="launcher-mod-detail-dependency-tree-children">
+          {item.children.map((child) => (
+            <DependencyTreeItem
+              key={child.id}
+              item={child}
+              expandedNodeIds={expandedNodeIds}
+              labels={labels}
+              onToggleNode={onToggleNode}
+              onDownloadDependency={onDownloadDependency}
+              onOpenDependencyPage={onOpenDependencyPage}
+              onSearchDependency={onSearchDependency}
+            />
+          ))}
+        </ul>
+      ) : null}
+    </li>
+  )
+}
+
+export function DependencyTree({
+  items,
+  expandedNodeIds,
+  labels,
+  onToggleNode,
+  onDownloadDependency,
+  onOpenDependencyPage,
+  onSearchDependency,
+}: {
+  items: DependencyTreeNode[]
+  expandedNodeIds: Set<string>
+  labels: {
+    download: string
+    openPage: string
+    search: string
+    expand: string
+    collapse: string
+    loadChildren: string
+  }
+  onToggleNode: (item: DependencyTreeNode) => void
+  onDownloadDependency?: (item: DependencyTreeNode) => void
+  onOpenDependencyPage?: (item: DependencyTreeNode) => void
+  onSearchDependency?: (item: DependencyTreeNode) => void
+}) {
+  return (
+    <ul className="launcher-mod-detail-dependency-tree">
+      {items.map((item) => (
+        <DependencyTreeItem
+          key={item.id}
+          item={item}
+          expandedNodeIds={expandedNodeIds}
+          labels={labels}
+          onToggleNode={onToggleNode}
+          onDownloadDependency={onDownloadDependency}
+          onOpenDependencyPage={onOpenDependencyPage}
+          onSearchDependency={onSearchDependency}
+        />
+      ))}
+    </ul>
   )
 }
 

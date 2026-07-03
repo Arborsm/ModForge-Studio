@@ -3,7 +3,7 @@ import { X } from 'lucide-react'
 import type { EditorCopy } from '@locales'
 import { useEditorCopy } from '@locales/provider'
 import type { StudioDeskModel, StudioDeskWorldBible, StudioDeskWorldBibleEntry } from '../model/studioDeskModel'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 
 type StudioDeskWorldBibleProps = {
   id?: string

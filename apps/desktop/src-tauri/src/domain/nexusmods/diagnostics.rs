@@ -9,10 +9,8 @@ use crate::domain::launcher::types::LauncherSettings;
 use std::collections::BTreeMap;
 use std::sync::{Mutex, OnceLock};
 use std::thread;
-use std::time::Duration;
 
 const LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS: u8 = 3;
-const LAUNCHER_NEXUS_DIAGNOSTIC_RETRY_DELAY_MS: u64 = 800;
 const LAUNCHER_NEXUS_FORCE_OFFLINE_MESSAGE: &str = "Forced offline by debug override.";
 
 #[derive(Debug, Default)]
@@ -43,10 +41,16 @@ fn launcher_nexus_route_loading_snapshot(route: LauncherNexusRoute) -> NexusRout
 
 fn build_launcher_nexus_route_snapshot_map(
     settings: &LauncherSettings,
+    previous_routes: &BTreeMap<LauncherNexusRoute, NexusRouteSnapshot>,
 ) -> BTreeMap<LauncherNexusRoute, NexusRouteSnapshot> {
     LauncherNexusRoute::configured_routes(settings)
         .into_iter()
-        .map(|route| (route, launcher_nexus_route_loading_snapshot(route)))
+        .map(|route| {
+            (
+                route,
+                launcher_nexus_loading_snapshot_with_previous(route, previous_routes.get(&route)),
+            )
+        })
         .collect()
 }
 
@@ -75,6 +79,7 @@ fn launcher_nexus_warning_snapshot(
     attempts: u8,
     error: &str,
 ) -> NexusRouteSnapshot {
+    let blocked = attempts >= LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS;
     NexusRouteSnapshot {
         route_id: route.id().to_string(),
         label: route.label().to_string(),
@@ -82,9 +87,19 @@ fn launcher_nexus_warning_snapshot(
         status: NexusRouteStatus::Warning,
         attempts,
         max_attempts: LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS,
-        available: false,
-        message: format!("Failed after {attempts} attempts: {error}"),
+        available: !blocked,
+        message: format!(
+            "Failed after {attempts} attempt{}: {error}",
+            if attempts == 1 { "" } else { "s" }
+        ),
     }
+}
+
+fn launcher_nexus_warning_error_from_message(message: &str) -> &str {
+    message
+        .split_once(": ")
+        .map(|(_, error)| error)
+        .unwrap_or(message)
 }
 
 fn launcher_nexus_force_offline_snapshot(route: LauncherNexusRoute) -> NexusRouteSnapshot {
@@ -112,36 +127,57 @@ fn build_launcher_nexus_force_offline_snapshot_map(
 pub(crate) fn probe_launcher_nexus_route_with_runner<F>(
     route: LauncherNexusRoute,
     mut run_attempt: F,
-    sleep_between_attempts: bool,
+    _sleep_between_attempts: bool,
 ) -> NexusRouteSnapshot
 where
     F: FnMut() -> Result<(), String>,
 {
-    let mut last_error = "Unknown launcher Nexus diagnostics failure.".to_string();
+    match run_attempt() {
+        Ok(()) => launcher_nexus_success_snapshot(route, 1),
+        Err(error) => launcher_nexus_warning_snapshot(route, 1, &error),
+    }
+}
 
-    for attempt in 1..=LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS {
-        match run_attempt() {
-            Ok(()) => return launcher_nexus_success_snapshot(route, attempt),
-            Err(error) => {
-                last_error = error;
-                if attempt < LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS {
-                    log::warn!(
-                        "launcher nexus startup probe failed for {} (attempt {attempt}/{}): {}",
-                        route.label(),
-                        LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS,
-                        last_error
-                    );
-                    if sleep_between_attempts {
-                        thread::sleep(Duration::from_millis(
-                            LAUNCHER_NEXUS_DIAGNOSTIC_RETRY_DELAY_MS,
-                        ));
-                    }
-                }
-            }
-        }
+fn accumulate_launcher_nexus_route_snapshot(
+    previous: Option<&NexusRouteSnapshot>,
+    route: LauncherNexusRoute,
+    snapshot: NexusRouteSnapshot,
+) -> NexusRouteSnapshot {
+    if snapshot.status != NexusRouteStatus::Warning {
+        return snapshot;
     }
 
-    launcher_nexus_warning_snapshot(route, LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS, &last_error)
+    let attempts = previous_failure_attempts(previous)
+        .saturating_add(1)
+        .min(LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS);
+    launcher_nexus_warning_snapshot(
+        route,
+        attempts,
+        launcher_nexus_warning_error_from_message(&snapshot.message),
+    )
+}
+
+fn launcher_nexus_loading_snapshot_with_previous(
+    route: LauncherNexusRoute,
+    previous: Option<&NexusRouteSnapshot>,
+) -> NexusRouteSnapshot {
+    let mut snapshot = launcher_nexus_route_loading_snapshot(route);
+    if previous.is_some_and(|value| value.status == NexusRouteStatus::Warning) {
+        snapshot.attempts = previous.map(|value| value.attempts).unwrap_or(0);
+    }
+    snapshot
+}
+
+fn previous_failure_attempts(previous: Option<&NexusRouteSnapshot>) -> u8 {
+    previous
+        .filter(|value| {
+            matches!(
+                value.status,
+                NexusRouteStatus::Warning | NexusRouteStatus::Loading
+            )
+        })
+        .map(|value| value.attempts)
+        .unwrap_or(0)
 }
 
 fn is_launcher_nexus_route_blocked(route: LauncherNexusRoute) -> bool {
@@ -161,16 +197,19 @@ fn launcher_nexus_force_offline_active() -> bool {
         .force_offline
 }
 
-fn set_launcher_nexus_route_snapshot(snapshot: NexusRouteSnapshot) {
+fn set_launcher_nexus_route_snapshot(snapshot: NexusRouteSnapshot) -> Option<NexusRouteSnapshot> {
     let Some(route) = LauncherNexusRoute::from_route_id(&snapshot.route_id) else {
-        return;
+        return None;
     };
 
-    launcher_nexus_diagnostics_state()
+    let mut state = launcher_nexus_diagnostics_state()
         .lock()
-        .expect("launcher nexus diagnostics mutex should not be poisoned")
-        .routes
-        .insert(route, snapshot);
+        .expect("launcher nexus diagnostics mutex should not be poisoned");
+    let snapshot =
+        accumulate_launcher_nexus_route_snapshot(state.routes.get(&route), route, snapshot);
+    let stored = snapshot.clone();
+    state.routes.insert(route, snapshot);
+    Some(stored)
 }
 
 pub(crate) fn probe_blocked_launcher_nexus_route_with_runner<F>(
@@ -191,6 +230,13 @@ where
 
     let snapshot =
         probe_launcher_nexus_route_with_runner(route, run_attempt, sleep_between_attempts);
+    let snapshot = set_launcher_nexus_route_snapshot(snapshot).unwrap_or_else(|| {
+        launcher_nexus_warning_snapshot(
+            route,
+            LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS,
+            "Unknown launcher Nexus diagnostics failure.",
+        )
+    });
     let recovery_error = if snapshot.status == NexusRouteStatus::Warning && !snapshot.available {
         Some(format!(
             "Launcher Nexus route {} is disabled after startup diagnostics: {}",
@@ -199,7 +245,6 @@ where
     } else {
         None
     };
-    set_launcher_nexus_route_snapshot(snapshot);
 
     match recovery_error {
         Some(error) => Err(error),
@@ -221,6 +266,8 @@ fn update_launcher_nexus_route_snapshot_for_generation(
     if state.generation != generation {
         return;
     }
+    let snapshot =
+        accumulate_launcher_nexus_route_snapshot(state.routes.get(&route), route, snapshot);
     state.routes.insert(route, snapshot);
 }
 
@@ -374,7 +421,8 @@ fn start_launcher_nexus_diagnostics_with_settings(
         }
         state.generation = state.generation.saturating_add(1);
         state.started = true;
-        state.routes = build_launcher_nexus_route_snapshot_map(&settings);
+        let previous_routes = state.routes.clone();
+        state.routes = build_launcher_nexus_route_snapshot_map(&settings, &previous_routes);
         state.generation
     };
 

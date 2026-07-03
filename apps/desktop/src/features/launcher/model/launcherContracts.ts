@@ -37,8 +37,14 @@ export type LauncherLibraryModSummary = {
   updateKeys: string[]
   modUrl: string | null
   imageUrl: string | null
+  dependencies: LauncherLibraryDependency[]
   requiredDependencies: string[]
   missingRequiredDependencies: string[]
+}
+
+export type LauncherLibraryDependency = {
+  uniqueId: string
+  required: boolean
 }
 
 export type LauncherLibraryScanResult = {
@@ -61,6 +67,7 @@ export type LauncherLibraryPackPreset = {
   id: string
   name: string
   modKeys: string[]
+  folderClassificationMode: 'global' | 'independent'
 }
 
 export type LauncherLibraryChildModGroup = {
@@ -71,6 +78,8 @@ export type LauncherLibraryChildModGroup = {
 export type LauncherLibraryFolder = {
   id: string
   name: string
+  packId: string | null
+  hidden: boolean
   parentFolderId: string | null
   modKeys: string[]
   coverModKeys: string[]
@@ -191,6 +200,8 @@ export type LauncherCatalogPageResult = {
 export type LauncherRemoteModDetail = {
   modId: number
   title: string
+  unavailable?: boolean
+  unavailableReason?: string | null
   summary: string | null
   description?: string | null
   author: string | null
@@ -227,6 +238,7 @@ export type LauncherRemoteModRequirement = {
   name: string
   notes?: string | null
   url?: string | null
+  modId?: number | null
   external?: boolean
 }
 
@@ -320,6 +332,11 @@ export type LauncherImageFailureEntry = {
 
 export type LauncherImageFailuresState = {
   entries: LauncherImageFailureEntry[]
+}
+
+export type RecordLauncherImageFailureRequest = {
+  modKey: string
+  error: string
 }
 
 export type CheckLauncherUpdatesRequest = {

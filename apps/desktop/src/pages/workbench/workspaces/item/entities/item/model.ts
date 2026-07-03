@@ -13,8 +13,8 @@ import type {
   RawToolUpgradeEntry,
 } from './itemTypes'
 
-export * from '@shared/lib/clothingSprites'
-export { buildGameContentPath } from '@shared/lib/assets'
+export * from '@entities/character/lib/clothingSprites'
+export { buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
 export * from './itemBrowseMetadata'
 export * from './itemIdentity'
 export * from './itemSpriteMetrics'

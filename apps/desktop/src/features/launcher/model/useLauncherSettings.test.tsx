@@ -2,13 +2,13 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { LauncherSettings } from '@features/launcher/api'
-import { reportAppEvent } from '@shared/lib/observability'
+import { reportAppEvent } from '@platform/observability'
 import { useLauncherSettings } from '@features/launcher'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
 import { createMockLauncherPort } from '@test/launcherTestPort'
 import type { LauncherPort } from './launcherPort'
 
-vi.mock('@shared/lib/observability', () => ({
+vi.mock('@platform/observability', () => ({
   reportAppEvent: vi.fn(),
 }))
 

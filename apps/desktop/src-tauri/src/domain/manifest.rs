@@ -2,6 +2,12 @@ use serde_json::Value;
 use std::collections::BTreeSet;
 use std::path::Path;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ManifestDependency {
+    pub unique_id: String,
+    pub is_required: bool,
+}
+
 pub(crate) fn string_field(value: &Value, key: &str) -> Option<String> {
     value
         .get(key)
@@ -51,9 +57,16 @@ pub(crate) fn normalize_unique_id(value: &str) -> String {
 }
 
 pub(crate) fn required_dependency_ids(manifest: &Value) -> Vec<String> {
+    manifest_dependencies(manifest)
+        .into_iter()
+        .filter(|dependency| dependency.is_required)
+        .map(|dependency| dependency.unique_id)
+        .collect()
+}
+
+pub(crate) fn manifest_dependencies(manifest: &Value) -> Vec<ManifestDependency> {
     let mut dependencies = Vec::new();
     let mut seen = BTreeSet::new();
-
     for dependency in manifest
         .get("Dependencies")
         .and_then(Value::as_array)
@@ -63,9 +76,6 @@ pub(crate) fn required_dependency_ids(manifest: &Value) -> Vec<String> {
         let Some(object) = dependency.as_object() else {
             continue;
         };
-        if object.get("IsRequired").and_then(Value::as_bool) != Some(true) {
-            continue;
-        }
         let Some(unique_id) = object
             .get("UniqueID")
             .and_then(Value::as_str)
@@ -75,7 +85,13 @@ pub(crate) fn required_dependency_ids(manifest: &Value) -> Vec<String> {
             continue;
         };
         if seen.insert(normalize_unique_id(unique_id)) {
-            dependencies.push(unique_id.to_string());
+            dependencies.push(ManifestDependency {
+                unique_id: unique_id.to_string(),
+                is_required: object
+                    .get("IsRequired")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(true),
+            });
         }
     }
 

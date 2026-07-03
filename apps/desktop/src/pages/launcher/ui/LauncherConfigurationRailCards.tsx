@@ -1,7 +1,7 @@
 import { AlertTriangle, Check, Crown, RefreshCw, X } from 'lucide-react'
 import { useState } from 'react'
 import { useEditorCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import type { useLauncherSettings } from '@features/launcher'
 

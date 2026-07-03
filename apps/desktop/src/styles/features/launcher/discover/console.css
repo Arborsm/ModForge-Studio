@@ -1,0 +1,400 @@
+@layer components {
+  .launcher-discover-console {
+    position: relative;
+    z-index: 20;
+    isolation: isolate;
+    overflow: visible;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-panel);
+    padding: 14px 18px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .launcher-discover-console-top {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+  }
+
+  .launcher-discover-console-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  .launcher-discover-console-heading {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  .launcher-discover-console-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .launcher-discover-console-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 20px;
+    line-height: 1.1;
+    font-weight: 700;
+  }
+
+  .launcher-discover-console-subtitle {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .launcher-discover-console-summary {
+    margin: 0;
+    color: color-mix(in srgb, var(--text-primary) 72%, var(--text-secondary));
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .launcher-discover-console-toolbar {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+
+  .launcher-discover-toolbar-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  /* Leading search+filter group fills the available width so the remaining
+   * control groups sit flush against the right edge. */
+  .launcher-discover-console-toolbar > .launcher-discover-toolbar-group:first-child {
+    flex: 1 1 auto;
+  }
+
+  .launcher-discover-console-toolbar > .launcher-discover-toolbar-group:first-child .launcher-discover-searchbar {
+    max-width: none;
+  }
+
+  .launcher-discover-toolbar-divider {
+    width: 1px;
+    align-self: stretch;
+    margin: 6px 2px;
+    flex: 0 0 auto;
+    background: var(--launcher-border-soft);
+  }
+
+  .launcher-discover-console-actions {
+    flex: 0 0 auto;
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+
+  .launcher-discover-searchbar {
+    min-width: 180px;
+    flex: 1 1 180px;
+    max-width: 320px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--launcher-border-soft);
+    border-radius: 10px;
+    background: var(--launcher-surface-base);
+    padding: 0 12px;
+    color: var(--launcher-text-tertiary);
+    transition:
+      border-color 140ms ease,
+      background-color 140ms ease,
+      box-shadow 140ms ease,
+      color 140ms ease;
+  }
+
+  .launcher-discover-searchbar:hover {
+    border-color: var(--launcher-border-strong);
+    background: var(--launcher-surface-subtle);
+  }
+
+  .launcher-discover-searchbar:focus-within {
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-soft) 60%, transparent);
+    color: var(--launcher-text-accent);
+  }
+
+  .launcher-discover-searchbar-input {
+    min-width: 0;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: var(--launcher-text-primary);
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+  }
+
+  .launcher-discover-searchbar-input::placeholder {
+    color: var(--launcher-text-tertiary);
+  }
+
+  .launcher-discover-searchbar .launcher-discover-searchbar-button {
+    width: 28px;
+    min-height: 28px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--launcher-text-tertiary);
+    padding: 0;
+    flex: 0 0 auto;
+  }
+
+  .launcher-discover-searchbar .launcher-discover-searchbar-button:hover:not(:disabled) {
+    background: var(--launcher-surface-subtle);
+    color: var(--launcher-text-primary);
+  }
+
+  .launcher-discover-searchbar .launcher-discover-searchbar-button:disabled {
+    opacity: 0.35;
+  }
+
+  .launcher-discover-searchbar:has(.launcher-discover-searchbar-input:disabled) {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  @media (max-width: 860px) {
+    .launcher-discover-console-top {
+      grid-template-columns: 1fr;
+    }
+
+    .launcher-discover-console-toolbar {
+      flex-wrap: wrap;
+    }
+
+    .launcher-discover-toolbar-divider {
+      display: none;
+    }
+
+    .launcher-discover-searchbar {
+      min-width: min(280px, 100%);
+    }
+  }
+
+  .launcher-discover-filters-toggle,
+  .launcher-discover-searchbar-button,
+  .launcher-discover-icon-button,
+  .launcher-discover-order-button,
+  .launcher-discover-menu-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 0;
+    min-height: 36px;
+    border: 1px solid var(--launcher-border-soft);
+    border-radius: 10px;
+    background: var(--launcher-surface-base);
+    color: var(--launcher-text-primary);
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition:
+      border-color 140ms ease,
+      background-color 140ms ease,
+      color 140ms ease;
+  }
+
+  .launcher-discover-filters-toggle:hover,
+  .launcher-discover-searchbar-button:hover,
+  .launcher-discover-icon-button:hover,
+  .launcher-discover-order-button:hover,
+  .launcher-discover-menu-trigger:hover {
+    border-color: var(--launcher-border-strong);
+    background: var(--launcher-surface-subtle);
+  }
+
+  .launcher-discover-filters-toggle:disabled,
+  .launcher-discover-searchbar-button:disabled,
+  .launcher-discover-icon-button:disabled,
+  .launcher-discover-order-button:disabled,
+  .launcher-discover-menu-trigger:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .launcher-discover-filters-toggle:focus-visible,
+  .launcher-discover-menu-trigger:focus-visible,
+  .launcher-discover-order-button:focus-visible,
+  .launcher-discover-icon-button:focus-visible,
+  .launcher-discover-rail-field input:focus-visible,
+  .launcher-discover-range-row input:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
+    outline-offset: 2px;
+  }
+
+  /* Filters toggle — circular icon button; accent tint marks the open panel. */
+  .launcher-discover-filters-toggle {
+    width: 36px;
+    padding: 0;
+    border-radius: 999px;
+    color: var(--launcher-text-secondary);
+  }
+
+  .launcher-discover-filters-toggle:hover {
+    color: var(--launcher-text-primary);
+  }
+
+  .launcher-discover-filters-toggle-active {
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    background: var(--launcher-surface-accent);
+    color: var(--launcher-text-accent);
+  }
+
+  .launcher-discover-filters-toggle-active:hover {
+    background: color-mix(in srgb, var(--accent) 18%, var(--bg-panel));
+    color: var(--launcher-text-accent);
+  }
+
+  .launcher-discover-icon-button {
+    width: 36px;
+    padding: 0;
+    border-radius: 999px;
+    color: var(--launcher-text-secondary);
+  }
+
+  .launcher-discover-icon-button:hover {
+    color: var(--launcher-text-primary);
+  }
+
+  /* Order button — round icon button (replaces text asc/desc label). */
+  .launcher-discover-order-button {
+    width: 36px;
+    padding: 0;
+    border-radius: 999px;
+    color: var(--launcher-text-secondary);
+  }
+
+  .launcher-discover-order-button:hover {
+    color: var(--launcher-text-primary);
+  }
+
+  .launcher-discover-menu {
+    position: relative;
+    z-index: 30;
+    /* Size to the longest option label so the trigger keeps a fixed width and
+       the popover matches it, instead of both drifting with the active value. */
+    width: max-content;
+    flex: 0 0 auto;
+  }
+
+  /* Ruler — invisible shells mirroring the trigger layout (icon + label +
+     chevron) for every option, so the menu's max-content width resolves to the
+     longest option. */
+  .launcher-discover-menu-ruler {
+    display: grid;
+    grid-template-columns: max-content;
+    visibility: hidden;
+    height: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .launcher-discover-menu-ruler-mark {
+    width: 1rem;
+    height: 1rem;
+    flex: 0 0 auto;
+  }
+
+  .launcher-discover-menu-trigger {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .launcher-discover-menu-trigger > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Keep the caret flush right while icon+label stay packed left. */
+  .launcher-discover-menu-trigger > svg:last-child {
+    margin-left: auto;
+  }
+
+  .launcher-discover-menu-trigger svg {
+    color: var(--launcher-text-tertiary);
+  }
+
+  /* Non-default value — accent tint signals the menu was changed from default. */
+  .launcher-discover-menu-trigger-active {
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    background: var(--launcher-surface-accent);
+    color: var(--launcher-text-accent);
+  }
+
+  .launcher-discover-menu-trigger-active svg {
+    color: var(--launcher-text-accent);
+  }
+
+  .launcher-discover-menu-trigger-active:hover {
+    background: color-mix(in srgb, var(--accent) 18%, var(--bg-panel));
+    color: var(--launcher-text-accent);
+  }
+
+  /* Menu open — solid accent ring, stronger than the active tint. */
+  .launcher-discover-menu-trigger-open {
+    border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+    background: color-mix(in srgb, var(--accent) 16%, var(--bg-panel));
+    color: var(--launcher-text-accent);
+  }
+
+  .launcher-discover-menu-trigger-open svg {
+    color: var(--launcher-text-accent);
+  }
+
+  .launcher-discover-menu-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    /* Stretch to the menu width (the longest option) so the popover aligns
+       with the trigger instead of falling back to the shared 180px floor. */
+    left: 0;
+    right: 0;
+    --launcher-menu-min-width: 0;
+    --launcher-menu-surface: var(--bg-elevated);
+    --launcher-menu-shadow: var(--shadow-float);
+    --launcher-menu-z: 40;
+  }
+
+  .launcher-discover-menu-option {
+    justify-content: flex-start;
+    min-height: 36px;
+    color: var(--launcher-text-secondary);
+    font-weight: 600;
+  }
+
+  .launcher-discover-menu-option:hover {
+    background: var(--launcher-surface-muted);
+    color: var(--launcher-text-primary);
+  }
+
+  .launcher-discover-menu-option-active {
+    background: var(--launcher-surface-accent);
+    color: var(--launcher-text-accent);
+  }
+}

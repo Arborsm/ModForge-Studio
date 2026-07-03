@@ -1,7 +1,7 @@
 import { AlertTriangle, ExternalLink, KeyRound, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useEditorCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import type { SsoSnapshot, ValidateApiKeyResult } from '@features/launcher/model/launcherContracts'
 import { useLauncherSettings } from '@features/launcher/model/useLauncherSettings'

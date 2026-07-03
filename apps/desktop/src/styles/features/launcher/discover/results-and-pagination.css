@@ -56,16 +56,26 @@
   .launcher-discover-pagination {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     gap: 10px;
     flex-wrap: wrap;
     padding-top: 4px;
   }
 
   .launcher-discover-pagination-pages {
+    flex: 1 1 0;
+    min-width: 0;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
+    flex-wrap: nowrap;
+  }
+
+  .launcher-discover-pagination-trailing {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
     flex-wrap: wrap;
   }
 

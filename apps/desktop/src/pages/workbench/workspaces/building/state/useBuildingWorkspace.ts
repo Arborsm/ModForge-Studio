@@ -1,11 +1,11 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
-import type { ViewportWorldPoint } from '@shared/contracts'
-import type { ModAssetIndexGroup } from '@shared/contracts'
+import type { ViewportWorldPoint } from '@entities/map'
+import type { ModAssetIndexGroup } from '@pages/workbench/workspaces/mod/state/browser'
 import { deferToTimeout } from '@shared/lib/react'
 import { type GameDirectoryInfo, loadMapAsset, loadTextAsset, scanMaps } from '@entities/game/api'
 import type { BuildingsPanelCopy, LocaleCode } from '@locales'
-import type { MapDocument } from '@shared/contracts'
-import { OBJECT_DATA_ASSET_PATH, SPRING_OBJECTS_ASSET_PATH, buildGameContentPath } from '@shared/lib/assets'
+import type { MapDocument } from '@entities/map'
+import { OBJECT_DATA_ASSET_PATH, SPRING_OBJECTS_ASSET_PATH, buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
 import {
   BUILDINGS_DATA_ASSET_PATH,
   type BuildingTextureAssetState,

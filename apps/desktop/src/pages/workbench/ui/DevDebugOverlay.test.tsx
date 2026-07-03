@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
-import { getFileCacheStats } from '@shared/lib/desktop'
+import { getFileCacheStats } from '@platform/host'
 import { DevDebugOverlay } from './DevDebugOverlay'
 
 const desktopMockState = vi.hoisted(() => ({
@@ -14,7 +14,7 @@ vi.mock('@entities/event', () => ({
   }),
 }))
 
-vi.mock('@shared/lib/desktop', () => ({
+vi.mock('@platform/host', () => ({
   canUseDesktopHost: () => desktopMockState.canUseDesktopHost,
   clearFileCache: vi.fn(),
   getDesktopCacheStats: () => ({
@@ -141,6 +141,32 @@ describe('DevDebugOverlay', () => {
 
     expect(overlay?.style.left).toBe('140px')
     expect(overlay?.style.top).toBe('184px')
+  })
+
+  it('keeps the draggable overlay below the title bar', () => {
+    render(<DevDebugOverlay workspaceMode="map" mapName="Town" eventName={null} currentEventCommandId={null} actorCount={0} />)
+
+    const handle = screen.getByText('Dev Debug').parentElement as HTMLElement | null
+    const overlay = handle?.closest('.fixed') as HTMLElement | null
+
+    fireEvent.pointerDown(handle as HTMLElement, {
+      pointerId: 3,
+      clientX: 60,
+      clientY: 120,
+    })
+    fireEvent.pointerMove(overlay as HTMLElement, {
+      pointerId: 3,
+      clientX: 0,
+      clientY: 0,
+    })
+    fireEvent.pointerUp(overlay as HTMLElement, {
+      pointerId: 3,
+      clientX: 0,
+      clientY: 0,
+    })
+
+    expect(overlay?.style.left).toBe('12px')
+    expect(overlay?.style.top).toBe('69px')
   })
 
   it('loads file cache stats once and refreshes manually without polling', async () => {

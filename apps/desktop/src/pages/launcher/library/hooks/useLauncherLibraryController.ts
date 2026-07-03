@@ -3,6 +3,7 @@ import type { LauncherCopy } from '@locales/model'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import {
   inspectLauncherArchive,
+  isLauncherRemoteModIdInvalid,
   listLauncherInstallBackups,
   loadLauncherRemoteModDetail,
   openLauncherPath,
@@ -19,7 +20,7 @@ import {
   isSupportedLauncherArchivePath,
   listenToLauncherArchiveDragDrop,
   type UnlistenFn,
-} from '@shared/lib/desktop'
+} from '@platform/host'
 import { getLauncherCoverKey } from '@features/launcher/model/coverKey'
 import { getModKey, normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
 import type { LauncherLibraryItem, LauncherPackPreset, LauncherSettingsDraft, LauncherVirtualFolder } from '@features/launcher/model/types'
@@ -219,6 +220,7 @@ export function useLauncherLibraryController({
     childParentLookup,
     hiddenModKeyLookup,
     hiddenMods,
+    hiddenLibraryItemCount,
     visibleLibraryModsCount,
     detailMod,
     visibleMods,
@@ -775,6 +777,14 @@ export function useLauncherLibraryController({
         })
         return
       }
+      if (isLauncherRemoteModIdInvalid(mod.nexusModId)) {
+        publishNotification({
+          level: 'warning',
+          title: copy.actions.chooseGalleryCover,
+          description: copy.library.galleryCoverEmpty,
+        })
+        return
+      }
 
       try {
         publishNotification({
@@ -874,6 +884,7 @@ export function useLauncherLibraryController({
     async (packId: string | null, options?: { closeDrawer?: boolean }) => {
       const success = await runLibraryAction(async () => {
         await library.setCurrentPackId(packId)
+        await library.setScopeMode(packId ? 'current-pack' : 'all')
       })
       if (!success) {
         return false
@@ -892,16 +903,23 @@ export function useLauncherLibraryController({
     [library, runLibraryAction],
   )
 
-  const selectHiddenView = useCallback((options?: { closeDrawer?: boolean }) => {
-    setHiddenViewOpen(true)
-    setQuickSwitchOpen(false)
-    setPackActionMenuId(null)
-    setSortMenuOpen(false)
-    setSortingBannerOpen(false)
-    if (options?.closeDrawer) {
-      setDrawerOpen(false)
-    }
-  }, [])
+  const selectHiddenView = useCallback(
+    (options?: { closeDrawer?: boolean }) => {
+      // The hidden view lists every hidden mod across the whole library, so it
+      // must not stay scoped to the current pack. Reset the scope eagerly so the
+      // hidden list is not filtered down to pack members while the view is open.
+      void library.setScopeMode('all')
+      setHiddenViewOpen(true)
+      setQuickSwitchOpen(false)
+      setPackActionMenuId(null)
+      setSortMenuOpen(false)
+      setSortingBannerOpen(false)
+      if (options?.closeDrawer) {
+        setDrawerOpen(false)
+      }
+    },
+    [library],
+  )
 
   const changeSortMode = useCallback((nextSortMode: LibrarySortMode) => {
     setSortMode(nextSortMode)
@@ -950,9 +968,9 @@ export function useLauncherLibraryController({
 
   const createLibraryFolder = useCallback(() => {
     void runLibraryAction(async () => {
-      await library.createLibraryFolder()
+      await library.createLibraryFolder(undefined, { packId: hiddenViewOpen ? null : library.currentPackId })
     })
-  }, [library, runLibraryAction])
+  }, [hiddenViewOpen, library, runLibraryAction])
 
   const removeDraggedChildModsFromParent = useCallback(
     (modIds: string[]) => {
@@ -1121,13 +1139,13 @@ export function useLauncherLibraryController({
   )
 
   const openCreatePackDialog = useCallback(() => {
-    setPackDialog({ kind: 'create', value: '' })
+    setPackDialog({ kind: 'create', value: '', syncGlobalFolders: true })
     setPackActionMenuId(null)
     setSortMenuOpen(false)
   }, [])
 
-  const openRenamePackDialog = useCallback((pack: LauncherPackPreset) => {
-    setPackDialog({ kind: 'rename', pack, value: pack.name })
+  const openEditPackDialog = useCallback((pack: LauncherPackPreset) => {
+    setPackDialog({ kind: 'edit', pack, value: pack.name, syncGlobalFolders: pack.folderClassificationMode !== 'independent' })
     setPackActionMenuId(null)
     setSortMenuOpen(false)
   }, [])
@@ -1164,7 +1182,9 @@ export function useLauncherLibraryController({
       }
 
       const success = await runLibraryAction(async () => {
-        await library.createPackPreset(nextName)
+        await library.createPackPreset(nextName, {
+          folderClassificationMode: packDialog.syncGlobalFolders ? 'global' : 'independent',
+        })
       })
       if (success) {
         setPackDialog(null)
@@ -1172,14 +1192,17 @@ export function useLauncherLibraryController({
       return
     }
 
-    if (packDialog.kind === 'rename') {
+    if (packDialog.kind === 'edit') {
       const nextName = packDialog.value.trim()
       if (!nextName) {
         return
       }
 
       const success = await runLibraryAction(async () => {
-        await library.renamePackPreset(packDialog.pack.id, nextName)
+        await library.updatePackPreset(packDialog.pack.id, {
+          name: nextName,
+          folderClassificationMode: packDialog.syncGlobalFolders ? 'global' : 'independent',
+        })
       })
       if (success) {
         setPackDialog(null)
@@ -1321,12 +1344,28 @@ export function useLauncherLibraryController({
   const directActionsForLibraryFolder = useCallback(
     (folder: LauncherVirtualFolder) => {
       const folderModIds = getLibraryFolderModIds(folder)
+      const canToggleFolderVisibility = !folder.packId && (hiddenViewOpen || !library.currentPackId)
       return [
         {
           label: isLibraryFolderOpen(folder.id) ? copy.library.closeLibraryFolder : copy.library.openLibraryFolder(folder.name),
           onSelect: () => toggleLibraryFolderOpen(folder.id),
         },
         { label: copy.library.renameLibraryFolder, onSelect: () => openRenameLibraryFolderDialog(folder) },
+        ...(canToggleFolderVisibility
+          ? [
+              {
+                label: folder.hidden ? copy.library.showLibraryFolder : copy.library.hideLibraryFolder,
+                onSelect: () =>
+                  void runLibraryAction(async () => {
+                    if (folder.hidden) {
+                      await library.showLibraryFolder(folder.id)
+                      return
+                    }
+                    await library.hideLibraryFolder(folder.id)
+                  }),
+              },
+            ]
+          : []),
         {
           label: copy.library.enableLibraryFolder,
           onSelect: () =>
@@ -1346,6 +1385,7 @@ export function useLauncherLibraryController({
     [
       copy.library,
       getLibraryFolderModIds,
+      hiddenViewOpen,
       isLibraryFolderOpen,
       library,
       openRenameLibraryFolderDialog,
@@ -1362,6 +1402,7 @@ export function useLauncherLibraryController({
       childParentLookup,
       hiddenModKeyLookup,
       hiddenMods,
+      hiddenLibraryItemCount,
       visibleLibraryModsCount,
       detailMod,
       visibleMods,
@@ -1464,7 +1505,7 @@ export function useLauncherLibraryController({
       cancelEditMode,
       saveEditMode,
       openCreatePackDialog,
-      openRenamePackDialog,
+      openEditPackDialog,
       openDeletePackDialog,
       closePackDialog,
       openRenameLibraryFolderDialog,

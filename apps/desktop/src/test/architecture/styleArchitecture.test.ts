@@ -91,4 +91,11 @@ describe('style architecture', () => {
     expect(source).toMatch(/\.launcher-library-grid-reveal\s*\{[^}]*margin:\s*-6px;/s)
     expect(source).toMatch(/\.launcher-mod-card:hover,\s*\.launcher-mod-card:focus-within\s*\{[^}]*z-index:\s*1;/s)
   })
+
+  it('keeps launcher mod detail overlays below the app titlebar', async () => {
+    const source = await readCssWithImports(join(STYLES_DIR, 'features/launcher/library.css'))
+
+    expect(source).toMatch(/\.launcher-library-drawer\s*\{[^}]*inset:\s*var\(--app-titlebar-height\)\s+0\s+0;/s)
+    expect(source).not.toMatch(/\.launcher-library-drawer\s*\{[^}]*inset:\s*0;/s)
+  })
 })

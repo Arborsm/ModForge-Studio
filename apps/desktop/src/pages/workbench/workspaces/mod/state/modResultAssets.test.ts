@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { loadContentPatcherResultAsset } from '@entities/mod/api'
 import { loadImageResource } from '@shared/lib/assets'
-import type { MapDocument } from '@shared/contracts'
+import type { MapDocument } from '@entities/map'
 import { loadModResultImageState, loadModResultMapDocument } from './modResultAssets'
 import type { ModBrowserEntry } from './browser'
 

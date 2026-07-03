@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test'
-import type { MapAssetSummary, MapDocument } from '@shared/contracts'
+import type { MapAssetSummary } from '@entities/game/api'
+import type { MapDocument } from '@entities/map'
 import {
   buildMapWorkspaceTabs,
   getDefaultVisibleLayerIds,

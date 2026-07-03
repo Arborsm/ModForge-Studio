@@ -4,7 +4,7 @@ import {
   getClothingShirtMenuSourceRect,
   getClothingShirtStripMaskSourceRect,
   getClothingShirtStripSourceRect,
-} from '@shared/lib/clothingSprites'
+} from '@entities/character/lib/clothingSprites'
 
 export type FarmerAppearanceImageAsset = {
   image: HTMLImageElement

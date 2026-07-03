@@ -4,7 +4,7 @@ import {
   parseNexusModsBbcode,
   type NexusModsBbcodeElementNode,
   type NexusModsBbcodeNode,
-} from '@shared/lib/nexusmods-bbcode'
+} from '@shared/infra/game-formats/nexusmods-bbcode'
 
 type NexusModsBbcodeProps = {
   source: string

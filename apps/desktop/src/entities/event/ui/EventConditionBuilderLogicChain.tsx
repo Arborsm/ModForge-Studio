@@ -1,6 +1,6 @@
 import { X } from 'lucide-react'
 import type { PointerEvent } from 'react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { compactLabelForChip, type ChipDragState, type ConditionChip } from './eventConditionBuilderModel'
 import { iconForConditionChip } from './eventConditionBuilderChipIcon'
 import type { ConditionBuilderCopy, HubCopy } from './eventConditionBuilderTypes'

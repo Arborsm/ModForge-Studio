@@ -9,6 +9,7 @@ use crate::domain::launcher::types::{
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::graphql;
 use crate::domain::nexusmods::http::{launcher_http_client, send_nexus_json_request};
+use crate::domain::nexusmods::rest_api::client::NexusRestError;
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{
     build_mod_page_url, decode_html, extract_graphql_error, normalize_nexus_url, string_field,
@@ -45,6 +46,7 @@ query LauncherPublicModDetail($gameId: ID!, $modId: ID!) {
     modRequirements {
       nexusRequirements(offset: 0, count: 8) {
         nodes {
+          modId
           modName
           notes
           url
@@ -92,6 +94,7 @@ query LauncherPublicModDetail($gameId: ID!, $modId: ID!) {
     modRequirements {
       nexusRequirements(offset: 0, count: 8) {
         nodes {
+          modId
           modName
           notes
           url
@@ -147,6 +150,7 @@ pub(crate) struct RemoteModRequirement {
     pub(crate) name: String,
     pub(crate) notes: Option<String>,
     pub(crate) url: Option<String>,
+    pub(crate) mod_id: Option<i64>,
     pub(crate) external: bool,
 }
 
@@ -175,6 +179,8 @@ pub(crate) struct RemoteModFile {
 pub(crate) struct RemoteModDetail {
     pub(crate) mod_id: i64,
     pub(crate) name: Option<String>,
+    pub(crate) unavailable: bool,
+    pub(crate) unavailable_reason: Option<String>,
     pub(crate) author: Option<String>,
     pub(crate) summary: Option<String>,
     pub(crate) description: Option<String>,
@@ -212,6 +218,8 @@ impl RemoteModDetail {
         Self {
             mod_id,
             name: None,
+            unavailable: false,
+            unavailable_reason: None,
             author: None,
             summary: None,
             description: None,
@@ -242,6 +250,14 @@ impl RemoteModDetail {
             update_risk: None,
             requirements: Vec::new(),
             files: Vec::new(),
+        }
+    }
+
+    pub(crate) fn unavailable(mod_id: i64, mod_url: String, reason: String) -> Self {
+        Self {
+            unavailable: true,
+            unavailable_reason: Some(reason),
+            ..Self::empty(mod_id, mod_url)
         }
     }
 }
@@ -337,6 +353,13 @@ fn parse_mod_tags(node: &Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
+fn is_remote_mod_unavailable_error(error: &str) -> bool {
+    matches!(
+        error.trim().to_ascii_lowercase().as_str(),
+        "mod not found" | "mod unavailable" | "mod hidden" | "mod removed" | "mod deleted"
+    )
+}
+
 fn parse_big_int_like(value: &Value) -> Option<u64> {
     value.as_u64().or_else(|| {
         value
@@ -369,7 +392,8 @@ fn parse_first_requirement_text(node: &Value) -> Option<String> {
         .and_then(Value::as_array)?;
 
     requirements.iter().find_map(|requirement| {
-        let name = string_field(requirement, "modName");
+        let mod_id = requirement_mod_id(requirement);
+        let name = requirement_name(requirement, mod_id);
         let notes = string_field(requirement, "notes");
         match (name, notes) {
             (Some(name), Some(notes)) if !notes.eq_ignore_ascii_case(&name) => {
@@ -380,6 +404,39 @@ fn parse_first_requirement_text(node: &Value) -> Option<String> {
             _ => None,
         }
     })
+}
+
+fn parse_nexus_mod_id_from_url(value: &str) -> Option<i64> {
+    let marker = "/mods/";
+    let normalized = value.to_ascii_lowercase();
+    let tail_start = normalized.find(marker)? + marker.len();
+    let id = value[tail_start..]
+        .chars()
+        .take_while(|character| character.is_ascii_digit())
+        .collect::<String>();
+    id.parse::<i64>().ok().filter(|mod_id| *mod_id > 0)
+}
+
+fn requirement_mod_id(requirement: &Value) -> Option<i64> {
+    requirement
+        .get("modId")
+        .and_then(|value| {
+            value
+                .as_i64()
+                .or_else(|| value.as_str()?.trim().parse::<i64>().ok())
+        })
+        .filter(|mod_id| *mod_id > 0)
+        .or_else(|| {
+            string_field(requirement, "url")
+                .as_deref()
+                .and_then(parse_nexus_mod_id_from_url)
+        })
+}
+
+fn requirement_name(requirement: &Value, mod_id: Option<i64>) -> Option<String> {
+    string_field(requirement, "modName")
+        .or_else(|| string_field(requirement, "name"))
+        .or_else(|| mod_id.map(|value| format!("Nexus #{value}")))
 }
 
 fn parse_mod_requirements(node: &Value) -> Vec<RemoteModRequirement> {
@@ -395,12 +452,13 @@ fn parse_mod_requirements(node: &Value) -> Vec<RemoteModRequirement> {
     requirements
         .iter()
         .filter_map(|requirement| {
-            let name = string_field(requirement, "modName")
-                .or_else(|| string_field(requirement, "notes"))?;
+            let mod_id = requirement_mod_id(requirement);
+            let name = requirement_name(requirement, mod_id)?;
             Some(RemoteModRequirement {
                 name,
                 notes: string_field(requirement, "notes"),
                 url: string_field(requirement, "url"),
+                mod_id,
                 external: requirement
                     .get("externalRequirement")
                     .and_then(Value::as_bool)
@@ -665,6 +723,8 @@ pub(crate) fn parse_public_mod_detail_graphql_response(
             .and_then(Value::as_i64)
             .unwrap_or(mod_id),
         name: string_field(mod_node, "name"),
+        unavailable: false,
+        unavailable_reason: None,
         author,
         summary: summary_text.clone(),
         description: description_markup.clone(),
@@ -777,12 +837,27 @@ fn load_remote_mod_detail_from_rest_api(
         return Ok(None);
     };
 
-    let info = crate::domain::nexusmods::rest_api::get_mod(api_key, "stardewvalley", mod_id as u64)
-        .map_err(|error| error.to_string())?;
+    let info = match crate::domain::nexusmods::rest_api::get_mod(
+        api_key,
+        "stardewvalley",
+        mod_id as u64,
+    ) {
+        Ok(info) => info,
+        Err(error @ NexusRestError::ModUnavailable { .. }) => {
+            return Ok(Some(RemoteModDetail::unavailable(
+                mod_id,
+                build_mod_page_url(mod_id),
+                error.to_string(),
+            )));
+        }
+        Err(error) => return Err(error.to_string()),
+    };
 
     Ok(Some(RemoteModDetail {
         mod_id: info.mod_id as i64,
         name: Some(info.name),
+        unavailable: false,
+        unavailable_reason: None,
         author: Some(if info.author.trim().is_empty() {
             info.uploaded_by
         } else {
@@ -869,6 +944,8 @@ fn to_launcher_remote_mod_detail(detail: RemoteModDetail) -> LauncherRemoteModDe
             .name
             .clone()
             .unwrap_or_else(|| format!("Nexus #{}", detail.mod_id)),
+        unavailable: detail.unavailable,
+        unavailable_reason: detail.unavailable_reason,
         summary: detail.summary,
         description: detail.description,
         author: detail.author,
@@ -904,6 +981,7 @@ fn to_launcher_remote_mod_detail(detail: RemoteModDetail) -> LauncherRemoteModDe
                 name: requirement.name,
                 notes: requirement.notes,
                 url: requirement.url,
+                mod_id: requirement.mod_id,
                 external: requirement.external,
             })
             .collect(),
@@ -972,17 +1050,21 @@ fn load_launcher_remote_mod_detail_blocking(
     let client = launcher_http_client()?;
     let settings_path = launcher_settings_path()?;
     let settings = load_or_create_settings_at_path(&settings_path)?;
-    let mut detail = load_remote_mod_detail_with_graphql_fallback(
-        || {
-            load_remote_mod_detail_from_public_graphql(
-                &client,
-                &settings,
-                request.mod_id,
-                request.include_files,
-            )
-        },
-        || load_remote_mod_detail_from_rest_api(&settings, request.mod_id),
-    )?;
+    let mut detail = match load_remote_mod_detail_from_public_graphql(
+        &client,
+        &settings,
+        request.mod_id,
+        request.include_files,
+    ) {
+        Ok(detail) => detail,
+        Err(error) if is_remote_mod_unavailable_error(&error) => {
+            RemoteModDetail::unavailable(request.mod_id, build_mod_page_url(request.mod_id), error)
+        }
+        Err(error) => load_remote_mod_detail_with_graphql_fallback(
+            || Err(error.clone()),
+            || load_remote_mod_detail_from_rest_api(&settings, request.mod_id),
+        )?,
+    };
     if detail.gallery_images.is_empty() {
         let fallback_images = detail.image_url.iter().cloned().collect::<Vec<_>>();
         detail = enrich_remote_mod_detail_with_gallery_images(detail, fallback_images);

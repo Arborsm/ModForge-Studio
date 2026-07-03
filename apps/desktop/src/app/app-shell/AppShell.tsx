@@ -3,14 +3,16 @@ import {
   canUseDesktopHost,
   forceCloseCurrentWindow,
   isCurrentWindowMaximized,
+  isCurrentWindowFullscreen,
   listenToWindowCloseRequest,
   loadAppUiState,
   minimizeCurrentWindow,
   patchAppUiState,
   toggleMaximizeCurrentWindow,
+  toggleFullscreenCurrentWindow,
   setDesktopDebugLoggingEnabled,
   writeFrontendLog,
-} from '@shared/lib/desktop'
+} from '@platform/host'
 import { clearGameAssetLocaleCache, loadImageDataUrl } from '@entities/game/api'
 import { editorCopy, type AppMode, type LauncherPage, type LocaleCode } from '@locales/api'
 import { normalizeAppShellState } from '@shared/lib/app-state/appShellState'
@@ -18,8 +20,8 @@ import { LoadingMotionFallback, LoadingMotionProvider } from '@shared/ui/loading
 import { THEME_PRESETS } from '@shared/lib/theme/presets'
 import { clearLocalizedStageMetadataCache } from '@entities/event/model/stage/stageMetadataCache'
 import { LocaleProvider } from '@locales/provider'
-import { NotificationProvider, setNotificationSoundEnabled } from '@shared/ui/notifications'
-import { configureObservability, syncDebugDiagnosticsEnabled } from '@shared/lib/observability'
+import { NotificationProvider, publishNotification, setNotificationSoundEnabled } from '@shared/ui/notifications'
+import { configureObservability, reportAppEvent, setNotificationDispatcher, syncDebugDiagnosticsEnabled } from '@platform/observability'
 import {
   applyAppUiStatePatch,
   configureAppUiStatePersistence,
@@ -30,6 +32,7 @@ import {
   startPreferencesRuntime,
   stopPreferencesRuntime,
   syncPreferencesStoreFromAppUiState,
+  configurePreferencesHostAdapter,
   usePreferencesStore,
 } from '@shared/lib/app-state/preferencesStore'
 import { clearImageMetricsLocaleCache, configureImageDataUrlLoader } from '@shared/lib/assets'
@@ -85,10 +88,16 @@ configureAppUiStatePersistence({
   load: loadAppUiState,
   patch: patchAppUiState,
 })
+configurePreferencesHostAdapter({
+  canUseDesktopHost,
+  isCurrentWindowFullscreen,
+  toggleFullscreenCurrentWindow,
+})
 configureObservability({
   setDebugLoggingEnabled: setDesktopDebugLoggingEnabled,
   writeFrontendLog,
 })
+setNotificationDispatcher(publishNotification)
 
 export default function App() {
   const [initialAppUiState] = useState(() => getAppUiStateSnapshot())
@@ -100,6 +109,7 @@ export default function App() {
   const windowBorderTone = usePreferencesStore((state) => state.windowBorderTone)
   const windowBorderWeight = usePreferencesStore((state) => state.windowBorderWeight)
   const desktopHost = usePreferencesStore((state) => state.desktopHost)
+  const hostAvailable = desktopHost || canUseDesktopHost()
   const debugEnabled = usePreferencesStore((state) => state.debugEnabled)
   const notificationSoundEnabled = usePreferencesStore((state) => state.notificationSoundEnabled)
   const loadingMotionPreference = usePreferencesStore((state) => state.loadingMotionPreference)
@@ -119,9 +129,7 @@ export default function App() {
   const launcherDiagnosticsRetryRef = useRef<(() => Promise<void>) | null>(null)
   const latestLauncherDiagnosticsRef = useRef<LauncherNexusDiagnosticsResult | null>(null)
   const appMountedRef = useRef(true)
-  const windowCloseRequestRef = useRef<() => void>(() => {
-    void forceCloseCurrentWindow()
-  })
+  const windowCloseRequestRef = useRef<() => boolean | Promise<boolean>>(() => false)
 
   const copy = editorCopy[locale]
   const launcherPort = useLauncherPort()
@@ -148,7 +156,7 @@ export default function App() {
 
   useEffect(() => {
     appMountedRef.current = true
-    startPreferencesRuntime()
+    startPreferencesRuntime(canUseDesktopHost())
 
     return () => {
       appMountedRef.current = false
@@ -162,14 +170,21 @@ export default function App() {
 
   useEffect(() => eventBus.subscribe(workbenchOrchestration.handleEvent), [eventBus, workbenchOrchestration])
 
-  useEffect(() => {
-    windowCloseRequestRef.current = () => {
-      void forceCloseCurrentWindow()
+  const confirmAndCloseCurrentWindow = useCallback(async () => {
+    if (!window.confirm(copy.shell.quitConfirm)) {
+      return false
     }
-  }, [])
+
+    await forceCloseCurrentWindow()
+    return true
+  }, [copy.shell.quitConfirm])
 
   useEffect(() => {
-    if (!desktopHost) {
+    windowCloseRequestRef.current = confirmAndCloseCurrentWindow
+  }, [confirmAndCloseCurrentWindow])
+
+  useEffect(() => {
+    if (!hostAvailable) {
       return
     }
 
@@ -182,7 +197,7 @@ export default function App() {
         }
 
         const nextShellState = normalizeAppShellState(state.shell)
-        syncPreferencesStoreFromAppUiState(state, desktopHost)
+        syncPreferencesStoreFromAppUiState(state, canUseDesktopHost())
         if (nextShellState.appMode === 'workbench') {
           setWorkbenchHasOpened(true)
           setWorkbenchActivationKey((current) => current + 1)
@@ -200,7 +215,7 @@ export default function App() {
     return () => {
       disposed = true
     }
-  }, [desktopHost])
+  }, [hostAvailable])
 
   const handleViewLauncherDiagnostics = useCallback(() => {
     setAppMode('launcher')
@@ -220,7 +235,7 @@ export default function App() {
   )
 
   const refreshLauncherDiagnostics = useCallback(async () => {
-    if (!desktopHost) {
+    if (!hostAvailable) {
       return
     }
 
@@ -231,7 +246,7 @@ export default function App() {
         loadDiagnostics,
       }),
     )
-  }, [desktopHost, handleLauncherDiagnosticsUpdate, launcherPort])
+  }, [hostAvailable, handleLauncherDiagnosticsUpdate, launcherPort])
 
   useEffect(() => {
     launcherDiagnosticsRetryRef.current = async () => {
@@ -263,7 +278,7 @@ export default function App() {
   }, [handleLauncherDiagnosticsUpdate, launcherPort, refreshLauncherDiagnostics])
 
   useEffect(() => {
-    if (!desktopHost || !appUiStateReady) {
+    if (!hostAvailable || !appUiStateReady) {
       return
     }
 
@@ -284,15 +299,15 @@ export default function App() {
     return () => {
       disposed = true
     }
-  }, [appUiStateReady, desktopHost, handleLauncherDiagnosticsUpdate, launcherPort])
+  }, [appUiStateReady, hostAvailable, handleLauncherDiagnosticsUpdate, launcherPort])
 
   useEffect(() => {
-    if (!desktopHost || !appUiStateReady) {
+    if (!hostAvailable || !appUiStateReady) {
       return
     }
 
     void launcherPort.setNexusForceOffline(getAppUiStateSnapshot().launcher.forceOffline).catch(() => {})
-  }, [appUiStateReady, desktopHost, launcherPort])
+  }, [appUiStateReady, hostAvailable, launcherPort])
 
   useEffect(() => {
     if (appMode !== 'workbench') {
@@ -315,6 +330,13 @@ export default function App() {
         debugEnabled,
         notificationSoundEnabled,
       },
+    }).catch((error) => {
+      reportAppEvent({
+        level: 'error',
+        title: 'Failed to save app shell state',
+        description: error instanceof Error ? error.message : String(error),
+        notify: false,
+      })
     })
   }, [appMode, appUiStateReady, debugEnabled, notificationSoundEnabled])
 
@@ -343,7 +365,7 @@ export default function App() {
   const workbenchLoaded = workbenchHasOpened || appMode === 'workbench'
 
   useEffect(() => {
-    if (!desktopHost) {
+    if (!hostAvailable) {
       return
     }
 
@@ -382,7 +404,7 @@ export default function App() {
       }
       window.removeEventListener('resize', syncWindowFrameState)
     }
-  }, [desktopHost, settingsWindowOpen])
+  }, [hostAvailable, settingsWindowOpen])
 
   const handleToggleMaximizeWindow = useCallback(async () => {
     const nextMaximized = await toggleMaximizeCurrentWindow()
@@ -403,23 +425,24 @@ export default function App() {
   }, [])
 
   const requestGuardedWindowClose = useCallback(() => {
-    windowCloseRequestRef.current()
+    return windowCloseRequestRef.current()
   }, [])
-  const handleWindowCloseRequestChange = useCallback((handler: (() => void) | null) => {
-    windowCloseRequestRef.current = handler ?? (() => void forceCloseCurrentWindow())
-  }, [])
+  const handleWindowCloseRequestChange = useCallback(
+    (handler: (() => boolean | Promise<boolean>) | null) => {
+      windowCloseRequestRef.current = handler ?? confirmAndCloseCurrentWindow
+    },
+    [confirmAndCloseCurrentWindow],
+  )
 
   useEffect(() => {
-    if (!desktopHost) {
+    if (!hostAvailable) {
       return
     }
 
     let disposed = false
     let unlisten: (() => void) | null = null
 
-    void listenToWindowCloseRequest(() => {
-      requestGuardedWindowClose()
-    })
+    void listenToWindowCloseRequest(requestGuardedWindowClose)
       .then((nextUnlisten) => {
         if (disposed) {
           nextUnlisten()
@@ -433,7 +456,7 @@ export default function App() {
       disposed = true
       unlisten?.()
     }
-  }, [desktopHost, requestGuardedWindowClose])
+  }, [hostAvailable, requestGuardedWindowClose])
 
   const handleAppModeChange = useCallback((nextMode: AppMode) => {
     if (nextMode === 'workbench') {
@@ -477,7 +500,7 @@ export default function App() {
               <LauncherPageView
                 page={launcherPage}
                 debugEnabled={debugEnabled}
-                desktopHost={desktopHost}
+                desktopHost={hostAvailable}
                 theme={theme}
                 locale={locale}
                 onToggleTheme={() => {
@@ -489,7 +512,7 @@ export default function App() {
                 onLauncherPageChange={handleLauncherPageChange}
                 onMinimizeWindow={() => void minimizeCurrentWindow()}
                 onToggleMaximizeWindow={() => void handleToggleMaximizeWindow()}
-                onCloseWindow={() => void forceCloseCurrentWindow()}
+                onCloseWindow={() => void requestGuardedWindowClose()}
                 onOpenSettings={openSettingsWindow}
                 onToggleDebugMode={() => {
                   setDebugEnabled(!usePreferencesStore.getState().debugEnabled)
@@ -510,7 +533,7 @@ export default function App() {
                   theme={theme}
                   locale={locale}
                   accentColor={activeTheme.accent}
-                  desktopHost={desktopHost}
+                  desktopHost={hostAvailable}
                   onToggleTheme={() => {
                     const currentTheme = usePreferencesStore.getState().theme
                     setTheme(currentTheme === 'dark' ? 'light' : 'dark')
@@ -519,7 +542,7 @@ export default function App() {
                   onOpenSettings={openSettingsWindow}
                   onMinimizeWindow={() => void minimizeCurrentWindow()}
                   onToggleMaximizeWindow={() => void handleToggleMaximizeWindow()}
-                  onCloseWindow={() => void forceCloseCurrentWindow()}
+                  onCloseWindow={confirmAndCloseCurrentWindow}
                   onWindowCloseRequestChange={handleWindowCloseRequestChange}
                   onWorkbenchEvent={eventBus.emit}
                   pendingWorkbenchIntent={pendingWorkbenchIntent}
@@ -541,11 +564,11 @@ export default function App() {
                   appMode === 'launcher'
                     ? [
                         ['Page', launcherPage],
-                        ['Desktop Host', desktopHost ? 'yes' : 'no'],
+                        ['Desktop Host', hostAvailable ? 'yes' : 'no'],
                       ]
                     : [
                         ['Mode', appMode],
-                        ['Desktop Host', desktopHost ? 'yes' : 'no'],
+                        ['Desktop Host', hostAvailable ? 'yes' : 'no'],
                       ]
                 }
               />

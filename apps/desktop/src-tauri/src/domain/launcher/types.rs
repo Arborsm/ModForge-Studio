@@ -114,6 +114,13 @@ pub struct ScanLauncherLibraryRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct LauncherLibraryDependency {
+    pub unique_id: String,
+    pub required: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LauncherLibraryModSummary {
     pub id: String,
     pub label_key: String,
@@ -129,6 +136,8 @@ pub struct LauncherLibraryModSummary {
     pub update_keys: Vec<String>,
     pub mod_url: Option<String>,
     pub image_url: Option<String>,
+    #[serde(default)]
+    pub dependencies: Vec<LauncherLibraryDependency>,
     #[serde(default)]
     pub required_dependencies: Vec<String>,
     pub missing_required_dependencies: Vec<String>,
@@ -164,6 +173,16 @@ pub struct LauncherLibraryPackPreset {
     pub name: String,
     #[serde(default)]
     pub mod_keys: Vec<String>,
+    #[serde(default)]
+    pub folder_classification_mode: LauncherLibraryFolderClassificationMode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum LauncherLibraryFolderClassificationMode {
+    #[default]
+    Global,
+    Independent,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -179,6 +198,10 @@ pub struct LauncherLibraryChildModGroup {
 pub struct LauncherLibraryFolder {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub pack_id: Option<String>,
+    #[serde(default)]
+    pub hidden: bool,
     #[serde(default)]
     pub parent_folder_id: Option<String>,
     #[serde(default)]
@@ -243,6 +266,13 @@ pub struct LauncherImageFailureEntry {
 #[serde(rename_all = "camelCase")]
 pub struct LauncherImageFailuresState {
     pub entries: Vec<LauncherImageFailureEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordLauncherImageFailureRequest {
+    pub mod_key: String,
+    pub error: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -409,6 +439,10 @@ pub struct LauncherCatalogPageResult {
 pub struct LauncherRemoteModDetail {
     pub mod_id: i64,
     pub title: String,
+    #[serde(default)]
+    pub unavailable: bool,
+    #[serde(default)]
+    pub unavailable_reason: Option<String>,
     pub summary: Option<String>,
     #[serde(default)]
     pub description: Option<String>,
@@ -473,6 +507,8 @@ pub struct LauncherRemoteModRequirement {
     pub notes: Option<String>,
     #[serde(default)]
     pub url: Option<String>,
+    #[serde(default)]
+    pub mod_id: Option<i64>,
     #[serde(default)]
     pub external: bool,
 }

@@ -20,8 +20,8 @@ type WorkbenchPageProps = {
   onOpenSettings: (category?: SettingsWindowCategory) => void
   onMinimizeWindow: () => void
   onToggleMaximizeWindow: () => void
-  onCloseWindow: () => void
-  onWindowCloseRequestChange?: (handler: (() => void) | null) => void
+  onCloseWindow: () => boolean | Promise<boolean>
+  onWindowCloseRequestChange?: (handler: (() => boolean | Promise<boolean>) | null) => void
   onWorkbenchEvent: (event: AppEvent) => void
   getWorkbenchViewRegistration: (viewId: string) => WorkbenchViewRegistration | null
   workbenchViews?: readonly WorkbenchViewRegistration[]

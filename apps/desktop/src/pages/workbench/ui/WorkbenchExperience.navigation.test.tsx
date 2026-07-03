@@ -4,7 +4,7 @@ import WorkbenchExperience from './WorkbenchExperience'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { LocaleProvider } from '@locales/provider'
 import type { AppEvent, WorkbenchViewRegistration } from '@shared/contracts'
-import type { CpMakerDraft } from '@shared/contracts'
+import type { CpMakerDraft } from '@features/cp-maker'
 import type { ModWorkspaceGuardHandle } from './WorkbenchModPreviewRuntime'
 import { validateGameDirectory } from '@entities/game/api'
 
@@ -49,6 +49,7 @@ const modPreviewState = vi.hoisted(() => ({
   dirty: false,
   pending: false,
   requested: false,
+  pendingAction: null as (() => void | Promise<void>) | null,
 }))
 const mapRuntimeRenderSpy = vi.hoisted(() => vi.fn())
 
@@ -111,9 +112,10 @@ vi.mock('./WorkbenchModPreviewRuntime', async () => {
         onGuardHandleChange({
           hasUnsavedChanges: true,
           hasPendingUnsavedDecision: modPreviewState.pending,
-          requestUnsavedChangeDecision: async () => {
+          requestUnsavedChangeDecision: async (action: () => void | Promise<void>) => {
             modPreviewState.requested = true
             modPreviewState.pending = true
+            modPreviewState.pendingAction = action
             return false
           },
         })
@@ -199,6 +201,7 @@ describe('WorkbenchExperience launchpad navigation', () => {
     modPreviewState.dirty = false
     modPreviewState.pending = false
     modPreviewState.requested = false
+    modPreviewState.pendingAction = null
     loadDraftSpy.mockClear()
     mapRuntimeRenderSpy.mockClear()
     applyAppUiStatePatchSpy.mockClear()
@@ -304,10 +307,10 @@ describe('WorkbenchExperience launchpad navigation', () => {
     expect(validateGameDirectoryMock).not.toHaveBeenCalled()
   })
 
-  it('forces close on a repeated close request after the unsaved guard is already pending', async () => {
+  it('keeps native close requests blocked while an unsaved guard decision is pending', async () => {
     modPreviewState.dirty = true
-    const onCloseWindow = vi.fn()
-    let closeHandler: () => void = () => {
+    const onCloseWindow = vi.fn(async () => true)
+    let closeHandler: () => boolean | Promise<boolean> = () => {
       throw new Error('Window close handler was not registered.')
     }
 
@@ -351,14 +354,71 @@ describe('WorkbenchExperience launchpad navigation', () => {
       expect(screen.getByText('Mods preview')).toBeTruthy()
     })
 
-    closeHandler()
+    await expect(closeHandler()).resolves.toBe(false)
 
     await waitFor(() => {
       expect(modPreviewState.requested).toBe(true)
     })
     expect(onCloseWindow).not.toHaveBeenCalled()
 
-    closeHandler()
+    await expect(closeHandler()).resolves.toBe(false)
+
+    expect(onCloseWindow).not.toHaveBeenCalled()
+  })
+
+  it('continues the guarded close after an unsaved decision is confirmed', async () => {
+    modPreviewState.dirty = true
+    const onCloseWindow = vi.fn(async () => true)
+    let closeHandler: () => boolean | Promise<boolean> = () => {
+      throw new Error('Window close handler was not registered.')
+    }
+
+    renderWithLocale(
+      <WorkbenchExperience
+        pendingWorkbenchIntent={null}
+        onClearPendingIntent={vi.fn()}
+        active
+        appUiStateReady
+        theme="light"
+        locale="en-US"
+        accentColor="#2278f2"
+        desktopHost={false}
+        onToggleTheme={vi.fn()}
+        onSwitchToLauncher={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onMinimizeWindow={vi.fn()}
+        onToggleMaximizeWindow={vi.fn()}
+        onCloseWindow={onCloseWindow}
+        onWindowCloseRequestChange={(handler) => {
+          closeHandler =
+            handler ??
+            (() => {
+              throw new Error('Window close handler was cleared.')
+            })
+        }}
+        onWorkbenchEvent={vi.fn()}
+        getWorkbenchViewRegistration={(viewId) => viewRegistration(viewId)}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(closeHandler).toBeTypeOf('function')
+    })
+
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: 'Workbench Navigation' })).getByRole('button', { name: 'Translation Browser' }),
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Mods preview')).toBeTruthy()
+    })
+
+    await expect(closeHandler()).resolves.toBe(false)
+    await waitFor(() => {
+      expect(modPreviewState.pendingAction).toBeTypeOf('function')
+    })
+
+    await modPreviewState.pendingAction?.()
 
     expect(onCloseWindow).toHaveBeenCalledTimes(1)
   })

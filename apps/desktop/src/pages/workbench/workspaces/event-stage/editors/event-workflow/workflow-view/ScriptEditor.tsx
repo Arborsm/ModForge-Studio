@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { ListOrdered, Plus, Rows3 } from 'lucide-react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import type { EventScript } from '@entities/event'
 import { useEditorStore } from '../workflow-model/editorStore'
 import { serializeRaw } from '../workflow-model/rawSerializer'

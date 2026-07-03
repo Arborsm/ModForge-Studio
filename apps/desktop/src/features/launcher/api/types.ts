@@ -41,8 +41,14 @@ export type LauncherLibraryModSummary = {
   updateKeys: string[]
   modUrl: string | null
   imageUrl: string | null
+  dependencies: LauncherLibraryDependency[]
   requiredDependencies: string[]
   missingRequiredDependencies: string[]
+}
+
+export type LauncherLibraryDependency = {
+  uniqueId: string
+  required: boolean
 }
 
 /** Full result of scanning a Mods folder. */
@@ -69,6 +75,7 @@ export type LauncherLibraryPackPreset = {
   id: string
   name: string
   modKeys: string[]
+  folderClassificationMode: 'global' | 'independent'
 }
 
 /** One parent mod and its direct ModForge-only child mod assignments. */
@@ -81,6 +88,8 @@ export type LauncherLibraryChildModGroup = {
 export type LauncherLibraryFolder = {
   id: string
   name: string
+  packId: string | null
+  hidden: boolean
   parentFolderId: string | null
   modKeys: string[]
   coverModKeys: string[]
@@ -123,6 +132,12 @@ export type LauncherImageFailureEntry = {
 /** Persisted launcher image failure registry. */
 export type LauncherImageFailuresState = {
   entries: LauncherImageFailureEntry[]
+}
+
+/** Request to record a launcher cover failure against one mod key. */
+export type RecordLauncherImageFailureRequest = {
+  modKey: string
+  error: string
 }
 
 /** Request to assign or clear a local cover image for a library entry. */
@@ -230,6 +245,8 @@ export type LauncherCatalogPageResult = {
 export type LauncherRemoteModDetail = {
   modId: number
   title: string
+  unavailable?: boolean
+  unavailableReason?: string | null
   summary: string | null
   description?: string | null
   author: string | null
@@ -266,6 +283,7 @@ export type LauncherRemoteModRequirement = {
   name: string
   notes?: string | null
   url?: string | null
+  modId?: number | null
   external?: boolean
 }
 

@@ -2,11 +2,12 @@ import { ChevronDown, ChevronUp, Download, ExternalLink, RefreshCw } from 'lucid
 import { useEffect, useRef, useState } from 'react'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import {
   loadLauncherRemoteModDetail,
   loadLauncherUpdateChangelog,
+  isLauncherRemoteModIdInvalid,
   openLauncherUrl,
   type LauncherRemoteModDetail,
   type LauncherUpdateChangelogResult,
@@ -196,6 +197,11 @@ export function LauncherUpdatesPage({
   const loadExpandedDetail = (item: (typeof updates.items)[number]) => {
     const key = getUpdateKey(item.modId, item.absolutePath)
     if (detailStateByKey[key] === 'loading' || detailByKey[key]) {
+      return
+    }
+    if (isLauncherRemoteModIdInvalid(item.modId)) {
+      setDetailStateByKey((current) => ({ ...current, [key]: 'error' }))
+      setDetailErrorByKey((current) => ({ ...current, [key]: `Nexus mod ${item.modId} is unavailable.` }))
       return
     }
 

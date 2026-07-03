@@ -1,4 +1,4 @@
-import { publishNotification, type NotificationAction, type NotificationLevel } from '@shared/ui/notifications'
+import type { NotificationAction, NotificationLevel } from '@shared/ui/notifications'
 
 /** Event severity used for both notifications and observability routing. */
 export type AppEventLevel = NotificationLevel
@@ -47,6 +47,15 @@ declare global {
 
 let debugDiagnosticsEnabled = false
 let observabilityAdapter: ObservabilityAdapter = {}
+let notificationDispatcher:
+  | ((request: {
+      level: AppEventLevel
+      title: string
+      description?: string | null
+      action?: NotificationAction
+      autoDismissMs?: number
+    }) => string | null)
+  | null = null
 let consoleBridgeInstalled = false
 let forwardingConsoleLog = false
 
@@ -54,6 +63,21 @@ let forwardingConsoleLog = false
 export function configureObservability(adapter: ObservabilityAdapter) {
   observabilityAdapter = adapter
   installConsoleLogBridge()
+}
+
+/** Injects the UI notification publisher used by reportAppEvent. */
+export function setNotificationDispatcher(
+  dispatcher:
+    | ((request: {
+        level: AppEventLevel
+        title: string
+        description?: string | null
+        action?: NotificationAction
+        autoDismissMs?: number
+      }) => string | null)
+    | null,
+) {
+  notificationDispatcher = dispatcher
 }
 
 function shouldForceNotification(level: AppEventLevel) {
@@ -127,6 +151,14 @@ function buildConsoleBridgeLogMessage(args: unknown[]) {
   return args.map(stringifyConsoleArgument).join(' ')
 }
 
+function writeFrontendLogSafely(request: FrontendLogRequest) {
+  try {
+    void Promise.resolve(observabilityAdapter.writeFrontendLog?.(request)).catch(() => undefined)
+  } catch {
+    // Logging must not break the UI shell.
+  }
+}
+
 function installConsoleLogBridge() {
   if (consoleBridgeInstalled || typeof console === 'undefined') {
     return
@@ -153,7 +185,7 @@ function installConsoleLogBridge() {
 
       forwardingConsoleLog = true
       try {
-        void observabilityAdapter.writeFrontendLog({
+        writeFrontendLogSafely({
           level: toConsoleBridgeLevel(method),
           message,
           keyValues: {
@@ -190,7 +222,7 @@ export function reportAppEvent(request: ReportAppEventRequest) {
   }
 
   if (request.log !== false) {
-    void observabilityAdapter.writeFrontendLog?.({
+    writeFrontendLogSafely({
       level: toLogLevel(request.level),
       message: buildLogMessage(request),
       keyValues: request.keyValues,
@@ -201,11 +233,13 @@ export function reportAppEvent(request: ReportAppEventRequest) {
     return null
   }
 
-  return publishNotification({
-    level: request.level,
-    title: request.title,
-    description: request.description,
-    action: request.action,
-    autoDismissMs: request.autoDismissMs,
-  })
+  return (
+    notificationDispatcher?.({
+      level: request.level,
+      title: request.title,
+      description: request.description,
+      action: request.action,
+      autoDismissMs: request.autoDismissMs,
+    }) ?? null
+  )
 }

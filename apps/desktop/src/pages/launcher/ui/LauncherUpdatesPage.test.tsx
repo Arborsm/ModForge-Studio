@@ -33,6 +33,7 @@ vi.mock('@features/launcher/api', async () => {
   return {
     ...actual,
     checkLauncherUpdates: vi.fn(),
+    isLauncherRemoteModIdInvalid: vi.fn(() => false),
     loadCachedLauncherUpdates: vi.fn(),
     loadLauncherNexusDiagnostics: vi.fn(),
     loadLauncherRemoteModDetail: vi.fn(),

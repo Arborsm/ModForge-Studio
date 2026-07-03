@@ -11,6 +11,7 @@ import { useLauncherRuntime } from '@features/launcher/model/useLauncherRuntime'
 import { useLauncherUpdateProgressNotifications } from '@features/launcher/model/useLauncherUpdateProgressNotifications'
 import { publishNotification } from '@shared/ui/notifications'
 import type { LocaleCode } from '@locales'
+import type { LauncherDiscoverSearchRequest } from './model/launcherDiscoverSearchRequest'
 
 type LauncherPageProps = {
   page: LauncherPageId
@@ -87,6 +88,7 @@ export function LauncherPage({
   useLauncherUpdateProgressNotifications()
   const [launchBusy, setLaunchBusy] = useState(false)
   const [downloadInstallRequest, setDownloadInstallRequest] = useState<{ id: number; archivePaths: string[] } | null>(null)
+  const [discoverSearchRequest, setDiscoverSearchRequest] = useState<LauncherDiscoverSearchRequest | null>(null)
   const launcherPort = useLauncherPort()
   const activeLauncherPage: LauncherPageId = page
   const availableLauncherPages = ['library', 'discover', 'updates', 'configuration'] as const
@@ -135,6 +137,18 @@ export function LauncherPage({
     onOpenSettings,
   ])
 
+  const handleSearchDiscover = useCallback(
+    (query: string) => {
+      const normalizedQuery = query.trim()
+      if (!normalizedQuery) {
+        return
+      }
+      setDiscoverSearchRequest({ id: Date.now(), query: normalizedQuery })
+      onLauncherPageChange('discover')
+    },
+    [onLauncherPageChange],
+  )
+
   return (
     <div className="flex h-full flex-col">
       <TopMenuBar
@@ -178,8 +192,10 @@ export function LauncherPage({
             settingsState={launcherRuntime.settingsState}
             downloads={launcherRuntime.downloads}
             downloadInstallRequest={downloadInstallRequest}
+            discoverSearchRequest={discoverSearchRequest}
             onDownloadArchivesInstalled={launcherRuntime.downloads.markArchivesInstalled}
             onNavigateToSettings={() => onLauncherPageChange('configuration')}
+            onSearchDiscover={handleSearchDiscover}
             launchGameLabel={copy.launcher.actions.launchGame}
             launchGameDisabled={!desktopHost || launchBusy}
             launchGameBusy={launchBusy}

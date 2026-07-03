@@ -14,7 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import { useState, type PointerEvent } from 'react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { Dialog } from '@shared/ui/Dialog'
 import { EventGameStateQueryBuilderModal, type GameStateQueryBuilderResult } from './EventGameStateQueryBuilderModal'
 import { EventConditionBuilderLogicChain } from './EventConditionBuilderLogicChain'

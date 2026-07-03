@@ -1,4 +1,5 @@
 @import './discover/results-and-pagination.css';
+@import './discover/console.css';
 
 @layer components {
   .launcher-discover-grid {
@@ -13,141 +14,6 @@
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
     gap: 14px;
-  }
-
-  .launcher-discover-console {
-    position: relative;
-    z-index: 20;
-    isolation: isolate;
-    overflow: visible;
-    border-radius: 10px;
-    border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
-    background: var(--bg-panel);
-    box-shadow: var(--shadow-panel);
-    padding: 14px 18px;
-    display: grid;
-    gap: 10px;
-  }
-
-  .launcher-discover-console-top {
-    display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
-    align-items: center;
-    gap: 12px;
-  }
-
-  .launcher-discover-console-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: nowrap;
-    min-width: 0;
-  }
-
-  .launcher-discover-console-heading {
-    min-width: 0;
-    display: grid;
-    gap: 2px;
-  }
-
-  .launcher-discover-console-title-row {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .launcher-discover-console-title {
-    margin: 0;
-    color: var(--text-primary);
-    font-size: 20px;
-    line-height: 1.1;
-    font-weight: 700;
-  }
-
-  .launcher-discover-console-subtitle {
-    margin: 0;
-    color: var(--text-secondary);
-    font-size: 11px;
-    line-height: 1.35;
-  }
-
-  .launcher-discover-console-summary {
-    margin: 0;
-    color: color-mix(in srgb, var(--text-primary) 72%, var(--text-secondary));
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1.4;
-  }
-
-  .launcher-discover-console-toolbar {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .launcher-discover-console-actions {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-    flex-wrap: nowrap;
-  }
-
-  .launcher-discover-searchbar {
-    min-width: 180px;
-    flex: 1 1 auto;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    border: 1px solid color-mix(in srgb, var(--border-color) 86%, transparent);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--bg-muted) 72%, transparent);
-    padding: 0 10px;
-    color: var(--text-muted);
-  }
-
-  .launcher-discover-searchbar:focus-within {
-    border-color: color-mix(in srgb, var(--accent-color) 62%, var(--border-color));
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-color) 16%, transparent);
-    color: var(--text-primary);
-  }
-
-  .launcher-discover-searchbar-input {
-    min-width: 0;
-    width: 100%;
-    height: 34px;
-    border: 0;
-    background: transparent;
-    color: var(--text-primary);
-    font: inherit;
-    font-size: 12px;
-    outline: none;
-  }
-
-  .launcher-discover-searchbar-input::placeholder {
-    color: var(--text-muted);
-  }
-
-  .launcher-discover-searchbar:has(.launcher-discover-searchbar-input:disabled) {
-    opacity: 0.45;
-    pointer-events: none;
-  }
-
-  @media (max-width: 860px) {
-    .launcher-discover-console-top {
-      grid-template-columns: 1fr;
-    }
-
-    .launcher-discover-console-toolbar,
-    .launcher-discover-console-actions {
-      flex-wrap: wrap;
-    }
-
-    .launcher-discover-searchbar {
-      min-width: min(280px, 100%);
-    }
   }
 
   .launcher-discover-shell {
@@ -222,6 +88,8 @@
     grid-template-rows: minmax(0, 1fr);
     gap: 12px;
     min-height: 0;
+    /* No bottom padding/radius: the results wall and translucent pagination
+     * footer run flush to the shell's bottom edge. */
     padding: 12px 14px;
     overflow: hidden;
     align-content: start;
@@ -229,9 +97,14 @@
   }
 
   .launcher-discover-content-blocked,
-  .launcher-discover-content-error {
+  .launcher-discover-content-error,
+  .launcher-discover-content-empty {
     place-items: center;
     padding: clamp(20px, 3vw, 32px);
+  }
+
+  .launcher-discover-content-blocked,
+  .launcher-discover-content-error {
     background: linear-gradient(180deg, #f8f9fa, color-mix(in srgb, #f8f9fa 76%, var(--bg-panel) 24%));
   }
 
@@ -241,104 +114,6 @@
       color-mix(in srgb, #fff1f2 72%, var(--bg-panel) 28%),
       color-mix(in srgb, #f8fafc 82%, var(--bg-panel) 18%)
     );
-  }
-
-  .launcher-discover-filters-toggle,
-  .launcher-discover-searchbar-button,
-  .launcher-discover-icon-button,
-  .launcher-discover-order-button,
-  .launcher-discover-menu-trigger {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    min-height: 36px;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--bg-panel-muted) 82%, var(--bg-panel));
-    color: var(--text-primary);
-    padding: 0 12px;
-    font-size: 13px;
-    font-weight: 600;
-    transition:
-      border-color 140ms ease,
-      background-color 140ms ease,
-      color 140ms ease;
-  }
-
-  .launcher-discover-filters-toggle:hover,
-  .launcher-discover-searchbar-button:hover,
-  .launcher-discover-icon-button:hover,
-  .launcher-discover-order-button:hover,
-  .launcher-discover-menu-trigger:hover {
-    background: color-mix(in srgb, var(--bg-panel-muted) 96%, var(--border-color));
-  }
-
-  .launcher-discover-filters-toggle:disabled,
-  .launcher-discover-searchbar-button:disabled,
-  .launcher-discover-icon-button:disabled,
-  .launcher-discover-order-button:disabled,
-  .launcher-discover-menu-trigger:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    box-shadow: none;
-  }
-
-  .launcher-discover-filters-toggle:focus-visible,
-  .launcher-discover-menu-trigger:focus-visible,
-  .launcher-discover-order-button:focus-visible,
-  .launcher-discover-icon-button:focus-visible,
-  .launcher-discover-rail-field input:focus-visible,
-  .launcher-discover-range-row input:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
-    outline-offset: 2px;
-  }
-
-  .launcher-discover-filters-toggle {
-    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
-    color: var(--accent);
-  }
-
-  .launcher-discover-icon-button {
-    width: 36px;
-    padding: 0;
-    color: var(--text-secondary);
-  }
-
-  .launcher-discover-menu {
-    position: relative;
-    z-index: 30;
-  }
-
-  .launcher-discover-menu-trigger {
-    min-width: 118px;
-    justify-content: space-between;
-  }
-
-  .launcher-discover-menu-trigger svg {
-    color: var(--text-tertiary);
-  }
-
-  .launcher-discover-menu-popover {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    --launcher-menu-surface: var(--bg-elevated);
-    --launcher-menu-shadow: var(--shadow-float);
-    --launcher-menu-z: 40;
-  }
-
-  .launcher-discover-menu-option {
-    justify-content: flex-start;
-    min-height: 34px;
-    color: var(--text-secondary);
-    font-weight: 600;
-  }
-
-  .launcher-discover-menu-option:hover,
-  .launcher-discover-menu-option-active {
-    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
-    color: var(--text-primary);
   }
 
   .launcher-discover-rail-section {

@@ -158,6 +158,16 @@ const HAND_ROLLED_DIALOG_BACKDROP = /fixed\s+inset-0\s+z-\[2\d\d\]/
 const LITERAL_DIALOG_SCRIM = /bg-black\/4[05]\b/
 const MODAL_DIALOG_ARIA = /aria-modal=(?:"true"|\{'true'\}|\{true\})/
 const SHARED_DIALOG_IMPORT = /from ['"]@shared\/ui\/Dialog['"]/
+const PLATFORM_IMPORT_ALLOWLIST = new Set([
+  'src/features/cp-maker/api/cpMakerDesktopApi.ts',
+  'src/features/launcher/api/launcherDesktopApi.ts',
+  'src/features/launcher/api/launcherDesktopApi.test.ts',
+  'src/features/launcher/model/useLauncherDiscover.ts',
+  'src/features/launcher/model/useLauncherLibrary.ts',
+  'src/features/launcher/model/useLauncherSettings.ts',
+  'src/features/launcher/model/useLauncherSettings.test.tsx',
+  'src/features/launcher/model/useLauncherUpdates.ts',
+])
 
 function collectPrimitiveModalViolations(relativePath: string, source: string) {
   const violations: string[] = []
@@ -333,18 +343,30 @@ describe('frontend module architecture', () => {
 
   it('keeps Electron force close bypassing renderer beforeunload guards', async () => {
     const electronMain = await readFile(sourcePath('electron/main.ts'), 'utf8')
+    const electronPreload = await readFile(sourcePath('electron/preload.ts'), 'utf8')
+    const forceCloseWindow = electronMain.match(/function forceCloseWindow[\s\S]*?\n\}/)?.[0] ?? ''
     const forceCloseHandler = electronMain.match(/ipcMain\.handle\('modforge:window-force-close'[\s\S]*?\n\}\)/)?.[0] ?? ''
 
-    expect(forceCloseHandler).toContain('window.destroy()')
-    expect(forceCloseHandler).not.toContain('window.close()')
+    expect(forceCloseWindow).toContain('window.destroy()')
+    expect(forceCloseWindow).not.toContain('window.close()')
+    expect(forceCloseHandler).toContain('forceCloseWindow(currentWindow())')
     expect(electronMain).toContain('class SidecarTransport')
-    expect(electronMain).toContain('stop()')
+    expect(electronMain).toContain('async stop()')
+    expect(electronMain).toContain("child.kill('SIGKILL')")
     expect(electronMain).toContain('sidecarStdout?.close()')
+    expect(electronMain).toContain("'modforge:window-close-request-result'")
+    expect(electronPreload).toContain('onWindowCloseRequest')
+    expect(electronMain).toContain('app.setName(appDisplayName)')
+    expect(electronMain).toContain('app.setAppUserModelId(appDesktopId)')
+    // setDesktopName is the only call that actually sets the Wayland xdg_toplevel
+    // app_id; setName/setAppUserModelId do not reach the OS on Wayland.
+    expect(electronMain).toContain('app.setDesktopName(appDesktopId)')
+    expect(electronMain).toContain('title: appDisplayName')
   })
 
   it('keeps host command policy declared by call sites instead of a default command table', async () => {
-    const runtime = await readFile(sourcePath('src/shared/lib/desktop/runtime.ts'), 'utf8')
-    const hostCommandClient = await readFile(sourcePath('src/shared/lib/host-command-client/index.ts'), 'utf8')
+    const runtime = await readFile(sourcePath('src/platform/host/runtime.ts'), 'utf8')
+    const hostCommandClient = await readFile(sourcePath('src/platform/host-command-client/index.ts'), 'utf8')
 
     expect(runtime).not.toContain('defaultHostCommandPolicy')
     expect(hostCommandClient).not.toContain('defaultHostCommandPolicy')
@@ -374,14 +396,13 @@ describe('frontend module architecture', () => {
   it('blocks raw invoke calls from business layers', async () => {
     const scannedRoots = ['src/pages', 'src/widgets', 'src/features', 'src/entities', 'src/shared']
     const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
-    const allowedInvokeFiles = new Set(['src/shared/lib/host-command-client/index.ts', 'src/shared/lib/host-command-client/index.test.ts'])
     const violations: string[] = []
 
     for (const filePath of sourceFiles.flat()) {
       const source = await readFile(filePath, 'utf8')
       const relativePath = filePath.replace(`${process.cwd()}/`, '')
 
-      if (!allowedInvokeFiles.has(relativePath) && /\binvoke\s*\(/.test(source)) {
+      if (/\binvoke\s*\(/.test(source)) {
         violations.push(`${relativePath} calls invoke(`)
       }
     }
@@ -420,14 +441,14 @@ describe('frontend module architecture', () => {
       }
     }
 
-    const generated = await readFile(sourcePath('src/shared/contracts/generated/hostCommands.ts'), 'utf8')
+    const generated = await readFile(sourcePath('src/platform/host-commands/index.ts'), 'utf8')
     expect(generated).toBe(renderGeneratedHostCommands(commandNames.filter(Boolean)))
   })
 
   it('requires typed host command constants for desktop business invocations', async () => {
-    const scannedRoots = ['src/pages', 'src/widgets', 'src/features', 'src/entities', 'src/shared/lib/desktop']
+    const scannedRoots = ['src/pages', 'src/widgets', 'src/features', 'src/entities', 'src/platform/host']
     const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
-    const allowedFiles = new Set(['src/shared/lib/desktop/runtime.ts'])
+    const allowedFiles = new Set(['src/platform/host/runtime.ts'])
     const violations: string[] = []
 
     for (const filePath of sourceFiles.flat()) {
@@ -555,6 +576,9 @@ describe('frontend module architecture', () => {
 
         for (const specifier of extractImportSpecifiers(source)) {
           for (const blockedTarget of rule.blockedTargets) {
+            if (blockedTarget === 'src/platform' && PLATFORM_IMPORT_ALLOWLIST.has(relativePath)) {
+              continue
+            }
             if (specifierTargetsSourceRoot(filePath, specifier, blockedTarget)) {
               violations.push(`${relativePath} imports ${specifier}: ${rule.message}`)
             }
@@ -793,19 +817,88 @@ describe('frontend module architecture', () => {
     const sharedTypesIndex = await readFile(sourcePath('src/shared/contracts/types/index.ts'), 'utf8')
 
     expect(sharedTypesIndex).toContain("export type * from './workspaceLayout'")
-    expect(sharedTypesIndex).toContain("export type * from './cpMaker'")
-    expect(sharedTypesIndex).toContain("export type * from './modBrowser'")
     expect(sharedTypesIndex).not.toContain("export type * from './panelTypes'")
-    expect(sharedTypesIndex).toContain("export type * from './viewport'")
-    expect(sharedTypesIndex).toContain("export type * from './maps'")
-    expect(sharedTypesIndex).toContain("export type * from './workspaceRuntime'")
-    expect(sharedTypesIndex).toContain("export type * from './desktop'")
     expect(sharedTypesIndex).toContain("export type * from './appUiState'")
+    expect(sharedTypesIndex).not.toContain("export * from './loadingMotion'")
     expect(sharedTypesIndex).not.toContain(`export type * from '${REMOVED_DESKTOP_FACADE_SPECIFIER}'`)
   })
 
-  it('keeps shared desktop exports limited to host infrastructure APIs', async () => {
-    const sharedDesktopIndex = await readFile(sourcePath('src/shared/lib/desktop/index.ts'), 'utf8')
+  it('enforces shared internal lib, infra, and platform boundaries', async () => {
+    const rules = [
+      {
+        root: 'src/shared/lib',
+        blockedTargets: ['src/shared/infra', 'src/platform'],
+        message: 'shared/lib must stay pure and not depend on infra parsers or platform host bridges',
+      },
+      {
+        root: 'src/shared/infra',
+        blockedTargets: ['src/platform'],
+        message: 'shared/infra may parse game formats but must not depend on host adapters',
+      },
+    ]
+    const violations: string[] = []
+
+    for (const rule of rules) {
+      const sourceFiles = await collectSourceFiles(sourcePath(rule.root))
+
+      for (const filePath of sourceFiles) {
+        const source = await readFile(filePath, 'utf8')
+        const relativePath = relative(sourcePath(), filePath).replace(/\\/g, '/')
+
+        for (const specifier of extractImportSpecifiers(source)) {
+          for (const blockedTarget of rule.blockedTargets) {
+            if (specifierTargetsSourceRoot(filePath, specifier, blockedTarget)) {
+              violations.push(`${relativePath} imports ${specifier}: ${rule.message}`)
+            }
+          }
+        }
+      }
+    }
+
+    expect(violations).toEqual([])
+  }, 10000)
+
+  it('keeps shared contracts as type-only boundaries', async () => {
+    const contractFiles = await collectSourceFiles(sourcePath('src/shared/contracts'))
+    const violations: string[] = []
+
+    for (const filePath of contractFiles) {
+      const source = await readFile(filePath, 'utf8')
+      const relativePath = relative(sourcePath(), filePath).replace(/\\/g, '/')
+      const runtimeExportMatches = source.match(/\bexport\s+(?:const|let|var|function|class|enum)\s+/g) ?? []
+
+      for (const match of runtimeExportMatches) {
+        violations.push(`${relativePath} contains runtime ${match.trim()}`)
+      }
+    }
+
+    expect(violations).toEqual([])
+  }, 10000)
+
+  it('keeps platform host adapters free of domain logic', async () => {
+    const platformFiles = await collectSourceFiles(sourcePath('src/platform'))
+    const violations: string[] = []
+    const blockedSpecifiers = ['@entities/', '@features/', '@shared/infra']
+
+    for (const filePath of platformFiles) {
+      const source = await readFile(filePath, 'utf8')
+      const relativePath = relative(sourcePath(), filePath).replace(/\\/g, '/')
+
+      for (const specifier of extractImportSpecifiers(source)) {
+        if (
+          relativePath !== 'src/platform/tauri/devLauncherMock.ts' &&
+          blockedSpecifiers.some((blockedSpecifier) => specifier === blockedSpecifier || specifier.startsWith(blockedSpecifier))
+        ) {
+          violations.push(`${relativePath} imports ${specifier}`)
+        }
+      }
+    }
+
+    expect(violations).toEqual([])
+  }, 10000)
+
+  it('keeps platform host exports limited to host infrastructure APIs', async () => {
+    const platformHostIndex = await readFile(sourcePath('src/platform/host/index.ts'), 'utf8')
     const blockedDomainExports = [
       'LauncherGameLaunchResult',
       'launchLauncherGame',
@@ -824,7 +917,7 @@ describe('frontend module architecture', () => {
     ]
 
     for (const blockedExport of blockedDomainExports) {
-      expect(sharedDesktopIndex).not.toContain(blockedExport)
+      expect(platformHostIndex).not.toContain(blockedExport)
     }
   })
 

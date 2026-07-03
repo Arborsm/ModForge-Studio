@@ -1,6 +1,6 @@
-import type { MapAssetSummary } from '@shared/contracts'
-import type { MapDocument } from '@shared/contracts'
-import type { WorldAtlasViewId } from '@shared/contracts'
+import type { MapAssetSummary } from '@entities/game/api'
+import type { MapDocument } from '@entities/map'
+import type { WorldAtlasViewId } from '@entities/map'
 import { getWorldAtlasNameAliases, getWorldAtlasSeedNames, type WorldMapLayout } from './lib/world'
 
 /** Stable tab id for the generated world atlas view. */

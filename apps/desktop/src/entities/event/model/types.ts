@@ -1,4 +1,4 @@
-import type { EventAssetSummary } from '@shared/contracts'
+import type { EventAssetSummary } from '@entities/game/api'
 
 export type EventCommandKind = 'dialogue' | 'message' | 'choice' | 'branch' | 'timing' | 'flow' | 'action'
 

@@ -1,5 +1,5 @@
 ﻿import type { GameDirectoryInfo, MapAssetContent } from '@entities/game/api'
-import type { MapDocument } from '@shared/contracts'
+import type { MapDocument } from '@entities/map'
 import type { EventStagePreviewAssetLoader } from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventStagePreview'
 
 export function createEventStagePreviewTestAssetLoader(): EventStagePreviewAssetLoader {

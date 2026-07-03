@@ -1,5 +1,5 @@
 import { PanelFrame } from '@shared/ui/PanelFrame'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import type { ModSourceEntry } from '@pages/workbench/workspaces/mod'
 import type { EventScript } from '@entities/event'
 import { ModSourceList } from '@shared/ui/ModSourceList'

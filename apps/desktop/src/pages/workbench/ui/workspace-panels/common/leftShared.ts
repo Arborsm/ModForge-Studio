@@ -1,4 +1,4 @@
-import type { GameDirectoryInfo, MapAssetSummary } from '@shared/contracts'
+import type { GameDirectoryInfo, MapAssetSummary } from '@entities/game/api'
 import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup } from '@pages/workbench/workspaces/mod'
 import type { LocaleCode, WorkspaceMode } from '@locales'
 

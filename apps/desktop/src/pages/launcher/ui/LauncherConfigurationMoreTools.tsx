@@ -1,8 +1,8 @@
 import { ChevronDown, Code2, Crown, Download, MessageSquare, Network, ScrollText } from 'lucide-react'
 import type { Dispatch, SetStateAction } from 'react'
 import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
-import { canUseDesktopHost } from '@shared/lib/desktop'
+import { cx } from '@shared/lib/helper'
+import { canUseDesktopHost } from '@platform/host'
 import { LoadingMotionReveal } from '@shared/ui/loading-motion'
 import { NexusModsBbcode } from '@shared/ui/nexusmods-bbcode'
 import {

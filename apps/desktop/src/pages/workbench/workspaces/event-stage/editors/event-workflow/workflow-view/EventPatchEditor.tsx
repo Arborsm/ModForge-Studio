@@ -14,7 +14,8 @@ import {
   Trash2,
   UserPlus,
 } from 'lucide-react'
-import type { DraftPatch, CpMakerDraft, GameDirectoryInfo } from '@shared/contracts'
+import type { DraftPatch, CpMakerDraft } from '@features/cp-maker'
+import type { GameDirectoryInfo } from '@entities/game/api'
 import type { EventScenarioPresetId, LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
 import { parseEventCommand, parseEventCommands, parseEventSceneSetup } from '@entities/event'
 import { loadResourceRegistry, type ResourceRegistry } from '@entities/game/api'
@@ -37,7 +38,7 @@ import { buildEventPatchHubPatches } from '@entities/event'
 import { EventConditionBuilderModal, type EventConditionBuilderResult } from './EventConditionBuilderModal'
 import { scheduleDeferred } from '@shared/lib/react'
 import { buildEventResourceRegistry, type EventActorAssetPreview, type EventResourceRegistry } from './eventResourceRegistry'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 
 type EditorTab = 'events' | 'fields' | 'textops' | 'moveentries'
 type DraftPathPoint = { tileX: number; tileY: number }

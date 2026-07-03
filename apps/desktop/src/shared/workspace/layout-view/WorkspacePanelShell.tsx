@@ -1,6 +1,6 @@
 import { Grip, PanelBottom, PanelLeft, PanelRight, Pin, SquareDashedMousePointer, X } from 'lucide-react'
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import type { DockArea, PanelRect, WorkspacePanelConfig, WorkspacePanelState } from '@shared/contracts'
 import { getDockLabel } from './workspacePanelPresentation'
 import { ToolWindowMenu } from './WorkspaceToolWindowMenu'

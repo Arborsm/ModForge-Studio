@@ -39,8 +39,8 @@
 
     .launcher-library-drawer {
       position: fixed;
-      inset: 3.5rem 0 0;
-      z-index: 170;
+      inset: var(--app-titlebar-height) 0 0;
+      z-index: var(--z-dialog);
       display: flex;
       align-items: center;
       justify-content: center;

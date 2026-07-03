@@ -3,7 +3,7 @@ import { Database, Layers3, Music, Package, Search, Sparkles, UserRound, Volume2
 import type { LocaleCode } from '@locales'
 import type { EventWorkflowCopy } from '@locales/api'
 import { useEventStageCopy } from '@locales/provider'
-import type { GameDirectoryInfo } from '@shared/contracts'
+import type { GameDirectoryInfo } from '@entities/game/api'
 import { loadImageDataUrl, loadResourceRegistry } from '@entities/game/api'
 import type { ResourceRegistry, ResourceRegistryEntry } from '@entities/game/api'
 import { detectDefaultGameDirectoryFromDevBridge } from '@entities/game/api/devAssetBridge'
@@ -15,7 +15,7 @@ import {
   type ItemWorkspaceEntry,
 } from '@pages/workbench/workspaces/item/entities/item'
 import { configureImageDataUrlLoader } from '@shared/lib/assets'
-import { configureDesktopPlatformPorts } from '@shared/lib/desktop'
+import { configureDesktopPlatformPorts } from '@platform/host'
 import { createElectronPlatformPorts, isElectronHost } from '@platform/electron'
 import { createTauriPlatformPorts } from '@platform/tauri'
 import {

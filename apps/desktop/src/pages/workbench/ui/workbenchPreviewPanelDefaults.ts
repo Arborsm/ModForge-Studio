@@ -2,7 +2,8 @@ import { localeBundles } from '@locales'
 import type { EditorCopy, LocaleCode, ModWorkspaceCopy, ThemeMode, WorkspaceMode } from '@locales/api'
 import { createDefaultContentPatcherSimulationContext } from '../workspaces/mod'
 import type { BuildWorkspacePanelsOptions } from '../model/workspace-panels/buildWorkspacePanels'
-import type { GameDirectoryInfo, WorkspaceStatus } from '@shared/contracts'
+import type { GameDirectoryInfo } from '@entities/game/api'
+import type { WorkspaceStatus } from '@entities/map'
 
 const EMPTY_WORKSPACE_STATUS: WorkspaceStatus = {
   tone: 'idle',

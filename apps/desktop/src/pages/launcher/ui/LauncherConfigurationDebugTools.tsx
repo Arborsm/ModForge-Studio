@@ -1,7 +1,7 @@
 import { Bug } from 'lucide-react'
 import { useId, type ReactNode } from 'react'
-import { reportAppEvent, type AppEventLevel } from '@shared/lib/observability'
-import { cx } from '@shared/lib/cx'
+import { reportAppEvent, type AppEventLevel } from '@platform/observability'
+import { cx } from '@shared/lib/helper'
 
 export type DebugButtonGroup = Record<'debug' | 'info' | 'success' | 'warning' | 'error', string>
 export type DebugLogButtonGroup = Record<'debug' | 'info' | 'warning' | 'error', string>

@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import type { EventScript } from '@entities/event'
 import { getSchema } from '../workflow-model/commandSchemaRegistry'
-import type { MapDocument } from '@shared/contracts'
+import type { MapDocument } from '@entities/map'
 
 export type StagePathOverlayProps = {
   eventScript: EventScript | null

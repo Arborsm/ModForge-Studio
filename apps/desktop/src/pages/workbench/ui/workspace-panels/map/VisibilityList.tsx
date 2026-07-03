@@ -1,6 +1,6 @@
 import { ChevronDown, Eye, EyeOff, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import type { VisibilityListItem } from '../common/rightShared'
 
 type VisibilityListVariant = 'panel' | 'dock'

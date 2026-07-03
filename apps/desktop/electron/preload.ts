@@ -48,6 +48,19 @@ contextBridge.exposeInMainWorld('modforgeElectron', {
     ipcRenderer.on('modforge:host-event', channelListener)
     return () => ipcRenderer.off('modforge:host-event', channelListener)
   },
+  onWindowCloseRequest(listener: () => boolean | Promise<boolean>) {
+    const channelListener = async (_event: Electron.IpcRendererEvent, requestId: number) => {
+      try {
+        const result = await listener()
+        void ipcRenderer.invoke('modforge:window-close-request-result', requestId, result === true)
+      } catch {
+        void ipcRenderer.invoke('modforge:window-close-request-result', requestId, false)
+      }
+    }
+
+    ipcRenderer.on('modforge:window-close-request', channelListener)
+    return () => ipcRenderer.off('modforge:window-close-request', channelListener)
+  },
   onWindowDragDrop(listener: (payload: PlatformDragDropPayload) => void) {
     const dragOverListener = (event: DragEvent) => {
       event.preventDefault()

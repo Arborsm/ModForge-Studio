@@ -1,6 +1,6 @@
 import type { RefObject } from 'react'
 import { Folder, FolderArchive, LayoutGrid, MoreHorizontal, Plus } from 'lucide-react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
 import { useEditorCopy } from '@locales/provider'
 import type { LauncherPackPreset } from '@features/launcher/model/types'
@@ -19,7 +19,7 @@ type LauncherLibraryPackSidebarProps = {
   onSelectHiddenView: () => void
   onTogglePackActionMenu: (packId: string) => void
   onEditPack: (pack: LauncherPackPreset, isCurrentPack: boolean) => void
-  onRenamePack: (pack: LauncherPackPreset) => void
+  onEditPackInfo: (pack: LauncherPackPreset) => void
   onDeletePack: (pack: LauncherPackPreset) => void
 }
 
@@ -37,7 +37,7 @@ export function LauncherLibraryPackSidebar({
   onSelectHiddenView,
   onTogglePackActionMenu,
   onEditPack,
-  onRenamePack,
+  onEditPackInfo,
   onDeletePack,
 }: LauncherLibraryPackSidebarProps) {
   const copy = useEditorCopy().launcher
@@ -48,7 +48,7 @@ export function LauncherLibraryPackSidebar({
     createPack: copy.actions.createPack,
     manageCurrentPack: copy.library.manageCurrentPack,
     editCurrentPack: copy.library.editCurrentPack,
-    renameCurrentPack: copy.library.renameCurrentPack,
+    editPackInfo: copy.library.editPackInfo,
     deleteCurrentPack: copy.library.deleteCurrentPack,
   }
   return (
@@ -165,8 +165,8 @@ export function LauncherLibraryPackSidebar({
                       <button type="button" className="launcher-library-pack-row-menu-item" onClick={() => onEditPack(pack, isCurrentPack)}>
                         {labels.editCurrentPack}
                       </button>
-                      <button type="button" className="launcher-library-pack-row-menu-item" onClick={() => onRenamePack(pack)}>
-                        {labels.renameCurrentPack}
+                      <button type="button" className="launcher-library-pack-row-menu-item" onClick={() => onEditPackInfo(pack)}>
+                        {labels.editPackInfo}
                       </button>
                       <button type="button" className="launcher-library-pack-row-menu-item" onClick={() => onDeletePack(pack)}>
                         {labels.deleteCurrentPack}

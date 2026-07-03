@@ -41,3 +41,4 @@ package-lock.json
 .bitfun/
 
 CLAUDE.md
+/.bitfun/search/flashgrep-index/

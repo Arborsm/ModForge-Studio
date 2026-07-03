@@ -39,6 +39,18 @@ export function useLauncherRemoteModDetail(modId: number | null, options: UseLau
       }
       return
     }
+    if (launcherPort.isRemoteModIdInvalid(modId)) {
+      if (notify) {
+        dismissNotification(LAUNCHER_REMOTE_MOD_DETAIL_NOTIFICATION_ID)
+      }
+      setRequestState({
+        requestKey,
+        detail: null,
+        state: 'error',
+        error: `Nexus mod ${modId} is unavailable.`,
+      })
+      return
+    }
 
     let cancelled = false
     if (notify) {

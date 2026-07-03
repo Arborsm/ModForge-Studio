@@ -1,7 +1,7 @@
 import { Filter, FolderOpen, RefreshCw, Search, Upload } from 'lucide-react'
 import type { ModProjectSummary } from '@entities/mod/api'
 import { useModWorkspaceCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
 
 type ModBrowserPanelProps = {

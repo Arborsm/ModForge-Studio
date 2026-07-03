@@ -1,5 +1,5 @@
 import { Database, FileCode, Image, MapPin } from 'lucide-react'
-import type { DraftPatch } from '@shared/contracts'
+import type { DraftPatch } from '@features/cp-maker'
 
 type PatchActionIconProps = {
   action: DraftPatch['action']

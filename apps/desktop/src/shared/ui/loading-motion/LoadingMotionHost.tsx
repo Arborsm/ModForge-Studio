@@ -26,7 +26,7 @@ import {
   type RevealItemMetadata,
   type LoadingMotionPreference,
   type LoadingMotionStyleId,
-} from '@shared/contracts/types/loadingMotion'
+} from '@shared/lib/loading-motion'
 import { DEFAULT_LOADING_MOTION_PREFERENCE, normalizeLoadingMotionPreference, resolveLoadingMotionConfig } from '@shared/lib/loading-motion'
 
 type LoadingMotionContextValue = {

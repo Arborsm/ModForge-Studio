@@ -9,6 +9,14 @@
     contain: layout paint;
   }
 
+  .launcher-library-empty-host {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    padding: clamp(20px, 3vw, 32px);
+    overflow: auto;
+  }
+
   .launcher-library-drop-overlay {
     position: absolute;
     inset: 0;

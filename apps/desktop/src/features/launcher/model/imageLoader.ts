@@ -7,13 +7,33 @@ const launcherImageCache = createResourceCache<string>({
   maxEntries: 96,
 })
 
-function normalizeModKey(value: string | null | undefined) {
-  return value?.trim() ?? ''
+let pendingLocalImageLoads = 0
+const localImageBatchWaiters = new Set<() => void>()
+
+function beginLocalImageLoad() {
+  pendingLocalImageLoads += 1
 }
 
-async function loadLauncherImageBlocked(modKey: string, launcherPort: LauncherPort) {
-  const failures = await launcherPort.loadImageFailures()
-  return failures.entries.some((entry) => entry.modKey.trim() === modKey && entry.blocked)
+function finishLocalImageLoad() {
+  pendingLocalImageLoads = Math.max(0, pendingLocalImageLoads - 1)
+  if (pendingLocalImageLoads > 0) {
+    return
+  }
+
+  for (const resolve of localImageBatchWaiters) {
+    resolve()
+  }
+  localImageBatchWaiters.clear()
+}
+
+function waitForLocalImageBatch() {
+  if (pendingLocalImageLoads === 0) {
+    return Promise.resolve()
+  }
+
+  return new Promise<void>((resolve) => {
+    localImageBatchWaiters.add(resolve)
+  })
 }
 
 export async function loadLauncherImageUrl(url: string, launcherPort: LauncherPort, refresh = false, modKey: string | null = null) {
@@ -22,6 +42,17 @@ export async function loadLauncherImageUrl(url: string, launcherPort: LauncherPo
   }
 
   return launcherImageCache.load(url, async () => {
+    if (!refresh) {
+      beginLocalImageLoad()
+      const cached = await launcherPort.resolveCachedImage({ url, refresh, modKey }).finally(finishLocalImageLoad)
+      if (cached) {
+        return {
+          value: launcherPort.toDesktopAssetUrl(cached.localPath),
+        }
+      }
+      await waitForLocalImageBatch()
+    }
+
     const result = await launcherPort.resolveImage({ url, refresh, modKey })
 
     return {
@@ -43,11 +74,10 @@ export function useLauncherImage(url: string | null, modKey: string | null = nul
   const cachedImageUrl = getCachedLauncherImageUrl(url)
   const [loadedImage, setLoadedImage] = useState<{ url: string; imageUrl: string } | null>(null)
   const [loadError, setLoadError] = useState<{ url: string; error: string } | null>(null)
-  const [blockedImage, setBlockedImage] = useState<{ modKey: string; url: string; blocked: boolean } | null>(null)
 
   useEffect(() => {
     let active = true
-    const normalizedModKey = normalizeModKey(modKey)
+    const normalizedModKey = modKey?.trim() ?? ''
 
     if (!url || cachedImageUrl) {
       return () => {
@@ -57,17 +87,6 @@ export function useLauncherImage(url: string | null, modKey: string | null = nul
 
     void (async () => {
       try {
-        if (normalizedModKey) {
-          const isBlocked = await loadLauncherImageBlocked(normalizedModKey, launcherPort)
-          if (!active) {
-            return
-          }
-          setBlockedImage({ modKey: normalizedModKey, url, blocked: isBlocked })
-          if (isBlocked) {
-            return
-          }
-        }
-
         const result = await loadLauncherImageUrl(url, launcherPort, false, normalizedModKey || null)
         if (active) {
           setLoadedImage({ url, imageUrl: result })
@@ -86,12 +105,11 @@ export function useLauncherImage(url: string | null, modKey: string | null = nul
   }, [url, cachedImageUrl, launcherPort, modKey])
 
   const imageUrl = cachedImageUrl ?? (loadedImage?.url === url ? loadedImage.imageUrl : null)
-  const blocked = blockedImage?.url === url && blockedImage.modKey === normalizeModKey(modKey) ? blockedImage.blocked : false
   const error = loadError?.url === url ? loadError : null
 
   return {
-    imageUrl: blocked ? null : imageUrl,
-    loading: url !== null && !blocked && !cachedImageUrl && !imageUrl && !error,
-    error: blocked ? { url, error: 'Launcher image loading is disabled after repeated failures.' } : error,
+    imageUrl,
+    loading: url !== null && !cachedImageUrl && !imageUrl && !error,
+    error,
   }
 }

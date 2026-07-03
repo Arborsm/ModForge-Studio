@@ -14,10 +14,34 @@ import {
   type ResolvedLoadingMotionConfig,
   type RevealItemMetadata,
   type PageAnchorDeclaration,
-  LOADING_MOTION_STYLE_IDS,
-  LOADING_MOTION_INTENSITY_IDS,
-  LOADING_MOTION_SPEED_IDS,
 } from '@shared/contracts/types/loadingMotion'
+
+export type {
+  LoadingMotionStyleId,
+  LoadingMotionStage,
+  LoadingMotionIntensityId,
+  LoadingMotionSpeedId,
+  LoadingMotionSpeedMode,
+  LoadingMotionPreference,
+  ResolvedLoadingMotionConfig,
+  RevealItemMetadata,
+  PageAnchorDeclaration,
+} from '@shared/contracts/types/loadingMotion'
+
+/** All valid style ids in a stable array for deterministic iteration. */
+export const LOADING_MOTION_STYLE_IDS: LoadingMotionStyleId[] = [
+  'bounceIn',
+  'layeredFadeIn',
+  'slideInPush',
+  'softFadeIn',
+  'quietSimplify',
+] as const
+
+/** All valid intensity ids in a stable array. */
+export const LOADING_MOTION_INTENSITY_IDS: LoadingMotionIntensityId[] = ['light', 'standard', 'strong'] as const
+
+/** All valid preset speed ids in a stable array. */
+export const LOADING_MOTION_SPEED_IDS: LoadingMotionSpeedId[] = ['slow', 'standard', 'fast'] as const
 
 /* ------------------------------------------------------------------ */
 /*  Default preference                                                 */

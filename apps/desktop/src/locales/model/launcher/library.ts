@@ -2,6 +2,14 @@ export type LauncherLibraryCopy = {
   title: string
   subtitle: string
   empty: string
+  emptyTitle: string
+  emptyDetail: string
+  emptyRefreshAction: string
+  filteredEmptyTitle: string
+  filteredEmptyDetail: string
+  missingModsPathTitle: string
+  missingModsPathDetail: string
+  missingModsPathAction: string
   detailsTitle: string
   detailsSubtitle: string
   selectionEmpty: string
@@ -70,12 +78,24 @@ export type LauncherLibraryCopy = {
     reinstall: string
     requirementNotes: string
     externalRequirement: string
+    modLoaderRequirement: string
     fileCategory: string
     scanStatus: string
     localRequirement: string
     remoteRequirement: string
     missing: string
     satisfied: string
+    optionalDependency: string
+    disabledDependency: string
+    dependencyIssue: string
+    dependencyLoading: string
+    dependencyLoadError: string
+    dependencyCycle: string
+    expandDependency: string
+    collapseDependency: string
+    loadDependencyChildren: string
+    downloadDependency: string
+    dependencyIssues: (count: number) => string
     availableFiles: string
     mainFiles: string
     optionalFiles: string
@@ -168,14 +188,16 @@ export type LauncherLibraryCopy = {
   packLabel: string
   storageFolderLabel: string
   manageCurrentPack: string
-  renameCurrentPack: string
+  editPackInfo: string
   deleteCurrentPack: string
   editCurrentPack: string
   editingPackLabel: string
   includedModsCount: (count: number) => string
   cancelEdit: string
   saveChanges: string
-  renameCurrentPackPrompt: (name: string) => string
+  editPackInfoPrompt: (name: string) => string
+  syncGlobalFolders: string
+  syncGlobalFoldersHint: string
   deleteCurrentPackConfirm: (name: string) => string
   chooseChildMods: string
   choosingChildModsLabel: (name: string) => string
@@ -191,11 +213,14 @@ export type LauncherLibraryCopy = {
   newLibraryFolderName: string
   renameLibraryFolder: string
   renameLibraryFolderPrompt: (name: string) => string
+  hideLibraryFolder: string
+  showLibraryFolder: string
   enableLibraryFolder: string
   disableLibraryFolder: string
   libraryFolderCount: (count: number) => string
   libraryFolderEmpty: string
   openLibraryFolder: (name: string) => string
+  missingDependenciesCount: (count: number) => string
   closeLibraryFolder: string
   loadingMissingCoversTitle: string
   loadingMissingCoversCurrentMod: (name: string) => string

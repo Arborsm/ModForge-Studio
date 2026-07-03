@@ -1,23 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
-import { publishNotification } from '@shared/ui/notifications'
-import { configureObservability, reportAppEvent, syncDebugDiagnosticsEnabled } from './observability'
-
-vi.mock('@shared/ui/notifications', () => ({
-  publishNotification: vi.fn(),
-}))
+import { configureObservability, reportAppEvent, setNotificationDispatcher, syncDebugDiagnosticsEnabled } from './index'
 
 describe('observability', () => {
   const setDebugLoggingEnabled = vi.fn(async () => undefined)
   const writeFrontendLog = vi.fn(async () => undefined)
+  const publishNotification = vi.fn()
 
   beforeEach(async () => {
     configureObservability({ setDebugLoggingEnabled, writeFrontendLog })
+    setNotificationDispatcher(publishNotification)
     await syncDebugDiagnosticsEnabled(false)
     vi.clearAllMocks()
   })
 
   afterEach(async () => {
     await syncDebugDiagnosticsEnabled(false)
+    setNotificationDispatcher(null)
     configureObservability({})
     vi.restoreAllMocks()
   })
@@ -163,6 +161,29 @@ describe('observability', () => {
       expect.objectContaining({
         level: 'info',
         message: 'Background refresh complete',
+      }),
+    )
+  })
+
+  it('swallows rejected frontend log writes for fire-and-forget app events', async () => {
+    const failingLog = vi.fn(async () => {
+      throw new Error('Task was superseded.')
+    })
+    configureObservability({ setDebugLoggingEnabled, writeFrontendLog: failingLog })
+
+    expect(() => {
+      reportAppEvent({
+        level: 'info',
+        title: 'Launcher debug event',
+        notify: false,
+      })
+    }).not.toThrow()
+
+    await Promise.resolve()
+    expect(failingLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'info',
+        message: 'Launcher debug event',
       }),
     )
   })

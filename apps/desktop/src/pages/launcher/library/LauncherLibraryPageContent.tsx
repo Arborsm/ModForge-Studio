@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react'
+import { FolderSearch, PackageOpen, RefreshCw, Settings } from 'lucide-react'
 import { useEditorCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { getModKey, normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
 import type { LauncherSettingsDraft, QueueLauncherDownloadInput } from '@features/launcher/model/types'
 import { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
+import { LauncherEmptyState } from '@features/launcher/ui/shared/LauncherEmptyState'
 import { LauncherStateBlock } from '@features/launcher/ui/shared/LauncherStateBlock'
 import { LauncherModDetailPanel } from '@features/launcher/ui/cards/LauncherModDetailPanel'
 import { LauncherLibraryDndScope, VirtualizedLauncherGrid } from './ui/LauncherLibraryGrid'
@@ -21,8 +23,10 @@ export type LauncherLibraryPageProps = {
   routeEnterSequence?: number
   onLaunchGame: () => void
   onQueueDownload?: (input: QueueLauncherDownloadInput) => void
+  onSearchDiscover?: (query: string) => void
   downloadInstallRequest?: { id: number; archivePaths: string[] } | null
   onDownloadArchivesInstalled?: (archivePaths: string[]) => void
+  onNavigateToSettings?: () => void
 }
 
 type LauncherLibraryPageContentProps = LauncherLibraryPageProps & {
@@ -38,8 +42,10 @@ export function LauncherLibraryPageContent({
   routeEnterSequence = 0,
   onLaunchGame,
   onQueueDownload,
+  onSearchDiscover,
   downloadInstallRequest,
   onDownloadArchivesInstalled,
+  onNavigateToSettings,
 }: LauncherLibraryPageContentProps) {
   const editorCopy = useEditorCopy()
   const copy = editorCopy.launcher
@@ -56,7 +62,7 @@ export function LauncherLibraryPageContent({
   const {
     packLookup,
     viewKey,
-    hiddenMods,
+    hiddenLibraryItemCount,
     visibleLibraryModsCount,
     detailMod,
     visibleDisplayItems,
@@ -148,7 +154,7 @@ export function LauncherLibraryPageContent({
     cancelEditMode,
     saveEditMode,
     openCreatePackDialog,
-    openRenamePackDialog,
+    openEditPackDialog,
     openDeletePackDialog,
     closePackDialog,
     closeFolderDialog,
@@ -216,7 +222,7 @@ export function LauncherLibraryPageContent({
             hiddenViewOpen={hiddenViewOpen}
             currentPackId={library.currentPackId}
             visibleLibraryModsCount={visibleLibraryModsCount}
-            hiddenModsCount={hiddenMods.length}
+            hiddenModsCount={hiddenLibraryItemCount}
             packPresets={library.packPresets}
             currentPack={library.currentPack}
             editCount={editCount}
@@ -280,7 +286,7 @@ export function LauncherLibraryPageContent({
               hiddenViewOpen={hiddenViewOpen}
               currentPackId={library.currentPackId}
               visibleLibraryModsCount={visibleLibraryModsCount}
-              hiddenModsCount={hiddenMods.length}
+              hiddenModsCount={hiddenLibraryItemCount}
               packPresets={library.packPresets}
               packActionMenuId={packActionMenuId}
               drawerPanelRef={drawerPanelRef}
@@ -289,7 +295,7 @@ export function LauncherLibraryPageContent({
               onSelectHiddenView={() => selectHiddenView()}
               onTogglePackActionMenu={(packId) => setPackActionMenuId((current) => (current === packId ? null : packId))}
               onEditPack={startEditingPack}
-              onRenamePack={openRenamePackDialog}
+              onEditPackInfo={openEditPackDialog}
               onDeletePack={openDeletePackDialog}
             />{' '}
             <div className="launcher-library-content">
@@ -307,16 +313,52 @@ export function LauncherLibraryPageContent({
                   <LauncherStateBlock title={currentPackLabel} detail={library.error ?? copy.library.empty} tone="warning" />
                 ) : null}
                 {library.state !== 'error' && !visibleDisplayItems.length ? (
-                  <LauncherStateBlock
-                    title={
-                      !settings.modsPath
-                        ? copy.states.missingModsPath
-                        : !library.mods.length
-                          ? copy.library.empty
-                          : copy.library.filteredEmpty
-                    }
-                    detail={copy.library.subtitle}
-                  />
+                  <div className="launcher-library-empty-host">
+                    {!settings.modsPath ? (
+                      <LauncherEmptyState
+                        eyebrow={copy.library.title}
+                        title={copy.library.missingModsPathTitle}
+                        detail={copy.library.missingModsPathDetail}
+                        illustrationAccent={<Settings className="h-4 w-4" />}
+                        primaryAction={
+                          onNavigateToSettings ? (
+                            <button type="button" className="control-button control-button-primary" onClick={onNavigateToSettings}>
+                              <Settings className="h-4 w-4" />
+                              <span>{copy.library.missingModsPathAction}</span>
+                            </button>
+                          ) : null
+                        }
+                      />
+                    ) : !library.mods.length ? (
+                      <LauncherEmptyState
+                        eyebrow={copy.library.title}
+                        title={copy.library.emptyTitle}
+                        detail={copy.library.emptyDetail}
+                        illustrationAccent={<PackageOpen className="h-4 w-4" />}
+                        primaryAction={
+                          onNavigateToSettings ? (
+                            <button type="button" className="control-button control-button-primary" onClick={onNavigateToSettings}>
+                              <Settings className="h-4 w-4" />
+                              <span>{copy.library.missingModsPathAction}</span>
+                            </button>
+                          ) : null
+                        }
+                        secondaryAction={
+                          <button type="button" className="control-button" onClick={() => void refreshLibrary()}>
+                            <RefreshCw className="h-4 w-4" />
+                            <span>{copy.library.emptyRefreshAction}</span>
+                          </button>
+                        }
+                      />
+                    ) : (
+                      <LauncherEmptyState
+                        eyebrow={copy.library.title}
+                        title={copy.library.filteredEmptyTitle}
+                        detail={copy.library.filteredEmptyDetail}
+                        illustrationAccent={<FolderSearch className="h-4 w-4" />}
+                      />
+                    )}
+                  </div>
                 ) : (
                   <VirtualizedLauncherGrid
                     items={visibleDisplayItems}
@@ -338,6 +380,8 @@ export function LauncherLibraryPageContent({
                     folderCountLabel={copy.library.libraryFolderCount}
                     folderEmptyLabel={copy.library.libraryFolderEmpty}
                     openFolderLabel={copy.library.openLibraryFolder}
+                    missingDependenciesLabel={copy.library.missingDependenciesCount}
+                    missingDependenciesBadgeLabel={copy.library.modDetail.missing}
                     closeFolderLabel={copy.library.closeLibraryFolder}
                     onToggleSelection={toggleEditSelection}
                     onBoxSelectionChange={updateBoxSelection}
@@ -366,6 +410,7 @@ export function LauncherLibraryPageContent({
             open={Boolean(detailMod)}
             onClose={() => setDetailModId(null)}
             mod={detailMod}
+            libraryMods={library.mods}
             onToggleEnabled={() => {
               if (detailMod) {
                 void library.toggleEnabled(detailMod)
@@ -388,6 +433,7 @@ export function LauncherLibraryPageContent({
                 void clearModCover(detailMod)
               }
             }}
+            onSearchDependency={onSearchDiscover}
             packName={
               detailMod
                 ? (packLookup

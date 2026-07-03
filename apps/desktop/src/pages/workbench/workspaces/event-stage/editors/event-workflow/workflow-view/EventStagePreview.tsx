@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { EVENT_SETUP_ENTRY_ID } from '@entities/event'
-import type { EventAssetSummary } from '@shared/contracts'
+import type { EventAssetSummary } from '@entities/game/api'
 import type { GameDirectoryInfo, MapAssetContent } from '@entities/game/api'
 import { validateGameDirectory } from '@entities/game/api'
 import type { EventScript, ParsedEventAsset, PlayerAppearanceProfile } from '@entities/event'

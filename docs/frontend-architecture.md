@@ -135,6 +135,7 @@ Responsibilities:
 - `shared/contracts/platform.ts`: platform port interfaces.
 - `shared/ui`: pure UI primitives.
 - `shared/lib`: pure helpers and generic hooks.
+- `shared/infra`: game-format and asset-format parsing helpers that do not call host adapters.
 - `shared/types`: cross-domain types that are not contracts.
 
 Rules:
@@ -142,6 +143,8 @@ Rules:
 - Shared must not import app/pages/widgets/features/entities/platform.
 - Shared UI must not contain domain decisions.
 - Shared contracts must define interfaces only, not instances.
+- `shared/lib` must not import `shared/infra` or `platform`.
+- `shared/infra` may depend on `shared/contracts` and pure `shared/lib` helpers, but not on host adapters.
 
 ### platform
 
@@ -152,10 +155,14 @@ Responsibilities:
 - Electron and Tauri command adapters.
 - File system, dialog, window, storage, and shell ports.
 - Desktop host feature detection.
+- Host bridge helpers under `platform/host`.
+- Host command constants, `HostCommandClient`, task runtime, and frontend observability adapters.
 
 Rules:
 
 - `platform/electron` and `platform/tauri` implement `shared/contracts/platform.ts`.
+- `platform/host` exposes typed host bridge helpers and owns desktop command invocation.
+- `platform/host-commands` owns generated host command runtime constants.
 - Business layers must not import `@tauri-apps/api`.
 - Business layers must not call `invoke(` directly.
 - Business layers must not access Electron preload globals directly.
@@ -267,6 +274,7 @@ Rules:
 - Prefer small, slice-level public APIs.
 - Avoid adding segment-level `index.ts` files inside already sliced areas unless the extra boundary is truly needed.
 - For `shared`, split exports by intent (`shared/ui`, `shared/lib`, `shared/contracts`, `shared/types`) rather than creating one giant barrel.
+- Keep `shared/infra` for game-format helpers and `platform/host` for host bridge helpers; do not re-export either through `shared/lib`.
 - If a project grows beyond one sensible root, split it into multiple packages or roots instead of accumulating more barrel layers.
 
 ## Public API Comments
@@ -277,7 +285,7 @@ Required:
 
 - `features/*/api` and `entities/*/api` request/result functions and DTOs.
 - Stable exports from `features/*/index.ts`, `entities/*/index.ts`, and `shared/*/index.ts` when they are intended for other layers.
-- Shared utilities under `shared/lib/*` that are consumed by app/pages/widgets/features/entities.
+- Shared utilities under `shared/lib/*`, `shared/infra/*`, and `platform/host/*` that are consumed by app/pages/widgets/features/entities.
 - Core contracts under `shared/contracts/*`, especially registry, commands, events, platform ports, and workspace/runtime types.
 
 Comments should describe purpose, owner boundary, important cache behavior, and side effects. Avoid comments that restate the implementation line-by-line. When an API is removed, delete its comments with it; do not leave compatibility or migration notes in code.

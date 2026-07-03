@@ -11,6 +11,7 @@ import TopMenuBar from '@widgets/top-navigation'
 import '../model/builtInWorkspaces'
 import { scheduleDeferred } from '@shared/lib/react'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state'
+import { reportAppEvent } from '@platform/observability'
 import type { SettingsWindowCategory } from '@shared/contracts'
 import type { AppEvent, PendingWorkbenchCommandIntent, WorkbenchViewRegistration } from '@shared/contracts'
 import InitializationOverlay from './InitializationOverlay'
@@ -27,7 +28,7 @@ import { useWorkbenchCommandIntent } from '../model/workbenchCommandIntent'
 import { useWorkbenchStatus } from '../model/useWorkbenchStatus'
 import { useWorkbenchGameDirectory } from '../model/useWorkbenchGameDirectory'
 import { LoadingMotionFallback, LoadingMotionReveal } from '@shared/ui/loading-motion'
-import type { ResourcePreloadState, WorkspaceStatus } from '@shared/contracts'
+import type { ResourcePreloadState, WorkspaceStatus } from '@entities/map'
 
 const PlayerAppearanceWindow = lazy(() => import('./PlayerAppearanceWindow'))
 const RESOURCE_PRELOAD_NOTIFICATION_ID = 'app-resource-preload'
@@ -67,8 +68,8 @@ type WorkbenchExperienceProps = {
   onOpenSettings: (category?: SettingsWindowCategory) => void
   onMinimizeWindow: () => void
   onToggleMaximizeWindow: () => void
-  onCloseWindow: () => void
-  onWindowCloseRequestChange?: (handler: (() => void) | null) => void
+  onCloseWindow: () => boolean | Promise<boolean>
+  onWindowCloseRequestChange?: (handler: (() => boolean | Promise<boolean>) | null) => void
   onWorkbenchEvent: (event: AppEvent) => void
   getWorkbenchViewRegistration: (viewId: string) => WorkbenchViewRegistration | null
   workbenchViews?: readonly WorkbenchViewRegistration[]
@@ -515,6 +516,13 @@ export default function WorkbenchExperience({
       appearance: {
         recentGameDirectories,
       },
+    }).catch((error) => {
+      reportAppEvent({
+        level: 'error',
+        title: 'Failed to save recent game directories',
+        description: error instanceof Error ? error.message : String(error),
+        notify: false,
+      })
     })
   }, [appUiStateReady, recentGameDirectories])
 
@@ -565,19 +573,24 @@ export default function WorkbenchExperience({
     [onSwitchToLauncher, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard, setWorkbenchLaunchpadOpen],
   )
 
-  const handleCloseWindow = useCallback(() => {
+  const handleCloseWindow = useCallback(async () => {
     if (closeGuardArmedRef.current) {
-      onCloseWindow()
-      return
+      return false
     }
 
+    const hasUnsavedCloseGuard = Boolean(modGuardHandle?.hasUnsavedChanges || cpMaker.isDirty)
+    let closeAccepted = false
     closeGuardArmedRef.current = true
-    void runWithModUnsavedGuard(() => {
-      void runWithCpMakerUnsavedGuard(() => {
-        onCloseWindow()
+    await runWithModUnsavedGuard(async () => {
+      await runWithCpMakerUnsavedGuard(async () => {
+        closeAccepted = await onCloseWindow()
       })
     })
-  }, [onCloseWindow, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard])
+    if (!closeAccepted && !hasUnsavedCloseGuard) {
+      closeGuardArmedRef.current = false
+    }
+    return closeAccepted
+  }, [cpMaker.isDirty, modGuardHandle?.hasUnsavedChanges, onCloseWindow, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard])
 
   useEffect(() => {
     if (!active) {

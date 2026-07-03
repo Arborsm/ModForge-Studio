@@ -1,4 +1,4 @@
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { useCharactersCopy, useEditorCopy } from '@locales/provider'
 import type { CharacterAppearanceVariant, CharacterWorkspaceEntry } from '../../../workspaces/character'
 import { PanelFrame } from '@shared/ui/PanelFrame'

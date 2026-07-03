@@ -6,17 +6,18 @@ use super::paths::{
 use super::trace::log_launcher_trace;
 use super::types::{
     LauncherLibraryChildModGroup, LauncherLibraryCover, LauncherLibraryCoversState,
-    LauncherLibraryFolder, LauncherLibraryModSummary, LauncherLibraryPackPreset,
-    LauncherLibraryScanResult, LauncherLibraryState, LauncherLibraryStorageFolder,
-    PersistLauncherLibraryRemoteCoverRequest, ResolveLauncherImageRequest,
-    ScanLauncherLibraryRequest, SetLauncherLibraryCoverRequest, SetLauncherModEnabledRequest,
-    SetLauncherModEnabledResult, UNSORTED_STORAGE_FOLDER_ID, UNSORTED_STORAGE_FOLDER_NAME,
+    LauncherLibraryDependency, LauncherLibraryFolder, LauncherLibraryModSummary,
+    LauncherLibraryPackPreset, LauncherLibraryScanResult, LauncherLibraryState,
+    LauncherLibraryStorageFolder, PersistLauncherLibraryRemoteCoverRequest,
+    ResolveLauncherImageRequest, ScanLauncherLibraryRequest, SetLauncherLibraryCoverRequest,
+    SetLauncherModEnabledRequest, SetLauncherModEnabledResult, UNSORTED_STORAGE_FOLDER_ID,
+    UNSORTED_STORAGE_FOLDER_NAME,
 };
 use super::update_cache::invalidate_launcher_updates_cache_at_path;
 use crate::AppHandle;
 use crate::domain::manifest::{
-    normalize_unique_id, project_name_from_manifest, required_dependency_ids, string_array_field,
-    string_field,
+    manifest_dependencies, normalize_unique_id, project_name_from_manifest,
+    required_dependency_ids, string_array_field, string_field,
 };
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use serde_json::Value;
@@ -140,8 +141,22 @@ fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState 
             id,
             name: name.to_string(),
             mod_keys,
+            folder_classification_mode: pack.folder_classification_mode,
         });
     }
+
+    let pack_mod_lookup = pack_presets
+        .iter()
+        .map(|pack| {
+            (
+                normalize_unique_id(&pack.id),
+                pack.mod_keys
+                    .iter()
+                    .map(|value| normalize_unique_id(value))
+                    .collect::<BTreeSet<_>>(),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
 
     let current_pack_id = state.current_pack_id.and_then(|value| {
         let value = value.trim();
@@ -203,10 +218,20 @@ fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState 
         if !seen_library_folder_ids.insert(id_lookup.clone()) {
             continue;
         }
-        folder_id_lookup.insert(id_lookup, id.clone());
+        let pack_id = folder.pack_id.and_then(|value| {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                return None;
+            }
+            pack_id_lookup.get(&normalize_unique_id(trimmed)).cloned()
+        });
+        let hidden = pack_id.is_none() && folder.hidden;
+        folder_id_lookup.insert(id_lookup, (id.clone(), pack_id.clone()));
         raw_library_folders.push(LauncherLibraryFolder {
             id,
             name,
+            pack_id,
+            hidden,
             parent_folder_id: folder
                 .parent_folder_id
                 .map(|value| value.trim().to_string())
@@ -216,20 +241,44 @@ fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState 
         });
     }
 
-    let mut seen_library_folder_mods = BTreeSet::new();
+    let mut seen_library_folder_mods_by_scope = BTreeMap::<String, BTreeSet<String>>::new();
     let mut parent_lookup = BTreeMap::new();
     let mut library_folders = raw_library_folders
         .into_iter()
         .map(|folder| {
             let folder_lookup = normalize_unique_id(&folder.id);
+            let folder_scope = folder
+                .pack_id
+                .as_ref()
+                .map(|pack_id| format!("pack:{}", normalize_unique_id(pack_id)))
+                .unwrap_or_else(|| "global".to_string());
             let parent_folder_id = folder.parent_folder_id.and_then(|parent_id| {
                 let parent_lookup = normalize_unique_id(&parent_id);
                 if parent_lookup == folder_lookup {
                     return None;
                 }
-                folder_id_lookup.get(&parent_lookup).cloned()
+                folder_id_lookup
+                    .get(&parent_lookup)
+                    .and_then(|(parent_id, parent_pack_id)| {
+                        let parent_scope = parent_pack_id
+                            .as_ref()
+                            .map(|pack_id| format!("pack:{}", normalize_unique_id(pack_id)))
+                            .unwrap_or_else(|| "global".to_string());
+                        if parent_scope == folder_scope {
+                            Some(parent_id.clone())
+                        } else {
+                            None
+                        }
+                    })
             });
             parent_lookup.insert(folder_lookup, parent_folder_id.clone());
+            let pack_members = folder
+                .pack_id
+                .as_ref()
+                .and_then(|pack_id| pack_mod_lookup.get(&normalize_unique_id(pack_id)));
+            let seen_library_folder_mods = seen_library_folder_mods_by_scope
+                .entry(folder_scope)
+                .or_default();
 
             let mut seen_folder_mods = BTreeSet::new();
             let mod_keys = folder
@@ -239,6 +288,11 @@ fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState 
                 .filter(|value| !value.is_empty())
                 .filter(|value| seen_folder_mods.insert(normalize_unique_id(value)))
                 .filter(|value| seen_library_folder_mods.insert(normalize_unique_id(value)))
+                .filter(|value| {
+                    pack_members
+                        .map(|members| members.contains(&normalize_unique_id(value)))
+                        .unwrap_or(true)
+                })
                 .collect::<Vec<_>>();
 
             let mut seen_cover_mods = BTreeSet::new();
@@ -248,11 +302,18 @@ fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState 
                 .map(|value| value.trim().to_string())
                 .filter(|value| !value.is_empty())
                 .filter(|value| seen_cover_mods.insert(normalize_unique_id(value)))
+                .filter(|value| {
+                    pack_members
+                        .map(|members| members.contains(&normalize_unique_id(value)))
+                        .unwrap_or(true)
+                })
                 .collect::<Vec<_>>();
 
             LauncherLibraryFolder {
                 id: folder.id,
                 name: folder.name,
+                hidden: folder.pack_id.is_none() && folder.hidden,
+                pack_id: folder.pack_id,
                 parent_folder_id,
                 mod_keys,
                 cover_mod_keys,
@@ -644,18 +705,76 @@ fn collect_scanned_projects(project_roots: Vec<PathBuf>) -> Vec<ScannedLauncherM
     projects
 }
 
-fn collect_available_enabled_mod_ids(projects: &[ScannedLauncherMod]) -> BTreeSet<String> {
-    let mut available = BTreeSet::new();
+#[derive(Debug, Clone)]
+struct DependencyHealthNode {
+    enabled: bool,
+    required_dependencies: Vec<String>,
+}
+
+fn build_dependency_health_graph(
+    projects: &[ScannedLauncherMod],
+) -> BTreeMap<String, DependencyHealthNode> {
+    let mut graph = BTreeMap::new();
     for project in projects {
-        if !project.enabled {
-            continue;
-        }
         let Some(unique_id) = string_field(&project.manifest, "UniqueID") else {
             continue;
         };
-        available.insert(normalize_unique_id(&unique_id));
+        graph.insert(
+            normalize_unique_id(&unique_id),
+            DependencyHealthNode {
+                enabled: project.enabled,
+                required_dependencies: required_dependency_ids(&project.manifest),
+            },
+        );
     }
-    available
+    graph
+}
+
+fn dependency_has_issue(
+    dependency_id: &str,
+    graph: &BTreeMap<String, DependencyHealthNode>,
+    memo: &mut BTreeMap<String, bool>,
+    visiting: &mut BTreeSet<String>,
+) -> bool {
+    let dependency_key = normalize_unique_id(dependency_id);
+    if let Some(cached) = memo.get(&dependency_key) {
+        return *cached;
+    }
+    if !visiting.insert(dependency_key.clone()) {
+        return false;
+    }
+
+    let has_issue = match graph.get(&dependency_key) {
+        None => true,
+        Some(node) if !node.enabled => true,
+        Some(node) => node.required_dependencies.iter().any(|child_dependency| {
+            let child_key = normalize_unique_id(child_dependency);
+            child_key != dependency_key
+                && dependency_has_issue(child_dependency, graph, memo, visiting)
+        }),
+    };
+
+    visiting.remove(&dependency_key);
+    memo.insert(dependency_key, has_issue);
+    has_issue
+}
+
+fn missing_required_dependencies_for_project(
+    project: &ScannedLauncherMod,
+    graph: &BTreeMap<String, DependencyHealthNode>,
+) -> Vec<String> {
+    let project_key = string_field(&project.manifest, "UniqueID")
+        .map(|value| normalize_unique_id(&value))
+        .unwrap_or_default();
+    let mut memo = BTreeMap::new();
+    required_dependency_ids(&project.manifest)
+        .into_iter()
+        .filter(|dependency| {
+            let dependency_key = normalize_unique_id(dependency);
+            dependency_key != project_key
+                && dependency_has_issue(dependency, graph, &mut memo, &mut BTreeSet::new())
+        })
+        .collect()
 }
 
 fn extract_nexus_mod_id(update_keys: &[String]) -> Option<i64> {
@@ -718,7 +837,7 @@ fn cover_lookup_keys(mod_summary: &LauncherLibraryModSummary) -> Vec<String> {
 
 fn build_mod_summary(
     project: &ScannedLauncherMod,
-    available_enabled_mod_ids: &BTreeSet<String>,
+    dependency_health_graph: &BTreeMap<String, DependencyHealthNode>,
 ) -> LauncherLibraryModSummary {
     let folder_name = project
         .project_path
@@ -728,13 +847,16 @@ fn build_mod_summary(
         .to_string();
     let update_keys = string_array_field(&project.manifest, "UpdateKeys");
     let nexus_mod_id = extract_nexus_mod_id(&update_keys);
-    let required_dependencies = required_dependency_ids(&project.manifest);
-    let missing_required_dependencies = required_dependencies
-        .iter()
-        .cloned()
+    let dependencies = manifest_dependencies(&project.manifest)
         .into_iter()
-        .filter(|dependency| !available_enabled_mod_ids.contains(&normalize_unique_id(dependency)))
+        .map(|dependency| LauncherLibraryDependency {
+            unique_id: dependency.unique_id,
+            required: dependency.is_required,
+        })
         .collect::<Vec<_>>();
+    let required_dependencies = required_dependency_ids(&project.manifest);
+    let missing_required_dependencies =
+        missing_required_dependencies_for_project(project, dependency_health_graph);
 
     LauncherLibraryModSummary {
         id: normalize_path(&project.project_path).replace('\\', "/"),
@@ -755,6 +877,7 @@ fn build_mod_summary(
         update_keys,
         mod_url: nexus_mod_id.map(build_mod_page_url),
         image_url: None,
+        dependencies,
         required_dependencies,
         missing_required_dependencies,
     }
@@ -768,10 +891,10 @@ pub(crate) fn scan_library_at_path(path: &Path) -> Result<LauncherLibraryScanRes
     };
     let project_roots = discover_project_roots(path)?;
     let scanned_projects = collect_scanned_projects(project_roots);
-    let available_enabled_mod_ids = collect_available_enabled_mod_ids(&scanned_projects);
+    let dependency_health_graph = build_dependency_health_graph(&scanned_projects);
     let mut mods = scanned_projects
         .iter()
-        .map(|project| build_mod_summary(project, &available_enabled_mod_ids))
+        .map(|project| build_mod_summary(project, &dependency_health_graph))
         .collect::<Vec<_>>();
     mods.sort_by(|left, right| {
         left.name
@@ -1061,3 +1184,7 @@ pub fn set_launcher_mod_enabled(
         })(),
     )
 }
+
+#[cfg(test)]
+#[path = "tests/library_tests.rs"]
+mod library_tests;

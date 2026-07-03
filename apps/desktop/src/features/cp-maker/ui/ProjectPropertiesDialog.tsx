@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useId } from 'react'
 import { useEditorCopy } from '@locales/provider'
-import type { CpMakerDraft } from '@shared/contracts'
+import type { CpMakerDraft } from '@features/cp-maker'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 type ProjectPropertiesMetadata = Pick<

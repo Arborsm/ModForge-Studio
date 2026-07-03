@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { editorCopy, getWorldAtlasViewLabel } from '@locales/api'
 import { loadMapAsset, loadTextAsset, scanMaps } from '@entities/game/api'
 import type { GameDirectoryInfo, MapAssetContent, MapAssetSummary, TextAssetContent } from '@entities/game/api'
-import type { MapDocument } from '@shared/contracts'
+import type { MapDocument } from '@entities/map'
 import { WORLD_ATLAS_TAB_ID } from '@entities/map'
 import { useMapWorkspace } from './useMapWorkspace'
 

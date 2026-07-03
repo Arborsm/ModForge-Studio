@@ -16,8 +16,8 @@ import { resolveTilesetImagePath } from '../lib/assets'
 import type { LocaleCode, ThemeMode } from '@locales/api'
 import { useEditorCopy } from '@locales/provider'
 import { PAN_ZOOM_TOOLBAR_ZOOM_FACTOR, PAN_ZOOM_WHEEL_INTENSITY } from '@shared/lib/viewports'
-import type { FocusedMapObjectTarget, TileHoverInfo, ViewportWorldPoint } from '@shared/contracts'
-import type { MapDocument } from '@shared/contracts'
+import type { FocusedMapObjectTarget, TileHoverInfo, ViewportWorldPoint } from '@entities/map'
+import type { MapDocument } from '@entities/map'
 import {
   VIEWPORT_OVERPAN,
   VIEWPORT_PADDING,

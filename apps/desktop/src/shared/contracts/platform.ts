@@ -29,6 +29,7 @@ export type PlatformDragDropPayload = {
 export interface HostEventPort {
   canUseHost: () => boolean
   listen: <T>(event: string, listener: (payload: T) => void) => Promise<PlatformUnlistenFn>
+  listenWindowCloseRequest: (listener: () => boolean | Promise<boolean>) => Promise<PlatformUnlistenFn>
   listenWindowDragDrop: (listener: (payload: PlatformDragDropPayload) => void) => Promise<PlatformUnlistenFn>
 }
 

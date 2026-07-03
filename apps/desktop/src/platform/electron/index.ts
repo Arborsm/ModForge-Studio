@@ -74,6 +74,12 @@ export function createElectronPlatformPorts(): PlatformPorts {
         }
         return getElectronApi().onHostEvent(event, listener)
       },
+      async listenWindowCloseRequest(listener) {
+        if (!isElectronHost()) {
+          return () => {}
+        }
+        return getElectronApi().onWindowCloseRequest(listener)
+      },
       async listenWindowDragDrop(listener) {
         if (!isElectronHost()) {
           return () => {}

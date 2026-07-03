@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 
 type ProgressRingProps = {
   progress: number

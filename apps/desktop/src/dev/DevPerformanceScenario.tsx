@@ -14,7 +14,7 @@ import { EventConditionBuilderModal } from '@entities/event/ui/EventConditionBui
 import { EventGameStateQueryBuilderModal } from '@entities/event/ui/EventGameStateQueryBuilderModal'
 import type { ContentPatcherI18nFile, ModProjectDetail } from '@entities/mod/api'
 import type { EventPatchHubEvent } from '@entities/event'
-import type { DraftPatch, WorkspaceId } from '@shared/contracts'
+import type { DraftPatch, WorkspaceId } from '@features/cp-maker'
 import type { StudioDeskGalleryProject, StudioDeskInspiration, StudioDeskModel, StudioDeskWorldBibleModel } from '@features/cp-maker'
 
 const copy = localeBundles['en-US']
@@ -24,6 +24,8 @@ const noop = () => {}
 const asyncNoop = async () => {}
 
 const launcherPort = {
+  isRemoteModIdInvalid: () => false,
+  markRemoteModIdInvalid: noop,
   loadRemoteModDetail: async () => createRemoteDetail(48),
   openUrl: asyncNoop,
   openPath: asyncNoop,
@@ -267,6 +269,7 @@ function createLocalMod(): LauncherLibraryItem {
     updateKeys: ['Nexus:900001'],
     modUrl: 'https://example.invalid/mods/performance',
     imageUrl: null,
+    dependencies: range(20).map((index) => ({ uniqueId: `Required dependency ${index}`, required: true })),
     requiredDependencies: range(20).map((index) => `Required dependency ${index}`),
     missingRequiredDependencies: range(4).map((index) => `Missing dependency ${index}`),
   }

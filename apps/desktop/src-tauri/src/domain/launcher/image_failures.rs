@@ -1,5 +1,7 @@
 use super::paths::launcher_image_failures_path;
-use super::types::{LauncherImageFailureEntry, LauncherImageFailuresState};
+use super::types::{
+    LauncherImageFailureEntry, LauncherImageFailuresState, RecordLauncherImageFailureRequest,
+};
 use crate::AppHandle;
 use crate::infrastructure::fs::pathing::normalize_path;
 use std::collections::BTreeMap;
@@ -110,14 +112,14 @@ pub(crate) fn load_or_create_image_failures_at_path(
     load_or_create_image_failures_at_path_unlocked(path)
 }
 
-pub(crate) fn load_or_create_launcher_image_failures() -> Result<LauncherImageFailuresState, String>
-{
-    let path = launcher_image_failures_path()?;
-    load_or_create_image_failures_at_path(&path)
-}
-
 fn normalize_mod_key(value: &str) -> String {
     value.trim().to_ascii_lowercase()
+}
+
+fn should_skip_launcher_image_retry(error: &str) -> bool {
+    let trimmed = error.trim();
+    trimmed.starts_with("Nexus mod unavailable:")
+        || (trimmed.starts_with("Nexus mod ") && trimmed.ends_with(" is unavailable."))
 }
 
 pub(crate) fn get_launcher_image_failure_entry(
@@ -157,7 +159,7 @@ pub(crate) fn record_launcher_image_failure_at_path(
     let _guard = lock_launcher_image_failures_file();
     let mut state = load_or_create_image_failures_at_path_unlocked(path)?;
     let normalized_key = normalize_mod_key(mod_key);
-    let failure_count = state
+    let next_failure_count = state
         .entries
         .iter()
         .find(|entry| normalize_mod_key(&entry.mod_key) == normalized_key)
@@ -168,11 +170,40 @@ pub(crate) fn record_launcher_image_failure_at_path(
         .entries
         .retain(|entry| normalize_mod_key(&entry.mod_key) != normalized_key);
 
+    let trimmed_error = error.trim().to_string();
+    let skip_retry = should_skip_launcher_image_retry(&trimmed_error);
+    let failure_count = if skip_retry {
+        next_failure_count.max(LAUNCHER_IMAGE_FAILURE_THRESHOLD)
+    } else {
+        next_failure_count
+    };
+    let blocked = failure_count >= LAUNCHER_IMAGE_FAILURE_THRESHOLD;
+    log::debug!(
+        target: "Launcher",
+        "launcher.image.cover.failure mod-key=\"{}\" failure-count={} threshold={} blocked={} skip-retry={} error=\"{}\"",
+        mod_key,
+        failure_count,
+        LAUNCHER_IMAGE_FAILURE_THRESHOLD,
+        blocked,
+        skip_retry,
+        trimmed_error
+    );
+    if blocked {
+        log::debug!(
+            target: "Launcher",
+            "launcher.image.cover.blocked mod-key=\"{}\" failure-count={} threshold={} skip-retry={}",
+            mod_key,
+            failure_count,
+            LAUNCHER_IMAGE_FAILURE_THRESHOLD,
+            skip_retry
+        );
+    }
+
     state.entries.push(LauncherImageFailureEntry {
         mod_key: mod_key.to_string(),
         failure_count,
-        blocked: failure_count >= LAUNCHER_IMAGE_FAILURE_THRESHOLD,
-        last_error: error.trim().to_string(),
+        blocked,
+        last_error: trimmed_error,
         last_failed_at_ms: crate::domain::launcher::paths::current_timestamp_ms(),
     });
 
@@ -208,13 +239,6 @@ pub(crate) fn clear_launcher_image_failure_for_mod_at_path(
     Ok(normalized)
 }
 
-pub(crate) fn clear_launcher_image_failure_for_mod(
-    mod_key: &str,
-) -> Result<LauncherImageFailuresState, String> {
-    let path = launcher_image_failures_path()?;
-    clear_launcher_image_failure_for_mod_at_path(&path, mod_key)
-}
-
 pub(crate) fn is_launcher_image_blocked(state: &LauncherImageFailuresState, mod_key: &str) -> bool {
     get_launcher_image_failure_entry(state, mod_key).is_some_and(|entry| entry.blocked)
 }
@@ -226,6 +250,16 @@ pub fn load_launcher_image_failures(_app: AppHandle) -> Result<LauncherImageFail
             let path = launcher_image_failures_path()?;
             load_or_create_image_failures_at_path(&path)
         })(),
+    )
+}
+
+pub fn record_launcher_image_failure_command(
+    _app: AppHandle,
+    request: RecordLauncherImageFailureRequest,
+) -> Result<LauncherImageFailuresState, String> {
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "record_launcher_image_failure",
+        (|| record_launcher_image_failure(&request.mod_key, &request.error))(),
     )
 }
 
@@ -288,6 +322,50 @@ mod tests {
 
         clear_launcher_image_failure_entries_at_path(&failures_path).expect("clear all failures");
         assert!(!failures_path.exists());
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn launcher_image_failures_block_unavailable_nexus_mods_immediately() {
+        let root = create_temp_dir("launcher-image-failures-unavailable");
+        let failures_path = root.join("launcher").join("image-failures.json");
+
+        let state = record_launcher_image_failure_at_path(
+            &failures_path,
+            "ModForge.HiddenCover",
+            "Nexus mod unavailable: mod_id=Some(23651), status=Some(\"hidden\"), available=Some(false)",
+        )
+        .expect("record unavailable mod failure");
+        let entry = get_launcher_image_failure_entry(&state, "ModForge.HiddenCover")
+            .expect("unavailable mod failure entry");
+
+        assert_eq!(entry.failure_count, LAUNCHER_IMAGE_FAILURE_THRESHOLD);
+        assert!(entry.blocked);
+        assert_eq!(
+            entry.last_error,
+            "Nexus mod unavailable: mod_id=Some(23651), status=Some(\"hidden\"), available=Some(false)"
+        );
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn launcher_image_failures_do_not_skip_retries_for_other_deserialization_errors() {
+        let root = create_temp_dir("launcher-image-failures-transient-deserialize");
+        let failures_path = root.join("launcher").join("image-failures.json");
+
+        let state = record_launcher_image_failure_at_path(
+            &failures_path,
+            "ModForge.OtherBadResponse",
+            "API error: HTTP 200 — Failed to deserialize response: missing field `username`",
+        )
+        .expect("record non-cover deserialization failure");
+        let entry = get_launcher_image_failure_entry(&state, "ModForge.OtherBadResponse")
+            .expect("failure entry");
+
+        assert_eq!(entry.failure_count, 1);
+        assert!(!entry.blocked);
 
         fs::remove_dir_all(root).expect("cleanup");
     }

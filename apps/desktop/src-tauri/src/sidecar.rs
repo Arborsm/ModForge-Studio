@@ -498,6 +498,22 @@ pub(crate) fn resolve_command(
                 ok(domain::launcher::image_failures::load_launcher_image_failures(app))
             })
         }
+        crate::host_command_wire!(record_launcher_image_failure) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
+                &[SidecarResource::LauncherImageCache],
+                move || {
+                    ok(
+                        domain::launcher::image_failures::record_launcher_image_failure_command(
+                            app,
+                            arg(&args, "request")?,
+                        ),
+                    )
+                },
+            )
+        }
         crate::host_command_wire!(set_launcher_library_cover) => {
             let app = ctx.app.clone();
             mutation_with_resources(
@@ -642,6 +658,17 @@ pub(crate) fn resolve_command(
             network(id, &command_name, move || {
                 ok(block_on(
                     domain::launcher::image_cache::resolve_launcher_image(
+                        app,
+                        arg(&args, "request")?,
+                    ),
+                ))
+            })
+        }
+        crate::host_command_wire!(resolve_cached_launcher_image) => {
+            let app = ctx.app.clone();
+            io_lane(id, &command_name, move || {
+                ok(block_on(
+                    domain::launcher::image_cache::resolve_cached_launcher_image(
                         app,
                         arg(&args, "request")?,
                     ),

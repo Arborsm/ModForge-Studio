@@ -18,7 +18,7 @@ import { MapPatchEditor } from '@pages/workbench/workspaces/map/editors/MapPatch
 import { ContentPatcherWorkspace } from '@pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherWorkspace'
 import type { ContentPatcherBackendSimulationContext } from '@pages/workbench/workspaces/mod/mods/content-patcher/content-model/contentPatcher'
 import type { ContentPatcherSimulationResult, LoadContentPatcherResultAssetResult, ModProjectDetail } from '@entities/mod/api'
-import type { CpMakerDraft, DraftPatch, WorkspaceId } from '@shared/contracts'
+import type { CpMakerDraft, DraftPatch, WorkspaceId } from '@features/cp-maker'
 import type { LauncherPage as LauncherPageId } from '@locales/api'
 
 type PageScenarioId =
@@ -602,6 +602,7 @@ function createLauncherLibraryMods(count: number) {
     updateKeys: [`Nexus:${950000 + index}`],
     modUrl: `https://example.invalid/mods/${950000 + index}`,
     imageUrl: null,
+    dependencies: [],
     requiredDependencies: [],
     missingRequiredDependencies: [],
   }))
@@ -612,6 +613,8 @@ const launcherLibraryFolders = [
   ...range(12).map((index) => ({
     id: `launcher-perf-folder-${index}`,
     name: `Performance Folder ${index + 1}`,
+    packId: null,
+    hidden: false,
     parentFolderId: null,
     modKeys: launcherLibraryMods
       .slice(index === 0 ? 0 : 24 + (index - 1) * 8, index === 0 ? 22 : 24 + index * 8)
@@ -621,6 +624,8 @@ const launcherLibraryFolders = [
   {
     id: 'launcher-perf-folder-nested',
     name: 'Nested Performance Folder',
+    packId: null,
+    hidden: false,
     parentFolderId: 'launcher-perf-folder-0',
     modKeys: launcherLibraryMods.slice(22, 24).map((mod) => mod.uniqueId),
     coverModKeys: [],
@@ -720,6 +725,7 @@ function exposePerformanceLauncherLibraryState(state: LauncherLibraryState) {
 
 const performanceLauncherPort: LauncherPort = {
   loadSettings: async () => launcherSettings,
+  writeDebugLog: () => {},
   saveSettings: async (request) => ({ ...launcherSettings, ...request }),
   scanLibrary: async () => ({ modsPath: launcherSettings.modsPath, mods: launcherLibraryMods }),
   loadRuntimeInfo: async () => ({ gameVersion: '1.6.15', smapiVersion: '4.3.0' }),
@@ -735,6 +741,7 @@ const performanceLauncherPort: LauncherPort = {
   },
   loadLibraryCovers: async () => ({ covers: [] }) as any,
   loadImageFailures: async () => ({ entries: [] }) as any,
+  recordImageFailure: async () => ({ entries: [] }) as any,
   setLibraryCover: async () => ({ covers: [] }) as any,
   persistLibraryRemoteCover: async () => ({ covers: [] }) as any,
   loadDownloadQueue: async () => ({ items: [] }) as any,
@@ -769,6 +776,8 @@ const performanceLauncherPort: LauncherPort = {
       results: allResults.slice(offset, offset + pageSize),
     } as any
   },
+  isRemoteModIdInvalid: () => false,
+  markRemoteModIdInvalid: noop,
   loadRemoteModDetail: async (request) =>
     ({
       modId: request.modId,
@@ -826,6 +835,7 @@ const performanceLauncherPort: LauncherPort = {
   restartNexusDiagnostics: async () => launcherDiagnostics as any,
   retryNexusDiagnosticsRoute: async () => launcherDiagnostics as any,
   setNexusForceOffline: async () => launcherDiagnostics as any,
+  resolveCachedImage: async () => null,
   resolveImage: async () => ({ sourceUrl: '', localPath: '', mimeType: '' }) as any,
   loadCachedUpdates: async () =>
     ({ modsPath: launcherSettings.modsPath, checkedAtMs: Date.now(), isComplete: true, updates: createLauncherUpdateResults(72) }) as any,

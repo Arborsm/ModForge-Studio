@@ -1,12 +1,12 @@
 import type {
-  ContentPatcherProjectSnapshot,
   ContentPatcherI18nFile,
+  ContentPatcherProjectSnapshot,
   ContentPatcherSimulationResult,
   LoadContentPatcherResultAssetResult,
   ModProjectDetail,
   ModProjectSummary,
   SaveModProjectResult,
-} from '@shared/contracts'
+} from '@entities/mod/api'
 import type { ContentPatcherBackendSimulationContext, WorkspacePluginDefinition } from '../../workspaces/mod'
 import type { ModI18nStatusFilter } from '../../workspaces/mod-i18n'
 

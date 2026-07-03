@@ -1,4 +1,4 @@
-import type { FocusedMapObjectTarget } from '@shared/contracts'
+import type { FocusedMapObjectTarget } from '@entities/map'
 export {
   formatObjectPreviewMeta,
   getObjectDisplayName,
@@ -7,9 +7,9 @@ export {
   rankObjectForPreview,
 } from '@entities/map'
 import type { ModSourceEntry } from '@pages/workbench/workspaces/mod'
-import type { GameDirectoryInfo } from '@shared/contracts'
+import type { GameDirectoryInfo } from '@entities/game/api'
 import type { ModuleBlueprint, WorkspaceTone } from '@locales/api'
-import type { MapDocument, MapObject, MapObjectGroup } from '@shared/contracts'
+import type { MapDocument, MapObject, MapObjectGroup } from '@entities/map'
 
 export type VisibilityListItem = {
   id: number

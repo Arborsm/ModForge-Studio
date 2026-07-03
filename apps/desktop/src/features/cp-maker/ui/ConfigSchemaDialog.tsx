@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useId } from 'react'
 import { Plus, Trash2, ChevronDown, ChevronRight, X } from 'lucide-react'
-import type { ConfigSchemaEntry, DraftPatch } from '@shared/contracts'
+import type { ConfigSchemaEntry, DraftPatch } from '@features/cp-maker'
 import { useEditorCopy } from '@locales/provider'
 import { Dialog, DialogAction, DialogBody, DialogFooter } from '@shared/ui/Dialog'
 

@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import App from './App'
+import { forceCloseCurrentWindow } from '@platform/host'
 import type { LauncherNexusDiagnosticsResult } from '@features/launcher/api'
 import { editorCopy, getModWorkspaceCopy, getSettingsMenuCopy, getViewMenuCopy } from '@locales/api'
 import { resetPreferencesStoreForTest } from '@shared/lib/app-state/preferencesStore'
@@ -464,7 +465,7 @@ vi.mock('@features/launcher', async () => {
   }
 })
 
-vi.mock('@shared/lib/desktop', () => ({
+vi.mock('@platform/host', () => ({
   LAUNCHER_ARCHIVE_FILE_SUFFIXES: ['.zip', '.7z', '.rar', '.tar.gz', '.tgz', '.tar'],
   canUseDesktopHost: () => canUseDesktopHostMock(),
   clearDesktopLocaleCache: vi.fn(),
@@ -489,11 +490,11 @@ vi.mock('@shared/lib/desktop', () => ({
   writeFrontendLog: vi.fn(async () => undefined),
 }))
 
-vi.mock('@shared/lib/desktop/runtime', () => ({
+vi.mock('@platform/host/runtime', () => ({
   canUseDesktopHost: () => appUiStateTestState.canUseDesktopHostMock(),
 }))
 
-vi.mock('@shared/lib/desktop/window', () => ({
+vi.mock('@platform/host/window', () => ({
   isCurrentWindowFullscreen: vi.fn(async () => false),
   toggleFullscreenCurrentWindow: vi.fn(async () => false),
 }))
@@ -502,6 +503,7 @@ vi.mock('@features/launcher/api', () => ({
   checkLauncherUpdates: vi.fn(async () => ({ modsPath: 'C:/Games/Stardew Valley/Mods', checkedAtMs: 0, updates: [] })),
   clearLauncherLibraryReadCaches: vi.fn(),
   inspectLauncherArchive: vi.fn(),
+  isLauncherRemoteModIdInvalid: vi.fn(() => false),
   loadCachedLauncherUpdates: vi.fn(async () => null),
   loadLauncherNexusDiagnostics: () => loadLauncherNexusDiagnosticsMock(),
   restartLauncherNexusDiagnostics: () => restartLauncherNexusDiagnosticsMock(),
@@ -513,6 +515,7 @@ vi.mock('@features/launcher/api', () => ({
   openLauncherUrl: vi.fn(async () => undefined),
   openLauncherPath: vi.fn(async () => {}),
   saveLauncherSettings: () => saveLauncherSettingsMock(),
+  resolveCachedLauncherImage: vi.fn(async () => null),
   resolveLauncherImage: vi.fn(async () => null),
   restoreLauncherInstallBackup: vi.fn(async () => undefined),
   setLauncherLibraryCover: vi.fn(async () => undefined),
@@ -557,7 +560,9 @@ vi.mock('@features/cp-maker', () => ({
 vi.mock('@pages/launcher/LauncherPage', () => ({
   LauncherPage: ({
     page,
+    desktopHost,
     locale,
+    onCloseWindow,
     onAppModeChange,
     onOpenSettings,
     onLauncherPageChange,
@@ -565,7 +570,9 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
   }: {
     page: 'library' | 'discover' | 'updates' | 'configuration'
     debugEnabled: boolean
+    desktopHost: boolean
     locale: 'en-US' | 'zh-CN'
+    onCloseWindow: () => void
     onAppModeChange: (mode: 'launcher' | 'workbench') => void
     onOpenSettings: (category?: 'appearance' | 'launcher' | 'interaction' | 'debug') => void
     onLauncherPageChange: (page: 'library' | 'discover' | 'updates' | 'configuration') => void
@@ -604,10 +611,15 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
     }, [onLauncherDiagnosticsUpdate])
 
     return (
-      <div data-testid="mock-launcher-page" data-page={activePage}>
+      <div data-testid="mock-launcher-page" data-page={activePage} data-desktop-host={desktopHost ? 'true' : 'false'}>
         <button type="button" onClick={() => onOpenSettings('appearance')}>
           {labels.settings}
         </button>
+        {desktopHost ? (
+          <button type="button" onClick={onCloseWindow}>
+            Close window
+          </button>
+        ) : null}
         <button type="button" onClick={() => onAppModeChange('workbench')}>
           {labels.workbench}
         </button>
@@ -886,6 +898,8 @@ describe('App locale ownership', () => {
     getAppUiStateSnapshotMock.mockClear()
     getAppUiStateSnapshotMock.mockImplementation(() => mockAppUiState)
     workspaceLayoutMock.mockClear()
+    vi.mocked(forceCloseCurrentWindow).mockClear()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
     vi.stubGlobal(
       'matchMedia',
       vi.fn().mockImplementation((query: string) => ({
@@ -920,6 +934,59 @@ describe('App locale ownership', () => {
     expect(container.querySelector('.loading-motion-fallback')).toBeNull()
 
     expect(await screen.findByTestId('workspace-layout')).toBeTruthy()
+  })
+
+  it('confirms before closing from desktop window controls when host capability is detected after the preferences seed', async () => {
+    seedAppUiState()
+    resetPreferencesStoreForTest({
+      theme: 'dark',
+      themeId: mockAppUiState.appearance.themeId as never,
+      locale: 'en-US',
+      windowBorderTone: mockAppUiState.appearance.windowBorderTone,
+      windowBorderWeight: mockAppUiState.appearance.windowBorderWeight,
+      windowIsFullscreen: false,
+      desktopHost: false,
+      debugEnabled: false,
+      notificationSoundEnabled: true,
+      loadingMotionPreference: mockAppUiState.appearance.loadingMotion as never,
+    })
+    canUseDesktopHostMock.mockReturnValue(true)
+
+    render(<App />)
+
+    const launcherPage = await screen.findByTestId('mock-launcher-page')
+    expect(launcherPage.getAttribute('data-desktop-host')).toBe('true')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close window' }))
+
+    expect(window.confirm).toHaveBeenCalledWith(editorCopy['en-US'].shell.quitConfirm)
+    expect(forceCloseCurrentWindow).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the window open when desktop close confirmation is cancelled', async () => {
+    seedAppUiState()
+    resetPreferencesStoreForTest({
+      theme: 'dark',
+      themeId: mockAppUiState.appearance.themeId as never,
+      locale: 'en-US',
+      windowBorderTone: mockAppUiState.appearance.windowBorderTone,
+      windowBorderWeight: mockAppUiState.appearance.windowBorderWeight,
+      windowIsFullscreen: false,
+      desktopHost: false,
+      debugEnabled: false,
+      notificationSoundEnabled: true,
+      loadingMotionPreference: mockAppUiState.appearance.loadingMotion as never,
+    })
+    canUseDesktopHostMock.mockReturnValue(true)
+    vi.mocked(window.confirm).mockReturnValueOnce(false)
+
+    render(<App />)
+
+    expect(await screen.findByTestId('mock-launcher-page')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Close window' }))
+
+    expect(window.confirm).toHaveBeenCalledWith(editorCopy['en-US'].shell.quitConfirm)
+    expect(forceCloseCurrentWindow).not.toHaveBeenCalled()
   })
 
   it('updates downstream shell copy immediately when locale changes through Settings', async () => {

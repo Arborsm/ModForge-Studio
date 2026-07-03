@@ -2,7 +2,7 @@ import { Download, LayoutDashboard, Minus, Moon, Rocket, Settings2, Square, Sun,
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { type AppMode, type LauncherPage, type ThemeMode, type WorkspaceMode, type WorkspaceTone } from '@locales/api'
 import { useEditorCopy, useSettingsMenuCopy, useViewMenuCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import type { WorkspacePanelMeta } from '@shared/contracts'
 import { ProgressRing } from '@shared/ui/ProgressRing'
 import GooeyNav, { type GooeyNavItem } from '@shared/ui/GooeyNav'

@@ -23,9 +23,9 @@ import {
   Trash2,
 } from 'lucide-react'
 import { lazy, Suspense, useMemo, useRef, useState, type MouseEvent } from 'react'
-import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
-import type { WorkspaceId } from '@shared/contracts'
-import { cx } from '@shared/lib/cx'
+import type { DraftPatch, CpMakerDraft } from '@features/cp-maker'
+import type { WorkspaceId } from '@features/cp-maker'
+import { cx } from '@shared/lib/helper'
 import { useEditorCopy } from '@locales/provider'
 import { buildEventPatchHubPatches, type EventPatchHubEvent, type EventPatchHubPatch } from '@entities/event'
 import type { EventConditionBuilderResult } from './EventConditionBuilderModal'

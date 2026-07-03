@@ -1,5 +1,5 @@
 import { createElement, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import type { DockArea, PanelRect, RailId, SlotId, WorkspacePanelConfig, WorkspacePanelState, WorkspaceSlotState } from '@shared/contracts'
 import type { RailSortTarget } from '@shared/workspace/layoutDragTargets'
 import { getOrderedPanelIdsForSlot } from '@shared/workspace/layoutState'

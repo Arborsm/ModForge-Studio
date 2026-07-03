@@ -1,4 +1,4 @@
-import { HOST_COMMANDS } from '@shared/contracts'
+import { HOST_COMMANDS } from '@platform/host-commands'
 import { invokeDesktop } from './runtime'
 
 /** Snapshot of backend file cache size and approximate memory usage. */

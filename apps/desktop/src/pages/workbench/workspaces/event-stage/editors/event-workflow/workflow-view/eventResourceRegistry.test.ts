@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vite-plus/test'
 import { editorCopy } from '@locales/api'
-import type { DraftPatch } from '@shared/contracts'
+import type { DraftPatch } from '@features/cp-maker'
 import { buildEventResourceRegistry } from './eventResourceRegistry'
 
 function patch(editorEntries: Record<string, string>): DraftPatch {

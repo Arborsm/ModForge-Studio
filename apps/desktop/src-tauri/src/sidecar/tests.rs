@@ -174,6 +174,10 @@ fn mutable_cache_commands_declare_resource_locks_at_binding_site() {
         Some(&[SidecarResource::LauncherImageCache][..])
     );
     assert_eq!(
+        command_resources("record_launcher_image_failure"),
+        Some(&[SidecarResource::LauncherImageCache][..])
+    );
+    assert_eq!(
         command_lane("persist_launcher_library_remote_cover"),
         Some(SidecarLane::Network)
     );

@@ -48,6 +48,7 @@ function createPorts(invokeCommand: PlatformPorts['fileSystem']['invokeCommand']
     hostEvents: {
       canUseHost: vi.fn(() => true),
       listen: vi.fn(),
+      listenWindowCloseRequest: vi.fn(),
       listenWindowDragDrop: vi.fn(),
     },
   } satisfies PlatformPorts

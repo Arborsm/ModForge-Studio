@@ -1,6 +1,6 @@
-import { buildGameContentPath } from '@shared/lib/assets'
+import { buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
 
-export { buildGameContentPath } from '@shared/lib/assets'
+export { buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
 
 export const BUILDINGS_DATA_ASSET_PATH = 'Content\\Data\\Buildings.xnb'
 

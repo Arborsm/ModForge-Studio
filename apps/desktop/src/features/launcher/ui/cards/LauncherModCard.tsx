@@ -1,9 +1,9 @@
 import { memo, useCallback, useState } from 'react'
 import type { CSSProperties, MouseEvent } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
-import { ArrowUp, Check, ChevronDown, ChevronUp } from 'lucide-react'
+import { AlertTriangle, ArrowUp, Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { useEditorCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { LauncherArtworkCover } from './LauncherArtworkCover'
 import { getLauncherCardCoverWord, getLauncherCardFallbackPalette } from './launcherCardPresentation'
 
@@ -36,6 +36,8 @@ type LauncherModCardProps = {
   onToggleExpanded?: (event: MouseEvent<HTMLElement>) => void
   selectionMode?: boolean
   selected?: boolean
+  missingDependencies?: string[]
+  missingDependenciesLabel?: string
 }
 
 function LauncherModCardContent({
@@ -61,6 +63,8 @@ function LauncherModCardContent({
   onToggleExpanded,
   selectionMode = false,
   selected = false,
+  missingDependencies = [],
+  missingDependenciesLabel,
 }: LauncherModCardProps) {
   const copy = useEditorCopy()
   const fallbackPalette = getLauncherCardFallbackPalette(title)
@@ -68,6 +72,8 @@ function LauncherModCardContent({
   const normalizedAuthor = author?.trim() ?? ''
   const normalizedVersion = version?.trim() ?? ''
   const normalizedLatestVersion = latestVersion?.trim() ?? ''
+  const visibleMissingDependencies = missingDependencies.map((dependency) => dependency.trim()).filter(Boolean)
+  const missingDependencyTitle = visibleMissingDependencies.join(', ')
   const versionLabel = normalizedVersion ? (normalizedVersion.startsWith('v') ? normalizedVersion : `v${normalizedVersion}`) : ''
   const latestVersionLabel = normalizedLatestVersion
     ? normalizedLatestVersion.startsWith('v')
@@ -139,6 +145,17 @@ function LauncherModCardContent({
             aria-hidden="true"
           >
             <Check className="h-3.5 w-3.5" />
+          </span>
+        ) : null}
+
+        {visibleMissingDependencies.length ? (
+          <span
+            className="launcher-mod-card-missing-dependencies"
+            aria-label={missingDependenciesLabel}
+            data-tooltip={missingDependencyTitle}
+          >
+            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>{copy.launcher.library.modDetail.missing}</span>
           </span>
         ) : null}
 

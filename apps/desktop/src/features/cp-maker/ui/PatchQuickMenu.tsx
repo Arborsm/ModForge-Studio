@@ -1,8 +1,8 @@
 import { ChevronDown, FileCode, Search } from 'lucide-react'
 import { startTransition, useDeferredValue, useEffect, useRef, useState, type UIEvent } from 'react'
-import type { DraftPatch } from '@shared/contracts'
+import type { DraftPatch } from '@features/cp-maker'
 import { useEditorCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { PatchSummaryCard } from './PatchSummaryCard'
 
 type PatchQuickMenuProps = {

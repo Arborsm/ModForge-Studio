@@ -28,6 +28,7 @@ function mod(overrides: Partial<LauncherLibraryItem>): LauncherLibraryItem {
     updateKeys: overrides.updateKeys ?? [],
     modUrl: overrides.modUrl ?? null,
     imageUrl: overrides.imageUrl ?? null,
+    dependencies: overrides.dependencies ?? [],
     requiredDependencies: overrides.requiredDependencies ?? [],
     missingRequiredDependencies: overrides.missingRequiredDependencies ?? [],
     ...overrides,
@@ -38,6 +39,8 @@ function folder(overrides: Partial<LauncherVirtualFolder>): LauncherVirtualFolde
   return {
     id: overrides.id ?? 'folder-1',
     name: overrides.name ?? 'Folder One',
+    packId: overrides.packId ?? null,
+    hidden: overrides.hidden ?? false,
     parentFolderId: overrides.parentFolderId ?? null,
     modKeys: overrides.modKeys ?? [],
     coverModKeys: overrides.coverModKeys ?? [],
@@ -95,7 +98,7 @@ describe('launcherLibraryDisplay', () => {
   it('maps pack mod keys back to launcher mod ids', () => {
     const items = [mod({ id: 'a', uniqueId: 'Mod.Alpha' }), mod({ id: 'b', uniqueId: 'Mod.Beta' })]
 
-    expect(getPackModIds({ id: 'pack', name: 'Pack', modKeys: ['mod.beta'] }, items)).toEqual(['b'])
+    expect(getPackModIds({ id: 'pack', name: 'Pack', modKeys: ['mod.beta'], folderClassificationMode: 'global' }, items)).toEqual(['b'])
   })
 
   it('uses mods first and child folders as remaining folder preview slots', () => {

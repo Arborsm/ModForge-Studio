@@ -2,7 +2,7 @@ import {
   getClothingPantsMenuSourceRect,
   getClothingShirtMenuMaskSourceRect,
   getClothingShirtMenuSourceRect,
-} from '@shared/lib/clothingSprites'
+} from '@entities/character/lib/clothingSprites'
 
 import type { ItemKind, ItemTextureAssetState, ItemWorkspaceEntry } from './itemTypes'
 

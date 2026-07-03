@@ -1,6 +1,6 @@
 import { Clock, Code2, Compass, Database, Layers3, PackageSearch, Search, UserRound, X } from 'lucide-react'
 import { useState } from 'react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { Dialog } from '@shared/ui/Dialog'
 import type { EditorCopy } from '@locales'
 import {

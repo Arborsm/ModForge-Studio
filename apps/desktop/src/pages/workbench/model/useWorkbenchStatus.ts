@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { WorkspaceMode } from '@locales'
-import type { WorkspaceStatus } from '@shared/contracts'
+import type { WorkspaceStatus } from '@entities/map'
 import { deriveWorkspaceStatus, getRecentGameDirectories, getResourcePreloadProgress } from './workbenchLogic'
 
 export function useWorkbenchStatus({

@@ -20,7 +20,7 @@ import {
   restoreLauncherInstallBackup,
   setLauncherLibraryCover,
 } from '@features/launcher/api'
-import { chooseArchiveFiles, chooseImageFile, listenToLauncherArchiveDragDrop } from '@shared/lib/desktop'
+import { chooseArchiveFiles, chooseImageFile, listenToLauncherArchiveDragDrop } from '@platform/host'
 import { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
 import { createMockLauncherPort } from '@test/launcherTestPort.ts'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
@@ -114,6 +114,7 @@ vi.mock('@features/launcher/api', async () => {
   return {
     ...actual,
     inspectLauncherArchive: vi.fn(),
+    isLauncherRemoteModIdInvalid: vi.fn(() => false),
     listLauncherInstallBackups: vi.fn(),
     loadLauncherRemoteModDetail: vi.fn(),
     openLauncherUrl: vi.fn(),
@@ -124,8 +125,8 @@ vi.mock('@features/launcher/api', async () => {
   }
 })
 
-vi.mock('@shared/lib/desktop', async () => {
-  const actual = await vi.importActual<typeof import('@shared/lib/desktop')>('@shared/lib/desktop')
+vi.mock('@platform/host', async () => {
+  const actual = await vi.importActual<typeof import('@platform/host')>('@platform/host')
   return {
     ...actual,
     chooseArchiveFiles: vi.fn(),
@@ -253,6 +254,7 @@ function createLibraryMod(overrides: Partial<LauncherLibraryModSummary> = {}): L
     updateKeys: ['Nexus:101'],
     modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
     imageUrl: null,
+    dependencies: [],
     requiredDependencies: [],
     missingRequiredDependencies: [],
     ...overrides,
@@ -366,6 +368,7 @@ function createLibraryState(): MockLibraryState {
       id: 'story-pack',
       name: 'Story Pack',
       modKeys: ['ModForge.NpcAdventures'],
+      folderClassificationMode: 'global',
     },
     storageFolders: [
       {
@@ -384,11 +387,13 @@ function createLibraryState(): MockLibraryState {
         id: 'story-pack',
         name: 'Story Pack',
         modKeys: ['ModForge.NpcAdventures'],
+        folderClassificationMode: 'global',
       },
       {
         id: 'challenge-pack',
         name: 'Challenge Pack',
         modKeys: ['ModForge.VintageInterface'],
+        folderClassificationMode: 'global',
       },
     ],
     setSelectedModId: vi.fn(),
@@ -407,7 +412,7 @@ function createLibraryState(): MockLibraryState {
     addSelectionToPack: vi.fn(async () => {}),
     addModsToPack: vi.fn(async () => {}),
     createPackPreset: vi.fn(async () => {}),
-    renamePackPreset: vi.fn(async () => {}),
+    updatePackPreset: vi.fn(async () => {}),
     deletePackPreset: vi.fn(async () => {}),
     replacePackMods: vi.fn(async () => {}),
     hideMods: vi.fn(async () => {}),
@@ -417,6 +422,8 @@ function createLibraryState(): MockLibraryState {
     replaceChildMods: vi.fn(async () => {}),
     createLibraryFolder: vi.fn(async () => 'new-folder'),
     renameLibraryFolder: vi.fn(async () => {}),
+    hideLibraryFolder: vi.fn(async () => {}),
+    showLibraryFolder: vi.fn(async () => {}),
     addModsToLibraryFolder: vi.fn(async () => {}),
     removeModsFromLibraryFolders: vi.fn(async () => {}),
     moveLibraryFolderToFolder: vi.fn(async () => {}),
@@ -615,9 +622,138 @@ describe('LauncherLibraryPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create folder' }))
 
     await waitFor(() => {
-      expect(library.createLibraryFolder).toHaveBeenCalled()
+      expect(library.createLibraryFolder).toHaveBeenCalledWith(undefined, { packId: 'story-pack' })
     })
     expect(screen.queryByRole('region')).toBeNull()
+  })
+
+  it('creates a global virtual library folder from the header outside a pack view', async () => {
+    const library = {
+      ...createLibraryState(),
+      currentPack: null,
+      currentPackId: null,
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create folder' }))
+
+    await waitFor(() => {
+      expect(library.createLibraryFolder).toHaveBeenCalledWith(undefined, { packId: null })
+    })
+  })
+
+  it('uses pack-scoped folders before global folders in global pack classification mode', async () => {
+    const library = createLibraryState()
+    const packMembers = library.mods
+    useLauncherLibraryMock.mockReturnValue({
+      ...library,
+      filteredMods: packMembers,
+      currentPack: {
+        id: 'story-pack',
+        name: 'Story Pack',
+        modKeys: ['ModForge.NpcAdventures', 'ModForge.VintageInterface'],
+        folderClassificationMode: 'global',
+      },
+      packPresets: [
+        {
+          id: 'story-pack',
+          name: 'Story Pack',
+          modKeys: ['ModForge.NpcAdventures', 'ModForge.VintageInterface'],
+          folderClassificationMode: 'global',
+        },
+      ],
+      libraryFolders: [
+        {
+          id: 'global-visuals',
+          name: 'Global Visuals',
+          packId: null,
+          hidden: false,
+          parentFolderId: null,
+          modKeys: ['ModForge.NpcAdventures', 'ModForge.VintageInterface'],
+          coverModKeys: [],
+        },
+        {
+          id: 'pack-visuals',
+          name: 'Pack Visuals',
+          packId: 'story-pack',
+          hidden: false,
+          parentFolderId: null,
+          modKeys: ['ModForge.NpcAdventures'],
+          coverModKeys: [],
+        },
+      ],
+    } as MockLibraryState)
+
+    renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open folder Pack Visuals' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open folder Global Visuals' }))
+
+    const packFolder = screen.getByRole('region', { name: 'Pack Visuals' })
+    const globalFolder = screen.getByRole('region', { name: 'Global Visuals' })
+    expect(within(packFolder).getByRole('article', { name: /npc adventures/i })).not.toBeNull()
+    expect(within(packFolder).queryByRole('article', { name: /vintage interface redux/i })).toBeNull()
+    expect(within(globalFolder).queryByRole('article', { name: /npc adventures/i })).toBeNull()
+    expect(within(globalFolder).getByRole('article', { name: /vintage interface redux/i })).not.toBeNull()
+    expect(screen.queryAllByRole('article', { name: /npc adventures/i })).toHaveLength(1)
+
+    fireEvent.contextMenu(globalFolder)
+    await waitFor(() => {
+      expect(screen.getAllByRole('menuitem', { name: 'Rename folder' }).length).toBeGreaterThan(0)
+    })
+    expect(screen.queryByRole('menuitem', { name: 'Hide folder' })).toBeNull()
+  })
+
+  it('uses only pack-scoped folders in independent pack classification mode', () => {
+    const library = createLibraryState()
+    const packMembers = library.mods
+    useLauncherLibraryMock.mockReturnValue({
+      ...library,
+      filteredMods: packMembers,
+      currentPack: {
+        id: 'story-pack',
+        name: 'Story Pack',
+        modKeys: ['ModForge.NpcAdventures', 'ModForge.VintageInterface'],
+        folderClassificationMode: 'independent',
+      },
+      packPresets: [
+        {
+          id: 'story-pack',
+          name: 'Story Pack',
+          modKeys: ['ModForge.NpcAdventures', 'ModForge.VintageInterface'],
+          folderClassificationMode: 'independent',
+        },
+      ],
+      libraryFolders: [
+        {
+          id: 'global-visuals',
+          name: 'Global Visuals',
+          packId: null,
+          hidden: false,
+          parentFolderId: null,
+          modKeys: ['ModForge.VintageInterface'],
+          coverModKeys: [],
+        },
+        {
+          id: 'pack-visuals',
+          name: 'Pack Visuals',
+          packId: 'story-pack',
+          hidden: false,
+          parentFolderId: null,
+          modKeys: ['ModForge.NpcAdventures'],
+          coverModKeys: [],
+        },
+      ],
+    } as MockLibraryState)
+
+    renderLibraryPage()
+
+    expect(screen.getByRole('button', { name: 'Open folder Pack Visuals' })).not.toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open folder Global Visuals' })).toBeNull()
+    expect(screen.getByRole('article', { name: /vintage interface redux/i })).not.toBeNull()
+    expect(screen.queryByRole('article', { name: /npc adventures/i })).toBeNull()
   })
 
   it('renders virtual folders as expandable folder tiles and hides contained mods from the top level', async () => {
@@ -629,6 +765,8 @@ describe('LauncherLibraryPage', () => {
         {
           id: 'visuals',
           name: 'Visuals',
+          packId: null,
+          hidden: false,
           parentFolderId: null,
           modKeys: ['ModForge.NpcAdventures'],
           coverModKeys: [],
@@ -666,6 +804,8 @@ describe('LauncherLibraryPage', () => {
         {
           id: 'visuals',
           name: 'Visuals',
+          packId: null,
+          hidden: false,
           parentFolderId: null,
           modKeys: ['ModForge.NpcAdventures'],
           coverModKeys: [],
@@ -700,6 +840,8 @@ describe('LauncherLibraryPage', () => {
         {
           id: 'visuals',
           name: 'Visuals',
+          packId: null,
+          hidden: false,
           parentFolderId: null,
           modKeys: ['ModForge.NpcAdventures'],
           coverModKeys: [],
@@ -727,6 +869,8 @@ describe('LauncherLibraryPage', () => {
         {
           id: 'visuals',
           name: 'Visuals',
+          packId: null,
+          hidden: false,
           parentFolderId: null,
           modKeys: ['ModForge.NpcAdventures'],
           coverModKeys: [],
@@ -757,7 +901,9 @@ describe('LauncherLibraryPage', () => {
       currentPackId: null,
       packPresets: [],
       state: 'idle',
-      libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
+      libraryFolders: [
+        { id: 'visuals', name: 'Visuals', packId: null, hidden: false, parentFolderId: null, modKeys: [], coverModKeys: [] },
+      ],
     } as MockLibraryState
     useLauncherLibraryMock.mockReturnValue(library)
 
@@ -779,6 +925,8 @@ describe('LauncherLibraryPage', () => {
         {
           id: 'visuals',
           name: 'Visuals',
+          packId: null,
+          hidden: false,
           parentFolderId: null,
           modKeys: ['ModForge.NpcAdventures'],
           coverModKeys: [],
@@ -809,6 +957,8 @@ describe('LauncherLibraryPage', () => {
         {
           id: 'visuals',
           name: 'Visuals',
+          packId: null,
+          hidden: false,
           parentFolderId: null,
           modKeys: ['ModForge.NpcAdventures'],
           coverModKeys: [],
@@ -816,6 +966,8 @@ describe('LauncherLibraryPage', () => {
         {
           id: 'gameplay',
           name: 'Gameplay',
+          packId: null,
+          hidden: false,
           parentFolderId: null,
           modKeys: ['ModForge.VintageInterface'],
           coverModKeys: [],
@@ -832,8 +984,14 @@ describe('LauncherLibraryPage', () => {
     await waitFor(() => {
       expect(screen.getAllByRole('menuitem', { name: 'Open folder Visuals' }).length).toBeGreaterThan(0)
       expect(screen.getAllByRole('menuitem', { name: 'Rename folder' }).length).toBeGreaterThan(0)
+      expect(screen.getAllByRole('menuitem', { name: 'Hide folder' }).length).toBeGreaterThan(0)
       expect(screen.getAllByRole('menuitem', { name: 'Enable folder mods' }).length).toBeGreaterThan(0)
       expect(screen.getAllByRole('menuitem', { name: 'Disable folder mods' }).length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getAllByRole('menuitem', { name: 'Hide folder' })[0]!)
+    await waitFor(() => {
+      expect(library.hideLibraryFolder).toHaveBeenCalledWith('visuals')
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Open folder Visuals' }))
@@ -1395,11 +1553,13 @@ describe('LauncherLibraryPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'All Installed Mods' }))
     await waitFor(() => {
       expect(library.setCurrentPackId).toHaveBeenCalledWith(null)
+      expect(library.setScopeMode).toHaveBeenCalledWith('all')
     })
     fireEvent.click(screen.getByRole('button', { name: 'Challenge Pack' }))
 
     await waitFor(() => {
       expect(library.setCurrentPackId).toHaveBeenCalledWith('challenge-pack')
+      expect(library.setScopeMode).toHaveBeenCalledWith('current-pack')
     })
   })
 
@@ -1417,6 +1577,9 @@ describe('LauncherLibraryPage', () => {
 
     await waitFor(() => {
       expect(library.setCurrentPackId).toHaveBeenCalledWith('challenge-pack')
+      // setCurrentPackId throws inside runLibraryAction, so the scope switch
+      // never runs and the UI stays on the previous scope.
+      expect(library.setScopeMode).not.toHaveBeenCalled()
       expect(screen.getByText('Pack switch failed')).not.toBeNull()
     })
   })
@@ -1431,16 +1594,33 @@ describe('LauncherLibraryPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'All Installed Mods' }))
     await waitFor(() => {
       expect(library.setCurrentPackId).toHaveBeenCalledWith(null)
+      expect(library.setScopeMode).toHaveBeenCalledWith('all')
     })
     fireEvent.click(screen.getByRole('button', { name: 'Story Pack' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Challenge Pack' }))
 
     await waitFor(() => {
       expect(library.setCurrentPackId).toHaveBeenCalledWith('challenge-pack')
+      expect(library.setScopeMode).toHaveBeenCalledWith('current-pack')
     })
   })
 
-  it('shows create, edit, rename and delete actions in the drawer pack menu', async () => {
+  it('resets the scope to all when entering the hidden mods view from a pack', async () => {
+    const library = createLibraryState()
+    library.scopeMode = 'current-pack'
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pack Management' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Hidden Mods' }))
+
+    await waitFor(() => {
+      expect(library.setScopeMode).toHaveBeenCalledWith('all')
+    })
+  })
+
+  it('shows create, edit info and delete actions in the drawer pack menu', async () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
 
@@ -1450,18 +1630,24 @@ describe('LauncherLibraryPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /create pack/i }))
     const createDialog = await screen.findByRole('dialog', { name: 'Create Pack' })
     fireEvent.change(within(createDialog).getByRole('textbox'), { target: { value: 'New Pack' } })
+    expect(within(createDialog).getByRole('checkbox', { name: /sync global folder classification/i })).toBeChecked()
     fireEvent.click(within(createDialog).getByRole('button', { name: 'Create Pack' }))
     await waitFor(() => {
-      expect(library.createPackPreset).toHaveBeenCalledWith('New Pack')
+      expect(library.createPackPreset).toHaveBeenCalledWith('New Pack', { folderClassificationMode: 'global' })
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Manage Current Pack Story Pack' }))
-    fireEvent.click(await screen.findByRole('button', { name: /rename current pack/i }))
-    const renameDialog = await screen.findByRole('dialog', { name: 'Rename Current Pack' })
-    fireEvent.change(within(renameDialog).getByRole('textbox'), { target: { value: 'Renamed Pack' } })
-    fireEvent.click(within(renameDialog).getByRole('button', { name: 'Save Changes' }))
+    expect(screen.queryByRole('button', { name: /rename current pack/i })).toBeNull()
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Pack Info' }))
+    const editInfoDialog = await screen.findByRole('dialog', { name: 'Edit Pack Info' })
+    fireEvent.change(within(editInfoDialog).getByRole('textbox'), { target: { value: 'Renamed Pack' } })
+    fireEvent.click(within(editInfoDialog).getByRole('checkbox', { name: /sync global folder classification/i }))
+    fireEvent.click(within(editInfoDialog).getByRole('button', { name: 'Save Changes' }))
     await waitFor(() => {
-      expect(library.renamePackPreset).toHaveBeenCalledWith('story-pack', 'Renamed Pack')
+      expect(library.updatePackPreset).toHaveBeenCalledWith('story-pack', {
+        name: 'Renamed Pack',
+        folderClassificationMode: 'independent',
+      })
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Manage Current Pack Story Pack' }))
@@ -1490,7 +1676,7 @@ describe('LauncherLibraryPage', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Create Pack' }))
 
     await waitFor(() => {
-      expect(library.createPackPreset).toHaveBeenCalledWith('Broken Pack')
+      expect(library.createPackPreset).toHaveBeenCalledWith('Broken Pack', { folderClassificationMode: 'global' })
       expect(screen.getByRole('dialog', { name: 'Create Pack' })).not.toBeNull()
       expect(screen.getByText('Pack creation failed')).not.toBeNull()
     })
@@ -1711,39 +1897,35 @@ describe('LauncherLibraryPage', () => {
     })
   })
 
-  it('does not retry blocked launcher library covers when the card remounts', async () => {
+  it('shows a locally cached launcher library cover without entering the network resolver', async () => {
     const library = createLibraryState()
-    const coveredMod = { ...library.mods[0]!, imageUrl: 'https://example.test/blocked-npc-cover.png' }
+    const coveredMod = { ...library.mods[0]!, imageUrl: 'https://example.test/cached-npc-cover.png' }
     useLauncherLibraryMock.mockReturnValue({
       ...library,
       mods: [coveredMod, ...library.mods.slice(1)],
       filteredMods: [coveredMod, ...library.filteredMods.slice(1)],
     } as MockLibraryState)
-    launcherPort.loadImageFailures = vi.fn().mockResolvedValue({
-      entries: [
-        {
-          modKey: '101',
-          failureCount: 3,
-          blocked: true,
-          lastError: 'HTTP 404',
-          lastFailedAtMs: 123,
-        },
-      ],
+    launcherPort.resolveCachedImage = vi.fn().mockResolvedValue({
+      sourceUrl: 'https://example.test/cached-npc-cover.png',
+      localPath: 'E:\\Covers\\cached-npc-cover.png',
+      mimeType: 'image/png',
     })
     launcherPort.toDesktopAssetUrl = vi.fn((path) => `asset://${path}`)
 
-    const view = renderLibraryPage()
-
-    await waitFor(() => {
-      expect(screen.getByRole('article', { name: /npc adventures/i }).querySelector('img')).toBeNull()
-    })
-    expect(resolveLauncherImageMock).not.toHaveBeenCalled()
-
-    view.unmount()
     renderLibraryPage()
 
     await waitFor(() => {
-      expect(screen.getByRole('article', { name: /npc adventures/i }).querySelector('img')).toBeNull()
+      expect(
+        screen
+          .getByRole('article', { name: /npc adventures/i })
+          .querySelector('img')
+          ?.getAttribute('src'),
+      ).toBe('asset://E:\\Covers\\cached-npc-cover.png')
+    })
+    expect(launcherPort.resolveCachedImage).toHaveBeenCalledWith({
+      url: 'https://example.test/cached-npc-cover.png',
+      refresh: false,
+      modKey: '101',
     })
     expect(resolveLauncherImageMock).not.toHaveBeenCalled()
   })
@@ -1808,6 +1990,8 @@ describe('LauncherLibraryPage', () => {
         {
           id: 'visuals',
           name: 'Visuals',
+          packId: null,
+          hidden: false,
           parentFolderId: null,
           modKeys: ['ModForge.NpcAdventures'],
           coverModKeys: [],
@@ -2027,7 +2211,11 @@ describe('LauncherLibraryPage', () => {
   it('highlights folder and blank drop targets without activating parent-mod targets', async () => {
     const library = {
       ...createLibraryState(),
-      libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
+      currentPackId: null,
+      currentPack: null,
+      libraryFolders: [
+        { id: 'visuals', name: 'Visuals', packId: null, hidden: false, parentFolderId: null, modKeys: [], coverModKeys: [] },
+      ],
     } as MockLibraryState
     useLauncherLibraryMock.mockReturnValue(library)
 
@@ -2109,7 +2297,11 @@ describe('LauncherLibraryPage', () => {
   it('renders drag target boxes in the body viewport layer so shell transforms cannot offset them', async () => {
     const library = {
       ...createLibraryState(),
-      libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
+      currentPackId: null,
+      currentPack: null,
+      libraryFolders: [
+        { id: 'visuals', name: 'Visuals', packId: null, hidden: false, parentFolderId: null, modKeys: [], coverModKeys: [] },
+      ],
     } as MockLibraryState
     useLauncherLibraryMock.mockReturnValue(library)
 
@@ -2167,7 +2359,11 @@ describe('LauncherLibraryPage', () => {
   it('does not open a folder from the click event emitted after dragging it', async () => {
     const library = {
       ...createLibraryState(),
-      libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
+      currentPackId: null,
+      currentPack: null,
+      libraryFolders: [
+        { id: 'visuals', name: 'Visuals', packId: null, hidden: false, parentFolderId: null, modKeys: [], coverModKeys: [] },
+      ],
     } as MockLibraryState
     useLauncherLibraryMock.mockReturnValue(library)
 
@@ -2289,6 +2485,82 @@ describe('LauncherLibraryPage', () => {
 
     await waitFor(() => {
       expect((library as MockLibraryState & { hideMods: ReturnType<typeof vi.fn> }).hideMods).toHaveBeenCalledWith(['mod-1'])
+    })
+  })
+
+  it('filters hidden global folders into the hidden bucket and restores them from the folder menu', async () => {
+    const primaryMod = createLibraryMod()
+    const hiddenMod = createLibraryMod({
+      id: 'mod-hidden',
+      labelKey: 'ModForge.Hidden',
+      name: 'Hidden Mod',
+      uniqueId: 'ModForge.Hidden',
+      absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Hidden Mod',
+    })
+    const library = {
+      ...createLibraryState(),
+      currentPack: null,
+      currentPackId: null,
+      mods: [primaryMod, hiddenMod],
+      filteredMods: [primaryMod],
+      hiddenModKeys: ['ModForge.Hidden'],
+      libraryFolders: [
+        {
+          id: 'hidden-visuals',
+          name: 'Hidden Visuals',
+          packId: null,
+          hidden: true,
+          parentFolderId: null,
+          modKeys: ['ModForge.NpcAdventures'],
+          coverModKeys: [],
+        },
+        {
+          id: 'visible-visuals',
+          name: 'Visible Visuals',
+          packId: null,
+          hidden: false,
+          parentFolderId: null,
+          modKeys: [],
+          coverModKeys: [],
+        },
+        {
+          id: 'pack-visuals',
+          name: 'Pack Visuals',
+          packId: 'story-pack',
+          hidden: true,
+          parentFolderId: null,
+          modKeys: ['ModForge.NpcAdventures'],
+          coverModKeys: [],
+        },
+      ],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    const { container } = renderLibraryPage()
+
+    expect(screen.queryByRole('button', { name: 'Open folder Hidden Visuals' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open folder Pack Visuals' })).toBeNull()
+    expect(screen.queryByRole('article', { name: /npc adventures/i })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Pack Management' }))
+    await waitFor(() => {
+      const hiddenRow = Array.from(container.querySelectorAll<HTMLElement>('.launcher-library-pack-row')).find(
+        (row) => row.getAttribute('aria-label') === 'Hidden Mods',
+      )
+      expect(hiddenRow?.querySelector('.launcher-library-pack-row-count-badge')?.textContent).toBe('2')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hidden Mods' }))
+
+    const hiddenFolderButton = screen.getByRole('button', { name: 'Open folder Hidden Visuals' })
+    expect(hiddenFolderButton).not.toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open folder Pack Visuals' })).toBeNull()
+    fireEvent.click(hiddenFolderButton)
+    expect(within(screen.getByRole('region', { name: 'Hidden Visuals' })).getByRole('article', { name: /npc adventures/i })).not.toBeNull()
+
+    fireEvent.contextMenu(screen.getByRole('region', { name: 'Hidden Visuals' }))
+    fireEvent.click(screen.getAllByRole('menuitem', { name: 'Show folder' })[0]!)
+    await waitFor(() => {
+      expect(library.showLibraryFolder).toHaveBeenCalledWith('hidden-visuals')
     })
   })
 
@@ -2999,6 +3271,76 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    expect(screen.getByText('No installed mods were found in the configured Mods folder.')).not.toBeNull()
+    expect(screen.getByText('Your Library Is Empty')).not.toBeNull()
+    expect(
+      screen.getByText(
+        'No installed mods were found in the configured Mods folder. Check that the Mods path points to the right folder, or refresh after adding mods.',
+      ),
+    ).not.toBeNull()
+  })
+
+  it('renders an empty card with an open-settings action when the mods path is not set', () => {
+    const library = createLibraryState()
+    library.mods = []
+    library.filteredMods = []
+    library.selectedMod = null
+    library.selectedModId = null
+    library.currentPack = null
+    library.currentPackId = null
+    useLauncherLibraryMock.mockReturnValue(library)
+    const onNavigateToSettings = vi.fn()
+
+    const { container } = renderLibraryPage({
+      settings: createSettings({ modsPath: null }),
+      onNavigateToSettings,
+    })
+
+    expect(container.querySelector('.launcher-library-empty-host')).not.toBeNull()
+    expect(container.querySelector('.launcher-empty-card')).not.toBeNull()
+    expect(screen.getByText('Mods Path Not Set')).not.toBeNull()
+    expect(screen.getByText('Configure the Mods path in Settings before scanning the local library.')).not.toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Settings' }))
+    expect(onNavigateToSettings).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders an empty card with open-settings and refresh actions when the library has no mods', () => {
+    const library = createLibraryState()
+    library.mods = []
+    library.filteredMods = []
+    library.selectedMod = null
+    library.selectedModId = null
+    library.currentPack = null
+    library.currentPackId = null
+    useLauncherLibraryMock.mockReturnValue(library)
+    const onNavigateToSettings = vi.fn()
+
+    const { container } = renderLibraryPage({ onNavigateToSettings })
+
+    expect(container.querySelector('.launcher-empty-card')).not.toBeNull()
+    expect(screen.getByText('Your Library Is Empty')).not.toBeNull()
+
+    const refreshButton = screen.getByRole('button', { name: 'Refresh Library' })
+    expect(refreshButton).not.toBeNull()
+    fireEvent.click(refreshButton)
+    expect(library.refresh).toHaveBeenCalled()
+
+    const settingsButton = screen.getByRole('button', { name: 'Open Settings' })
+    expect(settingsButton).not.toBeNull()
+    fireEvent.click(settingsButton)
+    expect(onNavigateToSettings).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders an empty card without actions when filters hide all mods', () => {
+    const library = createLibraryState()
+    library.filteredMods = []
+    library.filterText = 'zzzznomatch'
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    const { container } = renderLibraryPage()
+
+    expect(container.querySelector('.launcher-empty-card')).not.toBeNull()
+    expect(screen.getByText('No Matching Mods')).not.toBeNull()
+    expect(container.querySelector('.launcher-empty-card-actions')).toBeNull()
   })
 })

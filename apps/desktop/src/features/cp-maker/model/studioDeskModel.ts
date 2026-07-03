@@ -1,5 +1,5 @@
 import type { CpMakerDraftSummary } from '../model/cpMakerPort'
-import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@shared/contracts'
+import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@features/cp-maker'
 
 export type StudioDeskInspirationStatus = 'modified' | 'synced'
 export type StudioDeskInspirationKind = 'event' | 'map' | 'asset' | 'project'

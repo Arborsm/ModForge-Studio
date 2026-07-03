@@ -43,6 +43,12 @@ async function loadConfiguredDesktop() {
           eventListeners.delete(event)
         }
       }),
+      listenWindowCloseRequest: vi.fn(async (listener) => {
+        eventListeners.set('window-close-request', listener)
+        return () => {
+          eventListeners.delete('window-close-request')
+        }
+      }),
       listenWindowDragDrop: vi.fn(async (listener) => {
         dragDropListeners.push(listener)
         return () => {
@@ -55,7 +61,7 @@ async function loadConfiguredDesktop() {
     },
   }
 
-  const desktop = await import('@shared/lib/desktop')
+  const desktop = await import('@platform/host')
   desktop.configureDesktopPlatformPorts(ports)
 
   return {
@@ -107,12 +113,12 @@ describe('desktop facade', () => {
 
     const unlisten = await desktop.listenToWindowCloseRequest(listener)
 
-    expect(ports.hostEvents.listen).toHaveBeenCalledWith('app://window-close-requested', expect.any(Function))
-    eventListeners.get('app://window-close-requested')?.({})
+    expect(ports.hostEvents.listenWindowCloseRequest).toHaveBeenCalledWith(expect.any(Function))
+    eventListeners.get('window-close-request')?.({})
     expect(listener).toHaveBeenCalledTimes(1)
 
     unlisten()
-    expect(eventListeners.has('app://window-close-requested')).toBe(false)
+    expect(eventListeners.has('window-close-request')).toBe(false)
   })
 
   it('opens archive files and drag-drop listeners through configured platform ports', async () => {

@@ -41,12 +41,19 @@ import type {
   SetLauncherModEnabledResult,
   LauncherDownloadProgressPayload,
   LauncherUpdateProgressPayload,
+  RecordLauncherImageFailureRequest,
   SaveLauncherSettingsRequest,
   LauncherGameLaunchResult,
 } from './launcherContracts'
 
+export type LauncherDebugLogRequest = {
+  message: string
+  keyValues?: Record<string, string | undefined>
+}
+
 export type LauncherPort = {
   loadSettings: () => Promise<LauncherSettings>
+  writeDebugLog: (request: LauncherDebugLogRequest) => void
   saveSettings: (request: SaveLauncherSettingsRequest) => Promise<LauncherSettings>
   scanLibrary: (request: ScanLauncherLibraryRequest) => Promise<LauncherLibraryScanResult>
   loadRuntimeInfo: () => Promise<LauncherRuntimeInfo>
@@ -54,17 +61,21 @@ export type LauncherPort = {
   saveLibraryState: (request: LauncherLibraryState) => Promise<LauncherLibraryState>
   loadLibraryCovers: () => Promise<LauncherLibraryCoversState>
   loadImageFailures: () => Promise<import('./launcherContracts').LauncherImageFailuresState>
+  recordImageFailure: (request: RecordLauncherImageFailureRequest) => Promise<import('./launcherContracts').LauncherImageFailuresState>
   setLibraryCover: (request: SetLauncherLibraryCoverRequest) => Promise<LauncherLibraryCoversState>
   persistLibraryRemoteCover: (request: PersistLauncherLibraryRemoteCoverRequest) => Promise<LauncherLibraryCoversState>
   loadDownloadQueue: () => Promise<LauncherDownloadQueueState>
   saveDownloadQueue: (request: LauncherDownloadQueueState) => Promise<LauncherDownloadQueueState>
   searchCatalog: (request: SearchLauncherCatalogRequest) => Promise<LauncherCatalogPageResult>
+  isRemoteModIdInvalid: (modId: number | null | undefined) => boolean
+  markRemoteModIdInvalid: (modId: number | null | undefined) => void
   loadRemoteModDetail: (request: LoadLauncherRemoteModDetailRequest) => Promise<LauncherRemoteModDetail>
   loadUpdateChangelog: (request: LoadLauncherUpdateChangelogRequest) => Promise<LauncherUpdateChangelogResult>
   loadNexusDiagnostics: () => Promise<LauncherNexusDiagnosticsResult>
   restartNexusDiagnostics: () => Promise<LauncherNexusDiagnosticsResult>
   retryNexusDiagnosticsRoute: (routeId: string) => Promise<LauncherNexusDiagnosticsResult>
   setNexusForceOffline: (forceOffline: boolean) => Promise<LauncherNexusDiagnosticsResult>
+  resolveCachedImage: (request: ResolveLauncherImageRequest) => Promise<ResolveLauncherImageResult | null>
   resolveImage: (request: ResolveLauncherImageRequest) => Promise<ResolveLauncherImageResult>
   loadCachedUpdates: (request: LoadCachedLauncherUpdatesRequest) => Promise<LauncherUpdatesResult | null>
   loadSuppressedUpdateModIds: (request: LoadSuppressedLauncherUpdateModIdsRequest) => Promise<LauncherSuppressedUpdateModIdsResult>

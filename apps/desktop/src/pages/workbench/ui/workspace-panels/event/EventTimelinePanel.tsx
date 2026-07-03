@@ -16,7 +16,7 @@ import { PanelFrame } from '@shared/ui/PanelFrame'
 import { buildEventTimelineEntries, EVENT_SETUP_ENTRY_ID } from '@entities/event'
 import type { EventTimelineEntry } from '@entities/event'
 import type { EventScript } from '@entities/event'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { useEventStageCopy } from '@locales/provider'
 
 type EventTimelinePanelProps = {

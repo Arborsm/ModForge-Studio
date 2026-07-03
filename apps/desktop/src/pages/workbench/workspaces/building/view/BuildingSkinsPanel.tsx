@@ -1,4 +1,4 @@
-import { formatPoint } from '@shared/lib/geometryFormatting'
+import { formatPoint } from '@shared/infra/game-formats/geometryFormatting'
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../entities/building'
 import type { BuildingsPanelCopy } from '@locales/api'
 

@@ -2,7 +2,7 @@ import { useMemo, type ReactNode } from 'react'
 import { createElectronPlatformPorts, isElectronHost } from '@platform/electron'
 import { createTauriPlatformPorts } from '@platform/tauri'
 import type { PlatformPorts } from '@shared/contracts'
-import { configureDesktopPlatformPorts } from '@shared/lib/desktop'
+import { configureDesktopPlatformPorts } from '@platform/host'
 import { PlatformContext } from './platformContext'
 
 export type PlatformProviderProps = {

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, type SyntheticEvent } from 'react'
 import { Film, MapPin, Minus, Package, Plus, Route, User, Music, Volume2, Smile, Palette } from 'lucide-react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import type { UIControlType, OptionItem } from '../workflow-model/commandSchema'
 import { EventResourcePicker, type EventResourceKind, type EventResourceOption } from './EventResourcePicker'
 import type { EventResourceRegistry } from './eventResourceRegistry'

@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
-import type { DraftPatch, CpMakerDraft, GameDirectoryInfo, WorkspaceId } from '@shared/contracts'
+import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@features/cp-maker'
+import type { GameDirectoryInfo } from '@entities/game/api'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
 import type { PlayerAppearanceProfile } from '@entities/event'
 

@@ -1,6 +1,6 @@
 import { AlertCircle, ChevronRight, MoreHorizontal, Pencil, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react'
-import type { DraftPatch } from '@shared/contracts'
-import { cx } from '@shared/lib/cx'
+import type { DraftPatch } from '@features/cp-maker'
+import { cx } from '@shared/lib/helper'
 import { useEditorCopy } from '@locales/provider'
 import { PatchActionIcon } from './PatchActionIcon'
 import { getPatchActionColor } from '../model/patchActionColor'

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test'
-import type { ResourcePreloadState, SlotId, WorkspaceSlotState } from '@shared/contracts'
+import type { SlotId, WorkspaceSlotState } from '@shared/contracts'
+import type { ResourcePreloadState } from '@entities/map'
 import {
   areWorkspaceStoredStatesEqual,
   deriveWorkspaceStatus,

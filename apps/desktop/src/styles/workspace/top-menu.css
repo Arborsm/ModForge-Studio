@@ -61,6 +61,8 @@
 
   /* GooeyNav integration inside the top-menu workspace */
   .top-menu-gooey-nav.gooey-nav-container {
+    --gooey-focus-ring: var(--accent);
+
     flex-shrink: 0;
     margin: -18px -24px;
     padding: 18px 24px;
@@ -78,6 +80,11 @@
 
   .top-menu-gooey-nav nav ul li a {
     padding: 0.6em 1em;
+  }
+
+  .top-menu-gooey-nav nav ul li a:focus-visible,
+  .top-menu-gooey-nav nav ul li button:focus-visible {
+    outline: none;
   }
 
   .top-menu-workspace-label {

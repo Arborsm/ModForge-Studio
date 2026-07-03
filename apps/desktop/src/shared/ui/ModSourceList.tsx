@@ -1,4 +1,11 @@
-import type { ModSourceEntry } from '@shared/contracts'
+type ModSourceEntry = {
+  modId: string
+  modName: string
+  modPath: string
+  key: string
+  targets: string[]
+  patchIds: string[]
+}
 
 type ModSourceListProps = {
   sources: ModSourceEntry[]

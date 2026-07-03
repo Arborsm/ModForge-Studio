@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react'
 import { AlertTriangle, Copy } from 'lucide-react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 
 type LauncherBlockedStateProps = {
   eyebrow: string

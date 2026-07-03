@@ -128,6 +128,7 @@ fn parse_public_mod_detail_graphql_response_extracts_detail_fields_and_primary_f
                     "nexusRequirements": {
                         "nodes": [
                             {
+                                "modId": "2400",
                                 "modName": "SMAPI",
                                 "notes": "4.4.0 or later",
                                 "url": "https://www.nexusmods.com/stardewvalley/mods/2400",
@@ -211,6 +212,7 @@ fn parse_public_mod_detail_graphql_response_extracts_detail_fields_and_primary_f
         detail.requirements[0].notes.as_deref(),
         Some("4.4.0 or later")
     );
+    assert_eq!(detail.requirements[0].mod_id, Some(2400));
     assert_eq!(detail.files.len(), 1);
     assert_eq!(detail.files[0].file_id, Some(160463));
     assert_eq!(
@@ -219,6 +221,117 @@ fn parse_public_mod_detail_graphql_response_extracts_detail_fields_and_primary_f
     );
     assert!(detail.files[0].primary);
     assert_eq!(detail.files[0].archive_type.as_deref(), Some("ZIP"));
+}
+
+#[test]
+fn parse_public_mod_detail_graphql_response_keeps_off_site_requirement_name() {
+    let payload = json!({
+        "data": {
+            "mod": {
+                "modId": 28123,
+                "name": "Childhood Sweetheart Caroline (Overhaul)",
+                "summary": "Caroline was once your best friend.",
+                "description": "<p>Caroline was once your best friend.</p>",
+                "category": "Characters",
+                "directDownloadEnabled": true,
+                "supportsVortex": true,
+                "downloads": 202400,
+                "endorsements": 3080,
+                "fileSize": 901,
+                "version": "2.2.5",
+                "pictureUrl": null,
+                "thumbnailUrl": null,
+                "author": "sorkrim AND Solariaze",
+                "modCategory": {
+                    "name": "Characters"
+                },
+                "tags": [],
+                "modRequirements": {
+                    "nexusRequirements": {
+                        "nodes": [
+                            {
+                                "modId": null,
+                                "modName": "Content Patcher",
+                                "notes": "REQUIRED",
+                                "url": "https://www.nexusmods.com/stardewvalley/mods/1915",
+                                "externalRequirement": true
+                            }
+                        ]
+                    },
+                    "dlcRequirements": []
+                },
+                "updatedAt": "2025-12-12T23:38:00Z",
+                "uploader": {
+                    "name": "Solariaze"
+                }
+            },
+            "modFiles": []
+        }
+    });
+
+    let detail = parse_public_mod_detail_graphql_response(&payload, 28123)
+        .expect("graphql detail should parse");
+
+    assert_eq!(detail.requirements.len(), 1);
+    assert_eq!(detail.requirements[0].name, "Content Patcher");
+    assert_eq!(detail.requirements[0].notes.as_deref(), Some("REQUIRED"));
+    assert!(detail.requirements[0].external);
+}
+
+#[test]
+fn parse_public_mod_detail_graphql_response_keeps_unnamed_off_site_requirement_from_url() {
+    let payload = json!({
+        "data": {
+            "mod": {
+                "modId": 28123,
+                "name": "Childhood Sweetheart Caroline (Overhaul)",
+                "summary": "Caroline was once your best friend.",
+                "description": "<p>Caroline was once your best friend.</p>",
+                "category": "Characters",
+                "directDownloadEnabled": true,
+                "supportsVortex": true,
+                "downloads": 202400,
+                "endorsements": 3080,
+                "fileSize": 901,
+                "version": "2.2.5",
+                "pictureUrl": null,
+                "thumbnailUrl": null,
+                "author": "sorkrim AND Solariaze",
+                "modCategory": {
+                    "name": "Characters"
+                },
+                "tags": [],
+                "modRequirements": {
+                    "nexusRequirements": {
+                        "nodes": [
+                            {
+                                "modId": null,
+                                "modName": null,
+                                "notes": "REQUIRED",
+                                "url": "https://www.nexusmods.com/stardewvalley/mods/1915?tab=description",
+                                "externalRequirement": true
+                            }
+                        ]
+                    },
+                    "dlcRequirements": []
+                },
+                "updatedAt": "2025-12-12T23:38:00Z",
+                "uploader": {
+                    "name": "Solariaze"
+                }
+            },
+            "modFiles": []
+        }
+    });
+
+    let detail = parse_public_mod_detail_graphql_response(&payload, 28123)
+        .expect("graphql detail should parse");
+
+    assert_eq!(detail.requirements.len(), 1);
+    assert_eq!(detail.requirements[0].name, "Nexus #1915");
+    assert_eq!(detail.requirements[0].mod_id, Some(1915));
+    assert_eq!(detail.requirements[0].notes.as_deref(), Some("REQUIRED"));
+    assert!(detail.requirements[0].external);
 }
 
 #[test]

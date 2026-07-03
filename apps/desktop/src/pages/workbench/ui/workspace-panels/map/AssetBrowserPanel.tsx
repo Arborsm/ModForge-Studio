@@ -1,7 +1,7 @@
 import { ChevronDown, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useEditorCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { BrowserSourceSwitch } from '@shared/ui/BrowserSourceSwitch'
 import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'

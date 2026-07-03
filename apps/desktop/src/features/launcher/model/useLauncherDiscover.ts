@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLauncherPort } from './launcherPortContext'
-import { TaskCancelledError, useLatestTask, type TaskScope } from '@shared/lib/task-runtime'
+import { TaskCancelledError, useLatestTask, type TaskScope } from '@platform/task-runtime'
 import type { LauncherCatalogFacets, SearchLauncherCatalogRequest } from './launcherContracts'
 import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarState } from './launcherDiscoverToolbarState'
 import { canAutoLoadLauncherDiscover, getLauncherDiscoverUnavailableReason } from './nexusDiagnostics'
@@ -367,6 +367,11 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
     refresh: () => {
       manualRefreshBypassRef.current = true
       revalidate()
+    },
+    resetFilters: () => {
+      setRequestDelayMs(0)
+      setFilters(DEFAULT_FILTERS)
+      resetToFirstPage()
     },
   }
 }

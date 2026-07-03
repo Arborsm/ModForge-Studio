@@ -11,7 +11,7 @@ import {
 import type { LocaleCode } from '@locales/api'
 import { loadImageResourceFromPath } from '@shared/lib/assets'
 import type { PlayerAppearanceProfile } from '@entities/event'
-import { buildGameContentPath } from '@shared/lib/assets'
+import { buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
 import {
   DEFAULT_FARMER_HAIR_STYLE_INDEX,
   DEFAULT_FARMER_PANTS_SPRITE_INDEX,

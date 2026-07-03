@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, test, vi } from 'vite-plus/test'
 import { useState, type ComponentProps, type ReactNode } from 'react'
-import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
+import type { DraftPatch, CpMakerDraft } from '@features/cp-maker'
 import type { EventScript } from '@entities/event'
 import { renderWithLocale } from '@test/renderWithLocale'
 import { EventPatchEditor } from './EventPatchEditor'

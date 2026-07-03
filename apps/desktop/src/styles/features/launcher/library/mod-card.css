@@ -232,7 +232,8 @@
   }
 
   .launcher-mod-card-author::after,
-  .launcher-mod-card-version::after {
+  .launcher-mod-card-version::after,
+  .launcher-mod-card-missing-dependencies::after {
     content: attr(data-tooltip);
     position: absolute;
     left: 50%;
@@ -258,7 +259,8 @@
   }
 
   .launcher-mod-card-author::before,
-  .launcher-mod-card-version::before {
+  .launcher-mod-card-version::before,
+  .launcher-mod-card-missing-dependencies::before {
     content: '';
     position: absolute;
     left: 50%;
@@ -284,6 +286,29 @@
     border-color: color-mix(in srgb, var(--launcher-border) 88%, transparent);
   }
 
+  .launcher-mod-card-missing-dependencies::after {
+    left: 0;
+    bottom: auto;
+    top: calc(100% + 9px);
+    max-width: min(260px, 72vw);
+    transform: translate(0, -3px);
+    border-color: color-mix(in srgb, var(--danger) 22%, transparent);
+    background: color-mix(in srgb, var(--bg-panel) 96%, var(--danger) 4%);
+    white-space: normal;
+  }
+
+  .launcher-mod-card-missing-dependencies::before {
+    left: 14px;
+    bottom: auto;
+    top: calc(100% + 4px);
+    transform: translate(0, -3px) rotate(45deg);
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 1px solid color-mix(in srgb, var(--danger) 22%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--danger) 22%, transparent);
+    background: color-mix(in srgb, var(--bg-panel) 96%, var(--danger) 4%);
+  }
+
   .launcher-mod-card-version-update:hover::after,
   .launcher-mod-card-version-update:focus-visible::after,
   .launcher-mod-card-version-update:hover::before,
@@ -298,6 +323,18 @@
   .launcher-mod-card-version:not(.launcher-mod-card-version-update):focus-visible::before {
     opacity: 1;
     transform: translate(-50%, 0) rotate(var(--tooltip-arrow-rotation, 0deg));
+  }
+
+  .launcher-mod-card-missing-dependencies:hover::after,
+  .launcher-mod-card-missing-dependencies:focus-visible::after {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+
+  .launcher-mod-card-missing-dependencies:hover::before,
+  .launcher-mod-card-missing-dependencies:focus-visible::before {
+    opacity: 1;
+    transform: translate(0, 0) rotate(45deg);
   }
 
   .launcher-mod-card-version-update:hover::after,
@@ -321,6 +358,39 @@
   .launcher-mod-card-disabled .launcher-mod-card-title,
   .launcher-mod-card-disabled .launcher-mod-card-meta {
     color: var(--launcher-text-tertiary);
+  }
+
+  .launcher-mod-card-missing-dependencies {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    min-width: 28px;
+    height: 22px;
+    border: 1px solid color-mix(in srgb, var(--danger) 36%, var(--border-color));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--danger) 14%, var(--bg-panel));
+    color: var(--danger);
+    padding: 0 7px;
+    font-size: 11px;
+    font-weight: 850;
+    line-height: 1;
+    box-shadow: 0 6px 14px color-mix(in srgb, var(--danger) 14%, transparent);
+  }
+
+  .launcher-mod-card-missing-dependencies svg {
+    stroke-width: 2.4;
+  }
+
+  .launcher-library-module-missing-dependencies {
+    top: 7px;
+    left: 7px;
+    height: 20px;
+    min-width: 26px;
+    padding: 0 6px;
   }
 
   .launcher-mod-card-selection-toggle {

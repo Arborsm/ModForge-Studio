@@ -3,8 +3,8 @@ import { Grid2x2 } from 'lucide-react'
 import type { BuildingWorkspaceEntry } from '../entities/building'
 import type { LocaleCode, ViewportLabels, ThemeMode } from '@locales/api'
 import type { BuildingsPanelCopy } from '@locales/api'
-import type { MapDocument } from '@shared/contracts'
-import { cx } from '@shared/lib/cx'
+import type { MapDocument } from '@entities/map'
+import { cx } from '@shared/lib/helper'
 import { MapViewport, type MapViewportHandle } from '@entities/map'
 
 export type BuildingIndoorMapPanelProps = {

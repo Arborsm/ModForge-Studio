@@ -3,7 +3,7 @@ import type { SetStateAction } from 'react'
 import { useEditorCopy } from '@locales/provider'
 import { useLauncherPort } from './launcherPortContext'
 import type { LauncherSettings } from './launcherContracts'
-import { reportAppEvent } from '@shared/lib/observability'
+import { reportAppEvent } from '@platform/observability'
 import type { LauncherViewState } from './types'
 
 const DEFAULT_SETTINGS: LauncherSettings = {

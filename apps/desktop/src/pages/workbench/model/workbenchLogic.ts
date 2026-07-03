@@ -1,6 +1,6 @@
 import type { WorkspaceMode } from '@locales'
 import type { WorkspaceStoredState } from '@shared/contracts'
-import type { ResourcePreloadState, WorkspaceStatus } from '@shared/contracts'
+import type { ResourcePreloadState, WorkspaceStatus } from '@entities/map'
 
 type WorkspaceDiagnostic = {
   severity: 'info' | 'warning' | 'error'

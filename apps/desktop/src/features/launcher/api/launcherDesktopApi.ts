@@ -1,9 +1,9 @@
-import { HOST_COMMANDS } from '@shared/contracts'
+import { HOST_COMMANDS } from '@platform/host-commands'
 import { normalizeCachePathSegment } from '@shared/lib/assets'
-import { createPromiseCache, readCached, readPending } from '@shared/lib/desktop/cache'
-import { canUseDesktopHost, getPlatformPorts, invokeDesktop } from '@shared/lib/desktop/runtime'
-import type { UnlistenFn } from '@shared/lib/desktop/dialogs'
-import type { HostCommandPolicy } from '@shared/lib/host-command-client'
+import { createPromiseCache, readCached, readPending } from '@shared/lib/cache'
+import { canUseDesktopHost, getPlatformPorts, invokeDesktop } from '@platform/host/runtime'
+import type { UnlistenFn } from '@platform/host/dialogs'
+import type { HostCommandPolicy } from '@platform/host-command-client'
 import type {
   CheckLauncherUpdatesRequest,
   DownloadLauncherModRequest,
@@ -37,6 +37,7 @@ import type {
   OpenLauncherPathRequest,
   OpenLauncherUrlRequest,
   PersistLauncherLibraryRemoteCoverRequest,
+  RecordLauncherImageFailureRequest,
   ResolveLauncherImageRequest,
   ResolveLauncherImageResult,
   RestoreLauncherInstallBackupRequest,
@@ -67,6 +68,7 @@ const launcherUpdatesSnapshots = new Map<string, { result: LauncherUpdatesResult
 const launcherUpdatesListeners = new Map<string, Set<(result: LauncherUpdatesResult) => void>>()
 const launcherUpdatesRequestVersions = new Map<string, number>()
 const launcherUpdatesActiveSessions = new Map<string, string>()
+const invalidLauncherRemoteModIds = new Set<number>()
 let launcherUpdatesProgressBridgePromise: Promise<void> | null = null
 let launcherUpdatesSessionCounter = 0
 
@@ -75,6 +77,7 @@ const launcherLibraryMutationPolicy = { kind: 'exclusiveMutation', resource: 'La
 const launcherCoversMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherLibraryCovers' } satisfies HostCommandPolicy
 const launcherDownloadQueueMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherDownloadQueue' } satisfies HostCommandPolicy
 const launcherInstallMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherInstallTree' } satisfies HostCommandPolicy
+const launcherImageCacheMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherImageCache' } satisfies HostCommandPolicy
 const launcherIoPoolPolicy = { kind: 'parallelPool', pool: 'launcher-io', limit: 2 } satisfies HostCommandPolicy
 const launcherNetworkPoolPolicy = { kind: 'parallelPool', pool: 'launcher-network', limit: 4 } satisfies HostCommandPolicy
 const launcherImagePoolPolicy = { kind: 'parallelPool', pool: 'launcher-images', limit: 4 } satisfies HostCommandPolicy
@@ -216,6 +219,38 @@ function parentDirectoryFromPath(path: string) {
   return normalized.slice(0, lastSeparator)
 }
 
+function normalizeLauncherRemoteModId(modId: number | null | undefined) {
+  if (typeof modId !== 'number' || !Number.isFinite(modId)) {
+    return null
+  }
+  const normalized = Math.trunc(modId)
+  return normalized > 0 ? normalized : null
+}
+
+function createInvalidLauncherRemoteModIdError(modId: number) {
+  return new Error(`Nexus mod ${modId} is unavailable.`)
+}
+
+function isUnavailableLauncherRemoteDetailError(error: unknown) {
+  return error instanceof Error && error.message.trim().startsWith('Nexus mod unavailable:')
+}
+
+/** Returns whether a Nexus mod id was identified as unavailable during this app session. */
+export function isLauncherRemoteModIdInvalid(modId: number | null | undefined) {
+  const normalized = normalizeLauncherRemoteModId(modId)
+  return normalized == null ? false : invalidLauncherRemoteModIds.has(normalized)
+}
+
+/** Marks a Nexus mod id as unavailable so future remote detail/file lookups short-circuit locally. */
+export function markLauncherRemoteModIdInvalid(modId: number | null | undefined) {
+  const normalized = normalizeLauncherRemoteModId(modId)
+  if (normalized == null) {
+    return
+  }
+  invalidLauncherRemoteModIds.add(normalized)
+  loadLauncherRemoteModDetailCache.deleteWhere((key) => key.startsWith(`${normalized}:`))
+}
+
 /** Subscribes to cached and in-flight update check snapshots for one Mods folder. */
 export function subscribeLauncherUpdates(modsPath: string, listener: (result: LauncherUpdatesResult) => void) {
   void ensureLauncherUpdatesProgressBridge()
@@ -245,7 +280,7 @@ export function subscribeLauncherUpdates(modsPath: string, listener: (result: La
 
 /** Clears cached launcher cover images and invalidates cover/library read caches. */
 export async function clearLauncherImageCache() {
-  const result = await invokeDesktop<void>(HOST_COMMANDS.clearLauncherImageCache, undefined, launcherCoversMutationPolicy)
+  const result = await invokeDesktop<void>(HOST_COMMANDS.clearLauncherImageCache, undefined, launcherImageCacheMutationPolicy)
   loadLauncherLibraryCoversCache.delete('default')
   scanLauncherLibraryCache.clear()
   return result
@@ -275,6 +310,11 @@ export function loadLauncherLibraryCovers() {
 /** Loads persisted launcher image failure metadata. */
 export function loadLauncherImageFailures() {
   return invokeDesktop<LauncherImageFailuresState>(HOST_COMMANDS.loadLauncherImageFailures, undefined, launcherIoPoolPolicy)
+}
+
+/** Records a failed launcher cover lookup for one mod key. */
+export function recordLauncherImageFailure(request: RecordLauncherImageFailureRequest) {
+  return invokeDesktop<LauncherImageFailuresState>(HOST_COMMANDS.recordLauncherImageFailure, { request }, launcherImageCacheMutationPolicy)
 }
 
 /** Loads persisted launcher download queue state. */
@@ -412,9 +452,26 @@ export function searchLauncherCatalog(request: SearchLauncherCatalogRequest) {
 
 /** Loads remote catalog detail for one Nexus mod. */
 export function loadLauncherRemoteModDetail(request: LoadLauncherRemoteModDetailRequest) {
+  if (isLauncherRemoteModIdInvalid(request.modId)) {
+    return Promise.reject(createInvalidLauncherRemoteModIdError(Math.trunc(request.modId)))
+  }
+
   const cacheKey = `${request.modId}:${(request.includeFiles ?? true) ? 'files' : 'meta'}`
   return readPending(loadLauncherRemoteModDetailCache, cacheKey, () =>
-    invokeDesktop<LauncherRemoteModDetail>(HOST_COMMANDS.loadLauncherRemoteModDetail, { request }, launcherNetworkPoolPolicy),
+    invokeDesktop<LauncherRemoteModDetail>(HOST_COMMANDS.loadLauncherRemoteModDetail, { request }, launcherNetworkPoolPolicy)
+      .then((result) => {
+        if (result.unavailable) {
+          markLauncherRemoteModIdInvalid(request.modId)
+          throw createInvalidLauncherRemoteModIdError(Math.trunc(request.modId))
+        }
+        return result
+      })
+      .catch((error) => {
+        if (isUnavailableLauncherRemoteDetailError(error)) {
+          markLauncherRemoteModIdInvalid(request.modId)
+        }
+        throw error
+      }),
   )
 }
 
@@ -483,6 +540,11 @@ export function cancelNexusSso() {
 /** Resolves a remote launcher image into a local cached image file. */
 export function resolveLauncherImage(request: ResolveLauncherImageRequest) {
   return invokeDesktop<ResolveLauncherImageResult>(HOST_COMMANDS.resolveLauncherImage, { request }, launcherImagePoolPolicy)
+}
+
+/** Resolves a launcher image only when it is already local or cached on disk. */
+export function resolveCachedLauncherImage(request: ResolveLauncherImageRequest) {
+  return invokeDesktop<ResolveLauncherImageResult | null>(HOST_COMMANDS.resolveCachedLauncherImage, { request }, launcherIoPoolPolicy)
 }
 
 /** Returns the directory used for launcher install backups. */
@@ -586,6 +648,10 @@ export function listenToLauncherUpdateProgress(listener: (payload: LauncherUpdat
 
 /** Queues or starts a remote mod archive download. */
 export function downloadLauncherMod(request: DownloadLauncherModRequest) {
+  if (isLauncherRemoteModIdInvalid(request.modId)) {
+    return Promise.reject(createInvalidLauncherRemoteModIdError(Math.trunc(request.modId)))
+  }
+
   return invokeDesktop<DownloadLauncherModResult>(HOST_COMMANDS.downloadLauncherMod, { request }, launcherDownloadPoolPolicy)
 }
 

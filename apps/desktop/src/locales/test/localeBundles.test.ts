@@ -11,7 +11,7 @@ import {
   getViewMenuCopy,
   getWorkspaceModeLabel,
 } from '../api/editor-shell'
-import { LOADING_MOTION_INTENSITY_IDS, LOADING_MOTION_SPEED_IDS, LOADING_MOTION_STYLE_IDS } from '@shared/contracts/types/loadingMotion'
+import { LOADING_MOTION_INTENSITY_IDS, LOADING_MOTION_SPEED_IDS, LOADING_MOTION_STYLE_IDS } from '@shared/lib/loading-motion'
 
 const localeDir = join(dirname(fileURLToPath(import.meta.url)), '..')
 

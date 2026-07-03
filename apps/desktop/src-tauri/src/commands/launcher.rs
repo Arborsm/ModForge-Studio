@@ -9,8 +9,8 @@ use crate::domain::launcher::types::{
     ListLauncherInstallBackupsRequest, LoadCachedLauncherUpdatesRequest,
     LoadLauncherRemoteModDetailRequest, LoadLauncherUpdateChangelogRequest,
     LoadSuppressedLauncherUpdateModIdsRequest, OpenLauncherPathRequest, OpenLauncherUrlRequest,
-    PersistLauncherLibraryRemoteCoverRequest, ResolveLauncherImageRequest,
-    ResolveLauncherImageResult, RestoreLauncherInstallBackupRequest,
+    PersistLauncherLibraryRemoteCoverRequest, RecordLauncherImageFailureRequest,
+    ResolveLauncherImageRequest, ResolveLauncherImageResult, RestoreLauncherInstallBackupRequest,
     RestoreLauncherInstallBackupResult, SaveLauncherSettingsRequest, ScanLauncherLibraryRequest,
     SearchLauncherCatalogRequest, SetLauncherLibraryCoverRequest, SetLauncherModEnabledRequest,
     SetLauncherModEnabledResult,
@@ -153,6 +153,20 @@ pub fn load_launcher_image_failures(
         debug_logging_state,
         crate::host_command_name!(load_launcher_image_failures),
         json!({}),
+    )
+}
+
+#[tauri::command]
+pub fn record_launcher_image_failure(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    request: RecordLauncherImageFailureRequest,
+) -> Result<LauncherImageFailuresState, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(record_launcher_image_failure),
+        json!({ "request": request }),
     )
 }
 
@@ -332,6 +346,20 @@ pub fn resolve_launcher_image(
         AppHandle::from_tauri(app),
         debug_logging_state,
         crate::host_command_name!(resolve_launcher_image),
+        json!({ "request": request }),
+    )
+}
+
+#[tauri::command]
+pub fn resolve_cached_launcher_image(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    request: ResolveLauncherImageRequest,
+) -> Result<Option<ResolveLauncherImageResult>, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
+        crate::host_command_name!(resolve_cached_launcher_image),
         json!({ "request": request }),
     )
 }

@@ -21,7 +21,7 @@ import {
   SlidersHorizontal,
   Zap,
 } from 'lucide-react'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import { normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
 import { useEditorCopy } from '@locales/provider'

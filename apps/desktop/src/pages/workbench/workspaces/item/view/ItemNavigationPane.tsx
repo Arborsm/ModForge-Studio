@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react'
 import { useItemsCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { BrowserSourceSwitch } from '@shared/ui/BrowserSourceSwitch'
 import type { BrowserSourceMode } from '@pages/workbench/workspaces/mod'
 import { getContainedItemSpriteScale, type ItemBrowseCategory, type ItemTextureAssetState, type ItemWorkspaceEntry } from '../entities/item'

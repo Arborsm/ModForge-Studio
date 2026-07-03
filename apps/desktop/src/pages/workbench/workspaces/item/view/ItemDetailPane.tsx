@@ -1,5 +1,5 @@
 import { useItemsCopy } from '@locales/provider'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { ModSourceList } from '@shared/ui/ModSourceList'
 import type { ModSourceEntry } from '@pages/workbench/workspaces/mod'
 import { getContainedItemSpriteFrame, type ItemTextureAssetState, type ItemWorkspaceEntry } from '../entities/item'

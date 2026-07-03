@@ -1,4 +1,4 @@
-import type { DraftPatch } from '@shared/contracts'
+import type { DraftPatch } from '@features/cp-maker'
 
 export function getPatchActionColor(action: DraftPatch['action']): string {
   switch (action) {

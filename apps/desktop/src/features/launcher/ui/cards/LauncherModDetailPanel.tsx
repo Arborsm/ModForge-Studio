@@ -1,44 +1,22 @@
-import type { CSSProperties } from 'react'
 import { ExternalLink, FolderOpen, ImageIcon, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useEditorCopy } from '@locales/provider'
 import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { useLauncherRemoteModDetail } from '@features/launcher/model/useLauncherRemoteModDetail'
-import { cx } from '@shared/lib/cx'
+import { cx } from '@shared/lib/helper'
 import { NexusModsBbcode } from '@shared/ui/nexusmods-bbcode'
 import { PanelEmptyState } from '@shared/ui/PanelSection'
 import type { LauncherDiscoverDetail, LauncherLibraryItem, QueueLauncherDownloadInput } from '../../model/types'
+import { useLauncherDependencyDetails, usePreloadLauncherDependencyDetails } from './dependency-tree/useLauncherDependencyDetails'
+import type { LauncherDetailMod } from './dependency-tree/dependencyTreeTypes'
 import { LauncherArtworkCover } from './LauncherArtworkCover'
-import { getLauncherCardCoverWord, getLauncherCardFallbackPalette } from './launcherCardPresentation'
-import { ChangelogList, DependencyList, DetailDataLoading, DetailSection, FileList, PropertyRow } from './LauncherModDetailLists'
-import {
-  buildChangelogItems,
-  compactNumber,
-  formatDate,
-  formatSize,
-  hasUpdate,
-  normalizeVersion,
-  resolveFileGroup,
-  truncatePath,
-  type DependencyListItem,
-  type DetailRow,
-  type FileListItem,
-} from './launcherModDetailData'
-
-type LauncherDetailTab = 'description' | 'changelog' | 'details' | 'dependencies' | 'files'
-
-type LauncherDetailMod = Partial<LauncherLibraryItem> & {
-  packName?: string | null
-}
+import { ChangelogList, DependencyTree, DetailDataLoading, DetailSection, FileList, PropertyRow } from './LauncherModDetailLists'
+import { normalizeVersion, type DependencyTreeNode, type FileListItem, type LauncherDetailTab } from './launcherModDetailData'
+import { useLauncherModDetailViewModel } from './useLauncherModDetailViewModel'
 
 function shouldDeferDetailContent() {
   return import.meta.env.MODE !== 'test' && (typeof navigator === 'undefined' || !navigator.userAgent.toLowerCase().includes('jsdom'))
-}
-
-function DependencyIcon({ name }: { name: string }) {
-  const symbol = name.toLowerCase().includes('smapi') ? '⚙' : '🧩'
-
-  return <span>{symbol}</span>
 }
 
 type LauncherModDetailPanelProps = {
@@ -52,8 +30,10 @@ type LauncherModDetailPanelProps = {
   onClearCover: () => void
   packName?: string | null
   onQueueDownload?: (input: QueueLauncherDownloadInput) => void
+  onSearchDependency?: (query: string) => void
   remoteLoading?: boolean
   remoteFilesDeferred?: boolean
+  libraryMods?: LauncherLibraryItem[]
 }
 
 export function LauncherModDetailPanel({
@@ -67,8 +47,10 @@ export function LauncherModDetailPanel({
   onClearCover,
   packName,
   onQueueDownload,
+  onSearchDependency,
   remoteLoading = false,
   remoteFilesDeferred = false,
+  libraryMods = [],
 }: LauncherModDetailPanelProps) {
   const launcherPort = useLauncherPort()
   const copy = useEditorCopy()
@@ -76,12 +58,11 @@ export function LauncherModDetailPanel({
   const detailCopy = launcherCopy.library.modDetail
   const [activeTab, setActiveTab] = useState<LauncherDetailTab>('description')
   const [descriptionReaderOpen, setDescriptionReaderOpen] = useState(false)
+  const [expandedDependencyNodeIds, setExpandedDependencyNodeIds] = useState<Set<string>>(new Set())
   const detailContentKey = `${mod?.id ?? 'empty'}:${remoteDetail?.modId ?? mod?.nexusModId ?? 'local'}`
   const deferDetailContent = shouldDeferDetailContent()
   const [readyContentKey, setReadyContentKey] = useState(() => (!deferDetailContent ? detailContentKey : null))
   const contentReady = !deferDetailContent || readyContentKey === detailContentKey
-  const fallbackPalette = getLauncherCardFallbackPalette(mod?.name ?? remoteDetail?.title ?? launcherCopy.library.detailsTitle)
-  const coverWord = getLauncherCardCoverWord(mod?.name ?? remoteDetail?.title ?? launcherCopy.library.detailsTitle)
   const fetchedRemote = useLauncherRemoteModDetail(
     open && !remoteDetail && mod?.nexusModId ? mod.nexusModId : null,
     remoteFilesDeferred ? { includeFiles: false } : {},
@@ -97,180 +78,71 @@ export function LauncherModDetailPanel({
   const remote = fetchedRemoteWithFiles.detail ?? remoteDetail ?? fetchedRemote.detail
   const showRemoteLoading =
     remoteLoading || Boolean(open && !remoteDetail && mod?.nexusModId && fetchedRemote.state === 'loading') || deferredFilesLoading
-  const fallbackRemoteModId = mod?.nexusModId ?? null
-  const isLocal = Boolean(mod?.absolutePath)
-  const isNexus = Boolean(remote)
-  const isCombined = isLocal && isNexus
-  const overviewDescription = remote?.summary ?? mod?.description ?? launcherCopy.states.noSummary
-  const fullDescription = remote?.description ?? remote?.summary ?? mod?.description ?? launcherCopy.states.noSummary
-  const latestVersion = remote?.primaryFileVersion ?? remote?.version ?? null
-  const updateAvailable = isCombined && hasUpdate(mod?.version, latestVersion)
-  const coverStyle = {
-    '--launcher-cover-bright': fallbackPalette.bright,
-    '--launcher-cover-base': fallbackPalette.base,
-    '--launcher-cover-dark': fallbackPalette.dark,
-    '--launcher-cover-edge': fallbackPalette.edge,
-    '--launcher-cover-glow': fallbackPalette.glow,
-    '--launcher-cover-shadow': fallbackPalette.shadow,
-  } as CSSProperties
-
-  const displayName = mod?.name ?? remote?.title ?? launcherCopy.library.detailsTitle
-  const displayAuthor = mod?.author ?? remote?.author ?? launcherCopy.library.detailsSubtitle
-  const displayVersion = isCombined
-    ? `${detailCopy.installedVersionShort} ${normalizeVersion(mod?.version, copy.common.none)} · ${detailCopy.nexusVersionShort} ${normalizeVersion(latestVersion, copy.common.none)}`
-    : normalizeVersion(mod?.version ?? latestVersion, copy.common.none)
-  const category = remote?.category ?? packName ?? null
-  const subtitleText = [displayAuthor ? `${detailCopy.byAuthor} ${displayAuthor}` : null, displayVersion, category]
-    .filter(Boolean)
-    .join(' · ')
-
-  const dependencyText = mod?.missingRequiredDependencies?.length ? mod.missingRequiredDependencies.join(', ') : detailCopy.clean
-  const primaryFileName = remote?.primaryFileName ?? (remote ? remote.title : null)
-  const primaryFileId = remote?.primaryFileId ? `#${remote.primaryFileId}` : copy.common.none
-  const primarySize = formatSize(remote?.primaryFileSize ?? remote?.fileSize, remote?.primaryFileSizeBytes, copy.common.none)
-  const rawLocalDependencies = mod?.requiredDependencies?.length ? mod.requiredDependencies : (mod?.missingRequiredDependencies ?? [])
-  const localDependencies = Array.from(new Set(rawLocalDependencies.map((item) => item.trim()).filter(Boolean)))
-  const remoteRequirements = (remote?.requirements ?? []).filter((requirement) => requirement.name.trim() !== '')
-  const remoteFiles = (remote?.files ?? []).filter((file) => (file.name ?? '').trim() !== '' || file.fileId)
-  const changelogItems = buildChangelogItems({
-    primaryLines: remote?.primaryFileChangelog,
-    primarySource: primaryFileName ?? detailCopy.primaryFile,
-    primaryVersion: latestVersion,
-    files: remoteFiles,
-    noneLabel: copy.common.none,
+  const { remoteDependencyDetails, loadRemoteDependencyDetail } = useLauncherDependencyDetails({
+    detailContentKey,
+    launcherPort,
   })
-  const hasDependencyData = localDependencies.length > 0 || remoteRequirements.length > 0
-  const hasDeferredFileData = Boolean(remoteFilesDeferred && deferredFilesModId && onQueueDownload)
-  const hasFileData = isNexus && (remoteFiles.length > 0 || hasDeferredFileData)
-  const hasChangelogData = isNexus && (changelogItems.length > 0 || Boolean(remoteFilesDeferred && deferredFilesModId))
-  const detailTabs: LauncherDetailTab[] = ['description']
-  if (hasChangelogData) {
-    detailTabs.push('changelog')
-  }
-  detailTabs.push('details')
-  if (hasDependencyData) {
-    detailTabs.push('dependencies')
-  }
-  if (hasFileData) {
-    detailTabs.push('files')
-  }
-  const selectedTab = detailTabs.includes(activeTab) ? activeTab : 'description'
+  const viewModel = useLauncherModDetailViewModel({
+    copy,
+    activeTab,
+    mod,
+    remote,
+    packName,
+    libraryMods,
+    remoteDependencyDetails,
+    remoteFilesDeferred,
+    deferredFilesModId,
+    canQueueDownload: Boolean(onQueueDownload),
+  })
+  const {
+    statusFlags: { isLocal, isNexus, isCombined, updateAvailable },
+    hero: {
+      displayName,
+      displayAuthor,
+      displayVersion,
+      category,
+      subtitleText,
+      overviewDescription,
+      fullDescription,
+      latestVersion,
+      dependencyText,
+      primarySize,
+      coverStyle,
+      coverWord,
+      imageUrl,
+      localRows: localHeroRows,
+      remoteRows: remoteHeroRows,
+    },
+    tabs: {
+      items: detailTabs,
+      selected: selectedTab,
+      hasChangelogData,
+      hasDependencyData,
+      hasFileData,
+      missingDependencyCount,
+      missingDependencyLabel,
+    },
+    details: {
+      localRows: localDetails,
+      manifestRows: manifestDetails,
+      nexusPageRows: nexusPageDetails,
+      primaryFileRows: primaryFileDetails,
+      updateEvidenceRows: updateEvidenceDetails,
+    },
+    files: { items: fileItems },
+    changelog: { items: changelogItems },
+    dependencyTree,
+    remote: { fallbackModId: fallbackRemoteModId },
+  } = viewModel
+  const dependencyTreeItems = dependencyTree.items
+  const dependencyIssueCount = dependencyTree.issueCount
+  usePreloadLauncherDependencyDetails({
+    open,
+    selectedTab,
+    loadableModIds: dependencyTree.loadableModIds,
+    loadRemoteDependencyDetail,
+  })
   const showDescriptionReader = open && selectedTab === 'description' && descriptionReaderOpen
-  const localHeroRows: DetailRow[] = isLocal
-    ? [
-        { label: detailCopy.installPath, value: truncatePath(mod?.absolutePath, copy.common.none), title: mod?.absolutePath ?? undefined },
-        { label: detailCopy.folder, value: mod?.folderName ?? copy.common.none, title: mod?.folderName ?? undefined },
-        { label: launcherCopy.fields.dependencies, value: dependencyText, title: dependencyText },
-      ]
-    : []
-
-  const remoteHeroRows: DetailRow[] = isNexus
-    ? [
-        { label: detailCopy.updated, value: formatDate(remote?.updatedAt, copy.common.none), title: remote?.updatedAt ?? undefined },
-        { label: detailCopy.download, value: compactNumber(remote?.downloads, copy.common.none) },
-        { label: launcherCopy.sortOptions.endorsements, value: compactNumber(remote?.endorsements, copy.common.none) },
-      ]
-    : []
-
-  const localDetails: DetailRow[] = [
-    { label: detailCopy.absolutePath, value: truncatePath(mod?.absolutePath, copy.common.none), title: mod?.absolutePath ?? undefined },
-    { label: detailCopy.manifestFile, value: 'manifest.json' },
-  ]
-
-  const manifestDetails: DetailRow[] = [
-    { label: launcherCopy.fields.updateKeys, value: mod?.updateKeys?.[0] ?? '', title: mod?.updateKeys?.join(', ') },
-    { label: launcherCopy.library.packLabel, value: packName ?? '', title: packName ?? undefined },
-  ]
-
-  const nexusPageDetails: DetailRow[] = [
-    { label: detailCopy.requirement, value: remote?.requiredLoader ?? '', title: remote?.requiredLoader ?? undefined },
-    { label: detailCopy.gameVersion, value: remote?.gameVersion ?? '', title: remote?.gameVersion ?? undefined },
-    {
-      label: detailCopy.download,
-      value: remote?.directDownloadEnabled ? detailCopy.directDownload : remote?.supportsVortex ? detailCopy.vortexSupported : '',
-    },
-  ]
-
-  const primaryFileDetails: DetailRow[] = [
-    { label: detailCopy.name, value: primaryFileName ?? '', title: primaryFileName ?? undefined },
-    { label: detailCopy.fileId, value: remote?.primaryFileId ? primaryFileId : '' },
-    { label: detailCopy.archiveType, value: remote?.archiveType ?? '', title: remote?.archiveType ?? undefined },
-  ]
-
-  const evidenceText = fallbackRemoteModId ? `Nexus:${fallbackRemoteModId}` : copy.common.none
-  const evidenceTitle = fallbackRemoteModId ? `${detailCopy.updateKeyEvidence} ${evidenceText}` : undefined
-  const updateEvidenceDetails: DetailRow[] = [
-    { label: detailCopy.method, value: fallbackRemoteModId ? detailCopy.updateKey : copy.common.none },
-    { label: detailCopy.evidence, value: evidenceText, title: evidenceTitle },
-    { label: detailCopy.confidence, value: fallbackRemoteModId ? detailCopy.exact : copy.common.none },
-    { label: detailCopy.primaryFile, value: primaryFileId },
-    { label: detailCopy.sizeChange, value: copy.common.none },
-    {
-      label: detailCopy.risk,
-      value: remote?.updateRisk ?? copy.common.none,
-    },
-    { label: detailCopy.match, value: fallbackRemoteModId ? detailCopy.exactUpdateKeyMatch : copy.common.none },
-  ]
-
-  const missingLocalDependencies = new Set(mod?.missingRequiredDependencies ?? [])
-  const dependencyItems: DependencyListItem[] = [
-    ...localDependencies.map((dependency) => {
-      const missing = missingLocalDependencies.has(dependency)
-      return {
-        name: dependency,
-        meta: detailCopy.localRequirement,
-        status: missing ? detailCopy.missing : detailCopy.satisfied,
-        missing,
-        title: dependency,
-      }
-    }),
-    ...remoteRequirements.map((requirement) => ({
-      name: requirement.name,
-      meta: [requirement.external ? detailCopy.externalRequirement : detailCopy.remoteRequirement, requirement.notes]
-        .filter(Boolean)
-        .join(' · '),
-      status: requirement.external ? detailCopy.externalRequirement : detailCopy.satisfied,
-      missing: false,
-      title: [requirement.name, requirement.notes, requirement.url].filter(Boolean).join(' · '),
-    })),
-  ]
-  const keyStatusItems: DependencyListItem[] = dependencyItems.length
-    ? dependencyItems.slice(0, 3)
-    : [
-        {
-          name: launcherCopy.fields.dependencies,
-          meta: detailCopy.status,
-          status: dependencyText,
-          missing: Boolean(mod?.missingRequiredDependencies?.length),
-          title: dependencyText,
-        },
-      ]
-
-  const fileItems: FileListItem[] = remoteFiles.map((file) => {
-    const fileName = file.name ?? (file.fileId ? `#${file.fileId}` : '')
-    const meta = [
-      file.version ? normalizeVersion(file.version, copy.common.none) : null,
-      file.category ?? null,
-      file.uploadedAt ? formatDate(file.uploadedAt, copy.common.none) : null,
-      formatSize(file.size, file.sizeBytes, copy.common.none),
-      file.uniqueDownloads ? detailCopy.uniqueDownloads(compactNumber(file.uniqueDownloads, copy.common.none)) : null,
-      file.totalDownloads ? detailCopy.totalDownloads(compactNumber(file.totalDownloads, copy.common.none)) : null,
-    ]
-      .filter(Boolean)
-      .join(' · ')
-    const description = file.description?.trim() ?? ''
-    return {
-      id: `${file.fileId ?? fileName}`,
-      name: fileName,
-      meta: [meta, file.archiveType, file.managerDownloadEnabled ? detailCopy.modManagerDownload : null].filter(Boolean).join(' · '),
-      status: '',
-      description,
-      fileId: file.fileId ?? null,
-      version: file.version ?? null,
-      primary: Boolean(file.primary),
-      group: resolveFileGroup(file),
-    }
-  })
 
   const handleClose = useCallback(() => {
     setDescriptionReaderOpen(false)
@@ -286,6 +158,10 @@ export function LauncherModDetailPanel({
     }
     setActiveTab(tab)
   }
+
+  useEffect(() => {
+    setExpandedDependencyNodeIds(dependencyTree.expandedNodeIds)
+  }, [dependencyTree.expandedNodeKey, detailContentKey])
 
   useEffect(() => {
     if (!open) {
@@ -340,11 +216,55 @@ export function LauncherModDetailPanel({
     }
   }
 
+  const handleDownloadDependency = (item: DependencyTreeNode) => {
+    if (onQueueDownload && item.modId) {
+      onQueueDownload({
+        modId: item.modId,
+        title: item.name,
+        imageUrl: item.imageUrl ?? null,
+        version: item.version ?? null,
+        source: isLocal ? 'updates' : 'discover',
+      })
+    }
+  }
+
+  const handleOpenDependencyPage = (item: DependencyTreeNode) => {
+    const url = item.url ?? (item.modId ? `https://www.nexusmods.com/stardewvalley/mods/${item.modId}` : null)
+    if (url) {
+      void launcherPort.openUrl({ url })
+    }
+  }
+
+  const handleSearchDependency = (item: DependencyTreeNode) => {
+    const query = item.searchQuery?.trim()
+    if (query) {
+      onSearchDependency?.(query)
+    }
+  }
+
+  const handleToggleDependencyNode = (item: DependencyTreeNode) => {
+    setExpandedDependencyNodeIds((current) => {
+      const next = new Set(current)
+      if (next.has(item.id)) {
+        next.delete(item.id)
+      } else {
+        next.add(item.id)
+      }
+      return next
+    })
+
+    if (!item.loadable || !item.modId || remoteDependencyDetails[item.modId]?.state === 'loading') {
+      return
+    }
+
+    loadRemoteDependencyDetail(item.modId)
+  }
+
   if (!open) {
     return null
   }
 
-  return (
+  const drawer = (
     <aside className={cx('launcher-library-drawer', open && 'launcher-library-drawer-open')}>
       <button
         type="button"
@@ -393,7 +313,7 @@ export function LauncherModDetailPanel({
               <div className="launcher-mod-detail-cover-frame">
                 <LauncherArtworkCover
                   title={displayName}
-                  imageUrl={mod?.imageUrl ?? remote?.imageUrl ?? null}
+                  imageUrl={imageUrl}
                   coverStyle={coverStyle}
                   coverWord={coverWord}
                   className="launcher-mod-detail-cover"
@@ -506,11 +426,23 @@ export function LauncherModDetailPanel({
             </header>
 
             <div className="launcher-mod-detail-body">
-              <main className={cx('launcher-mod-detail-main', !updateAvailable && 'no-status')}>
+              <main className="launcher-mod-detail-main">
                 <div className="launcher-mod-detail-tabs" role="tablist" aria-label={detailCopy.tabsLabel}>
                   {detailTabs.map((tab) => (
-                    <button key={tab} type="button" role="tab" aria-selected={selectedTab === tab} onClick={() => handleSelectTab(tab)}>
-                      {detailCopy.tabs[tab]}
+                    <button
+                      key={tab}
+                      type="button"
+                      role="tab"
+                      aria-selected={selectedTab === tab}
+                      onClick={() => handleSelectTab(tab)}
+                      title={tab === 'dependencies' && missingDependencyLabel ? missingDependencyLabel : undefined}
+                    >
+                      <span>{detailCopy.tabs[tab]}</span>
+                      {tab === 'dependencies' && missingDependencyCount ? (
+                        <strong className="launcher-mod-detail-tab-alert" aria-hidden="true">
+                          {missingDependencyCount}
+                        </strong>
+                      ) : null}
                     </button>
                   ))}
                 </div>
@@ -585,10 +517,32 @@ export function LauncherModDetailPanel({
                   >
                     <div className="launcher-mod-detail-info-layout rich scrollable">
                       <div className="launcher-mod-detail-rich-head">
-                        <span>{detailCopy.tabs.dependencies}</span>
-                        <strong>{dependencyItems.length}</strong>
+                        <div className="launcher-mod-detail-rich-head-title">
+                          <span>{detailCopy.tabs.dependencies}</span>
+                          <strong>{dependencyTreeItems.length}</strong>
+                        </div>
+                        {dependencyIssueCount > 0 ? (
+                          <span className="launcher-mod-detail-dependency-issues-badge">
+                            {detailCopy.dependencyIssues(dependencyIssueCount)}
+                          </span>
+                        ) : null}
                       </div>
-                      <DependencyList items={dependencyItems} />
+                      <DependencyTree
+                        items={dependencyTreeItems}
+                        expandedNodeIds={expandedDependencyNodeIds}
+                        labels={{
+                          download: detailCopy.downloadDependency,
+                          openPage: launcherCopy.actions.openModPage,
+                          search: launcherCopy.fields.searchDiscover,
+                          expand: detailCopy.expandDependency,
+                          collapse: detailCopy.collapseDependency,
+                          loadChildren: detailCopy.loadDependencyChildren,
+                        }}
+                        onToggleNode={handleToggleDependencyNode}
+                        onDownloadDependency={handleDownloadDependency}
+                        onOpenDependencyPage={handleOpenDependencyPage}
+                        onSearchDependency={onSearchDependency ? handleSearchDependency : undefined}
+                      />
                     </div>
                   </section>
                 ) : null}
@@ -620,24 +574,6 @@ export function LauncherModDetailPanel({
                   </section>
                 ) : null}
               </main>
-
-              <aside className="launcher-mod-detail-key-card">
-                <h3>{detailCopy.status}</h3>
-                <div className="launcher-mod-detail-key-list">
-                  {keyStatusItems.map((item) => (
-                    <article className={cx('launcher-mod-detail-key-item', item.missing && 'is-missing')} key={`${item.name}-${item.meta}`}>
-                      <span className="launcher-mod-detail-key-icon" aria-hidden="true">
-                        <DependencyIcon name={item.name} />
-                      </span>
-                      <div>
-                        <strong title={item.title}>{item.name}</strong>
-                        <span>{item.meta}</span>
-                      </div>
-                      <em>{item.status}</em>
-                    </article>
-                  ))}
-                </div>
-              </aside>
             </div>
 
             {showDescriptionReader ? (
@@ -739,4 +675,6 @@ export function LauncherModDetailPanel({
       </section>
     </aside>
   )
+
+  return createPortal(drawer, document.body)
 }
