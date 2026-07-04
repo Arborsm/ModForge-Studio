@@ -264,7 +264,12 @@ const rolldownChunkGroups: CodeSplittingGroup[] = namedChunkGroups.map(({ name, 
 export default defineConfig({
   base: './',
   clearScreen: false,
-  plugins: [reactDevtoolsStandaloneHtmlPlugin(), reactCompilerRuntimeInteropPlugin(), react(), babel({ presets: [reactCompilerPreset()] })],
+  plugins: [
+    reactDevtoolsStandaloneHtmlPlugin(),
+    reactCompilerRuntimeInteropPlugin(),
+    react(),
+    babel({ presets: [reactCompilerPreset()] }) as unknown as Plugin,
+  ] as unknown as Plugin[],
   cacheDir: resolveViteCacheDir(),
   resolve: {
     alias: [
