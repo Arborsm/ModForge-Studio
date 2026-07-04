@@ -1,10 +1,10 @@
 @layer base {
   :root {
     /* Fluid root font size: 1rem (16px) at 80rem (1280px) viewport.
-     * Scales up to 1.25rem (20px) at 120rem (1920px) and stays there
-     * on larger screens so small windows stay readable without looking
-     * oversized. */
-    font-size: clamp(1rem, 0.625vw + 8px, 1.25rem);
+     * Scales gently to 1.0625rem (17px) at 120rem (1920px) and caps at
+     * 1.125rem (18px) at 160rem (2560px) so 1080p screens don't feel
+     * oversized while larger displays still get a slight bump. */
+    font-size: clamp(1rem, 0.15625vw + 0.875rem, 1.125rem);
   }
 
   * {
