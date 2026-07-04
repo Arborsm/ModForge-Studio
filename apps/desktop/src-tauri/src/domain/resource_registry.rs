@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 use crate::domain::assets;
+use anyhow::Context;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -58,9 +59,9 @@ pub(crate) fn parse_item_entries(
     qualifier: &str,
     asset_path: &str,
     asset_label: &str,
-) -> Result<(), String> {
-    let parsed: BTreeMap<String, serde_json::Value> = serde_json::from_str(content)
-        .map_err(|error| format!("Failed to parse {asset_label}: {error}"))?;
+) -> anyhow::Result<()> {
+    let parsed: BTreeMap<String, serde_json::Value> =
+        serde_json::from_str(content).with_context(|| format!("Failed to parse {asset_label}"))?;
 
     for (item_id, value) in parsed {
         let display_name = value
@@ -95,9 +96,9 @@ pub(crate) fn parse_character_entries(
     content: &str,
     entries: &mut Vec<ResourceRegistryEntry>,
     source: &str,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let parsed: BTreeMap<String, serde_json::Value> = serde_json::from_str(content)
-        .map_err(|error| format!("Failed to parse Data/Characters: {error}"))?;
+        .with_context(|| format!("Failed to parse Data/Characters"))?;
 
     for (key, value) in parsed {
         let display_name = value
@@ -126,7 +127,7 @@ pub(crate) fn parse_character_entries(
 pub(crate) fn load_resource_registry(
     root_path: String,
     locale: Option<String>,
-) -> Result<ResourceRegistry, String> {
+) -> anyhow::Result<ResourceRegistry> {
     let mut entries = Vec::new();
     let mut warnings = Vec::new();
     let source = "Game assets";
@@ -148,7 +149,7 @@ pub(crate) fn load_resource_registry(
                 );
             }
         }
-        Err(error) => warnings.push(error),
+        Err(error) => warnings.push(error.to_string()),
     }
 
     match assets::scan_audio_assets(root_path.clone()) {
@@ -173,7 +174,7 @@ pub(crate) fn load_resource_registry(
                 );
             }
         }
-        Err(error) => warnings.push(error),
+        Err(error) => warnings.push(error.to_string()),
     }
 
     for item_asset in item_asset_specs() {
@@ -191,20 +192,20 @@ pub(crate) fn load_resource_registry(
                     item_asset.asset_path,
                     item_asset.label,
                 ) {
-                    warnings.push(error);
+                    warnings.push(error.to_string());
                 }
             }
-            Err(error) => warnings.push(error),
+            Err(error) => warnings.push(error.to_string()),
         }
     }
 
     match assets::load_text_asset(root_path, "Content/Data/Characters.xnb".to_string(), locale) {
         Ok(asset) => {
             if let Err(error) = parse_character_entries(&asset.content, &mut entries, source) {
-                warnings.push(error);
+                warnings.push(error.to_string());
             }
         }
-        Err(error) => warnings.push(error),
+        Err(error) => warnings.push(error.to_string()),
     }
 
     entries.sort_by(|left, right| {

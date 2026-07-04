@@ -1,7 +1,5 @@
 use crate::domain::cp_maker::build_cp_maker_map_asset;
-use crate::domain::cp_maker::types::{
-    BuildCpMakerMapAssetRequest, CpMakerDraftErrorCode, CpMakerDraftOperation,
-};
+use crate::domain::cp_maker::types::BuildCpMakerMapAssetRequest;
 use crate::infrastructure::game_formats::tbin::{
     MapDocument, MapLayer, MapPropertyValue, parse_tbin_map,
 };
@@ -96,7 +94,10 @@ fn build_cp_maker_map_asset_rejects_non_relative_asset_paths() {
     })
     .expect_err("expected relative path validation");
 
-    assert_eq!(error.code, CpMakerDraftErrorCode::InvalidExport);
-    assert_eq!(error.operation, CpMakerDraftOperation::BuildMapAsset);
-    assert!(error.message.contains("must stay relative"));
+    let message = error.to_string();
+    assert!(message.contains("must stay relative"), "{message}");
+    assert!(
+        message.contains("[path=../assets/maps/preview-town.tbin]"),
+        "{message}"
+    );
 }

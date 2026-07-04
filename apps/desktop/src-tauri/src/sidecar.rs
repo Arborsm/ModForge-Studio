@@ -242,17 +242,6 @@ where
         .map_err(|error| json!(error.to_string()))
 }
 
-fn ok_error_value<T, E>(result: Result<T, E>) -> DispatchResult
-where
-    T: Serialize,
-    E: Serialize,
-{
-    match result {
-        Ok(value) => Ok(serde_json::to_value(value).unwrap_or(Value::Null)),
-        Err(error) => Err(serde_json::to_value(error).unwrap_or_else(|_| json!("Command failed."))),
-    }
-}
-
 pub(crate) fn resolve_command(
     ctx: &SidecarContext,
     request: RpcRequest,
@@ -484,7 +473,7 @@ pub(crate) fn resolve_command(
                 id,
                 &command_name,
                 &[SidecarResource::LauncherSettings],
-                move || ok_error_value(domain::launcher::runtime::launch_launcher_game(app)),
+                move || ok(domain::launcher::runtime::launch_launcher_game(app)),
             )
         }
         crate::host_command_wire!(get_launcher_backup_directory) => {

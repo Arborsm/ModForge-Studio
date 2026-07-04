@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::infrastructure::fs::pathing::normalize_path;
+use anyhow::{Context, bail};
 
 #[derive(Debug, Clone)]
 struct Cursor<'a> {
@@ -15,41 +16,41 @@ impl<'a> Cursor<'a> {
         Self { data, pos: 0 }
     }
 
-    fn read_u8(&mut self) -> Result<u8, String> {
+    fn read_u8(&mut self) -> anyhow::Result<u8> {
         if self.pos >= self.data.len() {
-            return Err("Unexpected end of TBin buffer.".to_string());
+            bail!("Unexpected end of TBin buffer.");
         }
         let value = self.data[self.pos];
         self.pos += 1;
         Ok(value)
     }
 
-    fn read_i32(&mut self) -> Result<i32, String> {
+    fn read_i32(&mut self) -> anyhow::Result<i32> {
         if self.pos + 4 > self.data.len() {
-            return Err("Unexpected end of TBin buffer.".to_string());
+            bail!("Unexpected end of TBin buffer.");
         }
         let bytes = &self.data[self.pos..self.pos + 4];
         self.pos += 4;
         Ok(i32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
     }
 
-    fn read_f32(&mut self) -> Result<f32, String> {
+    fn read_f32(&mut self) -> anyhow::Result<f32> {
         if self.pos + 4 > self.data.len() {
-            return Err("Unexpected end of TBin buffer.".to_string());
+            bail!("Unexpected end of TBin buffer.");
         }
         let bytes = &self.data[self.pos..self.pos + 4];
         self.pos += 4;
         Ok(f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
     }
 
-    fn read_string(&mut self) -> Result<String, String> {
+    fn read_string(&mut self) -> anyhow::Result<String> {
         let len = self.read_i32()? as usize;
         if self.pos + len > self.data.len() {
-            return Err("Unexpected end of TBin string.".to_string());
+            bail!("Unexpected end of TBin string.");
         }
         let raw = &self.data[self.pos..self.pos + len];
         self.pos += len;
-        let value = std::str::from_utf8(raw).map_err(|error| format!("Invalid UTF-8: {error}"))?;
+        let value = std::str::from_utf8(raw).with_context(|| format!("Invalid UTF-8"))?;
         Ok(value.to_string())
     }
 }
@@ -61,7 +62,7 @@ struct Vector2i {
 }
 
 impl Vector2i {
-    fn read(cursor: &mut Cursor<'_>) -> Result<Self, String> {
+    fn read(cursor: &mut Cursor<'_>) -> anyhow::Result<Self> {
         Ok(Self {
             x: cursor.read_i32()?,
             y: cursor.read_i32()?,
@@ -77,7 +78,7 @@ enum PropertyValue {
     String(String),
 }
 
-fn read_properties(cursor: &mut Cursor<'_>) -> Result<HashMap<String, PropertyValue>, String> {
+fn read_properties(cursor: &mut Cursor<'_>) -> anyhow::Result<HashMap<String, PropertyValue>> {
     let count = cursor.read_i32()? as usize;
     let mut map = HashMap::with_capacity(count);
     for _ in 0..count {
@@ -88,7 +89,7 @@ fn read_properties(cursor: &mut Cursor<'_>) -> Result<HashMap<String, PropertyVa
             1 => PropertyValue::Integer(cursor.read_i32()?),
             2 => PropertyValue::Float(cursor.read_f32()?),
             3 => PropertyValue::String(cursor.read_string()?),
-            _ => return Err(format!("Unknown TBin property type {kind}.")),
+            _ => bail!("Unknown TBin property type {kind}."),
         };
         map.insert(key, value);
     }
@@ -147,7 +148,7 @@ struct Map {
     layers: Vec<Layer>,
 }
 
-fn read_tile_sheet(cursor: &mut Cursor<'_>) -> Result<TileSheet, String> {
+fn read_tile_sheet(cursor: &mut Cursor<'_>) -> anyhow::Result<TileSheet> {
     let id = cursor.read_string()?;
     let _desc = cursor.read_string()?;
     let image = cursor.read_string()?;
@@ -166,7 +167,7 @@ fn read_tile_sheet(cursor: &mut Cursor<'_>) -> Result<TileSheet, String> {
     })
 }
 
-fn read_static_tile(cursor: &mut Cursor<'_>, current_tilesheet: &str) -> Result<Tile, String> {
+fn read_static_tile(cursor: &mut Cursor<'_>, current_tilesheet: &str) -> anyhow::Result<Tile> {
     let tile_index = cursor.read_i32()?;
     let _blend_mode = cursor.read_u8()?;
     let properties = read_properties(cursor)?;
@@ -180,7 +181,7 @@ fn read_static_tile(cursor: &mut Cursor<'_>, current_tilesheet: &str) -> Result<
     })
 }
 
-fn read_animated_tile(cursor: &mut Cursor<'_>) -> Result<Tile, String> {
+fn read_animated_tile(cursor: &mut Cursor<'_>) -> anyhow::Result<Tile> {
     let interval = cursor.read_i32()?;
     let frame_count = cursor.read_i32()? as usize;
     let mut frames = Vec::with_capacity(frame_count);
@@ -197,7 +198,7 @@ fn read_animated_tile(cursor: &mut Cursor<'_>) -> Result<Tile, String> {
                 frames.push(read_static_tile(cursor, &current_tilesheet)?);
                 read_frames += 1;
             }
-            _ => return Err("Bad animated tile data.".to_string()),
+            _ => bail!("Bad animated tile data."),
         }
     }
 
@@ -210,7 +211,7 @@ fn read_animated_tile(cursor: &mut Cursor<'_>) -> Result<Tile, String> {
     })
 }
 
-fn read_layer(cursor: &mut Cursor<'_>) -> Result<Layer, String> {
+fn read_layer(cursor: &mut Cursor<'_>) -> anyhow::Result<Layer> {
     let id = cursor.read_string()?;
     let visible = cursor.read_u8()? > 0;
     let _desc = cursor.read_string()?;
@@ -244,7 +245,7 @@ fn read_layer(cursor: &mut Cursor<'_>) -> Result<Layer, String> {
                 'T' => {
                     current_tilesheet = cursor.read_string()?;
                 }
-                _ => return Err("Bad layer tile data.".to_string()),
+                _ => bail!("Bad layer tile data."),
             }
         }
     }
@@ -259,20 +260,18 @@ fn read_layer(cursor: &mut Cursor<'_>) -> Result<Layer, String> {
     })
 }
 
-fn read_map(cursor: &mut Cursor<'_>) -> Result<Map, String> {
+fn read_map(cursor: &mut Cursor<'_>) -> anyhow::Result<Map> {
     let magic = {
         if cursor.data.len() < 6 {
-            return Err("TBin buffer is too small.".to_string());
+            bail!("TBin buffer is too small.");
         }
         let raw = &cursor.data[cursor.pos..cursor.pos + 6];
         cursor.pos += 6;
-        std::str::from_utf8(raw)
-            .map_err(|_| "Invalid TBin header.".to_string())?
-            .to_string()
+        std::str::from_utf8(raw)?.to_string()
     };
 
     if magic != "tBIN10" {
-        return Err("File is not a tbin file.".to_string());
+        bail!("File is not a tbin file.");
     }
 
     let id = cursor.read_string()?;
@@ -425,15 +424,15 @@ fn push_f32(bytes: &mut Vec<u8>, value: f32) {
     bytes.extend_from_slice(&value.to_le_bytes());
 }
 
-fn checked_i32_from_u32(label: &str, value: u32) -> Result<i32, String> {
-    i32::try_from(value).map_err(|_| format!("{label} value {value} exceeds tBIN limits."))
+fn checked_i32_from_u32(label: &str, value: u32) -> anyhow::Result<i32> {
+    i32::try_from(value).with_context(|| format!("{label} value {value} exceeds tBIN limits."))
 }
 
-fn checked_i32_from_usize(label: &str, value: usize) -> Result<i32, String> {
-    i32::try_from(value).map_err(|_| format!("{label} value {value} exceeds tBIN limits."))
+fn checked_i32_from_usize(label: &str, value: usize) -> anyhow::Result<i32> {
+    i32::try_from(value).with_context(|| format!("{label} value {value} exceeds tBIN limits."))
 }
 
-fn push_string(bytes: &mut Vec<u8>, value: &str) -> Result<(), String> {
+fn push_string(bytes: &mut Vec<u8>, value: &str) -> anyhow::Result<()> {
     push_i32(bytes, checked_i32_from_usize("String length", value.len())?);
     bytes.extend_from_slice(value.as_bytes());
     Ok(())
@@ -447,7 +446,7 @@ fn push_vector(bytes: &mut Vec<u8>, x: i32, y: i32) {
 fn write_properties(
     bytes: &mut Vec<u8>,
     properties: &HashMap<String, MapPropertyValue>,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let mut entries = properties.iter().collect::<Vec<_>>();
     entries.sort_by(|(left_key, _), (right_key, _)| left_key.cmp(right_key));
 
@@ -464,9 +463,7 @@ fn write_properties(
             }
             MapPropertyValue::Number(value) => {
                 if !value.is_finite() {
-                    return Err(format!(
-                        "Property '{key}' has unsupported non-finite number {value}."
-                    ));
+                    bail!("Property '{key}' has unsupported non-finite number {value}.");
                 }
 
                 if value.fract() == 0.0 && *value >= i32::MIN as f64 && *value <= i32::MAX as f64 {
@@ -476,9 +473,9 @@ fn write_properties(
                     push_u8(bytes, 2);
                     push_f32(bytes, *value as f32);
                 } else {
-                    return Err(format!(
+                    bail!(
                         "Property '{key}' number {value} is out of range for tBIN serialization."
-                    ));
+                    );
                 }
             }
             MapPropertyValue::String(value) => {
@@ -494,7 +491,7 @@ fn write_properties(
 fn write_optional_properties(
     bytes: &mut Vec<u8>,
     properties: Option<&HashMap<String, MapPropertyValue>>,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     match properties {
         Some(properties) => write_properties(bytes, properties),
         None => {
@@ -504,23 +501,20 @@ fn write_optional_properties(
     }
 }
 
-fn tileset_sheet_size(tileset: &MapTileset) -> Result<(i32, i32), String> {
+fn tileset_sheet_size(tileset: &MapTileset) -> anyhow::Result<(i32, i32)> {
     if tileset.columns == 0
         || tileset.tile_count == 0
         || tileset.tile_width == 0
         || tileset.tile_height == 0
     {
-        return Err(format!(
-            "Tileset '{}' has invalid tileset dimensions.",
-            tileset.name
-        ));
+        bail!("Tileset '{}' has invalid tileset dimensions.", tileset.name);
     }
 
     if tileset.tile_count % tileset.columns != 0 {
-        return Err(format!(
+        bail!(
             "Tileset '{}' has a non-rectangular sheet and cannot be serialized to tBIN.",
             tileset.name
-        ));
+        );
     }
 
     Ok((
@@ -529,7 +523,7 @@ fn tileset_sheet_size(tileset: &MapTileset) -> Result<(i32, i32), String> {
     ))
 }
 
-fn sorted_tilesets(document: &MapDocument) -> Result<Vec<&MapTileset>, String> {
+fn sorted_tilesets(document: &MapDocument) -> anyhow::Result<Vec<&MapTileset>> {
     let mut tilesets = document.tilesets.iter().collect::<Vec<_>>();
     tilesets.sort_by_key(|tileset| tileset.first_gid);
 
@@ -538,10 +532,7 @@ fn sorted_tilesets(document: &MapDocument) -> Result<Vec<&MapTileset>, String> {
 
     for tileset in &tilesets {
         if tileset.first_gid == 0 {
-            return Err(format!(
-                "Tileset '{}' has invalid first_gid 0.",
-                tileset.name
-            ));
+            bail!("Tileset '{}' has invalid first_gid 0.", tileset.name);
         }
 
         tileset_sheet_size(tileset)?;
@@ -549,14 +540,14 @@ fn sorted_tilesets(document: &MapDocument) -> Result<Vec<&MapTileset>, String> {
         let start = u64::from(tileset.first_gid);
         let end_exclusive = start
             .checked_add(u64::from(tileset.tile_count))
-            .ok_or_else(|| format!("Tileset '{}' exceeds tBIN gid limits.", tileset.name))?;
+            .with_context(|| format!("Tileset '{}' exceeds tBIN gid limits.", tileset.name))?;
 
         if start < previous_end_exclusive {
-            return Err(format!(
+            bail!(
                 "Tileset ranges overlap between '{}' and '{}'.",
                 previous_name.unwrap_or("<unknown>"),
                 tileset.name
-            ));
+            );
         }
 
         previous_name = Some(tileset.name.as_str());
@@ -569,7 +560,7 @@ fn sorted_tilesets(document: &MapDocument) -> Result<Vec<&MapTileset>, String> {
 fn resolve_tileset_for_gid<'a>(
     gid: u32,
     tilesets: &[&'a MapTileset],
-) -> Result<(&'a MapTileset, u32), String> {
+) -> anyhow::Result<(&'a MapTileset, u32)> {
     let gid = u64::from(gid);
 
     for tileset in tilesets {
@@ -580,14 +571,14 @@ fn resolve_tileset_for_gid<'a>(
         }
     }
 
-    Err(format!("GID {gid} is outside all tileset ranges."))
+    Err(anyhow::anyhow!("GID {gid} is outside all tileset ranges."))
 }
 
 fn write_static_tile(
     bytes: &mut Vec<u8>,
     tileset: &MapTileset,
     local_tile_id: u32,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     push_u8(bytes, b'S');
     push_i32(bytes, checked_i32_from_u32("Tile id", local_tile_id)?);
     push_u8(bytes, 0);
@@ -599,8 +590,8 @@ fn write_animated_tile(
     tileset: &MapTileset,
     local_tile_id: u32,
     frames: &[MapTilesetAnimationFrame],
-) -> Result<(), String> {
-    let first_frame = frames.first().ok_or_else(|| {
+) -> anyhow::Result<()> {
+    let first_frame = frames.first().with_context(|| {
         format!(
             "Tileset '{}' tile {} has an animation with no frames.",
             tileset.name, local_tile_id
@@ -611,20 +602,22 @@ fn write_animated_tile(
         .iter()
         .any(|frame| frame.duration != first_frame.duration)
     {
-        return Err(format!(
+        bail!(
             "Tileset '{}' tile {} has mixed-duration animation frames.",
-            tileset.name, local_tile_id
-        ));
+            tileset.name,
+            local_tile_id
+        );
     }
 
     if frames
         .iter()
         .any(|frame| frame.tile_id >= tileset.tile_count)
     {
-        return Err(format!(
+        bail!(
             "Tileset '{}' tile {} has an animation that references a different tileset or an out-of-range tile.",
-            tileset.name, local_tile_id
-        ));
+            tileset.name,
+            local_tile_id
+        );
     }
 
     push_u8(bytes, b'A');
@@ -656,7 +649,7 @@ pub fn parse_tbin_map(
     bytes: &[u8],
     map_path: &Path,
     relative_path: &str,
-) -> Result<MapDocument, String> {
+) -> anyhow::Result<MapDocument> {
     let mut cursor = Cursor::new(bytes);
     let map = read_map(&mut cursor)?;
 
@@ -796,13 +789,13 @@ pub fn parse_tbin_map(
     Ok(document)
 }
 
-pub fn serialize_tbin_map(document: &MapDocument) -> Result<Vec<u8>, String> {
+pub fn serialize_tbin_map(document: &MapDocument) -> anyhow::Result<Vec<u8>> {
     if document
         .object_groups
         .iter()
         .any(|group| !group.objects.is_empty())
     {
-        return Err("Non-empty object groups are not supported by tBIN serialization.".to_string());
+        bail!("Non-empty object groups are not supported by tBIN serialization.");
     }
 
     let layer_tile_width = checked_i32_from_u32("Layer tile width", document.tile_width)?;
@@ -846,24 +839,25 @@ pub fn serialize_tbin_map(document: &MapDocument) -> Result<Vec<u8>, String> {
     );
     for layer in &document.layers {
         if layer.kind != "tile" {
-            return Err(format!(
+            bail!(
                 "Layer '{}' has unsupported kind '{}'; only tile layers can be serialized to tBIN.",
-                layer.name, layer.kind
-            ));
+                layer.name,
+                layer.kind
+            );
         }
 
         let layer_width = checked_i32_from_u32("Layer width", layer.width)?;
         let layer_height = checked_i32_from_u32("Layer height", layer.height)?;
         let expected_gid_count = usize::try_from(u64::from(layer.width) * u64::from(layer.height))
-            .map_err(|_| format!("Layer '{}' exceeds addressable tile storage.", layer.name))?;
+            .with_context(|| format!("Layer '{}' exceeds addressable tile storage.", layer.name))?;
 
         if layer.gids.len() != expected_gid_count {
-            return Err(format!(
+            bail!(
                 "Layer '{}' expected {} gids but found {}.",
                 layer.name,
                 expected_gid_count,
                 layer.gids.len()
-            ));
+            );
         }
 
         push_string(&mut bytes, &layer.name)?;

@@ -412,7 +412,7 @@ fn save_mod_project_rejects_non_empty_export_without_confirmation() {
     };
 
     let error = save_mod_project(request).expect_err("non-empty export target should be rejected");
-    assert!(error.contains("not empty"));
+    assert!(error.to_string().contains("not empty"));
     assert!(export.join("keep.txt").is_file());
 
     fs::remove_dir_all(root).expect("cleanup");
@@ -463,7 +463,7 @@ fn save_mod_project_rejects_export_to_source_parent_even_after_confirmation() {
     };
 
     let error = save_mod_project(request).expect_err("source parent export should be rejected");
-    assert!(error.contains("parent or ancestor"));
+    assert!(error.to_string().contains("parent or ancestor"));
     assert!(source.join("manifest.json").is_file());
     assert!(source.join("assets").join("abigail.png").is_file());
     assert!(root.join("OtherPack").join("manifest.json").is_file());
@@ -491,7 +491,11 @@ fn save_mod_project_rejects_export_inside_source_even_after_confirmation() {
     };
 
     let error = save_mod_project(request).expect_err("source child export should be rejected");
-    assert!(error.contains("nested inside the source mod directory"));
+    assert!(
+        error
+            .to_string()
+            .contains("nested inside the source mod directory")
+    );
     assert!(source.join("manifest.json").is_file());
     assert!(source.join("content.json").is_file());
     assert!(source.join("assets").join("abigail.png").is_file());
@@ -809,7 +813,7 @@ fn load_mod_project_rejects_content_pack_with_missing_required_dependencies() {
 
     let error = load_mod_project(consumer.to_string_lossy().into_owned())
         .expect_err("missing dependency should block load");
-    assert!(error.contains("Platonymous.ScaleUp"));
+    assert!(error.to_string().contains("Platonymous.ScaleUp"));
 
     fs::remove_dir_all(root).expect("cleanup");
 }

@@ -2,6 +2,7 @@ use super::paths::launcher_settings_path;
 use super::types::{LauncherSettings, NullablePatch, SaveLauncherSettingsRequest};
 use crate::AppHandle;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use anyhow::Context;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, OnceLock};
@@ -77,24 +78,24 @@ fn optional_text_present(value: &Option<String>) -> bool {
 
 pub(crate) fn load_or_create_settings_at_path(
     settings_path: &Path,
-) -> Result<LauncherSettings, String> {
+) -> anyhow::Result<LauncherSettings> {
     let _settings_file_guard = lock_launcher_settings_file();
     load_or_create_settings_at_path_unlocked(settings_path)
 }
 
 fn load_or_create_settings_at_path_unlocked(
     settings_path: &Path,
-) -> Result<LauncherSettings, String> {
+) -> anyhow::Result<LauncherSettings> {
     if settings_path.is_file() {
-        let content = fs::read_to_string(settings_path).map_err(|error| {
+        let content = fs::read_to_string(settings_path).with_context(|| {
             format!(
-                "Failed to read launcher settings {}: {error}",
+                "Failed to read launcher settings {}",
                 normalize_path(settings_path)
             )
         })?;
-        let parsed: LauncherSettings = serde_json::from_str(&content).map_err(|error| {
+        let parsed: LauncherSettings = serde_json::from_str(&content).with_context(|| {
             format!(
-                "Launcher settings {} is invalid JSON: {error}",
+                "Launcher settings {} is invalid JSON",
                 normalize_path(settings_path)
             )
         })?;
@@ -109,7 +110,7 @@ fn load_or_create_settings_at_path_unlocked(
 pub(crate) fn save_settings_at_path(
     settings_path: &Path,
     settings: &LauncherSettings,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let _settings_file_guard = lock_launcher_settings_file();
     save_settings_at_path_unlocked(settings_path, settings)
 }
@@ -117,11 +118,11 @@ pub(crate) fn save_settings_at_path(
 fn save_settings_at_path_unlocked(
     settings_path: &Path,
     settings: &LauncherSettings,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     if let Some(parent) = settings_path.parent() {
-        fs::create_dir_all(parent).map_err(|error| {
+        fs::create_dir_all(parent).with_context(|| {
             format!(
-                "Failed to create launcher settings directory {}: {error}",
+                "Failed to create launcher settings directory {}",
                 normalize_path(parent)
             )
         })?;
@@ -129,24 +130,23 @@ fn save_settings_at_path_unlocked(
 
     let normalized = normalize_settings(settings.clone());
     let json = serde_json::to_string_pretty(&normalized)
-        .map_err(|error| format!("Failed to serialize launcher settings JSON: {error}"))?;
-    fs::write(settings_path, format!("{json}\n")).map_err(|error| {
+        .with_context(|| format!("Failed to serialize launcher settings JSON"))?;
+    fs::write(settings_path, format!("{json}\n")).with_context(|| {
         format!(
-            "Failed to write launcher settings {}: {error}",
+            "Failed to write launcher settings {}",
             normalize_path(settings_path)
         )
     })?;
     Ok(())
 }
 
-pub(crate) fn resolve_download_dir(settings: &LauncherSettings) -> Result<PathBuf, String> {
+pub(crate) fn resolve_download_dir(settings: &LauncherSettings) -> anyhow::Result<PathBuf> {
     if let Some(path) = settings.download_path.as_deref() {
         return Ok(clean_input_path(path));
     }
 
-    default_download_path().ok_or_else(|| {
-        "downloadPath is not configured and no default Downloads folder was found.".to_string()
-    })
+    default_download_path()
+        .context("downloadPath is not configured and no default Downloads folder was found.")
 }
 
 fn default_launcher_download_path() -> Option<String> {
@@ -157,7 +157,7 @@ fn default_download_path() -> Option<PathBuf> {
     dirs::download_dir()
 }
 
-pub fn load_launcher_settings(_app: AppHandle) -> Result<LauncherSettings, String> {
+pub fn load_launcher_settings(_app: AppHandle) -> anyhow::Result<LauncherSettings> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_launcher_settings",
         (|| {
@@ -201,7 +201,7 @@ pub(crate) fn merge_launcher_settings(
 pub fn save_launcher_settings(
     app: AppHandle,
     request: SaveLauncherSettingsRequest,
-) -> Result<LauncherSettings, String> {
+) -> anyhow::Result<LauncherSettings> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "save_launcher_settings",
         (|| {

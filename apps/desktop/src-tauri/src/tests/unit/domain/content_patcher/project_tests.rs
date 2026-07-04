@@ -225,7 +225,7 @@ fn load_content_patcher_project_rejects_non_content_patcher_manifest() {
 
     let err = load_content_patcher_project(root.to_string_lossy().into_owned())
         .expect_err("non-cp manifest should fail");
-    assert!(err.contains("Pathoschild.ContentPatcher"));
+    assert!(err.to_string().contains("Pathoschild.ContentPatcher"));
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -257,7 +257,7 @@ fn load_content_patcher_project_rejects_include_paths_outside_project_root() {
 
     let err = load_content_patcher_project(root.to_string_lossy().into_owned())
         .expect_err("include escape should fail");
-    assert!(err.contains("outside the project root"));
+    assert!(err.to_string().contains("outside the project root"));
 
     if outside_path.is_file() {
         fs::remove_file(&outside_path).expect("cleanup outside");
@@ -281,7 +281,7 @@ fn load_content_patcher_project_rejects_missing_include_outside_project_root_bef
 
     let err = load_content_patcher_project(root.to_string_lossy().into_owned())
         .expect_err("include escape should fail");
-    assert!(err.contains("outside the project root"));
+    assert!(err.to_string().contains("outside the project root"));
 
     fs::remove_dir_all(root).expect("cleanup");
 }

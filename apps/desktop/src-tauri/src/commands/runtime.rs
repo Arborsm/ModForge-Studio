@@ -120,33 +120,6 @@ where
         .map_err(|error| format!("Host command {command} returned an invalid result: {error}"))
 }
 
-fn response_to_typed_result<T, E>(
-    command: &HostCommandName,
-    response: HostCommandResponse,
-) -> Result<T, E>
-where
-    T: DeserializeOwned,
-    E: DeserializeOwned + From<String>,
-{
-    let command = command.as_str();
-    if !response.ok {
-        let error = response
-            .error
-            .ok_or_else(|| E::from(format!("Host command {command} failed.")))?;
-        return serde_json::from_value(error).map_err(|decode_error| {
-            E::from(format!(
-                "Host command {command} returned an invalid error payload: {decode_error}"
-            ))
-        });
-    }
-
-    serde_json::from_value(response.result.unwrap_or(Value::Null)).map_err(|error| {
-        E::from(format!(
-            "Host command {command} returned an invalid result: {error}"
-        ))
-    })
-}
-
 pub async fn execute_tauri_command<T>(
     app: AppHandle,
     debug_logging_state: DebugLoggingState,
@@ -178,44 +151,6 @@ where
         }
         ResolvedSidecarCommandOrResponse::Response(response) => {
             response_to_result(&command_name, response)
-        }
-    }
-}
-
-pub async fn execute_tauri_command_typed_error<T, E>(
-    app: AppHandle,
-    debug_logging_state: DebugLoggingState,
-    command_name: HostCommandName,
-    args: Value,
-) -> Result<T, E>
-where
-    T: DeserializeOwned,
-    E: DeserializeOwned + From<String>,
-{
-    let runtime = runtime(debug_logging_state.clone());
-    let ctx = SidecarContext::new(app, debug_logging_state);
-    let request_id = runtime.next_request_id();
-    match resolve_command(
-        &ctx,
-        RpcRequest {
-            id: json!(request_id.clone()),
-            command: command_name.as_str().to_string(),
-            args,
-        },
-    ) {
-        ResolvedSidecarCommandOrResponse::Command(command) => {
-            let resolved_command_name = command.name.clone();
-            let mut receiver = runtime.writer.register(request_id).map_err(E::from)?;
-            runtime.scheduler.submit(command);
-            let response = receiver.recv().await.ok_or_else(|| {
-                E::from(format!(
-                    "Host command {resolved_command_name} response channel closed."
-                ))
-            })?;
-            response_to_typed_result(&command_name, response)
-        }
-        ResolvedSidecarCommandOrResponse::Response(response) => {
-            response_to_typed_result(&command_name, response)
         }
     }
 }

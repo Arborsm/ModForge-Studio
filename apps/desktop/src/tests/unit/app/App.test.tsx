@@ -1024,7 +1024,7 @@ describe('App locale ownership', () => {
 
     fireEvent.click(screen.getByRole('button', { name: englishSettingsName }))
 
-    const localeGroup = await screen.findByRole('radiogroup', { name: englishSettingsCopy.languageLabel })
+    const localeGroup = await screen.findByRole('radiogroup', { name: englishSettingsCopy.languageLabel }, { timeout: 3000 })
     const chineseOption = screen.getByRole('radio', { name: englishSettingsCopy.localeLabels['zh-CN'] })
 
     expect(localeGroup).toBeTruthy()

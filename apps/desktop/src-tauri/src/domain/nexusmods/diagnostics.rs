@@ -6,6 +6,7 @@ use crate::AppHandle;
 use crate::domain::launcher::paths::launcher_settings_path;
 use crate::domain::launcher::settings::load_or_create_settings_at_path;
 use crate::domain::launcher::types::LauncherSettings;
+use anyhow::{Context, bail};
 use std::collections::BTreeMap;
 use std::sync::{Mutex, OnceLock};
 use std::thread;
@@ -130,11 +131,11 @@ pub(crate) fn probe_launcher_nexus_route_with_runner<F>(
     _sleep_between_attempts: bool,
 ) -> NexusRouteSnapshot
 where
-    F: FnMut() -> Result<(), String>,
+    F: FnMut() -> anyhow::Result<()>,
 {
     match run_attempt() {
         Ok(()) => launcher_nexus_success_snapshot(route, 1),
-        Err(error) => launcher_nexus_warning_snapshot(route, 1, &error),
+        Err(error) => launcher_nexus_warning_snapshot(route, 1, &error.to_string()),
     }
 }
 
@@ -216,9 +217,9 @@ pub(crate) fn probe_blocked_launcher_nexus_route_with_runner<F>(
     route: LauncherNexusRoute,
     run_attempt: F,
     sleep_between_attempts: bool,
-) -> Result<(), String>
+) -> anyhow::Result<()>
 where
-    F: FnMut() -> Result<(), String>,
+    F: FnMut() -> anyhow::Result<()>,
 {
     if launcher_nexus_force_offline_active() {
         return ensure_launcher_nexus_route_available(route);
@@ -247,7 +248,7 @@ where
     };
 
     match recovery_error {
-        Some(error) => Err(error),
+        Some(error) => Err(anyhow::anyhow!(error)),
         None => Ok(()),
     }
 }
@@ -275,7 +276,7 @@ fn retry_launcher_nexus_route_with_settings(
     _app: Option<&AppHandle>,
     settings: &LauncherSettings,
     route: LauncherNexusRoute,
-) -> Result<NexusDiagnosticsResult, String> {
+) -> anyhow::Result<NexusDiagnosticsResult> {
     ensure_launcher_nexus_route_enabled_in_settings(Some(settings), route)?;
 
     if launcher_nexus_force_offline_active() {
@@ -306,7 +307,7 @@ fn snapshot_launcher_nexus_diagnostics() -> NexusDiagnosticsResult {
 
 pub(crate) fn ensure_launcher_nexus_route_available(
     route: LauncherNexusRoute,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let state = launcher_nexus_diagnostics_state()
         .lock()
         .expect("launcher nexus diagnostics mutex should not be poisoned");
@@ -315,10 +316,11 @@ pub(crate) fn ensure_launcher_nexus_route_available(
     };
 
     if snapshot.status == NexusRouteStatus::Warning && !snapshot.available {
-        return Err(format!(
+        bail!(
             "Launcher Nexus route {} is disabled after startup diagnostics: {}",
-            snapshot.label, snapshot.message
-        ));
+            snapshot.label,
+            snapshot.message
+        );
     }
 
     Ok(())
@@ -327,7 +329,7 @@ pub(crate) fn ensure_launcher_nexus_route_available(
 fn ensure_launcher_nexus_route_enabled_in_settings(
     _settings: Option<&LauncherSettings>,
     route: LauncherNexusRoute,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let _ = route;
     Ok(())
 }
@@ -336,7 +338,7 @@ pub(crate) fn probe_blocked_launcher_nexus_route(
     client: &reqwest::blocking::Client,
     settings: Option<&LauncherSettings>,
     route: LauncherNexusRoute,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     ensure_launcher_nexus_route_enabled_in_settings(settings, route)?;
 
     if is_launcher_nexus_route_blocked(route) {
@@ -364,7 +366,7 @@ fn run_launcher_nexus_diagnostics(
                     launcher_nexus_warning_snapshot(
                         route,
                         LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS,
-                        &error,
+                        &error.to_string(),
                     ),
                 );
             }
@@ -433,7 +435,7 @@ fn start_launcher_nexus_diagnostics_with_settings(
     thread::spawn(move || run_launcher_nexus_diagnostics(settings, generation, app));
 }
 
-pub(crate) fn prime_launcher_nexus_diagnostics(_app: &AppHandle) -> Result<(), String> {
+pub(crate) fn prime_launcher_nexus_diagnostics(_app: &AppHandle) -> anyhow::Result<()> {
     let settings_path = launcher_settings_path()?;
     let settings = load_or_create_settings_at_path(&settings_path)?;
     start_launcher_nexus_diagnostics_with_settings(settings, false, Some(_app.clone()));
@@ -488,7 +490,7 @@ pub(crate) fn set_launcher_nexus_force_offline_with_settings(
 pub(crate) fn set_launcher_nexus_force_offline(
     _app: &AppHandle,
     force_offline: bool,
-) -> Result<NexusDiagnosticsResult, String> {
+) -> anyhow::Result<NexusDiagnosticsResult> {
     let settings_path = launcher_settings_path()?;
     let settings = load_or_create_settings_at_path(&settings_path)?;
     Ok(set_launcher_nexus_force_offline_with_settings(
@@ -499,7 +501,7 @@ pub(crate) fn set_launcher_nexus_force_offline(
 
 pub(crate) fn load_launcher_nexus_diagnostics(
     app: &AppHandle,
-) -> Result<NexusDiagnosticsResult, String> {
+) -> anyhow::Result<NexusDiagnosticsResult> {
     prime_launcher_nexus_diagnostics(app)?;
     Ok(snapshot_launcher_nexus_diagnostics())
 }
@@ -507,9 +509,9 @@ pub(crate) fn load_launcher_nexus_diagnostics(
 pub(crate) fn retry_launcher_nexus_diagnostics_route(
     app: &AppHandle,
     route_id: String,
-) -> Result<NexusDiagnosticsResult, String> {
+) -> anyhow::Result<NexusDiagnosticsResult> {
     let route = LauncherNexusRoute::from_route_id(&route_id)
-        .ok_or_else(|| format!("Unknown launcher Nexus diagnostics route: {route_id}"))?;
+        .with_context(|| format!("Unknown launcher Nexus diagnostics route: {route_id}"))?;
     let settings_path = launcher_settings_path()?;
     let settings = load_or_create_settings_at_path(&settings_path)?;
     retry_launcher_nexus_route_with_settings(Some(app), &settings, route)
@@ -517,7 +519,7 @@ pub(crate) fn retry_launcher_nexus_diagnostics_route(
 
 pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
     _app: &AppHandle,
-) -> Result<NexusDiagnosticsResult, String> {
+) -> anyhow::Result<NexusDiagnosticsResult> {
     let settings_path = launcher_settings_path()?;
     let settings = load_or_create_settings_at_path(&settings_path)?;
     restart_launcher_nexus_diagnostics_with_handle(Some(_app), &settings);
@@ -564,7 +566,7 @@ pub(crate) fn set_launcher_nexus_route_snapshot_from_probe_for_test<F>(
     run_attempt: F,
     sleep_between_attempts: bool,
 ) where
-    F: FnMut() -> Result<(), String>,
+    F: FnMut() -> anyhow::Result<()>,
 {
     let snapshot =
         probe_launcher_nexus_route_with_runner(route, run_attempt, sleep_between_attempts);

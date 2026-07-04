@@ -1,3 +1,4 @@
+use anyhow::Context;
 use serde_json::Value;
 use std::path::Path;
 
@@ -173,10 +174,10 @@ fn normalize_json_chars(input: &str) -> String {
     output
 }
 
-fn decode_json_bytes(bytes: &[u8], source_label: &str) -> Result<String, String> {
+fn decode_json_bytes(bytes: &[u8], source_label: &str) -> anyhow::Result<String> {
     if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
         return String::from_utf8(bytes[3..].to_vec())
-            .map_err(|error| format!("Failed to decode {source_label} as UTF-8: {error}"));
+            .with_context(|| format!("Failed to decode {source_label} as UTF-8"));
     }
 
     if bytes.starts_with(&[0xFF, 0xFE]) {
@@ -208,19 +209,18 @@ fn sanitize_json_text(raw: &str) -> String {
     normalize_json_chars(&without_trailing_commas)
 }
 
-pub(crate) fn parse_json_str(raw: &str, source_label: &str) -> Result<Value, String> {
+pub(crate) fn parse_json_str(raw: &str, source_label: &str) -> anyhow::Result<Value> {
     let trimmed = raw.trim_start_matches('\u{feff}');
     serde_json::from_str::<Value>(trimmed).or_else(|primary_error| {
         let sanitized = sanitize_json_text(trimmed);
-        serde_json::from_str::<Value>(&sanitized).map_err(|secondary_error| {
-            format!("Failed to parse {source_label}: {primary_error}; relaxed parse also failed: {secondary_error}")
+        serde_json::from_str::<Value>(&sanitized).with_context(|| {
+            format!("Failed to parse {source_label}: {primary_error}; relaxed parse also failed")
         })
     })
 }
 
-pub(crate) fn read_json_file(path: &Path, source_label: &str) -> Result<(String, Value), String> {
-    let bytes =
-        std::fs::read(path).map_err(|error| format!("Failed to read {source_label}: {error}"))?;
+pub(crate) fn read_json_file(path: &Path, source_label: &str) -> anyhow::Result<(String, Value)> {
+    let bytes = std::fs::read(path).with_context(|| format!("Failed to read {source_label}"))?;
     let raw = decode_json_bytes(&bytes, source_label)?;
     let parsed = parse_json_str(&raw, source_label)?;
     Ok((raw, parsed))

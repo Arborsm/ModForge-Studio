@@ -9,6 +9,7 @@ use std::sync::{
 };
 
 use crate::domain::app_paths::app_logs_dir;
+use anyhow::{Context, bail};
 use log::{LevelFilter, Metadata, Record, RecordBuilder};
 use owo_colors::OwoColorize;
 use serde::Deserialize;
@@ -36,7 +37,7 @@ pub struct LogFileConfig {
     pub retained_file_count: usize,
 }
 
-pub fn log_file_config() -> Result<LogFileConfig, String> {
+pub fn log_file_config() -> anyhow::Result<LogFileConfig> {
     Ok(LogFileConfig {
         directory: app_logs_dir()?,
         file_name: LOG_FILE_NAME,
@@ -456,10 +457,10 @@ impl log::Log for SidecarStderrLogger {
 }
 
 impl HostLogFile {
-    fn new(config: LogFileConfig) -> Result<Self, String> {
-        fs::create_dir_all(&config.directory).map_err(|error| {
+    fn new(config: LogFileConfig) -> anyhow::Result<Self> {
+        fs::create_dir_all(&config.directory).with_context(|| {
             format!(
-                "Failed to create log directory {}: {error}",
+                "Failed to create log directory {}",
                 config.directory.display()
             )
         })?;
@@ -477,27 +478,25 @@ impl HostLogFile {
         })
     }
 
-    fn write_line(&mut self, line: &str) -> Result<(), String> {
+    fn write_line(&mut self, line: &str) -> anyhow::Result<()> {
         let line_size = line.len() as u64 + 1;
         if self.current_size_bytes.saturating_add(line_size) > self.max_file_size_bytes {
             self.rotate()?;
         }
 
         let Some(file) = self.file.as_mut() else {
-            return Err("Host log file is not open.".to_string());
+            bail!("Host log file is not open.");
         };
 
         file.write_all(line.as_bytes())
             .and_then(|_| file.write_all(b"\n"))
             .and_then(|_| file.flush())
-            .map_err(|error| {
-                format!("Failed to write host log {}: {error}", self.path.display())
-            })?;
+            .with_context(|| format!("Failed to write host log {}", self.path.display()))?;
         self.current_size_bytes = self.current_size_bytes.saturating_add(line_size);
         Ok(())
     }
 
-    fn rotate(&mut self) -> Result<(), String> {
+    fn rotate(&mut self) -> anyhow::Result<()> {
         self.file.take();
 
         for index in (1..=self.retained_file_count).rev() {
@@ -507,17 +506,14 @@ impl HostLogFile {
             }
 
             if index == self.retained_file_count {
-                fs::remove_file(&source).map_err(|error| {
-                    format!(
-                        "Failed to remove old host log {}: {error}",
-                        source.display()
-                    )
+                fs::remove_file(&source).with_context(|| {
+                    format!("Failed to remove old host log {}", source.display())
                 })?;
             } else {
                 let target = rotated_host_log_path(&self.path, index + 1);
-                fs::rename(&source, &target).map_err(|error| {
+                fs::rename(&source, &target).with_context(|| {
                     format!(
-                        "Failed to rotate host log {} to {}: {error}",
+                        "Failed to rotate host log {} to {}",
                         source.display(),
                         target.display()
                     )
@@ -526,9 +522,8 @@ impl HostLogFile {
         }
 
         if self.path.exists() {
-            fs::rename(&self.path, rotated_host_log_path(&self.path, 1)).map_err(|error| {
-                format!("Failed to rotate host log {}: {error}", self.path.display())
-            })?;
+            fs::rename(&self.path, rotated_host_log_path(&self.path, 1))
+                .with_context(|| format!("Failed to rotate host log {}", self.path.display()))?;
         }
 
         self.file = Some(open_host_log_file(&self.path)?);
@@ -585,12 +580,12 @@ fn rotated_host_log_path(path: &Path, index: usize) -> PathBuf {
     path.with_file_name(format!("{file_stem}.{index}.{extension}"))
 }
 
-fn open_host_log_file(path: &Path) -> Result<File, String> {
+fn open_host_log_file(path: &Path) -> anyhow::Result<File> {
     OpenOptions::new()
         .create(true)
         .append(true)
         .open(path)
-        .map_err(|error| format!("Failed to open host log {}: {error}", path.display()))
+        .with_context(|| format!("Failed to open host log {}", path.display()))
 }
 
 pub fn init_sidecar_logging(state: &DebugLoggingState) -> Result<(), log::SetLoggerError> {
@@ -602,13 +597,13 @@ pub fn init_sidecar_logging(state: &DebugLoggingState) -> Result<(), log::SetLog
     Ok(())
 }
 
-pub fn init_host_logging(state: &DebugLoggingState) -> Result<(), String> {
+pub fn init_host_logging(state: &DebugLoggingState) -> anyhow::Result<()> {
     log::set_boxed_logger(Box::new(HostLogger {
         state: state.clone(),
         terminal_noise: TerminalNoiseState::new(),
         file: Mutex::new(HostLogFile::new(log_file_config()?)?),
     }))
-    .map_err(|error| format!("Failed to install ModForge host logger: {error}"))?;
+    .with_context(|| format!("Failed to install ModForge host logger"))?;
     state.apply_global_level_filter();
     Ok(())
 }

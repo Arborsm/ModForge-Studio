@@ -2,9 +2,9 @@ use crate::domain::launcher::types::{
     CheckLauncherUpdatesRequest, DownloadLauncherModRequest, DownloadLauncherModResult,
     InspectLauncherArchiveRequest, InspectLauncherArchiveResult, InstallLauncherArchiveRequest,
     InstallLauncherArchiveResult, LauncherCatalogPageResult, LauncherDownloadQueueState,
-    LauncherGameLaunchError, LauncherGameLaunchResult, LauncherImageFailuresState,
-    LauncherInstallBackupSummary, LauncherLibraryCoversState, LauncherLibraryScanResult,
-    LauncherLibraryState, LauncherRemoteModDetail, LauncherRuntimeInfo, LauncherSettings,
+    LauncherGameLaunchResult, LauncherImageFailuresState, LauncherInstallBackupSummary,
+    LauncherLibraryCoversState, LauncherLibraryScanResult, LauncherLibraryState,
+    LauncherRemoteModDetail, LauncherRuntimeInfo, LauncherSettings,
     LauncherSuppressedUpdateModIdsResult, LauncherUpdateChangelogResult, LauncherUpdatesResult,
     ListLauncherInstallBackupsRequest, LoadCachedLauncherUpdatesRequest,
     LoadLauncherRemoteModDetailRequest, LoadLauncherUpdateChangelogRequest,
@@ -55,8 +55,8 @@ pub async fn save_launcher_settings(
 pub async fn launch_launcher_game(
     app: tauri::AppHandle<AppRuntime>,
     debug_logging_state: State<'_, DebugLoggingState>,
-) -> Result<LauncherGameLaunchResult, LauncherGameLaunchError> {
-    crate::commands::runtime::execute_tauri_command_typed_error(
+) -> Result<LauncherGameLaunchResult, String> {
+    crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state.inner().clone(),
         crate::host_command_name!(launch_launcher_game),

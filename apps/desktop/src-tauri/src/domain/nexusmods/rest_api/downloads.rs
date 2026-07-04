@@ -2,6 +2,7 @@ use crate::domain::launcher::types::LauncherSettings;
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::http::{api_headers, send_nexus_request};
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
+use anyhow::{Context, bail};
 use reqwest::blocking::{Client, Response};
 use serde_json::Value;
 
@@ -28,7 +29,7 @@ pub(crate) fn fetch_mod_files_payload(
     client: &Client,
     settings: &LauncherSettings,
     mod_id: i64,
-) -> Result<Value, String> {
+) -> anyhow::Result<Value> {
     probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::NexusApi)?;
     let response = client.get(super::mod_files_endpoint(mod_id));
     let api_key = settings
@@ -36,9 +37,7 @@ pub(crate) fn fetch_mod_files_payload(
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| {
-            "Configure a Nexus API key before fetching launcher mod files.".to_string()
-        })?;
+        .context("Configure a Nexus API key before fetching launcher mod files.")?;
     let headers = api_headers(api_key)?;
     let response = send_nexus_request(|| {
         response
@@ -47,30 +46,30 @@ pub(crate) fn fetch_mod_files_payload(
             .headers(headers.clone())
             .send()
     })
-    .map_err(|error| format!("Failed to fetch launcher mod files: {error}"))?;
+    .with_context(|| format!("Failed to fetch launcher mod files"))?;
     if !response.status().is_success() {
-        return Err(format!(
+        bail!(
             "Launcher mod files request failed for {mod_id}: HTTP {}",
             response.status()
-        ));
+        );
     }
 
     response
         .json::<Value>()
-        .map_err(|error| format!("Failed to parse launcher mod files JSON: {error}"))
+        .with_context(|| format!("Failed to parse launcher mod files JSON"))
 }
 
 pub(crate) fn select_download_candidate(
     payload: &Value,
     requested_file_id: Option<i64>,
     requested_version: Option<&str>,
-) -> Result<DownloadCandidate, String> {
+) -> anyhow::Result<DownloadCandidate> {
     let files = payload
         .get("files")
         .and_then(Value::as_array)
-        .ok_or_else(|| "Launcher mod files payload did not contain a files array.".to_string())?;
+        .context("Launcher mod files payload did not contain a files array.")?;
     if files.is_empty() {
-        return Err("Launcher mod did not contain any downloadable files.".to_string());
+        bail!("Launcher mod did not contain any downloadable files.");
     }
 
     let selected = if let Some(file_id) = requested_file_id {
@@ -91,18 +90,18 @@ pub(crate) fn select_download_candidate(
                 .unwrap_or_default()
         })
     }
-    .ok_or_else(|| "Unable to resolve a launcher download file.".to_string())?;
+    .context("Unable to resolve a launcher download file.")?;
 
     let file_id = selected
         .get("file_id")
         .and_then(Value::as_i64)
-        .ok_or_else(|| "Launcher download file is missing file_id.".to_string())?;
+        .context("Launcher download file is missing file_id.")?;
     let file_name = selected
         .get("file_name")
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| "Launcher download file is missing file_name.".to_string())?
+        .context("Launcher download file is missing file_name.")?
         .to_string();
 
     Ok(DownloadCandidate {
@@ -135,9 +134,10 @@ pub(crate) fn resolve_download_url(
         })?;
 
     probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::NexusApi)
-        .map_err(ResolveDownloadUrlError::Message)?;
+        .map_err(|error| ResolveDownloadUrlError::Message(error.to_string()))?;
     let response = client.get(super::download_link_endpoint(mod_id, file_id));
-    let headers = api_headers(api_key).map_err(ResolveDownloadUrlError::Message)?;
+    let headers = api_headers(api_key)
+        .map_err(|error| ResolveDownloadUrlError::Message(error.to_string()))?;
     let response = send_nexus_request(|| {
         response
             .try_clone()
@@ -181,9 +181,9 @@ pub(crate) fn resolve_download_url(
 pub(crate) fn download_file_response(
     client: &Client,
     download_url: &str,
-) -> Result<Response, String> {
+) -> anyhow::Result<Response> {
     let response = client.get(download_url);
     let response = send_nexus_request(|| response.try_clone().expect("request clone").send())
-        .map_err(|error| format!("Failed to download launcher mod: {error}"))?;
+        .with_context(|| format!("Failed to download launcher mod"))?;
     Ok(response)
 }

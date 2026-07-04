@@ -1,16 +1,17 @@
+use anyhow::{Context, bail};
 use std::fs;
 use std::io::{Read, Seek, SeekFrom};
 
-pub fn read_u16_le(bytes: &[u8], offset: usize) -> Result<u16, String> {
+pub fn read_u16_le(bytes: &[u8], offset: usize) -> anyhow::Result<u16> {
     if offset + 2 > bytes.len() {
-        return Err("Unexpected end of buffer.".to_string());
+        bail!("Unexpected end of buffer.");
     }
     Ok(u16::from_le_bytes([bytes[offset], bytes[offset + 1]]))
 }
 
-pub fn read_u32_le(bytes: &[u8], offset: usize) -> Result<u32, String> {
+pub fn read_u32_le(bytes: &[u8], offset: usize) -> anyhow::Result<u32> {
     if offset + 4 > bytes.len() {
-        return Err("Unexpected end of buffer.".to_string());
+        bail!("Unexpected end of buffer.");
     }
     Ok(u32::from_le_bytes([
         bytes[offset],
@@ -20,11 +21,11 @@ pub fn read_u32_le(bytes: &[u8], offset: usize) -> Result<u32, String> {
     ]))
 }
 
-pub fn read_exact_at(file: &mut fs::File, offset: u64, size: usize) -> Result<Vec<u8>, String> {
+pub fn read_exact_at(file: &mut fs::File, offset: u64, size: usize) -> anyhow::Result<Vec<u8>> {
     let mut buffer = vec![0u8; size];
     file.seek(SeekFrom::Start(offset))
-        .map_err(|error| format!("Failed to seek audio file: {error}"))?;
+        .with_context(|| format!("Failed to seek audio file"))?;
     file.read_exact(&mut buffer)
-        .map_err(|error| format!("Failed to read audio file: {error}"))?;
+        .with_context(|| format!("Failed to read audio file"))?;
     Ok(buffer)
 }

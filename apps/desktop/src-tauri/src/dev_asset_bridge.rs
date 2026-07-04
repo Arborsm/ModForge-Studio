@@ -213,7 +213,7 @@ fn required_param<'a>(params: &'a HashMap<String, String>, key: &str) -> Result<
 
 fn write_json_result<T: serde::Serialize>(
     stream: &mut TcpStream,
-    result: Result<T, String>,
+    result: anyhow::Result<T>,
 ) -> Result<(), String> {
     match result {
         Ok(value) => {
@@ -222,6 +222,7 @@ fn write_json_result<T: serde::Serialize>(
             write_response(stream, 200, "OK", "application/json; charset=utf-8", &body)
         }
         Err(error) => {
+            let error = error.to_string();
             let body = serde_json::to_string(&serde_json::json!({ "error": error }))
                 .map_err(|error| format!("Failed to serialize bridge error: {error}"))?;
             write_response(

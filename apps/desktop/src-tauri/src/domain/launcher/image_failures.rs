@@ -4,6 +4,7 @@ use super::types::{
 };
 use crate::AppHandle;
 use crate::infrastructure::fs::pathing::normalize_path;
+use anyhow::{Context, bail};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
@@ -55,18 +56,18 @@ fn normalize_state(state: LauncherImageFailuresState) -> LauncherImageFailuresSt
 
 fn load_or_create_image_failures_at_path_unlocked(
     path: &Path,
-) -> Result<LauncherImageFailuresState, String> {
+) -> anyhow::Result<LauncherImageFailuresState> {
     if path.is_file() {
-        let content = fs::read_to_string(path).map_err(|error| {
+        let content = fs::read_to_string(path).with_context(|| {
             format!(
-                "Failed to read launcher image failures {}: {error}",
+                "Failed to read launcher image failures {}",
                 normalize_path(path)
             )
         })?;
         let parsed: LauncherImageFailuresState =
-            serde_json::from_str(&content).map_err(|error| {
+            serde_json::from_str(&content).with_context(|| {
                 format!(
-                    "Launcher image failures {} is invalid JSON: {error}",
+                    "Launcher image failures {} is invalid JSON",
                     normalize_path(path)
                 )
             })?;
@@ -83,11 +84,11 @@ fn load_or_create_image_failures_at_path_unlocked(
 fn save_image_failures_at_path_unlocked(
     path: &Path,
     state: &LauncherImageFailuresState,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|error| {
+        fs::create_dir_all(parent).with_context(|| {
             format!(
-                "Failed to create launcher image failures directory {}: {error}",
+                "Failed to create launcher image failures directory {}",
                 normalize_path(parent)
             )
         })?;
@@ -95,10 +96,10 @@ fn save_image_failures_at_path_unlocked(
 
     let normalized = normalize_state(state.clone());
     let json = serde_json::to_string_pretty(&normalized)
-        .map_err(|error| format!("Failed to serialize launcher image failures JSON: {error}"))?;
-    fs::write(path, format!("{json}\n")).map_err(|error| {
+        .with_context(|| format!("Failed to serialize launcher image failures JSON"))?;
+    fs::write(path, format!("{json}\n")).with_context(|| {
         format!(
-            "Failed to write launcher image failures {}: {error}",
+            "Failed to write launcher image failures {}",
             normalize_path(path)
         )
     })?;
@@ -107,7 +108,7 @@ fn save_image_failures_at_path_unlocked(
 
 pub(crate) fn load_or_create_image_failures_at_path(
     path: &Path,
-) -> Result<LauncherImageFailuresState, String> {
+) -> anyhow::Result<LauncherImageFailuresState> {
     let _guard = lock_launcher_image_failures_file();
     load_or_create_image_failures_at_path_unlocked(path)
 }
@@ -134,12 +135,12 @@ pub(crate) fn get_launcher_image_failure_entry(
         .cloned()
 }
 
-pub(crate) fn clear_launcher_image_failure_entries_at_path(path: &Path) -> Result<(), String> {
+pub(crate) fn clear_launcher_image_failure_entries_at_path(path: &Path) -> anyhow::Result<()> {
     let _guard = lock_launcher_image_failures_file();
     if path.exists() {
-        fs::remove_file(path).map_err(|error| {
+        fs::remove_file(path).with_context(|| {
             format!(
-                "Failed to clear launcher image failures {}: {error}",
+                "Failed to clear launcher image failures {}",
                 normalize_path(path)
             )
         })?;
@@ -151,10 +152,10 @@ pub(crate) fn record_launcher_image_failure_at_path(
     path: &Path,
     mod_key: &str,
     error: &str,
-) -> Result<LauncherImageFailuresState, String> {
+) -> anyhow::Result<LauncherImageFailuresState> {
     let mod_key = mod_key.trim();
     if mod_key.is_empty() {
-        return Err("modKey is required.".to_string());
+        bail!("modKey is required.");
     }
     let _guard = lock_launcher_image_failures_file();
     let mut state = load_or_create_image_failures_at_path_unlocked(path)?;
@@ -215,7 +216,7 @@ pub(crate) fn record_launcher_image_failure_at_path(
 pub(crate) fn record_launcher_image_failure(
     mod_key: &str,
     error: &str,
-) -> Result<LauncherImageFailuresState, String> {
+) -> anyhow::Result<LauncherImageFailuresState> {
     let path = launcher_image_failures_path()?;
     record_launcher_image_failure_at_path(&path, mod_key, error)
 }
@@ -223,10 +224,10 @@ pub(crate) fn record_launcher_image_failure(
 pub(crate) fn clear_launcher_image_failure_for_mod_at_path(
     path: &Path,
     mod_key: &str,
-) -> Result<LauncherImageFailuresState, String> {
+) -> anyhow::Result<LauncherImageFailuresState> {
     let mod_key = mod_key.trim();
     if mod_key.is_empty() {
-        return Err("modKey is required.".to_string());
+        bail!("modKey is required.");
     }
     let _guard = lock_launcher_image_failures_file();
     let mut state = load_or_create_image_failures_at_path_unlocked(path)?;
@@ -243,7 +244,7 @@ pub(crate) fn is_launcher_image_blocked(state: &LauncherImageFailuresState, mod_
     get_launcher_image_failure_entry(state, mod_key).is_some_and(|entry| entry.blocked)
 }
 
-pub fn load_launcher_image_failures(_app: AppHandle) -> Result<LauncherImageFailuresState, String> {
+pub fn load_launcher_image_failures(_app: AppHandle) -> anyhow::Result<LauncherImageFailuresState> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_launcher_image_failures",
         (|| {
@@ -256,7 +257,7 @@ pub fn load_launcher_image_failures(_app: AppHandle) -> Result<LauncherImageFail
 pub fn record_launcher_image_failure_command(
     _app: AppHandle,
     request: RecordLauncherImageFailureRequest,
-) -> Result<LauncherImageFailuresState, String> {
+) -> anyhow::Result<LauncherImageFailuresState> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "record_launcher_image_failure",
         (|| record_launcher_image_failure(&request.mod_key, &request.error))(),

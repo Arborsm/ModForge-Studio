@@ -1,3 +1,4 @@
+use anyhow::Context;
 use reqwest::StatusCode;
 use reqwest::blocking::{Client, Response};
 use reqwest::header::{ACCEPT, HeaderMap, HeaderValue, USER_AGENT};
@@ -74,12 +75,12 @@ struct NexusThrottleState {
     last_request_started_at: Option<Instant>,
 }
 
-pub(crate) fn launcher_http_client() -> Result<Client, String> {
+pub(crate) fn launcher_http_client() -> anyhow::Result<Client> {
     Client::builder()
         .connect_timeout(Duration::from_secs(5))
         .timeout(Duration::from_secs(12))
         .build()
-        .map_err(|error| format!("Failed to create launcher HTTP client: {error}"))
+        .with_context(|| format!("Failed to create launcher HTTP client"))
 }
 
 fn nexus_throttle_state() -> &'static Mutex<NexusThrottleState> {
@@ -234,7 +235,7 @@ fn reqwest_error_with_sources(error: &reqwest::Error) -> String {
     message
 }
 
-pub(crate) fn send_nexus_request<F>(mut send: F) -> Result<Response, String>
+pub(crate) fn send_nexus_request<F>(mut send: F) -> anyhow::Result<Response>
 where
     F: FnMut() -> Result<Response, reqwest::Error>,
 {
@@ -244,7 +245,7 @@ where
 pub(crate) fn send_nexus_request_with_policy<F>(
     policy: NexusRetryPolicy,
     mut send: F,
-) -> Result<Response, String>
+) -> anyhow::Result<Response>
 where
     F: FnMut() -> Result<Response, reqwest::Error>,
 {
@@ -293,12 +294,14 @@ where
         }
     }
 
-    Err(last_error.unwrap_or_else(|| "Nexus request failed without an error message.".to_string()))
+    Err(last_error
+        .map(|error| anyhow::anyhow!(error))
+        .unwrap_or_else(|| anyhow::anyhow!("Nexus request failed without an error message.")))
 }
 
-pub(crate) fn read_nexus_response_body_with_retry<F>(mut read_body: F) -> Result<Vec<u8>, String>
+pub(crate) fn read_nexus_response_body_with_retry<F>(mut read_body: F) -> anyhow::Result<Vec<u8>>
 where
-    F: FnMut() -> Result<Vec<u8>, String>,
+    F: FnMut() -> anyhow::Result<Vec<u8>>,
 {
     read_nexus_response_body_with_retry_policy(DEFAULT_NEXUS_RETRY_POLICY, &mut read_body)
 }
@@ -306,9 +309,9 @@ where
 pub(crate) fn read_nexus_response_body_with_retry_policy<T, F>(
     policy: NexusRetryPolicy,
     mut read_body: F,
-) -> Result<T, String>
+) -> anyhow::Result<T>
 where
-    F: FnMut() -> Result<T, String>,
+    F: FnMut() -> anyhow::Result<T>,
 {
     let mut last_error = None;
 
@@ -336,18 +339,21 @@ where
     }
 
     Err(last_error
-        .unwrap_or_else(|| "Nexus response body read failed without an error message.".to_string()))
+        .map(|error| anyhow::anyhow!(error))
+        .unwrap_or_else(|| {
+            anyhow::anyhow!("Nexus response body read failed without an error message.")
+        }))
 }
 
-fn should_retry_body_read_error(error: &str) -> bool {
-    let normalized = error.trim().to_ascii_lowercase();
+fn should_retry_body_read_error(error: &impl std::fmt::Display) -> bool {
+    let normalized = error.to_string().trim().to_ascii_lowercase();
     normalized.contains("error decoding response body")
         || normalized.contains("unexpected eof")
         || normalized.contains("connection reset")
         || normalized.contains("channel closed")
 }
 
-pub(crate) fn send_nexus_json_request<F>(send: F) -> Result<(StatusCode, Value), String>
+pub(crate) fn send_nexus_json_request<F>(send: F) -> anyhow::Result<(StatusCode, Value)>
 where
     F: FnMut() -> Result<Response, reqwest::Error>,
 {
@@ -363,23 +369,23 @@ where
         response
             .bytes()
             .map(|bytes| bytes.to_vec())
-            .map_err(|error| error.to_string())
+            .map_err(anyhow::Error::msg)
     })?;
     if !status.is_success() {
         return Ok((status, Value::Null));
     }
 
-    let payload = serde_json::from_slice::<Value>(&body).map_err(|error| error.to_string())?;
+    let payload = serde_json::from_slice::<Value>(&body)?;
     Ok((status, payload))
 }
 
-pub(crate) fn api_headers(api_key: &str) -> Result<HeaderMap, String> {
+pub(crate) fn api_headers(api_key: &str) -> anyhow::Result<HeaderMap> {
     let mut headers = HeaderMap::new();
     apply_launcher_headers(&mut headers);
     headers.insert(
         "apikey",
         HeaderValue::from_str(api_key)
-            .map_err(|error| format!("Failed to encode launcher Nexus API key header: {error}"))?,
+            .with_context(|| format!("Failed to encode launcher Nexus API key header"))?,
     );
     Ok(headers)
 }

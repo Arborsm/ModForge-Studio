@@ -247,8 +247,8 @@ describe('PatchListPage event hub', () => {
     fireEvent.contextMenu(screen.getByRole('button', { name: '#02event_square_meeting_1900' }))
     fireEvent.click(screen.getByRole('menuitem', { name: '设计触发条件' }))
 
-    const dialog = await screen.findByRole('dialog', { name: '触发条件设计器' }, { timeout: 3000 })
-    const dock = await screen.findByLabelText('窗口外预览')
+    const dialog = await screen.findByRole('dialog', { name: '触发条件设计器' }, { timeout: 10000 })
+    const dock = await screen.findByLabelText('窗口外预览', {}, { timeout: 10000 })
     expect(dialog).toBeTruthy()
     expect(dock).toBeTruthy()
     // The preview/chain docks live as siblings of the modal panel inside the

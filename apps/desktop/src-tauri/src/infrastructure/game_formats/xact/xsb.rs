@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use super::io::{read_u16_le, read_u32_le};
+use anyhow::{Context, bail};
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct SoundEntry {
@@ -218,14 +219,14 @@ pub(crate) struct XsbHeader {
     pub sounds_offset: u32,
 }
 
-pub(crate) fn parse_xsb_header(bytes: &[u8]) -> Result<XsbHeader, String> {
+pub(crate) fn parse_xsb_header(bytes: &[u8]) -> anyhow::Result<XsbHeader> {
     if bytes.len() < 80 {
-        return Err("Sound bank is too small.".to_string());
+        bail!("Sound bank is too small.");
     }
 
     let magic = std::str::from_utf8(&bytes[0..4]).unwrap_or_default();
     if magic != "SDBK" {
-        return Err("Sound bank file does not start with SDBK.".to_string());
+        bail!("Sound bank file does not start with SDBK.");
     }
 
     let num_simple_cues = read_u16_le(bytes, 19)?;
@@ -255,11 +256,11 @@ pub(crate) fn parse_xsb_header(bytes: &[u8]) -> Result<XsbHeader, String> {
     })
 }
 
-pub(crate) fn read_xsb_cue_names(bytes: &[u8], header: &XsbHeader) -> Result<Vec<String>, String> {
+pub(crate) fn read_xsb_cue_names(bytes: &[u8], header: &XsbHeader) -> anyhow::Result<Vec<String>> {
     let offset = header.cue_names_offset as usize;
     let length = header.cue_name_table_len as usize;
     if offset + length > bytes.len() {
-        return Err("Sound bank cue name table is out of range.".to_string());
+        bail!("Sound bank cue name table is out of range.");
     }
 
     let raw = &bytes[offset..offset + length];
@@ -276,13 +277,13 @@ pub(crate) fn read_xsb_cue_names(bytes: &[u8], header: &XsbHeader) -> Result<Vec
 pub(crate) fn read_xsb_wave_bank_names(
     bytes: &[u8],
     header: &XsbHeader,
-) -> Result<Vec<String>, String> {
+) -> anyhow::Result<Vec<String>> {
     let offset = header.wave_bank_name_table_offset as usize;
     let entry_size = 64usize;
     let total = header.num_wave_banks as usize;
     let end = offset + entry_size * total;
     if end > bytes.len() {
-        return Err("Sound bank wave bank table is out of range.".to_string());
+        bail!("Sound bank wave bank table is out of range.");
     }
 
     let mut names = Vec::with_capacity(total);
@@ -301,22 +302,22 @@ pub(crate) fn read_xsb_wave_bank_names(
 pub(crate) fn read_sound_entries(
     bytes: &[u8],
     header: &XsbHeader,
-) -> Result<Vec<SoundEntry>, String> {
+) -> anyhow::Result<Vec<SoundEntry>> {
     let mut entries = Vec::with_capacity(header.num_sounds as usize);
     let mut offset = header.sounds_offset as usize;
     let base = offset;
 
     for index in 0..header.num_sounds as usize {
         if offset + 8 > bytes.len() {
-            return Err("Sound entry table is out of range.".to_string());
+            bail!("Sound entry table is out of range.");
         }
         let length = read_u16_le(bytes, offset + 7)?;
         if length == 0 {
-            return Err("Sound entry length is zero.".to_string());
+            bail!("Sound entry length is zero.");
         }
         let length_usize = length as usize;
         if offset + length_usize > bytes.len() {
-            return Err("Sound entry extends beyond file.".to_string());
+            bail!("Sound entry extends beyond file.");
         }
 
         entries.push(SoundEntry {
@@ -369,17 +370,17 @@ fn parse_complex_cue_entry(
     bytes: &[u8],
     header: &XsbHeader,
     cue_index: usize,
-) -> Result<ComplexCueEntry, String> {
+) -> anyhow::Result<ComplexCueEntry> {
     let complex_index = cue_index
         .checked_sub(header.num_simple_cues as usize)
-        .ok_or_else(|| "Cue index is not within the complex cue range.".to_string())?;
+        .context("Cue index is not within the complex cue range.")?;
     if complex_index >= header.num_complex_cues as usize {
-        return Err("Cue index is outside the complex cue range.".to_string());
+        bail!("Cue index is outside the complex cue range.");
     }
 
     let entry_offset = header.complex_cues_offset as usize + complex_index * 15;
     if entry_offset + 15 > bytes.len() {
-        return Err("Complex cue entry is out of range.".to_string());
+        bail!("Complex cue entry is out of range.");
     }
 
     let flags = bytes[entry_offset];
@@ -470,14 +471,14 @@ pub(crate) fn find_sound_entry_for_simple_cue<'a>(
     header: &'a XsbHeader,
     sound_entries: &'a [SoundEntry],
     cue_index: usize,
-) -> Result<&'a SoundEntry, String> {
+) -> anyhow::Result<&'a SoundEntry> {
     if cue_index >= header.num_simple_cues as usize {
-        return Err("Cue index is outside simple cue range.".to_string());
+        bail!("Cue index is outside simple cue range.");
     }
 
     let entry_offset = header.simple_cues_offset as usize + cue_index * 5;
     if entry_offset + 5 > bytes.len() {
-        return Err("Simple cue entry is out of range.".to_string());
+        bail!("Simple cue entry is out of range.");
     }
 
     let sound_offset = read_u32_le(bytes, entry_offset + 1)? as usize;
@@ -521,7 +522,7 @@ pub(crate) fn find_sound_entry_for_simple_cue<'a>(
         }
     }
 
-    Err("Failed to locate sound entry for cue.".to_string())
+    Err(anyhow::anyhow!("Failed to locate sound entry for cue."))
 }
 
 pub(crate) fn find_sound_match_for_cue(
@@ -531,11 +532,11 @@ pub(crate) fn find_sound_match_for_cue(
     cue_index: usize,
     wave_bank_counts: &[u32],
     best_offsets: &HashMap<u16, usize>,
-) -> Result<SoundOffsetMatch, String> {
+) -> anyhow::Result<SoundOffsetMatch> {
     if cue_index < header.num_simple_cues as usize {
         let sound_entry = find_sound_entry_for_simple_cue(bytes, header, sound_entries, cue_index)?;
         return parse_sound_entry_wave(bytes, sound_entry, wave_bank_counts, best_offsets)
-            .ok_or_else(|| {
+            .with_context(|| {
                 format!(
                     "Cue did not resolve to a playable wave entry (sound index {}).",
                     sound_entry.index
@@ -546,11 +547,9 @@ pub(crate) fn find_sound_match_for_cue(
     let entry = parse_complex_cue_entry(bytes, header, cue_index)?;
     if entry.direct_sound {
         let sound_entry = find_sound_entry_by_absolute_offset(sound_entries, entry.payload_offset)
-            .ok_or_else(|| {
-                "Complex cue sound entry offset did not match a sound entry.".to_string()
-            })?;
+            .context("Complex cue sound entry offset did not match a sound entry.")?;
         return parse_sound_entry_wave(bytes, sound_entry, wave_bank_counts, best_offsets)
-            .ok_or_else(|| {
+            .with_context(|| {
                 format!(
                     "Complex cue did not resolve to a playable wave entry (sound index {}).",
                     sound_entry.index
@@ -565,9 +564,7 @@ pub(crate) fn find_sound_match_for_cue(
         wave_bank_counts,
         best_offsets,
     )
-    .ok_or_else(|| {
-        "Complex cue variation table did not resolve to a playable wave entry.".to_string()
-    })
+    .context("Complex cue variation table did not resolve to a playable wave entry.")
 }
 
 pub(crate) fn parse_sound_entry_wave(

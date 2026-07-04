@@ -1,5 +1,6 @@
 use super::super::conditions::evaluate_patch_status;
 use super::super::context::SimulationContext;
+use anyhow::{Context, bail};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 
@@ -27,7 +28,7 @@ fn merge_json_value(base: &mut Value, patch: &Value) {
 
 fn parse_target_field_segments(
     patch: &Map<String, Value>,
-) -> Result<Vec<TargetFieldSegment>, String> {
+) -> anyhow::Result<Vec<TargetFieldSegment>> {
     let Some(target_field) = patch.get("TargetField") else {
         return Ok(Vec::new());
     };
@@ -36,9 +37,7 @@ fn parse_target_field_segments(
         Value::Array(values) => values.iter().collect::<Vec<_>>(),
         Value::String(_) => vec![target_field].into_iter().collect::<Vec<_>>(),
         _ => {
-            return Err(
-                "EditData TargetField must be a string or an array of path segments.".to_string(),
-            );
+            bail!("EditData TargetField must be a string or an array of path segments.");
         }
     };
 
@@ -48,7 +47,9 @@ fn parse_target_field_segments(
             Value::String(segment) => {
                 let trimmed = segment.trim();
                 if trimmed.is_empty() {
-                    Err("EditData TargetField contains an empty path segment.".to_string())
+                    Err(anyhow::anyhow!(
+                        "EditData TargetField contains an empty path segment."
+                    ))
                 } else {
                     Ok(TargetFieldSegment::Key(trimmed.to_string()))
                 }
@@ -56,14 +57,10 @@ fn parse_target_field_segments(
             Value::Number(number) => number
                 .as_u64()
                 .map(|index| TargetFieldSegment::Index(index as usize))
-                .ok_or_else(|| {
-                    "EditData TargetField numeric segments must be non-negative integers."
-                        .to_string()
-                }),
-            _ => Err(
+                .context("EditData TargetField numeric segments must be non-negative integers."),
+            _ => Err(anyhow::anyhow!(
                 "EditData TargetField path segments must be strings or non-negative integers."
-                    .to_string(),
-            ),
+            )),
         })
         .collect()
 }
@@ -92,7 +89,7 @@ fn resolve_target_field<'a>(
     base: &'a mut Value,
     segments: &[TargetFieldSegment],
     entries: &Map<String, Value>,
-) -> Result<&'a mut Value, String> {
+) -> anyhow::Result<&'a mut Value> {
     let mut current = base;
 
     for (index, segment) in segments.iter().enumerate() {
@@ -104,7 +101,7 @@ fn resolve_target_field<'a>(
                     *current = Value::Object(Map::new());
                 }
 
-                let object = current.as_object_mut().ok_or_else(|| {
+                let object = current.as_object_mut().with_context(|| {
                     format!("EditData TargetField segment `{key}` requires a JSON object.")
                 })?;
 
@@ -117,7 +114,7 @@ fn resolve_target_field<'a>(
                     *current = Value::Array(Vec::new());
                 }
 
-                let array = current.as_array_mut().ok_or_else(|| {
+                let array = current.as_array_mut().with_context(|| {
                     format!("EditData TargetField index `{array_index}` requires a JSON array.")
                 })?;
 
@@ -311,7 +308,7 @@ fn set_field_in_entry(entry: &mut Value, field_key: &str, field_value: &Value) {
     }
 }
 
-fn apply_fields_patch(base: &mut Value, fields: &Map<String, Value>) -> Result<String, String> {
+fn apply_fields_patch(base: &mut Value, fields: &Map<String, Value>) -> anyhow::Result<String> {
     match base {
         Value::Object(base_object) => {
             for (entry_key, field_map) in fields {
@@ -342,9 +339,7 @@ fn apply_fields_patch(base: &mut Value, fields: &Map<String, Value>) -> Result<S
             }
         }
         _ => {
-            return Err(
-                "EditData Fields requires the target to be an object or array.".to_string(),
-            );
+            bail!("EditData Fields requires the target to be an object or array.");
         }
     }
 
@@ -361,7 +356,7 @@ struct MoveEntry {
     to_position: Option<String>,
 }
 
-fn parse_move_entries(patch: &Map<String, Value>) -> Result<Vec<MoveEntry>, String> {
+fn parse_move_entries(patch: &Map<String, Value>) -> anyhow::Result<Vec<MoveEntry>> {
     let Some(move_entries) = patch.get("MoveEntries").and_then(Value::as_array) else {
         return Ok(Vec::new());
     };
@@ -371,13 +366,13 @@ fn parse_move_entries(patch: &Map<String, Value>) -> Result<Vec<MoveEntry>, Stri
         .map(|entry| {
             let obj = entry
                 .as_object()
-                .ok_or("MoveEntries item must be an object.")?;
+                .context("MoveEntries item must be an object.")?;
             let id = obj
                 .get("ID")
                 .and_then(Value::as_str)
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
-                .ok_or("MoveEntries item is missing ID.")?;
+                .context("MoveEntries item is missing ID.")?;
             Ok(MoveEntry {
                 id: id.to_string(),
                 before_id: obj
@@ -403,9 +398,9 @@ fn parse_move_entries(patch: &Map<String, Value>) -> Result<Vec<MoveEntry>, Stri
         .collect()
 }
 
-fn apply_move_entries(base: &mut Value, move_entries: &[MoveEntry]) -> Result<String, String> {
+fn apply_move_entries(base: &mut Value, move_entries: &[MoveEntry]) -> anyhow::Result<String> {
     let Value::Array(array) = base else {
-        return Err("EditData MoveEntries requires the target to be a list (array).".to_string());
+        bail!("EditData MoveEntries requires the target to be a list (array).");
     };
 
     let mut moved_count = 0;
@@ -490,7 +485,7 @@ struct TextOperation {
     replace_mode: ReplaceMode,
 }
 
-fn parse_text_operations(patch: &Map<String, Value>) -> Result<Vec<TextOperation>, String> {
+fn parse_text_operations(patch: &Map<String, Value>) -> anyhow::Result<Vec<TextOperation>> {
     let Some(ops) = patch.get("TextOperations").and_then(Value::as_array) else {
         return Ok(Vec::new());
     };
@@ -499,30 +494,32 @@ fn parse_text_operations(patch: &Map<String, Value>) -> Result<Vec<TextOperation
         .map(|op| {
             let obj = op
                 .as_object()
-                .ok_or("TextOperations item must be an object.")?;
+                .context("TextOperations item must be an object.")?;
 
             let operation = obj
                 .get("Operation")
                 .and_then(Value::as_str)
                 .map(str::trim)
-                .ok_or("TextOperations item is missing Operation.")?;
+                .context("TextOperations item is missing Operation.")?;
             let operation = match operation.to_ascii_lowercase().as_str() {
                 "append" => TextOperationType::Append,
                 "prepend" => TextOperationType::Prepend,
                 "removedelimited" => TextOperationType::RemoveDelimited,
                 "replacedelimited" => TextOperationType::ReplaceDelimited,
-                other => return Err(format!("Unsupported TextOperation: {other}")),
+                other => bail!("Unsupported TextOperation: {other}"),
             };
 
             let target = obj
                 .get("Target")
                 .and_then(Value::as_array)
-                .ok_or("TextOperations item is missing Target array.")?
+                .context("TextOperations item is missing Target array.")?
                 .iter()
                 .map(|v| {
                     v.as_str()
                         .map(str::trim)
-                        .ok_or("TextOperations Target must contain strings.")
+                        .ok_or_else(|| {
+                            anyhow::anyhow!("TextOperations Target must contain strings.")
+                        })
                         .map(ToOwned::to_owned)
                 })
                 .collect::<Result<Vec<_>, _>>()?;
@@ -574,7 +571,7 @@ fn parse_text_operations(patch: &Map<String, Value>) -> Result<Vec<TextOperation
 fn resolve_text_target<'a>(
     base: &'a mut Value,
     target: &[String],
-) -> Result<Option<&'a mut Value>, String> {
+) -> anyhow::Result<Option<&'a mut Value>> {
     let mut current = base;
 
     for (i, segment) in target.iter().enumerate() {
@@ -585,13 +582,13 @@ fn resolve_text_target<'a>(
                     obj.insert(segment.clone(), Value::String(String::new()));
                     return Ok(Some(obj.get_mut(segment.as_str()).expect("just inserted")));
                 }
-                current = obj.get_mut(segment.as_str()).ok_or_else(|| {
+                current = obj.get_mut(segment.as_str()).with_context(|| {
                     format!("TextOperations target segment `{segment}` not found.")
                 })?;
             }
             Value::Array(arr) => {
                 if let Ok(index) = segment.parse::<usize>() {
-                    current = arr.get_mut(index).ok_or_else(|| {
+                    current = arr.get_mut(index).with_context(|| {
                         format!("TextOperations target index `{segment}` out of bounds.")
                     })?;
                 } else {
@@ -602,16 +599,14 @@ fn resolve_text_target<'a>(
                             .map(str::trim)
                             .is_some_and(|id| id == segment)
                     });
-                    let idx = idx.ok_or_else(|| {
+                    let idx = idx.with_context(|| {
                         format!("TextOperations target array entry `{segment}` not found.")
                     })?;
                     current = &mut arr[idx];
                 }
             }
             _ => {
-                return Err(
-                    "TextOperations target path must traverse objects or arrays.".to_string(),
-                );
+                bail!("TextOperations target path must traverse objects or arrays.");
             }
         }
     }
@@ -676,7 +671,7 @@ fn apply_delimited_operation(
     }
 }
 
-fn apply_text_operations(base: &mut Value, operations: &[TextOperation]) -> Result<String, String> {
+fn apply_text_operations(base: &mut Value, operations: &[TextOperation]) -> anyhow::Result<String> {
     let mut applied_count = 0;
 
     for op in operations {
@@ -741,7 +736,7 @@ pub fn apply_edit_data_patch(
     patch: &Map<String, Value>,
     context: &SimulationContext,
     project_root_path: Option<&str>,
-) -> Result<String, String> {
+) -> anyhow::Result<String> {
     let ignore_when = context.ignore_entry_when_conditions.unwrap_or(false);
     let target_field = parse_target_field_segments(patch)?;
     let entries_for_default = patch
@@ -771,9 +766,8 @@ pub fn apply_edit_data_patch(
                 apply_entries_to_array(base_array, entries, context, project_root_path, ignore_when)
             }
             _ => {
-                return Err(
+                bail!(
                     "EditData TargetField resolved to a scalar value, which cannot accept Entries."
-                        .to_string(),
                 );
             }
         }
@@ -801,7 +795,9 @@ pub fn apply_edit_data_patch(
     }
 
     if changes.is_empty() {
-        return Err("EditData patch must specify at least one of: Entries, Fields, MoveEntries, or TextOperations.".to_string());
+        bail!(
+            "EditData patch must specify at least one of: Entries, Fields, MoveEntries, or TextOperations."
+        );
     }
 
     Ok(format!("updated {}", changes.join(", ")))

@@ -28,6 +28,7 @@ use crate::infrastructure::fs::pathing::{
 };
 use crate::infrastructure::game_formats::tbin::parse_tbin_map;
 use crate::infrastructure::game_formats::xnb::{self, read_xnb_from_path};
+use anyhow::{Context, bail};
 
 const FILE_CACHE_VERSION: u32 = 1;
 
@@ -116,10 +117,10 @@ fn is_map_xnb(path: &Path) -> bool {
 fn build_map_summary(
     logical_relative_path: &Path,
     absolute_path: &Path,
-) -> Result<MapAssetSummary, String> {
+) -> anyhow::Result<MapAssetSummary> {
     let metadata = absolute_path
         .metadata()
-        .map_err(|error| format!("Failed to read file metadata: {error}"))?;
+        .with_context(|| format!("Failed to read file metadata"))?;
     let logical_file_path = logicalized_asset_path(logical_relative_path);
     let name = logical_file_path
         .file_stem()
@@ -143,13 +144,13 @@ fn build_map_summary(
     })
 }
 
-fn count_map_files(maps_path: &Path, extension: &str) -> Result<usize, String> {
+fn count_map_files(maps_path: &Path, extension: &str) -> anyhow::Result<usize> {
     let entries = fs::read_dir(maps_path)
-        .map_err(|error| format!("Failed to read {}: {error}", normalize_path(maps_path)))?;
+        .with_context(|| format!("Failed to read {}", normalize_path(maps_path)))?;
 
     let mut count = 0;
     for entry in entries {
-        let entry = entry.map_err(|error| format!("Failed to inspect map entry: {error}"))?;
+        let entry = entry.with_context(|| format!("Failed to inspect map entry"))?;
         let path = entry.path();
         if path.is_file()
             && path
@@ -164,11 +165,11 @@ fn count_map_files(maps_path: &Path, extension: &str) -> Result<usize, String> {
     Ok(count)
 }
 
-fn cache_root_dir() -> Result<PathBuf, String> {
+fn cache_root_dir() -> anyhow::Result<PathBuf> {
     Ok(app_cache_dir()?)
 }
 
-fn active_file_cache_dir() -> Result<PathBuf, String> {
+fn active_file_cache_dir() -> anyhow::Result<PathBuf> {
     Ok(cache_root_dir()?.join(format!("assets-v{FILE_CACHE_VERSION}")))
 }
 
@@ -176,13 +177,13 @@ fn cache_locale_key(locale: Option<&str>) -> String {
     normalize_requested_locale(locale).trim().to_string()
 }
 
-fn file_modified_time_ms(metadata: &fs::Metadata) -> Result<u128, String> {
+fn file_modified_time_ms(metadata: &fs::Metadata) -> anyhow::Result<u128> {
     let modified = metadata
         .modified()
-        .map_err(|error| format!("Failed to read file modified time: {error}"))?;
+        .with_context(|| format!("Failed to read file modified time"))?;
     let duration = modified
         .duration_since(UNIX_EPOCH)
-        .map_err(|error| format!("Invalid file modified time: {error}"))?;
+        .with_context(|| format!("Invalid file modified time"))?;
     Ok(duration.as_millis())
 }
 
@@ -198,7 +199,7 @@ pub(crate) fn cache_file_path(
     kind: &str,
     source_path: &Path,
     locale: Option<&str>,
-) -> Result<PathBuf, String> {
+) -> anyhow::Result<PathBuf> {
     let normalized_source_path = normalize_path(source_path);
     let locale_key = cache_locale_key(locale);
     let mut digest = Sha256::new();
@@ -217,10 +218,10 @@ fn read_cached_string_asset(
     kind: &str,
     source_path: &Path,
     locale: Option<&str>,
-) -> Result<Option<String>, String> {
+) -> anyhow::Result<Option<String>> {
     let metadata = source_path
         .metadata()
-        .map_err(|error| format!("Failed to read file metadata: {error}"))?;
+        .with_context(|| format!("Failed to read file metadata"))?;
     let cache_path = cache_file_path(kind, source_path, locale)?;
     if !cache_path.exists() {
         return Ok(None);
@@ -272,17 +273,17 @@ fn write_cached_string_asset(
     source_path: &Path,
     locale: Option<&str>,
     payload: &str,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let metadata = source_path
         .metadata()
-        .map_err(|error| format!("Failed to read file metadata: {error}"))?;
+        .with_context(|| format!("Failed to read file metadata"))?;
     let cache_path = cache_file_path(kind, source_path, locale)?;
     let cache_dir = cache_path
         .parent()
-        .ok_or_else(|| format!("Invalid cache path: {}", normalize_path(&cache_path)))?;
-    fs::create_dir_all(cache_dir).map_err(|error| {
+        .with_context(|| format!("Invalid cache path: {}", normalize_path(&cache_path)))?;
+    fs::create_dir_all(cache_dir).with_context(|| {
         format!(
-            "Failed to create cache directory {}: {error}",
+            "Failed to create cache directory {}",
             normalize_path(cache_dir)
         )
     })?;
@@ -295,30 +296,26 @@ fn write_cached_string_asset(
         locale: cache_locale_key(locale),
         payload: payload.to_string(),
     };
-    let bytes = serde_json::to_vec(&cached)
-        .map_err(|error| format!("Failed to serialize cache entry: {error}"))?;
+    let bytes =
+        serde_json::to_vec(&cached).with_context(|| format!("Failed to serialize cache entry"))?;
     let temp_path = cache_path.with_extension("tmp");
-    fs::write(&temp_path, bytes).map_err(|error| {
-        format!(
-            "Failed to write cache file {}: {error}",
-            normalize_path(&temp_path)
-        )
-    })?;
+    fs::write(&temp_path, bytes)
+        .with_context(|| format!("Failed to write cache file {}", normalize_path(&temp_path)))?;
     fs::rename(&temp_path, &cache_path)
         .or_else(|rename_error| {
             let _ = fs::remove_file(&cache_path);
             fs::rename(&temp_path, &cache_path).map_err(|_| rename_error)
         })
-        .map_err(|error| {
+        .with_context(|| {
             format!(
-                "Failed to move cache file into place {}: {error}",
+                "Failed to move cache file into place {}",
                 normalize_path(&cache_path)
             )
         })?;
     Ok(())
 }
 
-fn collect_directory_size(path: &Path) -> Result<(usize, u64), String> {
+fn collect_directory_size(path: &Path) -> anyhow::Result<(usize, u64)> {
     if !path.exists() {
         return Ok((0, 0));
     }
@@ -328,19 +325,19 @@ fn collect_directory_size(path: &Path) -> Result<(usize, u64), String> {
     let mut pending = vec![path.to_path_buf()];
 
     while let Some(current) = pending.pop() {
-        let entries = fs::read_dir(&current).map_err(|error| {
+        let entries = fs::read_dir(&current).with_context(|| {
             format!(
-                "Failed to read cache directory {}: {error}",
+                "Failed to read cache directory {}",
                 normalize_path(&current)
             )
         })?;
 
         for entry in entries {
-            let entry = entry.map_err(|error| format!("Failed to inspect cache entry: {error}"))?;
+            let entry = entry.with_context(|| format!("Failed to inspect cache entry"))?;
             let entry_path = entry.path();
-            let metadata = entry.metadata().map_err(|error| {
+            let metadata = entry.metadata().with_context(|| {
                 format!(
-                    "Failed to read cache metadata {}: {error}",
+                    "Failed to read cache metadata {}",
                     normalize_path(&entry_path)
                 )
             })?;
@@ -375,7 +372,7 @@ fn unpacked_text_asset_path(root: &Path, relative_path: &Path) -> Option<PathBuf
     Some(unpacked_path)
 }
 
-fn read_unpacked_text_asset(root: &Path, relative_path: &Path) -> Result<Option<String>, String> {
+fn read_unpacked_text_asset(root: &Path, relative_path: &Path) -> anyhow::Result<Option<String>> {
     let Some(unpacked_path) = unpacked_text_asset_path(root, relative_path) else {
         return Ok(None);
     };
@@ -384,9 +381,9 @@ fn read_unpacked_text_asset(root: &Path, relative_path: &Path) -> Result<Option<
         return Ok(None);
     }
 
-    let content = fs::read_to_string(&unpacked_path).map_err(|error| {
+    let content = fs::read_to_string(&unpacked_path).with_context(|| {
         format!(
-            "Failed to read unpacked text asset {}: {error}",
+            "Failed to read unpacked text asset {}",
             normalize_path(&unpacked_path)
         )
     })?;
@@ -394,30 +391,24 @@ fn read_unpacked_text_asset(root: &Path, relative_path: &Path) -> Result<Option<
     Ok(Some(content))
 }
 
-pub fn read_directory_info(root: &Path) -> Result<GameDirectoryInfo, String> {
+pub fn read_directory_info(root: &Path) -> anyhow::Result<GameDirectoryInfo> {
     if !root.exists() {
-        return Err(format!(
-            "Directory does not exist: {}",
-            normalize_path(root)
-        ));
+        bail!("Directory does not exist: {}", normalize_path(root));
     }
 
     let Some(executable_path) = stardew_game_validation_candidates(root)
         .into_iter()
         .find(|path| path.exists())
     else {
-        return Err(format!(
+        bail!(
             "No Stardew Valley executable or game assembly was found in {}",
             normalize_path(root),
-        ));
+        );
     };
 
     let maps_path = map_source_path(root);
     if !maps_path.exists() {
-        return Err(format!(
-            "Content\\Maps does not exist in {}",
-            normalize_path(root)
-        ));
+        bail!("Content\\Maps does not exist in {}", normalize_path(root));
     }
 
     let map_count = count_map_files(&maps_path, "xnb")?;
@@ -455,7 +446,7 @@ fn infer_audio_kind(path: &Path) -> &'static str {
     "sound"
 }
 
-fn encode_texture_png(texture: &xnb::TextureData) -> Result<Vec<u8>, String> {
+fn encode_texture_png(texture: &xnb::TextureData) -> anyhow::Result<Vec<u8>> {
     let mut buffer = Vec::new();
     let encoder = PngEncoder::new(&mut buffer);
     encoder
@@ -465,7 +456,7 @@ fn encode_texture_png(texture: &xnb::TextureData) -> Result<Vec<u8>, String> {
             texture.height,
             ColorType::Rgba8.into(),
         )
-        .map_err(|error| format!("Failed to encode texture: {error}"))?;
+        .with_context(|| format!("Failed to encode texture"))?;
     Ok(buffer)
 }
 
@@ -473,16 +464,16 @@ fn collect_audio_assets(
     base_root: &Path,
     root: &Path,
     results: &mut Vec<AudioAssetSummary>,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     if !root.exists() {
         return Ok(());
     }
 
-    let entries = fs::read_dir(root)
-        .map_err(|error| format!("Failed to read {}: {error}", normalize_path(root)))?;
+    let entries =
+        fs::read_dir(root).with_context(|| format!("Failed to read {}", normalize_path(root)))?;
 
     for entry in entries {
-        let entry = entry.map_err(|error| format!("Failed to inspect audio entry: {error}"))?;
+        let entry = entry.with_context(|| format!("Failed to inspect audio entry"))?;
         let path = entry.path();
         if path.is_dir() {
             collect_audio_assets(base_root, &path, results)?;
@@ -534,7 +525,7 @@ pub(crate) fn list_known_game_directories() -> Vec<String> {
         .collect()
 }
 
-pub(crate) fn get_file_cache_stats() -> Result<FileCacheStats, String> {
+pub(crate) fn get_file_cache_stats() -> anyhow::Result<FileCacheStats> {
     let root = active_file_cache_dir()?;
     let (entry_count, total_size_bytes) = collect_directory_size(&root)?;
     Ok(FileCacheStats {
@@ -544,42 +535,40 @@ pub(crate) fn get_file_cache_stats() -> Result<FileCacheStats, String> {
     })
 }
 
-pub(crate) fn clear_file_cache() -> Result<(), String> {
+pub(crate) fn clear_file_cache() -> anyhow::Result<()> {
     let root = active_file_cache_dir()?;
     if !root.exists() {
         return Ok(());
     }
 
-    fs::remove_dir_all(&root).map_err(|error| {
-        format!(
-            "Failed to clear file cache {}: {error}",
-            normalize_path(&root)
-        )
-    })?;
+    fs::remove_dir_all(&root)
+        .with_context(|| format!("Failed to clear file cache {}", normalize_path(&root)))?;
     Ok(())
 }
 
-pub(crate) fn validate_game_directory(path: String) -> Result<GameDirectoryInfo, String> {
+pub(crate) fn validate_game_directory(path: String) -> anyhow::Result<GameDirectoryInfo> {
     read_directory_info(&clean_input_path(&path))
 }
 
 pub(crate) fn scan_maps(
     path: String,
     locale: Option<String>,
-) -> Result<Vec<MapAssetSummary>, String> {
+) -> anyhow::Result<Vec<MapAssetSummary>> {
     let root = clean_input_path(&path);
     let info = read_directory_info(&root)?;
     let requested_locale = normalize_requested_locale(locale.as_deref());
-    let maps_path = info.maps_path.as_ref().map(PathBuf::from).ok_or_else(|| {
-        "No map source path is available for the selected game directory.".to_string()
-    })?;
+    let maps_path = info
+        .maps_path
+        .as_ref()
+        .map(PathBuf::from)
+        .context("No map source path is available for the selected game directory.")?;
 
     let entries = fs::read_dir(&maps_path)
-        .map_err(|error| format!("Failed to read {}: {error}", normalize_path(&maps_path)))?;
+        .with_context(|| format!("Failed to read {}", normalize_path(&maps_path)))?;
 
     let mut grouped_variants: BTreeMap<String, LocalizedAssetVariants> = BTreeMap::new();
     for entry in entries {
-        let entry = entry.map_err(|error| format!("Failed to inspect map entry: {error}"))?;
+        let entry = entry.with_context(|| format!("Failed to inspect map entry"))?;
         let absolute_path = entry.path();
         if !absolute_path.is_file() {
             continue;
@@ -596,7 +585,7 @@ pub(crate) fn scan_maps(
 
         let relative_path = absolute_path
             .strip_prefix(&root)
-            .map_err(|error| format!("Failed to derive relative path: {error}"))?;
+            .with_context(|| format!("Failed to derive relative path"))?;
         let logical_relative_path = logicalized_asset_path(relative_path);
         let logical_key = normalize_path(&logical_relative_path);
         let stem = absolute_path
@@ -637,7 +626,7 @@ pub(crate) fn scan_maps(
     Ok(maps)
 }
 
-pub(crate) fn scan_events(path: String) -> Result<Vec<EventAssetSummary>, String> {
+pub(crate) fn scan_events(path: String) -> anyhow::Result<Vec<EventAssetSummary>> {
     let root = clean_input_path(&path);
     read_directory_info(&root)?;
 
@@ -647,11 +636,11 @@ pub(crate) fn scan_events(path: String) -> Result<Vec<EventAssetSummary>, String
     }
 
     let entries = fs::read_dir(&events_path)
-        .map_err(|error| format!("Failed to read {}: {error}", normalize_path(&events_path)))?;
+        .with_context(|| format!("Failed to read {}", normalize_path(&events_path)))?;
 
     let mut events = Vec::new();
     for entry in entries {
-        let entry = entry.map_err(|error| format!("Failed to inspect event entry: {error}"))?;
+        let entry = entry.with_context(|| format!("Failed to inspect event entry"))?;
         let absolute_path = entry.path();
         if !absolute_path.is_file() {
             continue;
@@ -679,10 +668,10 @@ pub(crate) fn scan_events(path: String) -> Result<Vec<EventAssetSummary>, String
 
         let metadata = entry
             .metadata()
-            .map_err(|error| format!("Failed to read file metadata: {error}"))?;
+            .with_context(|| format!("Failed to read file metadata"))?;
         let relative_path = absolute_path
             .strip_prefix(&root)
-            .map_err(|error| format!("Failed to derive relative path: {error}"))?;
+            .with_context(|| format!("Failed to derive relative path"))?;
         let name = stem.to_string();
         let file_name = absolute_path
             .file_name()
@@ -708,21 +697,21 @@ pub(crate) fn load_map_asset(
     root_path: String,
     map_path: String,
     locale: Option<String>,
-) -> Result<MapAssetContent, String> {
+) -> anyhow::Result<MapAssetContent> {
     let root = clean_input_path(&root_path);
     let requested_locale = locale.as_deref();
     let absolute_path = preferred_existing_xnb_path(&clean_input_path(&map_path), requested_locale);
 
     if !absolute_path.exists() {
-        return Err(format!(
+        bail!(
             "Map file does not exist: {}",
             normalize_path(&absolute_path)
-        ));
+        );
     }
 
     let relative_path = absolute_path
         .strip_prefix(&root)
-        .map_err(|error| format!("Map path is outside the selected game directory: {error}"))?;
+        .with_context(|| format!("Map path is outside the selected game directory"))?;
     let logical_relative_path = logicalized_asset_path(relative_path);
 
     let format = absolute_path
@@ -742,14 +731,14 @@ pub(crate) fn load_map_asset(
                 let bytes = xnb
                     .content
                     .as_bytes()
-                    .ok_or_else(|| "Map XNB did not contain TBin data.".to_string())?;
+                    .context("Map XNB did not contain TBin data.")?;
                 let map = parse_tbin_map(
                     bytes,
                     &absolute_path,
                     &normalize_path(&logical_relative_path),
                 )?;
                 let content = serde_json::to_string(&map)
-                    .map_err(|error| format!("Failed to serialize map: {error}"))?;
+                    .with_context(|| format!("Failed to serialize map"))?;
                 if let Err(error) =
                     write_cached_string_asset("map", &absolute_path, requested_locale, &content)
                 {
@@ -763,13 +752,13 @@ pub(crate) fn load_map_asset(
             }
         }
         "tmx" => {
-            return Err("TMX loading is no longer supported. Load XNB maps instead.".to_string());
+            bail!("TMX loading is no longer supported. Load XNB maps instead.");
         }
         _ => {
-            return Err(format!(
+            bail!(
                 "Unsupported map format for {}",
                 normalize_path(&absolute_path)
-            ));
+            );
         }
     };
 
@@ -793,22 +782,22 @@ pub(crate) fn load_text_asset(
     root_path: String,
     asset_path: String,
     locale: Option<String>,
-) -> Result<TextAssetContent, String> {
+) -> anyhow::Result<TextAssetContent> {
     let root = clean_input_path(&root_path);
     let requested_path = root.join(clean_input_path(&asset_path));
     let requested_locale = locale.as_deref();
     let absolute_path = preferred_existing_xnb_path(&requested_path, requested_locale);
 
     if !absolute_path.exists() {
-        return Err(format!(
+        bail!(
             "Text asset does not exist: {}",
             normalize_path(&absolute_path)
-        ));
+        );
     }
 
-    let relative_path = absolute_path.strip_prefix(&root).map_err(|error| {
-        format!("Text asset path is outside the selected game directory: {error}")
-    })?;
+    let relative_path = absolute_path
+        .strip_prefix(&root)
+        .with_context(|| format!("Text asset path is outside the selected game directory"))?;
     let logical_relative_path = logicalized_asset_path(relative_path);
 
     let content = match absolute_path.extension().and_then(|value| value.to_str()) {
@@ -822,9 +811,8 @@ pub(crate) fn load_text_asset(
                     Ok(xnb) => {
                         let json = xnb.content.to_json();
                         (
-                            serde_json::to_string(&json).map_err(|error| {
-                                format!("Failed to serialize XNB data: {error}")
-                            })?,
+                            serde_json::to_string(&json)
+                                .with_context(|| format!("Failed to serialize XNB data"))?,
                             Some(absolute_path.as_path()),
                         )
                     }
@@ -848,12 +836,12 @@ pub(crate) fn load_text_asset(
                                         )
                                     })
                                     .unwrap_or_default();
-                            return Err(format!(
+                            bail!(
                                 "Failed to parse XNB text asset {}: {}.{}",
                                 normalize_path(&absolute_path),
                                 xnb_error,
                                 fallback_hint
-                            ));
+                            );
                         }
                     }
                 };
@@ -880,9 +868,9 @@ pub(crate) fn load_text_asset(
             {
                 content
             } else {
-                let content = fs::read_to_string(&absolute_path).map_err(|error| {
+                let content = fs::read_to_string(&absolute_path).with_context(|| {
                     format!(
-                        "Failed to read text asset {}: {error}",
+                        "Failed to read text asset {}",
                         normalize_path(&absolute_path)
                     )
                 })?;
@@ -910,19 +898,19 @@ pub(crate) fn load_text_asset(
     })
 }
 
-pub(crate) fn load_text_file(path: String) -> Result<LocalTextFileContent, String> {
+pub(crate) fn load_text_file(path: String) -> anyhow::Result<LocalTextFileContent> {
     let absolute_path = clean_input_path(&path);
 
     if !absolute_path.exists() {
-        return Err(format!(
+        bail!(
             "Text file does not exist: {}",
             normalize_path(&absolute_path)
-        ));
+        );
     }
 
-    let content = fs::read_to_string(&absolute_path).map_err(|error| {
+    let content = fs::read_to_string(&absolute_path).with_context(|| {
         format!(
-            "Failed to read text file {}: {error}",
+            "Failed to read text file {}",
             normalize_path(&absolute_path)
         )
     })?;
@@ -933,15 +921,15 @@ pub(crate) fn load_text_file(path: String) -> Result<LocalTextFileContent, Strin
     })
 }
 
-pub(crate) fn load_image_data_url(path: String, locale: Option<String>) -> Result<String, String> {
+pub(crate) fn load_image_data_url(path: String, locale: Option<String>) -> anyhow::Result<String> {
     let requested_locale = locale.as_deref();
     let absolute_path = preferred_existing_xnb_path(&clean_input_path(&path), requested_locale);
 
     if !absolute_path.exists() {
-        return Err(format!(
+        bail!(
             "Image file does not exist: {}",
             normalize_path(&absolute_path)
-        ));
+        );
     }
 
     if let Some(content) = read_cached_string_asset("image", &absolute_path, requested_locale)? {
@@ -958,7 +946,7 @@ pub(crate) fn load_image_data_url(path: String, locale: Option<String>) -> Resul
         let texture = xnb
             .content
             .as_texture()
-            .ok_or_else(|| "XNB file did not contain a Texture2D asset.".to_string())?;
+            .context("XNB file did not contain a Texture2D asset.")?;
         let png_bytes = encode_texture_png(texture)?;
         let encoded = base64::engine::general_purpose::STANDARD.encode(png_bytes);
         let payload = format!("data:image/png;base64,{encoded}");
@@ -974,9 +962,9 @@ pub(crate) fn load_image_data_url(path: String, locale: Option<String>) -> Resul
         return Ok(payload);
     }
 
-    let bytes = fs::read(&absolute_path).map_err(|error| {
+    let bytes = fs::read(&absolute_path).with_context(|| {
         format!(
-            "Failed to read image file {}: {error}",
+            "Failed to read image file {}",
             normalize_path(&absolute_path)
         )
     })?;
@@ -995,7 +983,7 @@ pub(crate) fn load_image_data_url(path: String, locale: Option<String>) -> Resul
     Ok(payload)
 }
 
-pub(crate) fn scan_audio_assets(path: String) -> Result<Vec<AudioAssetSummary>, String> {
+pub(crate) fn scan_audio_assets(path: String) -> anyhow::Result<Vec<AudioAssetSummary>> {
     let root = clean_input_path(&path);
     read_directory_info(&root)?;
 
@@ -1012,19 +1000,19 @@ pub(crate) fn scan_audio_assets(path: String) -> Result<Vec<AudioAssetSummary>, 
     Ok(assets)
 }
 
-pub(crate) fn load_audio_data_url(path: String) -> Result<String, String> {
+pub(crate) fn load_audio_data_url(path: String) -> anyhow::Result<String> {
     let absolute_path = clean_input_path(&path);
 
     if !absolute_path.exists() {
-        return Err(format!(
+        bail!(
             "Audio file does not exist: {}",
             normalize_path(&absolute_path)
-        ));
+        );
     }
 
-    let bytes = fs::read(&absolute_path).map_err(|error| {
+    let bytes = fs::read(&absolute_path).with_context(|| {
         format!(
-            "Failed to read audio file {}: {error}",
+            "Failed to read audio file {}",
             normalize_path(&absolute_path)
         )
     })?;

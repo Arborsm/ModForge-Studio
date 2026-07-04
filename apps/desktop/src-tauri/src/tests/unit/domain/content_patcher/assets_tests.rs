@@ -86,9 +86,9 @@ fn load_map_patch_asset_uses_virtual_asset_path_relative_to_included_source() {
         },
     );
 
-    assert!(error.contains("File is not a tbin file."));
-    assert!(!error.contains("Unable to resolve FromFile"));
-    assert!(!error.contains("Failed to read map patch asset"));
+    assert!(error.to_string().contains("File is not a tbin file."));
+    assert!(!error.to_string().contains("Unable to resolve FromFile"));
+    assert!(!error.to_string().contains("Failed to read map patch asset"));
 }
 
 #[cfg(unix)]
@@ -121,7 +121,7 @@ fn load_json_patch_asset_rejects_symlink_escape_outside_project_root() {
 
     let error = load_json_patch_asset(&snapshot, "content.json", "assets/secret.json")
         .expect_err("symlink escape");
-    assert!(error.contains("outside the content pack root"));
+    assert!(error.to_string().contains("outside the content pack root"));
 
     std::fs::remove_dir_all(temp_dir).expect("cleanup");
 }

@@ -226,7 +226,7 @@ fn send_rest_request<T: serde::de::DeserializeOwned>(
     let response = http::send_nexus_request(|| client.get(&url).headers(headers.clone()).send())
         .map_err(|error| NexusRestError::ApiError {
             status: 0,
-            message: error,
+            message: error.to_string(),
         })?;
 
     update_quota(&response);

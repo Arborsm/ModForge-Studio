@@ -8,6 +8,7 @@ use crate::domain::nexusmods::graphql::mod_detail::{
 use crate::domain::nexusmods::http::send_nexus_request;
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::extract_graphql_error;
+use anyhow::{Context, bail};
 use reqwest::blocking::Client;
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -24,9 +25,9 @@ query LauncherUpdateBatch($ids: [CompositeDomainWithIdInput!]!) {
   }
 }
 "#;
-pub(crate) fn build_update_batch_graphql_payload(mod_ids: &[i64]) -> Result<Value, String> {
+pub(crate) fn build_update_batch_graphql_payload(mod_ids: &[i64]) -> anyhow::Result<Value> {
     if mod_ids.is_empty() {
-        return Err("At least one Nexus mod id is required.".to_string());
+        bail!("At least one Nexus mod id is required.");
     }
 
     let ids = mod_ids
@@ -50,9 +51,9 @@ pub(crate) fn build_update_batch_graphql_payload(mod_ids: &[i64]) -> Result<Valu
 
 pub(crate) fn parse_update_batch_graphql_response(
     payload: &Value,
-) -> Result<Vec<RemoteModDetail>, String> {
+) -> anyhow::Result<Vec<RemoteModDetail>> {
     if let Some(error) = extract_graphql_error(payload) {
-        return Err(error);
+        return Err(anyhow::anyhow!(error));
     }
 
     let nodes = payload
@@ -60,10 +61,7 @@ pub(crate) fn parse_update_batch_graphql_response(
         .and_then(|value| value.get("legacyModsByDomain"))
         .and_then(|value| value.get("nodes"))
         .and_then(Value::as_array)
-        .ok_or_else(|| {
-            "Nexus update batch response did not include a legacyModsByDomain.nodes array."
-                .to_string()
-        })?;
+        .context("Nexus update batch response did not include a legacyModsByDomain.nodes array.")?;
 
     Ok(nodes
         .iter()
@@ -75,9 +73,9 @@ pub(crate) fn load_remote_mod_details_from_graphql(
     client: &Client,
     settings: &LauncherSettings,
     mod_ids: &[i64],
-) -> Result<HashMap<i64, RemoteModDetail>, String> {
+) -> anyhow::Result<HashMap<i64, RemoteModDetail>> {
     if !can_use_nexus_graphql(settings) {
-        return Err("Configure a Nexus API key before querying Nexus Mods.".to_string());
+        bail!("Configure a Nexus API key before querying Nexus Mods.");
     }
     probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PrivateGraphql)?;
 
@@ -91,15 +89,15 @@ pub(crate) fn load_remote_mod_details_from_graphql(
             .send()
     })?;
     if !response.status().is_success() {
-        return Err(format!(
+        bail!(
             "Nexus update batch GraphQL request failed: HTTP {}",
             response.status()
-        ));
+        );
     }
 
     let payload = response
         .json::<Value>()
-        .map_err(|error| format!("Failed to parse Nexus update batch GraphQL response: {error}"))?;
+        .with_context(|| format!("Failed to parse Nexus update batch GraphQL response"))?;
     let details = parse_update_batch_graphql_response(&payload)?;
     Ok(details
         .into_iter()

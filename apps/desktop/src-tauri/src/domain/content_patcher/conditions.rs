@@ -1,6 +1,7 @@
 use super::context::SimulationContext;
 use super::tokens::{ConditionModifier, INVALID_WHEN_TOKEN, parse_condition_token};
 use super::types::ContentPatcherPatchStatus;
+use anyhow::{Context, bail};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
@@ -17,24 +18,24 @@ fn value_to_scalar_string(value: &Value) -> Option<String> {
     }
 }
 
-fn value_to_scalar_strings(value: &Value) -> Result<Vec<String>, String> {
+fn value_to_scalar_strings(value: &Value) -> anyhow::Result<Vec<String>> {
     match value {
         Value::Array(values) => {
             let scalars = values
                 .iter()
                 .map(|entry| {
                     value_to_scalar_string(entry)
-                        .ok_or_else(|| "has an unsupported non-scalar array value".to_string())
+                        .context("has an unsupported non-scalar array value")
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             if scalars.is_empty() {
-                return Err("has an unsupported empty array value".to_string());
+                bail!("has an unsupported empty array value");
             }
             Ok(scalars)
         }
         _ => value_to_scalar_string(value)
             .map(|scalar| vec![scalar])
-            .ok_or_else(|| "has an unsupported value type".to_string()),
+            .context("has an unsupported value type"),
     }
 }
 
@@ -60,7 +61,7 @@ fn scalar_matches(expected: &str, actual: &str) -> bool {
     false
 }
 
-fn value_matches_expected(expected: &Value, actual: &Value) -> Result<bool, String> {
+fn value_matches_expected(expected: &Value, actual: &Value) -> anyhow::Result<bool> {
     let expected_values = value_to_scalar_strings(expected)?;
     let actual_values = value_to_scalar_strings(actual)?;
 
@@ -71,7 +72,7 @@ fn value_matches_expected(expected: &Value, actual: &Value) -> Result<bool, Stri
     }))
 }
 
-fn value_to_bool(value: &Value) -> Result<bool, String> {
+fn value_to_bool(value: &Value) -> anyhow::Result<bool> {
     match value {
         Value::Bool(flag) => Ok(*flag),
         Value::String(text) => {
@@ -81,10 +82,12 @@ fn value_to_bool(value: &Value) -> Result<bool, String> {
             } else if normalized.eq_ignore_ascii_case("false") {
                 Ok(false)
             } else {
-                Err("has an unsupported non-boolean string value".to_string())
+                Err(anyhow::anyhow!(
+                    "has an unsupported non-boolean string value"
+                ))
             }
         }
-        _ => Err("has an unsupported non-boolean value".to_string()),
+        _ => Err(anyhow::anyhow!("has an unsupported non-boolean value")),
     }
 }
 
@@ -117,7 +120,7 @@ fn resolve_condition_value(
     raw_name: &str,
     context: &SimulationContext,
     project_root_path: Option<&str>,
-) -> Result<Value, String> {
+) -> anyhow::Result<Value> {
     let (name, arg) = if let Some(pos) = raw_name.find(':') {
         (raw_name[..pos].trim(), Some(raw_name[pos + 1..].trim()))
     } else {
@@ -126,49 +129,49 @@ fn resolve_condition_value(
     // Date / weather
     if name.eq_ignore_ascii_case("Season") {
         let Some(actual) = context.season.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
     if name.eq_ignore_ascii_case("Weather") {
         let Some(actual) = context.weather.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
     if name.eq_ignore_ascii_case("DayEvent") {
         let Some(actual) = context.day_event.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
     if name.eq_ignore_ascii_case("Day") {
         let Some(actual) = context.day else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::Number(actual.into()));
     }
     if name.eq_ignore_ascii_case("DayOfWeek") {
         let Some(actual) = context.day_of_week.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
     if name.eq_ignore_ascii_case("DaysPlayed") {
         let Some(actual) = context.days_played else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::Number(actual.into()));
     }
     if name.eq_ignore_ascii_case("Year") {
         let Some(actual) = context.year else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::Number(actual.into()));
     }
     if name.eq_ignore_ascii_case("Time") {
         let Some(actual) = context.time else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::Number(actual.into()));
     }
@@ -176,7 +179,7 @@ fn resolve_condition_value(
     // Player
     if name.eq_ignore_ascii_case("DailyLuck") {
         let Some(actual) = context.daily_luck else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::Number(
             serde_json::Number::from_f64(actual).unwrap_or_else(|| 0.into()),
@@ -184,55 +187,55 @@ fn resolve_condition_value(
     }
     if name.eq_ignore_ascii_case("PlayerName") {
         let Some(actual) = context.player_name.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
     if name.eq_ignore_ascii_case("PlayerGender") {
         let Some(actual) = context.player_gender.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
     if name.eq_ignore_ascii_case("FarmName") {
         let Some(actual) = context.farm_name.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
     if name.eq_ignore_ascii_case("LocationName") {
         let Some(actual) = context.location_name.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
     if name.eq_ignore_ascii_case("LocationContext") {
         let Some(actual) = context.location_context.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
     if name.eq_ignore_ascii_case("LocationUniqueName") {
         let Some(actual) = context.location_unique_name.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
     if name.eq_ignore_ascii_case("LocationOwnerId") {
         let Some(actual) = context.location_owner_id.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
     if name.eq_ignore_ascii_case("Spouse") {
         let Some(actual) = context.spouse.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
     if name.eq_ignore_ascii_case("Roommate") {
         let Some(actual) = context.roommate.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
@@ -406,19 +409,19 @@ fn resolve_condition_value(
     }
     if name.eq_ignore_ascii_case("IsMainPlayer") {
         let Some(actual) = context.is_main_player else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::Bool(actual));
     }
     if name.eq_ignore_ascii_case("IsOutdoors") {
         let Some(actual) = context.is_outdoors else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::Bool(actual));
     }
     if name.eq_ignore_ascii_case("StardropCount") {
         let Some(actual) = context.stardrop_count else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::Number(actual.into()));
     }
@@ -463,31 +466,31 @@ fn resolve_condition_value(
     }
     if name.eq_ignore_ascii_case("HasPet") {
         let Some(actual) = context.has_pet else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::Bool(actual));
     }
     if name.eq_ignore_ascii_case("PetType") {
         let Some(actual) = context.pet_type.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
     if name.eq_ignore_ascii_case("PreferredPet") {
         let Some(actual) = context.preferred_pet.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
     if name.eq_ignore_ascii_case("HasChildren") {
         let Some(actual) = context.has_children else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::Bool(actual));
     }
     if name.eq_ignore_ascii_case("ChildCount") {
         let Some(actual) = context.child_count else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::Number(actual.into()));
     }
@@ -509,13 +512,13 @@ fn resolve_condition_value(
     }
     if name.eq_ignore_ascii_case("HavingChild") {
         let Some(actual) = context.having_child else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::Bool(actual));
     }
     if name.eq_ignore_ascii_case("Pregnant") {
         let Some(actual) = context.pregnant else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::Bool(actual));
     }
@@ -523,37 +526,37 @@ fn resolve_condition_value(
     // World
     if name.eq_ignore_ascii_case("FarmType") {
         let Some(actual) = context.farm_type.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
     if name.eq_ignore_ascii_case("FarmCave") {
         let Some(actual) = context.farm_cave.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
     if name.eq_ignore_ascii_case("FarmMapAsset") {
         let Some(actual) = context.farm_map_asset.as_deref() else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::String(actual.to_string()));
     }
     if name.eq_ignore_ascii_case("FarmhouseUpgrade") {
         let Some(actual) = context.farmhouse_upgrade else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::Number(actual.into()));
     }
     if name.eq_ignore_ascii_case("IsCommunityCenterComplete") {
         let Some(actual) = context.is_community_center_complete else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::Bool(actual));
     }
     if name.eq_ignore_ascii_case("IsJojaMartComplete") {
         let Some(actual) = context.is_joja_mart_complete else {
-            return Err("is missing from the simulation context".to_string());
+            bail!("is missing from the simulation context");
         };
         return Ok(Value::Bool(actual));
     }
@@ -568,10 +571,8 @@ fn resolve_condition_value(
         return Ok(Value::Array(values));
     }
     if name.eq_ignore_ascii_case("HasFile") {
-        let relative_path =
-            arg.ok_or_else(|| "uses `HasFile` without a file path argument".to_string())?;
-        let root =
-            project_root_path.ok_or_else(|| "requires a content pack root path".to_string())?;
+        let relative_path = arg.context("uses `HasFile` without a file path argument")?;
+        let root = project_root_path.context("requires a content pack root path")?;
         let candidate = path_from_relative(root, relative_path);
         return Ok(Value::Bool(
             candidate.exists() && Path::new(&candidate).is_file(),
@@ -579,36 +580,32 @@ fn resolve_condition_value(
     }
     // Game runtime conditions that cannot be evaluated in simulation
     if name.eq_ignore_ascii_case("Query") {
-        return Err(
-            "requires game runtime (Query conditions are not supported in simulation)".to_string(),
-        );
+        bail!("requires game runtime (Query conditions are not supported in simulation)");
     }
     if name.eq_ignore_ascii_case("Random") {
-        return Err(
-            "is non-deterministic (Random conditions are not supported in simulation)".to_string(),
-        );
+        bail!("is non-deterministic (Random conditions are not supported in simulation)");
     }
     if name.eq_ignore_ascii_case("Relationship") {
-        let npc = arg.ok_or_else(|| "uses `Relationship` without an NPC argument".to_string())?;
+        let npc = arg.context("uses `Relationship` without an NPC argument")?;
         return context
             .relationships
             .get(npc)
             .cloned()
             .map(Value::String)
-            .ok_or_else(|| {
+            .with_context(|| {
                 format!("relationship for `{npc}` is missing from the simulation context")
             });
     }
     if name == INVALID_WHEN_TOKEN {
-        return Err("contains a malformed `When` value; expected an object".to_string());
+        bail!("contains a malformed `When` value; expected an object");
     }
     lookup_context_value(&context.custom_tokens, name)
         .cloned()
         .or_else(|| lookup_context_value(&context.config, name).cloned())
-        .ok_or_else(|| "is not supported in this simulation phase".to_string())
+        .context("is not supported in this simulation phase")
 }
 
-fn value_contains_term(value: &Value, expected_term: &str) -> Result<bool, String> {
+fn value_contains_term(value: &Value, expected_term: &str) -> anyhow::Result<bool> {
     let actual_values = value_to_scalar_strings(value)?;
     let normalized_expected = normalize_str(expected_term);
     let expected_lower = normalized_expected.to_lowercase();
@@ -627,7 +624,7 @@ fn value_contains_term(value: &Value, expected_term: &str) -> Result<bool, Strin
     }))
 }
 
-fn apply_input_modifiers(modifiers: &[&ConditionModifier], value: Value) -> Result<Value, String> {
+fn apply_input_modifiers(modifiers: &[&ConditionModifier], value: Value) -> anyhow::Result<Value> {
     let mut current = value;
 
     for modifier in modifiers {
@@ -642,18 +639,15 @@ fn apply_input_modifiers(modifiers: &[&ConditionModifier], value: Value) -> Resu
                     current = Value::Array(parts);
                 }
                 _ => {
-                    return Err(
-                        "uses an `inputSeparator` modifier on a non-string value".to_string()
-                    );
+                    bail!("uses an `inputSeparator` modifier on a non-string value");
                 }
             }
         } else if modifier.name.eq_ignore_ascii_case("valueAt") {
             let index = modifier
                 .value
                 .as_deref()
-                .ok_or_else(|| "uses a `valueAt` modifier without a value".to_string())?
-                .parse::<isize>()
-                .map_err(|_| "uses a `valueAt` modifier with a non-numeric value".to_string())?;
+                .context("uses a `valueAt` modifier without a value")?
+                .parse::<isize>()?;
 
             match current {
                 Value::Array(arr) => {
@@ -702,7 +696,7 @@ fn apply_input_modifiers(modifiers: &[&ConditionModifier], value: Value) -> Resu
                     current = Value::String(resolved.unwrap_or_default());
                 }
                 _ => {
-                    return Err("uses a `valueAt` modifier on a non-array value".to_string());
+                    bail!("uses a `valueAt` modifier on a non-array value");
                 }
             }
         }
@@ -715,12 +709,12 @@ fn apply_modifier(
     modifier: &ConditionModifier,
     actual: &Value,
     expected: &Value,
-) -> Result<bool, String> {
+) -> anyhow::Result<bool> {
     if modifier.name.eq_ignore_ascii_case("contains") {
         let expected_contains = modifier
             .value
             .as_deref()
-            .ok_or_else(|| "uses a `contains` modifier without a value".to_string())?;
+            .context("uses a `contains` modifier without a value")?;
         let should_contain = value_to_bool(expected)?;
         let contains = value_contains_term(actual, expected_contains)?;
         return Ok(contains == should_contain);
@@ -739,7 +733,7 @@ fn apply_modifier(
         return Ok(has_value == expected_has_value);
     }
 
-    Err(format!(
+    Err(anyhow::anyhow!(
         "uses modifier `{}` that is not supported in this simulation phase",
         modifier.name
     ))
@@ -750,7 +744,7 @@ fn evaluate_token_condition(
     expected: &Value,
     context: &SimulationContext,
     project_root_path: Option<&str>,
-) -> Result<bool, String> {
+) -> anyhow::Result<bool> {
     let actual = resolve_condition_value(&token.name, context, project_root_path);
 
     let has_has_value = token

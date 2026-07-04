@@ -14,6 +14,7 @@ use super::types::{
 use super::update_cache::invalidate_launcher_updates_cache_at_path;
 use crate::AppHandle;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use anyhow::{Context, bail};
 use flate2::read::GzDecoder;
 use sevenz_rust::{Error as SevenZipError, decompress_file_with_extract_fn};
 use std::collections::BTreeSet;
@@ -48,16 +49,16 @@ struct ArchiveInspectionState {
 
 pub(crate) fn inspect_archive_at_path(
     archive_path: &Path,
-) -> Result<InspectLauncherArchiveResult, String> {
+) -> anyhow::Result<InspectLauncherArchiveResult> {
     log_launcher_trace(
         "inspect.start",
         &[("archive-path", normalize_path(archive_path))],
     );
     if !archive_path.is_file() {
-        return Err(format!(
+        bail!(
             "Launcher archive {} does not exist.",
             normalize_path(archive_path)
-        ));
+        );
     }
 
     with_temp_work_dir("launcher-inspect", "archive inspection", |temp_root| {
@@ -92,18 +93,17 @@ fn build_archive_tree(
     archive_root: &Path,
     current_dir: &Path,
     state: &mut ArchiveInspectionState,
-) -> Result<Vec<LauncherArchiveTreeNode>, String> {
+) -> anyhow::Result<Vec<LauncherArchiveTreeNode>> {
     let mut nodes = Vec::new();
-    let entries = fs::read_dir(current_dir).map_err(|error| {
+    let entries = fs::read_dir(current_dir).with_context(|| {
         format!(
-            "Failed to read launcher archive directory {}: {error}",
+            "Failed to read launcher archive directory {}",
             normalize_path(current_dir)
         )
     })?;
 
     for entry in entries {
-        let entry =
-            entry.map_err(|error| format!("Failed to inspect launcher archive entry: {error}"))?;
+        let entry = entry.with_context(|| format!("Failed to inspect launcher archive entry"))?;
         let entry_path = entry.path();
         let name = entry
             .file_name()
@@ -127,9 +127,9 @@ fn build_archive_tree(
 
         state.total_entries += 1;
         state.total_files += 1;
-        let size_bytes = entry.metadata().map_err(|error| {
+        let size_bytes = entry.metadata().with_context(|| {
             format!(
-                "Failed to read launcher archive file metadata {}: {error}",
+                "Failed to read launcher archive file metadata {}",
                 normalize_path(&entry_path)
             )
         })?;
@@ -186,16 +186,16 @@ pub(crate) fn install_archive_at_path(
     archive_path: &Path,
     mods_path: Option<&str>,
     backup_root: Option<&Path>,
-) -> Result<InstallLauncherArchiveResult, String> {
+) -> anyhow::Result<InstallLauncherArchiveResult> {
     if !archive_path.is_file() {
-        return Err(format!(
+        bail!(
             "Launcher archive {} does not exist.",
             normalize_path(archive_path)
-        ));
+        );
     }
     let mods_path = mods_path
         .map(clean_input_path)
-        .ok_or_else(|| "modsPath is required to install launcher archives.".to_string())?;
+        .context("modsPath is required to install launcher archives.")?;
     log_launcher_trace(
         "install.start",
         &[
@@ -207,18 +207,18 @@ pub(crate) fn install_archive_at_path(
             ),
         ],
     );
-    fs::create_dir_all(&mods_path).map_err(|error| {
+    fs::create_dir_all(&mods_path).with_context(|| {
         format!(
-            "Failed to create launcher mods directory {}: {error}",
+            "Failed to create launcher mods directory {}",
             normalize_path(&mods_path)
         )
     })?;
     let persisted_backup_root = backup_root
         .map(Path::to_path_buf)
         .unwrap_or_else(|| temp_work_dir("launcher-install-backups"));
-    fs::create_dir_all(&persisted_backup_root).map_err(|error| {
+    fs::create_dir_all(&persisted_backup_root).with_context(|| {
         format!(
-            "Failed to create launcher backup directory {}: {error}",
+            "Failed to create launcher backup directory {}",
             normalize_path(&persisted_backup_root)
         )
     })?;
@@ -286,18 +286,16 @@ pub(crate) fn install_archive_at_path(
 pub(crate) fn resolve_backup_session_path(
     backup_root: &Path,
     backup_id: &str,
-) -> Result<PathBuf, String> {
+) -> anyhow::Result<PathBuf> {
     let backup_id = backup_id.trim();
     if backup_id.is_empty() {
-        return Err("backupId is required.".to_string());
+        bail!("backupId is required.");
     }
     if backup_id
         .chars()
         .any(|character| matches!(character, '/' | '\\' | ':'))
     {
-        return Err(format!(
-            "backupId {backup_id} must identify a direct backup entry."
-        ));
+        bail!("backupId {backup_id} must identify a direct backup entry.");
     }
 
     let mut components = Path::new(backup_id).components();
@@ -305,7 +303,7 @@ pub(crate) fn resolve_backup_session_path(
         Some(Component::Normal(_)) if components.next().is_none() => {
             Ok(backup_root.join(backup_id))
         }
-        _ => Err(format!(
+        _ => Err(anyhow::anyhow!(
             "backupId {backup_id} must identify a direct backup entry."
         )),
     }
@@ -326,15 +324,15 @@ fn temp_work_dir(name: &str) -> PathBuf {
 fn with_temp_work_dir<T>(
     name: &str,
     purpose: &str,
-    operation: impl FnOnce(&Path) -> Result<T, String>,
-) -> Result<T, String> {
+    operation: impl FnOnce(&Path) -> anyhow::Result<T>,
+) -> anyhow::Result<T> {
     let temp_root = temp_work_dir(name);
     if temp_root.exists() {
         let _ = fs::remove_dir_all(&temp_root);
     }
-    fs::create_dir_all(&temp_root).map_err(|error| {
+    fs::create_dir_all(&temp_root).with_context(|| {
         format!(
-            "Failed to create launcher {purpose} directory {}: {error}",
+            "Failed to create launcher {purpose} directory {}",
             normalize_path(&temp_root)
         )
     })?;
@@ -344,7 +342,7 @@ fn with_temp_work_dir<T>(
     result
 }
 
-fn expand_archive_to_path(archive_path: &Path, destination_path: &Path) -> Result<(), String> {
+fn expand_archive_to_path(archive_path: &Path, destination_path: &Path) -> anyhow::Result<()> {
     match detect_archive_format(archive_path)? {
         LauncherArchiveFormat::Zip => expand_zip_archive_to_path(archive_path, destination_path),
         LauncherArchiveFormat::SevenZip => {
@@ -358,7 +356,7 @@ fn expand_archive_to_path(archive_path: &Path, destination_path: &Path) -> Resul
     }
 }
 
-fn detect_archive_format(archive_path: &Path) -> Result<LauncherArchiveFormat, String> {
+fn detect_archive_format(archive_path: &Path) -> anyhow::Result<LauncherArchiveFormat> {
     let file_name = archive_path
         .file_name()
         .and_then(|value| value.to_str())
@@ -382,7 +380,7 @@ fn detect_archive_format(archive_path: &Path) -> Result<LauncherArchiveFormat, S
         Some("7z") => Ok(LauncherArchiveFormat::SevenZip),
         Some("rar") => Ok(LauncherArchiveFormat::Rar),
         Some("tar") => Ok(LauncherArchiveFormat::Tar),
-        _ => Err(format!(
+        _ => Err(anyhow::anyhow!(
             "Unsupported archive format: {}",
             archive_format_label(archive_path)
         )),
@@ -410,67 +408,67 @@ fn archive_format_label(archive_path: &Path) -> String {
         .unwrap_or_else(|| archive_path.display().to_string())
 }
 
-fn sanitize_archive_entry_path(path: &Path, archive_path: &Path) -> Result<PathBuf, String> {
+fn sanitize_archive_entry_path(path: &Path, archive_path: &Path) -> anyhow::Result<PathBuf> {
     let mut normalized = PathBuf::new();
     for component in path.components() {
         match component {
             Component::CurDir => {}
             Component::Normal(segment) => normalized.push(segment),
             _ => {
-                return Err(format!(
+                bail!(
                     "Launcher archive {} contains an unsafe path entry: {}",
                     normalize_path(archive_path),
                     normalize_path(path)
-                ));
+                );
             }
         }
     }
 
     if normalized.as_os_str().is_empty() {
-        return Err(format!(
+        bail!(
             "Launcher archive {} contains an empty path entry: {}",
             normalize_path(archive_path),
             normalize_path(path)
-        ));
+        );
     }
 
     Ok(normalized)
 }
 
-fn expand_zip_archive_to_path(archive_path: &Path, destination_path: &Path) -> Result<(), String> {
-    let archive_file = fs::File::open(archive_path).map_err(|error| {
+fn expand_zip_archive_to_path(archive_path: &Path, destination_path: &Path) -> anyhow::Result<()> {
+    let archive_file = fs::File::open(archive_path).with_context(|| {
         format!(
-            "Failed to open launcher archive {}: {error}",
+            "Failed to open launcher archive {}",
             normalize_path(archive_path)
         )
     })?;
-    let mut archive = ZipArchive::new(archive_file).map_err(|error| {
+    let mut archive = ZipArchive::new(archive_file).with_context(|| {
         format!(
-            "Failed to read launcher archive {} as a zip file: {error}",
+            "Failed to read launcher archive {} as a zip file",
             normalize_path(archive_path)
         )
     })?;
 
     for index in 0..archive.len() {
-        let mut entry = archive.by_index(index).map_err(|error| {
+        let mut entry = archive.by_index(index).with_context(|| {
             format!(
-                "Failed to read launcher archive entry #{index} from {}: {error}",
+                "Failed to read launcher archive entry #{index} from {}",
                 normalize_path(archive_path)
             )
         })?;
         let Some(relative_path) = entry.enclosed_name() else {
-            return Err(format!(
+            bail!(
                 "Launcher archive {} contains an unsafe path entry: {}",
                 normalize_path(archive_path),
                 entry.name()
-            ));
+            );
         };
         let output_path = destination_path.join(&relative_path);
 
         if entry.is_dir() {
-            fs::create_dir_all(&output_path).map_err(|error| {
+            fs::create_dir_all(&output_path).with_context(|| {
                 format!(
-                    "Failed to create launcher archive directory {}: {error}",
+                    "Failed to create launcher archive directory {}",
                     normalize_path(&output_path)
                 )
             })?;
@@ -478,23 +476,23 @@ fn expand_zip_archive_to_path(archive_path: &Path, destination_path: &Path) -> R
         }
 
         if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| {
+            fs::create_dir_all(parent).with_context(|| {
                 format!(
-                    "Failed to create launcher archive parent {}: {error}",
+                    "Failed to create launcher archive parent {}",
                     normalize_path(parent)
                 )
             })?;
         }
 
-        let mut output_file = fs::File::create(&output_path).map_err(|error| {
+        let mut output_file = fs::File::create(&output_path).with_context(|| {
             format!(
-                "Failed to create launcher archive output file {}: {error}",
+                "Failed to create launcher archive output file {}",
                 normalize_path(&output_path)
             )
         })?;
-        io::copy(&mut entry, &mut output_file).map_err(|error| {
+        io::copy(&mut entry, &mut output_file).with_context(|| {
             format!(
-                "Failed to extract launcher archive entry {} to {}: {error}",
+                "Failed to extract launcher archive entry {} to {}",
                 entry.name(),
                 normalize_path(&output_path)
             )
@@ -504,10 +502,10 @@ fn expand_zip_archive_to_path(archive_path: &Path, destination_path: &Path) -> R
     Ok(())
 }
 
-fn expand_tar_archive_to_path(archive_path: &Path, destination_path: &Path) -> Result<(), String> {
-    let archive_file = fs::File::open(archive_path).map_err(|error| {
+fn expand_tar_archive_to_path(archive_path: &Path, destination_path: &Path) -> anyhow::Result<()> {
+    let archive_file = fs::File::open(archive_path).with_context(|| {
         format!(
-            "Failed to open launcher archive {}: {error}",
+            "Failed to open launcher archive {}",
             normalize_path(archive_path)
         )
     })?;
@@ -521,10 +519,10 @@ fn expand_tar_archive_to_path(archive_path: &Path, destination_path: &Path) -> R
 fn expand_tar_gz_archive_to_path(
     archive_path: &Path,
     destination_path: &Path,
-) -> Result<(), String> {
-    let archive_file = fs::File::open(archive_path).map_err(|error| {
+) -> anyhow::Result<()> {
+    let archive_file = fs::File::open(archive_path).with_context(|| {
         format!(
-            "Failed to open launcher archive {}: {error}",
+            "Failed to open launcher archive {}",
             normalize_path(archive_path)
         )
     })?;
@@ -536,24 +534,24 @@ fn extract_tar_entries<R: io::Read>(
     mut archive: TarArchive<R>,
     archive_path: &Path,
     destination_path: &Path,
-) -> Result<(), String> {
-    let entries = archive.entries().map_err(|error| {
+) -> anyhow::Result<()> {
+    let entries = archive.entries().with_context(|| {
         format!(
-            "Failed to read launcher archive {} as a tar file: {error}",
+            "Failed to read launcher archive {} as a tar file",
             normalize_path(archive_path)
         )
     })?;
 
     for entry in entries {
-        let mut entry = entry.map_err(|error| {
+        let mut entry = entry.with_context(|| {
             format!(
-                "Failed to read launcher archive entry from {}: {error}",
+                "Failed to read launcher archive entry from {}",
                 normalize_path(archive_path)
             )
         })?;
-        let relative_path = entry.path().map_err(|error| {
+        let relative_path = entry.path().with_context(|| {
             format!(
-                "Failed to read launcher archive entry path from {}: {error}",
+                "Failed to read launcher archive entry path from {}",
                 normalize_path(archive_path)
             )
         })?;
@@ -562,9 +560,9 @@ fn extract_tar_entries<R: io::Read>(
         let entry_type = entry.header().entry_type();
 
         if entry_type.is_dir() {
-            fs::create_dir_all(&output_path).map_err(|error| {
+            fs::create_dir_all(&output_path).with_context(|| {
                 format!(
-                    "Failed to create launcher archive directory {}: {error}",
+                    "Failed to create launcher archive directory {}",
                     normalize_path(&output_path)
                 )
             })?;
@@ -572,25 +570,25 @@ fn extract_tar_entries<R: io::Read>(
         }
 
         if !entry_type.is_file() {
-            return Err(format!(
+            bail!(
                 "Launcher archive {} contains an unsupported tar entry: {}",
                 normalize_path(archive_path),
                 normalize_path(&relative_path)
-            ));
+            );
         }
 
         if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| {
+            fs::create_dir_all(parent).with_context(|| {
                 format!(
-                    "Failed to create launcher archive parent {}: {error}",
+                    "Failed to create launcher archive parent {}",
                     normalize_path(parent)
                 )
             })?;
         }
 
-        entry.unpack(&output_path).map_err(|error| {
+        entry.unpack(&output_path).with_context(|| {
             format!(
-                "Failed to extract launcher archive entry {} to {}: {error}",
+                "Failed to extract launcher archive entry {} to {}",
                 normalize_path(&relative_path),
                 normalize_path(&output_path)
             )
@@ -603,14 +601,14 @@ fn extract_tar_entries<R: io::Read>(
 fn expand_seven_zip_archive_to_path(
     archive_path: &Path,
     destination_path: &Path,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     decompress_file_with_extract_fn(archive_path, destination_path, |entry, reader, _| {
         if entry.is_directory() && entry.name().is_empty() {
             return Ok(true);
         }
 
         let relative_path = sanitize_archive_entry_path(Path::new(entry.name()), archive_path)
-            .map_err(SevenZipError::other)?;
+            .map_err(|error| SevenZipError::other(error.to_string()))?;
         let output_path = destination_path.join(&relative_path);
 
         if entry.is_directory() {
@@ -659,27 +657,27 @@ fn expand_seven_zip_archive_to_path(
         })?;
         Ok(true)
     })
-    .map_err(|error| {
+    .with_context(|| {
         format!(
-            "Failed to extract launcher archive {} as a 7z file: {error}",
+            "Failed to extract launcher archive {} as a 7z file",
             normalize_path(archive_path)
         )
     })
 }
 
-fn expand_rar_archive_to_path(archive_path: &Path, destination_path: &Path) -> Result<(), String> {
+fn expand_rar_archive_to_path(archive_path: &Path, destination_path: &Path) -> anyhow::Result<()> {
     let mut archive = RarArchive::new(archive_path)
         .open_for_processing()
-        .map_err(|error| {
+        .with_context(|| {
             format!(
-                "Failed to read launcher archive {} as a rar file: {error}",
+                "Failed to read launcher archive {} as a rar file",
                 normalize_path(archive_path)
             )
         })?;
 
-    while let Some(header) = archive.read_header().map_err(|error| {
+    while let Some(header) = archive.read_header().with_context(|| {
         format!(
-            "Failed to read launcher archive entry from {}: {error}",
+            "Failed to read launcher archive entry from {}",
             normalize_path(archive_path)
         )
     })? {
@@ -688,15 +686,15 @@ fn expand_rar_archive_to_path(archive_path: &Path, destination_path: &Path) -> R
         let output_path = destination_path.join(&relative_path);
 
         if header.entry().is_directory() {
-            fs::create_dir_all(&output_path).map_err(|error| {
+            fs::create_dir_all(&output_path).with_context(|| {
                 format!(
-                    "Failed to create launcher archive directory {}: {error}",
+                    "Failed to create launcher archive directory {}",
                     normalize_path(&output_path)
                 )
             })?;
-            archive = header.skip().map_err(|error| {
+            archive = header.skip().with_context(|| {
                 format!(
-                    "Failed to advance launcher archive entry {}: {error}",
+                    "Failed to advance launcher archive entry {}",
                     normalize_path(&relative_path)
                 )
             })?;
@@ -704,17 +702,17 @@ fn expand_rar_archive_to_path(archive_path: &Path, destination_path: &Path) -> R
         }
 
         if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| {
+            fs::create_dir_all(parent).with_context(|| {
                 format!(
-                    "Failed to create launcher archive parent {}: {error}",
+                    "Failed to create launcher archive parent {}",
                     normalize_path(parent)
                 )
             })?;
         }
 
-        archive = header.extract_to(&output_path).map_err(|error| {
+        archive = header.extract_to(&output_path).with_context(|| {
             format!(
-                "Failed to extract launcher archive entry {} to {}: {error}",
+                "Failed to extract launcher archive entry {} to {}",
                 normalize_path(&relative_path),
                 normalize_path(&output_path)
             )
@@ -727,7 +725,7 @@ fn expand_rar_archive_to_path(archive_path: &Path, destination_path: &Path) -> R
 pub fn install_launcher_archive(
     _app: AppHandle,
     request: InstallLauncherArchiveRequest,
-) -> Result<InstallLauncherArchiveResult, String> {
+) -> anyhow::Result<InstallLauncherArchiveResult> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "install_launcher_archive",
         (|| {
@@ -758,13 +756,13 @@ pub fn install_launcher_archive(
 
 pub fn inspect_launcher_archive(
     request: InspectLauncherArchiveRequest,
-) -> Result<InspectLauncherArchiveResult, String> {
+) -> anyhow::Result<InspectLauncherArchiveResult> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "inspect_launcher_archive",
         (|| {
             let archive_path = request.archive_path.trim();
             if archive_path.is_empty() {
-                return Err("archivePath is required.".to_string());
+                bail!("archivePath is required.");
             }
 
             inspect_archive_at_path(&clean_input_path(archive_path))
@@ -775,7 +773,7 @@ pub fn inspect_launcher_archive(
 pub fn list_launcher_install_backups(
     _app: AppHandle,
     request: ListLauncherInstallBackupsRequest,
-) -> Result<Vec<LauncherInstallBackupSummary>, String> {
+) -> anyhow::Result<Vec<LauncherInstallBackupSummary>> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "list_launcher_install_backups",
         (|| {
@@ -805,7 +803,7 @@ pub fn list_launcher_install_backups(
 pub fn restore_launcher_install_backup(
     _app: AppHandle,
     request: RestoreLauncherInstallBackupRequest,
-) -> Result<RestoreLauncherInstallBackupResult, String> {
+) -> anyhow::Result<RestoreLauncherInstallBackupResult> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "restore_launcher_install_backup",
         (|| {

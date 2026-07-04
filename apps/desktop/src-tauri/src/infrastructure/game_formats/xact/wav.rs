@@ -1,3 +1,4 @@
+use anyhow::{Context, bail};
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct MiniWaveFormat {
     pub format_tag: u32,
@@ -117,15 +118,15 @@ fn decode_ms_adpcm(
     channels: usize,
     block_align: usize,
     samples_per_block: usize,
-) -> Result<Vec<i16>, String> {
+) -> anyhow::Result<Vec<i16>> {
     if channels == 0 {
-        return Err("ADPCM channel count is zero.".to_string());
+        bail!("ADPCM channel count is zero.");
     }
     if block_align == 0 {
-        return Err("ADPCM block alignment is zero.".to_string());
+        bail!("ADPCM block alignment is zero.");
     }
     if samples_per_block < 2 {
-        return Err("ADPCM samples per block is invalid.".to_string());
+        bail!("ADPCM samples per block is invalid.");
     }
 
     const COEFFS: [(i16, i16); 7] = [
@@ -157,9 +158,9 @@ fn decode_ms_adpcm(
         let mut cursor = 0usize;
         let header_len = channels
             .checked_mul(7)
-            .ok_or_else(|| "ADPCM block header is too large.".to_string())?;
+            .context("ADPCM block header is too large.")?;
         if cursor + header_len > block.len() {
-            return Err("ADPCM block header is incomplete.".to_string());
+            bail!("ADPCM block header is incomplete.");
         }
 
         let mut predictors = Vec::with_capacity(channels);
@@ -193,7 +194,7 @@ fn decode_ms_adpcm(
         for channel in 0..channels {
             let predictor = predictors[channel];
             if predictor >= COEFFS.len() {
-                return Err("ADPCM predictor index is out of range.".to_string());
+                bail!("ADPCM predictor index is out of range.");
             }
 
             states.push(ChannelState {
@@ -259,7 +260,7 @@ fn decode_ms_adpcm(
     Ok(output)
 }
 
-pub(crate) fn build_wav_bytes(format: MiniWaveFormat, data: &[u8]) -> Result<Vec<u8>, String> {
+pub(crate) fn build_wav_bytes(format: MiniWaveFormat, data: &[u8]) -> anyhow::Result<Vec<u8>> {
     match format.format_tag {
         MiniWaveFormat::TAG_PCM => {
             let channels = format.channels as u16;
@@ -277,7 +278,7 @@ pub(crate) fn build_wav_bytes(format: MiniWaveFormat, data: &[u8]) -> Result<Vec
             let sample_rate = format.samples_per_sec;
             let block_align = format.block_align() as usize;
             if block_align == 0 {
-                return Err("Invalid ADPCM block alignment.".to_string());
+                bail!("Invalid ADPCM block alignment.");
             }
             let samples_per_block = format.adpcm_samples_per_block() as usize;
             let decoded = decode_ms_adpcm(data, channels, block_align, samples_per_block)?;
@@ -292,8 +293,8 @@ pub(crate) fn build_wav_bytes(format: MiniWaveFormat, data: &[u8]) -> Result<Vec
                 &pcm_bytes,
             ))
         }
-        MiniWaveFormat::TAG_WMA => Err("WMA audio is not supported for preview.".to_string()),
-        MiniWaveFormat::TAG_XMA => Err("XMA audio is not supported for preview.".to_string()),
-        _ => Err("Unsupported audio format tag.".to_string()),
+        MiniWaveFormat::TAG_WMA => Err(anyhow::anyhow!("WMA audio is not supported for preview.")),
+        MiniWaveFormat::TAG_XMA => Err(anyhow::anyhow!("XMA audio is not supported for preview.")),
+        _ => Err(anyhow::anyhow!("Unsupported audio format tag.")),
     }
 }
