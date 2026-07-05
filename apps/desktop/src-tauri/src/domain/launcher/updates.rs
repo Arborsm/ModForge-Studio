@@ -24,6 +24,7 @@ use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{build_mod_page_url, normalize_nexus_url};
 use crate::domain::nexusmods::updates::load_remote_mod_details_from_graphql;
 use crate::infrastructure::fs::pathing::clean_input_path;
+use anyhow::{Context, bail};
 use reqwest::blocking::Client;
 use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
 use semver::Version;
@@ -280,7 +281,7 @@ pub(crate) fn resolve_smapi_runtime_versions(
     let game_root = resolve_update_check_game_root(settings, mods_path);
     resolve_smapi_runtime_versions_with_reader(game_root.as_deref(), read_windows_file_version)
 }
-fn smapi_headers() -> Result<HeaderMap, String> {
+fn smapi_headers() -> anyhow::Result<HeaderMap> {
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
     headers.insert(
@@ -375,11 +376,11 @@ fn normalize_smapi_mod_url(value: &str, mod_id: i64) -> String {
 pub(crate) fn parse_smapi_update_response(
     payload: &Value,
     candidates: &[UpdateCheckCandidate],
-) -> Result<HashMap<i64, RemoteModDetail>, String> {
+) -> anyhow::Result<HashMap<i64, RemoteModDetail>> {
     let entries = payload
         .as_array()
         .or_else(|| payload.get("Mods").and_then(Value::as_array))
-        .ok_or_else(|| "SMAPI mod lookup response did not contain an array payload.".to_string())?;
+        .context("SMAPI mod lookup response did not contain an array payload.")?;
 
     let mut details = HashMap::new();
     for (candidate, entry) in candidates.iter().zip(entries.iter()) {
@@ -464,7 +465,7 @@ fn load_remote_mod_details_from_smapi(
     client: &Client,
     candidates: &[UpdateCheckCandidate],
     versions: &SmapiRuntimeVersions,
-) -> Result<HashMap<i64, RemoteModDetail>, String> {
+) -> anyhow::Result<HashMap<i64, RemoteModDetail>> {
     let smapi_candidates = candidates
         .iter()
         .filter(|candidate| {
@@ -489,17 +490,17 @@ fn load_remote_mod_details_from_smapi(
         .headers(headers)
         .json(&payload)
         .send()
-        .map_err(|error| format!("SMAPI mod lookup request failed: {error}"))?;
+        .with_context(|| format!("SMAPI mod lookup request failed"))?;
     if !response.status().is_success() {
-        return Err(format!(
+        bail!(
             "SMAPI mod lookup request failed: HTTP {}",
             response.status()
-        ));
+        );
     }
 
     let payload = response
         .json::<Value>()
-        .map_err(|error| format!("Failed to parse SMAPI mod lookup response: {error}"))?;
+        .with_context(|| format!("Failed to parse SMAPI mod lookup response"))?;
     parse_smapi_update_response(&payload, &smapi_candidates)
 }
 
@@ -509,7 +510,7 @@ fn load_remote_mod_details_batch(
     settings: &LauncherSettings,
     candidates: &[UpdateCheckCandidate],
     smapi_versions: &SmapiRuntimeVersions,
-) -> Result<HashMap<i64, RemoteModDetail>, String> {
+) -> anyhow::Result<HashMap<i64, RemoteModDetail>> {
     if candidates.is_empty() {
         return Ok(HashMap::new());
     }
@@ -674,7 +675,7 @@ pub(crate) fn finalize_remote_mod_details_batch(
     details: HashMap<i64, RemoteModDetail>,
     unresolved_mod_ids: Vec<i64>,
     errors: Vec<String>,
-) -> Result<HashMap<i64, RemoteModDetail>, String> {
+) -> anyhow::Result<HashMap<i64, RemoteModDetail>> {
     if !unresolved_mod_ids.is_empty() && !errors.is_empty() {
         let mut unique_errors = errors;
         unique_errors.sort();
@@ -752,7 +753,7 @@ fn save_incremental_launcher_updates_cache(
     total_count: usize,
     is_complete: bool,
     session_id: &str,
-) -> Result<LauncherUpdatesResult, String> {
+) -> anyhow::Result<LauncherUpdatesResult> {
     let checked_at_ms = current_timestamp_ms();
     let partial_result = LauncherUpdatesResult {
         mods_path: mods_path.to_string(),
@@ -829,7 +830,7 @@ fn emit_update_check_progress(
     total: usize,
     current_mod_name: Option<&str>,
     updates: Option<&[LauncherUpdateSummary]>,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     app.emit(
         LAUNCHER_UPDATE_PROGRESS_EVENT,
         LauncherUpdateProgressPayload {
@@ -841,19 +842,20 @@ fn emit_update_check_progress(
             updates: updates.map(|items| items.to_vec()),
         },
     )
-    .map_err(|error| format!("Failed to emit launcher update progress: {error}"))
+    .map_err(anyhow::Error::msg)
+    .with_context(|| format!("Failed to emit launcher update progress"))
 }
 
 pub fn load_cached_launcher_updates(
     _app: AppHandle,
     request: LoadCachedLauncherUpdatesRequest,
-) -> Result<Option<LauncherUpdatesResult>, String> {
+) -> anyhow::Result<Option<LauncherUpdatesResult>> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_cached_launcher_updates",
         (|| {
             let mods_path = request.mods_path.trim();
             if mods_path.is_empty() {
-                return Err("modsPath is required.".to_string());
+                bail!("modsPath is required.");
             }
 
             let cache_path = launcher_updates_cache_path()?;
@@ -902,10 +904,10 @@ pub fn load_cached_launcher_updates(
 pub(crate) fn load_launcher_suppressed_update_mod_ids_result_at_path(
     cache_path: &Path,
     request: LoadSuppressedLauncherUpdateModIdsRequest,
-) -> Result<LauncherSuppressedUpdateModIdsResult, String> {
+) -> anyhow::Result<LauncherSuppressedUpdateModIdsResult> {
     let mods_path = request.mods_path.trim();
     if mods_path.is_empty() {
-        return Err("modsPath is required.".to_string());
+        bail!("modsPath is required.");
     }
 
     let mut mod_ids = load_suppressed_launcher_update_mod_ids_at_path(
@@ -926,7 +928,7 @@ pub(crate) fn load_launcher_suppressed_update_mod_ids_result_at_path(
 pub fn load_suppressed_launcher_update_mod_ids(
     _app: AppHandle,
     request: LoadSuppressedLauncherUpdateModIdsRequest,
-) -> Result<LauncherSuppressedUpdateModIdsResult, String> {
+) -> anyhow::Result<LauncherSuppressedUpdateModIdsResult> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_suppressed_launcher_update_mod_ids",
         (|| {
@@ -939,17 +941,17 @@ pub fn load_suppressed_launcher_update_mod_ids(
 pub(crate) fn check_launcher_updates_blocking(
     app: &AppHandle,
     request: &CheckLauncherUpdatesRequest,
-) -> Result<LauncherUpdatesResult, String> {
+) -> anyhow::Result<LauncherUpdatesResult> {
     let mods_path = request.mods_path.trim();
     if mods_path.is_empty() {
-        return Err("modsPath is required.".to_string());
+        bail!("modsPath is required.");
     }
     let session_id = request
         .session_id
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| "sessionId is required.".to_string())?;
+        .context("sessionId is required.")?;
 
     let force_refresh = request.force_refresh.unwrap_or(false);
     let cache_path = launcher_updates_cache_path()?;
@@ -994,7 +996,7 @@ pub(crate) fn check_launcher_updates_blocking(
         );
     }
     let active_cache_key = begin_launcher_update_check_activity(mods_path);
-    let result = (|| -> Result<LauncherUpdatesResult, String> {
+    let result = (|| -> anyhow::Result<LauncherUpdatesResult> {
         let started_at_ms = current_timestamp_ms();
         mark_launcher_updates_check_in_progress_at_path(&cache_path, mods_path, started_at_ms)?;
         let in_progress_inspection =
@@ -1202,9 +1204,7 @@ pub(crate) fn check_launcher_updates_blocking(
         }
         Err(error) => {
             clear_launcher_updates_check_in_progress_at_path(&cache_path, Some(mods_path))
-                .map_err(|clear_error| {
-                    format!("{error} Failed to clear launcher update check state: {clear_error}")
-                })?;
+                .with_context(|| format!("{error} Failed to clear launcher update check state"))?;
             let clear_inspection = inspect_launcher_updates_cache_at_path(
                 &cache_path,
                 mods_path,

@@ -3,9 +3,8 @@ use crate::domain::cp_maker::storage::{
     list_cp_maker_drafts_at_dir, load_cp_maker_draft_at_dir, save_cp_maker_draft_at_dir,
 };
 use crate::domain::cp_maker::types::{
-    CopyCpMakerDraftRequest, CpMakerDraftErrorCode, CpMakerDraftOperation, CpMakerDraftRecord,
-    CpMakerEventSourceSnapshot, CpMakerExportFingerprint, CpMakerMetadata, CpMakerOverlayTarget,
-    CpMakerOverlayTargetSource,
+    CopyCpMakerDraftRequest, CpMakerDraftRecord, CpMakerEventSourceSnapshot,
+    CpMakerExportFingerprint, CpMakerMetadata, CpMakerOverlayTarget, CpMakerOverlayTargetSource,
 };
 use crate::test_support::create_temp_dir;
 use serde_json::json;
@@ -137,9 +136,15 @@ fn deletes_cp_maker_drafts_and_reports_missing_records_explicitly() {
 
     let error = load_cp_maker_draft_at_dir(&root, "draft-delete")
         .expect_err("expected deleted draft to be missing");
-    assert_eq!(error.code, CpMakerDraftErrorCode::MissingRecord);
-    assert_eq!(error.operation, CpMakerDraftOperation::Load);
-    assert_eq!(error.draft_storage_key.as_deref(), Some("draft-delete"));
+    let message = error.to_string();
+    assert!(
+        message.contains("Cp-maker draft record was not found."),
+        "{message}"
+    );
+    assert!(
+        message.contains("[draftStorageKey=draft-delete]"),
+        "{message}"
+    );
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -155,13 +160,16 @@ fn surfaces_corrupted_draft_snapshots_as_structured_errors() {
 
     let error = load_cp_maker_draft_at_dir(&root, "draft-corrupted")
         .expect_err("expected corrupted draft load to fail");
+    let message = error.to_string();
 
-    assert_eq!(error.code, CpMakerDraftErrorCode::CorruptedSnapshot);
-    assert_eq!(error.operation, CpMakerDraftOperation::Load);
-    assert_eq!(error.draft_storage_key.as_deref(), Some("draft-corrupted"));
-    assert_eq!(
-        error.path.as_deref(),
-        Some(draft_path.to_string_lossy().as_ref())
+    assert!(message.contains("could not be parsed"), "{message}");
+    assert!(
+        message.contains("[draftStorageKey=draft-corrupted]"),
+        "{message}"
+    );
+    assert!(
+        message.contains(&format!("[path={}]", draft_path.to_string_lossy())),
+        "{message}"
     );
 
     fs::remove_dir_all(root).expect("cleanup");
@@ -174,13 +182,19 @@ fn reports_missing_cp_maker_drafts_as_structured_errors() {
 
     let error = load_cp_maker_draft_at_dir(&root, "draft-missing")
         .expect_err("expected missing draft load to fail");
+    let message = error.to_string();
 
-    assert_eq!(error.code, CpMakerDraftErrorCode::MissingRecord);
-    assert_eq!(error.operation, CpMakerDraftOperation::Load);
-    assert_eq!(error.draft_storage_key.as_deref(), Some("draft-missing"));
-    assert_eq!(
-        error.path.as_deref(),
-        Some(draft_path.to_string_lossy().as_ref())
+    assert!(
+        message.contains("Cp-maker draft record was not found."),
+        "{message}"
+    );
+    assert!(
+        message.contains("[draftStorageKey=draft-missing]"),
+        "{message}"
+    );
+    assert!(
+        message.contains(&format!("[path={}]", draft_path.to_string_lossy())),
+        "{message}"
     );
 
     fs::remove_dir_all(root).expect("cleanup");

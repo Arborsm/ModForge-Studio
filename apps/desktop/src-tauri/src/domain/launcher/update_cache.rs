@@ -1,5 +1,6 @@
 use super::types::{LauncherUpdateSummary, LauncherUpdatesResult};
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use anyhow::{Context, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
@@ -123,14 +124,14 @@ pub(crate) fn normalize_launcher_updates_cache_key(mods_path: &str) -> Option<St
 
 fn load_launcher_updates_cache_state(
     cache_path: &Path,
-) -> Result<LauncherUpdatesCacheState, String> {
+) -> anyhow::Result<LauncherUpdatesCacheState> {
     if !cache_path.is_file() {
         return Ok(LauncherUpdatesCacheState::default());
     }
 
-    let content = fs::read_to_string(cache_path).map_err(|error| {
+    let content = fs::read_to_string(cache_path).with_context(|| {
         format!(
-            "Failed to read launcher updates cache {}: {error}",
+            "Failed to read launcher updates cache {}",
             normalize_path(cache_path)
         )
     })?;
@@ -142,21 +143,21 @@ fn load_launcher_updates_cache_state(
 fn save_launcher_updates_cache_state(
     cache_path: &Path,
     state: &LauncherUpdatesCacheState,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     if let Some(parent) = cache_path.parent() {
-        fs::create_dir_all(parent).map_err(|error| {
+        fs::create_dir_all(parent).with_context(|| {
             format!(
-                "Failed to create launcher updates cache directory {}: {error}",
+                "Failed to create launcher updates cache directory {}",
                 normalize_path(parent)
             )
         })?;
     }
 
     let json = serde_json::to_string_pretty(state)
-        .map_err(|error| format!("Failed to serialize launcher updates cache JSON: {error}"))?;
-    fs::write(cache_path, format!("{json}\n")).map_err(|error| {
+        .with_context(|| format!("Failed to serialize launcher updates cache JSON"))?;
+    fs::write(cache_path, format!("{json}\n")).with_context(|| {
         format!(
-            "Failed to write launcher updates cache {}: {error}",
+            "Failed to write launcher updates cache {}",
             normalize_path(cache_path)
         )
     })?;
@@ -175,7 +176,7 @@ pub(crate) fn load_cached_launcher_updates_at_path(
     cache_path: &Path,
     mods_path: &str,
     now_ms: u128,
-) -> Result<Option<LauncherUpdatesResult>, String> {
+) -> anyhow::Result<Option<LauncherUpdatesResult>> {
     let _cache_file_guard = lock_launcher_updates_cache_file();
     let Some(cache_key) = normalize_launcher_updates_cache_key(mods_path) else {
         return Ok(None);
@@ -200,7 +201,7 @@ pub(crate) fn inspect_launcher_updates_cache_at_path(
     cache_path: &Path,
     mods_path: &str,
     now_ms: u128,
-) -> Result<LauncherUpdatesCacheInspection, String> {
+) -> anyhow::Result<LauncherUpdatesCacheInspection> {
     let _cache_file_guard = lock_launcher_updates_cache_file();
     let cache_key = normalize_launcher_updates_cache_key(mods_path);
     let Some(cache_key_value) = cache_key.clone() else {
@@ -267,7 +268,7 @@ pub(crate) fn save_launcher_updates_cache_at_path(
     result: &LauncherUpdatesResult,
     now_ms: u128,
     ttl_ms: u128,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let _cache_file_guard = lock_launcher_updates_cache_file();
     let Some(cache_key) = normalize_launcher_updates_cache_key(&result.mods_path) else {
         return Ok(());
@@ -293,7 +294,7 @@ pub(crate) fn load_launcher_update_auto_failures_at_path(
     cache_path: &Path,
     mods_path: &str,
     mod_id: i64,
-) -> Result<Option<LauncherUpdateAutoFailureEntry>, String> {
+) -> anyhow::Result<Option<LauncherUpdateAutoFailureEntry>> {
     let _cache_file_guard = lock_launcher_updates_cache_file();
     if mod_id <= 0 {
         return Ok(None);
@@ -315,7 +316,7 @@ pub(crate) fn load_suppressed_launcher_update_mod_ids_at_path(
     cache_path: &Path,
     mods_path: &str,
     threshold: u32,
-) -> Result<HashSet<i64>, String> {
+) -> anyhow::Result<HashSet<i64>> {
     let _cache_file_guard = lock_launcher_updates_cache_file();
     let Some(cache_key) = normalize_launcher_updates_cache_key(mods_path) else {
         return Ok(HashSet::new());
@@ -339,13 +340,13 @@ pub(crate) fn record_launcher_update_auto_failure_at_path(
     mod_id: i64,
     failed_at_ms: u128,
     error: Option<&str>,
-) -> Result<LauncherUpdateAutoFailureEntry, String> {
+) -> anyhow::Result<LauncherUpdateAutoFailureEntry> {
     let _cache_file_guard = lock_launcher_updates_cache_file();
     let Some(cache_key) = normalize_launcher_updates_cache_key(mods_path) else {
-        return Err("modsPath is required.".to_string());
+        bail!("modsPath is required.");
     };
     if mod_id <= 0 {
-        return Err("modId must be greater than 0.".to_string());
+        bail!("modId must be greater than 0.");
     }
 
     let normalized_error = error
@@ -380,7 +381,7 @@ pub(crate) fn clear_launcher_update_auto_failures_at_path(
     cache_path: &Path,
     mods_path: &str,
     mod_ids: &[i64],
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let _cache_file_guard = lock_launcher_updates_cache_file();
     if mod_ids.is_empty() || !cache_path.is_file() {
         return Ok(());
@@ -415,7 +416,7 @@ pub(crate) fn mark_launcher_updates_check_in_progress_at_path(
     cache_path: &Path,
     mods_path: &str,
     started_at_ms: u128,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let _cache_file_guard = lock_launcher_updates_cache_file();
     let Some(cache_key) = normalize_launcher_updates_cache_key(mods_path) else {
         return Ok(());
@@ -442,7 +443,7 @@ pub(crate) fn mark_launcher_updates_check_in_progress_at_path(
 pub(crate) fn clear_launcher_updates_check_in_progress_at_path(
     cache_path: &Path,
     mods_path: Option<&str>,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let _cache_file_guard = lock_launcher_updates_cache_file();
     if !cache_path.is_file() {
         return Ok(());
@@ -483,7 +484,7 @@ pub(crate) fn clear_launcher_updates_check_in_progress_at_path(
 pub(crate) fn invalidate_launcher_updates_cache_at_path(
     cache_path: &Path,
     mods_path: Option<&str>,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let _cache_file_guard = lock_launcher_updates_cache_file();
     if !cache_path.is_file() {
         return Ok(());

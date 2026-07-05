@@ -56,7 +56,7 @@ fn read_nexus_response_body_with_retry_retries_after_decode_error() {
     let body = read_nexus_response_body_with_retry(|| {
         attempts += 1;
         if attempts == 1 {
-            Err("error decoding response body".to_string())
+            Err(anyhow::anyhow!("error decoding response body"))
         } else {
             Ok(br#"{"data":{"ok":true}}"#.to_vec())
         }
@@ -123,7 +123,7 @@ fn launcher_nexus_route_probe_does_not_retry_automatically_after_failure() {
         LauncherNexusRoute::PublicGraphql,
         || {
             attempts += 1;
-            Err("connection reset".to_string())
+            Err(anyhow::anyhow!("connection reset"))
         },
         false,
     );
@@ -132,8 +132,13 @@ fn launcher_nexus_route_probe_does_not_retry_automatically_after_failure() {
     assert_eq!(snapshot.status, NexusRouteStatus::Warning);
     assert!(snapshot.available);
     assert_eq!(snapshot.attempts, 1);
-    assert!(snapshot.message.contains("Failed after 1 attempt"));
-    assert!(snapshot.message.contains("connection reset"));
+    assert!(
+        snapshot
+            .message
+            .to_string()
+            .contains("Failed after 1 attempt")
+    );
+    assert!(snapshot.message.to_string().contains("connection reset"));
 }
 
 #[test]
@@ -149,7 +154,7 @@ fn launcher_nexus_route_blocks_after_three_separate_failed_probes() {
             LauncherNexusRoute::PublicGraphql,
             || {
                 attempts += 1;
-                Err("connection reset".to_string())
+                Err(anyhow::anyhow!("connection reset"))
             },
             false,
         );
@@ -262,8 +267,8 @@ fn blocked_launcher_nexus_route_returns_fast_error() {
     let error = ensure_launcher_nexus_route_available(LauncherNexusRoute::PublicGraphql)
         .expect_err("route should be blocked");
 
-    assert!(error.contains("Public GraphQL"));
-    assert!(error.contains("Failed after 3 attempts"));
+    assert!(error.to_string().contains("Public GraphQL"));
+    assert!(error.to_string().contains("Failed after 3 attempts"));
 }
 
 #[test]
@@ -364,7 +369,7 @@ fn force_offline_override_blocks_all_configured_routes() {
     assert!(diagnostics.routes.iter().all(|route| {
         route.status == NexusRouteStatus::Warning
             && !route.available
-            && route.message.contains("Forced offline")
+            && route.message.to_string().contains("Forced offline")
     }));
     ensure_launcher_nexus_route_available(LauncherNexusRoute::PublicGraphql)
         .expect_err("public GraphQL should be blocked while force offline is active");
@@ -393,7 +398,7 @@ fn force_offline_override_prevents_blocked_route_reprobe_recovery() {
     .expect_err("forced-offline route should not recover via reprobe");
 
     assert_eq!(attempts, 0);
-    assert!(error.contains("Forced offline"));
+    assert!(error.to_string().contains("Forced offline"));
 
     let diagnostics = snapshot_launcher_nexus_diagnostics_for_test();
     let public_graphql = diagnostics
@@ -403,7 +408,12 @@ fn force_offline_override_prevents_blocked_route_reprobe_recovery() {
         .expect("public GraphQL snapshot should exist");
     assert_eq!(public_graphql.status, NexusRouteStatus::Warning);
     assert!(!public_graphql.available);
-    assert!(public_graphql.message.contains("Forced offline"));
+    assert!(
+        public_graphql
+            .message
+            .to_string()
+            .contains("Forced offline")
+    );
 }
 
 #[test]
@@ -515,5 +525,5 @@ fn launcher_nexus_success_snapshot_works_with_one_attempt() {
     assert_eq!(snapshot.status, NexusRouteStatus::Success);
     assert!(snapshot.available);
     assert_eq!(snapshot.attempts, 1);
-    assert!(snapshot.message.contains("1 attempt"));
+    assert!(snapshot.message.to_string().contains("1 attempt"));
 }

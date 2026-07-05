@@ -2,25 +2,25 @@ pub mod types;
 
 pub use types::DefaultSaveSlotSummary;
 
+use anyhow::Context;
 use std::fs;
 
 use crate::infrastructure::fs::pathing::{
     default_save_root_path, normalize_path, resolve_save_file_path,
 };
 
-pub(crate) fn scan_default_save_slots() -> Result<Vec<DefaultSaveSlotSummary>, String> {
-    let save_root = default_save_root_path()
-        .ok_or_else(|| "APPDATA is not available on this system.".to_string())?;
+pub(crate) fn scan_default_save_slots() -> anyhow::Result<Vec<DefaultSaveSlotSummary>> {
+    let save_root = default_save_root_path().context("APPDATA is not available on this system.")?;
     if !save_root.exists() {
         return Ok(Vec::new());
     }
 
     let entries = fs::read_dir(&save_root)
-        .map_err(|error| format!("Failed to read {}: {error}", normalize_path(&save_root)))?;
+        .with_context(|| format!("Failed to read {}", normalize_path(&save_root)))?;
 
     let mut slots = Vec::new();
     for entry in entries {
-        let entry = entry.map_err(|error| format!("Failed to inspect save slot entry: {error}"))?;
+        let entry = entry.with_context(|| format!("Failed to inspect save slot entry"))?;
         let path = entry.path();
         if !path.is_dir() {
             continue;
@@ -30,9 +30,9 @@ pub(crate) fn scan_default_save_slots() -> Result<Vec<DefaultSaveSlotSummary>, S
             continue;
         };
 
-        let metadata = fs::metadata(&file_path).map_err(|error| {
+        let metadata = fs::metadata(&file_path).with_context(|| {
             format!(
-                "Failed to read save file metadata {}: {error}",
+                "Failed to read save file metadata {}",
                 normalize_path(&file_path)
             )
         })?;

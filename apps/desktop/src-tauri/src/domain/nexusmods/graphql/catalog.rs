@@ -12,6 +12,7 @@ use crate::domain::nexusmods::graphql;
 use crate::domain::nexusmods::http::{api_headers, launcher_http_client, send_nexus_json_request};
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{build_mod_page_url, extract_graphql_error, string_field};
+use anyhow::{Context, bail};
 use reqwest::blocking::Client;
 use serde_json::{Value, json};
 use time::{Duration, OffsetDateTime};
@@ -190,7 +191,7 @@ fn catalog_time_range_filter_field(sort: &str) -> &'static str {
 fn build_catalog_time_range_filter(
     time_range: Option<&str>,
     sort: &str,
-) -> Result<Option<(&'static str, Value)>, String> {
+) -> anyhow::Result<Option<(&'static str, Value)>> {
     let days = match catalog_time_range_days(time_range) {
         Some(value) => value,
         None => return Ok(None),
@@ -207,7 +208,7 @@ fn build_catalog_time_range_filter(
 
 pub(crate) fn build_catalog_graphql_payload(
     request: &SearchLauncherCatalogRequest,
-) -> Result<Value, String> {
+) -> anyhow::Result<Value> {
     let query = normalize_optional_text(request.query.clone());
     let title_query = normalize_optional_text(request.title_query.clone());
     let description_query = normalize_optional_text(request.description_query.clone());
@@ -278,7 +279,7 @@ pub(crate) fn build_catalog_graphql_payload(
 
 pub(crate) fn build_public_catalog_graphql_payload(
     request: &SearchLauncherCatalogRequest,
-) -> Result<Value, String> {
+) -> anyhow::Result<Value> {
     let query = normalize_optional_text(request.query.clone());
     let title_query = normalize_optional_text(request.title_query.clone());
     let description_query = normalize_optional_text(request.description_query.clone());
@@ -431,15 +432,15 @@ pub(crate) fn parse_catalog_graphql_response(
     payload: &Value,
     page: usize,
     page_size: usize,
-) -> Result<LauncherCatalogPageResult, String> {
+) -> anyhow::Result<LauncherCatalogPageResult> {
     if let Some(error) = extract_graphql_error(payload) {
-        return Err(error);
+        return Err(anyhow::anyhow!(error));
     }
 
     let mods = payload
         .get("data")
         .and_then(|value| value.get("mods"))
-        .ok_or_else(|| "Nexus catalog response did not include a mods payload.".to_string())?;
+        .context("Nexus catalog response did not include a mods payload.")?;
     let total_count = mods
         .get("totalCount")
         .and_then(Value::as_u64)
@@ -447,7 +448,7 @@ pub(crate) fn parse_catalog_graphql_response(
     let nodes = mods
         .get("nodes")
         .and_then(Value::as_array)
-        .ok_or_else(|| "Nexus catalog response did not include a nodes array.".to_string())?;
+        .context("Nexus catalog response did not include a nodes array.")?;
     let results = nodes
         .iter()
         .filter_map(parse_catalog_graphql_node)
@@ -568,10 +569,10 @@ fn parse_trending_catalog_response(
     payload: &Value,
     page: usize,
     ascending: bool,
-) -> Result<LauncherCatalogPageResult, String> {
+) -> anyhow::Result<LauncherCatalogPageResult> {
     let items = payload
         .as_array()
-        .ok_or_else(|| "Nexus trending response did not return an array.".to_string())?;
+        .context("Nexus trending response did not return an array.")?;
     let mut results = items
         .iter()
         .filter_map(|item| {
@@ -621,7 +622,7 @@ fn parse_trending_catalog_response(
 fn load_public_catalog_page_from_graphql(
     client: &Client,
     request: &SearchLauncherCatalogRequest,
-) -> Result<LauncherCatalogPageResult, String> {
+) -> anyhow::Result<LauncherCatalogPageResult> {
     probe_blocked_launcher_nexus_route(client, None, LauncherNexusRoute::PublicGraphql)?;
     let page = request.page.unwrap_or(1).max(1);
     let page_size = catalog_page_size(request.page_size);
@@ -637,12 +638,12 @@ fn load_public_catalog_page_from_graphql(
             .json(&payload)
             .send()
     })
-    .map_err(|error| format!("Public Nexus catalog GraphQL response failed: {error}"))?;
+    .with_context(|| format!("Public Nexus catalog GraphQL response failed"))?;
     if !status.is_success() {
-        return Err(format!(
+        bail!(
             "Public Nexus catalog GraphQL request failed: HTTP {}",
             status
-        ));
+        );
     }
 
     parse_catalog_graphql_response(&response_payload, page, page_size)
@@ -651,7 +652,7 @@ fn load_public_catalog_page_from_graphql(
 fn load_public_catalog_page(
     client: &Client,
     request: &SearchLauncherCatalogRequest,
-) -> Result<LauncherCatalogPageResult, String> {
+) -> anyhow::Result<LauncherCatalogPageResult> {
     load_public_catalog_page_from_graphql(client, request)
 }
 
@@ -661,9 +662,9 @@ fn load_catalog_page_from_graphql(
     payload: &Value,
     page: usize,
     page_size: usize,
-) -> Result<LauncherCatalogPageResult, String> {
+) -> anyhow::Result<LauncherCatalogPageResult> {
     if !can_use_nexus_graphql(settings) {
-        return Err("Configure a Nexus API key before querying Nexus Mods.".to_string());
+        bail!("Configure a Nexus API key before querying Nexus Mods.");
     }
     probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PrivateGraphql)?;
 
@@ -675,12 +676,9 @@ fn load_catalog_page_from_graphql(
             .json(payload)
             .send()
     })
-    .map_err(|error| format!("Nexus catalog GraphQL response failed: {error}"))?;
+    .with_context(|| format!("Nexus catalog GraphQL response failed"))?;
     if !status.is_success() {
-        return Err(format!(
-            "Nexus catalog GraphQL request failed: HTTP {}",
-            status
-        ));
+        bail!("Nexus catalog GraphQL request failed: HTTP {}", status);
     }
 
     parse_catalog_graphql_response(&response_payload, page, page_size)
@@ -692,7 +690,7 @@ fn load_trending_catalog_page(
     api_key: &str,
     page: usize,
     ascending: bool,
-) -> Result<LauncherCatalogPageResult, String> {
+) -> anyhow::Result<LauncherCatalogPageResult> {
     probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::NexusApi)?;
     let headers = api_headers(api_key)?;
     let (status, response_payload) = send_nexus_json_request(|| {
@@ -701,9 +699,9 @@ fn load_trending_catalog_page(
             .headers(headers.clone())
             .send()
     })
-    .map_err(|error| format!("Nexus trending response failed: {error}"))?;
+    .with_context(|| format!("Nexus trending response failed"))?;
     if !status.is_success() {
-        return Err(format!("Nexus trending request failed: HTTP {}", status));
+        bail!("Nexus trending request failed: HTTP {}", status);
     }
 
     parse_trending_catalog_response(&response_payload, page, ascending)
@@ -712,7 +710,7 @@ fn load_trending_catalog_page(
 pub(crate) fn search_launcher_catalog_blocking(
     _app: &AppHandle,
     request: &SearchLauncherCatalogRequest,
-) -> Result<LauncherCatalogPageResult, String> {
+) -> anyhow::Result<LauncherCatalogPageResult> {
     let page = request.page.unwrap_or(1).max(1);
     let page_size = catalog_page_size(request.page_size);
     let sort = request.sort.clone().unwrap_or_else(|| "newest".to_string());

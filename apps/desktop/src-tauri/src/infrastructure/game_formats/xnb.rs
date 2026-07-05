@@ -16,6 +16,7 @@ use lzxd::{Lzxd, WindowSize};
 pub use readers::{ReaderResolver, build_readers};
 pub use values::{TextureData, XnbValue};
 
+use anyhow::{Context, bail};
 use buffer::CursorReader;
 const XNB_MAGIC: &str = "XNB";
 const XNB_COMPRESSED_PROLOGUE_SIZE: usize = 14;
@@ -52,26 +53,22 @@ pub struct XnbFile {
     pub content: XnbValue,
 }
 
-pub fn read_xnb_from_path(path: &Path) -> Result<XnbFile, String> {
+pub fn read_xnb_from_path(path: &Path) -> anyhow::Result<XnbFile> {
     let resolved_path = clean_input_path(&path.to_string_lossy());
-    let bytes = std::fs::read(&resolved_path).map_err(|error| {
-        format!(
-            "Failed to read XNB file {}: {error}",
-            path.to_string_lossy()
-        )
-    })?;
+    let bytes = std::fs::read(&resolved_path)
+        .with_context(|| format!("Failed to read XNB file {}", path.to_string_lossy()))?;
     read_xnb_from_bytes(bytes)
 }
 
-pub fn read_xnb_from_bytes(bytes: Vec<u8>) -> Result<XnbFile, String> {
+pub fn read_xnb_from_bytes(bytes: Vec<u8>) -> anyhow::Result<XnbFile> {
     if bytes.len() < 10 {
-        return Err("XNB file is too small.".to_string());
+        bail!("XNB file is too small.");
     }
 
     let mut reader = CursorReader::new(bytes.clone());
     let magic = reader.read_string_exact(3)?;
     if magic != XNB_MAGIC {
-        return Err("Invalid XNB header.".to_string());
+        bail!("Invalid XNB header.");
     }
 
     let target = reader.read_string_exact(1)?;
@@ -124,18 +121,18 @@ pub fn read_xnb_from_bytes(bytes: Vec<u8>) -> Result<XnbFile, String> {
                     let chunk = lzx_reader.read_bytes(block_size)?;
                     let frame = decoder
                         .decompress_next(&chunk, frame_size)
-                        .map_err(|error| format!("Failed to decompress LZX payload: {error}"))?;
+                        .with_context(|| format!("Failed to decompress LZX payload"))?;
                     output.extend_from_slice(&frame);
                 }
 
                 if output.len() < decompressed_size {
-                    return Err("LZX decompression returned fewer bytes than expected.".to_string());
+                    bail!("LZX decompression returned fewer bytes than expected.");
                 }
                 output.truncate(decompressed_size);
                 output
             }
             CompressionKind::Lz4 => lz4_decompress(&compressed_bytes, decompressed_size)
-                .map_err(|error| format!("Failed to decompress LZ4 payload: {error}"))?,
+                .with_context(|| format!("Failed to decompress LZ4 payload"))?,
             CompressionKind::None => compressed_bytes,
         };
 
@@ -162,9 +159,7 @@ pub fn read_xnb_from_bytes(bytes: Vec<u8>) -> Result<XnbFile, String> {
 
     let shared_resources = reader.read_7bit_int()?;
     if shared_resources != 0 {
-        return Err(format!(
-            "Unexpected shared resource count: {shared_resources}"
-        ));
+        bail!("Unexpected shared resource count: {shared_resources}");
     }
 
     let readers = build_readers(&reader_names)?;

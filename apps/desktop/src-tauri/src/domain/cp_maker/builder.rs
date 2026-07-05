@@ -1,7 +1,8 @@
 use super::types::{
-    ChangeRegistry, ChangeRegistryPatch, CpMakerDraftError, CpMakerDraftErrorCode,
-    CpMakerDraftOperation, CpMakerDraftRecord, CpMakerMetadata, CustomLocation, DynamicToken,
+    ChangeRegistry, ChangeRegistryPatch, CpMakerDraftRecord, CpMakerMetadata, CustomLocation,
+    DynamicToken,
 };
+use anyhow::{Context, bail};
 use serde_json::{Map, Value, json};
 use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
@@ -17,25 +18,23 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// * Inline changes (not from an include) get workspace `"mods"`.
 /// * `EditData` changes targeting the same asset are merged into one patch.
 /// * `EditImage` / `EditMap` / `Load` stay as standalone patches.
-pub fn import_cp_maker_pack(
-    mod_directory_path: &str,
-) -> Result<CpMakerDraftRecord, CpMakerDraftError> {
+pub fn import_cp_maker_pack(mod_directory_path: &str) -> anyhow::Result<CpMakerDraftRecord> {
     let dir = Path::new(mod_directory_path);
 
     let manifest_path = dir.join("manifest.json");
-    let manifest_json = std::fs::read_to_string(&manifest_path).map_err(|error| {
-        read_failed(
-            &manifest_path,
-            format!("Failed to read manifest.json: {error}"),
+    let manifest_json = std::fs::read_to_string(&manifest_path).with_context(|| {
+        format!(
+            "Failed to read manifest.json [path={}]",
+            manifest_path.to_string_lossy()
         )
     })?;
     let (metadata, config_schema_from_manifest) = parse_manifest_json(&manifest_json)?;
 
     let content_path = dir.join("content.json");
-    let content_json = std::fs::read_to_string(&content_path).map_err(|error| {
-        read_failed(
-            &content_path,
-            format!("Failed to read content.json: {error}"),
+    let content_json = std::fs::read_to_string(&content_path).with_context(|| {
+        format!(
+            "Failed to read content.json [path={}]",
+            content_path.to_string_lossy()
         )
     })?;
     let (registry, dynamic_tokens, custom_locations, alias_token_names, config_schema_from_content) =
@@ -55,20 +54,15 @@ pub fn import_cp_maker_pack(
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis();
-    let draft_storage_key = format!("imported-{}", timestamp);
+    let draft_storage_key = format!("imported-{timestamp}");
 
     Ok(CpMakerDraftRecord {
         draft_storage_key,
         project_metadata: metadata,
         overlay_targets: Vec::new(),
         config_schema_draft,
-        serialized_change_registry: serde_json::to_value(registry).map_err(|error| {
-            CpMakerDraftError::new(
-                CpMakerDraftErrorCode::InvalidDraft,
-                CpMakerDraftOperation::Import,
-                format!("Failed to serialize change registry: {error}"),
-            )
-        })?,
+        serialized_change_registry: serde_json::to_value(registry)
+            .context("Failed to serialize change registry")?,
         dynamic_tokens,
         custom_locations,
         alias_token_names,
@@ -82,34 +76,19 @@ pub fn import_cp_maker_pack(
 
 // ─── manifest.json ────────────────────────────────────────────────────
 
-fn parse_manifest_json(manifest_json: &str) -> Result<(CpMakerMetadata, Value), CpMakerDraftError> {
-    let value: Value = serde_json::from_str(manifest_json).map_err(|error| {
-        CpMakerDraftError::new(
-            CpMakerDraftErrorCode::InvalidDraft,
-            CpMakerDraftOperation::Import,
-            format!("manifest.json is not valid JSON: {error}"),
-        )
-    })?;
+fn parse_manifest_json(manifest_json: &str) -> anyhow::Result<(CpMakerMetadata, Value)> {
+    let value: Value =
+        serde_json::from_str(manifest_json).context("manifest.json is not valid JSON")?;
 
-    let obj = value.as_object().ok_or_else(|| {
-        CpMakerDraftError::new(
-            CpMakerDraftErrorCode::InvalidDraft,
-            CpMakerDraftOperation::Import,
-            "manifest.json must be a JSON object.",
-        )
-    })?;
+    let obj = value
+        .as_object()
+        .context("manifest.json must be a JSON object")?;
 
-    let get_string = |key: &str| -> Result<String, CpMakerDraftError> {
+    let get_string = |key: &str| -> anyhow::Result<String> {
         obj.get(key)
             .and_then(Value::as_str)
             .map(|s| s.to_string())
-            .ok_or_else(|| {
-                CpMakerDraftError::new(
-                    CpMakerDraftErrorCode::InvalidDraft,
-                    CpMakerDraftOperation::Import,
-                    format!("manifest.json missing required field: {key}"),
-                )
-            })
+            .with_context(|| format!("manifest.json missing required field: {key}"))
     };
 
     let name = get_string("Name")?;
@@ -171,31 +150,19 @@ fn parse_manifest_json(manifest_json: &str) -> Result<(CpMakerMetadata, Value), 
 fn parse_content_json(
     content_json: &str,
     mod_dir: &Path,
-) -> Result<
-    (
-        ChangeRegistry,
-        Vec<DynamicToken>,
-        Vec<CustomLocation>,
-        BTreeMap<String, String>,
-        Value,
-    ),
-    CpMakerDraftError,
-> {
-    let value: Value = serde_json::from_str(content_json).map_err(|error| {
-        CpMakerDraftError::new(
-            CpMakerDraftErrorCode::InvalidDraft,
-            CpMakerDraftOperation::Import,
-            format!("content.json is not valid JSON: {error}"),
-        )
-    })?;
+) -> anyhow::Result<(
+    ChangeRegistry,
+    Vec<DynamicToken>,
+    Vec<CustomLocation>,
+    BTreeMap<String, String>,
+    Value,
+)> {
+    let value: Value =
+        serde_json::from_str(content_json).context("content.json is not valid JSON")?;
 
-    let obj = value.as_object().ok_or_else(|| {
-        CpMakerDraftError::new(
-            CpMakerDraftErrorCode::InvalidDraft,
-            CpMakerDraftOperation::Import,
-            "content.json must be a JSON object.",
-        )
-    })?;
+    let obj = value
+        .as_object()
+        .context("content.json must be a JSON object")?;
 
     let mut visited = HashSet::new();
     let changes = resolve_changes(obj, mod_dir, &mut visited)?;
@@ -230,7 +197,7 @@ fn resolve_changes(
     content_obj: &Map<String, Value>,
     mod_dir: &Path,
     visited: &mut HashSet<String>,
-) -> Result<Vec<(String, Value)>, CpMakerDraftError> {
+) -> anyhow::Result<Vec<(String, Value)>> {
     let mut result = Vec::new();
 
     let changes = content_obj
@@ -240,13 +207,9 @@ fn resolve_changes(
         .unwrap_or_default();
 
     for change in changes {
-        let change_obj = change.as_object().ok_or_else(|| {
-            CpMakerDraftError::new(
-                CpMakerDraftErrorCode::InvalidDraft,
-                CpMakerDraftOperation::Import,
-                "Each change must be a JSON object.",
-            )
-        })?;
+        let change_obj = change
+            .as_object()
+            .context("Each change must be a JSON object")?;
 
         let action = change_obj
             .get("Action")
@@ -257,45 +220,26 @@ fn resolve_changes(
             let from_file = change_obj
                 .get("FromFile")
                 .and_then(Value::as_str)
-                .ok_or_else(|| {
-                    CpMakerDraftError::new(
-                        CpMakerDraftErrorCode::InvalidDraft,
-                        CpMakerDraftOperation::Import,
-                        "Include action must have FromFile.",
-                    )
-                })?;
+                .context("Include action must have FromFile")?;
 
             if !visited.insert(from_file.to_string()) {
-                return Err(CpMakerDraftError::new(
-                    CpMakerDraftErrorCode::InvalidDraft,
-                    CpMakerDraftOperation::Import,
-                    format!("Cyclic or duplicate include detected: {from_file}"),
-                ));
+                bail!("Cyclic or duplicate include detected: {from_file}");
             }
 
             let include_path = mod_dir.join(from_file);
-            let include_json = std::fs::read_to_string(&include_path).map_err(|error| {
-                read_failed(
-                    &include_path,
-                    format!("Failed to read include file {from_file}: {error}"),
+            let include_json = std::fs::read_to_string(&include_path).with_context(|| {
+                format!(
+                    "Failed to read include file {from_file} [path={}]",
+                    include_path.to_string_lossy()
                 )
             })?;
 
-            let include_value: Value = serde_json::from_str(&include_json).map_err(|error| {
-                CpMakerDraftError::new(
-                    CpMakerDraftErrorCode::InvalidDraft,
-                    CpMakerDraftOperation::Import,
-                    format!("Include file {from_file} is not valid JSON: {error}"),
-                )
-            })?;
+            let include_value: Value = serde_json::from_str(&include_json)
+                .with_context(|| format!("Include file {from_file} is not valid JSON"))?;
 
-            let include_obj = include_value.as_object().ok_or_else(|| {
-                CpMakerDraftError::new(
-                    CpMakerDraftErrorCode::InvalidDraft,
-                    CpMakerDraftOperation::Import,
-                    format!("Include file {from_file} must be a JSON object."),
-                )
-            })?;
+            let include_obj = include_value
+                .as_object()
+                .with_context(|| format!("Include file {from_file} must be a JSON object"))?;
 
             // Infer workspace from include file path, e.g. "changes/mods.json" -> "mods"
             let workspace = extract_workspace_from_include_path(from_file);
@@ -329,9 +273,7 @@ fn extract_workspace_from_include_path(path: &str) -> String {
 
 // ─── Changes → Patches ────────────────────────────────────────────────
 
-fn changes_to_patches(
-    changes: Vec<(String, Value)>,
-) -> Result<Vec<ChangeRegistryPatch>, CpMakerDraftError> {
+fn changes_to_patches(changes: Vec<(String, Value)>) -> anyhow::Result<Vec<ChangeRegistryPatch>> {
     // Group EditData by (workspace, target)
     let mut edit_data_groups: BTreeMap<(String, String), Vec<Value>> = BTreeMap::new();
     let mut standalone: Vec<(String, Value)> = Vec::new();
@@ -383,7 +325,7 @@ fn edit_data_changes_to_patch(
     target: &str,
     changes: &[Value],
     patch_id: u64,
-) -> Result<ChangeRegistryPatch, CpMakerDraftError> {
+) -> anyhow::Result<ChangeRegistryPatch> {
     let first = changes.first().and_then(|c| c.as_object());
 
     let log_name = first
@@ -488,14 +430,8 @@ fn standalone_change_to_patch(
     workspace: &str,
     change: &Value,
     patch_id: u64,
-) -> Result<ChangeRegistryPatch, CpMakerDraftError> {
-    let obj = change.as_object().ok_or_else(|| {
-        CpMakerDraftError::new(
-            CpMakerDraftErrorCode::InvalidDraft,
-            CpMakerDraftOperation::Import,
-            "Change must be a JSON object.",
-        )
-    })?;
+) -> anyhow::Result<ChangeRegistryPatch> {
+    let obj = change.as_object().context("Change must be a JSON object")?;
 
     let action = obj
         .get("Action")
@@ -725,7 +661,7 @@ fn standalone_change_to_patch(
 
 // ─── Root-level parsers ───────────────────────────────────────────────
 
-fn parse_dynamic_tokens(value: Option<&Value>) -> Result<Vec<DynamicToken>, CpMakerDraftError> {
+fn parse_dynamic_tokens(value: Option<&Value>) -> anyhow::Result<Vec<DynamicToken>> {
     let mut result = Vec::new();
     if let Some(arr) = value.and_then(Value::as_array) {
         for token in arr {
@@ -749,7 +685,7 @@ fn parse_dynamic_tokens(value: Option<&Value>) -> Result<Vec<DynamicToken>, CpMa
     Ok(result)
 }
 
-fn parse_custom_locations(value: Option<&Value>) -> Result<Vec<CustomLocation>, CpMakerDraftError> {
+fn parse_custom_locations(value: Option<&Value>) -> anyhow::Result<Vec<CustomLocation>> {
     let mut result = Vec::new();
     if let Some(arr) = value.and_then(Value::as_array) {
         for loc in arr {
@@ -781,9 +717,7 @@ fn parse_custom_locations(value: Option<&Value>) -> Result<Vec<CustomLocation>, 
     Ok(result)
 }
 
-fn parse_alias_token_names(
-    value: Option<&Value>,
-) -> Result<BTreeMap<String, String>, CpMakerDraftError> {
+fn parse_alias_token_names(value: Option<&Value>) -> anyhow::Result<BTreeMap<String, String>> {
     let mut result = BTreeMap::new();
     if let Some(obj) = value.and_then(Value::as_object) {
         for (k, v) in obj {
@@ -793,15 +727,6 @@ fn parse_alias_token_names(
         }
     }
     Ok(result)
-}
-
-fn read_failed(path: &Path, message: impl Into<String>) -> CpMakerDraftError {
-    CpMakerDraftError::new(
-        CpMakerDraftErrorCode::ReadFailed,
-        CpMakerDraftOperation::Import,
-        message,
-    )
-    .with_path(path.to_string_lossy().to_string())
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────

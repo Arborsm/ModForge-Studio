@@ -14,6 +14,7 @@ use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{
     build_mod_page_url, decode_html, extract_graphql_error, normalize_nexus_url, string_field,
 };
+use anyhow::{Context, bail};
 use regex::Regex;
 use reqwest::blocking::Client;
 use serde_json::{Value, json};
@@ -353,9 +354,9 @@ fn parse_mod_tags(node: &Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn is_remote_mod_unavailable_error(error: &str) -> bool {
+fn is_remote_mod_unavailable_error(error: &impl std::fmt::Display) -> bool {
     matches!(
-        error.trim().to_ascii_lowercase().as_str(),
+        error.to_string().trim().to_ascii_lowercase().as_str(),
         "mod not found" | "mod unavailable" | "mod hidden" | "mod removed" | "mod deleted"
     )
 }
@@ -689,17 +690,15 @@ fn enrich_remote_mod_detail_with_primary_file(
 pub(crate) fn parse_public_mod_detail_graphql_response(
     payload: &Value,
     mod_id: i64,
-) -> Result<RemoteModDetail, String> {
+) -> anyhow::Result<RemoteModDetail> {
     if let Some(error) = extract_graphql_error(payload) {
-        return Err(error);
+        return Err(anyhow::anyhow!(error));
     }
 
     let mod_node = payload
         .get("data")
         .and_then(|value| value.get("mod"))
-        .ok_or_else(|| {
-            "Public Nexus mod detail response did not include a mod payload.".to_string()
-        })?;
+        .context("Public Nexus mod detail response did not include a mod payload.")?;
     let description_markup =
         string_field(mod_node, "description").filter(|value| !value.trim().is_empty());
     let description_text = description_markup
@@ -770,10 +769,10 @@ pub(crate) fn parse_public_mod_detail_graphql_response(
 pub(crate) fn load_remote_mod_detail_with_api_fallback<A, G>(
     mut load_rest_api: A,
     mut load_public_graphql: G,
-) -> Result<RemoteModDetail, String>
+) -> anyhow::Result<RemoteModDetail>
 where
-    A: FnMut() -> Result<Option<RemoteModDetail>, String>,
-    G: FnMut() -> Result<RemoteModDetail, String>,
+    A: FnMut() -> anyhow::Result<Option<RemoteModDetail>>,
+    G: FnMut() -> anyhow::Result<RemoteModDetail>,
 {
     match load_rest_api() {
         Ok(Some(detail)) => return Ok(detail),
@@ -794,10 +793,10 @@ where
 pub(crate) fn load_remote_mod_detail_with_graphql_fallback<A, G>(
     mut load_public_graphql: G,
     mut load_rest_api: A,
-) -> Result<RemoteModDetail, String>
+) -> anyhow::Result<RemoteModDetail>
 where
-    A: FnMut() -> Result<Option<RemoteModDetail>, String>,
-    G: FnMut() -> Result<RemoteModDetail, String>,
+    A: FnMut() -> anyhow::Result<Option<RemoteModDetail>>,
+    G: FnMut() -> anyhow::Result<RemoteModDetail>,
 {
     match load_public_graphql() {
         Ok(detail) => return Ok(detail),
@@ -810,10 +809,9 @@ where
 
     match load_rest_api() {
         Ok(Some(detail)) => Ok(detail),
-        Ok(None) => Err(
+        Ok(None) => Err(anyhow::anyhow!(
             "Public Nexus mod detail GraphQL lookup failed and no REST API key is configured."
-                .to_string(),
-        ),
+        )),
         Err(error) => Err(error),
     }
 }
@@ -827,7 +825,7 @@ fn timestamp_to_rfc3339(timestamp: u64) -> Option<String> {
 fn load_remote_mod_detail_from_rest_api(
     settings: &LauncherSettings,
     mod_id: i64,
-) -> Result<Option<RemoteModDetail>, String> {
+) -> anyhow::Result<Option<RemoteModDetail>> {
     let Some(api_key) = settings
         .nexus_api_key
         .as_deref()
@@ -850,7 +848,7 @@ fn load_remote_mod_detail_from_rest_api(
                 error.to_string(),
             )));
         }
-        Err(error) => return Err(error.to_string()),
+        Err(error) => return Err(anyhow::anyhow!(error.to_string())),
     };
 
     Ok(Some(RemoteModDetail {
@@ -904,7 +902,7 @@ pub(crate) fn load_remote_mod_detail_from_public_graphql(
     settings: &LauncherSettings,
     mod_id: i64,
     include_files: bool,
-) -> Result<RemoteModDetail, String> {
+) -> anyhow::Result<RemoteModDetail> {
     probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PublicGraphql)?;
     let mod_url = build_mod_page_url(mod_id);
     let headers =
@@ -924,14 +922,12 @@ pub(crate) fn load_remote_mod_detail_from_public_graphql(
             .json(&payload)
             .send()
     })
-    .map_err(|error| {
-        format!("Public Nexus mod detail GraphQL response failed for {mod_id}: {error}")
-    })?;
+    .with_context(|| format!("Public Nexus mod detail GraphQL response failed for {mod_id}"))?;
     if !status.is_success() {
-        return Err(format!(
+        bail!(
             "Public Nexus mod detail GraphQL request failed for {mod_id}: HTTP {}",
             status
-        ));
+        );
     }
 
     parse_public_mod_detail_graphql_response(&response_payload, mod_id)
@@ -1014,9 +1010,9 @@ fn to_launcher_remote_mod_detail(detail: RemoteModDetail) -> LauncherRemoteModDe
 pub(crate) fn load_launcher_remote_mod_detail_blocking(
     _app: &AppHandle,
     request: &LoadLauncherRemoteModDetailRequest,
-) -> Result<LauncherRemoteModDetail, String> {
+) -> anyhow::Result<LauncherRemoteModDetail> {
     if request.mod_id <= 0 {
-        return Err("modId must be a positive integer.".to_string());
+        bail!("modId must be a positive integer.");
     }
 
     let client = launcher_http_client()?;
@@ -1029,11 +1025,13 @@ pub(crate) fn load_launcher_remote_mod_detail_blocking(
         request.include_files,
     ) {
         Ok(detail) => detail,
-        Err(error) if is_remote_mod_unavailable_error(&error) => {
-            RemoteModDetail::unavailable(request.mod_id, build_mod_page_url(request.mod_id), error)
-        }
+        Err(error) if is_remote_mod_unavailable_error(&error) => RemoteModDetail::unavailable(
+            request.mod_id,
+            build_mod_page_url(request.mod_id),
+            error.to_string(),
+        ),
         Err(error) => load_remote_mod_detail_with_graphql_fallback(
-            || Err(error.clone()),
+            || Err(anyhow::anyhow!("{error}")),
             || load_remote_mod_detail_from_rest_api(&settings, request.mod_id),
         )?,
     };
@@ -1048,9 +1046,9 @@ pub(crate) fn load_launcher_remote_mod_detail_blocking(
 pub(crate) fn load_launcher_update_changelog_blocking(
     _app: &AppHandle,
     request: &LoadLauncherUpdateChangelogRequest,
-) -> Result<LauncherUpdateChangelogResult, String> {
+) -> anyhow::Result<LauncherUpdateChangelogResult> {
     if request.mod_id <= 0 {
-        return Err("modId must be a positive integer.".to_string());
+        bail!("modId must be a positive integer.");
     }
 
     Ok(LauncherUpdateChangelogResult {

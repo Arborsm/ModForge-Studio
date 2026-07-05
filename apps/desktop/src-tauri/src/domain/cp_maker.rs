@@ -11,75 +11,35 @@ use self::storage::{
     copy_cp_maker_draft_at_dir, delete_cp_maker_draft_at_dir, list_cp_maker_drafts_at_dir,
     load_cp_maker_draft_at_dir, save_cp_maker_draft_at_dir,
 };
-use self::types::{
-    CopyCpMakerDraftRequest, CpMakerDraftError, CpMakerDraftErrorCode, CpMakerDraftOperation,
-    CpMakerDraftRecord, CpMakerDraftSummary,
-};
+use self::types::{CopyCpMakerDraftRequest, CpMakerDraftRecord, CpMakerDraftSummary};
 
 use crate::domain::app_paths::cp_maker_drafts_dir;
 
-pub fn list_cp_maker_drafts() -> Result<Vec<CpMakerDraftSummary>, CpMakerDraftError> {
-    let drafts_dir = cp_maker_drafts_dir().map_err(|error| {
-        CpMakerDraftError::new(
-            CpMakerDraftErrorCode::ReadFailed,
-            CpMakerDraftOperation::List,
-            error,
-        )
-    })?;
+pub fn list_cp_maker_drafts() -> anyhow::Result<Vec<CpMakerDraftSummary>> {
+    let drafts_dir = cp_maker_drafts_dir()?;
     list_cp_maker_drafts_at_dir(&drafts_dir)
 }
 
-pub fn load_cp_maker_draft(
-    draft_storage_key: String,
-) -> Result<CpMakerDraftRecord, CpMakerDraftError> {
-    let drafts_dir = cp_maker_drafts_dir().map_err(|error| {
-        CpMakerDraftError::new(
-            CpMakerDraftErrorCode::ReadFailed,
-            CpMakerDraftOperation::Load,
-            error,
-        )
-    })?;
+pub fn load_cp_maker_draft(draft_storage_key: String) -> anyhow::Result<CpMakerDraftRecord> {
+    let drafts_dir = cp_maker_drafts_dir()?;
     load_cp_maker_draft_at_dir(&drafts_dir, &draft_storage_key)
 }
 
-pub fn save_cp_maker_draft(
-    draft: CpMakerDraftRecord,
-) -> Result<CpMakerDraftRecord, CpMakerDraftError> {
-    let drafts_dir = cp_maker_drafts_dir().map_err(|error| {
-        CpMakerDraftError::new(
-            CpMakerDraftErrorCode::ReadFailed,
-            CpMakerDraftOperation::Save,
-            error,
-        )
-    })?;
+pub fn save_cp_maker_draft(draft: CpMakerDraftRecord) -> anyhow::Result<CpMakerDraftRecord> {
+    let drafts_dir = cp_maker_drafts_dir()?;
     save_cp_maker_draft_at_dir(&drafts_dir, draft)
 }
 
-pub fn delete_cp_maker_draft(draft_storage_key: String) -> Result<(), CpMakerDraftError> {
-    let drafts_dir = cp_maker_drafts_dir().map_err(|error| {
-        CpMakerDraftError::new(
-            CpMakerDraftErrorCode::ReadFailed,
-            CpMakerDraftOperation::Delete,
-            error,
-        )
-    })?;
+pub fn delete_cp_maker_draft(draft_storage_key: String) -> anyhow::Result<()> {
+    let drafts_dir = cp_maker_drafts_dir()?;
     delete_cp_maker_draft_at_dir(&drafts_dir, &draft_storage_key)
 }
 
-pub fn copy_cp_maker_draft(
-    request: CopyCpMakerDraftRequest,
-) -> Result<CpMakerDraftRecord, CpMakerDraftError> {
-    let drafts_dir = cp_maker_drafts_dir().map_err(|error| {
-        CpMakerDraftError::new(
-            CpMakerDraftErrorCode::ReadFailed,
-            CpMakerDraftOperation::Copy,
-            error,
-        )
-    })?;
+pub fn copy_cp_maker_draft(request: CopyCpMakerDraftRequest) -> anyhow::Result<CpMakerDraftRecord> {
+    let drafts_dir = cp_maker_drafts_dir()?;
     copy_cp_maker_draft_at_dir(&drafts_dir, request)
 }
 
-#[cfg(test)]
 #[cfg(test)]
 #[path = "../tests/unit/domain/cp_maker/mod.rs"]
 mod tests;

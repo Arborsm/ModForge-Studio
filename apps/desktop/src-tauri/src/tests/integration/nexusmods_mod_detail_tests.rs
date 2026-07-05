@@ -37,21 +37,27 @@ fn rest_api_detail_short_circuits_public_routes() {
 
 #[test]
 fn graphql_not_found_error_is_returned_without_html_fallback() {
-    let result =
-        load_remote_mod_detail_with_api_fallback(|| Ok(None), || Err("Mod not found".to_string()));
+    let result = load_remote_mod_detail_with_api_fallback(
+        || Ok(None),
+        || Err(anyhow::anyhow!("Mod not found")),
+    );
 
-    assert_eq!(result.unwrap_err(), "Mod not found");
+    assert_eq!(result.unwrap_err().to_string(), "Mod not found");
 }
 
 #[test]
 fn graphql_transport_error_is_returned_without_html_fallback() {
     let result = load_remote_mod_detail_with_api_fallback(
         || Ok(None),
-        || Err("error sending request for url (https://api.nexusmods.com/v2/graphql)".to_string()),
+        || {
+            Err(anyhow::anyhow!(
+                "error sending request for url (https://api.nexusmods.com/v2/graphql)"
+            ))
+        },
     );
 
     assert_eq!(
-        result.unwrap_err(),
+        result.unwrap_err().to_string(),
         "error sending request for url (https://api.nexusmods.com/v2/graphql)"
     );
 }
@@ -95,7 +101,7 @@ fn parse_public_mod_detail_graphql_response_returns_not_found_error() {
     let error = parse_public_mod_detail_graphql_response(&payload, 20781)
         .expect_err("graphql not found should stay an error");
 
-    assert_eq!(error, "Mod not found");
+    assert_eq!(error.to_string(), "Mod not found");
 }
 
 #[test]

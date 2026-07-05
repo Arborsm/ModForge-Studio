@@ -2,9 +2,8 @@ use super::paths::{launcher_backup_dir, launcher_settings_path};
 use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
 use super::types::{
-    LauncherGameLaunchError, LauncherGameLaunchErrorCode, LauncherGameLaunchResult,
-    LauncherGameLaunchTarget, LauncherRuntimeInfo, LauncherSettings, OpenLauncherPathRequest,
-    OpenLauncherUrlRequest,
+    LauncherGameLaunchResult, LauncherGameLaunchTarget, LauncherRuntimeInfo, LauncherSettings,
+    OpenLauncherPathRequest, OpenLauncherUrlRequest,
 };
 use crate::AppHandle;
 use crate::infrastructure::fs::pathing::{
@@ -15,36 +14,22 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use url::Url;
 
+use anyhow::{Context, bail};
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-fn launcher_launch_error(
-    code: LauncherGameLaunchErrorCode,
-    message: impl Into<String>,
-) -> LauncherGameLaunchError {
-    LauncherGameLaunchError {
-        code,
-        message: message.into(),
-    }
-}
-
 fn resolve_game_launch_target(
     settings: &LauncherSettings,
-) -> Result<(PathBuf, LauncherGameLaunchTarget), LauncherGameLaunchError> {
+) -> anyhow::Result<(PathBuf, LauncherGameLaunchTarget)> {
     let game_path = settings
         .game_path
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| {
-            launcher_launch_error(
-                LauncherGameLaunchErrorCode::MissingGamePath,
-                "Launcher gamePath is not configured.",
-            )
-        })?;
+        .context("Launcher game path is not configured.")?;
     let game_root = clean_input_path(game_path);
     log_launcher_trace(
         "launch.resolve",
@@ -70,18 +55,15 @@ fn resolve_game_launch_target(
         .collect::<Vec<_>>()
         .join(", ");
 
-    Err(launcher_launch_error(
-        LauncherGameLaunchErrorCode::MissingExecutable,
-        format!("No launcher executable found. Checked {checked_paths}."),
-    ))
+    bail!("No launcher executable found. Checked {checked_paths}.")
 }
 
 pub(crate) fn launch_game_with_runner<F>(
     settings: &LauncherSettings,
     mut runner: F,
-) -> Result<LauncherGameLaunchResult, LauncherGameLaunchError>
+) -> anyhow::Result<LauncherGameLaunchResult>
 where
-    F: FnMut(&Path) -> Result<(), String>,
+    F: FnMut(&Path) -> anyhow::Result<()>,
 {
     let (executable_path, target) = resolve_game_launch_target(settings)?;
     log_launcher_trace(
@@ -91,15 +73,8 @@ where
             ("executable-path", normalize_path(&executable_path)),
         ],
     );
-    runner(&executable_path).map_err(|message| {
-        launcher_launch_error(
-            LauncherGameLaunchErrorCode::LaunchFailed,
-            format!(
-                "Failed to launch {}: {message}",
-                normalize_path(&executable_path)
-            ),
-        )
-    })?;
+    runner(&executable_path)
+        .with_context(|| format!("Failed to launch {}", normalize_path(&executable_path)))?;
     log_launcher_trace(
         "launch.complete",
         &[
@@ -113,7 +88,7 @@ where
     })
 }
 
-fn spawn_launcher_process(path: &Path) -> Result<(), String> {
+fn spawn_launcher_process(path: &Path) -> anyhow::Result<()> {
     let mut command = Command::new(path);
     #[cfg(target_os = "windows")]
     command.creation_flags(CREATE_NO_WINDOW);
@@ -121,35 +96,29 @@ fn spawn_launcher_process(path: &Path) -> Result<(), String> {
     command
         .spawn()
         .map(|_| ())
-        .map_err(|error| format!("Unable to start process: {error}"))
+        .with_context(|| format!("Unable to start process"))
 }
 
-pub fn launch_launcher_game(
-    _app: AppHandle,
-) -> Result<LauncherGameLaunchResult, LauncherGameLaunchError> {
+pub fn launch_launcher_game(_app: AppHandle) -> anyhow::Result<LauncherGameLaunchResult> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error_with_message(
         "launch_launcher_game",
         (|| {
-            let settings_path = launcher_settings_path().map_err(|message| {
-                launcher_launch_error(LauncherGameLaunchErrorCode::LaunchFailed, message)
-            })?;
-            let settings = load_or_create_settings_at_path(&settings_path).map_err(|message| {
-                launcher_launch_error(LauncherGameLaunchErrorCode::LaunchFailed, message)
-            })?;
+            let settings_path = launcher_settings_path()?;
+            let settings = load_or_create_settings_at_path(&settings_path)?;
             launch_game_with_runner(&settings, spawn_launcher_process)
         })(),
-        |error| error.message.clone(),
+        |error| error.to_string(),
     )
 }
 
-pub fn get_launcher_backup_directory(_app: AppHandle) -> Result<String, String> {
+pub fn get_launcher_backup_directory(_app: AppHandle) -> anyhow::Result<String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "get_launcher_backup_directory",
         (|| {
             let backup_dir = launcher_backup_dir()?;
-            fs::create_dir_all(&backup_dir).map_err(|error| {
+            fs::create_dir_all(&backup_dir).with_context(|| {
                 format!(
-                    "Failed to create launcher backup directory {}: {error}",
+                    "Failed to create launcher backup directory {}",
                     normalize_path(&backup_dir)
                 )
             })?;
@@ -158,7 +127,7 @@ pub fn get_launcher_backup_directory(_app: AppHandle) -> Result<String, String> 
     )
 }
 
-pub fn load_launcher_runtime_info(app: AppHandle) -> Result<LauncherRuntimeInfo, String> {
+pub fn load_launcher_runtime_info(app: AppHandle) -> anyhow::Result<LauncherRuntimeInfo> {
     let settings = super::settings::load_launcher_settings(app)?;
     let Some(game_path) = settings
         .game_path
@@ -184,21 +153,21 @@ pub fn load_launcher_runtime_info(app: AppHandle) -> Result<LauncherRuntimeInfo,
     })
 }
 
-pub fn open_launcher_path(request: OpenLauncherPathRequest) -> Result<(), String> {
+pub fn open_launcher_path(request: OpenLauncherPathRequest) -> anyhow::Result<()> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "open_launcher_path",
         (|| {
             let path = request.path.trim();
             if path.is_empty() {
-                return Err("path is required.".to_string());
+                bail!("path is required.");
             }
 
             let resolved = clean_input_path(path);
             if !resolved.exists() {
-                return Err(format!(
+                bail!(
                     "Launcher path {} does not exist.",
                     normalize_path(&resolved)
-                ));
+                );
             }
 
             open_path_in_shell(&resolved)
@@ -206,47 +175,45 @@ pub fn open_launcher_path(request: OpenLauncherPathRequest) -> Result<(), String
     )
 }
 
-pub fn open_launcher_url(request: OpenLauncherUrlRequest) -> Result<(), String> {
+pub fn open_launcher_url(request: OpenLauncherUrlRequest) -> anyhow::Result<()> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "open_launcher_url",
         open_launcher_url_in_browser(&request.url),
     )
 }
 
-pub(crate) fn open_launcher_url_in_browser(raw_url: &str) -> Result<(), String> {
+pub(crate) fn open_launcher_url_in_browser(raw_url: &str) -> anyhow::Result<()> {
     let raw_url = raw_url.trim();
     if raw_url.is_empty() {
-        return Err("url is required.".to_string());
+        bail!("url is required.");
     }
 
-    let parsed =
-        Url::parse(raw_url).map_err(|error| format!("Invalid launcher URL {raw_url}: {error}"))?;
+    let parsed = Url::parse(raw_url).with_context(|| format!("Invalid launcher URL {raw_url}"))?;
     match parsed.scheme() {
         "http" | "https" => open_url_in_shell(parsed.as_str()),
-        scheme => Err(format!("Unsupported launcher URL scheme: {scheme}.")),
+        scheme => Err(anyhow::anyhow!(
+            "Unsupported launcher URL scheme: {scheme}."
+        )),
     }
 }
 
 #[cfg(target_os = "windows")]
-fn open_path_in_shell(path: &Path) -> Result<(), String> {
+fn open_path_in_shell(path: &Path) -> anyhow::Result<()> {
     let mut command = Command::new("explorer");
     command.creation_flags(CREATE_NO_WINDOW).arg(path);
 
-    let status = command.status().map_err(|error| {
-        format!(
-            "Failed to launch explorer for {}: {error}",
-            normalize_path(path)
-        )
-    })?;
+    let status = command
+        .status()
+        .with_context(|| format!("Failed to launch explorer for {}", normalize_path(path)))?;
     if !status.success() {
-        return Err(format!("Explorer failed for {}.", normalize_path(path)));
+        bail!("Explorer failed for {}.", normalize_path(path));
     }
 
     Ok(())
 }
 
 #[cfg(target_os = "windows")]
-fn open_url_in_shell(url: &str) -> Result<(), String> {
+fn open_url_in_shell(url: &str) -> anyhow::Result<()> {
     let mut command = Command::new("rundll32");
     command
         .creation_flags(CREATE_NO_WINDOW)
@@ -257,65 +224,58 @@ fn open_url_in_shell(url: &str) -> Result<(), String> {
 
     command
         .spawn()
-        .map_err(|error| format!("Failed to launch browser for {url}: {error}"))?;
+        .with_context(|| format!("Failed to launch browser for {url}"))?;
 
     Ok(())
 }
 
 #[cfg(target_os = "macos")]
-fn open_url_in_shell(url: &str) -> Result<(), String> {
+fn open_url_in_shell(url: &str) -> anyhow::Result<()> {
     Command::new("open")
         .arg(url)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .map_err(|error| format!("Failed to launch browser for {url}: {error}"))?;
+        .with_context(|| format!("Failed to launch browser for {url}"))?;
 
     Ok(())
 }
 
 #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
-fn open_url_in_shell(url: &str) -> Result<(), String> {
+fn open_url_in_shell(url: &str) -> anyhow::Result<()> {
     Command::new("xdg-open")
         .arg(url)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .map_err(|error| format!("Failed to launch browser for {url}: {error}"))?;
+        .with_context(|| format!("Failed to launch browser for {url}"))?;
 
     Ok(())
 }
 
 #[cfg(target_os = "macos")]
-fn open_path_in_shell(path: &Path) -> Result<(), String> {
-    let status = Command::new("open").arg(path).status().map_err(|error| {
-        format!(
-            "Failed to launch open for {}: {error}",
-            normalize_path(path)
-        )
-    })?;
+fn open_path_in_shell(path: &Path) -> anyhow::Result<()> {
+    let status = Command::new("open")
+        .arg(path)
+        .status()
+        .with_context(|| format!("Failed to launch open for {}", normalize_path(path)))?;
     if !status.success() {
-        return Err(format!("open failed for {}.", normalize_path(path)));
+        bail!("open failed for {}.", normalize_path(path));
     }
 
     Ok(())
 }
 
 #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
-fn open_path_in_shell(path: &Path) -> Result<(), String> {
+fn open_path_in_shell(path: &Path) -> anyhow::Result<()> {
     let status = Command::new("xdg-open")
         .arg(path)
         .status()
-        .map_err(|error| {
-            format!(
-                "Failed to launch xdg-open for {}: {error}",
-                normalize_path(path)
-            )
-        })?;
+        .with_context(|| format!("Failed to launch xdg-open for {}", normalize_path(path)))?;
     if !status.success() {
-        return Err(format!("xdg-open failed for {}.", normalize_path(path)));
+        bail!("xdg-open failed for {}.", normalize_path(path));
     }
 
     Ok(())

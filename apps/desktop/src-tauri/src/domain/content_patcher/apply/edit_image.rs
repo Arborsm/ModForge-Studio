@@ -1,6 +1,7 @@
 use super::super::assets::{crop_image_area, expand_image_to_fit, load_image_patch_asset};
 use super::super::schema::coerce_u32;
 use super::super::types::ContentPatcherProjectSnapshot;
+use anyhow::{Context, bail};
 use image::RgbaImage;
 use serde_json::Value;
 
@@ -39,19 +40,19 @@ fn contains_unresolved_token(text: &str) -> bool {
 fn parse_object_area(
     values: &serde_json::Map<String, Value>,
     defaults: AreaDefaults,
-) -> Result<(u32, u32, u32, u32), String> {
-    let read = |key: &str, default: Option<u32>| -> Result<u32, String> {
+) -> anyhow::Result<(u32, u32, u32, u32)> {
+    let read = |key: &str, default: Option<u32>| -> anyhow::Result<u32> {
         match values.get(key) {
             Some(value) => {
                 if let Value::String(text) = value {
                     if contains_unresolved_token(text) {
-                        return Err(format!("Image area `{key}` contains an unresolved token."));
+                        bail!("Image area `{key}` contains an unresolved token.");
                     }
                 }
                 coerce_u32(value)
-                    .ok_or_else(|| format!("Image area `{key}` must be an unsigned integer."))
+                    .with_context(|| format!("Image area `{key}` must be an unsigned integer."))
             }
-            None => default.ok_or_else(|| format!("Image area object is missing `{key}`.")),
+            None => default.with_context(|| format!("Image area object is missing `{key}`.")),
         }
     };
 
@@ -66,7 +67,7 @@ fn parse_object_area(
 fn parse_area_value(
     value: Option<&Value>,
     defaults: AreaDefaults,
-) -> Result<Option<(u32, u32, u32, u32)>, String> {
+) -> anyhow::Result<Option<(u32, u32, u32, u32)>> {
     let Some(value) = value else {
         return Ok(None);
     };
@@ -78,21 +79,17 @@ fn parse_area_value(
                 .map(|entry| {
                     if let Value::String(text) = entry {
                         if contains_unresolved_token(text) {
-                            return Err(
-                                "Image area array contains an unresolved token.".to_string()
-                            );
+                            bail!("Image area array contains an unresolved token.");
                         }
                     }
-                    coerce_u32(entry).ok_or_else(|| {
-                        "Image area array values must be unsigned integers.".to_string()
-                    })
+                    coerce_u32(entry).context("Image area array values must be unsigned integers.")
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(Some((numbers[0], numbers[1], numbers[2], numbers[3])))
         }
         Value::String(text) => {
             if contains_unresolved_token(text) {
-                return Err("Image area string contains an unresolved token.".to_string());
+                bail!("Image area string contains an unresolved token.");
             }
             let parts = text
                 .split(',')
@@ -100,21 +97,21 @@ fn parse_area_value(
                 .filter(|part| !part.is_empty())
                 .map(|part| {
                     if contains_unresolved_token(part) {
-                        return Err("Image area string contains an unresolved token.".to_string());
+                        bail!("Image area string contains an unresolved token.");
                     }
                     part.parse::<u32>()
-                        .map_err(|err| format!("Invalid image area segment `{part}`: {err}"))
+                        .with_context(|| format!("Invalid image area segment `{part}`"))
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             if parts.len() != 4 {
-                return Err(
-                    "Image area string must contain four comma-separated integers.".to_string(),
-                );
+                bail!("Image area string must contain four comma-separated integers.");
             }
             Ok(Some((parts[0], parts[1], parts[2], parts[3])))
         }
         Value::Object(values) => Ok(Some(parse_object_area(values, defaults)?)),
-        _ => Err("Image area must be an array, object, or comma-separated string.".to_string()),
+        _ => Err(anyhow::anyhow!(
+            "Image area must be an array, object, or comma-separated string."
+        )),
     }
 }
 
@@ -144,13 +141,13 @@ pub fn apply_edit_image_patch(
     base: &mut RgbaImage,
     patch: &serde_json::Map<String, Value>,
     source_path: &str,
-) -> Result<String, String> {
+) -> anyhow::Result<String> {
     let from_file = patch
         .get("FromFile")
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| "EditImage patch is missing a FromFile value.".to_string())?;
+        .context("EditImage patch is missing a FromFile value.")?;
 
     let mut source = load_image_patch_asset(snapshot, source_path, from_file)?;
     if let Some((x, y, width, height)) =
@@ -166,10 +163,10 @@ pub fn apply_edit_image_patch(
     .unwrap_or((0, 0, source.width(), source.height()));
     let required_width = to_x
         .checked_add(source.width())
-        .ok_or_else(|| "Image destination width overflowed.".to_string())?;
+        .context("Image destination width overflowed.")?;
     let required_height = to_y
         .checked_add(source.height())
-        .ok_or_else(|| "Image destination height overflowed.".to_string())?;
+        .context("Image destination height overflowed.")?;
     expand_image_to_fit(base, required_width, required_height);
 
     let mode = patch

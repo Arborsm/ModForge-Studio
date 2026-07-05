@@ -1,5 +1,6 @@
 use crate::infrastructure::fs::pathing::normalize_path;
 use crate::infrastructure::game_formats::json_relaxed;
+use anyhow::Context;
 use serde_json::Value;
 use std::collections::BTreeSet;
 use std::fs;
@@ -37,7 +38,7 @@ fn should_skip_scan_dir(path: &Path) -> bool {
         .any(|candidate| name.eq_ignore_ascii_case(candidate))
 }
 
-pub(crate) fn discover_project_roots(path: &Path) -> Result<Vec<PathBuf>, String> {
+pub(crate) fn discover_project_roots(path: &Path) -> anyhow::Result<Vec<PathBuf>> {
     let scan_root = discover_mods_root(path);
     if !scan_root.exists() {
         return Ok(Vec::new());
@@ -51,16 +52,15 @@ pub(crate) fn discover_project_roots(path: &Path) -> Result<Vec<PathBuf>, String
             discovered.insert(normalize_path(&current_dir));
         }
 
-        let entries = fs::read_dir(&current_dir).map_err(|error| {
+        let entries = fs::read_dir(&current_dir).with_context(|| {
             format!(
-                "Failed to read launcher mods directory {}: {error}",
+                "Failed to read launcher mods directory {}",
                 normalize_path(&current_dir)
             )
         })?;
 
         for entry in entries {
-            let entry =
-                entry.map_err(|error| format!("Failed to inspect launcher mods entry: {error}"))?;
+            let entry = entry.with_context(|| format!("Failed to inspect launcher mods entry"))?;
             let entry_path = entry.path();
             if !entry_path.is_dir() || should_skip_scan_dir(&entry_path) {
                 continue;
@@ -73,7 +73,7 @@ pub(crate) fn discover_project_roots(path: &Path) -> Result<Vec<PathBuf>, String
     Ok(discovered.into_iter().map(PathBuf::from).collect())
 }
 
-pub(crate) fn read_json_file(path: &Path) -> Result<Value, String> {
+pub(crate) fn read_json_file(path: &Path) -> anyhow::Result<Value> {
     json_relaxed::read_json_file(path, &format!("JSON file {}", normalize_path(path)))
         .map(|(_, value)| value)
 }

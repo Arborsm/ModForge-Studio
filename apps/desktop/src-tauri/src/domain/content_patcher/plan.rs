@@ -10,6 +10,7 @@ use super::tokens::INVALID_WHEN_TOKEN;
 use super::types::{
     ContentPatcherPatchPlan, ContentPatcherPlannedPatch, ContentPatcherProjectSnapshot,
 };
+use anyhow::{Context, bail};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -189,12 +190,12 @@ fn with_config_defaults(context: &SimulationContext, root: &Value) -> Simulation
 pub fn build_effective_context(
     snapshot: &ContentPatcherProjectSnapshot,
     context: &SimulationContext,
-) -> Result<SimulationContext, String> {
+) -> anyhow::Result<SimulationContext> {
     let root_source = snapshot
         .sources
         .iter()
         .find(|source| source.path == "content.json")
-        .ok_or_else(|| "Snapshot sources are missing content.json.".to_string())?;
+        .context("Snapshot sources are missing content.json.")?;
     let parsed_root = parse_json_str(&root_source.raw_json, &root_source.path)?;
     Ok(with_config_defaults(context, &parsed_root))
 }
@@ -1049,14 +1050,14 @@ fn collect_patches_from_source(
     lineage: &[String],
     stack: &mut BTreeSet<String>,
     patches: &mut Vec<ContentPatcherPlannedPatch>,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     if !stack.insert(source_path.to_string()) {
-        return Err(format!("Include cycle detected at {source_path}"));
+        bail!("Include cycle detected at {source_path}");
     }
 
     let source = source_values
         .get(source_path)
-        .ok_or_else(|| format!("Included file not found in snapshot sources: {source_path}"))?;
+        .with_context(|| format!("Included file not found in snapshot sources: {source_path}"))?;
     let changes = source
         .get("Changes")
         .and_then(Value::as_array)
@@ -1206,14 +1207,14 @@ fn resolve_dynamic_tokens(
 #[allow(dead_code)]
 pub fn build_patch_plan(
     snapshot: &ContentPatcherProjectSnapshot,
-) -> Result<ContentPatcherPatchPlan, String> {
+) -> anyhow::Result<ContentPatcherPatchPlan> {
     build_patch_plan_with_context(snapshot, &SimulationContext::default())
 }
 
 pub fn resolve_dynamic_tokens_for_snapshot(
     snapshot: &ContentPatcherProjectSnapshot,
     context: &SimulationContext,
-) -> Result<BTreeMap<String, Value>, String> {
+) -> anyhow::Result<BTreeMap<String, Value>> {
     let mut source_values = BTreeMap::new();
     for source in &snapshot.sources {
         let parsed = parse_json_str(&source.raw_json, &source.path)?;
@@ -1222,7 +1223,7 @@ pub fn resolve_dynamic_tokens_for_snapshot(
 
     let root_source = source_values
         .get("content.json")
-        .ok_or_else(|| "Snapshot sources are missing content.json.".to_string())?;
+        .context("Snapshot sources are missing content.json.")?;
     let effective_context = with_config_defaults(context, root_source);
 
     Ok(resolve_dynamic_tokens(
@@ -1235,7 +1236,7 @@ pub fn resolve_dynamic_tokens_for_snapshot(
 pub fn build_patch_plan_with_context(
     snapshot: &ContentPatcherProjectSnapshot,
     context: &SimulationContext,
-) -> Result<ContentPatcherPatchPlan, String> {
+) -> anyhow::Result<ContentPatcherPatchPlan> {
     let mut source_values = BTreeMap::new();
     for source in &snapshot.sources {
         let parsed = parse_json_str(&source.raw_json, &source.path)?;
@@ -1244,7 +1245,7 @@ pub fn build_patch_plan_with_context(
 
     let root_source = source_values
         .get("content.json")
-        .ok_or_else(|| "Snapshot sources are missing content.json.".to_string())?;
+        .context("Snapshot sources are missing content.json.")?;
     let mut effective_context = with_config_defaults(context, root_source);
 
     let dynamic_tokens = resolve_dynamic_tokens(snapshot, &source_values, &effective_context);

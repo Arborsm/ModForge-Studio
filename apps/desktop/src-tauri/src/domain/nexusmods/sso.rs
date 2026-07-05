@@ -8,6 +8,7 @@ use tungstenite::{Message, WebSocket, connect};
 use super::rest_api;
 use crate::AppHandle;
 use crate::domain::launcher::{paths, settings as launcher_settings};
+use anyhow::bail;
 
 // ---- Constants ----
 
@@ -135,11 +136,11 @@ fn store_session_connection_token(generation: u64, connection_token: String) -> 
 
 // ---- Public API ----
 
-pub(crate) fn start_sso(app: &AppHandle) -> Result<String, String> {
+pub(crate) fn start_sso(app: &AppHandle) -> anyhow::Result<String> {
     let mut state = sso_state().lock().expect("sso mutex");
 
     if running_flag().load(Ordering::Relaxed) {
-        return Err("SSO flow already in progress.".to_string());
+        bail!("SSO flow already in progress.");
     }
 
     let sso_id = uuid::Uuid::new_v4().to_string();
@@ -223,7 +224,7 @@ pub(crate) fn start_sso(app: &AppHandle) -> Result<String, String> {
     Ok(sso_id)
 }
 
-pub(crate) fn start_sso_with_status(app: &AppHandle) -> Result<SsoStartResult, String> {
+pub(crate) fn start_sso_with_status(app: &AppHandle) -> anyhow::Result<SsoStartResult> {
     let sso_id = start_sso(app)?;
     std::thread::sleep(std::time::Duration::from_millis(100));
     let status = get_sso_status().status;

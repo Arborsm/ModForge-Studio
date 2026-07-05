@@ -4,6 +4,7 @@ use std::sync::{Mutex, OnceLock};
 use super::buffer::CursorReader;
 use super::schema::{CustomTypeSchema, schema_registry};
 use super::values::{TextureData, XnbValue};
+use anyhow::{Context, bail};
 
 #[derive(Debug, Clone)]
 pub enum TypeReader {
@@ -75,7 +76,7 @@ impl ReaderResolver {
         Self { readers }
     }
 
-    pub fn read(&self, reader: &mut CursorReader) -> Result<XnbValue, String> {
+    pub fn read(&self, reader: &mut CursorReader) -> anyhow::Result<XnbValue> {
         let index = reader.read_7bit_int()? as i32 - 1;
         if index < 0 {
             return Ok(XnbValue::Null);
@@ -84,7 +85,7 @@ impl ReaderResolver {
         let type_reader = self
             .readers
             .get(index)
-            .ok_or_else(|| format!("Invalid reader index {index}"))?;
+            .with_context(|| format!("Invalid reader index {index}"))?;
         type_reader.read(reader, self)
     }
 }
@@ -94,7 +95,7 @@ impl TypeReader {
         &self,
         reader: &mut CursorReader,
         resolver: &ReaderResolver,
-    ) -> Result<XnbValue, String> {
+    ) -> anyhow::Result<XnbValue> {
         match self {
             TypeReader::Boolean => Ok(XnbValue::Bool(reader.read_u8()? != 0)),
             TypeReader::Char => Ok(XnbValue::String(read_utf8_char(reader)?)),
@@ -147,7 +148,7 @@ impl TypeReader {
                 let mut values = Vec::with_capacity(count);
                 for index in 0..count {
                     let value = read_member_value(inner, reader, resolver)
-                        .map_err(|error| format!("[{index}]: {error}"))?;
+                        .with_context(|| format!("[{index}]"))?;
                     values.push(value);
                 }
                 if matches!(self, TypeReader::Array(_)) {
@@ -161,12 +162,12 @@ impl TypeReader {
                 let mut entries = Vec::with_capacity(count);
                 for index in 0..count {
                     let key = read_member_value(key_reader, reader, resolver)
-                        .map_err(|error| format!("[{index}].key: {error}"))?;
+                        .with_context(|| format!("[{index}].key"))?;
                     let key_label = key
                         .json_object_key()
                         .unwrap_or_else(|| key.to_json().to_string());
                     let value = read_member_value(value_reader, reader, resolver)
-                        .map_err(|error| format!("[{index}].value({key_label}): {error}"))?;
+                        .with_context(|| format!("[{index}].value({key_label})"))?;
                     entries.push((key, value));
                 }
                 Ok(XnbValue::Dictionary(entries))
@@ -177,7 +178,7 @@ impl TypeReader {
                 let height = reader.read_u32_le()?;
                 let mip_count = reader.read_u32_le()?;
                 if mip_count == 0 {
-                    return Err("Texture2D declared zero mip levels.".to_string());
+                    bail!("Texture2D declared zero mip levels.");
                 }
                 let first_data_size = reader.read_u32_le()? as usize;
                 let data = reader.read_bytes(first_data_size)?;
@@ -185,7 +186,7 @@ impl TypeReader {
                     let data_size = reader.read_u32_le()? as usize;
                     reader
                         .read_bytes(data_size)
-                        .map_err(|error| format!("Texture2D mip level {mip_index}: {error}"))?;
+                        .with_context(|| format!("Texture2D mip level {mip_index}"))?;
                 }
                 let rgba = decode_texture_data(format, width as usize, height as usize, &data)?;
                 Ok(XnbValue::Texture(TextureData {
@@ -250,7 +251,7 @@ impl TypeReader {
     }
 }
 
-pub fn build_readers(type_names: &[String]) -> Result<Vec<TypeReader>, String> {
+pub fn build_readers(type_names: &[String]) -> anyhow::Result<Vec<TypeReader>> {
     type_names
         .iter()
         .map(|name| build_reader_from_type_name(name))
@@ -261,7 +262,7 @@ fn read_member_value(
     reader_type: &TypeReader,
     reader: &mut CursorReader,
     resolver: &ReaderResolver,
-) -> Result<XnbValue, String> {
+) -> anyhow::Result<XnbValue> {
     if reader_type.is_value_type() {
         reader_type.read(reader, resolver)
     } else {
@@ -273,13 +274,13 @@ fn read_custom_type(
     type_name: &str,
     reader: &mut CursorReader,
     resolver: &ReaderResolver,
-) -> Result<XnbValue, String> {
+) -> anyhow::Result<XnbValue> {
     match compiled_custom_type(type_name)? {
         CompiledCustomType::Object(schema) => {
             let mut values = Vec::with_capacity(schema.members.len());
             for member in &schema.members {
                 let value = read_member_value(&member.reader, reader, resolver)
-                    .map_err(|error| format!("{type_name}.{}: {error}", member.name))?;
+                    .with_context(|| format!("{type_name}.{}", member.name))?;
                 let value = coerce_member_value(type_name, &member.name, value);
                 values.push((member.name.clone(), value));
             }
@@ -386,7 +387,7 @@ fn compact_f32(value: f32) -> String {
     if text == "-0" { "0".to_string() } else { text }
 }
 
-fn compiled_custom_type(type_name: &str) -> Result<CompiledCustomType, String> {
+fn compiled_custom_type(type_name: &str) -> anyhow::Result<CompiledCustomType> {
     static CACHE: OnceLock<Mutex<BTreeMap<String, CompiledCustomType>>> = OnceLock::new();
     let cache = CACHE.get_or_init(|| Mutex::new(BTreeMap::new()));
 
@@ -411,7 +412,7 @@ fn compiled_custom_type(type_name: &str) -> Result<CompiledCustomType, String> {
                             reader: build_reader_from_type_name(&member.type_name)?,
                         })
                     })
-                    .collect::<Result<Vec<_>, String>>()?,
+                    .collect::<Result<Vec<_>, anyhow::Error>>()?,
             })
         }
         Some(CustomTypeSchema::Enum(schema)) => CompiledCustomType::Enum(CompiledEnumSchema {
@@ -419,9 +420,7 @@ fn compiled_custom_type(type_name: &str) -> Result<CompiledCustomType, String> {
             values: schema.values.clone(),
         }),
         None => {
-            return Err(format!(
-                "Unsupported XNB reader type: {type_name} ({type_name})"
-            ));
+            bail!("Unsupported XNB reader type: {type_name} ({type_name})");
         }
     };
 
@@ -432,7 +431,7 @@ fn compiled_custom_type(type_name: &str) -> Result<CompiledCustomType, String> {
     Ok(compiled)
 }
 
-fn parse_enum_underlying(type_name: &str) -> Result<EnumUnderlying, String> {
+fn parse_enum_underlying(type_name: &str) -> anyhow::Result<EnumUnderlying> {
     match type_name {
         "System.SByte" => Ok(EnumUnderlying::Int8),
         "System.Byte" => Ok(EnumUnderlying::UInt8),
@@ -440,11 +439,11 @@ fn parse_enum_underlying(type_name: &str) -> Result<EnumUnderlying, String> {
         "System.UInt16" => Ok(EnumUnderlying::UInt16),
         "System.Int32" => Ok(EnumUnderlying::Int32),
         "System.UInt32" => Ok(EnumUnderlying::UInt32),
-        other => Err(format!("Unsupported enum underlying type: {other}")),
+        other => Err(anyhow::anyhow!("Unsupported enum underlying type: {other}")),
     }
 }
 
-fn build_reader_from_type_name(type_name: &str) -> Result<TypeReader, String> {
+fn build_reader_from_type_name(type_name: &str) -> anyhow::Result<TypeReader> {
     let full = type_name.trim();
     let normalized_custom = normalize_custom_type_name(leading_type_name(full));
     if normalized_custom.ends_with("[]") {
@@ -492,21 +491,21 @@ fn build_reader_from_type_name(type_name: &str) -> Result<TypeReader, String> {
         "Microsoft.Xna.Framework.Content.ReflectiveReader" => {
             let subtypes = parse_generic_args(full)?;
             if subtypes.len() != 1 {
-                return Err(format!("Reflective reader is missing subtype: {full}"));
+                bail!("Reflective reader is missing subtype: {full}");
             }
             build_reader_from_type_name(&subtypes[0])
         }
         "Microsoft.Xna.Framework.Content.EnumReader" => {
             let subtypes = parse_generic_args(full)?;
             if subtypes.len() != 1 {
-                return Err(format!("Enum reader is missing subtype: {full}"));
+                bail!("Enum reader is missing subtype: {full}");
             }
             build_reader_from_type_name(&subtypes[0])
         }
         "Microsoft.Xna.Framework.Content.NullableReader" | "System.Nullable" => {
             let subtypes = parse_generic_args(full)?;
             if subtypes.len() != 1 {
-                return Err(format!("Nullable type is missing subtype: {full}"));
+                bail!("Nullable type is missing subtype: {full}");
             }
             Ok(TypeReader::Nullable(Box::new(build_reader_from_type_name(
                 &subtypes[0],
@@ -515,7 +514,7 @@ fn build_reader_from_type_name(type_name: &str) -> Result<TypeReader, String> {
         "Microsoft.Xna.Framework.Content.ListReader" | "System.Collections.Generic.List" => {
             let subtypes = parse_generic_args(full)?;
             if subtypes.len() != 1 {
-                return Err(format!("List type is missing subtype: {full}"));
+                bail!("List type is missing subtype: {full}");
             }
             Ok(TypeReader::List(Box::new(build_reader_from_type_name(
                 &subtypes[0],
@@ -524,7 +523,7 @@ fn build_reader_from_type_name(type_name: &str) -> Result<TypeReader, String> {
         "Microsoft.Xna.Framework.Content.ArrayReader" => {
             let subtypes = parse_generic_args(full)?;
             if subtypes.len() != 1 {
-                return Err(format!("Array type is missing subtype: {full}"));
+                bail!("Array type is missing subtype: {full}");
             }
             Ok(TypeReader::Array(Box::new(build_reader_from_type_name(
                 &subtypes[0],
@@ -534,7 +533,7 @@ fn build_reader_from_type_name(type_name: &str) -> Result<TypeReader, String> {
         | "System.Collections.Generic.Dictionary" => {
             let subtypes = parse_generic_args(full)?;
             if subtypes.len() != 2 {
-                return Err(format!("Dictionary type is missing subtypes: {full}"));
+                bail!("Dictionary type is missing subtypes: {full}");
             }
             Ok(TypeReader::Dictionary(
                 Box::new(build_reader_from_type_name(&subtypes[0])?),
@@ -544,7 +543,7 @@ fn build_reader_from_type_name(type_name: &str) -> Result<TypeReader, String> {
         _ if schema_registry().contains(&normalized_custom) => {
             Ok(TypeReader::Custom(normalized_custom))
         }
-        _ => Err(format!(
+        _ => Err(anyhow::anyhow!(
             "Unsupported XNB reader type: {} ({full})",
             leading_type_name(full)
         )),
@@ -562,7 +561,7 @@ fn leading_type_name(type_name: &str) -> &str {
     candidate.split(',').next().unwrap_or(candidate).trim()
 }
 
-fn parse_generic_args(full: &str) -> Result<Vec<String>, String> {
+fn parse_generic_args(full: &str) -> anyhow::Result<Vec<String>> {
     if full.contains("[[") {
         let values = parse_bracket_subtypes(full);
         if !values.is_empty() {
@@ -585,7 +584,7 @@ fn parse_generic_args(full: &str) -> Result<Vec<String>, String> {
         return Ok(values);
     }
 
-    Err(format!("Generic type is missing subtypes: {full}"))
+    Err(anyhow::anyhow!("Generic type is missing subtypes: {full}"))
 }
 
 fn parse_bracket_subtypes(full: &str) -> Vec<String> {
@@ -741,7 +740,7 @@ fn generic_arity(full: &str) -> Option<usize> {
     }
 }
 
-fn read_utf8_char(reader: &mut CursorReader) -> Result<String, String> {
+fn read_utf8_char(reader: &mut CursorReader) -> anyhow::Result<String> {
     let first = reader.read_u8()?;
     let width = utf8_char_width(first);
     let mut bytes = Vec::with_capacity(width);
@@ -749,8 +748,7 @@ fn read_utf8_char(reader: &mut CursorReader) -> Result<String, String> {
     if width > 1 {
         bytes.extend_from_slice(&reader.read_bytes(width - 1)?);
     }
-    String::from_utf8(bytes)
-        .map_err(|error| format!("Invalid UTF-8 character in XNB stream: {error}"))
+    String::from_utf8(bytes).with_context(|| format!("Invalid UTF-8 character in XNB stream"))
 }
 
 fn utf8_char_width(first: u8) -> usize {
@@ -768,14 +766,14 @@ fn decode_texture_data(
     width: usize,
     height: usize,
     data: &[u8],
-) -> Result<Vec<u8>, String> {
+) -> anyhow::Result<Vec<u8>> {
     let mut rgba = match format {
         0 => data.to_vec(),
         4 => decode_dxt1(data, width, height)?,
         5 => decode_dxt3(data, width, height)?,
         6 => decode_dxt5(data, width, height)?,
-        2 => return Err("Texture2D format ECT1 is not supported.".to_string()),
-        _ => return Err(format!("Unsupported Texture2D format ({format}).")),
+        2 => bail!("Texture2D format ECT1 is not supported."),
+        _ => bail!("Unsupported Texture2D format ({format})."),
     };
 
     unpremultiply_alpha(&mut rgba);
@@ -798,15 +796,15 @@ fn unpremultiply_alpha(rgba: &mut [u8]) {
     }
 }
 
-fn decode_dxt1(data: &[u8], width: usize, height: usize) -> Result<Vec<u8>, String> {
+fn decode_dxt1(data: &[u8], width: usize, height: usize) -> anyhow::Result<Vec<u8>> {
     decode_dxt(data, width, height, DxtFormat::Dxt1)
 }
 
-fn decode_dxt3(data: &[u8], width: usize, height: usize) -> Result<Vec<u8>, String> {
+fn decode_dxt3(data: &[u8], width: usize, height: usize) -> anyhow::Result<Vec<u8>> {
     decode_dxt(data, width, height, DxtFormat::Dxt3)
 }
 
-fn decode_dxt5(data: &[u8], width: usize, height: usize) -> Result<Vec<u8>, String> {
+fn decode_dxt5(data: &[u8], width: usize, height: usize) -> anyhow::Result<Vec<u8>> {
     decode_dxt(data, width, height, DxtFormat::Dxt5)
 }
 
@@ -821,7 +819,7 @@ fn decode_dxt(
     width: usize,
     height: usize,
     format: DxtFormat,
-) -> Result<Vec<u8>, String> {
+) -> anyhow::Result<Vec<u8>> {
     let block_bytes = match format {
         DxtFormat::Dxt1 => 8,
         DxtFormat::Dxt3 | DxtFormat::Dxt5 => 16,
@@ -830,7 +828,7 @@ fn decode_dxt(
     let blocks_high = (height + 3) / 4;
     let expected = blocks_wide * blocks_high * block_bytes;
     if data.len() < expected {
-        return Err("DXT buffer is smaller than expected.".to_string());
+        bail!("DXT buffer is smaller than expected.");
     }
 
     let mut output = vec![0u8; width * height * 4];

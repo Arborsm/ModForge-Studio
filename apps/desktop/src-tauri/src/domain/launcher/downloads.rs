@@ -16,6 +16,7 @@ use crate::domain::nexusmods::downloads::{
 };
 use crate::domain::nexusmods::http::launcher_http_client;
 use crate::infrastructure::fs::pathing::normalize_path;
+use anyhow::{Context, bail};
 use reqwest::blocking::Response;
 use reqwest::header::CONTENT_DISPOSITION;
 use reqwest::header::CONTENT_LENGTH;
@@ -50,7 +51,7 @@ fn cancelled_launcher_downloads() -> &'static Mutex<HashSet<String>> {
     STATE.get_or_init(|| Mutex::new(HashSet::new()))
 }
 
-pub fn cancel_launcher_download(download_id: String) -> Result<(), String> {
+pub fn cancel_launcher_download(download_id: String) -> anyhow::Result<()> {
     let normalized = download_id.trim();
     if normalized.is_empty() {
         return Ok(());
@@ -58,30 +59,30 @@ pub fn cancel_launcher_download(download_id: String) -> Result<(), String> {
 
     cancelled_launcher_downloads()
         .lock()
-        .map_err(|_| "Failed to lock launcher download cancellation state.".to_string())?
+        .map_err(|_| anyhow::anyhow!("Launcher download cancellation mutex was poisoned."))?
         .insert(normalized.to_string());
     Ok(())
 }
 
-fn take_cancelled_launcher_download(download_id: &str) -> Result<bool, String> {
+fn take_cancelled_launcher_download(download_id: &str) -> anyhow::Result<bool> {
     Ok(cancelled_launcher_downloads()
         .lock()
-        .map_err(|_| "Failed to lock launcher download cancellation state.".to_string())?
+        .map_err(|_| anyhow::anyhow!("Launcher download cancellation mutex was poisoned."))?
         .remove(download_id))
 }
 
-fn is_launcher_download_cancelled(download_id: &str) -> Result<bool, String> {
+fn is_launcher_download_cancelled(download_id: &str) -> anyhow::Result<bool> {
     Ok(cancelled_launcher_downloads()
         .lock()
-        .map_err(|_| "Failed to lock launcher download cancellation state.".to_string())?
+        .map_err(|_| anyhow::anyhow!("Launcher download cancellation mutex was poisoned."))?
         .contains(download_id))
 }
 
-fn ensure_launcher_download_not_cancelled(download_id: Option<&str>) -> Result<(), String> {
+fn ensure_launcher_download_not_cancelled(download_id: Option<&str>) -> anyhow::Result<()> {
     if let Some(download_id) = download_id {
         if is_launcher_download_cancelled(download_id)? {
             let _ = take_cancelled_launcher_download(download_id)?;
-            return Err("Launcher download was cancelled.".to_string());
+            bail!("Launcher download was cancelled.");
         }
     }
 
@@ -94,7 +95,7 @@ fn emit_download_progress(
     downloaded_bytes: u64,
     total_bytes: Option<u64>,
     bytes_per_second: Option<u64>,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     app.emit(
         LAUNCHER_DOWNLOAD_PROGRESS_EVENT,
         LauncherDownloadProgressPayload {
@@ -104,6 +105,7 @@ fn emit_download_progress(
             bytes_per_second,
         },
     )
+    .map_err(anyhow::Error::msg)
 }
 
 fn nexus_manual_download_url(file_id: i64, game_id: i64) -> String {
@@ -112,7 +114,7 @@ fn nexus_manual_download_url(file_id: i64, game_id: i64) -> String {
     )
 }
 
-fn open_nexus_manual_download_page(mod_id: i64, file_id: i64, game_id: i64) -> Result<(), String> {
+fn open_nexus_manual_download_page(mod_id: i64, file_id: i64, game_id: i64) -> anyhow::Result<()> {
     let url = nexus_manual_download_url(file_id, game_id);
     open_launcher_url_in_browser(&url)?;
     log_launcher_trace(
@@ -247,25 +249,25 @@ fn normalize_download_queue_state(state: LauncherDownloadQueueState) -> Launcher
 
 pub(crate) fn load_or_create_download_queue_at_path(
     queue_path: &Path,
-) -> Result<LauncherDownloadQueueState, String> {
+) -> anyhow::Result<LauncherDownloadQueueState> {
     let _queue_file_guard = lock_launcher_download_queue_file();
     load_or_create_download_queue_at_path_unlocked(queue_path)
 }
 
 fn load_or_create_download_queue_at_path_unlocked(
     queue_path: &Path,
-) -> Result<LauncherDownloadQueueState, String> {
+) -> anyhow::Result<LauncherDownloadQueueState> {
     if queue_path.is_file() {
-        let content = fs::read_to_string(queue_path).map_err(|error| {
+        let content = fs::read_to_string(queue_path).with_context(|| {
             format!(
-                "Failed to read launcher download queue {}: {error}",
+                "Failed to read launcher download queue {}",
                 normalize_path(queue_path)
             )
         })?;
         let parsed: LauncherDownloadQueueState =
-            serde_json::from_str(&content).map_err(|error| {
+            serde_json::from_str(&content).with_context(|| {
                 format!(
-                    "Launcher download queue {} is invalid JSON: {error}",
+                    "Launcher download queue {} is invalid JSON",
                     normalize_path(queue_path)
                 )
             })?;
@@ -280,7 +282,7 @@ fn load_or_create_download_queue_at_path_unlocked(
 pub(crate) fn save_download_queue_at_path(
     queue_path: &Path,
     state: &LauncherDownloadQueueState,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let _queue_file_guard = lock_launcher_download_queue_file();
     save_download_queue_at_path_unlocked(queue_path, state)
 }
@@ -288,11 +290,11 @@ pub(crate) fn save_download_queue_at_path(
 fn save_download_queue_at_path_unlocked(
     queue_path: &Path,
     state: &LauncherDownloadQueueState,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     if let Some(parent) = queue_path.parent() {
-        fs::create_dir_all(parent).map_err(|error| {
+        fs::create_dir_all(parent).with_context(|| {
             format!(
-                "Failed to create launcher download queue directory {}: {error}",
+                "Failed to create launcher download queue directory {}",
                 normalize_path(parent)
             )
         })?;
@@ -300,17 +302,17 @@ fn save_download_queue_at_path_unlocked(
 
     let normalized = normalize_download_queue_state(state.clone());
     let json = serde_json::to_string_pretty(&normalized)
-        .map_err(|error| format!("Failed to serialize launcher download queue JSON: {error}"))?;
-    fs::write(queue_path, format!("{json}\n")).map_err(|error| {
+        .with_context(|| format!("Failed to serialize launcher download queue JSON"))?;
+    fs::write(queue_path, format!("{json}\n")).with_context(|| {
         format!(
-            "Failed to write launcher download queue {}: {error}",
+            "Failed to write launcher download queue {}",
             normalize_path(queue_path)
         )
     })?;
     Ok(())
 }
 
-pub fn load_launcher_download_queue(_app: AppHandle) -> Result<LauncherDownloadQueueState, String> {
+pub fn load_launcher_download_queue(_app: AppHandle) -> anyhow::Result<LauncherDownloadQueueState> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_launcher_download_queue",
         (|| {
@@ -323,7 +325,7 @@ pub fn load_launcher_download_queue(_app: AppHandle) -> Result<LauncherDownloadQ
 pub fn save_launcher_download_queue(
     _app: AppHandle,
     request: LauncherDownloadQueueState,
-) -> Result<LauncherDownloadQueueState, String> {
+) -> anyhow::Result<LauncherDownloadQueueState> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "save_launcher_download_queue",
         (|| {
@@ -360,12 +362,12 @@ fn parse_content_disposition_file_name(value: &str) -> Option<String> {
 pub fn download_launcher_mod(
     app: AppHandle,
     request: DownloadLauncherModRequest,
-) -> Result<DownloadLauncherModResult, String> {
+) -> anyhow::Result<DownloadLauncherModResult> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "download_launcher_mod",
         (|| {
             if request.mod_id < 1 {
-                return Err("modId must be greater than 0.".to_string());
+                bail!("modId must be greater than 0.");
             }
             let download_id = request
                 .download_id
@@ -400,12 +402,12 @@ pub fn download_launcher_mod(
                 .filter(|value| !value.is_empty())
                 .is_none()
             {
-                return Err("Nexus API key is required to download mods.".to_string());
+                bail!("Nexus API key is required to download mods.");
             }
             let download_dir = resolve_download_dir(&settings)?;
-            fs::create_dir_all(&download_dir).map_err(|error| {
+            fs::create_dir_all(&download_dir).with_context(|| {
                 format!(
-                    "Failed to create launcher download directory {}: {error}",
+                    "Failed to create launcher download directory {}",
                     normalize_path(&download_dir)
                 )
             })?;
@@ -464,25 +466,27 @@ pub fn download_launcher_mod(
                         log_download_result_complete(&result);
                         return Ok(result);
                     }
-                    Err(ResolveDownloadUrlError::Message(message)) => return Err(message),
+                    Err(ResolveDownloadUrlError::Message(message)) => {
+                        return Err(anyhow::anyhow!(message));
+                    }
                 };
             ensure_launcher_download_not_cancelled(download_id)?;
             let response = download_file_response(&client, &download_url)?;
             ensure_launcher_download_not_cancelled(download_id)?;
             if !response.status().is_success() {
-                return Err(format!(
+                bail!(
                     "Failed to download launcher mod {}: HTTP {}",
                     request.mod_id,
                     response.status()
-                ));
+                );
             }
 
             let file_name = download_file_name(&response, &candidate.file_name);
             let archive_path = unique_path(&download_dir.join(file_name));
             ensure_launcher_download_not_cancelled(download_id)?;
-            let mut archive_file = fs::File::create(&archive_path).map_err(|error| {
+            let mut archive_file = fs::File::create(&archive_path).with_context(|| {
                 format!(
-                    "Failed to create launcher archive {}: {error}",
+                    "Failed to create launcher archive {}",
                     normalize_path(&archive_path)
                 )
             })?;
@@ -504,16 +508,16 @@ pub fn download_launcher_mod(
                     return Err(error);
                 }
 
-                let read = response_reader.read(&mut buffer).map_err(|error| {
-                    format!("Failed to stream launcher download bytes: {error}")
-                })?;
+                let read = response_reader
+                    .read(&mut buffer)
+                    .with_context(|| format!("Failed to stream launcher download bytes"))?;
                 if read == 0 {
                     break;
                 }
 
                 archive_file
                     .write_all(&buffer[..read])
-                    .map_err(|error| format!("Failed to write launcher download bytes: {error}"))?;
+                    .with_context(|| format!("Failed to write launcher download bytes"))?;
                 bytes_written += read as u64;
 
                 if let Some(download_id) = download_id {
@@ -531,9 +535,9 @@ pub fn download_launcher_mod(
                 let _ = fs::remove_file(&archive_path);
                 return Err(error);
             }
-            archive_file.flush().map_err(|error| {
+            archive_file.flush().with_context(|| {
                 format!(
-                    "Failed to flush launcher archive {}: {error}",
+                    "Failed to flush launcher archive {}",
                     normalize_path(&archive_path)
                 )
             })?;

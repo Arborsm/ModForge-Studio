@@ -18,6 +18,7 @@ use self::types::{
     SimulateContentPatcherRequest, SimulateContentPatcherResult,
 };
 use crate::domain::modding::attached_api::AttachedApiRegistry;
+use anyhow::{Context, bail};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
@@ -58,7 +59,7 @@ fn snapshot_content_path(snapshot: &ContentPatcherProjectSnapshot) -> String {
 fn apply_inline_manifest(
     snapshot: &mut ContentPatcherProjectSnapshot,
     manifest_json: &str,
-) -> Result<Value, String> {
+) -> anyhow::Result<Value> {
     let manifest = parse_json_str(manifest_json, "manifest.json")?;
     snapshot.summary.name = as_non_empty_string(manifest.get("Name"));
     snapshot.summary.unique_id = as_non_empty_string(manifest.get("UniqueID"));
@@ -83,12 +84,12 @@ fn apply_inline_content(snapshot: &mut ContentPatcherProjectSnapshot, content_js
 
 fn build_inline_snapshot(
     request: &SimulateContentPatcherRequest,
-) -> Result<ContentPatcherProjectSnapshot, String> {
+) -> anyhow::Result<ContentPatcherProjectSnapshot> {
     let manifest_json = request.manifest_json.as_deref().unwrap_or("{}");
     let content_json = request
         .content_json
         .as_deref()
-        .ok_or_else(|| "simulate_content_patcher requires `content_json` when no `snapshot` or `path` is provided.".to_string())?;
+        .context("simulate_content_patcher requires `content_json` when no `snapshot` or `path` is provided.")?;
     let manifest = parse_json_str(manifest_json, "manifest.json")?;
     let content = parse_json_str(content_json, "content.json")?;
 
@@ -113,7 +114,7 @@ fn build_inline_snapshot(
 
 fn resolve_simulation_snapshot(
     request: &SimulateContentPatcherRequest,
-) -> Result<ContentPatcherProjectSnapshot, String> {
+) -> anyhow::Result<ContentPatcherProjectSnapshot> {
     let mut snapshot = if let Some(snapshot) = request.snapshot.clone() {
         snapshot
     } else if let Some(path) = request
@@ -275,7 +276,7 @@ fn build_target_summaries(
 
 pub fn simulate_content_patcher(
     request: SimulateContentPatcherRequest,
-) -> Result<SimulateContentPatcherResult, String> {
+) -> anyhow::Result<SimulateContentPatcherResult> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "simulate_content_patcher",
         (|| {
@@ -318,7 +319,7 @@ pub fn simulate_content_patcher(
 
 pub fn load_content_patcher_result_asset(
     request: LoadContentPatcherResultAssetRequest,
-) -> Result<LoadContentPatcherResultAssetResult, String> {
+) -> anyhow::Result<LoadContentPatcherResultAssetResult> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_content_patcher_result_asset",
         (|| {
@@ -354,7 +355,7 @@ pub fn load_content_patcher_result_asset(
 
 pub fn export_content_patcher_asset(
     request: ExportContentPatcherAssetRequest,
-) -> Result<ExportContentPatcherAssetResult, String> {
+) -> anyhow::Result<ExportContentPatcherAssetResult> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "export_content_patcher_asset",
         (|| {
@@ -373,10 +374,10 @@ pub fn export_content_patcher_asset(
             })?;
 
             if !result.exportable {
-                return Err(format!(
+                bail!(
                     "Target `{target}` is {} and cannot be exported.",
                     result.target.result_state
-                ));
+                );
             }
 
             let output_path =

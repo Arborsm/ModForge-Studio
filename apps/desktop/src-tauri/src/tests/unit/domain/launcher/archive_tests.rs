@@ -378,8 +378,8 @@ fn inspect_archive_rejects_unsupported_archive_extensions() {
 
     let result = inspect_archive_at_path(&archive_path);
     let message = result.expect_err("unsupported archive extension should fail");
-    assert!(message.contains("Unsupported archive format"));
-    assert!(message.contains(".unsupported"));
+    assert!(message.to_string().contains("Unsupported archive format"));
+    assert!(message.to_string().contains(".unsupported"));
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -392,8 +392,8 @@ fn inspect_archive_routes_rar_extensions_to_the_rar_extractor() {
 
     let result = inspect_archive_at_path(&archive_path);
     let message = result.expect_err("invalid rar archive should fail");
-    assert!(message.contains("as a rar file"));
-    assert!(!message.contains("Unsupported archive format"));
+    assert!(message.to_string().contains("as a rar file"));
+    assert!(!message.to_string().contains("Unsupported archive format"));
 
     fs::remove_dir_all(root).expect("cleanup");
 }

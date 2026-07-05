@@ -1,8 +1,6 @@
-use super::types::{
-    CpMakerDraftError, CpMakerDraftErrorCode, CpMakerDraftOperation, CpMakerExportRequest,
-    CpMakerExportResult,
-};
+use super::types::{CpMakerExportRequest, CpMakerExportResult};
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use anyhow::{Context, bail};
 use base64::Engine;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -15,9 +13,7 @@ struct PreparedVirtualAsset {
     bytes: Vec<u8>,
 }
 
-pub fn export_cp_maker_pack(
-    request: CpMakerExportRequest,
-) -> Result<CpMakerExportResult, CpMakerDraftError> {
+pub fn export_cp_maker_pack(request: CpMakerExportRequest) -> anyhow::Result<CpMakerExportResult> {
     let output_path = clean_input_path(&request.output_path);
     validate_output_path(&output_path)?;
     validate_fresh_output_directory(&output_path)?;
@@ -33,28 +29,28 @@ pub fn export_cp_maker_pack(
         .collect::<Result<Vec<_>, _>>()?;
     validate_virtual_asset_paths(&manifest_path, &content_path, &prepared_assets)?;
 
-    fs::create_dir_all(&output_path).map_err(|error| {
-        write_failed(
-            &output_path,
-            format!("Failed to create export directory: {error}"),
+    fs::create_dir_all(&output_path).with_context(|| {
+        format!(
+            "Failed to create export directory [path={}]",
+            normalize_path(&output_path)
         )
     })?;
 
     let mut virtual_asset_paths = Vec::with_capacity(prepared_assets.len());
     for asset in prepared_assets {
         if let Some(parent) = asset.output_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| {
-                write_failed(
-                    parent,
-                    format!("Failed to create virtual asset directory: {error}"),
+            fs::create_dir_all(parent).with_context(|| {
+                format!(
+                    "Failed to create virtual asset directory [path={}]",
+                    normalize_path(parent)
                 )
             })?;
         }
 
-        fs::write(&asset.output_path, asset.bytes).map_err(|error| {
-            write_failed(
-                &asset.output_path,
-                format!("Failed to write virtual asset: {error}"),
+        fs::write(&asset.output_path, asset.bytes).with_context(|| {
+            format!(
+                "Failed to write virtual asset [path={}]",
+                normalize_path(&asset.output_path)
             )
         })?;
         virtual_asset_paths.push(normalize_path(&asset.output_path));
@@ -71,13 +67,13 @@ pub fn export_cp_maker_pack(
     })
 }
 
-fn validate_output_path(output_path: &Path) -> Result<(), CpMakerDraftError> {
+fn validate_output_path(output_path: &Path) -> anyhow::Result<()> {
     let normalized_output_path = normalize_path(output_path);
     if normalized_output_path.trim().is_empty() {
-        return Err(invalid_export(
-            output_path,
-            "Cp-maker export outputPath is required.",
-        ));
+        bail!(
+            "Cp-maker export outputPath is required. [path={}]",
+            normalized_output_path
+        );
     }
 
     let mut has_directory_component = false;
@@ -87,10 +83,10 @@ fn validate_output_path(output_path: &Path) -> Result<(), CpMakerDraftError> {
         .filter(|segment| !segment.is_empty())
     {
         if matches!(segment, "." | "..") {
-            return Err(invalid_export(
-                output_path,
-                "Cp-maker export outputPath must be a clean directory path target without `.` or `..` components.",
-            ));
+            bail!(
+                "Cp-maker export outputPath must be a clean directory path target without `.` or `..` components. [path={}]",
+                normalized_output_path
+            );
         }
 
         if !segment.ends_with(':') {
@@ -99,73 +95,69 @@ fn validate_output_path(output_path: &Path) -> Result<(), CpMakerDraftError> {
     }
 
     if !has_directory_component {
-        return Err(invalid_export(
-            output_path,
-            "Cp-maker export outputPath must target a directory path.",
-        ));
+        bail!(
+            "Cp-maker export outputPath must target a directory path. [path={}]",
+            normalized_output_path
+        );
     }
 
     Ok(())
 }
 
-fn validate_fresh_output_directory(output_path: &Path) -> Result<(), CpMakerDraftError> {
+fn validate_fresh_output_directory(output_path: &Path) -> anyhow::Result<()> {
     if !output_path.exists() {
         return Ok(());
     }
 
     if !output_path.is_dir() {
-        return Err(invalid_export(
-            output_path,
-            "Cp-maker export outputPath must point to a directory.",
-        ));
+        bail!(
+            "Cp-maker export outputPath must point to a directory. [path={}]",
+            normalize_path(output_path)
+        );
     }
 
-    let mut entries = fs::read_dir(output_path).map_err(|error| {
-        CpMakerDraftError::new(
-            CpMakerDraftErrorCode::ReadFailed,
-            CpMakerDraftOperation::Export,
-            format!("Failed to inspect export directory: {error}"),
+    let mut entries = fs::read_dir(output_path).with_context(|| {
+        format!(
+            "Failed to inspect export directory [path={}]",
+            normalize_path(output_path)
         )
-        .with_path(normalize_path(output_path))
     })?;
 
     if entries
         .next()
         .transpose()
-        .map_err(|error| {
-            CpMakerDraftError::new(
-                CpMakerDraftErrorCode::ReadFailed,
-                CpMakerDraftOperation::Export,
-                format!("Failed to inspect export directory: {error}"),
+        .with_context(|| {
+            format!(
+                "Failed to inspect export directory [path={}]",
+                normalize_path(output_path)
             )
-            .with_path(normalize_path(output_path))
         })?
         .is_some()
     {
-        return Err(invalid_export(
-            output_path,
-            "Cp-maker export requires a fresh directory. Choose a new or empty directory.",
-        ));
+        bail!(
+            "Cp-maker export requires a fresh directory. Choose a new or empty directory. [path={}]",
+            normalize_path(output_path)
+        );
     }
 
     Ok(())
 }
 
-fn parse_export_json(json: &str, path: &Path, label: &str) -> Result<Value, CpMakerDraftError> {
+fn parse_export_json(json: &str, path: &Path, label: &str) -> anyhow::Result<Value> {
     serde_json::from_str(json)
-        .map_err(|error| invalid_export(path, format!("{label} is not valid JSON: {error}")))
+        .with_context(|| format!("{label} is not valid JSON [path={}]", normalize_path(path)))
 }
 
 fn prepare_virtual_asset(
     output_path: &Path,
     asset: crate::domain::content_patcher::types::VirtualPreviewAsset,
-) -> Result<PreparedVirtualAsset, CpMakerDraftError> {
+) -> anyhow::Result<PreparedVirtualAsset> {
     let raw_relative_path = asset.relative_path.trim();
     if raw_relative_path.is_empty() {
-        return Err(invalid_export(
-            Path::new(&asset.relative_path),
-            "Cp-maker virtual assets must include a relativePath.",
-        ));
+        bail!(
+            "Cp-maker virtual assets must include a relativePath. [path={}]",
+            normalize_path(Path::new(&asset.relative_path))
+        );
     }
 
     let relative_path = clean_input_path(raw_relative_path);
@@ -174,24 +166,20 @@ fn prepare_virtual_asset(
             .components()
             .any(|component| !matches!(component, Component::Normal(_)))
     {
-        return Err(invalid_export(
-            Path::new(&asset.relative_path),
-            format!(
-                "Cp-maker virtual asset path `{}` must stay relative to the export directory.",
-                asset.relative_path
-            ),
-        ));
+        bail!(
+            "Cp-maker virtual asset path `{}` must stay relative to the export directory. [path={}]",
+            asset.relative_path,
+            normalize_path(Path::new(&asset.relative_path))
+        );
     }
 
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(&asset.bytes_base64)
-        .map_err(|error| {
-            invalid_export(
-                Path::new(&asset.relative_path),
-                format!(
-                    "Cp-maker virtual asset `{}` payload is not valid base64: {error}",
-                    asset.relative_path
-                ),
+        .with_context(|| {
+            format!(
+                "Cp-maker virtual asset `{}` payload is not valid base64 [path={}]",
+                asset.relative_path,
+                normalize_path(Path::new(&asset.relative_path))
             )
         })?;
 
@@ -206,7 +194,7 @@ fn validate_virtual_asset_paths(
     manifest_path: &Path,
     content_path: &Path,
     assets: &[PreparedVirtualAsset],
-) -> Result<(), CpMakerDraftError> {
+) -> anyhow::Result<()> {
     let reserved_paths = [
         (comparable_path_key(manifest_path), "manifest.json"),
         (comparable_path_key(content_path), "content.json"),
@@ -221,23 +209,19 @@ fn validate_virtual_asset_paths(
             .iter()
             .find(|(reserved_path_key, _)| *reserved_path_key == output_path_key)
         {
-            return Err(invalid_export(
-                &asset.relative_path,
-                format!(
-                    "Cp-maker virtual asset path `{normalized_relative_path}` collides with reserved export file `{reserved_name}`."
-                ),
-            ));
+            bail!(
+                "Cp-maker virtual asset path `{normalized_relative_path}` collides with reserved export file `{reserved_name}`. [path={}]",
+                normalized_relative_path
+            );
         }
 
         if let Some(existing_relative_path) =
             seen_output_paths.insert(output_path_key, normalized_relative_path.clone())
         {
-            return Err(invalid_export(
-                &asset.relative_path,
-                format!(
-                    "Cp-maker virtual asset path `{normalized_relative_path}` collides with another virtual asset path `{existing_relative_path}` after normalization."
-                ),
-            ));
+            bail!(
+                "Cp-maker virtual asset path `{normalized_relative_path}` collides with another virtual asset path `{existing_relative_path}` after normalization. [path={}]",
+                normalized_relative_path
+            );
         }
     }
 
@@ -251,31 +235,13 @@ fn comparable_path_key(path: &Path) -> String {
         .to_lowercase()
 }
 
-fn write_pretty_json_file(
-    path: &Path,
-    value: &Value,
-    label: &str,
-) -> Result<(), CpMakerDraftError> {
-    let formatted = serde_json::to_string_pretty(value)
-        .map_err(|error| write_failed(path, format!("Failed to serialize {label}: {error}")))?;
+fn write_pretty_json_file(path: &Path, value: &Value, label: &str) -> anyhow::Result<()> {
+    let formatted = serde_json::to_string_pretty(value).with_context(|| {
+        format!(
+            "Failed to serialize {label} [path={}]",
+            normalize_path(path)
+        )
+    })?;
     fs::write(path, format!("{formatted}\n"))
-        .map_err(|error| write_failed(path, format!("Failed to write {label}: {error}")))
-}
-
-fn invalid_export(path: &Path, message: impl Into<String>) -> CpMakerDraftError {
-    CpMakerDraftError::new(
-        CpMakerDraftErrorCode::InvalidExport,
-        CpMakerDraftOperation::Export,
-        message,
-    )
-    .with_path(normalize_path(path))
-}
-
-fn write_failed(path: &Path, message: impl Into<String>) -> CpMakerDraftError {
-    CpMakerDraftError::new(
-        CpMakerDraftErrorCode::WriteFailed,
-        CpMakerDraftOperation::Export,
-        message,
-    )
-    .with_path(normalize_path(path))
+        .with_context(|| format!("Failed to write {label} [path={}]", normalize_path(path)))
 }

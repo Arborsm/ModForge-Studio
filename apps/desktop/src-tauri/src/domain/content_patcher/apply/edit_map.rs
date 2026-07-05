@@ -2,6 +2,7 @@ use super::super::assets::{LoadedMapAsset, load_map_patch_asset};
 use super::super::schema::coerce_u32;
 use super::super::types::{ContentPatcherMapDebugSummary, ContentPatcherProjectSnapshot};
 use crate::infrastructure::game_formats::tbin::{MapDocument, MapLayer, MapPropertyValue};
+use anyhow::{Context, bail};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -56,19 +57,19 @@ fn contains_unresolved_token(text: &str) -> bool {
 fn parse_object_area(
     values: &serde_json::Map<String, Value>,
     defaults: AreaDefaults,
-) -> Result<(u32, u32, u32, u32), String> {
-    let read = |key: &str, default: Option<u32>| -> Result<u32, String> {
+) -> anyhow::Result<(u32, u32, u32, u32)> {
+    let read = |key: &str, default: Option<u32>| -> anyhow::Result<u32> {
         match values.get(key) {
             Some(value) => {
                 if let Value::String(text) = value {
                     if contains_unresolved_token(text) {
-                        return Err(format!("Image area `{key}` contains an unresolved token."));
+                        bail!("Image area `{key}` contains an unresolved token.");
                     }
                 }
                 coerce_u32(value)
-                    .ok_or_else(|| format!("Image area `{key}` must be an unsigned integer."))
+                    .with_context(|| format!("Image area `{key}` must be an unsigned integer."))
             }
-            None => default.ok_or_else(|| format!("Image area object is missing `{key}`.")),
+            None => default.with_context(|| format!("Image area object is missing `{key}`.")),
         }
     };
 
@@ -83,7 +84,7 @@ fn parse_object_area(
 fn parse_area_value(
     value: Option<&Value>,
     defaults: AreaDefaults,
-) -> Result<Option<(u32, u32, u32, u32)>, String> {
+) -> anyhow::Result<Option<(u32, u32, u32, u32)>> {
     let Some(value) = value else {
         return Ok(None);
     };
@@ -95,21 +96,17 @@ fn parse_area_value(
                 .map(|entry| {
                     if let Value::String(text) = entry {
                         if contains_unresolved_token(text) {
-                            return Err(
-                                "Image area array contains an unresolved token.".to_string()
-                            );
+                            bail!("Image area array contains an unresolved token.");
                         }
                     }
-                    coerce_u32(entry).ok_or_else(|| {
-                        "Image area array values must be unsigned integers.".to_string()
-                    })
+                    coerce_u32(entry).context("Image area array values must be unsigned integers.")
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(Some((numbers[0], numbers[1], numbers[2], numbers[3])))
         }
         Value::String(text) => {
             if contains_unresolved_token(text) {
-                return Err("Image area string contains an unresolved token.".to_string());
+                bail!("Image area string contains an unresolved token.");
             }
             let parts = text
                 .split(',')
@@ -117,21 +114,21 @@ fn parse_area_value(
                 .filter(|part| !part.is_empty())
                 .map(|part| {
                     if contains_unresolved_token(part) {
-                        return Err("Image area string contains an unresolved token.".to_string());
+                        bail!("Image area string contains an unresolved token.");
                     }
                     part.parse::<u32>()
-                        .map_err(|err| format!("Invalid image area segment `{part}`: {err}"))
+                        .with_context(|| format!("Invalid image area segment `{part}`"))
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             if parts.len() != 4 {
-                return Err(
-                    "Image area string must contain four comma-separated integers.".to_string(),
-                );
+                bail!("Image area string must contain four comma-separated integers.");
             }
             Ok(Some((parts[0], parts[1], parts[2], parts[3])))
         }
         Value::Object(values) => Ok(Some(parse_object_area(values, defaults)?)),
-        _ => Err("Image area must be an array, object, or comma-separated string.".to_string()),
+        _ => Err(anyhow::anyhow!(
+            "Image area must be an array, object, or comma-separated string."
+        )),
     }
 }
 
@@ -233,19 +230,19 @@ fn apply_map_properties(
     count
 }
 
-fn validate_warp(warp: &str) -> Result<(), String> {
+fn validate_warp(warp: &str) -> anyhow::Result<()> {
     let parts: Vec<&str> = warp.split(' ').collect();
     if parts.len() != 5 {
-        return Err("warp must have exactly five fields: fromX fromY toMap toX toY".to_string());
+        bail!("warp must have exactly five fields: fromX fromY toMap toX toY");
     }
     for (i, part) in parts.iter().enumerate() {
         if i == 2 {
             if part.trim().is_empty() {
-                return Err("warp map name cannot be blank".to_string());
+                bail!("warp map name cannot be blank");
             }
         } else {
             if part.parse::<i32>().is_err() {
-                return Err(format!("can't parse '{part}' as a tile coordinate"));
+                bail!("can't parse '{part}' as a tile coordinate");
             }
         }
     }
@@ -257,7 +254,7 @@ fn apply_warps(
     debug: &mut ContentPatcherMapDebugSummary,
     add_warps: &Value,
     property_name: &str,
-) -> Result<usize, String> {
+) -> anyhow::Result<usize> {
     let warp_strings: Vec<String> = match add_warps {
         Value::Array(arr) => arr
             .iter()
@@ -276,7 +273,7 @@ fn apply_warps(
                 vec![trimmed.to_string()]
             }
         }
-        _ => return Err(format!("{property_name} must be a string or array.")),
+        _ => bail!("{property_name} must be a string or array."),
     };
 
     let valid_warps: Vec<String> = warp_strings
@@ -313,40 +310,38 @@ fn apply_warps(
     Ok(valid_warps.len())
 }
 
-fn require_u32_no_token(value: Option<&Value>, field: &str) -> Result<u32, String> {
+fn require_u32_no_token(value: Option<&Value>, field: &str) -> anyhow::Result<u32> {
     let Some(value) = value else {
-        return Err(format!("{field} must be a non-negative integer."));
+        bail!("{field} must be a non-negative integer.");
     };
     if let Value::String(text) = value {
         if contains_unresolved_token(text) {
-            return Err(format!("{field} contains an unresolved token."));
+            bail!("{field} contains an unresolved token.");
         }
     }
     value
         .as_u64()
-        .ok_or_else(|| format!("{field} must be a non-negative integer."))
+        .with_context(|| format!("{field} must be a non-negative integer."))
         .map(|v| v as u32)
 }
 
-fn apply_map_tiles(document: &mut MapDocument, map_tiles: &Value) -> Result<usize, String> {
-    let tiles = map_tiles
-        .as_array()
-        .ok_or("MapTiles must be an array.".to_string())?;
+fn apply_map_tiles(document: &mut MapDocument, map_tiles: &Value) -> anyhow::Result<usize> {
+    let tiles = map_tiles.as_array().context("MapTiles must be an array.")?;
     let mut applied = 0;
 
     for tile in tiles {
         let obj = tile
             .as_object()
-            .ok_or("MapTiles entry must be an object.".to_string())?;
+            .context("MapTiles entry must be an object.")?;
 
         let layer_name = obj
             .get("Layer")
             .and_then(Value::as_str)
-            .ok_or("MapTiles entry missing Layer.".to_string())?;
+            .context("MapTiles entry missing Layer.")?;
         let position = obj
             .get("Position")
             .and_then(Value::as_object)
-            .ok_or("MapTiles entry missing Position.".to_string())?;
+            .context("MapTiles entry missing Position.")?;
         let pos_x = require_u32_no_token(position.get("X"), "Position.X")?;
         let pos_y = require_u32_no_token(position.get("Y"), "Position.Y")?;
 
@@ -366,14 +361,15 @@ fn apply_map_tiles(document: &mut MapDocument, map_tiles: &Value) -> Result<usiz
             .layers
             .iter()
             .position(|l| l.name == layer_name)
-            .ok_or_else(|| format!("Layer '{layer_name}' not found."))?;
+            .with_context(|| format!("Layer '{layer_name}' not found."))?;
 
         let layer = &document.layers[layer_idx];
         if pos_x >= layer.width || pos_y >= layer.height {
-            return Err(format!(
+            bail!(
                 "Position ({pos_x}, {pos_y}) is outside layer bounds ({}x{}).",
-                layer.width, layer.height
-            ));
+                layer.width,
+                layer.height
+            );
         }
 
         let idx = (pos_y * layer.width + pos_x) as usize;
@@ -399,25 +395,25 @@ fn apply_map_tiles(document: &mut MapDocument, map_tiles: &Value) -> Result<usiz
         let new_gid = match (set_tilesheet, set_index_str) {
             (Some(tilesheet_name), Some(idx_str)) => {
                 if contains_unresolved_token(idx_str) {
-                    return Err("SetIndex contains an unresolved token.".to_string());
+                    bail!("SetIndex contains an unresolved token.");
                 }
                 let tileset = document
                     .tilesets
                     .iter()
                     .find(|t| t.name == tilesheet_name)
-                    .ok_or_else(|| {
+                    .with_context(|| {
                         format!("SetTilesheet specifies '{tilesheet_name}' which doesn't exist.")
                     })?;
                 let index = idx_str
                     .parse::<u32>()
-                    .map_err(|_| format!("SetIndex '{idx_str}' is not a valid number."))?;
+                    .with_context(|| format!("SetIndex '{idx_str}' is not a valid number."))?;
                 tileset.first_gid + index
             }
             (Some(tilesheet_name), None) => {
                 if current_gid == 0 {
-                    return Err(format!(
+                    bail!(
                         "No tile at {layer_name} ({pos_x}, {pos_y}). To set tilesheet without index, the tile must exist."
-                    ));
+                    );
                 }
                 let current_first_gid = document
                     .tilesets
@@ -426,22 +422,22 @@ fn apply_map_tiles(document: &mut MapDocument, map_tiles: &Value) -> Result<usiz
                         current_gid >= t.first_gid && current_gid < t.first_gid + t.tile_count
                     })
                     .map(|t| t.first_gid)
-                    .ok_or("Cannot resolve current tileset.")?;
+                    .context("Cannot resolve current tileset.")?;
                 let local_id = current_gid - current_first_gid;
                 let tileset = document
                     .tilesets
                     .iter()
                     .find(|t| t.name == tilesheet_name)
-                    .ok_or_else(|| {
+                    .with_context(|| {
                         format!("SetTilesheet specifies '{tilesheet_name}' which doesn't exist.")
                     })?;
                 tileset.first_gid + local_id
             }
             (None, Some(idx_str)) => {
                 if current_gid == 0 {
-                    return Err(format!(
+                    bail!(
                         "No tile at {layer_name} ({pos_x}, {pos_y}). To add a tile, SetTilesheet and SetIndex must both be set."
-                    ));
+                    );
                 }
                 let current_first_gid = document
                     .tilesets
@@ -450,10 +446,10 @@ fn apply_map_tiles(document: &mut MapDocument, map_tiles: &Value) -> Result<usiz
                         current_gid >= t.first_gid && current_gid < t.first_gid + t.tile_count
                     })
                     .map(|t| t.first_gid)
-                    .ok_or("Cannot resolve current tileset.")?;
+                    .context("Cannot resolve current tileset.")?;
                 let index = idx_str
                     .parse::<u32>()
-                    .map_err(|_| format!("SetIndex '{idx_str}' is not a valid number."))?;
+                    .with_context(|| format!("SetIndex '{idx_str}' is not a valid number."))?;
                 current_first_gid + index
             }
             (None, None) => current_gid,
@@ -503,15 +499,15 @@ fn apply_map_patch(
     from_area: Option<(u32, u32, u32, u32)>,
     to_area: Option<(u32, u32, u32, u32)>,
     patch_mode: &str,
-) -> Result<String, String> {
+) -> anyhow::Result<String> {
     let (source_x, source_y, source_w, source_h) =
         from_area.unwrap_or((0, 0, source.width, source.height));
     let (target_x, target_y, target_w, target_h) = to_area.unwrap_or((0, 0, source_w, source_h));
 
     if source_w != target_w || source_h != target_h {
-        return Err(format!(
+        bail!(
             "FromArea size ({source_w}x{source_h}) doesn't match ToArea size ({target_w}x{target_h})."
-        ));
+        );
     }
 
     extend_map_to_fit(document, target_x + target_w, target_y + target_h);
@@ -615,7 +611,7 @@ fn apply_remove_layer(
     document: &mut MapDocument,
     debug: &mut ContentPatcherMapDebugSummary,
     remove_layer: &Value,
-) -> Result<usize, String> {
+) -> anyhow::Result<usize> {
     let layer_names: Vec<String> = match remove_layer {
         Value::String(name) => {
             let trimmed = name.trim();
@@ -634,7 +630,7 @@ fn apply_remove_layer(
                     .map(ToOwned::to_owned)
             })
             .collect(),
-        _ => return Err("RemoveLayer must be a string or an array of strings.".to_string()),
+        _ => bail!("RemoveLayer must be a string or an array of strings."),
     };
 
     let mut removed = 0;
@@ -653,7 +649,7 @@ fn apply_add_layer(
     document: &mut MapDocument,
     debug: &mut ContentPatcherMapDebugSummary,
     add_layer: &Value,
-) -> Result<usize, String> {
+) -> anyhow::Result<usize> {
     let layer_names: Vec<String> = match add_layer {
         Value::String(name) => {
             let trimmed = name.trim();
@@ -672,7 +668,7 @@ fn apply_add_layer(
                     .map(ToOwned::to_owned)
             })
             .collect(),
-        _ => return Err("AddLayer must be a string or an array of strings.".to_string()),
+        _ => bail!("AddLayer must be a string or an array of strings."),
     };
 
     let mut added = 0;
@@ -771,7 +767,7 @@ fn apply_text_operations_to_map(
     document: &mut MapDocument,
     debug: &mut ContentPatcherMapDebugSummary,
     patch: &serde_json::Map<String, Value>,
-) -> Result<usize, String> {
+) -> anyhow::Result<usize> {
     let Some(ops) = patch.get("TextOperations").and_then(Value::as_array) else {
         return Ok(0);
     };
@@ -781,29 +777,26 @@ fn apply_text_operations_to_map(
     for op in ops {
         let obj = op
             .as_object()
-            .ok_or("TextOperations item must be an object.".to_string())?;
+            .context("TextOperations item must be an object.")?;
 
         let target = obj
             .get("Target")
             .and_then(Value::as_array)
-            .ok_or("TextOperations item is missing Target array.".to_string())?;
+            .context("TextOperations item is missing Target array.")?;
         if target.len() != 2 {
-            return Err(
+            bail!(
                 "EditMap TextOperations target must have exactly 2 segments: ['MapProperties', 'PropertyName']."
-                    .to_string(),
             );
         }
         let root = target[0].as_str().unwrap_or("").trim().to_ascii_lowercase();
         if root != "mapproperties" {
-            return Err(format!(
-                "EditMap TextOperations target root must be 'MapProperties', got '{root}'."
-            ));
+            bail!("EditMap TextOperations target root must be 'MapProperties', got '{root}'.");
         }
         let property_name = target[1]
             .as_str()
             .map(str::trim)
             .filter(|s| !s.is_empty())
-            .ok_or("TextOperations property name must be a non-empty string.".to_string())?;
+            .context("TextOperations property name must be a non-empty string.")?;
 
         let operation = obj
             .get("Operation")
@@ -872,7 +865,7 @@ fn apply_text_operations_to_map(
                     replace_mode,
                 )
             }
-            other => return Err(format!("Unsupported TextOperation: {other}")),
+            other => bail!("Unsupported TextOperation: {other}"),
         };
 
         if !new_text.is_empty() {
@@ -898,7 +891,7 @@ pub fn apply_edit_map_patch(
     result_map: &mut LoadedMapAsset,
     patch: &serde_json::Map<String, Value>,
     source_path: &str,
-) -> Result<String, String> {
+) -> anyhow::Result<String> {
     let document = &mut result_map.document;
     let debug = &mut result_map.debug;
     let mut changed = Vec::new();
@@ -995,7 +988,9 @@ pub fn apply_edit_map_patch(
     }
 
     if changed.is_empty() {
-        return Err("EditMap patch must specify at least one of: FromFile, MapTiles, MapProperties, AddNpcWarps, AddWarps, RemoveLayer, AddLayer, or TextOperations.".to_string());
+        bail!(
+            "EditMap patch must specify at least one of: FromFile, MapTiles, MapProperties, AddNpcWarps, AddWarps, RemoveLayer, AddLayer, or TextOperations."
+        );
     }
 
     Ok(format!("updated {}", changed.join(", ")))

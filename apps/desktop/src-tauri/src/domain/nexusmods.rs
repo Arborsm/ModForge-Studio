@@ -43,7 +43,7 @@ fn optional_nexus_value_as_string(value: Option<serde_json::Value>) -> Option<St
     }
 }
 
-pub(crate) fn validate_nexus_api_key(app: AppHandle) -> Result<ValidateApiKeyResult, String> {
+pub(crate) fn validate_nexus_api_key(app: AppHandle) -> anyhow::Result<ValidateApiKeyResult> {
     let settings = crate::domain::launcher::settings::load_launcher_settings(app)?;
     let api_key = settings.nexus_api_key.as_deref().unwrap_or("");
     log::info!(
@@ -52,7 +52,7 @@ pub(crate) fn validate_nexus_api_key(app: AppHandle) -> Result<ValidateApiKeyRes
         !api_key.trim().is_empty(),
         api_key.len()
     );
-    let user_info = rest_api::validate_user(api_key).map_err(|e| e.to_string())?;
+    let user_info = rest_api::validate_user(api_key)?;
     let avatar_url = graphql::load_user_avatar(api_key, user_info.user_id)
         .map_err(|error| {
             log::warn!(target: "Nexus", "User avatar lookup failed: error={error}");

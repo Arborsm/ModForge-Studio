@@ -7,6 +7,7 @@ use super::http::{
     send_nexus_json_request,
 };
 use crate::domain::nexusmods::shared::{extract_graphql_error, normalize_nexus_url, string_field};
+use anyhow::{Context, bail};
 use reqwest::header::{ACCEPT, CONTENT_TYPE, HeaderMap, HeaderValue, REFERER, USER_AGENT};
 use serde_json::{Value, json};
 
@@ -23,21 +24,21 @@ query LauncherUserAvatar($id: Int!) {
 }
 "#;
 
-pub(crate) fn graphql_headers(api_key: Option<&str>) -> Result<HeaderMap, String> {
+pub(crate) fn graphql_headers(api_key: Option<&str>) -> anyhow::Result<HeaderMap> {
     let mut headers = HeaderMap::new();
     apply_launcher_headers(&mut headers);
 
     if let Some(api_key) = api_key.map(str::trim).filter(|value| !value.is_empty()) {
         headers.insert(
             "apikey",
-            HeaderValue::from_str(api_key).map_err(|error| {
-                format!("Failed to encode launcher Nexus GraphQL API key header: {error}")
+            HeaderValue::from_str(api_key).with_context(|| {
+                format!("Failed to encode launcher Nexus GraphQL API key header")
             })?,
         );
     }
 
     if !headers.contains_key("apikey") {
-        return Err("Configure a Nexus API key before querying Nexus Mods.".to_string());
+        bail!("Configure a Nexus API key before querying Nexus Mods.");
     }
 
     Ok(headers)
@@ -46,7 +47,7 @@ pub(crate) fn graphql_headers(api_key: Option<&str>) -> Result<HeaderMap, String
 pub(crate) fn public_graphql_headers(
     referer: &str,
     operation_name: &str,
-) -> Result<HeaderMap, String> {
+) -> anyhow::Result<HeaderMap> {
     let mut headers = HeaderMap::new();
     headers.insert(
         USER_AGENT,
@@ -79,22 +80,21 @@ pub(crate) fn public_graphql_headers(
     );
     headers.insert(
         REFERER,
-        HeaderValue::from_str(referer).map_err(|error| {
-            format!("Failed to encode launcher public GraphQL referer header: {error}")
-        })?,
+        HeaderValue::from_str(referer)
+            .with_context(|| format!("Failed to encode launcher public GraphQL referer header"))?,
     );
     headers.insert(
         "x-graphql-operationname",
-        HeaderValue::from_str(operation_name).map_err(|error| {
-            format!("Failed to encode launcher public GraphQL operation header: {error}")
+        HeaderValue::from_str(operation_name).with_context(|| {
+            format!("Failed to encode launcher public GraphQL operation header")
         })?,
     );
     Ok(headers)
 }
 
-pub(crate) fn build_user_avatar_graphql_payload(user_id: u64) -> Result<Value, String> {
+pub(crate) fn build_user_avatar_graphql_payload(user_id: u64) -> anyhow::Result<Value> {
     let id = i64::try_from(user_id)
-        .map_err(|_| format!("Nexus user id {user_id} is too large for GraphQL Int."))?;
+        .with_context(|| format!("Nexus user id {user_id} is too large for GraphQL Int."))?;
 
     Ok(json!({
         "operationName": "LauncherUserAvatar",
@@ -107,20 +107,20 @@ pub(crate) fn build_user_avatar_graphql_payload(user_id: u64) -> Result<Value, S
 
 pub(crate) fn parse_user_avatar_graphql_response(
     payload: &Value,
-) -> Result<Option<String>, String> {
+) -> anyhow::Result<Option<String>> {
     if let Some(error) = extract_graphql_error(payload) {
-        return Err(error);
+        return Err(anyhow::anyhow!(error));
     }
 
     let user = payload
         .get("data")
         .and_then(|value| value.get("user"))
-        .ok_or_else(|| "Nexus user avatar response did not include data.user.".to_string())?;
+        .context("Nexus user avatar response did not include data.user.")?;
 
     Ok(string_field(user, "avatar").map(|avatar| normalize_nexus_url(&avatar)))
 }
 
-pub(crate) fn load_user_avatar(api_key: &str, user_id: u64) -> Result<Option<String>, String> {
+pub(crate) fn load_user_avatar(api_key: &str, user_id: u64) -> anyhow::Result<Option<String>> {
     let client = launcher_http_client()?;
     let headers = graphql_headers(Some(api_key))?;
     let payload = build_user_avatar_graphql_payload(user_id)?;
@@ -131,13 +131,10 @@ pub(crate) fn load_user_avatar(api_key: &str, user_id: u64) -> Result<Option<Str
             .json(&payload)
             .send()
     })
-    .map_err(|error| format!("Nexus user avatar GraphQL response failed: {error}"))?;
+    .with_context(|| format!("Nexus user avatar GraphQL response failed"))?;
 
     if !status.is_success() {
-        return Err(format!(
-            "Nexus user avatar GraphQL request failed: HTTP {}",
-            status
-        ));
+        bail!("Nexus user avatar GraphQL request failed: HTTP {}", status);
     }
 
     parse_user_avatar_graphql_response(&response_payload)

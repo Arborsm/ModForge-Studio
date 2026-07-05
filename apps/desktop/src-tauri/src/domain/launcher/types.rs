@@ -780,30 +780,6 @@ pub enum LauncherGameLaunchTarget {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum LauncherGameLaunchErrorCode {
-    MissingGamePath,
-    MissingExecutable,
-    LaunchFailed,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LauncherGameLaunchError {
-    pub code: LauncherGameLaunchErrorCode,
-    pub message: String,
-}
-
-impl From<String> for LauncherGameLaunchError {
-    fn from(message: String) -> Self {
-        Self {
-            code: LauncherGameLaunchErrorCode::LaunchFailed,
-            message,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct LauncherGameLaunchResult {
     pub executable_path: String,
     pub target: LauncherGameLaunchTarget,

@@ -4,6 +4,7 @@ use crate::domain::manifest::{
     content_pack_for_unique_id, normalize_unique_id, project_name_from_manifest, string_field,
 };
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use anyhow::{Context, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -179,38 +180,38 @@ pub(crate) fn install_staged_bundle_at_path(
     bundle_root: &Path,
     mods_path: &Path,
     backup_root: &Path,
-) -> Result<InstallManagerSessionResult, String> {
+) -> anyhow::Result<InstallManagerSessionResult> {
     let _install_tree_guard = lock_launcher_install_tree();
     if !bundle_root.is_dir() {
-        return Err(format!(
+        bail!(
             "Bundle root {} does not exist.",
             normalize_path(bundle_root)
-        ));
+        );
     }
 
-    fs::create_dir_all(mods_path).map_err(|error| {
+    fs::create_dir_all(mods_path).with_context(|| {
         format!(
-            "Failed to create mods directory {}: {error}",
+            "Failed to create mods directory {}",
             normalize_path(mods_path)
         )
     })?;
-    fs::create_dir_all(backup_root).map_err(|error| {
+    fs::create_dir_all(backup_root).with_context(|| {
         format!(
-            "Failed to create backup directory {}: {error}",
+            "Failed to create backup directory {}",
             normalize_path(backup_root)
         )
     })?;
 
     let operations = plan_install_operations(bundle_root, mods_path)?;
     if operations.is_empty() {
-        return Err("The bundle did not contain any installable mods or overlays.".to_string());
+        bail!("The bundle did not contain any installable mods or overlays.");
     }
 
     let (backup_id, backup_path) = create_backup_session_dir(backup_root)?;
     let work_root = backup_path.join("_work");
-    fs::create_dir_all(&work_root).map_err(|error| {
+    fs::create_dir_all(&work_root).with_context(|| {
         format!(
-            "Failed to create install work directory {}: {error}",
+            "Failed to create install work directory {}",
             normalize_path(&work_root)
         )
     })?;
@@ -223,9 +224,9 @@ pub(crate) fn install_staged_bundle_at_path(
         let entry_id = format!("entry-{:02}", index + 1);
         let entry_root = backup_path.join("entries").join(&entry_id);
         let before_root = entry_root.join("before");
-        fs::create_dir_all(&before_root).map_err(|error| {
+        fs::create_dir_all(&before_root).with_context(|| {
             format!(
-                "Failed to create backup entry directory {}: {error}",
+                "Failed to create backup entry directory {}",
                 normalize_path(&before_root)
             )
         })?;
@@ -269,7 +270,7 @@ pub(crate) fn install_staged_bundle_at_path(
                 .then_with(|| left.result.target_path.cmp(&right.result.target_path))
         })
         .map(|item| item.result)
-        .ok_or_else(|| "The install manager did not produce any installed targets.".to_string())?;
+        .context("The install manager did not produce any installed targets.")?;
 
     let metadata = BackupSessionMetadata {
         backup_id: backup_id.clone(),
@@ -296,21 +297,17 @@ pub(crate) fn install_staged_bundle_at_path(
 pub(crate) fn list_backup_sessions_at_root(
     backup_root: &Path,
     expected_mods_path: Option<&Path>,
-) -> Result<Vec<InstallManagerBackupSummary>, String> {
+) -> anyhow::Result<Vec<InstallManagerBackupSummary>> {
     if !backup_root.is_dir() {
         return Ok(Vec::new());
     }
 
     let expected_mods_path = expected_mods_path.map(normalize_path);
     let mut sessions = Vec::new();
-    for entry in fs::read_dir(backup_root).map_err(|error| {
-        format!(
-            "Failed to read backup root {}: {error}",
-            normalize_path(backup_root)
-        )
-    })? {
-        let entry =
-            entry.map_err(|error| format!("Failed to inspect backup root entry: {error}"))?;
+    for entry in fs::read_dir(backup_root)
+        .with_context(|| format!("Failed to read backup root {}", normalize_path(backup_root)))?
+    {
+        let entry = entry.with_context(|| format!("Failed to inspect backup root entry"))?;
         let entry_path = entry.path();
         let metadata_path = entry_path.join("metadata.json");
         if !metadata_path.is_file() {
@@ -346,17 +343,19 @@ pub(crate) fn list_backup_sessions_at_root(
 pub(crate) fn restore_backup_session_at_path(
     backup_path: &Path,
     expected_mods_path: Option<&Path>,
-) -> Result<InstallManagerRestoreResult, String> {
+) -> anyhow::Result<InstallManagerRestoreResult> {
     let _install_tree_guard = lock_launcher_install_tree();
     let metadata = load_backup_metadata(&backup_path.join("metadata.json"))?;
     if let Some(expected_mods_path) = expected_mods_path {
         let backup_mods_path = normalize_path(&clean_input_path(&metadata.mods_path));
         let expected_mods_path = normalize_path(expected_mods_path);
         if backup_mods_path != expected_mods_path {
-            return Err(format!(
+            bail!(
                 "Backup {} belongs to modsPath {}, not {}.",
-                metadata.backup_id, backup_mods_path, expected_mods_path
-            ));
+                metadata.backup_id,
+                backup_mods_path,
+                expected_mods_path
+            );
         }
     }
 
@@ -372,16 +371,16 @@ pub(crate) fn restore_backup_session_at_path(
         for relative_path in &entry.added_paths {
             let target_path = target_root.join(relative_path);
             if target_path.is_file() {
-                fs::remove_file(&target_path).map_err(|error| {
+                fs::remove_file(&target_path).with_context(|| {
                     format!(
-                        "Failed to remove added file {} during restore: {error}",
+                        "Failed to remove added file {} during restore",
                         normalize_path(&target_path)
                     )
                 })?;
             } else if target_path.is_dir() {
-                fs::remove_dir_all(&target_path).map_err(|error| {
+                fs::remove_dir_all(&target_path).with_context(|| {
                     format!(
-                        "Failed to remove added directory {} during restore: {error}",
+                        "Failed to remove added directory {} during restore",
                         normalize_path(&target_path)
                     )
                 })?;
@@ -392,24 +391,21 @@ pub(crate) fn restore_backup_session_at_path(
         for relative_path in &entry.saved_paths {
             let source_path = before_root.join(relative_path);
             if !source_path.is_file() {
-                return Err(format!(
+                bail!(
                     "Backup {} is missing backup file {}.",
                     metadata.backup_id,
                     normalize_path(&source_path)
-                ));
+                );
             }
             let target_path = target_root.join(relative_path);
             if let Some(parent) = target_path.parent() {
-                fs::create_dir_all(parent).map_err(|error| {
-                    format!(
-                        "Failed to create restore parent {}: {error}",
-                        normalize_path(parent)
-                    )
+                fs::create_dir_all(parent).with_context(|| {
+                    format!("Failed to create restore parent {}", normalize_path(parent))
                 })?;
             }
-            fs::copy(&source_path, &target_path).map_err(|error| {
+            fs::copy(&source_path, &target_path).with_context(|| {
                 format!(
-                    "Failed to restore backup file {} to {}: {error}",
+                    "Failed to restore backup file {} to {}",
                     normalize_path(&source_path),
                     normalize_path(&target_path)
                 )
@@ -421,9 +417,9 @@ pub(crate) fn restore_backup_session_at_path(
             if target_root.is_dir()
                 && target_root
                     .read_dir()
-                    .map_err(|error| {
+                    .with_context(|| {
                         format!(
-                            "Failed to inspect restored target {}: {error}",
+                            "Failed to inspect restored target {}",
                             normalize_path(&target_root)
                         )
                     })?
@@ -450,22 +446,22 @@ pub(crate) fn install_archive_bundle_at_path(
     archive_path: &Path,
     mods_path: &Path,
     backup_root: &Path,
-    extract_bundle_to_path: impl FnOnce(&Path) -> Result<PathBuf, String>,
-) -> Result<InstallManagerSessionResult, String> {
+    extract_bundle_to_path: impl FnOnce(&Path) -> anyhow::Result<PathBuf>,
+) -> anyhow::Result<InstallManagerSessionResult> {
     let work_root = temp_work_dir("launcher-install-bundle");
     if work_root.exists() {
         let _ = fs::remove_dir_all(&work_root);
     }
-    fs::create_dir_all(&work_root).map_err(|error| {
+    fs::create_dir_all(&work_root).with_context(|| {
         format!(
-            "Failed to create install archive temp directory {}: {error}",
+            "Failed to create install archive temp directory {}",
             normalize_path(&work_root)
         )
     })?;
 
     let staged_root = extract_bundle_to_path(&work_root).map_err(|error| {
         let _ = fs::remove_dir_all(&work_root);
-        format!(
+        anyhow::anyhow!(
             "Failed to stage archive bundle {}: {error}",
             normalize_path(archive_path)
         )
@@ -478,7 +474,7 @@ pub(crate) fn install_archive_bundle_at_path(
 fn plan_install_operations(
     bundle_root: &Path,
     mods_path: &Path,
-) -> Result<Vec<InstallOperation>, String> {
+) -> anyhow::Result<Vec<InstallOperation>> {
     let existing_targets = load_existing_targets(mods_path)?;
     let discovered_mod_roots = discover_project_roots(bundle_root)?;
     let mut mod_bundles = discovered_mod_roots
@@ -540,10 +536,10 @@ fn plan_install_operations(
 
         if let Some(unique_id) = planned_target.unique_id.as_deref() {
             if !planned_unique_ids.insert(normalize_unique_id(unique_id)) {
-                return Err(format!(
+                bail!(
                     "The bundle contains multiple install targets for unique ID {}.",
                     unique_id
-                ));
+                );
             }
         }
         register_target_aliases(&mut targets_by_alias, &planned_target);
@@ -572,7 +568,7 @@ fn discover_overlay_operations(
     bundle_root: &Path,
     targets_by_alias: &BTreeMap<String, Vec<PlannedTarget>>,
     mod_operations: &[InstallOperation],
-) -> Result<Vec<InstallOperation>, String> {
+) -> anyhow::Result<Vec<InstallOperation>> {
     let mod_roots = mod_operations
         .iter()
         .filter_map(|operation| match operation {
@@ -605,10 +601,10 @@ fn discover_overlay_operations(
                 continue;
             };
             if targets.len() > 1 {
-                return Err(format!(
+                bail!(
                     "Overlay path {} matched multiple install targets.",
                     normalize_path(&absolute_path)
-                ));
+                );
             }
             matched_target = targets.first().cloned();
             break;
@@ -642,7 +638,7 @@ fn execute_install_operation(
     work_root: &Path,
     before_root: &Path,
     recorder: &mut BackupEntryRecorder,
-) -> Result<InstallManagerInstalledMod, String> {
+) -> anyhow::Result<InstallManagerInstalledMod> {
     match operation {
         InstallOperation::FreshInstall { bundle, target } => {
             let prepared_root = work_root.join("prepared");
@@ -675,10 +671,10 @@ fn execute_install_operation(
         InstallOperation::OverlayMerge { bundle } => {
             let target_root = &bundle.target.target_path;
             if !target_root.is_dir() {
-                return Err(format!(
+                bail!(
                     "Overlay target {} does not exist.",
                     normalize_path(target_root)
-                ));
+                );
             }
 
             let mut merged_i18n_files = 0;
@@ -727,7 +723,7 @@ fn execute_install_operation(
 fn preserve_existing_files_for_upgrade(
     existing_root: &Path,
     prepared_root: &Path,
-) -> Result<(bool, usize), String> {
+) -> anyhow::Result<(bool, usize)> {
     let mut preserved_config = false;
     let existing_config = existing_root.join("config.json");
     let prepared_config = prepared_root.join("config.json");
@@ -776,7 +772,7 @@ fn apply_replace_snapshot(
     target_root: &Path,
     before_root: &Path,
     recorder: &mut BackupEntryRecorder,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let existing_files = if target_root.is_dir() {
         collect_relative_files(target_root)?
     } else {
@@ -794,9 +790,9 @@ fn apply_replace_snapshot(
             backup_existing_file(before_root, target_root, relative_path, recorder)?;
             let target_path = target_root.join(relative_path);
             if target_path.is_file() {
-                fs::remove_file(&target_path).map_err(|error| {
+                fs::remove_file(&target_path).with_context(|| {
                     format!(
-                        "Failed to remove stale target file {}: {error}",
+                        "Failed to remove stale target file {}",
                         normalize_path(&target_path)
                     )
                 })?;
@@ -835,7 +831,7 @@ fn backup_existing_file(
     target_root: &Path,
     relative_path: &Path,
     recorder: &mut BackupEntryRecorder,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let normalized_relative = normalize_relative_path(relative_path);
     if !recorder.saved_paths.insert(normalized_relative.clone()) {
         return Ok(());
@@ -848,16 +844,13 @@ fn backup_existing_file(
 
     let backup_path = before_root.join(relative_path);
     if let Some(parent) = backup_path.parent() {
-        fs::create_dir_all(parent).map_err(|error| {
-            format!(
-                "Failed to create backup parent {}: {error}",
-                normalize_path(parent)
-            )
+        fs::create_dir_all(parent).with_context(|| {
+            format!("Failed to create backup parent {}", normalize_path(parent))
         })?;
     }
-    fs::copy(&source_path, &backup_path).map_err(|error| {
+    fs::copy(&source_path, &backup_path).with_context(|| {
         format!(
-            "Failed to back up file {} to {}: {error}",
+            "Failed to back up file {} to {}",
             normalize_path(&source_path),
             normalize_path(&backup_path)
         )
@@ -865,7 +858,7 @@ fn backup_existing_file(
     Ok(())
 }
 
-fn load_existing_targets(mods_path: &Path) -> Result<BTreeMap<String, PlannedTarget>, String> {
+fn load_existing_targets(mods_path: &Path) -> anyhow::Result<BTreeMap<String, PlannedTarget>> {
     let scan = scan_library_at_path(mods_path)?;
     let mut targets = BTreeMap::new();
     for item in scan.mods {
@@ -886,7 +879,7 @@ fn load_existing_targets(mods_path: &Path) -> Result<BTreeMap<String, PlannedTar
     Ok(targets)
 }
 
-fn build_mod_bundle(bundle_root: &Path, root: &Path) -> Result<ModBundle, String> {
+fn build_mod_bundle(bundle_root: &Path, root: &Path) -> anyhow::Result<ModBundle> {
     let manifest = read_json_file(&root.join("manifest.json"))?;
     let mod_name = project_name_from_manifest(&manifest, root);
     Ok(ModBundle {
@@ -964,7 +957,7 @@ fn merge_json_files_at_paths(
     existing_path: &Path,
     incoming_path: &Path,
     preference: JsonMergePreference,
-) -> Result<Value, String> {
+) -> anyhow::Result<Value> {
     let existing = read_json_file(existing_path)?;
     let incoming = read_json_file(incoming_path)?;
     Ok(merge_json_values(&existing, &incoming, preference))
@@ -1007,12 +1000,12 @@ fn merge_json_values(existing: &Value, incoming: &Value, preference: JsonMergePr
     }
 }
 
-fn create_backup_session_dir(backup_root: &Path) -> Result<(String, PathBuf), String> {
+fn create_backup_session_dir(backup_root: &Path) -> anyhow::Result<(String, PathBuf)> {
     let backup_id = format!("install-{}", current_timestamp_ms());
     let backup_path = unique_path(&backup_root.join(&backup_id));
-    fs::create_dir_all(&backup_path).map_err(|error| {
+    fs::create_dir_all(&backup_path).with_context(|| {
         format!(
-            "Failed to create backup session directory {}: {error}",
+            "Failed to create backup session directory {}",
             normalize_path(&backup_path)
         )
     })?;
@@ -1024,34 +1017,22 @@ fn create_backup_session_dir(backup_root: &Path) -> Result<(String, PathBuf), St
     Ok((backup_id, backup_path))
 }
 
-fn save_backup_metadata(path: &Path, metadata: &BackupSessionMetadata) -> Result<(), String> {
+fn save_backup_metadata(path: &Path, metadata: &BackupSessionMetadata) -> anyhow::Result<()> {
     let json = serde_json::to_string_pretty(metadata)
-        .map_err(|error| format!("Failed to serialize backup metadata JSON: {error}"))?;
-    fs::write(path, format!("{json}\n")).map_err(|error| {
-        format!(
-            "Failed to write backup metadata {}: {error}",
-            normalize_path(path)
-        )
-    })?;
+        .with_context(|| format!("Failed to serialize backup metadata JSON"))?;
+    fs::write(path, format!("{json}\n"))
+        .with_context(|| format!("Failed to write backup metadata {}", normalize_path(path)))?;
     Ok(())
 }
 
-fn load_backup_metadata(path: &Path) -> Result<BackupSessionMetadata, String> {
-    let content = fs::read_to_string(path).map_err(|error| {
-        format!(
-            "Failed to read backup metadata {}: {error}",
-            normalize_path(path)
-        )
-    })?;
-    serde_json::from_str(&content).map_err(|error| {
-        format!(
-            "Backup metadata {} is invalid JSON: {error}",
-            normalize_path(path)
-        )
-    })
+fn load_backup_metadata(path: &Path) -> anyhow::Result<BackupSessionMetadata> {
+    let content = fs::read_to_string(path)
+        .with_context(|| format!("Failed to read backup metadata {}", normalize_path(path)))?;
+    serde_json::from_str(&content)
+        .with_context(|| format!("Backup metadata {} is invalid JSON", normalize_path(path)))
 }
 
-fn copy_tree(source_root: &Path, target_root: &Path) -> Result<(), String> {
+fn copy_tree(source_root: &Path, target_root: &Path) -> anyhow::Result<()> {
     for relative_path in collect_relative_files(source_root)? {
         let source_path = source_root.join(&relative_path);
         let target_path = target_root.join(&relative_path);
@@ -1060,18 +1041,15 @@ fn copy_tree(source_root: &Path, target_root: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn copy_file(source_path: &Path, target_path: &Path) -> Result<(), String> {
+fn copy_file(source_path: &Path, target_path: &Path) -> anyhow::Result<()> {
     if let Some(parent) = target_path.parent() {
-        fs::create_dir_all(parent).map_err(|error| {
-            format!(
-                "Failed to create target parent {}: {error}",
-                normalize_path(parent)
-            )
+        fs::create_dir_all(parent).with_context(|| {
+            format!("Failed to create target parent {}", normalize_path(parent))
         })?;
     }
-    fs::copy(source_path, target_path).map_err(|error| {
+    fs::copy(source_path, target_path).with_context(|| {
         format!(
-            "Failed to copy file {} to {}: {error}",
+            "Failed to copy file {} to {}",
             normalize_path(source_path),
             normalize_path(target_path)
         )
@@ -1079,19 +1057,15 @@ fn copy_file(source_path: &Path, target_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn files_differ(left_path: &Path, right_path: &Path) -> Result<bool, String> {
+fn files_differ(left_path: &Path, right_path: &Path) -> anyhow::Result<bool> {
     let left_bytes = fs::read(left_path)
-        .map_err(|error| format!("Failed to read file {}: {error}", normalize_path(left_path)))?;
-    let right_bytes = fs::read(right_path).map_err(|error| {
-        format!(
-            "Failed to read file {}: {error}",
-            normalize_path(right_path)
-        )
-    })?;
+        .with_context(|| format!("Failed to read file {}", normalize_path(left_path)))?;
+    let right_bytes = fs::read(right_path)
+        .with_context(|| format!("Failed to read file {}", normalize_path(right_path)))?;
     Ok(left_bytes != right_bytes)
 }
 
-fn collect_relative_files(root: &Path) -> Result<Vec<PathBuf>, String> {
+fn collect_relative_files(root: &Path) -> anyhow::Result<Vec<PathBuf>> {
     if !root.exists() {
         return Ok(Vec::new());
     }
@@ -1105,14 +1079,11 @@ fn collect_relative_files_recursive(
     scan_root: &Path,
     current_dir: &Path,
     output: &mut Vec<PathBuf>,
-) -> Result<(), String> {
-    for entry in fs::read_dir(current_dir).map_err(|error| {
-        format!(
-            "Failed to read directory {}: {error}",
-            normalize_path(current_dir)
-        )
-    })? {
-        let entry = entry.map_err(|error| format!("Failed to inspect directory entry: {error}"))?;
+) -> anyhow::Result<()> {
+    for entry in fs::read_dir(current_dir)
+        .with_context(|| format!("Failed to read directory {}", normalize_path(current_dir)))?
+    {
+        let entry = entry.with_context(|| format!("Failed to inspect directory entry"))?;
         let entry_path = entry.path();
         if entry_path.is_dir() {
             collect_relative_files_recursive(scan_root, &entry_path, output)?;
@@ -1120,13 +1091,13 @@ fn collect_relative_files_recursive(
         }
         let relative_path = entry_path
             .strip_prefix(scan_root)
-            .map_err(|error| format!("Failed to resolve relative path: {error}"))?;
+            .with_context(|| format!("Failed to resolve relative path"))?;
         output.push(relative_path.to_path_buf());
     }
     Ok(())
 }
 
-fn cleanup_empty_tree(root: &Path) -> Result<(), String> {
+fn cleanup_empty_tree(root: &Path) -> anyhow::Result<()> {
     if !root.is_dir() {
         return Ok(());
     }
@@ -1140,11 +1111,8 @@ fn cleanup_empty_tree(root: &Path) -> Result<(), String> {
         if directory.is_dir()
             && directory
                 .read_dir()
-                .map_err(|error| {
-                    format!(
-                        "Failed to inspect directory {}: {error}",
-                        normalize_path(&directory)
-                    )
+                .with_context(|| {
+                    format!("Failed to inspect directory {}", normalize_path(&directory))
                 })?
                 .next()
                 .is_none()
@@ -1174,7 +1142,7 @@ fn cleanup_empty_parents(root: &Path, mut current: Option<&Path>) {
     }
 }
 
-fn collect_directories(root: &Path) -> Result<Vec<PathBuf>, String> {
+fn collect_directories(root: &Path) -> anyhow::Result<Vec<PathBuf>> {
     if !root.exists() {
         return Ok(Vec::new());
     }
@@ -1183,11 +1151,11 @@ fn collect_directories(root: &Path) -> Result<Vec<PathBuf>, String> {
     Ok(directories)
 }
 
-fn collect_directories_recursive(root: &Path, output: &mut Vec<PathBuf>) -> Result<(), String> {
+fn collect_directories_recursive(root: &Path, output: &mut Vec<PathBuf>) -> anyhow::Result<()> {
     for entry in fs::read_dir(root)
-        .map_err(|error| format!("Failed to read directory {}: {error}", normalize_path(root)))?
+        .with_context(|| format!("Failed to read directory {}", normalize_path(root)))?
     {
-        let entry = entry.map_err(|error| format!("Failed to inspect directory entry: {error}"))?;
+        let entry = entry.with_context(|| format!("Failed to inspect directory entry"))?;
         let entry_path = entry.path();
         if !entry_path.is_dir() {
             continue;
@@ -1198,23 +1166,15 @@ fn collect_directories_recursive(root: &Path, output: &mut Vec<PathBuf>) -> Resu
     Ok(())
 }
 
-fn write_json_file(path: &Path, value: &Value) -> Result<(), String> {
+fn write_json_file(path: &Path, value: &Value) -> anyhow::Result<()> {
     let json = serde_json::to_string_pretty(value)
-        .map_err(|error| format!("Failed to serialize merged JSON: {error}"))?;
+        .with_context(|| format!("Failed to serialize merged JSON"))?;
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|error| {
-            format!(
-                "Failed to create JSON parent {}: {error}",
-                normalize_path(parent)
-            )
-        })?;
+        fs::create_dir_all(parent)
+            .with_context(|| format!("Failed to create JSON parent {}", normalize_path(parent)))?;
     }
-    fs::write(path, format!("{json}\n")).map_err(|error| {
-        format!(
-            "Failed to write JSON file {}: {error}",
-            normalize_path(path)
-        )
-    })?;
+    fs::write(path, format!("{json}\n"))
+        .with_context(|| format!("Failed to write JSON file {}", normalize_path(path)))?;
     Ok(())
 }
 

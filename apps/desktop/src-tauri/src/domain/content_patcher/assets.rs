@@ -7,6 +7,7 @@ use crate::domain::modding::attached_api::AttachedApiRegistry;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use crate::infrastructure::game_formats::tbin::{MapDocument, parse_tbin_map};
 use crate::infrastructure::game_formats::xnb::read_xnb_from_path;
+use anyhow::{Context, bail};
 use base64::Engine;
 use image::codecs::png::PngEncoder;
 use image::{ColorType, GenericImageView, ImageEncoder, RgbaImage};
@@ -66,7 +67,7 @@ pub fn with_virtual_preview_assets<T>(
     result
 }
 
-fn decode_virtual_preview_asset_bytes(relative_path: &str) -> Result<Option<Vec<u8>>, String> {
+fn decode_virtual_preview_asset_bytes(relative_path: &str) -> anyhow::Result<Option<Vec<u8>>> {
     let asset = VIRTUAL_PREVIEW_ASSETS.with(|assets| {
         assets
             .borrow()
@@ -80,9 +81,9 @@ fn decode_virtual_preview_asset_bytes(relative_path: &str) -> Result<Option<Vec<
 
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(asset.bytes_base64)
-        .map_err(|err| {
+        .with_context(|| {
             format!(
-                "Failed to decode virtual preview asset `{}` ({}): {err}",
+                "Failed to decode virtual preview asset `{}` ({})",
                 asset.relative_path, asset.media_type
             )
         })?;
@@ -142,7 +143,7 @@ pub fn infer_target_asset_kind(
 fn resolve_from_file_relative_path(
     source_path: &str,
     from_file: &str,
-) -> Result<(PathBuf, String), String> {
+) -> anyhow::Result<(PathBuf, String)> {
     let relative_from = resolve_include_relative_path(Path::new(source_path), from_file)?;
     let normalized_from = normalize_relative_path(&relative_from);
     Ok((relative_from, normalized_from))
@@ -152,30 +153,28 @@ fn resolve_from_file_path(
     snapshot: &ContentPatcherProjectSnapshot,
     relative_from: &Path,
     from_file: &str,
-) -> Result<PathBuf, String> {
-    let root = snapshot.summary.absolute_path.as_ref().ok_or_else(|| {
+) -> anyhow::Result<PathBuf> {
+    let root = snapshot.summary.absolute_path.as_ref().with_context(|| {
         format!("Unable to resolve FromFile `{from_file}` without project root path.")
     })?;
     let root_path = Path::new(root);
     let candidate = root_path.join(relative_from);
     let root_canonical = fs::canonicalize(root_path)
-        .map_err(|err| format!("Failed to resolve Content Patcher project root {root}: {err}"))?;
-    let candidate_canonical = fs::canonicalize(&candidate).map_err(|err| {
+        .with_context(|| format!("Failed to resolve Content Patcher project root {root}"))?;
+    let candidate_canonical = fs::canonicalize(&candidate).with_context(|| {
         format!(
-            "Failed to resolve FromFile `{from_file}` at {}: {err}",
+            "Failed to resolve FromFile `{from_file}` at {}",
             candidate.display()
         )
     })?;
     if !candidate_canonical.starts_with(&root_canonical) {
-        return Err(format!(
-            "FromFile `{from_file}` resolves outside the content pack root."
-        ));
+        bail!("FromFile `{from_file}` resolves outside the content pack root.");
     }
 
     Ok(candidate_canonical)
 }
 
-pub fn load_base_json_asset(target: &str, game_root_path: Option<&str>) -> Result<Value, String> {
+pub fn load_base_json_asset(target: &str, game_root_path: Option<&str>) -> anyhow::Result<Value> {
     if let Some(root) = game_root_path {
         if let Some(base_path) = build_target_asset_base_path(root, target) {
             for candidate in [
@@ -197,10 +196,10 @@ pub fn load_base_json_asset(target: &str, game_root_path: Option<&str>) -> Resul
                             return Ok(xnb.content.to_json());
                         }
                         Err(error) => {
-                            return Err(format!(
+                            bail!(
                                 "Failed to load base JSON asset {}: {error}",
                                 candidate.display()
-                            ));
+                            );
                         }
                     }
                 }
@@ -208,10 +207,10 @@ pub fn load_base_json_asset(target: &str, game_root_path: Option<&str>) -> Resul
                 match parse_json_file(&candidate) {
                     Ok((_, parsed)) => return Ok(parsed),
                     Err(error) => {
-                        return Err(format!(
+                        bail!(
                             "Failed to load base JSON asset {}: {error}",
                             candidate.display()
-                        ));
+                        );
                     }
                 }
             }
@@ -247,21 +246,21 @@ fn build_target_asset_base_path(game_root_path: &str, target: &str) -> Option<Pa
     )
 }
 
-fn load_image_from_asset_path(path: &Path) -> Result<RgbaImage, String> {
+fn load_image_from_asset_path(path: &Path) -> anyhow::Result<RgbaImage> {
     let extension = path
         .extension()
         .and_then(|value| value.to_str())
         .unwrap_or_default();
     if extension.eq_ignore_ascii_case("xnb") {
         let xnb = read_xnb_from_path(path)?;
-        let texture = xnb.content.as_texture().ok_or_else(|| {
+        let texture = xnb.content.as_texture().with_context(|| {
             format!(
                 "XNB image asset {} did not contain a Texture2D payload.",
                 path.display()
             )
         })?;
         return RgbaImage::from_vec(texture.width, texture.height, texture.rgba.clone())
-            .ok_or_else(|| {
+            .with_context(|| {
                 format!(
                     "Texture payload for {} did not match {}x{} RGBA dimensions.",
                     path.display(),
@@ -272,7 +271,7 @@ fn load_image_from_asset_path(path: &Path) -> Result<RgbaImage, String> {
     }
 
     image::open(path)
-        .map_err(|err| format!("Failed to load base image asset {}: {err}", path.display()))
+        .with_context(|| format!("Failed to load base image asset {}", path.display()))
         .map(|image| image.to_rgba8())
 }
 
@@ -295,7 +294,7 @@ fn describe_base_image_source(game_root_path: &str, candidate: &Path) -> String 
 pub fn load_base_image_asset(
     target: &str,
     game_root_path: Option<&str>,
-) -> Result<LoadedBaseImageAsset, String> {
+) -> anyhow::Result<LoadedBaseImageAsset> {
     if let Some(root) = game_root_path {
         if let Some(base_path) = build_target_asset_base_path(root, target) {
             for candidate in [
@@ -377,13 +376,13 @@ fn create_empty_map_document(target: &str) -> MapDocument {
 pub fn load_base_map_asset(
     target: &str,
     game_root_path: Option<&str>,
-) -> Result<LoadedMapAsset, String> {
+) -> anyhow::Result<LoadedMapAsset> {
     if let Some(root) = game_root_path {
         if let Some(base_path) = build_target_asset_base_path(root, target) {
             let candidate = base_path.with_extension("xnb");
             if candidate.exists() {
                 match read_xnb_from_path(&candidate).and_then(|xnb| {
-                    let bytes = xnb.content.as_bytes().ok_or_else(|| {
+                    let bytes = xnb.content.as_bytes().with_context(|| {
                         format!("Map XNB did not contain TBin data: {}", candidate.display())
                     })?;
                     parse_tbin_map(
@@ -397,10 +396,10 @@ pub fn load_base_map_asset(
                         return Ok(LoadedMapAsset { document, debug });
                     }
                     Err(error) => {
-                        return Err(format!(
+                        bail!(
                             "Failed to load base map asset {}: {error}",
                             candidate.display()
-                        ));
+                        );
                     }
                 }
             }
@@ -418,12 +417,12 @@ pub fn load_json_patch_asset(
     snapshot: &ContentPatcherProjectSnapshot,
     source_path: &str,
     from_file: &str,
-) -> Result<Value, String> {
+) -> anyhow::Result<Value> {
     let (relative_from, normalized_from) = resolve_from_file_relative_path(source_path, from_file)?;
 
     if let Some(bytes) = decode_virtual_preview_asset_bytes(&normalized_from)? {
-        let raw_json = String::from_utf8(bytes).map_err(|err| {
-            format!("Failed to decode virtual JSON patch asset `{normalized_from}` as UTF-8: {err}")
+        let raw_json = String::from_utf8(bytes).with_context(|| {
+            format!("Failed to decode virtual JSON patch asset `{normalized_from}` as UTF-8")
         })?;
         return parse_json_str(&raw_json, &normalized_from);
     }
@@ -445,20 +444,20 @@ pub fn load_image_patch_asset(
     snapshot: &ContentPatcherProjectSnapshot,
     source_path: &str,
     from_file: &str,
-) -> Result<RgbaImage, String> {
+) -> anyhow::Result<RgbaImage> {
     let (relative_from, normalized_from) = resolve_from_file_relative_path(source_path, from_file)?;
 
     if let Some(bytes) = decode_virtual_preview_asset_bytes(&normalized_from)? {
-        let image = image::load_from_memory(&bytes).map_err(|err| {
-            format!("Failed to load virtual image patch asset `{normalized_from}`: {err}")
+        let image = image::load_from_memory(&bytes).with_context(|| {
+            format!("Failed to load virtual image patch asset `{normalized_from}`")
         })?;
         return Ok(image.to_rgba8());
     }
 
     let absolute_from = resolve_from_file_path(snapshot, &relative_from, from_file)?;
-    let image = image::open(&absolute_from).map_err(|err| {
+    let image = image::open(&absolute_from).with_context(|| {
         format!(
-            "Failed to load image patch asset {}: {err}",
+            "Failed to load image patch asset {}",
             absolute_from.display()
         )
     })?;
@@ -469,7 +468,7 @@ pub fn load_map_patch_asset(
     snapshot: &ContentPatcherProjectSnapshot,
     source_path: &str,
     from_file: &str,
-) -> Result<LoadedMapAsset, String> {
+) -> anyhow::Result<LoadedMapAsset> {
     let (relative_from, normalized_from) = resolve_from_file_relative_path(source_path, from_file)?;
 
     if let Some(bytes) = decode_virtual_preview_asset_bytes(&normalized_from)? {
@@ -480,19 +479,15 @@ pub fn load_map_patch_asset(
     }
 
     let absolute_from = resolve_from_file_path(snapshot, &relative_from, from_file)?;
-    let bytes = std::fs::read(&absolute_from).map_err(|err| {
-        format!(
-            "Failed to read map patch asset {}: {err}",
-            absolute_from.display()
-        )
-    })?;
+    let bytes = std::fs::read(&absolute_from)
+        .with_context(|| format!("Failed to read map patch asset {}", absolute_from.display()))?;
     let document = parse_tbin_map(&bytes, &absolute_from, from_file)?;
     let debug = build_map_debug_summary(&document);
 
     Ok(LoadedMapAsset { document, debug })
 }
 
-pub fn encode_image_png(image: &RgbaImage) -> Result<Vec<u8>, String> {
+pub fn encode_image_png(image: &RgbaImage) -> anyhow::Result<Vec<u8>> {
     let mut buffer = Vec::new();
     let encoder = PngEncoder::new(&mut buffer);
     encoder
@@ -502,11 +497,11 @@ pub fn encode_image_png(image: &RgbaImage) -> Result<Vec<u8>, String> {
             image.height(),
             ColorType::Rgba8.into(),
         )
-        .map_err(|err| format!("Failed to encode image result: {err}"))?;
+        .with_context(|| format!("Failed to encode image result"))?;
     Ok(buffer)
 }
 
-pub fn image_to_data_url(image: &RgbaImage) -> Result<String, String> {
+pub fn image_to_data_url(image: &RgbaImage) -> anyhow::Result<String> {
     let encoded = base64::engine::general_purpose::STANDARD.encode(encode_image_png(image)?);
     Ok(format!("data:image/png;base64,{encoded}"))
 }
@@ -529,19 +524,19 @@ pub fn crop_image_area(
     y: u32,
     width: u32,
     height: u32,
-) -> Result<RgbaImage, String> {
+) -> anyhow::Result<RgbaImage> {
     let right = x
         .checked_add(width)
-        .ok_or_else(|| "Image crop width overflowed.".to_string())?;
+        .context("Image crop width overflowed.")?;
     let bottom = y
         .checked_add(height)
-        .ok_or_else(|| "Image crop height overflowed.".to_string())?;
+        .context("Image crop height overflowed.")?;
     if right > image.width() || bottom > image.height() {
-        return Err(format!(
+        bail!(
             "Image crop area [{x}, {y}, {width}, {height}] is outside the source image bounds {}x{}.",
             image.width(),
             image.height()
-        ));
+        );
     }
 
     Ok(image.view(x, y, width, height).to_image())

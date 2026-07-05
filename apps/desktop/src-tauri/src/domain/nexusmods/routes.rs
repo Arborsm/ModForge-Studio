@@ -1,5 +1,6 @@
 use super::{can_use_nexus_graphql, endpoints, graphql, rest_api};
 use crate::domain::launcher::types::LauncherSettings;
+use anyhow::Context;
 use reqwest::Url;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -74,13 +75,13 @@ pub(crate) fn has_launcher_nexus_api_key(settings: &LauncherSettings) -> bool {
         .is_some()
 }
 
-pub(crate) fn launcher_nexus_api_key(settings: &LauncherSettings) -> Result<&str, String> {
+pub(crate) fn launcher_nexus_api_key(settings: &LauncherSettings) -> anyhow::Result<&str> {
     settings
         .nexus_api_key
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| "Configure a Nexus API key before querying the Nexus REST API.".to_string())
+        .context("Configure a Nexus API key before querying the Nexus REST API.")
 }
 
 pub(crate) fn launcher_nexus_route_for_url(url: &str) -> Option<LauncherNexusRoute> {

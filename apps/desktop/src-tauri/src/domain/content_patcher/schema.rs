@@ -3,11 +3,11 @@ use crate::infrastructure::game_formats::json_relaxed;
 use serde_json::Value;
 use std::path::Path;
 
-pub(crate) fn parse_json_str(raw: &str, source_label: &str) -> Result<Value, String> {
+pub(crate) fn parse_json_str(raw: &str, source_label: &str) -> anyhow::Result<Value> {
     json_relaxed::parse_json_str(raw, source_label)
 }
 
-pub(crate) fn parse_json_file(path: &Path) -> Result<(String, Value), String> {
+pub(crate) fn parse_json_file(path: &Path) -> anyhow::Result<(String, Value)> {
     json_relaxed::read_json_file(path, &format!("JSON file {}", normalize_path(path)))
 }
 

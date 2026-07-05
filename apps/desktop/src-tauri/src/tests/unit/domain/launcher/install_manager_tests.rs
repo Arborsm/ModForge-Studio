@@ -500,7 +500,7 @@ fn restore_fails_when_a_saved_backup_file_is_missing() {
     let restore_error =
         restore_backup_session_at_path(Path::new(&result.backup_path), Some(&mods_root))
             .expect_err("reject incomplete backup restore");
-    assert!(restore_error.contains("missing backup file"));
+    assert!(restore_error.to_string().contains("missing backup file"));
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -549,7 +549,7 @@ fn list_and_restore_backups_are_scoped_to_the_matching_mods_path() {
     let restore_error =
         restore_backup_session_at_path(Path::new(&result_a.backup_path), Some(&mods_b))
             .expect_err("reject mismatched restore");
-    assert!(restore_error.contains("belongs to modsPath"));
+    assert!(restore_error.to_string().contains("belongs to modsPath"));
 
     fs::remove_dir_all(root).expect("cleanup");
 }

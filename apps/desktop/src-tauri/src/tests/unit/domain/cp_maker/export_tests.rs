@@ -1,7 +1,5 @@
 use crate::domain::content_patcher::types::VirtualPreviewAsset;
-use crate::domain::cp_maker::types::{
-    CpMakerDraftErrorCode, CpMakerDraftOperation, CpMakerExportResult,
-};
+use crate::domain::cp_maker::types::CpMakerExportResult;
 use crate::domain::cp_maker::{export_cp_maker_pack, types::CpMakerExportRequest};
 use crate::infrastructure::fs::pathing::normalize_path;
 use crate::test_support::{create_temp_dir, write_file};
@@ -152,12 +150,11 @@ fn rejects_cp_maker_export_when_target_directory_is_not_fresh() {
     })
     .expect_err("expected export to reject a non-empty target directory");
 
-    assert_eq!(error.code, CpMakerDraftErrorCode::InvalidExport);
-    assert_eq!(error.operation, CpMakerDraftOperation::Export);
-    assert!(error.message.contains("fresh"));
-    assert_eq!(
-        error.path.as_deref(),
-        Some(normalize_path(&output_dir).as_str())
+    let message = error.to_string();
+    assert!(message.contains("fresh"), "{message}");
+    assert!(
+        message.contains(&format!("[path={}]", normalize_path(&output_dir))),
+        "{message}"
     );
     assert_eq!(
         fs::read_to_string(output_dir.join("keep.txt")).expect("read existing file"),
@@ -177,12 +174,11 @@ fn rejects_cp_maker_export_when_output_path_contains_parent_component() {
     let error = export_cp_maker_pack(export_request(&output_dir, Vec::new()))
         .expect_err("expected export to reject output paths with parent traversal");
 
-    assert_eq!(error.code, CpMakerDraftErrorCode::InvalidExport);
-    assert_eq!(error.operation, CpMakerDraftOperation::Export);
-    assert!(error.message.contains("clean"));
-    assert_eq!(
-        error.path.as_deref(),
-        Some(normalize_path(&output_dir).as_str())
+    let message = error.to_string();
+    assert!(message.contains("clean"), "{message}");
+    assert!(
+        message.contains(&format!("[path={}]", normalize_path(&output_dir))),
+        "{message}"
     );
     assert!(!root.join("fresh").exists());
     assert!(!root.join("manifest.json").exists());
@@ -202,9 +198,8 @@ fn rejects_cp_maker_export_when_virtual_asset_collides_with_reserved_output() {
     ))
     .expect_err("expected export to reject reserved output collisions");
 
-    assert_eq!(error.code, CpMakerDraftErrorCode::InvalidExport);
-    assert_eq!(error.operation, CpMakerDraftOperation::Export);
-    assert!(error.message.contains("manifest.json"));
+    let message = error.to_string();
+    assert!(message.contains("manifest.json"), "{message}");
     assert!(!output_dir.exists());
 
     fs::remove_dir_all(root).expect("cleanup");
@@ -223,9 +218,8 @@ fn rejects_cp_maker_export_when_virtual_asset_case_collides_with_reserved_output
         "expected export to reject reserved output collisions on case-insensitive filesystems",
     );
 
-    assert_eq!(error.code, CpMakerDraftErrorCode::InvalidExport);
-    assert_eq!(error.operation, CpMakerDraftOperation::Export);
-    assert!(error.message.contains("manifest.json"));
+    let message = error.to_string();
+    assert!(message.contains("manifest.json"), "{message}");
     assert!(!output_dir.exists());
 
     fs::remove_dir_all(root).expect("cleanup");
@@ -245,9 +239,8 @@ fn rejects_cp_maker_export_when_virtual_assets_normalize_to_same_path() {
     ))
     .expect_err("expected export to reject duplicate normalized asset paths");
 
-    assert_eq!(error.code, CpMakerDraftErrorCode::InvalidExport);
-    assert_eq!(error.operation, CpMakerDraftOperation::Export);
-    assert!(error.message.contains("assets/mail.json"));
+    let message = error.to_string();
+    assert!(message.contains("assets/mail.json"), "{message}");
     assert!(!output_dir.exists());
 
     fs::remove_dir_all(root).expect("cleanup");
@@ -269,9 +262,8 @@ fn rejects_cp_maker_export_when_virtual_assets_only_differ_by_case() {
         "expected export to reject duplicate asset paths that only differ by case on case-insensitive filesystems",
     );
 
-    assert_eq!(error.code, CpMakerDraftErrorCode::InvalidExport);
-    assert_eq!(error.operation, CpMakerDraftOperation::Export);
-    assert!(error.message.contains("assets/mail.json"));
+    let message = error.to_string();
+    assert!(message.contains("assets/mail.json"), "{message}");
     assert!(!output_dir.exists());
 
     fs::remove_dir_all(root).expect("cleanup");
@@ -293,9 +285,8 @@ fn rejects_cp_maker_export_when_virtual_assets_only_differ_by_unicode_case() {
         "expected export to reject duplicate asset paths that only differ by unicode case on case-insensitive filesystems",
     );
 
-    assert_eq!(error.code, CpMakerDraftErrorCode::InvalidExport);
-    assert_eq!(error.operation, CpMakerDraftOperation::Export);
-    assert!(error.message.contains("assets/ärtifact.json"));
+    let message = error.to_string();
+    assert!(message.contains("assets/ärtifact.json"), "{message}");
     assert!(!output_dir.exists());
 
     fs::remove_dir_all(root).expect("cleanup");

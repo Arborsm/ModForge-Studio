@@ -3,7 +3,6 @@ use crate::infrastructure::game_formats::tbin::MapDocument;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
-use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -144,43 +143,6 @@ pub struct CpMakerExportResult {
     pub virtual_asset_paths: Vec<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum CpMakerDraftOperation {
-    List,
-    Load,
-    Save,
-    Delete,
-    Copy,
-    BuildMapAsset,
-    Export,
-    Import,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum CpMakerDraftErrorCode {
-    MissingRecord,
-    CorruptedSnapshot,
-    InvalidDraft,
-    ReadFailed,
-    WriteFailed,
-    DeleteFailed,
-    ListFailed,
-    CopyFailed,
-    InvalidExport,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CpMakerDraftError {
-    pub code: CpMakerDraftErrorCode,
-    pub operation: CpMakerDraftOperation,
-    pub message: String,
-    pub draft_storage_key: Option<String>,
-    pub path: Option<String>,
-}
-
 impl CpMakerDraftRecord {
     pub fn summary(&self) -> CpMakerDraftSummary {
         CpMakerDraftSummary {
@@ -190,32 +152,6 @@ impl CpMakerDraftRecord {
             last_draft_saved_at: self.last_draft_saved_at,
             last_exported_at: self.last_exported_at,
         }
-    }
-}
-
-impl CpMakerDraftError {
-    pub fn new(
-        code: CpMakerDraftErrorCode,
-        operation: CpMakerDraftOperation,
-        message: impl Into<String>,
-    ) -> Self {
-        Self {
-            code,
-            operation,
-            message: message.into(),
-            draft_storage_key: None,
-            path: None,
-        }
-    }
-
-    pub fn with_draft_storage_key(mut self, draft_storage_key: impl Into<String>) -> Self {
-        self.draft_storage_key = Some(draft_storage_key.into());
-        self
-    }
-
-    pub fn with_path(mut self, path: impl Into<String>) -> Self {
-        self.path = Some(path.into());
-        self
     }
 }
 
@@ -283,33 +219,6 @@ impl Default for ChangeRegistry {
         Self {
             patches: Vec::new(),
         }
-    }
-}
-
-impl Display for CpMakerDraftError {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            formatter,
-            "cp-maker {:?} failed ({:?}): {}",
-            self.operation, self.code, self.message
-        )?;
-        if let Some(draft_storage_key) = &self.draft_storage_key {
-            write!(formatter, " [draftStorageKey={}]", draft_storage_key)?;
-        }
-        if let Some(path) = &self.path {
-            write!(formatter, " [path={}]", path)?;
-        }
-        Ok(())
-    }
-}
-
-impl From<String> for CpMakerDraftError {
-    fn from(message: String) -> Self {
-        Self::new(
-            CpMakerDraftErrorCode::ReadFailed,
-            CpMakerDraftOperation::Load,
-            message,
-        )
     }
 }
 

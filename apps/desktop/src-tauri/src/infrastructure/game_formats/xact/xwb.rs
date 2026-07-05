@@ -5,6 +5,7 @@ use crate::infrastructure::fs::pathing::normalize_path;
 
 use super::io::{read_exact_at, read_u32_le};
 use super::wav::MiniWaveFormat;
+use anyhow::{Context, bail};
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct WaveBankSegment {
@@ -38,11 +39,11 @@ pub(crate) struct WaveBankEntry {
 
 pub(crate) fn parse_wave_bank_header(
     file: &mut fs::File,
-) -> Result<(Vec<WaveBankSegment>, WaveBankInfo), String> {
+) -> anyhow::Result<(Vec<WaveBankSegment>, WaveBankInfo)> {
     let header = read_exact_at(file, 0, 12)?;
     let magic = std::str::from_utf8(&header[0..4]).unwrap_or_default();
     if magic != "WBND" {
-        return Err("Wave bank file does not start with WBND.".to_string());
+        bail!("Wave bank file does not start with WBND.");
     }
     let _tool_version = read_u32_le(&header, 4)?;
     let _file_version = read_u32_le(&header, 8)?;
@@ -60,12 +61,12 @@ pub(crate) fn parse_wave_bank_header(
     }
 
     if segments.is_empty() {
-        return Err("Wave bank segment table is empty.".to_string());
+        bail!("Wave bank segment table is empty.");
     }
 
     let bank_data = read_exact_at(file, segments[0].offset as u64, segments[0].length as usize)?;
     if bank_data.len() < 96 {
-        return Err("Wave bank header data is incomplete.".to_string());
+        bail!("Wave bank header data is incomplete.");
     }
 
     let flags = read_u32_le(&bank_data, 0)?;
@@ -92,7 +93,7 @@ pub(crate) fn read_wave_bank_entries(
     file: &mut fs::File,
     segments: &[WaveBankSegment],
     bank_info: &WaveBankInfo,
-) -> Result<Vec<WaveBankEntry>, String> {
+) -> anyhow::Result<Vec<WaveBankEntry>> {
     if bank_info.entry_count == 0 {
         return Ok(Vec::new());
     }
@@ -100,18 +101,18 @@ pub(crate) fn read_wave_bank_entries(
     const FLAGS_COMPACT: u32 = 0x00020000;
     let entry_meta_offset = segments
         .get(1)
-        .ok_or_else(|| "Wave bank entry metadata segment is missing.".to_string())?
+        .context("Wave bank entry metadata segment is missing.")?
         .offset as u64;
     let entry_size = bank_info.entry_meta_size as usize;
     let entry_count = bank_info.entry_count as usize;
 
     if (bank_info.flags & FLAGS_COMPACT) != 0 {
         if entry_size < 4 {
-            return Err("Compact wave bank entry size is invalid.".to_string());
+            bail!("Compact wave bank entry size is invalid.");
         }
         let total_bytes = entry_size
             .checked_mul(entry_count)
-            .ok_or_else(|| "Wave bank entry table is too large.".to_string())?;
+            .context("Wave bank entry table is too large.")?;
         let table = read_exact_at(file, entry_meta_offset, total_bytes)?;
 
         let mut offsets = Vec::with_capacity(entry_count);
@@ -127,7 +128,7 @@ pub(crate) fn read_wave_bank_entries(
 
         let wave_data_segment = segments
             .get(4)
-            .ok_or_else(|| "Wave data segment is missing from the wave bank.".to_string())?;
+            .context("Wave data segment is missing from the wave bank.")?;
         let mut entries = Vec::with_capacity(entry_count);
         for index in 0..entry_count {
             let play_offset = offsets[index];
@@ -153,12 +154,12 @@ pub(crate) fn read_wave_bank_entries(
     }
 
     if entry_size < 24 {
-        return Err("Wave bank entry metadata size is invalid.".to_string());
+        bail!("Wave bank entry metadata size is invalid.");
     }
 
     let total_bytes = entry_size
         .checked_mul(entry_count)
-        .ok_or_else(|| "Wave bank entry table is too large.".to_string())?;
+        .context("Wave bank entry table is too large.")?;
     let table = read_exact_at(file, entry_meta_offset, total_bytes)?;
     let mut entries = Vec::with_capacity(entry_count);
 
@@ -184,9 +185,9 @@ pub(crate) fn read_wave_bank_entries(
     Ok(entries)
 }
 
-pub(crate) fn read_wave_bank_entry_count(path: &Path) -> Result<u32, String> {
+pub(crate) fn read_wave_bank_entry_count(path: &Path) -> anyhow::Result<u32> {
     let mut file = fs::File::open(path)
-        .map_err(|error| format!("Failed to open wave bank {}: {error}", normalize_path(path)))?;
+        .with_context(|| format!("Failed to open wave bank {}", normalize_path(path)))?;
     let (_, bank_info) = parse_wave_bank_header(&mut file)?;
     Ok(bank_info.entry_count)
 }

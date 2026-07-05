@@ -6,6 +6,7 @@ use std::path::Path;
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use crate::domain::app_paths::app_ui_state_path;
+use anyhow::Context;
 
 static APP_UI_STATE_FILE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
@@ -501,31 +502,31 @@ fn normalize_app_ui_state(state: AppUiState) -> AppUiState {
     }
 }
 
-fn save_app_ui_state_at_path_unlocked(path: &Path, state: &AppUiState) -> Result<(), String> {
+fn save_app_ui_state_at_path_unlocked(path: &Path, state: &AppUiState) -> anyhow::Result<()> {
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|error| {
+        fs::create_dir_all(parent).with_context(|| {
             format!(
-                "Failed to create app UI state directory {}: {error}",
+                "Failed to create app UI state directory {}",
                 parent.display()
             )
         })?;
     }
     let normalized = normalize_app_ui_state(state.clone());
     let json = serde_json::to_string_pretty(&normalized)
-        .map_err(|error| format!("Failed to serialize app UI state JSON: {error}"))?;
+        .with_context(|| format!("Failed to serialize app UI state JSON"))?;
     fs::write(path, format!("{json}\n"))
-        .map_err(|error| format!("Failed to write app UI state {}: {error}", path.display()))
+        .with_context(|| format!("Failed to write app UI state {}", path.display()))
 }
 
-pub(crate) fn load_or_create_app_ui_state_at_path(path: &Path) -> Result<AppUiState, String> {
+pub(crate) fn load_or_create_app_ui_state_at_path(path: &Path) -> anyhow::Result<AppUiState> {
     let _app_ui_file_guard = lock_app_ui_state_file();
     load_or_create_app_ui_state_at_path_unlocked(path)
 }
 
-fn load_or_create_app_ui_state_at_path_unlocked(path: &Path) -> Result<AppUiState, String> {
+fn load_or_create_app_ui_state_at_path_unlocked(path: &Path) -> anyhow::Result<AppUiState> {
     if path.is_file() {
         let content = fs::read_to_string(path)
-            .map_err(|error| format!("Failed to read app UI state {}: {error}", path.display()))?;
+            .with_context(|| format!("Failed to read app UI state {}", path.display()))?;
         let parsed = serde_json::from_str::<AppUiState>(&content).unwrap_or_default();
         let normalized = normalize_app_ui_state(parsed);
         save_app_ui_state_at_path_unlocked(path, &normalized)?;
@@ -540,7 +541,7 @@ fn load_or_create_app_ui_state_at_path_unlocked(path: &Path) -> Result<AppUiStat
 pub(crate) fn patch_app_ui_state_at_path(
     path: &Path,
     patch: AppUiStatePatch,
-) -> Result<AppUiState, String> {
+) -> anyhow::Result<AppUiState> {
     let _app_ui_file_guard = lock_app_ui_state_file();
     let mut state = load_or_create_app_ui_state_at_path_unlocked(path)?;
     if let Some(shell) = patch.shell {
@@ -626,12 +627,12 @@ pub(crate) fn patch_app_ui_state_at_path(
     Ok(normalized)
 }
 
-pub(crate) fn load_app_ui_state() -> Result<AppUiState, String> {
+pub(crate) fn load_app_ui_state() -> anyhow::Result<AppUiState> {
     let path = app_ui_state_path()?;
     load_or_create_app_ui_state_at_path(&path)
 }
 
-pub(crate) fn patch_app_ui_state(request: AppUiStatePatch) -> Result<AppUiState, String> {
+pub(crate) fn patch_app_ui_state(request: AppUiStatePatch) -> anyhow::Result<AppUiState> {
     let path = app_ui_state_path()?;
     patch_app_ui_state_at_path(&path, request)
 }

@@ -774,7 +774,7 @@ fn content_patcher_blocks_export_when_existing_base_json_fails_to_parse() {
         ..Default::default()
     })
     .expect_err("bad base json blocks export");
-    assert!(error.contains("Failed to load base JSON asset"));
+    assert!(error.to_string().contains("Failed to load base JSON asset"));
 
     std::fs::remove_dir_all(temp_dir).expect("cleanup");
 }
@@ -950,7 +950,7 @@ fn export_content_patcher_asset_rejects_indeterminate_target() {
     };
 
     let error = export_content_patcher_asset(request).expect_err("blocked export");
-    assert!(error.contains("indeterminate"));
+    assert!(error.to_string().contains("indeterminate"));
 }
 
 #[test]
@@ -987,7 +987,7 @@ fn export_content_patcher_asset_rejects_parent_segment_output_directory() {
     };
 
     let error = export_content_patcher_asset(request).expect_err("bad output directory");
-    assert!(error.contains("parent path"));
+    assert!(error.to_string().contains("parent path"));
 }
 
 #[cfg(unix)]
@@ -1030,7 +1030,7 @@ fn export_content_patcher_asset_rejects_symlink_parent_output_directory() {
     };
 
     let error = export_content_patcher_asset(request).expect_err("bad output directory");
-    assert!(error.contains("symbolic link"));
+    assert!(error.to_string().contains("symbolic link"));
 
     std::fs::remove_dir_all(temp_dir).expect("cleanup");
 }
@@ -1075,7 +1075,7 @@ fn export_content_patcher_asset_rejects_symlink_output_directory() {
     };
 
     let error = export_content_patcher_asset(request).expect_err("bad output directory");
-    assert!(error.contains("symbolic link"));
+    assert!(error.to_string().contains("symbolic link"));
 
     std::fs::remove_dir_all(temp_dir).expect("cleanup");
 }
@@ -1386,7 +1386,11 @@ fn content_patcher_blocks_export_when_existing_base_image_fails_to_parse() {
         ..Default::default()
     })
     .expect_err("bad base image blocks export");
-    assert!(error.contains("Failed to load base image asset"));
+    assert!(
+        error
+            .to_string()
+            .contains("Failed to load base image asset")
+    );
 
     std::fs::remove_dir_all(temp_dir).expect("cleanup");
 }
@@ -2095,7 +2099,7 @@ fn content_patcher_blocks_export_when_existing_base_map_fails_to_parse() {
         ..Default::default()
     })
     .expect_err("bad base map blocks export");
-    assert!(error.contains("Failed to load base map asset"));
+    assert!(error.to_string().contains("Failed to load base map asset"));
 
     std::fs::remove_dir_all(temp_dir).expect("cleanup");
 }

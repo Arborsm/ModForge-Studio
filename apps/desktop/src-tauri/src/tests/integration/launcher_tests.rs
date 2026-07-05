@@ -12,11 +12,11 @@ use crate::domain::launcher::runtime::launch_game_with_runner;
 use crate::domain::launcher::trace::format_launcher_trace_message;
 use crate::domain::launcher::types::{
     LauncherArchiveTreeNode, LauncherDownloadQueueItem, LauncherDownloadQueueState,
-    LauncherGameLaunchErrorCode, LauncherGameLaunchTarget, LauncherLibraryChildModGroup,
-    LauncherLibraryCover, LauncherLibraryCoversState, LauncherLibraryFolder,
-    LauncherLibraryFolderClassificationMode, LauncherLibraryPackPreset, LauncherLibraryScopeMode,
-    LauncherLibraryState, LauncherLibraryStorageFolder, LauncherSettings, LauncherUpdateSummary,
-    LauncherUpdatesResult, SearchLauncherCatalogRequest, SetLauncherModEnabledRequest,
+    LauncherGameLaunchTarget, LauncherLibraryChildModGroup, LauncherLibraryCover,
+    LauncherLibraryCoversState, LauncherLibraryFolder, LauncherLibraryFolderClassificationMode,
+    LauncherLibraryPackPreset, LauncherLibraryScopeMode, LauncherLibraryState,
+    LauncherLibraryStorageFolder, LauncherSettings, LauncherUpdateSummary, LauncherUpdatesResult,
+    SearchLauncherCatalogRequest, SetLauncherModEnabledRequest,
 };
 use crate::domain::launcher::update_cache::{
     LauncherUpdatesCacheEntryState, clear_launcher_updates_check_in_progress_at_path,
@@ -1862,7 +1862,11 @@ fn launch_game_returns_typed_error_when_game_path_is_missing() {
     let settings = LauncherSettings::default();
     let error = launch_game_with_runner(&settings, |_| Ok(())).expect_err("missing game path");
 
-    assert_eq!(error.code, LauncherGameLaunchErrorCode::MissingGamePath);
+    assert!(
+        error.to_string().contains("game path"),
+        "expected 'game path' in error message, got {}",
+        error
+    );
 }
 
 #[test]
@@ -1875,16 +1879,15 @@ fn launch_game_returns_typed_error_when_no_executable_exists() {
 
     let error = launch_game_with_runner(&settings, |_| Ok(())).expect_err("missing executable");
 
-    assert_eq!(error.code, LauncherGameLaunchErrorCode::MissingExecutable);
     assert!(
-        error.message.contains("StardewModdingAPI.exe"),
+        error.to_string().contains("StardewModdingAPI.exe"),
         "expected SMAPI path in error message, got {}",
-        error.message
+        error
     );
     assert!(
-        error.message.contains("Stardew Valley.exe"),
+        error.to_string().contains("Stardew Valley.exe"),
         "expected base executable path in error message, got {}",
-        error.message
+        error
     );
 
     fs::remove_dir_all(root).expect("cleanup");

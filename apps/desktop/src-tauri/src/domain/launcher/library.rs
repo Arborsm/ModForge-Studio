@@ -20,6 +20,7 @@ use crate::domain::manifest::{
     required_dependency_ids, string_array_field, string_field,
 };
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use anyhow::{Context, bail};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -533,21 +534,21 @@ fn prune_missing_library_covers(state: LauncherLibraryCoversState) -> LauncherLi
 
 pub(crate) fn load_or_create_library_state_at_path(
     state_path: &Path,
-) -> Result<LauncherLibraryState, String> {
+) -> anyhow::Result<LauncherLibraryState> {
     if state_path.is_file() {
-        let content = fs::read_to_string(state_path).map_err(|error| {
+        let content = fs::read_to_string(state_path).with_context(|| {
             format!(
-                "Failed to read launcher library state {}: {error}",
+                "Failed to read launcher library state {}",
                 normalize_path(state_path)
             )
         })?;
         if let Ok(parsed) = serde_json::from_str::<LauncherLibraryState>(&content) {
             return Ok(normalize_library_state(parsed));
         }
-        return Err(format!(
+        bail!(
             "Launcher library state {} is invalid JSON.",
             normalize_path(state_path)
-        ));
+        );
     }
 
     let defaults = LauncherLibraryState::default();
@@ -558,11 +559,11 @@ pub(crate) fn load_or_create_library_state_at_path(
 pub(crate) fn save_library_state_at_path(
     state_path: &Path,
     state: &LauncherLibraryState,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     if let Some(parent) = state_path.parent() {
-        fs::create_dir_all(parent).map_err(|error| {
+        fs::create_dir_all(parent).with_context(|| {
             format!(
-                "Failed to create launcher library directory {}: {error}",
+                "Failed to create launcher library directory {}",
                 normalize_path(parent)
             )
         })?;
@@ -570,10 +571,10 @@ pub(crate) fn save_library_state_at_path(
 
     let normalized = normalize_library_state(state.clone());
     let json = serde_json::to_string_pretty(&normalized)
-        .map_err(|error| format!("Failed to serialize launcher library state JSON: {error}"))?;
-    fs::write(state_path, format!("{json}\n")).map_err(|error| {
+        .with_context(|| format!("Failed to serialize launcher library state JSON"))?;
+    fs::write(state_path, format!("{json}\n")).with_context(|| {
         format!(
-            "Failed to write launcher library state {}: {error}",
+            "Failed to write launcher library state {}",
             normalize_path(state_path)
         )
     })?;
@@ -582,25 +583,25 @@ pub(crate) fn save_library_state_at_path(
 
 pub(crate) fn load_or_create_library_covers_at_path(
     covers_path: &Path,
-) -> Result<LauncherLibraryCoversState, String> {
+) -> anyhow::Result<LauncherLibraryCoversState> {
     let _covers_file_guard = lock_launcher_library_covers_files();
     load_or_create_library_covers_at_path_unlocked(covers_path)
 }
 
 fn load_or_create_library_covers_at_path_unlocked(
     covers_path: &Path,
-) -> Result<LauncherLibraryCoversState, String> {
+) -> anyhow::Result<LauncherLibraryCoversState> {
     if covers_path.is_file() {
-        let content = fs::read_to_string(covers_path).map_err(|error| {
+        let content = fs::read_to_string(covers_path).with_context(|| {
             format!(
-                "Failed to read launcher library covers {}: {error}",
+                "Failed to read launcher library covers {}",
                 normalize_path(covers_path)
             )
         })?;
         let parsed: LauncherLibraryCoversState =
-            serde_json::from_str(&content).map_err(|error| {
+            serde_json::from_str(&content).with_context(|| {
                 format!(
-                    "Launcher library covers {} is invalid JSON: {error}",
+                    "Launcher library covers {} is invalid JSON",
                     normalize_path(covers_path)
                 )
             })?;
@@ -620,11 +621,11 @@ fn load_or_create_library_covers_at_path_unlocked(
 fn save_library_covers_at_path_unlocked(
     covers_path: &Path,
     state: &LauncherLibraryCoversState,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     if let Some(parent) = covers_path.parent() {
-        fs::create_dir_all(parent).map_err(|error| {
+        fs::create_dir_all(parent).with_context(|| {
             format!(
-                "Failed to create launcher cover directory {}: {error}",
+                "Failed to create launcher cover directory {}",
                 normalize_path(parent)
             )
         })?;
@@ -632,10 +633,10 @@ fn save_library_covers_at_path_unlocked(
 
     let normalized = normalize_library_covers(state.clone());
     let json = serde_json::to_string_pretty(&normalized)
-        .map_err(|error| format!("Failed to serialize launcher cover JSON: {error}"))?;
-    fs::write(covers_path, format!("{json}\n")).map_err(|error| {
+        .with_context(|| format!("Failed to serialize launcher cover JSON"))?;
+    fs::write(covers_path, format!("{json}\n")).with_context(|| {
         format!(
-            "Failed to write launcher cover state {}: {error}",
+            "Failed to write launcher cover state {}",
             normalize_path(covers_path)
         )
     })?;
@@ -646,16 +647,16 @@ pub(crate) fn persist_auto_library_cover_at_path(
     covers_path: &Path,
     label_key: &str,
     image_path: &Path,
-) -> Result<LauncherLibraryCoversState, String> {
+) -> anyhow::Result<LauncherLibraryCoversState> {
     let label_key = label_key.trim();
     if label_key.is_empty() {
-        return Err("labelKey is required.".to_string());
+        bail!("labelKey is required.");
     }
     if !image_path.is_file() {
-        return Err(format!(
+        bail!(
             "Launcher cover image {} does not exist.",
             normalize_path(image_path)
-        ));
+        );
     }
 
     let _covers_file_guard = lock_launcher_library_covers_files();
@@ -883,7 +884,7 @@ fn build_mod_summary(
     }
 }
 
-pub(crate) fn scan_library_at_path(path: &Path) -> Result<LauncherLibraryScanResult, String> {
+pub(crate) fn scan_library_at_path(path: &Path) -> anyhow::Result<LauncherLibraryScanResult> {
     let scan_root = if path.join("Mods").is_dir() {
         path.join("Mods")
     } else {
@@ -911,7 +912,7 @@ pub(crate) fn scan_library_at_path(path: &Path) -> Result<LauncherLibraryScanRes
 fn set_mod_enabled_at_path(
     current_path: &Path,
     enabled: bool,
-) -> Result<SetLauncherModEnabledResult, String> {
+) -> anyhow::Result<SetLauncherModEnabledResult> {
     log_launcher_trace(
         "toggle.start",
         &[
@@ -920,18 +921,18 @@ fn set_mod_enabled_at_path(
         ],
     );
     if !current_path.is_dir() {
-        return Err(format!(
+        bail!(
             "Launcher mod path {} does not exist.",
             normalize_path(current_path)
-        ));
+        );
     }
     let current_name = current_path
         .file_name()
         .and_then(|value| value.to_str())
-        .ok_or_else(|| "Unable to resolve launcher mod folder name.".to_string())?;
+        .context("Unable to resolve launcher mod folder name.")?;
     let parent = current_path
         .parent()
-        .ok_or_else(|| "Unable to resolve launcher mod parent folder.".to_string())?;
+        .context("Unable to resolve launcher mod parent folder.")?;
     let is_enabled = !current_name.starts_with('.');
     if is_enabled == enabled {
         log_launcher_trace(
@@ -954,15 +955,15 @@ fn set_mod_enabled_at_path(
     };
     let next_path = parent.join(next_name);
     if next_path.exists() {
-        return Err(format!(
+        bail!(
             "Cannot rename launcher mod to {} because that path already exists.",
             normalize_path(&next_path)
-        ));
+        );
     }
 
-    fs::rename(current_path, &next_path).map_err(|error| {
+    fs::rename(current_path, &next_path).with_context(|| {
         format!(
-            "Failed to toggle launcher mod {}: {error}",
+            "Failed to toggle launcher mod {}",
             normalize_path(current_path)
         )
     })?;
@@ -981,7 +982,7 @@ fn set_mod_enabled_at_path(
     })
 }
 
-pub fn load_launcher_library_state(_app: AppHandle) -> Result<LauncherLibraryState, String> {
+pub fn load_launcher_library_state(_app: AppHandle) -> anyhow::Result<LauncherLibraryState> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_launcher_library_state",
         (|| {
@@ -994,7 +995,7 @@ pub fn load_launcher_library_state(_app: AppHandle) -> Result<LauncherLibrarySta
 pub fn save_launcher_library_state(
     _app: AppHandle,
     request: LauncherLibraryState,
-) -> Result<LauncherLibraryState, String> {
+) -> anyhow::Result<LauncherLibraryState> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "save_launcher_library_state",
         (|| {
@@ -1006,7 +1007,7 @@ pub fn save_launcher_library_state(
     )
 }
 
-pub fn load_launcher_library_covers(_app: AppHandle) -> Result<LauncherLibraryCoversState, String> {
+pub fn load_launcher_library_covers(_app: AppHandle) -> anyhow::Result<LauncherLibraryCoversState> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_launcher_library_covers",
         (|| {
@@ -1019,13 +1020,13 @@ pub fn load_launcher_library_covers(_app: AppHandle) -> Result<LauncherLibraryCo
 pub fn set_launcher_library_cover(
     _app: AppHandle,
     request: SetLauncherLibraryCoverRequest,
-) -> Result<LauncherLibraryCoversState, String> {
+) -> anyhow::Result<LauncherLibraryCoversState> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "set_launcher_library_cover",
         (|| {
             let label_key = request.label_key.trim();
             if label_key.is_empty() {
-                return Err("labelKey is required.".to_string());
+                bail!("labelKey is required.");
             }
 
             let covers_path = launcher_library_covers_path()?;
@@ -1046,10 +1047,10 @@ pub fn set_launcher_library_cover(
             {
                 let image_path = clean_input_path(image_path);
                 if !image_path.is_file() {
-                    return Err(format!(
+                    bail!(
                         "Launcher cover image {} does not exist.",
                         normalize_path(&image_path)
-                    ));
+                    );
                 }
                 covers.push(LauncherLibraryCover {
                     label_key: label_key.to_string(),
@@ -1067,18 +1068,18 @@ pub fn set_launcher_library_cover(
 pub(crate) fn persist_launcher_library_remote_cover_blocking(
     app: &AppHandle,
     request: &PersistLauncherLibraryRemoteCoverRequest,
-) -> Result<LauncherLibraryCoversState, String> {
+) -> anyhow::Result<LauncherLibraryCoversState> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "persist_launcher_library_remote_cover",
         (|| {
             let label_key = request.label_key.trim();
             if label_key.is_empty() {
-                return Err("labelKey is required.".to_string());
+                bail!("labelKey is required.");
             }
 
             let image_url = request.image_url.trim();
             if image_url.is_empty() {
-                return Err("imageUrl is required.".to_string());
+                bail!("imageUrl is required.");
             }
 
             let covers_path = launcher_library_covers_path()?;
@@ -1113,13 +1114,13 @@ pub(crate) fn persist_launcher_library_remote_cover_blocking(
 pub fn scan_launcher_library(
     _app: AppHandle,
     request: ScanLauncherLibraryRequest,
-) -> Result<LauncherLibraryScanResult, String> {
+) -> anyhow::Result<LauncherLibraryScanResult> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "scan_launcher_library",
         (|| {
             let mods_path = request.mods_path.trim();
             if mods_path.is_empty() {
-                return Err("modsPath is required.".to_string());
+                bail!("modsPath is required.");
             }
 
             let mut scan = scan_library_at_path(&clean_input_path(mods_path))?;
@@ -1153,10 +1154,10 @@ pub fn scan_launcher_library(
 
 pub(crate) fn set_launcher_mod_enabled_blocking(
     request: SetLauncherModEnabledRequest,
-) -> Result<SetLauncherModEnabledResult, String> {
+) -> anyhow::Result<SetLauncherModEnabledResult> {
     let mod_path = request.mod_path.trim();
     if mod_path.is_empty() {
-        return Err("modPath is required.".to_string());
+        bail!("modPath is required.");
     }
 
     set_mod_enabled_at_path(&clean_input_path(mod_path), request.enabled)
@@ -1165,7 +1166,7 @@ pub(crate) fn set_launcher_mod_enabled_blocking(
 pub fn set_launcher_mod_enabled(
     _app: AppHandle,
     request: SetLauncherModEnabledRequest,
-) -> Result<SetLauncherModEnabledResult, String> {
+) -> anyhow::Result<SetLauncherModEnabledResult> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "set_launcher_mod_enabled",
         (|| {

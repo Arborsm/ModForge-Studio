@@ -3,6 +3,7 @@ use super::routes::{LauncherNexusRoute, launcher_nexus_api_key};
 use super::shared::extract_graphql_error;
 use super::{endpoints, graphql, rest_api};
 use crate::domain::launcher::types::LauncherSettings;
+use anyhow::{Context, bail};
 use reqwest::StatusCode;
 use reqwest::blocking::{Client, Response};
 use reqwest::header::CONTENT_TYPE;
@@ -80,23 +81,23 @@ fn launcher_nexus_graphql_probe_payload(public_endpoint: bool) -> Value {
     }
 }
 
-fn validate_launcher_nexus_graphql_probe_response(response: Response) -> Result<(), String> {
+fn validate_launcher_nexus_graphql_probe_response(response: Response) -> anyhow::Result<()> {
     let status = response.status();
     if !status.is_success() {
-        return Err(format!("HTTP {status}"));
+        bail!("HTTP {status}");
     }
 
     let payload = response
         .json::<Value>()
-        .map_err(|error| format!("error decoding response body: {error}"))?;
+        .with_context(|| format!("error decoding response body"))?;
     if let Some(error) = extract_graphql_error(&payload) {
-        return Err(error);
+        return Err(anyhow::anyhow!(error));
     }
 
     Ok(())
 }
 
-fn probe_launcher_nexus_public_graphql_route(client: &Client) -> Result<(), String> {
+fn probe_launcher_nexus_public_graphql_route(client: &Client) -> anyhow::Result<()> {
     let headers = graphql::public_graphql_headers(
         PUBLIC_GRAPHQL_DIAGNOSTIC_REFERER,
         PUBLIC_GRAPHQL_DIAGNOSTIC_OPERATION_NAME,
@@ -108,33 +109,30 @@ fn probe_launcher_nexus_public_graphql_route(client: &Client) -> Result<(), Stri
             .headers(headers)
             .json(&payload)
             .send()
-    })
-    .map_err(|error| error.to_string())?;
+    })?;
 
     validate_launcher_nexus_graphql_probe_response(response)
 }
 
-fn probe_launcher_nexus_images_route(client: &Client) -> Result<(), String> {
-    let response = with_nexus_request_slot(|| client.get(endpoints::IMAGE_CDN).send())
-        .map_err(|error| error.to_string())?;
+fn probe_launcher_nexus_images_route(client: &Client) -> anyhow::Result<()> {
+    let response = with_nexus_request_slot(|| client.get(endpoints::IMAGE_CDN).send())?;
     if !launcher_connectivity_status_is_acceptable(response.status()) {
-        return Err(format!("HTTP {}", response.status()));
+        bail!("HTTP {}", response.status());
     }
 
     Ok(())
 }
 
-fn probe_launcher_smapi_route(client: &Client) -> Result<(), String> {
+fn probe_launcher_smapi_route(client: &Client) -> anyhow::Result<()> {
     let response = with_nexus_request_slot(|| {
         client
             .post(endpoints::SMAPI_MODS)
             .header(CONTENT_TYPE, "application/json")
             .body("{}")
             .send()
-    })
-    .map_err(|error| error.to_string())?;
+    })?;
     if !launcher_connectivity_status_is_acceptable(response.status()) {
-        return Err(format!("HTTP {}", response.status()));
+        bail!("HTTP {}", response.status());
     }
 
     Ok(())
@@ -143,7 +141,7 @@ fn probe_launcher_smapi_route(client: &Client) -> Result<(), String> {
 fn probe_launcher_nexus_private_graphql_route(
     client: &Client,
     settings: &LauncherSettings,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let headers = graphql::graphql_headers(settings.nexus_api_key.as_deref())?;
     let payload = launcher_nexus_graphql_probe_payload(false);
     let response = with_nexus_request_slot(|| {
@@ -152,8 +150,7 @@ fn probe_launcher_nexus_private_graphql_route(
             .headers(headers)
             .json(&payload)
             .send()
-    })
-    .map_err(|error| error.to_string())?;
+    })?;
 
     validate_launcher_nexus_graphql_probe_response(response)
 }
@@ -161,17 +158,16 @@ fn probe_launcher_nexus_private_graphql_route(
 fn probe_launcher_nexus_api_route(
     client: &Client,
     settings: &LauncherSettings,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let headers = api_headers(launcher_nexus_api_key(settings)?)?;
     let response = with_nexus_request_slot(|| {
         client
             .get(rest_api::TRENDING_ENDPOINT)
             .headers(headers)
             .send()
-    })
-    .map_err(|error| error.to_string())?;
+    })?;
     if !response.status().is_success() {
-        return Err(format!("HTTP {}", response.status()));
+        bail!("HTTP {}", response.status());
     }
 
     Ok(())
@@ -181,22 +177,19 @@ pub(crate) fn probe_launcher_nexus_route_once(
     client: &Client,
     settings: Option<&LauncherSettings>,
     route: LauncherNexusRoute,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     match route {
         LauncherNexusRoute::PublicGraphql => probe_launcher_nexus_public_graphql_route(client),
         LauncherNexusRoute::NexusImages => probe_launcher_nexus_images_route(client),
         LauncherNexusRoute::Smapi => probe_launcher_smapi_route(client),
         LauncherNexusRoute::PrivateGraphql => probe_launcher_nexus_private_graphql_route(
             client,
-            settings.ok_or_else(|| {
-                "Launcher Nexus private GraphQL reprobe requires configured settings.".to_string()
-            })?,
+            settings
+                .context("Launcher Nexus private GraphQL reprobe requires configured settings.")?,
         ),
         LauncherNexusRoute::NexusApi => probe_launcher_nexus_api_route(
             client,
-            settings.ok_or_else(|| {
-                "Launcher Nexus REST API reprobe requires configured settings.".to_string()
-            })?,
+            settings.context("Launcher Nexus REST API reprobe requires configured settings.")?,
         ),
     }
 }

@@ -13,6 +13,7 @@ use crate::domain::nexusmods::http::{
 };
 use crate::domain::nexusmods::routes::launcher_nexus_route_for_url;
 use crate::infrastructure::fs::pathing::normalize_path;
+use anyhow::{Context, bail};
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{StatusCode, header::HeaderMap};
 use serde::Serialize;
@@ -62,16 +63,16 @@ fn hash_string(value: &str) -> String {
     hash.iter().map(|item| format!("{item:02x}")).collect()
 }
 
-fn find_cached_image_path(cache_dir: &Path, cache_key: &str) -> Result<Option<PathBuf>, String> {
-    let entries = fs::read_dir(cache_dir).map_err(|error| {
+fn find_cached_image_path(cache_dir: &Path, cache_key: &str) -> anyhow::Result<Option<PathBuf>> {
+    let entries = fs::read_dir(cache_dir).with_context(|| {
         format!(
-            "Failed to inspect launcher image cache {}: {error}",
+            "Failed to inspect launcher image cache {}",
             normalize_path(cache_dir)
         )
     })?;
     for entry in entries {
-        let entry = entry
-            .map_err(|error| format!("Failed to inspect launcher image cache entry: {error}"))?;
+        let entry =
+            entry.with_context(|| format!("Failed to inspect launcher image cache entry"))?;
         let file_name = entry.file_name();
         let file_name = file_name.to_string_lossy();
         if file_name.starts_with(cache_key) {
@@ -82,16 +83,16 @@ fn find_cached_image_path(cache_dir: &Path, cache_key: &str) -> Result<Option<Pa
     Ok(None)
 }
 
-fn clear_cached_files_for_key(cache_dir: &Path, cache_key: &str) -> Result<(), String> {
-    let entries = fs::read_dir(cache_dir).map_err(|error| {
+fn clear_cached_files_for_key(cache_dir: &Path, cache_key: &str) -> anyhow::Result<()> {
+    let entries = fs::read_dir(cache_dir).with_context(|| {
         format!(
-            "Failed to inspect launcher image cache {}: {error}",
+            "Failed to inspect launcher image cache {}",
             normalize_path(cache_dir)
         )
     })?;
     for entry in entries {
-        let entry = entry
-            .map_err(|error| format!("Failed to inspect launcher image cache entry: {error}"))?;
+        let entry =
+            entry.with_context(|| format!("Failed to inspect launcher image cache entry"))?;
         let file_name = entry.file_name();
         let file_name = file_name.to_string_lossy();
         if !file_name.starts_with(cache_key) {
@@ -99,7 +100,7 @@ fn clear_cached_files_for_key(cache_dir: &Path, cache_key: &str) -> Result<(), S
         }
 
         fs::remove_file(entry.path()).map_err(|error| {
-            format!(
+            anyhow::anyhow!(
                 "Failed to clear stale launcher image cache {}: {error}",
                 normalize_path(&entry.path())
             )
@@ -188,12 +189,12 @@ fn emit_launcher_image_disconnect(
 fn fetch_launcher_image_with_retry(
     client: &reqwest::blocking::Client,
     url: &str,
-) -> Result<LauncherImageFetchResult, String> {
+) -> anyhow::Result<LauncherImageFetchResult> {
     read_nexus_response_body_with_retry_policy(LAUNCHER_IMAGE_CDN_RETRY_POLICY, || {
         let response = send_nexus_request_with_policy(LAUNCHER_IMAGE_CDN_RETRY_POLICY, || {
             client.get(url).send()
         })
-        .map_err(|error| format!("Failed to fetch launcher image: {error}"))?;
+        .with_context(|| format!("Failed to fetch launcher image"))?;
         let status = response.status();
         let headers = response.headers().clone();
         if !status.is_success() {
@@ -207,7 +208,7 @@ fn fetch_launcher_image_with_retry(
         let bytes = response
             .bytes()
             .map(|bytes| bytes.to_vec())
-            .map_err(|error| format!("Failed to read launcher image bytes: {error}"))?;
+            .with_context(|| format!("Failed to read launcher image bytes"))?;
         Ok(LauncherImageFetchResult {
             status,
             headers,
@@ -216,16 +217,16 @@ fn fetch_launcher_image_with_retry(
     })
 }
 
-pub(crate) fn clear_launcher_image_cache_dir(cache_dir: &Path) -> Result<(), String> {
+pub(crate) fn clear_launcher_image_cache_dir(cache_dir: &Path) -> anyhow::Result<()> {
     let _cache_file_guard = lock_launcher_image_cache_files();
     LAUNCHER_IMAGE_CACHE_GENERATION.fetch_add(1, Ordering::SeqCst);
     if !cache_dir.exists() {
         return Ok(());
     }
 
-    fs::remove_dir_all(cache_dir).map_err(|error| {
+    fs::remove_dir_all(cache_dir).with_context(|| {
         format!(
-            "Failed to clear launcher image cache {}: {error}",
+            "Failed to clear launcher image cache {}",
             normalize_path(cache_dir)
         )
     })
@@ -234,7 +235,7 @@ pub(crate) fn clear_launcher_image_cache_dir(cache_dir: &Path) -> Result<(), Str
 pub(crate) fn clear_launcher_image_cache_dir_and_failures_at_path(
     cache_dir: &Path,
     failures_path: &Path,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     clear_launcher_image_cache_dir(cache_dir)?;
     clear_launcher_image_failure_entries_at_path(failures_path)
 }
@@ -251,12 +252,12 @@ fn cover_mod_key(request: &ResolveLauncherImageRequest) -> Option<String> {
 pub(crate) fn resolve_launcher_image_blocking(
     app: &AppHandle,
     request: &ResolveLauncherImageRequest,
-) -> Result<ResolveLauncherImageResult, String> {
+) -> anyhow::Result<ResolveLauncherImageResult> {
     let request = request;
     (|| {
         let url = request.url.trim();
         if url.is_empty() {
-            return Err("url is required.".to_string());
+            bail!("url is required.");
         }
 
         let cache_dir = launcher_image_cache_dir()?;
@@ -282,9 +283,9 @@ pub(crate) fn resolve_launcher_image_blocking(
                     mod_key,
                     url
                 );
-                return Err(format!(
+                bail!(
                     "Launcher image loading is disabled for mod {mod_key} after repeated failures."
-                ));
+                );
             }
         }
 
@@ -292,7 +293,7 @@ pub(crate) fn resolve_launcher_image_blocking(
         if let Some(route) = launcher_nexus_route_for_url(url) {
             if let Err(error) = probe_blocked_launcher_nexus_route(&client, None, route) {
                 if let Some(mod_key) = mod_key.as_deref() {
-                    record_launcher_image_failure(mod_key, &error)?;
+                    record_launcher_image_failure(mod_key, &error.to_string())?;
                 }
                 return Err(error);
             }
@@ -312,9 +313,15 @@ pub(crate) fn resolve_launcher_image_blocking(
                     elapsed_ms,
                     error
                 );
-                emit_launcher_image_disconnect(app, url, mod_key.as_deref(), &error, elapsed_ms);
+                emit_launcher_image_disconnect(
+                    app,
+                    url,
+                    mod_key.as_deref(),
+                    &error.to_string(),
+                    elapsed_ms,
+                );
                 if let Some(mod_key) = mod_key.as_deref() {
-                    record_launcher_image_failure(mod_key, &error)?;
+                    record_launcher_image_failure(mod_key, &error.to_string())?;
                 }
                 return Err(error);
             }
@@ -334,7 +341,7 @@ pub(crate) fn resolve_launcher_image_blocking(
             if let Some(mod_key) = mod_key.as_deref() {
                 record_launcher_image_failure(mod_key, &error)?;
             }
-            return Err(error);
+            return Err(anyhow::anyhow!(error));
         }
 
         let content_type = fetch_result
@@ -352,11 +359,11 @@ pub(crate) fn resolve_launcher_image_blocking(
 
         let _cache_file_guard = lock_launcher_image_cache_files();
         if LAUNCHER_IMAGE_CACHE_GENERATION.load(Ordering::SeqCst) != cache_generation {
-            return Err("Launcher image cache was cleared while fetching image.".to_string());
+            bail!("Launcher image cache was cleared while fetching image.");
         }
-        fs::create_dir_all(&cache_dir).map_err(|error| {
+        fs::create_dir_all(&cache_dir).with_context(|| {
             format!(
-                "Failed to create launcher image cache directory {}: {error}",
+                "Failed to create launcher image cache directory {}",
                 normalize_path(&cache_dir)
             )
         })?;
@@ -373,9 +380,9 @@ pub(crate) fn resolve_launcher_image_blocking(
             }
         }
         clear_cached_files_for_key(&cache_dir, &cache_key)?;
-        fs::write(&target_path, &bytes).map_err(|error| {
+        fs::write(&target_path, &bytes).with_context(|| {
             format!(
-                "Failed to write launcher image cache {}: {error}",
+                "Failed to write launcher image cache {}",
                 normalize_path(&target_path)
             )
         })?;
@@ -406,10 +413,10 @@ pub(crate) fn resolve_launcher_image_local_or_cached_at_paths(
     request: &ResolveLauncherImageRequest,
     cache_dir: &Path,
     failures_path: &Path,
-) -> Result<Option<ResolveLauncherImageResult>, String> {
+) -> anyhow::Result<Option<ResolveLauncherImageResult>> {
     let url = request.url.trim();
     if url.is_empty() {
-        return Err("url is required.".to_string());
+        bail!("url is required.");
     }
     let mod_key = cover_mod_key(request);
 
@@ -455,13 +462,13 @@ pub(crate) fn resolve_launcher_image_local_or_cached_at_paths(
 pub(crate) fn resolve_cached_launcher_image_blocking(
     _app: &AppHandle,
     request: &ResolveLauncherImageRequest,
-) -> Result<Option<ResolveLauncherImageResult>, String> {
+) -> anyhow::Result<Option<ResolveLauncherImageResult>> {
     let cache_dir = launcher_image_cache_dir()?;
     let failures_path = launcher_image_failures_path()?;
     resolve_launcher_image_local_or_cached_at_paths(request, &cache_dir, &failures_path)
 }
 
-pub fn clear_launcher_image_cache(_app: AppHandle) -> Result<(), String> {
+pub fn clear_launcher_image_cache(_app: AppHandle) -> anyhow::Result<()> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "clear_launcher_image_cache",
         (|| {
@@ -676,10 +683,10 @@ mod tests {
         let mut attempts = 0;
         let result = read_nexus_response_body_with_retry_policy(
             LAUNCHER_IMAGE_CDN_RETRY_POLICY,
-            || -> Result<LauncherImageFetchResult, String> {
+            || -> anyhow::Result<LauncherImageFetchResult> {
                 attempts += 1;
                 if attempts == 1 {
-                    return Err("unexpected eof while reading body".to_string());
+                    bail!("unexpected eof while reading body");
                 }
 
                 let mut headers = HeaderMap::new();
