@@ -217,7 +217,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
 
     void (async () => {
       try {
-        const entries = await Promise.all(
+        const results = await Promise.allSettled(
           mapDocument.tilesets.map(async (tileset) => {
             const imagePath = resolveTilesetImagePath(mapDocument, tileset)
             if (!imagePath) {
@@ -233,10 +233,22 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
           return
         }
 
+        const entries: Array<readonly [number, LoadedTilesetImage]> = []
+        const errors: string[] = []
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            if (result.value) {
+              entries.push(result.value)
+            }
+          } else {
+            errors.push(result.reason instanceof Error ? result.reason.message : String(result.reason))
+          }
+        }
+
         setTilesetImageState({
           sourcePath: mapDocument.sourcePath,
-          items: Object.fromEntries(entries.filter((entry): entry is readonly [number, LoadedTilesetImage] => entry !== null)),
-          error: null,
+          items: Object.fromEntries(entries),
+          error: errors.length > 0 ? errors.join('\n') : null,
           loading: false,
         })
       } catch (error) {

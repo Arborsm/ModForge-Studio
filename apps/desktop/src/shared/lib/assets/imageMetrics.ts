@@ -6,9 +6,30 @@ type ImageDataUrlLoader = (path: string, locale?: string) => Promise<string>
 
 let imageDataUrlLoader: ImageDataUrlLoader | null = null
 
+const IMAGE_RESOURCE_LOAD_TIMEOUT_MS = 10_000
+
 /** Configures how local image paths are loaded as data URLs. */
 export function configureImageDataUrlLoader(loader: ImageDataUrlLoader) {
   imageDataUrlLoader = loader
+}
+
+function withImageLoadTimeout<T>(promise: Promise<T>, path: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(new Error(`Image load timed out after ${IMAGE_RESOURCE_LOAD_TIMEOUT_MS}ms: ${path}`))
+    }, IMAGE_RESOURCE_LOAD_TIMEOUT_MS)
+
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeoutId)
+        resolve(value)
+      },
+      (error) => {
+        window.clearTimeout(timeoutId)
+        reject(error)
+      },
+    )
+  })
 }
 
 /** Decoded browser image plus natural dimensions. */
@@ -88,12 +109,13 @@ export async function loadImageResourceFromPath(path: string, locale?: string) {
     return cached
   }
 
-  const pending = loadConfiguredImageDataUrl(path, locale)
-    .then((url) => loadImageResource(url))
-    .catch(() => {
-      pathImageResourceCache.delete(cacheKey)
-      return null
-    })
+  const pending = withImageLoadTimeout(
+    loadConfiguredImageDataUrl(path, locale).then((url) => loadImageResource(url)),
+    path,
+  ).catch(() => {
+    pathImageResourceCache.delete(cacheKey)
+    return null
+  })
 
   pathImageResourceCache.set(cacheKey, pending)
   trimCache(pathImageResourceCache, MAX_PATH_IMAGE_RESOURCE_CACHE_ENTRIES)

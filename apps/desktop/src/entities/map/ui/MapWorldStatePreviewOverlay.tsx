@@ -42,7 +42,7 @@ function MapWorldStatePreviewOverlay({ mapDocument, viewportZoom, sprites, textu
             height: sprite.height,
             zIndex: sprite.zIndex,
             assetUrl: asset?.url ?? null,
-            loading: !asset?.url,
+            loading: asset?.loading ?? !asset?.url,
           } satisfies RenderableOverlaySprite,
         ]
       }),
@@ -76,7 +76,7 @@ function MapWorldStatePreviewOverlay({ mapDocument, viewportZoom, sprites, textu
           >
             {sprite.loading ? (
               <ImageSkeleton overlay rounded={false} className="map-overlay-sprite-skeleton" />
-            ) : (
+            ) : sprite.assetUrl ? (
               <div
                 style={{
                   width: `${sprite.sourceWidth}px`,
@@ -89,7 +89,7 @@ function MapWorldStatePreviewOverlay({ mapDocument, viewportZoom, sprites, textu
                   imageRendering: 'pixelated',
                 }}
               />
-            )}
+            ) : null}
           </div>
         )
       })}

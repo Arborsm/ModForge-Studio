@@ -51,7 +51,6 @@ export function EditWorkspaceContent({
       onSelectPatch={onSelectPatch}
       onPatchAdd={(action, target, fromFile) => {
         const id = cpMaker.addPatch(workspaceMode, target, action, fromFile)
-        onSelectPatch(id)
         return id
       }}
       onPatchRemove={(id) => {

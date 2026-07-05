@@ -267,6 +267,7 @@ export function useEventStageWorkspace({
   const mountedRef = useRef(true)
 
   useEffect(() => {
+    mountedRef.current = true
     return () => {
       mountedRef.current = false
     }
@@ -595,23 +596,24 @@ export function useEventStageWorkspace({
         const spriteTextureCandidates = actor.spriteOverrideSuffix
           ? [...textureCandidates.map((candidate) => `${candidate}_${actor.spriteOverrideSuffix}`), ...textureCandidates]
           : textureCandidates
-        const portraitTextureCandidates = actor.portraitOverrideSuffix
-          ? [...textureCandidates.map((candidate) => `${candidate}_${actor.portraitOverrideSuffix}`), ...textureCandidates]
-          : textureCandidates
+        const isFarmer = isFarmerActor(actor.actorName) || normalizeActorName(actor.actorName) === 'farmer'
+        const portraitTextureCandidates = isFarmer
+          ? []
+          : actor.portraitOverrideSuffix
+            ? [...textureCandidates.map((candidate) => `${candidate}_${actor.portraitOverrideSuffix}`), ...textureCandidates]
+            : textureCandidates
         return {
           actorKey: toActorKey(actor.actorName),
           actorName: actor.actorName,
           requestKey: `${directoryInfo?.rootPath ?? ''}::${spriteTextureCandidates.join('|')}::${portraitTextureCandidates.join('|')}::${JSON.stringify(
             {
-              farmerAppearanceProfile:
-                isFarmerActor(actor.actorName) || normalizeActorName(actor.actorName) === 'farmer' ? playerAppearanceProfile : null,
+              farmerAppearanceProfile: isFarmer ? playerAppearanceProfile : null,
               characterMetadata: actorMetadata,
             },
           )}`,
           spriteTextureCandidates,
           portraitTextureCandidates,
-          farmerAppearanceProfile:
-            isFarmerActor(actor.actorName) || normalizeActorName(actor.actorName) === 'farmer' ? playerAppearanceProfile : null,
+          farmerAppearanceProfile: isFarmer ? playerAppearanceProfile : null,
           characterMetadata: actorMetadata,
         }
       }),
@@ -667,10 +669,32 @@ export function useEventStageWorkspace({
 
     void (async () => {
       const resolvedEntries = await Promise.all(
-        pendingActorAssetRequests.map(
-          async (request) =>
-            [request.actorKey, await resolveActorAssets(request, directoryInfo.rootPath, locale, imageResourceLoader)] as const,
-        ),
+        pendingActorAssetRequests.map(async (request) => {
+          try {
+            return [request.actorKey, await resolveActorAssets(request, directoryInfo.rootPath, locale, imageResourceLoader)] as const
+          } catch {
+            return [
+              request.actorKey,
+              {
+                requestKey: request.requestKey,
+                textureName: null,
+                spriteTextureName: null,
+                portraitTextureName: null,
+                spritePath: null,
+                spriteUrl: null,
+                spriteSheetWidth: null,
+                spriteSheetHeight: null,
+                portraitPath: null,
+                portraitUrl: null,
+                portraitSheetWidth: null,
+                portraitSheetHeight: null,
+                farmerAppearance: null,
+                characterMetadata: request.characterMetadata,
+                loading: false,
+              } satisfies ActorAssetState,
+            ] as const
+          }
+        }),
       )
       if (!mountedRef.current) {
         return

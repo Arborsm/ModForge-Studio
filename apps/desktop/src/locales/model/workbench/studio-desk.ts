@@ -587,5 +587,11 @@ export type StudioDeskCopy = {
     eventCountLabel: string
     selectedEventLabel: string
     targetFieldPlaceholder: string
+    noPatchTitle: string
+    noPatchSubtitle: string
+    noPatchAction: string
+    breadcrumbNoPatch: string
+    selectEventAriaLabel: (eventKey: string) => string
+    defaultEventTitle: string
   }
 }

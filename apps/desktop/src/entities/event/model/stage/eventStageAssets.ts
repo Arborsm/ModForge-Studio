@@ -661,7 +661,13 @@ async function resolveEffectAsset(
       loading: false,
     }
   }
-  const image = await preloadImage(path, imageLoader)
+
+  let image: LoadedImageResource | null = null
+  try {
+    image = await preloadImage(path, imageLoader)
+  } catch {
+    // Missing or unreadable effect textures should fail gracefully.
+  }
 
   return {
     requestKey: `${rootPath}::${textureName}`,

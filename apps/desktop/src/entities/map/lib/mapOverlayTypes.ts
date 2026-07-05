@@ -1,5 +1,6 @@
 export type OverlayTextureAsset = {
   url: string | null
+  loading?: boolean
 }
 
 export type MapWorldOverlaySprite = {

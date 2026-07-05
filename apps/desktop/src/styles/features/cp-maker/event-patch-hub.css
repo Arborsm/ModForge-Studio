@@ -469,6 +469,58 @@
     font-size: 0.9375rem;
   }
 
+  .event-patch-tree-empty {
+    margin: 0.75rem;
+    border-radius: 0.75rem;
+    background: var(--ephub-surface-muted);
+    padding: 1rem;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .event-patch-hub-empty {
+    display: grid;
+    min-height: 16rem;
+    place-items: center;
+    align-content: center;
+    gap: 0.75rem;
+    margin-top: 2rem;
+    border: 1px dashed var(--ephub-border-soft);
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--ephub-surface) 60%, transparent);
+    padding: 2.5rem 1.5rem;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  .event-patch-hub-empty-icon {
+    display: grid;
+    width: 4rem;
+    height: 4rem;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--ephub-surface-muted);
+    color: var(--text-tertiary);
+  }
+
+  .event-patch-hub-empty strong {
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .event-patch-hub-empty p {
+    max-width: 28rem;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .event-patch-hub-empty .control-button {
+    margin-top: 0.5rem;
+  }
+
   .event-patch-context-menu {
     position: fixed;
     z-index: 80;
