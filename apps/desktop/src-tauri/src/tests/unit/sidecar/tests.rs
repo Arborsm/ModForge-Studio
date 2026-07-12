@@ -315,6 +315,11 @@ fn project_and_cp_maker_mutations_declare_resource_locks_at_binding_site() {
         command_resources("export_map_png"),
         Some(&[SidecarResource::MapPngExport][..])
     );
+    assert_eq!(command_lane("export_file"), Some(SidecarLane::Mutation));
+    assert_eq!(
+        command_resources("export_file"),
+        Some(&[SidecarResource::FileExport][..])
+    );
 }
 
 struct TestResponseWriter {

@@ -60,6 +60,7 @@ pub enum HostCommandResource {
     ModProject,
     CpMakerDrafts,
     MapPngExport,
+    FileExport,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -653,6 +654,7 @@ pub struct HostCommandResourceLocks {
     mod_project: Mutex<()>,
     cp_maker_drafts: Mutex<()>,
     map_png_export: Mutex<()>,
+    file_export: Mutex<()>,
 }
 
 impl HostCommandResourceLocks {
@@ -671,6 +673,7 @@ impl HostCommandResourceLocks {
             mod_project: Mutex::new(()),
             cp_maker_drafts: Mutex::new(()),
             map_png_export: Mutex::new(()),
+            file_export: Mutex::new(()),
         }
     }
 
@@ -701,6 +704,7 @@ impl HostCommandResourceLocks {
             HostCommandResource::ModProject => &self.mod_project,
             HostCommandResource::CpMakerDrafts => &self.cp_maker_drafts,
             HostCommandResource::MapPngExport => &self.map_png_export,
+            HostCommandResource::FileExport => &self.file_export,
         };
         match lock.lock() {
             Ok(guard) => guard,

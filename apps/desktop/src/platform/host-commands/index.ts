@@ -14,6 +14,7 @@ export const HOST_COMMANDS = {
   downloadLauncherMod: 'download_launcher_mod',
   exportContentPatcherAsset: 'export_content_patcher_asset',
   exportCpMakerPack: 'export_cp_maker_pack',
+  exportFile: 'export_file',
   exportMapPng: 'export_map_png',
   getFileCacheStats: 'get_file_cache_stats',
   getLauncherBackupDirectory: 'get_launcher_backup_directory',

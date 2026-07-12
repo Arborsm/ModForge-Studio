@@ -2,6 +2,7 @@ import { ChevronDown, ChevronRight, X } from 'lucide-react'
 import JSZip from 'jszip'
 import { useRef, useState } from 'react'
 import { useEditorCopy } from '@locales/provider'
+import { saveFileContent } from '@platform/host'
 import {
   generateContentPatcherI18n,
   generateContentPatcherProjectI18n,
@@ -13,22 +14,21 @@ import {
 } from './contentPatcherI18nGenerator'
 import { useI18nGeneratorSession } from './useI18nGeneratorSession'
 
-function downloadJson(fileName: string, value: unknown) {
-  const url = URL.createObjectURL(new Blob([stringifyGeneratedJson(value)], { type: 'application/json' }))
-  const link = document.createElement('a')
-  link.href = url
-  link.download = fileName
-  link.click()
-  URL.revokeObjectURL(url)
+async function saveGeneratedBytes(fileName: string, bytes: Uint8Array, mediaType: string, filterName: string, extensions: string[]) {
+  await saveFileContent({
+    bytes,
+    dialog: {
+      title: filterName,
+      defaultPath: fileName,
+      filters: [{ name: filterName, extensions }],
+    },
+    fileName,
+    mediaType,
+  })
 }
 
-function downloadBlob(fileName: string, blob: Blob) {
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = fileName
-  link.click()
-  URL.revokeObjectURL(url)
+function saveGeneratedJson(fileName: string, value: unknown, filterName: string) {
+  return saveGeneratedBytes(fileName, new TextEncoder().encode(stringifyGeneratedJson(value)), 'application/json', filterName, ['json'])
 }
 
 function localizedPatchName(fileName: string) {
@@ -292,6 +292,7 @@ export function I18nGeneratorView() {
   const [project, setProject] = useState<{ name: string; files: Array<{ path: string; bytes: Uint8Array; text?: string }> } | null>(null)
   const [projectGeneration, setProjectGeneration] = useState<ContentPatcherProjectGeneration | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(() => new Set())
 
   const enabledPrefixes = (values = targetPrefixes, enabled = enabledTargets) =>
@@ -409,6 +410,19 @@ export function I18nGeneratorView() {
     }
   }
 
+  const runExport = async (action: () => Promise<void>) => {
+    if (exporting) return
+    setExporting(true)
+    try {
+      await action()
+      setError(null)
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : String(exportError))
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const exportProject = async () => {
     if (!project || !projectGeneration) return
     const zip = new JSZip()
@@ -416,7 +430,13 @@ export function I18nGeneratorView() {
     for (const [path, text] of projectGeneration.files) {
       if (!project.files.some((file) => file.path === path)) zip.file(`${project.name}/${path}`, text)
     }
-    downloadBlob(`${project.name}.i18n.zip`, await zip.generateAsync({ type: 'blob' }))
+    await saveGeneratedBytes(
+      `${project.name}.i18n.zip`,
+      await zip.generateAsync({ type: 'uint8array' }),
+      'application/zip',
+      copy.exportProject,
+      ['zip'],
+    )
   }
 
   const closeSession = () => {
@@ -538,7 +558,8 @@ export function I18nGeneratorView() {
                   <button
                     type="button"
                     className="control-button"
-                    onClick={() => downloadJson('default.json', activeGeneration.translations)}
+                    disabled={exporting}
+                    onClick={() => void runExport(() => saveGeneratedJson('default.json', activeGeneration.translations, copy.exportI18n))}
                   >
                     {copy.exportI18n}
                   </button>
@@ -546,13 +567,23 @@ export function I18nGeneratorView() {
                     <button
                       type="button"
                       className="control-button control-button-primary"
-                      onClick={() => downloadJson(localizedPatchName(source?.name ?? 'content.json'), generation.patch)}
+                      disabled={exporting}
+                      onClick={() =>
+                        void runExport(() =>
+                          saveGeneratedJson(localizedPatchName(source?.name ?? 'content.json'), generation.patch, copy.exportPatch),
+                        )
+                      }
                     >
                       {copy.exportPatch}
                     </button>
                   ) : null}
                   {projectGeneration ? (
-                    <button type="button" className="control-button control-button-primary" onClick={() => void exportProject()}>
+                    <button
+                      type="button"
+                      className="control-button control-button-primary"
+                      disabled={exporting}
+                      onClick={() => void runExport(exportProject)}
+                    >
                       {copy.exportProject}
                     </button>
                   ) : null}

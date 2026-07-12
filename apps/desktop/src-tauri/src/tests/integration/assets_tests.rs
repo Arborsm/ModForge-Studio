@@ -1,6 +1,6 @@
 use super::{
-    cache_file_path, encode_hex, export_map_png, localized_variant_path, logicalized_asset_path,
-    preferred_existing_xnb_path, read_directory_info, split_localized_stem,
+    cache_file_path, encode_hex, export_file, export_map_png, localized_variant_path,
+    logicalized_asset_path, preferred_existing_xnb_path, read_directory_info, split_localized_stem,
 };
 use crate::test_support::{create_temp_dir, write_file};
 use base64::Engine;
@@ -114,6 +114,48 @@ fn rejects_map_png_exports_with_invalid_path_or_payload() {
         export_map_png(
             root.join("Town.png").to_string_lossy().into_owned(),
             "not-a-png".to_string()
+        )
+        .is_err()
+    );
+    fs::remove_dir_all(root).expect("cleanup test directory");
+}
+
+#[test]
+fn exports_generated_files_to_the_selected_path() {
+    let root = create_temp_dir("generated-file-export");
+    let output = root.join("default.json");
+    fs::write(&output, b"previous-export").expect("write previous export");
+    let content = base64::engine::general_purpose::STANDARD
+        .encode("{\n  \"Greeting\": \"\u{4f60}\u{597d}\"\n}\n");
+
+    export_file(output.to_string_lossy().into_owned(), content).expect("export generated file");
+
+    assert_eq!(
+        fs::read_to_string(&output).expect("read generated file"),
+        "{\n  \"Greeting\": \"\u{4f60}\u{597d}\"\n}\n"
+    );
+    fs::remove_dir_all(root).expect("cleanup test directory");
+}
+
+#[test]
+fn rejects_generated_file_exports_with_invalid_paths_or_payloads() {
+    let root = create_temp_dir("generated-file-export-invalid");
+
+    assert!(export_file(String::new(), String::new()).is_err());
+    assert!(
+        export_file(
+            root.join("default.json").to_string_lossy().into_owned(),
+            "not-base64".to_string()
+        )
+        .is_err()
+    );
+    assert!(
+        export_file(
+            root.join("missing")
+                .join("default.json")
+                .to_string_lossy()
+                .into_owned(),
+            base64::engine::general_purpose::STANDARD.encode("{}")
         )
         .is_err()
     );

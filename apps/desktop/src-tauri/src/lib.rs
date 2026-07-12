@@ -22,9 +22,9 @@ pub type AppHandle = host::HostHandle;
 
 use commands::app_ui::{load_app_ui_state, patch_app_ui_state};
 use commands::assets::{
-    clear_file_cache, detect_default_game_directory, export_map_png, get_file_cache_stats,
-    list_known_game_directories, load_audio_data_url, load_image_data_url, load_map_asset,
-    load_text_asset, load_text_file, scan_audio_assets, scan_events, scan_maps,
+    clear_file_cache, detect_default_game_directory, export_file, export_map_png,
+    get_file_cache_stats, list_known_game_directories, load_audio_data_url, load_image_data_url,
+    load_map_asset, load_text_asset, load_text_file, scan_audio_assets, scan_events, scan_maps,
     validate_game_directory,
 };
 use commands::audio::load_xact_audio_data_url;
@@ -175,6 +175,7 @@ pub fn run() {
             export_content_patcher_asset,
             load_map_asset,
             export_map_png,
+            export_file,
             load_text_asset,
             load_text_file,
             load_image_data_url,

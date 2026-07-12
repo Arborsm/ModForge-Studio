@@ -302,6 +302,17 @@ pub(crate) fn resolve_command(
                 ))
             },
         ),
+        crate::host_command_wire!(export_file) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::FileExport],
+            move || {
+                ok(domain::assets::export_file(
+                    arg(&args, "outputPath")?,
+                    arg(&args, "contentBase64")?,
+                ))
+            },
+        ),
         crate::host_command_wire!(load_text_asset) => io_lane(id, &command_name, move || {
             ok(domain::assets::load_text_asset(
                 arg(&args, "rootPath")?,
