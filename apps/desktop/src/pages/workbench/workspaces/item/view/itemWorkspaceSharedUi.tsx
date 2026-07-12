@@ -1,13 +1,10 @@
-import { ArrowRight, Coins, Heart, Skull } from 'lucide-react'
+import { Heart } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useItemsCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { getContainedItemSpriteScale, type ItemGiftTasteNpc, type ItemTextureAssetState, type ItemWorkspaceEntry } from '../entities/item'
 import { ItemSprite } from '../entities/item'
-import { formatPrice } from './itemWorkspaceRows'
-import { RenderKv } from './itemWorkspaceRenderKv'
-import { getToneClass } from './itemWorkspaceUiClasses'
-import type { AsideRow, HeroChip, SignalCard, SourceCard, Tone, UseCard } from './itemWorkspaceTypes'
+import type { AsideRow, SourceCard, UseCard } from './itemWorkspaceTypes'
 
 export function EmptyNotice({ message }: { message: string }) {
   return <div className="panel-empty-state">{message}</div>
@@ -15,13 +12,17 @@ export function EmptyNotice({ message }: { message: string }) {
 
 export function DetailSectionCard({ title, rows, children }: { title: string; rows?: AsideRow[]; children?: ReactNode }) {
   return (
-    <section className="panel-section p-4">
-      <p className="panel-section-title">{title}</p>
+    <section className="pb-2">
+      <p className="panel-section-title mb-3">{title}</p>
       {rows?.length ? (
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <div className="flex flex-col">
           {rows.map((row) => (
-            <div key={`${title}:${row.label}`} className="panel-section px-3 py-3">
-              <RenderKv label={row.label} value={row.value} />
+            <div
+              key={`${title}:${row.label}`}
+              className="flex items-center justify-between gap-3 border-b border-(--border-color)/50 py-2.5 last:border-b-0"
+            >
+              <span className="text-xs text-(--text-secondary)">{row.label}</span>
+              <span className="truncate text-xs font-semibold text-(--text-primary)">{row.value}</span>
             </div>
           ))}
         </div>
@@ -31,64 +32,64 @@ export function DetailSectionCard({ title, rows, children }: { title: string; ro
   )
 }
 
-export function HeroStatChip({ chip }: { chip: HeroChip }) {
-  const Icon = chip.icon === 'coins' ? Coins : chip.icon === 'skull' ? Skull : chip.icon === 'heart' ? Heart : null
-
-  return (
-    <div className={`rounded-2xl border px-3 py-3 ${getToneClass(chip.tone ?? 'neutral')}`}>
-      <p className="text-[10px] tracking-[0.16em] uppercase opacity-70">{chip.label}</p>
-      <div className="mt-2 flex items-center gap-2">
-        {Icon ? <Icon className="h-4 w-4 shrink-0" /> : null}
-        <p className="text-sm font-semibold">{chip.value}</p>
-      </div>
-    </div>
-  )
-}
-
-export function WorkbenchSignalCard({ card }: { card: SignalCard }) {
-  return (
-    <article className="panel-section px-4 py-3">
-      <p className="panel-section-title text-[10px]">{card.label}</p>
-      <div className="mt-2 flex items-end justify-between gap-3">
-        <p className="text-2xl font-semibold tracking-tight text-(--text-primary)">{card.value}</p>
-        <p className="text-right text-[11px] text-(--text-tertiary)">{card.detail}</p>
-      </div>
-    </article>
-  )
-}
-
-export function TasteGroup({ title, entries, tone }: { title: string; entries: ItemGiftTasteNpc[]; tone: Tone }) {
-  if (!entries.length) {
+export function GiftTasteList({
+  lovedBy,
+  likedBy,
+  loveTitle,
+  likeTitle,
+}: {
+  lovedBy: ItemGiftTasteNpc[]
+  likedBy: ItemGiftTasteNpc[]
+  loveTitle: string
+  likeTitle: string
+}) {
+  if (!lovedBy.length && !likedBy.length) {
     return null
   }
 
   return (
-    <div className="panel-section p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <span className={`inline-flex h-9 w-9 items-center justify-center rounded-full border ${getToneClass(tone)}`}>
-          <Heart className="h-4 w-4" />
-        </span>
-        <div>
-          <p className="text-sm font-semibold text-(--text-primary)">{title}</p>
-          <p className="text-xs text-(--text-secondary)">{entries.length}</p>
-        </div>
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-        {entries.map((npc) => (
-          <div key={`${npc.taste}:${npc.internalName}`} className="panel-list-card flex items-center gap-3 px-3 py-2.5">
-            <div
-              className={`inline-flex h-10 w-10 shrink-0 items-center justify-center border text-sm font-semibold uppercase ${getToneClass(tone)}`}
-            >
-              {npc.displayName.slice(0, 1)}
+    <section className="py-2">
+      <div className="space-y-3">
+        {lovedBy.length > 0 ? (
+          <div>
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-extrabold tracking-widest text-(--text-tertiary) uppercase">
+              <Heart className="h-3.5 w-3.5 fill-current text-(--danger)" aria-hidden="true" />
+              {loveTitle}
             </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-(--text-primary)">{npc.displayName}</p>
-              <p className="truncate text-xs text-(--text-secondary)">{npc.internalName}</p>
+            <div className="flex flex-wrap gap-2">
+              {lovedBy.map((npc) => (
+                <span
+                  key={`love:${npc.internalName}`}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-(--danger-soft) px-2.5 py-1.5 text-xs font-bold text-(--danger)"
+                >
+                  <Heart className="h-3 w-3 fill-current" aria-hidden="true" />
+                  {npc.displayName}
+                </span>
+              ))}
             </div>
           </div>
-        ))}
+        ) : null}
+        {likedBy.length > 0 ? (
+          <div>
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-extrabold tracking-widest text-(--text-tertiary) uppercase">
+              <Heart className="h-3.5 w-3.5 text-(--success)" aria-hidden="true" />
+              {likeTitle}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {likedBy.map((npc) => (
+                <span
+                  key={`like:${npc.internalName}`}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-(--success-soft) px-2.5 py-1.5 text-xs font-bold text-(--success)"
+                >
+                  <Heart className="h-3 w-3" aria-hidden="true" />
+                  {npc.displayName}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
-    </div>
+    </section>
   )
 }
 
@@ -110,11 +111,11 @@ function RelatedVisual({
     <ItemSprite
       item={relatedItem}
       textureState={textureState}
-      scale={getContainedItemSpriteScale(relatedItem, 56, 1.9)}
-      className="h-14 w-14 shrink-0"
+      scale={getContainedItemSpriteScale(relatedItem, 40, 1.8)}
+      className="h-10 w-10 shrink-0"
     />
   ) : (
-    <div className="panel-list-card flex h-14 w-14 shrink-0 items-center justify-center text-sm font-semibold text-(--text-secondary)">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.625rem] text-xs font-semibold text-(--text-secondary)">
       {fallback.slice(0, 1)}
     </div>
   )
@@ -131,45 +132,49 @@ export function SourceGrid({
 }) {
   const copy = useItemsCopy()
   return (
-    <section className="panel-section p-4 sm:p-5">
-      <div className="mb-4 flex items-end justify-between gap-3">
+    <section>
+      <div className="mb-3 flex items-end justify-between gap-3">
         <div>
           <p className="panel-section-title">{copy.sourceSectionTitle}</p>
-          <p className="mt-1 text-sm text-(--text-tertiary)">{cards.length ? `${cards.length}` : copy.noneLabel}</p>
         </div>
       </div>
 
       {cards.length ? (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="flex flex-col">
           {cards.map((card) => (
-            <article key={card.key} className="panel-section-muted panel-section p-4">
-              <div className="flex items-start gap-3">
+            <article
+              key={card.key}
+              className="grid grid-cols-[2.75rem_2fr_auto_1fr] items-center gap-3 border-b border-(--border-color)/50 py-2.5 transition-colors last:border-b-0 hover:bg-(--bg-hover)"
+            >
+              <div className="flex h-full items-center justify-center">
                 <RelatedVisual
                   itemId={card.relatedQualifiedItemId}
                   itemLookup={itemLookup}
                   textureStatesByAssetName={textureStatesByAssetName}
                   fallback={card.title}
                 />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="dock-chip">{card.badge}</span>
-                    {card.chance ? <span className="dock-chip">{card.chance}</span> : null}
-                  </div>
-                  <p className="mt-3 text-base font-semibold text-(--text-primary)">{card.title}</p>
-                  <p className="mt-1 text-sm text-(--text-secondary)">{card.detail}</p>
-                  {card.meta.length ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {card.meta.map((meta) => (
-                        <span
-                          key={meta}
-                          className="rounded-full border border-(--border-color) bg-(--bg-panel) px-2.5 py-1 text-[11px] text-(--text-secondary)"
-                        >
-                          {meta}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-(--text-primary)">{card.title}</p>
+                <p className="truncate text-xs text-(--text-secondary)">{card.detail}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="dock-chip">{card.badge}</span>
+                {card.chance ? <span className="dock-chip">{card.chance}</span> : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {card.meta.length ? (
+                  card.meta.map((meta) => (
+                    <span
+                      key={meta}
+                      className="rounded-full border border-(--border-color) bg-(--bg-panel-muted) px-2 py-0.5 text-[11px] text-(--text-secondary)"
+                    >
+                      {meta}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-(--text-tertiary)">—</span>
+                )}
               </div>
             </article>
           ))}
@@ -181,7 +186,7 @@ export function SourceGrid({
   )
 }
 
-function FormulaChip({
+function IngredientPill({
   ingredient,
   relatedItem,
   textureState,
@@ -191,27 +196,26 @@ function FormulaChip({
   textureState: ItemTextureAssetState | null
 }) {
   return (
-    <div
+    <span
       className={cx(
-        'flex items-center gap-2 rounded-2xl border px-3 py-2',
+        'inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-semibold',
         ingredient.isCurrent
-          ? 'border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_18%,transparent)]'
-          : 'border-(--border-color) bg-(--bg-panel-muted)',
+          ? 'border-[color-mix(in_srgb,var(--accent)_40%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg-panel-muted))] text-(--text-primary)'
+          : 'border-(--border-color) bg-(--bg-panel-muted) text-(--text-secondary)',
       )}
     >
       {relatedItem ? (
         <ItemSprite
           item={relatedItem}
           textureState={textureState}
-          scale={getContainedItemSpriteScale(relatedItem, 40, 1.45)}
-          className="h-10 w-10 shrink-0"
+          scale={getContainedItemSpriteScale(relatedItem, 24, 1.2)}
+          className="h-5 w-5 shrink-0"
         />
       ) : null}
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-(--text-primary)">{ingredient.label}</p>
-        <p className="text-xs text-(--text-secondary)">x{ingredient.amount}</p>
-      </div>
-    </div>
+      <span className="truncate">
+        {ingredient.label} ×{ingredient.amount}
+      </span>
+    </span>
   )
 }
 
@@ -226,109 +230,75 @@ export function UseGrid({
   itemLookup: Map<string, ItemWorkspaceEntry>
   textureStatesByAssetName: Record<string, ItemTextureAssetState>
 }) {
-  const copy = useItemsCopy()
   return (
-    <section className="panel-section p-4">
-      <div className="flex items-center justify-between gap-3">
+    <section>
+      <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <p className="panel-section-title">{title}</p>
-          <p className="text-xs text-(--text-secondary)">{cards.length}</p>
         </div>
       </div>
 
       {cards.length ? (
-        <div className="mt-3 grid gap-3">
+        <div className="flex flex-col">
           {cards.map((card) => {
             const outputItem = card.outputQualifiedItemId ? (itemLookup.get(card.outputQualifiedItemId) ?? null) : null
             const outputTexture = outputItem?.textureAssetName ? (textureStatesByAssetName[outputItem.textureAssetName] ?? null) : null
 
             return (
-              <article key={card.key} className="panel-section-muted panel-section p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <span className="dock-chip">{card.badge}</span>
-                    <p className="mt-3 text-base font-semibold text-(--text-primary)">{card.title}</p>
-                    <p className="mt-1 text-sm text-(--text-secondary)">{card.subtitle}</p>
-                  </div>
+              <article
+                key={card.key}
+                className="grid grid-cols-[2.75rem_2fr_1fr_auto] items-center gap-3 border-b border-(--border-color)/50 py-2.5 transition-colors last:border-b-0 hover:bg-(--bg-hover)"
+              >
+                <div className="flex h-full items-center justify-center">
                   {outputItem ? (
-                    <div className="shrink-0 text-right">
-                      <ItemSprite
-                        item={outputItem}
-                        textureState={outputTexture}
-                        scale={getContainedItemSpriteScale(outputItem, 56, 1.75)}
-                        className="ml-auto h-14 w-14"
-                      />
-                      <p className="mt-2 text-xs text-(--text-secondary)">x{card.outputCount ?? 1}</p>
+                    <ItemSprite
+                      item={outputItem}
+                      textureState={outputTexture}
+                      scale={getContainedItemSpriteScale(outputItem, 40, 1.8)}
+                      className="h-10 w-10 shrink-0"
+                    />
+                  ) : (
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.625rem] text-xs font-semibold text-(--text-secondary)">
+                      {card.title.slice(0, 1)}
                     </div>
-                  ) : null}
+                  )}
                 </div>
-
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  {card.ingredients.map((ingredient, index) => {
-                    const relatedItem = ingredient.qualifiedItemId ? (itemLookup.get(ingredient.qualifiedItemId) ?? null) : null
-                    const textureState = relatedItem?.textureAssetName
-                      ? (textureStatesByAssetName[relatedItem.textureAssetName] ?? null)
-                      : null
-
-                    return (
-                      <div key={ingredient.key} className="flex items-center gap-2">
-                        <FormulaChip ingredient={ingredient} relatedItem={relatedItem} textureState={textureState} />
-                        {index < card.ingredients.length - 1 ? <span className="text-(--text-tertiary)">+</span> : null}
-                      </div>
-                    )
-                  })}
-                  {outputItem ? (
-                    <>
-                      <ArrowRight className="h-4 w-4 text-(--text-tertiary)" />
-                      <div className="panel-list-card flex items-center gap-2 px-3 py-2">
-                        <ItemSprite
-                          item={outputItem}
-                          textureState={outputTexture}
-                          scale={getContainedItemSpriteScale(outputItem, 40, 1.45)}
-                          className="h-10 w-10 shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-(--text-primary)">{outputItem.displayName}</p>
-                          <p className="text-xs text-(--text-secondary)">x{card.outputCount ?? 1}</p>
-                        </div>
-                      </div>
-                    </>
-                  ) : null}
+                <div className="min-w-0">
+                  <span className="dock-chip">{card.badge}</span>
+                  <p className="mt-0.5 truncate text-sm font-bold text-(--text-primary)">{card.title}</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-xs text-(--text-secondary)">{card.subtitle}</p>
+                </div>
+                <div className="min-w-0">
+                  {card.ingredients.length ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {card.ingredients.map((ingredient) => {
+                        const relatedItem = ingredient.qualifiedItemId ? (itemLookup.get(ingredient.qualifiedItemId) ?? null) : null
+                        const textureState = relatedItem?.textureAssetName
+                          ? (textureStatesByAssetName[relatedItem.textureAssetName] ?? null)
+                          : null
+                        return (
+                          <IngredientPill
+                            key={ingredient.key}
+                            ingredient={ingredient}
+                            relatedItem={relatedItem}
+                            textureState={textureState}
+                          />
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-(--text-tertiary)">—</span>
+                  )}
                 </div>
               </article>
             )
           })}
         </div>
       ) : (
-        <div className="panel-empty-state mt-3">{copy.noneLabel}</div>
+        <div className="panel-empty-state mt-3">—</div>
       )}
     </section>
-  )
-}
-
-export function ItemTooltip({ item }: { item: ItemWorkspaceEntry | null }) {
-  const copy = useItemsCopy()
-  if (!item) {
-    return null
-  }
-
-  return (
-    <div className="pointer-events-none absolute right-4 bottom-4 z-10 w-65 rounded-2xl border border-white/10 bg-[rgba(10,12,16,0.88)] px-4 py-3 text-white shadow-2xl backdrop-blur-md">
-      <div className="flex items-center gap-2">
-        <span className="dock-chip">{copy.kindLabels[item.kind]}</span>
-      </div>
-      <p className="mt-3 text-base font-semibold">{item.displayName}</p>
-      <div className="mt-3 space-y-1 text-xs text-white/80">
-        <p>
-          {copy.qualifiedIdLabel}: {item.qualifiedItemId}
-        </p>
-        <p>
-          {copy.typeLabel}: {item.kindMetaLabel ?? copy.kindLabels[item.kind]}
-        </p>
-        <p>
-          {copy.priceLabel}: {formatPrice(item.price ?? item.salePrice, copy)}
-        </p>
-      </div>
-    </div>
   )
 }

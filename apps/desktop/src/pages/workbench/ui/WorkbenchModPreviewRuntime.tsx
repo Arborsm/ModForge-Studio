@@ -25,12 +25,30 @@ type ModPreviewStatusSnapshot = {
   statusMessage: string
 }
 
+function getFixedTargetLocale(locale: LocaleCode): string {
+  return locale.split('-')[0].toLowerCase()
+}
+
+function resolveTargetLocale(locale: LocaleCode, availableLocales: string[], preferredTargetLocale: string): string {
+  if (preferredTargetLocale !== 'default' && availableLocales.includes(preferredTargetLocale)) {
+    return preferredTargetLocale
+  }
+  if (availableLocales.includes(locale)) {
+    return locale
+  }
+  const languageCode = getFixedTargetLocale(locale)
+  if (availableLocales.includes(languageCode)) {
+    return languageCode
+  }
+  return locale
+}
+
 type WorkbenchModPreviewRuntimeProps = {
   copy: (typeof import('@locales/api').editorCopy)[LocaleCode]
   locale: LocaleCode
   theme: ThemeMode
   accentColor: string
-  workspaceMode: Extract<WorkspaceMode, 'mods' | 'mod-i18n'>
+  workspaceMode: Extract<WorkspaceMode, 'mod-browser' | 'mod-i18n'>
   directoryInfo: GameDirectoryInfo | null
   heavyWorkspaceReady: boolean
   workspaceLayoutRef: RefObject<WorkspaceLayoutHandle | null>
@@ -78,6 +96,8 @@ export function WorkbenchModPreviewRuntime({
   const modWorkspaceCopy = useModWorkspaceCopy()
   const modWorkspace = useModWorkspace({
     directoryInfo,
+    mode: workspaceMode === 'mod-i18n' ? 'i18n' : 'mod',
+    defaultI18nOnly: workspaceMode === 'mod-i18n',
   })
   const modI18nCopy = localeBundles[locale].modI18n
   const requestUnsavedChangeDecisionRef = useRef(modWorkspace.requestUnsavedChangeDecision)
@@ -141,15 +161,26 @@ export function WorkbenchModPreviewRuntime({
     onStatusSnapshotChange,
   ])
 
+  const fixedTargetLocale = useMemo(() => getFixedTargetLocale(locale), [locale])
   const modI18nLocales = useMemo(() => modWorkspace.i18nFiles.map((file) => file.locale), [modWorkspace.i18nFiles])
-  const normalizedModI18nSourceLocale = modI18nLocales.includes(modI18nSourceLocale)
-    ? modI18nSourceLocale
-    : modI18nLocales.includes('default')
-      ? 'default'
-      : (modI18nLocales[0] ?? 'default')
-  const normalizedModI18nTargetLocale = modI18nLocales.includes(modI18nTargetLocale)
-    ? modI18nTargetLocale
-    : (modI18nLocales.find((candidate) => candidate !== normalizedModI18nSourceLocale) ?? normalizedModI18nSourceLocale)
+  const resolvedTargetLocale = useMemo(
+    () => resolveTargetLocale(locale, modI18nLocales, modI18nTargetLocale),
+    [locale, modI18nLocales, modI18nTargetLocale],
+  )
+  const normalizedModI18nSourceLocale = useMemo(() => {
+    if (modI18nLocales.includes(modI18nSourceLocale) && modI18nSourceLocale !== resolvedTargetLocale) {
+      return modI18nSourceLocale
+    }
+    if (modI18nLocales.includes('default') && 'default' !== resolvedTargetLocale) {
+      return 'default'
+    }
+    if (modI18nLocales.includes('en') && 'en' !== resolvedTargetLocale) {
+      return 'en'
+    }
+    const firstNonTarget = modI18nLocales.find((candidate) => candidate !== resolvedTargetLocale)
+    return firstNonTarget ?? modI18nLocales[0] ?? fixedTargetLocale
+  }, [fixedTargetLocale, modI18nLocales, modI18nSourceLocale, resolvedTargetLocale])
+  const normalizedModI18nTargetLocale = resolvedTargetLocale
 
   const workspacePanels = useMemo(
     () =>
@@ -174,9 +205,11 @@ export function WorkbenchModPreviewRuntime({
         modFilter: modWorkspace.modFilter,
         contentPatcherOnly: modWorkspace.contentPatcherOnly,
         compatibleOnly: modWorkspace.compatibleOnly,
+        i18nOnly: modWorkspace.i18nOnly,
         onModFilterChange: modWorkspace.setModFilter,
         onContentPatcherOnlyChange: modWorkspace.setContentPatcherOnly,
         onCompatibleOnlyChange: modWorkspace.setCompatibleOnly,
+        onI18nOnlyChange: modWorkspace.setI18nOnly,
         onSelectModProject: modWorkspace.handleSelectProject,
         onImportModProject: () => void modWorkspace.handleImportProject(),
         onRefreshModProjects: () => void modWorkspace.handleRefreshProjects(),
@@ -237,6 +270,7 @@ export function WorkbenchModPreviewRuntime({
       modI18nCopy,
       modI18nQuery,
       modI18nStatusFilter,
+      modI18nTargetLocale,
       modWorkspace,
       normalizedModI18nSourceLocale,
       normalizedModI18nTargetLocale,

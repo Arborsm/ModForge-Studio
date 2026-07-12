@@ -1,9 +1,26 @@
-import { ArrowUpRight, Database, FolderOpen, HelpCircle, Image, KeyRound, Network, RefreshCw, Server } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  ChevronRight,
+  Database,
+  FolderOpen,
+  HelpCircle,
+  Image,
+  KeyRound,
+  Network,
+  PackageCheck,
+  RefreshCw,
+  Server,
+  Terminal,
+  Wrench,
+} from 'lucide-react'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state'
 import { cx } from '@shared/lib/helper'
 import { useEditorCopy } from '@locales/provider'
+import { reportAppEvent } from '@platform/observability'
 import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
+import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import {
   clearLauncherImageCache,
   type LauncherNexusDiagnosticsResult,
@@ -30,7 +47,11 @@ import {
   writeCachedLauncherConfigurationSsoStatus,
 } from '@features/launcher'
 import type { LauncherCopy } from '@locales/model'
-import type { LauncherRuntimeInfo, ValidateApiKeyResult } from '@features/launcher/model/launcherContracts'
+import type {
+  LauncherGmcmProbeDiagnosticsResult,
+  LauncherRuntimeInfo,
+  ValidateApiKeyResult,
+} from '@features/launcher/model/launcherContracts'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import { LauncherConfigurationMoreTools } from './LauncherConfigurationMoreTools'
 import { ConfigAccountCard, ConfigCompletionRail, ConfigDownloadDefaults, type ConfigStep } from './LauncherConfigurationRailCards'
@@ -61,6 +82,7 @@ type NexusApiAccountStatus = {
 
 const SSO_STATUS_POLL_INTERVAL_MS = 1500
 const SSO_STATUS_POLL_TIMEOUT_MS = 125_000
+const DOTNET_6_DOWNLOAD_URL = 'https://dotnet.microsoft.com/download/dotnet/6.0'
 
 function isSsoPendingStatus(status: string) {
   return status === 'connecting' || status === 'awaitingAuthorization'
@@ -282,6 +304,94 @@ function getRouteStatusLabel(tone: ApiRouteTone, copy: LauncherCopy) {
   }
 
   return copy.settings.nexusApiUnavailable
+}
+
+function getProbeStatusLabel(diagnostics: LauncherGmcmProbeDiagnosticsResult | null, copy: LauncherCopy) {
+  if (!diagnostics) {
+    return copy.configuration.nexusDiagnosticsLoadingState
+  }
+
+  if (diagnostics.status === 'ready') {
+    return copy.configuration.gmcmProbeReady
+  }
+
+  if (diagnostics.status === 'warning') {
+    return copy.configuration.gmcmProbeWarning
+  }
+
+  return copy.configuration.gmcmProbeUnavailable
+}
+
+function getProbeStatusTone(diagnostics: LauncherGmcmProbeDiagnosticsResult | null): ApiRouteTone {
+  if (!diagnostics) {
+    return 'loading'
+  }
+
+  if (diagnostics.status === 'ready') {
+    return 'ok'
+  }
+
+  return diagnostics.status === 'warning' ? 'warn' : 'danger'
+}
+
+function getProbeMessage(message: string, messages: LauncherCopy['configuration']['gmcmProbeWarningMessages']) {
+  return Object.prototype.hasOwnProperty.call(messages, message) ? messages[message as keyof typeof messages] : message
+}
+
+function isKnownProbeMessage(message: string, messages: LauncherCopy['configuration']['gmcmProbeWarningMessages']) {
+  return Object.prototype.hasOwnProperty.call(messages, message)
+}
+
+function getProbeRepairAction(action: string, actions: LauncherCopy['configuration']['gmcmProbeRepairActions']) {
+  return Object.prototype.hasOwnProperty.call(actions, action) ? actions[action as keyof typeof actions] : action
+}
+
+function getProbeNotificationDescription(diagnostics: LauncherGmcmProbeDiagnosticsResult, copy: LauncherCopy) {
+  const warning = diagnostics.warnings[0]
+  const repair = diagnostics.repairActions[0]
+
+  if (!warning && !repair) {
+    return getProbeStatusLabel(diagnostics, copy)
+  }
+
+  return [
+    warning ? getProbeMessage(warning, copy.configuration.gmcmProbeWarningMessages) : null,
+    repair ? getProbeRepairAction(repair, copy.configuration.gmcmProbeRepairActions) : null,
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
+function getPathLeaf(path: string) {
+  const parts = path.trim().split(/[\\/]/).filter(Boolean)
+
+  return parts.at(-1) ?? path
+}
+
+function createUnavailableProbeDiagnostics(error: unknown): LauncherGmcmProbeDiagnosticsResult {
+  return {
+    status: 'unavailable',
+    probeAssemblyPath: null,
+    dotnetPath: 'dotnet',
+    dotnetAvailable: false,
+    net6RuntimeAvailable: false,
+    installedRuntimes: [],
+    warnings: [error instanceof Error ? error.message : String(error)],
+    repairActions: ['run-desktop-host'],
+  }
+}
+
+function getProbeDiagnosticLogMessage(diagnostics: LauncherGmcmProbeDiagnosticsResult) {
+  return [
+    `status=${diagnostics.status}`,
+    `probeAssemblyPath=${diagnostics.probeAssemblyPath ?? 'missing'}`,
+    `dotnetPath=${diagnostics.dotnetPath}`,
+    `dotnetAvailable=${diagnostics.dotnetAvailable}`,
+    `net6RuntimeAvailable=${diagnostics.net6RuntimeAvailable}`,
+    `installedRuntimes=${diagnostics.installedRuntimes.length}`,
+    `warnings=${diagnostics.warnings.join(',') || 'none'}`,
+    `repairActions=${diagnostics.repairActions.join(',') || 'none'}`,
+  ].join(' ')
 }
 
 function getRouteDisplayName(route: LauncherNexusRouteSnapshot, copy: LauncherCopy) {
@@ -694,15 +804,17 @@ function ConfigApiRow({
   statusLabel,
   tone,
   resolved,
+  statusAction,
   children,
 }: {
   index: number
-  routeId: ConfigRouteId
+  routeId: string
   name: string
   description: string
   statusLabel: string
   tone: ApiRouteTone
   resolved: boolean
+  statusAction?: { label: string; onClick: () => void }
   children: ReactNode
 }) {
   return (
@@ -721,7 +833,14 @@ function ConfigApiRow({
         <h3>{name}</h3>
       </div>
       <div className="launcher-config-api-desc">{description}</div>
-      <span className={cx('launcher-config-status-tag', `launcher-config-status-tag-${tone}`)}>{statusLabel}</span>
+      {statusAction ? (
+        <button type="button" className="launcher-config-row-action" onClick={statusAction.onClick}>
+          {statusAction.label}
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      ) : (
+        <span className={cx('launcher-config-status-tag', `launcher-config-status-tag-${tone}`)}>{statusLabel}</span>
+      )}
     </LoadingMotionRevealItem>
   )
 }
@@ -868,6 +987,217 @@ function ConfigNexusPanel({
   )
 }
 
+function ConfigGmcmProbePanel({
+  copy,
+  diagnostics,
+  refreshing,
+  onRefreshDiagnostics,
+  detailsOpen,
+  onOpenDetails,
+  onCloseDetails,
+  onDownloadDotnet,
+  enabled,
+}: {
+  copy: LauncherCopy
+  diagnostics: LauncherGmcmProbeDiagnosticsResult | null
+  refreshing: boolean
+  onRefreshDiagnostics: () => void
+  detailsOpen: boolean
+  onOpenDetails: () => void
+  onCloseDetails: () => void
+  onDownloadDotnet: () => void
+  enabled: boolean
+}) {
+  const statusTone = enabled ? getProbeStatusTone(diagnostics) : 'loading'
+  const runtimesLabel = diagnostics?.installedRuntimes.length
+    ? copy.configuration.gmcmProbeInstalledRuntimes(diagnostics.installedRuntimes.length)
+    : copy.configuration.gmcmProbeNoRuntimes
+  const rows = [
+    {
+      id: 'assembly',
+      label: copy.configuration.gmcmProbeAssemblyLabel,
+      description: diagnostics?.probeAssemblyPath ? copy.configuration.gmcmProbePathReady : copy.configuration.gmcmProbePathMissing,
+      tone: diagnostics == null ? 'loading' : diagnostics.probeAssemblyPath ? 'ok' : 'danger',
+      status: diagnostics?.probeAssemblyPath ? copy.configuration.gmcmProbeReady : getProbeStatusLabel(diagnostics, copy),
+      icon: <PackageCheck className="h-4 w-4" />,
+    },
+    {
+      id: 'dotnet',
+      label: copy.configuration.gmcmProbeDotnetLabel,
+      description: diagnostics?.dotnetAvailable ? copy.configuration.gmcmProbeDotnetReady : copy.configuration.gmcmProbeDotnetMissing,
+      tone: diagnostics == null ? 'loading' : diagnostics.dotnetAvailable ? 'ok' : 'danger',
+      status: diagnostics?.dotnetAvailable ? copy.configuration.gmcmProbeReady : getProbeStatusLabel(diagnostics, copy),
+      icon: <Terminal className="h-4 w-4" />,
+    },
+    {
+      id: 'runtime',
+      label: copy.configuration.gmcmProbeRuntimeLabel,
+      description: diagnostics?.net6RuntimeAvailable
+        ? copy.configuration.gmcmProbeRuntimeReady
+        : copy.configuration.gmcmProbeRuntimeMissing,
+      tone: diagnostics == null ? 'loading' : diagnostics.net6RuntimeAvailable ? 'ok' : 'warn',
+      status: diagnostics?.net6RuntimeAvailable ? copy.configuration.gmcmProbeReady : getProbeStatusLabel(diagnostics, copy),
+      icon: <Server className="h-4 w-4" />,
+    },
+  ] satisfies Array<{
+    id: string
+    label: string
+    description: string
+    tone: ApiRouteTone
+    status: string
+    icon: ReactNode
+  }>
+  const userWarnings = diagnostics?.warnings.filter((warning) => isKnownProbeMessage(warning, copy.configuration.gmcmProbeWarningMessages))
+  const technicalDetails = diagnostics?.warnings.filter(
+    (warning) => !isKnownProbeMessage(warning, copy.configuration.gmcmProbeWarningMessages),
+  )
+  return (
+    <section
+      className={cx('launcher-config-panel launcher-config-gmcm-probe', `launcher-config-gmcm-probe-${statusTone}`)}
+      aria-label={copy.configuration.gmcmProbeTitle}
+      data-testid="launcher-config-gmcm-probe"
+      tabIndex={-1}
+    >
+      <ConfigPanelHeader
+        title={copy.configuration.gmcmProbeTitle}
+        description={copy.configuration.gmcmProbeSubtitle}
+        actions={
+          <div className="launcher-config-actions">
+            <span className={cx('launcher-config-status-tag', `launcher-config-status-tag-${statusTone}`)}>
+              {enabled ? getProbeStatusLabel(diagnostics, copy) : copy.configuration.gmcmParsingDisabled}
+            </span>
+            <button
+              type="button"
+              className="launcher-config-icon-button launcher-config-panel-icon-button launcher-config-refresh-button"
+              aria-busy={refreshing}
+              disabled={!enabled}
+              aria-label={copy.configuration.gmcmProbeTitle}
+              title={copy.configuration.gmcmProbeTitle}
+              onClick={onRefreshDiagnostics}
+            >
+              <RefreshCw className={cx('h-3.5 w-3.5', refreshing && 'animate-spin')} aria-hidden="true" />
+            </button>
+          </div>
+        }
+      />
+
+      {enabled ? (
+        <div className="launcher-config-api-list">
+          {rows.map((row, index) => (
+            <ConfigApiRow
+              key={row.id}
+              index={index}
+              routeId={row.id}
+              name={row.label}
+              description={row.description}
+              tone={row.tone}
+              statusLabel={row.status}
+              resolved={diagnostics != null}
+              statusAction={
+                diagnostics != null && (row.tone === 'warn' || row.tone === 'danger')
+                  ? { label: copy.configuration.gmcmProbeResolveAction, onClick: onOpenDetails }
+                  : undefined
+              }
+            >
+              {row.icon}
+            </ConfigApiRow>
+          ))}
+        </div>
+      ) : (
+        <div className="launcher-config-probe-disabled-feedback">
+          <span className="launcher-config-probe-disabled-icon" aria-hidden="true">
+            <Terminal className="h-4 w-4" />
+          </span>
+          <div>
+            <strong>{copy.configuration.gmcmParsingDisabled}</strong>
+            <span>{copy.configuration.gmcmParsingDisabledDescription}</span>
+          </div>
+        </div>
+      )}
+
+      {enabled ? (
+        <div className="launcher-config-probe-detail">
+          <span className="launcher-config-probe-detail-summary">{runtimesLabel}</span>
+          {diagnostics?.probeAssemblyPath ? (
+            <span className="launcher-config-probe-meta">
+              <span>{copy.configuration.gmcmProbeAssemblyLabel}</span>
+              <code className="launcher-config-probe-path" title={diagnostics.probeAssemblyPath}>
+                {getPathLeaf(diagnostics.probeAssemblyPath)}
+              </code>
+            </span>
+          ) : null}
+          {diagnostics?.dotnetPath ? (
+            <span className="launcher-config-probe-meta">
+              <span>{copy.configuration.gmcmProbeDotnetLabel}</span>
+              <code className="launcher-config-probe-command">{diagnostics.dotnetPath}</code>
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      <Dialog open={detailsOpen} onClose={onCloseDetails} labelledBy="gmcm-probe-details-title" size="md">
+        <DialogHeader
+          id="gmcm-probe-details-title"
+          title={copy.configuration.gmcmProbeDetailsTitle}
+          subtitle={copy.configuration.gmcmProbeDetailsSubtitle}
+          icon={<AlertTriangle className="h-5 w-5" />}
+          tone="warning"
+          closeLabel={copy.actions.closeDialog}
+          onClose={onCloseDetails}
+        />
+        <DialogBody className="launcher-config-probe-dialog-body">
+          {userWarnings?.length ? (
+            <section className="launcher-config-probe-dialog-section">
+              <div className="launcher-config-probe-dialog-section-title">
+                <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+                <h3>{copy.configuration.gmcmProbeWarningsTitle}</h3>
+              </div>
+              <ul>
+                {userWarnings.map((warning, index) => (
+                  <li key={`${warning}-${index}`}>{getProbeMessage(warning, copy.configuration.gmcmProbeWarningMessages)}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          {diagnostics?.repairActions.length ? (
+            <section className="launcher-config-probe-dialog-section launcher-config-probe-dialog-repairs">
+              <div className="launcher-config-probe-dialog-section-title">
+                <Wrench className="h-4 w-4" aria-hidden="true" />
+                <h3>{copy.configuration.gmcmProbeRepairsTitle}</h3>
+              </div>
+              {diagnostics.repairActions.includes('install-dotnet-6-runtime') ? (
+                <button
+                  type="button"
+                  className="control-button control-button-primary launcher-config-probe-download-button"
+                  onClick={onDownloadDotnet}
+                >
+                  {copy.configuration.gmcmProbeDownloadDotnet}
+                  <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              ) : null}
+              <ol>
+                {diagnostics.repairActions.map((action, index) => (
+                  <li key={`${action}-${index}`}>{getProbeRepairAction(action, copy.configuration.gmcmProbeRepairActions)}</li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
+          {technicalDetails?.length ? (
+            <details className="launcher-config-probe-technical-details">
+              <summary>{copy.configuration.gmcmProbeTechnicalDetails}</summary>
+              <p>{copy.configuration.gmcmProbeTechnicalDetailsHint}</p>
+              <pre>{technicalDetails.join('\n')}</pre>
+            </details>
+          ) : null}
+        </DialogBody>
+        <DialogFooter>
+          <DialogAction onClick={onCloseDetails}>{copy.actions.closeDialog}</DialogAction>
+        </DialogFooter>
+      </Dialog>
+    </section>
+  )
+}
+
 export function LauncherConfigurationPage({
   debugEnabled,
   onToggleDebugMode,
@@ -890,11 +1220,18 @@ export function LauncherConfigurationPage({
   const [diagnosticsRestartNonce, setDiagnosticsRestartNonce] = useState(0)
   const [installedModCount, setInstalledModCount] = useState<number | null>(null)
   const [runtimeInfo, setRuntimeInfo] = useState<LauncherRuntimeInfo | null>(null)
+  const [gmcmProbeDiagnostics, setGmcmProbeDiagnostics] = useState<LauncherGmcmProbeDiagnosticsResult | null>(null)
+  const [gmcmProbeRefreshing, setGmcmProbeRefreshing] = useState(false)
+  const [gmcmProbeDetailsOpen, setGmcmProbeDetailsOpen] = useState(false)
   const launcherPort = useLauncherPort()
   const warningState = getLauncherWarningState(settingsState.settings)
   const configuredPaths = countConfiguredPaths(settingsState.settings)
   const hasCredentials = !warningState.missingCredentials
   const warningDiagnostics = hasWarningDiagnostics(diagnosticRoutes)
+  const gmcmProbeStepTone = getProbeStatusTone(gmcmProbeDiagnostics)
+  const gmcmPreferenceReady = settingsState.state === 'ready'
+  const gmcmParsingEnabled = settingsState.settings.gmcmParsingEnabled !== false
+  const hasGmcmProbeIssue = gmcmParsingEnabled && (gmcmProbeStepTone === 'warn' || gmcmProbeStepTone === 'danger')
   const stepItems: ConfigStep[] = [
     {
       id: 'paths',
@@ -913,6 +1250,16 @@ export function LauncherConfigurationPage({
       label: copy.settings.stepDiagnostics,
       detail: warningDiagnostics ? copy.settings.diagnosticsReview : copy.settings.diagnosticsHealthy,
       tone: warningDiagnostics ? 'warn' : 'ok',
+    },
+    {
+      id: 'gmcm-probe',
+      label: copy.settings.stepGmcmProbe,
+      detail: !gmcmParsingEnabled
+        ? copy.configuration.gmcmParsingDisabled
+        : hasGmcmProbeIssue
+          ? copy.settings.gmcmProbeReview
+          : copy.settings.gmcmProbeReady,
+      tone: hasGmcmProbeIssue ? gmcmProbeStepTone : 'ok',
     },
   ]
   const readyStepCount = stepItems.filter((step) => step.tone === 'ok').length
@@ -938,9 +1285,26 @@ export function LauncherConfigurationPage({
   )
   const handleRefreshDiagnostics = useCallback(() => {
     setDiagnosticsRefreshing(true)
+    setGmcmProbeRefreshing(true)
     setDiagnosticRoutes(getDefaultConfigRoutes(copy))
+    setGmcmProbeDiagnostics(null)
     setDiagnosticsRestartNonce((value) => value + 1)
   }, [copy])
+  const handleNavigateToGmcmProbe = useCallback(() => {
+    const panel = document.querySelector('[data-testid="launcher-config-gmcm-probe"]')
+    if (panel instanceof HTMLElement && typeof panel.scrollIntoView === 'function') {
+      panel.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }
+    if (panel instanceof HTMLElement) {
+      panel.focus({ preventScroll: true })
+    }
+  }, [])
+  const handleOpenGmcmProbeDetails = useCallback(() => {
+    setGmcmProbeDetailsOpen(true)
+  }, [])
+  const handleDownloadDotnet = useCallback(() => {
+    void launcherPort.openUrl({ url: DOTNET_6_DOWNLOAD_URL })
+  }, [launcherPort])
   const account = useNexusApiAccountStatus(settingsState, forceNonPremium, handleRefreshDiagnostics)
   useEffect(() => {
     let disposed = false
@@ -1071,6 +1435,77 @@ export function LauncherConfigurationPage({
       }
     }
   }, [diagnosticsApiKeySignature, diagnosticsPollNonce, diagnosticsRestartNonce, handleDiagnosticsUpdate, onLauncherDiagnosticsUpdate])
+  useEffect(() => {
+    if (!gmcmPreferenceReady || !gmcmParsingEnabled) {
+      setGmcmProbeDiagnostics(null)
+      setGmcmProbeRefreshing(false)
+      return
+    }
+
+    let disposed = false
+
+    const loadProbeDiagnostics = async () => {
+      setGmcmProbeRefreshing(true)
+      try {
+        const diagnostics = await launcherPort.loadGmcmProbeDiagnostics()
+        if (!disposed) {
+          setGmcmProbeDiagnostics(diagnostics)
+          reportAppEvent({
+            level: diagnostics.status === 'ready' ? 'debug' : diagnostics.status === 'warning' ? 'warning' : 'error',
+            title: copy.configuration.gmcmProbeTitle,
+            description: getProbeNotificationDescription(diagnostics, copy),
+            action:
+              diagnostics.status === 'ready'
+                ? undefined
+                : {
+                    label: copy.actions.viewDetails,
+                    callback: handleNavigateToGmcmProbe,
+                  },
+            debugDiagnosticsEnabled: debugEnabled,
+            notify: false,
+            logMessage: getProbeDiagnosticLogMessage(diagnostics),
+            keyValues: {
+              source: 'launcher-gmcm-probe',
+              status: diagnostics.status,
+              dotnetAvailable: String(diagnostics.dotnetAvailable),
+              net6RuntimeAvailable: String(diagnostics.net6RuntimeAvailable),
+            },
+          })
+        }
+      } catch (nextError) {
+        if (!disposed) {
+          const diagnostics = createUnavailableProbeDiagnostics(nextError)
+          setGmcmProbeDiagnostics(diagnostics)
+          reportAppEvent({
+            level: 'error',
+            title: copy.configuration.gmcmProbeTitle,
+            description: getProbeNotificationDescription(diagnostics, copy),
+            action: {
+              label: copy.actions.viewDetails,
+              callback: handleNavigateToGmcmProbe,
+            },
+            debugDiagnosticsEnabled: true,
+            notify: false,
+            logMessage: getProbeDiagnosticLogMessage(diagnostics),
+            keyValues: {
+              source: 'launcher-gmcm-probe',
+              status: diagnostics.status,
+            },
+          })
+        }
+      } finally {
+        if (!disposed) {
+          setGmcmProbeRefreshing(false)
+        }
+      }
+    }
+
+    void loadProbeDiagnostics()
+
+    return () => {
+      disposed = true
+    }
+  }, [copy, debugEnabled, diagnosticsRestartNonce, gmcmParsingEnabled, gmcmPreferenceReady, handleNavigateToGmcmProbe, launcherPort])
   const handleViewLogs = useCallback(() => {
     setDebugToolsExpanded(true)
     window.requestAnimationFrame(() => {
@@ -1135,41 +1570,41 @@ export function LauncherConfigurationPage({
   return (
     <section className="launcher-configuration-page">
       <div className="launcher-configuration-canvas">
-        <LoadingMotionReveal itemId="launcher-configuration-header" index={0}>
-          <header className="launcher-configuration-page-header">
-            <div className="launcher-config-title-cluster">
-              <div className="launcher-config-breadcrumb">{copy.settings.configurationBreadcrumb}</div>
-              <h1 className="launcher-configuration-page-title">{copy.settings.configurationGameTitle}</h1>
-              <p className="launcher-config-header-status">{headerStatusLine}</p>
-            </div>
-            <div className="launcher-config-header-actions">
-              <div className="launcher-config-env-tags" aria-label={copy.settings.configurationGameTitle}>
-                <span className="launcher-config-env-tag">
-                  {gameVersion ? copy.settings.configurationGameVersionTag(gameVersion) : copy.settings.configurationVersionUnknown}
-                </span>
-                <span className="launcher-config-env-tag">
-                  {smapiVersion ? copy.settings.configurationSmapiVersionTag(smapiVersion) : copy.settings.configurationVersionUnknown}
-                </span>
-              </div>
-              <div className="launcher-config-header-button-group">
-                <button
-                  type="button"
-                  className="launcher-config-button launcher-config-button-brand"
-                  aria-busy={diagnosticsRefreshing}
-                  onClick={handleRefreshDiagnostics}
-                >
-                  {copy.settings.configurationRunDiagnostics}
-                </button>
-                <button type="button" className="launcher-config-button" onClick={handleViewLogs}>
-                  {copy.settings.configurationViewLogs}
-                </button>
-              </div>
-            </div>
-          </header>
-        </LoadingMotionReveal>
-
         <div className="launcher-config-layout">
           <main className="launcher-config-main-column">
+            <LoadingMotionReveal itemId="launcher-configuration-header" index={0}>
+              <header className="launcher-configuration-page-header">
+                <div className="launcher-config-title-cluster">
+                  <div className="launcher-config-breadcrumb">{copy.settings.configurationBreadcrumb}</div>
+                  <h1 className="launcher-configuration-page-title">{copy.settings.configurationGameTitle}</h1>
+                  <p className="launcher-config-header-status">{headerStatusLine}</p>
+                </div>
+                <div className="launcher-config-header-actions">
+                  <div className="launcher-config-env-tags" aria-label={copy.settings.configurationGameTitle}>
+                    <span className="launcher-config-env-tag">
+                      {gameVersion ? copy.settings.configurationGameVersionTag(gameVersion) : copy.settings.configurationVersionUnknown}
+                    </span>
+                    <span className="launcher-config-env-tag">
+                      {smapiVersion ? copy.settings.configurationSmapiVersionTag(smapiVersion) : copy.settings.configurationVersionUnknown}
+                    </span>
+                  </div>
+                  <div className="launcher-config-header-button-group">
+                    <button
+                      type="button"
+                      className="launcher-config-button launcher-config-button-brand"
+                      aria-busy={diagnosticsRefreshing || gmcmProbeRefreshing}
+                      onClick={handleRefreshDiagnostics}
+                    >
+                      {copy.settings.configurationRunDiagnostics}
+                    </button>
+                    <button type="button" className="launcher-config-button" onClick={handleViewLogs}>
+                      {copy.settings.configurationViewLogs}
+                    </button>
+                  </div>
+                </div>
+              </header>
+            </LoadingMotionReveal>
+
             <LoadingMotionReveal itemId="launcher-settings-panel" index={1}>
               <ConfigPathPanel settingsState={settingsState} copy={copy} browseLabel={rootCopy.controls.browse} />
             </LoadingMotionReveal>
@@ -1195,25 +1630,40 @@ export function LauncherConfigurationPage({
             />
             <ConfigDownloadDefaults settingsState={settingsState} />
           </aside>
-        </div>
 
-        <LauncherConfigurationMoreTools
-          debugEnabled={debugEnabled}
-          debugToolsExpanded={debugToolsExpanded}
-          forceNonPremium={forceNonPremium}
-          forceNonPremiumBusy={forceNonPremiumBusy}
-          forceOffline={forceOffline}
-          forceOfflineBusy={forceOfflineBusy}
-          bbcodePreviewExpanded={bbcodePreviewExpanded}
-          debugSimulationActive={debugSimulationActive}
-          onToggleDebugMode={onToggleDebugMode}
-          onToggleForceNonPremium={handleToggleForceNonPremium}
-          onToggleForceOffline={handleToggleForceOffline}
-          onClearLauncherImageCache={handleClearLauncherImageCache}
-          onStartDebugSimulation={downloads.startDebugSimulation}
-          setDebugToolsExpanded={setDebugToolsExpanded}
-          setBbcodePreviewExpanded={setBbcodePreviewExpanded}
-        />
+          <LoadingMotionReveal itemId="launcher-config-gmcm-probe" index={3} className="launcher-config-wide-panel">
+            <ConfigGmcmProbePanel
+              copy={copy}
+              diagnostics={gmcmProbeDiagnostics}
+              refreshing={gmcmProbeRefreshing}
+              onRefreshDiagnostics={handleRefreshDiagnostics}
+              detailsOpen={gmcmProbeDetailsOpen}
+              onOpenDetails={handleOpenGmcmProbeDetails}
+              onCloseDetails={() => setGmcmProbeDetailsOpen(false)}
+              onDownloadDotnet={handleDownloadDotnet}
+              enabled={gmcmParsingEnabled}
+            />
+          </LoadingMotionReveal>
+          <div className="launcher-config-wide-panel">
+            <LauncherConfigurationMoreTools
+              debugEnabled={debugEnabled}
+              debugToolsExpanded={debugToolsExpanded}
+              forceNonPremium={forceNonPremium}
+              forceNonPremiumBusy={forceNonPremiumBusy}
+              forceOffline={forceOffline}
+              forceOfflineBusy={forceOfflineBusy}
+              bbcodePreviewExpanded={bbcodePreviewExpanded}
+              debugSimulationActive={debugSimulationActive}
+              onToggleDebugMode={onToggleDebugMode}
+              onToggleForceNonPremium={handleToggleForceNonPremium}
+              onToggleForceOffline={handleToggleForceOffline}
+              onClearLauncherImageCache={handleClearLauncherImageCache}
+              onStartDebugSimulation={downloads.startDebugSimulation}
+              setDebugToolsExpanded={setDebugToolsExpanded}
+              setBbcodePreviewExpanded={setBbcodePreviewExpanded}
+            />
+          </div>
+        </div>
       </div>
     </section>
   )

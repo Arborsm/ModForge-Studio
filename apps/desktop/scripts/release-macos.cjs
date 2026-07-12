@@ -3,6 +3,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const desktopRoot = path.resolve(__dirname, '..')
+const tauriCliScript = path.join(__dirname, 'run-tauri-cli.cjs')
 const tauriRoot = path.join(desktopRoot, 'src-tauri')
 const bundleRoot = path.join(tauriRoot, 'target/release/bundle')
 const tauriConfig = JSON.parse(fs.readFileSync(path.join(tauriRoot, 'tauri.conf.json'), 'utf8'))
@@ -38,7 +39,7 @@ function hasOfficialSigningConfig(env) {
 }
 
 function runOfficialRelease() {
-  run('vp', ['run', 'tauri', 'build'])
+  run(process.execPath, [tauriCliScript, 'build'])
 }
 
 function withoutAppleSigningEnv() {
@@ -52,7 +53,7 @@ function withoutAppleSigningEnv() {
 }
 
 function runAdHocRelease() {
-  run('vp', ['run', 'tauri', 'build', '--bundles', 'app'], {
+  run(process.execPath, [tauriCliScript, 'build', '--bundles', 'app'], {
     env: withoutAppleSigningEnv(),
   })
 

@@ -6,6 +6,7 @@ export type LauncherSettings = {
   autoInstallDownloads: boolean
   keepDownloadedArchives: boolean
   autoCheckModUpdates: boolean
+  gmcmParsingEnabled?: boolean
 }
 
 export type SaveLauncherSettingsRequest = {
@@ -16,6 +17,7 @@ export type SaveLauncherSettingsRequest = {
   autoInstallDownloads?: boolean
   keepDownloadedArchives?: boolean
   autoCheckModUpdates?: boolean
+  gmcmParsingEnabled?: boolean
 }
 
 export type ScanLauncherLibraryRequest = {
@@ -33,6 +35,7 @@ export type LauncherLibraryModSummary = {
   folderName: string
   absolutePath: string
   enabled: boolean
+  hasConfig: boolean
   nexusModId: number | null
   updateKeys: string[]
   modUrl: string | null
@@ -125,6 +128,76 @@ export type SetLauncherModEnabledRequest = {
 export type SetLauncherModEnabledResult = {
   absolutePath: string
   enabled: boolean
+}
+
+export type LoadLauncherModConfigRequest = {
+  modPath: string
+  locale?: string | null
+}
+
+export type SaveLauncherModConfigRequest = {
+  modPath: string
+  locale?: string | null
+  values: Record<string, unknown>
+}
+
+export type LauncherModConfigSource = 'content-patcher' | 'generic-mod-config-menu' | 'config-json' | 'dll-static'
+
+export type LauncherModConfigFieldType = 'boolean' | 'integer' | 'number' | 'string' | 'string-array' | 'object' | 'unknown'
+/** Preferred editor control when a config field's storage type is not expressive enough. */
+export type LauncherModConfigUiHint = 'color' | 'item' | 'item-list' | 'keybind' | 'keybind-list'
+
+/** Searchable game item exposed to semantic config editors through the launcher platform port. */
+export type LauncherConfigItemOption = {
+  id: string
+  value: string
+  label: string
+  category: string | null
+  source: string
+  sourceKind: string
+  metadata: Record<string, string>
+}
+
+export type LauncherModConfigProbeStatus = 'not-run' | 'unavailable' | 'succeeded' | 'failed' | 'timed-out'
+
+export type LauncherModConfigField = {
+  key: string
+  label: string
+  description: string | null
+  section: string | null
+  fieldType: LauncherModConfigFieldType
+  uiHint?: LauncherModConfigUiHint | null
+  value: unknown
+  defaultValue: unknown
+  allowValues: unknown[]
+  allowBlank: boolean
+  allowMultiple: boolean
+  editable: boolean
+  source: LauncherModConfigSource
+}
+
+export type LauncherModConfigResult = {
+  modPath: string
+  configPath: string
+  configExists: boolean
+  fields: LauncherModConfigField[]
+  schemaSources: LauncherModConfigSource[]
+  warnings: string[]
+  probeStatus: LauncherModConfigProbeStatus
+  probeDiagnostics?: Record<string, unknown> | null
+}
+
+export type LauncherGmcmProbeDiagnosticStatus = 'ready' | 'warning' | 'unavailable'
+
+export type LauncherGmcmProbeDiagnosticsResult = {
+  status: LauncherGmcmProbeDiagnosticStatus
+  probeAssemblyPath: string | null
+  dotnetPath: string
+  dotnetAvailable: boolean
+  net6RuntimeAvailable: boolean
+  installedRuntimes: string[]
+  warnings: string[]
+  repairActions: string[]
 }
 
 export type SearchLauncherCatalogRequest = {

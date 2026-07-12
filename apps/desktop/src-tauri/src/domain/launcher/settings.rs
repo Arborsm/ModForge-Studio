@@ -2,6 +2,7 @@ use super::paths::launcher_settings_path;
 use super::types::{LauncherSettings, NullablePatch, SaveLauncherSettingsRequest};
 use crate::AppHandle;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::text_encoding::read_text_file;
 use anyhow::Context;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -43,6 +44,7 @@ pub(crate) fn normalize_settings(settings: LauncherSettings) -> LauncherSettings
         auto_install_downloads: settings.auto_install_downloads,
         keep_downloaded_archives: settings.keep_downloaded_archives,
         auto_check_mod_updates: settings.auto_check_mod_updates,
+        gmcm_parsing_enabled: settings.gmcm_parsing_enabled,
     }
 }
 
@@ -87,7 +89,7 @@ fn load_or_create_settings_at_path_unlocked(
     settings_path: &Path,
 ) -> anyhow::Result<LauncherSettings> {
     if settings_path.is_file() {
-        let content = fs::read_to_string(settings_path).with_context(|| {
+        let content = read_text_file(settings_path).with_context(|| {
             format!(
                 "Failed to read launcher settings {}",
                 normalize_path(settings_path)
@@ -195,6 +197,9 @@ pub(crate) fn merge_launcher_settings(
         auto_check_mod_updates: request
             .auto_check_mod_updates
             .unwrap_or(existing.auto_check_mod_updates),
+        gmcm_parsing_enabled: request
+            .gmcm_parsing_enabled
+            .unwrap_or(existing.gmcm_parsing_enabled),
     }
 }
 

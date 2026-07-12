@@ -2,8 +2,8 @@ import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { open } from '@tauri-apps/plugin-dialog'
-import type { OpenDialogOptions, PlatformPorts } from '@shared/contracts'
+import { open, save } from '@tauri-apps/plugin-dialog'
+import type { OpenDialogOptions, PlatformPorts, SaveDialogOptions } from '@shared/contracts'
 
 function canUseTauriHost() {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
@@ -37,6 +37,18 @@ async function openDialog(options?: OpenDialogOptions) {
   assertTauriHost()
 
   return open({
+    ...options,
+    filters: options?.filters?.map((filter) => ({
+      name: filter.name,
+      extensions: [...filter.extensions],
+    })),
+  })
+}
+
+async function saveFileDialog(options?: SaveDialogOptions) {
+  assertTauriHost()
+
+  return save({
     ...options,
     filters: options?.filters?.map((filter) => ({
       name: filter.name,
@@ -118,6 +130,7 @@ export function createTauriPlatformPorts(): PlatformPorts {
     storage: createBrowserStorage(),
     dialog: {
       open: openDialog,
+      saveFile: saveFileDialog,
       async chooseDirectory(title?: string) {
         const selected = await openDialog({ title, directory: true, multiple: false })
         return typeof selected === 'string' ? selected : null

@@ -24,6 +24,12 @@ fn load_app_ui_state_creates_defaults_when_file_is_missing() {
     assert_eq!(state.appearance.window_border_weight, "standard");
     assert!(state.workspace.layouts.is_empty());
     assert_eq!(state.workspace.workspace_view_mode, "edit");
+    assert_eq!(state.workspace.last_location.workbench_route, "home");
+    assert_eq!(state.workspace.last_location.workspace_mode, "map");
+    assert_eq!(state.workspace.last_location.workspace_view_mode, "preview");
+    assert!(state.workspace.side_nav.collapsed);
+    assert!(state.workspace.side_nav.browse_open);
+    assert!(!state.workspace.side_nav.tools_open);
     assert!(
         state
             .workspace
@@ -66,6 +72,7 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
                 workspace_view_mode: Some("project".to_string()),
                 cp_maker: Some(AppUiCpMakerWorkspaceStatePatch {
                     active_generated_draft_key: Some("  draft-001  ".to_string()),
+                    ..Default::default()
                 }),
                 ..Default::default()
             }),
@@ -164,6 +171,103 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
     assert_eq!(patched.launcher.discover_toolbar.sort, "downloads");
     assert!(patched.launcher.discover_toolbar.filters_hidden);
 
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn patch_app_ui_state_persists_workbench_navigation_across_reload() {
+    let root = create_temp_dir("app-ui-state-workbench-navigation");
+    let path = root.join("app").join("ui-state.json");
+
+    let patch = serde_json::from_value::<AppUiStatePatch>(json!({
+        "workspace": {
+            "lastLocation": {
+                "workbenchRoute": "workspace",
+                "workspaceMode": "items",
+                "workspaceViewMode": "edit",
+                "registeredWorkbenchViewId": "  i18n-generator  "
+            },
+            "sideNav": {
+                "collapsed": false,
+                "browseOpen": false,
+                "toolsOpen": true,
+                "devOpen": false
+            }
+        }
+    }))
+    .expect("deserialize workbench navigation patch");
+
+    patch_app_ui_state_at_path(&path, patch).expect("patch workbench navigation");
+
+    let reloaded = load_or_create_app_ui_state_at_path(&path).expect("reload workbench navigation");
+    assert_eq!(
+        reloaded.workspace.last_location.workbench_route,
+        "workspace"
+    );
+    assert_eq!(reloaded.workspace.last_location.workspace_mode, "items");
+    assert_eq!(reloaded.workspace.last_location.workspace_view_mode, "edit");
+    assert_eq!(
+        reloaded
+            .workspace
+            .last_location
+            .registered_workbench_view_id
+            .as_deref(),
+        Some("i18n-generator")
+    );
+    assert!(!reloaded.workspace.side_nav.collapsed);
+    assert!(!reloaded.workspace.side_nav.browse_open);
+    assert!(reloaded.workspace.side_nav.tools_open);
+    assert!(!reloaded.workspace.side_nav.dev_open);
+
+    let saved = fs::read_to_string(&path).expect("read workbench navigation state");
+    assert!(saved.contains("\"lastLocation\""));
+    assert!(saved.contains("\"sideNav\""));
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn patch_app_ui_state_persists_i18n_generator_session_without_source_payload() {
+    let root = create_temp_dir("app-ui-state-i18n-generator");
+    let path = root.join("app").join("ui-state.json");
+    let patch = serde_json::from_value::<AppUiStatePatch>(json!({
+        "workspace": {
+            "i18nGenerator": {
+                "prefix": "Example.Mod",
+                "targetPrefixes": { "Data/Objects": "objects" },
+                "enabledTargets": ["Data/Objects"],
+                "expandedPaths": ["Data", "Data/Objects"]
+            }
+        }
+    }))
+    .expect("deserialize i18n generator patch");
+
+    patch_app_ui_state_at_path(&path, patch).expect("patch i18n generator session");
+    let reloaded =
+        load_or_create_app_ui_state_at_path(&path).expect("reload i18n generator session");
+
+    assert_eq!(reloaded.workspace.i18n_generator.prefix, "Example.Mod");
+    assert_eq!(
+        reloaded
+            .workspace
+            .i18n_generator
+            .target_prefixes
+            .get("Data/Objects")
+            .map(String::as_str),
+        Some("objects")
+    );
+    assert_eq!(
+        reloaded.workspace.i18n_generator.enabled_targets,
+        vec!["Data/Objects"]
+    );
+    assert_eq!(
+        reloaded.workspace.i18n_generator.expanded_paths,
+        vec!["Data", "Data/Objects"]
+    );
+
+    let saved = fs::read_to_string(&path).expect("read i18n generator state");
+    assert!(!saved.contains("source"));
+    assert!(!saved.contains("generation"));
     fs::remove_dir_all(root).expect("cleanup");
 }
 

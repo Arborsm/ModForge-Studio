@@ -1,4 +1,4 @@
-import type { ViewportLabels, BuildAssetDialogCopy } from '../../../model/workbench'
+import type { ViewportLabels, BuildAssetDialogCopy, MapPanelCopy } from '../../../model/workbench'
 
 const map: ViewportLabels = {
   loadPrompt: 'Load an XNB map and this becomes the pan-able, zoomable main viewport.',
@@ -10,6 +10,10 @@ const map: ViewportLabels = {
   setOneToOne: 'Original scale',
   centerView: 'Center view',
   resetPan: 'Reset pan',
+  exportPng: 'Export PNG (full size)',
+  exportPngDialogTitle: 'Export Map PNG',
+  exportPngSuccess: (path) => `Map PNG exported: ${path}`,
+  failedToExportPng: 'Unable to export the map PNG.',
   addObjectHere: 'Add object here',
   inspectHover: 'Inspect hover data',
   unavailable: 'Unavailable',
@@ -34,5 +38,33 @@ const buildAssetDialog: BuildAssetDialogCopy = {
   cancelAction: 'Cancel',
 }
 
+const mapPanel: MapPanelCopy = {
+  browserTitle: 'Map assets',
+  browserSubtitle: 'Browse vanilla and mod maps by region',
+  browserPlaceholder: 'Filter by name, file, or relative path',
+  browserEmptyFiltered: 'No map assets match the current filter.',
+  browserEmptyMissing: 'No loadable map assets have been scanned yet.',
+  browserModEmpty: 'No modded maps match the current filter.',
+  sourceOriginalLabel: 'Vanilla',
+  sourceModLabel: 'Mod',
+  detailEmpty: 'No map is open. Select a map from the asset list.',
+  detailOverviewTab: 'Overview',
+  detailLayersTab: 'Layers',
+  detailObjectsTab: 'Objects',
+  basicsSection: 'Basics',
+  resourcesSection: 'Resources',
+  modSourcesSection: 'Mod sources',
+  baselineSource: 'Vanilla Content',
+  overlayNone: 'None',
+  layersFilterPlaceholder: 'Filter layers',
+  objectsFilterPlaceholder: 'Filter object groups',
+  layerKind: 'Layer',
+  warpsLabel: 'Warps',
+  layersVisible: (visible, total) => `${visible} / ${total} visible`,
+  objectsTotal: (count) => `${count} objects`,
+  warpsTotal: (count) => `${count} warps`,
+  moreObjects: (count) => `+${count}`,
+}
+
 export default map
-export { buildAssetDialog }
+export { buildAssetDialog, mapPanel }

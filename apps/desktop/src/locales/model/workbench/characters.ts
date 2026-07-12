@@ -4,6 +4,9 @@ export type CharactersPanelCopy = {
   browserFilterPlaceholder: string
   browserFilteredEmpty: string
   browserUnloadedEmpty: string
+  browserModEmpty: string
+  sourceOriginalLabel: string
+  sourceModLabel: string
   indexedStatusTemplate: string
   noEntriesStatus: string
   workspaceTitle: string
@@ -97,6 +100,11 @@ export type CharactersPanelCopy = {
   inspectorTitle: string
   inspectorSubtitle: string
   inspectorEmpty: string
+  detailInfoTab: string
+  detailVariantsTab: string
+  detailRelationsTab: string
+  detailAssetsTab: string
+  modSourcesTitle: string
   basics: string
   metadata: string
   assets: string

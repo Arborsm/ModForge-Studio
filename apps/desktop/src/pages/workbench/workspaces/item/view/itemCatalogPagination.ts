@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { ItemWorkspaceEntry } from '../entities/item'
 
 export type PaginationToken =
@@ -11,10 +11,23 @@ export type PaginationToken =
       key: string
     }
 
-export const CATALOG_GRID_GAP_PX = 8
-export const CATALOG_GRID_MIN_ROWS = 2
+const CATALOG_GRID_GAP_PX = 12
+const CATALOG_GRID_MIN_TILE_WIDTH_PX = 112
+const CATALOG_GRID_TILE_ASPECT_RATIO = 1 / 1.05
+const CATALOG_GRID_WRAPPER_PADDING_PX = 0
 
-const CATALOG_CARD_MIN_HEIGHT_PX = 118
+const CATALOG_LIST_ROW_HEIGHT_PX = 56
+const CATALOG_LIST_ROW_GAP_PX = 6
+const CATALOG_LIST_WRAPPER_PADDING_PX = 8
+const CATALOG_LIST_MIN_ROWS = 6
+
+function getMaxFittingRows(height: number, itemHeight: number, gap: number, wrapperPadding: number) {
+  if (height <= 0 || itemHeight <= 0) {
+    return 0
+  }
+
+  return Math.max(0, Math.floor((height - wrapperPadding + gap + 2) / (itemHeight + gap)))
+}
 
 function getPageCount(totalItems: number, itemsPerPage: number) {
   return Math.max(1, Math.ceil(totalItems / itemsPerPage))
@@ -35,33 +48,120 @@ export function paginateItems<T>(items: T[], currentPage: number, itemsPerPage: 
   }
 }
 
-function getCatalogColumnCount(width: number) {
-  if (width >= 1536) {
-    return 6
-  }
-
-  if (width >= 1280) {
-    return 5
-  }
-
-  if (width >= 640) {
-    return 4
-  }
-
-  return 3
+function computeGridPageSize(width: number, height: number) {
+  const columns = Math.max(
+    3,
+    Math.min(8, Math.floor((width + CATALOG_GRID_GAP_PX) / (CATALOG_GRID_MIN_TILE_WIDTH_PX + CATALOG_GRID_GAP_PX))),
+  )
+  const cellWidth = (width - (columns - 1) * CATALOG_GRID_GAP_PX) / columns
+  const tileHeight = cellWidth / CATALOG_GRID_TILE_ASPECT_RATIO
+  const rows = Math.max(1, getMaxFittingRows(height, tileHeight, CATALOG_GRID_GAP_PX, CATALOG_GRID_WRAPPER_PADDING_PX))
+  return columns * rows
 }
 
-function computeCatalogGridMetrics(width: number, height: number) {
-  const columns = getCatalogColumnCount(width)
-  const rows = Math.max(
-    CATALOG_GRID_MIN_ROWS,
-    Math.floor((height + CATALOG_GRID_GAP_PX) / (CATALOG_CARD_MIN_HEIGHT_PX + CATALOG_GRID_GAP_PX)),
-  )
+function computeListPageSize(_width: number, height: number) {
+  const rows = Math.max(1, getMaxFittingRows(height, CATALOG_LIST_ROW_HEIGHT_PX, CATALOG_LIST_ROW_GAP_PX, CATALOG_LIST_WRAPPER_PADDING_PX))
+  return rows
+}
+
+export function computeCatalogPageSize(viewMode: 'list' | 'grid', width: number, height: number) {
+  if (width <= 0 || height <= 0) {
+    return viewMode === 'grid' ? 12 : CATALOG_LIST_MIN_ROWS
+  }
+
+  return viewMode === 'grid' ? computeGridPageSize(width, height) : computeListPageSize(width, height)
+}
+
+function computeGridPageSizeFromElement(width: number, height: number, item: HTMLElement) {
+  const rect = item.getBoundingClientRect()
+  const columns = Math.max(3, Math.min(8, Math.floor((width + CATALOG_GRID_GAP_PX) / (rect.width + CATALOG_GRID_GAP_PX))))
+  const rows = Math.max(1, getMaxFittingRows(height, rect.height, CATALOG_GRID_GAP_PX, CATALOG_GRID_WRAPPER_PADDING_PX))
+  return columns * rows
+}
+
+function computeListPageSizeFromElement(_width: number, height: number, item: HTMLElement) {
+  const rect = item.getBoundingClientRect()
+  const rows = Math.max(1, getMaxFittingRows(height, rect.height, CATALOG_LIST_ROW_GAP_PX, CATALOG_LIST_WRAPPER_PADDING_PX))
+  return rows
+}
+
+function computeCatalogPageSizeFromElement(viewMode: 'list' | 'grid', width: number, height: number, item: HTMLElement) {
+  return viewMode === 'grid' ? computeGridPageSizeFromElement(width, height, item) : computeListPageSizeFromElement(width, height, item)
+}
+
+export function useCatalogPageSize(
+  viewMode: 'list' | 'grid',
+  itemsPerPage: number,
+  itemsLength: number,
+  onItemsPerPageChange: (itemsPerPage: number) => void,
+) {
+  const viewportRef = useRef<HTMLDivElement | null>(null)
+  const [measuredPageSize, setMeasuredPageSize] = useState(itemsPerPage)
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) {
+      return
+    }
+
+    let frameId = 0
+
+    const measure = () => {
+      frameId = 0
+      const item = viewport.querySelector<HTMLElement>('[data-catalog-item]')
+      const width = viewport.clientWidth
+      const height = viewport.clientHeight
+      const nextPageSize =
+        width > 0 && height > 0 && item
+          ? computeCatalogPageSizeFromElement(viewMode, width, height, item)
+          : computeCatalogPageSize(viewMode, width, height)
+
+      setMeasuredPageSize((current) => {
+        if (current === nextPageSize) {
+          return current
+        }
+        return nextPageSize
+      })
+
+      if (nextPageSize !== itemsPerPage) {
+        onItemsPerPageChange(nextPageSize)
+      }
+    }
+
+    const scheduleMeasure = () => {
+      if (frameId) {
+        return
+      }
+      frameId = window.requestAnimationFrame(measure)
+    }
+
+    scheduleMeasure()
+
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            scheduleMeasure()
+          })
+    resizeObserver?.observe(viewport)
+
+    const handleWindowResize = () => {
+      scheduleMeasure()
+    }
+    window.addEventListener('resize', handleWindowResize)
+
+    return () => {
+      if (frameId) {
+        window.cancelAnimationFrame(frameId)
+      }
+      window.removeEventListener('resize', handleWindowResize)
+      resizeObserver?.disconnect()
+    }
+  }, [viewMode, itemsPerPage, itemsLength, onItemsPerPageChange])
 
   return {
-    columns,
-    rows,
-    itemsPerPage: Math.max(columns * rows, columns),
+    viewportRef,
+    measuredPageSize,
   }
 }
 
@@ -170,79 +270,4 @@ export function sortItemsBySearchPriority(items: ItemWorkspaceEntry[], rawFilter
 
     return left.qualifiedItemId.localeCompare(right.qualifiedItemId, undefined, { numeric: true, sensitivity: 'base' })
   })
-}
-
-export function useCatalogGridMetrics(itemsPerPage: number, onItemsPerPageChange: (itemsPerPage: number) => void) {
-  const viewportRef = useRef<HTMLDivElement | null>(null)
-  const [metrics, setMetrics] = useState(() => ({
-    columns: 4,
-    rows: Math.max(CATALOG_GRID_MIN_ROWS, Math.ceil(itemsPerPage / 4)),
-  }))
-
-  useEffect(() => {
-    const viewport = viewportRef.current
-    if (!viewport) {
-      return
-    }
-
-    let frameId = 0
-
-    const measure = () => {
-      frameId = 0
-      const nextMetrics = computeCatalogGridMetrics(viewport.clientWidth, viewport.clientHeight)
-
-      setMetrics((current) => {
-        if (current.columns === nextMetrics.columns && current.rows === nextMetrics.rows) {
-          return current
-        }
-
-        return {
-          columns: nextMetrics.columns,
-          rows: nextMetrics.rows,
-        }
-      })
-
-      if (nextMetrics.itemsPerPage !== itemsPerPage) {
-        onItemsPerPageChange(nextMetrics.itemsPerPage)
-      }
-    }
-
-    const scheduleMeasure = () => {
-      if (frameId) {
-        return
-      }
-
-      frameId = window.requestAnimationFrame(measure)
-    }
-
-    scheduleMeasure()
-
-    const resizeObserver =
-      typeof ResizeObserver === 'undefined'
-        ? null
-        : new ResizeObserver(() => {
-            scheduleMeasure()
-          })
-    resizeObserver?.observe(viewport)
-
-    const handleWindowResize = () => {
-      scheduleMeasure()
-    }
-
-    window.addEventListener('resize', handleWindowResize)
-
-    return () => {
-      if (frameId) {
-        window.cancelAnimationFrame(frameId)
-      }
-      window.removeEventListener('resize', handleWindowResize)
-      resizeObserver?.disconnect()
-    }
-  }, [itemsPerPage, onItemsPerPageChange])
-
-  return {
-    viewportRef,
-    columns: metrics.columns,
-    rows: metrics.rows,
-  }
 }

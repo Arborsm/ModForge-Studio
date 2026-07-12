@@ -820,6 +820,14 @@ export function useCpMaker() {
     [activeDraft, port, refreshDrafts],
   )
 
+  /** Clear the in-memory active draft without deleting stored drafts. */
+  const clearActiveDraft = useCallback(() => {
+    setActiveDraft(null)
+    setIsDirty(false)
+    setDirtyPatchIds(new Set())
+    setDraftError(null)
+  }, [])
+
   // 复制草稿
   const copyDraft = useCallback(
     async (storageKey: string) => {
@@ -1103,6 +1111,7 @@ export function useCpMaker() {
     loadDraft,
     saveDraft,
     deleteDraft,
+    clearActiveDraft,
     copyDraft,
     refreshDrafts,
     chooseDirectory: (title?: string) => port.chooseDirectory(title),

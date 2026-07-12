@@ -45,6 +45,11 @@ import type {
   RecordLauncherImageFailureRequest,
   SaveLauncherSettingsRequest,
   LauncherGameLaunchResult,
+  LauncherGmcmProbeDiagnosticsResult,
+  LauncherModConfigResult,
+  LauncherConfigItemOption,
+  LoadLauncherModConfigRequest,
+  SaveLauncherModConfigRequest,
 } from './launcherContracts'
 
 export type LauncherDebugLogRequest = {
@@ -58,6 +63,7 @@ export type LauncherPort = {
   saveSettings: (request: SaveLauncherSettingsRequest) => Promise<LauncherSettings>
   scanLibrary: (request: ScanLauncherLibraryRequest) => Promise<LauncherLibraryScanResult>
   loadRuntimeInfo: () => Promise<LauncherRuntimeInfo>
+  loadGmcmProbeDiagnostics: () => Promise<LauncherGmcmProbeDiagnosticsResult>
   loadLibraryState: () => Promise<LauncherLibraryState>
   saveLibraryState: (request: LauncherLibraryState) => Promise<LauncherLibraryState>
   loadLibraryCovers: () => Promise<LauncherLibraryCoversState>
@@ -98,6 +104,9 @@ export type LauncherPort = {
   chooseImageFile: (title: string) => Promise<string | null>
   getBackupDirectory: () => Promise<string>
   setModEnabled: (request: SetLauncherModEnabledRequest) => Promise<SetLauncherModEnabledResult>
+  loadModConfig: (request: LoadLauncherModConfigRequest) => Promise<LauncherModConfigResult>
+  saveModConfig: (request: SaveLauncherModConfigRequest) => Promise<LauncherModConfigResult>
+  loadConfigItems: (gamePath: string, locale: string) => Promise<LauncherConfigItemOption[]>
   chooseDirectory: (title: string) => Promise<string | null>
   detectDefaultGameDirectory: () => Promise<string | null>
   toDesktopAssetUrl: (path: string, protocol?: string) => string

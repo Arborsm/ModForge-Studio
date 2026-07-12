@@ -21,6 +21,7 @@ function mod(overrides: Partial<LauncherLibraryItem>): LauncherLibraryItem {
     folderName: 'ExampleMod',
     absolutePath: '/mods/ExampleMod',
     enabled: true,
+    hasConfig: true,
     nexusModId: null,
     updateKeys: [],
     modUrl: null,

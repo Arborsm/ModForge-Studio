@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { WorkspaceLayoutHandle, WorkspacePanelMeta } from '@shared/contracts'
-import { editorCopy, type AppMode, type LocaleCode, type ThemeMode, type WorkspaceMode } from '@locales/api'
+import type { WorkspaceLayoutHandle } from '@shared/contracts'
+import { editorCopy, type AppMode, type WorkspaceMode } from '@locales/api'
 import { useModWorkspaceCopy } from '@locales/provider'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { WorkspaceDecisionDialog } from '../workspaces/mod'
@@ -12,103 +12,43 @@ import {
   CreateDraftDialog,
   ExportDialog,
   ProjectPropertiesDialog,
-  type CpMakerDraft,
 } from '@features/cp-maker'
-import StatusBar from '@widgets/status-bar'
 import TopMenuBar from '@widgets/top-navigation'
+import { WorkbenchSideNav, WorkbenchWorkspaceToolbar, WorkbenchEditGate } from '@widgets/workbench-shell'
 import '../model/builtInWorkspaces'
 import { scheduleDeferred } from '@shared/lib/react'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state'
 import { reportAppEvent } from '@platform/observability'
-import type { SettingsWindowCategory } from '@shared/contracts'
-import type { AppEvent, PendingWorkbenchCommandIntent, WorkbenchViewRegistration } from '@shared/contracts'
 import InitializationOverlay from './InitializationOverlay'
 import { WorkbenchMapPreviewRuntime, type MapPreviewStatusSnapshot } from './WorkbenchMapPreviewRuntime'
 import { WorkbenchPreviewRuntime, type PreviewStatusSnapshot } from './WorkbenchPreviewRuntime'
 import { WorkbenchModPreviewRuntime, type ModPreviewStatusSnapshot, type ModWorkspaceGuardHandle } from './WorkbenchModPreviewRuntime'
-import WorkbenchLaunchpadDock from './WorkbenchLaunchpadDock'
-import WorkbenchHomePage from './WorkbenchHomePage'
-import type { MakerWorkspaceMode } from './WorkbenchHomePage'
+import { WorkbenchHomePage } from './WorkbenchHomePage'
 import { WorkbenchViewHost } from './WorkbenchViewHost'
 import { useEditModeNavigation } from '../model/useEditModeNavigation'
 import { usePlayerAppearanceState } from '../model/usePlayerAppearanceState'
 import { useWorkspaceLayoutPersistence } from '../model/useWorkspaceLayoutPersistence'
+import { useWorkbenchNavigation } from '../model/useWorkbenchNavigation'
+import { createShellLocation, useWorkbenchProjectNavigation, type MakerWorkspaceMode } from '../model/useWorkbenchProjectNavigation'
 import { useWorkbenchLaunchpadRecentPages } from '../model/useWorkbenchLaunchpadRecentPages'
 import { useWorkbenchModeTransitions } from '../model/useWorkbenchModeTransitions'
 import { useWorkbenchCommandIntent } from '../model/workbenchCommandIntent'
 import { useWorkbenchStatus } from '../model/useWorkbenchStatus'
 import { useWorkbenchGameDirectory } from '../model/useWorkbenchGameDirectory'
+import { useWorkbenchShellHistory, type WorkbenchShellLocation } from '../model/useWorkbenchShellHistory'
 import { LoadingMotionFallback, LoadingMotionReveal } from '@shared/ui/loading-motion'
-import type { ResourcePreloadState, WorkspaceStatus } from '@entities/map'
+import {
+  arePathListsEqual,
+  EMPTY_RESOURCE_PRELOAD_STATE,
+  EMPTY_WORKSPACE_STATUS,
+  getPathListKey,
+  RESOURCE_PRELOAD_NOTIFICATION_ID,
+  resolveInitialWorkbenchLocation,
+  type WindowWithIdleCallback,
+  type WorkbenchExperienceProps,
+} from './workbenchExperienceSupport'
 
 const PlayerAppearanceWindow = lazy(() => import('./PlayerAppearanceWindow'))
-const RESOURCE_PRELOAD_NOTIFICATION_ID = 'app-resource-preload'
-const EMPTY_RESOURCE_PRELOAD_STATE: ResourcePreloadState = {
-  active: false,
-  message: '',
-  completed: 0,
-  total: 0,
-  currentLabel: '',
-}
-const EMPTY_WORKSPACE_STATUS: WorkspaceStatus = {
-  tone: 'idle',
-  message: '',
-}
-
-function arePathListsEqual(left: readonly string[], right: readonly string[]) {
-  if (left === right) {
-    return true
-  }
-
-  if (left.length !== right.length) {
-    return false
-  }
-
-  return left.every((value, index) => value === right[index])
-}
-
-function getPathListKey(paths: readonly string[]) {
-  return paths.join('\u0000')
-}
-
-type IdleDeadlineLike = {
-  didTimeout: boolean
-  timeRemaining: () => number
-}
-
-type WindowWithIdleCallback = Window & {
-  requestIdleCallback?: (callback: (deadline: IdleDeadlineLike) => void, options?: { timeout?: number }) => number
-  cancelIdleCallback?: (handle: number) => void
-}
-
-type CreateDraftMetadata = Pick<
-  CpMakerDraft['projectMetadata'],
-  'projectName' | 'projectDescription' | 'projectAuthor' | 'projectVersion' | 'projectUniqueId'
->
-
-type WorkbenchExperienceProps = {
-  pendingWorkbenchIntent: PendingWorkbenchCommandIntent | null
-  onClearPendingIntent: () => void
-  active: boolean
-  appUiStateReady: boolean
-  theme: ThemeMode
-  locale: LocaleCode
-  accentColor: string
-  desktopHost: boolean
-  onToggleTheme: () => void
-  onSwitchToLauncher: () => void
-  onOpenSettings: (category?: SettingsWindowCategory) => void
-  onMinimizeWindow: () => void
-  onToggleMaximizeWindow: () => void
-  onCloseWindow: () => boolean | Promise<boolean>
-  onWindowCloseRequestChange?: (handler: (() => boolean | Promise<boolean>) | null) => void
-  onHomeRouteActiveChange?: (active: boolean) => void
-  onWorkbenchEvent: (event: AppEvent) => void
-  getWorkbenchViewRegistration: (viewId: string) => WorkbenchViewRegistration | null
-  workbenchViews?: readonly WorkbenchViewRegistration[]
-  workbenchActivationKey?: number
-}
-
 export default function WorkbenchExperience({
   pendingWorkbenchIntent,
   onClearPendingIntent,
@@ -129,25 +69,44 @@ export default function WorkbenchExperience({
   onWorkbenchEvent,
   getWorkbenchViewRegistration,
   workbenchViews = [],
-  workbenchActivationKey = 0,
 }: WorkbenchExperienceProps) {
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('mods')
-  const [workspaceViewMode, setWorkspaceViewMode] = useState<'edit' | 'preview'>('edit')
+  const persistedWorkspace = getAppUiStateSnapshot().workspace
+  const persistedLocation = persistedWorkspace.lastLocation
+  const navigation = useWorkbenchNavigation(
+    resolveInitialWorkbenchLocation(persistedLocation, workbenchViews, getWorkbenchViewRegistration),
+  )
+  const { workbenchRoute, workspaceMode, workspaceViewMode, registeredWorkbenchViewId } = navigation.location
+  const {
+    state: navigationState,
+    restore: restoreNavigation,
+    setWorkbenchRoute,
+    setWorkspaceMode,
+    setWorkspaceViewMode,
+    setRegisteredWorkbenchViewId,
+  } = navigation
   const [deferredHeavyWorkspaceMode, setDeferredHeavyWorkspaceMode] = useState<WorkspaceMode | null>(null)
   const [projectOverlayOpen, setProjectOverlayOpen] = useState(false)
-  const [workbenchRoute, setWorkbenchRoute] = useState<'home' | 'workspace'>('home')
-  const [registeredWorkbenchViewId, setRegisteredWorkbenchViewId] = useState<string | null>(null)
+  const [sideNavCollapsed, setSideNavCollapsed] = useState(persistedWorkspace.sideNav?.collapsed ?? true)
+  const [sideNavSections, setSideNavSections] = useState({
+    browseOpen: persistedWorkspace.sideNav?.browseOpen ?? true,
+    toolsOpen: persistedWorkspace.sideNav?.toolsOpen ?? false,
+    devOpen: persistedWorkspace.sideNav?.devOpen ?? false,
+  })
+  const shellWorkspaceHydratedRef = useRef(false)
+  const persistedShellWorkspaceKeyRef = useRef<string | null>(null)
+  const getWorkbenchViewRegistrationRef = useRef(getWorkbenchViewRegistration)
   const [modI18nSourceLocale, setModI18nSourceLocale] = useState('default')
   const [modI18nTargetLocale, setModI18nTargetLocale] = useState('zh-CN')
   const [modI18nQuery, setModI18nQuery] = useState('')
   const [modI18nStatusFilter, setModI18nStatusFilter] = useState<ModI18nStatusFilter>('all')
   const lastSelectedDraftKeyRef = useRef<string | null>(null)
+  const draftRestoreAttemptedRef = useRef(false)
+  const shellRootRef = useRef<HTMLDivElement | null>(null)
   const { activeEditPatchId, navigateToPatch, goBack, goForward, resetNavigation, canGoBack, canGoForward } = useEditModeNavigation(
     workspaceViewMode === 'edit',
   )
 
   const { handleWorkspaceChange, handleWorkspaceViewModeChange } = useWorkbenchModeTransitions({
-    workspaceViewMode,
     setWorkspaceMode,
     setWorkspaceViewMode,
     resetNavigation,
@@ -162,8 +121,6 @@ export default function WorkbenchExperience({
   const [cpMakerUnsavedError, setCpMakerUnsavedError] = useState<string | null>(null)
 
   const storedRecentGameDirectories = getAppUiStateSnapshot()?.appearance.recentGameDirectories ?? []
-  const [viewMenuPanelItems, setViewMenuPanelItems] = useState<WorkspacePanelMeta[]>([])
-  const [viewMenuPresetNames, setViewMenuPresetNames] = useState<string[]>([])
   const [playerAppearanceWindowOpen, setPlayerAppearanceWindowOpen] = useState(false)
   const [playerAppearanceWindowNonce, setPlayerAppearanceWindowNonce] = useState(0)
   const workspaceLayoutRef = useRef<WorkspaceLayoutHandle | null>(null)
@@ -196,8 +153,6 @@ export default function WorkbenchExperience({
     copy,
   })
   const workbenchHomeActive = workbenchRoute === 'home'
-  const previousActiveRef = useRef(active)
-
   useEffect(() => {
     onHomeRouteActiveChange?.(active && workbenchHomeActive)
     return () => onHomeRouteActiveChange?.(false)
@@ -205,13 +160,40 @@ export default function WorkbenchExperience({
   const setWorkbenchRouteToWorkspace = useCallback(() => setWorkbenchRoute('workspace'), [])
 
   useEffect(() => {
-    const wasActive = previousActiveRef.current
-    previousActiveRef.current = active
+    getWorkbenchViewRegistrationRef.current = getWorkbenchViewRegistration
+  }, [getWorkbenchViewRegistration])
 
-    if (active && !wasActive) {
-      setWorkbenchRoute('home')
-    }
-  }, [active, workbenchActivationKey])
+  const applyShellLocation = useCallback(
+    (location: WorkbenchShellLocation) => {
+      const workspaceRegistration = workbenchViews.find(
+        (view) => view.activation.kind === 'workspace' && view.activation.workspaceMode === location.workspaceMode,
+      )
+      const restoredLocation =
+        workspaceRegistration?.activation.kind === 'workspace' && workspaceRegistration.activation.presentation === 'browser'
+          ? { ...location, workspaceViewMode: 'preview' as const }
+          : location
+      restoreNavigation(restoredLocation)
+      if (restoredLocation.workbenchRoute === 'workspace' && restoredLocation.workspaceViewMode === 'edit') {
+        resetNavigation()
+      }
+    },
+    [resetNavigation, restoreNavigation, workbenchViews],
+  )
+
+  const shellHistory = useWorkbenchShellHistory({
+    rootRef: shellRootRef,
+    enabled: active,
+    location: navigation.location,
+    onRestoreLocation: applyShellLocation,
+  })
+  const {
+    push: pushShellLocation,
+    resetTo: resetShellHistory,
+    goBack: goShellBack,
+    goForward: goShellForward,
+    canGoBack: canGoShellBack,
+    canGoForward: canGoShellForward,
+  } = shellHistory
 
   useEffect(() => {
     if (!active) {
@@ -225,6 +207,14 @@ export default function WorkbenchExperience({
 
       if (event.key === 'Escape' && workbenchRoute === 'home') {
         setWorkbenchRoute('workspace')
+        pushShellLocation(
+          createShellLocation({
+            workbenchRoute: 'workspace',
+            workspaceMode,
+            workspaceViewMode,
+            registeredWorkbenchViewId,
+          }),
+        )
         return
       }
 
@@ -232,13 +222,21 @@ export default function WorkbenchExperience({
         event.preventDefault()
         if (workbenchRoute !== 'home') {
           setWorkbenchRoute('home')
+          pushShellLocation(
+            createShellLocation({
+              workbenchRoute: 'home',
+              workspaceMode,
+              workspaceViewMode,
+              registeredWorkbenchViewId,
+            }),
+          )
         }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [active, workbenchRoute])
+  }, [active, pushShellLocation, registeredWorkbenchViewId, workbenchRoute, workspaceMode, workspaceViewMode])
 
   useEffect(() => {
     if (workspaceMode !== 'map') {
@@ -350,11 +348,6 @@ export default function WorkbenchExperience({
   const resourcePreloadState = mapPreviewSnapshot.resourcePreloadState.active
     ? mapPreviewSnapshot.resourcePreloadState
     : currentModeResourcePreloadState
-  const mapAssets = workspaceMode === 'map' ? mapPreviewSnapshot.mapAssets : []
-  const activeAsset = workspaceMode === 'map' ? mapPreviewSnapshot.activeAsset : null
-  const mapDocument = workspaceMode === 'map' ? mapPreviewSnapshot.mapDocument : null
-  const worldAtlasDocument = workspaceMode === 'map' ? mapPreviewSnapshot.worldAtlasDocument : null
-  const hoverInfo = workspaceMode === 'map' ? mapPreviewSnapshot.hoverInfo : null
   const [modGuardHandle, setModGuardHandle] = useState<ModWorkspaceGuardHandle | null>(null)
   const [modPreviewStatusSnapshot, setModPreviewStatusSnapshot] = useState<ModPreviewStatusSnapshot>({
     diagnostics: [],
@@ -389,6 +382,119 @@ export default function WorkbenchExperience({
     [handleWorkspaceChange, runWithModUnsavedGuard, workspaceMode],
   )
   const cpMaker = useCpMaker()
+  useEffect(() => {
+    if (!appUiStateReady || draftRestoreAttemptedRef.current) return
+    const savedKey = getAppUiStateSnapshot().workspace.cpMaker?.activeDraftKey ?? null
+    if (!savedKey) {
+      draftRestoreAttemptedRef.current = true
+      return
+    }
+    if (!cpMaker.drafts.length) return
+    draftRestoreAttemptedRef.current = true
+    if (cpMaker.drafts.some((draft) => draft.draftStorageKey === savedKey)) {
+      void cpMaker.loadDraft(savedKey)
+    } else {
+      void applyAppUiStatePatch({ workspace: { cpMaker: { activeDraftKey: null } } })
+    }
+  }, [appUiStateReady, cpMaker.drafts, cpMaker.loadDraft])
+
+  useEffect(() => {
+    if (!appUiStateReady) {
+      return
+    }
+
+    if (!shellWorkspaceHydratedRef.current) {
+      const workspace = getAppUiStateSnapshot().workspace
+      const location = workspace.lastLocation
+      const nextWorkspaceMode = ['map', 'events', 'characters', 'buildings', 'items', 'mod-browser', 'mod-i18n'].includes(
+        location?.workspaceMode ?? '',
+      )
+        ? (location!.workspaceMode as WorkspaceMode)
+        : 'map'
+      const nextRegisteredViewId =
+        location?.registeredWorkbenchViewId && getWorkbenchViewRegistrationRef.current(location.registeredWorkbenchViewId)
+          ? location.registeredWorkbenchViewId
+          : null
+
+      const nextWorkbenchRoute = location?.workbenchRoute ?? 'home'
+      const nextWorkspaceViewMode = location?.workspaceViewMode ?? workspace.workspaceViewMode ?? 'preview'
+      const nextWorkspaceRegistration = workbenchViews.find(
+        (view) => view.activation.kind === 'workspace' && view.activation.workspaceMode === nextWorkspaceMode,
+      )
+      const normalizedWorkspaceViewMode =
+        nextWorkspaceRegistration?.activation.kind === 'workspace' && nextWorkspaceRegistration.activation.presentation === 'browser'
+          ? 'preview'
+          : nextWorkspaceViewMode
+      const nextSideNav = {
+        collapsed: workspace.sideNav?.collapsed ?? true,
+        browseOpen: workspace.sideNav?.browseOpen ?? true,
+        toolsOpen: workspace.sideNav?.toolsOpen ?? false,
+        devOpen: workspace.sideNav?.devOpen ?? false,
+      }
+
+      restoreNavigation({
+        workbenchRoute: nextWorkbenchRoute,
+        workspaceMode: nextWorkspaceMode,
+        workspaceViewMode: normalizedWorkspaceViewMode,
+        registeredWorkbenchViewId: nextRegisteredViewId,
+      })
+      setSideNavCollapsed(nextSideNav.collapsed)
+      setSideNavSections({
+        browseOpen: nextSideNav.browseOpen,
+        toolsOpen: nextSideNav.toolsOpen,
+        devOpen: nextSideNav.devOpen,
+      })
+      persistedShellWorkspaceKeyRef.current = JSON.stringify({
+        workspaceViewMode: normalizedWorkspaceViewMode,
+        lastLocation: {
+          workbenchRoute: nextWorkbenchRoute,
+          workspaceMode: nextWorkspaceMode,
+          workspaceViewMode: normalizedWorkspaceViewMode,
+          registeredWorkbenchViewId: nextRegisteredViewId,
+        },
+        sideNav: nextSideNav,
+      })
+      shellWorkspaceHydratedRef.current = true
+      return
+    }
+
+    const nextWorkspaceShellState = {
+      workspaceViewMode,
+      lastLocation: { workbenchRoute, workspaceMode, workspaceViewMode, registeredWorkbenchViewId },
+      sideNav: { collapsed: sideNavCollapsed, ...sideNavSections },
+    }
+    const nextWorkspaceShellKey = JSON.stringify(nextWorkspaceShellState)
+    if (persistedShellWorkspaceKeyRef.current === nextWorkspaceShellKey) {
+      return
+    }
+    persistedShellWorkspaceKeyRef.current = nextWorkspaceShellKey
+
+    void applyAppUiStatePatch({
+      workspace: nextWorkspaceShellState,
+    })
+  }, [
+    appUiStateReady,
+    registeredWorkbenchViewId,
+    restoreNavigation,
+    sideNavCollapsed,
+    sideNavSections,
+    workbenchRoute,
+    workspaceMode,
+    workspaceViewMode,
+    workbenchViews,
+  ])
+
+  useEffect(() => {
+    if (!appUiStateReady || !draftRestoreAttemptedRef.current) return
+    const activeDraftKey = cpMaker.activeDraft?.draftStorageKey ?? null
+    const persisted = getAppUiStateSnapshot().workspace.cpMaker
+    if (persisted?.activeDraftKey === activeDraftKey) return
+    void applyAppUiStatePatch({
+      workspace: {
+        cpMaker: { activeGeneratedDraftKey: persisted?.activeGeneratedDraftKey ?? null, activeDraftKey },
+      },
+    })
+  }, [appUiStateReady, cpMaker.activeDraft?.draftStorageKey])
   const runWithCpMakerUnsavedGuard = useCallback(
     async (action: () => void | Promise<void>) => {
       if (!cpMaker.isDirty) {
@@ -412,10 +518,27 @@ export default function WorkbenchExperience({
       void runWithModUnsavedGuard(() => {
         void runWithCpMakerUnsavedGuard(() => {
           handleWorkspaceViewModeChange(mode)
+          pushShellLocation(
+            createShellLocation({
+              workbenchRoute,
+              workspaceMode,
+              workspaceViewMode: mode,
+              registeredWorkbenchViewId,
+            }),
+          )
         })
       })
     },
-    [handleWorkspaceViewModeChange, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard, workspaceViewMode],
+    [
+      handleWorkspaceViewModeChange,
+      pushShellLocation,
+      registeredWorkbenchViewId,
+      runWithCpMakerUnsavedGuard,
+      runWithModUnsavedGuard,
+      workbenchRoute,
+      workspaceMode,
+      workspaceViewMode,
+    ],
   )
   const confirmCpMakerUnsavedSaveAndContinue = useCallback(async () => {
     if (!pendingCpMakerUnsavedAction) {
@@ -487,11 +610,14 @@ export default function WorkbenchExperience({
   )
   const editModeRoute = registeredWorkbenchViewId ?? getEditModeRoute(workspaceMode, Boolean(cpMaker.activeDraft))
   const editModeView = getWorkbenchViewRegistration(editModeRoute)
+  const registeredViewRequiresProject = registeredWorkbenchViewId
+    ? getWorkbenchViewRegistration(registeredWorkbenchViewId)?.requiresProject === true
+    : true
   const devWorkbenchViews = useMemo(
     () =>
       import.meta.env.DEV
         ? workbenchViews
-            .filter((view) => view.devOnly)
+            .filter((view) => view.category === 'dev')
             .map((view) => ({
               ...view,
               active: view.viewId === registeredWorkbenchViewId,
@@ -501,7 +627,27 @@ export default function WorkbenchExperience({
         : [],
     [registeredWorkbenchViewId, workbenchViews],
   )
-  const { recentPages, rememberRecentPage } = useWorkbenchLaunchpadRecentPages({
+  const toolWorkbenchViews = useMemo(
+    () =>
+      workbenchViews
+        .filter((view) => view.category === 'tool')
+        .map((view) => ({
+          ...view,
+          active:
+            view.activation.kind === 'workspace'
+              ? navigationState.kind === 'workspace' && view.activation.workspaceMode === workspaceMode
+              : view.viewId === registeredWorkbenchViewId,
+        }))
+        .slice()
+        .sort((left, right) => (left.order ?? 0) - (right.order ?? 0)),
+    [navigationState.kind, registeredWorkbenchViewId, workbenchViews, workspaceMode],
+  )
+  const activeWorkspaceRegistration = workbenchViews.find(
+    (view) => view.activation.kind === 'workspace' && view.activation.workspaceMode === workspaceMode,
+  )
+  const workspaceUsesAuthoringChrome =
+    activeWorkspaceRegistration?.activation.kind !== 'workspace' || activeWorkspaceRegistration.activation.presentation === 'authoring'
+  const { rememberRecentPage } = useWorkbenchLaunchpadRecentPages({
     workspaceMode,
     workspaceViewMode,
     hasActiveProject: Boolean(cpMaker.activeDraft),
@@ -533,6 +679,8 @@ export default function WorkbenchExperience({
   })
   const interactionLocked = resourcePreloadState.active || directoryStatus.tone === 'working'
   const showProjectOverlay = !registeredWorkbenchViewId && (projectOverlayOpen || (workbenchRoute !== 'home' && needsInitialization))
+  const editLocked = workspaceViewMode === 'edit' && registeredViewRequiresProject && !cpMaker.activeDraft
+  const workspaceShowsPreview = workbenchRoute === 'workspace' && (workspaceViewMode === 'preview' || editLocked)
   const overlayStatus = directoryStatus.message || (currentWorkspaceStatus.tone === 'error' ? null : currentWorkspaceStatus.message)
   const overlayError =
     directoryStatus.tone === 'error'
@@ -624,33 +772,7 @@ export default function WorkbenchExperience({
     setPlayerAppearanceWindowOpen(true)
   }, [])
 
-  const handleLayoutMetaChange = useCallback(({ panelItems, presetNames }: { panelItems: WorkspacePanelMeta[]; presetNames: string[] }) => {
-    setViewMenuPanelItems((current) => {
-      if (
-        current.length === panelItems.length &&
-        current.every(
-          (item, index) =>
-            item.id === panelItems[index]?.id &&
-            item.title === panelItems[index]?.title &&
-            item.visible === panelItems[index]?.visible &&
-            item.mode === panelItems[index]?.mode &&
-            item.dock === panelItems[index]?.dock,
-        )
-      ) {
-        return current
-      }
-
-      return panelItems
-    })
-
-    setViewMenuPresetNames((current) => {
-      if (current.length === presetNames.length && current.every((name, index) => name === presetNames[index])) {
-        return current
-      }
-
-      return presetNames
-    })
-  }, [])
+  const ignoreLayoutMetaChange = useCallback(() => {}, [])
 
   const handleAppModeChange = useCallback(
     (nextMode: AppMode) => {
@@ -708,158 +830,6 @@ export default function WorkbenchExperience({
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [cpMaker.isDirty, modGuardHandle?.hasUnsavedChanges])
 
-  const handleOpenRootWorkspace = useCallback(
-    (mode: WorkspaceMode) => {
-      if (mode === 'mods') {
-        setRegisteredWorkbenchViewId(null)
-        handleWorkspaceChange(mode)
-        setWorkbenchRouteToWorkspace()
-        return
-      }
-
-      void runWithModUnsavedGuard(() => {
-        setRegisteredWorkbenchViewId(null)
-        setWorkspaceViewMode('preview')
-        setWorkspaceMode(mode)
-        rememberRecentPage({ kind: 'root', mode })
-        setWorkbenchRouteToWorkspace()
-      })
-    },
-    [handleWorkspaceChange, rememberRecentPage, runWithModUnsavedGuard, setWorkbenchRouteToWorkspace],
-  )
-
-  const handleOpenProjectWorkspace = useCallback(
-    (mode: MakerWorkspaceMode) => {
-      void runWithModUnsavedGuard(() => {
-        setRegisteredWorkbenchViewId(null)
-        setWorkspaceViewMode('edit')
-        setWorkspaceMode(mode)
-        resetNavigation()
-        rememberRecentPage({ kind: 'project', mode })
-        setWorkbenchRouteToWorkspace()
-      })
-    },
-    [rememberRecentPage, resetNavigation, runWithModUnsavedGuard, setWorkbenchRouteToWorkspace],
-  )
-
-  const handleOpenProjectLibrary = useCallback(() => {
-    setWorkbenchRoute('home')
-    setProjectLibraryFocusKey((key) => key + 1)
-  }, [])
-
-  const handleOpenProjectCreate = useCallback(() => {
-    setCreateDraftDialogOpen(true)
-  }, [])
-
-  const handleCreateDraft = useCallback(
-    (metadata: CreateDraftMetadata) => {
-      void runWithCpMakerUnsavedGuard(() => {
-        void cpMaker.createDraft({
-          ...metadata,
-          gameRootPath: directoryInfo?.rootPath ?? null,
-        })
-      })
-      setCreateDraftDialogOpen(false)
-    },
-    [cpMaker, directoryInfo?.rootPath, runWithCpMakerUnsavedGuard],
-  )
-
-  const handleImportDraft = useCallback(async () => {
-    await runWithModUnsavedGuard(async () => {
-      await runWithCpMakerUnsavedGuard(async () => {
-        const selectedPath = await cpMaker.chooseDirectory(copy.studioDesk.importDraft)
-        if (!selectedPath) {
-          return
-        }
-        const draft = await cpMaker.importPack(selectedPath)
-        onWorkbenchEvent({
-          type: 'cp-maker/draft-selected',
-          draftKey: draft.draftStorageKey,
-        })
-        setRegisteredWorkbenchViewId(null)
-        setWorkspaceMode('mods')
-        setWorkspaceViewMode('edit')
-        navigateToPatch(null)
-      })
-    })
-  }, [copy.studioDesk.importDraft, cpMaker, navigateToPatch, onWorkbenchEvent, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard])
-
-  const openLoadedDraftWorkspace = useCallback(
-    (mode: MakerWorkspaceMode | 'mods') => {
-      setRegisteredWorkbenchViewId(null)
-      setWorkspaceMode(mode)
-      setWorkspaceViewMode('edit')
-      navigateToPatch(null)
-      resetNavigation()
-      setWorkbenchRouteToWorkspace()
-      if (mode !== 'mods') {
-        rememberRecentPage({ kind: 'project', mode })
-      }
-    },
-    [navigateToPatch, rememberRecentPage, resetNavigation, setWorkbenchRouteToWorkspace],
-  )
-
-  const handleSelectProjectFromHome = useCallback(
-    (draftStorageKey: string, explicitMakerMode?: MakerWorkspaceMode | null) => {
-      const pendingMode = explicitMakerMode ?? makerPending
-      void runWithModUnsavedGuard(() => {
-        void runWithCpMakerUnsavedGuard(async () => {
-          await cpMaker.loadDraft(draftStorageKey)
-          onWorkbenchEvent({
-            type: 'cp-maker/draft-selected',
-            draftKey: draftStorageKey,
-          })
-          if (pendingMode) {
-            openLoadedDraftWorkspace(pendingMode)
-          } else {
-            resetNavigation()
-            setWorkbenchRoute('home')
-          }
-          setMakerPending(null)
-        })
-      })
-    },
-    [
-      cpMaker,
-      makerPending,
-      onWorkbenchEvent,
-      openLoadedDraftWorkspace,
-      resetNavigation,
-      runWithCpMakerUnsavedGuard,
-      runWithModUnsavedGuard,
-    ],
-  )
-
-  const handleCopyProject = useCallback(
-    (draftStorageKey: string) => {
-      void cpMaker.copyDraft(draftStorageKey)
-    },
-    [cpMaker],
-  )
-
-  const handleDeleteProject = useCallback(
-    (draftStorageKey: string) => {
-      void cpMaker.deleteDraft(draftStorageKey)
-    },
-    [cpMaker],
-  )
-
-  const handleUpdateDraftMetadata = useCallback(
-    (metadata: Partial<CpMakerDraft['projectMetadata']>) => {
-      cpMaker.updateMetadata(metadata)
-      setProjectPropertiesDialogOpen(false)
-    },
-    [cpMaker],
-  )
-
-  const handleExportPack = useCallback(
-    async (outputPath: string) => {
-      const result = await cpMaker.exportPack(outputPath)
-      void result
-    },
-    [cpMaker],
-  )
-
   const handleChooseGameDirectory = useCallback(() => {
     void chooseDirectory()
   }, [chooseDirectory])
@@ -868,81 +838,71 @@ export default function WorkbenchExperience({
     void runWithModUnsavedGuard(() => {
       void runWithCpMakerUnsavedGuard(async () => {
         const info = await validateCurrentDirectory()
-        if (!info) {
-          return
-        }
-
+        if (!info) return
         setProjectOverlayOpen(false)
         setWorkspaceMode('map')
         setWorkspaceViewMode('preview')
       })
     })
-  }, [runWithCpMakerUnsavedGuard, runWithModUnsavedGuard, validateCurrentDirectory])
+  }, [runWithCpMakerUnsavedGuard, runWithModUnsavedGuard, setWorkspaceMode, setWorkspaceViewMode, validateCurrentDirectory])
 
-  const handleOpenDevView = useCallback(
-    (viewId: string) => {
-      void runWithModUnsavedGuard(() => {
-        void runWithCpMakerUnsavedGuard(() => {
-          setRegisteredWorkbenchViewId(viewId)
-          setWorkspaceViewMode('edit')
-          rememberRecentPage({ kind: 'dev', viewId })
-          resetNavigation()
-          setWorkbenchRouteToWorkspace()
-        })
-      })
-    },
-    [rememberRecentPage, resetNavigation, runWithCpMakerUnsavedGuard, runWithModUnsavedGuard, setWorkbenchRouteToWorkspace],
-  )
-  useEffect(() => {
-    const draftKey = cpMaker.activeDraft?.draftStorageKey ?? null
-    if (!draftKey || !makerPending || workbenchRoute !== 'home') {
-      return
-    }
-
-    openLoadedDraftWorkspace(makerPending)
-    setMakerPending(null)
-  }, [cpMaker.activeDraft?.draftStorageKey, makerPending, openLoadedDraftWorkspace, workbenchRoute])
-
-  const handleToggleHome = useCallback(() => {
-    setWorkbenchRoute((current) => (current === 'home' ? 'workspace' : 'home'))
-  }, [])
-  const workbenchQuickDock = (
-    <WorkbenchLaunchpadDock
-      homeActive={workbenchHomeActive}
-      dockPlacement="titlebar"
-      workspaceMode={workspaceMode}
-      workspaceViewMode={workspaceViewMode}
-      recentPages={recentPages}
-      devViews={devWorkbenchViews}
-      onToggleHome={handleToggleHome}
-      onRootWorkspaceOpen={handleOpenRootWorkspace}
-      onProjectWorkspaceOpen={(mode) => {
-        if (mode === 'mods') {
-          handleOpenProjectLibrary()
-          return
-        }
-
-        if (mode === 'map' || mode === 'events' || mode === 'items') {
-          handleOpenProjectWorkspace(mode)
-          return
-        }
-
-        void runWithModUnsavedGuard(() => {
-          setRegisteredWorkbenchViewId(null)
-          setWorkspaceViewMode('edit')
-          setWorkspaceMode(mode)
-          resetNavigation()
-          rememberRecentPage({ kind: 'project', mode })
-          setWorkbenchRouteToWorkspace()
-        })
-      }}
-      onOpenProjectLibrary={handleOpenProjectLibrary}
-      onDevViewOpen={handleOpenDevView}
-    />
+  const {
+    handleCloseProject,
+    handleCopyProject,
+    handleCreateDraft,
+    handleDeleteProject,
+    handleExportPack,
+    handleImportDraft,
+    handleOpenDevView,
+    handleOpenHome,
+    handleOpenProjectCreate,
+    handleOpenProjectLibrary,
+    handleOpenProjectWorkspace,
+    handleOpenRegisteredWorkbenchView,
+    handleOpenRootWorkspace,
+    handleSelectProjectFromHome,
+    handleUpdateDraftMetadata,
+  } = useWorkbenchProjectNavigation({
+    cpMaker,
+    directoryRootPath: directoryInfo?.rootPath ?? null,
+    importDraftLabel: copy.studioDesk.importDraft,
+    makerPending,
+    setMakerPending,
+    workbenchRoute,
+    workspaceMode,
+    workspaceViewMode,
+    registeredWorkbenchViewId,
+    setWorkbenchRoute,
+    setWorkbenchRouteToWorkspace,
+    setWorkspaceMode,
+    setWorkspaceViewMode,
+    setRegisteredWorkbenchViewId,
+    setProjectLibraryFocusKey,
+    setCreateDraftDialogOpen,
+    setProjectPropertiesDialogOpen,
+    navigateToPatch,
+    resetNavigation,
+    pushShellLocation,
+    resetShellHistory,
+    rememberRecentPage,
+    runWithModUnsavedGuard,
+    runWithCpMakerUnsavedGuard,
+    onWorkbenchEvent,
+    getWorkbenchViewRegistration,
+  })
+  const projectMenuRecentProjects = useMemo(
+    () =>
+      studioDeskModel.gallery.projects.slice(0, 8).map((project) => ({
+        draftStorageKey: project.draftStorageKey,
+        title: project.title,
+        uniqueId: project.uniqueId,
+        isCurrent: project.isCurrent,
+      })),
+    [studioDeskModel.gallery.projects],
   )
 
   return (
-    <div className={active ? 'flex h-full flex-col' : 'hidden'} aria-busy={interactionLocked} aria-hidden={!active}>
+    <div ref={shellRootRef} className={active ? 'flex h-full flex-col' : 'hidden'} aria-busy={interactionLocked} aria-hidden={!active}>
       <TopMenuBar
         appMode="workbench"
         onAppModeChange={handleAppModeChange}
@@ -958,25 +918,25 @@ export default function WorkbenchExperience({
         onMinimizeWindow={onMinimizeWindow}
         onToggleMaximizeWindow={onToggleMaximizeWindow}
         onCloseWindow={handleCloseWindow}
-        viewMenu={{
-          panelItems: viewMenuPanelItems,
-          presetNames: viewMenuPresetNames,
-          onTogglePanel: (id, visible) => workspaceLayoutRef.current?.setPanelVisibility(id, visible),
-          onResetLayout: () => workspaceLayoutRef.current?.resetLayout(),
-          onSavePreset: (name) => workspaceLayoutRef.current?.savePreset(name),
-          onLoadPreset: (name) => workspaceLayoutRef.current?.loadPreset(name),
-          onDeletePreset: (name) => workspaceLayoutRef.current?.deletePreset(name),
-        }}
         settingsMenu={{
           onOpen: () => onOpenSettings('appearance'),
         }}
         projectMenu={{
-          highlighted: showProjectOverlay,
-          onOpen: () => {
-            setProjectOverlayOpen(true)
+          title: studioDeskModel.hasActiveDraft ? studioDeskModel.projectName || null : null,
+          version: studioDeskModel.hasActiveDraft ? studioDeskModel.projectVersion || null : null,
+          uniqueId: studioDeskModel.hasActiveDraft ? studioDeskModel.projectUniqueId || null : null,
+          recentProjects: projectMenuRecentProjects,
+          hasActiveProject: studioDeskModel.hasActiveDraft,
+          onSelectProject: (draftStorageKey) => handleSelectProjectFromHome(draftStorageKey),
+          onCreateProject: handleOpenProjectCreate,
+          onOpenProject: handleOpenProjectLibrary,
+          onImportProject: () => {
+            void handleImportDraft()
           },
+          onProjectSettings: () => setProjectPropertiesDialogOpen(true),
+          onExportProject: () => setExportDialogOpen(true),
+          onCloseProject: handleCloseProject,
         }}
-        workbenchQuickDock={workbenchQuickDock}
       />
 
       {playerAppearanceWindowOpen ? (
@@ -1013,137 +973,179 @@ export default function WorkbenchExperience({
         onPrimary={() => void confirmCpMakerUnsavedSaveAndContinue()}
       />
 
-      <div className="relative min-h-0 flex-1 overflow-hidden">
-        <WorkbenchMapPreviewRuntime
-          copy={copy}
-          locale={locale}
-          theme={theme}
-          accentColor={accentColor}
-          desktopHost={desktopHost}
-          active={active}
-          visible={workspaceViewMode === 'preview' && workspaceMode === 'map'}
-          directoryInfo={directoryInfo}
-          heavyWorkspaceReady={deferredHeavyWorkspaceMode === 'map'}
-          workspaceLayoutRef={workspaceLayoutRef}
-          workspaceLayoutStorageKey={workspaceLayoutStorageKey}
-          workspaceLayouts={workspaceLayouts}
-          onPersistStateChange={handleWorkspacePersistStateChange}
-          onLayoutMetaChange={handleLayoutMetaChange}
-          onDirectoryInvalid={handleDirectoryInvalid}
-          onStatusSnapshotChange={setMapPreviewSnapshot}
+      <div className="workbench-shell-body" data-nav={sideNavCollapsed ? 'collapsed' : 'expanded'}>
+        <WorkbenchSideNav
+          collapsed={sideNavCollapsed}
+          onCollapsedChange={setSideNavCollapsed}
+          canGoBack={canGoShellBack}
+          canGoForward={canGoShellForward}
+          onGoBack={goShellBack}
+          onGoForward={goShellForward}
+          onResetLayout={() => workspaceLayoutRef.current?.resetLayout()}
+          workbenchRoute={workbenchRoute}
+          workspaceMode={workspaceMode}
+          workspaceViewMode={workspaceViewMode}
+          registeredWorkbenchViewId={registeredWorkbenchViewId}
+          devViews={devWorkbenchViews}
+          toolViews={toolWorkbenchViews}
+          onHomeOpen={handleOpenHome}
+          onBrowseOpen={handleOpenRootWorkspace}
+          onDevViewOpen={handleOpenRegisteredWorkbenchView}
+          sectionState={sideNavSections}
+          onSectionStateChange={setSideNavSections}
         />
-        {workspaceViewMode === 'preview' && workspaceMode === 'map' ? null : (
-          <div className="absolute inset-0 min-h-0 overflow-hidden">
-            {workspaceViewMode === 'preview' ? (
-              <LoadingMotionReveal itemId="workbench-preview-mode" index={0} className="h-full min-h-0">
-                {workspaceMode === 'mods' || workspaceMode === 'mod-i18n' ? (
-                  <WorkbenchModPreviewRuntime
-                    copy={copy}
-                    locale={locale}
-                    theme={theme}
-                    accentColor={accentColor}
-                    workspaceMode={workspaceMode}
-                    directoryInfo={directoryInfo}
-                    heavyWorkspaceReady={deferredHeavyWorkspaceMode === workspaceMode}
-                    workspaceLayoutRef={workspaceLayoutRef}
-                    workspaceLayoutStorageKey={workspaceLayoutStorageKey}
-                    workspaceLayouts={workspaceLayouts}
-                    modI18nSourceLocale={modI18nSourceLocale}
-                    modI18nTargetLocale={modI18nTargetLocale}
-                    modI18nQuery={modI18nQuery}
-                    modI18nStatusFilter={modI18nStatusFilter}
-                    onModI18nSourceLocaleChange={handleModI18nSourceLocaleChange}
-                    onModI18nTargetLocaleChange={handleModI18nTargetLocaleChange}
-                    onModI18nQueryChange={setModI18nQuery}
-                    onModI18nStatusFilterChange={setModI18nStatusFilter}
-                    onGuardHandleChange={setModGuardHandle}
-                    onStatusSnapshotChange={setModPreviewStatusSnapshot}
-                    onPersistStateChange={handleWorkspacePersistStateChange}
-                    onLayoutMetaChange={handleLayoutMetaChange}
-                  />
-                ) : (
-                  <WorkbenchPreviewRuntime
-                    copy={copy}
-                    locale={locale}
-                    theme={theme}
-                    accentColor={accentColor}
-                    desktopHost={desktopHost}
-                    workspaceMode={workspaceMode}
-                    directoryInfo={directoryInfo}
-                    heavyWorkspaceReady={deferredHeavyWorkspaceMode === workspaceMode}
-                    workspaceLayoutRef={workspaceLayoutRef}
-                    workspaceLayoutStorageKey={workspaceLayoutStorageKey}
-                    workspaceLayouts={workspaceLayouts}
-                    onPersistStateChange={handleWorkspacePersistStateChange}
-                    onLayoutMetaChange={handleLayoutMetaChange}
-                    onDirectoryInvalid={handleDirectoryInvalid}
-                    onMapStatusSnapshotChange={setMapPreviewSnapshot}
-                    onStatusSnapshotChange={setPreviewStatusSnapshot}
-                    playerAppearanceProfile={activePlayerAppearanceProfile}
-                    onOpenPlayerAppearanceWindow={openAppearanceWindow}
-                  />
-                )}
-              </LoadingMotionReveal>
-            ) : (
-              <LoadingMotionReveal itemId="workbench-project-mode" index={0} className="h-full min-h-0">
-                <WorkbenchViewHost
-                  editModeView={editModeView}
-                  workspaceMode={workspaceMode}
-                  locale={locale}
-                  theme={theme}
-                  accentColor={accentColor}
-                  directoryInfo={directoryInfo}
-                  canGoBack={canGoBack}
-                  canGoForward={canGoForward}
-                  onGoBack={goBack}
-                  onGoForward={goForward}
-                  cpMaker={cpMaker}
-                  onWorkbenchEvent={onWorkbenchEvent}
-                  navigateToPatch={navigateToPatch}
-                  onSetWorkspaceMode={setWorkspaceMode}
-                  onRunWithModUnsavedGuard={runWithModUnsavedGuard}
-                  onRunWithCpMakerUnsavedGuard={runWithCpMakerUnsavedGuard}
-                  onSetWorkspaceViewMode={setWorkspaceViewMode}
-                  activeEditPatchId={activeEditPatchId}
-                  playerAppearanceProfile={activePlayerAppearanceProfile}
-                  onOpenPlayerAppearanceWindow={openAppearanceWindow}
-                />
-              </LoadingMotionReveal>
-            )}
-          </div>
-        )}
 
-        {workbenchRoute === 'home' ? (
-          <WorkbenchHomePage
-            workspaceMode={workspaceMode}
-            workspaceViewMode={workspaceViewMode}
-            hasActiveProject={Boolean(cpMaker.activeDraft)}
-            gameDirectoryReady={Boolean(directoryInfo)}
-            gameDirectoryStatus={directoryStatus}
-            studioDeskModel={studioDeskModel}
-            makerPending={makerPending}
-            projectLibraryFocusKey={projectLibraryFocusKey}
-            taskSummary={{
-              exportCount: studioDeskModel.gallery.projects.filter((project) => project.statuses.includes('export')).length,
-              conflictCount: studioDeskModel.stats.conflictCount,
-              directoryStatus,
-            }}
-            devViews={devWorkbenchViews}
-            onBackToWorkspace={setWorkbenchRouteToWorkspace}
-            onRootWorkspaceOpen={handleOpenRootWorkspace}
-            onProjectWorkspaceOpen={handleOpenProjectWorkspace}
-            onDevViewOpen={handleOpenDevView}
-            onProjectCreateOpen={handleOpenProjectCreate}
-            onProjectImport={handleImportDraft}
-            onProjectSelect={handleSelectProjectFromHome}
-            onProjectCopy={handleCopyProject}
-            onProjectDelete={handleDeleteProject}
-            onProjectPropertiesOpen={() => setProjectPropertiesDialogOpen(true)}
-            onExportProject={() => setExportDialogOpen(true)}
-            onMakerPendingChange={setMakerPending}
-            onGameDirectoryAction={() => setProjectOverlayOpen(true)}
-          />
-        ) : null}
+        <div className="workbench-shell-main">
+          {workbenchRoute === 'workspace' && !registeredWorkbenchViewId && workspaceUsesAuthoringChrome ? (
+            <WorkbenchWorkspaceToolbar
+              workspaceMode={workspaceMode}
+              workspaceViewMode={workspaceViewMode}
+              registeredWorkbenchViewId={registeredWorkbenchViewId}
+              registeredWorkbenchViewTitle={
+                registeredWorkbenchViewId
+                  ? (getWorkbenchViewRegistration(registeredWorkbenchViewId)?.title ?? registeredWorkbenchViewId)
+                  : null
+              }
+              hasActiveProject={Boolean(cpMaker.activeDraft)}
+              onWorkspaceViewModeChange={handleWorkspaceViewModeChangeWithGuards}
+            />
+          ) : null}
+          {workbenchRoute === 'workspace' && workspaceUsesAuthoringChrome && editLocked ? (
+            <WorkbenchEditGate onSelectProject={handleOpenHome} onStayBrowse={() => handleWorkspaceViewModeChangeWithGuards('preview')} />
+          ) : null}
+          <div className="relative h-full min-h-0 flex-1 overflow-hidden">
+            <WorkbenchMapPreviewRuntime
+              copy={copy}
+              locale={locale}
+              theme={theme}
+              accentColor={accentColor}
+              desktopHost={desktopHost}
+              active={active}
+              visible={workspaceShowsPreview && workspaceMode === 'map'}
+              directoryInfo={directoryInfo}
+              heavyWorkspaceReady={deferredHeavyWorkspaceMode === 'map'}
+              workspaceLayoutRef={workspaceLayoutRef}
+              workspaceLayoutStorageKey={workspaceLayoutStorageKey}
+              workspaceLayouts={workspaceLayouts}
+              onPersistStateChange={handleWorkspacePersistStateChange}
+              onDirectoryInvalid={handleDirectoryInvalid}
+              onStatusSnapshotChange={setMapPreviewSnapshot}
+              onLayoutMetaChange={ignoreLayoutMetaChange}
+            />
+            {workspaceShowsPreview && workspaceMode === 'map' ? null : (
+              <div className="absolute inset-0 min-h-0 overflow-hidden">
+                {workspaceShowsPreview ? (
+                  <LoadingMotionReveal itemId="workbench-preview-mode" index={0} className="h-full min-h-0">
+                    {workspaceMode === 'mod-browser' || workspaceMode === 'mod-i18n' ? (
+                      <WorkbenchModPreviewRuntime
+                        copy={copy}
+                        locale={locale}
+                        theme={theme}
+                        accentColor={accentColor}
+                        workspaceMode={workspaceMode}
+                        directoryInfo={directoryInfo}
+                        heavyWorkspaceReady={deferredHeavyWorkspaceMode === workspaceMode}
+                        workspaceLayoutRef={workspaceLayoutRef}
+                        workspaceLayoutStorageKey={workspaceLayoutStorageKey}
+                        workspaceLayouts={workspaceLayouts}
+                        modI18nSourceLocale={modI18nSourceLocale}
+                        modI18nTargetLocale={modI18nTargetLocale}
+                        modI18nQuery={modI18nQuery}
+                        modI18nStatusFilter={modI18nStatusFilter}
+                        onModI18nSourceLocaleChange={handleModI18nSourceLocaleChange}
+                        onModI18nTargetLocaleChange={handleModI18nTargetLocaleChange}
+                        onModI18nQueryChange={setModI18nQuery}
+                        onModI18nStatusFilterChange={setModI18nStatusFilter}
+                        onGuardHandleChange={setModGuardHandle}
+                        onStatusSnapshotChange={setModPreviewStatusSnapshot}
+                        onPersistStateChange={handleWorkspacePersistStateChange}
+                        onLayoutMetaChange={ignoreLayoutMetaChange}
+                      />
+                    ) : (
+                      <WorkbenchPreviewRuntime
+                        copy={copy}
+                        locale={locale}
+                        theme={theme}
+                        accentColor={accentColor}
+                        desktopHost={desktopHost}
+                        workspaceMode={workspaceMode}
+                        directoryInfo={directoryInfo}
+                        heavyWorkspaceReady={deferredHeavyWorkspaceMode === workspaceMode}
+                        workspaceLayoutRef={workspaceLayoutRef}
+                        workspaceLayoutStorageKey={workspaceLayoutStorageKey}
+                        workspaceLayouts={workspaceLayouts}
+                        onPersistStateChange={handleWorkspacePersistStateChange}
+                        onDirectoryInvalid={handleDirectoryInvalid}
+                        onMapStatusSnapshotChange={setMapPreviewSnapshot}
+                        onStatusSnapshotChange={setPreviewStatusSnapshot}
+                        playerAppearanceProfile={activePlayerAppearanceProfile}
+                        onOpenPlayerAppearanceWindow={openAppearanceWindow}
+                        onLayoutMetaChange={ignoreLayoutMetaChange}
+                      />
+                    )}
+                  </LoadingMotionReveal>
+                ) : (
+                  <LoadingMotionReveal itemId="workbench-project-mode" index={0} className="h-full min-h-0">
+                    <WorkbenchViewHost
+                      editModeView={editModeView}
+                      workspaceMode={workspaceMode}
+                      locale={locale}
+                      theme={theme}
+                      accentColor={accentColor}
+                      directoryInfo={directoryInfo}
+                      canGoBack={canGoBack}
+                      canGoForward={canGoForward}
+                      onGoBack={goBack}
+                      onGoForward={goForward}
+                      cpMaker={cpMaker}
+                      onWorkbenchEvent={onWorkbenchEvent}
+                      navigateToPatch={navigateToPatch}
+                      onRunWithModUnsavedGuard={runWithModUnsavedGuard}
+                      onRunWithCpMakerUnsavedGuard={runWithCpMakerUnsavedGuard}
+                      onSetWorkspaceViewMode={setWorkspaceViewMode}
+                      activeEditPatchId={activeEditPatchId}
+                      playerAppearanceProfile={activePlayerAppearanceProfile}
+                      onOpenPlayerAppearanceWindow={openAppearanceWindow}
+                    />
+                  </LoadingMotionReveal>
+                )}
+              </div>
+            )}
+
+            {workbenchRoute === 'home' ? (
+              <WorkbenchHomePage
+                workspaceMode={workspaceMode}
+                workspaceViewMode={workspaceViewMode}
+                hasActiveProject={Boolean(cpMaker.activeDraft)}
+                gameDirectoryReady={Boolean(directoryInfo)}
+                gameDirectoryStatus={directoryStatus}
+                studioDeskModel={studioDeskModel}
+                makerPending={makerPending}
+                projectLibraryFocusKey={projectLibraryFocusKey}
+                taskSummary={{
+                  exportCount: studioDeskModel.gallery.projects.filter((project) => project.statuses.includes('export')).length,
+                  conflictCount: studioDeskModel.stats.conflictCount,
+                  directoryStatus,
+                }}
+                devViews={devWorkbenchViews}
+                onBackToWorkspace={setWorkbenchRouteToWorkspace}
+                onRootWorkspaceOpen={handleOpenRootWorkspace}
+                onProjectWorkspaceOpen={handleOpenProjectWorkspace}
+                onDevViewOpen={handleOpenDevView}
+                onProjectCreateOpen={handleOpenProjectCreate}
+                onProjectImport={handleImportDraft}
+                onProjectSelect={handleSelectProjectFromHome}
+                onProjectCopy={handleCopyProject}
+                onProjectDelete={handleDeleteProject}
+                onProjectPropertiesOpen={() => setProjectPropertiesDialogOpen(true)}
+                onExportProject={() => setExportDialogOpen(true)}
+                onMakerPendingChange={setMakerPending}
+                onGameDirectoryAction={() => setProjectOverlayOpen(true)}
+                onCloseProject={handleCloseProject}
+              />
+            ) : null}
+          </div>
+        </div>
       </div>
 
       <CreateDraftDialog open={createDraftDialogOpen} onClose={() => setCreateDraftDialogOpen(false)} onCreate={handleCreateDraft} />
@@ -1184,36 +1186,6 @@ export default function WorkbenchExperience({
           onRetry={() => void handleValidateGameDirectory()}
           onChooseDirectoryAction={handleChooseGameDirectory}
           onClose={needsInitialization ? undefined : () => setProjectOverlayOpen(false)}
-        />
-      ) : null}
-
-      {workspaceViewMode !== 'edit' && workbenchRoute === 'workspace' ? (
-        <StatusBar
-          appMode="workbench"
-          launcherPage="library"
-          workspaceMode={workspaceMode}
-          workspaceViewMode={workspaceViewMode}
-          workspaceStatus={currentWorkspaceStatus}
-          directoryInfo={directoryInfo}
-          mapAssets={mapAssets}
-          activeAsset={activeAsset}
-          mapDocument={mapDocument}
-          pathLabel={mapDocument?.relativePath ?? activeAsset?.relativePath ?? worldAtlasDocument?.relativePath ?? copy.common.none}
-          hoverInfo={hoverInfo}
-          eventName={previewStatusSnapshot.selectedEvent?.eventId ?? null}
-          eventPreconditions={previewStatusSnapshot.selectedEvent?.preconditions}
-          eventCommandCount={previewStatusSnapshot.selectedEvent?.commands.length ?? 0}
-          eventActorCount={previewStatusSnapshot.selectedEvent?.scene.actors.length ?? 0}
-          currentEventCommandId={previewStatusSnapshot.currentEventCommandId}
-          patchName={activeEditPatchId ?? null}
-          scriptLength={previewStatusSnapshot.selectedEvent?.rawScript.length}
-          isModified={
-            previewStatusSnapshot.selectedEvent
-              ? previewStatusSnapshot.selectedEvent.rawScript !==
-                (previewStatusSnapshot.parsedEventAsset?.events.find((event) => event.key === previewStatusSnapshot.selectedEvent?.key)
-                  ?.rawScript ?? previewStatusSnapshot.selectedEvent.rawScript)
-              : false
-          }
         />
       ) : null}
     </div>

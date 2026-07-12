@@ -16,6 +16,7 @@ function createMockCpMaker(overrides: Partial<UseCpMakerReturn> = {}): UseCpMake
     loadDraft: vi.fn(),
     saveDraft: vi.fn(),
     deleteDraft: vi.fn(),
+    clearActiveDraft: vi.fn(),
     copyDraft: vi.fn(),
     refreshDrafts: vi.fn(),
     addPatch: vi.fn(),

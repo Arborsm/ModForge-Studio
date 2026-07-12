@@ -1,17 +1,18 @@
 import { cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { ModBrowserPanel } from '@pages/workbench/workspaces/mod/mods/content-patcher/content-view/ModBrowserPanel'
-import { getModWorkspaceCopy } from '@locales/api'
+import { getModI18nWorkspaceCopy, getModWorkspaceCopy } from '@locales/api'
 import { renderWithLocale } from '@test/renderWithLocale'
 
 const copy = getModWorkspaceCopy('en-US')
+const i18nCopy = getModI18nWorkspaceCopy('en-US')
 
 afterEach(() => {
   cleanup()
 })
 
 function buildProject(overrides: Partial<Parameters<typeof ModBrowserPanel>[0]['projects'][number]> = {}) {
-  return {
+  const base = {
     id: 'seasonal-garden',
     name: 'Seasonal Garden',
     author: 'Aly',
@@ -26,7 +27,14 @@ function buildProject(overrides: Partial<Parameters<typeof ModBrowserPanel>[0]['
     contentPath: 'E:\\Mods\\SeasonalGarden\\content.json',
     status: 'ready' as const,
     missingRequiredDependencies: [],
+    hasI18n: false,
+    i18nEntryCount: 0,
     ...overrides,
+  }
+
+  return {
+    ...base,
+    i18nEntryCount: base.i18nEntryCount ?? (base.hasI18n ? 3 : 0),
   }
 }
 
@@ -270,7 +278,32 @@ describe('ModBrowserPanel', () => {
     expect(badge.className).not.toContain('text-emerald-200')
   })
 
-  it('shows missing required dependency details and blocks selecting incompatible projects', () => {
+  it('hides CP, compatibility and i18n filters in i18n mode', () => {
+    renderWithLocale(
+      <ModBrowserPanel
+        projects={[buildProject({ hasI18n: true })]}
+        filteredProjects={[buildProject({ hasI18n: true })]}
+        activeProjectPath={null}
+        modFilter=""
+        contentPatcherOnly={false}
+        compatibleOnly={false}
+        i18nOnly
+        mode="i18n"
+        onFilterChange={vi.fn()}
+        onContentPatcherOnlyChange={vi.fn()}
+        onCompatibleOnlyChange={vi.fn()}
+        onSelectProject={vi.fn()}
+        onImportProject={vi.fn()}
+        onRefreshProjects={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: copy.contentPatcherOnly })).toBeNull()
+    expect(screen.queryByRole('button', { name: copy.compatibleOnly })).toBeNull()
+    expect(screen.queryByRole('button', { name: copy.i18nOnly })).toBeNull()
+  })
+
+  it('lets incompatible projects be selected in i18n mode', () => {
     const onSelectProject = vi.fn()
     const incompatibleProject = buildProject({
       id: 'needs-scaleup',
@@ -278,6 +311,7 @@ describe('ModBrowserPanel', () => {
       absolutePath: 'E:\\Mods\\NeedsScaleUp',
       status: 'incompatible',
       missingRequiredDependencies: ['Platonymous.ScaleUp'],
+      hasI18n: true,
     })
 
     renderWithLocale(
@@ -286,24 +320,164 @@ describe('ModBrowserPanel', () => {
         filteredProjects={[incompatibleProject]}
         activeProjectPath={null}
         modFilter=""
-        contentPatcherOnly
+        contentPatcherOnly={false}
         compatibleOnly={false}
+        i18nOnly
+        mode="i18n"
         onFilterChange={vi.fn()}
         onContentPatcherOnlyChange={vi.fn()}
         onCompatibleOnlyChange={vi.fn()}
+        onI18nOnlyChange={vi.fn()}
         onSelectProject={onSelectProject}
         onImportProject={vi.fn()}
         onRefreshProjects={vi.fn()}
       />,
     )
 
-    expect(screen.getByText(copy.incompatibleProject)).toBeTruthy()
-    expect(screen.getByText(copy.missingRequiredDependencies('Platonymous.ScaleUp'))).toBeTruthy()
+    expect(screen.queryByText(copy.incompatibleProject)).toBeNull()
 
     const card = screen.getByRole('button', { name: /Needs ScaleUp/i })
-    expect(card.getAttribute('disabled')).not.toBeNull()
+    expect(card.getAttribute('disabled')).toBeNull()
 
     fireEvent.click(card)
-    expect(onSelectProject).not.toHaveBeenCalled()
+    expect(onSelectProject).toHaveBeenCalledWith('E:\\Mods\\NeedsScaleUp')
+  })
+
+  describe('i18n mode', () => {
+    it('shows i18n browser search, refresh and selects a project', () => {
+      const onFilterChange = vi.fn()
+      const onSelectProject = vi.fn()
+      const onRefreshProjects = vi.fn()
+      const projects = [
+        buildProject({ hasI18n: true }),
+        buildProject({ id: 'festival-pack', name: 'Festival Pack', absolutePath: 'E:\\Mods\\FestivalPack', hasI18n: true }),
+      ]
+
+      renderWithLocale(
+        <ModBrowserPanel
+          projects={projects}
+          filteredProjects={projects}
+          activeProjectPath={projects[0].absolutePath}
+          modFilter=""
+          contentPatcherOnly={false}
+          compatibleOnly={false}
+          i18nOnly
+          mode="i18n"
+          onFilterChange={onFilterChange}
+          onContentPatcherOnlyChange={vi.fn()}
+          onCompatibleOnlyChange={vi.fn()}
+          onSelectProject={onSelectProject}
+          onRefreshProjects={onRefreshProjects}
+        />,
+      )
+
+      expect(screen.getByPlaceholderText(i18nCopy.browserSearchPlaceholder)).toBeTruthy()
+      expect(screen.getByRole('button', { name: i18nCopy.browserRefreshProjects })).toBeTruthy()
+      expect(screen.getByText(i18nCopy.browserProjectsCount(projects.length))).toBeTruthy()
+
+      fireEvent.change(screen.getByPlaceholderText(i18nCopy.browserSearchPlaceholder), {
+        target: { value: 'festival' },
+      })
+      expect(onFilterChange).toHaveBeenCalledWith('festival')
+
+      fireEvent.click(screen.getByRole('button', { name: /Festival Pack/i }))
+      expect(onSelectProject).toHaveBeenCalledWith('E:\\Mods\\FestivalPack')
+    })
+
+    it('hides plugin-kind badge, absolute path and incompatible badge in i18n mode', () => {
+      const incompatibleProject = buildProject({
+        id: 'needs-scaleup',
+        name: 'Needs ScaleUp',
+        absolutePath: 'E:\\Mods\\NeedsScaleUp',
+        status: 'incompatible',
+        missingRequiredDependencies: ['Platonymous.ScaleUp'],
+        hasI18n: true,
+      })
+
+      renderWithLocale(
+        <ModBrowserPanel
+          projects={[incompatibleProject]}
+          filteredProjects={[incompatibleProject]}
+          activeProjectPath={null}
+          modFilter=""
+          contentPatcherOnly={false}
+          compatibleOnly={false}
+          i18nOnly
+          mode="i18n"
+          onFilterChange={vi.fn()}
+          onContentPatcherOnlyChange={vi.fn()}
+          onCompatibleOnlyChange={vi.fn()}
+          onSelectProject={vi.fn()}
+          onImportProject={vi.fn()}
+          onRefreshProjects={vi.fn()}
+        />,
+      )
+
+      expect(screen.queryByText('Content Patcher')).toBeNull()
+      expect(screen.queryByText(copy.incompatibleProject)).toBeNull()
+      expect(screen.queryByText(incompatibleProject.absolutePath)).toBeNull()
+
+      const row = screen.getByRole('button', { name: /Needs ScaleUp/i })
+      expect(row.getAttribute('disabled')).toBeNull()
+    })
+
+    it('highlights active row and shows selected check', () => {
+      const activeProject = buildProject({ hasI18n: true })
+      const inactiveProject = buildProject({
+        id: 'festival-pack',
+        name: 'Festival Pack',
+        absolutePath: 'E:\\Mods\\FestivalPack',
+        hasI18n: true,
+      })
+
+      renderWithLocale(
+        <ModBrowserPanel
+          projects={[activeProject, inactiveProject]}
+          filteredProjects={[activeProject, inactiveProject]}
+          activeProjectPath={activeProject.absolutePath}
+          modFilter=""
+          contentPatcherOnly={false}
+          compatibleOnly={false}
+          i18nOnly
+          mode="i18n"
+          onFilterChange={vi.fn()}
+          onContentPatcherOnlyChange={vi.fn()}
+          onCompatibleOnlyChange={vi.fn()}
+          onSelectProject={vi.fn()}
+          onImportProject={vi.fn()}
+          onRefreshProjects={vi.fn()}
+        />,
+      )
+
+      const activeRow = screen.getByRole('button', { name: /Seasonal Garden/i })
+      const inactiveRow = screen.getByRole('button', { name: /Festival Pack/i })
+      expect(activeRow.className).toContain('bg-(--accent-soft)')
+      expect(inactiveRow.className).not.toContain('bg-(--accent-soft)')
+      expect(screen.getByLabelText(i18nCopy.browserSelectedLabel)).toBeTruthy()
+    })
+
+    it('shows an empty state when there are no projects', () => {
+      renderWithLocale(
+        <ModBrowserPanel
+          projects={[]}
+          filteredProjects={[]}
+          activeProjectPath={null}
+          modFilter=""
+          contentPatcherOnly={false}
+          compatibleOnly={false}
+          i18nOnly
+          mode="i18n"
+          onFilterChange={vi.fn()}
+          onContentPatcherOnlyChange={vi.fn()}
+          onCompatibleOnlyChange={vi.fn()}
+          onSelectProject={vi.fn()}
+          onImportProject={vi.fn()}
+          onRefreshProjects={vi.fn()}
+        />,
+      )
+
+      expect(screen.getByText(i18nCopy.browserEmptyTitle)).toBeTruthy()
+      expect(screen.getByText(i18nCopy.browserEmptyDescription)).toBeTruthy()
+    })
   })
 })

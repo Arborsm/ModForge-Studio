@@ -125,6 +125,7 @@ type MapViewportContextMenuProps = {
   onZoomOut: () => void
   onCenterView: () => void
   onResetPan: () => void
+  onExportPng?: () => void
   onAddObjectHere?: (tileX: number, tileY: number) => void
 }
 
@@ -139,6 +140,7 @@ export function MapViewportContextMenu({
   onZoomOut,
   onCenterView,
   onResetPan,
+  onExportPng,
   onAddObjectHere,
 }: MapViewportContextMenuProps) {
   const labels = useEditorCopy().viewportLabels
@@ -174,6 +176,11 @@ export function MapViewportContextMenu({
           <ContextMenu.Item className="context-menu-item" onSelect={onResetPan}>
             {labels.resetPan}
           </ContextMenu.Item>
+          {onExportPng ? (
+            <ContextMenu.Item className="context-menu-item" onSelect={onExportPng}>
+              {labels.exportPng}
+            </ContextMenu.Item>
+          ) : null}
           <ContextMenu.Separator className="context-menu-separator" />
           {onAddObjectHere ? (
             <ContextMenu.Item

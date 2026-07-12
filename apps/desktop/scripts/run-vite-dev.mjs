@@ -4,6 +4,7 @@ import net from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { cleanupSharedMemory } from './cleanup-shared-memory.mjs'
 import { resolveTauriDevRuntime } from './tauriDevRuntime.mjs'
 
 const require = createRequire(import.meta.url)
@@ -71,6 +72,18 @@ function stopReactDevtools(child) {
 
 const runtime = await resolveTauriDevRuntime(process.env)
 const reactDevtools = await startReactDevtoolsIfNeeded(runtime.env)
+
+if (process.platform === 'win32' && !envFlagEnabled(process.env.MODFORGE_SKIP_CLEANUP_SHMEM)) {
+  try {
+    const result = await cleanupSharedMemory()
+    console.log(
+      `[dev] Cleaned Tauri shared memory leaks: ${result.deleted} files, ${(result.bytes / 1024 / 1024 / 1024).toFixed(2)} GB freed`,
+    )
+  } catch (error) {
+    console.warn('[dev] Failed to clean up shared memory:', error?.message || error)
+  }
+}
+
 let result
 
 try {

@@ -10,6 +10,7 @@ async function loadConfiguredDesktop() {
   const invokeCommand = vi.fn()
   const chooseDirectory = vi.fn()
   const chooseFile = vi.fn()
+  const saveFile = vi.fn()
   const desktopWindow = {
     minimize: vi.fn(),
     toggleMaximize: vi.fn(),
@@ -37,6 +38,7 @@ async function loadConfiguredDesktop() {
       open: vi.fn(),
       chooseDirectory: chooseDirectory as PlatformPorts['dialog']['chooseDirectory'],
       chooseFile: chooseFile as PlatformPorts['dialog']['chooseFile'],
+      saveFile: saveFile as PlatformPorts['dialog']['saveFile'],
     },
     hostEvents: {
       canUseHost: vi.fn(() => true),

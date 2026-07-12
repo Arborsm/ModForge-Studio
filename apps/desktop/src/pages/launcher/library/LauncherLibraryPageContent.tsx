@@ -228,6 +228,7 @@ export function LauncherLibraryPageContent({
             editCount={editCount}
             filterText={library.filterText}
             enabledOnly={library.enabledOnly}
+            configOnly={library.configOnly}
             sortOptions={sortOptions}
             sortMode={sortMode}
             currentSortLabel={currentSortLabel}
@@ -252,6 +253,7 @@ export function LauncherLibraryPageContent({
             onLaunchGame={onLaunchGame}
             onFilterTextChange={library.setFilterText}
             onEnabledOnlyChange={library.setEnabledOnly}
+            onConfigOnlyChange={library.setConfigOnly}
             onToggleSortMenu={() => {
               setSortMenuOpen((current) => !current)
               setActionsMenuOpen(false)

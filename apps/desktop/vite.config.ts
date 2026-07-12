@@ -308,6 +308,9 @@ export default defineConfig({
     port,
     strictPort: true,
     host,
+    watch: {
+      ignored: ['**/src-tauri/target/**'],
+    },
     hmr: {
       protocol: 'ws',
       host,

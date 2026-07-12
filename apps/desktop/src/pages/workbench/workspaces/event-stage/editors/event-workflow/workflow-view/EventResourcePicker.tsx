@@ -242,6 +242,16 @@ function DetailField({ label, value, wide = false }: { label: string; value: Rea
   )
 }
 
+function isEmptyField(value: unknown, noneLabel: string): boolean {
+  if (value === noneLabel) {
+    return true
+  }
+  if (value == null || value === '') {
+    return true
+  }
+  return false
+}
+
 function ResourceDetailDialog({
   option,
   copy,
@@ -258,6 +268,28 @@ function ResourceDetailDialog({
     item?.browseCategories?.find((category) => category !== 'all'),
     item?.price != null ? `${item.price}g` : null,
   ].filter((chip): chip is string => Boolean(chip))
+
+  const generalFields = [
+    { label: copy.fieldValue, value: option.value },
+    { label: copy.fieldName, value: item?.internalName ?? option.label },
+    { label: copy.fieldDisplayName, value: item?.displayName ?? option.label },
+    { label: copy.fieldInternalName, value: item?.internalName },
+    { label: copy.fieldType, value: formatOptionType(option) },
+    { label: copy.fieldCategory, value: item?.category ?? option.category },
+    { label: copy.fieldPrice, value: formatOptionPrice(option, copy.none) },
+    { label: copy.fieldDescription, value: item?.description ?? option.meta ?? option.subtitle, wide: true },
+  ].filter((field) => !isEmptyField(field.value, copy.none))
+
+  const visualFields = [
+    { label: copy.fieldTexture, value: item?.texturePathLabel ?? option.preview },
+    { label: copy.fieldSpriteIndex, value: item?.spriteIndex ?? item?.menuSpriteIndex },
+  ].filter((field) => !isEmptyField(field.value, copy.none))
+
+  const sourceFields = [
+    { label: copy.fieldSourcePath, value: formatOptionPath(option) },
+    { label: copy.fieldMeta, value: option.meta },
+    { label: copy.fieldSubtitle, value: option.subtitle ?? option.badge },
+  ].filter((field) => !isEmptyField(field.value, copy.none))
 
   return (
     <div
@@ -287,45 +319,54 @@ function ResourceDetailDialog({
         </header>
 
         <div className="resource-picker__detail-body">
-          <section className="resource-picker__detail-section">
-            <h4>
-              <ClipboardList className="h-3.5 w-3.5" aria-hidden />
-              {copy.detailsGeneral}
-            </h4>
-            <div className="resource-picker__detail-grid">
-              <DetailField label={copy.fieldValue} value={option.value} />
-              <DetailField label={copy.fieldName} value={item?.internalName ?? option.label} />
-              <DetailField label={copy.fieldDisplayName} value={item?.displayName ?? option.label} />
-              <DetailField label={copy.fieldInternalName} value={item?.internalName ?? copy.none} />
-              <DetailField label={copy.fieldType} value={formatOptionType(option)} />
-              <DetailField label={copy.fieldCategory} value={item?.category ?? option.category ?? copy.none} />
-              <DetailField label={copy.fieldPrice} value={formatOptionPrice(option, copy.none)} />
-            </div>
-            <DetailField label={copy.fieldDescription} value={item?.description ?? option.meta ?? option.subtitle ?? copy.none} wide />
-          </section>
+          {generalFields.length > 0 ? (
+            <section className="resource-picker__detail-section">
+              <h4>
+                <ClipboardList className="h-3.5 w-3.5" aria-hidden />
+                {copy.detailsGeneral}
+              </h4>
+              <div className="resource-picker__detail-grid">
+                {generalFields
+                  .filter((field) => !field.wide)
+                  .map((field) => (
+                    <DetailField key={field.label} label={field.label} value={field.value} />
+                  ))}
+              </div>
+              {generalFields
+                .filter((field) => field.wide)
+                .map((field) => (
+                  <DetailField key={field.label} label={field.label} value={field.value} wide />
+                ))}
+            </section>
+          ) : null}
 
-          <section className="resource-picker__detail-section">
-            <h4>
-              <ImageIcon className="h-3.5 w-3.5" aria-hidden />
-              {copy.detailsVisual}
-            </h4>
-            <div className="resource-picker__detail-grid">
-              <DetailField label={copy.fieldTexture} value={item?.texturePathLabel ?? option.preview ?? copy.none} />
-              <DetailField label={copy.fieldSpriteIndex} value={item?.spriteIndex ?? item?.menuSpriteIndex ?? copy.none} />
-            </div>
-          </section>
+          {visualFields.length > 0 ? (
+            <section className="resource-picker__detail-section">
+              <h4>
+                <ImageIcon className="h-3.5 w-3.5" aria-hidden />
+                {copy.detailsVisual}
+              </h4>
+              <div className="resource-picker__detail-grid">
+                {visualFields.map((field) => (
+                  <DetailField key={field.label} label={field.label} value={field.value} />
+                ))}
+              </div>
+            </section>
+          ) : null}
 
-          <section className="resource-picker__detail-section">
-            <h4>
-              <Database className="h-3.5 w-3.5" aria-hidden />
-              {copy.detailsSource}
-            </h4>
-            <div className="resource-picker__detail-grid">
-              <DetailField label={copy.fieldSourcePath} value={formatOptionPath(option) ?? copy.none} />
-              <DetailField label={copy.fieldMeta} value={option.meta ?? copy.none} />
-              <DetailField label={copy.fieldSubtitle} value={option.subtitle ?? option.badge ?? copy.none} />
-            </div>
-          </section>
+          {sourceFields.length > 0 ? (
+            <section className="resource-picker__detail-section">
+              <h4>
+                <Database className="h-3.5 w-3.5" aria-hidden />
+                {copy.detailsSource}
+              </h4>
+              <div className="resource-picker__detail-grid">
+                {sourceFields.map((field) => (
+                  <DetailField key={field.label} label={field.label} value={field.value} />
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
       </section>
     </div>

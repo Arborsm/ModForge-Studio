@@ -1,7 +1,6 @@
-use super::{
-    infer_target_asset_kind, load_json_patch_asset, load_map_patch_asset,
-    with_virtual_preview_assets,
-};
+#[cfg(unix)]
+use super::load_json_patch_asset;
+use super::{infer_target_asset_kind, load_map_patch_asset, with_virtual_preview_assets};
 use crate::domain::content_patcher::types::{
     ContentPatcherProjectSnapshot, ContentPatcherProjectSummary, VirtualPreviewAsset,
 };

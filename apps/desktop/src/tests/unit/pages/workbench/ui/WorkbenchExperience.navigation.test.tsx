@@ -8,29 +8,18 @@ import type { CpMakerDraft } from '@features/cp-maker'
 import type { ModWorkspaceGuardHandle } from '@pages/workbench/ui/WorkbenchModPreviewRuntime'
 import { validateGameDirectory } from '@entities/game/api'
 import type { GameDirectoryInfo } from '@entities/game/api'
+import { editorCopy, getModWorkspaceCopy, getViewMenuCopy } from '@locales/api'
 
-const applyAppUiStatePatchSpy = vi.hoisted(() => vi.fn(() => Promise.resolve()))
+const applyAppUiStatePatchSpy = vi.hoisted(() => vi.fn((_patch: unknown) => Promise.resolve()))
+const getAppUiStateSnapshotSpy = vi.hoisted(() => vi.fn())
+const navCopy = editorCopy['en-US'].workbenchNavigation
+const viewMenuCopy = getViewMenuCopy('en-US')
 
 vi.mock('@shared/lib/app-state', async () => {
   const actual = await vi.importActual<typeof import('@shared/lib/app-state')>('@shared/lib/app-state')
   return {
     ...actual,
-    getAppUiStateSnapshot: vi.fn(() => ({
-      workspace: {
-        workspaceViewMode: 'edit',
-        layouts: {},
-        cpMaker: {
-          activeGeneratedDraftKey: null,
-        },
-      },
-      appearance: {
-        recentGameDirectories: [],
-        playerAppearance: {
-          profiles: [],
-          activeProfileId: null,
-        },
-      },
-    })),
+    getAppUiStateSnapshot: getAppUiStateSnapshotSpy,
     applyAppUiStatePatch: applyAppUiStatePatchSpy,
   }
 })
@@ -44,6 +33,7 @@ const deleteDraftSpy = vi.fn()
 const updateMetadataSpy = vi.fn()
 const exportPackSpy = vi.fn()
 const saveDraftSpy = vi.fn()
+const clearActiveDraftSpy = vi.fn()
 const useCpMakerState = vi.hoisted(() => ({
   activeDraft: null as CpMakerDraft | null,
   drafts: [] as Array<{
@@ -83,6 +73,7 @@ vi.mock('@features/cp-maker', async () => {
       deleteDraft: deleteDraftSpy,
       updateMetadata: updateMetadataSpy,
       exportPack: exportPackSpy,
+      clearActiveDraft: clearActiveDraftSpy,
     }),
   }
 })
@@ -157,7 +148,34 @@ function viewRegistration(title: string): WorkbenchViewRegistration {
     kind: 'workbench-view',
     viewId: title,
     title,
+    category: 'dev',
+    activation: { kind: 'component' },
     component: () => <div>{title}</div>,
+  }
+}
+
+function toolWorkspaceRegistration(
+  viewId: 'mod-browser' | 'mod-i18n',
+  title: string,
+  order: number,
+  presentation: 'browser' | 'authoring' = 'browser',
+): WorkbenchViewRegistration {
+  return {
+    id: viewId,
+    kind: 'workbench-view',
+    viewId,
+    title,
+    order,
+    category: 'tool',
+    activation: { kind: 'workspace', workspaceMode: viewId, presentation },
+  }
+}
+
+function i18nGeneratorRegistration(): WorkbenchViewRegistration {
+  return {
+    ...viewRegistration('i18n-generator'),
+    category: 'tool',
+    order: 120,
   }
 }
 
@@ -188,9 +206,15 @@ type RenderExperienceOptions = {
   onWorkbenchEvent?: (event: AppEvent) => void
   workbenchActivationKey?: number
   workbenchViews?: readonly WorkbenchViewRegistration[]
+  appUiStateReady?: boolean
 }
 
-function renderExperienceElement({ onWorkbenchEvent = vi.fn(), workbenchActivationKey, workbenchViews }: RenderExperienceOptions = {}) {
+function renderExperienceElement({
+  onWorkbenchEvent = vi.fn(),
+  workbenchActivationKey,
+  workbenchViews,
+  appUiStateReady = true,
+}: RenderExperienceOptions = {}) {
   const registeredViews = workbenchViews ?? []
 
   return (
@@ -198,7 +222,7 @@ function renderExperienceElement({ onWorkbenchEvent = vi.fn(), workbenchActivati
       pendingWorkbenchIntent={null}
       onClearPendingIntent={vi.fn()}
       active
-      appUiStateReady
+      appUiStateReady={appUiStateReady}
       theme="light"
       locale="en-US"
       accentColor="#2278f2"
@@ -238,11 +262,16 @@ async function configureGameDirectory() {
   })
 }
 
-function getDock() {
-  return screen.getByRole('navigation', { name: 'Recent pages' })
+function getSideNav() {
+  return screen.getByRole('navigation', { name: navCopy.shellNavLabel })
 }
 
-describe('WorkbenchExperience launchpad navigation', () => {
+function openModsBrowserTool() {
+  fireEvent.click(within(getSideNav()).getByRole('button', { name: navCopy.shellNavToolsGroup }))
+  fireEvent.click(within(getSideNav()).getByRole('button', { name: new RegExp(getModWorkspaceCopy('en-US').workspaceLabel, 'i') }))
+}
+
+describe('WorkbenchExperience shell navigation', () => {
   beforeEach(() => {
     useCpMakerState.activeDraft = null
     useCpMakerState.drafts = []
@@ -259,16 +288,111 @@ describe('WorkbenchExperience launchpad navigation', () => {
     updateMetadataSpy.mockClear()
     exportPackSpy.mockClear()
     saveDraftSpy.mockClear()
+    clearActiveDraftSpy.mockClear()
     mapRuntimeRenderSpy.mockClear()
     applyAppUiStatePatchSpy.mockClear()
+    getAppUiStateSnapshotSpy.mockReset()
+    getAppUiStateSnapshotSpy.mockReturnValue({
+      workspace: {
+        workspaceViewMode: 'edit',
+        layouts: {},
+        cpMaker: {
+          activeGeneratedDraftKey: null,
+        },
+      },
+      appearance: {
+        recentGameDirectories: [],
+        playerAppearance: {
+          profiles: [],
+          activeProfileId: null,
+        },
+      },
+    })
     validateGameDirectoryMock.mockReset()
   })
 
-  it('opens the launchpad by default without restoring the previous workspace page', () => {
+  it('opens the home shell by default without restoring the previous workspace page', () => {
     renderExperience()
 
     expect(screen.getByRole('region', { name: 'Workbench Home' })).toBeTruthy()
     expect(screen.queryByText('Viewport')).toBeNull()
+  })
+
+  it('starts with the workbench side navigation collapsed', () => {
+    renderExperience()
+
+    const sideNav = getSideNav()
+    expect(sideNav).toHaveAttribute('data-collapsed', 'true')
+    expect(within(sideNav).getByRole('button', { name: navCopy.shellNavExpand })).toBeTruthy()
+  })
+
+  it('hydrates the saved side navigation sections and page after app UI state becomes ready', async () => {
+    const restoredView = viewRegistration('restored-tool')
+    const { rerender } = renderExperience({ appUiStateReady: false, workbenchViews: [restoredView] })
+
+    expect(getSideNav()).toHaveAttribute('data-collapsed', 'true')
+    expect(screen.getByRole('region', { name: 'Workbench Home' })).toBeTruthy()
+
+    getAppUiStateSnapshotSpy.mockReturnValue({
+      workspace: {
+        workspaceViewMode: 'edit',
+        layouts: {},
+        cpMaker: { activeGeneratedDraftKey: null },
+        lastLocation: {
+          workbenchRoute: 'workspace',
+          workspaceMode: 'items',
+          workspaceViewMode: 'edit',
+          registeredWorkbenchViewId: restoredView.viewId,
+        },
+        sideNav: {
+          collapsed: false,
+          browseOpen: false,
+          toolsOpen: true,
+          devOpen: false,
+        },
+      },
+      appearance: {
+        recentGameDirectories: [],
+        playerAppearance: { profiles: [], activeProfileId: null },
+      },
+    })
+    applyAppUiStatePatchSpy.mockClear()
+
+    rerender(
+      <LocaleProvider locale="en-US">{renderExperienceElement({ appUiStateReady: true, workbenchViews: [restoredView] })}</LocaleProvider>,
+    )
+
+    await waitFor(() => {
+      expect(getSideNav()).toHaveAttribute('data-collapsed', 'false')
+      expect(screen.getAllByText('restored-tool')).toHaveLength(2)
+    })
+    expect(within(getSideNav()).getByRole('button', { name: navCopy.shellNavBrowseGroup })).toHaveAttribute('aria-expanded', 'false')
+    expect(within(getSideNav()).getByRole('button', { name: navCopy.shellNavToolsGroup })).toHaveAttribute('aria-expanded', 'true')
+    expect(
+      applyAppUiStatePatchSpy.mock.calls.some(([patch]) => {
+        const workspace = (patch as { workspace?: Record<string, unknown> }).workspace
+        return Boolean(workspace?.sideNav || workspace?.lastLocation)
+      }),
+    ).toBe(false)
+
+    fireEvent.click(within(getSideNav()).getByRole('button', { name: navCopy.shellNavBrowseGroup }))
+    await waitFor(() => {
+      expect(
+        applyAppUiStatePatchSpy.mock.calls.some(
+          ([patch]) => (patch as { workspace?: { sideNav?: { browseOpen?: boolean } } }).workspace?.sideNav?.browseOpen === true,
+        ),
+      ).toBe(true)
+    })
+
+    fireEvent.click(within(getSideNav()).getByRole('button', { name: 'Home' }))
+    await waitFor(() => {
+      expect(
+        applyAppUiStatePatchSpy.mock.calls.some(
+          ([patch]) =>
+            (patch as { workspace?: { lastLocation?: { workbenchRoute?: string } } }).workspace?.lastLocation?.workbenchRoute === 'home',
+        ),
+      ).toBe(true)
+    })
   })
 
   it('opens initialization while no game directory is available', () => {
@@ -289,42 +413,71 @@ describe('WorkbenchExperience launchpad navigation', () => {
     expect(screen.queryByText('Viewport')).toBeNull()
   })
 
-  it('keeps home active in the titlebar dock while the launchpad is open', () => {
+  it('keeps home active in the side navigation while the home page is open', () => {
     renderExperience()
 
-    const dock = getDock()
-    const home = within(dock).getByRole('button', { name: 'Home' })
+    const sideNav = getSideNav()
+    const home = within(sideNav).getByRole('button', { name: 'Home' })
 
     expect(home).toHaveAttribute('aria-current', 'page')
-    expect(home).toHaveClass('workbench-dock-item-active')
-    expect(within(dock).queryByRole('button', { name: 'Project Library' })).toBeNull()
-    expect(within(screen.getByRole('region', { name: 'Workbench Home' })).getByRole('region', { name: 'Project Library' })).toBeTruthy()
+    expect(home.className).toContain('is-current')
+    expect(screen.getByRole('region', { name: 'Workbench Home' }).getAttribute('data-content')).toBe('none')
   })
 
-  it('opens root browse pages in preview mode from the launchpad', async () => {
+  it('renders the project title menu and keeps history controls in the expanded side navigation', () => {
+    renderExperience()
+
+    expect(screen.getByRole('button', { name: new RegExp(navCopy.shellProjectTitleEmpty, 'i') })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: navCopy.shellHistoryBack })).toBeNull()
+    fireEvent.click(within(getSideNav()).getByRole('button', { name: navCopy.shellNavExpand }))
+    expect(screen.getByRole('button', { name: navCopy.shellHistoryBack })).toBeDisabled()
+    expect(screen.getByRole('button', { name: navCopy.shellHistoryForward })).toBeDisabled()
+    expect(screen.getByRole('button', { name: viewMenuCopy.resetLabel })).toBeTruthy()
+    expect(screen.queryByRole('navigation', { name: navCopy.recentPages })).toBeNull()
+  })
+
+  it('opens root browse pages in preview mode from the no-project home browse links', async () => {
     renderExperience()
     await configureGameDirectory()
 
-    const dialog = screen.getByRole('region', { name: 'Workbench Home' })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Maps' }))
+    const home = screen.getByRole('region', { name: 'Workbench Home' })
+    fireEvent.click(within(home).getByRole('button', { name: navCopy.rootModeLabels.map }))
 
     await waitFor(() => {
       expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
     })
     expect(screen.getByText('Viewport')).toBeTruthy()
-    expect(screen.queryByText('studio-desk')).toBeNull()
   })
 
-  it('keeps command search on the home page when the global shortcut is pressed there', () => {
+  it('opens root browse pages from the side navigation and enables history back', async () => {
+    renderExperience()
+    await configureGameDirectory()
+
+    fireEvent.click(within(getSideNav()).getByRole('button', { name: navCopy.shellNavExpand }))
+    fireEvent.click(within(getSideNav()).getByRole('button', { name: 'Map' }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
+    })
+    expect(screen.getByText('Viewport')).toBeTruthy()
+    expect(screen.getByRole('button', { name: navCopy.shellHistoryBack })).not.toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: navCopy.shellHistoryBack }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: 'Workbench Home' })).toBeTruthy()
+    })
+  })
+
+  it('keeps home open when the global shortcut is pressed there', () => {
     renderExperience()
 
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true })
 
     expect(screen.getByRole('region', { name: 'Workbench Home' })).toBeTruthy()
-    expect(screen.getByRole('listbox', { name: 'Search results' })).toBeTruthy()
   })
 
-  it('closes the launchpad when switching back to launcher mode', () => {
+  it('closes the home page when switching back to launcher mode', () => {
     const onSwitchToLauncher = vi.fn()
 
     renderWithLocale(
@@ -354,28 +507,17 @@ describe('WorkbenchExperience launchpad navigation', () => {
     expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
   })
 
-  it('guards game directory validation before committing a new root while mod preview has unsaved edits', async () => {
+  it('guards root navigation while the Mods browser tool has unsaved edits', async () => {
     modPreviewState.dirty = true
-    renderExperience()
-    await configureGameDirectory()
+    renderExperience({ workbenchViews: [toolWorkspaceRegistration('mod-browser', 'Mods', 100)] })
+    openModsBrowserTool()
 
-    const dialog = screen.getByRole('region', { name: 'Workbench Home' })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Translations' }))
-
-    await waitFor(() => {
-      expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Project' }))
-    fireEvent.change(screen.getByPlaceholderText('Select the Stardew Valley install folder'), {
-      target: { value: '/tmp/Stardew Valley' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Scan and Load Resources' }))
+    fireEvent.click(within(getSideNav()).getByRole('button', { name: 'Map' }))
 
     await waitFor(() => {
       expect(modPreviewState.requested).toBe(true)
     })
-    expect(validateGameDirectoryMock).toHaveBeenCalledTimes(1)
+    expect(validateGameDirectoryMock).not.toHaveBeenCalled()
   })
 
   it('keeps native close requests blocked while an unsaved guard decision is pending', async () => {
@@ -385,6 +527,7 @@ describe('WorkbenchExperience launchpad navigation', () => {
       throw new Error('Window close handler was not registered.')
     }
 
+    const toolViews = [toolWorkspaceRegistration('mod-browser', 'Mods', 100)]
     renderWithLocale(
       <WorkbenchExperience
         pendingWorkbenchIntent={null}
@@ -409,20 +552,14 @@ describe('WorkbenchExperience launchpad navigation', () => {
             })
         }}
         onWorkbenchEvent={vi.fn()}
-        getWorkbenchViewRegistration={(viewId) => viewRegistration(viewId)}
+        getWorkbenchViewRegistration={(viewId) => toolViews.find((view) => view.viewId === viewId) ?? viewRegistration(viewId)}
+        workbenchViews={toolViews}
       />,
     )
+    openModsBrowserTool()
 
     await waitFor(() => {
       expect(closeHandler).toBeTypeOf('function')
-    })
-
-    await configureGameDirectory()
-
-    fireEvent.click(within(screen.getByRole('region', { name: 'Workbench Home' })).getByRole('button', { name: 'Translations' }))
-
-    await waitFor(() => {
-      expect(screen.getByText('Mods preview')).toBeTruthy()
     })
 
     await expect(closeHandler()).resolves.toBe(false)
@@ -444,6 +581,7 @@ describe('WorkbenchExperience launchpad navigation', () => {
       throw new Error('Window close handler was not registered.')
     }
 
+    const toolViews = [toolWorkspaceRegistration('mod-browser', 'Mods', 100)]
     renderWithLocale(
       <WorkbenchExperience
         pendingWorkbenchIntent={null}
@@ -468,20 +606,14 @@ describe('WorkbenchExperience launchpad navigation', () => {
             })
         }}
         onWorkbenchEvent={vi.fn()}
-        getWorkbenchViewRegistration={(viewId) => viewRegistration(viewId)}
+        getWorkbenchViewRegistration={(viewId) => toolViews.find((view) => view.viewId === viewId) ?? viewRegistration(viewId)}
+        workbenchViews={toolViews}
       />,
     )
+    openModsBrowserTool()
 
     await waitFor(() => {
       expect(closeHandler).toBeTypeOf('function')
-    })
-
-    await configureGameDirectory()
-
-    fireEvent.click(within(screen.getByRole('region', { name: 'Workbench Home' })).getByRole('button', { name: 'Translations' }))
-
-    await waitFor(() => {
-      expect(screen.getByText('Mods preview')).toBeTruthy()
     })
 
     await expect(closeHandler()).resolves.toBe(false)
@@ -494,40 +626,20 @@ describe('WorkbenchExperience launchpad navigation', () => {
     expect(onCloseWindow).toHaveBeenCalledTimes(1)
   })
 
-  it('focuses the project library instead of disabling maker entries when no project is active', () => {
-    renderExperience()
-
-    const home = screen.getByRole('region', { name: 'Workbench Home' })
-    const make = within(home).getByRole('button', { name: 'Map Making' })
-
-    expect(make).not.toBeDisabled()
-    fireEvent.click(make)
-
-    expect(within(home).getByRole('region', { name: 'Project Library' }).className).toContain('is-focus')
-    expect(screen.getByRole('dialog', { name: 'Create New Project' })).toBeTruthy()
-  })
-
-  it('opens project making workspaces directly when a project is active', async () => {
+  it('opens empty-world create actions when a project is active without content', async () => {
     useCpMakerState.activeDraft = draft('festival-dialogue')
     renderExperience()
 
-    fireEvent.click(within(screen.getByRole('region', { name: 'Workbench Home' })).getByRole('button', { name: 'Map Making' }))
+    const home = screen.getByRole('region', { name: 'Workbench Home' })
+    expect(home.getAttribute('data-content')).toBe('empty')
+    fireEvent.click(within(home).getByRole('button', { name: new RegExp(`^${navCopy.shellCreateMap}`) }))
 
     await waitFor(() => {
       expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
     })
   })
 
-  it('keeps maker entries available when no project is active', () => {
-    renderExperience()
-
-    const home = screen.getByRole('region', { name: 'Workbench Home' })
-
-    expect(within(home).queryByRole('button', { name: 'Project Page' })).toBeNull()
-    expect(within(home).getByRole('button', { name: 'Map Making' })).not.toBeDisabled()
-  })
-
-  it('loads a selected project before entering pending making pages', async () => {
+  it('loads a selected project from the recent list', async () => {
     useCpMakerState.drafts = [
       {
         draftStorageKey: 'festival-dialogue',
@@ -540,35 +652,11 @@ describe('WorkbenchExperience launchpad navigation', () => {
     renderExperience()
 
     const home = screen.getByRole('region', { name: 'Workbench Home' })
-    fireEvent.click(within(home).getByRole('button', { name: 'Map Making' }))
-    const library = within(home).getByRole('region', { name: 'Project Library' })
-    expect(library.className).toContain('is-focus')
-    fireEvent.click(within(library).getByRole('button', { name: 'Open Project Festival Dialogue Pack' }))
+    fireEvent.click(within(home).getByRole('button', { name: /Festival Dialogue Pack/i }))
 
     await waitFor(() => {
       expect(loadDraftSpy).toHaveBeenCalledWith('festival-dialogue')
     })
-  })
-
-  it('focuses the in-page project library from the home action', () => {
-    useCpMakerState.drafts = [
-      {
-        draftStorageKey: 'festival-dialogue',
-        projectName: 'Festival Dialogue Pack',
-        projectUniqueId: 'Author.FestivalDialogue',
-        lastDraftSavedAt: null,
-        lastExportedAt: null,
-      },
-    ]
-    renderExperience()
-
-    const home = screen.getByRole('region', { name: 'Workbench Home' })
-    fireEvent.click(within(home).getByRole('button', { name: 'Open Project Library' }))
-
-    const library = within(home).getByRole('region', { name: 'Project Library' })
-    expect(library.className).toContain('is-focus')
-    expect(within(library).getByRole('button', { name: 'Open Project Festival Dialogue Pack' })).toBeTruthy()
-    expect(screen.queryByRole('dialog', { name: 'Project Library' })).toBeNull()
   })
 
   it('keeps the home page open when selecting a project without a pending maker intent', async () => {
@@ -584,7 +672,7 @@ describe('WorkbenchExperience launchpad navigation', () => {
     renderExperience()
 
     const home = screen.getByRole('region', { name: 'Workbench Home' })
-    fireEvent.click(within(home).getByRole('button', { name: 'Open Project Festival Dialogue Pack' }))
+    fireEvent.click(within(home).getByRole('button', { name: /Festival Dialogue Pack/i }))
 
     await waitFor(() => {
       expect(loadDraftSpy).toHaveBeenCalledWith('festival-dialogue')
@@ -646,11 +734,12 @@ describe('WorkbenchExperience launchpad navigation', () => {
     expect(onWorkbenchEvent).toHaveBeenCalledTimes(1)
   })
 
-  it('does not persist workspace view mode while navigating launchpad pages', () => {
+  it('does not persist workspace view mode while navigating shell pages', async () => {
     renderExperience()
+    await configureGameDirectory()
 
-    const dialog = screen.getByRole('region', { name: 'Workbench Home' })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Maps' }))
+    const home = screen.getByRole('region', { name: 'Workbench Home' })
+    fireEvent.click(within(home).getByRole('button', { name: navCopy.rootModeLabels.map }))
 
     expect(applyAppUiStatePatchSpy).not.toHaveBeenCalledWith({
       workspace: {
@@ -673,58 +762,184 @@ describe('WorkbenchExperience launchpad navigation', () => {
     })
   })
 
-  it('opens dev-only registered workbench views from the launchpad', async () => {
-    renderExperience({
-      workbenchViews: [
-        {
-          id: 'dev-resource-browser',
-          kind: 'workbench-view',
-          title: '资源浏览器',
-          viewId: 'dev-resource-browser',
-          devOnly: true,
-          component: () => <div>Resource Browser Lab</div>,
-        },
-      ],
-    })
+  it('opens tools and side-nav browse entries from the shell', async () => {
+    renderExperience()
     await configureGameDirectory()
 
-    const dialog = screen.getByRole('region', { name: 'Workbench Home' })
-    fireEvent.click(within(dialog).getByRole('button', { name: '资源浏览器' }))
+    fireEvent.click(within(getSideNav()).getByRole('button', { name: 'Map' }))
 
     await waitFor(() => {
       expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
     })
-    expect(screen.getByText('Resource Browser Lab')).toBeTruthy()
-    const dock = getDock()
-    expect(within(dock).queryByRole('button', { name: 'Project Library' })).toBeNull()
-    expect(within(dock).getByRole('button', { name: '资源浏览器' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByText('Viewport')).toBeTruthy()
   })
 
-  it('does not reopen the launchpad when a late workbench activation arrives after opening a dev view', async () => {
-    const workbenchViews: readonly WorkbenchViewRegistration[] = [
-      {
-        id: 'dev-resource-browser',
-        kind: 'workbench-view',
-        title: '资源浏览器',
-        viewId: 'dev-resource-browser',
-        devOnly: true,
-        component: () => <div>Resource Browser Lab</div>,
-      },
-    ]
-    const { rerender } = renderExperience({ workbenchActivationKey: 0, workbenchViews })
+  it('does not reopen the home page when a late workbench activation arrives after opening a workspace', async () => {
+    const { rerender } = renderExperience({ workbenchActivationKey: 0 })
     await configureGameDirectory()
 
-    fireEvent.click(within(screen.getByRole('region', { name: 'Workbench Home' })).getByRole('button', { name: '资源浏览器' }))
+    fireEvent.click(within(getSideNav()).getByRole('button', { name: 'Map' }))
 
     await waitFor(() => {
       expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
     })
 
-    rerender(<LocaleProvider locale="en-US">{renderExperienceElement({ workbenchActivationKey: 1, workbenchViews })}</LocaleProvider>)
+    rerender(<LocaleProvider locale="en-US">{renderExperienceElement({ workbenchActivationKey: 1 })}</LocaleProvider>)
 
     await waitFor(() => {
       expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
     })
-    expect(screen.getByText('Resource Browser Lab')).toBeTruthy()
+    expect(screen.getByText('Viewport')).toBeTruthy()
+  })
+
+  it('closes the current project from the project title menu', async () => {
+    useCpMakerState.activeDraft = draft('festival-dialogue')
+    renderExperience()
+
+    fireEvent.click(screen.getByRole('button', { name: /Festival Dialogue Pack/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: navCopy.shellProjectMenuClose }))
+
+    await waitFor(() => {
+      expect(clearActiveDraftSpy).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('shows the workspace toolbar and edit gate without a project', async () => {
+    renderExperience()
+    await configureGameDirectory()
+
+    fireEvent.click(within(getSideNav()).getByRole('button', { name: 'Map' }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
+    })
+
+    const modeControls = screen.getByRole('group', { name: `${navCopy.shellBrowseMode} / ${navCopy.shellEditMode}` })
+    expect(within(modeControls).getByRole('button', { name: navCopy.shellBrowseMode })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(within(modeControls).getByRole('button', { name: navCopy.shellEditMode }))
+
+    await waitFor(() => {
+      expect(screen.getByText(navCopy.shellEditLockedTitle)).toBeTruthy()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: navCopy.shellEditLockedStayBrowse }))
+
+    await waitFor(() => {
+      expect(screen.queryByText(navCopy.shellEditLockedTitle)).toBeNull()
+    })
+    expect(within(modeControls).getByRole('button', { name: navCopy.shellBrowseMode })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('omits the workspace toolbar for standalone registered tools', async () => {
+    renderExperience({ workbenchViews: [i18nGeneratorRegistration()] })
+    await configureGameDirectory()
+
+    fireEvent.click(within(getSideNav()).getByRole('button', { name: 'Tools' }))
+    const generatorButton = within(getSideNav()).getByRole('button', { name: /i18n Generator/i })
+    fireEvent.click(generatorButton)
+
+    await waitFor(() => {
+      expect(generatorButton).toHaveAttribute('aria-current', 'page')
+    })
+    expect(screen.queryByRole('group', { name: `${navCopy.shellBrowseMode} / ${navCopy.shellEditMode}` })).toBeNull()
+    expect(document.querySelector('.workbench-ws-toolbar')).toBeNull()
+  })
+
+  it('lists the Mods browser first in Tools and opens it as a tool workspace', async () => {
+    renderExperience({
+      workbenchViews: [
+        toolWorkspaceRegistration('mod-browser', 'Mods', 100),
+        toolWorkspaceRegistration('mod-i18n', 'Translations', 110),
+        i18nGeneratorRegistration(),
+      ],
+    })
+
+    fireEvent.click(within(getSideNav()).getByRole('button', { name: navCopy.shellNavToolsGroup }))
+    const toolsSection = getSideNav().querySelector<HTMLElement>('[data-section="tools"]')
+    const toolItems = toolsSection?.querySelectorAll<HTMLElement>('.workbench-side-nav-item')
+    expect(toolItems?.[0]).toHaveTextContent(getModWorkspaceCopy('en-US').workspaceLabel)
+    expect(toolItems?.[1]).toHaveTextContent('Translations')
+
+    fireEvent.click(toolItems![0])
+
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
+      expect(screen.getByText('Mods preview')).toBeTruthy()
+      expect(toolItems![0]).toHaveAttribute('aria-current', 'page')
+    })
+    expect(document.querySelector('.workbench-ws-toolbar')).toBeNull()
+    expect(screen.queryByRole('group', { name: `${navCopy.shellBrowseMode} / ${navCopy.shellEditMode}` })).toBeNull()
+
+    fireEvent.click(toolItems![1])
+
+    await waitFor(() => {
+      expect(toolItems![1]).toHaveAttribute('aria-current', 'page')
+    })
+    expect(document.querySelector('.workbench-ws-toolbar')).toBeNull()
+    expect(screen.queryByRole('group', { name: `${navCopy.shellBrowseMode} / ${navCopy.shellEditMode}` })).toBeNull()
+
+    fireEvent.click(toolItems![2])
+
+    await waitFor(() => {
+      expect(toolItems![0]).not.toHaveAttribute('aria-current')
+      expect(toolItems![2]).toHaveAttribute('aria-current', 'page')
+    })
+  })
+
+  it('uses workspace presentation rather than navigation category to select authoring chrome', async () => {
+    renderExperience({ workbenchViews: [toolWorkspaceRegistration('mod-browser', 'Mods', 100, 'authoring')] })
+
+    fireEvent.click(within(getSideNav()).getByRole('button', { name: navCopy.shellNavToolsGroup }))
+    fireEvent.click(within(getSideNav()).getByRole('button', { name: /Mods/i }))
+
+    await waitFor(() => expect(document.querySelector('.workbench-ws-toolbar')).toBeTruthy())
+    expect(screen.getByRole('group', { name: `${navCopy.shellBrowseMode} / ${navCopy.shellEditMode}` })).toBeTruthy()
+  })
+
+  it('marks a restored workspace tool as selected in the side navigation', async () => {
+    getAppUiStateSnapshotSpy.mockReturnValue({
+      workspace: {
+        workspaceViewMode: 'preview',
+        layouts: {},
+        cpMaker: { activeGeneratedDraftKey: null },
+        lastLocation: {
+          workbenchRoute: 'workspace',
+          workspaceMode: 'mod-browser',
+          workspaceViewMode: 'edit',
+          registeredWorkbenchViewId: null,
+        },
+        sideNav: { collapsed: false, browseOpen: true, toolsOpen: true, devOpen: false },
+      },
+      appearance: {
+        recentGameDirectories: [],
+        playerAppearance: { profiles: [], activeProfileId: null },
+      },
+    })
+
+    renderExperience({ workbenchViews: [toolWorkspaceRegistration('mod-browser', 'Mods', 100)] })
+
+    const modsButton = within(getSideNav()).getByRole('button', { name: new RegExp(getModWorkspaceCopy('en-US').workspaceLabel, 'i') })
+    await waitFor(() => expect(modsButton).toHaveAttribute('aria-current', 'page'))
+    expect(document.querySelector('.workbench-ws-toolbar')).toBeNull()
+    expect(screen.queryByText(navCopy.shellEditLockedTitle)).toBeNull()
+  })
+
+  it('allows edit mode when a project is active without showing the gate', async () => {
+    useCpMakerState.activeDraft = draft('festival-dialogue')
+    renderExperience()
+    await configureGameDirectory()
+
+    fireEvent.click(within(getSideNav()).getByRole('button', { name: 'Map' }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: navCopy.shellEditMode }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: navCopy.shellEditMode })).toHaveAttribute('aria-pressed', 'true')
+    })
+    expect(screen.queryByText(navCopy.shellEditLockedTitle)).toBeNull()
   })
 })

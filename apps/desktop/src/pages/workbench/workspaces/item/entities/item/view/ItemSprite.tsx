@@ -26,10 +26,11 @@ type ItemSpriteProps = {
   textureState: ItemTextureAssetState | null
   scale?: number
   className?: string
+  fallbackClassName?: string
   style?: CSSProperties
 }
 
-export function ItemSprite({ item, textureState, scale = 2, className = '', style }: ItemSpriteProps) {
+export function ItemSprite({ item, textureState, scale = 2, className = '', fallbackClassName = 'text-xs', style }: ItemSpriteProps) {
   const sourceRect = getItemSpriteSourceRect(item, textureState)
   const tintMaskRect = getItemSpriteTintMaskSourceRect(item, textureState)
   const tintColor = item.kind === 'shirt' || item.kind === 'pants' ? parseTintColor(item.apparelStats?.defaultColor) : null
@@ -45,7 +46,9 @@ export function ItemSprite({ item, textureState, scale = 2, className = '', styl
       className={className}
       style={style}
       fallback={
-        <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-(--text-secondary) uppercase">
+        <div
+          className={`absolute inset-0 flex items-center justify-center font-semibold text-(--text-secondary) uppercase ${fallbackClassName}`}
+        >
           {item.displayName.slice(0, 1)}
         </div>
       }

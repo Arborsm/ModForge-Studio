@@ -3,15 +3,18 @@ export type ModI18nWorkspaceCopy = {
   workspaceSubtitle: string
   noProject: string
   noI18n: string
+  noMatchingEntries: string
   projectLabel: string
   fileLabel: string
   sourceLabel: string
   targetLabel: string
+  sourceLocaleLabel: string
+  targetLocaleLabel: string
+  defaultLocaleLabel: string
   searchPlaceholder: string
   allStatus: string
   translatedStatus: string
   missingStatus: string
-  emptyStatus: string
   errorStatus: string
   saveTranslations: string
   addLocale: string
@@ -20,4 +23,15 @@ export type ModI18nWorkspaceCopy = {
   entriesLabel: (count: number) => string
   missingTokens: (tokens: string) => string
   invalidJson: string
+  shortcutSaveAndNext: string
+  shortcutSaveAndPrevious: string
+  shortcutHint: string
+  browserTitle: string
+  browserSearchPlaceholder: string
+  browserRefreshProjects: string
+  browserEmptyTitle: string
+  browserEmptyDescription: string
+  browserProjectsCount: (count: number) => string
+  browserSelectedLabel: string
+  browserProjectMeta: (author: string | null, version: string | null, uniqueId: string | null) => string
 }

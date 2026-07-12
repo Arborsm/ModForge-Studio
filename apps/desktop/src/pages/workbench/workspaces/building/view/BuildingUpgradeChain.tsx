@@ -13,6 +13,10 @@ export type BuildingUpgradeChainProps = {
   copy: BuildingsPanelCopy
 }
 
+/** Preview well content box; keep slightly inside the 4.25rem well + padding. */
+const STAGE_PREVIEW_MAX_WIDTH = 88
+const STAGE_PREVIEW_MAX_HEIGHT = 58
+
 function StageCard({
   stage,
   textureState,
@@ -26,87 +30,88 @@ function StageCard({
 }) {
   const copy = useBuildingsCopy()
   const sourceRect = getResolvedSourceRect(stage, textureState)
-  const previewScale =
-    sourceRect && sourceRect.Width > 0 && sourceRect.Height > 0
-      ? Math.max(1, Math.min(3.2, Math.min(184 / sourceRect.Width, 132 / sourceRect.Height)))
-      : 1
+
+  let previewScale = 1
+  let frameWidth = 0
+  let frameHeight = 0
+  if (sourceRect && sourceRect.Width > 0 && sourceRect.Height > 0) {
+    previewScale = Math.min(STAGE_PREVIEW_MAX_WIDTH / sourceRect.Width, STAGE_PREVIEW_MAX_HEIGHT / sourceRect.Height)
+    // Never upscale tiny icons past 3x; always fit whole sprite into the well.
+    previewScale = Math.min(previewScale, 3)
+    frameWidth = Math.max(1, Math.round(sourceRect.Width * previewScale))
+    frameHeight = Math.max(1, Math.round(sourceRect.Height * previewScale))
+  }
 
   return (
     <button
       type="button"
-      className={cx(
-        'panel-list-card panel-list-card-interactive w-60 shrink-0 p-3 text-left',
-        isActive ? 'panel-list-card-active' : 'hover:bg-[color-mix(in_srgb,var(--bg-active)_66%,transparent)]',
-      )}
+      className={cx('building-workspace-stage-card', isActive && 'building-workspace-stage-card-active')}
+      aria-pressed={isActive}
       onClick={onSelect}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-(--text-primary)">{stage.displayName}</p>
-          <p className="mt-1 truncate text-xs text-(--text-secondary)">{stage.internalName}</p>
-        </div>
-        <span className="dock-chip shrink-0">{getStageBadge(copy, stage, isActive ? stage.key : null)}</span>
+      <div className="building-workspace-stage-head">
+        <p className="building-workspace-stage-name" title={stage.displayName}>
+          {stage.displayName}
+        </p>
+        <span className="building-workspace-stage-badge">{getStageBadge(copy, stage, isActive ? stage.key : null)}</span>
       </div>
 
-      <div className="panel-canvas-soft relative mt-3 flex min-h-38 items-center justify-center px-3 py-4">
+      <div className="building-workspace-stage-preview">
         {sourceRect && textureState?.url && textureState.width && textureState.height ? (
-          <div
-            style={{
-              ...buildAbsoluteSpriteLayerStyle({
-                url: textureState.url,
-                sheetWidth: textureState.width,
-                sheetHeight: textureState.height,
-                sourceX: sourceRect.X,
-                sourceY: sourceRect.Y,
-                width: sourceRect.Width,
-                height: sourceRect.Height,
-              }),
-              transform: `scale(${previewScale})`,
-              transformOrigin: 'center center',
-            }}
-          />
+          <div className="building-workspace-stage-sprite-frame" style={{ width: frameWidth, height: frameHeight }}>
+            <div
+              className="building-workspace-stage-sprite"
+              style={{
+                ...buildAbsoluteSpriteLayerStyle({
+                  url: textureState.url,
+                  sheetWidth: textureState.width,
+                  sheetHeight: textureState.height,
+                  sourceX: sourceRect.X,
+                  sourceY: sourceRect.Y,
+                  width: sourceRect.Width,
+                  height: sourceRect.Height,
+                }),
+                transform: `scale(${previewScale})`,
+              }}
+            />
+          </div>
         ) : (
-          <p className="text-sm text-(--text-secondary)">{copy.noTexture}</p>
+          <p className="px-1 text-center text-[0.65rem] text-(--text-secondary)">{copy.noTexture}</p>
         )}
         {textureState?.loading ? <ImageSkeleton overlay className="building-stage-skeleton" rounded={false} /> : null}
       </div>
 
-      <div className="mt-3 space-y-1 text-xs text-(--text-secondary)">
-        <p>
-          {copy.indoorMapLabel}: {stage.indoorMapAssetName ? stage.indoorMapPathLabel : copy.noneLabel}
-        </p>
-        <p>
-          {copy.buildCostLabel}: {stage.buildCost}
-        </p>
-        <p>
-          {copy.materialCountLabel}: {stage.buildMaterials.length}
-        </p>
-      </div>
+      <p className="building-workspace-stage-cost">
+        {copy.buildCostLabel} {stage.buildCost}
+      </p>
     </button>
   )
 }
 
+/** Multi-stage upgrade strip. Hidden when chain has only one stage. */
 export function BuildingUpgradeChain(props: BuildingUpgradeChainProps) {
+  if (props.upgradeChain.length <= 1) {
+    return null
+  }
+
   return (
-    <div className="panel-surface panel-surface-muted min-h-0">
-      <div className="panel-header">
-        <div>
-          <p className="panel-title">{props.copy.upgradeTitle}</p>
-          <p className="panel-subtitle">{`${props.upgradeChain[0]?.rootKey ?? ''} -> ${props.upgradeChain[props.upgradeChain.length - 1]?.leafKey ?? ''}`}</p>
-        </div>
+    <div>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <p className="building-workspace-section-title">{props.copy.upgradeTitle}</p>
+        <p className="truncate font-mono text-[0.65rem] text-(--text-tertiary)">
+          {props.upgradeChain[0]?.rootKey ?? ''} → {props.upgradeChain[props.upgradeChain.length - 1]?.leafKey ?? ''}
+        </p>
       </div>
-      <div className="panel-body min-h-65 overflow-auto p-3">
-        <div className="flex gap-3 overflow-x-auto pb-1">
-          {props.upgradeChain.map((stage) => (
-            <StageCard
-              key={stage.key}
-              stage={stage}
-              textureState={props.chainTextureStates[stage.key] ?? null}
-              isActive={stage.key === props.activeBuildingKey}
-              onSelect={() => props.onSelectBuildingStage(stage.key)}
-            />
-          ))}
-        </div>
+      <div className="custom-scrollbar flex gap-2 overflow-x-auto pb-0.5">
+        {props.upgradeChain.map((stage) => (
+          <StageCard
+            key={stage.key}
+            stage={stage}
+            textureState={props.chainTextureStates[stage.key] ?? null}
+            isActive={stage.key === props.activeBuildingKey}
+            onSelect={() => props.onSelectBuildingStage(stage.key)}
+          />
+        ))}
       </div>
     </div>
   )

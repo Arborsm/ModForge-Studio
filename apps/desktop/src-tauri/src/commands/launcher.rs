@@ -2,16 +2,17 @@ use crate::domain::launcher::types::{
     CheckLauncherUpdatesRequest, DownloadLauncherModRequest, DownloadLauncherModResult,
     InspectLauncherArchiveRequest, InspectLauncherArchiveResult, InstallLauncherArchiveRequest,
     InstallLauncherArchiveResult, LauncherCatalogPageResult, LauncherDownloadQueueState,
-    LauncherGameLaunchResult, LauncherImageFailuresState, LauncherInstallBackupSummary,
-    LauncherLibraryCoversState, LauncherLibraryScanResult, LauncherLibraryState,
-    LauncherRemoteModDetail, LauncherRuntimeInfo, LauncherSettings,
-    LauncherSuppressedUpdateModIdsResult, LauncherUpdateChangelogResult, LauncherUpdatesResult,
-    ListLauncherInstallBackupsRequest, LoadCachedLauncherUpdatesRequest,
-    LoadLauncherRemoteModDetailRequest, LoadLauncherUpdateChangelogRequest,
-    LoadSuppressedLauncherUpdateModIdsRequest, OpenLauncherPathRequest, OpenLauncherUrlRequest,
-    PersistLauncherLibraryRemoteCoverRequest, RecordLauncherImageFailureRequest,
-    ResolveLauncherImageRequest, ResolveLauncherImageResult, RestoreLauncherInstallBackupRequest,
-    RestoreLauncherInstallBackupResult, SaveLauncherSettingsRequest, ScanLauncherLibraryRequest,
+    LauncherGameLaunchResult, LauncherGmcmProbeDiagnosticsResult, LauncherImageFailuresState,
+    LauncherInstallBackupSummary, LauncherLibraryCoversState, LauncherLibraryScanResult,
+    LauncherLibraryState, LauncherModConfigResult, LauncherRemoteModDetail, LauncherRuntimeInfo,
+    LauncherSettings, LauncherSuppressedUpdateModIdsResult, LauncherUpdateChangelogResult,
+    LauncherUpdatesResult, ListLauncherInstallBackupsRequest, LoadCachedLauncherUpdatesRequest,
+    LoadLauncherModConfigRequest, LoadLauncherRemoteModDetailRequest,
+    LoadLauncherUpdateChangelogRequest, LoadSuppressedLauncherUpdateModIdsRequest,
+    OpenLauncherPathRequest, OpenLauncherUrlRequest, PersistLauncherLibraryRemoteCoverRequest,
+    RecordLauncherImageFailureRequest, ResolveLauncherImageRequest, ResolveLauncherImageResult,
+    RestoreLauncherInstallBackupRequest, RestoreLauncherInstallBackupResult,
+    SaveLauncherModConfigRequest, SaveLauncherSettingsRequest, ScanLauncherLibraryRequest,
     SearchLauncherCatalogRequest, SetLauncherLibraryCoverRequest, SetLauncherModEnabledRequest,
     SetLauncherModEnabledResult,
 };
@@ -250,6 +251,50 @@ pub async fn set_launcher_mod_enabled(
         AppHandle::from_tauri(app),
         debug_logging_state.inner().clone(),
         crate::host_command_name!(set_launcher_mod_enabled),
+        json!({ "request": request }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn load_launcher_mod_config(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    request: LoadLauncherModConfigRequest,
+) -> Result<LauncherModConfigResult, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(load_launcher_mod_config),
+        json!({ "request": request }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn load_launcher_gmcm_probe_diagnostics(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<LauncherGmcmProbeDiagnosticsResult, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(load_launcher_gmcm_probe_diagnostics),
+        json!({}),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn save_launcher_mod_config(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    request: SaveLauncherModConfigRequest,
+) -> Result<LauncherModConfigResult, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(save_launcher_mod_config),
         json!({ "request": request }),
     )
     .await

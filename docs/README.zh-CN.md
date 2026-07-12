@@ -57,6 +57,9 @@ Linux 构建使用 Electron 包。发布自动化已经接入，但平台签名�
 ## 文档入口
 
 - [前端架构](frontend-architecture.md) - 分层边界和依赖规则。
+- [产品设计](DESIGN.md) - 产品形态、视觉语言与设计目标。
+- [页面设计规范](design/page-design-spec.md) - 工作区视觉规则与工作台壳 / 主页 IA。
+- [工作台壳迁移计划](design/workbench-shell-migration.md) - 将 shell mock 落到现产品的分阶段计划。
 - [维护指南](maintenance.md) - 开发命令、发布、CI、签名和仓库清理说明。
 - [Nexus Mods GraphQL 快照](nexusmods-graphql/SUMMARY.md) - 生成的 API 参考快照。
 

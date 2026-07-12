@@ -137,11 +137,11 @@ describe('WorkbenchModPreviewRuntime', () => {
         locale="en-US"
         theme="light"
         accentColor="#2278f2"
-        workspaceMode="mods"
+        workspaceMode="mod-browser"
         directoryInfo={null}
         heavyWorkspaceReady
         workspaceLayoutRef={workspaceLayoutRef}
-        workspaceLayoutStorageKey="mods"
+        workspaceLayoutStorageKey="mod-browser"
         workspaceLayouts={{}}
         modI18nSourceLocale="default"
         modI18nTargetLocale="zh-CN"
@@ -170,11 +170,11 @@ describe('WorkbenchModPreviewRuntime', () => {
         locale="en-US"
         theme="light"
         accentColor="#2278f2"
-        workspaceMode="mods"
+        workspaceMode="mod-browser"
         directoryInfo={null}
         heavyWorkspaceReady
         workspaceLayoutRef={workspaceLayoutRef}
-        workspaceLayoutStorageKey="mods"
+        workspaceLayoutStorageKey="mod-browser"
         workspaceLayouts={{}}
         modI18nSourceLocale="default"
         modI18nTargetLocale="zh-CN"
@@ -194,6 +194,7 @@ describe('WorkbenchModPreviewRuntime', () => {
     await new Promise((resolve) => window.setTimeout(resolve, 0))
 
     expect(useModWorkspaceMock).toHaveBeenCalledTimes(2)
+    expect(useModWorkspaceMock).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'mod', defaultI18nOnly: false }))
     expect(guardUpdates).toEqual([firstGuard])
   })
 })

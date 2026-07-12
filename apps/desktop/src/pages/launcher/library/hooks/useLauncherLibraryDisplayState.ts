@@ -146,12 +146,13 @@ export function useLauncherLibraryDisplayState({
   }, [library.currentPackId, library.libraryFolders])
 
   const visibleMods = useMemo(() => {
+    const matchesActiveFilters = (item: LauncherLibraryItem) =>
+      includesLibraryFilter(item, library.filterText) && (!library.enabledOnly || item.enabled) && (!library.configOnly || item.hasConfig)
+
     const browseScoped = hiddenViewOpen
-      ? hiddenMods.filter((item) => includesLibraryFilter(item, library.filterText)).filter((item) => !library.enabledOnly || item.enabled)
+      ? hiddenMods.filter(matchesActiveFilters)
       : editMode
-        ? library.mods
-            .filter((item) => includesLibraryFilter(item, library.filterText))
-            .filter((item) => !library.enabledOnly || item.enabled)
+        ? library.mods.filter(matchesActiveFilters)
         : library.filteredMods
     const shouldHideGlobalFolderMods =
       !hiddenViewOpen && !editMode && (!library.currentPackId || library.currentPack?.folderClassificationMode !== 'independent')
@@ -179,6 +180,7 @@ export function useLauncherLibraryDisplayState({
     hiddenMods,
     hiddenViewOpen,
     library.customOrders,
+    library.configOnly,
     library.currentPack?.folderClassificationMode,
     library.currentPackId,
     library.enabledOnly,
@@ -204,8 +206,9 @@ export function useLauncherLibraryDisplayState({
         ? library.mods
             .filter((item) => includesLibraryFilter(item, library.filterText))
             .filter((item) => !library.enabledOnly || item.enabled)
+            .filter((item) => !library.configOnly || item.hasConfig)
         : visibleMods,
-    [hiddenViewOpen, library.enabledOnly, library.filterText, library.mods, visibleMods],
+    [hiddenViewOpen, library.configOnly, library.enabledOnly, library.filterText, library.mods, visibleMods],
   )
   const visibleFolderModKeyLookup = useMemo(
     () => new Set(visibleFolderMods.map((mod) => normalizeLookupKey(getModKey(mod)))),

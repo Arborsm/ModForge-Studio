@@ -8,12 +8,13 @@ type PanelFrameProps = {
   className?: string
   bodyClassName?: string
   hideHeader?: boolean
+  flat?: boolean
   children: ReactNode
 }
 
-export function PanelFrame({ title, subtitle, headerAction, className, bodyClassName, hideHeader, children }: PanelFrameProps) {
+export function PanelFrame({ title, subtitle, headerAction, className, bodyClassName, hideHeader, flat, children }: PanelFrameProps) {
   return (
-    <section className={cx('panel-surface h-full', className)}>
+    <section className={cx(flat ? 'bg-(--bg-panel) rounded-[1.125rem]' : 'panel-surface', 'h-full', className)}>
       {!hideHeader ? (
         <header className="panel-header">
           <div className="min-w-0">

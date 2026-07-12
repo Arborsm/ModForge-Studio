@@ -4,6 +4,10 @@ export type RegistryItemKind = 'page' | 'workbench-view' | 'workspace-panel'
 
 export type RegistryItemId = string
 
+export type WorkbenchViewCategory = 'internal' | 'tool' | 'dev'
+export type WorkbenchNavigationIcon = 'package' | 'languages' | 'beaker'
+export type WorkbenchWorkspacePresentation = 'authoring' | 'browser'
+
 export type RegistryItemMetadata = {
   id: RegistryItemId
   kind: RegistryItemKind
@@ -25,12 +29,33 @@ export type PageRegistration<TProps = never> = RegistryItemMetadata & {
   component: ComponentFactory<TProps>
 }
 
-export type WorkbenchViewRegistration<TProps = never> = RegistryItemMetadata & {
+type WorkbenchViewRegistrationBase = RegistryItemMetadata & {
   kind: 'workbench-view'
   viewId: RegistryItemId
-  component: ComponentFactory<TProps>
+  /** Navigation category for registered workbench views. */
+  category: WorkbenchViewCategory
+  navigationIcon?: WorkbenchNavigationIcon
   layout?: DefaultLayoutContract
+  /** Whether the view requires an active authoring project before it can open. Defaults to false. */
+  requiresProject?: boolean
 }
+
+export type WorkbenchViewRegistration<TProps = never> = WorkbenchViewRegistrationBase &
+  (
+    | {
+        activation: { kind: 'component' }
+        component: ComponentFactory<TProps>
+      }
+    | {
+        activation: {
+          kind: 'workspace'
+          workspaceMode: RegistryItemId
+          /** Controls workspace chrome and whether edit locations can be restored. */
+          presentation: WorkbenchWorkspacePresentation
+        }
+        component?: never
+      }
+  )
 
 export type WorkspacePanelRegistration<TProps = never> = RegistryItemMetadata & {
   kind: 'workspace-panel'

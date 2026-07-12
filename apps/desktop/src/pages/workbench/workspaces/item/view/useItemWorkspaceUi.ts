@@ -2,20 +2,22 @@ import { useCallback, useSyncExternalStore } from 'react'
 import type { ItemBrowseCategory } from '../entities/item'
 import type { DetailTab } from './itemWorkspaceTypes'
 
+export type CatalogViewMode = 'list' | 'grid'
+
 type ItemWorkspaceUiState = {
   activeBrowseTab: ItemBrowseCategory
   activeDetailTab: DetailTab
-  hoveredItemId: string | null
   currentPage: number
   itemsPerPage: number
+  catalogViewMode: CatalogViewMode
 }
 
 const DEFAULT_ITEM_WORKSPACE_UI_STATE: ItemWorkspaceUiState = {
   activeBrowseTab: 'all',
   activeDetailTab: 'info',
-  hoveredItemId: null,
   currentPage: 1,
-  itemsPerPage: 48,
+  itemsPerPage: 12,
+  catalogViewMode: 'grid',
 }
 
 let itemWorkspaceUiState = DEFAULT_ITEM_WORKSPACE_UI_STATE
@@ -50,10 +52,6 @@ export function useItemWorkspaceUi() {
     updateItemWorkspaceUiState({ activeDetailTab: tab })
   }, [])
 
-  const setHoveredItemId = useCallback((itemKey: string | null) => {
-    updateItemWorkspaceUiState({ hoveredItemId: itemKey })
-  }, [])
-
   const setCurrentPage = useCallback((page: number) => {
     updateItemWorkspaceUiState({ currentPage: page })
   }, [])
@@ -62,12 +60,16 @@ export function useItemWorkspaceUi() {
     updateItemWorkspaceUiState({ itemsPerPage })
   }, [])
 
+  const setCatalogViewMode = useCallback((mode: CatalogViewMode) => {
+    updateItemWorkspaceUiState({ catalogViewMode: mode, currentPage: 1 })
+  }, [])
+
   return {
     ...state,
     setActiveBrowseTab,
     setActiveDetailTab,
-    setHoveredItemId,
     setCurrentPage,
     setItemsPerPage,
+    setCatalogViewMode,
   }
 }

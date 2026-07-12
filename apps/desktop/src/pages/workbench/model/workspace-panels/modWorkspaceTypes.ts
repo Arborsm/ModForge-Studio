@@ -22,9 +22,11 @@ export type BuildModsWorkspacePanelsOptions = {
   modFilter: string
   contentPatcherOnly: boolean
   compatibleOnly: boolean
+  i18nOnly: boolean
   onModFilterChange: (value: string) => void
   onContentPatcherOnlyChange: (value: boolean) => void
   onCompatibleOnlyChange: (value: boolean) => void
+  onI18nOnlyChange: (value: boolean) => void
   onSelectModProject: (path: string) => void
   onImportModProject: () => void
   onRefreshModProjects: () => void

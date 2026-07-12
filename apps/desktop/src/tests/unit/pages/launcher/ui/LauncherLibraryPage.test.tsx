@@ -250,6 +250,7 @@ function createLibraryMod(overrides: Partial<LauncherLibraryModSummary> = {}): L
     folderName: 'NPC Adventures',
     absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\NPC Adventures',
     enabled: true,
+    hasConfig: true,
     nexusModId: 101,
     updateKeys: ['Nexus:101'],
     modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
@@ -358,6 +359,7 @@ function createLibraryState(): MockLibraryState {
     setSelectedModIds: vi.fn(),
     filterText: '',
     enabledOnly: false,
+    configOnly: false,
     state: 'ready' as const,
     error: null,
     selectionCount: 0,
@@ -399,6 +401,7 @@ function createLibraryState(): MockLibraryState {
     setSelectedModId: vi.fn(),
     setFilterText: vi.fn(),
     setEnabledOnly: vi.fn(),
+    setConfigOnly: vi.fn(),
     refresh: vi.fn(async () => {}),
     toggleEnabled: vi.fn(async () => {}),
     installArchive: vi.fn(async () => createInstallArchiveResult()),
@@ -1530,6 +1533,10 @@ describe('LauncherLibraryPage', () => {
     const enabledSwitch = screen.getByRole('button', { name: 'Enabled Only' })
     fireEvent.click(enabledSwitch)
     expect(library.setEnabledOnly).toHaveBeenCalledWith(true)
+
+    const configSwitch = screen.getByRole('button', { name: 'Configurable Only' })
+    fireEvent.click(configSwitch)
+    expect(library.setConfigOnly).toHaveBeenCalledWith(true)
 
     const sortTrigger = screen.getByRole('button', { name: 'Quick Sort' })
     fireEvent.click(sortTrigger)

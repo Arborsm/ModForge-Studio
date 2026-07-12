@@ -53,7 +53,6 @@ describe('style code splitting', () => {
     expectCssSource(indexStyles, '../shared/ui/PanelSection.tsx')
     expectCssSource(indexStyles, '../shared/ui/ProgressRing.tsx')
     expectCssSource(indexStyles, '../widgets/top-navigation')
-    expectCssSource(indexStyles, '../widgets/status-bar')
     expect(indexStyles).not.toContain('@source "../app/app-shell";')
     expect(indexStyles).not.toContain('@source "../shared";')
     expect(indexStyles).not.toContain('@source "../pages";')

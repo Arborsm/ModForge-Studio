@@ -107,6 +107,9 @@ const items: ItemsPanelCopy = {
   giftSectionTitle: '村民喜好',
   giftLoveTitle: '最爱',
   giftLikeTitle: '喜欢',
+  listViewLabel: '列表',
+  gridViewLabel: '网格',
+  sourceLabel: '来源',
   kindLabels: {
     object: '物品',
     'big-craftable': '大型制作物',

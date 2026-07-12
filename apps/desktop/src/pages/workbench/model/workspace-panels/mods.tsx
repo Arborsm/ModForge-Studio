@@ -22,9 +22,11 @@ export function buildModsWorkspacePanels({
   modFilter,
   contentPatcherOnly,
   compatibleOnly,
+  i18nOnly,
   onModFilterChange,
   onContentPatcherOnlyChange,
   onCompatibleOnlyChange,
+  onI18nOnlyChange,
   onSelectModProject,
   onImportModProject,
   onRefreshModProjects,
@@ -90,9 +92,11 @@ export function buildModsWorkspacePanels({
           modFilter={modFilter}
           contentPatcherOnly={contentPatcherOnly}
           compatibleOnly={compatibleOnly}
+          i18nOnly={i18nOnly}
           onFilterChange={onModFilterChange}
           onContentPatcherOnlyChange={onContentPatcherOnlyChange}
           onCompatibleOnlyChange={onCompatibleOnlyChange}
+          onI18nOnlyChange={onI18nOnlyChange}
           onSelectProject={onSelectModProject}
           onImportProject={onImportModProject}
           onRefreshProjects={onRefreshModProjects}

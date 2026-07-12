@@ -7,18 +7,16 @@ import {
   useMemo,
   useRef,
   useState,
-  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { cx } from '@shared/lib/helper'
 import { RAIL_DRAG_THRESHOLD, ROOT_PADDING, SLOT_IDS, SPLIT_GAP } from '@shared/workspace/layoutConstants'
-import { findDockTarget, getRailSortTarget, type RailButtonBounds, type RailSortTarget } from '@shared/workspace/layoutDragTargets'
+import { findDockTarget, type RailSortTarget } from '@shared/workspace/layoutDragTargets'
 import { getDockGuideRects, getWorkspaceGeometry } from '@shared/workspace/layoutGeometry'
 import {
   buildDefaultSnapshot,
   clamp,
   getActiveDockedPanel,
-  getDockedPanelIdsForRail,
   getForcedDockForPanel,
   getOrderedPanelIdsForSlot,
   movePanelInOrder,
@@ -42,7 +40,7 @@ import type {
   WorkspaceStoredState,
 } from '@shared/contracts'
 import { WorkspacePanelShell } from './WorkspacePanelShell'
-import { WorkspaceDragOverlay, WorkspaceRail } from './WorkspaceRails'
+import { WorkspaceDragOverlay } from './WorkspaceRails'
 
 export type { DockArea, WorkspaceLayoutHandle, WorkspacePanelConfig, WorkspacePanelMeta } from '@shared/contracts'
 
@@ -106,7 +104,6 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
 ) {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const panelContentRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  const railButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const interactionRef = useRef<DragInteraction | null>(null)
   const suppressRailClickRef = useRef<string | null>(null)
   const [rootSize, setRootSize] = useState<WorkspaceSize>({ width: 0, height: 0 })
@@ -164,7 +161,7 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
     panelsRef.current = panels
   }, [panels])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     stateRef.current = state
   }, [state])
 
@@ -300,6 +297,10 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
   }, [])
 
   useEffect(() => {
+    if (interactionRef.current) {
+      return
+    }
+
     persistStateChangeRef.current?.(storageKey, state)
   }, [state, storageKey])
 
@@ -578,55 +579,7 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
         const nextTarget = findDockTarget(dockGuides, localPointer)
 
         setDragDockTarget((current) => (current === nextTarget ? current : nextTarget))
-        if (nextTarget) {
-          setRailSortTarget(null)
-          return
-        }
-
-        const buttonBounds: RailButtonBounds[] = []
-        for (const button of Object.values(railButtonRefs.current)) {
-          if (!button) {
-            continue
-          }
-
-          const slot = button.dataset.slot as SlotId | undefined
-          const panelId = button.dataset.panelId
-          if (!slot || !panelId) {
-            continue
-          }
-
-          const rect = button.getBoundingClientRect()
-          buttonBounds.push({
-            slot,
-            panelId,
-            rect: {
-              left: rect.left,
-              top: rect.top,
-              right: rect.right,
-              bottom: rect.bottom,
-              width: rect.width,
-              height: rect.height,
-            },
-          })
-        }
-
-        const nextSortTarget = getRailSortTarget(
-          buttonBounds,
-          { x: event.clientX, y: event.clientY },
-          interaction.panelId,
-          panels,
-          state.panels,
-          state.slots,
-        )
-
-        setRailSortTarget((current) =>
-          current?.slot === nextSortTarget?.slot &&
-          current?.index === nextSortTarget?.index &&
-          current?.panelId === nextSortTarget?.panelId &&
-          current?.position === nextSortTarget?.position
-            ? current
-            : nextSortTarget,
-        )
+        setRailSortTarget(null)
         return
       }
 
@@ -653,15 +606,13 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
             }
           }
 
-          const leftRailVisible = getDockedPanelIdsForRail(panels, current.panels, 'left').length > 0
-          const rightRailVisible = getDockedPanelIdsForRail(panels, current.panels, 'right').length > 0
           const leftPanelVisible = Boolean(
             getActiveDockedPanel(panelMap, current, 'left-top') || getActiveDockedPanel(panelMap, current, 'left-bottom'),
           )
           const rightPanelVisible = Boolean(
             getActiveDockedPanel(panelMap, current, 'right-top') || getActiveDockedPanel(panelMap, current, 'right-bottom'),
           )
-          const usable = getHorizontalUsableWidth(rootSize, leftRailVisible, rightRailVisible, leftPanelVisible, rightPanelVisible)
+          const usable = getHorizontalUsableWidth(rootSize, leftPanelVisible, rightPanelVisible)
           const nextRatio = nextSize / Math.max(1, usable)
 
           return {
@@ -762,6 +713,8 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
         setDragDockTarget(null)
         setRailSortTarget(null)
         setDragPreview(null)
+      } else if (interaction) {
+        persistStateChangeRef.current?.(storageKey, stateRef.current)
       }
     }
 
@@ -788,6 +741,7 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
     rootSize,
     state.panels,
     state.slots,
+    storageKey,
   ])
 
   function bringToFront(panelId: string) {
@@ -858,23 +812,6 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
             expanded: false,
             activePanelId: panelId,
             panelOrder: current.slots[panelState.dock].panelOrder,
-          },
-        },
-      }
-    })
-  }
-
-  function toggleSlot(slot: SlotId, panelId: string) {
-    setState((current) => {
-      const slotState = current.slots[slot]
-      return {
-        ...current,
-        slots: {
-          ...current.slots,
-          [slot]: {
-            activePanelId: panelId,
-            expanded: slotState.activePanelId === panelId ? !slotState.expanded : true,
-            panelOrder: slotState.panelOrder,
           },
         },
       }
@@ -990,16 +927,6 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
     event.stopPropagation()
   }
 
-  function handleRailButtonClick(slot: SlotId, panelId: string, event: ReactMouseEvent<HTMLButtonElement>) {
-    if (suppressRailClickRef.current === panelId) {
-      suppressRailClickRef.current = null
-      event.preventDefault()
-      return
-    }
-
-    toggleSlot(slot, panelId)
-  }
-
   function endToolDrag() {
     setDraggedPanelId(null)
     setDragDockTarget(null)
@@ -1020,26 +947,6 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
 
   return (
     <div ref={rootRef} className="workspace-root">
-      {(['left', 'right'] as const).map((rail) => (
-        <WorkspaceRail
-          key={rail}
-          rail={rail}
-          railRect={geometry.rails[rail]}
-          panels={panels}
-          panelMap={panelMap}
-          panelStates={state.panels}
-          slots={state.slots}
-          draggedPanelId={draggedPanelId}
-          railSortTarget={railSortTarget}
-          railButtonRefs={railButtonRefs}
-          onUndock={undock}
-          onHide={hide}
-          onDock={dock}
-          onRailButtonClick={handleRailButtonClick}
-          onBeginRailDrag={beginRailDrag}
-        />
-      ))}
-
       <WorkspaceDragOverlay
         draggedPanelId={draggedPanelId}
         dockGuides={dockGuides}

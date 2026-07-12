@@ -43,6 +43,8 @@ function buildProps(): ComponentProps<typeof ContentPatcherWorkspace> {
         contentPath: 'E:\\Mods\\SeasonalGarden\\content.json',
         status: 'ready' as const,
         missingRequiredDependencies: [],
+        hasI18n: false,
+        i18nEntryCount: 0,
       },
       diagnostics: [],
       contentPatcher: {
@@ -59,6 +61,7 @@ function buildProps(): ComponentProps<typeof ContentPatcherWorkspace> {
         i18nFiles: [],
         patches: [],
       },
+      i18nFiles: [],
     },
     diagnostics: [],
     statusMessage: 'ready',

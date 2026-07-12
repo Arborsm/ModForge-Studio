@@ -109,10 +109,7 @@ export function AtlasSprite({
   const isLoading = texture?.loading
 
   return (
-    <div
-      className={`relative overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-panel-muted) ${className}`}
-      style={{ isolation: 'isolate', ...style }}
-    >
+    <div className={`relative overflow-hidden rounded-xl ${className}`} style={{ isolation: 'isolate', ...style }}>
       {isLoading ? (
         <ImageSkeleton overlay rounded={false} />
       ) : hasSprite ? (

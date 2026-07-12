@@ -6,7 +6,7 @@ import type { VisibilityListItem } from '../common/rightShared'
 type VisibilityListVariant = 'panel' | 'dock'
 
 const visibilitySectionClassName = {
-  panel: 'overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-panel-muted)',
+  panel: 'overflow-hidden rounded-xl bg-(--bg-panel-muted)',
   dock: 'panel-section-muted panel-section overflow-hidden',
 } satisfies Record<VisibilityListVariant, string>
 

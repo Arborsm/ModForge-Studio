@@ -78,6 +78,20 @@ fn sample_manifest_with_optional_dependency(unique_id: &str, dependency_unique_i
     )
 }
 
+fn sample_manifest_with_config_schema(unique_id: &str) -> String {
+    format!(
+        r#"{{
+  "Name": "Configurable Mod",
+  "Author": "ModForge",
+  "Version": "1.0.0",
+  "UniqueID": "{unique_id}",
+  "ConfigSchema": {{
+    "Enabled": {{ "Default": true, "AllowValues": "true,false" }}
+  }}
+}}"#
+    )
+}
+
 fn nested_folder(id: &str, name: &str, parent: &str, hidden: bool) -> LauncherLibraryFolder {
     LauncherLibraryFolder {
         id: id.to_string(),
@@ -88,6 +102,56 @@ fn nested_folder(id: &str, name: &str, parent: &str, hidden: bool) -> LauncherLi
         mod_keys: Vec::new(),
         cover_mod_keys: Vec::new(),
     }
+}
+
+#[test]
+fn scan_library_marks_mods_with_config_entries() {
+    let root = create_temp_dir("launcher-library-config-flags");
+    let config_json_mod = root.join("Mods").join("ConfigJsonMod");
+    let manifest_schema_mod = root.join("Mods").join("ManifestSchemaMod");
+    let content_schema_mod = root.join("Mods").join("ContentSchemaMod");
+    let plain_mod = root.join("Mods").join("PlainMod");
+
+    write_file(
+        &config_json_mod.join("manifest.json"),
+        &sample_manifest("ModForge.ConfigJsonMod"),
+    );
+    write_file(&config_json_mod.join("config.json"), r#"{"Enabled":true}"#);
+
+    write_file(
+        &manifest_schema_mod.join("manifest.json"),
+        &sample_manifest_with_config_schema("ModForge.ManifestSchemaMod"),
+    );
+
+    write_file(
+        &content_schema_mod.join("manifest.json"),
+        &sample_manifest("ModForge.ContentSchemaMod"),
+    );
+    write_file(
+        &content_schema_mod.join("content.json"),
+        r#"{"ConfigSchema":{"Variant":{"Default":"A","AllowValues":"A,B"}}}"#,
+    );
+
+    write_file(
+        &plain_mod.join("manifest.json"),
+        &sample_manifest("ModForge.PlainMod"),
+    );
+
+    let scan = scan_library_at_path(&root).expect("scan launcher library");
+    let has_config = |unique_id: &str| {
+        scan.mods
+            .iter()
+            .find(|item| item.unique_id.as_deref() == Some(unique_id))
+            .map(|item| item.has_config)
+            .expect("mod summary")
+    };
+
+    assert!(has_config("ModForge.ConfigJsonMod"));
+    assert!(has_config("ModForge.ManifestSchemaMod"));
+    assert!(has_config("ModForge.ContentSchemaMod"));
+    assert!(!has_config("ModForge.PlainMod"));
+
+    fs::remove_dir_all(root).expect("cleanup");
 }
 
 #[test]

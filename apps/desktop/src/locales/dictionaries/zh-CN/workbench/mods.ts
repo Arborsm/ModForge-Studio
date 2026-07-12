@@ -17,6 +17,7 @@ const mods: ModWorkspaceCopy = {
   browserEmpty: '当前没有可用的 Content Patcher 项目。',
   contentPatcherOnly: '仅 CP 模组',
   compatibleOnly: '仅显示兼容项',
+  i18nOnly: '仅显示有 i18n',
   incompatibleProject: '不兼容',
   projectsLabel: '项目数',
   filteredLabel: '筛选后',

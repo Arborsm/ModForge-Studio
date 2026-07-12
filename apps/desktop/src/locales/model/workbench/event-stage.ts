@@ -230,16 +230,29 @@ export type EventWorkflowCopy = {
   workspacePanels: {
     directoryTitle: string
     directoryEmpty: string
+    modSourcesTitle: string
     browserTitle: string
     browserSubtitle: string
     browserPlaceholder: string
     browserEmptyFiltered: string
     browserEmptyMissing: string
     browserModEmpty: string
+    sourceOriginalLabel: string
+    sourceModLabel: string
+    detailEmpty: string
+    detailTimelineTab: string
+    detailCommandTab: string
+    detailSceneTab: string
+    detailPreconditions: string
+    detailCommandCount: (count: number) => string
+    detailMapLabel: string
+    detailFileLabel: string
+    detailPathLabel: string
     inspectorTitle: string
     inspectorEmpty: string
     inspectorSummary: string
     inspectorRaw: string
+    inspectorParameters: string
     inspectorCommand: string
     inspectorKind: string
     inspectorActor: string
@@ -272,6 +285,9 @@ export type EventStageCopy = {
   toggleGrid: string
   showPathsLayer: string
   configurePlayerAppearance: string
+  addActorHere: (x: number, y: number) => string
+  setCameraHere: (x: number, y: number) => string
+  addWarpHere: (x: number, y: number) => string
   statusMusic: string
   statusSound: string
   statusAmbient: string
@@ -330,6 +346,19 @@ export type EventStageCopy = {
     fieldMeta: string
     fieldSubtitle: string
     none: string
+  }
+  devResourceBrowserLab: {
+    title: string
+    devBadge: string
+    introTitle: string
+    introDesc: string
+    openPicker: string
+    statusLoaded: string
+    statusLoading: string
+    statusFallback: string
+    totalLabel: (count: number) => string
+    projectLabel: (count: number) => string
+    kinds: Record<'actor' | 'item' | 'location' | 'music' | 'sound', { title: string; description: string; placeholder: string }>
   }
   workflow: EventWorkflowCopy
   playerAppearance: PlayerAppearanceCopy

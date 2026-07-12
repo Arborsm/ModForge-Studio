@@ -51,7 +51,7 @@ async function main() {
   const result = spawnSync(command, args, {
     cwd: desktopRoot,
     env,
-    stdio: 'inherit',
+    stdio: userArgs[0] === 'build' ? ['ignore', 'inherit', 'inherit'] : 'inherit',
   })
   restoreTauriManifest(tauriManifestSnapshot)
 

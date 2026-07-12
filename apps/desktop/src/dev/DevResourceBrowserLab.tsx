@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer, useState } from 'react'
-import { Database, Layers3, Music, Package, Search, Sparkles, UserRound, Volume2, Waypoints, type LucideIcon } from 'lucide-react'
+import { Music, Package, UserRound, Volume2, Waypoints, type LucideIcon } from 'lucide-react'
 import type { LocaleCode } from '@locales'
 import type { EventWorkflowCopy } from '@locales/api'
 import { useEventStageCopy } from '@locales/provider'
@@ -14,6 +14,7 @@ import {
   type ItemTextureAssetState,
   type ItemWorkspaceEntry,
 } from '@pages/workbench/workspaces/item/entities/item'
+import { cx } from '@shared/lib/helper'
 import { configureImageDataUrlLoader } from '@shared/lib/assets'
 import { configureDesktopPlatformPorts } from '@platform/host'
 import { createElectronPlatformPorts, isElectronHost } from '@platform/electron'
@@ -44,18 +45,15 @@ async function loadDesktopResourceRegistry(rootPath: string, locale: LocaleCode)
 
 type ResourceLoadState = 'fallback' | 'loading' | 'loaded' | 'partial'
 
-const FALLBACK_LOAD_MESSAGE = '未连接游戏目录，当前使用静态 fallback 资源。'
-
 type BrowserRegistryState = {
   registry: EventResourceRegistry | null
   loadState: ResourceLoadState
-  loadMessage: string
 }
 
 type BrowserRegistryAction =
-  | { type: 'fallback'; message?: string }
-  | { type: 'loading'; message: string }
-  | { type: 'loaded'; registry: EventResourceRegistry; loadState: 'loaded' | 'partial'; message: string }
+  | { type: 'fallback' }
+  | { type: 'loading' }
+  | { type: 'loaded'; registry: EventResourceRegistry; loadState: 'loaded' | 'partial' }
 
 function browserRegistryReducer(_state: BrowserRegistryState, action: BrowserRegistryAction): BrowserRegistryState {
   switch (action.type) {
@@ -63,68 +61,47 @@ function browserRegistryReducer(_state: BrowserRegistryState, action: BrowserReg
       return {
         registry: null,
         loadState: 'fallback',
-        loadMessage: action.message ?? FALLBACK_LOAD_MESSAGE,
       }
     case 'loading':
       return {
         registry: null,
         loadState: 'loading',
-        loadMessage: action.message,
       }
     case 'loaded':
       return {
         registry: action.registry,
         loadState: action.loadState,
-        loadMessage: action.message,
       }
   }
 }
 
 const RESOURCE_KINDS: Array<{
   kind: EventResourceKind
-  title: string
-  description: string
-  placeholder: string
   icon: LucideIcon
   tone: string
 }> = [
   {
     kind: 'actor',
-    title: '角色',
-    description: 'NPC、临时演员、当前项目中收集到的角色名。',
-    placeholder: '搜索角色或输入自定义 actor',
     icon: UserRound,
     tone: '#22c55e',
   },
   {
     kind: 'item',
-    title: '物品',
-    description: '原版物品 ID 与项目脚本中出现的物品参数。',
-    placeholder: '搜索物品、ID 或名称',
     icon: Package,
     tone: '#f97316',
   },
   {
     kind: 'location',
-    title: '场地',
-    description: 'Data/Events 目标、地图名和事件命令中的位置。',
-    placeholder: '搜索场地或地图名',
     icon: Waypoints,
     tone: '#14b8a6',
   },
   {
     kind: 'music',
-    title: '音乐',
-    description: '事件 scene setup 与 playMusic 使用的 music cue。',
-    placeholder: '搜索 music cue',
     icon: Music,
     tone: '#ec4899',
   },
   {
     kind: 'sound',
-    title: '音效',
-    description: 'playSound 和脚本命令中出现的音效 cue。',
-    placeholder: '搜索 sound cue',
     icon: Volume2,
     tone: '#8b5cf6',
   },
@@ -246,30 +223,16 @@ function countDesktopRegistryResources(desktopRegistry: ResourceRegistry) {
   return desktopRegistry.entries.filter((entry) => ['actor', 'item', 'location', 'music', 'sound'].includes(entry.kind)).length
 }
 
-function countRegistryResources(registry: EventResourceRegistry) {
-  return RESOURCE_KINDS.reduce((total, item) => total + registry[item.kind].length, 0)
-}
-
-function countResourceSources(options: EventResourceOption[]) {
-  const counts = new Map<string, number>()
-  for (const option of options) {
-    const source = option.badge ?? option.subtitle ?? 'Unknown'
-    counts.set(source, (counts.get(source) ?? 0) + 1)
-  }
-  return [...counts.entries()].sort((left, right) => right[1] - left[1])
-}
-
 export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }: DevResourceBrowserLabProps) {
+  const copy = useEventStageCopy().devResourceBrowserLab
   const sourceLabels = useEventStageCopy().workflow.resourceSources
   const [detectedDevRootPath, setDetectedDevRootPath] = useState<string | null>(null)
-  const [{ registry: collectedRegistry, loadState, loadMessage }, dispatchBrowserRegistry] = useReducer(browserRegistryReducer, {
+  const [{ registry: collectedRegistry }, dispatchBrowserRegistry] = useReducer(browserRegistryReducer, {
     registry: null,
     loadState: 'fallback',
-    loadMessage: FALLBACK_LOAD_MESSAGE,
   })
   const registry = useMemo(() => collectedRegistry ?? buildDefaultEventResourceRegistry(sourceLabels), [collectedRegistry, sourceLabels])
   const [selections, setSelections] = useState<Record<EventResourceKind, string>>(DEFAULT_SELECTIONS)
-  const [activeKind, setActiveKind] = useState<EventResourceKind>('actor')
   const effectiveRootPath = directoryInfo?.rootPath ?? detectedDevRootPath
 
   useEffect(() => {
@@ -300,7 +263,7 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
 
     let cancelled = false
     const gameRootPath = rootPath
-    dispatchBrowserRegistry({ type: 'loading', message: '正在从 Rust 全局资源注册表和物品目录加载...' })
+    dispatchBrowserRegistry({ type: 'loading' })
 
     async function collectResources() {
       const [desktopRegistry, itemOptionsResult] = await Promise.all([
@@ -323,12 +286,7 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
 
       const nextResourceCount = backendResourceCount + itemOptionsResult.options.length
       if (nextResourceCount === 0) {
-        dispatchBrowserRegistry({
-          type: 'fallback',
-          message: desktopRegistry.warnings.length
-            ? `Rust 注册表没有返回可用资源，已回退到静态 fallback。警告 ${desktopRegistry.warnings.length} 条。`
-            : 'Rust 注册表返回空资源，已回退到静态 fallback。',
-        })
+        dispatchBrowserRegistry({ type: 'fallback' })
         return
       }
 
@@ -337,9 +295,6 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
         type: 'loaded',
         registry: nextRegistry,
         loadState: hasWarnings ? 'partial' : 'loaded',
-        message: hasWarnings
-          ? `已加载部分资源：物品 ${itemOptionsResult.options.length} 个，Rust 警告 ${desktopRegistry.warnings.length} 条。`
-          : `已加载 Rust 全局注册表和物品目录：物品 ${itemOptionsResult.options.length} 个。`,
       })
     }
 
@@ -347,7 +302,7 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
       if (cancelled) {
         return
       }
-      dispatchBrowserRegistry({ type: 'fallback', message: 'Rust 注册表加载失败，当前使用静态 fallback 资源。' })
+      dispatchBrowserRegistry({ type: 'fallback' })
     })
 
     return () => {
@@ -355,122 +310,58 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
     }
   }, [effectiveRootPath, locale, sourceLabels])
 
-  const totalResources = countRegistryResources(registry)
-  const activeResource = RESOURCE_KINDS.find((resource) => resource.kind === activeKind) ?? RESOURCE_KINDS[0]
-  const activeSourceCounts = countResourceSources(registry[activeKind])
-  const projectResourceCount = RESOURCE_KINDS.reduce(
-    (total, resource) =>
-      total + registry[resource.kind].filter((option) => option.badge === '当前项目' || option.badge === 'Project').length,
-    0,
-  )
-
   return (
     <main className="dev-resource-browser">
-      <header className="dev-resource-browser__header">
-        <div className="min-w-0">
-          <div className="dev-resource-browser__title-row">
-            <Sparkles className="h-4 w-4 text-(--accent)" aria-hidden="true" />
-            <h1>资源浏览器</h1>
-            <span className="dev-resource-browser__badge">DEV</span>
-            <span className="dev-resource-browser__badge">{loadState}</span>
-          </div>
-          <p className="dev-resource-browser__subtitle">{loadMessage}</p>
-        </div>
-        <div className="dev-resource-browser__metrics">
-          <span className="dev-resource-browser__metric">
-            <Database className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{totalResources}</span>
-          </span>
-          <span className="dev-resource-browser__metric">
-            <Layers3 className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{projectResourceCount} project</span>
-          </span>
-        </div>
-      </header>
-
-      <div className="dev-resource-browser__dialog-stage">
-        <section className="dev-resource-browser__dialog-panel" aria-label="资源浏览器弹窗测试">
-          <div className="dev-resource-browser__dialog-head">
-            <div className="min-w-0">
-              <h2>弹窗测试台</h2>
-              <p>点击右侧按钮打开真实资源浏览器弹窗，验证搜索、选择、自定义值、Esc 和遮罩关闭。</p>
+      <div className="dev-resource-browser__workspace">
+        <section className="dev-resource-browser__main" aria-label={copy.introTitle}>
+          <div className="dev-resource-browser__main-body">
+            <div className="dev-resource-browser__intro">
+              <p className="dev-resource-browser__intro-title">{copy.introTitle}</p>
+              <p className="dev-resource-browser__intro-desc">{copy.introDesc}</p>
             </div>
-            <span className="dev-resource-browser__badge">{activeResource.title} active</span>
-          </div>
 
-          <div className="dev-resource-browser__dialog-grid">
-            {RESOURCE_KINDS.map((resource) => {
-              const Icon = resource.icon
-              const selected = registry[resource.kind].find((option) => option.value === selections[resource.kind])
-              const active = resource.kind === activeKind
-
-              return (
-                <div key={resource.kind} className="dev-resource-browser__dialog-row" data-active={active ? 'true' : undefined}>
-                  <span className="dev-resource-browser__icon-box" style={{ color: resource.tone }} aria-hidden="true">
-                    <Icon className="h-3.5 w-3.5" />
-                  </span>
-                  <span className="dev-resource-browser__dialog-copy">
-                    <span className="dev-resource-browser__label">{resource.title}</span>
-                    <span className="dev-resource-browser__tiny">{resource.description}</span>
-                  </span>
-                  <span className="dev-resource-browser__count">{registry[resource.kind].length}</span>
-                  <EventResourcePicker
-                    value={selections[resource.kind]}
-                    label={`${resource.title}资源浏览器`}
-                    placeholder={resource.placeholder}
-                    options={registry[resource.kind]}
-                    selectionMode="confirm"
-                    onSelect={(value) => {
-                      setActiveKind(resource.kind)
-                      setSelections((current) => ({
-                        ...current,
-                        [resource.kind]: value,
-                      }))
-                    }}
-                    triggerClassName="dev-resource-browser__picker-trigger"
-                  />
-                  <span className="dev-resource-browser__dialog-selection">{selected?.label ?? selections[resource.kind]}</span>
-                </div>
-              )
-            })}
-          </div>
-
-          <div className="dev-resource-browser__dialog-footer">
-            <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            {activeSourceCounts.slice(0, 4).map(([source, count]) => (
-              <span key={source} className="dev-resource-browser__source-chip">
-                {activeResource.title} {source}: {count}
-              </span>
-            ))}
-          </div>
-        </section>
-
-        <aside className="dev-resource-browser__dialog-side">
-          <section>
-            <h2>当前选择</h2>
-            <div className="dev-resource-browser__selection-list">
+            <div className="dev-resource-browser__kind-grid">
               {RESOURCE_KINDS.map((resource) => {
+                const Icon = resource.icon
                 const selected = registry[resource.kind].find((option) => option.value === selections[resource.kind])
+                const kindCopy = copy.kinds[resource.kind]
 
                 return (
-                  <button
-                    key={resource.kind}
-                    type="button"
-                    className="dev-resource-browser__selection"
-                    onClick={() => setActiveKind(resource.kind)}
-                  >
-                    <span className="dev-resource-browser__swatch" style={{ backgroundColor: resource.tone }} aria-hidden="true" />
-                    <span className="dev-resource-browser__selection-copy">
-                      <span className="dev-resource-browser__tiny">{resource.title}</span>
-                      <strong className="dev-resource-browser__selection-label">{selected?.label ?? selections[resource.kind]}</strong>
-                      <span className="dev-resource-browser__tiny">{selected?.subtitle ?? selections[resource.kind]}</span>
-                    </span>
-                  </button>
+                  <article key={resource.kind} className="dev-resource-browser__kind-card">
+                    <div className="dev-resource-browser__kind-head">
+                      <span className="dev-resource-browser__kind-icon" style={{ color: resource.tone }} aria-hidden="true">
+                        <Icon className="h-[1.125rem] w-[1.125rem]" />
+                      </span>
+                      <span className="dev-resource-browser__kind-count">{registry[resource.kind].length}</span>
+                    </div>
+                    <div>
+                      <h2 className="dev-resource-browser__kind-title">{kindCopy.title}</h2>
+                      <p className="dev-resource-browser__kind-desc">{kindCopy.description}</p>
+                    </div>
+                    <div className={cx('dev-resource-browser__selection-box', selected && 'has-value')}>
+                      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{selected?.label ?? selections[resource.kind]}</span>
+                    </div>
+                    <EventResourcePicker
+                      value={selections[resource.kind]}
+                      label={kindCopy.title}
+                      placeholder={kindCopy.placeholder}
+                      options={registry[resource.kind]}
+                      selectionMode="confirm"
+                      onSelect={(value) => {
+                        setSelections((current) => ({
+                          ...current,
+                          [resource.kind]: value,
+                        }))
+                      }}
+                      triggerClassName="dev-resource-browser__picker-trigger"
+                    />
+                  </article>
                 )
               })}
             </div>
-          </section>
-        </aside>
+          </div>
+        </section>
       </div>
     </main>
   )

@@ -30,6 +30,7 @@ tauri-build = { version = "2.6.3", features = [] }
 [dependencies]
 anyhow = "1.0.103"
 dirs = "6.0.0"
+encoding_rs = "0.8.35"
 serde_json = "1.0.150"
 serde = { version = "1.0.228", features = ["derive"] }
 log = "0.4.33"
@@ -54,7 +55,7 @@ semver = "1.0.28"
 sevenz-rust = { version = "0.6.1", features = ["compress"] }
 tar = "0.4.46"
 time = { version = "0.3.51", features = ["formatting", "local-offset"] }
-unrar = "0.5.8"
+unrar = { package = "unrar-ng", version = "0.7.7" }
 url = "2.5.8"
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 uuid = { version = "1.23.4", features = ["v4"] }

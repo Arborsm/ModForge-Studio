@@ -41,7 +41,9 @@ describe('LauncherDownloadRow', () => {
     )
 
     expect(screen.getByText('NPC Adventures')).toBeTruthy()
-    expect(screen.getByText(`${copy.pages.discover} / 1.2.0`)).toBeTruthy()
+    expect(screen.getByText('50%')).toBeTruthy()
+    expect(screen.getByText('2.0 MB/s · 10.0 MB / 20.0 MB')).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.actions.remove })).toBeTruthy()
   })
 
   it('keeps the install action available for failed installs when the archive still exists', () => {

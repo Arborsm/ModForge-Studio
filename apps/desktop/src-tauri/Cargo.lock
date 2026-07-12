@@ -856,6 +856,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ef6b89e5b37196644d8796de5268852ff179b44e96276cf4290264843743bb7"
 
 [[package]]
+name = "encoding_rs"
+version = "0.8.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2052,6 +2061,7 @@ dependencies = [
  "brotli",
  "cookie_store",
  "dirs",
+ "encoding_rs",
  "flate2",
  "image",
  "log",
@@ -2074,7 +2084,7 @@ dependencies = [
  "time",
  "tokio",
  "tungstenite",
- "unrar",
+ "unrar-ng",
  "url",
  "uuid",
  "winreg 0.56.0",
@@ -4439,22 +4449,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c6f5d3c3b1bf09027a88a6bc961fc00497d651009560b5463668dc81b0fa87a8"
 
 [[package]]
-name = "unrar"
-version = "0.5.8"
+name = "unrar-ng"
+version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92ec61343a630d2b50d13216dea5125e157d3fc180a7d3f447d22fe146b648fc"
+checksum = "9ff7a01700c732826b5a3414f911cb72015642ebdf16566f2e88b36d5dc49aec"
 dependencies = [
  "bitflags 2.13.0",
  "regex",
- "unrar_sys",
+ "unrar-ng-sys",
  "widestring",
 ]
 
 [[package]]
-name = "unrar_sys"
-version = "0.5.8"
+name = "unrar-ng-sys"
+version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b77675b883cfbe6bf41e6b7a5cd6008e0a83ba497de3d96e41a064bbeead765"
+checksum = "72678d22d4d6aa9f0b905f5d6d5cd3e462c55631b526297d06fb1663532daa76"
 dependencies = [
  "cc",
  "libc",

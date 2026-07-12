@@ -2,6 +2,7 @@ use super::types::{
     ChangeRegistry, ChangeRegistryPatch, CpMakerDraftRecord, CpMakerMetadata, CustomLocation,
     DynamicToken,
 };
+use crate::infrastructure::text_encoding::read_text_file;
 use anyhow::{Context, bail};
 use serde_json::{Map, Value, json};
 use std::collections::{BTreeMap, HashSet};
@@ -22,7 +23,7 @@ pub fn import_cp_maker_pack(mod_directory_path: &str) -> anyhow::Result<CpMakerD
     let dir = Path::new(mod_directory_path);
 
     let manifest_path = dir.join("manifest.json");
-    let manifest_json = std::fs::read_to_string(&manifest_path).with_context(|| {
+    let manifest_json = read_text_file(&manifest_path).with_context(|| {
         format!(
             "Failed to read manifest.json [path={}]",
             manifest_path.to_string_lossy()
@@ -31,7 +32,7 @@ pub fn import_cp_maker_pack(mod_directory_path: &str) -> anyhow::Result<CpMakerD
     let (metadata, config_schema_from_manifest) = parse_manifest_json(&manifest_json)?;
 
     let content_path = dir.join("content.json");
-    let content_json = std::fs::read_to_string(&content_path).with_context(|| {
+    let content_json = read_text_file(&content_path).with_context(|| {
         format!(
             "Failed to read content.json [path={}]",
             content_path.to_string_lossy()
@@ -227,7 +228,7 @@ fn resolve_changes(
             }
 
             let include_path = mod_dir.join(from_file);
-            let include_json = std::fs::read_to_string(&include_path).with_context(|| {
+            let include_json = read_text_file(&include_path).with_context(|| {
                 format!(
                     "Failed to read include file {from_file} [path={}]",
                     include_path.to_string_lossy()

@@ -26,8 +26,8 @@ function MaterialChip({
   const sourceRect = objectIndex != null ? getSpringObjectsSourceRect(objectIndex) : null
 
   return (
-    <div className="panel-list-card flex items-center gap-2 px-3 py-2">
-      <div className="relative h-10 w-10 overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-panel-muted)">
+    <div className="building-workspace-material-chip">
+      <div className="building-workspace-thumb relative">
         {springObjectsState.loading && sourceRect ? (
           <ImageSkeleton overlay rounded={false} />
         ) : sourceRect && springObjectsState.url && springObjectsState.width && springObjectsState.height ? (
@@ -43,88 +43,78 @@ function MaterialChip({
                 width: sourceRect.width,
                 height: sourceRect.height,
               }),
-              transform: 'translate(-50%, -50%) scale(2)',
+              transform: 'translate(-50%, -50%) scale(1.75)',
               transformOrigin: 'center center',
             }}
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-(--text-secondary) uppercase">
-            {label.slice(0, 1)}
-          </div>
+          <span className="text-[0.625rem] font-semibold text-(--text-secondary) uppercase">{label.slice(0, 1)}</span>
         )}
       </div>
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-(--text-primary)">{label}</p>
-        <p className="text-xs text-(--text-secondary)">x{amount}</p>
-      </div>
+      <span className="max-w-24 truncate text-xs font-semibold text-(--text-primary)">{label}</span>
+      <span className="font-mono text-xs font-bold text-(--text-primary)">×{amount}</span>
     </div>
   )
 }
 
-function WorldEntranceCard({ entrance }: { entrance: WorldBuildingEntrance }) {
+function WorldEntranceRow({ entrance }: { entrance: WorldBuildingEntrance }) {
   const copy = useBuildingsCopy()
   return (
-    <div className="panel-list-card px-3 py-2">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+    <div className="building-workspace-material-row items-start">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
           <p className="truncate text-sm font-semibold text-(--text-primary)">{entrance.sourceMapName}</p>
-          <p className="truncate text-xs text-(--text-secondary)">{entrance.sourceMapPathLabel}</p>
+          <span className="dock-chip shrink-0">{entrance.trigger}</span>
         </div>
-        <span className="dock-chip shrink-0">{entrance.trigger}</span>
-      </div>
-      <div className="mt-2 space-y-1 text-xs text-(--text-secondary)">
-        <p>
-          {copy.sourceTileLabel}: {formatPoint(entrance.sourceTile, copy.noneLabel)}
-        </p>
-        <p>
-          {copy.targetTileLabel}: {formatPoint(entrance.targetTile, copy.noneLabel)}
+        <p className="mt-0.5 text-xs text-(--text-secondary)">
+          {copy.sourceTileLabel} {formatPoint(entrance.sourceTile, copy.noneLabel)} → {copy.targetTileLabel}{' '}
+          {formatPoint(entrance.targetTile, copy.noneLabel)}
         </p>
       </div>
     </div>
   )
 }
 
+/**
+ * Materials chips or world entrances.
+ * Returns null when empty (no empty-state placeholder).
+ */
 export function BuildingMaterialsPanel(props: BuildingMaterialsPanelProps) {
   const isConstructible = props.building.sourceKind === 'constructible'
 
-  return (
-    <div className="panel-surface panel-surface-muted min-h-0">
-      <div className="panel-header">
-        <div>
-          <p className="panel-title">{isConstructible ? props.copy.materialsTitle : props.copy.worldEntrancesTitle}</p>
-          <p className="panel-subtitle">
-            {isConstructible
-              ? `${props.copy.materialCountLabel}: ${props.building.buildMaterials.length}`
-              : `${props.copy.entranceCountLabel}: ${props.building.worldEntrances.length}`}
-          </p>
+  if (isConstructible) {
+    if (props.building.buildMaterials.length === 0) {
+      return null
+    }
+    return (
+      <div>
+        <p className="building-workspace-section-title mb-1.5">{props.copy.materialsTitle}</p>
+        <div className="flex flex-wrap gap-2">
+          {props.building.buildMaterials.map((material) => (
+            <MaterialChip
+              key={`${props.building.key}:${material.itemId}`}
+              label={material.displayName}
+              amount={material.amount}
+              objectIndex={material.objectIndex}
+              springObjectsState={props.springObjectsState}
+            />
+          ))}
         </div>
       </div>
-      <div className="panel-body min-h-45 overflow-auto p-3">
-        {isConstructible ? (
-          props.building.buildMaterials.length ? (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {props.building.buildMaterials.map((material) => (
-                <MaterialChip
-                  key={`${props.building.key}:${material.itemId}`}
-                  label={material.displayName}
-                  amount={material.amount}
-                  objectIndex={material.objectIndex}
-                  springObjectsState={props.springObjectsState}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="panel-empty-state">{props.copy.materialsEmpty}</div>
-          )
-        ) : props.building.worldEntrances.length ? (
-          <div className="space-y-2">
-            {props.building.worldEntrances.map((entrance, index) => (
-              <WorldEntranceCard key={`${props.building.key}:${index}`} entrance={entrance} />
-            ))}
-          </div>
-        ) : (
-          <div className="panel-empty-state">{props.copy.worldEntrancesEmpty}</div>
-        )}
+    )
+  }
+
+  if (props.building.worldEntrances.length === 0) {
+    return null
+  }
+
+  return (
+    <div>
+      <p className="building-workspace-section-title mb-1.5">{props.copy.worldEntrancesTitle}</p>
+      <div>
+        {props.building.worldEntrances.map((entrance, index) => (
+          <WorldEntranceRow key={`${props.building.key}:${index}`} entrance={entrance} />
+        ))}
       </div>
     </div>
   )

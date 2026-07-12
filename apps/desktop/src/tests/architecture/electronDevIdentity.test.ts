@@ -12,8 +12,8 @@ describe('electron dev identity helpers', () => {
     expect(entry).toContain(`Icon=${appDesktopId}`)
     expect(entry).toContain(`StartupWMClass=${appDesktopId}`)
     expect(entry).toContain(`X-GNOME-WMName=${appDesktopId}`)
-    expect(entry).toContain('"--class=studio.modforge.desktop.dev"')
-    expect(entry).toContain('"--app-id=studio.modforge.desktop.dev"')
+    expect(entry).toContain('"--class=io.github.Arborsm.ModForgeStudio.dev"')
+    expect(entry).toContain('"--app-id=io.github.Arborsm.ModForgeStudio.dev"')
     expect(entry).toContain('"/repo/apps/desktop/electron-dist/main.cjs"')
     expect(entry).not.toContain('Icon=/')
   })
@@ -36,7 +36,7 @@ describe('electron dev identity helpers', () => {
     expect(buildElectronScopeSpawnArgs('/cache/modforge-studio', ['--flag'], { pid: 4242 })).toEqual([
       '--user',
       '--scope',
-      '--unit=app-studio.modforge.desktop.dev-4242.scope',
+      '--unit=app-io.github.Arborsm.ModForgeStudio.dev-4242.scope',
       '--collect',
       '--quiet',
       '/cache/modforge-studio',

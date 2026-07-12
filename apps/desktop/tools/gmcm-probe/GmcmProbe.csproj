@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>modforge-gmcm-probe</AssemblyName>
+    <UseAppHost>false</UseAppHost>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Core\GlobalUsings.cs" />
+    <Compile Include="Core\ProbeContracts.cs" />
+    <Compile Include="Core\ProbeJson.cs" />
+    <Compile Include="Entry\Program.cs" />
+    <Compile Include="Execution\HeadlessEntryRunner.cs" />
+    <Compile Include="Execution\ProbeRunner.cs" />
+    <Compile Include="Execution\ProbeStatusBuilder.cs" />
+    <Compile Include="Inspection\ExternalApiProfiles.cs" />
+    <Compile Include="Inspection\GmcmCapture.cs" />
+    <Compile Include="Inspection\MetadataInspector.cs" />
+    <Compile Include="Inspection\StaticConfigScanner.cs" />
+    <Compile Include="Loading\GameAssemblyResolver.cs" />
+    <Compile Include="Loading\ProbeAssemblyLoadContext.cs" />
+    <Compile Include="Runtime\RuntimeDefaultFactory.cs" />
+    <Compile Include="Runtime\RuntimeProxy.cs" />
+    <Compile Include="Runtime\RuntimeProxyHandlers.cs" />
+    <Compile Include="Runtime\RuntimeReflectedField.cs" />
+    <Compile Include="Runtime\RuntimeSmapiProxy.cs" />
+    <Compile Include="Runtime\RuntimeTranslationStore.cs" />
+    <Compile Include="Runtime\RuntimeValueFactory.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="HarmonyShim.csproj" />
+    <ProjectReference Include="SmapiCoreInterfacesShim.csproj" />
+    <ProjectReference Include="SmapiShim.csproj" />
+  </ItemGroup>
+</Project>

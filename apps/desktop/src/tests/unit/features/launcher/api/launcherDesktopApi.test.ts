@@ -46,6 +46,7 @@ async function loadConfiguredLauncherDesktop() {
       open: vi.fn(),
       chooseDirectory: vi.fn(),
       chooseFile: vi.fn(),
+      saveFile: vi.fn(),
     },
     hostEvents: {
       canUseHost: vi.fn(() => true),

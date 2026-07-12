@@ -51,6 +51,16 @@ export type LauncherConfigurationCopy = {
     title: string
     subtitle: string
     empty: string
+    /** Header meta: total only, e.g. "28 项" / "28 items". */
+    queueCount: (count: number) => string
+    /** Header meta when something is downloading: "28 项 · 3 进行中". */
+    queueActiveMeta: (total: number, active: number) => string
+    /** Bulk install CTA: "安装 3 项" / "Install 3". */
+    installReady: (count: number) => string
+    /** Bulk clear finished/failed removable items. */
+    clearFinished: string
+    /** Bulk retry failed items. */
+    retryFailed: string
     backgroundQueuedTitle: string
     backgroundQueuedSummary: (count: number) => string
     backgroundQueuedDetail: string
@@ -125,12 +135,15 @@ export type LauncherConfigurationCopy = {
     stepNexus: string
     stepDownloads: string
     stepDiagnostics: string
+    stepGmcmProbe: string
     nexusReady: string
     nexusMissing: string
     downloadsReady: string
     downloadsLimited: string
     diagnosticsHealthy: string
     diagnosticsReview: string
+    gmcmProbeReady: string
+    gmcmProbeReview: string
   }
   configuration: {
     title: string
@@ -164,6 +177,42 @@ export type LauncherConfigurationCopy = {
     nexusDiagnosticsLoadingState: string
     nexusDiagnosticsRouteResponsibilities: Record<
       'publicGraphql' | 'privateGraphql' | 'nexusApi' | 'nexusImages' | 'smapi' | 'fallback',
+      string
+    >
+    gmcmProbeTitle: string
+    gmcmParsingDisabled: string
+    gmcmParsingDisabledDescription: string
+    gmcmProbeSubtitle: string
+    gmcmProbeReady: string
+    gmcmProbeWarning: string
+    gmcmProbeUnavailable: string
+    gmcmProbeNotificationImpact: string
+    gmcmProbeNotificationNote: string
+    gmcmProbeAssemblyLabel: string
+    gmcmProbeDotnetLabel: string
+    gmcmProbeRuntimeLabel: string
+    gmcmProbePathMissing: string
+    gmcmProbePathReady: string
+    gmcmProbeDotnetReady: string
+    gmcmProbeDotnetMissing: string
+    gmcmProbeRuntimeReady: string
+    gmcmProbeRuntimeMissing: string
+    gmcmProbeInstalledRuntimes: (count: number) => string
+    gmcmProbeNoRuntimes: string
+    gmcmProbeResolveAction: string
+    gmcmProbeDetailsTitle: string
+    gmcmProbeDetailsSubtitle: string
+    gmcmProbeTechnicalDetails: string
+    gmcmProbeTechnicalDetailsHint: string
+    gmcmProbeDownloadDotnet: string
+    gmcmProbeRepairsTitle: string
+    gmcmProbeRepairActions: Record<
+      'install-dotnet-6-runtime' | 'set-modforge-dotnet-path' | 'rebuild-or-reinstall-probe' | 'run-desktop-host',
+      string
+    >
+    gmcmProbeWarningsTitle: string
+    gmcmProbeWarningMessages: Record<
+      'probe-assembly-missing' | 'dotnet-host-missing' | 'dotnet-runtime-list-failed' | 'net6-runtime-missing' | 'browser-dev-mock',
       string
     >
     nexusDiagnosticsNotificationTitle: string

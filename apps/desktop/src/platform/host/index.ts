@@ -5,6 +5,7 @@ export {
   chooseArchiveFile,
   chooseArchiveFiles,
   chooseDirectory,
+  chooseSaveFile,
   chooseGameDirectory,
   chooseImageFile,
   isSupportedLauncherArchivePath,
@@ -35,3 +36,4 @@ export {
 } from './logging'
 export { loadAppUiState, patchAppUiState } from './appUi'
 export { clearFileCache, getFileCacheStats, type FileCacheStats } from './fileCache'
+export { saveFileContent, type FileContentSaveRequest } from './fileExport'

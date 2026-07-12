@@ -79,9 +79,11 @@ export type LauncherSharedCopy = {
   }
   toggles: {
     enabledOnly: string
+    configOnly: string
     ascending: string
     autoInstallDownloads: string
     keepDownloadedArchives: string
+    gmcmParsingEnabled: string
     autoCheckModUpdates: string
   }
   sortOptions: Record<'newest' | 'updated' | 'trending' | 'downloads' | 'endorsements' | 'name', string>

@@ -1,6 +1,6 @@
 import type { LauncherDiscoverDetail } from '../../model/types'
 
-export type LauncherDetailTab = 'description' | 'changelog' | 'details' | 'dependencies' | 'files'
+export type LauncherDetailTab = 'description' | 'changelog' | 'details' | 'dependencies' | 'files' | 'config'
 
 export type DetailRow = {
   label: string

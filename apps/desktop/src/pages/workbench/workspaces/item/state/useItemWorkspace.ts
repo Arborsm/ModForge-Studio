@@ -170,7 +170,14 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
 
         setTextureStatesByAssetName((current) => ({
           ...current,
-          ...Object.fromEntries(entries.filter(([assetName]) => !(assetName in current))),
+          ...Object.fromEntries(
+            entries.filter(([assetName]) => {
+              const currentState = current[assetName]
+              // Replace placeholder loading states and fill missing entries,
+              // but never overwrite an already-resolved state from a newer load.
+              return !currentState || currentState.loading === true
+            }),
+          ),
         }))
       })()
     },

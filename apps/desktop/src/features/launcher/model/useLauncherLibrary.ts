@@ -411,6 +411,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
   const [activeStorageFolderId, setActiveStorageFolderId] = useState<string | null>(null)
   const [filterText, setFilterTextState] = useState('')
   const [enabledOnly, setEnabledOnly] = useState(false)
+  const [configOnly, setConfigOnly] = useState(false)
   const [state, setState] = useState<LauncherViewState>('idle')
   const [error, setError] = useState<string | null>(null)
   const [latestVersionByModId, setLatestVersionByModId] = useState<Record<number, string>>({})
@@ -824,9 +825,13 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
         return false
       }
 
+      if (configOnly && !item.hasConfig) {
+        return false
+      }
+
       return includesFilter(item, normalizedFilter)
     })
-  }, [activeStorageFolder, currentPack?.modKeys, enabledOnly, filterText, hiddenModKeys, mods, scopeMode])
+  }, [activeStorageFolder, configOnly, currentPack?.modKeys, enabledOnly, filterText, hiddenModKeys, mods, scopeMode])
 
   const selectedMod = useMemo(
     () => filteredMods.find((item) => item.id === selectedModId) ?? mods.find((item) => item.id === selectedModId) ?? null,
@@ -1626,6 +1631,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     selectedModIds,
     filterText,
     enabledOnly,
+    configOnly,
     state,
     error,
     selectionCount: selectedModIds.length,
@@ -1633,6 +1639,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     setSelectedModIds,
     setFilterText,
     setEnabledOnly,
+    setConfigOnly,
     setActiveStorageFolderId,
     refresh,
     toggleEnabled,

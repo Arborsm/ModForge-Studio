@@ -3,9 +3,7 @@ import type { WorkspaceMode } from '@locales'
 import type { WorkbenchViewRegistration } from '@shared/contracts'
 
 /**
- * A launchpad recent-page entry. The `mode` flavour matches the workspace mode
- * that backs the entry; `mods` is only ever remembered as a project page, which
- * is intentionally excluded by {@link canRememberRecentPage}.
+ * A launchpad recent-page entry backed by a root or project workspace mode.
  */
 export type LaunchpadRecentPage = { kind: 'root' | 'project'; mode: WorkspaceMode } | { kind: 'dev'; viewId: string }
 
@@ -23,11 +21,10 @@ export function getRecentPageKey(page: LaunchpadRecentPage) {
 }
 
 /**
- * The fixed project page is a permanent recent-pages outlier: it never rotates
- * out of the dock and never gets remembered, so it stays a stable project entry.
+ * Returns whether the page can be included in the bounded recent-page list.
  */
 export function canRememberRecentPage(page: LaunchpadRecentPage) {
-  return page.kind === 'dev' || page.mode !== 'mods'
+  return page.kind === 'dev' || Boolean(page.mode)
 }
 
 type UseWorkbenchLaunchpadRecentPagesOptions = {
@@ -48,7 +45,7 @@ export function useWorkbenchLaunchpadRecentPages({
   devViews = [],
 }: UseWorkbenchLaunchpadRecentPagesOptions) {
   const [recentPages, setRecentPages] = useState<LaunchpadRecentPage[]>(() =>
-    workspaceViewMode === 'preview' && workspaceMode !== 'mods'
+    workspaceViewMode === 'preview'
       ? [
           { kind: 'root', mode: workspaceMode },
           ...DEFAULT_RECENT_PAGES.filter((page) => page.kind !== 'dev' && page.mode !== workspaceMode),
@@ -96,7 +93,7 @@ export function useWorkbenchLaunchpadRecentPages({
       }
     }
 
-    if (workspaceMode !== 'mods' && hasActiveProject) {
+    if (hasActiveProject) {
       rememberActivePage({ kind: 'project', mode: workspaceMode })
     }
 

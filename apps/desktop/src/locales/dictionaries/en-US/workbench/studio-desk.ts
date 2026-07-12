@@ -145,7 +145,6 @@ const studiodesk: StudioDeskCopy = {
     buildings: 'Edit building art, footprints, and related content independently.',
     items: 'Edit items, recipes, shops, and values independently.',
     'mod-i18n': 'Translate project i18n files with placeholder checks.',
-    mods: 'Manage project-level Content Patcher data, imports, and exports.',
   },
   createDialog: {
     title: 'Create New Project',

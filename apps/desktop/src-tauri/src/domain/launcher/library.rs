@@ -20,6 +20,7 @@ use crate::domain::manifest::{
     required_dependency_ids, string_array_field, string_field,
 };
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::text_encoding::read_text_file;
 use anyhow::{Context, bail};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -47,6 +48,32 @@ struct ScannedLauncherMod {
     project_path: PathBuf,
     manifest: Value,
     enabled: bool,
+}
+
+fn json_file_has_config_schema(path: &Path) -> bool {
+    match read_json_file(path) {
+        Ok(Value::Object(root)) => root
+            .get("ConfigSchema")
+            .and_then(Value::as_object)
+            .is_some_and(|schema| !schema.is_empty()),
+        _ => false,
+    }
+}
+
+fn has_launcher_mod_config(root: &Path, manifest: &Value) -> bool {
+    if root.join("config.json").is_file() || root.join("assets").join("options.json").is_file() {
+        return true;
+    }
+
+    if manifest
+        .get("ConfigSchema")
+        .and_then(Value::as_object)
+        .is_some_and(|schema| !schema.is_empty())
+    {
+        return true;
+    }
+
+    json_file_has_config_schema(&root.join("content.json"))
 }
 
 fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState {
@@ -536,7 +563,7 @@ pub(crate) fn load_or_create_library_state_at_path(
     state_path: &Path,
 ) -> anyhow::Result<LauncherLibraryState> {
     if state_path.is_file() {
-        let content = fs::read_to_string(state_path).with_context(|| {
+        let content = read_text_file(state_path).with_context(|| {
             format!(
                 "Failed to read launcher library state {}",
                 normalize_path(state_path)
@@ -592,7 +619,7 @@ fn load_or_create_library_covers_at_path_unlocked(
     covers_path: &Path,
 ) -> anyhow::Result<LauncherLibraryCoversState> {
     if covers_path.is_file() {
-        let content = fs::read_to_string(covers_path).with_context(|| {
+        let content = read_text_file(covers_path).with_context(|| {
             format!(
                 "Failed to read launcher library covers {}",
                 normalize_path(covers_path)
@@ -874,6 +901,7 @@ fn build_mod_summary(
         folder_name,
         absolute_path: normalize_path(&project.project_path),
         enabled: project.enabled,
+        has_config: has_launcher_mod_config(&project.project_path, &project.manifest),
         nexus_mod_id,
         update_keys,
         mod_url: nexus_mod_id.map(build_mod_page_url),

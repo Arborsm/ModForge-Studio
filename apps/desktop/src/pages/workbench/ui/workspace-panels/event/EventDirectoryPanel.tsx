@@ -18,14 +18,16 @@ export function EventDirectoryPanel({ events, selectedEventKey, subtitle, modSou
   const labels = useEventStageCopy().workflow.workspacePanels
 
   return (
-    <PanelFrame title={labels.directoryTitle} subtitle={subtitle} bodyClassName="p-3">
+    <PanelFrame flat title={labels.directoryTitle} subtitle={subtitle} bodyClassName="p-3">
       <div className="space-y-3">
-        <div className="rounded-2xl border border-(--border-color) bg-(--bg-panel-muted) px-3 py-3">
-          <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">Mod Sources</p>
-          <div className="mt-3">
-            <ModSourceList sources={modSources} />
+        {modSources.length ? (
+          <div className="rounded-xl bg-(--bg-panel-muted) px-3 py-3">
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">{labels.modSourcesTitle}</p>
+            <div className="mt-3">
+              <ModSourceList sources={modSources} variant="flat" />
+            </div>
           </div>
-        </div>
+        ) : null}
         <div className="max-h-[42vh] overflow-auto">
           {events.length ? (
             <div className="space-y-2">
@@ -36,10 +38,7 @@ export function EventDirectoryPanel({ events, selectedEventKey, subtitle, modSou
                   <button
                     key={event.key}
                     type="button"
-                    className={cx(
-                      'w-full rounded-2xl border px-3 py-3 text-left transition-colors',
-                      isActive ? 'border-(--accent) bg-(--bg-active)' : 'border-(--border-color) bg-(--bg-panel) hover:bg-(--bg-elevated)',
-                    )}
+                    className={cx('asset-row w-full text-left', isActive && 'asset-row-active')}
                     onClick={() => onSelectEvent(event.key)}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -56,9 +55,7 @@ export function EventDirectoryPanel({ events, selectedEventKey, subtitle, modSou
               })}
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
-              {labels.directoryEmpty}
-            </div>
+            <div className="panel-empty-state">{labels.directoryEmpty}</div>
           )}
         </div>
       </div>

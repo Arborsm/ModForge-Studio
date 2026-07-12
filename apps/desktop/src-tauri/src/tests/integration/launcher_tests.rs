@@ -43,7 +43,7 @@ use crate::domain::nexusmods::updates::{
     build_update_batch_graphql_payload, parse_update_batch_graphql_response,
 };
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
-use crate::test_support::{create_temp_dir, write_file};
+use crate::test_support::{create_temp_dir, write_bytes_file, write_file};
 use serde_json::json;
 use std::collections::BTreeMap;
 use std::fs;
@@ -1762,6 +1762,47 @@ fn scan_library_lists_installed_mods() {
 }
 
 #[test]
+fn scan_library_finds_mod_with_chinese_folder_name() {
+    let root = create_temp_dir("launcher-library-chinese-folder");
+    let project = root.join("Mods").join("中文模组");
+    write_file(
+        &project.join("manifest.json"),
+        &sample_manifest("ModForge.ChinesePack"),
+    );
+
+    let scan = scan_library_at_path(&root).expect("scan launcher library with chinese folder");
+    assert_eq!(scan.mods.len(), 1);
+    assert_eq!(scan.mods[0].name, "Example Mod");
+    assert_eq!(scan.mods[0].folder_name, "中文模组");
+    assert!(scan.mods[0].absolute_path.contains("中文模组"));
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn scan_library_reads_gbk_manifest() {
+    let root = create_temp_dir("launcher-library-gbk-manifest");
+    let project = root.join("Mods").join("GBKPack");
+    let manifest = r#"{
+  "Name": "中文模组",
+  "Author": "作者",
+  "Version": "1.0.0",
+  "UniqueID": "ModForge.GBKPack"
+}"#;
+    let (encoded, _, had_errors) = encoding_rs::GB18030.encode(manifest);
+    assert!(!had_errors);
+    write_bytes_file(&project.join("manifest.json"), &encoded.into_owned());
+
+    let scan = scan_library_at_path(&root).expect("scan launcher library with gbk manifest");
+    assert_eq!(scan.mods.len(), 1);
+    assert_eq!(scan.mods[0].name, "中文模组");
+    assert_eq!(scan.mods[0].author.as_deref(), Some("作者"));
+    assert_eq!(scan.mods[0].unique_id.as_deref(), Some("ModForge.GBKPack"));
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
 fn scan_library_marks_dot_prefixed_mod_folder_as_disabled() {
     let root = create_temp_dir("launcher-library-dot-disable");
     let project = root.join("Mods").join(".DisabledPack");
@@ -2063,6 +2104,146 @@ fn install_archive_installs_zip_bundle_and_reports_backup_details() {
             .join("metadata.json")
             .is_file()
     );
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+fn create_zip_with_gbk_file_names(archive_path: &Path, entries: &[(&str, &[u8])]) {
+    // zip 8.6 writer only accepts ToString names, so we hand-craft a minimal
+    // stored zip with raw GBK filename bytes and no UTF-8 flag.
+    let mut output: Vec<u8> = Vec::new();
+    let mut central_directory: Vec<u8> = Vec::new();
+
+    for (index, (name, content)) in entries.iter().enumerate() {
+        let (encoded, _, had_errors) = encoding_rs::GB18030.encode(name);
+        assert!(!had_errors);
+        let file_name = encoded.into_owned();
+        let crc = compute_crc32(content);
+        let local_header_offset = output.len();
+
+        // Local file header
+        output.extend_from_slice(b"PK\x03\x04");
+        output.extend_from_slice(&2u16.to_le_bytes()); // version needed
+        output.extend_from_slice(&0u16.to_le_bytes()); // flags
+        output.extend_from_slice(&0u16.to_le_bytes()); // compression method (stored)
+        output.extend_from_slice(&0u16.to_le_bytes()); // mod time
+        output.extend_from_slice(&0u16.to_le_bytes()); // mod date
+        output.extend_from_slice(&crc.to_le_bytes());
+        output.extend_from_slice(&(content.len() as u32).to_le_bytes()); // compressed size
+        output.extend_from_slice(&(content.len() as u32).to_le_bytes()); // uncompressed size
+        output.extend_from_slice(&(file_name.len() as u16).to_le_bytes());
+        output.extend_from_slice(&0u16.to_le_bytes()); // extra field length
+        output.extend_from_slice(&file_name);
+        output.extend_from_slice(content);
+
+        // Central directory header
+        central_directory.extend_from_slice(b"PK\x01\x02");
+        central_directory.extend_from_slice(&0u16.to_le_bytes()); // version made by
+        central_directory.extend_from_slice(&2u16.to_le_bytes()); // version needed
+        central_directory.extend_from_slice(&0u16.to_le_bytes()); // flags
+        central_directory.extend_from_slice(&0u16.to_le_bytes()); // compression method
+        central_directory.extend_from_slice(&0u16.to_le_bytes()); // mod time
+        central_directory.extend_from_slice(&0u16.to_le_bytes()); // mod date
+        central_directory.extend_from_slice(&crc.to_le_bytes());
+        central_directory.extend_from_slice(&(content.len() as u32).to_le_bytes());
+        central_directory.extend_from_slice(&(content.len() as u32).to_le_bytes());
+        central_directory.extend_from_slice(&(file_name.len() as u16).to_le_bytes());
+        central_directory.extend_from_slice(&0u16.to_le_bytes()); // extra length
+        central_directory.extend_from_slice(&0u16.to_le_bytes()); // comment length
+        central_directory.extend_from_slice(&0u16.to_le_bytes()); // disk number start
+        central_directory.extend_from_slice(&0u16.to_le_bytes()); // internal file attributes
+        central_directory.extend_from_slice(&0u32.to_le_bytes()); // external file attributes
+        central_directory.extend_from_slice(&(local_header_offset as u32).to_le_bytes());
+        central_directory.extend_from_slice(&file_name);
+
+        let _ = index;
+    }
+
+    let central_directory_offset = output.len() as u32;
+    let central_directory_size = central_directory.len() as u32;
+    output.append(&mut central_directory);
+
+    // End of central directory record
+    output.extend_from_slice(b"PK\x05\x06");
+    output.extend_from_slice(&0u16.to_le_bytes()); // disk number
+    output.extend_from_slice(&0u16.to_le_bytes()); // disk with CD
+    output.extend_from_slice(&(entries.len() as u16).to_le_bytes());
+    output.extend_from_slice(&(entries.len() as u16).to_le_bytes());
+    output.extend_from_slice(&central_directory_size.to_le_bytes());
+    output.extend_from_slice(&central_directory_offset.to_le_bytes());
+    output.extend_from_slice(&0u16.to_le_bytes()); // comment length
+
+    fs::write(archive_path, output).expect("write gbk archive");
+}
+
+fn compute_crc32(data: &[u8]) -> u32 {
+    let table: [u32; 256] = {
+        let mut t = [0u32; 256];
+        for i in 0..256 {
+            let mut crc = i as u32;
+            for _ in 0..8 {
+                if crc & 1 != 0 {
+                    crc = 0xedb88320 ^ (crc >> 1);
+                } else {
+                    crc >>= 1;
+                }
+            }
+            t[i] = crc;
+        }
+        t
+    };
+
+    let mut crc = !0u32;
+    for byte in data {
+        crc = table[((crc ^ (*byte as u32)) & 0xff) as usize] ^ (crc >> 8);
+    }
+    !crc
+}
+
+#[test]
+fn install_archive_preserves_chinese_folder_name_from_gbk_zip() {
+    let root = create_temp_dir("launcher-install-gbk-zip");
+    let mods_root = root.join("Mods");
+    let backup_root = root.join("backups");
+    let archive_path = root.join("gbk.zip");
+    let folder_name = "【CP】中文模组";
+    let manifest = sample_manifest("ModForge.ChinesePack");
+    create_zip_with_gbk_file_names(
+        &archive_path,
+        &[(&format!("{folder_name}/manifest.json"), manifest.as_bytes())],
+    );
+
+    let result = install_archive_at_path(
+        &archive_path,
+        Some(&mods_root.to_string_lossy()),
+        Some(&backup_root),
+    )
+    .expect("install gbk zip archive");
+
+    assert_eq!(result.installed_mods.len(), 1);
+    let installed_path = mods_root.join(folder_name);
+    assert!(installed_path.join("manifest.json").is_file());
+    assert_eq!(
+        result.installed_mods[0].target_path,
+        installed_path.to_string_lossy()
+    );
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn inspect_archive_detects_chinese_root_from_gbk_zip() {
+    let root = create_temp_dir("launcher-inspect-gbk-zip");
+    let archive_path = root.join("gbk.zip");
+    let folder_name = "【CP】中文模组";
+    let manifest = sample_manifest("ModForge.ChinesePack");
+    create_zip_with_gbk_file_names(
+        &archive_path,
+        &[(&format!("{folder_name}/manifest.json"), manifest.as_bytes())],
+    );
+
+    let result = inspect_archive_at_path(&archive_path).expect("inspect gbk zip archive");
+    assert_eq!(result.mod_roots, vec![folder_name.to_string()]);
 
     fs::remove_dir_all(root).expect("cleanup");
 }

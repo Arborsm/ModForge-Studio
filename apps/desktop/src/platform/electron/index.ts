@@ -1,4 +1,4 @@
-import type { OpenDialogOptions, PlatformPorts } from '@shared/contracts'
+import type { OpenDialogOptions, PlatformPorts, SaveDialogOptions } from '@shared/contracts'
 
 export function isElectronHost() {
   return typeof window !== 'undefined' && Boolean(window.modforgeElectron)
@@ -59,6 +59,9 @@ export function createElectronPlatformPorts(): PlatformPorts {
     storage: createBrowserStorage(),
     dialog: {
       open: openDialog,
+      saveFile(options?: SaveDialogOptions) {
+        return getElectronApi().saveFileDialog(options)
+      },
       async chooseDirectory(title?: string) {
         const selected = await openDialog({ title, directory: true, multiple: false })
         return typeof selected === 'string' ? selected : null

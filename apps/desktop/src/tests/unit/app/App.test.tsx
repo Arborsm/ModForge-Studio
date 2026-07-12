@@ -401,10 +401,6 @@ vi.mock('@pages/workbench/ui/InitializationOverlay', () => ({
   default: () => null,
 }))
 
-vi.mock('@widgets/status-bar', () => ({
-  default: () => null,
-}))
-
 vi.mock('@shared/workspace', () => ({
   WorkspaceLayout: (props: Record<string, unknown>) => {
     workspaceLayoutMock(props)

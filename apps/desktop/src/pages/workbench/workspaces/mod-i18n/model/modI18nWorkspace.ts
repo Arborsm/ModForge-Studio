@@ -1,6 +1,6 @@
 import type { ContentPatcherI18nFile } from '@entities/mod/api'
 
-export type ModI18nEntryStatus = 'translated' | 'missing' | 'empty' | 'error'
+export type ModI18nEntryStatus = 'translated' | 'missing' | 'error'
 export type ModI18nStatusFilter = ModI18nEntryStatus | 'all'
 
 export type ModI18nEntry = {
@@ -56,12 +56,9 @@ export function extractI18nTokens(value: string): string[] {
   })
 }
 
-function getEntryStatus(targetText: string, missingTokens: string[]): ModI18nEntryStatus {
-  if (!targetText) {
+function getEntryStatus(hasTargetKey: boolean, targetText: string, missingTokens: string[]): ModI18nEntryStatus {
+  if (!hasTargetKey || !targetText.trim()) {
     return 'missing'
-  }
-  if (!targetText.trim()) {
-    return 'empty'
   }
   if (missingTokens.length) {
     return 'error'
@@ -80,6 +77,7 @@ export function buildModI18nEntries({ sourceFile, targetFile, query, status }: B
     .map((key) => {
       const sourceText = sourceEntries[key] ?? ''
       const targetText = targetEntries[key] ?? ''
+      const hasTargetKey = Object.prototype.hasOwnProperty.call(targetEntries, key)
       const sourceTokens = extractI18nTokens(sourceText)
       const targetTokens = extractI18nTokens(targetText)
       const missingTokens = sourceTokens.filter((token) => !targetTokens.includes(token))
@@ -90,7 +88,7 @@ export function buildModI18nEntries({ sourceFile, targetFile, query, status }: B
         sourceTokens,
         targetTokens,
         missingTokens,
-        status: getEntryStatus(targetText, missingTokens),
+        status: getEntryStatus(hasTargetKey, targetText, missingTokens),
       }
     })
     .filter((entry) => {

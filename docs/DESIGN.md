@@ -69,48 +69,54 @@ Critical files:
 
 ### Workbench
 
-Workbench is the creation surface. The registry exposes `Studio Desk` and `Workspace Editor`, plus workspace panels such as `Assets`, `Viewport`, `Event Timeline`, `Item Navigation`, `Item Catalog`, and `Item Details`.
+Workbench is the authoring surface for Content Patcher projects and game-resource browsing.
 
-The Studio Desk copy describes a `three-part creation desk`: recent inspirations on the left, project heartbeat and workspace entries in the middle, and the world bible with export center on the right.
+**Target shell IA** (prototype-driven; product is migrating—see `docs/design/workbench-shell-migration.md` and `docs/design/page-design-spec.md` §0):
 
-Native Workbench terms from code and copy:
+```text
+TopMenuBar: brand · view · [project title menu] · status · theme · window chrome
+Side nav (expandable / icon rail): Home · Browse (map/events/characters/buildings/items) · Tools · Dev
+Main: Home (three states) | Workspace (browse ↔ edit in-page)
+```
 
-- `Studio Desk`
-- `Workspace Editor`
-- `Project Lobby`
-- `Project grid`
-- `World Bible`
-- `Global Rules`
-- `Tokens`
-- `Custom Locations`
-- `Export Center`
-- `Patch Catalog`
-- `Event Graph`
-- `Script diagnostics`
-- `Continuity sheet`
-- `Trigger environment`
-- `Player state`
-- `Progress gates`
+- **Home is not a project-management table.** It is a creation entry with three states: _rich_ (project open, has content), _empty world_ (project open, no content yet), _no project_ (pick / create / import + browse without a project).
+- **Browse-first:** reading game assets does not require a project. **Edit requires a current project** (inline edit lock when missing).
+- **Wide desktop app:** home and shell fill the workbench width (main + side rail). Do not design the home as a narrow reading column.
+- Module switching lives in the **left nav**, not a top GooeyNav strip. The titlebar center is the **current project**.
+- Multi-panel editors still use `WorkspaceLayout` and registered workspace panels.
 
-Workspace modes are `map`, `characters`, `buildings`, `items`, `events`, and `mods`. Their native descriptions emphasize independent editing:
+Workspace modes include `map`, `characters`, `buildings`, `items`, `events`, `mods`, and tool views such as `mod-i18n` / dev views from the registry. Native emphasis:
 
 - Events: event scripts, stage previews, and actor actions.
 - Map: map assets, tiles, warps, and location content.
 - Characters: character data, portraits, sprites, and gift tastes.
 - Buildings: building art, footprints, and related content.
 - Items: item definitions, atlases, shop rules, drops, and rewards.
-- Mods: built-in plugin workspace for Content Patcher projects.
+- Mods / CP Maker: Content Patcher draft, patch catalog, export, World Bible surfaces (global rules, tokens, custom locations).
+
+**Studio Desk / project gallery** remains the data and dialog backend for drafts (create, import, select, properties, export). It is **not** the long-term primary home chrome; project list and actions move into the no-project home and the titlebar project menu.
+
+Native Workbench terms from code and copy (still valid in CP Maker / locales):
+
+- `World Bible`, `Global Rules`, `Tokens`, `Custom Locations`
+- `Export Center`, `Patch Catalog`, `Event Graph`
+- `UniqueID`, `When`, `FromFile`, `Target`, `Action`, `LogName`
+- UI-facing mode labels prefer **浏览 / 编辑** (Browse / Edit); code may still use `preview` / `edit`
 
 Critical files:
 
 - `apps/desktop/src/pages/workbench/ui/WorkbenchPage.tsx`
 - `apps/desktop/src/pages/workbench/ui/WorkbenchExperience.tsx`
+- `apps/desktop/src/pages/workbench/ui/WorkbenchHomePage.tsx`
 - `apps/desktop/src/pages/workbench/ui/WorkbenchViewHost.tsx`
 - `apps/desktop/src/pages/workbench/model/builtInWorkspaces.ts`
 - `apps/desktop/src/pages/workbench/model/workspace-panels/buildWorkspacePanels.tsx`
-- `apps/desktop/src/features/cp-maker/ui/StudioDesk.tsx`
+- `apps/desktop/src/widgets/top-navigation/ui/TopMenuBar.tsx`
+- `apps/desktop/src/features/cp-maker/ui/StudioDesk.tsx` (project library / desk model; entry points relocate with shell migration)
 - `apps/desktop/src/features/cp-maker/ui/EditWorkspaceContent.tsx`
 - `apps/desktop/src/pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherWorkspace.tsx`
+- `prototype/workbench-shell-mock.html` (shell IA source of truth for redesign)
+- `docs/design/workbench-shell-migration.md`
 
 ## Native Data Shape
 
@@ -211,12 +217,13 @@ Accent presets are `Indigo`, `Blue`, `Cyan`, `Emerald`, `Amber`, and `Rose`.
 
 Common component language:
 
-- Workspace panels use blurred panel surfaces, subtle borders, `14px` radius, and panel/floating shadows.
+- Workspace panels prefer flat panel surfaces aligned with `page-design-spec` (token backgrounds, hairline dividers; avoid stacked gradient + border + shadow on the same shell).
 - Icon tool buttons are generally square `28px` to `30px`, with `9px` to `12px` radius.
 - Pills use full rounding and carry status, mode, scope, or small metadata.
 - Launcher cards use cover art, compact metadata, hover lift, selected outlines, and disabled-state danger borders.
-- Studio Desk uses a three-column grid, soft grid backgrounds, cover cards, status dots, and creation-focused panels.
-- Workbench uses floating/docked panels, viewport chrome, tool rails, resizers, drop zones, and drag previews.
+- Project list rows (home no-project / titlebar menu) are dense lists with path + actions—not a marketing card wall.
+- Workbench shell uses left nav + titlebar project control; workspace interiors use panel chrome, tool rails, resizers, drop zones, and drag previews.
+- Home “content overview” uses count tiles or compact rows; do not invent decorative pixel-art collage strips.
 
 Launcher-style visual treatment:
 
@@ -249,10 +256,10 @@ All user-facing UI copy should come from locale bundles, not hardcoded component
 
 Critical files:
 
-- `apps/desktop/src/locales/schema.ts`
-- `apps/desktop/src/locales/en-US.ts`
-- `apps/desktop/src/locales/zh-CN.ts`
-- `apps/desktop/src/locales/localeContext.tsx`
+- `apps/desktop/src/locales/model/`（typed locale shapes）
+- `apps/desktop/src/locales/dictionaries/en-US/`
+- `apps/desktop/src/locales/dictionaries/zh-CN/`
+- `apps/desktop/src/locales/provider`（typed hooks；组件自消费，禁止透传 copy props）
 
 Use existing terminology exactly when designing new UI:
 
@@ -290,8 +297,8 @@ Backend capabilities visible in command registration include game directory dete
 2. Make Launcher feel like a mod operations console.
    Library, Discover, Updates, Downloads, Diagnostics, packs, folders, child mods, and backups should be visible as lifecycle controls around local SMAPI mods and Nexus data.
 
-3. Make Workbench feel like an authoring desk.
-   Studio Desk, Workspace Editor, World Bible, Patch Catalog, Event Graph, stage preview, timeline, inspector, and export center should feel connected but independently navigable.
+3. Make Workbench feel like an authoring desk on a wide desktop shell.
+   Left nav + project titlebar + home three-states + in-page browse/edit; World Bible, Patch Catalog, Event Graph, stage preview, timeline, inspector, and export remain connected module surfaces—not a single giant launchpad page.
 
 4. Preserve the product’s native structures.
    Use graphs for event workflows, catalogs for mods/items/assets, queues for downloads, traces for simulations, panels for inspectors, and previews for maps/images/stage output.
@@ -309,6 +316,10 @@ Backend capabilities visible in command registration include game directory dete
 
 - Do not invent product names, slogans, demo projects, placeholder mod names, or fake metrics.
 - Do not design a marketing landing page as the primary screen.
+- Do not treat Workbench home as a project-management spreadsheet or a full-page project card gallery.
+- Do not put module switching only in a top GooeyNav strip when the target IA is left nav + project title menu.
+- Do not lock wide-screen workbench content to a narrow “article” max-width.
+- Do not use fake pixel collages or decorative gradient thumbs as product content previews.
 - Do not create UI copy outside locale bundles.
 - Do not bypass `shared/contracts/platform.ts` with direct Tauri imports in business layers.
 - Do not add catch-all roots such as `components`, `lib`, or `processes`.
@@ -320,9 +331,12 @@ Backend capabilities visible in command registration include game directory dete
 Before finalizing a new screen or flow, check:
 
 - Does the page use labels and terminology from `apps/desktop/src/locales/`?
-- Does the hierarchy reflect the README’s workbench purpose?
+- Does the hierarchy reflect the README’s workbench purpose and the shell IA in `docs/design/page-design-spec.md` §0?
+- For home/shell: are the three home states and browse-vs-edit rules respected?
+- Was the layout checked at a **wide** viewport (e.g. 1440–1680), not only a narrow frame?
 - Does the layout match the product’s native shape: catalog, queue, graph, pipeline, trace, inspector, or preview?
 - Does the design inherit tokens from `styles/tokens.css` and feature CSS patterns?
 - Does the proposed implementation fit FSD and Clean Architecture boundaries?
 - Does it preserve desktop density and avoid decorative filler?
 - Does it include empty, loading, error, disabled, selected, dragging, and saved/unsaved states where the existing flows expect them?
+- If migrating shell chrome, does it follow `docs/design/workbench-shell-migration.md`?

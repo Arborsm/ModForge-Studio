@@ -129,4 +129,43 @@ describe('WorkspaceLayout floating panel chrome', () => {
       expect(onPersistStateChange).toHaveBeenCalledTimes(1)
     })
   })
+
+  it('commits a floating panel move once when the pointer interaction ends', async () => {
+    const panels = buildPanels()
+    const storageKey = 'modforge:workspace-layout:test:move-commit'
+    const onPersistStateChange = vi.fn()
+
+    const { container } = render(
+      <WorkspaceLayout
+        panels={panels}
+        storageKey={storageKey}
+        persistedState={createFloatingPanelState(panels)}
+        onPersistStateChange={onPersistStateChange}
+      />,
+    )
+
+    await waitFor(() => expect(onPersistStateChange).toHaveBeenCalledTimes(1))
+    onPersistStateChange.mockClear()
+
+    const header = container.querySelector<HTMLElement>('.workspace-panel-header')
+    expect(header).toBeTruthy()
+
+    fireEvent.pointerDown(header!, { button: 0, pointerId: 7, clientX: 180, clientY: 120 })
+    fireEvent.pointerMove(window, { pointerId: 7, clientX: 220, clientY: 150 })
+    fireEvent.pointerMove(window, { pointerId: 7, clientX: 260, clientY: 190 })
+
+    expect(onPersistStateChange).not.toHaveBeenCalled()
+
+    fireEvent.pointerUp(window, { pointerId: 7, clientX: 260, clientY: 190 })
+
+    expect(onPersistStateChange).toHaveBeenCalledTimes(1)
+    expect(onPersistStateChange).toHaveBeenCalledWith(
+      storageKey,
+      expect.objectContaining({
+        panels: expect.objectContaining({
+          'mods-trace': expect.objectContaining({ mode: 'floating' }),
+        }),
+      }),
+    )
+  })
 })

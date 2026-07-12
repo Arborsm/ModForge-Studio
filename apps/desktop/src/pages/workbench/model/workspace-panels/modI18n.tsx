@@ -14,6 +14,7 @@ export function buildModI18nWorkspacePanels(options: BuildWorkspacePanelsOptions
     modFilter,
     contentPatcherOnly,
     compatibleOnly,
+    i18nOnly,
     onModFilterChange,
     onContentPatcherOnlyChange,
     onCompatibleOnlyChange,
@@ -54,6 +55,8 @@ export function buildModI18nWorkspacePanels(options: BuildWorkspacePanelsOptions
             modFilter={modFilter}
             contentPatcherOnly={contentPatcherOnly}
             compatibleOnly={compatibleOnly}
+            i18nOnly={i18nOnly}
+            mode="i18n"
             onFilterChange={onModFilterChange}
             onContentPatcherOnlyChange={onContentPatcherOnlyChange}
             onCompatibleOnlyChange={onCompatibleOnlyChange}
@@ -70,7 +73,7 @@ export function buildModI18nWorkspacePanels(options: BuildWorkspacePanelsOptions
       subtitle: activeModProjectDetail?.summary.name ?? copy.common.none,
       hideDockHeader: true,
       shellClassName: 'workspace-panel-shell-flat',
-      minWidth: 720,
+      minWidth: 900,
       minHeight: 520,
       defaultDock: 'center',
       defaultDockHeight: 760,

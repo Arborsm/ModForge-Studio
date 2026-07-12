@@ -97,6 +97,7 @@ function createLibraryMod(overrides: Partial<LauncherLibraryModSummary> = {}): L
     folderName: 'Cached Mod',
     absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Cached Mod',
     enabled: true,
+    hasConfig: true,
     nexusModId: 101,
     updateKeys: ['Nexus:101'],
     modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
@@ -182,6 +183,7 @@ describe('LauncherConfigurationPage', () => {
     expect(screen.getByRole('button', { name: copy.settings.configurationViewLogs })).toBeTruthy()
     expect(screen.getByTestId('launcher-config-completion-rail')).toBeTruthy()
     expect(screen.queryByTestId('launcher-config-downloads-step')).toBeNull()
+    expect(screen.getByTestId('launcher-config-gmcm-probe-step')).toBeTruthy()
     expect(screen.getByTestId('launcher-config-download-defaults')).toBeTruthy()
     expect(screen.getByRole('region', { name: copy.settings.pathsTitle })).toHaveClass('launcher-config-paths')
     expect(screen.getByRole('region', { name: copy.settings.nexusAccessTitle })).toHaveClass('launcher-config-nexus')
@@ -463,6 +465,7 @@ describe('LauncherConfigurationPage', () => {
     expect(screen.getByTestId('launcher-config-paths-step').textContent).toContain('1 / 3')
     expect(screen.getByTestId('launcher-config-nexus-step')).toHaveClass('launcher-config-step-danger')
     expect(screen.queryByTestId('launcher-config-downloads-step')).toBeNull()
+    expect(screen.getByTestId('launcher-config-gmcm-probe-step')).toHaveClass('launcher-config-step-ok')
     expect(screen.getByTestId('launcher-config-download-defaults').textContent).toContain(copy.toggles.autoCheckModUpdates)
     expect(screen.getByText(copy.settings.configurationNeedsReview, { exact: false })).toBeTruthy()
     await waitFor(() => {
@@ -1359,6 +1362,128 @@ describe('LauncherConfigurationPage', () => {
     expect(routeRow?.querySelector('.launcher-config-status-tag')).toBeTruthy()
     expect(routeRow?.querySelector('.launcher-debug-route-detail-row')).toBeNull()
     expect(routeRow?.querySelector('.launcher-debug-route-chip')).toBeNull()
+  })
+
+  it('renders ready GMCM probe availability beside launcher diagnostics', async () => {
+    loadLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
+    const loadGmcmProbeDiagnostics = vi.fn().mockResolvedValue({
+      status: 'ready' as const,
+      probeAssemblyPath: 'E:\\ModForge Studio\\gmcm-probe\\modforge-gmcm-probe.dll',
+      dotnetPath: 'dotnet',
+      dotnetAvailable: true,
+      net6RuntimeAvailable: true,
+      installedRuntimes: ['Microsoft.NETCore.App 6.0.36 [C:\\Program Files\\dotnet\\shared\\Microsoft.NETCore.App]'],
+      warnings: [],
+      repairActions: [],
+    })
+
+    renderConfigurationPage(undefined, createMockLauncherPort({ loadGmcmProbeDiagnostics }))
+
+    const probePanel = await screen.findByTestId('launcher-config-gmcm-probe')
+
+    expect(probePanel.textContent).toContain(copy.configuration.gmcmProbeTitle)
+    expect(probePanel.textContent).toContain(copy.configuration.gmcmProbeAssemblyLabel)
+    expect(probePanel.textContent).toContain(copy.configuration.gmcmProbeDotnetLabel)
+    expect(probePanel.textContent).toContain(copy.configuration.gmcmProbeRuntimeLabel)
+    expect(probePanel.textContent).toContain(copy.configuration.gmcmProbeInstalledRuntimes(1))
+    expect(probePanel.querySelectorAll('.launcher-config-api-row-ok')).toHaveLength(3)
+    expect(probePanel.closest('.launcher-config-wide-panel')).toBeTruthy()
+    expect(screen.getByTestId('launcher-config-diagnostics-step')).toHaveClass('launcher-config-step-ok')
+    expect(screen.getByTestId('launcher-config-gmcm-probe-step')).toHaveClass('launcher-config-step-ok')
+    expect(loadGmcmProbeDiagnostics).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows disabled feedback and skips GMCM diagnostics when parsing is turned off', async () => {
+    const loadGmcmProbeDiagnostics = vi.fn()
+    const settingsState = createSettingsState(createSettings({ gmcmParsingEnabled: false }))
+
+    renderConfigurationPage({ settingsState: settingsState as never }, createMockLauncherPort({ loadGmcmProbeDiagnostics }))
+
+    const probePanel = await screen.findByTestId('launcher-config-gmcm-probe')
+    expect(probePanel.textContent).toContain(copy.configuration.gmcmParsingDisabled)
+    expect(probePanel.textContent).toContain(copy.configuration.gmcmParsingDisabledDescription)
+    expect(within(probePanel).getByRole('button', { name: copy.configuration.gmcmProbeTitle })).toBeDisabled()
+    expect(loadGmcmProbeDiagnostics).not.toHaveBeenCalled()
+    const parsingSwitch = screen.getByRole('switch', { name: copy.toggles.gmcmParsingEnabled })
+    expect(parsingSwitch).not.toBeChecked()
+    fireEvent.click(parsingSwitch)
+    expect(settingsState.updateField).toHaveBeenCalledWith('gmcmParsingEnabled', true)
+  })
+
+  it('surfaces GMCM probe warnings and repair actions when .NET 6 is missing', async () => {
+    loadLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
+    const loadGmcmProbeDiagnostics = vi.fn().mockResolvedValue({
+      status: 'warning' as const,
+      probeAssemblyPath: 'E:\\ModForge Studio\\gmcm-probe\\modforge-gmcm-probe.dll',
+      dotnetPath: 'dotnet',
+      dotnetAvailable: true,
+      net6RuntimeAvailable: false,
+      installedRuntimes: ['Microsoft.NETCore.App 8.0.12 [C:\\Program Files\\dotnet\\shared\\Microsoft.NETCore.App]'],
+      warnings: ['net6-runtime-missing'],
+      repairActions: ['install-dotnet-6-runtime'],
+    })
+
+    renderConfigurationPage(undefined, createMockLauncherPort({ loadGmcmProbeDiagnostics }))
+
+    const probePanel = await screen.findByTestId('launcher-config-gmcm-probe')
+
+    await waitFor(() => {
+      expect(probePanel.textContent).toContain(copy.configuration.gmcmProbeRuntimeMissing)
+    })
+    expect(probePanel.textContent).not.toContain(copy.configuration.gmcmProbeWarningMessages['net6-runtime-missing'])
+    const repairActions = within(probePanel).getAllByRole('button', { name: copy.configuration.gmcmProbeResolveAction })
+    expect(repairActions).toHaveLength(1)
+    fireEvent.click(repairActions[0])
+    const detailsDialog = screen.getByRole('dialog', { name: copy.configuration.gmcmProbeDetailsTitle })
+    expect(detailsDialog.textContent).toContain(copy.configuration.gmcmProbeWarningMessages['net6-runtime-missing'])
+    expect(detailsDialog.textContent).toContain(copy.configuration.gmcmProbeRepairActions['install-dotnet-6-runtime'])
+    expect(probePanel.querySelector('.launcher-config-api-row-warn')).toBeTruthy()
+    expect(screen.getByTestId('launcher-config-diagnostics-step')).toHaveClass('launcher-config-step-ok')
+    expect(screen.getByTestId('launcher-config-gmcm-probe-step')).toHaveClass('launcher-config-step-warn')
+    expect(reportAppEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'warning',
+        title: copy.configuration.gmcmProbeTitle,
+        description: expect.stringContaining('\n'),
+        action: expect.objectContaining({ label: copy.actions.viewDetails }),
+        notify: false,
+        keyValues: expect.objectContaining({
+          source: 'launcher-gmcm-probe',
+          status: 'warning',
+        }),
+      }),
+    )
+  })
+
+  it('keeps raw GMCM probe errors behind technical details', async () => {
+    loadLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
+    const rawError = 'No such file or directory (os error 2)'
+    const openUrl = vi.fn().mockResolvedValue(undefined)
+    const loadGmcmProbeDiagnostics = vi.fn().mockResolvedValue({
+      status: 'unavailable' as const,
+      probeAssemblyPath: null,
+      dotnetPath: 'dotnet',
+      dotnetAvailable: false,
+      net6RuntimeAvailable: false,
+      installedRuntimes: [],
+      warnings: ['dotnet-host-missing', rawError],
+      repairActions: ['install-dotnet-6-runtime', 'set-modforge-dotnet-path'],
+    })
+
+    renderConfigurationPage(undefined, createMockLauncherPort({ loadGmcmProbeDiagnostics, openUrl }))
+
+    const probePanel = await screen.findByTestId('launcher-config-gmcm-probe')
+    fireEvent.click(within(probePanel).getAllByRole('button', { name: copy.configuration.gmcmProbeResolveAction })[0])
+    const detailsDialog = screen.getByRole('dialog', { name: copy.configuration.gmcmProbeDetailsTitle })
+    const technicalDetails = within(detailsDialog).getByText(copy.configuration.gmcmProbeTechnicalDetails).closest('details')
+
+    expect(detailsDialog.textContent).toContain(copy.configuration.gmcmProbeWarningMessages['dotnet-host-missing'])
+    expect(technicalDetails).not.toHaveAttribute('open')
+    expect(technicalDetails?.textContent).toContain(rawError)
+    const downloadButton = within(detailsDialog).getByRole('button', { name: copy.configuration.gmcmProbeDownloadDotnet })
+    expect(downloadButton).toHaveClass('control-button-primary')
+    fireEvent.click(downloadButton)
+    expect(openUrl).toHaveBeenCalledWith({ url: 'https://dotnet.microsoft.com/download/dotnet/6.0' })
   })
 
   it('groups route status labels with their result details instead of a separate table column', async () => {

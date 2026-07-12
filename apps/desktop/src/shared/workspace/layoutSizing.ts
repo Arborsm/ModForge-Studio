@@ -1,46 +1,38 @@
-import {
-  COLUMN_GAP,
-  MIN_CENTER_HEIGHT,
-  MIN_CENTER_WIDTH,
-  ROOT_PADDING,
-  TOOL_WINDOW_RAIL_GAP,
-  TOOL_WINDOW_RAIL_HEIGHT,
-  TOOL_WINDOW_RAIL_WIDTH,
-} from './layoutConstants'
+import { COLUMN_GAP, MIN_CENTER_HEIGHT, MIN_CENTER_WIDTH, ROOT_PADDING, SPLIT_GAP } from './layoutConstants'
 import type { PanelRect, WorkspacePanelConfig, WorkspaceSize, WorkspaceStoredState } from '@shared/contracts'
-import { clamp, getActiveDockedPanel, getDockedPanelIdsForRail } from './layoutState'
+import { clamp, getActiveDockedPanel } from './layoutState'
 
-export function getHorizontalUsableWidth(
-  size: WorkspaceSize,
-  leftRailVisible: boolean,
-  rightRailVisible: boolean,
-  leftPanelVisible: boolean,
-  rightPanelVisible: boolean,
-) {
-  const leftRailUsed = leftRailVisible ? TOOL_WINDOW_RAIL_WIDTH + TOOL_WINDOW_RAIL_GAP : 0
-  const rightRailUsed = rightRailVisible ? TOOL_WINDOW_RAIL_WIDTH + TOOL_WINDOW_RAIL_GAP : 0
+export function getHorizontalUsableWidth(size: WorkspaceSize, leftPanelVisible: boolean, rightPanelVisible: boolean) {
   const horizontalGaps = (leftPanelVisible ? COLUMN_GAP : 0) + (rightPanelVisible ? COLUMN_GAP : 0)
 
-  return Math.max(160, size.width - ROOT_PADDING * 2 - leftRailUsed - rightRailUsed - horizontalGaps)
+  return Math.max(160, size.width - ROOT_PADDING * 2 - horizontalGaps)
 }
 
 export function getResolvedSidePanelWidths(
   panels: WorkspacePanelConfig[],
   chrome: { leftWidth: number; rightWidth: number },
   size: WorkspaceSize,
-  leftRailVisible: boolean,
-  rightRailVisible: boolean,
   leftPanelVisible: boolean,
   rightPanelVisible: boolean,
 ) {
-  const centerPanel = panels.find((panel) => panel.id === 'viewport' || panel.id === 'item-catalog')
-  const leftPanel = panels.find((panel) => panel.id === 'assets' || panel.id === 'item-navigation') ?? null
-  const rightPanel = panels.find((panel) => panel.id === 'inspector' || panel.id === 'item-details') ?? null
+  const centerPanel = panels.find(
+    (panel) => panel.id === 'viewport' || panel.id === 'item-catalog' || panel.id === 'building-preview' || panel.defaultDock === 'center',
+  )
+  const leftPanel =
+    panels.find(
+      (panel) =>
+        panel.id === 'assets' || panel.id === 'item-navigation' || panel.id === 'building-browser' || panel.defaultDock === 'left-top',
+    ) ?? null
+  const rightPanel =
+    panels.find(
+      (panel) =>
+        panel.id === 'inspector' || panel.id === 'item-details' || panel.id === 'building-details' || panel.defaultDock === 'right-top',
+    ) ?? null
 
   const centerMin = centerPanel?.minWidth ?? MIN_CENTER_WIDTH
   const leftMin = leftPanelVisible ? (leftPanel?.minWidth ?? 0) : 0
   const rightMin = rightPanelVisible ? (rightPanel?.minWidth ?? 0) : 0
-  const usable = getHorizontalUsableWidth(size, leftRailVisible, rightRailVisible, leftPanelVisible, rightPanelVisible)
+  const usable = getHorizontalUsableWidth(size, leftPanelVisible, rightPanelVisible)
 
   if (leftPanelVisible && rightPanelVisible) {
     let left = Math.round(usable * chrome.leftWidth)
@@ -93,16 +85,10 @@ export function getRailEdgeSizeBounds(
   state: WorkspaceStoredState,
   size: WorkspaceSize,
 ) {
-  const leftRailVisible = getDockedPanelIdsForRail(panels, state.panels, 'left').length > 0
-  const rightRailVisible = getDockedPanelIdsForRail(panels, state.panels, 'right').length > 0
-  const bottomRailUsed = getDockedPanelIdsForRail(panels, state.panels, 'bottom').length
-    ? TOOL_WINDOW_RAIL_HEIGHT + TOOL_WINDOW_RAIL_GAP
-    : 0
-
   if (rail === 'bottom') {
     return {
       min: 220,
-      max: Math.max(220, size.height - ROOT_PADDING * 2 - MIN_CENTER_HEIGHT - bottomRailUsed),
+      max: Math.max(220, size.height - ROOT_PADDING * 2 - MIN_CENTER_HEIGHT),
     }
   }
 
@@ -112,20 +98,22 @@ export function getRailEdgeSizeBounds(
   const rightPanelVisible = Boolean(
     getActiveDockedPanel(panelMap, state, 'right-top') || getActiveDockedPanel(panelMap, state, 'right-bottom'),
   )
-  const centerPanel = panels.find((panel) => panel.id === 'viewport' || panel.id === 'item-catalog')
-  const leftPanel = panels.find((panel) => panel.id === 'assets' || panel.id === 'item-navigation') ?? null
-  const rightPanel = panels.find((panel) => panel.id === 'inspector' || panel.id === 'item-details') ?? null
-  const centerMin = centerPanel?.minWidth ?? MIN_CENTER_WIDTH
-  const usable = getHorizontalUsableWidth(size, leftRailVisible, rightRailVisible, leftPanelVisible, rightPanelVisible)
-  const resolvedWidths = getResolvedSidePanelWidths(
-    panels,
-    state.chrome,
-    size,
-    leftRailVisible,
-    rightRailVisible,
-    leftPanelVisible,
-    rightPanelVisible,
+  const centerPanel = panels.find(
+    (panel) => panel.id === 'viewport' || panel.id === 'item-catalog' || panel.id === 'building-preview' || panel.defaultDock === 'center',
   )
+  const leftPanel =
+    panels.find(
+      (panel) =>
+        panel.id === 'assets' || panel.id === 'item-navigation' || panel.id === 'building-browser' || panel.defaultDock === 'left-top',
+    ) ?? null
+  const rightPanel =
+    panels.find(
+      (panel) =>
+        panel.id === 'inspector' || panel.id === 'item-details' || panel.id === 'building-details' || panel.defaultDock === 'right-top',
+    ) ?? null
+  const centerMin = centerPanel?.minWidth ?? MIN_CENTER_WIDTH
+  const usable = getHorizontalUsableWidth(size, leftPanelVisible, rightPanelVisible)
+  const resolvedWidths = getResolvedSidePanelWidths(panels, state.chrome, size, leftPanelVisible, rightPanelVisible)
 
   if (rail === 'left') {
     const min = leftPanel?.minWidth ?? 220
@@ -151,7 +139,7 @@ export function splitSpan(
   secondMax = Number.POSITIVE_INFINITY,
   firstPreferred?: number,
 ) {
-  const usable = total - 12
+  const usable = total - SPLIT_GAP
   let first =
     typeof firstPreferred === 'number'
       ? clamp(Math.round(firstPreferred), firstMin, usable - secondMin)

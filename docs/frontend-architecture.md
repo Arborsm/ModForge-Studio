@@ -181,6 +181,18 @@ Rules:
 
 The point is explicit composition without service-locator behavior.
 
+## Workbench shell composition (target)
+
+Workbench chrome is migrating to a left-nav + project-titlebar shell. Product intent and PR slices live in `docs/design/workbench-shell-migration.md`; visual/IA rules live in `docs/design/page-design-spec.md` §0.
+
+Architecture implications while landing that shell:
+
+- Put expandable side navigation and shell layout grids in `widgets/` (e.g. workbench-shell), not in feature modules.
+- Keep `pages/workbench` as route/mode orchestration (`home` vs `workspace`, browse/preview vs edit) and panel host composition.
+- Project CRUD dialogs and draft state stay in `features/cp-maker`; shell widgets only receive typed props / handlers from the page.
+- Nav entries for browse modes can be static config; tool/dev views should still derive from registry registrations composed in `app/registry-setup.ts`.
+- Do not reintroduce feature-to-feature imports for “open project then open map edit”; use existing workbench commands/events and page handlers.
+
 ## Event + Command
 
 Cross-feature communication uses two channels:

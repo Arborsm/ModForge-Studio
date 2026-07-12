@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { movePanelInOrder, normalizeChrome, sanitizeStoredState } from '@shared/workspace/layoutState'
+import { getDefaultChrome, movePanelInOrder, normalizeChrome, sanitizeStoredState } from '@shared/workspace/layoutState'
 import { getHorizontalUsableWidth, getResolvedSidePanelWidths } from '@shared/workspace/layoutSizing'
 import type { WorkspacePanelConfig, WorkspaceSize } from '@shared/contracts'
 
@@ -38,6 +38,86 @@ describe('layoutState', () => {
     expect(chrome.leftWidth).toBeGreaterThanOrEqual(0.12)
     expect(chrome.rightWidth).toBeLessThanOrEqual(0.62)
     expect(chrome.bottomHeight).toBeGreaterThanOrEqual(180)
+  })
+
+  it('defaults buildings side rails to the narrowest chrome ratios', () => {
+    const panels: WorkspacePanelConfig[] = [
+      {
+        id: 'building-browser',
+        title: 'Browser',
+        subtitle: '',
+        content: null,
+        minWidth: 200,
+        minHeight: 200,
+        defaultDock: 'left-top',
+      },
+      {
+        id: 'building-preview',
+        title: 'Preview',
+        subtitle: '',
+        content: null,
+        minWidth: 360,
+        minHeight: 200,
+        defaultDock: 'center',
+      },
+      {
+        id: 'building-details',
+        title: 'Details',
+        subtitle: '',
+        content: null,
+        minWidth: 220,
+        minHeight: 200,
+        defaultDock: 'right-top',
+      },
+    ]
+
+    const chrome = getDefaultChrome(panels)
+    const normalized = normalizeChrome(chrome, panels)
+
+    expect(chrome.leftWidth).toBe(0.14)
+    expect(chrome.rightWidth).toBe(0.16)
+    expect(normalized.leftWidth).toBe(0.14)
+    expect(normalized.rightWidth).toBe(0.16)
+  })
+
+  it('defaults events workspace side rails to the minimum chrome ratios', () => {
+    const panels: WorkspacePanelConfig[] = [
+      {
+        id: 'event-browser',
+        title: 'Browser',
+        subtitle: '',
+        content: null,
+        minWidth: 200,
+        minHeight: 200,
+        defaultDock: 'left-top',
+      },
+      {
+        id: 'event-stage',
+        title: 'Stage',
+        subtitle: '',
+        content: null,
+        minWidth: 480,
+        minHeight: 200,
+        defaultDock: 'center',
+      },
+      {
+        id: 'event-detail',
+        title: 'Detail',
+        subtitle: '',
+        content: null,
+        minWidth: 220,
+        minHeight: 200,
+        defaultDock: 'right-top',
+      },
+    ]
+
+    const chrome = getDefaultChrome(panels)
+    const normalized = normalizeChrome(chrome, panels)
+
+    expect(chrome.leftWidth).toBe(0.14)
+    expect(chrome.rightWidth).toBe(0.16)
+    expect(normalized.leftWidth).toBe(0.14)
+    expect(normalized.rightWidth).toBe(0.16)
   })
 
   it('keeps center workspace panels docked and visible when sanitizing persisted state', () => {
@@ -87,9 +167,9 @@ describe('layoutSizing', () => {
     ]
     const chrome = { leftWidth: 0.2, rightWidth: 0.2, bottomHeight: 220, leftSplit: 0.4, rightSplit: 0.4, bottomSplit: 0.5 }
     const size: WorkspaceSize = { width: 1200, height: 900 }
-    const usable = getHorizontalUsableWidth(size, false, false, true, true)
+    const usable = getHorizontalUsableWidth(size, true, true)
 
-    const widths = getResolvedSidePanelWidths(panels, chrome, size, false, false, true, true)
+    const widths = getResolvedSidePanelWidths(panels, chrome, size, true, true)
 
     expect(widths.left + widths.center + widths.right).toBe(usable)
     expect(widths.center).toBeGreaterThanOrEqual(520)

@@ -1,5 +1,6 @@
 use super::types::{LauncherUpdateSummary, LauncherUpdatesResult};
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::text_encoding::read_text_file;
 use anyhow::{Context, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
@@ -129,7 +130,7 @@ fn load_launcher_updates_cache_state(
         return Ok(LauncherUpdatesCacheState::default());
     }
 
-    let content = fs::read_to_string(cache_path).with_context(|| {
+    let content = read_text_file(cache_path).with_context(|| {
         format!(
             "Failed to read launcher updates cache {}",
             normalize_path(cache_path)

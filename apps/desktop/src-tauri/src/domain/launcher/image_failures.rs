@@ -4,6 +4,7 @@ use super::types::{
 };
 use crate::AppHandle;
 use crate::infrastructure::fs::pathing::normalize_path;
+use crate::infrastructure::text_encoding::read_text_file;
 use anyhow::{Context, bail};
 use std::collections::BTreeMap;
 use std::fs;
@@ -58,7 +59,7 @@ fn load_or_create_image_failures_at_path_unlocked(
     path: &Path,
 ) -> anyhow::Result<LauncherImageFailuresState> {
     if path.is_file() {
-        let content = fs::read_to_string(path).with_context(|| {
+        let content = read_text_file(path).with_context(|| {
             format!(
                 "Failed to read launcher image failures {}",
                 normalize_path(path)

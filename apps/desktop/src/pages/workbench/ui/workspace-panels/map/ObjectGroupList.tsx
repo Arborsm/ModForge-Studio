@@ -8,12 +8,12 @@ import { formatObjectPreviewMeta, getObjectDisplayName, getObjectInteractionTag,
 type ObjectGroupListVariant = 'panel' | 'dock'
 
 const objectGroupCardClassName = {
-  panel: 'overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-panel-muted)',
+  panel: 'overflow-hidden rounded-xl bg-(--bg-panel-muted)',
   dock: 'panel-section-muted panel-section overflow-hidden',
 } satisfies Record<ObjectGroupListVariant, string>
 
 const objectGroupSectionClassName = {
-  panel: 'overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-panel-muted)',
+  panel: 'overflow-hidden rounded-xl bg-(--bg-panel-muted)',
   dock: 'panel-section-muted panel-section overflow-hidden',
 } satisfies Record<ObjectGroupListVariant, string>
 

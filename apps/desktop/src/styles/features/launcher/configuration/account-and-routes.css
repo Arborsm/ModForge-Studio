@@ -519,6 +519,310 @@
     line-height: 1.45;
   }
 
+  .launcher-config-gmcm-probe .launcher-config-api-icon-assembly {
+    background: color-mix(in srgb, var(--success) 16%, var(--bg-panel));
+    color: var(--success);
+  }
+
+  .launcher-config-gmcm-probe .launcher-config-api-icon-dotnet {
+    background: color-mix(in srgb, var(--config-primary) 14%, var(--bg-panel));
+    color: var(--config-primary);
+  }
+
+  .launcher-config-gmcm-probe .launcher-config-api-icon-runtime {
+    background: color-mix(in srgb, var(--warning) 15%, var(--bg-panel));
+    color: var(--warning);
+  }
+
+  .launcher-config-gmcm-probe .launcher-config-api-list {
+    grid-template-columns: 1fr;
+    border-top: 1px solid color-mix(in srgb, var(--config-line) 50%, transparent);
+    gap: 0;
+    padding: 0;
+  }
+
+  .launcher-config-gmcm-probe .launcher-config-api-row {
+    grid-template-columns: minmax(10.5rem, 12rem) minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.875rem;
+    min-height: 3rem;
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--config-line) 50%, transparent);
+    border-radius: 0;
+    background: transparent;
+    padding: 0.625rem 1.125rem;
+  }
+
+  .launcher-config-gmcm-probe .launcher-config-api-row:last-child {
+    border-bottom: 0;
+  }
+
+  .launcher-config-gmcm-probe .launcher-config-api-name {
+    grid-column: 1;
+    align-items: center;
+    width: auto;
+  }
+
+  .launcher-config-gmcm-probe .launcher-config-api-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 0.5rem;
+  }
+
+  .launcher-config-gmcm-probe .launcher-config-api-desc {
+    grid-column: 2;
+    overflow: hidden;
+    color: var(--config-muted);
+    line-height: 1.45;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-config-gmcm-probe .launcher-config-status-tag {
+    grid-column: 3;
+    min-width: 0;
+    padding-inline: 0;
+  }
+
+  .launcher-config-gmcm-probe > .launcher-config-panel-head .launcher-config-status-tag-warn,
+  .launcher-config-gmcm-probe > .launcher-config-panel-head .launcher-config-status-tag-danger {
+    gap: 0.375rem;
+    background: transparent;
+  }
+
+  .launcher-config-gmcm-probe > .launcher-config-panel-head .launcher-config-status-tag-warn::before,
+  .launcher-config-gmcm-probe > .launcher-config-panel-head .launcher-config-status-tag-danger::before {
+    content: '';
+    width: 0.3125rem;
+    height: 0.3125rem;
+    border-radius: 62.4375rem;
+    background: currentColor;
+  }
+
+  .launcher-config-gmcm-probe:focus-visible {
+    outline: 2px solid var(--config-primary);
+    outline-offset: 0.1875rem;
+  }
+
+  .launcher-config-gmcm-probe[data-notification-target='true'] {
+    border-color: color-mix(in srgb, var(--config-primary) 65%, var(--config-line));
+    box-shadow:
+      0 0 0 0.1875rem color-mix(in srgb, var(--config-primary) 18%, transparent),
+      var(--config-shadow);
+  }
+
+  .launcher-config-probe-disabled-feedback {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 4.25rem;
+    border-top: 1px solid color-mix(in srgb, var(--config-line) 50%, transparent);
+    padding: 0.875rem 1.125rem;
+  }
+
+  .launcher-config-probe-disabled-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    flex: 0 0 auto;
+    border-radius: 0.375rem;
+    background: color-mix(in srgb, var(--config-line) 35%, transparent);
+    color: var(--config-muted);
+  }
+
+  .launcher-config-probe-disabled-feedback strong,
+  .launcher-config-probe-disabled-feedback span {
+    display: block;
+  }
+
+  .launcher-config-probe-disabled-feedback strong {
+    color: var(--config-text);
+    font-size: 0.75rem;
+  }
+
+  .launcher-config-probe-disabled-feedback div > span {
+    margin-top: 0.1875rem;
+    color: var(--config-muted);
+    font-size: 0.6875rem;
+    line-height: 1.45;
+  }
+
+  .launcher-config-row-action {
+    grid-column: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    border: 0;
+    background: transparent;
+    padding: 0.25rem 0;
+    color: var(--config-primary);
+    font-size: 0.6875rem;
+    font-weight: 750;
+    cursor: pointer;
+  }
+
+  .launcher-config-row-action:hover {
+    color: var(--config-text);
+  }
+
+  .launcher-config-probe-detail {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.625rem 0.875rem;
+    min-height: 2.625rem;
+    border-top: 1px solid color-mix(in srgb, var(--config-line) 50%, transparent);
+    padding: 0.5rem 1.125rem;
+    color: var(--config-muted);
+    font-size: 0.6875rem;
+    line-height: 1.45;
+  }
+
+  .launcher-config-probe-detail-summary {
+    flex: 0 0 auto;
+    margin-right: auto;
+    color: var(--config-muted);
+    font-weight: 650;
+  }
+
+  .launcher-config-probe-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-width: 0;
+    color: var(--config-faint);
+    white-space: nowrap;
+  }
+
+  .launcher-config-probe-detail-summary + .launcher-config-probe-meta {
+    margin-left: auto;
+  }
+
+  .launcher-config-probe-meta + .launcher-config-probe-meta {
+    padding-left: 0.875rem;
+    border-left: 1px solid color-mix(in srgb, var(--config-line) 70%, transparent);
+  }
+
+  .launcher-config-probe-detail code {
+    max-width: 14rem;
+    min-width: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--config-text);
+    padding: 0;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-config-probe-path {
+    flex: 0 1 auto;
+  }
+
+  .launcher-config-probe-command {
+    flex: 0 0 auto;
+  }
+
+  .launcher-config-probe-dialog-body {
+    display: grid;
+    gap: 0.875rem;
+  }
+
+  .launcher-config-probe-dialog-section {
+    border: 1px solid color-mix(in srgb, var(--config-line) 75%, transparent);
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--warning) 4%, var(--bg-panel));
+    padding: 1rem;
+  }
+
+  .launcher-config-probe-dialog-repairs {
+    background: color-mix(in srgb, var(--config-primary) 4%, var(--bg-panel));
+  }
+
+  .launcher-config-probe-dialog-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--config-warning-text);
+  }
+
+  .launcher-config-probe-dialog-repairs .launcher-config-probe-dialog-section-title {
+    color: var(--config-primary);
+  }
+
+  .launcher-config-probe-dialog-section h3 {
+    margin: 0;
+    color: var(--config-text);
+    font-size: 0.8125rem;
+    font-weight: 800;
+  }
+
+  .launcher-config-probe-download-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-top: 0.875rem;
+  }
+
+  .launcher-config-probe-dialog-section ul,
+  .launcher-config-probe-dialog-section ol {
+    display: grid;
+    gap: 0.5rem;
+    margin: 0.75rem 0 0;
+    padding-left: 1.25rem;
+    color: var(--config-muted);
+    font-size: 0.75rem;
+    line-height: 1.55;
+  }
+
+  .launcher-config-probe-technical-details {
+    border-top: 1px solid color-mix(in srgb, var(--config-line) 70%, transparent);
+    padding-top: 0.75rem;
+    color: var(--config-muted);
+    font-size: 0.6875rem;
+  }
+
+  .launcher-config-probe-technical-details summary {
+    width: fit-content;
+    color: var(--config-faint);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .launcher-config-probe-technical-details p {
+    margin: 0.625rem 0;
+  }
+
+  .launcher-config-probe-technical-details pre {
+    overflow: auto;
+    margin: 0;
+    border-radius: 0.375rem;
+    background: color-mix(in srgb, var(--config-line) 22%, transparent);
+    padding: 0.75rem;
+    color: var(--config-muted);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  @media (max-width: 1180px) {
+    .launcher-config-gmcm-probe .launcher-config-api-row {
+      grid-template-columns: minmax(10.5rem, 12rem) minmax(0, 1fr) auto;
+    }
+
+    .launcher-config-gmcm-probe .launcher-config-api-row:last-child {
+      border-bottom: 0;
+    }
+  }
+
   @keyframes launcher-config-progress-shimmer {
     0%,
     34% {

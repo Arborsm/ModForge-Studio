@@ -143,7 +143,6 @@ const studiodesk: StudioDeskCopy = {
     buildings: '建筑外观、占地与相关内容独立编辑。',
     items: '物品、配方、商店和数值独立编辑。',
     'mod-i18n': '编辑项目 i18n 文件并检查占位符。',
-    mods: '项目级内容、导入导出与 Content Patcher 数据。',
   },
   createDialog: {
     title: '新建创作项目',

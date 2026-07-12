@@ -39,6 +39,10 @@ export function useModWorkspaceCopy() {
   return useLocaleBundle().mods
 }
 
+export function useModI18nCopy() {
+  return useLocaleBundle().modI18n
+}
+
 export function useNotificationCopy() {
   return useLocaleBundle().notifications
 }
@@ -65,4 +69,8 @@ export function useItemsCopy() {
 
 export function useEventStageCopy() {
   return useEditorCopy().eventStage
+}
+
+export function useMapPanelCopy() {
+  return useEditorCopy().mapPanel
 }

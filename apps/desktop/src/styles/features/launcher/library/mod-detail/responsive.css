@@ -14,6 +14,16 @@
   }
 
   @media (max-width: 1100px) {
+    .launcher-mod-detail-tab-toolbar .launcher-mod-detail-rich-head-title > span,
+    .launcher-mod-detail-tab-toolbar .launcher-mod-detail-config-actions .control-button > span {
+      display: none;
+    }
+
+    .launcher-mod-detail-tab-toolbar .launcher-mod-detail-config-actions .control-button {
+      width: 1.875rem;
+      padding: 0;
+    }
+
     .launcher-page-grid,
     .launcher-manager-grid,
     .launcher-split-layout,
@@ -125,9 +135,8 @@
     .launcher-discover-grid,
     .launcher-form-grid,
     .launcher-shell-overview,
-    .launcher-downloads-popover-metrics,
     .launcher-page-stats-grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .launcher-shell {
@@ -143,7 +152,7 @@
     }
 
     .launcher-downloads-popover-list-shell {
-      height: 320px;
+      max-height: min(20rem, calc(78vh - 12rem));
     }
 
     .launcher-discover-console {
@@ -190,17 +199,33 @@
     }
 
     .launcher-download-row {
-      grid-template-columns: 1fr;
-      align-items: stretch;
+      grid-template-columns: 0.75rem minmax(0, 1fr);
+      grid-template-areas:
+        'dot body'
+        'dot side';
+      row-gap: 0.35rem;
     }
 
-    .launcher-download-row-main {
-      align-items: flex-start;
+    .launcher-download-row-dot {
+      grid-area: dot;
     }
 
-    .launcher-download-row-actions {
-      justify-content: flex-start;
-      flex-wrap: wrap;
+    .launcher-download-row-body {
+      grid-area: body;
+    }
+
+    .launcher-download-row-side {
+      grid-area: side;
+      width: 100%;
+      min-width: 0;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      justify-items: stretch;
+      gap: 0.5rem;
+    }
+
+    .launcher-download-row-links {
+      justify-content: flex-end;
     }
 
     .launcher-page-shell,
@@ -237,6 +262,37 @@
     .launcher-detail-actions-bar {
       display: grid;
       grid-template-columns: 1fr;
+    }
+
+    .launcher-mod-detail-config > .launcher-mod-detail-rich-head {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .launcher-mod-detail-config-actions {
+      width: 100%;
+      justify-content: flex-start;
+    }
+
+    .launcher-mod-detail-config-field {
+      grid-template-columns: minmax(0, 1fr);
+      align-items: stretch;
+      gap: 0.75rem;
+    }
+
+    .launcher-mod-detail-config-control {
+      width: 100%;
+      justify-self: stretch;
+    }
+
+    .launcher-mod-detail-config-field[data-control-kind='toggle'] {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+    }
+
+    .launcher-mod-detail-config-field[data-control-kind='toggle'] .launcher-mod-detail-config-control {
+      width: auto;
+      justify-self: end;
     }
   }
 }

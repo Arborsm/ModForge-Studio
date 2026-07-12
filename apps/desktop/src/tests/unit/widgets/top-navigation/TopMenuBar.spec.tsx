@@ -2,12 +2,39 @@ import type { ComponentProps } from 'react'
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import TopMenuBar from '@widgets/top-navigation/ui/TopMenuBar'
-import { editorCopy, getSettingsMenuCopy, getViewMenuCopy } from '@locales/api'
+import { editorCopy, getSettingsMenuCopy } from '@locales/api'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
 
 const copy = editorCopy['en-US']
-const viewMenuCopy = getViewMenuCopy('en-US')
 const settingsMenuCopy = getSettingsMenuCopy('en-US')
+const navCopy = copy.workbenchNavigation
+
+function buildProjectMenu(
+  overrides: Partial<NonNullable<ComponentProps<typeof TopMenuBar>['projectMenu']>> = {},
+): NonNullable<ComponentProps<typeof TopMenuBar>['projectMenu']> {
+  return {
+    title: 'Festival Dialogue Pack',
+    version: '1.0.0',
+    uniqueId: 'Author.FestivalDialogue',
+    recentProjects: [
+      {
+        draftStorageKey: 'festival-dialogue',
+        title: 'Festival Dialogue Pack',
+        uniqueId: 'Author.FestivalDialogue',
+        isCurrent: true,
+      },
+    ],
+    hasActiveProject: true,
+    onSelectProject: vi.fn(),
+    onCreateProject: vi.fn(),
+    onOpenProject: vi.fn(),
+    onImportProject: vi.fn(),
+    onProjectSettings: vi.fn(),
+    onExportProject: vi.fn(),
+    onCloseProject: vi.fn(),
+    ...overrides,
+  }
+}
 
 function buildProps(overrides: Partial<ComponentProps<typeof TopMenuBar>> = {}): ComponentProps<typeof TopMenuBar> {
   return {
@@ -22,29 +49,10 @@ function buildProps(overrides: Partial<ComponentProps<typeof TopMenuBar>> = {}):
     onMinimizeWindow: vi.fn(),
     onToggleMaximizeWindow: vi.fn(),
     onCloseWindow: vi.fn(),
-    viewMenu: {
-      panelItems: [
-        {
-          id: 'viewport',
-          title: 'Viewport',
-          visible: true,
-          mode: 'docked' as const,
-          dock: 'center' as const,
-        },
-      ],
-      presetNames: [],
-      onTogglePanel: vi.fn(),
-      onResetLayout: vi.fn(),
-      onSavePreset: vi.fn(),
-      onLoadPreset: vi.fn(),
-      onDeletePreset: vi.fn(),
-    },
     settingsMenu: {
       onOpen: vi.fn(),
     },
-    projectMenu: {
-      onOpen: vi.fn(),
-    },
+    projectMenu: buildProjectMenu(),
     launcherChrome: {
       page: 'library',
       visiblePages: ['library', 'discover', 'updates', 'configuration'],
@@ -83,23 +91,49 @@ describe('TopMenuBar', () => {
     expect(brandIcon?.getAttribute('aria-hidden')).toBe('true')
   })
 
-  it('renders the workbench quick dock in the title bar center slot', () => {
+  it('renders the project title menu in the title bar center slot', () => {
+    const { container } = renderWithLocale(<TopMenuBar {...buildProps()} />)
+
+    const center = container.querySelector('.top-menu-center')
+    const titleButton = within(center as HTMLElement).getByRole('button', { name: /Festival Dialogue Pack/i })
+
+    expect(titleButton.className).toContain('top-menu-project-title')
+    expect(screen.queryByRole('navigation', { name: navCopy.recentPages })).toBeNull()
+  })
+
+  it('opens the project menu and routes create/open/close actions', () => {
+    const projectMenu = buildProjectMenu()
+    renderWithLocale(<TopMenuBar {...buildProps({ projectMenu })} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Festival Dialogue Pack/i }))
+
+    expect(screen.getByRole('menu', { name: navCopy.currentProjectLabel })).toBeTruthy()
+    fireEvent.click(screen.getByRole('menuitem', { name: navCopy.shellProjectMenuNew }))
+    expect(projectMenu.onCreateProject).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: /Festival Dialogue Pack/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: navCopy.shellProjectMenuOpen }))
+    expect(projectMenu.onOpenProject).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: /Festival Dialogue Pack/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: navCopy.shellProjectMenuClose }))
+    expect(projectMenu.onCloseProject).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders an empty center slot when projectMenu is absent in workbench mode', () => {
     const { container } = renderWithLocale(
       <TopMenuBar
         {...buildProps({
-          workbenchQuickDock: (
-            <nav className="workbench-quick-dock workbench-quick-dock-titlebar" aria-label={copy.workbenchNavigation.recentPages}>
-              <button type="button">Dock</button>
-            </nav>
-          ),
+          projectMenu: undefined,
         })}
       />,
     )
 
     const center = container.querySelector('.top-menu-center')
 
-    expect(center?.querySelector('.workbench-quick-dock-titlebar')).toBeTruthy()
-    expect(screen.getByRole('navigation', { name: copy.workbenchNavigation.recentPages })).toBeTruthy()
+    expect(center?.querySelector('.top-menu-project-title')).toBeNull()
+    expect(center?.querySelector('.workbench-quick-dock-titlebar')).toBeNull()
+    expect(screen.queryByRole('navigation', { name: copy.workbenchNavigation.recentPages })).toBeNull()
   })
 
   it('does not route workspace changes from the title bar module navigation anymore', () => {
@@ -117,48 +151,28 @@ describe('TopMenuBar', () => {
     expect(screen.queryByRole('button', { name: copy.workbenchNavigation.title })).toBeNull()
   })
 
-  it('opens the view menu with expanded state and a labeled menu', () => {
-    const props = buildProps()
-    renderWithLocale(<TopMenuBar {...props} />)
-
-    const viewButton = screen.getByRole('button', { name: viewMenuCopy.title })
-
-    expect(viewButton.getAttribute('aria-expanded')).toBe('false')
-    fireEvent.click(viewButton)
-
-    expect(viewButton.getAttribute('aria-expanded')).toBe('true')
-    expect(screen.getByRole('menu', { name: viewMenuCopy.title })).toBeTruthy()
-
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Viewport/i }))
-
-    expect(props.viewMenu.onTogglePanel).toHaveBeenCalledWith('viewport', false)
-  })
-
   it('keeps settings in the shell controls instead of the left menu group', () => {
     const { container } = renderWithLocale(<TopMenuBar {...buildProps()} />)
 
     const shellControls = screen.getByRole('group', { name: 'Shell controls' })
-    const mainMenus = screen.getByRole('navigation', { name: 'Main menus' })
+    const modeControls = screen.getByRole('group', { name: copy.shell.modeLabel })
 
     expect(within(shellControls).getByRole('button', { name: settingsMenuCopy.title })).toBeTruthy()
-    expect(within(shellControls).getByRole('button', { name: copy.shell.launcher })).toBeTruthy()
+    expect(within(modeControls).getByRole('button', { name: copy.shell.launcher })).toBeTruthy()
+    expect(within(modeControls).getByRole('button', { name: copy.shell.workbench })).toBeTruthy()
     expect(within(shellControls).queryByRole('button', { name: copy.controls.toggleLocale })).toBeNull()
     expect(within(shellControls).queryByText(copy.localeShort['en-US'])).toBeNull()
-    expect(within(shellControls).getAllByRole('button')).toHaveLength(3)
+    expect(within(shellControls).getAllByRole('button')).toHaveLength(2)
     expect(container.querySelector('.dock-chip')).toBeNull()
-    expect(within(mainMenus).queryByRole('button', { name: settingsMenuCopy.title })).toBeNull()
+    expect(screen.queryByRole('navigation', { name: 'Main menus' })).toBeNull()
   })
 
-  it('keeps only project and view menus in the title bar', () => {
+  it('keeps legacy history and view controls out of the title bar', () => {
     renderWithLocale(<TopMenuBar {...buildProps()} />)
 
-    const mainMenus = screen.getByRole('navigation', { name: 'Main menus' })
-
-    expect(within(mainMenus).getByRole('button', { name: copy.leftDock.project })).toBeTruthy()
-    expect(within(mainMenus).getByRole('button', { name: viewMenuCopy.title })).toBeTruthy()
-    expect(within(mainMenus).queryByRole('button', { name: copy.menus[1] })).toBeNull()
-    expect(within(mainMenus).queryByRole('button', { name: copy.menus[3] })).toBeNull()
-    expect(within(mainMenus).queryByRole('button', { name: copy.menus[4] })).toBeNull()
+    expect(screen.queryByRole('button', { name: navCopy.shellHistoryBack })).toBeNull()
+    expect(screen.queryByRole('button', { name: navCopy.shellHistoryForward })).toBeNull()
+    expect(screen.queryByRole('navigation', { name: 'Main menus' })).toBeNull()
   })
 
   it('keeps a dedicated drag layer while preserving desktop window controls', () => {
@@ -174,13 +188,25 @@ describe('TopMenuBar', () => {
     expect(screen.getByRole('button', { name: 'Close window' })).toBeTruthy()
   })
 
-  it('switches app mode from workbench to launcher through shell controls', () => {
+  it('switches app mode from workbench to launcher through the mode control', () => {
     const props = buildProps()
     renderWithLocale(<TopMenuBar {...props} />)
 
     fireEvent.click(screen.getByRole('button', { name: copy.shell.launcher }))
 
     expect(props.onAppModeChange).toHaveBeenCalledWith('launcher')
+  })
+
+  it('marks the current app mode in the segmented control', () => {
+    const { rerender } = renderWithLocale(<TopMenuBar {...buildProps()} />)
+
+    expect(screen.getByRole('button', { name: copy.shell.launcher })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: copy.shell.workbench })).toHaveAttribute('aria-pressed', 'true')
+
+    rerender(<TopMenuBar {...buildProps({ appMode: 'launcher' })} />)
+
+    expect(screen.getByRole('button', { name: copy.shell.launcher })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: copy.shell.workbench })).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('hides workspace module navigation while launcher mode is active', () => {

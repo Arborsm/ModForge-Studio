@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light" data-locale="zh">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content="ModForge Studio — 面向《星露谷物语》的桌面端模组创作与管理工作台。" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f4efe4" />
+    <title>ModForge Studio · 星露谷模组工作台</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,650;7..72,700&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="pointer-glow" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
+
+    <a class="skip-link" href="#main" data-i18n="skip">跳到主要内容</a>
+
+    <header class="site-header" data-reveal>
+      <div class="shell header-inner">
+        <a class="brand" href="#top" aria-label="ModForge Studio">
+          <img class="brand-mark" src="./modforge-logo-primary.svg" width="40" height="40" alt="" />
+          <span class="brand-text">
+            <span class="brand-name">ModForge Studio</span>
+            <span class="brand-tag" data-i18n="brandTag">专业模组创作工作区</span>
+          </span>
+        </a>
+
+        <nav class="nav" aria-label="Primary">
+          <a href="#features" data-i18n="navFeatures">能力</a>
+          <a href="#workbench" data-i18n="navWorkbench">工作台</a>
+          <a href="#launcher" data-i18n="navLauncher">启动器</a>
+          <a href="#platforms" data-i18n="navPlatforms">平台</a>
+        </nav>
+
+        <div class="header-actions">
+          <button type="button" class="icon-btn" id="locale-toggle" aria-label="Switch language" title="Language">
+            <span class="locale-label" id="locale-label">EN</span>
+          </button>
+          <button type="button" class="icon-btn" id="theme-toggle" aria-label="Toggle color theme" title="Theme">
+            <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.75" />
+              <path
+                d="M12 2.5v2.2M12 19.3v2.2M4.7 4.7l1.6 1.6M17.7 17.7l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.7 19.3l1.6-1.6M17.7 6.3l1.6-1.6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+              />
+            </svg>
+            <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path
+                d="M20 14.2A7.8 7.8 0 0 1 9.8 4 7.6 7.6 0 1 0 20 14.2Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <a class="btn btn-ghost hide-sm" href="https://github.com/Arborsm/ModForge-Studio" data-i18n="navSource" id="link-source">源码</a>
+          <a class="btn btn-primary" href="#download" data-i18n="navDownload">获取应用</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- HERO -->
+      <section class="hero" id="top">
+        <div class="shell hero-grid">
+          <div class="hero-copy" data-reveal>
+            <p class="eyebrow">
+              <span class="eyebrow-dot" aria-hidden="true"></span>
+              <span data-i18n="heroEyebrow">星露谷物语 · 桌面工作台</span>
+            </p>
+            <h1 data-i18n="heroTitle">在同一张工坊桌上，管模组、读资源、写补丁。</h1>
+            <p class="lead" data-i18n="heroLead">
+              ModForge Studio 把模组库管理、游戏资源检视、Content Patcher
+              创作与桌面启动流程收进一个专业工作区。像在田园工坊里开工，工具都在手边。
+            </p>
+            <div class="hero-cta">
+              <a class="btn btn-primary btn-lg" href="#download" data-i18n="heroCtaPrimary">开始使用</a>
+              <a class="btn btn-secondary btn-lg" href="#workbench" data-i18n="heroCtaSecondary">看看工作台</a>
+            </div>
+            <ul class="hero-meta" aria-label="Highlights">
+              <li>
+                <strong data-i18n="metaMods">模组库</strong>
+                <span data-i18n="metaModsDesc">扫描 · 启用 · 安装</span>
+              </li>
+              <li>
+                <strong data-i18n="metaAssets">资源检视</strong>
+                <span data-i18n="metaAssetsDesc">地图 · 事件 · 角色</span>
+              </li>
+              <li>
+                <strong data-i18n="metaCp">Content Patcher</strong>
+                <span data-i18n="metaCpDesc">草稿 · 追踪 · 导出</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="hero-stage" data-reveal data-reveal-delay="1">
+            <div class="workbench-window" role="img" aria-label="Workbench preview mock">
+              <div class="wb-titlebar">
+                <div class="wb-traffic" aria-hidden="true"><span></span><span></span><span></span></div>
+                <div class="wb-title">
+                  <span class="wb-mode" data-i18n="mockMode">Workbench</span>
+                  <span class="wb-sep">·</span>
+                  <span data-i18n="mockProject">Valley Night Market</span>
+                </div>
+                <div class="wb-title-actions" aria-hidden="true">
+                  <span class="wb-pill">map</span>
+                  <span class="wb-pill">events</span>
+                </div>
+              </div>
+              <div class="wb-body">
+                <aside class="wb-rail">
+                  <div class="wb-rail-label" data-i18n="mockRail">Studio Desk</div>
+                  <button type="button" class="wb-nav-item is-active" tabindex="-1">
+                    <span class="wb-ico" aria-hidden="true">⌂</span>
+                    <span data-i18n="mockNavDesk">工作台首页</span>
+                  </button>
+                  <button type="button" class="wb-nav-item" tabindex="-1">
+                    <span class="wb-ico" aria-hidden="true">◈</span>
+                    <span data-i18n="mockNavAssets">资源</span>
+                  </button>
+                  <button type="button" class="wb-nav-item" tabindex="-1">
+                    <span class="wb-ico" aria-hidden="true">▦</span>
+                    <span data-i18n="mockNavMap">地图</span>
+                  </button>
+                  <button type="button" class="wb-nav-item" tabindex="-1">
+                    <span class="wb-ico" aria-hidden="true">◎</span>
+                    <span data-i18n="mockNavEvents">事件</span>
+                  </button>
+                  <button type="button" class="wb-nav-item" tabindex="-1">
+                    <span class="wb-ico" aria-hidden="true">⧉</span>
+                    <span data-i18n="mockNavMods">模组</span>
+                  </button>
+                  <div class="wb-rail-foot">
+                    <div class="wb-meter">
+                      <span data-i18n="mockPatches">补丁就绪</span>
+                      <strong>12</strong>
+                    </div>
+                  </div>
+                </aside>
+                <div class="wb-main">
+                  <div class="wb-toolbar">
+                    <span class="wb-crumb" data-i18n="mockCrumb">Project Lobby / 夜市草稿</span>
+                    <span class="wb-status">
+                      <span class="status-dot"></span>
+                      <span data-i18n="mockStatus">诊断通过</span>
+                    </span>
+                  </div>
+                  <div class="wb-panels">
+                    <div class="wb-panel wb-panel-list">
+                      <header>
+                        <span data-i18n="mockInspire">近期灵感</span>
+                        <span class="muted">3</span>
+                      </header>
+                      <ul>
+                        <li class="is-hot">
+                          <span data-i18n="mockItem1">码头灯串事件</span>
+                          <em>dialogue</em>
+                        </li>
+                        <li>
+                          <span data-i18n="mockItem2">渔夫小屋传送点</span>
+                          <em>map</em>
+                        </li>
+                        <li>
+                          <span data-i18n="mockItem3">姜岛礼物表</span>
+                          <em>character</em>
+                        </li>
+                      </ul>
+                    </div>
+                    <div class="wb-panel wb-panel-canvas">
+                      <header>
+                        <span data-i18n="mockCanvas">舞台预览</span>
+                        <span class="muted">Beach · Night</span>
+                      </header>
+                      <div class="wb-canvas">
+                        <div class="canvas-sky"></div>
+                        <div class="canvas-water"></div>
+                        <div class="canvas-pier"></div>
+                        <div class="canvas-actor a1"></div>
+                        <div class="canvas-actor a2"></div>
+                        <div class="canvas-label">t = 2200 · face_direction</div>
+                      </div>
+                    </div>
+                    <div class="wb-panel wb-panel-trace">
+                      <header>
+                        <span data-i18n="mockTrace">补丁追踪</span>
+                        <span class="muted">trace</span>
+                      </header>
+                      <ol class="trace-list">
+                        <li class="ok">
+                          <code>EditData</code>
+                          <span>Data/Events/Beach</span>
+                        </li>
+                        <li class="ok">
+                          <code>Load</code>
+                          <span>Maps/Beach_night</span>
+                        </li>
+                        <li class="warn">
+                          <code>Include</code>
+                          <span>config/tokens.json</span>
+                        </li>
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="stage-caption" data-i18n="mockCaption">示意界面：Studio Desk 三栏创作桌 · 灵感 / 舞台 / 追踪</div>
+          </div>
+        </div>
+
+        <div class="shell product-strip" data-reveal>
+          <figure class="product-shot">
+            <img
+              src="./shots/app-launcher-mock.png"
+              width="1440"
+              height="900"
+              loading="lazy"
+              alt="ModForge Studio Launcher library with mock mods"
+            />
+            <figcaption data-i18n="shotLauncher">Launcher 模组库（开发 mock）</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- FEATURE STRIP -->
+      <section class="section features" id="features">
+        <div class="shell">
+          <div class="section-head" data-reveal>
+            <p class="eyebrow" data-i18n="featEyebrow">工坊能力</p>
+            <h2 data-i18n="featTitle">不是五个分散工具，是一条连贯流水线。</h2>
+            <p class="section-lead" data-i18n="featLead">
+              从安装到检视，从草稿到导出，每一步都落在同一套桌面运行时里，减少在文件夹与网页之间来回切换。
+            </p>
+          </div>
+
+          <div class="feature-bento">
+            <article class="feature-card feature-card-wide" data-reveal>
+              <div class="feature-index">01</div>
+              <h3 data-i18n="feat1Title">模组库与启动流</h3>
+              <p data-i18n="feat1Body">
+                扫描本地 SMAPI 模组、启用/禁用、安装备份与包管理。启动器侧还能对接 Nexus 发现、下载队列与更新比对。
+              </p>
+              <div class="feature-chips">
+                <span data-i18n="feat1c1">Installed Library</span>
+                <span data-i18n="feat1c2">Download queue</span>
+                <span data-i18n="feat1c3">Update keys</span>
+              </div>
+            </article>
+
+            <article class="feature-card" data-reveal data-reveal-delay="1">
+              <div class="feature-index">02</div>
+              <h3 data-i18n="feat2Title">资源与世界数据</h3>
+              <p data-i18n="feat2Body">检视地图、事件、角色、物品、建筑与存档。把游戏世界当目录来读，而不是当黑盒。</p>
+            </article>
+
+            <article class="feature-card" data-reveal data-reveal-delay="2">
+              <div class="feature-index">03</div>
+              <h3 data-i18n="feat3Title">Content Patcher 创作</h3>
+              <p data-i18n="feat3Body">结构化草稿、变更注册表、动态 Token、自定义地点与导出指纹。面向真实补丁管线，而不是纯文本堆砌。</p>
+            </article>
+
+            <article class="feature-card feature-card-accent" data-reveal data-reveal-delay="1">
+              <div class="feature-index">04</div>
+              <h3 data-i18n="feat4Title">事件图与脚本诊断</h3>
+              <p data-i18n="feat4Body">事件命令按对话、移动、视觉、逻辑等分类编排；舞台预览与诊断把时间轴和错误原因放在同一视野。</p>
+              <ul class="mini-list">
+                <li data-i18n="feat4l1">Event Timeline</li>
+                <li data-i18n="feat4l2">Script diagnostics</li>
+                <li data-i18n="feat4l3">Continuity sheet</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- WORKBENCH DEEP -->
+      <section class="section workbench-section" id="workbench">
+        <div class="shell split">
+          <div class="split-copy" data-reveal>
+            <p class="eyebrow" data-i18n="wbEyebrow">Workbench</p>
+            <h2 data-i18n="wbTitle">三栏创作桌：灵感、心跳、世界圣经。</h2>
+            <p data-i18n="wbBody">
+              Studio Desk 把近期灵感放在左侧，项目心跳与工作区入口放在中间，世界规则、Token 与导出中心放在右侧。从 Project Lobby
+              进入地图、角色、建筑、物品、事件或模组工作区，各自独立编辑，又共享同一项目上下文。
+            </p>
+            <dl class="spec-list">
+              <div>
+                <dt data-i18n="wbSpec1t">工作区模式</dt>
+                <dd data-i18n="wbSpec1d">map · characters · buildings · items · events · mods</dd>
+              </div>
+              <div>
+                <dt data-i18n="wbSpec2t">面板</dt>
+                <dd data-i18n="wbSpec2d">Assets · Viewport · Event Timeline · Item Catalog</dd>
+              </div>
+              <div>
+                <dt data-i18n="wbSpec3t">导出</dt>
+                <dd data-i18n="wbSpec3d">Export Center · 指纹与补丁目录</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="split-visual" data-reveal data-reveal-delay="1">
+            <div class="desk-diagram" aria-hidden="true">
+              <div class="desk-col">
+                <span class="desk-label" data-i18n="deskL">灵感</span>
+                <div class="desk-block soft"></div>
+                <div class="desk-block"></div>
+                <div class="desk-block soft"></div>
+              </div>
+              <div class="desk-col desk-col-main">
+                <span class="desk-label" data-i18n="deskC">项目心跳</span>
+                <div class="desk-heart">
+                  <div class="pulse-ring"></div>
+                  <strong data-i18n="deskHeart">Valley Night Market</strong>
+                  <span data-i18n="deskHeartSub">12 patches · 3 diagnostics clear</span>
+                </div>
+                <div class="desk-grid"><span>Map</span><span>Events</span><span>Items</span><span>Mods</span></div>
+              </div>
+              <div class="desk-col">
+                <span class="desk-label" data-i18n="deskR">世界圣经</span>
+                <div class="desk-block tall"></div>
+                <div class="desk-block soft short"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LAUNCHER -->
+      <section class="section launcher-section" id="launcher">
+        <div class="shell split reverse">
+          <div class="split-visual" data-reveal>
+            <div class="launcher-board" aria-hidden="true">
+              <div class="lb-row lb-head">
+                <span data-i18n="lbLib">Installed Library</span>
+                <span class="lb-count">47 mods</span>
+              </div>
+              <div class="lb-row">
+                <span class="lb-dot on"></span>
+                <span>Content Patcher</span>
+                <em>2.7.0</em>
+              </div>
+              <div class="lb-row">
+                <span class="lb-dot on"></span>
+                <span>UI Info Suite 2</span>
+                <em>2.3.4</em>
+              </div>
+              <div class="lb-row warn">
+                <span class="lb-dot off"></span>
+                <span>Stardew Valley Expanded</span>
+                <em data-i18n="lbMissing">缺依赖 2</em>
+              </div>
+              <div class="lb-row">
+                <span class="lb-dot on"></span>
+                <span>Generic Mod Config Menu</span>
+                <em>1.14.1</em>
+              </div>
+              <div class="lb-footer">
+                <span data-i18n="lbQueue">下载队列</span>
+                <div class="lb-bar"><i style="--p: 68%"></i></div>
+                <span>68%</span>
+              </div>
+            </div>
+          </div>
+          <div class="split-copy" data-reveal data-reveal-delay="1">
+            <p class="eyebrow" data-i18n="lnEyebrow">Launcher</p>
+            <h2 data-i18n="lnTitle">模组、更新与下载任务，收在同一个壳层视图。</h2>
+            <p data-i18n="lnBody">
+              Library 管本地安装库；Discover 搜 Nexus 并排队下载；Updates 用 UpdateKeys 对照线上版本；Configuration 管理游戏路径、Nexus API
+              与诊断。状态优先：启用数、缺失依赖、队列进度和路由健康一目了然。
+            </p>
+            <ul class="check-list">
+              <li data-i18n="lnC1">Pack presets 与隐藏模组</li>
+              <li data-i18n="lnC2">安装备份与摘要</li>
+              <li data-i18n="lnC3">Nexus 网络诊断与 API Key</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- PLATFORMS -->
+      <section class="section platforms" id="platforms">
+        <div class="shell">
+          <div class="section-head center" data-reveal>
+            <p class="eyebrow" data-i18n="plEyebrow">桌面优先</p>
+            <h2 data-i18n="plTitle">Linux、macOS、Windows 同一套 Rust 后端能力。</h2>
+            <p class="section-lead" data-i18n="plLead">
+              前端 React 工作区；Linux 走 Electron 宿主，macOS / Windows 走 Tauri v2。宿主命令统一经 Host Runtime 调度，业务层不直接碰平台
+              API。
+            </p>
+          </div>
+          <div class="platform-row" data-reveal>
+            <article class="platform-card">
+              <h3>Windows</h3>
+              <p data-i18n="plWin">Tauri 打包 · MSI / NSIS</p>
+            </article>
+            <article class="platform-card">
+              <h3>macOS</h3>
+              <p data-i18n="plMac">Tauri v2 桌面路径</p>
+            </article>
+            <article class="platform-card">
+              <h3>Linux</h3>
+              <p data-i18n="plLinux">Electron + Rust sidecar</p>
+            </article>
+          </div>
+          <div class="stack-strip" data-reveal>
+            <span>React 19</span>
+            <span>TypeScript</span>
+            <span>Rust</span>
+            <span>Tauri v2</span>
+            <span>Electron</span>
+            <span>Vite+</span>
+            <span>Tailwind CSS 4</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- DOWNLOAD / CTA -->
+      <section class="section cta-section" id="download">
+        <div class="shell">
+          <div class="cta-card" data-reveal>
+            <div class="cta-copy">
+              <p class="eyebrow" data-i18n="ctaEyebrow">开源 · 早期开发</p>
+              <h2 data-i18n="ctaTitle">在工坊里坐下，从源码或发行包开工。</h2>
+              <p data-i18n="ctaBody">
+                项目仍在活跃开发中。克隆仓库后用 Vite+ 启动完整桌面应用；发行包可从仓库 Release 获取（以仓库说明为准）。
+              </p>
+              <div class="hero-cta">
+                <a class="btn btn-primary btn-lg" href="https://github.com/Arborsm/ModForge-Studio" id="cta-github" data-i18n="ctaGithub"
+                  >查看仓库</a
+                >
+                <a class="btn btn-secondary btn-lg" href="#top" data-i18n="ctaTop">回到顶部</a>
+              </div>
+            </div>
+            <pre class="cta-code" tabindex="0"><code>vp install --frozen-lockfile
+vp run dev</code></pre>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-inner">
+        <div class="footer-brand">
+          <img src="./modforge-logo-primary.svg" width="32" height="32" alt="" />
+          <div>
+            <strong>ModForge Studio</strong>
+            <p data-i18n="footerTag">星露谷物语模组创作与管理工作台</p>
+          </div>
+        </div>
+        <p class="footer-note">
+          <span data-i18n="footerLicense">许可证 GPL-3.0-or-later</span>
+          <span class="dot">·</span>
+          <span data-i18n="footerNote">Stardew Valley 归 ConcernedApe 所有；本站为非官方工具介绍。</span>
+        </p>
+      </div>
+    </footer>
+
+    <script src="./main.js" defer></script>
+  </body>
+</html>

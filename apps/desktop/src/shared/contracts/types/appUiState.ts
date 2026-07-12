@@ -37,11 +37,32 @@ export type AppUiAppearanceState = {
 
 export type WorkspaceViewMode = 'edit' | 'preview'
 
+export type AppUiI18nGeneratorSession = {
+  prefix: string
+  targetPrefixes: Record<string, string>
+  enabledTargets: string[]
+  expandedPaths: string[]
+}
+
 export type AppUiWorkspaceState = {
   layouts: Record<string, Record<string, unknown>>
   workspaceViewMode?: WorkspaceViewMode
   cpMaker?: {
     activeGeneratedDraftKey?: string | null
+    activeDraftKey?: string | null
+  }
+  i18nGenerator?: AppUiI18nGeneratorSession
+  lastLocation?: {
+    workbenchRoute: 'home' | 'workspace'
+    workspaceMode: string
+    workspaceViewMode: WorkspaceViewMode
+    registeredWorkbenchViewId: string | null
+  }
+  sideNav?: {
+    collapsed: boolean
+    browseOpen: boolean
+    toolsOpen: boolean
+    devOpen: boolean
   }
 }
 
@@ -76,7 +97,11 @@ export type PatchAppUiStateRequest = {
     workspaceViewMode?: WorkspaceViewMode
     cpMaker?: {
       activeGeneratedDraftKey?: string | null
+      activeDraftKey?: string | null
     }
+    i18nGenerator?: AppUiI18nGeneratorSession
+    lastLocation?: AppUiWorkspaceState['lastLocation']
+    sideNav?: AppUiWorkspaceState['sideNav']
   }
   launcher?: Partial<AppUiLauncherState> & {
     discoverToolbar?: Partial<AppUiLauncherState['discoverToolbar']>

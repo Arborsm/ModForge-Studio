@@ -6,6 +6,7 @@ use std::path::Path;
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use crate::domain::app_paths::app_ui_state_path;
+use crate::infrastructure::text_encoding::read_text_file;
 use anyhow::Context;
 
 static APP_UI_STATE_FILE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -89,6 +90,25 @@ pub(crate) struct AppUiWorkspaceState {
     pub(crate) workspace_view_mode: String,
     #[serde(default)]
     pub(crate) cp_maker: AppUiCpMakerWorkspaceState,
+    #[serde(default)]
+    pub(crate) i18n_generator: AppUiI18nGeneratorSession,
+    #[serde(default)]
+    pub(crate) last_location: AppUiWorkspaceLastLocation,
+    #[serde(default)]
+    pub(crate) side_nav: AppUiWorkspaceSideNavState,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AppUiI18nGeneratorSession {
+    #[serde(default = "default_i18n_generator_prefix")]
+    pub(crate) prefix: String,
+    #[serde(default)]
+    pub(crate) target_prefixes: BTreeMap<String, String>,
+    #[serde(default)]
+    pub(crate) enabled_targets: Vec<String>,
+    #[serde(default)]
+    pub(crate) expanded_paths: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -96,6 +116,34 @@ pub(crate) struct AppUiWorkspaceState {
 pub(crate) struct AppUiCpMakerWorkspaceState {
     #[serde(default)]
     pub(crate) active_generated_draft_key: Option<String>,
+    #[serde(default)]
+    pub(crate) active_draft_key: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AppUiWorkspaceLastLocation {
+    #[serde(default = "default_workbench_route")]
+    pub(crate) workbench_route: String,
+    #[serde(default = "default_last_location_workspace_mode")]
+    pub(crate) workspace_mode: String,
+    #[serde(default = "default_last_location_view_mode")]
+    pub(crate) workspace_view_mode: String,
+    #[serde(default)]
+    pub(crate) registered_workbench_view_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AppUiWorkspaceSideNavState {
+    #[serde(default = "default_side_nav_collapsed")]
+    pub(crate) collapsed: bool,
+    #[serde(default = "default_side_nav_browse_open")]
+    pub(crate) browse_open: bool,
+    #[serde(default)]
+    pub(crate) tools_open: bool,
+    #[serde(default)]
+    pub(crate) dev_open: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -163,6 +211,12 @@ pub(crate) struct AppUiWorkspaceStatePatch {
     pub(crate) workspace_view_mode: Option<String>,
     #[serde(default)]
     pub(crate) cp_maker: Option<AppUiCpMakerWorkspaceStatePatch>,
+    #[serde(default)]
+    pub(crate) i18n_generator: Option<AppUiI18nGeneratorSession>,
+    #[serde(default)]
+    pub(crate) last_location: Option<AppUiWorkspaceLastLocation>,
+    #[serde(default)]
+    pub(crate) side_nav: Option<AppUiWorkspaceSideNavState>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -170,6 +224,8 @@ pub(crate) struct AppUiWorkspaceStatePatch {
 pub(crate) struct AppUiCpMakerWorkspaceStatePatch {
     #[serde(default)]
     pub(crate) active_generated_draft_key: Option<String>,
+    #[serde(default)]
+    pub(crate) active_draft_key: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -185,6 +241,10 @@ pub(crate) struct AppUiLauncherStatePatch {
 
 fn default_app_ui_state_version() -> u32 {
     1
+}
+
+fn default_i18n_generator_prefix() -> String {
+    "Author.ModName".to_string()
 }
 
 fn default_app_mode() -> String {
@@ -221,6 +281,26 @@ fn default_window_border_weight() -> String {
 
 fn default_workspace_view_mode() -> String {
     "edit".to_string()
+}
+
+fn default_workbench_route() -> String {
+    "home".to_string()
+}
+
+fn default_last_location_workspace_mode() -> String {
+    "map".to_string()
+}
+
+fn default_last_location_view_mode() -> String {
+    "preview".to_string()
+}
+
+fn default_side_nav_collapsed() -> bool {
+    true
+}
+
+fn default_side_nav_browse_open() -> bool {
+    true
 }
 
 fn default_discover_sort() -> String {
@@ -280,6 +360,42 @@ impl Default for AppUiWorkspaceState {
             layouts: BTreeMap::new(),
             workspace_view_mode: default_workspace_view_mode(),
             cp_maker: AppUiCpMakerWorkspaceState::default(),
+            i18n_generator: AppUiI18nGeneratorSession::default(),
+            last_location: AppUiWorkspaceLastLocation::default(),
+            side_nav: AppUiWorkspaceSideNavState::default(),
+        }
+    }
+}
+
+impl Default for AppUiI18nGeneratorSession {
+    fn default() -> Self {
+        Self {
+            prefix: default_i18n_generator_prefix(),
+            target_prefixes: BTreeMap::new(),
+            enabled_targets: Vec::new(),
+            expanded_paths: Vec::new(),
+        }
+    }
+}
+
+impl Default for AppUiWorkspaceLastLocation {
+    fn default() -> Self {
+        Self {
+            workbench_route: default_workbench_route(),
+            workspace_mode: default_last_location_workspace_mode(),
+            workspace_view_mode: default_last_location_view_mode(),
+            registered_workbench_view_id: None,
+        }
+    }
+}
+
+impl Default for AppUiWorkspaceSideNavState {
+    fn default() -> Self {
+        Self {
+            collapsed: default_side_nav_collapsed(),
+            browse_open: default_side_nav_browse_open(),
+            tools_open: false,
+            dev_open: false,
         }
     }
 }
@@ -448,6 +564,55 @@ fn normalize_cp_maker_workspace_state(
             .active_generated_draft_key
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty()),
+        active_draft_key: state
+            .active_draft_key
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty()),
+    }
+}
+
+fn normalize_i18n_generator_session(state: AppUiI18nGeneratorSession) -> AppUiI18nGeneratorSession {
+    AppUiI18nGeneratorSession {
+        prefix: state.prefix,
+        target_prefixes: state
+            .target_prefixes
+            .into_iter()
+            .filter_map(|(key, value)| {
+                let key = key.trim().to_string();
+                (!key.is_empty()).then_some((key, value))
+            })
+            .collect(),
+        enabled_targets: normalize_string_vec(state.enabled_targets),
+        expanded_paths: normalize_string_vec(state.expanded_paths),
+    }
+}
+
+fn normalize_workspace_last_location(
+    state: AppUiWorkspaceLastLocation,
+) -> AppUiWorkspaceLastLocation {
+    let workbench_route = match state.workbench_route.trim() {
+        "workspace" => "workspace".to_string(),
+        _ => default_workbench_route(),
+    };
+    let workspace_mode = match state.workspace_mode.trim() {
+        "map" | "events" | "characters" | "buildings" | "items" | "mod-browser" | "mod-i18n" => {
+            state.workspace_mode.trim().to_string()
+        }
+        _ => default_last_location_workspace_mode(),
+    };
+    let workspace_view_mode = match state.workspace_view_mode.trim() {
+        "edit" => "edit".to_string(),
+        _ => default_last_location_view_mode(),
+    };
+
+    AppUiWorkspaceLastLocation {
+        workbench_route,
+        workspace_mode,
+        workspace_view_mode,
+        registered_workbench_view_id: state
+            .registered_workbench_view_id
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty()),
     }
 }
 
@@ -485,6 +650,9 @@ fn normalize_app_ui_state(state: AppUiState) -> AppUiState {
                 &state.workspace.workspace_view_mode,
             ),
             cp_maker: normalize_cp_maker_workspace_state(state.workspace.cp_maker),
+            i18n_generator: normalize_i18n_generator_session(state.workspace.i18n_generator),
+            last_location: normalize_workspace_last_location(state.workspace.last_location),
+            side_nav: state.workspace.side_nav,
         },
         launcher: AppUiLauncherState {
             discover_toolbar: AppUiDiscoverToolbarState {
@@ -525,7 +693,7 @@ pub(crate) fn load_or_create_app_ui_state_at_path(path: &Path) -> anyhow::Result
 
 fn load_or_create_app_ui_state_at_path_unlocked(path: &Path) -> anyhow::Result<AppUiState> {
     if path.is_file() {
-        let content = fs::read_to_string(path)
+        let content = read_text_file(path)
             .with_context(|| format!("Failed to read app UI state {}", path.display()))?;
         let parsed = serde_json::from_str::<AppUiState>(&content).unwrap_or_default();
         let normalized = normalize_app_ui_state(parsed);
@@ -602,7 +770,17 @@ pub(crate) fn patch_app_ui_state_at_path(
             state.workspace.cp_maker =
                 normalize_cp_maker_workspace_state(AppUiCpMakerWorkspaceState {
                     active_generated_draft_key: cp_maker.active_generated_draft_key,
+                    active_draft_key: cp_maker.active_draft_key,
                 });
+        }
+        if let Some(i18n_generator) = workspace.i18n_generator {
+            state.workspace.i18n_generator = normalize_i18n_generator_session(i18n_generator);
+        }
+        if let Some(last_location) = workspace.last_location {
+            state.workspace.last_location = normalize_workspace_last_location(last_location);
+        }
+        if let Some(side_nav) = workspace.side_nav {
+            state.workspace.side_nav = side_nav;
         }
     }
     if let Some(launcher) = patch.launcher {

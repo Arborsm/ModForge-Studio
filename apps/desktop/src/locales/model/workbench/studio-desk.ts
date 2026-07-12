@@ -1,4 +1,4 @@
-import type { WorkspaceMode } from '../core'
+import type { CoreWorkspaceMode } from '../core'
 
 export type StudioDeskCopy = {
   title: string
@@ -125,7 +125,7 @@ export type StudioDeskCopy = {
     assets: string
     conflicts: string
   }
-  workspaceDescriptions: Record<WorkspaceMode, string>
+  workspaceDescriptions: Record<CoreWorkspaceMode | 'mod-i18n', string>
   createDialog: {
     title: string
     projectName: string

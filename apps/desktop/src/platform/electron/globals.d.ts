@@ -1,4 +1,4 @@
-import type { OpenDialogOptions, PlatformDragDropPayload, PlatformUnlistenFn } from '@shared/contracts'
+import type { OpenDialogOptions, PlatformDragDropPayload, PlatformUnlistenFn, SaveDialogOptions } from '@shared/contracts'
 
 export type ModforgeElectronApi = {
   invokeCommand: <T>(command: string, args?: Record<string, unknown>) => Promise<T>
@@ -13,6 +13,7 @@ export type ModforgeElectronApi = {
   setFullscreen: (fullscreen: boolean) => Promise<void>
   toggleFullscreen: () => Promise<boolean>
   openDialog: (options?: OpenDialogOptions) => Promise<string | string[] | null>
+  saveFileDialog: (options?: SaveDialogOptions) => Promise<string | null>
   toAssetUrl: (filePath: string) => string
   onHostEvent: <T>(event: string, listener: (payload: T) => void) => PlatformUnlistenFn
   onWindowCloseRequest: (listener: () => boolean | Promise<boolean>) => PlatformUnlistenFn

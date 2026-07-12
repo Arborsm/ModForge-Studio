@@ -24,6 +24,7 @@ function mod(overrides: Partial<LauncherLibraryItem>): LauncherLibraryItem {
     folderName: overrides.folderName ?? overrides.name ?? 'Mod One',
     absolutePath: overrides.absolutePath ?? `E:\\Mods\\${overrides.folderName ?? overrides.name ?? 'Mod One'}`,
     enabled: overrides.enabled ?? true,
+    hasConfig: overrides.hasConfig ?? true,
     nexusModId: overrides.nexusModId ?? null,
     updateKeys: overrides.updateKeys ?? [],
     modUrl: overrides.modUrl ?? null,
