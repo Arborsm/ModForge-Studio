@@ -54,6 +54,9 @@ jobs:
       - name: Run frontend tests
         run: pnpm --filter @modforge/desktop test
 
+      - name: Build GMCM probe
+        run: pnpm --filter @modforge/desktop build:gmcm-probe
+
       - name: Check Rust
         run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 
