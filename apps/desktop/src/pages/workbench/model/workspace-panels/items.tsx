@@ -40,9 +40,7 @@ export function buildItemsWorkspacePanels(options: BuildItemPanelsOptions): Work
       shellClassName: 'workspace-panel-shell-flat item-workspace-panel-shell',
       minWidth: 160,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'left-top',
-      defaultDockHeight: 760,
+      area: 'left',
       content: (
         <ItemNavigationPanel
           item={activeItem}
@@ -72,8 +70,7 @@ export function buildItemsWorkspacePanels(options: BuildItemPanelsOptions): Work
       shellClassName: 'workspace-panel-shell-flat item-workspace-panel-shell',
       minWidth: 280,
       minHeight: 520,
-      defaultDock: 'center',
-      defaultDockHeight: 760,
+      area: 'center',
       content: (
         <ItemCatalogPanel
           item={activeItem}
@@ -102,9 +99,7 @@ export function buildItemsWorkspacePanels(options: BuildItemPanelsOptions): Work
       shellClassName: 'workspace-panel-shell-flat item-workspace-panel-shell',
       minWidth: 240,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'right-top',
-      defaultDockHeight: 760,
+      area: 'right',
       content: (
         <ItemDetailPanel
           item={activeItem}

@@ -1,169 +1,69 @@
 import {
   forwardRef,
-  useCallback,
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import { cx } from '@shared/lib/helper'
-import { RAIL_DRAG_THRESHOLD, ROOT_PADDING, SLOT_IDS, SPLIT_GAP } from '@shared/workspace/layoutConstants'
-import { findDockTarget, type RailSortTarget } from '@shared/workspace/layoutDragTargets'
-import { getDockGuideRects, getWorkspaceGeometry } from '@shared/workspace/layoutGeometry'
-import {
-  buildDefaultSnapshot,
-  clamp,
-  getActiveDockedPanel,
-  getForcedDockForPanel,
-  getOrderedPanelIdsForSlot,
-  movePanelInOrder,
-  normalizeChrome,
-  normalizeSlots,
-  sanitizeStoredState,
-  sanitizeSnapshot,
-} from '@shared/workspace/layoutState'
-import { clampFloatRect, getHorizontalUsableWidth, getRailEdgeSizeBounds } from '@shared/workspace/layoutSizing'
+import { normalizeChrome, buildDefaultLayoutState, sanitizeStoredState } from '@shared/workspace/layoutState'
+import { getRailEdgeSizeBounds, getHorizontalUsableWidth } from '@shared/workspace/layoutSizing'
+import { getWorkspaceGeometry } from '@shared/workspace/layoutGeometry'
+import { SPLIT_GAP } from '@shared/workspace/layoutConstants'
 import type {
-  DockArea,
-  PanelMode,
-  RailId,
-  SlotId,
   WorkspaceLayoutHandle,
   WorkspacePanelConfig,
-  WorkspacePanelMeta,
-  WorkspacePanelState,
+  WorkspaceResizeRail,
   WorkspaceSize,
-  WorkspaceSlotState,
   WorkspaceStoredState,
 } from '@shared/contracts'
 import { WorkspacePanelShell } from './WorkspacePanelShell'
-import { WorkspaceDragOverlay } from './WorkspaceRails'
 
-export type { DockArea, WorkspaceLayoutHandle, WorkspacePanelConfig, WorkspacePanelMeta } from '@shared/contracts'
+export type { WorkspaceLayoutHandle, WorkspacePanelArea, WorkspacePanelConfig } from '@shared/contracts'
 
 type WorkspaceLayoutProps = {
   panels: WorkspacePanelConfig[]
   storageKey: string
   persistedState?: Partial<WorkspaceStoredState> | null
   onPersistStateChange?: (storageKey: string, state: WorkspaceStoredState) => void
-  onLayoutMetaChange?: (payload: { panelItems: WorkspacePanelMeta[]; presetNames: string[] }) => void
+}
+
+type ResizeInteraction = {
+  kind: 'edge' | 'split'
+  rail: WorkspaceResizeRail
+  pointerId: number
+  startX: number
+  startY: number
+  startValue: number
 }
 
 function areStoredStatesEqual(left: WorkspaceStoredState, right: WorkspaceStoredState) {
   return JSON.stringify(left) === JSON.stringify(right)
 }
 
-type DragDockTarget = DockArea | null
-
-type DragInteraction =
-  | {
-      kind: 'move'
-      panelId: string
-      pointerId: number
-      offsetX: number
-      offsetY: number
-    }
-  | {
-      kind: 'edge-resize'
-      rail: 'left' | 'right' | 'bottom'
-      pointerId: number
-      startX: number
-      startY: number
-      startSize: number
-    }
-  | {
-      kind: 'split-resize'
-      rail: RailId
-      pointerId: number
-    }
-  | {
-      kind: 'float-resize'
-      panelId: string
-      pointerId: number
-      startX: number
-      startY: number
-      startWidth: number
-      startHeight: number
-    }
-  | {
-      kind: 'rail-drag'
-      source: 'rail' | 'floating'
-      panelId: string
-      pointerId: number
-      startX: number
-      startY: number
-      dragging: boolean
-    }
-
 export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayoutProps>(function WorkspaceLayout(
-  { panels, storageKey, persistedState = null, onPersistStateChange, onLayoutMetaChange },
+  { panels, storageKey, persistedState = null, onPersistStateChange },
   ref,
 ) {
   const rootRef = useRef<HTMLDivElement | null>(null)
-  const panelContentRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  const interactionRef = useRef<DragInteraction | null>(null)
-  const suppressRailClickRef = useRef<string | null>(null)
+  const interactionRef = useRef<ResizeInteraction | null>(null)
   const [rootSize, setRootSize] = useState<WorkspaceSize>({ width: 0, height: 0 })
   const [state, setState] = useState<WorkspaceStoredState>(() => sanitizeStoredState(persistedState, panels))
   const stateRef = useRef(state)
-  const persistStateChangeRef = useRef(onPersistStateChange)
   const panelsRef = useRef(panels)
-  const [draggedPanelId, setDraggedPanelId] = useState<string | null>(null)
-  const [dragDockTarget, setDragDockTarget] = useState<DragDockTarget>(null)
-  const [railSortTarget, setRailSortTarget] = useState<RailSortTarget>(null)
-  const [dragPreview, setDragPreview] = useState<{ panelId: string; x: number; y: number } | null>(null)
-  const [measuredDockHeights, setMeasuredDockHeights] = useState<Record<string, number>>({})
-  const panelSchemaKey = useMemo(() => panels.map((panel) => panel.id).join('|'), [panels])
-
-  const panelMap = useMemo(
-    () => Object.fromEntries(panels.map((panel) => [panel.id, panel])) as Record<string, WorkspacePanelConfig>,
-    [panels],
-  )
-
-  useEffect(() => {
-    const observer = new ResizeObserver((entries) => {
-      setMeasuredDockHeights((current) => {
-        let changed = false
-        const next = { ...current }
-
-        for (const entry of entries) {
-          const panelId = (entry.target as HTMLElement).dataset.panelId
-          if (!panelId) {
-            continue
-          }
-
-          const measuredHeight = Math.ceil((entry.target as HTMLElement).scrollHeight)
-          if (!measuredHeight || next[panelId] === measuredHeight) {
-            continue
-          }
-
-          next[panelId] = measuredHeight
-          changed = true
-        }
-
-        return changed ? next : current
-      })
-    })
-
-    Object.values(panelContentRefs.current).forEach((element) => {
-      if (element) {
-        observer.observe(element)
-      }
-    })
-
-    return () => observer.disconnect()
-  }, [panels, state.panels])
-
-  useLayoutEffect(() => {
-    panelsRef.current = panels
-  }, [panels])
+  const rootSizeRef = useRef(rootSize)
+  const persistStateChangeRef = useRef(onPersistStateChange)
+  const panelSchemaKey = panels.map((panel) => panel.id).join('|')
+  const geometry = getWorkspaceGeometry(panels, state, rootSize)
+  const geometryRef = useRef(geometry)
 
   useLayoutEffect(() => {
     stateRef.current = state
-  }, [state])
+    rootSizeRef.current = rootSize
+    panelsRef.current = panels
+    geometryRef.current = geometry
+  }, [geometry, panels, rootSize, state])
 
   useEffect(() => {
     persistStateChangeRef.current = onPersistStateChange
@@ -176,102 +76,20 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
     }
 
     const frameId = window.requestAnimationFrame(() => {
-      if (areStoredStatesEqual(stateRef.current, nextState)) {
-        return
+      if (!areStoredStatesEqual(stateRef.current, nextState)) {
+        setState(nextState)
       }
-
-      setState(nextState)
-      setMeasuredDockHeights({})
-      setDraggedPanelId(null)
-      setDragDockTarget(null)
-      setRailSortTarget(null)
-      setDragPreview(null)
     })
 
     return () => window.cancelAnimationFrame(frameId)
   }, [panelSchemaKey, persistedState, storageKey])
 
-  const geometry = useMemo(
-    () => getWorkspaceGeometry(panels, panelMap, state, rootSize, measuredDockHeights),
-    [measuredDockHeights, panelMap, panels, rootSize, state],
-  )
-  const dockGuides = useMemo(() => getDockGuideRects(rootSize, geometry, panels), [geometry, panels, rootSize])
-
   useImperativeHandle(
     ref,
     () => ({
-      resetLayout: () => setState((current) => ({ ...buildDefaultSnapshot(panels), presets: current.presets })),
-      savePreset: (name) =>
-        setState((current) => ({
-          ...current,
-          presets: {
-            ...current.presets,
-            [name]: {
-              panels: current.panels,
-              slots: current.slots,
-              chrome: current.chrome,
-            },
-          },
-        })),
-      loadPreset: (name) =>
-        setState((current) => {
-          const preset = current.presets[name]
-          return preset ? { ...sanitizeSnapshot(preset, panels), presets: current.presets } : current
-        }),
-      deletePreset: (name) =>
-        setState((current) => {
-          const nextPresets = { ...current.presets }
-          delete nextPresets[name]
-          return { ...current, presets: nextPresets }
-        }),
-      getPresetNames: () => Object.keys(state.presets).sort((left, right) => left.localeCompare(right)),
-      getPanelMeta: () =>
-        panels.map((panel) => ({
-          id: panel.id,
-          title: panel.title,
-          visible: state.panels[panel.id]?.mode !== 'hidden',
-          mode: state.panels[panel.id]?.mode ?? 'docked',
-          dock: state.panels[panel.id]?.dock ?? 'right-top',
-        })),
-      setPanelVisibility: (id, visible) =>
-        setState((current) => {
-          const currentPanel = current.panels[id]
-          if (!currentPanel) {
-            return current
-          }
-
-          const nextMode: PanelMode = visible ? currentPanel.lastMode : 'hidden'
-          const nextZ = Math.max(...Object.values(current.panels).map((panel) => panel.zIndex), 0) + 1
-          const nextPanels: Record<string, WorkspacePanelState> = {
-            ...current.panels,
-            [id]: {
-              ...currentPanel,
-              mode: nextMode,
-              lastMode: visible! || currentPanel.mode === 'hidden' ? currentPanel.lastMode : currentPanel.mode,
-              zIndex: visible && nextMode === 'floating' ? nextZ : currentPanel.zIndex,
-            },
-          }
-          let nextSlots = current.slots
-
-          if (visible && currentPanel.lastMode === 'docked' && currentPanel.dock !== 'center') {
-            nextSlots = {
-              ...current.slots,
-              [currentPanel.dock]: {
-                ...current.slots[currentPanel.dock],
-                activePanelId: id,
-                expanded: true,
-              },
-            }
-          }
-
-          return {
-            ...current,
-            panels: nextPanels,
-            slots: normalizeSlots(panels, nextPanels, nextSlots),
-          }
-        }),
+      resetLayout: () => setState(buildDefaultLayoutState(panelsRef.current)),
     }),
-    [panels, state],
+    [],
   )
 
   useEffect(() => {
@@ -281,683 +99,133 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
     }
 
     const resizeObserver = new ResizeObserver(() => {
-      setRootSize({
-        width: root.clientWidth,
-        height: root.clientHeight,
-      })
+      setRootSize({ width: root.clientWidth, height: root.clientHeight })
     })
 
     resizeObserver.observe(root)
-    setRootSize({
-      width: root.clientWidth,
-      height: root.clientHeight,
-    })
-
+    setRootSize({ width: root.clientWidth, height: root.clientHeight })
     return () => resizeObserver.disconnect()
   }, [])
 
   useEffect(() => {
-    if (interactionRef.current) {
-      return
+    if (!interactionRef.current) {
+      persistStateChangeRef.current?.(storageKey, state)
     }
-
-    persistStateChangeRef.current?.(storageKey, state)
   }, [state, storageKey])
-
-  useEffect(() => {
-    onLayoutMetaChange?.({
-      panelItems: panels.map((panel) => ({
-        id: panel.id,
-        title: panel.title,
-        visible: state.panels[panel.id]?.mode !== 'hidden',
-        mode: state.panels[panel.id]?.mode ?? 'docked',
-        dock: state.panels[panel.id]?.dock ?? 'right-top',
-      })),
-      presetNames: Object.keys(state.presets).sort((left, right) => left.localeCompare(right)),
-    })
-  }, [onLayoutMetaChange, panels, state.panels, state.presets])
-
-  const applyRailOrderDrop = useCallback(
-    (panelId: string, slot: SlotId, index: number) => {
-      setState((current) => {
-        const currentPanel = current.panels[panelId]
-        if (!currentPanel) {
-          return current
-        }
-
-        const nextPanels: Record<string, WorkspacePanelState> = {
-          ...current.panels,
-          [panelId]: {
-            ...currentPanel,
-            mode: 'docked',
-            lastMode: 'docked',
-            dock: slot,
-          },
-        }
-
-        const nextSlots = Object.fromEntries(
-          SLOT_IDS.map((slotId) => {
-            const orderedIds = getOrderedPanelIdsForSlot(panels, nextPanels, current.slots, slotId)
-            const nextOrder = slotId === slot ? movePanelInOrder(orderedIds, panelId, index) : orderedIds.filter((id) => id !== panelId)
-
-            return [
-              slotId,
-              {
-                ...current.slots[slotId],
-                activePanelId: slotId === slot ? panelId : current.slots[slotId].activePanelId,
-                expanded: slotId === slot ? true : current.slots[slotId].expanded,
-                panelOrder: nextOrder,
-              },
-            ]
-          }),
-        ) as Record<SlotId, WorkspaceSlotState>
-
-        return {
-          ...current,
-          panels: nextPanels,
-          slots: normalizeSlots(panels, nextPanels, nextSlots),
-        }
-      })
-    },
-    [panels],
-  )
-
-  const dock = useCallback(
-    (panelId: string, dockArea: DockArea) => {
-      setState((current) => {
-        const currentPanel = current.panels[panelId]
-        if (!currentPanel) {
-          return current
-        }
-
-        const nextPanels: Record<string, WorkspacePanelState> = {
-          ...current.panels,
-          [panelId]: {
-            ...currentPanel,
-            mode: 'docked',
-            lastMode: 'docked',
-            dock: dockArea,
-          },
-        }
-
-        let nextSlots = current.slots
-        if (dockArea !== 'center') {
-          const orderedIds = getOrderedPanelIdsForSlot(panels, nextPanels, current.slots, dockArea)
-          const nextOrder = movePanelInOrder(orderedIds, panelId, orderedIds.length)
-          nextSlots = {
-            ...Object.fromEntries(
-              SLOT_IDS.map((slotId) => [
-                slotId,
-                {
-                  ...current.slots[slotId],
-                  panelOrder: slotId === dockArea ? nextOrder : current.slots[slotId].panelOrder.filter((id) => id !== panelId),
-                },
-              ]),
-            ),
-            [dockArea]: {
-              ...current.slots[dockArea],
-              activePanelId: panelId,
-              expanded: true,
-              panelOrder: nextOrder,
-            },
-          } as Record<SlotId, WorkspaceSlotState>
-        }
-
-        return {
-          ...current,
-          panels: nextPanels,
-          slots: normalizeSlots(panels, nextPanels, nextSlots),
-        }
-      })
-    },
-    [panels],
-  )
-
-  const undock = useCallback(
-    (panelId: string) => {
-      setState((current) => {
-        const currentPanel = current.panels[panelId]
-        if (!currentPanel) {
-          return current
-        }
-
-        const nextZ = Math.max(...Object.values(current.panels).map((panel) => panel.zIndex), 0) + 1
-        const dockRect = geometry.dockedRects[panelId] ?? {
-          x: 80,
-          y: 80,
-          width: currentPanel.width,
-          height: currentPanel.height,
-        }
-        const nextPanels: Record<string, WorkspacePanelState> = {
-          ...current.panels,
-          [panelId]: {
-            ...currentPanel,
-            mode: 'floating',
-            lastMode: 'floating',
-            x: dockRect.x + 24,
-            y: dockRect.y + 24,
-            width: Math.max(currentPanel.width, dockRect.width),
-            height: Math.max(currentPanel.height, dockRect.height),
-            zIndex: nextZ,
-          },
-        }
-
-        return {
-          ...current,
-          panels: nextPanels,
-          slots: normalizeSlots(panels, nextPanels, current.slots),
-        }
-      })
-    },
-    [geometry.dockedRects, panels],
-  )
-
-  const floatPanelAtPoint = useCallback(
-    (panelId: string, clientX: number, clientY: number) => {
-      const root = rootRef.current
-      const panel = panelMap[panelId]
-      if (!root || !panel) {
-        undock(panelId)
-        return
-      }
-
-      const rootRect = root.getBoundingClientRect()
-
-      setState((current) => {
-        const currentPanel = current.panels[panelId]
-        if (!currentPanel) {
-          return current
-        }
-
-        const nextZ = Math.max(...Object.values(current.panels).map((candidate) => candidate.zIndex), 0) + 1
-        const width = Math.max(currentPanel.width, panel.minWidth)
-        const height = Math.max(currentPanel.height, panel.minHeight)
-        const nextRect = clampFloatRect(
-          {
-            x: clientX - rootRect.left - width / 2,
-            y: clientY - rootRect.top - 22,
-            width,
-            height,
-          },
-          rootSize,
-          panel,
-        )
-        const nextPanels: Record<string, WorkspacePanelState> = {
-          ...current.panels,
-          [panelId]: {
-            ...currentPanel,
-            mode: 'floating',
-            lastMode: 'floating',
-            x: nextRect.x,
-            y: nextRect.y,
-            width: nextRect.width,
-            height: nextRect.height,
-            zIndex: nextZ,
-          },
-        }
-
-        return {
-          ...current,
-          panels: nextPanels,
-          slots: normalizeSlots(panels, nextPanels, current.slots),
-        }
-      })
-    },
-    [panelMap, panels, rootSize, undock],
-  )
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
       const interaction = interactionRef.current
-      const root = rootRef.current
-      if (!interaction || !root) {
+      if (!interaction) {
         return
       }
 
-      const rootRect = root.getBoundingClientRect()
+      event.preventDefault()
+      const currentSize = rootSizeRef.current
+      const currentPanels = panelsRef.current
 
-      if (interaction.kind === 'move') {
-        const panel = panelMap[interaction.panelId]
-        const currentPanel = state.panels[interaction.panelId]
-        const rect = clampFloatRect(
-          {
-            x: event.clientX - rootRect.left - interaction.offsetX,
-            y: event.clientY - rootRect.top - interaction.offsetY,
-            width: currentPanel.width,
-            height: currentPanel.height,
-          },
-          rootSize,
-          panel,
-        )
-
-        setState((current) => ({
-          ...current,
-          panels: {
-            ...current.panels,
-            [interaction.panelId]: {
-              ...current.panels[interaction.panelId],
-              mode: 'floating',
-              lastMode: 'floating',
-              x: rect.x,
-              y: rect.y,
-              width: rect.width,
-              height: rect.height,
-            },
-          },
-        }))
-        return
-      }
-
-      if (interaction.kind === 'rail-drag') {
-        const deltaX = event.clientX - interaction.startX
-        const deltaY = event.clientY - interaction.startY
-        const distance = Math.hypot(deltaX, deltaY)
-
-        if (!interaction.dragging && distance < RAIL_DRAG_THRESHOLD) {
-          return
-        }
-
-        if (!interaction.dragging) {
-          interactionRef.current = {
-            ...interaction,
-            dragging: true,
-          }
-          setDraggedPanelId(interaction.panelId)
-          suppressRailClickRef.current = interaction.panelId
-        }
-
-        setDragPreview({
-          panelId: interaction.panelId,
-          x: event.clientX - rootRect.left,
-          y: event.clientY - rootRect.top,
-        })
-
-        const localPointer = {
-          x: event.clientX - rootRect.left,
-          y: event.clientY - rootRect.top,
-        }
-        const nextTarget = findDockTarget(dockGuides, localPointer)
-
-        setDragDockTarget((current) => (current === nextTarget ? current : nextTarget))
-        setRailSortTarget(null)
-        return
-      }
-
-      if (interaction.kind === 'edge-resize') {
+      if (interaction.kind === 'edge') {
         setState((current) => {
-          const bounds = getRailEdgeSizeBounds(interaction.rail, panels, panelMap, current, rootSize)
-          const nextSize = clamp(
+          const bounds = getRailEdgeSizeBounds(interaction.rail, currentPanels, current, currentSize)
+          const delta =
             interaction.rail === 'left'
-              ? interaction.startSize + (event.clientX - interaction.startX)
+              ? event.clientX - interaction.startX
               : interaction.rail === 'right'
-                ? interaction.startSize - (event.clientX - interaction.startX)
-                : interaction.startSize - (event.clientY - interaction.startY),
-            bounds.min,
-            bounds.max,
-          )
+                ? interaction.startX - event.clientX
+                : interaction.startY - event.clientY
+          const nextSize = Math.min(bounds.max, Math.max(bounds.min, interaction.startValue + delta))
 
           if (interaction.rail === 'bottom') {
             return {
-              ...current,
-              chrome: {
-                ...current.chrome,
-                bottomHeight: nextSize,
-              },
+              chrome: normalizeChrome({ ...current.chrome, bottomHeight: nextSize }, currentPanels),
             }
           }
 
-          const leftPanelVisible = Boolean(
-            getActiveDockedPanel(panelMap, current, 'left-top') || getActiveDockedPanel(panelMap, current, 'left-bottom'),
-          )
-          const rightPanelVisible = Boolean(
-            getActiveDockedPanel(panelMap, current, 'right-top') || getActiveDockedPanel(panelMap, current, 'right-bottom'),
-          )
-          const usable = getHorizontalUsableWidth(rootSize, leftPanelVisible, rightPanelVisible)
-          const nextRatio = nextSize / Math.max(1, usable)
+          const leftVisible = currentPanels.some((panel) => panel.area === 'left')
+          const rightVisible = currentPanels.some((panel) => panel.area === 'right')
+          const usable = getHorizontalUsableWidth(currentSize, leftVisible, rightVisible)
+          const key = interaction.rail === 'left' ? 'leftWidth' : 'rightWidth'
 
           return {
-            ...current,
-            chrome: normalizeChrome(
-              {
-                ...current.chrome,
-                [interaction.rail === 'left' ? 'leftWidth' : 'rightWidth']: nextRatio,
-              },
-              panels,
-            ),
+            chrome: normalizeChrome({ ...current.chrome, [key]: nextSize / Math.max(1, usable) }, currentPanels),
           }
         })
         return
       }
 
-      if (interaction.kind === 'split-resize') {
-        const container = geometry.railContainers[interaction.rail]
-        if (!container) {
-          return
-        }
-
-        if (interaction.rail === 'left' || interaction.rail === 'right') {
-          const ratio = clamp((event.clientY - rootRect.top - container.y) / Math.max(1, container.height - SPLIT_GAP), 0.2, 0.8)
-          setState((current) => ({
-            ...current,
-            chrome: {
-              ...current.chrome,
-              [interaction.rail === 'left' ? 'leftSplit' : 'rightSplit']: ratio,
-            },
-          }))
-        } else {
-          const ratio = clamp((event.clientX - rootRect.left - container.x) / Math.max(1, container.width - SPLIT_GAP), 0.2, 0.8)
-          setState((current) => ({
-            ...current,
-            chrome: {
-              ...current.chrome,
-              bottomSplit: ratio,
-            },
-          }))
-        }
+      const rect = geometryRef.current.areaRects[interaction.rail]
+      if (!rect) {
         return
       }
 
-      const panel = panelMap[interaction.panelId]
+      const span = Math.max(1, (interaction.rail === 'bottom' ? rect.width : rect.height) - SPLIT_GAP)
+      const delta = interaction.rail === 'bottom' ? event.clientX - interaction.startX : event.clientY - interaction.startY
+      const key = interaction.rail === 'left' ? 'leftSplit' : interaction.rail === 'right' ? 'rightSplit' : 'bottomSplit'
+      const nextRatio = Math.min(0.8, Math.max(0.2, interaction.startValue + delta / span))
+
       setState((current) => ({
-        ...current,
-        panels: {
-          ...current.panels,
-          [interaction.panelId]: {
-            ...current.panels[interaction.panelId],
-            width: clamp(
-              interaction.startWidth + (event.clientX - interaction.startX),
-              panel.minWidth,
-              Math.max(panel.minWidth, rootSize.width - ROOT_PADDING * 2),
-            ),
-            height: clamp(
-              interaction.startHeight + (event.clientY - interaction.startY),
-              panel.minHeight,
-              Math.max(panel.minHeight, rootSize.height - ROOT_PADDING * 2),
-            ),
-          },
-        },
+        chrome: normalizeChrome({ ...current.chrome, [key]: nextRatio }, currentPanels),
       }))
     }
 
-    const handlePointerUp = (event: PointerEvent) => {
-      const interaction = interactionRef.current
-      interactionRef.current = null
-
-      if (interaction?.kind === 'rail-drag') {
-        if (interaction.dragging) {
-          if (railSortTarget) {
-            applyRailOrderDrop(interaction.panelId, railSortTarget.slot, railSortTarget.index)
-          } else if (dragDockTarget) {
-            dock(interaction.panelId, dragDockTarget)
-          } else {
-            const root = rootRef.current
-            if (root) {
-              const rootRect = root.getBoundingClientRect()
-              const x = event.clientX - rootRect.left
-              const y = event.clientY - rootRect.top
-              const withinCenter =
-                x >= geometry.centerRect.x &&
-                x <= geometry.centerRect.x + geometry.centerRect.width &&
-                y >= geometry.centerRect.y &&
-                y <= geometry.centerRect.y + geometry.centerRect.height
-
-              if (withinCenter) {
-                floatPanelAtPoint(interaction.panelId, event.clientX, event.clientY)
-              } else if (interaction.source === 'floating') {
-                floatPanelAtPoint(interaction.panelId, event.clientX, event.clientY)
-              }
-            }
-          }
-        }
-        setDraggedPanelId(null)
-        setDragDockTarget(null)
-        setRailSortTarget(null)
-        setDragPreview(null)
-      } else if (interaction) {
-        persistStateChangeRef.current?.(storageKey, stateRef.current)
+    const finishInteraction = () => {
+      if (!interactionRef.current) {
+        return
       }
+
+      interactionRef.current = null
+      persistStateChangeRef.current?.(storageKey, stateRef.current)
     }
 
-    window.addEventListener('pointermove', handlePointerMove)
-    window.addEventListener('pointerup', handlePointerUp)
-    window.addEventListener('pointercancel', handlePointerUp)
+    window.addEventListener('pointermove', handlePointerMove, { passive: false })
+    window.addEventListener('pointerup', finishInteraction)
+    window.addEventListener('pointercancel', finishInteraction)
 
     return () => {
       window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', handlePointerUp)
-      window.removeEventListener('pointercancel', handlePointerUp)
+      window.removeEventListener('pointerup', finishInteraction)
+      window.removeEventListener('pointercancel', finishInteraction)
     }
-  }, [
-    applyRailOrderDrop,
-    dock,
-    dockGuides,
-    dragDockTarget,
-    floatPanelAtPoint,
-    geometry.centerRect,
-    geometry.railContainers,
-    panelMap,
-    panels,
-    railSortTarget,
-    rootSize,
-    state.panels,
-    state.slots,
-    storageKey,
-  ])
+  }, [storageKey])
 
-  function bringToFront(panelId: string) {
-    setState((current) => {
-      const nextZ = Math.max(...Object.values(current.panels).map((panel) => panel.zIndex), 0) + 1
-      return {
-        ...current,
-        panels: {
-          ...current.panels,
-          [panelId]: {
-            ...current.panels[panelId],
-            zIndex: nextZ,
-          },
-        },
-      }
-    })
-  }
-
-  function restoreToSidebar(panelId: string) {
-    const currentPanel = state.panels[panelId]
-    const panel = panelMap[panelId]
-    if (!currentPanel || !panel) {
-      return
-    }
-
-    const targetDock = currentPanel.dock === 'center' ? (getForcedDockForPanel() ?? panel.defaultDock ?? 'right-top') : currentPanel.dock
-
-    dock(panelId, targetDock)
-  }
-
-  function hide(panelId: string) {
-    setState((current) => {
-      const currentPanel = current.panels[panelId]
-      if (!currentPanel) {
-        return current
-      }
-
-      const nextPanels: Record<string, WorkspacePanelState> = {
-        ...current.panels,
-        [panelId]: {
-          ...currentPanel,
-          lastMode: currentPanel.mode === 'hidden' ? currentPanel.lastMode : currentPanel.mode,
-          mode: 'hidden',
-        },
-      }
-
-      return {
-        ...current,
-        panels: nextPanels,
-        slots: normalizeSlots(panels, nextPanels, current.slots),
-      }
-    })
-  }
-
-  function collapseDockedPanel(panelId: string) {
-    setState((current) => {
-      const panelState = current.panels[panelId]
-      if (!panelState || panelState.mode !== 'docked' || panelState.dock === 'center') {
-        return current
-      }
-
-      return {
-        ...current,
-        slots: {
-          ...current.slots,
-          [panelState.dock]: {
-            ...current.slots[panelState.dock],
-            expanded: false,
-            activePanelId: panelId,
-            panelOrder: current.slots[panelState.dock].panelOrder,
-          },
-        },
-      }
-    })
-  }
-
-  function beginMove(panelId: string, event: ReactPointerEvent<HTMLElement>) {
-    if (event.button !== 0) {
-      return
-    }
-
-    const target = event.target as HTMLElement
-    if (target.closest('button, [data-panel-no-drag="true"]')) {
-      return
-    }
-
-    const rootRect = rootRef.current?.getBoundingClientRect()
-    if (!rootRect) {
-      return
-    }
-
-    const currentPanel = state.panels[panelId]
-    const rect =
-      currentPanel.mode === 'floating'
-        ? { x: currentPanel.x, y: currentPanel.y }
-        : { x: geometry.dockedRects[panelId]?.x ?? ROOT_PADDING, y: geometry.dockedRects[panelId]?.y ?? ROOT_PADDING }
-
-    if (currentPanel.mode !== 'floating') {
-      undock(panelId)
-    } else {
-      bringToFront(panelId)
-    }
-
-    interactionRef.current = {
-      kind: 'move',
-      panelId,
-      pointerId: event.pointerId,
-      offsetX: event.clientX - rootRect.left - rect.x,
-      offsetY: event.clientY - rootRect.top - rect.y,
-    }
-  }
-
-  function beginEdgeResize(rail: 'left' | 'right' | 'bottom', event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.button !== 0) {
-      return
-    }
-
+  function beginEdgeResize(rail: WorkspaceResizeRail, event: ReactPointerEvent<HTMLDivElement>) {
     event.preventDefault()
-    event.currentTarget.setPointerCapture(event.pointerId)
-    interactionRef.current = {
-      kind: 'edge-resize',
-      rail,
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      startSize:
-        rail === 'bottom'
-          ? (geometry.railContainers.bottom?.height ?? state.chrome.bottomHeight)
-          : (geometry.railContainers[rail]?.width ?? 0),
-    }
-  }
-
-  function beginSplitResize(rail: RailId, event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.button !== 0) {
-      return
-    }
-
-    event.preventDefault()
-    event.currentTarget.setPointerCapture(event.pointerId)
-    interactionRef.current = {
-      kind: 'split-resize',
-      rail,
-      pointerId: event.pointerId,
-    }
-  }
-
-  function beginFloatResize(panelId: string, event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.button !== 0) {
-      return
-    }
-
-    event.preventDefault()
-    event.currentTarget.setPointerCapture(event.pointerId)
-    bringToFront(panelId)
-    interactionRef.current = {
-      kind: 'float-resize',
-      panelId,
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      startWidth: state.panels[panelId].width,
-      startHeight: state.panels[panelId].height,
-    }
-  }
-
-  function beginRailDrag(panelId: string, event: ReactPointerEvent<HTMLElement>, source: 'rail' | 'floating' = 'rail') {
-    if (event.button !== 0) {
-      return
-    }
-
-    interactionRef.current = {
-      kind: 'rail-drag',
-      source,
-      panelId,
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      dragging: false,
-    }
-  }
-
-  function stopHeaderDrag(event: ReactPointerEvent<HTMLElement>) {
     event.stopPropagation()
-  }
-
-  function endToolDrag() {
-    setDraggedPanelId(null)
-    setDragDockTarget(null)
-    setRailSortTarget(null)
-    setDragPreview(null)
-  }
-
-  function dropToDock(area: DockArea, panelId?: string | null) {
-    const nextPanelId = panelId ?? draggedPanelId
-    if (!nextPanelId) {
-      return
+    const leftVisible = panelsRef.current.some((panel) => panel.area === 'left')
+    const rightVisible = panelsRef.current.some((panel) => panel.area === 'right')
+    const usable = getHorizontalUsableWidth(rootSizeRef.current, leftVisible, rightVisible)
+    const startValue =
+      rail === 'bottom'
+        ? stateRef.current.chrome.bottomHeight
+        : stateRef.current.chrome[rail === 'left' ? 'leftWidth' : 'rightWidth'] * Math.max(1, usable)
+    interactionRef.current = {
+      kind: 'edge',
+      rail,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startValue,
     }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
 
-    dock(nextPanelId, area)
-    setDraggedPanelId(null)
-    setDragDockTarget(null)
+  function beginSplitResize(rail: WorkspaceResizeRail, event: ReactPointerEvent<HTMLDivElement>) {
+    event.preventDefault()
+    event.stopPropagation()
+    const key = rail === 'left' ? 'leftSplit' : rail === 'right' ? 'rightSplit' : 'bottomSplit'
+    interactionRef.current = {
+      kind: 'split',
+      rail,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startValue: stateRef.current.chrome[key],
+    }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
   }
 
   return (
-    <div ref={rootRef} className="workspace-root">
-      <WorkspaceDragOverlay
-        draggedPanelId={draggedPanelId}
-        dockGuides={dockGuides}
-        dragDockTarget={dragDockTarget}
-        dragPreview={dragPreview}
-        panelMap={panelMap}
-        onDragDockTargetChange={setDragDockTarget}
-        onDropToDock={dropToDock}
-        onEndToolDrag={endToolDrag}
-      />
-
+    <div ref={rootRef} className="workspace-root" data-workspace-layout data-storage-key={storageKey}>
       {(['left', 'right', 'bottom'] as const).map((rail) => {
         const resizer = geometry.edgeResizers[rail]
         if (!resizer) {
@@ -967,14 +235,10 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
         return (
           <div
             key={`edge-${rail}`}
-            className={cx(
-              'workspace-dock-resizer',
-              rail === 'left'
-                ? 'workspace-dock-resizer-right'
-                : rail === 'right'
-                  ? 'workspace-dock-resizer-left'
-                  : 'workspace-dock-resizer-bottom',
-            )}
+            className={`workspace-edge-resizer workspace-edge-resizer-${rail}`}
+            data-workspace-resizer={rail}
+            role="separator"
+            aria-orientation={rail === 'bottom' ? 'horizontal' : 'vertical'}
             style={{
               left: `${resizer.x}px`,
               top: `${resizer.y}px`,
@@ -995,10 +259,10 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
         return (
           <div
             key={`split-${rail}`}
-            className={cx(
-              'workspace-split-resizer',
-              rail === 'bottom' ? 'workspace-split-resizer-vertical' : 'workspace-split-resizer-horizontal',
-            )}
+            className={`workspace-split-resizer workspace-split-resizer-${rail}`}
+            data-workspace-split-resizer={rail}
+            role="separator"
+            aria-orientation={rail === 'bottom' ? 'vertical' : 'horizontal'}
             style={{
               left: `${resizer.x}px`,
               top: `${resizer.y}px`,
@@ -1011,61 +275,19 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
       })}
 
       {panels.map((panel) => {
-        const panelState = state.panels[panel.id]
-        if (!panelState || panelState.mode === 'hidden') {
-          return null
-        }
-        const hideWhileDragging = panelState.mode === 'floating' && draggedPanelId === panel.id
-
-        const rect =
-          panelState.mode === 'floating'
-            ? clampFloatRect(
-                {
-                  x: panelState.x,
-                  y: panelState.y,
-                  width: panelState.width,
-                  height: panelState.height,
-                },
-                rootSize,
-                panel,
-              )
-            : geometry.dockedRects[panel.id]
-
+        const rect = geometry.panelRects[panel.id]
         if (!rect) {
           return null
         }
-
-        const hideDockHeader =
-          panelState.mode === 'docked' && (panel.hideDockHeader || panelState.dock !== 'center' || panel.id === 'viewport')
 
         return (
           <WorkspacePanelShell
             key={panel.id}
             panel={panel}
-            panelState={panelState}
             rect={rect}
-            hideWhileDragging={hideWhileDragging}
-            hideDockHeader={hideDockHeader}
-            onBringToFront={bringToFront}
-            onBeginMove={beginMove}
-            onBeginRailDrag={beginRailDrag}
-            onStopHeaderDrag={stopHeaderDrag}
-            onDock={dock}
-            onUndock={undock}
-            onHide={hide}
-            onRestoreToSidebar={restoreToSidebar}
-            onCollapseDockedPanel={collapseDockedPanel}
-            onBeginFloatResize={beginFloatResize}
+            hideDockHeader={Boolean(panel.hideDockHeader) || panel.area !== 'center' || panel.id === 'viewport'}
           >
-            <div
-              ref={(node) => {
-                panelContentRefs.current[panel.id] = node
-              }}
-              data-panel-id={panel.id}
-              className="min-h-0 flex-1 overflow-hidden"
-            >
-              {panel.content}
-            </div>
+            {panel.content}
           </WorkspacePanelShell>
         )
       })}

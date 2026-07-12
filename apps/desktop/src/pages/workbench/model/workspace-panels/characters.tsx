@@ -52,9 +52,7 @@ export function buildCharactersWorkspacePanels(options: BuildCharacterPanelsOpti
       shellClassName,
       minWidth: 200,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'left-top',
-      defaultDockHeight: 760,
+      area: 'left',
       content: withPreviewReveal(
         'workbench-characters-browser',
         0,
@@ -80,8 +78,7 @@ export function buildCharactersWorkspacePanels(options: BuildCharacterPanelsOpti
       hideDockHeader: true,
       minWidth: 480,
       minHeight: 420,
-      defaultDock: 'center',
-      defaultDockHeight: 760,
+      area: 'center',
       content: (
         <DeferredWorkspaceCrossfade
           ready={heavyWorkspaceReady}
@@ -116,9 +113,7 @@ export function buildCharactersWorkspacePanels(options: BuildCharacterPanelsOpti
       shellClassName,
       minWidth: 260,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'right-top',
-      defaultDockHeight: 760,
+      area: 'right',
       content: (
         <DeferredWorkspaceCrossfade
           ready={heavyWorkspaceReady}

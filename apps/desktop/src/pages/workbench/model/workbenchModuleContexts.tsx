@@ -2,7 +2,7 @@ import { createContext, useContext, type ReactNode, type RefObject } from 'react
 import type { GameDirectoryInfo } from '@entities/game/api'
 import type { PlayerAppearanceProfile } from '@entities/event'
 import type { WorkspaceStatus } from '@entities/map'
-import type { WorkbenchModuleRegistration, WorkspaceLayoutHandle, WorkspacePanelMeta, WorkspaceStoredState } from '@shared/contracts'
+import type { WorkbenchModuleRegistration, WorkspaceLayoutHandle, WorkspaceStoredState } from '@shared/contracts'
 import type { UseCpMakerReturn } from '@features/cp-maker'
 
 export type WorkbenchEnvironment = {
@@ -31,7 +31,6 @@ export type WorkbenchModuleState = {
   layoutRef: RefObject<WorkspaceLayoutHandle | null>
   layouts: Record<string, WorkspaceStoredState>
   onPersistStateChange: (storageKey: string, state: WorkspaceStoredState) => void
-  onLayoutMetaChange: (payload: { panelItems: WorkspacePanelMeta[]; presetNames: string[] }) => void
   onUnsavedGuardChange: (guard: WorkbenchUnsavedGuard | null) => void
 }
 
@@ -41,7 +40,7 @@ export type WorkbenchUnsavedGuard = {
   requestUnsavedChangeDecision: (action: () => void | Promise<void>) => Promise<boolean>
 }
 
-export type WorkbenchModuleAccess = Pick<WorkbenchModuleRegistration, 'id' | 'presentation' | 'projectAccess' | 'layout'>
+export type WorkbenchModuleAccess = Pick<WorkbenchModuleRegistration, 'id' | 'presentation' | 'projectAccess'>
 
 const EnvironmentContext = createContext<WorkbenchEnvironment | null>(null)
 const ProjectContext = createContext<UseCpMakerReturn | null>(null)
@@ -82,7 +81,7 @@ export function useWorkbenchModuleState() {
   return value
 }
 
-/** Returns the immutable presentation, project access, and layout contract of the active module. */
+/** Returns the immutable presentation and project access contract of the active module. */
 export function useWorkbenchModuleAccess() {
   const value = useContext(ModuleAccessContext)
   if (!value) throw new Error('useWorkbenchModuleAccess must be used within WorkbenchModuleAccessProvider')

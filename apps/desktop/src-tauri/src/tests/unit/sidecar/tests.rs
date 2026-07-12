@@ -203,6 +203,7 @@ fn tauri_host_runtime_waits_on_async_response_channel() {
 #[test]
 fn launcher_image_cdn_has_dedicated_host_pool() {
     let config = SidecarSchedulerConfig::default();
+    assert_eq!(config.control_max_concurrency, 16);
     assert_eq!(config.network_max_concurrency, 32);
     assert_eq!(
         config.launcher_image_cdn_max_concurrency,
@@ -373,7 +374,7 @@ fn project_and_cp_maker_mutations_declare_resource_locks_at_binding_site() {
     assert_eq!(command_lane("export_file"), Some(SidecarLane::Mutation));
     assert_eq!(
         command_resources("export_file"),
-        Some(&[SidecarResource::FileExport][..])
+        Some(vec![SidecarResource::FileExport])
     );
 }
 

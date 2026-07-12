@@ -15,7 +15,7 @@ export default function ModBrowserModuleRuntime() {
         subtitle: catalog.statusMessage,
         minWidth: 320,
         minHeight: 320,
-        defaultDock: 'left-top' as const,
+        area: 'left' as const,
         content: (
           <ModBrowserPanel
             projects={catalog.projects}
@@ -43,7 +43,7 @@ export default function ModBrowserModuleRuntime() {
         subtitle: inspection.error ?? '',
         minWidth: 640,
         minHeight: 420,
-        defaultDock: 'center' as const,
+        area: 'center' as const,
         content: (
           <ModDiagnosticsPanel
             activeProject={inspection.detail}
@@ -67,7 +67,6 @@ export default function ModBrowserModuleRuntime() {
       workspaceLayouts={moduleState.layouts}
       workspacePanels={panels}
       onPersistStateChange={moduleState.onPersistStateChange}
-      onLayoutMetaChange={moduleState.onLayoutMetaChange}
     />
   )
 }

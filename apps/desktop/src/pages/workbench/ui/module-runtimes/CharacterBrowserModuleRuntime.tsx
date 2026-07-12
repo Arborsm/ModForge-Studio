@@ -46,7 +46,6 @@ export default function CharacterBrowserModuleRuntime() {
       workspaceLayouts={props.workspaceLayouts}
       workspacePanels={workspacePanels}
       onPersistStateChange={props.onPersistStateChange}
-      onLayoutMetaChange={props.onLayoutMetaChange}
     />
   )
 }

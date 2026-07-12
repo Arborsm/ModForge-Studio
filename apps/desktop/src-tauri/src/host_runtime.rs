@@ -100,7 +100,7 @@ pub struct HostCommandSchedulerConfig {
 impl Default for HostCommandSchedulerConfig {
     fn default() -> Self {
         Self {
-            control_max_concurrency: 8,
+            control_max_concurrency: 16,
             network_max_concurrency: 32,
             io_max_concurrency: 16,
             // Mutation commands stay serial by default. Raising this requires re-auditing every

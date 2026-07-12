@@ -1,6 +1,6 @@
 import type { RefObject } from 'react'
 import { WorkspaceLayout } from '@shared/workspace'
-import type { WorkspaceLayoutHandle, WorkspacePanelConfig, WorkspacePanelMeta } from '@shared/contracts'
+import type { WorkspaceLayoutHandle, WorkspacePanelConfig } from '@shared/contracts'
 import type { WorkspaceStoredState } from '@shared/contracts'
 
 type WorkbenchLayoutHostProps = {
@@ -9,7 +9,6 @@ type WorkbenchLayoutHostProps = {
   workspaceLayouts: Record<string, WorkspaceStoredState>
   workspacePanels: WorkspacePanelConfig[]
   onPersistStateChange: (storageKey: string, state: WorkspaceStoredState) => void
-  onLayoutMetaChange: (payload: { panelItems: WorkspacePanelMeta[]; presetNames: string[] }) => void
 }
 
 export function WorkbenchLayoutHost({
@@ -18,7 +17,6 @@ export function WorkbenchLayoutHost({
   workspaceLayouts,
   workspacePanels,
   onPersistStateChange,
-  onLayoutMetaChange,
 }: WorkbenchLayoutHostProps) {
   return (
     <WorkspaceLayout
@@ -27,7 +25,6 @@ export function WorkbenchLayoutHost({
       panels={workspacePanels}
       persistedState={workspaceLayouts[workspaceLayoutStorageKey] ?? null}
       onPersistStateChange={onPersistStateChange}
-      onLayoutMetaChange={onLayoutMetaChange}
     />
   )
 }

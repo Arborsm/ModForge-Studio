@@ -52,8 +52,8 @@ export type WorkbenchModuleRegistration = {
   }
   presentation: 'browser' | 'authoring' | 'standalone'
   projectAccess: 'none' | 'read' | 'write'
-  layout: 'fixed' | 'dockable'
-  runtime: LazyExoticComponent<ComponentType>
+  /** Creates a fresh lazy runtime so a failed dynamic import can be retried. */
+  createRuntime: () => LazyExoticComponent<ComponentType>
   persistenceKey: string
 }
 

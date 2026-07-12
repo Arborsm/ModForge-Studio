@@ -15,11 +15,15 @@ const storageKey = 'map-browser'
 
 function createLayout(width: number) {
   return {
-    panels: {},
-    slots: {},
-    chrome: { leftWidth: width },
-    presets: {},
-  } as unknown as WorkspaceStoredState
+    chrome: {
+      leftWidth: width,
+      rightWidth: 0.24,
+      bottomHeight: 220,
+      leftSplit: 0.44,
+      rightSplit: 0.34,
+      bottomSplit: 0.5,
+    },
+  } satisfies WorkspaceStoredState
 }
 
 describe('useWorkspaceLayoutPersistence', () => {

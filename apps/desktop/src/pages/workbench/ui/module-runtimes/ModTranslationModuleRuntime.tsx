@@ -27,7 +27,7 @@ export default function ModTranslationModuleRuntime() {
         subtitle: catalog.statusMessage,
         minWidth: 320,
         minHeight: 320,
-        defaultDock: 'left-top' as const,
+        area: 'left' as const,
         content: (
           <ModBrowserPanel
             projects={catalog.projects}
@@ -57,7 +57,7 @@ export default function ModTranslationModuleRuntime() {
         subtitle: translation.statusMessage,
         minWidth: 900,
         minHeight: 520,
-        defaultDock: 'center' as const,
+        area: 'center' as const,
         hideDockHeader: true,
         content: (
           <TranslationEditor
@@ -97,7 +97,6 @@ export default function ModTranslationModuleRuntime() {
         workspaceLayouts={moduleState.layouts}
         workspacePanels={panels}
         onPersistStateChange={moduleState.onPersistStateChange}
-        onLayoutMetaChange={moduleState.onLayoutMetaChange}
       />
     </>
   )

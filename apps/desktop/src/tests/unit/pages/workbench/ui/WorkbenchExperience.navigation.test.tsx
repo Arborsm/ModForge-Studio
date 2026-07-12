@@ -112,8 +112,7 @@ function viewRegistration(title: string): WorkbenchModuleRegistration {
     navigation: { section: 'development', order: 900, icon: 'beaker', labelKey: 'dev-resource-browser' },
     presentation: 'standalone',
     projectAccess: 'none',
-    layout: 'fixed',
-    runtime: lazy(async () => ({ default: () => <div>{title}</div> })),
+    createRuntime: () => lazy(async () => ({ default: () => <div>{title}</div> })),
     persistenceKey: title,
   }
 }
@@ -126,8 +125,7 @@ const browseRegistration = (
   ...viewRegistration(id),
   navigation: { section: 'browse', order, icon, labelKey: id },
   presentation: 'browser',
-  layout: 'dockable',
-  runtime: lazy(async () => ({ default: () => <div>{id === 'map-browser' ? 'Viewport' : id}</div> })),
+  createRuntime: () => lazy(async () => ({ default: () => <div>{id === 'map-browser' ? 'Viewport' : id}</div> })),
 })
 
 const defaultBrowseModules = [
@@ -177,8 +175,7 @@ function toolWorkspaceRegistration(
     },
     presentation,
     projectAccess: presentation === 'browser' ? 'read' : 'write',
-    layout: 'dockable',
-    runtime: lazy(async () => ({ default: ToolRuntime })),
+    createRuntime: () => lazy(async () => ({ default: ToolRuntime })),
     persistenceKey: moduleId,
   }
 }
@@ -448,7 +445,6 @@ describe('WorkbenchExperience shell navigation', () => {
       navigation: { section: 'authoring', order: 10, icon: 'map', labelKey: 'map-authoring' },
       presentation: 'authoring',
       projectAccess: 'write',
-      layout: 'dockable',
     }
     renderExperience({ workbenchModules: [authoringModule] })
 
@@ -673,7 +669,6 @@ describe('WorkbenchExperience shell navigation', () => {
       navigation: { section: 'authoring', order: 190, icon: 'files', labelKey: 'project-dashboard' },
       presentation: 'authoring',
       projectAccess: 'write',
-      layout: 'fixed',
     }
     renderExperience({ workbenchModules: [projectDashboard] })
 
@@ -952,8 +947,7 @@ describe('WorkbenchExperience shell navigation', () => {
       navigation: { section: 'authoring', order: 100, icon, labelKey: moduleId },
       presentation: 'authoring',
       projectAccess: 'write',
-      layout: 'dockable',
-      runtime: lazy(async () => ({ default: () => <div>{`Authoring body: ${moduleId}`}</div> })),
+      createRuntime: () => lazy(async () => ({ default: () => <div>{`Authoring body: ${moduleId}`}</div> })),
     }
     renderExperience({ workbenchModules: [authoringModule] })
     fireEvent.click(within(getSideNav()).getByRole('button', { name: navCopy.shellNavAuthoringGroup }))

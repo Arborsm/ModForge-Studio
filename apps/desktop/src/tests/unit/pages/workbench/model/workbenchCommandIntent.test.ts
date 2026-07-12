@@ -353,6 +353,59 @@ describe('useWorkbenchCommandIntent', () => {
     expect(navigateToPatch).not.toHaveBeenCalled()
   })
 
+  it('consumes a cross-draft intent when loading the target draft rejects', async () => {
+    const openModule = vi.fn()
+    const navigateToAuthoringWorkspace = vi.fn()
+    const navigateToPatch = vi.fn()
+    const clearPendingIntent = vi.fn()
+    const gp = createMockCpMaker({
+      loadDraft: vi.fn().mockRejectedValue(new Error('load failed')),
+      activeDraft: {
+        draftStorageKey: 'draft-current',
+        projectMetadata: {
+          projectName: 'Current',
+          projectDescription: '',
+          projectAuthor: '',
+          projectVersion: '1.0.0',
+          projectUniqueId: 'Author.Current',
+          gameRootPath: null,
+          contentPackForUniqueId: 'Pathoschild.ContentPatcher',
+        },
+        overlayTargets: [],
+        configSchema: [],
+        patches: [],
+        virtualAssets: [],
+        dynamicTokens: [],
+        customLocations: [],
+        aliasTokenNames: {},
+        eventSourceSnapshotsByTarget: {},
+        i18nFiles: [],
+      } as UseCpMakerReturn['activeDraft'],
+    })
+    const intent: PendingWorkbenchCommandIntent = {
+      id: 'intent-cross-draft-rejected',
+      command: { type: 'workbench/open-asset', assetId: 'missing', assetKind: 'event', sourceId: 'draft-target' },
+    }
+
+    const { result } = renderHook(() =>
+      useWorkbenchCommandIntent({
+        pendingIntent: intent,
+        cpMaker: gp,
+        openModule,
+        navigateToAuthoringWorkspace,
+        runWithModUnsavedGuard: runWithGuard,
+        runWithCpMakerUnsavedGuard: runWithGuard,
+        navigateToPatch,
+        clearPendingIntent,
+      }),
+    )
+
+    await waitFor(() => expect(result.current.consumedIntentId).toBe(intent.id))
+    expect(clearPendingIntent).toHaveBeenCalledOnce()
+    expect(navigateToAuthoringWorkspace).not.toHaveBeenCalled()
+    expect(navigateToPatch).not.toHaveBeenCalled()
+  })
+
   it('waits for the CP Maker dirty guard before loading a cross-draft open-asset intent', async () => {
     const openModule = vi.fn()
     const navigateToAuthoringWorkspace = vi.fn()

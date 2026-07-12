@@ -65,9 +65,7 @@ export function buildEventsWorkspacePanels(options: BuildEventPanelsOptions): Wo
       shellClassName,
       minWidth: 200,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'left-top',
-      defaultDockHeight: 760,
+      area: 'left',
       content: withPreviewReveal(
         'workbench-events-browser',
         0,
@@ -97,8 +95,7 @@ export function buildEventsWorkspacePanels(options: BuildEventPanelsOptions): Wo
       shellClassName: 'workspace-panel-shell-flat event-stage-panel-shell',
       minWidth: 480,
       minHeight: 420,
-      defaultDock: 'center',
-      defaultDockHeight: 760,
+      area: 'center',
       content: withPreviewReveal(
         'workbench-events-viewport',
         1,
@@ -128,9 +125,7 @@ export function buildEventsWorkspacePanels(options: BuildEventPanelsOptions): Wo
       shellClassName,
       minWidth: 220,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'right-top',
-      defaultDockHeight: 760,
+      area: 'right',
       content: withPreviewReveal(
         'workbench-events-detail',
         2,

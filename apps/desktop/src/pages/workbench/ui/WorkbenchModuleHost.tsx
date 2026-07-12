@@ -20,8 +20,8 @@ type WorkbenchModuleHostProps = {
 /** Provides the scoped runtime ports required by one registered workbench module. */
 export function WorkbenchModuleHost({ module, environment, project, moduleState }: WorkbenchModuleHostProps) {
   const access = module
-    ? { id: module.id, presentation: module.presentation, projectAccess: module.projectAccess, layout: module.layout }
-    : { id: '', presentation: 'standalone' as const, projectAccess: 'none' as const, layout: 'fixed' as const }
+    ? { id: module.id, presentation: module.presentation, projectAccess: module.projectAccess }
+    : { id: '', presentation: 'standalone' as const, projectAccess: 'none' as const }
   return (
     <WorkbenchEnvironmentProvider value={environment}>
       <WorkbenchProjectProvider value={module?.presentation === 'authoring' ? project : null}>

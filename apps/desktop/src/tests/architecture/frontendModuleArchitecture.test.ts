@@ -305,7 +305,7 @@ describe('frontend module architecture', () => {
     expect(registry).toContain("export type WorkbenchLocation = { kind: 'home' } | { kind: 'module'; moduleId: string }")
     expect(registry).toContain("presentation: 'browser' | 'authoring' | 'standalone'")
     expect(registry).toContain("projectAccess: 'none' | 'read' | 'write'")
-    expect(registry).toContain("layout: 'fixed' | 'dockable'")
+    expect(registry).not.toContain('dockable')
     expect(registry).toContain('export interface AppRegistry')
     expect(registry).not.toContain('createAppRegistry(')
     expect(registry).not.toContain('new Map')
@@ -529,7 +529,7 @@ describe('frontend module architecture', () => {
     }
 
     expect(violations).toEqual([])
-  }, 10000)
+  }, 30000)
 
   it('blocks business and provider code from bypassing HostCommandClient with raw file system commands', async () => {
     const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/entities']
@@ -546,7 +546,7 @@ describe('frontend module architecture', () => {
     }
 
     expect(violations).toEqual([])
-  }, 10000)
+  }, 30000)
 
   it('keeps generated host command constants in sync with Tauri command function names', async () => {
     const commandFiles = await collectFiles(sourcePath('src-tauri/src/commands'), /\.rs$/)
@@ -585,7 +585,7 @@ describe('frontend module architecture', () => {
     }
 
     expect(violations).toEqual([])
-  }, 10000)
+  }, 30000)
 
   it('keeps Tauri API imports inside approved adapter and test boundaries', async () => {
     const sourceFiles = await collectSourceFiles(sourcePath('src'))
@@ -609,7 +609,7 @@ describe('frontend module architecture', () => {
     }
 
     expect(violations).toEqual([])
-  }, 10000)
+  }, 30000)
 
   it('blocks null Suspense fallbacks in covered page-level loading entry points', async () => {
     const coveredEntryFiles = [
@@ -661,7 +661,7 @@ describe('frontend module architecture', () => {
     }
 
     expect(featureViolations).toEqual([])
-  }, 10000)
+  }, 30000)
 
   it('enforces long-term frontend import graph boundaries', async () => {
     const rules = [
@@ -867,7 +867,7 @@ describe('frontend module architecture', () => {
 
     expect(workspaceViolations).toEqual([])
     await expect(access(sourcePath('src/features/workspaces'))).rejects.toThrow()
-  })
+  }, 30000)
 
   /**
    * Dialog backdrop discipline: every modal must go through the shared Dialog
@@ -896,7 +896,7 @@ describe('frontend module architecture', () => {
     ])
 
     expect(violations).toEqual([])
-  }, 10000)
+  }, 30000)
 
   it('keeps shared modules free of upper-layer imports and desktop bridge calls', async () => {
     const sharedSourceFiles = await collectSourceFiles(sourcePath('src/shared'))

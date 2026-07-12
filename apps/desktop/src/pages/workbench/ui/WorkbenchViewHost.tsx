@@ -1,11 +1,10 @@
-import { Component, createElement, Suspense, type ErrorInfo, type ReactNode } from 'react'
+import { Component, createElement, Suspense, useState, type ErrorInfo, type ReactNode } from 'react'
 import type { WorkbenchModuleRegistration } from '@shared/contracts'
 import { useEditorCopy } from '@locales/provider'
 import { LoadingMotionFallback, LoadingMotionReveal } from '@shared/ui/loading-motion'
 import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
 
 type ModuleErrorBoundaryProps = {
-  resetKey: string
   title: string
   detail: string
   retryLabel: string
@@ -23,12 +22,6 @@ class ModuleErrorBoundary extends Component<ModuleErrorBoundaryProps, ModuleErro
 
   componentDidCatch(_error: Error, _info: ErrorInfo) {}
 
-  componentDidUpdate(previousProps: ModuleErrorBoundaryProps) {
-    if (previousProps.resetKey !== this.props.resetKey && this.state.error) {
-      this.setState({ error: null })
-    }
-  }
-
   render() {
     if (this.state.error) {
       return (
@@ -44,8 +37,22 @@ class ModuleErrorBoundary extends Component<ModuleErrorBoundaryProps, ModuleErro
         </div>
       )
     }
-    return <div key={this.state.retryKey}>{this.props.children}</div>
+    return (
+      <div key={this.state.retryKey} className="h-full min-h-0">
+        {this.props.children}
+      </div>
+    )
   }
+}
+
+function WorkbenchRuntime({ module }: { module: WorkbenchModuleRegistration }) {
+  const [Runtime] = useState(() => module.createRuntime())
+
+  return (
+    <LoadingMotionReveal itemId={`workbench-module:${module.id}`} index={0} className="h-full min-h-0">
+      <Suspense fallback={<LoadingMotionFallback className="workbench-loading-motion-fallback" />}>{createElement(Runtime)}</Suspense>
+    </LoadingMotionReveal>
+  )
 }
 
 /** Loads one registered workbench runtime without passing feature-specific props. */
@@ -65,16 +72,12 @@ export function WorkbenchViewHost({ module }: { module: WorkbenchModuleRegistrat
 
   return (
     <ModuleErrorBoundary
-      resetKey={module.id}
+      key={module.id}
       title={copy.messages.workbenchModuleErrorTitle}
       detail={copy.messages.workbenchModuleErrorDetail}
       retryLabel={copy.messages.workbenchModuleRetry}
     >
-      <LoadingMotionReveal itemId={`workbench-module:${module.id}`} index={0} className="h-full min-h-0">
-        <Suspense fallback={<LoadingMotionFallback className="workbench-loading-motion-fallback" />}>
-          {createElement(module.runtime)}
-        </Suspense>
-      </LoadingMotionReveal>
+      <WorkbenchRuntime module={module} />
     </ModuleErrorBoundary>
   )
 }

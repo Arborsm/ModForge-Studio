@@ -86,7 +86,6 @@ describe('ModBrowserModuleRuntime', () => {
               layoutRef: createRef<WorkspaceLayoutHandle>(),
               layouts: {},
               onPersistStateChange: vi.fn(),
-              onLayoutMetaChange: vi.fn(),
               onUnsavedGuardChange: vi.fn(),
             }}
           >

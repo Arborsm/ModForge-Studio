@@ -17,7 +17,6 @@ export default function MapBrowserModuleRuntime() {
       workspaceLayoutStorageKey={moduleState.persistenceKey}
       workspaceLayouts={moduleState.layouts}
       onPersistStateChange={moduleState.onPersistStateChange}
-      onLayoutMetaChange={moduleState.onLayoutMetaChange}
       onDirectoryInvalid={environment.onDirectoryInvalid}
     />
   )

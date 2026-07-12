@@ -3,7 +3,7 @@ import type { RefObject } from 'react'
 import { getWorldAtlasViewLabel, type LocaleCode, type ThemeMode } from '@locales/api'
 import { useMapWorkspace } from '../workspaces/map'
 import { buildMapsWorkspacePanels } from '../model/workspace-panels/maps'
-import type { WorkspaceLayoutHandle, WorkspacePanelMeta } from '@shared/contracts'
+import type { WorkspaceLayoutHandle } from '@shared/contracts'
 import type { WorkspaceStoredState } from '@shared/contracts'
 import type { GameDirectoryInfo } from '@entities/game/api'
 import type { WorkspacePanelConfig } from '@shared/contracts'
@@ -22,7 +22,6 @@ type MapBrowserRuntimeProps = {
   workspaceLayoutStorageKey: string
   workspaceLayouts: Record<string, WorkspaceStoredState>
   onPersistStateChange: (storageKey: string, state: WorkspaceStoredState) => void
-  onLayoutMetaChange: (payload: { panelItems: WorkspacePanelMeta[]; presetNames: string[] }) => void
   onDirectoryInvalid: (message: string) => void
 }
 
@@ -40,7 +39,6 @@ export function MapBrowserRuntime({
   workspaceLayoutStorageKey,
   workspaceLayouts,
   onPersistStateChange,
-  onLayoutMetaChange,
   onDirectoryInvalid,
 }: MapBrowserRuntimeProps) {
   const mapWorkspace = useMapWorkspace({
@@ -107,7 +105,6 @@ export function MapBrowserRuntime({
         workspaceLayouts={workspaceLayouts}
         workspacePanels={workspacePanels}
         onPersistStateChange={onPersistStateChange}
-        onLayoutMetaChange={onLayoutMetaChange}
       />
     </div>
   )

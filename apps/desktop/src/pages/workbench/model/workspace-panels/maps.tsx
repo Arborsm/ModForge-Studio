@@ -75,9 +75,7 @@ export function buildMapsWorkspacePanels(options: BuildMapPanelsOptions): Worksp
       shellClassName,
       minWidth: 200,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'left-top',
-      defaultDockHeight: 760,
+      area: 'left',
       content: withPreviewReveal(
         'workbench-map-browser',
         0,
@@ -104,8 +102,7 @@ export function buildMapsWorkspacePanels(options: BuildMapPanelsOptions): Worksp
       shellClassName: 'workspace-panel-shell-flat item-workspace-panel-shell map-viewport-panel-shell',
       minWidth: 480,
       minHeight: 420,
-      defaultDock: 'center',
-      defaultDockHeight: 760,
+      area: 'center',
       content: (
         <DeferredWorkspaceCrossfade
           ready={heavyWorkspaceReady}
@@ -150,9 +147,7 @@ export function buildMapsWorkspacePanels(options: BuildMapPanelsOptions): Worksp
       shellClassName,
       minWidth: 260,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'right-top',
-      defaultDockHeight: 760,
+      area: 'right',
       content: (
         <DeferredWorkspaceCrossfade
           ready={heavyWorkspaceReady}

@@ -4,7 +4,7 @@ import { createAppRegistry, getWorkbenchModuleRegistration } from '@app/registry
 import { appRegistry } from '@app/registry-setup'
 import type { WorkbenchModuleRegistration } from '@shared/contracts'
 
-const runtime = lazy(async () => ({ default: () => null }))
+const createRuntime = () => lazy(async () => ({ default: () => null }))
 
 function registration(overrides: Partial<WorkbenchModuleRegistration> = {}): WorkbenchModuleRegistration {
   return {
@@ -12,8 +12,7 @@ function registration(overrides: Partial<WorkbenchModuleRegistration> = {}): Wor
     navigation: { section: 'tools', order: 1, icon: 'package', labelKey: 'mod-browser' },
     presentation: 'standalone',
     projectAccess: 'none',
-    layout: 'fixed',
-    runtime,
+    createRuntime,
     persistenceKey: 'sample',
     ...overrides,
   }
@@ -40,7 +39,7 @@ describe('registry setup', () => {
       'project-translation',
       ...(import.meta.env.DEV ? ['dev-resource-browser'] : []),
     ])
-    expect(appRegistry.workbenchModules.every((module) => module.runtime.$$typeof === Symbol.for('react.lazy'))).toBe(true)
+    expect(appRegistry.workbenchModules.every((module) => module.createRuntime().$$typeof === Symbol.for('react.lazy'))).toBe(true)
     expect(getWorkbenchModuleRegistration(appRegistry, 'project-content')).toMatchObject({
       presentation: 'authoring',
       projectAccess: 'write',

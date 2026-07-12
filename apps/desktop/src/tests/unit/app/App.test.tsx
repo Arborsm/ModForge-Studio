@@ -357,51 +357,6 @@ function createMockWorkspaceLayoutState() {
       rightSplit: 0.34,
       rightWidth: 0.24,
     },
-    panels: {
-      viewport: {
-        dock: 'center',
-        height: 420,
-        lastMode: 'docked',
-        mode: 'docked',
-        width: 640,
-        x: 56,
-        y: 48,
-        zIndex: 1,
-      },
-    },
-    presets: {},
-    slots: {
-      'bottom-left': {
-        activePanelId: null,
-        expanded: false,
-        panelOrder: [],
-      },
-      'bottom-right': {
-        activePanelId: null,
-        expanded: false,
-        panelOrder: [],
-      },
-      'left-bottom': {
-        activePanelId: null,
-        expanded: false,
-        panelOrder: [],
-      },
-      'left-top': {
-        activePanelId: null,
-        expanded: false,
-        panelOrder: [],
-      },
-      'right-bottom': {
-        activePanelId: null,
-        expanded: false,
-        panelOrder: [],
-      },
-      'right-top': {
-        activePanelId: null,
-        expanded: false,
-        panelOrder: [],
-      },
-    },
   }
 }
 

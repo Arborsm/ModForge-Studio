@@ -254,8 +254,6 @@ export default function WorkbenchExperience({
     setPlayerAppearanceWindowOpen(true)
   }, [])
 
-  const ignoreLayoutMetaChange = useCallback(() => {}, [])
-
   const handleAppModeChange = useCallback(
     (nextMode: AppMode) => {
       if (nextMode === 'launcher') {
@@ -384,7 +382,6 @@ export default function WorkbenchExperience({
                   layoutRef: workspaceLayoutRef,
                   layouts: workspaceLayouts,
                   onPersistStateChange: handleWorkspacePersistStateChange,
-                  onLayoutMetaChange: ignoreLayoutMetaChange,
                   onUnsavedGuardChange: setModGuardHandle,
                 },
               }

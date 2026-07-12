@@ -2,7 +2,7 @@ import type { RefObject } from 'react'
 import type { LocaleCode, ThemeMode } from '@locales/api'
 import type { PlayerAppearanceProfile } from '@entities/event'
 import type { GameDirectoryInfo } from '@entities/game/api'
-import type { WorkspaceLayoutHandle, WorkspacePanelMeta, WorkspaceStoredState } from '@shared/contracts'
+import type { WorkspaceLayoutHandle, WorkspaceStoredState } from '@shared/contracts'
 import { useWorkbenchRuntimeInputs } from './runtimeInputs'
 
 export type EntityBrowserRuntimeProps = {
@@ -18,7 +18,6 @@ export type EntityBrowserRuntimeProps = {
   playerAppearanceProfile: PlayerAppearanceProfile | null
   onOpenPlayerAppearanceWindow: () => void
   onPersistStateChange: (storageKey: string, state: WorkspaceStoredState) => void
-  onLayoutMetaChange: (payload: { panelItems: WorkspacePanelMeta[]; presetNames: string[] }) => void
 }
 
 export function useEntityBrowserRuntimeProps(): EntityBrowserRuntimeProps {
@@ -36,6 +35,5 @@ export function useEntityBrowserRuntimeProps(): EntityBrowserRuntimeProps {
     playerAppearanceProfile: environment.playerAppearanceProfile,
     onOpenPlayerAppearanceWindow: environment.onOpenPlayerAppearanceWindow,
     onPersistStateChange: moduleState.onPersistStateChange,
-    onLayoutMetaChange: moduleState.onLayoutMetaChange,
   }
 }

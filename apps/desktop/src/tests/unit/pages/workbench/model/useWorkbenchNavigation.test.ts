@@ -8,8 +8,7 @@ const registration = (presentation: WorkbenchModuleRegistration['presentation'])
   navigation: { section: 'tools', order: 1, icon: 'files', labelKey: 'project-content' },
   presentation,
   projectAccess: presentation === 'authoring' ? 'write' : 'none',
-  layout: 'fixed',
-  runtime: lazy(async () => ({ default: () => null })),
+  createRuntime: () => lazy(async () => ({ default: () => null })),
   persistenceKey: `${presentation}-module`,
 })
 

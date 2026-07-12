@@ -52,7 +52,6 @@ export default function BuildingBrowserModuleRuntime() {
       workspaceLayouts={props.workspaceLayouts}
       workspacePanels={workspacePanels}
       onPersistStateChange={props.onPersistStateChange}
-      onLayoutMetaChange={props.onLayoutMetaChange}
     />
   )
 }

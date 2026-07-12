@@ -58,9 +58,7 @@ export function buildBuildingsWorkspacePanels(options: BuildBuildingPanelsOption
       shellClassName,
       minWidth: 200,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'left-top',
-      defaultDockHeight: 760,
+      area: 'left',
       content: (
         <BuildingBrowserPanel
           constructibleGroups={constructibleGroups}
@@ -88,8 +86,7 @@ export function buildBuildingsWorkspacePanels(options: BuildBuildingPanelsOption
       shellClassName,
       minWidth: 360,
       minHeight: 420,
-      defaultDock: 'center',
-      defaultDockHeight: 760,
+      area: 'center',
       content: (
         <Suspense
           fallback={
@@ -129,9 +126,7 @@ export function buildBuildingsWorkspacePanels(options: BuildBuildingPanelsOption
       shellClassName,
       minWidth: 220,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'right-top',
-      defaultDockHeight: 760,
+      area: 'right',
       content: (
         <BuildingInspectorPanel
           building={activeBuilding}
