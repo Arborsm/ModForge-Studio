@@ -19,6 +19,7 @@ function createLocalMod(overrides: Partial<LauncherLibraryItem> = {}): LauncherL
     folderName: 'ContentPatcher',
     absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher',
     enabled: true,
+    hasConfig: true,
     nexusModId: 1915,
     updateKeys: ['Nexus:1915'],
     modUrl: 'https://www.nexusmods.com/stardewvalley/mods/1915',
@@ -69,12 +70,40 @@ function renderPanel(
     remoteLoading?: boolean
     remoteFilesDeferred?: boolean
     loadRemoteModDetail?: LauncherPort['loadRemoteModDetail']
+    loadModConfig?: LauncherPort['loadModConfig']
+    saveModConfig?: LauncherPort['saveModConfig']
+    loadSettings?: LauncherPort['loadSettings']
+    loadConfigItems?: LauncherPort['loadConfigItems']
     libraryMods?: LauncherLibraryItem[]
     onSearchDependency?: Parameters<typeof LauncherModDetailPanel>[0]['onSearchDependency']
   } = {},
 ): LauncherPort & { renderResult: RenderResult } {
   const port = createMockLauncherPort({
     loadRemoteModDetail: options.loadRemoteModDetail ?? vi.fn().mockResolvedValue(remoteDetail ?? createRemoteDetail()),
+    loadModConfig:
+      options.loadModConfig ??
+      vi.fn().mockResolvedValue({
+        modPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher',
+        configPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher\\config.json',
+        configExists: true,
+        fields: [],
+        schemaSources: [],
+        warnings: [],
+        probeStatus: 'unavailable',
+      }),
+    saveModConfig:
+      options.saveModConfig ??
+      vi.fn().mockResolvedValue({
+        modPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher',
+        configPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher\\config.json',
+        configExists: true,
+        fields: [],
+        schemaSources: [],
+        warnings: [],
+        probeStatus: 'unavailable',
+      }),
+    ...(options.loadSettings ? { loadSettings: options.loadSettings } : {}),
+    ...(options.loadConfigItems ? { loadConfigItems: options.loadConfigItems } : {}),
     openPath: vi.fn().mockResolvedValue(undefined),
     openUrl: vi.fn().mockResolvedValue(undefined),
     resolveImage: vi.fn().mockResolvedValue({ sourceUrl: '', localPath: '', mimeType: 'image/png' }),
@@ -106,6 +135,58 @@ function renderPanel(
 }
 
 describe('LauncherModDetailPanel', () => {
+  it('prompts to save or discard modified config before leaving the config tab', async () => {
+    const configResult = {
+      modPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher',
+      configPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher\\config.json',
+      configExists: true,
+      fields: [
+        {
+          key: 'Enabled',
+          label: 'Enabled',
+          description: null,
+          section: null,
+          fieldType: 'boolean' as const,
+          value: true,
+          defaultValue: true,
+          allowValues: [],
+          allowBlank: false,
+          allowMultiple: false,
+          editable: true,
+          source: 'config-json' as const,
+        },
+      ],
+      schemaSources: ['config-json' as const],
+      warnings: [],
+      probeStatus: 'not-run' as const,
+    }
+    const saveModConfig = vi.fn().mockResolvedValue(configResult)
+    renderPanel(createLocalMod(), createRemoteDetail(), {
+      loadModConfig: vi.fn().mockResolvedValue(configResult),
+      saveModConfig,
+    })
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Config' }))
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Enabled' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Description' }))
+
+    const leaveDialog = await screen.findByRole('dialog', { name: 'Unsaved configuration' })
+    fireEvent.click(within(leaveDialog).getByText('Keep editing'))
+    expect(screen.getByRole('tab', { name: 'Config' })).toHaveAttribute('aria-selected', 'true')
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Description' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Save and leave' }))
+
+    await waitFor(() => {
+      expect(saveModConfig).toHaveBeenCalledWith({
+        modPath: configResult.modPath,
+        locale: 'en-US',
+        values: { Enabled: false },
+      })
+      expect(screen.getByRole('tab', { name: 'Description' })).toHaveAttribute('aria-selected', 'true')
+    })
+  })
+
   it('unmounts the drawer while closed so hidden content cannot retain focus', () => {
     renderPanel(createLocalMod(), createRemoteDetail(), { open: false })
 
@@ -134,6 +215,449 @@ describe('LauncherModDetailPanel', () => {
     expect(within(detailsPanel).queryByText('Missing Dependencies')).toBeNull()
     expect(within(detailsPanel).queryByText('Update Evidence')).toBeNull()
     expect(within(detailsPanel).queryByText('Label Key')).toBeNull()
+  })
+
+  it('loads and saves local mod config fields from the config tab', async () => {
+    const saveModConfig = vi.fn().mockResolvedValue({
+      modPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher',
+      configPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher\\config.json',
+      configExists: true,
+      warnings: [],
+      probeStatus: 'unavailable',
+      schemaSources: ['content-patcher'],
+      fields: [],
+    })
+    renderPanel(createLocalMod(), null, {
+      loadModConfig: vi.fn().mockResolvedValue({
+        modPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher',
+        configPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher\\config.json',
+        configExists: true,
+        warnings: ['GMCM probe did not expose structured options; config.json keys were parsed as editable fallback fields.'],
+        probeStatus: 'unavailable',
+        schemaSources: ['content-patcher'],
+        fields: [
+          {
+            key: 'Enabled',
+            label: 'Enabled',
+            description: 'Turns the feature on.',
+            section: 'General',
+            fieldType: 'boolean',
+            value: true,
+            defaultValue: true,
+            allowValues: [],
+            allowBlank: false,
+            allowMultiple: false,
+            editable: true,
+            source: 'content-patcher',
+          },
+          {
+            key: 'OpenMenuKey',
+            label: 'Open Menu Key',
+            description: 'Opens the menu.',
+            section: 'Controls',
+            fieldType: 'string-array',
+            uiHint: 'keybind-list',
+            value: ['P'],
+            defaultValue: ['P'],
+            allowValues: [],
+            allowBlank: false,
+            allowMultiple: true,
+            editable: true,
+            source: 'generic-mod-config-menu',
+          },
+          {
+            key: 'ReloadConfigKey',
+            label: 'Reload Config Key',
+            description: 'Reloads the config file.',
+            section: 'Controls',
+            fieldType: 'string-array',
+            uiHint: 'keybind-list',
+            value: 'None',
+            defaultValue: 'None',
+            allowValues: [],
+            allowBlank: false,
+            allowMultiple: true,
+            editable: true,
+            source: 'generic-mod-config-menu',
+          },
+          {
+            key: 'Controls',
+            label: 'Controls',
+            description: null,
+            section: 'Controls',
+            fieldType: 'object',
+            value: {
+              ToggleDebug: 'F3',
+              DebugPrevTexture: 'LeftControl',
+              DebugNextTexture: 'RightControl',
+            },
+            defaultValue: null,
+            allowValues: [],
+            allowBlank: false,
+            allowMultiple: false,
+            editable: true,
+            source: 'config-json',
+          },
+          {
+            key: 'SkyReflectionSettings',
+            label: 'Sky Reflection Settings',
+            description: null,
+            section: 'Reflections',
+            fieldType: 'object',
+            value: {
+              AreReflectionsEnabled: true,
+              CometChance: 10,
+              Advanced: { ShootingStarsEnabled: true },
+            },
+            defaultValue: null,
+            allowValues: [],
+            allowBlank: false,
+            allowMultiple: false,
+            editable: true,
+            source: 'config-json',
+          },
+          {
+            key: 'Mode',
+            label: 'Mode',
+            description: 'Selects the rendering mode.',
+            section: 'General',
+            fieldType: 'string',
+            value: 'Balanced',
+            defaultValue: 'Balanced',
+            allowValues: ['Balanced', 'Fast'],
+            allowBlank: false,
+            allowMultiple: false,
+            editable: true,
+            source: 'generic-mod-config-menu',
+          },
+          {
+            key: 'AccentColor',
+            label: 'Accent Color',
+            description: 'Controls the overlay accent.',
+            section: 'General',
+            fieldType: 'string',
+            uiHint: 'color',
+            value: '#67b36f',
+            defaultValue: '#67b36f',
+            allowValues: [],
+            allowBlank: false,
+            allowMultiple: false,
+            editable: true,
+            source: 'generic-mod-config-menu',
+          },
+          {
+            key: 'NamedColor',
+            label: 'Named Color',
+            description: 'Uses a valid CSS color name.',
+            section: 'General',
+            fieldType: 'string',
+            uiHint: 'color',
+            value: 'red',
+            defaultValue: 'red',
+            allowValues: [],
+            allowBlank: false,
+            allowMultiple: false,
+            editable: true,
+            source: 'generic-mod-config-menu',
+          },
+          {
+            key: 'Seasons',
+            label: 'Seasons',
+            description: 'Selects active seasons.',
+            section: 'General',
+            fieldType: 'string-array',
+            value: ['spring'],
+            defaultValue: ['spring'],
+            allowValues: ['spring', 'summer', 'fall'],
+            allowBlank: false,
+            allowMultiple: true,
+            editable: true,
+            source: 'content-patcher',
+          },
+          {
+            key: 'UseLegacyLighting',
+            label: 'Use Legacy Lighting',
+            description: 'Keeps compatibility with the legacy renderer.',
+            section: 'General',
+            fieldType: 'string',
+            value: 'True',
+            defaultValue: 'True',
+            allowValues: ['True', 'False'],
+            allowBlank: false,
+            allowMultiple: false,
+            editable: true,
+            source: 'dll-static',
+          },
+        ],
+      }),
+      saveModConfig,
+    })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Config' }))
+
+    const enabledField = (await screen.findByText('Enabled')).closest<HTMLElement>('.launcher-mod-detail-config-field')
+    const legacyLightingField = screen.getByText('Use Legacy Lighting').closest<HTMLElement>('.launcher-mod-detail-config-field')
+    const checkbox = within(enabledField!).getByRole('checkbox')
+    const stringBooleanToggle = within(legacyLightingField!).getByRole('checkbox')
+    expect(screen.getByRole('heading', { name: 'General', level: 3 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Controls', level: 3 })).toBeTruthy()
+    expect(checkbox.closest('.launcher-mod-detail-config-toggle')).toBeTruthy()
+    expect(stringBooleanToggle.closest('.launcher-mod-detail-config-toggle')).toBeTruthy()
+    expect(screen.getByText('Parse diagnostic')).toBeTruthy()
+    expect(screen.getByText('Parse diagnostic').closest('details')).not.toHaveAttribute('open')
+    fireEvent.click(checkbox)
+    fireEvent.click(stringBooleanToggle)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mode: Balanced' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Fast' }))
+    fireEvent.click(within(screen.getByRole('group', { name: 'Seasons' })).getByRole('button', { name: 'summer' }))
+    expect(document.querySelector('.launcher-mod-detail-config select')).toBeNull()
+
+    const colorInput = screen.getByLabelText('Accent Color')
+    fireEvent.change(colorInput, { target: { value: '#ff3366' } })
+    expect(document.querySelector('.launcher-mod-detail-config-color-preview')).toHaveStyle('--launcher-config-color: #ff3366')
+    const namedColorField = screen.getByText('Named Color').closest<HTMLElement>('.launcher-mod-detail-config-field')
+    expect(within(namedColorField!).getByLabelText('Named Color')).not.toHaveAttribute('aria-invalid')
+    expect(within(namedColorField!).queryByText(/invalid color/i)).toBeNull()
+
+    const keybindButton = screen.getByRole('button', { name: 'Open Menu Key' })
+    fireEvent.click(keybindButton)
+    fireEvent.keyDown(keybindButton, { key: 'Shift', code: 'ShiftLeft' })
+    fireEvent.keyDown(keybindButton, { key: 'p', code: 'KeyP' })
+    fireEvent.keyUp(keybindButton, { key: 'p', code: 'KeyP' })
+    fireEvent.keyUp(keybindButton, { key: 'Shift', code: 'ShiftLeft' })
+
+    const reloadKeyField = screen.getByText('Reload Config Key').closest<HTMLElement>('.launcher-mod-detail-config-field')
+    const reloadKeyButton = within(reloadKeyField!).getByRole('button', { name: 'Reload Config Key' })
+    const reloadClearButton = within(reloadKeyField!).getByRole('button', { name: 'Clear key binding' })
+    expect(within(reloadKeyButton).getByText('Not assigned')).toBeTruthy()
+    expect(reloadClearButton).toBeDisabled()
+    fireEvent.click(reloadKeyButton)
+    fireEvent.keyDown(reloadKeyButton, { key: 'Control', code: 'ControlLeft' })
+    fireEvent.keyDown(reloadKeyButton, { key: 'r', code: 'KeyR' })
+    fireEvent.keyUp(reloadKeyButton, { key: 'r', code: 'KeyR' })
+    fireEvent.keyUp(reloadKeyButton, { key: 'Control', code: 'ControlLeft' })
+    fireEvent.click(reloadClearButton)
+
+    const controls = screen.getByRole('group', { name: 'Controls' })
+    expect(within(controls).queryByRole('textbox')).toBeNull()
+    expect(within(controls).getByText('Debug Previous Texture')).toBeTruthy()
+    const toggleDebugButton = within(controls).getByRole('button', { name: 'Toggle Debug' })
+    fireEvent.click(toggleDebugButton)
+    fireEvent.keyDown(toggleDebugButton, { key: 'F4', code: 'F4' })
+    fireEvent.keyUp(toggleDebugButton, { key: 'F4', code: 'F4' })
+
+    const reflectionSettings = screen.getByRole('group', { name: 'Sky Reflection Settings' })
+    expect(within(reflectionSettings).queryByRole('textbox', { name: 'Sky Reflection Settings' })).toBeNull()
+    fireEvent.click(within(reflectionSettings).getByRole('checkbox', { name: 'Are Reflections Enabled' }))
+    fireEvent.change(within(reflectionSettings).getByRole('spinbutton', { name: 'Comet Chance' }), { target: { value: '25' } })
+    fireEvent.click(within(reflectionSettings).getByRole('checkbox', { name: 'Shooting Stars Enabled' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(saveModConfig).toHaveBeenCalledWith({
+        modPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher',
+        locale: 'en-US',
+        values: {
+          AccentColor: '#ff3366',
+          Controls: {
+            ToggleDebug: 'F4',
+            DebugPrevTexture: 'LeftControl',
+            DebugNextTexture: 'RightControl',
+          },
+          Enabled: false,
+          Mode: 'Fast',
+          OpenMenuKey: ['LeftShift', 'P'],
+          SkyReflectionSettings: {
+            AreReflectionsEnabled: false,
+            CometChance: 25,
+            Advanced: { ShootingStarsEnabled: false },
+          },
+          ReloadConfigKey: 'None',
+          Seasons: ['spring', 'summer'],
+          UseLegacyLighting: 'False',
+        },
+      })
+    })
+  })
+
+  it('does not restore or save defaults for non-editable GMCM fields', async () => {
+    const saveModConfig = vi.fn().mockResolvedValue({
+      modPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher',
+      configPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher\\config.json',
+      configExists: true,
+      warnings: [],
+      probeStatus: 'succeeded',
+      schemaSources: ['generic-mod-config-menu'],
+      fields: [],
+    })
+    renderPanel(createLocalMod(), null, {
+      loadModConfig: vi.fn().mockResolvedValue({
+        modPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher',
+        configPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher\\config.json',
+        configExists: true,
+        warnings: [],
+        probeStatus: 'succeeded',
+        schemaSources: ['generic-mod-config-menu'],
+        fields: [
+          {
+            key: 'Enabled',
+            label: 'Enabled',
+            description: null,
+            section: null,
+            fieldType: 'boolean',
+            value: false,
+            defaultValue: true,
+            allowValues: [],
+            allowBlank: false,
+            allowMultiple: false,
+            editable: true,
+            source: 'generic-mod-config-menu',
+          },
+          {
+            key: 'derived-option',
+            label: 'Derived option',
+            description: null,
+            section: null,
+            fieldType: 'boolean',
+            value: false,
+            defaultValue: true,
+            allowValues: [],
+            allowBlank: false,
+            allowMultiple: false,
+            editable: false,
+            source: 'generic-mod-config-menu',
+          },
+        ],
+      }),
+      saveModConfig,
+    })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Config' }))
+    await screen.findByText('Derived option')
+    fireEvent.click(screen.getByRole('button', { name: 'Restore Defaults' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(saveModConfig).toHaveBeenCalledWith({
+        modPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher',
+        locale: 'en-US',
+        values: { Enabled: true },
+      })
+    })
+  })
+
+  it('hides the config tab for local mods without detected config', () => {
+    const loadModConfig = vi.fn()
+    renderPanel(createLocalMod({ hasConfig: false }), null, { loadModConfig })
+
+    expect(screen.queryByRole('tab', { name: 'Config' })).toBeNull()
+    expect(loadModConfig).not.toHaveBeenCalled()
+  })
+
+  it('edits ordered string lists and selects item values from the item catalog', async () => {
+    const saveModConfig = vi.fn().mockResolvedValue({
+      modPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher',
+      configPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher\\config.json',
+      configExists: true,
+      warnings: [],
+      probeStatus: 'unavailable',
+      schemaSources: ['config-json'],
+      fields: [],
+    })
+    renderPanel(createLocalMod(), null, {
+      loadSettings: vi.fn().mockResolvedValue({
+        gamePath: 'E:\\Games\\Stardew Valley',
+        modsPath: null,
+        downloadPath: null,
+        nexusApiKey: null,
+        autoInstallDownloads: false,
+        keepDownloadedArchives: false,
+        autoCheckModUpdates: true,
+      }),
+      loadConfigItems: vi.fn().mockResolvedValue([
+        {
+          id: '(O)24',
+          value: '(O)24',
+          label: 'Parsnip',
+          category: 'Crop',
+          source: 'Stardew Valley',
+          sourceKind: 'game',
+          metadata: {},
+        },
+        {
+          id: '(O)72',
+          value: '(O)72',
+          label: 'Diamond',
+          category: 'Mineral',
+          source: 'Stardew Valley',
+          sourceKind: 'game',
+          metadata: {},
+        },
+      ]),
+      loadModConfig: vi.fn().mockResolvedValue({
+        modPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher',
+        configPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher\\config.json',
+        configExists: true,
+        warnings: [],
+        probeStatus: 'unavailable',
+        schemaSources: ['config-json'],
+        fields: [
+          {
+            key: 'WeatherTags',
+            label: 'Weather Tags',
+            description: 'Ordered weather values.',
+            section: 'Content',
+            fieldType: 'string-array',
+            value: ['sunny', 'windy'],
+            defaultValue: ['sunny'],
+            allowValues: [],
+            allowBlank: false,
+            allowMultiple: true,
+            editable: true,
+            source: 'config-json',
+          },
+          {
+            key: 'FavoriteItemIds',
+            label: 'Favorite Items',
+            description: 'Ordered item values.',
+            section: 'Content',
+            fieldType: 'string-array',
+            uiHint: 'item-list',
+            value: ['(O)24'],
+            defaultValue: ['(O)24'],
+            allowValues: [],
+            allowBlank: false,
+            allowMultiple: true,
+            editable: true,
+            source: 'config-json',
+          },
+        ],
+      }),
+      saveModConfig,
+    })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Config' }))
+    fireEvent.change(await screen.findByLabelText('Weather Tags, entry 1'), { target: { value: 'rainy' } })
+    fireEvent.change(screen.getByLabelText('New entry for Weather Tags'), { target: { value: 'stormy' } })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Add' })[0])
+
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Choose item for Favorite Items' }).length).toBeGreaterThan(0))
+    fireEvent.click(screen.getAllByRole('button', { name: 'Choose item for Favorite Items' }).at(-1)!)
+    fireEvent.click(await screen.findByRole('button', { name: /Diamond/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(saveModConfig).toHaveBeenCalledWith({
+        modPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher',
+        locale: 'en-US',
+        values: {
+          FavoriteItemIds: ['(O)24', '(O)72'],
+          WeatherTags: ['rainy', 'windy', 'stormy'],
+        },
+      })
+    })
   })
 
   it('keeps the combined hero focused on version state instead of raw update keys', () => {

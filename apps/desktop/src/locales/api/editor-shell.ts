@@ -1,9 +1,11 @@
 import { localeBundles } from '../dictionaries'
 import type {
+  CoreWorkspaceMode,
   EditorCopy,
   LauncherCopy,
   LauncherPage,
   LocaleCode,
+  ModI18nWorkspaceCopy,
   ModWorkspaceCopy,
   NotificationCopy,
   SettingsMenuCopy,
@@ -28,12 +30,14 @@ export type {
   LauncherPage,
   LocaleBundle,
   LocaleCode,
+  ModI18nWorkspaceCopy,
   ModWorkspaceCopy,
   NotificationCopy,
   ModuleBlueprint,
   SettingsMenuCopy,
   ThemeMode,
   ViewMenuCopy,
+  MapPanelCopy,
   ViewportLabels,
   ScriptEditorCopy,
   WorkspaceMode,
@@ -41,7 +45,7 @@ export type {
   WorldAtlasViewId,
 } from '../model'
 
-export const workspaceModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mod-i18n', 'mods']
+export const workspaceModes: CoreWorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items']
 export const launcherPages: LauncherPage[] = ['library', 'discover', 'updates', 'configuration']
 
 export const editorCopy: Record<LocaleCode, EditorCopy> = {
@@ -55,6 +59,10 @@ export function getEditorCopy(locale: LocaleCode): EditorCopy {
 
 export function getModWorkspaceCopy(locale: LocaleCode): ModWorkspaceCopy {
   return localeBundles[locale].mods
+}
+
+export function getModI18nWorkspaceCopy(locale: LocaleCode): ModI18nWorkspaceCopy {
+  return localeBundles[locale].modI18n
 }
 
 export function getNotificationCopy(locale: LocaleCode): NotificationCopy {
@@ -74,7 +82,7 @@ export function getSettingsMenuCopy(locale: LocaleCode): SettingsMenuCopy {
 }
 
 export function getWorkspaceModeLabel(locale: LocaleCode, copy: Pick<EditorCopy, 'nav'>, mode: WorkspaceMode) {
-  if (mode === 'mods') {
+  if (mode === 'mod-browser') {
     return getModWorkspaceCopy(locale).workspaceLabel
   }
 

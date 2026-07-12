@@ -5,6 +5,7 @@ export {
   chooseArchiveFile,
   chooseArchiveFiles,
   chooseDirectory,
+  chooseSaveFile,
   chooseGameDirectory,
   chooseImageFile,
   isSupportedLauncherArchivePath,

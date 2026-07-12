@@ -14,6 +14,7 @@ use super::types::{
 use super::update_cache::invalidate_launcher_updates_cache_at_path;
 use crate::AppHandle;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::text_encoding::decode_text_bytes;
 use anyhow::{Context, bail};
 use flate2::read::GzDecoder;
 use sevenz_rust::{Error as SevenZipError, decompress_file_with_extract_fn};
@@ -435,6 +436,14 @@ fn sanitize_archive_entry_path(path: &Path, archive_path: &Path) -> anyhow::Resu
     Ok(normalized)
 }
 
+fn decode_zip_entry_name<R: io::Read>(entry: &zip::read::ZipFile<'_, R>) -> String {
+    let raw = entry.name_raw();
+    if std::str::from_utf8(raw).is_ok() {
+        return entry.name().to_string();
+    }
+    decode_text_bytes(raw)
+}
+
 fn expand_zip_archive_to_path(archive_path: &Path, destination_path: &Path) -> anyhow::Result<()> {
     let archive_file = fs::File::open(archive_path).with_context(|| {
         format!(
@@ -456,13 +465,15 @@ fn expand_zip_archive_to_path(archive_path: &Path, destination_path: &Path) -> a
                 normalize_path(archive_path)
             )
         })?;
-        let Some(relative_path) = entry.enclosed_name() else {
-            bail!(
-                "Launcher archive {} contains an unsafe path entry: {}",
-                normalize_path(archive_path),
-                entry.name()
-            );
-        };
+        let decoded_name = decode_zip_entry_name(&entry);
+        let relative_path = sanitize_archive_entry_path(Path::new(&decoded_name), archive_path)
+            .with_context(|| {
+                format!(
+                    "Launcher archive {} contains an unsafe path entry: {}",
+                    normalize_path(archive_path),
+                    decoded_name
+                )
+            })?;
         let output_path = destination_path.join(&relative_path);
 
         if entry.is_dir() {
@@ -493,7 +504,7 @@ fn expand_zip_archive_to_path(archive_path: &Path, destination_path: &Path) -> a
         io::copy(&mut entry, &mut output_file).with_context(|| {
             format!(
                 "Failed to extract launcher archive entry {} to {}",
-                entry.name(),
+                decoded_name,
                 normalize_path(&output_path)
             )
         })?;

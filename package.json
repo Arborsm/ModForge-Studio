@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "web:dev": "vp run --filter @modforge/desktop dev",
+    "cleanup:shmem": "vp run --filter @modforge/desktop cleanup:shmem",
     "react:devtools": "vp run --filter @modforge/desktop react:devtools",
     "build": "vp run --filter @modforge/desktop build",
     "lint": "vp run --filter @modforge/desktop lint",

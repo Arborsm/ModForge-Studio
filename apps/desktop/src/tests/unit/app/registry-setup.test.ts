@@ -4,7 +4,21 @@ import type { PageRegistration, WorkbenchViewRegistration, WorkspacePanelRegistr
 
 describe('registry setup', () => {
   it('publishes the initial static workbench views and workspace panels', () => {
-    expect(appRegistry.workbenchViews.map((view) => view.viewId)).toEqual(['workspace-editor', 'dev-resource-browser'])
+    expect(appRegistry.workbenchViews.map((view) => view.viewId)).toEqual([
+      'workspace-editor',
+      'mod-browser',
+      'mod-i18n',
+      'i18n-generator',
+      'dev-resource-browser',
+    ])
+    expect(getWorkbenchViewRegistration('mod-browser')?.activation).toEqual({
+      kind: 'workspace',
+      workspaceMode: 'mod-browser',
+      presentation: 'browser',
+    })
+    expect(getWorkbenchViewRegistration('workspace-editor')?.requiresProject).toBe(true)
+    expect(getWorkbenchViewRegistration('i18n-generator')?.requiresProject).not.toBe(true)
+    expect(getWorkbenchViewRegistration('dev-resource-browser')?.requiresProject).not.toBe(true)
     expect(appRegistry.workspacePanels.map((panel) => panel.panelId)).toEqual([
       'assets',
       'viewport',
@@ -23,6 +37,8 @@ describe('registry setup', () => {
         kind: 'workbench-view',
         title: 'Sample view',
         viewId: 'sample-view',
+        category: 'internal',
+        activation: { kind: 'component' },
         component: () => null,
       },
     ]
@@ -44,6 +60,8 @@ describe('registry setup', () => {
       kind: 'workbench-view',
       title: 'Mutated view',
       viewId: 'mutated-view',
+      category: 'internal',
+      activation: { kind: 'component' },
       component: () => null,
     })
     workspacePanels.push({

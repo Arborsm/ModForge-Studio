@@ -17,9 +17,11 @@ import type {
   LauncherDownloadQueueState,
   LauncherImageFetchDisconnectedPayload,
   LauncherGameLaunchResult,
+  LauncherGmcmProbeDiagnosticsResult,
   LauncherInstallBackupSummary,
   LauncherLibraryCoversState,
   LauncherImageFailuresState,
+  LauncherModConfigResult,
   LauncherLibraryScanResult,
   LauncherLibraryState,
   LauncherNexusDiagnosticsResult,
@@ -32,6 +34,7 @@ import type {
   LauncherUpdatesResult,
   ListLauncherInstallBackupsRequest,
   LoadCachedLauncherUpdatesRequest,
+  LoadLauncherModConfigRequest,
   LoadLauncherRemoteModDetailRequest,
   LoadLauncherUpdateChangelogRequest,
   LoadSuppressedLauncherUpdateModIdsRequest,
@@ -43,6 +46,7 @@ import type {
   ResolveLauncherImageResult,
   RestoreLauncherInstallBackupRequest,
   RestoreLauncherInstallBackupResult,
+  SaveLauncherModConfigRequest,
   SaveLauncherSettingsRequest,
   ScanLauncherLibraryRequest,
   SearchLauncherCatalogRequest,
@@ -61,6 +65,7 @@ const scanLauncherLibraryCache = createPromiseCache<LauncherLibraryScanResult>()
 const searchLauncherCatalogCache = createPromiseCache<LauncherCatalogPageResult>()
 const loadLauncherRemoteModDetailCache = createPromiseCache<LauncherRemoteModDetail>()
 const loadLauncherUpdateChangelogCache = createPromiseCache<LauncherUpdateChangelogResult>()
+const loadLauncherModConfigCache = createPromiseCache<LauncherModConfigResult>()
 const LAUNCHER_UPDATE_PROGRESS_EVENT = 'launcher://update-check-progress'
 const LAUNCHER_DOWNLOAD_PROGRESS_EVENT = 'launcher://download-progress'
 const LAUNCHER_UPDATES_CACHE_TTL_MS = 30 * 60 * 1000
@@ -79,6 +84,7 @@ const launcherLibraryMutationPolicy = { kind: 'exclusiveMutation', resource: 'La
 const launcherCoversMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherLibraryCovers' } satisfies HostCommandPolicy
 const launcherDownloadQueueMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherDownloadQueue' } satisfies HostCommandPolicy
 const launcherInstallMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherInstallTree' } satisfies HostCommandPolicy
+const launcherModConfigMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherModConfig' } satisfies HostCommandPolicy
 const launcherImageCacheMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherImageCache' } satisfies HostCommandPolicy
 const launcherIoPoolPolicy = { kind: 'parallelPool', pool: 'launcher-io', limit: 2 } satisfies HostCommandPolicy
 const launcherNetworkPoolPolicy = { kind: 'parallelPool', pool: 'launcher-network', limit: 4 } satisfies HostCommandPolicy
@@ -409,6 +415,11 @@ export function loadLauncherRuntimeInfo() {
   return invokeDesktop<LauncherRuntimeInfo>(HOST_COMMANDS.loadLauncherRuntimeInfo, undefined, launcherIoPoolPolicy)
 }
 
+/** Checks whether the bundled GMCM probe can run through the local .NET runtime host. */
+export function loadLauncherGmcmProbeDiagnostics() {
+  return invokeDesktop<LauncherGmcmProbeDiagnosticsResult>(HOST_COMMANDS.loadLauncherGmcmProbeDiagnostics, undefined, launcherIoPoolPolicy)
+}
+
 /** Launches Stardew Valley through the preferred launcher target. */
 export function launchLauncherGame() {
   return invokeDesktop<LauncherGameLaunchResult>(HOST_COMMANDS.launchLauncherGame, undefined, launcherControlPolicy('launch-game'))
@@ -423,6 +434,26 @@ export async function setLauncherModEnabled(request: SetLauncherModEnabledReques
   )
   scanLauncherLibraryCache.clear()
   invalidateLauncherUpdatesState(parentDirectoryFromPath(request.modPath))
+  return result
+}
+
+/** Loads editable config fields for one installed launcher mod. */
+export function loadLauncherModConfig(request: LoadLauncherModConfigRequest) {
+  const cacheKey = `${normalizeCachePathSegment(request.modPath)}::${request.locale?.trim() || 'default'}`
+  return readPending(loadLauncherModConfigCache, cacheKey, () =>
+    invokeDesktop<LauncherModConfigResult>(HOST_COMMANDS.loadLauncherModConfig, { request }, launcherIoPoolPolicy),
+  )
+}
+
+/** Saves changed config values into one installed launcher mod's config.json. */
+export async function saveLauncherModConfig(request: SaveLauncherModConfigRequest) {
+  const result = await invokeDesktop<LauncherModConfigResult>(
+    HOST_COMMANDS.saveLauncherModConfig,
+    { request },
+    launcherModConfigMutationPolicy,
+  )
+  const normalizedPath = normalizeCachePathSegment(request.modPath)
+  loadLauncherModConfigCache.deleteWhere((key) => key.startsWith(`${normalizedPath}::`))
   return result
 }
 

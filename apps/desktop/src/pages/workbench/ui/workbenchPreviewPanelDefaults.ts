@@ -33,7 +33,7 @@ export function createPreviewPanelDefaults({
   heavyWorkspaceReady,
 }: CreatePreviewPanelDefaultsOptions): BuildWorkspacePanelsOptions {
   const moduleBlueprint =
-    workspaceMode === 'map' || workspaceMode === 'events' || workspaceMode === 'mods' || workspaceMode === 'mod-i18n'
+    workspaceMode === 'map' || workspaceMode === 'events' || workspaceMode === 'mod-browser' || workspaceMode === 'mod-i18n'
       ? undefined
       : copy.moduleBlueprints[workspaceMode]
 
@@ -183,9 +183,11 @@ export function createPreviewPanelDefaults({
     modFilter: '',
     contentPatcherOnly: true,
     compatibleOnly: true,
+    i18nOnly: false,
     onModFilterChange: () => {},
     onContentPatcherOnlyChange: () => {},
     onCompatibleOnlyChange: () => {},
+    onI18nOnlyChange: () => {},
     onSelectModProject: () => {},
     onImportModProject: () => {},
     onRefreshModProjects: () => {},

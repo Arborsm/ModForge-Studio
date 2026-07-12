@@ -1,4 +1,4 @@
-import { COLUMN_GAP, MIN_CENTER_HEIGHT, ROOT_PADDING, SPLIT_GAP, TOOL_WINDOW_RAIL_GAP, TOOL_WINDOW_RAIL_WIDTH } from './layoutConstants'
+import { COLUMN_GAP, MIN_CENTER_HEIGHT, RESIZER_THICKNESS, ROOT_PADDING, SPLIT_GAP } from './layoutConstants'
 import type {
   DockArea,
   PanelRect,
@@ -8,7 +8,7 @@ import type {
   WorkspaceSize,
   WorkspaceStoredState,
 } from '@shared/contracts'
-import { clamp, getActiveDockedPanel, getDefaultChrome, getDockedPanelIdsForRail } from './layoutState'
+import { clamp, getActiveDockedPanel, getDefaultChrome } from './layoutState'
 import { getResolvedSidePanelWidths, splitSpan } from './layoutSizing'
 
 export type DockGuide = {
@@ -25,11 +25,6 @@ export function getWorkspaceGeometry(
   measuredDockHeights: Record<string, number>,
 ): WorkspaceGeometry {
   const defaultChrome = getDefaultChrome(panels)
-  const leftRailVisible = getDockedPanelIdsForRail(panels, state.panels, 'left').length > 0
-  const rightRailVisible = getDockedPanelIdsForRail(panels, state.panels, 'right').length > 0
-  const leftRailUsed = leftRailVisible ? TOOL_WINDOW_RAIL_WIDTH + TOOL_WINDOW_RAIL_GAP : 0
-  const rightRailUsed = rightRailVisible ? TOOL_WINDOW_RAIL_WIDTH + TOOL_WINDOW_RAIL_GAP : 0
-  const bottomRailUsed = 0
 
   const leftTopPanel = getActiveDockedPanel(panelMap, state, 'left-top')
   const leftBottomPanel = getActiveDockedPanel(panelMap, state, 'left-bottom')
@@ -41,15 +36,7 @@ export function getWorkspaceGeometry(
   const leftPanelVisible = Boolean(leftTopPanel || leftBottomPanel)
   const rightPanelVisible = Boolean(rightTopPanel || rightBottomPanel)
   const bottomPanelVisible = Boolean(bottomLeftPanel || bottomRightPanel)
-  const resolvedWidths = getResolvedSidePanelWidths(
-    panels,
-    state.chrome,
-    size,
-    leftRailVisible,
-    rightRailVisible,
-    leftPanelVisible,
-    rightPanelVisible,
-  )
+  const resolvedWidths = getResolvedSidePanelWidths(panels, state.chrome, size, leftPanelVisible, rightPanelVisible)
   const leftPanelWidth = leftPanelVisible ? resolvedWidths.left : 0
   const rightPanelWidth = rightPanelVisible ? resolvedWidths.right : 0
   const leftPanelUsed = leftPanelVisible ? leftPanelWidth + COLUMN_GAP : 0
@@ -76,25 +63,24 @@ export function getWorkspaceGeometry(
   const bottomPanelUsed = bottomPanelVisible ? bottomHeight + COLUMN_GAP : 0
 
   const centerRect: PanelRect = {
-    x: ROOT_PADDING + leftRailUsed + leftPanelUsed,
+    x: ROOT_PADDING + leftPanelUsed,
     y: ROOT_PADDING,
     width: resolvedWidths.center,
-    height: Math.max(180, size.height - ROOT_PADDING * 2 - bottomRailUsed - bottomPanelUsed),
+    height: Math.max(180, size.height - ROOT_PADDING * 2 - bottomPanelUsed),
   }
 
+  // Tool-window icon rails removed: browse workspaces are single-pane side columns.
   const rails: Record<RailId, PanelRect | null> = {
-    left: leftRailVisible ? { x: ROOT_PADDING, y: ROOT_PADDING, width: TOOL_WINDOW_RAIL_WIDTH, height: centerRect.height } : null,
-    right: rightRailVisible
-      ? { x: size.width - ROOT_PADDING - TOOL_WINDOW_RAIL_WIDTH, y: ROOT_PADDING, width: TOOL_WINDOW_RAIL_WIDTH, height: centerRect.height }
-      : null,
+    left: null,
+    right: null,
     bottom: null,
   }
 
   const railContainers: Record<RailId, PanelRect | null> = {
-    left: leftPanelVisible ? { x: ROOT_PADDING + leftRailUsed, y: ROOT_PADDING, width: leftPanelWidth, height: centerRect.height } : null,
+    left: leftPanelVisible ? { x: ROOT_PADDING, y: ROOT_PADDING, width: leftPanelWidth, height: centerRect.height } : null,
     right: rightPanelVisible
       ? {
-          x: size.width - ROOT_PADDING - rightRailUsed - rightPanelWidth,
+          x: size.width - ROOT_PADDING - rightPanelWidth,
           y: ROOT_PADDING,
           width: rightPanelWidth,
           height: centerRect.height,
@@ -117,10 +103,10 @@ export function getWorkspaceGeometry(
   if (leftTopPanel || leftBottomPanel) {
     const container = railContainers.left!
     edgeResizers.left = {
-      x: container.x + container.width - 4,
-      y: container.y + 16,
-      width: 8,
-      height: container.height - 32,
+      x: container.x + container.width + COLUMN_GAP / 2 - RESIZER_THICKNESS / 2,
+      y: container.y,
+      width: RESIZER_THICKNESS,
+      height: container.height,
     }
 
     if (leftTopPanel && leftBottomPanel) {
@@ -144,10 +130,10 @@ export function getWorkspaceGeometry(
         height: second,
       }
       splitResizers.left = {
-        x: container.x + 18,
-        y: container.y + first + SPLIT_GAP / 2 - 4,
-        width: container.width - 36,
-        height: 8,
+        x: container.x,
+        y: container.y + first + SPLIT_GAP / 2 - RESIZER_THICKNESS / 2,
+        width: container.width,
+        height: RESIZER_THICKNESS,
       }
     } else {
       const panel = leftTopPanel ?? leftBottomPanel
@@ -160,10 +146,10 @@ export function getWorkspaceGeometry(
   if (rightTopPanel || rightBottomPanel) {
     const container = railContainers.right!
     edgeResizers.right = {
-      x: container.x - 4,
-      y: container.y + 16,
-      width: 8,
-      height: container.height - 32,
+      x: container.x - COLUMN_GAP / 2 - RESIZER_THICKNESS / 2,
+      y: container.y,
+      width: RESIZER_THICKNESS,
+      height: container.height,
     }
 
     if (rightTopPanel && rightBottomPanel) {
@@ -187,10 +173,10 @@ export function getWorkspaceGeometry(
         height: second,
       }
       splitResizers.right = {
-        x: container.x + 18,
-        y: container.y + first + SPLIT_GAP / 2 - 4,
-        width: container.width - 36,
-        height: 8,
+        x: container.x,
+        y: container.y + first + SPLIT_GAP / 2 - RESIZER_THICKNESS / 2,
+        width: container.width,
+        height: RESIZER_THICKNESS,
       }
     } else {
       const panel = rightTopPanel ?? rightBottomPanel
@@ -203,10 +189,10 @@ export function getWorkspaceGeometry(
   if (bottomLeftPanel || bottomRightPanel) {
     const container = railContainers.bottom!
     edgeResizers.bottom = {
-      x: container.x + 18,
-      y: container.y - 4,
-      width: container.width - 36,
-      height: 8,
+      x: container.x,
+      y: container.y - COLUMN_GAP / 2 - RESIZER_THICKNESS / 2,
+      width: container.width,
+      height: RESIZER_THICKNESS,
     }
 
     if (bottomLeftPanel && bottomRightPanel) {
@@ -220,10 +206,10 @@ export function getWorkspaceGeometry(
         height: container.height,
       }
       splitResizers.bottom = {
-        x: container.x + first + SPLIT_GAP / 2 - 4,
-        y: container.y + 18,
-        width: 8,
-        height: container.height - 36,
+        x: container.x + first + SPLIT_GAP / 2 - RESIZER_THICKNESS / 2,
+        y: container.y,
+        width: RESIZER_THICKNESS,
+        height: container.height,
       }
     } else {
       const panel = bottomLeftPanel ?? bottomRightPanel
@@ -252,15 +238,15 @@ export function getWorkspaceGeometry(
 
 export function getDockGuideRects(size: WorkspaceSize, geometry: WorkspaceGeometry, panels: WorkspacePanelConfig[]): DockGuide[] {
   const defaults = getDefaultChrome(panels)
-  const defaultSideWidths = getResolvedSidePanelWidths(panels, defaults, size, true, true, true, true)
+  const defaultSideWidths = getResolvedSidePanelWidths(panels, defaults, size, true, true)
   const leftContainer = geometry.railContainers.left ?? {
-    x: ROOT_PADDING + TOOL_WINDOW_RAIL_WIDTH + TOOL_WINDOW_RAIL_GAP,
+    x: ROOT_PADDING,
     y: ROOT_PADDING,
     width: defaultSideWidths.left,
     height: geometry.centerRect.height,
   }
   const rightContainer = geometry.railContainers.right ?? {
-    x: size.width - ROOT_PADDING - TOOL_WINDOW_RAIL_WIDTH - TOOL_WINDOW_RAIL_GAP - defaultSideWidths.right,
+    x: size.width - ROOT_PADDING - defaultSideWidths.right,
     y: ROOT_PADDING,
     width: defaultSideWidths.right,
     height: geometry.centerRect.height,

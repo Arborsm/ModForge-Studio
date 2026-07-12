@@ -15,7 +15,7 @@ export type LauncherLibraryCopy = {
   selectionEmpty: string
   modDetail: {
     tabsLabel: string
-    tabs: Record<'overview' | 'description' | 'changelog' | 'details' | 'dependencies' | 'files', string>
+    tabs: Record<'overview' | 'description' | 'changelog' | 'details' | 'dependencies' | 'files' | 'config', string>
     local: string
     byAuthor: string
     installedVersionShort: string
@@ -106,6 +106,56 @@ export type LauncherLibraryCopy = {
     modManagerDownload: string
     filesLoading: string
     changelogEmpty: string
+    config: {
+      title: string
+      loading: string
+      empty: string
+      error: string
+      diagnostic: string
+      diagnostics: (count: number) => string
+      save: string
+      saving: string
+      revert: string
+      restoreDefaults: string
+      unsavedTitle: string
+      unsavedMessage: string
+      unsavedCancel: string
+      unsavedDiscard: string
+      unsavedSave: string
+      invalidJson: string
+      invalidColor: string
+      colorPicker: (label: string) => string
+      keybindUnassigned: string
+      keybindListening: string
+      clearKeybind: string
+      listEntry: (label: string, index: number) => string
+      newListEntry: (label: string) => string
+      listValuePlaceholder: string
+      itemValuePlaceholder: string
+      addListEntry: string
+      removeListEntry: string
+      moveListEntryUp: string
+      moveListEntryDown: string
+      chooseItem: string
+      chooseItemFor: (label: string) => string
+      itemPickerTitle: string
+      closeItemPicker: string
+      searchItems: string
+      loadingItems: string
+      itemCatalogUnavailable: string
+      allItems: string
+      itemsFound: (count: number) => string
+      noItems: string
+      itemPage: (page: number, pageCount: number) => string
+      previousItemPage: string
+      nextItemPage: string
+      sources: {
+        contentPatcher: string
+        genericModConfigMenu: string
+        configJson: string
+        dllStatic: string
+      }
+    }
   }
   installHint: string
   previewTitle: string

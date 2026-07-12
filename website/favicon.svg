@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" viewBox="0 0 256 256">
+  <title id="title">ModForge Studio primary logo</title>
+  <desc id="desc">A restrained modular hexagonal cell mark for ModForge Studio.</desc>
+  <defs>
+    <linearGradient id="mf-cell" x1="91" y1="83" x2="167" y2="173" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2dd4bf"/>
+      <stop offset="0.5" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="mf-frame" x1="72" y1="45" x2="184" y2="211" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#334155"/>
+      <stop offset="1" stop-color="#18212f"/>
+    </linearGradient>
+    <linearGradient id="mf-panel" x1="85" y1="71" x2="174" y2="184" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fbfcfe"/>
+      <stop offset="1" stop-color="#dce5ef"/>
+    </linearGradient>
+    <filter id="mf-shadow" x="24" y="24" width="208" height="208" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="16" flood-color="#18212f" flood-opacity="0.13" stdDeviation="16"/>
+    </filter>
+  </defs>
+  <rect width="256" height="256" rx="60" fill="#e9edf2"/>
+  <g filter="url(#mf-shadow)">
+    <path fill="none" stroke="url(#mf-frame)" stroke-linejoin="round" stroke-width="13" d="M128 50 193.82 88v76L128 202l-65.82-38V88L128 50Z"/>
+    <path fill="url(#mf-panel)" d="M128 77 171.3 102v50L128 177l-43.3-25v-50L128 77Zm0 25.5-22.08 12.75v25.5L128 153.5l22.08-12.75v-25.5L128 102.5Z"/>
+    <path fill="url(#mf-cell)" d="m128 102.5 22.08 12.75v25.5L128 153.5l-22.08-12.75v-25.5L128 102.5Z"/>
+    <path fill="#f8fafc" fill-opacity="0.28" d="m128 102.5 22.08 12.75L128 128l-22.08-12.75L128 102.5Z"/>
+    <path fill="#111827" fill-opacity="0.14" d="m128 128 22.08-12.75v25.5L128 153.5V128Z"/>
+  </g>
+</svg>

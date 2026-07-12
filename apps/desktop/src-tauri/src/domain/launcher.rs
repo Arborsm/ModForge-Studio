@@ -5,6 +5,7 @@ pub mod image_cache;
 pub mod image_failures;
 pub mod install_manager;
 pub mod library;
+pub mod mod_config;
 pub mod paths;
 pub mod runtime;
 pub mod settings;

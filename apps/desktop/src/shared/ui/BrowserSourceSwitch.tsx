@@ -9,7 +9,7 @@ type BrowserSourceSwitchProps = {
 
 export function BrowserSourceSwitch({ value, onChange }: BrowserSourceSwitchProps) {
   return (
-    <div className="inline-flex rounded-full border border-(--border-color) bg-(--bg-panel) p-1">
+    <div className="inline-flex rounded-lg border border-(--border-color) bg-(--bg-panel-muted) p-0.5">
       {(
         [
           ['original', 'Original'],
@@ -22,10 +22,8 @@ export function BrowserSourceSwitch({ value, onChange }: BrowserSourceSwitchProp
             key={mode}
             type="button"
             className={cx(
-              'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
-              isActive
-                ? 'bg-(--accent) text-white shadow-[0_10px_22px_color-mix(in_srgb,var(--accent)_24%,transparent)]'
-                : 'text-(--text-secondary) hover:bg-(--bg-panel-muted) hover:text-(--text-primary)',
+              'rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
+              isActive ? 'bg-(--bg-panel) text-(--text-primary) shadow-sm' : 'text-(--text-secondary) hover:text-(--text-primary)',
             )}
             onClick={() => onChange(mode)}
           >

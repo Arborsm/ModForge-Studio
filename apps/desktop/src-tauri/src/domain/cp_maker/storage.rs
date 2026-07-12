@@ -1,4 +1,5 @@
 use super::types::{CopyCpMakerDraftRequest, CpMakerDraftRecord, CpMakerDraftSummary};
+use crate::infrastructure::text_encoding::read_text_file;
 use anyhow::{Context, bail};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -215,7 +216,7 @@ fn read_draft_record_from_path(
     path: &Path,
     draft_storage_key: &str,
 ) -> anyhow::Result<CpMakerDraftRecord> {
-    let content = fs::read_to_string(path).with_context(|| {
+    let content = read_text_file(path).with_context(|| {
         format!(
             "Failed to read cp-maker draft JSON [draftStorageKey={}] [path={}]",
             draft_storage_key,

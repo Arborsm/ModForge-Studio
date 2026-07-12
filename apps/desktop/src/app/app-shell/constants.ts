@@ -10,4 +10,4 @@ export const PLAYER_APPEARANCE_PROFILES_STORAGE_KEY = 'modforge:player-appearanc
 export const PLAYER_APPEARANCE_ACTIVE_PROFILE_STORAGE_KEY = 'modforge:player-appearance-active:v1'
 export const RECENT_GAME_DIRECTORIES_STORAGE_KEY = 'modforge:recent-game-directories:v1'
 export const DEFAULT_WORLD_ATLAS_VIEW_ZOOM = 1
-export const WORKSPACE_LAYOUT_VERSION = 'v11'
+export const WORKSPACE_LAYOUT_VERSION = 'v13'

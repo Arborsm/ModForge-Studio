@@ -1,6 +1,6 @@
-import { Filter, FolderOpen, RefreshCw, Search, Upload } from 'lucide-react'
+import { Check, Filter, FolderOpen, RefreshCw, Search, Upload } from 'lucide-react'
 import type { ModProjectSummary } from '@entities/mod/api'
-import { useModWorkspaceCopy } from '@locales/provider'
+import { useModI18nCopy, useModWorkspaceCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
 
@@ -11,11 +11,14 @@ type ModBrowserPanelProps = {
   modFilter: string
   contentPatcherOnly: boolean
   compatibleOnly: boolean
+  i18nOnly?: boolean
+  mode?: 'mod' | 'i18n'
   onFilterChange: (value: string) => void
   onContentPatcherOnlyChange: (value: boolean) => void
   onCompatibleOnlyChange: (value: boolean) => void
+  onI18nOnlyChange?: (value: boolean) => void
   onSelectProject: (path: string) => void
-  onImportProject: () => void
+  onImportProject?: () => void
   onRefreshProjects: () => void
 }
 
@@ -50,17 +53,19 @@ function ProjectRow({
   project,
   active,
   index,
+  mode,
   onSelect,
 }: {
   project: ModProjectSummary
   active: boolean
   index: number
+  mode: 'mod' | 'i18n'
   onSelect: () => void
 }) {
   const copy = useModWorkspaceCopy()
   const pluginKindBadge = getPluginKindBadge(project, copy)
-  const statusBadge = getProjectStatusBadge(project, copy)
-  const isIncompatible = project.status === 'incompatible'
+  const statusBadge = mode === 'i18n' ? null : getProjectStatusBadge(project, copy)
+  const isIncompatible = mode !== 'i18n' && project.status === 'incompatible'
 
   const revealProps = getLoadingMotionChildRevealProps({
     index,
@@ -129,14 +134,90 @@ export function ModBrowserPanel({
   modFilter,
   contentPatcherOnly,
   compatibleOnly,
+  i18nOnly = false,
+  mode = 'mod',
   onFilterChange,
   onContentPatcherOnlyChange,
   onCompatibleOnlyChange,
+  onI18nOnlyChange,
   onSelectProject,
   onImportProject,
   onRefreshProjects,
 }: ModBrowserPanelProps) {
   const copy = useModWorkspaceCopy()
+  const i18nCopy = useModI18nCopy()
+  const isI18nMode = mode === 'i18n'
+  if (isI18nMode) {
+    return (
+      <div className="mod-i18n-browser-pane flex h-full flex-col overflow-hidden border-r border-(--border-color)/60 p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[0.625rem] font-bold tracking-[0.16em] text-(--text-tertiary) uppercase">{i18nCopy.browserTitle}</p>
+            <p className="mt-1 truncate text-xs text-(--text-secondary)">{i18nCopy.browserProjectsCount(filteredProjects.length)}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button type="button" className="control-button h-8 px-2.5 text-xs" onClick={onRefreshProjects}>
+              <RefreshCw className="h-4 w-4" />
+              <span>{i18nCopy.browserRefreshProjects}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="relative mb-3">
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-(--text-tertiary)" />
+          <input
+            className="control-input bg-(--bg-panel-muted) pl-9"
+            value={modFilter}
+            onChange={(event) => onFilterChange(event.target.value)}
+            placeholder={i18nCopy.browserSearchPlaceholder}
+            spellCheck={false}
+          />
+        </div>
+
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-auto pr-1">
+          {filteredProjects.length ? (
+            <div className="flex flex-col divide-y divide-(--border-color)/40">
+              {filteredProjects.map((project, index) => {
+                const active = activeProjectPath === project.absolutePath
+                return (
+                  <button
+                    key={project.absolutePath}
+                    type="button"
+                    {...getLoadingMotionChildRevealProps({
+                      index,
+                      className: cx(
+                        'flex w-full items-center justify-between gap-3 px-2 py-1.5 text-left transition-colors',
+                        active
+                          ? 'bg-(--accent-soft) text-(--accent)'
+                          : 'text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
+                      ),
+                    })}
+                    onClick={() => onSelectProject(project.absolutePath)}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] leading-tight font-medium">{project.name}</p>
+                      <p className="truncate text-[11px] text-(--text-tertiary)">
+                        {i18nCopy.browserProjectMeta(project.author, project.version, project.uniqueId)}
+                      </p>
+                    </div>
+                    {active ? <Check className="h-3.5 w-3.5 shrink-0" aria-label={i18nCopy.browserSelectedLabel} /> : null}
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="panel-empty-state flex min-h-48 items-center justify-center text-center">
+              <div>
+                <p className="text-base font-semibold text-(--text-primary)">{i18nCopy.browserEmptyTitle}</p>
+                <p className="mt-2 text-sm leading-6 text-(--text-secondary)">{i18nCopy.browserEmptyDescription}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden bg-(--bg-panel) p-4">
       <section className="panel-surface p-4">
@@ -180,34 +261,54 @@ export function ModBrowserPanel({
             />
           </div>
           <div className="flex shrink-0 flex-wrap gap-3">
-            <button
-              type="button"
-              className={cx(
-                'control-button h-10 gap-2 px-4',
-                contentPatcherOnly
-                  ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-(--text-primary)'
-                  : undefined,
-              )}
-              aria-pressed={contentPatcherOnly}
-              onClick={() => onContentPatcherOnlyChange(!contentPatcherOnly)}
-            >
-              <Filter className="h-4 w-4" />
-              <span>{copy.contentPatcherOnly}</span>
-            </button>
-            <button
-              type="button"
-              className={cx(
-                'control-button h-10 gap-2 px-4',
-                compatibleOnly
-                  ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-(--text-primary)'
-                  : undefined,
-              )}
-              aria-pressed={compatibleOnly}
-              onClick={() => onCompatibleOnlyChange(!compatibleOnly)}
-            >
-              <Filter className="h-4 w-4" />
-              <span>{copy.compatibleOnly}</span>
-            </button>
+            {!isI18nMode ? (
+              <>
+                <button
+                  type="button"
+                  className={cx(
+                    'control-button h-10 gap-2 px-4',
+                    contentPatcherOnly
+                      ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-(--text-primary)'
+                      : undefined,
+                  )}
+                  aria-pressed={contentPatcherOnly}
+                  onClick={() => onContentPatcherOnlyChange(!contentPatcherOnly)}
+                >
+                  <Filter className="h-4 w-4" />
+                  <span>{copy.contentPatcherOnly}</span>
+                </button>
+                <button
+                  type="button"
+                  className={cx(
+                    'control-button h-10 gap-2 px-4',
+                    compatibleOnly
+                      ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-(--text-primary)'
+                      : undefined,
+                  )}
+                  aria-pressed={compatibleOnly}
+                  onClick={() => onCompatibleOnlyChange(!compatibleOnly)}
+                >
+                  <Filter className="h-4 w-4" />
+                  <span>{copy.compatibleOnly}</span>
+                </button>
+              </>
+            ) : null}
+            {onI18nOnlyChange && !isI18nMode ? (
+              <button
+                type="button"
+                className={cx(
+                  'control-button h-10 gap-2 px-4',
+                  i18nOnly
+                    ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-(--text-primary)'
+                    : undefined,
+                )}
+                aria-pressed={i18nOnly}
+                onClick={() => onI18nOnlyChange(!i18nOnly)}
+              >
+                <Filter className="h-4 w-4" />
+                <span>{copy.i18nOnly}</span>
+              </button>
+            ) : null}
           </div>
         </div>
       </section>
@@ -231,6 +332,7 @@ export function ModBrowserPanel({
                 project={project}
                 active={activeProjectPath === project.absolutePath}
                 index={index}
+                mode={mode}
                 onSelect={() => onSelectProject(project.absolutePath)}
               />
             ))

@@ -107,6 +107,9 @@ const items: ItemsPanelCopy = {
   giftSectionTitle: 'Villager Preferences',
   giftLoveTitle: 'Loved',
   giftLikeTitle: 'Liked',
+  listViewLabel: 'List',
+  gridViewLabel: 'Grid',
+  sourceLabel: 'Source',
   kindLabels: {
     object: 'Object',
     'big-craftable': 'Big Craftable',

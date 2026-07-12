@@ -1,8 +1,9 @@
 use super::{
-    cache_file_path, encode_hex, localized_variant_path, logicalized_asset_path,
+    cache_file_path, encode_hex, export_map_png, localized_variant_path, logicalized_asset_path,
     preferred_existing_xnb_path, read_directory_info, split_localized_stem,
 };
 use crate::test_support::{create_temp_dir, write_file};
+use base64::Engine;
 use std::fs;
 use std::path::Path;
 
@@ -84,4 +85,37 @@ fn read_directory_info_accepts_unix_stardew_executable_names() {
 
         fs::remove_dir_all(root).expect("cleanup test directory");
     }
+}
+
+#[test]
+fn exports_a_valid_png_to_the_selected_path() {
+    let root = create_temp_dir("map-png-export");
+    let output = root.join("Town.png");
+    let png = base64::engine::general_purpose::STANDARD.encode(b"\x89PNG\r\n\x1a\nexported-map");
+    fs::write(&output, b"previous-export").expect("write previous export");
+
+    export_map_png(output.to_string_lossy().into_owned(), png).expect("export map png");
+
+    assert_eq!(
+        fs::read(&output).expect("read exported png"),
+        b"\x89PNG\r\n\x1a\nexported-map"
+    );
+    fs::remove_dir_all(root).expect("cleanup test directory");
+}
+
+#[test]
+fn rejects_map_png_exports_with_invalid_path_or_payload() {
+    let root = create_temp_dir("map-png-export-invalid");
+    let invalid_extension = root.join("Town.jpg");
+    let png = base64::engine::general_purpose::STANDARD.encode(b"\x89PNG\r\n\x1a\nexported-map");
+
+    assert!(export_map_png(invalid_extension.to_string_lossy().into_owned(), png).is_err());
+    assert!(
+        export_map_png(
+            root.join("Town.png").to_string_lossy().into_owned(),
+            "not-a-png".to_string()
+        )
+        .is_err()
+    );
+    fs::remove_dir_all(root).expect("cleanup test directory");
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test'
 import { getDockGuideRects, getWorkspaceGeometry } from '@shared/workspace/layoutGeometry'
 import { buildDefaultSnapshot } from '@shared/workspace/layoutState'
-import { ROOT_PADDING, TOOL_WINDOW_RAIL_GAP, TOOL_WINDOW_RAIL_WIDTH } from '@shared/workspace/layoutConstants'
+import { COLUMN_GAP, RESIZER_THICKNESS, ROOT_PADDING } from '@shared/workspace/layoutConstants'
 import type { WorkspacePanelConfig, WorkspaceSize, WorkspaceStoredState } from '@shared/contracts'
 
 function buildPanels(): WorkspacePanelConfig[] {
@@ -20,7 +20,7 @@ function buildPanels(): WorkspacePanelConfig[] {
       title: 'Viewport',
       subtitle: '',
       content: null,
-      minWidth: 520,
+      minWidth: 360,
       minHeight: 200,
       defaultDock: 'center',
     },
@@ -61,13 +61,12 @@ describe('layoutGeometry', () => {
     ])
 
     const leftTop = guides[0]
-    const expectedLeftX = ROOT_PADDING + TOOL_WINDOW_RAIL_WIDTH + TOOL_WINDOW_RAIL_GAP
-    expect(leftTop.rect.x).toBe(expectedLeftX)
+    expect(leftTop.rect.x).toBe(ROOT_PADDING)
     expect(leftTop.rect.width).toBeGreaterThan(0)
     expect(leftTop.rect.height).toBeGreaterThan(0)
   })
 
-  it('builds geometry with rails when side panels are docked', () => {
+  it('builds geometry with side panels docked and no tool-window rails', () => {
     const panels = buildPanels()
     const snapshot = buildDefaultSnapshot(panels)
     const state: WorkspaceStoredState = { ...snapshot, presets: {} }
@@ -76,8 +75,49 @@ describe('layoutGeometry', () => {
 
     const geometry = getWorkspaceGeometry(panels, panelMap, state, size, {})
 
-    expect(geometry.rails.left).not.toBeNull()
-    expect(geometry.rails.right).not.toBeNull()
+    expect(geometry.rails.left).toBeNull()
+    expect(geometry.rails.right).toBeNull()
+    expect(geometry.railContainers.left).not.toBeNull()
+    expect(geometry.railContainers.right).not.toBeNull()
     expect(geometry.dockedRects.viewport).toEqual(geometry.centerRect)
+  })
+
+  it('uses flush root padding and full-height hairline edge resizers', () => {
+    expect(ROOT_PADDING).toBe(0)
+    expect(COLUMN_GAP).toBe(5)
+    expect(RESIZER_THICKNESS).toBe(5)
+
+    const panels = buildPanels()
+    const snapshot = buildDefaultSnapshot(panels)
+    const state: WorkspaceStoredState = { ...snapshot, presets: {} }
+    const panelMap = Object.fromEntries(panels.map((panel) => [panel.id, panel]))
+    const size: WorkspaceSize = { width: 1680, height: 960 }
+
+    const geometry = getWorkspaceGeometry(panels, panelMap, state, size, {})
+    const leftContainer = geometry.railContainers.left
+    const rightContainer = geometry.railContainers.right
+    const leftResizer = geometry.edgeResizers.left
+    const rightResizer = geometry.edgeResizers.right
+
+    expect(leftContainer).not.toBeNull()
+    expect(rightContainer).not.toBeNull()
+    expect(leftResizer).not.toBeNull()
+    expect(rightResizer).not.toBeNull()
+    expect(geometry.centerRect.y).toBe(0)
+    expect(leftContainer!.y).toBe(0)
+    expect(rightContainer!.y).toBe(0)
+    expect(leftContainer!.x).toBe(0)
+
+    expect(leftResizer!.y).toBe(leftContainer!.y)
+    expect(leftResizer!.height).toBe(leftContainer!.height)
+    expect(leftResizer!.width).toBe(RESIZER_THICKNESS)
+    expect(rightResizer!.y).toBe(rightContainer!.y)
+    expect(rightResizer!.height).toBe(rightContainer!.height)
+    expect(rightResizer!.width).toBe(RESIZER_THICKNESS)
+
+    const leftGapCenter = leftContainer!.x + leftContainer!.width + COLUMN_GAP / 2
+    const rightGapCenter = rightContainer!.x - COLUMN_GAP / 2
+    expect(leftResizer!.x + leftResizer!.width / 2).toBeCloseTo(leftGapCenter, 5)
+    expect(rightResizer!.x + rightResizer!.width / 2).toBeCloseTo(rightGapCenter, 5)
   })
 })

@@ -14,6 +14,13 @@ use serde_json::Value;
 use std::path::Path;
 use std::path::PathBuf;
 
+fn test_temp_dir(name: &str) -> PathBuf {
+    std::env::temp_dir()
+        .canonicalize()
+        .unwrap_or_else(|_| std::env::temp_dir())
+        .join(name)
+}
+
 fn scaleup_assets_target() -> &'static str {
     "{{Arborsm.ScaleUpUnofficial/Assets}}"
 }
@@ -213,7 +220,7 @@ fn simulate_content_patcher_preserves_target_order_from_plan() {
 
 #[test]
 fn simulate_content_patcher_uses_built_in_scaleup_asset_kinds() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-appdata-attached-api");
+    let temp_dir = test_temp_dir("modforge-cp-appdata-attached-api");
     let pack_root = temp_dir.join("pack");
     std::fs::create_dir_all(&pack_root).expect("pack dir");
 
@@ -263,7 +270,7 @@ fn simulate_content_patcher_uses_built_in_scaleup_asset_kinds() {
 
 #[test]
 fn load_content_patcher_result_asset_loads_scaleup_entries_from_included_file() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-scaleup-attached-assets-pack");
+    let temp_dir = test_temp_dir("modforge-cp-scaleup-attached-assets-pack");
     let pack_root = temp_dir.join("pack");
     let scaleup_dir = pack_root.join("assets").join("Characters").join("ScaleUp");
     let _ = std::fs::remove_dir_all(&temp_dir);
@@ -641,7 +648,7 @@ fn load_content_patcher_result_asset_uses_virtual_json_asset_relative_to_include
 
 #[test]
 fn load_content_patcher_result_asset_uses_game_content_json_as_base() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-json-base-pack");
+    let temp_dir = test_temp_dir("modforge-cp-json-base-pack");
     let game_root = temp_dir.join("game");
     let pack_root = temp_dir.join("pack");
     std::fs::create_dir_all(game_root.join("Content").join("Data")).expect("game data dir");
@@ -716,7 +723,7 @@ fn load_content_patcher_result_asset_uses_game_content_json_as_base() {
 
 #[test]
 fn content_patcher_blocks_export_when_existing_base_json_fails_to_parse() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-bad-base-json");
+    let temp_dir = test_temp_dir("modforge-cp-bad-base-json");
     let game_root = temp_dir.join("game");
     let pack_root = temp_dir.join("pack");
     let _ = std::fs::remove_dir_all(&temp_dir);
@@ -781,7 +788,7 @@ fn content_patcher_blocks_export_when_existing_base_json_fails_to_parse() {
 
 #[test]
 fn load_content_patcher_result_asset_applies_target_field_entries_to_character_appearance() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-characters-target-field-pack");
+    let temp_dir = test_temp_dir("modforge-cp-characters-target-field-pack");
     let game_root = temp_dir.join("game");
     let pack_root = temp_dir.join("pack");
     std::fs::create_dir_all(game_root.join("Content").join("Data")).expect("game data dir");
@@ -875,7 +882,7 @@ fn load_content_patcher_result_asset_applies_target_field_entries_to_character_a
 
 #[test]
 fn export_content_patcher_asset_writes_json_result() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-json-export");
+    let temp_dir = test_temp_dir("modforge-cp-json-export");
     std::fs::create_dir_all(&temp_dir).expect("temp dir");
 
     let request = ExportContentPatcherAssetRequest {
@@ -995,7 +1002,7 @@ fn export_content_patcher_asset_rejects_parent_segment_output_directory() {
 fn export_content_patcher_asset_rejects_symlink_parent_output_directory() {
     use std::os::unix::fs::symlink;
 
-    let temp_dir = std::env::temp_dir().join("modforge-cp-export-symlink-parent");
+    let temp_dir = test_temp_dir("modforge-cp-export-symlink-parent");
     let real_output = temp_dir.join("real-output");
     let linked_output = temp_dir.join("linked-output");
     let _ = std::fs::remove_dir_all(&temp_dir);
@@ -1040,7 +1047,7 @@ fn export_content_patcher_asset_rejects_symlink_parent_output_directory() {
 fn export_content_patcher_asset_rejects_symlink_output_directory() {
     use std::os::unix::fs::symlink;
 
-    let temp_dir = std::env::temp_dir().join("modforge-cp-export-symlink-self");
+    let temp_dir = test_temp_dir("modforge-cp-export-symlink-self");
     let real_output = temp_dir.join("real-output");
     let linked_output = temp_dir.join("linked-output");
     let _ = std::fs::remove_dir_all(&temp_dir);
@@ -1082,7 +1089,7 @@ fn export_content_patcher_asset_rejects_symlink_output_directory() {
 
 #[test]
 fn load_content_patcher_result_asset_returns_image_data_url() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-image-pack");
+    let temp_dir = test_temp_dir("modforge-cp-image-pack");
     std::fs::create_dir_all(temp_dir.join("assets")).expect("image assets dir");
     let image_path = temp_dir.join("assets").join("crops.png");
     let image = RgbaImage::from_pixel(2, 2, image::Rgba([255, 0, 0, 255]));
@@ -1213,7 +1220,7 @@ fn load_content_patcher_result_asset_uses_virtual_image_asset_relative_to_includ
 
 #[test]
 fn load_content_patcher_result_asset_uses_game_content_image_as_base() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-image-base-pack");
+    let temp_dir = test_temp_dir("modforge-cp-image-base-pack");
     let game_root = temp_dir.join("game");
     let pack_root = temp_dir.join("pack");
     std::fs::create_dir_all(game_root.join("Content").join("TileSheets"))
@@ -1320,7 +1327,7 @@ fn load_content_patcher_result_asset_uses_game_content_image_as_base() {
 
 #[test]
 fn content_patcher_blocks_export_when_existing_base_image_fails_to_parse() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-bad-base-image");
+    let temp_dir = test_temp_dir("modforge-cp-bad-base-image");
     let game_root = temp_dir.join("game");
     let pack_root = temp_dir.join("pack");
     let _ = std::fs::remove_dir_all(&temp_dir);
@@ -1397,7 +1404,7 @@ fn content_patcher_blocks_export_when_existing_base_image_fails_to_parse() {
 
 #[test]
 fn load_content_patcher_result_asset_accepts_object_areas_without_explicit_x() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-image-area-object-pack");
+    let temp_dir = test_temp_dir("modforge-cp-image-area-object-pack");
     let game_root = temp_dir.join("game");
     let pack_root = temp_dir.join("pack");
     std::fs::create_dir_all(game_root.join("Content").join("TileSheets"))
@@ -1476,7 +1483,7 @@ fn load_content_patcher_result_asset_accepts_object_areas_without_explicit_x() {
 
 #[test]
 fn load_content_patcher_result_asset_accepts_stringified_object_area_numbers() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-image-area-string-object-pack");
+    let temp_dir = test_temp_dir("modforge-cp-image-area-string-object-pack");
     let game_root = temp_dir.join("game");
     let pack_root = temp_dir.join("pack");
     std::fs::create_dir_all(game_root.join("Content").join("TileSheets"))
@@ -1553,7 +1560,7 @@ fn load_content_patcher_result_asset_accepts_stringified_object_area_numbers() {
 
 #[test]
 fn load_content_patcher_result_asset_uses_config_schema_defaults_for_when_conditions() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-config-default-when-pack");
+    let temp_dir = test_temp_dir("modforge-cp-config-default-when-pack");
     let game_root = temp_dir.join("game");
     let pack_root = temp_dir.join("pack");
     std::fs::create_dir_all(game_root.join("Content").join("TileSheets"))
@@ -1634,7 +1641,7 @@ fn load_content_patcher_result_asset_uses_config_schema_defaults_for_when_condit
 
 #[test]
 fn load_content_patcher_result_asset_applies_image_patch_when_has_file_condition_matches() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-has-file-when-pack");
+    let temp_dir = test_temp_dir("modforge-cp-has-file-when-pack");
     let game_root = temp_dir.join("game");
     let pack_root = temp_dir.join("pack");
     std::fs::create_dir_all(game_root.join("Content").join("TileSheets"))
@@ -1712,7 +1719,7 @@ fn load_content_patcher_result_asset_applies_image_patch_when_has_file_condition
 
 #[test]
 fn load_content_patcher_result_asset_describes_blank_original_fallback_for_missing_base_image() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-image-fallback-pack");
+    let temp_dir = test_temp_dir("modforge-cp-image-fallback-pack");
     std::fs::create_dir_all(temp_dir.join("assets")).expect("image assets dir");
     let image_path = temp_dir.join("assets").join("crops.png");
     let image = RgbaImage::from_pixel(2, 2, image::Rgba([255, 0, 0, 255]));
@@ -1764,7 +1771,7 @@ fn load_content_patcher_result_asset_describes_blank_original_fallback_for_missi
 
 #[test]
 fn simulate_and_load_result_resolve_target_and_from_file_tokens_for_image_targets() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-token-target-pack");
+    let temp_dir = test_temp_dir("modforge-cp-token-target-pack");
     std::fs::create_dir_all(temp_dir.join("assets")).expect("image assets dir");
     let image_path = temp_dir.join("assets").join("spring_town.png");
     let image = RgbaImage::from_pixel(2, 2, image::Rgba([0, 255, 0, 255]));
@@ -1839,7 +1846,7 @@ fn simulate_and_load_result_resolve_target_and_from_file_tokens_for_image_target
 
 #[test]
 fn export_content_patcher_asset_writes_png_result() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-image-export");
+    let temp_dir = test_temp_dir("modforge-cp-image-export");
     std::fs::create_dir_all(temp_dir.join("assets")).expect("image assets dir");
     let image_path = temp_dir.join("assets").join("crops.png");
     let image = RgbaImage::from_pixel(2, 2, image::Rgba([255, 0, 0, 255]));
@@ -1888,7 +1895,7 @@ fn export_content_patcher_asset_writes_png_result() {
 
 #[test]
 fn export_content_patcher_asset_writes_png_from_virtual_preview_asset() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-virtual-image-export");
+    let temp_dir = test_temp_dir("modforge-cp-virtual-image-export");
     std::fs::create_dir_all(&temp_dir).expect("temp dir");
     let overlay = RgbaImage::from_pixel(2, 2, image::Rgba([255, 0, 0, 255]));
     let snapshot = ContentPatcherProjectSnapshot {
@@ -1952,7 +1959,7 @@ fn export_content_patcher_asset_writes_png_from_virtual_preview_asset() {
 
 #[test]
 fn load_content_patcher_result_asset_returns_map_debug_summary() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-map-pack");
+    let temp_dir = test_temp_dir("modforge-cp-map-pack");
     std::fs::create_dir_all(&temp_dir).expect("temp dir");
     std::fs::write(
         temp_dir.join("manifest.json"),
@@ -1995,7 +2002,7 @@ fn load_content_patcher_result_asset_returns_map_debug_summary() {
 
 #[test]
 fn export_content_patcher_asset_writes_map_tbin_snapshot() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-map-export");
+    let temp_dir = test_temp_dir("modforge-cp-map-export");
     std::fs::create_dir_all(&temp_dir).expect("temp dir");
     let pack_dir = temp_dir.join("pack");
     std::fs::create_dir_all(&pack_dir).expect("pack dir");
@@ -2045,7 +2052,7 @@ fn export_content_patcher_asset_writes_map_tbin_snapshot() {
 
 #[test]
 fn content_patcher_blocks_export_when_existing_base_map_fails_to_parse() {
-    let temp_dir = std::env::temp_dir().join("modforge-cp-bad-base-map");
+    let temp_dir = test_temp_dir("modforge-cp-bad-base-map");
     let game_root = temp_dir.join("game");
     let pack_root = temp_dir.join("pack");
     let _ = std::fs::remove_dir_all(&temp_dir);

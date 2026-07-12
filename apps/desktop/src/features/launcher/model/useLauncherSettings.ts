@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS: LauncherSettings = {
   autoInstallDownloads: false,
   keepDownloadedArchives: false,
   autoCheckModUpdates: true,
+  gmcmParsingEnabled: true,
 }
 
 const AUTOSAVE_DELAY_MS = 700
@@ -47,6 +48,7 @@ function normalizePersistedLauncherSettings(settings: LauncherSettings): Launche
     downloadPath: settings.downloadPath?.trim() ? settings.downloadPath : null,
     nexusApiKey: settings.nexusApiKey?.trim() ? settings.nexusApiKey : null,
     autoCheckModUpdates: settings.autoCheckModUpdates ?? true,
+    gmcmParsingEnabled: settings.gmcmParsingEnabled ?? true,
   }
 }
 
@@ -80,7 +82,8 @@ function launcherSettingsEqual(left: LauncherSettings | null, right: LauncherSet
     left.nexusApiKey === right.nexusApiKey &&
     left.autoInstallDownloads === right.autoInstallDownloads &&
     left.keepDownloadedArchives === right.keepDownloadedArchives &&
-    left.autoCheckModUpdates === right.autoCheckModUpdates
+    left.autoCheckModUpdates === right.autoCheckModUpdates &&
+    left.gmcmParsingEnabled === right.gmcmParsingEnabled
   )
 }
 

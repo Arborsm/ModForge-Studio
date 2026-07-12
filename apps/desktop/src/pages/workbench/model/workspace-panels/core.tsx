@@ -1,16 +1,12 @@
 import { DeferredWorkspaceCrossfade, DeferredWorkspacePlaceholder, DeferredWorkspaceReveal } from '@shared/ui/WorkspaceDeferred'
-import { Suspense, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { EventStageWorkspace } from '../../workspaces/event-stage'
 import { CentralWorkspace } from '../../workspaces/map'
 import { CharacterWorkspace } from '../../workspaces/character'
-import { BuildingWorkspace } from './LazyBuildingWorkspace'
 import { EventTimelinePanel } from '../../ui/workspace-panels/event/EventTimelinePanel'
 import { EventBrowserPanel } from '../../ui/workspace-panels/event/EventBrowserPanel'
 import { EventDirectoryPanel } from '../../ui/workspace-panels/event/EventDirectoryPanel'
 import { EventCommandInspectorPanel } from '../../ui/workspace-panels/event/EventCommandInspectorPanel'
-import { BuildingBrowserPanel } from '../../ui/workspace-panels/building/BuildingBrowserPanel'
-import { BuildingInspectorPanel } from '../../ui/workspace-panels/building/BuildingInspectorPanel'
-import { BuildingDetailsPanel } from '../../ui/workspace-panels/building/BuildingDetailsPanel'
 import { CharacterBrowserPanel } from '../../ui/workspace-panels/character/CharacterBrowserPanel'
 import { CharacterInspectorPanel } from '../../ui/workspace-panels/character/CharacterInspectorPanel'
 import { CharacterVariantsPanel } from '../../ui/workspace-panels/character/CharacterVariantsPanel'
@@ -26,7 +22,7 @@ import { LoadingMotionReveal } from '@shared/ui/loading-motion'
 
 export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): WorkspacePanelConfig[] {
   const { workspaceMode } = options
-  if (workspaceMode === 'items' || workspaceMode === 'mods') {
+  if (workspaceMode === 'items' || workspaceMode === 'buildings') {
     throw new Error(`Unsupported workspace mode: ${workspaceMode}`)
   }
 
@@ -118,33 +114,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
     onSelectCharacter,
     onSelectModCharacter,
     onSelectCharacterVariant,
-    constructibleGroups,
-    filteredConstructibleGroups,
-    worldBuildings,
-    filteredWorldBuildings,
-    buildingBrowserSourceMode,
-    onBuildingBrowserSourceModeChange,
-    modBuildingGroups,
-    activeModBuildingSelectionId,
-    activeBuildingModSources,
-    activeBuildingId,
-    activeBuilding,
-    activeUpgradeChain,
-    buildingFilter,
-    buildingStatusMessage,
-    activeBuildingTextureState,
-    activeBuildingChainTextureStates,
-    activeBuildingIndoorMapDocument,
-    activeBuildingIndoorMapPath,
-    activeBuildingIndoorMapMessage,
-    activeBuildingExteriorMapDocument,
-    activeBuildingExteriorMapPath,
-    activeBuildingExteriorMapMessage,
-    activeBuildingExteriorFocusPoint,
-    buildingSpringObjectsState,
-    onBuildingFilterChange,
-    onSelectBuilding,
-    onSelectModBuilding,
     heavyWorkspaceReady,
   } = options
 
@@ -153,6 +122,37 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
       {content}
     </LoadingMotionReveal>
   )
+
+  const shellClassName =
+    workspaceMode === 'events'
+      ? 'workspace-panel-shell-flat event-stage-panel-shell'
+      : workspaceMode === 'characters'
+        ? 'character-workspace-panel-shell'
+        : undefined
+
+  const eventDiagnosticsPanel = {
+    id: 'diagnostics',
+    title: 'Script Timeline',
+    subtitle: selectedEvent?.eventId ?? parsedEventAsset?.asset.name ?? '',
+    minWidth: 320,
+    minHeight: 180,
+    dockMinHeight: 140,
+    dockAutoHeight: false,
+    defaultDock: 'right-top',
+    defaultDockHeight: 190,
+    content: withPreviewReveal(
+      'workbench-events-timeline',
+      4,
+      <EventTimelinePanel
+        locale={locale}
+        selectedEvent={selectedEvent}
+        selectedTimelineEntryId={selectedTimelineEntryId}
+        currentCommandId={currentEventCommandId}
+        onSelectTimelineEntry={onSelectTimelineEntry}
+        onActivateTimelineEntry={onActivateTimelineEntry}
+      />,
+    ),
+  } satisfies WorkspacePanelConfig
 
   return [
     {
@@ -164,13 +164,13 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
       dockMinHeight: 240,
       defaultDock: 'left-top',
       defaultDockHeight: 760,
+      shellClassName,
       content:
         workspaceMode === 'events'
           ? withPreviewReveal(
               'workbench-events-browser',
               0,
               <EventBrowserPanel
-                locale={locale}
                 eventAssets={eventAssets}
                 filteredEventAssets={filteredEventAssets}
                 browserSourceMode={eventBrowserSourceMode}
@@ -178,10 +178,13 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
                 modEventGroups={modEventGroups}
                 activeModEventSelectionId={activeModEventSelectionId}
                 activeEventAssetId={activeEventAssetId}
+                events={parsedEventAsset?.events ?? []}
+                selectedEventKey={selectedEventKey}
                 assetFilter={eventAssetFilter}
                 onAssetFilterChange={onEventAssetFilterChange}
                 onOpenAsset={onOpenEventAsset}
                 onOpenModAsset={onOpenModEventAsset}
+                onSelectEvent={onSelectEvent}
               />,
             )
           : workspaceMode === 'characters'
@@ -202,44 +205,23 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
                   onSelectModCharacter={onSelectModCharacter}
                 />,
               )
-            : workspaceMode === 'buildings'
-              ? withPreviewReveal(
-                  'workbench-buildings-browser',
-                  0,
-                  <BuildingBrowserPanel
-                    constructibleGroups={constructibleGroups}
-                    filteredConstructibleGroups={filteredConstructibleGroups}
-                    worldBuildings={worldBuildings}
-                    filteredWorldBuildings={filteredWorldBuildings}
-                    browserSourceMode={buildingBrowserSourceMode}
-                    onBrowserSourceModeChange={onBuildingBrowserSourceModeChange}
-                    modBuildingGroups={modBuildingGroups}
-                    activeModBuildingSelectionId={activeModBuildingSelectionId}
-                    activeBuildingId={activeBuildingId}
-                    activeBuildingGroupKey={activeBuilding?.groupKey ?? null}
-                    buildingFilter={buildingFilter}
-                    onBuildingFilterChange={onBuildingFilterChange}
-                    onSelectBuilding={onSelectBuilding}
-                    onSelectModBuilding={onSelectModBuilding}
-                  />,
-                )
-              : withPreviewReveal(
-                  'workbench-map-browser',
-                  0,
-                  <AssetBrowserPanel
-                    mapAssets={mapAssets}
-                    filteredAssets={filteredAssets}
-                    browserSourceMode={mapBrowserSourceMode}
-                    onBrowserSourceModeChange={onMapBrowserSourceModeChange}
-                    modMapGroups={modMapGroups}
-                    activeModMapSelectionId={activeModMapSelectionId}
-                    activeMapId={activeMapId}
-                    assetFilter={assetFilter}
-                    onAssetFilterChange={onAssetFilterChange}
-                    onOpenAsset={onOpenAsset}
-                    onOpenModAsset={onOpenModAsset}
-                  />,
-                ),
+            : withPreviewReveal(
+                'workbench-map-browser',
+                0,
+                <AssetBrowserPanel
+                  mapAssets={mapAssets}
+                  filteredAssets={filteredAssets}
+                  browserSourceMode={mapBrowserSourceMode}
+                  onBrowserSourceModeChange={onMapBrowserSourceModeChange}
+                  modMapGroups={modMapGroups}
+                  activeModMapSelectionId={activeModMapSelectionId}
+                  activeMapId={activeMapId}
+                  assetFilter={assetFilter}
+                  onAssetFilterChange={onAssetFilterChange}
+                  onOpenAsset={onOpenAsset}
+                  onOpenModAsset={onOpenModAsset}
+                />,
+              ),
     },
     {
       id: 'viewport',
@@ -249,6 +231,8 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
       minHeight: 420,
       defaultDock: 'center',
       defaultDockHeight: 760,
+      hideDockHeader: workspaceMode === 'events',
+      shellClassName,
       content:
         workspaceMode === 'events' ? (
           withPreviewReveal(
@@ -295,40 +279,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
               )}
             </DeferredWorkspaceReveal>
           </DeferredWorkspaceCrossfade>
-        ) : workspaceMode === 'buildings' ? (
-          <Suspense
-            fallback={
-              <DeferredWorkspacePlaceholder
-                title={copy.buildingsPanel.workspaceTitle}
-                subtitle={copy.buildingsPanel.workspaceSubtitle}
-                lines={5}
-              />
-            }
-          >
-            {withPreviewReveal(
-              'workbench-buildings-viewport',
-              1,
-              <BuildingWorkspace
-                locale={locale}
-                viewportLabels={copy.viewportLabels}
-                theme={theme}
-                accentColor={accentColor}
-                building={activeBuilding}
-                upgradeChain={activeUpgradeChain}
-                activeTextureState={activeBuildingTextureState}
-                chainTextureStates={activeBuildingChainTextureStates}
-                activeIndoorMapDocument={activeBuildingIndoorMapDocument}
-                activeIndoorMapPath={activeBuildingIndoorMapPath}
-                activeIndoorMapMessage={activeBuildingIndoorMapMessage}
-                activeExteriorMapDocument={activeBuildingExteriorMapDocument}
-                activeExteriorMapPath={activeBuildingExteriorMapPath}
-                activeExteriorMapMessage={activeBuildingExteriorMapMessage}
-                activeExteriorFocusPoint={activeBuildingExteriorFocusPoint}
-                springObjectsState={buildingSpringObjectsState}
-                onSelectBuildingStage={onSelectBuilding}
-              />,
-            )}
-          </Suspense>
         ) : workspaceMode === 'map' ? (
           <DeferredWorkspaceCrossfade
             ready={heavyWorkspaceReady}
@@ -398,6 +348,7 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
           </DeferredWorkspaceReveal>
         ),
     },
+    ...(workspaceMode === 'events' ? [eventDiagnosticsPanel] : []),
     {
       id: 'inspector',
       title:
@@ -405,23 +356,20 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
           ? 'Event Directory'
           : workspaceMode === 'characters'
             ? copy.charactersPanel.inspectorTitle
-            : workspaceMode === 'buildings'
-              ? copy.buildingsPanel.inspectorTitle
-              : copy.rightDock.inspector,
+            : copy.rightDock.inspector,
       subtitle:
         workspaceMode === 'events'
           ? eventStatusMessage
           : workspaceMode === 'characters'
             ? characterStatusMessage
-            : workspaceMode === 'buildings'
-              ? buildingStatusMessage
-              : copy.rightDock.sceneSummary,
+            : copy.rightDock.sceneSummary,
       minWidth: 320,
       minHeight: 260,
       dockMinHeight: 180,
       dockAutoHeight: false,
       defaultDock: 'right-top',
       defaultDockHeight: workspaceMode === 'events' ? 280 : 220,
+      shellClassName,
       content:
         workspaceMode === 'events' ? (
           withPreviewReveal(
@@ -456,18 +404,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
               )}
             </DeferredWorkspaceReveal>
           </DeferredWorkspaceCrossfade>
-        ) : workspaceMode === 'buildings' ? (
-          withPreviewReveal(
-            'workbench-buildings-inspector',
-            2,
-            <BuildingInspectorPanel
-              building={activeBuilding}
-              textureState={activeBuildingTextureState}
-              activeIndoorMapPath={activeBuildingIndoorMapPath}
-              activeExteriorMapPath={activeBuildingExteriorMapPath}
-              modSources={activeBuildingModSources}
-            />,
-          )
         ) : workspaceMode === 'map' ? (
           <DeferredWorkspaceCrossfade
             ready={heavyWorkspaceReady}
@@ -509,7 +445,7 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
       minHeight: workspaceMode === 'events' ? 180 : 260,
       dockMinHeight: workspaceMode === 'events' ? 160 : 220,
       dockAutoHeight: false,
-      defaultDock: workspaceMode === 'characters' ? 'left-bottom' : 'right-bottom',
+      defaultDock: workspaceMode === 'characters' ? 'left-top' : 'right-top',
       defaultDockHeight: workspaceMode === 'events' ? 220 : workspaceMode === 'characters' ? 300 : 320,
       content:
         workspaceMode === 'events' ? (
@@ -584,7 +520,7 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
             minWidth: 320,
             minHeight: 300,
             dockMinHeight: 240,
-            defaultDock: 'right-bottom',
+            defaultDock: 'right-top',
             defaultDockHeight: 360,
             content: (
               <DeferredWorkspaceCrossfade
@@ -611,57 +547,21 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
           } satisfies WorkspacePanelConfig,
         ]
       : []),
-    ...(workspaceMode === 'buildings'
-      ? [
-          {
-            id: 'diagnostics',
-            title: copy.buildingsPanel.detailsTitle,
-            subtitle: activeBuilding?.builder ?? buildingStatusMessage,
-            minWidth: 320,
-            minHeight: 180,
-            dockMinHeight: 140,
-            dockAutoHeight: false,
-            defaultDock: 'right-bottom',
-            defaultDockHeight: 340,
-            content: withPreviewReveal('workbench-buildings-details', 4, <BuildingDetailsPanel building={activeBuilding} />),
-          } satisfies WorkspacePanelConfig,
-        ]
+    ...(workspaceMode === 'events'
+      ? []
       : [
           {
             id: 'diagnostics',
-            title:
-              workspaceMode === 'events'
-                ? 'Script Timeline'
-                : workspaceMode === 'characters'
-                  ? copy.charactersPanel.detailsTitle
-                  : copy.rightDock.diagnostics,
-            subtitle:
-              workspaceMode === 'events'
-                ? (selectedEvent?.eventId ?? parsedEventAsset?.asset.name ?? '')
-                : workspaceMode === 'characters'
-                  ? (activeCharacter?.homeRegion ?? characterStatusMessage)
-                  : copy.rightDock.projectFacts,
+            title: copy.charactersPanel.detailsTitle,
+            subtitle: activeCharacter?.homeRegion ?? characterStatusMessage,
             minWidth: 320,
             minHeight: 180,
             dockMinHeight: 140,
             dockAutoHeight: false,
-            defaultDock: workspaceMode === 'events' ? 'left-bottom' : workspaceMode === 'characters' ? 'right-bottom' : 'bottom-right',
+            defaultDock: 'right-top',
             defaultDockHeight: workspaceMode === 'characters' ? 320 : 190,
             content:
-              workspaceMode === 'events' ? (
-                withPreviewReveal(
-                  'workbench-events-timeline',
-                  4,
-                  <EventTimelinePanel
-                    locale={locale}
-                    selectedEvent={selectedEvent}
-                    selectedTimelineEntryId={selectedTimelineEntryId}
-                    currentCommandId={currentEventCommandId}
-                    onSelectTimelineEntry={onSelectTimelineEntry}
-                    onActivateTimelineEntry={onActivateTimelineEntry}
-                  />,
-                )
-              ) : workspaceMode === 'characters' ? (
+              workspaceMode === 'characters' ? (
                 <DeferredWorkspaceCrossfade
                   ready={heavyWorkspaceReady}
                   placeholder={

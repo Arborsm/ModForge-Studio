@@ -45,6 +45,8 @@ pub struct ModProjectSummary {
     pub plugin_kind: String,
     pub status: String,
     pub missing_required_dependencies: Vec<String>,
+    pub has_i18n: bool,
+    pub i18n_entry_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,6 +106,7 @@ pub struct ModProjectDetail {
     pub summary: ModProjectSummary,
     pub diagnostics: Vec<ModProjectDiagnostic>,
     pub content_patcher: Option<ContentPatcherProjectData>,
+    pub i18n_files: Vec<ContentPatcherI18nFile>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -281,6 +284,47 @@ fn i18n_entry_count(value: &Value) -> usize {
         .unwrap_or_default()
 }
 
+fn i18n_entry_count_for_project(project_path: &Path) -> usize {
+    let i18n_dir = project_path.join("i18n");
+    if !i18n_dir.is_dir() {
+        return 0;
+    }
+
+    let entries = match fs::read_dir(&i18n_dir) {
+        Ok(entries) => entries,
+        Err(_) => return 0,
+    };
+
+    let mut count = 0;
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => continue,
+        };
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        if !path
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|value| value.eq_ignore_ascii_case("json"))
+        {
+            continue;
+        }
+        if locale_from_i18n_path(&path).is_none() {
+            continue;
+        }
+        let (_, parsed) = match read_json_file(&path) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        count += i18n_entry_count(&parsed);
+    }
+
+    count
+}
+
 fn locale_from_i18n_path(path: &Path) -> Option<String> {
     path.file_stem()
         .and_then(|value| value.to_str())
@@ -303,6 +347,39 @@ fn normalize_i18n_locale(locale: &str) -> anyhow::Result<String> {
     }
 
     Ok(trimmed.to_string())
+}
+
+fn has_i18n_files(project_path: &Path) -> bool {
+    let i18n_dir = project_path.join("i18n");
+    if !i18n_dir.is_dir() {
+        return false;
+    }
+
+    let entries = match fs::read_dir(&i18n_dir) {
+        Ok(entries) => entries,
+        Err(_) => return false,
+    };
+
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => continue,
+        };
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        if path
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|value| value.eq_ignore_ascii_case("json"))
+            && locale_from_i18n_path(&path).is_some()
+        {
+            return true;
+        }
+    }
+
+    false
 }
 
 fn read_i18n_files(project_path: &Path) -> anyhow::Result<Vec<ContentPatcherI18nFile>> {
@@ -660,6 +737,8 @@ fn build_project_summary(
         .to_string(),
         status: compatibility.status.clone(),
         missing_required_dependencies: compatibility.missing_required_dependencies.clone(),
+        has_i18n: has_i18n_files(project_path),
+        i18n_entry_count: i18n_entry_count_for_project(project_path),
     }
 }
 
@@ -1388,23 +1467,29 @@ pub(crate) fn load_mod_project(path: String) -> anyhow::Result<ModProjectDetail>
     let project_path = ensure_project_root(&clean_input_path(&path))?;
     let manifest_path = project_path.join("manifest.json");
     let content_path = project_path.join("content.json");
-    if !content_path.is_file() {
-        bail!(
-            "No content.json was found in {}",
-            normalize_path(&project_path)
-        );
-    }
 
     let (_manifest_json, manifest) = read_json_file(&manifest_path)?;
-    let (_content_json, content) = read_json_file(&content_path)?;
+    let content = if content_path.is_file() {
+        read_json_file(&content_path).map(|(_, value)| value).ok()
+    } else {
+        None
+    };
+    let content_ref = content.as_ref();
+
     let scan_root = infer_mods_scan_root(&project_path);
     let discovered_projects = collect_scanned_projects(discover_project_roots(&scan_root)?);
     let attached_api_registry = load_attached_api_registry(None);
     let available_mod_ids = collect_available_mod_ids(&discovered_projects, &attached_api_registry);
-    let compatibility =
-        evaluate_project_compatibility(&manifest, Some(&content), &available_mod_ids);
+    let compatibility = evaluate_project_compatibility(&manifest, content_ref, &available_mod_ids);
     let is_cp = compatibility.is_content_patcher;
-    let diagnostics = build_diagnostics(&manifest, &content, is_cp);
+    let diagnostics = build_diagnostics(
+        &manifest,
+        content_ref.unwrap_or(&Value::Object(Map::new())),
+        is_cp,
+    );
+
+    let i18n_files = read_i18n_files(&project_path)?;
+
     if !is_cp {
         return Ok(ModProjectDetail {
             plugin_kind: "unknown".to_string(),
@@ -1413,11 +1498,12 @@ pub(crate) fn load_mod_project(path: String) -> anyhow::Result<ModProjectDetail>
                 &project_path,
                 &manifest_path,
                 &manifest,
-                Some(&content_path),
+                content_path.is_file().then_some(&content_path),
                 &compatibility,
             ),
             diagnostics,
             content_patcher: None,
+            i18n_files,
         });
     }
 
@@ -1427,6 +1513,13 @@ pub(crate) fn load_mod_project(path: String) -> anyhow::Result<ModProjectDetail>
             compatibility.missing_required_dependencies.join(", ")
         );
     }
+
+    let content_value = content_ref.as_ref().ok_or_else(|| {
+        anyhow::anyhow!(
+            "No content.json was found in {}",
+            normalize_path(&project_path)
+        )
+    })?;
 
     Ok(ModProjectDetail {
         plugin_kind: "content-patcher".to_string(),
@@ -1445,10 +1538,11 @@ pub(crate) fn load_mod_project(path: String) -> anyhow::Result<ModProjectDetail>
             &content_path,
             serde_json::to_string_pretty(&manifest)
                 .with_context(|| format!("Failed to serialize manifest.json"))?,
-            serde_json::to_string_pretty(&content)
+            serde_json::to_string_pretty(content_value)
                 .with_context(|| format!("Failed to serialize content.json"))?,
-            &content,
+            content_value,
         )?),
+        i18n_files,
     })
 }
 
@@ -1463,15 +1557,23 @@ pub(crate) fn save_mod_project(
         .filter(|path| !normalize_path(path).trim().is_empty())
         .unwrap_or_else(|| source_path.clone());
 
-    let manifest: Value = serde_json::from_str(&request.manifest_json)
-        .with_context(|| format!("manifest.json is not valid JSON"))?;
-    let content: Value = serde_json::from_str(&request.content_json)
-        .with_context(|| format!("content.json is not valid JSON"))?;
-    let is_cp = is_content_patcher_project(&manifest, &content);
-    let diagnostics = build_diagnostics(&manifest, &content, is_cp);
-    if !is_cp {
-        bail!("Only Content Patcher projects can be saved right now.");
-    }
+    let source_manifest_path = source_path.join("manifest.json");
+    let source_content_path = source_path.join("content.json");
+    let source_manifest = read_json_file(&source_manifest_path)
+        .map(|(_, value)| value)
+        .ok();
+    let source_content = if source_content_path.is_file() {
+        read_json_file(&source_content_path)
+            .map(|(_, value)| value)
+            .ok()
+    } else {
+        None
+    };
+    let is_cp = source_manifest
+        .as_ref()
+        .zip(source_content.as_ref())
+        .map(|(manifest, content)| is_content_patcher_project(manifest, content))
+        .unwrap_or(false);
 
     let canonical_source = source_path.canonicalize().with_context(|| {
         format!(
@@ -1533,10 +1635,32 @@ pub(crate) fn save_mod_project(
 
     let manifest_path = target_path.join("manifest.json");
     let content_path = target_path.join("content.json");
-    let manifest_pretty = serde_json::to_string_pretty(&manifest)
-        .with_context(|| format!("Failed to format manifest.json"))?;
-    let content_pretty = serde_json::to_string_pretty(&content)
-        .with_context(|| format!("Failed to format content.json"))?;
+    let diagnostics;
+
+    if is_cp {
+        let manifest: Value = serde_json::from_str(&request.manifest_json)
+            .with_context(|| format!("manifest.json is not valid JSON"))?;
+        let content: Value = serde_json::from_str(&request.content_json)
+            .with_context(|| format!("content.json is not valid JSON"))?;
+        diagnostics = build_diagnostics(&manifest, &content, is_cp);
+
+        let manifest_pretty = serde_json::to_string_pretty(&manifest)
+            .with_context(|| format!("Failed to format manifest.json"))?;
+        let content_pretty = serde_json::to_string_pretty(&content)
+            .with_context(|| format!("Failed to format content.json"))?;
+
+        fs::write(&manifest_path, format!("{manifest_pretty}\n"))
+            .with_context(|| format!("Failed to write {}", normalize_path(&manifest_path)))?;
+        fs::write(&content_path, format!("{content_pretty}\n"))
+            .with_context(|| format!("Failed to write {}", normalize_path(&content_path)))?;
+    } else {
+        diagnostics = source_manifest
+            .as_ref()
+            .zip(source_content.as_ref())
+            .map(|(manifest, content)| build_diagnostics(manifest, content, is_cp))
+            .unwrap_or_default();
+    }
+
     let mut i18n_payloads = Vec::new();
     for file in request.i18n_files {
         let locale = normalize_i18n_locale(&file.locale)?;
@@ -1550,10 +1674,6 @@ pub(crate) fn save_mod_project(
         i18n_payloads.push((locale, pretty));
     }
 
-    fs::write(&manifest_path, format!("{manifest_pretty}\n"))
-        .with_context(|| format!("Failed to write {}", normalize_path(&manifest_path)))?;
-    fs::write(&content_path, format!("{content_pretty}\n"))
-        .with_context(|| format!("Failed to write {}", normalize_path(&content_path)))?;
     if !i18n_payloads.is_empty() {
         let i18n_dir = target_path.join("i18n");
         fs::create_dir_all(&i18n_dir).with_context(|| {
@@ -1570,7 +1690,11 @@ pub(crate) fn save_mod_project(
     }
 
     Ok(SaveModProjectResult {
-        plugin_kind: "content-patcher".to_string(),
+        plugin_kind: if is_cp {
+            "content-patcher".to_string()
+        } else {
+            "unknown".to_string()
+        },
         target_path: normalize_path(&target_path),
         manifest_path: normalize_path(&manifest_path),
         content_path: normalize_path(&content_path),

@@ -43,6 +43,7 @@ fn launcher_settings(api_key: Option<&str>) -> LauncherSettings {
         auto_install_downloads: false,
         keep_downloaded_archives: false,
         auto_check_mod_updates: true,
+        gmcm_parsing_enabled: true,
     }
 }
 

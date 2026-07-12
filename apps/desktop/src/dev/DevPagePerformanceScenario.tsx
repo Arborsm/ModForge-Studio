@@ -9,8 +9,7 @@ import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import type { LauncherLibraryState } from '@features/launcher/model/launcherContracts'
 import { LauncherPage } from '@pages/launcher/LauncherPage'
 import type { StudioDeskGalleryProject, StudioDeskInspiration, StudioDeskModel, StudioDeskWorldBibleModel } from '@features/cp-maker'
-import WorkbenchHomePage from '@pages/workbench/ui/WorkbenchHomePage'
-import type { MakerWorkspaceMode } from '@pages/workbench/ui/WorkbenchHomePage'
+import { WorkbenchHomePage, type MakerWorkspaceMode } from '@pages/workbench/ui/WorkbenchHomePage'
 import { EventPatchEditor } from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventPatchEditor'
 import ItemWorkspace from '@pages/workbench/workspaces/item/view/ItemWorkspace'
 import type { ItemTextureAssetState, ItemWorkspaceEntry } from '@pages/workbench/workspaces/item/entities/item'
@@ -535,6 +534,8 @@ function createContentPatcherProjectDetail(changeCount: number): ModProjectDetai
       pluginKind: 'content-patcher',
       status: 'ready',
       missingRequiredDependencies: [],
+      hasI18n: true,
+      i18nEntryCount: 12,
     },
     diagnostics: [],
     contentPatcher: {
@@ -551,6 +552,7 @@ function createContentPatcherProjectDetail(changeCount: number): ModProjectDetai
       i18nFiles: [],
       patches: [],
     },
+    i18nFiles: [],
   } as ModProjectDetail
 }
 
@@ -600,6 +602,7 @@ function createLauncherLibraryMods(count: number) {
     folderName: `PerformanceMod${index}`,
     absolutePath: `E:/ModForge Dev/Stardew Valley/Mods/PerformanceMod${index}`,
     enabled: index % 9 !== 0,
+    hasConfig: index % 5 === 0,
     nexusModId: 950000 + index,
     updateKeys: [`Nexus:${950000 + index}`],
     modUrl: `https://example.invalid/mods/${950000 + index}`,
@@ -731,6 +734,16 @@ const performanceLauncherPort: LauncherPort = {
   saveSettings: async (request) => ({ ...launcherSettings, ...request }),
   scanLibrary: async () => ({ modsPath: launcherSettings.modsPath, mods: launcherLibraryMods }),
   loadRuntimeInfo: async () => ({ gameVersion: '1.6.15', smapiVersion: '4.3.0' }),
+  loadGmcmProbeDiagnostics: async () => ({
+    status: 'ready',
+    probeAssemblyPath: null,
+    dotnetPath: 'dotnet',
+    dotnetAvailable: true,
+    net6RuntimeAvailable: true,
+    installedRuntimes: [],
+    warnings: [],
+    repairActions: [],
+  }),
   loadLibraryState: async () => {
     const state = getPerformanceLauncherLibraryState()
     exposePerformanceLauncherLibraryState(state)
@@ -862,6 +875,27 @@ const performanceLauncherPort: LauncherPort = {
   chooseImageFile: async () => null,
   getBackupDirectory: async () => 'E:\\ModForge Dev\\Backups',
   setModEnabled: async (request) => ({ absolutePath: request.modPath, enabled: request.enabled }) as any,
+  loadModConfig: async (request) =>
+    ({
+      modPath: request.modPath,
+      configPath: `${request.modPath}\\config.json`,
+      configExists: true,
+      fields: [],
+      schemaSources: [],
+      warnings: [],
+      probeStatus: 'unavailable',
+    }) as any,
+  saveModConfig: async (request) =>
+    ({
+      modPath: request.modPath,
+      configPath: `${request.modPath}\\config.json`,
+      configExists: true,
+      fields: [],
+      schemaSources: [],
+      warnings: [],
+      probeStatus: 'unavailable',
+    }) as any,
+  loadConfigItems: async () => [],
   chooseDirectory: async () => null,
   detectDefaultGameDirectory: async () => launcherSettings.gamePath,
   toDesktopAssetUrl: (path) => path,
@@ -967,7 +1001,7 @@ function WorkbenchHomeScenario() {
   return (
     <ScenarioFrame id="workbench-home">
       <WorkbenchHomePage
-        workspaceMode="mods"
+        workspaceMode="map"
         workspaceViewMode="edit"
         hasActiveProject={hasActiveProject}
         gameDirectoryReady={gameDirectoryReady}

@@ -1,15 +1,16 @@
 const { spawnSync } = require('node:child_process')
 
-const releaseScripts = {
-  linux: 'release:linux',
-  darwin: 'release:macos',
-  win32: 'release:windows',
+const path = require('node:path')
+
+const releaseCommands = {
+  linux: [process.execPath, [path.join(__dirname, 'build-electron-release.cjs')]],
+  darwin: [process.execPath, [path.join(__dirname, 'release-macos.cjs')]],
+  win32: [process.execPath, [path.join(__dirname, 'run-tauri-cli.cjs'), 'build', '--verbose', '--bundles', 'nsis']],
 }
 
 function run(command, args) {
   const result = spawnSync(command, args, {
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
+    stdio: ['ignore', 'inherit', 'inherit'],
   })
 
   if (result.error) {
@@ -21,11 +22,11 @@ function run(command, args) {
   }
 }
 
-const releaseScript = releaseScripts[process.platform]
+const releaseCommand = releaseCommands[process.platform]
 
-if (!releaseScript) {
+if (!releaseCommand) {
   throw new Error(`Unsupported release platform: ${process.platform}`)
 }
 
-run('vp', ['run', releaseScript])
-run('vp', ['run', 'release:collect'])
+run(...releaseCommand)
+run(process.execPath, [path.join(__dirname, 'collect-release-artifacts.cjs')])

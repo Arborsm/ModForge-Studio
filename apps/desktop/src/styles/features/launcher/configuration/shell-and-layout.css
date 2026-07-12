@@ -223,6 +223,11 @@
     align-content: start;
   }
 
+  .launcher-config-wide-panel {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
   .launcher-config-panel {
     min-width: 0;
     overflow: hidden;

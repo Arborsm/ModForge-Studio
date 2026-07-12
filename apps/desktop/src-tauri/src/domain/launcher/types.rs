@@ -8,6 +8,10 @@ fn default_auto_check_mod_updates() -> bool {
     true
 }
 
+fn default_gmcm_parsing_enabled() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(default)]
@@ -20,6 +24,8 @@ pub struct LauncherSettings {
     pub keep_downloaded_archives: bool,
     #[serde(default = "default_auto_check_mod_updates")]
     pub auto_check_mod_updates: bool,
+    #[serde(default = "default_gmcm_parsing_enabled")]
+    pub gmcm_parsing_enabled: bool,
 }
 
 impl Default for LauncherSettings {
@@ -32,6 +38,7 @@ impl Default for LauncherSettings {
             auto_install_downloads: false,
             keep_downloaded_archives: false,
             auto_check_mod_updates: default_auto_check_mod_updates(),
+            gmcm_parsing_enabled: default_gmcm_parsing_enabled(),
         }
     }
 }
@@ -104,6 +111,7 @@ pub struct SaveLauncherSettingsRequest {
     pub auto_install_downloads: Option<bool>,
     pub keep_downloaded_archives: Option<bool>,
     pub auto_check_mod_updates: Option<bool>,
+    pub gmcm_parsing_enabled: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -132,6 +140,7 @@ pub struct LauncherLibraryModSummary {
     pub folder_name: String,
     pub absolute_path: String,
     pub enabled: bool,
+    pub has_config: bool,
     pub nexus_mod_id: Option<i64>,
     pub update_keys: Vec<String>,
     pub mod_url: Option<String>,
@@ -331,6 +340,128 @@ pub struct PersistLauncherLibraryRemoteCoverRequest {
 pub struct SetLauncherModEnabledResult {
     pub absolute_path: String,
     pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadLauncherModConfigRequest {
+    pub mod_path: String,
+    #[serde(default)]
+    pub locale: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveLauncherModConfigRequest {
+    pub mod_path: String,
+    #[serde(default)]
+    pub locale: Option<String>,
+    #[serde(default)]
+    pub values: BTreeMap<String, serde_json::Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LauncherModConfigSource {
+    ContentPatcher,
+    GenericModConfigMenu,
+    ConfigJson,
+    DllStatic,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LauncherModConfigFieldType {
+    Boolean,
+    Integer,
+    Number,
+    String,
+    StringArray,
+    Object,
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LauncherModConfigUiHint {
+    Color,
+    Item,
+    ItemList,
+    Keybind,
+    KeybindList,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LauncherModConfigProbeStatus {
+    NotRun,
+    Unavailable,
+    Succeeded,
+    Failed,
+    TimedOut,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherModConfigField {
+    pub key: String,
+    pub label: String,
+    pub description: Option<String>,
+    pub section: Option<String>,
+    pub field_type: LauncherModConfigFieldType,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ui_hint: Option<LauncherModConfigUiHint>,
+    pub value: serde_json::Value,
+    pub default_value: Option<serde_json::Value>,
+    #[serde(default)]
+    pub allow_values: Vec<serde_json::Value>,
+    #[serde(default)]
+    pub allow_blank: bool,
+    #[serde(default)]
+    pub allow_multiple: bool,
+    pub editable: bool,
+    pub source: LauncherModConfigSource,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherModConfigResult {
+    pub mod_path: String,
+    pub config_path: String,
+    pub config_exists: bool,
+    #[serde(default)]
+    pub fields: Vec<LauncherModConfigField>,
+    #[serde(default)]
+    pub schema_sources: Vec<LauncherModConfigSource>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
+    pub probe_status: LauncherModConfigProbeStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub probe_diagnostics: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LauncherGmcmProbeDiagnosticStatus {
+    Ready,
+    Warning,
+    Unavailable,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherGmcmProbeDiagnosticsResult {
+    pub status: LauncherGmcmProbeDiagnosticStatus,
+    pub probe_assembly_path: Option<String>,
+    pub dotnet_path: String,
+    pub dotnet_available: bool,
+    pub net6_runtime_available: bool,
+    #[serde(default)]
+    pub installed_runtimes: Vec<String>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
+    #[serde(default)]
+    pub repair_actions: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

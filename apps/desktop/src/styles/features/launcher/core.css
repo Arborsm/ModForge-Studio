@@ -172,7 +172,8 @@
   }
 
   .launcher-downloads-popover-list-shell {
-    height: 26.25rem;
+    max-height: min(26rem, calc(72vh - 6.5rem));
+    min-height: 0;
   }
 
   .launcher-manager-grid {

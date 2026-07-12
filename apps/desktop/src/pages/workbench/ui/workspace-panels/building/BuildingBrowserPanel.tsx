@@ -1,11 +1,9 @@
-import { Search } from 'lucide-react'
+import { Building2, ChevronDown, Home, MapPin, Package, Search, Sparkles, Store, type LucideIcon } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import type { ConstructibleBuildingGroup, BuildingWorkspaceEntry } from '../../../workspaces/building'
 import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup } from '@pages/workbench/workspaces/mod'
 import { useBuildingsCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
-import { PanelFrame } from '@shared/ui/PanelFrame'
-import { PanelEmptyState, PanelSection } from '@shared/ui/PanelSection'
-import { BrowserSourceSwitch } from '@shared/ui/BrowserSourceSwitch'
 import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
 
 const FARM_FARMING_GROUP_KEYS = new Set([
@@ -24,6 +22,17 @@ const FARM_FARMING_GROUP_KEYS = new Set([
 ])
 
 const FARM_SPECIAL_GROUP_KEYS = new Set(['Desert Obelisk', 'Earth Obelisk', 'Gold Clock', 'Island Obelisk', 'Junimo Hut', 'Water Obelisk'])
+
+type GlyphKind = 'shop' | 'house' | 'farm' | 'spark' | 'pin' | 'mod'
+
+const GLYPH_ICON: Record<GlyphKind, LucideIcon> = {
+  shop: Store,
+  house: Home,
+  farm: Building2,
+  spark: Sparkles,
+  pin: MapPin,
+  mod: Package,
+}
 
 type BuildingBrowserPanelProps = {
   constructibleGroups: ConstructibleBuildingGroup[]
@@ -102,82 +111,84 @@ function buildConstructibleSections(constructibleGroups: ConstructibleBuildingGr
   return { farming, special, other }
 }
 
-function WorldBuildingButton({
-  building,
-  isActive,
-  onSelect,
-  badgeLabel,
-  revealIndex,
-}: {
-  building: BuildingWorkspaceEntry
-  isActive: boolean
-  onSelect: () => void
-  badgeLabel: string
-  revealIndex: number
-}) {
-  const revealProps = getLoadingMotionChildRevealProps({
-    index: revealIndex,
-    className: cx('asset-row w-full text-left', isActive && 'asset-row-active'),
-  })
-
-  return (
-    <button type="button" {...revealProps} onClick={onSelect}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-(--text-primary)">{building.displayName}</p>
-          <p className="truncate text-xs text-(--text-secondary)">{building.exteriorMapName ?? building.internalName}</p>
-        </div>
-        <div className="shrink-0 text-right text-[11px] text-(--text-secondary)">
-          <p>{building.worldEntrances.length}</p>
-          <p>{badgeLabel}</p>
-        </div>
-      </div>
-    </button>
-  )
+function glyphForWorldSection(sectionKey: string): GlyphKind {
+  if (sectionKey === 'merchants') return 'shop'
+  if (sectionKey === 'houses') return 'house'
+  return 'pin'
 }
 
-function ConstructibleGroupButton({
-  group,
-  isActive,
-  onSelect,
-  revealIndex,
+function CollapsibleGroup({
+  groupKey,
+  title,
+  count,
+  defaultOpen = true,
+  children,
 }: {
-  group: ConstructibleBuildingGroup
-  isActive: boolean
-  onSelect: () => void
-  revealIndex: number
+  groupKey: string
+  title: string
+  count: number
+  defaultOpen?: boolean
+  children: ReactNode
 }) {
-  const copy = useBuildingsCopy()
-  const revealProps = getLoadingMotionChildRevealProps({
-    index: revealIndex,
-    className: cx('asset-row w-full text-left', isActive && 'asset-row-active'),
-  })
+  const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <button type="button" {...revealProps} onClick={onSelect}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-(--text-primary)">{group.displayName}</p>
-          <p className="truncate text-xs text-(--text-secondary)">{group.entries.map((entry) => entry.displayName).join(' / ')}</p>
-        </div>
-        <div className="shrink-0 text-right text-[11px] text-(--text-secondary)">
-          <p>{group.stageCount}</p>
-          <p>{copy.browserConstructibleBadge}</p>
-        </div>
-      </div>
-    </button>
-  )
-}
-
-function SubsectionTitle({ title, count }: { title: string; count: number }) {
-  return (
-    <div className="flex items-center justify-between gap-3 px-1">
-      <p className="text-[11px] font-semibold tracking-[0.14em] text-(--text-tertiary) uppercase">{title}</p>
-      <span className="dock-chip shrink-0">{count}</span>
+    <div className="building-workspace-browser-group" data-open={open ? 'true' : 'false'} data-group={groupKey}>
+      <button
+        type="button"
+        className="building-workspace-browser-group-hd"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className="building-workspace-browser-group-chev" aria-hidden="true">
+          <ChevronDown className="h-3.5 w-3.5" />
+        </span>
+        <span className="building-workspace-browser-group-label">{title}</span>
+        <span className="building-workspace-browser-count">{count}</span>
+      </button>
+      <div className="building-workspace-browser-group-bd">{children}</div>
     </div>
   )
 }
 
+function CatalogRow({
+  title,
+  hint,
+  meta,
+  glyph,
+  isActive,
+  onSelect,
+  revealIndex,
+}: {
+  title: string
+  hint: string
+  meta: string | number | null
+  glyph: GlyphKind
+  isActive: boolean
+  onSelect: () => void
+  revealIndex: number
+}) {
+  const Icon = GLYPH_ICON[glyph]
+  const revealProps = getLoadingMotionChildRevealProps({
+    index: revealIndex,
+    className: cx('building-workspace-browser-row', isActive && 'building-workspace-browser-row-active'),
+  })
+
+  return (
+    <button type="button" {...revealProps} aria-pressed={isActive} onClick={onSelect}>
+      <span className="building-workspace-browser-glyph" aria-hidden="true">
+        <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
+      </span>
+      <span className="building-workspace-browser-copy">
+        <span className="building-workspace-browser-title">{title}</span>
+        <span className="building-workspace-browser-meta">{hint}</span>
+      </span>
+      {meta != null && meta !== '' ? <span className="building-workspace-browser-count">{meta}</span> : <span />}
+    </button>
+  )
+}
+
+/** Building directory: collapsible groups, glyph rows, left-accent selection. */
 export function BuildingBrowserPanel({
   constructibleGroups,
   filteredConstructibleGroups,
@@ -203,24 +214,15 @@ export function BuildingBrowserPanel({
   const houseSection = worldSections.find((section) => section.key === 'houses') ?? null
   const otherSection = worldSections.find((section) => section.key === 'other') ?? null
   const extraWorldSections = worldSections.filter((section) => !new Set(['merchants', 'houses', 'other']).has(section.key))
+  const farmCount = constructibleSections.farming.length + constructibleSections.special.length + constructibleSections.other.length
 
   return (
-    <PanelFrame
-      hideHeader
-      title={copy.browserTitle}
-      subtitle={copy.browserSubtitle}
-      className="h-full"
-      headerAction={
-        <span className="dock-chip">
-          {browserSourceMode === 'mod' ? modBuildingGroups.reduce((total, group) => total + group.items.length, 0) : filteredCount}
-        </span>
-      }
-    >
-      <div className="flex h-full flex-col gap-3 p-3">
+    <aside className="building-workspace-pane h-full">
+      <div className="building-workspace-browser-head">
         <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-(--text-tertiary)" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-(--text-tertiary)" />
           <input
-            className="control-input pl-9"
+            className="control-input border-transparent bg-(--bg-panel-muted) pl-9"
             value={buildingFilter}
             onChange={(event) => onBuildingFilterChange(event.target.value)}
             placeholder={copy.browserFilterPlaceholder}
@@ -228,194 +230,187 @@ export function BuildingBrowserPanel({
           />
         </div>
 
-        <BrowserSourceSwitch value={browserSourceMode} onChange={onBrowserSourceModeChange} />
-
-        <div className="min-h-0 flex-1 space-y-4 overflow-auto pr-1">
-          {browserSourceMode === 'mod' ? (
-            modBuildingGroups.length ? (
-              modBuildingGroups.map((group, groupIndex) => (
-                <PanelSection
-                  key={group.modPath}
-                  title={group.modName}
-                  subtitle="Modified building entries"
-                  action={<span className="dock-chip shrink-0">{group.items.length}</span>}
-                  bodyClassName="space-y-2"
-                >
-                  {group.items.map((entry, itemIndex) => {
-                    const { value: building, targets } = entry
-                    const revealProps = getLoadingMotionChildRevealProps({
-                      index: groupIndex + itemIndex,
-                      className: cx('asset-row w-full text-left', entry.selectionId === activeModBuildingSelectionId && 'asset-row-active'),
-                    })
-                    return (
-                      <button
-                        key={`${group.modId}:${building.key}`}
-                        type="button"
-                        {...revealProps}
-                        onClick={() => onSelectModBuilding(entry)}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-(--text-primary)">{building.displayName}</p>
-                            <p className="truncate text-xs text-(--text-secondary)">{targets[0] ?? building.internalName}</p>
-                          </div>
-                          <div className="shrink-0 text-right text-[11px] text-(--text-secondary)">
-                            <p>{building.sourceKind === 'constructible' ? copy.browserConstructibleBadge : copy.browserWorldBadge}</p>
-                            <p>{building.stageCount}</p>
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </PanelSection>
-              ))
-            ) : (
-              <PanelEmptyState>No modded buildings match the current filter.</PanelEmptyState>
-            )
-          ) : filteredCount ? (
-            <>
-              {merchantSection?.items.length ? (
-                <PanelSection
-                  title={merchantSection.title}
-                  subtitle={copy.browserWorldSubtitle}
-                  action={<span className="dock-chip shrink-0">{merchantSection.items.length}</span>}
-                  bodyClassName="space-y-2"
-                >
-                  {merchantSection.items.map((building, index) => (
-                    <WorldBuildingButton
-                      key={building.key}
-                      building={building}
-                      isActive={building.key === activeBuildingId}
-                      onSelect={() => onSelectBuilding(building.key)}
-                      badgeLabel={copy.browserWorldBadge}
-                      revealIndex={index}
-                    />
-                  ))}
-                </PanelSection>
-              ) : null}
-
-              {houseSection?.items.length ? (
-                <PanelSection
-                  title={houseSection.title}
-                  subtitle={copy.browserWorldSubtitle}
-                  action={<span className="dock-chip shrink-0">{houseSection.items.length}</span>}
-                  bodyClassName="space-y-2"
-                >
-                  {houseSection.items.map((building, index) => (
-                    <WorldBuildingButton
-                      key={building.key}
-                      building={building}
-                      isActive={building.key === activeBuildingId}
-                      onSelect={() => onSelectBuilding(building.key)}
-                      badgeLabel={copy.browserWorldBadge}
-                      revealIndex={index}
-                    />
-                  ))}
-                </PanelSection>
-              ) : null}
-
-              {constructibleSections.farming.length || constructibleSections.special.length || constructibleSections.other.length ? (
-                <PanelSection
-                  title="Farm Buildings"
-                  subtitle={copy.browserConstructibleSubtitle}
-                  action={
-                    <span className="dock-chip shrink-0">
-                      {constructibleSections.farming.length + constructibleSections.special.length + constructibleSections.other.length}
-                    </span>
-                  }
-                  bodyClassName="space-y-3"
-                >
-                  {constructibleSections.farming.length ? (
-                    <div className="space-y-2">
-                      <SubsectionTitle title="Farming" count={constructibleSections.farming.length} />
-                      {constructibleSections.farming.map((group, index) => (
-                        <ConstructibleGroupButton
-                          key={group.key}
-                          group={group}
-                          isActive={group.key === activeBuildingGroupKey}
-                          onSelect={() => onSelectBuilding(group.rootEntry.key)}
-                          revealIndex={index}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-                  {constructibleSections.special.length ? (
-                    <div className="space-y-2">
-                      <SubsectionTitle title="Special" count={constructibleSections.special.length} />
-                      {constructibleSections.special.map((group, index) => (
-                        <ConstructibleGroupButton
-                          key={group.key}
-                          group={group}
-                          isActive={group.key === activeBuildingGroupKey}
-                          onSelect={() => onSelectBuilding(group.rootEntry.key)}
-                          revealIndex={index}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-                  {constructibleSections.other.length ? (
-                    <div className="space-y-2">
-                      <SubsectionTitle title="Additional" count={constructibleSections.other.length} />
-                      {constructibleSections.other.map((group, index) => (
-                        <ConstructibleGroupButton
-                          key={group.key}
-                          group={group}
-                          isActive={group.key === activeBuildingGroupKey}
-                          onSelect={() => onSelectBuilding(group.rootEntry.key)}
-                          revealIndex={index}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-                </PanelSection>
-              ) : null}
-
-              {otherSection?.items.length ? (
-                <PanelSection
-                  title={otherSection.title}
-                  subtitle={copy.browserWorldSubtitle}
-                  action={<span className="dock-chip shrink-0">{otherSection.items.length}</span>}
-                  bodyClassName="space-y-2"
-                >
-                  {otherSection.items.map((building, index) => (
-                    <WorldBuildingButton
-                      key={building.key}
-                      building={building}
-                      isActive={building.key === activeBuildingId}
-                      onSelect={() => onSelectBuilding(building.key)}
-                      badgeLabel={copy.browserWorldBadge}
-                      revealIndex={index}
-                    />
-                  ))}
-                </PanelSection>
-              ) : null}
-
-              {extraWorldSections.map((section) => (
-                <PanelSection
-                  key={section.key}
-                  title={section.title}
-                  subtitle={copy.browserWorldSubtitle}
-                  action={<span className="dock-chip shrink-0">{section.items.length}</span>}
-                  bodyClassName="space-y-2"
-                >
-                  {section.items.map((building, index) => (
-                    <WorldBuildingButton
-                      key={building.key}
-                      building={building}
-                      isActive={building.key === activeBuildingId}
-                      onSelect={() => onSelectBuilding(building.key)}
-                      badgeLabel={copy.browserWorldBadge}
-                      revealIndex={index}
-                    />
-                  ))}
-                </PanelSection>
-              ))}
-            </>
-          ) : (
-            <PanelEmptyState>{totalCount ? copy.browserFilteredEmpty : copy.browserUnloadedEmpty}</PanelEmptyState>
-          )}
+        <div className="building-workspace-browser-source" role="group" aria-label={copy.browserTitle}>
+          <button
+            type="button"
+            className="building-workspace-browser-source-btn"
+            aria-pressed={browserSourceMode === 'original'}
+            onClick={() => onBrowserSourceModeChange('original')}
+          >
+            {copy.browserSourceOriginal}
+          </button>
+          <button
+            type="button"
+            className="building-workspace-browser-source-btn"
+            aria-pressed={browserSourceMode === 'mod'}
+            onClick={() => onBrowserSourceModeChange('mod')}
+          >
+            {copy.browserSourceMod}
+          </button>
         </div>
       </div>
-    </PanelFrame>
+
+      <div className="building-workspace-browser-body custom-scrollbar">
+        {browserSourceMode === 'mod' ? (
+          modBuildingGroups.length ? (
+            modBuildingGroups.map((group, groupIndex) => (
+              <CollapsibleGroup key={group.modPath} groupKey={group.modPath} title={group.modName} count={group.items.length}>
+                {group.items.map((entry, itemIndex) => {
+                  const { value: building, targets } = entry
+                  return (
+                    <CatalogRow
+                      key={`${group.modId}:${building.key}`}
+                      title={building.displayName}
+                      hint={targets[0] ?? building.internalName}
+                      meta={building.stageCount}
+                      glyph="mod"
+                      isActive={entry.selectionId === activeModBuildingSelectionId}
+                      onSelect={() => onSelectModBuilding(entry)}
+                      revealIndex={groupIndex + itemIndex}
+                    />
+                  )
+                })}
+              </CollapsibleGroup>
+            ))
+          ) : (
+            <p className="building-workspace-empty-notice px-2">{copy.browserModEmpty}</p>
+          )
+        ) : filteredCount ? (
+          <>
+            {merchantSection?.items.length ? (
+              <CollapsibleGroup groupKey="merchants" title={merchantSection.title} count={merchantSection.items.length}>
+                {merchantSection.items.map((building, index) => (
+                  <CatalogRow
+                    key={building.key}
+                    title={building.displayName}
+                    hint={building.exteriorMapName ?? building.internalName}
+                    meta={building.worldEntrances.length > 0 ? building.worldEntrances.length : null}
+                    glyph={glyphForWorldSection('merchants')}
+                    isActive={building.key === activeBuildingId}
+                    onSelect={() => onSelectBuilding(building.key)}
+                    revealIndex={index}
+                  />
+                ))}
+              </CollapsibleGroup>
+            ) : null}
+
+            {houseSection?.items.length ? (
+              <CollapsibleGroup groupKey="houses" title={houseSection.title} count={houseSection.items.length}>
+                {houseSection.items.map((building, index) => (
+                  <CatalogRow
+                    key={building.key}
+                    title={building.displayName}
+                    hint={building.exteriorMapName ?? building.internalName}
+                    meta={building.worldEntrances.length > 0 ? building.worldEntrances.length : null}
+                    glyph={glyphForWorldSection('houses')}
+                    isActive={building.key === activeBuildingId}
+                    onSelect={() => onSelectBuilding(building.key)}
+                    revealIndex={index}
+                  />
+                ))}
+              </CollapsibleGroup>
+            ) : null}
+
+            {farmCount > 0 ? (
+              <CollapsibleGroup groupKey="farm" title={copy.browserFarmBuildingsTitle} count={farmCount}>
+                {constructibleSections.farming.length ? (
+                  <>
+                    <p className="building-workspace-browser-sub">{copy.browserSubsectionFarming}</p>
+                    {constructibleSections.farming.map((group, index) => (
+                      <CatalogRow
+                        key={group.key}
+                        title={group.displayName}
+                        hint={group.entries.map((entry) => entry.displayName).join(' / ')}
+                        meta={group.stageCount}
+                        glyph="farm"
+                        isActive={group.key === activeBuildingGroupKey}
+                        onSelect={() => onSelectBuilding(group.rootEntry.key)}
+                        revealIndex={index}
+                      />
+                    ))}
+                  </>
+                ) : null}
+                {constructibleSections.special.length ? (
+                  <>
+                    <p className="building-workspace-browser-sub">{copy.browserSubsectionSpecial}</p>
+                    {constructibleSections.special.map((group, index) => (
+                      <CatalogRow
+                        key={group.key}
+                        title={group.displayName}
+                        hint={group.entries.map((entry) => entry.displayName).join(' / ')}
+                        meta={group.stageCount}
+                        glyph="spark"
+                        isActive={group.key === activeBuildingGroupKey}
+                        onSelect={() => onSelectBuilding(group.rootEntry.key)}
+                        revealIndex={index}
+                      />
+                    ))}
+                  </>
+                ) : null}
+                {constructibleSections.other.length ? (
+                  <>
+                    <p className="building-workspace-browser-sub">{copy.browserSubsectionAdditional}</p>
+                    {constructibleSections.other.map((group, index) => (
+                      <CatalogRow
+                        key={group.key}
+                        title={group.displayName}
+                        hint={group.entries.map((entry) => entry.displayName).join(' / ')}
+                        meta={group.stageCount}
+                        glyph="farm"
+                        isActive={group.key === activeBuildingGroupKey}
+                        onSelect={() => onSelectBuilding(group.rootEntry.key)}
+                        revealIndex={index}
+                      />
+                    ))}
+                  </>
+                ) : null}
+              </CollapsibleGroup>
+            ) : null}
+
+            {otherSection?.items.length ? (
+              <CollapsibleGroup groupKey="other" title={otherSection.title} count={otherSection.items.length} defaultOpen={false}>
+                {otherSection.items.map((building, index) => (
+                  <CatalogRow
+                    key={building.key}
+                    title={building.displayName}
+                    hint={building.exteriorMapName ?? building.internalName}
+                    meta={building.worldEntrances.length > 0 ? building.worldEntrances.length : null}
+                    glyph="pin"
+                    isActive={building.key === activeBuildingId}
+                    onSelect={() => onSelectBuilding(building.key)}
+                    revealIndex={index}
+                  />
+                ))}
+              </CollapsibleGroup>
+            ) : null}
+
+            {extraWorldSections.map((section) => (
+              <CollapsibleGroup
+                key={section.key}
+                groupKey={section.key}
+                title={section.title}
+                count={section.items.length}
+                defaultOpen={false}
+              >
+                {section.items.map((building, index) => (
+                  <CatalogRow
+                    key={building.key}
+                    title={building.displayName}
+                    hint={building.exteriorMapName ?? building.internalName}
+                    meta={building.worldEntrances.length > 0 ? building.worldEntrances.length : null}
+                    glyph={glyphForWorldSection(section.key)}
+                    isActive={building.key === activeBuildingId}
+                    onSelect={() => onSelectBuilding(building.key)}
+                    revealIndex={index}
+                  />
+                ))}
+              </CollapsibleGroup>
+            ))}
+          </>
+        ) : (
+          <p className="building-workspace-empty-notice px-2">{totalCount ? copy.browserFilteredEmpty : copy.browserUnloadedEmpty}</p>
+        )}
+      </div>
+    </aside>
   )
 }

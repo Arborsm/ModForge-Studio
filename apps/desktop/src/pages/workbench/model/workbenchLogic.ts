@@ -110,7 +110,7 @@ export function deriveWorkspaceStatus({
     }
   }
 
-  if (workspaceMode === 'mods') {
+  if (workspaceMode === 'mod-browser') {
     const hasModErrors = modDiagnostics.some((diagnostic) => diagnostic.severity === 'error')
     return {
       tone: directoryInfoPresent

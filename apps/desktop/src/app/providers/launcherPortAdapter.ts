@@ -43,12 +43,15 @@ import {
   openLauncherUrl,
   scanLauncherLibrary,
   loadLauncherRuntimeInfo,
+  loadLauncherGmcmProbeDiagnostics,
   clearLauncherLibraryReadCaches,
   getLauncherBackupDirectory,
   setLauncherModEnabled,
+  loadLauncherModConfig,
+  saveLauncherModConfig,
   subscribeLauncherUpdates,
 } from '@features/launcher/api'
-import { detectDefaultGameDirectory } from '@entities/game/api'
+import { detectDefaultGameDirectory, loadResourceRegistry } from '@entities/game/api'
 import { reportAppEvent } from '@platform/observability'
 import { chooseArchiveFile, chooseDirectory, chooseImageFile, toDesktopAssetUrl } from '@platform/host'
 
@@ -66,6 +69,7 @@ export function createLauncherPortAdapter(): LauncherPort {
     saveSettings: (request) => saveLauncherSettings(request),
     scanLibrary: (request) => scanLauncherLibrary(request),
     loadRuntimeInfo: () => loadLauncherRuntimeInfo(),
+    loadGmcmProbeDiagnostics: () => loadLauncherGmcmProbeDiagnostics(),
     loadLibraryState: () => loadLauncherLibraryState(),
     saveLibraryState: (request) => saveLauncherLibraryState(request),
     loadLibraryCovers: () => loadLauncherLibraryCovers(),
@@ -106,6 +110,22 @@ export function createLauncherPortAdapter(): LauncherPort {
     chooseImageFile: (title) => chooseImageFile(title),
     getBackupDirectory: () => getLauncherBackupDirectory(),
     setModEnabled: (request) => setLauncherModEnabled(request),
+    loadModConfig: (request) => loadLauncherModConfig(request),
+    saveModConfig: (request) => saveLauncherModConfig(request),
+    loadConfigItems: (gamePath, locale) =>
+      loadResourceRegistry(gamePath, locale).then((registry) =>
+        registry.entries
+          .filter((entry) => entry.kind === 'item')
+          .map((entry) => ({
+            id: entry.id,
+            value: entry.value,
+            label: entry.label,
+            category: entry.category,
+            source: entry.source,
+            sourceKind: entry.sourceKind,
+            metadata: entry.metadata,
+          })),
+      ),
     chooseDirectory: (title) => chooseDirectory(title),
     detectDefaultGameDirectory: () => detectDefaultGameDirectory(),
     toDesktopAssetUrl: (path, protocol) => toDesktopAssetUrl(path, protocol),

@@ -9,6 +9,8 @@ apps/desktop/electron-dist/
 apps/desktop/node_modules/
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/tests/fixtures/**/target/
+apps/desktop/tools/gmcm-probe/bin
+apps/desktop/tools/gmcm-probe/obj
 
 services/**/bin/
 services/**/obj/
@@ -44,3 +46,8 @@ skills-lock.json
 
 CLAUDE.md
 /.bitfun/search/flashgrep-index/
+
+#temp
+*.png*
+*.html*
+!website/**/*.html

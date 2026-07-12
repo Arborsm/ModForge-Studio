@@ -1,11 +1,34 @@
-import { Download, LayoutDashboard, Minus, Moon, Rocket, Settings2, Square, Sun, X } from 'lucide-react'
+import { ChevronDown, Download, LayoutDashboard, Minus, Moon, Rocket, Settings2, Square, Sun, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { type AppMode, type LauncherPage, type ThemeMode, type WorkspaceMode, type WorkspaceTone } from '@locales/api'
-import { useEditorCopy, useSettingsMenuCopy, useViewMenuCopy } from '@locales/provider'
+import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
-import type { WorkspacePanelMeta } from '@shared/contracts'
 import { ProgressRing } from '@shared/ui/ProgressRing'
 import GooeyNav, { type GooeyNavItem } from '@shared/ui/GooeyNav'
+
+export type TopMenuBarProjectRecentItem = {
+  draftStorageKey: string
+  title: string
+  uniqueId: string
+  version?: string
+  isCurrent?: boolean
+}
+
+export type TopMenuBarProjectMenu = {
+  title: string | null
+  version: string | null
+  uniqueId: string | null
+  recentProjects: readonly TopMenuBarProjectRecentItem[]
+  hasActiveProject: boolean
+  onSelectProject: (draftStorageKey: string) => void
+  onCreateProject: () => void
+  onOpenProject: () => void
+  onImportProject: () => void
+  onProjectSettings: () => void
+  onRevealProject?: () => void
+  onExportProject: () => void
+  onCloseProject: () => void
+}
 
 type TopMenuBarProps = {
   appMode: AppMode
@@ -22,23 +45,13 @@ type TopMenuBarProps = {
   onMinimizeWindow: () => void
   onToggleMaximizeWindow: () => void
   onCloseWindow: () => void
-  viewMenu: {
-    panelItems: WorkspacePanelMeta[]
-    presetNames: string[]
-    onTogglePanel: (id: string, visible: boolean) => void
-    onResetLayout: () => void
-    onSavePreset: (name: string) => void
-    onLoadPreset: (name: string) => void
-    onDeletePreset: (name: string) => void
-  }
   settingsMenu: {
     onOpen: () => void
   }
-  projectMenu: {
-    highlighted?: boolean
-    onOpen: () => void
-  }
-  workbenchQuickDock?: ReactNode
+  /**
+   * Workbench project center. When provided in workbench mode, fills the titlebar center slot.
+   */
+  projectMenu?: TopMenuBarProjectMenu
   launcherChrome?: {
     page: LauncherPage
     visiblePages: LauncherPage[]
@@ -71,31 +84,25 @@ export default function TopMenuBar({
   onMinimizeWindow,
   onToggleMaximizeWindow,
   onCloseWindow,
-  viewMenu,
   settingsMenu,
   projectMenu,
-  workbenchQuickDock,
   launcherChrome,
 }: TopMenuBarProps) {
   const copy = useEditorCopy()
-  const viewMenuCopy = useViewMenuCopy()
   const settingsMenuCopy = useSettingsMenuCopy()
-  const [activeMenu, setActiveMenu] = useState<'view' | 'downloads' | null>(null)
-  const viewMenuId = useId()
+  const navCopy = copy.workbenchNavigation
+  const [activeMenu, setActiveMenu] = useState<'downloads' | 'project' | null>(null)
   const downloadsMenuId = useId()
-  const viewMenuRef = useRef<HTMLDivElement | null>(null)
+  const projectMenuId = useId()
   const downloadsMenuRef = useRef<HTMLDivElement | null>(null)
   const downloadsFloatRef = useRef<HTMLElement | null>(null)
+  const projectMenuRef = useRef<HTMLDivElement | null>(null)
   const launcherModeActive = appMode === 'launcher'
   const launcherNav = launcherModeActive ? launcherChrome : undefined
+  const projectMenuOpen = activeMenu === 'project' && Boolean(projectMenu) && !launcherModeActive
   const visibleActiveMenu =
-    activeMenu === 'view' && launcherModeActive ? null : activeMenu === 'downloads' && !launcherNav ? null : activeMenu
-  const viewMenuOpen = visibleActiveMenu === 'view'
+    activeMenu === 'downloads' && !launcherNav ? null : activeMenu === 'project' && (launcherModeActive || !projectMenu) ? null : activeMenu
   const downloadsMenuOpen = visibleActiveMenu === 'downloads' && Boolean(launcherNav)
-  const switchTargetMode: AppMode = launcherModeActive ? 'workbench' : 'launcher'
-  const switchTargetLabel = launcherModeActive ? copy.shell.workbench : copy.shell.launcher
-  const SwitchTargetIcon = launcherModeActive ? LayoutDashboard : Rocket
-
   useEffect(() => {
     if (!activeMenu) {
       return
@@ -104,9 +111,9 @@ export default function TopMenuBar({
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as Node
       if (
-        viewMenuRef.current?.contains(target) ||
         downloadsMenuRef.current?.contains(target) ||
-        downloadsFloatRef.current?.contains(target)
+        downloadsFloatRef.current?.contains(target) ||
+        projectMenuRef.current?.contains(target)
       ) {
         return
       }
@@ -133,125 +140,53 @@ export default function TopMenuBar({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [activeMenu])
 
+  const closeProjectMenuAnd = (action: () => void) => {
+    setActiveMenu(null)
+    action()
+  }
+
   return (
     <header className="top-menu-bar relative z-120">
       <div className="top-menu-drag-layer absolute inset-0" data-tauri-drag-region aria-hidden="true" />
       <div className="top-menu-primary">
         <div className="top-menu-cluster top-menu-cluster-start flex min-w-0 items-center gap-4">
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex shrink-0 items-center">
             <img className="top-menu-brand-icon" src="/brand/modforge-logo-primary.svg" alt="" aria-hidden="true" />
-            <p className="truncate text-sm font-semibold text-(--text-primary)">{copy.brand.name}</p>
           </div>
 
-          {!launcherModeActive ? (
-            <nav
-              className="top-menu-menus pointer-events-auto hidden items-center gap-2 xl:flex"
-              aria-label="Main menus"
-              data-top-menu-no-drag="true"
+          <div
+            className="top-menu-mode-segment pointer-events-auto"
+            role="group"
+            aria-label={copy.shell.modeLabel}
+            data-top-menu-no-drag="true"
+          >
+            <button
+              type="button"
+              className="top-menu-mode-option"
+              data-active={launcherModeActive ? 'true' : 'false'}
+              aria-pressed={launcherModeActive}
+              title={copy.shell.launcher}
+              onClick={() => {
+                if (!launcherModeActive) onAppModeChange('launcher')
+              }}
             >
-              <button
-                type="button"
-                className={cx(
-                  'rounded-md px-2 py-1 text-xs transition-colors hover:bg-(--bg-active) hover:text-(--text-primary)',
-                  projectMenu.highlighted ? 'bg-(--bg-active) text-(--text-primary)' : 'text-(--text-secondary)',
-                )}
-                onClick={projectMenu.onOpen}
-              >
-                {copy.leftDock.project}
-              </button>
-
-              <div className="relative" ref={viewMenuRef}>
-                <button
-                  type="button"
-                  className={cx(
-                    'rounded-md px-2 py-1 text-xs transition-colors hover:bg-(--bg-active) hover:text-(--text-primary)',
-                    viewMenuOpen ? 'bg-(--bg-active) text-(--text-primary)' : 'text-(--text-secondary)',
-                  )}
-                  aria-haspopup="menu"
-                  aria-expanded={viewMenuOpen}
-                  aria-controls={viewMenuId}
-                  onClick={() => setActiveMenu((current) => (current === 'view' ? null : 'view'))}
-                >
-                  {viewMenuCopy.title}
-                </button>
-
-                {viewMenuOpen ? (
-                  <div className="top-menu-dropdown" id={viewMenuId} role="menu" aria-label={viewMenuCopy.title}>
-                    <div className="top-menu-section">
-                      <p className="top-menu-section-title">{viewMenuCopy.panelsLabel}</p>
-                      {viewMenu.panelItems.map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          className="top-menu-row"
-                          role="menuitemcheckbox"
-                          aria-checked={item.visible}
-                          onClick={() => viewMenu.onTogglePanel(item.id, !item.visible)}
-                        >
-                          <span>{item.title}</span>
-                          <span className={cx('status-pill', item.visible ? 'status-pill-ready' : 'status-pill-idle')}>
-                            {item.visible ? viewMenuCopy.panelVisibleLabel : viewMenuCopy.panelHiddenLabel}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="top-menu-section">
-                      <p className="top-menu-section-title">{viewMenuCopy.presetsLabel}</p>
-                      <button
-                        type="button"
-                        className="top-menu-row"
-                        role="menuitem"
-                        onClick={() => {
-                          const presetName = window.prompt(viewMenuCopy.presetNamePrompt)
-                          if (!presetName?.trim()) {
-                            return
-                          }
-
-                          viewMenu.onSavePreset(presetName.trim())
-                        }}
-                      >
-                        <span>{viewMenuCopy.savePresetLabel}</span>
-                      </button>
-                      <button type="button" className="top-menu-row" role="menuitem" onClick={viewMenu.onResetLayout}>
-                        <span>{viewMenuCopy.resetLabel}</span>
-                      </button>
-                      {viewMenu.presetNames.length ? (
-                        viewMenu.presetNames.map((name) => (
-                          <div key={name} className="top-menu-row">
-                            <button
-                              type="button"
-                              className="min-w-0 flex-1 text-left"
-                              role="menuitem"
-                              onClick={() => viewMenu.onLoadPreset(name)}
-                            >
-                              <span className="truncate">{name}</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="workspace-panel-action h-7 w-7"
-                              onClick={() => {
-                                if (!window.confirm(viewMenuCopy.deletePresetConfirm(name))) {
-                                  return
-                                }
-
-                                viewMenu.onDeletePreset(name)
-                              }}
-                              title={viewMenuCopy.deletePresetLabel}
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="top-menu-empty">{viewMenuCopy.emptyPresetsLabel}</div>
-                      )}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </nav>
-          ) : null}
+              <Rocket className="h-4 w-4" aria-hidden="true" />
+              <span>{copy.shell.launcher}</span>
+            </button>
+            <button
+              type="button"
+              className="top-menu-mode-option"
+              data-active={!launcherModeActive ? 'true' : 'false'}
+              aria-pressed={!launcherModeActive}
+              title={copy.shell.workbench}
+              onClick={() => {
+                if (launcherModeActive) onAppModeChange('workbench')
+              }}
+            >
+              <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+              <span>{copy.shell.workbench}</span>
+            </button>
+          </div>
         </div>
 
         <div className="top-menu-center flex min-w-0 items-center justify-self-center">
@@ -274,9 +209,138 @@ export default function TopMenuBar({
                 />
               </div>
             </div>
-          ) : (
-            workbenchQuickDock
-          )}
+          ) : projectMenu ? (
+            <div className="pointer-events-auto relative" ref={projectMenuRef} data-top-menu-no-drag="true">
+              <button
+                type="button"
+                className={cx('top-menu-project-title', !projectMenu.hasActiveProject && 'is-empty')}
+                aria-haspopup="menu"
+                aria-expanded={projectMenuOpen}
+                aria-controls={projectMenuId}
+                title={projectMenu.title ?? navCopy.shellProjectTitleEmpty}
+                onClick={() => setActiveMenu((current) => (current === 'project' ? null : 'project'))}
+              >
+                <span className="dot" aria-hidden="true" />
+                <span className="name">{projectMenu.title ?? navCopy.shellProjectTitleEmpty}</span>
+                <span className="meta">
+                  {projectMenu.hasActiveProject
+                    ? projectMenu.version
+                      ? `v${projectMenu.version.replace(/^v/i, '')}`
+                      : ''
+                    : navCopy.shellProjectTitleEmptyMeta}
+                </span>
+                <ChevronDown className="chev" aria-hidden="true" />
+              </button>
+
+              {projectMenuOpen ? (
+                <div className="top-menu-project-menu" id={projectMenuId} role="menu" aria-label={navCopy.currentProjectLabel}>
+                  <div className="top-menu-project-menu-head">
+                    <strong>{projectMenu.title ?? navCopy.shellProjectTitleEmpty}</strong>
+                    <span>{projectMenu.uniqueId ?? navCopy.shellProjectMenuEmptyId}</span>
+                  </div>
+
+                  {projectMenu.recentProjects.length ? (
+                    <>
+                      <p className="top-menu-project-menu-label">{navCopy.shellProjectMenuRecent}</p>
+                      {projectMenu.recentProjects.slice(0, 6).map((project) => (
+                        <button
+                          key={project.draftStorageKey}
+                          type="button"
+                          role="menuitem"
+                          className="top-menu-project-menu-item"
+                          aria-current={project.isCurrent ? 'true' : undefined}
+                          onClick={() => closeProjectMenuAnd(() => projectMenu.onSelectProject(project.draftStorageKey))}
+                        >
+                          <span className="pm-copy">
+                            <strong>{project.title}</strong>
+                            <em>{project.uniqueId}</em>
+                          </span>
+                        </button>
+                      ))}
+                      <div className="top-menu-project-menu-sep" />
+                    </>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="top-menu-project-menu-item"
+                    onClick={() => closeProjectMenuAnd(projectMenu.onCreateProject)}
+                  >
+                    {navCopy.shellProjectMenuNew}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="top-menu-project-menu-item"
+                    onClick={() => closeProjectMenuAnd(projectMenu.onOpenProject)}
+                  >
+                    {navCopy.shellProjectMenuOpen}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="top-menu-project-menu-item"
+                    onClick={() => closeProjectMenuAnd(projectMenu.onImportProject)}
+                  >
+                    {navCopy.shellProjectMenuImport}
+                  </button>
+                  <div className="top-menu-project-menu-sep" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="top-menu-project-menu-item"
+                    disabled={!projectMenu.hasActiveProject}
+                    onClick={() => {
+                      if (!projectMenu.hasActiveProject) return
+                      closeProjectMenuAnd(projectMenu.onProjectSettings)
+                    }}
+                  >
+                    {navCopy.shellProjectMenuSettings}
+                  </button>
+                  {projectMenu.onRevealProject ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="top-menu-project-menu-item"
+                      disabled={!projectMenu.hasActiveProject}
+                      onClick={() => {
+                        if (!projectMenu.hasActiveProject) return
+                        closeProjectMenuAnd(projectMenu.onRevealProject!)
+                      }}
+                    >
+                      {navCopy.shellProjectMenuReveal}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="top-menu-project-menu-item"
+                    disabled={!projectMenu.hasActiveProject}
+                    onClick={() => {
+                      if (!projectMenu.hasActiveProject) return
+                      closeProjectMenuAnd(projectMenu.onExportProject)
+                    }}
+                  >
+                    {navCopy.shellProjectMenuExport}
+                  </button>
+                  <div className="top-menu-project-menu-sep" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="top-menu-project-menu-item"
+                    disabled={!projectMenu.hasActiveProject}
+                    onClick={() => {
+                      if (!projectMenu.hasActiveProject) return
+                      closeProjectMenuAnd(projectMenu.onCloseProject)
+                    }}
+                  >
+                    {navCopy.shellProjectMenuClose}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <div
@@ -342,15 +406,6 @@ export default function TopMenuBar({
             title={copy.controls.toggleTheme}
           >
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
-          <button
-            type="button"
-            className="icon-button pointer-events-auto"
-            onClick={() => onAppModeChange(switchTargetMode)}
-            aria-label={switchTargetLabel}
-            title={switchTargetLabel}
-          >
-            <SwitchTargetIcon className="h-4 w-4" />
           </button>
           <button
             type="button"

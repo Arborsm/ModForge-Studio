@@ -236,7 +236,6 @@ const BreathingPreviewCanvas = memo(function BreathingPreviewCanvas({
           backgroundSize: '24px 24px',
         }}
       />
-      <div className="absolute inset-x-6 bottom-6 h-14 rounded-full bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] blur-xl" />
       <div
         className="relative flex items-center justify-center"
         style={{

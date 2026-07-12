@@ -203,3 +203,19 @@ pub async fn load_audio_data_url(
     )
     .await
 }
+
+#[tauri::command]
+pub async fn export_map_png(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    output_path: String,
+    png_base64: String,
+) -> Result<(), String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(export_map_png),
+        json!({ "outputPath": output_path, "pngBase64": png_base64 }),
+    )
+    .await
+}

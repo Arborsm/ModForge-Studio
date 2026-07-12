@@ -11,9 +11,6 @@ export {
   SLOT_IDS,
   SPLIT_GAP,
   STORAGE_VERSION,
-  TOOL_WINDOW_RAIL_GAP,
-  TOOL_WINDOW_RAIL_HEIGHT,
-  TOOL_WINDOW_RAIL_WIDTH,
 } from './layoutConstants'
 export { findDockTarget, getRailSortTarget } from './layoutDragTargets'
 export { getDockGuideRects, getWorkspaceGeometry } from './layoutGeometry'
@@ -29,6 +26,8 @@ export {
   getDockedPanelIdsForSlot,
   getForcedDockForPanel,
   getOrderedPanelIdsForSlot,
+  isBuildingsWorkspacePanels,
+  isEventsWorkspacePanels,
   isItemsWorkspacePanels,
   movePanelInOrder,
   normalizeChrome,

@@ -1,4 +1,4 @@
-import type { ViewportLabels, BuildAssetDialogCopy } from '../../../model/workbench'
+import type { ViewportLabels, BuildAssetDialogCopy, MapPanelCopy } from '../../../model/workbench'
 
 const map: ViewportLabels = {
   loadPrompt: '加载 XNB 地图后，这里会变成可平移、可缩放、可右键的主视口。',
@@ -10,6 +10,10 @@ const map: ViewportLabels = {
   setOneToOne: '原始比例',
   centerView: '居中视图',
   resetPan: '重置平移',
+  exportPng: '导出 PNG（最大尺寸）',
+  exportPngDialogTitle: '导出地图 PNG',
+  exportPngSuccess: (path) => `已导出地图 PNG：${path}`,
+  failedToExportPng: '无法导出地图 PNG。',
   addObjectHere: '在此添加对象',
   inspectHover: '查看悬停信息',
   unavailable: '暂不可用',
@@ -34,5 +38,33 @@ const buildAssetDialog: BuildAssetDialogCopy = {
   cancelAction: '取消',
 }
 
+const mapPanel: MapPanelCopy = {
+  browserTitle: '地图资产',
+  browserSubtitle: '按区域浏览原版与 Mod 地图',
+  browserPlaceholder: '按名称、文件名或相对路径过滤',
+  browserEmptyFiltered: '当前筛选条件下没有匹配的地图资产。',
+  browserEmptyMissing: '尚未扫描到可加载的地图资产。',
+  browserModEmpty: '没有匹配筛选条件的 Mod 地图。',
+  sourceOriginalLabel: '原版',
+  sourceModLabel: 'Mod',
+  detailEmpty: '尚未打开地图。从左侧资源列表选择一张地图。',
+  detailOverviewTab: '概览',
+  detailLayersTab: '图层',
+  detailObjectsTab: '对象组',
+  basicsSection: '基础信息',
+  resourcesSection: '资源',
+  modSourcesSection: 'Mod 来源',
+  baselineSource: '原版 Content',
+  overlayNone: '无',
+  layersFilterPlaceholder: '筛选图层',
+  objectsFilterPlaceholder: '筛选对象组',
+  layerKind: '图层',
+  warpsLabel: '传送点',
+  layersVisible: (visible, total) => `${visible} / ${total} 可见`,
+  objectsTotal: (count) => `${count} 个对象`,
+  warpsTotal: (count) => `${count} 个传送点`,
+  moreObjects: (count) => `+${count}`,
+}
+
 export default map
-export { buildAssetDialog }
+export { buildAssetDialog, mapPanel }

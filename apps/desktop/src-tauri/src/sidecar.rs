@@ -291,6 +291,17 @@ pub(crate) fn resolve_command(
                 optional_arg(&args, "locale")?,
             ))
         }),
+        crate::host_command_wire!(export_map_png) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::MapPngExport],
+            move || {
+                ok(domain::assets::export_map_png(
+                    arg(&args, "outputPath")?,
+                    arg(&args, "pngBase64")?,
+                ))
+            },
+        ),
         crate::host_command_wire!(load_text_asset) => io_lane(id, &command_name, move || {
             ok(domain::assets::load_text_asset(
                 arg(&args, "rootPath")?,
@@ -615,6 +626,30 @@ pub(crate) fn resolve_command(
                 },
             )
         }
+        crate::host_command_wire!(load_launcher_mod_config) => {
+            io_lane(id, &command_name, move || {
+                ok(domain::launcher::mod_config::load_launcher_mod_config(arg(
+                    &args, "request",
+                )?))
+            })
+        }
+        crate::host_command_wire!(load_launcher_gmcm_probe_diagnostics) => {
+            io_lane(id, &command_name, || {
+                ok(Ok::<_, String>(
+                    domain::launcher::mod_config::load_launcher_gmcm_probe_diagnostics(),
+                ))
+            })
+        }
+        crate::host_command_wire!(save_launcher_mod_config) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::LauncherModConfig],
+            move || {
+                ok(domain::launcher::mod_config::save_launcher_mod_config(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
         crate::host_command_wire!(load_launcher_download_queue) => {
             let app = ctx.app.clone();
             mutation_with_resources(

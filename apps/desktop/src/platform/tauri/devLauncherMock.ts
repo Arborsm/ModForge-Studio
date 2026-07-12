@@ -1,6 +1,7 @@
 import { mockConvertFileSrc, mockIPC, mockWindows } from '@tauri-apps/api/mocks'
 import type {
   LauncherDownloadQueueState,
+  LauncherGmcmProbeDiagnosticsResult,
   LauncherLibraryCoversState,
   LauncherLibraryModSummary,
   LauncherLibraryScanResult,
@@ -60,6 +61,7 @@ function createMockMod(index: number): LauncherLibraryModSummary {
     folderName: name,
     absolutePath: `${DEV_LAUNCHER_MOCK_MODS_PATH}\\${name}`,
     enabled: index % 5 !== 0,
+    hasConfig: index % 4 === 0,
     nexusModId: index <= 12 ? 20_000 + index : null,
     updateKeys: index <= 12 ? [`Nexus:${20_000 + index}`] : [],
     modUrl: index <= 12 ? `https://www.nexusmods.com/stardewvalley/mods/${20_000 + index}` : null,
@@ -295,6 +297,17 @@ export function installDevLauncherMock() {
           return { modsPath: DEV_LAUNCHER_MOCK_MODS_PATH, mods } satisfies LauncherLibraryScanResult
         case 'load_launcher_runtime_info':
           return { gameVersion: '1.6.15', smapiVersion: '4.3.0' } satisfies LauncherRuntimeInfo
+        case 'load_launcher_gmcm_probe_diagnostics':
+          return {
+            status: 'warning',
+            probeAssemblyPath: null,
+            dotnetPath: 'dotnet',
+            dotnetAvailable: false,
+            net6RuntimeAvailable: false,
+            installedRuntimes: [],
+            warnings: ['browser-dev-mock'],
+            repairActions: ['run-desktop-host'],
+          } satisfies LauncherGmcmProbeDiagnosticsResult
         case 'load_launcher_nexus_diagnostics':
         case 'restart_launcher_nexus_diagnostics':
           return { routes: [] } satisfies LauncherNexusDiagnosticsResult
@@ -311,6 +324,61 @@ export function installDevLauncherMock() {
           return {
             absolutePath: String(setEnabledRequest?.modPath ?? ''),
             enabled: Boolean(setEnabledRequest?.enabled),
+          }
+        }
+        case 'load_launcher_mod_config': {
+          const request = getMockRequest<{ modPath?: string }>(payload)
+          const modPath = request?.modPath ?? `${DEV_LAUNCHER_MOCK_MODS_PATH}\\Dev Mod`
+          return {
+            modPath,
+            configPath: `${modPath}\\config.json`,
+            configExists: true,
+            schemaSources: ['content-patcher', 'config-json'],
+            warnings: ['GMCM probe is unavailable in the browser dev mock.'],
+            probeStatus: 'unavailable',
+            fields: [
+              {
+                key: 'EnableFeature',
+                label: 'Enable feature',
+                description: 'Development mock boolean option.',
+                section: 'General',
+                fieldType: 'boolean',
+                value: true,
+                defaultValue: true,
+                allowValues: [],
+                allowBlank: false,
+                allowMultiple: false,
+                editable: true,
+                source: 'content-patcher',
+              },
+              {
+                key: 'Mode',
+                label: 'Mode',
+                description: null,
+                section: 'General',
+                fieldType: 'string',
+                value: 'balanced',
+                defaultValue: 'balanced',
+                allowValues: ['balanced', 'fast', 'safe'],
+                allowBlank: false,
+                allowMultiple: false,
+                editable: true,
+                source: 'content-patcher',
+              },
+            ],
+          }
+        }
+        case 'save_launcher_mod_config': {
+          const request = getMockRequest<{ modPath?: string }>(payload)
+          const modPath = request?.modPath ?? `${DEV_LAUNCHER_MOCK_MODS_PATH}\\Dev Mod`
+          return {
+            modPath,
+            configPath: `${modPath}\\config.json`,
+            configExists: true,
+            schemaSources: ['config-json'],
+            warnings: [],
+            probeStatus: 'unavailable',
+            fields: [],
           }
         }
         case 'open_launcher_path':

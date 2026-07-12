@@ -1,3 +1,4 @@
+import { lazy } from 'react'
 import { screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vite-plus/test'
 import type { WorkbenchViewRegistration } from '@shared/contracts'
@@ -36,7 +37,6 @@ function renderHost(editModeView: WorkbenchViewRegistration, overrides: Partial<
       cpMaker={cpMaker}
       onWorkbenchEvent={vi.fn()}
       navigateToPatch={vi.fn()}
-      onSetWorkspaceMode={vi.fn()}
       onRunWithModUnsavedGuard={async (action) => {
         await action()
         return true
@@ -56,6 +56,8 @@ describe('WorkbenchViewHost', () => {
       kind: 'workbench-view',
       viewId: 'workspace-editor',
       title: 'Workspace Editor',
+      category: 'internal',
+      activation: { kind: 'component' },
       component: () => <div>Workspace editor body</div>,
     })
 
@@ -63,5 +65,22 @@ describe('WorkbenchViewHost', () => {
       'data-loading-section',
       'workbench-edit-workspace-editor:map',
     )
+  })
+
+  it('contains a lazy registered tool fallback inside the workbench content area', () => {
+    const component = lazy(() => new Promise<never>(() => {}))
+
+    const { container } = renderHost({
+      id: 'lazy-tool',
+      kind: 'workbench-view',
+      viewId: 'lazy-tool',
+      title: 'Lazy Tool',
+      category: 'tool',
+      activation: { kind: 'component' },
+      component,
+    })
+
+    expect(container.querySelector('.workbench-loading-motion-fallback')).toBeTruthy()
+    expect(container.querySelector('[data-loading-section="workbench-edit-registered:lazy-tool"]')).toBeTruthy()
   })
 })

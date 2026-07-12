@@ -3,7 +3,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import fs from 'node:fs/promises'
 import { createInterface, type Interface as ReadlineInterface } from 'node:readline'
 import path from 'node:path'
-import type { OpenDialogOptions } from '../src/shared/contracts/platform'
+import type { OpenDialogOptions, SaveDialogOptions } from '../src/shared/contracts/platform'
 
 type RpcResponse = {
   id?: number
@@ -29,7 +29,7 @@ type PendingWindowCloseRequest = {
 const localFileProtocol = 'modforge-asset'
 const localFileHost = 'local'
 const appDisplayName = process.env.MODFORGE_APP_NAME?.trim() || 'ModForge Studio'
-const appDesktopId = process.env.MODFORGE_DESKTOP_ID?.trim() || 'studio.modforge.desktop'
+const appDesktopId = process.env.MODFORGE_DESKTOP_ID?.trim() || 'io.github.Arborsm.ModForgeStudio'
 const isDev = !app.isPackaged
 const devUrl = process.env.VITE_DEV_SERVER_URL ?? 'http://127.0.0.1:5173'
 const windowCloseRequestTimeoutMs = 1500
@@ -499,6 +499,15 @@ ipcMain.handle('modforge:open-dialog', async (_event, options?: OpenDialogOption
     return null
   }
   return options?.multiple ? result.filePaths : (result.filePaths[0] ?? null)
+})
+ipcMain.handle('modforge:save-file-dialog', async (_event, options?: SaveDialogOptions) => {
+  const result = await dialog.showSaveDialog(currentWindow(), {
+    title: options?.title,
+    defaultPath: options?.defaultPath,
+    filters: options?.filters?.map((filter) => ({ name: filter.name, extensions: [...filter.extensions] })),
+  })
+
+  return result.canceled ? null : (result.filePath ?? null)
 })
 
 void app.whenReady().then(() => {

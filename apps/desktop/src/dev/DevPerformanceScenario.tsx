@@ -2,6 +2,7 @@ import { useDeferredValue, useState, type ReactNode } from 'react'
 import { localeBundles } from '@locales'
 import { LocaleProvider } from '@locales/provider'
 import { LauncherPortContext } from '@features/launcher/model/launcherPortContext'
+import type { LauncherModConfigResult, SaveLauncherModConfigRequest } from '@features/launcher/model/launcherContracts'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import type { LauncherDiscoverDetail, LauncherLibraryItem } from '@features/launcher/model/types'
 import { LauncherModDetailPanel } from '@features/launcher/ui/cards/LauncherModDetailPanel'
@@ -33,6 +34,30 @@ const launcherPort = {
   listenToUpdateProgress: async () => noop,
   listenToImageFetchDisconnected: async () => noop,
   listenToDownloadProgress: async () => noop,
+  loadModConfig: async () => createLauncherConfigResult(),
+  saveModConfig: async ({ values }: SaveLauncherModConfigRequest) => createLauncherConfigResult(values),
+  loadSettings: async () => ({ gamePath: 'E:\\Games\\Stardew Valley' }),
+  loadConfigItems: async () =>
+    [
+      ['(O)24', 'Parsnip', 'Crop'],
+      ['(O)188', 'Green Bean', 'Crop'],
+      ['(O)190', 'Cauliflower', 'Crop'],
+      ['(O)192', 'Potato', 'Crop'],
+      ['(O)128', 'Pufferfish', 'Fish'],
+      ['(O)130', 'Tuna', 'Fish'],
+      ['(O)72', 'Diamond', 'Mineral'],
+      ['(O)74', 'Prismatic Shard', 'Mineral'],
+      ['(W)4', 'Galaxy Sword', 'Weapon'],
+      ['(H)4', 'Good Ol Cap', 'Hat'],
+    ].map(([value, label, category]) => ({
+      id: value,
+      value,
+      label,
+      category,
+      source: 'Stardew Valley',
+      sourceKind: 'game',
+      metadata: {},
+    })),
 } as unknown as LauncherPort
 
 type ScenarioId =
@@ -54,6 +79,197 @@ const scenarioIds: ScenarioId[] = [
 
 function range(count: number) {
   return Array.from({ length: count }, (_, index) => index)
+}
+
+function createLauncherConfigResult(values: Record<string, unknown> = {}): LauncherModConfigResult {
+  const value = (key: string, fallback: unknown) => (Object.prototype.hasOwnProperty.call(values, key) ? values[key] : fallback)
+
+  return {
+    modPath: 'E:\\Games\\Stardew Valley\\Mods\\PerformanceExpansion',
+    configPath: 'E:\\Games\\Stardew Valley\\Mods\\PerformanceExpansion\\config.json',
+    configExists: true,
+    schemaSources: ['generic-mod-config-menu', 'config-json'],
+    probeStatus: 'succeeded',
+    warnings: ['One legacy option is read-only because it is defined by the mod assembly.'],
+    fields: [
+      {
+        key: 'Enabled',
+        label: 'Enable seasonal overlays',
+        description: 'Show the expansion overlays while the mod is active.',
+        section: 'General',
+        fieldType: 'string',
+        value: value('Enabled', 'True'),
+        defaultValue: 'True',
+        allowValues: ['True', 'False'],
+        allowBlank: false,
+        allowMultiple: false,
+        editable: true,
+        source: 'dll-static',
+      },
+      {
+        key: 'OverlayStyle',
+        label: 'Overlay style',
+        description: 'Choose the visual treatment used for seasonal map overlays.',
+        section: 'General',
+        fieldType: 'string',
+        value: value('OverlayStyle', 'Detailed'),
+        defaultValue: 'Detailed',
+        allowValues: ['Minimal', 'Detailed', 'Cinematic'],
+        allowBlank: false,
+        allowMultiple: false,
+        editable: true,
+        source: 'generic-mod-config-menu',
+      },
+      {
+        key: 'OverlayOpacity',
+        label: 'Overlay opacity',
+        description: 'Controls how strongly the seasonal artwork is blended into the map.',
+        section: 'Appearance',
+        fieldType: 'number',
+        value: value('OverlayOpacity', 0.85),
+        defaultValue: 0.85,
+        allowValues: [],
+        allowBlank: false,
+        allowMultiple: false,
+        editable: true,
+        source: 'config-json',
+      },
+      {
+        key: 'AccentColor',
+        label: 'Accent color',
+        description: 'CSS-compatible color used for the in-game overlay markers.',
+        section: 'Appearance',
+        fieldType: 'string',
+        uiHint: 'color',
+        value: value('AccentColor', '#67b36f'),
+        defaultValue: '#67b36f',
+        allowValues: [],
+        allowBlank: false,
+        allowMultiple: false,
+        editable: true,
+        source: 'config-json',
+      },
+      {
+        key: 'MachineColor',
+        label: 'Machine palette',
+        description: 'Choose the visual palette used by artisan machines.',
+        section: 'Appearance',
+        fieldType: 'string',
+        value: value('MachineColor', 'Cream'),
+        defaultValue: 'Base',
+        allowValues: ['Base', 'Black', 'Blue', 'Cream', 'Mint', 'Mocha', 'Pink', 'Purple'],
+        allowBlank: false,
+        allowMultiple: false,
+        editable: true,
+        source: 'dll-static',
+      },
+      {
+        key: 'Controls',
+        label: 'Controls',
+        description: 'Debug shortcuts stored as a nested config object.',
+        section: 'Controls',
+        fieldType: 'object',
+        value: value('Controls', {
+          ToggleDebug: 'F3',
+          DebugPrevTexture: 'LeftControl',
+          DebugNextTexture: 'RightControl',
+        }),
+        defaultValue: null,
+        allowValues: [],
+        allowBlank: false,
+        allowMultiple: false,
+        editable: true,
+        source: 'config-json',
+      },
+      {
+        key: 'OpenMenuKeys',
+        label: 'Open menu keys',
+        description: 'Comma-separated keys that open the expansion menu in game.',
+        section: 'Controls',
+        fieldType: 'string-array',
+        uiHint: 'keybind-list',
+        value: value('OpenMenuKeys', ['P', 'LeftShift']),
+        defaultValue: ['P'],
+        allowValues: [],
+        allowBlank: false,
+        allowMultiple: true,
+        editable: true,
+        source: 'generic-mod-config-menu',
+      },
+      {
+        key: 'ReloadConfigKey',
+        label: 'Reload config key',
+        description: 'Reload the mod configuration from disk.',
+        section: 'Controls',
+        fieldType: 'string-array',
+        uiHint: 'keybind-list',
+        value: value('ReloadConfigKey', 'None'),
+        defaultValue: 'None',
+        allowValues: [],
+        allowBlank: false,
+        allowMultiple: true,
+        editable: true,
+        source: 'generic-mod-config-menu',
+      },
+      {
+        key: 'FavoriteItemIds',
+        label: 'Featured reward items',
+        description: 'Items shown in the seasonal reward preview.',
+        section: 'Content',
+        fieldType: 'string-array',
+        uiHint: 'item-list',
+        value: value('FavoriteItemIds', ['(O)24', '(O)74']),
+        defaultValue: ['(O)24'],
+        allowValues: [],
+        allowBlank: false,
+        allowMultiple: true,
+        editable: true,
+        source: 'config-json',
+      },
+      {
+        key: 'WeatherTags',
+        label: 'Allowed weather tags',
+        description: 'Ordered weather identifiers used by the overlay rules.',
+        section: 'Content',
+        fieldType: 'string-array',
+        value: value('WeatherTags', ['sunny', 'windy']),
+        defaultValue: ['sunny'],
+        allowValues: [],
+        allowBlank: false,
+        allowMultiple: true,
+        editable: true,
+        source: 'content-patcher',
+      },
+      {
+        key: 'AdvancedRules',
+        label: 'Advanced overlay rules',
+        description: 'Raw rule data used by the content pack for conditional overlays.',
+        section: 'Advanced',
+        fieldType: 'object',
+        value: value('AdvancedRules', { festival: true, weather: ['sunny', 'windy'] }),
+        defaultValue: { festival: true, weather: ['sunny'] },
+        allowValues: [],
+        allowBlank: false,
+        allowMultiple: false,
+        editable: true,
+        source: 'content-patcher',
+      },
+      {
+        key: 'AssemblyVersion',
+        label: 'Assembly configuration version',
+        description: 'Detected from the mod assembly and shown for diagnostics only.',
+        section: 'Advanced',
+        fieldType: 'string',
+        value: value('AssemblyVersion', '3'),
+        defaultValue: null,
+        allowValues: [],
+        allowBlank: false,
+        allowMultiple: false,
+        editable: false,
+        source: 'dll-static',
+      },
+    ],
+  }
 }
 
 function workspaceFor(index: number): WorkspaceId {
@@ -207,6 +423,8 @@ function createProjectDetail(count: number): ModProjectDetail {
       pluginKind: 'content-patcher',
       status: 'ready',
       missingRequiredDependencies: [],
+      hasI18n: true,
+      i18nEntryCount: count,
     },
     diagnostics: [],
     contentPatcher: {
@@ -223,6 +441,7 @@ function createProjectDetail(count: number): ModProjectDetail {
       i18nFiles: createI18nFiles(count),
       patches: [],
     },
+    i18nFiles: createI18nFiles(count),
   }
 }
 
@@ -260,6 +479,7 @@ function createLocalMod(): LauncherLibraryItem {
     folderName: 'PerformanceExpansion',
     absolutePath: 'E:/Stardew/Mods/PerformanceExpansion',
     enabled: true,
+    hasConfig: true,
     nexusModId: 900001,
     updateKeys: ['Nexus:900001'],
     modUrl: 'https://example.invalid/mods/performance',
@@ -366,7 +586,7 @@ function ModI18nScenario() {
   const [files, setFiles] = useState(() => createI18nFiles(420))
   const [query, setQuery] = useState('')
   const deferredQuery = useDeferredValue(query)
-  const [statusFilter, setStatusFilter] = useState<'all' | 'translated' | 'missing' | 'empty' | 'error'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'translated' | 'missing' | 'error'>('all')
   return (
     <ScenarioFrame id="mod-i18n">
       <ModI18nWorkspace

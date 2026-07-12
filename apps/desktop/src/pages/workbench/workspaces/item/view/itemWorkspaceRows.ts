@@ -109,9 +109,11 @@ export function getWorkspaceText(copy: ItemsCopy) {
     catalogTitle: isEnglish ? 'Catalog' : '目录',
     detailTitle: isEnglish ? 'Inspector' : '检查器',
     viewTitle: isEnglish ? 'View Controls' : '视图控制',
-    railTitle: isEnglish ? 'Workspace Rail' : '工作区导航',
+    railTitle: isEnglish ? 'Browse' : '浏览',
     filtersTitle: copy.filtersTitle,
-    selectionTitle: isEnglish ? 'Current Focus' : '当前焦点',
+    selectionTitle: isEnglish ? 'Selected' : '已选',
+    sourceOriginalLabel: isEnglish ? 'Original' : '原版',
+    sourceModLabel: isEnglish ? 'Mod' : '模组',
     infoTab: isEnglish ? 'Info' : '基础信息',
     relationsTab: isEnglish ? 'Relations / Recipes' : '关联 / 配方',
     resourcesTab: isEnglish ? 'Dev / Resources' : '技术 / 资源',
@@ -141,7 +143,6 @@ export function getWorkspaceText(copy: ItemsCopy) {
 export function buildHeroChips(item: ItemWorkspaceEntry, copy: ItemsCopy) {
   const chips: HeroChip[] = [
     { key: 'price', label: copy.priceLabel, value: formatPrice(item.price ?? item.salePrice, copy), tone: 'accent', icon: 'coins' },
-    { key: 'type', label: copy.typeLabel, value: item.kindMetaLabel ?? copy.kindLabels[item.kind] },
   ]
 
   if (item.edibility != null) {

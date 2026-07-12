@@ -1,6 +1,6 @@
 use super::{
-    SaveModProjectRequest, load_mod_project, save_mod_project, scan_mod_asset_index,
-    scan_mod_projects,
+    ContentPatcherI18nFileInput, SaveModProjectRequest, load_mod_project, save_mod_project,
+    scan_mod_asset_index, scan_mod_projects,
 };
 use crate::test_support::{create_temp_dir, write_file};
 use std::fs;
@@ -177,10 +177,34 @@ fn scan_mod_projects_detects_content_patcher_pack() {
     assert_eq!(projects.len(), 1);
     assert_eq!(projects[0].plugin_kind, "content-patcher");
     assert_eq!(projects[0].name, "Example Pack");
+    assert!(!projects[0].has_i18n);
     assert_eq!(
         projects[0].content_pack_for.as_deref(),
         Some("Pathoschild.ContentPatcher")
     );
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn scan_mod_projects_detects_i18n_files() {
+    let root = create_temp_dir("mods-scan-i18n");
+    let mods_root = root.join("Mods");
+    let project = mods_root.join("ExamplePack");
+    write_file(&project.join("manifest.json"), sample_manifest());
+    write_file(&project.join("content.json"), sample_content());
+    write_file(
+        &project.join("i18n").join("default.json"),
+        r#"{
+  "ui.delete": "Delete {{itemName}}?",
+  "ui.save": "Save"
+}"#,
+    );
+
+    let projects = scan_mod_projects(root.to_string_lossy().into_owned()).expect("scan mods");
+    assert_eq!(projects.len(), 1);
+    assert_eq!(projects[0].plugin_kind, "content-patcher");
+    assert!(projects[0].has_i18n);
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -321,6 +345,83 @@ fn load_mod_project_returns_patch_summary_and_diagnostics() {
     assert_eq!(cp.patches[0].action, "Load");
     assert_eq!(cp.patches[1].target, "Data/Objects");
     assert!(detail.diagnostics.is_empty());
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn load_mod_project_returns_i18n_files_for_non_content_patcher_mods() {
+    let root = create_temp_dir("mods-load-i18n-non-cp");
+    let project = root.join("SMAPIPack");
+    write_file(
+        &project.join("manifest.json"),
+        r#"{
+  "Name": "SMAPI Pack",
+  "Author": "ModForge",
+  "Version": "1.0.0",
+  "UniqueID": "ModForge.SMAPIPack",
+  "EntryDll": "SMAPIPack.dll"
+}"#,
+    );
+    write_file(
+        &project.join("i18n").join("default.json"),
+        r#"{
+  "ui.delete": "Delete {{itemName}}?"
+}"#,
+    );
+
+    let detail =
+        load_mod_project(project.to_string_lossy().into_owned()).expect("load mod project");
+
+    assert_eq!(detail.plugin_kind, "unknown");
+    assert!(detail.content_patcher.is_none());
+    assert!(detail.summary.has_i18n);
+    assert_eq!(detail.i18n_files.len(), 1);
+    assert_eq!(detail.i18n_files[0].locale, "default");
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn save_mod_project_writes_i18n_files_for_non_content_patcher_mods() {
+    let root = create_temp_dir("mods-save-i18n-non-cp");
+    let source = root.join("SMAPIPack");
+    write_file(
+        &source.join("manifest.json"),
+        r#"{
+  "Name": "SMAPI Pack",
+  "Author": "ModForge",
+  "Version": "1.0.0",
+  "UniqueID": "ModForge.SMAPIPack",
+  "EntryDll": "SMAPIPack.dll"
+}"#,
+    );
+    write_file(
+        &source.join("i18n").join("default.json"),
+        r#"{
+  "ui.delete": "Delete {{itemName}}?"
+}"#,
+    );
+
+    let request = SaveModProjectRequest {
+        source_path: source.to_string_lossy().into_owned(),
+        output_path: None,
+        overwrite_existing_export: false,
+        manifest_json: "{}".to_string(),
+        content_json: "{}".to_string(),
+        i18n_files: vec![ContentPatcherI18nFileInput {
+            locale: "zh-CN".to_string(),
+            raw_json: r#"{
+  "ui.delete": "删除 {{itemName}}？"
+}"#
+            .to_string(),
+        }],
+    };
+
+    let result = save_mod_project(request).expect("save mod project");
+    assert_eq!(result.plugin_kind, "unknown");
+    let saved_i18n = fs::read_to_string(source.join("i18n").join("zh-CN.json")).expect("read i18n");
+    assert!(saved_i18n.contains("删除"));
 
     fs::remove_dir_all(root).expect("cleanup");
 }

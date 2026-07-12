@@ -64,6 +64,7 @@ type MapViewportProps = {
   focusWorldPoint?: ViewportWorldPoint | null
   contextMenuEnabled?: boolean
   contextMenuExtraItems?: ReactNode
+  onExportPng?: () => void
   onAddObjectHere?: (tileX: number, tileY: number) => void
   onTileClick?: (tileX: number, tileY: number) => void
   initialZoom?: number | null
@@ -86,6 +87,7 @@ export type MapViewportHandle = {
   centerView: () => void
   resetPan: () => void
   focusObject: (target: FocusedMapObjectTarget) => void
+  exportPng: () => Promise<string>
 }
 
 type DragState = {
@@ -138,6 +140,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     focusWorldPoint,
     contextMenuEnabled = true,
     contextMenuExtraItems,
+    onExportPng,
     onAddObjectHere,
     onTileClick,
     initialZoom = null,
@@ -320,16 +323,13 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     return {
       backgroundColor: '#09111d',
       backgroundImage: [
-        `radial-gradient(circle at top left, ${rgbaFromHex(accentColor, 0.08)}, transparent 24%)`,
         `linear-gradient(${rgbaFromHex(accentColor, 0.16)} 1px, transparent 1px)`,
         `linear-gradient(90deg, ${rgbaFromHex(accentColor, 0.16)} 1px, transparent 1px)`,
         `linear-gradient(${rgbaFromHex(accentColor, 0.05)} 1px, transparent 1px)`,
         `linear-gradient(90deg, ${rgbaFromHex(accentColor, 0.05)} 1px, transparent 1px)`,
       ].join(', '),
-      backgroundSize: ['auto', '6.25rem 6.25rem', '6.25rem 6.25rem', '1.25rem 1.25rem', '1.25rem 1.25rem'].join(', '),
-      backgroundPosition: ['0 0', '-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem'].join(
-        ', ',
-      ),
+      backgroundSize: ['6.25rem 6.25rem', '6.25rem 6.25rem', '1.25rem 1.25rem', '1.25rem 1.25rem'].join(', '),
+      backgroundPosition: ['-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem'].join(', '),
     } satisfies CSSProperties
   }, [accentColor, theme])
   const highlightedObject = useMemo(() => {
@@ -667,6 +667,45 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     [centerViewportOnWorldPoint, mapDocument, zoomMode],
   )
 
+  const exportPng = useCallback(async () => {
+    if (!mapDocument) {
+      throw new Error(labels.failedToExportPng)
+    }
+
+    const width = mapDocument.width * mapDocument.tileWidth
+    const height = mapDocument.height * mapDocument.tileHeight
+    const backgroundRaster = mapRasterCanvasRef.current
+    const foregroundRaster = foregroundRasterCanvasRef.current
+    if (!backgroundRaster || !foregroundRaster || width < 1 || height < 1) {
+      throw new Error(labels.failedToExportPng)
+    }
+
+    const exportCanvas = document.createElement('canvas')
+    exportCanvas.width = width
+    exportCanvas.height = height
+    const context = exportCanvas.getContext('2d')
+    if (!context) {
+      throw new Error(labels.failedToExportPng)
+    }
+
+    context.imageSmoothingEnabled = false
+    context.drawImage(backgroundRaster, 0, 0)
+    context.drawImage(foregroundRaster, 0, 0)
+
+    const blob = await new Promise<Blob | null>((resolve) => exportCanvas.toBlob(resolve, 'image/png'))
+    if (!blob) {
+      throw new Error(labels.failedToExportPng)
+    }
+
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    let binary = ''
+    const chunkSize = 0x8000
+    for (let index = 0; index < bytes.length; index += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize))
+    }
+    return btoa(binary)
+  }, [labels.failedToExportPng, mapDocument])
+
   useImperativeHandle(
     ref,
     () => ({
@@ -677,8 +716,9 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       centerView: centerViewport,
       resetPan: resetViewportToOrigin,
       focusObject: focusObjectTarget,
+      exportPng,
     }),
-    [applyFitZoom, applyManualZoom, centerViewport, focusObjectTarget, resetViewportToOrigin, zoomInStep, zoomOutStep],
+    [applyFitZoom, applyManualZoom, centerViewport, exportPng, focusObjectTarget, resetViewportToOrigin, zoomInStep, zoomOutStep],
   )
 
   useEffect(() => {
@@ -1360,16 +1400,6 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       style={viewportBackdropStyle}
       aria-busy={tilesetLoading ? 'true' : undefined}
     >
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            theme === 'light'
-              ? `radial-gradient(circle at top left, ${rgbaFromHex(accentColor, 0.05)}, transparent 28%)`
-              : `radial-gradient(circle at top left, ${rgbaFromHex(accentColor, 0.08)}, transparent 28%)`,
-        }}
-      />
-
       {tilesetLoading ? <ImageSkeleton overlay rounded={false} className="map-viewport-skeleton" /> : null}
 
       {showStatsChips ? (
@@ -1514,6 +1544,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       onZoomOut={zoomOutStep}
       onCenterView={centerViewport}
       onResetPan={resetViewportToOrigin}
+      onExportPng={onExportPng}
       onAddObjectHere={onAddObjectHere}
     />
   )

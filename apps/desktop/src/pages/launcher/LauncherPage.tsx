@@ -1,16 +1,16 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { LauncherDownloadsPopover } from './ui/LauncherDownloadsPopover'
 import LauncherShell from './ui/LauncherShell'
 import TopMenuBar from '@widgets/top-navigation'
 import type { LauncherPage as LauncherPageId, AppMode, ThemeMode, WorkspaceMode } from '@locales/api'
 import { useEditorCopy } from '@locales/provider'
-import type { SettingsWindowCategory, WorkspacePanelMeta } from '@shared/contracts'
+import type { SettingsWindowCategory } from '@shared/contracts'
 import type { LauncherNexusDiagnosticsResult } from '@features/launcher/model/launcherContracts'
 import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { useLauncherRuntime } from '@features/launcher/model/useLauncherRuntime'
 import { useLauncherImageFetchNotifications } from '@features/launcher/model/useLauncherImageFetchNotifications'
 import { useLauncherUpdateProgressNotifications } from '@features/launcher/model/useLauncherUpdateProgressNotifications'
-import { publishNotification } from '@shared/ui/notifications'
+import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import type { LocaleCode } from '@locales'
 import type { LauncherDiscoverSearchRequest } from './model/launcherDiscoverSearchRequest'
 
@@ -56,14 +56,31 @@ function launcherLaunchErrorDetails(error: unknown): LauncherLaunchErrorDetails 
   return { code: null, message: String(error) }
 }
 
-const EMPTY_VIEW_MENU = {
-  panelItems: [] as WorkspacePanelMeta[],
-  presetNames: [],
-  onTogglePanel: () => {},
-  onResetLayout: () => {},
-  onSavePreset: () => {},
-  onLoadPreset: () => {},
-  onDeletePreset: () => {},
+const GMCM_PROBE_NOTIFICATION_ID = 'launcher-gmcm-probe'
+
+function navigateToGmcmDiagnostics(onLauncherPageChange: (page: LauncherPageId) => void) {
+  onLauncherPageChange('configuration')
+  const startedAt = Date.now()
+
+  const revealTarget = () => {
+    const route = document.querySelector('[data-launcher-route="configuration"].launcher-shell-route-active')
+    const panel = route?.querySelector<HTMLElement>('[data-testid="launcher-config-gmcm-probe"]') ?? null
+    if (!panel) {
+      if (Date.now() - startedAt < 5_000) {
+        window.requestAnimationFrame(revealTarget)
+      }
+      return
+    }
+
+    panel.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    panel.focus({ preventScroll: true })
+    panel.dataset.notificationTarget = 'true'
+    window.setTimeout(() => {
+      delete panel.dataset.notificationTarget
+    }, 1_800)
+  }
+
+  window.requestAnimationFrame(revealTarget)
 }
 
 export function LauncherPage({
@@ -102,6 +119,84 @@ export function LauncherPage({
       }}
     />
   )
+  useEffect(() => {
+    if (
+      !desktopHost ||
+      launcherRuntime.settingsState.state !== 'ready' ||
+      launcherRuntime.settingsState.settings.gmcmParsingEnabled === false
+    ) {
+      dismissNotification(GMCM_PROBE_NOTIFICATION_ID)
+      return
+    }
+
+    let disposed = false
+    const configurationCopy = copy.launcher.configuration
+
+    void launcherPort
+      .loadGmcmProbeDiagnostics()
+      .then((diagnostics) => {
+        if (disposed) {
+          return
+        }
+        if (diagnostics.status === 'ready') {
+          dismissNotification(GMCM_PROBE_NOTIFICATION_ID)
+          return
+        }
+
+        const warning = diagnostics.warnings.find((message) =>
+          Object.prototype.hasOwnProperty.call(configurationCopy.gmcmProbeWarningMessages, message),
+        )
+        const repair = diagnostics.repairActions.find((action) =>
+          Object.prototype.hasOwnProperty.call(configurationCopy.gmcmProbeRepairActions, action),
+        )
+        const description = warning
+          ? configurationCopy.gmcmProbeWarningMessages[warning as keyof typeof configurationCopy.gmcmProbeWarningMessages]
+          : configurationCopy.gmcmProbeUnavailable
+        const note = repair
+          ? configurationCopy.gmcmProbeRepairActions[repair as keyof typeof configurationCopy.gmcmProbeRepairActions]
+          : configurationCopy.gmcmProbeNotificationNote
+        const chips = [
+          !diagnostics.probeAssemblyPath ? configurationCopy.gmcmProbeAssemblyLabel : null,
+          !diagnostics.dotnetAvailable ? configurationCopy.gmcmProbeDotnetLabel : null,
+          !diagnostics.net6RuntimeAvailable ? configurationCopy.gmcmProbeRuntimeLabel : null,
+        ]
+          .filter((label): label is string => label != null)
+          .map((label) => ({ label, tone: 'warning' as const }))
+
+        publishNotification({
+          id: GMCM_PROBE_NOTIFICATION_ID,
+          level: diagnostics.status === 'warning' ? 'warning' : 'error',
+          variant: 'diagnostic',
+          title: configurationCopy.gmcmProbeTitle,
+          summary: configurationCopy.gmcmProbeNotificationImpact,
+          description,
+          note,
+          chips,
+          action: {
+            label: copy.launcher.actions.viewDetails,
+            callback: () => navigateToGmcmDiagnostics(onLauncherPageChange),
+            tone: 'primary',
+            closeOnClick: true,
+          },
+          autoDismissMs: null,
+        })
+      })
+      .catch(() => {
+        // Configuration page retry remains available if the startup probe itself cannot run.
+      })
+
+    return () => {
+      disposed = true
+    }
+  }, [
+    copy.launcher.actions.viewDetails,
+    copy.launcher.configuration,
+    desktopHost,
+    launcherPort,
+    launcherRuntime.settingsState.settings.gmcmParsingEnabled,
+    launcherRuntime.settingsState.state,
+    onLauncherPageChange,
+  ])
   const handleLaunchGame = useCallback(async () => {
     if (!desktopHost || launchBusy) {
       return
@@ -165,9 +260,7 @@ export function LauncherPage({
         onMinimizeWindow={onMinimizeWindow}
         onToggleMaximizeWindow={onToggleMaximizeWindow}
         onCloseWindow={onCloseWindow}
-        viewMenu={EMPTY_VIEW_MENU}
         settingsMenu={{ onOpen: () => onOpenSettings('appearance') }}
-        projectMenu={{ onOpen: () => {} }}
         launcherChrome={{
           page: activeLauncherPage,
           visiblePages: [...availableLauncherPages],

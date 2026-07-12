@@ -15,6 +15,7 @@ export type ModWorkspaceCopy = {
   browserEmpty: string
   contentPatcherOnly: string
   compatibleOnly: string
+  i18nOnly: string
   incompatibleProject: string
   projectsLabel: string
   filteredLabel: string

@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 export const appDisplayName = 'ModForge Studio'
-export const appDesktopId = 'studio.modforge.desktop.dev'
+export const appDesktopId = 'io.github.Arborsm.ModForgeStudio.dev'
 export const appDesktopFileName = `${appDesktopId}.desktop`
 export const appLinuxClass = appDesktopId
 export const namedElectronExecutableName = 'modforge-studio'

@@ -158,8 +158,8 @@ function useItemWorkspaceViewModel({
     setItemsPerPage: ui.setItemsPerPage,
     activeDetailTab: ui.activeDetailTab,
     setActiveDetailTab: ui.setActiveDetailTab,
-    hoveredItemId: ui.hoveredItemId,
-    setHoveredItemId: ui.setHoveredItemId,
+    catalogViewMode: ui.catalogViewMode,
+    setCatalogViewMode: ui.setCatalogViewMode,
     handleSelectItem,
     handleSelectModItem,
   }
@@ -204,10 +204,10 @@ export function ItemCatalogPanel(props: ItemWorkspaceProps) {
       textureStatesByAssetName={view.textureStatesByAssetName}
       onSelectItem={view.handleSelectItem}
       onSelectModItem={view.handleSelectModItem}
-      hoveredItemId={view.hoveredItemId}
-      onHoverItem={view.setHoveredItemId}
       onPageChange={view.setCurrentPage}
       onItemsPerPageChange={view.setItemsPerPage}
+      catalogViewMode={view.catalogViewMode}
+      onCatalogViewModeChange={view.setCatalogViewMode}
     />
   )
 }
@@ -243,9 +243,15 @@ export default function ItemWorkspace({ ...props }: ItemWorkspaceProps) {
   const view = useItemWorkspaceViewModel(props)
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-(--bg-app)">
+    <div
+      className="flex h-full flex-col overflow-hidden bg-(--bg-app)"
+      style={{
+        background:
+          'radial-gradient(circle 32.5rem at 14% -6%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 68%), radial-gradient(circle 28.75rem at 98% -2%, color-mix(in srgb, var(--info) 6%, transparent), transparent 70%), linear-gradient(color-mix(in srgb, var(--border-color) 22%, transparent) 1px, transparent 1px) 0 0 / 2.5rem 2.5rem, linear-gradient(90deg, color-mix(in srgb, var(--border-color) 22%, transparent) 1px, transparent 1px) 0 0 / 2.5rem 2.5rem, var(--bg-app)',
+      }}
+    >
       <div className="min-h-0 flex-1 overflow-auto px-4 py-4 xl:px-5 xl:py-5">
-        <div className="mx-auto grid w-full max-w-440 gap-5 xl:grid-cols-[minmax(220px,0.72fr)_minmax(420px,1.18fr)_minmax(520px,1.6fr)]">
+        <div className="mx-auto grid w-full max-w-[1880px] gap-4 xl:grid-cols-[260px_1rem_minmax(0,920px)_1rem_620px] xl:gap-0">
           <NavigationPane
             text={view.text}
             browserSourceMode={view.browserSourceMode}
@@ -261,6 +267,8 @@ export default function ItemWorkspace({ ...props }: ItemWorkspaceProps) {
             totalVisibleCount={view.navigationTotalVisibleCount}
           />
 
+          <div className="item-workspace-divider hidden xl:block" aria-hidden="true" />
+
           <CatalogPane
             text={view.text}
             browserSourceMode={view.browserSourceMode}
@@ -275,11 +283,13 @@ export default function ItemWorkspace({ ...props }: ItemWorkspaceProps) {
             textureStatesByAssetName={view.textureStatesByAssetName}
             onSelectItem={view.handleSelectItem}
             onSelectModItem={view.handleSelectModItem}
-            hoveredItemId={view.hoveredItemId}
-            onHoverItem={view.setHoveredItemId}
             onPageChange={view.setCurrentPage}
             onItemsPerPageChange={view.setItemsPerPage}
+            catalogViewMode={view.catalogViewMode}
+            onCatalogViewModeChange={view.setCatalogViewMode}
           />
+
+          <div className="item-workspace-divider hidden xl:block" aria-hidden="true" />
 
           <DetailPane
             text={view.text}

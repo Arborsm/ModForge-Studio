@@ -55,9 +55,11 @@ pub enum HostCommandResource {
     LauncherImageCache,
     LauncherUpdatesCache,
     LauncherInstallTree,
+    LauncherModConfig,
     GameAssetCache,
     ModProject,
     CpMakerDrafts,
+    MapPngExport,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -646,9 +648,11 @@ pub struct HostCommandResourceLocks {
     launcher_image_cache: Mutex<()>,
     launcher_updates_cache: Mutex<()>,
     launcher_install_tree: Mutex<()>,
+    launcher_mod_config: Mutex<()>,
     game_asset_cache: Mutex<()>,
     mod_project: Mutex<()>,
     cp_maker_drafts: Mutex<()>,
+    map_png_export: Mutex<()>,
 }
 
 impl HostCommandResourceLocks {
@@ -662,9 +666,11 @@ impl HostCommandResourceLocks {
             launcher_image_cache: Mutex::new(()),
             launcher_updates_cache: Mutex::new(()),
             launcher_install_tree: Mutex::new(()),
+            launcher_mod_config: Mutex::new(()),
             game_asset_cache: Mutex::new(()),
             mod_project: Mutex::new(()),
             cp_maker_drafts: Mutex::new(()),
+            map_png_export: Mutex::new(()),
         }
     }
 
@@ -690,9 +696,11 @@ impl HostCommandResourceLocks {
             HostCommandResource::LauncherImageCache => &self.launcher_image_cache,
             HostCommandResource::LauncherUpdatesCache => &self.launcher_updates_cache,
             HostCommandResource::LauncherInstallTree => &self.launcher_install_tree,
+            HostCommandResource::LauncherModConfig => &self.launcher_mod_config,
             HostCommandResource::GameAssetCache => &self.game_asset_cache,
             HostCommandResource::ModProject => &self.mod_project,
             HostCommandResource::CpMakerDrafts => &self.cp_maker_drafts,
+            HostCommandResource::MapPngExport => &self.map_png_export,
         };
         match lock.lock() {
             Ok(guard) => guard,
@@ -928,9 +936,6 @@ async fn run_pool_dispatcher(
     telemetry: HostRuntimeTelemetry,
 ) {
     loop {
-        let Some(command) = receiver.recv().await else {
-            break;
-        };
         let permit = match Arc::clone(&semaphore).acquire_owned().await {
             Ok(permit) => permit,
             Err(error) => {
@@ -943,6 +948,9 @@ async fn run_pool_dispatcher(
                 );
                 break;
             }
+        };
+        let Some(command) = receiver.recv().await else {
+            break;
         };
 
         let command_id = command.id.clone();

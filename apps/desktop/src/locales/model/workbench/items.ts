@@ -105,5 +105,8 @@ export type ItemsPanelCopy = {
   giftSectionTitle: string
   giftLoveTitle: string
   giftLikeTitle: string
+  listViewLabel: string
+  gridViewLabel: string
+  sourceLabel: string
   kindLabels: Record<'object' | 'big-craftable' | 'weapon' | 'tool' | 'shirt' | 'pants' | 'trinket' | 'hat' | 'boots' | 'furniture', string>
 }

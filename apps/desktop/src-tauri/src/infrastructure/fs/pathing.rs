@@ -1,3 +1,4 @@
+use crate::infrastructure::text_encoding::read_text_file;
 #[cfg(any(windows, test))]
 use std::collections::BTreeMap;
 use std::collections::HashSet;
@@ -138,8 +139,9 @@ fn collect_custom_install_paths() -> Vec<PathBuf> {
     };
 
     let targets_path = home.join("stardewvalley.targets");
-    let Ok(content) = std::fs::read_to_string(&targets_path) else {
-        return Vec::new();
+    let content = match read_text_file(&targets_path) {
+        Ok(content) => content,
+        Err(_) => return Vec::new(),
     };
 
     extract_xml_tag_value(&content, "GamePath")
@@ -327,7 +329,7 @@ fn read_windows_registry_value(
 #[cfg(windows)]
 fn get_path_from_steam_library(steam_root: &Path) -> Option<PathBuf> {
     let library_folders_path = steam_root.join("steamapps").join("libraryfolders.vdf");
-    let content = std::fs::read_to_string(library_folders_path).ok()?;
+    let content = read_text_file(&library_folders_path).ok()?;
     let root = parse_vdf(&content)?;
     let libraries = match &root {
         VdfValue::Object(entries) => entries.get("libraryfolders")?,
@@ -453,43 +455,34 @@ fn take_vdf_string(tokens: &[VdfToken], cursor: &mut usize) -> Option<String> {
 
 #[cfg(any(windows, test))]
 fn tokenize_vdf(content: &str) -> Vec<VdfToken> {
-    let bytes = content.as_bytes();
-    let mut index = 0;
+    let mut chars = content.chars().peekable();
     let mut tokens = Vec::new();
 
-    while index < bytes.len() {
-        match bytes[index] {
-            b'{' => {
+    while let Some(ch) = chars.next() {
+        match ch {
+            '{' => {
                 tokens.push(VdfToken {
                     kind: VdfTokenKind::OpenBrace,
                     value: String::new(),
                 });
-                index += 1;
             }
-            b'}' => {
+            '}' => {
                 tokens.push(VdfToken {
                     kind: VdfTokenKind::CloseBrace,
                     value: String::new(),
                 });
-                index += 1;
             }
-            b'"' => {
-                index += 1;
+            '"' => {
                 let mut value = String::new();
-                while index < bytes.len() {
-                    match bytes[index] {
-                        b'\\' if index + 1 < bytes.len() => {
-                            value.push(bytes[index + 1] as char);
-                            index += 2;
+                while let Some(string_ch) = chars.next() {
+                    match string_ch {
+                        '\\' => {
+                            if let Some(escaped) = chars.next() {
+                                value.push(escaped);
+                            }
                         }
-                        b'"' => {
-                            index += 1;
-                            break;
-                        }
-                        byte => {
-                            value.push(byte as char);
-                            index += 1;
-                        }
+                        '"' => break,
+                        other => value.push(other),
                     }
                 }
                 tokens.push(VdfToken {
@@ -497,13 +490,15 @@ fn tokenize_vdf(content: &str) -> Vec<VdfToken> {
                     value,
                 });
             }
-            b'/' if index + 1 < bytes.len() && bytes[index + 1] == b'/' => {
-                index += 2;
-                while index < bytes.len() && bytes[index] != b'\n' {
-                    index += 1;
+            '/' if chars.peek() == Some(&'/') => {
+                chars.next();
+                for skip_ch in chars.by_ref() {
+                    if skip_ch == '\n' {
+                        break;
+                    }
                 }
             }
-            _ => index += 1,
+            _ => {}
         }
     }
 

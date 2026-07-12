@@ -7,6 +7,7 @@ export type LauncherSettings = {
   autoInstallDownloads: boolean
   keepDownloadedArchives: boolean
   autoCheckModUpdates: boolean
+  gmcmParsingEnabled?: boolean
 }
 
 /** Partial settings patch accepted by the launcher settings save command. */
@@ -18,6 +19,7 @@ export type SaveLauncherSettingsRequest = {
   autoInstallDownloads?: boolean
   keepDownloadedArchives?: boolean
   autoCheckModUpdates?: boolean
+  gmcmParsingEnabled?: boolean
 }
 
 /** Request to scan one Mods folder into launcher library entries. */
@@ -37,6 +39,7 @@ export type LauncherLibraryModSummary = {
   folderName: string
   absolutePath: string
   enabled: boolean
+  hasConfig: boolean
   nexusModId: number | null
   updateKeys: string[]
   modUrl: string | null
@@ -162,6 +165,70 @@ export type SetLauncherModEnabledRequest = {
 export type SetLauncherModEnabledResult = {
   absolutePath: string
   enabled: boolean
+}
+
+/** Request to load editable config fields for one installed launcher mod. */
+export type LoadLauncherModConfigRequest = {
+  modPath: string
+  locale?: string | null
+}
+
+/** Partial config value map saved back into the mod's config.json. */
+export type SaveLauncherModConfigRequest = {
+  modPath: string
+  locale?: string | null
+  values: Record<string, unknown>
+}
+
+export type LauncherModConfigSource = 'content-patcher' | 'generic-mod-config-menu' | 'config-json' | 'dll-static'
+
+export type LauncherModConfigFieldType = 'boolean' | 'integer' | 'number' | 'string' | 'string-array' | 'object' | 'unknown'
+/** Preferred editor control when a config field's storage type is not expressive enough. */
+export type LauncherModConfigUiHint = 'color' | 'item' | 'item-list' | 'keybind' | 'keybind-list'
+
+export type LauncherModConfigProbeStatus = 'not-run' | 'unavailable' | 'succeeded' | 'failed' | 'timed-out'
+
+/** One editable mod config field discovered from CP schema, GMCM, DLL metadata, or config.json. */
+export type LauncherModConfigField = {
+  key: string
+  label: string
+  description: string | null
+  section: string | null
+  fieldType: LauncherModConfigFieldType
+  uiHint?: LauncherModConfigUiHint | null
+  value: unknown
+  defaultValue: unknown
+  allowValues: unknown[]
+  allowBlank: boolean
+  allowMultiple: boolean
+  editable: boolean
+  source: LauncherModConfigSource
+}
+
+/** Editable config schema and current values for one installed launcher mod. */
+export type LauncherModConfigResult = {
+  modPath: string
+  configPath: string
+  configExists: boolean
+  fields: LauncherModConfigField[]
+  schemaSources: LauncherModConfigSource[]
+  warnings: string[]
+  probeStatus: LauncherModConfigProbeStatus
+  probeDiagnostics?: Record<string, unknown> | null
+}
+
+export type LauncherGmcmProbeDiagnosticStatus = 'ready' | 'warning' | 'unavailable'
+
+/** Availability snapshot for the bundled GMCM probe and .NET runtime host. */
+export type LauncherGmcmProbeDiagnosticsResult = {
+  status: LauncherGmcmProbeDiagnosticStatus
+  probeAssemblyPath: string | null
+  dotnetPath: string
+  dotnetAvailable: boolean
+  net6RuntimeAvailable: boolean
+  installedRuntimes: string[]
+  warnings: string[]
+  repairActions: string[]
 }
 
 /** Remote catalog search query and filter set. */

@@ -18,6 +18,24 @@ export function isItemsWorkspacePanels(panels?: WorkspacePanelConfig[]) {
   return panels?.some((panel) => panel.id === 'item-navigation') || panels?.some((panel) => panel.id === 'item-details') || false
 }
 
+export function isBuildingsWorkspacePanels(panels?: WorkspacePanelConfig[]) {
+  return (
+    panels?.some((panel) => panel.id === 'building-browser') ||
+    panels?.some((panel) => panel.id === 'building-details') ||
+    panels?.some((panel) => panel.id === 'building-preview') ||
+    false
+  )
+}
+
+export function isEventsWorkspacePanels(panels?: WorkspacePanelConfig[]) {
+  return (
+    panels?.some((panel) => panel.id === 'event-browser') ||
+    panels?.some((panel) => panel.id === 'event-stage') ||
+    panels?.some((panel) => panel.id === 'event-detail') ||
+    false
+  )
+}
+
 export function getForcedDockForPanel(): DockArea | null {
   return null
 }
@@ -79,11 +97,25 @@ export function getDefaultSlots(
 
 export function getDefaultChrome(panels?: WorkspacePanelConfig[]): WorkspaceChromeState {
   const isItemsWorkspace = isItemsWorkspacePanels(panels)
+  const isBuildingsWorkspace = isBuildingsWorkspacePanels(panels)
+  const isEventsWorkspace = isEventsWorkspacePanels(panels)
 
   if (isItemsWorkspace) {
     return {
       leftWidth: 0.15,
       rightWidth: 0.5,
+      bottomHeight: 220,
+      leftSplit: 0.44,
+      rightSplit: 0.34,
+      bottomSplit: 0.5,
+    }
+  }
+
+  // Buildings / events: default both side rails to the narrowest allowed chrome ratio.
+  if (isBuildingsWorkspace || isEventsWorkspace) {
+    return {
+      leftWidth: 0.14,
+      rightWidth: 0.16,
       bottomHeight: 220,
       leftSplit: 0.44,
       rightSplit: 0.34,

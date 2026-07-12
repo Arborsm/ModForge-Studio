@@ -39,6 +39,8 @@ import { scheduleDeferred } from '@shared/lib/react'
 
 type UseModWorkspaceOptions = {
   directoryInfo: GameDirectoryInfo | null
+  mode?: 'mod' | 'i18n'
+  defaultI18nOnly?: boolean
 }
 
 type PendingUnsavedChangeDecision = {
@@ -76,21 +78,25 @@ function isIncompatibleProject(project: ModProjectSummary) {
   return project.status === 'incompatible'
 }
 
-function getDefaultModProjectPath(projects: ModProjectSummary[]) {
+function getDefaultModProjectPath(projects: ModProjectSummary[], isI18nMode: boolean) {
+  if (isI18nMode) {
+    return projects[0]?.absolutePath ?? null
+  }
+
   return projects.find((project) => project.pluginKind === 'content-patcher' && !isIncompatibleProject(project))?.absolutePath ?? null
 }
 
-function getNextActiveProjectPath(projects: ModProjectSummary[], currentPath: string | null) {
+function getNextActiveProjectPath(projects: ModProjectSummary[], currentPath: string | null, isI18nMode: boolean) {
   if (!currentPath) {
-    return getDefaultModProjectPath(projects)
+    return getDefaultModProjectPath(projects, isI18nMode)
   }
 
   const currentProject = projects.find((project) => project.absolutePath === currentPath)
-  if (currentProject && !isIncompatibleProject(currentProject)) {
+  if (currentProject && (isI18nMode || !isIncompatibleProject(currentProject))) {
     return currentPath
   }
 
-  return getDefaultModProjectPath(projects)
+  return getDefaultModProjectPath(projects, isI18nMode)
 }
 
 function isExportOverwriteRequiredError(message: string) {
@@ -161,13 +167,15 @@ function createDefaultSimulationContext(): ContentPatcherBackendSimulationContex
   }
 }
 
-function useModWorkspace({ directoryInfo }: UseModWorkspaceOptions) {
+function useModWorkspace({ directoryInfo, mode = 'mod', defaultI18nOnly = false }: UseModWorkspaceOptions) {
   const copy = useModWorkspaceCopy()
+  const isI18nMode = mode === 'i18n'
   const pluginDefinition = getWorkspacePluginDefinition('content-patcher')
   const [modProjects, setModProjects] = useState<ModProjectSummary[]>([])
   const [modFilter, setModFilter] = useState('')
-  const [contentPatcherOnly, setContentPatcherOnly] = useState(true)
-  const [compatibleOnly, setCompatibleOnly] = useState(true)
+  const [contentPatcherOnly, setContentPatcherOnly] = useState(!isI18nMode)
+  const [compatibleOnly, setCompatibleOnly] = useState(!isI18nMode)
+  const [i18nOnly, setI18nOnly] = useState(defaultI18nOnly || isI18nMode)
   const [activeProjectPath, setActiveProjectPath] = useState<string | null>(null)
   const [projectDetail, setProjectDetail] = useState<ModProjectDetail | null>(null)
   const [manifestEditor, setManifestEditor] = useState<JsonEditorState>({ text: '', value: null, error: null })
@@ -199,11 +207,15 @@ function useModWorkspace({ directoryInfo }: UseModWorkspaceOptions) {
   const filteredModProjects = useMemo(
     () =>
       modProjects.filter((project) => {
-        if (contentPatcherOnly && project.pluginKind !== 'content-patcher') {
+        if (!isI18nMode && contentPatcherOnly && project.pluginKind !== 'content-patcher') {
           return false
         }
 
-        if (compatibleOnly && isIncompatibleProject(project)) {
+        if (!isI18nMode && compatibleOnly && isIncompatibleProject(project)) {
+          return false
+        }
+
+        if ((i18nOnly || isI18nMode) && project.i18nEntryCount === 0) {
           return false
         }
 
@@ -216,7 +228,7 @@ function useModWorkspace({ directoryInfo }: UseModWorkspaceOptions) {
           .toLowerCase()
         return haystack.includes(deferredFilter)
       }),
-    [compatibleOnly, contentPatcherOnly, deferredFilter, modProjects],
+    [compatibleOnly, contentPatcherOnly, deferredFilter, i18nOnly, isI18nMode, modProjects],
   )
 
   const contentSummary = useMemo(() => summarizeContentPatcherContent(contentEditor.value), [contentEditor.value])
@@ -256,7 +268,7 @@ function useModWorkspace({ directoryInfo }: UseModWorkspaceOptions) {
   ])
 
   const hasUnsavedChanges = useMemo(() => {
-    const source = projectDetail?.contentPatcher
+    const source = projectDetail
     if (!source) {
       return false
     }
@@ -272,10 +284,17 @@ function useModWorkspace({ directoryInfo }: UseModWorkspaceOptions) {
       }
     }
 
-    return manifestEditor.text.trimEnd() !== source.manifestJson.trimEnd() || contentEditor.text.trimEnd() !== source.contentJson.trimEnd()
-  }, [contentEditor.text, i18nFiles, manifestEditor.text, projectDetail?.contentPatcher])
+    const cp = source.contentPatcher
+    if (!cp) {
+      return false
+    }
 
-  const canPersist = Boolean(projectDetail?.contentPatcher && !manifestEditor.error && !contentEditor.error && !patchWhenError)
+    return manifestEditor.text.trimEnd() !== cp.manifestJson.trimEnd() || contentEditor.text.trimEnd() !== cp.contentJson.trimEnd()
+  }, [contentEditor.text, i18nFiles, manifestEditor.text, projectDetail])
+
+  const canPersist = Boolean(
+    projectDetail && (projectDetail.contentPatcher ? !manifestEditor.error && !contentEditor.error && !patchWhenError : true),
+  )
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
@@ -312,7 +331,7 @@ function useModWorkspace({ directoryInfo }: UseModWorkspaceOptions) {
 
         setModProjects(projects)
         setStatusMessage(copy.scanStatus(projects.length))
-        setActiveProjectPath((current) => getNextActiveProjectPath(projects, current))
+        setActiveProjectPath((current) => getNextActiveProjectPath(projects, current, isI18nMode))
       })
       .catch((error) => {
         if (!cancelled) {
@@ -361,7 +380,7 @@ function useModWorkspace({ directoryInfo }: UseModWorkspaceOptions) {
         const contentJson = detail.contentPatcher?.contentJson ?? '{\n  "Changes": []\n}\n'
         setManifestEditor(normalizeEditorState(manifestJson))
         setContentEditor(normalizeEditorState(contentJson))
-        setI18nFilesState(detail.contentPatcher?.i18nFiles ?? [])
+        setI18nFilesState(detail.i18nFiles ?? [])
         editorVersionRef.current = 0
         setPatchWhenError(null)
         setNavigatorMode('patches')
@@ -588,9 +607,11 @@ function useModWorkspace({ directoryInfo }: UseModWorkspaceOptions) {
   }
 
   function selectProjectNow(path: string) {
-    const selectedProject = modProjects.find((project) => project.absolutePath === path)
-    if (selectedProject && isIncompatibleProject(selectedProject)) {
-      return
+    if (!isI18nMode) {
+      const selectedProject = modProjects.find((project) => project.absolutePath === path)
+      if (selectedProject && isIncompatibleProject(selectedProject)) {
+        return
+      }
     }
 
     setActiveProjectPath(path)
@@ -693,7 +714,7 @@ function useModWorkspace({ directoryInfo }: UseModWorkspaceOptions) {
       const projects = await scanModProjects(directoryInfo.rootPath)
       setModProjects(projects)
       setStatusMessage(copy.scanStatus(projects.length))
-      setActiveProjectPath((current) => getNextActiveProjectPath(projects, current))
+      setActiveProjectPath((current) => getNextActiveProjectPath(projects, current, isI18nMode))
       setProjectReloadNonce((current) => current + 1)
     })
   }
@@ -810,7 +831,7 @@ function useModWorkspace({ directoryInfo }: UseModWorkspaceOptions) {
           setProjectDetail(refreshed)
           setManifestEditor(normalizeEditorState(refreshed.contentPatcher?.manifestJson ?? '{}\n'))
           setContentEditor(normalizeEditorState(refreshed.contentPatcher?.contentJson ?? '{\n  "Changes": []\n}\n'))
-          setI18nFilesState(refreshed.contentPatcher?.i18nFiles ?? [])
+          setI18nFilesState(refreshed.i18nFiles ?? [])
           editorVersionRef.current = 0
         }
         setStatusMessage(copy.saveSuccess(result.targetPath))
@@ -992,6 +1013,8 @@ function useModWorkspace({ directoryInfo }: UseModWorkspaceOptions) {
     setContentPatcherOnly,
     compatibleOnly,
     setCompatibleOnly,
+    i18nOnly,
+    setI18nOnly,
     activeProjectPath,
     activeProject,
     projectDetail,

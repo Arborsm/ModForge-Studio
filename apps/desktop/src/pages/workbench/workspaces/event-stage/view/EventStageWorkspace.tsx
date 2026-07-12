@@ -62,7 +62,7 @@ export default function EventStageWorkspace({
   onStageSeekReady,
   onOpenPlayerAppearanceWindow,
   className,
-  hideHeader = false,
+  hideHeader: _hideHeader,
   chromeMode = 'workspace',
   additionalViewportOverlay,
   hideViewportStatus = false,
@@ -92,7 +92,6 @@ export default function EventStageWorkspace({
     handleZoomChange,
     labels,
     mapDocument,
-    mapMessage,
     playbackState,
     playbackStatusChips,
     playNextFrame,
@@ -554,7 +553,7 @@ export default function EventStageWorkspace({
 
   if (!parsedEventAsset) {
     return (
-      <div className={`panel-surface panel-surface-flat h-full ${className ?? ''}`}>
+      <div className={cx('bg-(--bg-panel) rounded-[1.125rem] h-full', className)}>
         <div className="flex h-full items-center justify-center p-8 text-center text-sm text-(--text-secondary)">
           <div className="space-y-3">
             <p className="text-base font-semibold text-(--text-primary)">{labels.empty}</p>
@@ -566,16 +565,8 @@ export default function EventStageWorkspace({
   }
 
   return (
-    <div className={cx('panel-surface h-full', consoleChrome && 'event-stage-console-surface', className)}>
-      {!hideHeader ? (
-        <div className="panel-header">
-          <div>
-            <p className="panel-title">{labels.scene}</p>
-            <p className="panel-subtitle">{mapMessage || eventStatusMessage}</p>
-          </div>
-        </div>
-      ) : null}
-      <div className={cx('panel-body min-h-0', hideHeader ? 'h-full' : 'h-[calc(100%-58px)]', !consoleChrome && 'p-3')}>
+    <div className={cx('bg-(--bg-panel) rounded-[1.125rem] h-full', consoleChrome && 'event-stage-console-surface', className)}>
+      <div className={cx('event-stage-body min-h-0 h-full overflow-hidden', !consoleChrome && 'p-3')}>
         <div className="relative h-full">
           <MapViewport
             ref={mapViewportRef}
@@ -617,21 +608,21 @@ export default function EventStageWorkspace({
                     onSelect={() => onContextMenuAction('addActor', hoverInfo.tileX, hoverInfo.tileY)}
                   >
                     <UserPlus className="mr-1.5 inline h-3.5 w-3.5" />
-                    Add Actor Here ({hoverInfo.tileX}, {hoverInfo.tileY})
+                    {labels.addActorHere(hoverInfo.tileX, hoverInfo.tileY)}
                   </ContextMenu.Item>
                   <ContextMenu.Item
                     className="context-menu-item"
                     onSelect={() => onContextMenuAction('setCamera', hoverInfo.tileX, hoverInfo.tileY)}
                   >
                     <Camera className="mr-1.5 inline h-3.5 w-3.5" />
-                    Set Camera Here ({hoverInfo.tileX}, {hoverInfo.tileY})
+                    {labels.setCameraHere(hoverInfo.tileX, hoverInfo.tileY)}
                   </ContextMenu.Item>
                   <ContextMenu.Item
                     className="context-menu-item"
                     onSelect={() => onContextMenuAction('addWarp', hoverInfo.tileX, hoverInfo.tileY)}
                   >
                     <MapPin className="mr-1.5 inline h-3.5 w-3.5" />
-                    Add Warp Here ({hoverInfo.tileX}, {hoverInfo.tileY})
+                    {labels.addWarpHere(hoverInfo.tileX, hoverInfo.tileY)}
                   </ContextMenu.Item>
                 </>
               ) : null

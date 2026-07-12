@@ -138,6 +138,7 @@ function createMod(overrides: Partial<LauncherLibraryModSummary> = {}): Launcher
     folderName: 'Visible Mod',
     absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Visible Mod',
     enabled: true,
+    hasConfig: true,
     nexusModId: 101,
     updateKeys: ['Nexus:101'],
     modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',

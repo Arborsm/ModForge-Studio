@@ -1,7 +1,39 @@
 import type { CSSProperties } from 'react'
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../entities/building'
-import type { BuildingsPanelCopy } from '@locales/api'
+import type { BuildingsPanelCopy, ThemeMode } from '@locales/api'
 import type { MapDocument } from '@entities/map'
+import { rgbaFromHex } from '@shared/lib/color/rgbaFromHex'
+
+/**
+ * Same editor backdrop as MapViewport so body + map read as one continuous canvas.
+ */
+export function buildBuildingCanvasBackdropStyle(theme: ThemeMode, accentColor: string): CSSProperties {
+  if (theme === 'light') {
+    return {
+      backgroundColor: 'var(--bg-viewport)',
+      backgroundImage: [
+        `linear-gradient(${rgbaFromHex(accentColor, 0.15)} 1px, transparent 1px)`,
+        `linear-gradient(90deg, ${rgbaFromHex(accentColor, 0.15)} 1px, transparent 1px)`,
+        `linear-gradient(${rgbaFromHex(accentColor, 0.04)} 1px, transparent 1px)`,
+        `linear-gradient(90deg, ${rgbaFromHex(accentColor, 0.04)} 1px, transparent 1px)`,
+      ].join(', '),
+      backgroundSize: ['6.25rem 6.25rem', '6.25rem 6.25rem', '1.25rem 1.25rem', '1.25rem 1.25rem'].join(', '),
+      backgroundPosition: ['-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem'].join(', '),
+    }
+  }
+
+  return {
+    backgroundColor: 'var(--bg-viewport)',
+    backgroundImage: [
+      `linear-gradient(${rgbaFromHex(accentColor, 0.16)} 1px, transparent 1px)`,
+      `linear-gradient(90deg, ${rgbaFromHex(accentColor, 0.16)} 1px, transparent 1px)`,
+      `linear-gradient(${rgbaFromHex(accentColor, 0.05)} 1px, transparent 1px)`,
+      `linear-gradient(90deg, ${rgbaFromHex(accentColor, 0.05)} 1px, transparent 1px)`,
+    ].join(', '),
+    backgroundSize: ['6.25rem 6.25rem', '6.25rem 6.25rem', '1.25rem 1.25rem', '1.25rem 1.25rem'].join(', '),
+    backgroundPosition: ['-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem'].join(', '),
+  }
+}
 
 export function buildAbsoluteSpriteLayerStyle({
   url,

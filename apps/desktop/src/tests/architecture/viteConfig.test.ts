@@ -86,6 +86,14 @@ describe('vite config', () => {
     expect(config.server?.warmup).toBeUndefined()
   })
 
+  it('does not watch Tauri build outputs during desktop dev', async () => {
+    const config = await loadViteConfig()
+
+    expect(config.server?.watch).toMatchObject({
+      ignored: expect.arrayContaining(['**/src-tauri/target/**']),
+    })
+  })
+
   it('serves React Compiler runtime through a named export interop module', async () => {
     const config = await loadViteConfig()
     const plugins = flattenPluginProbes(config.plugins ?? [])

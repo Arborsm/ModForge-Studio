@@ -10,6 +10,7 @@ import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { buildWorkspacePanels } from '@pages/workbench/model/workspace-panels/buildWorkspacePanels'
 import { buildCoreWorkspacePanels } from '@pages/workbench/model/workspace-panels/core'
 import { buildItemsWorkspacePanels } from '@pages/workbench/model/workspace-panels/items'
+import { buildMapsWorkspacePanels } from '@pages/workbench/model/workspace-panels/maps'
 import { buildModsWorkspacePanels } from '@pages/workbench/model/workspace-panels/mods'
 import { DEFAULT_LOADING_MOTION_PREFERENCE } from '@shared/lib/loading-motion'
 
@@ -168,9 +169,11 @@ function buildOptions(overrides: Partial<BuildOptions> = {}): BuildOptions {
     modFilter: '',
     contentPatcherOnly: true,
     compatibleOnly: true,
+    i18nOnly: false,
     onModFilterChange: noop,
     onContentPatcherOnlyChange: noop,
     onCompatibleOnlyChange: noop,
+    onI18nOnlyChange: noop,
     onSelectModProject: noop,
     onImportModProject: noop,
     onRefreshModProjects: noop,
@@ -254,20 +257,17 @@ function expectPanelLayout(
 }
 
 describe('workspacePanels mode builders', () => {
-  it('builds map panels via the core builder', () => {
-    const panels = buildCoreWorkspacePanels(buildOptions({ workspaceMode: 'map' }))
-    expectPanelLayout(panels, ['assets', 'viewport', 'inspector', 'layers', 'object-groups', 'diagnostics'], {
-      assets: 'left-top',
-      viewport: 'center',
-      inspector: 'right-top',
-      layers: 'right-bottom',
-      'object-groups': 'right-bottom',
-      diagnostics: 'bottom-right',
+  it('builds map browse panels via the maps builder', () => {
+    const panels = buildMapsWorkspacePanels(buildOptions({ workspaceMode: 'map' }))
+    expectPanelLayout(panels, ['map-browser', 'map-viewport', 'map-detail'], {
+      'map-browser': 'left-top',
+      'map-viewport': 'center',
+      'map-detail': 'right-top',
     })
   })
 
-  it('wraps concrete preview panels with loading reveal hooks', () => {
-    const panels = buildCoreWorkspacePanels(buildOptions({ workspaceMode: 'map' }))
+  it('wraps concrete map preview panels with loading reveal hooks', () => {
+    const panels = buildMapsWorkspacePanels(buildOptions({ workspaceMode: 'map' }))
 
     renderWithLocale(
       <>
@@ -282,21 +282,35 @@ describe('workspacePanels mode builders', () => {
       'data-loading-style',
       DEFAULT_LOADING_MOTION_PREFERENCE.styleId,
     )
-    expect(document.querySelector('[data-loading-section="workbench-map-layers"]')).toHaveAttribute(
+    expect(document.querySelector('[data-loading-section="workbench-map-detail"]')).toHaveAttribute(
       'data-loading-intensity',
       DEFAULT_LOADING_MOTION_PREFERENCE.intensityId,
     )
   })
 
-  it('builds event panels via the core builder', () => {
-    const panels = buildCoreWorkspacePanels(buildOptions({ workspaceMode: 'events' }))
-    expectPanelLayout(panels, ['assets', 'viewport', 'inspector', 'layers', 'diagnostics'], {
-      assets: 'left-top',
-      viewport: 'center',
-      inspector: 'right-top',
-      layers: 'right-bottom',
-      diagnostics: 'left-bottom',
+  it('builds event browse panels via the events builder', () => {
+    const panels = buildWorkspacePanels(buildOptions({ workspaceMode: 'events' }))
+    expectPanelLayout(panels, ['event-browser', 'event-stage', 'event-detail'], {
+      'event-browser': 'left-top',
+      'event-stage': 'center',
+      'event-detail': 'right-top',
     })
+  })
+
+  it('wraps event preview panels with loading reveal hooks', () => {
+    const panels = buildWorkspacePanels(buildOptions({ workspaceMode: 'events' }))
+
+    renderWithLocale(
+      <>
+        {panels.map((panel) => (
+          <div key={panel.id}>{panel.content}</div>
+        ))}
+      </>,
+    )
+
+    expect(document.querySelector('[data-loading-section="workbench-events-browser"]')).toBeTruthy()
+    expect(document.querySelector('[data-loading-section="workbench-events-viewport"]')).toBeTruthy()
+    expect(document.querySelector('[data-loading-section="workbench-events-detail"]')).toBeTruthy()
   })
 
   it('builds character panels via the core builder', () => {
@@ -305,20 +319,13 @@ describe('workspacePanels mode builders', () => {
       assets: 'left-top',
       viewport: 'center',
       inspector: 'right-top',
-      layers: 'left-bottom',
-      diagnostics: 'right-bottom',
+      layers: 'left-top',
+      diagnostics: 'right-top',
     })
   })
 
-  it('builds building panels via the core builder', () => {
-    const panels = buildCoreWorkspacePanels(buildOptions({ workspaceMode: 'buildings' }))
-    expectPanelLayout(panels, ['assets', 'viewport', 'inspector', 'layers', 'diagnostics'], {
-      assets: 'left-top',
-      viewport: 'center',
-      inspector: 'right-top',
-      layers: 'right-bottom',
-      diagnostics: 'right-bottom',
-    })
+  it('rejects buildings mode in the core builder', () => {
+    expect(() => buildCoreWorkspacePanels(buildOptions({ workspaceMode: 'buildings' }))).toThrow(/Unsupported workspace mode/)
   })
 
   it('builds item panels via the items builder', () => {
@@ -354,7 +361,7 @@ describe('workspacePanels mode builders', () => {
   })
 
   it('builds mods panels via the mods builder', () => {
-    const panels = buildModsWorkspacePanels(buildOptions({ workspaceMode: 'mods' }))
+    const panels = buildModsWorkspacePanels(buildOptions({ workspaceMode: 'mod-browser' }))
     expectPanelLayout(
       panels,
       ['mods-browser', 'mods-navigator', 'mods-workspace', 'mods-trace', 'mods-target-diagnostics', 'mods-export'],
@@ -372,7 +379,7 @@ describe('workspacePanels mode builders', () => {
   it('wraps mods preview panels and content patcher sections with loading reveal hooks', () => {
     const panels = buildModsWorkspacePanels(
       buildOptions({
-        workspaceMode: 'mods',
+        workspaceMode: 'mod-browser',
         activeModProjectDetail: {
           pluginKind: 'content-patcher',
           capabilities: ['edit', 'save', 'export', 'validate'],
@@ -391,6 +398,8 @@ describe('workspacePanels mode builders', () => {
             pluginKind: 'content-patcher',
             status: 'ready',
             missingRequiredDependencies: [],
+            hasI18n: false,
+            i18nEntryCount: 0,
           },
           diagnostics: [],
           contentPatcher: {
@@ -407,6 +416,7 @@ describe('workspacePanels mode builders', () => {
             i18nFiles: [],
             patches: [],
           },
+          i18nFiles: [],
         },
       }),
     )
@@ -429,49 +439,40 @@ describe('buildWorkspacePanels', () => {
   it('locks panel ids and docks for map mode', () => {
     const panels = buildWorkspacePanels(buildOptions({ workspaceMode: 'map' }))
 
-    expectPanelLayout(panels, ['assets', 'viewport', 'inspector', 'layers', 'object-groups', 'diagnostics'], {
-      assets: 'left-top',
-      viewport: 'center',
-      inspector: 'right-top',
-      layers: 'right-bottom',
-      'object-groups': 'right-bottom',
-      diagnostics: 'bottom-right',
+    expectPanelLayout(panels, ['map-browser', 'map-viewport', 'map-detail'], {
+      'map-browser': 'left-top',
+      'map-viewport': 'center',
+      'map-detail': 'right-top',
     })
   })
 
   it('locks panel ids and docks for events mode', () => {
     const panels = buildWorkspacePanels(buildOptions({ workspaceMode: 'events' }))
 
-    expectPanelLayout(panels, ['assets', 'viewport', 'inspector', 'layers', 'diagnostics'], {
-      assets: 'left-top',
-      viewport: 'center',
-      inspector: 'right-top',
-      layers: 'right-bottom',
-      diagnostics: 'left-bottom',
+    expectPanelLayout(panels, ['event-browser', 'event-stage', 'event-detail'], {
+      'event-browser': 'left-top',
+      'event-stage': 'center',
+      'event-detail': 'right-top',
     })
   })
 
   it('locks panel ids and docks for characters mode', () => {
     const panels = buildWorkspacePanels(buildOptions({ workspaceMode: 'characters' }))
 
-    expectPanelLayout(panels, ['assets', 'viewport', 'inspector', 'layers', 'diagnostics'], {
-      assets: 'left-top',
-      viewport: 'center',
-      inspector: 'right-top',
-      layers: 'left-bottom',
-      diagnostics: 'right-bottom',
+    expectPanelLayout(panels, ['character-browser', 'character-stage', 'character-detail'], {
+      'character-browser': 'left-top',
+      'character-stage': 'center',
+      'character-detail': 'right-top',
     })
   })
 
   it('locks panel ids and docks for buildings mode', () => {
     const panels = buildWorkspacePanels(buildOptions({ workspaceMode: 'buildings' }))
 
-    expectPanelLayout(panels, ['assets', 'viewport', 'inspector', 'layers', 'diagnostics'], {
-      assets: 'left-top',
-      viewport: 'center',
-      inspector: 'right-top',
-      layers: 'right-bottom',
-      diagnostics: 'right-bottom',
+    expectPanelLayout(panels, ['building-browser', 'building-preview', 'building-details'], {
+      'building-browser': 'left-top',
+      'building-preview': 'center',
+      'building-details': 'right-top',
     })
   })
 
@@ -486,7 +487,7 @@ describe('buildWorkspacePanels', () => {
   })
 
   it('locks panel ids and docks for mods mode', () => {
-    const panels = buildWorkspacePanels(buildOptions({ workspaceMode: 'mods' }))
+    const panels = buildWorkspacePanels(buildOptions({ workspaceMode: 'mod-browser' }))
 
     expectPanelLayout(
       panels,
@@ -511,10 +512,72 @@ describe('buildWorkspacePanels', () => {
     })
   })
 
+  it('renders the redesigned i18n project browser in mod i18n mode', () => {
+    const panels = buildWorkspacePanels(
+      buildOptions({
+        workspaceMode: 'mod-i18n',
+        modProjects: [
+          {
+            id: 'cp-pack',
+            name: 'CP Pack',
+            author: null,
+            version: '1.0.0',
+            description: null,
+            uniqueId: 'ModForge.CPPack',
+            contentPackFor: 'Pathoschild.ContentPatcher',
+            folderName: 'CPPack',
+            absolutePath: 'E:\\Mods\\CPPack',
+            manifestPath: 'E:\\Mods\\CPPack\\manifest.json',
+            contentPath: 'E:\\Mods\\CPPack\\content.json',
+            pluginKind: 'content-patcher',
+            status: 'ready',
+            missingRequiredDependencies: [],
+            hasI18n: true,
+            i18nEntryCount: 5,
+          },
+        ],
+        filteredModProjects: [
+          {
+            id: 'cp-pack',
+            name: 'CP Pack',
+            author: null,
+            version: '1.0.0',
+            description: null,
+            uniqueId: 'ModForge.CPPack',
+            contentPackFor: 'Pathoschild.ContentPatcher',
+            folderName: 'CPPack',
+            absolutePath: 'E:\\Mods\\CPPack',
+            manifestPath: 'E:\\Mods\\CPPack\\manifest.json',
+            contentPath: 'E:\\Mods\\CPPack\\content.json',
+            pluginKind: 'content-patcher',
+            status: 'ready',
+            missingRequiredDependencies: [],
+            hasI18n: true,
+            i18nEntryCount: 5,
+          },
+        ],
+      }),
+    )
+
+    const projectPanel = panels.find((panel) => panel.id === 'mod-i18n-projects')
+    expect(projectPanel).toBeTruthy()
+
+    renderWithLocale(
+      <>
+        {panels.map((panel) => (
+          <div key={panel.id}>{panel.content}</div>
+        ))}
+      </>,
+    )
+
+    expect(screen.getByPlaceholderText(modI18nCopy.browserSearchPlaceholder)).toBeTruthy()
+    expect(screen.getByText(modI18nCopy.browserTitle)).toBeTruthy()
+  })
+
   it('does not render canvas-era content patcher inspector text in mods mode', () => {
     const panels = buildModsWorkspacePanels(
       buildOptions({
-        workspaceMode: 'mods',
+        workspaceMode: 'mod-browser',
         activeModProjectDetail: {
           pluginKind: 'content-patcher',
           capabilities: ['edit', 'save', 'export', 'validate'],
@@ -533,6 +596,8 @@ describe('buildWorkspacePanels', () => {
             pluginKind: 'content-patcher',
             status: 'ready',
             missingRequiredDependencies: [],
+            hasI18n: false,
+            i18nEntryCount: 0,
           },
           diagnostics: [],
           contentPatcher: {
@@ -549,6 +614,7 @@ describe('buildWorkspacePanels', () => {
             i18nFiles: [],
             patches: [],
           },
+          i18nFiles: [],
         },
       }),
     )

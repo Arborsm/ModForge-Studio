@@ -19,6 +19,7 @@ function mod(id: string): LauncherLibraryItem {
     folderName: id,
     absolutePath: `E:\\Mods\\${id}`,
     enabled: true,
+    hasConfig: true,
     nexusModId: null,
     updateKeys: [],
     modUrl: null,

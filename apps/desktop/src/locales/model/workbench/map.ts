@@ -8,6 +8,10 @@ export type ViewportLabels = {
   setOneToOne: string
   centerView: string
   resetPan: string
+  exportPng: string
+  exportPngDialogTitle: string
+  exportPngSuccess: (path: string) => string
+  failedToExportPng: string
   addObjectHere: string
   inspectHover: string
   unavailable: string
@@ -31,4 +35,33 @@ export type BuildAssetDialogCopy = {
   doneAction: string
   closeAction: string
   cancelAction: string
+}
+
+/** Copy for the redesigned map browse workspace (browser + detail rail). */
+export type MapPanelCopy = {
+  browserTitle: string
+  browserSubtitle: string
+  browserPlaceholder: string
+  browserEmptyFiltered: string
+  browserEmptyMissing: string
+  browserModEmpty: string
+  sourceOriginalLabel: string
+  sourceModLabel: string
+  detailEmpty: string
+  detailOverviewTab: string
+  detailLayersTab: string
+  detailObjectsTab: string
+  basicsSection: string
+  resourcesSection: string
+  modSourcesSection: string
+  baselineSource: string
+  overlayNone: string
+  layersFilterPlaceholder: string
+  objectsFilterPlaceholder: string
+  layerKind: string
+  warpsLabel: string
+  layersVisible: (visible: number, total: number) => string
+  objectsTotal: (count: number) => string
+  warpsTotal: (count: number) => string
+  moreObjects: (count: number) => string
 }

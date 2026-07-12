@@ -6,6 +6,7 @@
   "author": "ModForge Studio <dev@modforge.studio>",
   "homepage": "https://modforge.studio",
   "license": "GPL-3.0-or-later",
+  "desktopName": "io.github.Arborsm.ModForgeStudio.desktop",
   "type": "module",
   "scripts": {
     "dev": "node ./scripts/run-vite-dev.mjs",
@@ -15,16 +16,18 @@
     "gen:host-commands": "node ./scripts/generate-host-commands.mjs",
     "gen:app-icons": "node ./scripts/generate-app-icons.mjs",
     "electron:dev": "node ./scripts/run-electron-dev.mjs",
-    "electron:build": "vp run build:web && cargo build --manifest-path src-tauri/Cargo.toml --release --bin modforge_sidecar && node ./scripts/build-electron-main.mjs && node ./scripts/build-electron-linux.mjs",
-    "electron:build:deb": "vp run build:web && cargo build --manifest-path src-tauri/Cargo.toml --release --bin modforge_sidecar && node ./scripts/build-electron-main.mjs && node ./scripts/build-electron-linux.mjs deb",
-    "electron:build:rpm": "vp run build:web && cargo build --manifest-path src-tauri/Cargo.toml --release --bin modforge_sidecar && node ./scripts/build-electron-main.mjs && node ./scripts/build-electron-linux.mjs rpm",
+    "build:gmcm-probe": "node ./scripts/build-gmcm-probe.mjs",
+    "electron:build": "node ./scripts/build-electron-release.cjs",
+    "electron:build:deb": "node ./scripts/build-electron-release.cjs deb",
+    "electron:build:rpm": "node ./scripts/build-electron-release.cjs rpm",
+    "cleanup:shmem": "node ./scripts/cleanup-shared-memory.mjs",
     "build": "vp run build:web",
-    "build:web": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.electron.json && vp build --configLoader runner",
-    "release:linux": "vp run electron:build",
-    "release:linux:deb": "vp run electron:build:deb",
-    "release:linux:rpm": "vp run electron:build:rpm",
+    "build:web": "node ./scripts/build-web.cjs",
+    "release:linux": "node ./scripts/build-electron-release.cjs",
+    "release:linux:deb": "node ./scripts/build-electron-release.cjs deb",
+    "release:linux:rpm": "node ./scripts/build-electron-release.cjs rpm",
     "release:macos": "node ./scripts/release-macos.cjs",
-    "release:windows": "vp run tauri build --bundles nsis",
+    "release:windows": "node ./scripts/run-tauri-cli.cjs build --verbose --bundles nsis",
     "release:all": "node ./scripts/release-current-platform.cjs",
     "release:collect": "node ./scripts/collect-release-artifacts.cjs",
     "lint": "vp lint .",
@@ -44,17 +47,17 @@
     "tauri": "node ./scripts/run-tauri-cli.cjs"
   },
   "optionalDependencies": {
-    "@rolldown/binding-linux-x64-gnu": "1.1.3",
-    "@rolldown/binding-win32-x64-msvc": "1.1.3"
+    "@rolldown/binding-linux-x64-gnu": "1.1.5",
+    "@rolldown/binding-win32-x64-msvc": "1.1.5"
   },
   "devDependencies": {
     "@air/react-drag-to-select": "^5.0.11",
-    "@babel/core": "^7.29.7",
+    "@babel/core": "^8.0.1",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@floating-ui/react": "^0.27.19",
-    "@radix-ui/react-context-menu": "^2.3.2",
+    "@floating-ui/react": "^0.27.20",
+    "@radix-ui/react-context-menu": "^2.3.3",
     "@rolldown/plugin-babel": "0.2.3",
     "@tailwindcss/postcss": "^4.3.2",
     "@tanstack/react-virtual": "^3.14.5",
@@ -64,34 +67,34 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/babel__core": "^7.20.5",
-    "@types/node": "^26.1.0",
+    "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
-    "@xyflow/react": "^12.11.1",
+    "@xyflow/react": "^12.11.2",
     "autoprefixer": "^10.5.2",
     "babel-plugin-react-compiler": "1.0.0",
-    "electron": "^42.6.0",
+    "electron": "^43.1.0",
     "electron-builder": "^26.15.3",
     "jsdom": "^29.1.1",
-    "lucide-react": "^1.23.0",
+    "lucide-react": "^1.24.0",
     "playwright": "^1.61.1",
     "postcss": "^8.5.16",
     "react": "^19.2.7",
     "react-devtools": "^7.0.1",
     "react-dom": "^19.2.7",
     "react-resizable-panels": "^4.12.1",
-    "rolldown": "1.1.3",
+    "rolldown": "1.1.5",
     "tailwind-lint": "0.12.0",
     "tailwindcss": "^4.3.2",
-    "typescript": "~6.0.3",
+    "typescript": "~7.0.2",
     "vite-plus": "catalog:",
-    "vitest": "4.1.9",
+    "vitest": "4.1.10",
     "zustand": "^5.0.14"
   },
   "main": "electron-dist/main.cjs",
   "build": {
-    "appId": "studio.modforge.desktop",
+    "appId": "io.github.Arborsm.ModForgeStudio",
     "productName": "ModForge Studio",
     "icon": "src-tauri/icons/icon.png",
     "beforeBuild": "./scripts/electron-builder-before-build.cjs",
@@ -106,12 +109,17 @@
         "to": "bin/modforge_sidecar"
       },
       {
+        "from": "src-tauri/target/release/gmcm-probe",
+        "to": "bin"
+      },
+      {
         "from": "src-tauri/icons/icon.png",
         "to": "icon.png"
       }
     ],
     "linux": {
       "executableName": "modforge-studio",
+      "syncDesktopName": true,
       "artifactName": "modforge-studio-${version}-${arch}.${ext}",
       "maintainer": "ModForge Studio <dev@modforge.studio>",
       "synopsis": "Stardew Valley mod workbench",
@@ -133,6 +141,8 @@
   "dependencies": {
     "@bbob/plugin-helper": "^4.3.1",
     "@bbob/preset": "^4.3.1",
-    "@bbob/react": "^4.3.1"
+    "@bbob/react": "^4.3.1",
+    "json5": "^2.2.3",
+    "jszip": "^3.10.1"
   }
 }

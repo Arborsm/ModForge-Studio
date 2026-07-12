@@ -25,6 +25,14 @@ pub(crate) fn write_file(path: &Path, content: &str) {
 }
 
 #[allow(dead_code)]
+pub(crate) fn write_bytes_file(path: &Path, content: &[u8]) {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).expect("create parent");
+    }
+    fs::write(path, content).expect("write bytes file");
+}
+
+#[allow(dead_code)]
 pub(crate) fn installed_game_root() -> PathBuf {
     infrastructure::fs_pathing::clean_input_path(r"E:\SteamLibrary\steamapps\common\Stardew Valley")
 }

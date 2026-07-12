@@ -90,10 +90,12 @@ const shared: LauncherSharedCopy = {
   },
   toggles: {
     enabledOnly: '仅显示已启用',
+    configOnly: '仅显示有配置的模组',
     ascending: '升序',
     autoCheckModUpdates: '自动检查模组更新',
     autoInstallDownloads: '下载完成后自动安装',
     keepDownloadedArchives: '保留已下载归档',
+    gmcmParsingEnabled: '解析 GMCM 动态配置',
   },
   sortOptions: {
     newest: '最新发布',

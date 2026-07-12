@@ -1,12 +1,15 @@
 import { Grid2x2, Grip, Map as MapIcon, Maximize, MousePointer2, Move, Pin, X, ZoomIn, ZoomOut } from 'lucide-react'
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { EffectAssetState } from '@entities/event'
+import { exportMapPng } from '@entities/game/api'
 import { useEditorCopy, useLocale } from '@locales/provider'
 import type { StageWorldOverlaySprite } from '@entities/map'
 import type { ModuleBlueprint, ThemeMode, WorkspaceMode } from '@locales/api'
 import type { MapDocument } from '@entities/map'
 import type { FocusedMapObjectTarget, TileHoverInfo } from '@entities/map'
 import { cx } from '@shared/lib/helper'
+import { useNotificationPublisher } from '@shared/ui/notifications'
+import { chooseSaveFile } from '@platform/host'
 import { MapViewport, MapWorldStatePreviewOverlay, type MapViewportHandle } from '@entities/map'
 
 type CentralWorkspaceProps = {
@@ -68,6 +71,7 @@ export default function CentralWorkspace({
 }: CentralWorkspaceProps) {
   const locale = useLocale()
   const copy = useEditorCopy()
+  const publishNotification = useNotificationPublisher()
   const [toolMode, setToolMode] = useState<ToolMode>('select')
   const [showGrid, setShowGrid] = useState(true)
   const [zoomLabel, setZoomLabel] = useState('100%')
@@ -100,10 +104,58 @@ export default function CentralWorkspace({
   const previewGameWorldAdditionsLabel = copy.center.previewGameWorldAdditions
   const hideGameWorldAdditionsLabel = copy.center.hideGameWorldAdditions
   const gridToggleLabel = showGrid ? copy.center.hideGrid : copy.center.showGrid
+  const exportMapPngAtFullSize = useCallback(async () => {
+    if (!mapDocument) {
+      return
+    }
+
+    const mapName =
+      mapDocument.name
+        .trim()
+        .replace(/[^a-z0-9_-]+/giu, '_')
+        .replace(/^_+|_+$/gu, '') || 'map'
+    try {
+      const outputPath = await chooseSaveFile({
+        title: copy.viewportLabels.exportPngDialogTitle,
+        defaultPath: `${mapName}.png`,
+        filters: [{ name: 'PNG', extensions: ['png'] }],
+      })
+      if (!outputPath) {
+        return
+      }
+      const pngBase64 = await viewportRef.current?.exportPng()
+      if (!pngBase64) {
+        throw new Error(copy.viewportLabels.failedToExportPng)
+      }
+      await exportMapPng(outputPath, pngBase64)
+      publishNotification({
+        level: 'success',
+        title: copy.viewportLabels.exportPngSuccess(outputPath),
+      })
+    } catch (error) {
+      publishNotification({
+        level: 'error',
+        title: copy.viewportLabels.failedToExportPng,
+        description: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }, [copy.viewportLabels, mapDocument, publishNotification])
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-(--bg-viewport)">
-      <div className="flex h-10 items-end gap-1 overflow-x-auto border-b border-(--border-color) bg-(--bg-panel) px-2">
+    <div
+      className={cx(
+        'flex h-full flex-col overflow-hidden',
+        workspaceMode === 'map' ? 'rounded-[1.125rem] bg-(--bg-canvas)' : 'bg-(--bg-viewport)',
+      )}
+    >
+      <div
+        className={cx(
+          'flex h-10 items-end gap-1 overflow-x-auto border-b px-2',
+          workspaceMode === 'map'
+            ? 'border-(--border-color)/55 bg-[color-mix(in_srgb,var(--bg-panel)_88%,var(--bg-canvas))]'
+            : 'border-(--border-color) bg-(--bg-panel)',
+        )}
+      >
         <div className="flex min-w-0 flex-1 items-end gap-1">
           {workspaceMode === 'map' ? (
             tabs.map((tab) => {
@@ -118,8 +170,8 @@ export default function CentralWorkspace({
                   className={cx(
                     'group flex h-9 shrink-0 items-center gap-2 rounded-t-lg border-x border-t px-3 text-xs transition-colors',
                     isActive
-                      ? 'border-(--border-color) bg-(--bg-active) text-(--text-primary)'
-                      : 'border-transparent bg-(--bg-panel-muted) text-(--text-secondary) hover:border-(--border-color) hover:bg-(--bg-elevated) hover:text-(--text-primary)',
+                      ? 'border-(--border-color) bg-(--bg-panel) text-(--text-primary) shadow-[inset_0_-2px_0_0_var(--accent)]'
+                      : 'border-transparent bg-transparent text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
                     isDragged && 'opacity-50',
                     isDropTarget && 'border-(--accent)',
                   )}
@@ -269,6 +321,9 @@ export default function CentralWorkspace({
               mapOverlay={mapOverlay}
               scaleMapOverlayWithViewport
               onZoomChange={(nextZoom) => setZoomLabel(copy.viewportLabels.zoomLabel(nextZoom))}
+              onExportPng={() => {
+                void exportMapPngAtFullSize()
+              }}
             />
             <div className="workspace-viewport-toolbar" role="toolbar" aria-label={copy.center.canvas}>
               <div className="workspace-viewport-toolbar-group">

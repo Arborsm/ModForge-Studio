@@ -110,11 +110,13 @@ function buildDetailTabs({
   hasChangelogData,
   hasDependencyData,
   hasFileData,
+  hasConfigData,
   activeTab,
 }: {
   hasChangelogData: boolean
   hasDependencyData: boolean
   hasFileData: boolean
+  hasConfigData: boolean
   activeTab: LauncherDetailTab
 }) {
   const items: LauncherDetailTab[] = ['description']
@@ -127,6 +129,9 @@ function buildDetailTabs({
   }
   if (hasFileData) {
     items.push('files')
+  }
+  if (hasConfigData) {
+    items.push('config')
   }
   return {
     items,
@@ -207,11 +212,13 @@ export function useLauncherModDetailViewModel({
   const hasDependencyData = previewDependencyTree.items.length > 0
   const hasDeferredFileData = Boolean(remoteFilesDeferred && deferredFilesModId && canQueueDownload)
   const hasFileData = isNexus && (remoteFiles.length > 0 || hasDeferredFileData)
+  const hasConfigData = isLocal && Boolean(mod?.hasConfig)
   const hasChangelogData = isNexus && (changelogItems.length > 0 || Boolean(remoteFilesDeferred && deferredFilesModId))
   const detailTabs = buildDetailTabs({
     hasChangelogData,
     hasDependencyData,
     hasFileData,
+    hasConfigData,
     activeTab,
   })
   const missingDependencyCount = dependencyTree.issueCount

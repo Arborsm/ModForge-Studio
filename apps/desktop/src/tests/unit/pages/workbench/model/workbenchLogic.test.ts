@@ -61,7 +61,7 @@ describe('workbenchLogic', () => {
   it('derives workspace status from the active mode', () => {
     expect(
       deriveWorkspaceStatus({
-        workspaceMode: 'mods',
+        workspaceMode: 'mod-browser',
         directoryInfoPresent: true,
         workspaceStatus: { tone: 'idle', message: 'fallback' },
         eventCount: 0,

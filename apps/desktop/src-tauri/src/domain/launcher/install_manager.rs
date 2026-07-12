@@ -4,6 +4,7 @@ use crate::domain::manifest::{
     content_pack_for_unique_id, normalize_unique_id, project_name_from_manifest, string_field,
 };
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::text_encoding::read_text_file;
 use anyhow::{Context, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -1026,7 +1027,7 @@ fn save_backup_metadata(path: &Path, metadata: &BackupSessionMetadata) -> anyhow
 }
 
 fn load_backup_metadata(path: &Path) -> anyhow::Result<BackupSessionMetadata> {
-    let content = fs::read_to_string(path)
+    let content = read_text_file(path)
         .with_context(|| format!("Failed to read backup metadata {}", normalize_path(path)))?;
     serde_json::from_str(&content)
         .with_context(|| format!("Backup metadata {} is invalid JSON", normalize_path(path)))

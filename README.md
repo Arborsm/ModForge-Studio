@@ -134,6 +134,11 @@ or the local release environment.
 - [Chinese README](docs/README.zh-CN.md) - project overview in Chinese.
 - [Frontend architecture](docs/frontend-architecture.md) - layer boundaries and
   dependency rules.
+- [Product design](docs/DESIGN.md) - product shape, visual language, design goals.
+- [Page design spec](docs/design/page-design-spec.md) - workspace visual rules and
+  workbench shell / home IA.
+- [Workbench shell migration](docs/design/workbench-shell-migration.md) - phased plan
+  to land the shell mock on the current product.
 - [Maintenance guide](docs/maintenance.md) - commands, release notes, CI, signing,
   and repository hygiene.
 - [Nexus Mods GraphQL snapshot](docs/nexusmods-graphql/SUMMARY.md) - generated API

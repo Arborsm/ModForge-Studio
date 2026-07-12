@@ -17,6 +17,8 @@ export type ModProjectSummary = {
   pluginKind: PluginKind
   status: 'ready' | 'incompatible' | 'unsupported'
   missingRequiredDependencies: string[]
+  hasI18n: boolean
+  i18nEntryCount: number
 }
 
 /** User-facing diagnostic emitted while scanning, loading, simulating, or saving a mod project. */
@@ -71,6 +73,7 @@ export type ModProjectDetail = {
   summary: ModProjectSummary
   diagnostics: ModProjectDiagnostic[]
   contentPatcher: ContentPatcherProjectData | null
+  i18nFiles: ContentPatcherI18nFile[]
 }
 
 /** Stable identity and path metadata for a Content Patcher project snapshot. */

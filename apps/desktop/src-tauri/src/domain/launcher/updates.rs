@@ -217,7 +217,8 @@ pub(crate) fn read_windows_file_version(path: &Path) -> Option<String> {
         .arg("-NoProfile")
         .arg("-Command")
         .arg(format!(
-            "$item = Get-Item -LiteralPath '{escaped}'; \
+            "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; \
+             $item = Get-Item -LiteralPath '{escaped}'; \
              $version = $item.VersionInfo.ProductVersion; \
              if ([string]::IsNullOrWhiteSpace($version)) {{ $version = $item.VersionInfo.FileVersion }}; \
              if (-not [string]::IsNullOrWhiteSpace($version)) {{ [Console]::Out.Write($version) }}"

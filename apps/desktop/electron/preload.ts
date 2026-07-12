@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { OpenDialogOptions, PlatformDragDropPayload } from '../src/shared/contracts/platform'
+import type { OpenDialogOptions, PlatformDragDropPayload, SaveDialogOptions } from '../src/shared/contracts/platform'
 
 export function toElectronLocalFileUrl(filePath: string) {
   return `modforge-asset://local/${encodeURIComponent(filePath)}`
@@ -41,6 +41,9 @@ contextBridge.exposeInMainWorld('modforgeElectron', {
   },
   openDialog(options?: OpenDialogOptions) {
     return ipcRenderer.invoke('modforge:open-dialog', options) as Promise<string | string[] | null>
+  },
+  saveFileDialog(options?: SaveDialogOptions) {
+    return ipcRenderer.invoke('modforge:save-file-dialog', options) as Promise<string | null>
   },
   toAssetUrl(filePath: string) {
     return toElectronLocalFileUrl(filePath)

@@ -5,9 +5,7 @@ import type { ModSourceEntry } from '@pages/workbench/workspaces/mod'
 import { getContainedItemSpriteFrame, type ItemTextureAssetState, type ItemWorkspaceEntry } from '../entities/item'
 import { ItemSprite } from '../entities/item'
 import { getWorkspaceText } from './itemWorkspaceRows'
-import { DetailSectionCard, EmptyNotice, HeroStatChip, SourceGrid, TasteGroup, UseGrid, WorkbenchSignalCard } from './itemWorkspaceSharedUi'
-import { getPillClass } from './itemWorkspaceUiClasses'
-import { RenderKv } from './itemWorkspaceRenderKv'
+import { DetailSectionCard, EmptyNotice, GiftTasteList, SourceGrid, UseGrid } from './itemWorkspaceSharedUi'
 import type { AsideRow, AsideSection, DetailTab, HeroChip, ObjectDataCard, SignalCard, SourceCard, UseCard } from './itemWorkspaceTypes'
 
 export function DetailPane({
@@ -58,7 +56,7 @@ export function DetailPane({
 
   if (!item) {
     return (
-      <section className="panel-surface h-full">
+      <section className="item-workspace-pane h-full">
         <div className="panel-header">
           <div>
             <p className="panel-title">{text.detailTitle}</p>
@@ -72,67 +70,80 @@ export function DetailPane({
     )
   }
 
-  const hasRelations = sourceCards.length > 0 || recipeUseCards.length > 0 || machineUseCards.length > 0 || recipeOutputCards.length > 0
   const giftCount = item.lovedBy.length + item.likedBy.length
+  const hasRelations =
+    sourceCards.length > 0 || recipeUseCards.length > 0 || machineUseCards.length > 0 || recipeOutputCards.length > 0 || giftCount > 0
   const customFields = Object.entries(item.customFields)
-  const heroSpriteFrame = getContainedItemSpriteFrame(item, 128, 6, 12, 80)
+  const heroSpriteFrame = getContainedItemSpriteFrame(item, 144, 8, 16, 96)
 
   return (
-    <section className="panel-surface h-full">
-      <div className="panel-header">
-        <div>
-          <p className="panel-title">{text.detailTitle}</p>
-          <p className="panel-subtitle">{item.displayName}</p>
+    <section className="item-workspace-pane h-full">
+      <div className="flex gap-6 border-b border-(--border-color)/65 px-6 py-7">
+        <div className="flex h-36 w-36 shrink-0 items-center justify-center rounded-2xl">
+          <ItemSprite
+            item={item}
+            textureState={textureState}
+            scale={heroSpriteFrame.scale}
+            fallbackClassName="text-6xl"
+            className="bg-transparent"
+            style={{ width: `${heroSpriteFrame.width}px`, height: `${heroSpriteFrame.height}px` }}
+          />
         </div>
-        <span className="dock-chip">{item.qualifiedItemId}</span>
-      </div>
-      <div className="mx-5 mb-5 overflow-hidden rounded-3xl border border-(--border-color) bg-[linear-gradient(145deg,color-mix(in_srgb,var(--bg-elevated)_94%,transparent),color-mix(in_srgb,var(--accent)_12%,var(--bg-panel)))] px-5 py-5">
-        <div className="grid gap-5 lg:grid-cols-[160px_minmax(0,1fr)]">
-          <div className="panel-section flex min-h-40 items-center justify-center bg-[radial-gradient(circle_at_30%_20%,color-mix(in_srgb,var(--accent)_26%,transparent),transparent_38%),radial-gradient(circle_at_70%_78%,rgba(255,255,255,0.08),transparent_34%),var(--bg-panel)] p-5">
-            <ItemSprite
-              item={item}
-              textureState={textureState}
-              scale={heroSpriteFrame.scale}
-              className="border-white/10 bg-transparent"
-              style={{ width: `${heroSpriteFrame.width}px`, height: `${heroSpriteFrame.height}px` }}
-            />
+
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
+          <h2 className="text-[1.75rem] font-extrabold tracking-tight text-(--text-primary)">{item.displayName}</h2>
+          <p className="truncate font-mono text-xs text-(--text-tertiary)">{item.qualifiedItemId}</p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {item.kindMetaLabel ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-(--accent-soft) px-3 py-1 text-xs font-bold text-(--accent)">
+                {item.kindMetaLabel}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-(--bg-panel-muted) px-3 py-1 text-xs font-bold text-(--text-secondary)">
+                {copy.kindLabels[item.kind]}
+              </span>
+            )}
+            {giftCount ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-(--success-soft) px-3 py-1 text-xs font-bold text-(--success)">
+                {copy.giftSectionTitle}
+              </span>
+            ) : null}
+            {heroChips.map((chip) => (
+              <span
+                key={chip.key}
+                className="inline-flex items-center gap-1.5 rounded-full bg-(--bg-panel-muted) px-3 py-1 text-xs font-bold text-(--text-secondary)"
+              >
+                {chip.label}
+                <span className="text-(--text-primary)">{chip.value}</span>
+              </span>
+            ))}
           </div>
 
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="dock-chip">{copy.kindLabels[item.kind]}</span>
-              {item.kindMetaLabel ? <span className="dock-chip">{item.kindMetaLabel}</span> : null}
-              {giftCount ? <span className="dock-chip">{copy.giftSectionTitle}</span> : null}
-            </div>
-
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-(--text-primary)">{item.displayName}</h2>
-            <p className="mt-2 truncate text-sm text-(--text-secondary)">{item.internalName}</p>
-            <p className="mt-1 truncate text-xs text-(--text-tertiary)">{item.qualifiedItemId}</p>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {heroChips.map((chip) => (
-                <HeroStatChip key={chip.key} chip={chip} />
-              ))}
-            </div>
-
-            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {signalCards.length > 0 ? (
+            <div className="flex flex-wrap gap-x-6 gap-y-2 pt-1">
               {signalCards.map((card) => (
-                <WorkbenchSignalCard key={card.key} card={card} />
+                <span key={card.key} className="flex items-baseline gap-1.5 text-sm">
+                  <em className="text-[11px] text-(--text-tertiary) not-italic">{card.label}</em>
+                  <strong className="font-bold text-(--text-primary)">{card.value}</strong>
+                </span>
               ))}
             </div>
-          </div>
+          ) : null}
         </div>
       </div>
 
-      <div className="panel-body min-h-0 flex-1 overflow-auto px-5 py-5">
+      <div className="panel-body min-h-0 flex-1 overflow-auto px-4 py-4">
         <div className="flex flex-wrap gap-2">
           {detailTabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
               className={cx(
-                'rounded-full border px-4 py-2 text-sm font-semibold transition-colors',
-                getPillClass(tab.id === activeDetailTab),
+                'rounded-lg px-3 py-1.5 text-xs font-bold transition-colors',
+                tab.id === activeDetailTab
+                  ? 'bg-(--accent-soft) text-(--accent)'
+                  : 'text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
               )}
               onClick={() => onDetailTabChange(tab.id)}
             >
@@ -141,26 +152,13 @@ export function DetailPane({
           ))}
         </div>
 
-        <div className="mt-5">
+        <div className="mt-4">
           {activeDetailTab === 'info' ? (
-            <div className="space-y-4">
+            <div className="detail-sections-stack">
               <DetailSectionCard title={copy.basicsTitle} rows={infoRows} />
 
               <DetailSectionCard title={text.descriptionTitle}>
-                <p className="mt-3 text-sm leading-7 text-(--text-secondary)">{item.description ?? copy.noDescription}</p>
-              </DetailSectionCard>
-
-              <DetailSectionCard title={copy.giftSectionTitle}>
-                <div className="mt-3 space-y-3">
-                  {giftCount ? (
-                    <>
-                      <TasteGroup title={copy.giftLoveTitle} entries={item.lovedBy} tone="danger" />
-                      <TasteGroup title={copy.giftLikeTitle} entries={item.likedBy} tone="positive" />
-                    </>
-                  ) : (
-                    <EmptyNotice message={text.giftsEmpty} />
-                  )}
-                </div>
+                <p className="mt-2 text-sm leading-7 text-(--text-secondary)">{item.description ?? copy.noDescription}</p>
               </DetailSectionCard>
 
               {specificSections.map((section) => (
@@ -170,9 +168,20 @@ export function DetailPane({
           ) : null}
 
           {activeDetailTab === 'relations' ? (
-            <div className="space-y-4">
+            <div className="detail-sections-stack">
               {hasRelations ? (
                 <>
+                  {giftCount ? (
+                    <section>
+                      <p className="panel-section-title mb-3">{copy.giftSectionTitle}</p>
+                      <GiftTasteList
+                        lovedBy={item.lovedBy}
+                        likedBy={item.likedBy}
+                        loveTitle={copy.giftLoveTitle}
+                        likeTitle={copy.giftLikeTitle}
+                      />
+                    </section>
+                  ) : null}
                   {sourceCards.length ? (
                     <SourceGrid cards={sourceCards} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} />
                   ) : null}
@@ -208,47 +217,27 @@ export function DetailPane({
           ) : null}
 
           {activeDetailTab === 'resources' ? (
-            <div className="space-y-4">
+            <div className="detail-sections-stack">
               <DetailSectionCard title={copy.assetTitle} rows={resourceRows} />
 
-              <DetailSectionCard title={copy.objectDataTitle}>
-                <div className="mt-3 grid gap-3 xl:grid-cols-2">
-                  {objectDataCards.length ? (
-                    objectDataCards.map((card) => (
-                      <div key={card.key} className="panel-section px-3 py-3">
-                        <p className="mb-3 text-sm font-semibold text-(--text-primary)">{card.title}</p>
-                        <div className="grid gap-2">
-                          {card.rows.map((row) => (
-                            <RenderKv key={`${card.key}:${row.label}`} label={row.label} value={row.value} />
-                          ))}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <EmptyNotice message={copy.objectDataEmpty} />
-                  )}
-                </div>
-              </DetailSectionCard>
+              {objectDataCards.length > 0
+                ? objectDataCards.map((card) => <DetailSectionCard key={card.key} title={card.title} rows={card.rows} />)
+                : null}
 
-              <DetailSectionCard title={copy.modSourcesTitle}>
-                <div className="mt-3">
-                  <ModSourceList sources={modSources} />
-                </div>
-              </DetailSectionCard>
+              {modSources.length > 0 ? (
+                <DetailSectionCard title={copy.modSourcesTitle}>
+                  <div className="mt-2">
+                    <ModSourceList sources={modSources} variant="flat" />
+                  </div>
+                </DetailSectionCard>
+              ) : null}
 
-              <DetailSectionCard title={text.customFieldsTitle}>
-                <div className="mt-3 space-y-2">
-                  {customFields.length ? (
-                    customFields.map(([key, value]) => (
-                      <div key={key} className="panel-section px-3 py-3">
-                        <RenderKv label={key} value={value} />
-                      </div>
-                    ))
-                  ) : (
-                    <EmptyNotice message={text.customFieldsEmpty} />
-                  )}
-                </div>
-              </DetailSectionCard>
+              {customFields.length > 0 ? (
+                <DetailSectionCard
+                  title={text.customFieldsTitle}
+                  rows={customFields.map(([key, value]) => ({ label: key, value: String(value) }))}
+                />
+              ) : null}
             </div>
           ) : null}
         </div>

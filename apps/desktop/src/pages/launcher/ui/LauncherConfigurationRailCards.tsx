@@ -93,6 +93,11 @@ export function ConfigDownloadDefaults({ settingsState }: { settingsState: Retur
       label: copy.toggles.keepDownloadedArchives,
       checked: settings.keepDownloadedArchives,
     },
+    {
+      field: 'gmcmParsingEnabled' as const,
+      label: copy.toggles.gmcmParsingEnabled,
+      checked: settings.gmcmParsingEnabled !== false,
+    },
   ]
 
   return (

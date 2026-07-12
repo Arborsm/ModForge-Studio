@@ -42,6 +42,7 @@ jobs:
         with:
           workspaces: apps/desktop/src-tauri -> target
           shared-key: release-${{ matrix.platform }}
+          cache-on-failure: true
 
       - name: Cache desktop packaging tools
         uses: actions/cache@v4
@@ -76,8 +77,8 @@ jobs:
       - name: Run frontend tests
         run: pnpm --filter @modforge/desktop test
 
-      - name: Check Rust
-        run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
+      - name: Build GMCM probe
+        run: pnpm --filter @modforge/desktop build:gmcm-probe
 
       - name: Run Rust tests
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
@@ -105,7 +106,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-        run: pnpm release:all
+        run: node apps/desktop/scripts/release-current-platform.cjs
 
       - name: Upload Linux deb
         if: matrix.platform == 'linux'

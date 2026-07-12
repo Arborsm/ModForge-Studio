@@ -1,4 +1,4 @@
-import type { CoreWorkspaceMode, LocaleCode, WorkspaceTone, WorkspaceMode } from '../core'
+import type { CoreWorkspaceMode, LocaleCode, WorkspaceTone } from '../core'
 
 export type WorkbenchShellCopy = {
   brand: {
@@ -92,11 +92,11 @@ export type WorkbenchShellCopy = {
     projectChildrenHint: string
     currentPage: string
     rootPage: string
-    rootModeLabels: Record<WorkspaceMode, string>
-    rootModeCodes: Record<WorkspaceMode, string>
-    globalBrowseHint: (mode: WorkspaceMode) => string
-    globalBrowseCapability: (mode: WorkspaceMode) => string
-    globalBrowseCapabilityLabel: (mode: WorkspaceMode) => string
+    rootModeLabels: Record<CoreWorkspaceMode, string>
+    rootModeCodes: Record<CoreWorkspaceMode, string>
+    globalBrowseHint: (mode: CoreWorkspaceMode) => string
+    globalBrowseCapability: (mode: CoreWorkspaceMode) => string
+    globalBrowseCapabilityLabel: (mode: CoreWorkspaceMode) => string
     makerModeCodes: Record<'map' | 'events' | 'items', string>
     makerModeHint: (mode: 'map' | 'events' | 'items') => string
     currentMarker: string
@@ -160,6 +160,69 @@ export type WorkbenchShellCopy = {
     eventMaking: string
     itemMaking: string
     devToolsTitle: string
+    shellNavLabel: string
+    shellNavCollapse: string
+    shellNavExpand: string
+    shellNavBrowseGroup: string
+    shellNavToolsGroup: string
+    shellNavDevGroup: string
+    shellHistoryBack: string
+    shellHistoryForward: string
+    shellProjectTitleEmpty: string
+    shellProjectTitleEmptyMeta: string
+    shellProjectMenuRecent: string
+    shellProjectMenuNew: string
+    shellProjectMenuOpen: string
+    shellProjectMenuImport: string
+    shellProjectMenuSettings: string
+    shellProjectMenuReveal: string
+    shellProjectMenuExport: string
+    shellProjectMenuClose: string
+    shellProjectMenuEmptyId: string
+    shellBrowseMode: string
+    shellEditMode: string
+    shellEditLockedTitle: string
+    shellEditLockedSelectProject: string
+    shellEditLockedStayBrowse: string
+    shellContinueWork: string
+    shellContentOverview: string
+    shellRecentActivity: string
+    shellAttention: string
+    shellProjectSection: string
+    shellProjectName: string
+    shellProjectUniqueId: string
+    shellProjectVersion: string
+    shellProjectPath: string
+    shellOpenDirectory: string
+    shellCloseProject: string
+    shellEmptyWorldLead: string
+    shellCreateFirst: string
+    shellCreateMap: string
+    shellCreateMapHint: string
+    shellCreateCharacter: string
+    shellCreateCharacterHint: string
+    shellCreateEvent: string
+    shellCreateEventHint: string
+    shellCreateItem: string
+    shellCreateItemHint: string
+    shellOr: string
+    shellBrowseGameResources: string
+    shellProjectManagement: string
+    shellOpenProjectAction: string
+    shellOpenProjectHint: string
+    shellRecentProjects: string
+    shellClearRecentList: string
+    shellNoProjectBrowseTitle: string
+    shellNoProjectBrowseHint: string
+    shellBrowseOnly: string
+    shellExportAction: string
+    shellProjectSettingsAction: string
+    shellNewEllipsis: string
+    shellContinueEdit: string
+    shellActivityEmpty: string
+    shellContinueEmpty: string
+    shellDirectoryReady: string
+    shellBuildStatus: string
   }
   rightDock: {
     title: string
@@ -182,21 +245,8 @@ export type WorkbenchShellCopy = {
     objectGroupSummary: (objectCount: number, interactionCount: number, pointCount: number) => string
     objectGroupCollectionSummary: (groupCount: number, objectCount: number, interactionCount: number, pointCount: number) => string
   }
-  statusBar: {
-    pathValid: string
-    pathMissing: string
-    scanned: string
-    hover: string
-    coordinates: string
-    event: string
-    commands: string
-    actors: string
-    selectedCommand: string
-    modified: string
-    design: string
-    noEditItem: string
-  }
   common: {
+    scanned: string
     none: string
     yes: string
     no: string

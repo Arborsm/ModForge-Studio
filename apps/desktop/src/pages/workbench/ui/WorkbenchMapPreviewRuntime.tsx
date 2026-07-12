@@ -3,7 +3,7 @@ import type { Dispatch, RefObject, SetStateAction } from 'react'
 import { getWorldAtlasViewLabel, type LocaleCode, type ThemeMode } from '@locales/api'
 import { useModWorkspaceCopy } from '@locales/provider'
 import { useMapWorkspace } from '../workspaces/map'
-import { buildCoreWorkspacePanels } from '../model/workspace-panels/core'
+import { buildMapsWorkspacePanels } from '../model/workspace-panels/maps'
 import type { WorkspaceLayoutHandle, WorkspacePanelMeta } from '@shared/contracts'
 import type { WorkspaceStatus } from '@entities/map'
 import type { WorkspaceStoredState } from '@shared/contracts'
@@ -79,7 +79,7 @@ export function WorkbenchMapPreviewRuntime({
       return []
     }
 
-    return buildCoreWorkspacePanels({
+    return buildMapsWorkspacePanels({
       ...createPreviewPanelDefaults({
         copy,
         modWorkspaceCopy,
@@ -131,7 +131,7 @@ export function WorkbenchMapPreviewRuntime({
       onFocusObject: mapWorkspace.focusObject,
       onHoverChange: mapWorkspace.setHoverInfo,
       workspaceStatus: mapWorkspace.workspaceStatus,
-    } satisfies Parameters<typeof buildCoreWorkspacePanels>[0])
+    } satisfies Parameters<typeof buildMapsWorkspacePanels>[0])
   }, [
     accentColor,
     copy,

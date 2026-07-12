@@ -16,6 +16,7 @@ use crate::domain::nexusmods::downloads::{
 };
 use crate::domain::nexusmods::http::launcher_http_client;
 use crate::infrastructure::fs::pathing::normalize_path;
+use crate::infrastructure::text_encoding::read_text_file;
 use anyhow::{Context, bail};
 use reqwest::blocking::Response;
 use reqwest::header::CONTENT_DISPOSITION;
@@ -258,7 +259,7 @@ fn load_or_create_download_queue_at_path_unlocked(
     queue_path: &Path,
 ) -> anyhow::Result<LauncherDownloadQueueState> {
     if queue_path.is_file() {
-        let content = fs::read_to_string(queue_path).with_context(|| {
+        let content = read_text_file(queue_path).with_context(|| {
             format!(
                 "Failed to read launcher download queue {}",
                 normalize_path(queue_path)

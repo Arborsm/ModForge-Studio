@@ -17,6 +17,7 @@ const mods: ModWorkspaceCopy = {
   browserEmpty: 'No Content Patcher projects are currently available.',
   contentPatcherOnly: 'Content Patcher Only',
   compatibleOnly: 'Compatible Only',
+  i18nOnly: 'Has i18n',
   incompatibleProject: 'Incompatible',
   projectsLabel: 'Projects',
   filteredLabel: 'Filtered',

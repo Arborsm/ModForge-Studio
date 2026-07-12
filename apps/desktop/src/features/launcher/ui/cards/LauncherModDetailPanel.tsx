@@ -1,5 +1,5 @@
-import { ExternalLink, FolderOpen, ImageIcon, X } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { AlertTriangle, ExternalLink, FolderOpen, ImageIcon, X } from 'lucide-react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditorCopy } from '@locales/provider'
 import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
@@ -7,10 +7,12 @@ import { useLauncherRemoteModDetail } from '@features/launcher/model/useLauncher
 import { cx } from '@shared/lib/helper'
 import { NexusModsBbcode } from '@shared/ui/nexusmods-bbcode'
 import { PanelEmptyState } from '@shared/ui/PanelSection'
+import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import type { LauncherDiscoverDetail, LauncherLibraryItem, QueueLauncherDownloadInput } from '../../model/types'
 import { useLauncherDependencyDetails, usePreloadLauncherDependencyDetails } from './dependency-tree/useLauncherDependencyDetails'
 import type { LauncherDetailMod } from './dependency-tree/dependencyTreeTypes'
 import { LauncherArtworkCover } from './LauncherArtworkCover'
+import { LauncherModConfigPanel, type LauncherModConfigLeaveGuard } from './LauncherModConfigPanel'
 import { ChangelogList, DependencyTree, DetailDataLoading, DetailSection, FileList, PropertyRow } from './LauncherModDetailLists'
 import { normalizeVersion, type DependencyTreeNode, type FileListItem, type LauncherDetailTab } from './launcherModDetailData'
 import { useLauncherModDetailViewModel } from './useLauncherModDetailViewModel'
@@ -56,7 +58,11 @@ export function LauncherModDetailPanel({
   const copy = useEditorCopy()
   const launcherCopy = copy.launcher
   const detailCopy = launcherCopy.library.modDetail
+  const configLeaveDialogTitleId = useId()
   const [activeTab, setActiveTab] = useState<LauncherDetailTab>('description')
+  const [configToolbarTarget, setConfigToolbarTarget] = useState<HTMLDivElement | null>(null)
+  const [configLeaveGuard, setConfigLeaveGuard] = useState<LauncherModConfigLeaveGuard | null>(null)
+  const [pendingConfigLeave, setPendingConfigLeave] = useState<{ kind: 'close' } | { kind: 'tab'; tab: LauncherDetailTab } | null>(null)
   const [descriptionReaderOpen, setDescriptionReaderOpen] = useState(false)
   const [expandedDependencyNodeIds, setExpandedDependencyNodeIds] = useState<Set<string>>(new Set())
   const detailContentKey = `${mod?.id ?? 'empty'}:${remoteDetail?.modId ?? mod?.nexusModId ?? 'local'}`
@@ -144,7 +150,7 @@ export function LauncherModDetailPanel({
   })
   const showDescriptionReader = open && selectedTab === 'description' && descriptionReaderOpen
 
-  const handleClose = useCallback(() => {
+  const closeImmediately = useCallback(() => {
     setDescriptionReaderOpen(false)
     if (deferDetailContent) {
       setReadyContentKey(null)
@@ -152,7 +158,26 @@ export function LauncherModDetailPanel({
     onClose()
   }, [deferDetailContent, onClose])
 
+  const handleClose = useCallback(() => {
+    if (configLeaveGuard?.dirty) {
+      setPendingConfigLeave({ kind: 'close' })
+      return
+    }
+    closeImmediately()
+  }, [closeImmediately, configLeaveGuard?.dirty])
+
+  const completePendingConfigLeave = useCallback(() => {
+    const pending = pendingConfigLeave
+    setPendingConfigLeave(null)
+    if (pending?.kind === 'close') closeImmediately()
+    else if (pending?.kind === 'tab') setActiveTab(pending.tab)
+  }, [closeImmediately, pendingConfigLeave])
+
   const handleSelectTab = (tab: LauncherDetailTab) => {
+    if (tab !== selectedTab && configLeaveGuard?.dirty) {
+      setPendingConfigLeave({ kind: 'tab', tab })
+      return
+    }
     if (tab !== 'description') {
       setDescriptionReaderOpen(false)
     }
@@ -183,6 +208,9 @@ export function LauncherModDetailPanel({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        if (pendingConfigLeave) {
+          return
+        }
         if (showDescriptionReader) {
           setDescriptionReaderOpen(false)
           return
@@ -193,7 +221,7 @@ export function LauncherModDetailPanel({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleClose, open, showDescriptionReader])
+  }, [handleClose, open, pendingConfigLeave, showDescriptionReader])
 
   const openRemotePage = () => {
     const url = remote?.modUrl ?? mod?.modUrl
@@ -428,24 +456,27 @@ export function LauncherModDetailPanel({
 
             <div className="launcher-mod-detail-body">
               <main className="launcher-mod-detail-main">
-                <div className="launcher-mod-detail-tabs" role="tablist" aria-label={detailCopy.tabsLabel}>
-                  {detailTabs.map((tab) => (
-                    <button
-                      key={tab}
-                      type="button"
-                      role="tab"
-                      aria-selected={selectedTab === tab}
-                      onClick={() => handleSelectTab(tab)}
-                      title={tab === 'dependencies' && missingDependencyLabel ? missingDependencyLabel : undefined}
-                    >
-                      <span>{detailCopy.tabs[tab]}</span>
-                      {tab === 'dependencies' && missingDependencyCount ? (
-                        <strong className="launcher-mod-detail-tab-alert" aria-hidden="true">
-                          {missingDependencyCount}
-                        </strong>
-                      ) : null}
-                    </button>
-                  ))}
+                <div className="launcher-mod-detail-tabs-shell">
+                  <div className="launcher-mod-detail-tabs" role="tablist" aria-label={detailCopy.tabsLabel}>
+                    {detailTabs.map((tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        role="tab"
+                        aria-selected={selectedTab === tab}
+                        onClick={() => handleSelectTab(tab)}
+                        title={tab === 'dependencies' && missingDependencyLabel ? missingDependencyLabel : undefined}
+                      >
+                        <span>{detailCopy.tabs[tab]}</span>
+                        {tab === 'dependencies' && missingDependencyCount ? (
+                          <strong className="launcher-mod-detail-tab-alert" aria-hidden="true">
+                            {missingDependencyCount}
+                          </strong>
+                        ) : null}
+                      </button>
+                    ))}
+                  </div>
+                  {selectedTab === 'config' ? <div className="launcher-mod-detail-tab-toolbar" ref={setConfigToolbarTarget} /> : null}
                 </div>
 
                 <section
@@ -574,6 +605,24 @@ export function LauncherModDetailPanel({
                     </div>
                   </section>
                 ) : null}
+
+                {isLocal && mod?.hasConfig && selectedTab === 'config' && mod.absolutePath ? (
+                  <section
+                    className={cx('launcher-mod-detail-tab-panel', selectedTab === 'config' && 'active')}
+                    role="tabpanel"
+                    hidden={selectedTab !== 'config'}
+                    aria-hidden={selectedTab !== 'config'}
+                  >
+                    <div className="launcher-mod-detail-info-layout rich scrollable">
+                      <LauncherModConfigPanel
+                        modPath={mod.absolutePath}
+                        launcherPort={launcherPort}
+                        toolbarTarget={configToolbarTarget}
+                        onLeaveGuardChange={setConfigLeaveGuard}
+                      />
+                    </div>
+                  </section>
+                ) : null}
               </main>
             </div>
 
@@ -599,6 +648,43 @@ export function LauncherModDetailPanel({
                 </article>
               </div>
             ) : null}
+
+            <Dialog
+              open={Boolean(pendingConfigLeave)}
+              onClose={() => setPendingConfigLeave(null)}
+              size="sm"
+              labelledBy={configLeaveDialogTitleId}
+              closeOnBackdrop={!configLeaveGuard?.saving}
+              closeOnEscape={!configLeaveGuard?.saving}
+            >
+              <DialogHeader
+                title={detailCopy.config.unsavedTitle}
+                tone="warning"
+                icon={<AlertTriangle className="h-4 w-4" />}
+                onClose={() => setPendingConfigLeave(null)}
+                closeLabel={detailCopy.config.unsavedCancel}
+                closeDisabled={configLeaveGuard?.saving}
+                id={configLeaveDialogTitleId}
+              />
+              <DialogBody>
+                <p className="text-sm text-(--text-secondary)">{detailCopy.config.unsavedMessage}</p>
+              </DialogBody>
+              <DialogFooter>
+                <DialogAction onClick={() => setPendingConfigLeave(null)} disabled={configLeaveGuard?.saving}>
+                  {detailCopy.config.unsavedCancel}
+                </DialogAction>
+                <DialogAction tone="warning" onClick={completePendingConfigLeave} disabled={configLeaveGuard?.saving}>
+                  {detailCopy.config.unsavedDiscard}
+                </DialogAction>
+                <DialogAction
+                  tone="primary"
+                  disabled={!configLeaveGuard?.canSave || configLeaveGuard?.saving}
+                  onClick={() => void configLeaveGuard?.save().then((saved) => saved && completePendingConfigLeave())}
+                >
+                  {configLeaveGuard?.saving ? detailCopy.config.saving : detailCopy.config.unsavedSave}
+                </DialogAction>
+              </DialogFooter>
+            </Dialog>
 
             <footer className="launcher-mod-detail-footer">
               <div className="launcher-mod-detail-tool-group">

@@ -55,6 +55,8 @@ vi.mock('@entities/mod/api', () => ({
       pluginKind: 'content-patcher',
       status: 'ready',
       missingRequiredDependencies: [],
+      hasI18n: false,
+      i18nEntryCount: 0,
     },
     diagnostics: [],
     contentPatcher: {
@@ -121,6 +123,8 @@ vi.mock('@entities/mod/api', () => ({
       pluginKind: 'content-patcher',
       status: 'ready',
       missingRequiredDependencies: [],
+      hasI18n: false,
+      i18nEntryCount: 0,
     },
   ]),
   simulateContentPatcher: vi.fn().mockResolvedValue({
@@ -269,6 +273,8 @@ describe('useModWorkspace', () => {
         pluginKind: 'unknown',
         status: 'unsupported',
         missingRequiredDependencies: [],
+        hasI18n: false,
+        i18nEntryCount: 0,
       },
       {
         id: 'cp-pack',
@@ -285,6 +291,8 @@ describe('useModWorkspace', () => {
         pluginKind: 'content-patcher',
         status: 'ready',
         missingRequiredDependencies: [],
+        hasI18n: false,
+        i18nEntryCount: 0,
       },
     ])
 
@@ -333,6 +341,8 @@ describe('useModWorkspace', () => {
         pluginKind: 'content-patcher',
         status: 'incompatible',
         missingRequiredDependencies: ['Platonymous.ScaleUp'],
+        hasI18n: false,
+        i18nEntryCount: 0,
       },
       {
         id: 'cp-pack',
@@ -349,6 +359,8 @@ describe('useModWorkspace', () => {
         pluginKind: 'content-patcher',
         status: 'ready',
         missingRequiredDependencies: [],
+        hasI18n: false,
+        i18nEntryCount: 0,
       },
       {
         id: 'archive-helper',
@@ -365,6 +377,8 @@ describe('useModWorkspace', () => {
         pluginKind: 'unknown',
         status: 'unsupported',
         missingRequiredDependencies: [],
+        hasI18n: false,
+        i18nEntryCount: 0,
       },
     ])
 
@@ -393,6 +407,103 @@ describe('useModWorkspace', () => {
 
     await waitFor(() => {
       expect(result.current.filteredModProjects.map((project) => project.id)).toEqual(['needs-scaleup', 'cp-pack'])
+    })
+  })
+
+  it('in i18n mode ignores CP and compatibility filters and focuses on projects with i18n files', async () => {
+    vi.mocked(scanModProjects).mockResolvedValueOnce([
+      {
+        id: 'needs-scaleup',
+        name: 'Needs ScaleUp',
+        author: 'Aly',
+        version: '1.0.0',
+        description: null,
+        uniqueId: 'Aly.NeedsScaleUp',
+        contentPackFor: 'Pathoschild.ContentPatcher',
+        folderName: 'NeedsScaleUp',
+        absolutePath: 'E:\\Mods\\NeedsScaleUp',
+        manifestPath: 'E:\\Mods\\NeedsScaleUp\\manifest.json',
+        contentPath: 'E:\\Mods\\NeedsScaleUp\\content.json',
+        pluginKind: 'content-patcher',
+        status: 'incompatible',
+        missingRequiredDependencies: ['Platonymous.ScaleUp'],
+        hasI18n: true,
+        i18nEntryCount: 3,
+      },
+      {
+        id: 'cp-pack',
+        name: 'CP Pack',
+        author: 'ModForge',
+        version: '1.0.0',
+        description: null,
+        uniqueId: 'ModForge.CPPack',
+        contentPackFor: 'Pathoschild.ContentPatcher',
+        folderName: 'CPPack',
+        absolutePath: 'E:\\Mods\\CPPack',
+        manifestPath: 'E:\\Mods\\CPPack\\manifest.json',
+        contentPath: 'E:\\Mods\\CPPack\\content.json',
+        pluginKind: 'content-patcher',
+        status: 'ready',
+        missingRequiredDependencies: [],
+        hasI18n: false,
+        i18nEntryCount: 0,
+      },
+      {
+        id: 'archive-helper',
+        name: 'Archive Helper',
+        author: 'ModForge',
+        version: '0.4.0',
+        description: null,
+        uniqueId: 'ModForge.ArchiveHelper',
+        contentPackFor: null,
+        folderName: 'ArchiveHelper',
+        absolutePath: 'E:\\Mods\\ArchiveHelper',
+        manifestPath: 'E:\\Mods\\ArchiveHelper\\manifest.json',
+        contentPath: null,
+        pluginKind: 'unknown',
+        status: 'unsupported',
+        missingRequiredDependencies: [],
+        hasI18n: true,
+        i18nEntryCount: 2,
+      },
+    ])
+
+    const { result } = renderHook(() =>
+      useModWorkspace({
+        directoryInfo: {
+          rootPath: 'E:\\Games\\Stardew Valley',
+          executablePath: 'E:\\Games\\Stardew Valley\\Stardew Valley.exe',
+          mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
+          mapCount: 42,
+        },
+        mode: 'i18n',
+      }),
+    )
+
+    await waitFor(() => {
+      expect(result.current.modProjects).toHaveLength(3)
+    })
+
+    expect(result.current.contentPatcherOnly).toBe(false)
+    expect(result.current.compatibleOnly).toBe(false)
+    expect(result.current.i18nOnly).toBe(true)
+    expect(result.current.filteredModProjects.map((project) => project.id)).toEqual(['needs-scaleup', 'archive-helper'])
+    expect(result.current.activeProjectPath).toBe('E:\\Mods\\NeedsScaleUp')
+
+    act(() => {
+      result.current.setI18nOnly(false)
+    })
+
+    await waitFor(() => {
+      expect(result.current.filteredModProjects.map((project) => project.id)).toEqual(['needs-scaleup', 'archive-helper'])
+    })
+
+    act(() => {
+      result.current.handleSelectProject('E:\\Mods\\NeedsScaleUp')
+    })
+
+    await waitFor(() => {
+      expect(result.current.activeProjectPath).toBe('E:\\Mods\\NeedsScaleUp')
     })
   })
 
@@ -570,6 +681,8 @@ describe('useModWorkspace', () => {
         pluginKind: 'content-patcher',
         status: 'ready',
         missingRequiredDependencies: [],
+        hasI18n: false,
+        i18nEntryCount: 0,
       },
       {
         id: 'cp-pack-two',
@@ -586,6 +699,8 @@ describe('useModWorkspace', () => {
         pluginKind: 'content-patcher',
         status: 'ready',
         missingRequiredDependencies: [],
+        hasI18n: false,
+        i18nEntryCount: 0,
       },
     ])
 

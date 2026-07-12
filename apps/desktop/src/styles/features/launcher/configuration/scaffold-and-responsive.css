@@ -285,6 +285,27 @@
       white-space: normal;
     }
 
+    .launcher-config-gmcm-probe .launcher-config-api-name,
+    .launcher-config-gmcm-probe .launcher-config-api-desc,
+    .launcher-config-gmcm-probe .launcher-config-status-tag {
+      grid-column: 1;
+    }
+
+    .launcher-config-gmcm-probe .launcher-config-status-tag {
+      justify-self: start;
+    }
+
+    .launcher-config-probe-meta + .launcher-config-probe-meta {
+      padding-left: 0;
+      border-left: 0;
+    }
+
+    .launcher-config-probe-detail-summary,
+    .launcher-config-probe-detail-summary + .launcher-config-probe-meta {
+      margin-right: 0;
+      margin-left: 0;
+    }
+
     .launcher-config-guest-hero {
       align-items: flex-start;
       flex-direction: column;

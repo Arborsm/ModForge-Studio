@@ -26,7 +26,7 @@ export function DiagnosticsPanel({ directoryInfo, visibleLayerIds, visibleObject
                 <strong className="metric-value">{visibleObjectGroupIds.length}</strong>
               </div>
               <div className="metric-card compact-metric-card">
-                <span className="metric-label">{copy.statusBar.scanned}</span>
+                <span className="metric-label">{copy.common.scanned}</span>
                 <strong className="metric-value">{directoryInfo.mapCount}</strong>
               </div>
               <div className="metric-card compact-metric-card">

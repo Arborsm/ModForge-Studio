@@ -16,7 +16,9 @@
 @import './primitives/gooey-nav.css';
 @import './workspace/shell-skeleton.css';
 @import './workspace/top-menu.css';
-@import './workspace/status-bar.css';
+@import './workspace/item-workspace.css';
+@import './workspace/event-stage/index.css';
+@import './workspace/building/building-workspace.css';
 @import './features/settings-window.css';
 @import './features/notifications.css';
 @import './features/launcher/index.css';
@@ -39,4 +41,3 @@
 @source '../shared/ui/ProgressRing.tsx';
 @source '../shared/ui/Dialog';
 @source '../widgets/top-navigation';
-@source '../widgets/status-bar';

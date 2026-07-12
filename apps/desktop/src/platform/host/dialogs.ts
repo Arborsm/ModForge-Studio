@@ -1,4 +1,4 @@
-import type { PlatformDragDropPayload, PlatformUnlistenFn } from '@shared/contracts'
+import type { PlatformDragDropPayload, PlatformUnlistenFn, SaveDialogOptions } from '@shared/contracts'
 import { canUseDesktopHost, getPlatformPorts } from './runtime'
 
 /** Archive extensions accepted by the launcher install file dialog. */
@@ -27,6 +27,15 @@ export async function chooseDirectory(title: string) {
   }
 
   return getPlatformPorts().dialog.chooseDirectory(title)
+}
+
+/** Opens a native save dialog for a caller-provided export file. */
+export async function chooseSaveFile(options: SaveDialogOptions) {
+  if (!canUseDesktopHost()) {
+    throw new Error('File export requires the desktop host.')
+  }
+
+  return getPlatformPorts().dialog.saveFile(options)
 }
 
 /** Returns whether a path points at an installable archive format. */

@@ -10,6 +10,12 @@ export type OpenDialogOptions = {
   filters?: readonly DialogFilter[]
 }
 
+export type SaveDialogOptions = {
+  title?: string
+  defaultPath?: string
+  filters?: readonly DialogFilter[]
+}
+
 export interface FileSystemPort {
   invokeCommand: <T>(command: string, args?: Record<string, unknown>) => Promise<T>
   toAssetUrl: (filePath: string, protocol?: string) => string
@@ -54,6 +60,7 @@ export interface StoragePort {
 
 export interface DialogPort {
   open: (options?: OpenDialogOptions) => Promise<string | string[] | null>
+  saveFile: (options?: SaveDialogOptions) => Promise<string | null>
   chooseDirectory: (title?: string) => Promise<string | null>
   chooseFile: (options?: OpenDialogOptions) => Promise<string | null>
 }

@@ -275,6 +275,23 @@ fn mutable_cache_commands_declare_resource_locks_at_binding_site() {
 }
 
 #[test]
+fn launcher_mod_config_commands_declare_lane_and_resource_locks_at_binding_site() {
+    assert_eq!(
+        command_lane("load_launcher_mod_config"),
+        Some(SidecarLane::Io)
+    );
+    assert_eq!(command_resources("load_launcher_mod_config"), Some(&[][..]));
+    assert_eq!(
+        command_lane("save_launcher_mod_config"),
+        Some(SidecarLane::Mutation)
+    );
+    assert_eq!(
+        command_resources("save_launcher_mod_config"),
+        Some(&[SidecarResource::LauncherModConfig][..])
+    );
+}
+
+#[test]
 fn project_and_cp_maker_mutations_declare_resource_locks_at_binding_site() {
     assert_eq!(
         command_resources("save_mod_project"),
@@ -293,6 +310,11 @@ fn project_and_cp_maker_mutations_declare_resource_locks_at_binding_site() {
         Some(&[SidecarResource::ModProject][..])
     );
     assert_eq!(command_resources("import_cp_maker_pack"), Some(&[][..]));
+    assert_eq!(command_lane("export_map_png"), Some(SidecarLane::Mutation));
+    assert_eq!(
+        command_resources("export_map_png"),
+        Some(&[SidecarResource::MapPngExport][..])
+    );
 }
 
 struct TestResponseWriter {
@@ -1025,10 +1047,21 @@ fn telemetry_uses_per_command_sampling_when_debug_changes_mid_run() {
         .expect("second command should complete");
     assert_eq!(response.id, json!("after-debug"));
 
-    let summary = scheduler
-        .diagnostics_summary("test")
-        .expect("debug-enabled scheduler should produce diagnostics")
-        .summary;
+    let deadline = std::time::Instant::now() + Duration::from_secs(1);
+    let summary = loop {
+        let summary = scheduler
+            .diagnostics_summary("test")
+            .expect("debug-enabled scheduler should produce diagnostics")
+            .summary;
+        if summary.contains("jobs=1 ok=1") {
+            break summary;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "debug-enabled command should keep jobs and ok counts aligned: {summary}"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    };
     assert!(
         summary.contains("jobs=1 ok=1"),
         "debug-enabled command should keep jobs and ok counts aligned: {summary}"

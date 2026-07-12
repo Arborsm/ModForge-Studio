@@ -18,6 +18,7 @@ import {
   Play,
   RefreshCw,
   Search,
+  Settings2,
   SlidersHorizontal,
   Zap,
 } from 'lucide-react'
@@ -53,6 +54,7 @@ type LauncherLibraryHeaderProps = {
   editCount: number
   filterText: string
   enabledOnly: boolean
+  configOnly: boolean
   sortOptions: Array<{ value: LibrarySortMode; label: string }>
   sortMode: LibrarySortMode
   currentSortLabel: string
@@ -72,6 +74,7 @@ type LauncherLibraryHeaderProps = {
   onLaunchGame: () => void
   onFilterTextChange: (value: string) => void
   onEnabledOnlyChange: (enabledOnly: boolean) => void
+  onConfigOnlyChange: (configOnly: boolean) => void
   onToggleSortMenu: () => void
   onToggleActionsMenu: () => void
   onCloseActionsMenu: () => void
@@ -109,6 +112,7 @@ export function LauncherLibraryHeader({
   editCount,
   filterText,
   enabledOnly,
+  configOnly,
   sortOptions,
   sortMode,
   currentSortLabel,
@@ -128,6 +132,7 @@ export function LauncherLibraryHeader({
   onLaunchGame,
   onFilterTextChange,
   onEnabledOnlyChange,
+  onConfigOnlyChange,
   onToggleSortMenu,
   onToggleActionsMenu,
   onCloseActionsMenu,
@@ -391,6 +396,17 @@ export function LauncherLibraryHeader({
             onClick={() => onEnabledOnlyChange(!enabledOnly)}
           >
             {enabledOnly ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+          </button>
+
+          <button
+            type="button"
+            className={cx('launcher-library-icon-button', configOnly && 'launcher-library-icon-button-accent')}
+            aria-pressed={configOnly}
+            aria-label={copy.toggles.configOnly}
+            title={copy.toggles.configOnly}
+            onClick={() => onConfigOnlyChange(!configOnly)}
+          >
+            <Settings2 className="h-4 w-4" />
           </button>
 
           <div className="launcher-library-popover-shell" ref={sortMenuRef}>

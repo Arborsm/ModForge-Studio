@@ -1,4 +1,8 @@
 #[allow(dead_code, unused_imports)]
+#[path = "../../src/infrastructure/text_encoding.rs"]
+pub mod text_encoding;
+
+#[allow(dead_code, unused_imports)]
 #[path = "../../src/infrastructure/fs/pathing.rs"]
 pub mod fs_pathing;
 #[allow(dead_code, unused_imports)]

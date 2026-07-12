@@ -137,8 +137,8 @@
     display: none;
   }
 
-  .event-stage-console-surface.panel-surface,
-  .event-stage-console-surface .panel-body,
+  .event-stage-console-surface,
+  .event-stage-console-surface .event-stage-body,
   .script-console-preview.panel-surface,
   .script-console-preview .panel-body {
     border: 0;
@@ -149,7 +149,8 @@
     box-shadow: none;
   }
 
-  .script-console-preview .panel-body {
+  .script-console-preview .panel-body,
+  .event-stage-console-surface .event-stage-body {
     padding: 0;
   }
 

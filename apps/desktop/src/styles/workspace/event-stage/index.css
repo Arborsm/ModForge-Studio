@@ -1,0 +1,9 @@
+@layer components {
+  .event-stage-panel-shell.workspace-panel-shell {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    border-radius: 0;
+  }
+}

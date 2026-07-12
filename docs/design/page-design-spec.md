@@ -1,0 +1,346 @@
+# 页面设计规范（Page Design Spec）
+
+> 适用范围：`apps/desktop` 所有工作区/页面  
+> 最后更新：2026-07-11  
+> 相关：壳与主页迁移见 [`workbench-shell-migration.md`](./workbench-shell-migration.md)；产品级视觉与术语见 [`../DESIGN.md`](../DESIGN.md)；静态原型见 `prototype/workbench-shell-mock.html`
+
+本文档从物品工作区（Item Workspace）的重设计中抽象出通用规则，并补充工作台壳与主页 IA。用于统一 ModForge Studio 的页面视觉与布局。
+
+**重要：不要强行套用**。以下规则是默认倾向和常见陷阱提醒，不是必须照搬的模板。如果现有页面使用卡片、留白、标题栏等方式已经清晰可用，不要为了“符合规范”而 flatten 或加虚线。每条规则都有其适用上下文。
+
+## 0. 工作台壳与主页（目标 IA）
+
+本节描述**目标壳信息架构**（以 `prototype/workbench-shell-mock.html` 为准）。产品落地进度见 `workbench-shell-migration.md`。新做工作台壳 / 主页 / 导航时以本节为准，不要回退到「顶栏 GooeyNav 切模块 + 整页项目画廊 launchpad」形态。
+
+### 0.1 壳结构（宽屏默认）
+
+```text
+┌ TopMenuBar：品牌 · 视图 · [中央项目标题菜单] · 状态 · 主题 · 窗控 ─┐
+├ 左导航（可展开 / 收成图标轨） ┬ 主内容区（home | workspace） ──────┤
+└──────────────────────────────┴────────────────────────────────────┘
+```
+
+- **顶栏**：工作台模式下，模块切换**不在**顶栏 GooeyNav；中央是**当前项目标题**（名称、版本、空态「未选择项目」）与项目菜单（最近项目、新建 / 打开 / 导入、设置、目录、导出、关闭）。
+- **左导航**：分组为 主页 · 浏览（地图 / 事件 / 角色 / 建筑 / 物品）· 工具 · 开发；展开显示文案，收起为图标轨。折叠分组默认不强制展开空组。
+- **主内容**：`home` 与 `workspace` 二选一；不要再叠一层全宽 launchpad dock 作为主路径。
+
+### 0.2 主页三态
+
+| 状态       | 条件（产品语义）                      | 布局要点                                                                                                                               |
+| ---------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **有内容** | 已打开项目，且有可统计内容 / 工作进度 | **宽屏双栏**：左 = 继续工作 → 内容概览（数量格）→ 最近活动；右 = 需关注 → 项目 meta / 打开目录 / 关闭。顶栏动作：导出、项目设置、新建… |
+| **空世界** | 已打开项目，但尚无实质内容            | 居中创建第一项（地图 / 角色 / 事件 / 物品等），无假缩略图；可带项目设置 / 目录 / 关闭                                                  |
+| **无项目** | 未选择当前项目                        | 左 = 项目管理（新建 / 打开 / 导入）+ 最近项目列表；右 = 无需项目的浏览入口。**不要**把整页做成项目库大画廊                             |
+
+约束：
+
+- 主页是**创作 / 项目入口**，不是项目管理报表中心；项目管理动作是入口，不是页面主体。
+- **禁止**用假像素拼贴、装饰性渐变条重复展示「内容构成」。
+- **禁止**在有内容态再铺一整页项目卡片墙。
+- 宽屏应用：主区与侧栏占满工作区宽度（例如 `1fr + 300–420px`），**不要**把主内容 `max-width` 锁成阅读型窄条（如 720px）。
+- 窄屏（约 &lt;1100px）：双栏可改为单栏堆叠。
+
+### 0.3 工作区：浏览 / 编辑
+
+- 同一模块页内切换 **浏览** 与 **编辑**（代码层可仍为 `preview` / `edit`）。
+- **编辑依赖当前项目**；无项目时显示内联编辑锁（选择项目 / 继续浏览），不要静默进空编辑器。
+- 浏览可无项目进入（读游戏资源）；写入 / 导出 / 补丁需要项目。
+- 工作区顶工具条：模块名 · 模式 · 浏览 | 编辑；多栏内容继续走 `WorkspaceLayout`，壳样式对齐「全宽分栏 + hairline」，见下文第 1–2 节。
+
+### 0.4 视觉倾向（壳层）
+
+- 与产品壳一致：token 色、细边框列表、克制密度；避免 Linear 扁平风与假素材缩略图。
+- 主按钮在页内唯一主路径上（例如「继续编辑」只出现一次，不要顶栏与卡片各一颗重复 CTA）。
+- 内容概览用数量格或紧凑行，**不要**复制左导航的模块列表当第二套导航。
+
+## 1. 页面结构
+
+### 1.1 内容优先，去掉重复标题栏
+
+- 面板/工作区内容应直接呈现，不要在每个面板顶部再放一层“面板标题 + 数量 + ID”的标题栏。
+- 如果信息已在内容区展示（如物品名、ID、数量），顶部的 `panel-header` 应删除。
+- 例：详情页顶部直接放大图 + 名称 + ID；目录、导航面板只保留工具/筛选/切换按钮。
+- **例外**：列表/表格类页面，顶部保留过滤、搜索、视图切换工具是合理的；只要标题本身不再重复展示名称/ID 即可。
+- **例外**：工作区页级 toolbar（模块名 + 浏览/编辑）属于壳层，不算面板内重复标题栏。
+
+### 1.2 三栏/多栏布局
+
+- 使用工作区布局系统（`WorkspaceLayout`）时，面板之间由统一的 edge resizer 分隔。
+- 独立页面或静态原型可使用内部网格 + `.item-workspace-divider`。
+- **分隔线拖拽尺寸限制应尽可能宽松**：`minWidth` / `minHeight` 只保留防止面板完全消失的最低限度，不要用过大的最小尺寸把面板锁死。
+- 工作台是**宽屏应用**：默认按桌面宽视口设计（设计验证建议 ≥1440，壳原型截图可用 1680）；窄断点再退化，不要以手机宽度为默认画布。
+
+## 2. 面板容器
+
+### 2.1 扁平化面板
+
+- 工作区内容面板不使用 `.panel-surface` 的渐变背景 + 边框 + 阴影组合。
+- 统一使用 `.item-workspace-pane` 风格：
+  - `background: var(--bg-panel)`
+  - `border-radius: 0`（贴边三栏骨架；浮动面板可保留圆角）
+  - 无 `border`、无 `box-shadow`
+- 当面板被 `WorkspaceLayout` 包裹时，其 `workspace-panel-shell` 应覆盖为透明、无边框、无阴影、无 backdrop blur：
+  - `border: none`
+  - `background: transparent`
+  - `box-shadow: none`
+  - `backdrop-filter: none`
+  - `border-radius: 0`（docked）
+- **例外**：对话框、浮动窗口、设置卡片等独立浮层仍可使用 `.panel-surface` 或带阴影的容器。
+
+### 2.2 避免“两层”感
+
+- 禁止在同一容器上叠加渐变背景 + 边框 + 阴影。
+- 相邻嵌套表面必须通过背景阶差（≥4% 明度差）或单一阴影区分，不能同时保留边框和阴影造成重边。
+
+## 3. 分隔线
+
+### 3.1 工作区栏位分隔
+
+- edge / split resizer 必须位于两面板间隙正中，而不是贴在某一面板边缘。
+- 贴边三栏骨架（对齐 `prototype/workbench-shell-mock.html` 的 `ws-grid`）：
+  - 外层 `ROOT_PADDING = 0`（无外围留白）
+  - 栏间隙 `COLUMN_GAP` / `SPLIT_GAP = 5`
+  - 拖拽命中 `RESIZER_THICKNESS = 5`
+  - 可视分隔为 **1px hairline**（CSS `::before`），悬停/拖拽时高亮为 accent
+- 相关几何在 `shared/workspace/layoutConstants.ts` + `layoutGeometry.ts` 中维护；`STORAGE_VERSION` 在默认几何变更时递增。
+- 中栏最小宽度 `MIN_CENTER_WIDTH = 360`（宽松下限，避免把侧栏锁死）。
+
+### 3.2 内部分隔线
+
+- 独立页面使用 `.item-workspace-divider`：
+  - 轨道宽与栏间隙一致
+  - 中间为 **1px 垂直 hairline**（无软阴影、无上下内缩）
+  - 与 docked edge resizer 视觉一致
+
+### 3.3 彩色虚线分隔的适用范围（重要）
+
+彩色虚线分隔线**只适用于高密度文本/字段区块之间的分割**，例如：
+
+- 详情页多个信息区块（基础信息、Object Data、资源、Mod 来源）
+- 长表单里不同字段组
+- 密集的 kv-row 列表分段
+
+**不要用于**：
+
+- 稀疏的卡片/分类列表（如资源浏览器里的角色/物品/场地分类卡片）
+- 已经有足够留白或卡片边界的区域
+- 行与行之间（行内仍用低调单色实线）
+
+如果当前页面用卡片或留白已经分得很清楚，不要为了“统一规范”硬加彩色虚线。
+
+## 4. 排版与层级
+
+### 4.1 标题强调
+
+- 页面/详情顶部的主标题应明显大于辅助信息。
+- 辅助标签（chips、pills）字号不应过小，推荐使用 `text-xs`（12px）而非 `text-[11px]`。
+- ID、路径等元信息使用等宽字体和次要色，不抢主体视觉。
+
+### 4.2 不重复展示标题
+
+- 如果内容区已经展示名称，不要在外层面板标题再展示一次。
+- 数量统计应放在分页、列表尾部或标签内，而不是每个区块标题下都显示 `{length}`。
+- **例外**：一级分类列表（如资源浏览器左侧分类）在标题旁显示总数可以帮助扫描，可以保留。
+
+## 5. 区块与分隔
+
+### 5.1 区块分隔规范
+
+- 不同**高密度文本区块**之间使用彩色虚线分隔，第一个区块上方和最后一个区块下方不加线。
+- 使用 `.detail-sections-stack` 模式：
+  - 2px 高
+  - 12px 实色段 + 20px 透明段
+  - 颜色：`color-mix(in srgb, var(--accent) 60%, transparent)`
+- 区块内部行之间使用细灰实线，保持克制。
+
+### 5.2 禁止卡片套卡片
+
+- 信息详情页使用扁平分割行，不要“卡片里嵌卡片”。
+- 来源、配方、用途等列表使用行式组件 + 底边框，而不是一个个圆角卡片。
+- **例外**：资源浏览器、启动器等以分类浏览为主的页面，使用卡片列表是合适的，不需要 flatten。
+
+### 5.3 空状态隐藏
+
+- `Object Data`、`Mod 来源`、`自定义字段` 等补充区块在为空时直接隐藏，不展示空状态卡片。
+- 只有在某个 tab 完全没有任何内容时，才展示整体空提示。
+
+## 6. 图标与图片容器
+
+### 6.1 目录/列表图标
+
+- 目录、网格、列表中的物品小图标保留圆角容器 + inset 1px 边框 + 背景，帮助识别格子边界。
+- 尺寸根据场景选择：`h-9 w-9`、`h-10 w-10`、`h-12 w-12`。
+
+### 6.2 详情大图与选中预览
+
+- 详情英雄图、导航选中项大图、相关物品 fallback 占位符去掉容器边框和背景。
+- `AtlasSprite` 默认无 `border` / `bg`，具体样式由调用方通过 `className` 控制。
+- 大图容器仅用于居中和裁剪，不添加视觉装饰。
+
+## 7. 动态尺寸与分页
+
+### 7.1 按可视区域计算
+
+- 目录、表格等需要按容器尺寸计算每页数量的组件，必须在以下时机重新测量：
+  - 初始挂载
+  - 数据加载完成（items length 变化）
+  - 容器 resize
+- 不能只在窗口 resize 时触发。
+
+### 7.2 分页填满视口
+
+- 每页数量应刚好填满可视区域，避免大量空白或滚动条。
+- 使用容器测量 + 元素实际尺寸计算，而不是固定 magic number。
+
+## 8. 颜色与文案
+
+### 8.1 Tokens
+
+- 所有颜色、背景、边框、阴影必须使用项目 CSS tokens：`--bg-panel`、`--bg-panel-muted`、`--bg-hover`、`--accent`、`--accent-soft`、`--border-color`、`--text-primary` 等。
+- 半透明效果使用 `color-mix(in srgb, var(--xxx) X%, transparent)`，禁止硬编码 rgba。
+
+### 8.2 文案
+
+- 用户可见字符串全部来自 typed locale bundles，不在组件中硬编码。
+- 数量、单位等动态文案也应通过 locale helper 格式化。
+
+## 9. 交互状态
+
+- hover 使用 `bg-(--bg-hover)`，active/selected 使用 `bg-(--accent-soft)` / `text-(--accent)`。
+- 禁用态使用 `opacity-45` 或 `cursor-not-allowed`。
+- 目录滚动翻页、按钮点击等反馈保持项目已有的过渡时长。
+
+## 10. 响应式
+
+- 工作台壳默认按宽屏设计；`xl`（1280px+）展开多栏布局；以下断点由 `WorkspaceLayout` 与壳 CSS 退化为堆叠 / 侧栏折叠。
+- 主页双栏建议在约 1100px 以下改为单栏。
+- 分隔线拖拽限制保持最小，允许用户自由调整面板宽度，不要因固定最小宽度导致无法拖到需要的大小。
+- 小屏下优先保证主内容区可读，次要面板可收起。
+- **不要**为了「干净」把宽屏主内容锁成文章阅读宽度。
+
+## 11. Mock 迭代流程
+
+若用户提出使用 mock 则执行以下流程，否则不默认执行：
+
+1. **先写静态 HTML mock**：在 `prototype/` 下建立独立 HTML 文件，用项目 tokens 和 Tailwind 类还原目标布局。工作台壳以 `workbench-shell-mock.html` 为对照，不要另起一套冲突 IA。
+2. **用工具量布局，不要只看截图**：
+   - 使用 Playwright / DevTools 获取元素 `getBoundingClientRect()`。
+   - 验证分隔线是否居中、间隙是否对称、元素是否对齐。
+   - 截图只作为辅助，不能替代几何测量。
+3. **检查长文本/本地化**：在 mock 中塞入最长的中文标签、英文单词，确认不会换行/溢出。
+4. **宽屏视口验收**：壳与主页至少在 1440 与 1680 宽各截一帧；确认双栏铺满、无窄条留白病。
+5. **再移植到 React**：mock 验证通过后再写组件；接真实 handlers / locale / tokens，禁止长期假数据按钮。
+6. **在实际应用里复测**：构建后打开真实页面，检查数据填充后的状态（空状态、大量数据、窄窗口、无项目 / 有项目）。
+7. **迭代**：如果实际渲染与 mock 不符，回到步骤 1 改 mock，而不是在组件里反复 patch。
+
+### 11.1 Playwright 使用示例
+
+项目已安装 Playwright，下面是验证布局常用的脚本模式。
+
+#### 测量分隔线是否居中
+
+```js
+// scripts/measure-divider-mock.mjs
+import { chromium } from 'playwright'
+import { join } from 'node:path'
+
+const path = join(process.cwd(), 'prototype', 'item-workspace-divider-mock.html').replace(/\\/g, '/')
+
+async function main() {
+  const browser = await chromium.launch()
+  const page = await browser.newPage({ viewport: { width: 1100, height: 500 } })
+  await page.goto('file:///' + path)
+  await page.waitForSelector('.item-workspace-pane')
+
+  const result = await page.evaluate(() => {
+    const nav = document.querySelectorAll('.item-workspace-pane')[0].getBoundingClientRect()
+    const catalog = document.querySelectorAll('.item-workspace-pane')[1].getBoundingClientRect()
+    const divider = document.querySelectorAll('.item-workspace-divider')[0].getBoundingClientRect()
+
+    return {
+      gapCenter: nav.right + (catalog.x - nav.right) / 2,
+      dividerCenter: divider.x + divider.width / 2,
+    }
+  })
+
+  console.log('gap center:', result.gapCenter)
+  console.log('divider center:', result.dividerCenter)
+  console.log('offset:', Math.abs(result.gapCenter - result.dividerCenter))
+
+  await browser.close()
+}
+
+main().catch((error) => {
+  console.error(error)
+  process.exit(1)
+})
+```
+
+如果 `offset` 超过 1px，说明分隔线没有真正居中，先改 CSS/mock，不要直接改产品代码。
+
+#### 测量实际应用中的面板边界
+
+```js
+const page = await browser.newPage({ viewport: { width: 1400, height: 900 } })
+await page.goto('http://localhost:5173') // 或实际桌面端窗口
+
+const rects = await page.evaluate(() => {
+  const nav = document.querySelector('[data-panel-id="item-navigation"]')?.getBoundingClientRect()
+  const catalog = document.querySelector('[data-panel-id="item-catalog"]')?.getBoundingClientRect()
+  const resizer = document.querySelector('.workspace-dock-resizer-right')?.getBoundingClientRect()
+  return { nav, catalog, resizer }
+})
+
+console.log(JSON.stringify(rects, null, 2))
+```
+
+#### 检查长文本是否溢出
+
+```js
+await page.evaluate(() => {
+  const title = document.querySelector('h2')
+  if (!title) return null
+  return {
+    scrollWidth: title.scrollWidth,
+    clientWidth: title.clientWidth,
+    overflows: title.scrollWidth > title.clientWidth,
+  }
+})
+```
+
+#### 截图只作为辅助
+
+```js
+await page.screenshot({
+  path: join(process.cwd(), 'prototype', 'item-workspace-divider-mock.png'),
+})
+```
+
+截图用于和设计师/用户确认观感，但**对齐、居中、间距问题优先用 `getBoundingClientRect()` 排查**。
+
+## 12. 检查清单
+
+新增或修改页面时，对照以下检查：
+
+### 12.1 工作台壳 / 主页（若触及）
+
+- [ ] 顶栏中央是项目标题菜单，模块切换在左导航（不回退 GooeyNav 模块条）
+- [ ] 主页三态语义正确：有内容 / 空世界 / 无项目
+- [ ] 有内容态为宽屏双栏，未锁成窄阅读宽度
+- [ ] 无整页项目画廊抢主路径；无假像素拼贴 / 重复内容模块
+- [ ] 浏览 / 编辑页内切换；无项目时有编辑锁
+- [ ] 主 CTA 不重复（顶栏与卡片不同时塞两颗「继续」）
+
+### 12.2 通用工作区 / 面板
+
+- [ ] 没有重复的面板标题栏
+- [ ] 区块标题下方没有多余的 `{length}` 统计（除非是一级分类总数）
+- [ ] 空区块已隐藏
+- [ ] 面板容器扁平，无 panel-surface 的渐变/边框/阴影叠加
+- [ ] 分隔线位于间隙正中，不在边缘
+- [ ] 彩色虚线只用于高密度文本区块，没有加到稀疏卡片/分类列表上
+- [ ] 详情/列表使用扁平分割行，无卡片套卡片（浏览类页面例外）
+- [ ] 目录图标保留容器，大图/预览图去掉容器边框
+- [ ] 动态尺寸在数据加载和 resize 时都生效
+- [ ] 所有颜色、文案走 tokens 和 locales
+- [ ] 视觉改动先写 mock 并测量验证（含宽屏视口）

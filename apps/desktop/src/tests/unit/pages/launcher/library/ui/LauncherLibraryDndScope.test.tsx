@@ -3,8 +3,11 @@ import { describe, expect, it, vi } from 'vite-plus/test'
 import type { ReactNode } from 'react'
 import { LauncherLibraryDndScope } from '@pages/launcher/library/ui/LauncherLibraryDndScope'
 
-const { dndContextMock } = vi.hoisted(() => ({
+const { dndContextMock, setActivatorNodeRefMock, setDraggableNodeRefMock, setDroppableNodeRefMock } = vi.hoisted(() => ({
   dndContextMock: vi.fn(),
+  setActivatorNodeRefMock: vi.fn(),
+  setDraggableNodeRefMock: vi.fn(),
+  setDroppableNodeRefMock: vi.fn(),
 }))
 
 vi.mock('@dnd-kit/core', async () => {
@@ -18,11 +21,11 @@ vi.mock('@dnd-kit/core', async () => {
     DragOverlay: ({ children }: { children: ReactNode }) => <div data-testid="drag-overlay">{children}</div>,
     useDraggable: () => ({
       listeners: {},
-      setActivatorNodeRef: vi.fn(),
-      setNodeRef: vi.fn(),
+      setActivatorNodeRef: setActivatorNodeRefMock,
+      setNodeRef: setDraggableNodeRefMock,
     }),
     useDroppable: () => ({
-      setNodeRef: vi.fn(),
+      setNodeRef: setDroppableNodeRefMock,
     }),
   }
 })

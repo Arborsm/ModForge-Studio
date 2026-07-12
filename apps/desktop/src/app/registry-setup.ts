@@ -13,6 +13,9 @@ const LazyDevResourceBrowserLab = lazy(() =>
     default: module.DevResourceBrowserLab,
   })),
 )
+const LazyI18nGeneratorView = lazy(() =>
+  import('../pages/workbench/tools/i18n-generator/I18nGeneratorView').then((module) => ({ default: module.I18nGeneratorView })),
+)
 
 function eraseWorkbenchViewProps<TProps>(view: WorkbenchViewRegistration<TProps>): WorkbenchViewRegistration<never> {
   return view as WorkbenchViewRegistration<never>
@@ -25,7 +28,41 @@ const coreWorkbenchViews: WorkbenchViewRegistration<never>[] = [
     title: 'Workspace Editor',
     order: 10,
     viewId: 'workspace-editor',
+    category: 'internal',
+    activation: { kind: 'component' },
+    requiresProject: true,
     component: EditWorkspaceContent,
+  }),
+  {
+    id: 'mod-browser',
+    kind: 'workbench-view',
+    title: 'Mods',
+    order: 100,
+    viewId: 'mod-browser',
+    category: 'tool',
+    navigationIcon: 'package',
+    activation: { kind: 'workspace', workspaceMode: 'mod-browser', presentation: 'browser' },
+  },
+  {
+    id: 'mod-i18n',
+    kind: 'workbench-view',
+    title: 'Translations',
+    order: 110,
+    viewId: 'mod-i18n',
+    category: 'tool',
+    navigationIcon: 'languages',
+    activation: { kind: 'workspace', workspaceMode: 'mod-i18n', presentation: 'browser' },
+  },
+  eraseWorkbenchViewProps({
+    id: 'i18n-generator',
+    kind: 'workbench-view',
+    title: 'i18n',
+    order: 120,
+    viewId: 'i18n-generator',
+    category: 'tool',
+    navigationIcon: 'languages',
+    activation: { kind: 'component' },
+    component: LazyI18nGeneratorView,
   }),
 ]
 
@@ -37,6 +74,9 @@ const devWorkbenchViews: WorkbenchViewRegistration<never>[] = import.meta.env.DE
         title: '资源浏览器',
         order: 900,
         viewId: 'dev-resource-browser',
+        category: 'dev',
+        navigationIcon: 'beaker',
+        activation: { kind: 'component' },
         devOnly: true,
         component: LazyDevResourceBrowserLab,
       }),

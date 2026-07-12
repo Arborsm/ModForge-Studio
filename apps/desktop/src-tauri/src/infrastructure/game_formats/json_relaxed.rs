@@ -1,3 +1,4 @@
+use crate::infrastructure::text_encoding::decode_text_bytes;
 use anyhow::Context;
 use serde_json::Value;
 use std::path::Path;
@@ -175,31 +176,15 @@ fn normalize_json_chars(input: &str) -> String {
 }
 
 fn decode_json_bytes(bytes: &[u8], source_label: &str) -> anyhow::Result<String> {
-    if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
-        return String::from_utf8(bytes[3..].to_vec())
-            .with_context(|| format!("Failed to decode {source_label} as UTF-8"));
+    let text = decode_text_bytes(bytes);
+    // decode_text_bytes is lossy as a last resort, so an empty result for
+    // non-empty input indicates we should still report the source label.
+    if text.is_empty() && !bytes.is_empty() {
+        return Err(anyhow::anyhow!(
+            "Failed to decode {source_label} as a recognized text encoding"
+        ));
     }
-
-    if bytes.starts_with(&[0xFF, 0xFE]) {
-        let utf16 = bytes[2..]
-            .chunks_exact(2)
-            .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
-            .collect::<Vec<_>>();
-        return Ok(String::from_utf16_lossy(&utf16));
-    }
-
-    if bytes.starts_with(&[0xFE, 0xFF]) {
-        let utf16 = bytes[2..]
-            .chunks_exact(2)
-            .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
-            .collect::<Vec<_>>();
-        return Ok(String::from_utf16_lossy(&utf16));
-    }
-
-    match String::from_utf8(bytes.to_vec()) {
-        Ok(text) => Ok(text),
-        Err(_) => Ok(String::from_utf8_lossy(bytes).into_owned()),
-    }
+    Ok(text)
 }
 
 fn sanitize_json_text(raw: &str) -> String {

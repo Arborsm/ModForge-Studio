@@ -36,6 +36,7 @@ fn launcher_settings_create_default_and_save_roundtrip() {
         auto_install_downloads: true,
         keep_downloaded_archives: true,
         auto_check_mod_updates: false,
+        gmcm_parsing_enabled: false,
     };
     save_settings_at_path(&settings_path, &saved_settings).expect("save settings");
 
@@ -43,6 +44,19 @@ fn launcher_settings_create_default_and_save_roundtrip() {
     assert_eq!(reloaded, normalize_settings(saved_settings));
 
     fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn launcher_settings_default_gmcm_parsing_to_enabled_and_persist_opt_out() {
+    let legacy: LauncherSettings =
+        serde_json::from_str(r#"{"autoInstallDownloads":false}"#).expect("legacy settings");
+    assert!(legacy.gmcm_parsing_enabled);
+
+    let disabled = merge_launcher_settings(
+        legacy,
+        serde_json::from_str(r#"{"gmcmParsingEnabled":false}"#).expect("GMCM setting patch"),
+    );
+    assert!(!disabled.gmcm_parsing_enabled);
 }
 
 #[test]

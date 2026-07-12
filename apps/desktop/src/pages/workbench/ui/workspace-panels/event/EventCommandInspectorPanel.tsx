@@ -1,7 +1,6 @@
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { buildEventTimelineEntries, EVENT_SETUP_ENTRY_ID } from '@entities/event'
 import type { EventScript } from '@entities/event'
-import { PanelSection } from '@shared/ui/PanelSection'
 import { useEventStageCopy } from '@locales/provider'
 
 type EventCommandInspectorPanelProps = {
@@ -29,16 +28,18 @@ export function EventCommandInspectorPanel({ selectedEvent, selectedTimelineEntr
   const command = selectedEntry?.command ?? null
 
   return (
-    <PanelFrame title={labels.inspectorTitle} subtitle={selectedEvent?.eventId ?? labels.inspectorEmpty} bodyClassName="p-3">
-      <div className="space-y-3">
-        <PanelSection title={labels.inspectorSummary}>
+    <PanelFrame flat title={labels.inspectorTitle} subtitle={selectedEvent?.eventId ?? labels.inspectorEmpty} bodyClassName="p-3">
+      <div className="detail-sections-stack">
+        <section>
+          <p className="panel-section-title">{labels.inspectorSummary}</p>
           <p className="mt-2 text-sm font-semibold text-(--text-primary)">{selectedEntry?.title ?? labels.inspectorEmpty}</p>
           <p className="mt-2 text-xs leading-5 text-(--text-secondary)">{selectedEntry?.detail ?? labels.inspectorEmpty}</p>
-        </PanelSection>
+        </section>
 
         {selectedEvent && isSetupEntry ? (
-          <PanelSection>
-            <div className="grid gap-3 md:grid-cols-2">
+          <section>
+            <p className="panel-section-title">{labels.inspectorParameters}</p>
+            <div className="mt-2 grid gap-3 md:grid-cols-2">
               <div>
                 <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">{labels.inspectorMusic}</p>
                 <p className="mt-1 text-sm text-(--text-primary)">{renderValue(selectedEvent.scene.musicCue, labels.inspectorNone)}</p>
@@ -54,12 +55,13 @@ export function EventCommandInspectorPanel({ selectedEvent, selectedTimelineEntr
                 <p className="mt-1 text-sm text-(--text-primary)">{selectedEvent.scene.actors.length}</p>
               </div>
             </div>
-          </PanelSection>
+          </section>
         ) : null}
 
         {!isSetupEntry && command ? (
-          <PanelSection>
-            <div className="grid gap-3 md:grid-cols-2">
+          <section>
+            <p className="panel-section-title">{labels.inspectorParameters}</p>
+            <div className="mt-2 grid gap-3 md:grid-cols-2">
               <div>
                 <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">{labels.inspectorCommand}</p>
                 <p className="mt-1 text-sm text-(--text-primary)">{command.command}</p>
@@ -101,35 +103,46 @@ export function EventCommandInspectorPanel({ selectedEvent, selectedTimelineEntr
             {command.choices?.length ? (
               <div className="mt-3">
                 <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">{labels.inspectorChoices}</p>
-                <div className="mt-2 space-y-2">
+                <div className="mt-2 flex flex-col">
                   {command.choices.map((choice, index) => (
-                    <div key={choice.id} className="panel-list-card px-3 py-2 text-sm text-(--text-primary)">
-                      {index + 1}. {choice.label}
+                    <div
+                      key={choice.id}
+                      className="flex items-start justify-between gap-3 border-b border-(--border-color)/50 py-2.5 last:border-b-0"
+                    >
+                      <span className="text-xs text-(--text-secondary)">{index + 1}</span>
+                      <span className="min-w-0 flex-1 text-sm text-(--text-primary)">{choice.label}</span>
                     </div>
                   ))}
                 </div>
               </div>
             ) : null}
-          </PanelSection>
+          </section>
         ) : null}
 
-        {!isSetupEntry && command ? (
-          <PanelSection title={labels.inspectorArgs} bodyClassName="space-y-2">
-            {command.args.map((arg, index) => (
-              <div key={`${command.id}:arg:${index}`} className="panel-list-card grid grid-cols-[56px_minmax(0,1fr)] gap-3 px-3 py-2">
-                <span className="text-[11px] font-semibold tracking-[0.14em] text-(--text-secondary) uppercase">arg {index}</span>
-                <span className="text-sm break-all text-(--text-primary)">{arg || labels.inspectorNone}</span>
-              </div>
-            ))}
-          </PanelSection>
+        {!isSetupEntry && command && command.args.length ? (
+          <section>
+            <p className="panel-section-title">{labels.inspectorArgs}</p>
+            <div className="mt-2 flex flex-col">
+              {command.args.map((arg, index) => (
+                <div
+                  key={`${command.id}:arg:${index}`}
+                  className="flex items-start justify-between gap-3 border-b border-(--border-color)/50 py-2.5 last:border-b-0"
+                >
+                  <span className="text-[11px] font-semibold tracking-[0.14em] text-(--text-secondary) uppercase">arg {index}</span>
+                  <span className="min-w-0 flex-1 text-sm break-all text-(--text-primary)">{arg || labels.inspectorNone}</span>
+                </div>
+              ))}
+            </div>
+          </section>
         ) : null}
 
         {!isSetupEntry && selectedEntry?.command?.raw ? (
-          <PanelSection title={labels.inspectorRaw}>
+          <section>
+            <p className="panel-section-title">{labels.inspectorRaw}</p>
             <pre className="mt-2 overflow-auto text-xs leading-5 break-all whitespace-pre-wrap text-(--text-primary)">
               {selectedEntry.command.raw}
             </pre>
-          </PanelSection>
+          </section>
         ) : null}
       </div>
     </PanelFrame>

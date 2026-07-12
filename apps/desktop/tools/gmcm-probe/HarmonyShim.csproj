@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>0Harmony</AssemblyName>
+    <AssemblyVersion>2.3.3.0</AssemblyVersion>
+    <FileVersion>2.3.3.0</FileVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Shims\Harmony\HarmonyAccessToolsShim.cs" />
+    <Compile Include="Shims\Harmony\HarmonyAttributesShim.cs" />
+    <Compile Include="Shims\Harmony\HarmonyCodeShim.cs" />
+    <Compile Include="Shims\Harmony\HarmonyCoreShim.cs" />
+    <Compile Include="Shims\Harmony\HarmonyExtensionsShim.cs" />
+    <Compile Include="Shims\Harmony\HarmonyPatchingShim.cs" />
+    <Compile Include="Shims\Harmony\HarmonyUtilitiesShim.cs" />
+  </ItemGroup>
+</Project>

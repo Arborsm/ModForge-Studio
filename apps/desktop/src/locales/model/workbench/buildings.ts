@@ -4,6 +4,19 @@ export type BuildingsPanelCopy = {
   browserFilterPlaceholder: string
   browserFilteredEmpty: string
   browserUnloadedEmpty: string
+  browserModEmpty: string
+  browserModSubtitle: string
+  browserFarmBuildingsTitle: string
+  browserSubsectionFarming: string
+  browserSubsectionSpecial: string
+  browserSubsectionAdditional: string
+  browserSourceOriginal: string
+  browserSourceMod: string
+  toolbarZoomFit: string
+  toolbarGrid: string
+  toolbarPreviewDual: string
+  toolbarPreviewBody: string
+  modSourcesTitle: string
   browserConstructibleTitle: string
   browserConstructibleSubtitle: string
   browserWorldTitle: string
@@ -93,6 +106,12 @@ export type BuildingsPanelCopy = {
   detailsTitle: string
   detailsSubtitle: string
   detailsEmpty: string
+  overviewTab: string
+  mapsTab: string
+  extendTab: string
+  assetsTab: string
+  hasIndoorBadge: string
+  occupantsSectionTitle: string
   placementTitle: string
   runtimeDataTitle: string
   metadataTitle: string

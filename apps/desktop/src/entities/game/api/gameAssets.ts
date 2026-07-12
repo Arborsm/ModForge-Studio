@@ -33,6 +33,7 @@ const hostIoPolicy = { kind: 'parallelPool', pool: 'host-io', limit: 2 } satisfi
 const gameAssetPoolPolicy = { kind: 'parallelPool', pool: 'game-assets', limit: 2 } satisfies HostCommandPolicy
 const imageResolvePoolPolicy = { kind: 'parallelPool', pool: 'image-resolve', limit: 4 } satisfies HostCommandPolicy
 const audioResolvePoolPolicy = { kind: 'parallelPool', pool: 'audio-resolve', limit: 2 } satisfies HostCommandPolicy
+const mapPngExportPolicy = { kind: 'exclusiveMutation', resource: 'MapPngExport' } satisfies HostCommandPolicy
 
 /** Clears locale-scoped game asset cache entries after the UI language changes. */
 export function clearGameAssetLocaleCache(locale: string) {
@@ -108,6 +109,11 @@ export function loadMapAsset(rootPath: string, mapPath: string, locale?: string)
   return readPending(loadMapAssetCache, cacheKey, () =>
     invokeDesktop<MapAssetContent>(HOST_COMMANDS.loadMapAsset, { rootPath, mapPath, locale }, gameAssetPoolPolicy),
   )
+}
+
+/** Persists an already encoded map PNG through the desktop Host Runtime. */
+export function exportMapPng(outputPath: string, pngBase64: string) {
+  return invokeDesktop<void>(HOST_COMMANDS.exportMapPng, { outputPath, pngBase64 }, mapPngExportPolicy)
 }
 
 /** Loads a Stardew text/data asset from the game root. */

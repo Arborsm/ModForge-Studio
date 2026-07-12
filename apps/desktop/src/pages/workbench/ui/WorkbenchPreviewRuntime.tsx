@@ -6,7 +6,9 @@ import { useEventWorkspace } from '../workspaces/event-stage'
 import { useCharacterWorkspace } from '../workspaces/character'
 import { useBuildingWorkspace } from '../workspaces/building/state/useBuildingWorkspace'
 import { useItemWorkspace } from '../workspaces/item'
-import { buildCoreWorkspacePanels } from '../model/workspace-panels/core'
+import { buildBuildingsWorkspacePanels } from '../model/workspace-panels/buildings'
+import { buildCharactersWorkspacePanels } from '../model/workspace-panels/characters'
+import { buildEventsWorkspacePanels } from '../model/workspace-panels/events'
 import { buildItemsWorkspacePanels } from '../model/workspace-panels/items'
 import type { PlayerAppearanceProfile } from '@entities/event'
 import type { EventScript, ParsedEventAsset } from '@entities/event'
@@ -132,14 +134,6 @@ function EventsPreviewRuntime({
     [stageSeek],
   )
 
-  useEffect(() => {
-    if (!currentEventCommandId) {
-      return
-    }
-
-    workspaceLayoutRef.current?.setPanelVisibility('diagnostics', true)
-  }, [currentEventCommandId, workspaceLayoutRef])
-
   const snapshot = useMemo<PreviewStatusSnapshot>(
     () => ({
       workspaceStatus: { tone: 'idle', message: eventWorkspace.eventStatusMessage },
@@ -170,7 +164,7 @@ function EventsPreviewRuntime({
 
   const workspacePanels = useMemo(
     () =>
-      buildCoreWorkspacePanels({
+      buildEventsWorkspacePanels({
         ...createPreviewPanelDefaults({
           copy,
           modWorkspaceCopy,
@@ -289,7 +283,7 @@ function CharactersPreviewRuntime({
 
   const workspacePanels = useMemo(
     () =>
-      buildCoreWorkspacePanels({
+      buildCharactersWorkspacePanels({
         ...createPreviewPanelDefaults({
           copy,
           modWorkspaceCopy,
@@ -387,7 +381,7 @@ function BuildingsPreviewRuntime({
 
   const workspacePanels = useMemo(
     () =>
-      buildCoreWorkspacePanels({
+      buildBuildingsWorkspacePanels({
         ...createPreviewPanelDefaults({
           copy,
           modWorkspaceCopy,

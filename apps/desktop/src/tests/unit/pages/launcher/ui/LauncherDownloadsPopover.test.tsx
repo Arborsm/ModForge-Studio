@@ -88,7 +88,7 @@ describe('LauncherDownloadsPopover', () => {
 
     renderWithLocale(<LauncherDownloadsPopover downloads={downloads} onInstallArchives={onInstallArchives} />, 'zh-CN')
 
-    fireEvent.click(screen.getByRole('button', { name: `${copy.actions.install} (1)` }))
+    fireEvent.click(screen.getByRole('button', { name: copy.downloads.installReady(1) }))
 
     expect(onInstallArchives).toHaveBeenCalledWith(['E:\\Downloads\\npc-adventures.zip'])
   })

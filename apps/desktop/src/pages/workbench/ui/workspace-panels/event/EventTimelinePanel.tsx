@@ -201,6 +201,7 @@ export function EventTimelinePanel({
 
   return (
     <PanelFrame
+      flat
       title={labels.title}
       subtitle={labels.subtitle}
       bodyClassName="p-0"

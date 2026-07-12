@@ -92,10 +92,12 @@ const shared: LauncherSharedCopy = {
   },
   toggles: {
     enabledOnly: 'Enabled Only',
+    configOnly: 'Configurable Only',
     ascending: 'Ascending',
     autoCheckModUpdates: 'Automatically check for mod updates',
     autoInstallDownloads: 'Auto-install completed downloads',
     keepDownloadedArchives: 'Keep downloaded archives',
+    gmcmParsingEnabled: 'Parse dynamic GMCM settings',
   },
   sortOptions: {
     newest: 'Newest',

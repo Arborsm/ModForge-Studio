@@ -2,14 +2,7 @@ import { describe, expect, it } from 'vite-plus/test'
 import { readFile } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
 import { localeBundles } from '@locales/dictionaries'
-import {
-  getEditorCopy,
-  getLauncherCopy,
-  getModWorkspaceCopy,
-  getSettingsMenuCopy,
-  getViewMenuCopy,
-  getWorkspaceModeLabel,
-} from '@locales/api/editor-shell'
+import { getEditorCopy, getLauncherCopy, getModWorkspaceCopy, getSettingsMenuCopy, getViewMenuCopy } from '@locales/api/editor-shell'
 import { LOADING_MOTION_INTENSITY_IDS, LOADING_MOTION_SPEED_IDS, LOADING_MOTION_STYLE_IDS } from '@shared/lib/loading-motion'
 
 const localeDir = resolve(process.cwd(), 'src/locales')
@@ -60,7 +53,6 @@ describe('typed locale bundles', () => {
     expect(getViewMenuCopy('en-US').deletePresetConfirm('Alpha')).toContain('Alpha')
     expect(getViewMenuCopy('en-US').panelVisibleLabel).toBe('Visible')
     expect(getViewMenuCopy('en-US').deletePresetLabel).toBe('Delete preset')
-    expect(getWorkspaceModeLabel('zh-CN', getEditorCopy('zh-CN'), 'mods')).toBe(getModWorkspaceCopy('zh-CN').workspaceLabel)
     expect(getEditorCopy('en-US').shell.launcher).toBeTruthy()
     expect(getEditorCopy('en-US').launcher.pages.library).toBeTruthy()
     expect(getEditorCopy('zh-CN').launcher.pages.configuration).toBe('配置')

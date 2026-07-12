@@ -55,6 +55,39 @@ fn clean_input_path_normalizes_windows_relative_separators() {
     assert_eq!(cleaned, Path::new("./tmp-cp-relative"));
 }
 
+#[test]
+fn parse_vdf_preserves_chinese_path() {
+    let content = r#"
+            "libraryfolders"
+            {
+                "0"
+                {
+                    "path"        "E:\\中文游戏库\\Steam"
+                    "apps"
+                    {
+                        "413150"        "123"
+                    }
+                }
+            }
+        "#;
+
+    let parsed = parse_vdf(content).expect("parsed vdf with chinese path");
+    let VdfValue::Object(root) = parsed else {
+        panic!("expected object root");
+    };
+    let VdfValue::Object(libraries) = root.get("libraryfolders").expect("libraryfolders") else {
+        panic!("expected libraryfolders object");
+    };
+    let VdfValue::Object(primary) = libraries.get("0").expect("primary library") else {
+        panic!("expected primary object");
+    };
+
+    assert_eq!(
+        primary.get("path").and_then(VdfValue::as_str),
+        Some(r"E:\中文游戏库\Steam")
+    );
+}
+
 #[cfg(not(windows))]
 #[test]
 fn clean_input_path_maps_windows_drive_paths_to_wsl_mounts() {
