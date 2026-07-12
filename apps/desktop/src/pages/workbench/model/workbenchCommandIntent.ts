@@ -5,10 +5,10 @@ import type { UseCpMakerReturn } from '@features/cp-maker'
 export type WorkbenchCommandIntentDeps = {
   pendingIntent: PendingWorkbenchCommandIntent | null
   cpMaker: UseCpMakerReturn
-  setWorkspaceMode: (mode: string) => void
+  navigateToModule: (moduleId: string) => void
+  navigateToAuthoringWorkspace: (workspaceId: string) => void
   runWithModUnsavedGuard: (action: () => void | Promise<void>) => Promise<boolean>
   runWithCpMakerUnsavedGuard: (action: () => void | Promise<void>) => Promise<boolean>
-  setWorkspaceViewMode: (mode: 'edit' | 'preview') => void
   navigateToPatch: (patchId: string | null) => void
   clearPendingIntent: () => void
 }
@@ -32,10 +32,10 @@ export function resolveWorkbenchOpenAssetTarget(
 export function useWorkbenchCommandIntent({
   pendingIntent: pendingIntentProp,
   cpMaker,
-  setWorkspaceMode,
+  navigateToModule,
+  navigateToAuthoringWorkspace,
   runWithModUnsavedGuard,
   runWithCpMakerUnsavedGuard,
-  setWorkspaceViewMode,
   navigateToPatch,
   clearPendingIntent,
 }: WorkbenchCommandIntentDeps) {
@@ -60,17 +60,11 @@ export function useWorkbenchCommandIntent({
     (intent: PendingWorkbenchCommandIntent) => {
       const cmd = intent.command
 
-      if (cmd.type === 'navigation/open-workbench-view') {
-        if (cmd.viewId === 'workspace-editor') {
-          void runWithModUnsavedGuard(() => {
-            // Preserve current workspace, switch to edit mode
-            setWorkspaceViewMode('edit')
-            navigateToPatch(null)
-          })
-        }
-
-        // Unsupported view ids: safe no-op (just clear intent)
+      if (cmd.type === 'navigation/open-workbench-module') {
         consumedIntentIdsRef.current.add(intent.id)
+        void runWithModUnsavedGuard(async () => {
+          await runWithCpMakerUnsavedGuard(() => navigateToModule(cmd.moduleId))
+        })
         clearPendingIntent()
         setConsumedIntentId(intent.id)
         return
@@ -110,8 +104,7 @@ export function useWorkbenchCommandIntent({
 
         consumedIntentIdsRef.current.add(intent.id)
         void runWithModUnsavedGuard(() => {
-          setWorkspaceMode(target.workspaceId)
-          setWorkspaceViewMode('edit')
+          navigateToAuthoringWorkspace(target.workspaceId)
           navigateToPatch(target.assetId)
         })
         clearPendingIntent()
@@ -120,10 +113,10 @@ export function useWorkbenchCommandIntent({
     },
     [
       cpMaker,
-      setWorkspaceMode,
+      navigateToModule,
+      navigateToAuthoringWorkspace,
       runWithModUnsavedGuard,
       runWithCpMakerUnsavedGuard,
-      setWorkspaceViewMode,
       navigateToPatch,
       clearPendingIntent,
     ],

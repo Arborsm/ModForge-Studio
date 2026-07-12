@@ -46,7 +46,7 @@ export type { DockArea, WorkspaceLayoutHandle, WorkspacePanelConfig, WorkspacePa
 
 type WorkspaceLayoutProps = {
   panels: WorkspacePanelConfig[]
-  storageKey?: string
+  storageKey: string
   persistedState?: Partial<WorkspaceStoredState> | null
   onPersistStateChange?: (storageKey: string, state: WorkspaceStoredState) => void
   onLayoutMetaChange?: (payload: { panelItems: WorkspacePanelMeta[]; presetNames: string[] }) => void
@@ -99,7 +99,7 @@ type DragInteraction =
     }
 
 export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayoutProps>(function WorkspaceLayout(
-  { panels, storageKey = 'modforge:workspace-layout:v7', persistedState = null, onPersistStateChange, onLayoutMetaChange },
+  { panels, storageKey, persistedState = null, onPersistStateChange, onLayoutMetaChange },
   ref,
 ) {
   const rootRef = useRef<HTMLDivElement | null>(null)

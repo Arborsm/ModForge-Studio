@@ -245,7 +245,7 @@ export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDi
             </button>
 
             <div>
-              <span className="mb-1 block text-[10px] text-(--text-secondary)">FromFile</span>
+              <span className="mb-1 block text-[10px] text-(--text-secondary)">{copy.fromFile}</span>
               <input
                 type="text"
                 className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-xs text-(--text-primary) outline-none focus:border-(--accent)"

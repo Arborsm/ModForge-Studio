@@ -43,6 +43,28 @@ fn imports_manifest_metadata() {
 }
 
 #[test]
+fn imports_i18n_files_into_the_managed_draft() {
+    let root = create_temp_dir("import-i18n");
+    write_file(
+        &root.join("manifest.json"),
+        r#"{"Name":"Test","Author":"Author","Version":"1.0.0","UniqueID":"Author.Test","ContentPackFor":{"UniqueID":"Pathoschild.ContentPatcher"}}"#,
+    );
+    write_file(
+        &root.join("content.json"),
+        r#"{"Format":"2.0.0","Changes":[]}"#,
+    );
+    write_file(&root.join("i18n/default.json"), r#"{"ui.save":"Save"}"#);
+    write_file(&root.join("i18n/zh-CN.json"), r#"{"ui.save":"保存"}"#);
+
+    let draft = import_cp_maker_pack(root.to_str().expect("root path")).expect("import pack");
+    assert_eq!(draft.i18n_files.len(), 2);
+    assert_eq!(draft.i18n_files[0].locale, "default");
+    assert_eq!(draft.i18n_files[1].locale, "zh-CN");
+    assert!(draft.i18n_files[1].raw_json.contains("保存"));
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
 fn imports_content_changes_as_patches() {
     let root = create_temp_dir("import-changes");
     write_file(

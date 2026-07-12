@@ -35,12 +35,12 @@ export function useEditorCopy() {
   return useLocaleBundle().editor
 }
 
-export function useModWorkspaceCopy() {
+export function useModCopy() {
   return useLocaleBundle().mods
 }
 
-export function useModI18nCopy() {
-  return useLocaleBundle().modI18n
+export function useTranslationEditorCopy() {
+  return useLocaleBundle().translationEditor
 }
 
 export function useNotificationCopy() {

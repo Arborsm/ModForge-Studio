@@ -296,10 +296,16 @@ describe('frontend module architecture', () => {
     const events = await readFile(sourcePath('src/shared/contracts/events.ts'), 'utf8')
     const commands = await readFile(sourcePath('src/shared/contracts/commands.ts'), 'utf8')
     const platform = await readFile(sourcePath('src/shared/contracts/platform.ts'), 'utf8')
+    const appRegistry = await readFile(sourcePath('src/app/registry.ts'), 'utf8')
     const registrySetup = await readFile(sourcePath('src/app/registry-setup.ts'), 'utf8')
+    const moduleRegistrations = await readFile(sourcePath('src/pages/workbench/module-registrations.ts'), 'utf8')
 
     expect(registry).toContain('export type RegistryItemKind')
-    expect(registry).toContain('export type WorkbenchViewRegistration')
+    expect(registry).toContain('export type WorkbenchModuleRegistration')
+    expect(registry).toContain("export type WorkbenchLocation = { kind: 'home' } | { kind: 'module'; moduleId: string }")
+    expect(registry).toContain("presentation: 'browser' | 'authoring' | 'standalone'")
+    expect(registry).toContain("projectAccess: 'none' | 'read' | 'write'")
+    expect(registry).toContain("layout: 'fixed' | 'dockable'")
     expect(registry).toContain('export interface AppRegistry')
     expect(registry).not.toContain('createAppRegistry(')
     expect(registry).not.toContain('new Map')
@@ -315,12 +321,29 @@ describe('frontend module architecture', () => {
     expect(platform).toContain('export interface DialogPort')
     expect(platform).toContain('export interface PlatformPorts')
     expect(registrySetup).toContain('createAppRegistry(')
-    expect(registrySetup).not.toContain("viewId: 'studio-desk'")
-    expect(registrySetup).toContain("viewId: 'workspace-editor'")
-    expect(registrySetup).toContain("panelId: 'assets'")
-    expect(registrySetup).toContain("panelId: 'viewport'")
-    expect(registrySetup).toContain('getWorkbenchViewRegistration')
-    expect(registrySetup).toContain('getWorkspacePanelRegistration')
+    expect(registrySetup).toContain('mapBrowserRegistration')
+    expect(registrySetup).toContain('projectTranslationRegistration')
+    expect(registrySetup).toContain('devResourceBrowserRegistration')
+    expect(registrySetup).not.toContain('coreWorkbenchModuleRegistrations')
+    expect(registrySetup).not.toContain('devWorkbenchModuleRegistrations')
+    expect(registrySetup).not.toContain('getWorkbenchModuleRegistration')
+    expect(registrySetup).not.toContain('Duplicate workbench module id')
+    expect(registrySetup).not.toContain('Duplicate workbench persistenceKey')
+    expect(registrySetup).not.toContain('Browser module cannot request write project access')
+    expect(appRegistry).toContain('getWorkbenchModuleRegistration')
+    expect(appRegistry).toContain('Duplicate workbench module id')
+    expect(appRegistry).toContain('Duplicate workbench persistenceKey')
+    expect(appRegistry).toContain('Browser module cannot request write project access')
+    expect(registrySetup).not.toContain('runtimeName')
+    expect(registrySetup).not.toContain('workspaceMode')
+    expect(moduleRegistrations).toContain("'map-browser',")
+    expect(moduleRegistrations).toContain("'project-translation',")
+    expect(moduleRegistrations).toContain("'dev-resource-browser',")
+    expect(moduleRegistrations).toContain("import('./ui/module-runtimes/MapBrowserModuleRuntime')")
+    expect(moduleRegistrations).toContain("import('./ui/module-runtimes/ModTranslationModuleRuntime')")
+    expect(moduleRegistrations).toContain("import('./ui/module-runtimes/ProjectTranslationModuleRuntime')")
+    expect(moduleRegistrations).not.toContain('WorkbenchModuleRuntimes')
+    expect(moduleRegistrations).not.toContain('entity-browser-runtimes')
   })
 
   it('provides platform ports from the app layer through desktop host adapters', async () => {
@@ -394,14 +417,13 @@ describe('frontend module architecture', () => {
 
   it('keeps workbench home as the project library route instead of StudioDesk gallery routing', async () => {
     const workbenchExperience = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchExperience.tsx'), 'utf8')
-    const workbenchExperienceSupport = await readFile(sourcePath('src/pages/workbench/ui/workbenchExperienceSupport.ts'), 'utf8')
     const workbenchViewHost = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchViewHost.tsx'), 'utf8')
     const registrySetup = await readFile(sourcePath('src/app/registry-setup.ts'), 'utf8')
 
-    expect(workbenchExperience).toContain(
-      'resolveInitialWorkbenchLocation(persistedLocation, workbenchViews, getWorkbenchViewRegistration)',
-    )
-    expect(workbenchExperienceSupport).toContain("workbenchRoute: persistedLocation?.workbenchRoute ?? 'home'")
+    expect(workbenchExperience).toContain("useWorkbenchNavigation({ kind: 'home' })")
+    expect(workbenchExperience).toContain('useWorkbenchNavigationController')
+    expect(workbenchExperience).not.toContain('useWorkbenchShellHistory')
+    expect(workbenchExperience).toContain("navigation.location.kind === 'module'")
     expect(workbenchExperience).not.toContain('studioDeskGalleryOpen')
     expect(workbenchExperience).not.toContain("'launchpad' | 'workspace'")
     expect(workbenchExperience).not.toContain('<WorkbenchLaunchpadPage')
@@ -412,18 +434,21 @@ describe('frontend module architecture', () => {
     expect(registrySetup).not.toContain('StudioDesk')
   })
 
-  it('keeps the workbench shell home three-state overview without the old gallery/dock shell', async () => {
+  it('keeps the workbench home project library and project dashboard without duplicate browse navigation', async () => {
     const workbenchHome = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchHomePage.tsx'), 'utf8')
     const workbenchExperience = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchExperience.tsx'), 'utf8')
     const workbenchCss = await readFile(sourcePath('src/styles/workbench.css'), 'utf8')
 
     expect(workbenchHome).toContain('data-content={homeContent}')
-    expect(workbenchHome).toContain("'none' | 'empty' | 'rich'")
+    expect(workbenchHome).toContain("'home' | 'empty' | 'rich'")
     expect(workbenchHome).toContain('workbench-shell-home')
     expect(workbenchHome).toContain('workbench-shell-home-launch')
     expect(workbenchHome).toContain('workbench-shell-home-body')
     expect(workbenchHome).toContain('workbench-shell-home-continue')
-    expect(workbenchHome).toContain('workbench-shell-home-browse-row')
+    expect(workbenchHome).toContain('workbench-shell-home-library-hd')
+    expect(workbenchHome).toContain('workbench-shell-home-module-grid')
+    expect(workbenchHome).not.toContain('workbench-shell-home-browse-row')
+    expect(workbenchHome).not.toContain('makerPending')
     expect(workbenchHome).not.toContain('makerDialogOpen')
     expect(workbenchHome).not.toContain('projectDialogOpen')
     expect(workbenchHome).not.toContain('StudioDeskProjectGallery')
@@ -431,9 +456,36 @@ describe('frontend module architecture', () => {
     expect(workbenchHome).not.toContain('workbench-shell-home-pm-action')
     expect(workbenchHome).not.toContain('pendingExportDetail')
     expect(workbenchHome).not.toContain('shellCreateMapHint')
-    expect(workbenchExperience).toContain('WorkbenchSideNav')
-    expect(workbenchExperience).toContain('WorkbenchWorkspaceToolbar')
-    expect(workbenchExperience).toContain('WorkbenchEditGate')
+    const workbenchShell = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchShell.tsx'), 'utf8')
+    expect(workbenchExperience).toContain('WorkbenchShell')
+    expect(workbenchExperience).not.toContain('<WorkbenchSideNav')
+    expect(workbenchExperience).not.toContain('WorkbenchModuleHost')
+    expect(workbenchShell).toContain('WorkbenchSideNav')
+    expect(workbenchShell).toContain('WorkbenchModuleHost')
+    expect(workbenchExperience).not.toContain('WorkbenchWorkspaceToolbar')
+    expect(workbenchExperience).not.toContain('WorkbenchEditGate')
+    for (const escapedResponsibility of [
+      'getAppUiStateSnapshot',
+      'applyAppUiStatePatch',
+      'requestIdleCallback',
+      'beforeunload',
+      'cpMaker.createDraft',
+      'cpMaker.importPack',
+      'cpMaker.loadDraft',
+      'cpMaker.clearActiveDraft',
+    ]) {
+      expect(workbenchExperience).not.toContain(escapedResponsibility)
+    }
+    for (const controller of [
+      'useWorkbenchNavigationController',
+      'useWorkbenchPersistenceController',
+      'useWorkbenchProjectController',
+      'useWorkbenchProjectPresentationController',
+      'useWorkbenchDirectoryController',
+      'useWorkbenchCloseController',
+    ]) {
+      expect(workbenchExperience).toContain(controller)
+    }
     expect(workbenchExperience).not.toContain('<WorkbenchLaunchpadDock')
     expect(workbenchCss).toContain('workbench-shell-home.css')
     expect(workbenchCss).not.toContain('workbench-launchpad.css')

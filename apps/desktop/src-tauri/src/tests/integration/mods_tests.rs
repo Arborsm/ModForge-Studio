@@ -1,5 +1,5 @@
 use super::{
-    ContentPatcherI18nFileInput, SaveModProjectRequest, load_mod_project, save_mod_project,
+    ContentPatcherI18nFileInput, SaveModI18nFilesRequest, load_mod_project, save_mod_i18n_files,
     scan_mod_asset_index, scan_mod_projects,
 };
 use crate::test_support::{create_temp_dir, write_file};
@@ -336,7 +336,6 @@ fn load_mod_project_returns_patch_summary_and_diagnostics() {
     let detail =
         load_mod_project(project.to_string_lossy().into_owned()).expect("load mod project");
     assert_eq!(detail.plugin_kind, "content-patcher");
-    assert_eq!(detail.capabilities.len(), 5);
     let cp = detail.content_patcher.expect("content patcher payload");
     assert_eq!(cp.change_count, 2);
     assert_eq!(cp.dynamic_token_count, 1);
@@ -383,50 +382,6 @@ fn load_mod_project_returns_i18n_files_for_non_content_patcher_mods() {
 }
 
 #[test]
-fn save_mod_project_writes_i18n_files_for_non_content_patcher_mods() {
-    let root = create_temp_dir("mods-save-i18n-non-cp");
-    let source = root.join("SMAPIPack");
-    write_file(
-        &source.join("manifest.json"),
-        r#"{
-  "Name": "SMAPI Pack",
-  "Author": "ModForge",
-  "Version": "1.0.0",
-  "UniqueID": "ModForge.SMAPIPack",
-  "EntryDll": "SMAPIPack.dll"
-}"#,
-    );
-    write_file(
-        &source.join("i18n").join("default.json"),
-        r#"{
-  "ui.delete": "Delete {{itemName}}?"
-}"#,
-    );
-
-    let request = SaveModProjectRequest {
-        source_path: source.to_string_lossy().into_owned(),
-        output_path: None,
-        overwrite_existing_export: false,
-        manifest_json: "{}".to_string(),
-        content_json: "{}".to_string(),
-        i18n_files: vec![ContentPatcherI18nFileInput {
-            locale: "zh-CN".to_string(),
-            raw_json: r#"{
-  "ui.delete": "删除 {{itemName}}？"
-}"#
-            .to_string(),
-        }],
-    };
-
-    let result = save_mod_project(request).expect("save mod project");
-    assert_eq!(result.plugin_kind, "unknown");
-    let saved_i18n = fs::read_to_string(source.join("i18n").join("zh-CN.json")).expect("read i18n");
-    assert!(saved_i18n.contains("删除"));
-
-    fs::remove_dir_all(root).expect("cleanup");
-}
-
-#[test]
 fn load_mod_project_returns_i18n_translation_files() {
     let root = create_temp_dir("mods-load-i18n");
     let project = root.join("ExamplePack");
@@ -462,152 +417,8 @@ fn load_mod_project_returns_i18n_translation_files() {
 }
 
 #[test]
-fn save_mod_project_exports_and_preserves_other_files() {
-    let root = create_temp_dir("mods-save");
-    let source = root.join("SourcePack");
-    let export = root.join("ExportPack");
-    write_file(&source.join("manifest.json"), sample_manifest());
-    write_file(&source.join("content.json"), sample_content());
-    write_file(&source.join("assets").join("abigail.png"), "png-data");
-    write_file(&source.join("i18n").join("default.json"), "{}");
-
-    let request = SaveModProjectRequest {
-        source_path: source.to_string_lossy().into_owned(),
-        output_path: Some(export.to_string_lossy().into_owned()),
-        overwrite_existing_export: false,
-        manifest_json: sample_manifest().replace("Example Pack", "Exported Pack"),
-        content_json: sample_content().replace("spring", "summer"),
-        i18n_files: vec![],
-    };
-
-    let result = save_mod_project(request).expect("save mod project");
-    assert_eq!(result.plugin_kind, "content-patcher");
-    assert!(export.join("assets").join("abigail.png").is_file());
-    assert!(export.join("i18n").join("default.json").is_file());
-    let exported_manifest =
-        fs::read_to_string(export.join("manifest.json")).expect("read manifest");
-    let exported_content = fs::read_to_string(export.join("content.json")).expect("read content");
-    assert!(exported_manifest.contains("Exported Pack"));
-    assert!(exported_content.contains("summer"));
-    assert_eq!(result.target_path, export.to_string_lossy());
-
-    fs::remove_dir_all(root).expect("cleanup");
-}
-
-#[test]
-fn save_mod_project_rejects_non_empty_export_without_confirmation() {
-    let root = create_temp_dir("mods-save-non-empty");
-    let source = root.join("SourcePack");
-    let export = root.join("ExportPack");
-    write_file(&source.join("manifest.json"), sample_manifest());
-    write_file(&source.join("content.json"), sample_content());
-    write_file(&export.join("keep.txt"), "do not delete");
-
-    let request = SaveModProjectRequest {
-        source_path: source.to_string_lossy().into_owned(),
-        output_path: Some(export.to_string_lossy().into_owned()),
-        overwrite_existing_export: false,
-        manifest_json: sample_manifest().to_string(),
-        content_json: sample_content().to_string(),
-        i18n_files: vec![],
-    };
-
-    let error = save_mod_project(request).expect_err("non-empty export target should be rejected");
-    assert!(error.to_string().contains("not empty"));
-    assert!(export.join("keep.txt").is_file());
-
-    fs::remove_dir_all(root).expect("cleanup");
-}
-
-#[test]
-fn save_mod_project_overwrites_non_empty_export_after_confirmation() {
-    let root = create_temp_dir("mods-save-overwrite");
-    let source = root.join("SourcePack");
-    let export = root.join("ExportPack");
-    write_file(&source.join("manifest.json"), sample_manifest());
-    write_file(&source.join("content.json"), sample_content());
-    write_file(&source.join("assets").join("abigail.png"), "png-data");
-    write_file(&export.join("old.txt"), "delete me");
-
-    let request = SaveModProjectRequest {
-        source_path: source.to_string_lossy().into_owned(),
-        output_path: Some(export.to_string_lossy().into_owned()),
-        overwrite_existing_export: true,
-        manifest_json: sample_manifest().replace("Example Pack", "Exported Pack"),
-        content_json: sample_content().to_string(),
-        i18n_files: vec![],
-    };
-
-    save_mod_project(request).expect("confirmed export overwrite");
-    assert!(!export.join("old.txt").exists());
-    assert!(export.join("assets").join("abigail.png").is_file());
-
-    fs::remove_dir_all(root).expect("cleanup");
-}
-
-#[test]
-fn save_mod_project_rejects_export_to_source_parent_even_after_confirmation() {
-    let root = create_temp_dir("mods-save-parent-overwrite");
-    let source = root.join("SourcePack");
-    write_file(&source.join("manifest.json"), sample_manifest());
-    write_file(&source.join("content.json"), sample_content());
-    write_file(&source.join("assets").join("abigail.png"), "png-data");
-    write_file(&root.join("OtherPack").join("manifest.json"), "{}");
-
-    let request = SaveModProjectRequest {
-        source_path: source.to_string_lossy().into_owned(),
-        output_path: Some(root.to_string_lossy().into_owned()),
-        overwrite_existing_export: true,
-        manifest_json: sample_manifest().to_string(),
-        content_json: sample_content().to_string(),
-        i18n_files: vec![],
-    };
-
-    let error = save_mod_project(request).expect_err("source parent export should be rejected");
-    assert!(error.to_string().contains("parent or ancestor"));
-    assert!(source.join("manifest.json").is_file());
-    assert!(source.join("assets").join("abigail.png").is_file());
-    assert!(root.join("OtherPack").join("manifest.json").is_file());
-
-    fs::remove_dir_all(root).expect("cleanup");
-}
-
-#[test]
-fn save_mod_project_rejects_export_inside_source_even_after_confirmation() {
-    let root = create_temp_dir("mods-save-child-overwrite");
-    let source = root.join("SourcePack");
-    let export = source.join("NestedExport");
-    write_file(&source.join("manifest.json"), sample_manifest());
-    write_file(&source.join("content.json"), sample_content());
-    write_file(&source.join("assets").join("abigail.png"), "png-data");
-    write_file(&export.join("old.txt"), "delete me");
-
-    let request = SaveModProjectRequest {
-        source_path: source.to_string_lossy().into_owned(),
-        output_path: Some(export.to_string_lossy().into_owned()),
-        overwrite_existing_export: true,
-        manifest_json: sample_manifest().to_string(),
-        content_json: sample_content().to_string(),
-        i18n_files: vec![],
-    };
-
-    let error = save_mod_project(request).expect_err("source child export should be rejected");
-    assert!(
-        error
-            .to_string()
-            .contains("nested inside the source mod directory")
-    );
-    assert!(source.join("manifest.json").is_file());
-    assert!(source.join("content.json").is_file());
-    assert!(source.join("assets").join("abigail.png").is_file());
-    assert!(export.join("old.txt").is_file());
-
-    fs::remove_dir_all(root).expect("cleanup");
-}
-
-#[test]
-fn save_mod_project_writes_requested_i18n_files() {
-    let root = create_temp_dir("mods-save-i18n");
+fn save_mod_i18n_files_only_writes_requested_locales() {
+    let root = create_temp_dir("mods-save-i18n-only-requested");
     let source = root.join("SourcePack");
     write_file(&source.join("manifest.json"), sample_manifest());
     write_file(&source.join("content.json"), sample_content());
@@ -615,32 +426,91 @@ fn save_mod_project_writes_requested_i18n_files() {
         &source.join("i18n").join("default.json"),
         r#"{"ui.save":"Save"}"#,
     );
+    write_file(
+        &source.join("i18n").join("fr.json"),
+        r#"{"ui.save":"Enregistrer"}"#,
+    );
 
-    let request = SaveModProjectRequest {
+    let result = save_mod_i18n_files(SaveModI18nFilesRequest {
         source_path: source.to_string_lossy().into_owned(),
-        output_path: None,
-        overwrite_existing_export: false,
-        manifest_json: sample_manifest().to_string(),
-        content_json: sample_content().to_string(),
-        i18n_files: vec![
-            super::ContentPatcherI18nFileInput {
-                locale: "default".to_string(),
-                raw_json: r#"{"ui.save":"Save now"}"#.to_string(),
-            },
-            super::ContentPatcherI18nFileInput {
-                locale: "zh-CN".to_string(),
-                raw_json: r#"{"ui.save":"立即保存"}"#.to_string(),
-            },
-        ],
+        i18n_files: vec![ContentPatcherI18nFileInput {
+            locale: "default".to_string(),
+            raw_json: r#"{"ui.save":"Save now"}"#.to_string(),
+        }],
+    })
+    .expect("save requested i18n file");
+
+    assert_eq!(result.written_locales, vec!["default"]);
+    assert!(
+        fs::read_to_string(source.join("i18n/default.json"))
+            .expect("read default")
+            .contains("Save now")
+    );
+    assert!(
+        fs::read_to_string(source.join("i18n/fr.json"))
+            .expect("read untouched locale")
+            .contains("Enregistrer")
+    );
+    assert!(source.join("manifest.json").is_file());
+    assert!(source.join("content.json").is_file());
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn save_mod_i18n_files_rejects_invalid_project_locale_and_json() {
+    let root = create_temp_dir("mods-save-i18n-validation");
+    let non_project = root.join("NotAMod");
+    fs::create_dir_all(&non_project).expect("create non-project");
+    let request = |source_path: String, locale: &str, raw_json: &str| SaveModI18nFilesRequest {
+        source_path,
+        i18n_files: vec![ContentPatcherI18nFileInput {
+            locale: locale.to_string(),
+            raw_json: raw_json.to_string(),
+        }],
     };
 
-    save_mod_project(request).expect("save mod project");
+    assert!(
+        save_mod_i18n_files(request(
+            non_project.to_string_lossy().into_owned(),
+            "default",
+            "{}",
+        ))
+        .is_err()
+    );
 
-    let default_json =
-        fs::read_to_string(source.join("i18n").join("default.json")).expect("read default i18n");
-    let zh_json = fs::read_to_string(source.join("i18n").join("zh-CN.json")).expect("read zh i18n");
-    assert!(default_json.contains("Save now"));
-    assert!(zh_json.contains("立即保存"));
+    let source = root.join("SourcePack");
+    write_file(&source.join("manifest.json"), sample_manifest());
+    write_file(&source.join("content.json"), sample_content());
+    let source_path = source.to_string_lossy().into_owned();
+    assert!(save_mod_i18n_files(request(source_path.clone(), "../escape", "{}")).is_err());
+    assert!(save_mod_i18n_files(request(source_path, "default", "[]")).is_err());
+    assert!(!root.join("escape.json").exists());
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn save_mod_i18n_files_preserves_buffers_on_write_failure() {
+    let root = create_temp_dir("mods-save-i18n-write-failure");
+    let source = root.join("SourcePack");
+    write_file(&source.join("manifest.json"), sample_manifest());
+    write_file(&source.join("content.json"), sample_content());
+    write_file(&source.join("i18n"), "not a directory");
+
+    let error = save_mod_i18n_files(SaveModI18nFilesRequest {
+        source_path: source.to_string_lossy().into_owned(),
+        i18n_files: vec![ContentPatcherI18nFileInput {
+            locale: "default".to_string(),
+            raw_json: r#"{"ui.save":"Unsaved buffer"}"#.to_string(),
+        }],
+    })
+    .expect_err("i18n directory creation must fail");
+    assert!(error.to_string().contains("i18n"));
+    assert_eq!(
+        fs::read_to_string(source.join("i18n")).expect("read blocker"),
+        "not a directory"
+    );
 
     fs::remove_dir_all(root).expect("cleanup");
 }

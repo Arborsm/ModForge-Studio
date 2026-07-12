@@ -8,11 +8,7 @@ import { EditModeShell } from '@features/cp-maker/ui/EditModeShell'
 
 registerWorkspacePlugin({
   id: 'events',
-  label: 'Events',
-  icon: 'Calendar',
   editMode: {
-    patchListFields: [],
-    targetPicker: () => null,
     editor: ({ patch, selectedEventKey, onSelectedEventKeyChange }) => {
       const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
       const entries = (editorState.entries as Record<string, unknown> | undefined) ?? {}
@@ -77,11 +73,13 @@ function draft(patches: DraftPatch[]): CpMakerDraft {
     customLocations: [],
     aliasTokenNames: {},
     eventSourceSnapshotsByTarget: {},
+    i18nFiles: [],
   }
 }
 
 describe('EditModeShell event patch hub header', () => {
-  test('renders WIP edit workspaces with the shared empty-state card', () => {
+  test('renders the generic authoring catalog for non-event workspaces', () => {
+    const onPatchAdd = vi.fn()
     const { container } = renderWithLocale(
       <EditModeShell
         workspaceId="map"
@@ -89,7 +87,7 @@ describe('EditModeShell event patch hub header', () => {
         patches={[]}
         activePatchId={null}
         onSelectPatch={vi.fn()}
-        onPatchAdd={vi.fn()}
+        onPatchAdd={onPatchAdd}
         onPatchRemove={vi.fn()}
         onPatchUpdate={vi.fn()}
         onConfigSchemaChange={vi.fn()}
@@ -105,15 +103,16 @@ describe('EditModeShell event patch hub header', () => {
       'zh-CN',
     )
 
-    expect(container.querySelector('.edit-mode-wip-page')).not.toBeNull()
-    expect(container.querySelector('.empty-state-card')).not.toBeNull()
-    expect(screen.getByText('WIP')).toBeInTheDocument()
-    expect(screen.getByText('地图工作台正在搭建')).toBeInTheDocument()
+    expect(container.querySelector('.edit-mode-wip-page')).toBeNull()
+    expect(screen.getByRole('region', { name: 'Patch 目录' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '新增 Patch' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
   test('renders event patch workspace actions in the header', () => {
     const patches = [eventPatch()]
     const onSaveDraft = vi.fn()
+    const onReloadDraft = vi.fn()
     const { container } = renderWithLocale(
       <EditModeShell
         workspaceId="events"
@@ -126,6 +125,7 @@ describe('EditModeShell event patch hub header', () => {
         onPatchUpdate={vi.fn()}
         onConfigSchemaChange={vi.fn()}
         onSaveDraft={onSaveDraft}
+        onReloadDraft={onReloadDraft}
         isDirty={true}
         onAddVirtualAsset={vi.fn()}
         onRemoveVirtualAsset={vi.fn()}
@@ -144,6 +144,8 @@ describe('EditModeShell event patch hub header', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /未保存/u }))
     expect(onSaveDraft).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: '重新载入' }))
+    expect(onReloadDraft).toHaveBeenCalledTimes(1)
   })
 
   test('moves the selected event key into the event editor context', async () => {

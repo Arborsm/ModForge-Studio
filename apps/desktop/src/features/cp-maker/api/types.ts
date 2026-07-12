@@ -19,6 +19,11 @@ export type CpMakerDraftSummary = {
   lastExportedAt: number | null
 }
 
+export type CpMakerSession = {
+  activeDraftKey: string | null
+  activeGeneratedDraftKey: string | null
+}
+
 /** Complete persisted CP Maker draft payload. */
 export type CpMakerDraftRecord = {
   draftStorageKey: string
@@ -40,6 +45,7 @@ export type CpMakerDraftRecord = {
   customLocations?: Array<{ name: string; fromMapFile?: string; migrateLegacyNames?: string[] }>
   aliasTokenNames?: Record<string, string>
   eventSourceSnapshotsByTarget: Record<string, { rawScriptsByKey: Record<string, string> }>
+  i18nFiles: Array<{ locale: string; rawJson: string }>
   lastDraftSavedAt: number | null
   lastExportedAt: number | null
   lastExportPath: string | null
@@ -61,6 +67,7 @@ export type CpMakerExportRequest = {
   manifest_json: string
   content_json: string
   virtual_assets: VirtualPreviewAsset[]
+  i18n_files: Array<{ locale: string; rawJson: string }>
 }
 
 /** Paths written by a CP Maker export operation. */

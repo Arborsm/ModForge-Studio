@@ -1,6 +1,6 @@
 import { Check, Filter, FolderOpen, RefreshCw, Search, Upload } from 'lucide-react'
 import type { ModProjectSummary } from '@entities/mod/api'
-import { useModI18nCopy, useModWorkspaceCopy } from '@locales/provider'
+import { useModCopy, useTranslationEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
 
@@ -22,12 +22,11 @@ type ModBrowserPanelProps = {
   onRefreshProjects: () => void
 }
 
-function getPluginKindBadge(project: ModProjectSummary, copy: ReturnType<typeof useModWorkspaceCopy>) {
+function getPluginKindBadge(project: ModProjectSummary, copy: ReturnType<typeof useModCopy>) {
   if (project.pluginKind === 'content-patcher') {
     return {
       label: 'Content Patcher',
-      className:
-        'border-[color-mix(in_srgb,#10b981_16%,var(--border-color))] bg-[color-mix(in_srgb,var(--bg-panel-muted)_88%,transparent)] text-[color-mix(in_srgb,var(--text-primary)_88%,#065f46)]',
+      className: 'border-(--success) bg-(--success-soft) text-(--success)',
     }
   }
 
@@ -37,12 +36,11 @@ function getPluginKindBadge(project: ModProjectSummary, copy: ReturnType<typeof 
   }
 }
 
-function getProjectStatusBadge(project: ModProjectSummary, copy: ReturnType<typeof useModWorkspaceCopy>) {
+function getProjectStatusBadge(project: ModProjectSummary, copy: ReturnType<typeof useModCopy>) {
   if (project.status === 'incompatible') {
     return {
       label: copy.incompatibleProject,
-      className:
-        'border-[color-mix(in_srgb,#f97316_22%,var(--border-color))] bg-[color-mix(in_srgb,#fff7ed_84%,var(--bg-panel))] text-[color-mix(in_srgb,#9a3412_90%,var(--text-primary))]',
+      className: 'border-(--warning) bg-(--warning-soft) text-(--warning)',
     }
   }
 
@@ -62,7 +60,7 @@ function ProjectRow({
   mode: 'mod' | 'i18n'
   onSelect: () => void
 }) {
-  const copy = useModWorkspaceCopy()
+  const copy = useModCopy()
   const pluginKindBadge = getPluginKindBadge(project, copy)
   const statusBadge = mode === 'i18n' ? null : getProjectStatusBadge(project, copy)
   const isIncompatible = mode !== 'i18n' && project.status === 'incompatible'
@@ -70,12 +68,12 @@ function ProjectRow({
   const revealProps = getLoadingMotionChildRevealProps({
     index,
     className: cx(
-      'w-full rounded-[20px] border px-4 py-3 text-left transition-all',
+      'w-full rounded-md border px-4 py-3 text-left transition-all',
       isIncompatible
-        ? 'cursor-not-allowed border-[color-mix(in_srgb,#f97316_22%,var(--border-color))] bg-[color-mix(in_srgb,#fff7ed_58%,var(--bg-panel))] opacity-90'
+        ? 'cursor-not-allowed border-(--warning) bg-(--warning-soft) opacity-90'
         : active
-          ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent)_12%,transparent),color-mix(in_srgb,var(--accent)_6%,var(--bg-panel)))] shadow-[0_14px_28px_rgba(79,70,229,0.10)]'
-          : 'border-(--border-color) bg-(--bg-panel) hover:bg-(--bg-panel-muted) hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]',
+          ? 'border-(--accent) bg-(--accent-soft)'
+          : 'border-(--border-color) bg-(--bg-panel) hover:bg-(--bg-panel-muted)',
     ),
   })
 
@@ -114,7 +112,7 @@ function ProjectRow({
       </div>
 
       {isIncompatible ? (
-        <p className="mt-3 text-xs leading-5 text-[color-mix(in_srgb,#9a3412_88%,var(--text-primary))]">
+        <p className="mt-3 text-xs leading-5 text-(--warning)">
           {copy.missingRequiredDependencies(project.missingRequiredDependencies.join(', '))}
         </p>
       ) : null}
@@ -144,12 +142,12 @@ export function ModBrowserPanel({
   onImportProject,
   onRefreshProjects,
 }: ModBrowserPanelProps) {
-  const copy = useModWorkspaceCopy()
-  const i18nCopy = useModI18nCopy()
+  const copy = useModCopy()
+  const i18nCopy = useTranslationEditorCopy()
   const isI18nMode = mode === 'i18n'
   if (isI18nMode) {
     return (
-      <div className="mod-i18n-browser-pane flex h-full flex-col overflow-hidden border-r border-(--border-color)/60 p-4">
+      <div className="mod-translation-browser-pane flex h-full flex-col overflow-hidden border-r border-(--border-color)/60 p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[0.625rem] font-bold tracking-[0.16em] text-(--text-tertiary) uppercase">{i18nCopy.browserTitle}</p>
@@ -239,11 +237,11 @@ export function ModBrowserPanel({
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-[20px] border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_95%,white_5%)] px-4 py-3">
+          <div className="rounded-md border border-(--border-color) bg-(--bg-panel-muted) px-4 py-3">
             <p className="text-[11px] font-semibold tracking-[0.14em] text-(--text-tertiary) uppercase">{copy.projectsLabel}</p>
             <p className="mt-2 text-2xl font-semibold text-(--text-primary)">{projects.length}</p>
           </div>
-          <div className="rounded-[20px] border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_95%,white_5%)] px-4 py-3">
+          <div className="rounded-md border border-(--border-color) bg-(--bg-panel-muted) px-4 py-3">
             <p className="text-[11px] font-semibold tracking-[0.14em] text-(--text-tertiary) uppercase">{copy.filteredLabel}</p>
             <p className="mt-2 text-2xl font-semibold text-(--text-primary)">{filteredProjects.length}</p>
           </div>

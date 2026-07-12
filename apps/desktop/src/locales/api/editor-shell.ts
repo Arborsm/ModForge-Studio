@@ -1,16 +1,14 @@
 import { localeBundles } from '../dictionaries'
 import type {
-  CoreWorkspaceMode,
   EditorCopy,
   LauncherCopy,
   LauncherPage,
   LocaleCode,
-  ModI18nWorkspaceCopy,
+  TranslationEditorCopy,
   ModWorkspaceCopy,
   NotificationCopy,
   SettingsMenuCopy,
   ViewMenuCopy,
-  WorkspaceMode,
   WorldAtlasViewId,
 } from '../model'
 
@@ -18,7 +16,6 @@ export type {
   BuildingsPanelCopy,
   CharactersPanelCopy,
   AppMode,
-  CoreWorkspaceMode,
   EditorCopy,
   EventStageCopy,
   EventWorkflowCopy,
@@ -30,22 +27,19 @@ export type {
   LauncherPage,
   LocaleBundle,
   LocaleCode,
-  ModI18nWorkspaceCopy,
+  TranslationEditorCopy,
   ModWorkspaceCopy,
   NotificationCopy,
-  ModuleBlueprint,
   SettingsMenuCopy,
   ThemeMode,
   ViewMenuCopy,
   MapPanelCopy,
   ViewportLabels,
   ScriptEditorCopy,
-  WorkspaceMode,
   WorkspaceTone,
   WorldAtlasViewId,
 } from '../model'
 
-export const workspaceModes: CoreWorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items']
 export const launcherPages: LauncherPage[] = ['library', 'discover', 'updates', 'configuration']
 
 export const editorCopy: Record<LocaleCode, EditorCopy> = {
@@ -61,8 +55,8 @@ export function getModWorkspaceCopy(locale: LocaleCode): ModWorkspaceCopy {
   return localeBundles[locale].mods
 }
 
-export function getModI18nWorkspaceCopy(locale: LocaleCode): ModI18nWorkspaceCopy {
-  return localeBundles[locale].modI18n
+export function getTranslationEditorCopy(locale: LocaleCode): TranslationEditorCopy {
+  return localeBundles[locale].translationEditor
 }
 
 export function getNotificationCopy(locale: LocaleCode): NotificationCopy {
@@ -79,18 +73,6 @@ export function getViewMenuCopy(locale: LocaleCode): ViewMenuCopy {
 
 export function getSettingsMenuCopy(locale: LocaleCode): SettingsMenuCopy {
   return localeBundles[locale].settingsMenu
-}
-
-export function getWorkspaceModeLabel(locale: LocaleCode, copy: Pick<EditorCopy, 'nav'>, mode: WorkspaceMode) {
-  if (mode === 'mod-browser') {
-    return getModWorkspaceCopy(locale).workspaceLabel
-  }
-
-  if (mode === 'mod-i18n') {
-    return localeBundles[locale].modI18n.workspaceLabel
-  }
-
-  return copy.nav[mode]
 }
 
 export function getLauncherCopy(locale: LocaleCode): LauncherCopy {

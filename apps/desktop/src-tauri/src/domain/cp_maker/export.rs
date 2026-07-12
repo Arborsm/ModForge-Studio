@@ -1,4 +1,5 @@
-use super::types::{CpMakerExportRequest, CpMakerExportResult};
+use super::builder::validate_i18n_locale;
+use super::types::{CpMakerExportRequest, CpMakerExportResult, CpMakerI18nFile};
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use anyhow::{Context, bail};
 use base64::Engine;
@@ -28,6 +29,7 @@ pub fn export_cp_maker_pack(request: CpMakerExportRequest) -> anyhow::Result<CpM
         .map(|asset| prepare_virtual_asset(&output_path, asset))
         .collect::<Result<Vec<_>, _>>()?;
     validate_virtual_asset_paths(&manifest_path, &content_path, &prepared_assets)?;
+    let prepared_i18n = prepare_i18n_files(request.i18n_files)?;
 
     fs::create_dir_all(&output_path).with_context(|| {
         format!(
@@ -58,6 +60,19 @@ pub fn export_cp_maker_pack(request: CpMakerExportRequest) -> anyhow::Result<CpM
 
     write_pretty_json_file(&manifest_path, &manifest, "manifest.json")?;
     write_pretty_json_file(&content_path, &content, "content.json")?;
+    if !prepared_i18n.is_empty() {
+        let i18n_dir = output_path.join("i18n");
+        fs::create_dir_all(&i18n_dir).with_context(|| {
+            format!(
+                "Failed to create i18n directory [path={}]",
+                normalize_path(&i18n_dir)
+            )
+        })?;
+        for (locale, value) in prepared_i18n {
+            let path = i18n_dir.join(format!("{locale}.json"));
+            write_pretty_json_file(&path, &value, &format!("i18n/{locale}.json"))?;
+        }
+    }
 
     Ok(CpMakerExportResult {
         output_path: normalize_path(&output_path),
@@ -65,6 +80,26 @@ pub fn export_cp_maker_pack(request: CpMakerExportRequest) -> anyhow::Result<CpM
         content_path: normalize_path(&content_path),
         virtual_asset_paths,
     })
+}
+
+fn prepare_i18n_files(files: Vec<CpMakerI18nFile>) -> anyhow::Result<Vec<(String, Value)>> {
+    let mut prepared = Vec::new();
+    let mut locales = std::collections::HashSet::new();
+    for file in files {
+        let locale = file.locale.trim().to_string();
+        validate_i18n_locale(&locale)?;
+        if !locales.insert(locale.clone()) {
+            bail!("Duplicate i18n locale in export request [locale={locale}]");
+        }
+        let value: Value = serde_json::from_str(&file.raw_json)
+            .with_context(|| format!("i18n/{locale}.json is not valid JSON"))?;
+        if !value.is_object() {
+            bail!("i18n/{locale}.json must contain a JSON object");
+        }
+        prepared.push((locale, value));
+    }
+    prepared.sort_by(|left, right| left.0.cmp(&right.0));
+    Ok(prepared)
 }
 
 fn validate_output_path(output_path: &Path) -> anyhow::Result<()> {

@@ -28,13 +28,11 @@ use commands::assets::{
     validate_game_directory,
 };
 use commands::audio::load_xact_audio_data_url;
-use commands::content_patcher::{
-    export_content_patcher_asset, load_content_patcher_project, load_content_patcher_result_asset,
-    simulate_content_patcher,
-};
+use commands::content_patcher::load_content_patcher_result_asset;
 use commands::cp_maker::{
     build_cp_maker_map_asset, copy_cp_maker_draft, delete_cp_maker_draft, export_cp_maker_pack,
-    import_cp_maker_pack, list_cp_maker_drafts, load_cp_maker_draft, save_cp_maker_draft,
+    import_cp_maker_pack, list_cp_maker_drafts, load_cp_maker_draft, load_cp_maker_session,
+    save_cp_maker_draft, save_cp_maker_session,
 };
 use commands::launcher::{
     cancel_launcher_download, cancel_nexus_sso, check_launcher_updates, clear_launcher_image_cache,
@@ -57,7 +55,9 @@ use commands::launcher::{
 use commands::logging::{
     print_host_runtime_diagnostics, set_debug_logging_enabled, write_frontend_log,
 };
-use commands::mods::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects};
+use commands::mods::{
+    load_mod_project, save_mod_i18n_files, scan_mod_asset_index, scan_mod_projects,
+};
 use commands::resource_registry::load_resource_registry;
 use commands::saves::scan_default_save_slots;
 use support::logging::{DebugLoggingState, init_host_logging};
@@ -160,19 +160,18 @@ pub fn run() {
             scan_mod_projects,
             scan_mod_asset_index,
             load_mod_project,
-            save_mod_project,
+            save_mod_i18n_files,
             list_cp_maker_drafts,
             load_cp_maker_draft,
+            load_cp_maker_session,
             save_cp_maker_draft,
+            save_cp_maker_session,
             delete_cp_maker_draft,
             copy_cp_maker_draft,
             build_cp_maker_map_asset,
             export_cp_maker_pack,
             import_cp_maker_pack,
-            load_content_patcher_project,
-            simulate_content_patcher,
             load_content_patcher_result_asset,
-            export_content_patcher_asset,
             load_map_asset,
             export_map_png,
             export_file,

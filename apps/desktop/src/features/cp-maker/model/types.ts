@@ -60,6 +60,7 @@ export interface CpMakerDraft {
   }>
   aliasTokenNames: Record<string, string>
   eventSourceSnapshotsByTarget: Record<string, { rawScriptsByKey: Record<string, string> }>
+  i18nFiles: Array<{ locale: string; rawJson: string }>
 }
 
 export interface VirtualPreviewAsset {

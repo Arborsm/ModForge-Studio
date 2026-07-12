@@ -1,11 +1,12 @@
 use super::types::{
-    ChangeRegistry, ChangeRegistryPatch, CpMakerDraftRecord, CpMakerMetadata, CustomLocation,
-    DynamicToken,
+    ChangeRegistry, ChangeRegistryPatch, CpMakerDraftRecord, CpMakerI18nFile, CpMakerMetadata,
+    CustomLocation, DynamicToken,
 };
 use crate::infrastructure::text_encoding::read_text_file;
 use anyhow::{Context, bail};
 use serde_json::{Map, Value, json};
 use std::collections::{BTreeMap, HashSet};
+use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -56,6 +57,7 @@ pub fn import_cp_maker_pack(mod_directory_path: &str) -> anyhow::Result<CpMakerD
         .unwrap_or_default()
         .as_millis();
     let draft_storage_key = format!("imported-{timestamp}");
+    let i18n_files = read_i18n_files(dir)?;
 
     Ok(CpMakerDraftRecord {
         draft_storage_key,
@@ -68,11 +70,67 @@ pub fn import_cp_maker_pack(mod_directory_path: &str) -> anyhow::Result<CpMakerD
         custom_locations,
         alias_token_names,
         event_source_snapshots_by_target: BTreeMap::new(),
+        i18n_files,
         last_draft_saved_at: None,
         last_exported_at: None,
         last_export_path: None,
         last_export_fingerprint: None,
     })
+}
+
+fn read_i18n_files(project_dir: &Path) -> anyhow::Result<Vec<CpMakerI18nFile>> {
+    let i18n_dir = project_dir.join("i18n");
+    if !i18n_dir.exists() {
+        return Ok(Vec::new());
+    }
+    if !i18n_dir.is_dir() {
+        bail!(
+            "Content pack i18n path must be a directory [path={}]",
+            i18n_dir.display()
+        );
+    }
+    let mut files = Vec::new();
+    for entry in fs::read_dir(&i18n_dir).with_context(|| {
+        format!(
+            "Failed to read i18n directory [path={}]",
+            i18n_dir.display()
+        )
+    })? {
+        let entry = entry
+            .with_context(|| format!("Failed to read i18n entry [path={}]", i18n_dir.display()))?;
+        let path = entry.path();
+        if !path.is_file() || path.extension().and_then(|value| value.to_str()) != Some("json") {
+            continue;
+        }
+        let locale = path
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .to_string();
+        validate_i18n_locale(&locale)?;
+        let raw_json = read_text_file(&path)
+            .with_context(|| format!("Failed to read i18n file [path={}]", path.display()))?;
+        let value: Value = serde_json::from_str(&raw_json)
+            .with_context(|| format!("i18n/{locale}.json is not valid JSON"))?;
+        if !value.is_object() {
+            bail!("i18n/{locale}.json must contain a JSON object");
+        }
+        files.push(CpMakerI18nFile { locale, raw_json });
+    }
+    files.sort_by(|left, right| left.locale.cmp(&right.locale));
+    Ok(files)
+}
+
+pub(super) fn validate_i18n_locale(locale: &str) -> anyhow::Result<()> {
+    let locale = locale.trim();
+    if locale.is_empty()
+        || !locale
+            .chars()
+            .all(|value| value.is_ascii_alphanumeric() || matches!(value, '-' | '_'))
+    {
+        bail!("i18n locale must be a safe file name [locale={locale}]");
+    }
+    Ok(())
 }
 
 // ─── manifest.json ────────────────────────────────────────────────────

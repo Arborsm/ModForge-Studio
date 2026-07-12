@@ -18,7 +18,6 @@ import { clearGameAssetLocaleCache, loadImageDataUrl } from '@entities/game/api'
 import { editorCopy, type AppMode, type LauncherPage, type LocaleCode } from '@locales/api'
 import { normalizeAppShellState } from '@shared/lib/app-state/appShellState'
 import { LoadingMotionFallback, LoadingMotionProvider } from '@shared/ui/loading-motion'
-import { THEME_PRESETS } from '@shared/lib/theme/presets'
 import { clearLocalizedStageMetadataCache } from '@entities/event/model/stage/stageMetadataCache'
 import { LocaleProvider } from '@locales/provider'
 import { NotificationProvider, publishNotification, setNotificationSoundEnabled } from '@shared/ui/notifications'
@@ -57,15 +56,16 @@ import { WorkbenchShellSkeleton } from '@shared/ui/WorkbenchShellSkeleton'
 
 const SettingsWindow = lazy(() => import('./SettingsWindow'))
 const WorkbenchPage = lazy(async () => {
-  const [workbenchModule, registryModule, cpMakerProviderModule] = await Promise.all([
+  const [workbenchModule, registrySetupModule, registryModule, cpMakerProviderModule] = await Promise.all([
     import('@pages/workbench'),
     import('@app/registry-setup'),
+    import('@app/registry'),
     import('../providers/CpMakerPlatformProvider'),
   ])
 
   return {
     default: function WorkbenchPageWithRegistry(
-      props: Omit<Parameters<typeof workbenchModule.WorkbenchPage>[0], 'getWorkbenchViewRegistration' | 'workbenchViews'>,
+      props: Omit<Parameters<typeof workbenchModule.WorkbenchPage>[0], 'getWorkbenchModuleRegistration' | 'workbenchModules'>,
     ) {
       const CpMakerPlatformProvider = cpMakerProviderModule.CpMakerPlatformProvider
 
@@ -73,8 +73,10 @@ const WorkbenchPage = lazy(async () => {
         <CpMakerPlatformProvider>
           <workbenchModule.WorkbenchPage
             {...props}
-            getWorkbenchViewRegistration={registryModule.getWorkbenchViewRegistration}
-            workbenchViews={registryModule.appRegistry.workbenchViews}
+            getWorkbenchModuleRegistration={(moduleId) =>
+              registryModule.getWorkbenchModuleRegistration(registrySetupModule.appRegistry, moduleId)
+            }
+            workbenchModules={registrySetupModule.appRegistry.workbenchModules}
           />
         </CpMakerPlatformProvider>
       )
@@ -107,7 +109,6 @@ export default function App() {
 
   const theme = usePreferencesStore((state) => state.theme)
   const locale = usePreferencesStore((state) => state.locale)
-  const themeId = usePreferencesStore((state) => state.themeId)
   const windowBorderTone = usePreferencesStore((state) => state.windowBorderTone)
   const windowBorderWeight = usePreferencesStore((state) => state.windowBorderWeight)
   const desktopHost = usePreferencesStore((state) => state.desktopHost)
@@ -403,7 +404,6 @@ export default function App() {
     previousLocaleRef.current = locale
   }, [locale])
 
-  const activeTheme = THEME_PRESETS.find((preset) => preset.id === themeId) ?? THEME_PRESETS[0]
   const workbenchLoaded = workbenchHasOpened || appMode === 'workbench'
 
   useEffect(() => {
@@ -550,7 +550,6 @@ export default function App() {
                   setTheme(currentTheme === 'dark' ? 'light' : 'dark')
                 }}
                 onAppModeChange={handleAppModeChange}
-                onWorkspaceChange={() => {}}
                 onLauncherPageChange={handleLauncherPageChange}
                 onMinimizeWindow={() => void minimizeCurrentWindow()}
                 onToggleMaximizeWindow={() => void handleToggleMaximizeWindow()}
@@ -572,9 +571,6 @@ export default function App() {
                 <WorkbenchPage
                   active={appMode === 'workbench'}
                   appUiStateReady={appUiStateReady}
-                  theme={theme}
-                  locale={locale}
-                  accentColor={activeTheme.accent}
                   desktopHost={hostAvailable}
                   onToggleTheme={() => {
                     const currentTheme = usePreferencesStore.getState().theme
@@ -597,7 +593,7 @@ export default function App() {
 
             {debugEnabled && !(appMode === 'workbench' && workbenchHomeActive) ? (
               <DevDebugOverlay
-                workspaceMode={appMode === 'launcher' ? 'launcher' : 'map'}
+                contextId={appMode}
                 mapName={null}
                 eventName={null}
                 currentEventCommandId={null}

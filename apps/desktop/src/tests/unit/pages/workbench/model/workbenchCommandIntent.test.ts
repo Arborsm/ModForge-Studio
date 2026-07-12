@@ -7,6 +7,9 @@ import type { UseCpMakerReturn } from '@features/cp-maker'
 function createMockCpMaker(overrides: Partial<UseCpMakerReturn> = {}): UseCpMakerReturn {
   return {
     drafts: [],
+    draftsReady: true,
+    i18nFiles: [],
+    setI18nFiles: vi.fn(),
     activeDraft: null,
     draftLoading: false,
     draftError: null,
@@ -81,6 +84,7 @@ describe('resolveWorkbenchOpenAssetTarget', () => {
         customLocations: [],
         aliasTokenNames: {},
         eventSourceSnapshotsByTarget: {},
+        i18nFiles: [],
       } as UseCpMakerReturn['activeDraft'],
     })
 
@@ -110,6 +114,7 @@ describe('resolveWorkbenchOpenAssetTarget', () => {
         customLocations: [],
         aliasTokenNames: {},
         eventSourceSnapshotsByTarget: {},
+        i18nFiles: [],
       } as UseCpMakerReturn['activeDraft'],
     })
 
@@ -123,15 +128,15 @@ describe('resolveWorkbenchOpenAssetTarget', () => {
 })
 
 describe('useWorkbenchCommandIntent', () => {
-  it('consumes a navigation/open-workbench-view intent for workspace editor', async () => {
-    const setWorkspaceMode = vi.fn()
-    const setWorkspaceViewMode = vi.fn()
+  it('routes registered module navigation intents directly', async () => {
+    const navigateToModule = vi.fn()
+    const navigateToAuthoringWorkspace = vi.fn()
     const navigateToPatch = vi.fn()
     const clearPendingIntent = vi.fn()
 
     const intent: PendingWorkbenchCommandIntent = {
       id: 'intent-1',
-      command: { type: 'navigation/open-workbench-view', viewId: 'workspace-editor' },
+      command: { type: 'navigation/open-workbench-module', moduleId: 'map-authoring' },
     }
 
     const { result } = renderHook(
@@ -139,10 +144,10 @@ describe('useWorkbenchCommandIntent', () => {
         useWorkbenchCommandIntent({
           pendingIntent,
           cpMaker: createMockCpMaker(),
-          setWorkspaceMode,
+          navigateToModule,
+          navigateToAuthoringWorkspace,
           runWithModUnsavedGuard: runWithGuard,
           runWithCpMakerUnsavedGuard: runWithGuard,
-          setWorkspaceViewMode,
           navigateToPatch,
           clearPendingIntent,
         }),
@@ -153,15 +158,15 @@ describe('useWorkbenchCommandIntent', () => {
       expect(result.current.consumedIntentId).toBe('intent-1')
     })
 
-    expect(setWorkspaceMode).not.toHaveBeenCalled()
-    expect(setWorkspaceViewMode).toHaveBeenCalledWith('edit')
-    expect(navigateToPatch).toHaveBeenCalledWith(null)
+    expect(navigateToAuthoringWorkspace).not.toHaveBeenCalled()
+    expect(navigateToModule).toHaveBeenCalledWith('map-authoring')
+    expect(navigateToPatch).not.toHaveBeenCalled()
     expect(clearPendingIntent).toHaveBeenCalled()
   })
 
   it('consumes a workbench/open-asset intent and navigates to the patch', async () => {
-    const setWorkspaceMode = vi.fn()
-    const setWorkspaceViewMode = vi.fn()
+    const navigateToModule = vi.fn()
+    const navigateToAuthoringWorkspace = vi.fn()
     const navigateToPatch = vi.fn()
     const clearPendingIntent = vi.fn()
 
@@ -195,6 +200,7 @@ describe('useWorkbenchCommandIntent', () => {
         customLocations: [],
         aliasTokenNames: {},
         eventSourceSnapshotsByTarget: {},
+        i18nFiles: [],
       } as UseCpMakerReturn['activeDraft'],
     })
 
@@ -207,10 +213,10 @@ describe('useWorkbenchCommandIntent', () => {
       useWorkbenchCommandIntent({
         pendingIntent: intent,
         cpMaker: gp,
-        setWorkspaceMode,
+        navigateToModule,
+        navigateToAuthoringWorkspace,
         runWithModUnsavedGuard: runWithGuard,
         runWithCpMakerUnsavedGuard: runWithGuard,
-        setWorkspaceViewMode,
         navigateToPatch,
         clearPendingIntent,
       }),
@@ -220,15 +226,14 @@ describe('useWorkbenchCommandIntent', () => {
       expect(result.current.consumedIntentId).toBe('intent-2')
     })
 
-    expect(setWorkspaceMode).toHaveBeenCalledWith('events')
-    expect(setWorkspaceViewMode).toHaveBeenCalledWith('edit')
+    expect(navigateToAuthoringWorkspace).toHaveBeenCalledWith('events')
     expect(navigateToPatch).toHaveBeenCalledWith('patch-abc')
     expect(clearPendingIntent).toHaveBeenCalled()
   })
 
   it('keeps a cross-draft open-asset intent pending while the target draft is loading', async () => {
-    const setWorkspaceMode = vi.fn()
-    const setWorkspaceViewMode = vi.fn()
+    const navigateToModule = vi.fn()
+    const navigateToAuthoringWorkspace = vi.fn()
     const navigateToPatch = vi.fn()
     const clearPendingIntent = vi.fn()
     const loadDraft = vi.fn(() => new Promise<void>(() => {}))
@@ -254,6 +259,7 @@ describe('useWorkbenchCommandIntent', () => {
         customLocations: [],
         aliasTokenNames: {},
         eventSourceSnapshotsByTarget: {},
+        i18nFiles: [],
       } as UseCpMakerReturn['activeDraft'],
     })
 
@@ -271,10 +277,10 @@ describe('useWorkbenchCommandIntent', () => {
       useWorkbenchCommandIntent({
         pendingIntent: intent,
         cpMaker: gp,
-        setWorkspaceMode,
+        navigateToModule,
+        navigateToAuthoringWorkspace,
         runWithModUnsavedGuard: runWithGuard,
         runWithCpMakerUnsavedGuard: runWithGuard,
-        setWorkspaceViewMode,
         navigateToPatch,
         clearPendingIntent,
       }),
@@ -286,14 +292,13 @@ describe('useWorkbenchCommandIntent', () => {
     await new Promise((resolve) => setTimeout(resolve, 20))
 
     expect(clearPendingIntent).not.toHaveBeenCalled()
-    expect(setWorkspaceMode).not.toHaveBeenCalled()
-    expect(setWorkspaceViewMode).not.toHaveBeenCalled()
+    expect(navigateToAuthoringWorkspace).not.toHaveBeenCalled()
     expect(navigateToPatch).not.toHaveBeenCalled()
   })
 
   it('waits for the CP Maker dirty guard before loading a cross-draft open-asset intent', async () => {
-    const setWorkspaceMode = vi.fn()
-    const setWorkspaceViewMode = vi.fn()
+    const navigateToModule = vi.fn()
+    const navigateToAuthoringWorkspace = vi.fn()
     const navigateToPatch = vi.fn()
     const clearPendingIntent = vi.fn()
     const loadDraft = vi.fn()
@@ -321,6 +326,7 @@ describe('useWorkbenchCommandIntent', () => {
         customLocations: [],
         aliasTokenNames: {},
         eventSourceSnapshotsByTarget: {},
+        i18nFiles: [],
       } as UseCpMakerReturn['activeDraft'],
     })
 
@@ -338,10 +344,10 @@ describe('useWorkbenchCommandIntent', () => {
       useWorkbenchCommandIntent({
         pendingIntent: intent,
         cpMaker: gp,
-        setWorkspaceMode,
+        navigateToModule,
+        navigateToAuthoringWorkspace,
         runWithModUnsavedGuard: runWithGuard,
         runWithCpMakerUnsavedGuard,
-        setWorkspaceViewMode,
         navigateToPatch,
         clearPendingIntent,
       }),
@@ -353,14 +359,13 @@ describe('useWorkbenchCommandIntent', () => {
 
     expect(loadDraft).not.toHaveBeenCalled()
     expect(clearPendingIntent).not.toHaveBeenCalled()
-    expect(setWorkspaceMode).not.toHaveBeenCalled()
-    expect(setWorkspaceViewMode).not.toHaveBeenCalled()
+    expect(navigateToAuthoringWorkspace).not.toHaveBeenCalled()
     expect(navigateToPatch).not.toHaveBeenCalled()
   })
 
   it('waits for the Mod workspace dirty guard before loading a cross-draft open-asset intent', async () => {
-    const setWorkspaceMode = vi.fn()
-    const setWorkspaceViewMode = vi.fn()
+    const navigateToModule = vi.fn()
+    const navigateToAuthoringWorkspace = vi.fn()
     const navigateToPatch = vi.fn()
     const clearPendingIntent = vi.fn()
     const loadDraft = vi.fn()
@@ -388,6 +393,7 @@ describe('useWorkbenchCommandIntent', () => {
         customLocations: [],
         aliasTokenNames: {},
         eventSourceSnapshotsByTarget: {},
+        i18nFiles: [],
       } as UseCpMakerReturn['activeDraft'],
     })
 
@@ -405,10 +411,10 @@ describe('useWorkbenchCommandIntent', () => {
       useWorkbenchCommandIntent({
         pendingIntent: intent,
         cpMaker: gp,
-        setWorkspaceMode,
+        navigateToModule,
+        navigateToAuthoringWorkspace,
         runWithModUnsavedGuard,
         runWithCpMakerUnsavedGuard,
-        setWorkspaceViewMode,
         navigateToPatch,
         clearPendingIntent,
       }),
@@ -421,30 +427,29 @@ describe('useWorkbenchCommandIntent', () => {
     expect(runWithCpMakerUnsavedGuard).not.toHaveBeenCalled()
     expect(loadDraft).not.toHaveBeenCalled()
     expect(clearPendingIntent).not.toHaveBeenCalled()
-    expect(setWorkspaceMode).not.toHaveBeenCalled()
-    expect(setWorkspaceViewMode).not.toHaveBeenCalled()
+    expect(navigateToAuthoringWorkspace).not.toHaveBeenCalled()
     expect(navigateToPatch).not.toHaveBeenCalled()
   })
 
-  it('handles workspace-editor view intents safely', async () => {
-    const setWorkspaceMode = vi.fn()
-    const setWorkspaceViewMode = vi.fn()
+  it('handles map-authoring view intents safely', async () => {
+    const navigateToModule = vi.fn()
+    const navigateToAuthoringWorkspace = vi.fn()
     const navigateToPatch = vi.fn()
     const clearPendingIntent = vi.fn()
 
     const intent: PendingWorkbenchCommandIntent = {
       id: 'intent-3',
-      command: { type: 'navigation/open-workbench-view', viewId: 'workspace-editor' },
+      command: { type: 'navigation/open-workbench-module', moduleId: 'map-authoring' },
     }
 
     const { result } = renderHook(() =>
       useWorkbenchCommandIntent({
         pendingIntent: intent,
         cpMaker: createMockCpMaker(),
-        setWorkspaceMode,
+        navigateToModule,
+        navigateToAuthoringWorkspace,
         runWithModUnsavedGuard: runWithGuard,
         runWithCpMakerUnsavedGuard: runWithGuard,
-        setWorkspaceViewMode,
         navigateToPatch,
         clearPendingIntent,
       }),
@@ -454,21 +459,21 @@ describe('useWorkbenchCommandIntent', () => {
       expect(result.current.consumedIntentId).toBe('intent-3')
     })
 
-    expect(setWorkspaceMode).not.toHaveBeenCalled()
-    expect(setWorkspaceViewMode).toHaveBeenCalledWith('edit')
-    expect(navigateToPatch).toHaveBeenCalledWith(null)
+    expect(navigateToAuthoringWorkspace).not.toHaveBeenCalled()
+    expect(navigateToModule).toHaveBeenCalledWith('map-authoring')
+    expect(navigateToPatch).not.toHaveBeenCalled()
     expect(clearPendingIntent).toHaveBeenCalled()
   })
 
   it('does not replay an already consumed intent when the same id returns after being cleared', async () => {
-    const setWorkspaceMode = vi.fn()
-    const setWorkspaceViewMode = vi.fn()
+    const navigateToModule = vi.fn()
+    const navigateToAuthoringWorkspace = vi.fn()
     const navigateToPatch = vi.fn()
     const clearPendingIntent = vi.fn()
 
     const intent: PendingWorkbenchCommandIntent = {
       id: 'intent-replay',
-      command: { type: 'navigation/open-workbench-view', viewId: 'workspace-editor' },
+      command: { type: 'navigation/open-workbench-module', moduleId: 'map-authoring' },
     }
 
     const { result, rerender } = renderHook(
@@ -476,10 +481,10 @@ describe('useWorkbenchCommandIntent', () => {
         useWorkbenchCommandIntent({
           pendingIntent,
           cpMaker: createMockCpMaker(),
-          setWorkspaceMode,
+          navigateToModule,
+          navigateToAuthoringWorkspace,
           runWithModUnsavedGuard: runWithGuard,
           runWithCpMakerUnsavedGuard: runWithGuard,
-          setWorkspaceViewMode,
           navigateToPatch,
           clearPendingIntent,
         }),
@@ -495,9 +500,9 @@ describe('useWorkbenchCommandIntent', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 10))
 
-    expect(setWorkspaceMode).not.toHaveBeenCalled()
-    expect(setWorkspaceViewMode).toHaveBeenCalledTimes(1)
-    expect(navigateToPatch).toHaveBeenCalledTimes(1)
+    expect(navigateToAuthoringWorkspace).not.toHaveBeenCalled()
+    expect(navigateToModule).toHaveBeenCalledTimes(1)
+    expect(navigateToPatch).not.toHaveBeenCalled()
     expect(clearPendingIntent).toHaveBeenCalledTimes(1)
   })
 })

@@ -15,7 +15,7 @@ export function createAppCommandHandler({ setAppMode, onPendingIntent }: AppComm
 
   return {
     handleCommand: (command: AppCommand) => {
-      if (command.type === 'navigation/open-workbench-view' || command.type === 'workbench/open-asset') {
+      if (command.type === 'navigation/open-workbench-module' || command.type === 'workbench/open-asset') {
         nextIntentId += 1
         currentPendingIntent = {
           id: `intent-${nextIntentId}-${Date.now()}`,

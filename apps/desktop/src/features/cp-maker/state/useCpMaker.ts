@@ -178,6 +178,7 @@ function backendToFrontend(record: CpMakerDraftRecord): CpMakerDraft {
     aliasTokenNames: (record.aliasTokenNames as Record<string, string> | undefined) ?? {},
     eventSourceSnapshotsByTarget:
       (record.eventSourceSnapshotsByTarget as Record<string, { rawScriptsByKey: Record<string, string> }> | undefined) ?? {},
+    i18nFiles: record.i18nFiles ?? [],
   }
 }
 
@@ -213,6 +214,7 @@ function frontendToBackend(draft: CpMakerDraft): CpMakerDraftRecord {
     customLocations: draft.customLocations,
     aliasTokenNames: draft.aliasTokenNames,
     eventSourceSnapshotsByTarget: draft.eventSourceSnapshotsByTarget,
+    i18nFiles: draft.i18nFiles,
     lastDraftSavedAt: null,
     lastExportedAt: null,
     lastExportPath: null,
@@ -678,6 +680,7 @@ export function useCpMaker() {
   const [drafts, setDrafts] = useState<CpMakerDraftSummary[]>([])
   const [activeDraft, setActiveDraft] = useState<CpMakerDraft | null>(null)
   const [draftLoading, setDraftLoading] = useState(false)
+  const [draftsReady, setDraftsReady] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
   const [isDirty, setIsDirty] = useState(false)
   const [dirtyPatchIds, setDirtyPatchIds] = useState<Set<string>>(() => new Set())
@@ -693,8 +696,12 @@ export function useCpMaker() {
     try {
       const list = await port.listDrafts()
       setDrafts(list)
+      setDraftsReady(true)
+      return list
     } catch (error) {
       setDraftError(error instanceof Error ? error.message : String(error))
+      setDraftsReady(true)
+      return []
     }
   }, [port])
 
@@ -707,10 +714,12 @@ export function useCpMaker() {
         const list = await port.listDrafts()
         if (!cancelled) {
           setDrafts(list)
+          setDraftsReady(true)
         }
       } catch (error) {
         if (!cancelled) {
           setDraftError(error instanceof Error ? error.message : String(error))
+          setDraftsReady(true)
         }
       }
     })()
@@ -766,6 +775,7 @@ export function useCpMaker() {
           customLocations: [],
           aliasTokenNames: {},
           eventSourceSnapshotsByTarget: {},
+          i18nFiles: [],
         }
         const record = frontendToBackend(newDraft)
         await port.saveDraft(record)
@@ -998,6 +1008,11 @@ export function useCpMaker() {
     setIsDirty(true)
   }, [])
 
+  const setI18nFiles = useCallback((files: Array<{ locale: string; rawJson: string }>) => {
+    setActiveDraft((current) => (current ? { ...current, i18nFiles: files } : current))
+    setIsDirty(true)
+  }, [])
+
   // ── Virtual Asset 管理 ──
 
   const addVirtualAsset = useCallback((asset: VirtualPreviewAsset) => {
@@ -1042,7 +1057,8 @@ export function useCpMaker() {
       setDraftLoading(true)
       setDraftError(null)
       try {
-        const record = await port.importPack(modDirectoryPath)
+        const importedRecord = await port.importPack(modDirectoryPath)
+        const record = await port.saveDraft(importedRecord)
         const draft = backendToFrontend(record)
         setActiveDraft(draft)
         setIsDirty(false)
@@ -1084,6 +1100,7 @@ export function useCpMaker() {
         manifest_json: manifestJson,
         content_json: contentJson,
         virtual_assets: [...activeDraft.virtualAssets, ...includeAssets, ...configAssets],
+        i18n_files: activeDraft.i18nFiles,
       })
     },
     [activeDraft, port],
@@ -1102,6 +1119,7 @@ export function useCpMaker() {
   return {
     // Draft CRUD
     drafts,
+    draftsReady,
     activeDraft,
     draftLoading,
     draftError,
@@ -1145,6 +1163,10 @@ export function useCpMaker() {
     aliasTokenNames: activeDraft?.aliasTokenNames ?? {},
     addAliasTokenName,
     removeAliasTokenName,
+
+    // Project translations
+    i18nFiles: activeDraft?.i18nFiles ?? [],
+    setI18nFiles,
 
     // Metadata
     updateMetadata,

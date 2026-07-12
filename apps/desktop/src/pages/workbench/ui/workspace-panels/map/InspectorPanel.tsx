@@ -4,43 +4,8 @@ import { useEditorCopy } from '@locales/provider'
 import type { InspectorPanelProps } from '../common/rightShared'
 import { ModSourceList } from '@shared/ui/ModSourceList'
 
-export function InspectorPanel({ mapDocument, modSources = [], moduleBlueprint }: InspectorPanelProps) {
+export function InspectorPanel({ mapDocument, modSources = [] }: InspectorPanelProps) {
   const copy = useEditorCopy()
-
-  if (moduleBlueprint) {
-    return (
-      <PanelFrame
-        hideHeader
-        title={copy.center.moduleInspector}
-        subtitle={moduleBlueprint.inspectorTitle}
-        headerAction={<span className="dock-chip">{moduleBlueprint.state}</span>}
-      >
-        <div className="space-y-4 p-3">
-          <div className="rounded-xl border border-(--border-color) bg-(--bg-panel-muted) p-3">
-            <p className="text-sm font-semibold text-(--text-primary)">{moduleBlueprint.title}</p>
-            <p className="mt-2 text-xs leading-5 text-(--text-secondary)">{moduleBlueprint.summary}</p>
-          </div>
-          <div className="space-y-2">
-            {moduleBlueprint.bullets.map((bullet) => (
-              <div
-                key={bullet}
-                className="rounded-xl border border-(--border-color) bg-(--bg-panel-muted) px-3 py-3 text-xs text-(--text-secondary)"
-              >
-                {bullet}
-              </div>
-            ))}
-          </div>
-          <div className="grid gap-2">
-            {moduleBlueprint.lanes.map((lane) => (
-              <div key={lane} className="dock-chip justify-center rounded-lg py-2 text-center">
-                {lane}
-              </div>
-            ))}
-          </div>
-        </div>
-      </PanelFrame>
-    )
-  }
 
   return (
     <PanelFrame

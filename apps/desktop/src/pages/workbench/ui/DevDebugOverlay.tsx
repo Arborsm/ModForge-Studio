@@ -4,13 +4,10 @@ import { getGameAssetCacheStats } from '@entities/game/api'
 import { getModApiCacheStats } from '@entities/mod/api'
 import { clearFileCache, canUseDesktopHost, getFileCacheStats, printHostRuntimeDiagnostics, type FileCacheStats } from '@platform/host'
 import { getMapViewportCacheStats } from '@shared/lib/maps'
-import type { WorkspaceMode } from '@locales/api'
 import { formatBytes } from '@shared/lib/formatting'
 
-type DebugOverlayMode = WorkspaceMode | 'launcher'
-
 type DevDebugOverlayProps = {
-  workspaceMode: DebugOverlayMode
+  contextId: string
   mapName: string | null
   eventName: string | null
   currentEventCommandId: string | null
@@ -117,7 +114,7 @@ function useFps() {
 }
 
 export function DevDebugOverlay({
-  workspaceMode,
+  contextId,
   mapName,
   eventName,
   currentEventCommandId,
@@ -177,9 +174,9 @@ export function DevDebugOverlay({
       ['Frame', `${frameTimeMs.toFixed(1)} ms`],
       ['DPR', window.devicePixelRatio.toFixed(2)],
       ['Viewport', `${window.innerWidth}x${window.innerHeight}`],
-      ['Mode', workspaceMode],
+      ['Mode', contextId],
     ],
-    [fps, frameTimeMs, workspaceMode],
+    [fps, frameTimeMs, contextId],
   )
 
   const contextMetrics = useMemo(() => {
@@ -187,7 +184,7 @@ export function DevDebugOverlay({
       return externalContextMetrics
     }
 
-    if (workspaceMode === 'map') {
+    if (contextId === 'map') {
       return [
         ['Map', mapName ?? 'n/a'],
         ['Viewport Cache', `${cacheStats.viewport.images} loaded / ${cacheStats.viewport.pendingImages} pending`],
@@ -198,7 +195,7 @@ export function DevDebugOverlay({
       ] as MetricItem[]
     }
 
-    if (workspaceMode === 'events') {
+    if (contextId === 'events') {
       return [
         ['Event', eventName ?? 'n/a'],
         ['Command', currentEventCommandId ?? 'n/a'],
@@ -223,7 +220,7 @@ export function DevDebugOverlay({
     eventName,
     externalContextMetrics,
     mapName,
-    workspaceMode,
+    contextId,
   ])
 
   const beginDrag = (event: ReactPointerEvent<HTMLDivElement>) => {

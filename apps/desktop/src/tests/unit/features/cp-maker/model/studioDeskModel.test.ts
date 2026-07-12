@@ -36,6 +36,7 @@ function draft(patches: DraftPatch[] = []): CpMakerDraft {
     customLocations: [],
     aliasTokenNames: {},
     eventSourceSnapshotsByTarget: {},
+    i18nFiles: [],
   }
 }
 

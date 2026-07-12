@@ -58,6 +58,7 @@ fn sample_draft(draft_storage_key: &str) -> CpMakerDraftRecord {
                 )]),
             },
         )]),
+        i18n_files: Vec::new(),
         last_draft_saved_at: None,
         last_exported_at: Some(1_710_000_000_000),
         last_export_path: Some("E:\\Exports\\Builder Draft".to_string()),

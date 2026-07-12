@@ -4,13 +4,13 @@ import type { WorkspacePanelConfig } from '@shared/contracts'
 import { EventBrowserPanel } from '../../ui/workspace-panels/event/EventBrowserPanel'
 import { EventDetailPanel } from '../../ui/workspace-panels/event/EventDetailPanel'
 import { EventStageWorkspace } from '../../workspaces/event-stage'
-import type { BuildWorkspacePanelsOptions } from './types'
+import type { BuildEventPanelsOptions } from './types'
 
 /**
  * Event browse workspace: hierarchical file browser, stage preview, unified detail rail.
  * Edit-mode EventPatchEditor is unchanged and lives outside this panel set.
  */
-export function buildEventsWorkspacePanels(options: BuildWorkspacePanelsOptions): WorkspacePanelConfig[] {
+export function buildEventsWorkspacePanels(options: BuildEventPanelsOptions): WorkspacePanelConfig[] {
   const {
     copy,
     locale,
@@ -58,7 +58,7 @@ export function buildEventsWorkspacePanels(options: BuildWorkspacePanelsOptions)
 
   return [
     {
-      id: 'event-browser',
+      id: 'event-browser/browser',
       title: labels.browserTitle,
       subtitle: eventStatusMessage || labels.browserSubtitle,
       hideDockHeader: true,
@@ -90,7 +90,7 @@ export function buildEventsWorkspacePanels(options: BuildWorkspacePanelsOptions)
       ),
     },
     {
-      id: 'event-stage',
+      id: 'event-browser/stage',
       title: copy.eventStage.scene,
       subtitle: selectedEvent?.eventId ?? eventStatusMessage,
       hideDockHeader: true,
@@ -121,7 +121,7 @@ export function buildEventsWorkspacePanels(options: BuildWorkspacePanelsOptions)
       ),
     },
     {
-      id: 'event-detail',
+      id: 'event-browser/detail',
       title: labels.inspectorTitle,
       subtitle: selectedEvent?.eventId ?? eventStatusMessage,
       hideDockHeader: true,

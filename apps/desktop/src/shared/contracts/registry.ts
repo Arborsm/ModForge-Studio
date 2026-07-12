@@ -1,12 +1,7 @@
 import type { ComponentType, LazyExoticComponent } from 'react'
 
-export type RegistryItemKind = 'page' | 'workbench-view' | 'workspace-panel'
-
 export type RegistryItemId = string
-
-export type WorkbenchViewCategory = 'internal' | 'tool' | 'dev'
-export type WorkbenchNavigationIcon = 'package' | 'languages' | 'beaker'
-export type WorkbenchWorkspacePresentation = 'authoring' | 'browser'
+export type RegistryItemKind = 'page' | 'workbench-module'
 
 export type RegistryItemMetadata = {
   id: RegistryItemId
@@ -18,60 +13,56 @@ export type RegistryItemMetadata = {
 
 export type ComponentFactory<TProps = never> = ComponentType<TProps> | LazyExoticComponent<ComponentType<TProps>>
 
-export type DefaultLayoutContract = {
-  preferredPanelIds?: readonly string[]
-  defaultViewId?: RegistryItemId
-}
-
 export type PageRegistration<TProps = never> = RegistryItemMetadata & {
   kind: 'page'
   route: string
   component: ComponentFactory<TProps>
 }
 
-type WorkbenchViewRegistrationBase = RegistryItemMetadata & {
-  kind: 'workbench-view'
-  viewId: RegistryItemId
-  /** Navigation category for registered workbench views. */
-  category: WorkbenchViewCategory
-  navigationIcon?: WorkbenchNavigationIcon
-  layout?: DefaultLayoutContract
-  /** Whether the view requires an active authoring project before it can open. Defaults to false. */
-  requiresProject?: boolean
-}
+export type WorkbenchNavigationSection = 'browse' | 'authoring' | 'tools' | 'development'
+export type WorkbenchNavigationIcon = 'map' | 'events' | 'characters' | 'buildings' | 'items' | 'package' | 'languages' | 'files' | 'beaker'
+export type WorkbenchModuleLocaleKey =
+  | 'map-browser'
+  | 'event-browser'
+  | 'character-browser'
+  | 'building-browser'
+  | 'item-browser'
+  | 'mod-browser'
+  | 'mod-translation'
+  | 'i18n-generator'
+  | 'project-dashboard'
+  | 'project-content'
+  | 'map-authoring'
+  | 'event-authoring'
+  | 'character-authoring'
+  | 'building-authoring'
+  | 'item-authoring'
+  | 'project-translation'
+  | 'dev-resource-browser'
 
-export type WorkbenchViewRegistration<TProps = never> = WorkbenchViewRegistrationBase &
-  (
-    | {
-        activation: { kind: 'component' }
-        component: ComponentFactory<TProps>
-      }
-    | {
-        activation: {
-          kind: 'workspace'
-          workspaceMode: RegistryItemId
-          /** Controls workspace chrome and whether edit locations can be restored. */
-          presentation: WorkbenchWorkspacePresentation
-        }
-        component?: never
-      }
-  )
+export type WorkbenchLocation = { kind: 'home' } | { kind: 'module'; moduleId: string }
 
-export type WorkspacePanelRegistration<TProps = never> = RegistryItemMetadata & {
-  kind: 'workspace-panel'
-  panelId: RegistryItemId
-  component: ComponentFactory<TProps>
-  defaultLayout?: DefaultLayoutContract
+export type WorkbenchModuleRegistration = {
+  id: string
+  navigation: {
+    section: WorkbenchNavigationSection
+    order: number
+    icon: WorkbenchNavigationIcon
+    labelKey: WorkbenchModuleLocaleKey
+  }
+  presentation: 'browser' | 'authoring' | 'standalone'
+  projectAccess: 'none' | 'read' | 'write'
+  layout: 'fixed' | 'dockable'
+  runtime: LazyExoticComponent<ComponentType>
+  persistenceKey: string
 }
 
 export interface AppRegistry {
   readonly pages: readonly PageRegistration<never>[]
-  readonly workbenchViews: readonly WorkbenchViewRegistration<never>[]
-  readonly workspacePanels: readonly WorkspacePanelRegistration<never>[]
+  readonly workbenchModules: readonly WorkbenchModuleRegistration[]
 }
 
 export type AppRegistryInput = {
   pages?: readonly PageRegistration<never>[]
-  workbenchViews?: readonly WorkbenchViewRegistration<never>[]
-  workspacePanels?: readonly WorkspacePanelRegistration<never>[]
+  workbenchModules?: readonly WorkbenchModuleRegistration[]
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vite-plus/test'
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import type { CpMakerPort } from '@features/cp-maker'
 import { CpMakerProvider } from '@features/cp-maker'
@@ -7,6 +7,8 @@ import { useCpMaker } from '@features/cp-maker/state/useCpMaker'
 
 function createMockPort(): CpMakerPort {
   return {
+    loadSession: vi.fn().mockResolvedValue({ activeDraftKey: null, activeGeneratedDraftKey: null }),
+    saveSession: vi.fn().mockImplementation(async (session) => session),
     listDrafts: vi.fn().mockResolvedValue([]),
     loadDraft: vi.fn().mockRejectedValue(new Error('not implemented')),
     saveDraft: vi.fn().mockRejectedValue(new Error('not implemented')),
@@ -72,5 +74,45 @@ describe('useCpMaker', () => {
     })
 
     expect(result.current.drafts[0].projectName).toBe('Test Mod')
+  })
+
+  it('persists an imported pack before activating and refreshing it', async () => {
+    const port = createMockPort()
+    const imported = {
+      draftStorageKey: 'imported-pack',
+      projectMetadata: {
+        projectName: 'Imported Pack',
+        projectDescription: '',
+        projectAuthor: 'Author',
+        projectVersion: '1.0.0',
+        projectUniqueId: 'Author.ImportedPack',
+        gameRootPath: null,
+        contentPackForUniqueId: 'Pathoschild.ContentPatcher',
+      },
+      overlayTargets: [],
+      configSchemaDraft: {},
+      serializedChangeRegistry: {},
+      eventSourceSnapshotsByTarget: {},
+      i18nFiles: [],
+      lastDraftSavedAt: null,
+      lastExportedAt: null,
+      lastExportPath: null,
+      lastExportFingerprint: null,
+    }
+    port.importPack = vi.fn().mockResolvedValue(imported)
+    port.saveDraft = vi.fn().mockResolvedValue({ ...imported, lastDraftSavedAt: 100 })
+
+    const { result } = renderHook(() => useCpMaker(), { wrapper: createWrapper(port) })
+    await vi.waitFor(() => expect(port.listDrafts).toHaveBeenCalledOnce())
+
+    await act(async () => {
+      await result.current.importPack('/mods/ImportedPack')
+    })
+
+    expect(port.importPack).toHaveBeenCalledWith('/mods/ImportedPack')
+    expect(port.saveDraft).toHaveBeenCalledWith(imported)
+    expect(port.listDrafts).toHaveBeenCalledTimes(2)
+    expect(result.current.activeDraft?.draftStorageKey).toBe('imported-pack')
+    expect(result.current.isDirty).toBe(false)
   })
 })

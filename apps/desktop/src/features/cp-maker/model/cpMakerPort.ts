@@ -11,6 +11,11 @@ export type CpMakerDraftSummary = {
   lastExportedAt: number | null
 }
 
+export type CpMakerSession = {
+  activeDraftKey: string | null
+  activeGeneratedDraftKey: string | null
+}
+
 export type CpMakerDraftRecord = {
   draftStorageKey: string
   projectMetadata: {
@@ -31,6 +36,7 @@ export type CpMakerDraftRecord = {
   customLocations?: Array<{ name: string; fromMapFile?: string; migrateLegacyNames?: string[] }>
   aliasTokenNames?: Record<string, string>
   eventSourceSnapshotsByTarget: Record<string, { rawScriptsByKey: Record<string, string> }> | undefined
+  i18nFiles: Array<{ locale: string; rawJson: string }>
   lastDraftSavedAt: number | null
   lastExportedAt: number | null
   lastExportPath: string | null
@@ -46,6 +52,7 @@ export type CpMakerExportRequest = {
   manifest_json: string
   content_json: string
   virtual_assets: VirtualPreviewAsset[]
+  i18n_files: Array<{ locale: string; rawJson: string }>
 }
 
 export type CpMakerExportResult = {
@@ -62,6 +69,8 @@ export type CpMakerPort = {
   saveDraft: (draft: CpMakerDraftRecord) => Promise<CpMakerDraftRecord>
   deleteDraft: (storageKey: string) => Promise<void>
   copyDraft: (sourceDraftStorageKey: string) => Promise<CpMakerDraftRecord>
+  loadSession: () => Promise<CpMakerSession>
+  saveSession: (session: CpMakerSession) => Promise<CpMakerSession>
 
   // Import / Export
   importPack: (modDirectoryPath: string) => Promise<CpMakerDraftRecord>

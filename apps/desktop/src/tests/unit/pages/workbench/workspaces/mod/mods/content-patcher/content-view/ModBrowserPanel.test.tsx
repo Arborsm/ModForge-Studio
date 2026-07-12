@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { ModBrowserPanel } from '@pages/workbench/workspaces/mod/mods/content-patcher/content-view/ModBrowserPanel'
-import { getModI18nWorkspaceCopy, getModWorkspaceCopy } from '@locales/api'
+import { getTranslationEditorCopy, getModWorkspaceCopy } from '@locales/api'
 import { renderWithLocale } from '@test/renderWithLocale'
 
 const copy = getModWorkspaceCopy('en-US')
-const i18nCopy = getModI18nWorkspaceCopy('en-US')
+const i18nCopy = getTranslationEditorCopy('en-US')
 
 afterEach(() => {
   cleanup()
@@ -63,7 +63,7 @@ describe('ModBrowserPanel', () => {
       />,
     )
 
-    expect(screen.getByText('Get Started')).toBeTruthy()
+    expect(screen.getByText(copy.browserQuickStartTitle)).toBeTruthy()
     expect(
       screen.queryByText('Import a mod, refresh the scan, then pick one project to continue editing in the main workspace.'),
     ).toBeNull()
@@ -151,15 +151,15 @@ describe('ModBrowserPanel', () => {
       />,
     )
 
-    const quickStartSection = screen.getByText('Get Started').closest('section')
-    const projectLibrarySection = screen.getByText('Project Library').closest('section')
+    const quickStartSection = screen.getByText(copy.browserQuickStartTitle).closest('section')
+    const projectLibrarySection = screen.getByText(copy.browserLibraryTitle).closest('section')
     const projectsStatCard = screen.getByText(copy.projectsLabel).closest('div')
 
     expect(quickStartSection?.className).toContain('panel-surface')
     expect(projectLibrarySection?.className).toContain('panel-surface')
     expect(projectLibrarySection?.className).toContain('min-h-0')
     expect(projectLibrarySection?.className).toContain('flex-1')
-    expect(projectsStatCard?.className).toContain('bg-[color-mix(in_srgb,var(--bg-panel)_95%,white_5%)]')
+    expect(projectsStatCard?.className).toContain('bg-(--bg-panel-muted)')
   })
 
   it('uses the same light browser card style as other browser grids for project rows', () => {
@@ -188,14 +188,12 @@ describe('ModBrowserPanel', () => {
     expect(activeCard.className).toContain('loading-motion-child-reveal')
     expect(activeCard.style.getPropertyValue('--loading-motion-child-index')).toBe('0')
     expect(inactiveCard.style.getPropertyValue('--loading-motion-child-index')).toBe('1')
-    expect(activeCard.className).toContain('rounded-[20px]')
+    expect(activeCard.className).toContain('rounded-md')
     expect(activeCard.className).toContain('px-4')
     expect(activeCard.className).toContain('py-3')
-    expect(activeCard.className).toContain(
-      'bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent)_12%,transparent),color-mix(in_srgb,var(--accent)_6%,var(--bg-panel)))]',
-    )
+    expect(activeCard.className).toContain('bg-(--accent-soft)')
     expect(activeCard.className).not.toContain('panel-list-card')
-    expect(inactiveCard.className).toContain('rounded-[20px]')
+    expect(inactiveCard.className).toContain('rounded-md')
     expect(inactiveCard.className).toContain('bg-(--bg-panel)')
     expect(inactiveCard.className).toContain('px-4')
     expect(inactiveCard.className).toContain('py-3')
@@ -221,10 +219,10 @@ describe('ModBrowserPanel', () => {
       />,
     )
 
-    const emptyState = screen.getByText('No projects yet').closest('.panel-empty-state')
+    const emptyState = screen.getByText(copy.browserLibraryEmptyTitle).closest('.panel-empty-state')
     expect(emptyState).toBeTruthy()
     expect(emptyState?.className).toContain('panel-empty-state')
-    expect(screen.getAllByText('Import a mod or refresh the scan to populate the workspace list.')).toHaveLength(2)
+    expect(screen.getAllByText(copy.browserLibraryEmptyDescription)).toHaveLength(2)
   })
 
   it('uses a higher-contrast badge treatment for non-CP projects', () => {
@@ -273,8 +271,8 @@ describe('ModBrowserPanel', () => {
     const badge = screen.getByText('Content Patcher')
     expect(badge.className).toContain('rounded-md')
     expect(badge.className).toContain('whitespace-nowrap')
-    expect(badge.className).toContain('bg-[color-mix(in_srgb,var(--bg-panel-muted)_88%,transparent)]')
-    expect(badge.className).toContain('text-[color-mix(in_srgb,var(--text-primary)_88%,#065f46)]')
+    expect(badge.className).toContain('bg-(--success-soft)')
+    expect(badge.className).toContain('text-(--success)')
     expect(badge.className).not.toContain('text-emerald-200')
   })
 

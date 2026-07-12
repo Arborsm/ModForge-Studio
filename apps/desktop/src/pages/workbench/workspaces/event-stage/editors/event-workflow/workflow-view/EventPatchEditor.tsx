@@ -43,6 +43,7 @@ interface EventPatchEditorProps {
   onSelectedEventKeyChange?: (eventKey: string | null) => void
   onOpenConfig?: () => void
   onSaveDraft?: () => void
+  onReloadDraft?: () => void
   isDirty?: boolean
   assetLoader?: EventStagePreviewAssetLoader
 }
@@ -80,6 +81,7 @@ export function EventPatchEditor({
   onSelectedEventKeyChange,
   onOpenConfig,
   onSaveDraft,
+  onReloadDraft,
   isDirty = false,
   assetLoader,
 }: EventPatchEditorProps) {
@@ -281,6 +283,7 @@ export function EventPatchEditor({
           onOpenConditionBuilder={() => setConditionBuilderOpen(true)}
           onOpenConfig={onOpenConfig}
           onSaveDraft={onSaveDraft}
+          onReloadDraft={onReloadDraft}
           isDirty={isDirty}
         />
       ) : activeTab === 'fields' ? (

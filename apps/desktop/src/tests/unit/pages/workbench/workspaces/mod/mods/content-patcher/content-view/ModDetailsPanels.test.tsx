@@ -11,19 +11,8 @@ describe('ModDiagnosticsPanel', () => {
   it('shows a concise status summary and actionable diagnostics', () => {
     renderWithLocale(
       <ModDiagnosticsPanel
-        pluginDefinition={{
-          id: 'content-patcher',
-          pluginKind: 'content-patcher',
-          capabilities: ['edit', 'save', 'export', 'validate'],
-          futureScopes: ['wizard'],
-          displayName: { 'zh-CN': 'Content Patcher', 'en-US': 'Content Patcher' },
-          description: { 'zh-CN': '插件', 'en-US': 'Plugin' },
-          getDisplayName: () => 'Content Patcher',
-          getDescription: () => 'Plugin',
-        }}
         activeProject={{
           pluginKind: 'content-patcher',
-          capabilities: ['edit', 'save', 'export', 'validate'],
           summary: {
             id: 'seasonal-garden',
             name: 'Seasonal Garden',
@@ -53,14 +42,6 @@ describe('ModDiagnosticsPanel', () => {
             field: 'Changes[1].Target',
           },
         ]}
-        hasUnsavedChanges
-        lastSaveResult={{
-          pluginKind: 'content-patcher',
-          targetPath: 'E:\\Exports\\SeasonalGarden',
-          manifestPath: 'E:\\Exports\\SeasonalGarden\\manifest.json',
-          contentPath: 'E:\\Exports\\SeasonalGarden\\content.json',
-          diagnostics: [],
-        }}
         statusMessage="Saved to E:\\Exports\\SeasonalGarden"
         contentSummary={{
           includeCount: 1,
@@ -70,7 +51,7 @@ describe('ModDiagnosticsPanel', () => {
       />,
     )
 
-    expect(screen.getByText('Status Summary')).toBeTruthy()
+    expect(screen.getByText('Status summary')).toBeTruthy()
     expect(screen.getByText((content) => content.includes('Saved to E:'))).toBeTruthy()
     expect(screen.getByText('One patch uses a broad target.')).toBeTruthy()
   })
@@ -80,7 +61,6 @@ describe('ModDiagnosticsPanel', () => {
 
     renderWithLocale(
       <ModDiagnosticsPanel
-        pluginDefinition={null}
         activeProject={null}
         diagnostics={[
           {
@@ -94,8 +74,6 @@ describe('ModDiagnosticsPanel', () => {
             field: 'Changes[1].Target',
           },
         ]}
-        hasUnsavedChanges={false}
-        lastSaveResult={null}
         statusMessage=""
         contentSummary={{
           includeCount: 0,

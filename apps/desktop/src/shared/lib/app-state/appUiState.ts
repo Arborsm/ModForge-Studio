@@ -1,11 +1,4 @@
-import type {
-  AppUiI18nGeneratorSession,
-  AppUiState,
-  PatchAppUiStateRequest,
-  WindowBorderTone,
-  WindowBorderWeight,
-  WindowCloseBehavior,
-} from '@shared/contracts'
+import type { AppUiState, PatchAppUiStateRequest, WindowBorderTone, WindowBorderWeight, WindowCloseBehavior } from '@shared/contracts'
 import { DEFAULT_LOADING_MOTION_PREFERENCE } from '@shared/lib/loading-motion'
 import { normalizeLoadingMotionPreference } from '@shared/lib/loading-motion'
 import { DEFAULT_THEME_ID, normalizeThemeId } from './theme'
@@ -53,14 +46,6 @@ function normalizeWindowCloseBehavior(value: unknown): WindowCloseBehavior {
   return value === 'minimizeToTray' ? 'minimizeToTray' : 'quit'
 }
 
-function readLegacyWindowBorderStyle(value: unknown) {
-  if (!isRecord(value)) {
-    return undefined
-  }
-
-  return value.windowBorderStyle
-}
-
 /** Creates a normalized default UI state for first launch or non-desktop fallback. */
 export function createDefaultAppUiState(): AppUiState {
   return {
@@ -86,20 +71,9 @@ export function createDefaultAppUiState(): AppUiState {
       loadingMotion: { ...DEFAULT_LOADING_MOTION_PREFERENCE },
     },
     workspace: {
-      layouts: {},
-      workspaceViewMode: 'edit',
-      cpMaker: {
-        activeGeneratedDraftKey: null,
-        activeDraftKey: null,
-      },
-      i18nGenerator: normalizeI18nGeneratorSession(null),
-      lastLocation: {
-        workbenchRoute: 'home',
-        workspaceMode: 'map',
-        workspaceViewMode: 'preview',
-        registeredWorkbenchViewId: null,
-      },
-      sideNav: { collapsed: true, browseOpen: true, toolsOpen: false, devOpen: false },
+      location: { kind: 'home' },
+      navigation: { collapsed: true, expandedSections: ['browse'] },
+      modules: {},
     },
     launcher: {
       discoverToolbar: {
@@ -119,38 +93,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function normalizeLayouts(value: unknown) {
+function normalizeModules(value: unknown) {
   if (!isRecord(value)) {
     return {}
   }
 
   const entries = Object.entries(value)
-    .filter(([key, layout]) => key.trim() && isRecord(layout))
-    .map(([key, layout]) => [key, layout as Record<string, unknown>])
+    .filter(([key, state]) => key.trim() && isRecord(state))
+    .map(([key, state]) => [key, state as Record<string, unknown>])
   return Object.fromEntries(entries)
-}
-
-function normalizeStringRecord(value: unknown): Record<string, string> {
-  if (!isRecord(value)) return {}
-  const normalized: Record<string, string> = {}
-  for (const [key, entry] of Object.entries(value)) {
-    if (key.trim() && typeof entry === 'string') normalized[key] = entry
-  }
-  return normalized
-}
-
-function normalizeStringList(value: unknown) {
-  if (!Array.isArray(value)) return []
-  return Array.from(new Set(value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)))
-}
-
-function normalizeI18nGeneratorSession(value: Partial<AppUiI18nGeneratorSession> | null | undefined): AppUiI18nGeneratorSession {
-  return {
-    prefix: typeof value?.prefix === 'string' ? value.prefix : 'Author.ModName',
-    targetPrefixes: normalizeStringRecord(value?.targetPrefixes),
-    enabledTargets: normalizeStringList(value?.enabledTargets),
-    expandedPaths: normalizeStringList(value?.expandedPaths),
-  }
 }
 
 function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUiState {
@@ -176,11 +127,8 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
       locale:
         raw?.appearance?.locale === 'zh-CN' || raw?.appearance?.locale === 'en-US' ? raw.appearance.locale : defaults.appearance.locale,
       themeId: normalizeThemeId(raw?.appearance?.themeId),
-      windowBorderTone: normalizeWindowBorderTone(raw?.appearance?.windowBorderTone ?? readLegacyWindowBorderStyle(raw?.appearance)),
-      windowBorderWeight: normalizeWindowBorderWeight(
-        raw?.appearance?.windowBorderWeight ??
-          (readLegacyWindowBorderStyle(raw?.appearance) === 'subtle' ? 'thin' : readLegacyWindowBorderStyle(raw?.appearance)),
-      ),
+      windowBorderTone: normalizeWindowBorderTone(raw?.appearance?.windowBorderTone),
+      windowBorderWeight: normalizeWindowBorderWeight(raw?.appearance?.windowBorderWeight),
       recentGameDirectories: Array.isArray(raw?.appearance?.recentGameDirectories)
         ? raw.appearance.recentGameDirectories.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
         : defaults.appearance.recentGameDirectories,
@@ -197,52 +145,7 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
         ...normalizeLoadingMotionPreference(raw?.appearance?.loadingMotion),
       },
     },
-    workspace: {
-      layouts: normalizeLayouts(raw?.workspace?.layouts),
-      workspaceViewMode:
-        raw?.workspace?.workspaceViewMode === 'edit' || raw?.workspace?.workspaceViewMode === 'preview'
-          ? raw.workspace.workspaceViewMode
-          : defaults.workspace.workspaceViewMode,
-      cpMaker: {
-        activeGeneratedDraftKey:
-          typeof raw?.workspace?.cpMaker?.activeGeneratedDraftKey === 'string' && raw.workspace.cpMaker.activeGeneratedDraftKey.trim()
-            ? raw.workspace.cpMaker.activeGeneratedDraftKey
-            : null,
-        activeDraftKey:
-          typeof raw?.workspace?.cpMaker?.activeDraftKey === 'string' && raw.workspace.cpMaker.activeDraftKey.trim()
-            ? raw.workspace.cpMaker.activeDraftKey
-            : null,
-      },
-      i18nGenerator: normalizeI18nGeneratorSession(raw?.workspace?.i18nGenerator),
-      lastLocation: {
-        workbenchRoute: raw?.workspace?.lastLocation?.workbenchRoute === 'workspace' ? 'workspace' : 'home',
-        workspaceMode:
-          typeof raw?.workspace?.lastLocation?.workspaceMode === 'string' && raw.workspace.lastLocation.workspaceMode.trim()
-            ? raw.workspace.lastLocation.workspaceMode
-            : defaults.workspace.lastLocation!.workspaceMode,
-        workspaceViewMode:
-          raw?.workspace?.lastLocation?.workspaceViewMode === 'edit' || raw?.workspace?.lastLocation?.workspaceViewMode === 'preview'
-            ? raw.workspace.lastLocation.workspaceViewMode
-            : defaults.workspace.lastLocation!.workspaceViewMode,
-        registeredWorkbenchViewId:
-          typeof raw?.workspace?.lastLocation?.registeredWorkbenchViewId === 'string' &&
-          raw.workspace.lastLocation.registeredWorkbenchViewId.trim()
-            ? raw.workspace.lastLocation.registeredWorkbenchViewId
-            : null,
-      },
-      sideNav: {
-        collapsed:
-          typeof raw?.workspace?.sideNav?.collapsed === 'boolean' ? raw.workspace.sideNav.collapsed : defaults.workspace.sideNav!.collapsed,
-        browseOpen:
-          typeof raw?.workspace?.sideNav?.browseOpen === 'boolean'
-            ? raw.workspace.sideNav.browseOpen
-            : defaults.workspace.sideNav!.browseOpen,
-        toolsOpen:
-          typeof raw?.workspace?.sideNav?.toolsOpen === 'boolean' ? raw.workspace.sideNav.toolsOpen : defaults.workspace.sideNav!.toolsOpen,
-        devOpen:
-          typeof raw?.workspace?.sideNav?.devOpen === 'boolean' ? raw.workspace.sideNav.devOpen : defaults.workspace.sideNav!.devOpen,
-      },
-    },
+    workspace: normalizeWorkspace(raw?.workspace, defaults.workspace),
     launcher: {
       discoverToolbar: {
         sort:
@@ -273,32 +176,56 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
   }
 }
 
-function mergeWorkspaceLayouts(
-  currentLayouts: Record<string, Record<string, unknown>>,
-  incomingLayouts?: Record<string, Record<string, unknown> | null>,
+function normalizeWorkspace(value: unknown, defaults: AppUiState['workspace']): AppUiState['workspace'] {
+  if (!isRecord(value) || !isRecord(value.location) || !isRecord(value.navigation) || !isRecord(value.modules)) {
+    return defaults
+  }
+  const location =
+    value.location.kind === 'module' && typeof value.location.moduleId === 'string' && value.location.moduleId.trim()
+      ? { kind: 'module' as const, moduleId: value.location.moduleId.trim() }
+      : { kind: 'home' as const }
+  const allowedSections = new Set(['browse', 'authoring', 'tools', 'development'])
+  const expandedSections = Array.isArray(value.navigation.expandedSections)
+    ? Array.from(
+        new Set(
+          value.navigation.expandedSections.filter(
+            (entry): entry is AppUiState['workspace']['navigation']['expandedSections'][number] =>
+              typeof entry === 'string' && allowedSections.has(entry),
+          ),
+        ),
+      )
+    : defaults.navigation.expandedSections
+  return {
+    location,
+    navigation: {
+      collapsed: typeof value.navigation.collapsed === 'boolean' ? value.navigation.collapsed : defaults.navigation.collapsed,
+      expandedSections,
+    },
+    modules: normalizeModules(value.modules),
+  }
+}
+
+function mergeWorkspaceModules(
+  currentModules: Record<string, Record<string, unknown>>,
+  incomingModules?: Record<string, Record<string, unknown> | null>,
 ) {
-  if (!incomingLayouts) {
-    return currentLayouts
+  if (!incomingModules) {
+    return currentModules
   }
-
-  const nextLayouts = { ...currentLayouts }
-
-  for (const [storageKey, layout] of Object.entries(incomingLayouts)) {
-    if (!storageKey.trim()) {
+  const nextModules = { ...currentModules }
+  for (const [moduleKey, moduleState] of Object.entries(incomingModules)) {
+    if (!moduleKey.trim()) {
       continue
     }
-
-    if (layout === null) {
-      delete nextLayouts[storageKey]
+    if (moduleState === null) {
+      delete nextModules[moduleKey]
       continue
     }
-
-    if (isRecord(layout)) {
-      nextLayouts[storageKey] = layout
+    if (isRecord(moduleState)) {
+      nextModules[moduleKey] = { ...nextModules[moduleKey], ...moduleState }
     }
   }
-
-  return nextLayouts
+  return nextModules
 }
 
 let snapshot = createDefaultAppUiState()
@@ -347,9 +274,8 @@ function applyPatchToSnapshot(current: AppUiState, patch: PatchAppUiStateRequest
           workspace: {
             ...current.workspace,
             ...patch.workspace,
-            layouts: mergeWorkspaceLayouts(current.workspace.layouts, patch.workspace.layouts),
-            ...(patch.workspace.cpMaker ? { cpMaker: { ...current.workspace.cpMaker, ...patch.workspace.cpMaker } } : null),
-            ...(patch.workspace.i18nGenerator ? { i18nGenerator: normalizeI18nGeneratorSession(patch.workspace.i18nGenerator) } : null),
+            navigation: { ...current.workspace.navigation, ...patch.workspace.navigation },
+            modules: mergeWorkspaceModules(current.workspace.modules, patch.workspace.modules),
           },
         }
       : null),

@@ -2,9 +2,9 @@ import { ItemCatalogPanel, ItemDetailPanel, ItemNavigationPanel } from '../../wo
 import type { ReactNode } from 'react'
 import { LoadingMotionReveal } from '@shared/ui/loading-motion'
 import type { WorkspacePanelConfig } from '@shared/contracts'
-import type { BuildWorkspacePanelsOptions } from './types'
+import type { BuildItemPanelsOptions } from './types'
 
-export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions): WorkspacePanelConfig[] {
+export function buildItemsWorkspacePanels(options: BuildItemPanelsOptions): WorkspacePanelConfig[] {
   const {
     copy,
     items,
@@ -34,7 +34,7 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
 
   const panels: WorkspacePanelConfig[] = [
     {
-      id: 'item-navigation',
+      id: 'item-browser/navigation',
       title: copy.itemsPanel.filtersTitle,
       subtitle: activeItem?.displayName ?? itemStatusMessage,
       shellClassName: 'workspace-panel-shell-flat item-workspace-panel-shell',
@@ -65,7 +65,7 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
       ),
     },
     {
-      id: 'item-catalog',
+      id: 'item-browser/catalog',
       title: copy.itemsPanel.browserTitle,
       subtitle: itemStatusMessage,
       hideDockHeader: true,
@@ -96,7 +96,7 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
       ),
     },
     {
-      id: 'item-details',
+      id: 'item-browser/details',
       title: copy.itemsPanel.workspaceTitle,
       subtitle: activeItem?.displayName ?? itemStatusMessage,
       shellClassName: 'workspace-panel-shell-flat item-workspace-panel-shell',

@@ -4,23 +4,6 @@ import type { GameDirectoryInfo } from '@entities/game/api'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
 import type { PlayerAppearanceProfile } from '@entities/event'
 
-export interface PatchListField {
-  key: string
-  label: string
-  width?: number
-}
-
-export interface TargetPickerResult {
-  target: string
-  action: DraftPatch['action']
-}
-
-export type TargetPickerComponent = ComponentType<{
-  gameRootPath: string | null
-  onSelect: (result: TargetPickerResult) => void
-  onCancel: () => void
-}>
-
 export type EditorComponent = ComponentType<{
   patch: DraftPatch
   draft: CpMakerDraft
@@ -39,16 +22,13 @@ export type EditorComponent = ComponentType<{
   onSelectedEventKeyChange?: (eventKey: string | null) => void
   onOpenConfig?: () => void
   onSaveDraft?: () => void
+  onReloadDraft?: () => void
   isDirty?: boolean
 }>
 
 export interface WorkspacePlugin {
   id: WorkspaceId
-  label: string
-  icon: string
   editMode: {
-    patchListFields: PatchListField[]
-    targetPicker: TargetPickerComponent
     editor: EditorComponent
   }
   serializer: {

@@ -5,13 +5,13 @@ import type { WorkspacePanelConfig } from '@shared/contracts'
 import { MapBrowserPanel } from '../../ui/workspace-panels/map/MapBrowserPanel'
 import { MapDetailPanel } from '../../ui/workspace-panels/map/MapDetailPanel'
 import { CentralWorkspace } from '../../workspaces/map'
-import type { BuildWorkspacePanelsOptions } from './types'
+import type { BuildMapPanelsOptions } from './types'
 
 /**
  * Map browse workspace: hierarchical asset browser, viewport, unified detail rail.
  * Collapses former inspector / layers / object-groups / diagnostics stacks into one pane.
  */
-export function buildMapsWorkspacePanels(options: BuildWorkspacePanelsOptions): WorkspacePanelConfig[] {
+export function buildMapsWorkspacePanels(options: BuildMapPanelsOptions): WorkspacePanelConfig[] {
   const {
     copy,
     theme,
@@ -53,7 +53,6 @@ export function buildMapsWorkspacePanels(options: BuildWorkspacePanelsOptions): 
     worldOverlayTextureAssets,
     onFocusObject,
     onHoverChange,
-    moduleBlueprint,
     heavyWorkspaceReady,
   } = options
 
@@ -69,7 +68,7 @@ export function buildMapsWorkspacePanels(options: BuildWorkspacePanelsOptions): 
 
   return [
     {
-      id: 'map-browser',
+      id: 'map-browser/browser',
       title: mapLabels.browserTitle,
       subtitle: mapLabels.browserSubtitle,
       hideDockHeader: true,
@@ -98,7 +97,7 @@ export function buildMapsWorkspacePanels(options: BuildWorkspacePanelsOptions): 
       ),
     },
     {
-      id: 'map-viewport',
+      id: 'map-browser/viewport',
       title: copy.center.viewport,
       subtitle: sceneLabel,
       hideDockHeader: true,
@@ -117,7 +116,6 @@ export function buildMapsWorkspacePanels(options: BuildWorkspacePanelsOptions): 
               'workbench-map-viewport',
               1,
               <CentralWorkspace
-                workspaceMode="map"
                 tabs={workspaceTabs}
                 activeTabId={activeTabId}
                 onSelectTab={onSelectWorkspaceTab}
@@ -138,7 +136,6 @@ export function buildMapsWorkspacePanels(options: BuildWorkspacePanelsOptions): 
                 worldOverlaySprites={worldOverlaySprites}
                 worldOverlayTextureAssets={worldOverlayTextureAssets}
                 onHoverChange={onHoverChange}
-                moduleBlueprint={moduleBlueprint}
               />,
             )}
           </DeferredWorkspaceReveal>
@@ -146,7 +143,7 @@ export function buildMapsWorkspacePanels(options: BuildWorkspacePanelsOptions): 
       ),
     },
     {
-      id: 'map-detail',
+      id: 'map-browser/detail',
       title: copy.rightDock.inspector,
       subtitle: sceneLabel,
       hideDockHeader: true,

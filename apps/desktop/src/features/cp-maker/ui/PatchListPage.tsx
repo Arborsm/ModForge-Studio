@@ -16,6 +16,7 @@ import {
   Package,
   PencilLine,
   Plus,
+  RefreshCw,
   Save,
   Search,
   Settings,
@@ -54,6 +55,7 @@ interface PatchListPageProps {
   onGoForward: () => void
   onOpenConfig: () => void
   onSaveDraft: () => void
+  onReloadDraft?: () => void
   workspaceId: WorkspaceId
   draft: CpMakerDraft | null
   isDirty: boolean
@@ -150,6 +152,7 @@ export function PatchListPage({
   onGoForward,
   onOpenConfig,
   onSaveDraft,
+  onReloadDraft,
   workspaceId,
   draft,
   isDirty,
@@ -625,6 +628,17 @@ export function PatchListPage({
           </div>
 
           <div className="event-patch-workspace-actions">
+            {onReloadDraft ? (
+              <button
+                type="button"
+                className="icon-button h-8 w-8"
+                aria-label={copy.toolbar.reload}
+                title={copy.toolbar.reload}
+                onClick={onReloadDraft}
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              </button>
+            ) : null}
             <button type="button" className="icon-button h-8 w-8" aria-label={hub.hubLabel} title={hub.hubLabel}>
               <ListTree className="h-4 w-4" aria-hidden="true" />
             </button>

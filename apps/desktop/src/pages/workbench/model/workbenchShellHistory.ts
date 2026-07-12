@@ -1,16 +1,11 @@
-import type { WorkspaceMode } from '@locales/api'
+import type { WorkbenchLocation } from '@shared/contracts'
 
 /**
  * Restorable workbench shell location for browser-style navigation history.
  * Patch-level edit navigation stays in {@link useEditModeNavigation}; this stack
- * only tracks shell route / mode / view-mode / registered view.
+ * only tracks registered module locations.
  */
-export type WorkbenchShellLocation = {
-  workbenchRoute: 'home' | 'workspace'
-  workspaceMode: WorkspaceMode
-  workspaceViewMode: 'edit' | 'preview'
-  registeredWorkbenchViewId: string | null
-}
+export type WorkbenchShellLocation = WorkbenchLocation
 
 export type WorkbenchShellHistoryState = {
   entries: WorkbenchShellLocation[]
@@ -21,12 +16,7 @@ const MAX_HISTORY_ENTRIES = 50
 
 /** Compare two shell locations for history dedupe. */
 export function areWorkbenchShellLocationsEqual(left: WorkbenchShellLocation, right: WorkbenchShellLocation): boolean {
-  return (
-    left.workbenchRoute === right.workbenchRoute &&
-    left.workspaceMode === right.workspaceMode &&
-    left.workspaceViewMode === right.workspaceViewMode &&
-    left.registeredWorkbenchViewId === right.registeredWorkbenchViewId
-  )
+  return left.kind === right.kind && (left.kind === 'home' || (right.kind === 'module' && left.moduleId === right.moduleId))
 }
 
 /** Create a history stack seeded with a single root location. */

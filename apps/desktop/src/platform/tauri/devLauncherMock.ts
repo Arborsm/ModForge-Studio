@@ -171,11 +171,9 @@ function createInitialAppUiState(): AppUiState {
       loadingMotion: { ...DEFAULT_LOADING_MOTION_PREFERENCE },
     },
     workspace: {
-      layouts: {},
-      workspaceViewMode: 'edit',
-      cpMaker: {
-        activeGeneratedDraftKey: null,
-      },
+      location: { kind: 'home' },
+      navigation: { collapsed: true, expandedSections: ['browse'] },
+      modules: {},
     },
     launcher: {
       discoverToolbar: {
@@ -199,12 +197,12 @@ function exposeLauncherCustomSortState(state: LauncherLibraryState) {
 }
 
 function applyMockAppUiStatePatch(current: AppUiState, patch: PatchAppUiStateRequest): AppUiState {
-  const nextLayouts = { ...current.workspace.layouts }
-  for (const [key, layout] of Object.entries(patch.workspace?.layouts ?? {})) {
-    if (layout === null) {
-      delete nextLayouts[key]
+  const nextModules = { ...current.workspace.modules }
+  for (const [key, moduleState] of Object.entries(patch.workspace?.modules ?? {})) {
+    if (moduleState === null) {
+      delete nextModules[key]
     } else {
-      nextLayouts[key] = layout
+      nextModules[key] = { ...nextModules[key], ...moduleState }
     }
   }
 
@@ -224,7 +222,8 @@ function applyMockAppUiStatePatch(current: AppUiState, patch: PatchAppUiStateReq
           workspace: {
             ...current.workspace,
             ...patch.workspace,
-            layouts: nextLayouts,
+            navigation: { ...current.workspace.navigation, ...patch.workspace.navigation },
+            modules: nextModules,
           },
         }
       : null),

@@ -1,6 +1,6 @@
-pub use crate::domain::mods::SaveModProjectRequest;
+pub use crate::domain::mods::SaveModI18nFilesRequest;
 use crate::domain::mods::{
-    ModAssetIndex, ModProjectDetail, ModProjectSummary, SaveModProjectResult,
+    ModAssetIndex, ModProjectDetail, ModProjectSummary, SaveModI18nFilesResult,
 };
 use crate::support::logging::DebugLoggingState;
 use crate::{AppHandle, AppRuntime};
@@ -53,15 +53,15 @@ pub async fn load_mod_project(
 }
 
 #[tauri::command]
-pub async fn save_mod_project(
+pub async fn save_mod_i18n_files(
     app: tauri::AppHandle<AppRuntime>,
     debug_logging_state: State<'_, DebugLoggingState>,
-    request: SaveModProjectRequest,
-) -> Result<SaveModProjectResult, String> {
+    request: SaveModI18nFilesRequest,
+) -> Result<SaveModI18nFilesResult, String> {
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state.inner().clone(),
-        crate::host_command_name!(save_mod_project),
+        crate::host_command_name!(save_mod_i18n_files),
         json!({ "request": request }),
     )
     .await

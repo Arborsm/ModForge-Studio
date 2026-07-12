@@ -24,6 +24,8 @@ pub struct CpMakerDraftRecord {
     #[serde(default)]
     pub event_source_snapshots_by_target: BTreeMap<String, CpMakerEventSourceSnapshot>,
     #[serde(default)]
+    pub i18n_files: Vec<CpMakerI18nFile>,
+    #[serde(default)]
     pub last_draft_saved_at: Option<i64>,
     #[serde(default)]
     pub last_exported_at: Option<i64>,
@@ -110,6 +112,15 @@ pub struct CpMakerDraftSummary {
     pub last_exported_at: Option<i64>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CpMakerSession {
+    #[serde(default)]
+    pub active_draft_key: Option<String>,
+    #[serde(default)]
+    pub active_generated_draft_key: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CopyCpMakerDraftRequest {
@@ -124,6 +135,15 @@ pub struct CpMakerExportRequest {
     pub content_json: String,
     #[serde(default)]
     pub virtual_assets: Vec<VirtualPreviewAsset>,
+    #[serde(default)]
+    pub i18n_files: Vec<CpMakerI18nFile>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CpMakerI18nFile {
+    pub locale: String,
+    pub raw_json: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

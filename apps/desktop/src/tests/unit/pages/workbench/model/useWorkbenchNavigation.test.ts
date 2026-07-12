@@ -1,42 +1,34 @@
 import { describe, expect, it } from 'vite-plus/test'
-import {
-  decodeWorkbenchNavigation,
-  encodeWorkbenchNavigation,
-  reduceWorkbenchNavigation,
-} from '@pages/workbench/model/useWorkbenchNavigation'
+import { lazy } from 'react'
+import { reduceWorkbenchNavigation, resolveWorkbenchLocation } from '@pages/workbench/model/useWorkbenchNavigation'
+import type { WorkbenchModuleRegistration } from '@shared/contracts'
+
+const registration = (presentation: WorkbenchModuleRegistration['presentation']): WorkbenchModuleRegistration => ({
+  id: `${presentation}-module`,
+  navigation: { section: 'tools', order: 1, icon: 'files', labelKey: 'project-content' },
+  presentation,
+  projectAccess: presentation === 'authoring' ? 'write' : 'none',
+  layout: 'fixed',
+  runtime: lazy(async () => ({ default: () => null })),
+  persistenceKey: `${presentation}-module`,
+})
 
 describe('workbench navigation model', () => {
-  it('canonicalizes registered views as a destination exclusive from workspace tools', () => {
-    const tool = decodeWorkbenchNavigation({
-      workbenchRoute: 'workspace',
-      workspaceMode: 'mod-i18n',
-      workspaceViewMode: 'preview',
-      registeredWorkbenchViewId: null,
-    })
-    const registered = reduceWorkbenchNavigation(tool, { type: 'set-registered-view', viewId: 'i18n-generator' })
-
-    expect(registered).toEqual({ kind: 'registered-view', workspaceMode: 'mod-i18n', viewId: 'i18n-generator' })
-    expect(encodeWorkbenchNavigation(registered)).toEqual({
-      workbenchRoute: 'workspace',
-      workspaceMode: 'mod-i18n',
-      workspaceViewMode: 'edit',
-      registeredWorkbenchViewId: 'i18n-generator',
-    })
-    expect(reduceWorkbenchNavigation(registered, { type: 'set-view-mode', mode: 'edit' })).toBe(registered)
+  it('navigates only between home and module locations', () => {
+    const module = reduceWorkbenchNavigation({ kind: 'home' }, { type: 'navigate', location: { kind: 'module', moduleId: 'map-browser' } })
+    expect(module).toEqual({ kind: 'module', moduleId: 'map-browser' })
+    expect(reduceWorkbenchNavigation(module, { type: 'home' })).toEqual({ kind: 'home' })
   })
 
-  it('clears a registered destination when a workspace is selected', () => {
-    const registered = decodeWorkbenchNavigation({
-      workbenchRoute: 'workspace',
-      workspaceMode: 'mod-i18n',
-      workspaceViewMode: 'edit',
-      registeredWorkbenchViewId: 'i18n-generator',
-    })
+  it('resolves unknown modules and authoring modules without a project to home', () => {
+    const authoring = registration('authoring')
+    const lookup = (moduleId: string) => (moduleId === authoring.id ? authoring : null)
 
-    expect(reduceWorkbenchNavigation(registered, { type: 'set-workspace', mode: 'map' })).toEqual({
-      kind: 'workspace',
-      workspaceMode: 'map',
-      workspaceViewMode: 'edit',
+    expect(resolveWorkbenchLocation({ kind: 'module', moduleId: 'missing' }, lookup, true)).toEqual({ kind: 'home' })
+    expect(resolveWorkbenchLocation({ kind: 'module', moduleId: authoring.id }, lookup, false)).toEqual({ kind: 'home' })
+    expect(resolveWorkbenchLocation({ kind: 'module', moduleId: authoring.id }, lookup, true)).toEqual({
+      kind: 'module',
+      moduleId: authoring.id,
     })
   })
 })

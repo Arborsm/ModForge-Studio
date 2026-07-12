@@ -7,7 +7,6 @@ import eventStage from './event-stage'
 import charactersPanel from './characters'
 import buildingsPanel from './buildings'
 import itemsPanel from './items'
-import moduleBlueprints from './module-blueprints'
 import i18nGenerator from './i18n-generator'
 
 const editor: EditorCopy = {
@@ -21,13 +20,12 @@ const editor: EditorCopy = {
   charactersPanel,
   buildingsPanel,
   itemsPanel,
-  moduleBlueprints,
   i18nGenerator,
 }
 
 export default editor
 
 export { default as mods } from './mods'
-export { default as modI18n } from './mod-i18n'
+export { default as translationEditor } from './translation-editor'
 export { default as viewMenu } from './view-menu'
 export { default as worldAtlasViews } from './world-atlas'

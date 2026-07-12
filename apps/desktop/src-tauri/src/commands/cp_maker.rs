@@ -1,7 +1,7 @@
 use crate::domain::content_patcher::types::VirtualPreviewAsset;
 use crate::domain::cp_maker::types::{
     BuildCpMakerMapAssetRequest, CopyCpMakerDraftRequest, CpMakerDraftRecord, CpMakerDraftSummary,
-    CpMakerExportRequest, CpMakerExportResult,
+    CpMakerExportRequest, CpMakerExportResult, CpMakerSession,
 };
 use crate::support::logging::DebugLoggingState;
 use crate::{AppHandle, AppRuntime};
@@ -18,6 +18,35 @@ pub async fn list_cp_maker_drafts(
         debug_logging_state.inner().clone(),
         crate::host_command_name!(list_cp_maker_drafts),
         json!({}),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn load_cp_maker_session(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<CpMakerSession, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(load_cp_maker_session),
+        json!({}),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn save_cp_maker_session(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    session: CpMakerSession,
+) -> Result<CpMakerSession, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(save_cp_maker_session),
+        json!({ "session": session }),
     )
     .await
 }

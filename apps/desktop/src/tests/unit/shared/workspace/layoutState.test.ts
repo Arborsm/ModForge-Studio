@@ -14,7 +14,7 @@ describe('layoutState', () => {
   it('clamps chrome widths based on items workspace bounds', () => {
     const panels: WorkspacePanelConfig[] = [
       {
-        id: 'item-navigation',
+        id: 'item-browser/navigation',
         title: 'Items',
         subtitle: '',
         content: null,
@@ -43,7 +43,7 @@ describe('layoutState', () => {
   it('defaults buildings side rails to the narrowest chrome ratios', () => {
     const panels: WorkspacePanelConfig[] = [
       {
-        id: 'building-browser',
+        id: 'building-browser/browser',
         title: 'Browser',
         subtitle: '',
         content: null,
@@ -52,7 +52,7 @@ describe('layoutState', () => {
         defaultDock: 'left-top',
       },
       {
-        id: 'building-preview',
+        id: 'building-browser/preview',
         title: 'Preview',
         subtitle: '',
         content: null,
@@ -61,7 +61,7 @@ describe('layoutState', () => {
         defaultDock: 'center',
       },
       {
-        id: 'building-details',
+        id: 'building-browser/details',
         title: 'Details',
         subtitle: '',
         content: null,
@@ -83,7 +83,7 @@ describe('layoutState', () => {
   it('defaults events workspace side rails to the minimum chrome ratios', () => {
     const panels: WorkspacePanelConfig[] = [
       {
-        id: 'event-browser',
+        id: 'event-browser/browser',
         title: 'Browser',
         subtitle: '',
         content: null,
@@ -92,7 +92,7 @@ describe('layoutState', () => {
         defaultDock: 'left-top',
       },
       {
-        id: 'event-stage',
+        id: 'event-browser/stage',
         title: 'Stage',
         subtitle: '',
         content: null,
@@ -101,7 +101,7 @@ describe('layoutState', () => {
         defaultDock: 'center',
       },
       {
-        id: 'event-detail',
+        id: 'event-browser/detail',
         title: 'Detail',
         subtitle: '',
         content: null,

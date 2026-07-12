@@ -19,8 +19,8 @@ describe('createWorkbenchOrchestration', () => {
       assetKind: 'map',
     } satisfies AppEvent)
     orchestration.handleEvent({
-      type: 'workbench/view-selected',
-      viewId: 'workspace-editor',
+      type: 'workbench/module-selected',
+      moduleId: 'map-authoring',
     } satisfies AppEvent)
 
     expect(dispatched).toEqual([
@@ -30,7 +30,7 @@ describe('createWorkbenchOrchestration', () => {
         assetKind: 'map',
         sourceId: 'draft-1',
       },
-      { type: 'navigation/open-workbench-view', viewId: 'workspace-editor' },
+      { type: 'navigation/open-workbench-module', moduleId: 'map-authoring' },
     ])
   })
 

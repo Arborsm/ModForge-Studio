@@ -16,11 +16,13 @@ describe('useI18nGeneratorSession', () => {
     vi.clearAllMocks()
     appUiStateMocks.getAppUiStateSnapshot.mockReturnValue({
       workspace: {
-        i18nGenerator: {
-          prefix: 'Saved.Mod',
-          targetPrefixes: { 'Data/Objects': 'objects' },
-          enabledTargets: ['Data/Objects'],
-          expandedPaths: ['Data'],
+        modules: {
+          'i18n-generator': {
+            prefix: 'Saved.Mod',
+            targetPrefixes: { 'Data/Objects': 'objects' },
+            enabledTargets: ['Data/Objects'],
+            expandedPaths: ['Data'],
+          },
         },
       },
     })
@@ -50,11 +52,13 @@ describe('useI18nGeneratorSession', () => {
     expect(appUiStateMocks.applyAppUiStatePatch).toHaveBeenCalledTimes(1)
     expect(appUiStateMocks.applyAppUiStatePatch).toHaveBeenCalledWith({
       workspace: {
-        i18nGenerator: {
-          prefix: 'Saved.Mod.Final',
-          targetPrefixes: { 'Data/Objects': 'objects' },
-          enabledTargets: ['Data/Objects'],
-          expandedPaths: ['Data', 'Data/Objects'],
+        modules: {
+          'i18n-generator': {
+            prefix: 'Saved.Mod.Final',
+            targetPrefixes: { 'Data/Objects': 'objects' },
+            enabledTargets: ['Data/Objects'],
+            expandedPaths: ['Data', 'Data/Objects'],
+          },
         },
       },
     })

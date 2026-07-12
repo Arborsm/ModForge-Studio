@@ -1,4 +1,5 @@
 use super::*;
+use crate::test_support::create_temp_dir;
 use std::panic;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;
@@ -22,7 +23,7 @@ fn command_lane(command: &str) -> Option<SidecarLane> {
     }
 }
 
-fn command_resources(command: &str) -> Option<&'static [SidecarResource]> {
+fn command_resources(command: &str) -> Option<Vec<SidecarResource>> {
     let ctx = SidecarContext {
         app: AppHandle::sidecar(|_, _| Ok(())),
         debug_logging_state: DebugLoggingState::new(),
@@ -38,6 +39,45 @@ fn command_resources(command: &str) -> Option<&'static [SidecarResource]> {
         ResolvedSidecarCommandOrResponse::Command(command) => Some(command.resources),
         ResolvedSidecarCommandOrResponse::Response(_) => None,
     }
+}
+
+fn command_has_dynamic_resources(command: &str) -> bool {
+    let ctx = SidecarContext {
+        app: AppHandle::sidecar(|_, _| Ok(())),
+        debug_logging_state: DebugLoggingState::new(),
+    };
+    match resolve_command(
+        &ctx,
+        RpcRequest {
+            id: json!(1),
+            command: command.to_string(),
+            args: Value::Null,
+        },
+    ) {
+        ResolvedSidecarCommandOrResponse::Command(command) => command.resource_resolver.is_some(),
+        ResolvedSidecarCommandOrResponse::Response(_) => false,
+    }
+}
+
+fn resolved_dynamic_resources(command: &str, args: Value) -> Vec<SidecarResource> {
+    let ctx = SidecarContext {
+        app: AppHandle::sidecar(|_, _| Ok(())),
+        debug_logging_state: DebugLoggingState::new(),
+    };
+    let ResolvedSidecarCommandOrResponse::Command(command) = resolve_command(
+        &ctx,
+        RpcRequest {
+            id: json!(1),
+            command: command.to_string(),
+            args,
+        },
+    ) else {
+        panic!("command should resolve")
+    };
+    command
+        .resource_resolver
+        .expect("command should declare a dynamic resource resolver")()
+    .expect("dynamic resources should resolve")
 }
 
 #[test]
@@ -240,21 +280,21 @@ fn download_cancel_is_control() {
         command_lane("cancel_launcher_download"),
         Some(SidecarLane::Control)
     );
-    assert_eq!(command_resources("download_launcher_mod"), Some(&[][..]));
-    assert_eq!(command_resources("cancel_launcher_download"), Some(&[][..]));
+    assert_eq!(command_resources("download_launcher_mod"), Some(vec![]));
+    assert_eq!(command_resources("cancel_launcher_download"), Some(vec![]));
 }
 
 #[test]
 fn mutable_cache_commands_declare_resource_locks_at_binding_site() {
-    assert_eq!(command_resources("check_launcher_updates"), Some(&[][..]));
-    assert_eq!(command_resources("resolve_launcher_image"), Some(&[][..]));
+    assert_eq!(command_resources("check_launcher_updates"), Some(vec![]));
+    assert_eq!(command_resources("resolve_launcher_image"), Some(vec![]));
     assert_eq!(
         command_resources("clear_launcher_image_cache"),
-        Some(&[SidecarResource::LauncherImageCache][..])
+        Some(vec![SidecarResource::LauncherImageCache])
     );
     assert_eq!(
         command_resources("record_launcher_image_failure"),
-        Some(&[SidecarResource::LauncherImageCache][..])
+        Some(vec![SidecarResource::LauncherImageCache])
     );
     assert_eq!(
         command_lane("persist_launcher_library_remote_cover"),
@@ -262,15 +302,15 @@ fn mutable_cache_commands_declare_resource_locks_at_binding_site() {
     );
     assert_eq!(
         command_resources("persist_launcher_library_remote_cover"),
-        Some(&[][..])
+        Some(vec![])
     );
     assert_eq!(
         command_resources("load_app_ui_state"),
-        Some(&[SidecarResource::AppUiState][..])
+        Some(vec![SidecarResource::AppUiState])
     );
     assert_eq!(
         command_resources("patch_app_ui_state"),
-        Some(&[SidecarResource::AppUiState][..])
+        Some(vec![SidecarResource::AppUiState])
     );
 }
 
@@ -280,46 +320,93 @@ fn launcher_mod_config_commands_declare_lane_and_resource_locks_at_binding_site(
         command_lane("load_launcher_mod_config"),
         Some(SidecarLane::Io)
     );
-    assert_eq!(command_resources("load_launcher_mod_config"), Some(&[][..]));
+    assert_eq!(command_resources("load_launcher_mod_config"), Some(vec![]));
     assert_eq!(
         command_lane("save_launcher_mod_config"),
         Some(SidecarLane::Mutation)
     );
     assert_eq!(
         command_resources("save_launcher_mod_config"),
-        Some(&[SidecarResource::LauncherModConfig][..])
+        Some(vec![SidecarResource::LauncherModConfig])
     );
 }
 
 #[test]
 fn project_and_cp_maker_mutations_declare_resource_locks_at_binding_site() {
     assert_eq!(
-        command_resources("save_mod_project"),
-        Some(&[SidecarResource::ModProject][..])
+        command_lane("save_mod_i18n_files"),
+        Some(SidecarLane::Mutation)
     );
+    assert_eq!(command_resources("save_mod_i18n_files"), Some(vec![]));
+    assert!(command_has_dynamic_resources("save_mod_i18n_files"));
     assert_eq!(
         command_resources("save_cp_maker_draft"),
-        Some(&[SidecarResource::CpMakerDrafts][..])
+        Some(vec![SidecarResource::CpMakerDrafts])
+    );
+    assert_eq!(command_lane("load_cp_maker_session"), Some(SidecarLane::Io));
+    assert_eq!(
+        command_resources("load_cp_maker_session"),
+        Some(vec![SidecarResource::CpMakerDrafts])
+    );
+    assert_eq!(
+        command_lane("save_cp_maker_session"),
+        Some(SidecarLane::Mutation)
+    );
+    assert_eq!(
+        command_resources("save_cp_maker_session"),
+        Some(vec![SidecarResource::CpMakerDrafts])
     );
     assert_eq!(
         command_resources("copy_cp_maker_draft"),
-        Some(&[SidecarResource::CpMakerDrafts][..])
+        Some(vec![SidecarResource::CpMakerDrafts])
     );
     assert_eq!(
         command_resources("export_cp_maker_pack"),
-        Some(&[SidecarResource::ModProject][..])
+        Some(vec![SidecarResource::ModProject])
     );
-    assert_eq!(command_resources("import_cp_maker_pack"), Some(&[][..]));
+    assert_eq!(command_resources("import_cp_maker_pack"), Some(vec![]));
     assert_eq!(command_lane("export_map_png"), Some(SidecarLane::Mutation));
     assert_eq!(
         command_resources("export_map_png"),
-        Some(&[SidecarResource::MapPngExport][..])
+        Some(vec![SidecarResource::MapPngExport])
     );
     assert_eq!(command_lane("export_file"), Some(SidecarLane::Mutation));
     assert_eq!(
         command_resources("export_file"),
         Some(&[SidecarResource::FileExport][..])
     );
+}
+
+#[test]
+fn mod_i18n_save_resources_are_keyed_by_canonical_project_root() {
+    let temp = create_temp_dir("sidecar-mod-i18n-resource");
+    let first = temp.join("first");
+    let second = temp.join("second");
+    std::fs::create_dir_all(&first).expect("first project directory should be created");
+    std::fs::create_dir_all(&second).expect("second project directory should be created");
+    std::fs::write(first.join("manifest.json"), "{}").expect("first manifest should be written");
+    std::fs::write(second.join("manifest.json"), "{}").expect("second manifest should be written");
+
+    let resources_for = |path: &std::path::Path| {
+        resolved_dynamic_resources(
+            "save_mod_i18n_files",
+            json!({
+                "request": {
+                    "sourcePath": path.to_string_lossy(),
+                    "i18nFiles": [],
+                }
+            }),
+        )
+    };
+
+    let canonical = resources_for(&first);
+    assert_eq!(canonical, resources_for(&first.join(".")));
+    assert_ne!(canonical, resources_for(&second));
+    assert!(matches!(
+        canonical.as_slice(),
+        [SidecarResource::ModProjectRoot(_)]
+    ));
+    let _ = std::fs::remove_dir_all(temp);
 }
 
 struct TestResponseWriter {
@@ -431,7 +518,8 @@ fn create_test_command_on_pool(
         name: name.to_string(),
         lane,
         execution_pool,
-        resources,
+        resources: resources.to_vec(),
+        resource_resolver: None,
         cancel_policy: HostCommandCancelPolicy::NotCancellable,
         mutation_policy: if resources.is_empty() {
             HostCommandMutationPolicy::Concurrent

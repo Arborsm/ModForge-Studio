@@ -23,7 +23,8 @@ const PANEL_ICON_MAP: Record<string, LucideIcon> = {
 }
 
 export function getPanelIcon(panelId: string) {
-  return PANEL_ICON_MAP[panelId] ?? Library
+  const localPanelId = panelId.includes('/') ? panelId.slice(panelId.lastIndexOf('/') + 1) : panelId
+  return PANEL_ICON_MAP[panelId] ?? PANEL_ICON_MAP[localPanelId] ?? Library
 }
 
 export function getDockLabel(area: DockArea) {

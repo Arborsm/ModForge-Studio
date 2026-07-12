@@ -1,4 +1,5 @@
-import type { CoreWorkspaceMode, LocaleCode, WorkspaceTone } from '../core'
+import type { LocaleCode, WorkspaceTone } from '../core'
+import type { WorkbenchModuleLocaleKey } from '@shared/contracts'
 
 export type WorkbenchShellCopy = {
   brand: {
@@ -11,7 +12,7 @@ export type WorkbenchShellCopy = {
     launcher: string
   }
   menus: string[]
-  nav: Record<CoreWorkspaceMode, string>
+  nav: Record<'map' | 'characters' | 'buildings' | 'items' | 'events', string>
   localeShort: Record<LocaleCode, string>
   statusTone: Record<WorkspaceTone, string>
   controls: {
@@ -92,11 +93,11 @@ export type WorkbenchShellCopy = {
     projectChildrenHint: string
     currentPage: string
     rootPage: string
-    rootModeLabels: Record<CoreWorkspaceMode, string>
-    rootModeCodes: Record<CoreWorkspaceMode, string>
-    globalBrowseHint: (mode: CoreWorkspaceMode) => string
-    globalBrowseCapability: (mode: CoreWorkspaceMode) => string
-    globalBrowseCapabilityLabel: (mode: CoreWorkspaceMode) => string
+    rootModeLabels: Record<'map' | 'characters' | 'buildings' | 'items' | 'events', string>
+    rootModeCodes: Record<'map' | 'characters' | 'buildings' | 'items' | 'events', string>
+    globalBrowseHint: (mode: 'map' | 'characters' | 'buildings' | 'items' | 'events') => string
+    globalBrowseCapability: (mode: 'map' | 'characters' | 'buildings' | 'items' | 'events') => string
+    globalBrowseCapabilityLabel: (mode: 'map' | 'characters' | 'buildings' | 'items' | 'events') => string
     makerModeCodes: Record<'map' | 'events' | 'items', string>
     makerModeHint: (mode: 'map' | 'events' | 'items') => string
     currentMarker: string
@@ -149,23 +150,15 @@ export type WorkbenchShellCopy = {
     gameDirectoryTaskIdle: string
     gameDirectoryReadyTitle: string
     closeDialog: string
-    continueCurrentProject: (projectName: string) => string
-    chooseProjectStep: string
-    continueMakerCta: (modeLabel: string) => string
-    enterMakerCta: (modeLabel: string) => string
-    makerPendingFormat: (modeLabel: string) => string
-    useProjectFor: (modeLabel: string) => string
-    cancelMakerPending: string
-    mapMaking: string
-    eventMaking: string
-    itemMaking: string
     devToolsTitle: string
     shellNavLabel: string
     shellNavCollapse: string
     shellNavExpand: string
     shellNavBrowseGroup: string
+    shellNavAuthoringGroup: string
     shellNavToolsGroup: string
     shellNavDevGroup: string
+    moduleLabels: Record<WorkbenchModuleLocaleKey, string>
     shellHistoryBack: string
     shellHistoryForward: string
     shellProjectTitleEmpty: string
@@ -208,6 +201,10 @@ export type WorkbenchShellCopy = {
     shellOr: string
     shellBrowseGameResources: string
     shellProjectManagement: string
+    shellHomeHint: string
+    shellProjectHome: string
+    shellOpenProjectHome: string
+    shellProjectWorkspaces: string
     shellOpenProjectAction: string
     shellOpenProjectHint: string
     shellRecentProjects: string

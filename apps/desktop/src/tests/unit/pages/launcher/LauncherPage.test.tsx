@@ -111,7 +111,6 @@ describe('LauncherPage', () => {
         locale="zh-CN"
         onToggleTheme={vi.fn()}
         onAppModeChange={vi.fn()}
-        onWorkspaceChange={vi.fn()}
         onLauncherPageChange={onLauncherPageChange}
         onMinimizeWindow={vi.fn()}
         onToggleMaximizeWindow={vi.fn()}

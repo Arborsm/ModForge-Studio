@@ -39,7 +39,9 @@ describe('uiState store', () => {
         }),
       },
       workspace: {
-        layouts: {},
+        location: { kind: 'module', moduleId: 'map-browser' },
+        navigation: { collapsed: false, expandedSections: ['browse', 'tools'] },
+        modules: {},
       },
       launcher: {
         discoverToolbar: {
@@ -115,7 +117,7 @@ describe('uiState store', () => {
     expect(patch).not.toHaveBeenCalled()
   })
 
-  it('removes workspace layout entries when a patch sets them to null', async () => {
+  it('merges and removes individual module state entries', async () => {
     const { applyAppUiStatePatch, configureAppUiStatePersistence, getAppUiStateSnapshot } = await import('@shared/lib/app-state/appUiState')
     configureAppUiStatePersistence({
       canPersist: () => false,
@@ -125,27 +127,28 @@ describe('uiState store', () => {
 
     await applyAppUiStatePatch({
       workspace: {
-        layouts: {
-          'modforge:workspace-layout:v12:map': { panels: { sidebar: { visible: true } } },
-          'modforge:workspace-layout:v12:items': { panels: { inspector: { visible: false } } },
+        modules: {
+          'map-browser': { layout: { panels: { sidebar: { visible: true } } }, selection: 'Town' },
+          'item-browser': { layout: { panels: { inspector: { visible: false } } } },
         },
       },
     })
 
     await applyAppUiStatePatch({
       workspace: {
-        layouts: {
-          'modforge:workspace-layout:v12:map': null,
+        modules: {
+          'map-browser': { selection: 'Farm' },
+          'item-browser': null,
         },
       },
     })
 
-    expect(getAppUiStateSnapshot().workspace.layouts).toEqual({
-      'modforge:workspace-layout:v12:items': { panels: { inspector: { visible: false } } },
+    expect(getAppUiStateSnapshot().workspace.modules).toEqual({
+      'map-browser': { layout: { panels: { sidebar: { visible: true } } }, selection: 'Farm' },
     })
   })
 
-  it('keeps workspace fields when applying a layout-only patch locally', async () => {
+  it('keeps workspace location and navigation when applying a module-only patch locally', async () => {
     const { applyAppUiStatePatch, configureAppUiStatePersistence, getAppUiStateSnapshot } = await import('@shared/lib/app-state/appUiState')
     configureAppUiStatePersistence({
       canPersist: () => false,
@@ -155,28 +158,24 @@ describe('uiState store', () => {
 
     await applyAppUiStatePatch({
       workspace: {
-        workspaceViewMode: 'preview',
-        cpMaker: {
-          activeGeneratedDraftKey: 'draft-1',
-        },
+        location: { kind: 'module', moduleId: 'map-browser' },
+        navigation: { collapsed: false, expandedSections: ['browse'] },
       },
     })
 
     await applyAppUiStatePatch({
       workspace: {
-        layouts: {
-          'modforge:workspace-layout:v12:map': { panels: { sidebar: { visible: true } } },
+        modules: {
+          'map-browser': { layout: { panels: { sidebar: { visible: true } } } },
         },
       },
     })
 
     expect(getAppUiStateSnapshot().workspace).toMatchObject({
-      workspaceViewMode: 'preview',
-      cpMaker: {
-        activeGeneratedDraftKey: 'draft-1',
-      },
-      layouts: {
-        'modforge:workspace-layout:v12:map': { panels: { sidebar: { visible: true } } },
+      location: { kind: 'module', moduleId: 'map-browser' },
+      navigation: { collapsed: false, expandedSections: ['browse'] },
+      modules: {
+        'map-browser': { layout: { panels: { sidebar: { visible: true } } } },
       },
     })
   })
@@ -209,11 +208,9 @@ describe('uiState store', () => {
           loadingMotion: createLoadingMotionPreference({}),
         },
         workspace: {
-          layouts: {},
-          workspaceViewMode: 'edit',
-          cpMaker: {
-            activeGeneratedDraftKey: null,
-          },
+          location: { kind: 'home' },
+          navigation: { collapsed: true, expandedSections: ['browse'] },
+          modules: {},
         },
         launcher: {
           discoverToolbar: {
@@ -336,7 +333,7 @@ it('normalizes loading motion from persisted state', async () => {
         speedMultiplier: 0.68,
       }),
     },
-    workspace: { layouts: {} },
+    workspace: { location: { kind: 'home' }, navigation: { collapsed: true, expandedSections: ['browse'] }, modules: {} },
     launcher: {
       discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false },
       forceOffline: false,
@@ -359,7 +356,7 @@ it('normalizes loading motion from persisted state', async () => {
   })
 })
 
-it('migrates legacy window border style into independent tone and weight fields', async () => {
+it('ignores the removed window border style field', async () => {
   vi.resetModules()
   const { configureAppUiStatePersistence, initializeAppUiState, getAppUiStateSnapshot } = await import('@shared/lib/app-state/appUiState')
   const persistedState = {
@@ -373,7 +370,7 @@ it('migrates legacy window border style into independent tone and weight fields'
       playerAppearance: { profiles: [], activeProfileId: null },
       loadingMotion: createLoadingMotionPreference({}),
     },
-    workspace: { layouts: {} },
+    workspace: { location: { kind: 'home' }, navigation: { collapsed: true, expandedSections: ['browse'] }, modules: {} },
     launcher: {
       discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false },
       forceOffline: false,
@@ -389,11 +386,11 @@ it('migrates legacy window border style into independent tone and weight fields'
   await initializeAppUiState()
   expect(getAppUiStateSnapshot().appearance).toMatchObject({
     windowBorderTone: 'accent',
-    windowBorderWeight: 'thin',
+    windowBorderWeight: 'standard',
   })
 })
 
-it('discards legacy accent preset ids and invalid theme ids, falling back to the default theme', async () => {
+it('ignores removed accent preset ids and normalizes invalid theme ids', async () => {
   vi.resetModules()
   const { configureAppUiStatePersistence, initializeAppUiState, getAppUiStateSnapshot } = await import('@shared/lib/app-state/appUiState')
   const persistedState = {
@@ -401,7 +398,6 @@ it('discards legacy accent preset ids and invalid theme ids, falling back to the
     shell: { appMode: 'launcher', launcherPage: 'library', debugEnabled: false, notificationSoundEnabled: true },
     appearance: {
       locale: 'en-US',
-      // Legacy field name + value that no longer maps to any theme.
       accentPresetId: 'indigo',
       themeId: 'not-a-real-theme',
       windowBorderTone: 'accent',
@@ -410,7 +406,7 @@ it('discards legacy accent preset ids and invalid theme ids, falling back to the
       playerAppearance: { profiles: [], activeProfileId: null },
       loadingMotion: createLoadingMotionPreference({}),
     },
-    workspace: { layouts: {} },
+    workspace: { location: { kind: 'home' }, navigation: { collapsed: true, expandedSections: ['browse'] }, modules: {} },
     launcher: {
       discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false },
       forceOffline: false,
@@ -442,7 +438,7 @@ it('keeps a valid persisted theme id', async () => {
       playerAppearance: { profiles: [], activeProfileId: null },
       loadingMotion: createLoadingMotionPreference({}),
     },
-    workspace: { layouts: {} },
+    workspace: { location: { kind: 'home' }, navigation: { collapsed: true, expandedSections: ['browse'] }, modules: {} },
     launcher: {
       discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false },
       forceOffline: false,

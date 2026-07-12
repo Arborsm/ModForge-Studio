@@ -15,23 +15,23 @@ export function clamp(value: number, minimum: number, maximum: number) {
 }
 
 export function isItemsWorkspacePanels(panels?: WorkspacePanelConfig[]) {
-  return panels?.some((panel) => panel.id === 'item-navigation') || panels?.some((panel) => panel.id === 'item-details') || false
+  return panels?.some((panel) => panel.id.startsWith('item-browser/')) || false
 }
 
 export function isBuildingsWorkspacePanels(panels?: WorkspacePanelConfig[]) {
   return (
-    panels?.some((panel) => panel.id === 'building-browser') ||
-    panels?.some((panel) => panel.id === 'building-details') ||
-    panels?.some((panel) => panel.id === 'building-preview') ||
+    panels?.some((panel) => panel.id === 'building-browser/browser') ||
+    panels?.some((panel) => panel.id === 'building-browser/details') ||
+    panels?.some((panel) => panel.id === 'building-browser/preview') ||
     false
   )
 }
 
 export function isEventsWorkspacePanels(panels?: WorkspacePanelConfig[]) {
   return (
-    panels?.some((panel) => panel.id === 'event-browser') ||
-    panels?.some((panel) => panel.id === 'event-stage') ||
-    panels?.some((panel) => panel.id === 'event-detail') ||
+    panels?.some((panel) => panel.id === 'event-browser/browser') ||
+    panels?.some((panel) => panel.id === 'event-browser/stage') ||
+    panels?.some((panel) => panel.id === 'event-browser/detail') ||
     false
   )
 }

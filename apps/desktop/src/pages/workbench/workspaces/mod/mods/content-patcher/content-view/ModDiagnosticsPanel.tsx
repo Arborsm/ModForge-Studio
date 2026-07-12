@@ -1,13 +1,9 @@
-import type { ModProjectDetail, ModProjectDiagnostic, SaveModProjectResult } from '@entities/mod/api'
-import { useModWorkspaceCopy } from '@locales/provider'
-import type { WorkspacePluginDefinition } from '../content-model/types'
+import type { ModProjectDetail, ModProjectDiagnostic } from '@entities/mod/api'
+import { useModCopy } from '@locales/provider'
 
 type ModDiagnosticsPanelProps = {
-  pluginDefinition: WorkspacePluginDefinition | null
   activeProject: ModProjectDetail | null
   diagnostics: ModProjectDiagnostic[]
-  hasUnsavedChanges: boolean
-  lastSaveResult: SaveModProjectResult | null
   statusMessage: string
   contentSummary: {
     includeCount: number
@@ -19,12 +15,12 @@ type ModDiagnosticsPanelProps = {
 
 function toneClass(severity: ModProjectDiagnostic['severity']) {
   if (severity === 'error') {
-    return 'border-red-500/25 bg-red-500/10 text-red-200'
+    return 'border-(--danger) bg-(--danger-soft) text-(--danger)'
   }
   if (severity === 'warning') {
-    return 'border-amber-500/25 bg-amber-500/10 text-amber-200'
+    return 'border-(--warning) bg-(--warning-soft) text-(--warning)'
   }
-  return 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
+  return 'border-(--success) bg-(--success-soft) text-(--success)'
 }
 
 const manifestOverviewFields = new Set(['Name', 'Author', 'Version', 'UniqueID', 'Description', 'ContentPackFor'])
@@ -55,29 +51,22 @@ function isSelectableDiagnosticField(field?: string | null) {
 }
 
 export function ModDiagnosticsPanel({
-  pluginDefinition,
   activeProject,
   diagnostics,
-  hasUnsavedChanges,
-  lastSaveResult,
   statusMessage,
   contentSummary,
   onSelectDiagnostic,
 }: ModDiagnosticsPanelProps) {
-  const copy = useModWorkspaceCopy()
+  const copy = useModCopy()
   return (
     <div className="flex h-full flex-col gap-4 rounded-3xl border border-(--border-color) bg-(--bg-elevated) p-4">
       <section className="rounded-2xl border border-(--border-color) bg-(--bg-app) p-4">
         <p className="text-[11px] font-semibold tracking-[0.16em] text-(--text-tertiary) uppercase">{copy.diagnosticsTitle}</p>
-        <h3 className="mt-2 text-lg font-semibold text-(--text-primary)">Status Summary</h3>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <h3 className="mt-2 text-lg font-semibold text-(--text-primary)">{copy.statusSummary}</h3>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-(--border-color) bg-(--bg-elevated) px-3 py-3">
             <p className="text-[11px] font-semibold tracking-[0.14em] text-(--text-tertiary) uppercase">{copy.projectFacts}</p>
-            <p className="mt-2 text-sm font-semibold text-(--text-primary)">{hasUnsavedChanges ? copy.dirtyLabel : copy.cleanLabel}</p>
-          </div>
-          <div className="rounded-2xl border border-(--border-color) bg-(--bg-elevated) px-3 py-3">
-            <p className="text-[11px] font-semibold tracking-[0.14em] text-(--text-tertiary) uppercase">{copy.capabilities}</p>
-            <p className="mt-2 text-sm font-semibold text-(--text-primary)">{pluginDefinition?.capabilities.length ?? 0}</p>
+            <p className="mt-2 text-sm font-semibold text-(--text-primary)">{activeProject?.summary.name ?? copy.unknownLabel}</p>
           </div>
           <div className="rounded-2xl border border-(--border-color) bg-(--bg-elevated) px-3 py-3">
             <p className="text-[11px] font-semibold tracking-[0.14em] text-(--text-tertiary) uppercase">{copy.includesLabel}</p>
@@ -102,11 +91,6 @@ export function ModDiagnosticsPanel({
             <strong className="text-(--text-primary)">{copy.contentPathLabel}:</strong>{' '}
             {activeProject.summary.contentPath ?? copy.unknownLabel}
           </p>
-          {lastSaveResult ? (
-            <p className="mt-2">
-              <strong className="text-(--text-primary)">{copy.outputPath}:</strong> {lastSaveResult.targetPath}
-            </p>
-          ) : null}
           {statusMessage ? <p className="mt-3 text-(--text-primary)">{statusMessage}</p> : null}
         </section>
       ) : null}

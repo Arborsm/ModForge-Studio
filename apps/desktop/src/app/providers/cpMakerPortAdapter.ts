@@ -7,7 +7,9 @@ import {
   importCpMakerPack,
   listCpMakerDrafts,
   loadCpMakerDraft,
+  loadCpMakerSession,
   saveCpMakerDraft,
+  saveCpMakerSession,
 } from '@features/cp-maker/api'
 import type { CpMakerDraftRecord as CpMakerPortDraftRecord, CpMakerPort } from '@features/cp-maker/provider'
 import type { CpMakerDraftRecord as CpMakerApiDraftRecord } from '@features/cp-maker/api'
@@ -29,6 +31,8 @@ export function createCpMakerPortAdapter({ dialog }: PlatformPorts): CpMakerPort
     saveDraft: (draft) => saveCpMakerDraft(normalizeCpMakerDraftForPersistence(draft)),
     deleteDraft: (draftStorageKey) => deleteCpMakerDraft(draftStorageKey),
     copyDraft: (sourceDraftStorageKey) => copyCpMakerDraft({ source_draft_storage_key: sourceDraftStorageKey }),
+    loadSession: () => loadCpMakerSession(),
+    saveSession: (session) => saveCpMakerSession(session),
 
     // Import / Export
     importPack: (modDirectoryPath) => importCpMakerPack(modDirectoryPath),

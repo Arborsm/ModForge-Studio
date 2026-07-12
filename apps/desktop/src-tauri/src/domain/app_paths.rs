@@ -17,6 +17,10 @@ pub(crate) fn cp_maker_drafts_dir() -> anyhow::Result<PathBuf> {
     Ok(modforge_data_dir()?.join("cp-maker").join("drafts"))
 }
 
+pub(crate) fn cp_maker_session_path() -> anyhow::Result<PathBuf> {
+    Ok(modforge_data_dir()?.join("cp-maker").join("session.json"))
+}
+
 pub(crate) fn launcher_settings_path() -> anyhow::Result<PathBuf> {
     Ok(modforge_data_dir()?.join("launcher").join("settings.json"))
 }
