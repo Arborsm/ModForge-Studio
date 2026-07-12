@@ -99,6 +99,12 @@ export function useWorkbenchShellHistory({ rootRef, enabled, location, onRestore
     })
   }, [])
 
+  const resetToAndPush = useCallback((root: WorkbenchShellLocation, location: WorkbenchShellLocation) => {
+    const next = pushWorkbenchShellHistory(resetWorkbenchShellHistory(root), location)
+    historyRef.current = next
+    setHistory(next)
+  }, [])
+
   useEffect(() => {
     if (!enabled) {
       return
@@ -135,6 +141,7 @@ export function useWorkbenchShellHistory({ rootRef, enabled, location, onRestore
     goBack,
     goForward,
     resetTo,
+    resetToAndPush,
     canGoBack: canGoWorkbenchShellBack(history),
     canGoForward: canGoWorkbenchShellForward(history),
     location: getWorkbenchShellHistoryLocation(history),

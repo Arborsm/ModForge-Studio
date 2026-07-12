@@ -21,6 +21,10 @@ export function useWorkbenchSideNavigation() {
     interactedRef.current = true
     setSections(next)
   }, [])
+  const ensureSectionOpen = useCallback((section: keyof typeof sections) => {
+    interactedRef.current = true
+    setSections((current) => (current[section] ? current : { ...current, [section]: true }))
+  }, [])
 
-  return { collapsed, sections, interactedRef, setCollapsed, setSections, changeCollapsed, changeSections }
+  return { collapsed, sections, interactedRef, setCollapsed, setSections, changeCollapsed, changeSections, ensureSectionOpen }
 }

@@ -19,6 +19,7 @@ export type WorkbenchEnvironment = {
   onReloadProject: () => void
   onOpenModule: (moduleId: string) => void
   onOpenProjectProperties: () => void
+  onOpenCreateProject: () => void
   onExportProject: () => void
   onCloseProject: () => void
   onOpenGameDirectory: () => void

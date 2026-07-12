@@ -6,6 +6,13 @@ import { useWorkbenchShellHistory } from './useWorkbenchShellHistory'
 type NavigationState = ReturnType<typeof useWorkbenchNavigation>
 type Guard = (action: () => void | Promise<void>) => Promise<boolean>
 
+export type WorkbenchOpenModuleOptions = {
+  /** Allows a successful project create/import transition to precede the React state commit. */
+  hasActiveProject?: boolean
+  /** Resets project-scoped history only after guards accept the transition. */
+  resetHistoryTo?: WorkbenchLocation
+}
+
 type WorkbenchNavigationControllerOptions = {
   active: boolean
   rootRef: RefObject<HTMLElement | null>
@@ -13,6 +20,7 @@ type WorkbenchNavigationControllerOptions = {
   hasActiveProject: boolean
   getRegistration: (moduleId: string) => WorkbenchModuleRegistration | null
   resetAuthoringNavigation: () => void
+  ensureSectionOpen: (section: 'browseOpen' | 'authoringOpen' | 'toolsOpen' | 'devOpen') => void
   runWithModuleGuard: Guard
   runWithProjectGuard: Guard
 }
@@ -25,6 +33,7 @@ export function useWorkbenchNavigationController({
   hasActiveProject,
   getRegistration,
   resetAuthoringNavigation,
+  ensureSectionOpen,
   runWithModuleGuard,
   runWithProjectGuard,
 }: WorkbenchNavigationControllerOptions) {
@@ -41,15 +50,21 @@ export function useWorkbenchNavigationController({
       const resolved = resolveWorkbenchLocation(location, getRegistrationRef.current, hasActiveProjectRef.current)
       const registration = resolved.kind === 'module' ? getRegistrationRef.current(resolved.moduleId) : null
       navigation.navigate(resolved)
-      if (registration?.presentation === 'authoring') resetAuthoringNavigation()
+      if (registration) {
+        const sectionKey = registration.navigation.section === 'development' ? 'devOpen' : `${registration.navigation.section}Open`
+        ensureSectionOpen(sectionKey as 'browseOpen' | 'authoringOpen' | 'toolsOpen' | 'devOpen')
+        if (registration.presentation === 'authoring') resetAuthoringNavigation()
+      }
     },
-    [navigation.navigate, resetAuthoringNavigation],
+    [ensureSectionOpen, navigation.navigate, resetAuthoringNavigation],
   )
   const runGuarded = useCallback(
     async (action: () => void | Promise<void>) => {
-      return runWithModuleGuard(async () => {
-        await runWithProjectGuard(action)
+      let projectAccepted = false
+      const moduleAccepted = await runWithModuleGuard(async () => {
+        projectAccepted = await runWithProjectGuard(action)
       })
+      return moduleAccepted && projectAccepted
     },
     [runWithModuleGuard, runWithProjectGuard],
   )
@@ -68,29 +83,33 @@ export function useWorkbenchNavigationController({
     location: navigation.location,
     onRestoreLocation: restoreHistoryLocation,
   })
+  const pushHistory = history.push
+  const resetHistoryAndPush = history.resetToAndPush
 
   const openHome = useCallback(() => {
-    void runGuarded(() => {
+    if (navigation.location.kind === 'home') return Promise.resolve(true)
+    return runGuarded(() => {
       const location = { kind: 'home' as const }
       applyLocation(location)
-      history.push(location)
+      pushHistory(location)
     })
-  }, [applyLocation, history.push, runGuarded])
+  }, [applyLocation, navigation.location.kind, pushHistory, runGuarded])
 
   const openModule = useCallback(
-    (moduleId: string) => {
+    (moduleId: string, options?: WorkbenchOpenModuleOptions) => {
       const registration = getRegistrationRef.current(moduleId)
-      if (!registration || (registration.presentation === 'authoring' && !hasActiveProjectRef.current)) {
-        openHome()
-        return
+      const hasProject = options?.hasActiveProject ?? hasActiveProjectRef.current
+      if (!registration || (registration.presentation === 'authoring' && !hasProject)) {
+        return openHome()
       }
-      void runGuarded(() => {
+      return runGuarded(() => {
         const location = { kind: 'module' as const, moduleId: registration.id }
         applyLocation(location)
-        history.push(location)
+        if (options?.resetHistoryTo) resetHistoryAndPush(options.resetHistoryTo, location)
+        else pushHistory(location)
       })
     },
-    [applyLocation, history.push, openHome, runGuarded],
+    [applyLocation, openHome, pushHistory, resetHistoryAndPush, runGuarded],
   )
 
   useEffect(() => {
@@ -102,12 +121,12 @@ export function useWorkbenchNavigationController({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return
       if (event.key === 'Escape' && navigation.location.kind === 'home') {
-        openModule(lastModuleIdRef.current)
+        void openModule(lastModuleIdRef.current)
         return
       }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k' && navigation.location.kind !== 'home') {
         event.preventDefault()
-        openHome()
+        void openHome()
       }
     }
     window.addEventListener('keydown', handleKeyDown)

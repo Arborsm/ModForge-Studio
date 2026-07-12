@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppEvent, WorkbenchLocation } from '@shared/contracts'
 import type { CpMakerDraft, UseCpMakerReturn } from '@features/cp-maker'
 import type { useWorkbenchProjectController } from './useWorkbenchProjectController'
+import type { WorkbenchOpenModuleOptions } from './useWorkbenchNavigationController'
 
 type CreateDraftMetadata = Pick<
   CpMakerDraft['projectMetadata'],
@@ -15,6 +16,7 @@ type Options = {
   importLabel: string
   onWorkbenchEvent: (event: AppEvent) => void
   openHome: () => void
+  openModule: (moduleId: string, options?: WorkbenchOpenModuleOptions) => void
   applyLocation: (location: WorkbenchLocation) => void
   resetHistory: (location: WorkbenchLocation) => void
   resetAuthoringNavigation: () => void
@@ -29,6 +31,7 @@ export function useWorkbenchProjectPresentationController({
   importLabel,
   onWorkbenchEvent,
   openHome,
+  openModule,
   applyLocation,
   resetHistory,
   resetAuthoringNavigation,
@@ -50,23 +53,28 @@ export function useWorkbenchProjectPresentationController({
     onWorkbenchEvent({ type: 'cp-maker/draft-selected', draftKey })
   }, [cpMaker.activeDraft?.draftStorageKey, onWorkbenchEvent])
 
+  const openProjectDashboard = useCallback(() => {
+    navigateToPatch(null)
+    // The successful project operation updates React state in the same async turn.
+    // Allow the guarded navigation to commit before that state is rendered.
+    openModule('project-dashboard', { hasActiveProject: true, resetHistoryTo: { kind: 'home' } })
+  }, [navigateToPatch, openModule])
+
   const createDraft = useCallback(
     (metadata: CreateDraftMetadata) => {
-      void projectController.createDraft({ ...metadata, gameRootPath })
+      void projectController.createDraft({ ...metadata, gameRootPath }, openProjectDashboard)
       setCreateDialogOpen(false)
     },
-    [gameRootPath, projectController],
+    [gameRootPath, openProjectDashboard, projectController],
   )
 
   const importFromPath = useCallback(
     async (sourcePath: string) => {
       await projectController.importPack(sourcePath, async () => {
-        navigateToPatch(null)
-        applyLocation({ kind: 'home' })
-        resetHistory({ kind: 'home' })
+        openProjectDashboard()
       })
     },
-    [applyLocation, navigateToPatch, projectController, resetHistory],
+    [openProjectDashboard, projectController],
   )
 
   const importDraft = useCallback(async () => {
@@ -77,11 +85,10 @@ export function useWorkbenchProjectPresentationController({
   const selectDraft = useCallback(
     (draftStorageKey: string) => {
       void projectController.selectDraft(draftStorageKey, async () => {
-        applyLocation({ kind: 'home' })
-        resetHistory({ kind: 'home' })
+        openProjectDashboard()
       })
     },
-    [applyLocation, projectController, resetHistory],
+    [openProjectDashboard, projectController],
   )
 
   const closeDraft = useCallback(() => {

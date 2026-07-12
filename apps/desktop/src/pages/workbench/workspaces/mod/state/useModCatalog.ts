@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { GameDirectoryInfo } from '@entities/game/api'
 import { scanModProjects, type ModProjectSummary } from '@entities/mod/api'
 import { chooseDirectory } from '@platform/host'
@@ -28,12 +28,15 @@ export function useModCatalog({ directoryInfo, mode }: UseModCatalogOptions) {
   const [i18nOnly, setI18nOnly] = useState(mode === 'translation')
   const [statusMessage, setStatusMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const scanGenerationRef = useRef(0)
   const runLatestScan = useLatestTask('mod-catalog-scan')
   const deferredQuery = useDeferredValue(query.trim().toLowerCase())
 
   const refresh = async () => {
+    const generation = ++scanGenerationRef.current
     const rootPath = directoryInfo?.rootPath
     if (!rootPath) {
+      setLoading(false)
       await runLatestScan(async () => [])
       setProjects([])
       setActiveProjectPath(null)
@@ -44,29 +47,35 @@ export function useModCatalog({ directoryInfo, mode }: UseModCatalogOptions) {
     try {
       return await runLatestScan(async (scope) => {
         const next = await scanModProjects(rootPath)
-        if (scope.isCurrent()) {
+        if (scope.isCurrent() && scanGenerationRef.current === generation) {
           setProjects(next)
           setActiveProjectPath((current) =>
             current && next.some((project) => project.absolutePath === current) ? current : defaultProjectPath(next, mode),
           )
           setStatusMessage(copy.scanStatus(next.length))
-          setLoading(false)
+          if (scanGenerationRef.current === generation) setLoading(false)
         }
         return next
       })
     } catch (error) {
-      if (error instanceof TaskCancelledError) return []
+      if (error instanceof TaskCancelledError) {
+        if (scanGenerationRef.current === generation) setLoading(false)
+        return []
+      }
+      if (scanGenerationRef.current !== generation) return []
       setProjects([])
       setActiveProjectPath(null)
       setStatusMessage(error instanceof Error ? error.message : String(error))
-      setLoading(false)
+      if (scanGenerationRef.current === generation) setLoading(false)
       return []
     }
   }
 
   useEffect(() => {
+    const generation = ++scanGenerationRef.current
     const rootPath = directoryInfo?.rootPath
     if (!rootPath) {
+      setLoading(false)
       void runLatestScan(async () => [])
       setProjects([])
       setActiveProjectPath(null)
@@ -76,21 +85,23 @@ export function useModCatalog({ directoryInfo, mode }: UseModCatalogOptions) {
     setLoading(true)
     void runLatestScan(async (scope) => {
       const next = await scanModProjects(rootPath)
-      if (scope.isCurrent()) {
+      if (scope.isCurrent() && scanGenerationRef.current === generation) {
         setProjects(next)
         setActiveProjectPath((current) =>
           current && next.some((project) => project.absolutePath === current) ? current : defaultProjectPath(next, mode),
         )
         setStatusMessage(copy.scanStatus(next.length))
-        setLoading(false)
+        if (scanGenerationRef.current === generation) setLoading(false)
       }
       return next
     }).catch((error) => {
-      if (!(error instanceof TaskCancelledError)) {
+      if (error instanceof TaskCancelledError) {
+        if (scanGenerationRef.current === generation) setLoading(false)
+      } else if (scanGenerationRef.current === generation) {
         setProjects([])
         setActiveProjectPath(null)
         setStatusMessage(error instanceof Error ? error.message : String(error))
-        setLoading(false)
+        if (scanGenerationRef.current === generation) setLoading(false)
       }
     })
   }, [copy, directoryInfo?.rootPath, mode, runLatestScan])

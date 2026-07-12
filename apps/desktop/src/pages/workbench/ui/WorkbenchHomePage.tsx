@@ -148,6 +148,7 @@ export function WorkbenchHomePage({
   const copy = useEditorCopy()
   const navCopy = copy.workbenchNavigation
   const currentProject = getCurrentProject(studioDeskModel)
+  const pageLabel = presentation === 'project' ? navCopy.shellProjectHome : navCopy.title
   const projectEmpty = isProjectEmpty(studioDeskModel)
   const homeContent: 'home' | 'empty' | 'rich' =
     presentation === 'home' ? 'home' : !hasActiveProject || !currentProject ? 'home' : projectEmpty ? 'empty' : 'rich'
@@ -180,7 +181,7 @@ export function WorkbenchHomePage({
   }
 
   return (
-    <section className="workbench-shell-home" aria-label={navCopy.title} data-content={homeContent}>
+    <section className="workbench-shell-home" aria-label={pageLabel} data-content={homeContent}>
       <div className="workbench-shell-home-inner">
         {!gameDirectoryReady ? (
           <div className="workbench-shell-home-banner" role="status">
@@ -202,11 +203,9 @@ export function WorkbenchHomePage({
               <div>
                 <h1>{currentProject.title || studioDeskModel.projectName || navCopy.noCurrentProjectTitle}</h1>
                 <p className="workbench-shell-home-hd-sub">
-                  {studioDeskModel.projectVersion ? `v${studioDeskModel.projectVersion.replace(/^v/i, '')}` : '—'}
-                  {' · '}
-                  <span className="mono">
-                    {studioDeskModel.projectUniqueId || currentProject.uniqueId || navCopy.shellProjectMenuEmptyId}
-                  </span>
+                  {studioDeskModel.projectVersion ? navCopy.shellVersionValue(studioDeskModel.projectVersion) : navCopy.shellMissingValue}
+                  {navCopy.shellMetaSeparator}
+                  <span className="mono">{studioDeskModel.projectUniqueId || currentProject.uniqueId || navCopy.shellMissingValue}</span>
                 </p>
               </div>
               <div className="workbench-shell-home-hd-actions">
@@ -243,7 +242,10 @@ export function WorkbenchHomePage({
                       <div className="workbench-shell-home-continue-title">{continueInspiration?.title ?? navCopy.shellContinueEmpty}</div>
                       <div className="workbench-shell-home-continue-meta">
                         {continueInspiration
-                          ? `${continueLabel} · ${formatRelativeTime(continueInspiration.updatedAt, '—', copy.studioDesk.edited)}`
+                          ? navCopy.shellActivityMeta(
+                              continueLabel,
+                              formatRelativeTime(continueInspiration.updatedAt, navCopy.shellMissingValue, copy.studioDesk.edited),
+                            )
                           : navCopy.shellContinueEmpty}
                       </div>
                     </div>
@@ -287,7 +289,9 @@ export function WorkbenchHomePage({
                           className="workbench-shell-home-act-row"
                           onClick={() => onProjectModuleOpen(AUTHORING_MODULE_BY_WORKSPACE[item.workspaceId])}
                         >
-                          <span className="when">{formatRelativeTime(item.updatedAt, '—', copy.studioDesk.edited)}</span>
+                          <span className="when">
+                            {formatRelativeTime(item.updatedAt, navCopy.shellMissingValue, copy.studioDesk.edited)}
+                          </span>
                           <span className="what">
                             <em>{item.title}</em>
                           </span>
@@ -348,9 +352,13 @@ export function WorkbenchHomePage({
                   <div className="workbench-shell-home-proj-panel">
                     <dl className="workbench-shell-home-pc-grid">
                       <dt>{navCopy.shellProjectUniqueId}</dt>
-                      <dd className="mono">{studioDeskModel.projectUniqueId || currentProject.uniqueId || '—'}</dd>
+                      <dd className="mono">{studioDeskModel.projectUniqueId || currentProject.uniqueId || navCopy.shellMissingValue}</dd>
                       <dt>{navCopy.shellProjectVersion}</dt>
-                      <dd>{studioDeskModel.projectVersion ? studioDeskModel.projectVersion.replace(/^v/i, '') : '—'}</dd>
+                      <dd>
+                        {studioDeskModel.projectVersion
+                          ? navCopy.shellVersionValue(studioDeskModel.projectVersion)
+                          : navCopy.shellMissingValue}
+                      </dd>
                     </dl>
                     <div className="workbench-shell-home-pc-ops">
                       <button type="button" className="control-button" onClick={onProjectPropertiesOpen}>
@@ -462,11 +470,14 @@ export function WorkbenchHomePage({
                           ) : null}
                         </span>
                         <span className="meta">
-                          {project.uniqueId || copy.studioDesk.metadataIncomplete}
-                          {project.isCurrent ? ` · ${navCopy.currentMarker}` : ''}
+                          {project.isCurrent
+                            ? navCopy.shellCurrentProjectMeta(project.uniqueId || copy.studioDesk.metadataIncomplete, navCopy.currentMarker)
+                            : project.uniqueId || copy.studioDesk.metadataIncomplete}
                         </span>
                       </span>
-                      <span className="when">{formatRelativeTime(project.lastEditedAt, '—', copy.studioDesk.edited)}</span>
+                      <span className="when">
+                        {formatRelativeTime(project.lastEditedAt, navCopy.shellMissingValue, copy.studioDesk.edited)}
+                      </span>
                     </button>
                     <div className="ops">
                       <button type="button" onClick={() => openProject(project)}>

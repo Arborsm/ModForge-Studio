@@ -1,6 +1,6 @@
 import { lazy } from 'react'
-import { screen } from '@testing-library/react'
-import { describe, expect, it } from 'vite-plus/test'
+import { fireEvent, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { WorkbenchModuleRegistration } from '@shared/contracts'
 import { renderWithLocale } from '@test/renderWithLocale'
 import { WorkbenchViewHost } from '@pages/workbench/ui/WorkbenchViewHost'
@@ -30,5 +30,26 @@ describe('WorkbenchViewHost', () => {
   it('keeps suspense fallback inside the module content area', () => {
     const { container } = renderWithLocale(<WorkbenchViewHost module={module(lazy(() => new Promise<never>(() => {})))} />)
     expect(container.querySelector('.workbench-loading-motion-fallback')).toBeTruthy()
+  })
+
+  it('contains runtime errors and exposes a module retry action', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    renderWithLocale(
+      <WorkbenchViewHost
+        module={module(
+          lazy(async () => ({
+            default: () => {
+              throw new Error('runtime failed')
+            },
+          })),
+        )}
+      />,
+    )
+
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    const retry = screen.getByRole('button', { name: 'Retry' })
+    fireEvent.click(retry)
+    expect(screen.getByRole('alert')).toBeTruthy()
+    errorSpy.mockRestore()
   })
 })

@@ -91,7 +91,7 @@ export default function WorkbenchExperience({
   const theme = usePreferencesStore((state) => state.theme)
   const themeId = usePreferencesStore((state) => state.themeId)
   const accentColor = THEME_PRESETS.find((preset) => preset.id === themeId)?.accent ?? THEME_PRESETS[0].accent
-  const { navigate, openHome } = navigation
+  const { openHome } = navigation
   const cpMaker = useCpMaker()
   const copy = useEditorCopy()
   const modWorkspaceCopy = useModCopy()
@@ -117,8 +117,6 @@ export default function WorkbenchExperience({
   const isHome = navigation.location.kind === 'home'
   const activeModuleRegistration =
     navigation.location.kind === 'module' ? getWorkbenchModuleRegistration(navigation.location.moduleId) : null
-  const restoreNavigation = navigate
-  const navigateToModule = useCallback((moduleId: string) => navigate({ kind: 'module', moduleId }), [navigate])
   const deferredHeavyModuleId = useDeferredWorkbenchModule(activeModuleId)
   const sideNavigation = useWorkbenchSideNavigation()
   const shellRootRef = useRef<HTMLDivElement | null>(null)
@@ -130,6 +128,7 @@ export default function WorkbenchExperience({
     hasActiveProject: Boolean(cpMaker.activeDraft),
     getRegistration: getWorkbenchModuleRegistration,
     resetAuthoringNavigation: resetNavigation,
+    ensureSectionOpen: sideNavigation.ensureSectionOpen,
     runWithModuleGuard: runWithModUnsavedGuard,
     runWithProjectGuard: runWithCpMakerUnsavedGuard,
   })
@@ -203,7 +202,7 @@ export default function WorkbenchExperience({
     navigationInteractedRef,
     sideNavigationInteractedRef: sideNavigation.interactedRef,
     getModuleRegistration: getWorkbenchModuleRegistration,
-    restoreLocation: restoreNavigation,
+    restoreLocation: applyWorkbenchLocation,
     restoreCollapsed: sideNavigation.setCollapsed,
     restoreSections: sideNavigation.setSections,
   })
@@ -216,14 +215,16 @@ export default function WorkbenchExperience({
 
   const navigateToAuthoringWorkspace = useCallback(
     (workspaceId: string) => {
-      if (isWorkspaceId(workspaceId)) navigateToModule(AUTHORING_MODULE_BY_WORKSPACE[workspaceId])
+      return isWorkspaceId(workspaceId)
+        ? handleOpenRegisteredWorkbenchView(AUTHORING_MODULE_BY_WORKSPACE[workspaceId])
+        : Promise.resolve(false)
     },
-    [navigateToModule],
+    [handleOpenRegisteredWorkbenchView],
   )
   useWorkbenchCommandIntent({
     pendingIntent: pendingWorkbenchIntent,
     cpMaker,
-    navigateToModule,
+    openModule: handleOpenRegisteredWorkbenchView,
     navigateToAuthoringWorkspace,
     runWithModUnsavedGuard,
     runWithCpMakerUnsavedGuard,
@@ -287,6 +288,7 @@ export default function WorkbenchExperience({
     importLabel: copy.studioDesk.importDraft,
     onWorkbenchEvent,
     openHome: handleOpenHome,
+    openModule: handleOpenRegisteredWorkbenchView,
     applyLocation: applyWorkbenchLocation,
     resetHistory: resetWorkbenchHistory,
     resetAuthoringNavigation: resetNavigation,
@@ -370,6 +372,7 @@ export default function WorkbenchExperience({
                   onReloadProject: handleReloadActiveProject,
                   onOpenModule: handleOpenRegisteredWorkbenchView,
                   onOpenProjectProperties: projectPresentation.openPropertiesDialog,
+                  onOpenCreateProject: projectPresentation.openCreateDialog,
                   onExportProject: projectPresentation.openExportDialog,
                   onCloseProject: projectPresentation.closeDraft,
                   onOpenGameDirectory: directoryController.openOverlay,

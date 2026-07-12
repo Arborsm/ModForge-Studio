@@ -21,33 +21,41 @@ export function useModTranslationWorkspace(projectPath: string | null) {
   const [pendingDecision, setPendingDecision] = useState<{ saving: boolean; error: string | null } | null>(null)
   const pendingActionRef = useRef<GuardedAction | null>(null)
   const editVersionRef = useRef(0)
+  const projectPathRef = useRef(projectPath)
+  const loadGenerationRef = useRef(0)
   const runLatestLoad = useLatestTask('mod-translation-load')
+  projectPathRef.current = projectPath
 
   const reload = useCallback(async () => {
+    const generation = ++loadGenerationRef.current
     if (!projectPath) {
-      await runLatestLoad(async () => null)
+      setLoading(false)
       setDetail(null)
       setFilesState([])
       setStatusMessage('')
+      await runLatestLoad(async () => null)
       return
     }
     setLoading(true)
     try {
       await runLatestLoad(async (scope) => {
         const next = await loadModProject(projectPath)
-        if (scope.isCurrent()) {
+        if (scope.isCurrent() && loadGenerationRef.current === generation) {
           setDetail(next)
           setFilesState(next.i18nFiles ?? [])
           editVersionRef.current = 0
           setStatusMessage('')
-          setLoading(false)
+          if (loadGenerationRef.current === generation) setLoading(false)
         }
         return next
       })
     } catch (error) {
-      if (error instanceof TaskCancelledError) return
+      if (error instanceof TaskCancelledError) {
+        if (loadGenerationRef.current === generation) setLoading(false)
+        return
+      }
       setStatusMessage(error instanceof Error ? error.message : String(error))
-      setLoading(false)
+      if (loadGenerationRef.current === generation) setLoading(false)
     }
   }, [projectPath, runLatestLoad])
 
@@ -71,22 +79,23 @@ export function useModTranslationWorkspace(projectPath: string | null) {
     const original = new Map((detail.i18nFiles ?? []).map((file) => [file.locale, file.rawJson.trimEnd()]))
     const changed = files.filter((file) => original.get(file.locale) !== file.rawJson.trimEnd())
     const version = editVersionRef.current
+    const loadGeneration = loadGenerationRef.current
     try {
       const result = await saveModI18nFiles({
         sourcePath: projectPath,
         i18nFiles: changed.map(({ locale, rawJson }) => ({ locale, rawJson })),
       })
       const refreshed = await loadModProject(projectPath)
-      if (editVersionRef.current === version) {
+      if (projectPathRef.current === projectPath && loadGenerationRef.current === loadGeneration && editVersionRef.current === version) {
         setDetail(refreshed)
         setFilesState(refreshed.i18nFiles ?? [])
         editVersionRef.current = 0
+        setStatusMessage(copy.saveSuccess(result.sourcePath))
       }
-      setStatusMessage(copy.saveSuccess(result.sourcePath))
       return result
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatusMessage(message)
+      if (projectPathRef.current === projectPath && loadGenerationRef.current === loadGeneration) setStatusMessage(message)
       reportAppEvent({
         level: 'error',
         title: copy.saveFailed,

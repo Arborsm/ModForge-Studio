@@ -28,6 +28,7 @@ export default function ProjectDashboardModuleRuntime() {
       }}
       onProjectModuleOpen={environment.onOpenModule}
       onProjectPropertiesOpen={environment.onOpenProjectProperties}
+      onProjectCreateOpen={environment.onOpenCreateProject}
       onExportProject={environment.onExportProject}
       onSaveProject={project.saveDraft}
       onGameDirectoryAction={environment.onOpenGameDirectory}

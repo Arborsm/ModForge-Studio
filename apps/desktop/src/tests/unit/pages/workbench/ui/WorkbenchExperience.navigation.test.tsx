@@ -25,7 +25,7 @@ vi.mock('@shared/lib/app-state', async () => {
   }
 })
 
-const loadDraftSpy = vi.fn()
+const loadDraftSpy = vi.fn(async () => true)
 const createDraftSpy = vi.fn()
 const chooseDirectorySpy = vi.fn()
 const importPackSpy = vi.fn()
@@ -707,7 +707,7 @@ describe('WorkbenchExperience shell navigation', () => {
     })
   })
 
-  it('keeps the home page open when selecting a project without a pending maker intent', async () => {
+  it('opens the project dashboard when selecting a project from the global home', async () => {
     useCpMakerState.drafts = [
       {
         draftStorageKey: 'festival-dialogue',
@@ -725,7 +725,9 @@ describe('WorkbenchExperience shell navigation', () => {
     await waitFor(() => {
       expect(loadDraftSpy).toHaveBeenCalledWith('festival-dialogue')
     })
-    expect(screen.getByRole('region', { name: 'Workbench Home' })).toBeTruthy()
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull())
+    fireEvent.click(within(getSideNav()).getByRole('button', { name: navCopy.shellNavExpand }))
+    expect(screen.getByRole('button', { name: navCopy.shellHistoryBack })).not.toBeDisabled()
   })
 
   it('does not reselect the same draft when patch edits replace the active draft object', async () => {

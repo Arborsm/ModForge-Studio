@@ -60,11 +60,11 @@ export function useWorkbenchPersistenceController({
         toolsOpen: workspace.navigation.expandedSections.includes('tools'),
         devOpen: workspace.navigation.expandedSections.includes('development'),
       }
-      if (!navigationInteractedRef.current) restoreLocation(nextLocation)
       if (!sideNavigationInteractedRef.current) {
         restoreCollapsed(workspace.navigation.collapsed)
         restoreSections(nextSections)
       }
+      if (!navigationInteractedRef.current) restoreLocation(nextLocation)
       persistedKeyRef.current = JSON.stringify({ location: workspace.location, navigation: workspace.navigation })
       hydratedRef.current = true
       return

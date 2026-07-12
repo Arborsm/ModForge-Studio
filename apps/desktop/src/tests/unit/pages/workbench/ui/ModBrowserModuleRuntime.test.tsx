@@ -73,6 +73,7 @@ describe('ModBrowserModuleRuntime', () => {
             onReloadProject: vi.fn(),
             onOpenModule: vi.fn(),
             onOpenProjectProperties: vi.fn(),
+            onOpenCreateProject: vi.fn(),
             onExportProject: vi.fn(),
             onCloseProject: vi.fn(),
             onOpenGameDirectory: vi.fn(),

@@ -27,6 +27,13 @@ export function useWorkbenchProjectController({
   const onRestoreFailedRef = useRef(onRestoreFailed)
   onRestoreFailedRef.current = onRestoreFailed
 
+  const clearPersistedSession = useCallback(() => {
+    const cleared = { activeDraftKey: null, activeGeneratedDraftKey: session?.activeGeneratedDraftKey ?? null }
+    persistedActiveKeyRef.current = null
+    setSession(cleared)
+    void port.saveSession(cleared)
+  }, [port, session?.activeGeneratedDraftKey])
+
   useEffect(() => {
     let cancelled = false
     void port
@@ -60,32 +67,35 @@ export function useWorkbenchProjectController({
     }
     if (cpMaker.drafts.some((draft) => draft.draftStorageKey === activeDraftKey)) {
       let cancelled = false
-      void cpMaker.loadDraft(activeDraftKey).then(
-        () => {
-          if (!cancelled) setRestoreComplete(true)
-        },
-        () => {
-          if (cancelled) return
-          const cleared = { activeDraftKey: null, activeGeneratedDraftKey: session?.activeGeneratedDraftKey ?? null }
-          persistedActiveKeyRef.current = null
-          setSession(cleared)
-          void port.saveSession(cleared)
+      void cpMaker.loadDraft(activeDraftKey).then((loaded) => {
+        if (cancelled) return
+        const loadedDraftKey = cpMaker.getActiveDraftKey()
+        if (!loaded || loadedDraftKey !== activeDraftKey) {
+          clearPersistedSession()
           setRestoreComplete(true)
           onRestoreFailedRef.current()
-        },
-      )
+          return
+        }
+        setRestoreComplete(true)
+      })
       return () => {
         cancelled = true
       }
     }
 
-    const cleared = { activeDraftKey: null, activeGeneratedDraftKey: session?.activeGeneratedDraftKey ?? null }
-    persistedActiveKeyRef.current = null
-    setSession(cleared)
-    void port.saveSession(cleared)
+    clearPersistedSession()
     setRestoreComplete(true)
     onRestoreFailedRef.current()
-  }, [cpMaker.drafts, cpMaker.draftsReady, cpMaker.loadDraft, port, session, sessionLoaded])
+  }, [
+    clearPersistedSession,
+    cpMaker.activeDraft?.draftStorageKey,
+    cpMaker.drafts,
+    cpMaker.draftsReady,
+    cpMaker.getActiveDraftKey,
+    cpMaker.loadDraft,
+    sessionLoaded,
+    session,
+  ])
 
   useEffect(() => {
     if (!restoreComplete) return
@@ -155,8 +165,8 @@ export function useWorkbenchProjectController({
   const createDraft = useCallback(
     (input: Parameters<UseCpMakerReturn['createDraft']>[0], onCreated?: () => void | Promise<void>) =>
       runProjectAction(async () => {
-        await cpMaker.createDraft(input)
-        await onCreated?.()
+        const created = await cpMaker.createDraft(input)
+        if (created) await onCreated?.()
       }),
     [cpMaker, runProjectAction],
   )
@@ -171,10 +181,15 @@ export function useWorkbenchProjectController({
   const selectDraft = useCallback(
     (draftStorageKey: string, onSelected?: () => void | Promise<void>) =>
       runProjectAction(async () => {
-        await cpMaker.loadDraft(draftStorageKey)
+        const loaded = await cpMaker.loadDraft(draftStorageKey)
+        if (!loaded) {
+          clearPersistedSession()
+          onRestoreFailedRef.current()
+          return
+        }
         await onSelected?.()
       }),
-    [cpMaker, runProjectAction],
+    [clearPersistedSession, cpMaker, runProjectAction],
   )
   const closeDraft = useCallback(
     (onClosed?: () => void | Promise<void>) =>
@@ -193,8 +208,8 @@ export function useWorkbenchProjectController({
       const draftStorageKey = cpMaker.activeDraft?.draftStorageKey
       return draftStorageKey
         ? runProjectAction(async () => {
-            await cpMaker.loadDraft(draftStorageKey)
-            await onReloaded?.()
+            const loaded = await cpMaker.loadDraft(draftStorageKey)
+            if (loaded) await onReloaded?.()
           })
         : Promise.resolve(false)
     },

@@ -202,6 +202,11 @@ export type WorkbenchShellCopy = {
     shellBrowseGameResources: string
     shellProjectManagement: string
     shellHomeHint: string
+    shellMissingValue: string
+    shellVersionValue: (version: string) => string
+    shellMetaSeparator: string
+    shellActivityMeta: (label: string, time: string) => string
+    shellCurrentProjectMeta: (id: string, marker: string) => string
     shellProjectHome: string
     shellOpenProjectHome: string
     shellProjectWorkspaces: string
@@ -290,6 +295,9 @@ export type WorkbenchShellCopy = {
     resourcePreloadFailed: string
     workbenchViewUnavailableTitle: string
     workbenchViewUnavailableDetail: string
+    workbenchModuleErrorTitle: string
+    workbenchModuleErrorDetail: string
+    workbenchModuleRetry: string
     onlyTmxSupported: string
     directorySelectionFailed: string
     loadedMapAssets: (count: number, format: string) => string

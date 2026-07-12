@@ -187,7 +187,7 @@ describe('WorkbenchHomePage shell states', () => {
       onCloseProject,
     })
 
-    const home = screen.getByRole('region', { name: 'Workbench Home' })
+    const home = screen.getByRole('region', { name: navCopy.shellProjectHome })
     expect(home.getAttribute('data-content')).toBe('empty')
     expect(within(home).queryByText(navCopy.shellEmptyWorldLead)).toBeNull()
     expect(within(home).getByText(navCopy.shellCreateFirst)).toBeTruthy()
@@ -205,6 +205,7 @@ describe('WorkbenchHomePage shell states', () => {
     const onProjectModuleOpen = vi.fn()
     const onExportProject = vi.fn()
     const onSaveProject = vi.fn()
+    const onProjectCreateOpen = vi.fn()
     renderHome({
       hasActiveProject: true,
       presentation: 'project',
@@ -240,11 +241,12 @@ describe('WorkbenchHomePage shell states', () => {
       },
       onProjectModuleOpen,
       onExportProject,
+      onProjectCreateOpen,
       projectDirty: true,
       onSaveProject,
     })
 
-    const home = screen.getByRole('region', { name: 'Workbench Home' })
+    const home = screen.getByRole('region', { name: navCopy.shellProjectHome })
     expect(home.getAttribute('data-content')).toBe('rich')
     expect(home.querySelector('.workbench-shell-home-body')).toBeTruthy()
     expect(home.querySelector('.workbench-shell-home-count-row')).toBeTruthy()
@@ -269,5 +271,8 @@ describe('WorkbenchHomePage shell states', () => {
 
     fireEvent.click(within(home).getByRole('button', { name: editorCopy['en-US'].studioDesk.toolbar.save }))
     expect(onSaveProject).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(within(home).getByRole('button', { name: navCopy.shellNewEllipsis }))
+    expect(onProjectCreateOpen).toHaveBeenCalledTimes(1)
   })
 })

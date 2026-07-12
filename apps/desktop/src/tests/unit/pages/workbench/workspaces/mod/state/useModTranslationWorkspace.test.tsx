@@ -120,4 +120,15 @@ describe('useModTranslationWorkspace', () => {
 
     expect(result.current.files.find((file) => file.locale === 'zh')?.rawJson).toBe('{"hello":"newest"}')
   })
+
+  it('settles loading when the selected project is cleared', async () => {
+    vi.mocked(loadModProject).mockResolvedValue(detail())
+    const { result, rerender } = renderHook(({ projectPath }) => useModTranslationWorkspace(projectPath), {
+      initialProps: { projectPath: '/mods/pack' as string | null },
+    })
+    await waitFor(() => expect(result.current.files).toHaveLength(2))
+    rerender({ projectPath: null })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.detail).toBeNull()
+  })
 })

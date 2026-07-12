@@ -37,6 +37,14 @@ export interface CpMakerOverlayTarget {
 
 export interface CpMakerDraft {
   draftStorageKey: string
+  lastDraftSavedAt?: number | null
+  lastExportedAt?: number | null
+  lastExportPath?: string | null
+  lastExportFingerprint?: {
+    draftFingerprint: string
+    environmentFingerprint: string
+    capabilityFingerprint: string
+  } | null
   projectMetadata: {
     projectName: string
     projectDescription: string
