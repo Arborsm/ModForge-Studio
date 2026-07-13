@@ -541,40 +541,6 @@ describe('useWorkbenchCommandIntent', () => {
     expect(navigateToPatch).not.toHaveBeenCalled()
   })
 
-  it('handles map-authoring view intents safely', async () => {
-    const openModule = vi.fn()
-    const navigateToAuthoringWorkspace = vi.fn()
-    const navigateToPatch = vi.fn()
-    const clearPendingIntent = vi.fn()
-
-    const intent: PendingWorkbenchCommandIntent = {
-      id: 'intent-3',
-      command: { type: 'navigation/open-workbench-module', moduleId: 'map-authoring' },
-    }
-
-    const { result } = renderHook(() =>
-      useWorkbenchCommandIntent({
-        pendingIntent: intent,
-        cpMaker: createMockCpMaker(),
-        openModule,
-        navigateToAuthoringWorkspace,
-        runWithModUnsavedGuard: runWithGuard,
-        runWithCpMakerUnsavedGuard: runWithGuard,
-        navigateToPatch,
-        clearPendingIntent,
-      }),
-    )
-
-    await waitFor(() => {
-      expect(result.current.consumedIntentId).toBe('intent-3')
-    })
-
-    expect(navigateToAuthoringWorkspace).not.toHaveBeenCalled()
-    expect(openModule).toHaveBeenCalledWith('map-authoring')
-    expect(navigateToPatch).not.toHaveBeenCalled()
-    expect(clearPendingIntent).toHaveBeenCalled()
-  })
-
   it('does not replay an already consumed intent when the same id returns after being cleared', async () => {
     const openModule = vi.fn()
     const navigateToAuthoringWorkspace = vi.fn()

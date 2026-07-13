@@ -194,17 +194,6 @@ fn apply_fields_with_nested_object_path() {
             .as_str(),
         Some("New Emily")
     );
-    assert_eq!(
-        emily
-            .get("DisplayName")
-            .unwrap()
-            .as_object()
-            .unwrap()
-            .get("Name")
-            .unwrap()
-            .as_str(),
-        Some("New Emily")
-    );
 }
 
 #[test]

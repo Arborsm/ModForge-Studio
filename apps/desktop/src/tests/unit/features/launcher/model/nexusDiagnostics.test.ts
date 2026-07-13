@@ -449,6 +449,16 @@ describe('Nexus route availability helpers', () => {
     const diagnostics = {
       routes: [
         {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
+          status: 'success' as const,
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected.',
+        },
+        {
           routeId: 'nexusImages',
           label: 'Nexus Image CDN',
           endpoint: 'https://staticdelivery.nexusmods.com/',
@@ -458,10 +468,30 @@ describe('Nexus route availability helpers', () => {
           available: false,
           message: 'Failed after 1 attempt: timeout',
         },
+        {
+          routeId: 'smapi',
+          label: 'SMAPI',
+          endpoint: 'https://smapi.io/api/v3.0/mods',
+          status: 'loading' as const,
+          attempts: 0,
+          maxAttempts: 3,
+          available: true,
+          message: 'Checking.',
+        },
+        {
+          routeId: 'nexusApi',
+          label: 'Nexus REST API',
+          endpoint: 'https://api.nexusmods.com/v1',
+          status: 'success' as const,
+          attempts: 1,
+          maxAttempts: 3,
+          available: false,
+          message: 'Unavailable.',
+        },
       ],
     }
 
-    expect(getLauncherNexusWarningRoutes(diagnostics)).toEqual(diagnostics.routes)
+    expect(getLauncherNexusWarningRoutes(diagnostics)).toEqual([diagnostics.routes[1], diagnostics.routes[3]])
   })
 })
 

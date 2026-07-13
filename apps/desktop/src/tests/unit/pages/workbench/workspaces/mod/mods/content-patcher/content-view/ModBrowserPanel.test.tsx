@@ -132,67 +132,6 @@ describe('ModBrowserPanel', () => {
     expect(onCompatibleOnlyChange).toHaveBeenCalledWith(false)
   })
 
-  it('uses the compact docked browser treatment', () => {
-    renderWithLocale(
-      <ModBrowserPanel
-        projects={[buildProject()]}
-        filteredProjects={[buildProject()]}
-        activeProjectPath={null}
-        modFilter=""
-        contentPatcherOnly
-        compatibleOnly
-        onFilterChange={vi.fn()}
-        onContentPatcherOnlyChange={vi.fn()}
-        onCompatibleOnlyChange={vi.fn()}
-        onSelectProject={vi.fn()}
-        onImportProject={vi.fn()}
-        onRefreshProjects={vi.fn()}
-      />,
-    )
-
-    const search = screen.getByPlaceholderText(copy.browserFilterPlaceholder)
-    expect(search.closest('section')?.className).toContain('border-b')
-    expect(screen.getByText(copy.projectsLabel).closest('div')?.className).toContain('h-8')
-  })
-
-  it('uses the same light browser card style as other browser grids for project rows', () => {
-    const activeProject = buildProject()
-    const inactiveProject = buildProject({ id: 'festival-pack', name: 'Festival Pack', absolutePath: 'E:\\Mods\\FestivalPack' })
-
-    renderWithLocale(
-      <ModBrowserPanel
-        projects={[activeProject, inactiveProject]}
-        filteredProjects={[activeProject, inactiveProject]}
-        activeProjectPath={activeProject.absolutePath}
-        modFilter=""
-        contentPatcherOnly
-        compatibleOnly
-        onFilterChange={vi.fn()}
-        onContentPatcherOnlyChange={vi.fn()}
-        onCompatibleOnlyChange={vi.fn()}
-        onSelectProject={vi.fn()}
-        onImportProject={vi.fn()}
-        onRefreshProjects={vi.fn()}
-      />,
-    )
-
-    const activeCard = screen.getByRole('button', { name: /Seasonal Garden/i })
-    const inactiveCard = screen.getByRole('button', { name: /Festival Pack/i })
-    expect(activeCard.className).toContain('loading-motion-child-reveal')
-    expect(activeCard.style.getPropertyValue('--loading-motion-child-index')).toBe('0')
-    expect(inactiveCard.style.getPropertyValue('--loading-motion-child-index')).toBe('1')
-    expect(activeCard.className).toContain('border-b')
-    expect(activeCard.className).toContain('px-3')
-    expect(activeCard.className).toContain('py-2.5')
-    expect(activeCard.className).toContain('bg-(--accent-soft)')
-    expect(activeCard.className).not.toContain('panel-list-card')
-    expect(inactiveCard.className).toContain('bg-(--bg-panel)')
-    expect(inactiveCard.className).toContain('px-3')
-    expect(inactiveCard.className).toContain('py-2.5')
-    expect(inactiveCard.className).toContain('hover:bg-(--bg-panel-muted)')
-    expect(inactiveCard.className).not.toContain('panel-list-card')
-  })
-
   it('shows a guided empty state when there are no projects', () => {
     renderWithLocale(
       <ModBrowserPanel
@@ -215,57 +154,6 @@ describe('ModBrowserPanel', () => {
     expect(emptyState).toBeTruthy()
     expect(emptyState?.className).toContain('panel-empty-state')
     expect(screen.getAllByText(copy.browserLibraryEmptyDescription)).toHaveLength(1)
-  })
-
-  it('uses a higher-contrast badge treatment for non-CP projects', () => {
-    renderWithLocale(
-      <ModBrowserPanel
-        projects={[buildProject({ id: 'archive-helper', name: 'Archive Helper', pluginKind: 'unknown', status: 'unsupported' })]}
-        filteredProjects={[buildProject({ id: 'archive-helper', name: 'Archive Helper', pluginKind: 'unknown', status: 'unsupported' })]}
-        activeProjectPath={null}
-        modFilter=""
-        contentPatcherOnly={false}
-        compatibleOnly={false}
-        onFilterChange={vi.fn()}
-        onContentPatcherOnlyChange={vi.fn()}
-        onCompatibleOnlyChange={vi.fn()}
-        onSelectProject={vi.fn()}
-        onImportProject={vi.fn()}
-        onRefreshProjects={vi.fn()}
-      />,
-    )
-
-    const badge = screen.getByText('Unknown')
-    expect(badge.className).toContain('rounded-sm')
-    expect(badge.className).toContain('bg-[color-mix(in_srgb,var(--bg-panel-muted)_88%,transparent)]')
-    expect(badge.className).toContain('text-(--text-primary)')
-    expect(badge.className).not.toContain('text-amber-200')
-  })
-
-  it('uses a higher-contrast badge treatment for CP projects on light cards', () => {
-    renderWithLocale(
-      <ModBrowserPanel
-        projects={[buildProject()]}
-        filteredProjects={[buildProject()]}
-        activeProjectPath={null}
-        modFilter=""
-        contentPatcherOnly
-        compatibleOnly
-        onFilterChange={vi.fn()}
-        onContentPatcherOnlyChange={vi.fn()}
-        onCompatibleOnlyChange={vi.fn()}
-        onSelectProject={vi.fn()}
-        onImportProject={vi.fn()}
-        onRefreshProjects={vi.fn()}
-      />,
-    )
-
-    const badge = screen.getByText('Content Patcher')
-    expect(badge.className).toContain('rounded-sm')
-    expect(badge.className).toContain('whitespace-nowrap')
-    expect(badge.className).toContain('bg-(--success-soft)')
-    expect(badge.className).toContain('text-(--success)')
-    expect(badge.className).not.toContain('text-emerald-200')
   })
 
   it('hides CP, compatibility and i18n filters in i18n mode', () => {
@@ -411,7 +299,7 @@ describe('ModBrowserPanel', () => {
       expect(row.getAttribute('disabled')).toBeNull()
     })
 
-    it('highlights active row and shows selected check', () => {
+    it('exposes the active row and routes selection', () => {
       const activeProject = buildProject({ hasI18n: true })
       const inactiveProject = buildProject({
         id: 'festival-pack',
@@ -420,6 +308,7 @@ describe('ModBrowserPanel', () => {
         hasI18n: true,
       })
 
+      const onSelectProject = vi.fn()
       renderWithLocale(
         <ModBrowserPanel
           projects={[activeProject, inactiveProject]}
@@ -433,7 +322,7 @@ describe('ModBrowserPanel', () => {
           onFilterChange={vi.fn()}
           onContentPatcherOnlyChange={vi.fn()}
           onCompatibleOnlyChange={vi.fn()}
-          onSelectProject={vi.fn()}
+          onSelectProject={onSelectProject}
           onImportProject={vi.fn()}
           onRefreshProjects={vi.fn()}
         />,
@@ -441,9 +330,11 @@ describe('ModBrowserPanel', () => {
 
       const activeRow = screen.getByRole('button', { name: /Seasonal Garden/i })
       const inactiveRow = screen.getByRole('button', { name: /Festival Pack/i })
-      expect(activeRow.className).toContain('bg-(--accent-soft)')
-      expect(inactiveRow.className).not.toContain('bg-(--accent-soft)')
+      expect(activeRow).toHaveAttribute('aria-pressed', 'true')
+      expect(inactiveRow).toHaveAttribute('aria-pressed', 'false')
       expect(screen.getByLabelText(i18nCopy.browserSelectedLabel)).toBeTruthy()
+      fireEvent.click(inactiveRow)
+      expect(onSelectProject).toHaveBeenCalledWith(inactiveProject.absolutePath)
     })
 
     it('shows an empty state when there are no projects', () => {

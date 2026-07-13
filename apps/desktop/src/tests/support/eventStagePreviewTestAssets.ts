@@ -44,10 +44,6 @@ function createFallbackActorSpriteUrl(assetPath: string) {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
 }
 
-export function createFallbackEventStageActorSpriteUrl(assetPath: string) {
-  return createFallbackActorSpriteUrl(assetPath)
-}
-
 function createFallbackMapDocument(mapName: string): MapDocument {
   const width = 48
   const height = 32

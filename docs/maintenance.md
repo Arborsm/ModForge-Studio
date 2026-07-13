@@ -91,9 +91,26 @@ Rust tests are centralized by type under `apps/desktop/src-tauri/`:
 
 - `src-tauri/src/tests/unit/` — unit tests for domain/infrastructure modules.
 - `src-tauri/src/tests/integration/` — cross-module integration tests.
-- `src-tauri/tests/` — top-level Cargo regression and report tests.
+- `src-tauri/tests/regression/` — installed-game regression targets.
+- `src-tauri/tests/report/` — installed-game report examples.
+- `src-tauri/tests/support/` — helpers shared by explicit Cargo targets.
 
-Unit and integration Rust tests are declared from source files via `#[cfg(test)] #[path = "..."] mod ...;`. Top-level regression tests are discovered by Cargo from `tests/**/*.rs`.
+Unit and integration Rust tests are declared from source files via `#[cfg(test)] #[path = "..."] mod ...;`. Installed-game targets are declared explicitly in `Cargo.toml`, require the `installed-game-validation` feature, and remain ignored unless a maintainer supplies `SDV_GAME_PATH`.
+
+Compile all installed-game validation surfaces without running them:
+
+```bash
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features installed-game-validation --no-run
+cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --features installed-game-validation --examples
+```
+
+Run one regression or report against an installed game explicitly:
+
+```bash
+SDV_GAME_PATH=/path/to/StardewValley cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features installed-game-validation --test lzxd_regression -- --ignored
+SDV_GAME_PATH=/path/to/StardewValley cargo run --manifest-path apps/desktop/src-tauri/Cargo.toml --features installed-game-validation --example unpacked_pass_rate_report
+SDV_GAME_PATH=/path/to/StardewValley cargo run --manifest-path apps/desktop/src-tauri/Cargo.toml --features installed-game-validation --example xact_cue_coverage_report
+```
 
 ## Validation Expectations
 

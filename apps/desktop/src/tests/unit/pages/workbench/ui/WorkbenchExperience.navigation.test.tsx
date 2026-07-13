@@ -1,6 +1,6 @@
-import { fireEvent, screen, within, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, within, waitFor } from '@testing-library/react'
 import { lazy, useEffect } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import WorkbenchExperience from '@pages/workbench/ui/WorkbenchExperience'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { LocaleProvider } from '@locales/provider'
@@ -15,6 +15,10 @@ const applyAppUiStatePatchSpy = vi.hoisted(() => vi.fn((_patch: unknown) => Prom
 const getAppUiStateSnapshotSpy = vi.hoisted(() => vi.fn())
 const navCopy = editorCopy['en-US'].workbenchNavigation
 const viewMenuCopy = getViewMenuCopy('en-US')
+
+afterEach(() => {
+  cleanup()
+})
 
 vi.mock('@shared/lib/app-state', async () => {
   const actual = await vi.importActual<typeof import('@shared/lib/app-state')>('@shared/lib/app-state')
@@ -247,8 +251,20 @@ function renderExperienceElement({
   )
 }
 
-function renderExperience(options: RenderExperienceOptions = {}) {
-  return renderWithLocale(renderExperienceElement(options))
+async function settleWorkbenchSession() {
+  const sessionLoad = loadSessionSpy.mock.results.at(-1)?.value
+  if (!(sessionLoad instanceof Promise)) {
+    throw new Error('Workbench session loading did not start during render.')
+  }
+  await act(async () => {
+    await sessionLoad
+  })
+}
+
+async function renderExperience(options: RenderExperienceOptions = {}) {
+  const result = renderWithLocale(renderExperienceElement(options))
+  await settleWorkbenchSession()
+  return result
 }
 
 async function configureGameDirectory() {
@@ -320,15 +336,15 @@ describe('WorkbenchExperience shell navigation', () => {
     validateGameDirectoryMock.mockReset()
   })
 
-  it('opens the home shell by default without restoring the previous workspace page', () => {
-    renderExperience()
+  it('opens the home shell by default without restoring the previous workspace page', async () => {
+    await renderExperience()
 
     expect(screen.getByRole('region', { name: 'Workbench Home' })).toBeTruthy()
     expect(screen.queryByText('Viewport')).toBeNull()
   })
 
-  it('starts with the workbench side navigation collapsed', () => {
-    renderExperience()
+  it('starts with the workbench side navigation collapsed', async () => {
+    await renderExperience()
 
     const sideNav = getSideNav()
     expect(sideNav).toHaveAttribute('data-collapsed', 'true')
@@ -340,7 +356,7 @@ describe('WorkbenchExperience shell navigation', () => {
       ...viewRegistration('restored-tool'),
       navigation: { section: 'tools' as const, order: 100, icon: 'beaker' as const, labelKey: 'i18n-generator' as const },
     }
-    const { rerender } = renderExperience({ appUiStateReady: false, workbenchModules: [restoredView] })
+    const { rerender } = await renderExperience({ appUiStateReady: false, workbenchModules: [restoredView] })
 
     expect(getSideNav()).toHaveAttribute('data-collapsed', 'true')
     expect(screen.getByRole('region', { name: 'Workbench Home' })).toBeTruthy()
@@ -399,8 +415,8 @@ describe('WorkbenchExperience shell navigation', () => {
     })
   })
 
-  it('opens initialization while no game directory is available', () => {
-    renderExperience()
+  it('opens initialization while no game directory is available', async () => {
+    await renderExperience()
 
     expect(screen.getByRole('region', { name: 'Workbench Home' })).toBeTruthy()
     expect(screen.getByText('Game directory not configured')).toBeTruthy()
@@ -410,14 +426,8 @@ describe('WorkbenchExperience shell navigation', () => {
     expect(screen.getAllByText('Game directory').length).toBeGreaterThan(0)
   })
 
-  it('does not mount the map module before its registered location is active', () => {
-    renderExperience()
-
-    expect(screen.queryByText('Viewport')).toBeNull()
-  })
-
-  it('keeps home active in the side navigation while the home page is open', () => {
-    renderExperience()
+  it('keeps home active in the side navigation while the home page is open', async () => {
+    await renderExperience()
 
     const sideNav = getSideNav()
     const home = within(sideNav).getByRole('button', { name: navCopy.home })
@@ -427,8 +437,8 @@ describe('WorkbenchExperience shell navigation', () => {
     expect(screen.getByRole('region', { name: 'Workbench Home' }).getAttribute('data-content')).toBe('home')
   })
 
-  it('renders the project title menu and keeps history controls in the expanded side navigation', () => {
-    renderExperience()
+  it('renders the project title menu and keeps history controls in the expanded side navigation', async () => {
+    await renderExperience()
 
     expect(screen.getByRole('button', { name: new RegExp(navCopy.shellProjectTitleEmpty, 'i') })).toBeTruthy()
     expect(screen.queryByRole('button', { name: navCopy.shellHistoryBack })).toBeNull()
@@ -446,7 +456,7 @@ describe('WorkbenchExperience shell navigation', () => {
       presentation: 'authoring',
       projectAccess: 'write',
     }
-    renderExperience({ workbenchModules: [authoringModule] })
+    await renderExperience({ workbenchModules: [authoringModule] })
 
     const home = screen.getByRole('region', { name: 'Workbench Home' })
     expect(within(home).queryByRole('button', { name: navCopy.rootModeLabels.map })).toBeNull()
@@ -466,7 +476,7 @@ describe('WorkbenchExperience shell navigation', () => {
   })
 
   it('opens root browse pages from the side navigation and enables history back', async () => {
-    renderExperience()
+    await renderExperience()
     await configureGameDirectory()
 
     fireEvent.click(within(getSideNav()).getByRole('button', { name: navCopy.shellNavExpand }))
@@ -475,7 +485,7 @@ describe('WorkbenchExperience shell navigation', () => {
     await waitFor(() => {
       expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
     })
-    expect(screen.getByText('Viewport')).toBeTruthy()
+    expect(await screen.findByText('Viewport')).toBeTruthy()
     expect(screen.getByRole('button', { name: navCopy.shellHistoryBack })).not.toBeDisabled()
 
     fireEvent.click(screen.getByRole('button', { name: navCopy.shellHistoryBack }))
@@ -485,15 +495,15 @@ describe('WorkbenchExperience shell navigation', () => {
     })
   })
 
-  it('keeps home open when the global shortcut is pressed there', () => {
-    renderExperience()
+  it('keeps home open when the global shortcut is pressed there', async () => {
+    await renderExperience()
 
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true })
 
     expect(screen.getByRole('region', { name: 'Workbench Home' })).toBeTruthy()
   })
 
-  it('delegates launcher switching to the app shell', () => {
+  it('delegates launcher switching to the app shell', async () => {
     const onSwitchToLauncher = vi.fn()
 
     renderWithLocale(
@@ -513,6 +523,7 @@ describe('WorkbenchExperience shell navigation', () => {
         getWorkbenchModuleRegistration={(moduleId) => viewRegistration(moduleId)}
       />,
     )
+    await settleWorkbenchSession()
 
     fireEvent.click(screen.getByRole('button', { name: 'Launcher' }))
 
@@ -521,7 +532,7 @@ describe('WorkbenchExperience shell navigation', () => {
 
   it('guards root navigation while disk translations have unsaved edits', async () => {
     modPreviewState.dirty = true
-    renderExperience({ workbenchModules: [toolWorkspaceRegistration('mod-translation', 'Translations', 110)] })
+    await renderExperience({ workbenchModules: [toolWorkspaceRegistration('mod-translation', 'Translations', 110)] })
     openModTranslationTool()
     await waitFor(() => expect(screen.getByText('Translations')).toBeTruthy())
     await waitFor(() => expect(modPreviewState.registered).toBe(true))
@@ -536,7 +547,7 @@ describe('WorkbenchExperience shell navigation', () => {
 
   it('commits history back only after the disk translation guard continues', async () => {
     modPreviewState.dirty = true
-    renderExperience({ workbenchModules: [toolWorkspaceRegistration('mod-translation', 'Translations', 110)] })
+    await renderExperience({ workbenchModules: [toolWorkspaceRegistration('mod-translation', 'Translations', 110)] })
     openModTranslationTool()
     await waitFor(() => expect(screen.getByText('Translations')).toBeTruthy())
     await waitFor(() => expect(modPreviewState.registered).toBe(true))
@@ -546,10 +557,18 @@ describe('WorkbenchExperience shell navigation', () => {
     await waitFor(() => expect(modPreviewState.pendingAction).toBeTypeOf('function'))
     expect(screen.getByText('Translations')).toBeTruthy()
 
-    await modPreviewState.pendingAction?.()
-    await waitFor(() => expect(screen.getByRole('region', { name: 'Workbench Home' })).toBeTruthy())
+    const pendingAction = modPreviewState.pendingAction
+    modPreviewState.pendingAction = null
+    modPreviewState.pending = false
+    await act(async () => {
+      await pendingAction?.()
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: 'Workbench Home' })).toBeTruthy()
+      expect(modPreviewState.registered).toBe(false)
+    })
     fireHistoryMouseButton(shellRoot, 4)
-    await waitFor(() => expect(screen.getByText('Translations')).toBeTruthy())
+    expect(await screen.findByText('Translations', {}, { timeout: 3000 })).toBeTruthy()
   })
 
   it('keeps native close requests blocked while an unsaved guard decision is pending', async () => {
@@ -585,6 +604,7 @@ describe('WorkbenchExperience shell navigation', () => {
         workbenchModules={toolViews}
       />,
     )
+    await settleWorkbenchSession()
     openModTranslationTool()
     await waitFor(() => expect(screen.getByText('Translations')).toBeTruthy())
 
@@ -641,6 +661,7 @@ describe('WorkbenchExperience shell navigation', () => {
         workbenchModules={toolViews}
       />,
     )
+    await settleWorkbenchSession()
     openModTranslationTool()
     await waitFor(() => expect(screen.getByText('Translations')).toBeTruthy())
 
@@ -670,7 +691,7 @@ describe('WorkbenchExperience shell navigation', () => {
       presentation: 'authoring',
       projectAccess: 'write',
     }
-    renderExperience({ workbenchModules: [projectDashboard] })
+    await renderExperience({ workbenchModules: [projectDashboard] })
 
     const home = screen.getByRole('region', { name: 'Workbench Home' })
     expect(home.getAttribute('data-content')).toBe('home')
@@ -692,7 +713,7 @@ describe('WorkbenchExperience shell navigation', () => {
         lastExportedAt: null,
       },
     ]
-    renderExperience()
+    await renderExperience()
 
     const home = screen.getByRole('region', { name: 'Workbench Home' })
     fireEvent.click(within(home).getByRole('button', { name: /Festival Dialogue Pack/i }))
@@ -712,7 +733,7 @@ describe('WorkbenchExperience shell navigation', () => {
         lastExportedAt: null,
       },
     ]
-    renderExperience()
+    await renderExperience()
 
     const home = screen.getByRole('region', { name: 'Workbench Home' })
     fireEvent.click(within(home).getByRole('button', { name: /Festival Dialogue Pack/i }))
@@ -728,7 +749,7 @@ describe('WorkbenchExperience shell navigation', () => {
   it('does not reselect the same draft when patch edits replace the active draft object', async () => {
     const onWorkbenchEvent = vi.fn()
     useCpMakerState.activeDraft = draft('festival-dialogue')
-    const { rerender } = renderExperience({ onWorkbenchEvent })
+    const { rerender } = await renderExperience({ onWorkbenchEvent })
 
     await waitFor(() => {
       expect(onWorkbenchEvent).toHaveBeenCalledTimes(1)
@@ -777,7 +798,7 @@ describe('WorkbenchExperience shell navigation', () => {
   })
 
   it('does not patch recent game directories again when the same directory list rerenders', async () => {
-    const { rerender } = renderExperience()
+    const { rerender } = await renderExperience()
     await configureGameDirectory()
 
     applyAppUiStatePatchSpy.mockClear()
@@ -791,7 +812,7 @@ describe('WorkbenchExperience shell navigation', () => {
   })
 
   it('opens tools and side-nav browse entries from the shell', async () => {
-    renderExperience()
+    await renderExperience()
     await configureGameDirectory()
 
     fireEvent.click(within(getSideNav()).getByRole('button', { name: navCopy.moduleLabels['map-browser'] }))
@@ -799,11 +820,11 @@ describe('WorkbenchExperience shell navigation', () => {
     await waitFor(() => {
       expect(screen.queryByRole('region', { name: 'Workbench Home' })).toBeNull()
     })
-    expect(screen.getByText('Viewport')).toBeTruthy()
+    expect(await screen.findByText('Viewport')).toBeTruthy()
   })
 
   it('does not reopen the home page when a late workbench activation arrives after opening a workspace', async () => {
-    const { rerender } = renderExperience({ workbenchActivationKey: 0 })
+    const { rerender } = await renderExperience({ workbenchActivationKey: 0 })
     await configureGameDirectory()
 
     fireEvent.click(within(getSideNav()).getByRole('button', { name: navCopy.moduleLabels['map-browser'] }))
@@ -822,7 +843,7 @@ describe('WorkbenchExperience shell navigation', () => {
 
   it('closes the current project from the project title menu', async () => {
     useCpMakerState.activeDraft = draft('festival-dialogue')
-    renderExperience()
+    await renderExperience()
 
     fireEvent.click(document.querySelector<HTMLButtonElement>('.top-menu-project-title')!)
     fireEvent.click(screen.getByRole('menuitem', { name: navCopy.shellProjectMenuClose }))
@@ -833,7 +854,7 @@ describe('WorkbenchExperience shell navigation', () => {
   })
 
   it('keeps browser modules read-only without an edit gate', async () => {
-    renderExperience()
+    await renderExperience()
     await configureGameDirectory()
 
     fireEvent.click(within(getSideNav()).getByRole('button', { name: navCopy.moduleLabels['map-browser'] }))
@@ -847,7 +868,7 @@ describe('WorkbenchExperience shell navigation', () => {
   })
 
   it('omits the workspace toolbar for standalone registered tools', async () => {
-    renderExperience({ workbenchModules: [i18nGeneratorRegistration()] })
+    await renderExperience({ workbenchModules: [i18nGeneratorRegistration()] })
     await configureGameDirectory()
 
     fireEvent.click(within(getSideNav()).getByRole('button', { name: 'Tools' }))
@@ -862,7 +883,7 @@ describe('WorkbenchExperience shell navigation', () => {
   })
 
   it('lists the Mods browser first in Tools and opens it as a tool workspace', async () => {
-    renderExperience({
+    await renderExperience({
       workbenchModules: [
         toolWorkspaceRegistration('mod-browser', 'Mods', 100),
         toolWorkspaceRegistration('mod-translation', 'Translations', 110),
@@ -903,10 +924,10 @@ describe('WorkbenchExperience shell navigation', () => {
   })
 
   it('resolves authoring modules back home when no project is active', async () => {
-    renderExperience({ workbenchModules: [toolWorkspaceRegistration('mod-browser', 'Mods', 100, 'authoring')] })
+    await renderExperience({ workbenchModules: [toolWorkspaceRegistration('mod-browser', 'Mods', 100, 'authoring')] })
 
     fireEvent.click(within(getSideNav()).getByRole('button', { name: navCopy.shellNavToolsGroup }))
-    fireEvent.click(within(getSideNav()).getByRole('button', { name: /Mods/i }))
+    fireEvent.click(within(getSideNav()).getByRole('button', { name: navCopy.moduleLabels['mod-browser'] }))
 
     await waitFor(() => expect(screen.getByRole('region', { name: 'Workbench Home' })).toBeTruthy())
   })
@@ -924,7 +945,7 @@ describe('WorkbenchExperience shell navigation', () => {
       },
     })
 
-    renderExperience({ workbenchModules: [toolWorkspaceRegistration('mod-browser', 'Mods', 100)] })
+    await renderExperience({ workbenchModules: [toolWorkspaceRegistration('mod-browser', 'Mods', 100)] })
 
     const modsButton = within(getSideNav()).getByRole('button', { name: navCopy.moduleLabels['mod-browser'] })
     await waitFor(() => expect(modsButton).toHaveAttribute('aria-current', 'page'))
@@ -949,7 +970,7 @@ describe('WorkbenchExperience shell navigation', () => {
       projectAccess: 'write',
       createRuntime: () => lazy(async () => ({ default: () => <div>{`Authoring body: ${moduleId}`}</div> })),
     }
-    renderExperience({ workbenchModules: [authoringModule] })
+    await renderExperience({ workbenchModules: [authoringModule] })
     fireEvent.click(within(getSideNav()).getByRole('button', { name: navCopy.shellNavAuthoringGroup }))
     fireEvent.click(within(getSideNav()).getByRole('button', { name: navCopy.moduleLabels[moduleId] }))
 

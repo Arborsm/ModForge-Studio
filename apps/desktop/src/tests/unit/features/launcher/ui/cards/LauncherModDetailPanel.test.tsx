@@ -550,7 +550,7 @@ describe('LauncherModDetailPanel', () => {
 
   it('hides the config tab for local mods without detected config', () => {
     const loadModConfig = vi.fn()
-    renderPanel(createLocalMod({ hasConfig: false }), null, { loadModConfig })
+    renderPanel(createLocalMod({ hasConfig: false, nexusModId: null, updateKeys: [] }), null, { loadModConfig })
 
     expect(screen.queryByRole('tab', { name: 'Config' })).toBeNull()
     expect(loadModConfig).not.toHaveBeenCalled()
@@ -689,7 +689,7 @@ describe('LauncherModDetailPanel', () => {
   })
 
   it('adds a dependencies tab only when dependency data exists', () => {
-    renderPanel(createLocalMod({ missingRequiredDependencies: ['ModForge.MissingCore'] }), null)
+    renderPanel(createLocalMod({ missingRequiredDependencies: ['ModForge.MissingCore'], nexusModId: null, updateKeys: [] }), null)
 
     const dependenciesTab = screen.getByRole('tab', { name: 'Dependencies' })
     expect(dependenciesTab).toHaveAttribute('title', '1 missing dependency')
@@ -946,7 +946,9 @@ describe('LauncherModDetailPanel', () => {
       ],
     })
 
-    renderPanel(consumer, remoteDetail)
+    renderPanel(consumer, remoteDetail, {
+      loadRemoteModDetail: vi.fn().mockReturnValue(new Promise<LauncherDiscoverDetail>(() => {})),
+    })
 
     fireEvent.click(screen.getByRole('tab', { name: 'Dependencies' }))
     const dependenciesPanel = screen.getByRole('tabpanel')

@@ -18,6 +18,42 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [features]
 default = []
 dev-asset-bridge = []
+installed-game-validation = []
+
+[[test]]
+name = "character_data_regression"
+path = "tests/regression/character_data_regression.rs"
+required-features = ["installed-game-validation"]
+
+[[test]]
+name = "lzxd_regression"
+path = "tests/regression/lzxd_regression.rs"
+required-features = ["installed-game-validation"]
+
+[[test]]
+name = "text_asset_fallback_regression"
+path = "tests/regression/text_asset_fallback_regression.rs"
+required-features = ["installed-game-validation"]
+
+[[test]]
+name = "tileset_image_regression"
+path = "tests/regression/tileset_image_regression.rs"
+required-features = ["installed-game-validation"]
+
+[[test]]
+name = "xact_regression"
+path = "tests/regression/xact_regression.rs"
+required-features = ["installed-game-validation"]
+
+[[example]]
+name = "unpacked_pass_rate_report"
+path = "tests/report/unpacked_pass_rate_report.rs"
+required-features = ["installed-game-validation"]
+
+[[example]]
+name = "xact_cue_coverage_report"
+path = "tests/report/xact_cue_coverage_report.rs"
+required-features = ["installed-game-validation"]
 
 [[example]]
 name = "event_asset_bridge"
@@ -26,6 +62,9 @@ required-features = ["dev-asset-bridge"]
 
 [build-dependencies]
 tauri-build = { version = "2.6.3", features = [] }
+
+[dev-dependencies]
+syn = { version = "2", features = ["full", "visit"] }
 
 [dependencies]
 anyhow = "1.0.103"

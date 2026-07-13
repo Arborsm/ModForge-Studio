@@ -179,6 +179,6 @@ fn format_float_text(mut text: String) -> String {
     text
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "installed-game-validation")))]
 #[path = "../../../tests/unit/infrastructure/game_formats/xnb/values_tests.rs"]
 mod tests;

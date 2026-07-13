@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vite-plus/test'
 import { localeBundles } from '@locales'
-import { EventPreconditionParser, formatEventPreconditionForHub } from '@entities/event'
+import {
+  EventPreconditionParser,
+  formatEventPreconditionForHub,
+  parseGameStateQuery,
+  type GameStateQueryKey,
+  type ParsedGameStateQueryClause,
+} from '@entities/event'
 
 const builtInSamples = [
   'GameStateQuery "!WEATHER Here Sun"',
@@ -241,14 +247,52 @@ describe('EventPreconditionSemantics', () => {
     ).toBe('任一满足：冬季；春季，且星期为 周五')
   })
 
-  test('recognizes every built-in GameStateQuery resolver from the game source', () => {
+  test('formats every built-in GameStateQuery resolver through its declared semantic contract', () => {
     const parser = new EventPreconditionParser()
     const hub = localeBundles['zh-CN'].editor.studioDesk.eventPatchHub
+    const semantics = hub.gameStateQuerySemantics
+    const specializedFormatters: Partial<Record<GameStateQueryKey, (clause: ParsedGameStateQueryClause) => string>> = {
+      ANY: () => semantics.any([semantics.trueLabel]),
+      DAY_OF_MONTH: ({ args }) => hub.preconditions.dayOfMonth(args),
+      DAY_OF_WEEK: ({ args }) => hub.preconditions.dayOfWeek(args.map(hub.preconditionDayName)),
+      DAYS_PLAYED: ({ args }) => hub.preconditions.daysPlayed(args[0] ?? ''),
+      SEASON: ({ args }) => hub.preconditions.season(args.map(hub.preconditionSeasonName)),
+      YEAR: ({ args }) => hub.preconditions.year(args[0] ?? ''),
+      TIME: () => hub.preconditions.time('06:00', '12:00'),
+      IS_EVENT: ({ args }) => semantics.generic(semantics.label('IS_EVENT'), args),
+      IS_HOST: () => hub.preconditions.isHost,
+      LOCATION_SEASON: ({ args }) =>
+        semantics.locationSeason(semantics.location(args[0] ?? ''), args.slice(1).map(hub.preconditionSeasonName)),
+      WEATHER: ({ args }) => semantics.weather(semantics.location(args[0] ?? ''), args.slice(1).map(hub.preconditionWeatherName)),
+      WORLD_STATE_ID: ({ args }) => hub.preconditions.worldState(args[0] ?? ''),
+      MINE_LOWEST_LEVEL_REACHED: ({ args }) => hub.preconditions.reachedMineBottom(args[0] ?? ''),
+      PLAYER_CURRENT_MONEY: ({ args }) => hub.preconditions.hasMoney(args[1] ?? ''),
+      PLAYER_GENDER: ({ args }) => hub.preconditions.gender(hub.preconditionGenderName(args[1] ?? '')),
+      PLAYER_HAS_ITEM: ({ args }) => hub.preconditions.hasItem(args[1] ?? ''),
+      PLAYER_HAS_MAIL: ({ args }) => hub.preconditions.localMail(args[1] ?? ''),
+      PLAYER_HAS_SECRET_NOTE: ({ args }) => hub.preconditions.sawSecretNote(args[1] ?? ''),
+      PLAYER_HAS_SEEN_EVENT: ({ args }) => hub.preconditions.sawEvent(args.slice(1)),
+      PLAYER_FRIENDSHIP_POINTS: ({ args }) => semantics.generic(semantics.label('PLAYER_FRIENDSHIP_POINTS'), args.slice(1)),
+      RANDOM: ({ args }) => hub.preconditions.random(args[0] ?? ''),
+      TRUE: () => semantics.trueLabel,
+      FALSE: () => semantics.falseLabel,
+    }
 
     for (const query of gameStateQueryResolverSamples) {
-      const formatted = formatEventPreconditionForHub(parser.parseOne(`GameStateQuery "${query}"`), hub)
+      const clause = parseGameStateQuery(query).clauses[0]
+      expect(clause, query).toBeDefined()
+      expect(clause?.isKnown, query).toBe(true)
+      const sourceKey = query.split(' ', 1)[0]
+      const expectedKey = sourceKey === 'EVENT_ID' ? 'IS_EVENT' : sourceKey
+      expect(clause?.canonicalKey, query).toBe(expectedKey)
 
-      expect(formatted, query).not.toBe(hub.preconditions.gameStateQuery(query))
+      const formatted = formatEventPreconditionForHub(parser.parseOne(`GameStateQuery "${query}"`), hub)
+      const formatter = specializedFormatters[clause!.canonicalKey as GameStateQueryKey]
+      const expected = formatter
+        ? formatter(clause!)
+        : semantics.generic(semantics.label(clause!.canonicalKey as GameStateQueryKey), clause!.args)
+
+      expect(formatted, query).toBe(expected)
     }
   })
 })

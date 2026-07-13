@@ -9,6 +9,7 @@ import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { LauncherSettingsForm } from '@features/launcher/ui/shared/LauncherSettingsForm'
 
 const copy = editorCopy['zh-CN'].launcher
+const controlsCopy = editorCopy['zh-CN'].controls
 
 function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSettings {
   return {
@@ -46,64 +47,23 @@ describe('LauncherSettingsForm', () => {
     return renderWithLocale(<LauncherTestWrapper port={port}>{ui}</LauncherTestWrapper>, 'zh-CN')
   }
 
-  it('renders the launcher controls and localized copy', async () => {
+  it('routes field, toggle, browse, and open actions through the provided ports', () => {
     const settingsState = createSettingsState()
+    const launcherPort = createMockLauncherPort({ openPath: vi.fn().mockResolvedValue(undefined) })
 
-    renderWithLauncher(<LauncherSettingsForm settingsState={settingsState} />)
-
-    expect(screen.getByText(copy.settings.pathsTitle)).toBeTruthy()
-    expect(screen.getByText(copy.settings.nexusAccessTitle)).toBeTruthy()
-    expect(screen.getByText(copy.settings.downloadBehaviorTitle)).toBeTruthy()
-    expect(screen.queryByRole('button', { name: copy.actions.saveSettings })).toBeNull()
-    expect(screen.getByText(copy.fields.gamePath)).toBeTruthy()
-    expect(screen.getByText(copy.fields.modsPath)).toBeTruthy()
-    expect(screen.getByText(copy.fields.downloadPath)).toBeTruthy()
-    expect(screen.getByDisplayValue('api-key')).toBeTruthy()
-    expect(await screen.findByText(copy.diagnostics.sectionTitle)).toBeTruthy()
-    expect(screen.getByText(copy.toggles.autoInstallDownloads)).toBeTruthy()
-    expect(screen.getByText(copy.toggles.keepDownloadedArchives)).toBeTruthy()
-    expect(screen.getByText(copy.toggles.autoCheckModUpdates)).toBeTruthy()
-  })
-
-  it('calls updateField and save through the provided settings state', () => {
-    const settingsState = createSettingsState()
-
-    renderWithLauncher(<LauncherSettingsForm settingsState={settingsState} />)
+    renderWithLauncher(<LauncherSettingsForm settingsState={settingsState} showDiagnostics={false} showApiStatus={false} />, launcherPort)
 
     fireEvent.change(screen.getByLabelText(copy.fields.gamePath), { target: { value: 'C:\\Games' } })
     expect(settingsState.updateField).toHaveBeenCalledWith('gamePath', 'C:\\Games')
 
     fireEvent.click(screen.getByRole('switch', { name: copy.toggles.autoCheckModUpdates }))
     expect(settingsState.updateField).toHaveBeenCalledWith('autoCheckModUpdates', false)
-  })
 
-  it('uses settings-window control cards for launcher settings items', async () => {
-    renderWithLauncher(<LauncherSettingsForm settingsState={createSettingsState()} />)
+    fireEvent.click(screen.getAllByRole('button', { name: controlsCopy.browse })[0]!)
+    expect(settingsState.pickDirectory).toHaveBeenCalledWith('gamePath', copy.fields.gamePath)
 
-    expect(screen.getByLabelText(copy.fields.gamePath).closest('.settings-window-control-card')).toBeTruthy()
-    expect(screen.getByDisplayValue('api-key').closest('.settings-window-control-card')).toBeTruthy()
-    expect(screen.getByRole('switch', { name: copy.toggles.autoInstallDownloads }).closest('.settings-window-control-card')).toBeTruthy()
-    expect(screen.getByRole('switch', { name: copy.toggles.keepDownloadedArchives }).closest('.settings-window-control-card')).toBeTruthy()
-    expect(screen.getByRole('switch', { name: copy.toggles.autoCheckModUpdates }).closest('.settings-window-control-card')).toBeTruthy()
-    expect(await screen.findByText('Nexus Public GraphQL')).toBeTruthy()
-  })
-
-  it('renders path fields as full-width rows and keeps a visible download path value', () => {
-    renderWithLauncher(
-      <LauncherSettingsForm
-        settingsState={createSettingsState(
-          createSettings({
-            downloadPath: 'C:\\Users\\Example\\Downloads\\ModForge Studio',
-          }),
-        )}
-        showDiagnostics={false}
-      />,
-    )
-
-    expect(screen.getByLabelText(copy.fields.gamePath).closest('.launcher-settings-control-card-wide')).toBeTruthy()
-    expect(screen.getByLabelText(copy.fields.modsPath).closest('.launcher-settings-control-card-wide')).toBeTruthy()
-    expect(screen.getByLabelText(copy.fields.downloadPath).closest('.launcher-settings-control-card-wide')).toBeTruthy()
-    expect(screen.getByDisplayValue('C:\\Users\\Example\\Downloads\\ModForge Studio')).toBeTruthy()
+    fireEvent.click(screen.getAllByRole('button', { name: copy.actions.openFolder })[0]!)
+    expect(launcherPort.openPath).toHaveBeenCalledWith({ path: 'E:\\Games\\Stardew Valley' })
   })
 
   it('loads Nexus route diagnostics from the launcher port in settings', async () => {
@@ -130,7 +90,10 @@ describe('LauncherSettingsForm', () => {
   it('can render without the route diagnostics block when embedded in the Configuration page', () => {
     const launcherPort = createMockLauncherPort()
 
-    renderWithLauncher(<LauncherSettingsForm settingsState={createSettingsState()} showDiagnostics={false} />, launcherPort)
+    renderWithLauncher(
+      <LauncherSettingsForm settingsState={createSettingsState()} showDiagnostics={false} showApiStatus={false} />,
+      launcherPort,
+    )
 
     expect(screen.queryByText(copy.diagnostics.sectionTitle)).toBeNull()
     expect(screen.queryByText('Nexus Public GraphQL')).toBeNull()

@@ -13,20 +13,39 @@ describe('DeferredWorkspacePlaceholder', () => {
 })
 
 describe('DeferredWorkspaceReveal', () => {
-  it('schedules a reveal on mount', () => {
+  it('reveals after the scheduled animation frame', () => {
+    let reveal: FrameRequestCallback | null = null
     const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
-      callback(0)
-      return 1
+      reveal = callback
+      return 7
     })
 
-    render(
+    const { container } = render(
       <DeferredWorkspaceReveal>
         <div>Content</div>
       </DeferredWorkspaceReveal>,
     )
 
-    expect(raf).toHaveBeenCalled()
+    expect(container.firstElementChild).toHaveClass('translate-y-1.5', 'opacity-0')
+    act(() => reveal?.(0))
+    expect(container.firstElementChild).toHaveClass('translate-y-0', 'opacity-100')
     raf.mockRestore()
+  })
+
+  it('cancels a pending reveal when unmounted', () => {
+    const raf = vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(9)
+    const cancel = vi.spyOn(window, 'cancelAnimationFrame')
+    const { unmount } = render(
+      <DeferredWorkspaceReveal>
+        <div>Content</div>
+      </DeferredWorkspaceReveal>,
+    )
+
+    unmount()
+
+    expect(cancel).toHaveBeenCalledWith(9)
+    raf.mockRestore()
+    cancel.mockRestore()
   })
 })
 

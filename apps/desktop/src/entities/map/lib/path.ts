@@ -5,5 +5,5 @@ export function normalizePath(path: string) {
 export function getMapDirectory(sourcePath: string) {
   const normalizedSource = normalizePath(sourcePath)
   const separatorIndex = normalizedSource.lastIndexOf('\\')
-  return separatorIndex >= 0 ? normalizedSource.slice(0, separatorIndex) : normalizedSource
+  return separatorIndex >= 0 ? normalizedSource.slice(0, separatorIndex) : ''
 }

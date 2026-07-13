@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import GooeyNav from '@shared/ui/GooeyNav/GooeyNav'
@@ -9,17 +9,20 @@ describe('GooeyNav', () => {
     vi.useRealTimers()
   })
 
-  it('cancels queued particle timers when unmounted during a route switch', () => {
+  it('cancels queued particle timers when unmounted during a route switch', async () => {
     vi.useFakeTimers()
-    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout')
+    const raf = vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(1)
     const { unmount } = renderWithLocale(
       <GooeyNav ariaLabel="Launcher navigation" particleCount={4} items={[{ label: 'Library' }, { label: 'Discover' }]} />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Discover' }))
     unmount()
+    await act(() => vi.runAllTimers())
 
-    expect(clearTimeoutSpy).toHaveBeenCalled()
+    expect(document.querySelector('.particle')).toBeNull()
+    expect(raf).not.toHaveBeenCalled()
+    raf.mockRestore()
   })
 
   it('renders action-only items as buttons so they do not expose draggable placeholder links', () => {

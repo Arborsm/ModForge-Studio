@@ -81,13 +81,16 @@
     }
 
     .launcher-mod-detail-panel {
+      grid-template-rows: max-content minmax(20rem, max-content) 4rem;
+      overflow: auto;
       resize: none;
     }
 
     .launcher-mod-detail-hero {
       grid-template-columns: 1fr;
       grid-template-rows: 220px auto;
-      height: auto;
+      height: max-content;
+      max-height: none;
     }
 
     .launcher-mod-detail-cover-frame {

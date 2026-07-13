@@ -79,6 +79,8 @@ describe('EventStagePreview playback authoring surface', () => {
     const onTileClick = vi.fn()
     renderPreview({ onTileClick })
 
+    await waitFor(() => expect(document.querySelector('[data-event-stage-actor-sprite="Abigail"]')).toBeTruthy())
+
     fireEvent.click(screen.getByRole('button', { name: 'Tile 13 45' }))
 
     expect(onTileClick).toHaveBeenCalledWith(13, 45)

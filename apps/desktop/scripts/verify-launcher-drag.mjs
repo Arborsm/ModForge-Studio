@@ -1,6 +1,6 @@
 import { chromium } from 'playwright'
 
-const targetUrl = process.env.MODFORGE_LAUNCHER_DRAG_URL ?? 'http://127.0.0.1:5175/?mfLauncherMock=1'
+const targetUrl = process.env.MODFORGE_LAUNCHER_DRAG_URL ?? 'http://127.0.0.1:5173/?mfLauncherMock=1'
 
 function percentile(values, p) {
   if (!values.length) return 0
@@ -331,6 +331,12 @@ try {
     y: target.y + target.height / 2,
   }
 
+  await page.evaluate(() => {
+    window.__launcherHorizontalScrollBefore = Array.from(document.querySelectorAll('*'))
+      .filter((element) => element.scrollWidth > element.clientWidth || element.classList.contains('launcher-library-grid-viewport'))
+      .map((element) => ({ element, scrollLeft: element.scrollLeft, className: element.className }))
+  })
+
   await page.mouse.move(start.x, start.y)
   await page.mouse.down()
   await page.evaluate(() => {
@@ -397,6 +403,12 @@ try {
       folderText: document.querySelector('[data-launcher-folder-drop-id]')?.textContent ?? '',
       consoleErrors: window.__launcherDragConsoleErrors ?? [],
       events: window.__launcherDragEvents ?? [],
+      horizontalScrollDeltas: (window.__launcherHorizontalScrollBefore ?? []).map(({ element, scrollLeft, className }) => ({
+        className,
+        before: scrollLeft,
+        after: element.scrollLeft,
+        delta: element.scrollLeft - scrollLeft,
+      })),
     }
   })
 
@@ -441,6 +453,7 @@ try {
     immediateFeedback,
     previewVisibleAfterDrop: result.previewVisible,
     folderText: result.folderText,
+    horizontalScrollDeltas: result.horizontalScrollDeltas,
   }
 
   console.log(JSON.stringify(summary, null, 2))
@@ -453,6 +466,10 @@ try {
   }
   if (!immediateFeedback) {
     throw new Error('Drag did not show grab feedback after movement crossed the drag threshold.')
+  }
+  const horizontalScrollChanges = result.horizontalScrollDeltas.filter(({ delta }) => delta !== 0)
+  if (horizontalScrollChanges.length > 0) {
+    throw new Error(`Drag changed horizontal scroll positions: ${JSON.stringify(horizontalScrollChanges)}`)
   }
   if (
     longTaskCount > 0 ||

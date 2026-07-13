@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import type { ComponentProps } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { editorCopy } from '@locales/api'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import type { LauncherLibraryModSummary, LauncherSettings } from '@features/launcher/api'
@@ -43,6 +43,32 @@ function createDeferred<T>() {
 
 function createNeverSettledPromise<T>() {
   return new Promise<T>(() => {})
+}
+
+function createConfigurationPort(overrides: Partial<LauncherPort> = {}) {
+  return createMockLauncherPort({
+    scanLibrary: vi.fn(() => createNeverSettledPromise<Awaited<ReturnType<LauncherPort['scanLibrary']>>>()),
+    loadRuntimeInfo: vi.fn(() => createNeverSettledPromise<Awaited<ReturnType<LauncherPort['loadRuntimeInfo']>>>()),
+    loadGmcmProbeDiagnostics: vi.fn(() => createNeverSettledPromise<Awaited<ReturnType<LauncherPort['loadGmcmProbeDiagnostics']>>>()),
+    validateNexusApiKey: vi.fn(() => createNeverSettledPromise<Awaited<ReturnType<LauncherPort['validateNexusApiKey']>>>()),
+    getNexusSsoStatus: vi.fn(() => createNeverSettledPromise<Awaited<ReturnType<LauncherPort['getNexusSsoStatus']>>>()),
+    ...overrides,
+  })
+}
+
+function createConfigurationPortWithValidApiKey() {
+  return createConfigurationPort({
+    validateNexusApiKey: vi.fn().mockResolvedValue({
+      userName: 'TestUser',
+      avatarUrl: null,
+      profileUrl: null,
+      isPremium: true,
+      dailyRemaining: 950,
+      hourlyRemaining: 450,
+      dailyResetAt: null,
+      hourlyResetAt: null,
+    }),
+  })
 }
 
 vi.mock('@platform/observability', () => ({
@@ -125,7 +151,7 @@ function createSettingsState(settings: LauncherSettings = createSettings()) {
 
 function renderConfigurationPage(
   overrides?: Partial<ComponentProps<typeof LauncherConfigurationPage>>,
-  port: LauncherPort = createMockLauncherPort(),
+  port: LauncherPort = createConfigurationPort(),
 ) {
   const settingsState = createSettingsState()
   const props = {
@@ -149,6 +175,11 @@ function expandDebugTools() {
 }
 
 describe('LauncherConfigurationPage', () => {
+  beforeEach(() => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    restartLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+  })
+
   afterEach(() => {
     cleanup()
     reportAppEvent.mockReset()
@@ -229,7 +260,7 @@ describe('LauncherConfigurationPage', () => {
       hourlyResetAt: null,
     })
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+    renderConfigurationPage(undefined, createConfigurationPort({ validateNexusApiKey }))
 
     expect(await screen.findByText('RealPilot')).toBeTruthy()
     const accountCard = screen.getByTestId('launcher-config-account-card')
@@ -271,7 +302,7 @@ describe('LauncherConfigurationPage', () => {
       hourlyResetAt: null,
     })
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+    renderConfigurationPage(undefined, createConfigurationPort({ validateNexusApiKey }))
 
     const accountCard = await screen.findByTestId('launcher-config-account-card')
 
@@ -292,7 +323,7 @@ describe('LauncherConfigurationPage', () => {
       hourlyResetAt: null,
     })
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+    renderConfigurationPage(undefined, createConfigurationPort({ validateNexusApiKey }))
 
     const accountCard = await screen.findByTestId('launcher-config-account-card')
     const tierBadge = within(accountCard).getByText(copy.diagnostics.premiumFree)
@@ -334,7 +365,7 @@ describe('LauncherConfigurationPage', () => {
     loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
     const validateNexusApiKey = vi.fn().mockRejectedValue(new Error('should not validate on cached entry'))
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+    renderConfigurationPage(undefined, createConfigurationPort({ validateNexusApiKey }))
 
     expect(await screen.findByText('CachedPilot')).toBeTruthy()
     expect(validateNexusApiKey).not.toHaveBeenCalled()
@@ -355,7 +386,7 @@ describe('LauncherConfigurationPage', () => {
       hourlyResetAt: null,
     })
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+    renderConfigurationPage(undefined, createConfigurationPort({ validateNexusApiKey }))
 
     const nexusPanel = screen.getByTestId('launcher-config-nexus')
     await waitFor(() => {
@@ -379,7 +410,7 @@ describe('LauncherConfigurationPage', () => {
       hourlyResetAt: nowSeconds + 45 * 60,
     })
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+    renderConfigurationPage(undefined, createConfigurationPort({ validateNexusApiKey }))
 
     const nexusPanel = screen.getByTestId('launcher-config-nexus')
     await waitFor(() => {
@@ -402,7 +433,7 @@ describe('LauncherConfigurationPage', () => {
       hourlyResetAt: null,
     })
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+    renderConfigurationPage(undefined, createConfigurationPort({ validateNexusApiKey }))
 
     const nexusPanel = screen.getByTestId('launcher-config-nexus')
     await waitFor(() => {
@@ -423,7 +454,7 @@ describe('LauncherConfigurationPage', () => {
       smapiVersion: '4.0.8',
     })
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ scanLibrary, loadRuntimeInfo } as Partial<LauncherPort>))
+    renderConfigurationPage(undefined, createConfigurationPort({ scanLibrary, loadRuntimeInfo } as Partial<LauncherPort>))
 
     expect(screen.queryByTestId('launcher-config-score-value')).toBeNull()
     expect(document.querySelector('.launcher-config-score-ring')).toBeNull()
@@ -550,7 +581,7 @@ describe('LauncherConfigurationPage', () => {
 
     renderConfigurationPage(
       undefined,
-      createMockLauncherPort({
+      createConfigurationPort({
         scanLibrary,
         loadRuntimeInfo,
         getNexusSsoStatus,
@@ -638,7 +669,7 @@ describe('LauncherConfigurationPage', () => {
       hourlyResetAt: null,
     })
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+    renderConfigurationPage(undefined, createConfigurationPort({ validateNexusApiKey }))
 
     const nexusHeading = screen.getByRole('heading', { name: copy.settings.nexusAccessTitle, level: 2 })
     const apiHeading = await screen.findByRole('heading', { name: copy.settings.nexusApiRest, level: 3 })
@@ -692,7 +723,7 @@ describe('LauncherConfigurationPage', () => {
       ],
     })
 
-    renderConfigurationPage()
+    renderConfigurationPage(undefined, createConfigurationPortWithValidApiKey())
 
     const apiRouteRow = await screen.findByRole('heading', { name: copy.settings.nexusApiRest, level: 3 })
     expect(apiRouteRow.closest('.launcher-config-api-row')).toHaveClass('launcher-config-api-row-resolved')
@@ -724,7 +755,7 @@ describe('LauncherConfigurationPage', () => {
     })
 
     const settingsState = createSettingsState(createSettings({ nexusApiKey: null }))
-    renderConfigurationPage({ settingsState: settingsState as never }, createMockLauncherPort({ startNexusSso, getNexusSsoStatus }))
+    renderConfigurationPage({ settingsState: settingsState as never }, createConfigurationPort({ startNexusSso, getNexusSsoStatus }))
 
     const nexusPanel = screen.getByRole('region', { name: copy.settings.nexusAccessTitle })
     fireEvent.click(screen.getByRole('button', { name: copy.settings.nexusSignInAction }))
@@ -751,7 +782,7 @@ describe('LauncherConfigurationPage', () => {
     const startNexusSso = vi.fn().mockReturnValue(pendingStart.promise)
 
     const settingsState = createSettingsState(createSettings({ nexusApiKey: null }))
-    renderConfigurationPage({ settingsState: settingsState as never }, createMockLauncherPort({ startNexusSso }))
+    renderConfigurationPage({ settingsState: settingsState as never }, createConfigurationPort({ startNexusSso }))
 
     const signInButton = screen.getByRole('button', { name: copy.settings.nexusSignInAction })
     fireEvent.click(signInButton)
@@ -809,7 +840,7 @@ describe('LauncherConfigurationPage', () => {
 
     renderConfigurationPage(
       { settingsState: settingsState as never },
-      createMockLauncherPort({ startNexusSso, getNexusSsoStatus, validateNexusApiKey }),
+      createConfigurationPort({ startNexusSso, getNexusSsoStatus, validateNexusApiKey }),
     )
 
     await act(async () => {
@@ -885,7 +916,7 @@ describe('LauncherConfigurationPage', () => {
     })
     const validateNexusApiKey = vi.fn().mockRejectedValue(new Error('HTTP 503: upstream unavailable'))
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+    renderConfigurationPage(undefined, createConfigurationPort({ validateNexusApiKey }))
 
     expect(await screen.findByText(copy.settings.nexusApiGraphql)).toBeTruthy()
     expect(screen.getByText('浏览目录、搜索和公开详情查询')).toBeTruthy()
@@ -930,7 +961,7 @@ describe('LauncherConfigurationPage', () => {
       ],
     })
 
-    renderConfigurationPage()
+    renderConfigurationPage(undefined, createConfigurationPortWithValidApiKey())
 
     expect(await screen.findByRole('heading', { name: copy.settings.nexusApiRest, level: 3 })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Nexus Private GraphQL', level: 3 })).toBeTruthy()
@@ -953,7 +984,7 @@ describe('LauncherConfigurationPage', () => {
   it('does not mark the Nexus REST row as success when API validation still failed after SSO', async () => {
     loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
     const validateNexusApiKey = vi.fn().mockRejectedValue(new Error('network timeout'))
-    const port = createMockLauncherPort({
+    const port = createConfigurationPort({
       validateNexusApiKey,
       getNexusSsoStatus: vi.fn().mockResolvedValue({
         status: 'authorized' as const,
@@ -1280,7 +1311,7 @@ describe('LauncherConfigurationPage', () => {
     const onDiagnosticsUpdate = vi.fn()
 
     renderWithLocale(
-      <LauncherTestWrapper port={createMockLauncherPort()}>
+      <LauncherTestWrapper port={createConfigurationPort()}>
         <LauncherConfigurationPage
           debugEnabled={true}
           onToggleDebugMode={vi.fn()}
@@ -1392,7 +1423,7 @@ describe('LauncherConfigurationPage', () => {
       repairActions: [],
     })
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ loadGmcmProbeDiagnostics }))
+    renderConfigurationPage(undefined, createConfigurationPort({ loadGmcmProbeDiagnostics }))
 
     const probePanel = await screen.findByTestId('launcher-config-gmcm-probe')
 
@@ -1412,7 +1443,7 @@ describe('LauncherConfigurationPage', () => {
     const loadGmcmProbeDiagnostics = vi.fn()
     const settingsState = createSettingsState(createSettings({ gmcmParsingEnabled: false }))
 
-    renderConfigurationPage({ settingsState: settingsState as never }, createMockLauncherPort({ loadGmcmProbeDiagnostics }))
+    renderConfigurationPage({ settingsState: settingsState as never }, createConfigurationPort({ loadGmcmProbeDiagnostics }))
 
     const probePanel = await screen.findByTestId('launcher-config-gmcm-probe')
     expect(probePanel.textContent).toContain(copy.configuration.gmcmParsingDisabled)
@@ -1438,7 +1469,7 @@ describe('LauncherConfigurationPage', () => {
       repairActions: ['install-dotnet-6-runtime'],
     })
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ loadGmcmProbeDiagnostics }))
+    renderConfigurationPage(undefined, createConfigurationPort({ loadGmcmProbeDiagnostics }))
 
     const probePanel = await screen.findByTestId('launcher-config-gmcm-probe')
 
@@ -1485,7 +1516,7 @@ describe('LauncherConfigurationPage', () => {
       repairActions: ['install-dotnet-6-runtime', 'set-modforge-dotnet-path'],
     })
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ loadGmcmProbeDiagnostics, openUrl }))
+    renderConfigurationPage(undefined, createConfigurationPort({ loadGmcmProbeDiagnostics, openUrl }))
 
     const probePanel = await screen.findByTestId('launcher-config-gmcm-probe')
     fireEvent.click(within(probePanel).getAllByRole('button', { name: copy.configuration.gmcmProbeResolveAction })[0])
@@ -1580,7 +1611,7 @@ describe('LauncherConfigurationPage', () => {
     })
     applyAppUiStatePatch.mockResolvedValue(undefined)
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+    renderConfigurationPage(undefined, createConfigurationPort({ validateNexusApiKey }))
     expandDebugTools()
     fireEvent.click(await screen.findByRole('switch', { name: copy.configuration.forceNonPremiumEnableButton }))
 

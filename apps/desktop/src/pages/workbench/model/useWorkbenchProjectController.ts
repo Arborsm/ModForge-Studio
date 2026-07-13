@@ -15,7 +15,7 @@ export function useWorkbenchProjectController({
   saveFailedMessage,
   runWithExternalGuard,
 }: WorkbenchProjectControllerOptions) {
-  const port = useCpMakerPort()
+  const { loadSession, saveSession } = useCpMakerPort()
   const [session, setSession] = useState<CpMakerSession | null>(null)
   const [sessionLoaded, setSessionLoaded] = useState(false)
   const [restoreComplete, setRestoreComplete] = useState(false)
@@ -31,13 +31,12 @@ export function useWorkbenchProjectController({
     const cleared = { activeDraftKey: null, activeGeneratedDraftKey: session?.activeGeneratedDraftKey ?? null }
     persistedActiveKeyRef.current = null
     setSession(cleared)
-    void port.saveSession(cleared)
-  }, [port, session?.activeGeneratedDraftKey])
+    void saveSession(cleared)
+  }, [saveSession, session?.activeGeneratedDraftKey])
 
   useEffect(() => {
     let cancelled = false
-    void port
-      .loadSession()
+    void loadSession()
       .then((loaded) => {
         if (!cancelled) {
           setSession(loaded)
@@ -55,7 +54,7 @@ export function useWorkbenchProjectController({
     return () => {
       cancelled = true
     }
-  }, [port])
+  }, [loadSession])
 
   useEffect(() => {
     if (!sessionLoaded || !cpMaker.draftsReady || restoreAttemptedRef.current) return
@@ -104,8 +103,8 @@ export function useWorkbenchProjectController({
     const next = { activeDraftKey, activeGeneratedDraftKey: session?.activeGeneratedDraftKey ?? null }
     persistedActiveKeyRef.current = activeDraftKey
     setSession(next)
-    void port.saveSession(next)
-  }, [cpMaker.activeDraft?.draftStorageKey, port, restoreComplete, session?.activeGeneratedDraftKey])
+    void saveSession(next)
+  }, [cpMaker.activeDraft?.draftStorageKey, restoreComplete, saveSession, session?.activeGeneratedDraftKey])
 
   const runWithUnsavedGuard = useCallback(
     async (action: () => void | Promise<void>) => {

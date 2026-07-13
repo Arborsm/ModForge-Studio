@@ -59,5 +59,17 @@ describe('MapWorldStatePreviewOverlay loading skeleton', () => {
 
     expect(container.querySelector('.map-overlay-sprite-skeleton')).toBeNull()
     expect(container.querySelector('.image-skeleton')).toBeNull()
+    const outerSprite = container.firstElementChild?.firstElementChild as HTMLElement | null
+    const renderedSprite = outerSprite?.firstElementChild as HTMLElement | null
+    expect(outerSprite).toHaveStyle({ transform: 'translate(16px, 16px)', width: '4px', height: '4px', zIndex: '1' })
+    expect(renderedSprite).toHaveStyle({
+      width: '16px',
+      height: '16px',
+      transform: 'scale(0.25, 0.25)',
+      backgroundImage: 'url("data:image/png;base64,abc")',
+      backgroundPosition: '-0px -0px',
+      backgroundRepeat: 'no-repeat',
+      imageRendering: 'pixelated',
+    })
   })
 })

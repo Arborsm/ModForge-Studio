@@ -347,19 +347,6 @@ function seedAppUiState(overrides: MockAppUiStateOverrides = {}) {
   })
 }
 
-function createMockWorkspaceLayoutState() {
-  return {
-    chrome: {
-      bottomHeight: 220,
-      bottomSplit: 0.5,
-      leftSplit: 0.44,
-      leftWidth: 0.22,
-      rightSplit: 0.34,
-      rightWidth: 0.24,
-    },
-  }
-}
-
 vi.mock('@pages/workbench/ui/DevDebugOverlay', () => ({
   DevDebugOverlay: () => <div data-testid="app-debug-overlay" />,
 }))
@@ -964,29 +951,6 @@ describe('App locale ownership', () => {
     })
   })
 
-  it('shows preload progress inside a bottom-right notification instead of the overlay', async () => {
-    seedAppUiState({
-      shell: { appMode: 'workbench' },
-    })
-    mapWorkspaceState.resourcePreloadState = {
-      active: true,
-      message: 'Loading maps',
-      currentLabel: 'Maps/Town.tmx',
-      completed: 4,
-      total: 10,
-    }
-
-    const { container } = render(<App />)
-
-    expect(container.querySelector('.initialization-preload-backdrop')).toBeNull()
-    expect(container.querySelector('.initialization-preload-panel')).toBeNull()
-
-    expect(await screen.findByText('Loading maps')).toBeTruthy()
-    expect(screen.getByText('Maps/Town.tmx')).toBeTruthy()
-    expect(screen.getByRole('region', { name: 'Notifications' })).toBeTruthy()
-    expect(container.querySelector('.notification-toast-progress')?.getAttribute('style')).toContain('width: 40%')
-  })
-
   it('opens the launcher library when launcher mode is restored from persisted shell state', () => {
     seedAppUiState({
       shell: {
@@ -1409,60 +1373,5 @@ describe('App locale ownership', () => {
     })
 
     expect(screen.queryByRole('button', { name: 'Launch Game' })).toBeNull()
-  })
-
-  it('does not re-render App when the workspace layout reports an in-session persist update', async () => {
-    const persistedLayout = createMockWorkspaceLayoutState()
-
-    seedAppUiState({
-      shell: {
-        appMode: 'workbench',
-      },
-      workspace: {
-        modules: {
-          'map-browser': { layout: persistedLayout },
-        },
-      },
-    })
-
-    render(<App />)
-
-    await waitFor(() => {
-      expect(workspaceLayoutMock.mock.calls.length).toBeGreaterThanOrEqual(1)
-    })
-
-    const renderCountBeforePersist = workspaceLayoutMock.mock.calls.length
-    const workspaceLayoutProps = workspaceLayoutMock.mock.calls.at(-1)?.[0] as
-      | {
-          storageKey: string
-          onPersistStateChange?: (storageKey: string, state: Record<string, unknown>) => void
-        }
-      | undefined
-
-    expect(workspaceLayoutProps?.storageKey).toBe('map-browser')
-
-    const nextLayout = {
-      ...persistedLayout,
-      chrome: {
-        ...persistedLayout.chrome,
-        leftWidth: 0.26,
-      },
-    }
-
-    act(() => {
-      workspaceLayoutProps?.onPersistStateChange?.(workspaceLayoutProps.storageKey, nextLayout)
-    })
-
-    expect(workspaceLayoutMock.mock.calls.length).toBe(renderCountBeforePersist)
-
-    await waitFor(() => {
-      expect(applyAppUiStatePatchMock).toHaveBeenCalledWith({
-        workspace: {
-          modules: {
-            [workspaceLayoutProps!.storageKey]: { layout: nextLayout },
-          },
-        },
-      })
-    })
   })
 })

@@ -32,6 +32,8 @@ vp run lint
 vp run format:check
 # 前端单元测试：必须用 `test run`，裸 `vp test` 会进入 watch 模式并在非交互式 shell 中挂起
 vp test run --configLoader runner
+# 完整 JavaScript gate（Vitest + 独立 Node tests）
+vp run --filter @modforge/desktop test
 ```
 
 Rust 后端命令必须显式指定 manifest：
@@ -40,6 +42,9 @@ Rust 后端命令必须显式指定 manifest：
 cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml
 cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+# 只编译依赖本机游戏数据的 ignored regression 和 report examples
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features installed-game-validation --no-run
+cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --features installed-game-validation --examples
 ```
 
 Host command 调度追踪：
@@ -107,7 +112,7 @@ MODFORGE_COMMAND_TRACE=1 vp run dev
 
 ## 验证规则
 
-- 只跑改动相关的验证，不要每次收尾都跑完整前端或 Rust 套件；改动面广或 targeted run 出现无关失败时再回退到全量。
+- 只跑改动相关的验证、架构测试，不要每次收尾都跑完整前端或 Rust 套件；改动面广或 targeted run 出现无关失败时再回退到全量。
 - 前端改动最终至少说明 `vp run lint`、`vp run build`、受影响的测试文件是否已跑；未跑要说明原因。
 - Rust 改动先跑 `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`，再跑对应 `cargo check` 或具体测试模块；除非跨模块影响，否则不必全量 `cargo test`。
 - 架构迁移必须补充或更新架构测试，覆盖依赖方向、平台 API 泄漏、旧根目录回归、feature 横向依赖和实体层 UI 类型污染。

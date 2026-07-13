@@ -43,24 +43,3 @@ fn from_test_descriptors_registers_compatible_ids_and_asset_kinds() {
         Some("image")
     );
 }
-
-#[test]
-fn domain_attached_api_registry_preserves_existing_registration_behavior() {
-    let registry = AttachedApiRegistry::from_test_descriptors(&[(
-        "Arborsm.ScaleUpUnofficial",
-        &["Platonymous.ScaleUp"],
-        &[("PreviewTexture", "image")],
-    )]);
-
-    assert_eq!(
-        registry.provided_unique_ids_for("Arborsm.ScaleUpUnofficial"),
-        vec![
-            "Arborsm.ScaleUpUnofficial".to_string(),
-            "Platonymous.ScaleUp".to_string()
-        ]
-    );
-    assert_eq!(
-        registry.infer_asset_kind("Arborsm.ScaleUpUnofficial/PreviewTexture"),
-        Some("image")
-    );
-}

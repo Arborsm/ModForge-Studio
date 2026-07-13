@@ -30,7 +30,7 @@ describe('getMapDirectory', () => {
   })
 
   it('returns an empty string for a root-level file', () => {
-    expect(getMapDirectory('TestMap.tmx')).toBe('TestMap.tmx')
+    expect(getMapDirectory('TestMap.tmx')).toBe('')
   })
 
   it('returns the parent for deeply nested paths', () => {

@@ -1,34 +1,14 @@
-import { readdir, readFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { relative, resolve } from 'node:path'
 import { describe, expect, it } from 'vite-plus/test'
+import { collectRequiredFiles } from '@test/sourceScan'
 
 function sourcePath(...segments: string[]) {
   return resolve(process.cwd(), ...segments)
 }
 
-async function collectSourceFiles(rootPath: string): Promise<string[]> {
-  try {
-    const entries = await readdir(rootPath, { withFileTypes: true })
-    const nestedFiles = await Promise.all(
-      entries.map((entry) => {
-        const entryPath = resolve(rootPath, entry.name)
-
-        if (entry.isDirectory()) {
-          return collectSourceFiles(entryPath)
-        }
-
-        if (entry.isFile() && /\.(ts|tsx)$/.test(entry.name)) {
-          return Promise.resolve([entryPath])
-        }
-
-        return Promise.resolve([])
-      }),
-    )
-
-    return nestedFiles.flat()
-  } catch {
-    return []
-  }
+function collectSourceFiles(rootPath: string) {
+  return collectRequiredFiles(rootPath, { extensions: ['.ts', '.tsx'] })
 }
 
 const TEST_FILE_PATTERN = /(?:\.test|\.spec)\.(?:ts|tsx)$/

@@ -83,6 +83,11 @@ jobs:
       - name: Run Rust tests
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 
+      - name: Compile installed-game validation targets
+        run: |
+          cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features installed-game-validation --no-run
+          cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --features installed-game-validation --examples
+
       - name: Prepare macOS notarization key
         if: matrix.platform == 'macos'
         env:

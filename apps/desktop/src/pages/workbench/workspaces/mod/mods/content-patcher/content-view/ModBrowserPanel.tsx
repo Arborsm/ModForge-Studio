@@ -80,7 +80,7 @@ function ProjectRow({
   })
 
   return (
-    <button type="button" disabled={isIncompatible} {...revealProps} onClick={onSelect}>
+    <button type="button" disabled={isIncompatible} aria-pressed={active} {...revealProps} onClick={onSelect}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-(--text-primary)">{project.name}</p>
@@ -190,6 +190,7 @@ export function ModBrowserPanel({
                           : 'text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
                       ),
                     })}
+                    aria-pressed={active}
                     onClick={() => onSelectProject(project.absolutePath)}
                   >
                     <div className="min-w-0">

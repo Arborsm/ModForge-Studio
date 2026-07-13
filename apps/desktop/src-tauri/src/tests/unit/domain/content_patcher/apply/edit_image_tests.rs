@@ -48,18 +48,8 @@ fn apply_mask_reduces_alpha() {
     });
     assert!(result.is_ok(), "{result:?}");
 
-    // Pixel (0,0) should be untouched (outside mask area)
-    let untouched = base.get_pixel(0, 0);
-    assert_eq!(untouched[3], 255);
-
-    // Pixel (1,1) should have reduced alpha: 255 * (1 - 128/255) ≈ 127
-    let masked = base.get_pixel(1, 1);
-    assert!(
-        masked[3] < 255,
-        "expected alpha reduction, got {}",
-        masked[3]
-    );
-    assert!(masked[3] > 0, "expected non-zero alpha, got {}", masked[3]);
+    assert_eq!(base.get_pixel(0, 0), &image::Rgba([255, 255, 255, 255]));
+    assert_eq!(base.get_pixel(1, 1), &image::Rgba([255, 255, 255, 127]));
 }
 
 #[test]
@@ -103,10 +93,7 @@ fn apply_overlay_blends_pixels() {
     });
     assert!(result.is_ok(), "{result:?}");
 
-    // After overlay, pixel should be blended (not pure red or pure blue)
-    let blended = base.get_pixel(0, 0);
-    assert_ne!(blended[0], 255, "red should be blended");
-    assert_ne!(blended[2], 255, "blue should be blended");
+    assert_eq!(base.get_pixel(0, 0), &image::Rgba([127, 0, 128, 254]));
 }
 
 #[test]

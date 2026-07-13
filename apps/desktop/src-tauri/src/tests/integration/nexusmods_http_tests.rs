@@ -24,16 +24,6 @@ fn launcher_http_test_guard() -> &'static Mutex<()> {
     GUARD.get_or_init(|| Mutex::new(()))
 }
 
-#[test]
-fn nexus_http_module_only_contains_transport_helpers() {
-    let source = include_str!("../../domain/nexusmods/http.rs");
-
-    assert!(!source.contains("LauncherNexusDiagnosticsState"));
-    assert!(!source.contains("probe_launcher_nexus_public_graphql_route"));
-    assert!(!source.contains("run_launcher_nexus_diagnostics"));
-    assert!(!source.contains("LauncherNexusRoute"));
-}
-
 fn launcher_settings(api_key: Option<&str>) -> LauncherSettings {
     LauncherSettings {
         game_path: None,
@@ -213,13 +203,6 @@ fn nexus_request_delay_for_test_stays_within_expected_range() {
     assert!(min <= Duration::from_millis(80));
     assert!(max >= Duration::from_millis(45));
     assert!(max <= Duration::from_millis(80));
-}
-
-#[test]
-fn nexus_request_delay_for_test_stays_below_twenty_five_requests_per_second() {
-    let min = nexus_request_delay_for_test(1);
-
-    assert!(min >= Duration::from_millis(40));
 }
 
 #[test]

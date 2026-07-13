@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vite-plus/test'
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import type { CpMakerPort } from '@features/cp-maker'
 import { CpMakerProvider } from '@features/cp-maker'
@@ -33,20 +33,6 @@ function createWrapper(port: CpMakerPort) {
 }
 
 describe('useCpMaker', () => {
-  it('loads draft list on mount via injected port', async () => {
-    const port = createMockPort()
-    const { result } = renderHook(() => useCpMaker(), {
-      wrapper: createWrapper(port),
-    })
-
-    await vi.waitFor(() => {
-      expect(port.listDrafts).toHaveBeenCalledOnce()
-    })
-    // Initial state before async resolution
-    expect(result.current.drafts).toEqual([])
-    expect(result.current.activeDraft).toBeNull()
-  })
-
   it('throws when used outside CpMakerProvider', () => {
     expect(() => {
       renderHook(() => useCpMaker())
@@ -69,7 +55,7 @@ describe('useCpMaker', () => {
       wrapper: createWrapper(port),
     })
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(result.current.drafts).toHaveLength(1)
     })
 
@@ -103,7 +89,7 @@ describe('useCpMaker', () => {
     port.saveDraft = vi.fn().mockResolvedValue({ ...imported, lastDraftSavedAt: 100 })
 
     const { result } = renderHook(() => useCpMaker(), { wrapper: createWrapper(port) })
-    await vi.waitFor(() => expect(port.listDrafts).toHaveBeenCalledOnce())
+    await waitFor(() => expect(port.listDrafts).toHaveBeenCalledOnce())
 
     await act(async () => {
       await result.current.importPack('/mods/ImportedPack')
@@ -120,7 +106,7 @@ describe('useCpMaker', () => {
     const port = createMockPort()
     port.saveDraft = vi.fn().mockRejectedValue(new Error('disk full'))
     const { result } = renderHook(() => useCpMaker(), { wrapper: createWrapper(port) })
-    await vi.waitFor(() => expect(port.listDrafts).toHaveBeenCalledOnce())
+    await waitFor(() => expect(port.listDrafts).toHaveBeenCalledOnce())
 
     let created = true
     await act(async () => {
@@ -165,7 +151,7 @@ describe('useCpMaker', () => {
     })
 
     const { result } = renderHook(() => useCpMaker(), { wrapper: createWrapper(port) })
-    await vi.waitFor(() => expect(port.listDrafts).toHaveBeenCalledOnce())
+    await waitFor(() => expect(port.listDrafts).toHaveBeenCalledOnce())
     await act(async () => {
       await result.current.importPack('/mods/ExportPack')
     })

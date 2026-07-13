@@ -13,7 +13,7 @@ mod support;
 pub mod dev_asset_bridge;
 
 #[cfg(test)]
-#[path = "../tests/support.rs"]
+#[path = "../tests/support/mod.rs"]
 pub mod test_support;
 pub use support::logging;
 

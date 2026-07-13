@@ -65,7 +65,7 @@ describe('LauncherArtworkCover', () => {
     expect(container.firstElementChild).toHaveClass('launcher-mod-card-cover-has-image')
   })
 
-  it('renders the foreground image directly without a separate shell in blur-background mode', () => {
+  it('keeps the foreground image while disabling the optional blur strip', () => {
     useLauncherImageMock.mockReturnValue({
       imageUrl: 'https://example.com/cover.png',
       error: null,
@@ -79,10 +79,12 @@ describe('LauncherArtworkCover', () => {
         imageModKey="101"
         coverStyle={coverStyle}
         coverWord="NPC"
+        showBlurStrip={false}
       />,
     )
 
-    expect(container.querySelector('.launcher-mod-card-cover-image-shell')).toBeNull()
+    expect(container.querySelector('.launcher-mod-card-cover-image-blur-strip')).toBeNull()
+    expect(container.querySelector('.launcher-mod-card-cover-image')).toHaveAttribute('src', 'https://example.com/cover.png')
   })
 
   it('renders fallback presentation without image layers when no image is available', () => {

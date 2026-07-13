@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vite-plus/test'
 import type { CpMakerPort, UseCpMakerReturn } from '@features/cp-maker'
 import { useWorkbenchProjectController } from '@pages/workbench/model/useWorkbenchProjectController'
@@ -115,7 +115,9 @@ describe('useWorkbenchProjectController', () => {
 
     await waitFor(() => expect(result.current.projectReady).toBe(true))
     const onSelected = vi.fn()
-    await result.current.selectDraft('broken-draft', onSelected)
+    await act(async () => {
+      await result.current.selectDraft('broken-draft', onSelected)
+    })
     expect(onSelected).not.toHaveBeenCalled()
     expect(onRestoreFailed).toHaveBeenCalledTimes(1)
   })
@@ -138,7 +140,9 @@ describe('useWorkbenchProjectController', () => {
     )
 
     await waitFor(() => expect(result.current.projectReady).toBe(true))
-    await result.current.createDraft({ projectName: 'Broken', projectUniqueId: 'Author.Broken' }, onCreated)
+    await act(async () => {
+      await result.current.createDraft({ projectName: 'Broken', projectUniqueId: 'Author.Broken' }, onCreated)
+    })
 
     expect(onCreated).not.toHaveBeenCalled()
   })

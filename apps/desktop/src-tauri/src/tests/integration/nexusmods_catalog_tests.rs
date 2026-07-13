@@ -19,22 +19,6 @@ fn assert_catalog_time_range_filter(payload: &Value, field: &str) {
 }
 
 #[test]
-fn catalog_does_not_use_removed_legacy_catalog_widget_endpoint() {
-    let source = include_str!("../../domain/nexusmods/graphql/catalog.rs");
-
-    assert!(!source.contains("Core/Libs/Common/Widgets/ModList"));
-}
-
-#[test]
-fn catalog_graphql_requests_use_documented_v2_endpoint() {
-    let source = include_str!("../../domain/nexusmods/graphql/catalog.rs");
-
-    assert!(source.contains("graphql::GRAPHQL_ENDPOINT"));
-    assert!(!source.contains(&format!("https://graphql.{}{}", "nexusmods.com", "/")));
-    assert!(!source.contains(&format!("https://api-router.{}", "nexusmods.com/graphql")));
-}
-
-#[test]
 fn build_catalog_graphql_payload_applies_time_range_to_updated_sort() {
     let payload = build_catalog_graphql_payload(&SearchLauncherCatalogRequest {
         query: None,

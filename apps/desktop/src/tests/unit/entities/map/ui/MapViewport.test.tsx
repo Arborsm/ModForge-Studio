@@ -138,13 +138,17 @@ describe('MapViewport tile interactions', () => {
     expect(document.querySelector('[data-map-tile-pick="true"]')).toBeInTheDocument()
   })
 
-  it('uses middle mouse for panning without triggering tile pick', () => {
+  it('uses middle mouse for panning without triggering tile pick', async () => {
     const { viewport, onTileClick } = renderViewport()
 
     fireEvent.pointerDown(viewport, { pointerId: 2, button: 1, clientX: 160, clientY: 120 })
     fireEvent.pointerMove(viewport, { pointerId: 2, button: 1, clientX: 132, clientY: 98 })
     fireEvent.pointerUp(viewport, { pointerId: 2, button: 1, clientX: 132, clientY: 98 })
 
+    await waitFor(() => {
+      expect(viewport.scrollLeft).toBe(28)
+      expect(viewport.scrollTop).toBe(22)
+    })
     expect(onTileClick).not.toHaveBeenCalled()
   })
 })

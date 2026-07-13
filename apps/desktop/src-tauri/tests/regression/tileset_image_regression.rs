@@ -1,16 +1,16 @@
 #[allow(dead_code)]
-#[path = "../src/domain/app_paths.rs"]
+#[path = "../../src/domain/app_paths.rs"]
 mod app_paths;
 #[allow(dead_code, unused_imports)]
-#[path = "../src/domain/assets.rs"]
+#[path = "../../src/domain/assets.rs"]
 mod assets;
 mod domain {
     pub(crate) use crate::app_paths;
 }
-#[path = "support/infrastructure.rs"]
+#[path = "../support/infrastructure.rs"]
 mod infrastructure;
 #[allow(dead_code, unused_imports)]
-#[path = "support.rs"]
+#[path = "../support/mod.rs"]
 mod test_support;
 
 use serde_json::Value;

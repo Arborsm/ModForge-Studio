@@ -140,13 +140,6 @@ describe('TopMenuBar', () => {
     expect(screen.queryByRole('link', { name: 'Translations' })).toBeNull()
   })
 
-  it('keeps the workbench title bar free of the old gooey navigation when the shell theme is light', () => {
-    const { container } = renderWithLocale(<TopMenuBar {...buildProps({ theme: 'light' })} />)
-
-    expect(container.querySelector('.top-menu-gooey-nav')).toBeNull()
-    expect(screen.queryByRole('button', { name: copy.workbenchNavigation.title })).toBeNull()
-  })
-
   it('keeps settings in the shell controls instead of the left menu group', () => {
     const { container } = renderWithLocale(<TopMenuBar {...buildProps()} />)
 

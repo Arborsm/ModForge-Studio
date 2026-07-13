@@ -202,6 +202,8 @@ describe('useCharacterWorkspace', () => {
       expect(result.current.activeCharacter?.key).toBe('Emily')
     })
 
-    expect(result.current.assetLoading).toBe(true)
+    await waitFor(() => {
+      expect(result.current.assetLoading).toBe(true)
+    })
   })
 })

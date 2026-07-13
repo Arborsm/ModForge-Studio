@@ -457,11 +457,22 @@ it('keeps a valid persisted theme id', async () => {
 
 it('invalid loading style falls back to default without affecting intensity', async () => {
   vi.resetModules()
-  const { createDefaultAppUiState } = await import('@shared/lib/app-state/appUiState')
-  const defaults = createDefaultAppUiState()
-  // Simulate what normalizeAppUiState does with an invalid style
-  // raw: { appearance: { loadingMotion: { styleId: 'invalid', intensityId: 'strong' } } }
-  // The normalization uses the defaults' valid style
-  expect(defaults.appearance.loadingMotion.styleId).toBe('softFadeIn')
-  expect(defaults.appearance.loadingMotion.intensityId).toBe('standard')
+  const { configureAppUiStatePersistence, createDefaultAppUiState, getAppUiStateSnapshot, initializeAppUiState } =
+    await import('@shared/lib/app-state/appUiState')
+  const persistedState = createDefaultAppUiState()
+  persistedState.appearance.loadingMotion = {
+    ...persistedState.appearance.loadingMotion,
+    styleId: 'invalid' as never,
+    intensityId: 'strong',
+  }
+  configureAppUiStatePersistence({
+    canPersist: () => true,
+    load: vi.fn(async () => persistedState),
+    patch: vi.fn(),
+  })
+
+  await initializeAppUiState()
+
+  expect(getAppUiStateSnapshot().appearance.loadingMotion.styleId).toBe('softFadeIn')
+  expect(getAppUiStateSnapshot().appearance.loadingMotion.intensityId).toBe('strong')
 })

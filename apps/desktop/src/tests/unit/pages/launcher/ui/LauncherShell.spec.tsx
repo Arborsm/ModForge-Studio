@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { useRef, useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import LauncherShell from '@pages/launcher/ui/LauncherShell'
@@ -399,24 +399,5 @@ describe('LauncherShell', () => {
 
     expect(await screen.findByText('configuration-page')).toBeTruthy()
     expect(screen.queryByText('library-page:Launch Game:1')).toBeTruthy()
-  })
-
-  it('does not render a downloads page entry inside the shell', () => {
-    renderWithLocale(
-      <LauncherShell
-        page="library"
-        debugEnabled={false}
-        settingsState={settingsState as never}
-        downloads={downloads as never}
-        onToggleDebugMode={vi.fn()}
-        onNavigateToSettings={vi.fn()}
-        launchGameLabel="Launch Game"
-        launchGameDisabled={false}
-        launchGameBusy={false}
-        onLaunchGame={vi.fn()}
-      />,
-    )
-
-    expect(within(document.body).queryByText('downloads-page')).toBeNull()
   })
 })

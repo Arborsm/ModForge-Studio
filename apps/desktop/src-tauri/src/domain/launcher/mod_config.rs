@@ -1071,9 +1071,13 @@ mod probe_job {
         fn assign_process_to_job_object(job: *mut c_void, process: *mut c_void) -> i32;
         #[link_name = "TerminateJobObject"]
         fn terminate_job_object(job: *mut c_void, exit_code: u32) -> i32;
+        #[link_name = "WaitForSingleObject"]
+        fn wait_for_single_object(handle: *mut c_void, milliseconds: u32) -> u32;
         #[link_name = "CloseHandle"]
         fn close_handle(handle: *mut c_void) -> i32;
     }
+
+    const WAIT_FOR_PROCESSES_TIMEOUT_MS: u32 = 5_000;
 
     pub(super) struct ProbeJob {
         handle: *mut c_void,
@@ -1121,6 +1125,11 @@ mod probe_job {
         pub(super) fn terminate(&self) {
             unsafe {
                 terminate_job_object(self.handle, 1);
+            }
+            // TerminateJobObject starts termination asynchronously. Wait until the job is
+            // signaled so its processes no longer hold the probe working directory.
+            unsafe {
+                let _ = wait_for_single_object(self.handle, WAIT_FOR_PROCESSES_TIMEOUT_MS);
             }
         }
     }

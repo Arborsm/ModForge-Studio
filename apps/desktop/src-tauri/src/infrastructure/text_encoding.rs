@@ -64,6 +64,6 @@ pub fn read_text_file(path: &Path) -> anyhow::Result<String> {
     Ok(decode_text_bytes(&bytes))
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "installed-game-validation")))]
 #[path = "../tests/unit/infrastructure/text_encoding_tests.rs"]
 mod tests;

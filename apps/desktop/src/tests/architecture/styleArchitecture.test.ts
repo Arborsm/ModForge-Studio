@@ -198,8 +198,18 @@ describe('style architecture', () => {
     expect(source).not.toMatch(/\.launcher-library-drawer\s*\{[^}]*inset:\s*0;/s)
   })
 
+  it('keeps the launcher mod detail hero bounded across responsive relayouts', async () => {
+    const source = await readCssWithImports(join(STYLES_DIR, 'features/launcher/library.css'))
+
+    expect(source).toMatch(/\.launcher-mod-card-cover\.launcher-mod-detail-cover\s*\{[^}]*height:\s*100%;[^}]*aspect-ratio:\s*auto;/s)
+    expect(source).toMatch(/@media\s*\(max-width:\s*1100px\)[\s\S]*?\.launcher-mod-detail-hero\s*\{[^}]*max-height:\s*none;/s)
+  })
+
   it('keeps TypeScript source files below the local split threshold', async () => {
     const tsFiles = await collectSourceFiles(SOURCE_DIR, /\.(ts|tsx)$/)
+    expect(source).toMatch(
+      /@media\s*\(max-width:\s*1100px\)[\s\S]*?\.launcher-mod-detail-panel\s*\{[^}]*grid-template-rows:\s*max-content\s+minmax\(20rem,\s*max-content\)\s+4rem;[^}]*overflow:\s*auto;/s,
+    )
     const oversizedFiles: string[] = []
 
     await Promise.all(

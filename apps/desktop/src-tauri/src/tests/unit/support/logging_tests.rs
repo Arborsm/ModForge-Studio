@@ -1,9 +1,9 @@
 use super::{
-    COMMAND_LOG_TARGET, COMMAND_TRACE_ENV, DebugLoggingState, LOG_FILE_COUNT, LOG_FILE_NAME,
-    LOG_FILE_SIZE_BYTES, REQWEST_CONNECT_LOG_TARGET, SYSTEM_CERTIFICATE_LOG_TARGET,
-    TerminalNoiseState, format_frontend_log_message, format_layered_terminal_log_line,
-    format_record_for_terminal, log_file_config, log_tauri_command_error_with,
-    should_colorize_terminal_output,
+    COMMAND_LOG_TARGET, COMMAND_TRACE_ENV, DebugLoggingState, HostLogFile, LOG_FILE_COUNT,
+    LOG_FILE_NAME, LOG_FILE_SIZE_BYTES, LogFileConfig, REQWEST_CONNECT_LOG_TARGET,
+    SYSTEM_CERTIFICATE_LOG_TARGET, TerminalNoiseState, format_frontend_log_message,
+    format_layered_terminal_log_line, format_record_for_terminal, log_file_config,
+    log_tauri_command_error_with, rotated_host_log_path, should_colorize_terminal_output,
 };
 use crate::domain::app_paths::app_logs_dir;
 use log::RecordBuilder;
@@ -73,12 +73,37 @@ fn command_error_logging_helper_formats_failed_results() {
 
 #[test]
 fn log_file_config_writes_to_rotating_app_log_file() {
-    let config = log_file_config().expect("log file config");
+    let production = log_file_config().expect("log file config");
+    assert_eq!(production.directory, app_logs_dir().expect("app logs dir"));
+    assert_eq!(production.file_name, LOG_FILE_NAME);
+    assert_eq!(production.max_file_size_bytes, LOG_FILE_SIZE_BYTES);
+    assert_eq!(production.retained_file_count, LOG_FILE_COUNT);
 
-    assert_eq!(config.directory, app_logs_dir().expect("app logs dir"));
-    assert_eq!(config.file_name, LOG_FILE_NAME);
-    assert_eq!(config.max_file_size_bytes, LOG_FILE_SIZE_BYTES);
-    assert_eq!(config.retained_file_count, LOG_FILE_COUNT);
+    let directory = crate::test_support::create_temp_dir("rotating-host-log");
+    let mut log_file = HostLogFile::new(LogFileConfig {
+        directory: directory.clone(),
+        file_name: "rotation-test",
+        max_file_size_bytes: 8,
+        retained_file_count: 2,
+    })
+    .expect("create rotating log");
+
+    for line in ["first", "second", "third", "fourth"] {
+        log_file.write_line(line).expect("write rotating log line");
+    }
+
+    let active = directory.join("rotation-test.log");
+    assert_eq!(std::fs::read_to_string(&active).unwrap(), "fourth\n");
+    assert_eq!(
+        std::fs::read_to_string(rotated_host_log_path(&active, 1)).unwrap(),
+        "third\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(rotated_host_log_path(&active, 2)).unwrap(),
+        "second\n"
+    );
+    assert!(!rotated_host_log_path(&active, 3).exists());
+    std::fs::remove_dir_all(directory).expect("cleanup rotating log fixture");
 }
 
 #[test]
@@ -112,18 +137,17 @@ fn layered_terminal_formatter_colors_important_segments() {
         true,
     );
 
-    assert!(line.contains(ANSI_ESCAPE));
-    assert!(line.contains("12:34:56"));
-    assert!(line.contains("modforge-sidecar"));
-    assert!(line.contains("WARN"));
-    assert!(line.contains("Nexus"));
+    assert!(line.contains("\u{1b}[2m12:34:56\u{1b}[0m"));
+    assert!(
+        line.contains("\u{1b}[90mmodforge-sidecar\u{1b}[39m"),
+        "{line:?}"
+    );
+    assert!(line.contains("\u{1b}[33mWARN\u{1b}[39m"));
+    assert!(line.contains("\u{1b}[94mNexus\u{1b}[39m"));
     assert!(line.contains("Request failed"));
-    assert!(line.contains("host"));
-    assert!(line.contains("api.nexusmods.com"));
-    assert!(line.contains("path"));
-    assert!(line.contains("/tmp/Mods"));
-    assert!(line.contains("enabled"));
-    assert!(line.contains("false"));
+    assert!(line.contains("\u{1b}[2mhost\u{1b}[0m=\u{1b}[32mapi.nexusmods.com\u{1b}[39m"));
+    assert!(line.contains("\u{1b}[2mpath\u{1b}[0m=\u{1b}[32m/tmp/Mods\u{1b}[39m"));
+    assert!(line.contains("\u{1b}[2menabled\u{1b}[0m=\u{1b}[32mfalse\u{1b}[39m"));
 }
 
 #[test]

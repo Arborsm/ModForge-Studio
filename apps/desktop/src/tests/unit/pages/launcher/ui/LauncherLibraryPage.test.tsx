@@ -32,6 +32,7 @@ const archiveDragDropListeners: Array<
 > = []
 const measureVirtualGridRowMock = vi.fn()
 const measureVirtualGridRowFactoryMock = vi.fn()
+let virtualRowIndexes: number[] | null = null
 
 vi.mock('@radix-ui/react-context-menu', async () => {
   function Root({ children }: { children: ReactNode }) {
@@ -91,19 +92,21 @@ vi.mock('@tanstack/react-virtual', () => ({
     measureElement?: (element: Element) => number
   }) => {
     const rowSize = estimateSize()
-    const visibleRowCount = Math.min(count, 8)
+    const indexes = virtualRowIndexes ?? Array.from({ length: Math.min(count, 8) }, (_, index) => index)
     measureVirtualGridRowFactoryMock(measureElement)
     return {
       getTotalSize: () => count * rowSize,
       getVirtualItems: () =>
-        Array.from({ length: visibleRowCount }, (_, index) => ({
-          index,
-          key: index,
-          start: index * rowSize,
-          size: rowSize,
-          end: (index + 1) * rowSize,
-          lane: 0,
-        })),
+        indexes
+          .filter((index) => index < count)
+          .map((index) => ({
+            index,
+            key: index,
+            start: index * rowSize,
+            size: rowSize,
+            end: (index + 1) * rowSize,
+            lane: 0,
+          })),
       measureElement: measureVirtualGridRowMock,
     }
   },
@@ -546,6 +549,7 @@ describe('LauncherLibraryPage', () => {
   })
 
   beforeEach(() => {
+    virtualRowIndexes = null
     launcherPort = createMockLauncherPort({
       chooseImageFile: chooseImageFileMock,
       inspectArchive: inspectLauncherArchiveMock,
@@ -1061,7 +1065,7 @@ describe('LauncherLibraryPage', () => {
     expect(screen.queryByRole('dialog', { name: 'NPC Adventures modules' })).toBeNull()
   })
 
-  it('enters inline child-mod selection from a parent card and confirms selected children', () => {
+  it('enters inline child-mod selection from a parent card and confirms selected children', async () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
 
@@ -1077,7 +1081,10 @@ describe('LauncherLibraryPage', () => {
     expect(screen.getByText('1 child mod selected')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Confirm child mods' }))
 
-    expect(library.replaceChildMods).toHaveBeenCalledWith('mod-1', ['mod-2'])
+    await waitFor(() => {
+      expect(library.replaceChildMods).toHaveBeenCalledWith('mod-1', ['mod-2'])
+      expect(screen.queryByText('Choosing child mods for NPC Adventures')).toBeNull()
+    })
   })
 
   it('removes child mods from their parent through the child context action', async () => {
@@ -2213,6 +2220,7 @@ describe('LauncherLibraryPage', () => {
     act(() => {
       pointerDragUp(document, 168, 228)
     })
+    await waitFor(() => expect(screen.queryByTestId('launcher-library-drag-preview')).toBeNull())
   })
 
   it('highlights folder and blank drop targets without activating parent-mod targets', async () => {
@@ -3008,23 +3016,9 @@ describe('LauncherLibraryPage', () => {
     expect(await within(backupsDialog).findByText('Restore failed')).not.toBeNull()
   })
 
-  it('virtualizes the large-library grid instead of rendering every card', async () => {
+  it('renders and measures only the rows supplied by the virtualizer', () => {
     const library = createLargeLibraryState()
-    useLauncherLibraryMock.mockReturnValue(library)
-
-    renderLibraryPage()
-
-    expect(screen.getByRole('article', { name: /^large library mod 1$/i })).not.toBeNull()
-    expect(screen.queryByRole('article', { name: /^large library mod 80$/i })).toBeNull()
-    expect(screen.getAllByRole('article').length).toBeLessThan(library.mods.length)
-    expect(document.querySelector('.launcher-library-virtual-grid')).toBeTruthy()
-
-    fireEvent.contextMenu(screen.getByRole('article', { name: /^large library mod 1$/i }))
-    expect((await screen.findAllByRole('menuitem', { name: 'View Details' })).length).toBeGreaterThan(0)
-  })
-
-  it('renders only virtual rows near the viewport', () => {
-    const library = createLargeLibraryState(12)
+    virtualRowIndexes = [2, 5]
     const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       if (this.classList.contains('launcher-library-grid-viewport')) {
         return { width: 560, height: 420, top: 0, left: 0, bottom: 420, right: 560, x: 0, y: 0, toJSON: () => ({}) }
@@ -3039,13 +3033,11 @@ describe('LauncherLibraryPage', () => {
     renderLibraryPage()
 
     const virtualRows = Array.from(document.querySelectorAll<HTMLElement>('.launcher-library-virtual-row'))
-    expect(virtualRows.length).toBeGreaterThan(0)
+    expect(virtualRows.map((row) => row.dataset.index)).toEqual(['2', '5'])
     expect(measureVirtualGridRowFactoryMock).toHaveBeenCalledWith(expect.any(Function))
     expect(measureVirtualGridRowMock).toHaveBeenCalled()
-    expect(virtualRows[0]?.style.paddingBottom).toBe('')
     const measureVirtualRow = measureVirtualGridRowFactoryMock.mock.calls.at(-1)?.[0]
     expect(measureVirtualRow?.(virtualRows[0]!)).toBe(226)
-    expect(screen.getAllByRole('article').length).toBeLessThanOrEqual(library.mods.length)
 
     boundsSpy.mockRestore()
   })
@@ -3078,6 +3070,7 @@ describe('LauncherLibraryPage', () => {
     let viewportWidth = 1120
     const activeResizeCallbacks = new Set<ResizeObserverCallback>()
     const OriginalResizeObserver = globalThis.ResizeObserver
+    vi.useFakeTimers()
     class TestResizeObserver implements ResizeObserver {
       private readonly callback: ResizeObserverCallback
 
@@ -3120,11 +3113,10 @@ describe('LauncherLibraryPage', () => {
 
       renderLibraryPage()
 
-      await waitFor(() => {
-        expect(document.querySelector<HTMLElement>('.launcher-library-virtual-row')?.style.gridTemplateColumns).toContain('repeat(4')
-      })
+      await act(() => vi.advanceTimersByTimeAsync(0))
+      expect(document.querySelector<HTMLElement>('.launcher-library-virtual-row')?.style.gridTemplateColumns).toContain('repeat(4')
 
-      await new Promise((resolve) => window.setTimeout(resolve, 950))
+      await act(() => vi.advanceTimersByTimeAsync(900))
       viewportWidth = 1840
       act(() => {
         for (const callback of activeResizeCallbacks) {
@@ -3132,12 +3124,12 @@ describe('LauncherLibraryPage', () => {
         }
       })
 
-      await waitFor(() => {
-        expect(document.querySelector<HTMLElement>('.launcher-library-virtual-row')?.style.gridTemplateColumns).toContain('repeat(6')
-      })
+      await act(() => vi.advanceTimersByTimeAsync(20))
+      expect(document.querySelector<HTMLElement>('.launcher-library-virtual-row')?.style.gridTemplateColumns).toContain('repeat(6')
     } finally {
       boundsSpy.mockRestore()
       globalThis.ResizeObserver = OriginalResizeObserver
+      vi.useRealTimers()
     }
   }, 10_000)
 

@@ -132,9 +132,16 @@ fn loads_self_contained_xact_fixture_as_wav_data_url() {
         .expect("wav data url prefix");
     let decoded = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, encoded)
         .expect("decode wav bytes");
-    assert_eq!(&decoded[0..4], b"RIFF");
-    assert_eq!(&decoded[8..12], b"WAVE");
-    assert!(decoded.windows(4).any(|window| window == b"data"));
+    let expected_wav = [
+        b'R', b'I', b'F', b'F', 40, 0, 0, 0, b'W', b'A', b'V', b'E', b'f', b'm', b't', b' ', 16, 0,
+        0, 0, 1, 0, 1, 0, 0x40, 0x1f, 0, 0, 0x40, 0x1f, 0, 0, 1, 0, 8, 0, b'd', b'a', b't', b'a',
+        4, 0, 0, 0, 0x80, 0x90, 0x70, 0x80,
+    ];
+    assert_eq!(decoded, expected_wav);
+
+    let error = load_xact_audio_data_url_for_paths(root.to_string_lossy().as_ref(), "missingCue")
+        .expect_err("unknown cue should fail");
+    assert!(error.to_string().contains("missingCue"));
 
     fs::remove_dir_all(root).expect("cleanup");
 }

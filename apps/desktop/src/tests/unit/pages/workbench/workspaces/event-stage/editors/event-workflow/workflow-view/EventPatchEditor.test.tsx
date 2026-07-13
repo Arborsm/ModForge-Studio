@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, test, vi } from 'vite-plus/test'
 import { useState, type ComponentProps, type ReactNode } from 'react'
 import type { DraftPatch, CpMakerDraft } from '@features/cp-maker'
@@ -137,6 +137,15 @@ function openEventPicker() {
     throw new Error('Event picker was not rendered')
   }
   fireEvent.click(picker)
+}
+
+async function settleEventEditorSelection() {
+  await act(
+    () =>
+      new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => resolve())
+      }),
+  )
 }
 
 describe('EventPatchEditor secondary page shell', () => {
@@ -745,6 +754,7 @@ describe('EventPatchEditor secondary page shell', () => {
       />,
       'zh-CN',
     )
+    await settleEventEditorSelection()
 
     fireEvent.click(screen.getByTitle('X: 10, Y: 11'))
     fireEvent.click(screen.getByTitle('Pick from map'))
