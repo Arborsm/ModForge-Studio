@@ -56,6 +56,14 @@ function detail(path: string, contentJson = '{"Format":"2.0.0","Changes":[]}'): 
 }
 
 describe('useModProjectInspection', () => {
+  it('uses a supplied archive detail without reloading its temporary path', async () => {
+    const supplied = detail('/downloads/pack.zip')
+    const { result } = renderHook(() => useModProjectInspection('/downloads/pack.zip', supplied))
+
+    await waitFor(() => expect(result.current.detail).toBe(supplied))
+    expect(loadModProject).not.toHaveBeenCalled()
+  })
+
   it('derives immutable patch summaries and diagnostics from the loaded project', async () => {
     vi.mocked(loadModProject).mockResolvedValueOnce(
       detail('/mods/one', '{"Format":"2.0.0","Changes":[{"Action":"EditData","Target":"Data/Objects"}]}'),

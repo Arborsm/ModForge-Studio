@@ -6,11 +6,8 @@ import { LocaleProvider } from '@locales/provider'
 import { WorkbenchEnvironmentProvider, WorkbenchModuleStateProvider } from '@pages/workbench/model/workbenchModuleContexts'
 import ModBrowserModuleRuntime from '@pages/workbench/ui/module-runtimes/ModBrowserModuleRuntime'
 
-const chooseDirectorySpy = vi.hoisted(() => vi.fn())
-const invokeDesktopSpy = vi.hoisted(() => vi.fn())
-
-vi.mock('@platform/host/runtime', () => ({ invokeDesktop: invokeDesktopSpy }))
-vi.mock('@platform/host', () => ({ chooseDirectory: chooseDirectorySpy }))
+const openProjectDirectory = vi.hoisted(() => vi.fn())
+const openProjectArchive = vi.hoisted(() => vi.fn())
 
 vi.mock('@pages/workbench/workspaces/mod', () => ({
   useModCatalog: () => ({
@@ -29,15 +26,23 @@ vi.mock('@pages/workbench/workspaces/mod', () => ({
     setI18nOnly: vi.fn(),
     setActiveProjectPath: vi.fn(),
     refresh: vi.fn(),
+    externalProject: null,
+    openProjectDirectory,
+    openProjectArchive,
   }),
   useModProjectInspection: () => ({ detail: null, diagnostics: [], contentSummary: null, error: null }),
   useModTranslationWorkspace: () => {
     throw new Error('mod-browser must not construct translation editor state')
   },
-  ModBrowserPanel: ({ onImportProject }: { onImportProject?: () => void }) => (
-    <button type="button" onClick={onImportProject}>
-      Import active project
-    </button>
+  ModBrowserPanel: ({ onOpenFolder, onOpenArchive }: { onOpenFolder?: () => void; onOpenArchive?: () => void }) => (
+    <>
+      <button type="button" onClick={onOpenFolder}>
+        Open folder
+      </button>
+      <button type="button" onClick={onOpenArchive}>
+        Open archive
+      </button>
+    </>
   ),
   ModDiagnosticsPanel: () => null,
   ModWorkspaceDecisionDialogs: () => null,
@@ -54,7 +59,7 @@ vi.mock('@pages/workbench/ui/WorkbenchLayoutHost', () => ({
 }))
 
 describe('ModBrowserModuleRuntime', () => {
-  it('stays read-only and imports the active path without another directory picker', () => {
+  it('opens external folders and archives through the read-only catalog', () => {
     const onImportModProject = vi.fn(async () => undefined)
     render(
       <LocaleProvider locale="en-US">
@@ -95,10 +100,11 @@ describe('ModBrowserModuleRuntime', () => {
       </LocaleProvider>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Import active project' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open folder' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open archive' }))
 
-    expect(onImportModProject).toHaveBeenCalledWith('/mods/Example')
-    expect(chooseDirectorySpy).not.toHaveBeenCalled()
-    expect(invokeDesktopSpy).not.toHaveBeenCalled()
+    expect(openProjectDirectory).toHaveBeenCalledOnce()
+    expect(openProjectArchive).toHaveBeenCalledOnce()
+    expect(onImportModProject).not.toHaveBeenCalled()
   })
 })

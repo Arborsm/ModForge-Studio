@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
+import { cleanup, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { renderWithLocale } from '@test/renderWithLocale'
 import { ModDiagnosticsPanel } from '@pages/workbench/workspaces/mod/mods/content-patcher/content-view/ModDiagnosticsPanel'
 
@@ -51,42 +51,25 @@ describe('ModDiagnosticsPanel', () => {
       />,
     )
 
-    expect(screen.getByText('Status summary')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Seasonal Garden' })).toBeTruthy()
     expect(screen.getByText((content) => content.includes('Saved to E:'))).toBeTruthy()
     expect(screen.getByText('One patch uses a broad target.')).toBeTruthy()
   })
 
-  it('renders selectable manifest diagnostics as buttons', () => {
-    const onSelectDiagnostic = vi.fn()
-
+  it('renders the inspection empty state without a selected project', () => {
     renderWithLocale(
       <ModDiagnosticsPanel
         activeProject={null}
-        diagnostics={[
-          {
-            severity: 'error',
-            message: 'Missing manifest name.',
-            field: 'manifest.Name',
-          },
-          {
-            severity: 'warning',
-            message: 'One patch uses a broad target.',
-            field: 'Changes[1].Target',
-          },
-        ]}
+        diagnostics={[]}
         statusMessage=""
         contentSummary={{
           includeCount: 0,
           dynamicTokenCount: 0,
           configKeys: [],
         }}
-        onSelectDiagnostic={onSelectDiagnostic}
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /Missing manifest name/i }))
-
-    expect(onSelectDiagnostic).toHaveBeenCalledWith(expect.objectContaining({ field: 'manifest.Name' }))
-    expect(screen.getByRole('button', { name: /One patch uses a broad target/i })).toBeTruthy()
+    expect(screen.getByText('Choose a project to inspect.')).toBeTruthy()
   })
 })

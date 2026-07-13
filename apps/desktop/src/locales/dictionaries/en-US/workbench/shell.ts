@@ -211,7 +211,7 @@ const shell: WorkbenchShellCopy = {
       'character-browser': 'Characters',
       'building-browser': 'Buildings',
       'item-browser': 'Items',
-      'mod-browser': 'Mods',
+      'mod-browser': 'CP mod inspector',
       'mod-translation': 'Mod translations',
       'i18n-generator': 'Translation generator',
       'project-dashboard': 'Project home',

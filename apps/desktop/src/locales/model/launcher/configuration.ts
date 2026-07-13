@@ -100,7 +100,8 @@ export type LauncherConfigurationCopy = {
     nexusApiGraphql: string
     nexusApiImageCdn: string
     nexusApiAvailable: string
-    nexusApiSlow: string
+    nexusApiWarning: string
+    nexusRouteUnavailable: string
     nexusApiUnavailable: string
     downloadBehaviorTitle: string
     downloadDefaultsTitle: string

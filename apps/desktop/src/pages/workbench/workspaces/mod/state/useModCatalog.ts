@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { GameDirectoryInfo } from '@entities/game/api'
-import { scanModProjects, type ModProjectSummary } from '@entities/mod/api'
-import { chooseDirectory } from '@platform/host'
+import { inspectModArchive, loadModProject, scanModProjects, type ModProjectDetail, type ModProjectSummary } from '@entities/mod/api'
+import { chooseDirectory, chooseModArchiveFile } from '@platform/host'
 import { useModCopy } from '@locales/provider'
 import { TaskCancelledError, useLatestTask } from '@platform/task-runtime'
 
@@ -28,6 +28,7 @@ export function useModCatalog({ directoryInfo, mode }: UseModCatalogOptions) {
   const [i18nOnly, setI18nOnly] = useState(mode === 'translation')
   const [statusMessage, setStatusMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [externalProject, setExternalProject] = useState<ModProjectDetail | null>(null)
   const scanGenerationRef = useRef(0)
   const runLatestScan = useLatestTask('mod-catalog-scan')
   const deferredQuery = useDeferredValue(query.trim().toLowerCase())
@@ -106,9 +107,17 @@ export function useModCatalog({ directoryInfo, mode }: UseModCatalogOptions) {
     })
   }, [copy, directoryInfo?.rootPath, mode, runLatestScan])
 
+  const allProjects = useMemo(
+    () =>
+      externalProject && !projects.some((project) => project.absolutePath === externalProject.summary.absolutePath)
+        ? [externalProject.summary, ...projects]
+        : projects,
+    [externalProject, projects],
+  )
+
   const filteredProjects = useMemo(
     () =>
-      projects.filter((project) => {
+      allProjects.filter((project) => {
         if (mode === 'translation' && project.i18nEntryCount === 0) return false
         if (contentPatcherOnly && project.pluginKind !== 'content-patcher') return false
         if (compatibleOnly && project.status === 'incompatible') return false
@@ -119,20 +128,51 @@ export function useModCatalog({ directoryInfo, mode }: UseModCatalogOptions) {
           .toLowerCase()
           .includes(deferredQuery)
       }),
-    [compatibleOnly, contentPatcherOnly, deferredQuery, i18nOnly, mode, projects],
+    [allProjects, compatibleOnly, contentPatcherOnly, deferredQuery, i18nOnly, mode],
   )
 
-  const chooseProjectDirectory = async () => {
+  const openProjectDirectory = async () => {
     const selected = await chooseDirectory(copy.selectProjectFolder)
-    if (selected) setActiveProjectPath(selected)
+    if (selected) {
+      setLoading(true)
+      try {
+        const detail = await loadModProject(selected)
+        setExternalProject(detail)
+        setActiveProjectPath(detail.summary.absolutePath)
+        setStatusMessage(copy.externalProjectLoaded(detail.summary.name))
+      } catch (error) {
+        setStatusMessage(error instanceof Error ? error.message : String(error))
+      } finally {
+        setLoading(false)
+      }
+    }
     return selected
   }
 
+  const openProjectArchive = async () => {
+    const selected = await chooseModArchiveFile(copy.selectModArchive)
+    if (!selected) return null
+    setLoading(true)
+    try {
+      const detail = await inspectModArchive(selected)
+      setExternalProject(detail)
+      setActiveProjectPath(detail.summary.absolutePath)
+      setStatusMessage(copy.externalProjectLoaded(detail.summary.name))
+      return selected
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : String(error))
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return {
-    projects,
+    projects: allProjects,
     filteredProjects,
     activeProjectPath,
-    activeProject: projects.find((project) => project.absolutePath === activeProjectPath) ?? null,
+    activeProject: allProjects.find((project) => project.absolutePath === activeProjectPath) ?? null,
+    externalProject: externalProject?.summary.absolutePath === activeProjectPath ? externalProject : null,
     setActiveProjectPath,
     query,
     setQuery,
@@ -145,7 +185,8 @@ export function useModCatalog({ directoryInfo, mode }: UseModCatalogOptions) {
     statusMessage,
     loading,
     refresh,
-    chooseProjectDirectory,
+    openProjectDirectory,
+    openProjectArchive,
   }
 }
 

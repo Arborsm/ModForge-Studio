@@ -20,6 +20,7 @@ export const HOST_COMMANDS = {
   getNexusSsoStatus: 'get_nexus_sso_status',
   importCpMakerPack: 'import_cp_maker_pack',
   inspectLauncherArchive: 'inspect_launcher_archive',
+  inspectModArchive: 'inspect_mod_archive',
   installLauncherArchive: 'install_launcher_archive',
   launchLauncherGame: 'launch_launcher_game',
   listCpMakerDrafts: 'list_cp_maker_drafts',

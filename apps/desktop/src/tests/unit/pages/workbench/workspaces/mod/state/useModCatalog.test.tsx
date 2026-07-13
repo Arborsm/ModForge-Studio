@@ -1,13 +1,19 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
-import { scanModProjects, type ModProjectSummary } from '@entities/mod/api'
+import { inspectModArchive, scanModProjects, type ModProjectDetail, type ModProjectSummary } from '@entities/mod/api'
 import type { GameDirectoryInfo } from '@entities/game/api'
 import { useModCatalog } from '@pages/workbench/workspaces/mod/state/useModCatalog'
 
 const modCopy = vi.hoisted(() => ({
   scanStatus: (count: number) => `scanned:${count}`,
   selectProjectFolder: 'Select project',
+  selectModArchive: 'Select archive',
+  externalProjectLoaded: (name: string) => `loaded:${name}`,
 }))
+
+const chooseDirectory = vi.hoisted(() => vi.fn())
+const chooseModArchiveFile = vi.hoisted(() => vi.fn())
+vi.mock('@platform/host', () => ({ chooseDirectory, chooseModArchiveFile }))
 
 vi.mock('@locales/provider', async () => {
   const actual = await vi.importActual<typeof import('@locales/provider')>('@locales/provider')
@@ -22,6 +28,8 @@ vi.mock('@entities/mod/api', async () => {
   return {
     ...actual,
     scanModProjects: vi.fn(),
+    loadModProject: vi.fn(),
+    inspectModArchive: vi.fn(),
   }
 })
 
@@ -54,6 +62,10 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
+function detail(summary: ModProjectSummary): ModProjectDetail {
+  return { pluginKind: summary.pluginKind, summary, diagnostics: [], contentPatcher: null, i18nFiles: [] }
+}
+
 describe('useModCatalog', () => {
   beforeEach(() => vi.clearAllMocks())
 
@@ -72,6 +84,25 @@ describe('useModCatalog', () => {
 
     act(() => result.current.setQuery('missing'))
     await waitFor(() => expect(result.current.filteredProjects).toEqual([]))
+  })
+
+  it('adds an external archive to the library and selects its supplied detail', async () => {
+    vi.mocked(scanModProjects).mockResolvedValue([])
+    chooseModArchiveFile.mockResolvedValue('/downloads/pack.zip')
+    const external = project('external', 0)
+    external.absolutePath = '/downloads/pack.zip'
+    external.pluginKind = 'content-patcher'
+    vi.mocked(inspectModArchive).mockResolvedValue(detail(external))
+    const { result } = renderHook(() => useModCatalog({ directoryInfo: null, mode: 'browse' }))
+
+    await act(async () => {
+      await result.current.openProjectArchive()
+    })
+
+    expect(inspectModArchive).toHaveBeenCalledWith('/downloads/pack.zip')
+    expect(result.current.activeProjectPath).toBe('/downloads/pack.zip')
+    expect(result.current.externalProject?.summary.name).toBe('external')
+    expect(result.current.projects[0]?.absolutePath).toBe('/downloads/pack.zip')
   })
 
   it('ignores a late scan after the game directory changes', async () => {

@@ -56,7 +56,8 @@ use commands::logging::{
     print_host_runtime_diagnostics, set_debug_logging_enabled, write_frontend_log,
 };
 use commands::mods::{
-    load_mod_project, save_mod_i18n_files, scan_mod_asset_index, scan_mod_projects,
+    inspect_mod_archive, load_mod_project, save_mod_i18n_files, scan_mod_asset_index,
+    scan_mod_projects,
 };
 use commands::resource_registry::load_resource_registry;
 use commands::saves::scan_default_save_slots;
@@ -160,6 +161,7 @@ pub fn run() {
             scan_mod_projects,
             scan_mod_asset_index,
             load_mod_project,
+            inspect_mod_archive,
             save_mod_i18n_files,
             list_cp_maker_drafts,
             load_cp_maker_draft,

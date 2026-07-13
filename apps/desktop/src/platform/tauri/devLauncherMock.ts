@@ -24,6 +24,43 @@ declare global {
 const DEV_LAUNCHER_MOCK_QUERY_PARAM = 'mfLauncherMock'
 const DEV_LAUNCHER_MOCK_MODS_PATH = 'E:\\ModForge Dev\\Stardew Valley\\Mods'
 
+const DEV_LAUNCHER_NEXUS_DIAGNOSTICS: LauncherNexusDiagnosticsResult = {
+  routes: [
+    {
+      routeId: 'publicGraphql',
+      label: 'Nexus Public GraphQL',
+      endpoint: 'https://api.nexusmods.com/v2/graphql',
+      status: 'success',
+      attempts: 1,
+      maxAttempts: 3,
+      available: true,
+      latencyMs: 183,
+      message: 'Connected after 1 attempt.',
+    },
+    {
+      routeId: 'nexusImages',
+      label: 'Nexus Image CDN',
+      endpoint: 'https://staticdelivery.nexusmods.com/',
+      status: 'success',
+      attempts: 1,
+      maxAttempts: 3,
+      available: true,
+      latencyMs: 1250,
+      message: 'Connected after 1 attempt.',
+    },
+    {
+      routeId: 'smapi',
+      label: 'SMAPI',
+      endpoint: 'https://smapi.io/api/v3.0/mods',
+      status: 'warning',
+      attempts: 3,
+      maxAttempts: 3,
+      available: false,
+      message: 'Failed after 3 attempts: timeout',
+    },
+  ],
+}
+
 function shouldEnableDevLauncherMock() {
   if (!import.meta.env.DEV || typeof window === 'undefined') {
     return false
@@ -309,7 +346,7 @@ export function installDevLauncherMock() {
           } satisfies LauncherGmcmProbeDiagnosticsResult
         case 'load_launcher_nexus_diagnostics':
         case 'restart_launcher_nexus_diagnostics':
-          return { routes: [] } satisfies LauncherNexusDiagnosticsResult
+          return DEV_LAUNCHER_NEXUS_DIAGNOSTICS
         case 'set_launcher_nexus_force_offline':
           return { routes: [] } satisfies LauncherNexusDiagnosticsResult
         case 'load_suppressed_launcher_update_mod_ids':

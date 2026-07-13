@@ -18,6 +18,7 @@ pub struct NexusRouteSnapshot {
     pub attempts: u8,
     pub max_attempts: u8,
     pub available: bool,
+    pub latency_ms: Option<u64>,
     pub message: String,
 }
 

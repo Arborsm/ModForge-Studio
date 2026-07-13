@@ -54,6 +54,11 @@ export function loadModProject(path: string) {
   )
 }
 
+/** Inspects one mod archive in an isolated temporary directory without installing it. */
+export function inspectModArchive(path: string) {
+  return invokeDesktop<ModProjectDetail>(HOST_COMMANDS.inspectModArchive, { path }, modIoPoolPolicy)
+}
+
 /** Materializes one resolved Content Patcher target for preview in the UI. */
 export function loadContentPatcherResultAsset(request: LoadContentPatcherResultAssetRequest) {
   const cacheKey = JSON.stringify(request)

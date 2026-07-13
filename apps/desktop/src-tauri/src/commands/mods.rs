@@ -53,6 +53,21 @@ pub async fn load_mod_project(
 }
 
 #[tauri::command]
+pub async fn inspect_mod_archive(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    path: String,
+) -> Result<ModProjectDetail, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(inspect_mod_archive),
+        json!({ "path": path }),
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn save_mod_i18n_files(
     app: tauri::AppHandle<AppRuntime>,
     debug_logging_state: State<'_, DebugLoggingState>,

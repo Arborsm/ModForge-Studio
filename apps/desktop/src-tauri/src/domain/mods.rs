@@ -1468,6 +1468,36 @@ pub(crate) fn load_mod_project(path: String) -> anyhow::Result<ModProjectDetail>
     })
 }
 
+pub(crate) fn inspect_mod_archive(path: String) -> anyhow::Result<ModProjectDetail> {
+    let archive_path = clean_input_path(&path);
+    if !archive_path.is_file() {
+        return Err(anyhow::anyhow!(
+            "Mod archive {} does not exist.",
+            normalize_path(&archive_path)
+        ));
+    }
+
+    crate::domain::launcher::archive::with_expanded_archive(&archive_path, |expanded_root| {
+        let project_roots = discover_project_roots(expanded_root)?;
+        if project_roots.len() != 1 {
+            return Err(anyhow::anyhow!(
+                "Expected one mod project in {}, found {}.",
+                normalize_path(&archive_path),
+                project_roots.len()
+            ));
+        }
+        let project_root = project_roots.into_iter().next().expect("length checked");
+        let mut detail = load_mod_project(normalize_path(&project_root))?;
+        detail.summary.absolute_path = normalize_path(&archive_path);
+        detail.summary.folder_name = archive_path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .to_string();
+        Ok(detail)
+    })
+}
+
 fn write_i18n_files(
     project_path: &Path,
     files: Vec<ContentPatcherI18nFileInput>,

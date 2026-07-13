@@ -473,7 +473,7 @@ describe('LauncherConfigurationPage', () => {
     })
     const nexusPanel = screen.getByTestId('launcher-config-nexus')
     expect(nexusPanel.textContent).toContain(copy.settings.nexusApiGraphql)
-    expect(nexusPanel.textContent).toContain(copy.settings.nexusApiSlow)
+    expect(nexusPanel.textContent).toContain(copy.settings.nexusRouteUnavailable)
   })
 
   it('uses cached configuration diagnostics when all cached routes are healthy', async () => {
@@ -1191,7 +1191,7 @@ describe('LauncherConfigurationPage', () => {
     })
   })
 
-  it('renders warning and success statuses for Nexus diagnostics routes', async () => {
+  it('renders unavailable, healthy-latency, and high-latency Nexus diagnostics routes', async () => {
     loadLauncherNexusDiagnostics.mockResolvedValue({
       routes: [
         {
@@ -1212,6 +1212,18 @@ describe('LauncherConfigurationPage', () => {
           attempts: 1,
           maxAttempts: 3,
           available: true,
+          latencyMs: 999,
+          message: 'Connected after 1 attempt.',
+        },
+        {
+          routeId: 'smapi',
+          label: 'SMAPI',
+          endpoint: 'https://smapi.io/api/v3.0/mods',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          latencyMs: 1000,
           message: 'Connected after 1 attempt.',
         },
       ],
@@ -1228,11 +1240,14 @@ describe('LauncherConfigurationPage', () => {
     const successRouteRow = screen
       .getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 })
       .closest('.launcher-config-api-row')
+    const slowRouteRow = screen.getByRole('heading', { name: 'SMAPI', level: 3 }).closest('.launcher-config-api-row')
 
-    expect(warningRouteRow).toHaveClass('launcher-config-api-row-warn')
+    expect(warningRouteRow).toHaveClass('launcher-config-api-row-danger')
     expect(successRouteRow).toHaveClass('launcher-config-api-row-ok')
-    expect(warningRouteRow?.textContent).toContain(copy.settings.nexusApiSlow)
-    expect(successRouteRow?.textContent).toContain(copy.settings.nexusApiAvailable)
+    expect(slowRouteRow).toHaveClass('launcher-config-api-row-warn')
+    expect(warningRouteRow?.textContent).toContain(copy.settings.nexusRouteUnavailable)
+    expect(successRouteRow?.textContent).toContain('999 ms')
+    expect(slowRouteRow?.textContent).toContain('1000 ms')
   })
 
   it('refreshes Nexus diagnostics from the header control without opening the debug drawer', async () => {
@@ -1324,10 +1339,10 @@ describe('LauncherConfigurationPage', () => {
     const successRouteRow = screen
       .getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 })
       .closest('.launcher-config-api-row')
-    const warningLabel = warningRouteRow?.querySelector('.launcher-config-status-tag-warn')
+    const warningLabel = warningRouteRow?.querySelector('.launcher-config-status-tag-danger')
     const successLabel = successRouteRow?.querySelector('.launcher-config-status-tag-ok')
 
-    expect(warningLabel?.className).toContain('launcher-config-status-tag-warn')
+    expect(warningLabel?.className).toContain('launcher-config-status-tag-danger')
     expect(successLabel?.className).toContain('launcher-config-status-tag-ok')
     expect(warningLabel?.querySelector('.launcher-debug-route-status-copy')).toBeNull()
     expect(successLabel?.querySelector('.launcher-debug-route-status-copy')).toBeNull()
@@ -1547,7 +1562,7 @@ describe('LauncherConfigurationPage', () => {
       expect(screen.getByTestId('launcher-config-diagnostics-step')).toHaveClass('launcher-config-step-warn')
     })
     expect(screen.getByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 }).closest('.launcher-config-api-row')).toHaveClass(
-      'launcher-config-api-row-warn',
+      'launcher-config-api-row-danger',
     )
   })
 

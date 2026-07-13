@@ -58,97 +58,114 @@ export function ModDiagnosticsPanel({
   onSelectDiagnostic,
 }: ModDiagnosticsPanelProps) {
   const copy = useModCopy()
-  return (
-    <div className="flex h-full flex-col gap-4 rounded-3xl border border-(--border-color) bg-(--bg-elevated) p-4">
-      <section className="rounded-2xl border border-(--border-color) bg-(--bg-app) p-4">
-        <p className="text-[11px] font-semibold tracking-[0.16em] text-(--text-tertiary) uppercase">{copy.diagnosticsTitle}</p>
-        <h3 className="mt-2 text-lg font-semibold text-(--text-primary)">{copy.statusSummary}</h3>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-(--border-color) bg-(--bg-elevated) px-3 py-3">
-            <p className="text-[11px] font-semibold tracking-[0.14em] text-(--text-tertiary) uppercase">{copy.projectFacts}</p>
-            <p className="mt-2 text-sm font-semibold text-(--text-primary)">{activeProject?.summary.name ?? copy.unknownLabel}</p>
-          </div>
-          <div className="rounded-2xl border border-(--border-color) bg-(--bg-elevated) px-3 py-3">
-            <p className="text-[11px] font-semibold tracking-[0.14em] text-(--text-tertiary) uppercase">{copy.includesLabel}</p>
-            <p className="mt-2 text-sm font-semibold text-(--text-primary)">{contentSummary.includeCount}</p>
-          </div>
-          <div className="rounded-2xl border border-(--border-color) bg-(--bg-elevated) px-3 py-3">
-            <p className="text-[11px] font-semibold tracking-[0.14em] text-(--text-tertiary) uppercase">{copy.dynamicTokensLabel}</p>
-            <p className="mt-2 text-sm font-semibold text-(--text-primary)">{contentSummary.dynamicTokenCount}</p>
-          </div>
+  if (!activeProject) {
+    return (
+      <div className="flex h-full items-center justify-center bg-(--bg-panel) px-8 text-center">
+        <div>
+          <p className="text-base font-semibold text-(--text-primary)">{copy.diagnosticsTitle}</p>
+          <p className="mt-2 text-sm text-(--text-secondary)">{copy.browserLibraryHasProjectsDescription}</p>
         </div>
-      </section>
-
-      {activeProject ? (
-        <section className="rounded-2xl border border-(--border-color) bg-(--bg-app) p-4 text-sm text-(--text-secondary)">
-          <p>
-            <strong className="text-(--text-primary)">{copy.sourcePath}:</strong> {activeProject.summary.absolutePath}
-          </p>
-          <p className="mt-2">
-            <strong className="text-(--text-primary)">{copy.manifestPathLabel}:</strong> {activeProject.summary.manifestPath}
-          </p>
-          <p className="mt-2">
-            <strong className="text-(--text-primary)">{copy.contentPathLabel}:</strong>{' '}
-            {activeProject.summary.contentPath ?? copy.unknownLabel}
-          </p>
-          {statusMessage ? <p className="mt-3 text-(--text-primary)">{statusMessage}</p> : null}
-        </section>
-      ) : null}
-
-      <section className="flex-1 rounded-2xl border border-(--border-color) bg-(--bg-app) p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold tracking-[0.16em] text-(--text-tertiary) uppercase">{copy.diagnosticsListTitle}</p>
-            <p className="mt-2 text-sm leading-6 text-(--text-secondary)">{copy.diagnosticsSubtitle}</p>
-          </div>
-          <span className="dock-chip">
-            {contentSummary.configKeys.length} {copy.configKeysLabel}
+      </div>
+    )
+  }
+  return (
+    <div className="custom-scrollbar h-full overflow-auto bg-(--bg-panel)">
+      <header className="border-b border-(--border-color)/65 bg-(--bg-elevated) px-5 py-4">
+        <h2 className="text-xl font-semibold text-(--text-primary)">{activeProject.summary.name}</h2>
+        <p className="mt-1 font-mono text-xs text-(--text-tertiary)">
+          {activeProject.summary.uniqueId ?? activeProject.summary.folderName}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+          <span className="rounded-sm bg-(--success-soft) px-2 py-1 font-semibold text-(--success)">Content Patcher</span>
+          <span className="rounded-sm bg-(--accent-soft) px-2 py-1 text-(--accent)">
+            {activeProject.summary.version ?? copy.noVersionLabel}
+          </span>
+          <span className="rounded-sm bg-(--bg-panel-muted) px-2 py-1 text-(--text-secondary)">
+            {activeProject.summary.author ?? copy.unknownLabel}
           </span>
         </div>
-
-        <div className="mt-4 space-y-3">
-          {diagnostics.length ? (
-            diagnostics.map((diagnostic, index) =>
-              (() => {
-                const isSelectable = Boolean(onSelectDiagnostic && isSelectableDiagnosticField(diagnostic.field))
-                const className = `w-full rounded-2xl border border-(--border-color) bg-(--bg-elevated) p-3 text-left${isSelectable ? ' hover:border-[color-mix(in_srgb,var(--accent)_24%,transparent)] hover:bg-[color-mix(in_srgb,var(--accent)_8%,var(--bg-elevated))]' : ''}`
-                const content = (
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-(--text-primary)">{diagnostic.message}</p>
-                      {diagnostic.field ? <p className="mt-1 text-xs text-(--text-secondary)">{diagnostic.field}</p> : null}
-                    </div>
-                    <span
-                      className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold tracking-[0.12em] uppercase ${toneClass(diagnostic.severity)}`}
-                    >
-                      {diagnostic.severity}
-                    </span>
-                  </div>
-                )
-
-                return isSelectable ? (
-                  <button
-                    key={`${diagnostic.field ?? 'global'}:${index}`}
-                    type="button"
-                    className={className}
-                    onClick={() => onSelectDiagnostic?.(diagnostic)}
-                  >
-                    {content}
-                  </button>
-                ) : (
-                  <div key={`${diagnostic.field ?? 'global'}:${index}`} className={className}>
-                    {content}
-                  </div>
-                )
-              })(),
-            )
-          ) : (
-            <div className="flex min-h-32 items-center justify-center rounded-2xl border border-dashed border-(--border-color) bg-(--bg-elevated) px-4 text-center text-sm text-(--text-secondary)">
-              {copy.noDiagnosticsLabel}
-            </div>
-          )}
+        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-(--border-color)/55 pt-3">
+          <span className="text-xs text-(--text-tertiary)">
+            {copy.includesLabel} <strong className="ml-1 text-(--text-primary)">{contentSummary.includeCount}</strong>
+          </span>
+          <span className="text-xs text-(--text-tertiary)">
+            {copy.dynamicTokensLabel} <strong className="ml-1 text-(--text-primary)">{contentSummary.dynamicTokenCount}</strong>
+          </span>
+          <span className="text-xs text-(--text-tertiary)">
+            {copy.configKeysLabel} <strong className="ml-1 text-(--text-primary)">{contentSummary.configKeys.length}</strong>
+          </span>
         </div>
-      </section>
+      </header>
+
+      <div className="space-y-6 px-5 py-5">
+        <section>
+          <p className="mb-2 text-[11px] font-semibold text-(--text-tertiary) uppercase">{copy.sourcePath}</p>
+          <div className="divide-y divide-(--border-color)/45 border-y border-(--border-color)/55 text-xs">
+            {[
+              [copy.sourcePath, activeProject.summary.absolutePath],
+              [copy.manifestPathLabel, activeProject.summary.manifestPath],
+              [copy.contentPathLabel, activeProject.summary.contentPath ?? copy.unknownLabel],
+            ].map(([label, value]) => (
+              <div key={label} className="grid grid-cols-[7rem_minmax(0,1fr)] gap-4 py-2.5">
+                <span className="text-(--text-tertiary)">{label}</span>
+                <span className="font-mono break-all text-(--text-primary)">{value}</span>
+              </div>
+            ))}
+          </div>
+          {statusMessage ? <p className="mt-3 text-xs text-(--text-secondary)">{statusMessage}</p> : null}
+        </section>
+
+        <section>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold text-(--text-tertiary) uppercase">{copy.diagnosticsListTitle}</p>
+            </div>
+          </div>
+
+          <div className="mt-2 divide-y divide-(--border-color)/45 border-y border-(--border-color)/55">
+            {diagnostics.length ? (
+              diagnostics.map((diagnostic, index) =>
+                (() => {
+                  const isSelectable = Boolean(onSelectDiagnostic && isSelectableDiagnosticField(diagnostic.field))
+                  const className = `w-full py-3 text-left${isSelectable ? ' hover:bg-(--bg-panel-muted)' : ''}`
+                  const content = (
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-(--text-primary)">{diagnostic.message}</p>
+                        {diagnostic.field ? <p className="mt-1 text-xs text-(--text-secondary)">{diagnostic.field}</p> : null}
+                      </div>
+                      <span
+                        className={`inline-flex rounded-sm border px-1.5 py-0.5 text-[9px] font-semibold uppercase ${toneClass(diagnostic.severity)}`}
+                      >
+                        {diagnostic.severity}
+                      </span>
+                    </div>
+                  )
+
+                  return isSelectable ? (
+                    <button
+                      key={`${diagnostic.field ?? 'global'}:${index}`}
+                      type="button"
+                      className={className}
+                      onClick={() => onSelectDiagnostic?.(diagnostic)}
+                    >
+                      {content}
+                    </button>
+                  ) : (
+                    <div key={`${diagnostic.field ?? 'global'}:${index}`} className={className}>
+                      {content}
+                    </div>
+                  )
+                })(),
+              )
+            ) : (
+              <div className="flex min-h-24 items-center justify-center px-4 text-center text-sm text-(--text-secondary)">
+                {copy.noDiagnosticsLabel}
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
     </div>
   )
 }

@@ -322,6 +322,16 @@ fn temp_work_dir(name: &str) -> PathBuf {
     ))
 }
 
+pub(crate) fn with_expanded_archive<T>(
+    archive_path: &Path,
+    operation: impl FnOnce(&Path) -> anyhow::Result<T>,
+) -> anyhow::Result<T> {
+    with_temp_work_dir("mod-inspect", "mod archive inspection", |temp_root| {
+        expand_archive_to_path(archive_path, temp_root)?;
+        operation(temp_root)
+    })
+}
+
 fn with_temp_work_dir<T>(
     name: &str,
     purpose: &str,

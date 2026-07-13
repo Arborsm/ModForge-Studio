@@ -6,7 +6,7 @@ import { useWorkbenchRuntimeInputs } from './runtimeInputs'
 export default function ModBrowserModuleRuntime() {
   const { environment, moduleState } = useWorkbenchRuntimeInputs()
   const catalog = useModCatalog({ directoryInfo: environment.directoryInfo, mode: 'browse' })
-  const inspection = useModProjectInspection(catalog.activeProjectPath)
+  const inspection = useModProjectInspection(catalog.activeProjectPath, catalog.externalProject)
   const panels = useMemo(
     () => [
       {
@@ -30,9 +30,8 @@ export default function ModBrowserModuleRuntime() {
             onCompatibleOnlyChange={catalog.setCompatibleOnly}
             onI18nOnlyChange={catalog.setI18nOnly}
             onSelectProject={catalog.setActiveProjectPath}
-            onImportProject={
-              catalog.activeProjectPath ? () => void environment.onImportModProject(catalog.activeProjectPath as string) : undefined
-            }
+            onOpenFolder={() => void catalog.openProjectDirectory()}
+            onOpenArchive={() => void catalog.openProjectArchive()}
             onRefreshProjects={() => void catalog.refresh()}
           />
         ),

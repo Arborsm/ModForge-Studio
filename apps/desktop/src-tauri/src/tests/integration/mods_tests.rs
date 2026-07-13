@@ -1,9 +1,11 @@
 use super::{
-    ContentPatcherI18nFileInput, SaveModI18nFilesRequest, load_mod_project, save_mod_i18n_files,
-    scan_mod_asset_index, scan_mod_projects,
+    ContentPatcherI18nFileInput, SaveModI18nFilesRequest, inspect_mod_archive, load_mod_project,
+    save_mod_i18n_files, scan_mod_asset_index, scan_mod_projects,
 };
 use crate::test_support::{create_temp_dir, write_file};
 use std::fs;
+use std::io::Write;
+use zip::write::SimpleFileOptions;
 
 fn sample_manifest() -> &'static str {
     r#"{
@@ -17,6 +19,36 @@ fn sample_manifest() -> &'static str {
     "MinimumVersion": "2.0.0"
   }
 }"#
+}
+
+#[test]
+fn inspect_mod_archive_loads_one_project_without_installing_it() {
+    let root = create_temp_dir("mods-inspect-archive");
+    let archive_path = root.join("external-pack.zip");
+    let file = fs::File::create(&archive_path).expect("create archive");
+    let mut archive = zip::ZipWriter::new(file);
+    archive
+        .start_file("Example/manifest.json", SimpleFileOptions::default())
+        .expect("manifest entry");
+    archive
+        .write_all(sample_manifest().as_bytes())
+        .expect("manifest contents");
+    archive
+        .start_file("Example/content.json", SimpleFileOptions::default())
+        .expect("content entry");
+    archive
+        .write_all(br#"{"Format":"2.7.0","Changes":[]}"#)
+        .expect("content contents");
+    archive.finish().expect("finish archive");
+
+    let detail = inspect_mod_archive(archive_path.to_string_lossy().into_owned())
+        .expect("inspect mod archive");
+    assert_eq!(detail.summary.name, "Example Pack");
+    assert_eq!(detail.summary.absolute_path, archive_path.to_string_lossy());
+    assert_eq!(detail.plugin_kind, "content-patcher");
+    assert!(!root.join("Example").exists());
+
+    fs::remove_dir_all(root).expect("cleanup");
 }
 
 fn manifest_with_unique_id_and_dependencies(unique_id: &str, dependencies: &str) -> String {

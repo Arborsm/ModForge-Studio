@@ -210,7 +210,7 @@ const shell: WorkbenchShellCopy = {
       'character-browser': '角色',
       'building-browser': '建筑',
       'item-browser': '物品',
-      'mod-browser': '模组',
+      'mod-browser': 'CP 模组查看',
       'mod-translation': '模组翻译',
       'i18n-generator': '翻译生成器',
       'project-dashboard': '项目主页',

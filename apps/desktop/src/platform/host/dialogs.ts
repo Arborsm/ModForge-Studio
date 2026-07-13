@@ -77,6 +77,11 @@ export async function chooseArchiveFile(title: string) {
   return typeof selected === 'string' ? selected : null
 }
 
+/** Opens a desktop file picker for a single external mod archive. */
+export async function chooseModArchiveFile(title: string) {
+  return chooseArchiveFile(title)
+}
+
 /** Opens a desktop multi-file picker restricted to launcher archive formats. */
 export async function chooseArchiveFiles(title: string) {
   if (!canUseDesktopHost()) {

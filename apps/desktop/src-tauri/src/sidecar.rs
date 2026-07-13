@@ -895,6 +895,9 @@ pub(crate) fn resolve_command(
                 )?))
             })
         }
+        crate::host_command_wire!(inspect_mod_archive) => io_lane(id, &command_name, move || {
+            ok(domain::mods::inspect_mod_archive(arg(&args, "path")?))
+        }),
         crate::host_command_wire!(install_launcher_archive) => {
             let app = ctx.app.clone();
             mutation_with_resources(

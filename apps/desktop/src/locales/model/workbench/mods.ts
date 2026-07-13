@@ -16,6 +16,10 @@ export type ModWorkspaceCopy = {
   unknownLabel: string
   noVersionLabel: string
   importProject: string
+  openExternalFolder: string
+  openExternalArchive: string
+  selectModArchive: string
+  externalProjectLoaded: (name: string) => string
   refreshProjects: string
   diagnosticsTitle: string
   diagnosticsSubtitle: string

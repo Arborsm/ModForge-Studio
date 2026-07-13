@@ -170,6 +170,7 @@ export type LauncherNexusRouteSnapshot = {
   attempts: number
   maxAttempts: number
   available: boolean
+  latencyMs?: number | null
   message: string
 }
 
