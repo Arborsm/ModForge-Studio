@@ -150,6 +150,10 @@ function serializeChangeRegistry(patches: DraftPatch[]): Record<string, unknown>
 function backendToFrontend(record: CpMakerDraftRecord): CpMakerDraft {
   return {
     draftStorageKey: record.draftStorageKey,
+    lastDraftSavedAt: record.lastDraftSavedAt,
+    lastExportedAt: record.lastExportedAt,
+    lastExportPath: record.lastExportPath,
+    lastExportFingerprint: record.lastExportFingerprint,
     projectMetadata: {
       projectName: record.projectMetadata.projectName,
       projectDescription: record.projectMetadata.projectDescription,
@@ -178,6 +182,7 @@ function backendToFrontend(record: CpMakerDraftRecord): CpMakerDraft {
     aliasTokenNames: (record.aliasTokenNames as Record<string, string> | undefined) ?? {},
     eventSourceSnapshotsByTarget:
       (record.eventSourceSnapshotsByTarget as Record<string, { rawScriptsByKey: Record<string, string> }> | undefined) ?? {},
+    i18nFiles: record.i18nFiles ?? [],
   }
 }
 
@@ -213,10 +218,11 @@ function frontendToBackend(draft: CpMakerDraft): CpMakerDraftRecord {
     customLocations: draft.customLocations,
     aliasTokenNames: draft.aliasTokenNames,
     eventSourceSnapshotsByTarget: draft.eventSourceSnapshotsByTarget,
-    lastDraftSavedAt: null,
-    lastExportedAt: null,
-    lastExportPath: null,
-    lastExportFingerprint: null,
+    i18nFiles: draft.i18nFiles,
+    lastDraftSavedAt: draft.lastDraftSavedAt ?? null,
+    lastExportedAt: draft.lastExportedAt ?? null,
+    lastExportPath: draft.lastExportPath ?? null,
+    lastExportFingerprint: draft.lastExportFingerprint ?? null,
   }
 }
 
@@ -677,7 +683,9 @@ export function useCpMaker() {
   const port: CpMakerPort = useCpMakerPort()
   const [drafts, setDrafts] = useState<CpMakerDraftSummary[]>([])
   const [activeDraft, setActiveDraft] = useState<CpMakerDraft | null>(null)
+  const activeDraftKeyRef = useRef<string | null>(null)
   const [draftLoading, setDraftLoading] = useState(false)
+  const [draftsReady, setDraftsReady] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
   const [isDirty, setIsDirty] = useState(false)
   const [dirtyPatchIds, setDirtyPatchIds] = useState<Set<string>>(() => new Set())
@@ -693,8 +701,12 @@ export function useCpMaker() {
     try {
       const list = await port.listDrafts()
       setDrafts(list)
+      setDraftsReady(true)
+      return list
     } catch (error) {
       setDraftError(error instanceof Error ? error.message : String(error))
+      setDraftsReady(true)
+      return []
     }
   }, [port])
 
@@ -707,10 +719,12 @@ export function useCpMaker() {
         const list = await port.listDrafts()
         if (!cancelled) {
           setDrafts(list)
+          setDraftsReady(true)
         }
       } catch (error) {
         if (!cancelled) {
           setDraftError(error instanceof Error ? error.message : String(error))
+          setDraftsReady(true)
         }
       }
     })()
@@ -722,18 +736,24 @@ export function useCpMaker() {
 
   // 加载指定草稿
   const loadDraft = useCallback(
-    async (storageKey: string) => {
+    async (storageKey: string): Promise<boolean> => {
       setDraftLoading(true)
       setDraftError(null)
       try {
         const record = await port.loadDraft(storageKey)
-        setActiveDraft(backendToFrontend(record))
+        const draft = backendToFrontend(record)
+        activeDraftKeyRef.current = draft.draftStorageKey
+        setActiveDraft(draft)
         setIsDirty(false)
         setDirtyPatchIds(new Set())
+        return true
       } catch (error) {
         setDraftError(error instanceof Error ? error.message : String(error))
+        activeDraftKeyRef.current = null
         setActiveDraft(null)
+        setIsDirty(false)
         setDirtyPatchIds(new Set())
+        return false
       } finally {
         setDraftLoading(false)
       }
@@ -743,7 +763,7 @@ export function useCpMaker() {
 
   // 创建新草稿
   const createDraft = useCallback(
-    async (metadata: Partial<CpMakerDraft['projectMetadata']>) => {
+    async (metadata: Partial<CpMakerDraft['projectMetadata']>): Promise<boolean> => {
       setDraftLoading(true)
       setDraftError(null)
       try {
@@ -766,15 +786,19 @@ export function useCpMaker() {
           customLocations: [],
           aliasTokenNames: {},
           eventSourceSnapshotsByTarget: {},
+          i18nFiles: [],
         }
         const record = frontendToBackend(newDraft)
         await port.saveDraft(record)
+        activeDraftKeyRef.current = newDraft.draftStorageKey
         setActiveDraft(newDraft)
         setIsDirty(false)
         setDirtyPatchIds(new Set())
         await refreshDrafts()
+        return true
       } catch (error) {
         setDraftError(error instanceof Error ? error.message : String(error))
+        return false
       } finally {
         setDraftLoading(false)
       }
@@ -788,7 +812,7 @@ export function useCpMaker() {
     setDraftLoading(true)
     setDraftError(null)
     try {
-      const record = frontendToBackend(activeDraft)
+      const record = frontendToBackend({ ...activeDraft, lastDraftSavedAt: Date.now() })
       await port.saveDraft(record)
       setIsDirty(false)
       setDirtyPatchIds(new Set())
@@ -808,6 +832,7 @@ export function useCpMaker() {
       try {
         await port.deleteDraft(storageKey)
         if (activeDraft?.draftStorageKey === storageKey) {
+          activeDraftKeyRef.current = null
           setActiveDraft(null)
           setIsDirty(false)
           setDirtyPatchIds(new Set())
@@ -822,6 +847,7 @@ export function useCpMaker() {
 
   /** Clear the in-memory active draft without deleting stored drafts. */
   const clearActiveDraft = useCallback(() => {
+    activeDraftKeyRef.current = null
     setActiveDraft(null)
     setIsDirty(false)
     setDirtyPatchIds(new Set())
@@ -835,6 +861,7 @@ export function useCpMaker() {
       try {
         const record = await port.copyDraft(storageKey)
         const copied = backendToFrontend(record)
+        activeDraftKeyRef.current = copied.draftStorageKey
         setActiveDraft(copied)
         setIsDirty(false)
         setDirtyPatchIds(new Set())
@@ -998,6 +1025,11 @@ export function useCpMaker() {
     setIsDirty(true)
   }, [])
 
+  const setI18nFiles = useCallback((files: Array<{ locale: string; rawJson: string }>) => {
+    setActiveDraft((current) => (current ? { ...current, i18nFiles: files } : current))
+    setIsDirty(true)
+  }, [])
+
   // ── Virtual Asset 管理 ──
 
   const addVirtualAsset = useCallback((asset: VirtualPreviewAsset) => {
@@ -1042,8 +1074,10 @@ export function useCpMaker() {
       setDraftLoading(true)
       setDraftError(null)
       try {
-        const record = await port.importPack(modDirectoryPath)
+        const importedRecord = await port.importPack(modDirectoryPath)
+        const record = await port.saveDraft(importedRecord)
         const draft = backendToFrontend(record)
+        activeDraftKeyRef.current = draft.draftStorageKey
         setActiveDraft(draft)
         setIsDirty(false)
         setDirtyPatchIds(new Set())
@@ -1079,14 +1113,34 @@ export function useCpMaker() {
       // config.json 默认值文件（当 ConfigSchema 存在时）
       const configAssets = activeDraft.configSchema.length > 0 ? [buildConfigJsonAsset(activeDraft.configSchema)] : []
 
-      return port.exportPack({
+      const result = await port.exportPack({
         output_path: outputPath,
         manifest_json: manifestJson,
         content_json: contentJson,
         virtual_assets: [...activeDraft.virtualAssets, ...includeAssets, ...configAssets],
+        i18n_files: activeDraft.i18nFiles,
       })
+      const exportedDraft: CpMakerDraft = {
+        ...activeDraft,
+        lastDraftSavedAt: Date.now(),
+        lastExportedAt: Date.now(),
+        lastExportPath: outputPath,
+      }
+      try {
+        await port.saveDraft(frontendToBackend(exportedDraft))
+        activeDraftKeyRef.current = exportedDraft.draftStorageKey
+        setActiveDraft(exportedDraft)
+        setIsDirty(false)
+        setDirtyPatchIds(new Set())
+        await refreshDrafts()
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error)
+        setDraftError(`Export succeeded, but export metadata could not be saved: ${detail}`)
+        throw new Error(`Export succeeded, but export metadata could not be saved: ${detail}`)
+      }
+      return result
     },
-    [activeDraft, port],
+    [activeDraft, port, refreshDrafts],
   )
 
   // ── Derived ──
@@ -1102,7 +1156,9 @@ export function useCpMaker() {
   return {
     // Draft CRUD
     drafts,
+    draftsReady,
     activeDraft,
+    getActiveDraftKey: useCallback(() => activeDraftKeyRef.current, []),
     draftLoading,
     draftError,
     isDirty,
@@ -1146,6 +1202,10 @@ export function useCpMaker() {
     addAliasTokenName,
     removeAliasTokenName,
 
+    // Project translations
+    i18nFiles: activeDraft?.i18nFiles ?? [],
+    setI18nFiles,
+
     // Metadata
     updateMetadata,
 
@@ -1162,4 +1222,5 @@ export function useCpMaker() {
   }
 }
 
+/** Public CP Maker state contract, including the synchronous active-draft identity used by lifecycle guards. */
 export type UseCpMakerReturn = ReturnType<typeof useCpMaker>

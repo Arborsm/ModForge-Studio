@@ -91,31 +91,24 @@ function activeProjectModel(extra: Partial<StudioDeskModel> = {}) {
 
 function renderHome(overrides: Partial<Parameters<typeof WorkbenchHomePage>[0]> = {}) {
   const props: Parameters<typeof WorkbenchHomePage>[0] = {
-    workspaceMode: 'map',
-    workspaceViewMode: 'edit',
+    presentation: 'home',
     hasActiveProject: false,
+    projectDirty: false,
     gameDirectoryReady: true,
-    gameDirectoryStatus: { tone: 'ready', message: 'Validated directory' },
     studioDeskModel: createModel(),
-    makerPending: null,
     taskSummary: {
       exportCount: 0,
       conflictCount: 0,
       directoryStatus: { tone: 'ready', message: 'Validated directory' },
     },
-    devViews: [],
-    onBackToWorkspace: vi.fn(),
-    onRootWorkspaceOpen: vi.fn(),
-    onProjectWorkspaceOpen: vi.fn(),
-    onDevViewOpen: vi.fn(),
+    onProjectModuleOpen: vi.fn(),
     onProjectCreateOpen: vi.fn(),
     onProjectImport: vi.fn(),
     onProjectSelect: vi.fn(),
-    onProjectCopy: vi.fn(),
     onProjectDelete: vi.fn(),
     onProjectPropertiesOpen: vi.fn(),
     onExportProject: vi.fn(),
-    onMakerPendingChange: vi.fn(),
+    onSaveProject: vi.fn(),
     onGameDirectoryAction: vi.fn(),
     onCloseProject: vi.fn(),
     ...overrides,
@@ -135,10 +128,11 @@ describe('WorkbenchHomePage shell states', () => {
     renderHome({ onProjectCreateOpen, onProjectImport, onProjectSelect })
 
     const home = screen.getByRole('region', { name: 'Workbench Home' })
-    expect(home.getAttribute('data-content')).toBe('none')
+    expect(home.getAttribute('data-content')).toBe('home')
     expect(within(home).getByRole('group', { name: navCopy.shellProjectManagement })).toBeTruthy()
     expect(within(home).getByText(navCopy.shellRecentProjects)).toBeTruthy()
-    expect(within(home).getByLabelText(navCopy.shellNavBrowseGroup)).toBeTruthy()
+    expect(within(home).getByRole('heading', { name: navCopy.home })).toBeTruthy()
+    expect(within(home).queryByLabelText(navCopy.shellNavBrowseGroup)).toBeNull()
 
     fireEvent.click(within(home).getByRole('button', { name: new RegExp(`^${navCopy.newProjectAction}`) }))
     expect(onProjectCreateOpen).toHaveBeenCalledTimes(1)
@@ -147,57 +141,74 @@ describe('WorkbenchHomePage shell states', () => {
     expect(onProjectImport).toHaveBeenCalledTimes(1)
 
     fireEvent.click(within(home).getByRole('button', { name: /Festival Dialogue Pack/i }))
-    expect(onProjectSelect).toHaveBeenCalledWith('festival-dialogue', null)
+    expect(onProjectSelect).toHaveBeenCalledWith('festival-dialogue')
   })
 
-  it('guards browse links behind a configured game directory without blocking project actions', () => {
+  it('keeps project actions available when the game directory is not configured', () => {
     const onGameDirectoryAction = vi.fn()
     const onProjectCreateOpen = vi.fn()
     renderHome({
       gameDirectoryReady: false,
-      gameDirectoryStatus: { tone: 'idle', message: '' },
       onGameDirectoryAction,
       onProjectCreateOpen,
     })
 
     expect(screen.getByText('Game directory not configured')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${navCopy.rootModeLabels.map}`) }))
+    fireEvent.click(screen.getByRole('button', { name: navCopy.gameDirectoryAction }))
     expect(onGameDirectoryAction).toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${navCopy.newProjectAction}`) }))
     expect(onProjectCreateOpen).toHaveBeenCalled()
   })
 
-  it('renders the empty-world create-first list without filler copy', () => {
-    const onProjectWorkspaceOpen = vi.fn()
-    const onCloseProject = vi.fn()
+  it('opens the separate project dashboard from the global home', () => {
+    const onProjectModuleOpen = vi.fn()
     renderHome({
       hasActiveProject: true,
       studioDeskModel: activeProjectModel(),
-      onProjectWorkspaceOpen,
-      onCloseProject,
+      onProjectModuleOpen,
     })
 
     const home = screen.getByRole('region', { name: 'Workbench Home' })
+    expect(home.getAttribute('data-content')).toBe('home')
+    fireEvent.click(within(home).getByRole('button', { name: navCopy.shellOpenProjectHome }))
+    expect(onProjectModuleOpen).toHaveBeenCalledWith('project-dashboard')
+  })
+
+  it('renders the empty-world create-first list without filler copy', () => {
+    const onProjectModuleOpen = vi.fn()
+    const onCloseProject = vi.fn()
+    renderHome({
+      hasActiveProject: true,
+      presentation: 'project',
+      studioDeskModel: activeProjectModel(),
+      onProjectModuleOpen,
+      onCloseProject,
+    })
+
+    const home = screen.getByRole('region', { name: navCopy.shellProjectHome })
     expect(home.getAttribute('data-content')).toBe('empty')
     expect(within(home).queryByText(navCopy.shellEmptyWorldLead)).toBeNull()
     expect(within(home).getByText(navCopy.shellCreateFirst)).toBeTruthy()
+    expect(within(home).getByText(navCopy.moduleLabels['project-translation'])).toBeTruthy()
     expect(within(home).queryByText(navCopy.shellCreateMapHint)).toBeNull()
 
-    fireEvent.click(within(home).getByRole('button', { name: new RegExp(`^${navCopy.shellCreateMap}`) }))
-    expect(onProjectWorkspaceOpen).toHaveBeenCalledWith('map')
+    fireEvent.click(within(home).getByRole('button', { name: navCopy.moduleLabels['map-authoring'] }))
+    expect(onProjectModuleOpen).toHaveBeenCalledWith('map-authoring')
 
     fireEvent.click(within(home).getByRole('button', { name: navCopy.shellCloseProject }))
     expect(onCloseProject).toHaveBeenCalledTimes(1)
   })
 
   it('renders the rich dual-column overview with continue work and compact attention', () => {
-    const onProjectWorkspaceOpen = vi.fn()
-    const onRootWorkspaceOpen = vi.fn()
+    const onProjectModuleOpen = vi.fn()
     const onExportProject = vi.fn()
+    const onSaveProject = vi.fn()
+    const onProjectCreateOpen = vi.fn()
     renderHome({
       hasActiveProject: true,
+      presentation: 'project',
       studioDeskModel: activeProjectModel({
         stats: {
           eventCount: 2,
@@ -228,12 +239,14 @@ describe('WorkbenchHomePage shell states', () => {
         conflictCount: 0,
         directoryStatus: { tone: 'ready', message: 'Validated directory' },
       },
-      onProjectWorkspaceOpen,
-      onRootWorkspaceOpen,
+      onProjectModuleOpen,
       onExportProject,
+      onProjectCreateOpen,
+      projectDirty: true,
+      onSaveProject,
     })
 
-    const home = screen.getByRole('region', { name: 'Workbench Home' })
+    const home = screen.getByRole('region', { name: navCopy.shellProjectHome })
     expect(home.getAttribute('data-content')).toBe('rich')
     expect(home.querySelector('.workbench-shell-home-body')).toBeTruthy()
     expect(home.querySelector('.workbench-shell-home-count-row')).toBeTruthy()
@@ -244,22 +257,22 @@ describe('WorkbenchHomePage shell states', () => {
     expect(within(home).getByText(navCopy.pendingExportMetric)).toBeTruthy()
     expect(within(home).queryByText(navCopy.pendingExportDetail)).toBeNull()
     expect(within(home).getByText(navCopy.gameDirectoryTaskTitle)).toBeTruthy()
+    expect(within(home).getByText(editorCopy['en-US'].studioDesk.eventPatchHub.unsavedLabel)).toBeTruthy()
+    expect(within(home).getByText(navCopy.shellProjectWorkspaces)).toBeTruthy()
 
     fireEvent.click(within(home).getByRole('button', { name: navCopy.shellContinueEdit }))
-    expect(onProjectWorkspaceOpen).toHaveBeenCalledWith('map')
+    expect(onProjectModuleOpen).toHaveBeenCalledWith('map-authoring')
 
     fireEvent.click(within(home).getByRole('button', { name: navCopy.rootModeLabels.events }))
-    expect(onRootWorkspaceOpen).toHaveBeenCalledWith('events')
+    expect(onProjectModuleOpen).toHaveBeenCalledWith('event-authoring')
 
     fireEvent.click(within(home).getByRole('button', { name: navCopy.shellExportAction }))
     expect(onExportProject).toHaveBeenCalledTimes(1)
-  })
 
-  it('opens a recent project from the no-project list with pending maker mode', () => {
-    const onProjectSelect = vi.fn()
-    renderHome({ makerPending: 'map', onProjectSelect })
+    fireEvent.click(within(home).getByRole('button', { name: editorCopy['en-US'].studioDesk.toolbar.save }))
+    expect(onSaveProject).toHaveBeenCalledTimes(1)
 
-    fireEvent.click(screen.getByRole('button', { name: /Festival Dialogue Pack/i }))
-    expect(onProjectSelect).toHaveBeenCalledWith('festival-dialogue', 'map')
+    fireEvent.click(within(home).getByRole('button', { name: navCopy.shellNewEllipsis }))
+    expect(onProjectCreateOpen).toHaveBeenCalledTimes(1)
   })
 })

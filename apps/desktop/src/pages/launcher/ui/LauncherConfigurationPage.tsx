@@ -68,6 +68,9 @@ type LauncherConfigurationPageProps = {
 }
 
 type ApiRouteTone = 'ok' | 'warn' | 'danger' | 'loading'
+
+// One second is the UX threshold where an interaction starts to feel sluggish.
+const NEXUS_SLOW_LATENCY_MS = 1_000
 type ConfigRouteId = 'nexusApi' | 'publicGraphql' | 'nexusImages' | 'smapi' | 'privateGraphql'
 type NexusApiAccountStatus = {
   apiKeyStatus: ValidateApiKeyResult | null
@@ -283,27 +286,35 @@ function getRouteTone(route: LauncherNexusRouteSnapshot | undefined): ApiRouteTo
     return 'loading'
   }
 
-  if (route.available && route.status === 'success') {
-    return 'ok'
+  if (!route.available) {
+    return 'danger'
   }
 
-  return route.status === 'warning' ? 'warn' : 'danger'
+  if (route.status === 'success') {
+    return route.latencyMs != null && route.latencyMs >= NEXUS_SLOW_LATENCY_MS ? 'warn' : 'ok'
+  }
+
+  return 'warn'
 }
 
-function getRouteStatusLabel(tone: ApiRouteTone, copy: LauncherCopy) {
-  if (tone === 'ok') {
-    return copy.settings.nexusApiAvailable
-  }
-
-  if (tone === 'warn') {
-    return copy.settings.nexusApiSlow
-  }
-
+function getRouteStatusLabel(route: LauncherNexusRouteSnapshot, tone: ApiRouteTone, copy: LauncherCopy) {
   if (tone === 'loading') {
     return copy.configuration.nexusDiagnosticsLoadingState
   }
 
-  return copy.settings.nexusApiUnavailable
+  if (!route.available) {
+    return copy.settings.nexusRouteUnavailable
+  }
+
+  if (tone === 'danger') {
+    return copy.settings.nexusApiUnavailable
+  }
+
+  if (route.status === 'success') {
+    return route.latencyMs == null ? copy.settings.nexusApiAvailable : `${Math.round(route.latencyMs)} ms`
+  }
+
+  return copy.settings.nexusApiWarning
 }
 
 function getProbeStatusLabel(diagnostics: LauncherGmcmProbeDiagnosticsResult | null, copy: LauncherCopy) {
@@ -448,14 +459,6 @@ function getRouteRowTone(route: LauncherNexusRouteSnapshot | undefined, account:
   const routeTone = getRouteTone(route)
   if (routeTone === 'loading') {
     return 'loading'
-  }
-
-  if (route?.routeId === 'nexusImages') {
-    return routeTone === 'ok' ? 'ok' : 'warn'
-  }
-
-  if (route?.routeId === 'publicGraphql' && routeTone === 'danger') {
-    return 'warn'
   }
 
   return routeTone
@@ -973,7 +976,7 @@ function ConfigNexusPanel({
               name={getRouteDisplayName(route, copy)}
               description={getRouteDescription(route, copy)}
               tone={tone}
-              statusLabel={getRouteStatusLabel(tone, copy)}
+              statusLabel={getRouteStatusLabel(route, tone, copy)}
               resolved={route.status !== 'loading'}
             >
               {getRouteIcon(route.routeId)}

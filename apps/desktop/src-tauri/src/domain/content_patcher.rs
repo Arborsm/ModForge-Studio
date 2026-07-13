@@ -1,26 +1,16 @@
-use self::apply::{load_target_result, validate_target_base};
-use self::assets::{infer_target_asset_kind, with_virtual_preview_assets};
-use self::common::{
-    as_non_empty_string, build_snapshot_diagnostics, content_pack_for_unique_id, when_to_value,
-};
-use self::conditions::evaluate_patch_status;
-use self::context::SimulationContext;
-use self::export::{build_export_output_path, write_result_asset};
-use self::plan::{
-    build_effective_context, build_patch_plan_with_context, resolve_dynamic_tokens_for_snapshot,
-};
+use self::apply::load_target_result;
+use self::assets::with_virtual_preview_assets;
+use self::common::{as_non_empty_string, build_snapshot_diagnostics, content_pack_for_unique_id};
+use self::plan::{build_effective_context, build_patch_plan_with_context};
 use self::project::load_content_patcher_project;
 use self::schema::parse_json_str;
 use self::types::{
-    ContentPatcherProjectSnapshot, ContentPatcherProjectSummary, ContentPatcherSourceFile,
-    ContentPatcherTargetSummary, ExportContentPatcherAssetRequest, ExportContentPatcherAssetResult,
-    LoadContentPatcherResultAssetRequest, LoadContentPatcherResultAssetResult,
-    SimulateContentPatcherRequest, SimulateContentPatcherResult,
+    ContentPatcherProjectSnapshot, ContentPatcherProjectSummary, ContentPatcherSnapshotInput,
+    ContentPatcherSourceFile, LoadContentPatcherResultAssetRequest,
+    LoadContentPatcherResultAssetResult,
 };
-use crate::domain::modding::attached_api::AttachedApiRegistry;
-use anyhow::{Context, bail};
+use anyhow::Context;
 use serde_json::Value;
-use std::collections::BTreeMap;
 
 pub mod apply;
 pub mod assets;
@@ -29,7 +19,6 @@ pub(crate) mod common;
 pub mod conditions;
 pub mod context;
 pub mod diagnostics;
-pub mod export;
 pub(crate) mod patch_fields;
 pub mod plan;
 pub mod project;
@@ -83,13 +72,13 @@ fn apply_inline_content(snapshot: &mut ContentPatcherProjectSnapshot, content_js
 }
 
 fn build_inline_snapshot(
-    request: &SimulateContentPatcherRequest,
+    request: &ContentPatcherSnapshotInput,
 ) -> anyhow::Result<ContentPatcherProjectSnapshot> {
     let manifest_json = request.manifest_json.as_deref().unwrap_or("{}");
     let content_json = request
         .content_json
         .as_deref()
-        .context("simulate_content_patcher requires `content_json` when no `snapshot` or `path` is provided.")?;
+        .context("Content Patcher result loading requires `content_json` when no snapshot or project path is provided.")?;
     let manifest = parse_json_str(manifest_json, "manifest.json")?;
     let content = parse_json_str(content_json, "content.json")?;
 
@@ -112,8 +101,8 @@ fn build_inline_snapshot(
     })
 }
 
-fn resolve_simulation_snapshot(
-    request: &SimulateContentPatcherRequest,
+fn resolve_result_snapshot(
+    request: &ContentPatcherSnapshotInput,
 ) -> anyhow::Result<ContentPatcherProjectSnapshot> {
     let mut snapshot = if let Some(snapshot) = request.snapshot.clone() {
         snapshot
@@ -200,123 +189,6 @@ fn resolve_simulation_snapshot(
     Ok(snapshot)
 }
 
-fn build_target_summaries(
-    plan: &types::ContentPatcherPatchPlan,
-    patch_statuses: &[types::ContentPatcherPatchStatus],
-    attached_api_registry: &AttachedApiRegistry,
-    game_root_path: Option<&str>,
-) -> Vec<ContentPatcherTargetSummary> {
-    let mut grouped = BTreeMap::<String, Vec<(String, String, String)>>::new();
-    let mut target_order = Vec::new();
-    for (index, patch) in plan.patches.iter().enumerate() {
-        if patch.target.trim().is_empty() {
-            continue;
-        }
-        if !grouped.contains_key(&patch.target) {
-            target_order.push(patch.target.clone());
-        }
-        let status = patch_statuses
-            .get(index)
-            .map(|status| status.status.clone())
-            .unwrap_or_else(|| "indeterminate".to_string());
-        grouped.entry(patch.target.clone()).or_default().push((
-            patch.id.clone(),
-            patch.action.clone(),
-            status,
-        ));
-    }
-
-    target_order
-        .into_iter()
-        .map(|target| {
-            let patch_rows = grouped.remove(&target).unwrap_or_default();
-            let actions = patch_rows
-                .iter()
-                .map(|row| row.1.clone())
-                .collect::<Vec<_>>();
-            let from_files = plan
-                .patches
-                .iter()
-                .filter(|patch| patch.target == target)
-                .map(|patch| patch.from_file.clone())
-                .collect::<Vec<_>>();
-            let asset_kind =
-                infer_target_asset_kind(&target, &actions, &from_files, attached_api_registry);
-            let base_result_state = if patch_rows
-                .iter()
-                .any(|row| row.2 == "applied" || row.2 == "indeterminate")
-            {
-                game_root_path.and_then(|root| {
-                    validate_target_base(&asset_kind, &target, Some(root))
-                        .err()
-                        .map(|_| "error".to_string())
-                })
-            } else {
-                None
-            };
-            let result_state = if base_result_state.as_deref() == Some("error")
-                || patch_rows.iter().any(|row| row.2 == "error")
-            {
-                "error".to_string()
-            } else if patch_rows.iter().any(|row| row.2 == "indeterminate") {
-                "indeterminate".to_string()
-            } else {
-                "determinate".to_string()
-            };
-            ContentPatcherTargetSummary {
-                path: target.clone(),
-                asset_kind,
-                touched_patch_count: patch_rows.len(),
-                result_state,
-                patch_ids: patch_rows.into_iter().map(|row| row.0).collect(),
-            }
-        })
-        .collect()
-}
-
-pub fn simulate_content_patcher(
-    request: SimulateContentPatcherRequest,
-) -> anyhow::Result<SimulateContentPatcherResult> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
-        "simulate_content_patcher",
-        (|| {
-            let snapshot = resolve_simulation_snapshot(&request)?;
-            let context = request.context.unwrap_or_else(SimulationContext::default);
-            let effective_context = build_effective_context(&snapshot, &context)?;
-            let dynamic_tokens = resolve_dynamic_tokens_for_snapshot(&snapshot, &context)?;
-            let plan = build_patch_plan_with_context(&snapshot, &effective_context)?;
-            let project_root_path = snapshot.summary.absolute_path.as_deref();
-            let attached_api_registry = attached::load_attached_api_registry(None);
-
-            let patch_statuses = plan
-                .patches
-                .iter()
-                .map(|patch| {
-                    let when = when_to_value(&patch.when);
-                    let mut status =
-                        evaluate_patch_status(&when, &effective_context, project_root_path);
-                    status.patch_id = Some(patch.id.clone());
-                    status
-                })
-                .collect::<Vec<_>>();
-            let targets = build_target_summaries(
-                &plan,
-                &patch_statuses,
-                &attached_api_registry,
-                request.game_root_path.as_deref(),
-            );
-
-            Ok(SimulateContentPatcherResult {
-                plan,
-                targets,
-                patch_statuses,
-                diagnostics: snapshot.diagnostics,
-                dynamic_tokens,
-            })
-        })(),
-    )
-}
-
 pub fn load_content_patcher_result_asset(
     request: LoadContentPatcherResultAssetRequest,
 ) -> anyhow::Result<LoadContentPatcherResultAssetResult> {
@@ -324,7 +196,7 @@ pub fn load_content_patcher_result_asset(
         "load_content_patcher_result_asset",
         (|| {
             let context = request.context.clone().unwrap_or_default();
-            let snapshot = resolve_simulation_snapshot(&SimulateContentPatcherRequest {
+            let snapshot = resolve_result_snapshot(&ContentPatcherSnapshotInput {
                 path: request.path.clone(),
                 game_root_path: request.game_root_path.clone(),
                 snapshot: request.snapshot.clone(),
@@ -353,41 +225,6 @@ pub fn load_content_patcher_result_asset(
     )
 }
 
-pub fn export_content_patcher_asset(
-    request: ExportContentPatcherAssetRequest,
-) -> anyhow::Result<ExportContentPatcherAssetResult> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
-        "export_content_patcher_asset",
-        (|| {
-            let target = request.target.clone();
-            let result = load_content_patcher_result_asset(LoadContentPatcherResultAssetRequest {
-                path: request.path,
-                game_root_path: request.game_root_path,
-                snapshot: request.snapshot,
-                manifest_json: request.manifest_json,
-                content_json: request.content_json,
-                virtual_assets: request.virtual_assets,
-                available_capabilities: request.available_capabilities,
-                fingerprint: request.fingerprint,
-                context: request.context,
-                target: target.clone(),
-            })?;
-
-            if !result.exportable {
-                bail!(
-                    "Target `{target}` is {} and cannot be exported.",
-                    result.target.result_state
-                );
-            }
-
-            let output_path =
-                build_export_output_path(&target, &request.output_directory, &result.result)?;
-            let output_path = output_path.to_string_lossy().into_owned();
-            write_result_asset(&target, &output_path, &result.result)
-        })(),
-    )
-}
-
 #[cfg(test)]
-#[path = "../tests/unit/domain/content_patcher/mod_tests.rs"]
+#[path = "../tests/unit/domain/content_patcher/result_tests.rs"]
 mod tests;

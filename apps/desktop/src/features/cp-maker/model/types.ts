@@ -37,6 +37,14 @@ export interface CpMakerOverlayTarget {
 
 export interface CpMakerDraft {
   draftStorageKey: string
+  lastDraftSavedAt?: number | null
+  lastExportedAt?: number | null
+  lastExportPath?: string | null
+  lastExportFingerprint?: {
+    draftFingerprint: string
+    environmentFingerprint: string
+    capabilityFingerprint: string
+  } | null
   projectMetadata: {
     projectName: string
     projectDescription: string
@@ -60,6 +68,7 @@ export interface CpMakerDraft {
   }>
   aliasTokenNames: Record<string, string>
   eventSourceSnapshotsByTarget: Record<string, { rawScriptsByKey: Record<string, string> }>
+  i18nFiles: Array<{ locale: string; rawJson: string }>
 }
 
 export interface VirtualPreviewAsset {

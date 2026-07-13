@@ -20,10 +20,10 @@ type UseWorkbenchShellHistoryOptions = {
   enabled: boolean
   location: WorkbenchShellLocation
   /**
-   * Apply a restored location. Callers must treat this as programmatic navigation:
-   * do not push history again from the resulting state change.
+   * Guard and apply a restored location, then call commit exactly once when the
+   * transition is accepted. A cancelled transition must not call commit.
    */
-  onRestoreLocation: (location: WorkbenchShellLocation) => void
+  onRestoreLocation: (location: WorkbenchShellLocation, commit: () => void) => void
 }
 
 /**
@@ -59,12 +59,13 @@ export function useWorkbenchShellHistory({ rootRef, enabled, location, onRestore
       return
     }
     const next = goWorkbenchShellBack(current)
-    restoringRef.current = true
-    historyRef.current = next
-    setHistory(next)
-    onRestoreLocationRef.current(getWorkbenchShellHistoryLocation(next))
-    queueMicrotask(() => {
-      restoringRef.current = false
+    onRestoreLocationRef.current(getWorkbenchShellHistoryLocation(next), () => {
+      restoringRef.current = true
+      historyRef.current = next
+      setHistory(next)
+      queueMicrotask(() => {
+        restoringRef.current = false
+      })
     })
   }, [])
 
@@ -74,12 +75,13 @@ export function useWorkbenchShellHistory({ rootRef, enabled, location, onRestore
       return
     }
     const next = goWorkbenchShellForward(current)
-    restoringRef.current = true
-    historyRef.current = next
-    setHistory(next)
-    onRestoreLocationRef.current(getWorkbenchShellHistoryLocation(next))
-    queueMicrotask(() => {
-      restoringRef.current = false
+    onRestoreLocationRef.current(getWorkbenchShellHistoryLocation(next), () => {
+      restoringRef.current = true
+      historyRef.current = next
+      setHistory(next)
+      queueMicrotask(() => {
+        restoringRef.current = false
+      })
     })
   }, [])
 
@@ -95,6 +97,12 @@ export function useWorkbenchShellHistory({ rootRef, enabled, location, onRestore
     queueMicrotask(() => {
       restoringRef.current = false
     })
+  }, [])
+
+  const resetToAndPush = useCallback((root: WorkbenchShellLocation, location: WorkbenchShellLocation) => {
+    const next = pushWorkbenchShellHistory(resetWorkbenchShellHistory(root), location)
+    historyRef.current = next
+    setHistory(next)
   }, [])
 
   useEffect(() => {
@@ -120,12 +128,10 @@ export function useWorkbenchShellHistory({ rootRef, enabled, location, onRestore
       }
     }
 
-    // Capture so browser chrome cannot swallow the gesture first.
-    root.addEventListener('pointerup', handlePointerUp)
-    root.addEventListener('mouseup', handlePointerUp)
+    const eventName = typeof PointerEvent === 'undefined' ? 'mouseup' : 'pointerup'
+    root.addEventListener(eventName, handlePointerUp)
     return () => {
-      root.removeEventListener('pointerup', handlePointerUp)
-      root.removeEventListener('mouseup', handlePointerUp)
+      root.removeEventListener(eventName, handlePointerUp)
     }
   }, [enabled, goBack, goForward, rootRef])
 
@@ -135,6 +141,7 @@ export function useWorkbenchShellHistory({ rootRef, enabled, location, onRestore
     goBack,
     goForward,
     resetTo,
+    resetToAndPush,
     canGoBack: canGoWorkbenchShellBack(history),
     canGoForward: canGoWorkbenchShellForward(history),
     location: getWorkbenchShellHistoryLocation(history),

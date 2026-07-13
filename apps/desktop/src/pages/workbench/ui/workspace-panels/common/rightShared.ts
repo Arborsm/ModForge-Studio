@@ -8,7 +8,7 @@ export {
 } from '@entities/map'
 import type { ModSourceEntry } from '@pages/workbench/workspaces/mod'
 import type { GameDirectoryInfo } from '@entities/game/api'
-import type { ModuleBlueprint, WorkspaceTone } from '@locales/api'
+import type { WorkspaceTone } from '@locales/api'
 import type { MapDocument, MapObject, MapObjectGroup } from '@entities/map'
 
 export type VisibilityListItem = {
@@ -38,7 +38,6 @@ export type ObjectGroupListItem = {
 export type InspectorPanelProps = {
   mapDocument: MapDocument | null
   modSources?: ModSourceEntry[]
-  moduleBlueprint?: ModuleBlueprint
 }
 
 export type LayersPanelProps = {

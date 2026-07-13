@@ -1,5 +1,3 @@
-import type { CoreWorkspaceMode } from '../core'
-
 export type StudioDeskCopy = {
   title: string
   heading: string
@@ -60,11 +58,6 @@ export type StudioDeskCopy = {
   scriptConsole: string
   stageTabs: Record<'script' | 'map' | 'actors' | 'props', string>
   stageEmpty: string
-  wipBadge: string
-  wipTitle: (area: string) => string
-  wipDescription: string
-  wipOpenHint: (area: string) => string
-  wipChecklist: string[]
   linkedResources: string
   sortByTime: string
   bibleTabs: Record<'actors' | 'tokens' | 'story' | 'items' | 'scenes', string>
@@ -93,6 +86,7 @@ export type StudioDeskCopy = {
   unsavedChangesMessage: string
   createDraft: string
   importDraft: string
+  recentDirectoriesSaveFailed: string
   noEntries: string
   searchEmpty: string
   bibleEntryCount: (count: number) => string
@@ -125,7 +119,6 @@ export type StudioDeskCopy = {
     assets: string
     conflicts: string
   }
-  workspaceDescriptions: Record<CoreWorkspaceMode | 'mod-i18n', string>
   createDialog: {
     title: string
     projectName: string
@@ -153,6 +146,7 @@ export type StudioDeskCopy = {
     selectTargetTitle: string
     closeLabel: string
     back: string
+    fromFile: string
     includeFromFilePlaceholder: string
     fromFileDescription: string
     customTarget: string
@@ -165,6 +159,70 @@ export type StudioDeskCopy = {
   editorPage: {
     patchNotFound: string
     noEditorRegistered: (workspaceId: string) => string
+    patchName: string
+    enabled: string
+    editorStateJson: string
+    invalidJson: string
+  }
+  imagePatchEditor: {
+    replacementImage: string
+    previewAlt: string
+    unsaved: string
+    removeImage: string
+    dropTitle: string
+    dropHint: string
+    loadAction: string
+    loadDescription: string
+    patchMode: string
+    modeLabels: Record<'Replace' | 'Overlay' | 'Mask', string>
+    modeDescription: string
+    fromArea: string
+    fromAreaDescription: string
+    toArea: string
+    toAreaDescription: string
+    replaceFile: string
+    uploadFile: string
+  }
+  mapPatchEditor: {
+    tabs: Record<'properties' | 'warps' | 'tiles' | 'file', string>
+    playerWarps: string
+    playerWarpsDescription: string
+    npcWarps: string
+    npcWarpsDescription: string
+    fromFile: string
+    fromFilePlaceholder: string
+    fromFileDescription: string
+    patchMode: string
+    modeLabels: Record<'ReplaceByLayer' | 'Overlay' | 'Replace', string>
+    modeDescription: string
+    fromArea: string
+    fromAreaDescription: string
+    toArea: string
+    toAreaDescription: string
+    propertiesDescription: string
+    propertyPlaceholder: string
+    valuePlaceholder: string
+    addProperty: string
+    removeProperty: string
+    addWarp: string
+    removeWarp: string
+    noGameRoot: string
+    noGameRootDescription: string
+    loadingMap: string
+    unableToLoadMap: string
+    unsupportedFormat: (format: string) => string
+    unableToLoadTarget: (target: string) => string
+    tilePosition: (x: number, y: number) => string
+    tileLayer: (layer: string) => string
+    tileTileset: (tileset: string) => string
+    tileId: (id: number) => string
+    hoverHint: string
+    addTileEdit: string
+    buildAsset: string
+    mapTileEdits: (count: number) => string
+    tilePlaceholders: Record<'layer' | 'x' | 'y' | 'tilesheet' | 'index' | 'properties', string>
+    removeTile: string
+    removeTileEdit: string
   }
   referencePreview: {
     workspaceLabels: Record<'mods' | 'map' | 'events' | 'characters' | 'buildings' | 'items', string>
@@ -245,6 +303,7 @@ export type StudioDeskCopy = {
     project: string
     add: string
     config: string
+    reload: string
     save: string
     saveDirty: string
     patchCount: (count: number) => string
@@ -305,6 +364,7 @@ export type StudioDeskCopy = {
     contextMenuLabel: string
     configurePatchAction: string
     duplicatePatchAction: string
+    duplicatedPatchName: (name: string) => string
     deletePatchAction: string
     openEditorAction: string
     duplicateEventAction: string

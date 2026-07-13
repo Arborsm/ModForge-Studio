@@ -4,13 +4,13 @@ import type { WorkspacePanelConfig } from '@shared/contracts'
 import { EventBrowserPanel } from '../../ui/workspace-panels/event/EventBrowserPanel'
 import { EventDetailPanel } from '../../ui/workspace-panels/event/EventDetailPanel'
 import { EventStageWorkspace } from '../../workspaces/event-stage'
-import type { BuildWorkspacePanelsOptions } from './types'
+import type { BuildEventPanelsOptions } from './types'
 
 /**
  * Event browse workspace: hierarchical file browser, stage preview, unified detail rail.
  * Edit-mode EventPatchEditor is unchanged and lives outside this panel set.
  */
-export function buildEventsWorkspacePanels(options: BuildWorkspacePanelsOptions): WorkspacePanelConfig[] {
+export function buildEventsWorkspacePanels(options: BuildEventPanelsOptions): WorkspacePanelConfig[] {
   const {
     copy,
     locale,
@@ -58,16 +58,14 @@ export function buildEventsWorkspacePanels(options: BuildWorkspacePanelsOptions)
 
   return [
     {
-      id: 'event-browser',
+      id: 'event-browser/browser',
       title: labels.browserTitle,
       subtitle: eventStatusMessage || labels.browserSubtitle,
       hideDockHeader: true,
       shellClassName,
       minWidth: 200,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'left-top',
-      defaultDockHeight: 760,
+      area: 'left',
       content: withPreviewReveal(
         'workbench-events-browser',
         0,
@@ -90,15 +88,14 @@ export function buildEventsWorkspacePanels(options: BuildWorkspacePanelsOptions)
       ),
     },
     {
-      id: 'event-stage',
+      id: 'event-browser/stage',
       title: copy.eventStage.scene,
       subtitle: selectedEvent?.eventId ?? eventStatusMessage,
       hideDockHeader: true,
       shellClassName: 'workspace-panel-shell-flat event-stage-panel-shell',
       minWidth: 480,
       minHeight: 420,
-      defaultDock: 'center',
-      defaultDockHeight: 760,
+      area: 'center',
       content: withPreviewReveal(
         'workbench-events-viewport',
         1,
@@ -121,16 +118,14 @@ export function buildEventsWorkspacePanels(options: BuildWorkspacePanelsOptions)
       ),
     },
     {
-      id: 'event-detail',
+      id: 'event-browser/detail',
       title: labels.inspectorTitle,
       subtitle: selectedEvent?.eventId ?? eventStatusMessage,
       hideDockHeader: true,
       shellClassName,
       minWidth: 220,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'right-top',
-      defaultDockHeight: 760,
+      area: 'right',
       content: withPreviewReveal(
         'workbench-events-detail',
         2,

@@ -1,4 +1,5 @@
 import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionSpeedMode, LoadingMotionStyleId } from './loadingMotion'
+import type { WorkbenchLocation, WorkbenchNavigationSection } from '../registry'
 
 export type WindowBorderTone = 'accent' | 'neutral'
 export type WindowBorderWeight = 'standard' | 'thin' | 'none'
@@ -35,8 +36,6 @@ export type AppUiAppearanceState = {
   }
 }
 
-export type WorkspaceViewMode = 'edit' | 'preview'
-
 export type AppUiI18nGeneratorSession = {
   prefix: string
   targetPrefixes: Record<string, string>
@@ -45,25 +44,12 @@ export type AppUiI18nGeneratorSession = {
 }
 
 export type AppUiWorkspaceState = {
-  layouts: Record<string, Record<string, unknown>>
-  workspaceViewMode?: WorkspaceViewMode
-  cpMaker?: {
-    activeGeneratedDraftKey?: string | null
-    activeDraftKey?: string | null
-  }
-  i18nGenerator?: AppUiI18nGeneratorSession
-  lastLocation?: {
-    workbenchRoute: 'home' | 'workspace'
-    workspaceMode: string
-    workspaceViewMode: WorkspaceViewMode
-    registeredWorkbenchViewId: string | null
-  }
-  sideNav?: {
+  location: WorkbenchLocation
+  navigation: {
     collapsed: boolean
-    browseOpen: boolean
-    toolsOpen: boolean
-    devOpen: boolean
+    expandedSections: WorkbenchNavigationSection[]
   }
+  modules: Record<string, Record<string, unknown>>
 }
 
 export type AppUiLauncherState = {
@@ -93,15 +79,9 @@ export type PatchAppUiStateRequest = {
     loadingMotion?: AppUiAppearanceState['loadingMotion']
   }
   workspace?: {
-    layouts?: Record<string, Record<string, unknown> | null>
-    workspaceViewMode?: WorkspaceViewMode
-    cpMaker?: {
-      activeGeneratedDraftKey?: string | null
-      activeDraftKey?: string | null
-    }
-    i18nGenerator?: AppUiI18nGeneratorSession
-    lastLocation?: AppUiWorkspaceState['lastLocation']
-    sideNav?: AppUiWorkspaceState['sideNav']
+    location?: WorkbenchLocation
+    navigation?: Partial<AppUiWorkspaceState['navigation']>
+    modules?: Record<string, Record<string, unknown> | null>
   }
   launcher?: Partial<AppUiLauncherState> & {
     discoverToolbar?: Partial<AppUiLauncherState['discoverToolbar']>

@@ -171,14 +171,6 @@ fn load_target_base(
     )
 }
 
-pub(crate) fn validate_target_base(
-    asset_kind: &str,
-    target: &str,
-    game_root_path: Option<&str>,
-) -> anyhow::Result<()> {
-    load_target_base(asset_kind, target, game_root_path).map(|_| ())
-}
-
 pub fn load_target_result(
     snapshot: &ContentPatcherProjectSnapshot,
     plan: &ContentPatcherPatchPlan,

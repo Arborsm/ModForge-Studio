@@ -1,6 +1,6 @@
-import { Check, Filter, FolderOpen, RefreshCw, Search, Upload } from 'lucide-react'
+import { Archive, Check, Filter, FolderOpen, RefreshCw, Search } from 'lucide-react'
 import type { ModProjectSummary } from '@entities/mod/api'
-import { useModI18nCopy, useModWorkspaceCopy } from '@locales/provider'
+import { useModCopy, useTranslationEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
 
@@ -18,16 +18,17 @@ type ModBrowserPanelProps = {
   onCompatibleOnlyChange: (value: boolean) => void
   onI18nOnlyChange?: (value: boolean) => void
   onSelectProject: (path: string) => void
+  onOpenFolder?: () => void
+  onOpenArchive?: () => void
   onImportProject?: () => void
   onRefreshProjects: () => void
 }
 
-function getPluginKindBadge(project: ModProjectSummary, copy: ReturnType<typeof useModWorkspaceCopy>) {
+function getPluginKindBadge(project: ModProjectSummary, copy: ReturnType<typeof useModCopy>) {
   if (project.pluginKind === 'content-patcher') {
     return {
       label: 'Content Patcher',
-      className:
-        'border-[color-mix(in_srgb,#10b981_16%,var(--border-color))] bg-[color-mix(in_srgb,var(--bg-panel-muted)_88%,transparent)] text-[color-mix(in_srgb,var(--text-primary)_88%,#065f46)]',
+      className: 'border-(--success) bg-(--success-soft) text-(--success)',
     }
   }
 
@@ -37,12 +38,11 @@ function getPluginKindBadge(project: ModProjectSummary, copy: ReturnType<typeof 
   }
 }
 
-function getProjectStatusBadge(project: ModProjectSummary, copy: ReturnType<typeof useModWorkspaceCopy>) {
+function getProjectStatusBadge(project: ModProjectSummary, copy: ReturnType<typeof useModCopy>) {
   if (project.status === 'incompatible') {
     return {
       label: copy.incompatibleProject,
-      className:
-        'border-[color-mix(in_srgb,#f97316_22%,var(--border-color))] bg-[color-mix(in_srgb,#fff7ed_84%,var(--bg-panel))] text-[color-mix(in_srgb,#9a3412_90%,var(--text-primary))]',
+      className: 'border-(--warning) bg-(--warning-soft) text-(--warning)',
     }
   }
 
@@ -62,7 +62,7 @@ function ProjectRow({
   mode: 'mod' | 'i18n'
   onSelect: () => void
 }) {
-  const copy = useModWorkspaceCopy()
+  const copy = useModCopy()
   const pluginKindBadge = getPluginKindBadge(project, copy)
   const statusBadge = mode === 'i18n' ? null : getProjectStatusBadge(project, copy)
   const isIncompatible = mode !== 'i18n' && project.status === 'incompatible'
@@ -70,26 +70,26 @@ function ProjectRow({
   const revealProps = getLoadingMotionChildRevealProps({
     index,
     className: cx(
-      'w-full rounded-[20px] border px-4 py-3 text-left transition-all',
+      'w-full border-b border-(--border-color)/55 px-3 py-2.5 text-left transition-[background-color,color]',
       isIncompatible
-        ? 'cursor-not-allowed border-[color-mix(in_srgb,#f97316_22%,var(--border-color))] bg-[color-mix(in_srgb,#fff7ed_58%,var(--bg-panel))] opacity-90'
+        ? 'cursor-not-allowed bg-(--warning-soft) opacity-80'
         : active
-          ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent)_12%,transparent),color-mix(in_srgb,var(--accent)_6%,var(--bg-panel)))] shadow-[0_14px_28px_rgba(79,70,229,0.10)]'
-          : 'border-(--border-color) bg-(--bg-panel) hover:bg-(--bg-panel-muted) hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]',
+          ? 'bg-(--accent-soft) shadow-[inset_2px_0_0_var(--accent)]'
+          : 'bg-(--bg-panel) hover:bg-(--bg-panel-muted)',
     ),
   })
 
   return (
     <button type="button" disabled={isIncompatible} {...revealProps} onClick={onSelect}>
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-(--text-primary)">{project.name}</p>
-          <p className="mt-1 truncate text-xs text-(--text-secondary)">{project.uniqueId ?? project.folderName}</p>
+          <p className="mt-0.5 truncate text-[11px] text-(--text-tertiary)">{project.uniqueId ?? project.folderName}</p>
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-2">
           <span
             className={cx(
-              'inline-flex items-center rounded-md border px-2.5 py-1 text-[10px] leading-none font-semibold whitespace-nowrap',
+              'inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[9px] leading-none font-semibold whitespace-nowrap',
               pluginKindBadge.className,
             )}
           >
@@ -98,7 +98,7 @@ function ProjectRow({
           {statusBadge ? (
             <span
               className={cx(
-                'inline-flex items-center rounded-md border px-2.5 py-1 text-[10px] leading-none font-semibold whitespace-nowrap',
+                'inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[9px] leading-none font-semibold whitespace-nowrap',
                 statusBadge.className,
               )}
             >
@@ -108,21 +108,17 @@ function ProjectRow({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2 text-xs text-(--text-secondary)">
-        <span className="dock-chip">{project.author ?? copy.unknownLabel}</span>
-        <span className="dock-chip">{project.version ?? copy.noVersionLabel}</span>
+      <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[11px] text-(--text-secondary)">
+        <span className="truncate">{project.author ?? copy.unknownLabel}</span>
+        <span aria-hidden="true">·</span>
+        <span>{project.version ?? copy.noVersionLabel}</span>
       </div>
 
       {isIncompatible ? (
-        <p className="mt-3 text-xs leading-5 text-[color-mix(in_srgb,#9a3412_88%,var(--text-primary))]">
+        <p className="mt-3 text-xs leading-5 text-(--warning)">
           {copy.missingRequiredDependencies(project.missingRequiredDependencies.join(', '))}
         </p>
       ) : null}
-
-      <div className="mt-3 flex items-start gap-2 text-[11px] leading-5 text-(--text-tertiary)">
-        <FolderOpen className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        <span className="break-all">{project.absolutePath}</span>
-      </div>
     </button>
   )
 }
@@ -141,15 +137,17 @@ export function ModBrowserPanel({
   onCompatibleOnlyChange,
   onI18nOnlyChange,
   onSelectProject,
+  onOpenFolder,
+  onOpenArchive,
   onImportProject,
   onRefreshProjects,
 }: ModBrowserPanelProps) {
-  const copy = useModWorkspaceCopy()
-  const i18nCopy = useModI18nCopy()
+  const copy = useModCopy()
+  const i18nCopy = useTranslationEditorCopy()
   const isI18nMode = mode === 'i18n'
   if (isI18nMode) {
     return (
-      <div className="mod-i18n-browser-pane flex h-full flex-col overflow-hidden border-r border-(--border-color)/60 p-4">
+      <div className="mod-translation-browser-pane flex h-full flex-col overflow-hidden border-r border-(--border-color)/60 p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[0.625rem] font-bold tracking-[0.16em] text-(--text-tertiary) uppercase">{i18nCopy.browserTitle}</p>
@@ -219,37 +217,9 @@ export function ModBrowserPanel({
   }
 
   return (
-    <div className="flex h-full flex-col gap-4 overflow-hidden bg-(--bg-panel) p-4">
-      <section className="panel-surface p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold tracking-[0.16em] text-(--text-tertiary) uppercase">{copy.browserTitle}</p>
-            <h2 className="mt-2 text-lg font-semibold text-(--text-primary)">{copy.browserQuickStartTitle}</h2>
-          </div>
-          <div className="grid shrink-0 gap-2 sm:grid-cols-2">
-            <button type="button" className="control-button control-button-primary" onClick={onImportProject}>
-              <Upload className="h-4 w-4" />
-              <span>{copy.importProject}</span>
-            </button>
-            <button type="button" className="control-button" onClick={onRefreshProjects}>
-              <RefreshCw className="h-4 w-4" />
-              <span>{copy.refreshProjects}</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-[20px] border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_95%,white_5%)] px-4 py-3">
-            <p className="text-[11px] font-semibold tracking-[0.14em] text-(--text-tertiary) uppercase">{copy.projectsLabel}</p>
-            <p className="mt-2 text-2xl font-semibold text-(--text-primary)">{projects.length}</p>
-          </div>
-          <div className="rounded-[20px] border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_95%,white_5%)] px-4 py-3">
-            <p className="text-[11px] font-semibold tracking-[0.14em] text-(--text-tertiary) uppercase">{copy.filteredLabel}</p>
-            <p className="mt-2 text-2xl font-semibold text-(--text-primary)">{filteredProjects.length}</p>
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-col gap-3 lg:flex-row">
+    <div className="flex h-full flex-col overflow-hidden bg-(--bg-panel)">
+      <section className="shrink-0 border-b border-(--border-color)/70 p-3">
+        <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-(--text-tertiary)" />
             <input
@@ -260,71 +230,82 @@ export function ModBrowserPanel({
               spellCheck={false}
             />
           </div>
-          <div className="flex shrink-0 flex-wrap gap-3">
-            {!isI18nMode ? (
-              <>
-                <button
-                  type="button"
-                  className={cx(
-                    'control-button h-10 gap-2 px-4',
-                    contentPatcherOnly
-                      ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-(--text-primary)'
-                      : undefined,
-                  )}
-                  aria-pressed={contentPatcherOnly}
-                  onClick={() => onContentPatcherOnlyChange(!contentPatcherOnly)}
-                >
-                  <Filter className="h-4 w-4" />
-                  <span>{copy.contentPatcherOnly}</span>
-                </button>
-                <button
-                  type="button"
-                  className={cx(
-                    'control-button h-10 gap-2 px-4',
-                    compatibleOnly
-                      ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-(--text-primary)'
-                      : undefined,
-                  )}
-                  aria-pressed={compatibleOnly}
-                  onClick={() => onCompatibleOnlyChange(!compatibleOnly)}
-                >
-                  <Filter className="h-4 w-4" />
-                  <span>{copy.compatibleOnly}</span>
-                </button>
-              </>
-            ) : null}
-            {onI18nOnlyChange && !isI18nMode ? (
+          <button type="button" className="control-button h-10 px-3" title={copy.refreshProjects} onClick={onRefreshProjects}>
+            <RefreshCw className="h-4 w-4" />
+            <span className="sr-only">{copy.refreshProjects}</span>
+          </button>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {!isI18nMode ? (
+            <>
               <button
                 type="button"
                 className={cx(
-                  'control-button h-10 gap-2 px-4',
-                  i18nOnly
+                  'control-button h-7 gap-1.5 rounded-sm px-2 text-[11px]',
+                  contentPatcherOnly
                     ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-(--text-primary)'
                     : undefined,
                 )}
-                aria-pressed={i18nOnly}
-                onClick={() => onI18nOnlyChange(!i18nOnly)}
+                aria-pressed={contentPatcherOnly}
+                onClick={() => onContentPatcherOnlyChange(!contentPatcherOnly)}
               >
                 <Filter className="h-4 w-4" />
-                <span>{copy.i18nOnly}</span>
+                <span>{copy.contentPatcherOnly}</span>
               </button>
-            ) : null}
-          </div>
+              <button
+                type="button"
+                className={cx(
+                  'control-button h-7 gap-1.5 rounded-sm px-2 text-[11px]',
+                  compatibleOnly
+                    ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-(--text-primary)'
+                    : undefined,
+                )}
+                aria-pressed={compatibleOnly}
+                onClick={() => onCompatibleOnlyChange(!compatibleOnly)}
+              >
+                <Filter className="h-4 w-4" />
+                <span>{copy.compatibleOnly}</span>
+              </button>
+            </>
+          ) : null}
+          {onI18nOnlyChange && !isI18nMode ? (
+            <button
+              type="button"
+              className={cx(
+                'control-button h-7 gap-1.5 rounded-sm px-2 text-[11px]',
+                i18nOnly
+                  ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-(--text-primary)'
+                  : undefined,
+              )}
+              aria-pressed={i18nOnly}
+              onClick={() => onI18nOnlyChange(!i18nOnly)}
+            >
+              <Filter className="h-4 w-4" />
+              <span>{copy.i18nOnly}</span>
+            </button>
+          ) : null}
+        </div>
+        <div className="mt-2 flex items-center gap-2 border-t border-(--border-color)/45 pt-2">
+          <button type="button" className="control-button h-8 flex-1 rounded-sm px-2 text-xs" onClick={onOpenFolder ?? onImportProject}>
+            <FolderOpen className="h-3.5 w-3.5" />
+            <span>{copy.openExternalFolder}</span>
+          </button>
+          <button type="button" className="control-button h-8 flex-1 rounded-sm px-2 text-xs" onClick={onOpenArchive}>
+            <Archive className="h-3.5 w-3.5" />
+            <span>{copy.openExternalArchive}</span>
+          </button>
         </div>
       </section>
-
-      <section className="panel-surface min-h-0 flex-1 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold tracking-[0.16em] text-(--text-tertiary) uppercase">{copy.browserLibraryTitle}</p>
-            <p className="mt-2 text-sm text-(--text-secondary)">
-              {filteredProjects.length ? copy.browserLibraryHasProjectsDescription : copy.browserLibraryEmptyDescription}
-            </p>
-          </div>
-          {activeProjectPath ? <span className="dock-chip">{copy.browserLibraryActive}</span> : null}
-        </div>
-
-        <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-auto pr-1">
+      <div className="flex h-8 shrink-0 items-center justify-between border-b border-(--border-color)/55 px-3 text-[11px] text-(--text-tertiary)">
+        <span>
+          {copy.filteredLabel} <strong className="text-(--text-primary)">{filteredProjects.length}</strong>
+        </span>
+        <span>
+          {copy.projectsLabel} <strong className="text-(--text-primary)">{projects.length}</strong>
+        </span>
+      </div>
+      <section className="custom-scrollbar min-h-0 flex-1 overflow-auto">
+        <div className="min-h-0">
           {filteredProjects.length ? (
             filteredProjects.map((project, index) => (
               <ProjectRow
@@ -337,10 +318,10 @@ export function ModBrowserPanel({
               />
             ))
           ) : (
-            <div className="panel-empty-state flex min-h-48 items-center justify-center text-center">
+            <div className="panel-empty-state flex min-h-48 items-center justify-center px-4 text-center">
               <div>
-                <p className="text-base font-semibold text-(--text-primary)">{copy.browserLibraryEmptyTitle}</p>
-                <p className="mt-2 text-sm leading-6 text-(--text-secondary)">{copy.browserLibraryEmptyDescription}</p>
+                <p className="text-sm font-semibold text-(--text-primary)">{copy.browserLibraryEmptyTitle}</p>
+                <p className="mt-2 text-xs leading-5 text-(--text-secondary)">{copy.browserLibraryEmptyDescription}</p>
               </div>
             </div>
           )}

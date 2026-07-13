@@ -58,18 +58,33 @@ pub(crate) struct AppUiShellState {
 pub(crate) struct AppUiAppearanceState {
     #[serde(default = "default_locale")]
     pub(crate) locale: String,
-    #[serde(default = "default_accent_preset_id")]
-    pub(crate) accent_preset_id: String,
+    #[serde(default = "default_theme_id")]
+    pub(crate) theme_id: String,
     #[serde(default = "default_window_border_tone")]
     pub(crate) window_border_tone: String,
     #[serde(default = "default_window_border_weight")]
     pub(crate) window_border_weight: String,
-    #[serde(default, rename = "windowBorderStyle", skip_serializing)]
-    legacy_window_border_style: String,
     #[serde(default)]
     pub(crate) recent_game_directories: Vec<String>,
     #[serde(default)]
     pub(crate) player_appearance: AppUiPlayerAppearanceState,
+    #[serde(default)]
+    pub(crate) loading_motion: AppUiLoadingMotionState,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AppUiLoadingMotionState {
+    #[serde(default = "default_loading_motion_style")]
+    pub(crate) style_id: String,
+    #[serde(default = "default_loading_motion_intensity")]
+    pub(crate) intensity_id: String,
+    #[serde(default = "default_loading_motion_speed_mode")]
+    pub(crate) speed_mode: String,
+    #[serde(default = "default_loading_motion_speed")]
+    pub(crate) speed_id: String,
+    #[serde(default = "default_loading_motion_speed_multiplier")]
+    pub(crate) speed_multiplier: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -85,65 +100,29 @@ pub(crate) struct AppUiPlayerAppearanceState {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct AppUiWorkspaceState {
     #[serde(default)]
-    pub(crate) layouts: BTreeMap<String, Value>,
-    #[serde(default = "default_workspace_view_mode")]
-    pub(crate) workspace_view_mode: String,
+    pub(crate) location: AppUiWorkbenchLocation,
     #[serde(default)]
-    pub(crate) cp_maker: AppUiCpMakerWorkspaceState,
+    pub(crate) navigation: AppUiWorkspaceNavigationState,
     #[serde(default)]
-    pub(crate) i18n_generator: AppUiI18nGeneratorSession,
-    #[serde(default)]
-    pub(crate) last_location: AppUiWorkspaceLastLocation,
-    #[serde(default)]
-    pub(crate) side_nav: AppUiWorkspaceSideNavState,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct AppUiI18nGeneratorSession {
-    #[serde(default = "default_i18n_generator_prefix")]
-    pub(crate) prefix: String,
-    #[serde(default)]
-    pub(crate) target_prefixes: BTreeMap<String, String>,
-    #[serde(default)]
-    pub(crate) enabled_targets: Vec<String>,
-    #[serde(default)]
-    pub(crate) expanded_paths: Vec<String>,
+    pub(crate) modules: BTreeMap<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct AppUiCpMakerWorkspaceState {
+pub(crate) struct AppUiWorkbenchLocation {
     #[serde(default)]
-    pub(crate) active_generated_draft_key: Option<String>,
+    pub(crate) kind: String,
     #[serde(default)]
-    pub(crate) active_draft_key: Option<String>,
+    pub(crate) module_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct AppUiWorkspaceLastLocation {
-    #[serde(default = "default_workbench_route")]
-    pub(crate) workbench_route: String,
-    #[serde(default = "default_last_location_workspace_mode")]
-    pub(crate) workspace_mode: String,
-    #[serde(default = "default_last_location_view_mode")]
-    pub(crate) workspace_view_mode: String,
-    #[serde(default)]
-    pub(crate) registered_workbench_view_id: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct AppUiWorkspaceSideNavState {
+pub(crate) struct AppUiWorkspaceNavigationState {
     #[serde(default = "default_side_nav_collapsed")]
     pub(crate) collapsed: bool,
-    #[serde(default = "default_side_nav_browse_open")]
-    pub(crate) browse_open: bool,
-    #[serde(default)]
-    pub(crate) tools_open: bool,
-    #[serde(default)]
-    pub(crate) dev_open: bool,
+    #[serde(default = "default_expanded_navigation_sections")]
+    pub(crate) expanded_sections: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -191,7 +170,7 @@ pub(crate) struct AppUiAppearanceStatePatch {
     #[serde(default)]
     pub(crate) locale: Option<String>,
     #[serde(default)]
-    pub(crate) accent_preset_id: Option<String>,
+    pub(crate) theme_id: Option<String>,
     #[serde(default)]
     pub(crate) window_border_tone: Option<String>,
     #[serde(default)]
@@ -200,32 +179,28 @@ pub(crate) struct AppUiAppearanceStatePatch {
     pub(crate) recent_game_directories: Option<Vec<String>>,
     #[serde(default)]
     pub(crate) player_appearance: Option<AppUiPlayerAppearanceState>,
+    #[serde(default)]
+    pub(crate) loading_motion: Option<AppUiLoadingMotionState>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct AppUiWorkspaceStatePatch {
     #[serde(default)]
-    pub(crate) layouts: Option<BTreeMap<String, Option<Value>>>,
+    pub(crate) location: Option<AppUiWorkbenchLocation>,
     #[serde(default)]
-    pub(crate) workspace_view_mode: Option<String>,
+    pub(crate) navigation: Option<AppUiWorkspaceNavigationStatePatch>,
     #[serde(default)]
-    pub(crate) cp_maker: Option<AppUiCpMakerWorkspaceStatePatch>,
-    #[serde(default)]
-    pub(crate) i18n_generator: Option<AppUiI18nGeneratorSession>,
-    #[serde(default)]
-    pub(crate) last_location: Option<AppUiWorkspaceLastLocation>,
-    #[serde(default)]
-    pub(crate) side_nav: Option<AppUiWorkspaceSideNavState>,
+    pub(crate) modules: Option<BTreeMap<String, Option<Value>>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct AppUiCpMakerWorkspaceStatePatch {
+pub(crate) struct AppUiWorkspaceNavigationStatePatch {
     #[serde(default)]
-    pub(crate) active_generated_draft_key: Option<String>,
+    pub(crate) collapsed: Option<bool>,
     #[serde(default)]
-    pub(crate) active_draft_key: Option<String>,
+    pub(crate) expanded_sections: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -241,10 +216,6 @@ pub(crate) struct AppUiLauncherStatePatch {
 
 fn default_app_ui_state_version() -> u32 {
     1
-}
-
-fn default_i18n_generator_prefix() -> String {
-    "Author.ModName".to_string()
 }
 
 fn default_app_mode() -> String {
@@ -267,8 +238,28 @@ fn default_locale() -> String {
     "zh-CN".to_string()
 }
 
-fn default_accent_preset_id() -> String {
-    "indigo".to_string()
+fn default_theme_id() -> String {
+    "neutral-tool".to_string()
+}
+
+fn default_loading_motion_style() -> String {
+    "softFadeIn".to_string()
+}
+
+fn default_loading_motion_intensity() -> String {
+    "standard".to_string()
+}
+
+fn default_loading_motion_speed_mode() -> String {
+    "preset".to_string()
+}
+
+fn default_loading_motion_speed() -> String {
+    "standard".to_string()
+}
+
+fn default_loading_motion_speed_multiplier() -> f64 {
+    1.0
 }
 
 fn default_window_border_tone() -> String {
@@ -279,28 +270,12 @@ fn default_window_border_weight() -> String {
     "standard".to_string()
 }
 
-fn default_workspace_view_mode() -> String {
-    "edit".to_string()
-}
-
-fn default_workbench_route() -> String {
-    "home".to_string()
-}
-
-fn default_last_location_workspace_mode() -> String {
-    "map".to_string()
-}
-
-fn default_last_location_view_mode() -> String {
-    "preview".to_string()
-}
-
 fn default_side_nav_collapsed() -> bool {
     true
 }
 
-fn default_side_nav_browse_open() -> bool {
-    true
+fn default_expanded_navigation_sections() -> Vec<String> {
+    vec!["browse".to_string()]
 }
 
 fn default_discover_sort() -> String {
@@ -344,12 +319,24 @@ impl Default for AppUiAppearanceState {
     fn default() -> Self {
         Self {
             locale: default_locale(),
-            accent_preset_id: default_accent_preset_id(),
+            theme_id: default_theme_id(),
             window_border_tone: default_window_border_tone(),
             window_border_weight: default_window_border_weight(),
-            legacy_window_border_style: String::new(),
             recent_game_directories: Vec::new(),
             player_appearance: AppUiPlayerAppearanceState::default(),
+            loading_motion: AppUiLoadingMotionState::default(),
+        }
+    }
+}
+
+impl Default for AppUiLoadingMotionState {
+    fn default() -> Self {
+        Self {
+            style_id: default_loading_motion_style(),
+            intensity_id: default_loading_motion_intensity(),
+            speed_mode: default_loading_motion_speed_mode(),
+            speed_id: default_loading_motion_speed(),
+            speed_multiplier: default_loading_motion_speed_multiplier(),
         }
     }
 }
@@ -357,45 +344,21 @@ impl Default for AppUiAppearanceState {
 impl Default for AppUiWorkspaceState {
     fn default() -> Self {
         Self {
-            layouts: BTreeMap::new(),
-            workspace_view_mode: default_workspace_view_mode(),
-            cp_maker: AppUiCpMakerWorkspaceState::default(),
-            i18n_generator: AppUiI18nGeneratorSession::default(),
-            last_location: AppUiWorkspaceLastLocation::default(),
-            side_nav: AppUiWorkspaceSideNavState::default(),
+            location: AppUiWorkbenchLocation {
+                kind: "home".to_string(),
+                module_id: None,
+            },
+            navigation: AppUiWorkspaceNavigationState::default(),
+            modules: BTreeMap::new(),
         }
     }
 }
 
-impl Default for AppUiI18nGeneratorSession {
-    fn default() -> Self {
-        Self {
-            prefix: default_i18n_generator_prefix(),
-            target_prefixes: BTreeMap::new(),
-            enabled_targets: Vec::new(),
-            expanded_paths: Vec::new(),
-        }
-    }
-}
-
-impl Default for AppUiWorkspaceLastLocation {
-    fn default() -> Self {
-        Self {
-            workbench_route: default_workbench_route(),
-            workspace_mode: default_last_location_workspace_mode(),
-            workspace_view_mode: default_last_location_view_mode(),
-            registered_workbench_view_id: None,
-        }
-    }
-}
-
-impl Default for AppUiWorkspaceSideNavState {
+impl Default for AppUiWorkspaceNavigationState {
     fn default() -> Self {
         Self {
             collapsed: default_side_nav_collapsed(),
-            browse_open: default_side_nav_browse_open(),
-            tools_open: false,
-            dev_open: false,
+            expanded_sections: default_expanded_navigation_sections(),
         }
     }
 }
@@ -438,10 +401,11 @@ fn normalize_locale(value: &str) -> String {
     }
 }
 
-fn normalize_accent_preset_id(value: &str) -> String {
+fn normalize_theme_id(value: &str) -> String {
     match value.trim() {
-        "indigo" | "blue" | "cyan" | "emerald" | "amber" | "rose" => value.trim().to_string(),
-        _ => default_accent_preset_id(),
+        "neutral-tool" | "warm-paper" | "slate-blue" | "forest" | "twilight" | "stardew-wood"
+        | "crimson" | "blossom" => value.trim().to_string(),
+        _ => default_theme_id(),
     }
 }
 
@@ -466,26 +430,44 @@ fn normalize_window_close_behavior(value: &str) -> String {
     }
 }
 
-fn migrate_legacy_window_border_tone(legacy: &str, current: &str) -> String {
-    if !legacy.trim().is_empty() && current.trim() == default_window_border_tone() {
-        match legacy.trim() {
-            "neutral" => "neutral".to_string(),
-            _ => default_window_border_tone(),
+fn normalize_loading_motion(state: AppUiLoadingMotionState) -> AppUiLoadingMotionState {
+    let style_id = match state.style_id.trim() {
+        "bounceIn" | "layeredFadeIn" | "slideInPush" | "softFadeIn" | "quietSimplify" => {
+            state.style_id.trim().to_string()
+        }
+        _ => default_loading_motion_style(),
+    };
+    let intensity_id = match state.intensity_id.trim() {
+        "light" | "standard" | "strong" => state.intensity_id.trim().to_string(),
+        _ => default_loading_motion_intensity(),
+    };
+    let speed_mode = match state.speed_mode.trim() {
+        "custom" => "custom".to_string(),
+        _ => default_loading_motion_speed_mode(),
+    };
+    let speed_id = match state.speed_id.trim() {
+        "slow" | "standard" | "fast" => state.speed_id.trim().to_string(),
+        _ => default_loading_motion_speed(),
+    };
+    let speed_multiplier = if speed_mode == "custom" {
+        if state.speed_multiplier.is_finite() {
+            (state.speed_multiplier.clamp(0.25, 3.0) * 100.0).round() / 100.0
+        } else {
+            default_loading_motion_speed_multiplier()
         }
     } else {
-        normalize_window_border_tone(current)
-    }
-}
-
-fn migrate_legacy_window_border_weight(legacy: &str, current: &str) -> String {
-    if !legacy.trim().is_empty() && current.trim() == default_window_border_weight() {
-        match legacy.trim() {
-            "subtle" => "thin".to_string(),
-            "none" => "none".to_string(),
-            _ => default_window_border_weight(),
+        match speed_id.as_str() {
+            "slow" => 1.3,
+            "fast" => 0.72,
+            _ => default_loading_motion_speed_multiplier(),
         }
-    } else {
-        normalize_window_border_weight(current)
+    };
+    AppUiLoadingMotionState {
+        style_id,
+        intensity_id,
+        speed_mode,
+        speed_id,
+        speed_multiplier,
     }
 }
 
@@ -536,8 +518,8 @@ fn normalize_player_appearance(state: AppUiPlayerAppearanceState) -> AppUiPlayer
     }
 }
 
-fn normalize_workspace_layouts(layouts: BTreeMap<String, Value>) -> BTreeMap<String, Value> {
-    layouts
+fn normalize_workspace_modules(modules: BTreeMap<String, Value>) -> BTreeMap<String, Value> {
+    modules
         .into_iter()
         .filter_map(|(key, value)| {
             let trimmed_key = key.trim().to_string();
@@ -549,70 +531,39 @@ fn normalize_workspace_layouts(layouts: BTreeMap<String, Value>) -> BTreeMap<Str
         .collect()
 }
 
-fn normalize_workspace_view_mode(value: &str) -> String {
-    match value.trim() {
-        "preview" | "project" => value.trim().to_string(),
-        _ => default_workspace_view_mode(),
-    }
-}
-
-fn normalize_cp_maker_workspace_state(
-    state: AppUiCpMakerWorkspaceState,
-) -> AppUiCpMakerWorkspaceState {
-    AppUiCpMakerWorkspaceState {
-        active_generated_draft_key: state
-            .active_generated_draft_key
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty()),
-        active_draft_key: state
-            .active_draft_key
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty()),
-    }
-}
-
-fn normalize_i18n_generator_session(state: AppUiI18nGeneratorSession) -> AppUiI18nGeneratorSession {
-    AppUiI18nGeneratorSession {
-        prefix: state.prefix,
-        target_prefixes: state
-            .target_prefixes
-            .into_iter()
-            .filter_map(|(key, value)| {
-                let key = key.trim().to_string();
-                (!key.is_empty()).then_some((key, value))
-            })
-            .collect(),
-        enabled_targets: normalize_string_vec(state.enabled_targets),
-        expanded_paths: normalize_string_vec(state.expanded_paths),
-    }
-}
-
-fn normalize_workspace_last_location(
-    state: AppUiWorkspaceLastLocation,
-) -> AppUiWorkspaceLastLocation {
-    let workbench_route = match state.workbench_route.trim() {
-        "workspace" => "workspace".to_string(),
-        _ => default_workbench_route(),
-    };
-    let workspace_mode = match state.workspace_mode.trim() {
-        "map" | "events" | "characters" | "buildings" | "items" | "mod-browser" | "mod-i18n" => {
-            state.workspace_mode.trim().to_string()
+fn normalize_workspace(state: AppUiWorkspaceState) -> AppUiWorkspaceState {
+    let module_id = state
+        .location
+        .module_id
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    let location = if state.location.kind.trim() == "module" && module_id.is_some() {
+        AppUiWorkbenchLocation {
+            kind: "module".to_string(),
+            module_id,
         }
-        _ => default_last_location_workspace_mode(),
+    } else {
+        AppUiWorkbenchLocation {
+            kind: "home".to_string(),
+            module_id: None,
+        }
     };
-    let workspace_view_mode = match state.workspace_view_mode.trim() {
-        "edit" => "edit".to_string(),
-        _ => default_last_location_view_mode(),
-    };
-
-    AppUiWorkspaceLastLocation {
-        workbench_route,
-        workspace_mode,
-        workspace_view_mode,
-        registered_workbench_view_id: state
-            .registered_workbench_view_id
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty()),
+    let mut expanded_sections = Vec::new();
+    for section in state.navigation.expanded_sections {
+        let section = section.trim();
+        if matches!(section, "browse" | "authoring" | "tools" | "development")
+            && !expanded_sections.iter().any(|current| current == section)
+        {
+            expanded_sections.push(section.to_string());
+        }
+    }
+    AppUiWorkspaceState {
+        location,
+        navigation: AppUiWorkspaceNavigationState {
+            collapsed: state.navigation.collapsed,
+            expanded_sections,
+        },
+        modules: normalize_workspace_modules(state.modules),
     }
 }
 
@@ -631,29 +582,16 @@ fn normalize_app_ui_state(state: AppUiState) -> AppUiState {
         },
         appearance: AppUiAppearanceState {
             locale: normalize_locale(&state.appearance.locale),
-            accent_preset_id: normalize_accent_preset_id(&state.appearance.accent_preset_id),
-            window_border_tone: migrate_legacy_window_border_tone(
-                &state.appearance.legacy_window_border_style,
-                &state.appearance.window_border_tone,
-            ),
-            window_border_weight: migrate_legacy_window_border_weight(
-                &state.appearance.legacy_window_border_style,
+            theme_id: normalize_theme_id(&state.appearance.theme_id),
+            window_border_tone: normalize_window_border_tone(&state.appearance.window_border_tone),
+            window_border_weight: normalize_window_border_weight(
                 &state.appearance.window_border_weight,
             ),
-            legacy_window_border_style: String::new(),
             recent_game_directories: normalize_string_vec(state.appearance.recent_game_directories),
             player_appearance: normalize_player_appearance(state.appearance.player_appearance),
+            loading_motion: normalize_loading_motion(state.appearance.loading_motion),
         },
-        workspace: AppUiWorkspaceState {
-            layouts: normalize_workspace_layouts(state.workspace.layouts),
-            workspace_view_mode: normalize_workspace_view_mode(
-                &state.workspace.workspace_view_mode,
-            ),
-            cp_maker: normalize_cp_maker_workspace_state(state.workspace.cp_maker),
-            i18n_generator: normalize_i18n_generator_session(state.workspace.i18n_generator),
-            last_location: normalize_workspace_last_location(state.workspace.last_location),
-            side_nav: state.workspace.side_nav,
-        },
+        workspace: normalize_workspace(state.workspace),
         launcher: AppUiLauncherState {
             discover_toolbar: AppUiDiscoverToolbarState {
                 sort: normalize_discover_sort(&state.launcher.discover_toolbar.sort),
@@ -726,8 +664,8 @@ pub(crate) fn patch_app_ui_state_at_path(
         if let Some(locale) = appearance.locale {
             state.appearance.locale = normalize_locale(&locale);
         }
-        if let Some(accent_preset_id) = appearance.accent_preset_id {
-            state.appearance.accent_preset_id = normalize_accent_preset_id(&accent_preset_id);
+        if let Some(theme_id) = appearance.theme_id {
+            state.appearance.theme_id = normalize_theme_id(&theme_id);
         }
         if let Some(window_border_tone) = appearance.window_border_tone {
             state.appearance.window_border_tone = normalize_window_border_tone(&window_border_tone);
@@ -743,44 +681,45 @@ pub(crate) fn patch_app_ui_state_at_path(
         if let Some(player_appearance) = appearance.player_appearance {
             state.appearance.player_appearance = normalize_player_appearance(player_appearance);
         }
+        if let Some(loading_motion) = appearance.loading_motion {
+            state.appearance.loading_motion = normalize_loading_motion(loading_motion);
+        }
     }
     if let Some(workspace) = patch.workspace {
-        if let Some(layouts) = workspace.layouts {
-            for (key, value) in layouts {
+        if let Some(location) = workspace.location {
+            state.workspace.location = location;
+        }
+        if let Some(navigation) = workspace.navigation {
+            if let Some(collapsed) = navigation.collapsed {
+                state.workspace.navigation.collapsed = collapsed;
+            }
+            if let Some(expanded_sections) = navigation.expanded_sections {
+                state.workspace.navigation.expanded_sections = expanded_sections;
+            }
+        }
+        if let Some(modules) = workspace.modules {
+            for (key, value) in modules {
                 let trimmed_key = key.trim().to_string();
                 if trimmed_key.is_empty() {
                     continue;
                 }
                 match value {
-                    Some(layout) if layout.is_object() => {
-                        state.workspace.layouts.insert(trimmed_key, layout);
+                    Some(Value::Object(incoming)) => {
+                        let current = state
+                            .workspace
+                            .modules
+                            .entry(trimmed_key)
+                            .or_insert_with(|| Value::Object(Default::default()));
+                        if let Value::Object(current) = current {
+                            current.extend(incoming);
+                        }
                     }
                     Some(_) => {}
                     None => {
-                        state.workspace.layouts.remove(&trimmed_key);
+                        state.workspace.modules.remove(&trimmed_key);
                     }
                 }
             }
-        }
-        if let Some(workspace_view_mode) = workspace.workspace_view_mode {
-            state.workspace.workspace_view_mode =
-                normalize_workspace_view_mode(&workspace_view_mode);
-        }
-        if let Some(cp_maker) = workspace.cp_maker {
-            state.workspace.cp_maker =
-                normalize_cp_maker_workspace_state(AppUiCpMakerWorkspaceState {
-                    active_generated_draft_key: cp_maker.active_generated_draft_key,
-                    active_draft_key: cp_maker.active_draft_key,
-                });
-        }
-        if let Some(i18n_generator) = workspace.i18n_generator {
-            state.workspace.i18n_generator = normalize_i18n_generator_session(i18n_generator);
-        }
-        if let Some(last_location) = workspace.last_location {
-            state.workspace.last_location = normalize_workspace_last_location(last_location);
-        }
-        if let Some(side_nav) = workspace.side_nav {
-            state.workspace.side_nav = side_nav;
         }
     }
     if let Some(launcher) = patch.launcher {

@@ -14,14 +14,23 @@ function serializeSession(session: AppUiI18nGeneratorSession) {
 }
 
 function readSession(): AppUiI18nGeneratorSession {
+  const state = getAppUiStateSnapshot().workspace.modules['i18n-generator']
+  return {
+    prefix: typeof state?.prefix === 'string' ? state.prefix : 'Author.ModName',
+    targetPrefixes: isStringRecord(state?.targetPrefixes) ? state.targetPrefixes : {},
+    enabledTargets: isStringList(state?.enabledTargets) ? state.enabledTargets : [],
+    expandedPaths: isStringList(state?.expandedPaths) ? state.expandedPaths : [],
+  }
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
   return (
-    getAppUiStateSnapshot().workspace.i18nGenerator ?? {
-      prefix: 'Author.ModName',
-      targetPrefixes: {},
-      enabledTargets: [],
-      expandedPaths: [],
-    }
+    typeof value === 'object' && value !== null && !Array.isArray(value) && Object.values(value).every((entry) => typeof entry === 'string')
   )
+}
+
+function isStringList(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string')
 }
 
 /** Owns lightweight generator configuration and batches persistence writes. */
@@ -45,7 +54,7 @@ export function useI18nGeneratorSession() {
     if (serializeSession(sessionRef.current) === savedSessionRef.current) return
     const timer = window.setTimeout(() => {
       savedSessionRef.current = serializeSession(sessionRef.current)
-      void applyAppUiStatePatch({ workspace: { i18nGenerator: sessionRef.current } })
+      void applyAppUiStatePatch({ workspace: { modules: { 'i18n-generator': sessionRef.current } } })
     }, SAVE_DELAY_MS)
     return () => window.clearTimeout(timer)
   }, [prefix, targetPrefixes, enabledTargets, expandedPaths])
@@ -53,7 +62,7 @@ export function useI18nGeneratorSession() {
   useEffect(
     () => () => {
       if (serializeSession(sessionRef.current) !== savedSessionRef.current) {
-        void applyAppUiStatePatch({ workspace: { i18nGenerator: sessionRef.current } })
+        void applyAppUiStatePatch({ workspace: { modules: { 'i18n-generator': sessionRef.current } } })
       }
     },
     [],

@@ -8,7 +8,7 @@ import type { LauncherDiscoverDetail, LauncherLibraryItem } from '@features/laun
 import { LauncherModDetailPanel } from '@features/launcher/ui/cards/LauncherModDetailPanel'
 import { PatchQuickMenu } from '@features/cp-maker/ui/PatchQuickMenu'
 import { StudioDeskProjectGallery } from '@features/cp-maker/ui/StudioDeskProjectGallery'
-import { ModI18nWorkspace } from '@pages/workbench/workspaces/mod-i18n'
+import { TranslationEditor } from '@features/translation-editor'
 import { EventConditionBuilderModal } from '@entities/event/ui/EventConditionBuilderModal'
 import { EventGameStateQueryBuilderModal } from '@entities/event/ui/EventGameStateQueryBuilderModal'
 import type { ContentPatcherI18nFile, ModProjectDetail } from '@entities/mod/api'
@@ -63,7 +63,7 @@ const launcherPort = {
 type ScenarioId =
   | 'cp-maker-patch-menu'
   | 'cp-maker-project-gallery'
-  | 'mod-i18n'
+  | 'mod-translation'
   | 'event-condition-builder'
   | 'event-game-state-query-builder'
   | 'launcher-mod-detail'
@@ -71,7 +71,7 @@ type ScenarioId =
 const scenarioIds: ScenarioId[] = [
   'cp-maker-patch-menu',
   'cp-maker-project-gallery',
-  'mod-i18n',
+  'mod-translation',
   'event-condition-builder',
   'event-game-state-query-builder',
   'launcher-mod-detail',
@@ -407,7 +407,6 @@ function createI18nFiles(count: number): ContentPatcherI18nFile[] {
 function createProjectDetail(count: number): ModProjectDetail {
   return {
     pluginKind: 'content-patcher',
-    capabilities: ['i18n'],
     summary: {
       id: 'perf-project',
       name: 'Performance i18n pack',
@@ -582,16 +581,15 @@ function ProjectGalleryScenario() {
   )
 }
 
-function ModI18nScenario() {
+function ModTranslationScenario() {
   const [files, setFiles] = useState(() => createI18nFiles(420))
   const [query, setQuery] = useState('')
   const deferredQuery = useDeferredValue(query)
   const [statusFilter, setStatusFilter] = useState<'all' | 'translated' | 'missing' | 'error'>('all')
   return (
-    <ScenarioFrame id="mod-i18n">
-      <ModI18nWorkspace
-        copy={copy.modI18n}
-        projectDetail={createProjectDetail(420)}
+    <ScenarioFrame id="mod-translation">
+      <TranslationEditor
+        project={{ name: createProjectDetail(420).summary.name, rootPath: createProjectDetail(420).summary.absolutePath }}
         i18nFiles={files}
         sourceLocale="default"
         targetLocale="zh-CN"
@@ -661,7 +659,7 @@ function LauncherDetailScenario() {
 function scenarioFor(id: ScenarioId) {
   if (id === 'cp-maker-patch-menu') return <PatchMenuScenario />
   if (id === 'cp-maker-project-gallery') return <ProjectGalleryScenario />
-  if (id === 'mod-i18n') return <ModI18nScenario />
+  if (id === 'mod-translation') return <ModTranslationScenario />
   if (id === 'event-condition-builder') return <EventConditionScenario />
   if (id === 'event-game-state-query-builder') return <EventGameStateScenario />
   return <LauncherDetailScenario />

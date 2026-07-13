@@ -4,8 +4,8 @@ export type NavigationCommand =
       pageId: string
     }
   | {
-      type: 'navigation/open-workbench-view'
-      viewId: string
+      type: 'navigation/open-workbench-module'
+      moduleId: string
     }
 
 export type WorkbenchCommand = {
@@ -19,7 +19,7 @@ export type AppCommand = NavigationCommand | WorkbenchCommand
 
 export type PendingWorkbenchCommandIntent = {
   id: string
-  command: Extract<AppCommand, { type: 'navigation/open-workbench-view' | 'workbench/open-asset' }>
+  command: Extract<AppCommand, { type: 'navigation/open-workbench-module' | 'workbench/open-asset' }>
 }
 
 export interface CommandDispatcher {

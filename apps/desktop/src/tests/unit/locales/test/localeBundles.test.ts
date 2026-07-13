@@ -26,12 +26,11 @@ const DOMAIN_FILES = [
   'workbench/map.ts',
   'workbench/studio-desk.ts',
   'workbench/mods.ts',
-  'workbench/mod-i18n.ts',
+  'workbench/translation-editor.ts',
   'workbench/event-stage.ts',
   'workbench/characters.ts',
   'workbench/buildings.ts',
   'workbench/items.ts',
-  'workbench/module-blueprints.ts',
   'workbench/view-menu.ts',
   'workbench/world-atlas.ts',
 ]
@@ -47,12 +46,9 @@ describe('typed locale bundles', () => {
     expect(getEditorCopy('en-US').messages.loadedMapAssets(3, 'xnb')).toBe('Loaded 3 XNB map assets.')
     expect(getEditorCopy('en-US').viewportLabels.zoomLabel(1.25)).toBe('Zoom 125%')
     expect(getModWorkspaceCopy('en-US').scanStatus(2)).toBe('2 mod projects detected.')
-    expect(getModWorkspaceCopy('en-US').targetDiagnosticsTitle).toBe('Target Diagnostics')
-    expect(getModWorkspaceCopy('en-US').exportResultTitle).toBe('Export Result')
+    expect(getModWorkspaceCopy('en-US').diagnosticsTitle).toBe('Project inspection')
     expect(getSettingsMenuCopy('en-US').languageLabel).toBe('Language')
-    expect(getViewMenuCopy('en-US').deletePresetConfirm('Alpha')).toContain('Alpha')
-    expect(getViewMenuCopy('en-US').panelVisibleLabel).toBe('Visible')
-    expect(getViewMenuCopy('en-US').deletePresetLabel).toBe('Delete preset')
+    expect(getViewMenuCopy('en-US').resetLabel).toBe('Reset Default Layout')
     expect(getEditorCopy('en-US').shell.launcher).toBeTruthy()
     expect(getEditorCopy('en-US').launcher.pages.library).toBeTruthy()
     expect(getEditorCopy('zh-CN').launcher.pages.configuration).toBe('配置')
@@ -107,25 +103,23 @@ describe('typed locale bundles', () => {
     expect(typeof enUS.editor.messages.loadedMapAssetsWithActiveMap).toBe('function')
     expect(typeof enUS.editor.viewportLabels.zoomLabel).toBe('function')
     expect(typeof enUS.editor.eventStage.cueLabel).toBe('function')
-    expect(typeof enUS.viewMenu.deletePresetConfirm).toBe('function')
     expect(typeof enUS.mods.scanStatus).toBe('function')
 
     expect(enUS.editor.common.objectLabel(7)).toBe('Object 7')
     expect(enUS.editor.messages.loadedMapAssetsWithActiveMap(2, 'xnb', 'Town')).toBe('Loaded 2 XNB map assets. Town is active.')
     expect(enUS.editor.viewportLabels.zoomLabel(0.875)).toBe('Zoom 88%')
     expect(enUS.editor.eventStage.cueLabel('rain')).toBe('Cue: rain')
-    expect(enUS.viewMenu.deletePresetConfirm('Preset A')).toContain('Preset A')
     expect(enUS.mods.scanStatus(4)).toBe('4 mod projects detected.')
 
     expect(typeof zhCN.editor.messages.detectedKnownPath).toBe('function')
     expect(typeof zhCN.editor.viewportLabels.failedToLoadTilesetImage).toBe('function')
     expect(typeof zhCN.editor.eventStage.stopCueLabel).toBe('function')
-    expect(typeof zhCN.mods.importedFrom).toBe('function')
+    expect(typeof zhCN.mods.saveSuccess).toBe('function')
 
     expect(zhCN.editor.messages.detectedKnownPath('D:/Games/SDV')).toContain('D:/Games/SDV')
     expect(zhCN.editor.viewportLabels.failedToLoadTilesetImage('Maps/farm')).toContain('Maps/farm')
     expect(zhCN.editor.eventStage.stopCueLabel('wind')).toContain('wind')
-    expect(zhCN.mods.importedFrom('D:/Mods/Example')).toContain('D:/Mods/Example')
+    expect(zhCN.mods.saveSuccess('D:/Mods/Example')).toContain('D:/Mods/Example')
   })
 
   it('exposes launcher library cover notifications and gallery copy in zh-CN', () => {

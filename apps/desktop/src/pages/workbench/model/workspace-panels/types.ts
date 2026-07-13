@@ -4,18 +4,16 @@ import type { BuildingTextureAssetState, BuildingWorkspaceEntry, ConstructibleBu
 import type { CharacterAppearanceVariant, CharacterVisualAssetState, CharacterWorkspaceEntry } from '../../workspaces/character'
 import type { ItemTextureAssetState, ItemWorkspaceEntry } from '../../workspaces/item'
 import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup, ModSourceEntry } from '@pages/workbench/workspaces/mod/state/browser'
-import type { EditorCopy, LocaleCode, ModuleBlueprint, ThemeMode, WorkspaceMode } from '@locales'
+import type { EditorCopy, LocaleCode, ThemeMode } from '@locales'
 import type { EventScript, ParsedEventAsset } from '@entities/event'
 import type { EffectAssetState, PlayerAppearanceProfile } from '@entities/event'
 import type { MapDocument } from '@entities/map'
 import type { StageWorldOverlaySprite } from '@entities/map'
 import type { WorldAtlasView } from '@entities/map'
-import type { BuildModWorkspacePanelsOptions } from './modWorkspaceTypes'
 
-export type BuildWorkspacePanelsOptions = Omit<BuildModWorkspacePanelsOptions, 'gameRootPath'> & {
+export type BuildWorkspacePanelsOptions = {
   copy: EditorCopy
   locale: LocaleCode
-  workspaceMode: WorkspaceMode
   gameRootPath: string | null
   directoryInfo: GameDirectoryInfo | null
   mapAssets: MapAssetSummary[]
@@ -68,7 +66,6 @@ export type BuildWorkspacePanelsOptions = Omit<BuildModWorkspacePanelsOptions, '
     tone: 'idle' | 'working' | 'ready' | 'error'
     message: string
   }
-  moduleBlueprint?: ModuleBlueprint
   eventAssets: EventAssetSummary[]
   filteredEventAssets: EventAssetSummary[]
   eventBrowserSourceMode: BrowserSourceMode
@@ -158,3 +155,163 @@ export type BuildWorkspacePanelsOptions = Omit<BuildModWorkspacePanelsOptions, '
   onSelectModItem: (entry: ModBrowserEntry<ItemWorkspaceEntry>) => void
   heavyWorkspaceReady: boolean
 }
+
+export type BuildMapPanelsOptions = Pick<
+  BuildWorkspacePanelsOptions,
+  | 'copy'
+  | 'theme'
+  | 'accentColor'
+  | 'mapAssets'
+  | 'filteredAssets'
+  | 'mapBrowserSourceMode'
+  | 'onMapBrowserSourceModeChange'
+  | 'modMapGroups'
+  | 'activeModMapSelectionId'
+  | 'activeMapModSources'
+  | 'activeMapId'
+  | 'assetFilter'
+  | 'onAssetFilterChange'
+  | 'onOpenAsset'
+  | 'onOpenModAsset'
+  | 'workspaceTabs'
+  | 'activeTabId'
+  | 'onSelectWorkspaceTab'
+  | 'onCloseWorkspaceTab'
+  | 'onReorderWorkspaceTabs'
+  | 'mapDocument'
+  | 'worldAtlasViews'
+  | 'activeWorldAtlasViewId'
+  | 'onSelectWorldAtlasView'
+  | 'onOpenAtlasTarget'
+  | 'visibleLayerIds'
+  | 'onToggleLayer'
+  | 'onShowAllLayers'
+  | 'onHideAllLayers'
+  | 'visibleObjectGroupIds'
+  | 'onToggleObjectGroup'
+  | 'onShowAllObjectGroups'
+  | 'onHideAllObjectGroups'
+  | 'focusedObjectTarget'
+  | 'showGameWorldAdditions'
+  | 'onToggleGameWorldAdditions'
+  | 'worldOverlaySprites'
+  | 'worldOverlayTextureAssets'
+  | 'onFocusObject'
+  | 'onHoverChange'
+  | 'heavyWorkspaceReady'
+>
+
+export type BuildEventPanelsOptions = Pick<
+  BuildWorkspacePanelsOptions,
+  | 'copy'
+  | 'locale'
+  | 'directoryInfo'
+  | 'theme'
+  | 'accentColor'
+  | 'eventAssets'
+  | 'filteredEventAssets'
+  | 'eventBrowserSourceMode'
+  | 'onEventBrowserSourceModeChange'
+  | 'modEventGroups'
+  | 'activeModEventSelectionId'
+  | 'activeEventModSources'
+  | 'activeEventAssetId'
+  | 'eventAssetFilter'
+  | 'onEventAssetFilterChange'
+  | 'onOpenEventAsset'
+  | 'onOpenModEventAsset'
+  | 'parsedEventAsset'
+  | 'selectedEventKey'
+  | 'selectedEvent'
+  | 'selectedTimelineEntryId'
+  | 'currentEventCommandId'
+  | 'eventStatusMessage'
+  | 'onSelectEvent'
+  | 'onSelectTimelineEntry'
+  | 'onActivateTimelineEntry'
+  | 'onPlaybackCommandChange'
+  | 'onStageSeekReady'
+  | 'activePlayerAppearanceProfile'
+  | 'onOpenPlayerAppearanceWindow'
+>
+
+export type BuildCharacterPanelsOptions = Pick<
+  BuildWorkspacePanelsOptions,
+  | 'copy'
+  | 'characters'
+  | 'filteredCharacters'
+  | 'characterBrowserSourceMode'
+  | 'onCharacterBrowserSourceModeChange'
+  | 'modCharacterGroups'
+  | 'activeModCharacterSelectionId'
+  | 'activeCharacterModSources'
+  | 'activeCharacterId'
+  | 'activeCharacter'
+  | 'activeCharacterVariant'
+  | 'characterFilter'
+  | 'characterStatusMessage'
+  | 'activeCharacterAssetState'
+  | 'activeCharacterAssetLoading'
+  | 'onCharacterFilterChange'
+  | 'onSelectCharacter'
+  | 'onSelectModCharacter'
+  | 'onSelectCharacterVariant'
+  | 'heavyWorkspaceReady'
+>
+
+export type BuildBuildingPanelsOptions = Pick<
+  BuildWorkspacePanelsOptions,
+  | 'copy'
+  | 'locale'
+  | 'theme'
+  | 'accentColor'
+  | 'constructibleGroups'
+  | 'filteredConstructibleGroups'
+  | 'worldBuildings'
+  | 'filteredWorldBuildings'
+  | 'buildingBrowserSourceMode'
+  | 'onBuildingBrowserSourceModeChange'
+  | 'modBuildingGroups'
+  | 'activeModBuildingSelectionId'
+  | 'activeBuildingModSources'
+  | 'activeBuildingId'
+  | 'activeBuilding'
+  | 'activeUpgradeChain'
+  | 'buildingFilter'
+  | 'buildingStatusMessage'
+  | 'activeBuildingTextureState'
+  | 'activeBuildingChainTextureStates'
+  | 'activeBuildingIndoorMapDocument'
+  | 'activeBuildingIndoorMapPath'
+  | 'activeBuildingIndoorMapMessage'
+  | 'activeBuildingExteriorMapDocument'
+  | 'activeBuildingExteriorMapPath'
+  | 'activeBuildingExteriorMapMessage'
+  | 'activeBuildingExteriorFocusPoint'
+  | 'buildingSpringObjectsState'
+  | 'onBuildingFilterChange'
+  | 'onSelectBuilding'
+  | 'onSelectModBuilding'
+>
+
+export type BuildItemPanelsOptions = Pick<
+  BuildWorkspacePanelsOptions,
+  | 'copy'
+  | 'items'
+  | 'filteredItems'
+  | 'itemBrowserSourceMode'
+  | 'onItemBrowserSourceModeChange'
+  | 'modItemGroups'
+  | 'activeModItemSelectionId'
+  | 'activeItemModSources'
+  | 'activeItemId'
+  | 'activeItem'
+  | 'itemLookup'
+  | 'itemFilter'
+  | 'itemStatusMessage'
+  | 'itemTextureStatesByAssetName'
+  | 'ensureItemTextureAssetStates'
+  | 'onItemFilterChange'
+  | 'onSelectItem'
+  | 'onSelectModItem'
+>

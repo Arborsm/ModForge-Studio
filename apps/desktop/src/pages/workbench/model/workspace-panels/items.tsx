@@ -2,9 +2,9 @@ import { ItemCatalogPanel, ItemDetailPanel, ItemNavigationPanel } from '../../wo
 import type { ReactNode } from 'react'
 import { LoadingMotionReveal } from '@shared/ui/loading-motion'
 import type { WorkspacePanelConfig } from '@shared/contracts'
-import type { BuildWorkspacePanelsOptions } from './types'
+import type { BuildItemPanelsOptions } from './types'
 
-export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions): WorkspacePanelConfig[] {
+export function buildItemsWorkspacePanels(options: BuildItemPanelsOptions): WorkspacePanelConfig[] {
   const {
     copy,
     items,
@@ -34,15 +34,13 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
 
   const panels: WorkspacePanelConfig[] = [
     {
-      id: 'item-navigation',
+      id: 'item-browser/navigation',
       title: copy.itemsPanel.filtersTitle,
       subtitle: activeItem?.displayName ?? itemStatusMessage,
       shellClassName: 'workspace-panel-shell-flat item-workspace-panel-shell',
       minWidth: 160,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'left-top',
-      defaultDockHeight: 760,
+      area: 'left',
       content: (
         <ItemNavigationPanel
           item={activeItem}
@@ -65,15 +63,14 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
       ),
     },
     {
-      id: 'item-catalog',
+      id: 'item-browser/catalog',
       title: copy.itemsPanel.browserTitle,
       subtitle: itemStatusMessage,
       hideDockHeader: true,
       shellClassName: 'workspace-panel-shell-flat item-workspace-panel-shell',
       minWidth: 280,
       minHeight: 520,
-      defaultDock: 'center',
-      defaultDockHeight: 760,
+      area: 'center',
       content: (
         <ItemCatalogPanel
           item={activeItem}
@@ -96,15 +93,13 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
       ),
     },
     {
-      id: 'item-details',
+      id: 'item-browser/details',
       title: copy.itemsPanel.workspaceTitle,
       subtitle: activeItem?.displayName ?? itemStatusMessage,
       shellClassName: 'workspace-panel-shell-flat item-workspace-panel-shell',
       minWidth: 240,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'right-top',
-      defaultDockHeight: 760,
+      area: 'right',
       content: (
         <ItemDetailPanel
           item={activeItem}

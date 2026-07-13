@@ -79,7 +79,7 @@
     scrollbar-color: color-mix(in srgb, var(--border-color) 90%, transparent) transparent;
   }
 
-  .mod-i18n-browser-pane {
+  .mod-translation-browser-pane {
     display: flex;
     min-height: 0;
     flex-direction: column;

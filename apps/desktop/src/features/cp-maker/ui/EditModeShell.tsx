@@ -10,8 +10,8 @@ import { ConfigSchemaDialog } from './ConfigSchemaDialog'
 import { EditModeToolbar } from './EditModeToolbar'
 import { PatchListPage } from './PatchListPage'
 import { EditorPage } from './EditorPage'
+import { GenericPatchCatalog } from './GenericPatchCatalog'
 import { useEditorCopy } from '@locales/provider'
-import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
 
 interface EditModeShellProps {
   workspaceId: WorkspaceId
@@ -24,6 +24,7 @@ interface EditModeShellProps {
   onPatchUpdate: (patchId: string, patch: Partial<DraftPatch>) => void
   onConfigSchemaChange: (entries: Array<{ key: string; defaultValue: unknown; allowValues?: string; description?: string }>) => void
   onSaveDraft: () => void
+  onReloadDraft?: () => void
   isDirty: boolean
   onAddVirtualAsset: (asset: { relativePath: string; mediaType: string; bytesBase64: string }) => void
   onRemoveVirtualAsset: (relativePath: string) => void
@@ -39,18 +40,6 @@ interface EditModeShellProps {
   canGoForward: boolean
   onGoBack: () => void
   onGoForward: () => void
-}
-
-function EditModeWipPage({ workspaceId }: { workspaceId: WorkspaceId }) {
-  const copy = useEditorCopy()
-  const desk = copy.studioDesk
-  const title = workspaceId === 'mods' ? copy.leftDock.project : copy.nav[workspaceId]
-
-  return (
-    <section className="edit-mode-wip-page empty-state-card-fill" aria-label={desk.wipTitle(title)}>
-      <EmptyStateCard eyebrow={desk.wipBadge} title={desk.wipTitle(title)} detail={desk.wipDescription} />
-    </section>
-  )
 }
 
 function cloneDraftPatchValue<T>(value: T): T {
@@ -74,6 +63,7 @@ export function EditModeShell({
   onPatchUpdate,
   onConfigSchemaChange,
   onSaveDraft,
+  onReloadDraft,
   isDirty,
   gameRootPath,
   directoryInfo,
@@ -90,12 +80,12 @@ export function EditModeShell({
   onAddVirtualAsset,
   onRemoveVirtualAsset,
 }: EditModeShellProps) {
+  const shellCopy = useEditorCopy().studioDesk.eventPatchHub
   const activePatch = activePatchId ? (patches.find((p) => p.id === activePatchId) ?? null) : null
   const [activeEventKey, setActiveEventKey] = useState<string | null>(null)
   const [addPatchDialogOpen, setAddPatchDialogOpen] = useState(false)
   const [configDialogOpen, setConfigDialogOpen] = useState(false)
-  const isWipWorkspace = workspaceId !== 'events'
-  const isEventPatchHub = !isWipWorkspace && activePatchId === null
+  const isEventPatchHub = workspaceId === 'events' && activePatchId === null
   const isEventScriptEditor = workspaceId === 'events' && activePatchId !== null
   const eventAliases =
     workspaceId === 'events' &&
@@ -130,7 +120,7 @@ export function EditModeShell({
     }
 
     onPatchUpdate(copiedPatchId, {
-      logName: `${patch.logName || patch.target || patch.id} Copy`,
+      logName: shellCopy.duplicatedPatchName(patch.logName || patch.target || patch.id),
       enabled: patch.enabled,
       when: patch.when ? cloneDraftPatchValue(patch.when) : undefined,
       editorState: cloneDraftPatchValue(patch.editorState),
@@ -176,14 +166,13 @@ export function EditModeShell({
           }}
           onOpenConfig={() => setConfigDialogOpen(true)}
           onSaveDraft={onSaveDraft}
+          onReloadDraft={onReloadDraft}
         />
       ) : null}
 
       {/* 内容区 */}
       <div className="min-h-0 flex-1 overflow-hidden">
-        {isWipWorkspace ? (
-          <EditModeWipPage workspaceId={workspaceId} />
-        ) : activePatchId === null ? (
+        {activePatchId === null && workspaceId === 'events' ? (
           <PatchListPage
             patches={patches}
             onEditPatch={handleOpenEventPatch}
@@ -198,9 +187,19 @@ export function EditModeShell({
             onGoForward={onGoForward}
             onOpenConfig={() => setConfigDialogOpen(true)}
             onSaveDraft={onSaveDraft}
+            onReloadDraft={onReloadDraft}
             workspaceId={workspaceId}
             draft={draft}
             isDirty={isDirty}
+          />
+        ) : activePatchId === null ? (
+          <GenericPatchCatalog
+            patches={patches}
+            onEditPatch={(patchId) => onSelectPatch(patchId)}
+            onAddPatchRequest={() => setAddPatchDialogOpen(true)}
+            onRemovePatch={onPatchRemove}
+            onTogglePatch={(patchId, enabled) => onPatchUpdate(patchId, { enabled })}
+            onDuplicatePatch={handleDuplicatePatch}
           />
         ) : (
           <EditorPage
@@ -222,6 +221,7 @@ export function EditModeShell({
             onSelectedEventKeyChange={setActiveEventKey}
             onOpenConfig={() => setConfigDialogOpen(true)}
             onSaveDraft={onSaveDraft}
+            onReloadDraft={onReloadDraft}
             isDirty={isDirty}
           />
         )}

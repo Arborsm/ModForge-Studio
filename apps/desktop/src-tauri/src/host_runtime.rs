@@ -2,7 +2,7 @@ use crate::host_commands::HostCommandName;
 use crate::support::logging::DebugLoggingState;
 use serde::Serialize;
 use serde_json::{Value, json};
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::fmt::Write as _;
 use std::panic::{self, AssertUnwindSafe};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -19,6 +19,8 @@ const HOST_RUNTIME_SLOW_SAMPLE_MIN_MS: u128 = 250;
 pub type HostCommandResult = Result<Value, Value>;
 pub type HostCommandRunner =
     Box<dyn FnOnce(HostCommandContext) -> HostCommandResult + Send + 'static>;
+pub type HostCommandResourceResolver =
+    Box<dyn FnOnce() -> Result<Vec<HostCommandResource>, Value> + Send + 'static>;
 
 #[derive(Clone)]
 pub struct HostCommandContext {
@@ -45,7 +47,7 @@ pub enum HostCommandExecutionPool {
     LauncherImageCdn,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum HostCommandResource {
     AppUiState,
     LauncherSettings,
@@ -58,6 +60,7 @@ pub enum HostCommandResource {
     LauncherModConfig,
     GameAssetCache,
     ModProject,
+    ModProjectRoot(Arc<str>),
     CpMakerDrafts,
     MapPngExport,
     FileExport,
@@ -97,7 +100,7 @@ pub struct HostCommandSchedulerConfig {
 impl Default for HostCommandSchedulerConfig {
     fn default() -> Self {
         Self {
-            control_max_concurrency: 8,
+            control_max_concurrency: 16,
             network_max_concurrency: 32,
             io_max_concurrency: 16,
             // Mutation commands stay serial by default. Raising this requires re-auditing every
@@ -128,7 +131,8 @@ pub struct ResolvedHostCommand {
     pub name: String,
     pub lane: HostCommandLane,
     pub execution_pool: HostCommandExecutionPool,
-    pub resources: &'static [HostCommandResource],
+    pub resources: Vec<HostCommandResource>,
+    pub resource_resolver: Option<HostCommandResourceResolver>,
     pub cancel_policy: HostCommandCancelPolicy,
     pub mutation_policy: HostCommandMutationPolicy,
     pub submitted_at: Instant,
@@ -655,6 +659,7 @@ pub struct HostCommandResourceLocks {
     cp_maker_drafts: Mutex<()>,
     map_png_export: Mutex<()>,
     file_export: Mutex<()>,
+    dynamic: Mutex<BTreeMap<HostCommandResource, &'static Mutex<()>>>,
 }
 
 impl HostCommandResourceLocks {
@@ -674,6 +679,7 @@ impl HostCommandResourceLocks {
             cp_maker_drafts: Mutex::new(()),
             map_png_export: Mutex::new(()),
             file_export: Mutex::new(()),
+            dynamic: Mutex::new(BTreeMap::new()),
         }
     }
 
@@ -683,13 +689,13 @@ impl HostCommandResourceLocks {
         resources.dedup();
 
         let mut guards = Vec::with_capacity(resources.len());
-        for resource in resources {
+        for resource in &resources {
             guards.push(self.lock_one(resource));
         }
         guards
     }
 
-    fn lock_one(&self, resource: HostCommandResource) -> MutexGuard<'_, ()> {
+    fn lock_one(&self, resource: &HostCommandResource) -> MutexGuard<'_, ()> {
         let lock = match resource {
             HostCommandResource::AppUiState => &self.app_ui_state,
             HostCommandResource::LauncherSettings => &self.launcher_settings,
@@ -702,6 +708,21 @@ impl HostCommandResourceLocks {
             HostCommandResource::LauncherModConfig => &self.launcher_mod_config,
             HostCommandResource::GameAssetCache => &self.game_asset_cache,
             HostCommandResource::ModProject => &self.mod_project,
+            HostCommandResource::ModProjectRoot(_) => {
+                let mut dynamic = match self.dynamic.lock() {
+                    Ok(dynamic) => dynamic,
+                    Err(poisoned) => {
+                        log::error!(
+                            target: HOST_RUNTIME_LOG_TARGET,
+                            "Host command dynamic resource registry lock was poisoned"
+                        );
+                        poisoned.into_inner()
+                    }
+                };
+                *dynamic
+                    .entry(resource.clone())
+                    .or_insert_with(|| Box::leak(Box::new(Mutex::new(()))))
+            }
             HostCommandResource::CpMakerDrafts => &self.cp_maker_drafts,
             HostCommandResource::MapPngExport => &self.map_png_export,
             HostCommandResource::FileExport => &self.file_export,
@@ -1044,7 +1065,14 @@ fn run_resolved_command(
 ) {
     let id = command.id;
     let name = command.name;
-    let command_resources = command.resources;
+    let resource_resolution = match command.resource_resolver {
+        Some(resolve) => resolve().map(|mut resolved| {
+            resolved.extend(command.resources);
+            resolved
+        }),
+        None => Ok(command.resources),
+    };
+    let command_resources = resource_resolution.as_deref().unwrap_or_default();
     let cancel_policy = command.cancel_policy;
     let mutation_policy = command.mutation_policy;
     let record_telemetry = command.record_telemetry;
@@ -1065,14 +1093,29 @@ fn run_resolved_command(
         mutation_policy,
         queued_ms
     );
-    let resource_wait_started_at = Instant::now();
-    let _resource_guards = resources.lock_many(command_resources);
-    let resource_wait_ms = resource_wait_started_at.elapsed().as_millis();
-    let context = HostCommandContext {
-        telemetry: telemetry.clone(),
+    let (response, panicked, resource_wait_ms) = match resource_resolution {
+        Ok(command_resources) => {
+            let resource_wait_started_at = Instant::now();
+            let _resource_guards = resources.lock_many(&command_resources);
+            let resource_wait_ms = resource_wait_started_at.elapsed().as_millis();
+            let context = HostCommandContext {
+                telemetry: telemetry.clone(),
+            };
+            let (response, panicked) =
+                panic_safe_dispatch_outcome(id.clone(), &name, || (command.run)(context));
+            (response, panicked, resource_wait_ms)
+        }
+        Err(error) => (
+            HostCommandResponse {
+                id: id.clone(),
+                ok: false,
+                result: None,
+                error: Some(error),
+            },
+            false,
+            0,
+        ),
     };
-    let (response, panicked) =
-        panic_safe_dispatch_outcome(id.clone(), &name, || (command.run)(context));
     if panicked {
         pool_telemetry.record_panicked(record_telemetry);
     }

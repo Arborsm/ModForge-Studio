@@ -22,10 +22,10 @@ export function createWorkbenchOrchestration({ dispatch }: WorkbenchOrchestratio
         return
       }
 
-      if (event.type === 'workbench/view-selected') {
+      if (event.type === 'workbench/module-selected') {
         void dispatch({
-          type: 'navigation/open-workbench-view',
-          viewId: event.viewId,
+          type: 'navigation/open-workbench-module',
+          moduleId: event.moduleId,
         })
       }
     },

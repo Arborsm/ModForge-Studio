@@ -201,6 +201,7 @@ fn launcher_nexus_route_probe_marks_success_after_first_successful_attempt() {
     assert_eq!(snapshot.status, NexusRouteStatus::Success);
     assert!(snapshot.available);
     assert_eq!(snapshot.attempts, 1);
+    assert!(snapshot.latency_ms.is_some());
 }
 
 #[test]
@@ -262,6 +263,7 @@ fn blocked_launcher_nexus_route_returns_fast_error() {
         attempts: 3,
         max_attempts: 3,
         available: false,
+        latency_ms: None,
         message: "Failed after 3 attempts: timeout".to_string(),
     });
 
@@ -286,6 +288,7 @@ fn blocked_launcher_nexus_route_can_be_recovered_by_reprobe() {
         attempts: 3,
         max_attempts: 3,
         available: false,
+        latency_ms: None,
         message: "Failed after 3 attempts: timeout".to_string(),
     });
 
@@ -319,6 +322,7 @@ fn retrying_one_launcher_nexus_route_keeps_other_route_snapshots_unchanged() {
         attempts: 3,
         max_attempts: 3,
         available: false,
+        latency_ms: None,
         message: "Failed after 3 attempts: timeout".to_string(),
     });
     set_launcher_nexus_route_snapshot_for_test(NexusRouteSnapshot {
@@ -329,6 +333,7 @@ fn retrying_one_launcher_nexus_route_keeps_other_route_snapshots_unchanged() {
         attempts: 1,
         max_attempts: 3,
         available: true,
+        latency_ms: Some(42),
         message: "Connected after 1 attempt.".to_string(),
     });
 
@@ -521,10 +526,11 @@ fn launcher_nexus_success_snapshot_works_with_one_attempt() {
         .lock()
         .expect("launcher http test guard should not be poisoned");
 
-    let snapshot = launcher_nexus_success_snapshot(LauncherNexusRoute::PublicGraphql, 1);
+    let snapshot = launcher_nexus_success_snapshot(LauncherNexusRoute::PublicGraphql, 1, 42);
 
     assert_eq!(snapshot.status, NexusRouteStatus::Success);
     assert!(snapshot.available);
     assert_eq!(snapshot.attempts, 1);
+    assert_eq!(snapshot.latency_ms, Some(42));
     assert!(snapshot.message.to_string().contains("1 attempt"));
 }

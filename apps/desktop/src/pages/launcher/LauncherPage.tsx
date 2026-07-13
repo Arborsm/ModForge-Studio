@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { LauncherDownloadsPopover } from './ui/LauncherDownloadsPopover'
 import LauncherShell from './ui/LauncherShell'
 import TopMenuBar from '@widgets/top-navigation'
-import type { LauncherPage as LauncherPageId, AppMode, ThemeMode, WorkspaceMode } from '@locales/api'
+import type { LauncherPage as LauncherPageId, AppMode, ThemeMode } from '@locales/api'
 import { useEditorCopy } from '@locales/provider'
 import type { SettingsWindowCategory } from '@shared/contracts'
 import type { LauncherNexusDiagnosticsResult } from '@features/launcher/model/launcherContracts'
@@ -22,7 +22,6 @@ type LauncherPageProps = {
   locale: LocaleCode
   onToggleTheme: () => void
   onAppModeChange: (mode: AppMode) => void
-  onWorkspaceChange: (mode: WorkspaceMode) => void
   onLauncherPageChange: (page: LauncherPageId) => void
   onMinimizeWindow: () => void
   onToggleMaximizeWindow: () => void
@@ -90,7 +89,6 @@ export function LauncherPage({
   theme,
   onToggleTheme,
   onAppModeChange,
-  onWorkspaceChange,
   onLauncherPageChange,
   onMinimizeWindow,
   onToggleMaximizeWindow,
@@ -251,8 +249,6 @@ export function LauncherPage({
       <TopMenuBar
         appMode="launcher"
         onAppModeChange={onAppModeChange}
-        workspaceMode="map"
-        onWorkspaceChange={onWorkspaceChange}
         theme={theme}
         onToggleTheme={onToggleTheme}
         statusTone="idle"

@@ -87,10 +87,10 @@ export type ContentPatcherI18nFile = {
 
 export type ModProjectDetail = {
   pluginKind: PluginKind
-  capabilities: string[]
   summary: ModProjectSummary
   diagnostics: ModProjectDiagnostic[]
   contentPatcher: ContentPatcherProjectData | null
+  i18nFiles: ContentPatcherI18nFile[]
 }
 
 export type ContentPatcherProjectSummary = {
@@ -118,98 +118,6 @@ export type ContentPatcherProjectSnapshot = {
   sources: ContentPatcherSourceFile[]
   includeTree: ContentPatcherIncludeEdge[]
   diagnostics: ModProjectDiagnostic[]
-}
-
-export type ContentPatcherPlannedPatch = {
-  id: string
-  action: string
-  target: string
-  logName: string
-  fromFile: string | null
-  when: Record<string, unknown>
-  sourcePath: string
-  priority: number
-  update: string[]
-}
-
-export type ContentPatcherPatchPlan = {
-  patches: ContentPatcherPlannedPatch[]
-}
-
-export type ContentPatcherSimulationContext = {
-  season?: string
-  weather?: string
-  day?: number
-  dayOfWeek?: string
-  daysPlayed?: number
-  year?: number
-  time?: number
-  playerName?: string
-  playerGender?: string
-  farmName?: string
-  locationName?: string
-  spouse?: string
-  isMainPlayer?: boolean
-  stardropCount?: number
-  hasFlags?: string[]
-  hasSeenEvents?: string[]
-  hasConversationTopics?: string[]
-  hasDialogueAnswers?: string[]
-  hasWalletItems?: string[]
-  hasProfessions?: string[]
-  hasCraftingRecipes?: string[]
-  hasCookingRecipes?: string[]
-  skillLevels?: Record<string, number>
-  hasActiveQuests?: string[]
-  hasCompletedQuests?: string[]
-  hasItems?: string[]
-  hasPet?: boolean
-  petType?: string
-  hasChildren?: boolean
-  childCount?: number
-  dailyLuck?: number
-  hasCaughtFish?: string[]
-  hasReadLetters?: string[]
-  hasVisitedLocations?: string[]
-  isOutdoors?: boolean
-  locationContext?: string
-  locationUniqueName?: string
-  locationOwnerId?: string
-  preferredPet?: string
-  farmCave?: string
-  farmMapAsset?: string
-  havingChild?: boolean
-  pregnant?: boolean
-  roommate?: string
-  hearts?: Record<string, number>
-  childNames?: string[]
-  childGenders?: string[]
-  dayEvent?: string
-  farmType?: string
-  farmhouseUpgrade?: number
-  isCommunityCenterComplete?: boolean
-  isJojaMartComplete?: boolean
-  language?: string
-  relationships?: Record<string, string>
-  config?: Record<string, unknown>
-  installedMods?: string[]
-  customTokens?: Record<string, unknown>
-  ignoreEntryWhenConditions?: boolean
-}
-
-export type SimulateContentPatcherRequest = {
-  path?: string | null
-  gameRootPath?: string | null
-  snapshot?: ContentPatcherProjectSnapshot | null
-  manifestJson?: string | null
-  contentJson?: string | null
-  context?: ContentPatcherSimulationContext | null
-}
-
-export type ContentPatcherPatchStatus = {
-  patchId: string | null
-  status: 'applied' | 'skipped' | 'indeterminate'
-  reasons: string[]
 }
 
 type ContentPatcherAssetKind = 'json' | 'image' | 'map' | (string & {})
@@ -252,22 +160,6 @@ export type LoadContentPatcherResultAssetResult = {
   exportable: boolean
 }
 
-export type ContentPatcherSimulationResult = {
-  plan: ContentPatcherPatchPlan
-  targets: ContentPatcherTargetSummary[]
-  patchStatuses: ContentPatcherPatchStatus[]
-  diagnostics: ModProjectDiagnostic[]
-  dynamicTokens: Record<string, unknown>
-}
-
-export type SaveModProjectResult = {
-  pluginKind: PluginKind
-  targetPath: string
-  manifestPath: string
-  contentPath: string
-  diagnostics: ModProjectDiagnostic[]
-}
-
 export type LauncherNexusRouteStatus = 'loading' | 'warning' | 'success'
 
 export type LauncherNexusRouteSnapshot = {
@@ -278,6 +170,7 @@ export type LauncherNexusRouteSnapshot = {
   attempts: number
   maxAttempts: number
   available: boolean
+  latencyMs?: number | null
   message: string
 }
 

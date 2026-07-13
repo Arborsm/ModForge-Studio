@@ -46,10 +46,10 @@ export function MapPatchEditor({
   onAddVirtualAsset,
   locale = 'en-US',
   theme = 'dark',
-  accentColor = '#6366f1',
+  accentColor = 'var(--accent)',
   viewportLabels = {} as ViewportLabels,
 }: MapPatchEditorProps) {
-  void draft // reserved for future use
+  const copy = useEditorCopy().studioDesk.mapPatchEditor
   const [activeTab, setActiveTab] = useState<MapEditorTab>('properties')
   const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
   const properties = (editorState['properties'] as Record<string, unknown> | undefined) ?? {}
@@ -113,7 +113,7 @@ export function MapPatchEditor({
               key: mapLoadKey,
               status: 'error',
               document: null,
-              error: `Format ${loadedAsset.format} not yet supported for tile editing.`,
+              error: copy.unsupportedFormat(loadedAsset.format),
             })
           }
         } else if (lastError) {
@@ -123,7 +123,7 @@ export function MapPatchEditor({
             key: mapLoadKey,
             status: 'error',
             document: null,
-            error: `Unable to load map for target "${patch.target}".`,
+            error: copy.unableToLoadTarget(patch.target),
           })
         }
       } catch (err) {
@@ -141,7 +141,7 @@ export function MapPatchEditor({
     return () => {
       cancelled = true
     }
-  }, [activeTab, gameRootPath, patch.target, locale, mapLoadKey])
+  }, [activeTab, gameRootPath, patch.target, locale, mapLoadKey, copy])
 
   const currentMapState =
     loadedMapState.key === mapLoadKey
@@ -191,7 +191,7 @@ export function MapPatchEditor({
             }`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab === 'properties' ? 'MapProperties' : tab === 'warps' ? 'Warps' : tab === 'tiles' ? 'Tiles' : 'FromFile'}
+            {copy.tabs[tab]}
           </button>
         ))}
       </div>
@@ -205,14 +205,14 @@ export function MapPatchEditor({
         ) : activeTab === 'warps' ? (
           <div className="space-y-4 p-3">
             <MapWarpsEditor
-              title="Player Warps"
-              description="Add warp points to teleport players (AddWarps)"
+              title={copy.playerWarps}
+              description={copy.playerWarpsDescription}
               warps={warps}
               onChange={(newWarps) => updateEditorState({ warps: newWarps })}
             />
             <MapWarpsEditor
-              title="NPC Warps"
-              description="Add warp points for NPC pathfinding (AddNpcWarps)"
+              title={copy.npcWarps}
+              description={copy.npcWarpsDescription}
               warps={npcWarps}
               onChange={(newWarps) => updateEditorState({ npcWarps: newWarps })}
             />
@@ -238,10 +238,12 @@ export function MapPatchEditor({
           <div className="space-y-4 p-3">
             {/* FromFile */}
             <div>
-              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">FromFile</label>
+              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
+                {copy.fromFile}
+              </label>
               <input
                 type="text"
-                placeholder="assets/CustomMap.tbin"
+                placeholder={copy.fromFilePlaceholder}
                 className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
                 value={patch.fromFile ?? ''}
                 onChange={(e) => {
@@ -249,32 +251,30 @@ export function MapPatchEditor({
                   onPatchChange(patch.id, { fromFile: val || undefined })
                 }}
               />
-              <p className="mt-1 text-[10px] text-(--text-secondary)">
-                Path to a .tbin, .tmx, or .xnb map file to overlay onto the target.
-              </p>
+              <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.fromFileDescription}</p>
             </div>
 
             {/* PatchMode */}
             <div>
-              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">Patch Mode</label>
+              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
+                {copy.patchMode}
+              </label>
               <select
                 className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
                 value={patchMode}
                 onChange={(e) => updateEditorState({ patchMode: e.target.value })}
               >
-                <option value="ReplaceByLayer">ReplaceByLayer</option>
-                <option value="Overlay">Overlay</option>
-                <option value="Replace">Replace</option>
+                <option value="ReplaceByLayer">{copy.modeLabels.ReplaceByLayer}</option>
+                <option value="Overlay">{copy.modeLabels.Overlay}</option>
+                <option value="Replace">{copy.modeLabels.Replace}</option>
               </select>
-              <p className="mt-1 text-[10px] text-(--text-secondary)">
-                ReplaceByLayer: replace matching layers. Overlay: merge layers. Replace: replace entire map.
-              </p>
+              <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.modeDescription}</p>
             </div>
 
             {/* FromArea */}
             <div>
               <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
-                From Area (Source Crop)
+                {copy.fromArea}
               </label>
               <div className="grid grid-cols-4 gap-2">
                 {(['x', 'y', 'width', 'height'] as const).map((field) => (
@@ -290,13 +290,13 @@ export function MapPatchEditor({
                   </div>
                 ))}
               </div>
-              <p className="mt-1 text-[10px] text-(--text-secondary)">Crop region from the source map. Numbers or tokens like {'{{X}}'}.</p>
+              <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.fromAreaDescription}</p>
             </div>
 
             {/* ToArea */}
             <div>
               <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
-                To Area (Target Position)
+                {copy.toArea}
               </label>
               <div className="grid grid-cols-4 gap-2">
                 {(['x', 'y', 'width', 'height'] as const).map((field) => (
@@ -312,7 +312,7 @@ export function MapPatchEditor({
                   </div>
                 ))}
               </div>
-              <p className="mt-1 text-[10px] text-(--text-secondary)">Position on the target map. Numbers or tokens like {'{{X}}'}.</p>
+              <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.toAreaDescription}</p>
             </div>
           </div>
         )}
@@ -465,6 +465,7 @@ function MapPropertiesEditor({
   properties: Record<string, unknown>
   onChange: (props: Record<string, unknown>) => void
 }) {
+  const copy = useEditorCopy().studioDesk.mapPatchEditor
   const [entries, setEntries] = useState<Array<{ key: string; value: string }>>(() => {
     return Object.entries(properties).map(([k, v]) => ({
       key: k,
@@ -488,12 +489,12 @@ function MapPropertiesEditor({
 
   return (
     <div className="space-y-2">
-      <p className="text-[10px] text-(--text-secondary)">Edit map properties (Music, Outdoors, Warp, etc.)</p>
+      <p className="text-[10px] text-(--text-secondary)">{copy.propertiesDescription}</p>
       {entries.map((entry, index) => (
         <div key={index} className="flex items-center gap-2">
           <input
             type="text"
-            placeholder="Property"
+            placeholder={copy.propertyPlaceholder}
             className="flex-1 rounded-md border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
             value={entry.key}
             onChange={(e) => {
@@ -505,7 +506,7 @@ function MapPropertiesEditor({
           />
           <input
             type="text"
-            placeholder="Value"
+            placeholder={copy.valuePlaceholder}
             className="flex-1 rounded-md border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
             value={entry.value}
             onChange={(e) => {
@@ -517,7 +518,9 @@ function MapPropertiesEditor({
           />
           <button
             type="button"
-            className="icon-button h-7 w-7 shrink-0 text-red-400"
+            className="icon-button h-7 w-7 shrink-0 text-(--danger)"
+            aria-label={copy.removeProperty}
+            title={copy.removeProperty}
             onClick={() => {
               const next = entries.filter((_, i) => i !== index)
               setEntries(next)
@@ -536,7 +539,7 @@ function MapPropertiesEditor({
           setEntries(next)
         }}
       >
-        <Plus className="h-3 w-3" /> Add property
+        <Plus className="h-3 w-3" /> {copy.addProperty}
       </button>
     </div>
   )
@@ -553,6 +556,7 @@ function MapWarpsEditor({
   warps: Array<{ fromX: number; fromY: number; toMap: string; toX: number; toY: number }>
   onChange: (warps: Array<{ fromX: number; fromY: number; toMap: string; toX: number; toY: number }>) => void
 }) {
+  const copy = useEditorCopy().studioDesk.mapPatchEditor
   return (
     <div className="space-y-2">
       <div className="text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">{title}</div>
@@ -581,7 +585,9 @@ function MapWarpsEditor({
           </div>
           <button
             type="button"
-            className="icon-button h-7 w-7 shrink-0 self-end text-red-400"
+            className="icon-button h-7 w-7 shrink-0 self-end text-(--danger)"
+            aria-label={copy.removeWarp}
+            title={copy.removeWarp}
             onClick={() => onChange(warps.filter((_, i) => i !== index))}
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -593,7 +599,7 @@ function MapWarpsEditor({
         className="flex items-center gap-1 text-xs text-(--accent) hover:underline"
         onClick={() => onChange([...warps, { fromX: 0, fromY: 0, toMap: '', toX: 0, toY: 0 }])}
       >
-        <Plus className="h-3 w-3" /> Add warp
+        <Plus className="h-3 w-3" /> {copy.addWarp}
       </button>
     </div>
   )
@@ -639,25 +645,26 @@ function MapTilesEditor({
   mapTiles: MapTileEdit[]
   onMapTilesChange: (tiles: MapTileEdit[]) => void
 }) {
+  const copy = useEditorCopy().studioDesk.mapPatchEditor
   if (!gameRootPath) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 text-(--text-secondary)">
         <Crosshair className="h-8 w-8 opacity-30" />
-        <p className="text-xs">No game root path configured.</p>
-        <p className="text-[10px]">Set the game directory in draft settings to load the map.</p>
+        <p className="text-xs">{copy.noGameRoot}</p>
+        <p className="text-[10px]">{copy.noGameRootDescription}</p>
       </div>
     )
   }
 
   if (mapLoading) {
-    return <div className="flex h-full items-center justify-center text-sm text-(--text-secondary)">Loading map...</div>
+    return <div className="flex h-full items-center justify-center text-sm text-(--text-secondary)">{copy.loadingMap}</div>
   }
 
   if (mapError) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 text-(--text-secondary)">
         <Crosshair className="h-8 w-8 opacity-30" />
-        <p className="text-sm text-red-400">{mapError}</p>
+        <p className="text-sm text-(--danger)">{mapError}</p>
       </div>
     )
   }
@@ -666,7 +673,7 @@ function MapTilesEditor({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 text-(--text-secondary)">
         <Crosshair className="h-8 w-8 opacity-30" />
-        <p className="text-xs">Unable to load map for preview.</p>
+        <p className="text-xs">{copy.unableToLoadMap}</p>
       </div>
     )
   }
@@ -694,15 +701,13 @@ function MapTilesEditor({
         <div className="flex items-center gap-2 text-[10px] text-(--text-secondary)">
           {hoverInfo ? (
             <>
-              <span className="text-(--text-primary)">
-                Tile: ({hoverInfo.tileX}, {hoverInfo.tileY})
-              </span>
-              {hoverInfo.layerName && <span>Layer: {hoverInfo.layerName}</span>}
-              {hoverInfo.tilesetName && <span>Tileset: {hoverInfo.tilesetName}</span>}
-              {hoverInfo.tileId != null && <span>GID: {hoverInfo.tileId}</span>}
+              <span className="text-(--text-primary)">{copy.tilePosition(hoverInfo.tileX, hoverInfo.tileY)}</span>
+              {hoverInfo.layerName && <span>{copy.tileLayer(hoverInfo.layerName)}</span>}
+              {hoverInfo.tilesetName && <span>{copy.tileTileset(hoverInfo.tilesetName)}</span>}
+              {hoverInfo.tileId != null && <span>{copy.tileId(hoverInfo.tileId)}</span>}
             </>
           ) : (
-            <span>Hover over the map to see tile details.</span>
+            <span>{copy.hoverHint}</span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -723,15 +728,15 @@ function MapTilesEditor({
                 ])
               }}
             >
-              <Plus className="h-3 w-3" /> Add Tile Edit
+              <Plus className="h-3 w-3" /> {copy.addTileEdit}
             </button>
           )}
           <button
             type="button"
-            className="flex items-center gap-1 rounded-md bg-(--accent) px-2.5 py-1 text-[10px] font-medium text-white hover:opacity-90"
+            className="flex items-center gap-1 rounded-md bg-(--accent) px-2.5 py-1 text-[10px] font-medium text-(--text-on-accent) hover:opacity-90"
             onClick={onBuildAsset}
           >
-            <Hammer className="h-3 w-3" /> Build Asset
+            <Hammer className="h-3 w-3" /> {copy.buildAsset}
           </button>
         </div>
       </div>
@@ -740,14 +745,14 @@ function MapTilesEditor({
       {mapTiles.length > 0 && (
         <div className="max-h-45 shrink-0 overflow-auto border-t border-(--border-color) bg-(--bg-panel-muted) px-3 py-2">
           <div className="mb-1.5 text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
-            MapTiles Edits ({mapTiles.length})
+            {copy.mapTileEdits(mapTiles.length)}
           </div>
           <div className="space-y-1.5">
             {mapTiles.map((tile, index) => (
               <div key={index} className="flex items-center gap-1.5 rounded border border-(--border-color) bg-(--bg-panel) p-1.5">
                 <input
                   type="text"
-                  placeholder="Layer"
+                  placeholder={copy.tilePlaceholders.layer}
                   className="w-20 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
                   value={tile.layer}
                   onChange={(e) => {
@@ -758,7 +763,7 @@ function MapTilesEditor({
                 />
                 <input
                   type="number"
-                  placeholder="X"
+                  placeholder={copy.tilePlaceholders.x}
                   className="w-12 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
                   value={tile.x}
                   onChange={(e) => {
@@ -769,7 +774,7 @@ function MapTilesEditor({
                 />
                 <input
                   type="number"
-                  placeholder="Y"
+                  placeholder={copy.tilePlaceholders.y}
                   className="w-12 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
                   value={tile.y}
                   onChange={(e) => {
@@ -780,7 +785,7 @@ function MapTilesEditor({
                 />
                 <input
                   type="text"
-                  placeholder="Tilesheet"
+                  placeholder={copy.tilePlaceholders.tilesheet}
                   className="w-20 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
                   value={tile.setTilesheet ?? ''}
                   onChange={(e) => {
@@ -792,7 +797,7 @@ function MapTilesEditor({
                 />
                 <input
                   type="text"
-                  placeholder="Index"
+                  placeholder={copy.tilePlaceholders.index}
                   className="w-14 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
                   value={tile.setIndex ?? ''}
                   onChange={(e) => {
@@ -819,11 +824,11 @@ function MapTilesEditor({
                       onMapTilesChange(next)
                     }}
                   />
-                  Remove
+                  {copy.removeTile}
                 </label>
                 <input
                   type="text"
-                  placeholder="Props (key=value,...)"
+                  placeholder={copy.tilePlaceholders.properties}
                   className="min-w-0 flex-1 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
                   value={
                     tile.setProperties
@@ -854,7 +859,9 @@ function MapTilesEditor({
                 />
                 <button
                   type="button"
-                  className="icon-button h-5 w-5 shrink-0 text-red-400"
+                  className="icon-button h-5 w-5 shrink-0 text-(--danger)"
+                  aria-label={copy.removeTileEdit}
+                  title={copy.removeTileEdit}
                   onClick={() => onMapTilesChange(mapTiles.filter((_, i) => i !== index))}
                 >
                   <Trash2 className="h-3 w-3" />

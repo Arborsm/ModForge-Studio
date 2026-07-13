@@ -1,5 +1,18 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { Camera, ChevronRight, Map, MapPin, MoreHorizontal, Music, Plus, Search, Sparkles, Settings, UserPlus } from 'lucide-react'
+import {
+  Camera,
+  ChevronRight,
+  Map,
+  MapPin,
+  MoreHorizontal,
+  Music,
+  Plus,
+  RefreshCw,
+  Search,
+  Sparkles,
+  Settings,
+  UserPlus,
+} from 'lucide-react'
 import type { DraftPatch } from '@features/cp-maker'
 import {
   parseEventCommand,
@@ -13,7 +26,7 @@ import {
 import { loadResourceRegistry, type GameDirectoryInfo } from '@entities/game/api'
 import { loadItemTextureAssetState, loadItemWorkspaceEntries } from '@pages/workbench/workspaces/item/entities/item'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
-import { useEventStageCopy } from '@locales/provider'
+import { useEditorCopy, useEventStageCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { scheduleDeferred } from '@shared/lib/react'
 import { globalResourceRegistryReducer, itemCatalogReducer } from '../workflow-model/editorReducers'
@@ -58,6 +71,7 @@ export default function EventsEditor({
   onOpenConditionBuilder,
   onOpenConfig,
   onSaveDraft,
+  onReloadDraft,
   isDirty,
 }: {
   entries: Record<string, unknown>
@@ -86,9 +100,11 @@ export default function EventsEditor({
   onOpenConditionBuilder: () => void
   onOpenConfig?: () => void
   onSaveDraft?: () => void
+  onReloadDraft?: () => void
   isDirty: boolean
 }) {
   const workflowCopy = useEventStageCopy().workflow
+  const reloadLabel = useEditorCopy().studioDesk.toolbar.reload
   const copy = getEventComposerCopy(locale, workflowCopy)
   const selectedEntry = selectedKey ? (entries[selectedKey] ?? null) : null
   const selectedEntryString = typeof selectedEntry === 'string' ? selectedEntry : null
@@ -614,6 +630,11 @@ export default function EventsEditor({
               <ChevronRight className="ep-caret h-3.5 w-3.5" />
             </button>
             <div className="header-actions">
+              {onReloadDraft ? (
+                <button type="button" className="icon-btn" title={reloadLabel} aria-label={reloadLabel} onClick={onReloadDraft}>
+                  <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              ) : null}
               <button type="button" className="icon-btn" title={copy.searchEvent} onClick={() => setEventPickerOpen(true)}>
                 <Search className="h-3.5 w-3.5" />
               </button>

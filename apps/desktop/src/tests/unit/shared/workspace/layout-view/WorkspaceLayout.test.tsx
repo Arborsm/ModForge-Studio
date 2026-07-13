@@ -1,8 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { useState } from 'react'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { WorkspaceLayout, type WorkspacePanelConfig } from '@shared/workspace/layout-view/WorkspaceLayout'
-import { buildDefaultSnapshot, sanitizeStoredState } from '@shared/workspace/layoutState'
 import type { WorkspaceStoredState } from '@shared/contracts'
 
 class ResizeObserverMock {
@@ -14,158 +12,110 @@ class ResizeObserverMock {
 function buildPanels(): WorkspacePanelConfig[] {
   return [
     {
-      id: 'mods-trace',
-      title: 'Patch Trace',
-      subtitle: 'Applied patch flow for the selected target',
-      content: <div>Trace body</div>,
-      minWidth: 300,
+      id: 'assets',
+      area: 'left',
+      title: 'Assets',
+      subtitle: 'Files',
+      content: <div>Assets body</div>,
+      minWidth: 220,
       minHeight: 220,
-      defaultDock: 'right-top',
-      defaultDockHeight: 360,
+    },
+    {
+      id: 'viewport',
+      area: 'center',
+      title: 'Viewport',
+      subtitle: 'Map',
+      content: <div>Viewport body</div>,
+      minWidth: 360,
+      minHeight: 220,
+    },
+    {
+      id: 'inspector',
+      area: 'right',
+      title: 'Inspector',
+      subtitle: 'Details',
+      content: <div>Inspector body</div>,
+      minWidth: 260,
+      minHeight: 220,
     },
   ]
 }
 
-function createFloatingPanelState(panels: WorkspacePanelConfig[]) {
-  const snapshot = buildDefaultSnapshot(panels)
-  snapshot.panels['mods-trace'] = {
-    ...snapshot.panels['mods-trace'],
-    mode: 'floating',
-    lastMode: 'floating',
-    x: 140,
-    y: 96,
-    width: 360,
-    height: 260,
-  }
-
-  return sanitizeStoredState(
-    {
-      ...snapshot,
-      presets: {},
-    },
-    panels,
-  )
-}
-
-describe('WorkspaceLayout floating panel chrome', () => {
+describe('WorkspaceLayout split-only chrome', () => {
   beforeEach(() => {
     vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(800)
   })
 
   afterEach(() => {
     cleanup()
+    vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
 
-  it('treats the floating restore action as a no-drag click target and restores the panel to the sidebar', async () => {
-    const panels = buildPanels()
-    const storageKey = 'modforge:workspace-layout:test:floating-restore'
-    const onLayoutMetaChange = vi.fn()
-    const onPersistStateChange = vi.fn()
-    const persistedState = createFloatingPanelState(panels)
+  it('renders fixed areas and only the three necessary edge split lines', () => {
+    const { container } = render(<WorkspaceLayout panels={buildPanels()} storageKey="map-browser" />)
 
-    render(
-      <WorkspaceLayout
-        panels={panels}
-        storageKey={storageKey}
-        persistedState={persistedState}
-        onPersistStateChange={onPersistStateChange}
-        onLayoutMetaChange={onLayoutMetaChange}
-      />,
-    )
-
-    const restoreButton = await screen.findByTitle('Restore to sidebar')
-    expect(restoreButton.getAttribute('data-panel-no-drag')).toBe('true')
-
-    fireEvent.click(restoreButton)
-
-    await waitFor(() => {
-      const latest = onLayoutMetaChange.mock.calls.at(-1)?.[0]
-      expect(latest?.panelItems).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            id: 'mods-trace',
-            mode: 'docked',
-          }),
-        ]),
-      )
-    })
-    expect(onPersistStateChange).toHaveBeenCalledWith(
-      storageKey,
-      expect.objectContaining({
-        panels: expect.objectContaining({
-          'mods-trace': expect.objectContaining({
-            mode: 'docked',
-          }),
-        }),
-      }),
-    )
+    expect(container.querySelectorAll('[data-workspace-panel]')).toHaveLength(3)
+    expect(container.querySelectorAll('[data-workspace-resizer]')).toHaveLength(2)
+    expect(container.querySelector('[data-workspace-resizer="left"]')).toBeTruthy()
+    expect(container.querySelector('[data-workspace-resizer="right"]')).toBeTruthy()
+    expect(container.querySelector('[data-workspace-resizer="bottom"]')).toBeNull()
+    expect(container.querySelector('[data-workspace-split-resizer]')).toBeNull()
+    expect(container.querySelector('.workspace-panel-floating')).toBeNull()
+    expect(container.querySelector('.workspace-drop-overlay')).toBeNull()
+    expect(container.querySelector('.workspace-panel-grip')).toBeNull()
   })
 
-  it('does not bounce persisted layout state when the parent echoes it back', async () => {
-    const panels = buildPanels()
-    const storageKey = 'modforge:workspace-layout:test:controlled-echo'
+  it('persists a changed side split only after the pointer interaction ends', async () => {
     const onPersistStateChange = vi.fn()
-
-    function ControlledHarness() {
-      const [persistedState, setPersistedState] = useState<WorkspaceStoredState | null>(null)
-
-      return (
-        <WorkspaceLayout
-          panels={panels}
-          storageKey={storageKey}
-          persistedState={persistedState}
-          onPersistStateChange={(nextStorageKey, nextState) => {
-            onPersistStateChange(nextStorageKey, nextState)
-            setPersistedState(nextState)
-          }}
-        />
-      )
-    }
-
-    render(<ControlledHarness />)
-
-    await waitFor(() => {
-      expect(onPersistStateChange).toHaveBeenCalledTimes(1)
-    })
-  })
-
-  it('commits a floating panel move once when the pointer interaction ends', async () => {
-    const panels = buildPanels()
-    const storageKey = 'modforge:workspace-layout:test:move-commit'
-    const onPersistStateChange = vi.fn()
-
+    const storageKey = 'map-browser'
     const { container } = render(
-      <WorkspaceLayout
-        panels={panels}
-        storageKey={storageKey}
-        persistedState={createFloatingPanelState(panels)}
-        onPersistStateChange={onPersistStateChange}
-      />,
+      <WorkspaceLayout panels={buildPanels()} storageKey={storageKey} onPersistStateChange={onPersistStateChange} />,
     )
 
     await waitFor(() => expect(onPersistStateChange).toHaveBeenCalledTimes(1))
     onPersistStateChange.mockClear()
 
-    const header = container.querySelector<HTMLElement>('.workspace-panel-header')
-    expect(header).toBeTruthy()
-
-    fireEvent.pointerDown(header!, { button: 0, pointerId: 7, clientX: 180, clientY: 120 })
-    fireEvent.pointerMove(window, { pointerId: 7, clientX: 220, clientY: 150 })
-    fireEvent.pointerMove(window, { pointerId: 7, clientX: 260, clientY: 190 })
-
+    const resizer = container.querySelector<HTMLElement>('[data-workspace-resizer="left"]')!
+    fireEvent.pointerDown(resizer, { pointerId: 7, clientX: 260, clientY: 300 })
+    fireEvent.pointerMove(window, { pointerId: 7, clientX: 340, clientY: 300 })
     expect(onPersistStateChange).not.toHaveBeenCalled()
 
-    fireEvent.pointerUp(window, { pointerId: 7, clientX: 260, clientY: 190 })
-
+    fireEvent.pointerUp(window, { pointerId: 7, clientX: 340, clientY: 300 })
     expect(onPersistStateChange).toHaveBeenCalledTimes(1)
-    expect(onPersistStateChange).toHaveBeenCalledWith(
-      storageKey,
-      expect.objectContaining({
-        panels: expect.objectContaining({
-          'mods-trace': expect.objectContaining({ mode: 'floating' }),
-        }),
-      }),
-    )
+
+    const latestState = onPersistStateChange.mock.calls[0][1] as WorkspaceStoredState
+    expect(latestState.chrome.leftWidth).toBeGreaterThan(0.22)
+    expect(latestState).not.toHaveProperty('panels')
+  })
+
+  it('supports a vertical split inside a fixed area without enabling panel dragging', async () => {
+    const panels = [
+      ...buildPanels(),
+      {
+        id: 'asset-preview',
+        area: 'left' as const,
+        title: 'Preview',
+        subtitle: '',
+        content: <div>Preview body</div>,
+        minWidth: 220,
+        minHeight: 180,
+      },
+    ]
+    const onPersistStateChange = vi.fn()
+    const { container } = render(<WorkspaceLayout panels={panels} storageKey="map-browser" onPersistStateChange={onPersistStateChange} />)
+
+    await waitFor(() => expect(container.querySelector('[data-workspace-split-resizer="left"]')).toBeTruthy())
+    const resizer = container.querySelector<HTMLElement>('[data-workspace-split-resizer="left"]')!
+    fireEvent.pointerDown(resizer, { pointerId: 8, clientX: 300, clientY: 300 })
+    fireEvent.pointerMove(window, { pointerId: 8, clientX: 300, clientY: 380 })
+    fireEvent.pointerUp(window, { pointerId: 8, clientX: 300, clientY: 380 })
+
+    await waitFor(() => expect(onPersistStateChange).toHaveBeenCalled())
+    const latestState = onPersistStateChange.mock.calls.at(-1)?.[1] as WorkspaceStoredState
+    expect(latestState.chrome.leftSplit).toBeGreaterThan(0.44)
+    expect(container.querySelector('.workspace-drag-preview')).toBeNull()
   })
 })

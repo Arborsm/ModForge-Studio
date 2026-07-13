@@ -21,14 +21,14 @@ export type ModProjectSummary = {
   i18nEntryCount: number
 }
 
-/** User-facing diagnostic emitted while scanning, loading, simulating, or saving a mod project. */
+/** User-facing diagnostic emitted while scanning or inspecting a mod project. */
 export type ModProjectDiagnostic = {
   severity: PluginDiagnosticSeverity
   message: string
   field: string | null
 }
 
-/** One Content Patcher change entry summarized for navigation and editing. */
+/** One Content Patcher change entry summarized for read-only inspection. */
 export type ContentPatcherPatchSummary = {
   id: string
   index: number
@@ -41,7 +41,7 @@ export type ContentPatcherPatchSummary = {
   updateKeys: string[]
 }
 
-/** Editable Content Patcher source data loaded from manifest/content files. */
+/** Content Patcher source data loaded for inspection and result materialization. */
 export type ContentPatcherProjectData = {
   manifestPath: string
   contentPath: string
@@ -57,7 +57,7 @@ export type ContentPatcherProjectData = {
   patches: ContentPatcherPatchSummary[]
 }
 
-/** One editable Content Patcher i18n JSON file under a mod project's i18n folder. */
+/** One Content Patcher i18n JSON file under a mod project's i18n folder. */
 export type ContentPatcherI18nFile = {
   locale: string
   path: string
@@ -66,10 +66,9 @@ export type ContentPatcherI18nFile = {
   entryCount: number
 }
 
-/** Full mod project payload with plugin-specific editable data when supported. */
+/** Full read-only mod project inspection payload. */
 export type ModProjectDetail = {
   pluginKind: PluginKind
-  capabilities: string[]
   summary: ModProjectSummary
   diagnostics: ModProjectDiagnostic[]
   contentPatcher: ContentPatcherProjectData | null
@@ -99,7 +98,7 @@ export type ContentPatcherIncludeEdge = {
   includedPath: string
 }
 
-/** Complete Content Patcher source snapshot used for unsaved simulation. */
+/** Complete Content Patcher source snapshot used to resolve target results. */
 export type ContentPatcherProjectSnapshot = {
   summary: ContentPatcherProjectSummary
   sources: ContentPatcherSourceFile[]
@@ -107,26 +106,8 @@ export type ContentPatcherProjectSnapshot = {
   diagnostics: ModProjectDiagnostic[]
 }
 
-/** Planned Content Patcher change after conditions and includes are evaluated. */
-export type ContentPatcherPlannedPatch = {
-  id: string
-  action: string
-  target: string
-  logName: string
-  fromFile: string | null
-  when: Record<string, unknown>
-  sourcePath: string
-  priority: number
-  update: string[]
-}
-
-/** Ordered Content Patcher simulation plan. */
-export type ContentPatcherPatchPlan = {
-  patches: ContentPatcherPlannedPatch[]
-}
-
-/** Simulated game state and mod context used to evaluate Content Patcher conditions. */
-export type ContentPatcherSimulationContext = {
+/** Game state and mod context used to evaluate Content Patcher conditions. */
+export type ContentPatcherResultContext = {
   season?: string
   weather?: string
   day?: number
@@ -187,29 +168,20 @@ export type ContentPatcherSimulationContext = {
   ignoreEntryWhenConditions?: boolean
 }
 
-/** Request to simulate Content Patcher output from disk or an unsaved editor snapshot. */
-export type SimulateContentPatcherRequest = {
+/** Inputs used to resolve Content Patcher output from disk or an in-memory snapshot. */
+export type ContentPatcherResultInput = {
   path?: string | null
   gameRootPath?: string | null
   snapshot?: ContentPatcherProjectSnapshot | null
   manifestJson?: string | null
   contentJson?: string | null
-  context?: ContentPatcherSimulationContext | null
+  context?: ContentPatcherResultContext | null
 }
 
-/** Per-patch condition result from a Content Patcher simulation. */
 type ContentPatcherAssetKind = 'json' | 'image' | 'map' | (string & {})
 type ContentPatcherResultState = 'determinate' | 'indeterminate' | 'error' | (string & {})
 type ContentPatcherTraceStatus = 'applied' | 'skipped' | 'indeterminate' | 'error' | (string & {})
-type ContentPatcherExportFormat = 'json' | 'png' | (string & {})
-
-export type ContentPatcherPatchStatus = {
-  patchId: string | null
-  status: 'applied' | 'skipped' | 'indeterminate'
-  reasons: string[]
-}
-
-/** Asset target touched by a Content Patcher simulation. */
+/** Asset target touched while resolving a Content Patcher result. */
 export type ContentPatcherTargetSummary = {
   path: string
   assetKind: ContentPatcherAssetKind
@@ -230,7 +202,7 @@ export type ContentPatcherTraceEntry = {
   diagnostics: ModProjectDiagnostic[]
 }
 
-/** Preview payload for one simulated Content Patcher target. */
+/** Preview payload for one resolved Content Patcher target. */
 export type ContentPatcherResultAssetPayload = {
   kind: ContentPatcherAssetKind
   json: unknown
@@ -240,12 +212,12 @@ export type ContentPatcherResultAssetPayload = {
   mapDebug: Record<string, unknown> | null
 }
 
-/** Request to materialize one simulated target for preview. */
-export type LoadContentPatcherResultAssetRequest = SimulateContentPatcherRequest & {
+/** Request to materialize one Content Patcher target for preview. */
+export type LoadContentPatcherResultAssetRequest = ContentPatcherResultInput & {
   target: string
 }
 
-/** Materialized preview result for one simulated Content Patcher target. */
+/** Materialized preview result for one Content Patcher target. */
 export type LoadContentPatcherResultAssetResult = {
   target: ContentPatcherTargetSummary
   trace: ContentPatcherTraceEntry[]
@@ -254,49 +226,19 @@ export type LoadContentPatcherResultAssetResult = {
   exportable: boolean
 }
 
-/** Request to export one simulated target to disk. */
-export type ExportContentPatcherAssetRequest = SimulateContentPatcherRequest & {
-  target: string
-  outputDirectory: string
-}
-
-/** Result of exporting one simulated Content Patcher target. */
-export type ExportContentPatcherAssetResult = {
-  target: string
-  outputPath: string
-  format: ContentPatcherExportFormat
-  diagnostics: ModProjectDiagnostic[]
-}
-
-/** Complete Content Patcher simulation result for navigation, diagnostics, and previews. */
-export type ContentPatcherSimulationResult = {
-  plan: ContentPatcherPatchPlan
-  targets: ContentPatcherTargetSummary[]
-  patchStatuses: ContentPatcherPatchStatus[]
-  diagnostics: ModProjectDiagnostic[]
-  dynamicTokens: Record<string, unknown>
-}
-
-/** Request to save editable mod project files, optionally to a new output path. */
-export type SaveModProjectRequest = {
+/** Minimal mutation payload for writing selected translation files in-place. */
+export type SaveModI18nFilesRequest = {
   sourcePath: string
-  outputPath?: string | null
-  overwriteExistingExport?: boolean
-  manifestJson: string
-  contentJson: string
-  i18nFiles?: Array<{
+  i18nFiles: Array<{
     locale: string
     rawJson: string
   }>
 }
 
-/** Paths and diagnostics returned after saving a mod project. */
-export type SaveModProjectResult = {
-  pluginKind: PluginKind
-  targetPath: string
-  manifestPath: string
-  contentPath: string
-  diagnostics: ModProjectDiagnostic[]
+/** Identifies the project and locales written by an i18n-only save. */
+export type SaveModI18nFilesResult = {
+  sourcePath: string
+  writtenLocales: string[]
 }
 
 /** Reference to an asset touched by one or more installed content packs. */

@@ -4,29 +4,21 @@ import { createPromiseCache, readCached, readPending } from '@shared/lib/cache'
 import { invokeDesktop } from '@platform/host/runtime'
 import type { HostCommandPolicy } from '@platform/host-command-client'
 import type {
-  ContentPatcherProjectSnapshot,
-  ContentPatcherSimulationResult,
-  ExportContentPatcherAssetRequest,
-  ExportContentPatcherAssetResult,
   LoadContentPatcherResultAssetRequest,
   LoadContentPatcherResultAssetResult,
   ModAssetIndex,
   ModProjectDetail,
   ModProjectSummary,
-  SaveModProjectRequest,
-  SaveModProjectResult,
-  SimulateContentPatcherRequest,
+  SaveModI18nFilesRequest,
+  SaveModI18nFilesResult,
 } from './types'
 
 const scanModProjectsCache = createPromiseCache<ModProjectSummary[]>()
 const scanModAssetIndexCache = createPromiseCache<ModAssetIndex>()
 const loadModProjectCache = createPromiseCache<ModProjectDetail>()
-const loadContentPatcherProjectCache = createPromiseCache<ContentPatcherProjectSnapshot>()
-const simulateContentPatcherCache = createPromiseCache<ContentPatcherSimulationResult>()
 const loadContentPatcherResultAssetCache = createPromiseCache<LoadContentPatcherResultAssetResult>()
 
 const modIoPoolPolicy = { kind: 'parallelPool', pool: 'mod-project-io', limit: 2 } satisfies HostCommandPolicy
-const modProjectMutationPolicy = { kind: 'exclusiveMutation', resource: 'ModProject' } satisfies HostCommandPolicy
 
 /** Returns cache sizes for mod and Content Patcher desktop APIs. */
 export function getModApiCacheStats() {
@@ -34,8 +26,6 @@ export function getModApiCacheStats() {
     scanModProjects: scanModProjectsCache.size(),
     scanModAssetIndex: scanModAssetIndexCache.size(),
     modProject: loadModProjectCache.size(),
-    contentPatcherProject: loadContentPatcherProjectCache.size(),
-    contentPatcherSimulation: simulateContentPatcherCache.size(),
     contentPatcherResultAsset: loadContentPatcherResultAssetCache.size(),
   }
 }
@@ -56,7 +46,7 @@ export function scanModAssetIndex(rootPath: string) {
   )
 }
 
-/** Loads a mod project summary, diagnostics, and plugin-specific editable data. */
+/** Loads a mod project summary, diagnostics, and plugin-specific inspection data. */
 export function loadModProject(path: string) {
   const cacheKey = normalizeCachePathSegment(path)
   return readPending(loadModProjectCache, cacheKey, () =>
@@ -64,23 +54,12 @@ export function loadModProject(path: string) {
   )
 }
 
-/** Loads a Content Patcher project snapshot including included source files. */
-export function loadContentPatcherProject(path: string) {
-  const cacheKey = normalizeCachePathSegment(path)
-  return readPending(loadContentPatcherProjectCache, cacheKey, () =>
-    invokeDesktop<ContentPatcherProjectSnapshot>(HOST_COMMANDS.loadContentPatcherProject, { path }, modIoPoolPolicy),
-  )
+/** Inspects one mod archive in an isolated temporary directory without installing it. */
+export function inspectModArchive(path: string) {
+  return invokeDesktop<ModProjectDetail>(HOST_COMMANDS.inspectModArchive, { path }, modIoPoolPolicy)
 }
 
-/** Simulates Content Patcher changes for a project or unsaved editor snapshot. */
-export function simulateContentPatcher(request: SimulateContentPatcherRequest) {
-  const cacheKey = JSON.stringify(request)
-  return readPending(simulateContentPatcherCache, cacheKey, () =>
-    invokeDesktop<ContentPatcherSimulationResult>(HOST_COMMANDS.simulateContentPatcher, { request }, modIoPoolPolicy),
-  )
-}
-
-/** Materializes one simulated Content Patcher target for preview in the UI. */
+/** Materializes one resolved Content Patcher target for preview in the UI. */
 export function loadContentPatcherResultAsset(request: LoadContentPatcherResultAssetRequest) {
   const cacheKey = JSON.stringify(request)
   return readPending(loadContentPatcherResultAssetCache, cacheKey, () =>
@@ -88,18 +67,14 @@ export function loadContentPatcherResultAsset(request: LoadContentPatcherResultA
   )
 }
 
-/** Exports one simulated Content Patcher result asset to disk. */
-export function exportContentPatcherAsset(request: ExportContentPatcherAssetRequest) {
-  return invokeDesktop<ExportContentPatcherAssetResult>(HOST_COMMANDS.exportContentPatcherAsset, { request }, modProjectMutationPolicy)
-}
-
-/** Saves a mod project, then clears project and mod index caches affected by the write. */
-export async function saveModProject(request: SaveModProjectRequest) {
-  const result = await invokeDesktop<SaveModProjectResult>(HOST_COMMANDS.saveModProject, { request }, modProjectMutationPolicy)
-  const normalizedSource = normalizeCachePathSegment(request.sourcePath)
-  const normalizedTarget = request.outputPath ? normalizeCachePathSegment(request.outputPath) : normalizedSource
-  loadModProjectCache.delete(normalizedSource)
-  loadModProjectCache.delete(normalizedTarget)
+/** Writes only the requested i18n files and invalidates affected read caches. */
+export async function saveModI18nFiles(request: SaveModI18nFilesRequest) {
+  const policy = {
+    kind: 'exclusiveMutation',
+    resource: `ModProject:${normalizeCachePathSegment(request.sourcePath)}`,
+  } satisfies HostCommandPolicy
+  const result = await invokeDesktop<SaveModI18nFilesResult>(HOST_COMMANDS.saveModI18nFiles, { request }, policy)
+  loadModProjectCache.delete(normalizeCachePathSegment(request.sourcePath))
   scanModProjectsCache.clear()
   scanModAssetIndexCache.clear()
   return result

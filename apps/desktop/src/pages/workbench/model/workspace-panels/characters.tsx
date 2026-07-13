@@ -5,13 +5,13 @@ import type { WorkspacePanelConfig } from '@shared/contracts'
 import { CharacterBrowserPanel } from '../../ui/workspace-panels/character/CharacterBrowserPanel'
 import { CharacterDetailPanel } from '../../ui/workspace-panels/character/CharacterDetailPanel'
 import { CharacterWorkspace } from '../../workspaces/character'
-import type { BuildWorkspacePanelsOptions } from './types'
+import type { BuildCharacterPanelsOptions } from './types'
 
 /**
  * Character workspace panels: redesigned left browser + right detail rails.
  * Center stage keeps the existing CharacterWorkspace UI unchanged.
  */
-export function buildCharactersWorkspacePanels(options: BuildWorkspacePanelsOptions): WorkspacePanelConfig[] {
+export function buildCharactersWorkspacePanels(options: BuildCharacterPanelsOptions): WorkspacePanelConfig[] {
   const {
     copy,
     characters,
@@ -45,16 +45,14 @@ export function buildCharactersWorkspacePanels(options: BuildWorkspacePanelsOpti
 
   const panels: WorkspacePanelConfig[] = [
     {
-      id: 'character-browser',
+      id: 'character-browser/browser',
       title: copy.charactersPanel.browserTitle,
       subtitle: characterStatusMessage || copy.charactersPanel.browserSubtitle,
       hideDockHeader: true,
       shellClassName,
       minWidth: 200,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'left-top',
-      defaultDockHeight: 760,
+      area: 'left',
       content: withPreviewReveal(
         'workbench-characters-browser',
         0,
@@ -74,14 +72,13 @@ export function buildCharactersWorkspacePanels(options: BuildWorkspacePanelsOpti
       ),
     },
     {
-      id: 'character-stage',
+      id: 'character-browser/stage',
       title: copy.charactersPanel.workspaceTitle,
       subtitle: activeCharacter?.displayName ?? characterStatusMessage,
       hideDockHeader: true,
       minWidth: 480,
       minHeight: 420,
-      defaultDock: 'center',
-      defaultDockHeight: 760,
+      area: 'center',
       content: (
         <DeferredWorkspaceCrossfade
           ready={heavyWorkspaceReady}
@@ -109,16 +106,14 @@ export function buildCharactersWorkspacePanels(options: BuildWorkspacePanelsOpti
       ),
     },
     {
-      id: 'character-detail',
+      id: 'character-browser/detail',
       title: copy.charactersPanel.inspectorTitle,
       subtitle: activeCharacter?.displayName ?? characterStatusMessage,
       hideDockHeader: true,
       shellClassName,
       minWidth: 260,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'right-top',
-      defaultDockHeight: 760,
+      area: 'right',
       content: (
         <DeferredWorkspaceCrossfade
           ready={heavyWorkspaceReady}

@@ -5,13 +5,13 @@ import type { WorkspacePanelConfig } from '@shared/contracts'
 import { MapBrowserPanel } from '../../ui/workspace-panels/map/MapBrowserPanel'
 import { MapDetailPanel } from '../../ui/workspace-panels/map/MapDetailPanel'
 import { CentralWorkspace } from '../../workspaces/map'
-import type { BuildWorkspacePanelsOptions } from './types'
+import type { BuildMapPanelsOptions } from './types'
 
 /**
  * Map browse workspace: hierarchical asset browser, viewport, unified detail rail.
  * Collapses former inspector / layers / object-groups / diagnostics stacks into one pane.
  */
-export function buildMapsWorkspacePanels(options: BuildWorkspacePanelsOptions): WorkspacePanelConfig[] {
+export function buildMapsWorkspacePanels(options: BuildMapPanelsOptions): WorkspacePanelConfig[] {
   const {
     copy,
     theme,
@@ -53,7 +53,6 @@ export function buildMapsWorkspacePanels(options: BuildWorkspacePanelsOptions): 
     worldOverlayTextureAssets,
     onFocusObject,
     onHoverChange,
-    moduleBlueprint,
     heavyWorkspaceReady,
   } = options
 
@@ -69,16 +68,14 @@ export function buildMapsWorkspacePanels(options: BuildWorkspacePanelsOptions): 
 
   return [
     {
-      id: 'map-browser',
+      id: 'map-browser/browser',
       title: mapLabels.browserTitle,
       subtitle: mapLabels.browserSubtitle,
       hideDockHeader: true,
       shellClassName,
       minWidth: 200,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'left-top',
-      defaultDockHeight: 760,
+      area: 'left',
       content: withPreviewReveal(
         'workbench-map-browser',
         0,
@@ -98,15 +95,14 @@ export function buildMapsWorkspacePanels(options: BuildWorkspacePanelsOptions): 
       ),
     },
     {
-      id: 'map-viewport',
+      id: 'map-browser/viewport',
       title: copy.center.viewport,
       subtitle: sceneLabel,
       hideDockHeader: true,
       shellClassName: 'workspace-panel-shell-flat item-workspace-panel-shell map-viewport-panel-shell',
       minWidth: 480,
       minHeight: 420,
-      defaultDock: 'center',
-      defaultDockHeight: 760,
+      area: 'center',
       content: (
         <DeferredWorkspaceCrossfade
           ready={heavyWorkspaceReady}
@@ -117,7 +113,6 @@ export function buildMapsWorkspacePanels(options: BuildWorkspacePanelsOptions): 
               'workbench-map-viewport',
               1,
               <CentralWorkspace
-                workspaceMode="map"
                 tabs={workspaceTabs}
                 activeTabId={activeTabId}
                 onSelectTab={onSelectWorkspaceTab}
@@ -138,7 +133,6 @@ export function buildMapsWorkspacePanels(options: BuildWorkspacePanelsOptions): 
                 worldOverlaySprites={worldOverlaySprites}
                 worldOverlayTextureAssets={worldOverlayTextureAssets}
                 onHoverChange={onHoverChange}
-                moduleBlueprint={moduleBlueprint}
               />,
             )}
           </DeferredWorkspaceReveal>
@@ -146,16 +140,14 @@ export function buildMapsWorkspacePanels(options: BuildWorkspacePanelsOptions): 
       ),
     },
     {
-      id: 'map-detail',
+      id: 'map-browser/detail',
       title: copy.rightDock.inspector,
       subtitle: sceneLabel,
       hideDockHeader: true,
       shellClassName,
       minWidth: 260,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'right-top',
-      defaultDockHeight: 760,
+      area: 'right',
       content: (
         <DeferredWorkspaceCrossfade
           ready={heavyWorkspaceReady}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Upload, Trash2, ImageIcon } from 'lucide-react'
 import type { DraftPatch, CpMakerDraft, VirtualPreviewAsset } from '@features/cp-maker'
+import { useEditorCopy } from '@locales/provider'
 
 interface ImagePatchEditorProps {
   patch: DraftPatch
@@ -18,6 +19,7 @@ type Area = {
 }
 
 export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsset, onRemoveVirtualAsset }: ImagePatchEditorProps) {
+  const copy = useEditorCopy().studioDesk.imagePatchEditor
   const isLoad = patch.action === 'Load'
   const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
   const fromArea = (editorState['fromArea'] as Area | undefined) ?? null
@@ -111,23 +113,25 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
       <div className="flex min-h-0 flex-1">
         {/* Left: Image Upload / Preview */}
         <div className="flex w-1/2 shrink-0 flex-col border-r border-(--border-color) p-3">
-          <span className="mb-2 text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">Replacement Image</span>
+          <span className="mb-2 text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">{copy.replacementImage}</span>
 
           {displayUrl ? (
             <div className="flex min-h-0 flex-1 flex-col gap-2">
               <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-lg border border-(--border-color) bg-(--bg-app) p-2">
                 <img
                   src={displayUrl}
-                  alt="Preview"
+                  alt={copy.previewAlt}
                   className="max-h-full max-w-full object-contain"
                   style={{ imageRendering: 'pixelated' }}
                 />
               </div>
               <div className="flex items-center justify-between">
-                <span className="truncate text-[10px] text-(--text-secondary)">{patch.fromFile ?? 'Unsaved'}</span>
+                <span className="truncate text-[10px] text-(--text-secondary)">{patch.fromFile ?? copy.unsaved}</span>
                 <button
                   type="button"
-                  className="icon-button h-6 w-6 text-red-400"
+                  className="icon-button h-6 w-6 text-(--danger)"
+                  aria-label={copy.removeImage}
+                  title={copy.removeImage}
                   onClick={() => {
                     setPreviewUrl((prev) => {
                       if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev)
@@ -152,8 +156,8 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
             >
               <ImageIcon className="h-10 w-10 text-(--text-secondary) opacity-40" />
               <div className="text-center">
-                <p className="text-xs text-(--text-primary)">Click or drag image here</p>
-                <p className="mt-1 text-[10px] text-(--text-secondary)">PNG recommended for best quality</p>
+                <p className="text-xs text-(--text-primary)">{copy.dropTitle}</p>
+                <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.dropHint}</p>
               </div>
             </div>
           )}
@@ -178,37 +182,32 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
           <div className="space-y-4">
             {isLoad ? (
               <div className="rounded-lg border border-(--border-color) bg-(--bg-panel-muted) p-3">
-                <p className="text-xs font-medium text-(--text-primary)">Load Action</p>
-                <p className="mt-1 text-[10px] text-(--text-secondary)">
-                  This patch will replace the entire target asset with the uploaded file. No area or mode options are available for Load
-                  patches.
-                </p>
+                <p className="text-xs font-medium text-(--text-primary)">{copy.loadAction}</p>
+                <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.loadDescription}</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {/* Patch Mode */}
                 <div>
                   <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
-                    Patch Mode
+                    {copy.patchMode}
                   </label>
                   <select
                     className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
                     value={patchMode}
                     onChange={(e) => updateEditorState({ patchMode: e.target.value })}
                   >
-                    <option value="Replace">Replace</option>
-                    <option value="Overlay">Overlay</option>
-                    <option value="Mask">Mask</option>
+                    <option value="Replace">{copy.modeLabels.Replace}</option>
+                    <option value="Overlay">{copy.modeLabels.Overlay}</option>
+                    <option value="Mask">{copy.modeLabels.Mask}</option>
                   </select>
-                  <p className="mt-1 text-[10px] text-(--text-secondary)">
-                    Replace: overwrite the entire target image. Overlay: blend on top. Mask: apply as transparency mask (CP 2.9.0).
-                  </p>
+                  <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.modeDescription}</p>
                 </div>
 
                 {/* From Area */}
                 <div>
                   <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
-                    From Area (Source Crop)
+                    {copy.fromArea}
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {(['x', 'y', 'width', 'height'] as const).map((field) => (
@@ -224,15 +223,13 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
                       </div>
                     ))}
                   </div>
-                  <p className="mt-1 text-[10px] text-(--text-secondary)">
-                    Crop region from your replacement image. Numbers or tokens like {'{{X}}'}.
-                  </p>
+                  <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.fromAreaDescription}</p>
                 </div>
 
                 {/* To Area */}
                 <div>
                   <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
-                    To Area (Target Position)
+                    {copy.toArea}
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {(['x', 'y', 'width', 'height'] as const).map((field) => (
@@ -248,9 +245,7 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
                       </div>
                     ))}
                   </div>
-                  <p className="mt-1 text-[10px] text-(--text-secondary)">
-                    Position on the target image. Numbers or tokens like {'{{X}}'}.
-                  </p>
+                  <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.toAreaDescription}</p>
                 </div>
               </div>
             )}
@@ -262,7 +257,7 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload className="h-3.5 w-3.5" />
-              {displayUrl ? 'Replace File' : 'Upload File'}
+              {displayUrl ? copy.replaceFile : copy.uploadFile}
             </button>
           </div>
         </div>

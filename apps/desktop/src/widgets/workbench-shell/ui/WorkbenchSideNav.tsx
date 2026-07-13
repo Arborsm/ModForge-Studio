@@ -4,9 +4,11 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  FileText,
   GitMerge,
   Home,
   Languages,
+  LockKeyhole,
   Map,
   Package,
   PanelLeftClose,
@@ -14,81 +16,74 @@ import {
   RotateCcw,
   Users,
 } from 'lucide-react'
-import type { ComponentType } from 'react'
-import { getWorkspaceModeLabel, type CoreWorkspaceMode, type WorkspaceMode } from '@locales/api'
-import { useEditorCopy, useLocale, useViewMenuCopy } from '@locales/provider'
+import { useEditorCopy, useViewMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
-import type { WorkbenchViewRegistration } from '@shared/contracts'
+import type { WorkbenchLocation, WorkbenchModuleRegistration, WorkbenchNavigationSection } from '@shared/contracts'
 
-type WorkbenchViewNavigationItem = WorkbenchViewRegistration & {
-  active?: boolean
-}
-
-const BROWSE_MODES = ['map', 'events', 'characters', 'buildings', 'items'] as const satisfies readonly Exclude<WorkspaceMode, 'mod-i18n'>[]
-
-const ICON_BY_MODE: Record<CoreWorkspaceMode, ComponentType<{ className?: string }>> = {
+const ICONS = {
   map: Map,
   events: GitMerge,
   characters: Users,
   buildings: Castle,
   items: Package,
-}
+  package: Package,
+  languages: Languages,
+  files: FileText,
+  beaker: Beaker,
+} as const
 
-const REGISTERED_VIEW_ICON = { package: Package, languages: Languages, beaker: Beaker } as const
+export type WorkbenchSideNavSectionState = {
+  browseOpen: boolean
+  authoringOpen: boolean
+  toolsOpen: boolean
+  devOpen: boolean
+}
 
 export type WorkbenchSideNavProps = {
   collapsed: boolean
+  hasActiveProject: boolean
   onCollapsedChange: (collapsed: boolean) => void
   canGoBack: boolean
   canGoForward: boolean
   onGoBack: () => void
   onGoForward: () => void
   onResetLayout: () => void
-  workbenchRoute: 'home' | 'workspace'
-  workspaceMode: WorkspaceMode
-  workspaceViewMode: 'edit' | 'preview'
-  registeredWorkbenchViewId: string | null
-  devViews?: readonly WorkbenchViewNavigationItem[]
-  toolViews?: readonly WorkbenchViewNavigationItem[]
+  location: WorkbenchLocation
+  modules: readonly WorkbenchModuleRegistration[]
   onHomeOpen: () => void
-  onBrowseOpen: (mode: WorkspaceMode) => void
-  sectionState: { browseOpen: boolean; toolsOpen: boolean; devOpen: boolean }
-  onSectionStateChange: (state: { browseOpen: boolean; toolsOpen: boolean; devOpen: boolean }) => void
-  onDevViewOpen?: (viewId: string) => void
+  onModuleOpen: (moduleId: string) => void
+  sectionState: WorkbenchSideNavSectionState
+  onSectionStateChange: (state: WorkbenchSideNavSectionState) => void
 }
 
-/**
- * Expandable workbench left navigation: home, browse domains, tools, and dev views.
- */
+const SECTIONS: readonly WorkbenchNavigationSection[] = ['authoring', 'browse', 'tools', 'development']
+
+/** Registry-driven workbench navigation for home and every module section. */
 export default function WorkbenchSideNav({
   collapsed,
+  hasActiveProject,
   onCollapsedChange,
   canGoBack,
   canGoForward,
   onGoBack,
   onGoForward,
   onResetLayout,
-  workbenchRoute,
-  workspaceMode,
-  workspaceViewMode: _workspaceViewMode,
-  registeredWorkbenchViewId,
-  devViews = [],
-  toolViews = [],
+  location,
+  modules,
   onHomeOpen,
-  onBrowseOpen,
+  onModuleOpen,
   sectionState,
   onSectionStateChange,
-  onDevViewOpen,
 }: WorkbenchSideNavProps) {
-  const copy = useEditorCopy()
-  const locale = useLocale()
-  const navCopy = copy.workbenchNavigation
+  const navCopy = useEditorCopy().workbenchNavigation
   const viewMenuCopy = useViewMenuCopy()
-  const { browseOpen, toolsOpen, devOpen } = sectionState
-
-  const homeActive = workbenchRoute === 'home'
-  const workspaceActive = workbenchRoute === 'workspace' && !registeredWorkbenchViewId
-  const activeDevViewId = registeredWorkbenchViewId
+  const sectionMeta = {
+    browse: { label: navCopy.shellNavBrowseGroup, stateKey: 'browseOpen' as const, dataSection: 'browse' },
+    authoring: { label: navCopy.shellNavAuthoringGroup, stateKey: 'authoringOpen' as const, dataSection: 'authoring' },
+    tools: { label: navCopy.shellNavToolsGroup, stateKey: 'toolsOpen' as const, dataSection: 'tools' },
+    development: { label: navCopy.shellNavDevGroup, stateKey: 'devOpen' as const, dataSection: 'dev' },
+  }
+  const homeActive = location.kind === 'home'
 
   return (
     <aside
@@ -158,120 +153,55 @@ export default function WorkbenchSideNav({
           </button>
         </div>
 
-        <div className="workbench-side-nav-section" data-section="browse" data-open={browseOpen ? 'true' : 'false'}>
-          <button
-            type="button"
-            className="workbench-side-nav-section-hd"
-            aria-expanded={browseOpen}
-            onClick={() => onSectionStateChange({ ...sectionState, browseOpen: !browseOpen })}
-          >
-            <span className="workbench-side-nav-section-label">{navCopy.shellNavBrowseGroup}</span>
-            <ChevronDown className={cx('workbench-side-nav-chev', !browseOpen && 'is-collapsed')} aria-hidden="true" />
-          </button>
-          <div className="workbench-side-nav-section-bd">
-            {BROWSE_MODES.map((mode) => {
-              const Icon = ICON_BY_MODE[mode]
-              const label = getWorkspaceModeLabel(locale, copy, mode)
-              const active = workspaceActive && workspaceMode === mode
-              return (
-                <button
-                  key={mode}
-                  type="button"
-                  className={cx('workbench-side-nav-item', active && 'is-current')}
-                  data-tip={label}
-                  aria-current={active ? 'page' : undefined}
-                  onClick={() => onBrowseOpen(mode)}
-                >
-                  <span className="workbench-side-nav-ico" aria-hidden="true">
-                    <Icon className="h-[18px] w-[18px]" />
-                  </span>
-                  <span className="workbench-side-nav-label">{label}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="workbench-side-nav-section" data-section="tools" data-open={toolsOpen ? 'true' : 'false'}>
-          <button
-            type="button"
-            className="workbench-side-nav-section-hd"
-            aria-expanded={toolsOpen}
-            onClick={() => onSectionStateChange({ ...sectionState, toolsOpen: !toolsOpen })}
-          >
-            <span className="workbench-side-nav-section-label">{navCopy.shellNavToolsGroup}</span>
-            <ChevronDown className={cx('workbench-side-nav-chev', !toolsOpen && 'is-collapsed')} aria-hidden="true" />
-          </button>
-          <div className="workbench-side-nav-section-bd">
-            {toolViews.map((view) => {
-              const workspaceToolMode = view.activation.kind === 'workspace' ? view.activation.workspaceMode : null
-              const label =
-                workspaceToolMode === 'mod-browser' || workspaceToolMode === 'mod-i18n'
-                  ? getWorkspaceModeLabel(locale, copy, workspaceToolMode)
-                  : view.viewId === 'i18n-generator'
-                    ? copy.i18nGenerator.generatorTitle
-                    : view.title
-              const Icon = REGISTERED_VIEW_ICON[view.navigationIcon ?? 'beaker']
-              return (
-                <button
-                  key={view.viewId}
-                  type="button"
-                  className={cx('workbench-side-nav-item', view.active && 'is-current')}
-                  data-tip={label}
-                  aria-current={view.active ? 'page' : undefined}
-                  onClick={() => {
-                    onSectionStateChange({ ...sectionState, toolsOpen: true })
-                    onDevViewOpen?.(view.viewId)
-                  }}
-                >
-                  <span className="workbench-side-nav-ico" aria-hidden="true">
-                    <Icon className="h-[18px] w-[18px]" />
-                  </span>
-                  <span className="workbench-side-nav-label">{label}</span>
-                  <span className="workbench-side-nav-tag">Tool</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {devViews.length ? (
-          <div className="workbench-side-nav-section" data-section="dev" data-open={devOpen ? 'true' : 'false'}>
-            <button
-              type="button"
-              className="workbench-side-nav-section-hd"
-              aria-expanded={devOpen}
-              onClick={() => onSectionStateChange({ ...sectionState, devOpen: !devOpen })}
-            >
-              <span className="workbench-side-nav-section-label">{navCopy.shellNavDevGroup}</span>
-              <ChevronDown className={cx('workbench-side-nav-chev', !devOpen && 'is-collapsed')} aria-hidden="true" />
-            </button>
-            <div className="workbench-side-nav-section-bd">
-              {devViews.map((view) => {
-                const active = activeDevViewId === view.viewId || Boolean(view.active)
-                return (
-                  <button
-                    key={view.viewId}
-                    type="button"
-                    className={cx('workbench-side-nav-item', active && 'is-current')}
-                    data-tip={view.title}
-                    aria-current={active ? 'page' : undefined}
-                    onClick={() => {
-                      onSectionStateChange({ ...sectionState, devOpen: true })
-                      onDevViewOpen?.(view.viewId)
-                    }}
-                  >
-                    <span className="workbench-side-nav-ico" aria-hidden="true">
-                      <Beaker className="h-[18px] w-[18px]" />
-                    </span>
-                    <span className="workbench-side-nav-label">{view.title}</span>
-                    <span className="workbench-side-nav-tag">dev</span>
-                  </button>
-                )
-              })}
+        {SECTIONS.map((section) => {
+          const meta = sectionMeta[section]
+          const entries = modules
+            .filter((registration) => registration.navigation.section === section)
+            .slice()
+            .sort((left, right) => left.navigation.order - right.navigation.order)
+          const projectSection = section === 'authoring'
+          if (!entries.length) return null
+          const open = sectionState[meta.stateKey]
+          return (
+            <div key={section} className="workbench-side-nav-section" data-section={meta.dataSection} data-open={open ? 'true' : 'false'}>
+              <button
+                type="button"
+                className="workbench-side-nav-section-hd"
+                aria-expanded={open}
+                onClick={() => onSectionStateChange({ ...sectionState, [meta.stateKey]: !open })}
+              >
+                <span className="workbench-side-nav-section-label">{meta.label}</span>
+                <ChevronDown className={cx('workbench-side-nav-chev', !open && 'is-collapsed')} aria-hidden="true" />
+              </button>
+              <div className="workbench-side-nav-section-bd">
+                {entries.map((registration) => {
+                  const Icon = ICONS[registration.navigation.icon]
+                  const label = navCopy.moduleLabels[registration.navigation.labelKey]
+                  const active = location.kind === 'module' && location.moduleId === registration.id
+                  const locked = projectSection && !hasActiveProject
+                  return (
+                    <button
+                      key={registration.id}
+                      type="button"
+                      className={cx('workbench-side-nav-item', active && 'is-current', locked && 'is-locked')}
+                      data-tip={label}
+                      aria-current={active ? 'page' : undefined}
+                      aria-disabled={locked || undefined}
+                      title={locked ? navCopy.shellEditLockedTitle : undefined}
+                      onClick={() => (locked ? onHomeOpen() : onModuleOpen(registration.id))}
+                    >
+                      <span className="workbench-side-nav-ico" aria-hidden="true">
+                        <Icon className="h-[18px] w-[18px]" />
+                      </span>
+                      <span className="workbench-side-nav-label">{label}</span>
+                      {locked ? <LockKeyhole className="workbench-side-nav-lock" aria-hidden="true" /> : null}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        ) : null}
+          )
+        })}
       </div>
     </aside>
   )

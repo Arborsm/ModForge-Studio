@@ -9,6 +9,7 @@ import type {
   CpMakerDraftSummary,
   CpMakerExportRequest,
   CpMakerExportResult,
+  CpMakerSession,
   VirtualPreviewAsset,
 } from './types'
 const cpMakerDraftsCache = createPromiseCache<CpMakerDraftSummary[]>()
@@ -31,6 +32,16 @@ export function loadCpMakerDraft(storageKey: string) {
   return readPending(cpMakerDraftCache, storageKey, () =>
     invokeDesktop<CpMakerDraftRecord>(HOST_COMMANDS.loadCpMakerDraft, { draftStorageKey: storageKey }, cpMakerDraftIoPolicy),
   )
+}
+
+/** Loads the lightweight active-project session stored beside draft records. */
+export function loadCpMakerSession() {
+  return invokeDesktop<CpMakerSession>(HOST_COMMANDS.loadCpMakerSession, undefined, cpMakerDraftIoPolicy)
+}
+
+/** Persists active CP Maker draft keys using the draft resource lock. */
+export function saveCpMakerSession(session: CpMakerSession) {
+  return invokeDesktop<CpMakerSession>(HOST_COMMANDS.saveCpMakerSession, { session }, cpMakerDraftExclusivePolicy)
 }
 
 /** Persists a CP Maker draft and invalidates draft list/detail caches. */

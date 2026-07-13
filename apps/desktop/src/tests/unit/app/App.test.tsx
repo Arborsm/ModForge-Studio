@@ -5,9 +5,10 @@ import App from '@app/App'
 import { forceCloseCurrentWindow, minimizeCurrentWindowToTray } from '@platform/host'
 import type { LauncherNexusDiagnosticsResult } from '@features/launcher/api'
 import type { WindowCloseBehavior } from '@shared/contracts'
-import { editorCopy, getModWorkspaceCopy, getSettingsMenuCopy, getViewMenuCopy } from '@locales/api'
+import { editorCopy, getSettingsMenuCopy } from '@locales/api'
 import { resetPreferencesStoreForTest } from '@shared/lib/app-state/preferencesStore'
 import { clearNotifications, dismissNotification, publishNotification } from '@shared/ui/notifications'
+import { useEditorCopy, useLocale, useSettingsMenuCopy, useViewMenuCopy } from '@locales/provider'
 
 const appUiStateTestState = vi.hoisted(() => {
   type State = {
@@ -44,7 +45,9 @@ const appUiStateTestState = vi.hoisted(() => {
       },
     },
     workspace: {
-      layouts: {},
+      location: { kind: 'home' },
+      navigation: { collapsed: true, expandedSections: ['browse'] },
+      modules: {},
     },
     launcher: {
       discoverToolbar: {
@@ -105,7 +108,9 @@ type MockAppUiState = {
     }
   }
   workspace: {
-    layouts: Record<string, Record<string, unknown>>
+    location: { kind: 'home' } | { kind: 'module'; moduleId: string }
+    navigation: { collapsed: boolean; expandedSections: string[] }
+    modules: Record<string, Record<string, unknown>>
   }
   launcher: {
     discoverToolbar: {
@@ -128,7 +133,9 @@ type MockAppUiStateOverrides = {
     playerAppearance?: Partial<MockAppUiState['appearance']['playerAppearance']>
   }
   workspace?: {
-    layouts?: MockAppUiState['workspace']['layouts']
+    location?: MockAppUiState['workspace']['location']
+    navigation?: Partial<MockAppUiState['workspace']['navigation']>
+    modules?: MockAppUiState['workspace']['modules']
   }
   launcher?: {
     discoverToolbar?: Partial<MockAppUiState['launcher']['discoverToolbar']>
@@ -143,7 +150,9 @@ type MockAppUiStatePatch = {
     playerAppearance?: MockAppUiState['appearance']['playerAppearance']
   }
   workspace?: {
-    layouts?: Record<string, Record<string, unknown> | null>
+    location?: MockAppUiState['workspace']['location']
+    navigation?: Partial<MockAppUiState['workspace']['navigation']>
+    modules?: Record<string, Record<string, unknown> | null>
   }
   launcher?: {
     discoverToolbar?: MockAppUiState['launcher']['discoverToolbar']
@@ -181,7 +190,9 @@ function createMockAppUiState(overrides: MockAppUiStateOverrides = {}): MockAppU
       },
     },
     workspace: {
-      layouts: overrides.workspace?.layouts ?? {},
+      location: overrides.workspace?.location ?? { kind: 'home' },
+      navigation: { collapsed: true, expandedSections: ['browse'], ...overrides.workspace?.navigation },
+      modules: overrides.workspace?.modules ?? {},
     },
     launcher: {
       discoverToolbar: {
@@ -197,15 +208,14 @@ function createMockAppUiState(overrides: MockAppUiStateOverrides = {}): MockAppU
 }
 
 function applyMockAppUiStatePatch(patch: MockAppUiStatePatch) {
-  const nextLayouts = { ...mockAppUiState.workspace.layouts }
+  const nextModules = { ...mockAppUiState.workspace.modules }
 
-  for (const [storageKey, layout] of Object.entries(patch.workspace?.layouts ?? {})) {
-    if (layout === null) {
-      delete nextLayouts[storageKey]
+  for (const [moduleKey, moduleState] of Object.entries(patch.workspace?.modules ?? {})) {
+    if (moduleState === null) {
+      delete nextModules[moduleKey]
       continue
     }
-
-    nextLayouts[storageKey] = layout
+    nextModules[moduleKey] = { ...nextModules[moduleKey], ...moduleState }
   }
 
   mockAppUiState = {
@@ -224,7 +234,9 @@ function applyMockAppUiStatePatch(patch: MockAppUiStatePatch) {
       ? {
           workspace: {
             ...mockAppUiState.workspace,
-            ...(patch.workspace.layouts ? { layouts: nextLayouts } : null),
+            ...patch.workspace,
+            navigation: { ...mockAppUiState.workspace.navigation, ...patch.workspace.navigation },
+            modules: nextModules,
           },
         }
       : null),
@@ -344,51 +356,6 @@ function createMockWorkspaceLayoutState() {
       leftWidth: 0.22,
       rightSplit: 0.34,
       rightWidth: 0.24,
-    },
-    panels: {
-      viewport: {
-        dock: 'center',
-        height: 420,
-        lastMode: 'docked',
-        mode: 'docked',
-        width: 640,
-        x: 56,
-        y: 48,
-        zIndex: 1,
-      },
-    },
-    presets: {},
-    slots: {
-      'bottom-left': {
-        activePanelId: null,
-        expanded: false,
-        panelOrder: [],
-      },
-      'bottom-right': {
-        activePanelId: null,
-        expanded: false,
-        panelOrder: [],
-      },
-      'left-bottom': {
-        activePanelId: null,
-        expanded: false,
-        panelOrder: [],
-      },
-      'left-top': {
-        activePanelId: null,
-        expanded: false,
-        panelOrder: [],
-      },
-      'right-bottom': {
-        activePanelId: null,
-        expanded: false,
-        panelOrder: [],
-      },
-      'right-top': {
-        activePanelId: null,
-        expanded: false,
-        panelOrder: [],
-      },
     },
   }
 }
@@ -540,10 +507,6 @@ vi.mock('@shared/lib/react', () => ({
   },
 }))
 
-vi.mock('@pages/workbench/model/workspace-panels', () => ({
-  buildWorkspacePanels: () => [],
-}))
-
 vi.mock('@features/cp-maker', () => ({
   CpMakerProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   useCpMaker: () => useCpMakerMock(),
@@ -555,8 +518,6 @@ vi.mock('@features/cp-maker', () => ({
     inspirations: [],
     projectStatus: 'idle',
   }),
-  getEditModeRoute: () => 'workspace-editor',
-  EditWorkspaceContent: () => <div data-testid="mock-edit-workspace-content" />,
   EditModeShell: () => <div data-testid="edit-mode-shell" />,
 }))
 
@@ -656,10 +617,9 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
 vi.mock('@pages/workbench/model/builtInWorkspaces', () => ({}))
 
 vi.mock('@app/registry-setup', () => ({
-  createAppRegistry: () => ({ pages: [], workbenchViews: [], workspacePanels: [] }),
-  appRegistry: { pages: [], workbenchViews: [], workspacePanels: [] },
-  getWorkbenchViewRegistration: vi.fn(() => null),
-  getWorkspacePanelRegistration: vi.fn(() => null),
+  createAppRegistry: () => ({ pages: [], workbenchModules: [] }),
+  appRegistry: { pages: [], workbenchModules: [] },
+  getWorkbenchModuleRegistration: vi.fn(() => null),
 }))
 
 vi.mock('@app/providers/CpMakerPlatformProvider', () => ({
@@ -669,13 +629,14 @@ vi.mock('@app/providers/CpMakerPlatformProvider', () => ({
 vi.mock('@pages/workbench', () => ({
   WorkbenchPage: function MockWorkbenchPage(props: {
     active: boolean
-    locale: 'en-US' | 'zh-CN'
     debugEnabled: boolean
     onHomeRouteActiveChange?: (active: boolean) => void
     onOpenSettings: (category?: 'appearance' | 'launcher' | 'interaction' | 'debug') => void
   }) {
-    const copy = editorCopy[props.locale]
-    const viewMenuCopy = getViewMenuCopy(props.locale)
+    const locale = useLocale()
+    const copy = useEditorCopy()
+    const viewMenuCopy = useViewMenuCopy()
+    const settingsCopy = useSettingsMenuCopy()
 
     useEffect(() => {
       props.onHomeRouteActiveChange?.(props.active)
@@ -703,19 +664,19 @@ vi.mock('@pages/workbench', () => ({
       return () => {
         dismissNotification(RESOURCE_PRELOAD_NOTIFICATION_ID)
       }
-    }, [copy.messages.preloadingResources, props.active, props.locale])
+    }, [copy.messages.preloadingResources, locale, props.active])
 
     if (!props.active) {
       return null
     }
 
     const layoutProps = {
-      storageKey: 'modforge:workspace-layout:v11:map',
+      storageKey: 'map-browser',
       onPersistStateChange: (storageKey: string, state: Record<string, unknown>) => {
         void applyAppUiStatePatchMock({
           workspace: {
-            layouts: {
-              [storageKey]: state,
+            modules: {
+              [storageKey]: { layout: state },
             },
           },
         })
@@ -727,7 +688,7 @@ vi.mock('@pages/workbench', () => ({
     return (
       <div data-testid="mock-workbench-experience">
         <button type="button" onClick={() => props.onOpenSettings('appearance')}>
-          {getSettingsMenuCopy(props.locale).title}
+          {settingsCopy.title}
         </button>
         <button type="button">{copy.nav.map}</button>
         <button type="button">{copy.leftDock.project}</button>
@@ -788,71 +749,6 @@ vi.mock('@pages/workbench/workspaces/item', () => ({
   useItemWorkspace: () => ({
     items: [],
     itemStatusMessage: '',
-  }),
-}))
-
-vi.mock('@pages/workbench/workspaces/mod', () => ({
-  default: () => ({
-    copy: getModWorkspaceCopy('en-US'),
-    pluginDefinition: null,
-    modProjects: [],
-    filteredModProjects: [],
-    modFilter: '',
-    setModFilter: vi.fn(),
-    contentPatcherOnly: false,
-    setContentPatcherOnly: vi.fn(),
-    compatibleOnly: true,
-    setCompatibleOnly: vi.fn(),
-    activeProjectPath: null,
-    activeProject: null,
-    projectDetail: null,
-    manifestEditor: { text: '', value: null, error: null },
-    contentEditor: { text: '', value: null, error: null },
-    contentSummary: {
-      format: null,
-      changeCount: 0,
-      includeCount: 0,
-      dynamicTokenCount: 0,
-      configKeys: [],
-      patches: [],
-    },
-    diagnostics: [],
-    selectedPatchId: null,
-    setSelectedPatchId: vi.fn(),
-    selectedPatch: null,
-    patchWhenError: null,
-    statusMessage: '',
-    modHasUnsavedChanges: false,
-    hasUnsavedChanges: false,
-    canPersist: false,
-    lastSaveResult: null,
-    contentPatcherSnapshot: null,
-    contentPatcherSimulation: null,
-    contentPatcherResultAsset: null,
-    contentPatcherResultLoading: false,
-    contentPatcherResultError: null,
-    simulationContext: {},
-    navigatorMode: 'patches',
-    setNavigatorMode: vi.fn(),
-    selectedTargetPath: null,
-    setSelectedTargetPath: vi.fn(),
-    scaleUpEditor: null,
-    handleSelectProject: vi.fn(),
-    handleImportProject: vi.fn(async () => undefined),
-    handleRefreshProjects: vi.fn(async () => undefined),
-    handleManifestFieldChange: vi.fn(),
-    handleManifestTextChange: vi.fn(),
-    handleContentTextChange: vi.fn(),
-    handleAddPatch: vi.fn(),
-    handleRemoveSelectedPatch: vi.fn(),
-    handlePatchFieldChange: vi.fn(),
-    handlePatchWhenChange: vi.fn(),
-    handleSaveProject: vi.fn(async () => undefined),
-    handleExportProject: vi.fn(async () => undefined),
-    handleSimulationContextChange: vi.fn(),
-    handleOpenScaleUpEditor: vi.fn(),
-    handleCloseScaleUpEditor: vi.fn(),
-    handleScaleUpContentChange: vi.fn(),
   }),
 }))
 
@@ -1523,8 +1419,8 @@ describe('App locale ownership', () => {
         appMode: 'workbench',
       },
       workspace: {
-        layouts: {
-          'modforge:workspace-layout:v11:map': persistedLayout,
+        modules: {
+          'map-browser': { layout: persistedLayout },
         },
       },
     })
@@ -1543,7 +1439,7 @@ describe('App locale ownership', () => {
         }
       | undefined
 
-    expect(workspaceLayoutProps?.storageKey).toBe('modforge:workspace-layout:v11:map')
+    expect(workspaceLayoutProps?.storageKey).toBe('map-browser')
 
     const nextLayout = {
       ...persistedLayout,
@@ -1562,8 +1458,8 @@ describe('App locale ownership', () => {
     await waitFor(() => {
       expect(applyAppUiStatePatchMock).toHaveBeenCalledWith({
         workspace: {
-          layouts: {
-            [workspaceLayoutProps!.storageKey]: nextLayout,
+          modules: {
+            [workspaceLayoutProps!.storageKey]: { layout: nextLayout },
           },
         },
       })

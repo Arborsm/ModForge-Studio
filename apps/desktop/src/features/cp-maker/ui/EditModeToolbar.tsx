@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Eye, Plus, Save, Settings } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Eye, Plus, RefreshCw, Save, Settings } from 'lucide-react'
 import type { DraftPatch } from '@features/cp-maker'
 import type { WorkspaceId } from '@features/cp-maker'
 import { cx } from '@shared/lib/helper'
@@ -23,6 +23,7 @@ type EditModeToolbarProps = {
   onAddPatch: () => void
   onOpenConfig: () => void
   onSaveDraft: () => void
+  onReloadDraft?: () => void
 }
 
 export function EditModeToolbar({
@@ -41,6 +42,7 @@ export function EditModeToolbar({
   onAddPatch,
   onOpenConfig,
   onSaveDraft,
+  onReloadDraft,
 }: EditModeToolbarProps) {
   const copy = useEditorCopy()
   const toolbar = copy.studioDesk.toolbar
@@ -105,6 +107,12 @@ export function EditModeToolbar({
         <Settings className="h-4 w-4" />
         <span>{toolbar.config}</span>
       </button>
+      {onReloadDraft ? (
+        <button type="button" className="control-button" onClick={onReloadDraft}>
+          <RefreshCw className="h-4 w-4" />
+          <span>{toolbar.reload}</span>
+        </button>
+      ) : null}
       <button type="button" className="control-button control-button-primary" onClick={onSaveDraft} disabled={!isDirty}>
         <Save className="h-4 w-4" />
         <span>{isDirty ? toolbar.saveDirty : toolbar.save}</span>

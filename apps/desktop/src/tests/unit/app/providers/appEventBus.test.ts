@@ -18,8 +18,8 @@ describe('app event bus and command dispatcher', () => {
       locale: 'zh-CN',
     })
     bus.emit({
-      type: 'workbench/view-selected',
-      viewId: 'workspace-editor',
+      type: 'workbench/module-selected',
+      moduleId: 'map-authoring',
     })
     unsubscribe()
     bus.emit({
@@ -29,7 +29,7 @@ describe('app event bus and command dispatcher', () => {
 
     expect(received).toEqual([
       { type: 'app/locale-changed', locale: 'zh-CN' },
-      { type: 'workbench/view-selected', viewId: 'workspace-editor' },
+      { type: 'workbench/module-selected', moduleId: 'map-authoring' },
     ])
   })
 

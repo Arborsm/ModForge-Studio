@@ -10,6 +10,7 @@ use anyhow::{Context, bail};
 use std::collections::BTreeMap;
 use std::sync::{Mutex, OnceLock};
 use std::thread;
+use std::time::Instant;
 
 const LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS: u8 = 3;
 const LAUNCHER_NEXUS_FORCE_OFFLINE_MESSAGE: &str = "Forced offline by debug override.";
@@ -36,6 +37,7 @@ fn launcher_nexus_route_loading_snapshot(route: LauncherNexusRoute) -> NexusRout
         attempts: 0,
         max_attempts: LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS,
         available: true,
+        latency_ms: None,
         message: "loading".to_string(),
     }
 }
@@ -58,6 +60,7 @@ fn build_launcher_nexus_route_snapshot_map(
 pub(crate) fn launcher_nexus_success_snapshot(
     route: LauncherNexusRoute,
     attempts: u8,
+    latency_ms: u64,
 ) -> NexusRouteSnapshot {
     NexusRouteSnapshot {
         route_id: route.id().to_string(),
@@ -67,6 +70,7 @@ pub(crate) fn launcher_nexus_success_snapshot(
         attempts,
         max_attempts: LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS,
         available: true,
+        latency_ms: Some(latency_ms),
         message: if attempts == 1 {
             "Connected after 1 attempt.".to_string()
         } else {
@@ -89,6 +93,7 @@ fn launcher_nexus_warning_snapshot(
         attempts,
         max_attempts: LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS,
         available: !blocked,
+        latency_ms: None,
         message: format!(
             "Failed after {attempts} attempt{}: {error}",
             if attempts == 1 { "" } else { "s" }
@@ -112,6 +117,7 @@ fn launcher_nexus_force_offline_snapshot(route: LauncherNexusRoute) -> NexusRout
         attempts: LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS,
         max_attempts: LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS,
         available: false,
+        latency_ms: None,
         message: LAUNCHER_NEXUS_FORCE_OFFLINE_MESSAGE.to_string(),
     }
 }
@@ -133,8 +139,13 @@ pub(crate) fn probe_launcher_nexus_route_with_runner<F>(
 where
     F: FnMut() -> anyhow::Result<()>,
 {
+    let started_at = Instant::now();
     match run_attempt() {
-        Ok(()) => launcher_nexus_success_snapshot(route, 1),
+        Ok(()) => launcher_nexus_success_snapshot(
+            route,
+            1,
+            started_at.elapsed().as_millis().min(u128::from(u64::MAX)) as u64,
+        ),
         Err(error) => launcher_nexus_warning_snapshot(route, 1, &error.to_string()),
     }
 }

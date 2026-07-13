@@ -1,22 +1,5 @@
-import type { GameDirectoryInfo, MapAssetSummary } from '@entities/game/api'
+import type { MapAssetSummary } from '@entities/game/api'
 import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup } from '@pages/workbench/workspaces/mod'
-import type { LocaleCode, WorkspaceMode } from '@locales'
-
-export type ProjectPanelProps = {
-  locale: LocaleCode
-  workspaceMode: WorkspaceMode
-  desktopHost: boolean
-  gameDirectory: string
-  onGameDirectoryChange: (value: string) => void
-  onChooseDirectory: () => void
-  onUseKnownPath: () => void
-  onValidateOnly: () => void
-  onScanAndOpenTown: () => void
-  directoryInfo: GameDirectoryInfo | null
-  mapAssets: MapAssetSummary[]
-  activeMapId: string | null
-  sceneLabel?: string
-}
 
 export type AssetBrowserPanelProps = {
   mapAssets: MapAssetSummary[]

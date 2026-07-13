@@ -1,16 +1,23 @@
-import { ArrowRight, Building2, FolderOpen, GitMerge, Map, Package, Plus, TriangleAlert, Upload, Users } from 'lucide-react'
-import { useMemo, useRef, type ComponentType } from 'react'
-import { type WorkspaceMode } from '@locales/api'
+import {
+  ArrowRight,
+  Building2,
+  FileText,
+  FolderOpen,
+  GitMerge,
+  Languages,
+  Map,
+  Package,
+  Plus,
+  Save,
+  TriangleAlert,
+  Upload,
+  Users,
+} from 'lucide-react'
+import { useMemo, useRef } from 'react'
 import { useEditorCopy } from '@locales/provider'
-import type { StudioDeskGalleryProject, StudioDeskModel } from '@features/cp-maker'
+import type { StudioDeskGalleryProject, StudioDeskModel, WorkspaceId } from '@features/cp-maker'
 import { cx } from '@shared/lib/helper'
-import type { WorkbenchViewRegistration } from '@shared/contracts'
 import type { WorkspaceStatus } from '@entities/map'
-import type { MakerWorkspaceMode } from '../model/useWorkbenchProjectNavigation'
-
-type DevWorkbenchViewNavigationItem = WorkbenchViewRegistration & {
-  active?: boolean
-}
 
 type WorkbenchHomeTaskSummary = {
   exportCount: number
@@ -19,45 +26,49 @@ type WorkbenchHomeTaskSummary = {
 }
 
 type WorkbenchHomePageProps = {
-  workspaceMode: WorkspaceMode
-  workspaceViewMode: 'edit' | 'preview'
+  presentation: 'home' | 'project'
   hasActiveProject: boolean
+  projectDirty: boolean
   gameDirectoryReady: boolean
-  gameDirectoryStatus: WorkspaceStatus
   studioDeskModel: StudioDeskModel
-  makerPending: MakerWorkspaceMode | null
-  projectLibraryFocusKey?: number
   taskSummary: WorkbenchHomeTaskSummary
-  devViews?: readonly DevWorkbenchViewNavigationItem[]
-  onBackToWorkspace: () => void
-  onRootWorkspaceOpen: (mode: WorkspaceMode) => void
-  onProjectWorkspaceOpen: (mode: MakerWorkspaceMode) => void
-  onDevViewOpen?: (viewId: string) => void
-  onProjectCreateOpen: () => void
-  onProjectImport: () => void | Promise<void>
-  onProjectSelect: (draftStorageKey: string, makerMode?: MakerWorkspaceMode | null) => void | Promise<void>
-  onProjectCopy: (draftStorageKey: string) => void | Promise<void>
-  onProjectDelete: (draftStorageKey: string) => void | Promise<void>
+  onProjectModuleOpen: (moduleId: string) => void
+  onProjectCreateOpen?: () => void
+  onProjectImport?: () => void | Promise<void>
+  onProjectSelect?: (draftStorageKey: string) => void | Promise<void>
+  onProjectDelete?: (draftStorageKey: string) => void | Promise<void>
   onProjectPropertiesOpen: () => void
   onExportProject: () => void
-  onMakerPendingChange: (mode: MakerWorkspaceMode | null) => void
+  onSaveProject: () => void | Promise<boolean>
   onGameDirectoryAction: () => void
   onCloseProject?: () => void
 }
 
-type ContentCountMode = Extract<WorkspaceMode, 'map' | 'events' | 'characters' | 'buildings' | 'items'>
+type ContentCountMode = Exclude<WorkspaceId, 'mods'>
+
+function isContentWorkspaceId(value: string): value is ContentCountMode {
+  return value === 'map' || value === 'events' || value === 'characters' || value === 'buildings' || value === 'items'
+}
 
 const CONTENT_MODES: ContentCountMode[] = ['map', 'events', 'characters', 'buildings', 'items']
-const CREATE_MODES: Array<'map' | 'characters' | 'events' | 'items'> = ['map', 'characters', 'events', 'items']
-const BROWSE_ONLY_MODES: ContentCountMode[] = ['map', 'events', 'characters', 'buildings', 'items']
-
-const ICON_BY_MODE: Record<ContentCountMode, ComponentType<{ className?: string }>> = {
-  map: Map,
-  events: GitMerge,
-  characters: Users,
-  buildings: Building2,
-  items: Package,
+const AUTHORING_MODULE_BY_WORKSPACE: Record<WorkspaceId, string> = {
+  mods: 'project-content',
+  map: 'map-authoring',
+  events: 'event-authoring',
+  characters: 'character-authoring',
+  buildings: 'building-authoring',
+  items: 'item-authoring',
 }
+
+const PROJECT_MODULES = [
+  { id: 'project-content', icon: FileText },
+  { id: 'map-authoring', icon: Map },
+  { id: 'event-authoring', icon: GitMerge },
+  { id: 'character-authoring', icon: Users },
+  { id: 'building-authoring', icon: Building2 },
+  { id: 'item-authoring', icon: Package },
+  { id: 'project-translation', icon: Languages },
+] as const
 
 function getCurrentProject(model: StudioDeskModel) {
   return model.gallery.projects.find((project) => project.isCurrent) ?? null
@@ -73,22 +84,26 @@ function isProjectEmpty(model: StudioDeskModel) {
   return patchTotal === 0 && statsTotal === 0 && model.recentInspirations.length === 0
 }
 
-function formatRelativeTime(timestamp: number | null, emptyLabel: string) {
+function formatRelativeTime(
+  timestamp: number | null,
+  emptyLabel: string,
+  editedCopy: ReturnType<typeof useEditorCopy>['studioDesk']['edited'],
+) {
   if (!timestamp) {
     return emptyLabel
   }
 
   const deltaMs = Date.now() - timestamp
   if (deltaMs < 60_000) {
-    return 'now'
+    return editedCopy.justNow
   }
   if (deltaMs < 3_600_000) {
-    return `${Math.max(1, Math.round(deltaMs / 60_000))}m`
+    return editedCopy.minutesAgo(Math.max(1, Math.round(deltaMs / 60_000)))
   }
   if (deltaMs < 86_400_000) {
-    return `${Math.max(1, Math.round(deltaMs / 3_600_000))}h`
+    return editedCopy.hoursAgo(Math.max(1, Math.round(deltaMs / 3_600_000)))
   }
-  return `${Math.max(1, Math.round(deltaMs / 86_400_000))}d`
+  return editedCopy.recently
 }
 
 function getContentCount(model: StudioDeskModel, mode: ContentCountMode) {
@@ -113,33 +128,38 @@ function getContentCount(model: StudioDeskModel, mode: ContentCountMode) {
 }
 
 export function WorkbenchHomePage({
+  presentation,
   hasActiveProject,
+  projectDirty,
   gameDirectoryReady,
   studioDeskModel,
-  makerPending,
   taskSummary,
-  onRootWorkspaceOpen,
-  onProjectWorkspaceOpen,
+  onProjectModuleOpen,
   onProjectCreateOpen,
   onProjectImport,
   onProjectSelect,
   onProjectDelete,
   onProjectPropertiesOpen,
   onExportProject,
-  onMakerPendingChange,
+  onSaveProject,
   onGameDirectoryAction,
   onCloseProject,
 }: WorkbenchHomePageProps) {
   const copy = useEditorCopy()
   const navCopy = copy.workbenchNavigation
   const currentProject = getCurrentProject(studioDeskModel)
+  const pageLabel = presentation === 'project' ? navCopy.shellProjectHome : navCopy.title
   const projectEmpty = isProjectEmpty(studioDeskModel)
-  const homeContent: 'none' | 'empty' | 'rich' = !hasActiveProject || !currentProject ? 'none' : projectEmpty ? 'empty' : 'rich'
+  const homeContent: 'home' | 'empty' | 'rich' =
+    presentation === 'home' ? 'home' : !hasActiveProject || !currentProject ? 'home' : projectEmpty ? 'empty' : 'rich'
   const directoryStatus = taskSummary.directoryStatus
 
   const continueInspiration = studioDeskModel.recentInspirations[0] ?? null
-  const continueWorkspace = (continueInspiration?.workspaceId as MakerWorkspaceMode | undefined) ?? 'map'
-  const continueMode = continueInspiration?.workspaceId as ContentCountMode | undefined
+  const continueModule = continueInspiration
+    ? AUTHORING_MODULE_BY_WORKSPACE[continueInspiration.workspaceId]
+    : AUTHORING_MODULE_BY_WORKSPACE.map
+  const continueMode =
+    continueInspiration && isContentWorkspaceId(continueInspiration.workspaceId) ? continueInspiration.workspaceId : undefined
   const continueLabel =
     continueMode && continueMode in navCopy.rootModeLabels ? navCopy.rootModeLabels[continueMode] : navCopy.rootModeLabels.map
 
@@ -156,29 +176,12 @@ export function WorkbenchHomePage({
   const recentProjects = studioDeskModel.gallery.projects.slice(0, 8)
   const recentListRef = useRef<HTMLDivElement | null>(null)
 
-  function openBrowse(mode: WorkspaceMode) {
-    if (!gameDirectoryReady) {
-      onGameDirectoryAction()
-      return
-    }
-    onMakerPendingChange(null)
-    onRootWorkspaceOpen(mode)
-  }
-
-  function openCreate(mode: 'map' | 'characters' | 'events' | 'items') {
-    if (mode === 'characters') {
-      openBrowse('characters')
-      return
-    }
-    onProjectWorkspaceOpen(mode)
-  }
-
   function openProject(project: StudioDeskGalleryProject) {
-    void onProjectSelect(project.draftStorageKey, makerPending)
+    void onProjectSelect?.(project.draftStorageKey)
   }
 
   return (
-    <section className="workbench-shell-home" aria-label={navCopy.title} data-content={homeContent}>
+    <section className="workbench-shell-home" aria-label={pageLabel} data-content={homeContent}>
       <div className="workbench-shell-home-inner">
         {!gameDirectoryReady ? (
           <div className="workbench-shell-home-banner" role="status">
@@ -200,14 +203,24 @@ export function WorkbenchHomePage({
               <div>
                 <h1>{currentProject.title || studioDeskModel.projectName || navCopy.noCurrentProjectTitle}</h1>
                 <p className="workbench-shell-home-hd-sub">
-                  {studioDeskModel.projectVersion ? `v${studioDeskModel.projectVersion.replace(/^v/i, '')}` : '—'}
-                  {' · '}
-                  <span className="mono">
-                    {studioDeskModel.projectUniqueId || currentProject.uniqueId || navCopy.shellProjectMenuEmptyId}
-                  </span>
+                  {studioDeskModel.projectVersion ? navCopy.shellVersionValue(studioDeskModel.projectVersion) : navCopy.shellMissingValue}
+                  {navCopy.shellMetaSeparator}
+                  <span className="mono">{studioDeskModel.projectUniqueId || currentProject.uniqueId || navCopy.shellMissingValue}</span>
                 </p>
               </div>
               <div className="workbench-shell-home-hd-actions">
+                <span className={cx('workbench-shell-home-save-state', projectDirty && 'is-dirty')} role="status">
+                  {projectDirty ? copy.studioDesk.eventPatchHub.unsavedLabel : copy.studioDesk.eventPatchHub.savedLabel}
+                </span>
+                <button
+                  type="button"
+                  className="control-button control-button-primary"
+                  disabled={!projectDirty}
+                  onClick={() => void onSaveProject()}
+                >
+                  <Save className="h-4 w-4" aria-hidden="true" />
+                  {copy.studioDesk.toolbar.save}
+                </button>
                 <button type="button" className="control-button" onClick={onExportProject}>
                   {navCopy.shellExportAction}
                 </button>
@@ -229,7 +242,10 @@ export function WorkbenchHomePage({
                       <div className="workbench-shell-home-continue-title">{continueInspiration?.title ?? navCopy.shellContinueEmpty}</div>
                       <div className="workbench-shell-home-continue-meta">
                         {continueInspiration
-                          ? `${continueLabel} · ${formatRelativeTime(continueInspiration.updatedAt, '—')}`
+                          ? navCopy.shellActivityMeta(
+                              continueLabel,
+                              formatRelativeTime(continueInspiration.updatedAt, navCopy.shellMissingValue, copy.studioDesk.edited),
+                            )
                           : navCopy.shellContinueEmpty}
                       </div>
                     </div>
@@ -237,7 +253,7 @@ export function WorkbenchHomePage({
                       type="button"
                       className="control-button control-button-primary"
                       disabled={!continueInspiration && !hasActiveProject}
-                      onClick={() => onProjectWorkspaceOpen(continueWorkspace)}
+                      onClick={() => onProjectModuleOpen(continueModule)}
                     >
                       {navCopy.shellContinueEdit}
                     </button>
@@ -253,7 +269,7 @@ export function WorkbenchHomePage({
                         type="button"
                         className="workbench-shell-home-count-cell"
                         aria-label={label}
-                        onClick={() => openBrowse(mode)}
+                        onClick={() => onProjectModuleOpen(AUTHORING_MODULE_BY_WORKSPACE[mode])}
                       >
                         <span className="workbench-shell-home-count-n">{count}</span>
                         <span className="workbench-shell-home-count-l">{label}</span>
@@ -271,18 +287,35 @@ export function WorkbenchHomePage({
                           key={item.patchId}
                           type="button"
                           className="workbench-shell-home-act-row"
-                          onClick={() => onProjectWorkspaceOpen((item.workspaceId as MakerWorkspaceMode) || 'map')}
+                          onClick={() => onProjectModuleOpen(AUTHORING_MODULE_BY_WORKSPACE[item.workspaceId])}
                         >
-                          <span className="when">{formatRelativeTime(item.updatedAt, '—')}</span>
+                          <span className="when">
+                            {formatRelativeTime(item.updatedAt, navCopy.shellMissingValue, copy.studioDesk.edited)}
+                          </span>
                           <span className="what">
                             <em>{item.title}</em>
                           </span>
-                          <span className="where">{navCopy.rootModeLabels[item.workspaceId as ContentCountMode] ?? item.workspaceId}</span>
+                          <span className="where">
+                            {isContentWorkspaceId(item.workspaceId) ? navCopy.rootModeLabels[item.workspaceId] : item.workspaceId}
+                          </span>
                         </button>
                       ))
                     ) : (
                       <div className="workbench-shell-home-empty-inline">{navCopy.shellActivityEmpty}</div>
                     )}
+                  </div>
+                </section>
+
+                <section className="workbench-shell-home-sec" aria-label={navCopy.shellProjectWorkspaces}>
+                  <p className="workbench-shell-home-sec-label">{navCopy.shellProjectWorkspaces}</p>
+                  <div className="workbench-shell-home-module-grid">
+                    {PROJECT_MODULES.map(({ id, icon: Icon }) => (
+                      <button key={id} type="button" onClick={() => onProjectModuleOpen(id)}>
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                        <span>{navCopy.moduleLabels[id]}</span>
+                        <ArrowRight className="chev h-4 w-4" aria-hidden="true" />
+                      </button>
+                    ))}
                   </div>
                 </section>
               </div>
@@ -319,9 +352,13 @@ export function WorkbenchHomePage({
                   <div className="workbench-shell-home-proj-panel">
                     <dl className="workbench-shell-home-pc-grid">
                       <dt>{navCopy.shellProjectUniqueId}</dt>
-                      <dd className="mono">{studioDeskModel.projectUniqueId || currentProject.uniqueId || '—'}</dd>
+                      <dd className="mono">{studioDeskModel.projectUniqueId || currentProject.uniqueId || navCopy.shellMissingValue}</dd>
                       <dt>{navCopy.shellProjectVersion}</dt>
-                      <dd>{studioDeskModel.projectVersion ? studioDeskModel.projectVersion.replace(/^v/i, '') : '—'}</dd>
+                      <dd>
+                        {studioDeskModel.projectVersion
+                          ? navCopy.shellVersionValue(studioDeskModel.projectVersion)
+                          : navCopy.shellMissingValue}
+                      </dd>
                     </dl>
                     <div className="workbench-shell-home-pc-ops">
                       <button type="button" className="control-button" onClick={onProjectPropertiesOpen}>
@@ -357,18 +394,10 @@ export function WorkbenchHomePage({
               <div className="workbench-shell-home-empty-block">
                 <p className="workbench-shell-home-sec-label is-center">{navCopy.shellCreateFirst}</p>
                 <div className="workbench-shell-home-create-list">
-                  {CREATE_MODES.map((mode) => {
-                    const title =
-                      mode === 'map'
-                        ? navCopy.shellCreateMap
-                        : mode === 'characters'
-                          ? navCopy.shellCreateCharacter
-                          : mode === 'events'
-                            ? navCopy.shellCreateEvent
-                            : navCopy.shellCreateItem
-                    const Icon = ICON_BY_MODE[mode === 'characters' ? 'characters' : mode]
+                  {PROJECT_MODULES.map(({ id, icon: Icon }) => {
+                    const title = navCopy.moduleLabels[id]
                     return (
-                      <button key={mode} type="button" onClick={() => openCreate(mode)}>
+                      <button key={id} type="button" onClick={() => onProjectModuleOpen(id)}>
                         <span className="ic" aria-hidden="true">
                           <Icon className="h-4 w-4" />
                         </span>
@@ -378,18 +407,34 @@ export function WorkbenchHomePage({
                     )
                   })}
                 </div>
-                <div className="workbench-shell-home-pc-ops is-center">
-                  <button type="button" className="control-button" onClick={() => openBrowse('map')}>
-                    {navCopy.shellBrowseGameResources}
-                  </button>
-                </div>
               </div>
             </div>
           </div>
         ) : null}
 
-        {homeContent === 'none' ? (
+        {homeContent === 'home' ? (
           <div className="workbench-shell-home-none">
+            <header className="workbench-shell-home-library-hd">
+              <h1>{navCopy.home}</h1>
+              <p>{navCopy.shellHomeHint}</p>
+            </header>
+            {currentProject ? (
+              <section className="workbench-shell-home-current" aria-label={navCopy.shellProjectHome}>
+                <div>
+                  <p className="workbench-shell-home-sec-label">{navCopy.shellProjectHome}</p>
+                  <strong>{currentProject.title}</strong>
+                  <span className="mono">{currentProject.uniqueId || navCopy.shellProjectMenuEmptyId}</span>
+                </div>
+                <button
+                  type="button"
+                  className="control-button control-button-primary"
+                  onClick={() => onProjectModuleOpen('project-dashboard')}
+                >
+                  {navCopy.shellOpenProjectHome}
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </section>
+            ) : null}
             <div className="workbench-shell-home-launch" role="group" aria-label={navCopy.shellProjectManagement}>
               <button type="button" className="workbench-shell-home-launch-btn is-primary" onClick={onProjectCreateOpen}>
                 <Plus className="h-4 w-4" aria-hidden="true" />
@@ -405,7 +450,7 @@ export function WorkbenchHomePage({
                 <FolderOpen className="h-4 w-4" aria-hidden="true" />
                 {navCopy.shellOpenProjectAction}
               </button>
-              <button type="button" className="workbench-shell-home-launch-btn" onClick={() => void onProjectImport()}>
+              <button type="button" className="workbench-shell-home-launch-btn" onClick={() => void onProjectImport?.()}>
                 <Upload className="h-4 w-4" aria-hidden="true" />
                 {navCopy.importProjectAction}
               </button>
@@ -425,17 +470,20 @@ export function WorkbenchHomePage({
                           ) : null}
                         </span>
                         <span className="meta">
-                          {project.uniqueId || copy.studioDesk.metadataIncomplete}
-                          {project.isCurrent ? ` · ${navCopy.currentMarker}` : ''}
+                          {project.isCurrent
+                            ? navCopy.shellCurrentProjectMeta(project.uniqueId || copy.studioDesk.metadataIncomplete, navCopy.currentMarker)
+                            : project.uniqueId || copy.studioDesk.metadataIncomplete}
                         </span>
                       </span>
-                      <span className="when">{formatRelativeTime(project.lastEditedAt, '—')}</span>
+                      <span className="when">
+                        {formatRelativeTime(project.lastEditedAt, navCopy.shellMissingValue, copy.studioDesk.edited)}
+                      </span>
                     </button>
                     <div className="ops">
                       <button type="button" onClick={() => openProject(project)}>
                         {navCopy.shellOpenProjectAction}
                       </button>
-                      <button type="button" className="danger" onClick={() => void onProjectDelete(project.draftStorageKey)}>
+                      <button type="button" className="danger" onClick={() => void onProjectDelete?.(project.draftStorageKey)}>
                         {copy.studioDesk.deleteProject}
                       </button>
                     </div>
@@ -445,15 +493,6 @@ export function WorkbenchHomePage({
                 <div className="workbench-shell-home-empty-inline">{navCopy.noCurrentProjectHint}</div>
               )}
             </div>
-
-            <div className="workbench-shell-home-browse-row" aria-label={navCopy.shellNavBrowseGroup}>
-              <p className="workbench-shell-home-sec-label">{navCopy.shellNavBrowseGroup}</p>
-              {BROWSE_ONLY_MODES.map((mode) => (
-                <button key={mode} type="button" onClick={() => openBrowse(mode)}>
-                  {navCopy.rootModeLabels[mode]}
-                </button>
-              ))}
-            </div>
           </div>
         ) : null}
       </div>
@@ -461,4 +500,4 @@ export function WorkbenchHomePage({
   )
 }
 
-export type { MakerWorkspaceMode, WorkbenchHomePageProps, WorkbenchHomeTaskSummary }
+export type { WorkbenchHomePageProps, WorkbenchHomeTaskSummary }

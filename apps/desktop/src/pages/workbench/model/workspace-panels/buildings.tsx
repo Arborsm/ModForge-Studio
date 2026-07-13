@@ -5,9 +5,9 @@ import type { WorkspacePanelConfig } from '@shared/contracts'
 import { BuildingWorkspace } from './LazyBuildingWorkspace'
 import { BuildingBrowserPanel } from '../../ui/workspace-panels/building/BuildingBrowserPanel'
 import { BuildingInspectorPanel } from '../../ui/workspace-panels/building/BuildingInspectorPanel'
-import type { BuildWorkspacePanelsOptions } from './types'
+import type { BuildBuildingPanelsOptions } from './types'
 
-export function buildBuildingsWorkspacePanels(options: BuildWorkspacePanelsOptions): WorkspacePanelConfig[] {
+export function buildBuildingsWorkspacePanels(options: BuildBuildingPanelsOptions): WorkspacePanelConfig[] {
   const {
     copy,
     locale,
@@ -52,15 +52,13 @@ export function buildBuildingsWorkspacePanels(options: BuildWorkspacePanelsOptio
 
   const panels: WorkspacePanelConfig[] = [
     {
-      id: 'building-browser',
+      id: 'building-browser/browser',
       title: copy.buildingsPanel.browserTitle,
       subtitle: buildingStatusMessage || copy.buildingsPanel.browserSubtitle,
       shellClassName,
       minWidth: 200,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'left-top',
-      defaultDockHeight: 760,
+      area: 'left',
       content: (
         <BuildingBrowserPanel
           constructibleGroups={constructibleGroups}
@@ -81,15 +79,14 @@ export function buildBuildingsWorkspacePanels(options: BuildWorkspacePanelsOptio
       ),
     },
     {
-      id: 'building-preview',
+      id: 'building-browser/preview',
       title: copy.buildingsPanel.workspaceTitle,
       subtitle: activeBuilding?.displayName ?? buildingStatusMessage,
       hideDockHeader: true,
       shellClassName,
       minWidth: 360,
       minHeight: 420,
-      defaultDock: 'center',
-      defaultDockHeight: 760,
+      area: 'center',
       content: (
         <Suspense
           fallback={
@@ -123,15 +120,13 @@ export function buildBuildingsWorkspacePanels(options: BuildWorkspacePanelsOptio
       ),
     },
     {
-      id: 'building-details',
+      id: 'building-browser/details',
       title: copy.buildingsPanel.detailsTitle,
       subtitle: activeBuilding?.displayName ?? buildingStatusMessage,
       shellClassName,
       minWidth: 220,
       minHeight: 320,
-      dockMinHeight: 220,
-      defaultDock: 'right-top',
-      defaultDockHeight: 760,
+      area: 'right',
       content: (
         <BuildingInspectorPanel
           building={activeBuilding}

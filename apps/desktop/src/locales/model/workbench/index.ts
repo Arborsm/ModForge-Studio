@@ -6,11 +6,10 @@ import type { EventStageCopy } from './event-stage'
 import type { CharactersPanelCopy } from './characters'
 import type { BuildingsPanelCopy } from './buildings'
 import type { ItemsPanelCopy } from './items'
-import type { ModuleBlueprintsCopy } from './module-blueprints'
 import type { I18nGeneratorCopy } from './i18n-generator'
 
 export type { ModWorkspaceCopy } from './mods'
-export type { ModI18nWorkspaceCopy } from './mod-i18n'
+export type { TranslationEditorCopy } from './translation-editor'
 export type { ViewMenuCopy } from './view-menu'
 export type { WorldAtlasViewId } from './world-atlas'
 
@@ -21,7 +20,6 @@ export type EditorCopy = WorkbenchShellCopy & {
   charactersPanel: CharactersPanelCopy
   buildingsPanel: BuildingsPanelCopy
   itemsPanel: ItemsPanelCopy
-  moduleBlueprints: ModuleBlueprintsCopy
   i18nGenerator: I18nGeneratorCopy
   viewportLabels: ViewportLabels
   buildAssetDialog: BuildAssetDialogCopy
@@ -36,5 +34,4 @@ export type { EventStageCopy, EventWorkflowCopy, EventWorkflowCommandKey, EventS
 export type { CharactersPanelCopy } from './characters'
 export type { BuildingsPanelCopy } from './buildings'
 export type { ItemsPanelCopy } from './items'
-export type { ModuleBlueprintsCopy } from './module-blueprints'
 export type { I18nGeneratorCopy } from './i18n-generator'

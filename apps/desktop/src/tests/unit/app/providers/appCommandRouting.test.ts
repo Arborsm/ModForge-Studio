@@ -29,11 +29,11 @@ describe('createAppCommandHandler', () => {
     )
   })
 
-  it('stores navigation/open-workbench-view intent and switches to workbench', () => {
+  it('stores navigation/open-workbench-module intent and switches to workbench', () => {
     const handler = createAppCommandHandler({ setAppMode, onPendingIntent })
     const command: AppCommand = {
-      type: 'navigation/open-workbench-view',
-      viewId: 'workspace-editor',
+      type: 'navigation/open-workbench-module',
+      moduleId: 'map-authoring',
     }
 
     handler.handleCommand(command)
@@ -62,15 +62,15 @@ describe('createAppCommandHandler', () => {
     vi.clearAllMocks()
 
     handler.handleCommand({
-      type: 'navigation/open-workbench-view',
-      viewId: 'workspace-editor',
+      type: 'navigation/open-workbench-module',
+      moduleId: 'map-authoring',
     })
 
     expect(onPendingIntent).toHaveBeenCalledTimes(1)
     const nextPending = handler.getCurrentPendingIntent()
     expect(nextPending?.command).toEqual({
-      type: 'navigation/open-workbench-view',
-      viewId: 'workspace-editor',
+      type: 'navigation/open-workbench-module',
+      moduleId: 'map-authoring',
     })
   })
 
@@ -86,8 +86,8 @@ describe('createAppCommandHandler', () => {
     vi.clearAllMocks()
 
     handler.handleCommand({
-      type: 'navigation/open-workbench-view',
-      viewId: 'workspace-editor',
+      type: 'navigation/open-workbench-module',
+      moduleId: 'map-authoring',
     })
 
     expect(onPendingIntent).toHaveBeenCalledTimes(1)
@@ -116,8 +116,8 @@ describe('createAppCommandHandler', () => {
     const handler = createAppCommandHandler({ setAppMode, onPendingIntent })
 
     handler.handleCommand({
-      type: 'navigation/open-workbench-view',
-      viewId: 'workspace-editor',
+      type: 'navigation/open-workbench-module',
+      moduleId: 'map-authoring',
     })
     const id1 = onPendingIntent.mock.calls[0][0].id
 
@@ -125,8 +125,8 @@ describe('createAppCommandHandler', () => {
     vi.clearAllMocks()
 
     handler.handleCommand({
-      type: 'navigation/open-workbench-view',
-      viewId: 'workspace-editor',
+      type: 'navigation/open-workbench-module',
+      moduleId: 'map-authoring',
     })
     const id2 = onPendingIntent.mock.calls[0][0].id
 

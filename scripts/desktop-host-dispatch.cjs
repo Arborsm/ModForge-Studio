@@ -36,11 +36,12 @@ if (isLinux && mode === 'dev') {
   return
 }
 
-const script = isLinux ? (mode === 'build' ? 'electron:build' : 'electron:dev') : mode === 'build' ? 'tauri build' : 'tauri dev'
-const args = ['--filter', '@modforge/desktop', ...script.split(' '), ...extraArgs]
-const command = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : 'vp'
-const commandArgs = process.platform === 'win32' ? ['/d', '/s', '/c', 'vp.cmd', 'run', ...args] : ['run', ...args]
-const result = spawnSync(command, commandArgs, { stdio: 'inherit' })
+const desktopRoot = path.resolve(__dirname, '..', 'apps', 'desktop')
+const command = isLinux ? 'vp' : process.execPath
+const commandArgs = isLinux
+  ? ['run', '--filter', '@modforge/desktop', mode === 'build' ? 'electron:build' : 'electron:dev', ...extraArgs]
+  : [path.join(desktopRoot, 'scripts', 'run-tauri-cli.cjs'), mode === 'build' ? 'build' : 'dev', ...extraArgs]
+const result = spawnSync(command, commandArgs, { cwd: desktopRoot, stdio: 'inherit' })
 
 if (result.error) {
   throw result.error

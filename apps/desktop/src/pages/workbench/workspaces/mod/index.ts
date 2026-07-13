@@ -1,14 +1,9 @@
-export { ContentPatcherDiagnosticsPanel } from './mods/content-patcher/content-view/ContentPatcherDiagnosticsPanel'
-export { ContentPatcherExportPanel } from './mods/content-patcher/content-view/ContentPatcherExportPanel'
-export { ContentPatcherNavigator } from './mods/content-patcher/content-view/ContentPatcherNavigator'
-export { ContentPatcherTracePanel } from './mods/content-patcher/content-view/ContentPatcherTracePanel'
-export { ContentPatcherWorkspace } from './mods/content-patcher/content-view/ContentPatcherWorkspace'
 export { ModWorkspaceDecisionDialogs, WorkspaceDecisionDialog } from './mods/content-patcher/content-view/ModWorkspaceDecisionDialogs'
 export { ModBrowserPanel } from './mods/content-patcher/content-view/ModBrowserPanel'
-export type { ContentPatcherBackendSimulationContext } from './mods/content-patcher/content-model/contentPatcher'
-export { createDefaultContentPatcherSimulationContext } from './mods/content-patcher/content-model/contentPatcher'
-export type { WorkspacePluginDefinition } from './mods/content-patcher/content-model/types'
-export { default as useModWorkspace } from './state/useModWorkspace'
+export { ModDiagnosticsPanel } from './mods/content-patcher/content-view/ModDiagnosticsPanel'
+export { useModCatalog, type ModCatalogState } from './state/useModCatalog'
+export { useModProjectInspection } from './state/useModProjectInspection'
+export { useModTranslationWorkspace } from './state/useModTranslationWorkspace'
 
 /* ── Mod browser types & helpers (re-exported from state/browser) ── */
 export type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup, ModSourceEntry } from './state/browser'
@@ -22,13 +17,5 @@ export { findPreferredModTarget, loadModResultImageState, loadModResultMapDocume
 export type { ModResultImageState } from './state/modResultAssets'
 
 /* ── Scale-up editor ── */
-export type { ScaleUpBreathType, ScaleUpDraft, ScaleUpEditorState, ScaleUpImageDimensions, ScaleUpSpriteDraft } from './state/scaleup/types'
-export {
-  getScaleUpEditorState,
-  upsertScaleUpEntry,
-  getScaleUpFrameBounds,
-  getScaleUpFrameCount,
-  getScaleUpFramePreviewScale,
-  getScaleUpFramePreviewMetrics,
-} from './state/scaleup/scaleup'
-export { buildScaleUpPreviewModel, withBreathTypeDefaults } from './state/scaleup/preview'
+export type { ScaleUpImageDimensions } from './state/scaleup/types'
+export { getScaleUpFrameCount, getScaleUpFramePreviewMetrics } from './state/scaleup/scaleup'

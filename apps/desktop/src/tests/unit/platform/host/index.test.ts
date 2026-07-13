@@ -222,7 +222,9 @@ describe('desktop facade', () => {
         loadingMotion: createLoadingMotionPreference({}),
       },
       workspace: {
-        layouts: {},
+        location: { kind: 'home' },
+        navigation: { collapsed: true, expandedSections: ['browse'] },
+        modules: {},
       },
       launcher: {
         discoverToolbar: {

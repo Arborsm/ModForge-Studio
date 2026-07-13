@@ -1,7 +1,7 @@
 export type WorkbenchEvent =
   | {
-      type: 'workbench/view-selected'
-      viewId: string
+      type: 'workbench/module-selected'
+      moduleId: string
     }
   | {
       type: 'workbench/asset-focused'

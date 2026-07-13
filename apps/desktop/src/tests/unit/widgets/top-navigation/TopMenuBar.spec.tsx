@@ -40,8 +40,6 @@ function buildProps(overrides: Partial<ComponentProps<typeof TopMenuBar>> = {}):
   return {
     appMode: 'workbench',
     onAppModeChange: vi.fn(),
-    workspaceMode: 'map',
-    onWorkspaceChange: vi.fn(),
     theme: 'dark',
     onToggleTheme: vi.fn(),
     statusTone: 'ready',
@@ -136,12 +134,10 @@ describe('TopMenuBar', () => {
     expect(screen.queryByRole('navigation', { name: copy.workbenchNavigation.recentPages })).toBeNull()
   })
 
-  it('does not route workspace changes from the title bar module navigation anymore', () => {
-    const props = buildProps()
-    renderWithLocale(<TopMenuBar {...props} />)
+  it('does not expose module navigation in the title bar', () => {
+    renderWithLocale(<TopMenuBar {...buildProps()} />)
 
     expect(screen.queryByRole('link', { name: 'Translations' })).toBeNull()
-    expect(props.onWorkspaceChange).not.toHaveBeenCalled()
   })
 
   it('keeps the workbench title bar free of the old gooey navigation when the shell theme is light', () => {

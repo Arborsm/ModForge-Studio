@@ -8,6 +8,7 @@ export {
   chooseSaveFile,
   chooseGameDirectory,
   chooseImageFile,
+  chooseModArchiveFile,
   isSupportedLauncherArchivePath,
   listenToLauncherArchiveDragDrop,
   type LauncherArchiveDragDropPayload,

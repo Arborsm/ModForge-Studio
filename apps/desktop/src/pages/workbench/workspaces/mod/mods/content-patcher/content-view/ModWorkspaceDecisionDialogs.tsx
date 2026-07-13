@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import { AlertTriangle } from 'lucide-react'
-import { useModWorkspaceCopy } from '@locales/provider'
+import { useModCopy } from '@locales/provider'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 type PendingUnsavedChangeDecision = {
@@ -8,60 +8,35 @@ type PendingUnsavedChangeDecision = {
   error: string | null
 }
 
-type PendingExportOverwriteDecision = {
-  targetPath: string
-  saving: boolean
-  error: string | null
-}
-
 type ModWorkspaceDecisionDialogsProps = {
   pendingUnsavedChangeDecision: PendingUnsavedChangeDecision | null
-  pendingExportOverwriteDecision: PendingExportOverwriteDecision | null
   onConfirmUnsavedSaveAndContinue: () => void
   onConfirmUnsavedDiscardAndContinue: () => void
   onCancelUnsavedChangeDecision: () => void
-  onConfirmExportOverwrite: () => void
-  onCancelExportOverwrite: () => void
 }
 
 export function ModWorkspaceDecisionDialogs({
   pendingUnsavedChangeDecision,
-  pendingExportOverwriteDecision,
   onConfirmUnsavedSaveAndContinue,
   onConfirmUnsavedDiscardAndContinue,
   onCancelUnsavedChangeDecision,
-  onConfirmExportOverwrite,
-  onCancelExportOverwrite,
 }: ModWorkspaceDecisionDialogsProps) {
-  const copy = useModWorkspaceCopy()
+  const copy = useModCopy()
 
   return (
-    <>
-      <WorkspaceDecisionDialog
-        open={Boolean(pendingUnsavedChangeDecision)}
-        title={copy.unsavedChangesTitle}
-        message={copy.unsavedChangesMessage}
-        error={pendingUnsavedChangeDecision?.error ?? null}
-        saving={pendingUnsavedChangeDecision?.saving ?? false}
-        cancelLabel={copy.unsavedCancel}
-        secondaryLabel={copy.unsavedDiscardAndContinue}
-        primaryLabel={copy.unsavedSaveAndContinue}
-        onCancel={onCancelUnsavedChangeDecision}
-        onSecondary={onConfirmUnsavedDiscardAndContinue}
-        onPrimary={onConfirmUnsavedSaveAndContinue}
-      />
-      <WorkspaceDecisionDialog
-        open={Boolean(pendingExportOverwriteDecision)}
-        title={copy.exportOverwriteTitle}
-        message={copy.exportOverwriteMessage(pendingExportOverwriteDecision?.targetPath ?? '')}
-        error={pendingExportOverwriteDecision?.error ?? null}
-        saving={pendingExportOverwriteDecision?.saving ?? false}
-        cancelLabel={copy.unsavedCancel}
-        primaryLabel={copy.exportOverwriteConfirm}
-        onCancel={onCancelExportOverwrite}
-        onPrimary={onConfirmExportOverwrite}
-      />
-    </>
+    <WorkspaceDecisionDialog
+      open={Boolean(pendingUnsavedChangeDecision)}
+      title={copy.unsavedChangesTitle}
+      message={copy.unsavedChangesMessage}
+      error={pendingUnsavedChangeDecision?.error ?? null}
+      saving={pendingUnsavedChangeDecision?.saving ?? false}
+      cancelLabel={copy.unsavedCancel}
+      secondaryLabel={copy.unsavedDiscardAndContinue}
+      primaryLabel={copy.unsavedSaveAndContinue}
+      onCancel={onCancelUnsavedChangeDecision}
+      onSecondary={onConfirmUnsavedDiscardAndContinue}
+      onPrimary={onConfirmUnsavedSaveAndContinue}
+    />
   )
 }
 

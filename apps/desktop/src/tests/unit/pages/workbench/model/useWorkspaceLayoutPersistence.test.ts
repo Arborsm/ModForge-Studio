@@ -11,15 +11,19 @@ vi.mock('@shared/lib/app-state', () => appUiStateMocks)
 
 import { useWorkspaceLayoutPersistence } from '@pages/workbench/model/useWorkspaceLayoutPersistence'
 
-const storageKey = 'modforge:workspace-layout:v14:mods'
+const storageKey = 'map-browser'
 
 function createLayout(width: number) {
   return {
-    panels: {},
-    slots: {},
-    chrome: { leftWidth: width },
-    presets: {},
-  } as unknown as WorkspaceStoredState
+    chrome: {
+      leftWidth: width,
+      rightWidth: 0.24,
+      bottomHeight: 220,
+      leftSplit: 0.44,
+      rightSplit: 0.34,
+      bottomSplit: 0.5,
+    },
+  } satisfies WorkspaceStoredState
 }
 
 describe('useWorkspaceLayoutPersistence', () => {
@@ -31,9 +35,11 @@ describe('useWorkspaceLayoutPersistence', () => {
   it('does not overwrite a restored layout with the default layout reported before hydration', async () => {
     const restoredLayout = createLayout(0.32)
     const startupDefaultLayout = createLayout(0.24)
-    appUiStateMocks.getAppUiStateSnapshot.mockReturnValue({ workspace: { layouts: { [storageKey]: restoredLayout } } })
+    appUiStateMocks.getAppUiStateSnapshot.mockReturnValue({ workspace: { modules: { [storageKey]: { layout: restoredLayout } } } })
 
-    const { result, rerender } = renderHook(({ ready }) => useWorkspaceLayoutPersistence(ready, 'map'), { initialProps: { ready: false } })
+    const { result, rerender } = renderHook(({ ready }) => useWorkspaceLayoutPersistence(ready, storageKey), {
+      initialProps: { ready: false },
+    })
 
     act(() => result.current.handleWorkspacePersistStateChange(storageKey, startupDefaultLayout))
     rerender({ ready: true })
@@ -45,15 +51,15 @@ describe('useWorkspaceLayoutPersistence', () => {
   it('persists a committed layout immediately after hydration', () => {
     const initialLayout = createLayout(0.24)
     const latestLayout = createLayout(0.36)
-    appUiStateMocks.getAppUiStateSnapshot.mockReturnValue({ workspace: { layouts: { [storageKey]: initialLayout } } })
+    appUiStateMocks.getAppUiStateSnapshot.mockReturnValue({ workspace: { modules: { [storageKey]: { layout: initialLayout } } } })
 
-    const { result } = renderHook(() => useWorkspaceLayoutPersistence(true, 'map'))
+    const { result } = renderHook(() => useWorkspaceLayoutPersistence(true, storageKey))
 
     act(() => result.current.handleWorkspacePersistStateChange(storageKey, latestLayout))
 
     expect(appUiStateMocks.applyAppUiStatePatch).toHaveBeenCalledTimes(1)
     expect(appUiStateMocks.applyAppUiStatePatch).toHaveBeenCalledWith({
-      workspace: { layouts: { [storageKey]: latestLayout } },
+      workspace: { modules: { [storageKey]: { layout: latestLayout } } },
     })
   })
 })

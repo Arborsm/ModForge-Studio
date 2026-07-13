@@ -1,6 +1,6 @@
 import { ChevronDown, Download, LayoutDashboard, Minus, Moon, Rocket, Settings2, Square, Sun, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { type AppMode, type LauncherPage, type ThemeMode, type WorkspaceMode, type WorkspaceTone } from '@locales/api'
+import { type AppMode, type LauncherPage, type ThemeMode, type WorkspaceTone } from '@locales/api'
 import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { ProgressRing } from '@shared/ui/ProgressRing'
@@ -33,11 +33,6 @@ export type TopMenuBarProjectMenu = {
 type TopMenuBarProps = {
   appMode: AppMode
   onAppModeChange: (mode: AppMode) => void
-  workspaceMode: WorkspaceMode
-  onWorkspaceChange: (mode: WorkspaceMode) => void
-  workspaceNavigationDisabled?: boolean
-  workspaceViewMode?: 'edit' | 'preview'
-  onWorkspaceViewModeChange?: (mode: 'edit' | 'preview') => void
   theme: ThemeMode
   onToggleTheme: () => void
   statusTone: WorkspaceTone

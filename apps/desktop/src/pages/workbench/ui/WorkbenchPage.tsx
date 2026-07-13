@@ -1,6 +1,5 @@
 import { lazy, Suspense } from 'react'
-import type { AppEvent, PendingWorkbenchCommandIntent, WorkbenchViewRegistration } from '@shared/contracts'
-import type { LocaleCode, ThemeMode } from '@locales/api'
+import type { AppEvent, PendingWorkbenchCommandIntent, WorkbenchModuleRegistration } from '@shared/contracts'
 import type { SettingsWindowCategory } from '@shared/contracts'
 import { WorkbenchShellSkeleton } from '@shared/ui/WorkbenchShellSkeleton'
 
@@ -11,9 +10,6 @@ type WorkbenchPageProps = {
   onClearPendingIntent: () => void
   active: boolean
   appUiStateReady: boolean
-  theme: ThemeMode
-  locale: LocaleCode
-  accentColor: string
   desktopHost: boolean
   onToggleTheme: () => void
   onSwitchToLauncher: () => void
@@ -24,8 +20,8 @@ type WorkbenchPageProps = {
   onWindowCloseRequestChange?: (handler: (() => boolean | Promise<boolean>) | null) => void
   onHomeRouteActiveChange?: (active: boolean) => void
   onWorkbenchEvent: (event: AppEvent) => void
-  getWorkbenchViewRegistration: (viewId: string) => WorkbenchViewRegistration | null
-  workbenchViews?: readonly WorkbenchViewRegistration[]
+  getWorkbenchModuleRegistration: (moduleId: string) => WorkbenchModuleRegistration | null
+  workbenchModules?: readonly WorkbenchModuleRegistration[]
   workbenchActivationKey?: number
 }
 

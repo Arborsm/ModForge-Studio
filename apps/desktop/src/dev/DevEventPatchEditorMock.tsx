@@ -64,6 +64,7 @@ function createDraft(patch: DraftPatch): CpMakerDraft {
     customLocations: [],
     aliasTokenNames: {},
     eventSourceSnapshotsByTarget: {},
+    i18nFiles: [],
   }
 }
 

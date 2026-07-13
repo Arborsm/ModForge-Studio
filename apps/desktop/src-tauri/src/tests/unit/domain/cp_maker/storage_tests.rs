@@ -58,6 +58,7 @@ fn sample_draft(draft_storage_key: &str) -> CpMakerDraftRecord {
                 )]),
             },
         )]),
+        i18n_files: Vec::new(),
         last_draft_saved_at: None,
         last_exported_at: Some(1_710_000_000_000),
         last_export_path: Some("E:\\Exports\\Builder Draft".to_string()),
@@ -84,6 +85,39 @@ fn saves_loads_and_lists_cp_maker_drafts_round_trip() {
     assert_eq!(listed[0].project_name, "Builder Draft");
     assert_eq!(listed[0].project_unique_id, "ModForge.BuilderDraft");
     assert_eq!(listed[0].last_draft_saved_at, saved.last_draft_saved_at);
+    assert_eq!(listed[0].last_exported_at, Some(1_710_000_000_000));
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn preserves_export_metadata_when_saving_an_exported_draft_again() {
+    let root = create_temp_dir("cp-maker-export-metadata-resave");
+    let exported = save_cp_maker_draft_at_dir(&root, sample_draft("draft-exported"))
+        .expect("save exported draft");
+    let mut edited = load_cp_maker_draft_at_dir(&root, &exported.draft_storage_key)
+        .expect("load exported draft");
+    edited.serialized_change_registry = json!({
+        "patches": [
+            {
+                "id": "patch-after-export",
+                "action": "EditData"
+            }
+        ]
+    });
+
+    let saved_again = save_cp_maker_draft_at_dir(&root, edited).expect("save edited draft");
+    let reloaded = load_cp_maker_draft_at_dir(&root, "draft-exported").expect("reload draft");
+    let listed = list_cp_maker_drafts_at_dir(&root).expect("list drafts");
+
+    for draft in [&saved_again, &reloaded] {
+        assert_eq!(draft.last_exported_at, Some(1_710_000_000_000));
+        assert_eq!(
+            draft.last_export_path.as_deref(),
+            Some("E:\\Exports\\Builder Draft")
+        );
+        assert!(draft.last_export_fingerprint.is_some());
+    }
     assert_eq!(listed[0].last_exported_at, Some(1_710_000_000_000));
 
     fs::remove_dir_all(root).expect("cleanup");

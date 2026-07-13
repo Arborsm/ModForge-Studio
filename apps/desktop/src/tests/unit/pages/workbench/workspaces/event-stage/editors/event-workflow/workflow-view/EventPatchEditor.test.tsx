@@ -84,6 +84,7 @@ function draft(): CpMakerDraft {
     customLocations: [],
     aliasTokenNames: {},
     eventSourceSnapshotsByTarget: {},
+    i18nFiles: [],
   }
 }
 

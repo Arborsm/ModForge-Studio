@@ -1211,28 +1211,6 @@ pub fn build_patch_plan(
     build_patch_plan_with_context(snapshot, &SimulationContext::default())
 }
 
-pub fn resolve_dynamic_tokens_for_snapshot(
-    snapshot: &ContentPatcherProjectSnapshot,
-    context: &SimulationContext,
-) -> anyhow::Result<BTreeMap<String, Value>> {
-    let mut source_values = BTreeMap::new();
-    for source in &snapshot.sources {
-        let parsed = parse_json_str(&source.raw_json, &source.path)?;
-        source_values.insert(source.path.clone(), parsed);
-    }
-
-    let root_source = source_values
-        .get("content.json")
-        .context("Snapshot sources are missing content.json.")?;
-    let effective_context = with_config_defaults(context, root_source);
-
-    Ok(resolve_dynamic_tokens(
-        snapshot,
-        &source_values,
-        &effective_context,
-    ))
-}
-
 pub fn build_patch_plan_with_context(
     snapshot: &ContentPatcherProjectSnapshot,
     context: &SimulationContext,

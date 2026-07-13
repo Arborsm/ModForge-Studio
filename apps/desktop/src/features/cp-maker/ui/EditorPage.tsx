@@ -27,6 +27,7 @@ interface EditorPageProps {
   onSelectedEventKeyChange?: (eventKey: string | null) => void
   onOpenConfig?: () => void
   onSaveDraft?: () => void
+  onReloadDraft?: () => void
   isDirty?: boolean
 }
 
@@ -49,6 +50,7 @@ export function EditorPage({
   onSelectedEventKeyChange,
   onOpenConfig,
   onSaveDraft,
+  onReloadDraft,
   isDirty,
 }: EditorPageProps) {
   const copy = useEditorCopy().studioDesk.editorPage
@@ -82,6 +84,7 @@ export function EditorPage({
             onSelectedEventKeyChange={onSelectedEventKeyChange}
             onOpenConfig={onOpenConfig}
             onSaveDraft={onSaveDraft}
+            onReloadDraft={onReloadDraft}
             isDirty={isDirty}
           />
         ) : (

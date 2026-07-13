@@ -3,9 +3,9 @@ use crate::domain;
 use crate::host_commands::HostCommandName;
 use crate::host_runtime::{
     HostCommandCancelPolicy, HostCommandContext, HostCommandExecutionPool, HostCommandLane,
-    HostCommandMutationPolicy, HostCommandResource, HostCommandResourceLocks, HostCommandResponse,
-    HostCommandResponseWriter, HostCommandResult, HostCommandScheduler, HostCommandSchedulerConfig,
-    ResolvedHostCommand,
+    HostCommandMutationPolicy, HostCommandResource, HostCommandResourceLocks,
+    HostCommandResourceResolver, HostCommandResponse, HostCommandResponseWriter, HostCommandResult,
+    HostCommandScheduler, HostCommandSchedulerConfig, ResolvedHostCommand,
 };
 use crate::support::logging::{self, DebugLoggingState};
 use serde::de::DeserializeOwned;
@@ -92,7 +92,8 @@ where
         name: name.as_str().to_string(),
         lane,
         execution_pool: HostCommandExecutionPool::Lane,
-        resources,
+        resources: resources.to_vec(),
+        resource_resolver: None,
         cancel_policy: HostCommandCancelPolicy::NotCancellable,
         mutation_policy: if resources.is_empty() {
             HostCommandMutationPolicy::Concurrent
@@ -198,6 +199,29 @@ where
     F: FnOnce() -> DispatchResult + Send + 'static,
 {
     sidecar_command(id, name, SidecarLane::Mutation, resources, move |_| run())
+}
+
+fn mutation_with_resource_resolver<F, R>(
+    id: Value,
+    name: &SidecarCommandName,
+    resolve_resources: R,
+    run: F,
+) -> ResolvedSidecarCommandOrResponse
+where
+    F: FnOnce() -> DispatchResult + Send + 'static,
+    R: FnOnce() -> Result<Vec<SidecarResource>, Value> + Send + 'static,
+{
+    match sidecar_command(id, name, SidecarLane::Mutation, NO_RESOURCES, move |_| {
+        run()
+    }) {
+        ResolvedSidecarCommandOrResponse::Command(mut command) => {
+            command.resource_resolver =
+                Some(Box::new(resolve_resources) as HostCommandResourceResolver);
+            command.mutation_policy = HostCommandMutationPolicy::ExclusiveResources;
+            ResolvedSidecarCommandOrResponse::Command(command)
+        }
+        response => response,
+    }
 }
 
 fn arg<T>(args: &Value, key: &str) -> Result<T, Value>
@@ -367,45 +391,34 @@ pub(crate) fn resolve_command(
         crate::host_command_wire!(load_mod_project) => io_lane(id, &command_name, move || {
             ok(domain::mods::load_mod_project(arg(&args, "path")?))
         }),
-        crate::host_command_wire!(save_mod_project) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::ModProject],
-            move || {
-                ok(domain::mods::save_mod_project(arg_or_whole(
-                    &args, "request",
-                )?))
-            },
-        ),
+        crate::host_command_wire!(save_mod_i18n_files) => {
+            let resource_args = args.clone();
+            mutation_with_resource_resolver(
+                id,
+                &command_name,
+                move || {
+                    let request: domain::mods::SaveModI18nFilesRequest =
+                        arg_or_whole(&resource_args, "request")?;
+                    let canonical_root =
+                        domain::mods::canonical_mod_project_root(&request.source_path)
+                            .map_err(|error| json!(error.to_string()))?;
+                    Ok(vec![SidecarResource::ModProjectRoot(Arc::from(
+                        canonical_root.to_string_lossy().as_ref(),
+                    ))])
+                },
+                move || {
+                    ok(domain::mods::save_mod_i18n_files(arg_or_whole(
+                        &args, "request",
+                    )?))
+                },
+            )
+        }
 
-        crate::host_command_wire!(load_content_patcher_project) => {
-            io_lane(id, &command_name, move || {
-                ok(
-                    domain::content_patcher::project::load_content_patcher_project(arg(
-                        &args, "path",
-                    )?),
-                )
-            })
-        }
-        crate::host_command_wire!(simulate_content_patcher) => {
-            io_lane(id, &command_name, move || {
-                ok(domain::content_patcher::simulate_content_patcher(arg(
-                    &args, "request",
-                )?))
-            })
-        }
         crate::host_command_wire!(load_content_patcher_result_asset) => {
             io_lane(id, &command_name, move || {
                 ok(domain::content_patcher::load_content_patcher_result_asset(
                     arg(&args, "request")?,
                 ))
-            })
-        }
-        crate::host_command_wire!(export_content_patcher_asset) => {
-            mutation(id, &command_name, move || {
-                ok(domain::content_patcher::export_content_patcher_asset(arg(
-                    &args, "request",
-                )?))
             })
         }
 
@@ -418,6 +431,22 @@ pub(crate) fn resolve_command(
                 "draftStorageKey",
             )?))
         }),
+        crate::host_command_wire!(load_cp_maker_session) => io_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || ok(domain::cp_maker::load_cp_maker_session()),
+        ),
+        crate::host_command_wire!(save_cp_maker_session) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                ok(domain::cp_maker::save_cp_maker_session(arg(
+                    &args, "session",
+                )?))
+            },
+        ),
         crate::host_command_wire!(save_cp_maker_draft) => mutation_with_resources(
             id,
             &command_name,
@@ -866,6 +895,9 @@ pub(crate) fn resolve_command(
                 )?))
             })
         }
+        crate::host_command_wire!(inspect_mod_archive) => io_lane(id, &command_name, move || {
+            ok(domain::mods::inspect_mod_archive(arg(&args, "path")?))
+        }),
         crate::host_command_wire!(install_launcher_archive) => {
             let app = ctx.app.clone();
             mutation_with_resources(

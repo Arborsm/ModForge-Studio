@@ -9,16 +9,13 @@ import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import type { LauncherLibraryState } from '@features/launcher/model/launcherContracts'
 import { LauncherPage } from '@pages/launcher/LauncherPage'
 import type { StudioDeskGalleryProject, StudioDeskInspiration, StudioDeskModel, StudioDeskWorldBibleModel } from '@features/cp-maker'
-import { WorkbenchHomePage, type MakerWorkspaceMode } from '@pages/workbench/ui/WorkbenchHomePage'
+import { WorkbenchHomePage } from '@pages/workbench/ui/WorkbenchHomePage'
 import { EventPatchEditor } from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventPatchEditor'
 import ItemWorkspace from '@pages/workbench/workspaces/item/view/ItemWorkspace'
 import type { ItemTextureAssetState, ItemWorkspaceEntry } from '@pages/workbench/workspaces/item/entities/item'
 import BuildingWorkspace from '@pages/workbench/workspaces/building/view/BuildingWorkspace'
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '@pages/workbench/workspaces/building/entities/building'
 import { MapPatchEditor } from '@pages/workbench/workspaces/map/editors/MapPatchEditor'
-import { ContentPatcherWorkspace } from '@pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherWorkspace'
-import type { ContentPatcherBackendSimulationContext } from '@pages/workbench/workspaces/mod/mods/content-patcher/content-model/contentPatcher'
-import type { ContentPatcherSimulationResult, LoadContentPatcherResultAssetResult, ModProjectDetail } from '@entities/mod/api'
 import type { CpMakerDraft, DraftPatch, WorkspaceId } from '@features/cp-maker'
 import type { LauncherPage as LauncherPageId } from '@locales/api'
 
@@ -28,7 +25,6 @@ type PageScenarioId =
   | 'item-workspace'
   | 'building-workspace'
   | 'map-patch-editor'
-  | 'content-patcher-workspace'
   | 'launcher-shell'
 
 const pageScenarioIds: PageScenarioId[] = [
@@ -37,7 +33,6 @@ const pageScenarioIds: PageScenarioId[] = [
   'item-workspace',
   'building-workspace',
   'map-patch-editor',
-  'content-patcher-workspace',
   'launcher-shell',
 ]
 
@@ -175,6 +170,7 @@ function createCpMakerDraft(patches: DraftPatch[] = []): CpMakerDraft {
     customLocations: [],
     aliasTokenNames: {},
     eventSourceSnapshotsByTarget: {},
+    i18nFiles: [],
   }
 }
 
@@ -450,110 +446,6 @@ function createBuildingStage(index: number, stageCount: number): BuildingWorkspa
     rootKey: 'performance-building-0',
     leafKey: `performance-building-${stageCount - 1}`,
   }
-}
-
-function createSimulationContext(): ContentPatcherBackendSimulationContext {
-  return {
-    season: 'spring',
-    weather: 'sunny',
-    day: 12,
-    dayOfWeek: 'Friday',
-    daysPlayed: 42,
-    year: 2,
-    time: 1330,
-    playerName: 'Performance',
-    playerGender: 'female',
-    farmName: 'Frame Farm',
-    locationName: 'Town',
-    spouse: '',
-    isMainPlayer: true,
-    stardropCount: 3,
-    hasFlags: ['cc_Bridge'],
-    hasSeenEvents: ['900001'],
-    hasConversationTopics: [],
-    hasDialogueAnswers: [],
-    hasWalletItems: ['SkullKey'],
-    hasProfessions: ['Tiller'],
-    hasCraftingRecipes: ['Chest'],
-    hasCookingRecipes: ['Omelet'],
-    skillLevels: { Farming: 10, Mining: 6, Fishing: 4 },
-    hasActiveQuests: [],
-    hasCompletedQuests: ['13'],
-    hasItems: ['(O)24'],
-    hasPet: true,
-    petType: 'Cat',
-    hasChildren: false,
-    childCount: 0,
-    dailyLuck: 0.04,
-    hasCaughtFish: ['128'],
-    hasReadLetters: ['spring_12_1'],
-    hasVisitedLocations: ['Town', 'Beach'],
-    isOutdoors: true,
-    locationContext: 'Town',
-    locationUniqueName: 'Town',
-    locationOwnerId: '',
-    preferredPet: 'Cat',
-    farmCave: 'Bats',
-    farmMapAsset: 'Farm',
-    havingChild: false,
-    pregnant: false,
-    roommate: '',
-    hearts: { Abigail: 8, Lewis: 4 },
-    childNames: [],
-    childGenders: [],
-    dayEvent: '',
-    farmType: 'Standard',
-    farmhouseUpgrade: 2,
-    isCommunityCenterComplete: false,
-    isJojaMartComplete: false,
-    language: 'en',
-    relationships: { Abigail: 'Friend' },
-    config: { Variant: 'festival', HardMode: false },
-    installedMods: ['Pathoschild.ContentPatcher'],
-    customTokens: { PerformanceToken: 'Enabled' },
-    ignoreEntryWhenConditions: false,
-  }
-}
-
-function createContentPatcherProjectDetail(changeCount: number): ModProjectDetail {
-  return {
-    pluginKind: 'content-patcher',
-    capabilities: ['content-patcher'],
-    summary: {
-      id: 'page-performance-project',
-      name: 'Page Performance Content Pack',
-      author: 'ModForge',
-      version: '1.0.0',
-      description: 'Large content patcher fixture',
-      uniqueId: 'ModForge.PagePerformanceContent',
-      contentPackFor: 'Pathoschild.ContentPatcher',
-      folderName: 'PagePerformanceContent',
-      absolutePath: 'E:/Perf/PagePerformanceContent',
-      manifestPath: 'E:/Perf/PagePerformanceContent/manifest.json',
-      contentPath: 'E:/Perf/PagePerformanceContent/content.json',
-      pluginKind: 'content-patcher',
-      status: 'ready',
-      missingRequiredDependencies: [],
-      hasI18n: true,
-      i18nEntryCount: 12,
-    },
-    diagnostics: [],
-    contentPatcher: {
-      manifestPath: 'E:/Perf/PagePerformanceContent/manifest.json',
-      contentPath: 'E:/Perf/PagePerformanceContent/content.json',
-      manifestJson: '{}',
-      contentJson: '{}',
-      format: '2.7.0',
-      changeCount,
-      includeCount: 6,
-      dynamicTokenCount: 18,
-      configKeys: ['Variant', 'HardMode', 'FestivalDay'],
-      hasI18n: true,
-      i18nFiles: [],
-      patches: [],
-    },
-    i18nFiles: [],
-  } as ModProjectDetail
 }
 
 function createLauncherCatalogResults(count: number) {
@@ -927,6 +819,8 @@ const performanceLauncherPort: LauncherPort = {
 }
 
 const performanceCpMakerPort: CpMakerPort = {
+  loadSession: async () => ({ activeDraftKey: null, activeGeneratedDraftKey: null }),
+  saveSession: async (session) => session,
   listDrafts: async () => [] as any,
   loadDraft: async (storageKey) =>
     ({
@@ -948,6 +842,7 @@ const performanceCpMakerPort: CpMakerPort = {
       customLocations: [],
       aliasTokenNames: {},
       eventSourceSnapshotsByTarget: {},
+      i18nFiles: [],
     }) as any,
   saveDraft: async (draft) => draft as any,
   deleteDraft: async () => {},
@@ -980,7 +875,6 @@ function WorkbenchHomeScenario() {
   const params = new URLSearchParams(window.location.search)
   const state = params.get('mfHomeState')
   const projectCount = Number(params.get('mfHomeCount') ?? '3')
-  const [makerPending, setMakerPending] = useState<MakerWorkspaceMode | null>(null)
   const model = createStudioDeskModel(state === 'empty' ? 0 : Math.max(1, projectCount))
   const hasActiveProject = state !== 'no-current' && state !== 'empty'
   const gameDirectoryReady = state !== 'no-game-dir'
@@ -1001,30 +895,24 @@ function WorkbenchHomeScenario() {
   return (
     <ScenarioFrame id="workbench-home">
       <WorkbenchHomePage
-        workspaceMode="map"
-        workspaceViewMode="edit"
+        presentation={hasActiveProject ? 'project' : 'home'}
         hasActiveProject={hasActiveProject}
+        projectDirty={false}
         gameDirectoryReady={gameDirectoryReady}
-        gameDirectoryStatus={gameDirectoryStatus}
         studioDeskModel={effectiveModel}
-        makerPending={makerPending}
         taskSummary={{
           exportCount: effectiveModel.gallery.projects.filter((project) => project.statuses.includes('export')).length,
           conflictCount: effectiveModel.stats.conflictCount,
           directoryStatus: gameDirectoryStatus,
         }}
-        devViews={[]}
-        onBackToWorkspace={noop}
-        onRootWorkspaceOpen={noop}
-        onProjectWorkspaceOpen={noop}
+        onProjectModuleOpen={noop}
         onProjectCreateOpen={noop}
         onProjectImport={asyncNoop}
-        onProjectSelect={() => setMakerPending(null)}
-        onProjectCopy={asyncNoop}
+        onProjectSelect={noop}
         onProjectDelete={asyncNoop}
         onProjectPropertiesOpen={noop}
         onExportProject={noop}
-        onMakerPendingChange={setMakerPending}
+        onSaveProject={async () => true}
         onGameDirectoryAction={noop}
       />
     </ScenarioFrame>
@@ -1171,105 +1059,6 @@ function MapPatchEditorScenario() {
   )
 }
 
-function ContentPatcherWorkspaceScenario() {
-  const [simulationContext, setSimulationContext] = useState(createSimulationContext)
-  const [selectedPatch, setSelectedPatch] = useState<Record<string, unknown> | null>({
-    Action: 'EditData',
-    Target: 'Data/Locations',
-    FromFile: 'assets/locations.json',
-    Enabled: true,
-    LogName: 'Performance location rewrite',
-    When: { Season: 'spring', HasSeenEvent: '900001' },
-    Priority: 'Late',
-    Update: 'OnLocationChange',
-  })
-  const projectDetail = createContentPatcherProjectDetail(128)
-  const patches = range(128).map((index) => ({
-    id: `patch-${index}`,
-    action: index % 3 === 0 ? 'EditMap' : index % 3 === 1 ? 'EditImage' : 'EditData',
-    target: `Data/PagePerformance/${index}`,
-    fromFile: index % 2 === 0 ? `assets/generated/${index}.json` : null,
-    logName: `Performance patch ${index}`,
-    hasWhen: index % 3 === 0,
-    whenKeys: index % 3 === 0 ? ['Season'] : [],
-    updateKeys: index % 4 === 0 ? ['OnLocationChange'] : [],
-  }))
-  const resultAsset = {
-    target: { path: 'Data/PagePerformance/0' },
-    trace: [],
-    result: {
-      kind: 'json',
-      json: {
-        entries: Object.fromEntries(
-          range(80).map((index) => [`Entry${index}`, { value: `Generated value ${index}`, enabled: index % 2 === 0 }]),
-        ),
-      },
-    },
-    diagnostics: [],
-    exportable: true,
-  } as unknown as LoadContentPatcherResultAssetResult
-  const simulation = {
-    plan: { patches: [] },
-    targets: range(80).map((index) => ({ path: `Data/PagePerformance/${index}` })),
-    patchStatuses: [],
-    diagnostics: [],
-    dynamicTokens: { PerformanceToken: 'Enabled', Variant: 'festival' },
-  } as unknown as ContentPatcherSimulationResult
-
-  return (
-    <ScenarioFrame id="content-patcher-workspace">
-      <ContentPatcherWorkspace
-        pluginDefinition={null}
-        projectDetail={projectDetail}
-        diagnostics={[]}
-        statusMessage="Ready"
-        lastSaveResult={null}
-        gameRootPath={null}
-        manifestEditor={{ text: '{}', value: {}, error: null }}
-        contentEditor={{ text: '{}', value: {}, error: null }}
-        contentSummary={{
-          format: '2.7.0',
-          changeCount: patches.length,
-          includeCount: 6,
-          dynamicTokenCount: 18,
-          configKeys: ['Variant', 'HardMode', 'FestivalDay'],
-          configEntries: [
-            { key: 'Variant', defaultValue: 'festival' },
-            { key: 'HardMode', defaultValue: false },
-            { key: 'FestivalDay', defaultValue: 12 },
-          ],
-          patches,
-        }}
-        selectedPatchId="patch-0"
-        selectedPatch={selectedPatch}
-        patchWhenError={null}
-        hasUnsavedChanges={false}
-        canPersist
-        contentPatcherSnapshot={null}
-        contentPatcherSimulation={simulation}
-        contentPatcherResultAsset={resultAsset}
-        contentPatcherResultLoading={false}
-        contentPatcherResultError={null}
-        simulationContext={simulationContext}
-        onSimulationContextChange={setSimulationContext}
-        onManifestFieldChange={noop}
-        onManifestTextChange={noop}
-        onContentTextChange={noop}
-        onPatchFieldChange={(field, value) => setSelectedPatch((current) => (current ? { ...current, [field]: value } : current))}
-        onPatchWhenChange={(value) => setSelectedPatch((current) => (current ? { ...current, When: value } : current))}
-        onAddPatch={() =>
-          setSelectedPatch((current) =>
-            current ? { ...current, LogName: `${typeof current.LogName === 'string' ? current.LogName : ''} + added` } : current,
-          )
-        }
-        onRemoveSelectedPatch={() => setSelectedPatch(null)}
-        onSaveProject={noop}
-        onExportProject={noop}
-      />
-    </ScenarioFrame>
-  )
-}
-
 function LauncherShellScenario() {
   const [page, setPage] = useState<LauncherPageId>('library')
 
@@ -1283,7 +1072,6 @@ function LauncherShellScenario() {
         locale="en-US"
         onToggleTheme={noop}
         onAppModeChange={noop}
-        onWorkspaceChange={noop}
         onLauncherPageChange={setPage}
         onMinimizeWindow={noop}
         onToggleMaximizeWindow={noop}
@@ -1304,7 +1092,6 @@ function scenarioFor(id: PageScenarioId) {
   if (id === 'item-workspace') return <ItemWorkspaceScenario />
   if (id === 'building-workspace') return <BuildingWorkspaceScenario />
   if (id === 'map-patch-editor') return <MapPatchEditorScenario />
-  if (id === 'content-patcher-workspace') return <ContentPatcherWorkspaceScenario />
   return <LauncherShellScenario />
 }
 

@@ -1,5 +1,5 @@
 use crate::domain::content_patcher::types::VirtualPreviewAsset;
-use crate::domain::cp_maker::types::CpMakerExportResult;
+use crate::domain::cp_maker::types::{CpMakerExportResult, CpMakerI18nFile};
 use crate::domain::cp_maker::{export_cp_maker_pack, types::CpMakerExportRequest};
 use crate::infrastructure::fs::pathing::normalize_path;
 use crate::test_support::{create_temp_dir, write_file};
@@ -50,6 +50,7 @@ fn export_request(
         })
         .to_string(),
         virtual_assets,
+        i18n_files: Vec::new(),
     }
 }
 
@@ -88,6 +89,7 @@ fn exports_cp_maker_pack_to_a_fresh_directory() {
             virtual_asset("assets/mail.json", br#"{"value":"mail"}"#),
             virtual_asset("assets/nested/texture.bin", &[1, 3, 3, 7]),
         ],
+        i18n_files: Vec::new(),
     };
 
     let result = export_cp_maker_pack(request).expect("export cp maker pack");
@@ -124,6 +126,33 @@ fn exports_cp_maker_pack_to_a_fresh_directory() {
 }
 
 #[test]
+fn exports_managed_i18n_files_with_path_validation() {
+    let root = create_temp_dir("cp-maker-export-i18n");
+    let output_dir = root.join("Export");
+    let mut request = export_request(&output_dir, Vec::new());
+    request.i18n_files = vec![CpMakerI18nFile {
+        locale: "zh-CN".to_string(),
+        raw_json: r#"{"ui.save":"保存"}"#.to_string(),
+    }];
+    export_cp_maker_pack(request).expect("export i18n");
+    assert!(
+        fs::read_to_string(output_dir.join("i18n/zh-CN.json"))
+            .expect("read exported i18n")
+            .contains("保存")
+    );
+
+    let invalid_dir = root.join("Invalid");
+    let mut invalid = export_request(&invalid_dir, Vec::new());
+    invalid.i18n_files = vec![CpMakerI18nFile {
+        locale: "../escape".to_string(),
+        raw_json: "{}".to_string(),
+    }];
+    assert!(export_cp_maker_pack(invalid).is_err());
+    assert!(!root.join("escape.json").exists());
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
 fn rejects_cp_maker_export_when_target_directory_is_not_fresh() {
     let root = create_temp_dir("cp-maker-export-non-empty");
     let output_dir = root.join("Existing Export");
@@ -147,6 +176,7 @@ fn rejects_cp_maker_export_when_target_directory_is_not_fresh() {
         manifest_json: manifest.to_string(),
         content_json: content.to_string(),
         virtual_assets: vec![virtual_asset("assets/example.txt", b"ignored")],
+        i18n_files: Vec::new(),
     })
     .expect_err("expected export to reject a non-empty target directory");
 
@@ -320,6 +350,7 @@ fn exported_json_files_keep_pretty_format_with_trailing_newline() {
         manifest_json: manifest.to_string(),
         content_json: content.to_string(),
         virtual_assets: Vec::new(),
+        i18n_files: Vec::new(),
     })
     .expect("export cp maker pack");
 

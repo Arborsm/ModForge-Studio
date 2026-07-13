@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { ModBrowserPanel } from '@pages/workbench/workspaces/mod/mods/content-patcher/content-view/ModBrowserPanel'
-import { getModI18nWorkspaceCopy, getModWorkspaceCopy } from '@locales/api'
+import { getTranslationEditorCopy, getModWorkspaceCopy } from '@locales/api'
 import { renderWithLocale } from '@test/renderWithLocale'
 
 const copy = getModWorkspaceCopy('en-US')
-const i18nCopy = getModI18nWorkspaceCopy('en-US')
+const i18nCopy = getTranslationEditorCopy('en-US')
 
 afterEach(() => {
   cleanup()
@@ -39,10 +39,11 @@ function buildProject(overrides: Partial<Parameters<typeof ModBrowserPanel>[0]['
 }
 
 describe('ModBrowserPanel', () => {
-  it('shows the quick-start actions and filters projects', () => {
+  it('shows external source actions and filters projects', () => {
     const onFilterChange = vi.fn()
     const onSelectProject = vi.fn()
-    const onImportProject = vi.fn()
+    const onOpenFolder = vi.fn()
+    const onOpenArchive = vi.fn()
     const onRefreshProjects = vi.fn()
     const projects = [buildProject(), buildProject({ id: 'festival-pack', name: 'Festival Pack', absolutePath: 'E:\\Mods\\FestivalPack' })]
 
@@ -58,16 +59,14 @@ describe('ModBrowserPanel', () => {
         onContentPatcherOnlyChange={vi.fn()}
         onCompatibleOnlyChange={vi.fn()}
         onSelectProject={onSelectProject}
-        onImportProject={onImportProject}
+        onOpenFolder={onOpenFolder}
+        onOpenArchive={onOpenArchive}
         onRefreshProjects={onRefreshProjects}
       />,
     )
 
-    expect(screen.getByText('Get Started')).toBeTruthy()
-    expect(
-      screen.queryByText('Import a mod, refresh the scan, then pick one project to continue editing in the main workspace.'),
-    ).toBeNull()
-    expect(screen.getByRole('button', { name: copy.importProject })).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.openExternalFolder })).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.openExternalArchive })).toBeTruthy()
     expect(screen.getByRole('button', { name: copy.refreshProjects })).toBeTruthy()
 
     fireEvent.change(screen.getByPlaceholderText(copy.browserFilterPlaceholder), {
@@ -133,7 +132,7 @@ describe('ModBrowserPanel', () => {
     expect(onCompatibleOnlyChange).toHaveBeenCalledWith(false)
   })
 
-  it('uses the shared light browser shell and card treatment', () => {
+  it('uses the compact docked browser treatment', () => {
     renderWithLocale(
       <ModBrowserPanel
         projects={[buildProject()]}
@@ -151,15 +150,9 @@ describe('ModBrowserPanel', () => {
       />,
     )
 
-    const quickStartSection = screen.getByText('Get Started').closest('section')
-    const projectLibrarySection = screen.getByText('Project Library').closest('section')
-    const projectsStatCard = screen.getByText(copy.projectsLabel).closest('div')
-
-    expect(quickStartSection?.className).toContain('panel-surface')
-    expect(projectLibrarySection?.className).toContain('panel-surface')
-    expect(projectLibrarySection?.className).toContain('min-h-0')
-    expect(projectLibrarySection?.className).toContain('flex-1')
-    expect(projectsStatCard?.className).toContain('bg-[color-mix(in_srgb,var(--bg-panel)_95%,white_5%)]')
+    const search = screen.getByPlaceholderText(copy.browserFilterPlaceholder)
+    expect(search.closest('section')?.className).toContain('border-b')
+    expect(screen.getByText(copy.projectsLabel).closest('div')?.className).toContain('h-8')
   })
 
   it('uses the same light browser card style as other browser grids for project rows', () => {
@@ -188,17 +181,14 @@ describe('ModBrowserPanel', () => {
     expect(activeCard.className).toContain('loading-motion-child-reveal')
     expect(activeCard.style.getPropertyValue('--loading-motion-child-index')).toBe('0')
     expect(inactiveCard.style.getPropertyValue('--loading-motion-child-index')).toBe('1')
-    expect(activeCard.className).toContain('rounded-[20px]')
-    expect(activeCard.className).toContain('px-4')
-    expect(activeCard.className).toContain('py-3')
-    expect(activeCard.className).toContain(
-      'bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent)_12%,transparent),color-mix(in_srgb,var(--accent)_6%,var(--bg-panel)))]',
-    )
+    expect(activeCard.className).toContain('border-b')
+    expect(activeCard.className).toContain('px-3')
+    expect(activeCard.className).toContain('py-2.5')
+    expect(activeCard.className).toContain('bg-(--accent-soft)')
     expect(activeCard.className).not.toContain('panel-list-card')
-    expect(inactiveCard.className).toContain('rounded-[20px]')
     expect(inactiveCard.className).toContain('bg-(--bg-panel)')
-    expect(inactiveCard.className).toContain('px-4')
-    expect(inactiveCard.className).toContain('py-3')
+    expect(inactiveCard.className).toContain('px-3')
+    expect(inactiveCard.className).toContain('py-2.5')
     expect(inactiveCard.className).toContain('hover:bg-(--bg-panel-muted)')
     expect(inactiveCard.className).not.toContain('panel-list-card')
   })
@@ -221,10 +211,10 @@ describe('ModBrowserPanel', () => {
       />,
     )
 
-    const emptyState = screen.getByText('No projects yet').closest('.panel-empty-state')
+    const emptyState = screen.getByText(copy.browserLibraryEmptyTitle).closest('.panel-empty-state')
     expect(emptyState).toBeTruthy()
     expect(emptyState?.className).toContain('panel-empty-state')
-    expect(screen.getAllByText('Import a mod or refresh the scan to populate the workspace list.')).toHaveLength(2)
+    expect(screen.getAllByText(copy.browserLibraryEmptyDescription)).toHaveLength(1)
   })
 
   it('uses a higher-contrast badge treatment for non-CP projects', () => {
@@ -246,7 +236,7 @@ describe('ModBrowserPanel', () => {
     )
 
     const badge = screen.getByText('Unknown')
-    expect(badge.className).toContain('rounded-md')
+    expect(badge.className).toContain('rounded-sm')
     expect(badge.className).toContain('bg-[color-mix(in_srgb,var(--bg-panel-muted)_88%,transparent)]')
     expect(badge.className).toContain('text-(--text-primary)')
     expect(badge.className).not.toContain('text-amber-200')
@@ -271,10 +261,10 @@ describe('ModBrowserPanel', () => {
     )
 
     const badge = screen.getByText('Content Patcher')
-    expect(badge.className).toContain('rounded-md')
+    expect(badge.className).toContain('rounded-sm')
     expect(badge.className).toContain('whitespace-nowrap')
-    expect(badge.className).toContain('bg-[color-mix(in_srgb,var(--bg-panel-muted)_88%,transparent)]')
-    expect(badge.className).toContain('text-[color-mix(in_srgb,var(--text-primary)_88%,#065f46)]')
+    expect(badge.className).toContain('bg-(--success-soft)')
+    expect(badge.className).toContain('text-(--success)')
     expect(badge.className).not.toContain('text-emerald-200')
   })
 

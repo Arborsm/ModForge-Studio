@@ -102,24 +102,10 @@ pub struct ContentPatcherProjectData {
 #[serde(rename_all = "camelCase")]
 pub struct ModProjectDetail {
     pub plugin_kind: String,
-    pub capabilities: Vec<String>,
     pub summary: ModProjectSummary,
     pub diagnostics: Vec<ModProjectDiagnostic>,
     pub content_patcher: Option<ContentPatcherProjectData>,
     pub i18n_files: Vec<ContentPatcherI18nFile>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SaveModProjectRequest {
-    pub source_path: String,
-    pub output_path: Option<String>,
-    #[serde(default)]
-    pub overwrite_existing_export: bool,
-    pub manifest_json: String,
-    pub content_json: String,
-    #[serde(default)]
-    pub i18n_files: Vec<ContentPatcherI18nFileInput>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -129,14 +115,18 @@ pub struct ContentPatcherI18nFileInput {
     pub raw_json: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveModI18nFilesRequest {
+    pub source_path: String,
+    pub i18n_files: Vec<ContentPatcherI18nFileInput>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SaveModProjectResult {
-    pub plugin_kind: String,
-    pub target_path: String,
-    pub manifest_path: String,
-    pub content_path: String,
-    pub diagnostics: Vec<ModProjectDiagnostic>,
+pub struct SaveModI18nFilesResult {
+    pub source_path: String,
+    pub written_locales: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -1286,13 +1276,6 @@ fn build_mod_asset_index_group(
     })
 }
 
-fn content_patcher_capabilities() -> Vec<String> {
-    ["import", "edit", "save", "export", "validate"]
-        .into_iter()
-        .map(ToOwned::to_owned)
-        .collect()
-}
-
 fn ensure_project_root(path: &Path) -> anyhow::Result<PathBuf> {
     if path.join("manifest.json").is_file() {
         return Ok(path.to_path_buf());
@@ -1302,6 +1285,16 @@ fn ensure_project_root(path: &Path) -> anyhow::Result<PathBuf> {
         "No manifest.json was found in {}",
         normalize_path(path)
     ))
+}
+
+pub(crate) fn canonical_mod_project_root(source_path: &str) -> anyhow::Result<PathBuf> {
+    let project_root = ensure_project_root(&clean_input_path(source_path))?;
+    project_root.canonicalize().with_context(|| {
+        format!(
+            "Failed to resolve source mod directory {}",
+            normalize_path(&project_root)
+        )
+    })
 }
 
 fn infer_mods_scan_root(project_path: &Path) -> PathBuf {
@@ -1319,75 +1312,6 @@ fn infer_mods_scan_root(project_path: &Path) -> PathBuf {
         .parent()
         .map(Path::to_path_buf)
         .unwrap_or_else(|| project_path.to_path_buf())
-}
-
-fn remove_dir_contents(path: &Path) -> anyhow::Result<()> {
-    if !path.exists() {
-        return Ok(());
-    }
-
-    for entry in fs::read_dir(path)
-        .with_context(|| format!("Failed to read target directory {}", normalize_path(path)))?
-    {
-        let entry = entry.with_context(|| format!("Failed to inspect target directory entry"))?;
-        let entry_path = entry.path();
-        if entry_path.is_dir() {
-            fs::remove_dir_all(&entry_path).with_context(|| {
-                format!("Failed to remove directory {}", normalize_path(&entry_path))
-            })?;
-        } else {
-            fs::remove_file(&entry_path).with_context(|| {
-                format!("Failed to remove file {}", normalize_path(&entry_path))
-            })?;
-        }
-    }
-
-    Ok(())
-}
-
-fn directory_has_entries(path: &Path) -> anyhow::Result<bool> {
-    if !path.exists() {
-        return Ok(false);
-    }
-
-    let mut entries = fs::read_dir(path)
-        .with_context(|| format!("Failed to read target directory {}", normalize_path(path)))?;
-    Ok(entries
-        .next()
-        .transpose()
-        .with_context(|| {
-            format!(
-                "Failed to inspect target directory {}",
-                normalize_path(path)
-            )
-        })?
-        .is_some())
-}
-
-fn copy_dir_recursive(source: &Path, target: &Path) -> anyhow::Result<()> {
-    fs::create_dir_all(target)
-        .with_context(|| format!("Failed to create directory {}", normalize_path(target)))?;
-
-    for entry in fs::read_dir(source)
-        .with_context(|| format!("Failed to read source directory {}", normalize_path(source)))?
-    {
-        let entry = entry.with_context(|| format!("Failed to inspect source directory entry"))?;
-        let source_path = entry.path();
-        let target_path = target.join(entry.file_name());
-        if source_path.is_dir() {
-            copy_dir_recursive(&source_path, &target_path)?;
-        } else {
-            fs::copy(&source_path, &target_path).with_context(|| {
-                format!(
-                    "Failed to copy {} to {}",
-                    normalize_path(&source_path),
-                    normalize_path(&target_path)
-                )
-            })?;
-        }
-    }
-
-    Ok(())
 }
 
 pub(crate) fn scan_mod_projects(root_path: String) -> anyhow::Result<Vec<ModProjectSummary>> {
@@ -1493,7 +1417,6 @@ pub(crate) fn load_mod_project(path: String) -> anyhow::Result<ModProjectDetail>
     if !is_cp {
         return Ok(ModProjectDetail {
             plugin_kind: "unknown".to_string(),
-            capabilities: Vec::new(),
             summary: build_project_summary(
                 &project_path,
                 &manifest_path,
@@ -1523,7 +1446,6 @@ pub(crate) fn load_mod_project(path: String) -> anyhow::Result<ModProjectDetail>
 
     Ok(ModProjectDetail {
         plugin_kind: "content-patcher".to_string(),
-        capabilities: content_patcher_capabilities(),
         summary: build_project_summary(
             &project_path,
             &manifest_path,
@@ -1546,123 +1468,43 @@ pub(crate) fn load_mod_project(path: String) -> anyhow::Result<ModProjectDetail>
     })
 }
 
-pub(crate) fn save_mod_project(
-    request: SaveModProjectRequest,
-) -> anyhow::Result<SaveModProjectResult> {
-    let source_path = ensure_project_root(&clean_input_path(&request.source_path))?;
-    let target_path = request
-        .output_path
-        .as_deref()
-        .map(clean_input_path)
-        .filter(|path| !normalize_path(path).trim().is_empty())
-        .unwrap_or_else(|| source_path.clone());
-
-    let source_manifest_path = source_path.join("manifest.json");
-    let source_content_path = source_path.join("content.json");
-    let source_manifest = read_json_file(&source_manifest_path)
-        .map(|(_, value)| value)
-        .ok();
-    let source_content = if source_content_path.is_file() {
-        read_json_file(&source_content_path)
-            .map(|(_, value)| value)
-            .ok()
-    } else {
-        None
-    };
-    let is_cp = source_manifest
-        .as_ref()
-        .zip(source_content.as_ref())
-        .map(|(manifest, content)| is_content_patcher_project(manifest, content))
-        .unwrap_or(false);
-
-    let canonical_source = source_path.canonicalize().with_context(|| {
-        format!(
-            "Failed to resolve source mod directory {}",
-            normalize_path(&source_path)
-        )
-    })?;
-    let canonical_target_parent = target_path
-        .parent()
-        .unwrap_or_else(|| Path::new("."))
-        .canonicalize()
-        .with_context(|| {
-            format!(
-                "Failed to resolve export parent directory {}",
-                normalize_path(target_path.parent().unwrap_or_else(|| Path::new(".")))
-            )
-        })?;
-    let canonical_target = if target_path.exists() {
-        target_path.canonicalize().with_context(|| {
-            format!(
-                "Failed to resolve export directory {}",
-                normalize_path(&target_path)
-            )
-        })?
-    } else {
-        canonical_target_parent.join(
-            target_path
-                .file_name()
-                .context("Export target must include a directory name.")?,
-        )
-    };
-    let source_is_target = canonical_source == canonical_target;
-
-    if !source_is_target {
-        if canonical_target.starts_with(&canonical_source) {
-            bail!("Export target cannot be nested inside the source mod directory.");
-        }
-        if canonical_source.starts_with(&canonical_target) {
-            bail!("Export target cannot be the source mod directory's parent or ancestor.");
-        }
-
-        fs::create_dir_all(&target_path).with_context(|| {
-            format!(
-                "Failed to create export directory {}",
-                normalize_path(&target_path)
-            )
-        })?;
-        if directory_has_entries(&target_path)? {
-            if !request.overwrite_existing_export {
-                bail!(
-                    "Export target {} is not empty. Choose an empty folder or confirm overwrite.",
-                    normalize_path(&target_path)
-                );
-            }
-            remove_dir_contents(&target_path)?;
-        }
-        copy_dir_recursive(&source_path, &target_path)?;
+pub(crate) fn inspect_mod_archive(path: String) -> anyhow::Result<ModProjectDetail> {
+    let archive_path = clean_input_path(&path);
+    if !archive_path.is_file() {
+        return Err(anyhow::anyhow!(
+            "Mod archive {} does not exist.",
+            normalize_path(&archive_path)
+        ));
     }
 
-    let manifest_path = target_path.join("manifest.json");
-    let content_path = target_path.join("content.json");
-    let diagnostics;
+    crate::domain::launcher::archive::with_expanded_archive(&archive_path, |expanded_root| {
+        let project_roots = discover_project_roots(expanded_root)?;
+        if project_roots.len() != 1 {
+            return Err(anyhow::anyhow!(
+                "Expected one mod project in {}, found {}.",
+                normalize_path(&archive_path),
+                project_roots.len()
+            ));
+        }
+        let project_root = project_roots.into_iter().next().expect("length checked");
+        let mut detail = load_mod_project(normalize_path(&project_root))?;
+        detail.summary.absolute_path = normalize_path(&archive_path);
+        detail.summary.folder_name = archive_path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .to_string();
+        Ok(detail)
+    })
+}
 
-    if is_cp {
-        let manifest: Value = serde_json::from_str(&request.manifest_json)
-            .with_context(|| format!("manifest.json is not valid JSON"))?;
-        let content: Value = serde_json::from_str(&request.content_json)
-            .with_context(|| format!("content.json is not valid JSON"))?;
-        diagnostics = build_diagnostics(&manifest, &content, is_cp);
-
-        let manifest_pretty = serde_json::to_string_pretty(&manifest)
-            .with_context(|| format!("Failed to format manifest.json"))?;
-        let content_pretty = serde_json::to_string_pretty(&content)
-            .with_context(|| format!("Failed to format content.json"))?;
-
-        fs::write(&manifest_path, format!("{manifest_pretty}\n"))
-            .with_context(|| format!("Failed to write {}", normalize_path(&manifest_path)))?;
-        fs::write(&content_path, format!("{content_pretty}\n"))
-            .with_context(|| format!("Failed to write {}", normalize_path(&content_path)))?;
-    } else {
-        diagnostics = source_manifest
-            .as_ref()
-            .zip(source_content.as_ref())
-            .map(|(manifest, content)| build_diagnostics(manifest, content, is_cp))
-            .unwrap_or_default();
-    }
-
+fn write_i18n_files(
+    project_path: &Path,
+    files: Vec<ContentPatcherI18nFileInput>,
+) -> anyhow::Result<Vec<String>> {
     let mut i18n_payloads = Vec::new();
-    for file in request.i18n_files {
+    let mut written_locales = Vec::new();
+    for file in files {
         let locale = normalize_i18n_locale(&file.locale)?;
         let parsed: Value = serde_json::from_str(&file.raw_json)
             .with_context(|| format!("i18n/{locale}.json is not valid JSON"))?;
@@ -1675,7 +1517,7 @@ pub(crate) fn save_mod_project(
     }
 
     if !i18n_payloads.is_empty() {
-        let i18n_dir = target_path.join("i18n");
+        let i18n_dir = project_path.join("i18n");
         fs::create_dir_all(&i18n_dir).with_context(|| {
             format!(
                 "Failed to create i18n directory {}",
@@ -1686,19 +1528,21 @@ pub(crate) fn save_mod_project(
             let path = i18n_dir.join(format!("{locale}.json"));
             fs::write(&path, format!("{pretty}\n"))
                 .with_context(|| format!("Failed to write {}", normalize_path(&path)))?;
+            written_locales.push(locale);
         }
     }
+    Ok(written_locales)
+}
 
-    Ok(SaveModProjectResult {
-        plugin_kind: if is_cp {
-            "content-patcher".to_string()
-        } else {
-            "unknown".to_string()
-        },
-        target_path: normalize_path(&target_path),
-        manifest_path: normalize_path(&manifest_path),
-        content_path: normalize_path(&content_path),
-        diagnostics,
+pub(crate) fn save_mod_i18n_files(
+    request: SaveModI18nFilesRequest,
+) -> anyhow::Result<SaveModI18nFilesResult> {
+    let canonical_source = canonical_mod_project_root(&request.source_path)?;
+    let written_locales = write_i18n_files(&canonical_source, request.i18n_files)?;
+
+    Ok(SaveModI18nFilesResult {
+        source_path: normalize_path(&canonical_source),
+        written_locales,
     })
 }
 

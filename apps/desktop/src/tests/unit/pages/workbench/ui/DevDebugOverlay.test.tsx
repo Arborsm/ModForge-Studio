@@ -82,7 +82,7 @@ afterEach(() => {
 
 describe('DevDebugOverlay', () => {
   it('keeps the collapse button clickable without starting a drag', () => {
-    render(<DevDebugOverlay workspaceMode="events" mapName="Farm" eventName="Intro" currentEventCommandId="say:1" actorCount={2} />)
+    render(<DevDebugOverlay contextId="events" mapName="Farm" eventName="Intro" currentEventCommandId="say:1" actorCount={2} />)
 
     const button = screen.getByRole('button', { name: 'Collapse' })
     const overlay = button.closest('.fixed') as HTMLElement | null
@@ -115,7 +115,7 @@ describe('DevDebugOverlay', () => {
   })
 
   it('uses the title block as the drag handle and advertises the grab cursor', () => {
-    render(<DevDebugOverlay workspaceMode="map" mapName="Town" eventName={null} currentEventCommandId={null} actorCount={0} />)
+    render(<DevDebugOverlay contextId="map" mapName="Town" eventName={null} currentEventCommandId={null} actorCount={0} />)
 
     const handle = screen.getByText('Dev Debug').parentElement as HTMLElement | null
     const overlay = handle?.closest('.fixed') as HTMLElement | null
@@ -146,7 +146,7 @@ describe('DevDebugOverlay', () => {
   })
 
   it('keeps the draggable overlay below the title bar', () => {
-    render(<DevDebugOverlay workspaceMode="map" mapName="Town" eventName={null} currentEventCommandId={null} actorCount={0} />)
+    render(<DevDebugOverlay contextId="map" mapName="Town" eventName={null} currentEventCommandId={null} actorCount={0} />)
 
     const handle = screen.getByText('Dev Debug').parentElement as HTMLElement | null
     const overlay = handle?.closest('.fixed') as HTMLElement | null
@@ -186,7 +186,7 @@ describe('DevDebugOverlay', () => {
       })
     const setIntervalSpy = vi.spyOn(window, 'setInterval')
 
-    render(<DevDebugOverlay workspaceMode="map" mapName="Town" eventName={null} currentEventCommandId={null} actorCount={0} />)
+    render(<DevDebugOverlay contextId="map" mapName="Town" eventName={null} currentEventCommandId={null} actorCount={0} />)
     await act(async () => {
       await Promise.resolve()
     })
@@ -213,7 +213,7 @@ describe('DevDebugOverlay', () => {
     })
     vi.mocked(printHostRuntimeDiagnostics).mockResolvedValueOnce(undefined)
 
-    render(<DevDebugOverlay workspaceMode="map" mapName="Town" eventName={null} currentEventCommandId={null} actorCount={0} />)
+    render(<DevDebugOverlay contextId="map" mapName="Town" eventName={null} currentEventCommandId={null} actorCount={0} />)
     await act(async () => {
       await Promise.resolve()
     })

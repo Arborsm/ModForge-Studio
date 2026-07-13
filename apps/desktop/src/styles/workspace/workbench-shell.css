@@ -116,6 +116,22 @@
     background: var(--bg-hover);
   }
 
+  .workbench-side-nav-item.is-locked {
+    color: var(--text-tertiary);
+    opacity: 0.55;
+  }
+
+  .workbench-side-nav-item.is-locked:hover {
+    background: transparent;
+    color: var(--text-tertiary);
+  }
+
+  .workbench-side-nav-lock {
+    width: 0.75rem;
+    height: 0.75rem;
+    opacity: 0.75;
+  }
+
   .workbench-side-nav-chev {
     width: 0.875rem;
     height: 0.875rem;
