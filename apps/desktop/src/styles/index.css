@@ -20,6 +20,7 @@
 @import './workspace/event-stage/index.css';
 @import './workspace/building/building-workspace.css';
 @import './features/settings-window.css';
+@import './features/ai-settings.css';
 @import './features/notifications.css';
 @import './features/launcher/index.css';
 @source '../main.tsx';

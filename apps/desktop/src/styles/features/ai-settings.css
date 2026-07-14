@@ -1,0 +1,144 @@
+@layer components {
+  .settings-ai-section {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .settings-ai-heading,
+  .settings-ai-footer,
+  .settings-ai-profile-head,
+  .settings-ai-profile-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .settings-ai-profiles {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .settings-ai-profile {
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    background: var(--bg-panel-muted);
+    padding: 0.875rem;
+  }
+
+  .settings-ai-profile.is-default {
+    border-color: var(--accent);
+  }
+
+  .settings-ai-default {
+    display: inline-flex;
+    min-height: 1.75rem;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+  }
+
+  .settings-ai-default.is-active {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .settings-ai-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+  }
+
+  .settings-ai-grid label {
+    display: grid;
+    min-width: 0;
+    gap: 0.35rem;
+    color: var(--text-secondary);
+    font-size: 0.6875rem;
+  }
+
+  .settings-ai-wide {
+    grid-column: 1 / -1;
+  }
+
+  .settings-ai-secret {
+    position: relative;
+  }
+
+  .settings-ai-secret > svg {
+    position: absolute;
+    top: 50%;
+    left: 0.65rem;
+    z-index: 1;
+    color: var(--text-tertiary);
+    transform: translateY(-50%);
+  }
+
+  .settings-ai-secret .control-input {
+    padding-left: 2rem;
+  }
+
+  .settings-ai-profile-actions {
+    margin-top: 0.75rem;
+    justify-content: flex-end;
+  }
+
+  .settings-ai-profile-actions > span {
+    min-width: 0;
+    flex: 1;
+    color: var(--text-secondary);
+    font-size: 0.6875rem;
+    overflow-wrap: anywhere;
+  }
+
+  .settings-ai-cache {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--text-secondary);
+  }
+
+  .settings-ai-cache div {
+    display: grid;
+    gap: 0.15rem;
+  }
+
+  .settings-ai-cache strong {
+    color: var(--text-primary);
+    font-size: 0.75rem;
+  }
+
+  .settings-ai-cache span,
+  .settings-ai-empty,
+  .settings-ai-error {
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+  }
+
+  .settings-ai-error {
+    color: var(--danger);
+  }
+
+  @media (max-width: 900px) {
+    .settings-ai-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .settings-ai-wide {
+      grid-column: auto;
+    }
+
+    .settings-ai-heading,
+    .settings-ai-footer,
+    .settings-ai-profile-actions {
+      align-items: stretch;
+      flex-direction: column;
+    }
+  }
+}

@@ -4,6 +4,10 @@ use std::path::PathBuf;
 const APP_DATA_DIR_NAME: &str = "ModForge Studio";
 
 pub(crate) fn modforge_data_dir() -> anyhow::Result<PathBuf> {
+    #[cfg(test)]
+    if let Some(path) = std::env::var_os("MODFORGE_TEST_DATA_DIR") {
+        return Ok(PathBuf::from(path));
+    }
     dirs::config_dir()
         .map(|path| path.join(APP_DATA_DIR_NAME))
         .context("Failed to resolve the user data directory.")
@@ -63,4 +67,14 @@ pub(crate) fn app_cache_dir() -> anyhow::Result<PathBuf> {
 
 pub(crate) fn app_logs_dir() -> anyhow::Result<PathBuf> {
     Ok(modforge_data_dir()?.join("logs"))
+}
+
+pub(crate) fn ai_settings_path() -> anyhow::Result<PathBuf> {
+    Ok(modforge_data_dir()?.join("ai").join("ai-settings.json"))
+}
+
+pub(crate) fn ai_translation_cache_path() -> anyhow::Result<PathBuf> {
+    Ok(modforge_data_dir()?
+        .join("ai")
+        .join("translation-cache.sqlite3"))
 }

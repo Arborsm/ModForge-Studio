@@ -9,6 +9,7 @@ export type SettingsMenuCopy = {
     view: string
     interaction: string
     launcher: string
+    ai: string
     debug: string
   }
   closeDialogLabel: string
@@ -64,12 +65,47 @@ export type SettingsMenuCopy = {
   minimizeToTrayActionLabel: string
   futureLabel: string
   futureDescription: string
+  ai: {
+    title: string
+    description: string
+    addProfile: string
+    noProfiles: string
+    defaultProfile: string
+    setDefault: string
+    profileName: string
+    provider: string
+    protocol: string
+    baseUrl: string
+    model: string
+    apiKey: string
+    apiKeyPlaceholder: string
+    clearApiKey: string
+    environment: string
+    credentialKeychain: string
+    credentialEnvironment: string
+    credentialMissing: string
+    save: string
+    saving: string
+    delete: string
+    loadModels: string
+    testConnection: string
+    saveBeforeRemoteActions: string
+    testing: string
+    testSuccess: (latency: number) => string
+    cacheTitle: string
+    cacheStats: (entries: number, size: string) => string
+    clearCache: string
+    clearCacheConfirm: string
+    loadError: string
+    saveError: string
+  }
   categoryDescriptions: {
     appearance: string
     loading: string
     view: string
     interaction: string
     launcher: string
+    ai: string
     debug: string
   }
 }

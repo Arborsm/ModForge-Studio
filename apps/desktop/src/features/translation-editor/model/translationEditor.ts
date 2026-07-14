@@ -114,6 +114,13 @@ export function updateI18nFileEntry(file: ContentPatcherI18nFile, key: string, v
   }
 }
 
+export function updateI18nFileEntries(file: ContentPatcherI18nFile, values: ReadonlyMap<string, string>): ContentPatcherI18nFile {
+  const entries = parseI18nObject(file)
+  for (const [key, value] of values) entries[key] = value
+  const rawJson = `${JSON.stringify(entries, null, 2)}\n`
+  return { ...file, rawJson, entryCount: Object.keys(entries).length }
+}
+
 export function createI18nFile(projectPath: string, locale: string): ContentPatcherI18nFile {
   const filename = `${locale}.json`
   return {

@@ -10,6 +10,7 @@ import type { LocaleCode } from '@locales/api'
 import { useSettingsMenuCopy } from '@locales/provider'
 import type { SettingsWindowCategory, WindowBorderTone, WindowBorderWeight, WindowCloseBehavior } from '@shared/contracts'
 import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionStyleId } from '@shared/lib/loading-motion'
+import { AiSettingsPanel } from './settings/AiSettingsPanel'
 
 type ThemeOption = {
   id: string
@@ -299,14 +300,14 @@ export default function SettingsWindow({
             <p className="settings-window-title">{title}</p>
           </div>
 
-          <button type="button" className="workspace-panel-action h-8 w-8" onClick={onClose} title="Close settings">
+          <button type="button" className="workspace-panel-action h-8 w-8" onClick={onClose} title={settingsCopy.closeDialogLabel}>
             <X className="h-4 w-4" />
           </button>
         </header>
 
         <div className="settings-window-body">
           <aside className="settings-window-sidebar">
-            {(['appearance', 'loading', 'view', 'interaction', 'debug'] as const).map((categoryId) => (
+            {(['appearance', 'loading', 'view', 'interaction', 'ai', 'debug'] as const).map((categoryId) => (
               <button
                 key={categoryId}
                 type="button"
@@ -320,6 +321,7 @@ export default function SettingsWindow({
           </aside>
 
           <div className="settings-window-content">
+            {activeCategory === 'ai' ? <AiSettingsPanel /> : null}
             {activeCategory === 'appearance' ? (
               <section className="settings-window-section">
                 <div className="flex items-center justify-between gap-3">

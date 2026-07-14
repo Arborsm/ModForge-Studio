@@ -27,6 +27,16 @@ export type TranslationEditorCopy = {
   shortcutSaveAndNext: string
   shortcutSaveAndPrevious: string
   shortcutHint: string
+  aiTranslate: string
+  aiTranslateCurrent: string
+  aiTranslateMissing: string
+  aiTranslateAll: string
+  aiTranslateAllConfirm: string
+  aiTranslating: (completed: number, total: number) => string
+  aiCancel: string
+  aiNotConfigured: string
+  aiFailed: string
+  aiPartialFailed: (count: number) => string
   browserTitle: string
   browserSearchPlaceholder: string
   browserRefreshProjects: string

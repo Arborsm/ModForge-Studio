@@ -1,14 +1,18 @@
-import { fireEvent, screen } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { getTranslationEditorCopy } from '@locales/api'
 import { renderWithLocale } from '@test/renderWithLocale'
 import { TranslationEditor } from '@features/translation-editor/view/TranslationEditor'
 import type { ContentPatcherI18nFile, ModProjectDetail } from '@entities/mod/api'
+import { AiProvider } from '@entities/ai'
+import type { AiPort, AiTranslateBatchRequest, AiTranslateBatchResult } from '@shared/contracts'
+import { clearNotifications, NotificationProvider } from '@shared/ui/notifications'
 
 const copy = getTranslationEditorCopy('en-US')
 
 afterEach(() => {
   vi.clearAllMocks()
+  clearNotifications()
 })
 
 function buildI18nFile(locale: string, entries: Record<string, string> = {}): ContentPatcherI18nFile {
@@ -49,7 +53,51 @@ function buildProjectDetail(files: ContentPatcherI18nFile[]): ModProjectDetail {
   }
 }
 
-function renderWorkspace(props: Partial<Parameters<typeof TranslationEditor>[0]> = {}) {
+function createAiPort(overrides: Partial<AiPort> = {}): AiPort {
+  return {
+    loadSettings: vi.fn(async () => ({
+      version: 1,
+      defaultProfileId: 'profile',
+      profiles: [
+        {
+          id: 'profile',
+          name: 'Test',
+          presetId: 'openai',
+          protocol: 'openai-responses',
+          baseUrl: 'https://api.openai.com/v1',
+          model: 'test',
+          credentialEnvironment: null,
+          keyConfigured: true,
+          resolvedCredentialSource: 'keychain',
+        },
+      ],
+      presets: [],
+    })),
+    saveSettings: vi.fn(),
+    listModels: vi.fn(),
+    testProfile: vi.fn(),
+    translateBatch: vi.fn(async (request: AiTranslateBatchRequest) => ({
+      jobId: request.jobId,
+      profileId: 'profile',
+      model: 'test',
+      items: request.items.map((item) => ({
+        id: item.id,
+        translatedText: `AI:${item.text}`,
+        detectedLanguage: 'en',
+        skippedSameLanguage: false,
+      })),
+    })),
+    cancelJob: vi.fn(async () => undefined),
+    listenToProgress: vi.fn(async () => () => undefined),
+    readCache: vi.fn(async () => null),
+    writeCache: vi.fn(),
+    getCacheStats: vi.fn(),
+    clearCache: vi.fn(),
+    ...overrides,
+  } as AiPort
+}
+
+function renderWorkspace(props: Partial<Parameters<typeof TranslationEditor>[0]> = {}, ai = createAiPort()) {
   const i18nFiles = props.i18nFiles ?? [buildI18nFile('default', { greeting: 'Hello' }), buildI18nFile('zh', { greeting: '你好' })]
   const projectDetail = buildProjectDetail(i18nFiles)
   const project = props.project ?? { name: projectDetail.summary.name, rootPath: projectDetail.summary.absolutePath }
@@ -70,9 +118,15 @@ function renderWorkspace(props: Partial<Parameters<typeof TranslationEditor>[0]>
     onSave: vi.fn(),
   }
 
-  renderWithLocale(<TranslationEditor {...defaults} {...props} i18nFiles={i18nFiles} project={project} />)
+  renderWithLocale(
+    <NotificationProvider>
+      <AiProvider port={ai}>
+        <TranslationEditor {...defaults} {...props} i18nFiles={i18nFiles} project={project} />
+      </AiProvider>
+    </NotificationProvider>,
+  )
 
-  return { ...defaults, i18nFiles, projectDetail }
+  return { ...defaults, i18nFiles, projectDetail, ai }
 }
 
 describe('TranslationEditor', () => {
@@ -129,5 +183,83 @@ describe('TranslationEditor', () => {
 
     expect(screen.queryAllByText(copy.noI18n).length).toBeGreaterThan(0)
     expect(screen.queryByText(copy.noMatchingEntries)).toBeNull()
+  })
+
+  it('fills only missing entries into the unsaved draft', async () => {
+    const i18nFiles = [buildI18nFile('default', { greeting: 'Hello', farewell: 'Goodbye' }), buildI18nFile('zh', { greeting: '你好' })]
+    const { onI18nFilesChange, onSave } = renderWorkspace({ i18nFiles })
+    fireEvent.click(screen.getByText(copy.aiTranslate))
+    fireEvent.click(screen.getByRole('button', { name: copy.aiTranslateMissing }))
+    await waitFor(() => expect(onI18nFilesChange).toHaveBeenCalledTimes(1))
+    const next = (onI18nFilesChange as ReturnType<typeof vi.fn>).mock.calls[0][0] as ContentPatcherI18nFile[]
+    expect(JSON.parse(next.find((file) => file.locale === 'zh')?.rawJson ?? '{}')).toEqual({ greeting: '你好', farewell: 'AI:Goodbye' })
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it('requires confirmation before translating all entries', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const ai = createAiPort()
+    renderWorkspace({}, ai)
+    fireEvent.click(screen.getByText(copy.aiTranslate))
+    fireEvent.click(screen.getByRole('button', { name: copy.aiTranslateAll }))
+    expect(confirm).toHaveBeenCalledWith(copy.aiTranslateAllConfirm)
+    expect(ai.translateBatch).not.toHaveBeenCalled()
+  })
+
+  it('keeps successful draft results and reports the exact failed entry', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const i18nFiles = [
+      buildI18nFile('default', { farewell: 'Goodbye', greeting: 'Hello' }),
+      buildI18nFile('zh', { farewell: '再见', greeting: '你好' }),
+    ]
+    const ai = createAiPort({
+      translateBatch: vi.fn(async (request: AiTranslateBatchRequest) => {
+        if (request.items.some((item) => item.id === 'farewell')) throw new Error('provider rejected farewell')
+        return {
+          jobId: request.jobId,
+          profileId: 'profile',
+          model: 'test',
+          items: request.items.map((item) => ({
+            id: item.id,
+            translatedText: `AI:${item.text}`,
+            detectedLanguage: 'en',
+            skippedSameLanguage: false,
+          })),
+        }
+      }),
+    })
+    const { onI18nFilesChange, onSave } = renderWorkspace({ i18nFiles }, ai)
+
+    fireEvent.click(screen.getByText(copy.aiTranslate))
+    fireEvent.click(screen.getByRole('button', { name: copy.aiTranslateAll }))
+
+    await waitFor(() => expect(onI18nFilesChange).toHaveBeenCalledTimes(1))
+    const next = (onI18nFilesChange as ReturnType<typeof vi.fn>).mock.calls[0][0] as ContentPatcherI18nFile[]
+    expect(JSON.parse(next.find((file) => file.locale === 'zh')?.rawJson ?? '{}')).toEqual({ farewell: '再见', greeting: 'AI:Hello' })
+    expect(screen.getAllByText('farewell').length).toBeGreaterThan(1)
+    expect(screen.getByText(copy.aiPartialFailed(1))).toBeTruthy()
+    expect(await screen.findByText('Some translations failed')).toBeTruthy()
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it('does not publish an error notification when the user cancels translation', async () => {
+    let rejectTranslation: ((cause: Error) => void) | undefined
+    const ai = createAiPort({
+      translateBatch: vi.fn(
+        (): Promise<AiTranslateBatchResult> =>
+          new Promise((_, reject) => {
+            rejectTranslation = reject
+          }),
+      ),
+    })
+    renderWorkspace({}, ai)
+
+    fireEvent.click(screen.getByText(copy.aiTranslate))
+    fireEvent.click(screen.getByRole('button', { name: copy.aiTranslateCurrent }))
+    fireEvent.click(await screen.findByRole('button', { name: copy.aiCancel }))
+    rejectTranslation?.(new Error('AI_ERROR::cancelled::AI translation was cancelled.'))
+
+    await waitFor(() => expect(screen.queryByText('AI translation failed')).toBeNull())
+    expect(ai.cancelJob).toHaveBeenCalled()
   })
 })

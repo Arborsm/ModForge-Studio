@@ -1,4 +1,5 @@
 export type * from './commands'
+export type * from './ai'
 export type * from './events'
 export type * from './platform'
 export type * from './registry'

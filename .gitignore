@@ -51,3 +51,6 @@ CLAUDE.md
 *.png*
 *.html*
 !website/**/*.html
+
+# Local integration-test credentials
+/KimiForTest.txt

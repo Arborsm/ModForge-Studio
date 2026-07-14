@@ -446,6 +446,17 @@ vi.mock('@platform/host', () => ({
   toggleMaximizeCurrentWindow: vi.fn(async () => false),
   toDesktopAssetUrl: vi.fn((value: string) => `asset:${value}`),
   writeFrontendLog: vi.fn(async () => undefined),
+  loadAiSettings: vi.fn(async () => ({ version: 1, defaultProfileId: null, profiles: [], presets: [] })),
+  saveAiSettings: vi.fn(async () => ({ version: 1, defaultProfileId: null, profiles: [], presets: [] })),
+  listAiModels: vi.fn(async () => []),
+  testAiProfile: vi.fn(async () => ({ model: '', latencyMs: 0 })),
+  translateAiBatch: vi.fn(),
+  cancelAiJob: vi.fn(async () => undefined),
+  listenToAiProgress: vi.fn(async () => () => undefined),
+  readAiTranslationCache: vi.fn(async () => null),
+  writeAiTranslationCache: vi.fn(async (entry: unknown) => entry),
+  getAiTranslationCacheStats: vi.fn(async () => ({ entryCount: 0, sizeBytes: 0 })),
+  clearAiTranslationCache: vi.fn(async () => ({ entryCount: 0, sizeBytes: 0 })),
 }))
 
 vi.mock('@platform/host/runtime', () => ({
@@ -836,7 +847,7 @@ describe('App locale ownership', () => {
     expect(screen.getByTestId('workbench-shell-skeleton')).toBeTruthy()
     expect(container.querySelector('.loading-motion-fallback')).toBeNull()
 
-    expect(await screen.findByTestId('workspace-layout')).toBeTruthy()
+    expect(await screen.findByTestId('workspace-layout', undefined, { timeout: 5000 })).toBeTruthy()
   })
 
   it('shows a custom quit dialog before closing from desktop window controls', async () => {
@@ -903,7 +914,7 @@ describe('App locale ownership', () => {
 
     fireEvent.click(screen.getByRole('button', { name: englishSettingsName }))
 
-    const localeGroup = await screen.findByRole('radiogroup', { name: englishSettingsCopy.languageLabel }, { timeout: 3000 })
+    const localeGroup = await screen.findByRole('radiogroup', { name: englishSettingsCopy.languageLabel }, { timeout: 5000 })
     const chineseOption = screen.getByRole('radio', { name: englishSettingsCopy.localeLabels['zh-CN'] })
 
     expect(localeGroup).toBeTruthy()

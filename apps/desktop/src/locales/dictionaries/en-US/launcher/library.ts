@@ -115,6 +115,13 @@ const library: LauncherLibraryCopy = {
     modManagerDownload: 'Mod manager',
     filesLoading: 'Loading Nexus files...',
     changelogEmpty: 'No changelog entries were published for this mod.',
+    aiTranslate: 'AI Translate',
+    aiTranslating: 'Translating...',
+    aiOriginal: 'Original',
+    aiTranslated: 'Translation',
+    aiRefresh: 'Refresh translation',
+    aiNotConfigured: 'Configure a default AI profile in Settings before translating.',
+    aiError: 'AI translation failed.',
     config: {
       title: 'Config fields',
       loading: 'Parsing config...',

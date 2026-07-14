@@ -36,5 +36,18 @@ export {
   type FrontendLogRequest,
 } from './logging'
 export { loadAppUiState, patchAppUiState } from './appUi'
+export {
+  cancelAiJob,
+  clearAiTranslationCache,
+  getAiTranslationCacheStats,
+  listAiModels,
+  listenToAiProgress,
+  loadAiSettings,
+  readAiTranslationCache,
+  saveAiSettings,
+  testAiProfile,
+  translateAiBatch,
+  writeAiTranslationCache,
+} from './ai'
 export { clearFileCache, getFileCacheStats, type FileCacheStats } from './fileCache'
 export { saveFileContent, type FileContentSaveRequest } from './fileExport'

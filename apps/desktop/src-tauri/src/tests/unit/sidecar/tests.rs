@@ -330,6 +330,28 @@ fn command_execution_pool(command: &str) -> Option<HostCommandExecutionPool> {
     }
 }
 
+fn command_binding(
+    command: &str,
+) -> Option<(SidecarLane, HostCommandExecutionPool, Vec<SidecarResource>)> {
+    let ctx = SidecarContext {
+        app: AppHandle::sidecar(|_, _| Ok(())),
+        debug_logging_state: DebugLoggingState::new(),
+    };
+    match resolve_command(
+        &ctx,
+        RpcRequest {
+            id: json!(1),
+            command: command.to_string(),
+            args: Value::Null,
+        },
+    ) {
+        ResolvedSidecarCommandOrResponse::Command(command) => {
+            Some((command.lane, command.execution_pool, command.resources))
+        }
+        ResolvedSidecarCommandOrResponse::Response(_) => None,
+    }
+}
+
 #[test]
 fn tauri_host_runtime_waits_on_async_response_channel() {
     let runtime = parse_source("commands/runtime.rs");
@@ -364,6 +386,41 @@ fn launcher_image_cdn_has_dedicated_host_pool() {
     assert_eq!(
         command_execution_pool("load_launcher_remote_mod_detail"),
         Some(HostCommandExecutionPool::Lane)
+    );
+}
+
+#[test]
+fn ai_commands_use_the_dedicated_pool_and_declared_resources() {
+    let config = SidecarSchedulerConfig::default();
+    assert_eq!(config.ai_max_concurrency, 2);
+    assert_eq!(config.ai_queue_capacity, 64);
+    assert_eq!(
+        command_binding("translate_ai_batch"),
+        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
+    );
+    assert_eq!(
+        command_binding("list_ai_models"),
+        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
+    );
+    assert_eq!(
+        command_binding("cancel_ai_job"),
+        Some((SidecarLane::Control, HostCommandExecutionPool::Lane, vec![]))
+    );
+    assert_eq!(
+        command_binding("save_ai_settings"),
+        Some((
+            SidecarLane::Mutation,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiSettings]
+        ))
+    );
+    assert_eq!(
+        command_binding("clear_ai_translation_cache"),
+        Some((
+            SidecarLane::Mutation,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiTranslationCache]
+        ))
     );
 }
 
@@ -619,6 +676,8 @@ fn test_config(
         mutation_max_concurrency,
         launcher_image_cdn_max_concurrency: SidecarSchedulerConfig::default()
             .launcher_image_cdn_max_concurrency,
+        ai_max_concurrency: SidecarSchedulerConfig::default().ai_max_concurrency,
+        ai_queue_capacity: SidecarSchedulerConfig::default().ai_queue_capacity,
         pool_queue_capacity,
     }
 }
@@ -849,6 +908,60 @@ fn launcher_image_cdn_pool_does_not_share_network_lane_workers() {
         .expect("cover command should start on the dedicated CDN pool");
     let response = scheduler.recv();
     assert_eq!(response.id, json!("cover"));
+    assert!(response.ok);
+
+    release_network_tx
+        .send(())
+        .expect("network command should be releasable");
+    let response = scheduler.recv();
+    assert_eq!(response.id, json!("blocked-network"));
+    assert!(response.ok);
+}
+
+#[test]
+fn ai_pool_does_not_share_network_lane_workers() {
+    let scheduler = TestSchedulerHarness::new(SidecarSchedulerConfig {
+        ai_max_concurrency: 1,
+        ..test_config(1, 1, 1, 1, 8)
+    });
+    let (network_started_tx, network_started_rx) = mpsc::channel();
+    let (release_network_tx, release_network_rx) = mpsc::channel();
+    scheduler.submit(create_test_command(
+        SidecarLane::Network,
+        "blocked-network",
+        NO_RESOURCES,
+        move || {
+            network_started_tx
+                .send(())
+                .expect("network should signal start");
+            release_network_rx
+                .recv()
+                .expect("network command should be released");
+            Ok(Value::Null)
+        },
+    ));
+    network_started_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("network command should start");
+
+    let (ai_started_tx, ai_started_rx) = mpsc::channel();
+    scheduler.submit(create_test_command_on_pool(
+        HostCommandExecutionPool::Ai,
+        SidecarLane::Network,
+        "ai",
+        NO_RESOURCES,
+        move || {
+            ai_started_tx
+                .send(())
+                .expect("AI command should signal start");
+            Ok(Value::Null)
+        },
+    ));
+    ai_started_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("AI command should start on its dedicated pool");
+    let response = scheduler.recv();
+    assert_eq!(response.id, json!("ai"));
     assert!(response.ok);
 
     release_network_tx

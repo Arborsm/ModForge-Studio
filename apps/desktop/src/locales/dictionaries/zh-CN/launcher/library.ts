@@ -114,6 +114,13 @@ const library: LauncherLibraryCopy = {
     modManagerDownload: '模组管理器下载',
     filesLoading: '正在加载 Nexus 文件列表...',
     changelogEmpty: '这个模组没有发布更新日志。',
+    aiTranslate: 'AI 翻译',
+    aiTranslating: '翻译中...',
+    aiOriginal: '原文',
+    aiTranslated: '译文',
+    aiRefresh: '刷新译文',
+    aiNotConfigured: '请先在设置中配置默认 AI 档案。',
+    aiError: 'AI 翻译失败。',
     config: {
       title: '配置项',
       loading: '正在解析配置...',

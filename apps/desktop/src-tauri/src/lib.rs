@@ -20,6 +20,11 @@ pub use support::logging;
 pub type AppRuntime = tauri::Wry;
 pub type AppHandle = host::HostHandle;
 
+use commands::ai::{
+    cancel_ai_job, clear_ai_translation_cache, get_ai_translation_cache_stats, list_ai_models,
+    load_ai_settings, read_ai_translation_cache, save_ai_settings, test_ai_profile,
+    translate_ai_batch, write_ai_translation_cache,
+};
 use commands::app_ui::{load_app_ui_state, patch_app_ui_state};
 use commands::assets::{
     clear_file_cache, detect_default_game_directory, export_file, export_map_png,
@@ -234,6 +239,16 @@ pub fn run() {
             start_nexus_sso,
             get_nexus_sso_status,
             cancel_nexus_sso,
+            load_ai_settings,
+            save_ai_settings,
+            list_ai_models,
+            test_ai_profile,
+            translate_ai_batch,
+            cancel_ai_job,
+            read_ai_translation_cache,
+            write_ai_translation_cache,
+            get_ai_translation_cache_stats,
+            clear_ai_translation_cache,
         ])
         .build(generate_context!())
         .expect("error while building tauri application")

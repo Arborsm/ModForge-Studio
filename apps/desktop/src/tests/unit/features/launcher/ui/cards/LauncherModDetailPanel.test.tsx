@@ -1,11 +1,59 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { cleanup, type RenderResult } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vite-plus/test'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { LauncherDiscoverDetail, LauncherLibraryItem } from '@features/launcher'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import { createMockLauncherPort } from '@test/launcherTestPort'
 import { renderWithLocaleAndLaunchers } from '@test/renderWithLocaleAndLaunchers'
+import { renderWithLocale } from '@test/renderWithLocale'
 import { LauncherModDetailPanel } from '@features/launcher/ui/cards/LauncherModDetailPanel'
+import { AiProvider } from '@entities/ai'
+import type { AiPort, AiTranslateBatchRequest } from '@shared/contracts'
+import { clearNotifications, NotificationProvider } from '@shared/ui/notifications'
+
+function createAiPort(overrides: Partial<AiPort> = {}): AiPort {
+  return {
+    loadSettings: vi.fn(async () => ({
+      version: 1,
+      defaultProfileId: 'profile',
+      profiles: [
+        {
+          id: 'profile',
+          name: 'Test',
+          presetId: 'openai',
+          protocol: 'openai-responses',
+          baseUrl: 'https://api.openai.com/v1',
+          model: 'test',
+          credentialEnvironment: null,
+          keyConfigured: true,
+          resolvedCredentialSource: 'keychain',
+        },
+      ],
+      presets: [],
+    })),
+    saveSettings: vi.fn(),
+    listModels: vi.fn(),
+    testProfile: vi.fn(),
+    translateBatch: vi.fn(async (request: AiTranslateBatchRequest) => ({
+      jobId: request.jobId,
+      profileId: 'profile',
+      model: 'test',
+      items: request.items.map((item) => ({
+        id: item.id,
+        translatedText: `译:${item.text}`,
+        detectedLanguage: 'en',
+        skippedSameLanguage: false,
+      })),
+    })),
+    cancelJob: vi.fn(async () => undefined),
+    listenToProgress: vi.fn(async () => () => undefined),
+    readCache: vi.fn(async () => null),
+    writeCache: vi.fn(async (entry) => entry),
+    getCacheStats: vi.fn(),
+    clearCache: vi.fn(),
+    ...overrides,
+  } as AiPort
+}
 
 function createLocalMod(overrides: Partial<LauncherLibraryItem> = {}): LauncherLibraryItem {
   return {
@@ -76,6 +124,7 @@ function renderPanel(
     loadConfigItems?: LauncherPort['loadConfigItems']
     libraryMods?: LauncherLibraryItem[]
     onSearchDependency?: Parameters<typeof LauncherModDetailPanel>[0]['onSearchDependency']
+    aiPort?: AiPort
   } = {},
 ): LauncherPort & { renderResult: RenderResult } {
   const port = createMockLauncherPort({
@@ -111,21 +160,25 @@ function renderPanel(
   })
 
   const renderResult = renderWithLocaleAndLaunchers(
-    <LauncherModDetailPanel
-      open={options.open ?? true}
-      onClose={vi.fn()}
-      mod={mod}
-      remoteDetail={remoteDetail}
-      onToggleEnabled={vi.fn()}
-      remoteLoading={options.remoteLoading}
-      remoteFilesDeferred={options.remoteFilesDeferred}
-      libraryMods={options.libraryMods}
-      onOpenFolder={vi.fn()}
-      onSetCover={vi.fn()}
-      onClearCover={vi.fn()}
-      onQueueDownload={options.onQueueDownload}
-      onSearchDependency={options.onSearchDependency}
-    />,
+    <NotificationProvider>
+      <AiProvider port={options.aiPort ?? createAiPort()}>
+        <LauncherModDetailPanel
+          open={options.open ?? true}
+          onClose={vi.fn()}
+          mod={mod}
+          remoteDetail={remoteDetail}
+          onToggleEnabled={vi.fn()}
+          remoteLoading={options.remoteLoading}
+          remoteFilesDeferred={options.remoteFilesDeferred}
+          libraryMods={options.libraryMods}
+          onOpenFolder={vi.fn()}
+          onSetCover={vi.fn()}
+          onClearCover={vi.fn()}
+          onQueueDownload={options.onQueueDownload}
+          onSearchDependency={options.onSearchDependency}
+        />
+      </AiProvider>
+    </NotificationProvider>,
     'en-US',
     undefined,
     port,
@@ -135,6 +188,63 @@ function renderPanel(
 }
 
 describe('LauncherModDetailPanel', () => {
+  afterEach(() => clearNotifications())
+
+  it('translates loaded detail text on demand and keeps the original available', async () => {
+    const aiPort = createAiPort()
+    renderPanel(createLocalMod(), createRemoteDetail(), { aiPort })
+    fireEvent.click(screen.getByRole('button', { name: /AI Translate/i }))
+    await waitFor(() => expect(aiPort.writeCache).toHaveBeenCalledTimes(1))
+    expect(screen.getByText(/译:Loads Content Patcher packs/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Original/i }))
+    expect(screen.getByText(/Loads Content Patcher packs/)).toBeTruthy()
+    expect(aiPort.translateBatch).toHaveBeenCalled()
+  })
+
+  it('publishes one sanitized retryable notification when AI translation fails', async () => {
+    const aiPort = createAiPort({
+      translateBatch: vi.fn().mockRejectedValue(new Error('AI_ERROR::timeout::provider diagnostic detail')),
+    })
+    renderPanel(createLocalMod(), createRemoteDetail(), { aiPort })
+
+    fireEvent.click(screen.getByRole('button', { name: /AI Translate/i }))
+    const title = await screen.findByText('AI translation failed')
+    const toast = title.closest('.notification-toast')
+    expect(toast?.textContent).toContain('did not respond before the request timed out')
+    expect(toast?.textContent).not.toContain('provider diagnostic detail')
+
+    fireEvent.click(screen.getByRole('button', { name: /AI Translate/i }))
+    await waitFor(() => expect(screen.getAllByText('AI translation failed')).toHaveLength(1))
+  })
+
+  it('reports a user-triggered SQLite cache failure separately from provider failures', async () => {
+    const aiPort = createAiPort({
+      readCache: vi.fn().mockRejectedValue(new Error('AI_ERROR::cache::database is locked')),
+    })
+    renderPanel(createLocalMod(), createRemoteDetail(), { aiPort })
+
+    fireEvent.click(screen.getByRole('button', { name: /AI Translate/i }))
+    expect(await screen.findByText('Local translation cache is unavailable')).toBeTruthy()
+    expect(screen.queryByText('AI translation failed')).toBeNull()
+  })
+
+  it('dismisses retry actions when the translated detail context unmounts', async () => {
+    const aiPort = createAiPort({
+      translateBatch: vi.fn().mockRejectedValue(new Error('AI_ERROR::timeout::request timed out')),
+    })
+    const { renderResult } = renderPanel(createLocalMod(), createRemoteDetail(), { aiPort })
+    fireEvent.click(screen.getByRole('button', { name: /AI Translate/i }))
+    expect(await screen.findByText('AI translation failed')).toBeTruthy()
+
+    renderResult.unmount()
+    renderWithLocale(
+      <NotificationProvider>
+        <span />
+      </NotificationProvider>,
+    )
+    expect(screen.queryByText('AI translation failed')).toBeNull()
+  })
+
   it('prompts to save or discard modified config before leaving the config tab', async () => {
     const configResult = {
       modPath: 'E:\\Games\\Stardew Valley\\Mods\\ContentPatcher',

@@ -106,6 +106,13 @@ export type LauncherLibraryCopy = {
     modManagerDownload: string
     filesLoading: string
     changelogEmpty: string
+    aiTranslate: string
+    aiTranslating: string
+    aiOriginal: string
+    aiTranslated: string
+    aiRefresh: string
+    aiNotConfigured: string
+    aiError: string
     config: {
       title: string
       loading: string

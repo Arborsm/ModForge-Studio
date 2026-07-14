@@ -12,7 +12,14 @@ import type {
   LauncherSuppressedUpdateModIdsResult,
   LauncherUpdatesResult,
 } from '@features/launcher/model/launcherContracts'
-import type { AppUiState, PatchAppUiStateRequest } from '@shared/contracts'
+import type {
+  AiSettingsSnapshot,
+  AiTranslateBatchRequest,
+  AiTranslationCacheEntry,
+  AppUiState,
+  PatchAppUiStateRequest,
+  SaveAiSettingsRequest,
+} from '@shared/contracts'
 import { DEFAULT_LOADING_MOTION_PREFERENCE } from '@shared/lib/loading-motion'
 
 declare global {
@@ -23,6 +30,42 @@ declare global {
 
 const DEV_LAUNCHER_MOCK_QUERY_PARAM = 'mfLauncherMock'
 const DEV_LAUNCHER_MOCK_MODS_PATH = 'E:\\ModForge Dev\\Stardew Valley\\Mods'
+
+const DEV_AI_PRESETS: AiSettingsSnapshot['presets'] = [
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    protocol: 'openai-responses',
+    baseUrl: 'https://api.openai.com/v1',
+    credentialEnvironment: 'OPENAI_API_KEY',
+    requiresApiKey: true,
+    authentication: 'bearer',
+    supportsModelListing: true,
+    structuredOutput: 'json-schema',
+  },
+  {
+    id: 'gemini',
+    name: 'Google Gemini',
+    protocol: 'openai-chat-completions',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    credentialEnvironment: 'GEMINI_API_KEY',
+    requiresApiKey: true,
+    authentication: 'bearer',
+    supportsModelListing: true,
+    structuredOutput: 'json-schema',
+  },
+  {
+    id: 'anthropic',
+    name: 'Anthropic',
+    protocol: 'anthropic-messages',
+    baseUrl: 'https://api.anthropic.com/v1',
+    credentialEnvironment: 'ANTHROPIC_API_KEY',
+    requiresApiKey: true,
+    authentication: 'anthropic-api-key',
+    supportsModelListing: true,
+    structuredOutput: 'anthropic-tool',
+  },
+]
 
 const DEV_LAUNCHER_NEXUS_DIAGNOSTICS: LauncherNexusDiagnosticsResult = {
   routes: [
@@ -298,6 +341,8 @@ export function installDevLauncherMock() {
   }
   let libraryState = createInitialLibraryState(mods)
   let queueState: LauncherDownloadQueueState = { items: [] }
+  let aiSettings: AiSettingsSnapshot = { version: 1, defaultProfileId: null, profiles: [], presets: DEV_AI_PRESETS }
+  const aiCache = new Map<string, AiTranslationCacheEntry>()
   exposeLauncherCustomSortState(libraryState)
 
   mockWindows('main')
@@ -310,6 +355,74 @@ export function installDevLauncherMock() {
         case 'patch_app_ui_state':
           appUiState = applyMockAppUiStatePatch(appUiState, getMockRequest<PatchAppUiStateRequest>(payload) ?? {})
           return appUiState
+        case 'load_ai_settings':
+          return aiSettings
+        case 'save_ai_settings': {
+          const request = getMockRequest<SaveAiSettingsRequest>(payload) ?? { defaultProfileId: null, profiles: [] }
+          aiSettings = {
+            version: 1,
+            defaultProfileId: request.defaultProfileId,
+            presets: DEV_AI_PRESETS,
+            profiles: request.profiles.map((profile) => {
+              const previous = aiSettings.profiles.find((candidate) => candidate.id === profile.id)
+              const keyConfigured = Boolean(profile.apiKey) || (!profile.clearApiKey && previous?.keyConfigured === true)
+              return {
+                id: profile.id,
+                name: profile.name,
+                presetId: profile.presetId,
+                protocol: profile.protocol,
+                baseUrl: profile.baseUrl,
+                model: profile.model,
+                credentialEnvironment: profile.credentialEnvironment,
+                keyConfigured,
+                resolvedCredentialSource: keyConfigured ? 'keychain' : null,
+              }
+            }),
+          }
+          return aiSettings
+        }
+        case 'list_ai_models':
+          return [{ id: 'mock-translation-model', displayName: 'Mock translation model' }]
+        case 'test_ai_profile':
+          return { model: 'mock-translation-model', latencyMs: 24 }
+        case 'translate_ai_batch': {
+          const request = getMockRequest<AiTranslateBatchRequest>(payload)
+          if (!request) throw new Error('Missing mock AI translation request')
+          return {
+            jobId: request.jobId,
+            profileId: request.profileId ?? aiSettings.defaultProfileId ?? 'mock-profile',
+            model: 'mock-translation-model',
+            items: request.items.map((item) => ({
+              id: item.id,
+              translatedText: `[AI ${request.targetLocale}] ${item.text}`,
+              detectedLanguage: request.sourceLocale ?? null,
+              skippedSameLanguage: false,
+            })),
+          }
+        }
+        case 'cancel_ai_job':
+          return null
+        case 'read_ai_translation_cache': {
+          const request = getMockRequest<Pick<AiTranslationCacheEntry, 'scopeKey' | 'targetLocale' | 'sourceHash'>>(payload)
+          if (!request) return null
+          const cached = aiCache.get(`${request.scopeKey}:${request.targetLocale}`)
+          return cached?.sourceHash === request.sourceHash ? cached : null
+        }
+        case 'write_ai_translation_cache': {
+          const entry =
+            payload && typeof payload === 'object' && 'entry' in payload ? (payload as { entry: AiTranslationCacheEntry }).entry : null
+          if (!entry) throw new Error('Missing mock AI cache entry')
+          aiCache.set(`${entry.scopeKey}:${entry.targetLocale}`, entry)
+          return entry
+        }
+        case 'get_ai_translation_cache_stats':
+          return {
+            entryCount: aiCache.size,
+            sizeBytes: [...aiCache.values()].reduce((total, entry) => total + entry.translatedText.length, 0),
+          }
+        case 'clear_ai_translation_cache':
+          aiCache.clear()
+          return { entryCount: 0, sizeBytes: 0 }
         case 'load_launcher_settings':
           return settings
         case 'save_launcher_settings':
@@ -419,6 +532,7 @@ export function installDevLauncherMock() {
         }
         case 'open_launcher_path':
         case 'open_launcher_url':
+        case 'record_launcher_image_failure':
         case 'write_frontend_log':
         case 'print_host_runtime_diagnostics':
           return null

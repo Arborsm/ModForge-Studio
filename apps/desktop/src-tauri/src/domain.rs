@@ -1,3 +1,4 @@
+pub mod ai;
 pub mod app_paths;
 pub mod app_ui;
 pub mod assets;

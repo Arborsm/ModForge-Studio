@@ -1,4 +1,4 @@
-import { ArrowRight, Check, ChevronDown, ChevronUp, Languages, Plus, RefreshCw, Save, Search } from 'lucide-react'
+import { ArrowRight, Check, ChevronDown, ChevronUp, Languages, Plus, RefreshCw, Save, Search, Sparkles, X } from 'lucide-react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { autoUpdate, flip, FloatingPortal, offset, shift, useFloating } from '@floating-ui/react'
 import type { ContentPatcherI18nFile } from '@entities/mod/api'
@@ -12,7 +12,9 @@ import {
   type TranslationEntry,
   type TranslationStatusFilter,
   updateI18nFileEntry,
+  updateI18nFileEntries,
 } from '../model/translationEditor'
+import { partitionTranslationAiResults, useTranslationAi, type TranslationAiBaseline } from './useTranslationAi'
 
 type TranslationEditorProps = {
   project: TranslationEditorProject | null
@@ -166,6 +168,19 @@ function useTranslationEditorState({
     [i18nFiles, onI18nFilesChange, project?.rootPath, targetFile, targetLocale],
   )
 
+  const updateEntries = useCallback(
+    (values: ReadonlyMap<string, string>) => {
+      const projectPath = project?.rootPath ?? ''
+      const currentTarget = targetFile ?? createI18nFile(projectPath, targetLocale)
+      const nextTarget = updateI18nFileEntries(currentTarget, values)
+      const exists = i18nFiles.some((file) => file.locale === nextTarget.locale)
+      onI18nFilesChange(
+        exists ? i18nFiles.map((file) => (file.locale === nextTarget.locale ? nextTarget : file)) : [...i18nFiles, nextTarget],
+      )
+    },
+    [i18nFiles, onI18nFilesChange, project?.rootPath, targetFile, targetLocale],
+  )
+
   const selectRelative = useCallback(
     (delta: number) => {
       if (!activeEntry) {
@@ -192,6 +207,7 @@ function useTranslationEditorState({
     selectedKey,
     setSelectedKey,
     updateEntry,
+    updateEntries,
     selectRelative,
   }
 }
@@ -468,6 +484,7 @@ export function TranslationEditor({
     selectedKey,
     setSelectedKey,
     updateEntry,
+    updateEntries,
     selectRelative,
   } = useTranslationEditorState({
     project,
@@ -481,6 +498,27 @@ export function TranslationEditor({
 
   const appLocale = useLocale()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const applyAiResults = useCallback(
+    (values: ReadonlyMap<string, string>, baselines: ReadonlyMap<string, TranslationAiBaseline>) => {
+      const { applicable, conflicts } = partitionTranslationAiResults(values, baselines, allEntries)
+      if (applicable.size) updateEntries(applicable)
+      return conflicts
+    },
+    [allEntries, updateEntries],
+  )
+  const {
+    progress: aiProgress,
+    run: runAiTranslation,
+    cancel: cancelAiTranslation,
+  } = useTranslationAi({
+    activeEntry,
+    allEntries,
+    sourceLocale,
+    targetLocale,
+    contextKey: `${project?.rootPath ?? ''}\u0000${sourceLocale}\u0000${targetLocale}`,
+    applyResults: applyAiResults,
+  })
 
   const localeLabels = useMemo(() => {
     const map = new Map<string, string>()
@@ -652,6 +690,24 @@ export function TranslationEditor({
               ariaLabel={copy.targetLocaleLabel}
             />
             <div className="hidden h-5 w-px bg-(--border-color) sm:block" />
+            <details className="translation-ai-menu" data-disabled={aiProgress.running || undefined}>
+              <summary className="control-button control-button-primary h-8 px-3 text-xs" aria-disabled={aiProgress.running}>
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>{copy.aiTranslate}</span>
+                <ChevronDown className="h-3.5 w-3.5" />
+              </summary>
+              <div className="translation-ai-menu-popover">
+                <button type="button" disabled={aiProgress.running} onClick={() => void runAiTranslation('current')}>
+                  {copy.aiTranslateCurrent}
+                </button>
+                <button type="button" disabled={aiProgress.running} onClick={() => void runAiTranslation('missing')}>
+                  {copy.aiTranslateMissing}
+                </button>
+                <button type="button" disabled={aiProgress.running} onClick={() => void runAiTranslation('all')}>
+                  {copy.aiTranslateAll}
+                </button>
+              </div>
+            </details>
             {onReload ? (
               <button
                 type="button"
@@ -674,6 +730,34 @@ export function TranslationEditor({
             </button>
           </div>
         </header>
+
+        {aiProgress.running || aiProgress.error ? (
+          <div className="translation-ai-progress" role="status">
+            <div>
+              <span>{aiProgress.error ?? copy.aiTranslating(aiProgress.completed, aiProgress.total)}</span>
+              {aiProgress.failedKeys.length ? (
+                <ul>
+                  {aiProgress.failedKeys.map((key) => (
+                    <li key={key}>
+                      <code>{key}</code>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+            {aiProgress.running ? (
+              <button
+                type="button"
+                className="icon-button h-7 w-7"
+                onClick={cancelAiTranslation}
+                title={copy.aiCancel}
+                aria-label={copy.aiCancel}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* Body */}
         <div className="grid min-h-0 flex-1 xl:grid-cols-[280px_minmax(0,1fr)]">

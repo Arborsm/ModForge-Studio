@@ -124,6 +124,13 @@ where
     }
 }
 
+fn ai_network<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
+where
+    F: FnOnce() -> DispatchResult + Send + 'static,
+{
+    network_on_pool(id, name, HostCommandExecutionPool::Ai, run)
+}
+
 fn control<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
 where
     F: FnOnce() -> DispatchResult + Send + 'static,
@@ -264,6 +271,13 @@ where
     result
         .map(|value| serde_json::to_value(value).unwrap_or(Value::Null))
         .map_err(|error| json!(error.to_string()))
+}
+
+fn ok_ai<T>(result: anyhow::Result<T>) -> DispatchResult
+where
+    T: Serialize,
+{
+    ok(result.map_err(domain::ai::format_command_error))
 }
 
 pub(crate) fn resolve_command(
@@ -969,6 +983,64 @@ pub(crate) fn resolve_command(
             &[SidecarResource::AppUiState],
             move || ok(domain::app_ui::patch_app_ui_state(arg(&args, "request")?)),
         ),
+        crate::host_command_wire!(load_ai_settings) => {
+            io_with_resources(id, &command_name, &[SidecarResource::AiSettings], || {
+                ok_ai(domain::ai::load_settings_for_command())
+            })
+        }
+        crate::host_command_wire!(save_ai_settings) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::AiSettings],
+            move || {
+                ok_ai(domain::ai::save_settings_for_command(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
+        crate::host_command_wire!(list_ai_models) => ai_network(id, &command_name, move || {
+            ok_ai(domain::ai::list_ai_models(arg(&args, "request")?))
+        }),
+        crate::host_command_wire!(test_ai_profile) => ai_network(id, &command_name, move || {
+            ok_ai(domain::ai::test_ai_profile(arg(&args, "request")?))
+        }),
+        crate::host_command_wire!(translate_ai_batch) => {
+            let app = ctx.app.clone();
+            ai_network(id, &command_name, move || {
+                ok_ai(domain::ai::translate_ai_batch(app, arg(&args, "request")?))
+            })
+        }
+        crate::host_command_wire!(cancel_ai_job) => control(id, &command_name, move || {
+            ok_ai(domain::ai::cancel_ai_job(arg(&args, "request")?))
+        }),
+        crate::host_command_wire!(read_ai_translation_cache) => io_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::AiTranslationCache],
+            move || {
+                ok_ai(domain::ai::read_ai_translation_cache(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
+        crate::host_command_wire!(write_ai_translation_cache) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::AiTranslationCache],
+            move || ok_ai(domain::ai::write_ai_translation_cache(arg(&args, "entry")?)),
+        ),
+        crate::host_command_wire!(get_ai_translation_cache_stats) => io_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::AiTranslationCache],
+            || ok_ai(domain::ai::get_ai_translation_cache_stats()),
+        ),
+        crate::host_command_wire!(clear_ai_translation_cache) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::AiTranslationCache],
+            || ok_ai(domain::ai::clear_ai_translation_cache()),
+        ),
         crate::host_command_wire!(write_frontend_log) => control(id, &command_name, move || {
             logging::write_frontend_log(arg(&args, "request")?);
             Ok(Value::Null)
@@ -1097,7 +1169,6 @@ pub fn run_stdio() -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(test)]
 #[cfg(test)]
 #[path = "tests/unit/sidecar/tests.rs"]
 mod tests;

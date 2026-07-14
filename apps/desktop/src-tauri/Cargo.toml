@@ -93,11 +93,20 @@ cookie_store = "0.22.1"
 semver = "1.0.28"
 sevenz-rust = { version = "0.6.1", features = ["compress"] }
 tar = "0.4.46"
-time = { version = "0.3.51", features = ["formatting", "local-offset"] }
+time = { version = "0.3.51", features = ["formatting", "local-offset", "parsing"] }
 unrar = { package = "unrar-ng", version = "0.7.7" }
 url = "2.5.8"
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 uuid = { version = "1.23.4", features = ["v4"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+whatlang = "0.18"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56.0"
+keyring = { version = "3", features = ["windows-native"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["sync-secret-service"] }
