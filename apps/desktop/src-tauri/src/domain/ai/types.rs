@@ -225,6 +225,67 @@ pub struct AiTranslationCacheStats {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AiProfileTestResult {
+    pub provider: String,
+    pub protocol: AiProtocol,
+    pub base_url: String,
     pub model: String,
     pub latency_ms: u128,
+    pub credential_source: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AiProfileImportConflictPolicy {
+    Overwrite,
+    Copy,
+    Skip,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportAiProfilesRequest {
+    pub destination_path: String,
+    #[serde(default)]
+    pub profile_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreviewAiProfilesImportRequest {
+    pub source_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApplyAiProfilesImportRequest {
+    pub source_path: String,
+    pub conflict_policy: AiProfileImportConflictPolicy,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiProfileImportPreviewEntry {
+    pub id: String,
+    pub name: String,
+    pub provider: String,
+    pub model: String,
+    pub conflicts: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiProfileImportPreview {
+    pub format_version: u32,
+    pub credentials_excluded: bool,
+    pub entries: Vec<AiProfileImportPreviewEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiProfileImportResult {
+    pub settings: AiSettingsSnapshot,
+    pub imported: u32,
+    pub overwritten: u32,
+    pub copied: u32,
+    pub skipped: u32,
 }

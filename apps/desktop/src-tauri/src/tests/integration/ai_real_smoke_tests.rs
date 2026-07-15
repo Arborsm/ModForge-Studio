@@ -8,6 +8,28 @@ use std::sync::{Arc, Mutex};
 
 const PROFILE_ID: &str = "modforge-kimi-real-smoke";
 const ANTHROPIC_PROFILE_ID: &str = "modforge-kimi-anthropic-real-smoke";
+static LOCALIZATION_LOGS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+struct LocalizationLogCapture;
+static LOCALIZATION_LOG_CAPTURE: LocalizationLogCapture = LocalizationLogCapture;
+
+impl log::Log for LocalizationLogCapture {
+    fn enabled(&self, metadata: &log::Metadata<'_>) -> bool {
+        metadata.target().starts_with("Localization")
+    }
+
+    fn log(&self, record: &log::Record<'_>) {
+        if self.enabled(record.metadata()) {
+            LOCALIZATION_LOGS.lock().unwrap().push(format!(
+                "{} {}",
+                record.target(),
+                record.args()
+            ));
+        }
+    }
+
+    fn flush(&self) {}
+}
 
 struct SmokeCleanup {
     root: std::path::PathBuf,
@@ -36,6 +58,9 @@ fn translation_item(id: &str, text: &str) -> AiTranslationItem {
 #[test]
 #[ignore = "requires MODFORGE_KIMI_API_KEY and makes real Kimi API requests"]
 fn kimi_real_backend_flow() {
+    LOCALIZATION_LOGS.lock().unwrap().clear();
+    let _ = log::set_logger(&LOCALIZATION_LOG_CAPTURE);
+    log::set_max_level(log::LevelFilter::Debug);
     let key = std::env::var("MODFORGE_KIMI_API_KEY")
         .expect("MODFORGE_KIMI_API_KEY must be provided for the ignored real smoke test");
     assert!(!key.trim().is_empty());
@@ -209,6 +234,41 @@ fn kimi_real_backend_flow() {
     assert!(events.lock().unwrap().iter().any(|(event, payload)| {
         event == "ai://translation-progress" && payload["state"] == "completed"
     }));
+
+    let private_marker = "PRIVATE_KIMI_LOG_BODY_MARKER";
+    let operational = crate::domain::localization::orchestrator::translate_ai_batch(
+        crate::AppHandle::sidecar(|_, _| Ok(())),
+        AiTranslateBatchRequest {
+            job_id: "kimi-operational-log".into(),
+            profile_id: Some(PROFILE_ID.into()),
+            source_locale: Some("en".into()),
+            target_locale: "zh-Hans".into(),
+            items: vec![translation_item("private", private_marker)],
+            usage_context: None,
+            knowledge_policy: crate::domain::ai::types::KnowledgePolicy::default(),
+        },
+    )
+    .expect("Kimi operational logging translation should succeed");
+    assert_eq!(operational.items.len(), 1);
+    let logs = LOCALIZATION_LOGS.lock().unwrap().join("\n");
+    for required in [
+        "LocalizationTranslation",
+        "event=\"translation.started\"",
+        "job=\"kimi-operational-log\"",
+        "profile=\"modforge-kimi-real-smoke\"",
+        "model=\"kimi-for-coding\"",
+        "items=\"1\"",
+        "latencyMs=",
+        "inputTokens=",
+        "event=\"translation.completed\"",
+    ] {
+        assert!(
+            logs.contains(required),
+            "missing operational log field {required}"
+        );
+    }
+    assert!(!logs.contains(private_marker));
+    assert!(!logs.contains(&key));
 
     let cancel_job = jobs::AiJobGuard::register("kimi-real-cancel").unwrap();
     cancel_ai_job(CancelAiJobRequest {

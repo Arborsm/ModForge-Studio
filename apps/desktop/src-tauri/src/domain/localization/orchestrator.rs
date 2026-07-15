@@ -1,5 +1,8 @@
 use super::knowledge;
 use super::official;
+use super::operational_log::{
+    Fields, KNOWLEDGE, MACHINE_TRANSLATION, REVIEW, TRANSLATION, stable_failure_category,
+};
 use super::types::AiUsageEvent;
 use super::usage::record_usage;
 use crate::AppHandle;
@@ -22,6 +25,48 @@ use anyhow::Context;
 
 fn now_ms() -> i64 {
     time::OffsetDateTime::now_utc().unix_timestamp_nanos() as i64 / 1_000_000
+}
+
+pub(crate) fn compile_official_context(
+    terms: Vec<crate::domain::localization::types::AiOfficialUnit>,
+    examples: Vec<crate::domain::localization::types::AiOfficialUnit>,
+    overridden_sources: &std::collections::BTreeSet<String>,
+) -> (u64, Option<String>) {
+    let terms = terms
+        .into_iter()
+        .filter(|term| !overridden_sources.contains(&term.source_text))
+        .collect::<Vec<_>>();
+    let mut matched_ids = terms
+        .iter()
+        .map(|term| term.id)
+        .collect::<std::collections::BTreeSet<_>>();
+    let examples = examples
+        .into_iter()
+        .filter(|example| matched_ids.insert(example.id))
+        .collect::<Vec<_>>();
+    let mut sections = Vec::new();
+    if !terms.is_empty() {
+        sections.push(format!(
+            "Official terminology:\n{}",
+            terms
+                .iter()
+                .map(|term| format!("{} => {}", term.source_text, term.target_text))
+                .collect::<Vec<_>>()
+                .join("\n")
+        ));
+    }
+    if !examples.is_empty() {
+        sections.push(format!(
+            "Official examples:\n{}",
+            examples
+                .iter()
+                .map(|example| format!("{} => {}", example.source_text, example.target_text))
+                .collect::<Vec<_>>()
+                .join("\n")
+        ));
+    }
+    let count = matched_ids.len() as u64;
+    (count, (!sections.is_empty()).then(|| sections.join("\n")))
 }
 
 pub fn translate_localization_batch(
@@ -109,6 +154,32 @@ pub fn test_ai_profile(request: AiProfileRequest) -> anyhow::Result<AiProfileTes
     let (profile_id, provider, model) = ai::usage_identity(Some(&request.profile_id))?;
     let mut ledger_failed = false;
     let mut observer = |attempt: ai::providers::ProviderAttempt| {
+        let attempt_log = Fields::new("provider.attempt")
+            .field("job", format!("profile-test:{profile_id}"))
+            .field("engine", "generative-ai")
+            .field("profile", &profile_id)
+            .field("provider", &provider)
+            .field("model", &model)
+            .field("operation", "connection-test")
+            .field("attempt", attempt.attempt)
+            .field(
+                "status",
+                if attempt.succeeded {
+                    "success"
+                } else {
+                    "failure"
+                },
+            )
+            .field("latencyMs", attempt.latency_ms)
+            .optional(
+                "failureCategory",
+                stable_failure_category(attempt.failure_category.as_deref()),
+            );
+        if attempt.succeeded {
+            log::debug!(target: TRANSLATION, "{attempt_log}");
+        } else {
+            log::warn!(target: TRANSLATION, "{attempt_log}");
+        }
         ledger_failed |= record_usage(AiUsageEvent {
             occurred_at_ms: now_ms(),
             job_id: format!("profile-test:{profile_id}"),
@@ -138,12 +209,20 @@ pub fn test_ai_profile(request: AiProfileRequest) -> anyhow::Result<AiProfileTes
             } else {
                 "unavailable".into()
             },
+            job_succeeded: None,
         })
         .is_err();
     };
     let result = ai::test_ai_profile_observed(request, &mut observer);
     if ledger_failed {
-        log::warn!("AI usage ledger failed while recording a connection test");
+        log::warn!(
+            target: TRANSLATION,
+            "{}",
+            Fields::new("usage.failed")
+                .field("job", format!("profile-test:{profile_id}"))
+                .field("operation", "connection-test")
+                .field("failureCategory", "usage-ledger")
+        );
     }
     result
 }
@@ -152,8 +231,32 @@ pub fn translate_ai_batch(
     app: AppHandle,
     mut request: AiTranslateBatchRequest,
 ) -> anyhow::Result<AiTranslateBatchResult> {
+    let started = std::time::Instant::now();
     let original_items = request.items.clone();
+    let original_characters = original_items
+        .iter()
+        .map(|item| item.text.chars().count() as u64)
+        .sum::<u64>();
+    let scope_id = request
+        .usage_context
+        .as_ref()
+        .and_then(|value| value.scope_id.as_deref());
+    log::info!(
+        target: TRANSLATION,
+        "{}",
+        Fields::new("translation.started")
+            .field("job", &request.job_id)
+            .field("engine", "generative-ai")
+            .optional("profile", request.profile_id.as_deref())
+            .optional("scope", scope_id)
+            .field("items", original_items.len())
+            .field("characters", original_characters)
+            .field("knowledge", request.knowledge_policy.enabled)
+            .field("operation", "translate")
+    );
+    let knowledge_started = std::time::Instant::now();
     let mut exact = std::collections::BTreeMap::new();
+    let mut required_terms = std::collections::BTreeMap::new();
     let mut knowledge_trace = crate::domain::ai::types::KnowledgeTrace::default();
     let mut knowledge_revision = "disabled".to_string();
     if request.knowledge_policy.enabled
@@ -172,6 +275,7 @@ pub fn translate_ai_batch(
             &request.items,
         )?;
         exact = resolved.exact;
+        required_terms = resolved.required_terms;
         knowledge_trace.global_glossary_matches = resolved.trace.global_glossary_matches;
         knowledge_trace.project_glossary_matches = resolved.trace.project_glossary_matches;
         knowledge_trace.translation_memory_matches = resolved.trace.translation_memory_matches;
@@ -194,31 +298,65 @@ pub fn translate_ai_batch(
         );
         if revision.is_some() {
             let source_locale = request.source_locale.as_deref().unwrap_or("en-US");
-            for item in &mut request.items {
-                let examples = official::find_prompt_examples(
-                    source_locale,
-                    &request.target_locale,
-                    &item.text,
-                )
-                .unwrap_or_default();
-                knowledge_trace.official_matches += examples.len() as u64;
-                if !examples.is_empty() {
-                    let context = examples
-                        .into_iter()
-                        .map(|example| {
-                            format!("{} => {}", example.source_text, example.target_text)
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n");
+            let queries = request
+                .items
+                .iter()
+                .map(|item| item.text.clone())
+                .collect::<Vec<_>>();
+            let examples = official::find_prompt_examples_batch(
+                source_locale,
+                &request.target_locale,
+                &queries,
+            )
+            .unwrap_or_else(|_| queries.iter().map(|_| Vec::new()).collect());
+            for (item, examples) in request.items.iter_mut().zip(examples) {
+                let terms =
+                    official::find_terms_in_text(source_locale, &request.target_locale, &item.text)
+                        .unwrap_or_default();
+                let overridden_sources = required_terms
+                    .get(&item.id)
+                    .into_iter()
+                    .flatten()
+                    .map(|(source, _)| source.clone())
+                    .collect::<std::collections::BTreeSet<_>>();
+                let (match_count, context) =
+                    compile_official_context(terms, examples, &overridden_sources);
+                knowledge_trace.official_matches += match_count;
+                if let Some(context) = context {
                     item.context = Some(match item.context.take() {
-                        Some(existing) => format!("{existing}\nOfficial examples:\n{context}"),
-                        None => format!("Official examples:\n{context}"),
+                        Some(existing) => format!("{existing}\n{context}"),
+                        None => context,
                     });
                 }
             }
         }
     }
+    log::debug!(
+        target: KNOWLEDGE,
+        "{}",
+        Fields::new("knowledge.resolved")
+            .field("job", &request.job_id)
+            .optional("scope", scope_id)
+            .field("exact", exact.len())
+            .field("globalGlossary", knowledge_trace.global_glossary_matches)
+            .field("projectGlossary", knowledge_trace.project_glossary_matches)
+            .field("memory", knowledge_trace.translation_memory_matches)
+            .field("official", knowledge_trace.official_matches)
+            .field("elapsedMs", knowledge_started.elapsed().as_millis())
+    );
     if request.items.is_empty() {
+        log::info!(
+            target: TRANSLATION,
+            "{}",
+            Fields::new("translation.completed")
+                .field("job", &request.job_id)
+                .field("engine", "translation-memory")
+                .field("translated", original_items.len())
+                .field("memoryHits", exact.len())
+                .field("skipped", 0)
+                .field("elapsedMs", started.elapsed().as_millis())
+                .field("usageState", "unavailable")
+        );
         return Ok(AiTranslateBatchResult {
             job_id: request.job_id,
             profile_id: request.profile_id.unwrap_or_else(|| "local-memory".into()),
@@ -247,7 +385,42 @@ pub fn translate_ai_batch(
     let job_id = request.job_id.clone();
     let usage_context = request.usage_context.clone();
     let mut ledger_failed = false;
+    let mut provider_attempts = 0_u32;
     let mut observer = |attempt: ai::providers::ProviderAttempt| {
+        provider_attempts += 1;
+        let attempt_log = Fields::new("provider.attempt")
+            .field("job", &job_id)
+            .field("engine", "generative-ai")
+            .field("profile", &profile_id)
+            .field("provider", &provider)
+            .field("model", &model)
+            .field("attempt", attempt.attempt)
+            .field(
+                "status",
+                if attempt.succeeded {
+                    "success"
+                } else {
+                    "failure"
+                },
+            )
+            .field("latencyMs", attempt.latency_ms)
+            .optional(
+                "failureCategory",
+                stable_failure_category(attempt.failure_category.as_deref()),
+            )
+            .optional_owned(
+                "inputTokens",
+                attempt.usage.input_tokens.map(|value| value.to_string()),
+            )
+            .optional_owned(
+                "outputTokens",
+                attempt.usage.output_tokens.map(|value| value.to_string()),
+            );
+        if attempt.succeeded {
+            log::debug!(target: TRANSLATION, "{attempt_log}");
+        } else {
+            log::warn!(target: TRANSLATION, "{attempt_log}");
+        }
         ledger_failed |= record_usage(AiUsageEvent {
             occurred_at_ms: now_ms(),
             job_id: job_id.clone(),
@@ -285,6 +458,7 @@ pub fn translate_ai_batch(
             } else {
                 "unavailable".into()
             },
+            job_succeeded: None,
         })
         .is_err();
     };
@@ -319,8 +493,33 @@ pub fn translate_ai_batch(
     }
     if ledger_failed {
         result.usage_record_state = "failed".into();
-        log::warn!("AI usage ledger failed while recording translation usage");
+        log::warn!(
+            target: TRANSLATION,
+            "{}",
+            Fields::new("usage.failed")
+                .field("job", &job_id)
+                .field("failureCategory", "usage-ledger")
+        );
     }
+    log::info!(
+        target: TRANSLATION,
+        "{}",
+        Fields::new("translation.completed")
+            .field("job", &job_id)
+            .field("engine", "generative-ai")
+            .field("profile", &profile_id)
+            .field("provider", &provider)
+            .field("model", &model)
+            .field("translated", result.items.len().saturating_sub(exact.len()))
+            .field("memoryHits", exact.len())
+            .field("providerAttempts", provider_attempts)
+            .field(
+                "skipped",
+                result.items.iter().filter(|item| item.skipped_same_language).count(),
+            )
+            .field("elapsedMs", started.elapsed().as_millis())
+            .field("usageState", &result.usage_record_state)
+    );
     Ok(result)
 }
 
@@ -332,6 +531,31 @@ pub fn test_machine_translation_profile(
     let provider = profile.preset_id.clone();
     let mut ledger_failed = false;
     let mut observer = |attempt: machine_translation::adapters::MachineTranslationAttempt| {
+        let attempt_log = Fields::new("provider.attempt")
+            .field("job", format!("mt-profile-test:{profile_id}"))
+            .field("engine", "machine-translation")
+            .field("profile", &profile_id)
+            .field("provider", &provider)
+            .field("operation", "connection-test")
+            .field("attempt", attempt.attempt)
+            .field(
+                "status",
+                if attempt.succeeded {
+                    "success"
+                } else {
+                    "failure"
+                },
+            )
+            .field("latencyMs", attempt.latency_ms)
+            .optional(
+                "failureCategory",
+                stable_failure_category(attempt.failure_category.as_deref()),
+            );
+        if attempt.succeeded {
+            log::debug!(target: MACHINE_TRANSLATION, "{attempt_log}");
+        } else {
+            log::warn!(target: MACHINE_TRANSLATION, "{attempt_log}");
+        }
         ledger_failed |= record_usage(AiUsageEvent {
             occurred_at_ms: now_ms(),
             job_id: format!("mt-profile-test:{profile_id}"),
@@ -355,12 +579,20 @@ pub fn test_machine_translation_profile(
             reasoning_tokens: None,
             billed_characters: attempt.billed_characters,
             usage_source: attempt.usage_source,
+            job_succeeded: None,
         })
         .is_err();
     };
     let result = machine_translation::test_profile(request, &mut observer);
     if ledger_failed {
-        log::warn!("AI usage ledger failed while recording a machine translation connection test");
+        log::warn!(
+            target: MACHINE_TRANSLATION,
+            "{}",
+            Fields::new("usage.failed")
+                .field("job", format!("mt-profile-test:{profile_id}"))
+                .field("operation", "connection-test")
+                .field("failureCategory", "usage-ledger")
+        );
     }
     result
 }
@@ -368,8 +600,28 @@ pub fn test_machine_translation_profile(
 pub fn translate_machine_batch(
     mut request: MachineTranslateBatchRequest,
 ) -> anyhow::Result<MachineTranslateBatchResult> {
+    let started = std::time::Instant::now();
     let original_items = request.items.clone();
     let profile = machine_translation::settings::resolve_profile(request.profile_id.as_deref())?;
+    log::info!(
+        target: MACHINE_TRANSLATION,
+        "{}",
+        Fields::new("translation.started")
+            .field("job", &request.job_id)
+            .field("engine", "machine-translation")
+            .field("profile", &profile.id)
+            .field("provider", &profile.preset_id)
+            .optional(
+                "scope",
+                request.usage_context.as_ref().and_then(|value| value.scope_id.as_deref()),
+            )
+            .field("items", original_items.len())
+            .field(
+                "characters",
+                original_items.iter().map(|item| item.text.chars().count()).sum::<usize>(),
+            )
+            .field("operation", "translate")
+    );
     let source_locale = request
         .source_locale
         .as_deref()
@@ -377,6 +629,7 @@ pub fn translate_machine_batch(
         .to_string();
     let mut exact = std::collections::BTreeMap::new();
     let mut required_terms = std::collections::BTreeMap::new();
+    let mut official_terms = std::collections::BTreeMap::new();
     let mut trace = crate::domain::ai::types::KnowledgeTrace::default();
     let mut revision = "disabled".to_string();
     if request.knowledge_policy.enabled
@@ -414,6 +667,18 @@ pub fn translate_machine_batch(
             "{revision}|official:{}",
             official::active_revision()?.as_deref().unwrap_or("missing")
         );
+        for item in &original_items {
+            let terms =
+                official::find_terms_in_text(&source_locale, &request.target_locale, &item.text)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|term| (term.source_text, term.target_text))
+                    .collect::<Vec<_>>();
+            trace.official_matches += terms.len() as u64;
+            if !terms.is_empty() {
+                official_terms.insert(item.id.clone(), terms);
+            }
+        }
     }
     if request.items.is_empty() {
         let source_by_id = original_items
@@ -441,11 +706,9 @@ pub fn translate_machine_batch(
             })
             .collect::<Vec<_>>();
         let validation_issues = review::translation_validation_issues(
-            &source_locale,
-            &request.target_locale,
             &validation_items,
             &required_terms,
-            request.knowledge_policy.enabled && request.knowledge_policy.use_official_corpus,
+            &official_terms,
         );
         return Ok(MachineTranslateBatchResult {
             job_id: request.job_id,
@@ -468,7 +731,37 @@ pub fn translate_machine_batch(
     let profile_id = profile.id.clone();
     let provider = profile.preset_id.clone();
     let mut ledger_failed = false;
+    let mut provider_attempts = 0_u32;
     let mut observer = |attempt: machine_translation::adapters::MachineTranslationAttempt| {
+        provider_attempts += 1;
+        let attempt_log = Fields::new("provider.attempt")
+            .field("job", &job_id)
+            .field("engine", "machine-translation")
+            .field("profile", &profile_id)
+            .field("provider", &provider)
+            .field("attempt", attempt.attempt)
+            .field(
+                "status",
+                if attempt.succeeded {
+                    "success"
+                } else {
+                    "failure"
+                },
+            )
+            .field("latencyMs", attempt.latency_ms)
+            .optional(
+                "failureCategory",
+                stable_failure_category(attempt.failure_category.as_deref()),
+            )
+            .optional_owned(
+                "billedCharacters",
+                attempt.billed_characters.map(|value| value.to_string()),
+            );
+        if attempt.succeeded {
+            log::debug!(target: MACHINE_TRANSLATION, "{attempt_log}");
+        } else {
+            log::warn!(target: MACHINE_TRANSLATION, "{attempt_log}");
+        }
         ledger_failed |= record_usage(AiUsageEvent {
             occurred_at_ms: now_ms(),
             job_id: job_id.clone(),
@@ -498,6 +791,7 @@ pub fn translate_machine_batch(
             reasoning_tokens: None,
             billed_characters: attempt.billed_characters,
             usage_source: attempt.usage_source,
+            job_succeeded: None,
         })
         .is_err();
     };
@@ -534,15 +828,10 @@ pub fn translate_machine_batch(
             })
         })
         .collect::<Vec<_>>();
-    let validation_issues = review::translation_validation_issues(
-        &source_locale,
-        &request.target_locale,
-        &validation_items,
-        &required_terms,
-        request.knowledge_policy.enabled && request.knowledge_policy.use_official_corpus,
-    );
+    let validation_issues =
+        review::translation_validation_issues(&validation_items, &required_terms, &official_terms);
     crate::domain::localization::jobs::clear(&request.job_id);
-    Ok(MachineTranslateBatchResult {
+    let result = MachineTranslateBatchResult {
         job_id: request.job_id,
         profile_id: profile.id,
         items,
@@ -550,21 +839,50 @@ pub fn translate_machine_batch(
         usage_record_state: if ledger_failed { "failed" } else { "recorded" }.into(),
         knowledge_trace: trace,
         knowledge_revision: revision,
-    })
+    };
+    log::info!(
+        target: MACHINE_TRANSLATION,
+        "{}",
+        Fields::new("translation.completed")
+            .field("job", &result.job_id)
+            .field("engine", "machine-translation")
+            .field("profile", &result.profile_id)
+            .field("provider", &provider)
+            .field("translated", result.items.len().saturating_sub(exact.len()))
+            .field("memoryHits", exact.len())
+            .field("providerAttempts", provider_attempts)
+            .field("validationIssues", result.validation_issues.len())
+            .field("elapsedMs", started.elapsed().as_millis())
+            .field("usageState", &result.usage_record_state)
+    );
+    Ok(result)
 }
 
 pub fn review_batch(request: AiReviewRequest) -> anyhow::Result<AiReviewResult> {
+    let started = std::time::Instant::now();
+    log::info!(
+        target: REVIEW,
+        "{}",
+        Fields::new("review.started")
+            .field("job", &request.job_id)
+            .field("scope", &request.scope_id)
+            .field("items", request.items.len())
+            .field("generative", request.run_ai)
+            .field("operation", "review")
+    );
     let run_id = uuid::Uuid::new_v4().to_string();
     let mut issues = review::local_issues(&request, &run_id)?;
     if !request.run_ai {
         let result = review::persist(&request, issues, "completed", "unavailable");
         crate::domain::localization::jobs::clear(&request.job_id);
+        log_review_result(&request, &result, false, started.elapsed());
         return result;
     }
     let review_items=request.items.iter().filter(|item|!item.target_text.trim().is_empty()).map(|item|serde_json::json!({"unitKey":item.unit_key,"source":item.source_text,"target":item.target_text})).collect::<Vec<_>>();
     if review_items.is_empty() {
         let result = review::persist(&request, issues, "completed", "unavailable");
         crate::domain::localization::jobs::clear(&request.job_id);
+        log_review_result(&request, &result, false, started.elapsed());
         return result;
     }
     let schema = serde_json::json!({"type":"object","additionalProperties":false,"properties":{"issues":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{"unitKey":{"type":"string"},"severity":{"type":"string","enum":["minor","major","critical"]},"category":{"type":"string","enum":["omission-addition","meaning","terminology","fluency-grammar","tone-style","regional-format","marker-mismatch"]},"reason":{"type":"string"},"suggestion":{"type":["string","null"]}},"required":["unitKey","severity","category","reason","suggestion"]}}},"required":["issues"]});
@@ -576,6 +894,32 @@ pub fn review_batch(request: AiReviewRequest) -> anyhow::Result<AiReviewResult> 
     let (profile_id, provider, model) = ai::usage_identity(request.profile_id.as_deref())?;
     let mut ledger_failed = false;
     let mut observer = |attempt: ai::providers::ProviderAttempt| {
+        let attempt_log = Fields::new("provider.attempt")
+            .field("job", &request.job_id)
+            .field("engine", "generative-ai")
+            .field("profile", &profile_id)
+            .field("provider", &provider)
+            .field("model", &model)
+            .field("operation", "review")
+            .field("attempt", attempt.attempt)
+            .field(
+                "status",
+                if attempt.succeeded {
+                    "success"
+                } else {
+                    "failure"
+                },
+            )
+            .field("latencyMs", attempt.latency_ms)
+            .optional(
+                "failureCategory",
+                stable_failure_category(attempt.failure_category.as_deref()),
+            );
+        if attempt.succeeded {
+            log::debug!(target: REVIEW, "{attempt_log}");
+        } else {
+            log::warn!(target: REVIEW, "{attempt_log}");
+        }
         ledger_failed |= record_usage(AiUsageEvent {
             occurred_at_ms: now_ms(),
             job_id: request.job_id.clone(),
@@ -606,6 +950,7 @@ pub fn review_batch(request: AiReviewRequest) -> anyhow::Result<AiReviewResult> 
                 "unavailable"
             }
             .into(),
+            job_succeeded: None,
         })
         .is_err();
     };
@@ -621,6 +966,15 @@ pub fn review_batch(request: AiReviewRequest) -> anyhow::Result<AiReviewResult> 
         Err(error) => {
             if ai::classify_error_message(&error.to_string()) == "cancelled" {
                 crate::domain::localization::jobs::clear(&request.job_id);
+                log::info!(
+                    target: REVIEW,
+                    "{}",
+                    Fields::new("review.cancelled")
+                        .field("job", &request.job_id)
+                        .field("scope", &request.scope_id)
+                        .field("failureCategory", "cancelled")
+                        .field("elapsedMs", started.elapsed().as_millis())
+                );
                 return Err(error);
             }
             let result = review::persist(
@@ -630,6 +984,7 @@ pub fn review_batch(request: AiReviewRequest) -> anyhow::Result<AiReviewResult> 
                 if ledger_failed { "failed" } else { "recorded" },
             );
             crate::domain::localization::jobs::clear(&request.job_id);
+            log_review_result(&request, &result, true, started.elapsed());
             return result;
         }
     };
@@ -725,6 +1080,7 @@ pub fn review_batch(request: AiReviewRequest) -> anyhow::Result<AiReviewResult> 
                 if ledger_failed { "failed" } else { "recorded" },
             );
             crate::domain::localization::jobs::clear(&request.job_id);
+            log_review_result(&request, &result, true, started.elapsed());
             return result;
         }
     }
@@ -735,5 +1091,40 @@ pub fn review_batch(request: AiReviewRequest) -> anyhow::Result<AiReviewResult> 
         if ledger_failed { "failed" } else { "recorded" },
     );
     crate::domain::localization::jobs::clear(&request.job_id);
+    log_review_result(&request, &result, true, started.elapsed());
     result
+}
+
+fn log_review_result(
+    request: &AiReviewRequest,
+    result: &anyhow::Result<AiReviewResult>,
+    generative: bool,
+    elapsed: std::time::Duration,
+) {
+    if let Ok(result) = result {
+        let accepted = result
+            .issues
+            .iter()
+            .filter(|issue| issue.status == "accepted")
+            .count();
+        let rejected = result
+            .issues
+            .iter()
+            .filter(|issue| issue.status == "rejected")
+            .count();
+        log::info!(
+            target: REVIEW,
+            "{}",
+            Fields::new("review.completed")
+                .field("job", &request.job_id)
+                .field("scope", &request.scope_id)
+                .field("items", request.items.len())
+                .field("issues", result.issues.len())
+                .field("accepted", accepted)
+                .field("rejected", rejected)
+                .field("generative", generative)
+                .field("elapsedMs", elapsed.as_millis())
+                .field("usageState", &result.usage_record_state)
+        );
+    }
 }

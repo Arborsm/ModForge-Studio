@@ -6,7 +6,7 @@ use quick_xml::{Reader, Writer};
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::Cursor;
+use std::io::{Cursor, Write};
 use std::path::Path;
 
 const MAX_IMPORT_BYTES: u64 = 20 * 1024 * 1024;
@@ -36,6 +36,7 @@ fn ensure_parent(path: &str) -> anyhow::Result<()> {
 pub fn import_knowledge(
     request: ImportLocalizationKnowledgeRequest,
 ) -> anyhow::Result<LocalizationKnowledgeTransferResult> {
+    crate::domain::localization::jobs::check(&request.job_id)?;
     let bytes = read_limited(&request.source_path)?;
     let (mut glossary, mut styles, mut memory) = (Vec::new(), Vec::new(), Vec::new());
     match request.format {
@@ -79,14 +80,17 @@ pub fn import_knowledge(
     let mut db = open()?;
     let tx = db.transaction()?;
     for entry in &mut glossary {
+        crate::domain::localization::jobs::check(&request.job_id)?;
         entry.scope_id = request.scope_id.clone();
         insert_imported_glossary(&tx, entry)?;
     }
     for entry in &mut memory {
+        crate::domain::localization::jobs::check(&request.job_id)?;
         entry.scope_id = request.scope_id.clone();
         insert_imported_memory(&tx, entry)?;
     }
     for style in &mut styles {
+        crate::domain::localization::jobs::check(&request.job_id)?;
         style.scope_id = request.scope_id.clone();
         let encoded = serde_json::to_vec(&style)?;
         if encoded.len() > 16 * 1024 {
@@ -190,6 +194,11 @@ pub fn export_knowledge(
                     confirmed_at_ms: row.get(9)?,
                     use_count: row.get(10)?,
                     similarity: 0.0,
+                    score: 0.0,
+                    semantic_similarity: None,
+                    lexical_similarity: 0.0,
+                    match_kind: "none".into(),
+                    retrieval_mode: "lexical".into(),
                 })
             },
         )?
@@ -212,7 +221,7 @@ pub fn export_knowledge(
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
-    match request.format {
+    let counts = match request.format {
         LocalizationKnowledgeFormat::KnowledgePackJson => fs::write(
             &request.destination_path,
             serde_json::to_vec_pretty(&KnowledgePack {
@@ -221,9 +230,12 @@ pub fn export_knowledge(
                 styles: styles.clone(),
                 memory: memory.clone(),
             })?,
-        )?,
+        )
+        .map(|_| (glossary.len(), memory.len(), styles.len()))?,
         LocalizationKnowledgeFormat::GlossaryCsv => {
-            let mut writer = csv::Writer::from_path(&request.destination_path)?;
+            let mut file = fs::File::create(&request.destination_path)?;
+            file.write_all(b"\xEF\xBB\xBF")?;
+            let mut writer = csv::Writer::from_writer(file);
             for entry in &glossary {
                 writer.serialize(CsvGlossary {
                     source_locale: entry.source_locale.clone(),
@@ -236,15 +248,17 @@ pub fn export_knowledge(
                 })?;
             }
             writer.flush()?;
+            (glossary.len(), 0, 0)
         }
         LocalizationKnowledgeFormat::TranslationMemoryTmx => {
-            fs::write(&request.destination_path, write_tmx(&memory)?)?
+            fs::write(&request.destination_path, write_tmx(&memory)?)?;
+            (0, memory.len(), 0)
         }
-    }
+    };
     Ok(LocalizationKnowledgeTransferResult {
-        glossary_count: glossary.len() as u64,
-        memory_count: memory.len() as u64,
-        style_count: styles.len() as u64,
+        glossary_count: counts.0 as u64,
+        memory_count: counts.1 as u64,
+        style_count: counts.2 as u64,
     })
 }
 
@@ -289,6 +303,11 @@ fn parse_tmx(bytes: &[u8], scope_id: &str) -> anyhow::Result<Vec<AiTranslationMe
                         confirmed_at_ms: 0,
                         use_count: 0,
                         similarity: 0.0,
+                        score: 0.0,
+                        semantic_similarity: None,
+                        lexical_similarity: 0.0,
+                        match_kind: "none".into(),
+                        retrieval_mode: "lexical".into(),
                     });
                 }
                 locale = None;

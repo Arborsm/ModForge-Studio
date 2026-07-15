@@ -262,14 +262,24 @@ fn provider_usage(value: &Value) -> ProviderUsage {
             .iter()
             .find_map(|path| value.pointer(path).and_then(Value::as_u64))
     };
+    let anthropic_cache_creation = value
+        .pointer("/usage/cache_creation_input_tokens")
+        .and_then(Value::as_u64);
+    let anthropic_cache_read = value
+        .pointer("/usage/cache_read_input_tokens")
+        .and_then(Value::as_u64);
+    let cached_tokens = match (anthropic_cache_creation, anthropic_cache_read) {
+        (Some(creation), Some(read)) => Some(creation.saturating_add(read)),
+        (Some(value), None) | (None, Some(value)) => Some(value),
+        (None, None) => get(&[
+            "/usage/input_tokens_details/cached_tokens",
+            "/usage/prompt_tokens_details/cached_tokens",
+        ]),
+    };
     ProviderUsage {
         input_tokens: get(&["/usage/input_tokens", "/usage/prompt_tokens"]),
         output_tokens: get(&["/usage/output_tokens", "/usage/completion_tokens"]),
-        cached_tokens: get(&[
-            "/usage/input_tokens_details/cached_tokens",
-            "/usage/prompt_tokens_details/cached_tokens",
-            "/usage/cache_read_input_tokens",
-        ]),
+        cached_tokens,
         reasoning_tokens: get(&[
             "/usage/output_tokens_details/reasoning_tokens",
             "/usage/completion_tokens_details/reasoning_tokens",
@@ -492,10 +502,20 @@ pub(crate) fn execute_structured_observed(
             }
             (endpoint(profile, "chat/completions")?, body)
         }
-        AiProtocol::AnthropicMessages => (
-            endpoint(profile, "messages")?,
-            json!({"model":profile.model,"max_tokens":8192,"system":format!("{system} Return only JSON matching this schema: {schema}"),"messages":[{"role":"user","content":user}],"tools":[{"name":"return_review","description":"Return localization review issues","input_schema":schema}],"tool_choice":{"type":"tool","name":"return_review"}}),
-        ),
+        AiProtocol::AnthropicMessages => {
+            let mut body = json!({"model":profile.model,"max_tokens":8192,"system":format!("{system} Return only JSON matching this schema: {schema}"),"messages":[{"role":"user","content":user}],"tools":[{"name":"return_review","description":"Return localization review issues","input_schema":schema}],"tool_choice":{"type":"tool","name":"return_review"}});
+            if reqwest::Url::parse(&profile.base_url)
+                .ok()
+                .and_then(|url| url.host_str().map(str::to_owned))
+                .as_deref()
+                == Some("api.kimi.com")
+            {
+                body.as_object_mut()
+                    .expect("Anthropic request is an object")
+                    .remove("tool_choice");
+            }
+            (endpoint(profile, "messages")?, body)
+        }
     };
     let value = send_with_retry_observed(
         Some(job),
@@ -680,16 +700,26 @@ pub(crate) fn translate_observed(
             }
             (endpoint(profile, "chat/completions")?, body)
         }
-        AiProtocol::AnthropicMessages => (
-            endpoint(profile, "messages")?,
-            json!({
+        AiProtocol::AnthropicMessages => {
+            let mut body = json!({
                 "model":profile.model, "max_tokens":8192,
                 "system":format!("{system} Return only JSON matching this schema: {schema}"),
                 "messages":[{"role":"user","content":user}],
                 "tools":[{"name":"return_translations","description":"Return validated translations","input_schema":schema}],
                 "tool_choice":{"type":"tool","name":"return_translations"}
-            }),
-        ),
+            });
+            if reqwest::Url::parse(&profile.base_url)
+                .ok()
+                .and_then(|url| url.host_str().map(str::to_owned))
+                .as_deref()
+                == Some("api.kimi.com")
+            {
+                body.as_object_mut()
+                    .expect("Anthropic request is an object")
+                    .remove("tool_choice");
+            }
+            (endpoint(profile, "messages")?, body)
+        }
     };
     let value = send_with_retry_observed(
         Some(job),

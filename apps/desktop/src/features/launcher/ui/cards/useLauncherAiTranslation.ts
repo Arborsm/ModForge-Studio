@@ -43,6 +43,7 @@ export function useLauncherAiTranslation({
   const publishNotification = useNotificationPublisher()
   const target = TARGET_TRANSLATION_LOCALE[locale]
   const notificationId = `launcher-ai-translation-${scopeKey}`
+  const usageNotificationId = `${notificationId}-usage`
   const [translation, setTranslation] = useState<LauncherTranslationPayload | null>(null)
   const [state, setState] = useState<TranslationState>('idle')
   const [error, setError] = useState<AiFailure | null>(null)
@@ -74,8 +75,9 @@ export function useLauncherAiTranslation({
       for (const jobId of activeJobs.current) void ai.cancelJob(jobId).catch(() => undefined)
       activeJobs.current.clear()
       dismissNotification(notificationId)
+      dismissNotification(usageNotificationId)
     }
-  }, [ai, notificationId, scopeKey, source, target])
+  }, [ai, notificationId, scopeKey, source, target, usageNotificationId])
 
   const run = useCallback(
     async (refresh = false) => {
@@ -96,6 +98,7 @@ export function useLauncherAiTranslation({
         }
       }
       dismissNotification(notificationId)
+      dismissNotification(usageNotificationId)
       setState('loading')
       setError(null)
       const sourceHash = await guarded(hashAiTranslationSource(source))
@@ -139,10 +142,13 @@ export function useLauncherAiTranslation({
       )
       const batches = plan.batches
       const results = []
+      let usageRecordFailed = false
       for (const batch of batches) {
         activeJobs.current.add(batch.jobId)
         try {
-          results.push(...(await guarded(ai.translateBatch(batch))).items)
+          const result = await guarded(ai.translateBatch(batch))
+          usageRecordFailed ||= result.usageRecordState === 'failed'
+          results.push(...result.items)
         } finally {
           activeJobs.current.delete(batch.jobId)
         }
@@ -179,8 +185,16 @@ export function useLauncherAiTranslation({
       setTranslation(translated)
       setState('ready')
       dismissNotification(notificationId)
+      if (usageRecordFailed) {
+        publishNotification({
+          id: usageNotificationId,
+          level: 'warning',
+          title: notificationCopy.usageRecordFailedTitle,
+          description: notificationCopy.usageRecordFailedDescription,
+        })
+      }
     },
-    [ai, changelog, full, notificationId, overview, scopeKey, source, target],
+    [ai, changelog, full, notificationCopy, notificationId, overview, publishNotification, scopeKey, source, target, usageNotificationId],
   )
 
   const translate = useCallback(

@@ -3,6 +3,9 @@ import type { AiTranslationItem, KnowledgePolicy } from './ai'
 export type AiUsageQuery = {
   fromMs: number
   toMs: number
+  provider?: string | null
+  failureCategory?: string | null
+  usageFacet?: 'cache-hit' | 'token-unavailable' | 'mt-billed' | null
   profileId: string | null
   model: string | null
   operation: string | null
@@ -49,6 +52,7 @@ export type AiUsageRecord = {
   reasoningTokens: number | null
   billedCharacters: number | null
   usageSource: 'provider-reported' | 'unavailable' | 'local-measured'
+  jobSucceeded: boolean | null
 }
 
 export type AiUsageDailySummary = {
@@ -60,13 +64,52 @@ export type AiUsageDailySummary = {
   totals: AiUsageTotals
 }
 
-export type AiUsageSummary = { totals: AiUsageTotals; daily: AiUsageDailySummary[] }
+export type AiUsageProviderModelSummary = {
+  provider: string
+  model: string | null
+  attempts: number
+  failures: number
+  averageLatencyMs: number
+}
+export type AiUsageFailureCategorySummary = { category: string; attempts: number }
+export type AiUsageDiagnostics = {
+  averageLatencyMs: number
+  p95LatencyMs: number
+  attemptSuccessRate: number
+  jobs: number
+  successfulJobs: number
+  jobSuccessRate: number
+  cacheEligibleRequests: number
+  cacheHitRequests: number
+  cacheHitRate: number
+  tokenUnavailableRequests: number
+  detailFromMs: number
+  detailComplete: boolean
+  providerModels: AiUsageProviderModelSummary[]
+  failureCategories: AiUsageFailureCategorySummary[]
+}
+export type AiUsageSummary = { totals: AiUsageTotals; daily: AiUsageDailySummary[]; diagnostics: AiUsageDiagnostics }
 export type AiUsageRecordPage = { records: AiUsageRecord[]; total: number }
 export type AiUsageClearResult = { removedEvents: number; removedDailyRows: number }
 
 /** Host-agnostic localization capability shared by settings and workbench workflows. */
 export interface LocalizationPort {
+  loadSemanticSettings(): Promise<AiSemanticSettingsSnapshot>
+  saveSemanticSettings(request: SaveAiSemanticSettingsRequest): Promise<AiSemanticSettingsSnapshot>
+  inspectSemanticModel(): Promise<AiSemanticModelStatus>
+  verifySemanticModel(request: VerifyAiSemanticModelRequest): Promise<AiSemanticModelVerification>
+  probeSemanticSearch(request: ProbeAiSemanticSearchRequest): Promise<AiSemanticProbeResult>
+  downloadSemanticModel(request: DownloadAiSemanticModelRequest): Promise<AiSemanticModelStatus>
+  deleteSemanticModel(modelId: string): Promise<AiSemanticModelStatus>
+  openSemanticModelDirectory(modelId: string): Promise<void>
+  inspectSemanticIndex(scopeIds: string[]): Promise<AiSemanticIndexStatus>
+  rebuildSemanticIndex(request: RebuildAiSemanticIndexRequest): Promise<AiSemanticIndexStatus>
+  syncSemanticIndex(request: RebuildAiSemanticIndexRequest): Promise<AiSemanticIndexStatus>
+  testSemanticRemoteProfile(profileId: string): Promise<AiSemanticConnectionTestResult>
+  listenSemanticProgress(listener: (progress: AiSemanticProgress) => void): Promise<() => void>
+  chooseSemanticModelDirectory(): Promise<string | null>
   loadDefaultEngine(): Promise<LocalizationEngineRef | null>
+  saveDefaultEngine(engine: LocalizationEngineRef): Promise<LocalizationEngineRef>
   loadMachineTranslationSettings(): Promise<MachineTranslationSettingsSnapshot>
   saveMachineTranslationSettings(request: SaveMachineTranslationSettingsRequest): Promise<MachineTranslationSettingsSnapshot>
   listMachineTranslationLanguages(profileId: string): Promise<MachineTranslationLanguage[]>
@@ -142,6 +185,11 @@ export type AiOfficialUnit = {
   promptEligible: boolean
   fingerprint: string
   similarity: number
+  score: number
+  semanticSimilarity: number | null
+  lexicalSimilarity: number
+  matchKind: 'exact' | 'whole-token' | 'substring' | 'semantic' | 'none'
+  retrievalMode: 'lexical' | 'semantic' | 'partial'
 }
 export type AiOfficialSearchPage = { records: AiOfficialUnit[]; total: number }
 
@@ -221,7 +269,128 @@ export type AiTranslationMemoryEntry = {
   confirmedAtMs: number
   useCount: number
   similarity: number
+  score: number
+  semanticSimilarity: number | null
+  lexicalSimilarity: number
+  matchKind: 'exact' | 'whole-token' | 'substring' | 'semantic' | 'none'
+  retrievalMode: 'lexical' | 'semantic' | 'partial'
 }
+
+export type AiSemanticSearchMode = 'lexical' | 'builtin' | 'local-onnx' | 'remote-openai'
+export type AiSemanticRemoteProfile = {
+  id: string
+  name: string
+  baseUrl: string
+  model: string
+  dimensions: number | null
+  credentialEnvironment: string | null
+  keyConfigured: boolean
+  resolvedCredentialSource: string | null
+}
+export type SaveAiSemanticRemoteProfile = {
+  id: string
+  name: string
+  baseUrl: string
+  model: string
+  dimensions: number | null
+  credentialEnvironment: string | null
+  apiKey?: string | null
+  clearApiKey?: boolean
+}
+export type AiSemanticSettingsSnapshot = {
+  mode: AiSemanticSearchMode
+  localModelDirectory: string | null
+  activeRemoteProfileId: string | null
+  remoteProfiles: AiSemanticRemoteProfile[]
+}
+export type SaveAiSemanticSettingsRequest = {
+  mode: AiSemanticSearchMode
+  localModelDirectory: string | null
+  activeRemoteProfileId: string | null
+  remoteProfiles: SaveAiSemanticRemoteProfile[]
+}
+export type AiSemanticModelStatus = {
+  mode: AiSemanticSearchMode
+  available: boolean
+  downloaded: boolean
+  modelId: string | null
+  revision: string | null
+  dimensions: number | null
+  modelPath: string | null
+  cacheBytes: number
+  unavailableReason: string | null
+}
+export type VerifyAiSemanticModelRequest = {
+  mode: Extract<AiSemanticSearchMode, 'builtin' | 'local-onnx'>
+  modelId: string | null
+  localModelDirectory: string | null
+}
+export type AiSemanticVerifiedFile = { relativePath: string; sizeBytes: number; sha256: string }
+export type AiSemanticModelVerification = {
+  mode: Extract<AiSemanticSearchMode, 'builtin' | 'local-onnx'>
+  modelId: string
+  dimensions: number
+  pooling: 'mean'
+  normalized: true
+  fingerprint: string
+  verifiedAtMs: number
+  files: AiSemanticVerifiedFile[]
+}
+export type ProbeAiSemanticSearchRequest = { query: string; sourceLocale: string; targetLocale: string; limit: number }
+export type AiSemanticProbeMatch = {
+  sourceKind: 'official' | 'translation-memory'
+  sourceId: string
+  sourceText: string
+  targetText: string
+  context: string
+  score: number
+  semanticSimilarity: number | null
+  lexicalSimilarity: number
+  matchKind: string
+  retrievalMode: 'lexical' | 'semantic' | 'partial'
+}
+export type AiSemanticProbeResult = {
+  query: string
+  retrievalMode: 'lexical' | 'semantic' | 'partial'
+  elapsedMs: number
+  totalCandidates: number
+  records: AiSemanticProbeMatch[]
+  warnings: string[]
+}
+export type DownloadAiSemanticModelRequest = { jobId: string; modelId: string }
+export type AiSemanticProgress = {
+  jobId: string
+  modelId: string
+  kind: string
+  phase: string
+  currentFile: string
+  downloadedBytes: number
+  totalBytes: number
+  percentage: number
+  bytesPerSecond: number | null
+  fileIndex: number
+  fileCount: number
+}
+export type AiSemanticIndexStatus = {
+  available: boolean
+  retrievalMode: 'lexical' | 'semantic' | 'partial'
+  generationId: string | null
+  modelId: string | null
+  dimensions: number | null
+  officialRevision: string | null
+  knowledgeRevision: string | null
+  indexedRecords: number
+  sourceRecords: number
+  pendingRecords: number
+  coveragePercentage: number
+  stale: boolean
+}
+export type RebuildAiSemanticIndexRequest = {
+  jobId: string
+  scopeIds: string[]
+  confirmRemoteUpload: boolean
+}
+export type AiSemanticConnectionTestResult = { model: string; dimensions: number; latencyMs: number }
 export type AiTranslationMemoryPage = { records: AiTranslationMemoryEntry[]; total: number }
 export type ConfirmedTranslation = {
   sourceLocale: string
@@ -231,9 +400,9 @@ export type ConfirmedTranslation = {
   fileNamespace: string
   unitKey: string
 }
-export type RecordConfirmedTranslationsRequest = { scopeId: string; fileNamespace: string; entries: ConfirmedTranslation[] }
+export type RecordConfirmedTranslationsRequest = { jobId: string; scopeId: string; fileNamespace: string; entries: ConfirmedTranslation[] }
 export type LocalizationKnowledgeFormat = 'knowledge-pack-json' | 'glossary-csv' | 'translation-memory-tmx'
-export type ImportLocalizationKnowledgeRequest = { scopeId: string; sourcePath: string; format: LocalizationKnowledgeFormat }
+export type ImportLocalizationKnowledgeRequest = { jobId: string; scopeId: string; sourcePath: string; format: LocalizationKnowledgeFormat }
 export type ExportLocalizationKnowledgeRequest = {
   scopeId: string
   destinationPath: string

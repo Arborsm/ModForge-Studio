@@ -397,19 +397,38 @@ fn memory_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<AiTranslationMemoryEn
         confirmed_at_ms: row.get(9)?,
         use_count: row.get(10)?,
         similarity: 0.0,
+        score: 0.0,
+        semantic_similarity: None,
+        lexical_similarity: 0.0,
+        match_kind: "none".into(),
+        retrieval_mode: "lexical".into(),
     })
 }
-fn similarity(left: &str, right: &str) -> f64 {
-    if left == right {
-        return 1.0;
+fn memory_lexical_score(query: &str, row: &AiTranslationMemoryEntry) -> (f64, &'static str) {
+    let query = normalize(query);
+    let text = normalize(&row.source_text);
+    let key = row.unit_key.as_deref().map(normalize).unwrap_or_default();
+    if query == text || query == key {
+        return (1.0, "exact");
     }
-    let a = left.to_lowercase().chars().collect::<BTreeSet<_>>();
-    let b = right.to_lowercase().chars().collect::<BTreeSet<_>>();
-    let union = a.union(&b).count();
-    if union == 0 {
-        0.0
+    let boundary = |value: &str| {
+        value
+            .split(|character: char| !character.is_alphanumeric() && character != '_')
+            .any(|token| token == query)
+    };
+    if boundary(&text)
+        || boundary(&key)
+        || row
+            .file_namespace
+            .as_deref()
+            .is_some_and(|value| boundary(&normalize(value)))
+    {
+        return (0.9, "whole-token");
+    }
+    if text.contains(&query) || key.contains(&query) {
+        (0.35, "substring")
     } else {
-        a.intersection(&b).count() as f64 / union as f64
+        (0.0, "semantic")
     }
 }
 pub fn search_memory(
@@ -438,11 +457,71 @@ pub fn search_memory(
             memory_row,
         )?
         .collect::<Result<Vec<_>, _>>()?;
+    let semantic = if query.is_empty() || source.is_empty() {
+        Vec::new()
+    } else {
+        crate::domain::localization::semantic::search_candidates(
+            "translation-memory",
+            Some(&request.scope_id),
+            &source,
+            &query,
+            50,
+        )
+        .unwrap_or_default()
+    };
+    let semantic_by_id = semantic
+        .into_iter()
+        .map(|(id, fingerprint, similarity)| (id, (fingerprint, similarity)))
+        .collect::<BTreeMap<_, _>>();
+    let existing = records
+        .iter()
+        .map(|row| row.id.clone())
+        .collect::<BTreeSet<_>>();
+    for id in semantic_by_id.keys().filter(|id| !existing.contains(*id)) {
+        if let Some(row) = db.query_row(
+            "SELECT id,scope_id,source_locale,target_locale,source_text,target_text,source_kind,file_namespace,unit_key,confirmed_at_ms,use_count
+             FROM translation_memory WHERE id=? AND scope_id=? AND (?='' OR source_locale=?) AND (?='' OR target_locale=?)",
+            params![id,request.scope_id,source,source,target,target], memory_row,
+        ).optional()? {
+            if semantic_by_id
+                .get(id)
+                .is_some_and(|(fingerprint, _)| fingerprint != &text_hash(&row.source_text))
+            {
+                continue;
+            }
+            records.push(row);
+        }
+    }
     for row in &mut records {
-        row.similarity = similarity(&query, &row.source_text);
+        let (lexical, kind) = memory_lexical_score(&query, row);
+        let semantic = semantic_by_id
+            .get(&row.id)
+            .filter(|(fingerprint, _)| fingerprint == &text_hash(&row.source_text))
+            .map(|(_, similarity)| *similarity);
+        row.lexical_similarity = lexical;
+        row.semantic_similarity = semantic;
+        row.match_kind = kind.into();
+        row.retrieval_mode = if semantic.is_some() {
+            "semantic"
+        } else {
+            "lexical"
+        }
+        .into();
+        row.score = if matches!(kind, "exact" | "whole-token") {
+            lexical
+        } else if let Some(value) = semantic.filter(|value| *value >= 0.80) {
+            value * 0.8 + lexical * 0.2
+        } else {
+            lexical
+        };
+        row.similarity = row.score;
     }
     if !query.is_empty() {
-        records.sort_by(|a, b| b.similarity.total_cmp(&a.similarity));
+        records.retain(|row| {
+            row.match_kind != "semantic"
+                || row.semantic_similarity.is_some_and(|value| value >= 0.80)
+        });
+        records.sort_by(|a, b| b.score.total_cmp(&a.score).then_with(|| a.id.cmp(&b.id)));
     }
     let total = records.len() as u64;
     let records = records
@@ -451,6 +530,158 @@ pub fn search_memory(
         .take(request.limit as usize)
         .collect();
     Ok(AiTranslationMemoryPage { records, total })
+}
+
+pub(crate) fn probe_memory_global(
+    source_locale: &str,
+    target_locale: &str,
+    query: &str,
+    semantic: Vec<(String, String, f64)>,
+    limit: u32,
+) -> anyhow::Result<Vec<AiTranslationMemoryEntry>> {
+    if query.trim().is_empty() || limit == 0 || limit > 50 {
+        bail!("Semantic memory probe requires a query and a limit between 1 and 50.");
+    }
+    let db = open()?;
+    let mut statement = db.prepare(
+        "SELECT id,scope_id,source_locale,target_locale,source_text,target_text,source_kind,file_namespace,unit_key,confirmed_at_ms,use_count
+         FROM translation_memory
+         WHERE source_locale=? AND target_locale=?
+           AND (source_text LIKE '%'||?||'%' OR target_text LIKE '%'||?||'%')
+         ORDER BY confirmed_at_ms DESC LIMIT 1000",
+    )?;
+    let mut records = statement
+        .query_map(
+            params![source_locale, target_locale, query, query],
+            memory_row,
+        )?
+        .collect::<Result<Vec<_>, _>>()?;
+    let semantic_by_id = semantic
+        .into_iter()
+        .map(|(id, fingerprint, similarity)| (id, (fingerprint, similarity)))
+        .collect::<BTreeMap<_, _>>();
+    let existing = records
+        .iter()
+        .map(|row| row.id.clone())
+        .collect::<BTreeSet<_>>();
+    for id in semantic_by_id.keys().filter(|id| !existing.contains(*id)) {
+        if let Some(row) = db
+            .query_row(
+                "SELECT id,scope_id,source_locale,target_locale,source_text,target_text,source_kind,file_namespace,unit_key,confirmed_at_ms,use_count
+                 FROM translation_memory WHERE id=? AND source_locale=? AND target_locale=?",
+                params![id, source_locale, target_locale],
+                memory_row,
+            )
+            .optional()?
+        {
+            if semantic_by_id
+                .get(id)
+                .is_some_and(|(fingerprint, _)| fingerprint != &text_hash(&row.source_text))
+            {
+                continue;
+            }
+            records.push(row);
+        }
+    }
+    for row in &mut records {
+        let (lexical, kind) = memory_lexical_score(query, row);
+        let semantic = semantic_by_id
+            .get(&row.id)
+            .filter(|(fingerprint, _)| fingerprint == &text_hash(&row.source_text))
+            .map(|(_, similarity)| *similarity);
+        row.lexical_similarity = lexical;
+        row.semantic_similarity = semantic;
+        row.match_kind = kind.into();
+        row.retrieval_mode = if semantic.is_some() {
+            "semantic"
+        } else {
+            "lexical"
+        }
+        .into();
+        row.score = if matches!(kind, "exact" | "whole-token") {
+            lexical
+        } else if let Some(value) = semantic.filter(|value| *value >= 0.80) {
+            value * 0.8 + lexical * 0.2
+        } else {
+            lexical
+        };
+        row.similarity = row.score;
+    }
+    records.retain(|row| {
+        row.match_kind != "semantic" || row.semantic_similarity.is_some_and(|value| value >= 0.80)
+    });
+    records.sort_by(|left, right| {
+        right
+            .score
+            .total_cmp(&left.score)
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    records.truncate(limit as usize);
+    Ok(records)
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct SemanticMemorySource {
+    pub id: String,
+    pub scope_id: String,
+    pub source_locale: String,
+    pub text: String,
+    pub context: String,
+    pub fingerprint: String,
+}
+
+pub(crate) fn semantic_snapshot(
+    requested_scope_ids: &[String],
+) -> anyhow::Result<(String, Vec<SemanticMemorySource>)> {
+    let db = open()?;
+    let mut scopes = if requested_scope_ids.is_empty() {
+        let mut statement = db.prepare("SELECT id FROM localization_scopes ORDER BY id")?;
+        statement
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<Result<Vec<_>, _>>()?
+    } else {
+        requested_scope_ids.to_vec()
+    };
+    scopes.sort();
+    scopes.dedup();
+    let mut revisions = Vec::with_capacity(scopes.len());
+    let mut records = Vec::new();
+    for scope_id in scopes {
+        let revision = db
+            .query_row(
+                "SELECT revision FROM localization_scopes WHERE id=?",
+                [&scope_id],
+                |row| row.get::<_, u64>(0),
+            )
+            .with_context(|| format!("Localization scope {scope_id} does not exist."))?;
+        revisions.push(format!("{scope_id}:{revision}"));
+        let mut statement = db.prepare(
+            "SELECT id,source_locale,source_text,source_hash,file_namespace,unit_key
+             FROM translation_memory WHERE scope_id=? ORDER BY id",
+        )?;
+        records.extend(
+            statement
+                .query_map([&scope_id], |row| {
+                    let source_text: String = row.get(2)?;
+                    let namespace: Option<String> = row.get(4)?;
+                    let unit_key: Option<String> = row.get(5)?;
+                    Ok(SemanticMemorySource {
+                        id: row.get(0)?,
+                        scope_id: scope_id.clone(),
+                        source_locale: row.get(1)?,
+                        text: source_text,
+                        context: format!(
+                            "File: {}\nKey: {}",
+                            namespace.as_deref().unwrap_or_default(),
+                            unit_key.as_deref().unwrap_or_default()
+                        ),
+                        fingerprint: row.get(3)?,
+                    })
+                })?
+                .collect::<Result<Vec<_>, _>>()?,
+        );
+    }
+    Ok((revisions.join("|"), records))
 }
 
 pub fn record_confirmed(request: RecordConfirmedTranslationsRequest) -> anyhow::Result<u64> {
@@ -467,6 +698,7 @@ pub fn record_confirmed(request: RecordConfirmedTranslationsRequest) -> anyhow::
     }
     let count = request.entries.len() as u64;
     for entry in request.entries {
+        crate::domain::localization::jobs::check(&request.job_id)?;
         tx.execute("INSERT INTO translation_memory(id,scope_id,source_locale,target_locale,source_text,target_text,source_hash,source_kind,file_namespace,unit_key,confirmed_at_ms) VALUES(?,?,?,?,?,?,?,'automatic',?,?,?)",params![uuid::Uuid::new_v4().to_string(),request.scope_id,entry.source_locale,entry.target_locale,entry.source_text,entry.target_text,text_hash(&entry.source_text),entry.file_namespace,entry.unit_key,now()])?;
     }
     bump(&tx, &request.scope_id)?;

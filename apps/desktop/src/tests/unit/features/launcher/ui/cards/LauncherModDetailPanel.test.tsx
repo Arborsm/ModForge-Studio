@@ -38,6 +38,7 @@ function createAiPort(overrides: Partial<AiPort> = {}): AiPort {
       jobId: request.jobId,
       profileId: 'profile',
       model: 'test',
+      usageRecordState: 'recorded',
       items: request.items.map((item) => ({
         id: item.id,
         translatedText: `译:${item.text}`,
@@ -224,6 +225,30 @@ describe('LauncherModDetailPanel', () => {
       await new Promise((resolve) => setTimeout(resolve, 0))
     })
     await waitFor(() => expect(screen.getAllByText('AI translation failed')).toHaveLength(1))
+  })
+
+  it('keeps a successful translation and separately reports a usage ledger failure', async () => {
+    const aiPort = createAiPort({
+      translateBatch: vi.fn(async (request: AiTranslateBatchRequest) => ({
+        jobId: request.jobId,
+        profileId: 'profile',
+        model: 'test',
+        usageRecordState: 'failed' as const,
+        knowledgeTrace: { officialMatches: 0, globalGlossaryMatches: 0, projectGlossaryMatches: 0, translationMemoryMatches: 0 },
+        knowledgeRevision: 'disabled',
+        items: request.items.map((item) => ({
+          id: item.id,
+          translatedText: `译:${item.text}`,
+          detectedLanguage: 'en',
+          skippedSameLanguage: false,
+        })),
+      })),
+    })
+    renderPanel(createLocalMod(), createRemoteDetail(), { aiPort })
+    fireEvent.click(screen.getByRole('button', { name: /AI Translate/i }))
+    expect(await screen.findByText(/译:Loads Content Patcher packs/)).toBeTruthy()
+    expect(await screen.findByText('Usage was not recorded')).toBeTruthy()
+    expect(screen.queryByText('AI translation failed')).toBeNull()
   })
 
   it('reports a user-triggered SQLite cache failure separately from provider failures', async () => {

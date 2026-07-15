@@ -1,13 +1,9 @@
 use super::*;
 use crate::domain::localization::types::*;
 use std::fs;
-use std::sync::{Mutex, MutexGuard, OnceLock};
 
-fn test_lock() -> MutexGuard<'static, ()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+fn test_lock() -> std::sync::MutexGuard<'static, ()> {
+    crate::test_support::process_environment_lock()
 }
 
 fn root() -> std::path::PathBuf {
@@ -155,12 +151,14 @@ fn scopes_glossary_style_and_confirmed_memory_are_transactional() {
         unit_key: key.into(),
     };
     record_confirmed(RecordConfirmedTranslationsRequest {
+        job_id: uuid::Uuid::new_v4().to_string(),
         scope_id: scope_id.clone(),
         file_namespace: "i18n/default.json".into(),
         entries: vec![confirmed("a", "甲"), confirmed("b", "乙")],
     })
     .unwrap();
     record_confirmed(RecordConfirmedTranslationsRequest {
+        job_id: uuid::Uuid::new_v4().to_string(),
         scope_id: scope_id.clone(),
         file_namespace: "i18n/default.json".into(),
         entries: vec![confirmed("a", "新甲")],
@@ -223,12 +221,14 @@ fn translation_knowledge_prefers_project_memory_and_glossary() {
         unit_key: "Greeting".into(),
     };
     record_confirmed(RecordConfirmedTranslationsRequest {
+        job_id: uuid::Uuid::new_v4().to_string(),
         scope_id: GLOBAL_SCOPE_ID.into(),
         file_namespace: "i18n/default.json".into(),
         entries: vec![confirmed("你好")],
     })
     .unwrap();
     record_confirmed(RecordConfirmedTranslationsRequest {
+        job_id: uuid::Uuid::new_v4().to_string(),
         scope_id: project.clone(),
         file_namespace: "i18n/default.json".into(),
         entries: vec![confirmed("您好")],
@@ -308,6 +308,7 @@ fn copies_translation_memory_to_another_scope_as_editable_memory() {
     let target_snapshot = project("Copy.Target");
     let target = target_snapshot.scope.id.clone();
     record_confirmed(RecordConfirmedTranslationsRequest {
+        job_id: uuid::Uuid::new_v4().to_string(),
         scope_id: source.clone(),
         file_namespace: "i18n/default.json".into(),
         entries: vec![ConfirmedTranslation {
@@ -411,6 +412,7 @@ fn knowledge_pack_csv_and_tmx_round_trip_with_real_parsers() {
     })
     .unwrap();
     record_confirmed(RecordConfirmedTranslationsRequest {
+        job_id: uuid::Uuid::new_v4().to_string(),
         scope_id: source.clone(),
         file_namespace: "i18n/default.json".into(),
         entries: vec![ConfirmedTranslation {
@@ -432,7 +434,7 @@ fn knowledge_pack_csv_and_tmx_round_trip_with_real_parsers() {
         ),
     ] {
         let path = root.join(name);
-        export_knowledge(ExportLocalizationKnowledgeRequest {
+        let exported = export_knowledge(ExportLocalizationKnowledgeRequest {
             scope_id: source.clone(),
             destination_path: path.to_string_lossy().into_owned(),
             format,
@@ -441,9 +443,38 @@ fn knowledge_pack_csv_and_tmx_round_trip_with_real_parsers() {
             query: None,
         })
         .unwrap();
+        match format {
+            LocalizationKnowledgeFormat::KnowledgePackJson => {
+                assert_eq!((exported.glossary_count, exported.memory_count), (1, 1));
+            }
+            LocalizationKnowledgeFormat::GlossaryCsv => {
+                assert_eq!(
+                    (
+                        exported.glossary_count,
+                        exported.memory_count,
+                        exported.style_count
+                    ),
+                    (1, 0, 0)
+                );
+                let bytes = fs::read(&path).unwrap();
+                assert!(bytes.starts_with(b"\xEF\xBB\xBF"));
+                assert!(std::str::from_utf8(&bytes[3..]).unwrap().contains("农场"));
+            }
+            LocalizationKnowledgeFormat::TranslationMemoryTmx => {
+                assert_eq!(
+                    (
+                        exported.glossary_count,
+                        exported.memory_count,
+                        exported.style_count
+                    ),
+                    (0, 1, 0)
+                );
+            }
+        }
         assert!(fs::metadata(&path).unwrap().len() > 0);
         let target = project(&format!("Target.{name}")).scope.id;
         let result = import_knowledge(ImportLocalizationKnowledgeRequest {
+            job_id: uuid::Uuid::new_v4().to_string(),
             scope_id: target.clone(),
             source_path: path.to_string_lossy().into_owned(),
             format,

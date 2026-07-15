@@ -1,0 +1,22 @@
+~/apps/desktop$ node ./scripts/run-vite-dev.mjs
+[dev] Cleaned Tauri shared memory leaks: 1 files, 4.00 GB freed
+
+  VITE+ v0.2.4  
+
+  ➜  Local:   http://127.0.0.1:5173/
+[BABEL] Note: The code generator has deoptimised the styling of C:\Users\26537\AppData\Local\ModForge Studio\vite\deps\react-dom_client.js?v=957f5a00 as it exceeds the max of 500KB.
+[BABEL] Note: The code generator has deoptimised the styling of C:\Users\26537\AppData\Local\ModForge Studio\vite\deps\lucide-react.js?v=957f5a00 as it exceeds the max of 500KB.
+00:08:26 [vite+] (client) hmr update /src/styles/workbench.css
+00:08:48 [vite+] (client) hmr update /src/styles/workbench.css
+00:17:31 [vite+] (client) hmr update /src/styles/workbench.css
+00:17:39 [vite+] (client) hmr update /src/styles/workbench.css
+00:17:50 [vite+] (client) hmr update /src/styles/workbench.css
+00:20:21 [vite+] (client) hmr update /src/styles/workbench.css
+00:20:29 [vite+] (client) hmr update /src/styles/workbench.css
+00:20:38 [vite+] (client) hmr update /src/styles/workbench.css
+00:23:02 [vite+] (client) hmr update /src/styles/workbench.css
+00:23:12 [vite+] (client) hmr update /src/styles/workbench.css
+00:23:31 [vite+] (client) hmr update /src/styles/workbench.css
+00:24:12 [vite+] (client) hmr update /src/styles/workbench.css
+00:24:29 [vite+] (client) hmr update /src/styles/workbench.css
+00:26:55 [vite+] (client) hmr update /src/styles/workbench.css

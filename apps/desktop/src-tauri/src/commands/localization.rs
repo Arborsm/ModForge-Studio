@@ -17,6 +17,28 @@ macro_rules! execute {
 }
 
 #[tauri::command]
+pub async fn load_localization_default_engine(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+) -> Result<Option<LocalizationEngineRef>, String> {
+    execute!(app, debug, load_localization_default_engine, json!({}))
+}
+
+#[tauri::command]
+pub async fn save_localization_default_engine(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    engine: LocalizationEngineRef,
+) -> Result<LocalizationEngineRef, String> {
+    execute!(
+        app,
+        debug,
+        save_localization_default_engine,
+        json!({"engine":engine})
+    )
+}
+
+#[tauri::command]
 pub async fn translate_localization_batch(
     app: tauri::AppHandle<AppRuntime>,
     debug: State<'_, DebugLoggingState>,
@@ -26,6 +48,162 @@ pub async fn translate_localization_batch(
         app,
         debug,
         translate_localization_batch,
+        json!({"request":request})
+    )
+}
+
+#[tauri::command]
+pub async fn load_localization_semantic_settings(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+) -> Result<AiSemanticSettingsSnapshot, String> {
+    execute!(app, debug, load_localization_semantic_settings, json!({}))
+}
+
+#[tauri::command]
+pub async fn save_localization_semantic_settings(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    request: SaveAiSemanticSettingsRequest,
+) -> Result<AiSemanticSettingsSnapshot, String> {
+    execute!(
+        app,
+        debug,
+        save_localization_semantic_settings,
+        json!({"request":request})
+    )
+}
+
+#[tauri::command]
+pub async fn inspect_localization_semantic_model(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+) -> Result<AiSemanticModelStatus, String> {
+    execute!(app, debug, inspect_localization_semantic_model, json!({}))
+}
+
+#[tauri::command]
+pub async fn verify_localization_semantic_model(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    request: VerifyAiSemanticModelRequest,
+) -> Result<AiSemanticModelVerification, String> {
+    execute!(
+        app,
+        debug,
+        verify_localization_semantic_model,
+        json!({"request":request})
+    )
+}
+
+#[tauri::command]
+pub async fn probe_localization_semantic_search(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    request: ProbeAiSemanticSearchRequest,
+) -> Result<AiSemanticProbeResult, String> {
+    execute!(
+        app,
+        debug,
+        probe_localization_semantic_search,
+        json!({"request":request})
+    )
+}
+
+#[tauri::command]
+pub async fn download_localization_semantic_model(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    request: DownloadAiSemanticModelRequest,
+) -> Result<AiSemanticModelStatus, String> {
+    execute!(
+        app,
+        debug,
+        download_localization_semantic_model,
+        json!({"request":request})
+    )
+}
+
+#[tauri::command]
+pub async fn delete_localization_semantic_model(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    request: DeleteAiSemanticModelRequest,
+) -> Result<AiSemanticModelStatus, String> {
+    execute!(
+        app,
+        debug,
+        delete_localization_semantic_model,
+        json!({"request":request})
+    )
+}
+
+#[tauri::command]
+pub async fn open_localization_semantic_model_directory(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    request: DeleteAiSemanticModelRequest,
+) -> Result<(), String> {
+    execute!(
+        app,
+        debug,
+        open_localization_semantic_model_directory,
+        json!({"request":request})
+    )
+}
+
+#[tauri::command]
+pub async fn inspect_localization_semantic_index(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    scope_ids: Vec<String>,
+) -> Result<AiSemanticIndexStatus, String> {
+    execute!(
+        app,
+        debug,
+        inspect_localization_semantic_index,
+        json!({"scopeIds":scope_ids})
+    )
+}
+
+#[tauri::command]
+pub async fn rebuild_localization_semantic_index(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    request: RebuildAiSemanticIndexRequest,
+) -> Result<AiSemanticIndexStatus, String> {
+    execute!(
+        app,
+        debug,
+        rebuild_localization_semantic_index,
+        json!({"request":request})
+    )
+}
+
+#[tauri::command]
+pub async fn sync_localization_semantic_index(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    request: RebuildAiSemanticIndexRequest,
+) -> Result<AiSemanticIndexStatus, String> {
+    execute!(
+        app,
+        debug,
+        sync_localization_semantic_index,
+        json!({"request":request})
+    )
+}
+
+#[tauri::command]
+pub async fn test_localization_semantic_remote_profile(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    request: TestAiSemanticRemoteProfileRequest,
+) -> Result<AiSemanticConnectionTestResult, String> {
+    execute!(
+        app,
+        debug,
+        test_localization_semantic_remote_profile,
         json!({"request":request})
     )
 }

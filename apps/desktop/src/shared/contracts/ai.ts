@@ -106,7 +106,31 @@ export type AiTranslationCacheEntry = {
 }
 
 export type AiTranslationCacheStats = { entryCount: number; sizeBytes: number }
-export type AiProfileTestResult = { model: string; latencyMs: number }
+export type AiProfileTestResult = {
+  provider: string
+  protocol: AiProtocol
+  baseUrl: string
+  model: string
+  latencyMs: number
+  credentialSource: 'keychain' | 'environment' | null
+}
+export type AiProfileImportConflictPolicy = 'overwrite' | 'copy' | 'skip'
+export type ExportAiProfilesRequest = { destinationPath: string; profileIds: string[] }
+export type AiProfileImportPreviewEntry = {
+  id: string
+  name: string
+  provider: string
+  model: string
+  conflicts: boolean
+}
+export type AiProfileImportPreview = { formatVersion: number; credentialsExcluded: true; entries: AiProfileImportPreviewEntry[] }
+export type AiProfileImportResult = {
+  settings: AiSettingsSnapshot
+  imported: number
+  overwritten: number
+  copied: number
+  skipped: number
+}
 
 /** Host-agnostic AI translation capability injected by the application shell. */
 export interface AiPort {
@@ -114,6 +138,9 @@ export interface AiPort {
   saveSettings: (request: SaveAiSettingsRequest) => Promise<AiSettingsSnapshot>
   listModels: (profileId: string) => Promise<AiModelInfo[]>
   testProfile: (profileId: string) => Promise<AiProfileTestResult>
+  exportProfiles: (request: ExportAiProfilesRequest) => Promise<number>
+  previewProfilesImport: (sourcePath: string) => Promise<AiProfileImportPreview>
+  applyProfilesImport: (sourcePath: string, conflictPolicy: AiProfileImportConflictPolicy) => Promise<AiProfileImportResult>
   translateBatch: (request: AiTranslateBatchRequest) => Promise<AiTranslateBatchResult>
   cancelJob: (jobId: string) => Promise<void>
   listenToProgress: (listener: (payload: AiTranslationProgressPayload) => void) => Promise<() => void>

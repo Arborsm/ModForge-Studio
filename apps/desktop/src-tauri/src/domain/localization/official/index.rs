@@ -18,8 +18,8 @@ const LOCALES: &[&str] = &[
     "de-DE", "es-ES", "fr-FR", "hu-HU", "it-IT", "ja-JP", "ko-KR", "pt-BR", "ru-RU", "tr-TR",
     "zh-CN", "zh-TW",
 ];
-const EXTRACTOR_VERSION: &str = "3";
-const SCHEMA_VERSION: u32 = 3;
+const EXTRACTOR_VERSION: &str = "6";
+const SCHEMA_VERSION: u32 = 4;
 static INDEX_OPEN_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 #[derive(Clone)]
@@ -43,6 +43,38 @@ fn hex(bytes: impl AsRef<[u8]>) -> String {
         let _ = write!(output, "{byte:02x}");
     }
     output
+}
+
+fn semantic_identity(asset_path: &str, unit_key: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(asset_path.as_bytes());
+    hasher.update([0]);
+    hasher.update(unit_key.as_bytes());
+    hex(hasher.finalize())
+}
+
+fn semantic_fingerprint(asset_path: &str, unit_key: &str, kind: &str, source: &str) -> String {
+    let mut hasher = Sha256::new();
+    for value in [asset_path, unit_key, kind, source] {
+        hasher.update(value.as_bytes());
+        hasher.update([0]);
+    }
+    hex(hasher.finalize())
+}
+
+fn prompt_text_eligible(source: &str) -> bool {
+    let trimmed = source.trim();
+    if trimmed.is_empty()
+        || (trimmed.starts_with("??") && trimmed.ends_with("??"))
+        || trimmed.chars().count() > 8_192
+    {
+        return false;
+    }
+    trimmed
+        .chars()
+        .filter(|character| character.is_alphabetic())
+        .count()
+        >= 4
 }
 
 fn open() -> anyhow::Result<Connection> {
@@ -98,13 +130,14 @@ fn open() -> anyhow::Result<Connection> {
          CREATE TABLE IF NOT EXISTS official_units(
            id INTEGER PRIMARY KEY, generation_id TEXT NOT NULL, asset_path TEXT NOT NULL,
            unit_key TEXT NOT NULL, unit_kind TEXT NOT NULL, context TEXT NOT NULL, prompt_eligible INTEGER NOT NULL,
-           fingerprint TEXT NOT NULL, UNIQUE(generation_id, asset_path, unit_key));
+           fingerprint TEXT NOT NULL, semantic_id TEXT NOT NULL, semantic_fingerprint TEXT NOT NULL,
+           UNIQUE(generation_id, asset_path, unit_key), UNIQUE(generation_id, semantic_id));
          CREATE TABLE IF NOT EXISTS official_texts(
            id INTEGER PRIMARY KEY, unit_id INTEGER NOT NULL REFERENCES official_units(id) ON DELETE CASCADE,
            locale TEXT NOT NULL, text TEXT NOT NULL, text_hash TEXT NOT NULL, UNIQUE(unit_id, locale));
          CREATE VIRTUAL TABLE IF NOT EXISTS official_texts_fts
            USING fts5(text, content='official_texts', content_rowid='id', tokenize='trigram');
-         PRAGMA user_version=3;",
+         PRAGMA user_version=4;",
     )?;
     Ok(connection)
 }
@@ -218,16 +251,19 @@ fn classify(asset_path: &str) -> (&'static str, bool) {
         || lower.contains("/movies/")
     {
         ("event-script", false)
+    } else if lower.starts_with("data/") || lower.contains("/data/") {
+        ("structured-record", false)
+    } else if lower.starts_with("characters/dialogue/") || lower.contains("/characters/dialogue/") {
+        ("dialogue", true)
+    } else if lower.starts_with("characters/schedules/") || lower.contains("/characters/schedules/")
+    {
+        ("schedule", false)
     } else if lower.starts_with("strings/") || lower.contains("/strings/") {
-        if lower.contains("name") || lower.ends_with("strings/characters.xnb") {
+        if lower.contains("name") {
             ("term", true)
         } else {
             ("plain-text", true)
         }
-    } else if lower.contains("dialogue") || lower.contains("characters") {
-        ("dialogue", true)
-    } else if lower.starts_with("data/") || lower.contains("/data/") {
-        ("structured-record", false)
     } else {
         ("opaque", false)
     }
@@ -413,9 +449,14 @@ pub fn rebuild_with_progress(
                 hasher.update(text.as_bytes());
             }
             let unit_fingerprint = hex(hasher.finalize());
+            let semantic_id = semantic_identity(&asset_path, &unit_key);
+            let source = group.texts.get("en-US").cloned().unwrap_or_default();
+            let prompt_eligible = group.prompt_eligible && prompt_text_eligible(&source);
+            let semantic_fingerprint =
+                semantic_fingerprint(&asset_path, &unit_key, &group.kind, &source);
             transaction.execute(
-                "INSERT INTO official_units(generation_id,asset_path,unit_key,unit_kind,context,prompt_eligible,fingerprint) VALUES(?,?,?,?,?,?,?)",
-                params![generation,asset_path,unit_key,group.kind,format!("{asset_path}#{unit_key}"),group.prompt_eligible,unit_fingerprint],
+                "INSERT INTO official_units(generation_id,asset_path,unit_key,unit_kind,context,prompt_eligible,fingerprint,semantic_id,semantic_fingerprint) VALUES(?,?,?,?,?,?,?,?,?)",
+                params![generation,asset_path,unit_key,group.kind,format!("{asset_path}#{unit_key}"),prompt_eligible,unit_fingerprint,semantic_id,semantic_fingerprint],
             )?;
             let unit_id = transaction.last_insert_rowid();
             for (locale, text) in group.texts {
@@ -461,21 +502,44 @@ pub fn rebuild_with_progress(
     result
 }
 
-fn similarity(left: &str, right: &str) -> f64 {
-    if left == right {
-        return 1.0;
+fn lexical_score(query: &str, row: &AiOfficialUnit) -> (f64, &'static str) {
+    let query = query.trim().to_lowercase();
+    let text = row.source_text.trim().to_lowercase();
+    let key = row.unit_key.trim().to_lowercase();
+    if query == text || query == key {
+        return (1.0, "exact");
     }
-    let left = left.to_lowercase().chars().collect::<BTreeSet<_>>();
-    let right = right.to_lowercase().chars().collect::<BTreeSet<_>>();
-    let union = left.union(&right).count();
-    if union == 0 {
-        0.0
-    } else {
-        left.intersection(&right).count() as f64 / union as f64
+    let is_boundary = |value: &str| {
+        value
+            .split(|character: char| !character.is_alphanumeric() && character != '_')
+            .any(|token| token == query)
+    };
+    if is_boundary(&text) || is_boundary(&key) || is_boundary(&row.asset_path.to_lowercase()) {
+        return (0.9, "whole-token");
+    }
+    if text.contains(&query) || key.contains(&query) {
+        return (0.35, "substring");
+    }
+    (0.0, "semantic")
+}
+
+fn merge_unit_entity_similarity(unit: Option<f64>, entity: Option<f64>) -> Option<f64> {
+    match (unit, entity) {
+        (Some(unit), Some(entity)) if entity > unit => Some(entity * 0.7 + unit * 0.3),
+        (Some(unit), Some(_)) => Some(unit),
+        (None, Some(entity)) => Some(entity * 0.7 + 0.75 * 0.3),
+        (unit, entity) => unit.or(entity),
     }
 }
 
 pub fn search(request: SearchOfficialLocalizationRequest) -> anyhow::Result<AiOfficialSearchPage> {
+    search_with_semantic(request, None)
+}
+
+pub(crate) fn search_with_semantic(
+    request: SearchOfficialLocalizationRequest,
+    semantic_groups: Option<Vec<Vec<(String, String, f64)>>>,
+) -> anyhow::Result<AiOfficialSearchPage> {
     if request.limit == 0 || request.limit > 200 {
         bail!("Official corpus page size must be between 1 and 200.");
     }
@@ -531,15 +595,228 @@ pub fn search(request: SearchOfficialLocalizationRequest) -> anyhow::Result<AiOf
                     prompt_eligible: row.get(6)?,
                     fingerprint: row.get(7)?,
                     similarity: 0.0,
+                    score: 0.0,
+                    semantic_similarity: None,
+                    lexical_similarity: 0.0,
+                    match_kind: "none".into(),
+                    retrieval_mode: "lexical".into(),
                 })
             },
         )?
         .collect::<Result<Vec<_>, _>>()?;
-    for row in &mut rows {
-        row.similarity = similarity(&request.query, &row.source_text);
+    let mut semantic_groups = semantic_groups.unwrap_or_else(|| {
+        match crate::domain::localization::semantic::search_candidate_groups(
+            &[("official", 1_000), ("official-entity", 20)],
+            None,
+            "en-US",
+            &request.query,
+        ) {
+            Ok(groups) => groups,
+            Err(error) => {
+                log::debug!(
+                    target: crate::domain::localization::operational_log::SEMANTIC,
+                    "{}",
+                    crate::domain::localization::operational_log::Fields::new(
+                        "semantic.fallback"
+                    )
+                    .field("retrievalMode", "lexical")
+                    .field(
+                        "reason",
+                        crate::domain::localization::operational_log::failure_category(&error),
+                    )
+                    .field("queries", 1)
+                    .field("candidateGroups", 2)
+                );
+                Vec::new()
+            }
+        }
+    });
+    let entity_semantic = semantic_groups.pop().unwrap_or_default();
+    let semantic = semantic_groups.pop().unwrap_or_default();
+    let semantic_by_id = semantic
+        .into_iter()
+        .map(|(id, fingerprint, similarity)| (id, (fingerprint, similarity)))
+        .collect::<BTreeMap<_, _>>();
+    let entity_semantic = entity_semantic
+        .into_iter()
+        .filter(|(_, _, similarity)| *similarity >= 0.80)
+        .map(|(id, _, similarity)| (id, similarity))
+        .collect::<BTreeMap<_, _>>();
+    let existing = rows
+        .iter()
+        .map(|row| semantic_identity(&row.asset_path, &row.unit_key))
+        .collect::<BTreeSet<_>>();
+    let mut semantic_statement = connection.prepare(
+        "SELECT u.id,s.text,t.text,u.asset_path,u.unit_key,u.unit_kind,u.prompt_eligible,u.fingerprint
+         FROM official_units u
+         JOIN official_texts s ON s.unit_id=u.id AND s.locale=?1
+         JOIN official_texts t ON t.unit_id=u.id AND t.locale=?2
+         JOIN official_assets a ON a.generation_id=u.generation_id AND a.path=u.asset_path AND a.locale=s.locale
+         WHERE u.semantic_id=?3 AND u.generation_id=?4 AND (?5 IS NULL OR a.category=?5)
+           AND (?6 IS NULL OR u.unit_kind=?6) AND (?7=0 OR u.prompt_eligible=1)"
+    )?;
+    for source_id in semantic_by_id.keys().filter(|id| !existing.contains(*id)) {
+        if let Some(row) = semantic_statement
+            .query_row(
+                params![
+                    request.source_locale,
+                    request.target_locale,
+                    source_id,
+                    active,
+                    request.asset_category,
+                    request.unit_kind,
+                    request.prompt_eligible_only
+                ],
+                |row| {
+                    Ok(AiOfficialUnit {
+                        id: row.get(0)?,
+                        source_locale: request.source_locale.clone(),
+                        target_locale: request.target_locale.clone(),
+                        source_text: row.get(1)?,
+                        target_text: row.get(2)?,
+                        asset_path: row.get(3)?,
+                        unit_key: row.get(4)?,
+                        unit_kind: row.get(5)?,
+                        prompt_eligible: row.get(6)?,
+                        fingerprint: row.get(7)?,
+                        similarity: 0.0,
+                        score: 0.0,
+                        semantic_similarity: None,
+                        lexical_similarity: 0.0,
+                        match_kind: "none".into(),
+                        retrieval_mode: "lexical".into(),
+                    })
+                },
+            )
+            .optional()?
+        {
+            if semantic_by_id
+                .get(source_id)
+                .is_some_and(|(fingerprint, _)| {
+                    fingerprint
+                        != &semantic_fingerprint(
+                            &row.asset_path,
+                            &row.unit_key,
+                            &row.unit_kind,
+                            &row.source_text,
+                        )
+                })
+            {
+                continue;
+            }
+            rows.push(row);
+        }
     }
-    rows.sort_by(|left, right| right.similarity.total_cmp(&left.similarity));
-    rows.retain(|row| row.similarity >= 0.78);
+    let mut existing = rows
+        .iter()
+        .map(|row| semantic_identity(&row.asset_path, &row.unit_key))
+        .collect::<BTreeSet<_>>();
+    let mut entity_statement = connection.prepare(
+        "SELECT u.id,s.text,t.text,u.asset_path,u.unit_key,u.unit_kind,u.prompt_eligible,u.fingerprint
+         FROM official_units u
+         JOIN official_texts s ON s.unit_id=u.id AND s.locale=?1
+         JOIN official_texts t ON t.unit_id=u.id AND t.locale=?2
+         JOIN official_assets a ON a.generation_id=u.generation_id AND a.path=u.asset_path AND a.locale=s.locale
+         WHERE LOWER(u.asset_path)=?3 AND u.generation_id=?4 AND (?5 IS NULL OR a.category=?5)
+           AND (?6 IS NULL OR u.unit_kind=?6) AND (?7=0 OR u.prompt_eligible=1)"
+    )?;
+    for entity_id in entity_semantic.keys() {
+        let Some(name) = entity_id.strip_prefix("character:") else {
+            continue;
+        };
+        let asset_path = format!("characters/dialogue/{name}.xnb");
+        let candidates = entity_statement
+            .query_map(
+                params![
+                    request.source_locale,
+                    request.target_locale,
+                    asset_path,
+                    active,
+                    request.asset_category,
+                    request.unit_kind,
+                    request.prompt_eligible_only
+                ],
+                |row| {
+                    Ok(AiOfficialUnit {
+                        id: row.get(0)?,
+                        source_locale: request.source_locale.clone(),
+                        target_locale: request.target_locale.clone(),
+                        source_text: row.get(1)?,
+                        target_text: row.get(2)?,
+                        asset_path: row.get(3)?,
+                        unit_key: row.get(4)?,
+                        unit_kind: row.get(5)?,
+                        prompt_eligible: row.get(6)?,
+                        fingerprint: row.get(7)?,
+                        similarity: 0.0,
+                        score: 0.0,
+                        semantic_similarity: None,
+                        lexical_similarity: 0.0,
+                        match_kind: "none".into(),
+                        retrieval_mode: "lexical".into(),
+                    })
+                },
+            )?
+            .collect::<Result<Vec<_>, _>>()?;
+        for row in candidates {
+            if existing.insert(semantic_identity(&row.asset_path, &row.unit_key)) {
+                rows.push(row);
+            }
+        }
+    }
+    for row in &mut rows {
+        let (lexical, match_kind) = lexical_score(&request.query, row);
+        let unit_semantic = semantic_by_id
+            .get(&semantic_identity(&row.asset_path, &row.unit_key))
+            .filter(|(fingerprint, _)| {
+                fingerprint
+                    == &semantic_fingerprint(
+                        &row.asset_path,
+                        &row.unit_key,
+                        &row.unit_kind,
+                        &row.source_text,
+                    )
+            })
+            .map(|(_, similarity)| *similarity);
+        let entity_semantic =
+            character_entity_id(&row.asset_path).and_then(|id| entity_semantic.get(&id).copied());
+        let semantic = merge_unit_entity_similarity(unit_semantic, entity_semantic);
+        row.lexical_similarity = lexical;
+        row.semantic_similarity = semantic;
+        row.match_kind = if entity_semantic
+            .is_some_and(|entity| unit_semantic.is_none_or(|unit| entity > unit))
+        {
+            "semantic-entity"
+        } else {
+            match_kind
+        }
+        .into();
+        row.retrieval_mode = if semantic.is_some() {
+            "semantic"
+        } else {
+            "lexical"
+        }
+        .into();
+        row.score = if matches!(match_kind, "exact" | "whole-token") {
+            lexical
+        } else if let Some(semantic) = semantic.filter(|value| *value >= 0.80) {
+            semantic * 0.8 + lexical * 0.2
+        } else {
+            lexical
+        };
+        row.similarity = row.score;
+    }
+    rows.retain(|row| {
+        matches!(row.match_kind.as_str(), "exact" | "whole-token")
+            || row.semantic_similarity.is_some_and(|value| value >= 0.80)
+            || row.lexical_similarity > 0.0
+    });
+    rows.sort_by(|left, right| {
+        right
+            .score
+            .total_cmp(&left.score)
+            .then_with(|| left.id.cmp(&right.id))
+    });
     let total = rows.len() as u64;
     let records = rows
         .into_iter()
@@ -560,22 +837,174 @@ pub fn active_revision() -> anyhow::Result<Option<String>> {
         .map_err(Into::into)
 }
 
-pub fn find_prompt_examples(
+#[derive(Clone, Debug)]
+pub(crate) struct SemanticOfficialSource {
+    pub id: String,
+    pub text: String,
+    pub context: String,
+    pub fingerprint: String,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct SemanticOfficialEntity {
+    pub id: String,
+    pub text: String,
+    pub context: String,
+    pub fingerprint: String,
+}
+
+fn character_entity_id(asset_path: &str) -> Option<String> {
+    let normalized = asset_path.replace('\\', "/");
+    let lower = normalized.to_ascii_lowercase();
+    let prefix = "characters/dialogue/";
+    let start = lower.find(prefix)? + prefix.len();
+    let name = normalized.get(start..)?.strip_suffix(".xnb")?;
+    (!name.is_empty()).then(|| format!("character:{}", name.to_ascii_lowercase()))
+}
+
+fn activity_semantic_alias(activity: &str) -> Option<String> {
+    let value = match activity {
+        "sleep" | "work" | "sit" | "bed" | "stand" => return None,
+        "guitar" => "guitar music musician band 吉他 音乐 乐队",
+        "skateboarding" => "skateboard skateboarding 滑板",
+        "gameboy" => "handheld video games gaming 掌机 电子游戏",
+        "pool" => "pool billiards 台球",
+        "football" => "football sports 橄榄球 运动",
+        "lift_weights" => "weightlifting fitness exercise 举重 健身 锻炼",
+        "jumprope" => "jump rope exercise 跳绳 运动",
+        "paint" | "painting" => "painting art painter 绘画 艺术 画家",
+        "read" | "reading" => "reading books 阅读 读书",
+        "dance" => "dance dancing 舞蹈 跳舞",
+        "drink" => "drinking alcohol 喝酒",
+        "garden" => "gardening flowers 园艺 花卉",
+        "tinker" => "engineering inventing machines 工程 发明 机械",
+        "play" => "playing games 玩耍 游戏",
+        _ => return Some(activity.replace('_', " ")),
+    };
+    Some(value.into())
+}
+
+pub(crate) fn semantic_entity_snapshot() -> anyhow::Result<Vec<SemanticOfficialEntity>> {
+    let connection = open()?;
+    let Some(revision) = active_revision()? else {
+        return Ok(Vec::new());
+    };
+    let mut statement = connection.prepare(
+        "SELECT u.asset_path,t.text FROM official_units u
+         JOIN official_texts t ON t.unit_id=u.id AND t.locale='en-US'
+         WHERE u.generation_id=? AND u.unit_kind='schedule' ORDER BY u.asset_path",
+    )?;
+    let mut activities = BTreeMap::<String, BTreeSet<String>>::new();
+    for row in statement.query_map([&revision], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })? {
+        let (asset_path, text) = row?;
+        let normalized = asset_path.replace('\\', "/");
+        let name = normalized
+            .rsplit('/')
+            .next()
+            .and_then(|value| value.strip_suffix(".xnb"))
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        if name.is_empty() || name == "template" {
+            continue;
+        }
+        let prefix = format!("{name}_");
+        for token in
+            text.split(|character: char| !character.is_ascii_alphanumeric() && character != '_')
+        {
+            if let Some(activity) = token.to_ascii_lowercase().strip_prefix(&prefix) {
+                if !activity.is_empty() {
+                    activities
+                        .entry(name.clone())
+                        .or_default()
+                        .insert(activity.to_string());
+                }
+            }
+        }
+    }
+    Ok(activities
+        .into_iter()
+        .filter(|(_, activities)| !activities.is_empty())
+        .filter_map(|(name, activities)| {
+            let activities = activities
+                .into_iter()
+                .filter_map(|activity| activity_semantic_alias(&activity))
+                .collect::<Vec<_>>()
+                .join("; ");
+            if activities.is_empty() {
+                return None;
+            }
+            let text = format!("Character {name}. Activities and interests: {activities}.");
+            let id = format!("character:{name}");
+            Some(SemanticOfficialEntity {
+                fingerprint: hex(Sha256::digest(text.as_bytes())),
+                id,
+                context: "Official character schedule activity profile".into(),
+                text,
+            })
+        })
+        .collect())
+}
+
+pub(crate) fn semantic_snapshot() -> anyhow::Result<(Option<String>, Vec<SemanticOfficialSource>)> {
+    let connection = open()?;
+    let Some(revision) = active_revision()? else {
+        return Ok((None, Vec::new()));
+    };
+    let mut statement = connection.prepare(
+        "SELECT u.semantic_id,u.asset_path,u.unit_key,u.unit_kind,t.text,u.semantic_fingerprint
+         FROM official_units u JOIN official_texts t ON t.unit_id=u.id AND t.locale='en-US'
+         WHERE u.generation_id=? AND u.prompt_eligible=1 ORDER BY u.id",
+    )?;
+    let records = statement
+        .query_map([&revision], |row| {
+            let asset: String = row.get(1)?;
+            let key: String = row.get(2)?;
+            let kind: String = row.get(3)?;
+            let source: String = row.get(4)?;
+            Ok(SemanticOfficialSource {
+                id: row.get(0)?,
+                text: source,
+                context: format!("Type: {kind}\nAsset: {asset}\nKey: {key}"),
+                fingerprint: row.get(5)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok((Some(revision), records))
+}
+
+pub fn find_prompt_examples_batch(
     source_locale: &str,
     target_locale: &str,
-    query: &str,
-) -> anyhow::Result<Vec<AiOfficialUnit>> {
-    Ok(search(SearchOfficialLocalizationRequest {
-        source_locale: source_locale.into(),
-        target_locale: target_locale.into(),
-        query: query.into(),
-        asset_category: None,
-        unit_kind: None,
-        prompt_eligible_only: true,
-        offset: 0,
-        limit: 5,
-    })?
-    .records)
+    queries: &[String],
+) -> anyhow::Result<Vec<Vec<AiOfficialUnit>>> {
+    let semantic = crate::domain::localization::semantic::search_candidate_groups_batch(
+        &[("official", 1_000), ("official-entity", 20)],
+        None,
+        "en-US",
+        queries,
+    )?;
+    queries
+        .iter()
+        .zip(semantic)
+        .map(|(query, groups)| {
+            Ok(search_with_semantic(
+                SearchOfficialLocalizationRequest {
+                    source_locale: source_locale.into(),
+                    target_locale: target_locale.into(),
+                    query: query.clone(),
+                    asset_category: None,
+                    unit_kind: None,
+                    prompt_eligible_only: true,
+                    offset: 0,
+                    limit: 5,
+                },
+                Some(groups),
+            )?
+            .records)
+        })
+        .collect()
 }
 
 pub fn find_terms_in_text(
@@ -612,6 +1041,11 @@ pub fn find_terms_in_text(
                     prompt_eligible: row.get(6)?,
                     fingerprint: row.get(7)?,
                     similarity: 1.0,
+                    score: 1.0,
+                    semantic_similarity: None,
+                    lexical_similarity: 1.0,
+                    match_kind: "exact".into(),
+                    retrieval_mode: "lexical".into(),
                 })
             },
         )?

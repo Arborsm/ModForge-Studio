@@ -1,39 +1,36 @@
-import { Database, RefreshCw, Search, Square } from 'lucide-react'
+import { RefreshCw, Search, Square } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLocalization } from '@entities/localization'
 import type { AiLocalizationScope } from '@shared/contracts'
+import { CompactSelect } from '@shared/ui/CompactSelect'
 import { useNotificationPublisher } from '@shared/ui/notifications'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { useAiLocalizationPage } from '../model/useAiLocalizationPage'
 import { ResizableColumnHeader, useAiLocalizationColumnWidths } from '../model/useAiLocalizationColumnWidths'
+import { SemanticSearchStatus } from './SemanticSearchStatus'
 
-const locales = ['en-US', 'de-DE', 'es-ES', 'fr-FR', 'hu-HU', 'it-IT', 'ja-JP', 'ko-KR', 'pt-BR', 'ru-RU', 'tr-TR', 'zh-CN', 'zh-TW']
 const assetCategories = ['Strings', 'Characters', 'Data', 'Dialogue', 'Maps', 'Movies']
 
-export function OfficialCorpusView() {
-  const page = useAiLocalizationPage()
+export function OfficialCorpusView({
+  scopes,
+  activeScopeId,
+  sourceLocale,
+  targetLocale,
+}: {
+  scopes: AiLocalizationScope[]
+  activeScopeId: string
+  sourceLocale: string
+  targetLocale: string
+}) {
+  const page = useAiLocalizationPage(sourceLocale, targetLocale)
   const { copy, status } = page
   const localization = useLocalization()
   const publish = useNotificationPublisher()
-  const [scopes, setScopes] = useState<AiLocalizationScope[]>([])
-  const [termScope, setTermScope] = useState('')
+  const [termScope, setTermScope] = useState(activeScopeId)
   const [overrides, setOverrides] = useState<string[]>([])
   const officialColumns = useAiLocalizationColumnWidths('official', { source: 280, target: 280, asset: 260, kind: 120 })
-  const runScopeLoad = useLatestTask('ai-localization-official-scopes')
   const runOverrideLoad = useLatestTask('ai-localization-official-overrides')
-  useEffect(() => {
-    void runScopeLoad(async (task) => {
-      const value = await localization.listScopes({ query: null, offset: 0, limit: 200 })
-      if (task.isCurrent()) {
-        setScopes(value.records)
-        setTermScope((current) => current || value.records[0]?.id || '')
-      }
-    }).catch((error) => {
-      if (!(error instanceof TaskCancelledError)) {
-        publish({ id: 'official-scopes-error', level: 'error', title: copy.knowledgeError, description: copy.knowledgeError })
-      }
-    })
-  }, [copy.knowledgeError, localization, publish, runScopeLoad])
+  useEffect(() => setTermScope(activeScopeId), [activeScopeId])
   useEffect(() => {
     if (!page.selected || page.selected.unitKind !== 'term') {
       setOverrides([])
@@ -91,41 +88,16 @@ export function OfficialCorpusView() {
   }
   return (
     <div className="ai-localization-layout">
-      <aside className="ai-localization-scope">
-        <h2>{copy.title}</h2>
-        <button className="is-active">
-          <Database className="h-4 w-4" />
-          <span>{copy.globalScope}</span>
-        </button>
-        <label>
-          <span>{copy.gameDirectory}</span>
-          <select className="control-input" value={page.gameDirectory} onChange={(e) => page.setGameDirectory(e.target.value)}>
-            <option value="">{copy.noGameDirectory}</option>
-            {page.directories.map((path) => (
-              <option key={path}>{path}</option>
-            ))}
-          </select>
-        </label>
-      </aside>
       <main className="ai-localization-main">
         <header className="ai-localization-toolbar">
           <strong>{copy.officialTab}</strong>
-          <label>
-            <span>{copy.sourceLocale}</span>
-            <select className="control-input" value={page.sourceLocale} onChange={(e) => page.setSourceLocale(e.target.value)}>
-              {locales.map((v) => (
-                <option key={v}>{v}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>{copy.targetLocale}</span>
-            <select className="control-input" value={page.targetLocale} onChange={(e) => page.setTargetLocale(e.target.value)}>
-              {locales.map((v) => (
-                <option key={v}>{v}</option>
-              ))}
-            </select>
-          </label>
+          <SemanticSearchStatus />
+          <CompactSelect
+            value={page.gameDirectory}
+            options={[{ value: '', label: copy.noGameDirectory }, ...page.directories.map((path) => ({ value: path, label: path }))]}
+            onChange={page.setGameDirectory}
+            ariaLabel={copy.gameDirectory}
+          />
           {page.indexing ? (
             <button className="control-button" onClick={() => void page.cancel()}>
               <Square className="h-4 w-4" />
@@ -212,34 +184,27 @@ export function OfficialCorpusView() {
                   </label>
                   <label>
                     <span>{copy.assetCategory}</span>
-                    <select
-                      className="control-input"
+                    <CompactSelect
                       value={page.assetCategory ?? ''}
-                      onChange={(event) => page.setAssetCategory(event.target.value || null)}
-                    >
-                      <option value="">{copy.allAssets}</option>
-                      {assetCategories.map((category) => (
-                        <option key={category} value={category}>
-                          {category}
-                        </option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: '', label: copy.allAssets },
+                        ...assetCategories.map((category) => ({ value: category, label: category })),
+                      ]}
+                      onChange={(value) => page.setAssetCategory(value || null)}
+                      ariaLabel={copy.assetCategory}
+                    />
                   </label>
                   <label>
                     <span>{copy.unitKind}</span>
-                    <select
-                      className="control-input"
+                    <CompactSelect
                       value={page.unitKind ?? ''}
-                      onChange={(e) => page.setUnitKind(e.target.value || null)}
-                    >
-                      <option value="">{copy.allKinds}</option>
-                      <option value="term">term</option>
-                      <option value="plain-text">plain-text</option>
-                      <option value="dialogue">dialogue</option>
-                      <option value="event-script">event-script</option>
-                      <option value="structured-record">structured-record</option>
-                      <option value="opaque">opaque</option>
-                    </select>
+                      options={['', 'term', 'plain-text', 'dialogue', 'event-script', 'structured-record', 'opaque'].map((value) => ({
+                        value,
+                        label: value || copy.allKinds,
+                      }))}
+                      onChange={(value) => page.setUnitKind(value || null)}
+                      ariaLabel={copy.unitKind}
+                    />
                   </label>
                   <label className="ai-localization-check">
                     <input type="checkbox" checked={page.promptOnly} onChange={(e) => page.setPromptOnly(e.target.checked)} />
@@ -333,13 +298,13 @@ export function OfficialCorpusView() {
             <section>
               <label>
                 <span>{copy.termScope}</span>
-                <select className="control-input" value={termScope} onChange={(event) => setTermScope(event.target.value)}>
-                  {scopes.map((scope) => (
-                    <option key={scope.id} value={scope.id}>
-                      {scope.kind === 'global' ? copy.globalScope : scope.name}
-                    </option>
-                  ))}
-                </select>
+                <CompactSelect
+                  value={termScope}
+                  options={scopes.map((scope) => ({ value: scope.id, label: scope.kind === 'global' ? copy.globalScope : scope.name }))}
+                  onChange={setTermScope}
+                  ariaLabel={copy.termScope}
+                  placement="top-start"
+                />
               </label>
               <button type="button" className="control-button" disabled={!termScope} onClick={() => void copyTerm()}>
                 {copy.copyAsTerm}

@@ -448,6 +448,9 @@ vi.mock('@platform/host', () => ({
   writeFrontendLog: vi.fn(async () => undefined),
   loadAiSettings: vi.fn(async () => ({ version: 1, defaultProfileId: null, profiles: [], presets: [] })),
   saveAiSettings: vi.fn(async () => ({ version: 1, defaultProfileId: null, profiles: [], presets: [] })),
+  exportAiProfiles: vi.fn(),
+  previewAiProfilesImport: vi.fn(),
+  applyAiProfilesImport: vi.fn(),
   listAiModels: vi.fn(async () => []),
   testAiProfile: vi.fn(async () => ({ model: '', latencyMs: 0 })),
   translateAiBatch: vi.fn(),
@@ -458,6 +461,49 @@ vi.mock('@platform/host', () => ({
   getAiTranslationCacheStats: vi.fn(async () => ({ entryCount: 0, sizeBytes: 0 })),
   clearAiTranslationCache: vi.fn(async () => ({ entryCount: 0, sizeBytes: 0 })),
   loadMachineTranslationSettings: vi.fn(async () => ({ version: 1, defaultProfileId: null, profiles: [], presets: [] })),
+  loadLocalizationSemanticSettings: vi.fn(async () => ({
+    mode: 'lexical',
+    localModelDirectory: null,
+    activeRemoteProfileId: null,
+    remoteProfiles: [],
+  })),
+  saveLocalizationSemanticSettings: vi.fn(),
+  inspectLocalizationSemanticModel: vi.fn(async () => ({
+    mode: 'lexical',
+    available: true,
+    downloaded: false,
+    modelId: null,
+    revision: null,
+    dimensions: null,
+    modelPath: null,
+    cacheBytes: 0,
+    unavailableReason: null,
+  })),
+  verifyLocalizationSemanticModel: vi.fn(),
+  probeLocalizationSemanticSearch: vi.fn(),
+  downloadLocalizationSemanticModel: vi.fn(),
+  deleteLocalizationSemanticModel: vi.fn(),
+  openLocalizationSemanticModelDirectory: vi.fn(async () => undefined),
+  inspectLocalizationSemanticIndex: vi.fn(async () => ({
+    available: false,
+    retrievalMode: 'lexical',
+    generationId: null,
+    modelId: null,
+    dimensions: null,
+    officialRevision: null,
+    knowledgeRevision: null,
+    indexedRecords: 0,
+    sourceRecords: 0,
+    pendingRecords: 0,
+    coveragePercentage: 100,
+    stale: false,
+  })),
+  rebuildLocalizationSemanticIndex: vi.fn(),
+  syncLocalizationSemanticIndex: vi.fn(),
+  listenToLocalizationSemanticProgress: vi.fn(async () => () => undefined),
+  testLocalizationSemanticRemoteProfile: vi.fn(),
+  loadLocalizationDefaultEngine: vi.fn(async () => null),
+  saveLocalizationDefaultEngine: vi.fn(),
   saveMachineTranslationSettings: vi.fn(async () => ({ version: 1, defaultProfileId: null, profiles: [], presets: [] })),
   listMachineTranslationLanguages: vi.fn(async () => []),
   testMachineTranslationProfile: vi.fn(async () => ({ latencyMs: 0, detectedLanguage: null })),
@@ -964,7 +1010,7 @@ describe('App locale ownership', () => {
 
     fireEvent.click(screen.getByRole('button', { name: englishSettingsName }))
 
-    const localeGroup = await screen.findByRole('radiogroup', { name: englishSettingsCopy.languageLabel }, { timeout: 5000 })
+    const localeGroup = await screen.findByRole('radiogroup', { name: englishSettingsCopy.interfaceLanguageLabel }, { timeout: 5000 })
     const chineseOption = screen.getByRole('radio', { name: englishSettingsCopy.localeLabels['zh-CN'] })
 
     expect(localeGroup).toBeTruthy()
@@ -1079,15 +1125,29 @@ describe('App locale ownership', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: new RegExp(englishSettingsCopy.title) }))
-    await screen.findByRole('button', { name: new RegExp(`^${englishSettingsCopy.categories.appearance}`) })
+    await screen.findByRole('tab', { name: new RegExp(`^${englishSettingsCopy.categories.appearance}`) })
 
-    const settingsSidebar = document.querySelector('.settings-window-sidebar')
-    expect(settingsSidebar).toBeTruthy()
-    expect(
-      within(settingsSidebar as HTMLElement).queryByRole('button', { name: new RegExp(`^${englishSettingsCopy.categories.launcher}`) }),
-    ).toBeNull()
+    const settingsCategories = screen.getByRole('tablist', { name: englishSettingsCopy.title })
+    expect(within(settingsCategories).queryByRole('tab', { name: new RegExp(`^${englishSettingsCopy.categories.launcher}`) })).toBeNull()
     expect(document.querySelector('.settings-window-content')?.textContent).not.toContain(englishSettingsCopy.categories.launcher)
     expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.actions.saveSettings })).toBeNull()
+  })
+
+  it('navigates the settings category tabs with arrow, Home, and End keys', async () => {
+    const copy = getSettingsMenuCopy('en-US')
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(copy.title) }))
+    const categories = screen.getByRole('tablist', { name: copy.title })
+    const appearance = within(categories).getByRole('tab', { name: copy.categories.appearance })
+    fireEvent.keyDown(appearance, { key: 'ArrowRight' })
+    expect(within(categories).getByRole('tab', { name: copy.categories.loading }).getAttribute('aria-selected')).toBe('true')
+
+    fireEvent.keyDown(within(categories).getByRole('tab', { name: copy.categories.loading }), { key: 'End' })
+    expect(within(categories).getByRole('tab', { name: copy.categories.debug }).getAttribute('aria-selected')).toBe('true')
+
+    fireEvent.keyDown(within(categories).getByRole('tab', { name: copy.categories.debug }), { key: 'Home' })
+    expect(appearance.getAttribute('aria-selected')).toBe('true')
   })
 
   it('renders global notifications in both workbench and launcher app modes', () => {
@@ -1324,7 +1384,7 @@ describe('App locale ownership', () => {
     render(<App />)
 
     fireEvent.click(await screen.findByRole('button', { name: englishSettingsCopy.title }))
-    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`^${englishSettingsCopy.categories.debug}`) }))
+    fireEvent.click(await screen.findByRole('tab', { name: new RegExp(`^${englishSettingsCopy.categories.debug}`) }))
     fireEvent.click(screen.getByRole('switch', { name: englishSettingsCopy.debugModeLabel }))
 
     await waitFor(() => {
@@ -1342,7 +1402,7 @@ describe('App locale ownership', () => {
     render(<App />)
 
     fireEvent.click(await screen.findByRole('button', { name: englishSettingsCopy.title }))
-    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`^${englishSettingsCopy.categories.interaction}`) }))
+    fireEvent.click(await screen.findByRole('tab', { name: new RegExp(`^${englishSettingsCopy.categories.interaction}`) }))
     fireEvent.click(screen.getByRole('switch', { name: englishSettingsCopy.notificationSoundLabel }))
 
     await waitFor(() => {
@@ -1368,7 +1428,7 @@ describe('App locale ownership', () => {
     render(<App />)
 
     fireEvent.click(await screen.findByRole('button', { name: englishSettingsCopy.title }))
-    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`^${englishSettingsCopy.categories.loading}`) }))
+    fireEvent.click(await screen.findByRole('tab', { name: new RegExp(`^${englishSettingsCopy.categories.loading}`) }))
     fireEvent.click(screen.getByRole('button', { name: 'Bounce In' }))
 
     await waitFor(() => {
@@ -1413,9 +1473,8 @@ describe('App locale ownership', () => {
     expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }).getAttribute('aria-current')).toBe('page')
 
     fireEvent.click(screen.getByRole('button', { name: new RegExp(englishSettingsCopy.title) }))
-    const sidebar = document.querySelector('.settings-window-sidebar')
-    expect(sidebar).toBeTruthy()
-    fireEvent.click(within(sidebar as HTMLElement).getByRole('button', { name: /^Debug/ }))
+    const settingsCategories = screen.getByRole('tablist', { name: englishSettingsCopy.title })
+    fireEvent.click(within(settingsCategories).getByRole('tab', { name: /^Debug/ }))
     fireEvent.click(screen.getByRole('switch', { name: englishSettingsCopy.debugModeLabel }))
 
     await waitFor(() => {

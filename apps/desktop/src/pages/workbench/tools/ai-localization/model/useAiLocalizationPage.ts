@@ -9,7 +9,7 @@ import { useAiLocalizationPersistentState } from './localizationPageState'
 
 const NOTICE_ID = 'ai-localization-official-error'
 
-export function useAiLocalizationPage() {
+export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTargetLocale = 'zh-CN') {
   const localization = useLocalization()
   const copy = useAiLocalizationCopy()
   const publish = useNotificationPublisher()
@@ -19,8 +19,8 @@ export function useAiLocalizationPage() {
   const [official, setOfficial] = useAiLocalizationPersistentState(
     'official',
     {
-      sourceLocale: 'en-US',
-      targetLocale: 'zh-CN',
+      sourceLocale: initialSourceLocale,
+      targetLocale: initialTargetLocale,
       query: '',
       assetCategory: null as string | null,
       unitKind: null as string | null,
@@ -45,7 +45,9 @@ export function useAiLocalizationPage() {
       ((value as Record<string, unknown>).unitKind === null || typeof (value as Record<string, unknown>).unitKind === 'string') &&
       typeof (value as Record<string, unknown>).promptOnly === 'boolean',
   )
-  const { sourceLocale, targetLocale, query, assetCategory, unitKind, promptOnly } = official
+  const { query, assetCategory, unitKind, promptOnly } = official
+  const sourceLocale = initialSourceLocale
+  const targetLocale = initialTargetLocale
   const [records, setRecords] = useState<AiOfficialUnit[]>([])
   const [hasSearched, setHasSearched] = useState(false)
   const [selected, setSelected] = useState<AiOfficialUnit | null>(null)
@@ -221,19 +223,7 @@ export function useAiLocalizationPage() {
     chooseGameDirectory,
     status,
     sourceLocale,
-    setSourceLocale: (value: string) => {
-      setRecords([])
-      setSelected(null)
-      setHasSearched(false)
-      setOfficial((current) => ({ ...current, sourceLocale: value }))
-    },
     targetLocale,
-    setTargetLocale: (value: string) => {
-      setRecords([])
-      setSelected(null)
-      setHasSearched(false)
-      setOfficial((current) => ({ ...current, targetLocale: value }))
-    },
     query,
     setQuery: (value: string) => {
       setRecords([])

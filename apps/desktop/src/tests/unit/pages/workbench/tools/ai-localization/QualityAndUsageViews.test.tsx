@@ -1,7 +1,6 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { LocalizationProvider } from '@entities/localization'
-import { ProjectUsageView } from '@pages/workbench/tools/ai-localization/ui/ProjectUsageView'
 import { QualityHistoryView } from '@pages/workbench/tools/ai-localization/ui/QualityHistoryView'
 import type { AiLocalizationScope, AiReviewRun, LocalizationPort } from '@shared/contracts'
 import { clearNotifications, NotificationProvider } from '@shared/ui/notifications'
@@ -50,19 +49,6 @@ const run = (offset: number): AiReviewRun => ({
   summary,
   createdAtMs: offset + 1,
 })
-const usageTotals = {
-  inputTokens: 0,
-  outputTokens: 0,
-  cachedTokens: 0,
-  reasoningTokens: 0,
-  billedCharacters: 0,
-  requestCharacters: 0,
-  responseCharacters: 0,
-  requests: 0,
-  failures: 0,
-  unavailableUsageRequests: 0,
-}
-
 function renderView(view: React.ReactNode, port: LocalizationPort) {
   return renderWithLocale(
     <NotificationProvider>
@@ -71,7 +57,7 @@ function renderView(view: React.ReactNode, port: LocalizationPort) {
   )
 }
 
-describe('AI localization history and project usage', () => {
+describe('AI localization quality history', () => {
   afterEach(() => act(() => clearNotifications()))
 
   it('requests review history with server page offsets', async () => {
@@ -83,27 +69,10 @@ describe('AI localization history and project usage', () => {
       loadScope: vi.fn(async () => ({ scope, settings })),
       saveScopeSettings: vi.fn(),
     } as unknown as LocalizationPort
-    renderView(<QualityHistoryView />, port)
+    renderView(<QualityHistoryView scopeId={scope.id} />, port)
     fireEvent.click(await screen.findByRole('button', { name: 'Review history' }))
     await waitFor(() => expect(listReviewRuns).toHaveBeenCalledWith({ scopeId: 'scope', offset: 0, limit: 20 }))
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }))
     await waitFor(() => expect(listReviewRuns).toHaveBeenLastCalledWith({ scopeId: 'scope', offset: 20, limit: 20 }))
-  })
-
-  it('retries a scoped usage query from the error notification', async () => {
-    const queryUsageSummary = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('ledger unavailable'))
-      .mockResolvedValue({ totals: usageTotals, daily: [] })
-    const queryUsageRecords = vi.fn(async () => ({ records: [], total: 0 }))
-    const port = {
-      listScopes: vi.fn(async () => ({ records: [scope], total: 1 })),
-      queryUsageSummary,
-      queryUsageRecords,
-    } as unknown as LocalizationPort
-    renderView(<ProjectUsageView />, port)
-    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
-    await waitFor(() => expect(queryUsageSummary).toHaveBeenCalledTimes(2))
-    expect(queryUsageRecords).toHaveBeenLastCalledWith(expect.objectContaining({ scopeId: 'scope', model: null }))
   })
 })

@@ -31,8 +31,39 @@ const ready: AiOfficialCorpusStatus = {
   languageCount: 2,
   unitCount: 1,
 }
+const scope = {
+  id: 'global',
+  kind: 'global' as const,
+  name: 'Global knowledge',
+  revision: 0,
+  createdAtMs: 0,
+  updatedAtMs: 0,
+  lastUsedAtMs: 0,
+  bindingKind: null,
+  bindingValue: null,
+}
 function port(overrides: Partial<LocalizationPort> = {}): LocalizationPort {
   return {
+    loadSemanticSettings: vi.fn(async () => ({
+      mode: 'lexical',
+      localModelDirectory: null,
+      activeRemoteProfileId: null,
+      remoteProfiles: [],
+    })),
+    inspectSemanticIndex: vi.fn(async () => ({
+      available: false,
+      retrievalMode: 'lexical',
+      generationId: null,
+      modelId: null,
+      dimensions: null,
+      officialRevision: null,
+      knowledgeRevision: null,
+      indexedRecords: 0,
+      sourceRecords: 0,
+      pendingRecords: 0,
+      coveragePercentage: 100,
+      stale: false,
+    })),
     queryUsageSummary: vi.fn(),
     queryUsageRecords: vi.fn(),
     exportUsage: vi.fn(),
@@ -56,24 +87,17 @@ function port(overrides: Partial<LocalizationPort> = {}): LocalizationPort {
           promptEligible: true,
           fingerprint: 'unit',
           similarity: 1,
+          score: 1,
+          semanticSimilarity: null,
+          lexicalSimilarity: 1,
+          matchKind: 'exact' as const,
+          retrievalMode: 'lexical' as const,
         },
       ],
     })),
     listScopes: vi.fn(async () => ({
       total: 1,
-      records: [
-        {
-          id: 'global',
-          kind: 'global',
-          name: 'Global knowledge',
-          revision: 0,
-          createdAtMs: 0,
-          updatedAtMs: 0,
-          lastUsedAtMs: 0,
-          bindingKind: null,
-          bindingValue: null,
-        },
-      ],
+      records: [scope],
     })),
     upsertGlossary: vi.fn(async () => ({ total: 0, records: [] })),
     listGlossary: vi.fn(async () => ({ total: 0, records: [] })),
@@ -85,7 +109,7 @@ function renderView(value: LocalizationPort) {
   return renderWithLocale(
     <NotificationProvider>
       <LocalizationProvider port={value}>
-        <OfficialCorpusView />
+        <OfficialCorpusView scopes={[scope]} activeScopeId={scope.id} sourceLocale="en-US" targetLocale="zh-CN" />
       </LocalizationProvider>
     </NotificationProvider>,
   )
@@ -110,6 +134,11 @@ describe('OfficialCorpusView', () => {
           promptEligible: true,
           fingerprint: 'unit',
           similarity: 1,
+          score: 1,
+          semanticSimilarity: null,
+          lexicalSimilarity: 1,
+          matchKind: 'exact' as const,
+          retrievalMode: 'lexical' as const,
         },
       ],
     }))
@@ -119,7 +148,8 @@ describe('OfficialCorpusView', () => {
     fireEvent.click(screen.getByRole('button', { name: /Build index/i }))
     await waitFor(() => expect(rebuildOfficialIndex).toHaveBeenCalledTimes(1))
     expect(await screen.findByText('Official corpus is ready.')).toBeTruthy()
-    fireEvent.change(screen.getByLabelText('Asset category'), { target: { value: 'Strings' } })
+    fireEvent.click(screen.getByRole('button', { name: /Asset category:/i }))
+    fireEvent.click(screen.getByRole('option', { name: 'Strings' }))
     fireEvent.change(screen.getByPlaceholderText('Search official source text'), { target: { value: 'Welcome' } })
     fireEvent.click(screen.getByRole('button', { name: 'Search' }))
     expect((await screen.findAllByText('欢迎')).length).toBeGreaterThan(0)

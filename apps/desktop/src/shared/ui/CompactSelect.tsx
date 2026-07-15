@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useCallback,
   useId,
   useRef,
   useState,
@@ -65,6 +66,8 @@ export function CompactSelect<TValue extends string | number>({
     whileElementsMounted: autoUpdate,
     middleware: [offset(SELECT_OFFSET), flip({ padding: VIEWPORT_PADDING }), shift({ padding: VIEWPORT_PADDING })],
   })
+  const setFloatingReference = refs.setReference
+  const setFloatingElement = refs.setFloating
 
   useEffect(() => {
     if (!open) {
@@ -94,15 +97,21 @@ export function CompactSelect<TValue extends string | number>({
     }
   }, [open])
 
-  function setTriggerNode(node: HTMLButtonElement | null) {
-    triggerRef.current = node
-    refs.setReference(node)
-  }
+  const setTriggerNode = useCallback(
+    (node: HTMLButtonElement | null) => {
+      triggerRef.current = node
+      setFloatingReference(node)
+    },
+    [setFloatingReference],
+  )
 
-  function setMenuNode(node: HTMLDivElement | null) {
-    menuRef.current = node
-    refs.setFloating(node)
-  }
+  const setMenuNode = useCallback(
+    (node: HTMLDivElement | null) => {
+      menuRef.current = node
+      setFloatingElement(node)
+    },
+    [setFloatingElement],
+  )
 
   function focusOption(offsetIndex: number) {
     const activeOptions = options.map((option, index) => ({ option, index })).filter(({ option }) => !option.disabled)

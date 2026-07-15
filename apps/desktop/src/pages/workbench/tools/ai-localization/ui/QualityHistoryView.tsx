@@ -2,22 +2,19 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useLocalization } from '@entities/localization'
 import { useAiLocalizationCopy, useTranslationEditorCopy } from '@locales/provider'
-import type { AiLocalizationScope, AiReviewResult, AiReviewRun, LocalizationScopeSettings } from '@shared/contracts'
+import type { AiReviewResult, AiReviewRun, LocalizationScopeSettings } from '@shared/contracts'
 import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
-import { isString, useAiLocalizationPersistentState } from '../model/localizationPageState'
 import { ResizableColumnHeader, useAiLocalizationColumnWidths } from '../model/useAiLocalizationColumnWidths'
 
 const NOTICE = 'ai-localization-quality-error'
 const PAGE_SIZE = 20
 
-export function QualityHistoryView() {
+export function QualityHistoryView({ scopeId }: { scopeId: string }) {
   const localization = useLocalization()
   const copy = useAiLocalizationCopy()
   const reviewCopy = useTranslationEditorCopy()
   const publish = useNotificationPublisher()
-  const [scopes, setScopes] = useState<AiLocalizationScope[]>([])
-  const [scopeId, setScopeId] = useAiLocalizationPersistentState('scope', '', isString)
   const [runs, setRuns] = useState<AiReviewRun[]>([])
   const [runOffset, setRunOffset] = useState(0)
   const [runTotal, setRunTotal] = useState(0)
@@ -36,7 +33,6 @@ export function QualityHistoryView() {
     status: 120,
   })
   const retryRef = useRef<() => void>(() => undefined)
-  const runScopeLoad = useLatestTask('ai-localization-quality-scopes')
   const runHistoryLoad = useLatestTask('ai-localization-quality-history')
   const fail = () => {
     setError(true)
@@ -48,22 +44,6 @@ export function QualityHistoryView() {
       action: { label: copy.retry, callback: () => retryRef.current(), tone: 'primary' },
     })
   }
-  useEffect(() => {
-    const reload = () => {
-      void runScopeLoad(async (task) => {
-        const page = await localization.listScopes({ query: null, offset: 0, limit: 200 })
-        if (task.isCurrent()) {
-          setScopes(page.records)
-          setScopeId((current) => current || page.records[0]?.id || '')
-          setError(false)
-        }
-      }).catch((error) => {
-        if (!(error instanceof TaskCancelledError)) fail()
-      })
-    }
-    retryRef.current = reload
-    reload()
-  }, [localization, runScopeLoad, setScopeId])
   useEffect(() => () => dismissNotification(NOTICE), [])
   useEffect(() => {
     if (!scopeId) {
@@ -112,14 +92,6 @@ export function QualityHistoryView() {
   }
   return (
     <div className="ai-localization-layout">
-      <aside className="ai-localization-scope">
-        <h2>{copy.reviewRuns}</h2>
-        {scopes.map((scope) => (
-          <button key={scope.id} type="button" className={scopeId === scope.id ? 'is-active' : ''} onClick={() => setScopeId(scope.id)}>
-            {scope.name}
-          </button>
-        ))}
-      </aside>
       <main className="ai-localization-main">
         <div className="ai-localization-filters">
           <button
@@ -138,40 +110,65 @@ export function QualityHistoryView() {
           </button>
         </div>
         {view === 'rules' && settings ? (
-          <div className="ai-localization-qa-rules">
-            <label>
-              <input type="checkbox" checked disabled />
-              <span>{copy.fixedMarkerRule}</span>
-            </label>
-            {(
-              [
-                ['checkEmpty', copy.emptyRule],
-                ['checkLanguageMix', copy.languageRule],
-                ['checkWhitespace', copy.whitespaceRule],
-                ['checkLineBreaks', copy.lineBreakRule],
-                ['checkLength', copy.lengthRule],
-              ] as const
-            ).map(([key, label]) => (
-              <label key={key}>
+          <div className="ai-localization-qa-groups">
+            <section className="ai-localization-qa-group">
+              <header className="ai-localization-qa-group-head">
+                <strong>{copy.qaGroupProtection}</strong>
+                <span>{copy.qaAlwaysOn}</span>
+              </header>
+              <label className="ai-localization-qa-rule is-locked">
+                <input type="checkbox" checked disabled />
+                <span className="ai-localization-qa-rule-text">
+                  <strong>{copy.fixedMarkerRule}</strong>
+                </span>
+                <span className="ai-localization-qa-rule-lock">{copy.qaAlwaysOn}</span>
+              </label>
+            </section>
+            <section className="ai-localization-qa-group">
+              <header className="ai-localization-qa-group-head">
+                <strong>{copy.qaGroupContent}</strong>
+              </header>
+              {(
+                [
+                  ['checkEmpty', copy.emptyRule],
+                  ['checkLanguageMix', copy.languageRule],
+                  ['checkWhitespace', copy.whitespaceRule],
+                  ['checkLineBreaks', copy.lineBreakRule],
+                  ['checkLength', copy.lengthRule],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className="ai-localization-qa-rule">
+                  <input
+                    type="checkbox"
+                    checked={settings.qaConfig[key]}
+                    onChange={(event) => setSettings({ ...settings, qaConfig: { ...settings.qaConfig, [key]: event.target.checked } })}
+                  />
+                  <span className="ai-localization-qa-rule-text">
+                    <strong>{label}</strong>
+                  </span>
+                </label>
+              ))}
+            </section>
+            <section className="ai-localization-qa-group">
+              <header className="ai-localization-qa-group-head">
+                <strong>{copy.qaGroupAutomation}</strong>
+              </header>
+              <label className="ai-localization-qa-rule">
                 <input
                   type="checkbox"
-                  checked={settings.qaConfig[key]}
-                  onChange={(event) => setSettings({ ...settings, qaConfig: { ...settings.qaConfig, [key]: event.target.checked } })}
+                  checked={settings.autoReview}
+                  onChange={(event) => setSettings({ ...settings, autoReview: event.target.checked })}
                 />
-                <span>{label}</span>
+                <span className="ai-localization-qa-rule-text">
+                  <strong>{copy.automaticReview}</strong>
+                </span>
               </label>
-            ))}
-            <label>
-              <input
-                type="checkbox"
-                checked={settings.autoReview}
-                onChange={(event) => setSettings({ ...settings, autoReview: event.target.checked })}
-              />
-              <span>{copy.automaticReview}</span>
-            </label>
-            <button type="button" className="control-button control-button-primary" onClick={() => void saveRules()}>
-              {copy.saveRules}
-            </button>
+            </section>
+            <div className="ai-localization-qa-footer">
+              <button type="button" className="control-button control-button-primary" onClick={() => void saveRules()}>
+                {copy.saveRules}
+              </button>
+            </div>
           </div>
         ) : null}
         {view === 'history' ? (
@@ -210,10 +207,10 @@ export function QualityHistoryView() {
                         {run.sourceLocale} → {run.targetLocale}
                       </td>
                       <td>{run.engine}</td>
-                      <td>{run.summary.checked}</td>
-                      <td>{run.summary.passed}</td>
-                      <td>{run.summary.warnings}</td>
-                      <td>{run.summary.critical}</td>
+                      <td className="num">{run.summary.checked}</td>
+                      <td className="num">{run.summary.passed}</td>
+                      <td className={`num ${run.summary.warnings > 0 ? 'warn' : 'muted'}`}>{run.summary.warnings}</td>
+                      <td className={`num ${run.summary.critical > 0 ? 'crit' : 'muted'}`}>{run.summary.critical}</td>
                       <td>{run.status}</td>
                     </tr>
                   ))}

@@ -7,6 +7,7 @@ import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifi
 import type { TranslationEntry } from './translationEditor'
 
 const WORKBENCH_AI_NOTIFICATION_ID = 'workbench-ai-translation'
+const WORKBENCH_AI_USAGE_NOTIFICATION_ID = 'workbench-ai-translation-usage'
 
 export type TranslationAiMode = 'current' | 'missing' | 'all'
 export type TranslationAiBaseline = Pick<TranslationEntry, 'sourceText' | 'targetText'>
@@ -91,6 +92,7 @@ export function useLocalizationTranslation({
     operationRef.current += 1
     ownerRef.current = null
     dismissNotification(WORKBENCH_AI_NOTIFICATION_ID)
+    dismissNotification(WORKBENCH_AI_USAGE_NOTIFICATION_ID)
     for (const jobId of activeJobs.current) {
       void localization.cancelJob(jobId).catch(() => undefined)
     }
@@ -185,6 +187,7 @@ export function useLocalizationTranslation({
         const failedKeys = new Set<string>()
         const warningKeys = new Set<string>()
         let lastFailure: AiFailure | null = null
+        let usageRecordFailed = false
         const originalId = (id: string) => id.split('\u0000', 1)[0]
         const execute = async (items: typeof sourceItems, jobId: string) => {
           activeJobs.current.add(jobId)
@@ -200,6 +203,7 @@ export function useLocalizationTranslation({
                 knowledgePolicy,
               }),
             )
+            usageRecordFailed ||= result.usageRecordState === 'failed'
             results.push(...result.items)
             for (const issue of result.validationIssues) warningKeys.add(originalId(issue.itemId))
           } finally {
@@ -267,6 +271,14 @@ export function useLocalizationTranslation({
             level: 'warning',
             title: copy.aiValidationWarningTitle,
             description: copy.aiValidationWarnings(warningKeys.size),
+          })
+        }
+        if (usageRecordFailed) {
+          publishNotification({
+            id: WORKBENCH_AI_USAGE_NOTIFICATION_ID,
+            level: 'warning',
+            title: notificationCopy.usageRecordFailedTitle,
+            description: notificationCopy.usageRecordFailedDescription,
           })
         }
       } catch (cause) {

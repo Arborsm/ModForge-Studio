@@ -1,9 +1,7 @@
 use super::*;
-use std::sync::{Mutex, OnceLock};
 
 fn environment_lock() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(())).lock().unwrap()
+    crate::test_support::process_environment_lock()
 }
 
 #[test]

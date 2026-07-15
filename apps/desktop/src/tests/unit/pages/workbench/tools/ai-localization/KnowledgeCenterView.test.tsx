@@ -1,10 +1,11 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vite-plus/test'
 import { AiProvider } from '@entities/ai'
 import { LocalizationProvider } from '@entities/localization'
 import { KnowledgeCenterView } from '@pages/workbench/tools/ai-localization/ui/KnowledgeCenterView'
 import type { AiGlossaryEntry, AiLocalizationScope, AiPort, AiStyleGuide, LocalizationPort } from '@shared/contracts'
 import { NotificationProvider } from '@shared/ui/notifications'
+import { TaskCancelledError } from '@shared/lib/task-runtime'
 import { renderWithLocale } from '@test/renderWithLocale'
 
 const scope: AiLocalizationScope = {
@@ -58,17 +59,30 @@ function renderView(tab: 'glossary' | 'style' | 'memory', port: LocalizationPort
     <NotificationProvider>
       <LocalizationProvider port={port}>
         <AiProvider port={ai}>
-          <KnowledgeCenterView tab={tab} />
+          <KnowledgeCenterView tab={tab} scopes={[scope]} scopeId={scope.id} sourceLocale="en-US" targetLocale="zh-CN" />
         </AiProvider>
       </LocalizationProvider>
     </NotificationProvider>,
   )
 }
 describe('KnowledgeCenterView', () => {
+  it('does not report superseded knowledge reads as backend failures', async () => {
+    const { value } = createPort()
+    const listGlossary = vi.fn(async () => {
+      throw new TaskCancelledError('Superseded by the current glossary query.')
+    })
+    value.listGlossary = listGlossary
+
+    renderView('glossary', value)
+
+    await waitFor(() => expect(listGlossary).toHaveBeenCalled())
+    expect(screen.queryByText('Localization knowledge operation failed.')).not.toBeInTheDocument()
+  })
+
   it('creates and saves a scoped glossary entry', async () => {
     const { value, upsertGlossary } = createPort()
     renderView('glossary', value)
-    await screen.findByText('Global knowledge')
+    expect(await screen.findByText('No glossary entries match these filters.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /Add/i }))
     fireEvent.change(screen.getByLabelText('Source term'), { target: { value: 'Junimo' } })
     fireEvent.change(screen.getByLabelText('Target term'), { target: { value: '祝尼魔' } })
@@ -106,6 +120,12 @@ describe('KnowledgeCenterView', () => {
     await screen.findByText('Source a')
     fireEvent.click(screen.getByRole('checkbox', { name: 'Select all visible entries' }))
     fireEvent.click(screen.getByRole('button', { name: 'Delete (2)' }))
+    const firstDialog = screen.getByRole('dialog', { name: 'Delete localization knowledge?' })
+    fireEvent.click(within(firstDialog).getByText('Cancel'))
+    expect(deleteGlossary).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete (2)' }))
+    const confirmDialog = screen.getByRole('dialog', { name: 'Delete localization knowledge?' })
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Delete' }))
     await waitFor(() => expect(deleteGlossary).toHaveBeenCalledWith(scope.id, ['a', 'b']))
   })
 })

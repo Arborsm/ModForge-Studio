@@ -1,9 +1,12 @@
 mod cache;
+mod exchange;
 mod jobs;
 mod presets;
 pub(crate) mod providers;
 mod settings;
 pub mod types;
+
+pub(crate) use settings::validate_base_url;
 
 use crate::AppHandle;
 use anyhow::Context;
@@ -19,6 +22,7 @@ pub use cache::{
     clear_ai_translation_cache, get_ai_translation_cache_stats, read_ai_translation_cache,
     write_ai_translation_cache,
 };
+pub use exchange::{apply_profiles_import, export_profiles, preview_profiles_import};
 pub use settings::{load_ai_settings, save_ai_settings};
 
 pub(crate) fn usage_identity(profile_id: Option<&str>) -> anyhow::Result<(String, String, String)> {
@@ -123,8 +127,12 @@ pub(crate) fn test_ai_profile_observed(
         observer,
     )?;
     Ok(AiProfileTestResult {
+        provider: profile.preset_id,
+        protocol: profile.protocol,
+        base_url: profile.base_url,
         model: profile.model,
         latency_ms: started.elapsed().as_millis(),
+        credential_source: profile.resolved_credential_source,
     })
 }
 

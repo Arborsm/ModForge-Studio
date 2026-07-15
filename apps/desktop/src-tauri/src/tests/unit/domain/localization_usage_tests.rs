@@ -1,8 +1,43 @@
 use super::*;
 use std::fs;
+use std::sync::{Arc, Barrier};
+
+fn test_lock() -> std::sync::MutexGuard<'static, ()> {
+    crate::test_support::process_environment_lock()
+}
+
+#[test]
+fn concurrent_first_open_initializes_the_usage_ledger_once() {
+    let _guard = test_lock();
+    let root = std::env::temp_dir().join(format!("modforge-usage-open-{}", uuid::Uuid::new_v4()));
+    unsafe { std::env::set_var("MODFORGE_TEST_DATA_DIR", &root) };
+    let barrier = Arc::new(Barrier::new(16));
+    let threads = (0..16)
+        .map(|_| {
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                barrier.wait();
+                open().map(|db| {
+                    db.query_row(
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('usage_events','usage_daily')",
+                        [],
+                        |row| row.get::<_, u64>(0),
+                    )
+                    .unwrap()
+                })
+            })
+        })
+        .collect::<Vec<_>>();
+    for thread in threads {
+        assert_eq!(thread.join().unwrap().unwrap(), 2);
+    }
+    unsafe { std::env::remove_var("MODFORGE_TEST_DATA_DIR") };
+    let _ = fs::remove_dir_all(root);
+}
 
 #[test]
 fn usage_ledger_records_summarizes_exports_and_never_contains_body_text() {
+    let _guard = test_lock();
     let root = std::env::temp_dir().join(format!("modforge-usage-{}", uuid::Uuid::new_v4()));
     unsafe { std::env::set_var("MODFORGE_TEST_DATA_DIR", &root) };
     let occurred_at_ms =
@@ -30,11 +65,15 @@ fn usage_ledger_records_summarizes_exports_and_never_contains_body_text() {
         reasoning_tokens: Some(2),
         billed_characters: None,
         usage_source: "provider-reported".into(),
+        job_succeeded: None,
     };
     record_usage(event).unwrap();
     let query = AiUsageQuery {
         from_ms: occurred_at_ms - 24 * 60 * 60 * 1000,
         to_ms: occurred_at_ms + 24 * 60 * 60 * 1000,
+        provider: None,
+        failure_category: None,
+        usage_facet: None,
         profile_id: None,
         model: None,
         operation: None,
@@ -91,5 +130,52 @@ fn usage_ledger_records_summarizes_exports_and_never_contains_body_text() {
     assert_eq!(compact_expired(&mut db).unwrap(), 1);
     assert_eq!(query_records(query.clone()).unwrap().total, 0);
     assert_eq!(query_summary(query).unwrap().totals.requests, 1);
+    unsafe { std::env::remove_var("MODFORGE_TEST_DATA_DIR") };
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn diagnostics_separate_attempt_and_final_job_rates_and_use_request_cache_hits() {
+    let db = Connection::open_in_memory().unwrap();
+    db.execute_batch(
+        "CREATE TABLE usage_events(
+          occurred_at_ms INTEGER NOT NULL, job_id TEXT NOT NULL, provider TEXT NOT NULL,
+          model TEXT, operation TEXT NOT NULL, engine_kind TEXT NOT NULL, profile_id TEXT,
+          scope_id TEXT, succeeded INTEGER NOT NULL, latency_ms INTEGER NOT NULL,
+          failure_category TEXT, cached_tokens INTEGER, billed_characters INTEGER,
+          usage_source TEXT NOT NULL);
+         INSERT INTO usage_events VALUES
+          (2000000000000,'retry-job','openai','model','translate','generative-ai','profile',NULL,0,10,'rate-limit',0,NULL,'provider-reported'),
+          (2000000000001,'retry-job','openai','model','translate','generative-ai','profile',NULL,1,20,NULL,4,NULL,'provider-reported'),
+          (2000000000002,'failed-job','openai','model','translate','generative-ai','profile',NULL,0,100,'network',NULL,NULL,'unavailable');",
+    )
+    .unwrap();
+    let query = AiUsageQuery {
+        from_ms: 1_999_999_999_000,
+        to_ms: 2_000_000_001_000,
+        provider: None,
+        failure_category: None,
+        usage_facet: None,
+        profile_id: None,
+        model: None,
+        operation: None,
+        engine_kind: None,
+        scope_id: None,
+        succeeded: None,
+        offset: 0,
+        limit: 100,
+    };
+    let diagnostics = query_diagnostics(&db, &query).unwrap();
+    assert_eq!(diagnostics.p95_latency_ms, 100);
+    assert!((diagnostics.average_latency_ms - 43.333).abs() < 0.01);
+    assert!((diagnostics.attempt_success_rate - 1.0 / 3.0).abs() < 0.001);
+    assert_eq!(diagnostics.jobs, 2);
+    assert_eq!(diagnostics.successful_jobs, 1);
+    assert_eq!(diagnostics.job_success_rate, 0.5);
+    assert_eq!(diagnostics.cache_eligible_requests, 2);
+    assert_eq!(diagnostics.cache_hit_requests, 1);
+    assert_eq!(diagnostics.cache_hit_rate, 0.5);
+    assert_eq!(diagnostics.token_unavailable_requests, 1);
+    assert_eq!(diagnostics.provider_models[0].attempts, 3);
+    assert_eq!(diagnostics.failure_categories.len(), 2);
 }

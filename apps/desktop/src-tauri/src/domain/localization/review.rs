@@ -24,11 +24,9 @@ fn tokens(value: &str) -> Vec<String> {
 }
 
 pub(crate) fn translation_validation_issues(
-    source_locale: &str,
-    target_locale: &str,
     items: &[(String, String, String)],
     required_terms: &BTreeMap<String, Vec<(String, String)>>,
-    use_official_terms: bool,
+    official_terms: &BTreeMap<String, Vec<(String, String)>>,
 ) -> Vec<LocalizationValidationIssue> {
     let mut issues = Vec::new();
     for (item_id, source, target) in items {
@@ -50,21 +48,19 @@ pub(crate) fn translation_validation_issues(
                 });
             }
         }
-        if use_official_terms
-            && let Ok(terms) = official::find_terms_in_text(source_locale, target_locale, source)
-        {
-            for term in terms {
+        if let Some(terms) = official_terms.get(item_id) {
+            for (source_term, expected_term) in terms {
                 let overridden = required_terms.get(item_id).is_some_and(|values| {
                     values
                         .iter()
-                        .any(|(source_term, _)| source_term == &term.source_text)
+                        .any(|(required_source, _)| required_source == source_term)
                 });
-                if !overridden && !target.contains(&term.target_text) {
+                if !overridden && !target.contains(expected_term) {
                     issues.push(LocalizationValidationIssue {
                         item_id: item_id.clone(),
                         category: "official-terminology".into(),
-                        source_term: Some(term.source_text),
-                        expected_term: Some(term.target_text),
+                        source_term: Some(source_term.clone()),
+                        expected_term: Some(expected_term.clone()),
                     });
                 }
             }

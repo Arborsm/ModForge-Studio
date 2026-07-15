@@ -608,6 +608,17 @@ diff 使用主题的 danger/success soft token 标出删除和新增文本，不
 - notification retry callback 通过当前 action ref 执行，页面卸载时关闭通知并取消活动 job。
 - 接受校对结果、机器翻译结果和 AI 译文都必须经过同一 baseline 与占位符验证函数。
 
+### 11.9 用量诊断统计口径
+
+- 逐请求明细以 provider attempt 为事实源。重试产生的失败 attempt 计入 attempt 失败率，不因同一任务后续成功而删除。
+- 平均延迟与 P95 延迟均按 attempt 的完整供应商往返时间计算。P95 使用 nearest-rank，不从前端分页记录估算。
+- 任务最终成功率按 `jobId` 聚合；任一 attempt 成功即认为该任务最终成功。它与 attempt 成功率分别展示。
+- 缓存命中率采用请求命中率：在供应商返回 token 遥测的生成式请求中，`cachedTokens > 0` 的请求数除以可判断缓存状态的请求数。它不是 cached token / input token 比率。
+- 机器翻译主字符指标采用供应商报告的 billed characters；request characters 只保留为诊断事实，不作为账单口径。
+- “Token 不可用请求”只统计生成式请求且 `usageSource=unavailable` 的 attempt；本地 embedding 和传统机器翻译不混入该指标。
+- provider/model 分组、失败分类、P95 和任务最终状态由 Rust 对完整筛选结果聚合，前端不得从当前页推算。
+- attempt 明细只保留 90 天。查询跨越保留边界时，Token、字符和请求总量继续合并日汇总；P95、成功率、provider/model 与失败分类只覆盖仍保留的明细，并通过 `detailComplete` 与 `detailFromMs` 明确提示覆盖范围。
+
 ## 12. 交付切片
 
 ### 12.1 用量闭环

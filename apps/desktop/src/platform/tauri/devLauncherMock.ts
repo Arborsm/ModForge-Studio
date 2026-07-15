@@ -13,12 +13,22 @@ import type {
   LauncherUpdatesResult,
 } from '@features/launcher/model/launcherContracts'
 import type {
+  AiProfileTestResult,
+  AiSemanticIndexStatus,
+  AiSemanticModelStatus,
+  AiSemanticSettingsSnapshot,
   AiSettingsSnapshot,
   AiTranslateBatchRequest,
   AiTranslationCacheEntry,
+  AiUsageQuery,
+  AiUsageRecord,
+  AiUsageSummary,
   AppUiState,
+  LocalizationEngineRef,
+  MachineTranslationSettingsSnapshot,
   PatchAppUiStateRequest,
   SaveAiSettingsRequest,
+  SaveMachineTranslationSettingsRequest,
 } from '@shared/contracts'
 import { DEFAULT_LOADING_MOTION_PREFERENCE } from '@shared/lib/loading-motion'
 
@@ -29,6 +39,7 @@ declare global {
 }
 
 const DEV_LAUNCHER_MOCK_QUERY_PARAM = 'mfLauncherMock'
+const DEV_SETTINGS_MOCK_QUERY_PARAM = 'mfSettingsMock'
 const DEV_LAUNCHER_MOCK_MODS_PATH = 'E:\\ModForge Dev\\Stardew Valley\\Mods'
 
 const DEV_AI_PRESETS: AiSettingsSnapshot['presets'] = [
@@ -42,6 +53,17 @@ const DEV_AI_PRESETS: AiSettingsSnapshot['presets'] = [
     authentication: 'bearer',
     supportsModelListing: true,
     structuredOutput: 'json-schema',
+  },
+  {
+    id: 'ollama',
+    name: 'Ollama',
+    protocol: 'openai-chat-completions',
+    baseUrl: 'http://127.0.0.1:11434/v1',
+    credentialEnvironment: null,
+    requiresApiKey: false,
+    authentication: 'none',
+    supportsModelListing: true,
+    structuredOutput: 'json-object',
   },
   {
     id: 'gemini',
@@ -66,6 +88,256 @@ const DEV_AI_PRESETS: AiSettingsSnapshot['presets'] = [
     structuredOutput: 'anthropic-tool',
   },
 ]
+
+function createInitialAiSettings(): AiSettingsSnapshot {
+  return {
+    version: 1,
+    defaultProfileId: 'openai-workbench',
+    profiles: [
+      {
+        id: 'openai-workbench',
+        name: 'OpenAI · 工作台默认',
+        presetId: 'openai',
+        protocol: 'openai-responses',
+        baseUrl: 'https://api.openai.com/v1',
+        model: 'gpt-4.1-mini',
+        credentialEnvironment: 'OPENAI_API_KEY',
+        keyConfigured: true,
+        resolvedCredentialSource: 'keychain',
+      },
+      {
+        id: 'local-ollama',
+        name: '本地 Ollama',
+        presetId: 'ollama',
+        protocol: 'openai-chat-completions',
+        baseUrl: 'http://127.0.0.1:11434/v1',
+        model: 'qwen2.5:14b',
+        credentialEnvironment: null,
+        keyConfigured: false,
+        resolvedCredentialSource: null,
+      },
+    ],
+    presets: DEV_AI_PRESETS,
+  }
+}
+
+function createInitialMachineTranslationSettings(): MachineTranslationSettingsSnapshot {
+  return {
+    version: 1,
+    defaultProfileId: 'deepl-main',
+    profiles: [
+      {
+        id: 'deepl-main',
+        name: 'DeepL · 批量直译',
+        presetId: 'deepl',
+        protocol: 'deepl',
+        baseUrl: 'https://api-free.deepl.com',
+        region: null,
+        enabled: true,
+        defaultSourceLocale: 'en',
+        defaultTargetLocale: 'zh',
+        credentialEnvironments: { authKey: 'DEEPL_AUTH_KEY' },
+        credentialSources: { authKey: 'keychain' },
+      },
+      {
+        id: 'tencent-tmt',
+        name: '腾讯 TMT',
+        presetId: 'tencent-tmt',
+        protocol: 'tencent-tmt',
+        baseUrl: 'https://tmt.tencentcloudapi.com',
+        region: 'ap-guangzhou',
+        enabled: true,
+        defaultSourceLocale: 'en',
+        defaultTargetLocale: 'zh',
+        credentialEnvironments: { secretId: 'TENCENT_SECRET_ID', secretKey: 'TENCENT_SECRET_KEY' },
+        credentialSources: { secretId: 'environment', secretKey: 'environment' },
+      },
+    ],
+    presets: [
+      {
+        id: 'deepl',
+        name: 'DeepL',
+        protocol: 'deepl',
+        baseUrl: 'https://api-free.deepl.com',
+        credentialFields: ['authKey'],
+        capability: {
+          languagesDynamic: true,
+          maxItemCharacters: 5000,
+          maxBatchCharacters: 50000,
+          supportsHtml: true,
+          supportsGlossary: true,
+          usageCapability: 'character',
+          authentication: 'auth-key',
+        },
+      },
+      {
+        id: 'tencent-tmt',
+        name: 'Tencent TMT',
+        protocol: 'tencent-tmt',
+        baseUrl: 'https://tmt.tencentcloudapi.com',
+        credentialFields: ['secretId', 'secretKey'],
+        capability: {
+          languagesDynamic: true,
+          maxItemCharacters: 2000,
+          maxBatchCharacters: 20000,
+          supportsHtml: false,
+          supportsGlossary: false,
+          usageCapability: 'character',
+          authentication: 'tc3',
+        },
+      },
+    ],
+  }
+}
+
+function createInitialSemanticSettings(): AiSemanticSettingsSnapshot {
+  return {
+    mode: 'builtin',
+    localModelDirectory: null,
+    activeRemoteProfileId: null,
+    remoteProfiles: [],
+  }
+}
+
+function createInitialSemanticModelStatus(): AiSemanticModelStatus {
+  return {
+    mode: 'builtin',
+    available: true,
+    downloaded: true,
+    modelId: 'multilingual-e5-small',
+    revision: 'mock-rev-1',
+    dimensions: 384,
+    modelPath: 'E:\\ModForge Dev\\Models\\multilingual-e5-small',
+    cacheBytes: 128 * 1024 * 1024,
+    unavailableReason: null,
+  }
+}
+
+function createInitialSemanticIndexStatus(): AiSemanticIndexStatus {
+  return {
+    available: true,
+    retrievalMode: 'semantic',
+    generationId: 'gen-mock-1',
+    modelId: 'multilingual-e5-small',
+    dimensions: 384,
+    officialRevision: 'official-1',
+    knowledgeRevision: 'knowledge-1',
+    indexedRecords: 1832,
+    sourceRecords: 2000,
+    pendingRecords: 18,
+    coveragePercentage: 91.6,
+    stale: false,
+  }
+}
+
+function emptyUsageTotals() {
+  return {
+    inputTokens: 0,
+    outputTokens: 0,
+    cachedTokens: 0,
+    reasoningTokens: 0,
+    billedCharacters: 0,
+    requestCharacters: 0,
+    responseCharacters: 0,
+    requests: 0,
+    failures: 0,
+    unavailableUsageRequests: 0,
+  }
+}
+
+function createMockUsageSummary(): AiUsageSummary {
+  const totals = {
+    ...emptyUsageTotals(),
+    inputTokens: 128_400,
+    outputTokens: 86_200,
+    cachedTokens: 12_400,
+    reasoningTokens: 0,
+    billedCharacters: 42_000,
+    requestCharacters: 210_000,
+    responseCharacters: 168_000,
+    requests: 286,
+    failures: 9,
+    unavailableUsageRequests: 4,
+  }
+  return {
+    totals,
+    daily: [
+      {
+        date: new Date().toISOString().slice(0, 10),
+        engineKind: 'generative-ai',
+        profileId: 'openai-workbench',
+        operation: 'translate-batch',
+        scopeId: null,
+        totals: { ...totals, requests: 48, failures: 1 },
+      },
+      {
+        date: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10),
+        engineKind: 'machine-translation',
+        profileId: 'deepl-main',
+        operation: 'translate-batch',
+        scopeId: null,
+        totals: { ...emptyUsageTotals(), requests: 36, billedCharacters: 18_000, failures: 0 },
+      },
+    ],
+    diagnostics: {
+      averageLatencyMs: 412,
+      p95LatencyMs: 980,
+      attemptSuccessRate: 0.968,
+      jobs: 120,
+      successfulJobs: 114,
+      jobSuccessRate: 0.95,
+      cacheEligibleRequests: 80,
+      cacheHitRequests: 28,
+      cacheHitRate: 0.35,
+      tokenUnavailableRequests: 4,
+      detailFromMs: Date.now() - 7 * 86_400_000,
+      detailComplete: true,
+      providerModels: [
+        { provider: 'openai', model: 'gpt-4.1-mini', attempts: 180, failures: 4, averageLatencyMs: 360 },
+        { provider: 'deepl', model: null, attempts: 70, failures: 2, averageLatencyMs: 520 },
+        { provider: 'ollama', model: 'qwen2.5:14b', attempts: 36, failures: 3, averageLatencyMs: 780 },
+      ],
+      failureCategories: [
+        { category: 'rate-limit', attempts: 4 },
+        { category: 'network', attempts: 3 },
+        { category: 'timeout', attempts: 2 },
+      ],
+    },
+  }
+}
+
+function createMockUsageRecords(limit: number): AiUsageRecord[] {
+  const now = Date.now()
+  return Array.from({ length: Math.min(limit, 24) }, (_, index) => {
+    const failed = index % 11 === 0
+    const generative = index % 3 !== 0
+    return {
+      occurredAtMs: now - index * 3_600_000,
+      jobId: `job-mock-${index + 1}`,
+      attempt: 1,
+      pageSource: generative ? 'workbench-translation' : 'launcher',
+      operation: 'translate-batch',
+      engineKind: generative ? 'generative-ai' : 'machine-translation',
+      profileId: generative ? 'openai-workbench' : 'deepl-main',
+      provider: generative ? 'openai' : 'deepl',
+      model: generative ? 'gpt-4.1-mini' : null,
+      scopeId: null,
+      succeeded: !failed,
+      latencyMs: 220 + index * 17,
+      failureCategory: failed ? 'rate-limit' : null,
+      requestItems: 8 + (index % 5),
+      requestCharacters: 1200 + index * 40,
+      responseCharacters: 980 + index * 35,
+      inputTokens: generative ? 800 + index * 20 : null,
+      outputTokens: generative ? 520 + index * 12 : null,
+      cachedTokens: generative && index % 4 === 0 ? 120 : null,
+      reasoningTokens: null,
+      billedCharacters: generative ? null : 900 + index * 30,
+      usageSource: generative ? 'provider-reported' : 'local-measured',
+      jobSucceeded: !failed,
+    }
+  })
+}
 
 const DEV_LAUNCHER_NEXUS_DIAGNOSTICS: LauncherNexusDiagnosticsResult = {
   routes: [
@@ -109,7 +381,8 @@ function shouldEnableDevLauncherMock() {
     return false
   }
 
-  return new URLSearchParams(window.location.search).get(DEV_LAUNCHER_MOCK_QUERY_PARAM) === '1'
+  const params = new URLSearchParams(window.location.search)
+  return params.get(DEV_LAUNCHER_MOCK_QUERY_PARAM) === '1' || params.get(DEV_SETTINGS_MOCK_QUERY_PARAM) === '1'
 }
 
 function getDevLauncherMockModCount() {
@@ -227,7 +500,13 @@ function getMockRequest<TRequest>(payload: unknown): TRequest | null {
   return (payload as { request: TRequest }).request
 }
 
+function isSettingsMockPreferred() {
+  if (typeof window === 'undefined') return false
+  return new URLSearchParams(window.location.search).get(DEV_SETTINGS_MOCK_QUERY_PARAM) === '1'
+}
+
 function createInitialAppUiState(): AppUiState {
+  const settingsMock = isSettingsMockPreferred()
   return {
     version: 1,
     shell: {
@@ -239,7 +518,8 @@ function createInitialAppUiState(): AppUiState {
       rememberCloseChoice: false,
     },
     appearance: {
-      locale: 'en-US',
+      // Settings visual mock targets the Chinese prototype screenshots.
+      locale: settingsMock ? 'zh-CN' : 'en-US',
       themeId: 'neutral-tool',
       windowBorderTone: 'accent',
       windowBorderWeight: 'standard',
@@ -341,8 +621,25 @@ export function installDevLauncherMock() {
   }
   let libraryState = createInitialLibraryState(mods)
   let queueState: LauncherDownloadQueueState = { items: [] }
-  let aiSettings: AiSettingsSnapshot = { version: 1, defaultProfileId: null, profiles: [], presets: DEV_AI_PRESETS }
+  let aiSettings: AiSettingsSnapshot = createInitialAiSettings()
+  let machineTranslationSettings = createInitialMachineTranslationSettings()
+  let defaultEngine: LocalizationEngineRef | null = { kind: 'generative-ai', profileId: 'openai-workbench' }
+  let semanticSettings = createInitialSemanticSettings()
+  let semanticModel = createInitialSemanticModelStatus()
+  let semanticIndex = createInitialSemanticIndexStatus()
   const aiCache = new Map<string, AiTranslationCacheEntry>()
+  // Seed a few cache entries so usage/cache UI is non-empty.
+  for (let index = 0; index < 326; index += 1) {
+    aiCache.set(`scope-${index}:zh-CN`, {
+      scopeKey: `scope-${index}`,
+      targetLocale: 'zh-CN',
+      sourceHash: `hash-${index}`,
+      translatedText: `缓存译文 ${index + 1}`.padEnd(40, '·'),
+      providerProfileId: 'openai-workbench',
+      model: 'gpt-4.1-mini',
+      updatedAtMs: Date.now() - index * 60_000,
+    })
+  }
   exposeLauncherCustomSortState(libraryState)
 
   mockWindows('main')
@@ -365,7 +662,11 @@ export function installDevLauncherMock() {
             presets: DEV_AI_PRESETS,
             profiles: request.profiles.map((profile) => {
               const previous = aiSettings.profiles.find((candidate) => candidate.id === profile.id)
-              const keyConfigured = Boolean(profile.apiKey) || (!profile.clearApiKey && previous?.keyConfigured === true)
+              const preset = DEV_AI_PRESETS.find((item) => item.id === profile.presetId)
+              const keyConfigured =
+                preset?.requiresApiKey === false
+                  ? false
+                  : Boolean(profile.apiKey) || (!profile.clearApiKey && previous?.keyConfigured === true)
               return {
                 id: profile.id,
                 name: profile.name,
@@ -375,16 +676,223 @@ export function installDevLauncherMock() {
                 model: profile.model,
                 credentialEnvironment: profile.credentialEnvironment,
                 keyConfigured,
-                resolvedCredentialSource: keyConfigured ? 'keychain' : null,
+                resolvedCredentialSource: keyConfigured ? 'keychain' : preset?.requiresApiKey === false ? null : null,
               }
             }),
           }
           return aiSettings
         }
         case 'list_ai_models':
-          return [{ id: 'mock-translation-model', displayName: 'Mock translation model' }]
-        case 'test_ai_profile':
-          return { model: 'mock-translation-model', latencyMs: 24 }
+          return [
+            { id: 'gpt-4.1-mini', displayName: 'GPT-4.1 mini' },
+            { id: 'gpt-4.1', displayName: 'GPT-4.1' },
+            { id: 'qwen2.5:14b', displayName: 'Qwen2.5 14B' },
+            { id: 'mock-translation-model', displayName: 'Mock translation model' },
+          ]
+        case 'test_ai_profile': {
+          const profileId =
+            getMockRequest<{ profileId?: string }>(payload)?.profileId ??
+            (payload && typeof payload === 'object' && 'profileId' in payload
+              ? String((payload as { profileId: string }).profileId)
+              : aiSettings.defaultProfileId)
+          const profile = aiSettings.profiles.find((item) => item.id === profileId) ?? aiSettings.profiles[0]
+          const result: AiProfileTestResult = {
+            provider: profile?.presetId ?? 'openai',
+            protocol: profile?.protocol ?? 'openai-responses',
+            baseUrl: profile?.baseUrl ?? 'https://api.openai.com/v1',
+            model: profile?.model || 'gpt-4.1-mini',
+            latencyMs: 142,
+            credentialSource: profile?.resolvedCredentialSource ?? null,
+          }
+          return result
+        }
+        case 'export_ai_profiles':
+          return aiSettings.profiles.length
+        case 'preview_ai_profiles_import':
+          return {
+            formatVersion: 1,
+            credentialsExcluded: true,
+            entries: aiSettings.profiles.map((profile) => ({
+              id: profile.id,
+              name: profile.name,
+              provider: profile.presetId,
+              model: profile.model,
+              conflicts: true,
+            })),
+          }
+        case 'apply_ai_profiles_import':
+          return {
+            settings: aiSettings,
+            imported: 0,
+            overwritten: aiSettings.profiles.length,
+            copied: 0,
+            skipped: 0,
+          }
+        case 'load_machine_translation_settings':
+          return machineTranslationSettings
+        case 'save_machine_translation_settings': {
+          const request =
+            getMockRequest<SaveMachineTranslationSettingsRequest>(payload) ??
+            ({ defaultProfileId: null, profiles: [] } satisfies SaveMachineTranslationSettingsRequest)
+          machineTranslationSettings = {
+            version: 1,
+            defaultProfileId: request.defaultProfileId,
+            presets: machineTranslationSettings.presets,
+            profiles: request.profiles.map((profile) => {
+              const previous = machineTranslationSettings.profiles.find((item) => item.id === profile.id)
+              const credentialSources: MachineTranslationSettingsSnapshot['profiles'][number]['credentialSources'] = {
+                ...(previous?.credentialSources ?? {}),
+              }
+              for (const [field, value] of Object.entries(profile.credentials ?? {})) {
+                if (value) credentialSources[field] = 'keychain'
+              }
+              for (const field of profile.clearCredentials ?? []) {
+                delete credentialSources[field]
+              }
+              return {
+                id: profile.id,
+                name: profile.name,
+                presetId: profile.presetId,
+                protocol: profile.protocol,
+                baseUrl: profile.baseUrl,
+                region: profile.region,
+                enabled: profile.enabled,
+                defaultSourceLocale: profile.defaultSourceLocale,
+                defaultTargetLocale: profile.defaultTargetLocale,
+                credentialEnvironments: profile.credentialEnvironments,
+                credentialSources,
+              }
+            }),
+          }
+          return machineTranslationSettings
+        }
+        case 'list_machine_translation_languages':
+          return [
+            { code: 'EN', name: 'English', supportsSource: true, supportsTarget: true },
+            { code: 'ZH', name: 'Chinese', supportsSource: true, supportsTarget: true },
+            { code: 'JA', name: 'Japanese', supportsSource: true, supportsTarget: true },
+          ]
+        case 'test_machine_translation_profile':
+          return { latencyMs: 186, detectedLanguage: 'EN' }
+        case 'load_localization_default_engine':
+          return defaultEngine
+        case 'save_localization_default_engine': {
+          const engine =
+            payload && typeof payload === 'object' && 'engine' in payload
+              ? ((payload as { engine: LocalizationEngineRef }).engine ?? null)
+              : getMockRequest<LocalizationEngineRef>(payload)
+          if (engine) defaultEngine = engine
+          return defaultEngine
+        }
+        case 'load_localization_semantic_settings':
+          return semanticSettings
+        case 'save_localization_semantic_settings': {
+          const request = getMockRequest<AiSemanticSettingsSnapshot>(payload)
+          if (request) {
+            semanticSettings = {
+              mode: request.mode,
+              localModelDirectory: request.localModelDirectory,
+              activeRemoteProfileId: request.activeRemoteProfileId,
+              remoteProfiles: request.remoteProfiles ?? [],
+            }
+            semanticModel = {
+              ...semanticModel,
+              mode: request.mode,
+              available: request.mode !== 'lexical',
+              downloaded: request.mode === 'builtin',
+              modelId: request.mode === 'builtin' ? 'multilingual-e5-small' : request.mode === 'lexical' ? null : semanticModel.modelId,
+            }
+          }
+          return semanticSettings
+        }
+        case 'inspect_localization_semantic_model':
+          return semanticModel
+        case 'inspect_localization_semantic_index':
+          return semanticIndex
+        case 'verify_localization_semantic_model':
+          return {
+            mode: 'builtin' as const,
+            modelId: 'multilingual-e5-small',
+            dimensions: 384,
+            pooling: 'mean' as const,
+            normalized: true as const,
+            fingerprint: 'mock-fingerprint',
+            verifiedAtMs: Date.now(),
+            files: [
+              { relativePath: 'model.onnx', sizeBytes: 90_000_000, sha256: 'a'.repeat(64) },
+              { relativePath: 'tokenizer.json', sizeBytes: 700_000, sha256: 'b'.repeat(64) },
+            ],
+          }
+        case 'probe_localization_semantic_search': {
+          const query =
+            payload && typeof payload === 'object' && 'request' in payload
+              ? String((payload as { request: { query?: string } }).request.query ?? 'spring')
+              : 'spring'
+          return {
+            query,
+            retrievalMode: 'semantic',
+            elapsedMs: 38,
+            totalCandidates: 12,
+            records: [
+              {
+                sourceKind: 'official',
+                sourceId: 'StringsFromCSFiles:1',
+                sourceText: 'Welcome to the valley!',
+                targetText: '欢迎来到山谷！',
+                context: 'StringsFromCSFiles',
+                score: 0.92,
+                semanticSimilarity: 0.91,
+                lexicalSimilarity: 0.4,
+                matchKind: 'semantic',
+                retrievalMode: 'semantic',
+              },
+              {
+                sourceKind: 'translation-memory',
+                sourceId: 'tm:42',
+                sourceText: 'A soft spring rain.',
+                targetText: '一场轻柔的春雨。',
+                context: 'Event',
+                score: 0.81,
+                semanticSimilarity: 0.78,
+                lexicalSimilarity: 0.55,
+                matchKind: 'hybrid',
+                retrievalMode: 'partial',
+              },
+            ],
+            warnings: [],
+          }
+        }
+        case 'download_localization_semantic_model':
+        case 'delete_localization_semantic_model':
+          semanticModel = { ...semanticModel, downloaded: true, available: true }
+          return semanticModel
+        case 'open_localization_semantic_model_directory':
+          return null
+        case 'rebuild_localization_semantic_index':
+        case 'sync_localization_semantic_index':
+          semanticIndex = {
+            ...semanticIndex,
+            indexedRecords: semanticIndex.sourceRecords,
+            pendingRecords: 0,
+            coveragePercentage: 100,
+            stale: false,
+          }
+          return semanticIndex
+        case 'test_localization_semantic_remote_profile':
+          return { model: 'text-embedding-3-small', dimensions: 1536, latencyMs: 96 }
+        case 'query_ai_usage_summary':
+          return createMockUsageSummary()
+        case 'query_ai_usage_records': {
+          const request = getMockRequest<AiUsageQuery>(payload)
+          const limit = request?.limit ?? 100
+          const offset = request?.offset ?? 0
+          const records = createMockUsageRecords(offset + limit).slice(offset, offset + limit)
+          return { records, total: 48 }
+        }
+        case 'export_ai_usage':
+          return 48
+        case 'clear_ai_usage':
+          return { removedEvents: 48, removedDailyRows: 7 }
         case 'translate_ai_batch': {
           const request = getMockRequest<AiTranslateBatchRequest>(payload)
           if (!request) throw new Error('Missing mock AI translation request')
@@ -447,18 +955,32 @@ export function installDevLauncherMock() {
         case 'load_launcher_runtime_info':
           return { gameVersion: '1.6.15', smapiVersion: '4.3.0' } satisfies LauncherRuntimeInfo
         case 'load_launcher_gmcm_probe_diagnostics':
+          // Quiet ready status for settings mock screenshots; keep warning for launcher-only mock.
           return {
-            status: 'warning',
-            probeAssemblyPath: null,
+            status: isSettingsMockPreferred() ? 'ready' : 'warning',
+            probeAssemblyPath: isSettingsMockPreferred() ? 'E:\\ModForge Dev\\gmcm-reader.dll' : null,
             dotnetPath: 'dotnet',
-            dotnetAvailable: false,
-            net6RuntimeAvailable: false,
-            installedRuntimes: [],
-            warnings: ['browser-dev-mock'],
-            repairActions: ['run-desktop-host'],
+            dotnetAvailable: isSettingsMockPreferred(),
+            net6RuntimeAvailable: isSettingsMockPreferred(),
+            installedRuntimes: isSettingsMockPreferred() ? ['.NET 6.0'] : [],
+            warnings: isSettingsMockPreferred() ? [] : ['browser-dev-mock'],
+            repairActions: isSettingsMockPreferred() ? [] : ['run-desktop-host'],
           } satisfies LauncherGmcmProbeDiagnosticsResult
         case 'load_launcher_nexus_diagnostics':
         case 'restart_launcher_nexus_diagnostics':
+          // Settings visual mock: no warning toasts over the dialog screenshots.
+          if (isSettingsMockPreferred()) {
+            return {
+              routes: DEV_LAUNCHER_NEXUS_DIAGNOSTICS.routes.map((route) => ({
+                ...route,
+                status: 'success' as const,
+                available: true,
+                attempts: 1,
+                maxAttempts: 3,
+                message: 'OK',
+              })),
+            } satisfies LauncherNexusDiagnosticsResult
+          }
           return DEV_LAUNCHER_NEXUS_DIAGNOSTICS
         case 'set_launcher_nexus_force_offline':
           return { routes: [] } satisfies LauncherNexusDiagnosticsResult

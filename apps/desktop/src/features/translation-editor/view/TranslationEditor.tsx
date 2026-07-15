@@ -621,6 +621,7 @@ export function TranslationEditor({
     const fileNamespace =
       i18nFiles.find((file) => file.locale === targetLocale)?.relativePath ?? `${localizationContext.sourceNamespace}/${targetLocale}`
     await localization.recordConfirmed({
+      jobId: crypto.randomUUID(),
       scopeId: snapshot.scope.id,
       fileNamespace,
       entries: allEntries

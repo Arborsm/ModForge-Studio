@@ -25,6 +25,8 @@ pub struct AiUsageEvent {
     pub reasoning_tokens: Option<u64>,
     pub billed_characters: Option<u64>,
     pub usage_source: String,
+    #[serde(default)]
+    pub job_succeeded: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,6 +34,12 @@ pub struct AiUsageEvent {
 pub struct AiUsageQuery {
     pub from_ms: i64,
     pub to_ms: i64,
+    #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub failure_category: Option<String>,
+    #[serde(default)]
+    pub usage_facet: Option<String>,
     pub profile_id: Option<String>,
     pub model: Option<String>,
     pub operation: Option<String>,
@@ -79,6 +87,43 @@ pub struct AiUsageDailySummary {
 pub struct AiUsageSummary {
     pub totals: AiUsageTotals,
     pub daily: Vec<AiUsageDailySummary>,
+    pub diagnostics: AiUsageDiagnostics,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiUsageProviderModelSummary {
+    pub provider: String,
+    pub model: Option<String>,
+    pub attempts: u64,
+    pub failures: u64,
+    pub average_latency_ms: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiUsageFailureCategorySummary {
+    pub category: String,
+    pub attempts: u64,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiUsageDiagnostics {
+    pub average_latency_ms: f64,
+    pub p95_latency_ms: u64,
+    pub attempt_success_rate: f64,
+    pub jobs: u64,
+    pub successful_jobs: u64,
+    pub job_success_rate: f64,
+    pub cache_eligible_requests: u64,
+    pub cache_hit_requests: u64,
+    pub cache_hit_rate: f64,
+    pub token_unavailable_requests: u64,
+    pub detail_from_ms: i64,
+    pub detail_complete: bool,
+    pub provider_models: Vec<AiUsageProviderModelSummary>,
+    pub failure_categories: Vec<AiUsageFailureCategorySummary>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -181,6 +226,11 @@ pub struct AiOfficialUnit {
     pub prompt_eligible: bool,
     pub fingerprint: String,
     pub similarity: f64,
+    pub score: f64,
+    pub semantic_similarity: Option<f64>,
+    pub lexical_similarity: f64,
+    pub match_kind: String,
+    pub retrieval_mode: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -384,6 +434,11 @@ pub struct AiTranslationMemoryEntry {
     pub confirmed_at_ms: i64,
     pub use_count: u64,
     pub similarity: f64,
+    pub score: f64,
+    pub semantic_similarity: Option<f64>,
+    pub lexical_similarity: f64,
+    pub match_kind: String,
+    pub retrieval_mode: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -407,6 +462,7 @@ pub struct ConfirmedTranslation {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecordConfirmedTranslationsRequest {
+    pub job_id: String,
     pub scope_id: String,
     pub file_namespace: String,
     pub entries: Vec<ConfirmedTranslation>,
@@ -423,6 +479,7 @@ pub enum LocalizationKnowledgeFormat {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportLocalizationKnowledgeRequest {
+    pub job_id: String,
     pub scope_id: String,
     pub source_path: String,
     pub format: LocalizationKnowledgeFormat,
@@ -756,4 +813,217 @@ pub struct UpdateReviewIssueStatus {
 pub struct UpdateReviewIssuesRequest {
     pub run_id: String,
     pub issues: Vec<UpdateReviewIssueStatus>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum AiSemanticSearchMode {
+    Lexical,
+    Builtin,
+    LocalOnnx,
+    RemoteOpenai,
+}
+
+impl Default for AiSemanticSearchMode {
+    fn default() -> Self {
+        Self::Lexical
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiSemanticRemoteProfile {
+    pub id: String,
+    pub name: String,
+    pub base_url: String,
+    pub model: String,
+    pub dimensions: Option<u32>,
+    pub credential_environment: Option<String>,
+    pub key_configured: bool,
+    pub resolved_credential_source: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveAiSemanticRemoteProfile {
+    pub id: String,
+    pub name: String,
+    pub base_url: String,
+    pub model: String,
+    pub dimensions: Option<u32>,
+    pub credential_environment: Option<String>,
+    pub api_key: Option<String>,
+    #[serde(default)]
+    pub clear_api_key: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AiSemanticSettingsSnapshot {
+    pub mode: AiSemanticSearchMode,
+    pub local_model_directory: Option<String>,
+    pub active_remote_profile_id: Option<String>,
+    pub remote_profiles: Vec<AiSemanticRemoteProfile>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveAiSemanticSettingsRequest {
+    pub mode: AiSemanticSearchMode,
+    pub local_model_directory: Option<String>,
+    pub active_remote_profile_id: Option<String>,
+    pub remote_profiles: Vec<SaveAiSemanticRemoteProfile>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiSemanticModelStatus {
+    pub mode: AiSemanticSearchMode,
+    pub available: bool,
+    pub downloaded: bool,
+    pub model_id: Option<String>,
+    pub revision: Option<String>,
+    pub dimensions: Option<u32>,
+    pub model_path: Option<String>,
+    pub cache_bytes: u64,
+    pub unavailable_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VerifyAiSemanticModelRequest {
+    pub mode: AiSemanticSearchMode,
+    pub model_id: Option<String>,
+    pub local_model_directory: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiSemanticVerifiedFile {
+    pub relative_path: String,
+    pub size_bytes: u64,
+    pub sha256: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiSemanticModelVerification {
+    pub mode: AiSemanticSearchMode,
+    pub model_id: String,
+    pub dimensions: u32,
+    pub pooling: String,
+    pub normalized: bool,
+    pub fingerprint: String,
+    pub verified_at_ms: i64,
+    pub files: Vec<AiSemanticVerifiedFile>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProbeAiSemanticSearchRequest {
+    pub query: String,
+    pub source_locale: String,
+    pub target_locale: String,
+    #[serde(default = "default_semantic_probe_limit")]
+    pub limit: u32,
+}
+
+fn default_semantic_probe_limit() -> u32 {
+    10
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiSemanticProbeMatch {
+    pub source_kind: String,
+    pub source_id: String,
+    pub source_text: String,
+    pub target_text: String,
+    pub context: String,
+    pub score: f64,
+    pub semantic_similarity: Option<f64>,
+    pub lexical_similarity: f64,
+    pub match_kind: String,
+    pub retrieval_mode: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiSemanticProbeResult {
+    pub query: String,
+    pub retrieval_mode: String,
+    pub elapsed_ms: u64,
+    pub total_candidates: u64,
+    pub records: Vec<AiSemanticProbeMatch>,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadAiSemanticModelRequest {
+    pub job_id: String,
+    pub model_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteAiSemanticModelRequest {
+    pub model_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiSemanticProgress {
+    pub job_id: String,
+    pub model_id: String,
+    pub kind: String,
+    pub phase: String,
+    pub current_file: String,
+    pub downloaded_bytes: u64,
+    pub total_bytes: u64,
+    pub percentage: f64,
+    pub bytes_per_second: Option<u64>,
+    pub file_index: u32,
+    pub file_count: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiSemanticIndexStatus {
+    pub available: bool,
+    pub retrieval_mode: String,
+    pub generation_id: Option<String>,
+    pub model_id: Option<String>,
+    pub dimensions: Option<u32>,
+    pub official_revision: Option<String>,
+    pub knowledge_revision: Option<String>,
+    pub indexed_records: u64,
+    pub source_records: u64,
+    pub pending_records: u64,
+    pub coverage_percentage: f64,
+    pub stale: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RebuildAiSemanticIndexRequest {
+    pub job_id: String,
+    #[serde(default)]
+    pub scope_ids: Vec<String>,
+    #[serde(default)]
+    pub confirm_remote_upload: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TestAiSemanticRemoteProfileRequest {
+    pub profile_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiSemanticConnectionTestResult {
+    pub model: String,
+    pub dimensions: u32,
+    pub latency_ms: u64,
 }

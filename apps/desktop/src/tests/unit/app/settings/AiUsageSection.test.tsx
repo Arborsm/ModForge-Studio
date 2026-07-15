@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { AiUsageSection } from '@app/app-shell/settings/AiUsageSection'
 import { LocalizationProvider } from '@entities/localization'
@@ -22,7 +22,26 @@ const totals = {
   failures: 0,
   unavailableUsageRequests: 0,
 }
-const summary: AiUsageSummary = { totals, daily: [] }
+const summary: AiUsageSummary = {
+  totals,
+  daily: [],
+  diagnostics: {
+    averageLatencyMs: 120,
+    p95LatencyMs: 240,
+    attemptSuccessRate: 1,
+    jobs: 1,
+    successfulJobs: 1,
+    jobSuccessRate: 1,
+    cacheEligibleRequests: 1,
+    cacheHitRequests: 0,
+    cacheHitRate: 0,
+    tokenUnavailableRequests: 0,
+    detailFromMs: 0,
+    detailComplete: true,
+    providerModels: [],
+    failureCategories: [],
+  },
+}
 const record = (index: number): AiUsageRecord => ({
   occurredAtMs: Date.now(),
   jobId: `job-${index}`,
@@ -46,6 +65,7 @@ const record = (index: number): AiUsageRecord => ({
   reasoningTokens: 0,
   billedCharacters: null,
   usageSource: 'provider-reported',
+  jobSucceeded: true,
 })
 
 describe('AiUsageSection', () => {
@@ -66,14 +86,45 @@ describe('AiUsageSection', () => {
       </NotificationProvider>,
     )
     await waitFor(() => expect(queryUsageRecords).toHaveBeenCalled())
-    fireEvent.change(screen.getByLabelText('Engine'), { target: { value: 'generative-ai' } })
+    fireEvent.click(screen.getByRole('button', { name: /Engine: All/i }))
+    fireEvent.click(screen.getByRole('option', { name: 'Generative AI' }))
     await waitFor(() =>
       expect(queryUsageRecords).toHaveBeenLastCalledWith(expect.objectContaining({ engineKind: 'generative-ai', offset: 0, limit: 100 })),
     )
-    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'model' } })
-    await waitFor(() => expect(queryUsageRecords).toHaveBeenLastCalledWith(expect.objectContaining({ model: 'model', offset: 0 })))
+    fireEvent.click(screen.getByRole('button', { name: /Operation: All/i }))
+    fireEvent.click(screen.getByRole('option', { name: 'translate' }))
+    await waitFor(() => expect(queryUsageRecords).toHaveBeenLastCalledWith(expect.objectContaining({ operation: 'translate', offset: 0 })))
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }))
     await waitFor(() => expect(queryUsageRecords).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 100, limit: 100 })))
     expect(await screen.findByText('101-101 of 101')).toBeTruthy()
+  })
+
+  it('does not publish an older usage query after filters change', async () => {
+    const summaries: Array<(value: AiUsageSummary) => void> = []
+    const pages: Array<(value: { total: number; records: AiUsageRecord[] }) => void> = []
+    const queryUsageSummary = vi.fn(() => new Promise<AiUsageSummary>((resolve) => summaries.push(resolve)))
+    const queryUsageRecords = vi.fn(() => new Promise<{ total: number; records: AiUsageRecord[] }>((resolve) => pages.push(resolve)))
+    renderWithLocale(
+      <NotificationProvider>
+        <LocalizationProvider port={{ queryUsageSummary, queryUsageRecords } as unknown as LocalizationPort}>
+          <AiUsageSection />
+        </LocalizationProvider>
+      </NotificationProvider>,
+    )
+    await waitFor(() => expect(queryUsageSummary).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getByRole('button', { name: /Engine: All/i }))
+    fireEvent.click(screen.getByRole('option', { name: 'Generative AI' }))
+    await waitFor(() => expect(queryUsageSummary).toHaveBeenCalledTimes(2))
+    await act(async () => {
+      summaries[1]?.({ ...summary, totals: { ...totals, requests: 2 } })
+      pages[1]?.({ total: 0, records: [] })
+    })
+    const requestTotal = () => within(document.querySelector('.settings-ai-usage-kpis')!).getByText('Requests').parentElement!
+    expect(within(requestTotal()).getByText('2')).toBeTruthy()
+    await act(async () => {
+      summaries[0]?.({ ...summary, totals: { ...totals, requests: 1 } })
+      pages[0]?.({ total: 0, records: [] })
+    })
+    expect(within(requestTotal()).getByText('2')).toBeTruthy()
   })
 })

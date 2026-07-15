@@ -374,6 +374,7 @@ export default function WorkbenchExperience({
                   onExportProject: projectPresentation.openExportDialog,
                   onCloseProject: projectPresentation.closeDraft,
                   onOpenGameDirectory: directoryController.openOverlay,
+                  onOpenSettings,
                 },
                 project: cpMaker,
                 moduleState: {

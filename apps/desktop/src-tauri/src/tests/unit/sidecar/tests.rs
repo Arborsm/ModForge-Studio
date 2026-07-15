@@ -439,6 +439,30 @@ fn ai_commands_use_the_dedicated_pool_and_declared_resources() {
         ))
     );
     assert_eq!(
+        command_binding("preview_ai_profiles_import"),
+        Some((
+            SidecarLane::Io,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiSettings]
+        ))
+    );
+    assert_eq!(
+        command_binding("apply_ai_profiles_import"),
+        Some((
+            SidecarLane::Mutation,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiSettings]
+        ))
+    );
+    assert_eq!(
+        command_binding("export_ai_profiles"),
+        Some((
+            SidecarLane::Io,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiSettings, SidecarResource::FileExport]
+        ))
+    );
+    assert_eq!(
         command_binding("clear_ai_translation_cache"),
         Some((
             SidecarLane::Mutation,
@@ -722,6 +746,52 @@ fn project_and_cp_maker_mutations_declare_resource_locks_at_binding_site() {
     assert_eq!(
         command_resources("export_file"),
         Some(vec![SidecarResource::FileExport])
+    );
+}
+
+#[test]
+fn semantic_download_and_indexing_declare_exclusive_resources_at_binding_site() {
+    assert_eq!(
+        command_lane("download_localization_semantic_model"),
+        Some(SidecarLane::Network)
+    );
+    assert_eq!(
+        command_resources("download_localization_semantic_model"),
+        Some(vec![SidecarResource::AiSemanticModel])
+    );
+    for command in [
+        "rebuild_localization_semantic_index",
+        "sync_localization_semantic_index",
+    ] {
+        assert_eq!(command_lane(command), Some(SidecarLane::Mutation));
+        assert_eq!(
+            command_execution_pool(command),
+            Some(HostCommandExecutionPool::AiSemanticIndexing)
+        );
+        assert_eq!(
+            command_resources(command),
+            Some(vec![
+                SidecarResource::AiSemanticModel,
+                SidecarResource::AiSemanticIndex,
+                SidecarResource::AiLocalizationKnowledge,
+                SidecarResource::AiOfficialLocalizationIndex,
+            ])
+        );
+    }
+    assert_eq!(
+        command_execution_pool("probe_localization_semantic_search"),
+        Some(HostCommandExecutionPool::AiSemanticSearch)
+    );
+    assert_eq!(
+        command_lane("probe_localization_semantic_search"),
+        Some(SidecarLane::Network)
+    );
+    assert_eq!(
+        command_resources("verify_localization_semantic_model"),
+        Some(vec![
+            SidecarResource::AiSemanticSettings,
+            SidecarResource::AiSemanticModel,
+        ])
     );
 }
 

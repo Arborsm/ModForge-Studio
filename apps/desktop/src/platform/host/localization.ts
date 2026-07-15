@@ -31,11 +31,116 @@ import type {
   LocalizationTranslateBatchRequest,
   LocalizationTranslateBatchResult,
   AiOfficialIndexProgress,
+  AiSemanticSettingsSnapshot,
+  SaveAiSemanticSettingsRequest,
+  AiSemanticModelStatus,
+  DownloadAiSemanticModelRequest,
+  AiSemanticIndexStatus,
+  RebuildAiSemanticIndexRequest,
+  AiSemanticProgress,
+  AiSemanticConnectionTestResult,
+  LocalizationEngineRef,
+  VerifyAiSemanticModelRequest,
+  AiSemanticModelVerification,
+  ProbeAiSemanticSearchRequest,
+  AiSemanticProbeResult,
 } from '@shared/contracts'
 import { HOST_COMMANDS } from '@platform/host-commands'
 import { getPlatformPorts, invokeDesktop } from './runtime'
 
 const OFFICIAL_INDEX_PROGRESS_EVENT = 'localization://official-index-progress'
+const SEMANTIC_PROGRESS_EVENT = 'localization://semantic-progress'
+
+/** Loads the explicitly selected application-wide translation engine. */
+export const loadLocalizationDefaultEngine = () =>
+  invokeDesktop<LocalizationEngineRef | null>(
+    HOST_COMMANDS.loadLocalizationDefaultEngine,
+    {},
+    { kind: 'parallelPool', pool: 'settings-read', limit: 4 },
+  )
+
+/** Persists an application-wide engine only after Rust validates its profile. */
+export const saveLocalizationDefaultEngine = (engine: LocalizationEngineRef) =>
+  invokeDesktop<LocalizationEngineRef>(
+    HOST_COMMANDS.saveLocalizationDefaultEngine,
+    { engine },
+    { kind: 'exclusiveMutation', resource: 'LocalizationSettings' },
+  )
+
+export const loadLocalizationSemanticSettings = () =>
+  invokeDesktop<AiSemanticSettingsSnapshot>(
+    HOST_COMMANDS.loadLocalizationSemanticSettings,
+    {},
+    { kind: 'parallelPool', pool: 'semantic-status', limit: 4 },
+  )
+export const saveLocalizationSemanticSettings = (request: SaveAiSemanticSettingsRequest) =>
+  invokeDesktop<AiSemanticSettingsSnapshot>(
+    HOST_COMMANDS.saveLocalizationSemanticSettings,
+    { request },
+    { kind: 'queuedMutation', queue: 'AiSemanticSettings' },
+  )
+export const inspectLocalizationSemanticModel = () =>
+  invokeDesktop<AiSemanticModelStatus>(
+    HOST_COMMANDS.inspectLocalizationSemanticModel,
+    {},
+    { kind: 'parallelPool', pool: 'semantic-status', limit: 4 },
+  )
+export const verifyLocalizationSemanticModel = (request: VerifyAiSemanticModelRequest) =>
+  invokeDesktop<AiSemanticModelVerification>(
+    HOST_COMMANDS.verifyLocalizationSemanticModel,
+    { request },
+    { kind: 'serviceGate', key: 'semantic-model-verification' },
+  )
+export const probeLocalizationSemanticSearch = (request: ProbeAiSemanticSearchRequest) =>
+  invokeDesktop<AiSemanticProbeResult>(
+    HOST_COMMANDS.probeLocalizationSemanticSearch,
+    { request },
+    { kind: 'parallelPool', pool: 'semantic-search', limit: 2 },
+  )
+export const downloadLocalizationSemanticModel = (request: DownloadAiSemanticModelRequest) =>
+  invokeDesktop<AiSemanticModelStatus>(
+    HOST_COMMANDS.downloadLocalizationSemanticModel,
+    { request },
+    { kind: 'serviceGate', key: 'semantic-model-download' },
+  )
+export const deleteLocalizationSemanticModel = (modelId: string) =>
+  invokeDesktop<AiSemanticModelStatus>(
+    HOST_COMMANDS.deleteLocalizationSemanticModel,
+    { request: { modelId } },
+    { kind: 'exclusiveMutation', resource: 'AiSemanticModel' },
+  )
+export const openLocalizationSemanticModelDirectory = (modelId: string) =>
+  invokeDesktop<void>(
+    HOST_COMMANDS.openLocalizationSemanticModelDirectory,
+    { request: { modelId } },
+    { kind: 'serviceGate', key: 'semantic-model-directory' },
+  )
+export const inspectLocalizationSemanticIndex = (scopeIds: string[]) =>
+  invokeDesktop<AiSemanticIndexStatus>(
+    HOST_COMMANDS.inspectLocalizationSemanticIndex,
+    { scopeIds },
+    { kind: 'parallelPool', pool: 'semantic-status', limit: 4 },
+  )
+export const rebuildLocalizationSemanticIndex = (request: RebuildAiSemanticIndexRequest) =>
+  invokeDesktop<AiSemanticIndexStatus>(
+    HOST_COMMANDS.rebuildLocalizationSemanticIndex,
+    { request },
+    { kind: 'exclusiveMutation', resource: 'AiSemanticIndex' },
+  )
+export const syncLocalizationSemanticIndex = (request: RebuildAiSemanticIndexRequest) =>
+  invokeDesktop<AiSemanticIndexStatus>(
+    HOST_COMMANDS.syncLocalizationSemanticIndex,
+    { request },
+    { kind: 'exclusiveMutation', resource: 'AiSemanticIndex' },
+  )
+export const listenToLocalizationSemanticProgress = (listener: (progress: AiSemanticProgress) => void) =>
+  getPlatformPorts().hostEvents.listen<AiSemanticProgress>(SEMANTIC_PROGRESS_EVENT, listener)
+export const testLocalizationSemanticRemoteProfile = (profileId: string) =>
+  invokeDesktop<AiSemanticConnectionTestResult>(
+    HOST_COMMANDS.testLocalizationSemanticRemoteProfile,
+    { request: { profileId } },
+    { kind: 'serviceGate', key: `semantic-profile-test:${profileId}` },
+  )
 
 /** Routes a workbench translation through the unified localization orchestrator. */
 export function translateLocalizationBatch(request: LocalizationTranslateBatchRequest) {
@@ -180,7 +285,7 @@ export const loadMachineTranslationSettings = () =>
   invokeDesktop<MachineTranslationSettingsSnapshot>(
     HOST_COMMANDS.loadMachineTranslationSettings,
     {},
-    { kind: 'latest', key: 'machine-translation-settings' },
+    { kind: 'parallelPool', pool: 'settings-read', limit: 4 },
   )
 export const saveMachineTranslationSettings = (request: SaveMachineTranslationSettingsRequest) =>
   invokeDesktop<MachineTranslationSettingsSnapshot>(

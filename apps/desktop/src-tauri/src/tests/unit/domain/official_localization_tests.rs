@@ -1,12 +1,42 @@
 use super::*;
 use std::fs;
-use std::sync::{Mutex, MutexGuard, OnceLock};
 
-fn test_lock() -> MutexGuard<'static, ()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+fn test_lock() -> std::sync::MutexGuard<'static, ()> {
+    crate::test_support::process_environment_lock()
+}
+
+#[test]
+fn prompt_eligibility_excludes_character_data_and_schedules() {
+    assert_eq!(classify("Characters/Dialogue/Sam.xnb"), ("dialogue", true));
+    assert_eq!(classify("Strings/Characters.xnb"), ("plain-text", true));
+    assert_eq!(
+        classify("Characters/schedules/Sam.xnb"),
+        ("schedule", false)
+    );
+    assert_eq!(
+        classify("Data/Characters.xnb"),
+        ("structured-record", false)
+    );
+    assert_eq!(
+        character_entity_id("Characters/Dialogue/Sam.xnb").as_deref(),
+        Some("character:sam")
+    );
+    assert_eq!(character_entity_id("Characters/schedules/Sam.xnb"), None);
+    assert!(activity_semantic_alias("guitar").unwrap().contains("音乐"));
+    assert!(
+        activity_semantic_alias("skateboarding")
+            .unwrap()
+            .contains("滑板")
+    );
+    assert_eq!(activity_semantic_alias("sleep"), None);
+    assert!(!prompt_text_eligible("...$a"));
+    assert!(!prompt_text_eligible("??HMTGF??"));
+    assert!(prompt_text_eligible("I'm writing a song for my band.$h"));
+    assert_eq!(
+        merge_unit_entity_similarity(Some(0.9), Some(0.8)),
+        Some(0.9)
+    );
+    assert!((merge_unit_entity_similarity(Some(0.82), Some(0.9)).unwrap() - 0.876).abs() < 1e-9);
 }
 
 fn seven_bit(mut value: usize, output: &mut Vec<u8>) {
@@ -122,6 +152,22 @@ fn indexes_xnb_locale_pairs_and_atomically_replaces_generations() {
     assert_eq!(page.total, 1);
     assert_eq!(page.records[0].target_text, "欢迎来到鹈鹕镇");
     assert_eq!(page.records[0].unit_kind, "plain-text");
+    let keyword_page = search(SearchOfficialLocalizationRequest {
+        source_locale: "en-US".into(),
+        target_locale: "zh-CN".into(),
+        query: "Pelican".into(),
+        asset_category: Some("Strings".into()),
+        unit_kind: Some("plain-text".into()),
+        prompt_eligible_only: true,
+        offset: 0,
+        limit: 20,
+    })
+    .unwrap();
+    assert_eq!(keyword_page.total, 1);
+    assert_eq!(
+        keyword_page.records[0].source_text,
+        "Welcome to Pelican Town"
+    );
     let terms = find_terms_in_text("en-US", "zh-CN", "A gift for Abigail").unwrap();
     assert_eq!(terms.len(), 1);
     assert_eq!(terms[0].source_text, "Abigail");
@@ -177,6 +223,7 @@ fn unsafe_script_assets_are_searchable_but_never_prompt_eligible() {
         ("structured-record", false)
     );
     assert_eq!(classify("Strings/NPCNames.xnb"), ("term", true));
+    assert_eq!(classify("Strings/Characters.xnb"), ("plain-text", true));
     let (units, kind, prompt) = extract(
         "Data/Objects.xnb",
         &serde_json::json!({"24":{"Name":"Parsnip","Price":35}}),
@@ -268,6 +315,23 @@ fn indexes_real_installed_game_xnb_corpus() {
         "official corpus reported too many parser errors: {}",
         status.error_count
     );
+    let sam = search(SearchOfficialLocalizationRequest {
+        source_locale: "en-US".into(),
+        target_locale: "zh-CN".into(),
+        query: "Sam".into(),
+        asset_category: None,
+        unit_kind: None,
+        prompt_eligible_only: true,
+        offset: 0,
+        limit: 20,
+    })
+    .expect("real corpus Sam search should succeed");
+    assert!(!sam.records.is_empty());
+    assert!(matches!(
+        sam.records[0].match_kind.as_str(),
+        "exact" | "whole-token"
+    ));
+    assert!(!sam.records[0].source_text.to_lowercase().contains("same"));
     unsafe { std::env::remove_var("MODFORGE_TEST_DATA_DIR") };
     let _ = fs::remove_dir_all(data_root);
 }

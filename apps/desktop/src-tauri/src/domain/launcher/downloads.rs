@@ -16,22 +16,20 @@ use crate::domain::nexusmods::downloads::{
 };
 use crate::domain::nexusmods::http::launcher_http_client;
 use crate::infrastructure::fs::pathing::normalize_path;
+use crate::infrastructure::http::resumable_download::{
+    PartialRetention, ResumableDownloadRequest, ResumeRequest, download_resumable,
+};
 use crate::infrastructure::text_encoding::read_text_file;
 use anyhow::{Context, bail};
 use reqwest::blocking::Response;
 use reqwest::header::CONTENT_DISPOSITION;
-use reqwest::header::CONTENT_LENGTH;
 use std::collections::HashSet;
 use std::fs;
-use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, OnceLock};
-use std::time::Instant;
 
 const NEXUS_STARDEW_VALLEY_GAME_ID: i64 = 1303;
 const LAUNCHER_DOWNLOAD_PROGRESS_EVENT: &str = "launcher://download-progress";
-const DOWNLOAD_CHUNK_SIZE: usize = 64 * 1024;
-
 static LAUNCHER_DOWNLOAD_QUEUE_FILE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 fn lock_launcher_download_queue_file() -> MutexGuard<'static, ()> {
@@ -472,7 +470,7 @@ pub fn download_launcher_mod(
                     }
                 };
             ensure_launcher_download_not_cancelled(download_id)?;
-            let response = download_file_response(&client, &download_url)?;
+            let response = download_file_response(&client, &download_url, None, None)?;
             ensure_launcher_download_not_cancelled(download_id)?;
             if !response.status().is_success() {
                 bail!(
@@ -483,69 +481,52 @@ pub fn download_launcher_mod(
             }
 
             let file_name = download_file_name(&response, &candidate.file_name);
-            let archive_path = unique_path(&download_dir.join(file_name));
+            let archive_path = unique_path(&download_dir.join(&file_name));
             ensure_launcher_download_not_cancelled(download_id)?;
-            let mut archive_file = fs::File::create(&archive_path).with_context(|| {
-                format!(
-                    "Failed to create launcher archive {}",
-                    normalize_path(&archive_path)
-                )
-            })?;
-            let total_bytes = response
-                .headers()
-                .get(CONTENT_LENGTH)
-                .and_then(|value| value.to_str().ok())
-                .and_then(|value| value.parse::<u64>().ok());
-            let mut response_reader = response;
-            let mut buffer = [0_u8; DOWNLOAD_CHUNK_SIZE];
-            let started_at = Instant::now();
-            let mut bytes_written = 0_u64;
-            if let Some(download_id) = download_id {
-                emit_download_progress(&app, download_id, 0, total_bytes, Some(0))?;
-            }
-            loop {
-                if let Err(error) = ensure_launcher_download_not_cancelled(download_id) {
-                    let _ = fs::remove_file(&archive_path);
-                    return Err(error);
-                }
-
-                let read = response_reader
-                    .read(&mut buffer)
-                    .with_context(|| format!("Failed to stream launcher download bytes"))?;
-                if read == 0 {
-                    break;
-                }
-
-                archive_file
-                    .write_all(&buffer[..read])
-                    .with_context(|| format!("Failed to write launcher download bytes"))?;
-                bytes_written += read as u64;
-
-                if let Some(download_id) = download_id {
-                    let elapsed_seconds = started_at.elapsed().as_secs().max(1);
-                    emit_download_progress(
-                        &app,
-                        download_id,
-                        bytes_written,
-                        total_bytes,
-                        Some(bytes_written / elapsed_seconds),
-                    )?;
-                }
-            }
-            if let Err(error) = ensure_launcher_download_not_cancelled(download_id) {
-                let _ = fs::remove_file(&archive_path);
-                return Err(error);
-            }
-            archive_file.flush().with_context(|| {
-                format!(
-                    "Failed to flush launcher archive {}",
-                    normalize_path(&archive_path)
-                )
-            })?;
-            if let Err(error) = ensure_launcher_download_not_cancelled(download_id) {
-                let _ = fs::remove_file(&archive_path);
-                return Err(error);
-            }
+            let download = download_resumable(
+                &ResumableDownloadRequest {
+                    destination: archive_path.clone(),
+                    expected_size: None,
+                    expected_sha256: None,
+                    version_identity: format!("nexus:{}:{}", request.mod_id, candidate.file_id),
+                    current_file: file_name,
+                    file_index: 1,
+                    file_count: 1,
+                    partial_retention: PartialRetention::DeleteOnFailure,
+                },
+                Some(response),
+                |resume: ResumeRequest| {
+                    download_file_response(
+                        &client,
+                        &download_url,
+                        Some(resume.start),
+                        resume.if_range.as_deref(),
+                    )
+                },
+                || {
+                    let Some(download_id) = download_id else {
+                        return Ok(false);
+                    };
+                    let cancelled = is_launcher_download_cancelled(download_id)?;
+                    if cancelled {
+                        let _ = take_cancelled_launcher_download(download_id)?;
+                    }
+                    Ok(cancelled)
+                },
+                |progress| {
+                    if let Some(download_id) = download_id {
+                        emit_download_progress(
+                            &app,
+                            download_id,
+                            progress.downloaded_bytes,
+                            progress.total_bytes,
+                            progress.bytes_per_second,
+                        )?;
+                    }
+                    Ok(())
+                },
+            )?;
+            let bytes_written = download.size;
             log_launcher_trace(
                 "download.saved",
                 &[

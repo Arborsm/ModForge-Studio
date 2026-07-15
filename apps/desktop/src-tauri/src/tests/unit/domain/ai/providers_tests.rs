@@ -57,6 +57,21 @@ fn parses_all_three_protocol_result_shapes() {
 }
 
 #[test]
+fn combines_anthropic_cache_creation_and_read_tokens() {
+    let usage = provider_usage(&json!({
+        "usage": {
+            "input_tokens": 20,
+            "output_tokens": 8,
+            "cache_creation_input_tokens": 13,
+            "cache_read_input_tokens": 21
+        }
+    }));
+    assert_eq!(usage.input_tokens, Some(20));
+    assert_eq!(usage.output_tokens, Some(8));
+    assert_eq!(usage.cached_tokens, Some(34));
+}
+
+#[test]
 fn rejects_extra_ids_and_changed_placeholders() {
     let source = request(vec![item("a", "Hello {{name}} $0")]);
     let extra = json!({"items":[

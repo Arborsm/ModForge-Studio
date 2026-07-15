@@ -1,9 +1,8 @@
 use super::*;
+use crate::domain::localization::orchestrator::compile_official_context;
 use crate::domain::localization::review;
-use std::sync::{Mutex, OnceLock};
 fn lock() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(())).lock().unwrap()
+    crate::test_support::process_environment_lock()
 }
 fn request(scope: &str) -> AiReviewRequest {
     AiReviewRequest {
@@ -35,6 +34,51 @@ fn request(scope: &str) -> AiReviewRequest {
     }
 }
 
+fn official_unit(id: i64, source: &str, target: &str) -> AiOfficialUnit {
+    AiOfficialUnit {
+        id,
+        source_locale: "en-US".into(),
+        target_locale: "zh-CN".into(),
+        source_text: source.into(),
+        target_text: target.into(),
+        asset_path: "Strings/NPCNames.xnb".into(),
+        unit_key: source.into(),
+        unit_kind: "term".into(),
+        prompt_eligible: true,
+        fingerprint: format!("fingerprint-{id}"),
+        similarity: 1.0,
+        score: 1.0,
+        semantic_similarity: None,
+        lexical_similarity: 1.0,
+        match_kind: "exact".into(),
+        retrieval_mode: "lexical".into(),
+    }
+}
+
+#[test]
+fn generative_official_context_counts_terms_and_examples_once_and_respects_user_overrides() {
+    let abigail = official_unit(1, "Abigail", "阿比盖尔");
+    let farm = official_unit(2, "Welcome to the farm", "欢迎来到农场");
+    let (count, context) = compile_official_context(
+        vec![abigail.clone()],
+        vec![abigail, farm],
+        &std::collections::BTreeSet::new(),
+    );
+    assert_eq!(count, 2);
+    let context = context.unwrap();
+    assert!(context.contains("Official terminology:\nAbigail => 阿比盖尔"));
+    assert_eq!(context.matches("Abigail => 阿比盖尔").count(), 1);
+    assert!(context.contains("Official examples:\nWelcome to the farm => 欢迎来到农场"));
+
+    let (count, context) = compile_official_context(
+        vec![official_unit(1, "Abigail", "阿比盖尔")],
+        Vec::new(),
+        &std::collections::BTreeSet::from(["Abigail".to_string()]),
+    );
+    assert_eq!(count, 0);
+    assert!(context.is_none());
+}
+
 #[test]
 fn post_translation_validation_reports_markers_and_required_user_terms() {
     let items = vec![(
@@ -46,7 +90,11 @@ fn post_translation_validation_reports_markers_and_required_user_terms() {
         "greeting".to_string(),
         vec![("Hello".to_string(), "您好".to_string())],
     )]);
-    let issues = review::translation_validation_issues("en-US", "zh-CN", &items, &required, false);
+    let issues = review::translation_validation_issues(
+        &items,
+        &required,
+        &std::collections::BTreeMap::new(),
+    );
     assert!(
         issues
             .iter()
@@ -58,6 +106,32 @@ fn post_translation_validation_reports_markers_and_required_user_terms() {
             .any(|issue| issue.category == "user-terminology"
                 && issue.expected_term.as_deref() == Some("您好"))
     );
+}
+
+#[test]
+fn post_translation_validation_uses_the_traced_official_term_matches() {
+    let items = vec![(
+        "gift".to_string(),
+        "A gift for Abigail".to_string(),
+        "错误译文".to_string(),
+    )];
+    let official = std::collections::BTreeMap::from([(
+        "gift".to_string(),
+        vec![("Abigail".to_string(), "阿比盖尔".to_string())],
+    )]);
+
+    let issues = review::translation_validation_issues(
+        &items,
+        &std::collections::BTreeMap::new(),
+        &official,
+    );
+
+    assert_eq!(official.values().map(Vec::len).sum::<usize>(), 1);
+    assert!(issues.iter().any(|issue| {
+        issue.category == "official-terminology"
+            && issue.source_term.as_deref() == Some("Abigail")
+            && issue.expected_term.as_deref() == Some("阿比盖尔")
+    }));
 }
 
 #[test]

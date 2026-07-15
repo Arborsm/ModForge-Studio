@@ -5,7 +5,7 @@ use rusqlite::{Connection, params, params_from_iter};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
-use std::sync::{OnceLock, mpsc};
+use std::sync::{Mutex, OnceLock, mpsc};
 use std::time::{Duration, Instant};
 
 enum WriterMessage {
@@ -13,13 +13,21 @@ enum WriterMessage {
     Barrier(mpsc::Sender<anyhow::Result<()>>),
 }
 static WRITER: OnceLock<mpsc::SyncSender<WriterMessage>> = OnceLock::new();
+static USAGE_OPEN_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 fn open() -> anyhow::Result<Connection> {
+    let _guard = USAGE_OPEN_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let path = ai_usage_ledger_path()?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).context("Failed to create the AI usage directory.")?;
     }
     let connection = Connection::open(path).context("Failed to open the AI usage ledger.")?;
+    connection
+        .busy_timeout(Duration::from_secs(5))
+        .context("Failed to configure the AI usage ledger busy timeout.")?;
     connection.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
       CREATE TABLE IF NOT EXISTS usage_events(
         id INTEGER PRIMARY KEY, occurred_at_ms INTEGER NOT NULL, job_id TEXT NOT NULL, attempt INTEGER NOT NULL,
@@ -194,6 +202,8 @@ fn filters(query: &AiUsageQuery) -> (String, Vec<rusqlite::types::Value>) {
     let mut sql = String::from("occurred_at_ms >= ? AND occurred_at_ms < ?");
     let mut values = vec![query.from_ms.into(), query.to_ms.into()];
     for (column, value) in [
+        ("provider", &query.provider),
+        ("failure_category", &query.failure_category),
         ("profile_id", &query.profile_id),
         ("model", &query.model),
         ("operation", &query.operation),
@@ -209,6 +219,18 @@ fn filters(query: &AiUsageQuery) -> (String, Vec<rusqlite::types::Value>) {
         sql.push_str(" AND succeeded = ?");
         values.push(value.into());
     }
+    if let Some(facet) = query.usage_facet.as_deref() {
+        match facet {
+            "cache-hit" => sql.push_str(" AND engine_kind='generative-ai' AND cached_tokens > 0"),
+            "token-unavailable" => {
+                sql.push_str(" AND engine_kind='generative-ai' AND usage_source='unavailable'")
+            }
+            "mt-billed" => sql.push_str(
+                " AND engine_kind='machine-translation' AND billed_characters IS NOT NULL",
+            ),
+            _ => sql.push_str(" AND 0"),
+        }
+    }
     (sql, values)
 }
 
@@ -218,6 +240,13 @@ fn validate_query(query: &AiUsageQuery) -> anyhow::Result<()> {
     }
     if query.limit == 0 || query.limit > 500 {
         bail!("AI usage page size must be between 1 and 500.");
+    }
+    if query
+        .usage_facet
+        .as_deref()
+        .is_some_and(|value| !matches!(value, "cache-hit" | "token-unavailable" | "mt-billed"))
+    {
+        bail!("AI usage facet is unsupported.");
     }
     Ok(())
 }
@@ -235,7 +264,7 @@ pub fn query_records(query: AiUsageQuery) -> anyhow::Result<AiUsageRecordPage> {
     let mut page_values = values;
     page_values.push((query.limit as i64).into());
     page_values.push((query.offset as i64).into());
-    let mut statement = db.prepare(&format!("SELECT occurred_at_ms,job_id,attempt,page_source,operation,engine_kind,profile_id,provider,model,scope_id,succeeded,latency_ms,failure_category,request_items,request_characters,response_characters,input_tokens,output_tokens,cached_tokens,reasoning_tokens,billed_characters,usage_source FROM usage_events WHERE {where_sql} ORDER BY occurred_at_ms DESC,id DESC LIMIT ? OFFSET ?"))?;
+    let mut statement = db.prepare(&format!("SELECT occurred_at_ms,job_id,attempt,page_source,operation,engine_kind,profile_id,provider,model,scope_id,succeeded,latency_ms,failure_category,request_items,request_characters,response_characters,input_tokens,output_tokens,cached_tokens,reasoning_tokens,billed_characters,usage_source,MAX(succeeded) OVER(PARTITION BY job_id) FROM usage_events WHERE {where_sql} ORDER BY occurred_at_ms DESC,id DESC LIMIT ? OFFSET ?"))?;
     let records = statement
         .query_map(params_from_iter(page_values), |r| {
             Ok(AiUsageEvent {
@@ -261,6 +290,7 @@ pub fn query_records(query: AiUsageQuery) -> anyhow::Result<AiUsageRecordPage> {
                 reasoning_tokens: r.get(19)?,
                 billed_characters: r.get(20)?,
                 usage_source: r.get(21)?,
+                job_succeeded: r.get(22)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -290,7 +320,11 @@ pub fn query_summary(query: AiUsageQuery) -> anyhow::Result<AiUsageSummary> {
     for row in event_daily {
         merged.insert(daily_key(&row), row);
     }
-    if query.succeeded.is_none() {
+    if query.succeeded.is_none()
+        && query.provider.is_none()
+        && query.failure_category.is_none()
+        && query.usage_facet.is_none()
+    {
         let (daily_where, daily_values) = daily_filters(&query);
         let mut statement = db.prepare(&format!("SELECT date,engine_kind,NULLIF(profile_id,''),operation,NULLIF(scope_id,''),SUM(input_tokens),SUM(output_tokens),SUM(cached_tokens),SUM(reasoning_tokens),SUM(billed_characters),SUM(request_characters),SUM(response_characters),SUM(requests),SUM(failures),SUM(unavailable_usage_requests) FROM usage_daily WHERE {daily_where} GROUP BY date,engine_kind,profile_id,operation,scope_id"))?;
         let archived = statement
@@ -317,7 +351,121 @@ pub fn query_summary(query: AiUsageQuery) -> anyhow::Result<AiUsageSummary> {
     }
     let mut daily = merged.into_values().collect::<Vec<_>>();
     daily.sort_by(|left, right| right.date.cmp(&left.date));
-    Ok(AiUsageSummary { totals, daily })
+    let diagnostics = query_diagnostics(&db, &query)?;
+    Ok(AiUsageSummary {
+        totals,
+        daily,
+        diagnostics,
+    })
+}
+
+fn percentage(numerator: u64, denominator: u64) -> f64 {
+    if denominator == 0 {
+        0.0
+    } else {
+        numerator as f64 / denominator as f64
+    }
+}
+
+fn query_diagnostics(db: &Connection, query: &AiUsageQuery) -> anyhow::Result<AiUsageDiagnostics> {
+    let cutoff = retention_cutoff_ms();
+    let mut detail_query = query.clone();
+    detail_query.from_ms = detail_query.from_ms.max(cutoff);
+    let detail_complete = query.from_ms >= cutoff;
+    let (where_sql, values) = filters(&detail_query);
+
+    let (attempts, successful_attempts, latency_sum): (u64, u64, u64) = db.query_row(
+        &format!(
+            "SELECT COUNT(*), COALESCE(SUM(succeeded),0), COALESCE(SUM(latency_ms),0) FROM usage_events WHERE {where_sql}"
+        ),
+        params_from_iter(values.clone()),
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    )?;
+    let average_latency_ms = if attempts == 0 {
+        0.0
+    } else {
+        latency_sum as f64 / attempts as f64
+    };
+
+    let mut latency_statement = db.prepare(&format!(
+        "SELECT latency_ms FROM usage_events WHERE {where_sql} ORDER BY latency_ms"
+    ))?;
+    let latencies = latency_statement
+        .query_map(params_from_iter(values.clone()), |row| row.get::<_, u64>(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    let p95_latency_ms = if latencies.is_empty() {
+        0
+    } else {
+        let nearest_rank = ((latencies.len() as f64 * 0.95).ceil() as usize).max(1);
+        latencies[nearest_rank - 1]
+    };
+
+    let (jobs, successful_jobs): (u64, u64) = db.query_row(
+        &format!(
+            "SELECT COUNT(*), COALESCE(SUM(final_succeeded),0) FROM (SELECT MAX(succeeded) AS final_succeeded FROM usage_events WHERE {where_sql} GROUP BY job_id)"
+        ),
+        params_from_iter(values.clone()),
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
+    let (cache_eligible_requests, cache_hit_requests, token_unavailable_requests): (u64, u64, u64) =
+        db.query_row(
+            &format!(
+                "SELECT COALESCE(SUM(engine_kind='generative-ai' AND cached_tokens IS NOT NULL),0),
+                    COALESCE(SUM(engine_kind='generative-ai' AND cached_tokens > 0),0),
+                    COALESCE(SUM(engine_kind='generative-ai' AND usage_source='unavailable'),0)
+             FROM usage_events WHERE {where_sql}"
+            ),
+            params_from_iter(values.clone()),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )?;
+
+    let mut provider_statement = db.prepare(&format!(
+        "SELECT provider, model, COUNT(*), COALESCE(SUM(NOT succeeded),0), AVG(latency_ms)
+         FROM usage_events WHERE {where_sql}
+         GROUP BY provider, model ORDER BY COUNT(*) DESC, provider, model"
+    ))?;
+    let provider_models = provider_statement
+        .query_map(params_from_iter(values.clone()), |row| {
+            Ok(AiUsageProviderModelSummary {
+                provider: row.get(0)?,
+                model: row.get(1)?,
+                attempts: row.get(2)?,
+                failures: row.get(3)?,
+                average_latency_ms: row.get(4)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut failure_statement = db.prepare(&format!(
+        "SELECT COALESCE(failure_category,'unknown'), COUNT(*)
+         FROM usage_events WHERE {where_sql} AND NOT succeeded
+         GROUP BY COALESCE(failure_category,'unknown') ORDER BY COUNT(*) DESC, 1"
+    ))?;
+    let failure_categories = failure_statement
+        .query_map(params_from_iter(values), |row| {
+            Ok(AiUsageFailureCategorySummary {
+                category: row.get(0)?,
+                attempts: row.get(1)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(AiUsageDiagnostics {
+        average_latency_ms,
+        p95_latency_ms,
+        attempt_success_rate: percentage(successful_attempts, attempts),
+        jobs,
+        successful_jobs,
+        job_success_rate: percentage(successful_jobs, jobs),
+        cache_eligible_requests,
+        cache_hit_requests,
+        cache_hit_rate: percentage(cache_hit_requests, cache_eligible_requests),
+        token_unavailable_requests,
+        detail_from_ms: detail_query.from_ms,
+        detail_complete,
+        provider_models,
+        failure_categories,
+    })
 }
 
 fn daily_filters(query: &AiUsageQuery) -> (String, Vec<rusqlite::types::Value>) {
@@ -400,11 +548,11 @@ pub fn export_usage(request: AiUsageExportRequest) -> anyhow::Result<u64> {
         query.offset += query.limit;
     }
     let mut output = String::from(
-        "occurred_at_ms,job_id,attempt,page_source,operation,engine_kind,profile_id,provider,model,scope_id,succeeded,latency_ms,failure_category,request_items,request_characters,response_characters,input_tokens,output_tokens,cached_tokens,reasoning_tokens,billed_characters,usage_source\n",
+        "occurred_at_ms,job_id,attempt,page_source,operation,engine_kind,profile_id,provider,model,scope_id,succeeded,job_succeeded,latency_ms,failure_category,request_items,request_characters,response_characters,input_tokens,output_tokens,cached_tokens,reasoning_tokens,billed_characters,usage_source\n",
     );
     for e in &rows {
         output.push_str(&format!(
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
             e.occurred_at_ms,
             csv(&e.job_id),
             e.attempt,
@@ -416,6 +564,8 @@ pub fn export_usage(request: AiUsageExportRequest) -> anyhow::Result<u64> {
             csv(e.model.as_deref().unwrap_or("")),
             csv(e.scope_id.as_deref().unwrap_or("")),
             e.succeeded,
+            e.job_succeeded
+                .map_or(String::new(), |value| value.to_string()),
             e.latency_ms,
             csv(e.failure_category.as_deref().unwrap_or("")),
             e.request_items,

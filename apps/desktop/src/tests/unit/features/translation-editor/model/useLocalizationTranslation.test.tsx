@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { ReactNode } from 'react'
 import { LocalizationProvider } from '@entities/localization'
@@ -109,5 +109,38 @@ describe('useLocalizationTranslation', () => {
     const partition = partitionTranslationAiResults(values, baselines, current)
     expect(partition.conflicts).toEqual(['greeting'])
     expect([...partition.applicable]).toEqual([['farewell', '再见']])
+  })
+
+  it('applies successful translations and separately reports a usage ledger failure', async () => {
+    const translateBatch = vi.fn(
+      async (request: LocalizationTranslateBatchRequest): Promise<LocalizationTranslateBatchResult> => ({
+        jobId: request.jobId,
+        engine: request.engine,
+        model: 'model',
+        validationIssues: [],
+        usageRecordState: 'failed',
+        knowledgeTrace: { officialMatches: 0, globalGlossaryMatches: 0, projectGlossaryMatches: 0, translationMemoryMatches: 0 },
+        knowledgeRevision: 'disabled',
+        items: [{ id: 'greeting', translatedText: '您好', detectedLanguage: 'en', skippedSameLanguage: false }],
+      }),
+    )
+    const applyResults = vi.fn(() => [])
+    const { result } = renderHook(
+      () =>
+        useLocalizationTranslation({
+          activeEntry: entry,
+          allEntries: [entry],
+          sourceLocale: 'en',
+          targetLocale: 'zh',
+          contextKey: 'usage-failure',
+          engineRef: { kind: 'generative-ai', profileId: 'profile' },
+          applyResults,
+        }),
+      { wrapper: wrapper(createPort(translateBatch)) },
+    )
+    await act(() => result.current.run('current'))
+    expect(applyResults).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText('Usage was not recorded')).toBeTruthy()
+    expect(screen.queryByText('AI translation failed')).toBeNull()
   })
 })

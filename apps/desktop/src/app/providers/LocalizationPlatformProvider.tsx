@@ -32,11 +32,25 @@ import {
   translateLocalizationBatch,
   listenToOfficialLocalizationIndexProgress,
   cancelAiJob,
-  loadAiSettings,
   reviewLocalizationBatch,
   listLocalizationReviewRuns,
   loadLocalizationReviewRun,
   updateLocalizationReviewIssues,
+  loadLocalizationSemanticSettings,
+  saveLocalizationSemanticSettings,
+  inspectLocalizationSemanticModel,
+  verifyLocalizationSemanticModel,
+  probeLocalizationSemanticSearch,
+  downloadLocalizationSemanticModel,
+  deleteLocalizationSemanticModel,
+  openLocalizationSemanticModelDirectory,
+  inspectLocalizationSemanticIndex,
+  rebuildLocalizationSemanticIndex,
+  syncLocalizationSemanticIndex,
+  listenToLocalizationSemanticProgress,
+  testLocalizationSemanticRemoteProfile,
+  loadLocalizationDefaultEngine,
+  saveLocalizationDefaultEngine,
 } from '@platform/host'
 import type { LocalizationPort } from '@shared/contracts'
 import { usePlatformPorts } from './usePlatformPorts'
@@ -45,14 +59,22 @@ export function LocalizationPlatformProvider({ children }: { children: ReactNode
   const { dialog } = usePlatformPorts()
   const port = useMemo<LocalizationPort>(
     () => ({
-      loadDefaultEngine: async () => {
-        const [aiSettings, mtSettings] = await Promise.all([loadAiSettings(), loadMachineTranslationSettings()])
-        if (aiSettings.defaultProfileId) return { kind: 'generative-ai', profileId: aiSettings.defaultProfileId }
-        return mtSettings.defaultProfileId &&
-          mtSettings.profiles.some((profile) => profile.id === mtSettings.defaultProfileId && profile.enabled)
-          ? { kind: 'machine-translation', profileId: mtSettings.defaultProfileId }
-          : null
-      },
+      loadSemanticSettings: loadLocalizationSemanticSettings,
+      saveSemanticSettings: saveLocalizationSemanticSettings,
+      inspectSemanticModel: inspectLocalizationSemanticModel,
+      verifySemanticModel: verifyLocalizationSemanticModel,
+      probeSemanticSearch: probeLocalizationSemanticSearch,
+      downloadSemanticModel: downloadLocalizationSemanticModel,
+      deleteSemanticModel: deleteLocalizationSemanticModel,
+      openSemanticModelDirectory: openLocalizationSemanticModelDirectory,
+      inspectSemanticIndex: inspectLocalizationSemanticIndex,
+      rebuildSemanticIndex: rebuildLocalizationSemanticIndex,
+      syncSemanticIndex: syncLocalizationSemanticIndex,
+      listenSemanticProgress: listenToLocalizationSemanticProgress,
+      testSemanticRemoteProfile: testLocalizationSemanticRemoteProfile,
+      chooseSemanticModelDirectory: () => dialog.chooseDirectory(),
+      loadDefaultEngine: loadLocalizationDefaultEngine,
+      saveDefaultEngine: saveLocalizationDefaultEngine,
       loadMachineTranslationSettings,
       saveMachineTranslationSettings,
       listMachineTranslationLanguages,

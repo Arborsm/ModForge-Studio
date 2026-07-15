@@ -58,7 +58,7 @@ function renderSection(value: LocalizationPort) {
   return renderWithLocale(
     <NotificationProvider>
       <LocalizationProvider port={value}>
-        <MachineTranslationProfilesSection />
+        <MachineTranslationProfilesSection requestLeave={(action) => action()} />
       </LocalizationProvider>
     </NotificationProvider>,
   )

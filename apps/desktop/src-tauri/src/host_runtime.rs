@@ -47,17 +47,23 @@ pub enum HostCommandExecutionPool {
     LauncherImageCdn,
     Ai,
     AiOfficialIndexing,
+    AiSemanticIndexing,
+    AiSemanticSearch,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum HostCommandResource {
     AppUiState,
     AiSettings,
+    LocalizationSettings,
     MachineTranslationSettings,
     AiTranslationCache,
     AiUsageLedger,
     AiOfficialLocalizationIndex,
     AiLocalizationKnowledge,
+    AiSemanticSettings,
+    AiSemanticModel,
+    AiSemanticIndex,
     LauncherSettings,
     LauncherLibraryState,
     LauncherLibraryCovers,
@@ -664,11 +670,15 @@ impl HostRuntimePoolTelemetry {
 pub struct HostCommandResourceLocks {
     app_ui_state: Mutex<()>,
     ai_settings: Mutex<()>,
+    localization_settings: Mutex<()>,
     machine_translation_settings: Mutex<()>,
     ai_translation_cache: Mutex<()>,
     ai_usage_ledger: Mutex<()>,
     ai_official_localization_index: Mutex<()>,
     ai_localization_knowledge: Mutex<()>,
+    ai_semantic_settings: Mutex<()>,
+    ai_semantic_model: Mutex<()>,
+    ai_semantic_index: Mutex<()>,
     launcher_settings: Mutex<()>,
     launcher_library_state: Mutex<()>,
     launcher_library_covers: Mutex<()>,
@@ -690,11 +700,15 @@ impl HostCommandResourceLocks {
         Self {
             app_ui_state: Mutex::new(()),
             ai_settings: Mutex::new(()),
+            localization_settings: Mutex::new(()),
             machine_translation_settings: Mutex::new(()),
             ai_translation_cache: Mutex::new(()),
             ai_usage_ledger: Mutex::new(()),
             ai_official_localization_index: Mutex::new(()),
             ai_localization_knowledge: Mutex::new(()),
+            ai_semantic_settings: Mutex::new(()),
+            ai_semantic_model: Mutex::new(()),
+            ai_semantic_index: Mutex::new(()),
             launcher_settings: Mutex::new(()),
             launcher_library_state: Mutex::new(()),
             launcher_library_covers: Mutex::new(()),
@@ -728,6 +742,7 @@ impl HostCommandResourceLocks {
         let lock = match resource {
             HostCommandResource::AppUiState => &self.app_ui_state,
             HostCommandResource::AiSettings => &self.ai_settings,
+            HostCommandResource::LocalizationSettings => &self.localization_settings,
             HostCommandResource::MachineTranslationSettings => &self.machine_translation_settings,
             HostCommandResource::AiTranslationCache => &self.ai_translation_cache,
             HostCommandResource::AiUsageLedger => &self.ai_usage_ledger,
@@ -735,6 +750,9 @@ impl HostCommandResourceLocks {
                 &self.ai_official_localization_index
             }
             HostCommandResource::AiLocalizationKnowledge => &self.ai_localization_knowledge,
+            HostCommandResource::AiSemanticSettings => &self.ai_semantic_settings,
+            HostCommandResource::AiSemanticModel => &self.ai_semantic_model,
+            HostCommandResource::AiSemanticIndex => &self.ai_semantic_index,
             HostCommandResource::LauncherSettings => &self.launcher_settings,
             HostCommandResource::LauncherLibraryState => &self.launcher_library_state,
             HostCommandResource::LauncherLibraryCovers => &self.launcher_library_covers,
@@ -808,6 +826,8 @@ pub struct HostCommandScheduler {
     launcher_image_cdn: HostCommandLaneSender,
     ai: HostCommandLaneSender,
     ai_official_indexing: HostCommandLaneSender,
+    ai_semantic_indexing: HostCommandLaneSender,
+    ai_semantic_search: HostCommandLaneSender,
     writer: Arc<dyn HostCommandResponseWriter>,
     telemetry: HostRuntimeTelemetry,
 }
@@ -863,6 +883,18 @@ impl HostCommandScheduler {
                 max_concurrency: 1,
                 queue_capacity: config.ai_official_indexing_queue_capacity,
             },
+            HostRuntimePoolDescriptor {
+                lane: HostCommandLane::Mutation,
+                execution_pool: HostCommandExecutionPool::AiSemanticIndexing,
+                max_concurrency: 1,
+                queue_capacity: config.ai_official_indexing_queue_capacity,
+            },
+            HostRuntimePoolDescriptor {
+                lane: HostCommandLane::Network,
+                execution_pool: HostCommandExecutionPool::AiSemanticSearch,
+                max_concurrency: 2,
+                queue_capacity: config.ai_queue_capacity,
+            },
         ];
         let telemetry = HostRuntimeTelemetry::new(debug_logging_state, &pool_descriptors);
         Self {
@@ -915,6 +947,20 @@ impl HostCommandScheduler {
                 telemetry.pool(pool_descriptors[6].lane, pool_descriptors[6].execution_pool),
                 telemetry.clone(),
             ),
+            ai_semantic_indexing: spawn_pool(
+                pool_descriptors[7],
+                Arc::clone(&writer),
+                Arc::clone(&resources),
+                telemetry.pool(pool_descriptors[7].lane, pool_descriptors[7].execution_pool),
+                telemetry.clone(),
+            ),
+            ai_semantic_search: spawn_pool(
+                pool_descriptors[8],
+                Arc::clone(&writer),
+                Arc::clone(&resources),
+                telemetry.pool(pool_descriptors[8].lane, pool_descriptors[8].execution_pool),
+                telemetry.clone(),
+            ),
             writer,
             telemetry,
         }
@@ -925,6 +971,8 @@ impl HostCommandScheduler {
             HostCommandExecutionPool::LauncherImageCdn => &self.launcher_image_cdn,
             HostCommandExecutionPool::Ai => &self.ai,
             HostCommandExecutionPool::AiOfficialIndexing => &self.ai_official_indexing,
+            HostCommandExecutionPool::AiSemanticIndexing => &self.ai_semantic_indexing,
+            HostCommandExecutionPool::AiSemanticSearch => &self.ai_semantic_search,
             HostCommandExecutionPool::Lane => match command.lane {
                 HostCommandLane::Control => &self.control,
                 HostCommandLane::Network => &self.network,

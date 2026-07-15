@@ -8,6 +8,10 @@ import type {
   AiTranslationCacheStats,
   AiTranslationProgressPayload,
   SaveAiSettingsRequest,
+  ExportAiProfilesRequest,
+  AiProfileImportConflictPolicy,
+  AiProfileImportPreview,
+  AiProfileImportResult,
 } from '@shared/contracts'
 import { HOST_COMMANDS } from '@platform/host-commands'
 import { getPlatformPorts, invokeDesktop } from './runtime'
@@ -16,12 +20,39 @@ const AI_PROGRESS_EVENT = 'ai://translation-progress'
 
 /** Loads sanitized AI profiles and provider presets without exposing credentials. */
 export function loadAiSettings() {
-  return invokeDesktop<AiSettingsSnapshot>(HOST_COMMANDS.loadAiSettings, undefined, { kind: 'latest', key: 'ai-settings' })
+  return invokeDesktop<AiSettingsSnapshot>(HOST_COMMANDS.loadAiSettings, undefined, {
+    kind: 'parallelPool',
+    pool: 'settings-read',
+    limit: 4,
+  })
 }
 
 /** Persists AI profiles and credential patches serially. */
 export function saveAiSettings(request: SaveAiSettingsRequest) {
   return invokeDesktop<AiSettingsSnapshot>(HOST_COMMANDS.saveAiSettings, { request }, { kind: 'queuedMutation', queue: 'AiSettings' })
+}
+
+/** Exports sanitized provider profiles; credentials never enter the document. */
+export function exportAiProfiles(request: ExportAiProfilesRequest) {
+  return invokeDesktop<number>(HOST_COMMANDS.exportAiProfiles, { request }, { kind: 'exclusiveMutation', resource: 'AiProfileExport' })
+}
+
+/** Parses and validates a profile document without mutating settings. */
+export function previewAiProfilesImport(sourcePath: string) {
+  return invokeDesktop<AiProfileImportPreview>(
+    HOST_COMMANDS.previewAiProfilesImport,
+    { request: { sourcePath } },
+    { kind: 'latest', key: `ai-profile-import:${sourcePath}` },
+  )
+}
+
+/** Applies an already previewed profile document through Rust settings validation. */
+export function applyAiProfilesImport(sourcePath: string, conflictPolicy: AiProfileImportConflictPolicy) {
+  return invokeDesktop<AiProfileImportResult>(
+    HOST_COMMANDS.applyAiProfilesImport,
+    { request: { sourcePath, conflictPolicy } },
+    { kind: 'exclusiveMutation', resource: 'AiSettings' },
+  )
 }
 
 /** Lists models exposed by a configured provider profile. */

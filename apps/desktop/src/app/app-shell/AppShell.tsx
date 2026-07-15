@@ -51,6 +51,7 @@ import { createWorkbenchOrchestration } from '../providers/workbenchOrchestratio
 import { LauncherPage as LauncherPageView } from '@pages/launcher'
 import { DevDebugOverlay } from '@pages/workbench/ui/DevDebugOverlay'
 import type { PendingWorkbenchCommandIntent, SettingsWindowCategory } from '@shared/contracts'
+import { listenForAppSettingsRequests } from '@shared/lib/app-settings-events'
 import { QuitDialog } from '@widgets/quit-dialog'
 import { WorkbenchShellSkeleton } from '@shared/ui/WorkbenchShellSkeleton'
 
@@ -527,6 +528,19 @@ export default function App() {
     setSettingsWindowCategory(category)
     setSettingsWindowOpen(true)
   }, [])
+
+  useEffect(() => listenForAppSettingsRequests(openSettingsWindow), [openSettingsWindow])
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('mfSettingsMock') !== '1' && params.get('mfLauncherMock') !== '1') return
+    const category = params.get('mfOpenSettings')
+    if (!category) return
+    const allowed: SettingsWindowCategory[] = ['appearance', 'loading', 'view', 'interaction', 'ai', 'debug']
+    if (!allowed.includes(category as SettingsWindowCategory)) return
+    openSettingsWindow(category as SettingsWindowCategory)
+  }, [openSettingsWindow])
 
   return (
     <LocaleProvider locale={locale}>

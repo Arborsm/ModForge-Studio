@@ -4,6 +4,7 @@ use crate::domain::nexusmods::http::{api_headers, send_nexus_request};
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use anyhow::{Context, bail};
 use reqwest::blocking::{Client, Response};
+use reqwest::header::{IF_RANGE, RANGE};
 use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -181,8 +182,16 @@ pub(crate) fn resolve_download_url(
 pub(crate) fn download_file_response(
     client: &Client,
     download_url: &str,
+    range_start: Option<u64>,
+    if_range: Option<&str>,
 ) -> anyhow::Result<Response> {
-    let response = client.get(download_url);
+    let mut response = client.get(download_url);
+    if let Some(start) = range_start.filter(|value| *value > 0) {
+        response = response.header(RANGE, format!("bytes={start}-"));
+        if let Some(if_range) = if_range {
+            response = response.header(IF_RANGE, if_range);
+        }
+    }
     let response = send_nexus_request(|| response.try_clone().expect("request clone").send())
         .with_context(|| format!("Failed to download launcher mod"))?;
     Ok(response)

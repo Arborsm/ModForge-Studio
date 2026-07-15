@@ -1,8 +1,9 @@
 use crate::domain::ai::types::{
-    AiModelInfo, AiProfileRequest, AiProfileTestResult, AiSettingsSnapshot,
-    AiTranslateBatchRequest, AiTranslateBatchResult, AiTranslationCacheEntry,
-    AiTranslationCacheStats, CancelAiJobRequest, ReadAiTranslationCacheRequest,
-    SaveAiSettingsRequest,
+    AiModelInfo, AiProfileImportPreview, AiProfileImportResult, AiProfileRequest,
+    AiProfileTestResult, AiSettingsSnapshot, AiTranslateBatchRequest, AiTranslateBatchResult,
+    AiTranslationCacheEntry, AiTranslationCacheStats, ApplyAiProfilesImportRequest,
+    CancelAiJobRequest, ExportAiProfilesRequest, PreviewAiProfilesImportRequest,
+    ReadAiTranslationCacheRequest, SaveAiSettingsRequest,
 };
 use crate::support::logging::DebugLoggingState;
 use crate::{AppHandle, AppRuntime};
@@ -36,6 +37,48 @@ pub async fn save_ai_settings(
     request: SaveAiSettingsRequest,
 ) -> Result<AiSettingsSnapshot, String> {
     execute!(app, debug, save_ai_settings, json!({ "request": request }))
+}
+
+#[tauri::command]
+pub async fn export_ai_profiles(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    request: ExportAiProfilesRequest,
+) -> Result<u32, String> {
+    execute!(
+        app,
+        debug,
+        export_ai_profiles,
+        json!({ "request": request })
+    )
+}
+
+#[tauri::command]
+pub async fn preview_ai_profiles_import(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    request: PreviewAiProfilesImportRequest,
+) -> Result<AiProfileImportPreview, String> {
+    execute!(
+        app,
+        debug,
+        preview_ai_profiles_import,
+        json!({ "request": request })
+    )
+}
+
+#[tauri::command]
+pub async fn apply_ai_profiles_import(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    request: ApplyAiProfilesImportRequest,
+) -> Result<AiProfileImportResult, String> {
+    execute!(
+        app,
+        debug,
+        apply_ai_profiles_import,
+        json!({ "request": request })
+    )
 }
 
 #[tauri::command]

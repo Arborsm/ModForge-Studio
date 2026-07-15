@@ -11,21 +11,37 @@
     min-height: 0;
     overflow: hidden;
   }
+  /* 让各职能页根元素统一撑满工作区高度 */
+  .ai-localization-tab-content > * {
+    height: 100%;
+    min-height: 0;
+  }
   .ai-localization-tabs {
     display: flex;
-    gap: 0.25rem;
-    padding: 0.5rem 1rem;
+    gap: 20px;
+    padding: 0 16px;
     border-bottom: 1px solid var(--border-color);
     background: var(--bg-panel);
   }
   .ai-localization-tabs button {
-    min-height: 40px;
-    padding: 0 0.75rem;
+    min-height: 42px;
+    padding: 0 2px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: transparent;
     color: var(--text-secondary);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+  .ai-localization-tabs button:hover {
+    color: var(--text-primary);
   }
   .ai-localization-tabs button.is-active {
-    background: var(--bg-hover);
+    background: transparent;
     color: var(--text-primary);
+    border-bottom-color: var(--accent);
+    font-weight: 700;
   }
   .ai-localization-details-toggle,
   .ai-localization-region-tabs {
@@ -473,73 +489,464 @@
     overflow-wrap: anywhere;
     font-size: 0.6875rem;
   }
-  .ai-localization-scope-defaults {
-    display: grid;
-    gap: 0.625rem;
-    margin-top: 1rem;
-    border-top: 1px solid var(--border-color);
-    padding-top: 1rem;
-  }
-  .ai-localization-scope-defaults label {
-    margin-top: 0;
-  }
-  .ai-localization-scope-defaults .ai-localization-check {
-    grid-auto-flow: column;
-    justify-content: start;
-  }
-  .ai-localization-qa-rules {
+  .ai-localization-qa-groups {
     display: grid;
     align-content: start;
-    gap: 0.75rem;
-    padding: 1rem;
+    gap: 14px;
+    padding: 16px;
+    overflow: auto;
   }
-  .ai-localization-qa-rules label {
+  .ai-localization-qa-group {
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    background: var(--bg-panel);
+  }
+  .ai-localization-qa-group-head {
     display: flex;
-    min-height: 2rem;
+    min-height: 38px;
     align-items: center;
-    gap: 0.5rem;
-    color: var(--text-secondary);
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-panel-muted);
+  }
+  .ai-localization-qa-group-head strong {
+    font-size: 0.75rem;
+    font-weight: 650;
+  }
+  .ai-localization-qa-group-head span {
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    font-weight: 600;
+  }
+  .ai-localization-qa-rule {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 12px;
+  }
+  .ai-localization-qa-rule + .ai-localization-qa-rule {
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  }
+  .ai-localization-qa-rule:hover {
+    background: var(--bg-hover);
+  }
+  .ai-localization-qa-rule.is-locked {
+    background: color-mix(in srgb, var(--bg-panel-muted) 45%, transparent);
+  }
+  .ai-localization-qa-rule input {
+    flex: 0 0 auto;
+    accent-color: var(--accent);
+  }
+  .ai-localization-qa-rule-text {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+    gap: 2px;
+  }
+  .ai-localization-qa-rule-text strong {
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+  .ai-localization-qa-rule-lock {
+    flex: 0 0 auto;
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    font-weight: 600;
+  }
+  .ai-localization-qa-footer {
+    display: flex;
+    padding: 0 16px 16px;
+  }
+  /* 数字列信号 */
+  .ai-localization-table th.num,
+  .ai-localization-table td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .ai-localization-table td.num {
+    color: var(--text-primary);
+  }
+  .ai-localization-table td.num.warn {
+    color: var(--warning);
+    font-weight: 650;
+  }
+  .ai-localization-table td.num.crit {
+    color: var(--danger);
+    font-weight: 700;
+  }
+  .ai-localization-table td.num.muted {
+    color: var(--text-tertiary);
+  }
+
+  .ai-localization-center {
+    grid-template-rows: auto auto minmax(0, 1fr);
+    background: var(--bg-app);
+  }
+  .ai-localization-session {
+    display: flex;
+    min-width: 0;
+    min-height: 44px;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border-color);
+    padding: 6px 12px;
+    background: var(--bg-panel);
+  }
+  .ai-localization-session-title {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    align-items: center;
+    gap: 8px;
+  }
+  .ai-localization-session-title strong {
     font-size: 0.8125rem;
   }
-  .ai-localization-qa-rules button {
-    justify-self: start;
+  .ai-localization-session-title span {
+    overflow: hidden;
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .ai-project-usage-summary {
+  .ai-localization-session-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ai-localization-session-actions .control-button {
+    min-height: 32px;
+  }
+  .ai-localization-locale-trigger {
+    min-width: 104px;
+  }
+  .ai-localization-locale-menu {
+    min-width: 220px;
+  }
+  .ai-localization-locale-pair {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ai-localization-locale-pair > span {
+    color: var(--text-tertiary);
+  }
+  .ai-localization-shell {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    min-width: 0;
+    min-height: 0;
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+  .ai-localization-scope-rail {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    padding: 10px 8px;
+  }
+  .ai-localization-scope-search {
+    display: grid;
+    gap: 6px;
+    padding: 0 4px 8px;
+  }
+  .ai-localization-scope-search > span {
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    font-weight: 650;
+  }
+  .ai-localization-scope-list {
+    min-height: 0;
+    overflow: auto;
+  }
+  .ai-localization-scope-list button {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    border-radius: 6px;
+  }
+  .ai-localization-scope-list button.is-active {
+    box-shadow: inset 3px 0 0 var(--accent);
+    background: var(--bg-hover);
+  }
+  .ai-localization-scope-list button span {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+  }
+  .ai-localization-scope-list strong,
+  .ai-localization-scope-list small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ai-localization-workarea {
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .ai-localization-workarea > .ai-localization-tabs {
+    padding: 0 16px;
+  }
+  .ai-localization-workarea > .ai-localization-tabs button {
+    min-height: 38px;
+  }
+  .ai-localization-tab-content > .ai-localization-layout {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+  /* 知识库职能容器：分段器 + 内容 */
+  .ai-localization-knowledge {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
+  }
+  .ai-localization-subtabs {
+    display: flex;
+    gap: 2px;
+    padding: 8px 12px 0;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-panel);
+  }
+  .ai-localization-subtabs button {
+    min-height: 34px;
+    padding: 0 12px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+  .ai-localization-subtabs button:hover {
+    color: var(--text-primary);
+  }
+  .ai-localization-subtabs button.is-active {
+    color: var(--text-primary);
+    border-bottom-color: var(--accent);
+    font-weight: 700;
+  }
+  .ai-localization-knowledge > .ai-localization-layout {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    min-height: 0;
+  }
+  .ai-localization-overview {
+    display: grid;
+    align-content: start;
+    gap: 14px;
+    width: min(100%, 900px);
+    padding: 18px;
+    overflow: auto;
+  }
+  .ai-localization-overview > header h1 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 650;
+  }
+  .ai-localization-overview > header p {
+    margin: 4px 0 0;
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+  }
+  .ai-localization-overview-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .ai-localization-overview-stats button {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 84px;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    padding: 14px 16px;
+    background: var(--bg-panel);
+    text-align: left;
+    transition:
+      border-color 150ms ease,
+      box-shadow 150ms ease,
+      transform 150ms ease;
+  }
+  .ai-localization-overview-stats button:hover {
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--border-color));
+    box-shadow: var(--shadow-panel);
+    transform: translateY(-1px);
+  }
+  .ai-localization-stat-icon {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 8px;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .ai-localization-overview-stats button[data-tone='warn'] .ai-localization-stat-icon {
+    background: color-mix(in srgb, var(--warning) 14%, var(--bg-panel));
+    color: var(--warning);
+  }
+  .ai-localization-overview-stats button[data-tone='ready'] .ai-localization-stat-icon {
+    background: color-mix(in srgb, var(--success) 14%, var(--bg-panel));
+    color: var(--success);
+  }
+  .ai-localization-stat-body {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+    gap: 3px;
+  }
+  .ai-localization-stat-body > span {
+    overflow: hidden;
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ai-localization-stat-body > strong {
+    font-size: 1.375rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+  .ai-localization-health-panel {
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    background: var(--bg-panel);
+  }
+  .ai-localization-health-panel > header {
+    display: flex;
+    min-height: 40px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
     border-bottom: 1px solid var(--border-color);
   }
-  .ai-project-usage-summary > div {
-    display: grid;
-    gap: 0.25rem;
-    padding: 0.75rem 1rem;
-    border-right: 1px solid var(--border-color);
+  .ai-localization-health-panel > button {
+    display: flex;
+    width: 100%;
+    min-height: 56px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    text-align: left;
   }
-  .ai-project-usage-summary span {
+  .ai-localization-health-panel > button:hover {
+    background: var(--bg-hover);
+  }
+  .ai-localization-health-panel > button span:first-child {
+    display: grid;
+    gap: 3px;
+  }
+  .ai-localization-health-panel small,
+  .ai-localization-health-panel > p {
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+  }
+  .ai-localization-health-panel > p {
+    margin: 0;
+    padding: 14px 12px;
+  }
+  .ai-localization-defaults-panel {
+    overflow: visible;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    background: var(--bg-panel);
+  }
+  .ai-localization-defaults-panel > header {
+    min-height: 40px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .ai-localization-defaults-panel > div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+    gap: 10px;
+    padding: 12px;
+  }
+  .ai-localization-defaults-panel label {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+  .ai-localization-defaults-panel label > span {
     color: var(--text-tertiary);
     font-size: 0.6875rem;
   }
-  .ai-project-usage-summary strong {
-    font-variant-numeric: tabular-nums;
-    text-align: right;
+  .ai-localization-defaults-panel .ai-localization-check {
+    align-self: center;
   }
-  .ai-project-usage-tables {
-    display: grid;
-    min-height: 0;
-    flex: 1;
-    grid-template-rows: minmax(12rem, 1fr) minmax(10rem, 0.8fr);
-    overflow: hidden;
+  .ai-localization-defaults-panel .control-button {
+    justify-self: end;
   }
-  .ai-project-usage-tables > .ai-localization-table:first-child {
-    border-bottom: 1px solid var(--border-color);
-  }
-  .ai-project-usage-tables td:not(:first-child) {
-    font-variant-numeric: tabular-nums;
-    text-align: right;
-  }
-  @media (max-width: 1000px) {
-    .ai-project-usage-summary {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  @media (max-width: 767px) {
+    .ai-localization-center {
+      grid-template-rows: auto auto minmax(0, 1fr);
+    }
+    .ai-localization-session {
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .ai-localization-session-title {
+      min-height: 30px;
+    }
+    .ai-localization-session-title span {
+      display: none;
+    }
+    .ai-localization-session-actions {
+      width: 100%;
+      overflow-x: auto;
+    }
+    .ai-localization-session-actions .control-button-quiet {
+      display: none;
+    }
+    .ai-localization-locale-trigger {
+      min-width: 84px;
+    }
+    .ai-localization-region-tabs {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .ai-localization-shell {
+      display: block;
+      height: 100%;
+      overflow: hidden;
+    }
+    .ai-localization-center[data-mobile-region='scope'] .ai-localization-workarea,
+    .ai-localization-center[data-mobile-region='content'] .ai-localization-scope-rail {
+      display: none;
+    }
+    .ai-localization-scope-rail,
+    .ai-localization-workarea {
+      height: 100%;
+    }
+    .ai-localization-tab-content > .ai-localization-layout {
+      display: block;
+    }
+    .ai-localization-overview {
+      width: 100%;
+      padding: 12px;
+    }
+    .ai-localization-overview-stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .ai-localization-defaults-panel > div {
+      grid-template-columns: 1fr;
+    }
+    .ai-localization-defaults-panel .control-button {
+      justify-self: stretch;
     }
   }
 }

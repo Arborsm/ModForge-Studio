@@ -1,5 +1,18 @@
 export type AiLocalizationCopy = {
   title: string
+  overviewTab: string
+  knowledgeTab: string
+  qualityTab: string
+  importKnowledgePack: string
+  exportKnowledgePack: string
+  aiSettings: string
+  noScopes: string
+  needsAttention: string
+  noAttentionItems: string
+  indexReadyShort: string
+  indexMissingShort: string
+  openReviewRuns: (count: number) => string
+  criticalIssues: (count: number) => string
   globalScope: string
   officialTab: string
   sourceLocale: string
@@ -30,6 +43,8 @@ export type AiLocalizationCopy = {
   assetAndKey: string
   kind: string
   empty: string
+  glossaryEmpty: string
+  memoryEmpty: string
   selectEntry: string
   fingerprint: string
   revision: string
@@ -54,6 +69,8 @@ export type AiLocalizationCopy = {
   add: string
   save: string
   delete: string
+  confirmDeleteTitle: string
+  confirmDeleteDescription: (count: number) => string
   importAction: string
   exportAction: string
   sourceTerm: string
@@ -84,7 +101,6 @@ export type AiLocalizationCopy = {
   knowledgeError: string
   saved: string
   qualityHistoryTab: string
-  projectUsageTab: string
   reviewRuns: string
   reviewStatus: string
   reviewEngine: string
@@ -113,6 +129,10 @@ export type AiLocalizationCopy = {
   lineBreakRule: string
   lengthRule: string
   saveRules: string
+  qaGroupProtection: string
+  qaGroupContent: string
+  qaGroupAutomation: string
+  qaAlwaysOn: string
   copyAsTerm: string
   termScope: string
   termCopied: string
