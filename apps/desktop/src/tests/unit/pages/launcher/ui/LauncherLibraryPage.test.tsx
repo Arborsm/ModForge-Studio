@@ -156,10 +156,10 @@ vi.mock('@features/launcher/model/useLauncherLibrary', async () => {
   }
 })
 
-vi.mock('@shared/ui/notifications', () => ({
-  publishNotification: vi.fn(),
-  dismissNotification: vi.fn(),
-}))
+vi.mock('@shared/ui/notifications', () => {
+  const publishNotification = vi.fn()
+  return { publishNotification, dismissNotification: vi.fn(), useNotificationPublisher: () => publishNotification }
+})
 
 type MockLibraryState = ReturnType<typeof useLauncherLibrary>
 

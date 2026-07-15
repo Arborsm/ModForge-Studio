@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { TranslationEditor } from '@features/translation-editor'
 import { ModBrowserPanel, ModWorkspaceDecisionDialogs, useModCatalog, useModTranslationWorkspace } from '../../workspaces/mod'
 import { WorkbenchLayoutHost } from '../WorkbenchLayoutHost'
+import { openLocalizationCenter } from './localizationNavigation'
 import { useWorkbenchRuntimeInputs } from './runtimeInputs'
 
 export default function ModTranslationModuleRuntime() {
@@ -70,13 +71,29 @@ export default function ModTranslationModuleRuntime() {
             query={translation.query}
             statusFilter={translation.statusFilter}
             canPersist={translation.canPersist}
+            localizationContext={
+              translation.detail
+                ? {
+                    projectIdentity: {
+                      kind: 'installed-mod',
+                      stableId: translation.detail.summary.uniqueId ?? null,
+                      fallbackPath: translation.detail.summary.absolutePath,
+                    },
+                    displayName: translation.detail.summary.name,
+                    sourceNamespace: 'i18n',
+                  }
+                : null
+            }
             onSourceLocaleChange={translation.setSourceLocale}
             onTargetLocaleChange={translation.setTargetLocale}
             onQueryChange={translation.setQuery}
             onStatusFilterChange={translation.setStatusFilter}
             onI18nFilesChange={translation.setFiles}
-            onSave={() => void translation.save()}
+            onSave={async () => {
+              await translation.save()
+            }}
             onReload={() => void translation.requestUnsavedDecision(translation.reload)}
+            onOpenLocalizationCenter={(scopeId) => void openLocalizationCenter(scopeId, environment.onOpenModule)}
           />
         ),
       },

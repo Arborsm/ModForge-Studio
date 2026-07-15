@@ -3,9 +3,11 @@ use super::types::{
 };
 use crate::domain::app_paths::ai_translation_cache_path;
 use anyhow::Context;
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
 
 const MAX_SCOPE_KEY_BYTES: usize = 512;
 const MAX_LOCALE_BYTES: usize = 64;
@@ -13,6 +15,7 @@ const MAX_SOURCE_HASH_BYTES: usize = 128;
 const MAX_TRANSLATED_TEXT_BYTES: usize = 8 * 1024 * 1024;
 const MAX_PROFILE_ID_BYTES: usize = 128;
 const MAX_MODEL_ID_BYTES: usize = 256;
+static CACHE_OPEN_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 fn validate_field(value: &str, field: &str, max_bytes: usize) -> anyhow::Result<()> {
     if value.trim().is_empty() {
@@ -62,10 +65,18 @@ fn file_size(path: &Path) -> u64 {
 }
 
 fn open_cache_at(path: &Path) -> anyhow::Result<Connection> {
+    let _open_guard = CACHE_OPEN_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| anyhow::anyhow!("AI translation cache initialization lock is poisoned."))?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).context("Failed to create the AI cache directory.")?;
     }
-    let connection = Connection::open(path).context("Failed to open the AI translation cache.")?;
+    let mut connection =
+        Connection::open(path).context("Failed to open the AI translation cache.")?;
+    connection
+        .busy_timeout(Duration::from_secs(5))
+        .context("Failed to configure the AI translation cache busy timeout.")?;
     connection
         .execute_batch("PRAGMA journal_mode=WAL;")
         .context("Failed to configure the AI translation cache.")?;
@@ -78,10 +89,21 @@ fn open_cache_at(path: &Path) -> anyhow::Result<Connection> {
         );
     }
     if version == 0 {
-        connection
-            .execute_batch(
-                "BEGIN IMMEDIATE;
-         CREATE TABLE translations (
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .context("Failed to lock the AI translation cache for initialization.")?;
+        let locked_version = transaction
+            .query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
+            .context("Failed to recheck the AI translation cache version.")?;
+        if locked_version != 0 && locked_version != 2 {
+            anyhow::bail!(
+                "AI translation cache version {locked_version} is not supported; delete the development cache and reopen the application."
+            );
+        }
+        if locked_version == 0 {
+            transaction
+                .execute_batch(
+                    "CREATE TABLE translations (
            scope_key TEXT NOT NULL,
            target_locale TEXT NOT NULL,
            source_hash TEXT NOT NULL,
@@ -91,10 +113,13 @@ fn open_cache_at(path: &Path) -> anyhow::Result<Connection> {
            updated_at_ms INTEGER NOT NULL,
            PRIMARY KEY (scope_key, target_locale)
          );
-         PRAGMA user_version=2;
-         COMMIT;",
-            )
-            .context("Failed to initialize the AI translation cache.")?;
+         PRAGMA user_version=2;",
+                )
+                .context("Failed to initialize the AI translation cache.")?;
+        }
+        transaction
+            .commit()
+            .context("Failed to commit the AI translation cache initialization.")?;
     }
     Ok(connection)
 }

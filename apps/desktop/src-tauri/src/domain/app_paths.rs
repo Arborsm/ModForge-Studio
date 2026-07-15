@@ -73,8 +73,30 @@ pub(crate) fn ai_settings_path() -> anyhow::Result<PathBuf> {
     Ok(modforge_data_dir()?.join("ai").join("ai-settings.json"))
 }
 
+pub(crate) fn machine_translation_settings_path() -> anyhow::Result<PathBuf> {
+    Ok(modforge_data_dir()?
+        .join("ai")
+        .join("machine-translation-settings.json"))
+}
+
 pub(crate) fn ai_translation_cache_path() -> anyhow::Result<PathBuf> {
     Ok(modforge_data_dir()?
         .join("ai")
         .join("translation-cache.sqlite3"))
+}
+
+pub(crate) fn ai_usage_ledger_path() -> anyhow::Result<PathBuf> {
+    Ok(modforge_data_dir()?.join("ai").join("ai-usage.sqlite3"))
+}
+
+pub(crate) fn official_localization_index_path() -> anyhow::Result<PathBuf> {
+    Ok(modforge_data_dir()?
+        .join("ai")
+        .join("official-localization.sqlite3"))
+}
+
+pub(crate) fn ai_localization_knowledge_path() -> anyhow::Result<PathBuf> {
+    Ok(modforge_data_dir()?
+        .join("ai")
+        .join("ai-localization.sqlite3"))
 }

@@ -46,13 +46,18 @@ pub enum HostCommandExecutionPool {
     Lane,
     LauncherImageCdn,
     Ai,
+    AiOfficialIndexing,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum HostCommandResource {
     AppUiState,
     AiSettings,
+    MachineTranslationSettings,
     AiTranslationCache,
+    AiUsageLedger,
+    AiOfficialLocalizationIndex,
+    AiLocalizationKnowledge,
     LauncherSettings,
     LauncherLibraryState,
     LauncherLibraryCovers,
@@ -99,6 +104,7 @@ pub struct HostCommandSchedulerConfig {
     pub launcher_image_cdn_max_concurrency: usize,
     pub ai_max_concurrency: usize,
     pub ai_queue_capacity: usize,
+    pub ai_official_indexing_queue_capacity: usize,
     pub pool_queue_capacity: usize,
 }
 
@@ -115,6 +121,7 @@ impl Default for HostCommandSchedulerConfig {
                 crate::domain::nexusmods::endpoints::IMAGE_CDN_DEFAULT_CONCURRENCY,
             ai_max_concurrency: 2,
             ai_queue_capacity: 64,
+            ai_official_indexing_queue_capacity: 8,
             pool_queue_capacity: 256,
         }
     }
@@ -130,6 +137,7 @@ impl HostCommandSchedulerConfig {
             launcher_image_cdn_max_concurrency: self.launcher_image_cdn_max_concurrency.max(1),
             ai_max_concurrency: self.ai_max_concurrency.max(1),
             ai_queue_capacity: self.ai_queue_capacity.max(1),
+            ai_official_indexing_queue_capacity: self.ai_official_indexing_queue_capacity.max(1),
             pool_queue_capacity: self.pool_queue_capacity.max(1),
         }
     }
@@ -656,7 +664,11 @@ impl HostRuntimePoolTelemetry {
 pub struct HostCommandResourceLocks {
     app_ui_state: Mutex<()>,
     ai_settings: Mutex<()>,
+    machine_translation_settings: Mutex<()>,
     ai_translation_cache: Mutex<()>,
+    ai_usage_ledger: Mutex<()>,
+    ai_official_localization_index: Mutex<()>,
+    ai_localization_knowledge: Mutex<()>,
     launcher_settings: Mutex<()>,
     launcher_library_state: Mutex<()>,
     launcher_library_covers: Mutex<()>,
@@ -678,7 +690,11 @@ impl HostCommandResourceLocks {
         Self {
             app_ui_state: Mutex::new(()),
             ai_settings: Mutex::new(()),
+            machine_translation_settings: Mutex::new(()),
             ai_translation_cache: Mutex::new(()),
+            ai_usage_ledger: Mutex::new(()),
+            ai_official_localization_index: Mutex::new(()),
+            ai_localization_knowledge: Mutex::new(()),
             launcher_settings: Mutex::new(()),
             launcher_library_state: Mutex::new(()),
             launcher_library_covers: Mutex::new(()),
@@ -712,7 +728,13 @@ impl HostCommandResourceLocks {
         let lock = match resource {
             HostCommandResource::AppUiState => &self.app_ui_state,
             HostCommandResource::AiSettings => &self.ai_settings,
+            HostCommandResource::MachineTranslationSettings => &self.machine_translation_settings,
             HostCommandResource::AiTranslationCache => &self.ai_translation_cache,
+            HostCommandResource::AiUsageLedger => &self.ai_usage_ledger,
+            HostCommandResource::AiOfficialLocalizationIndex => {
+                &self.ai_official_localization_index
+            }
+            HostCommandResource::AiLocalizationKnowledge => &self.ai_localization_knowledge,
             HostCommandResource::LauncherSettings => &self.launcher_settings,
             HostCommandResource::LauncherLibraryState => &self.launcher_library_state,
             HostCommandResource::LauncherLibraryCovers => &self.launcher_library_covers,
@@ -785,6 +807,7 @@ pub struct HostCommandScheduler {
     mutation: HostCommandLaneSender,
     launcher_image_cdn: HostCommandLaneSender,
     ai: HostCommandLaneSender,
+    ai_official_indexing: HostCommandLaneSender,
     writer: Arc<dyn HostCommandResponseWriter>,
     telemetry: HostRuntimeTelemetry,
 }
@@ -834,6 +857,12 @@ impl HostCommandScheduler {
                 max_concurrency: config.ai_max_concurrency,
                 queue_capacity: config.ai_queue_capacity,
             },
+            HostRuntimePoolDescriptor {
+                lane: HostCommandLane::Mutation,
+                execution_pool: HostCommandExecutionPool::AiOfficialIndexing,
+                max_concurrency: 1,
+                queue_capacity: config.ai_official_indexing_queue_capacity,
+            },
         ];
         let telemetry = HostRuntimeTelemetry::new(debug_logging_state, &pool_descriptors);
         Self {
@@ -879,6 +908,13 @@ impl HostCommandScheduler {
                 telemetry.pool(pool_descriptors[5].lane, pool_descriptors[5].execution_pool),
                 telemetry.clone(),
             ),
+            ai_official_indexing: spawn_pool(
+                pool_descriptors[6],
+                Arc::clone(&writer),
+                Arc::clone(&resources),
+                telemetry.pool(pool_descriptors[6].lane, pool_descriptors[6].execution_pool),
+                telemetry.clone(),
+            ),
             writer,
             telemetry,
         }
@@ -888,6 +924,7 @@ impl HostCommandScheduler {
         let sender = match command.execution_pool {
             HostCommandExecutionPool::LauncherImageCdn => &self.launcher_image_cdn,
             HostCommandExecutionPool::Ai => &self.ai,
+            HostCommandExecutionPool::AiOfficialIndexing => &self.ai_official_indexing,
             HostCommandExecutionPool::Lane => match command.lane {
                 HostCommandLane::Control => &self.control,
                 HostCommandLane::Network => &self.network,

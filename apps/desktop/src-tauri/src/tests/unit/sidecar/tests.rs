@@ -269,17 +269,25 @@ fn sidecar_uses_shared_host_runtime_scheduler() {
 #[test]
 fn tauri_command_wrappers_route_through_host_runtime() {
     for name in [
+        "ai",
+        "ai_usage",
         "app_ui",
         "assets",
         "audio",
         "content_patcher",
         "cp_maker",
         "launcher",
+        "localization",
         "logging",
+        "machine_translation",
         "mods",
         "resource_registry",
         "saves",
     ] {
+        let source_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("src")
+            .join(format!("commands/{name}.rs"));
+        let source = fs::read_to_string(&source_path).unwrap();
         let file = parse_source(&format!("commands/{name}.rs"));
         let wrappers = file.items.iter().filter_map(|item| match item {
             Item::Fn(function)
@@ -302,11 +310,27 @@ fn tauri_command_wrappers_route_through_host_runtime() {
             );
             assert!(matches!(wrapper.vis, syn::Visibility::Public(_)));
             let structure = function_structure(wrapper);
-            assert!(structure.calls.contains("execute_tauri_command"));
+            let uses_execute_macro = structure
+                .macros
+                .iter()
+                .any(|(macro_name, _)| macro_name == "execute");
+            assert!(
+                structure.calls.contains("execute_tauri_command") || uses_execute_macro,
+                "{name}::{} must route through execute_tauri_command",
+                wrapper.sig.ident
+            );
+            if uses_execute_macro {
+                assert!(source.contains("execute_tauri_command"));
+                assert!(source.contains("host_command_name!($name)"));
+            }
             assert!(!structure.calls.contains("log_tauri_command_error"));
-            assert!(structure.macros.iter().any(|(macro_name, tokens)| {
-                macro_name == "host_command_name" && tokens == &wrapper.sig.ident.to_string()
-            }));
+            assert!(
+                uses_execute_macro
+                    || structure.macros.iter().any(|(macro_name, tokens)| {
+                        macro_name == "host_command_name"
+                            && tokens == &wrapper.sig.ident.to_string()
+                    })
+            );
         }
         assert!(wrapper_count > 0, "{name} has no Tauri command wrappers");
     }
@@ -425,6 +449,100 @@ fn ai_commands_use_the_dedicated_pool_and_declared_resources() {
 }
 
 #[test]
+fn official_localization_index_has_an_isolated_mutation_pool() {
+    let config = SidecarSchedulerConfig::default();
+    assert_eq!(config.ai_official_indexing_queue_capacity, 8);
+    assert_eq!(
+        command_binding("rebuild_official_localization_index"),
+        Some((
+            SidecarLane::Mutation,
+            HostCommandExecutionPool::AiOfficialIndexing,
+            vec![SidecarResource::AiOfficialLocalizationIndex],
+        ))
+    );
+    assert_eq!(
+        command_binding("search_official_localization"),
+        Some((
+            SidecarLane::Io,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiOfficialLocalizationIndex],
+        ))
+    );
+    assert_eq!(
+        command_binding("cancel_localization_job"),
+        Some((SidecarLane::Control, HostCommandExecutionPool::Lane, vec![]))
+    );
+}
+
+#[test]
+fn machine_translation_commands_use_host_runtime_policies() {
+    assert_eq!(
+        command_binding("load_machine_translation_settings"),
+        Some((
+            SidecarLane::Io,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::MachineTranslationSettings]
+        ))
+    );
+    assert_eq!(
+        command_binding("save_machine_translation_settings"),
+        Some((
+            SidecarLane::Mutation,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::MachineTranslationSettings]
+        ))
+    );
+    assert_eq!(
+        command_binding("list_machine_translation_languages"),
+        Some((SidecarLane::Network, HostCommandExecutionPool::Lane, vec![]))
+    );
+    assert_eq!(
+        command_binding("test_machine_translation_profile"),
+        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
+    );
+    assert_eq!(
+        command_binding("translate_machine_translation_batch"),
+        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
+    );
+}
+
+#[test]
+fn localization_review_releases_knowledge_lock_before_ai_network_work() {
+    assert_eq!(
+        command_binding("translate_localization_batch"),
+        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
+    );
+    assert_eq!(
+        command_binding("review_localization_batch"),
+        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
+    );
+    assert_eq!(
+        command_binding("list_localization_review_runs"),
+        Some((
+            SidecarLane::Io,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiLocalizationKnowledge]
+        ))
+    );
+    assert_eq!(
+        command_binding("load_localization_review_run"),
+        Some((
+            SidecarLane::Io,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiLocalizationKnowledge]
+        ))
+    );
+    assert_eq!(
+        command_binding("update_localization_review_issues"),
+        Some((
+            SidecarLane::Mutation,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiLocalizationKnowledge]
+        ))
+    );
+}
+
+#[test]
 fn sidecar_protocol_names_are_derived_from_command_functions() {
     let sidecar = parse_source("sidecar.rs");
     let resolver = function_structure(find_function(&sidecar, "resolve_command"));
@@ -437,13 +555,17 @@ fn sidecar_protocol_names_are_derived_from_command_functions() {
 
     let mut wrapper_names = BTreeSet::new();
     for name in [
+        "ai",
+        "ai_usage",
         "app_ui",
         "assets",
         "audio",
         "content_patcher",
         "cp_maker",
         "launcher",
+        "localization",
         "logging",
+        "machine_translation",
         "mods",
         "resource_registry",
         "saves",
@@ -678,6 +800,8 @@ fn test_config(
             .launcher_image_cdn_max_concurrency,
         ai_max_concurrency: SidecarSchedulerConfig::default().ai_max_concurrency,
         ai_queue_capacity: SidecarSchedulerConfig::default().ai_queue_capacity,
+        ai_official_indexing_queue_capacity: SidecarSchedulerConfig::default()
+            .ai_official_indexing_queue_capacity,
         pool_queue_capacity,
     }
 }

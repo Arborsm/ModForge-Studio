@@ -1,11 +1,16 @@
-import { ArrowRight, Check, ChevronDown, ChevronUp, Languages, Plus, RefreshCw, Save, Search, Sparkles, X } from 'lucide-react'
+import { ArrowRight, Check, ChevronDown, ChevronUp, Languages, Plus, RefreshCw, Save, Search, ShieldCheck, Sparkles, X } from 'lucide-react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { autoUpdate, flip, FloatingPortal, offset, shift, useFloating } from '@floating-ui/react'
 import type { ContentPatcherI18nFile } from '@entities/mod/api'
+import { useAi } from '@entities/ai'
+import { useLocalization } from '@entities/localization'
 import type { LocaleCode } from '@locales/api'
 import type { TranslationEditorCopy } from '@locales'
 import { useLocale, useTranslationEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
+import type { LocalizationEngineRef } from '@shared/contracts'
+import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import {
   buildTranslationEntries,
   createI18nFile,
@@ -14,7 +19,9 @@ import {
   updateI18nFileEntry,
   updateI18nFileEntries,
 } from '../model/translationEditor'
-import { partitionTranslationAiResults, useTranslationAi, type TranslationAiBaseline } from './useTranslationAi'
+import { useTranslationReview } from '../model/useTranslationReview'
+import { partitionTranslationAiResults, useLocalizationTranslation, type TranslationAiBaseline } from '../model/useLocalizationTranslation'
+import { TranslationReviewInspector } from './TranslationReviewInspector'
 
 type TranslationEditorProps = {
   project: TranslationEditorProject | null
@@ -29,8 +36,27 @@ type TranslationEditorProps = {
   onQueryChange: (value: string) => void
   onStatusFilterChange: (status: TranslationStatusFilter) => void
   onI18nFilesChange: (files: ContentPatcherI18nFile[]) => void
-  onSave: () => void
+  localizationContext: TranslationLocalizationContext | null
+  onSave: () => Promise<void>
   onReload?: () => void
+  onOpenLocalizationCenter?: (scopeId: string | null) => void
+}
+
+export type TranslationLocalizationContext = {
+  projectIdentity: { kind: 'cp-maker' | 'installed-mod'; stableId: string | null; fallbackPath: string | null }
+  displayName: string
+  sourceNamespace: string
+}
+
+function localizationBinding(context: TranslationLocalizationContext) {
+  const { kind, stableId, fallbackPath } = context.projectIdentity
+  if (stableId) {
+    return { bindingKind: kind === 'cp-maker' ? 'project-unique-id' : 'installed-mod', bindingValue: stableId }
+  }
+  if (fallbackPath) {
+    return { bindingKind: kind === 'cp-maker' ? 'draft-key' : 'canonical-path-hash', bindingValue: fallbackPath }
+  }
+  return null
 }
 
 export type TranslationEditorProject = {
@@ -470,10 +496,16 @@ export function TranslationEditor({
   onQueryChange,
   onStatusFilterChange,
   onI18nFilesChange,
+  localizationContext,
   onSave,
   onReload,
+  onOpenLocalizationCenter,
 }: TranslationEditorProps) {
   const copy = useTranslationEditorCopy()
+  const localization = useLocalization()
+  const ai = useAi()
+  const publishNotification = useNotificationPublisher()
+  const learnRef = useRef<() => Promise<void>>(async () => undefined)
   const {
     sourceFile,
     allEntries,
@@ -507,18 +539,174 @@ export function TranslationEditor({
     },
     [allEntries, updateEntries],
   )
+  const [knowledgePolicy, setKnowledgePolicy] = useState({
+    enabled: false,
+    useOfficialCorpus: true,
+    useGlobalKnowledge: true,
+    useProjectKnowledge: true,
+  })
+  const [localizationScopeId, setLocalizationScopeId] = useState<string | null>(null)
+  const [engineRef, setEngineRef] = useState<LocalizationEngineRef | null>(null)
+  const [engineOptions, setEngineOptions] = useState<Array<{ ref: LocalizationEngineRef; label: string }>>([])
+  const [reviewProfileId, setReviewProfileId] = useState<string | null>(null)
+  const [reviewAfterTranslation, setReviewAfterTranslation] = useState(false)
+  const runEngineSettingsLoad = useLatestTask('translation-editor-engine-settings')
+  const runLocalizationScopeLoad = useLatestTask('translation-editor-localization-scope')
+  useEffect(() => {
+    void runEngineSettingsLoad(async (task) => {
+      const [aiSettings, mtSettings] = await Promise.all([ai.loadSettings(), localization.loadMachineTranslationSettings()])
+      if (task.isCurrent()) {
+        const options = [
+          ...aiSettings.profiles.map((profile) => ({
+            ref: { kind: 'generative-ai' as const, profileId: profile.id },
+            label: `${copy.generativeEngine}: ${profile.name}`,
+          })),
+          ...mtSettings.profiles
+            .filter((profile) => profile.enabled)
+            .map((profile) => ({
+              ref: { kind: 'machine-translation' as const, profileId: profile.id },
+              label: `${copy.machineTranslationEngine}: ${profile.name}`,
+            })),
+        ]
+        setEngineOptions(options)
+        setReviewProfileId((current) => current ?? aiSettings.defaultProfileId)
+        setEngineRef(
+          (current) =>
+            current ??
+            (aiSettings.defaultProfileId
+              ? { kind: 'generative-ai', profileId: aiSettings.defaultProfileId }
+              : mtSettings.defaultProfileId &&
+                  mtSettings.profiles.some((profile) => profile.id === mtSettings.defaultProfileId && profile.enabled)
+                ? { kind: 'machine-translation', profileId: mtSettings.defaultProfileId }
+                : null),
+        )
+      }
+    }).catch((error) => {
+      if (!(error instanceof TaskCancelledError)) {
+        setEngineOptions([])
+        setEngineRef(null)
+      }
+    })
+  }, [ai, copy.generativeEngine, copy.machineTranslationEngine, localization, runEngineSettingsLoad])
+  useEffect(() => {
+    const binding = localizationContext ? localizationBinding(localizationContext) : null
+    if (!localizationContext || !binding) {
+      setLocalizationScopeId(null)
+      return
+    }
+    void runLocalizationScopeLoad(async (task) => {
+      const snapshot = await localization.resolveScope({ ...binding, name: localizationContext.displayName })
+      if (task.isCurrent()) {
+        setLocalizationScopeId(snapshot.scope.id)
+        setKnowledgePolicy(snapshot.settings.knowledgePolicy)
+        if (snapshot.settings.reviewProfileId) setReviewProfileId(snapshot.settings.reviewProfileId)
+        setReviewAfterTranslation(snapshot.settings.autoReview)
+        if (
+          (snapshot.settings.defaultEngineKind === 'generative-ai' || snapshot.settings.defaultEngineKind === 'machine-translation') &&
+          snapshot.settings.defaultEngineProfileId
+        )
+          setEngineRef({ kind: snapshot.settings.defaultEngineKind, profileId: snapshot.settings.defaultEngineProfileId })
+      }
+    }).catch((error) => {
+      if (!(error instanceof TaskCancelledError)) setLocalizationScopeId(null)
+    })
+  }, [localization, localizationContext, runLocalizationScopeLoad])
+  const learnConfirmedTranslations = async () => {
+    const binding = localizationContext ? localizationBinding(localizationContext) : null
+    if (!localizationContext || !binding) return
+    const snapshot = await localization.resolveScope({
+      ...binding,
+      name: localizationContext.displayName,
+    })
+    const fileNamespace =
+      i18nFiles.find((file) => file.locale === targetLocale)?.relativePath ?? `${localizationContext.sourceNamespace}/${targetLocale}`
+    await localization.recordConfirmed({
+      scopeId: snapshot.scope.id,
+      fileNamespace,
+      entries: allEntries
+        .filter((entry) => entry.targetText.trim())
+        .map((entry) => ({
+          sourceLocale,
+          targetLocale,
+          sourceText: entry.sourceText,
+          targetText: entry.targetText,
+          fileNamespace,
+          unitKey: entry.key,
+        })),
+    })
+  }
+  learnRef.current = learnConfirmedTranslations
+  useEffect(() => () => dismissNotification('translation-memory-learning-error'), [])
+  const handleSave = async () => {
+    await onSave()
+    try {
+      await learnConfirmedTranslations()
+    } catch {
+      publishNotification({
+        id: 'translation-memory-learning-error',
+        level: 'warning',
+        title: copy.memoryLearningFailed,
+        description: copy.memoryLearningFailed,
+        action: { label: copy.retry, callback: () => void learnRef.current(), tone: 'primary' },
+      })
+    }
+  }
   const {
     progress: aiProgress,
     run: runAiTranslation,
     cancel: cancelAiTranslation,
-  } = useTranslationAi({
+  } = useLocalizationTranslation({
     activeEntry,
     allEntries,
     sourceLocale,
     targetLocale,
     contextKey: `${project?.rootPath ?? ''}\u0000${sourceLocale}\u0000${targetLocale}`,
+    knowledgePolicy,
+    scopeId: localizationScopeId,
+    engineRef,
     applyResults: applyAiResults,
   })
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [mobilePanel, setMobilePanel] = useState<'entries' | 'translation' | 'review'>('translation')
+  const reviewTriggerRef = useRef<HTMLElement | null>(null)
+  const closeReview = useCallback(() => {
+    setReviewOpen(false)
+    setMobilePanel('translation')
+    window.requestAnimationFrame(() => reviewTriggerRef.current?.focus())
+  }, [])
+  useEffect(() => {
+    if (!reviewOpen) return
+    const close = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeReview()
+    }
+    window.addEventListener('keydown', close)
+    return () => window.removeEventListener('keydown', close)
+  }, [closeReview, reviewOpen])
+  const [reviewWithAi, setReviewWithAi] = useState(false)
+  const review = useTranslationReview({
+    activeEntry,
+    allEntries,
+    sourceLocale,
+    targetLocale,
+    scopeId: localizationScopeId,
+    profileId: reviewProfileId,
+    applySuggestions: updateEntries,
+  })
+  const translationWasRunning = useRef(false)
+  useEffect(() => {
+    if (aiProgress.running) {
+      translationWasRunning.current = true
+      return
+    }
+    if (translationWasRunning.current) {
+      translationWasRunning.current = false
+      if (reviewAfterTranslation && !aiProgress.error) {
+        setReviewOpen(true)
+        setMobilePanel('review')
+        void review.run('translated', Boolean(reviewProfileId))
+      }
+    }
+  }, [aiProgress.error, aiProgress.running, review, reviewAfterTranslation, reviewProfileId])
 
   const localeLabels = useMemo(() => {
     const map = new Map<string, string>()
@@ -647,6 +835,11 @@ export function TranslationEditor({
     )
   }
 
+  const activeEngineLabel = engineRef
+    ? (engineOptions.find((option) => option.ref.kind === engineRef.kind && option.ref.profileId === engineRef.profileId)?.label ??
+      engineRef.profileId)
+    : copy.aiNotConfigured
+
   return (
     <div className="translation-editor-workspace flex h-full min-h-0 flex-col overflow-hidden bg-(--bg-app)">
       <section className="item-workspace-pane h-full">
@@ -697,6 +890,63 @@ export function TranslationEditor({
                 <ChevronDown className="h-3.5 w-3.5" />
               </summary>
               <div className="translation-ai-menu-popover">
+                <label className="translation-ai-engine-select">
+                  <span>{copy.translationEngine}</span>
+                  <select
+                    className="control-input"
+                    value={engineRef ? `${engineRef.kind}:${engineRef.profileId}` : ''}
+                    onChange={(event) => {
+                      const option = engineOptions.find((value) => `${value.ref.kind}:${value.ref.profileId}` === event.target.value)
+                      setEngineRef(option?.ref ?? null)
+                    }}
+                  >
+                    {!engineOptions.length ? <option value="">{copy.noTranslationEngine}</option> : null}
+                    {engineOptions.map((option) => (
+                      <option key={`${option.ref.kind}:${option.ref.profileId}`} value={`${option.ref.kind}:${option.ref.profileId}`}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {engineRef?.kind === 'machine-translation' ? (
+                  <p className="translation-ai-capability-note">{copy.machineTranslationKnowledgeNotice}</p>
+                ) : null}
+                <label className="translation-ai-knowledge-toggle">
+                  <input
+                    type="checkbox"
+                    checked={knowledgePolicy.enabled}
+                    onChange={(event) => setKnowledgePolicy((current) => ({ ...current, enabled: event.target.checked }))}
+                  />
+                  <span>{knowledgePolicy.enabled ? copy.aiKnowledgeEnabled : copy.aiKnowledgeDisabled}</span>
+                </label>
+                <label className="translation-ai-knowledge-toggle">
+                  <input
+                    type="checkbox"
+                    disabled={!knowledgePolicy.enabled}
+                    checked={knowledgePolicy.useOfficialCorpus}
+                    onChange={(event) => setKnowledgePolicy((current) => ({ ...current, useOfficialCorpus: event.target.checked }))}
+                  />
+                  <span>{copy.aiOfficialCorpus}</span>
+                </label>
+                <label className="translation-ai-knowledge-toggle">
+                  <input
+                    type="checkbox"
+                    disabled={!knowledgePolicy.enabled}
+                    checked={knowledgePolicy.useGlobalKnowledge}
+                    onChange={(event) => setKnowledgePolicy((current) => ({ ...current, useGlobalKnowledge: event.target.checked }))}
+                  />
+                  <span>{copy.aiGlobalKnowledge}</span>
+                </label>
+                <label className="translation-ai-knowledge-toggle">
+                  <input
+                    type="checkbox"
+                    disabled={!knowledgePolicy.enabled || !localizationScopeId}
+                    checked={knowledgePolicy.useProjectKnowledge}
+                    onChange={(event) => setKnowledgePolicy((current) => ({ ...current, useProjectKnowledge: event.target.checked }))}
+                  />
+                  <span>{copy.aiProjectKnowledge}</span>
+                </label>
+                <div className="translation-ai-menu-separator" />
                 <button type="button" disabled={aiProgress.running} onClick={() => void runAiTranslation('current')}>
                   {copy.aiTranslateCurrent}
                 </button>
@@ -706,7 +956,97 @@ export function TranslationEditor({
                 <button type="button" disabled={aiProgress.running} onClick={() => void runAiTranslation('all')}>
                   {copy.aiTranslateAll}
                 </button>
+                <div className="translation-ai-menu-separator" />
+                <label className="translation-ai-knowledge-toggle">
+                  <input
+                    type="checkbox"
+                    checked={reviewAfterTranslation}
+                    onChange={(event) => setReviewAfterTranslation(event.target.checked)}
+                  />
+                  <span>{copy.reviewAfterTranslation}</span>
+                </label>
+                {onOpenLocalizationCenter ? (
+                  <button type="button" onClick={() => onOpenLocalizationCenter(localizationScopeId)}>
+                    {copy.manageLocalizationKnowledge}
+                  </button>
+                ) : null}
               </div>
+            </details>
+            <details className="translation-ai-menu" data-disabled={review.running || undefined}>
+              <summary
+                ref={reviewTriggerRef}
+                className="control-button translation-review-trigger h-8 px-3 text-xs"
+                aria-label={review.running ? copy.reviewCancel : copy.review}
+                onClick={(event) => {
+                  if (review.running) {
+                    event.preventDefault()
+                    review.cancel()
+                  }
+                }}
+              >
+                {review.running ? (
+                  <>
+                    <X className="h-3.5 w-3.5" />
+                    <span>{copy.reviewCancel}</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    <span>{copy.review}</span>
+                    {review.result?.run.summary.open ? (
+                      <span className="translation-review-badge">{review.result.run.summary.open}</span>
+                    ) : null}
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </>
+                )}
+              </summary>
+              {!review.running ? (
+                <div className="translation-ai-menu-popover">
+                  <label className="translation-ai-knowledge-toggle">
+                    <input
+                      type="checkbox"
+                      checked={reviewWithAi}
+                      disabled={!reviewProfileId}
+                      onChange={(event) => setReviewWithAi(event.target.checked)}
+                    />
+                    <span>{copy.reviewWithAi}</span>
+                  </label>
+                  <div className="translation-ai-menu-separator" />
+                  <button
+                    type="button"
+                    disabled={!localizationScopeId}
+                    onClick={() => {
+                      setReviewOpen(true)
+                      setMobilePanel('review')
+                      void review.run('current', reviewWithAi)
+                    }}
+                  >
+                    {copy.reviewCurrent}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!localizationScopeId}
+                    onClick={() => {
+                      setReviewOpen(true)
+                      setMobilePanel('review')
+                      void review.run('translated', reviewWithAi)
+                    }}
+                  >
+                    {copy.reviewTranslated}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!localizationScopeId}
+                    onClick={() => {
+                      setReviewOpen(true)
+                      setMobilePanel('review')
+                      void review.run('all', reviewWithAi)
+                    }}
+                  >
+                    {copy.reviewAll}
+                  </button>
+                </div>
+              ) : null}
             </details>
             {onReload ? (
               <button
@@ -723,7 +1063,7 @@ export function TranslationEditor({
               type="button"
               className="control-button control-button-primary h-8 px-3 text-xs"
               disabled={!canPersist}
-              onClick={onSave}
+              onClick={() => void handleSave()}
             >
               <Save className="h-3.5 w-3.5" />
               <span>{copy.saveTranslations}</span>
@@ -731,10 +1071,12 @@ export function TranslationEditor({
           </div>
         </header>
 
-        {aiProgress.running || aiProgress.error ? (
+        {aiProgress.running || aiProgress.error || aiProgress.warning ? (
           <div className="translation-ai-progress" role="status">
             <div>
-              <span>{aiProgress.error ?? copy.aiTranslating(aiProgress.completed, aiProgress.total)}</span>
+              <span>
+                {aiProgress.error ?? aiProgress.warning ?? copy.aiTranslating(aiProgress.completed, aiProgress.total)} · {activeEngineLabel}
+              </span>
               {aiProgress.failedKeys.length ? (
                 <ul>
                   {aiProgress.failedKeys.map((key) => (
@@ -744,11 +1086,18 @@ export function TranslationEditor({
                   ))}
                 </ul>
               ) : null}
+              {aiProgress.warningKeys.length ? (
+                <div className="translation-ai-failures">
+                  {aiProgress.warningKeys.map((key) => (
+                    <code key={key}>{key}</code>
+                  ))}
+                </div>
+              ) : null}
             </div>
             {aiProgress.running ? (
               <button
                 type="button"
-                className="icon-button h-7 w-7"
+                className="icon-button h-10 w-10"
                 onClick={cancelAiTranslation}
                 title={copy.aiCancel}
                 aria-label={copy.aiCancel}
@@ -758,11 +1107,45 @@ export function TranslationEditor({
             ) : null}
           </div>
         ) : null}
+        {review.running || review.error ? (
+          <div className="translation-ai-progress" role="status">
+            <span>{review.error ?? copy.reviewing(0, review.result?.run.summary.total ?? allEntries.length)}</span>
+            {review.running ? (
+              <button
+                type="button"
+                className="icon-button h-10 w-10"
+                onClick={review.cancel}
+                title={copy.reviewCancel}
+                aria-label={copy.reviewCancel}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* Body */}
-        <div className="grid min-h-0 flex-1 xl:grid-cols-[280px_minmax(0,1fr)]">
+        <nav className="translation-mobile-segments" aria-label={copy.reviewInspector}>
+          <button type="button" className={mobilePanel === 'entries' ? 'is-active' : ''} onClick={() => setMobilePanel('entries')}>
+            {copy.mobileEntries}
+          </button>
+          <button type="button" className={mobilePanel === 'translation' ? 'is-active' : ''} onClick={() => setMobilePanel('translation')}>
+            {copy.mobileTranslation}
+          </button>
+          <button
+            type="button"
+            className={mobilePanel === 'review' ? 'is-active' : ''}
+            onClick={() => {
+              setMobilePanel('review')
+              setReviewOpen(true)
+            }}
+          >
+            {copy.review}
+          </button>
+        </nav>
+        <div data-mobile-panel={mobilePanel} className={cx('translation-editor-grid grid min-h-0 flex-1', reviewOpen ? 'has-review' : '')}>
           {/* Key catalog */}
-          <aside className="flex min-h-0 flex-col border-r border-(--border-color)/60 bg-(--bg-panel-muted)/30 p-3">
+          <aside className="translation-editor-catalog flex min-h-0 flex-col border-r border-(--border-color)/60 bg-(--bg-panel-muted)/30 p-3">
             <div className="mb-2 flex flex-wrap gap-1">
               {statusFilters.map((status) => (
                 <button
@@ -821,7 +1204,7 @@ export function TranslationEditor({
           </aside>
 
           {/* Editor */}
-          <main className="min-h-0 flex-1 overflow-auto p-6">
+          <main className="translation-editor-main min-h-0 flex-1 overflow-auto p-6">
             {activeEntry ? (
               <div className="mx-auto max-w-3xl">
                 <div className="mb-5 flex items-center justify-between gap-3">
@@ -899,6 +1282,20 @@ export function TranslationEditor({
               </div>
             )}
           </main>
+          {reviewOpen ? (
+            <TranslationReviewInspector
+              result={review.result}
+              selectedId={review.selectedIssue?.id ?? null}
+              checked={review.checked}
+              onSelect={review.setSelectedId}
+              onChecked={review.setChecked}
+              onUpdate={review.update}
+              running={review.running}
+              error={review.error}
+              onReviewCurrent={() => void review.run('current', Boolean(reviewProfileId))}
+              onClose={closeReview}
+            />
+          ) : null}
         </div>
       </section>
     </div>

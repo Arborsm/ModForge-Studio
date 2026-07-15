@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { loadModProject, type ModProjectDetail } from '@entities/mod/api'
 import { summarizeContentPatcherContent } from '../mods/content-patcher/content-model/contentPatcher'
-import { TaskCancelledError, useLatestTask } from '@platform/task-runtime'
+import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 
 /** Loads immutable manifest/content summaries and diagnostics for a selected disk mod. */
 export function useModProjectInspection(projectPath: string | null, providedDetail: ModProjectDetail | null = null) {

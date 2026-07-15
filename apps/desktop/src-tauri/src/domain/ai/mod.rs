@@ -1,7 +1,7 @@
 mod cache;
 mod jobs;
 mod presets;
-mod providers;
+pub(crate) mod providers;
 mod settings;
 pub mod types;
 
@@ -20,6 +20,26 @@ pub use cache::{
     write_ai_translation_cache,
 };
 pub use settings::{load_ai_settings, save_ai_settings};
+
+pub(crate) fn usage_identity(profile_id: Option<&str>) -> anyhow::Result<(String, String, String)> {
+    let profile = settings::resolve_profile(profile_id)?;
+    Ok((profile.id, profile.preset_id, profile.model))
+}
+
+pub(crate) fn execute_structured_observed(
+    profile_id: Option<&str>,
+    job_id: &str,
+    system: &str,
+    user: &str,
+    schema: &serde_json::Value,
+    observer: &mut dyn FnMut(providers::ProviderAttempt),
+) -> anyhow::Result<(String, String, serde_json::Value)> {
+    let profile = settings::resolve_profile(profile_id)?;
+    let job = jobs::AiJobGuard::register(job_id)?;
+    let value =
+        providers::execute_structured_observed(&profile, &job, system, user, schema, observer)?;
+    Ok((profile.id, profile.model, value))
+}
 
 pub(crate) fn classify_error_message(message: &str) -> &'static str {
     let message = message.to_ascii_lowercase();
@@ -70,12 +90,20 @@ pub fn list_ai_models(request: AiProfileRequest) -> anyhow::Result<Vec<AiModelIn
     providers::list_models(&settings::resolve_profile(Some(&request.profile_id))?)
 }
 
+#[cfg(test)]
 pub fn test_ai_profile(request: AiProfileRequest) -> anyhow::Result<AiProfileTestResult> {
+    test_ai_profile_observed(request, &mut |_| {})
+}
+
+pub(crate) fn test_ai_profile_observed(
+    request: AiProfileRequest,
+    observer: &mut dyn FnMut(providers::ProviderAttempt),
+) -> anyhow::Result<AiProfileTestResult> {
     let profile = settings::resolve_profile(Some(&request.profile_id))?;
     let started = Instant::now();
     let job_id = format!("profile-test:{}", profile.id);
     let job = jobs::AiJobGuard::register(&job_id)?;
-    providers::translate(
+    providers::translate_observed(
         &profile,
         &AiTranslateBatchRequest {
             job_id,
@@ -88,8 +116,11 @@ pub fn test_ai_profile(request: AiProfileRequest) -> anyhow::Result<AiProfileTes
                 format: types::AiTranslationFormat::PlainText,
                 context: None,
             }],
+            usage_context: None,
+            knowledge_policy: types::KnowledgePolicy::default(),
         },
         &job,
+        observer,
     )?;
     Ok(AiProfileTestResult {
         model: profile.model,
@@ -97,9 +128,28 @@ pub fn test_ai_profile(request: AiProfileRequest) -> anyhow::Result<AiProfileTes
     })
 }
 
+#[cfg(test)]
 pub fn translate_ai_batch(
     app: AppHandle,
     request: AiTranslateBatchRequest,
+) -> anyhow::Result<AiTranslateBatchResult> {
+    translate_ai_batch_observed(
+        app,
+        request,
+        &mut |_| {},
+        "unavailable",
+        types::KnowledgeTrace::default(),
+        "disabled".into(),
+    )
+}
+
+pub(crate) fn translate_ai_batch_observed(
+    app: AppHandle,
+    request: AiTranslateBatchRequest,
+    observer: &mut dyn FnMut(providers::ProviderAttempt),
+    usage_record_state: &str,
+    knowledge_trace: types::KnowledgeTrace,
+    knowledge_revision: String,
 ) -> anyhow::Result<AiTranslateBatchResult> {
     let profile = settings::resolve_profile(request.profile_id.as_deref())?;
     let job = jobs::AiJobGuard::register(&request.job_id)?;
@@ -114,7 +164,7 @@ pub fn translate_ai_batch(
         },
     )
     .map_err(anyhow::Error::msg)?;
-    let items = match providers::translate(&profile, &request, &job) {
+    let items = match providers::translate_observed(&profile, &request, &job, observer) {
         Ok(items) => items,
         Err(error) => {
             let state = if classify_error_message(&error.to_string()) == "cancelled" {
@@ -149,6 +199,9 @@ pub fn translate_ai_batch(
         profile_id: profile.id,
         model: profile.model,
         items,
+        usage_record_state: usage_record_state.into(),
+        knowledge_trace,
+        knowledge_revision,
     })
 }
 

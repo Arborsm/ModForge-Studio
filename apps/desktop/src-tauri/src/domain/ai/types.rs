@@ -126,6 +126,37 @@ pub struct AiTranslateBatchRequest {
     pub source_locale: Option<String>,
     pub target_locale: String,
     pub items: Vec<AiTranslationItem>,
+    #[serde(default)]
+    pub usage_context: Option<AiUsageContext>,
+    #[serde(default)]
+    pub knowledge_policy: KnowledgePolicy,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgePolicy {
+    pub enabled: bool,
+    pub use_official_corpus: bool,
+    pub use_global_knowledge: bool,
+    pub use_project_knowledge: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeTrace {
+    pub official_matches: u64,
+    pub global_glossary_matches: u64,
+    pub project_glossary_matches: u64,
+    pub translation_memory_matches: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiUsageContext {
+    pub page_source: String,
+    pub operation: String,
+    #[serde(default)]
+    pub scope_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -144,6 +175,9 @@ pub struct AiTranslateBatchResult {
     pub profile_id: String,
     pub model: String,
     pub items: Vec<AiTranslationResultItem>,
+    pub usage_record_state: String,
+    pub knowledge_trace: KnowledgeTrace,
+    pub knowledge_revision: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

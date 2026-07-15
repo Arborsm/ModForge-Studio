@@ -74,3 +74,7 @@ export function useEventStageCopy() {
 export function useMapPanelCopy() {
   return useEditorCopy().mapPanel
 }
+
+export function useAiLocalizationCopy() {
+  return useEditorCopy().aiLocalization
+}

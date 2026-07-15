@@ -3,7 +3,7 @@ import { loadModProject, saveModI18nFiles, type ContentPatcherI18nFile, type Mod
 import type { TranslationStatusFilter } from '@features/translation-editor'
 import { useModCopy } from '@locales/provider'
 import { reportAppEvent } from '@platform/observability'
-import { TaskCancelledError, useLatestTask } from '@platform/task-runtime'
+import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 
 type GuardedAction = () => void | Promise<void>
 

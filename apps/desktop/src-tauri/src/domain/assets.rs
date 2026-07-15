@@ -483,10 +483,19 @@ fn unpacked_text_asset_path(root: &Path, relative_path: &Path) -> Option<PathBuf
     Some(unpacked_path)
 }
 
-fn read_unpacked_text_asset(root: &Path, relative_path: &Path) -> anyhow::Result<Option<String>> {
+fn read_unpacked_text_asset(
+    root: &Path,
+    relative_path: &Path,
+    locale: Option<&str>,
+) -> anyhow::Result<Option<String>> {
     let Some(unpacked_path) = unpacked_text_asset_path(root, relative_path) else {
         return Ok(None);
     };
+
+    let unpacked_path = locale
+        .and_then(|locale| localized_variant_path(&unpacked_path, locale))
+        .filter(|path| path.exists())
+        .unwrap_or(unpacked_path);
 
     if !unpacked_path.exists() {
         return Ok(None);
@@ -928,9 +937,11 @@ pub(crate) fn load_text_asset(
                         )
                     }
                     Err(xnb_error) => {
-                        if let Some(content) =
-                            read_unpacked_text_asset(&root, &logical_relative_path)?
-                        {
+                        if let Some(content) = read_unpacked_text_asset(
+                            &root,
+                            &logical_relative_path,
+                            requested_locale,
+                        )? {
                             log::warn!(
                                 "Falling back to unpacked JSON for {} after XNB parse failure: {}",
                                 normalize_path(&absolute_path),

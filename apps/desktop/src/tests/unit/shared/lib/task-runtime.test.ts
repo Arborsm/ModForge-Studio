@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vite-plus/test'
-import { TaskCancelledError, createTaskRuntime } from '@platform/task-runtime'
+import { TaskCancelledError, createTaskRuntime } from '@shared/lib/task-runtime'
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void

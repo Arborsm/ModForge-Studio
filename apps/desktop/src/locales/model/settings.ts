@@ -66,6 +66,7 @@ export type SettingsMenuCopy = {
   futureLabel: string
   futureDescription: string
   ai: {
+    tabs: { generative: string; machineTranslation: string; usage: string }
     title: string
     description: string
     addProfile: string
@@ -98,6 +99,80 @@ export type SettingsMenuCopy = {
     clearCacheConfirm: string
     loadError: string
     saveError: string
+    machineTranslation: {
+      title: string
+      description: string
+      addProfile: string
+      noProfiles: string
+      region: string
+      credentials: string
+      enabled: string
+      defaultSource: string
+      defaultTarget: string
+      credentialLabels: Record<'api-key' | 'app-id' | 'secret' | 'secret-id' | 'secret-key', string>
+      capability: string
+      dynamicLanguages: string
+      staticLanguages: string
+      itemLimit: (value: number) => string
+      batchLimit: (value: number) => string
+      htmlSupported: string
+      glossarySupported: string
+      exactKnowledgeOnly: string
+      languageCount: (value: number) => string
+      loadLanguages: string
+      loadLanguagesError: string
+      saveError: string
+      loadError: string
+      requiredField: string
+      invalidEndpoint: string
+      localePairConflict: string
+    }
+    usage: {
+      title: string
+      description: string
+      today: string
+      sevenDays: string
+      thirtyDays: string
+      custom: string
+      from: string
+      to: string
+      allEngines: string
+      generativeAi: string
+      machineTranslation: string
+      allProfiles: string
+      allModels: string
+      allOperations: string
+      allStatuses: string
+      succeeded: string
+      failed: string
+      inputTokens: string
+      outputTokens: string
+      cachedTokens: string
+      characters: string
+      requests: string
+      failures: string
+      date: string
+      engine: string
+      profile: string
+      model: string
+      operation: string
+      status: string
+      latency: string
+      unavailable: string
+      exportCsv: string
+      clearDetails: string
+      clearAll: string
+      clearDetailsConfirm: string
+      clearAllConfirm: string
+      empty: string
+      loading: string
+      loadError: string
+      actionError: string
+      retry: string
+      previousPage: string
+      nextPage: string
+      pageSummary: (from: number, to: number, total: number) => string
+    }
   }
   categoryDescriptions: {
     appearance: string

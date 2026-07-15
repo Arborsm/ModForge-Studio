@@ -141,6 +141,8 @@ fn kimi_real_backend_flow() {
                 "single",
                 "Welcome to Pelican Town, {{player}}!",
             )],
+            usage_context: None,
+            knowledge_policy: crate::domain::ai::types::KnowledgePolicy::default(),
         },
     )
     .expect("single Kimi translation should succeed");
@@ -157,6 +159,8 @@ fn kimi_real_backend_flow() {
                 "anthropic-single",
                 "The Community Center needs {{count}} apples.",
             )],
+            usage_context: None,
+            knowledge_policy: crate::domain::ai::types::KnowledgePolicy::default(),
         },
     )
     .expect("Kimi Anthropic-compatible translation should succeed");
@@ -178,6 +182,8 @@ fn kimi_real_backend_flow() {
                 translation_item("quest", "Bring {{count}} parsnips to the Community Center."),
                 translation_item("weather", "It will rain tomorrow."),
             ],
+            usage_context: None,
+            knowledge_policy: crate::domain::ai::types::KnowledgePolicy::default(),
         },
     )
     .expect("batched Kimi translation should succeed");

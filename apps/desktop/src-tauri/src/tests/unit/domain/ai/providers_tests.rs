@@ -13,6 +13,8 @@ fn request(items: Vec<AiTranslationItem>) -> AiTranslateBatchRequest {
         source_locale: Some("en".into()),
         target_locale: "zh-Hans".into(),
         items,
+        usage_context: None,
+        knowledge_policy: crate::domain::ai::types::KnowledgePolicy::default(),
     }
 }
 
@@ -200,6 +202,46 @@ fn applies_protocol_authentication_headers() {
     .unwrap();
     assert_eq!(anthropic.headers()["x-api-key"], "anthropic-secret");
     assert_eq!(anthropic.headers()["anthropic-version"], "2023-06-01");
+}
+
+#[test]
+fn structured_review_reuses_authenticated_protocol_and_usage_parsing() {
+    let payload = json!({"issues":[{"unitKey":"greeting","severity":"major","category":"meaning","reason":"Wrong meaning","suggestion":"您好"}]});
+    let body =
+        json!({"output_text":payload.to_string(),"usage":{"input_tokens":12,"output_tokens":8}})
+            .to_string();
+    let response = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        body.len(),
+        body
+    );
+    let response: &'static str = Box::leak(response.into_boxed_str());
+    let (url, requests, server) = spawn_http_server(vec![response]);
+    let mut profile = test_profile(AiProtocol::OpenaiResponses);
+    profile.base_url = url;
+    profile.credential_environment = Some("MODFORGE_TEST_STRUCTURED_KEY".into());
+    unsafe { std::env::set_var("MODFORGE_TEST_STRUCTURED_KEY", "review-secret") };
+    let job = AiJobGuard::register("structured-review-test").unwrap();
+    let mut attempts = Vec::new();
+    let value = execute_structured_observed(
+        &profile,
+        &job,
+        "Review safely",
+        "{\"items\":[]}",
+        &json!({"type":"object"}),
+        &mut |attempt| attempts.push(attempt),
+    )
+    .unwrap();
+    let request = requests.recv_timeout(Duration::from_secs(1)).unwrap();
+    server.join().unwrap();
+    unsafe { std::env::remove_var("MODFORGE_TEST_STRUCTURED_KEY") };
+    assert!(
+        request.contains("Authorization: Bearer review-secret")
+            || request.contains("authorization: Bearer review-secret")
+    );
+    assert_eq!(value["issues"][0]["unitKey"], "greeting");
+    assert_eq!(attempts[0].usage.input_tokens, Some(12));
+    assert_eq!(attempts[0].usage.output_tokens, Some(8));
 }
 
 #[test]

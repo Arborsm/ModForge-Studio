@@ -214,6 +214,7 @@ const shell: WorkbenchShellCopy = {
       'mod-browser': 'CP mod inspector',
       'mod-translation': 'Mod translations',
       'i18n-generator': 'Translation generator',
+      'ai-localization': 'AI Localization',
       'project-dashboard': 'Project home',
       'project-content': 'Project content',
       'map-authoring': 'Map authoring',

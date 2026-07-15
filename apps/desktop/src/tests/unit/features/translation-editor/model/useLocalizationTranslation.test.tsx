@@ -1,15 +1,15 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { ReactNode } from 'react'
-import { AiProvider } from '@entities/ai'
+import { LocalizationProvider } from '@entities/localization'
 import { LocaleProvider } from '@locales/provider'
-import type { AiPort, AiTranslateBatchRequest, AiTranslateBatchResult } from '@shared/contracts'
+import type { LocalizationPort, LocalizationTranslateBatchRequest, LocalizationTranslateBatchResult } from '@shared/contracts'
 import { clearNotifications, NotificationProvider } from '@shared/ui/notifications'
 import {
   partitionTranslationAiResults,
-  useTranslationAi,
+  useLocalizationTranslation,
   type TranslationAiBaseline,
-} from '@features/translation-editor/view/useTranslationAi'
+} from '@features/translation-editor/model/useLocalizationTranslation'
 import type { TranslationEntry } from '@features/translation-editor/model/translationEditor'
 
 const entry: TranslationEntry = {
@@ -22,41 +22,33 @@ const entry: TranslationEntry = {
   missingTokens: [],
 }
 
-function createPort(translateBatch: AiPort['translateBatch']): AiPort {
+function createPort(translateBatch: LocalizationPort['translateBatch']): LocalizationPort {
   return {
-    loadSettings: vi.fn(async () => ({ version: 1, defaultProfileId: 'profile', profiles: [], presets: [] })),
-    saveSettings: vi.fn(),
-    listModels: vi.fn(),
-    testProfile: vi.fn(),
+    loadDefaultEngine: vi.fn(async () => ({ kind: 'generative-ai', profileId: 'profile' })),
     translateBatch,
     cancelJob: vi.fn(async () => undefined),
-    listenToProgress: vi.fn(async () => () => undefined),
-    readCache: vi.fn(),
-    writeCache: vi.fn(),
-    getCacheStats: vi.fn(),
-    clearCache: vi.fn(),
-  } as AiPort
+  } as unknown as LocalizationPort
 }
 
-function wrapper(port: AiPort) {
+function wrapper(port: LocalizationPort) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
       <LocaleProvider locale="en-US">
         <NotificationProvider>
-          <AiProvider port={port}>{children}</AiProvider>
+          <LocalizationProvider port={port}>{children}</LocalizationProvider>
         </NotificationProvider>
       </LocaleProvider>
     )
   }
 }
 
-afterEach(() => clearNotifications())
+afterEach(() => act(() => clearNotifications()))
 
-describe('useTranslationAi', () => {
+describe('useLocalizationTranslation', () => {
   it('allows only one active owner even when start is invoked twice synchronously', async () => {
-    let release: ((result: AiTranslateBatchResult) => void) | undefined
-    const translateBatch = vi.fn((request: AiTranslateBatchRequest) =>
-      new Promise<AiTranslateBatchResult>((resolve) => {
+    let release: ((result: LocalizationTranslateBatchResult) => void) | undefined
+    const translateBatch = vi.fn((request: LocalizationTranslateBatchRequest) =>
+      new Promise<LocalizationTranslateBatchResult>((resolve) => {
         release = resolve
       }).then((result) => ({ ...result, jobId: request.jobId })),
     )
@@ -64,12 +56,13 @@ describe('useTranslationAi', () => {
     const applyResults = vi.fn(() => [])
     const { result } = renderHook(
       () =>
-        useTranslationAi({
+        useLocalizationTranslation({
           activeEntry: entry,
           allEntries: [entry],
           sourceLocale: 'default',
           targetLocale: 'zh',
           contextKey: 'project\u0000default\u0000zh',
+          engineRef: { kind: 'generative-ai', profileId: 'profile' },
           applyResults,
         }),
       { wrapper: wrapper(port) },
@@ -81,14 +74,22 @@ describe('useTranslationAi', () => {
       await result.current.run('current')
     })
     await waitFor(() => expect(translateBatch).toHaveBeenCalledTimes(1))
-    release?.({
-      jobId: 'ignored',
-      profileId: 'profile',
-      model: 'model',
-      items: [{ id: 'greeting', translatedText: '您好', detectedLanguage: 'en', skippedSameLanguage: false }],
+    await act(async () => {
+      release?.({
+        jobId: 'ignored',
+        engine: { kind: 'generative-ai', profileId: 'profile' },
+        model: 'model',
+        validationIssues: [{ itemId: 'greeting', category: 'user-terminology', sourceTerm: 'Hello', expectedTerm: '您好' }],
+        usageRecordState: 'recorded',
+        knowledgeTrace: { officialMatches: 0, globalGlossaryMatches: 0, projectGlossaryMatches: 0, translationMemoryMatches: 0 },
+        knowledgeRevision: 'disabled',
+        items: [{ id: 'greeting', translatedText: '您好', detectedLanguage: 'en', skippedSameLanguage: false }],
+      })
+      await first
     })
-    await act(async () => first)
     expect(applyResults).toHaveBeenCalledTimes(1)
+    expect(result.current.progress.warningKeys).toEqual(['greeting'])
+    expect(result.current.progress.failedKeys).toEqual([])
   })
 
   it('partitions results changed after the request baseline as conflicts', () => {

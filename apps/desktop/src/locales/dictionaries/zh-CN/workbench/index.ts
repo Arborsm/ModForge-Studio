@@ -8,6 +8,7 @@ import charactersPanel from './characters'
 import buildingsPanel from './buildings'
 import itemsPanel from './items'
 import i18nGenerator from './i18n-generator'
+import aiLocalization from './ai-localization'
 
 const editor: EditorCopy = {
   ...shell,
@@ -21,6 +22,7 @@ const editor: EditorCopy = {
   buildingsPanel,
   itemsPanel,
   i18nGenerator,
+  aiLocalization,
 }
 
 export default editor

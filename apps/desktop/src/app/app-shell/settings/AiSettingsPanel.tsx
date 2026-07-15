@@ -5,6 +5,8 @@ import { useNotificationCopy, useSettingsMenuCopy } from '@locales/provider'
 import type { AiModelInfo, AiProviderPreset, AiSettingsSnapshot, SaveAiProviderProfile } from '@shared/contracts'
 import { cx } from '@shared/lib/helper'
 import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { AiUsageSection } from './AiUsageSection'
+import { MachineTranslationProfilesSection } from './MachineTranslationProfilesSection'
 
 const AI_SETTINGS_SAVE_NOTIFICATION_ID = 'ai-settings-save-error'
 const AI_SETTINGS_CACHE_NOTIFICATION_ID = 'ai-settings-cache-error'
@@ -55,6 +57,7 @@ export function AiSettingsPanel() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cacheError, setCacheError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'generative' | 'machine-translation' | 'usage'>('generative')
   const mountedRef = useRef(false)
   const profileNotificationIds = useRef(new Set<string>())
   const actionsRef = useRef<AiSettingsActions>({
@@ -240,217 +243,252 @@ export function AiSettingsPanel() {
   actionsRef.current = { save, loadModels, testProfile, clearCache }
 
   return (
-    <section className="settings-window-section settings-ai-section">
-      <div className="settings-ai-heading">
-        <div>
-          <p className="settings-window-section-title">{copy.title}</p>
-          <p className="settings-window-section-copy mt-1">{copy.description}</p>
-        </div>
-        <button type="button" className="control-button" onClick={addProfile} disabled={!presets.length}>
-          <Plus className="h-4 w-4" />
-          <span>{copy.addProfile}</span>
-        </button>
-      </div>
-
-      {error ? <p className="settings-ai-error">{error}</p> : null}
-      {!profiles.length ? <p className="settings-ai-empty">{copy.noProfiles}</p> : null}
-
-      <div className="settings-ai-profiles">
-        {profiles.map((profile) => {
-          const defaultProfile = profile.id === defaultProfileId
-          const preset = presets.find((item) => item.id === profile.presetId)
-          const persisted = snapshot?.profiles.find((item) => item.id === profile.id)
-          const remoteActionsReady = Boolean(
-            persisted &&
-            !profile.apiKey &&
-            !profile.clearApiKey &&
-            persisted.name === profile.name &&
-            persisted.presetId === profile.presetId &&
-            persisted.protocol === profile.protocol &&
-            persisted.baseUrl === profile.baseUrl &&
-            persisted.model === profile.model &&
-            persisted.credentialEnvironment === profile.credentialEnvironment,
-          )
-          const keyLabel =
-            profile.keyStatus === 'keychain'
-              ? copy.credentialKeychain
-              : profile.keyStatus === 'environment'
-                ? copy.credentialEnvironment
-                : copy.credentialMissing
-          return (
-            <article key={profile.id} className={cx('settings-ai-profile', defaultProfile && 'is-default')}>
-              <header className="settings-ai-profile-head">
-                <button
-                  type="button"
-                  className={cx('settings-ai-default', defaultProfile && 'is-active')}
-                  onClick={() => setDefaultProfileId(profile.id)}
-                >
-                  {defaultProfile ? <Check className="h-3.5 w-3.5" /> : null}
-                  <span>{defaultProfile ? copy.defaultProfile : copy.setDefault}</span>
-                </button>
-                <button
-                  type="button"
-                  className="icon-button h-8 w-8"
-                  title={copy.delete}
-                  aria-label={copy.delete}
-                  onClick={() => {
-                    dismissNotification(profileNotificationId(profile.id))
-                    profileNotificationIds.current.delete(profileNotificationId(profile.id))
-                    setModels((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== profile.id)))
-                    setStatus((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== profile.id)))
-                    setProfiles((current) => current.filter((item) => item.id !== profile.id))
-                    if (defaultProfile) setDefaultProfileId(null)
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </header>
-
-              <div className="settings-ai-grid">
-                <label>
-                  <span>{copy.profileName}</span>
-                  <input
-                    className="control-input"
-                    value={profile.name}
-                    onChange={(event) => updateProfile(profile.id, { name: event.target.value })}
-                  />
-                </label>
-                <label>
-                  <span>{copy.provider}</span>
-                  <select
-                    className="control-input"
-                    value={profile.presetId}
-                    onChange={(event) => {
-                      const preset = presets.find((item) => item.id === event.target.value)
-                      if (preset) selectPreset(profile, preset)
-                    }}
-                  >
-                    {presets.map((preset) => (
-                      <option key={preset.id} value={preset.id}>
-                        {preset.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span>{copy.protocol}</span>
-                  <select
-                    className="control-input"
-                    value={profile.protocol}
-                    onChange={(event) => updateProfile(profile.id, { protocol: event.target.value as ProfileDraft['protocol'] })}
-                  >
-                    <option value="openai-responses">OpenAI Responses</option>
-                    <option value="openai-chat-completions">OpenAI Chat Completions</option>
-                    <option value="anthropic-messages">Anthropic Messages</option>
-                  </select>
-                </label>
-                <label className="settings-ai-wide">
-                  <span>{copy.baseUrl}</span>
-                  <input
-                    className="control-input"
-                    value={profile.baseUrl}
-                    onChange={(event) => updateProfile(profile.id, { baseUrl: event.target.value })}
-                  />
-                </label>
-                <label>
-                  <span>{copy.model}</span>
-                  <input
-                    className="control-input"
-                    list={`ai-models-${profile.id}`}
-                    value={profile.model}
-                    onChange={(event) => updateProfile(profile.id, { model: event.target.value })}
-                  />
-                  <datalist id={`ai-models-${profile.id}`}>
-                    {(models[profile.id] ?? []).map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.displayName ?? model.id}
-                      </option>
-                    ))}
-                  </datalist>
-                </label>
-                <label>
-                  <span>{copy.environment}</span>
-                  <input
-                    className="control-input"
-                    value={profile.credentialEnvironment ?? ''}
-                    onChange={(event) => updateProfile(profile.id, { credentialEnvironment: event.target.value || null })}
-                  />
-                </label>
-                <label className="settings-ai-wide">
-                  <span>
-                    {copy.apiKey} · {keyLabel}
-                  </span>
-                  <div className="settings-ai-secret">
-                    <KeyRound className="h-4 w-4" />
-                    <input
-                      className="control-input"
-                      type="password"
-                      value={profile.apiKey ?? ''}
-                      placeholder={copy.apiKeyPlaceholder}
-                      onChange={(event) => updateProfile(profile.id, { apiKey: event.target.value, clearApiKey: false })}
-                    />
-                    <button
-                      type="button"
-                      className="control-button"
-                      disabled={!profile.keyStatus && !profile.apiKey}
-                      onClick={() => updateProfile(profile.id, { apiKey: '', clearApiKey: true, keyStatus: null })}
-                    >
-                      {copy.clearApiKey}
-                    </button>
-                  </div>
-                </label>
-              </div>
-
-              <footer className="settings-ai-profile-actions">
-                <span>{status[profile.id] ?? ''}</span>
-                <button
-                  type="button"
-                  className="control-button"
-                  title={!remoteActionsReady ? copy.saveBeforeRemoteActions : undefined}
-                  disabled={!remoteActionsReady || preset?.supportsModelListing === false}
-                  onClick={() => void loadModels(profile.id)}
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  {copy.loadModels}
-                </button>
-                <button
-                  type="button"
-                  className="control-button"
-                  title={!remoteActionsReady ? copy.saveBeforeRemoteActions : undefined}
-                  disabled={!remoteActionsReady}
-                  onClick={() => void testProfile(profile.id)}
-                >
-                  <Zap className="h-3.5 w-3.5" />
-                  {copy.testConnection}
-                </button>
-              </footer>
-            </article>
-          )
-        })}
-      </div>
-
-      <div className="settings-ai-footer">
-        <div className="settings-ai-cache">
-          <Database className="h-4 w-4" />
-          <div>
-            <strong>{copy.cacheTitle}</strong>
-            <span>{copy.cacheStats(cacheStats.entryCount, formatBytes(cacheStats.sizeBytes))}</span>
-            {cacheError ? <span className="settings-ai-error">{cacheError}</span> : null}
-          </div>
-        </div>
-        <button type="button" className="control-button" onClick={() => void clearCache()}>
-          {copy.clearCache}
+    <div className="settings-window-section settings-ai-section">
+      <div className="settings-ai-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'generative'}
+          className={activeTab === 'generative' ? 'is-active' : ''}
+          onClick={() => setActiveTab('generative')}
+        >
+          {copy.tabs.generative}
         </button>
         <button
           type="button"
-          className="control-button control-button-primary"
-          disabled={saving || !profiles.length}
-          onClick={() => void save()}
+          role="tab"
+          aria-selected={activeTab === 'machine-translation'}
+          className={activeTab === 'machine-translation' ? 'is-active' : ''}
+          onClick={() => setActiveTab('machine-translation')}
         >
-          <Save className="h-4 w-4" />
-          {saving ? copy.saving : copy.save}
+          {copy.tabs.machineTranslation}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'usage'}
+          className={activeTab === 'usage' ? 'is-active' : ''}
+          onClick={() => setActiveTab('usage')}
+        >
+          {copy.tabs.usage}
         </button>
       </div>
-    </section>
+      <section hidden={activeTab !== 'generative'}>
+        <div className="settings-ai-heading">
+          <div>
+            <p className="settings-window-section-title">{copy.title}</p>
+            <p className="settings-window-section-copy mt-1">{copy.description}</p>
+          </div>
+          <button type="button" className="control-button" onClick={addProfile} disabled={!presets.length}>
+            <Plus className="h-4 w-4" />
+            <span>{copy.addProfile}</span>
+          </button>
+        </div>
+
+        {error ? <p className="settings-ai-error">{error}</p> : null}
+        {!profiles.length ? <p className="settings-ai-empty">{copy.noProfiles}</p> : null}
+
+        <div className="settings-ai-profiles">
+          {profiles.map((profile) => {
+            const defaultProfile = profile.id === defaultProfileId
+            const preset = presets.find((item) => item.id === profile.presetId)
+            const persisted = snapshot?.profiles.find((item) => item.id === profile.id)
+            const remoteActionsReady = Boolean(
+              persisted &&
+              !profile.apiKey &&
+              !profile.clearApiKey &&
+              persisted.name === profile.name &&
+              persisted.presetId === profile.presetId &&
+              persisted.protocol === profile.protocol &&
+              persisted.baseUrl === profile.baseUrl &&
+              persisted.model === profile.model &&
+              persisted.credentialEnvironment === profile.credentialEnvironment,
+            )
+            const keyLabel =
+              profile.keyStatus === 'keychain'
+                ? copy.credentialKeychain
+                : profile.keyStatus === 'environment'
+                  ? copy.credentialEnvironment
+                  : copy.credentialMissing
+            return (
+              <article key={profile.id} className={cx('settings-ai-profile', defaultProfile && 'is-default')}>
+                <header className="settings-ai-profile-head">
+                  <button
+                    type="button"
+                    className={cx('settings-ai-default', defaultProfile && 'is-active')}
+                    onClick={() => setDefaultProfileId(profile.id)}
+                  >
+                    {defaultProfile ? <Check className="h-3.5 w-3.5" /> : null}
+                    <span>{defaultProfile ? copy.defaultProfile : copy.setDefault}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button h-8 w-8"
+                    title={copy.delete}
+                    aria-label={copy.delete}
+                    onClick={() => {
+                      dismissNotification(profileNotificationId(profile.id))
+                      profileNotificationIds.current.delete(profileNotificationId(profile.id))
+                      setModels((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== profile.id)))
+                      setStatus((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== profile.id)))
+                      setProfiles((current) => current.filter((item) => item.id !== profile.id))
+                      if (defaultProfile) setDefaultProfileId(null)
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </header>
+
+                <div className="settings-ai-grid">
+                  <label>
+                    <span>{copy.profileName}</span>
+                    <input
+                      className="control-input"
+                      value={profile.name}
+                      onChange={(event) => updateProfile(profile.id, { name: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    <span>{copy.provider}</span>
+                    <select
+                      className="control-input"
+                      value={profile.presetId}
+                      onChange={(event) => {
+                        const preset = presets.find((item) => item.id === event.target.value)
+                        if (preset) selectPreset(profile, preset)
+                      }}
+                    >
+                      {presets.map((preset) => (
+                        <option key={preset.id} value={preset.id}>
+                          {preset.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>{copy.protocol}</span>
+                    <select
+                      className="control-input"
+                      value={profile.protocol}
+                      onChange={(event) => updateProfile(profile.id, { protocol: event.target.value as ProfileDraft['protocol'] })}
+                    >
+                      <option value="openai-responses">OpenAI Responses</option>
+                      <option value="openai-chat-completions">OpenAI Chat Completions</option>
+                      <option value="anthropic-messages">Anthropic Messages</option>
+                    </select>
+                  </label>
+                  <label className="settings-ai-wide">
+                    <span>{copy.baseUrl}</span>
+                    <input
+                      className="control-input"
+                      value={profile.baseUrl}
+                      onChange={(event) => updateProfile(profile.id, { baseUrl: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    <span>{copy.model}</span>
+                    <input
+                      className="control-input"
+                      list={`ai-models-${profile.id}`}
+                      value={profile.model}
+                      onChange={(event) => updateProfile(profile.id, { model: event.target.value })}
+                    />
+                    <datalist id={`ai-models-${profile.id}`}>
+                      {(models[profile.id] ?? []).map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.displayName ?? model.id}
+                        </option>
+                      ))}
+                    </datalist>
+                  </label>
+                  <label>
+                    <span>{copy.environment}</span>
+                    <input
+                      className="control-input"
+                      value={profile.credentialEnvironment ?? ''}
+                      onChange={(event) => updateProfile(profile.id, { credentialEnvironment: event.target.value || null })}
+                    />
+                  </label>
+                  <label className="settings-ai-wide">
+                    <span>
+                      {copy.apiKey} · {keyLabel}
+                    </span>
+                    <div className="settings-ai-secret">
+                      <KeyRound className="h-4 w-4" />
+                      <input
+                        className="control-input"
+                        type="password"
+                        value={profile.apiKey ?? ''}
+                        placeholder={copy.apiKeyPlaceholder}
+                        onChange={(event) => updateProfile(profile.id, { apiKey: event.target.value, clearApiKey: false })}
+                      />
+                      <button
+                        type="button"
+                        className="control-button"
+                        disabled={!profile.keyStatus && !profile.apiKey}
+                        onClick={() => updateProfile(profile.id, { apiKey: '', clearApiKey: true, keyStatus: null })}
+                      >
+                        {copy.clearApiKey}
+                      </button>
+                    </div>
+                  </label>
+                </div>
+
+                <footer className="settings-ai-profile-actions">
+                  <span>{status[profile.id] ?? ''}</span>
+                  <button
+                    type="button"
+                    className="control-button"
+                    title={!remoteActionsReady ? copy.saveBeforeRemoteActions : undefined}
+                    disabled={!remoteActionsReady || preset?.supportsModelListing === false}
+                    onClick={() => void loadModels(profile.id)}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    {copy.loadModels}
+                  </button>
+                  <button
+                    type="button"
+                    className="control-button"
+                    title={!remoteActionsReady ? copy.saveBeforeRemoteActions : undefined}
+                    disabled={!remoteActionsReady}
+                    onClick={() => void testProfile(profile.id)}
+                  >
+                    <Zap className="h-3.5 w-3.5" />
+                    {copy.testConnection}
+                  </button>
+                </footer>
+              </article>
+            )
+          })}
+        </div>
+
+        <div className="settings-ai-footer">
+          <div className="settings-ai-cache">
+            <Database className="h-4 w-4" />
+            <div>
+              <strong>{copy.cacheTitle}</strong>
+              <span>{copy.cacheStats(cacheStats.entryCount, formatBytes(cacheStats.sizeBytes))}</span>
+              {cacheError ? <span className="settings-ai-error">{cacheError}</span> : null}
+            </div>
+          </div>
+          <button type="button" className="control-button" onClick={() => void clearCache()}>
+            {copy.clearCache}
+          </button>
+          <button
+            type="button"
+            className="control-button control-button-primary"
+            disabled={saving || !profiles.length}
+            onClick={() => void save()}
+          >
+            <Save className="h-4 w-4" />
+            {saving ? copy.saving : copy.save}
+          </button>
+        </div>
+      </section>
+      <section hidden={activeTab !== 'machine-translation'}>
+        <MachineTranslationProfilesSection />
+      </section>
+      {activeTab === 'usage' ? <AiUsageSection /> : null}
+    </div>
   )
 }

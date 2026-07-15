@@ -50,4 +50,44 @@ export {
   writeAiTranslationCache,
 } from './ai'
 export { clearFileCache, getFileCacheStats, type FileCacheStats } from './fileCache'
+export { clearAiUsage, exportAiUsage, queryAiUsageRecords, queryAiUsageSummary } from './aiUsage'
+export {
+  translateLocalizationBatch,
+  listenToOfficialLocalizationIndexProgress,
+  cancelLocalizationJob,
+  inspectOfficialLocalizationIndex,
+  rebuildOfficialLocalizationIndex,
+  searchOfficialLocalization,
+} from './localization'
+export {
+  copyTranslationMemory,
+  deleteLocalizationGlossary,
+  deleteTranslationMemory,
+  exportLocalizationKnowledge,
+  importLocalizationKnowledge,
+  listLocalizationGlossary,
+  listLocalizationScopes,
+  loadLocalizationScope,
+  loadLocalizationStyle,
+  recordConfirmedTranslations,
+  resolveLocalizationScope,
+  rebindLocalizationScope,
+  saveLocalizationScopeSettings,
+  saveLocalizationStyle,
+  searchTranslationMemory,
+  upsertLocalizationGlossary,
+} from './localization'
+export {
+  loadMachineTranslationSettings,
+  saveMachineTranslationSettings,
+  listMachineTranslationLanguages,
+  testMachineTranslationProfile,
+  translateMachineTranslationBatch,
+} from './localization'
+export {
+  reviewLocalizationBatch,
+  listLocalizationReviewRuns,
+  loadLocalizationReviewRun,
+  updateLocalizationReviewIssues,
+} from './localization'
 export { saveFileContent, type FileContentSaveRequest } from './fileExport'

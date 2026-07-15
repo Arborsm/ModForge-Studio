@@ -19,6 +19,8 @@ const notifications: NotificationCopy = {
     cacheFailedTitle: 'Local translation cache is unavailable',
     translationFailedTitle: 'AI translation failed',
     partialTranslationFailedTitle: 'Some translations failed',
+    usageRecordFailedTitle: 'Usage was not recorded',
+    usageRecordFailedDescription: 'The provider operation completed, but its usage record could not be saved.',
     partialTranslationFailedDescription: (count) =>
       `${count} ${count === 1 ? 'item' : 'items'} could not be translated. Successful results remain in the draft.`,
     retryAction: 'Retry',

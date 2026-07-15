@@ -1,8 +1,9 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { AiSettingsPanel } from '@app/app-shell/settings/AiSettingsPanel'
 import { AiProvider } from '@entities/ai'
-import type { AiPort, AiSettingsSnapshot } from '@shared/contracts'
+import { LocalizationProvider } from '@entities/localization'
+import type { AiPort, AiSettingsSnapshot, LocalizationPort } from '@shared/contracts'
 import { renderWithLocale } from '@test/renderWithLocale'
 import { clearNotifications, NotificationProvider } from '@shared/ui/notifications'
 
@@ -54,14 +55,38 @@ function createPort(): AiPort {
 }
 
 describe('AiSettingsPanel', () => {
-  afterEach(() => clearNotifications())
+  afterEach(() => act(() => clearNotifications()))
 
   const renderPanel = (port: AiPort) =>
     renderWithLocale(
       <NotificationProvider>
-        <AiProvider port={port}>
-          <AiSettingsPanel />
-        </AiProvider>
+        <LocalizationProvider
+          port={
+            {
+              loadMachineTranslationSettings: vi.fn(async () => ({ version: 1, defaultProfileId: null, profiles: [], presets: [] })),
+              queryUsageSummary: vi.fn(async () => ({
+                totals: {
+                  inputTokens: 0,
+                  outputTokens: 0,
+                  cachedTokens: 0,
+                  reasoningTokens: 0,
+                  billedCharacters: 0,
+                  requestCharacters: 0,
+                  responseCharacters: 0,
+                  requests: 0,
+                  failures: 0,
+                  unavailableUsageRequests: 0,
+                },
+                daily: [],
+              })),
+              queryUsageRecords: vi.fn(async () => ({ records: [], total: 0 })),
+            } as unknown as LocalizationPort
+          }
+        >
+          <AiProvider port={port}>
+            <AiSettingsPanel />
+          </AiProvider>
+        </LocalizationProvider>
       </NotificationProvider>,
     )
 
@@ -70,8 +95,11 @@ describe('AiSettingsPanel', () => {
     renderPanel(port)
     const secret = (await screen.findByLabelText(/API key/i)) as HTMLInputElement
     expect(secret.value).toBe('')
-    expect(screen.getByText(/System keychain/i)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: /Save profiles/i }))
+    expect(screen.getAllByText(/System keychain/i).length).toBeGreaterThan(0)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Save profiles/i }))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
     await waitFor(() => expect(port.saveSettings).toHaveBeenCalledTimes(1))
     const request = (port.saveSettings as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(request.profiles[0]).not.toHaveProperty('apiKey')
@@ -82,7 +110,10 @@ describe('AiSettingsPanel', () => {
     renderPanel(port)
     await screen.findByLabelText(/API key/i)
     fireEvent.click(screen.getByRole('button', { name: /Clear saved key/i }))
-    fireEvent.click(screen.getByRole('button', { name: /Save profiles/i }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Save profiles/i }))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
     await waitFor(() => expect(port.saveSettings).toHaveBeenCalledTimes(1))
     const profile = (port.saveSettings as ReturnType<typeof vi.fn>).mock.calls[0][0].profiles[0]
     expect(profile.clearApiKey).toBe(true)
@@ -95,13 +126,19 @@ describe('AiSettingsPanel', () => {
     renderPanel(port)
     await screen.findByLabelText(/API key/i)
 
-    fireEvent.click(screen.getByRole('button', { name: /Save profiles/i }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Save profiles/i }))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
     const title = await screen.findByText('AI settings were not saved')
     const toast = title.closest('.notification-toast')
     expect(toast?.textContent).toContain('provider rejected the configured credential')
     expect(toast?.textContent).not.toContain('sensitive diagnostic detail')
 
-    fireEvent.click(screen.getByRole('button', { name: /Save profiles/i }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Save profiles/i }))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
     await waitFor(() => expect(screen.getAllByText('AI settings were not saved')).toHaveLength(1))
   })
 

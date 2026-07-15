@@ -25,6 +25,9 @@ use commands::ai::{
     load_ai_settings, read_ai_translation_cache, save_ai_settings, test_ai_profile,
     translate_ai_batch, write_ai_translation_cache,
 };
+use commands::ai_usage::{
+    clear_ai_usage, export_ai_usage, query_ai_usage_records, query_ai_usage_summary,
+};
 use commands::app_ui::{load_app_ui_state, patch_app_ui_state};
 use commands::assets::{
     clear_file_cache, detect_default_game_directory, export_file, export_map_png,
@@ -57,8 +60,25 @@ use commands::launcher::{
     set_launcher_library_cover, set_launcher_mod_enabled, set_launcher_nexus_force_offline,
     start_nexus_sso, validate_nexus_api_key,
 };
+use commands::localization::{
+    cancel_localization_job, copy_translation_memory_entries, delete_localization_glossary_entries,
+    delete_translation_memory_entries, export_localization_knowledge,
+    import_localization_knowledge, inspect_official_localization_index,
+    list_localization_glossary_entries, list_localization_review_runs, list_localization_scopes,
+    load_localization_review_run, load_localization_scope, load_localization_style_guide,
+    rebind_localization_scope, rebuild_official_localization_index, record_confirmed_translations,
+    resolve_localization_scope, review_localization_batch, save_localization_scope_settings,
+    save_localization_style_guide, search_official_localization, search_translation_memory,
+    translate_localization_batch, update_localization_review_issues,
+    upsert_localization_glossary_entries,
+};
 use commands::logging::{
     print_host_runtime_diagnostics, set_debug_logging_enabled, write_frontend_log,
+};
+use commands::machine_translation::{
+    list_machine_translation_languages, load_machine_translation_settings,
+    save_machine_translation_settings, test_machine_translation_profile,
+    translate_machine_translation_batch,
 };
 use commands::mods::{
     inspect_mod_archive, load_mod_project, save_mod_i18n_files, scan_mod_asset_index,
@@ -249,6 +269,40 @@ pub fn run() {
             write_ai_translation_cache,
             get_ai_translation_cache_stats,
             clear_ai_translation_cache,
+            query_ai_usage_summary,
+            query_ai_usage_records,
+            export_ai_usage,
+            clear_ai_usage,
+            load_machine_translation_settings,
+            save_machine_translation_settings,
+            list_machine_translation_languages,
+            test_machine_translation_profile,
+            translate_machine_translation_batch,
+            translate_localization_batch,
+            inspect_official_localization_index,
+            rebuild_official_localization_index,
+            search_official_localization,
+            cancel_localization_job,
+            resolve_localization_scope,
+            list_localization_scopes,
+            load_localization_scope,
+            save_localization_scope_settings,
+            rebind_localization_scope,
+            list_localization_glossary_entries,
+            upsert_localization_glossary_entries,
+            delete_localization_glossary_entries,
+            load_localization_style_guide,
+            save_localization_style_guide,
+            search_translation_memory,
+            record_confirmed_translations,
+            delete_translation_memory_entries,
+            copy_translation_memory_entries,
+            import_localization_knowledge,
+            export_localization_knowledge,
+            review_localization_batch,
+            list_localization_review_runs,
+            load_localization_review_run,
+            update_localization_review_issues,
         ])
         .build(generate_context!())
         .expect("error while building tauri application")

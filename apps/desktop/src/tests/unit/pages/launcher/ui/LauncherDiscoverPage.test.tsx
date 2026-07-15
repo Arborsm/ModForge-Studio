@@ -23,10 +23,10 @@ vi.mock('@features/launcher', async () => {
   }
 })
 
-vi.mock('@shared/ui/notifications', () => ({
-  publishNotification: vi.fn(),
-  dismissNotification: vi.fn(),
-}))
+vi.mock('@shared/ui/notifications', () => {
+  const publishNotification = vi.fn()
+  return { publishNotification, dismissNotification: vi.fn(), useNotificationPublisher: () => publishNotification }
+})
 
 vi.mock('@shared/lib/app-state', () => ({
   getAppUiStateSnapshot: vi.fn(),

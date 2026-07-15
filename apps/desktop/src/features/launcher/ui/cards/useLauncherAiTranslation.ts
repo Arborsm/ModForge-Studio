@@ -132,7 +132,11 @@ export function useLauncherAiTranslation({
         return
       }
       const prefix = `launcher-ai:${Date.now()}:${scopeKey}`
-      const plan = buildAiTranslationBatches({ profileId, targetLocale: target }, items, prefix)
+      const plan = buildAiTranslationBatches(
+        { profileId, targetLocale: target, usageContext: { pageSource: 'launcher', operation: 'translate' } },
+        items,
+        prefix,
+      )
       const batches = plan.batches
       const results = []
       for (const batch of batches) {

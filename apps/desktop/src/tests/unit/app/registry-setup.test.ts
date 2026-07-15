@@ -29,6 +29,7 @@ describe('registry setup', () => {
       'mod-browser',
       'mod-translation',
       'i18n-generator',
+      'ai-localization',
       'project-dashboard',
       'project-content',
       'map-authoring',

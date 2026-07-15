@@ -67,6 +67,13 @@ export const i18nGeneratorRegistration = registration(
   'none',
   () => import('./ui/module-runtimes/I18nGeneratorModuleRuntime'),
 )
+export const aiLocalizationRegistration = registration(
+  'ai-localization',
+  { section: 'tools', order: 130, icon: 'book-open-check', labelKey: 'ai-localization' },
+  'standalone',
+  'read',
+  () => import('./ui/module-runtimes/AiLocalizationModuleRuntime'),
+)
 export const projectDashboardRegistration = registration(
   'project-dashboard',
   { section: 'authoring', order: 190, icon: 'files', labelKey: 'project-dashboard' },

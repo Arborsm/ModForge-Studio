@@ -596,12 +596,13 @@ function ModTranslationScenario() {
         query={deferredQuery}
         statusFilter={statusFilter}
         canPersist
+        localizationContext={null}
         onSourceLocaleChange={noop}
         onTargetLocaleChange={noop}
         onQueryChange={setQuery}
         onStatusFilterChange={setStatusFilter}
         onI18nFilesChange={setFiles}
-        onSave={noop}
+        onSave={async () => undefined}
       />
     </ScenarioFrame>
   )

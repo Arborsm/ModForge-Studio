@@ -1,4 +1,5 @@
 use super::*;
+use std::sync::{Arc, Barrier};
 
 fn temporary_cache_path(label: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
@@ -123,6 +124,39 @@ fn cache_replaces_changed_sources_without_touching_other_scopes_or_locales() {
             .to_string()
             .contains("translated text")
     );
+    drop(connection);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn concurrent_first_open_initializes_the_cache_once() {
+    let path = temporary_cache_path("concurrent-open");
+    let _ = std::fs::remove_file(&path);
+    let workers = 16;
+    let barrier = Arc::new(Barrier::new(workers));
+    let handles = (0..workers)
+        .map(|_| {
+            let path = path.clone();
+            let barrier = Arc::clone(&barrier);
+            std::thread::spawn(move || -> anyhow::Result<u32> {
+                barrier.wait();
+                let connection = open_cache_at(&path)?;
+                Ok(connection.query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))?)
+            })
+        })
+        .collect::<Vec<_>>();
+    for handle in handles {
+        assert_eq!(handle.join().unwrap().unwrap(), 2);
+    }
+    let connection = open_cache_at(&path).unwrap();
+    let table_count = connection
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='translations'",
+            [],
+            |row| row.get::<_, u32>(0),
+        )
+        .unwrap();
+    assert_eq!(table_count, 1);
     drop(connection);
     let _ = std::fs::remove_file(path);
 }

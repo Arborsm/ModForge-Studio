@@ -24,6 +24,24 @@ const MAX_REQUEST_BYTES: usize = 64 * 1024;
 const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
 const MAX_ERROR_RESPONSE_BYTES: usize = 64 * 1024;
 
+#[derive(Debug, Clone, Default)]
+pub(crate) struct ProviderUsage {
+    pub input_tokens: Option<u64>,
+    pub output_tokens: Option<u64>,
+    pub cached_tokens: Option<u64>,
+    pub reasoning_tokens: Option<u64>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ProviderAttempt {
+    pub attempt: u32,
+    pub succeeded: bool,
+    pub latency_ms: u64,
+    pub failure_category: Option<String>,
+    pub response_characters: u64,
+    pub usage: ProviderUsage,
+}
+
 fn client() -> anyhow::Result<Client> {
     client_with_timeouts(CONNECT_TIMEOUT, REQUEST_TIMEOUT)
 }
@@ -135,7 +153,11 @@ fn read_response_body(response: Response, limit: usize) -> anyhow::Result<Vec<u8
     Ok(body)
 }
 
-fn send_with_retry<F>(job: Option<&AiJobGuard>, mut build: F) -> anyhow::Result<Value>
+fn send_with_retry_observed<F>(
+    job: Option<&AiJobGuard>,
+    mut build: F,
+    mut observe: impl FnMut(ProviderAttempt),
+) -> anyhow::Result<Value>
 where
     F: FnMut() -> anyhow::Result<RequestBuilder>,
 {
@@ -143,17 +165,54 @@ where
         if let Some(job) = job {
             job.check()?;
         }
-        let response = build()?
-            .send()
-            .context("AI provider request could not be sent.")?;
+        let started = std::time::Instant::now();
+        let response = match build()?.send() {
+            Ok(response) => response,
+            Err(error) => {
+                observe(ProviderAttempt {
+                    attempt: attempt as u32 + 1,
+                    succeeded: false,
+                    latency_ms: started.elapsed().as_millis() as u64,
+                    failure_category: Some("network".into()),
+                    response_characters: 0,
+                    usage: ProviderUsage::default(),
+                });
+                return Err(error).context("AI provider request could not be sent.");
+            }
+        };
         let status = response.status();
         if status.is_success() {
             let body = read_response_body(response, MAX_RESPONSE_BYTES)?;
-            return serde_json::from_slice(&body).context("AI provider returned invalid JSON.");
+            let value: Value =
+                serde_json::from_slice(&body).context("AI provider returned invalid JSON.")?;
+            observe(ProviderAttempt {
+                attempt: attempt as u32 + 1,
+                succeeded: true,
+                latency_ms: started.elapsed().as_millis() as u64,
+                failure_category: None,
+                response_characters: body.len() as u64,
+                usage: provider_usage(&value),
+            });
+            return Ok(value);
         }
         if (status == StatusCode::TOO_MANY_REQUESTS || status.is_server_error())
             && attempt < MAX_RETRIES
         {
+            observe(ProviderAttempt {
+                attempt: attempt as u32 + 1,
+                succeeded: false,
+                latency_ms: started.elapsed().as_millis() as u64,
+                failure_category: Some(
+                    if status == StatusCode::TOO_MANY_REQUESTS {
+                        "rate-limit"
+                    } else {
+                        "provider"
+                    }
+                    .into(),
+                ),
+                response_characters: 0,
+                usage: ProviderUsage::default(),
+            });
             let delay = retry_delay(&response, attempt);
             drop(response);
             for _ in 0..delay.as_millis().div_ceil(100) {
@@ -167,9 +226,55 @@ where
         let body = read_response_body(response, MAX_ERROR_RESPONSE_BYTES)
             .map(|body| String::from_utf8_lossy(&body).into_owned())
             .unwrap_or_else(|error| error.to_string());
+        observe(ProviderAttempt {
+            attempt: attempt as u32 + 1,
+            succeeded: false,
+            latency_ms: started.elapsed().as_millis() as u64,
+            failure_category: Some(
+                if status == StatusCode::TOO_MANY_REQUESTS {
+                    "rate-limit"
+                } else if status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN {
+                    "authentication"
+                } else {
+                    "provider"
+                }
+                .into(),
+            ),
+            response_characters: body.len() as u64,
+            usage: ProviderUsage::default(),
+        });
         return Err(response_error(status, &body));
     }
     unreachable!()
+}
+
+#[cfg(test)]
+fn send_with_retry<F>(job: Option<&AiJobGuard>, build: F) -> anyhow::Result<Value>
+where
+    F: FnMut() -> anyhow::Result<RequestBuilder>,
+{
+    send_with_retry_observed(job, build, |_| {})
+}
+
+fn provider_usage(value: &Value) -> ProviderUsage {
+    let get = |paths: &[&str]| {
+        paths
+            .iter()
+            .find_map(|path| value.pointer(path).and_then(Value::as_u64))
+    };
+    ProviderUsage {
+        input_tokens: get(&["/usage/input_tokens", "/usage/prompt_tokens"]),
+        output_tokens: get(&["/usage/output_tokens", "/usage/completion_tokens"]),
+        cached_tokens: get(&[
+            "/usage/input_tokens_details/cached_tokens",
+            "/usage/prompt_tokens_details/cached_tokens",
+            "/usage/cache_read_input_tokens",
+        ]),
+        reasoning_tokens: get(&[
+            "/usage/output_tokens_details/reasoning_tokens",
+            "/usage/completion_tokens_details/reasoning_tokens",
+        ]),
+    }
 }
 
 pub(crate) fn list_models(profile: &AiProviderProfile) -> anyhow::Result<Vec<AiModelInfo>> {
@@ -179,9 +284,11 @@ pub(crate) fn list_models(profile: &AiProviderProfile) -> anyhow::Result<Vec<AiM
     let credential = resolve_profile_credential(profile)?;
     let client = client()?;
     let url = endpoint(profile, "models")?;
-    let value = send_with_retry(None, || {
-        authenticated(client.get(&url), profile, credential.as_deref())
-    })?;
+    let value = send_with_retry_observed(
+        None,
+        || authenticated(client.get(&url), profile, credential.as_deref()),
+        |_| {},
+    )?;
     let mut models = value
         .get("data")
         .and_then(Value::as_array)
@@ -360,6 +467,54 @@ fn parse_translation_value(value: Value, protocol: AiProtocol) -> anyhow::Result
     }
 }
 
+pub(crate) fn execute_structured_observed(
+    profile: &AiProviderProfile,
+    job: &AiJobGuard,
+    system: &str,
+    user: &str,
+    schema: &Value,
+    observe: &mut dyn FnMut(ProviderAttempt),
+) -> anyhow::Result<Value> {
+    if system.len() + user.len() > MAX_REQUEST_BYTES {
+        bail!("AI structured request exceeds the 64 KB payload limit.")
+    }
+    let credential = resolve_profile_credential(profile)?;
+    let client = client()?;
+    let (url, body) = match profile.protocol {
+        AiProtocol::OpenaiResponses => (
+            endpoint(profile, "responses")?,
+            json!({"model":profile.model,"input":[{"role":"system","content":[{"type":"input_text","text":system}]},{"role":"user","content":[{"type":"input_text","text":user}]}],"text":{"format":{"type":"json_schema","name":"localization_review","schema":schema,"strict":true}}}),
+        ),
+        AiProtocol::OpenaiChatCompletions => {
+            let mut body = json!({"model":profile.model,"messages":[{"role":"system","content":format!("{system} Return only JSON matching this schema: {schema}")},{"role":"user","content":user}]});
+            if let Some(format) = chat_response_format(profile, schema) {
+                body["response_format"] = format
+            }
+            (endpoint(profile, "chat/completions")?, body)
+        }
+        AiProtocol::AnthropicMessages => (
+            endpoint(profile, "messages")?,
+            json!({"model":profile.model,"max_tokens":8192,"system":format!("{system} Return only JSON matching this schema: {schema}"),"messages":[{"role":"user","content":user}],"tools":[{"name":"return_review","description":"Return localization review issues","input_schema":schema}],"tool_choice":{"type":"tool","name":"return_review"}}),
+        ),
+    };
+    let value = send_with_retry_observed(
+        Some(job),
+        || {
+            authenticated(
+                client
+                    .post(&url)
+                    .header(CONTENT_TYPE, "application/json")
+                    .json(&body),
+                profile,
+                credential.as_deref(),
+            )
+        },
+        observe,
+    )?;
+    job.check()?;
+    parse_translation_value(value, profile.protocol)
+}
+
 fn placeholder_regex() -> &'static Regex {
     static REGEX: OnceLock<Regex> = OnceLock::new();
     REGEX.get_or_init(|| {
@@ -460,10 +615,20 @@ fn validate_translation_items(
     Ok(results)
 }
 
+#[cfg(test)]
 pub(crate) fn translate(
     profile: &AiProviderProfile,
     request: &AiTranslateBatchRequest,
     job: &AiJobGuard,
+) -> anyhow::Result<Vec<AiTranslationResultItem>> {
+    translate_observed(profile, request, job, &mut |_| {})
+}
+
+pub(crate) fn translate_observed(
+    profile: &AiProviderProfile,
+    request: &AiTranslateBatchRequest,
+    job: &AiJobGuard,
+    observe: &mut dyn FnMut(ProviderAttempt),
 ) -> anyhow::Result<Vec<AiTranslationResultItem>> {
     validate_request(request)?;
     let remote_items = request
@@ -526,16 +691,20 @@ pub(crate) fn translate(
             }),
         ),
     };
-    let value = send_with_retry(Some(job), || {
-        authenticated(
-            client
-                .post(&url)
-                .header(CONTENT_TYPE, "application/json")
-                .json(&body),
-            profile,
-            credential.as_deref(),
-        )
-    })?;
+    let value = send_with_retry_observed(
+        Some(job),
+        || {
+            authenticated(
+                client
+                    .post(&url)
+                    .header(CONTENT_TYPE, "application/json")
+                    .json(&body),
+                profile,
+                credential.as_deref(),
+            )
+        },
+        observe,
+    )?;
     job.check()?;
     let translated = validate_translation_items(
         &remote_request,

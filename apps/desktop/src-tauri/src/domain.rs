@@ -5,6 +5,7 @@ pub mod assets;
 pub mod content_patcher;
 pub mod cp_maker;
 pub mod launcher;
+pub mod localization;
 pub(crate) mod manifest;
 pub mod modding;
 pub mod mods;

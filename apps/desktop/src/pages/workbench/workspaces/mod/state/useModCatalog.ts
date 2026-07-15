@@ -3,7 +3,7 @@ import type { GameDirectoryInfo } from '@entities/game/api'
 import { inspectModArchive, loadModProject, scanModProjects, type ModProjectDetail, type ModProjectSummary } from '@entities/mod/api'
 import { chooseDirectory, chooseModArchiveFile } from '@platform/host'
 import { useModCopy } from '@locales/provider'
-import { TaskCancelledError, useLatestTask } from '@platform/task-runtime'
+import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 
 type ModCatalogMode = 'browse' | 'translation'
 

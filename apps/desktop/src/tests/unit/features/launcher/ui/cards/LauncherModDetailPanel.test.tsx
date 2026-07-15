@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { cleanup, type RenderResult } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { LauncherDiscoverDetail, LauncherLibraryItem } from '@features/launcher'
@@ -188,12 +188,15 @@ function renderPanel(
 }
 
 describe('LauncherModDetailPanel', () => {
-  afterEach(() => clearNotifications())
+  afterEach(() => act(() => clearNotifications()))
 
   it('translates loaded detail text on demand and keeps the original available', async () => {
     const aiPort = createAiPort()
     renderPanel(createLocalMod(), createRemoteDetail(), { aiPort })
-    fireEvent.click(screen.getByRole('button', { name: /AI Translate/i }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /AI Translate/i }))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
     await waitFor(() => expect(aiPort.writeCache).toHaveBeenCalledTimes(1))
     expect(screen.getByText(/译:Loads Content Patcher packs/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /Original/i }))
@@ -207,13 +210,19 @@ describe('LauncherModDetailPanel', () => {
     })
     renderPanel(createLocalMod(), createRemoteDetail(), { aiPort })
 
-    fireEvent.click(screen.getByRole('button', { name: /AI Translate/i }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /AI Translate/i }))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
     const title = await screen.findByText('AI translation failed')
     const toast = title.closest('.notification-toast')
     expect(toast?.textContent).toContain('did not respond before the request timed out')
     expect(toast?.textContent).not.toContain('provider diagnostic detail')
 
-    fireEvent.click(screen.getByRole('button', { name: /AI Translate/i }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /AI Translate/i }))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
     await waitFor(() => expect(screen.getAllByText('AI translation failed')).toHaveLength(1))
   })
 
@@ -223,7 +232,10 @@ describe('LauncherModDetailPanel', () => {
     })
     renderPanel(createLocalMod(), createRemoteDetail(), { aiPort })
 
-    fireEvent.click(screen.getByRole('button', { name: /AI Translate/i }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /AI Translate/i }))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
     expect(await screen.findByText('Local translation cache is unavailable')).toBeTruthy()
     expect(screen.queryByText('AI translation failed')).toBeNull()
   })

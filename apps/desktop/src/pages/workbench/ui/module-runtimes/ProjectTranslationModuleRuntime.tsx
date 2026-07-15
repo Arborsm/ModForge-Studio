@@ -3,6 +3,7 @@ import type { ContentPatcherI18nFile } from '@entities/mod/api'
 import { TranslationEditor, type TranslationStatusFilter } from '@features/translation-editor'
 import { useWorkbenchProject } from '../../model/workbenchModuleContexts'
 import { useWorkbenchEnvironment } from '../../model/workbenchModuleContexts'
+import { openLocalizationCenter } from './localizationNavigation'
 
 function countEntries(rawJson: string) {
   try {
@@ -36,13 +37,29 @@ export default function ProjectTranslationModuleRuntime() {
       query={query}
       statusFilter={statusFilter}
       canPersist={Boolean(activeDraft)}
+      localizationContext={
+        activeDraft
+          ? {
+              projectIdentity: {
+                kind: 'cp-maker',
+                stableId: activeDraft.projectMetadata.projectUniqueId || null,
+                fallbackPath: activeDraft.draftStorageKey,
+              },
+              displayName: activeDraft.projectMetadata.projectName,
+              sourceNamespace: 'i18n',
+            }
+          : null
+      }
       onSourceLocaleChange={setSourceLocale}
       onTargetLocaleChange={setTargetLocale}
       onQueryChange={setQuery}
       onStatusFilterChange={setStatusFilter}
       onI18nFilesChange={(next) => project.setI18nFiles(next.map(({ locale, rawJson }) => ({ locale, rawJson })))}
-      onSave={() => void project.saveDraft()}
+      onSave={async () => {
+        await project.saveDraft()
+      }}
       onReload={environment.onReloadProject}
+      onOpenLocalizationCenter={(scopeId) => void openLocalizationCenter(scopeId, environment.onOpenModule)}
     />
   )
 }

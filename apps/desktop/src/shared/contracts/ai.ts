@@ -61,6 +61,15 @@ export type AiTranslateBatchRequest = {
   sourceLocale?: string
   targetLocale: string
   items: AiTranslationItem[]
+  usageContext?: { pageSource: 'launcher' | 'workbench-translation' | 'localization-review'; operation: string; scopeId?: string }
+  knowledgePolicy?: KnowledgePolicy
+}
+export type KnowledgePolicy = { enabled: boolean; useOfficialCorpus: boolean; useGlobalKnowledge: boolean; useProjectKnowledge: boolean }
+export type KnowledgeTrace = {
+  officialMatches: number
+  globalGlossaryMatches: number
+  projectGlossaryMatches: number
+  translationMemoryMatches: number
 }
 
 export type AiTranslationResultItem = {
@@ -70,7 +79,15 @@ export type AiTranslationResultItem = {
   skippedSameLanguage: boolean
 }
 
-export type AiTranslateBatchResult = { jobId: string; profileId: string; model: string; items: AiTranslationResultItem[] }
+export type AiTranslateBatchResult = {
+  jobId: string
+  profileId: string
+  model: string
+  items: AiTranslationResultItem[]
+  usageRecordState: 'recorded' | 'failed' | 'unavailable'
+  knowledgeTrace: KnowledgeTrace
+  knowledgeRevision: string
+}
 export type AiTranslationProgressPayload = {
   jobId: string
   completed: number

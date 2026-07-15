@@ -13,6 +13,8 @@ export type NotificationCopy = {
     cacheFailedTitle: string
     translationFailedTitle: string
     partialTranslationFailedTitle: string
+    usageRecordFailedTitle: string
+    usageRecordFailedDescription: string
     partialTranslationFailedDescription: (count: number) => string
     retryAction: string
     failureDescriptions: Record<AiErrorCode, string>

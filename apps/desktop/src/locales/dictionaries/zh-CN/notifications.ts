@@ -19,6 +19,8 @@ const notifications: NotificationCopy = {
     cacheFailedTitle: '本地翻译缓存不可用',
     translationFailedTitle: 'AI 翻译失败',
     partialTranslationFailedTitle: '部分翻译失败',
+    usageRecordFailedTitle: '用量记录失败',
+    usageRecordFailedDescription: '供应商操作已完成，但无法保存本次用量记录。',
     partialTranslationFailedDescription: (count) => `${count} 个条目未能翻译，成功结果仍保留在草稿中。`,
     retryAction: '重试',
     failureDescriptions: {

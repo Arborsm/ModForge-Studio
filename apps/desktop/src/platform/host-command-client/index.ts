@@ -1,4 +1,4 @@
-import { globalTaskRuntime, type TaskScope } from '@platform/task-runtime'
+import { globalTaskRuntime, type TaskScope } from '@shared/lib/task-runtime'
 import type { PlatformPorts } from '@shared/contracts'
 import type { HostCommandName } from '@platform/host-commands'
 

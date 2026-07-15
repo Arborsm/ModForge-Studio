@@ -1,5 +1,6 @@
 import {
   Beaker,
+  BookOpenCheck,
   Castle,
   ChevronDown,
   ChevronLeft,
@@ -30,6 +31,7 @@ const ICONS = {
   languages: Languages,
   files: FileText,
   beaker: Beaker,
+  'book-open-check': BookOpenCheck,
 } as const
 
 export type WorkbenchSideNavSectionState = {

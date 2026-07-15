@@ -6,6 +6,7 @@
 @import './workspace/event-resource-picker.css';
 @import './workspace/dev-resource-browser.css';
 @import './workspace/i18n-generator.css';
+@import './workspace/ai-localization.css';
 @import './features/player-appearance.css';
 @import './features/content-patcher.css';
 @import './features/cp-maker-edit.css';
