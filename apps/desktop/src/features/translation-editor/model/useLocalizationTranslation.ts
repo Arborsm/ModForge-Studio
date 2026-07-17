@@ -5,6 +5,7 @@ import { useNotificationCopy, useTranslationEditorCopy } from '@locales/provider
 import type { AiTranslationItem, AiTranslationResultItem, KnowledgePolicy, LocalizationEngineRef } from '@shared/contracts'
 import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
 import type { TranslationEntry } from './translationEditor'
+import { planStardewTranslationItems } from './stardewTranslationBatch'
 
 const WORKBENCH_AI_NOTIFICATION_ID = 'workbench-ai-translation'
 const WORKBENCH_AI_USAGE_NOTIFICATION_ID = 'workbench-ai-translation-usage'
@@ -62,7 +63,7 @@ export function useLocalizationTranslation({
   sourceLocale,
   targetLocale,
   contextKey,
-  knowledgePolicy = { enabled: false, useOfficialCorpus: false, useGlobalKnowledge: false, useProjectKnowledge: false },
+  knowledgePolicy = { enabled: false, useOfficialCorpus: false, useGlobalKnowledge: false, useProfileKnowledge: false },
   scopeId = null,
   engineRef,
   applyResults,
@@ -120,6 +121,19 @@ export function useLocalizationTranslation({
       ownerRef.current = operation
       dismissNotification(WORKBENCH_AI_NOTIFICATION_ID)
       setProgress({ running: true, completed: 0, total: selected.length, error: null, failedKeys: [], warning: null, warningKeys: [] })
+      const publishRunning = (completed: number) => {
+        publishNotification({
+          id: WORKBENCH_AI_NOTIFICATION_ID,
+          level: 'info',
+          title: copy.aiTranslating(completed, selected.length),
+          description: copy.aiTranslating(completed, selected.length),
+          autoDismissMs: null,
+          loading: true,
+          progress: selected.length > 0 ? (completed / selected.length) * 100 : 0,
+          action: { label: copy.aiCancel, callback: cancel, tone: 'primary' },
+        })
+      }
+      publishRunning(0)
       const ensureCurrent = () => {
         if (operation !== operationRef.current || ownerRef.current !== operation) {
           throw new Error('AI_ERROR::cancelled::AI translation context changed.')
@@ -140,15 +154,17 @@ export function useLocalizationTranslation({
         let selectedEngine = engineRef
         if (!selectedEngine) selectedEngine = await guarded(localization.loadDefaultEngine())
         if (!selectedEngine) throw new Error('AI_ERROR::not-configured::No translation engine is configured.')
-        const sourceItems: AiTranslationItem[] = selected.map((entry) => ({
+        const originalSourceItems: AiTranslationItem[] = selected.map((entry) => ({
           id: entry.key,
           text: entry.sourceText,
           format: 'stardewI18n',
           context: entry.key,
         }))
+        const stardewPlan = planStardewTranslationItems(originalSourceItems)
+        const sourceItems = stardewPlan.items
         const rootJobId = `workbench-localization:${crypto.randomUUID()}`
         let batches: (typeof sourceItems)[] = []
-        let mergeResults = (items: AiTranslationResultItem[]) => items
+        let mergeBatchResults = (items: AiTranslationResultItem[]) => items
         if (selectedEngine.kind === 'generative-ai') {
           const plan = buildAiTranslationBatches(
             {
@@ -162,7 +178,7 @@ export function useLocalizationTranslation({
             rootJobId,
           )
           batches = plan.batches.map((batch) => batch.items)
-          mergeResults = plan.mergeResults
+          mergeBatchResults = plan.mergeResults
         } else {
           const settings = await guarded(localization.loadMachineTranslationSettings())
           const profile = settings.profiles.find((value) => value.id === selectedEngine.profileId)
@@ -188,7 +204,7 @@ export function useLocalizationTranslation({
         const warningKeys = new Set<string>()
         let lastFailure: AiFailure | null = null
         let usageRecordFailed = false
-        const originalId = (id: string) => id.split('\u0000', 1)[0]
+        const originalId = (id: string) => stardewPlan.originalId(id.split('\u0000', 1)[0] ?? id)
         const execute = async (items: typeof sourceItems, jobId: string) => {
           activeJobs.current.add(jobId)
           try {
@@ -230,7 +246,8 @@ export function useLocalizationTranslation({
               }
             }
           }
-          const completed = mergeResults(results).length + failedKeys.size
+          const completed = stardewPlan.mergeResults(mergeBatchResults(results)).length + failedKeys.size
+          publishRunning(Math.min(selected.length, completed))
           setProgress((current) => ({
             ...current,
             completed: Math.min(current.total, completed),
@@ -242,7 +259,7 @@ export function useLocalizationTranslation({
         }
 
         ensureCurrent()
-        const values = new Map(mergeResults(results).map((item) => [item.id, item.translatedText]))
+        const values = new Map(stardewPlan.mergeResults(mergeBatchResults(results)).map((item) => [item.id, item.translatedText]))
         for (const key of applyResultsRef.current(values, baselines)) failedKeys.add(key)
         const completed = Math.min(selected.length, values.size + failedKeys.size)
         setProgress((current) => ({
@@ -272,6 +289,8 @@ export function useLocalizationTranslation({
             title: copy.aiValidationWarningTitle,
             description: copy.aiValidationWarnings(warningKeys.size),
           })
+        } else {
+          dismissNotification(WORKBENCH_AI_NOTIFICATION_ID)
         }
         if (usageRecordFailed) {
           publishNotification({
@@ -313,8 +332,10 @@ export function useLocalizationTranslation({
       knowledgePolicy,
       localization,
       copy.aiFailed,
+      copy.aiCancel,
       copy.aiNotConfigured,
       copy.aiPartialFailed,
+      copy.aiTranslating,
       copy.aiTranslateAllConfirm,
       copy.aiValidationWarningTitle,
       copy.aiValidationWarnings,
@@ -323,6 +344,7 @@ export function useLocalizationTranslation({
       scopeId,
       sourceLocale,
       targetLocale,
+      cancel,
     ],
   )
 

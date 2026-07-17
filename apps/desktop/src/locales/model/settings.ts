@@ -183,6 +183,15 @@ export type SettingsMenuCopy = {
       openDirectory: string
       openDirectorySuccess: string
       configure: string
+      executionTitle: string
+      executionPreferences: Record<'auto' | 'cpu', string>
+      executionProviders: Record<string, string>
+      executionActive: (provider: string) => string
+      executionPending: string
+      executionFallback: (reason: string) => string
+      releaseRuntime: string
+      releasingRuntime: string
+      releasedRuntime: string
       retrievalModes: Record<'lexical' | 'semantic' | 'partial', string>
       rebuild: string
       sync: string
@@ -218,6 +227,7 @@ export type SettingsMenuCopy = {
       actionError: string
       actionSuccess: string
       lexicalReady: string
+      lexicalIndexNotRequired: string
       stale: string
     }
     tabs: { engine: string; generative: string; machineTranslation: string; semantic: string; usage: string }

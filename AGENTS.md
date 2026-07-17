@@ -69,7 +69,8 @@ MODFORGE_COMMAND_TRACE=1 vp run dev
 - `HostCommandClient` 负责前端 command policy；业务 API 必须声明 `latest`、`keyedLatest`、`exclusiveMutation`、`queuedMutation`、`parallelPool` 或 `serviceGate` 等策略。
 - 不要用散装 `cancelled`、`requestId`、`versionRef` 替代 Task Runtime 能表达的所有权规则。DOM、timer、animation cleanup 可以保留局部 cleanup。
 - React Compiler 已启用；不要为默认渲染性能新增手写 `useMemo` / `useCallback`。只在 provider value、effect 依赖稳定性、external store、virtualizer、拖拽或第三方 callback identity 需要时保留稳定引用。
-- 前端测试集中到 `apps/desktop/src/tests/`，按 `unit/`、`architecture/`、`integration/` 分组；共享测试基础设施放 `src/tests/support/`，通过 `@test/*` 引用。源码目录禁止存放 `*.test.ts` / `*.test.tsx`。
+- 前端测试集中到 `apps/desktop/src/tests/`，按 `unit/`、`architecture/` 分组；共享测试基础设施放 `src/tests/support/`（`setup.ts`、`sourceScan.ts`、类型声明），通过 `@test/*` 引用。源码目录禁止存放 `*.test.ts` / `*.test.tsx`。
+- 前端**只保留纯逻辑测试 + 架构测试**：`unit/` 一律用 `.ts`（无 `.tsx`/`.spec.tsx`），不渲染组件、不用 `renderHook`；只测解析器、数据变换、reducer、命令路由、状态逻辑等不依赖 DOM 结构的行为。UI 渲染/样式断言（类名、内联样式、DOM 层级）一律不写——它们任何 UI 重构都会挂，已由 `architecture/` 的源码扫描器和人工/截图验证覆盖。
 
 ## 前端实现规则
 

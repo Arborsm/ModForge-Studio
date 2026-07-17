@@ -138,7 +138,7 @@ pub struct KnowledgePolicy {
     pub enabled: bool,
     pub use_official_corpus: bool,
     pub use_global_knowledge: bool,
-    pub use_project_knowledge: bool,
+    pub use_profile_knowledge: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

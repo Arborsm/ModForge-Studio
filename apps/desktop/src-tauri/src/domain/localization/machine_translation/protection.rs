@@ -11,7 +11,7 @@ pub struct ProtectedText {
 
 fn token_pattern() -> &'static Regex {
     static VALUE: OnceLock<Regex> = OnceLock::new();
-    VALUE.get_or_init(|| Regex::new(r"(?x)(\{\{[^{}\r\n]+\}\}|\{[A-Za-z0-9_.:-]+\}|%(?:\d+\$)?[sdif]|\[[A-Za-z/][^\]\r\n]*\]|<[^>\r\n]+>|\^[A-Za-z0-9]+|\\[nrt])").expect("valid localization token regex"))
+    VALUE.get_or_init(|| Regex::new(r"(?x)(\{\{[^{}\r\n]+\}\}|\{[A-Za-z0-9_.-]+(?::[^{}\r\n]+)?\}|%(?:\d+\$)?[sdif]\b|\$\d+|\[[A-Za-z/][^\]\r\n]*\]|<[^>\r\n]+>|\^[A-Za-z0-9]+|\\[nrt])").expect("valid localization token regex"))
 }
 
 fn marker(index: usize) -> String {

@@ -73,9 +73,9 @@ fn combines_anthropic_cache_creation_and_read_tokens() {
 
 #[test]
 fn rejects_extra_ids_and_changed_placeholders() {
-    let source = request(vec![item("a", "Hello {{name}} $0")]);
+    let source = request(vec![item("a", "Hello {{name}} $0 {0:N0} %s")]);
     let extra = json!({"items":[
-        {"id":"a","translatedText":"你好 {{name}} $0","detectedLanguage":"en"},
+        {"id":"a","translatedText":"你好 {{name}} $0 {0:N0} %s","detectedLanguage":"en"},
         {"id":"extra","translatedText":"x","detectedLanguage":"en"}
     ]});
     assert!(
@@ -85,8 +85,7 @@ fn rejects_extra_ids_and_changed_placeholders() {
             .contains("exactly match")
     );
 
-    let changed =
-        json!({"items":[{"id":"a","translatedText":"你好 {{user}} $0","detectedLanguage":"en"}]});
+    let changed = json!({"items":[{"id":"a","translatedText":"你好 {{user}} $0 {0:N0} %s","detectedLanguage":"en"}]});
     assert!(
         validate_translation_items(&source, changed)
             .unwrap_err()

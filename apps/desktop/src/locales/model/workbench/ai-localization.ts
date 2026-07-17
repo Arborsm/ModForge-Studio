@@ -11,6 +11,25 @@ export type AiLocalizationCopy = {
   noAttentionItems: string
   indexReadyShort: string
   indexMissingShort: string
+  resourceReadiness: string
+  allResourcesReady: string
+  resourcesNeedAttention: string
+  resourceStatusLoading: string
+  officialCorpusResource: string
+  officialCorpusReady: string
+  officialCorpusMissing: string
+  manageOfficialCorpus: string
+  semanticModelResource: string
+  semanticModelReady: string
+  semanticModelMissing: string
+  keywordSearchResource: string
+  keywordSearchReady: string
+  noSemanticIndexRequired: string
+  semanticSearchReady: string
+  semanticSearchNotReady: string
+  modelDownloaded: string
+  modelNotDownloaded: string
+  configureModel: string
   openReviewRuns: (count: number) => string
   criticalIssues: (count: number) => string
   globalScope: string
@@ -30,6 +49,7 @@ export type AiLocalizationCopy = {
   indexParsing: string
   indexCommitting: string
   indexProgress: (completed: number, total: number) => string
+  searching: string
   search: string
   searchPlaceholder: string
   searchHint: string
@@ -51,12 +71,18 @@ export type AiLocalizationCopy = {
   updatedAt: string
   languages: string
   units: string
+  semanticUnits: string
   errors: string
   gameVersion: string
+  searchable: string
+  notSearchable: string
+  semanticEligible: string
+  notSemanticEligible: string
   promptEligible: string
   notPromptEligible: string
   fullSource: string
   fullTarget: string
+  loadingStatus: string
   loadError: string
   indexError: string
   searchError: string
@@ -64,7 +90,6 @@ export type AiLocalizationCopy = {
   glossaryTab: string
   styleTab: string
   memoryTab: string
-  knownProjects: string
   searchScopes: string
   add: string
   save: string
@@ -142,6 +167,8 @@ export type AiLocalizationCopy = {
   pageSummary: (from: number, to: number, total: number) => string
   resizeColumn: (label: string) => string
   scopeRegion: string
+  scopeShared: string
+  scopePlans: string
   contentRegion: string
   detailsRegion: string
   openDetails: string
@@ -150,9 +177,14 @@ export type AiLocalizationCopy = {
   copyToScope: string
   copiedMemory: string
   overriddenBy: string
-  bindingKind: string
-  bindingValue: string
-  rebindProject: string
-  bindingMissing: string
   bindingKinds: Record<'project-unique-id' | 'installed-mod' | 'draft-key' | 'canonical-path-hash', string>
+  profileCreate: string
+  profileNamePlaceholder: string
+  profileRename: string
+  profileDelete: string
+  profileDeleteConfirm: (name: string) => string
+  profileBindings: string
+  profileBindingCount: (count: number) => string
+  profileUnbound: string
+  profileUnbindAction: string
 }

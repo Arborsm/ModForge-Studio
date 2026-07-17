@@ -257,6 +257,70 @@ pub async fn cancel_localization_job(
 }
 
 #[tauri::command]
+pub async fn initialize_localization_plan(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    request: InitializeLocalizationPlanRequest,
+) -> Result<InitializeLocalizationPlanResult, String> {
+    execute!(
+        app,
+        debug,
+        initialize_localization_plan,
+        json!({"request":request})
+    )
+}
+
+#[tauri::command]
+pub async fn inspect_localization_context(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    request: InspectLocalizationContextRequest,
+) -> Result<LocalizationContextInspection, String> {
+    execute!(
+        app,
+        debug,
+        inspect_localization_context,
+        json!({"request":request})
+    )
+}
+
+#[tauri::command]
+pub async fn acquire_localization_semantic_runtime(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    lease_id: String,
+) -> Result<(), String> {
+    execute!(
+        app,
+        debug,
+        acquire_localization_semantic_runtime,
+        json!({"leaseId":lease_id})
+    )
+}
+
+#[tauri::command]
+pub async fn release_localization_semantic_runtime(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    lease_id: String,
+) -> Result<(), String> {
+    execute!(
+        app,
+        debug,
+        release_localization_semantic_runtime,
+        json!({"leaseId":lease_id})
+    )
+}
+
+#[tauri::command]
+pub async fn unload_localization_semantic_runtime(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+) -> Result<(), String> {
+    execute!(app, debug, unload_localization_semantic_runtime, json!({}))
+}
+
+#[tauri::command]
 pub async fn resolve_localization_scope(
     app: tauri::AppHandle<AppRuntime>,
     debug: State<'_, DebugLoggingState>,
@@ -270,16 +334,72 @@ pub async fn resolve_localization_scope(
     )
 }
 #[tauri::command]
-pub async fn rebind_localization_scope(
+pub async fn create_localization_profile(
     app: tauri::AppHandle<AppRuntime>,
     debug: State<'_, DebugLoggingState>,
-    request: RebindLocalizationScopeRequest,
+    name: String,
 ) -> Result<AiLocalizationScopeSnapshot, String> {
     execute!(
         app,
         debug,
-        rebind_localization_scope,
-        json!({"request":request})
+        create_localization_profile,
+        json!({"name":name})
+    )
+}
+#[tauri::command]
+pub async fn rename_localization_profile(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    scope_id: String,
+    name: String,
+) -> Result<AiLocalizationScopeSnapshot, String> {
+    execute!(
+        app,
+        debug,
+        rename_localization_profile,
+        json!({"scopeId":scope_id,"name":name})
+    )
+}
+#[tauri::command]
+pub async fn delete_localization_profile(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    scope_id: String,
+) -> Result<(), String> {
+    execute!(
+        app,
+        debug,
+        delete_localization_profile,
+        json!({"scopeId":scope_id})
+    )
+}
+#[tauri::command]
+pub async fn set_localization_profile_binding(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    scope_id: String,
+    binding_kind: String,
+    binding_value: String,
+) -> Result<AiLocalizationScopeSnapshot, String> {
+    execute!(
+        app,
+        debug,
+        set_localization_profile_binding,
+        json!({"scopeId":scope_id,"bindingKind":binding_kind,"bindingValue":binding_value})
+    )
+}
+#[tauri::command]
+pub async fn remove_localization_profile_binding(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+    binding_kind: String,
+    binding_value: String,
+) -> Result<(), String> {
+    execute!(
+        app,
+        debug,
+        remove_localization_profile_binding,
+        json!({"bindingKind":binding_kind,"bindingValue":binding_value})
     )
 }
 #[tauri::command]

@@ -13,6 +13,7 @@ import {
   systemdUserScopeAvailable,
 } from './electronDevIdentity.mjs'
 import { resolveTauriDevRuntime } from './tauriDevRuntime.mjs'
+import { selectLinuxCudaRuntime } from '../electron/linux-cuda-runtime.mjs'
 
 const require = createRequire(import.meta.url)
 const __filename = fileURLToPath(import.meta.url)
@@ -21,11 +22,11 @@ const desktopRoot = path.resolve(__dirname, '..')
 const vitePlusPackageJson = require.resolve('vite-plus/package.json', { paths: [desktopRoot] })
 const vitePlusCliEntry = path.join(path.dirname(vitePlusPackageJson), 'bin', 'vp')
 
-function runStep(command, args) {
+function runStep(command, args, environment = process.env) {
   const result = spawnSync(command, args, {
     cwd: desktopRoot,
     stdio: 'inherit',
-    env: process.env,
+    env: environment,
   })
 
   if (result.error) {
@@ -173,7 +174,15 @@ function cleanupManagedProcessGroups() {
   }
 }
 
-runStep('cargo', ['build', '--manifest-path', 'src-tauri/Cargo.toml', '--bin', 'modforge_sidecar'])
+const cargoEnvironment = { ...process.env }
+if (process.platform === 'linux') {
+  const cudaRuntime = selectLinuxCudaRuntime({ environment: process.env })
+  cargoEnvironment.ORT_CUDA_VERSION = cudaRuntime.version ?? '13'
+  for (const providerName of ['libonnxruntime_providers_shared.so', 'libonnxruntime_providers_cuda.so']) {
+    fs.rmSync(path.join(desktopRoot, 'src-tauri/target/debug', providerName), { force: true })
+  }
+}
+runStep('cargo', ['build', '--manifest-path', 'src-tauri/Cargo.toml', '--bin', 'modforge_sidecar'], cargoEnvironment)
 runStep(process.execPath, ['scripts/build-electron-main.mjs'])
 
 const runtime = await resolveTauriDevRuntime(process.env)

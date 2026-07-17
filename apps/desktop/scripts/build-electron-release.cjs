@@ -23,7 +23,7 @@ function runNode(script, args = []) {
 }
 
 runNode('build-web.cjs')
-run('cargo', ['build', '--manifest-path', 'src-tauri/Cargo.toml', '--release', '--bin', 'modforge_sidecar'])
+runNode('build-linux-ort-runtimes.mjs')
 runNode('build-gmcm-probe.mjs')
 runNode('build-electron-main.mjs')
 runNode('build-electron-linux.mjs', process.argv.slice(2))

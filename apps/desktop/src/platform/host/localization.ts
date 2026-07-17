@@ -44,6 +44,10 @@ import type {
   AiSemanticModelVerification,
   ProbeAiSemanticSearchRequest,
   AiSemanticProbeResult,
+  InitializeLocalizationPlanRequest,
+  InitializeLocalizationPlanResult,
+  InspectLocalizationContextRequest,
+  LocalizationContextInspection,
 } from '@shared/contracts'
 import { HOST_COMMANDS } from '@platform/host-commands'
 import { getPlatformPorts, invokeDesktop } from './runtime'
@@ -95,7 +99,7 @@ export const probeLocalizationSemanticSearch = (request: ProbeAiSemanticSearchRe
   invokeDesktop<AiSemanticProbeResult>(
     HOST_COMMANDS.probeLocalizationSemanticSearch,
     { request },
-    { kind: 'parallelPool', pool: 'semantic-search', limit: 2 },
+    { kind: 'serviceGate', key: 'semantic-search' },
   )
 export const downloadLocalizationSemanticModel = (request: DownloadAiSemanticModelRequest) =>
   invokeDesktop<AiSemanticModelStatus>(
@@ -185,17 +189,85 @@ export function cancelLocalizationJob(jobId: string) {
   return invokeDesktop<void>(HOST_COMMANDS.cancelLocalizationJob, { jobId }, { kind: 'serviceGate', key: `localization-cancel:${jobId}` })
 }
 
+/** Atomically creates or reuses a plan, persists its defaults, and optionally learns one locale file. */
+export const initializeLocalizationPlan = (request: InitializeLocalizationPlanRequest) =>
+  invokeDesktop<InitializeLocalizationPlanResult>(
+    HOST_COMMANDS.initializeLocalizationPlan,
+    { request },
+    { kind: 'exclusiveMutation', resource: 'AiLocalizationKnowledge' },
+  )
+
+/** Acquires one active translation-workflow lease and warms the local semantic runtime. */
+export const acquireLocalizationSemanticRuntime = (leaseId: string) =>
+  invokeDesktop<void>(
+    HOST_COMMANDS.acquireLocalizationSemanticRuntime,
+    { leaseId },
+    { kind: 'queuedMutation', queue: 'AiSemanticRuntimeLease' },
+  )
+
+/** Releases a workflow lease; the backend unloads after the shared idle timeout. */
+export const releaseLocalizationSemanticRuntime = (leaseId: string) =>
+  invokeDesktop<void>(
+    HOST_COMMANDS.releaseLocalizationSemanticRuntime,
+    { leaseId },
+    { kind: 'queuedMutation', queue: 'AiSemanticRuntimeLease' },
+  )
+
+/** Immediately unloads the local ONNX session and in-memory vector generation. */
+export const unloadLocalizationSemanticRuntime = () =>
+  invokeDesktop<void>(HOST_COMMANDS.unloadLocalizationSemanticRuntime, {}, { kind: 'exclusiveMutation', resource: 'AiSemanticRuntime' })
+
+/** Returns the effective knowledge shown beside one translation unit. */
+export const inspectLocalizationContext = (request: InspectLocalizationContextRequest) =>
+  invokeDesktop<LocalizationContextInspection>(
+    HOST_COMMANDS.inspectLocalizationContext,
+    { request },
+    {
+      kind: 'keyedLatest',
+      key: `localization-context:${request.scopeId}:${request.sourceLocale}:${request.targetLocale}:${request.unitKey ?? ''}`,
+    },
+  )
+
 export const resolveLocalizationScope = (request: ResolveLocalizationScopeRequest) =>
   invokeDesktop<AiLocalizationScopeSnapshot>(
     HOST_COMMANDS.resolveLocalizationScope,
     { request },
     { kind: 'queuedMutation', queue: 'AiLocalizationKnowledge' },
   )
-export const rebindLocalizationScope = (scopeId: string, bindingKind: string, bindingValue: string) =>
+/** Creates a standalone knowledge profile without any project binding. */
+export const createLocalizationProfile = (name: string) =>
   invokeDesktop<AiLocalizationScopeSnapshot>(
-    HOST_COMMANDS.rebindLocalizationScope,
-    { request: { scopeId, bindingKind, bindingValue } },
+    HOST_COMMANDS.createLocalizationProfile,
+    { name },
+    { kind: 'queuedMutation', queue: 'AiLocalizationKnowledge' },
+  )
+/** Renames a knowledge profile; the global scope is rejected by the backend. */
+export const renameLocalizationProfile = (scopeId: string, name: string) =>
+  invokeDesktop<AiLocalizationScopeSnapshot>(
+    HOST_COMMANDS.renameLocalizationProfile,
+    { scopeId, name },
     { kind: 'queuedMutation', queue: `localization-scope:${scopeId}` },
+  )
+/** Deletes a knowledge profile together with its terms, memory, and style settings. */
+export const deleteLocalizationProfile = (scopeId: string) =>
+  invokeDesktop<void>(
+    HOST_COMMANDS.deleteLocalizationProfile,
+    { scopeId },
+    { kind: 'queuedMutation', queue: `localization-scope:${scopeId}` },
+  )
+/** Moves one project binding to the given profile, detaching it from any previous owner. */
+export const setLocalizationProfileBinding = (scopeId: string, bindingKind: string, bindingValue: string) =>
+  invokeDesktop<AiLocalizationScopeSnapshot>(
+    HOST_COMMANDS.setLocalizationProfileBinding,
+    { scopeId, bindingKind, bindingValue },
+    { kind: 'queuedMutation', queue: `localization-scope:${scopeId}` },
+  )
+/** Detaches one project binding from whichever profile currently owns it. */
+export const removeLocalizationProfileBinding = (bindingKind: string, bindingValue: string) =>
+  invokeDesktop<void>(
+    HOST_COMMANDS.removeLocalizationProfileBinding,
+    { bindingKind, bindingValue },
+    { kind: 'queuedMutation', queue: 'AiLocalizationKnowledge' },
   )
 export const listLocalizationScopes = (request: ListLocalizationScopesRequest) =>
   invokeDesktop<AiLocalizationScopePage>(

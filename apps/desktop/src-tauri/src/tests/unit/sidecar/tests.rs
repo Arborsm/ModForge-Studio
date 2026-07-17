@@ -787,10 +787,43 @@ fn semantic_download_and_indexing_declare_exclusive_resources_at_binding_site() 
         Some(SidecarLane::Network)
     );
     assert_eq!(
+        command_resources("probe_localization_semantic_search"),
+        Some(vec![
+            SidecarResource::AiSemanticSettings,
+            SidecarResource::AiSemanticModel,
+            SidecarResource::AiSemanticIndex,
+            SidecarResource::AiOfficialLocalizationIndex,
+            SidecarResource::AiLocalizationKnowledge,
+        ])
+    );
+    assert_eq!(
         command_resources("verify_localization_semantic_model"),
         Some(vec![
             SidecarResource::AiSemanticSettings,
             SidecarResource::AiSemanticModel,
+        ])
+    );
+    assert_eq!(
+        command_execution_pool("acquire_localization_semantic_runtime"),
+        Some(HostCommandExecutionPool::AiSemanticSearch)
+    );
+    assert_eq!(
+        command_resources("acquire_localization_semantic_runtime"),
+        Some(vec![
+            SidecarResource::AiSemanticSettings,
+            SidecarResource::AiSemanticModel,
+            SidecarResource::AiSemanticIndex,
+        ])
+    );
+    assert_eq!(
+        command_lane("release_localization_semantic_runtime"),
+        Some(SidecarLane::Io)
+    );
+    assert_eq!(
+        command_resources("unload_localization_semantic_runtime"),
+        Some(vec![
+            SidecarResource::AiSemanticModel,
+            SidecarResource::AiSemanticIndex,
         ])
     );
 }

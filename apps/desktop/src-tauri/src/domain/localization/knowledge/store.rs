@@ -10,6 +10,7 @@ use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 pub(crate) const GLOBAL_SCOPE_ID: &str = "00000000-0000-0000-0000-000000000001";
+const EXAMPLE_SCOPE_ID: &str = "00000000-0000-0000-0000-000000000002";
 static KNOWLEDGE_OPEN_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 #[derive(Default)]
 pub(crate) struct TranslationKnowledge {
@@ -64,7 +65,8 @@ pub(crate) fn open() -> anyhow::Result<Connection> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let connection = Connection::open(path).context("Failed to open localization knowledge.")?;
+    let mut connection =
+        Connection::open(path).context("Failed to open localization knowledge.")?;
     connection
         .busy_timeout(Duration::from_secs(5))
         .context("Failed to configure localization knowledge busy timeout.")?;
@@ -80,7 +82,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS tm_auto_unique ON translation_memory(scope_id,
 CREATE UNIQUE INDEX IF NOT EXISTS tm_manual_unique ON translation_memory(scope_id,source_locale,target_locale,source_hash) WHERE source_kind<>'automatic';
 CREATE INDEX IF NOT EXISTS tm_scope ON translation_memory(scope_id,source_locale,target_locale,confirmed_at_ms);
 CREATE TABLE IF NOT EXISTS review_runs(id TEXT PRIMARY KEY,scope_id TEXT NOT NULL,source_locale TEXT NOT NULL,target_locale TEXT NOT NULL,engine TEXT NOT NULL,status TEXT NOT NULL,summary_json TEXT NOT NULL,created_at_ms INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS review_issues(id TEXT PRIMARY KEY,run_id TEXT NOT NULL REFERENCES review_runs(id) ON DELETE CASCADE,unit_key TEXT NOT NULL,source_hash TEXT NOT NULL,target_hash TEXT NOT NULL,severity TEXT NOT NULL,status TEXT NOT NULL,category TEXT NOT NULL,reason TEXT NOT NULL,suggestion TEXT,source_snapshot TEXT NOT NULL,target_snapshot TEXT NOT NULL);")?;
+CREATE TABLE IF NOT EXISTS review_issues(id TEXT PRIMARY KEY,run_id TEXT NOT NULL REFERENCES review_runs(id) ON DELETE CASCADE,unit_key TEXT NOT NULL,source_hash TEXT NOT NULL,target_hash TEXT NOT NULL,severity TEXT NOT NULL,status TEXT NOT NULL,category TEXT NOT NULL,reason TEXT NOT NULL,suggestion TEXT,source_snapshot TEXT NOT NULL,target_snapshot TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS knowledge_metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);")?;
     for migration in [
         "ALTER TABLE scope_settings ADD COLUMN qa_empty INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE scope_settings ADD COLUMN qa_language_mix INTEGER NOT NULL DEFAULT 1",
@@ -95,11 +98,115 @@ CREATE TABLE IF NOT EXISTS review_issues(id TEXT PRIMARY KEY,run_id TEXT NOT NUL
         }
     }
     let timestamp = now();
+    connection.execute(
+        "UPDATE localization_scopes SET kind='profile' WHERE kind='project'",
+        [],
+    )?;
     connection.execute("INSERT OR IGNORE INTO localization_scopes(id,kind,name,created_at_ms,updated_at_ms,last_used_at_ms) VALUES(?,'global','Global knowledge',?,?,?)",params![GLOBAL_SCOPE_ID,timestamp,timestamp,timestamp])?;
     connection.execute(
         "INSERT OR IGNORE INTO scope_settings(scope_id) VALUES(?)",
         [GLOBAL_SCOPE_ID],
     )?;
+    let schema_version: u32 = connection.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+    if schema_version < 1 {
+        let tx = connection.transaction()?;
+        tx.execute(
+            "INSERT OR IGNORE INTO localization_scopes(id,kind,name,created_at_ms,updated_at_ms,last_used_at_ms) VALUES(?,'profile','示例项目',?,?,?)",
+            params![EXAMPLE_SCOPE_ID, timestamp, timestamp, timestamp],
+        )?;
+        tx.execute(
+            "INSERT OR IGNORE INTO scope_settings(scope_id,knowledge_enabled,use_official,use_global,use_project) VALUES(?,1,1,1,1)",
+            [EXAMPLE_SCOPE_ID],
+        )?;
+        tx.execute_batch("PRAGMA user_version=1;")?;
+        tx.commit()?;
+    }
+    let example_seeded: bool = connection.query_row(
+        "SELECT EXISTS(SELECT 1 FROM knowledge_metadata WHERE key='example-project-v2')",
+        [],
+        |row| row.get(0),
+    )?;
+    if !example_seeded {
+        let tx = connection.transaction()?;
+        tx.execute(
+            "INSERT OR IGNORE INTO localization_scopes(id,kind,name,created_at_ms,updated_at_ms,last_used_at_ms) VALUES(?,'profile','示例项目',?,?,?)",
+            params![EXAMPLE_SCOPE_ID, timestamp, timestamp, timestamp],
+        )?;
+        tx.execute(
+            "INSERT OR IGNORE INTO scope_settings(scope_id) VALUES(?)",
+            [EXAMPLE_SCOPE_ID],
+        )?;
+        {
+            tx.execute(
+                "UPDATE localization_scopes SET revision=revision+1,updated_at_ms=? WHERE id=?",
+                params![timestamp, EXAMPLE_SCOPE_ID],
+            )?;
+            tx.execute(
+                "UPDATE scope_settings SET knowledge_enabled=1,use_official=1,use_global=1,use_project=1,auto_review=1,qa_empty=1,qa_language_mix=1,qa_whitespace=1,qa_line_breaks=1,qa_length=1 WHERE scope_id=?",
+                [EXAMPLE_SCOPE_ID],
+            )?;
+            tx.execute(
+                "INSERT OR IGNORE INTO scope_bindings(binding_kind,binding_value,scope_id) VALUES('project-unique-id','modforge.example.localization',?)",
+                [EXAMPLE_SCOPE_ID],
+            )?;
+            for (id, source, target, mode, do_not_translate, notes) in [
+                (
+                    "example-glossary-1",
+                    "Pelican Town",
+                    "鹈鹕镇",
+                    "exact",
+                    false,
+                    "示例地名术语",
+                ),
+                (
+                    "example-glossary-2",
+                    "Stardew Valley",
+                    "星露谷物语",
+                    "case-insensitive",
+                    true,
+                    "品牌名保持统一",
+                ),
+            ] {
+                tx.execute(
+                    "INSERT OR IGNORE INTO glossary_entries(id,scope_id,source_locale,target_locale,source_term,target_term,normalized_source,match_mode,do_not_translate,notes,updated_at_ms) VALUES(?,?,'en-US','zh-CN',?,?,?,?,?,?,?)",
+                    params![id,EXAMPLE_SCOPE_ID,source,target,normalize(source),mode,do_not_translate,notes,timestamp],
+                )?;
+            }
+            for (id, source, target, namespace, key, use_count) in [
+                (
+                    "example-memory-1",
+                    "Welcome to Pelican Town!",
+                    "欢迎来到鹈鹕镇！",
+                    "i18n/zh-CN.json",
+                    "welcome.town",
+                    3,
+                ),
+                (
+                    "example-memory-2",
+                    "The valley looks beautiful today.",
+                    "今天的山谷真美。",
+                    "i18n/zh-CN.json",
+                    "dialogue.valley",
+                    1,
+                ),
+            ] {
+                tx.execute(
+                    "INSERT OR IGNORE INTO translation_memory(id,scope_id,source_locale,target_locale,source_text,target_text,source_hash,source_kind,file_namespace,unit_key,confirmed_at_ms,use_count) VALUES(?,?,'en-US','zh-CN',?,?,?,'manual',?,?,?,?)",
+                    params![id,EXAMPLE_SCOPE_ID,source,target,text_hash(source),namespace,key,timestamp,use_count],
+                )?;
+            }
+            tx.execute(
+                "INSERT OR IGNORE INTO style_guides(scope_id,target_locale,tone,audience,formality,forbidden_phrases,preferred_phrases,rules,updated_at_ms) VALUES(?,'zh-CN','自然、温暖、简洁','星露谷物语玩家','半正式',?,?,?,?)",
+                params![EXAMPLE_SCOPE_ID,serde_json::to_string(&vec!["机翻腔", "过度书面化"] )?,serde_json::to_string(&vec!["自然口语", "角色语气一致"] )?,serde_json::to_string(&vec!["保留所有占位符和控制标记", "地名与人物名优先使用官方译名", "对话避免逐字直译"] )?,timestamp],
+            )?;
+        }
+        tx.execute(
+            "INSERT INTO knowledge_metadata(key,value) VALUES('example-project-v2',?)",
+            [timestamp.to_string()],
+        )?;
+        tx.execute_batch("PRAGMA user_version=2;")?;
+        tx.commit()?;
+    }
     Ok(connection)
 }
 
@@ -122,9 +229,40 @@ fn scope_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<AiLocalizationScope> {
         created_at_ms: row.get(4)?,
         updated_at_ms: row.get(5)?,
         last_used_at_ms: row.get(6)?,
-        binding_kind: row.get(7)?,
-        binding_value: row.get(8)?,
+        bindings: Vec::new(),
     })
+}
+
+fn attach_bindings(db: &Connection, scopes: &mut [AiLocalizationScope]) -> anyhow::Result<()> {
+    if scopes.is_empty() {
+        return Ok(());
+    }
+    let placeholders = scopes.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let mut statement = db.prepare(&format!(
+        "SELECT binding_kind,binding_value,scope_id FROM scope_bindings WHERE scope_id IN ({placeholders})"
+    ))?;
+    let rows = statement.query_map(
+        params_from_iter(scopes.iter().map(|scope| scope.id.clone())),
+        |row| {
+            Ok((
+                row.get::<_, String>(2)?,
+                AiLocalizationScopeBinding {
+                    kind: row.get(0)?,
+                    value: row.get(1)?,
+                },
+            ))
+        },
+    )?;
+    let mut bindings: std::collections::HashMap<String, Vec<AiLocalizationScopeBinding>> =
+        std::collections::HashMap::new();
+    for row in rows {
+        let (scope_id, binding) = row?;
+        bindings.entry(scope_id).or_default().push(binding);
+    }
+    for scope in scopes {
+        scope.bindings = bindings.remove(&scope.id).unwrap_or_default();
+    }
+    Ok(())
 }
 
 pub fn resolve_scope(
@@ -148,7 +286,7 @@ pub fn resolve_scope(
         .optional()?;
     let scope_id = existing.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     let timestamp = now();
-    tx.execute("INSERT OR IGNORE INTO localization_scopes(id,kind,name,created_at_ms,updated_at_ms,last_used_at_ms) VALUES(?,'project',?,?,?,?)",params![scope_id,request.name,timestamp,timestamp,timestamp])?;
+    tx.execute("INSERT OR IGNORE INTO localization_scopes(id,kind,name,created_at_ms,updated_at_ms,last_used_at_ms) VALUES(?,'profile',?,?,?,?)",params![scope_id,request.name,timestamp,timestamp,timestamp])?;
     tx.execute(
         "INSERT OR IGNORE INTO scope_bindings(binding_kind,binding_value,scope_id) VALUES(?,?,?)",
         params![binding_kind, binding_value, scope_id],
@@ -165,22 +303,382 @@ pub fn resolve_scope(
     load_scope(LoadLocalizationScopeRequest { scope_id })
 }
 
-pub fn rebind_scope(
-    request: RebindLocalizationScopeRequest,
-) -> anyhow::Result<AiLocalizationScopeSnapshot> {
+pub fn initialize_plan(
+    request: InitializeLocalizationPlanRequest,
+) -> anyhow::Result<InitializeLocalizationPlanResult> {
+    let plan_name = request.plan_name.trim();
+    if plan_name.is_empty() {
+        bail!("Localization plan name cannot be empty.")
+    }
+    if request.source_locale.trim().is_empty() || request.target_locale.trim().is_empty() {
+        bail!("Localization plan locales cannot be empty.")
+    }
+    if request.source_locale == request.target_locale {
+        bail!("Localization plan source and target locales must differ.")
+    }
+    if request.file_namespace.trim().is_empty() {
+        bail!("Localization plan file namespace cannot be empty.")
+    }
     let (binding_kind, binding_value) =
         normalized_binding(&request.binding_kind, &request.binding_value)?;
+    let mut db = open()?;
+    let tx = db.transaction()?;
+    let existing: Option<String> = tx
+        .query_row(
+            "SELECT scope_id FROM scope_bindings WHERE binding_kind=? AND binding_value=?",
+            params![binding_kind, binding_value],
+            |row| row.get(0),
+        )
+        .optional()?;
+    let created = existing.is_none();
+    let scope_id = existing.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let timestamp = now();
+    if created {
+        tx.execute(
+            "INSERT INTO localization_scopes(id,kind,name,created_at_ms,updated_at_ms,last_used_at_ms) VALUES(?,'profile',?,?,?,?)",
+            params![scope_id, plan_name, timestamp, timestamp, timestamp],
+        )?;
+        tx.execute(
+            "INSERT INTO scope_bindings(binding_kind,binding_value,scope_id) VALUES(?,?,?)",
+            params![binding_kind, binding_value, scope_id],
+        )?;
+        tx.execute(
+            "INSERT INTO scope_settings(scope_id,knowledge_enabled,use_official,use_global,use_project) VALUES(?,1,1,1,1)",
+            [&scope_id],
+        )?;
+    } else {
+        tx.execute(
+            "UPDATE localization_scopes SET last_used_at_ms=? WHERE id=?",
+            params![timestamp, scope_id],
+        )?;
+    }
+
+    let mut imported_count = 0_u64;
+    if request.import_existing {
+        for entry in &request.entries {
+            if entry.source_locale != request.source_locale
+                || entry.target_locale != request.target_locale
+                || entry.file_namespace != request.file_namespace
+                || entry.source_text.trim().is_empty()
+                || entry.target_text.trim().is_empty()
+                || entry.unit_key.trim().is_empty()
+            {
+                bail!("Localization plan import contains an invalid translation entry.")
+            }
+        }
+        tx.execute(
+            "DELETE FROM translation_memory WHERE scope_id=? AND source_kind='automatic' AND file_namespace=?",
+            params![scope_id, request.file_namespace],
+        )?;
+        let retained: u64 = tx.query_row(
+            "SELECT COUNT(*) FROM translation_memory WHERE scope_id=?",
+            [&scope_id],
+            |row| row.get(0),
+        )?;
+        if retained + request.entries.len() as u64 > 100_000 {
+            bail!("A localization scope supports at most 100000 memory entries.")
+        }
+        imported_count = request.entries.len() as u64;
+        for entry in request.entries {
+            crate::domain::localization::jobs::check(&request.job_id)?;
+            tx.execute(
+                "INSERT INTO translation_memory(id,scope_id,source_locale,target_locale,source_text,target_text,source_hash,source_kind,file_namespace,unit_key,confirmed_at_ms) VALUES(?,?,?,?,?,?,?,'automatic',?,?,?)",
+                params![uuid::Uuid::new_v4().to_string(),scope_id,entry.source_locale,entry.target_locale,entry.source_text,entry.target_text,text_hash(&entry.source_text),entry.file_namespace,entry.unit_key,now()],
+            )?;
+        }
+    }
+    if created || request.import_existing {
+        bump(&tx, &scope_id)?;
+    }
+    let revision: u64 = tx.query_row(
+        "SELECT revision FROM localization_scopes WHERE id=?",
+        [&scope_id],
+        |row| row.get(0),
+    )?;
+    tx.commit()?;
+    Ok(InitializeLocalizationPlanResult {
+        snapshot: load_scope(LoadLocalizationScopeRequest {
+            scope_id: scope_id.clone(),
+        })?,
+        imported_count,
+        knowledge_revision: format!("{scope_id}:{revision}"),
+        semantic_index_state: "skipped".into(),
+        semantic_index_error: None,
+    })
+}
+
+pub fn inspect_context(
+    request: InspectLocalizationContextRequest,
+) -> anyhow::Result<LocalizationContextInspection> {
+    if request.source_text.trim().is_empty() {
+        return Ok(LocalizationContextInspection {
+            glossary: Vec::new(),
+            memory: Vec::new(),
+            official: Vec::new(),
+            style: None,
+            knowledge_revision: String::new(),
+            trace: LocalizationContextTrace::default(),
+        });
+    }
+    let mut scope_ids = Vec::new();
+    if request.knowledge_policy.enabled && request.knowledge_policy.use_profile_knowledge {
+        scope_ids.push(request.scope_id.clone());
+    }
+    if request.knowledge_policy.enabled && request.knowledge_policy.use_global_knowledge {
+        scope_ids.push(GLOBAL_SCOPE_ID.into());
+    }
+    let normalized_source = normalize(&request.source_text);
+    let mut glossary = Vec::new();
+    let mut memory = Vec::new();
+    let mut style = None;
+    let mut trace = LocalizationContextTrace::default();
+    trace.official_indexed = crate::domain::localization::official::active_revision()
+        .ok()
+        .flatten()
+        .is_some();
+    let official_source_locale =
+        crate::domain::localization::official::canonical_locale(&request.source_locale);
+    let official_target_locale =
+        crate::domain::localization::official::canonical_locale(&request.target_locale);
+    let needs_semantic = request.knowledge_policy.enabled
+        && (!scope_ids.is_empty()
+            || (request.knowledge_policy.use_official_corpus && request.game_directory.is_some()));
+    let use_official_semantic = request.knowledge_policy.enabled
+        && request.knowledge_policy.use_official_corpus
+        && request.game_directory.is_some()
+        && !official_source_locale.is_empty();
+    let mut semantic_requests: Vec<(&str, Option<&str>, &str, u32)> = Vec::new();
+    if use_official_semantic {
+        semantic_requests.extend([
+            ("official", None, official_source_locale.as_str(), 1_000),
+            ("official-entity", None, official_source_locale.as_str(), 20),
+        ]);
+    }
+    let memory_group_offset = semantic_requests.len();
+    semantic_requests.extend(scope_ids.iter().map(|scope_id| {
+        (
+            "translation-memory",
+            Some(scope_id.as_str()),
+            request.source_locale.as_str(),
+            50,
+        )
+    }));
+    let semantic_groups = if needs_semantic {
+        crate::domain::localization::semantic::search_scoped_candidate_groups(
+            &semantic_requests,
+            &request.source_text,
+        )
+        .unwrap_or_else(|_| semantic_requests.iter().map(|_| Vec::new()).collect())
+    } else {
+        semantic_requests.iter().map(|_| Vec::new()).collect()
+    };
+    for (scope_index, scope_id) in scope_ids.iter().enumerate().rev() {
+        let page = list_glossary(SearchLocalizationKnowledgeRequest {
+            scope_id: scope_id.clone(),
+            source_locale: Some(request.source_locale.clone()),
+            target_locale: Some(request.target_locale.clone()),
+            query: None,
+            offset: 0,
+            limit: 500,
+        })?;
+        for entry in page.records.into_iter().filter(|entry| {
+            let term = normalize(&entry.source_term);
+            !term.is_empty() && normalized_source.contains(&term)
+        }) {
+            if scope_id == GLOBAL_SCOPE_ID {
+                trace.global_glossary_matches += 1;
+            } else {
+                trace.profile_glossary_matches += 1;
+            }
+            glossary.push(entry);
+        }
+        let page = search_memory_with_semantic(
+            SearchLocalizationKnowledgeRequest {
+                scope_id: scope_id.clone(),
+                source_locale: Some(request.source_locale.clone()),
+                target_locale: Some(request.target_locale.clone()),
+                query: Some(request.source_text.clone()),
+                offset: 0,
+                limit: 5,
+            },
+            semantic_groups[memory_group_offset + scope_index].clone(),
+        )?;
+        trace.translation_memory_matches += page.records.len() as u64;
+        memory.extend(page.records);
+        if let Some(candidate) = load_style(LoadLocalizationStyleGuideRequest {
+            scope_id: scope_id.clone(),
+            target_locale: request.target_locale.clone(),
+        })? {
+            style = Some(merge_style_guides(style, candidate));
+        }
+    }
+    memory.sort_by(|left, right| right.score.total_cmp(&left.score));
+    memory.truncate(5);
+    glossary.truncate(20);
+    let official = if request.knowledge_policy.enabled
+        && request.knowledge_policy.use_official_corpus
+        && request.game_directory.is_some()
+    {
+        crate::domain::localization::official::search_with_locale_fallback(
+            SearchOfficialLocalizationRequest {
+                source_locale: if request.source_locale.trim().is_empty()
+                    || request.source_locale.eq_ignore_ascii_case("default")
+                {
+                    request.source_locale.clone()
+                } else {
+                    official_source_locale
+                },
+                target_locale: official_target_locale,
+                query: request.source_text.clone(),
+                asset_category: None,
+                unit_kind: None,
+                prompt_eligible_only: true,
+                allow_literal_scan: false,
+                offset: 0,
+                limit: 5,
+            },
+            use_official_semantic
+                .then(|| vec![semantic_groups[0].clone(), semantic_groups[1].clone()]),
+        )
+        .map(|page| page.records)
+        .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    trace.official_matches = official.len() as u64;
+    let db = open()?;
+    let mut revisions = Vec::new();
+    for scope_id in &scope_ids {
+        if let Some(revision) = db
+            .query_row(
+                "SELECT revision FROM localization_scopes WHERE id=?",
+                [scope_id],
+                |row| row.get::<_, u64>(0),
+            )
+            .optional()?
+        {
+            revisions.push(format!("{scope_id}:{revision}"));
+        }
+    }
+    Ok(LocalizationContextInspection {
+        glossary,
+        memory,
+        official,
+        style,
+        knowledge_revision: revisions.join("|"),
+        trace,
+    })
+}
+
+fn merge_style_guides(base: Option<AiStyleGuide>, candidate: AiStyleGuide) -> AiStyleGuide {
+    let Some(mut effective) = base else {
+        return candidate;
+    };
+    if !candidate.tone.trim().is_empty() {
+        effective.tone = candidate.tone;
+    }
+    if !candidate.audience.trim().is_empty() {
+        effective.audience = candidate.audience;
+    }
+    if !candidate.formality.trim().is_empty() {
+        effective.formality = candidate.formality;
+    }
+    if !candidate.forbidden_phrases.is_empty() {
+        effective.forbidden_phrases = candidate.forbidden_phrases;
+    }
+    if !candidate.preferred_phrases.is_empty() {
+        effective.preferred_phrases = candidate.preferred_phrases;
+    }
+    if !candidate.rules.is_empty() {
+        effective.rules = candidate.rules;
+    }
+    effective.scope_id = candidate.scope_id;
+    effective.updated_at_ms = effective.updated_at_ms.max(candidate.updated_at_ms);
+    effective
+}
+
+pub fn create_profile(name: String) -> anyhow::Result<AiLocalizationScopeSnapshot> {
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        bail!("Localization profile name cannot be empty.")
+    }
+    let mut db = open()?;
+    let tx = db.transaction()?;
+    let scope_id = uuid::Uuid::new_v4().to_string();
+    let timestamp = now();
+    tx.execute("INSERT INTO localization_scopes(id,kind,name,created_at_ms,updated_at_ms,last_used_at_ms) VALUES(?,'profile',?,?,?,?)",params![scope_id,name,timestamp,timestamp,timestamp])?;
+    tx.execute(
+        "INSERT INTO scope_settings(scope_id) VALUES(?)",
+        [&scope_id],
+    )?;
+    tx.commit()?;
+    load_scope(LoadLocalizationScopeRequest { scope_id })
+}
+
+pub fn rename_profile(
+    scope_id: String,
+    name: String,
+) -> anyhow::Result<AiLocalizationScopeSnapshot> {
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        bail!("Localization profile name cannot be empty.")
+    }
     let mut db = open()?;
     let tx = db.transaction()?;
     let kind: String = tx
         .query_row(
             "SELECT kind FROM localization_scopes WHERE id=?",
-            [&request.scope_id],
+            [&scope_id],
             |row| row.get(0),
         )
         .context("Localization scope does not exist.")?;
-    if kind != "project" {
-        bail!("Global localization scope cannot be rebound.")
+    if kind == "global" {
+        bail!("Global localization scope cannot be renamed.")
+    }
+    tx.execute(
+        "UPDATE localization_scopes SET name=? WHERE id=?",
+        params![name, scope_id],
+    )?;
+    bump(&tx, &scope_id)?;
+    tx.commit()?;
+    load_scope(LoadLocalizationScopeRequest { scope_id })
+}
+
+pub fn delete_profile(scope_id: String) -> anyhow::Result<()> {
+    let mut db = open()?;
+    let tx = db.transaction()?;
+    let kind: String = tx
+        .query_row(
+            "SELECT kind FROM localization_scopes WHERE id=?",
+            [&scope_id],
+            |row| row.get(0),
+        )
+        .context("Localization scope does not exist.")?;
+    if kind == "global" {
+        bail!("Global localization scope cannot be deleted.")
+    }
+    tx.execute("DELETE FROM localization_scopes WHERE id=?", [&scope_id])?;
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn set_profile_binding(
+    scope_id: String,
+    binding_kind: String,
+    binding_value: String,
+) -> anyhow::Result<AiLocalizationScopeSnapshot> {
+    let (binding_kind, binding_value) = normalized_binding(&binding_kind, &binding_value)?;
+    let mut db = open()?;
+    let tx = db.transaction()?;
+    let kind: String = tx
+        .query_row(
+            "SELECT kind FROM localization_scopes WHERE id=?",
+            [&scope_id],
+            |row| row.get(0),
+        )
+        .context("Localization scope does not exist.")?;
+    if kind != "profile" {
+        bail!("Global localization scope cannot be bound.")
     }
     let owner: Option<String> = tx
         .query_row(
@@ -189,25 +687,44 @@ pub fn rebind_scope(
             |row| row.get(0),
         )
         .optional()?;
-    if owner
-        .as_deref()
-        .is_some_and(|owner| owner != request.scope_id)
-    {
-        bail!("This project binding already belongs to another localization scope.")
+    if owner.as_deref() != Some(scope_id.as_str()) {
+        tx.execute(
+            "DELETE FROM scope_bindings WHERE binding_kind=? AND binding_value=?",
+            params![binding_kind, binding_value],
+        )?;
+        tx.execute(
+            "INSERT INTO scope_bindings(binding_kind,binding_value,scope_id) VALUES(?,?,?)",
+            params![binding_kind, binding_value, scope_id],
+        )?;
+        bump(&tx, &scope_id)?;
+        if let Some(owner) = owner {
+            bump(&tx, &owner)?;
+        }
     }
-    tx.execute(
-        "DELETE FROM scope_bindings WHERE scope_id=?",
-        [&request.scope_id],
-    )?;
-    tx.execute(
-        "INSERT INTO scope_bindings(binding_kind,binding_value,scope_id) VALUES(?,?,?)",
-        params![binding_kind, binding_value, request.scope_id],
-    )?;
-    bump(&tx, &request.scope_id)?;
     tx.commit()?;
-    load_scope(LoadLocalizationScopeRequest {
-        scope_id: request.scope_id,
-    })
+    load_scope(LoadLocalizationScopeRequest { scope_id })
+}
+
+pub fn remove_profile_binding(binding_kind: String, binding_value: String) -> anyhow::Result<()> {
+    let (binding_kind, binding_value) = normalized_binding(&binding_kind, &binding_value)?;
+    let mut db = open()?;
+    let tx = db.transaction()?;
+    let owner: Option<String> = tx
+        .query_row(
+            "SELECT scope_id FROM scope_bindings WHERE binding_kind=? AND binding_value=?",
+            params![binding_kind, binding_value],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if let Some(owner) = owner {
+        tx.execute(
+            "DELETE FROM scope_bindings WHERE binding_kind=? AND binding_value=?",
+            params![binding_kind, binding_value],
+        )?;
+        bump(&tx, &owner)?;
+    }
+    tx.commit()?;
+    Ok(())
 }
 
 pub fn list_scopes(
@@ -219,13 +736,14 @@ pub fn list_scopes(
     let db = open()?;
     let query = format!("%{}%", request.query.unwrap_or_default());
     let total=db.query_row("SELECT COUNT(*) FROM localization_scopes s WHERE s.name LIKE ? OR EXISTS(SELECT 1 FROM scope_bindings b WHERE b.scope_id=s.id AND b.binding_value LIKE ?)",params![query,query],|row|row.get(0))?;
-    let mut statement=db.prepare("SELECT s.id,s.kind,s.name,s.revision,s.created_at_ms,s.updated_at_ms,s.last_used_at_ms,b.binding_kind,b.binding_value FROM localization_scopes s LEFT JOIN scope_bindings b ON b.scope_id=s.id WHERE s.name LIKE ? OR b.binding_value LIKE ? ORDER BY CASE WHEN s.kind='global' THEN 0 ELSE 1 END,s.last_used_at_ms DESC LIMIT ? OFFSET ?")?;
-    let records = statement
+    let mut statement=db.prepare("SELECT s.id,s.kind,s.name,s.revision,s.created_at_ms,s.updated_at_ms,s.last_used_at_ms FROM localization_scopes s WHERE s.name LIKE ? OR EXISTS(SELECT 1 FROM scope_bindings b WHERE b.scope_id=s.id AND b.binding_value LIKE ?) ORDER BY CASE WHEN s.kind='global' THEN 0 ELSE 1 END,s.last_used_at_ms DESC LIMIT ? OFFSET ?")?;
+    let mut records = statement
         .query_map(
             params![query, query, request.limit, request.offset],
             scope_row,
         )?
         .collect::<Result<Vec<_>, _>>()?;
+    attach_bindings(&db, &mut records)?;
     Ok(AiLocalizationScopePage { records, total })
 }
 
@@ -233,8 +751,9 @@ pub fn load_scope(
     request: LoadLocalizationScopeRequest,
 ) -> anyhow::Result<AiLocalizationScopeSnapshot> {
     let db = open()?;
-    let scope=db.query_row("SELECT s.id,s.kind,s.name,s.revision,s.created_at_ms,s.updated_at_ms,s.last_used_at_ms,b.binding_kind,b.binding_value FROM localization_scopes s LEFT JOIN scope_bindings b ON b.scope_id=s.id WHERE s.id=?",[&request.scope_id],scope_row).context("Localization scope does not exist.")?;
-    let settings=db.query_row("SELECT default_engine_kind,default_engine_profile_id,review_profile_id,knowledge_enabled,use_official,use_global,use_project,auto_review,qa_empty,qa_language_mix,qa_whitespace,qa_line_breaks,qa_length FROM scope_settings WHERE scope_id=?",[&request.scope_id],|row|Ok(LocalizationScopeSettings{scope_id:request.scope_id.clone(),default_engine_kind:row.get(0)?,default_engine_profile_id:row.get(1)?,review_profile_id:row.get(2)?,knowledge_policy:KnowledgePolicy{enabled:row.get(3)?,use_official_corpus:row.get(4)?,use_global_knowledge:row.get(5)?,use_project_knowledge:row.get(6)?},auto_review:row.get(7)?,qa_config:AiQaConfig{check_empty:row.get(8)?,check_language_mix:row.get(9)?,check_whitespace:row.get(10)?,check_line_breaks:row.get(11)?,check_length:row.get(12)?}}))?;
+    let mut scope=db.query_row("SELECT id,kind,name,revision,created_at_ms,updated_at_ms,last_used_at_ms FROM localization_scopes WHERE id=?",[&request.scope_id],scope_row).context("Localization scope does not exist.")?;
+    attach_bindings(&db, std::slice::from_mut(&mut scope))?;
+    let settings=db.query_row("SELECT default_engine_kind,default_engine_profile_id,review_profile_id,knowledge_enabled,use_official,use_global,use_project,auto_review,qa_empty,qa_language_mix,qa_whitespace,qa_line_breaks,qa_length FROM scope_settings WHERE scope_id=?",[&request.scope_id],|row|Ok(LocalizationScopeSettings{scope_id:request.scope_id.clone(),default_engine_kind:row.get(0)?,default_engine_profile_id:row.get(1)?,review_profile_id:row.get(2)?,knowledge_policy:KnowledgePolicy{enabled:row.get(3)?,use_official_corpus:row.get(4)?,use_global_knowledge:row.get(5)?,use_profile_knowledge:row.get(6)?},auto_review:row.get(7)?,qa_config:AiQaConfig{check_empty:row.get(8)?,check_language_mix:row.get(9)?,check_whitespace:row.get(10)?,check_line_breaks:row.get(11)?,check_length:row.get(12)?}}))?;
     Ok(AiLocalizationScopeSnapshot { scope, settings })
 }
 
@@ -244,7 +763,7 @@ pub fn save_scope_settings(
     let mut db = open()?;
     let tx = db.transaction()?;
     let value = &request.settings;
-    tx.execute("UPDATE scope_settings SET default_engine_kind=?,default_engine_profile_id=?,review_profile_id=?,knowledge_enabled=?,use_official=?,use_global=?,use_project=?,auto_review=?,qa_empty=?,qa_language_mix=?,qa_whitespace=?,qa_line_breaks=?,qa_length=? WHERE scope_id=?",params![value.default_engine_kind,value.default_engine_profile_id,value.review_profile_id,value.knowledge_policy.enabled,value.knowledge_policy.use_official_corpus,value.knowledge_policy.use_global_knowledge,value.knowledge_policy.use_project_knowledge,value.auto_review,value.qa_config.check_empty,value.qa_config.check_language_mix,value.qa_config.check_whitespace,value.qa_config.check_line_breaks,value.qa_config.check_length,value.scope_id])?;
+    tx.execute("UPDATE scope_settings SET default_engine_kind=?,default_engine_profile_id=?,review_profile_id=?,knowledge_enabled=?,use_official=?,use_global=?,use_project=?,auto_review=?,qa_empty=?,qa_language_mix=?,qa_whitespace=?,qa_line_breaks=?,qa_length=? WHERE scope_id=?",params![value.default_engine_kind,value.default_engine_profile_id,value.review_profile_id,value.knowledge_policy.enabled,value.knowledge_policy.use_official_corpus,value.knowledge_policy.use_global_knowledge,value.knowledge_policy.use_profile_knowledge,value.auto_review,value.qa_config.check_empty,value.qa_config.check_language_mix,value.qa_config.check_whitespace,value.qa_config.check_line_breaks,value.qa_config.check_length,value.scope_id])?;
     bump(&tx, &value.scope_id)?;
     tx.commit()?;
     load_scope(LoadLocalizationScopeRequest {
@@ -407,8 +926,9 @@ fn memory_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<AiTranslationMemoryEn
 fn memory_lexical_score(query: &str, row: &AiTranslationMemoryEntry) -> (f64, &'static str) {
     let query = normalize(query);
     let text = normalize(&row.source_text);
+    let target = normalize(&row.target_text);
     let key = row.unit_key.as_deref().map(normalize).unwrap_or_default();
-    if query == text || query == key {
+    if query == text || query == target || query == key {
         return (1.0, "exact");
     }
     let boundary = |value: &str| {
@@ -417,6 +937,7 @@ fn memory_lexical_score(query: &str, row: &AiTranslationMemoryEntry) -> (f64, &'
             .any(|token| token == query)
     };
     if boundary(&text)
+        || boundary(&target)
         || boundary(&key)
         || row
             .file_namespace
@@ -425,50 +946,141 @@ fn memory_lexical_score(query: &str, row: &AiTranslationMemoryEntry) -> (f64, &'
     {
         return (0.9, "whole-token");
     }
-    if text.contains(&query) || key.contains(&query) {
+    if text.contains(&query) || target.contains(&query) || key.contains(&query) {
         (0.35, "substring")
     } else {
-        (0.0, "semantic")
+        let score = crate::domain::localization::lexical::keyword_score(
+            &query,
+            &[
+                &row.source_text,
+                &row.target_text,
+                row.unit_key.as_deref().unwrap_or_default(),
+                row.file_namespace.as_deref().unwrap_or_default(),
+            ],
+        );
+        if score > 0.0 {
+            (score, "keyword")
+        } else {
+            (0.0, "semantic")
+        }
     }
 }
+
+fn lexical_memory_suggestions(
+    db: &Connection,
+    scope_id: &str,
+    source_locale: &str,
+    target_locale: &str,
+    query: &str,
+    limit: usize,
+) -> anyhow::Result<Vec<AiTranslationMemoryEntry>> {
+    let mut tokens = crate::domain::localization::lexical::keywords(query);
+    if tokens.is_empty() {
+        tokens.push(query.trim().to_lowercase());
+    }
+    let mut sql = "SELECT id,scope_id,source_locale,target_locale,source_text,target_text,source_kind,file_namespace,unit_key,confirmed_at_ms,use_count FROM translation_memory WHERE scope_id=? AND source_locale=? AND target_locale=? AND (".to_string();
+    let mut values: Vec<rusqlite::types::Value> = vec![
+        scope_id.to_string().into(),
+        source_locale.to_string().into(),
+        target_locale.to_string().into(),
+    ];
+    for (index, token) in tokens.iter().enumerate() {
+        if index > 0 {
+            sql.push_str(" OR ");
+        }
+        sql.push_str("source_text LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(unit_key,'') LIKE ? ESCAPE '\\' COLLATE NOCASE");
+        let pattern = crate::domain::localization::lexical::like_pattern(token);
+        values.extend([pattern.clone().into(), pattern.into()]);
+    }
+    sql.push_str(") ORDER BY confirmed_at_ms DESC LIMIT 5000");
+    let mut statement = db.prepare(&sql)?;
+    let mut records = statement
+        .query_map(params_from_iter(values), memory_row)?
+        .collect::<Result<Vec<_>, _>>()?;
+    for row in &mut records {
+        let (score, kind) = memory_lexical_score(query, row);
+        row.lexical_similarity = score;
+        row.score = score;
+        row.similarity = score;
+        row.match_kind = kind.into();
+        row.retrieval_mode = "lexical".into();
+    }
+    records.retain(|row| row.lexical_similarity > 0.0);
+    records.sort_by(|left, right| {
+        right
+            .score
+            .total_cmp(&left.score)
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    records.truncate(limit);
+    Ok(records)
+}
+
 pub fn search_memory(
     request: SearchLocalizationKnowledgeRequest,
+) -> anyhow::Result<AiTranslationMemoryPage> {
+    let semantic = match (request.query.as_deref(), request.source_locale.as_deref()) {
+        (Some(query), Some(source)) if !query.trim().is_empty() && !source.trim().is_empty() => {
+            crate::domain::localization::semantic::search_candidates(
+                "translation-memory",
+                Some(&request.scope_id),
+                source,
+                query,
+                50,
+            )
+            .unwrap_or_default()
+        }
+        _ => Vec::new(),
+    };
+    search_memory_with_semantic(request, semantic)
+}
+
+pub(crate) fn search_memory_with_semantic(
+    request: SearchLocalizationKnowledgeRequest,
+    semantic: Vec<(String, String, f64)>,
 ) -> anyhow::Result<AiTranslationMemoryPage> {
     if request.limit == 0 || request.limit > 500 {
         bail!("Memory page size must be between 1 and 500.")
     }
     let db = open()?;
     let query = request.query.unwrap_or_default();
-    let mut statement=db.prepare("SELECT id,scope_id,source_locale,target_locale,source_text,target_text,source_kind,file_namespace,unit_key,confirmed_at_ms,use_count FROM translation_memory WHERE scope_id=? AND (?='' OR source_locale=?) AND (?='' OR target_locale=?) AND (?='' OR source_text LIKE '%'||?||'%' OR target_text LIKE '%'||?||'%') ORDER BY confirmed_at_ms DESC LIMIT 1000")?;
     let source = request.source_locale.unwrap_or_default();
     let target = request.target_locale.unwrap_or_default();
+    let mut keywords = crate::domain::localization::lexical::keywords(&query);
+    if keywords.is_empty() && !query.trim().is_empty() {
+        keywords.push(query.trim().to_lowercase());
+    }
+    let mut sql = "SELECT id,scope_id,source_locale,target_locale,source_text,target_text,source_kind,file_namespace,unit_key,confirmed_at_ms,use_count FROM translation_memory WHERE scope_id=?".to_string();
+    let mut values = vec![rusqlite::types::Value::Text(request.scope_id.clone())];
+    if !source.is_empty() {
+        sql.push_str(" AND source_locale=?");
+        values.push(source.clone().into());
+    }
+    if !target.is_empty() {
+        sql.push_str(" AND target_locale=?");
+        values.push(target.clone().into());
+    }
+    if !query.is_empty() {
+        sql.push_str(" AND (");
+        for (index, token) in keywords.iter().enumerate() {
+            if index > 0 {
+                sql.push_str(" OR ");
+            }
+            sql.push_str("source_text LIKE ? ESCAPE '\\' COLLATE NOCASE OR target_text LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(unit_key,'') LIKE ? ESCAPE '\\' COLLATE NOCASE");
+            let pattern = crate::domain::localization::lexical::like_pattern(token);
+            values.extend([
+                pattern.clone().into(),
+                pattern.clone().into(),
+                pattern.into(),
+            ]);
+        }
+        sql.push(')');
+    }
+    sql.push_str(" ORDER BY confirmed_at_ms DESC LIMIT 5000");
+    let mut statement = db.prepare(&sql)?;
     let mut records = statement
-        .query_map(
-            params![
-                request.scope_id,
-                source,
-                source,
-                target,
-                target,
-                query,
-                query,
-                query
-            ],
-            memory_row,
-        )?
+        .query_map(params_from_iter(values), memory_row)?
         .collect::<Result<Vec<_>, _>>()?;
-    let semantic = if query.is_empty() || source.is_empty() {
-        Vec::new()
-    } else {
-        crate::domain::localization::semantic::search_candidates(
-            "translation-memory",
-            Some(&request.scope_id),
-            &source,
-            &query,
-            50,
-        )
-        .unwrap_or_default()
-    };
     let semantic_by_id = semantic
         .into_iter()
         .map(|(id, fingerprint, similarity)| (id, (fingerprint, similarity)))
@@ -543,18 +1155,31 @@ pub(crate) fn probe_memory_global(
         bail!("Semantic memory probe requires a query and a limit between 1 and 50.");
     }
     let db = open()?;
-    let mut statement = db.prepare(
-        "SELECT id,scope_id,source_locale,target_locale,source_text,target_text,source_kind,file_namespace,unit_key,confirmed_at_ms,use_count
-         FROM translation_memory
-         WHERE source_locale=? AND target_locale=?
-           AND (source_text LIKE '%'||?||'%' OR target_text LIKE '%'||?||'%')
-         ORDER BY confirmed_at_ms DESC LIMIT 1000",
-    )?;
+    let mut keywords = crate::domain::localization::lexical::keywords(query);
+    if keywords.is_empty() {
+        keywords.push(query.trim().to_lowercase());
+    }
+    let mut sql = "SELECT id,scope_id,source_locale,target_locale,source_text,target_text,source_kind,file_namespace,unit_key,confirmed_at_ms,use_count FROM translation_memory WHERE source_locale=? AND target_locale=? AND (".to_string();
+    let mut values: Vec<rusqlite::types::Value> = vec![
+        source_locale.to_string().into(),
+        target_locale.to_string().into(),
+    ];
+    for (index, token) in keywords.iter().enumerate() {
+        if index > 0 {
+            sql.push_str(" OR ");
+        }
+        sql.push_str("source_text LIKE ? ESCAPE '\\' COLLATE NOCASE OR target_text LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(unit_key,'') LIKE ? ESCAPE '\\' COLLATE NOCASE");
+        let pattern = crate::domain::localization::lexical::like_pattern(token);
+        values.extend([
+            pattern.clone().into(),
+            pattern.clone().into(),
+            pattern.into(),
+        ]);
+    }
+    sql.push_str(") ORDER BY confirmed_at_ms DESC LIMIT 5000");
+    let mut statement = db.prepare(&sql)?;
     let mut records = statement
-        .query_map(
-            params![source_locale, target_locale, query, query],
-            memory_row,
-        )?
+        .query_map(params_from_iter(values), memory_row)?
         .collect::<Result<Vec<_>, _>>()?;
     let semantic_by_id = semantic
         .into_iter()
@@ -826,7 +1451,7 @@ pub(crate) fn resolve_translation_knowledge(
     let mut db = open()?;
     let tx = db.transaction()?;
     let mut scope_ids = Vec::new();
-    if policy.use_project_knowledge {
+    if policy.use_profile_knowledge {
         if let Some(scope_id) = scope_id {
             scope_ids.push(scope_id.to_string());
         }
@@ -850,6 +1475,26 @@ pub(crate) fn resolve_translation_knowledge(
                 trace.translation_memory_matches += 1;
                 break;
             }
+        }
+    }
+    let mut memory_suggestions = BTreeMap::<String, Vec<AiTranslationMemoryEntry>>::new();
+    for item in items.iter().filter(|item| !exact.contains_key(&item.id)) {
+        let mut suggestions = Vec::new();
+        let mut seen = BTreeSet::new();
+        for scope in &scope_ids {
+            for row in
+                lexical_memory_suggestions(&tx, scope, source_locale, target_locale, &item.text, 3)?
+            {
+                if seen.insert(normalize(&row.source_text)) {
+                    suggestions.push(row);
+                }
+            }
+        }
+        suggestions.sort_by(|left, right| right.score.total_cmp(&left.score));
+        suggestions.truncate(3);
+        if !suggestions.is_empty() {
+            trace.translation_memory_matches += suggestions.len() as u64;
+            memory_suggestions.insert(item.id.clone(), suggestions);
         }
     }
     let mut glossary: BTreeMap<String, AiGlossaryEntry> = BTreeMap::new();
@@ -911,6 +1556,19 @@ pub(crate) fn resolve_translation_knowledge(
                 item.id.clone(),
                 format!("Required glossary:\n{}", matches.join("\n")),
             );
+        }
+        if let Some(suggestions) = memory_suggestions.get(&item.id) {
+            let summary = suggestions
+                .iter()
+                .map(|row| format!("{} => {}", row.source_text, row.target_text))
+                .collect::<Vec<_>>()
+                .join("\n");
+            contexts
+                .entry(item.id.clone())
+                .and_modify(|value| {
+                    value.push_str(&format!("\nTranslation memory suggestions:\n{summary}"))
+                })
+                .or_insert_with(|| format!("Translation memory suggestions:\n{summary}"));
         }
     }
     let mut style: Option<AiStyleGuide> = None;

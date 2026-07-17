@@ -20,6 +20,11 @@ pub use support::logging;
 pub type AppRuntime = tauri::Wry;
 pub type AppHandle = host::HostHandle;
 
+/// Read-only diagnostics exposed to local performance examples.
+pub mod diagnostics {
+    pub use crate::domain::localization::semantic::{SemanticBenchmarkSample, benchmark_query};
+}
+
 use commands::ai::{
     apply_ai_profiles_import, cancel_ai_job, clear_ai_translation_cache, export_ai_profiles,
     get_ai_translation_cache_stats, list_ai_models, load_ai_settings, preview_ai_profiles_import,
@@ -32,9 +37,9 @@ use commands::ai_usage::{
 use commands::app_ui::{load_app_ui_state, patch_app_ui_state};
 use commands::assets::{
     clear_file_cache, detect_default_game_directory, export_file, export_map_png,
-    get_file_cache_stats, list_known_game_directories, load_audio_data_url, load_image_data_url,
-    load_map_asset, load_text_asset, load_text_file, scan_audio_assets, scan_events, scan_maps,
-    validate_game_directory,
+    get_file_cache_stats, list_known_game_directories, load_audio_data_url, load_event_asset,
+    load_image_data_url, load_map_asset, load_text_asset, load_text_file, scan_audio_assets,
+    scan_events, scan_maps, validate_game_directory,
 };
 use commands::audio::load_xact_audio_data_url;
 use commands::content_patcher::load_content_patcher_result_asset;
@@ -62,21 +67,26 @@ use commands::launcher::{
     start_nexus_sso, validate_nexus_api_key,
 };
 use commands::localization::{
-    cancel_localization_job, copy_translation_memory_entries, delete_localization_glossary_entries,
+    acquire_localization_semantic_runtime, cancel_localization_job,
+    copy_translation_memory_entries, create_localization_profile,
+    delete_localization_glossary_entries, delete_localization_profile,
     delete_localization_semantic_model, delete_translation_memory_entries,
     download_localization_semantic_model, export_localization_knowledge,
-    import_localization_knowledge, inspect_localization_semantic_index,
-    inspect_localization_semantic_model, inspect_official_localization_index,
-    list_localization_glossary_entries, list_localization_review_runs, list_localization_scopes,
-    load_localization_default_engine, load_localization_review_run, load_localization_scope,
-    load_localization_semantic_settings, load_localization_style_guide,
-    open_localization_semantic_model_directory, probe_localization_semantic_search,
-    rebind_localization_scope, rebuild_localization_semantic_index,
-    rebuild_official_localization_index, record_confirmed_translations, resolve_localization_scope,
-    review_localization_batch, save_localization_default_engine, save_localization_scope_settings,
+    import_localization_knowledge, initialize_localization_plan, inspect_localization_context,
+    inspect_localization_semantic_index, inspect_localization_semantic_model,
+    inspect_official_localization_index, list_localization_glossary_entries,
+    list_localization_review_runs, list_localization_scopes, load_localization_default_engine,
+    load_localization_review_run, load_localization_scope, load_localization_semantic_settings,
+    load_localization_style_guide, open_localization_semantic_model_directory,
+    probe_localization_semantic_search, rebuild_localization_semantic_index,
+    rebuild_official_localization_index, record_confirmed_translations,
+    release_localization_semantic_runtime, remove_localization_profile_binding,
+    rename_localization_profile, resolve_localization_scope, review_localization_batch,
+    save_localization_default_engine, save_localization_scope_settings,
     save_localization_semantic_settings, save_localization_style_guide,
-    search_official_localization, search_translation_memory, sync_localization_semantic_index,
-    test_localization_semantic_remote_profile, translate_localization_batch,
+    search_official_localization, search_translation_memory, set_localization_profile_binding,
+    sync_localization_semantic_index, test_localization_semantic_remote_profile,
+    translate_localization_batch, unload_localization_semantic_runtime,
     update_localization_review_issues, upsert_localization_glossary_entries,
     verify_localization_semantic_model,
 };
@@ -211,6 +221,7 @@ pub fn run() {
             export_map_png,
             export_file,
             load_text_asset,
+            load_event_asset,
             load_text_file,
             load_image_data_url,
             scan_audio_assets,
@@ -307,12 +318,21 @@ pub fn run() {
             inspect_official_localization_index,
             rebuild_official_localization_index,
             search_official_localization,
+            initialize_localization_plan,
+            inspect_localization_context,
+            acquire_localization_semantic_runtime,
+            release_localization_semantic_runtime,
+            unload_localization_semantic_runtime,
             cancel_localization_job,
             resolve_localization_scope,
             list_localization_scopes,
             load_localization_scope,
             save_localization_scope_settings,
-            rebind_localization_scope,
+            create_localization_profile,
+            rename_localization_profile,
+            delete_localization_profile,
+            set_localization_profile_binding,
+            remove_localization_profile_binding,
             list_localization_glossary_entries,
             upsert_localization_glossary_entries,
             delete_localization_glossary_entries,

@@ -1,4 +1,7 @@
 use super::*;
+use crate::domain::localization::types::{
+    AiSemanticExecutionPreference, SaveAiSemanticSettingsRequest,
+};
 
 #[test]
 fn source_context_fusion_is_normalized_and_source_weighted() {
@@ -96,6 +99,14 @@ fn lexical_probe_uses_real_empty_indexes_and_reports_the_missing_official_corpus
     let root =
         std::env::temp_dir().join(format!("modforge-semantic-probe-{}", uuid::Uuid::new_v4()));
     unsafe { std::env::set_var("MODFORGE_TEST_DATA_DIR", &root) };
+    settings::save_settings(SaveAiSemanticSettingsRequest {
+        mode: AiSemanticSearchMode::Lexical,
+        execution_preference: AiSemanticExecutionPreference::Auto,
+        local_model_directory: None,
+        active_remote_profile_id: None,
+        remote_profiles: Vec::new(),
+    })
+    .unwrap();
 
     let result = run_probe(ProbeAiSemanticSearchRequest {
         query: "winter gift Abigail".into(),

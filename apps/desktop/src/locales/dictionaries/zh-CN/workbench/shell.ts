@@ -202,6 +202,7 @@ const shell: WorkbenchShellCopy = {
     shellNavExpand: '展开导航',
     shellNavBrowseGroup: '浏览',
     shellNavAuthoringGroup: '项目',
+    shellNavTranslationGroup: '翻译',
     shellNavToolsGroup: '工具',
     shellNavDevGroup: '开发',
     moduleLabels: {
@@ -213,7 +214,7 @@ const shell: WorkbenchShellCopy = {
       'mod-browser': 'CP 模组查看',
       'mod-translation': '模组翻译',
       'i18n-generator': '翻译生成器',
-      'ai-localization': 'AI 本地化',
+      'ai-localization': '本地化资源中心',
       'project-dashboard': '项目主页',
       'project-content': '项目内容',
       'map-authoring': '地图制作',

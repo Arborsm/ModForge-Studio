@@ -234,8 +234,23 @@ pub(crate) fn read_windows_file_version(path: &Path) -> Option<String> {
 }
 
 #[cfg(not(target_os = "windows"))]
-pub(crate) fn read_windows_file_version(_path: &Path) -> Option<String> {
-    None
+pub(crate) fn read_windows_file_version(path: &Path) -> Option<String> {
+    if !path.is_file() {
+        return None;
+    }
+    let bytes = std::fs::read(path).ok()?;
+    let text = String::from_utf8_lossy(&bytes);
+    text.split(|character: char| !character.is_ascii_graphic())
+        .find_map(|candidate| {
+            let value = candidate.trim();
+            (value.len() >= 5
+                && value.chars().filter(|character| *character == '.').count() >= 2
+                && value.split('.').take(3).all(|part| {
+                    !part.is_empty() && part.chars().all(|character| character.is_ascii_digit())
+                }))
+            .then(|| parse_version_triplet(value))
+            .flatten()
+        })
 }
 
 pub(crate) fn resolve_smapi_runtime_versions_with_reader<F>(

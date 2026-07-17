@@ -1,4 +1,5 @@
 import { mockConvertFileSrc, mockIPC, mockWindows } from '@tauri-apps/api/mocks'
+import { emit } from '@tauri-apps/api/event'
 import type {
   LauncherDownloadQueueState,
   LauncherGmcmProbeDiagnosticsResult,
@@ -30,6 +31,8 @@ import type {
   SaveAiSettingsRequest,
   SaveMachineTranslationSettingsRequest,
 } from '@shared/contracts'
+import { createLocalizationKnowledgeMockHandler } from './devLauncherMockLocalization'
+import { createModTranslationMockHandler } from './devLauncherMockModTranslation'
 import { DEFAULT_LOADING_MOTION_PREFERENCE } from '@shared/lib/loading-motion'
 
 declare global {
@@ -40,6 +43,7 @@ declare global {
 
 const DEV_LAUNCHER_MOCK_QUERY_PARAM = 'mfLauncherMock'
 const DEV_SETTINGS_MOCK_QUERY_PARAM = 'mfSettingsMock'
+const DEV_MOCK_GAME_DIRECTORY = 'E:\\ModForge Dev\\Stardew Valley'
 const DEV_LAUNCHER_MOCK_MODS_PATH = 'E:\\ModForge Dev\\Stardew Valley\\Mods'
 
 const DEV_AI_PRESETS: AiSettingsSnapshot['presets'] = [
@@ -193,6 +197,9 @@ function createInitialMachineTranslationSettings(): MachineTranslationSettingsSn
 function createInitialSemanticSettings(): AiSemanticSettingsSnapshot {
   return {
     mode: 'builtin',
+    executionPreference: 'auto',
+    activeExecutionProvider: 'directml',
+    executionFallbackReason: null,
     localModelDirectory: null,
     activeRemoteProfileId: null,
     remoteProfiles: [],
@@ -203,12 +210,12 @@ function createInitialSemanticModelStatus(): AiSemanticModelStatus {
   return {
     mode: 'builtin',
     available: true,
-    downloaded: true,
+    downloaded: false,
     modelId: 'multilingual-e5-small',
-    revision: 'mock-rev-1',
+    revision: null,
     dimensions: 384,
-    modelPath: 'E:\\ModForge Dev\\Models\\multilingual-e5-small',
-    cacheBytes: 128 * 1024 * 1024,
+    modelPath: null,
+    cacheBytes: 0,
     unavailableReason: null,
   }
 }
@@ -611,7 +618,7 @@ export function installDevLauncherMock() {
   const mods = createMockMods()
   let appUiState = createInitialAppUiState()
   let settings: LauncherSettings = {
-    gamePath: 'E:\\ModForge Dev\\Stardew Valley',
+    gamePath: DEV_MOCK_GAME_DIRECTORY,
     modsPath: DEV_LAUNCHER_MOCK_MODS_PATH,
     downloadPath: 'E:\\ModForge Dev\\Downloads',
     nexusApiKey: null,
@@ -641,11 +648,21 @@ export function installDevLauncherMock() {
     })
   }
   exposeLauncherCustomSortState(libraryState)
+  const handleLocalizationKnowledgeMockCommand = createLocalizationKnowledgeMockHandler()
+  const handleModTranslationMockCommand = createModTranslationMockHandler(DEV_MOCK_GAME_DIRECTORY)
 
   mockWindows('main')
   mockConvertFileSrc('windows')
   mockIPC(
-    (command, payload) => {
+    async (command, payload) => {
+      const localizationKnowledgeResult = handleLocalizationKnowledgeMockCommand(command, payload)
+      if (localizationKnowledgeResult.handled) {
+        return localizationKnowledgeResult.result
+      }
+      const modTranslationResult = handleModTranslationMockCommand(command, payload)
+      if (modTranslationResult.handled) {
+        return modTranslationResult.result
+      }
       switch (command) {
         case 'load_app_ui_state':
           return appUiState
@@ -791,6 +808,9 @@ export function installDevLauncherMock() {
           if (request) {
             semanticSettings = {
               mode: request.mode,
+              executionPreference: request.executionPreference,
+              activeExecutionProvider: request.executionPreference === 'auto' ? 'directml' : 'cpu',
+              executionFallbackReason: null,
               localModelDirectory: request.localModelDirectory,
               activeRemoteProfileId: request.activeRemoteProfileId,
               remoteProfiles: request.remoteProfiles ?? [],
@@ -863,13 +883,41 @@ export function installDevLauncherMock() {
           }
         }
         case 'download_localization_semantic_model':
+          semanticModel = {
+            ...semanticModel,
+            downloaded: true,
+            available: true,
+            revision: 'mock-rev-1',
+            modelPath: 'E:\\ModForge Dev\\Models\\multilingual-e5-small',
+            cacheBytes: 128 * 1024 * 1024,
+          }
+          return semanticModel
         case 'delete_localization_semantic_model':
-          semanticModel = { ...semanticModel, downloaded: true, available: true }
+          semanticModel = { ...semanticModel, downloaded: false, revision: null, modelPath: null, cacheBytes: 0 }
           return semanticModel
         case 'open_localization_semantic_model_directory':
           return null
         case 'rebuild_localization_semantic_index':
-        case 'sync_localization_semantic_index':
+        case 'sync_localization_semantic_index': {
+          const request = getMockRequest<{ jobId: string }>(payload)
+          const total = semanticIndex.sourceRecords
+          for (const percentage of [20, 40, 60, 80, 100]) {
+            const completed = Math.round((total * percentage) / 100)
+            await emit('localization://semantic-progress', {
+              jobId: request?.jobId ?? 'mock-semantic-index',
+              modelId: semanticModel.modelId ?? 'multilingual-e5-small',
+              kind: 'index',
+              phase: command === 'rebuild_localization_semantic_index' ? 'embedding' : 'synchronizing',
+              currentFile: `records ${completed}/${total}`,
+              downloadedBytes: completed,
+              totalBytes: total,
+              percentage,
+              bytesPerSecond: null,
+              fileIndex: completed,
+              fileCount: total,
+            })
+            await new Promise((resolve) => window.setTimeout(resolve, 250))
+          }
           semanticIndex = {
             ...semanticIndex,
             indexedRecords: semanticIndex.sourceRecords,
@@ -878,6 +926,7 @@ export function installDevLauncherMock() {
             stale: false,
           }
           return semanticIndex
+        }
         case 'test_localization_semantic_remote_profile':
           return { model: 'text-embedding-3-small', dimensions: 1536, latencyMs: 96 }
         case 'query_ai_usage_summary':

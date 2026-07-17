@@ -152,6 +152,18 @@ fn progress_updates_are_throttled_to_one_hundred_milliseconds() {
 }
 
 #[test]
+fn average_speed_excludes_bytes_present_before_a_resumed_transfer() {
+    assert_eq!(
+        average_transfer_speed(30 * 1024, 10 * 1024, Duration::from_secs(2)),
+        10 * 1024
+    );
+    assert_eq!(
+        average_transfer_speed(10 * 1024, 10 * 1024, Duration::ZERO),
+        0
+    );
+}
+
+#[test]
 fn local_write_failures_do_not_create_partial_or_final_files() {
     let root = temporary_directory();
     let blocked_parent = root.join("not-a-directory");

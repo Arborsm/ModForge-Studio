@@ -2388,6 +2388,7 @@ dependencies = [
  "lz4_flex",
  "lzxd",
  "md-5",
+ "ort",
  "owo-colors",
  "quick-xml 0.39.4",
  "regex",

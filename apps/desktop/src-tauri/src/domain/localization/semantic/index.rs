@@ -1,10 +1,10 @@
 use crate::domain::app_paths::localization_semantic_index_path;
 use crate::domain::localization::types::AiSemanticIndexStatus;
-use anyhow::{Context, bail};
+use anyhow::bail;
 use rusqlite::{Connection, params};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
-use std::sync::{Once, OnceLock};
+use std::sync::{Arc, Mutex, Once, OnceLock};
 use std::time::Duration;
 
 const SCHEMA_VERSION: u32 = 2;
@@ -33,6 +33,50 @@ pub struct ActiveGeneration {
     pub model_id: String,
     pub dimensions: u32,
     pub fingerprints: BTreeMap<(String, String), (String, Option<String>)>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ActiveGenerationIdentity {
+    pub id: String,
+    pub model_key: String,
+    pub model_id: String,
+    pub dimensions: u32,
+}
+
+#[derive(Debug)]
+struct CachedVector {
+    source_id: String,
+    source_fingerprint: String,
+    vector: Vec<f32>,
+    norm: f32,
+}
+
+type VectorGroupKey = (String, Option<String>, String);
+
+#[derive(Debug)]
+struct CachedGeneration {
+    id: String,
+    model_key: String,
+    dimensions: u32,
+    groups: HashMap<VectorGroupKey, Vec<CachedVector>>,
+}
+
+fn vector_cache() -> &'static Mutex<Option<Arc<CachedGeneration>>> {
+    static VALUE: OnceLock<Mutex<Option<Arc<CachedGeneration>>>> = OnceLock::new();
+    VALUE.get_or_init(|| Mutex::new(None))
+}
+
+fn invalidate_vector_cache() {
+    if let Ok(mut cached) = vector_cache().lock() {
+        *cached = None;
+    }
+}
+
+pub fn release_cache() -> bool {
+    vector_cache()
+        .lock()
+        .map(|mut cached| cached.take().is_some())
+        .unwrap_or(false)
 }
 
 fn register_sqlite_vec() {
@@ -98,6 +142,99 @@ fn vector_blob(vector: &[f32]) -> Vec<u8> {
         .collect()
 }
 
+fn vector_from_blob(blob: Vec<u8>, dimensions: u32) -> anyhow::Result<Vec<f32>> {
+    if blob.len() != dimensions as usize * size_of::<f32>() {
+        bail!("Stored semantic vector has incompatible dimensions.");
+    }
+    Ok(blob
+        .chunks_exact(size_of::<f32>())
+        .map(|bytes| f32::from_le_bytes(bytes.try_into().expect("f32 byte width")))
+        .collect())
+}
+
+fn cached_generation(model_key: &str) -> anyhow::Result<Option<Arc<CachedGeneration>>> {
+    if let Some(cached) = vector_cache()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .as_ref()
+        .filter(|cached| cached.model_key == model_key)
+        .cloned()
+    {
+        return Ok(Some(cached));
+    }
+
+    let connection = open()?;
+    let identity = connection
+        .query_row(
+            "SELECT id,dimensions FROM semantic_generations WHERE active=1 AND model_key=?",
+            [model_key],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, u32>(1)?)),
+        )
+        .optional()?;
+    let Some((generation_id, dimensions)) = identity else {
+        return Ok(None);
+    };
+    let mut statement = connection.prepare(
+        "SELECT source_kind,source_id,source_fingerprint,scope_id,source_locale,embedding
+         FROM semantic_vectors WHERE generation_id=?",
+    )?;
+    let mut groups: HashMap<VectorGroupKey, Vec<CachedVector>> = HashMap::new();
+    for row in statement.query_map([&generation_id], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, Option<String>>(3)?,
+            row.get::<_, String>(4)?,
+            row.get::<_, Vec<u8>>(5)?,
+        ))
+    })? {
+        let (source_kind, source_id, source_fingerprint, scope_id, source_locale, blob) = row?;
+        let vector = vector_from_blob(blob, dimensions)?;
+        let norm = vector.iter().map(|value| value * value).sum::<f32>().sqrt();
+        if !norm.is_finite() || norm <= f32::EPSILON {
+            bail!("Stored semantic vector cannot be normalized.");
+        }
+        groups
+            .entry((source_kind, scope_id, source_locale))
+            .or_default()
+            .push(CachedVector {
+                source_id,
+                source_fingerprint,
+                vector,
+                norm,
+            });
+    }
+    let loaded = Arc::new(CachedGeneration {
+        id: generation_id,
+        model_key: model_key.into(),
+        dimensions,
+        groups,
+    });
+    let mut cache = vector_cache()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if cache
+        .as_ref()
+        .is_some_and(|current| current.id != loaded.id)
+        || cache.is_none()
+    {
+        *cache = Some(loaded.clone());
+    }
+    Ok(Some(
+        cache
+            .as_ref()
+            .filter(|current| current.model_key == model_key)
+            .cloned()
+            .unwrap_or(loaded),
+    ))
+}
+
+pub fn prewarm(model_key: &str) -> anyhow::Result<()> {
+    let _ = cached_generation(model_key)?;
+    Ok(())
+}
+
 pub fn replace_generation(
     model_key: &str,
     model_id: &str,
@@ -140,6 +277,7 @@ pub fn replace_generation(
         [&generation],
     )?;
     transaction.commit()?;
+    invalidate_vector_cache();
     Ok(generation)
 }
 
@@ -180,6 +318,24 @@ pub fn active_generation() -> anyhow::Result<Option<ActiveGeneration>> {
         dimensions,
         fingerprints,
     }))
+}
+
+pub fn active_generation_identity() -> anyhow::Result<Option<ActiveGenerationIdentity>> {
+    open()?
+        .query_row(
+            "SELECT id,model_key,model_id,dimensions FROM semantic_generations WHERE active=1",
+            [],
+            |row| {
+                Ok(ActiveGenerationIdentity {
+                    id: row.get(0)?,
+                    model_key: row.get(1)?,
+                    model_id: row.get(2)?,
+                    dimensions: row.get(3)?,
+                })
+            },
+        )
+        .optional()
+        .map_err(Into::into)
 }
 
 pub fn synchronize_generation(
@@ -238,6 +394,7 @@ pub fn synchronize_generation(
         params![official_revision, knowledge_revision, generation.id],
     )?;
     transaction.commit()?;
+    invalidate_vector_cache();
     Ok(())
 }
 
@@ -255,47 +412,47 @@ pub fn search(
     if limit == 0 || limit > 1_000 {
         bail!("Semantic search limit must be between 1 and 1000.");
     }
-    let connection = open()?;
-    let dimensions: Option<u32> = connection
-        .query_row(
-            "SELECT dimensions FROM semantic_generations WHERE active=1 AND model_key=?",
-            [model_key],
-            |row| row.get(0),
-        )
-        .optional()?;
-    let Some(dimensions) = dimensions else {
+    let Some(generation) = cached_generation(model_key)? else {
         return Ok(Vec::new());
     };
-    if query.len() != dimensions as usize {
+    if query.len() != generation.dimensions as usize {
         bail!("Semantic query dimensions do not match the active index.");
     }
-    let mut statement = connection.prepare(
-        "SELECT v.source_id,v.source_fingerprint,1.0-vec_distance_cosine(v.embedding,?1) AS similarity
-         FROM semantic_vectors v JOIN semantic_generations g ON g.id=v.generation_id AND g.active=1
-         WHERE g.model_key=?2 AND v.source_kind=?3 AND (?4 IS NULL OR v.scope_id=?4)
-           AND v.source_locale=?5
-         ORDER BY vec_distance_cosine(v.embedding,?1),v.source_id LIMIT ?6",
-    )?;
-    statement
-        .query_map(
-            params![
-                vector_blob(query),
-                model_key,
-                source_kind,
-                scope_id,
-                source_locale,
-                limit
-            ],
-            |row| {
-                Ok(SemanticMatch {
-                    source_id: row.get(0)?,
-                    source_fingerprint: row.get(1)?,
-                    similarity: row.get(2)?,
-                })
-            },
-        )?
-        .collect::<Result<Vec<_>, _>>()
-        .context("Failed to read semantic search results.")
+    let query_norm = query.iter().map(|value| value * value).sum::<f32>().sqrt();
+    if !query_norm.is_finite() || query_norm <= f32::EPSILON {
+        bail!("Semantic query vector cannot be normalized.");
+    }
+    let mut matches = generation
+        .groups
+        .iter()
+        .filter(|((kind, candidate_scope, locale), _)| {
+            kind == source_kind
+                && locale == source_locale
+                && scope_id.is_none_or(|scope| candidate_scope.as_deref() == Some(scope))
+        })
+        .flat_map(|(_, vectors)| vectors)
+        .map(|candidate| {
+            let dot = candidate
+                .vector
+                .iter()
+                .zip(query)
+                .map(|(left, right)| left * right)
+                .sum::<f32>();
+            SemanticMatch {
+                source_id: candidate.source_id.clone(),
+                source_fingerprint: candidate.source_fingerprint.clone(),
+                similarity: (dot / (candidate.norm * query_norm)) as f64,
+            }
+        })
+        .collect::<Vec<_>>();
+    matches.sort_by(|left, right| {
+        right
+            .similarity
+            .total_cmp(&left.similarity)
+            .then_with(|| left.source_id.cmp(&right.source_id))
+    });
+    matches.truncate(limit as usize);
+    Ok(matches)
 }
 
 pub fn inspect(

@@ -5,6 +5,9 @@
   .translation-editor-grid.has-review {
     grid-template-columns: 280px minmax(0, 1fr) 340px;
   }
+  .translation-editor-grid.has-context {
+    grid-template-columns: 280px minmax(0, 1fr) minmax(250px, 320px);
+  }
   .translation-review-inspector {
     position: static;
     z-index: auto;
@@ -15,6 +18,9 @@
 @media (min-width: 768px) and (max-width: 1279px) {
   .translation-editor-grid {
     grid-template-columns: 280px minmax(0, 1fr);
+  }
+  .translation-editor-grid.has-context {
+    grid-template-columns: 240px minmax(0, 1fr) minmax(240px, 28vw);
   }
   .translation-review-inspector {
     inset: 0 0 0 auto;

@@ -117,6 +117,18 @@ fn handle_connection(mut stream: TcpStream) -> Result<(), String> {
                 assets::load_text_asset(root_path.to_string(), asset_path.to_string(), locale),
             )
         }
+        "/load-event-asset" => {
+            let root_path = required_param(&params, "rootPath")?;
+            let asset_path = required_param(&params, "assetPath")?;
+            let locale = params
+                .get("locale")
+                .filter(|value| !value.trim().is_empty())
+                .cloned();
+            write_json_result(
+                &mut stream,
+                assets::load_event_asset(root_path.to_string(), asset_path.to_string(), locale),
+            )
+        }
         "/load-image-data-url" => {
             let path = required_param(&params, "path")?;
             let locale = params

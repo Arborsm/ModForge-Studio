@@ -9,10 +9,33 @@ fn test_root() -> PathBuf {
 }
 
 #[test]
-fn lexical_mode_is_available_without_any_model_files() {
+fn builtin_mode_is_the_default_without_saved_settings() {
     let _guard = crate::test_support::process_environment_lock();
     let root = test_root();
     unsafe { std::env::set_var("MODFORGE_TEST_DATA_DIR", &root) };
+    let status = inspect_model().unwrap();
+    assert_eq!(status.mode, AiSemanticSearchMode::Builtin);
+    assert!(!status.available);
+    assert!(!status.downloaded);
+    assert_eq!(status.model_id.as_deref(), Some(BUILTIN_MODEL_ID));
+    assert_eq!(status.cache_bytes, 0);
+    unsafe { std::env::remove_var("MODFORGE_TEST_DATA_DIR") };
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn explicitly_saved_lexical_mode_is_available_without_model_files() {
+    let _guard = crate::test_support::process_environment_lock();
+    let root = test_root();
+    unsafe { std::env::set_var("MODFORGE_TEST_DATA_DIR", &root) };
+    settings::save_settings(SaveAiSemanticSettingsRequest {
+        mode: AiSemanticSearchMode::Lexical,
+        execution_preference: AiSemanticExecutionPreference::Auto,
+        local_model_directory: None,
+        active_remote_profile_id: None,
+        remote_profiles: Vec::new(),
+    })
+    .unwrap();
     let status = inspect_model().unwrap();
     assert_eq!(status.mode, AiSemanticSearchMode::Lexical);
     assert!(status.available);

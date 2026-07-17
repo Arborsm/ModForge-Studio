@@ -1,6 +1,6 @@
 import type { AppRegistry, AppRegistryInput, RegistryItemId, WorkbenchModuleRegistration } from '@shared/contracts'
 
-const NAVIGATION_SECTIONS = new Set(['browse', 'authoring', 'tools', 'development'])
+const NAVIGATION_SECTIONS = new Set(['browse', 'authoring', 'translation', 'tools', 'development'])
 
 function validateWorkbenchModules(modules: readonly WorkbenchModuleRegistration[]) {
   const ids = new Set<string>()

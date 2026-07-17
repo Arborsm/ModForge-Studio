@@ -111,9 +111,15 @@ sqlite-vec = "=0.1.6"
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56.0"
 keyring = { version = "3", features = ["windows-native"] }
+fastembed = { version = "5.17.3", default-features = false, features = ["directml"] }
+ort = { version = "2.0.0-rc.12", default-features = false, features = ["directml"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 keyring = { version = "3", features = ["apple-native"] }
 
+[target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
+ort = { version = "2.0.0-rc.12", default-features = false, features = ["coreml"] }
+
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "3", features = ["sync-secret-service"] }
+ort = { version = "2.0.0-rc.12", default-features = false, features = ["cuda", "copy-dylibs"] }

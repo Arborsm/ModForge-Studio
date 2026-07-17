@@ -6,6 +6,7 @@ import { useNotificationCopy, useSettingsMenuCopy } from '@locales/provider'
 import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import type {
   AiModelInfo,
+  AiSettingsTab,
   AiProfileImportConflictPolicy,
   AiProfileImportPreview,
   AiProfileTestResult,
@@ -29,8 +30,7 @@ const AI_SETTINGS_SAVE_NOTIFICATION_ID = 'ai-settings-save-error'
 const AI_SETTINGS_CACHE_NOTIFICATION_ID = 'ai-settings-cache-error'
 const AI_SETTINGS_TEST_NOTIFICATION_ID = 'ai-settings-connection-test'
 const AI_SETTINGS_MODELS_NOTIFICATION_ID = 'ai-settings-load-models'
-const AI_TABS = ['engine', 'generative', 'machine-translation', 'semantic', 'usage'] as const
-type AiSettingsTab = (typeof AI_TABS)[number]
+const AI_TABS = ['engine', 'generative', 'machine-translation', 'semantic', 'usage'] as const satisfies readonly AiSettingsTab[]
 
 function profileNotificationId(profileId: string) {
   return `ai-settings-profile-${profileId}`
@@ -95,6 +95,10 @@ function SemanticStatusStrip({ active, onConfigure }: { active: boolean; onConfi
     if (failed) return copy.loadError
     if (!settings) return copy.loading
     const parts: string[] = [copy.modes[mode]]
+    if (mode === 'lexical') {
+      parts.push(copy.lexicalIndexNotRequired)
+      return parts.join(' · ')
+    }
     if (model) parts.push(model.available ? copy.available : copy.unavailable)
     if (index) {
       parts.push(`${index.coveragePercentage.toFixed(1)}%`)
@@ -159,9 +163,11 @@ function profilesAreSaved(snapshot: AiSettingsSnapshot | null, profiles: Profile
 }
 
 export function AiSettingsPanel({
+  initialTab = 'engine',
   onDirtyChange,
   requestLeave,
 }: {
+  initialTab?: AiSettingsTab
   onDirtyChange?: (dirty: boolean) => void
   requestLeave: (action: () => void) => void
 }) {
@@ -190,7 +196,7 @@ export function AiSettingsPanel({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cacheError, setCacheError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<AiSettingsTab>('engine')
+  const [activeTab, setActiveTab] = useState<AiSettingsTab>(initialTab)
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
   const [defaultEngineDirty, setDefaultEngineDirty] = useState(false)
   const [machineTranslationDirty, setMachineTranslationDirty] = useState(false)

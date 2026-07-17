@@ -892,7 +892,7 @@ impl HostCommandScheduler {
             HostRuntimePoolDescriptor {
                 lane: HostCommandLane::Network,
                 execution_pool: HostCommandExecutionPool::AiSemanticSearch,
-                max_concurrency: 2,
+                max_concurrency: 1,
                 queue_capacity: config.ai_queue_capacity,
             },
         ];

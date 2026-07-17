@@ -299,10 +299,18 @@ describe('frontend module architecture', () => {
     expect(moduleRegistrations).toContain("'project-translation',")
     expect(moduleRegistrations).toContain("'dev-resource-browser',")
     expect(moduleRegistrations).toContain("import('./ui/module-runtimes/MapBrowserModuleRuntime')")
-    expect(moduleRegistrations).toContain("import('./ui/module-runtimes/ModTranslationModuleRuntime')")
-    expect(moduleRegistrations).toContain("import('./ui/module-runtimes/ProjectTranslationModuleRuntime')")
+    expect(moduleRegistrations).toContain("import('./translation/runtimes/ModTranslationModuleRuntime')")
+    expect(moduleRegistrations).toContain("import('./translation/runtimes/ProjectTranslationModuleRuntime')")
     expect(moduleRegistrations).not.toContain('WorkbenchModuleRuntimes')
     expect(moduleRegistrations).not.toContain('entity-browser-runtimes')
+  })
+
+  it('keeps translation pages and runtimes in the dedicated workbench domain', async () => {
+    await expectFile(sourcePath('src/pages/workbench/translation/localization-center/ui/AiLocalizationView.tsx'))
+    await expectFile(sourcePath('src/pages/workbench/translation/runtimes/ModTranslationModuleRuntime.tsx'))
+    await expectFile(sourcePath('src/pages/workbench/translation/runtimes/ProjectTranslationModuleRuntime.tsx'))
+    await expect(access(sourcePath('src/pages/workbench/tools/ai-localization'))).rejects.toThrow()
+    await expect(access(sourcePath('src/pages/workbench/ui/module-runtimes/ModTranslationModuleRuntime.tsx'))).rejects.toThrow()
   })
 
   it('provides platform ports from the app layer through desktop host adapters', async () => {
@@ -354,6 +362,8 @@ describe('frontend module architecture', () => {
     expect(electronMain).toContain('async stop()')
     expect(electronMain).toContain("child.kill('SIGKILL')")
     expect(electronMain).toContain('sidecarStdout?.close()')
+    expect(electronMain).toContain('LD_LIBRARY_PATH')
+    expect(electronMain).toContain('sidecarDirectory')
     expect(electronMain).toContain("'modforge:window-close-request-result'")
     expect(electronPreload).toContain('onWindowCloseRequest')
     expect(electronMain).toContain('app.setName(appDisplayName)')
@@ -999,6 +1009,15 @@ describe('frontend module architecture', () => {
     for (const blockedExport of blockedDomainExports) {
       expect(platformHostIndex).not.toContain(blockedExport)
     }
+  })
+
+  it('keeps installed event asset parsing behind the canonical Rust host command', async () => {
+    const eventWorkspace = await readFile(sourcePath('src/pages/workbench/workspaces/event-stage/state/useEventWorkspace.ts'), 'utf8')
+    const gameAssets = await readFile(sourcePath('src/entities/game/api/gameAssets.ts'), 'utf8')
+
+    expect(eventWorkspace).toContain('loadEventAsset(rootPath, relativePath, locale)')
+    expect(eventWorkspace).not.toContain('loadTextAsset(rootPath, relativePath, locale)')
+    expect(gameAssets).toContain('HOST_COMMANDS.loadEventAsset')
   })
 
   /**

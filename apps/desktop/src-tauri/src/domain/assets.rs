@@ -5,7 +5,7 @@ pub mod types;
 
 pub use types::{
     AudioAssetSummary, EventAssetSummary, FileCacheStats, GameDirectoryInfo, LocalTextFileContent,
-    MapAssetContent, MapAssetSummary, TextAssetContent,
+    MapAssetContent, MapAssetSummary, ParsedEventAssetContent, TextAssetContent,
 };
 
 use base64::Engine;
@@ -1017,6 +1017,21 @@ pub(crate) fn load_text_asset(
         absolute_path: normalize_path(&absolute_path),
         relative_path: normalize_path(&logical_relative_path),
         content,
+    })
+}
+
+/// Loads and parses a Stardew event asset using the canonical Rust event grammar.
+pub(crate) fn load_event_asset(
+    root_path: String,
+    asset_path: String,
+    locale: Option<String>,
+) -> anyhow::Result<ParsedEventAssetContent> {
+    let loaded = load_text_asset(root_path, asset_path, locale)?;
+    let events = crate::domain::event_script::parse_event_asset_json(&loaded.content)?;
+    Ok(ParsedEventAssetContent {
+        absolute_path: loaded.absolute_path,
+        relative_path: loaded.relative_path,
+        events,
     })
 }
 

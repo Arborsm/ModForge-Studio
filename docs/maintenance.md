@@ -82,10 +82,11 @@ Tests are kept out of source folders and grouped by type.
 
 Frontend tests live under `apps/desktop/src/tests/`:
 
-- `src/tests/unit/` — component and module tests, mirroring the source path they exercise.
-- `src/tests/architecture/` — architecture and repository-shape assertions.
-- `src/tests/integration/` — cross-module integration tests.
-- `src/tests/support/` — shared test infrastructure: `setup.ts`, render helpers, mock ports, and test assets. Imported via the `@test/*` alias.
+- `src/tests/unit/` — pure-logic `.ts` tests only (no `.tsx`/`.spec.tsx`, no component or `renderHook` rendering, no CSS-class/inline-style/DOM-structure assertions). They mirror the source path they exercise and cover parsers, data transformation, reducers, command routing, and headless state logic.
+- `src/tests/architecture/` — architecture and repository-shape assertions (dependency direction, style ownership, code-splitting).
+- `src/tests/support/` — shared test infrastructure: `setup.ts` (jsdom + matchers), `sourceScan.ts` (architecture scanners), and type declarations. Imported via the `@test/*` alias.
+
+The frontend intentionally keeps no UI/render tests; UI and layout behavior is verified by screenshot, Playwright, or a manual path rather than jsdom render assertions.
 
 Rust tests are centralized by type under `apps/desktop/src-tauri/`:
 

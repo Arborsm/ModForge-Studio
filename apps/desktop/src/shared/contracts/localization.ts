@@ -129,8 +129,17 @@ export interface LocalizationPort {
   listenOfficialIndexProgress(listener: (progress: AiOfficialIndexProgress) => void): Promise<() => void>
   searchOfficial(request: SearchOfficialLocalizationRequest): Promise<AiOfficialSearchPage>
   cancelJob(jobId: string): Promise<void>
+  initializePlan(request: InitializeLocalizationPlanRequest): Promise<InitializeLocalizationPlanResult>
+  acquireSemanticRuntime(leaseId: string): Promise<void>
+  releaseSemanticRuntime(leaseId: string): Promise<void>
+  unloadSemanticRuntime(): Promise<void>
+  inspectContext(request: InspectLocalizationContextRequest): Promise<LocalizationContextInspection>
   resolveScope(request: ResolveLocalizationScopeRequest): Promise<AiLocalizationScopeSnapshot>
-  rebindScope(scopeId: string, bindingKind: string, bindingValue: string): Promise<AiLocalizationScopeSnapshot>
+  createProfile(name: string): Promise<AiLocalizationScopeSnapshot>
+  renameProfile(scopeId: string, name: string): Promise<AiLocalizationScopeSnapshot>
+  deleteProfile(scopeId: string): Promise<void>
+  setProfileBinding(scopeId: string, bindingKind: string, bindingValue: string): Promise<AiLocalizationScopeSnapshot>
+  removeProfileBinding(bindingKind: string, bindingValue: string): Promise<void>
   listScopes(request: ListLocalizationScopesRequest): Promise<AiLocalizationScopePage>
   loadScope(scopeId: string): Promise<AiLocalizationScopeSnapshot>
   saveScopeSettings(request: LocalizationScopeSettings): Promise<AiLocalizationScopeSnapshot>
@@ -159,6 +168,7 @@ export type AiOfficialCorpusStatus = {
   updatedAtMs: number | null
   languageCount: number
   unitCount: number
+  semanticEligibleCount: number
   errorCount: number
 }
 export type RebuildOfficialLocalizationIndexRequest = { jobId: string; gameDirectory: string }
@@ -170,6 +180,7 @@ export type SearchOfficialLocalizationRequest = {
   assetCategory: string | null
   unitKind: string | null
   promptEligibleOnly: boolean
+  allowLiteralScan?: boolean
   offset: number
   limit: number
 }
@@ -182,6 +193,8 @@ export type AiOfficialUnit = {
   assetPath: string
   unitKey: string
   unitKind: string
+  searchable: boolean
+  semanticEligible: boolean
   promptEligible: boolean
   fingerprint: string
   similarity: number
@@ -193,16 +206,16 @@ export type AiOfficialUnit = {
 }
 export type AiOfficialSearchPage = { records: AiOfficialUnit[]; total: number }
 
+export type AiLocalizationScopeBinding = { kind: string; value: string }
 export type AiLocalizationScope = {
   id: string
-  kind: 'global' | 'project'
+  kind: 'global' | 'profile'
   name: string
   revision: number
   createdAtMs: number
   updatedAtMs: number
   lastUsedAtMs: number
-  bindingKind: string | null
-  bindingValue: string | null
+  bindings: AiLocalizationScopeBinding[]
 }
 export type AiQaConfig = {
   checkEmpty: boolean
@@ -222,6 +235,47 @@ export type LocalizationScopeSettings = {
 }
 export type AiLocalizationScopeSnapshot = { scope: AiLocalizationScope; settings: LocalizationScopeSettings }
 export type ResolveLocalizationScopeRequest = { bindingKind: string; bindingValue: string; name: string }
+export type InitializeLocalizationPlanRequest = {
+  jobId: string
+  bindingKind: string
+  bindingValue: string
+  planName: string
+  sourceLocale: string
+  targetLocale: string
+  fileNamespace: string
+  importExisting: boolean
+  entries: ConfirmedTranslation[]
+}
+export type InitializeLocalizationPlanResult = {
+  snapshot: AiLocalizationScopeSnapshot
+  importedCount: number
+  knowledgeRevision: string
+  semanticIndexState: 'synced' | 'skipped' | 'failed'
+  semanticIndexError: string | null
+}
+export type InspectLocalizationContextRequest = {
+  scopeId: string
+  sourceLocale: string
+  targetLocale: string
+  sourceText: string
+  unitKey: string | null
+  gameDirectory: string | null
+  knowledgePolicy: KnowledgePolicy
+}
+export type LocalizationContextInspection = {
+  glossary: AiGlossaryEntry[]
+  memory: AiTranslationMemoryEntry[]
+  official: AiOfficialUnit[]
+  style: AiStyleGuide | null
+  knowledgeRevision: string
+  trace: {
+    officialIndexed: boolean
+    officialMatches: number
+    globalGlossaryMatches: number
+    profileGlossaryMatches: number
+    translationMemoryMatches: number
+  }
+}
 export type ListLocalizationScopesRequest = { query: string | null; offset: number; limit: number }
 export type AiLocalizationScopePage = { records: AiLocalizationScope[]; total: number }
 export type SearchLocalizationKnowledgeRequest = {
@@ -299,12 +353,16 @@ export type SaveAiSemanticRemoteProfile = {
 }
 export type AiSemanticSettingsSnapshot = {
   mode: AiSemanticSearchMode
+  executionPreference: 'auto' | 'cpu'
+  activeExecutionProvider: string | null
+  executionFallbackReason: string | null
   localModelDirectory: string | null
   activeRemoteProfileId: string | null
   remoteProfiles: AiSemanticRemoteProfile[]
 }
 export type SaveAiSemanticSettingsRequest = {
   mode: AiSemanticSearchMode
+  executionPreference: 'auto' | 'cpu'
   localModelDirectory: string | null
   activeRemoteProfileId: string | null
   remoteProfiles: SaveAiSemanticRemoteProfile[]

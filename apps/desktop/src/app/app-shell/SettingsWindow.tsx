@@ -9,7 +9,7 @@ import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { DEFAULT_THEME_ID, THEME_PRESETS } from '@shared/lib/theme/presets'
 import type { LocaleCode } from '@locales/api'
 import { useSettingsMenuCopy } from '@locales/provider'
-import type { SettingsWindowCategory, WindowBorderTone, WindowBorderWeight, WindowCloseBehavior } from '@shared/contracts'
+import type { AiSettingsTab, SettingsWindowCategory, WindowBorderTone, WindowBorderWeight, WindowCloseBehavior } from '@shared/contracts'
 import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionStyleId } from '@shared/lib/loading-motion'
 import { AiSettingsPanel } from './settings/AiSettingsPanel'
 
@@ -32,6 +32,7 @@ type LocaleOption = {
 type SettingsWindowProps = {
   open: boolean
   activeCategory?: SettingsWindowCategory
+  initialAiTab?: AiSettingsTab
   onActiveCategoryChange?: (category: SettingsWindowCategory) => void
   onClose: () => void
 }
@@ -87,6 +88,7 @@ function SettingsCompactSwitch({
 export default function SettingsWindow({
   open,
   activeCategory: controlledActiveCategory,
+  initialAiTab,
   onActiveCategoryChange,
   onClose,
 }: SettingsWindowProps) {
@@ -442,7 +444,9 @@ export default function SettingsWindow({
                 id="settings-category-panel"
                 aria-labelledby={`settings-category-${activeCategory}`}
               >
-                {activeCategory === 'ai' ? <AiSettingsPanel onDirtyChange={setAiDirty} requestLeave={requestLeave} /> : null}
+                {activeCategory === 'ai' ? (
+                  <AiSettingsPanel initialTab={initialAiTab} onDirtyChange={setAiDirty} requestLeave={requestLeave} />
+                ) : null}
 
                 {activeCategory === 'appearance' ? (
                   <div className="settings-window-pane">

@@ -20,7 +20,7 @@ pub(crate) fn text_hash(value: &str) -> String {
 }
 fn tokens(value: &str) -> Vec<String> {
     static PATTERN: OnceLock<Regex> = OnceLock::new();
-    PATTERN.get_or_init(||Regex::new(r"(?x)(\{\{[^{}\r\n]+\}\}|\{[A-Za-z0-9_.:-]+\}|%(?:\d+\$)?[sdif]|\[[A-Za-z/][^\]\r\n]*\]|<[^>\r\n]+>|\^[A-Za-z0-9]+|\\[nrt])").unwrap()).find_iter(value).map(|item|item.as_str().to_string()).collect()
+    PATTERN.get_or_init(||Regex::new(r"(?x)(\{\{[^{}\r\n]+\}\}|\{[A-Za-z0-9_.-]+(?::[^{}\r\n]+)?\}|%(?:\d+\$)?[sdif]\b|\$\d+|\[[A-Za-z/][^\]\r\n]*\]|<[^>\r\n]+>|\^[A-Za-z0-9]+|\\[nrt])").unwrap()).find_iter(value).map(|item|item.as_str().to_string()).collect()
 }
 
 pub(crate) fn translation_validation_issues(

@@ -64,7 +64,7 @@ export type AiTranslateBatchRequest = {
   usageContext?: { pageSource: 'launcher' | 'workbench-translation' | 'localization-review'; operation: string; scopeId?: string }
   knowledgePolicy?: KnowledgePolicy
 }
-export type KnowledgePolicy = { enabled: boolean; useOfficialCorpus: boolean; useGlobalKnowledge: boolean; useProjectKnowledge: boolean }
+export type KnowledgePolicy = { enabled: boolean; useOfficialCorpus: boolean; useGlobalKnowledge: boolean; useProfileKnowledge: boolean }
 export type KnowledgeTrace = {
   officialMatches: number
   globalGlossaryMatches: number

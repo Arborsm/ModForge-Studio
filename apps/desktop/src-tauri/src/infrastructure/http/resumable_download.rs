@@ -237,6 +237,14 @@ fn should_emit_progress(elapsed: Duration) -> bool {
     elapsed >= PROGRESS_INTERVAL
 }
 
+fn average_transfer_speed(downloaded: u64, resumed_from: u64, elapsed: Duration) -> u64 {
+    let elapsed_seconds = elapsed.as_secs_f64();
+    if elapsed_seconds <= f64::EPSILON {
+        return 0;
+    }
+    (downloaded.saturating_sub(resumed_from) as f64 / elapsed_seconds) as u64
+}
+
 fn progress(
     request: &ResumableDownloadRequest,
     phase: &'static str,
@@ -462,8 +470,8 @@ where
         .with_context(|| format!("Failed to open partial download {}.", partial.display()))?;
     let mut downloaded = resumed_from;
     let mut buffer = [0_u8; DOWNLOAD_CHUNK_SIZE];
+    let transfer_started = Instant::now();
     let mut last_progress = Instant::now();
-    let mut last_progress_bytes = downloaded;
     on_progress(progress(request, "downloading", downloaded, total, Some(0)))?;
     loop {
         if is_cancelled()? {
@@ -486,8 +494,8 @@ where
         }
         downloaded += read as u64;
         if should_emit_progress(last_progress.elapsed()) {
-            let elapsed = last_progress.elapsed().as_secs_f64().max(0.001);
-            let speed = ((downloaded - last_progress_bytes) as f64 / elapsed) as u64;
+            let speed =
+                average_transfer_speed(downloaded, resumed_from, transfer_started.elapsed());
             on_progress(progress(
                 request,
                 "downloading",
@@ -496,7 +504,6 @@ where
                 Some(speed),
             ))?;
             last_progress = Instant::now();
-            last_progress_bytes = downloaded;
         }
     }
     file.flush()?;

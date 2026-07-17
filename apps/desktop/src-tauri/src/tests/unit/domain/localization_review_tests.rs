@@ -44,6 +44,8 @@ fn official_unit(id: i64, source: &str, target: &str) -> AiOfficialUnit {
         asset_path: "Strings/NPCNames.xnb".into(),
         unit_key: source.into(),
         unit_kind: "term".into(),
+        searchable: true,
+        semantic_eligible: true,
         prompt_eligible: true,
         fingerprint: format!("fingerprint-{id}"),
         similarity: 1.0,
@@ -83,7 +85,7 @@ fn generative_official_context_counts_terms_and_examples_once_and_respects_user_
 fn post_translation_validation_reports_markers_and_required_user_terms() {
     let items = vec![(
         "greeting".to_string(),
-        "Hello {{name}}".to_string(),
+        "Hello {{name}} {0:N0} $1 %s".to_string(),
         "你好".to_string(),
     )];
     let required = std::collections::BTreeMap::from([(

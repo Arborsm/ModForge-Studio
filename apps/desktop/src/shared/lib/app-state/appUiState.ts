@@ -184,7 +184,7 @@ function normalizeWorkspace(value: unknown, defaults: AppUiState['workspace']): 
     value.location.kind === 'module' && typeof value.location.moduleId === 'string' && value.location.moduleId.trim()
       ? { kind: 'module' as const, moduleId: value.location.moduleId.trim() }
       : { kind: 'home' as const }
-  const allowedSections = new Set(['browse', 'authoring', 'tools', 'development'])
+  const allowedSections = new Set(['browse', 'authoring', 'translation', 'tools', 'development'])
   const expandedSections = Array.isArray(value.navigation.expandedSections)
     ? Array.from(
         new Set(

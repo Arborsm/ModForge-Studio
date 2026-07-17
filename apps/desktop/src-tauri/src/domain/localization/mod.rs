@@ -1,5 +1,6 @@
 pub mod jobs;
 pub mod knowledge;
+pub(crate) mod lexical;
 pub mod machine_translation;
 pub mod official;
 pub(crate) mod operational_log;
@@ -7,5 +8,6 @@ pub mod orchestrator;
 pub mod review;
 pub mod semantic;
 pub mod settings;
+pub(crate) mod structured_translation;
 pub mod types;
 pub mod usage;

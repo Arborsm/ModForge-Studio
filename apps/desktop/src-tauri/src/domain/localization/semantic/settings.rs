@@ -1,8 +1,8 @@
 use crate::domain::ai::validate_base_url;
 use crate::domain::app_paths::localization_semantic_settings_path;
 use crate::domain::localization::types::{
-    AiSemanticRemoteProfile, AiSemanticSearchMode, AiSemanticSettingsSnapshot,
-    SaveAiSemanticRemoteProfile, SaveAiSemanticSettingsRequest,
+    AiSemanticExecutionPreference, AiSemanticRemoteProfile, AiSemanticSearchMode,
+    AiSemanticSettingsSnapshot, SaveAiSemanticRemoteProfile, SaveAiSemanticSettingsRequest,
 };
 use anyhow::{Context, bail};
 use serde::{Deserialize, Serialize};
@@ -36,6 +36,8 @@ struct StoredRemoteProfile {
 struct StoredSettings {
     version: u32,
     mode: AiSemanticSearchMode,
+    #[serde(default)]
+    execution_preference: AiSemanticExecutionPreference,
     local_model_directory: Option<String>,
     active_remote_profile_id: Option<String>,
     remote_profiles: Vec<StoredRemoteProfile>,
@@ -45,7 +47,8 @@ impl Default for StoredSettings {
     fn default() -> Self {
         Self {
             version: SETTINGS_VERSION,
-            mode: AiSemanticSearchMode::Lexical,
+            mode: AiSemanticSearchMode::Builtin,
+            execution_preference: AiSemanticExecutionPreference::Auto,
             local_model_directory: None,
             active_remote_profile_id: None,
             remote_profiles: Vec::new(),
@@ -192,6 +195,9 @@ fn snapshot(value: StoredSettings) -> anyhow::Result<AiSemanticSettingsSnapshot>
         .collect::<anyhow::Result<Vec<_>>>()?;
     Ok(AiSemanticSettingsSnapshot {
         mode: value.mode,
+        execution_preference: value.execution_preference,
+        active_execution_provider: None,
+        execution_fallback_reason: None,
         local_model_directory: value.local_model_directory,
         active_remote_profile_id: value.active_remote_profile_id,
         remote_profiles,
@@ -303,6 +309,7 @@ pub fn save_settings(
             &StoredSettings {
                 version: SETTINGS_VERSION,
                 mode: request.mode.clone(),
+                execution_preference: request.execution_preference,
                 local_model_directory: optional_bounded(
                     request.local_model_directory.as_deref(),
                     "local model path",
@@ -353,3 +360,7 @@ pub(crate) fn resolve_remote_profile(
     let credential = resolve_remote_credential(profile_id)?;
     Ok((profile, credential))
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/domain/localization_semantic_settings_tests.rs"]
+mod tests;

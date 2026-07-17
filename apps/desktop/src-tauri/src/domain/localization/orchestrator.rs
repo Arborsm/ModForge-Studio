@@ -261,7 +261,7 @@ pub fn translate_ai_batch(
     let mut knowledge_revision = "disabled".to_string();
     if request.knowledge_policy.enabled
         && (request.knowledge_policy.use_global_knowledge
-            || request.knowledge_policy.use_project_knowledge)
+            || request.knowledge_policy.use_profile_knowledge)
     {
         let source_locale = request.source_locale.as_deref().unwrap_or("en-US");
         let resolved = knowledge::resolve_translation_knowledge(
@@ -634,7 +634,7 @@ pub fn translate_machine_batch(
     let mut revision = "disabled".to_string();
     if request.knowledge_policy.enabled
         && (request.knowledge_policy.use_global_knowledge
-            || request.knowledge_policy.use_project_knowledge)
+            || request.knowledge_policy.use_profile_knowledge)
     {
         let knowledge_items = request
             .items

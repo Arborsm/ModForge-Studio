@@ -76,10 +76,17 @@ export {
   inspectOfficialLocalizationIndex,
   rebuildOfficialLocalizationIndex,
   searchOfficialLocalization,
+  initializeLocalizationPlan,
+  acquireLocalizationSemanticRuntime,
+  releaseLocalizationSemanticRuntime,
+  unloadLocalizationSemanticRuntime,
+  inspectLocalizationContext,
 } from './localization'
 export {
   copyTranslationMemory,
+  createLocalizationProfile,
   deleteLocalizationGlossary,
+  deleteLocalizationProfile,
   deleteTranslationMemory,
   exportLocalizationKnowledge,
   importLocalizationKnowledge,
@@ -88,11 +95,13 @@ export {
   loadLocalizationScope,
   loadLocalizationStyle,
   recordConfirmedTranslations,
+  removeLocalizationProfileBinding,
+  renameLocalizationProfile,
   resolveLocalizationScope,
-  rebindLocalizationScope,
   saveLocalizationScopeSettings,
   saveLocalizationStyle,
   searchTranslationMemory,
+  setLocalizationProfileBinding,
   upsertLocalizationGlossary,
 } from './localization'
 export {

@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { useLocalization } from '@entities/localization'
+import { BUILTIN_SEMANTIC_MODEL_ID, useLocalization } from '@entities/localization'
 import { useNotificationCopy, useSettingsMenuCopy } from '@locales/provider'
 import type {
   AiSemanticIndexStatus,
@@ -18,8 +18,25 @@ import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifi
 const SEMANTIC_VERIFY_NOTIFICATION = 'semantic-model-verify'
 const SEMANTIC_TEST_NOTIFICATION = 'semantic-remote-test'
 
-const BUILTIN_MODEL_ID = 'intfloat/multilingual-e5-small'
+const BUILTIN_MODEL_ID = BUILTIN_SEMANTIC_MODEL_ID
 const SEMANTIC_MODES: AiSemanticSearchMode[] = ['lexical', 'builtin', 'local-onnx', 'remote-openai']
+
+function pendingIndexStatus(mode: AiSemanticSearchMode): AiSemanticIndexStatus {
+  return {
+    available: false,
+    retrievalMode: mode === 'lexical' ? 'lexical' : 'partial',
+    generationId: null,
+    modelId: null,
+    dimensions: null,
+    officialRevision: null,
+    knowledgeRevision: null,
+    indexedRecords: 0,
+    sourceRecords: 0,
+    pendingRecords: 0,
+    coveragePercentage: 0,
+    stale: false,
+  }
+}
 
 function bytes(value: number | null | undefined) {
   const amount = value ?? 0
@@ -38,10 +55,11 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
   const mounted = useRef(true)
   const refreshGeneration = useRef(0)
   const pausedJob = useRef<string | null>(null)
+  const activeIndexJob = useRef<{ jobId: string; noticeId: string } | null>(null)
   const [settings, setSettings] = useState<AiSemanticSettingsSnapshot | null>(null)
   const [savedSettings, setSavedSettings] = useState<AiSemanticSettingsSnapshot | null>(null)
   const [model, setModel] = useState<AiSemanticModelStatus | null>(null)
-  const [index, setIndex] = useState<AiSemanticIndexStatus | null>(null)
+  const [index, setIndex] = useState<AiSemanticIndexStatus>(pendingIndexStatus('lexical'))
   const [progress, setProgress] = useState<AiSemanticProgress | null>(null)
   const [downloadPaused, setDownloadPaused] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
@@ -66,6 +84,7 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
     settings &&
     savedSettings &&
     (settings.mode !== savedSettings.mode ||
+      settings.executionPreference !== savedSettings.executionPreference ||
       settings.localModelDirectory !== savedSettings.localModelDirectory ||
       (settings.mode === 'remote-openai' &&
         (!remoteSaved ||
@@ -84,16 +103,12 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
   const refresh = async () => {
     const generation = ++refreshGeneration.current
     try {
-      const [nextSettings, nextModel, nextIndex] = await Promise.all([
-        localization.loadSemanticSettings(),
-        localization.inspectSemanticModel(),
-        localization.inspectSemanticIndex([]),
-      ])
+      const [nextSettings, nextModel] = await Promise.all([localization.loadSemanticSettings(), localization.inspectSemanticModel()])
       if (!mounted.current || generation !== refreshGeneration.current) return
       setSettings(nextSettings)
       setSavedSettings(nextSettings)
       setModel(nextModel)
-      setIndex(nextIndex)
+      setIndex(pendingIndexStatus(nextSettings.mode))
       setError(null)
       const active = nextSettings.remoteProfiles.find((item) => item.id === nextSettings.activeRemoteProfileId)
       if (active)
@@ -106,6 +121,12 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
           credentialEnvironment: active.credentialEnvironment,
         })
       setRemoteCredentialSource(active?.resolvedCredentialSource ?? null)
+      void localization
+        .inspectSemanticIndex([])
+        .then((nextIndex) => {
+          if (mounted.current && generation === refreshGeneration.current) setIndex(nextIndex)
+        })
+        .catch(() => undefined)
     } catch (cause) {
       if (mounted.current && generation === refreshGeneration.current) setError(copy.loadError)
       throw cause
@@ -121,6 +142,18 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
         if (!mounted.current) return
         setProgress(value)
         if (value.kind === 'download' && value.phase === 'complete') setDownloadPaused(false)
+        const activeIndex = activeIndexJob.current
+        if (value.kind === 'index' && activeIndex?.jobId === value.jobId) {
+          publish({
+            id: activeIndex.noticeId,
+            level: 'info',
+            title: copy.phaseLabels[value.phase] ?? copy.indexing,
+            description: copy.indexProgress(value.downloadedBytes, value.totalBytes, value.percentage),
+            autoDismissMs: null,
+            progress: value.percentage,
+            loading: true,
+          })
+        }
       })
       .then((value) => {
         dispose = value
@@ -129,19 +162,32 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
       mounted.current = false
       dispose?.()
     }
-  }, [localization, copy.loadError])
+  }, [localization, copy.indexProgress, copy.indexing, copy.loadError, copy.phaseLabels, publish])
 
   const run = async (
     name: string,
     action: () => Promise<unknown>,
-    options?: { runningTitle?: string; successTitle?: string; refreshAfter?: boolean },
+    options?: {
+      runningTitle?: string
+      successTitle?: string
+      refreshAfter?: boolean
+      progressJobId?: string
+    },
   ) => {
     const noticeId = `semantic-${name}`
+    if (options?.progressJobId) activeIndexJob.current = { jobId: options.progressJobId, noticeId }
     setBusy(name)
     setError(null)
     dismissNotification(noticeId)
     if (options?.runningTitle) {
-      publish({ id: noticeId, level: 'info', title: options.runningTitle, autoDismissMs: null })
+      publish({
+        id: noticeId,
+        level: 'info',
+        title: options.runningTitle,
+        autoDismissMs: null,
+        progress: options.progressJobId ? 0 : null,
+        loading: Boolean(options.progressJobId),
+      })
     }
     try {
       await action()
@@ -166,11 +212,12 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
         description: detail || notificationCopy.failureDescriptions.unknown,
       })
     } finally {
+      if (activeIndexJob.current?.jobId === options?.progressJobId) activeIndexJob.current = null
       if (mounted.current) setBusy(null)
     }
   }
 
-  if (!settings || !model || !index)
+  if (!settings || !model)
     return (
       <section className="settings-semantic" aria-busy="true" aria-live="polite">
         <div className="settings-ai-tab-body">
@@ -221,6 +268,7 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
       () =>
         localization.saveSemanticSettings({
           mode: nextMode,
+          executionPreference: settings.executionPreference,
           localModelDirectory: settings.localModelDirectory,
           activeRemoteProfileId: nextMode === 'remote-openai' ? remoteDraft.id : settings.activeRemoteProfileId,
           remoteProfiles:
@@ -333,7 +381,7 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
     setBusy('probe')
     setError(null)
     dismissNotification('semantic-probe')
-    publish({ id: 'semantic-probe', level: 'info', title: copy.probeRunning, autoDismissMs: null })
+    publish({ id: 'semantic-probe', level: 'info', title: copy.probeRunning, autoDismissMs: null, loading: true })
     try {
       const result = await localization.probeSemanticSearch({
         query,
@@ -430,15 +478,6 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
             : !confirmRemote
               ? 'remote-need-confirm'
               : 'remote-ready'
-  const indexBlockedReason = dirty
-    ? copy.step3BlockedDirty
-    : mode === 'remote-openai' && !confirmRemote
-      ? copy.step3BlockedRemote
-      : !backendReady
-        ? copy.step3BlockedBackend
-        : null
-  const indexActionsDisabled = Boolean(dirty || busy || indexBlockedReason)
-
   return (
     <section className="settings-semantic">
       <div className="settings-ai-tab-body">
@@ -462,6 +501,48 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
                 )
               })}
             </div>
+            {mode === 'builtin' || mode === 'local-onnx' ? (
+              <div className="settings-semantic-execution">
+                <div>
+                  <p className="settings-semantic-section-label">{copy.executionTitle}</p>
+                  <p className="settings-semantic-inline-note">
+                    {settings.activeExecutionProvider
+                      ? copy.executionActive(copy.executionProviders[settings.activeExecutionProvider] ?? settings.activeExecutionProvider)
+                      : copy.executionPending}
+                  </p>
+                  {settings.executionFallbackReason ? (
+                    <p className="settings-semantic-inline-warn">{copy.executionFallback(settings.executionFallbackReason)}</p>
+                  ) : null}
+                </div>
+                <div className="settings-semantic-execution-options" role="radiogroup" aria-label={copy.executionTitle}>
+                  {(['auto', 'cpu'] as const).map((preference) => (
+                    <button
+                      key={preference}
+                      type="button"
+                      role="radio"
+                      aria-checked={settings.executionPreference === preference}
+                      className={cx('settings-window-btn', settings.executionPreference === preference && 'settings-window-btn-primary')}
+                      onClick={() => setSettings({ ...settings, executionPreference: preference })}
+                    >
+                      {copy.executionPreferences[preference]}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="settings-window-btn"
+                  disabled={busy !== null || !settings.activeExecutionProvider}
+                  onClick={() =>
+                    void run('release-runtime', () => localization.unloadSemanticRuntime(), {
+                      runningTitle: copy.releasingRuntime,
+                      successTitle: copy.releasedRuntime,
+                    })
+                  }
+                >
+                  {busy === 'release-runtime' ? copy.releasingRuntime : copy.releaseRuntime}
+                </button>
+              </div>
+            ) : null}
             <div className="settings-semantic-health" aria-label={copy.healthTitle}>
               <div className="settings-semantic-health-main">
                 <div className="settings-semantic-health-top">
@@ -469,7 +550,7 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
                     <span className={cx('settings-semantic-status-dot', `is-${stateTone}`)} aria-hidden="true" />
                     <strong className="settings-semantic-health-state">{stateLabel}</strong>
                     <span className="settings-semantic-health-mode">{copy.retrievalModes[index.retrievalMode]}</span>
-                    {index.stale ? <span className="settings-semantic-health-stale">{copy.stale}</span> : null}
+                    {mode !== 'lexical' && index.stale ? <span className="settings-semantic-health-stale">{copy.stale}</span> : null}
                   </div>
                   {mode === 'builtin' ? (
                     <div className="settings-semantic-actions">
@@ -507,25 +588,29 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
                     </div>
                   ) : null}
                 </div>
-                <div className="settings-semantic-health-metrics" role="group" aria-label={copy.indexCoverage}>
-                  <div className="settings-semantic-health-metric">
-                    <strong>{index.coveragePercentage.toFixed(1)}%</strong>
-                    <span>{copy.indexCoverage}</span>
+                {mode !== 'lexical' ? (
+                  <div className="settings-semantic-health-metrics" role="group" aria-label={copy.indexCoverage}>
+                    <div className="settings-semantic-health-metric">
+                      <strong>{index.coveragePercentage.toFixed(1)}%</strong>
+                      <span>{copy.indexCoverage}</span>
+                    </div>
+                    <div className="settings-semantic-health-metric">
+                      <strong>{copy.coverageShort(index.indexedRecords, index.sourceRecords)}</strong>
+                      <span>{copy.indexedMetric}</span>
+                    </div>
+                    <div className={cx('settings-semantic-health-metric', index.pendingRecords > 0 && 'is-attention')}>
+                      <strong>{index.pendingRecords.toLocaleString()}</strong>
+                      <span>{copy.pendingMetric}</span>
+                    </div>
                   </div>
-                  <div className="settings-semantic-health-metric">
-                    <strong>{copy.coverageShort(index.indexedRecords, index.sourceRecords)}</strong>
-                    <span>{copy.indexedMetric}</span>
-                  </div>
-                  <div className={cx('settings-semantic-health-metric', index.pendingRecords > 0 && 'is-attention')}>
-                    <strong>{index.pendingRecords.toLocaleString()}</strong>
-                    <span>{copy.pendingMetric}</span>
-                  </div>
-                </div>
+                ) : null}
                 <p className="settings-semantic-health-meta">
                   <span>{copy.step2Next[step2NextKey]}</span>
-                  <span className="settings-semantic-health-fingerprint" title={fingerprint}>
-                    {fingerprintShort}
-                  </span>
+                  {mode !== 'lexical' ? (
+                    <span className="settings-semantic-health-fingerprint" title={fingerprint}>
+                      {fingerprintShort}
+                    </span>
+                  ) : null}
                 </p>
               </div>
             </div>
@@ -541,9 +626,7 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
                     <p className="settings-semantic-dl-title">
                       {downloadPaused ? copy.paused : (copy.phaseLabels[progress.phase] ?? progress.phase)}
                     </p>
-                    <p className="settings-semantic-dl-sub">
-                      {progress.currentFile} · {bytes(progress.downloadedBytes)} / {bytes(progress.totalBytes)}
-                    </p>
+                    <p className="settings-semantic-dl-sub">{progress.currentFile}</p>
                   </div>
                   <div className="settings-semantic-actions">
                     {downloadPaused ? (
@@ -722,7 +805,7 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
             ) : null}
           </div>
 
-          {progress && progress.kind === 'index' ? (
+          {mode !== 'lexical' && progress && progress.kind === 'index' ? (
             <div className="settings-semantic-dl">
               <div className="settings-semantic-dl-head">
                 <div>
@@ -736,66 +819,59 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
             </div>
           ) : null}
 
-          <div className="settings-semantic-divider" aria-hidden="true" />
+          {mode !== 'lexical' ? (
+            <>
+              <div className="settings-semantic-divider" aria-hidden="true" />
 
-          <div className="settings-semantic-block">
-            <div className="settings-semantic-block-bar">
-              <div>
-                <p className="settings-semantic-section-label">{copy.step3Title}</p>
-                <p className="settings-semantic-inline-note">
-                  {copy.indexDesc(
-                    index.indexedRecords,
-                    index.sourceRecords,
-                    index.pendingRecords,
-                    verification?.fingerprint ?? model.revision ?? '',
-                  )}
-                </p>
-                {indexBlockedReason ? <p className="settings-semantic-inline-warn">{indexBlockedReason}</p> : null}
+              <div className="settings-semantic-block">
+                <div className="settings-semantic-block-bar">
+                  <div>
+                    <p className="settings-semantic-section-label">{copy.step3Title}</p>
+                    <p className="settings-semantic-inline-note">
+                      {copy.indexDesc(
+                        index.indexedRecords,
+                        index.sourceRecords,
+                        index.pendingRecords,
+                        verification?.fingerprint ?? model.revision ?? '',
+                      )}
+                    </p>
+                  </div>
+                  <div className="settings-semantic-actions">
+                    <button
+                      type="button"
+                      className="settings-window-btn"
+                      disabled={Boolean(dirty || busy || !backendReady)}
+                      onClick={() => {
+                        const jobId = crypto.randomUUID()
+                        void run(
+                          'sync',
+                          () => localization.syncSemanticIndex({ jobId, scopeIds: [], confirmRemoteUpload: confirmRemote }),
+                          { runningTitle: copy.indexing, successTitle: copy.actionSuccess, progressJobId: jobId },
+                        )
+                      }}
+                    >
+                      {copy.sync}
+                    </button>
+                    <button
+                      type="button"
+                      className="settings-window-btn"
+                      disabled={Boolean(dirty || busy || !backendReady)}
+                      onClick={() => {
+                        const jobId = crypto.randomUUID()
+                        void run(
+                          'rebuild',
+                          () => localization.rebuildSemanticIndex({ jobId, scopeIds: [], confirmRemoteUpload: confirmRemote }),
+                          { runningTitle: copy.indexing, successTitle: copy.actionSuccess, progressJobId: jobId },
+                        )
+                      }}
+                    >
+                      {copy.rebuild}
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="settings-semantic-actions">
-                <button
-                  type="button"
-                  className="settings-window-btn"
-                  disabled={indexActionsDisabled}
-                  title={indexBlockedReason ?? undefined}
-                  onClick={() =>
-                    void run(
-                      'sync',
-                      () =>
-                        localization.syncSemanticIndex({
-                          jobId: crypto.randomUUID(),
-                          scopeIds: [],
-                          confirmRemoteUpload: confirmRemote,
-                        }),
-                      { runningTitle: copy.indexing, successTitle: copy.actionSuccess },
-                    )
-                  }
-                >
-                  {copy.sync}
-                </button>
-                <button
-                  type="button"
-                  className="settings-window-btn"
-                  disabled={indexActionsDisabled}
-                  title={indexBlockedReason ?? undefined}
-                  onClick={() =>
-                    void run(
-                      'rebuild',
-                      () =>
-                        localization.rebuildSemanticIndex({
-                          jobId: crypto.randomUUID(),
-                          scopeIds: [],
-                          confirmRemoteUpload: confirmRemote,
-                        }),
-                      { runningTitle: copy.indexing, successTitle: copy.actionSuccess },
-                    )
-                  }
-                >
-                  {copy.rebuild}
-                </button>
-              </div>
-            </div>
-          </div>
+            </>
+          ) : null}
 
           <div className="settings-semantic-divider" aria-hidden="true" />
 

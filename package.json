@@ -14,6 +14,8 @@
     "react:devtools": "vp run --filter @modforge/desktop react:devtools",
     "build": "vp run --filter @modforge/desktop build",
     "lint": "vp run --filter @modforge/desktop lint",
+    "benchmark:localization-search": "vp run --filter @modforge/desktop benchmark:localization-search",
+    "benchmark:localization-lexical": "vp run --filter @modforge/desktop benchmark:localization-lexical",
     "desktop:build": "node ./scripts/desktop-host-dispatch.cjs build",
     "release:linux": "vp run --filter @modforge/desktop release:linux",
     "release:linux:deb": "vp run --filter @modforge/desktop release:linux:deb",

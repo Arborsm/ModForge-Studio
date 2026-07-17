@@ -538,7 +538,10 @@ pub(crate) fn execute_structured_observed(
 fn placeholder_regex() -> &'static Regex {
     static REGEX: OnceLock<Regex> = OnceLock::new();
     REGEX.get_or_init(|| {
-        Regex::new(r"\{\{[^{}]+\}\}|\$\d+").expect("placeholder regex must compile")
+        Regex::new(
+            r"\{\{[^{}\r\n]+\}\}|\{[A-Za-z0-9_.-]+(?::[^{}\r\n]+)?\}|%(?:\d+\$)?[sdif]\b|\$\d+",
+        )
+        .expect("placeholder regex must compile")
     })
 }
 

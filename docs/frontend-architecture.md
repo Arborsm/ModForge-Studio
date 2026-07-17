@@ -341,9 +341,10 @@ These tests are mandatory because documentation alone will not stop architectura
 
 Tests are centralized under `apps/desktop/src/tests/` and must not live next to source files.
 
-- `src/tests/unit/` — component and module tests, arranged to mirror the source path they exercise. For example, a test for `src/features/launcher/model/useLauncher.ts` belongs at `src/tests/unit/features/launcher/model/useLauncher.test.ts`.
+- `src/tests/unit/` — **pure-logic tests only**, arranged to mirror the source path they exercise. These are always `.ts` files (never `.tsx`/`.spec.tsx`): they do not render components or use `renderHook`, and they avoid assertions on CSS classes, inline styles, or DOM hierarchy. Cover parsers, data transformation, reducers, command routing, and headless state logic — the behavior TypeScript cannot check. For example, a test for `src/features/launcher/model/launcherLibraryDisplay.ts` belongs at `src/tests/unit/features/launcher/model/launcherLibraryDisplay.test.ts`.
 - `src/tests/architecture/` — architecture and repository-shape assertions, including dependency direction, style ownership, and code-splitting rules.
-- `src/tests/integration/` — cross-module integration tests.
-- `src/tests/support/` — shared test infrastructure only: `setup.ts`, render helpers, mock ports, and test assets. Consume these through the `@test/*` alias, which resolves to `src/tests/support`.
+- `src/tests/support/` — shared test infrastructure only: `setup.ts` (jsdom environment + matchers), `sourceScan.ts` (used by the architecture scanners), and type declarations. Consume these through the `@test/*` alias, which resolves to `src/tests/support`.
+
+**No UI/render tests.** The frontend deliberately does not keep component-render or hook-render tests: they lock the UI to specific markup and break on any restyle, and their value is already covered by the architecture scanners plus manual/screenshot verification. UI and layout behavior is verified with a screenshot, Playwright script, or a clear manual path (see Validation expectations), not with jsdom render assertions.
 
 Source folders (`src/app`, `src/pages`, `src/widgets`, `src/features`, `src/entities`, `src/shared`, `src/platform`, `src/locales`) must not contain `*.test.ts` or `*.test.tsx` files.

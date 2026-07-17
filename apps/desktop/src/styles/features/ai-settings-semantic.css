@@ -466,6 +466,24 @@
     color: color-mix(in srgb, var(--text-secondary) 88%, var(--accent));
   }
 
+  .settings-semantic-execution {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem 1rem;
+    padding: 0.7rem 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+    border-radius: 0.55rem;
+    background: color-mix(in srgb, var(--bg-panel) 92%, transparent);
+  }
+
+  .settings-semantic-execution-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
   .settings-semantic-status-dot {
     width: 0.4rem;
     height: 0.4rem;

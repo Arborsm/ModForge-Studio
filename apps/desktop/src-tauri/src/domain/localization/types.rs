@@ -192,6 +192,8 @@ pub struct SearchOfficialLocalizationRequest {
     pub unit_kind: Option<String>,
     pub prompt_eligible_only: bool,
     #[serde(default)]
+    pub allow_literal_scan: bool,
+    #[serde(default)]
     pub offset: u32,
     #[serde(default = "default_page_size")]
     pub limit: u32,
@@ -209,6 +211,7 @@ pub struct AiOfficialCorpusStatus {
     pub updated_at_ms: Option<i64>,
     pub language_count: u64,
     pub unit_count: u64,
+    pub semantic_eligible_count: u64,
     pub error_count: u64,
 }
 
@@ -223,6 +226,8 @@ pub struct AiOfficialUnit {
     pub asset_path: String,
     pub unit_key: String,
     pub unit_kind: String,
+    pub searchable: bool,
+    pub semantic_eligible: bool,
     pub prompt_eligible: bool,
     pub fingerprint: String,
     pub similarity: f64,
@@ -250,16 +255,72 @@ pub struct ResolveLocalizationScopeRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RebindLocalizationScopeRequest {
-    pub scope_id: String,
+pub struct InitializeLocalizationPlanRequest {
+    pub job_id: String,
     pub binding_kind: String,
     pub binding_value: String,
+    pub plan_name: String,
+    pub source_locale: String,
+    pub target_locale: String,
+    pub file_namespace: String,
+    pub import_existing: bool,
+    pub entries: Vec<ConfirmedTranslation>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InitializeLocalizationPlanResult {
+    pub snapshot: AiLocalizationScopeSnapshot,
+    pub imported_count: u64,
+    pub knowledge_revision: String,
+    pub semantic_index_state: String,
+    pub semantic_index_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InspectLocalizationContextRequest {
+    pub scope_id: String,
+    pub source_locale: String,
+    pub target_locale: String,
+    pub source_text: String,
+    pub unit_key: Option<String>,
+    pub game_directory: Option<String>,
+    pub knowledge_policy: crate::domain::ai::types::KnowledgePolicy,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalizationContextTrace {
+    pub official_indexed: bool,
+    pub official_matches: u64,
+    pub global_glossary_matches: u64,
+    pub profile_glossary_matches: u64,
+    pub translation_memory_matches: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalizationContextInspection {
+    pub glossary: Vec<AiGlossaryEntry>,
+    pub memory: Vec<AiTranslationMemoryEntry>,
+    pub official: Vec<AiOfficialUnit>,
+    pub style: Option<AiStyleGuide>,
+    pub knowledge_revision: String,
+    pub trace: LocalizationContextTrace,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoadLocalizationScopeRequest {
     pub scope_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiLocalizationScopeBinding {
+    pub kind: String,
+    pub value: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -272,8 +333,7 @@ pub struct AiLocalizationScope {
     pub created_at_ms: i64,
     pub updated_at_ms: i64,
     pub last_used_at_ms: i64,
-    pub binding_kind: Option<String>,
-    pub binding_value: Option<String>,
+    pub bindings: Vec<AiLocalizationScopeBinding>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -826,8 +886,16 @@ pub enum AiSemanticSearchMode {
 
 impl Default for AiSemanticSearchMode {
     fn default() -> Self {
-        Self::Lexical
+        Self::Builtin
     }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum AiSemanticExecutionPreference {
+    #[default]
+    Auto,
+    Cpu,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -861,6 +929,9 @@ pub struct SaveAiSemanticRemoteProfile {
 #[serde(rename_all = "camelCase")]
 pub struct AiSemanticSettingsSnapshot {
     pub mode: AiSemanticSearchMode,
+    pub execution_preference: AiSemanticExecutionPreference,
+    pub active_execution_provider: Option<String>,
+    pub execution_fallback_reason: Option<String>,
     pub local_model_directory: Option<String>,
     pub active_remote_profile_id: Option<String>,
     pub remote_profiles: Vec<AiSemanticRemoteProfile>,
@@ -870,6 +941,8 @@ pub struct AiSemanticSettingsSnapshot {
 #[serde(rename_all = "camelCase")]
 pub struct SaveAiSemanticSettingsRequest {
     pub mode: AiSemanticSearchMode,
+    #[serde(default)]
+    pub execution_preference: AiSemanticExecutionPreference,
     pub local_model_directory: Option<String>,
     pub active_remote_profile_id: Option<String>,
     pub remote_profiles: Vec<SaveAiSemanticRemoteProfile>,

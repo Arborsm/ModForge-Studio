@@ -6,7 +6,10 @@ use crate::domain::localization::types::{
 };
 
 pub use index::{active_revision, find_prompt_examples_batch, find_terms_in_text, inspect, search};
-pub(crate) use index::{search_with_semantic, semantic_entity_snapshot, semantic_snapshot};
+pub(crate) use index::{
+    canonical_locale, search_with_locale_fallback, search_with_semantic, semantic_entity_snapshot,
+    semantic_snapshot,
+};
 
 pub fn rebuild_with_events(
     app: AppHandle,

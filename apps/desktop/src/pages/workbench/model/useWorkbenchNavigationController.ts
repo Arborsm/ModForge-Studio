@@ -20,7 +20,7 @@ type WorkbenchNavigationControllerOptions = {
   hasActiveProject: boolean
   getRegistration: (moduleId: string) => WorkbenchModuleRegistration | null
   resetAuthoringNavigation: () => void
-  ensureSectionOpen: (section: 'browseOpen' | 'authoringOpen' | 'toolsOpen' | 'devOpen') => void
+  ensureSectionOpen: (section: 'browseOpen' | 'authoringOpen' | 'translationOpen' | 'toolsOpen' | 'devOpen') => void
   runWithModuleGuard: Guard
   runWithProjectGuard: Guard
 }
@@ -52,7 +52,7 @@ export function useWorkbenchNavigationController({
       navigation.navigate(resolved)
       if (registration) {
         const sectionKey = registration.navigation.section === 'development' ? 'devOpen' : `${registration.navigation.section}Open`
-        ensureSectionOpen(sectionKey as 'browseOpen' | 'authoringOpen' | 'toolsOpen' | 'devOpen')
+        ensureSectionOpen(sectionKey as 'browseOpen' | 'authoringOpen' | 'translationOpen' | 'toolsOpen' | 'devOpen')
         if (registration.presentation === 'authoring') resetAuthoringNavigation()
       }
     },

@@ -1,5 +1,5 @@
 use super::{model, settings};
-use crate::domain::localization::types::AiSemanticSearchMode;
+use crate::domain::localization::types::{AiSemanticExecutionPreference, AiSemanticSearchMode};
 use anyhow::{Context, bail};
 use fastembed::{
     InitOptionsUserDefined, Pooling, TextEmbedding, TokenizerFiles, UserDefinedEmbeddingModel,
@@ -36,12 +36,77 @@ struct LoadedLocalModel {
     fingerprint: String,
     model_id: String,
     dimensions: u32,
+    execution_provider: String,
     model: TextEmbedding,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct ExecutionRuntimeStatus {
+    preference: AiSemanticExecutionPreference,
+    pub active_provider: Option<String>,
+    pub fallback_reason: Option<String>,
+}
+
+fn runtime_status() -> &'static Mutex<ExecutionRuntimeStatus> {
+    static VALUE: OnceLock<Mutex<ExecutionRuntimeStatus>> = OnceLock::new();
+    VALUE.get_or_init(|| {
+        Mutex::new(ExecutionRuntimeStatus {
+            preference: AiSemanticExecutionPreference::Auto,
+            active_provider: None,
+            fallback_reason: None,
+        })
+    })
+}
+
+pub(super) fn execution_runtime_status(
+    preference: AiSemanticExecutionPreference,
+) -> ExecutionRuntimeStatus {
+    runtime_status()
+        .lock()
+        .map(|value| {
+            (value.preference == preference)
+                .then(|| value.clone())
+                .unwrap_or(ExecutionRuntimeStatus {
+                    preference,
+                    active_provider: None,
+                    fallback_reason: None,
+                })
+        })
+        .unwrap_or(ExecutionRuntimeStatus {
+            preference,
+            active_provider: None,
+            fallback_reason: Some("Semantic execution runtime status is unavailable.".into()),
+        })
+}
+
+fn update_runtime_status(
+    preference: AiSemanticExecutionPreference,
+    active_provider: &str,
+    fallback_reason: Option<String>,
+) {
+    if let Ok(mut status) = runtime_status().lock() {
+        status.preference = preference;
+        status.active_provider = Some(active_provider.into());
+        status.fallback_reason = fallback_reason;
+    }
 }
 
 fn loaded_model() -> &'static Mutex<Option<LoadedLocalModel>> {
     static VALUE: OnceLock<Mutex<Option<LoadedLocalModel>>> = OnceLock::new();
     VALUE.get_or_init(|| Mutex::new(None))
+}
+
+pub(super) fn release_local_model() -> anyhow::Result<bool> {
+    let released = loaded_model()
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Semantic model runtime lock is unavailable."))?
+        .take()
+        .is_some();
+    if let Ok(mut status) = runtime_status().lock() {
+        status.active_provider = None;
+        status.fallback_reason = None;
+    }
+    Ok(released)
 }
 
 fn required_path(directory: &Path, name: &str) -> anyhow::Result<PathBuf> {
@@ -105,8 +170,9 @@ fn load_local_model(
     directory: &Path,
     model_id: String,
     dimensions: u32,
+    execution_preference: AiSemanticExecutionPreference,
 ) -> anyhow::Result<LoadedLocalModel> {
-    let signature = local_signature(directory)?;
+    let signature = format!("{}:{execution_preference:?}", local_signature(directory)?);
     let mut fingerprint = Sha256::new();
     let onnx_file = load_bytes(&onnx_path(directory)?, &mut fingerprint)?;
     let tokenizer_files = TokenizerFiles {
@@ -125,26 +191,115 @@ fn load_local_model(
         )?,
     };
     let fingerprint = format!("{:x}", fingerprint.finalize());
-    let model =
+    let embedding_model =
         UserDefinedEmbeddingModel::new(onnx_file, tokenizer_files).with_pooling(Pooling::Mean);
     let threads = std::thread::available_parallelism()
         .map(usize::from)
         .unwrap_or(2)
         .clamp(1, 8);
-    let model = TextEmbedding::try_new_from_user_defined(
-        model,
+    let options = || {
         InitOptionsUserDefined::new()
             .with_max_length(512)
-            .with_intra_threads(threads),
-    )
-    .context("Failed to initialize the local semantic embedding model.")?;
+            .with_intra_threads(threads)
+    };
+    #[cfg(target_os = "windows")]
+    let accelerated = (execution_preference == AiSemanticExecutionPreference::Auto).then(|| {
+        TextEmbedding::try_new_from_user_defined(
+            embedding_model.clone(),
+            options().with_execution_providers(vec![
+                ort::ep::DirectML::default()
+                    .with_performance_preference(
+                        ort::ep::directml::PerformancePreference::HighPerformance,
+                    )
+                    .with_device_filter(ort::ep::directml::DeviceFilter::Gpu)
+                    .build()
+                    .error_on_failure(),
+            ]),
+        )
+    });
+    #[cfg(target_os = "linux")]
+    let accelerated = (execution_preference == AiSemanticExecutionPreference::Auto).then(|| {
+        TextEmbedding::try_new_from_user_defined(
+            embedding_model.clone(),
+            options().with_execution_providers(vec![
+                ort::ep::CUDA::default()
+                    .with_device_id(0)
+                    .build()
+                    .error_on_failure(),
+            ]),
+        )
+    });
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    let accelerated = (execution_preference == AiSemanticExecutionPreference::Auto).then(|| {
+        TextEmbedding::try_new_from_user_defined(
+            embedding_model.clone(),
+            options().with_execution_providers(vec![
+                ort::ep::CoreML::default()
+                    .with_subgraphs(true)
+                    .build()
+                    .error_on_failure(),
+            ]),
+        )
+    });
+    #[cfg(not(any(
+        target_os = "windows",
+        target_os = "linux",
+        all(target_os = "macos", target_arch = "aarch64")
+    )))]
+    let accelerated: Option<anyhow::Result<TextEmbedding>> = None;
+    let (model, execution_provider, fallback_reason) = match accelerated {
+        Some(Ok(model)) => (model, platform_gpu_provider(), None),
+        Some(Err(error)) => (
+            TextEmbedding::try_new_from_user_defined(embedding_model, options()).context(
+                "Failed to initialize the CPU semantic embedding model after GPU fallback.",
+            )?,
+            "cpu",
+            Some(format!(
+                "{} initialization failed: {error:#}",
+                platform_gpu_provider_label()
+            )),
+        ),
+        None => (
+            TextEmbedding::try_new_from_user_defined(embedding_model, options())
+                .context("Failed to initialize the local semantic embedding model.")?,
+            "cpu",
+            (execution_preference == AiSemanticExecutionPreference::Auto)
+                .then(|| "GPU acceleration is not available in this platform build.".into()),
+        ),
+    };
+    update_runtime_status(execution_preference, execution_provider, fallback_reason);
     Ok(LoadedLocalModel {
         signature,
         fingerprint,
         model_id,
         dimensions,
+        execution_provider: execution_provider.into(),
         model,
     })
+}
+
+fn platform_gpu_provider() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "directml"
+    } else if cfg!(target_os = "linux") {
+        "cuda"
+    } else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        "coreml"
+    } else {
+        "gpu"
+    }
+}
+
+fn platform_gpu_provider_label() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "DirectML"
+    } else if cfg!(target_os = "linux") {
+        "CUDA"
+    } else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        "CoreML"
+    } else {
+        "GPU provider"
+    }
 }
 
 fn prefixed(texts: &[String], purpose: EmbeddingPurpose) -> Vec<String> {
@@ -179,7 +334,8 @@ pub(super) fn verify_local_directory(
     model_id: String,
     dimensions: u32,
 ) -> anyhow::Result<String> {
-    let mut loaded = load_local_model(directory, model_id, dimensions)?;
+    let preference = settings::load_settings()?.execution_preference;
+    let mut loaded = load_local_model(directory, model_id, dimensions, preference)?;
     let texts = prefixed(
         &["semantic model verification".into()],
         EmbeddingPurpose::Query,
@@ -198,8 +354,9 @@ fn embed_local(
     dimensions: u32,
     texts: &[String],
     purpose: EmbeddingPurpose,
+    execution_preference: AiSemanticExecutionPreference,
 ) -> anyhow::Result<EmbeddingOutput> {
-    let signature = local_signature(directory)?;
+    let signature = format!("{}:{execution_preference:?}", local_signature(directory)?);
     let mut loaded = loaded_model()
         .lock()
         .map_err(|_| anyhow::anyhow!("Semantic model runtime lock is unavailable."))?;
@@ -207,7 +364,12 @@ fn embed_local(
         .as_ref()
         .is_none_or(|value| value.signature != signature)
     {
-        *loaded = Some(load_local_model(directory, model_id, dimensions)?);
+        *loaded = Some(load_local_model(
+            directory,
+            model_id,
+            dimensions,
+            execution_preference,
+        )?);
     }
     let loaded = loaded.as_mut().context("Semantic model failed to load.")?;
     let mut vectors = loaded
@@ -217,11 +379,23 @@ fn embed_local(
     normalize_vectors(&mut vectors, loaded.dimensions)?;
     Ok(EmbeddingOutput {
         vectors,
-        model_key: format!("local:{}", loaded.fingerprint),
+        model_key: format!(
+            "local:{}:{}:{}",
+            loaded.fingerprint,
+            loaded.execution_provider,
+            execution_preference_key(execution_preference)
+        ),
         model_id: loaded.model_id.clone(),
         dimensions: loaded.dimensions,
         input_tokens: None,
     })
+}
+
+pub(super) fn execution_preference_key(preference: AiSemanticExecutionPreference) -> &'static str {
+    match preference {
+        AiSemanticExecutionPreference::Auto => "execution-auto",
+        AiSemanticExecutionPreference::Cpu => "execution-cpu",
+    }
 }
 
 fn remote_endpoint(base_url: &str) -> String {
@@ -386,6 +560,7 @@ pub fn embed(texts: &[String], purpose: EmbeddingPurpose) -> anyhow::Result<Embe
                     .context("Semantic model dimensions are missing.")?,
                 texts,
                 purpose,
+                settings.execution_preference,
             )
         }
         AiSemanticSearchMode::RemoteOpenai => embed_remote(

@@ -10,7 +10,7 @@ use crate::domain::localization::{jobs, knowledge, official};
 use anyhow::{Context, bail};
 
 const BATCH_SIZE: usize = 32;
-const EMBEDDING_TEMPLATE_VERSION: &str = "template-v3";
+const EMBEDDING_TEMPLATE_VERSION: &str = "template-v4";
 const PRIMARY_WEIGHT: f32 = 0.98;
 const CONTEXT_WEIGHT: f32 = 0.02;
 
@@ -240,9 +240,18 @@ pub fn inspect_index(scope_ids: &[String]) -> anyhow::Result<AiSemanticIndexStat
             .or_else(|| Some("__unavailable_semantic_model__".into())),
         AiSemanticSearchMode::Lexical => None,
     };
+    let expected_model_key_suffix = match settings.mode {
+        AiSemanticSearchMode::Builtin | AiSemanticSearchMode::LocalOnnx => format!(
+            ":{}:{EMBEDDING_TEMPLATE_VERSION}",
+            embedding::execution_preference_key(settings.execution_preference)
+        ),
+        AiSemanticSearchMode::RemoteOpenai | AiSemanticSearchMode::Lexical => {
+            format!(":{EMBEDDING_TEMPLATE_VERSION}")
+        }
+    };
     index::inspect(
         expected_model_id.as_deref(),
-        Some(&format!(":{EMBEDDING_TEMPLATE_VERSION}")),
+        Some(&expected_model_key_suffix),
         scope_ids,
         &source.records,
     )
@@ -276,6 +285,7 @@ pub fn run_probe(request: ProbeAiSemanticSearchRequest) -> anyhow::Result<AiSema
             asset_category: None,
             unit_kind: None,
             prompt_eligible_only: false,
+            allow_literal_scan: false,
             offset: 0,
             limit: 50,
         },
@@ -665,22 +675,22 @@ pub fn synchronize_after_local_mutation(
     app: AppHandle,
     job_id: String,
     scope_ids: Vec<String>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<bool> {
     let configured = settings::load_settings()?;
     if !matches!(
         configured.mode,
         AiSemanticSearchMode::Builtin | AiSemanticSearchMode::LocalOnnx
     ) || index::active_generation()?.is_none()
     {
-        return Ok(());
+        return Ok(false);
     }
     let model = super::model::inspect_model()?;
     if !model.available {
-        return Ok(());
+        return Ok(false);
     }
     let status = inspect_index(&scope_ids)?;
     if status.stale {
-        return Ok(());
+        return Ok(false);
     }
     synchronize_index(
         app,
@@ -690,7 +700,7 @@ pub fn synchronize_after_local_mutation(
             confirm_remote_upload: false,
         },
     )?;
-    Ok(())
+    Ok(true)
 }
 
 #[cfg(test)]

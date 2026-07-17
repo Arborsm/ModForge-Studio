@@ -124,6 +124,25 @@ where
     }
 }
 
+fn network_on_pool_with_resources<F>(
+    id: Value,
+    name: &SidecarCommandName,
+    execution_pool: HostCommandExecutionPool,
+    resources: &'static [SidecarResource],
+    run: F,
+) -> ResolvedSidecarCommandOrResponse
+where
+    F: FnOnce() -> DispatchResult + Send + 'static,
+{
+    match network_with_resources(id, name, resources, run) {
+        ResolvedSidecarCommandOrResponse::Command(mut command) => {
+            command.execution_pool = execution_pool;
+            ResolvedSidecarCommandOrResponse::Command(command)
+        }
+        response => response,
+    }
+}
+
 fn ai_network<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
 where
     F: FnOnce() -> DispatchResult + Send + 'static,
@@ -206,6 +225,25 @@ where
     F: FnOnce() -> DispatchResult + Send + 'static,
 {
     sidecar_command(id, name, SidecarLane::Io, resources, move |_| run())
+}
+
+fn io_on_pool_with_resources<F>(
+    id: Value,
+    name: &SidecarCommandName,
+    execution_pool: HostCommandExecutionPool,
+    resources: &'static [SidecarResource],
+    run: F,
+) -> ResolvedSidecarCommandOrResponse
+where
+    F: FnOnce() -> DispatchResult + Send + 'static,
+{
+    match io_with_resources(id, name, resources, run) {
+        ResolvedSidecarCommandOrResponse::Command(mut command) => {
+            command.execution_pool = execution_pool;
+            ResolvedSidecarCommandOrResponse::Command(command)
+        }
+        response => response,
+    }
 }
 
 fn mutation_with_resources<F>(
@@ -384,6 +422,13 @@ pub(crate) fn resolve_command(
         ),
         crate::host_command_wire!(load_text_asset) => io_lane(id, &command_name, move || {
             ok(domain::assets::load_text_asset(
+                arg(&args, "rootPath")?,
+                arg(&args, "assetPath")?,
+                optional_arg(&args, "locale")?,
+            ))
+        }),
+        crate::host_command_wire!(load_event_asset) => io_lane(id, &command_name, move || {
+            ok(domain::assets::load_event_asset(
                 arg(&args, "rootPath")?,
                 arg(&args, "assetPath")?,
                 optional_arg(&args, "locale")?,
@@ -1220,6 +1265,7 @@ pub(crate) fn resolve_command(
             &command_name,
             &[
                 SidecarResource::AiSemanticSettings,
+                SidecarResource::AiSemanticModel,
                 SidecarResource::AiSemanticIndex,
             ],
             move || {
@@ -1250,16 +1296,25 @@ pub(crate) fn resolve_command(
                 )?))
             },
         ),
-        crate::host_command_wire!(probe_localization_semantic_search) => network_on_pool(
-            id,
-            &command_name,
-            HostCommandExecutionPool::AiSemanticSearch,
-            move || {
-                ok_ai(crate::domain::localization::semantic::run_probe(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
+        crate::host_command_wire!(probe_localization_semantic_search) => {
+            network_on_pool_with_resources(
+                id,
+                &command_name,
+                HostCommandExecutionPool::AiSemanticSearch,
+                &[
+                    SidecarResource::AiSemanticSettings,
+                    SidecarResource::AiSemanticModel,
+                    SidecarResource::AiSemanticIndex,
+                    SidecarResource::AiOfficialLocalizationIndex,
+                    SidecarResource::AiLocalizationKnowledge,
+                ],
+                move || {
+                    ok_ai(crate::domain::localization::semantic::run_probe(arg(
+                        &args, "request",
+                    )?))
+                },
+            )
+        }
         crate::host_command_wire!(download_localization_semantic_model) => {
             let app = ctx.app.clone();
             network_with_resources(
@@ -1403,6 +1458,94 @@ pub(crate) fn resolve_command(
                 )?))
             })
         }
+        crate::host_command_wire!(initialize_localization_plan) => {
+            let app = ctx.app.clone();
+            mutation_on_pool(
+                id,
+                &command_name,
+                HostCommandExecutionPool::AiSemanticIndexing,
+                &[
+                    SidecarResource::AiLocalizationKnowledge,
+                    SidecarResource::AiSemanticModel,
+                    SidecarResource::AiSemanticIndex,
+                    SidecarResource::AiOfficialLocalizationIndex,
+                ],
+                move || {
+                    let request: crate::domain::localization::types::InitializeLocalizationPlanRequest =
+                        arg(&args, "request")?;
+                    ok_ai((|| {
+                        let app = app.clone();
+                        let job_id = request.job_id.clone();
+                        let mut result =
+                            crate::domain::localization::knowledge::initialize_plan(request)?;
+                        match crate::domain::localization::semantic::synchronize_after_local_mutation(
+                            app,
+                            job_id,
+                            vec![result.snapshot.scope.id.clone()],
+                        ) {
+                            Ok(true) => result.semantic_index_state = "synced".into(),
+                            Ok(false) => result.semantic_index_state = "skipped".into(),
+                            Err(error) => {
+                                result.semantic_index_state = "failed".into();
+                                result.semantic_index_error = Some(error.to_string());
+                            }
+                        }
+                        Ok(result)
+                    })())
+                },
+            )
+        }
+        crate::host_command_wire!(inspect_localization_context) => io_with_resources(
+            id,
+            &command_name,
+            &[
+                SidecarResource::AiLocalizationKnowledge,
+                SidecarResource::AiSemanticSettings,
+                SidecarResource::AiSemanticModel,
+                SidecarResource::AiSemanticIndex,
+                SidecarResource::AiOfficialLocalizationIndex,
+            ],
+            move || {
+                ok_ai(crate::domain::localization::knowledge::inspect_context(
+                    arg(&args, "request")?,
+                ))
+            },
+        ),
+        crate::host_command_wire!(acquire_localization_semantic_runtime) => {
+            io_on_pool_with_resources(
+                id,
+                &command_name,
+                HostCommandExecutionPool::AiSemanticSearch,
+                &[
+                    SidecarResource::AiSemanticSettings,
+                    SidecarResource::AiSemanticModel,
+                    SidecarResource::AiSemanticIndex,
+                ],
+                move || {
+                    ok_ai(crate::domain::localization::semantic::acquire_runtime(arg(
+                        &args, "leaseId",
+                    )?))
+                },
+            )
+        }
+        crate::host_command_wire!(release_localization_semantic_runtime) => {
+            io_with_resources(id, &command_name, &[], move || {
+                ok_ai(
+                    crate::domain::localization::semantic::release_runtime_lease(arg(
+                        &args, "leaseId",
+                    )?),
+                )
+            })
+        }
+        crate::host_command_wire!(unload_localization_semantic_runtime) => mutation_with_resources(
+            id,
+            &command_name,
+            &[
+                SidecarResource::AiSemanticModel,
+                SidecarResource::AiSemanticIndex,
+            ],
+            move || ok_ai(crate::domain::localization::semantic::release_runtime()),
+        ),
         crate::host_command_wire!(resolve_localization_scope) => mutation_with_resources(
             id,
             &command_name,
@@ -1413,14 +1556,60 @@ pub(crate) fn resolve_command(
                 )?))
             },
         ),
-        crate::host_command_wire!(rebind_localization_scope) => mutation_with_resources(
+        crate::host_command_wire!(create_localization_profile) => mutation_with_resources(
             id,
             &command_name,
             &[SidecarResource::AiLocalizationKnowledge],
             move || {
-                ok_ai(crate::domain::localization::knowledge::rebind_scope(arg(
-                    &args, "request",
+                ok_ai(crate::domain::localization::knowledge::create_profile(arg(
+                    &args, "name",
                 )?))
+            },
+        ),
+        crate::host_command_wire!(rename_localization_profile) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::AiLocalizationKnowledge],
+            move || {
+                ok_ai(crate::domain::localization::knowledge::rename_profile(
+                    arg(&args, "scopeId")?,
+                    arg(&args, "name")?,
+                ))
+            },
+        ),
+        crate::host_command_wire!(delete_localization_profile) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::AiLocalizationKnowledge],
+            move || {
+                ok_ai(crate::domain::localization::knowledge::delete_profile(arg(
+                    &args, "scopeId",
+                )?))
+            },
+        ),
+        crate::host_command_wire!(set_localization_profile_binding) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::AiLocalizationKnowledge],
+            move || {
+                ok_ai(crate::domain::localization::knowledge::set_profile_binding(
+                    arg(&args, "scopeId")?,
+                    arg(&args, "bindingKind")?,
+                    arg(&args, "bindingValue")?,
+                ))
+            },
+        ),
+        crate::host_command_wire!(remove_localization_profile_binding) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::AiLocalizationKnowledge],
+            move || {
+                ok_ai(
+                    crate::domain::localization::knowledge::remove_profile_binding(
+                        arg(&args, "bindingKind")?,
+                        arg(&args, "bindingValue")?,
+                    ),
+                )
             },
         ),
         crate::host_command_wire!(list_localization_scopes) => io_with_resources(

@@ -13,7 +13,7 @@ type UseModCatalogOptions = {
 }
 
 function defaultProjectPath(projects: ModProjectSummary[], mode: ModCatalogMode) {
-  if (mode === 'translation') return projects.find((project) => project.i18nEntryCount > 0)?.absolutePath ?? null
+  if (mode === 'translation') return null
   return projects[0]?.absolutePath ?? null
 }
 
@@ -118,7 +118,6 @@ export function useModCatalog({ directoryInfo, mode }: UseModCatalogOptions) {
   const filteredProjects = useMemo(
     () =>
       allProjects.filter((project) => {
-        if (mode === 'translation' && project.i18nEntryCount === 0) return false
         if (contentPatcherOnly && project.pluginKind !== 'content-patcher') return false
         if (compatibleOnly && project.status === 'incompatible') return false
         if (i18nOnly && project.i18nEntryCount === 0) return false
@@ -128,7 +127,7 @@ export function useModCatalog({ directoryInfo, mode }: UseModCatalogOptions) {
           .toLowerCase()
           .includes(deferredQuery)
       }),
-    [allProjects, compatibleOnly, contentPatcherOnly, deferredQuery, i18nOnly, mode],
+    [allProjects, compatibleOnly, contentPatcherOnly, deferredQuery, i18nOnly],
   )
 
   const openProjectDirectory = async () => {

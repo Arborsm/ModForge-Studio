@@ -1,7 +1,8 @@
 use super::*;
 use crate::domain::localization::semantic::settings;
 use crate::domain::localization::types::{
-    AiSemanticSearchMode, SaveAiSemanticRemoteProfile, SaveAiSemanticSettingsRequest,
+    AiSemanticExecutionPreference, AiSemanticSearchMode, SaveAiSemanticRemoteProfile,
+    SaveAiSemanticSettingsRequest,
 };
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -68,6 +69,7 @@ fn remote_embeddings_retry_authenticate_and_restore_response_order() {
     });
     settings::save_settings(SaveAiSemanticSettingsRequest {
         mode: AiSemanticSearchMode::RemoteOpenai,
+        execution_preference: AiSemanticExecutionPreference::Auto,
         local_model_directory: None,
         active_remote_profile_id: Some("local".into()),
         remote_profiles: vec![SaveAiSemanticRemoteProfile {
@@ -125,4 +127,53 @@ fn local_vectors_are_l2_normalized_and_invalid_vectors_are_rejected() {
     assert!(normalize_vectors(&mut [vec![0.0, 0.0]], 2).is_err());
     assert!(normalize_vectors(&mut [vec![f32::NAN, 1.0]], 2).is_err());
     assert!(normalize_vectors(&mut [vec![1.0]], 2).is_err());
+}
+
+#[test]
+fn releasing_local_runtime_clears_execution_provider_state() {
+    update_runtime_status(AiSemanticExecutionPreference::Auto, "cuda", None);
+    assert_eq!(
+        execution_runtime_status(AiSemanticExecutionPreference::Auto)
+            .active_provider
+            .as_deref(),
+        Some("cuda")
+    );
+    assert!(!release_local_model().unwrap());
+    assert!(
+        execution_runtime_status(AiSemanticExecutionPreference::Auto)
+            .active_provider
+            .is_none()
+    );
+}
+
+#[test]
+#[ignore = "requires MODFORGE_TEST_SEMANTIC_MODEL_DIR to point to a verified local model"]
+fn local_model_reports_the_actual_execution_provider() {
+    let directory = std::env::var_os("MODFORGE_TEST_SEMANTIC_MODEL_DIR")
+        .map(std::path::PathBuf::from)
+        .expect("MODFORGE_TEST_SEMANTIC_MODEL_DIR is required");
+    let loaded = load_local_model(
+        &directory,
+        "hardware-diagnostic".into(),
+        384,
+        AiSemanticExecutionPreference::Auto,
+    )
+    .unwrap();
+    assert!(matches!(
+        loaded.execution_provider.as_str(),
+        "directml" | "cuda" | "coreml" | "cpu"
+    ));
+    let status = execution_runtime_status(AiSemanticExecutionPreference::Auto);
+    eprintln!(
+        "semantic execution provider: {}; fallback: {}",
+        loaded.execution_provider,
+        status.fallback_reason.as_deref().unwrap_or("none")
+    );
+    assert_eq!(
+        status.active_provider.as_deref(),
+        Some(loaded.execution_provider.as_str())
+    );
+    if loaded.execution_provider == "cpu" {
+        assert!(status.fallback_reason.is_some());
+    }
 }

@@ -19,7 +19,7 @@ export type PageRegistration<TProps = never> = RegistryItemMetadata & {
   component: ComponentFactory<TProps>
 }
 
-export type WorkbenchNavigationSection = 'browse' | 'authoring' | 'tools' | 'development'
+export type WorkbenchNavigationSection = 'browse' | 'authoring' | 'translation' | 'tools' | 'development'
 export type WorkbenchNavigationIcon =
   | 'map'
   | 'events'

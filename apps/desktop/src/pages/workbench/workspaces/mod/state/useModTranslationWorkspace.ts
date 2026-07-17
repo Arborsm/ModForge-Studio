@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadModProject, saveModI18nFiles, type ContentPatcherI18nFile, type ModProjectDetail } from '@entities/mod/api'
-import type { TranslationStatusFilter } from '@features/translation-editor'
-import { useModCopy } from '@locales/provider'
+import { defaultTargetLocaleForAppLocale, type TranslationStatusFilter } from '@features/translation-editor'
+import { useLocale, useModCopy } from '@locales/provider'
 import { reportAppEvent } from '@platform/observability'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 
@@ -10,10 +10,11 @@ type GuardedAction = () => void | Promise<void>
 /** Owns one disk mod's i18n buffers, translation filters, save, and unsaved decisions. */
 export function useModTranslationWorkspace(projectPath: string | null) {
   const copy = useModCopy()
+  const appLocale = useLocale()
   const [detail, setDetail] = useState<ModProjectDetail | null>(null)
   const [files, setFilesState] = useState<ContentPatcherI18nFile[]>([])
   const [sourceLocale, setSourceLocale] = useState('default')
-  const [targetLocale, setTargetLocale] = useState('zh-CN')
+  const [targetLocale, setTargetLocale] = useState(() => defaultTargetLocaleForAppLocale(appLocale))
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<TranslationStatusFilter>('all')
   const [loading, setLoading] = useState(false)
@@ -33,7 +34,11 @@ export function useModTranslationWorkspace(projectPath: string | null) {
       setDetail(null)
       setFilesState([])
       setStatusMessage('')
-      await runLatestLoad(async () => null)
+      try {
+        await runLatestLoad(async () => null)
+      } catch (error) {
+        if (!(error instanceof TaskCancelledError)) throw error
+      }
       return
     }
     setLoading(true)

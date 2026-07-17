@@ -1,4 +1,4 @@
-﻿import type { GameDirectoryInfo, MapAssetContent, ResourceRegistry, TextAssetContent } from './types'
+﻿import type { GameDirectoryInfo, MapAssetContent, ParsedEventAssetContent, ResourceRegistry, TextAssetContent } from './types'
 
 function getDevAssetBridgeBaseUrl() {
   if (!import.meta.env.DEV || typeof window === 'undefined') {
@@ -53,6 +53,11 @@ export function loadMapAssetFromDevBridge(rootPath: string, mapPath: string, loc
 /** Loads a text/data asset through the dev HTTP bridge so browser-only labs can reuse the desktop parser. */
 export function loadTextAssetFromDevBridge(rootPath: string, assetPath: string, locale?: string) {
   return fetchBridgeJson<TextAssetContent>('/load-text-asset', { rootPath, assetPath, locale })
+}
+
+/** Loads a parsed event asset through the dev bridge. */
+export function loadEventAssetFromDevBridge(rootPath: string, assetPath: string, locale?: string) {
+  return fetchBridgeJson<ParsedEventAssetContent>('/load-event-asset', { rootPath, assetPath, locale })
 }
 
 /** Loads an image through the dev HTTP bridge so plain Chrome can consume Rust-decoded XNB textures. */

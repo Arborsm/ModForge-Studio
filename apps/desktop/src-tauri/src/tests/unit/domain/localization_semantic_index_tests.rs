@@ -60,6 +60,51 @@ fn semantic_search_orders_cosine_similarity_after_scope_filtering() {
 }
 
 #[test]
+fn released_vector_cache_reloads_the_active_generation() {
+    let _guard = crate::test_support::process_environment_lock();
+    let root = root();
+    unsafe { std::env::set_var("MODFORGE_TEST_DATA_DIR", &root) };
+    replace_generation(
+        "model-key",
+        "model",
+        2,
+        None,
+        None,
+        &[record("best", Some("project"), vec![1.0, 0.0])],
+    )
+    .unwrap();
+    assert_eq!(
+        search(
+            "model-key",
+            "memory",
+            Some("project"),
+            "en-US",
+            &[1.0, 0.0],
+            1,
+        )
+        .unwrap()[0]
+            .source_id,
+        "best"
+    );
+    assert!(release_cache());
+    assert_eq!(
+        search(
+            "model-key",
+            "memory",
+            Some("project"),
+            "en-US",
+            &[1.0, 0.0],
+            1,
+        )
+        .unwrap()[0]
+            .source_id,
+        "best"
+    );
+    unsafe { std::env::remove_var("MODFORGE_TEST_DATA_DIR") };
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn semantic_index_rebuilds_incompatible_disposable_schemas() {
     let _guard = crate::test_support::process_environment_lock();
     let root = root();

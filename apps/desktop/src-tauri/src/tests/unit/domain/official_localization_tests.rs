@@ -6,16 +6,22 @@ fn test_lock() -> std::sync::MutexGuard<'static, ()> {
 }
 
 #[test]
-fn prompt_eligibility_excludes_character_data_and_schedules() {
-    assert_eq!(classify("Characters/Dialogue/Sam.xnb"), ("dialogue", true));
-    assert_eq!(classify("Strings/Characters.xnb"), ("plain-text", true));
+fn eligibility_excludes_character_data_and_schedules_from_unsafe_uses() {
+    assert_eq!(
+        classify("Characters/Dialogue/Sam.xnb"),
+        ("dialogue", UnitEligibility::PROMPT_SAFE)
+    );
+    assert_eq!(
+        classify("Strings/Characters.xnb"),
+        ("plain-text", UnitEligibility::PROMPT_SAFE)
+    );
     assert_eq!(
         classify("Characters/schedules/Sam.xnb"),
-        ("schedule", false)
+        ("schedule", UnitEligibility::SEARCHABLE_ONLY)
     );
     assert_eq!(
         classify("Data/Characters.xnb"),
-        ("structured-record", false)
+        ("structured-record", UnitEligibility::SEARCHABLE_ONLY)
     );
     assert_eq!(
         character_entity_id("Characters/Dialogue/Sam.xnb").as_deref(),
@@ -145,6 +151,7 @@ fn indexes_xnb_locale_pairs_and_atomically_replaces_generations() {
         asset_category: None,
         unit_kind: None,
         prompt_eligible_only: true,
+        allow_literal_scan: false,
         offset: 0,
         limit: 20,
     })
@@ -159,6 +166,7 @@ fn indexes_xnb_locale_pairs_and_atomically_replaces_generations() {
         asset_category: Some("Strings".into()),
         unit_kind: Some("plain-text".into()),
         prompt_eligible_only: true,
+        allow_literal_scan: false,
         offset: 0,
         limit: 20,
     })
@@ -168,6 +176,40 @@ fn indexes_xnb_locale_pairs_and_atomically_replaces_generations() {
         keyword_page.records[0].source_text,
         "Welcome to Pelican Town"
     );
+    let fallback_page = search(SearchOfficialLocalizationRequest {
+        source_locale: "en-US".into(),
+        target_locale: "zh-CN".into(),
+        query: "Welcome back, farmer".into(),
+        asset_category: Some("Strings".into()),
+        unit_kind: Some("plain-text".into()),
+        prompt_eligible_only: true,
+        allow_literal_scan: false,
+        offset: 0,
+        limit: 20,
+    })
+    .unwrap();
+    assert_eq!(fallback_page.total, 1);
+    assert_eq!(fallback_page.records[0].match_kind, "keyword");
+    assert_eq!(fallback_page.records[0].retrieval_mode, "lexical");
+    let prompt_examples =
+        find_prompt_examples_batch("en-US", "zh-CN", &["Welcome back, farmer".into()]).unwrap();
+    assert_eq!(prompt_examples.len(), 1);
+    assert_eq!(prompt_examples[0].len(), 1);
+    assert_eq!(prompt_examples[0][0].match_kind, "keyword");
+    let one_character_page = search(SearchOfficialLocalizationRequest {
+        source_locale: "en-US".into(),
+        target_locale: "zh-CN".into(),
+        query: "a".into(),
+        asset_category: Some("Strings".into()),
+        unit_kind: Some("plain-text".into()),
+        prompt_eligible_only: true,
+        allow_literal_scan: true,
+        offset: 0,
+        limit: 20,
+    })
+    .unwrap();
+    assert_eq!(one_character_page.total, 1);
+    assert_eq!(one_character_page.records[0].retrieval_mode, "lexical");
     let terms = find_terms_in_text("en-US", "zh-CN", "A gift for Abigail").unwrap();
     assert_eq!(terms.len(), 1);
     assert_eq!(terms[0].source_text, "Abigail");
@@ -215,24 +257,340 @@ fn indexes_xnb_locale_pairs_and_atomically_replaces_generations() {
 
 #[test]
 fn unsafe_script_assets_are_searchable_but_never_prompt_eligible() {
-    let (kind, prompt) = classify("Data/Events/Town.xnb");
+    let (kind, eligibility) = classify("Data/Events/Town.xnb");
     assert_eq!(kind, "event-script");
-    assert!(!prompt);
+    assert_eq!(eligibility, UnitEligibility::SEARCHABLE_ONLY);
     assert_eq!(
         classify("Data/ObjectInformation.xnb"),
-        ("structured-record", false)
+        ("structured-record", UnitEligibility::SEARCHABLE_ONLY)
     );
-    assert_eq!(classify("Strings/NPCNames.xnb"), ("term", true));
-    assert_eq!(classify("Strings/Characters.xnb"), ("plain-text", true));
-    let (units, kind, prompt) = extract(
+    assert_eq!(
+        classify("Strings/NPCNames.xnb"),
+        ("term", UnitEligibility::PROMPT_SAFE)
+    );
+    assert_eq!(
+        classify("Strings/Characters.xnb"),
+        ("plain-text", UnitEligibility::PROMPT_SAFE)
+    );
+    let units = extract(
         "Data/Objects.xnb",
-        &serde_json::json!({"24":{"Name":"Parsnip","Price":35}}),
+        &serde_json::json!({"24":{"Name":"Parsnip","Description":"A spring vegetable.","Price":35}}),
+    )
+    .unwrap();
+    assert_eq!(
+        units
+            .iter()
+            .map(|unit| (unit.key.as_str(), unit.text.as_str()))
+            .collect::<Vec<_>>(),
+        [
+            ("24/Description", "A spring vegetable."),
+            ("24/Name", "Parsnip"),
+        ]
     );
-    assert_eq!(kind, "structured-record");
-    assert!(!prompt);
-    assert_eq!(units.len(), 1);
-    assert_eq!(units[0].0, "$");
-    assert!(units[0].1.contains("Parsnip"));
+    let description = units
+        .iter()
+        .find(|unit| unit.key == "24/Description")
+        .unwrap();
+    assert_eq!(description.eligibility, UnitEligibility::PROMPT_SAFE);
+    let internal_name = units.iter().find(|unit| unit.key == "24/Name").unwrap();
+    assert_eq!(internal_name.eligibility, UnitEligibility::SEARCHABLE_ONLY);
+    assert!(
+        !units
+            .iter()
+            .any(|unit| unit.key == "$" || unit.text.contains("Price"))
+    );
+
+    let festival = extract(
+        "Data/Festivals/summer28.xnb",
+        &serde_json::json!({
+            "Abigail":"Such a rare and exciting thing...",
+            "Alex":"I can't wait to see it tonight!",
+            "mainEvent":"pause 500/globalFade/speak Lewis \"The glow of summer has faded, now... and the moonlight jellies carry on toward the great unknown.\"/move Lewis 0 1 2/festivalEnd/end",
+            "Metadata":{"Chance":0.25}
+        }),
+    )
+    .unwrap();
+    assert_eq!(festival.len(), 3);
+    assert_eq!(festival[0].key, "Abigail");
+    assert_eq!(festival[0].kind, "structured-record");
+    assert_eq!(festival[1].key, "Alex");
+    assert_eq!(festival[2].key, "mainEvent/cmd:2/speak/page:0");
+    assert_eq!(festival[2].kind, "event-script");
+    assert!(!festival[2].eligibility.prompt_eligible);
+    assert_eq!(
+        festival[2].text,
+        "The glow of summer has faded, now... and the moonlight jellies carry on toward the great unknown."
+    );
+    assert!(festival.iter().all(|unit| unit.key != "$"
+        && !unit.text.starts_with('{')
+        && !unit.text.contains("/move ")));
+    let event_units = extract(
+        "Events/Town.xnb",
+        &serde_json::json!({
+            "10/f Abigail 1000": "none/-1000 -1000/farmer 1 2 2/speak Abigail \"Meet me by the moon.\"/move farmer 1 0 2/message \"Look up!\""
+        }),
+    )
+    .unwrap();
+    assert_eq!(
+        event_units
+            .iter()
+            .map(|unit| (unit.key.as_str(), unit.text.as_str()))
+            .collect::<Vec<_>>(),
+        [
+            (
+                "10/f Abigail 1000/cmd:0/speak/page:0",
+                "Meet me by the moon."
+            ),
+            ("10/f Abigail 1000/cmd:2/message", "Look up!"),
+        ]
+    );
+    assert!(event_units.iter().all(|unit| unit.kind == "event-script"
+        && !unit.eligibility.prompt_eligible
+        && !unit.text.contains("/move ")));
+
+    let locations = extract(
+        "Strings/Locations.xnb",
+        &serde_json::json!({
+            "IslandSecret_Event_BirdieIntro":"tropical_island_day_ambient/-1000 -1000/farmer 20 58 3/skippable/pause 1000/speak Birdie \"Come closer, child.\"/move Birdie 0 1 2/textAboveHead Birdie \"Come...\"",
+            "MoonlightJelliesBanner":"Moonlight Jellies"
+        }),
+    )
+    .unwrap();
+    assert!(locations.iter().all(|unit| !unit.text.contains("/pause ")));
+    assert!(locations.iter().any(|unit| {
+        unit.key == "IslandSecret_Event_BirdieIntro/cmd:2/speak/page:0"
+            && unit.text == "Come closer, child."
+            && unit.kind == "event-script"
+            && !unit.eligibility.prompt_eligible
+    }));
+    assert!(locations.iter().any(|unit| {
+        unit.key == "MoonlightJelliesBanner"
+            && unit.text == "Moonlight Jellies"
+            && unit.kind == "plain-text"
+            && unit.eligibility.prompt_eligible
+    }));
+
+    let monsters = extract(
+        "Data/Monsters.xnb",
+        &serde_json::json!({"Dust Spirit":"40/6/0/0/false/1000/382 .5 433 .01/2/.00/4/3/.00/true/2/Dust Sprite"}),
+    )
+    .unwrap();
+    assert_eq!(monsters.len(), 1);
+    assert_eq!(monsters[0].key, "Dust Spirit/display-name");
+    assert_eq!(monsters[0].text, "Dust Sprite");
+    assert_eq!(monsters[0].kind, "term");
+
+    let quests = extract(
+        "Data/Quests.xnb",
+        &serde_json::json!({"22":"Basic/Fish Casserole/Jodi swung by the farm to ask you to dinner at 7:00 PM./Enter Jodi's house with a largemouth bass at 7:00 PM./-1/-1/0/-1/true"}),
+    )
+    .unwrap();
+    assert_eq!(
+        quests
+            .iter()
+            .map(|unit| (unit.key.as_str(), unit.text.as_str()))
+            .collect::<Vec<_>>(),
+        [
+            ("22/title", "Fish Casserole"),
+            (
+                "22/description",
+                "Jodi swung by the farm to ask you to dinner at 7:00 PM."
+            ),
+            (
+                "22/objective",
+                "Enter Jodi's house with a largemouth bass at 7:00 PM."
+            ),
+        ]
+    );
+
+    let bundles = extract(
+        "Data/Bundles.xnb",
+        &serde_json::json!({"Vault/23":"2,500g/O 220 3/-1 2500 2500/4///2,500g"}),
+    )
+    .unwrap();
+    assert_eq!(bundles.len(), 1);
+    assert_eq!(bundles[0].key, "Vault/23/display-name");
+    assert_eq!(bundles[0].text, "2,500g");
+
+    let boots = extract(
+        "Data/Boots.xnb",
+        &serde_json::json!({"878":"Crystal Shoes/These sparkling shoes will keep your feet very safe./1000/3/5/18/Crystal Shoes"}),
+    )
+    .unwrap();
+    assert_eq!(
+        boots
+            .iter()
+            .map(|unit| (unit.key.as_str(), unit.text.as_str()))
+            .collect::<Vec<_>>(),
+        [
+            (
+                "878/description",
+                "These sparkling shoes will keep your feet very safe."
+            ),
+            ("878/display-name", "Crystal Shoes"),
+        ]
+    );
+
+    let extra_dialogue = extract(
+        "Data/ExtraDialogue.xnb",
+        &serde_json::json!({
+            "Morris_BuyMovieTheater":"Ah, our favorite customer...#$b#$q -1 -1#Invest 500,000g?$h#$r -1 -1 Yes#Yes#$r -1 -1 No#No"
+        }),
+    )
+    .unwrap();
+    assert_eq!(extra_dialogue.len(), 4);
+    assert!(extra_dialogue.iter().all(|unit| {
+        unit.kind == "dialogue"
+            && unit.eligibility.prompt_eligible
+            && !unit.text.contains("#$")
+            && !unit.text.contains("$q")
+            && !unit.text.contains("$r")
+    }));
+
+    let extra_dialogue_event = extract(
+        "Data/ExtraDialogue.xnb",
+        &serde_json::json!({
+            "SkullCavern_100_event":"clubloop/-100 -100/farmer 6 6 2 MrQi 10 7 0/pause 500/speak MrQi \"You made it.#$b#Come closer.\"/animate MrQi false false 100 0 1/pause 500/end"
+        }),
+    )
+    .unwrap();
+    assert_eq!(
+        extra_dialogue_event
+            .iter()
+            .map(|unit| (
+                unit.text.as_str(),
+                unit.kind,
+                unit.eligibility.prompt_eligible
+            ))
+            .collect::<Vec<_>>(),
+        [
+            ("You made it.", "event-script", false),
+            ("Come closer.", "event-script", false),
+        ]
+    );
+
+    let secret_notes = extract(
+        "Data/SecretNotes.xnb",
+        &serde_json::json!({
+            "4":"It's a note^^*Gold Bar^*Diamond%revealtaste:Maru:336%revealtaste:Maru:72"
+        }),
+    )
+    .unwrap();
+    assert!(secret_notes.iter().all(|unit| {
+        !unit.text.contains('^')
+            && !unit.text.contains("%revealtaste")
+            && !unit.text.starts_with('*')
+    }));
+
+    let paged_string = extract(
+        "Strings/1_6_Strings.xnb",
+        &serde_json::json!({
+            "Fizz_Intro_1":"Nice to meet ya.#$b#I'm Fizz.$h#$b#Let's get to business.$b#No pressure.$h"
+        }),
+    )
+    .unwrap();
+    assert_eq!(
+        paged_string
+            .iter()
+            .map(|unit| unit.text.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "Nice to meet ya.",
+            "I'm Fizz.",
+            "Let's get to business.",
+            "No pressure."
+        ]
+    );
+
+    let hats = extract(
+        "Data/hats.xnb",
+        &serde_json::json!({
+            "41":"Emily's Magic Hat/Made with love by Emily. 100% organic!/false/true//Emily's Magic Hat/41"
+        }),
+    )
+    .unwrap();
+    assert_eq!(
+        hats.iter()
+            .map(|unit| (unit.key.as_str(), unit.text.as_str(), unit.kind))
+            .collect::<Vec<_>>(),
+        [
+            (
+                "41/description",
+                "Made with love by Emily. 100% organic!",
+                "plain-text"
+            ),
+            ("41/display-name", "Emily's Magic Hat", "term"),
+        ]
+    );
+
+    let mail = extract(
+        "Data/mail.xnb",
+        &serde_json::json!({
+            "Gus":"@!^I made you a little treat this morning. Dig in!^-Your friend, Gus %item id (O)224 1 (O)213 1 %%[#]A Gift From Gus",
+            "NoTitle":"To Haley and Emily^I hope you are both well!"
+        }),
+    )
+    .unwrap();
+    assert!(mail.iter().all(|unit| !unit.key.starts_with("Gus/body/")));
+    assert!(mail.iter().any(|unit| {
+        unit.key == "Gus/body"
+            && unit.text == "@!\nI made you a little treat this morning. Dig in!\n-Your friend, Gus"
+            && unit.kind == "dialogue"
+    }));
+    assert!(mail.iter().any(|unit| {
+        unit.key == "Gus/title" && unit.text == "A Gift From Gus" && unit.kind == "plain-text"
+    }));
+    assert_eq!(
+        mail.iter()
+            .filter(|unit| unit.key == "NoTitle/body")
+            .map(|unit| unit.text.as_str())
+            .collect::<Vec<_>>(),
+        ["To Haley and Emily\nI hope you are both well!"]
+    );
+    assert!(mail.iter().all(|unit| {
+        !unit.text.contains("%item")
+            && !unit.text.contains("%revealtaste")
+            && !unit.text.contains("[#]")
+    }));
+
+    let gift_tastes = extract(
+        "Data/NPCGiftTastes.xnb",
+        &serde_json::json!({
+            "Caroline":"You got this just for me? I'm speechless./213 614 593 907/I really like this. Thank you!/-7 18 402/I don't really like this./-5 -79/No, no, no.../80 330/Oh, a present! Thank you.//",
+            "Universal_Love":"74 434 446"
+        }),
+    )
+    .unwrap();
+    assert_eq!(
+        gift_tastes
+            .iter()
+            .map(|unit| (unit.key.as_str(), unit.text.as_str()))
+            .collect::<Vec<_>>(),
+        [
+            (
+                "Caroline/love/page:0",
+                "You got this just for me? I'm speechless."
+            ),
+            ("Caroline/like/page:0", "I really like this. Thank you!"),
+            ("Caroline/dislike/page:0", "I don't really like this."),
+            ("Caroline/hate/page:0", "No, no, no..."),
+            ("Caroline/neutral/page:0", "Oh, a present! Thank you."),
+        ]
+    );
+    assert!(gift_tastes.iter().all(|unit| {
+        unit.kind == "dialogue"
+            && unit.eligibility.prompt_eligible
+            && !unit.text.contains("213 614")
+            && !unit.key.starts_with("Universal_")
+    }));
+
+    let mut binary = Vec::new();
+    flatten(
+        &serde_json::json!({"Data":"QUFB".repeat(100),"Text":"Readable text"}),
+        "",
+        &mut binary,
+    );
+    assert_eq!(binary, [("Text".into(), "Readable text".into())]);
 }
 
 #[test]
@@ -322,6 +680,7 @@ fn indexes_real_installed_game_xnb_corpus() {
         asset_category: None,
         unit_kind: None,
         prompt_eligible_only: true,
+        allow_literal_scan: false,
         offset: 0,
         limit: 20,
     })

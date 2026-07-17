@@ -1,4 +1,4 @@
-import { Bug, CheckCircle2, CircleAlert, CircleX, Info, TriangleAlert, X } from 'lucide-react'
+import { Bug, CheckCircle2, CircleAlert, CircleX, Info, LoaderCircle, TriangleAlert, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useNotificationCopy } from '@locales/provider'
@@ -19,7 +19,11 @@ const STACK_HOVER_REGION_MIN_HEIGHT_PX = 88
 const STACK_OPACITY_STEP = 0.14
 const MIN_STACK_OPACITY = 0.38
 
-function NotificationIcon({ level }: { level: PublishedNotification['level'] }) {
+function NotificationIcon({ level, loading }: Pick<PublishedNotification, 'level' | 'loading'>) {
+  if (loading) {
+    return <LoaderCircle className="notification-toast-loading-icon h-5 w-5" />
+  }
+
   if (level === 'success') {
     return <CheckCircle2 className="h-5 w-5" />
   }
@@ -160,7 +164,7 @@ function NotificationToast({
       onMouseLeave={handleMouseLeave}
     >
       <div className="notification-toast-icon" aria-hidden="true">
-        <NotificationIcon level={notification.level} />
+        <NotificationIcon level={notification.level} loading={notification.loading} />
       </div>
 
       <div className="notification-toast-body">
