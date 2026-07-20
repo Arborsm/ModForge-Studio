@@ -66,4 +66,250 @@
     color: var(--text-tertiary);
     font-size: 0.75rem;
   }
+
+  .ai-localization-overview {
+    display: flex;
+    min-height: 100%;
+    flex-direction: column;
+    overflow: auto;
+    background: var(--bg-panel);
+  }
+
+  .ai-localization-overview-section {
+    flex: 0 0 auto;
+    padding: 24px 28px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    background: var(--bg-panel);
+  }
+
+  .ai-localization-overview-section:first-of-type {
+    padding: 0;
+  }
+
+  .ai-localization-overview-section:last-child {
+    min-height: 112px;
+    flex: 1 0 auto;
+    border-bottom: 0;
+  }
+
+  .ai-localization-metric-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .ai-localization-metric {
+    display: flex;
+    min-width: 0;
+    min-height: 92px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    padding: 16px 20px;
+    border: 0;
+    border-right: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    background: transparent;
+    color: var(--text-primary);
+    text-align: left;
+    transition: background-color 150ms ease;
+  }
+
+  .ai-localization-metric:first-child {
+    padding-left: 28px;
+  }
+
+  .ai-localization-metric:last-child {
+    border-right: 0;
+  }
+
+  .ai-localization-metric:hover {
+    background: var(--bg-hover);
+  }
+
+  .ai-localization-metric-value {
+    display: flex;
+    min-height: 36px;
+    align-items: center;
+    overflow: hidden;
+    font-size: 1.75rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ai-localization-metric[data-tone='warn'] .ai-localization-metric-value {
+    color: var(--warning);
+  }
+
+  .ai-localization-metric[data-tone='danger'] .ai-localization-metric-value {
+    color: var(--danger);
+    font-size: 1.25rem;
+  }
+
+  .ai-localization-metric-label {
+    overflow: hidden;
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .ai-localization-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .ai-localization-section-head h3 {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .ai-localization-section-head > span {
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .ai-localization-readiness-list {
+    display: grid;
+  }
+
+  .ai-localization-readiness-row {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) auto auto;
+    min-height: 56px;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+  }
+
+  .ai-localization-readiness-row + .ai-localization-readiness-row {
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .ai-localization-readiness-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+  }
+
+  .ai-localization-readiness-row.is-ready .ai-localization-readiness-dot {
+    background: var(--success);
+  }
+
+  .ai-localization-readiness-row.is-warn .ai-localization-readiness-dot,
+  .ai-localization-readiness-row.is-loading .ai-localization-readiness-dot {
+    background: var(--warning);
+  }
+
+  .ai-localization-readiness-row.is-danger .ai-localization-readiness-dot {
+    background: var(--danger);
+  }
+
+  .ai-localization-readiness-main {
+    min-width: 0;
+  }
+
+  .ai-localization-readiness-main strong {
+    display: block;
+    overflow: hidden;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ai-localization-readiness-main p {
+    margin: 3px 0 0;
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ai-localization-readiness-chip {
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .ai-localization-readiness-chip.is-warn,
+  .ai-localization-readiness-chip.is-loading {
+    color: var(--warning);
+  }
+
+  .ai-localization-readiness-chip.is-danger {
+    color: var(--danger);
+  }
+
+  .ai-localization-plain-text {
+    margin: 0;
+    padding: 4px 0;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+  }
+
+  .ai-localization-defaults-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 14px;
+  }
+
+  .ai-localization-defaults-row > label {
+    display: inline-grid;
+    min-width: 148px;
+    gap: 6px;
+  }
+
+  .ai-localization-defaults-row > label > span {
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  .ai-localization-switch-wrapper {
+    display: inline-flex;
+    min-height: 32px;
+    align-items: center;
+  }
+
+  .ai-localization-scope-error {
+    display: grid;
+    justify-items: start;
+    gap: 8px;
+    padding: 8px 4px;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+  }
+
+  .ai-localization-scope-error p {
+    margin: 0;
+  }
+
+  .ai-localization-semantic-status {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    white-space: nowrap;
+  }
 }

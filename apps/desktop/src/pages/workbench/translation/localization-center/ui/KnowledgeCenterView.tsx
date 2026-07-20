@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Download, Plus, Search, Trash2, Upload } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, MousePointer2, Plus, Search, Server, Trash2, Upload } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 import { useLocalization } from '@entities/localization'
 import { useAiLocalizationCopy } from '@locales/provider'
@@ -14,6 +14,7 @@ import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifi
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { CompactSelect } from '@shared/ui/CompactSelect'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
+import { cx } from '@shared/lib/helper'
 import { ResizableColumnHeader, useAiLocalizationColumnWidths } from '../model/useAiLocalizationColumnWidths'
 
 const NOTICE = 'ai-localization-knowledge-error'
@@ -83,25 +84,30 @@ export function KnowledgeCenterView({
   const [busy, setBusy] = useState(false)
   const runKnowledgeLoad = useLatestTask('ai-localization-knowledge-content')
   const glossaryColumns = useAiLocalizationColumnWidths('glossary', {
-    source: 220,
-    target: 220,
-    locale: 140,
-    scope: 140,
-    match: 140,
-    updated: 170,
+    source: 190,
+    target: 190,
+    locale: 110,
+    scope: 120,
+    match: 100,
+    updated: 140,
   })
   const memoryColumns = useAiLocalizationColumnWidths('memory', {
-    source: 260,
-    target: 260,
-    locale: 140,
-    kind: 140,
-    file: 220,
-    confirmed: 170,
-    uses: 100,
+    source: 180,
+    target: 180,
+    similarity: 80,
+    sourceScope: 100,
+    updated: 120,
   })
-  const fail = () => {
+  const fail = (retry?: () => void) => {
     setError(copy.knowledgeError)
-    publish({ id: NOTICE, level: 'error', title: copy.knowledgeError, description: copy.knowledgeError })
+    publish({
+      id: NOTICE,
+      level: 'error',
+      eyebrow: copy.projectMessage,
+      title: copy.knowledgeError,
+      description: copy.knowledgeError,
+      action: retry ? { label: copy.retry, callback: retry, tone: 'primary' } : undefined,
+    })
   }
   useEffect(() => {
     return () => dismissNotification(NOTICE)
@@ -156,7 +162,7 @@ export function KnowledgeCenterView({
     } catch (error) {
       if (!(error instanceof TaskCancelledError)) {
         setBusy(false)
-        fail()
+        fail(load)
       }
     }
   }
@@ -174,7 +180,7 @@ export function KnowledgeCenterView({
       await localization.upsertGlossary(scopeId, [selectedGlossary])
       await load()
     } catch {
-      fail()
+      fail(saveGlossary)
     } finally {
       setBusy(false)
     }
@@ -187,7 +193,7 @@ export function KnowledgeCenterView({
       if (glossary.length === 1 && glossaryOffset > 0) setGlossaryOffset(Math.max(0, glossaryOffset - PAGE_SIZE))
       else await load()
     } catch {
-      fail()
+      fail(removeGlossary)
     }
   }
   const removeSelectedGlossary = async () => {
@@ -199,7 +205,7 @@ export function KnowledgeCenterView({
       if (selectedGlossaryIds.size >= glossary.length && glossaryOffset > 0) setGlossaryOffset(Math.max(0, glossaryOffset - PAGE_SIZE))
       else await load()
     } catch {
-      fail()
+      fail(removeSelectedGlossary)
     }
   }
   const saveStyle = async () => {
@@ -207,7 +213,7 @@ export function KnowledgeCenterView({
     try {
       setStyle(await localization.saveStyle(style))
     } catch {
-      fail()
+      fail(saveStyle)
     }
   }
   const effectiveStyle = style
@@ -228,7 +234,7 @@ export function KnowledgeCenterView({
       if (memory.length === 1 && memoryOffset > 0) setMemoryOffset(Math.max(0, memoryOffset - PAGE_SIZE))
       else await load()
     } catch {
-      fail()
+      fail(removeMemory)
     }
   }
   const copyMemory = async () => {
@@ -266,7 +272,7 @@ export function KnowledgeCenterView({
         })
       await load()
     } catch {
-      fail()
+      fail(() => void transfer(direction))
     }
   }
   const pagination = (offset: number, total: number, setOffset: (value: number) => void) => (
@@ -297,54 +303,149 @@ export function KnowledgeCenterView({
       </button>
     </nav>
   )
-  const showInspector = tab === 'glossary' ? selectedGlossary !== null : tab === 'memory' ? selectedMemory !== null : false
+  const hasInspector = tab === 'glossary' || tab === 'memory'
   return (
     <>
-      <div className={`ai-localization-layout${showInspector ? '' : ' is-single-pane'}`}>
+      <div className={`ai-localization-layout${hasInspector ? '' : ' is-single-pane'}`} data-guide="translation-knowledge">
         <main className="ai-localization-main">
-          <header className="ai-localization-toolbar">
-            {tab === 'memory' ? <SemanticSearchStatus scopeId={scopeId || undefined} showConfigure={false} /> : null}
-            <strong>{tab === 'glossary' ? copy.glossaryTab : tab === 'style' ? copy.styleTab : copy.memoryTab}</strong>
-            <div className="settings-ai-secret">
-              <Search className="h-4 w-4" />
-              <input className="control-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy.search} />
-            </div>
-            <button className="control-button" onClick={() => void transfer('import')}>
-              <Upload className="h-4 w-4" />
-              {copy.importAction}
-            </button>
-            <button className="control-button" onClick={() => void transfer('export')}>
-              <Download className="h-4 w-4" />
-              {copy.exportAction}
-            </button>
-            {tab === 'glossary' ? (
-              <>
-                <button
-                  className="control-button"
-                  disabled={!selectedGlossaryIds.size}
-                  onClick={() => setDeleteTarget('selected-glossary')}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  {copy.delete} ({selectedGlossaryIds.size})
-                </button>
-                <button className="control-button" onClick={() => setSelectedGlossary(blankEntry(scopeId, sourceLocale, targetLocale))}>
-                  <Plus className="h-4 w-4" />
-                  {copy.add}
-                </button>
-              </>
-            ) : null}
-          </header>
+          {tab !== 'style' ? (
+            <header className="ai-localization-toolbar">
+              <strong>{tab === 'glossary' ? copy.glossaryTab : copy.memoryTab}</strong>
+              {tab === 'memory' ? <SemanticSearchStatus scopeId={scopeId || undefined} showConfigure={false} /> : null}
+              <div className="ai-localization-toolbar-search">
+                <Search className="h-4 w-4" />
+                <input
+                  className="control-input"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={copy.search}
+                />
+              </div>
+              <button className="control-button" onClick={() => void transfer('import')}>
+                <Upload className="h-4 w-4" />
+                {copy.importAction}
+              </button>
+              <button className="control-button" onClick={() => void transfer('export')}>
+                <Download className="h-4 w-4" />
+                {copy.exportAction}
+              </button>
+              {tab === 'glossary' ? (
+                <>
+                  <button
+                    className="control-button"
+                    disabled={!selectedGlossaryIds.size}
+                    onClick={() => setDeleteTarget('selected-glossary')}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {copy.delete} ({selectedGlossaryIds.size})
+                  </button>
+                  <button
+                    className="control-button control-button-primary"
+                    onClick={() => setSelectedGlossary(blankEntry(scopeId, sourceLocale, targetLocale))}
+                  >
+                    <Plus className="h-4 w-4" />
+                    {copy.add}
+                  </button>
+                </>
+              ) : null}
+            </header>
+          ) : null}
           {error ? (
             <p role="alert" className="settings-ai-error">
               {error}
             </p>
           ) : null}
-          {tab === 'glossary' ? (
+          {tab === 'style' ? (
+            style ? (
+              <div className="ai-localization-style">
+                <label>
+                  <span>{copy.tone}</span>
+                  <input className="control-input" value={style.tone} onChange={(e) => setStyle({ ...style, tone: e.target.value })} />
+                </label>
+                <label>
+                  <span>{copy.audience}</span>
+                  <input
+                    className="control-input"
+                    value={style.audience}
+                    onChange={(e) => setStyle({ ...style, audience: e.target.value })}
+                  />
+                </label>
+                <label>
+                  <span>{copy.formality}</span>
+                  <input
+                    className="control-input"
+                    value={style.formality}
+                    onChange={(e) => setStyle({ ...style, formality: e.target.value })}
+                  />
+                </label>
+                <label className="full">
+                  <span>{copy.forbiddenPhrases}</span>
+                  <textarea
+                    className="control-input"
+                    value={style.forbiddenPhrases.join('\n')}
+                    onChange={(e) => setStyle({ ...style, forbiddenPhrases: lines(e.target.value) })}
+                  />
+                </label>
+                <label className="full">
+                  <span>{copy.preferredPhrases}</span>
+                  <textarea
+                    className="control-input"
+                    value={style.preferredPhrases.join('\n')}
+                    onChange={(e) => setStyle({ ...style, preferredPhrases: lines(e.target.value) })}
+                  />
+                </label>
+                <label className="full">
+                  <span>{copy.rules}</span>
+                  <textarea
+                    className="control-input"
+                    value={style.rules.join('\n')}
+                    onChange={(e) => setStyle({ ...style, rules: lines(e.target.value) })}
+                  />
+                </label>
+                <section className="preview-box">
+                  <h4>{copy.effectivePreview}</h4>
+                  <pre>{JSON.stringify(effectiveStyle, null, 2)}</pre>
+                </section>
+                {inheritedStyle ? (
+                  <div className="ai-localization-inheritance-actions">
+                    {(
+                      [
+                        ['tone', copy.tone],
+                        ['audience', copy.audience],
+                        ['formality', copy.formality],
+                        ['forbiddenPhrases', copy.forbiddenPhrases],
+                        ['preferredPhrases', copy.preferredPhrases],
+                        ['rules', copy.rules],
+                      ] as const
+                    ).map(([field, label]) => (
+                      <button
+                        key={field}
+                        type="button"
+                        className="control-button"
+                        onClick={() => setStyle({ ...style, [field]: Array.isArray(style[field]) ? [] : '' })}
+                      >
+                        {copy.restoreInheritance}: {label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="ai-localization-style-actions">
+                  <button className="control-button control-button-primary" onClick={() => void saveStyle()}>
+                    {copy.save}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="ai-localization-empty-state">
+                <span>{busy ? copy.resourceStatusLoading : copy.noScopes}</span>
+              </div>
+            )
+          ) : tab === 'glossary' ? (
             <div className="ai-localization-table">
               <table>
                 <thead>
                   <tr>
-                    <th>
+                    <th style={{ width: 44 }}>
                       <input
                         type="checkbox"
                         aria-label={copy.selectAll}
@@ -397,97 +498,33 @@ export function KnowledgeCenterView({
                           }
                         />
                       </td>
-                      <td>{entry.sourceTerm}</td>
+                      <td className="mono">{entry.sourceTerm}</td>
                       <td>{entry.doNotTranslate ? copy.doNotTranslate : entry.targetTerm}</td>
                       <td>
                         {entry.sourceLocale} → {entry.targetLocale}
                       </td>
                       <td>{scopes.find((scope) => scope.id === entry.scopeId)?.name ?? entry.scopeId}</td>
-                      <td>{entry.matchMode === 'exact' ? copy.exact : copy.caseInsensitive}</td>
-                      <td>{new Date(entry.updatedAtMs).toLocaleString()}</td>
+                      <td>
+                        <span className={cx('ai-localization-chip', entry.doNotTranslate ? 'is-accent' : 'is-neutral')}>
+                          {entry.matchMode === 'exact' ? copy.exact : copy.caseInsensitive}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="muted">{new Date(entry.updatedAtMs).toLocaleString()}</span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {!busy && !glossary.length ? <p className="ai-localization-empty">{copy.glossaryEmpty}</p> : null}
-              {glossaryTotal > 0 ? pagination(glossaryOffset, glossaryTotal, setGlossaryOffset) : null}
-            </div>
-          ) : tab === 'style' && style ? (
-            <div className="ai-localization-style">
-              <label>
-                <span>{copy.tone}</span>
-                <input className="control-input" value={style.tone} onChange={(e) => setStyle({ ...style, tone: e.target.value })} />
-              </label>
-              <label>
-                <span>{copy.audience}</span>
-                <input
-                  className="control-input"
-                  value={style.audience}
-                  onChange={(e) => setStyle({ ...style, audience: e.target.value })}
-                />
-              </label>
-              <label>
-                <span>{copy.formality}</span>
-                <input
-                  className="control-input"
-                  value={style.formality}
-                  onChange={(e) => setStyle({ ...style, formality: e.target.value })}
-                />
-              </label>
-              <label>
-                <span>{copy.forbiddenPhrases}</span>
-                <textarea
-                  className="control-input"
-                  value={style.forbiddenPhrases.join('\n')}
-                  onChange={(e) => setStyle({ ...style, forbiddenPhrases: lines(e.target.value) })}
-                />
-              </label>
-              <label>
-                <span>{copy.preferredPhrases}</span>
-                <textarea
-                  className="control-input"
-                  value={style.preferredPhrases.join('\n')}
-                  onChange={(e) => setStyle({ ...style, preferredPhrases: lines(e.target.value) })}
-                />
-              </label>
-              <label>
-                <span>{copy.rules}</span>
-                <textarea
-                  className="control-input"
-                  value={style.rules.join('\n')}
-                  onChange={(e) => setStyle({ ...style, rules: lines(e.target.value) })}
-                />
-              </label>
-              <section>
-                <h3>{copy.effectivePreview}</h3>
-                <pre>{JSON.stringify(effectiveStyle, null, 2)}</pre>
-              </section>
-              {inheritedStyle ? (
-                <div className="ai-localization-inheritance-actions">
-                  {(
-                    [
-                      ['tone', copy.tone],
-                      ['audience', copy.audience],
-                      ['formality', copy.formality],
-                      ['forbiddenPhrases', copy.forbiddenPhrases],
-                      ['preferredPhrases', copy.preferredPhrases],
-                      ['rules', copy.rules],
-                    ] as const
-                  ).map(([field, label]) => (
-                    <button
-                      key={field}
-                      type="button"
-                      className="control-button"
-                      onClick={() => setStyle({ ...style, [field]: Array.isArray(style[field]) ? [] : '' })}
-                    >
-                      {copy.restoreInheritance}: {label}
-                    </button>
-                  ))}
+              {!busy && !glossary.length ? (
+                <div className="ai-localization-empty-state">
+                  <div className="ai-localization-empty-icon">
+                    <Server className="h-4 w-4" />
+                  </div>
+                  <span>{copy.glossaryEmpty}</span>
                 </div>
               ) : null}
-              <button className="control-button control-button-primary" onClick={() => void saveStyle()}>
-                {copy.save}
-              </button>
+              {glossaryTotal > 0 ? pagination(glossaryOffset, glossaryTotal, setGlossaryOffset) : null}
             </div>
           ) : (
             <div className="ai-localization-table">
@@ -497,11 +534,9 @@ export function KnowledgeCenterView({
                     {[
                       ['source', copy.source],
                       ['target', copy.target],
-                      ['locale', copy.localePair],
-                      ['kind', copy.sourceKind],
-                      ['file', copy.fileAndKey],
-                      ['confirmed', copy.confirmedAt],
-                      ['uses', copy.useCount],
+                      ['similarity', copy.similarity],
+                      ['sourceScope', copy.sourceKind],
+                      ['updated', copy.updatedAt],
                     ].map(([column, label]) => (
                       <ResizableColumnHeader
                         key={column}
@@ -522,36 +557,45 @@ export function KnowledgeCenterView({
                       className={selectedMemory?.id === entry.id ? 'is-selected' : ''}
                       onClick={() => setSelectedMemory(entry)}
                     >
-                      <td>{entry.sourceText}</td>
+                      <td className="mono">{entry.sourceText}</td>
                       <td>{entry.targetText}</td>
                       <td>
-                        {entry.sourceLocale} → {entry.targetLocale}
+                        <span className={cx('ai-localization-chip', entry.similarity >= 0.95 ? 'is-success' : 'is-accent')}>
+                          {Math.round(entry.similarity * 100)}%
+                        </span>
                       </td>
                       <td>{entry.sourceKind}</td>
                       <td>
-                        {entry.fileNamespace}
-                        <small>{entry.unitKey}</small>
+                        <span className="muted">{new Date(entry.confirmedAtMs).toLocaleString()}</span>
                       </td>
-                      <td>{new Date(entry.confirmedAtMs).toLocaleString()}</td>
-                      <td>{entry.useCount}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {!busy && !memory.length ? <p className="ai-localization-empty">{copy.memoryEmpty}</p> : null}
+              {!busy && !memory.length ? (
+                <div className="ai-localization-empty-state">
+                  <div className="ai-localization-empty-icon">
+                    <Server className="h-4 w-4" />
+                  </div>
+                  <span>{copy.memoryEmpty}</span>
+                </div>
+              ) : null}
               {memoryTotal > 0 ? pagination(memoryOffset, memoryTotal, setMemoryOffset) : null}
             </div>
           )}
         </main>
-        {showInspector ? (
+        {hasInspector ? (
           <aside className="ai-localization-inspector">
             {tab === 'glossary' ? (
               selectedGlossary ? (
                 <div className="ai-localization-form">
+                  <div className="ai-localization-inspector-header">
+                    <strong>{copy.selectGlossary}</strong>
+                  </div>
                   <label>
                     <span>{copy.sourceTerm}</span>
                     <input
-                      className="control-input"
+                      className="control-input mono"
                       value={selectedGlossary.sourceTerm}
                       onChange={(e) => setSelectedGlossary({ ...selectedGlossary, sourceTerm: e.target.value })}
                     />
@@ -581,6 +625,7 @@ export function KnowledgeCenterView({
                   <label className="ai-localization-check">
                     <input
                       type="checkbox"
+                      className="ai-localization-switch"
                       checked={selectedGlossary.doNotTranslate}
                       onChange={(e) => setSelectedGlossary({ ...selectedGlossary, doNotTranslate: e.target.checked })}
                     />
@@ -595,7 +640,11 @@ export function KnowledgeCenterView({
                     />
                   </label>
                   <div className="ai-localization-form-actions">
-                    <button className="control-button" disabled={!selectedGlossary.id} onClick={() => setDeleteTarget('glossary')}>
+                    <button
+                      className="control-button ai-localization-danger-button"
+                      disabled={!selectedGlossary.id}
+                      onClick={() => setDeleteTarget('glossary')}
+                    >
                       <Trash2 className="h-4 w-4" />
                       {copy.delete}
                     </button>
@@ -605,37 +654,51 @@ export function KnowledgeCenterView({
                   </div>
                 </div>
               ) : (
-                <p className="ai-localization-empty">{copy.selectGlossary}</p>
+                <div className="ai-localization-empty-state">
+                  <div className="ai-localization-empty-icon">
+                    <Server className="h-4 w-4" />
+                  </div>
+                  <span>{copy.selectGlossary}</span>
+                </div>
               )
             ) : tab === 'memory' ? (
               selectedMemory ? (
                 <>
+                  <div className="ai-localization-inspector-header">
+                    <strong>{copy.selectMemory}</strong>
+                  </div>
                   <section>
                     <h3>{copy.fullSource}</h3>
-                    <p>{selectedMemory.sourceText}</p>
+                    <div className="ai-localization-code-box">{selectedMemory.sourceText}</div>
                   </section>
                   <section>
                     <h3>{copy.fullTarget}</h3>
-                    <p>{selectedMemory.targetText}</p>
+                    <div className="ai-localization-code-box">{selectedMemory.targetText}</div>
                   </section>
-                  <dl>
-                    <div>
-                      <dt>{copy.sourceKind}</dt>
-                      <dd>{selectedMemory.sourceKind}</dd>
-                    </div>
+                  <dl className="ai-localization-kv">
                     <div>
                       <dt>{copy.similarity}</dt>
                       <dd>{Math.round(selectedMemory.similarity * 100)}%</dd>
                     </div>
                     <div>
+                      <dt>{copy.localePair}</dt>
+                      <dd>
+                        {selectedMemory.sourceLocale} → {selectedMemory.targetLocale}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{copy.sourceKind}</dt>
+                      <dd>{selectedMemory.sourceKind}</dd>
+                    </div>
+                    <div>
                       <dt>{copy.useCount}</dt>
                       <dd>{selectedMemory.useCount}</dd>
                     </div>
+                    <div>
+                      <dt>{copy.updatedAt}</dt>
+                      <dd>{new Date(selectedMemory.confirmedAtMs).toLocaleString()}</dd>
+                    </div>
                   </dl>
-                  <button className="control-button" onClick={() => setDeleteTarget('memory')}>
-                    <Trash2 className="h-4 w-4" />
-                    {copy.delete}
-                  </button>
                   <label>
                     <span>{copy.copyToScope}</span>
                     <CompactSelect
@@ -651,11 +714,28 @@ export function KnowledgeCenterView({
                       placement="top-start"
                     />
                   </label>
-                  <button className="control-button" disabled={!memoryTargetScopeId} onClick={() => void copyMemory()}>
-                    {copy.copyToScope}
-                  </button>
+                  <div className="ai-localization-form-actions">
+                    <button className="control-button ai-localization-danger-button" onClick={() => setDeleteTarget('memory')}>
+                      <Trash2 className="h-4 w-4" />
+                      {copy.delete}
+                    </button>
+                    <button
+                      className="control-button control-button-primary"
+                      disabled={!memoryTargetScopeId}
+                      onClick={() => void copyMemory()}
+                    >
+                      {copy.copyToScope}
+                    </button>
+                  </div>
                 </>
-              ) : null
+              ) : (
+                <div className="ai-localization-empty-state">
+                  <div className="ai-localization-empty-icon">
+                    <MousePointer2 className="h-4 w-4" />
+                  </div>
+                  <span>{copy.selectMemory}</span>
+                </div>
+              )
             ) : null}
           </aside>
         ) : null}

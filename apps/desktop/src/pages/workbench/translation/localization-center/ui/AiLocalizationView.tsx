@@ -1,7 +1,5 @@
 import {
   AlertTriangle,
-  BookText,
-  Bot,
   Check,
   CheckCircle2,
   Cpu,
@@ -10,10 +8,8 @@ import {
   LoaderCircle,
   Pencil,
   Plus,
-  ScanSearch,
   Settings2,
   Trash2,
-  Unlink,
   Upload,
 } from 'lucide-react'
 import { Fragment, useEffect, useState } from 'react'
@@ -24,7 +20,6 @@ import { useAiLocalizationCopy } from '@locales/provider'
 import type { AiLocalizationScope, AiSemanticSearchMode, LocalizationScopeSettings } from '@shared/contracts'
 import { cx } from '@shared/lib/helper'
 import { CompactSelect } from '@shared/ui/CompactSelect'
-import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import { useNotificationPublisher } from '@shared/ui/notifications'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { KnowledgeCenterView, type KnowledgeTab } from './KnowledgeCenterView'
@@ -198,16 +193,17 @@ export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: A
   }
 
   return (
-    <div className="ai-localization-center">
+    <div className="ai-localization-center" data-guide-surface="workbench.translation">
       <div className="ai-localization-shell">
         <header className="ai-localization-workarea-head">
-          <nav className="ai-localization-tabs" role="tablist">
+          <nav className="ai-localization-tabs" role="tablist" data-guide="translation-views">
             {tabs.map(([id, label], index) => (
               <button
                 key={id}
                 type="button"
                 role="tab"
                 aria-selected={tab === id}
+                tabIndex={tab === id ? 0 : -1}
                 className={tab === id ? 'is-active' : ''}
                 onClick={() => setTab(id)}
                 onKeyDown={(event) => {
@@ -250,7 +246,7 @@ export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: A
               onClick={() => void transferKnowledgePack('import')}
             >
               <Upload className="h-4 w-4" />
-              {copy.importKnowledgePack}
+              {copy.importAction}
             </button>
             <button
               type="button"
@@ -259,7 +255,7 @@ export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: A
               onClick={() => void transferKnowledgePack('export')}
             >
               <Download className="h-4 w-4" />
-              {copy.exportKnowledgePack}
+              {copy.exportAction}
             </button>
             {onOpenAiSettings ? (
               <button type="button" className="control-button h-8 px-3 text-xs" onClick={onOpenAiSettings}>
@@ -273,18 +269,6 @@ export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: A
           <div className="ai-localization-scope-search">
             <div className="ai-localization-scope-search-head">
               <span>{copy.scopeRegion}</span>
-              <button
-                type="button"
-                className="icon-button"
-                title={copy.profileCreate}
-                aria-label={copy.profileCreate}
-                onClick={() => {
-                  setNewProfileName('')
-                  setCreatingProfile((current) => !current)
-                }}
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
             </div>
             <input
               className="control-input"
@@ -329,7 +313,7 @@ export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: A
                     </div>
                   ) : null}
                   {renamingScopeId === scope.id ? (
-                    <LoadingMotionRevealItem key={scope.id} index={index} className="ai-localization-scope-row is-editing">
+                    <div key={scope.id} className="ai-localization-scope-row is-editing">
                       <input
                         className="control-input"
                         value={renamingProfileName}
@@ -351,13 +335,9 @@ export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: A
                       >
                         <Check className="h-3.5 w-3.5" />
                       </button>
-                    </LoadingMotionRevealItem>
+                    </div>
                   ) : (
-                    <LoadingMotionRevealItem
-                      key={scope.id}
-                      index={index}
-                      className={cx('ai-localization-scope-row', scope.id === scopeId && 'is-active')}
-                    >
+                    <div key={scope.id} className={cx('ai-localization-scope-row', scope.id === scopeId && 'is-active')}>
                       <button
                         type="button"
                         className="ai-localization-scope-row-main"
@@ -365,17 +345,16 @@ export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: A
                           setScopeId(scope.id)
                         }}
                       >
-                        <Database className="h-4 w-4" />
-                        <span>
-                          <strong>{scope.kind === 'global' ? copy.globalScope : scope.name}</strong>
-                          <small>
+                        <div className="ai-localization-scope-text">
+                          <span className="ai-localization-scope-name">{scope.kind === 'global' ? copy.globalScope : scope.name}</span>
+                          <span className="ai-localization-scope-meta">
                             {scope.kind === 'global'
                               ? `${activeSourceLocale} → ${activeTargetLocale}`
                               : scope.bindings.length
                                 ? copy.profileBindingCount(scope.bindings.length)
                                 : copy.profileUnbound}
-                          </small>
-                        </span>
+                          </span>
+                        </div>
                       </button>
                       {scope.kind === 'profile' ? (
                         <span className="ai-localization-scope-row-actions">
@@ -399,7 +378,7 @@ export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: A
                           </button>
                         </span>
                       ) : null}
-                    </LoadingMotionRevealItem>
+                    </div>
                   )}
                 </Fragment>
               )
@@ -450,8 +429,6 @@ export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: A
                   setTab('official')
                 }}
                 onOpenAiSettings={onOpenAiSettings}
-                onScopeChange={(nextScope) => setScopes((current) => current.map((item) => (item.id === nextScope.id ? nextScope : item)))}
-                onDeleteProfile={deleteProfile}
               />
             ) : tab === 'official' ? (
               <OfficialCorpusView
@@ -489,8 +466,6 @@ function AiLocalizationOverview({
   onOpenTab,
   onOpenOfficialCorpus,
   onOpenAiSettings,
-  onScopeChange,
-  onDeleteProfile,
 }: {
   scope: AiLocalizationScope | null
   sourceLocale: string
@@ -500,8 +475,6 @@ function AiLocalizationOverview({
   onOpenTab: (tab: Tab) => void
   onOpenOfficialCorpus: () => void
   onOpenAiSettings?: () => void
-  onScopeChange: (scope: AiLocalizationScope) => void
-  onDeleteProfile: (scope: AiLocalizationScope) => Promise<void>
 }) {
   const copy = useAiLocalizationCopy()
   const localization = useLocalization()
@@ -517,8 +490,6 @@ function AiLocalizationOverview({
   const [settings, setSettings] = useState<LocalizationScopeSettings | null>(null)
   const [engineOptions, setEngineOptions] = useState<Array<{ value: string; label: string }>>([])
   const [reviewOptions, setReviewOptions] = useState<Array<{ value: string; label: string }>>([])
-  const [profileName, setProfileName] = useState(scope?.name ?? '')
-  const [syncedScopeName, setSyncedScopeName] = useState(scope?.name ?? '')
   const [statsError, setStatsError] = useState(false)
   const [corpusReadinessError, setCorpusReadinessError] = useState(false)
   const [semanticReadinessError, setSemanticReadinessError] = useState(false)
@@ -528,10 +499,6 @@ function AiLocalizationOverview({
   const runReadinessLoad = useLatestTask('ai-localization-overview-readiness')
   const runSemanticReadinessLoad = useLatestTask('ai-localization-overview-semantic-readiness')
   const runSettingsLoad = useLatestTask('ai-localization-overview-settings')
-  if (scope && scope.name !== syncedScopeName) {
-    setSyncedScopeName(scope.name)
-    setProfileName(scope.name)
-  }
 
   useEffect(() => {
     if (!scope) return
@@ -641,32 +608,59 @@ function AiLocalizationOverview({
       setSettingsError(true)
     }
   }
-  const renameCurrentProfile = async () => {
-    if (!scope || scope.kind !== 'profile') return
-    const name = profileName.trim()
-    if (!name || name === scope.name) return
-    try {
-      const snapshot = await localization.renameProfile(scope.id, name)
-      onScopeChange(snapshot.scope)
-      setSettingsError(false)
-    } catch {
-      setSettingsError(true)
-    }
-  }
-  const unbindProfile = async (bindingKind: string, bindingValue: string) => {
-    if (!scope || scope.kind !== 'profile') return
-    try {
-      await localization.removeProfileBinding(bindingKind, bindingValue)
-      const snapshot = await localization.loadScope(scope.id)
-      setSettings(snapshot.settings)
-      onScopeChange(snapshot.scope)
-      setSettingsError(false)
-    } catch {
-      setSettingsError(true)
-    }
-  }
 
   if (!scope) return <p className="ai-localization-empty">{copy.noScopes}</p>
+
+  const readinessList = [
+    {
+      key: 'corpus',
+      icon: readiness.corpusInspected ? (readiness.corpusReady ? CheckCircle2 : AlertTriangle) : LoaderCircle,
+      title: copy.officialCorpusResource,
+      description: !readiness.corpusInspected
+        ? copy.resourceStatusLoading
+        : readiness.corpusReady
+          ? copy.officialCorpusReady
+          : gameDirectory
+            ? copy.officialCorpusMissing
+            : copy.noGameDirectory,
+      state: !readiness.corpusInspected
+        ? copy.resourceStatusLoading
+        : readiness.corpusReady
+          ? copy.indexReadyShort
+          : copy.indexMissingShort,
+      tone: !readiness.corpusInspected ? 'loading' : readiness.corpusReady ? 'ready' : 'warn',
+      action: readiness.corpusInspected && !readiness.corpusReady ? onOpenOfficialCorpus : undefined,
+      actionLabel: copy.manageOfficialCorpus,
+      actionIcon: Database,
+    },
+    {
+      key: 'semantic',
+      icon: !readiness.semanticInspected ? LoaderCircle : readiness.semanticReady ? CheckCircle2 : AlertTriangle,
+      title: readiness.semanticInspected && readiness.semanticMode === 'lexical' ? copy.keywordSearchResource : copy.semanticModelResource,
+      description: !readiness.semanticInspected
+        ? copy.resourceStatusLoading
+        : readiness.semanticMode === 'lexical'
+          ? copy.keywordSearchReady
+          : readiness.semanticReady
+            ? copy.semanticModelReady
+            : copy.semanticModelMissing,
+      state: !readiness.semanticInspected
+        ? copy.resourceStatusLoading
+        : readiness.semanticMode === 'lexical'
+          ? copy.noSemanticIndexRequired
+          : readiness.semanticReady
+            ? copy.semanticSearchReady
+            : copy.semanticSearchNotReady,
+      tone: !readiness.semanticInspected ? 'loading' : readiness.semanticReady ? 'ready' : 'warn',
+      action:
+        readiness.semanticInspected && readiness.semanticMode !== 'lexical' && !readiness.semanticReady && onOpenAiSettings
+          ? onOpenAiSettings
+          : undefined,
+      actionLabel: copy.configureModel,
+      actionIcon: Cpu,
+    },
+  ]
+
   return (
     <div className="ai-localization-overview">
       {statsError || settingsError || corpusReadinessError || semanticReadinessError ? (
@@ -677,173 +671,101 @@ function AiLocalizationOverview({
           </button>
         </div>
       ) : null}
-      <LoadingMotionReveal itemId="ai-localization-overview-stats" index={1} className="ai-localization-overview-stats">
-        <LoadingMotionRevealItem index={0} as="button" onClick={() => onOpenKnowledge('glossary')}>
-          <span className="ai-localization-stat-icon">
-            <BookText className="h-5 w-5" />
-          </span>
-          <span className="ai-localization-stat-body">
-            <span>{copy.glossaryTab}</span>
-            <strong>{stats.glossary}</strong>
-          </span>
-        </LoadingMotionRevealItem>
-        <LoadingMotionRevealItem index={1} as="button" onClick={() => onOpenKnowledge('memory')}>
-          <span className="ai-localization-stat-icon">
-            <Bot className="h-5 w-5" />
-          </span>
-          <span className="ai-localization-stat-body">
-            <span>{copy.memoryTab}</span>
-            <strong>{stats.memory}</strong>
-          </span>
-        </LoadingMotionRevealItem>
-        <LoadingMotionRevealItem
-          index={2}
-          as="button"
-          data-tone={stats.reviews > 0 ? 'warn' : undefined}
-          onClick={() => onOpenTab('quality')}
-        >
-          <span className="ai-localization-stat-icon">
-            <ScanSearch className="h-5 w-5" />
-          </span>
-          <span className="ai-localization-stat-body">
-            <span>{copy.reviewOpen}</span>
-            <strong>{stats.reviews}</strong>
-          </span>
-        </LoadingMotionRevealItem>
-        <LoadingMotionRevealItem
-          index={3}
-          as="button"
-          data-tone={readiness.corpusInspected && readiness.corpusReady ? 'ready' : undefined}
-          onClick={onOpenOfficialCorpus}
-        >
-          <span className="ai-localization-stat-icon">
-            <Database className="h-5 w-5" />
-          </span>
-          <span className="ai-localization-stat-body">
-            <span>{copy.officialTab}</span>
-            <strong>
+      <section className="ai-localization-overview-section">
+        <div className="ai-localization-metric-row">
+          <button type="button" className="ai-localization-metric" onClick={() => onOpenKnowledge('glossary')}>
+            <span className="ai-localization-metric-value">{stats.glossary}</span>
+            <span className="ai-localization-metric-label">{copy.glossaryCountLabel}</span>
+          </button>
+          <button type="button" className="ai-localization-metric" onClick={() => onOpenKnowledge('memory')}>
+            <span className="ai-localization-metric-value">{stats.memory}</span>
+            <span className="ai-localization-metric-label">{copy.memoryCountLabel}</span>
+          </button>
+          <button
+            type="button"
+            className="ai-localization-metric"
+            data-tone={stats.reviews > 0 ? 'warn' : undefined}
+            onClick={() => onOpenTab('quality')}
+          >
+            <span className="ai-localization-metric-value">{stats.reviews}</span>
+            <span className="ai-localization-metric-label">{copy.pendingCountLabel}</span>
+          </button>
+          <button
+            type="button"
+            className="ai-localization-metric"
+            data-tone={readiness.corpusInspected && readiness.corpusReady ? undefined : 'danger'}
+            onClick={onOpenOfficialCorpus}
+          >
+            <span className="ai-localization-metric-value">
               {readiness.corpusInspected
                 ? readiness.corpusReady
                   ? copy.indexReadyShort
                   : copy.indexMissingShort
                 : copy.resourceStatusLoading}
-            </strong>
-          </span>
-        </LoadingMotionRevealItem>
-      </LoadingMotionReveal>
-      <LoadingMotionReveal itemId="ai-localization-readiness-panel" index={2} as="section" className="ai-localization-readiness-panel">
-        <header>
-          <strong>{copy.resourceReadiness}</strong>
+            </span>
+            <span className="ai-localization-metric-label">{copy.officialCorpusStatusLabel}</span>
+          </button>
+        </div>
+      </section>
+      <section className="ai-localization-overview-section">
+        <div className="ai-localization-section-head">
+          <h3>{copy.resourceReadiness}</h3>
           {readiness.corpusInspected && readiness.semanticInspected ? (
             <span>{readiness.corpusReady && readiness.semanticReady ? copy.allResourcesReady : copy.resourcesNeedAttention}</span>
           ) : (
             <span>{copy.resourceStatusLoading}</span>
           )}
-        </header>
-        <div>
-          <div data-state={!readiness.corpusInspected ? 'loading' : readiness.corpusReady ? 'ready' : 'missing'}>
-            <span className="ai-localization-readiness-icon">
-              {!readiness.corpusInspected ? (
-                <LoaderCircle className="animate-spin" />
-              ) : readiness.corpusReady ? (
-                <CheckCircle2 />
-              ) : (
-                <AlertTriangle />
-              )}
-            </span>
-            <span>
-              <strong>{copy.officialCorpusResource}</strong>
-              <small>
-                {!readiness.corpusInspected
-                  ? copy.resourceStatusLoading
-                  : readiness.corpusReady
-                    ? copy.officialCorpusReady
-                    : gameDirectory
-                      ? copy.officialCorpusMissing
-                      : copy.noGameDirectory}
-              </small>
-            </span>
-            <span className="ai-localization-readiness-state">
-              {!readiness.corpusInspected
-                ? copy.resourceStatusLoading
-                : readiness.corpusReady
-                  ? copy.indexReadyShort
-                  : copy.indexMissingShort}
-            </span>
-            {readiness.corpusInspected && !readiness.corpusReady ? (
-              <button type="button" className="control-button" onClick={onOpenOfficialCorpus}>
-                <Database className="h-4 w-4" />
-                {copy.manageOfficialCorpus}
-              </button>
-            ) : null}
-          </div>
-          <div data-state={!readiness.semanticInspected ? 'loading' : readiness.semanticReady ? 'ready' : 'missing'}>
-            <span className="ai-localization-readiness-icon">
-              {!readiness.semanticInspected ? (
-                <LoaderCircle className="animate-spin" />
-              ) : readiness.semanticReady ? (
-                <CheckCircle2 />
-              ) : (
-                <AlertTriangle />
-              )}
-            </span>
-            <span>
-              <strong>
-                {readiness.semanticInspected && readiness.semanticMode === 'lexical'
-                  ? copy.keywordSearchResource
-                  : copy.semanticModelResource}
-              </strong>
-              <small>
-                {!readiness.semanticInspected
-                  ? copy.resourceStatusLoading
-                  : readiness.semanticMode === 'lexical'
-                    ? copy.keywordSearchReady
-                    : readiness.semanticReady
-                      ? copy.semanticModelReady
-                      : copy.semanticModelMissing}
-              </small>
-            </span>
-            <span className="ai-localization-readiness-state">
-              {!readiness.semanticInspected
-                ? copy.resourceStatusLoading
-                : readiness.semanticMode === 'lexical'
-                  ? copy.noSemanticIndexRequired
-                  : readiness.semanticReady
-                    ? copy.semanticSearchReady
-                    : copy.semanticSearchNotReady}
-            </span>
-            {readiness.semanticInspected && readiness.semanticMode !== 'lexical' && !readiness.semanticReady && onOpenAiSettings ? (
-              <button type="button" className="control-button" onClick={onOpenAiSettings}>
-                <Cpu className="h-4 w-4" />
-                {copy.configureModel}
-              </button>
-            ) : null}
-          </div>
         </div>
-      </LoadingMotionReveal>
-      <LoadingMotionReveal itemId="ai-localization-health-panel" index={3} as="section" className="ai-localization-health-panel">
-        <header>
-          <strong>{copy.needsAttention}</strong>
+        <div className="ai-localization-readiness-list">
+          {readinessList.map((item) => (
+            <div key={item.key} className={cx('ai-localization-readiness-row', `is-${item.tone}`)}>
+              <span className="ai-localization-readiness-dot" />
+              <div className="ai-localization-readiness-main">
+                <strong>{item.title}</strong>
+                <p>{item.description}</p>
+              </div>
+              <span className={cx('ai-localization-readiness-chip', `is-${item.tone}`)}>{item.state}</span>
+              {item.action ? (
+                <button type="button" className="control-button" onClick={item.action}>
+                  <item.actionIcon className="h-4 w-4" />
+                  {item.actionLabel}
+                </button>
+              ) : (
+                <span />
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="ai-localization-overview-section">
+        <div className="ai-localization-section-head">
+          <h3>{copy.needsAttentionTitle}</h3>
           <span>{stats.reviews}</span>
-        </header>
-        {stats.reviews ? (
-          <button type="button" onClick={() => onOpenTab('quality')}>
-            <span>
-              <strong>{copy.openReviewRuns(stats.reviews)}</strong>
-              <small>{copy.criticalIssues(stats.critical)}</small>
-            </span>
-            <span aria-hidden>→</span>
-          </button>
+        </div>
+        {stats.reviews > 0 ? (
+          <div className="ai-localization-readiness-list">
+            <div className="ai-localization-readiness-row is-danger">
+              <span className="ai-localization-readiness-dot" />
+              <div className="ai-localization-readiness-main">
+                <strong>{copy.criticalReviewIssues(stats.critical)}</strong>
+                <p>{copy.criticalIssues(stats.critical)}</p>
+              </div>
+              <span className={cx('ai-localization-readiness-chip', 'is-danger')}>{copy.reviewCritical}</span>
+              <button type="button" className="control-button" onClick={() => onOpenTab('quality')}>
+                {copy.goToHandle}
+              </button>
+            </div>
+          </div>
         ) : (
-          <p>{copy.noAttentionItems}</p>
+          <p className="ai-localization-plain-text">{copy.noAttentionItems}</p>
         )}
-      </LoadingMotionReveal>
+      </section>
       {settings ? (
-        <LoadingMotionReveal itemId="ai-localization-defaults-panel" index={4} as="section" className="ai-localization-defaults-panel">
-          <header>
-            <strong>{copy.saveDefaults}</strong>
-          </header>
-          <div>
+        <section className="ai-localization-overview-section">
+          <div className="ai-localization-section-head">
+            <h3>{copy.saveDefaults}</h3>
+          </div>
+          <div className="ai-localization-defaults-row">
             <label>
               <span>{copy.defaultEngine}</span>
               <CompactSelect
@@ -871,79 +793,22 @@ function AiLocalizationOverview({
                 placement="bottom-start"
               />
             </label>
-            <label className="ai-localization-check">
-              <input
-                type="checkbox"
-                checked={settings.autoReview}
-                onChange={(event) => setSettings({ ...settings, autoReview: event.target.checked })}
-              />
+            <label className="ai-localization-switch-field">
               <span>{copy.automaticReview}</span>
+              <span className="ai-localization-switch-wrapper">
+                <input
+                  type="checkbox"
+                  className="ai-localization-switch"
+                  checked={settings.autoReview}
+                  onChange={(event) => setSettings({ ...settings, autoReview: event.target.checked })}
+                />
+              </span>
             </label>
-            <button type="button" className="control-button" onClick={() => void saveDefaults()}>
+            <button type="button" className="control-button control-button-primary" onClick={() => void saveDefaults()}>
               {copy.save}
             </button>
           </div>
-        </LoadingMotionReveal>
-      ) : null}
-      {scope.kind === 'profile' ? (
-        <LoadingMotionReveal itemId="ai-localization-profile-panel" index={5} as="section" className="ai-localization-profile-panel">
-          <header>
-            <strong>{scope.name}</strong>
-            <span>{copy.profileBindingCount(scope.bindings.length)}</span>
-          </header>
-          <div className="ai-localization-profile-rename">
-            <label>
-              <span>{copy.profileRename}</span>
-              <input
-                className="control-input"
-                value={profileName}
-                placeholder={copy.profileNamePlaceholder}
-                onChange={(event) => setProfileName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') void renameCurrentProfile()
-                }}
-              />
-            </label>
-            <button
-              type="button"
-              className="control-button"
-              disabled={!profileName.trim() || profileName.trim() === scope.name}
-              onClick={() => void renameCurrentProfile()}
-            >
-              {copy.save}
-            </button>
-            <button type="button" className="control-button ai-localization-danger-button" onClick={() => void onDeleteProfile(scope)}>
-              <Trash2 className="h-4 w-4" />
-              {copy.profileDelete}
-            </button>
-          </div>
-          <div className="ai-localization-profile-bindings">
-            <span>{copy.profileBindings}</span>
-            {scope.bindings.length ? (
-              <ul>
-                {scope.bindings.map((binding) => (
-                  <li key={`${binding.kind}:${binding.value}`}>
-                    <span className="ai-localization-binding-kind">
-                      {(copy.bindingKinds as Record<string, string>)[binding.kind] ?? binding.kind}
-                    </span>
-                    <span className="ai-localization-binding-value">{binding.value}</span>
-                    <button
-                      type="button"
-                      className="icon-button"
-                      title={copy.profileUnbindAction}
-                      aria-label={copy.profileUnbindAction}
-                      onClick={() => void unbindProfile(binding.kind, binding.value)}
-                    >
-                      <Unlink className="h-3.5 w-3.5" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>{copy.profileUnbound}</p>
-            )}
-          </div>
-        </LoadingMotionReveal>
+        </section>
       ) : null}
     </div>
   )

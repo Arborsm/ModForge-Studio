@@ -525,7 +525,11 @@ function ConfigPathPanel({
   ]
 
   return (
-    <section className="launcher-config-panel launcher-config-paths" aria-label={copy.settings.pathsTitle}>
+    <section
+      className="launcher-config-panel launcher-config-paths"
+      aria-label={copy.settings.pathsTitle}
+      data-guide="launcher-config-game"
+    >
       <ConfigPanelHeader title={copy.settings.pathsTitle} description={copy.settings.pathsHint} />
       <div className="launcher-config-path-list">
         {rows.map((row, index) => (
@@ -886,6 +890,7 @@ function ConfigNexusPanel({
       className="launcher-config-panel launcher-config-nexus"
       aria-label={copy.settings.nexusAccessTitle}
       data-testid="launcher-config-nexus"
+      data-guide="launcher-config-nexus"
     >
       <ConfigPanelHeader
         title={copy.settings.nexusAccessTitle}
@@ -1059,6 +1064,7 @@ function ConfigGmcmProbePanel({
       className={cx('launcher-config-panel launcher-config-gmcm-probe', `launcher-config-gmcm-probe-${statusTone}`)}
       aria-label={copy.configuration.gmcmProbeTitle}
       data-testid="launcher-config-gmcm-probe"
+      data-guide="launcher-config-diagnostics"
       tabIndex={-1}
     >
       <ConfigPanelHeader

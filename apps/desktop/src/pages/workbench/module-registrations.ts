@@ -69,7 +69,7 @@ export const i18nGeneratorRegistration = registration(
 )
 export const aiLocalizationRegistration = registration(
   'ai-localization',
-  { section: 'translation', order: 130, icon: 'book-open-check', labelKey: 'ai-localization' },
+  { section: 'translation', order: 130, icon: 'book-open', labelKey: 'ai-localization' },
   'standalone',
   'read',
   () => import('./translation/runtimes/AiLocalizationModuleRuntime'),

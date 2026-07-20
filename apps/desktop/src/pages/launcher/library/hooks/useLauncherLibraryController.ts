@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { LauncherCopy } from '@locales/model'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
+import { listenForGuideStepActivations } from '@shared/lib/guide-tour-events'
 import {
   inspectLauncherArchive,
   isLauncherRemoteModIdInvalid,
@@ -239,6 +240,20 @@ export function useLauncherLibraryController({
     getLibraryFolderModIds,
   } = displayState
 
+  // Guide steps that point at collapsible UI ask the page to reveal it first:
+  // the sidebar drawer expands and the detail drawer opens on the first
+  // visible mod. Decoupled from the guide engine via a window event.
+  useEffect(
+    () =>
+      listenForGuideStepActivations(({ anchor }) => {
+        if (anchor === 'launcher-pack-sidebar') {
+          setDrawerOpen(true)
+        } else if (anchor === 'launcher-mod-detail') {
+          setDetailModId((current) => current ?? visibleMods[0]?.id ?? null)
+        }
+      }),
+    [visibleMods],
+  )
   useEffect(() => {
     const enteredEditMode = editMode && !lastEditSeedRef.current.editMode
     const changedPackWhileEditing = editMode && library.currentPackId !== lastEditSeedRef.current.packId

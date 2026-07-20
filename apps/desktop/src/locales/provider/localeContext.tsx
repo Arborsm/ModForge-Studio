@@ -55,6 +55,10 @@ export function useSettingsMenuCopy() {
   return useLocaleBundle().settingsMenu
 }
 
+export function useGuidesCopy() {
+  return useLocaleBundle().guides
+}
+
 export function useCharactersCopy() {
   return useEditorCopy().charactersPanel
 }

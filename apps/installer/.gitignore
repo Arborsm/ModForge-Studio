@@ -1,0 +1,9 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/payload/
+
+# The repo root ignores *.png* / *.html* globally; installer assets are source files.
+!*.png*
+!*.html*
+*.tsbuildinfo

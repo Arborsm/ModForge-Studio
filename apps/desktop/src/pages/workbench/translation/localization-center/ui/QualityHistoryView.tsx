@@ -1,8 +1,9 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MousePointer2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useLocalization } from '@entities/localization'
 import { useAiLocalizationCopy, useTranslationEditorCopy } from '@locales/provider'
 import type { AiReviewResult, AiReviewRun, LocalizationScopeSettings } from '@shared/contracts'
+import { cx } from '@shared/lib/helper'
 import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { ResizableColumnHeader, useAiLocalizationColumnWidths } from '../model/useAiLocalizationColumnWidths'
@@ -23,14 +24,14 @@ export function QualityHistoryView({ scopeId }: { scopeId: string }) {
   const [view, setView] = useState<'rules' | 'history'>('rules')
   const [settings, setSettings] = useState<LocalizationScopeSettings | null>(null)
   const historyColumns = useAiLocalizationColumnWidths('quality-history', {
-    created: 170,
-    locale: 140,
-    engine: 150,
-    issues: 100,
-    passed: 100,
-    warnings: 110,
-    critical: 100,
-    status: 120,
+    created: 140,
+    locale: 110,
+    engine: 120,
+    issues: 70,
+    passed: 70,
+    warnings: 70,
+    critical: 70,
+    status: 90,
   })
   const retryRef = useRef<() => void>(() => undefined)
   const runHistoryLoad = useLatestTask('ai-localization-quality-history')
@@ -91,27 +92,29 @@ export function QualityHistoryView({ scopeId }: { scopeId: string }) {
     }
   }
   return (
-    <div className={`ai-localization-layout${view === 'history' && selected ? '' : ' is-single-pane'}`}>
+    <div className={`ai-localization-layout${view === 'history' ? '' : ' is-single-pane'}`}>
       <main className="ai-localization-main">
         <nav className="ai-localization-subtabs" role="tablist" aria-label={copy.qualityHistoryTab}>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'rules'}
-            className={view === 'rules' ? 'is-active' : ''}
-            onClick={() => setView('rules')}
-          >
-            {copy.rulesView}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'history'}
-            className={view === 'history' ? 'is-active' : ''}
-            onClick={() => setView('history')}
-          >
-            {copy.historyView}
-          </button>
+          <div className="ai-localization-subtab-group">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'rules'}
+              className={view === 'rules' ? 'is-active' : ''}
+              onClick={() => setView('rules')}
+            >
+              {copy.rulesView}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'history'}
+              className={view === 'history' ? 'is-active' : ''}
+              onClick={() => setView('history')}
+            >
+              {copy.historyView}
+            </button>
+          </div>
         </nav>
         {view === 'rules' && settings ? (
           <div className="ai-localization-qa-groups">
@@ -120,13 +123,17 @@ export function QualityHistoryView({ scopeId }: { scopeId: string }) {
                 <strong>{copy.qaGroupProtection}</strong>
                 <span>{copy.qaAlwaysOn}</span>
               </header>
-              <label className="ai-localization-qa-rule is-locked">
-                <input type="checkbox" checked disabled />
-                <span className="ai-localization-qa-rule-text">
-                  <strong>{copy.fixedMarkerRule}</strong>
-                </span>
-                <span className="ai-localization-qa-rule-lock">{copy.qaAlwaysOn}</span>
-              </label>
+              <div className="ai-localization-qa-rule is-locked">
+                <strong>{copy.fixedMarkerRule}</strong>
+                <input
+                  type="checkbox"
+                  className="ai-localization-switch"
+                  checked
+                  disabled
+                  aria-label={`${copy.fixedMarkerRule}: ${copy.qaAlwaysOn}`}
+                  readOnly
+                />
+              </div>
             </section>
             <section className="ai-localization-qa-group">
               <header className="ai-localization-qa-group-head">
@@ -142,14 +149,13 @@ export function QualityHistoryView({ scopeId }: { scopeId: string }) {
                 ] as const
               ).map(([key, label]) => (
                 <label key={key} className="ai-localization-qa-rule">
+                  <strong>{label}</strong>
                   <input
                     type="checkbox"
+                    className="ai-localization-switch"
                     checked={settings.qaConfig[key]}
                     onChange={(event) => setSettings({ ...settings, qaConfig: { ...settings.qaConfig, [key]: event.target.checked } })}
                   />
-                  <span className="ai-localization-qa-rule-text">
-                    <strong>{label}</strong>
-                  </span>
                 </label>
               ))}
             </section>
@@ -158,14 +164,13 @@ export function QualityHistoryView({ scopeId }: { scopeId: string }) {
                 <strong>{copy.qaGroupAutomation}</strong>
               </header>
               <label className="ai-localization-qa-rule">
+                <strong>{copy.automaticReview}</strong>
                 <input
                   type="checkbox"
+                  className="ai-localization-switch"
                   checked={settings.autoReview}
                   onChange={(event) => setSettings({ ...settings, autoReview: event.target.checked })}
                 />
-                <span className="ai-localization-qa-rule-text">
-                  <strong>{copy.automaticReview}</strong>
-                </span>
               </label>
             </section>
             <div className="ai-localization-qa-footer">
@@ -173,6 +178,10 @@ export function QualityHistoryView({ scopeId }: { scopeId: string }) {
                 {copy.saveRules}
               </button>
             </div>
+          </div>
+        ) : view === 'rules' ? (
+          <div className="ai-localization-empty-state">
+            <span>{copy.noScopes}</span>
           </div>
         ) : null}
         {view === 'history' ? (
@@ -210,17 +219,26 @@ export function QualityHistoryView({ scopeId }: { scopeId: string }) {
                       <td>
                         {run.sourceLocale} → {run.targetLocale}
                       </td>
-                      <td>{run.engine}</td>
+                      <td className="mono">{run.engine}</td>
                       <td className="num">{run.summary.checked}</td>
                       <td className="num">{run.summary.passed}</td>
-                      <td className={`num ${run.summary.warnings > 0 ? 'warn' : 'muted'}`}>{run.summary.warnings}</td>
-                      <td className={`num ${run.summary.critical > 0 ? 'crit' : 'muted'}`}>{run.summary.critical}</td>
-                      <td>{run.status}</td>
+                      <td className={cx('num', run.summary.warnings > 0 ? 'warn' : 'muted')}>{run.summary.warnings}</td>
+                      <td className={cx('num', run.summary.critical > 0 ? 'crit' : 'muted')}>{run.summary.critical}</td>
+                      <td>
+                        <span
+                          className={cx(
+                            'ai-localization-chip',
+                            run.status === 'completed' ? 'is-success' : run.status === 'cancelled' ? 'is-danger' : 'is-accent',
+                          )}
+                        >
+                          {run.status}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {!runs.length ? <p>{error ? copy.knowledgeError : copy.noReviewRuns}</p> : null}
+              {!runs.length ? <p className="ai-localization-empty">{error ? copy.knowledgeError : copy.noReviewRuns}</p> : null}
               {runTotal > 0 ? (
                 <nav
                   className="ai-localization-pagination"
@@ -253,33 +271,55 @@ export function QualityHistoryView({ scopeId }: { scopeId: string }) {
           </>
         ) : null}
       </main>
-      {view === 'history' && selected ? (
+      {view === 'history' ? (
         <aside className="ai-localization-inspector">
-          <>
-            <h2>{copy.reviewIssues}</h2>
-            <dl>
-              <dt>{copy.reviewCritical}</dt>
-              <dd>{selected.run.summary.critical}</dd>
-              <dt>{copy.reviewMajor}</dt>
-              <dd>{selected.run.summary.major}</dd>
-              <dt>{copy.reviewMinor}</dt>
-              <dd>{selected.run.summary.minor}</dd>
-            </dl>
-            <div className="ai-localization-history-issues">
-              {selected.issues.map((issue) => (
-                <article key={issue.id}>
-                  <header>
-                    <code>{issue.unitKey}</code>
-                    <span>
-                      {issue.severity} · {issue.status}
-                    </span>
-                  </header>
-                  <p>{reviewCopy.reviewLocalReasons[issue.reason] ?? issue.reason}</p>
-                  {issue.suggestion ? <pre>{issue.suggestion}</pre> : null}
-                </article>
-              ))}
+          {selected ? (
+            <>
+              <div className="ai-localization-inspector-header">
+                <strong>{copy.reviewIssues}</strong>
+              </div>
+              <dl className="ai-localization-kv">
+                <div>
+                  <dt>{copy.reviewCritical}</dt>
+                  <dd style={{ color: 'var(--danger)' }}>{selected.run.summary.critical}</dd>
+                </div>
+                <div>
+                  <dt>{copy.reviewMajor}</dt>
+                  <dd style={{ color: 'var(--warning)' }}>{selected.run.summary.major}</dd>
+                </div>
+                <div>
+                  <dt>{copy.reviewMinor}</dt>
+                  <dd>{selected.run.summary.minor}</dd>
+                </div>
+              </dl>
+              <div className="ai-localization-history-issues">
+                {selected.issues.map((issue) => (
+                  <article key={issue.id}>
+                    <header>
+                      <code className="mono">{issue.unitKey}</code>
+                      <span
+                        className={cx(
+                          'ai-localization-chip',
+                          issue.severity === 'critical' ? 'is-danger' : issue.severity === 'major' ? 'is-warning' : 'is-neutral',
+                        )}
+                      >
+                        {issue.severity}
+                      </span>
+                    </header>
+                    <p>{reviewCopy.reviewLocalReasons[issue.reason] ?? issue.reason}</p>
+                    {issue.suggestion ? <div className="ai-localization-code-box">{issue.suggestion}</div> : null}
+                  </article>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="ai-localization-empty-state">
+              <div className="ai-localization-empty-icon">
+                <MousePointer2 className="h-4 w-4" />
+              </div>
+              <span>{copy.selectReviewRun}</span>
             </div>
-          </>
+          )}
         </aside>
       ) : null}
     </div>

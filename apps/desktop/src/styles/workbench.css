@@ -8,6 +8,7 @@
 @import './workspace/i18n-generator.css';
 @import './workspace/ai-localization.css';
 @import './workspace/ai-localization-overview.css';
+@import './workspace/ai-localization-knowledge.css';
 @import './workspace/ai-localization-responsive.css';
 @import './features/player-appearance.css';
 @import './features/content-patcher.css';

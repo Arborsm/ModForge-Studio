@@ -7,10 +7,13 @@ import { LoadingMotionFallback } from '@shared/ui/loading-motion'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { DEFAULT_THEME_ID, THEME_PRESETS } from '@shared/lib/theme/presets'
-import type { LocaleCode } from '@locales/api'
-import { useSettingsMenuCopy } from '@locales/provider'
+import type { LocaleCode, GuideId } from '@locales/api'
+import { useGuidesCopy, useSettingsMenuCopy } from '@locales/provider'
 import type { AiSettingsTab, SettingsWindowCategory, WindowBorderTone, WindowBorderWeight, WindowCloseBehavior } from '@shared/contracts'
 import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionStyleId } from '@shared/lib/loading-motion'
+import { publishNotification } from '@shared/ui/notifications'
+import { useGuideEngineStore } from '@features/guide'
+import { appGuideDefinitions } from '../guide-setup'
 import { AiSettingsPanel } from './settings/AiSettingsPanel'
 
 type ThemeOption = {
@@ -93,6 +96,10 @@ export default function SettingsWindow({
   onClose,
 }: SettingsWindowProps) {
   const settingsCopy = useSettingsMenuCopy()
+  const guidesCopy = useGuidesCopy()
+  const completedGuideIds = useGuideEngineStore((state) => state.completedGuideIds)
+  const requestGuideReplay = useGuideEngineStore((state) => state.requestGuideReplay)
+  const resetAllGuideProgress = useGuideEngineStore((state) => state.resetAllGuideProgress)
   const activeLocale = usePreferencesStore((state) => state.locale)
   const activeThemeId = usePreferencesStore((state) => state.themeId)
   const activeWindowBorderTone = usePreferencesStore((state) => state.windowBorderTone)
@@ -170,6 +177,29 @@ export default function SettingsWindow({
     ]
   })
   const onResetTheme = () => onSelectTheme(DEFAULT_THEME_ID)
+  const guideReplayEntries = appGuideDefinitions.map((definition) => ({
+    id: definition.id,
+    title: guidesCopy.definitions[definition.id as GuideId]?.title ?? definition.id,
+    watched: completedGuideIds.includes(definition.id),
+  }))
+  const onReplayGuide = (guideId: string, guideTitle: string) => {
+    requestGuideReplay(guideId)
+    if (useGuideEngineStore.getState().pendingGuideId === guideId) {
+      publishNotification({
+        level: 'info',
+        title: guidesCopy.replayPendingTitle,
+        description: guidesCopy.replayPendingDescription(guideTitle),
+      })
+    }
+  }
+  const onReplayAllGuides = () => {
+    resetAllGuideProgress()
+    publishNotification({
+      level: 'info',
+      title: settingsCopy.guideReplayAllLabel,
+      description: settingsCopy.guideReplayAllDescription,
+    })
+  }
   const activeLoadingStyleId = loadingMotionPreference.styleId
   const activeLoadingIntensityId = loadingMotionPreference.intensityId
   const activeLoadingSpeedMode = loadingMotionPreference.speedMode
@@ -852,6 +882,33 @@ export default function SettingsWindow({
                               onToggle={() => setNotificationSoundEnabled(!notificationSoundEnabled)}
                             />
                           </div>
+                        </div>
+                      </section>
+                      <section className="settings-window-group">
+                        <p className="settings-window-group-label">{groups.guides}</p>
+                        <div className="settings-window-list">
+                          <div className="settings-window-row">
+                            <div className="settings-window-row-meta">
+                              <p className="settings-window-row-title">{groups.guides}</p>
+                              <p className="settings-window-row-desc">{settingsCopy.guidesDescription}</p>
+                            </div>
+                            <button type="button" className="settings-window-pill" onClick={onReplayAllGuides}>
+                              {settingsCopy.guideReplayAllLabel}
+                            </button>
+                          </div>
+                          {guideReplayEntries.map((entry) => (
+                            <div className="settings-window-row" key={entry.id}>
+                              <div className="settings-window-row-meta">
+                                <p className="settings-window-row-title">{entry.title}</p>
+                                <p className="settings-window-row-desc">
+                                  {entry.watched ? settingsCopy.guideWatchedStateLabel : settingsCopy.guideUnwatchedStateLabel}
+                                </p>
+                              </div>
+                              <button type="button" className="settings-window-pill" onClick={() => onReplayGuide(entry.id, entry.title)}>
+                                {settingsCopy.guideReplayActionLabel}
+                              </button>
+                            </div>
+                          ))}
                         </div>
                       </section>
                     </div>

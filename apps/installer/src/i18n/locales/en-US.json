@@ -1,0 +1,77 @@
+{
+  "shared": {
+    "product": {
+      "name": "ModForge Studio"
+    }
+  },
+  "errors": {
+    "install": {
+      "failed": "Installation failed"
+    },
+    "installPath": {
+      "notAbsolute": "The installation path must be an absolute path (for example a folder on a local drive).",
+      "filesystemRoot": "Cannot install to a drive root. Choose a folder inside the drive.",
+      "pathNotDirectory": "The selected path exists but is not a folder.",
+      "directoryMustBeEmptyOrModforge": "The installation folder must be empty, or already contain a ModForge Studio installation.",
+      "inspectDirectoryFailed": "Could not read the installation folder. Check permissions and try again.",
+      "directoryNotWritable": "The installation folder is not writable. Choose another location or run the installer as administrator (see below).",
+      "parentNotWritable": "The parent folder is not writable. System folders such as Program Files often require administrator rights (see below).",
+      "adminHint": "To install under protected locations (for example Program Files), close this installer, right-click the installer executable, choose \"Run as administrator\", then try again. Alternatively install under your user profile, for example %LOCALAPPDATA%\\Programs, which does not require elevation."
+    }
+  },
+  "options": {
+    "title": "Options",
+    "subtitle": "Review install location and preferences",
+    "changeLanguage": "Change language",
+    "pathLabel": "Installation Path",
+    "pathPlaceholder": "Select directory...",
+    "browse": "Browse",
+    "required": "Required",
+    "available": "Available",
+    "insufficientSpace": "Insufficient space",
+    "optionsLabel": "Options",
+    "desktopShortcut": "Create desktop shortcut",
+    "startMenu": "Add to Start Menu",
+    "back": "Back",
+    "install": "Install",
+    "installing": "Preparing…",
+    "existingInstallTitle": "Existing ModForge Studio installation detected",
+    "existingInstallVersion": "Installed version: {{version}}",
+    "existingInstallLocation": "Install location: {{path}}",
+    "existingInstallBinaryMissing": "The main application file was not found at that location. You can run the uninstaller first or reinstall.",
+    "existingInstallHint": "Click Install to upgrade or repair in place. To uninstall first, run the registered uninstaller below.",
+    "existingInstallRunUninstaller": "Run uninstaller"
+  },
+  "progress": {
+    "title": "Installing",
+    "prepare": "Preparing",
+    "extract": "Extracting Files",
+    "registry": "Registering Application",
+    "shortcuts": "Creating Shortcuts",
+    "config": "Applying startup preferences",
+    "complete": "Finishing Up",
+    "starting": "Starting...",
+    "failed": "Installation Failed",
+    "confirmContinue": "Continue"
+  },
+  "finish": {
+    "title": "Finish",
+    "subtitle": "ModForge Studio has been installed",
+    "installLocation": "Install location: {{path}}",
+    "launchNow": "Launch now",
+    "close": "Close",
+    "launchFailed": "Failed to launch"
+  },
+  "uninstall": {
+    "windowTitle": "Uninstall ModForge Studio",
+    "title": "Uninstall ModForge Studio",
+    "subtitle": "This removes ModForge Studio and its integrations (shortcuts, registry entries). Your user data is kept.",
+    "installPath": "Install path",
+    "pathUnknown": "Install path not detected",
+    "confirm": "Start uninstall",
+    "uninstalling": "Uninstalling...",
+    "completed": "Uninstall completed. You can close this window.",
+    "cancel": "Cancel",
+    "close": "Close"
+  }
+}

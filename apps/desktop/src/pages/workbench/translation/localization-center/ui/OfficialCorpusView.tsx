@@ -1,13 +1,12 @@
-import { Search } from 'lucide-react'
+import { FileText, Search, Server } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLocalization } from '@entities/localization'
 import type { AiLocalizationScope } from '@shared/contracts'
 import { CompactSelect } from '@shared/ui/CompactSelect'
-import { LoadingMotionFallback } from '@shared/ui/loading-motion'
 import { useNotificationPublisher } from '@shared/ui/notifications'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
+import { cx } from '@shared/lib/helper'
 import { useAiLocalizationPage } from '../model/useAiLocalizationPage'
-import { SemanticSearchStatus } from './SemanticSearchStatus'
 
 const assetCategories = ['Strings', 'Characters', 'Data', 'Dialogue', 'Maps', 'Movies']
 
@@ -85,21 +84,27 @@ export function OfficialCorpusView({
       publish({ id: 'official-term-copy-error', level: 'error', title: copy.knowledgeError, description: copy.knowledgeError })
     }
   }
+  const corpusReady = status?.indexed ?? false
   return (
-    <div className={`ai-localization-layout${page.selected ? '' : ' is-single-pane'}`}>
-      <main className="ai-localization-main">
-        <header className="ai-localization-toolbar">
-          <div className="ai-localization-toolbar-search">
-            <SemanticSearchStatus />
+    <div className="ai-localization-layout ai-localization-official-layout">
+      <main className="ai-localization-main ai-localization-official-main">
+        <header className="ai-localization-toolbar ai-localization-official-toolbar">
+          <div className={cx('ai-localization-status-line ai-localization-official-status', corpusReady ? 'is-ready' : 'is-warn')}>
+            <span className={cx('ai-localization-status-dot', corpusReady ? 'is-ready' : 'is-warn')} />
+            <span>
+              {copy.officialCorpusStatusLabel} <strong>{corpusReady ? copy.indexReadyShort : copy.indexMissingShort}</strong>
+            </span>
           </div>
-          <dl className="ai-localization-toolbar-stats">
+          <dl className="ai-localization-toolbar-stats ai-localization-official-stats">
             <div>
               <dt>{copy.gameVersion}</dt>
               <dd>{status?.gameVersion ?? '--'}</dd>
             </div>
             <div>
               <dt>{copy.revision}</dt>
-              <dd title={status?.revision ?? ''}>{status?.revision?.slice(0, 8) ?? '--'}</dd>
+              <dd className="mono" title={status?.revision ?? ''}>
+                {status?.revision?.slice(0, 8) ?? '--'}
+              </dd>
             </div>
             <div>
               <dt>{copy.languages}</dt>
@@ -126,141 +131,170 @@ export function OfficialCorpusView({
         ) : null}
         {page.loading ? (
           <div className="ai-localization-status-loading" aria-live="polite" aria-busy="true">
-            <LoadingMotionFallback intensityId="light" />
             <p>{copy.loadingStatus}</p>
           </div>
         ) : !page.gameDirectory ? (
-          <div className="ai-localization-empty">
-            <p>{copy.noGameDirectory}</p>
+          <div className="ai-localization-empty-state">
+            <div className="ai-localization-empty-icon">
+              <Server className="h-4 w-4" />
+            </div>
+            <span>{copy.noGameDirectory}</span>
             <button type="button" className="control-button" onClick={() => void page.chooseGameDirectory()}>
               {copy.selectGameDirectory}
             </button>
           </div>
         ) : (
           <>
-            {page.indexing && page.indexProgress ? (
-              <div className="ai-localization-index-progress" aria-live="polite">
-                <div>
-                  <span>{page.indexProgress.phase === 'committing' ? copy.indexCommitting : copy.indexParsing}</span>
-                  <strong>{copy.indexProgress(page.indexProgress.completed, page.indexProgress.total)}</strong>
+            <div className="ai-localization-filters ai-localization-official-filters">
+              <label>
+                <span>{copy.search}</span>
+                <div className="ai-localization-search-box">
+                  <Search className="h-4 w-4" />
+                  <input
+                    className="control-input"
+                    disabled={!status?.indexed}
+                    value={page.query}
+                    placeholder={copy.searchPlaceholder}
+                    onChange={(e) => page.setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void page.search()
+                    }}
+                  />
                 </div>
-                <progress value={page.indexProgress.completed} max={Math.max(1, page.indexProgress.total)} />
-              </div>
-            ) : null}
+              </label>
+              <label>
+                <span>{copy.assetCategory}</span>
+                <CompactSelect
+                  disabled={!status?.indexed}
+                  value={page.assetCategory ?? ''}
+                  options={[
+                    { value: '', label: copy.allAssets },
+                    ...assetCategories.map((category) => ({ value: category, label: category })),
+                  ]}
+                  onChange={(value) => page.setAssetCategory(value || null)}
+                  ariaLabel={copy.assetCategory}
+                />
+              </label>
+              <label>
+                <span>{copy.unitKind}</span>
+                <CompactSelect
+                  disabled={!status?.indexed}
+                  value={page.unitKind ?? ''}
+                  options={['', 'term', 'plain-text', 'dialogue', 'event-script', 'structured-record', 'opaque'].map((value) => ({
+                    value,
+                    label: value || copy.allKinds,
+                  }))}
+                  onChange={(value) => page.setUnitKind(value || null)}
+                  ariaLabel={copy.unitKind}
+                />
+              </label>
+              <label className="ai-localization-check">
+                <input
+                  type="checkbox"
+                  className="ai-localization-switch"
+                  disabled={!status?.indexed}
+                  checked={page.promptOnly}
+                  onChange={(e) => page.setPromptOnly(e.target.checked)}
+                />
+                <span>{copy.promptEligibleOnly}</span>
+              </label>
+              <button
+                className="control-button control-button-primary"
+                disabled={!status?.indexed || page.searching || !page.query.trim()}
+                onClick={() => void page.search()}
+              >
+                <Search className="h-4 w-4" />
+                {page.searching ? copy.searching : copy.search}
+              </button>
+            </div>
             {status?.indexed ? (
-              <>
-                <div className="ai-localization-filters">
-                  <label>
-                    <span>{copy.search}</span>
-                    <div className="settings-ai-secret">
-                      <Search className="h-4 w-4" />
-                      <input
-                        className="control-input"
-                        value={page.query}
-                        placeholder={copy.searchPlaceholder}
-                        onChange={(e) => page.setQuery(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') void page.search()
-                        }}
-                      />
-                    </div>
-                  </label>
-                  <label>
-                    <span>{copy.assetCategory}</span>
-                    <CompactSelect
-                      value={page.assetCategory ?? ''}
-                      options={[
-                        { value: '', label: copy.allAssets },
-                        ...assetCategories.map((category) => ({ value: category, label: category })),
-                      ]}
-                      onChange={(value) => page.setAssetCategory(value || null)}
-                      ariaLabel={copy.assetCategory}
-                    />
-                  </label>
-                  <label>
-                    <span>{copy.unitKind}</span>
-                    <CompactSelect
-                      value={page.unitKind ?? ''}
-                      options={['', 'term', 'plain-text', 'dialogue', 'event-script', 'structured-record', 'opaque'].map((value) => ({
-                        value,
-                        label: value || copy.allKinds,
-                      }))}
-                      onChange={(value) => page.setUnitKind(value || null)}
-                      ariaLabel={copy.unitKind}
-                    />
-                  </label>
-                  <label className="ai-localization-check">
-                    <input type="checkbox" checked={page.promptOnly} onChange={(e) => page.setPromptOnly(e.target.checked)} />
-                    <span>{copy.promptEligibleOnly}</span>
-                  </label>
-                  <button className="control-button" disabled={page.searching || !page.query.trim()} onClick={() => void page.search()}>
-                    <Search className="h-4 w-4" />
-                    {page.searching ? copy.searching : copy.search}
-                  </button>
-                </div>
-                {page.hasSearched ? (
-                  <div className="ai-localization-table ai-localization-table--official">
-                    <table>
-                      <colgroup>
-                        <col className="ai-localization-official-source-column" />
-                        <col className="ai-localization-official-target-column" />
-                        <col className="ai-localization-official-asset-column" />
-                        <col className="ai-localization-official-kind-column" />
-                      </colgroup>
-                      <thead>
-                        <tr>
-                          {[copy.source, copy.target, copy.assetAndKey, copy.kind].map((label) => (
-                            <th key={label}>{label}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {page.records.map((row) => (
-                          <tr
-                            key={row.id}
-                            className={page.selected?.id === row.id ? 'is-selected' : ''}
-                            onClick={() => page.setSelected(row)}
-                          >
-                            <td>{row.sourceText}</td>
-                            <td>{row.targetText}</td>
-                            <td title={`${row.assetPath} / ${row.unitKey}`}>
-                              {row.assetPath}
-                              <small>{row.unitKey}</small>
-                            </td>
-                            <td>{row.unitKind}</td>
-                          </tr>
+              page.hasSearched ? (
+                <div className="ai-localization-table ai-localization-table--official ai-localization-official-table">
+                  <table>
+                    <colgroup>
+                      <col className="ai-localization-official-source-column" />
+                      <col className="ai-localization-official-target-column" />
+                      <col className="ai-localization-official-asset-column" />
+                      <col className="ai-localization-official-kind-column" />
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        {[copy.source, copy.target, copy.assetAndKey, copy.kind].map((label) => (
+                          <th key={label}>{label}</th>
                         ))}
-                      </tbody>
-                    </table>
-                    {!page.searching && !page.records.length ? <p className="ai-localization-empty">{copy.empty}</p> : null}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {page.records.map((row) => (
+                        <tr
+                          key={row.id}
+                          className={page.selected?.id === row.id ? 'is-selected' : ''}
+                          onClick={() => page.setSelected(row)}
+                        >
+                          <td>{row.sourceText}</td>
+                          <td>{row.targetText}</td>
+                          <td title={`${row.assetPath} / ${row.unitKey}`}>
+                            {row.assetPath}
+                            <small>{row.unitKey}</small>
+                          </td>
+                          <td>{row.unitKind}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {!page.searching && !page.records.length ? (
+                    <div className="ai-localization-empty-state">
+                      <div className="ai-localization-empty-icon">
+                        <Server className="h-4 w-4" />
+                      </div>
+                      <span>{copy.empty}</span>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="ai-localization-empty-state">
+                  <div className="ai-localization-empty-icon">
+                    <Search className="h-4 w-4" />
                   </div>
-                ) : (
-                  <p className="ai-localization-empty">{copy.searchHint}</p>
-                )}
-              </>
-            ) : null}
+                  <span>{copy.searchHint}</span>
+                </div>
+              )
+            ) : (
+              <div className="ai-localization-empty-state">
+                <div className="ai-localization-empty-icon">
+                  <Server className="h-4 w-4" />
+                </div>
+                <span>{copy.indexMissing}</span>
+              </div>
+            )}
           </>
         )}
       </main>
       {page.selected ? (
-        <aside className="ai-localization-inspector">
+        <aside className="ai-localization-inspector ai-localization-official-inspector">
           <header className="ai-localization-official-inspector-header">
             <strong>{page.selected.unitKey}</strong>
             <div className="ai-localization-eligibility">
-              <span className="status-pill">{page.selected.searchable ? copy.searchable : copy.notSearchable}</span>
-              <span className="status-pill">{page.selected.semanticEligible ? copy.semanticEligible : copy.notSemanticEligible}</span>
-              <span className="status-pill">{page.selected.promptEligible ? copy.promptEligible : copy.notPromptEligible}</span>
+              <span className={cx('ai-localization-chip', page.selected.searchable ? 'is-success' : 'is-neutral')}>
+                {page.selected.searchable ? copy.searchable : copy.notSearchable}
+              </span>
+              <span className={cx('ai-localization-chip', page.selected.semanticEligible ? 'is-accent' : 'is-neutral')}>
+                {page.selected.semanticEligible ? copy.semanticEligible : copy.notSemanticEligible}
+              </span>
+              <span className={cx('ai-localization-chip', page.selected.promptEligible ? 'is-success' : 'is-neutral')}>
+                {page.selected.promptEligible ? copy.promptEligible : copy.notPromptEligible}
+              </span>
             </div>
           </header>
-          <section>
+          <section className="ai-localization-official-copy">
             <h3>{copy.fullSource}</h3>
             <p>{page.selected.sourceText}</p>
           </section>
-          <section>
+          <section className="ai-localization-official-copy">
             <h3>{copy.fullTarget}</h3>
             <p>{page.selected.targetText}</p>
           </section>
-          <dl>
+          <dl className="ai-localization-kv ai-localization-official-kv">
             <div>
               <dt>{copy.assetAndKey}</dt>
               <dd>{page.selected.assetPath}</dd>
@@ -274,7 +308,7 @@ export function OfficialCorpusView({
               <dd>{overrides.length ? overrides.join(', ') : '--'}</dd>
             </div>
           </dl>
-          <section>
+          <section className="ai-localization-official-actions">
             <label>
               <span>{copy.termScope}</span>
               <CompactSelect
@@ -285,12 +319,21 @@ export function OfficialCorpusView({
                 placement="top-start"
               />
             </label>
-            <button type="button" className="control-button" disabled={!termScope} onClick={() => void copyTerm()}>
+            <button type="button" className="control-button control-button-primary" disabled={!termScope} onClick={() => void copyTerm()}>
               {copy.copyAsTerm}
             </button>
           </section>
         </aside>
-      ) : null}
+      ) : (
+        <aside className="ai-localization-inspector ai-localization-official-inspector">
+          <div className="ai-localization-empty-state">
+            <div className="ai-localization-empty-icon">
+              <FileText className="h-4 w-4" />
+            </div>
+            <span>{copy.selectEntry}</span>
+          </div>
+        </aside>
+      )}
     </div>
   )
 }

@@ -17,6 +17,7 @@
     "benchmark:localization-search": "vp run --filter @modforge/desktop benchmark:localization-search",
     "benchmark:localization-lexical": "vp run --filter @modforge/desktop benchmark:localization-lexical",
     "desktop:build": "node ./scripts/desktop-host-dispatch.cjs build",
+    "installer:build": "node apps/installer/scripts/build-installer.cjs",
     "release:linux": "vp run --filter @modforge/desktop release:linux",
     "release:linux:deb": "vp run --filter @modforge/desktop release:linux:deb",
     "release:linux:rpm": "vp run --filter @modforge/desktop release:linux:rpm",

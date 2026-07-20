@@ -53,6 +53,9 @@ import { DevDebugOverlay } from '@pages/workbench/ui/DevDebugOverlay'
 import type { AiSettingsTab, PendingWorkbenchCommandIntent, SettingsWindowCategory, SettingsWindowTarget } from '@shared/contracts'
 import { listenForAppSettingsRequests } from '@shared/lib/app-settings-events'
 import { QuitDialog } from '@widgets/quit-dialog'
+import { GuideTourOverlay } from '@widgets/guide-tour'
+import { useGuideEngineStore } from '@features/guide'
+import { appGuideDefinitions, resolveGuideSurfaceNavigation } from '../guide-setup'
 import { WorkbenchShellSkeleton } from '@shared/ui/WorkbenchShellSkeleton'
 
 const SettingsWindow = lazy(() => import('./SettingsWindow'))
@@ -103,6 +106,7 @@ configureObservability({
   writeFrontendLog,
 })
 setNotificationDispatcher(publishNotification)
+useGuideEngineStore.getState().registerGuideDefinitions(appGuideDefinitions)
 
 export default function App() {
   const [initialAppUiState] = useState(() => getAppUiStateSnapshot())
@@ -546,6 +550,34 @@ export default function App() {
   useEffect(() => listenForAppSettingsRequests(openSettingsTarget), [openSettingsTarget])
 
   useEffect(() => {
+    if (appUiStateReady) {
+      useGuideEngineStore.getState().markGuideStateReady()
+    }
+  }, [appUiStateReady])
+
+  const guideReplayRequest = useGuideEngineStore((state) => state.replayRequest)
+  useEffect(() => {
+    if (!guideReplayRequest) {
+      return
+    }
+
+    const navigation = resolveGuideSurfaceNavigation(guideReplayRequest.surface)
+    if (navigation?.appMode === 'workbench') {
+      setWorkbenchHasOpened(true)
+      setWorkbenchActivationKey((current) => current + 1)
+      setAppMode('workbench')
+    } else if (navigation?.appMode === 'launcher') {
+      setAppMode('launcher')
+      if (navigation.launcherPage) {
+        setLauncherPage(navigation.launcherPage)
+      }
+    }
+
+    setSettingsWindowOpen(false)
+    useGuideEngineStore.getState().acknowledgeGuideReplay(guideReplayRequest.nonce)
+  }, [guideReplayRequest])
+
+  useEffect(() => {
     if (!import.meta.env.DEV || typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     if (params.get('mfSettingsMock') !== '1' && params.get('mfLauncherMock') !== '1') return
@@ -661,6 +693,7 @@ export default function App() {
               rememberChoice={quitDialogRemember}
               onRememberChoiceChange={setQuitDialogRemember}
             />
+            <GuideTourOverlay />
             <div className="app-window-titlebar-divider" aria-hidden="true" />
           </div>
         </LoadingMotionProvider>

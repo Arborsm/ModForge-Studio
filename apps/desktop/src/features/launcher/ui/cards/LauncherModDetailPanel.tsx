@@ -316,7 +316,13 @@ export function LauncherModDetailPanel({
         onClick={handleClose}
       />
 
-      <section className="launcher-library-drawer-panel launcher-mod-detail-panel" role="dialog" aria-modal="true" aria-label={displayName}>
+      <section
+        className="launcher-library-drawer-panel launcher-mod-detail-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label={displayName}
+        data-guide="launcher-mod-detail"
+      >
         {showRemoteLoading ? (
           <div className="launcher-mod-detail-loading-overlay" role="status">
             <div className="launcher-mod-detail-loading-card">

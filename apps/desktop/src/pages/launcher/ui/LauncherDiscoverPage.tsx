@@ -976,7 +976,7 @@ function LauncherDiscoverPageContent({
           </div>
           <div className="launcher-discover-console-toolbar">
             <div className="launcher-discover-toolbar-group">
-              <label className="launcher-discover-searchbar">
+              <label className="launcher-discover-searchbar" data-guide="launcher-discover-search">
                 <input
                   className="launcher-discover-searchbar-input"
                   value={searchDraft}
@@ -1016,7 +1016,7 @@ function LauncherDiscoverPageContent({
 
             <span className="launcher-discover-toolbar-divider" aria-hidden="true" />
 
-            <div className="launcher-discover-console-actions launcher-discover-toolbar-group">
+            <div className="launcher-discover-console-actions launcher-discover-toolbar-group" data-guide="launcher-discover-toolbar">
               <DiscoverMenu
                 label={copy.discover.timeRangeLabel}
                 value={discover.timeRange}
@@ -1417,7 +1417,7 @@ function LauncherDiscoverPageContent({
           ) : null}
 
           {!discoverBlocked && discover.state !== 'error' && (discover.items.length > 0 || discover.state === 'loading') ? (
-            <div className="launcher-discover-results-shell">
+            <div className="launcher-discover-results-shell" data-guide="launcher-discover-results">
               <div
                 ref={resultsViewportRef}
                 className={cx(

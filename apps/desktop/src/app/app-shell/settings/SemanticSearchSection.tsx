@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { detectDefaultGameDirectory, listKnownGameDirectories } from '@entities/game/api'
 import { BUILTIN_SEMANTIC_MODEL_ID, useLocalization } from '@entities/localization'
 import { useNotificationCopy, useSettingsMenuCopy } from '@locales/provider'
 import type {
@@ -20,6 +21,15 @@ const SEMANTIC_TEST_NOTIFICATION = 'semantic-remote-test'
 
 const BUILTIN_MODEL_ID = BUILTIN_SEMANTIC_MODEL_ID
 const SEMANTIC_MODES: AiSemanticSearchMode[] = ['lexical', 'builtin', 'local-onnx', 'remote-openai']
+
+async function resolveOfficialCorpusGameDirectory() {
+  const [detectedResult, knownResult] = await Promise.allSettled([detectDefaultGameDirectory(), listKnownGameDirectories()])
+  if (detectedResult.status === 'rejected' && knownResult.status === 'rejected') throw detectedResult.reason
+
+  const detected = detectedResult.status === 'fulfilled' ? detectedResult.value?.trim() : ''
+  const known = knownResult.status === 'fulfilled' ? knownResult.value.map((path) => path.trim()).filter(Boolean) : []
+  return [...new Set([...(detected ? [detected] : []), ...known])][0] ?? null
+}
 
 function pendingIndexStatus(mode: AiSemanticSearchMode): AiSemanticIndexStatus {
   return {
@@ -56,6 +66,7 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
   const refreshGeneration = useRef(0)
   const pausedJob = useRef<string | null>(null)
   const activeIndexJob = useRef<{ jobId: string; noticeId: string } | null>(null)
+  const activeOfficialCorpusJob = useRef<{ jobId: string; noticeId: string } | null>(null)
   const [settings, setSettings] = useState<AiSemanticSettingsSnapshot | null>(null)
   const [savedSettings, setSavedSettings] = useState<AiSemanticSettingsSnapshot | null>(null)
   const [model, setModel] = useState<AiSemanticModelStatus | null>(null)
@@ -136,7 +147,9 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
   useEffect(() => {
     mounted.current = true
     void refresh().catch(() => undefined)
-    let dispose: (() => void) | undefined
+    let disposed = false
+    let disposeSemantic: (() => void) | undefined
+    let disposeOfficial: (() => void) | undefined
     void localization
       .listenSemanticProgress((value) => {
         if (!mounted.current) return
@@ -156,13 +169,37 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
         }
       })
       .then((value) => {
-        dispose = value
+        if (disposed) value()
+        else disposeSemantic = value
+      })
+    void localization
+      .listenOfficialIndexProgress((value) => {
+        if (!mounted.current) return
+        const activeOfficialCorpus = activeOfficialCorpusJob.current
+        if (activeOfficialCorpus?.jobId === value.jobId) {
+          const percentage = value.total > 0 ? (value.completed / value.total) * 100 : 0
+          publish({
+            id: activeOfficialCorpus.noticeId,
+            level: 'info',
+            title: copy.rebuildingCorpus,
+            description: copy.indexProgress(value.completed, value.total, percentage),
+            autoDismissMs: null,
+            progress: percentage,
+            loading: true,
+          })
+        }
+      })
+      .then((value) => {
+        if (disposed) value()
+        else disposeOfficial = value
       })
     return () => {
       mounted.current = false
-      dispose?.()
+      disposed = true
+      disposeSemantic?.()
+      disposeOfficial?.()
     }
-  }, [localization, copy.indexProgress, copy.indexing, copy.loadError, copy.phaseLabels, publish])
+  }, [localization, copy.indexProgress, copy.indexing, copy.loadError, copy.phaseLabels, copy.rebuildingCorpus, publish])
 
   const run = async (
     name: string,
@@ -172,21 +209,24 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
       successTitle?: string
       refreshAfter?: boolean
       progressJobId?: string
+      officialCorpusJobId?: string
     },
   ) => {
     const noticeId = `semantic-${name}`
     if (options?.progressJobId) activeIndexJob.current = { jobId: options.progressJobId, noticeId }
+    if (options?.officialCorpusJobId) activeOfficialCorpusJob.current = { jobId: options.officialCorpusJobId, noticeId }
     setBusy(name)
     setError(null)
     dismissNotification(noticeId)
     if (options?.runningTitle) {
+      const hasProgress = Boolean(options.progressJobId || options.officialCorpusJobId)
       publish({
         id: noticeId,
         level: 'info',
         title: options.runningTitle,
         autoDismissMs: null,
-        progress: options.progressJobId ? 0 : null,
-        loading: Boolean(options.progressJobId),
+        progress: hasProgress ? 0 : null,
+        loading: hasProgress,
       })
     }
     try {
@@ -213,6 +253,78 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
       })
     } finally {
       if (activeIndexJob.current?.jobId === options?.progressJobId) activeIndexJob.current = null
+      if (activeOfficialCorpusJob.current?.jobId === options?.officialCorpusJobId) activeOfficialCorpusJob.current = null
+      if (mounted.current) setBusy(null)
+    }
+  }
+
+  const rebuildOfficialCorpus = async () => {
+    const jobId = `official-index:${crypto.randomUUID()}`
+    await run(
+      'rebuild-corpus',
+      async () => {
+        const gameDirectory = await resolveOfficialCorpusGameDirectory()
+        if (!gameDirectory) throw new Error(copy.corpusDirectoryMissing)
+        return localization.rebuildOfficialIndex({ jobId, gameDirectory })
+      },
+      { runningTitle: copy.rebuildingCorpus, successTitle: copy.actionSuccess, officialCorpusJobId: jobId },
+    )
+  }
+
+  const rebuildCorpusAndSemanticIndex = async () => {
+    const noticeId = 'semantic-rebuild-all'
+    const corpusJobId = `official-index:${crypto.randomUUID()}`
+    const semanticJobId = crypto.randomUUID()
+    setBusy('rebuild-all')
+    setError(null)
+    dismissNotification(noticeId)
+    activeOfficialCorpusJob.current = { jobId: corpusJobId, noticeId }
+    publish({
+      id: noticeId,
+      level: 'info',
+      title: copy.rebuildingAll,
+      autoDismissMs: null,
+      progress: 0,
+      loading: true,
+    })
+    try {
+      const gameDirectory = await resolveOfficialCorpusGameDirectory()
+      if (!gameDirectory) throw new Error(copy.corpusDirectoryMissing)
+      await localization.rebuildOfficialIndex({ jobId: corpusJobId, gameDirectory })
+      if (!mounted.current) return
+      if (activeOfficialCorpusJob.current?.jobId === corpusJobId) activeOfficialCorpusJob.current = null
+      activeIndexJob.current = { jobId: semanticJobId, noticeId }
+      publish({
+        id: noticeId,
+        level: 'info',
+        title: copy.indexing,
+        autoDismissMs: null,
+        progress: 0,
+        loading: true,
+      })
+      await localization.rebuildSemanticIndex({ jobId: semanticJobId, scopeIds: [], confirmRemoteUpload: confirmRemote })
+      if (!mounted.current) return
+      await refresh()
+      if (!mounted.current) return
+      dismissNotification(noticeId)
+      publish({
+        id: noticeId,
+        level: 'success',
+        title: copy.actionSuccess,
+      })
+    } catch (cause) {
+      const detail = cause instanceof Error ? cause.message : copy.actionError
+      if (mounted.current) setError(detail)
+      dismissNotification(noticeId)
+      publish({
+        id: noticeId,
+        level: 'error',
+        title: copy.actionError,
+        description: detail || notificationCopy.failureDescriptions.unknown,
+      })
+    } finally {
+      if (activeOfficialCorpusJob.current?.jobId === corpusJobId) activeOfficialCorpusJob.current = null
+      if (activeIndexJob.current?.jobId === semanticJobId) activeIndexJob.current = null
       if (mounted.current) setBusy(null)
     }
   }
@@ -462,6 +574,7 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
     (mode === 'builtin' && model.downloaded && (model.available || Boolean(verification))) ||
     (mode === 'local-onnx' && Boolean(settings.localModelDirectory) && (model.available || Boolean(verification))) ||
     (mode === 'remote-openai' && !dirty && Boolean(remoteDraft.name && remoteDraft.baseUrl && remoteDraft.model) && confirmRemote)
+  const officialCorpusReady = Boolean(index.officialRevision)
   const step2NextKey =
     mode === 'lexical'
       ? 'lexical'
@@ -805,20 +918,6 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
             ) : null}
           </div>
 
-          {mode !== 'lexical' && progress && progress.kind === 'index' ? (
-            <div className="settings-semantic-dl">
-              <div className="settings-semantic-dl-head">
-                <div>
-                  <p className="settings-semantic-dl-title">{copy.phaseLabels[progress.phase] ?? copy.indexing}</p>
-                  <p className="settings-semantic-dl-sub">
-                    {copy.indexProgress(progress.downloadedBytes, progress.totalBytes, progress.percentage)}
-                  </p>
-                </div>
-              </div>
-              <progress value={progress.percentage} max={100} aria-label={copy.indexing} />
-            </div>
-          ) : null}
-
           {mode !== 'lexical' ? (
             <>
               <div className="settings-semantic-divider" aria-hidden="true" />
@@ -837,36 +936,57 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
                     </p>
                   </div>
                   <div className="settings-semantic-actions">
-                    <button
-                      type="button"
-                      className="settings-window-btn"
-                      disabled={Boolean(dirty || busy || !backendReady)}
-                      onClick={() => {
-                        const jobId = crypto.randomUUID()
-                        void run(
-                          'sync',
-                          () => localization.syncSemanticIndex({ jobId, scopeIds: [], confirmRemoteUpload: confirmRemote }),
-                          { runningTitle: copy.indexing, successTitle: copy.actionSuccess, progressJobId: jobId },
-                        )
-                      }}
-                    >
-                      {copy.sync}
-                    </button>
-                    <button
-                      type="button"
-                      className="settings-window-btn"
-                      disabled={Boolean(dirty || busy || !backendReady)}
-                      onClick={() => {
-                        const jobId = crypto.randomUUID()
-                        void run(
-                          'rebuild',
-                          () => localization.rebuildSemanticIndex({ jobId, scopeIds: [], confirmRemoteUpload: confirmRemote }),
-                          { runningTitle: copy.indexing, successTitle: copy.actionSuccess, progressJobId: jobId },
-                        )
-                      }}
-                    >
-                      {copy.rebuild}
-                    </button>
+                    {!officialCorpusReady ? (
+                      <button
+                        type="button"
+                        className="settings-window-btn settings-window-btn-primary"
+                        disabled={Boolean(dirty || busy || !backendReady)}
+                        onClick={() => void rebuildCorpusAndSemanticIndex()}
+                      >
+                        {busy === 'rebuild-all' ? copy.rebuildingAll : copy.rebuildAll}
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className="settings-window-btn"
+                          disabled={Boolean(dirty || busy || !backendReady)}
+                          onClick={() => {
+                            const jobId = crypto.randomUUID()
+                            void run(
+                              'sync',
+                              () => localization.syncSemanticIndex({ jobId, scopeIds: [], confirmRemoteUpload: confirmRemote }),
+                              { runningTitle: copy.indexing, successTitle: copy.actionSuccess, progressJobId: jobId },
+                            )
+                          }}
+                        >
+                          {copy.sync}
+                        </button>
+                        <button
+                          type="button"
+                          className="settings-window-btn"
+                          disabled={Boolean(busy)}
+                          onClick={() => void rebuildOfficialCorpus()}
+                        >
+                          {busy === 'rebuild-corpus' ? copy.rebuildingCorpus : copy.rebuildCorpus}
+                        </button>
+                        <button
+                          type="button"
+                          className="settings-window-btn"
+                          disabled={Boolean(dirty || busy || !backendReady)}
+                          onClick={() => {
+                            const jobId = crypto.randomUUID()
+                            void run(
+                              'rebuild',
+                              () => localization.rebuildSemanticIndex({ jobId, scopeIds: [], confirmRemoteUpload: confirmRemote }),
+                              { runningTitle: copy.indexing, successTitle: copy.actionSuccess, progressJobId: jobId },
+                            )
+                          }}
+                        >
+                          {copy.rebuild}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

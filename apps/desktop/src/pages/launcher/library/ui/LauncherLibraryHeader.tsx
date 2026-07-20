@@ -274,7 +274,7 @@ export function LauncherLibraryHeader({
 
   return (
     <LoadingMotionRevealItem index={0} as="section" className="launcher-library-console">
-      <div className="launcher-library-console-top">
+      <div className="launcher-library-console-top" data-guide="launcher-library-toolbar">
         <div className="launcher-library-console-heading">
           <button
             type="button"

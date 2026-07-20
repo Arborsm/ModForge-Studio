@@ -76,6 +76,52 @@ artifacts. macOS and Windows releases continue to use Tauri packaging.
 Linux-specific package scripts can be run directly when only one package format
 is needed: `vp run release:linux:deb` or `vp run release:linux:rpm`.
 
+## Windows Installer
+
+The custom Windows installer lives in `apps/installer` (`@modforge/installer`),
+a standalone Tauri 2 + React app styled after the BitFun installer. It ships as
+a single `modforge-installer.exe` with the desktop payload embedded as a zip
+(`build.rs` packs `src-tauri/payload/` into the binary; external `payload/` /
+`payload.zip` next to the exe remain as dev fallbacks).
+
+Build it from the repository root:
+
+```bash
+vp run installer:build                                        # desktop app + installer
+node apps/installer/scripts/build-installer.cjs --skip-app-build  # reuse existing desktop exe
+```
+
+`--skip-app-build` expects `modforge_studio_desktop.exe` and `gmcm-probe/` in
+`apps/desktop/src-tauri/target/release/`; without it the script first runs the
+desktop `--no-bundle` build. Step 2 copies the exe, runtime sibling files, and
+`gmcm-probe/` into `src-tauri/payload/` with a sha256 `payload-manifest.json`,
+then step 3 produces
+`apps/installer/src-tauri/target/release/modforge-installer.exe`. For UI
+iteration use `vp run --filter @modforge/installer tauri:dev`; debug builds fall
+back to a placeholder payload.
+
+The installer is per-user (no admin): it extracts the payload, registers the
+Add/Remove Programs entry under
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\ModForgeStudio`,
+mirrors the Tauri NSIS install-location key at
+`HKCU\Software\ModForge Studio\ModForge Studio`, creates Desktop and Start Menu
+shortcuts, and writes the chosen language to
+`%APPDATA%\ModForge Studio\app\ui-state.json` (`appearance.locale`).
+
+Uninstall runs the same binary: install copies it to `<install>\uninstall.exe`
+and the registered command is `"<install>\uninstall.exe" --uninstall "<install>"`.
+Uninstall removes shortcuts, both registry keys (HKCU and HKLM attempts), any
+`Run` autostart value, and every payload file, then schedules a cmd cleanup
+script that deletes `uninstall.exe` itself after exit. User data under
+`%APPDATA%\ModForge Studio` is never touched.
+
+Rust checks for the installer crate:
+
+```bash
+cargo fmt --manifest-path apps/installer/src-tauri/Cargo.toml
+cargo check --manifest-path apps/installer/src-tauri/Cargo.toml
+```
+
 ## Test Layout
 
 Tests are kept out of source folders and grouped by type.

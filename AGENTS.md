@@ -13,6 +13,7 @@
 ## 快速定位
 
 - 活跃产品代码在 `apps/desktop`。
+- 安装器应用在 `apps/installer`。
 - 前端源码在 `apps/desktop/src`。
 - Rust/Tauri 后端在 `apps/desktop/src-tauri`。
 - Linux Electron 宿主在 `apps/desktop/electron`。

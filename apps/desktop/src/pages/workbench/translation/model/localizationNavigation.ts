@@ -4,7 +4,7 @@ import { applyAppUiStatePatch } from '@shared/lib/app-state'
 export async function openLocalizationCenter(
   scopeId: string | null,
   onOpenModule: (moduleId: string) => void,
-  tab: 'overview' | 'glossary' | 'memory' | 'style' | 'quality' = 'glossary',
+  tab: 'overview' | 'glossary' | 'memory' | 'style' | 'quality' = 'overview',
 ) {
   await applyAppUiStatePatch({
     workspace: {

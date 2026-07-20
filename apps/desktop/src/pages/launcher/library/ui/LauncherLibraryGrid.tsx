@@ -578,6 +578,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       <div
         ref={gridRef}
         className="launcher-library-grid launcher-library-virtual-grid"
+        data-guide="launcher-mod-grid"
         style={{
           height: rowVirtualizer.getTotalSize() + LAUNCHER_LIBRARY_VIRTUAL_GRID_TOP_PADDING_PX,
         }}

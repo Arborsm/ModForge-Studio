@@ -1,4 +1,5 @@
 export type { LocaleCode, ThemeMode, AppMode, LauncherPage, WorkspaceTone } from './core'
+export type { GuideDefinitionCopy, GuideId, GuideStepCopy, GuidesCopy } from './guides'
 export type { SettingsMenuCopy } from './settings'
 export type { NotificationCopy } from './notifications'
 export type { LauncherCopy, LauncherUpdatesCopy } from './launcher'
@@ -22,6 +23,7 @@ export type {
 
 import type { EditorCopy } from './workbench'
 import type { ModWorkspaceCopy, TranslationEditorCopy } from './workbench'
+import type { GuidesCopy } from './guides'
 import type { NotificationCopy } from './notifications'
 import type { ViewMenuCopy } from './workbench'
 import type { SettingsMenuCopy } from './settings'
@@ -31,6 +33,7 @@ export type LocaleBundle = {
   editor: EditorCopy
   mods: ModWorkspaceCopy
   translationEditor: TranslationEditorCopy
+  guides: GuidesCopy
   notifications: NotificationCopy
   viewMenu: ViewMenuCopy
   settingsMenu: SettingsMenuCopy

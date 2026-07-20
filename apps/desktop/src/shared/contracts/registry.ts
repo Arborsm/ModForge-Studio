@@ -31,6 +31,7 @@ export type WorkbenchNavigationIcon =
   | 'files'
   | 'beaker'
   | 'book-open-check'
+  | 'book-open'
 export type WorkbenchModuleLocaleKey =
   | 'map-browser'
   | 'event-browser'

@@ -1,5 +1,6 @@
 import {
   Beaker,
+  BookOpen,
   BookOpenCheck,
   Castle,
   ChevronDown,
@@ -32,6 +33,7 @@ const ICONS = {
   files: FileText,
   beaker: Beaker,
   'book-open-check': BookOpenCheck,
+  'book-open': BookOpen,
 } as const
 
 export type WorkbenchSideNavSectionState = {
@@ -93,6 +95,7 @@ export default function WorkbenchSideNav({
     <aside
       className={cx('workbench-side-nav', collapsed && 'workbench-side-nav-collapsed')}
       data-collapsed={collapsed ? 'true' : 'false'}
+      data-guide="workbench-nav"
       role="navigation"
       aria-label={navCopy.shellNavLabel}
     >

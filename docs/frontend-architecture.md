@@ -181,6 +181,18 @@ Rules:
 
 The point is explicit composition without service-locator behavior.
 
+## Guide Layer
+
+The product guide layer is a global overlay like the notification and dialog layers, but fully decoupled from pages.
+
+- Contracts (`GuideDefinition`, `GuideStepDefinition`) live in `shared/contracts/types/guide.ts`. A guide targets a functional area (`surface`) and lists ordered steps; a step optionally references a `data-guide` anchor.
+- The engine lives in `features/guide` (zustand store + pure helpers). It owns run state (active run, step index, pending replays) and persists completion under `workspace.modules.guideCenter.completed` in app UI state, so no app-ui-state schema change is needed.
+- Pages never import guide code. They only render declarative attributes: `data-guide-surface="<area>"` on the visible page root and `data-guide="<anchor>"` on highlighted elements. A DOM watcher in the overlay derives the current surface from the first visible surface element.
+- Guide registration objects are owned per domain (`features/launcher/guide`, `pages/workbench/guide-registrations.ts`) and composed statically in `app/guide-setup.ts`, mirroring the registry pattern. Step copy comes from the typed `guides` locale namespace; definitions only carry ids.
+- The overlay widget (`widgets/guide-tour`) is mounted once in `AppShell` and renders the spotlight card with previous/next/skip controls. `app` wires replay navigation: `requestGuideReplay` emits a typed replay request, the shell navigates to the guide surface, and pending replays start when the surface appears.
+- Steps that point at collapsible UI (pack drawer, mod detail drawer) stay decoupled through `shared/lib/guide-tour-events.ts`: the overlay announces each activated step on `window`, and pages listening for their anchor ids reveal the referenced UI. The overlay also scrolls anchors into view and tracks the anchor rect until layout settles.
+- The settings window hosts the replay entry (per-guide replay + reset all) and is the only place besides the overlay that calls the engine directly.
+
 ## Workbench shell composition (target)
 
 Workbench chrome is migrating to a left-nav + project-titlebar shell. Product intent and PR slices live in `docs/design/workbench-shell-migration.md`; visual/IA rules live in `docs/design/page-design-spec.md` §0.

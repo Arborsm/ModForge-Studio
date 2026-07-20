@@ -35,7 +35,14 @@ export type SettingsMenuCopy = {
     close: string
     notification: string
     developer: string
+    guides: string
   }
+  guidesDescription: string
+  guideWatchedStateLabel: string
+  guideUnwatchedStateLabel: string
+  guideReplayActionLabel: string
+  guideReplayAllLabel: string
+  guideReplayAllDescription: string
   currentSelectionLabel: (value: string) => string
   windowModeLabel: string
   windowBorderToneLabel: string
@@ -194,6 +201,11 @@ export type SettingsMenuCopy = {
       releasedRuntime: string
       retrievalModes: Record<'lexical' | 'semantic' | 'partial', string>
       rebuild: string
+      rebuildCorpus: string
+      rebuildingCorpus: string
+      rebuildAll: string
+      rebuildingAll: string
+      corpusDirectoryMissing: string
       sync: string
       save: string
       saving: string

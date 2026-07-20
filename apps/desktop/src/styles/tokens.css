@@ -65,6 +65,7 @@
     --z-popover: 180; /* dropdowns, floats, compact-select menus */
     --z-titlebar-divider: 135; /* the 1px divider under the titlebar */
     --z-titlebar: 260; /* the titlebar itself */
+    --z-guide: 290; /* guide tour overlay (below dialogs, above the titlebar) */
     --z-dialog: 300; /* dialog overlay (always below-titlebar-inset) */
     --z-dialog-stack: 310; /* nested dialog (opened from within a dialog) */
     --z-toast: 400; /* notifications */

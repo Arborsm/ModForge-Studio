@@ -1,16 +1,26 @@
 export type AiLocalizationCopy = {
   title: string
   overviewTab: string
-  knowledgeTab: string
+  glossaryTab: string
+  memoryTab: string
+  styleTab: string
   qualityTab: string
+  officialTab: string
   importKnowledgePack: string
   exportKnowledgePack: string
   aiSettings: string
   noScopes: string
   needsAttention: string
+  needsAttentionTitle: string
   noAttentionItems: string
+  glossaryCountLabel: string
+  memoryCountLabel: string
+  pendingCountLabel: string
+  officialCorpusStatusLabel: string
   indexReadyShort: string
   indexMissingShort: string
+  available: string
+  goToHandle: string
   resourceReadiness: string
   allResourcesReady: string
   resourcesNeedAttention: string
@@ -32,8 +42,8 @@ export type AiLocalizationCopy = {
   configureModel: string
   openReviewRuns: (count: number) => string
   criticalIssues: (count: number) => string
+  criticalReviewIssues: (count: number) => string
   globalScope: string
-  officialTab: string
   sourceLocale: string
   targetLocale: string
   gameDirectory: string
@@ -87,9 +97,6 @@ export type AiLocalizationCopy = {
   indexError: string
   searchError: string
   retry: string
-  glossaryTab: string
-  styleTab: string
-  memoryTab: string
   searchScopes: string
   add: string
   save: string
@@ -124,6 +131,7 @@ export type AiLocalizationCopy = {
   manual: string
   imported: string
   knowledgeError: string
+  projectMessage: string
   saved: string
   qualityHistoryTab: string
   reviewRuns: string
