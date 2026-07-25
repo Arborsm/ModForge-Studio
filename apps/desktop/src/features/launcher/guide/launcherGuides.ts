@@ -12,7 +12,7 @@ export const launcherGuideDefinitions: GuideDefinition[] = [
     steps: [
       { id: 'welcome', placement: 'center' },
       { id: 'nav-tabs', anchor: 'launcher-nav-tabs', placement: 'bottom' },
-      { id: 'library-toolbar', anchor: 'launcher-library-toolbar', placement: 'bottom' },
+      { id: 'library-toolbar', anchor: 'launcher-library-toolbar', placement: 'bottom', advanceOn: 'anchor-click' },
       { id: 'pack-sidebar', anchor: 'launcher-pack-sidebar', placement: 'right' },
       { id: 'mod-grid', anchor: 'launcher-mod-grid', placement: 'top' },
       { id: 'mod-detail', anchor: 'launcher-mod-detail', placement: 'left' },
@@ -23,7 +23,7 @@ export const launcherGuideDefinitions: GuideDefinition[] = [
     surface: 'launcher.discover',
     steps: [
       { id: 'welcome', placement: 'center' },
-      { id: 'discover-search', anchor: 'launcher-discover-search', placement: 'bottom' },
+      { id: 'discover-search', anchor: 'launcher-discover-search', placement: 'bottom', advanceOn: 'anchor-click' },
       { id: 'discover-toolbar', anchor: 'launcher-discover-toolbar', placement: 'bottom' },
       { id: 'discover-results', anchor: 'launcher-discover-results', placement: 'top' },
     ],

@@ -7,6 +7,7 @@ const guides: GuidesCopy = {
     skip: '跳过',
     finish: '完成',
     stepCounter: (current, total) => `${current} / ${total}`,
+    anchorClickHint: '点击高亮区域继续',
   },
   replayPendingTitle: '指引将在进入对应页面后播放',
   replayPendingDescription: (guideTitle) => `打开「${guideTitle}」所在页面后会自动开始指引。`,

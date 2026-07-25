@@ -32,7 +32,9 @@
     "optionsLabel": "安装选项",
     "desktopShortcut": "创建桌面快捷方式",
     "startMenu": "添加到开始菜单",
+    "autoStart": "开机自动启动 ModForge Studio",
     "back": "返回",
+    "next": "下一步",
     "install": "安装",
     "installing": "准备中…",
     "existingInstallTitle": "检测到本机已安装 ModForge Studio",
@@ -58,20 +60,72 @@
     "title": "完成",
     "subtitle": "ModForge Studio 已安装完成",
     "installLocation": "安装位置：{{path}}",
-    "launchNow": "立即启动",
+    "launchAfterInstall": "立即启动 ModForge Studio",
+    "finish": "完成",
     "close": "关闭",
     "launchFailed": "启动失败"
   },
   "uninstall": {
     "windowTitle": "卸载 ModForge Studio",
     "title": "卸载 ModForge Studio",
-    "subtitle": "将移除 ModForge Studio 及其集成项（快捷方式、注册表项），不会删除用户数据。",
+    "subtitle": "将移除 ModForge Studio 及其集成项（快捷方式、注册表项）。",
     "installPath": "安装目录",
     "pathUnknown": "未检测到安装目录",
+    "deleteData": "同时删除用户数据（设置、工作区状态、缓存）",
+    "deleteDataHint": "仅删除 %APPDATA%\\ModForge Studio 目录，不会影响 mods、游戏目录与你的文档。",
     "confirm": "开始卸载",
     "uninstalling": "正在卸载...",
     "completed": "卸载已完成，可关闭窗口。",
     "cancel": "取消",
     "close": "关闭"
+  },
+  "theme": {
+    "switchToLight": "切换到浅色主题",
+    "switchToDark": "切换到深色主题"
+  },
+  "preferences": {
+    "title": "软件偏好",
+    "subtitle": "为 ModForge Studio 预选主题、动效与默认行为，将在安装前写入主程序的设置文件。",
+    "themeLabel": "软件主题",
+    "motionLabel": "动效",
+    "behaviorLabel": "默认行为",
+    "defaultBadge": "默认",
+    "closeBehaviorLabel": "关闭窗口时",
+    "notificationSound": "通知音效",
+    "appModeLabel": "启动后默认进入",
+    "back": "返回",
+    "saving": "保存中…",
+    "saveFailed": "软件偏好保存失败",
+    "themes": {
+      "warm-paper": "暖纸白",
+      "neutral-tool": "中性工具",
+      "slate-blue": "静蓝石板",
+      "forest": "森绿原野",
+      "twilight": "暮光紫",
+      "stardew-wood": "星露暖木",
+      "crimson": "绯红窑火",
+      "blossom": "樱粉绮霞"
+    },
+    "motionStyles": {
+      "bounceIn": "跳动出现",
+      "layeredFadeIn": "层叠浮现",
+      "slideInPush": "滑入推进",
+      "softFadeIn": "柔和淡入",
+      "quietSimplify": "静默简化"
+    },
+    "closeBehaviors": {
+      "quit": {
+        "label": "退出应用",
+        "description": "关闭窗口后直接退出 ModForge Studio。"
+      },
+      "minimizeToTray": {
+        "label": "最小化到托盘",
+        "description": "关闭窗口后 ModForge Studio 继续在系统托盘运行。"
+      }
+    },
+    "appModes": {
+      "launcher": "启动器",
+      "workbench": "工作台"
+    }
   }
 }

@@ -1,7 +1,9 @@
+pub mod event;
+pub mod terminal;
+
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs::{self, File, OpenOptions};
-use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{
     Arc, Mutex,
@@ -11,21 +13,20 @@ use std::sync::{
 use crate::domain::app_paths::app_logs_dir;
 use anyhow::{Context, bail};
 use log::{LevelFilter, Metadata, Record, RecordBuilder};
-use owo_colors::OwoColorize;
 use serde::Deserialize;
-use sheen::{Formatter as _, Level as SheenLevel};
+
+pub use event::{LogEvent, targets};
+use terminal::{
+    LogLine, LogSink, current_log_timestamp, format_log_line, stderr_colorize, stdout_colorize,
+};
 
 const LOG_FILE_NAME: &str = "modforge-studio";
 const LOG_FILE_SIZE_BYTES: u128 = 1_000_000;
 const LOG_FILE_COUNT: usize = 10;
-const HOST_LOG_PREFIX: &str = "modforge-host";
-const SIDECAR_LOG_PREFIX: &str = "modforge-sidecar";
-const DEV_ASSET_BRIDGE_LOG_PREFIX: &str = "modforge-dev-asset-bridge";
-const LOG_COLOR_ENV: &str = "MODFORGE_LOG_COLOR";
+const HOST_PROCESS_TAG: &str = "host";
+const SIDECAR_PROCESS_TAG: &str = "sidecar";
+const DEV_ASSET_BRIDGE_PROCESS_TAG: &str = "bridge";
 const COMMAND_TRACE_ENV: &str = "MODFORGE_COMMAND_TRACE";
-const FRONTEND_LOG_TARGET: &str = "Webview";
-const COMMAND_LOG_TARGET: &str = "Tauri Command";
-const HOST_RUNTIME_LOG_TARGET: &str = "HostRuntime";
 const SYSTEM_CERTIFICATE_LOG_TARGET: &str = "rustls_platform_verifier::verification::others";
 const REQWEST_CONNECT_LOG_TARGET: &str = "reqwest::connect";
 
@@ -117,9 +118,7 @@ impl DebugLoggingState {
 
     fn level_enabled(&self, metadata: &Metadata<'_>) -> bool {
         match metadata.level() {
-            log::Level::Debug | log::Level::Trace
-                if metadata.target() == HOST_RUNTIME_LOG_TARGET =>
-            {
+            log::Level::Debug | log::Level::Trace if metadata.target() == targets::HOST_RUNTIME => {
                 self.command_trace_enabled.load(Ordering::Relaxed)
             }
             log::Level::Debug | log::Level::Trace => self.enabled.load(Ordering::Relaxed),
@@ -179,254 +178,59 @@ impl TerminalNoiseState {
     }
 }
 
-struct LayeredTerminalFormatter {
-    colorize: bool,
-}
-
-impl sheen::Formatter for LayeredTerminalFormatter {
-    fn format(
-        &self,
-        level: SheenLevel,
-        message: &str,
-        timestamp: Option<&str>,
-        prefix: Option<&str>,
-        fields: &[(String, String)],
-        extra: &[(&str, &dyn std::fmt::Debug)],
-    ) -> String {
-        let target = fields
-            .iter()
-            .find_map(|(key, value)| (key == "target").then_some(value.as_str()))
-            .unwrap_or("unknown");
-
-        let mut segments = Vec::new();
-
-        if let Some(timestamp) = timestamp {
-            segments.push(style_secondary(timestamp, self.colorize));
-        }
-
-        if let Some(prefix) = prefix {
-            segments.push(style_process_prefix(prefix, self.colorize));
-        }
-
-        segments.push(style_level(level, self.colorize));
-        segments.push(style_target(target, self.colorize));
-        segments.push(style_message(message, self.colorize));
-
-        for (key, value) in fields.iter().filter(|(key, _)| key != "target") {
-            segments.push(style_key_value(key, value, self.colorize));
-        }
-
-        for (key, value) in extra {
-            segments.push(style_key_value(key, &format!("{value:?}"), self.colorize));
-        }
-
-        segments.join(" ")
-    }
-}
-
-fn style_secondary(value: &str, colorize: bool) -> String {
-    if colorize {
-        value.dimmed().to_string()
-    } else {
-        value.to_string()
-    }
-}
-
-fn style_process_prefix(value: &str, colorize: bool) -> String {
-    if colorize {
-        value.bright_black().to_string()
-    } else {
-        value.to_string()
-    }
-}
-
-fn style_level(level: SheenLevel, colorize: bool) -> String {
-    let label = level.as_str().to_string();
-    if !colorize {
-        return label;
-    }
-
-    match level {
-        SheenLevel::Trace => label.dimmed().to_string(),
-        SheenLevel::Debug => label.magenta().to_string(),
-        SheenLevel::Info => label.cyan().to_string(),
-        SheenLevel::Warn => label.yellow().to_string(),
-        SheenLevel::Error => label.red().to_string(),
-    }
-}
-
-fn style_target(value: &str, colorize: bool) -> String {
-    if colorize {
-        value.bright_blue().to_string()
-    } else {
-        value.to_string()
-    }
-}
-
-fn style_message(message: &str, colorize: bool) -> String {
-    message
-        .split_whitespace()
-        .map(|segment| style_message_segment(segment, colorize))
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn style_message_segment(segment: &str, colorize: bool) -> String {
-    if let Some((key, value)) = segment.split_once('=')
-        && is_log_key(key)
-        && !value.is_empty()
-    {
-        return style_key_value(key, value, colorize);
-    }
-
-    if looks_like_path_url_or_host(segment) {
-        if colorize {
-            return segment.bright_cyan().to_string();
-        }
-
-        return segment.to_string();
-    }
-
-    segment.to_string()
-}
-
-fn style_key_value(key: &str, value: &str, colorize: bool) -> String {
-    if colorize {
-        format!("{}={}", key.dimmed(), value.green())
-    } else {
-        format!("{key}={value}")
-    }
-}
-
-fn is_log_key(value: &str) -> bool {
-    !value.is_empty()
-        && value
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-'))
-}
-
-fn looks_like_path_url_or_host(value: &str) -> bool {
-    let trimmed = value.trim_matches(|character: char| {
-        matches!(
-            character,
-            '"' | '\'' | ')' | '(' | '[' | ']' | '{' | '}' | ',' | ';'
-        )
-    });
-
-    trimmed.starts_with('/')
-        || trimmed.starts_with("~/")
-        || trimmed.starts_with("http://")
-        || trimmed.starts_with("https://")
-        || trimmed.contains('\\')
-        || (trimmed.contains('.') && !trimmed.contains('='))
-}
-
-fn current_log_timestamp() -> String {
-    let now = time::OffsetDateTime::now_local().unwrap_or_else(|_| time::OffsetDateTime::now_utc());
-    format!("{:02}:{:02}:{:02}", now.hour(), now.minute(), now.second())
-}
-
 fn env_flag_is_enabled(value: &str) -> bool {
     let normalized = value.trim().to_ascii_lowercase();
     !normalized.is_empty() && !matches!(normalized.as_str(), "0" | "false" | "no" | "off")
 }
 
-fn env_flag_is_disabled(value: &str) -> bool {
-    matches!(
-        value.trim().to_ascii_lowercase().as_str(),
-        "0" | "false" | "no" | "off" | "never"
-    )
-}
-
-fn should_colorize_terminal_output(is_terminal: bool) -> bool {
-    if let Ok(value) = std::env::var(LOG_COLOR_ENV) {
-        return match value.trim().to_ascii_lowercase().as_str() {
-            "always" | "force" | "1" | "true" | "yes" | "on" => true,
-            "never" | "0" | "false" | "no" | "off" => false,
-            _ => is_terminal,
-        };
-    }
-
-    if std::env::var_os("NO_COLOR").is_some() {
-        return false;
-    }
-
-    if std::env::var("FORCE_COLOR").is_ok_and(|value| env_flag_is_enabled(&value)) {
-        return true;
-    }
-
-    if std::env::var("CLICOLOR_FORCE").is_ok_and(|value| env_flag_is_enabled(&value)) {
-        return true;
-    }
-
-    if std::env::var("CLICOLOR").is_ok_and(|value| env_flag_is_disabled(&value)) {
-        return false;
-    }
-
-    is_terminal
-}
-
-fn format_layered_terminal_log_line(
-    timestamp: &str,
-    process_prefix: Option<&str>,
-    level: log::Level,
-    target: &str,
-    message: &str,
-    colorize: bool,
-) -> String {
-    let formatter = LayeredTerminalFormatter { colorize };
-    let fields = [("target".to_string(), target.to_string())];
-
-    formatter.format(
-        level.into(),
-        message,
-        Some(timestamp),
-        process_prefix,
-        &fields,
-        &[],
-    )
-}
-
-fn format_record_for_terminal(
+fn format_record(
     record: &Record<'_>,
-    process_prefix: Option<&str>,
+    process_tag: Option<&str>,
+    sink: LogSink,
     colorize: bool,
 ) -> String {
-    format_layered_terminal_log_line(
-        &current_log_timestamp(),
-        process_prefix,
-        record.level(),
-        record.target(),
-        &record.args().to_string(),
+    let message = record.args().to_string();
+    format_log_line(
+        LogLine {
+            timestamp: &current_log_timestamp(),
+            process_tag,
+            level: record.level(),
+            target: record.target(),
+            message: &message,
+        },
+        sink,
         colorize,
     )
 }
 
 pub fn write_fallback_terminal_log(
-    process_prefix: &str,
+    process_tag: &str,
     level: log::Level,
     target: &str,
     message: impl AsRef<str>,
 ) {
     eprintln!(
         "{}",
-        format_layered_terminal_log_line(
-            &current_log_timestamp(),
-            Some(process_prefix),
-            level,
-            target,
-            message.as_ref(),
-            should_colorize_terminal_output(std::io::stderr().is_terminal()),
+        format_log_line(
+            LogLine {
+                timestamp: &current_log_timestamp(),
+                process_tag: Some(process_tag),
+                level,
+                target,
+                message: message.as_ref(),
+            },
+            LogSink::Terminal,
+            stderr_colorize(),
         )
     );
 }
 
 pub fn write_sidecar_fallback_log(level: log::Level, target: &str, message: impl AsRef<str>) {
-    write_fallback_terminal_log(SIDECAR_LOG_PREFIX, level, target, message);
+    write_fallback_terminal_log(SIDECAR_PROCESS_TAG, level, target, message);
 }
 
 pub fn write_dev_asset_bridge_log(level: log::Level, target: &str, message: impl AsRef<str>) {
-    write_fallback_terminal_log(DEV_ASSET_BRIDGE_LOG_PREFIX, level, target, message);
+    write_fallback_terminal_log(DEV_ASSET_BRIDGE_PROCESS_TAG, level, target, message);
 }
 
 impl log::Log for SidecarStderrLogger {
@@ -443,13 +247,10 @@ impl log::Log for SidecarStderrLogger {
             return;
         }
 
+        // Electron already prefixes sidecar stderr, so no process tag here.
         eprintln!(
             "{}",
-            format_record_for_terminal(
-                record,
-                None,
-                should_colorize_terminal_output(std::io::stderr().is_terminal())
-            )
+            format_record(record, None, LogSink::Terminal, stderr_colorize())
         );
     }
 
@@ -479,6 +280,8 @@ impl HostLogFile {
     }
 
     fn write_line(&mut self, line: &str) -> anyhow::Result<()> {
+        use std::io::Write;
+
         let line_size = line.len() as u64 + 1;
         if self.current_size_bytes.saturating_add(line_size) > self.max_file_size_bytes {
             self.rotate()?;
@@ -543,20 +346,20 @@ impl log::Log for HostLogger {
         }
 
         if self.terminal_noise.should_emit(record.metadata()) {
+            // The host owns the terminal, so its own lines need no process tag.
             println!(
                 "{}",
-                format_record_for_terminal(
-                    record,
-                    Some(HOST_LOG_PREFIX),
-                    should_colorize_terminal_output(std::io::stdout().is_terminal())
-                )
+                format_record(record, None, LogSink::Terminal, stdout_colorize())
             );
         }
 
-        let file_line = format_record_for_terminal(record, Some(HOST_LOG_PREFIX), false);
+        let file_line = format_record(record, Some(HOST_PROCESS_TAG), LogSink::File, false);
         if let Ok(mut file) = self.file.lock() {
-            if let Err(error) = file.write_line(&file_line) {
-                eprintln!("{error}");
+            for line in file_line.lines() {
+                if let Err(error) = file.write_line(line) {
+                    eprintln!("{error}");
+                    break;
+                }
             }
         }
     }
@@ -603,13 +406,16 @@ pub fn init_host_logging(state: &DebugLoggingState) -> anyhow::Result<()> {
         terminal_noise: TerminalNoiseState::new(),
         file: Mutex::new(HostLogFile::new(log_file_config()?)?),
     }))
-    .with_context(|| format!("Failed to install ModForge host logger"))?;
+    .context("Failed to install ModForge host logger")?;
     state.apply_global_level_filter();
     Ok(())
 }
 
 fn format_tauri_command_error(command_name: &str, error_message: &str) -> String {
-    format!("Tauri command `{command_name}` failed: {error_message}")
+    LogEvent::new("tauriCommand.failed")
+        .field("command", command_name)
+        .error(error_message)
+        .render()
 }
 
 fn log_tauri_command_error_with<T, E, DescribeError, LogError>(
@@ -641,7 +447,7 @@ where
         result,
         |error| error.to_string(),
         |message| {
-            log::error!(target: COMMAND_LOG_TARGET, "{message}");
+            log::error!(target: targets::TAURI_COMMAND, "{message}");
         },
     )
 }
@@ -655,7 +461,7 @@ where
     F: FnOnce(&E) -> String,
 {
     log_tauri_command_error_with(command_name, result, describe_error, |message| {
-        log::error!(target: COMMAND_LOG_TARGET, "{message}");
+        log::error!(target: targets::TAURI_COMMAND, "{message}");
     })
 }
 
@@ -663,7 +469,7 @@ pub fn write_frontend_log(request: FrontendLogRequest) {
     let mut builder = RecordBuilder::new();
     builder
         .level(request.level.as_log_level())
-        .target(FRONTEND_LOG_TARGET)
+        .target(targets::WEBVIEW)
         .file(request.file.as_deref())
         .line(request.line);
 
@@ -674,35 +480,47 @@ pub fn write_frontend_log(request: FrontendLogRequest) {
 }
 
 fn format_frontend_log_message(message: &str, key_values: &HashMap<String, String>) -> String {
-    if key_values.is_empty() {
-        return message.to_string();
-    }
-
     let mut entries = key_values
         .iter()
         .map(|(key, value)| (key.as_str(), value.as_str()))
         .collect::<Vec<_>>();
     entries.sort_by_key(|(key, _)| *key);
 
-    let metadata = entries
-        .into_iter()
-        .map(|(key, value)| format!("{key}={value}"))
-        .collect::<Vec<_>>()
-        .join(" ");
+    let mut event = LogEvent::new(message);
+    for (key, value) in entries {
+        event = event.field(key, value);
+    }
 
-    format!("{message} {metadata}")
+    event.render()
 }
 
 pub fn set_debug_logging_enabled(state: &DebugLoggingState, enabled: bool) {
-    state.set_enabled(enabled);
+    if !apply_debug_logging_toggle(state, enabled) {
+        return;
+    }
 
-    log::info!(
-        target: "Backend Log",
-        "Backend debug logging {}",
-        if enabled { "enabled" } else { "disabled" }
-    );
+    LogEvent::new("backendLog.debugLogging")
+        .flag("enabled", enabled)
+        .emit_info(targets::BACKEND_LOG);
+}
+
+/// Applies the toggle and reports whether it actually changed.
+///
+/// The frontend re-syncs this on every shell mount and settings load, so a
+/// no-op sync must not produce a line.
+fn apply_debug_logging_toggle(state: &DebugLoggingState, enabled: bool) -> bool {
+    if state.is_enabled() == enabled {
+        return false;
+    }
+
+    state.set_enabled(enabled);
+    true
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/support/logging_tests.rs"]
+#[path = "../../tests/unit/support/logging_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/support/log_call_site_tests.rs"]
+mod call_site_tests;

@@ -165,54 +165,11 @@ export function LanguageSelect({ onSelect }: LanguageSelectProps) {
                     <button
                       key={lang.uiCode}
                       onClick={() => handleSelect(lang.uiCode)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        padding: '14px 16px',
-                        width: '100%',
-                        background: isSelected ? 'color-mix(in srgb, var(--color-accent-500) 8%, transparent)' : 'var(--element-bg-subtle)',
-                        border: 'none',
-                        borderRadius: 'var(--size-radius-sm)',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        transition: 'all 0.25s ease',
-                        outline: 'none',
-                        fontFamily: 'var(--font-sans)',
-                        boxShadow: 'none',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected) {
-                          e.currentTarget.style.background = 'var(--element-bg-soft)'
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected) {
-                          e.currentTarget.style.background = 'var(--element-bg-subtle)'
-                        }
-                      }}
+                      className={`lang-item ${isSelected ? 'is-selected' : ''}`}
                     >
-                      <div style={{ flex: 1 }}>
-                        <div
-                          style={{
-                            fontSize: 14,
-                            fontWeight: 500,
-                            color: isSelected ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                            transition: 'color 0.2s ease',
-                          }}
-                        >
-                          {lang.nativeName}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: 'var(--color-text-muted)',
-                            opacity: 0.7,
-                            marginTop: 2,
-                          }}
-                        >
-                          {lang.label}
-                        </div>
+                      <div className="lang-item-text">
+                        <div className="lang-item-name">{lang.nativeName}</div>
+                        <div className="lang-item-label">{lang.label}</div>
                       </div>
                     </button>
                   )

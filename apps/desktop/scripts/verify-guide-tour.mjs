@@ -70,10 +70,26 @@ async function main() {
     if (!counter?.includes('2')) failures.push(`expected step counter to reach 2, got "${counter}"`)
     await page.screenshot({ path: `${screenshotDir}/02-guide-step2-highlight.png` })
 
-    // 3. Walking to the pack-sidebar step expands the collapsed drawer so the
-    // highlight has a real target.
-    await page.locator('.guide-tour-btn-primary').click() // step 3: toolbar
-    await page.locator('.guide-tour-btn-primary').click() // step 4: pack sidebar
+    // 3. The toolbar step is interactive: the Next button is hidden and clicking
+    // the highlighted anchor itself advances to the pack-sidebar step. The card
+    // points back at the anchor with an arrow and shows progress dots.
+    await page.locator('.guide-tour-btn-primary').click() // step 2 → 3
+    await page.waitForTimeout(300)
+    if ((await page.locator('.guide-tour-btn-primary').count()) !== 0) {
+      failures.push('interactive toolbar step should hide the Next button')
+    }
+    try {
+      await page.waitForSelector('.guide-tour-arrow', { state: 'visible', timeout: 3_000 })
+    } catch {
+      failures.push('anchored step did not render the card arrow')
+    }
+    if ((await page.locator('.guide-tour-dot').count()) !== 6) failures.push('expected 6 progress dots on the library guide')
+    await page.locator('[data-guide="launcher-library-toolbar"]').click() // step 3 → 4
+    await page.waitForTimeout(300)
+    const counterInteractive = await page.locator('.guide-tour-card-eyebrow span').last().textContent()
+    if (!counterInteractive?.includes('4')) {
+      failures.push(`expected anchor click to advance to step 4, got "${counterInteractive}"`)
+    }
     try {
       await page.waitForSelector('.launcher-library-sidebar-open', { state: 'visible', timeout: 5_000 })
     } catch {

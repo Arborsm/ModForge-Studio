@@ -4,7 +4,7 @@ mod model;
 mod service;
 mod settings;
 
-use crate::domain::localization::operational_log::{Fields, SEMANTIC};
+use crate::domain::localization::operational_log::{SEMANTIC, event};
 use anyhow::Context;
 use std::collections::HashSet;
 use std::sync::{Mutex, OnceLock, mpsc};
@@ -75,9 +75,9 @@ fn idle_release_sender() -> anyhow::Result<&'static mpsc::Sender<Option<u64>>> {
                                 .unwrap_or(false);
                             if should_release {
                                 if let Err(error) = release_runtime() {
-                                    log::warn!(
-                                        "Failed to release idle semantic runtime: {error:#}"
-                                    );
+                                    event("semantic.runtime.idleReleaseFailed")
+                                        .error(format!("{error:#}"))
+                                        .emit_warn(SEMANTIC);
                                 }
                             }
                         }
@@ -317,15 +317,12 @@ pub(crate) fn search_candidate_groups_batch(
         return Ok(Vec::new());
     }
     if load_settings()?.mode == crate::domain::localization::types::AiSemanticSearchMode::Lexical {
-        log::debug!(
-            target: SEMANTIC,
-            "{}",
-            Fields::new("semantic.fallback")
-                .field("retrievalMode", "lexical")
-                .field("reason", "semantic-disabled")
-                .field("queries", queries.len())
-                .field("candidateGroups", groups.len())
-        );
+        event("semantic.fallback")
+            .field("retrievalMode", "lexical")
+            .field("reason", "semantic-disabled")
+            .field("queries", queries.len())
+            .field("candidateGroups", groups.len())
+            .emit_debug(SEMANTIC);
         return Ok(queries
             .iter()
             .map(|_| groups.iter().map(|_| Vec::new()).collect())
@@ -342,18 +339,15 @@ pub(crate) fn search_candidate_groups_batch(
     let embedding_elapsed = embedding_started.elapsed();
     let model_key = service::generation_model_key(&output.model_key);
     let model_summary = model_key.chars().take(20).collect::<String>();
-    log::debug!(
-        target: SEMANTIC,
-        "{}",
-        Fields::new("semantic.embedding.completed")
-            .optional("scope", scope_id)
-            .field("queries", queries.len())
-            .field("candidateGroups", groups.len())
-            .field("model", &output.model_id)
-            .field("modelKey", model_summary)
-            .field("dimensions", output.dimensions)
-            .field("elapsedMs", embedding_elapsed.as_millis())
-    );
+    event("semantic.embedding.completed")
+        .optional("scope", scope_id)
+        .field("queries", queries.len())
+        .field("candidateGroups", groups.len())
+        .field("model", &output.model_id)
+        .field("modelKey", model_summary)
+        .field("dimensions", output.dimensions)
+        .field("elapsedMs", embedding_elapsed.as_millis())
+        .emit_debug(SEMANTIC);
     let knn_started = std::time::Instant::now();
     let matches = search_candidate_groups_batch_with(
         groups,
@@ -370,17 +364,14 @@ pub(crate) fn search_candidate_groups_batch(
             )
         },
     )?;
-    log::debug!(
-        target: SEMANTIC,
-        "{}",
-        Fields::new("semantic.knn.completed")
-            .optional("scope", scope_id)
-            .field("queries", queries.len())
-            .field("candidateGroups", groups.len())
-            .field("knnSearches", queries.len().saturating_mul(groups.len()))
-            .field("elapsedMs", knn_started.elapsed().as_millis())
-            .field("retrievalMode", "semantic")
-    );
+    event("semantic.knn.completed")
+        .optional("scope", scope_id)
+        .field("queries", queries.len())
+        .field("candidateGroups", groups.len())
+        .field("knnSearches", queries.len().saturating_mul(groups.len()))
+        .field("elapsedMs", knn_started.elapsed().as_millis())
+        .field("retrievalMode", "semantic")
+        .emit_debug(SEMANTIC);
     Ok(matches)
 }
 

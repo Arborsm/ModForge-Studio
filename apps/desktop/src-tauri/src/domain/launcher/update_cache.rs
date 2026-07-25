@@ -1,6 +1,7 @@
 use super::types::{LauncherUpdateSummary, LauncherUpdatesResult};
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use crate::infrastructure::text_encoding::read_text_file;
+use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
@@ -17,7 +18,9 @@ fn lock_launcher_updates_cache_file() -> MutexGuard<'static, ()> {
     {
         Ok(guard) => guard,
         Err(poisoned) => {
-            log::error!(target: "Launcher", "Launcher updates cache file lock was poisoned");
+            LogEvent::new("launcher.lock.poisoned")
+                .field("resource", "updates-cache-file")
+                .emit_error(targets::LAUNCHER);
             poisoned.into_inner()
         }
     }

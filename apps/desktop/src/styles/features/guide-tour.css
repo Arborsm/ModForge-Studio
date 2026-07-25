@@ -1,25 +1,36 @@
 @layer components {
-  /* Guide tour layer: dims the app with a spotlight hole around the current
-     anchor and floats a step card next to it. Rendered inside the app window
-     frame so `--z-guide` stacks below dialogs and floating windows (settings),
-     and stays below the titlebar like dialog overlays. Anchored steps dim via
-     the highlight's full-screen box-shadow so the anchor stays lit; steps
-     without an anchor dim the whole backdrop instead. */
+  /* Guide tour layer: dims the app with scrim rectangles that leave a real
+     click-through hole around the current anchor, plus a floating step card
+     with an arrow pointing back at it. Portals to document.body like the
+     dialog layer, so `--z-guide` stacks above page-level drawers (`--z-drawer`,
+     e.g. mod detail) while true dialogs (`--z-dialog`) keep priority. The app
+     shell unmounts the overlay while the settings window is open because the
+     settings window renders inside the window frame. The backdrop itself is
+     pointer-transparent; only the scrims and the card intercept clicks, so the
+     highlighted anchor stays interactive (steps can advance on anchor click). */
   .guide-tour-backdrop {
     position: fixed;
     inset: var(--app-titlebar-height) 0 0;
     z-index: var(--z-guide);
+    pointer-events: none;
   }
 
-  .guide-tour-backdrop--dimmed {
+  .guide-tour-scrim {
+    position: fixed;
     background: var(--scrim);
+    pointer-events: auto;
+    transition:
+      top 240ms cubic-bezier(0.4, 0, 0.2, 1),
+      left 240ms cubic-bezier(0.4, 0, 0.2, 1),
+      width 240ms cubic-bezier(0.4, 0, 0.2, 1),
+      height 240ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .guide-tour-highlight {
     position: fixed;
     border: 1.5px solid var(--accent);
     border-radius: 0.625rem;
-    box-shadow: 0 0 0 9999px var(--scrim);
+    box-shadow: 0 0 1.5rem color-mix(in srgb, var(--accent) 28%, transparent);
     pointer-events: none;
     transition:
       top 240ms cubic-bezier(0.4, 0, 0.2, 1),
@@ -32,19 +43,68 @@
     position: fixed;
     width: 21.25rem;
     max-width: calc(100vw - 1.5rem);
-    padding: 0.875rem 1rem 0.75rem;
     background: var(--bg-overlay);
     border: 1px solid var(--border-color);
     border-radius: var(--app-window-radius);
     box-shadow: var(--shadow-float);
     color: var(--text-primary);
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
-    animation: guide-tour-card-in 200ms ease-out;
+    pointer-events: auto;
+    outline: none;
     transition:
       top 240ms cubic-bezier(0.4, 0, 0.2, 1),
       left 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .guide-tour-card:focus-visible {
+    box-shadow:
+      var(--shadow-float),
+      0 0 0 2px var(--focus-ring);
+  }
+
+  .guide-tour-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    padding: 0.875rem 1rem 0.75rem;
+    animation: guide-tour-card-in 200ms ease-out;
+  }
+
+  /* Rotated square peeking out of the card edge toward the anchor; the two
+     visible sides carry the card border so the outline reads as continuous. */
+  .guide-tour-arrow {
+    position: absolute;
+    width: 0.625rem;
+    height: 0.625rem;
+    background: var(--bg-overlay);
+    transform: rotate(45deg);
+  }
+
+  .guide-tour-arrow--top {
+    top: -0.3125rem;
+    margin-left: -0.3125rem;
+    border-top: 1px solid var(--border-color);
+    border-left: 1px solid var(--border-color);
+  }
+
+  .guide-tour-arrow--bottom {
+    bottom: -0.3125rem;
+    margin-left: -0.3125rem;
+    border-bottom: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+  }
+
+  .guide-tour-arrow--left {
+    left: -0.3125rem;
+    margin-top: -0.3125rem;
+    border-left: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .guide-tour-arrow--right {
+    right: -0.3125rem;
+    margin-top: -0.3125rem;
+    border-top: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
   }
 
   .guide-tour-card-eyebrow {
@@ -70,12 +130,36 @@
     color: var(--text-secondary);
   }
 
+  .guide-tour-card-hint {
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--accent);
+  }
+
   .guide-tour-card-actions {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
     margin-top: 0.5rem;
+  }
+
+  .guide-tour-dots {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .guide-tour-dot {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 50%;
+    background: var(--border-color);
+    transition: background 150ms ease;
+  }
+
+  .guide-tour-dot--active {
+    background: var(--accent);
   }
 
   .guide-tour-card-actions-primary {

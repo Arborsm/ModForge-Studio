@@ -1,4 +1,5 @@
 ﻿use crate::domain::{assets, resource_registry};
+use crate::support::logging::{LogEvent, targets, write_dev_asset_bridge_log};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -11,10 +12,12 @@ pub fn run_from_env() -> Result<(), String> {
         .unwrap_or_else(|_| DEFAULT_BIND_ADDR.to_string());
     let listener = TcpListener::bind(&bind_addr)
         .map_err(|error| format!("Failed to bind dev asset bridge at {bind_addr}: {error}"))?;
-    crate::support::logging::write_dev_asset_bridge_log(
+    write_dev_asset_bridge_log(
         log::Level::Info,
-        "Dev Asset Bridge",
-        format!("listening url=http://{bind_addr}"),
+        targets::DEV_ASSET_BRIDGE,
+        LogEvent::new("devAssetBridge.listening")
+            .field("url", format!("http://{bind_addr}"))
+            .render(),
     );
 
     for stream in listener.incoming() {
@@ -22,18 +25,22 @@ pub fn run_from_env() -> Result<(), String> {
             Ok(stream) => {
                 thread::spawn(|| {
                     if let Err(error) = handle_connection(stream) {
-                        crate::support::logging::write_dev_asset_bridge_log(
+                        write_dev_asset_bridge_log(
                             log::Level::Warn,
-                            "Dev Asset Bridge",
-                            format!("request failed error={error}"),
+                            targets::DEV_ASSET_BRIDGE,
+                            LogEvent::new("devAssetBridge.requestFailed")
+                                .error(&error)
+                                .render(),
                         );
                     }
                 });
             }
-            Err(error) => crate::support::logging::write_dev_asset_bridge_log(
+            Err(error) => write_dev_asset_bridge_log(
                 log::Level::Warn,
-                "Dev Asset Bridge",
-                format!("accept failed error={error}"),
+                targets::DEV_ASSET_BRIDGE,
+                LogEvent::new("devAssetBridge.acceptFailed")
+                    .error(error)
+                    .render(),
             ),
         }
     }

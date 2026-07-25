@@ -5,6 +5,7 @@ use crate::domain::manifest::{
 };
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use crate::infrastructure::text_encoding::read_text_file;
+use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -23,7 +24,9 @@ fn lock_launcher_install_tree() -> MutexGuard<'static, ()> {
     {
         Ok(guard) => guard,
         Err(poisoned) => {
-            log::error!(target: "Launcher", "Launcher install tree lock was poisoned");
+            LogEvent::new("launcher.lock.poisoned")
+                .field("resource", "install-tree")
+                .emit_error(targets::LAUNCHER);
             poisoned.into_inner()
         }
     }

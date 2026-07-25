@@ -1,60 +1,23 @@
-use std::fmt::Display;
+use crate::support::logging::{LogEvent, targets};
 
-pub const TRANSLATION: &str = "LocalizationTranslation";
-pub const KNOWLEDGE: &str = "LocalizationKnowledge";
-pub const SEMANTIC: &str = "LocalizationSemantic";
-pub const REVIEW: &str = "LocalizationReview";
-pub const MACHINE_TRANSLATION: &str = "LocalizationMachineTranslation";
+pub const TRANSLATION: &str = targets::LOCALIZATION_TRANSLATION;
+pub const KNOWLEDGE: &str = targets::LOCALIZATION_KNOWLEDGE;
+pub const SEMANTIC: &str = targets::LOCALIZATION_SEMANTIC;
+pub const REVIEW: &str = targets::LOCALIZATION_REVIEW;
+pub const MACHINE_TRANSLATION: &str = targets::LOCALIZATION_MACHINE_TRANSLATION;
 
-#[derive(Debug, Default)]
-pub struct Fields {
-    event: &'static str,
-    values: Vec<(&'static str, String)>,
+/// Starts a localization operational log event such as `translation.started`.
+pub fn event(name: &str) -> LogEvent {
+    LogEvent::new(name)
 }
 
-impl Fields {
-    pub fn new(event: &'static str) -> Self {
-        Self {
-            event,
-            values: Vec::new(),
-        }
-    }
-
-    pub fn field(mut self, key: &'static str, value: impl Display) -> Self {
-        self.values.push((key, value.to_string()));
-        self
-    }
-
-    pub fn optional(mut self, key: &'static str, value: Option<&str>) -> Self {
-        if let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) {
-            self.values.push((key, value.to_string()));
-        }
-        self
-    }
-
-    pub fn optional_owned(mut self, key: &'static str, value: Option<String>) -> Self {
-        if let Some(value) = value.filter(|value| !value.trim().is_empty()) {
-            self.values.push((key, value));
-        }
-        self
-    }
-}
-
-fn quote(value: &str) -> String {
-    let escaped = value
-        .chars()
-        .flat_map(|character| character.escape_default())
-        .collect::<String>();
-    format!("\"{escaped}\"")
-}
-
-impl std::fmt::Display for Fields {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "event={}", quote(self.event))?;
-        for (key, value) in &self.values {
-            write!(formatter, " {key}={}", quote(value))?;
-        }
-        Ok(())
+/// Emits a provider attempt: routine at debug, a failed one at warn so it
+/// survives the default log level.
+pub fn emit_attempt(attempt: LogEvent, succeeded: bool, target: &str) {
+    if succeeded {
+        attempt.emit_debug(target);
+    } else {
+        attempt.emit_warn(target);
     }
 }
 

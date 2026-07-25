@@ -252,15 +252,15 @@ fn kimi_real_backend_flow() {
     assert_eq!(operational.items.len(), 1);
     let logs = LOCALIZATION_LOGS.lock().unwrap().join("\n");
     for required in [
-        "LocalizationTranslation",
-        "event=\"translation.started\"",
-        "job=\"kimi-operational-log\"",
-        "profile=\"modforge-kimi-real-smoke\"",
-        "model=\"kimi-for-coding\"",
-        "items=\"1\"",
+        "Localization.Translation",
+        "translation.started",
+        "job=kimi-operational-log",
+        "profile=modforge-kimi-real-smoke",
+        "model=kimi-for-coding",
+        "items=1",
         "latencyMs=",
         "inputTokens=",
-        "event=\"translation.completed\"",
+        "translation.completed",
     ] {
         assert!(
             logs.contains(required),

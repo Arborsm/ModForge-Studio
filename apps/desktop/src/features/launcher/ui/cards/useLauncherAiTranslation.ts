@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { buildAiTranslationBatches, hashAiTranslationSource, parseAiFailure, useAi, type AiFailure } from '@entities/ai'
+import { buildAiTranslationBatches, hashAiTranslationSource, parseAiFailure, useAi } from '@entities/ai'
 import { useLocale, useNotificationCopy } from '@locales/provider'
 import { applyNexusModsBbcodeTextTranslations, extractNexusModsBbcodeTextSegments } from '@shared/infra/game-formats/nexusmods-bbcode'
 import type { AiTranslationItem } from '@shared/contracts'
@@ -13,7 +13,7 @@ type LauncherTranslationPayload = {
   changelog: ChangelogListItem[]
 }
 
-type TranslationState = 'idle' | 'loading' | 'ready' | 'error'
+type TranslationState = 'idle' | 'loading' | 'ready'
 
 const TARGET_TRANSLATION_LOCALE: Record<LocaleCode, string> = { 'en-US': 'en', 'zh-CN': 'zh-Hans' }
 
@@ -46,7 +46,6 @@ export function useLauncherAiTranslation({
   const usageNotificationId = `${notificationId}-usage`
   const [translation, setTranslation] = useState<LauncherTranslationPayload | null>(null)
   const [state, setState] = useState<TranslationState>('idle')
-  const [error, setError] = useState<AiFailure | null>(null)
   const activeJobs = useRef(new Set<string>())
   const operationRef = useRef(0)
   const translateRef = useRef<(refresh?: boolean) => void>(() => undefined)
@@ -57,7 +56,6 @@ export function useLauncherAiTranslation({
     const operation = ++operationRef.current
     setTranslation(null)
     setState('idle')
-    setError(null)
     void hashAiTranslationSource(source)
       .then((sourceHash) => ai.readCache({ scopeKey, targetLocale: target, sourceHash }))
       .then((cached) => {
@@ -100,7 +98,6 @@ export function useLauncherAiTranslation({
       dismissNotification(notificationId)
       dismissNotification(usageNotificationId)
       setState('loading')
-      setError(null)
       const sourceHash = await guarded(hashAiTranslationSource(source))
       if (!refresh) {
         const cached = await guarded(ai.readCache({ scopeKey, targetLocale: target, sourceHash }))
@@ -201,12 +198,10 @@ export function useLauncherAiTranslation({
     (refresh = false) => {
       void run(refresh).catch((cause) => {
         const failure = parseAiFailure(cause)
+        setState(translation ? 'ready' : 'idle')
         if (failure.code === 'cancelled') {
-          setState(translation ? 'ready' : 'idle')
           return
         }
-        setError(failure)
-        setState('error')
         publishNotification({
           id: notificationId,
           level: 'error',
@@ -221,5 +216,5 @@ export function useLauncherAiTranslation({
 
   translateRef.current = translate
 
-  return { translation, state, error, translate }
+  return { translation, state, translate }
 }

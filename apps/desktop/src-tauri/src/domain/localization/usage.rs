@@ -1,3 +1,4 @@
+use super::operational_log::{self, TRANSLATION};
 use super::types::*;
 use crate::domain::app_paths::ai_usage_ledger_path;
 use anyhow::{Context, bail};
@@ -138,7 +139,10 @@ fn writer() -> &'static mpsc::SyncSender<WriterMessage> {
                 if let Ok(db) = connection.as_mut()
                     && let Err(error) = compact_expired(db)
                 {
-                    log::warn!("Failed to apply AI usage retention at writer startup: {error:#}");
+                    operational_log::event("usage.retentionFailed")
+                        .field("phase", "writer-startup")
+                        .error(format!("{error:#}"))
+                        .emit_warn(TRANSLATION);
                 }
                 let mut last_retention = Instant::now();
                 while let Ok(message) = receiver.recv() {
@@ -148,9 +152,10 @@ fn writer() -> &'static mpsc::SyncSender<WriterMessage> {
                                 if let Ok(db) = connection.as_mut()
                                     && let Err(error) = compact_expired(db)
                                 {
-                                    log::warn!(
-                                        "Failed to apply scheduled AI usage retention: {error:#}"
-                                    );
+                                    operational_log::event("usage.retentionFailed")
+                                        .field("phase", "scheduled")
+                                        .error(format!("{error:#}"))
+                                        .emit_warn(TRANSLATION);
                                 }
                                 last_retention = Instant::now();
                             }

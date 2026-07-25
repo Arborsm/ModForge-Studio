@@ -392,17 +392,20 @@ function createUnavailableProbeDiagnostics(error: unknown): LauncherGmcmProbeDia
   }
 }
 
-function getProbeDiagnosticLogMessage(diagnostics: LauncherGmcmProbeDiagnosticsResult) {
-  return [
-    `status=${diagnostics.status}`,
-    `probeAssemblyPath=${diagnostics.probeAssemblyPath ?? 'missing'}`,
-    `dotnetPath=${diagnostics.dotnetPath}`,
-    `dotnetAvailable=${diagnostics.dotnetAvailable}`,
-    `net6RuntimeAvailable=${diagnostics.net6RuntimeAvailable}`,
-    `installedRuntimes=${diagnostics.installedRuntimes.length}`,
-    `warnings=${diagnostics.warnings.join(',') || 'none'}`,
-    `repairActions=${diagnostics.repairActions.join(',') || 'none'}`,
-  ].join(' ')
+/**
+ * Fields for the probe diagnostics log line. The host already logs the paths and
+ * runtime inventory under `gmcmProbe.diagnostics`, so this records only what the
+ * UI resolved on top of it.
+ */
+function getProbeDiagnosticKeyValues(diagnostics: LauncherGmcmProbeDiagnosticsResult) {
+  return {
+    source: 'launcher-gmcm-probe',
+    status: diagnostics.status,
+    dotnetAvailable: String(diagnostics.dotnetAvailable),
+    net6RuntimeAvailable: String(diagnostics.net6RuntimeAvailable),
+    warnings: diagnostics.warnings.join(', ') || 'none',
+    repairActions: diagnostics.repairActions.join(', ') || 'none',
+  }
 }
 
 function getRouteDisplayName(route: LauncherNexusRouteSnapshot, copy: LauncherCopy) {
@@ -1472,13 +1475,8 @@ export function LauncherConfigurationPage({
                   },
             debugDiagnosticsEnabled: debugEnabled,
             notify: false,
-            logMessage: getProbeDiagnosticLogMessage(diagnostics),
-            keyValues: {
-              source: 'launcher-gmcm-probe',
-              status: diagnostics.status,
-              dotnetAvailable: String(diagnostics.dotnetAvailable),
-              net6RuntimeAvailable: String(diagnostics.net6RuntimeAvailable),
-            },
+            logMessage: 'launcher.gmcmProbe.resolved',
+            keyValues: getProbeDiagnosticKeyValues(diagnostics),
           })
         }
       } catch (nextError) {
@@ -1495,11 +1493,8 @@ export function LauncherConfigurationPage({
             },
             debugDiagnosticsEnabled: true,
             notify: false,
-            logMessage: getProbeDiagnosticLogMessage(diagnostics),
-            keyValues: {
-              source: 'launcher-gmcm-probe',
-              status: diagnostics.status,
-            },
+            logMessage: 'launcher.gmcmProbe.resolveFailed',
+            keyValues: getProbeDiagnosticKeyValues(diagnostics),
           })
         }
       } finally {

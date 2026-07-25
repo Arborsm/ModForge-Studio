@@ -12,6 +12,7 @@ use crate::domain::manifest::{
 use crate::domain::modding::attached_api::AttachedApiRegistry;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use crate::infrastructure::game_formats::json_relaxed;
+use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 
 const CONTENT_PATCHER_UNIQUE_ID: &str = "Pathoschild.ContentPatcher";
@@ -431,8 +432,11 @@ fn read_i18n_files(project_path: &Path) -> anyhow::Result<Vec<ContentPatcherI18n
     Ok(files)
 }
 
-fn log_scan_skip(error: &impl std::fmt::Display) {
-    log::debug!("{error}");
+fn log_scan_skip(path: &Path, error: &impl std::fmt::Display) {
+    LogEvent::new("mods.scan.fileSkipped")
+        .path("path", path)
+        .error(error)
+        .emit_debug(targets::ASSETS);
 }
 
 fn is_content_patcher_project(manifest: &Value, content: &Value) -> bool {
@@ -447,7 +451,7 @@ fn collect_scanned_projects(project_roots: Vec<PathBuf>) -> Vec<ScannedProject> 
         let manifest = match read_json_file(&manifest_path) {
             Ok((_, manifest)) => manifest,
             Err(error) => {
-                log_scan_skip(&error);
+                log_scan_skip(&manifest_path, &error);
                 continue;
             }
         };
@@ -456,7 +460,7 @@ fn collect_scanned_projects(project_roots: Vec<PathBuf>) -> Vec<ScannedProject> 
             match read_json_file(&content_path) {
                 Ok((_, content)) => Some(content),
                 Err(error) => {
-                    log_scan_skip(&error);
+                    log_scan_skip(&content_path, &error);
                     None
                 }
             }
@@ -1179,7 +1183,7 @@ fn collect_flattened_content_patcher_patches(
             let included_content = match read_json_file(&include_path) {
                 Ok((_, included_content)) => included_content,
                 Err(error) => {
-                    log_scan_skip(&error);
+                    log_scan_skip(&include_path, &error);
                     continue;
                 }
             };

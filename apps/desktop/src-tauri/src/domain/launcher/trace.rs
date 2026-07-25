@@ -1,30 +1,17 @@
-pub(crate) const LAUNCHER_TRACE_TARGET: &str = "Launcher Trace";
+use crate::support::logging::{LogEvent, targets};
 
-pub(crate) fn format_launcher_trace_message(action: &str, fields: &[(&str, String)]) -> String {
-    let context = fields
-        .iter()
-        .filter_map(|(key, value)| {
-            let trimmed = value.trim();
-            if trimmed.is_empty() {
-                return None;
-            }
+pub(crate) const LAUNCHER_TRACE_TARGET: &str = targets::LAUNCHER_TRACE;
 
-            Some(format!("{key}={trimmed:?}"))
-        })
-        .collect::<Vec<_>>()
-        .join(" ");
-
-    if context.is_empty() {
-        format!("launcher.{action}")
-    } else {
-        format!("launcher.{action} {context}")
-    }
+/// Builds the `launcher.<action>` event for a launcher trace line.
+pub(crate) fn launcher_trace_event(
+    action: &str,
+    build: impl FnOnce(LogEvent) -> LogEvent,
+) -> LogEvent {
+    build(LogEvent::new(format!("launcher.{action}")))
 }
 
-pub(crate) fn log_launcher_trace(action: &str, fields: &[(&str, String)]) {
-    log::debug!(
-        target: LAUNCHER_TRACE_TARGET,
-        "{}",
-        format_launcher_trace_message(action, fields)
-    );
+/// Emits a `launcher.<action>` trace line. Level and target live here so no
+/// call site has to repeat them.
+pub(crate) fn log_launcher_trace(action: &str, build: impl FnOnce(LogEvent) -> LogEvent) {
+    launcher_trace_event(action, build).emit_debug(LAUNCHER_TRACE_TARGET);
 }

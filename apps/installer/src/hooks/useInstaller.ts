@@ -12,8 +12,9 @@ import type {
   LaunchContext,
   InstallPathValidation,
   ExistingInstallation,
+  AppPreferences,
 } from '../types/installer'
-import { DEFAULT_OPTIONS } from '../types/installer'
+import { DEFAULT_APP_PREFERENCES, DEFAULT_OPTIONS } from '../types/installer'
 
 export interface UseInstallerReturn {
   step: InstallStep
@@ -22,6 +23,13 @@ export interface UseInstallerReturn {
   back: () => void
   options: InstallOptions
   setOptions: React.Dispatch<React.SetStateAction<InstallOptions>>
+  appPreferences: AppPreferences
+  setAppPreferences: React.Dispatch<React.SetStateAction<AppPreferences>>
+  /** Marks that the user explicitly picked a close behavior (drives rememberCloseChoice). */
+  markCloseBehaviorTouched: () => void
+  /** Persists app preferences to ui-state.json; returns false and sets preferencesError on failure. */
+  persistAppPreferences: () => Promise<boolean>
+  preferencesError: string | null
   progress: InstallProgress
   isInstalling: boolean
   installationCompleted: boolean
@@ -43,15 +51,18 @@ export interface UseInstallerReturn {
   uninstallCompleted: boolean
   uninstallError: string | null
   uninstallProgress: number
-  startUninstall: () => Promise<void>
+  startUninstall: (deleteUserData: boolean) => Promise<void>
 }
 
-const STEPS: InstallStep[] = ['lang', 'options', 'progress', 'finish']
+const STEPS: InstallStep[] = ['lang', 'options', 'preferences', 'progress', 'finish']
 const MOCK_INSTALL_FOR_DEBUG = import.meta.env.DEV && import.meta.env.VITE_MOCK_INSTALL === 'true'
 
 export function useInstaller(): UseInstallerReturn {
   const [step, setStep] = useState<InstallStep>('lang')
   const [options, setOptions] = useState<InstallOptions>(DEFAULT_OPTIONS)
+  const [appPreferences, setAppPreferences] = useState<AppPreferences>(DEFAULT_APP_PREFERENCES)
+  const [closeBehaviorTouched, setCloseBehaviorTouched] = useState(false)
+  const [preferencesError, setPreferencesError] = useState<string | null>(null)
   const [progress, setProgress] = useState<InstallProgress>({
     step: '',
     percent: 0,
@@ -185,6 +196,29 @@ export function useInstaller(): UseInstallerReturn {
   }, [refreshExistingInstall, step])
 
   const goTo = useCallback((s: InstallStep) => setStep(s), [])
+
+  const markCloseBehaviorTouched = useCallback(() => {
+    setCloseBehaviorTouched(true)
+  }, [])
+
+  const persistAppPreferences = useCallback(async (): Promise<boolean> => {
+    setPreferencesError(null)
+    try {
+      await invoke('persist_app_preferences', {
+        preferences: {
+          ...appPreferences,
+          // Only suppress the app's first-close dialog when the user actually
+          // picked a close behavior in the installer.
+          rememberCloseChoice: closeBehaviorTouched,
+        },
+      })
+      return true
+    } catch (err: any) {
+      const raw = typeof err === 'string' ? err : err?.message
+      setPreferencesError(raw && String(raw).trim() ? String(raw) : i18n.t('preferences.saveFailed'))
+      return false
+    }
+  }, [appPreferences, closeBehaviorTouched])
 
   const next = useCallback(() => {
     const idx = STEPS.indexOf(step)
@@ -326,41 +360,44 @@ export function useInstaller(): UseInstallerReturn {
     invoke('close_installer')
   }, [])
 
-  const startUninstall = useCallback(async () => {
-    if (isUninstalling) return
-    setUninstallError(null)
-    setUninstallCompleted(false)
-    setIsUninstalling(true)
-    setUninstallProgress(0)
-    try {
-      await new Promise<void>((resolve) => {
-        const durationMs = 1800
-        const startedAt = Date.now()
-        const timer = window.setInterval(() => {
-          const elapsed = Date.now() - startedAt
-          const ratio = Math.min(elapsed / durationMs, 1)
-          const percent = Math.round(ratio * 85)
-          setUninstallProgress(percent)
-          if (ratio >= 1) {
-            window.clearInterval(timer)
-            resolve()
-          }
-        }, 80)
-      })
-
-      await invoke('uninstall', { installPath: options.installPath })
-      setUninstallProgress(100)
-      setUninstallCompleted(true)
-      window.setTimeout(() => {
-        closeInstaller()
-      }, 600)
-    } catch (err: any) {
-      setUninstallError(typeof err === 'string' ? err : err.message || 'Uninstall failed')
+  const startUninstall = useCallback(
+    async (deleteUserData: boolean) => {
+      if (isUninstalling) return
+      setUninstallError(null)
+      setUninstallCompleted(false)
+      setIsUninstalling(true)
       setUninstallProgress(0)
-    } finally {
-      setIsUninstalling(false)
-    }
-  }, [closeInstaller, isUninstalling, options.installPath])
+      try {
+        await new Promise<void>((resolve) => {
+          const durationMs = 1800
+          const startedAt = Date.now()
+          const timer = window.setInterval(() => {
+            const elapsed = Date.now() - startedAt
+            const ratio = Math.min(elapsed / durationMs, 1)
+            const percent = Math.round(ratio * 85)
+            setUninstallProgress(percent)
+            if (ratio >= 1) {
+              window.clearInterval(timer)
+              resolve()
+            }
+          }, 80)
+        })
+
+        await invoke('uninstall', { installPath: options.installPath, deleteUserData })
+        setUninstallProgress(100)
+        setUninstallCompleted(true)
+        window.setTimeout(() => {
+          closeInstaller()
+        }, 600)
+      } catch (err: any) {
+        setUninstallError(typeof err === 'string' ? err : err.message || 'Uninstall failed')
+        setUninstallProgress(0)
+      } finally {
+        setIsUninstalling(false)
+      }
+    },
+    [closeInstaller, isUninstalling, options.installPath],
+  )
 
   return {
     step,
@@ -369,6 +406,11 @@ export function useInstaller(): UseInstallerReturn {
     back,
     options,
     setOptions,
+    appPreferences,
+    setAppPreferences,
+    markCloseBehaviorTouched,
+    persistAppPreferences,
+    preferencesError,
     progress,
     isInstalling,
     installationCompleted,

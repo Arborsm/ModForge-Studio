@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Checkbox } from '../components/Checkbox'
 import { ProgressBar } from '../components/ProgressBar'
 
 interface UninstallPageProps {
@@ -7,7 +9,7 @@ interface UninstallPageProps {
   uninstallCompleted: boolean
   uninstallError: string | null
   uninstallProgress: number
-  onUninstall: () => Promise<void>
+  onUninstall: (deleteUserData: boolean) => Promise<void>
   onClose: () => void
 }
 
@@ -21,6 +23,7 @@ export function UninstallPage({
   onClose,
 }: UninstallPageProps) {
   const { t } = useTranslation()
+  const [deleteUserData, setDeleteUserData] = useState(false)
 
   return (
     <div className="uninstall-page">
@@ -34,6 +37,19 @@ export function UninstallPage({
               <span className="uninstall-inline-label">{t('uninstall.installPath')}:</span>
               <span className="uninstall-inline-path">{installPath || t('uninstall.pathUnknown')}</span>
             </div>
+
+            {!uninstallCompleted && (
+              <div className="uninstall-delete-data">
+                <Checkbox
+                  checked={deleteUserData}
+                  onChange={(checked) => {
+                    if (!isUninstalling) setDeleteUserData(checked)
+                  }}
+                  label={t('uninstall.deleteData')}
+                />
+                <div className="uninstall-delete-data-hint">{t('uninstall.deleteDataHint')}</div>
+              </div>
+            )}
 
             {uninstallError && <div className="uninstall-error">{uninstallError}</div>}
 
@@ -59,7 +75,7 @@ export function UninstallPage({
               className="btn btn-primary"
               disabled={isUninstalling}
               onClick={() => {
-                void onUninstall()
+                void onUninstall(deleteUserData)
               }}
             >
               {isUninstalling ? t('uninstall.uninstalling') : t('uninstall.confirm')}

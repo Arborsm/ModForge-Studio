@@ -17,6 +17,7 @@ struct WindowsInstallState {
     uninstall_registered: bool,
     desktop_shortcut_created: bool,
     start_menu_shortcut_created: bool,
+    autostart_registered: bool,
 }
 
 const MIN_WINDOWS_APP_EXE_BYTES: u64 = 5 * 1024 * 1024;
@@ -612,6 +613,14 @@ pub(crate) async fn start_installation(
                     .map_err(|e| format!("Start Menu error: {}", e))?;
                 windows_state.start_menu_shortcut_created = true;
             }
+
+            // Autostart on login (per-user Run key)
+            if options.auto_start {
+                emit_progress(&window, "registry", 78, "Registering startup entry...");
+                registry::register_autostart_run_entry(&install_path)
+                    .map_err(|e| format!("Autostart registry error: {}", e))?;
+                windows_state.autostart_registered = true;
+            }
         }
 
         // Step 4: Save first-launch language preference for the ModForge Studio app.
@@ -637,8 +646,16 @@ pub(crate) async fn start_installation(
 }
 
 /// Uninstall ModForge Studio (for the uninstaller companion).
+///
+/// When `delete_user_data` is true, the application data root
+/// (`%APPDATA%\ModForge Studio` — settings, workspace state, caches, logs) is
+/// removed after the installed files. Mods, game directories and user documents
+/// are never touched.
 #[tauri::command]
-pub(crate) async fn uninstall(install_path: String) -> Result<(), String> {
+pub(crate) async fn uninstall(
+    install_path: String,
+    delete_user_data: Option<bool>,
+) -> Result<(), String> {
     let install_path = PathBuf::from(&install_path);
     let uninstall_targets = collect_uninstall_targets(&install_path)?;
 
@@ -672,14 +689,15 @@ pub(crate) async fn uninstall(install_path: String) -> Result<(), String> {
             .unwrap_or(false);
 
         append_uninstall_runtime_log(&format!(
-            "uninstall called: install_path='{}', current_exe='{}', running_uninstall_binary={}, running_from_install_dir={}",
+            "uninstall called: install_path='{}', current_exe='{}', running_uninstall_binary={}, running_from_install_dir={}, delete_user_data={}",
             install_path.display(),
             current_exe
                 .as_ref()
                 .map(|p| p.display().to_string())
                 .unwrap_or_else(|| "<unknown>".to_string()),
             running_uninstall_binary,
-            running_from_install_dir
+            running_from_install_dir,
+            delete_user_data.unwrap_or(false)
         ));
 
         let current_exe_path = current_exe.as_deref();
@@ -698,7 +716,70 @@ pub(crate) async fn uninstall(install_path: String) -> Result<(), String> {
 
     #[cfg(not(target_os = "windows"))]
     remove_installed_targets(&install_path, &uninstall_targets, None)?;
+
+    if delete_user_data.unwrap_or(false) {
+        remove_app_user_data()?;
+    }
+
     Ok(())
+}
+
+/// Delete the application data root (`<config dir>/ModForge Studio`, e.g.
+/// `%APPDATA%\ModForge Studio` on Windows). Fail-soft: the install removal has
+/// already succeeded at this point, so deletion problems are logged, not fatal.
+fn remove_app_user_data() -> Result<(), String> {
+    let data_root = dirs::config_dir()
+        .ok_or_else(|| "Failed to resolve the user config directory".to_string())?
+        .join("ModForge Studio");
+
+    // Safety guard: only ever delete the exact "<config>/ModForge Studio" directory.
+    let is_expected_root = data_root.is_absolute()
+        && data_root
+            .file_name()
+            .map(|name| name == "ModForge Studio")
+            .unwrap_or(false);
+    if !is_expected_root {
+        append_uninstall_runtime_log(&format!(
+            "refusing to delete unexpected data root '{}'",
+            data_root.display()
+        ));
+        return Err("Refusing to delete an unexpected user data path".to_string());
+    }
+
+    if !data_root.exists() {
+        append_uninstall_runtime_log(&format!(
+            "user data root '{}' does not exist, nothing to delete",
+            data_root.display()
+        ));
+        return Ok(());
+    }
+
+    append_uninstall_runtime_log(&format!(
+        "deleting user data root '{}'",
+        data_root.display()
+    ));
+    match std::fs::remove_dir_all(&data_root) {
+        Ok(()) => {
+            log::info!("Deleted user data root {}", data_root.display());
+            append_uninstall_runtime_log("user data root deleted");
+            Ok(())
+        }
+        Err(e) => {
+            // Files and registry entries are already gone; report but stay non-fatal
+            // so the uninstall still completes and the window can close.
+            log::warn!(
+                "Failed to delete user data root {}: {}",
+                data_root.display(),
+                e
+            );
+            append_uninstall_runtime_log(&format!(
+                "failed to delete user data root '{}': {}",
+                data_root.display(),
+                e
+            ));
+            Ok(())
+        }
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -772,7 +853,6 @@ fn windows_path_eq_case_insensitive(a: &Path, b: &Path) -> bool {
     normalize(a) == normalize(b)
 }
 
-#[cfg(target_os = "windows")]
 fn append_uninstall_runtime_log(message: &str) {
     let ts = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -1111,21 +1191,134 @@ fn apply_first_launch_language(app_language: &str) -> Result<(), String> {
     let root_obj = root
         .as_object_mut()
         .ok_or_else(|| "Invalid root ui-state object".to_string())?;
-    let appearance_obj = root_obj
-        .entry("appearance".to_string())
-        .or_insert_with(|| Value::Object(Map::new()));
-    if !appearance_obj.is_object() {
-        *appearance_obj = Value::Object(Map::new());
-    }
-    let appearance_obj = appearance_obj
-        .as_object_mut()
-        .ok_or_else(|| "Invalid appearance ui-state object".to_string())?;
+    let appearance_obj = ensure_json_object_field(root_obj, "appearance")?;
     appearance_obj.insert(
         "locale".to_string(),
         Value::String(app_language.to_string()),
     );
 
     write_ui_state(&ui_state_file, &root)
+}
+
+/// Returns the mutable object at `key`, creating or replacing non-object values.
+fn ensure_json_object_field<'a>(
+    parent: &'a mut Map<String, Value>,
+    key: &str,
+) -> Result<&'a mut Map<String, Value>, String> {
+    let entry = parent
+        .entry(key.to_string())
+        .or_insert_with(|| Value::Object(Map::new()));
+    if !entry.is_object() {
+        *entry = Value::Object(Map::new());
+    }
+    entry
+        .as_object_mut()
+        .ok_or_else(|| format!("Invalid ui-state object at '{key}'"))
+}
+
+/// Main-app color themes (`appearance.themeId`); mirrors `ThemeId` in apps/desktop contracts.
+const APP_THEME_IDS: &[&str] = &[
+    "warm-paper",
+    "neutral-tool",
+    "slate-blue",
+    "forest",
+    "twilight",
+    "stardew-wood",
+    "crimson",
+    "blossom",
+];
+
+/// Main-app loading motion styles (`appearance.loadingMotion.styleId`).
+const APP_LOADING_MOTION_STYLE_IDS: &[&str] = &[
+    "bounceIn",
+    "layeredFadeIn",
+    "slideInPush",
+    "softFadeIn",
+    "quietSimplify",
+];
+
+/// App preferences pre-selected on the installer's preferences page.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AppPreferencesRequest {
+    pub theme_id: String,
+    pub loading_motion_style_id: String,
+    pub window_close_behavior: String,
+    pub remember_close_choice: bool,
+    pub notification_sound_enabled: bool,
+    pub app_mode: String,
+}
+
+/// Pre-seed the desktop app's ui-state.json with the preferences chosen in the
+/// installer. Only overwrites the selected fields and preserves everything else;
+/// the app fills still-missing keys with serde defaults on first launch.
+#[tauri::command]
+pub(crate) fn persist_app_preferences(preferences: AppPreferencesRequest) -> Result<(), String> {
+    if !APP_THEME_IDS.contains(&preferences.theme_id.as_str()) {
+        return Err(format!("Unsupported app theme: {}", preferences.theme_id));
+    }
+    if !APP_LOADING_MOTION_STYLE_IDS.contains(&preferences.loading_motion_style_id.as_str()) {
+        return Err(format!(
+            "Unsupported loading motion style: {}",
+            preferences.loading_motion_style_id
+        ));
+    }
+    match preferences.window_close_behavior.as_str() {
+        "quit" | "minimizeToTray" => {}
+        other => return Err(format!("Unsupported window close behavior: {other}")),
+    }
+    match preferences.app_mode.as_str() {
+        "launcher" | "workbench" => {}
+        other => return Err(format!("Unsupported app mode: {other}")),
+    }
+
+    let ui_state_file = ensure_ui_state_path()?;
+    let mut root = read_or_create_ui_state(&ui_state_file)?;
+    let root_obj = root
+        .as_object_mut()
+        .ok_or_else(|| "Invalid root ui-state object".to_string())?;
+
+    let appearance_obj = ensure_json_object_field(root_obj, "appearance")?;
+    appearance_obj.insert(
+        "themeId".to_string(),
+        Value::String(preferences.theme_id.clone()),
+    );
+    let motion_obj = ensure_json_object_field(appearance_obj, "loadingMotion")?;
+    motion_obj.insert(
+        "styleId".to_string(),
+        Value::String(preferences.loading_motion_style_id.clone()),
+    );
+
+    let shell_obj = ensure_json_object_field(root_obj, "shell")?;
+    shell_obj.insert(
+        "windowCloseBehavior".to_string(),
+        Value::String(preferences.window_close_behavior.clone()),
+    );
+    shell_obj.insert(
+        "rememberCloseChoice".to_string(),
+        Value::Bool(preferences.remember_close_choice),
+    );
+    shell_obj.insert(
+        "notificationSoundEnabled".to_string(),
+        Value::Bool(preferences.notification_sound_enabled),
+    );
+    shell_obj.insert(
+        "appMode".to_string(),
+        Value::String(preferences.app_mode.clone()),
+    );
+
+    write_ui_state(&ui_state_file, &root)?;
+    log::info!(
+        "Persisted app preferences to {}: theme={}, motion={}, closeBehavior={}, rememberCloseChoice={}, notificationSound={}, appMode={}",
+        ui_state_file.display(),
+        preferences.theme_id,
+        preferences.loading_motion_style_id,
+        preferences.window_close_behavior,
+        preferences.remember_close_choice,
+        preferences.notification_sound_enabled,
+        preferences.app_mode
+    );
+    Ok(())
 }
 
 fn preflight_validate_payload_zip_bytes(
@@ -1423,6 +1616,9 @@ fn rollback_installation(
 
     if windows_state.manufacturer_registered {
         let _ = registry::remove_tauri_install_location();
+    }
+    if windows_state.autostart_registered {
+        let _ = registry::remove_autostart_run_entry();
     }
     if windows_state.start_menu_shortcut_created {
         let _ = shortcut::remove_start_menu_shortcut();

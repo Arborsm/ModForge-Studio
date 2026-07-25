@@ -7,6 +7,7 @@ const guides: GuidesCopy = {
     skip: 'Skip',
     finish: 'Done',
     stepCounter: (current, total) => `${current} / ${total}`,
+    anchorClickHint: 'Click the highlighted area to continue',
   },
   replayPendingTitle: 'The guide will play on its page',
   replayPendingDescription: (guideTitle) => `Open the page for "${guideTitle}" and the guide starts automatically.`,

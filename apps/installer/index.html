@@ -6,10 +6,18 @@
     <title>Install ModForge Studio</title>
     <script>
       ;(function () {
-        var dark = '#121214'
-        var light = '#e8ecf2'
+        var pref = null
+        try {
+          pref = window.localStorage.getItem('modforge.installer.theme-preference')
+        } catch (e) {}
         var m = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')
-        document.documentElement.style.backgroundColor = m && m.matches ? dark : light
+        var systemDark = !m || m.matches
+        var dark = pref === 'dark' || pref === 'light' ? pref === 'dark' : systemDark
+        var root = document.documentElement
+        root.classList.add(dark ? 'dark' : 'light')
+        root.dataset.themeMode = dark ? 'dark' : 'light'
+        root.style.colorScheme = dark ? 'dark' : 'light'
+        root.style.backgroundColor = dark ? '#131418' : '#f1f1f2'
       })()
     </script>
     <style>
@@ -19,7 +27,10 @@
         padding: 0;
       }
       html {
-        background-color: #121214;
+        background-color: #131418;
+      }
+      html.light {
+        background-color: #f1f1f2;
       }
       body {
         background-color: inherit;

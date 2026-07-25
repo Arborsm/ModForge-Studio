@@ -5,30 +5,6 @@
     grid-template-columns: repeat(auto-fit, minmax(16.25rem, 1fr));
   }
 
-  .launcher-stat-card {
-    display: flex;
-    gap: 0.625rem;
-    border: 1px solid var(--border-color);
-    border-radius: 1rem;
-    background: linear-gradient(
-      160deg,
-      color-mix(in srgb, var(--bg-panel) 96%, transparent),
-      color-mix(in srgb, var(--bg-panel-muted) 92%, transparent)
-    );
-    padding: 0.875rem;
-  }
-
-  .launcher-stat-card span,
-  .launcher-stat-card strong {
-    margin: 0;
-  }
-
-  .launcher-stat-card {
-    flex-direction: column;
-    min-width: 7.5rem;
-    flex: 1 1 0;
-  }
-
   .launcher-key-value {
     display: flex;
     align-items: flex-start;
@@ -201,63 +177,6 @@
     color: var(--text-secondary);
     font-size: 0.75rem;
     line-height: 1.6;
-  }
-
-  .launcher-archive-preview-grid {
-    display: grid;
-    gap: 0.875rem;
-    min-height: 0;
-  }
-
-  .launcher-archive-root-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 0.75rem;
-  }
-
-  .launcher-archive-tree {
-    display: grid;
-    gap: 0.25rem;
-  }
-
-  .launcher-archive-node {
-    display: grid;
-    gap: 0.25rem;
-  }
-
-  .launcher-archive-node-row {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 0.625rem;
-    border-radius: 0.75rem;
-    background: color-mix(in srgb, var(--bg-panel-muted) 84%, transparent);
-    padding: 0.5625rem 0.625rem;
-  }
-
-  .launcher-archive-node-icon {
-    color: var(--accent);
-  }
-
-  .launcher-archive-node-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--text-primary);
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-
-  .launcher-archive-node-size {
-    color: var(--text-tertiary);
-    font-size: 0.6875rem;
-    font-family: var(--font-mono);
-  }
-
-  .launcher-archive-node-children {
-    display: grid;
-    gap: 0.25rem;
   }
 
   .launcher-discover-menu-popover,

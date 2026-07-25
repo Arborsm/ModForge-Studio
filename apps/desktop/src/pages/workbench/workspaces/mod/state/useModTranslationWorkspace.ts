@@ -105,7 +105,7 @@ export function useModTranslationWorkspace(projectPath: string | null) {
         level: 'error',
         title: copy.saveFailed,
         description: message,
-        keyValues: { source: 'mod-translation', operation: 'save-i18n', source_path: projectPath },
+        keyValues: { source: 'mod-translation', operation: 'save-i18n', sourcePath: projectPath },
       })
       throw error
     }

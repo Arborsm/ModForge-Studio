@@ -9,6 +9,12 @@ export type GuideStepDefinition = {
   id: string
   anchor?: string
   placement?: GuideStepPlacement
+  /**
+   * Set to `'anchor-click'` to hide the Next button and advance when the user
+   * clicks the highlighted anchor element. Only valid for anchored steps; the
+   * anchor must be a click-safe target (no navigation or mutation).
+   */
+  advanceOn?: 'anchor-click'
 }
 
 /**

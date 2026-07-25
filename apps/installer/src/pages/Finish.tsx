@@ -1,28 +1,33 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Checkbox } from '../components/Checkbox'
 
 interface FinishProps {
   installPath: string
+  launchAfterInstall: boolean
+  onToggleLaunchAfterInstall: (value: boolean) => void
   onLaunch: () => Promise<void>
   onClose: () => void
 }
 
-export function Finish({ installPath, onLaunch, onClose }: FinishProps) {
+export function Finish({ installPath, launchAfterInstall, onToggleLaunchAfterInstall, onLaunch, onClose }: FinishProps) {
   const { t } = useTranslation()
-  const [isLaunching, setIsLaunching] = useState(false)
+  const [isFinishing, setIsFinishing] = useState(false)
   const [launchError, setLaunchError] = useState<string | null>(null)
 
-  const handleLaunch = async () => {
-    if (isLaunching) return
-    setIsLaunching(true)
+  const handleFinish = async () => {
+    if (isFinishing) return
+    setIsFinishing(true)
     setLaunchError(null)
     try {
-      await onLaunch()
+      if (launchAfterInstall) {
+        await onLaunch()
+      }
       onClose()
     } catch (err: unknown) {
       const raw = typeof err === 'string' ? err : (err as Error)?.message
       setLaunchError(raw && String(raw).trim() ? String(raw) : t('finish.launchFailed'))
-      setIsLaunching(false)
+      setIsFinishing(false)
     }
   }
 
@@ -45,7 +50,16 @@ export function Finish({ installPath, onLaunch, onClose }: FinishProps) {
             }}
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M20 6L9 17L4 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M20 6L9 17L4 12"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray="26"
+                strokeDashoffset="26"
+                style={{ animation: 'drawCheck 450ms ease 260ms forwards' }}
+              />
             </svg>
           </div>
           <p style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 6 }}>{t('finish.subtitle')}</p>
@@ -53,7 +67,7 @@ export function Finish({ installPath, onLaunch, onClose }: FinishProps) {
             style={{
               fontSize: 12,
               color: 'var(--color-text-muted)',
-              marginBottom: 22,
+              marginBottom: 18,
               fontFamily: 'var(--font-mono)',
               wordBreak: 'break-all',
               opacity: 0.8,
@@ -61,6 +75,10 @@ export function Finish({ installPath, onLaunch, onClose }: FinishProps) {
           >
             {t('finish.installLocation', { path: installPath })}
           </p>
+
+          <div style={{ alignSelf: 'center', marginBottom: 8 }}>
+            <Checkbox checked={launchAfterInstall} onChange={onToggleLaunchAfterInstall} label={t('finish.launchAfterInstall')} />
+          </div>
 
           {launchError && (
             <div
@@ -78,21 +96,21 @@ export function Finish({ installPath, onLaunch, onClose }: FinishProps) {
       </div>
 
       <div className="page-footer page-footer--center">
-        <button className="btn btn-ghost" onClick={onClose} disabled={isLaunching}>
+        <button className="btn btn-ghost" onClick={onClose} disabled={isFinishing}>
           {t('finish.close')}
         </button>
         <button
           className="btn btn-success"
           onClick={() => {
-            void handleLaunch()
+            void handleFinish()
           }}
-          disabled={isLaunching}
+          disabled={isFinishing}
           style={{ minWidth: 120, justifyContent: 'center' }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M20 6L9 17L4 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          {t('finish.launchNow')}
+          {t('finish.finish')}
         </button>
       </div>
     </div>

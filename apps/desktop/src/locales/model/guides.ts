@@ -28,6 +28,8 @@ export type GuidesCopy = {
     skip: string
     finish: string
     stepCounter: (current: number, total: number) => string
+    /** Hint replacing the Next button on steps that advance by clicking the highlighted anchor. */
+    anchorClickHint: string
   }
   /** Info notification shown when a replayed guide starts once its page is opened. */
   replayPendingTitle: string

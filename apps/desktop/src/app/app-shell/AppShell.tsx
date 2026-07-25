@@ -693,7 +693,10 @@ export default function App() {
               rememberChoice={quitDialogRemember}
               onRememberChoiceChange={setQuitDialogRemember}
             />
-            <GuideTourOverlay />
+            {/* The settings window renders inside the window frame, so the
+                body-level guide overlay would cover it; suspend the guide
+                (engine keeps the run) until settings closes. */}
+            {settingsWindowOpen ? null : <GuideTourOverlay />}
             <div className="app-window-titlebar-divider" aria-hidden="true" />
           </div>
         </LoadingMotionProvider>

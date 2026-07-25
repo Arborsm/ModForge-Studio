@@ -1,16 +1,16 @@
 use super::*;
 
 #[test]
-fn fields_have_stable_order_escape_values_and_omit_empty_options() {
-    let value = Fields::new("translation.started")
+fn events_have_stable_order_escape_values_and_omit_empty_options() {
+    let value = event("translation.started")
         .field("job", "job-1")
         .optional("scope", Some(""))
-        .optional("model", None)
+        .optional("model", None::<String>)
         .field("operation", "translate\nnext")
         .to_string();
     assert_eq!(
         value,
-        "event=\"translation.started\" job=\"job-1\" operation=\"translate\\nnext\""
+        "translation.started job=job-1 operation=\"translate\\nnext\""
     );
 }
 

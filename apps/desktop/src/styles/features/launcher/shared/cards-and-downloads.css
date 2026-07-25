@@ -152,7 +152,6 @@
 
   .launcher-mod-card-meta,
   .launcher-token-list,
-  .launcher-stats-row,
   .launcher-toggle-grid {
     display: flex;
     flex-wrap: wrap;

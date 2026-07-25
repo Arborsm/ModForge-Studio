@@ -218,7 +218,7 @@ export function useLauncherSettings() {
             keyValues: {
               source: 'launcher-settings',
               operation: 'save',
-              game_path: persisted.gamePath ?? undefined,
+              gamePath: persisted.gamePath ?? undefined,
             },
           })
         }

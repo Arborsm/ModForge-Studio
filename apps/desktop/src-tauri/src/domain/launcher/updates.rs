@@ -24,6 +24,7 @@ use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{build_mod_page_url, normalize_nexus_url};
 use crate::domain::nexusmods::updates::load_remote_mod_details_from_graphql;
 use crate::infrastructure::fs::pathing::clean_input_path;
+use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 use reqwest::blocking::Client;
 use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
@@ -546,9 +547,10 @@ fn load_remote_mod_details_batch(
     let mut details = match load_remote_mod_details_from_smapi(client, candidates, smapi_versions) {
         Ok(details) => details,
         Err(error) => {
-            log::warn!(
-                "launcher smapi update lookup failed, falling back to nexus sources: {error}"
-            );
+            LogEvent::new("updateCheck.smapi.fallback")
+                .field("fallbackTo", "nexus-sources")
+                .error(&error)
+                .emit_warn(targets::LAUNCHER);
             errors.push(format!("SMAPI lookup failed: {error}"));
             HashMap::new()
         }
@@ -563,30 +565,19 @@ fn load_remote_mod_details_batch(
         .iter()
         .map(|candidate| candidate.mod_id)
         .collect::<Vec<_>>();
-    log_launcher_trace(
-        "update-check.smapi",
-        &[
-            ("candidate-count", candidates.len().to_string()),
-            ("smapi-candidate-count", smapi_candidate_count.to_string()),
-            (
-                "skipped-no-unique-id-count",
-                candidates
-                    .len()
-                    .saturating_sub(smapi_candidate_count)
-                    .to_string(),
-            ),
-            ("resolved-count", details.len().to_string()),
-            ("missing-count", missing_after_smapi.len().to_string()),
-            (
-                "missing-unique-count",
-                unique_missing_after_smapi.len().to_string(),
-            ),
-            (
-                "missing-mod-ids",
-                format!("{missing_after_smapi_mod_ids:?}"),
-            ),
-        ],
-    );
+    log_launcher_trace("updateCheck.smapi", |event| {
+        event
+            .count("candidateCount", candidates.len())
+            .count("smapiCandidateCount", smapi_candidate_count)
+            .count(
+                "skippedNoUniqueIdCount",
+                candidates.len().saturating_sub(smapi_candidate_count),
+            )
+            .count("resolvedCount", details.len())
+            .count("missingCount", missing_after_smapi.len())
+            .count("missingUniqueCount", unique_missing_after_smapi.len())
+            .debug("missingModIds", &missing_after_smapi_mod_ids)
+    });
     if missing_after_smapi.is_empty() {
         return Ok(details);
     }
@@ -609,9 +600,10 @@ fn load_remote_mod_details_batch(
             }
             Ok(_) => {}
             Err(error) => {
-                log::warn!(
-                    "launcher graphql update batch failed, falling back to single lookups: {error}"
-                );
+                LogEvent::new("updateCheck.graphql.batchFallback")
+                    .field("fallbackTo", "single-lookups")
+                    .error(&error)
+                    .emit_warn(targets::LAUNCHER);
                 errors.push(format!("GraphQL batch failed: {error}"));
             }
         }
@@ -625,25 +617,17 @@ fn load_remote_mod_details_batch(
         .iter()
         .map(|candidate| candidate.mod_id)
         .collect::<Vec<_>>();
-    log_launcher_trace(
-        "update-check.graphql",
-        &[
-            ("enabled", can_use_graphql.to_string()),
-            ("requested-count", mod_ids.len().to_string()),
-            (
-                "resolved-count",
-                details
-                    .len()
-                    .saturating_sub(detail_count_before_graphql)
-                    .to_string(),
-            ),
-            ("missing-count", missing_after_graphql.len().to_string()),
-            (
-                "missing-mod-ids",
-                format!("{missing_after_graphql_mod_ids:?}"),
-            ),
-        ],
-    );
+    log_launcher_trace("updateCheck.graphql", |event| {
+        event
+            .flag("enabled", can_use_graphql)
+            .count("requestedCount", mod_ids.len())
+            .count(
+                "resolvedCount",
+                details.len().saturating_sub(detail_count_before_graphql),
+            )
+            .count("missingCount", missing_after_graphql.len())
+            .debug("missingModIds", &missing_after_graphql_mod_ids)
+    });
     let public_fallback_candidate_count = missing_after_graphql.len();
     let mut unresolved_mod_ids = Vec::new();
     let mut public_graphql_resolved = 0usize;
@@ -655,11 +639,10 @@ fn load_remote_mod_details_batch(
                 details.insert(candidate.mod_id, detail);
             }
             Err(public_error) => {
-                log::warn!(
-                    "launcher public graphql update lookup failed for {}: {error}",
-                    candidate.mod_id,
-                    error = public_error
-                );
+                LogEvent::new("updateCheck.publicGraphql.failed")
+                    .field("modId", candidate.mod_id)
+                    .error(&public_error)
+                    .emit_warn(targets::LAUNCHER);
                 unresolved_mod_ids.push(candidate.mod_id);
                 errors.push(format!(
                     "mod {} public GraphQL failed: {}",
@@ -668,21 +651,13 @@ fn load_remote_mod_details_batch(
             }
         }
     }
-    log_launcher_trace(
-        "update-check.public-fallback",
-        &[
-            (
-                "candidate-count",
-                public_fallback_candidate_count.to_string(),
-            ),
-            (
-                "public-graphql-resolved",
-                public_graphql_resolved.to_string(),
-            ),
-            ("unresolved-count", unresolved_mod_ids.len().to_string()),
-            ("unresolved-mod-ids", format!("{unresolved_mod_ids:?}")),
-        ],
-    );
+    log_launcher_trace("updateCheck.publicFallback", |event| {
+        event
+            .count("candidateCount", public_fallback_candidate_count)
+            .count("publicGraphqlResolved", public_graphql_resolved)
+            .count("unresolvedCount", unresolved_mod_ids.len())
+            .debug("unresolvedModIds", &unresolved_mod_ids)
+    });
 
     finalize_remote_mod_details_batch(details, unresolved_mod_ids, errors)
 }
@@ -696,69 +671,39 @@ pub(crate) fn finalize_remote_mod_details_batch(
         let mut unique_errors = errors;
         unique_errors.sort();
         unique_errors.dedup();
-        log::warn!(
-            "launcher remote update detail batch incomplete for mods {:?}: {}",
-            unresolved_mod_ids,
-            unique_errors.join(" | ")
-        );
+        LogEvent::new("updateCheck.batch.incomplete")
+            .debug("unresolvedModIds", &unresolved_mod_ids)
+            .error(unique_errors.join(" | "))
+            .emit_warn(targets::LAUNCHER);
     }
 
     Ok(details)
-}
-
-fn format_optional_u128(value: Option<u128>) -> String {
-    value.map(|value| value.to_string()).unwrap_or_default()
-}
-
-fn format_optional_bool(value: Option<bool>) -> String {
-    value.map(|value| value.to_string()).unwrap_or_default()
 }
 
 fn log_launcher_updates_cache_trace(
     action: &str,
     mods_path: &str,
     inspection: &LauncherUpdatesCacheInspection,
-    extra_fields: &[(&str, String)],
+    extend: impl FnOnce(LogEvent) -> LogEvent,
 ) {
-    let mut fields = vec![
-        ("mods-path", mods_path.to_string()),
-        (
-            "cache-key",
-            inspection.cache_key.clone().unwrap_or_default(),
-        ),
-        ("entry-state", inspection.entry_state.as_str().to_string()),
-        (
-            "checked-at-ms",
-            format_optional_u128(inspection.checked_at_ms),
-        ),
-        (
-            "expires-at-ms",
-            format_optional_u128(inspection.expires_at_ms),
-        ),
-        ("is-complete", format_optional_bool(inspection.is_complete)),
-        (
-            "ttl-remaining-ms",
-            format_optional_u128(inspection.ttl_remaining_ms),
-        ),
-        (
-            "expired-by-ms",
-            format_optional_u128(inspection.expired_by_ms),
-        ),
-        (
-            "active-checks",
-            inspection.in_progress_active_count.to_string(),
-        ),
-        (
-            "in-progress-started-at-ms",
-            format_optional_u128(inspection.in_progress_started_at_ms),
-        ),
-    ];
-    fields.extend(
-        extra_fields
-            .iter()
-            .map(|(key, value)| (*key, value.clone())),
-    );
-    log_launcher_trace(action, &fields);
+    log_launcher_trace(action, |event| {
+        extend(
+            event
+                .field("modsPath", mods_path)
+                .optional("cacheKey", inspection.cache_key.as_deref())
+                .field("entryState", inspection.entry_state.as_str())
+                .optional("checkedAtMs", inspection.checked_at_ms)
+                .optional("expiresAtMs", inspection.expires_at_ms)
+                .optional("isComplete", inspection.is_complete)
+                .optional("ttlRemainingMs", inspection.ttl_remaining_ms)
+                .optional("expiredByMs", inspection.expired_by_ms)
+                .field("activeChecks", inspection.in_progress_active_count)
+                .optional(
+                    "inProgressStartedAtMs",
+                    inspection.in_progress_started_at_ms,
+                ),
+        )
+    });
 }
 
 fn save_incremental_launcher_updates_cache(
@@ -786,19 +731,20 @@ fn save_incremental_launcher_updates_cache(
     let inspection = inspect_launcher_updates_cache_at_path(cache_path, mods_path, checked_at_ms)?;
     log_launcher_updates_cache_trace(
         if partial_result.is_complete {
-            "update-check.cache-save"
+            "updateCheck.cacheSave"
         } else {
-            "update-check.cache-save-partial"
+            "updateCheck.cacheSavePartial"
         },
         mods_path,
         &inspection,
-        &[
-            ("ttl-ms", LAUNCHER_UPDATES_CACHE_TTL_MS.to_string()),
-            ("checked-count", checked_count.to_string()),
-            ("total", total_count.to_string()),
-            ("update-count", partial_result.updates.len().to_string()),
-            ("session-id", session_id.to_string()),
-        ],
+        |event| {
+            event
+                .field("ttlMs", LAUNCHER_UPDATES_CACHE_TTL_MS)
+                .count("checkedCount", checked_count)
+                .count("total", total_count)
+                .count("updateCount", partial_result.updates.len())
+                .field("sessionId", session_id)
+        },
     );
     Ok(partial_result)
 }
@@ -888,10 +834,10 @@ pub fn load_cached_launcher_updates(
                 inspect_launcher_updates_cache_at_path(&cache_path, mods_path, now_ms)?;
             if cleared_stale_in_progress {
                 log_launcher_updates_cache_trace(
-                    "update-cache.clear-in-progress",
+                    "updateCache.clearInProgress",
                     mods_path,
                     &inspection_after_clear,
-                    &[("had-active-check", had_active_check.to_string())],
+                    |event| event.flag("hadActiveCheck", had_active_check),
                 );
             }
 
@@ -902,15 +848,15 @@ pub fn load_cached_launcher_updates(
                     .map(|result| result.is_complete)
                     .unwrap_or(false)
                 {
-                    "update-cache.hit"
+                    "updateCache.hit"
                 } else if cached.is_some() {
-                    "update-cache.partial"
+                    "updateCache.partial"
                 } else {
-                    "update-cache.miss"
+                    "updateCache.miss"
                 },
                 mods_path,
                 &inspection_after_clear,
-                &[("had-active-check", had_active_check.to_string())],
+                |event| event.flag("hadActiveCheck", had_active_check),
             );
             Ok(cached)
         })(),
@@ -978,37 +924,35 @@ pub(crate) fn check_launcher_updates_blocking(
         {
             if cached.is_complete {
                 log_launcher_updates_cache_trace(
-                    "update-check.cache-hit",
+                    "updateCheck.cacheHit",
                     mods_path,
                     &inspection,
-                    &[("update-count", cached.updates.len().to_string())],
-                );
-                log_launcher_trace(
-                    "update-check.cache-hit",
-                    &[
-                        ("mods-path", cached.mods_path.clone()),
-                        ("update-count", cached.updates.len().to_string()),
-                    ],
+                    |event| event.count("updateCount", cached.updates.len()),
                 );
                 return Ok(cached);
             }
 
             log_launcher_updates_cache_trace(
-                "update-check.cache-partial",
+                "updateCheck.cachePartial",
                 mods_path,
                 &inspection,
-                &[("update-count", cached.updates.len().to_string())],
+                |event| event.count("updateCount", cached.updates.len()),
             );
         }
-        log_launcher_updates_cache_trace("update-check.cache-miss", mods_path, &inspection, &[]);
+        log_launcher_updates_cache_trace(
+            "updateCheck.cacheMiss",
+            mods_path,
+            &inspection,
+            |event| event,
+        );
     } else {
         let inspection =
             inspect_launcher_updates_cache_at_path(&cache_path, mods_path, current_timestamp_ms())?;
         log_launcher_updates_cache_trace(
-            "update-check.cache-bypass",
+            "updateCheck.cacheBypass",
             mods_path,
             &inspection,
-            &[("reason", "force-refresh".to_string())],
+            |event| event.field("reason", "force-refresh"),
         );
     }
     let active_cache_key = begin_launcher_update_check_activity(mods_path);
@@ -1018,10 +962,10 @@ pub(crate) fn check_launcher_updates_blocking(
         let in_progress_inspection =
             inspect_launcher_updates_cache_at_path(&cache_path, mods_path, started_at_ms)?;
         log_launcher_updates_cache_trace(
-            "update-check.cache-mark-in-progress",
+            "updateCheck.cacheMarkInProgress",
             mods_path,
             &in_progress_inspection,
-            &[("session-id", session_id.to_string())],
+            |event| event.field("sessionId", session_id),
         );
 
         let settings_path = launcher_settings_path()?;
@@ -1054,27 +998,20 @@ pub(crate) fn check_launcher_updates_blocking(
             partition_update_candidates_for_request(candidates, &suppressed_mod_ids, force_refresh);
         let total = candidates.len();
         if !skipped_mod_ids.is_empty() {
-            log_launcher_trace(
-                "update-check.auto-suppressed",
-                &[
-                    ("mods-path", mods_path.to_string()),
-                    ("skipped-count", skipped_mod_ids.len().to_string()),
-                    ("skipped-mod-ids", format!("{skipped_mod_ids:?}")),
-                    (
-                        "threshold",
-                        AUTO_UPDATE_FAILURE_SUPPRESSION_THRESHOLD.to_string(),
-                    ),
-                ],
-            );
+            log_launcher_trace("updateCheck.autoSuppressed", |event| {
+                event
+                    .field("modsPath", mods_path)
+                    .count("skippedCount", skipped_mod_ids.len())
+                    .debug("skippedModIds", &skipped_mod_ids)
+                    .field("threshold", AUTO_UPDATE_FAILURE_SUPPRESSION_THRESHOLD)
+            });
         }
-        log_launcher_trace(
-            "update-check.start",
-            &[
-                ("mods-path", mods_path.to_string()),
-                ("candidate-count", total.to_string()),
-                ("skipped-count", skipped_mod_ids.len().to_string()),
-            ],
-        );
+        log_launcher_trace("updateCheck.start", |event| {
+            event
+                .field("modsPath", mods_path)
+                .count("candidateCount", total)
+                .count("skippedCount", skipped_mod_ids.len())
+        });
         let mut updates = Vec::new();
         let mut final_cached_result: Option<LauncherUpdatesResult> = None;
         emit_update_check_progress(app, mods_path, session_id, 0, total, None, Some(&updates))?;
@@ -1088,13 +1025,11 @@ pub(crate) fn check_launcher_updates_blocking(
                 .iter()
                 .map(|candidate| candidate.mod_id)
                 .collect::<Vec<_>>();
-            log_launcher_trace(
-                "update-check.batch",
-                &[
-                    ("batch-size", batch.len().to_string()),
-                    ("mod-ids", format!("{mod_ids:?}")),
-                ],
-            );
+            log_launcher_trace("updateCheck.batch", |event| {
+                event
+                    .count("batchSize", batch.len())
+                    .debug("modIds", &mod_ids)
+            });
             let remote_details =
                 load_remote_mod_details_batch(app, &client, &settings, batch, &smapi_versions)?;
             let resolved_mod_ids = batch
@@ -1123,20 +1058,16 @@ pub(crate) fn check_launcher_updates_blocking(
                         current_timestamp_ms(),
                         Some("All remote update detail fallbacks failed."),
                     )?;
-                    log_launcher_trace(
-                        "update-check.auto-failure",
-                        &[
-                            ("mods-path", mods_path.to_string()),
-                            ("mod-id", mod_id.to_string()),
-                            ("failure-count", failure.failure_count.to_string()),
-                            (
+                    log_launcher_trace("updateCheck.autoFailure", |event| {
+                        event
+                            .field("modsPath", mods_path)
+                            .field("modId", mod_id)
+                            .field("failureCount", failure.failure_count)
+                            .flag(
                                 "suppressed",
-                                (failure.failure_count
-                                    >= AUTO_UPDATE_FAILURE_SUPPRESSION_THRESHOLD)
-                                    .to_string(),
-                            ),
-                        ],
-                    );
+                                failure.failure_count >= AUTO_UPDATE_FAILURE_SUPPRESSION_THRESHOLD,
+                            )
+                    });
                 }
             }
 
@@ -1189,14 +1120,12 @@ pub(crate) fn check_launcher_updates_blocking(
                 session_id,
             )?
         };
-        log_launcher_trace(
-            "update-check.complete",
-            &[
-                ("mods-path", result.mods_path.clone()),
-                ("checked-count", checked.to_string()),
-                ("update-count", result.updates.len().to_string()),
-            ],
-        );
+        log_launcher_trace("updateCheck.complete", |event| {
+            event
+                .field("modsPath", &result.mods_path)
+                .count("checkedCount", checked)
+                .count("updateCount", result.updates.len())
+        });
         Ok(result)
     })();
 
@@ -1211,10 +1140,10 @@ pub(crate) fn check_launcher_updates_blocking(
                 current_timestamp_ms(),
             )?;
             log_launcher_updates_cache_trace(
-                "update-check.cache-clear-in-progress",
+                "updateCheck.cacheClearInProgress",
                 mods_path,
                 &clear_inspection,
-                &[("status", "success".to_string())],
+                |event| event.field("status", "success"),
             );
             Ok(result)
         }
@@ -1227,10 +1156,10 @@ pub(crate) fn check_launcher_updates_blocking(
                 current_timestamp_ms(),
             )?;
             log_launcher_updates_cache_trace(
-                "update-check.cache-clear-in-progress",
+                "updateCheck.cacheClearInProgress",
                 mods_path,
                 &clear_inspection,
-                &[("status", "error".to_string())],
+                |event| event.field("status", "error"),
             );
             Err(error)
         }

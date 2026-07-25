@@ -8,6 +8,7 @@ import { cx } from '@shared/lib/helper'
 import { NexusModsBbcode } from '@shared/ui/nexusmods-bbcode'
 import { PanelEmptyState } from '@shared/ui/PanelSection'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
+import { Tooltip } from '@shared/ui/Tooltip'
 import type { LauncherDiscoverDetail, LauncherLibraryItem, QueueLauncherDownloadInput } from '../../model/types'
 import { useLauncherDependencyDetails, usePreloadLauncherDependencyDetails } from './dependency-tree/useLauncherDependencyDetails'
 import type { LauncherDetailMod } from './dependency-tree/dependencyTreeTypes'
@@ -508,37 +509,34 @@ export function LauncherModDetailPanel({
                         </button>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        className="control-button control-button-primary"
-                        disabled={aiTranslation.state === 'loading'}
-                        onClick={() => aiTranslation.translate(false)}
-                      >
-                        <Languages className="h-3.5 w-3.5" />
-                        <span>{aiTranslation.state === 'loading' ? detailCopy.aiTranslating : detailCopy.aiTranslate}</span>
-                      </button>
+                      <Tooltip label={aiTranslation.state === 'loading' ? detailCopy.aiTranslating : detailCopy.aiTranslate}>
+                        <button
+                          type="button"
+                          className="icon-button h-8 w-8"
+                          disabled={aiTranslation.state === 'loading'}
+                          onClick={() => aiTranslation.translate(false)}
+                          aria-label={detailCopy.aiTranslate}
+                        >
+                          <Languages className={cx('h-3.5 w-3.5', aiTranslation.state === 'loading' && 'animate-spin')} />
+                        </button>
+                      </Tooltip>
                     )}
                     {aiTranslation.translation ? (
-                      <button
-                        type="button"
-                        className="icon-button h-8 w-8"
-                        disabled={aiTranslation.state === 'loading'}
-                        onClick={() => aiTranslation.translate(true)}
-                        title={detailCopy.aiRefresh}
-                        aria-label={detailCopy.aiRefresh}
-                      >
-                        <RefreshCw className={cx('h-3.5 w-3.5', aiTranslation.state === 'loading' && 'animate-spin')} />
-                      </button>
+                      <Tooltip label={detailCopy.aiRefresh}>
+                        <button
+                          type="button"
+                          className="icon-button h-8 w-8"
+                          disabled={aiTranslation.state === 'loading'}
+                          onClick={() => aiTranslation.translate(true)}
+                          aria-label={detailCopy.aiRefresh}
+                        >
+                          <RefreshCw className={cx('h-3.5 w-3.5', aiTranslation.state === 'loading' && 'animate-spin')} />
+                        </button>
+                      </Tooltip>
                     ) : null}
                   </div>
                   {selectedTab === 'config' ? <div className="launcher-mod-detail-tab-toolbar" ref={setConfigToolbarTarget} /> : null}
                 </div>
-
-                {aiTranslation.state === 'error' ? (
-                  <p className="launcher-mod-detail-ai-error">
-                    {aiTranslation.error?.code === 'not-configured' ? detailCopy.aiNotConfigured : detailCopy.aiError}
-                  </p>
-                ) : null}
 
                 <section
                   className={cx('launcher-mod-detail-tab-panel', selectedTab === 'description' && 'active')}
@@ -786,7 +784,7 @@ export function LauncherModDetailPanel({
 
               <button
                 type="button"
-                className="control-button control-button-primary launcher-mod-detail-primary-action"
+                className="control-button launcher-mod-detail-primary-action"
                 onClick={() => {
                   if (isCombined && updateAvailable) {
                     const primaryFile = fileItems.find((item) => item.primary) ?? fileItems[0]

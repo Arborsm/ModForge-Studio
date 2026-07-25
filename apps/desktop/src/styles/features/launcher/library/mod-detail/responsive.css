@@ -39,7 +39,7 @@
       position: static;
     }
 
-    .launcher-archive-preview-grid {
+    .launcher-install-preview {
       grid-template-columns: 1fr;
     }
 
@@ -50,7 +50,7 @@
     .launcher-library-drawer {
       position: fixed;
       inset: var(--app-titlebar-height) 0 0;
-      z-index: var(--z-dialog);
+      z-index: var(--z-drawer);
       display: flex;
       align-items: center;
       justify-content: center;

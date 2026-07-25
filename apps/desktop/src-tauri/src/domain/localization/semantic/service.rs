@@ -1,6 +1,6 @@
 use super::{embedding, index, settings};
 use crate::AppHandle;
-use crate::domain::localization::operational_log::{Fields, SEMANTIC};
+use crate::domain::localization::operational_log::{self, SEMANTIC, event};
 use crate::domain::localization::types::{
     AiSemanticIndexStatus, AiSemanticProbeMatch, AiSemanticProbeResult, AiSemanticProgress,
     AiSemanticSearchMode, AiUsageEvent, ProbeAiSemanticSearchRequest,
@@ -65,7 +65,9 @@ pub(crate) fn embed_recorded(
             started.elapsed(),
         );
         if let Err(error) = crate::domain::localization::usage::record_usage(event) {
-            log::warn!("Failed to record remote semantic embedding usage: {error:#}");
+            operational_log::event("semantic.embedding.usageRecordFailed")
+                .error(format!("{error:#}"))
+                .emit_warn(SEMANTIC);
         }
     }
     result
@@ -381,15 +383,12 @@ pub fn rebuild_index(
         "indexing",
     )?;
     jobs::clear(&request.job_id);
-    log::info!(
-        target: SEMANTIC,
-        "{}",
-        Fields::new("index.rebuild.started")
-            .field("job", &request.job_id)
-            .field("mode", format!("{:?}", configured.mode))
-            .field("scopes", request.scope_ids.len())
-            .field("operation", "semantic-index")
-    );
+    event("index.rebuild.started")
+        .field("job", &request.job_id)
+        .field("mode", format!("{:?}", configured.mode))
+        .field("scopes", request.scope_ids.len())
+        .field("operation", "semantic-index")
+        .emit_info(SEMANTIC);
     let result = (|| {
         let mut source = snapshot(&request.scope_ids)?;
         if source.records.is_empty() {
@@ -491,17 +490,14 @@ pub fn rebuild_index(
     })();
     jobs::clear(&request.job_id);
     if let Ok(status) = &result {
-        log::info!(
-            target: SEMANTIC,
-            "{}",
-            Fields::new("index.rebuild.completed")
-                .field("job", &request.job_id)
-                .optional("model", status.model_id.as_deref())
-                .field("indexed", status.indexed_records)
-                .field("sources", status.source_records)
-                .field("coverage", status.coverage_percentage)
-                .field("elapsedMs", started.elapsed().as_millis())
-        );
+        event("index.rebuild.completed")
+            .field("job", &request.job_id)
+            .optional("model", status.model_id.as_deref())
+            .field("indexed", status.indexed_records)
+            .field("sources", status.source_records)
+            .field("coverage", status.coverage_percentage)
+            .field("elapsedMs", started.elapsed().as_millis())
+            .emit_info(SEMANTIC);
     }
     result
 }
@@ -521,15 +517,12 @@ pub fn synchronize_index(
         "synchronization",
     )?;
     jobs::clear(&request.job_id);
-    log::info!(
-        target: SEMANTIC,
-        "{}",
-        Fields::new("index.sync.started")
-            .field("job", &request.job_id)
-            .field("mode", format!("{:?}", configured.mode))
-            .field("scopes", request.scope_ids.len())
-            .field("operation", "semantic-index")
-    );
+    event("index.sync.started")
+        .field("job", &request.job_id)
+        .field("mode", format!("{:?}", configured.mode))
+        .field("scopes", request.scope_ids.len())
+        .field("operation", "semantic-index")
+        .emit_info(SEMANTIC);
     let result = (|| {
         let mut source = snapshot(&request.scope_ids)?;
         let active = index::active_generation()?.context(
@@ -656,17 +649,14 @@ pub fn synchronize_index(
     })();
     jobs::clear(&request.job_id);
     if let Ok(status) = &result {
-        log::info!(
-            target: SEMANTIC,
-            "{}",
-            Fields::new("index.sync.completed")
-                .field("job", &request.job_id)
-                .optional("model", status.model_id.as_deref())
-                .field("indexed", status.indexed_records)
-                .field("sources", status.source_records)
-                .field("pending", status.pending_records)
-                .field("elapsedMs", started.elapsed().as_millis())
-        );
+        event("index.sync.completed")
+            .field("job", &request.job_id)
+            .optional("model", status.model_id.as_deref())
+            .field("indexed", status.indexed_records)
+            .field("sources", status.source_records)
+            .field("pending", status.pending_records)
+            .field("elapsedMs", started.elapsed().as_millis())
+            .emit_info(SEMANTIC);
     }
     result
 }

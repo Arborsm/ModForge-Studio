@@ -15,8 +15,7 @@ interface OptionsProps {
   existingInstall: ExistingInstallation | null
   onLaunchRegisteredUninstaller: () => void | Promise<void>
   onBack: () => void
-  onInstall: () => Promise<void>
-  isInstalling: boolean
+  onNext: () => void
   clearInstallError: () => void
 }
 
@@ -29,8 +28,7 @@ export function Options({
   existingInstall,
   onLaunchRegisteredUninstaller,
   onBack,
-  onInstall,
-  isInstalling,
+  onNext,
   clearInstallError,
 }: OptionsProps) {
   const { t } = useTranslation()
@@ -140,20 +138,13 @@ export function Options({
                 className="input"
                 type="text"
                 value={options.installPath}
-                disabled={isInstalling}
                 onChange={(e) => {
                   setOptions((prev) => ({ ...prev, installPath: e.target.value }))
                   clearInstallError()
                 }}
                 placeholder={t('options.pathPlaceholder')}
               />
-              <button
-                className="btn"
-                type="button"
-                disabled={isInstalling}
-                onClick={handleBrowse}
-                style={{ padding: '10px 14px', flexShrink: 0 }}
-              >
+              <button className="btn" type="button" onClick={handleBrowse} style={{ padding: '10px 14px', flexShrink: 0 }}>
                 {t('options.browse')}
               </button>
             </div>
@@ -190,13 +181,14 @@ export function Options({
                 label={t('options.desktopShortcut')}
               />
               <Checkbox checked={options.startMenu} onChange={(value) => update('startMenu', value)} label={t('options.startMenu')} />
+              <Checkbox checked={options.autoStart} onChange={(value) => update('autoStart', value)} label={t('options.autoStart')} />
             </div>
           </div>
         </div>
       </div>
 
       <div className="page-footer page-footer--split">
-        <button className="btn btn-ghost" type="button" disabled={isInstalling} onClick={onBack}>
+        <button className="btn btn-ghost" type="button" onClick={onBack}>
           <svg
             width="14"
             height="14"
@@ -214,12 +206,10 @@ export function Options({
         <button
           className="btn btn-primary"
           type="button"
-          onClick={() => {
-            void onInstall()
-          }}
-          disabled={!options.installPath || (diskSpace !== null && !diskSpace.sufficient) || isInstalling}
+          onClick={onNext}
+          disabled={!options.installPath || (diskSpace !== null && !diskSpace.sufficient)}
         >
-          {isInstalling ? t('options.installing') : t('options.install')}
+          {t('options.next')}
           <svg
             width="14"
             height="14"

@@ -7,7 +7,7 @@ use crate::host_runtime::{
     HostCommandResourceResolver, HostCommandResponse, HostCommandResponseWriter, HostCommandResult,
     HostCommandScheduler, HostCommandSchedulerConfig, ResolvedHostCommand,
 };
-use crate::support::logging::{self, DebugLoggingState};
+use crate::support::logging::{self, DebugLoggingState, LogEvent, targets};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -1932,8 +1932,10 @@ pub fn run_stdio() -> Result<(), String> {
     if let Err(error) = logging::init_sidecar_logging(&debug_logging_state) {
         logging::write_sidecar_fallback_log(
             log::Level::Error,
-            "Sidecar",
-            format!("modforge sidecar logging init failed: {error}"),
+            targets::SIDECAR,
+            LogEvent::new("sidecar.loggingInitFailed")
+                .error(format!("{error}"))
+                .render(),
         );
     }
     let diagnostics_start_result = domain::app_ui::load_app_ui_state()
@@ -1947,10 +1949,9 @@ pub fn run_stdio() -> Result<(), String> {
             }
         });
     if let Err(error) = diagnostics_start_result {
-        log::warn!(
-            target: "Nexus",
-            "Startup diagnostics probe could not start: error={error}"
-        );
+        LogEvent::new("nexus.diagnostics.startupProbeFailed")
+            .error(format!("{error}"))
+            .emit_warn(targets::NEXUS);
     }
 
     let ctx = SidecarContext {

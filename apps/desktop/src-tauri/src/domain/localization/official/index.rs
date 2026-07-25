@@ -1104,12 +1104,7 @@ pub(crate) fn search_with_semantic(
         ) {
             Ok(groups) => groups,
             Err(error) => {
-                log::debug!(
-                    target: crate::domain::localization::operational_log::SEMANTIC,
-                    "{}",
-                    crate::domain::localization::operational_log::Fields::new(
-                        "semantic.fallback"
-                    )
+                crate::domain::localization::operational_log::event("semantic.fallback")
                     .field("retrievalMode", "lexical")
                     .field(
                         "reason",
@@ -1117,7 +1112,7 @@ pub(crate) fn search_with_semantic(
                     )
                     .field("queries", 1)
                     .field("candidateGroups", 2)
-                );
+                    .emit_debug(crate::domain::localization::operational_log::SEMANTIC);
                 Vec::new()
             }
         }
@@ -1515,18 +1510,15 @@ pub fn find_prompt_examples_batch(
             queries,
         )
         .unwrap_or_else(|error| {
-            log::debug!(
-                target: crate::domain::localization::operational_log::SEMANTIC,
-                "{}",
-                crate::domain::localization::operational_log::Fields::new("semantic.fallback")
-                    .field("retrievalMode", "lexical")
-                    .field(
-                        "reason",
-                        crate::domain::localization::operational_log::failure_category(&error),
-                    )
-                    .field("queries", queries.len())
-                    .field("candidateGroups", 2)
-            );
+            crate::domain::localization::operational_log::event("semantic.fallback")
+                .field("retrievalMode", "lexical")
+                .field(
+                    "reason",
+                    crate::domain::localization::operational_log::failure_category(&error),
+                )
+                .field("queries", queries.len())
+                .field("candidateGroups", 2)
+                .emit_debug(crate::domain::localization::operational_log::SEMANTIC);
             queries
                 .iter()
                 .map(|_| vec![Vec::new(), Vec::new()])

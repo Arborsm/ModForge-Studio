@@ -1,7 +1,7 @@
 use super::settings;
 use crate::AppHandle;
 use crate::domain::app_paths::localization_semantic_models_dir;
-use crate::domain::localization::operational_log::{Fields, SEMANTIC};
+use crate::domain::localization::operational_log::{SEMANTIC, event};
 use crate::domain::localization::{jobs, types::*};
 use crate::infrastructure::http::resumable_download::{
     PartialRetention, ResumableDownloadRequest, ResumeRequest, download_resumable,
@@ -112,7 +112,9 @@ fn cleanup_inactive_versions(root: &Path) -> anyhow::Result<()> {
 fn cleanup_inactive_versions_after_activation() {
     let result = model_root().and_then(|root| cleanup_inactive_versions(&root));
     if let Err(error) = result {
-        log::warn!("Inactive semantic model cleanup will be retried later: {error}");
+        event("semantic.model.cleanupDeferred")
+            .error(format!("{error}"))
+            .emit_warn(SEMANTIC);
     }
 }
 
@@ -555,14 +557,11 @@ pub fn download_builtin_model(
         bail!("Semantic model download job id cannot be empty.");
     }
     jobs::clear(&request.job_id);
-    log::info!(
-        target: SEMANTIC,
-        "{}",
-        Fields::new("model.download.started")
-            .field("job", &request.job_id)
-            .field("model", &request.model_id)
-            .field("operation", "download")
-    );
+    event("model.download.started")
+        .field("job", &request.job_id)
+        .field("model", &request.model_id)
+        .field("operation", "download")
+        .emit_info(SEMANTIC);
     let result = (|| {
         if version_directory()?.is_dir() {
             validate_builtin_directory(&version_directory()?, true)?;
@@ -657,14 +656,11 @@ pub fn download_builtin_model(
                         file_count: progress.file_count,
                     };
                     if app.emit(MODEL_PROGRESS_EVENT, value).is_err() {
-                        log::warn!(
-                            target: SEMANTIC,
-                            "{}",
-                            Fields::new("progress.failed")
-                                .field("job", &request.job_id)
-                                .field("operation", "download")
-                                .field("failureCategory", "provider")
-                        );
+                        event("progress.failed")
+                            .field("job", &request.job_id)
+                            .field("operation", "download")
+                            .field("failureCategory", "provider")
+                            .emit_warn(SEMANTIC);
                     }
                     Ok(())
                 },
@@ -684,28 +680,22 @@ pub fn download_builtin_model(
     })();
     jobs::clear(&request.job_id);
     if let Ok(status) = &result {
-        log::info!(
-            target: SEMANTIC,
-            "{}",
-            Fields::new("model.download.completed")
-                .field("job", &request.job_id)
-                .field("model", &request.model_id)
-                .optional("revision", status.revision.as_deref())
-                .field("cacheBytes", status.cache_bytes)
-                .field("elapsedMs", started.elapsed().as_millis())
-        );
+        event("model.download.completed")
+            .field("job", &request.job_id)
+            .field("model", &request.model_id)
+            .optional("revision", status.revision.as_deref())
+            .field("cacheBytes", status.cache_bytes)
+            .field("elapsedMs", started.elapsed().as_millis())
+            .emit_info(SEMANTIC);
     } else if result.as_ref().err().is_some_and(|error| {
         crate::domain::localization::operational_log::failure_category(error) == "cancelled"
     }) {
-        log::info!(
-            target: SEMANTIC,
-            "{}",
-            Fields::new("model.download.cancelled")
-                .field("job", &request.job_id)
-                .field("model", &request.model_id)
-                .field("failureCategory", "cancelled")
-                .field("elapsedMs", started.elapsed().as_millis())
-        );
+        event("model.download.cancelled")
+            .field("job", &request.job_id)
+            .field("model", &request.model_id)
+            .field("failureCategory", "cancelled")
+            .field("elapsedMs", started.elapsed().as_millis())
+            .emit_info(SEMANTIC);
     }
     result
 }

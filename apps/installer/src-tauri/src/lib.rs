@@ -15,6 +15,7 @@ pub fn run() {
             commands::get_disk_space,
             commands::validate_install_path,
             commands::start_installation,
+            commands::persist_app_preferences,
             commands::uninstall,
             commands::launch_application,
             commands::close_installer,

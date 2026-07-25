@@ -1,3 +1,4 @@
+use crate::support::logging::{LogEvent, targets};
 use std::fs;
 use std::path::PathBuf;
 
@@ -16,10 +17,9 @@ pub fn cleanup_tauri_shared_memory_leaks() {
     #[cfg(windows)]
     {
         if let Err(error) = cleanup_tauri_shared_memory_leaks_inner() {
-            log::warn!(
-                target: "Cleanup",
-                "Failed to clean up Tauri shared memory leaks: error={error}"
-            );
+            LogEvent::new("cleanup.sharedMemory.failed")
+                .error(error)
+                .emit_warn(targets::CLEANUP);
         }
     }
 
@@ -36,11 +36,9 @@ fn cleanup_tauri_shared_memory_leaks_inner() -> Result<(), std::io::Error> {
     let entries = match fs::read_dir(&shmem_dir) {
         Ok(entries) => entries,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            log::debug!(
-                target: "Cleanup",
-                "No Tauri shared memory leak directory found at {}",
-                shmem_dir.display()
-            );
+            LogEvent::new("cleanup.sharedMemory.dirMissing")
+                .path("shmemDir", &shmem_dir)
+                .emit_debug(targets::CLEANUP);
             return Ok(());
         }
         Err(error) => {
@@ -75,11 +73,11 @@ fn cleanup_tauri_shared_memory_leaks_inner() -> Result<(), std::io::Error> {
                 continue;
             }
             Err(error) => {
-                log::debug!(
-                    target: "Cleanup",
-                    "Skipping shared memory entry {}: error={error}",
-                    path.display()
-                );
+                LogEvent::new("cleanup.sharedMemory.entrySkipped")
+                    .field("reason", "metadata-unreadable")
+                    .path("path", &path)
+                    .error(error)
+                    .emit_debug(targets::CLEANUP);
                 skipped += 1;
                 continue;
             }
@@ -90,18 +88,17 @@ fn cleanup_tauri_shared_memory_leaks_inner() -> Result<(), std::io::Error> {
             // held by a running process. Leave it alone.
             if error.kind() == std::io::ErrorKind::PermissionDenied {
                 locked += 1;
-                log::debug!(
-                    target: "Cleanup",
-                    "Shared memory file is in use, skipping: path={}",
-                    path.display()
-                );
+                LogEvent::new("cleanup.sharedMemory.entrySkipped")
+                    .field("reason", "file-in-use")
+                    .path("path", &path)
+                    .emit_debug(targets::CLEANUP);
             } else {
                 skipped += 1;
-                log::debug!(
-                    target: "Cleanup",
-                    "Could not remove shared memory file: path={} error={error}",
-                    path.display()
-                );
+                LogEvent::new("cleanup.sharedMemory.entrySkipped")
+                    .field("reason", "remove-failed")
+                    .path("path", &path)
+                    .error(error)
+                    .emit_debug(targets::CLEANUP);
             }
             continue;
         }
@@ -111,10 +108,12 @@ fn cleanup_tauri_shared_memory_leaks_inner() -> Result<(), std::io::Error> {
     }
 
     let freed_gb = freed_bytes as f64 / 1024.0 / 1024.0 / 1024.0;
-    log::info!(
-        target: "Cleanup",
-        "Cleaned Tauri shared memory leaks: deleted={deleted} locked={locked} skipped={skipped} freed_gb={freed_gb:.2}"
-    );
+    LogEvent::new("cleanup.sharedMemory.complete")
+        .count("deleted", deleted)
+        .count("locked", locked)
+        .count("skipped", skipped)
+        .field("freedGb", format!("{freed_gb:.2}"))
+        .emit_info(targets::CLEANUP);
 
     Ok(())
 }

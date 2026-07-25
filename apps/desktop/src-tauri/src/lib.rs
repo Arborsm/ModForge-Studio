@@ -104,7 +104,7 @@ use commands::mods::{
 };
 use commands::resource_registry::load_resource_registry;
 use commands::saves::scan_default_save_slots;
-use support::logging::{DebugLoggingState, init_host_logging};
+use support::logging::{DebugLoggingState, LogEvent, init_host_logging, targets};
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -133,10 +133,9 @@ pub fn run() {
                     }
                 });
             if let Err(error) = diagnostics_start_result {
-                log::warn!(
-                    target: "Nexus",
-                    "Startup diagnostics probe could not start: error={error}"
-                );
+                LogEvent::new("nexus.diagnostics.startupProbeFailed")
+                    .error(format!("{error}"))
+                    .emit_warn(targets::NEXUS);
             }
 
             let tray_menu = Menu::with_items(

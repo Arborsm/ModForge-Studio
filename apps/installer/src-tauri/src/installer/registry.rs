@@ -136,6 +136,22 @@ pub(super) fn remove_autostart_run_entry() -> Result<()> {
     Ok(())
 }
 
+/// Register a per-user `Run` autostart value pointing at the installed main exe.
+pub(super) fn register_autostart_run_entry(install_path: &Path) -> Result<()> {
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    let (key, _) = hkcu
+        .create_subkey(r"Software\Microsoft\Windows\CurrentVersion\Run")
+        .with_context(|| "Failed to open Run registry key")?;
+    let exe_path = install_path.join(MAIN_APP_EXE);
+    key.set_value(APP_NAME, &quote_windows_path(&exe_path))?;
+    log::info!(
+        "Registered Run autostart value for {} -> {}",
+        APP_NAME,
+        exe_path.display()
+    );
+    Ok(())
+}
+
 /// Data read from `Uninstall\ModForgeStudio` (this installer).
 #[derive(Debug, Clone)]
 pub(super) struct UninstallRegistryData {

@@ -1,6 +1,7 @@
 mod index;
 
 use crate::AppHandle;
+use crate::domain::localization::operational_log::{KNOWLEDGE, event};
 use crate::domain::localization::types::{
     AiOfficialCorpusStatus, RebuildOfficialLocalizationIndexRequest,
 };
@@ -17,7 +18,9 @@ pub fn rebuild_with_events(
 ) -> anyhow::Result<AiOfficialCorpusStatus> {
     index::rebuild_with_progress(request, |progress| {
         if let Err(error) = app.emit("localization://official-index-progress", progress) {
-            log::warn!("Failed to emit official localization index progress: {error}");
+            event("official.indexProgress.emitFailed")
+                .error(format!("{error}"))
+                .emit_warn(KNOWLEDGE);
         }
     })
 }

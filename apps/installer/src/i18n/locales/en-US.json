@@ -32,7 +32,9 @@
     "optionsLabel": "Options",
     "desktopShortcut": "Create desktop shortcut",
     "startMenu": "Add to Start Menu",
+    "autoStart": "Launch ModForge Studio on system startup",
     "back": "Back",
+    "next": "Next",
     "install": "Install",
     "installing": "Preparing…",
     "existingInstallTitle": "Existing ModForge Studio installation detected",
@@ -58,20 +60,72 @@
     "title": "Finish",
     "subtitle": "ModForge Studio has been installed",
     "installLocation": "Install location: {{path}}",
-    "launchNow": "Launch now",
+    "launchAfterInstall": "Launch ModForge Studio now",
+    "finish": "Finish",
     "close": "Close",
     "launchFailed": "Failed to launch"
   },
   "uninstall": {
     "windowTitle": "Uninstall ModForge Studio",
     "title": "Uninstall ModForge Studio",
-    "subtitle": "This removes ModForge Studio and its integrations (shortcuts, registry entries). Your user data is kept.",
+    "subtitle": "This removes ModForge Studio and its integrations (shortcuts, registry entries).",
     "installPath": "Install path",
     "pathUnknown": "Install path not detected",
+    "deleteData": "Also delete user data (settings, workspace state, cache)",
+    "deleteDataHint": "Only the %APPDATA%\\ModForge Studio folder is removed. Mods, game folders and your documents are never touched.",
     "confirm": "Start uninstall",
     "uninstalling": "Uninstalling...",
     "completed": "Uninstall completed. You can close this window.",
     "cancel": "Cancel",
     "close": "Close"
+  },
+  "theme": {
+    "switchToLight": "Switch to light theme",
+    "switchToDark": "Switch to dark theme"
+  },
+  "preferences": {
+    "title": "App Preferences",
+    "subtitle": "Pre-select the theme, motion style and default behavior for ModForge Studio. They are written to the app's settings file before installation.",
+    "themeLabel": "App Theme",
+    "motionLabel": "Motion",
+    "behaviorLabel": "Default Behavior",
+    "defaultBadge": "Default",
+    "closeBehaviorLabel": "When closing the window",
+    "notificationSound": "Notification sounds",
+    "appModeLabel": "Open on startup",
+    "back": "Back",
+    "saving": "Saving…",
+    "saveFailed": "Failed to save app preferences",
+    "themes": {
+      "warm-paper": "Warm Paper",
+      "neutral-tool": "Neutral Tool",
+      "slate-blue": "Slate Blue",
+      "forest": "Forest",
+      "twilight": "Twilight",
+      "stardew-wood": "Stardew Wood",
+      "crimson": "Crimson",
+      "blossom": "Blossom"
+    },
+    "motionStyles": {
+      "bounceIn": "Bounce In",
+      "layeredFadeIn": "Layered Fade",
+      "slideInPush": "Slide In",
+      "softFadeIn": "Soft Fade",
+      "quietSimplify": "Quiet"
+    },
+    "closeBehaviors": {
+      "quit": {
+        "label": "Quit the app",
+        "description": "Closing the window exits ModForge Studio."
+      },
+      "minimizeToTray": {
+        "label": "Minimize to tray",
+        "description": "Closing the window keeps ModForge Studio running in the system tray."
+      }
+    },
+    "appModes": {
+      "launcher": "Launcher",
+      "workbench": "Workbench"
+    }
   }
 }

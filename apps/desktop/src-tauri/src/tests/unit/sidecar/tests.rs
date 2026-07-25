@@ -948,8 +948,21 @@ impl TestSchedulerHarness {
         self.scheduler
             .diagnostics_summary("test")
             .expect("debug-enabled test scheduler should produce diagnostics")
-            .summary
+            .render()
     }
+}
+
+/// Checks the job counters of a pool row.
+///
+/// Pool rows pad every counter so columns line up across pools, so the fields
+/// are matched one at a time instead of as an adjacent `jobs=N ok=N` pair.
+fn pool_counters_are(summary: &str, submitted: u64, succeeded: u64) -> bool {
+    let jobs = format!("jobs={submitted}");
+    let ok = format!("ok={succeeded}");
+    summary.lines().any(|line| {
+        let fields: Vec<&str> = line.split_whitespace().collect();
+        fields.contains(&jobs.as_str()) && fields.contains(&ok.as_str())
+    })
 }
 
 fn create_test_command(
@@ -1532,7 +1545,7 @@ fn enqueue_failure_returns_error_response_for_request_id() {
     assert_eq!(scheduler.recv().id, json!("first"));
     assert_eq!(scheduler.recv().id, json!("queued"));
     let summary = scheduler.diagnostics_summary();
-    assert!(summary.contains("HostRuntime stats summary"));
+    assert!(summary.contains("hostRuntime.stats reason=test"));
     assert!(summary.contains("Pools"));
     assert!(summary.contains("usage="));
     assert!(summary.contains("jobs="));
@@ -1562,7 +1575,7 @@ fn writer_failure_records_diagnostics_and_releases_active_slot() {
         let summary = scheduler
             .diagnostics_summary("test")
             .expect("debug-enabled scheduler should produce diagnostics")
-            .summary;
+            .render();
         if summary.contains("writerFailed")
             && summary.contains("Io/Lane")
             && summary.contains("active=0/1")
@@ -1654,8 +1667,10 @@ fn telemetry_uses_per_command_sampling_when_debug_changes_mid_run() {
         let summary = scheduler
             .diagnostics_summary("test")
             .expect("debug-enabled scheduler should produce diagnostics")
-            .summary;
-        if summary.contains("jobs=1 ok=1") {
+            .render();
+        // The pool row pads its counters so columns line up across pools, so the
+        // fields are checked individually rather than as one adjacent pair.
+        if pool_counters_are(&summary, 1, 1) {
             break summary;
         }
         assert!(
@@ -1665,7 +1680,7 @@ fn telemetry_uses_per_command_sampling_when_debug_changes_mid_run() {
         std::thread::sleep(Duration::from_millis(10));
     };
     assert!(
-        summary.contains("jobs=1 ok=1"),
+        pool_counters_are(&summary, 1, 1),
         "debug-enabled command should keep jobs and ok counts aligned: {summary}"
     );
 }

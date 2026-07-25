@@ -28,6 +28,7 @@ use crate::infrastructure::fs::pathing::{
 };
 use crate::infrastructure::game_formats::tbin::parse_tbin_map;
 use crate::infrastructure::game_formats::xnb::{self, read_xnb_from_path};
+use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 
 const FILE_CACHE_VERSION: u32 = 1;
@@ -341,11 +342,10 @@ fn read_cached_string_asset(
     let bytes = match fs::read(&cache_path) {
         Ok(bytes) => bytes,
         Err(error) => {
-            log::warn!(
-                "Failed to read cache file {}: {}",
-                normalize_path(&cache_path),
-                error
-            );
+            LogEvent::new("assets.cache.readFailed")
+                .path("cachePath", &cache_path)
+                .error(error)
+                .emit_warn(targets::ASSETS);
             return Ok(None);
         }
     };
@@ -353,11 +353,10 @@ fn read_cached_string_asset(
     let cached = match serde_json::from_slice::<CachedStringAsset>(&bytes) {
         Ok(cached) => cached,
         Err(error) => {
-            log::warn!(
-                "Failed to deserialize cache file {}: {}",
-                normalize_path(&cache_path),
-                error
-            );
+            LogEvent::new("assets.cache.deserializeFailed")
+                .path("cachePath", &cache_path)
+                .error(error)
+                .emit_warn(targets::ASSETS);
             return Ok(None);
         }
     };
@@ -862,11 +861,11 @@ pub(crate) fn load_map_asset(
                 if let Err(error) =
                     write_cached_string_asset("map", &absolute_path, requested_locale, &content)
                 {
-                    log::warn!(
-                        "Failed to cache parsed map {}: {}",
-                        normalize_path(&absolute_path),
-                        error
-                    );
+                    LogEvent::new("assets.cache.writeFailed")
+                        .field("kind", "map")
+                        .path("assetPath", &absolute_path)
+                        .error(error)
+                        .emit_warn(targets::ASSETS);
                 }
                 content
             }
@@ -942,11 +941,10 @@ pub(crate) fn load_text_asset(
                             &logical_relative_path,
                             requested_locale,
                         )? {
-                            log::warn!(
-                                "Falling back to unpacked JSON for {} after XNB parse failure: {}",
-                                normalize_path(&absolute_path),
-                                xnb_error
-                            );
+                            LogEvent::new("assets.xnb.unpackedFallback")
+                                .path("assetPath", &absolute_path)
+                                .error(xnb_error)
+                                .emit_warn(targets::ASSETS);
                             (content, None)
                         } else {
                             let fallback_hint =
@@ -974,11 +972,11 @@ pub(crate) fn load_text_asset(
                         requested_locale,
                         &content,
                     ) {
-                        log::warn!(
-                            "Failed to cache text asset {}: {}",
-                            normalize_path(&absolute_path),
-                            error
-                        );
+                        LogEvent::new("assets.cache.writeFailed")
+                            .field("kind", "text-asset")
+                            .path("assetPath", &absolute_path)
+                            .error(error)
+                            .emit_warn(targets::ASSETS);
                     }
                 }
                 content
@@ -1002,11 +1000,11 @@ pub(crate) fn load_text_asset(
                     requested_locale,
                     &content,
                 ) {
-                    log::warn!(
-                        "Failed to cache text file {}: {}",
-                        normalize_path(&absolute_path),
-                        error
-                    );
+                    LogEvent::new("assets.cache.writeFailed")
+                        .field("kind", "text-file")
+                        .path("assetPath", &absolute_path)
+                        .error(error)
+                        .emit_warn(targets::ASSETS);
                 }
                 content
             }
@@ -1090,11 +1088,11 @@ pub(crate) fn load_image_data_url(path: String, locale: Option<String>) -> anyho
         if let Err(error) =
             write_cached_string_asset("image", &absolute_path, requested_locale, &payload)
         {
-            log::warn!(
-                "Failed to cache image asset {}: {}",
-                normalize_path(&absolute_path),
-                error
-            );
+            LogEvent::new("assets.cache.writeFailed")
+                .field("kind", "image")
+                .path("assetPath", &absolute_path)
+                .error(error)
+                .emit_warn(targets::ASSETS);
         }
         return Ok(payload);
     }
@@ -1111,11 +1109,11 @@ pub(crate) fn load_image_data_url(path: String, locale: Option<String>) -> anyho
     if let Err(error) =
         write_cached_string_asset("image", &absolute_path, requested_locale, &payload)
     {
-        log::warn!(
-            "Failed to cache image asset {}: {}",
-            normalize_path(&absolute_path),
-            error
-        );
+        LogEvent::new("assets.cache.writeFailed")
+            .field("kind", "image")
+            .path("assetPath", &absolute_path)
+            .error(error)
+            .emit_warn(targets::ASSETS);
     }
     Ok(payload)
 }

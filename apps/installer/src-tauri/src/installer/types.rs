@@ -10,6 +10,9 @@ pub(crate) struct InstallOptions {
     pub desktop_shortcut: bool,
     /// Add to Start Menu
     pub start_menu: bool,
+    /// Register a per-user `Run` entry so the app starts with Windows
+    #[serde(default)]
+    pub auto_start: bool,
     /// First-launch app language (zh-CN / en-US)
     pub app_language: String,
 }
@@ -46,6 +49,7 @@ impl Default for InstallOptions {
             install_path: String::new(),
             desktop_shortcut: true,
             start_menu: true,
+            auto_start: false,
             app_language: "zh-CN".to_string(),
         }
     }
