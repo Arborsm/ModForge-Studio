@@ -6,6 +6,7 @@ use crate::AppHandle;
 use crate::domain::launcher::paths::launcher_settings_path;
 use crate::domain::launcher::settings::load_or_create_settings_at_path;
 use crate::domain::launcher::types::LauncherSettings;
+use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 use std::collections::BTreeMap;
 use std::sync::{Mutex, OnceLock};
@@ -412,24 +413,19 @@ fn start_launcher_nexus_diagnostics_with_settings(
             .lock()
             .expect("launcher nexus diagnostics mutex should not be poisoned");
         if state.started && !force_restart {
-            log::debug!(
-                target: "Nexus",
-                "Diagnostics already started: generation={} api-key-present={}",
-                state.generation,
-                nexus_api_key_present
-            );
+            // Every settings load and shell mount re-primes diagnostics, and this
+            // branch means "already running, nothing to do". The start it refers
+            // to was already logged, so repeating it says nothing new.
             return;
         }
         if state.force_offline {
             state.generation = state.generation.saturating_add(1);
             state.started = true;
             state.routes = build_launcher_nexus_force_offline_snapshot_map(&settings);
-            log::info!(
-                target: "Nexus",
-                "Using force-offline diagnostics snapshot: generation={} api-key-present={}",
-                state.generation,
-                nexus_api_key_present
-            );
+            LogEvent::new("nexus.diagnostics.forceOfflineSnapshot")
+                .field("generation", state.generation)
+                .flag("apiKeyPresent", nexus_api_key_present)
+                .emit_info(targets::NEXUS);
             return;
         }
         state.generation = state.generation.saturating_add(1);
@@ -439,10 +435,11 @@ fn start_launcher_nexus_diagnostics_with_settings(
         state.generation
     };
 
-    log::info!(
-        target: "Nexus",
-        "Start diagnostics: generation={generation} force-restart={force_restart} api-key-present={nexus_api_key_present}"
-    );
+    LogEvent::new("nexus.diagnostics.start")
+        .field("generation", generation)
+        .flag("forceRestart", force_restart)
+        .flag("apiKeyPresent", nexus_api_key_present)
+        .emit_info(targets::NEXUS);
     thread::spawn(move || run_launcher_nexus_diagnostics(settings, generation, app));
 }
 

@@ -1,0 +1,714 @@
+:root {
+  --ai-localization-inspector-width: 300px;
+}
+
+@layer components {
+  .ai-localization-center {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+  .ai-localization-center .control-input {
+    height: 32px;
+    border-radius: 8px;
+    padding-right: 12px;
+    padding-left: 12px;
+    font-size: 0.8125rem;
+    line-height: 1.25;
+  }
+  .ai-localization-center .control-input::placeholder {
+    color: var(--text-tertiary);
+  }
+  .ai-localization-center .control-input:focus {
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    box-shadow: 0 0 0 0.1875rem color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  }
+  .ai-localization-center .control-button {
+    display: inline-flex;
+    height: 32px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    padding-right: 12px;
+    padding-left: 12px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1;
+    gap: 6px;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease,
+      color 120ms ease,
+      transform 80ms ease;
+  }
+  .ai-localization-center .control-button > svg {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+  }
+  .ai-localization-center .control-button:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  .ai-localization-center .control-button-primary {
+    border-color: transparent;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 92%, white 8%), var(--accent));
+    color: var(--accent-contrast);
+  }
+  .ai-localization-center .control-button-primary:hover {
+    background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 88%, var(--text-primary) 12%));
+  }
+  .ai-localization-tab-content {
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .ai-localization-tab-content > * {
+    height: 100%;
+    min-height: 0;
+  }
+  .ai-localization-tabs,
+  .ai-localization-subtabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--bg-panel);
+  }
+  .ai-localization-tabs {
+    height: 40px;
+  }
+  .ai-localization-subtabs {
+    height: 40px;
+    padding: 0 14px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  }
+  .ai-localization-tabs button {
+    position: relative;
+    display: inline-flex;
+    height: 100%;
+    align-items: center;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 8px 8px 0 0;
+    background: transparent;
+    color: var(--text-tertiary);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    transition:
+      background-color 120ms ease,
+      color 120ms ease;
+    white-space: nowrap;
+  }
+  .ai-localization-subtabs button {
+    position: relative;
+    display: inline-flex;
+    height: 100%;
+    align-items: center;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-tertiary);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    transition:
+      background-color 120ms ease,
+      color 120ms ease;
+    white-space: nowrap;
+  }
+  .ai-localization-tabs button:hover,
+  .ai-localization-subtabs button:hover {
+    background: var(--bg-hover);
+    color: var(--text-secondary);
+  }
+  .ai-localization-tabs button:active,
+  .ai-localization-subtabs button:active {
+    background: var(--bg-active);
+    color: var(--text-primary);
+  }
+  .ai-localization-tabs button.is-active,
+  .ai-localization-subtabs button.is-active {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .ai-localization-tabs button.is-active::after,
+  .ai-localization-subtabs button.is-active::after {
+    content: '';
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 2px 2px 0 0;
+    background: var(--accent);
+  }
+  .ai-localization-subtab-group {
+    display: flex;
+    gap: 2px;
+    padding: 0;
+    background: transparent;
+  }
+  .ai-localization-subtab-group button {
+    height: 26px;
+    padding: 0 9px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+  }
+  .ai-localization-subtab-group button.is-active {
+    background: var(--accent-soft);
+    box-shadow: none;
+    color: var(--accent);
+  }
+  .ai-localization-subtab-group button.is-active::after {
+    display: none;
+  }
+  .ai-localization-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--ai-localization-inspector-width);
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    background: var(--bg-app);
+    color: var(--text-primary);
+  }
+  .ai-localization-layout.is-single-pane {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ai-localization-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--bg-panel);
+  }
+  .ai-localization-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 56px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-panel);
+  }
+  .ai-localization-toolbar > strong {
+    align-self: center;
+    font-size: 0.9375rem;
+    font-weight: 650;
+    margin-right: auto;
+    white-space: nowrap;
+  }
+  .ai-localization-toolbar-search {
+    position: relative;
+    min-width: 0;
+    width: 240px;
+    max-width: 240px;
+    flex: 0 1 240px;
+  }
+  .ai-localization-toolbar-search svg {
+    position: absolute;
+    left: 11px;
+    top: 9px;
+    width: 14px;
+    height: 14px;
+    color: var(--text-tertiary);
+    pointer-events: none;
+  }
+  .ai-localization-toolbar-search .control-input {
+    width: 100%;
+    padding-left: 32px;
+  }
+  .ai-localization-toolbar-stats {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 1.25rem;
+    margin-left: auto;
+  }
+  .ai-localization-toolbar-stats div {
+    display: grid;
+    gap: 0.125rem;
+  }
+  .ai-localization-toolbar-stats dt {
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+  }
+  .ai-localization-toolbar-stats dd {
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .ai-localization-status {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .ai-localization-status dl {
+    display: flex;
+    gap: 1.25rem;
+    margin-left: auto;
+  }
+  .ai-localization-status dl div {
+    display: grid;
+    gap: 0.125rem;
+  }
+  .ai-localization-status dt,
+  .ai-localization-status dd {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    font-size: 0.8125rem;
+  }
+  .ai-localization-status dt {
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+  }
+  .ai-localization-filters {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-panel);
+  }
+  .ai-localization-filters > label:first-child {
+    flex: 1;
+    min-width: 180px;
+    max-width: 320px;
+  }
+  .ai-localization-filters > label {
+    display: inline-grid;
+    min-width: 112px;
+    gap: 5px;
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+    line-height: 1;
+  }
+  .ai-localization-filters > label.ai-localization-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+  }
+  .ai-localization-filters .ai-localization-search-box,
+  .ai-localization-filters .compact-select {
+    width: 100%;
+  }
+  .ai-localization-filters .compact-select__trigger {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .ai-localization-search-box {
+    position: relative;
+  }
+  .ai-localization-search-box svg {
+    position: absolute;
+    left: 11px;
+    top: 9px;
+    width: 14px;
+    height: 14px;
+    color: var(--text-tertiary);
+    pointer-events: none;
+  }
+  .ai-localization-search-box .control-input {
+    padding-left: 32px;
+  }
+  .ai-localization-status-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8125rem;
+    line-height: 1;
+    color: var(--text-secondary);
+  }
+  .ai-localization-status-line strong {
+    font-weight: 650;
+    color: var(--text-primary);
+  }
+  .ai-localization-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+  }
+  .ai-localization-status-dot.is-ready {
+    background: var(--success);
+  }
+  .ai-localization-status-dot.is-warn {
+    background: var(--warning);
+  }
+  .ai-localization-check {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    cursor: pointer;
+  }
+  .ai-localization-check input[type='checkbox'] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    flex-shrink: 0;
+    border: 1.5px solid var(--border-color);
+    border-radius: 5px;
+    background: var(--bg-panel);
+    cursor: pointer;
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease;
+  }
+  .ai-localization-check input[type='checkbox']:hover {
+    border-color: var(--text-tertiary);
+  }
+  .ai-localization-check input[type='checkbox']:checked {
+    background-color: var(--accent);
+    border-color: var(--accent);
+  }
+  .ai-localization-check input[type='checkbox']:not(.ai-localization-switch):checked::after {
+    content: '';
+    display: block;
+    width: 5px;
+    height: 9px;
+    margin: 1px 0 0 5px;
+    border-right: 2px solid var(--accent-contrast);
+    border-bottom: 2px solid var(--accent-contrast);
+    transform: rotate(45deg);
+  }
+  .ai-localization-switch {
+    appearance: none;
+    -webkit-appearance: none;
+    display: block;
+    flex: 0 0 auto;
+    width: 30px !important;
+    height: 17px !important;
+    border: 0 !important;
+    border-radius: 999px !important;
+    background: color-mix(in srgb, var(--text-tertiary) 38%, transparent) !important;
+    position: relative;
+    transition: background-color 150ms ease !important;
+  }
+  .ai-localization-switch:hover {
+    background: color-mix(in srgb, var(--text-tertiary) 50%, transparent) !important;
+  }
+  .ai-localization-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--text-inverse);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--text-primary) 25%, transparent);
+    transition: transform 150ms ease;
+  }
+  .ai-localization-switch:checked {
+    background-color: var(--accent) !important;
+    background-image: none !important;
+  }
+  .ai-localization-switch:checked:hover {
+    background-color: color-mix(in srgb, var(--accent) 90%, var(--text-primary)) !important;
+  }
+  .ai-localization-switch:checked::after {
+    transform: translateX(13px);
+  }
+  .ai-localization-empty {
+    margin: auto;
+    padding: 2rem;
+    color: var(--text-tertiary);
+    text-align: center;
+  }
+  .ai-localization-status-loading {
+    display: grid;
+    min-height: 18rem;
+    place-content: center;
+    justify-items: center;
+    gap: 0.75rem;
+    color: var(--text-tertiary);
+    text-align: center;
+  }
+  .ai-localization-status-loading .loading-motion-fallback {
+    min-height: auto;
+    padding: 0;
+  }
+  .ai-localization-shell {
+    display: grid;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    grid-template-columns: 240px minmax(0, 1fr);
+    grid-template-rows: 48px minmax(0, 1fr);
+    background: var(--bg-panel);
+  }
+  .ai-localization-scope-rail {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    grid-column: 1;
+    grid-row: 2;
+    border-right: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+    padding: 10px;
+  }
+  .ai-localization-scope-search {
+    display: grid;
+    gap: 6px;
+    padding: 0 0 10px;
+  }
+  .ai-localization-scope-search-head {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  .ai-localization-scope-search-head > span {
+    color: var(--text-tertiary);
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .ai-localization-scope-create {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ai-localization-scope-create .control-input {
+    height: 32px;
+    min-width: 0;
+    flex: 1;
+    font-size: 0.8125rem;
+  }
+  .ai-localization-scope-create .icon-button {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+  }
+  .ai-localization-scope-list {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    gap: 2px;
+    overflow: auto;
+  }
+  .ai-localization-scope-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    border-radius: 0.5rem;
+    color: var(--text-secondary);
+    transition:
+      background-color 150ms ease,
+      color 150ms ease;
+  }
+  .ai-localization-scope-row:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+  .ai-localization-scope-row.is-active {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .ai-localization-scope-row-main {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    align-items: center;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+  }
+  .ai-localization-scope-text {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .ai-localization-scope-name,
+  .ai-localization-scope-meta {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ai-localization-scope-name {
+    font-size: 0.8125rem;
+    font-weight: 550;
+  }
+  .ai-localization-scope-meta {
+    font-size: 0.6875rem;
+    color: var(--text-tertiary);
+  }
+  .ai-localization-scope-row.is-active .ai-localization-scope-name {
+    font-weight: 600;
+  }
+  .ai-localization-scope-row.is-active .ai-localization-scope-meta {
+    color: color-mix(in srgb, var(--accent) 70%, var(--text-tertiary));
+  }
+  .ai-localization-scope-row-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 2px;
+    padding-right: 6px;
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+  .ai-localization-scope-row:hover .ai-localization-scope-row-actions,
+  .ai-localization-scope-row:focus-within .ai-localization-scope-row-actions {
+    opacity: 1;
+  }
+  .ai-localization-scope-row-actions .icon-button {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    color: var(--text-tertiary);
+    transition:
+      background-color 120ms ease,
+      color 120ms ease,
+      transform 80ms ease;
+  }
+  .ai-localization-scope-row-actions .icon-button:active {
+    transform: scale(0.92);
+  }
+  .ai-localization-scope-row-actions .icon-button:hover {
+    color: var(--text-primary);
+  }
+  .ai-localization-scope-row.is-editing {
+    gap: 6px;
+    padding: 4px 6px;
+  }
+  .ai-localization-scope-row.is-editing .control-input {
+    height: 32px;
+    min-width: 0;
+    flex: 1;
+    font-size: 0.8125rem;
+  }
+  .ai-localization-scope-row.is-editing .icon-button {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+  }
+  .ai-localization-scope-foot {
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+    padding: 12px 4px 0;
+  }
+  .ai-localization-scope-foot .control-button {
+    width: 100%;
+    justify-content: center;
+    gap: 8px;
+  }
+  .ai-localization-workarea {
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    grid-column: 2;
+    grid-row: 2;
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .ai-localization-workarea-head {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+    padding: 0 14px;
+    background: var(--bg-panel);
+    grid-column: 1 / -1;
+    grid-row: 1;
+    overflow: hidden;
+  }
+  .ai-localization-workarea-head .ai-localization-tabs {
+    display: flex;
+    min-width: 0;
+    height: 100%;
+    flex: 1;
+    align-items: center;
+    border-bottom: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    background: transparent;
+    padding: 0;
+  }
+  .ai-localization-workarea-head .ai-localization-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .ai-localization-session-actions,
+  .ai-localization-locale-pair {
+    display: flex;
+    align-items: center;
+  }
+  .ai-localization-session-actions {
+    flex: 0 0 auto;
+    gap: 8px;
+  }
+  .ai-localization-session-actions > * {
+    flex: 0 0 auto;
+  }
+  .ai-localization-locale-pair {
+    gap: 6px;
+    margin-right: 2px;
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+  }
+  .ai-localization-locale-trigger {
+    min-width: 72px;
+    height: 32px;
+    border-color: transparent;
+    border-radius: 999px;
+    background: var(--bg-panel-muted);
+    font-size: 0.8125rem;
+  }
+  .ai-localization-locale-trigger:hover {
+    border-color: transparent;
+    background: var(--bg-hover);
+  }
+  .ai-localization-tab-content > .ai-localization-layout {
+    grid-template-columns: minmax(0, 1fr) var(--ai-localization-inspector-width);
+  }
+  .ai-localization-tab-content > .ai-localization-layout.is-single-pane {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ai-localization-knowledge {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
+  }
+  .ai-localization-knowledge > .ai-localization-layout {
+    grid-template-columns: minmax(0, 1fr) var(--ai-localization-inspector-width);
+    min-height: 0;
+  }
+  .ai-localization-knowledge > .ai-localization-layout.is-single-pane {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ai-localization-pagination {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--border-color);
+  padding: 6px 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ai-localization-pagination .icon-button {
+  width: 30px;
+  height: 30px;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    transform 80ms ease;
+}
+
+.ai-localization-pagination .icon-button:active:not(:disabled) {
+  transform: scale(0.92);
+}

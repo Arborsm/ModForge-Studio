@@ -187,7 +187,7 @@ export default function TopMenuBar({
         <div className="top-menu-center flex min-w-0 items-center justify-self-center">
           {launcherNav ? (
             <div className="top-menu-workspace pointer-events-auto" data-top-menu-no-drag="true">
-              <div className="top-menu-workspace-list">
+              <div className="top-menu-workspace-list" data-guide="launcher-nav-tabs">
                 <GooeyNav
                   items={launcherNav.visiblePages.map((page) => {
                     const updatesBadge = page === 'updates' ? formatLauncherNavBadgeCount(launcherNav.updatesBadgeCount) : null

@@ -1,6 +1,6 @@
 use crate::domain::assets::{
     AudioAssetSummary, EventAssetSummary, FileCacheStats, GameDirectoryInfo, LocalTextFileContent,
-    MapAssetContent, MapAssetSummary, TextAssetContent,
+    MapAssetContent, MapAssetSummary, ParsedEventAssetContent, TextAssetContent,
 };
 use crate::support::logging::DebugLoggingState;
 use crate::{AppHandle, AppRuntime};
@@ -138,6 +138,23 @@ pub async fn load_text_asset(
         AppHandle::from_tauri(app),
         debug_logging_state.inner().clone(),
         crate::host_command_name!(load_text_asset),
+        json!({ "rootPath": root_path, "assetPath": asset_path, "locale": locale }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn load_event_asset(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    root_path: String,
+    asset_path: String,
+    locale: Option<String>,
+) -> Result<ParsedEventAssetContent, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(load_event_asset),
         json!({ "rootPath": root_path, "assetPath": asset_path, "locale": locale }),
     )
     .await

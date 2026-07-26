@@ -9,6 +9,7 @@ export function useWorkbenchSideNavigation() {
   const [sections, setSections] = useState({
     browseOpen: persisted.expandedSections.includes('browse'),
     authoringOpen: persisted.expandedSections.includes('authoring'),
+    translationOpen: persisted.expandedSections.includes('translation'),
     toolsOpen: persisted.expandedSections.includes('tools'),
     devOpen: persisted.expandedSections.includes('development'),
   })

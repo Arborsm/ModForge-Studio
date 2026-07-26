@@ -1,6 +1,6 @@
-#[path = "support/infrastructure.rs"]
+#[path = "../support/infrastructure.rs"]
 mod infrastructure;
-#[path = "support.rs"]
+#[path = "../support/mod.rs"]
 mod test_support;
 
 use std::collections::BTreeMap;
@@ -75,9 +75,7 @@ struct FailureRecord {
     error: String,
 }
 
-#[test]
-#[ignore = "manual report against installed Content (unpacked) dataset"]
-fn compare_rust_unpack_pass_rate_against_content_unpacked() {
+fn main() {
     let game_root = test_support::resolve_game_root();
     let content_root = game_root.join("Content");
     let unpacked_root = game_root.join("Content (unpacked)");

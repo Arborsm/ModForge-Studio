@@ -408,3 +408,57 @@ export function getNexusModsBbcodeTextContent(nodes: NexusModsBbcodeNode[]): str
     })
     .join('')
 }
+
+export type NexusModsBbcodeTextSegment = {
+  id: string
+  start: number
+  end: number
+  text: string
+}
+
+/** Locates visible text spans while leaving BBCode/HTML tokens and embedded media untouched. */
+export function extractNexusModsBbcodeTextSegments(source: string): NexusModsBbcodeTextSegment[] {
+  parseNexusModsBbcode(source)
+  const tokenPattern = /\[(\/)?([a-zA-Z*][\w-]*|\*)(?:(=|\s+)([^\]]*))?\]|<\/?\s*[a-zA-Z][\w:-]*(?:\s+[^<>]*)?\s*\/?>/g
+  const blockedTags: string[] = []
+  const segments: NexusModsBbcodeTextSegment[] = []
+  let cursor = 0
+  let match: RegExpExecArray | null
+
+  const append = (end: number) => {
+    const text = source.slice(cursor, end)
+    if (!blockedTags.length && /[\p{L}\p{N}]/u.test(text) && !/^\s*https?:\/\//iu.test(text)) {
+      segments.push({ id: `segment-${segments.length}`, start: cursor, end, text })
+    }
+  }
+
+  while ((match = tokenPattern.exec(source)) != null) {
+    append(match.index)
+    const raw = match[0]
+    const name = (match[2] ?? raw.match(/^<\/?\s*([\w:-]+)/u)?.[1] ?? '').toLowerCase()
+    const closing = Boolean(match[1]) || /^<\s*\//u.test(raw)
+    if (['code', 'img', 'iframe', 'youtube'].includes(name)) {
+      if (closing) {
+        const index = blockedTags.lastIndexOf(name)
+        if (index >= 0) blockedTags.splice(index, 1)
+      } else if (!(name === 'img' && /^<\s*img\b/iu.test(raw)) && !/^<[^>]+\/>$/u.test(raw)) {
+        blockedTags.push(name)
+      }
+    }
+    cursor = match.index + raw.length
+  }
+  append(source.length)
+  return segments
+}
+
+/** Replaces translated spans from right to left so original offsets remain stable. */
+export function applyNexusModsBbcodeTextTranslations(
+  source: string,
+  segments: NexusModsBbcodeTextSegment[],
+  translations: ReadonlyMap<string, string>,
+) {
+  return [...segments].reverse().reduce((value, segment) => {
+    const translated = translations.get(segment.id)
+    return translated == null ? value : `${value.slice(0, segment.start)}${translated}${value.slice(segment.end)}`
+  }, source)
+}

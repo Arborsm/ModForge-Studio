@@ -4,6 +4,7 @@ import fs from 'node:fs/promises'
 import { createInterface, type Interface as ReadlineInterface } from 'node:readline'
 import path from 'node:path'
 import type { OpenDialogOptions, SaveDialogOptions } from '../src/shared/contracts/platform'
+import { resolveLinuxOrtSidecar } from './linux-cuda-runtime.mjs'
 
 type RpcResponse = {
   id?: number
@@ -130,6 +131,14 @@ function resolveSidecarPath() {
   return path.join(process.resourcesPath, 'bin/modforge_sidecar')
 }
 
+function resolveSidecarRuntime() {
+  const sidecarPath = resolveSidecarPath()
+  if (process.platform !== 'linux' || isDev || process.env.MODFORGE_SIDECAR_PATH?.trim()) {
+    return { path: sidecarPath, libraryDirectories: [path.dirname(sidecarPath)] }
+  }
+  return resolveLinuxOrtSidecar(path.join(process.resourcesPath, 'bin'), process.env)
+}
+
 function forwardHostEvent(event: string, payload: unknown) {
   mainWindow?.webContents.send('modforge:host-event', event, payload)
 }
@@ -150,10 +159,16 @@ class SidecarTransport {
       return this.sidecar
     }
 
-    const child = spawn(resolveSidecarPath(), [], {
+    const sidecarRuntime = resolveSidecarRuntime()
+    const child = spawn(sidecarRuntime.path, [], {
       cwd: isDev ? path.resolve(__dirname, '..') : process.resourcesPath,
       env: {
         ...process.env,
+        ...(process.platform === 'linux'
+          ? {
+              LD_LIBRARY_PATH: [...sidecarRuntime.libraryDirectories, process.env.LD_LIBRARY_PATH].filter(Boolean).join(path.delimiter),
+            }
+          : null),
         MODFORGE_LOG_COLOR: process.env.MODFORGE_LOG_COLOR ?? (isDev ? 'always' : 'auto'),
       },
       stdio: ['pipe', 'pipe', 'pipe'],

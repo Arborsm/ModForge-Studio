@@ -55,6 +55,10 @@ export function useSettingsMenuCopy() {
   return useLocaleBundle().settingsMenu
 }
 
+export function useGuidesCopy() {
+  return useLocaleBundle().guides
+}
+
 export function useCharactersCopy() {
   return useEditorCopy().charactersPanel
 }
@@ -73,4 +77,8 @@ export function useEventStageCopy() {
 
 export function useMapPanelCopy() {
   return useEditorCopy().mapPanel
+}
+
+export function useAiLocalizationCopy() {
+  return useEditorCopy().aiLocalization
 }

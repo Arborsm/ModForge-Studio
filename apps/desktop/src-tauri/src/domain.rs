@@ -1,9 +1,12 @@
+pub mod ai;
 pub mod app_paths;
 pub mod app_ui;
 pub mod assets;
 pub mod content_patcher;
 pub mod cp_maker;
+pub mod event_script;
 pub mod launcher;
+pub mod localization;
 pub(crate) mod manifest;
 pub mod modding;
 pub mod mods;

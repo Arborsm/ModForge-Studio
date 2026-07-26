@@ -106,6 +106,11 @@ export type LauncherLibraryCopy = {
     modManagerDownload: string
     filesLoading: string
     changelogEmpty: string
+    aiTranslate: string
+    aiTranslating: string
+    aiOriginal: string
+    aiTranslated: string
+    aiRefresh: string
     config: {
       title: string
       loading: string
@@ -169,6 +174,9 @@ export type LauncherLibraryCopy = {
   previewLoading: string
   previewProgress: (completed: number, total: number, archiveName: string) => string
   previewError: string
+  previewContentsTitle: string
+  previewArchiveMeta: (entries: number, files: number) => string
+  previewSelectionSummary: (archiveCount: number, rootCount: number) => string
   dragDropInstallTitle: string
   dragDropInstallSubtitle: (formats: string) => string
   dragDropMultipleFiles: string
@@ -198,6 +206,8 @@ export type LauncherLibraryCopy = {
   restoreInstallBackupConfirmMessage: (backupId: string, modsPath: string, deleteCount: number, overwriteCount: number) => string
   restoreInstallBackupConfirmAction: string
   installBackupIdLabel: string
+  installBackupDeleteCount: (count: number) => string
+  installBackupOverwriteCount: (count: number) => string
   filteredEmpty: string
   scopeTitle: string
   scopeHint: string

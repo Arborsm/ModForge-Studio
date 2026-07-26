@@ -227,13 +227,23 @@ fn has_value_modifier_checks_token_presence() {
     let no_value = evaluate_patch_status(&json!({ "Weather|hasValue": "true" }), &context, None);
     let explicitly_false =
         evaluate_patch_status(&json!({ "Weather|hasValue": "false" }), &context, None);
-    let empty_string_false =
-        evaluate_patch_status(&json!({ "Weather|hasValue": "false" }), &context, None);
+    let empty_context = SimulationContext {
+        weather: Some(String::new()),
+        ..SimulationContext::default()
+    };
+    let empty_string_false = evaluate_patch_status(
+        &json!({ "Weather|hasValue": "false" }),
+        &empty_context,
+        None,
+    );
+    let empty_string_true =
+        evaluate_patch_status(&json!({ "Weather|hasValue": "true" }), &empty_context, None);
 
     assert_eq!(has_value.status, "applied");
     assert_eq!(no_value.status, "skipped");
     assert_eq!(explicitly_false.status, "applied");
     assert_eq!(empty_string_false.status, "applied");
+    assert_eq!(empty_string_true.status, "skipped");
 }
 
 #[test]

@@ -13,6 +13,7 @@ use crate::domain::nexusmods::http::{
 };
 use crate::domain::nexusmods::routes::launcher_nexus_route_for_url;
 use crate::infrastructure::fs::pathing::normalize_path;
+use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{StatusCode, header::HeaderMap};
@@ -50,7 +51,9 @@ fn lock_launcher_image_cache_files() -> MutexGuard<'static, ()> {
     {
         Ok(guard) => guard,
         Err(poisoned) => {
-            log::error!(target: "Launcher", "Launcher image cache file lock was poisoned");
+            LogEvent::new("launcher.lock.poisoned")
+                .field("resource", "image-cache-file")
+                .emit_error(targets::LAUNCHER);
             poisoned.into_inner()
         }
     }
@@ -178,11 +181,9 @@ fn emit_launcher_image_disconnect(
             elapsed_ms,
         },
     ) {
-        log::warn!(
-            target: "Launcher",
-            "launcher.image.cover.disconnect-notify.failed error=\"{}\"",
-            emit_error
-        );
+        LogEvent::new("launcher.image.cover.disconnectNotify.failed")
+            .error(&emit_error)
+            .emit_warn(targets::LAUNCHER);
     }
 }
 
@@ -277,12 +278,10 @@ pub(crate) fn resolve_launcher_image_blocking(
         {
             let failures = load_or_create_image_failures_at_path(&failures_path)?;
             if is_launcher_image_blocked(&failures, mod_key) {
-                log::warn!(
-                    target: "Launcher",
-                    "launcher.image.cover.blocked mod-key=\"{}\" url=\"{}\"",
-                    mod_key,
-                    url
-                );
+                LogEvent::new("launcher.image.cover.blocked")
+                    .field("modKey", mod_key)
+                    .field("url", url)
+                    .emit_warn(targets::LAUNCHER);
                 bail!(
                     "Launcher image loading is disabled for mod {mod_key} after repeated failures."
                 );
@@ -304,15 +303,14 @@ pub(crate) fn resolve_launcher_image_blocking(
             Ok(fetch_result) => fetch_result,
             Err(error) => {
                 let elapsed_ms = fetch_started_at.elapsed().as_millis();
-                log::warn!(
-                    target: "Launcher",
-                    "launcher.image.cover.fetch.failed phase=\"network\" url-hash=\"{}\" mod-key=\"{}\" retries={} elapsed-ms={} error=\"{}\"",
-                    cache_key,
-                    mod_key.as_deref().unwrap_or(""),
-                    LAUNCHER_IMAGE_CDN_RETRY_POLICY.max_retries(),
-                    elapsed_ms,
-                    error
-                );
+                LogEvent::new("launcher.image.cover.fetch.failed")
+                    .field("phase", "network")
+                    .field("urlHash", &cache_key)
+                    .optional("modKey", mod_key.as_deref())
+                    .field("retries", LAUNCHER_IMAGE_CDN_RETRY_POLICY.max_retries())
+                    .field("elapsedMs", elapsed_ms)
+                    .error(&error)
+                    .emit_warn(targets::LAUNCHER);
                 emit_launcher_image_disconnect(
                     app,
                     url,
@@ -329,15 +327,14 @@ pub(crate) fn resolve_launcher_image_blocking(
         let status = fetch_result.status;
         if !status.is_success() {
             let error = format!("Failed to fetch launcher image {}: HTTP {}", url, status);
-            log::warn!(
-                target: "Launcher",
-                "launcher.image.cover.fetch.failed phase=\"status\" url-hash=\"{}\" mod-key=\"{}\" status={} elapsed-ms={} error=\"{}\"",
-                cache_key,
-                mod_key.as_deref().unwrap_or(""),
-                status,
-                fetch_started_at.elapsed().as_millis(),
-                error
-            );
+            LogEvent::new("launcher.image.cover.fetch.failed")
+                .field("phase", "status")
+                .field("urlHash", &cache_key)
+                .optional("modKey", mod_key.as_deref())
+                .field("status", status)
+                .ms("elapsedMs", fetch_started_at.elapsed())
+                .error(&error)
+                .emit_warn(targets::LAUNCHER);
             if let Some(mod_key) = mod_key.as_deref() {
                 record_launcher_image_failure(mod_key, &error)?;
             }
@@ -390,16 +387,14 @@ pub(crate) fn resolve_launcher_image_blocking(
             clear_launcher_image_failure_for_mod_at_path(&failures_path, mod_key)?;
         }
 
-        log::debug!(
-            target: "Launcher",
-            "launcher.image.cover.fetch.succeeded url-hash=\"{}\" mod-key=\"{}\" status={} elapsed-ms={} bytes={} mime-type=\"{}\"",
-            cache_key,
-            mod_key.as_deref().unwrap_or(""),
-            status,
-            fetch_started_at.elapsed().as_millis(),
-            bytes_len,
-            content_type
-        );
+        // Reached only after `status.is_success()`, so the status adds nothing.
+        LogEvent::new("launcher.image.cover.fetch.succeeded")
+            .field("urlHash", &cache_key)
+            .optional("modKey", mod_key.as_deref())
+            .ms("elapsedMs", fetch_started_at.elapsed())
+            .field("bytes", bytes_len)
+            .field("mimeType", &content_type)
+            .emit_debug(targets::LAUNCHER);
 
         Ok(ResolveLauncherImageResult {
             source_url: url.to_string(),

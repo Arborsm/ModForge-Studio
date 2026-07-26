@@ -115,6 +115,11 @@ const library: LauncherLibraryCopy = {
     modManagerDownload: 'Mod manager',
     filesLoading: 'Loading Nexus files...',
     changelogEmpty: 'No changelog entries were published for this mod.',
+    aiTranslate: 'AI Translate',
+    aiTranslating: 'Translating...',
+    aiOriginal: 'Original',
+    aiTranslated: 'Translation',
+    aiRefresh: 'Refresh translation',
     config: {
       title: 'Config fields',
       loading: 'Parsing config...',
@@ -178,6 +183,10 @@ const library: LauncherLibraryCopy = {
   previewLoading: 'Inspecting archive contents...',
   previewProgress: (completed, total, archiveName) => `Inspecting ${archiveName} (${completed}/${total})`,
   previewError: 'Failed to inspect archive preview.',
+  previewContentsTitle: 'Archive Contents',
+  previewArchiveMeta: (entries, files) => `${entries} entries · ${files} files`,
+  previewSelectionSummary: (archiveCount, rootCount) =>
+    `${archiveCount} ${archiveCount === 1 ? 'archive' : 'archives'} · ${rootCount} mod ${rootCount === 1 ? 'root' : 'roots'} ready to install`,
   dragDropInstallTitle: 'Release to Preview Archives',
   dragDropInstallSubtitle: (formats) => `Drop one or more archives to install. Supported formats: ${formats}`,
   dragDropMultipleFiles: 'Drop exactly one archive at a time.',
@@ -210,6 +219,8 @@ const library: LauncherLibraryCopy = {
     `Restore ${backupId} into ${modsPath || 'the configured Mods folder'}? This will delete ${deleteCount} files or folders added by that install and overwrite ${overwriteCount} backed-up files.`,
   restoreInstallBackupConfirmAction: 'Confirm Restore',
   installBackupIdLabel: 'Backup ID',
+  installBackupDeleteCount: (count) => `Deletes ${count}`,
+  installBackupOverwriteCount: (count) => `Overwrites ${count}`,
   filteredEmpty: 'No mods match the current scope or filters.',
   filteredEmptyTitle: 'No Matching Mods',
   filteredEmptyDetail:

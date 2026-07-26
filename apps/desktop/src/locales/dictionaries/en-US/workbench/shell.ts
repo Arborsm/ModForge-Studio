@@ -203,6 +203,7 @@ const shell: WorkbenchShellCopy = {
     shellNavExpand: 'Expand navigation',
     shellNavBrowseGroup: 'Browse',
     shellNavAuthoringGroup: 'Project',
+    shellNavTranslationGroup: 'Translation',
     shellNavToolsGroup: 'Tools',
     shellNavDevGroup: 'Development',
     moduleLabels: {
@@ -214,6 +215,7 @@ const shell: WorkbenchShellCopy = {
       'mod-browser': 'CP mod inspector',
       'mod-translation': 'Mod translations',
       'i18n-generator': 'Translation generator',
+      'ai-localization': 'Localization Resources',
       'project-dashboard': 'Project home',
       'project-content': 'Project content',
       'map-authoring': 'Map authoring',

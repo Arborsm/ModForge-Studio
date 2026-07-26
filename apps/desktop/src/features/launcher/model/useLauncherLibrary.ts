@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLauncherPort } from './launcherPortContext'
 import { useEditorCopy } from '@locales/provider'
-import { TaskCancelledError, useQueuedMutationTask, useTaskScope, type TaskScope } from '@platform/task-runtime'
+import { TaskCancelledError, useQueuedMutationTask, useTaskScope, type TaskScope } from '@shared/lib/task-runtime'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import type {
   LauncherLibraryModSummary,
@@ -496,7 +496,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
                 const message = `Nexus mod ${item.nexusModId} is unavailable.`
                 launcherPort.markRemoteModIdInvalid(item.nexusModId)
                 launcherPort.writeDebugLog({
-                  message: 'launcher.auto-cover.record-failure',
+                  message: 'launcher.autoCover.recordFailure',
                   keyValues: {
                     modName: item.name,
                     nexusModId: String(item.nexusModId),
@@ -507,7 +507,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
                 })
                 await launcherPort.recordImageFailure({ modKey: coverKey, error: message }).catch((recordError: unknown) => {
                   launcherPort.writeDebugLog({
-                    message: 'launcher.auto-cover.record-failure-failed',
+                    message: 'launcher.autoCover.recordFailureFailed',
                     keyValues: {
                       modName: item.name,
                       nexusModId: String(item.nexusModId),
@@ -561,7 +561,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
               const coverKey = getLauncherCoverKey(item)
               const message = nextError instanceof Error ? nextError.message : String(nextError)
               launcherPort.writeDebugLog({
-                message: 'launcher.auto-cover.record-failure',
+                message: 'launcher.autoCover.recordFailure',
                 keyValues: {
                   modName: item.name,
                   nexusModId: item.nexusModId == null ? undefined : String(item.nexusModId),
@@ -572,7 +572,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
               })
               await launcherPort.recordImageFailure({ modKey: coverKey, error: message }).catch((recordError: unknown) => {
                 launcherPort.writeDebugLog({
-                  message: 'launcher.auto-cover.record-failure-failed',
+                  message: 'launcher.autoCover.recordFailureFailed',
                   keyValues: {
                     modName: item.name,
                     nexusModId: item.nexusModId == null ? undefined : String(item.nexusModId),
@@ -650,7 +650,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
 
           const imageFailuresPromise = launcherPort.loadImageFailures().catch((nextError: unknown) => {
             launcherPort.writeDebugLog({
-              message: 'launcher.auto-cover.image-failures-load-failed',
+              message: 'launcher.autoCover.imageFailuresLoadFailed',
               keyValues: {
                 error: nextError instanceof Error ? nextError.message : String(nextError),
               },
@@ -675,26 +675,20 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
           const savedCoverLookup = new Set(loadedCovers.covers.map((cover) => normalizeLookupKey(cover.labelKey)))
           const blockedCoverLookup = buildBlockedCoverLookup(imageFailures?.entries)
           launcherPort.writeDebugLog({
-            message: 'launcher.auto-cover.blocked-loaded',
+            message: 'launcher.autoCover.blockedLoaded',
             keyValues: {
               blockedCoverCount: String(blockedCoverLookup.size),
               imageFailureCount: String(imageFailures?.entries.length ?? 0),
             },
           })
           const suppressedUpdateModIds = normalizeSuppressedModIds(suppressedUpdateModIdsResult?.modIds)
+          // Blocked covers are logged as one summary line: a library can block
+          // hundreds, and one line each buries everything else in the console.
+          const blockedCoverSkips: string[] = []
           const eligibleMods = scan.mods.filter((item) => {
             const blockedMatch = getBlockedLauncherCoverMatch(item, blockedCoverLookup)
             if (blockedMatch) {
-              launcherPort.writeDebugLog({
-                message: 'launcher.auto-cover.skip-blocked',
-                keyValues: {
-                  modName: item.name,
-                  nexusModId: item.nexusModId == null ? undefined : String(item.nexusModId),
-                  blockedKey: blockedMatch.blockedKey,
-                  matchedCandidate: blockedMatch.candidate,
-                  candidates: getLauncherCoverKeyCandidates(item).join(','),
-                },
-              })
+              blockedCoverSkips.push(`${item.name} (${blockedMatch.blockedKey})`)
               return false
             }
 
@@ -706,6 +700,16 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
               !getLauncherCoverKeyCandidates(item).some((value) => savedCoverLookup.has(normalizeLookupKey(value)))
             )
           })
+
+          if (blockedCoverSkips.length) {
+            launcherPort.writeDebugLog({
+              message: 'launcher.autoCover.skippedBlocked',
+              keyValues: {
+                skipped: String(blockedCoverSkips.length),
+                mods: blockedCoverSkips.join(', '),
+              },
+            })
+          }
 
           if (!isRefreshActive()) {
             return

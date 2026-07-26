@@ -1,0 +1,382 @@
+.translation-workflow-header {
+  min-height: 76px;
+  background: var(--bg-panel);
+}
+
+.translation-workflow-step {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  gap: 7px;
+  border-bottom: 2px solid transparent;
+  padding: 0 10px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.translation-workflow-step > span {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  font-size: 10px;
+}
+
+.translation-workflow-step.is-active {
+  border-bottom-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.translation-workflow-step.is-active > span {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.translation-workflow-step:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.translation-workflow-error {
+  margin: 0;
+  border-bottom: 1px solid var(--danger);
+  background: var(--danger-soft);
+  padding: 9px 20px;
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.translation-workflow-setup > div,
+.translation-workflow-review > div {
+  display: grid;
+  gap: 24px;
+}
+
+.translation-workflow-setup header,
+.translation-workflow-review header {
+  display: grid;
+  gap: 8px;
+}
+
+.translation-workflow-setup h1,
+.translation-workflow-review h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 650;
+}
+
+.translation-workflow-setup header p,
+.translation-workflow-review header p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.translation-workflow-locale-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr);
+  align-items: end;
+  gap: 14px;
+  padding: 20px 0;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.translation-workflow-locale-grid label {
+  display: grid;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.translation-workflow-locale-grid > span {
+  display: grid;
+  height: 36px;
+  place-items: center;
+  color: var(--text-tertiary);
+}
+
+.translation-workflow-plan {
+  display: grid;
+  gap: 14px;
+  border-left: 3px solid var(--accent);
+  background: var(--bg-panel-muted);
+  padding: 16px 18px;
+}
+
+.translation-workflow-plan > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.translation-workflow-plan > div > span {
+  display: grid;
+  gap: 4px;
+}
+
+.translation-workflow-plan small {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.translation-workflow-plan label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.translation-workflow-setup > div > .control-button-primary {
+  justify-self: end;
+  min-width: 132px;
+}
+
+.translation-workflow-footer {
+  display: flex;
+  min-height: 52px;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-panel);
+  padding: 9px 18px;
+}
+
+.translation-workflow-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--border-color);
+}
+
+.translation-workflow-summary section {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+}
+
+.translation-workflow-summary section + section {
+  border-left: 1px solid var(--border-color);
+}
+
+.translation-workflow-summary svg {
+  width: 18px;
+  height: 18px;
+}
+
+.translation-workflow-summary [data-tone='danger'] svg {
+  color: var(--danger);
+}
+
+.translation-workflow-summary [data-tone='warning'] svg {
+  color: var(--warning);
+}
+
+.translation-workflow-summary [data-tone='success'] svg {
+  color: var(--success);
+}
+
+.translation-workflow-issues {
+  display: grid;
+  border: 1px solid var(--border-color);
+}
+
+.translation-workflow-issues button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  text-align: left;
+}
+
+.translation-workflow-issues button + button {
+  border-top: 1px solid var(--border-color);
+}
+
+.translation-workflow-issues button:hover {
+  background: var(--bg-hover);
+}
+
+.translation-workflow-issues button > span {
+  display: grid;
+  gap: 2px;
+}
+
+.translation-workflow-issues small {
+  color: var(--text-secondary);
+}
+
+.translation-workflow-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.translation-workflow-success {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  background: var(--success-soft);
+  padding: 12px 14px;
+  color: var(--success);
+}
+
+.translation-workflow-memory-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  background: var(--warning-soft);
+  padding: 12px 14px;
+  color: var(--warning);
+}
+
+.translation-context-panel {
+  width: min(320px, 28vw);
+  min-width: 250px;
+  overflow: auto;
+  border-left: 1px solid var(--border-color);
+  background: var(--bg-panel);
+}
+
+.translation-source-text {
+  display: block;
+  width: 100%;
+  cursor: text;
+  overflow: auto;
+  border-color: var(--border-color);
+  background: var(--bg-panel-muted);
+  color: var(--text-secondary);
+}
+
+.translation-source-text:focus {
+  border-color: color-mix(in srgb, var(--border-color) 88%, var(--accent));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 14%, transparent);
+  outline: none;
+}
+
+.translation-context-panel > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-color);
+  padding: 12px 14px;
+  font-size: 12px;
+}
+
+.translation-context-panel > p {
+  margin: 0;
+  padding: 16px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.translation-context-loading,
+.translation-context-error {
+  display: grid;
+  min-height: 12rem;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 16px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: center;
+}
+
+.translation-context-loading .loading-motion-fallback {
+  min-height: auto;
+  padding: 0;
+}
+
+.translation-context-error .control-button {
+  min-height: 30px;
+  padding-inline: 10px;
+}
+
+.translation-context-groups section {
+  border-bottom: 1px solid var(--border-color);
+  padding: 12px;
+}
+
+.translation-context-groups h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.translation-context-groups article {
+  display: grid;
+  gap: 4px;
+  background: var(--bg-panel-muted);
+  padding: 9px 10px;
+  font-size: 11px;
+}
+
+.translation-context-groups article + article {
+  margin-top: 6px;
+}
+
+.translation-context-groups article span,
+.translation-context-groups article small {
+  color: var(--text-secondary);
+}
+
+.translation-context-groups article button {
+  justify-self: start;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .translation-workflow-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .translation-workflow-header > div {
+    flex-basis: 100%;
+  }
+
+  .translation-workflow-step {
+    padding-inline: 6px;
+  }
+
+  .translation-workflow-locale-grid,
+  .translation-workflow-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .translation-workflow-locale-grid > span {
+    height: 20px;
+  }
+
+  .translation-workflow-summary section + section {
+    border-top: 1px solid var(--border-color);
+    border-left: 0;
+  }
+
+  .translation-context-panel {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 900px) {
+  .translation-editor-grid.has-context {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+}

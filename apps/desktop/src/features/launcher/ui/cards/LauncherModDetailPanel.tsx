@@ -1,4 +1,4 @@
-import { AlertTriangle, ExternalLink, FolderOpen, ImageIcon, X } from 'lucide-react'
+import { AlertTriangle, ExternalLink, FolderOpen, ImageIcon, Languages, RefreshCw, X } from 'lucide-react'
 import { useCallback, useEffect, useId, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditorCopy } from '@locales/provider'
@@ -8,6 +8,7 @@ import { cx } from '@shared/lib/helper'
 import { NexusModsBbcode } from '@shared/ui/nexusmods-bbcode'
 import { PanelEmptyState } from '@shared/ui/PanelSection'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
+import { Tooltip } from '@shared/ui/Tooltip'
 import type { LauncherDiscoverDetail, LauncherLibraryItem, QueueLauncherDownloadInput } from '../../model/types'
 import { useLauncherDependencyDetails, usePreloadLauncherDependencyDetails } from './dependency-tree/useLauncherDependencyDetails'
 import type { LauncherDetailMod } from './dependency-tree/dependencyTreeTypes'
@@ -16,6 +17,7 @@ import { LauncherModConfigPanel, type LauncherModConfigLeaveGuard } from './Laun
 import { ChangelogList, DependencyTree, DetailDataLoading, DetailSection, FileList, PropertyRow } from './LauncherModDetailLists'
 import { normalizeVersion, type DependencyTreeNode, type FileListItem, type LauncherDetailTab } from './launcherModDetailData'
 import { useLauncherModDetailViewModel } from './useLauncherModDetailViewModel'
+import { useLauncherAiTranslation } from './useLauncherAiTranslation'
 
 function shouldDeferDetailContent() {
   return import.meta.env.MODE !== 'test' && (typeof navigator === 'undefined' || !navigator.userAgent.toLowerCase().includes('jsdom'))
@@ -64,6 +66,7 @@ export function LauncherModDetailPanel({
   const [configLeaveGuard, setConfigLeaveGuard] = useState<LauncherModConfigLeaveGuard | null>(null)
   const [pendingConfigLeave, setPendingConfigLeave] = useState<{ kind: 'close' } | { kind: 'tab'; tab: LauncherDetailTab } | null>(null)
   const [descriptionReaderOpen, setDescriptionReaderOpen] = useState(false)
+  const [showAiTranslation, setShowAiTranslation] = useState(true)
   const [expandedDependencyNodeIds, setExpandedDependencyNodeIds] = useState<Set<string>>(new Set())
   const detailContentKey = `${mod?.id ?? 'empty'}:${remoteDetail?.modId ?? mod?.nexusModId ?? 'local'}`
   const deferDetailContent = shouldDeferDetailContent()
@@ -149,6 +152,19 @@ export function LauncherModDetailPanel({
     loadRemoteDependencyDetail,
   })
   const showDescriptionReader = open && selectedTab === 'description' && descriptionReaderOpen
+  const aiTranslation = useLauncherAiTranslation({
+    scopeKey: `launcher-mod:${remote?.modId ?? mod?.nexusModId ?? mod?.id ?? 'unknown'}`,
+    overview: overviewDescription,
+    full: fullDescription,
+    changelog: changelogItems,
+  })
+  const visibleOverview = showAiTranslation ? (aiTranslation.translation?.overview ?? overviewDescription) : overviewDescription
+  const visibleFullDescription = showAiTranslation ? (aiTranslation.translation?.full ?? fullDescription) : fullDescription
+  const visibleChangelog = showAiTranslation ? (aiTranslation.translation?.changelog ?? changelogItems) : changelogItems
+
+  useEffect(() => {
+    setShowAiTranslation(true)
+  }, [detailContentKey])
 
   const closeImmediately = useCallback(() => {
     setDescriptionReaderOpen(false)
@@ -301,7 +317,13 @@ export function LauncherModDetailPanel({
         onClick={handleClose}
       />
 
-      <section className="launcher-library-drawer-panel launcher-mod-detail-panel" role="dialog" aria-modal="true" aria-label={displayName}>
+      <section
+        className="launcher-library-drawer-panel launcher-mod-detail-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label={displayName}
+        data-guide="launcher-mod-detail"
+      >
         {showRemoteLoading ? (
           <div className="launcher-mod-detail-loading-overlay" role="status">
             <div className="launcher-mod-detail-loading-card">
@@ -430,7 +452,7 @@ export function LauncherModDetailPanel({
                       </div>
                     )}
                     <div className="launcher-mod-detail-hero-summary">
-                      <NexusModsBbcode source={overviewDescription} />
+                      <NexusModsBbcode source={visibleOverview} />
                     </div>
                   </div>
 
@@ -476,6 +498,43 @@ export function LauncherModDetailPanel({
                       </button>
                     ))}
                   </div>
+                  <div className="launcher-mod-detail-ai-tools">
+                    {aiTranslation.translation ? (
+                      <div className="launcher-mod-detail-ai-mode" role="group" aria-label={detailCopy.aiTranslate}>
+                        <button type="button" className={cx(showAiTranslation && 'is-active')} onClick={() => setShowAiTranslation(true)}>
+                          {detailCopy.aiTranslated}
+                        </button>
+                        <button type="button" className={cx(!showAiTranslation && 'is-active')} onClick={() => setShowAiTranslation(false)}>
+                          {detailCopy.aiOriginal}
+                        </button>
+                      </div>
+                    ) : (
+                      <Tooltip label={aiTranslation.state === 'loading' ? detailCopy.aiTranslating : detailCopy.aiTranslate}>
+                        <button
+                          type="button"
+                          className="icon-button h-8 w-8"
+                          disabled={aiTranslation.state === 'loading'}
+                          onClick={() => aiTranslation.translate(false)}
+                          aria-label={detailCopy.aiTranslate}
+                        >
+                          <Languages className={cx('h-3.5 w-3.5', aiTranslation.state === 'loading' && 'animate-spin')} />
+                        </button>
+                      </Tooltip>
+                    )}
+                    {aiTranslation.translation ? (
+                      <Tooltip label={detailCopy.aiRefresh}>
+                        <button
+                          type="button"
+                          className="icon-button h-8 w-8"
+                          disabled={aiTranslation.state === 'loading'}
+                          onClick={() => aiTranslation.translate(true)}
+                          aria-label={detailCopy.aiRefresh}
+                        >
+                          <RefreshCw className={cx('h-3.5 w-3.5', aiTranslation.state === 'loading' && 'animate-spin')} />
+                        </button>
+                      </Tooltip>
+                    ) : null}
+                  </div>
                   {selectedTab === 'config' ? <div className="launcher-mod-detail-tab-toolbar" ref={setConfigToolbarTarget} /> : null}
                 </div>
 
@@ -486,7 +545,7 @@ export function LauncherModDetailPanel({
                   aria-hidden={selectedTab !== 'description'}
                 >
                   <div className="launcher-mod-detail-description">
-                    {selectedTab === 'description' ? <NexusModsBbcode source={fullDescription} /> : null}
+                    {selectedTab === 'description' ? <NexusModsBbcode source={visibleFullDescription} /> : null}
                     {selectedTab === 'description' ? (
                       <button type="button" className="control-button" onClick={() => setDescriptionReaderOpen(true)}>
                         {detailCopy.readFullDescription}
@@ -507,7 +566,7 @@ export function LauncherModDetailPanel({
                         deferredFilesLoading ? (
                           <DetailDataLoading label={detailCopy.filesLoading} />
                         ) : (
-                          <ChangelogList items={changelogItems} emptyLabel={detailCopy.changelogEmpty} />
+                          <ChangelogList items={visibleChangelog} emptyLabel={detailCopy.changelogEmpty} />
                         )
                       ) : null}
                     </div>
@@ -644,7 +703,7 @@ export function LauncherModDetailPanel({
                   </button>
                 </div>
                 <article className="launcher-mod-detail-reader-body">
-                  <NexusModsBbcode source={fullDescription} />
+                  <NexusModsBbcode source={visibleFullDescription} />
                 </article>
               </div>
             ) : null}
@@ -725,7 +784,7 @@ export function LauncherModDetailPanel({
 
               <button
                 type="button"
-                className="control-button control-button-primary launcher-mod-detail-primary-action"
+                className="control-button launcher-mod-detail-primary-action"
                 onClick={() => {
                   if (isCombined && updateAvailable) {
                     const primaryFile = fileItems.find((item) => item.primary) ?? fileItems[0]

@@ -1,6 +1,7 @@
 use super::load_content_patcher_result_asset;
 use crate::domain::content_patcher::context::SimulationContext;
 use crate::domain::content_patcher::types::LoadContentPatcherResultAssetRequest;
+use base64::Engine;
 use image::RgbaImage;
 use std::path::PathBuf;
 
@@ -83,12 +84,23 @@ fn result_loader_materializes_image_data_url() {
     let result = load_content_patcher_result_asset(load_request(&root, "TileSheets/crops"))
         .expect("resolve image target");
     assert_eq!(result.result.kind, "image");
+    let encoded = result
+        .result
+        .image_data_url
+        .as_deref()
+        .and_then(|value| value.strip_prefix("data:image/png;base64,"))
+        .expect("PNG data URL");
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .expect("decode PNG data URL");
+    let image = image::load_from_memory(&bytes)
+        .expect("decode PNG image")
+        .into_rgba8();
+    assert_eq!(image.dimensions(), (2, 2));
     assert!(
-        result
-            .result
-            .image_data_url
-            .as_deref()
-            .is_some_and(|value| value.starts_with("data:image/png;base64,"))
+        image
+            .pixels()
+            .all(|pixel| pixel == &image::Rgba([255, 0, 0, 255]))
     );
     std::fs::remove_dir_all(root).expect("cleanup");
 }
@@ -112,7 +124,13 @@ fn result_loader_returns_map_debug_summary() {
         .expect("resolve map target");
     assert_eq!(result.result.kind, "map");
     let debug = result.result.map_debug.expect("map debug");
-    assert!(debug.get("layers").is_some());
-    assert!(debug.get("warps").is_some());
+    assert_eq!(
+        debug,
+        serde_json::json!({
+            "layers": [],
+            "properties": ["Music"],
+            "warps": [],
+        })
+    );
     std::fs::remove_dir_all(root).expect("cleanup");
 }

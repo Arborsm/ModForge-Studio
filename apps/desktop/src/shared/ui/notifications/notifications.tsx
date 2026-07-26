@@ -46,6 +46,8 @@ export type PublishNotificationRequest = {
   action?: NotificationAction
   autoDismissMs?: number | null
   progress?: number | null
+  /** Shows an activity indicator for a notification backed by an active task. */
+  loading?: boolean
 }
 
 export type PublishedNotification = {
@@ -63,6 +65,7 @@ export type PublishedNotification = {
   action?: PublishedNotificationAction
   autoDismissMs: number | null
   progress: number | null
+  loading: boolean
 }
 
 const DEFAULT_TRANSIENT_AUTO_DISMISS_MS = 5_000
@@ -154,6 +157,7 @@ export function publishNotification(request: PublishNotificationRequest) {
     action: normalizeAction(request.action),
     autoDismissMs: normalizeAutoDismiss(request.level, request.autoDismissMs),
     progress: normalizeProgress(request.progress),
+    loading: request.loading ?? false,
   }
 
   const existingIndex = notificationState.findIndex((item) => item.id === id)

@@ -235,88 +235,13 @@
 
 ### 11.1 Playwright 使用示例
 
-项目已安装 Playwright，下面是验证布局常用的脚本模式。
+项目已安装 Playwright。先启动 `vp run web:dev`，再运行对应的真实应用验证脚本，例如：
 
-#### 测量分隔线是否居中
-
-```js
-// scripts/measure-divider-mock.mjs
-import { chromium } from 'playwright'
-import { join } from 'node:path'
-
-const path = join(process.cwd(), 'prototype', 'item-workspace-divider-mock.html').replace(/\\/g, '/')
-
-async function main() {
-  const browser = await chromium.launch()
-  const page = await browser.newPage({ viewport: { width: 1100, height: 500 } })
-  await page.goto('file:///' + path)
-  await page.waitForSelector('.item-workspace-pane')
-
-  const result = await page.evaluate(() => {
-    const nav = document.querySelectorAll('.item-workspace-pane')[0].getBoundingClientRect()
-    const catalog = document.querySelectorAll('.item-workspace-pane')[1].getBoundingClientRect()
-    const divider = document.querySelectorAll('.item-workspace-divider')[0].getBoundingClientRect()
-
-    return {
-      gapCenter: nav.right + (catalog.x - nav.right) / 2,
-      dividerCenter: divider.x + divider.width / 2,
-    }
-  })
-
-  console.log('gap center:', result.gapCenter)
-  console.log('divider center:', result.dividerCenter)
-  console.log('offset:', Math.abs(result.gapCenter - result.dividerCenter))
-
-  await browser.close()
-}
-
-main().catch((error) => {
-  console.error(error)
-  process.exit(1)
-})
+```bash
+vp run --filter @modforge/desktop test:launcher-drag
 ```
 
-如果 `offset` 超过 1px，说明分隔线没有真正居中，先改 CSS/mock，不要直接改产品代码。
-
-#### 测量实际应用中的面板边界
-
-```js
-const page = await browser.newPage({ viewport: { width: 1400, height: 900 } })
-await page.goto('http://localhost:5173') // 或实际桌面端窗口
-
-const rects = await page.evaluate(() => {
-  const nav = document.querySelector('[data-panel-id="item-navigation"]')?.getBoundingClientRect()
-  const catalog = document.querySelector('[data-panel-id="item-catalog"]')?.getBoundingClientRect()
-  const resizer = document.querySelector('.workspace-dock-resizer-right')?.getBoundingClientRect()
-  return { nav, catalog, resizer }
-})
-
-console.log(JSON.stringify(rects, null, 2))
-```
-
-#### 检查长文本是否溢出
-
-```js
-await page.evaluate(() => {
-  const title = document.querySelector('h2')
-  if (!title) return null
-  return {
-    scrollWidth: title.scrollWidth,
-    clientWidth: title.clientWidth,
-    overflows: title.scrollWidth > title.clientWidth,
-  }
-})
-```
-
-#### 截图只作为辅助
-
-```js
-await page.screenshot({
-  path: join(process.cwd(), 'prototype', 'item-workspace-divider-mock.png'),
-})
-```
-
-截图用于和设计师/用户确认观感，但**对齐、居中、间距问题优先用 `getBoundingClientRect()` 排查**。
+新增布局脚本必须在真实页面上选择稳定的 `data-*` 或 ARIA 契约，使用 `getBoundingClientRect()`、`scrollWidth/clientWidth` 等数值做失败断言，并在控件缺失时直接失败。截图只用于确认观感，不能替代对齐、居中、间距或溢出的可执行断言。
 
 ## 12. 检查清单
 

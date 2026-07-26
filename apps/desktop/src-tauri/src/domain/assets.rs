@@ -5,7 +5,7 @@ pub mod types;
 
 pub use types::{
     AudioAssetSummary, EventAssetSummary, FileCacheStats, GameDirectoryInfo, LocalTextFileContent,
-    MapAssetContent, MapAssetSummary, TextAssetContent,
+    MapAssetContent, MapAssetSummary, ParsedEventAssetContent, TextAssetContent,
 };
 
 use base64::Engine;
@@ -28,6 +28,7 @@ use crate::infrastructure::fs::pathing::{
 };
 use crate::infrastructure::game_formats::tbin::parse_tbin_map;
 use crate::infrastructure::game_formats::xnb::{self, read_xnb_from_path};
+use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 
 const FILE_CACHE_VERSION: u32 = 1;
@@ -341,11 +342,10 @@ fn read_cached_string_asset(
     let bytes = match fs::read(&cache_path) {
         Ok(bytes) => bytes,
         Err(error) => {
-            log::warn!(
-                "Failed to read cache file {}: {}",
-                normalize_path(&cache_path),
-                error
-            );
+            LogEvent::new("assets.cache.readFailed")
+                .path("cachePath", &cache_path)
+                .error(error)
+                .emit_warn(targets::ASSETS);
             return Ok(None);
         }
     };
@@ -353,11 +353,10 @@ fn read_cached_string_asset(
     let cached = match serde_json::from_slice::<CachedStringAsset>(&bytes) {
         Ok(cached) => cached,
         Err(error) => {
-            log::warn!(
-                "Failed to deserialize cache file {}: {}",
-                normalize_path(&cache_path),
-                error
-            );
+            LogEvent::new("assets.cache.deserializeFailed")
+                .path("cachePath", &cache_path)
+                .error(error)
+                .emit_warn(targets::ASSETS);
             return Ok(None);
         }
     };
@@ -483,10 +482,19 @@ fn unpacked_text_asset_path(root: &Path, relative_path: &Path) -> Option<PathBuf
     Some(unpacked_path)
 }
 
-fn read_unpacked_text_asset(root: &Path, relative_path: &Path) -> anyhow::Result<Option<String>> {
+fn read_unpacked_text_asset(
+    root: &Path,
+    relative_path: &Path,
+    locale: Option<&str>,
+) -> anyhow::Result<Option<String>> {
     let Some(unpacked_path) = unpacked_text_asset_path(root, relative_path) else {
         return Ok(None);
     };
+
+    let unpacked_path = locale
+        .and_then(|locale| localized_variant_path(&unpacked_path, locale))
+        .filter(|path| path.exists())
+        .unwrap_or(unpacked_path);
 
     if !unpacked_path.exists() {
         return Ok(None);
@@ -853,11 +861,11 @@ pub(crate) fn load_map_asset(
                 if let Err(error) =
                     write_cached_string_asset("map", &absolute_path, requested_locale, &content)
                 {
-                    log::warn!(
-                        "Failed to cache parsed map {}: {}",
-                        normalize_path(&absolute_path),
-                        error
-                    );
+                    LogEvent::new("assets.cache.writeFailed")
+                        .field("kind", "map")
+                        .path("assetPath", &absolute_path)
+                        .error(error)
+                        .emit_warn(targets::ASSETS);
                 }
                 content
             }
@@ -928,14 +936,15 @@ pub(crate) fn load_text_asset(
                         )
                     }
                     Err(xnb_error) => {
-                        if let Some(content) =
-                            read_unpacked_text_asset(&root, &logical_relative_path)?
-                        {
-                            log::warn!(
-                                "Falling back to unpacked JSON for {} after XNB parse failure: {}",
-                                normalize_path(&absolute_path),
-                                xnb_error
-                            );
+                        if let Some(content) = read_unpacked_text_asset(
+                            &root,
+                            &logical_relative_path,
+                            requested_locale,
+                        )? {
+                            LogEvent::new("assets.xnb.unpackedFallback")
+                                .path("assetPath", &absolute_path)
+                                .error(xnb_error)
+                                .emit_warn(targets::ASSETS);
                             (content, None)
                         } else {
                             let fallback_hint =
@@ -963,11 +972,11 @@ pub(crate) fn load_text_asset(
                         requested_locale,
                         &content,
                     ) {
-                        log::warn!(
-                            "Failed to cache text asset {}: {}",
-                            normalize_path(&absolute_path),
-                            error
-                        );
+                        LogEvent::new("assets.cache.writeFailed")
+                            .field("kind", "text-asset")
+                            .path("assetPath", &absolute_path)
+                            .error(error)
+                            .emit_warn(targets::ASSETS);
                     }
                 }
                 content
@@ -991,11 +1000,11 @@ pub(crate) fn load_text_asset(
                     requested_locale,
                     &content,
                 ) {
-                    log::warn!(
-                        "Failed to cache text file {}: {}",
-                        normalize_path(&absolute_path),
-                        error
-                    );
+                    LogEvent::new("assets.cache.writeFailed")
+                        .field("kind", "text-file")
+                        .path("assetPath", &absolute_path)
+                        .error(error)
+                        .emit_warn(targets::ASSETS);
                 }
                 content
             }
@@ -1006,6 +1015,21 @@ pub(crate) fn load_text_asset(
         absolute_path: normalize_path(&absolute_path),
         relative_path: normalize_path(&logical_relative_path),
         content,
+    })
+}
+
+/// Loads and parses a Stardew event asset using the canonical Rust event grammar.
+pub(crate) fn load_event_asset(
+    root_path: String,
+    asset_path: String,
+    locale: Option<String>,
+) -> anyhow::Result<ParsedEventAssetContent> {
+    let loaded = load_text_asset(root_path, asset_path, locale)?;
+    let events = crate::domain::event_script::parse_event_asset_json(&loaded.content)?;
+    Ok(ParsedEventAssetContent {
+        absolute_path: loaded.absolute_path,
+        relative_path: loaded.relative_path,
+        events,
     })
 }
 
@@ -1064,11 +1088,11 @@ pub(crate) fn load_image_data_url(path: String, locale: Option<String>) -> anyho
         if let Err(error) =
             write_cached_string_asset("image", &absolute_path, requested_locale, &payload)
         {
-            log::warn!(
-                "Failed to cache image asset {}: {}",
-                normalize_path(&absolute_path),
-                error
-            );
+            LogEvent::new("assets.cache.writeFailed")
+                .field("kind", "image")
+                .path("assetPath", &absolute_path)
+                .error(error)
+                .emit_warn(targets::ASSETS);
         }
         return Ok(payload);
     }
@@ -1085,11 +1109,11 @@ pub(crate) fn load_image_data_url(path: String, locale: Option<String>) -> anyho
     if let Err(error) =
         write_cached_string_asset("image", &absolute_path, requested_locale, &payload)
     {
-        log::warn!(
-            "Failed to cache image asset {}: {}",
-            normalize_path(&absolute_path),
-            error
-        );
+        LogEvent::new("assets.cache.writeFailed")
+            .field("kind", "image")
+            .path("assetPath", &absolute_path)
+            .error(error)
+            .emit_warn(targets::ASSETS);
     }
     Ok(payload)
 }

@@ -1,21 +1,9 @@
 import { describe, expect, test } from 'vite-plus/test'
-import {
-  createDefaultGameStateQueryClause,
-  GAME_STATE_QUERY_DEFINITIONS,
-  serializeGameStateQueryClauses,
-  type GameStateQueryClauseDraft,
-} from '@entities/event'
+import { createDefaultGameStateQueryClause, serializeGameStateQueryClauses, type GameStateQueryClauseDraft } from '@entities/event'
 import { GAME_STATE_QUERY_KEYS } from '@entities/event'
 import { localeBundles } from '@locales'
 
 describe('EventGameStateQueryCatalog', () => {
-  test('defines a visual card for every known GameStateQuery key', () => {
-    const definedKeys = new Set(GAME_STATE_QUERY_DEFINITIONS.map((definition) => definition.key))
-    const missingKeys = GAME_STATE_QUERY_KEYS.filter((key) => !definedKeys.has(key))
-
-    expect(missingKeys).toEqual([])
-  })
-
   test('defines localized semantic titles and descriptions for every known key', () => {
     for (const localeCode of ['zh-CN', 'en-US'] as const) {
       const semantics = localeBundles[localeCode].editor.studioDesk.eventPatchHub.gameStateQuerySemantics

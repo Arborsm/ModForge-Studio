@@ -1,0 +1,34 @@
+{
+  "name": "@modforge/installer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "ModForge Studio custom Windows installer - branded Tauri 2 + React setup experience",
+  "author": "ModForge Studio <dev@modforge.studio>",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "dev": "vp dev --configLoader runner",
+    "build": "node ./scripts/build-web.cjs",
+    "tauri:dev": "node ./scripts/run-tauri-cli.cjs dev",
+    "tauri:build": "node ./scripts/run-tauri-cli.cjs build --no-bundle",
+    "installer:build": "node ./scripts/build-installer.cjs",
+    "installer:build:only": "node ./scripts/build-installer.cjs --skip-app-build",
+    "type-check": "node ./scripts/build-web.cjs --type-check-only"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-dialog": "^2.7.1",
+    "i18next": "^25.8.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-i18next": "^16.5.3"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "typescript": "~7.0.2",
+    "vite-plus": "catalog:"
+  }
+}

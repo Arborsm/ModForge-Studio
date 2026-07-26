@@ -269,4 +269,41 @@ describe('dependency tree builder', () => {
     expect(tree.items.find((item) => item.name === 'Provider')?.children[0]?.statusKind).toBe('cycle')
     expect(tree.issueCount).toBe(2)
   })
+
+  it('deduplicates references that resolve to the same mod under different spellings', () => {
+    const catalogue = mod({
+      id: 'catalogue',
+      name: 'OB7 Furni Catalogue',
+      uniqueId: 'OB7.FurniCatalogue',
+      nexusModId: 23073,
+    })
+    const consumer = mod({
+      id: 'consumer',
+      uniqueId: 'OB7.KichFurni',
+      dependencies: [{ uniqueId: 'FurniCatalogue', required: true }],
+    })
+    const tree = buildLauncherDependencyTree({
+      mod: consumer,
+      remote: remote({
+        requirements: [
+          {
+            name: 'OB7 Furni Catalogue',
+            notes: 'Required',
+            url: 'https://www.nexusmods.com/stardewvalley/mods/23073',
+            modId: 23073,
+            external: false,
+          },
+        ],
+      }),
+      libraryMods: [consumer, catalogue],
+      remoteDependencyDetails: {},
+      copy,
+      rootImageUrl: null,
+    })
+
+    expect(tree.items).toHaveLength(1)
+    expect(tree.items[0]?.id).toBe('root:OB7.KichFurni:ob7furnicatalogue:23073')
+    expect(tree.items[0]?.name).toBe('OB7 Furni Catalogue')
+    expect(tree.items[0]?.statusKind).toBe('satisfied')
+  })
 })

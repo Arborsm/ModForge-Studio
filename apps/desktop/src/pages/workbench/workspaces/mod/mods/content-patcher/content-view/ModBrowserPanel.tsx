@@ -1,4 +1,4 @@
-import { Archive, Check, Filter, FolderOpen, RefreshCw, Search } from 'lucide-react'
+import { Archive, Check, Filter, FolderOpen, Plus, RefreshCw, Search } from 'lucide-react'
 import type { ModProjectSummary } from '@entities/mod/api'
 import { useModCopy, useTranslationEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
@@ -80,7 +80,7 @@ function ProjectRow({
   })
 
   return (
-    <button type="button" disabled={isIncompatible} {...revealProps} onClick={onSelect}>
+    <button type="button" disabled={isIncompatible} aria-pressed={active} {...revealProps} onClick={onSelect}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-(--text-primary)">{project.name}</p>
@@ -146,30 +146,50 @@ export function ModBrowserPanel({
   const i18nCopy = useTranslationEditorCopy()
   const isI18nMode = mode === 'i18n'
   if (isI18nMode) {
+    const managementActions = [
+      onOpenFolder ? { label: i18nCopy.browserOpenFolder, icon: FolderOpen, action: onOpenFolder } : null,
+      onImportProject ? { label: i18nCopy.browserImportProject, icon: Plus, action: onImportProject } : null,
+    ].filter(Boolean) as Array<{ label: string; icon: typeof FolderOpen; action: () => void }>
     return (
-      <div className="mod-translation-browser-pane flex h-full flex-col overflow-hidden border-r border-(--border-color)/60 p-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="mod-translation-browser-pane flex h-full flex-col overflow-hidden p-4">
+        <div className="mb-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[0.625rem] font-bold tracking-[0.16em] text-(--text-tertiary) uppercase">{i18nCopy.browserTitle}</p>
-            <p className="mt-1 truncate text-xs text-(--text-secondary)">{i18nCopy.browserProjectsCount(filteredProjects.length)}</p>
+            <h1 className="truncate text-base font-semibold text-(--text-primary)">{i18nCopy.browserTitle}</h1>
+            <p className="mt-1 truncate text-xs text-(--text-secondary)">{i18nCopy.browserProjectsCount(projects.length)}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <button type="button" className="control-button h-8 px-2.5 text-xs" onClick={onRefreshProjects}>
+            {managementActions.map(({ label, icon: Icon, action }) => (
+              <button key={label} type="button" className="icon-button h-9 w-9" title={label} aria-label={label} onClick={action}>
+                <Icon className="h-4 w-4" />
+              </button>
+            ))}
+            <button
+              type="button"
+              className="icon-button h-9 w-9"
+              title={i18nCopy.browserRefreshProjects}
+              aria-label={i18nCopy.browserRefreshProjects}
+              onClick={onRefreshProjects}
+            >
               <RefreshCw className="h-4 w-4" />
-              <span>{i18nCopy.browserRefreshProjects}</span>
             </button>
           </div>
         </div>
 
-        <div className="relative mb-3">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-(--text-tertiary)" />
-          <input
-            className="control-input bg-(--bg-panel-muted) pl-9"
-            value={modFilter}
-            onChange={(event) => onFilterChange(event.target.value)}
-            placeholder={i18nCopy.browserSearchPlaceholder}
-            spellCheck={false}
-          />
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <div className="relative min-w-60 flex-1">
+            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-(--text-tertiary)" />
+            <input
+              className="control-input bg-(--bg-panel-muted) pl-9"
+              value={modFilter}
+              onChange={(event) => onFilterChange(event.target.value)}
+              placeholder={i18nCopy.browserSearchPlaceholder}
+              spellCheck={false}
+            />
+          </div>
+          <label className="flex h-9 cursor-pointer items-center gap-2 text-xs text-(--text-secondary)">
+            <input type="checkbox" checked={i18nOnly} onChange={(event) => onI18nOnlyChange?.(event.target.checked)} />
+            <span>{i18nCopy.browserI18nOnly}</span>
+          </label>
         </div>
 
         <div className="custom-scrollbar min-h-0 flex-1 overflow-auto pr-1">
@@ -190,6 +210,7 @@ export function ModBrowserPanel({
                           : 'text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
                       ),
                     })}
+                    aria-pressed={active}
                     onClick={() => onSelectProject(project.absolutePath)}
                   >
                     <div className="min-w-0">
@@ -198,7 +219,10 @@ export function ModBrowserPanel({
                         {i18nCopy.browserProjectMeta(project.author, project.version, project.uniqueId)}
                       </p>
                     </div>
-                    {active ? <Check className="h-3.5 w-3.5 shrink-0" aria-label={i18nCopy.browserSelectedLabel} /> : null}
+                    <span className="flex shrink-0 items-center gap-2 text-[11px] text-(--text-tertiary)">
+                      {i18nCopy.browserI18nEntries(project.i18nEntryCount)}
+                      {active ? <Check className="h-3.5 w-3.5 text-(--accent)" aria-label={i18nCopy.browserSelectedLabel} /> : null}
+                    </span>
                   </button>
                 )
               })}
@@ -206,8 +230,12 @@ export function ModBrowserPanel({
           ) : (
             <div className="panel-empty-state flex min-h-48 items-center justify-center text-center">
               <div>
-                <p className="text-base font-semibold text-(--text-primary)">{i18nCopy.browserEmptyTitle}</p>
-                <p className="mt-2 text-sm leading-6 text-(--text-secondary)">{i18nCopy.browserEmptyDescription}</p>
+                <p className="text-base font-semibold text-(--text-primary)">
+                  {projects.length ? i18nCopy.browserNoMatchesTitle : i18nCopy.browserEmptyTitle}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-(--text-secondary)">
+                  {projects.length ? i18nCopy.browserNoMatchesDescription : i18nCopy.browserEmptyDescription}
+                </p>
               </div>
             </div>
           )}

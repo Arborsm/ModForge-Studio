@@ -1,5 +1,5 @@
 use crate::host_commands::HostCommandName;
-use crate::support::logging::DebugLoggingState;
+use crate::support::logging::{DebugLoggingState, LogEvent, targets};
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, VecDeque};
@@ -10,7 +10,6 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, mpsc};
 
-const HOST_RUNTIME_LOG_TARGET: &str = "HostRuntime";
 const HOST_RUNTIME_STATS_ENV: &str = "MODFORGE_HOST_RUNTIME_STATS";
 const HOST_RUNTIME_RECENT_EVENTS_LIMIT: usize = 128;
 const HOST_RUNTIME_SLOW_SAMPLE_LIMIT: usize = 5;
@@ -45,11 +44,25 @@ pub enum HostCommandLane {
 pub enum HostCommandExecutionPool {
     Lane,
     LauncherImageCdn,
+    Ai,
+    AiOfficialIndexing,
+    AiSemanticIndexing,
+    AiSemanticSearch,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum HostCommandResource {
     AppUiState,
+    AiSettings,
+    LocalizationSettings,
+    MachineTranslationSettings,
+    AiTranslationCache,
+    AiUsageLedger,
+    AiOfficialLocalizationIndex,
+    AiLocalizationKnowledge,
+    AiSemanticSettings,
+    AiSemanticModel,
+    AiSemanticIndex,
     LauncherSettings,
     LauncherLibraryState,
     LauncherLibraryCovers,
@@ -94,6 +107,9 @@ pub struct HostCommandSchedulerConfig {
     pub io_max_concurrency: usize,
     pub mutation_max_concurrency: usize,
     pub launcher_image_cdn_max_concurrency: usize,
+    pub ai_max_concurrency: usize,
+    pub ai_queue_capacity: usize,
+    pub ai_official_indexing_queue_capacity: usize,
     pub pool_queue_capacity: usize,
 }
 
@@ -108,6 +124,9 @@ impl Default for HostCommandSchedulerConfig {
             mutation_max_concurrency: 1,
             launcher_image_cdn_max_concurrency:
                 crate::domain::nexusmods::endpoints::IMAGE_CDN_DEFAULT_CONCURRENCY,
+            ai_max_concurrency: 2,
+            ai_queue_capacity: 64,
+            ai_official_indexing_queue_capacity: 8,
             pool_queue_capacity: 256,
         }
     }
@@ -121,6 +140,9 @@ impl HostCommandSchedulerConfig {
             io_max_concurrency: self.io_max_concurrency.max(1),
             mutation_max_concurrency: self.mutation_max_concurrency.max(1),
             launcher_image_cdn_max_concurrency: self.launcher_image_cdn_max_concurrency.max(1),
+            ai_max_concurrency: self.ai_max_concurrency.max(1),
+            ai_queue_capacity: self.ai_queue_capacity.max(1),
+            ai_official_indexing_queue_capacity: self.ai_official_indexing_queue_capacity.max(1),
             pool_queue_capacity: self.pool_queue_capacity.max(1),
         }
     }
@@ -156,7 +178,14 @@ pub trait HostCommandResponseWriter: Send + Sync {
 
 #[derive(Debug, Clone)]
 pub struct HostRuntimeTelemetrySnapshot {
-    pub summary: String,
+    event: LogEvent,
+}
+
+impl HostRuntimeTelemetrySnapshot {
+    /// Renders the diagnostics event exactly as it reaches the log sinks.
+    pub fn render(&self) -> String {
+        self.event.render()
+    }
 }
 
 #[derive(Clone)]
@@ -287,11 +316,6 @@ impl HostRuntimeTelemetry {
             .map(HostRuntimePoolTelemetry::snapshot)
             .collect::<Vec<_>>();
         let mut summary = String::new();
-        let _ = writeln!(
-            summary,
-            "HostRuntime stats summary reason={reason} uptime={}",
-            format_duration_ms(elapsed_ms)
-        );
         let _ = writeln!(summary, "Pools");
         let mut recent_events = Vec::new();
         let mut anomaly_rows = Vec::new();
@@ -312,22 +336,19 @@ impl HostRuntimeTelemetry {
             let avg_elapsed_ms = average_ms(snapshot.elapsed_ms, snapshot.started);
             let avg_resource_wait_ms = average_ms(snapshot.resource_wait_ms, snapshot.started);
             let pool_name = pool_label(snapshot.lane, snapshot.execution_pool);
-            let _ = writeln!(summary, "  {pool_name}");
+            // One aligned row per pool. Four rows each turned a nine-pool
+            // snapshot into a wall of text nobody reads.
             let _ = writeln!(
                 summary,
-                "    load active={}/{} peak={}/{} {:.1}% {} usage={:.1}% {}",
+                "  {:<28} {} usage={:>5.1}%  active={}/{} peak={}/{} {:>5.1}%  jobs={:<6} ok={:<6} fail={:<4} rej={:<4} q={}/{} peakQ={}/{} {:>5.1}%  avgQ={:<8} avgRun={:<8} avgLock={}",
+                pool_name,
+                progress_bar(usage_percent),
+                usage_percent,
                 snapshot.active,
                 snapshot.max_concurrency,
                 snapshot.peak_active,
                 snapshot.max_concurrency,
                 peak_active_percent,
-                progress_bar(peak_active_percent),
-                usage_percent,
-                progress_bar(usage_percent)
-            );
-            let _ = writeln!(
-                summary,
-                "    work jobs={} ok={} fail={} rej={} queue={}/{} peakQ={}/{} {:.1}%",
                 snapshot.submitted,
                 snapshot.succeeded,
                 snapshot.failed,
@@ -336,11 +357,7 @@ impl HostRuntimeTelemetry {
                 snapshot.queue_capacity,
                 snapshot.peak_queue,
                 snapshot.queue_capacity,
-                peak_queue_percent
-            );
-            let _ = writeln!(
-                summary,
-                "    time avgQ={} avgRun={} avgLock={}",
+                peak_queue_percent,
                 format_ms(avg_queue_ms),
                 format_ms(avg_elapsed_ms),
                 format_ms(avg_resource_wait_ms)
@@ -398,7 +415,12 @@ impl HostRuntimeTelemetry {
                 );
             }
         }
-        HostRuntimeTelemetrySnapshot { summary }
+        HostRuntimeTelemetrySnapshot {
+            event: LogEvent::new("hostRuntime.stats")
+                .field("reason", reason)
+                .field("uptime", format_duration_ms(elapsed_ms))
+                .block(summary),
+        }
     }
 
     fn print_summary(&self, reason: &str) {
@@ -413,11 +435,12 @@ impl HostRuntimeTelemetry {
     }
 
     fn print_snapshot(&self, snapshot: HostRuntimeTelemetrySnapshot) {
-        if self.has_failures() {
-            log_summary_lines(log::Level::Warn, &snapshot.summary);
+        let level = if self.has_failures() {
+            log::Level::Warn
         } else {
-            log_summary_lines(log::Level::Info, &snapshot.summary);
-        }
+            log::Level::Info
+        };
+        snapshot.event.emit(level, targets::HOST_RUNTIME);
     }
 
     fn should_record(&self) -> bool {
@@ -646,6 +669,16 @@ impl HostRuntimePoolTelemetry {
 
 pub struct HostCommandResourceLocks {
     app_ui_state: Mutex<()>,
+    ai_settings: Mutex<()>,
+    localization_settings: Mutex<()>,
+    machine_translation_settings: Mutex<()>,
+    ai_translation_cache: Mutex<()>,
+    ai_usage_ledger: Mutex<()>,
+    ai_official_localization_index: Mutex<()>,
+    ai_localization_knowledge: Mutex<()>,
+    ai_semantic_settings: Mutex<()>,
+    ai_semantic_model: Mutex<()>,
+    ai_semantic_index: Mutex<()>,
     launcher_settings: Mutex<()>,
     launcher_library_state: Mutex<()>,
     launcher_library_covers: Mutex<()>,
@@ -666,6 +699,16 @@ impl HostCommandResourceLocks {
     pub fn new() -> Self {
         Self {
             app_ui_state: Mutex::new(()),
+            ai_settings: Mutex::new(()),
+            localization_settings: Mutex::new(()),
+            machine_translation_settings: Mutex::new(()),
+            ai_translation_cache: Mutex::new(()),
+            ai_usage_ledger: Mutex::new(()),
+            ai_official_localization_index: Mutex::new(()),
+            ai_localization_knowledge: Mutex::new(()),
+            ai_semantic_settings: Mutex::new(()),
+            ai_semantic_model: Mutex::new(()),
+            ai_semantic_index: Mutex::new(()),
             launcher_settings: Mutex::new(()),
             launcher_library_state: Mutex::new(()),
             launcher_library_covers: Mutex::new(()),
@@ -698,6 +741,18 @@ impl HostCommandResourceLocks {
     fn lock_one(&self, resource: &HostCommandResource) -> MutexGuard<'_, ()> {
         let lock = match resource {
             HostCommandResource::AppUiState => &self.app_ui_state,
+            HostCommandResource::AiSettings => &self.ai_settings,
+            HostCommandResource::LocalizationSettings => &self.localization_settings,
+            HostCommandResource::MachineTranslationSettings => &self.machine_translation_settings,
+            HostCommandResource::AiTranslationCache => &self.ai_translation_cache,
+            HostCommandResource::AiUsageLedger => &self.ai_usage_ledger,
+            HostCommandResource::AiOfficialLocalizationIndex => {
+                &self.ai_official_localization_index
+            }
+            HostCommandResource::AiLocalizationKnowledge => &self.ai_localization_knowledge,
+            HostCommandResource::AiSemanticSettings => &self.ai_semantic_settings,
+            HostCommandResource::AiSemanticModel => &self.ai_semantic_model,
+            HostCommandResource::AiSemanticIndex => &self.ai_semantic_index,
             HostCommandResource::LauncherSettings => &self.launcher_settings,
             HostCommandResource::LauncherLibraryState => &self.launcher_library_state,
             HostCommandResource::LauncherLibraryCovers => &self.launcher_library_covers,
@@ -712,10 +767,9 @@ impl HostCommandResourceLocks {
                 let mut dynamic = match self.dynamic.lock() {
                     Ok(dynamic) => dynamic,
                     Err(poisoned) => {
-                        log::error!(
-                            target: HOST_RUNTIME_LOG_TARGET,
-                            "Host command dynamic resource registry lock was poisoned"
-                        );
+                        LogEvent::new("hostRuntime.lock.poisoned")
+                            .field("resource", "dynamic-resource-registry")
+                            .emit_error(targets::HOST_RUNTIME);
                         poisoned.into_inner()
                     }
                 };
@@ -730,11 +784,9 @@ impl HostCommandResourceLocks {
         match lock.lock() {
             Ok(guard) => guard,
             Err(poisoned) => {
-                log::error!(
-                    target: "HostRuntime",
-                    "Host command resource lock was poisoned: resource={:?}",
-                    resource
-                );
+                LogEvent::new("hostRuntime.lock.poisoned")
+                    .debug("resource", resource)
+                    .emit_error(targets::HOST_RUNTIME);
                 poisoned.into_inner()
             }
         }
@@ -769,6 +821,10 @@ pub struct HostCommandScheduler {
     io: HostCommandLaneSender,
     mutation: HostCommandLaneSender,
     launcher_image_cdn: HostCommandLaneSender,
+    ai: HostCommandLaneSender,
+    ai_official_indexing: HostCommandLaneSender,
+    ai_semantic_indexing: HostCommandLaneSender,
+    ai_semantic_search: HostCommandLaneSender,
     writer: Arc<dyn HostCommandResponseWriter>,
     telemetry: HostRuntimeTelemetry,
 }
@@ -812,6 +868,30 @@ impl HostCommandScheduler {
                 max_concurrency: config.launcher_image_cdn_max_concurrency,
                 queue_capacity: config.pool_queue_capacity,
             },
+            HostRuntimePoolDescriptor {
+                lane: HostCommandLane::Network,
+                execution_pool: HostCommandExecutionPool::Ai,
+                max_concurrency: config.ai_max_concurrency,
+                queue_capacity: config.ai_queue_capacity,
+            },
+            HostRuntimePoolDescriptor {
+                lane: HostCommandLane::Mutation,
+                execution_pool: HostCommandExecutionPool::AiOfficialIndexing,
+                max_concurrency: 1,
+                queue_capacity: config.ai_official_indexing_queue_capacity,
+            },
+            HostRuntimePoolDescriptor {
+                lane: HostCommandLane::Mutation,
+                execution_pool: HostCommandExecutionPool::AiSemanticIndexing,
+                max_concurrency: 1,
+                queue_capacity: config.ai_official_indexing_queue_capacity,
+            },
+            HostRuntimePoolDescriptor {
+                lane: HostCommandLane::Network,
+                execution_pool: HostCommandExecutionPool::AiSemanticSearch,
+                max_concurrency: 1,
+                queue_capacity: config.ai_queue_capacity,
+            },
         ];
         let telemetry = HostRuntimeTelemetry::new(debug_logging_state, &pool_descriptors);
         Self {
@@ -850,6 +930,34 @@ impl HostCommandScheduler {
                 telemetry.pool(pool_descriptors[4].lane, pool_descriptors[4].execution_pool),
                 telemetry.clone(),
             ),
+            ai: spawn_pool(
+                pool_descriptors[5],
+                Arc::clone(&writer),
+                Arc::clone(&resources),
+                telemetry.pool(pool_descriptors[5].lane, pool_descriptors[5].execution_pool),
+                telemetry.clone(),
+            ),
+            ai_official_indexing: spawn_pool(
+                pool_descriptors[6],
+                Arc::clone(&writer),
+                Arc::clone(&resources),
+                telemetry.pool(pool_descriptors[6].lane, pool_descriptors[6].execution_pool),
+                telemetry.clone(),
+            ),
+            ai_semantic_indexing: spawn_pool(
+                pool_descriptors[7],
+                Arc::clone(&writer),
+                Arc::clone(&resources),
+                telemetry.pool(pool_descriptors[7].lane, pool_descriptors[7].execution_pool),
+                telemetry.clone(),
+            ),
+            ai_semantic_search: spawn_pool(
+                pool_descriptors[8],
+                Arc::clone(&writer),
+                Arc::clone(&resources),
+                telemetry.pool(pool_descriptors[8].lane, pool_descriptors[8].execution_pool),
+                telemetry.clone(),
+            ),
             writer,
             telemetry,
         }
@@ -858,6 +966,10 @@ impl HostCommandScheduler {
     pub fn submit(&self, mut command: ResolvedHostCommand) {
         let sender = match command.execution_pool {
             HostCommandExecutionPool::LauncherImageCdn => &self.launcher_image_cdn,
+            HostCommandExecutionPool::Ai => &self.ai,
+            HostCommandExecutionPool::AiOfficialIndexing => &self.ai_official_indexing,
+            HostCommandExecutionPool::AiSemanticIndexing => &self.ai_semantic_indexing,
+            HostCommandExecutionPool::AiSemanticSearch => &self.ai_semantic_search,
             HostCommandExecutionPool::Lane => match command.lane {
                 HostCommandLane::Control => &self.control,
                 HostCommandLane::Network => &self.network,
@@ -889,28 +1001,25 @@ impl HostCommandScheduler {
                         command.name
                     ))),
                 };
-                log::error!(
-                    target: HOST_RUNTIME_LOG_TARGET,
-                    "Failed to enqueue host command: id={} command={} lane={:?} pool={:?} reason={}",
-                    response.id,
-                    command.name,
-                    sender.lane,
-                    sender.execution_pool,
-                    reason
-                );
+                LogEvent::new("hostRuntime.command.enqueueFailed")
+                    .field("id", &response.id)
+                    .field("command", &command.name)
+                    .debug("lane", sender.lane)
+                    .debug("pool", sender.execution_pool)
+                    .field("reason", reason)
+                    .emit_error(targets::HOST_RUNTIME);
                 if let Err(error) = self.writer.write_response(&response) {
                     sender
                         .telemetry
                         .record_writer_failed(record_telemetry, &command.name);
-                    log::error!(
-                        target: HOST_RUNTIME_LOG_TARGET,
-                        "Failed to write host command enqueue error response: id={} command={} lane={:?} pool={:?} error={}",
-                        response.id,
-                        command.name,
-                        sender.lane,
-                        sender.execution_pool,
-                        error
-                    );
+                    LogEvent::new("hostRuntime.response.writeFailed")
+                        .field("phase", "enqueue-error")
+                        .field("id", &response.id)
+                        .field("command", &command.name)
+                        .debug("lane", sender.lane)
+                        .debug("pool", sender.execution_pool)
+                        .error(error)
+                        .emit_error(targets::HOST_RUNTIME);
                 }
             }
         }
@@ -964,13 +1073,11 @@ async fn run_pool_dispatcher(
         let permit = match Arc::clone(&semaphore).acquire_owned().await {
             Ok(permit) => permit,
             Err(error) => {
-                log::error!(
-                    target: HOST_RUNTIME_LOG_TARGET,
-                    "Host command pool semaphore closed: lane={:?} pool={:?} error={}",
-                    descriptor.lane,
-                    descriptor.execution_pool,
-                    error
-                );
+                LogEvent::new("hostRuntime.pool.semaphoreClosed")
+                    .debug("lane", descriptor.lane)
+                    .debug("pool", descriptor.execution_pool)
+                    .error(error)
+                    .emit_error(targets::HOST_RUNTIME);
                 break;
             }
         };
@@ -1010,15 +1117,13 @@ async fn run_pool_dispatcher(
                         "Host command {command_name} failed to join its blocking task: {error}."
                     ))),
                 };
-                log::error!(
-                    target: HOST_RUNTIME_LOG_TARGET,
-                    "Host command blocking task join failed: id={} command={} lane={:?} pool={:?} error={}",
-                    response.id,
-                    command_name,
-                    descriptor.lane,
-                    descriptor.execution_pool,
-                    error
-                );
+                LogEvent::new("hostRuntime.command.joinFailed")
+                    .field("id", &response.id)
+                    .field("command", &command_name)
+                    .debug("lane", descriptor.lane)
+                    .debug("pool", descriptor.execution_pool)
+                    .error(error)
+                    .emit_error(targets::HOST_RUNTIME);
                 let write_pool_telemetry = failure_pool_telemetry.clone();
                 let write_command_name = command_name.clone();
                 let write_descriptor = descriptor;
@@ -1026,28 +1131,26 @@ async fn run_pool_dispatcher(
                     if let Err(write_error) = failure_writer.write_response(&response) {
                         write_pool_telemetry
                             .record_writer_failed(record_telemetry, &write_command_name);
-                        log::error!(
-                            target: HOST_RUNTIME_LOG_TARGET,
-                            "Failed to write host command join failure response: id={} command={} lane={:?} pool={:?} error={}",
-                            response.id,
-                            write_command_name,
-                            write_descriptor.lane,
-                            write_descriptor.execution_pool,
-                            write_error
-                        );
+                        LogEvent::new("hostRuntime.response.writeFailed")
+                            .field("phase", "join-failure")
+                            .field("id", &response.id)
+                            .field("command", &write_command_name)
+                            .debug("lane", write_descriptor.lane)
+                            .debug("pool", write_descriptor.execution_pool)
+                            .error(write_error)
+                            .emit_error(targets::HOST_RUNTIME);
                     }
                 })
                 .await;
                 if let Err(write_join_error) = write_join {
                     failure_pool_telemetry.record_writer_failed(record_telemetry, &command_name);
-                    log::error!(
-                        target: HOST_RUNTIME_LOG_TARGET,
-                        "Host command join failure response writer task failed: command={} lane={:?} pool={:?} error={}",
-                        command_name,
-                        descriptor.lane,
-                        descriptor.execution_pool,
-                        write_join_error
-                    );
+                    LogEvent::new("hostRuntime.response.writerTaskFailed")
+                        .field("phase", "join-failure")
+                        .field("command", &command_name)
+                        .debug("lane", descriptor.lane)
+                        .debug("pool", descriptor.execution_pool)
+                        .error(write_join_error)
+                        .emit_error(targets::HOST_RUNTIME);
                 }
             }
         });
@@ -1079,20 +1182,18 @@ fn run_resolved_command(
     let queued_ms = command.submitted_at.elapsed().as_millis();
     let started_at = Instant::now();
     let active = pool_telemetry.record_started(record_telemetry, queued_ms);
-    log::debug!(
-        target: HOST_RUNTIME_LOG_TARGET,
-        "Host command started: id={} command={} lane={:?} pool={:?} active={} maxConcurrency={} resources={:?} cancelPolicy={:?} mutationPolicy={:?} queuedMs={}",
-        id,
-        name,
-        descriptor.lane,
-        descriptor.execution_pool,
-        active,
-        descriptor.max_concurrency,
-        command_resources,
-        cancel_policy,
-        mutation_policy,
-        queued_ms
-    );
+    LogEvent::new("hostRuntime.command.started")
+        .field("id", &id)
+        .field("command", &name)
+        .debug("lane", descriptor.lane)
+        .debug("pool", descriptor.execution_pool)
+        .count("active", active)
+        .count("maxConcurrency", descriptor.max_concurrency)
+        .debug("resources", command_resources)
+        .debug("cancelPolicy", cancel_policy)
+        .debug("mutationPolicy", mutation_policy)
+        .field("queuedMs", queued_ms)
+        .emit_debug(targets::HOST_RUNTIME);
     let (response, panicked, resource_wait_ms) = match resource_resolution {
         Ok(command_resources) => {
             let resource_wait_started_at = Instant::now();
@@ -1121,15 +1222,14 @@ fn run_resolved_command(
     }
     if let Err(error) = writer.write_response(&response) {
         pool_telemetry.record_writer_failed(record_telemetry, &name);
-        log::error!(
-            target: HOST_RUNTIME_LOG_TARGET,
-            "Failed to write host command response: id={} command={} lane={:?} pool={:?} error={}",
-            id,
-            name,
-            descriptor.lane,
-            descriptor.execution_pool,
-            error
-        );
+        LogEvent::new("hostRuntime.response.writeFailed")
+            .field("phase", "dispatch")
+            .field("id", &id)
+            .field("command", &name)
+            .debug("lane", descriptor.lane)
+            .debug("pool", descriptor.execution_pool)
+            .error(error)
+            .emit_error(targets::HOST_RUNTIME);
     }
     let elapsed_ms = started_at.elapsed().as_millis();
     log_host_command_finished(
@@ -1199,13 +1299,11 @@ where
         Ok(result) => (dispatch_result_to_response(id, result), false),
         Err(payload) => {
             let message = panic_message(payload.as_ref());
-            log::error!(
-                target: HOST_RUNTIME_LOG_TARGET,
-                "Host command panicked: id={} command={} panic={}",
-                id,
-                command,
-                message
-            );
+            LogEvent::new("hostRuntime.command.panicked")
+                .field("id", &id)
+                .field("command", command)
+                .field("panic", &message)
+                .emit_error(targets::HOST_RUNTIME);
             (
                 HostCommandResponse {
                     id,
@@ -1232,37 +1330,25 @@ fn log_host_command_finished(
     elapsed_ms: u128,
     response: &HostCommandResponse,
 ) {
-    if response.ok {
-        log::debug!(
-            target: HOST_RUNTIME_LOG_TARGET,
-            "Host command finished: id={} command={} lane={:?} pool={:?} active={} maxConcurrency={} queuedMs={} elapsedMs={}",
-            id,
-            command,
-            lane,
-            execution_pool,
-            active,
-            max_concurrency,
-            queued_ms,
-            elapsed_ms
-        );
+    let event = LogEvent::new(if response.ok {
+        "hostRuntime.command.finished"
     } else {
-        log::warn!(
-            target: HOST_RUNTIME_LOG_TARGET,
-            "Host command failed: id={} command={} lane={:?} pool={:?} active={} maxConcurrency={} queuedMs={} elapsedMs={} error={}",
-            id,
-            command,
-            lane,
-            execution_pool,
-            active,
-            max_concurrency,
-            queued_ms,
-            elapsed_ms,
-            response
-                .error
-                .as_ref()
-                .map(Value::to_string)
-                .unwrap_or_else(|| "null".to_string())
-        );
+        "hostRuntime.command.failed"
+    })
+    .field("id", id)
+    .field("command", command)
+    .debug("lane", lane)
+    .debug("pool", execution_pool)
+    .count("active", active)
+    .count("maxConcurrency", max_concurrency)
+    .field("queuedMs", queued_ms)
+    .field("elapsedMs", elapsed_ms);
+    if response.ok {
+        event.emit_debug(targets::HOST_RUNTIME);
+    } else {
+        event
+            .optional("error", response.error.as_ref().map(Value::to_string))
+            .emit_warn(targets::HOST_RUNTIME);
     }
 }
 
@@ -1294,12 +1380,6 @@ fn average_ms(total_ms: u64, count: u64) -> f64 {
         0.0
     } else {
         total_ms as f64 / count as f64
-    }
-}
-
-fn log_summary_lines(level: log::Level, summary: &str) {
-    for line in summary.trim_end().lines() {
-        log::log!(target: HOST_RUNTIME_LOG_TARGET, level, "{line}");
     }
 }
 

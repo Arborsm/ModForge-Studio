@@ -181,7 +181,12 @@ export function WorkbenchHomePage({
   }
 
   return (
-    <section className="workbench-shell-home" aria-label={pageLabel} data-content={homeContent}>
+    <section
+      className="workbench-shell-home"
+      aria-label={pageLabel}
+      data-content={homeContent}
+      data-guide-surface={presentation === 'home' ? 'workbench.home' : undefined}
+    >
       <div className="workbench-shell-home-inner">
         {!gameDirectoryReady ? (
           <div className="workbench-shell-home-banner" role="status">
@@ -435,7 +440,12 @@ export function WorkbenchHomePage({
                 </button>
               </section>
             ) : null}
-            <div className="workbench-shell-home-launch" role="group" aria-label={navCopy.shellProjectManagement}>
+            <div
+              className="workbench-shell-home-launch"
+              role="group"
+              aria-label={navCopy.shellProjectManagement}
+              data-guide="workbench-modules"
+            >
               <button type="button" className="workbench-shell-home-launch-btn is-primary" onClick={onProjectCreateOpen}>
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 {navCopy.newProjectAction}

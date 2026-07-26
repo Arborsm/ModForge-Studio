@@ -1,0 +1,9 @@
+{
+  "Name": "Audit Fixture Pack",
+  "Author": "ModForge Studio",
+  "Version": "1.0.0",
+  "UniqueID": "ModForge.AuditFixture",
+  "ContentPackFor": {
+    "UniqueID": "Pathoschild.ContentPatcher"
+  }
+}

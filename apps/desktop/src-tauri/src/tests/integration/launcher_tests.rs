@@ -9,7 +9,7 @@ use crate::domain::launcher::library::{
     set_launcher_mod_enabled_blocking,
 };
 use crate::domain::launcher::runtime::launch_game_with_runner;
-use crate::domain::launcher::trace::format_launcher_trace_message;
+use crate::domain::launcher::trace::launcher_trace_event;
 use crate::domain::launcher::types::{
     LauncherArchiveTreeNode, LauncherDownloadQueueItem, LauncherDownloadQueueState,
     LauncherGameLaunchTarget, LauncherLibraryChildModGroup, LauncherLibraryCover,
@@ -119,36 +119,35 @@ fn sample_launcher_updates_result(mods_path: &str, checked_at_ms: u128) -> Launc
 }
 
 #[test]
-fn launcher_trace_message_prefixes_action_and_quotes_values() {
-    let message = format_launcher_trace_message(
-        "install.start",
-        &[
-            ("archive-path", r"E:\Downloads\Example Pack.zip".to_string()),
-            ("mods-path", r"E:\Games\Stardew Valley\Mods".to_string()),
-            ("has-backup-root", "true".to_string()),
-        ],
-    );
+fn launcher_trace_event_prefixes_action_and_quotes_only_when_needed() {
+    let message = launcher_trace_event("install.start", |event| {
+        event
+            .field("archivePath", r"E:\Downloads\Example Pack.zip")
+            .field("modsPath", r"E:\Games\Stardew Valley\Mods")
+            .flag("hasBackupRoot", true)
+    })
+    .render();
 
     assert_eq!(
         message,
-        r#"launcher.install.start archive-path="E:\\Downloads\\Example Pack.zip" mods-path="E:\\Games\\Stardew Valley\\Mods" has-backup-root="true""#
+        r#"launcher.install.start archivePath="E:\Downloads\Example Pack.zip" modsPath="E:\Games\Stardew Valley\Mods" hasBackupRoot=true"#
     );
 }
 
 #[test]
-fn launcher_trace_message_skips_blank_values() {
-    let message = format_launcher_trace_message(
-        "toggle.complete",
-        &[
-            ("mod-path", r"E:\Games\Mods\ExamplePack".to_string()),
-            ("reason", "   ".to_string()),
-            ("enabled", "false".to_string()),
-        ],
-    );
+fn launcher_trace_event_skips_blank_optional_values() {
+    let message = launcher_trace_event("toggle.complete", |event| {
+        event
+            .field("modPath", r"E:\Games\Mods\ExamplePack")
+            .optional("reason", Some("   "))
+            .flag("enabled", false)
+    })
+    .render();
 
+    // No whitespace in the path, so it stays unquoted.
     assert_eq!(
         message,
-        r#"launcher.toggle.complete mod-path="E:\\Games\\Mods\\ExamplePack" enabled="false""#
+        r"launcher.toggle.complete modPath=E:\Games\Mods\ExamplePack enabled=false"
     );
 }
 

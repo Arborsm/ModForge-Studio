@@ -8,6 +8,7 @@ use tungstenite::{Message, WebSocket, connect};
 use super::rest_api;
 use crate::AppHandle;
 use crate::domain::launcher::{paths, settings as launcher_settings};
+use crate::support::logging::{LogEvent, targets};
 use anyhow::bail;
 
 // ---- Constants ----
@@ -398,7 +399,10 @@ fn read_with_cancel(
 
         if last_ping.elapsed() >= SSO_KEEPALIVE_INTERVAL {
             if let Err(error) = ws.send(Message::Ping(Vec::new().into())) {
-                log::warn!("SSO WebSocket ping failed: {error}");
+                LogEvent::new("nexus.sso.socketFailed")
+                    .field("phase", "ping")
+                    .error(format!("{error}"))
+                    .emit_warn(targets::NEXUS);
                 return None;
             }
             last_ping = Instant::now();
@@ -415,7 +419,10 @@ fn read_with_cancel(
                 if e.kind() == std::io::ErrorKind::WouldBlock
                     || e.kind() == std::io::ErrorKind::TimedOut => {}
             Err(e) => {
-                log::warn!("SSO WebSocket read error: {e}");
+                LogEvent::new("nexus.sso.socketFailed")
+                    .field("phase", "read")
+                    .error(format!("{e}"))
+                    .emit_warn(targets::NEXUS);
                 return None;
             }
         }

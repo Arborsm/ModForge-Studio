@@ -1,6 +1,7 @@
 import { access, readdir, readFile } from 'node:fs/promises'
 import { dirname, relative, resolve } from 'node:path'
 import { describe, expect, it } from 'vite-plus/test'
+import { collectRequiredFiles } from '@test/sourceScan'
 
 function sourcePath(...segments: string[]) {
   return resolve(process.cwd(), ...segments)
@@ -12,57 +13,15 @@ async function expectFile(path: string) {
 
 const TEST_SOURCE_EXCLUDE_DIRS = /(?:^|\/)src\/(tests|test)\//
 
-async function collectSourceFiles(rootPath: string): Promise<string[]> {
-  try {
-    const entries = await readdir(rootPath, { withFileTypes: true })
-    const nestedFiles = await Promise.all(
-      entries.map((entry) => {
-        const entryPath = resolve(rootPath, entry.name)
-
-        if (entry.isDirectory()) {
-          if (TEST_SOURCE_EXCLUDE_DIRS.test(entryPath.replace(`${process.cwd()}/`, ''))) {
-            return Promise.resolve([])
-          }
-          return collectSourceFiles(entryPath)
-        }
-
-        if (entry.isFile() && /\.(ts|tsx)$/.test(entry.name)) {
-          return Promise.resolve([entryPath])
-        }
-
-        return Promise.resolve([])
-      }),
-    )
-
-    return nestedFiles.flat()
-  } catch {
-    return []
-  }
+function collectSourceFiles(rootPath: string) {
+  return collectRequiredFiles(rootPath, {
+    extensions: ['.ts', '.tsx'],
+    excludePath: TEST_SOURCE_EXCLUDE_DIRS,
+  })
 }
 
-async function collectFiles(rootPath: string, pattern: RegExp): Promise<string[]> {
-  try {
-    const entries = await readdir(rootPath, { withFileTypes: true })
-    const nestedFiles = await Promise.all(
-      entries.map((entry) => {
-        const entryPath = resolve(rootPath, entry.name)
-
-        if (entry.isDirectory()) {
-          return collectFiles(entryPath, pattern)
-        }
-
-        if (entry.isFile() && pattern.test(entry.name)) {
-          return Promise.resolve([entryPath])
-        }
-
-        return Promise.resolve([])
-      }),
-    )
-
-    return nestedFiles.flat()
-  } catch {
-    return []
-  }
+function collectRustFiles(rootPath: string) {
+  return collectRequiredFiles(rootPath, { extensions: ['.rs'] })
 }
 
 function extractImportSpecifiers(source: string): string[] {
@@ -340,10 +299,18 @@ describe('frontend module architecture', () => {
     expect(moduleRegistrations).toContain("'project-translation',")
     expect(moduleRegistrations).toContain("'dev-resource-browser',")
     expect(moduleRegistrations).toContain("import('./ui/module-runtimes/MapBrowserModuleRuntime')")
-    expect(moduleRegistrations).toContain("import('./ui/module-runtimes/ModTranslationModuleRuntime')")
-    expect(moduleRegistrations).toContain("import('./ui/module-runtimes/ProjectTranslationModuleRuntime')")
+    expect(moduleRegistrations).toContain("import('./translation/runtimes/ModTranslationModuleRuntime')")
+    expect(moduleRegistrations).toContain("import('./translation/runtimes/ProjectTranslationModuleRuntime')")
     expect(moduleRegistrations).not.toContain('WorkbenchModuleRuntimes')
     expect(moduleRegistrations).not.toContain('entity-browser-runtimes')
+  })
+
+  it('keeps translation pages and runtimes in the dedicated workbench domain', async () => {
+    await expectFile(sourcePath('src/pages/workbench/translation/localization-center/ui/AiLocalizationView.tsx'))
+    await expectFile(sourcePath('src/pages/workbench/translation/runtimes/ModTranslationModuleRuntime.tsx'))
+    await expectFile(sourcePath('src/pages/workbench/translation/runtimes/ProjectTranslationModuleRuntime.tsx'))
+    await expect(access(sourcePath('src/pages/workbench/tools/ai-localization'))).rejects.toThrow()
+    await expect(access(sourcePath('src/pages/workbench/ui/module-runtimes/ModTranslationModuleRuntime.tsx'))).rejects.toThrow()
   })
 
   it('provides platform ports from the app layer through desktop host adapters', async () => {
@@ -395,6 +362,8 @@ describe('frontend module architecture', () => {
     expect(electronMain).toContain('async stop()')
     expect(electronMain).toContain("child.kill('SIGKILL')")
     expect(electronMain).toContain('sidecarStdout?.close()')
+    expect(electronMain).toContain('LD_LIBRARY_PATH')
+    expect(electronMain).toContain('sidecarDirectory')
     expect(electronMain).toContain("'modforge:window-close-request-result'")
     expect(electronPreload).toContain('onWindowCloseRequest')
     expect(electronMain).toContain('app.setName(appDisplayName)')
@@ -495,6 +464,22 @@ describe('frontend module architecture', () => {
     await expect(access(sourcePath('src/styles/workspace/workbench-home.css'))).rejects.toThrow()
   })
 
+  it('keeps the managed-project unsaved guard off pure view transitions and makes discard revert the draft', async () => {
+    const navigationController = await readFile(sourcePath('src/pages/workbench/model/useWorkbenchNavigationController.ts'), 'utf8')
+    const directoryController = await readFile(sourcePath('src/pages/workbench/model/useWorkbenchDirectoryController.ts'), 'utf8')
+    const closeController = await readFile(sourcePath('src/pages/workbench/model/useWorkbenchCloseController.ts'), 'utf8')
+    const projectController = await readFile(sourcePath('src/pages/workbench/model/useWorkbenchProjectController.ts'), 'utf8')
+
+    // View navigation and directory validation never lose the lifted CP Maker draft; only the module guard applies.
+    expect(navigationController).not.toContain('runWithProjectGuard')
+    expect(directoryController).not.toContain('runWithProjectGuard')
+    // Window close genuinely endangers the in-memory draft and must keep both guards.
+    expect(closeController).toContain('runWithProjectGuard')
+    expect(closeController).toContain('runWithModuleGuard')
+    // "Discard and continue" must revert the draft to its persisted record, not merely run the deferred action.
+    expect(projectController).toContain('cpMaker.discardDraftChanges()')
+  })
+
   it('keeps launcher library drag measuring out of the always-on layout path', async () => {
     const launcherLibraryPage = await readFile(sourcePath('src/pages/launcher/ui/LauncherLibraryPage.tsx'), 'utf8')
 
@@ -549,7 +534,7 @@ describe('frontend module architecture', () => {
   }, 30000)
 
   it('keeps generated host command constants in sync with Tauri command function names', async () => {
-    const commandFiles = await collectFiles(sourcePath('src-tauri/src/commands'), /\.rs$/)
+    const commandFiles = await collectRustFiles(sourcePath('src-tauri/src/commands'))
     const commandNames: string[] = []
 
     for (const filePath of commandFiles) {
@@ -1042,6 +1027,15 @@ describe('frontend module architecture', () => {
     }
   })
 
+  it('keeps installed event asset parsing behind the canonical Rust host command', async () => {
+    const eventWorkspace = await readFile(sourcePath('src/pages/workbench/workspaces/event-stage/state/useEventWorkspace.ts'), 'utf8')
+    const gameAssets = await readFile(sourcePath('src/entities/game/api/gameAssets.ts'), 'utf8')
+
+    expect(eventWorkspace).toContain('loadEventAsset(rootPath, relativePath, locale)')
+    expect(eventWorkspace).not.toContain('loadTextAsset(rootPath, relativePath, locale)')
+    expect(gameAssets).toContain('HOST_COMMANDS.loadEventAsset')
+  })
+
   /**
    * Platform boundary classification: the removed desktop platform facade was a migration facade.
    * It must not return as a production or test import path.
@@ -1096,16 +1090,14 @@ describe('frontend module architecture', () => {
   }, 30000)
 
   it('keeps NexusMods provider code outside the launcher Rust domain', async () => {
-    const launcherFiles = await collectSourceFiles(sourcePath('src-tauri/src/domain/launcher'))
+    const launcherFiles = await collectRustFiles(sourcePath('src-tauri/src/domain/launcher'))
     const blockedPatterns = [
       /api-router\.nexusmods\.com/,
       /api\.nexusmods\.com/,
       /graphql\.nexusmods\.com/,
       /staticdelivery\.nexusmods\.com/,
-      /send_nexus_(json_)?request/,
-      /api_headers/,
-      /graphql_headers/,
-      /public_graphql_headers/,
+      /\bfn\s+send_nexus_(json_)?request\b/,
+      /\bfn\s+(api_headers|graphql_headers|public_graphql_headers)\b/,
       /^pub mod (catalog|discovery|downloads_provider|http|mod_detail|remote|rest_api|session|shared|sso);/m,
     ]
     const violations: string[] = []
@@ -1128,12 +1120,8 @@ describe('frontend module architecture', () => {
     const panelsRoot = sourcePath('src/pages/workbench/ui/workspace-panels')
     const allowedDomainFolders = new Set(['event', 'building', 'character', 'map', 'item', 'mod', 'common'])
 
-    let panelsDir
-    try {
-      panelsDir = await readdir(panelsRoot, { withFileTypes: true })
-    } catch {
-      return
-    }
+    const panelsDir = await readdir(panelsRoot, { withFileTypes: true })
+    expect(panelsDir.some((entry) => entry.isDirectory())).toBe(true)
 
     const violations: string[] = []
 

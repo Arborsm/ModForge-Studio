@@ -55,10 +55,10 @@ export const modBrowserRegistration = registration(
 )
 export const modTranslationRegistration = registration(
   'mod-translation',
-  { section: 'tools', order: 110, icon: 'languages', labelKey: 'mod-translation' },
+  { section: 'translation', order: 110, icon: 'languages', labelKey: 'mod-translation' },
   'standalone',
   'write',
-  () => import('./ui/module-runtimes/ModTranslationModuleRuntime'),
+  () => import('./translation/runtimes/ModTranslationModuleRuntime'),
 )
 export const i18nGeneratorRegistration = registration(
   'i18n-generator',
@@ -66,6 +66,13 @@ export const i18nGeneratorRegistration = registration(
   'standalone',
   'none',
   () => import('./ui/module-runtimes/I18nGeneratorModuleRuntime'),
+)
+export const aiLocalizationRegistration = registration(
+  'ai-localization',
+  { section: 'translation', order: 130, icon: 'book-open', labelKey: 'ai-localization' },
+  'standalone',
+  'read',
+  () => import('./translation/runtimes/AiLocalizationModuleRuntime'),
 )
 export const projectDashboardRegistration = registration(
   'project-dashboard',
@@ -121,7 +128,7 @@ export const projectTranslationRegistration = registration(
   { section: 'authoring', order: 260, icon: 'languages', labelKey: 'project-translation' },
   'authoring',
   'write',
-  () => import('./ui/module-runtimes/ProjectTranslationModuleRuntime'),
+  () => import('./translation/runtimes/ProjectTranslationModuleRuntime'),
 )
 export const devResourceBrowserRegistration = registration(
   'dev-resource-browser',

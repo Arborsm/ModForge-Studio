@@ -1,3 +1,4 @@
+use crate::support::logging::{LogEvent, targets};
 use anyhow::Context;
 use reqwest::StatusCode;
 use reqwest::blocking::{Client, Response};
@@ -262,28 +263,28 @@ where
                 if should_retry_status(response.status()) && attempt < policy.max_retries =>
             {
                 let delay = retry_delay_for_policy(policy, Some(response.headers()), attempt);
-                log::warn!(
-                    "retrying {} request after HTTP {} in {:?} (retry {}/{})",
-                    policy.label,
-                    response.status(),
-                    delay,
-                    attempt + 1,
-                    policy.max_retries
-                );
+                LogEvent::new("nexus.request.retry")
+                    .field("route", policy.label)
+                    .field("reason", "http-status")
+                    .field("status", response.status().as_u16())
+                    .ms("delayMs", delay)
+                    .field("retry", attempt + 1)
+                    .field("maxRetries", policy.max_retries)
+                    .emit_warn(targets::NEXUS);
                 thread::sleep(delay);
             }
             Ok(response) => return Ok(response),
             Err(error) if attempt < policy.max_retries => {
                 let delay = retry_delay_for_policy(policy, None, attempt);
                 let error_message = reqwest_error_with_sources(&error);
-                log::warn!(
-                    "retrying {} request after transport error in {:?} (retry {}/{}): {}",
-                    policy.label,
-                    delay,
-                    attempt + 1,
-                    policy.max_retries,
-                    error_message
-                );
+                LogEvent::new("nexus.request.retry")
+                    .field("route", policy.label)
+                    .field("reason", "transport-error")
+                    .ms("delayMs", delay)
+                    .field("retry", attempt + 1)
+                    .field("maxRetries", policy.max_retries)
+                    .error(&error_message)
+                    .emit_warn(targets::NEXUS);
                 thread::sleep(delay);
                 last_error = Some(error_message);
             }
@@ -320,14 +321,14 @@ where
             Ok(body) => return Ok(body),
             Err(error) if attempt < policy.max_retries && should_retry_body_read_error(&error) => {
                 let delay = retry_delay_for_policy(policy, None, attempt);
-                log::warn!(
-                    "retrying {} request after body read error in {:?} (retry {}/{}): {}",
-                    policy.label,
-                    delay,
-                    attempt + 1,
-                    policy.max_retries,
-                    error
-                );
+                LogEvent::new("nexus.request.retry")
+                    .field("route", policy.label)
+                    .field("reason", "body-read-error")
+                    .ms("delayMs", delay)
+                    .field("retry", attempt + 1)
+                    .field("maxRetries", policy.max_retries)
+                    .error(&error)
+                    .emit_warn(targets::NEXUS);
                 thread::sleep(delay);
                 last_error = Some(error);
             }

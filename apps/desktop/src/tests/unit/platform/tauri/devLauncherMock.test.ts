@@ -31,4 +31,31 @@ describe('dev launcher mock', () => {
     expect(mockIpcHandler?.('save_launcher_download_queue', { request: savedQueue })).toEqual(savedQueue)
     expect(mockIpcHandler?.('load_launcher_download_queue')).toEqual(savedQueue)
   })
+
+  it('seeds AI settings fixtures when mfSettingsMock is enabled', async () => {
+    window.history.replaceState({}, '', '/?mfSettingsMock=1')
+    const { installDevLauncherMock } = await import('@platform/tauri/devLauncherMock')
+
+    installDevLauncherMock()
+    expect(mockIpcHandler).not.toBeNull()
+
+    const aiSettings = mockIpcHandler?.('load_ai_settings') as {
+      profiles: Array<{ id: string }>
+      defaultProfileId: string | null
+    }
+    expect(aiSettings.profiles.length).toBeGreaterThan(0)
+    expect(aiSettings.defaultProfileId).toBe('openai-workbench')
+
+    const engine = mockIpcHandler?.('load_localization_default_engine') as { kind: string; profileId: string }
+    expect(engine).toEqual({ kind: 'generative-ai', profileId: 'openai-workbench' })
+
+    const mt = mockIpcHandler?.('load_machine_translation_settings') as { profiles: unknown[] }
+    expect(mt.profiles.length).toBeGreaterThan(0)
+
+    const semantic = mockIpcHandler?.('load_localization_semantic_settings') as { mode: string }
+    expect(semantic.mode).toBe('builtin')
+
+    const usage = mockIpcHandler?.('query_ai_usage_summary') as { totals: { requests: number } }
+    expect(usage.totals.requests).toBeGreaterThan(0)
+  })
 })

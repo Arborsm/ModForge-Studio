@@ -76,24 +76,203 @@ artifacts. macOS and Windows releases continue to use Tauri packaging.
 Linux-specific package scripts can be run directly when only one package format
 is needed: `vp run release:linux:deb` or `vp run release:linux:rpm`.
 
+## Windows Installer
+
+The custom Windows installer lives in `apps/installer` (`@modforge/installer`),
+a standalone Tauri 2 + React app styled after the BitFun installer. It ships as
+a single `modforge-installer.exe` with the desktop payload embedded as a zip
+(`build.rs` packs `src-tauri/payload/` into the binary; external `payload/` /
+`payload.zip` next to the exe remain as dev fallbacks).
+
+Build it from the repository root:
+
+```bash
+vp run installer:build                                        # desktop app + installer
+node apps/installer/scripts/build-installer.cjs --skip-app-build  # reuse existing desktop exe
+```
+
+`--skip-app-build` expects `modforge_studio_desktop.exe` and `gmcm-probe/` in
+`apps/desktop/src-tauri/target/release/`; without it the script first runs the
+desktop `--no-bundle` build. Step 2 copies the exe, runtime sibling files, and
+`gmcm-probe/` into `src-tauri/payload/` with a sha256 `payload-manifest.json`,
+then step 3 produces
+`apps/installer/src-tauri/target/release/modforge-installer.exe`. For UI
+iteration use `vp run --filter @modforge/installer tauri:dev`; debug builds fall
+back to a placeholder payload.
+
+The installer is per-user (no admin): it extracts the payload, registers the
+Add/Remove Programs entry under
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\ModForgeStudio`,
+mirrors the Tauri NSIS install-location key at
+`HKCU\Software\ModForge Studio\ModForge Studio`, creates Desktop and Start Menu
+shortcuts, and writes the chosen language to
+`%APPDATA%\ModForge Studio\app\ui-state.json` (`appearance.locale`). The Options
+page also offers an off-by-default "launch on system startup" checkbox that
+writes a per-user `HKCU\...\CurrentVersion\Run` value; the Finish page has a
+"launch now" checkbox (on by default) that starts the installed exe and then
+closes the installer.
+
+A "App Preferences" wizard page sits between Options and Progress (install mode
+only). It pre-selects the main app's color theme (`appearance.themeId`), loading
+motion (`appearance.loadingMotion.styleId`), close behavior
+(`shell.windowCloseBehavior` + `rememberCloseChoice`), notification sound
+(`shell.notificationSoundEnabled`) and startup mode (`shell.appMode`), persisted
+by the `persist_app_preferences` command when leaving the page — a read-merge-write
+of `ui-state.json` that only overwrites those fields. Defaults match the app's
+serde defaults, so skipping the page keeps current behavior;
+`rememberCloseChoice` is written `true` only when the user actively changes the
+close-behavior radio. The app's light/dark mode is runtime system-following and
+is intentionally not pre-seeded.
+
+The installer UI ships dark and light themes aligned with the desktop app's
+`neutral-tool` tokens (`apps/desktop/src/styles/tokens.css`). It follows
+`prefers-color-scheme` by default; the titlebar day/night toggle pins an
+explicit mode and persists it to localStorage
+(`modforge.installer.theme-preference`), so uninstall mode uses the same choice.
+
+Uninstall runs the same binary: install copies it to `<install>\uninstall.exe`
+and the registered command is `"<install>\uninstall.exe" --uninstall "<install>"`.
+Uninstall removes shortcuts, both registry keys (HKCU and HKLM attempts), any
+`Run` autostart value, and every payload file, then schedules a cmd cleanup
+script that deletes `uninstall.exe` itself after exit. User data under
+`%APPDATA%\ModForge Studio` is kept unless the user ticks "also delete user
+data" (off by default), which deletes that data root after the files are
+removed — mods, game folders and documents are never touched. Deletion steps
+are appended to `%TEMP%\modforge-uninstall-runtime.log`.
+
+Rust checks for the installer crate:
+
+```bash
+cargo fmt --manifest-path apps/installer/src-tauri/Cargo.toml
+cargo check --manifest-path apps/installer/src-tauri/Cargo.toml
+```
+
 ## Test Layout
 
 Tests are kept out of source folders and grouped by type.
 
 Frontend tests live under `apps/desktop/src/tests/`:
 
-- `src/tests/unit/` — component and module tests, mirroring the source path they exercise.
-- `src/tests/architecture/` — architecture and repository-shape assertions.
-- `src/tests/integration/` — cross-module integration tests.
-- `src/tests/support/` — shared test infrastructure: `setup.ts`, render helpers, mock ports, and test assets. Imported via the `@test/*` alias.
+- `src/tests/unit/` — pure-logic `.ts` tests only (no `.tsx`/`.spec.tsx`, no component or `renderHook` rendering, no CSS-class/inline-style/DOM-structure assertions). They mirror the source path they exercise and cover parsers, data transformation, reducers, command routing, and headless state logic.
+- `src/tests/architecture/` — architecture and repository-shape assertions (dependency direction, style ownership, code-splitting).
+- `src/tests/support/` — shared test infrastructure: `setup.ts` (jsdom + matchers), `sourceScan.ts` (architecture scanners), and type declarations. Imported via the `@test/*` alias.
+
+The frontend intentionally keeps no UI/render tests; UI and layout behavior is verified by screenshot, Playwright, or a manual path rather than jsdom render assertions.
 
 Rust tests are centralized by type under `apps/desktop/src-tauri/`:
 
 - `src-tauri/src/tests/unit/` — unit tests for domain/infrastructure modules.
 - `src-tauri/src/tests/integration/` — cross-module integration tests.
-- `src-tauri/tests/` — top-level Cargo regression and report tests.
+- `src-tauri/tests/regression/` — installed-game regression targets.
+- `src-tauri/tests/report/` — installed-game report examples.
+- `src-tauri/tests/support/` — helpers shared by explicit Cargo targets.
 
-Unit and integration Rust tests are declared from source files via `#[cfg(test)] #[path = "..."] mod ...;`. Top-level regression tests are discovered by Cargo from `tests/**/*.rs`.
+Unit and integration Rust tests are declared from source files via `#[cfg(test)] #[path = "..."] mod ...;`. Installed-game targets are declared explicitly in `Cargo.toml`, require the `installed-game-validation` feature, and remain ignored unless a maintainer supplies `SDV_GAME_PATH`.
+
+Compile all installed-game validation surfaces without running them:
+
+```bash
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features installed-game-validation --no-run
+cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --features installed-game-validation --examples
+```
+
+Run one regression or report against an installed game explicitly:
+
+```bash
+SDV_GAME_PATH=/path/to/StardewValley cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features installed-game-validation --test lzxd_regression -- --ignored
+SDV_GAME_PATH=/path/to/StardewValley cargo run --manifest-path apps/desktop/src-tauri/Cargo.toml --features installed-game-validation --example unpacked_pass_rate_report
+SDV_GAME_PATH=/path/to/StardewValley cargo run --manifest-path apps/desktop/src-tauri/Cargo.toml --features installed-game-validation --example xact_cue_coverage_report
+```
+
+## Backend Logging
+
+Every backend log line is built with `LogEvent`
+(`apps/desktop/src-tauri/src/support/logging/event.rs`). Never call a `log::`
+macro or hand-format a message — two unit tests in
+`src/tests/unit/support/log_call_site_tests.rs` fail the build if you do.
+
+```rust
+use crate::support::logging::{LogEvent, targets};
+
+LogEvent::new("launcher.install.start")
+    .path("modsPath", &mods_path)
+    .flag("hasBackupRoot", backup_root.is_some())
+    .optional("uniqueId", manifest_unique_id.as_deref())
+    .ms("elapsedMs", started_at.elapsed())
+    .error(&error)
+    .emit_warn(targets::LAUNCHER);
+```
+
+Conventions the builder enforces:
+
+- Event names are dotted camelCase (`updateCheck.cacheHit`); field keys are
+  camelCase (`modsPath`, `elapsedMs`, `apiKeyPresent`). The frontend's
+  `reportAppEvent` `keyValues` use the same casing.
+- Targets come from `targets::*` only. They are dotted PascalCase namespaces
+  (`Launcher.Downloads`, `Localization.Translation`), never literals.
+- `.optional(...)` omits the key entirely rather than emitting `unknown` or an
+  empty string. `.path(...)` normalizes like command results. Values are quoted
+  only when whitespace, `"` or `=` would break `key=value` parsing, and
+  backslashes stay literal so Windows paths keep reading as paths.
+- `.error(...)` owns the `error` field; the terminal colors it red.
+- `.block(body)` attaches a multi-line body to one record instead of fanning it
+  into N lines (see `hostRuntime.stats`).
+- One record per state change, not per item. A per-item loop belongs in one
+  summary line with a count (see `launcher.autoCover.skippedBlocked`), and a
+  toggle that the frontend re-syncs on mount only logs on an actual transition.
+
+Layout lives in `support/logging/terminal.rs` and renders one line two ways.
+The terminal gets fixed columns and a `│` gutter for block bodies and wrapped
+fields. The palette is deliberately near-monochrome: timestamp, target, field
+keys, `=` and quotes are grey, values keep the default foreground, and event
+names are bold. Color is reserved for what needs acting on — a filled badge on
+warn and error only, and red for the `error` and `warnings` fields. Never
+reintroduce per-type value colors; coloring paths, numbers and booleans
+separately turns every line into a swatch. Do not key colorization off the
+level either: `reason` is a general-purpose discriminator, so
+`hostRuntime.stats reason=shutdown` was painted like a failure while the badge
+already said `WARN`. ANSI dim (SGR 2) is not used anywhere, as it is unreadable
+on mid-grey backgrounds.
+
+Targets too wide for the column abbreviate their leading namespace segments
+(`Localization.MachineTranslation` → `L.MachineTranslation`) so every message
+starts in the same column; the distinguishing last segment is kept whole, and
+the log file always writes the full name so grepping by target still works.
+
+The log file repeats the full prefix on every line so each greps standalone,
+keeps console-bridge metadata the terminal hides, is never wrapped, and is
+never colorized.
+
+```
+12:34:56  INFO   [Launcher]              launcher.install.start modsPath=E:/SDV/Mods
+12:34:56  WARN   [HostRuntime]           hostRuntime.stats reason=shutdown
+                                         │ Pools
+                                         │   Io/Lane
+12:34:56  DEBUG  [Launcher.Trace]        launcher.updateCache.miss entryState=missing
+                                         │ activeChecks=0 hadActiveCheck=false
+```
+
+Terminal lines wrap at the detected width, continuing in the message column
+rather than at column zero. A single field wider than the terminal is never
+split or truncated, and a lone trailing field folds back rather than being
+stranded on a row of its own. Width detection tries stdout, stderr and stdin in
+turn — under `tauri dev` the host logger writes stdout while the sidecar writes
+stderr, and both are pipes. When no handle reports a width the record is left
+whole: guessing narrower than the real terminal wraps lines that would have fit,
+which reads worse than the terminal's own soft wrap. Override with
+`MODFORGE_LOG_WIDTH=<columns>`, or `MODFORGE_LOG_WIDTH=off` to disable wrapping.
+
+`cargo run --example log_format_sample` renders the whole sample set through both
+sinks, which is the fastest way to check a layout change.
+
+Force or suppress terminal color with `MODFORGE_LOG_COLOR=always|never`
+(`NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` and `CLICOLOR` are also honored).
+
+Preview the layout without launching the app:
+
+```bash
+MODFORGE_LOG_COLOR=always cargo run --manifest-path apps/desktop/src-tauri/Cargo.toml --example log_format_sample
+```
 
 ## Validation Expectations
 

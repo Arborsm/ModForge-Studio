@@ -393,7 +393,7 @@ export function LoadingMotionFallback({
       data-loading-speed-mode={config.speedMode}
       style={{ '--loading-motion-speed-multiplier': config.speedMultiplier } as CSSProperties}
     >
-      <div className="loading-motion-visual" aria-hidden="true">
+      <div className="loading-motion-visual" aria-hidden="true" data-loader="signal">
         <span className="loading-motion-layer loading-motion-layer-primary" />
         <span className="loading-motion-layer loading-motion-layer-secondary" />
         <span className="loading-motion-layer loading-motion-layer-tertiary" />

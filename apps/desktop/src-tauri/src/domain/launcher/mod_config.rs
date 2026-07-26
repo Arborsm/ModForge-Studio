@@ -8,6 +8,7 @@ use super::types::{
     SaveLauncherModConfigRequest,
 };
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -914,26 +915,25 @@ pub fn load_launcher_gmcm_probe_diagnostics() -> LauncherGmcmProbeDiagnosticsRes
     };
 
     match result.status {
-        LauncherGmcmProbeDiagnosticStatus::Ready => log::info!(
-            target: "Launcher GMCM Probe",
-            "GMCM probe diagnostics ready: probe-assembly={} dotnet={} runtimes={}",
-            result.probe_assembly_path.as_deref().unwrap_or("missing"),
-            result.dotnet_path,
-            result.installed_runtimes.len(),
-        ),
+        // A healthy probe reports nothing actionable and is re-run whenever the
+        // config panel opens, so it stays out of the default terminal.
+        LauncherGmcmProbeDiagnosticStatus::Ready => LogEvent::new("gmcmProbe.diagnostics")
+            .debug("status", &result.status)
+            .optional("probeAssembly", result.probe_assembly_path.as_deref())
+            .field("dotnetPath", &result.dotnet_path)
+            .count("runtimes", result.installed_runtimes.len())
+            .emit_debug(targets::LAUNCHER_GMCM_PROBE),
         LauncherGmcmProbeDiagnosticStatus::Warning
-        | LauncherGmcmProbeDiagnosticStatus::Unavailable => log::warn!(
-            target: "Launcher GMCM Probe",
-            "GMCM probe diagnostics {:?}: probe-assembly={} dotnet={} dotnet-available={} net6-runtime-available={} runtimes={} warnings={} repair-actions={}",
-            result.status,
-            result.probe_assembly_path.as_deref().unwrap_or("missing"),
-            result.dotnet_path,
-            result.dotnet_available,
-            result.net6_runtime_available,
-            result.installed_runtimes.len(),
-            result.warnings.join(","),
-            result.repair_actions.join(","),
-        ),
+        | LauncherGmcmProbeDiagnosticStatus::Unavailable => LogEvent::new("gmcmProbe.diagnostics")
+            .debug("status", &result.status)
+            .optional("probeAssembly", result.probe_assembly_path.as_deref())
+            .field("dotnetPath", &result.dotnet_path)
+            .flag("dotnetAvailable", result.dotnet_available)
+            .flag("net6RuntimeAvailable", result.net6_runtime_available)
+            .count("runtimes", result.installed_runtimes.len())
+            .field("warnings", result.warnings.join(","))
+            .field("repairActions", result.repair_actions.join(","))
+            .emit_warn(targets::LAUNCHER_GMCM_PROBE),
     }
 
     result
@@ -1071,9 +1071,13 @@ mod probe_job {
         fn assign_process_to_job_object(job: *mut c_void, process: *mut c_void) -> i32;
         #[link_name = "TerminateJobObject"]
         fn terminate_job_object(job: *mut c_void, exit_code: u32) -> i32;
+        #[link_name = "WaitForSingleObject"]
+        fn wait_for_single_object(handle: *mut c_void, milliseconds: u32) -> u32;
         #[link_name = "CloseHandle"]
         fn close_handle(handle: *mut c_void) -> i32;
     }
+
+    const WAIT_FOR_PROCESSES_TIMEOUT_MS: u32 = 5_000;
 
     pub(super) struct ProbeJob {
         handle: *mut c_void,
@@ -1121,6 +1125,11 @@ mod probe_job {
         pub(super) fn terminate(&self) {
             unsafe {
                 terminate_job_object(self.handle, 1);
+            }
+            // TerminateJobObject starts termination asynchronously. Wait until the job is
+            // signaled so its processes no longer hold the probe working directory.
+            unsafe {
+                let _ = wait_for_single_object(self.handle, WAIT_FOR_PROCESSES_TIMEOUT_MS);
             }
         }
     }
@@ -2459,70 +2468,44 @@ pub fn load_launcher_mod_config(
     let assembly_resolve_misses =
         summarize_probe_diagnostics(probe_diagnostics.as_ref(), "assemblyResolveMisses");
     if !assembly_load_notes.is_empty() || !assembly_resolve_misses.is_empty() {
-        log::info!(
-            target: "Launcher Mod Config",
-            "GMCM probe assembly diagnostics: mod={} notes={} resolve-misses={}",
-            normalized_root,
-            assembly_load_notes,
-            assembly_resolve_misses,
-        );
+        LogEvent::new("modConfig.probe.assemblyDiagnostics")
+            .field("mod", &normalized_root)
+            .optional("notes", Some(&assembly_load_notes))
+            .optional("resolveMisses", Some(&assembly_resolve_misses))
+            .emit_info(targets::LAUNCHER_MOD_CONFIG);
     }
+    let load_event = LogEvent::new("modConfig.loaded")
+        .field("mod", &normalized_root)
+        .field("locale", request.locale.as_deref().unwrap_or("default"))
+        .debug("probe", &probe_status)
+        .field("executionMode", execution_mode)
+        .field("gmcmDetected", gmcm_detected)
+        .flag("runtimeAttempted", runtime_attempted)
+        .field("runtimeSkip", runtime_skip_reason)
+        .field("configuredModsRoot", configured_mods_root)
+        .field("captureStrategy", capture_strategy)
+        .field("smapiSource", smapi_source)
+        .field("requestedSmapi", requested_smapi_version)
+        .field("resolvedSmapi", resolved_smapi_version)
+        .field("failureStage", failure_stage)
+        .field("inspectMs", inspect_duration_ms)
+        .field("runtimeMs", runtime_duration_ms)
+        .field("durationMs", duration_ms)
+        .count("fields", fields.len())
+        .field("gmcmFields", gmcm_field_count)
+        .field("staticFields", static_field_count)
+        .count("translations", translations.len());
     if warnings.is_empty()
         && matches!(
             probe_status,
             LauncherModConfigProbeStatus::Succeeded | LauncherModConfigProbeStatus::NotRun
         )
     {
-        log::info!(
-            target: "Launcher Mod Config",
-            "Loaded mod config: mod={} locale={} probe={:?} execution-mode={} gmcm-detected={} runtime-attempted={} runtime-skip={} configured-mods-root={} capture-strategy={} smapi-source={} requested-smapi={} resolved-smapi={} failure-stage={} inspect-ms={} runtime-ms={} duration-ms={} fields={} gmcm-fields={} static-fields={} translations={}",
-            normalized_root,
-            request.locale.as_deref().unwrap_or("default"),
-            probe_status,
-            execution_mode,
-            gmcm_detected,
-            runtime_attempted,
-            runtime_skip_reason,
-            configured_mods_root,
-            capture_strategy,
-            smapi_source,
-            requested_smapi_version,
-            resolved_smapi_version,
-            failure_stage,
-            inspect_duration_ms,
-            runtime_duration_ms,
-            duration_ms,
-            fields.len(),
-            gmcm_field_count,
-            static_field_count,
-            translations.len(),
-        );
+        load_event.emit_info(targets::LAUNCHER_MOD_CONFIG);
     } else {
-        log::warn!(
-            target: "Launcher Mod Config",
-            "Loaded mod config with diagnostics: mod={} locale={} probe={:?} execution-mode={} gmcm-detected={} runtime-attempted={} runtime-skip={} configured-mods-root={} capture-strategy={} smapi-source={} requested-smapi={} resolved-smapi={} failure-stage={} inspect-ms={} runtime-ms={} duration-ms={} fields={} gmcm-fields={} static-fields={} translations={} warnings={}",
-            normalized_root,
-            request.locale.as_deref().unwrap_or("default"),
-            probe_status,
-            execution_mode,
-            gmcm_detected,
-            runtime_attempted,
-            runtime_skip_reason,
-            configured_mods_root,
-            capture_strategy,
-            smapi_source,
-            requested_smapi_version,
-            resolved_smapi_version,
-            failure_stage,
-            inspect_duration_ms,
-            runtime_duration_ms,
-            duration_ms,
-            fields.len(),
-            gmcm_field_count,
-            static_field_count,
-            translations.len(),
-            warnings.join(" | "),
-        );
+        load_event
+            .field("warnings", warnings.join(" | "))
+            .emit_warn(targets::LAUNCHER_MOD_CONFIG);
     }
 
     Ok(LauncherModConfigResult {

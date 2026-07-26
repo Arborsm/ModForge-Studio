@@ -1,9 +1,9 @@
-import { useId } from 'react'
+import { useId, useState } from 'react'
+import { AlertTriangle, History } from 'lucide-react'
 import type { LauncherInstallBackupSummary } from '../../model/launcherContracts'
 import { useEditorCopy } from '@locales/provider'
-import { PanelEmptyState } from '@shared/ui/PanelSection'
-import { useState } from 'react'
 import { Dialog, DialogAction, DialogBody, DialogHeader } from '@shared/ui/Dialog'
+import { LauncherInstallStateView } from './LauncherInstallStateView'
 
 type LauncherInstallBackupsDialogProps = {
   open: boolean
@@ -26,32 +26,6 @@ export function LauncherInstallBackupsDialog({
   onClose,
   onRestore,
 }: LauncherInstallBackupsDialogProps) {
-  return (
-    <LauncherInstallBackupsDialogContent
-      open={open}
-      loading={loading}
-      backups={backups}
-      error={error}
-      restoringBackupId={restoringBackupId}
-      modsPath={modsPath}
-      onClose={onClose}
-      onRestore={onRestore}
-    />
-  )
-}
-
-type LauncherInstallBackupsDialogContentProps = LauncherInstallBackupsDialogProps
-
-function LauncherInstallBackupsDialogContent({
-  open,
-  loading,
-  backups,
-  error,
-  restoringBackupId,
-  modsPath,
-  onClose,
-  onRestore,
-}: LauncherInstallBackupsDialogContentProps) {
   const copy = useEditorCopy().launcher
   const titleId = useId()
   const [pendingRestoreBackupId, setPendingRestoreBackupId] = useState<string | null>(null)
@@ -68,6 +42,7 @@ function LauncherInstallBackupsDialogContent({
   return (
     <Dialog open={open} onClose={closeDialog} size="xl" labelledBy={titleId} closeOnBackdrop={!busy} closeOnEscape={!busy}>
       <DialogHeader
+        icon={<History className="h-4 w-4" />}
         title={copy.library.installBackupsTitle}
         subtitle={copy.library.installBackupsSubtitle}
         onClose={closeDialog}
@@ -76,29 +51,45 @@ function LauncherInstallBackupsDialogContent({
         id={titleId}
       />
       <DialogBody>
-        <div className="launcher-library-install-list">
-          {loading ? <PanelEmptyState>{copy.library.installBackupsLoading}</PanelEmptyState> : null}
-          {!loading && error ? <PanelEmptyState>{error}</PanelEmptyState> : null}
-          {!loading && !error && !backups.length ? <PanelEmptyState>{copy.library.installBackupsEmpty}</PanelEmptyState> : null}
+        {loading ? <LauncherInstallStateView tone="loading" title={copy.library.installBackupsLoading} /> : null}
+        {!loading && error ? <LauncherInstallStateView tone="error" title={copy.library.installBackupsError} detail={error} /> : null}
+        {!loading && !error && !backups.length ? <LauncherInstallStateView tone="empty" title={copy.library.installBackupsEmpty} /> : null}
 
-          {!loading && !error
-            ? backups.map((backup) => {
-                const restoring = restoringBackupId === backup.backupId
-                return (
-                  <article key={backup.backupId} className="launcher-library-install-card">
-                    <div className="launcher-library-install-card-header">
-                      <strong>{backup.backupId}</strong>
+        {!loading && !error && backups.length ? (
+          <div className="launcher-install-backup-list">
+            {backups.map((backup) => {
+              const restoring = restoringBackupId === backup.backupId
+              const pending = pendingRestoreBackupId === backup.backupId
+              return (
+                <article key={backup.backupId} className="launcher-install-backup-card" data-pending={pending || undefined}>
+                  <span className="launcher-install-mod-icon" aria-hidden="true">
+                    <History className="h-4 w-4" />
+                  </span>
+                  <div className="launcher-install-mod-main">
+                    <div className="launcher-install-mod-title">
+                      <span className="launcher-install-mono-strong">{backup.backupId}</span>
+                      <span className="launcher-install-change-chip" data-tone="danger">
+                        {copy.library.installBackupDeleteCount(backup.deleteCount)}
+                      </span>
+                      <span className="launcher-install-change-chip" data-tone="warning">
+                        {copy.library.installBackupOverwriteCount(backup.overwriteCount)}
+                      </span>
                     </div>
-                    <p className="launcher-library-install-card-path">{backup.backupPath}</p>
-                    <div className="launcher-library-dialog-actions launcher-library-install-card-actions">
-                      <DialogAction tone="primary" disabled={busy} onClick={() => setPendingRestoreBackupId(backup.backupId)}>
-                        {restoring ? `${copy.library.restoreInstallBackup}...` : copy.library.restoreInstallBackup}
-                      </DialogAction>
-                    </div>
-                    {pendingRestoreBackupId === backup.backupId ? (
-                      <div className="launcher-library-install-restore-confirm">
-                        <p className="text-sm font-semibold text-(--text-primary)">{copy.library.restoreInstallBackupConfirmTitle}</p>
-                        <p className="mt-1 text-xs text-(--text-secondary)">
+                    <p className="launcher-install-mono">{backup.backupPath}</p>
+                  </div>
+                  <div className="launcher-install-backup-actions">
+                    <DialogAction disabled={busy} onClick={() => setPendingRestoreBackupId(backup.backupId)}>
+                      {restoring ? `${copy.library.restoreInstallBackup}...` : copy.library.restoreInstallBackup}
+                    </DialogAction>
+                  </div>
+                  {pending ? (
+                    <div className="launcher-install-restore-panel">
+                      <span className="launcher-install-restore-icon" aria-hidden="true">
+                        <AlertTriangle className="h-4 w-4" />
+                      </span>
+                      <div className="launcher-install-restore-main">
+                        <p className="launcher-install-restore-title">{copy.library.restoreInstallBackupConfirmTitle}</p>
+                        <p className="launcher-install-restore-message">
                           {copy.library.restoreInstallBackupConfirmMessage(
                             backup.backupId,
                             modsPath ?? '',
@@ -106,21 +97,22 @@ function LauncherInstallBackupsDialogContent({
                             backup.overwriteCount,
                           )}
                         </p>
-                        <div className="mt-3 flex justify-end gap-2">
+                        <div className="launcher-install-restore-actions">
                           <DialogAction disabled={busy} onClick={() => setPendingRestoreBackupId(null)}>
                             {copy.actions.closeDialog}
                           </DialogAction>
-                          <DialogAction tone="primary" disabled={busy} onClick={() => onRestore(backup.backupId)}>
+                          <DialogAction tone="warning" disabled={busy} onClick={() => onRestore(backup.backupId)}>
                             {copy.library.restoreInstallBackupConfirmAction}
                           </DialogAction>
                         </div>
                       </div>
-                    ) : null}
-                  </article>
-                )
-              })
-            : null}
-        </div>
+                    </div>
+                  ) : null}
+                </article>
+              )
+            })}
+          </div>
+        ) : null}
       </DialogBody>
     </Dialog>
   )

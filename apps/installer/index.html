@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Install ModForge Studio</title>
+    <script>
+      ;(function () {
+        var pref = null
+        try {
+          pref = window.localStorage.getItem('modforge.installer.theme-preference')
+        } catch (e) {}
+        var m = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')
+        var systemDark = !m || m.matches
+        var dark = pref === 'dark' || pref === 'light' ? pref === 'dark' : systemDark
+        var root = document.documentElement
+        root.classList.add(dark ? 'dark' : 'light')
+        root.dataset.themeMode = dark ? 'dark' : 'light'
+        root.style.colorScheme = dark ? 'dark' : 'light'
+        root.style.backgroundColor = dark ? '#131418' : '#f1f1f2'
+      })()
+    </script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        background-color: #131418;
+      }
+      html.light {
+        background-color: #f1f1f2;
+      }
+      body {
+        background-color: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

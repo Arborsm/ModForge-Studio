@@ -178,6 +178,7 @@ export function LauncherUpdatesPage({
                 className="launcher-updates-icon-button"
                 aria-label={copy.updates.recheck}
                 title={copy.updates.recheck}
+                data-guide="launcher-updates-check"
                 onClick={() => void updates.refresh()}
               >
                 <RefreshCw className="h-4 w-4" />
@@ -309,7 +310,11 @@ export function LauncherUpdatesPage({
           ) : null}
 
           {!stateCardVisible ? (
-            <div className="launcher-updates-list" aria-busy={updates.state === 'loading' ? 'true' : undefined}>
+            <div
+              className="launcher-updates-list"
+              aria-busy={updates.state === 'loading' ? 'true' : undefined}
+              data-guide="launcher-updates-list"
+            >
               {updates.items.map((item, index) => {
                 const key = getUpdateKey(item.modId, item.absolutePath)
 

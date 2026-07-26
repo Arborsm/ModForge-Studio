@@ -6,6 +6,10 @@
 @import './workspace/event-resource-picker.css';
 @import './workspace/dev-resource-browser.css';
 @import './workspace/i18n-generator.css';
+@import './workspace/ai-localization.css';
+@import './workspace/ai-localization-overview.css';
+@import './workspace/ai-localization-knowledge.css';
+@import './workspace/ai-localization-responsive.css';
 @import './features/player-appearance.css';
 @import './features/content-patcher.css';
 @import './features/cp-maker-edit.css';
@@ -15,6 +19,7 @@
 @import './features/studio-tree-sidebar.css';
 @import './features/item-group.css';
 @import './features/initialization-overlay.css';
+@import './features/translation-editor-ai.css';
 @source '../App.tsx';
 @source not '../widgets/launcher-shell';
 @source '../app';

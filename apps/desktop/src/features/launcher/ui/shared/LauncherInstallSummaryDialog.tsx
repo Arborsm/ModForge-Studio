@@ -1,7 +1,7 @@
 import { useId } from 'react'
+import { CheckCircle2, History, Package, PackageCheck } from 'lucide-react'
 import type { InstallLauncherArchiveResult } from '../../model/launcherContracts'
 import { useEditorCopy } from '@locales/provider'
-import { PanelSection } from '@shared/ui/PanelSection'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 type LauncherInstallSummaryDialogProps = {
@@ -23,6 +23,7 @@ export function LauncherInstallSummaryDialog({ open, result, onClose, onManageBa
   return (
     <Dialog open={open} onClose={onClose} size="xl" labelledBy={titleId}>
       <DialogHeader
+        icon={<PackageCheck className="h-4 w-4" />}
         title={copy.library.installSummaryTitle}
         subtitle={copy.library.installSummarySubtitle}
         onClose={onClose}
@@ -30,56 +31,85 @@ export function LauncherInstallSummaryDialog({ open, result, onClose, onManageBa
         id={titleId}
       />
       <DialogBody>
-        <div className="launcher-library-install-dialog-grid">
-          <PanelSection title={result.modName} subtitle={result.targetPath}>
-            <div className="launcher-stats-row">
-              <div className="launcher-stat-card">
-                <span>{copy.overview.installedMods}</span>
-                <strong>{result.installedMods.length}</strong>
-              </div>
-              <div className="launcher-stat-card">
-                <span>{copy.library.installSummaryPreservedConfig}</span>
-                <strong>{result.preservedConfig ? editorCopy.common.yes : editorCopy.common.no}</strong>
-              </div>
-              <div className="launcher-stat-card">
-                <span>{copy.library.installSummaryPreservedI18n}</span>
-                <strong>{result.preservedI18nFiles}</strong>
-              </div>
+        <div className="launcher-install-summary">
+          <section className="launcher-install-result-hero">
+            <span className="launcher-install-result-icon" aria-hidden="true">
+              <CheckCircle2 className="h-5 w-5" />
+            </span>
+            <div className="launcher-install-result-main">
+              <h3>{result.modName}</h3>
+              <p className="launcher-install-mono">{result.targetPath}</p>
+              {result.version || result.uniqueId ? (
+                <div className="launcher-install-result-badges">
+                  {result.version ? <span className="dock-chip">{`v${result.version}`}</span> : null}
+                  {result.uniqueId ? <span className="dock-chip">{result.uniqueId}</span> : null}
+                </div>
+              ) : null}
             </div>
-          </PanelSection>
+          </section>
 
-          <PanelSection
-            title={copy.overview.installedMods}
-            subtitle={copy.library.installSummaryInstalledMods(result.installedMods.length)}
-          >
-            <div className="launcher-library-install-list">
+          <div className="launcher-install-metric-row">
+            <div className="launcher-install-metric">
+              <strong>{result.installedMods.length}</strong>
+              <span>{copy.overview.installedMods}</span>
+            </div>
+            <div className="launcher-install-metric" data-tone={result.preservedConfig ? 'ok' : 'muted'}>
+              <strong>{result.preservedConfig ? editorCopy.common.yes : editorCopy.common.no}</strong>
+              <span>{copy.library.installSummaryPreservedConfig}</span>
+            </div>
+            <div className="launcher-install-metric">
+              <strong>{result.preservedI18nFiles}</strong>
+              <span>{copy.library.installSummaryPreservedI18n}</span>
+            </div>
+          </div>
+
+          <section className="launcher-install-summary-section">
+            <div className="launcher-install-section-head">
+              <h3>{copy.overview.installedMods}</h3>
+              <span>{copy.library.installSummaryInstalledMods(result.installedMods.length)}</span>
+            </div>
+            <div className="launcher-install-mod-list">
               {result.installedMods.map((item) => (
-                <article key={`${item.targetPath}:${item.uniqueId ?? item.modName}`} className="launcher-library-install-card">
-                  <div className="launcher-library-install-card-header">
-                    <strong>{item.modName}</strong>
-                    {item.version ? <span>{`v${item.version}`}</span> : null}
+                <article key={`${item.targetPath}:${item.uniqueId ?? item.modName}`} className="launcher-install-mod-card">
+                  <span className="launcher-install-mod-icon" aria-hidden="true">
+                    <Package className="h-4 w-4" />
+                  </span>
+                  <div className="launcher-install-mod-main">
+                    <div className="launcher-install-mod-title">
+                      <strong>{item.modName}</strong>
+                      {item.version ? <span className="launcher-install-version-pill">{`v${item.version}`}</span> : null}
+                    </div>
+                    <p className="launcher-install-mono">{item.targetPath}</p>
+                    {item.uniqueId ? (
+                      <p className="launcher-install-mod-uid">
+                        <span>{copy.fields.uniqueId}</span>
+                        <span className="launcher-install-mono">{item.uniqueId}</span>
+                      </p>
+                    ) : null}
                   </div>
-                  <p className="launcher-library-install-card-path">{item.targetPath}</p>
-                  {item.uniqueId ? (
-                    <p className="launcher-library-install-card-meta">
-                      <span>{copy.fields.uniqueId}</span>
-                      <span>{item.uniqueId}</span>
-                    </p>
-                  ) : null}
                 </article>
               ))}
             </div>
-          </PanelSection>
+          </section>
 
-          <PanelSection title={copy.library.installBackupsTitle} subtitle={copy.library.installSummaryBackupSubtitle}>
-            <div className="launcher-library-install-backup-card">
-              <p className="launcher-library-install-card-meta">
-                <span>{copy.library.installBackupIdLabel}</span>
-                <strong>{result.backupId}</strong>
-              </p>
-              <p className="launcher-library-install-card-path">{result.backupPath}</p>
+          <section className="launcher-install-summary-section">
+            <div className="launcher-install-section-head">
+              <h3>{copy.library.installBackupsTitle}</h3>
             </div>
-          </PanelSection>
+            <div className="launcher-install-backup-summary">
+              <span className="launcher-install-mod-icon" aria-hidden="true">
+                <History className="h-4 w-4" />
+              </span>
+              <div className="launcher-install-mod-main">
+                <div className="launcher-install-mod-title">
+                  <span className="launcher-install-field-label">{copy.library.installBackupIdLabel}</span>
+                  <span className="launcher-install-mono-strong">{result.backupId}</span>
+                </div>
+                <p className="launcher-install-mono">{result.backupPath}</p>
+                <p className="launcher-install-backup-hint">{copy.library.installSummaryBackupSubtitle}</p>
+              </div>
+            </div>
+          </section>
         </div>
       </DialogBody>
       <DialogFooter>

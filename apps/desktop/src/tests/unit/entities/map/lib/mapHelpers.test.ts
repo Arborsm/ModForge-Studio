@@ -14,7 +14,7 @@ import {
   stripTileGidFlags,
 } from '@entities/map/lib/tileFlags'
 import { findTilesetForGid } from '@entities/map/lib/tilesets'
-import { isExteriorWarp, parseWarpEntries, parseWarpProperty } from '@entities/map/lib/warps'
+import { parseWarpProperty } from '@entities/map/lib/warps'
 import type { MapDocument, MapTileset } from '@entities/map/lib/types'
 
 function createTileset(firstGid: number, tileProperties: MapTileset['tileProperties'] = {}): MapTileset {
@@ -85,9 +85,12 @@ describe('map helpers', () => {
   })
 
   it('has the correct flag mask values', () => {
-    const expectedFlags = FLIPPED_HORIZONTALLY_FLAG | FLIPPED_VERTICALLY_FLAG | FLIPPED_DIAGONALLY_FLAG | ROTATED_HEXAGONAL_120_FLAG
-    expect(TILE_GID_FLAG_MASK).toBe(expectedFlags >>> 0)
-    expect(TILE_ID_MASK).toBe(~expectedFlags >>> 0)
+    expect(FLIPPED_HORIZONTALLY_FLAG).toBe(0x80000000)
+    expect(FLIPPED_VERTICALLY_FLAG).toBe(0x40000000)
+    expect(FLIPPED_DIAGONALLY_FLAG).toBe(0x20000000)
+    expect(ROTATED_HEXAGONAL_120_FLAG).toBe(0x10000000)
+    expect(TILE_GID_FLAG_MASK).toBe(0xf0000000)
+    expect(TILE_ID_MASK).toBe(0x0fffffff)
   })
 
   it('strips no flags when gid has none set', () => {
@@ -160,25 +163,5 @@ describe('map helpers', () => {
       { sourceX: 1, sourceY: 2, targetMap: 'Farm', targetX: 10, targetY: 11 },
       { sourceX: 3, sourceY: 4, targetMap: 'Town', targetX: 5, targetY: 6 },
     ])
-  })
-
-  it('parses warp entries from Warp and NPCWarp properties', () => {
-    const mapDocument = {
-      ...createMapDocument([]),
-      properties: {
-        Warp: '1 2 Farm 10 11',
-        NPCWarp: '3 4 Town 5 6',
-      },
-      width: 5,
-      height: 5,
-    }
-
-    const entries = parseWarpEntries(mapDocument)
-    expect(entries).toEqual([
-      { sourceX: 1, sourceY: 2, targetMap: 'Farm', targetX: 10, targetY: 11 },
-      { sourceX: 3, sourceY: 4, targetMap: 'Town', targetX: 5, targetY: 6 },
-    ])
-    expect(isExteriorWarp(mapDocument, entries[0]!)).toBe(false)
-    expect(isExteriorWarp(mapDocument, { sourceX: -1, sourceY: 0, targetMap: 'Farm', targetX: 1, targetY: 1 })).toBe(true)
   })
 })

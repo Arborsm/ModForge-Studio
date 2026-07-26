@@ -1,0 +1,83 @@
+/*
+ * Installer theme tokens.
+ *
+ * Palette, radius, font and shadow baselines mirror the ModForge Studio
+ * desktop app's default `neutral-tool` theme (apps/desktop/src/styles/tokens.css)
+ * so the installer reads as the same product. `:root` carries the dark values
+ * as the pre-React fallback; `:root.light` overrides them for the light mode.
+ * The active mode is toggled on <html> by src/theme/useInstallerTheme.ts.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --color-bg-primary: #131418;
+  --color-bg-secondary: #1b1c21;
+  --color-bg-panel-muted: #16171b;
+
+  --color-text-primary: #f3f4f7;
+  --color-text-secondary: #b6b8c0;
+  --color-text-muted: #7e8088;
+
+  /* ModForge brand accent — `neutral-tool` dark accent; pairs with the teal -> sky -> blue logo gradient. */
+  --color-accent-400: #7aa5f5;
+  --color-accent-500: #5b8def;
+  --accent-soft: rgba(91, 141, 239, 0.18);
+  --color-accent-contrast: #f8fbff;
+  --focus-ring: rgba(91, 141, 239, 0.32);
+
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #f87171;
+
+  --element-bg-subtle: rgba(255, 255, 255, 0.06);
+  --element-bg-soft: rgba(255, 255, 255, 0.1);
+  --element-bg-medium: rgba(255, 255, 255, 0.16);
+
+  --border-subtle: rgba(170, 174, 186, 0.18);
+  --border-base: rgba(170, 174, 186, 0.3);
+
+  --shadow-panel: 0 0.0625rem 0.0625rem rgba(0, 0, 0, 0.28), 0 1rem 1.75rem rgba(0, 0, 0, 0.22);
+  --shadow-float: 0 1.5rem 2.75rem rgba(0, 0, 0, 0.38), 0 0.625rem 1.5rem rgba(0, 0, 0, 0.26);
+
+  --size-radius-sm: 6px;
+  --size-radius-md: 10px;
+
+  --font-sans:
+    'Segoe UI Variable Text', 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei UI', 'Noto Sans CJK SC', 'Noto Sans SC', 'Source Han Sans SC',
+    'WenQuanYi Micro Hei', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Cascadia Mono', 'JetBrains Mono', 'SF Mono', 'Consolas', 'Noto Sans SC', 'Microsoft YaHei', monospace;
+}
+
+:root.light {
+  color-scheme: light;
+
+  --color-bg-primary: #f1f1f2;
+  --color-bg-secondary: #fbfbfc;
+  --color-bg-panel-muted: #ececed;
+
+  --color-text-primary: #1c1c20;
+  --color-text-secondary: #52535a;
+  --color-text-muted: #86878e;
+
+  /* `neutral-tool` light accent. */
+  --color-accent-400: #3b82f6;
+  --color-accent-500: #2563eb;
+  --accent-soft: rgba(37, 99, 235, 0.11);
+  --color-accent-contrast: #f8fbff;
+  --focus-ring: rgba(37, 99, 235, 0.22);
+
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-error: #dc2626;
+
+  --element-bg-subtle: rgba(28, 28, 32, 0.05);
+  --element-bg-soft: rgba(28, 28, 32, 0.08);
+  --element-bg-medium: rgba(28, 28, 32, 0.12);
+
+  --border-subtle: rgba(110, 112, 120, 0.24);
+  --border-base: rgba(110, 112, 120, 0.36);
+
+  --shadow-panel: 0 0.0625rem 0.125rem rgba(20, 22, 30, 0.05), 0 0.5rem 1.125rem rgba(20, 22, 30, 0.07);
+  --shadow-float: 0 1.125rem 1.875rem rgba(20, 22, 30, 0.18), 0 0.5rem 1.125rem rgba(20, 22, 30, 0.12);
+}

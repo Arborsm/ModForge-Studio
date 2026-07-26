@@ -72,6 +72,22 @@ function resolveDependencyStatus(input: DependencyStatusInput, copy: DependencyT
   return dependencyStatus('satisfied', copy.satisfied)
 }
 
+/**
+ * Keeps the first node per resolved id within one sibling list. Name-level merging cannot catch
+ * references spelled differently (manifest UniqueID vs Nexus requirement name) that still resolve
+ * to the same mod, and those would produce duplicate React keys.
+ */
+function uniqueDependencyNodes(nodes: DependencyTreeNode[]) {
+  const seen = new Set<string>()
+  return nodes.filter((node) => {
+    if (seen.has(node.id)) {
+      return false
+    }
+    seen.add(node.id)
+    return true
+  })
+}
+
 function buildLocalDependencyNode({
   dependencyName,
   ownerId,
@@ -134,19 +150,21 @@ function buildLocalDependencyNode({
   const localChildren = getLocalDependencyNames(localMatch)
   const nextPath = new Set(path)
   nextPath.add(dependencyKey)
-  const children = localChildren.map((childDependency) =>
-    buildLocalDependencyNode({
-      dependencyName: childDependency,
-      ownerId: nodeId,
-      ownerLocalMod: localMatch,
-      inheritedOptional: optional,
-      localLookup,
-      rootRemoteRequirementLookup,
-      remoteDependencyDetails,
-      copy,
-      rootImageUrl,
-      path: nextPath,
-    }),
+  const children = uniqueDependencyNodes(
+    localChildren.map((childDependency) =>
+      buildLocalDependencyNode({
+        dependencyName: childDependency,
+        ownerId: nodeId,
+        ownerLocalMod: localMatch,
+        inheritedOptional: optional,
+        localLookup,
+        rootRemoteRequirementLookup,
+        remoteDependencyDetails,
+        copy,
+        rootImageUrl,
+        path: nextPath,
+      }),
+    ),
   )
 
   const externalOnly = smapiLoader || (!localMatch && Boolean(remoteRequirement?.external))
@@ -156,19 +174,21 @@ function buildLocalDependencyNode({
   const statusRemoteState = externalOnly ? remoteLoad?.state : undefined
   const remoteChildren =
     !localMatch && remoteLoad?.state === 'ready'
-      ? uniqueNonEmpty(remoteLoad.detail?.requirements?.map((requirement) => requirement.name) ?? []).map((childDependency) =>
-          buildRemoteDependencyNode({
-            requirementName: childDependency,
-            ownerId: nodeId,
-            ownerLocalMod: null,
-            inheritedOptional: optional,
-            localLookup,
-            remoteRequirementLookup: buildRemoteRequirementLookup(remoteLoad.detail?.requirements),
-            remoteDependencyDetails,
-            copy,
-            rootImageUrl: remoteLoad.detail?.imageUrl ?? rootImageUrl,
-            path: nextPath,
-          }),
+      ? uniqueDependencyNodes(
+          uniqueNonEmpty(remoteLoad.detail?.requirements?.map((requirement) => requirement.name) ?? []).map((childDependency) =>
+            buildRemoteDependencyNode({
+              requirementName: childDependency,
+              ownerId: nodeId,
+              ownerLocalMod: null,
+              inheritedOptional: optional,
+              localLookup,
+              remoteRequirementLookup: buildRemoteRequirementLookup(remoteLoad.detail?.requirements),
+              remoteDependencyDetails,
+              copy,
+              rootImageUrl: remoteLoad.detail?.imageUrl ?? rootImageUrl,
+              path: nextPath,
+            }),
+          ),
         )
       : []
   const status = resolveDependencyStatus(
@@ -259,36 +279,40 @@ function buildRemoteDependencyNode({
   const localChildren = getLocalDependencyNames(localMatch)
   const localDependencyChildren =
     !cycle && localChildren.length
-      ? localChildren.map((childDependency) =>
-          buildLocalDependencyNode({
-            dependencyName: childDependency,
-            ownerId: nodeId,
-            ownerLocalMod: localMatch,
-            inheritedOptional: optional,
-            localLookup,
-            rootRemoteRequirementLookup: remoteRequirementLookup,
-            remoteDependencyDetails,
-            copy,
-            rootImageUrl,
-            path: nextPath,
-          }),
+      ? uniqueDependencyNodes(
+          localChildren.map((childDependency) =>
+            buildLocalDependencyNode({
+              dependencyName: childDependency,
+              ownerId: nodeId,
+              ownerLocalMod: localMatch,
+              inheritedOptional: optional,
+              localLookup,
+              rootRemoteRequirementLookup: remoteRequirementLookup,
+              remoteDependencyDetails,
+              copy,
+              rootImageUrl,
+              path: nextPath,
+            }),
+          ),
         )
       : []
   const children =
     !cycle && remoteLoad?.state === 'ready'
-      ? uniqueNonEmpty(remoteLoad.detail?.requirements?.map((child) => child.name) ?? []).map((childDependency) =>
-          buildRemoteDependencyNode({
-            requirementName: childDependency,
-            ownerId: nodeId,
-            ownerLocalMod: null,
-            inheritedOptional: optional,
-            localLookup,
-            remoteRequirementLookup: buildRemoteRequirementLookup(remoteLoad.detail?.requirements),
-            remoteDependencyDetails,
-            copy,
-            rootImageUrl: remoteLoad.detail?.imageUrl ?? rootImageUrl,
-            path: nextPath,
-          }),
+      ? uniqueDependencyNodes(
+          uniqueNonEmpty(remoteLoad.detail?.requirements?.map((child) => child.name) ?? []).map((childDependency) =>
+            buildRemoteDependencyNode({
+              requirementName: childDependency,
+              ownerId: nodeId,
+              ownerLocalMod: null,
+              inheritedOptional: optional,
+              localLookup,
+              remoteRequirementLookup: buildRemoteRequirementLookup(remoteLoad.detail?.requirements),
+              remoteDependencyDetails,
+              copy,
+              rootImageUrl: remoteLoad.detail?.imageUrl ?? rootImageUrl,
+              path: nextPath,
+            }),
+          ),
         )
       : []
   const external = Boolean(smapiLoader || requirement?.external || !modId)
@@ -352,18 +376,20 @@ export function buildLauncherDependencyTree({
   const rootDependencyNames = mergeDependencyNames([...localDependencies, ...remoteRequirements.map((requirement) => requirement.name)])
   const rootPath = new Set([normalizeDependencyMatchKey(mod?.uniqueId ?? remote?.title ?? '')].filter(Boolean))
   const ownerId = `root:${mod?.uniqueId ?? remote?.modId ?? 'detail'}`
-  const items = rootDependencyNames.map((dependencyName) =>
-    buildLocalDependencyNode({
-      dependencyName,
-      ownerId,
-      ownerLocalMod: mod,
-      localLookup: localDependencyLookup,
-      rootRemoteRequirementLookup,
-      remoteDependencyDetails,
-      copy,
-      rootImageUrl,
-      path: rootPath,
-    }),
+  const items = uniqueDependencyNodes(
+    rootDependencyNames.map((dependencyName) =>
+      buildLocalDependencyNode({
+        dependencyName,
+        ownerId,
+        ownerLocalMod: mod,
+        localLookup: localDependencyLookup,
+        rootRemoteRequirementLookup,
+        remoteDependencyDetails,
+        copy,
+        rootImageUrl,
+        path: rootPath,
+      }),
+    ),
   )
 
   const expandedNodeIds = collectExpandedDependencyNodeIds(items)

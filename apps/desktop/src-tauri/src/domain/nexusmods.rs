@@ -16,6 +16,7 @@ pub use rest_api::downloads;
 
 use crate::AppHandle;
 use crate::domain::launcher::types::LauncherSettings;
+use crate::support::logging::{LogEvent, targets};
 
 use self::types::ValidateApiKeyResult;
 
@@ -46,16 +47,19 @@ fn optional_nexus_value_as_string(value: Option<serde_json::Value>) -> Option<St
 pub(crate) fn validate_nexus_api_key(app: AppHandle) -> anyhow::Result<ValidateApiKeyResult> {
     let settings = crate::domain::launcher::settings::load_launcher_settings(app)?;
     let api_key = settings.nexus_api_key.as_deref().unwrap_or("");
-    log::info!(
-        target: "Nexus",
-        "Validate API key requested: api-key-present={} api-key-length={}",
-        !api_key.trim().is_empty(),
-        api_key.len()
-    );
-    let user_info = rest_api::validate_user(api_key)?;
+    // Only the outcome is logged: announcing the request and then immediately
+    // reporting the result doubles the line count for one action.
+    let user_info = rest_api::validate_user(api_key).inspect_err(|error| {
+        LogEvent::new("nexus.apiKey.validateFailed")
+            .flag("apiKeyPresent", !api_key.trim().is_empty())
+            .error(error)
+            .emit_warn(targets::NEXUS);
+    })?;
     let avatar_url = graphql::load_user_avatar(api_key, user_info.user_id)
         .map_err(|error| {
-            log::warn!(target: "Nexus", "User avatar lookup failed: error={error}");
+            LogEvent::new("nexus.userAvatar.lookupFailed")
+                .error(format!("{error}"))
+                .emit_warn(targets::NEXUS);
             error
         })
         .ok()

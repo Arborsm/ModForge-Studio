@@ -1,0 +1,13 @@
+{
+  "Changes": [
+    {
+      "Action": "EditData",
+      "Target": "Data/Objects",
+      "Entries": {
+        "AuditFixture": {
+          "Name": "Audit Fixture"
+        }
+      }
+    }
+  ]
+}

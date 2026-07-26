@@ -623,7 +623,7 @@ fn parse_bracket_subtypes(full: &str) -> Vec<String> {
     subtypes
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "installed-game-validation")))]
 #[path = "../../../tests/unit/infrastructure/game_formats/xnb/readers_tests.rs"]
 mod tests;
 

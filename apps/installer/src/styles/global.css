@@ -1,0 +1,791 @@
+@import './variables.css';
+@import './animations.css';
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  text-rendering: optimizeLegibility;
+}
+
+.installer-app {
+  width: 100vw;
+  height: 100vh;
+  background: var(--color-bg-primary);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: background 0.28s ease;
+}
+
+.titlebar {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--border-subtle);
+  -webkit-app-region: drag;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+  transition:
+    background 0.28s ease,
+    border-color 0.28s ease;
+}
+
+.titlebar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--border-base) 25%,
+    color-mix(in srgb, var(--border-base) 70%, var(--color-text-primary)) 50%,
+    var(--border-base) 75%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.titlebar-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  opacity: 0.6;
+  letter-spacing: 0.3px;
+}
+
+.window-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  -webkit-app-region: no-drag;
+}
+
+.window-controls__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--size-radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  outline: none;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.window-controls__btn:hover {
+  background: var(--element-bg-subtle);
+  color: var(--color-text-secondary);
+}
+.window-controls__btn:active {
+  opacity: 0.8;
+}
+.window-controls__btn--close:hover {
+  background: var(--element-bg-subtle);
+  color: var(--color-error);
+}
+
+.theme-toggle svg {
+  animation: themeIconIn 0.3s ease;
+}
+
+.installer-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Wizard page transition wrapper — keyed by step in App.tsx. */
+.wizard-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.wizard-page--forward {
+  animation: pageSlideInForward 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.wizard-page--back {
+  animation: pageSlideInBack 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.page-shell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 32px 18px;
+}
+
+.page-container {
+  width: 100%;
+  max-width: 620px;
+  margin: 0 auto;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.page-container--center {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.page-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 22px 12px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--color-bg-primary);
+  flex-shrink: 0;
+  transition:
+    background 0.28s ease,
+    border-color 0.28s ease;
+}
+
+.page-footer--split {
+  justify-content: space-between;
+}
+
+.page-footer--center {
+  justify-content: center;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 14px;
+  min-height: 32px;
+  background: var(--element-bg-subtle);
+  border: 1px solid var(--border-base);
+  border-radius: var(--size-radius-sm);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  box-shadow: none;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.12s ease;
+  will-change: transform;
+}
+.btn svg {
+  color: currentColor;
+  opacity: 0.72;
+  transition: opacity 0.15s ease;
+}
+.btn:hover:not(:disabled) {
+  background: var(--element-bg-soft);
+  color: var(--color-text-primary);
+  border-color: color-mix(in srgb, var(--border-base) 70%, var(--color-text-primary));
+  transform: translateY(-1px);
+}
+.btn:hover:not(:disabled) svg {
+  opacity: 1;
+}
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  transition-duration: 0.06s;
+}
+.btn:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--color-accent-500) 55%, transparent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.btn:disabled {
+  opacity: 0.46;
+  cursor: default;
+  box-shadow: none;
+}
+
+/* Filled accent gradient — mirrors the desktop app's `control-button-primary`. */
+.btn-primary {
+  background: linear-gradient(180deg, var(--color-accent-400), var(--color-accent-500));
+  border-color: color-mix(in srgb, var(--color-accent-500) 55%, transparent);
+  color: var(--color-accent-contrast);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.16);
+}
+.btn-primary svg {
+  opacity: 1;
+}
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--color-accent-500), color-mix(in srgb, var(--color-accent-500) 88%, #000));
+  border-color: var(--color-accent-500);
+  color: var(--color-accent-contrast);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent-500) 32%, transparent);
+}
+.btn-primary:focus-visible {
+  border-color: color-mix(in srgb, var(--color-accent-500) 72%, transparent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* Filled success gradient — the closing CTA on the finish page. */
+.btn-success {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-success) 82%, #fff), var(--color-success));
+  border-color: color-mix(in srgb, var(--color-success) 55%, transparent);
+  color: var(--color-accent-contrast);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.16);
+}
+.btn-success svg {
+  opacity: 1;
+}
+.btn-success:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--color-success), color-mix(in srgb, var(--color-success) 86%, #000));
+  border-color: var(--color-success);
+  color: var(--color-accent-contrast);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-success) 30%, transparent);
+}
+
+/* Borderless quiet action. */
+.btn-ghost {
+  min-height: 32px;
+  padding: 6px 10px;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--color-text-muted);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--element-bg-subtle);
+  border-color: transparent;
+  color: var(--color-text-secondary);
+}
+
+.input-group {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.input {
+  flex: 1;
+  padding: 10px 14px;
+  background: var(--element-bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--size-radius-sm);
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  outline: none;
+  transition: all 0.25s ease;
+}
+.input:focus {
+  border-color: color-mix(in srgb, var(--color-accent-500) 48%, transparent);
+  background: var(--element-bg-soft);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: var(--size-radius-sm);
+  transition: background 0.15s ease;
+}
+.checkbox-item:hover {
+  background: var(--element-bg-subtle);
+}
+
+.checkbox-box {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid color-mix(in srgb, var(--border-base) 70%, var(--color-text-primary));
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.checkbox-box.checked {
+  background: var(--color-accent-500);
+  border-color: var(--color-accent-500);
+  animation: checkboxPop 0.18s ease;
+}
+.checkbox-box svg {
+  width: 10px;
+  height: 10px;
+  color: var(--color-accent-contrast);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.checkbox-box.checked svg {
+  opacity: 1;
+}
+
+.checkbox-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  transition: color 0.15s ease;
+}
+.checkbox-item:hover .checkbox-label {
+  color: var(--color-text-primary);
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 4px;
+  background: var(--element-bg-soft);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--color-accent-500);
+  transition:
+    width 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 300ms ease;
+  position: relative;
+  will-change: width;
+}
+.progress-bar-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-accent-500) 15%, transparent), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 12px;
+}
+.section-label svg {
+  opacity: 0.6;
+}
+
+/* ── Language select page ─────────────────────────────────────────── */
+
+.lang-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--element-bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--size-radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  text-align: left;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+.lang-item:hover {
+  background: var(--element-bg-soft);
+  border-color: var(--border-base);
+}
+.lang-item.is-selected {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--color-accent-500) 55%, transparent);
+}
+
+.lang-item-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lang-item-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  transition: color 0.15s ease;
+}
+.lang-item:hover .lang-item-name,
+.lang-item.is-selected .lang-item-name {
+  color: var(--color-text-primary);
+}
+
+.lang-item-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* ── App preferences page ─────────────────────────────────────────── */
+
+.pref-section {
+  margin-bottom: 22px;
+}
+
+.pref-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  gap: 8px;
+}
+
+.pref-theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--element-bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--size-radius-md);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  text-align: left;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.12s ease;
+}
+.pref-theme-card:hover {
+  background: var(--element-bg-soft);
+  border-color: var(--border-base);
+  transform: translateY(-1px);
+}
+.pref-theme-card:active {
+  transform: translateY(0) scale(0.98);
+}
+.pref-theme-card.is-selected {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--color-accent-500) 55%, transparent);
+}
+
+.pref-theme-preview {
+  position: relative;
+  height: 44px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+.pref-theme-preview-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.pref-theme-preview-accent {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  width: 34px;
+  height: 6px;
+  border-radius: 3px;
+}
+
+.pref-theme-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  transition: color 0.15s ease;
+}
+.pref-theme-card.is-selected .pref-theme-name {
+  color: var(--color-text-primary);
+}
+
+.pref-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pref-radio {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--size-radius-sm);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  text-align: left;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.pref-radio:hover {
+  background: var(--element-bg-subtle);
+  color: var(--color-text-primary);
+}
+
+.pref-radio-dot {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--border-base) 70%, var(--color-text-primary));
+  flex-shrink: 0;
+  transition: border-color 0.15s ease;
+}
+.pref-radio.is-selected .pref-radio-dot {
+  border-color: var(--color-accent-500);
+}
+.pref-radio.is-selected .pref-radio-dot::after {
+  content: '';
+  position: absolute;
+  inset: 2.5px;
+  border-radius: 50%;
+  background: var(--color-accent-500);
+  animation: checkboxPop 0.18s ease;
+}
+
+.pref-radio-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.pref-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pref-radio-desc {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  opacity: 0.85;
+}
+
+.pref-badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--color-accent-500);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.pref-field-group {
+  margin-bottom: 10px;
+}
+.pref-field-label {
+  margin: 0 0 4px 10px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--element-bg-medium) 75%, var(--color-text-primary));
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+.uninstall-page {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.uninstall-card {
+  width: 100%;
+  max-width: 600px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0 auto;
+}
+
+.uninstall-title {
+  margin-bottom: 22px;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-align: center;
+  letter-spacing: 0.2px;
+}
+
+.uninstall-subtitle {
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  text-align: left;
+  opacity: 0.86;
+}
+
+.uninstall-inline-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 4px 0 6px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  border: none;
+  min-width: 0;
+}
+
+.uninstall-inline-label {
+  white-space: nowrap;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  opacity: 1;
+}
+
+.uninstall-inline-path {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  max-width: 82%;
+  flex: 0 1 auto;
+  opacity: 0.9;
+}
+
+.uninstall-error {
+  margin-bottom: 10px;
+  color: var(--color-error);
+  font-size: 12px;
+}
+
+.uninstall-delete-data {
+  margin-bottom: 14px;
+}
+.uninstall-delete-data-hint {
+  margin: 2px 0 0 36px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+  opacity: 0.85;
+}
+
+.uninstall-success {
+  margin-bottom: 10px;
+  color: var(--color-success);
+  font-size: 12px;
+}
+
+.uninstall-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.uninstall-progress-wrap .progress-bar-container {
+  flex: 1;
+}
+
+.uninstall-progress-text {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  min-width: 34px;
+  text-align: right;
+}
+
+.uninstall-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 760px) {
+  .page-scroll {
+    padding: 18px 18px 12px;
+  }
+
+  .page-footer {
+    padding: 8px 14px 10px;
+  }
+}
+
+@media (max-width: 520px) {
+  .page-container--center {
+    justify-content: flex-start;
+  }
+
+  .page-footer,
+  .page-footer--split {
+    justify-content: center;
+  }
+}

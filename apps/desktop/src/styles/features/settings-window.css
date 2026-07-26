@@ -1,112 +1,650 @@
 @layer components {
+  /* —— Shell (prototype: overlay / panel / header / body) —— */
   .settings-window-backdrop {
-    z-index: 220;
-    padding: 1.75rem;
+    z-index: var(--z-dialog);
+    padding: 1.5rem;
     background: var(--scrim);
-    backdrop-filter: blur(0.625rem);
+    backdrop-filter: blur(0.5rem);
   }
 
   .settings-window-panel {
-    width: min(57.5rem, calc(100vw - 3.5rem));
-    height: min(51.25rem, calc(100vh - 3.5rem));
-    border: 1px solid var(--border-color);
+    position: relative;
+    width: min(105rem, calc(100vw - 3rem));
+    height: min(68.75rem, calc(100vh - 6.5rem));
+    max-width: calc(100vw - 3rem);
+    max-height: calc(100vh - 6.5rem);
+    min-height: 0;
+    border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
     border-radius: 1.25rem;
-    background: color-mix(in srgb, var(--bg-elevated) 100%, transparent);
+    background: var(--bg-panel);
+    overflow: hidden;
   }
 
   .settings-window-header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
     gap: 1rem;
-    background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
+    min-height: 3.25rem;
+    flex-shrink: 0;
+    padding: 0.625rem 0.875rem 0.625rem 1.25rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
+    background: color-mix(in srgb, var(--bg-panel) 92%, var(--bg-panel-muted));
+  }
+
+  .settings-window-header-brand {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  .settings-window-header-icon {
+    display: grid;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: 0 0 1.75rem;
+    place-items: center;
+    border-radius: 0.45rem;
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--accent);
+  }
+
+  .settings-window-header-icon svg {
+    width: 0.95rem;
+    height: 0.95rem;
   }
 
   .settings-window-title {
-    font-size: 1.25rem;
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+  }
+
+  .settings-window-category-tabs {
+    display: inline-flex;
+    max-width: 100%;
+    justify-self: start;
+    gap: 0.125rem;
+    overflow-x: auto;
+    padding: 0.1875rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    border-radius: 0.625rem;
+    background: color-mix(in srgb, var(--bg-panel-muted) 88%, transparent);
+  }
+
+  .settings-window-category-tab {
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 0.475rem;
+    padding: 0.4rem 0.8rem;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.78125rem;
+    font-weight: 650;
+    white-space: nowrap;
+  }
+
+  .settings-window-category-tab:hover {
+    color: var(--text-primary);
+  }
+
+  .settings-window-category-tab.is-active {
+    background: var(--bg-panel);
+    color: var(--text-primary);
+    box-shadow: 0 0.0625rem 0.125rem color-mix(in srgb, var(--text-primary) 8%, transparent);
+  }
+
+  .settings-window-category-tab:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .settings-window-close {
+    display: grid;
+    width: 1.875rem;
+    height: 1.875rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--text-tertiary);
+  }
+
+  .settings-window-close:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
 
   .settings-window-body {
-    min-height: 0;
-    overflow: hidden;
-    padding: 1.5rem;
-    display: grid;
-    grid-template-columns: 15.5rem minmax(0, 1fr);
-    gap: 1.25rem;
-  }
-
-  .settings-window-sidebar {
     display: flex;
+    flex: 1;
+    min-height: 0;
     flex-direction: column;
-    gap: 0.25rem;
+    overflow: hidden;
+    padding: 0;
+    background: color-mix(in srgb, var(--bg-panel-muted) 35%, var(--bg-panel));
   }
 
-  .settings-window-nav-item {
-    position: relative;
+  .settings-window-body-inner {
+    display: flex;
+    flex: 1;
+    min-height: 0;
     width: 100%;
-    border: 0;
-    border-radius: 0.875rem;
-    background: transparent;
-    color: var(--text-secondary);
-    padding: 0.75rem 0.875rem 0.75rem 1.125rem;
-    text-align: left;
-    transition:
-      background-color 160ms ease,
-      color 160ms ease,
-      box-shadow 160ms ease;
+    margin: 0;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 1.15rem 0 0;
   }
 
-  .settings-window-nav-item::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0.625rem;
-    bottom: 0.625rem;
-    width: 0.1875rem;
-    border-radius: 62.4375rem;
-    background: var(--accent);
-    opacity: 0;
-    transition: opacity 160ms ease;
+  .settings-window-pane {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+    width: min(72rem, 100%);
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    box-sizing: border-box;
   }
 
-  .settings-window-nav-item:hover {
-    background: color-mix(in srgb, var(--bg-active) 54%, transparent);
-    color: var(--text-primary);
-  }
-
-  .settings-window-nav-item-active {
-    box-shadow: inset 0.1875rem 0 0 var(--accent);
-    background: color-mix(in srgb, var(--accent-soft) 56%, transparent);
-    color: var(--text-primary);
-  }
-
-  .settings-window-nav-item-active::before {
-    opacity: 1;
-  }
-
-  .settings-window-nav-title {
-    display: block;
-    font-size: 0.8125rem;
-    font-weight: 700;
-  }
-
-  .settings-window-nav-copy {
-    display: block;
-    margin-top: 0.375rem;
-    font-size: 0.6875rem;
-    line-height: 1.5;
+  .settings-window-pane-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding-bottom: 1.25rem;
   }
 
   .settings-window-content {
+    display: flex;
+    flex: 1;
     min-height: 0;
-    display: grid;
-    overflow: auto;
-    gap: 1.375rem;
-    padding-right: 0.25rem;
+    width: 100%;
+    flex-direction: column;
+    overflow: hidden;
+    gap: 0;
+    height: auto;
   }
 
+  /* —— Page chrome —— */
+  .settings-window-page-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.15rem;
+  }
+
+  .settings-window-page-head h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.25rem;
+    font-weight: 750;
+    letter-spacing: -0.025em;
+  }
+
+  .settings-window-page-head p {
+    margin: 0.3rem 0 0;
+    max-width: 40rem;
+    color: var(--text-tertiary);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  .settings-window-group {
+    margin-top: 1.35rem;
+  }
+
+  .settings-window-group:first-of-type {
+    margin-top: 0;
+  }
+
+  .settings-window-group-label {
+    margin: 0 0 0.55rem;
+    overflow: hidden;
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    font-weight: 750;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1.4;
+  }
+
+  .settings-window-group-action {
+    float: right;
+    margin-top: -0.2rem;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  /* —— Buttons (settings-local, prototype .btn) —— */
+  .settings-window-btn {
+    display: inline-flex;
+    min-height: 2rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
+    border-radius: 0.5rem;
+    padding: 0 0.75rem;
+    background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 650;
+    white-space: nowrap;
+  }
+
+  .settings-window-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .settings-window-btn:disabled {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  .settings-window-btn-primary {
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    background: var(--accent);
+    color: var(--text-inverse);
+  }
+
+  .settings-window-btn-primary:hover {
+    background: var(--accent-strong, color-mix(in srgb, var(--accent) 82%, var(--text-primary)));
+    color: var(--text-inverse);
+  }
+
+  .settings-window-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  /* —— Settings list / rows —— */
+  .settings-window-list {
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .settings-window-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1.25rem;
+    min-height: 3.35rem;
+    padding: 0.8rem 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
+  }
+
+  .settings-window-row.is-stack {
+    align-items: start;
+    padding-top: 0.95rem;
+    padding-bottom: 0.95rem;
+  }
+
+  .settings-window-row-meta {
+    min-width: 0;
+  }
+
+  .settings-window-row-title {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 650;
+    color: var(--text-primary);
+  }
+
+  .settings-window-row-desc {
+    margin: 0.2rem 0 0;
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+    line-height: 1.45;
+  }
+
+  .settings-window-row-value {
+    margin: 0.15rem 0 0;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .settings-window-row-group {
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
+  }
+
+  .settings-window-row-group > .settings-window-row {
+    border-bottom: 0;
+  }
+
+  .settings-window-row-group.is-expanded > .settings-window-row {
+    padding-bottom: 0.55rem;
+  }
+
+  .settings-window-row-group.is-custom .settings-window-seg {
+    opacity: 0.42;
+    pointer-events: none;
+  }
+
+  .settings-window-row-sub {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1rem;
+    margin: 0 0 0.75rem 0.15rem;
+    padding: 0.65rem 0 0.75rem 0.95rem;
+    border-left: 0.125rem solid color-mix(in srgb, var(--accent) 42%, var(--border-color));
+  }
+
+  .settings-window-row-sub-title {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  .settings-window-row-sub-desc {
+    margin: 0.15rem 0 0;
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    line-height: 1.4;
+  }
+
+  /* —— Segmented options —— */
+  .settings-window-seg {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    padding: 0.15rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
+    border-radius: 0.55rem;
+    background: color-mix(in srgb, var(--bg-panel-muted) 90%, transparent);
+  }
+
+  .settings-window-seg-opt {
+    border: 0;
+    border-radius: 0.4rem;
+    min-height: 1.75rem;
+    padding: 0 0.7rem;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 650;
+    white-space: nowrap;
+  }
+
+  .settings-window-seg-opt:hover {
+    color: var(--text-primary);
+  }
+
+  .settings-window-seg-opt.is-active {
+    background: var(--bg-panel);
+    color: var(--text-primary);
+    box-shadow: 0 0.0625rem 0.1rem color-mix(in srgb, var(--text-primary) 8%, transparent);
+  }
+
+  /* —— Theme tiles —— */
+  .settings-window-theme-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.5rem;
+    padding-top: 0.15rem;
+  }
+
+  .settings-window-theme-tile {
+    display: grid;
+    gap: 0.45rem;
+    padding: 0.55rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
+    border-radius: 0.65rem;
+    background: transparent;
+    color: var(--text-secondary);
+    text-align: left;
+    transition:
+      border-color 140ms ease,
+      background-color 140ms ease,
+      color 140ms ease;
+  }
+
+  .settings-window-theme-tile:hover {
+    background: color-mix(in srgb, var(--bg-hover) 80%, transparent);
+    color: var(--text-primary);
+  }
+
+  .settings-window-theme-tile.is-active {
+    border-color: color-mix(in srgb, var(--accent) 65%, var(--border-color));
+    background: color-mix(in srgb, var(--accent-soft) 70%, transparent);
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  .settings-window-theme-preview {
+    position: relative;
+    height: 3.25rem;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
+    border-radius: 0.4rem;
+  }
+
+  .settings-window-theme-preview::after {
+    content: '';
+    position: absolute;
+    left: 0.4rem;
+    top: 0.4rem;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: var(--tile-accent, var(--accent));
+  }
+
+  .settings-window-theme-preview-panel {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 48%;
+    height: 62%;
+    border-radius: 0.3rem 0 0;
+    background: var(--tile-panel, var(--bg-panel));
+    box-shadow: -0.15rem -0.15rem 0.4rem color-mix(in srgb, var(--text-primary) 6%, transparent);
+  }
+
+  .settings-window-theme-name {
+    padding: 0 0.1rem;
+    font-size: 0.75rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  /* —— Locale chips —— */
+  .settings-window-locale-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .settings-window-locale-chip {
+    min-width: 7.5rem;
+    min-height: 2.25rem;
+    padding: 0 0.9rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+    border-radius: 0.55rem;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    text-align: left;
+  }
+
+  .settings-window-locale-chip:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .settings-window-locale-chip.is-active {
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--border-color));
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--text-primary);
+  }
+
+  .settings-window-locale-chip:focus-visible {
+    outline: none;
+    border-color: color-mix(in srgb, var(--accent) 62%, var(--border-color));
+    box-shadow: 0 0 0 0.15rem color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  }
+
+  /* —— Pills (loading style options) —— */
+  .settings-window-pill-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.35rem;
+  }
+
+  .settings-window-pill {
+    min-height: 1.875rem;
+    padding: 0 0.7rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 650;
+  }
+
+  .settings-window-pill:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .settings-window-pill.is-active {
+    border-color: color-mix(in srgb, var(--accent) 48%, var(--border-color));
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--text-primary);
+  }
+
+  /* —— Loading preview stage —— */
+  .settings-window-preview-stage {
+    position: relative;
+    display: grid;
+    height: 8.5rem;
+    min-height: 8.5rem;
+    max-height: 8.5rem;
+    place-items: center;
+    margin-bottom: 0.25rem;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    border-radius: 0.65rem;
+    background:
+      radial-gradient(circle at 30% 40%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 50%),
+      color-mix(in srgb, var(--bg-panel-muted) 70%, var(--bg-panel));
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+    font-weight: 650;
+  }
+
+  .settings-window-preview-stage .settings-loading-preview-stage,
+  .settings-window-preview-stage > * {
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+    max-height: 8.5rem;
+  }
+
+  /* —— Slider —— */
+  .settings-window-slider {
+    display: flex;
+    min-width: 14rem;
+    width: min(18rem, 100%);
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  .settings-window-slider input[type='range'] {
+    flex: 1;
+    accent-color: var(--accent);
+  }
+
+  .settings-window-slider output {
+    min-width: 2.75rem;
+    color: var(--text-secondary);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.75rem;
+    font-weight: 650;
+    text-align: right;
+  }
+
+  /* —— Compact switch (prototype .switch) —— */
+  .settings-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 650;
+  }
+
+  .settings-switch.is-on,
+  .settings-switch-active {
+    color: var(--text-primary);
+  }
+
+  .settings-switch-copy {
+    min-width: 0;
+    font-size: 0.75rem;
+    font-weight: 650;
+    line-height: 1.2;
+  }
+
+  .settings-switch-track {
+    display: flex;
+    width: 2.35rem;
+    height: 1.35rem;
+    flex: 0 0 auto;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.15rem;
+    background: color-mix(in srgb, var(--border-color) 85%, var(--bg-panel-muted));
+    transition: background-color 160ms ease;
+  }
+
+  .settings-switch.is-on .settings-switch-track,
+  .settings-switch-active .settings-switch-track {
+    justify-content: flex-end;
+    background: color-mix(in srgb, var(--accent) 88%, white 12%);
+  }
+
+  .settings-switch-thumb {
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--text-primary) 16%, transparent);
+  }
+
+  .settings-switch:focus-visible {
+    outline: none;
+  }
+
+  .settings-switch:focus-visible .settings-switch-track {
+    box-shadow: 0 0 0 0.15rem color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  }
+
+  /* —— Legacy / launcher shared surfaces (kept functional) —— */
   .settings-window-section {
     border: 0;
-    border-radius: 1.25rem;
-    background: color-mix(in srgb, var(--bg-panel-muted) 62%, transparent);
-    padding: 1.25rem;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
   }
 
   .settings-window-section-plain {
@@ -117,15 +655,15 @@
   .settings-window-section-title {
     margin: 0;
     color: var(--text-primary);
-    font-size: 0.9375rem;
-    font-weight: 800;
+    font-size: 0.875rem;
+    font-weight: 650;
   }
 
   .settings-window-section-copy {
-    margin: 0.375rem 0 0;
+    margin: 0.2rem 0 0;
     color: var(--text-tertiary);
     font-size: 0.75rem;
-    line-height: 1.6;
+    line-height: 1.45;
   }
 
   .launcher-settings-stack {
@@ -150,8 +688,8 @@
     justify-content: space-between;
     gap: 1rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
-    border-radius: 1rem;
-    background: color-mix(in srgb, var(--bg-panel) 78%, transparent);
+    border-radius: 0.85rem;
+    background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
     padding: 0.875rem;
   }
 
@@ -212,80 +750,21 @@
     color: var(--accent);
   }
 
-  .settings-switch {
-    display: inline-flex;
-    min-width: 13.75rem;
-    align-items: center;
+  /* Launcher uses card-style switches with borders; scope larger chrome there */
+  .settings-window-control-card .settings-switch {
+    min-width: 8rem;
     justify-content: space-between;
-    gap: 0.875rem;
+    gap: 0.75rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
-    border-radius: 62.4375rem;
+    border-radius: 999px;
+    padding: 0.45rem 0.65rem 0.45rem 0.85rem;
     background: color-mix(in srgb, var(--bg-panel-muted) 84%, transparent);
-    color: var(--text-secondary);
-    padding: 0.625rem 0.75rem 0.625rem 1rem;
-    transition:
-      border-color 160ms ease,
-      background-color 160ms ease,
-      color 160ms ease,
-      box-shadow 160ms ease;
   }
 
-  .settings-switch:hover {
-    background: color-mix(in srgb, var(--bg-active) 72%, transparent);
-    color: var(--text-primary);
-  }
-
-  .settings-switch:focus-visible {
-    outline: none;
-    border-color: color-mix(in srgb, var(--accent) 62%, var(--border-color));
-    box-shadow: 0 0 0 0.1875rem color-mix(in srgb, var(--accent-soft) 100%, transparent);
-  }
-
-  .settings-switch-active {
+  .settings-window-control-card .settings-switch-active,
+  .settings-window-control-card .settings-switch.is-on {
     border-color: color-mix(in srgb, var(--accent) 52%, var(--border-color));
     background: color-mix(in srgb, var(--accent-soft) 88%, var(--bg-panel));
-    color: var(--text-primary);
-  }
-
-  .settings-switch-copy {
-    min-width: 0;
-    font-size: 0.75rem;
-    font-weight: 700;
-    line-height: 1.4;
-    text-align: left;
-  }
-
-  .settings-switch-track {
-    position: relative;
-    display: inline-flex;
-    height: 1.75rem;
-    width: 3.125rem;
-    flex: 0 0 auto;
-    align-items: center;
-    border-radius: 62.4375rem;
-    background: color-mix(in srgb, var(--border-color) 82%, var(--bg-panel));
-    padding: 0.1875rem;
-    transition: background-color 160ms ease;
-  }
-
-  .settings-switch-active .settings-switch-track {
-    background: color-mix(in srgb, var(--accent) 82%, white 18%);
-  }
-
-  .settings-switch-thumb {
-    height: 1.375rem;
-    width: 1.375rem;
-    border-radius: 62.4375rem;
-    background: white;
-    box-shadow:
-      0 1px 0.125rem rgba(15, 23, 42, 0.14),
-      0 0.25rem 0.625rem rgba(15, 23, 42, 0.16);
-    transform: translateX(0);
-    transition: transform 160ms ease;
-  }
-
-  .settings-switch-active .settings-switch-thumb {
-    transform: translateX(1.375rem);
   }
 
   .settings-window-option-grid {
@@ -298,18 +777,13 @@
   .settings-window-option-button {
     min-width: 4.75rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
-    border-radius: 62.4375rem;
+    border-radius: 999px;
     background: color-mix(in srgb, var(--bg-panel-muted) 84%, transparent);
     color: var(--text-secondary);
-    padding: 0.5625rem 0.75rem;
+    padding: 0.5rem 0.75rem;
     font-size: 0.75rem;
-    font-weight: 760;
+    font-weight: 650;
     text-align: center;
-    transition:
-      border-color 160ms ease,
-      background-color 160ms ease,
-      color 160ms ease,
-      box-shadow 160ms ease;
   }
 
   .settings-window-option-button:hover,
@@ -327,173 +801,28 @@
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
   }
 
-  .settings-theme-card,
-  .settings-locale-option {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    border: 1px solid var(--border-color);
-    border-radius: 0.875rem;
-    background: color-mix(in srgb, var(--bg-panel) 84%, transparent);
+  .settings-window-unsaved-detail {
+    margin: 0;
     color: var(--text-secondary);
-    padding: 0.75rem;
-    text-align: left;
-    transition:
-      border-color 160ms ease,
-      background-color 160ms ease,
-      color 160ms ease;
-  }
-
-  .settings-theme-card {
-    gap: 0.625rem;
-  }
-
-  .settings-theme-card:hover,
-  .settings-locale-option:hover {
-    background: color-mix(in srgb, var(--bg-active) 80%, transparent);
-    color: var(--text-primary);
-  }
-
-  .settings-theme-card-active,
-  .settings-locale-option-active {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
-    color: var(--text-primary);
-  }
-
-  .settings-theme-swatch {
-    position: relative;
-    height: 1.625rem;
-    width: 2.125rem;
-    flex-shrink: 0;
-    border-radius: 0.5rem;
-    overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.45);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-color) 85%, transparent);
-  }
-
-  .settings-theme-swatch-panel {
-    position: absolute;
-    inset: 0.3125rem 0.3125rem 0.3125rem 0.875rem;
-    border-radius: 0.25rem;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
-  }
-
-  .settings-theme-swatch-accent {
-    position: absolute;
-    left: 0.375rem;
-    top: 0.375rem;
-    height: 0.5rem;
-    width: 0.5rem;
-    border-radius: 62.4375rem;
-  }
-
-  .settings-theme-swatch-text {
-    position: absolute;
-    left: 0.375rem;
-    bottom: 0.375rem;
-    height: 0.1875rem;
-    width: 0.3125rem;
-    border-radius: 0.125rem;
-    opacity: 0.75;
-  }
-
-  .settings-window-language {
-    margin-top: 1.125rem;
-    padding-top: 0.875rem;
-    border-top: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
-  }
-
-  .settings-loading-preview {
-    position: relative;
-    margin-bottom: 1.25rem;
-    overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
-    border-radius: 1rem;
-    background:
-      radial-gradient(circle at 28% 24%, color-mix(in srgb, var(--accent-soft) 88%, transparent), transparent 32%),
-      radial-gradient(circle at 70% 72%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 28%),
-      color-mix(in srgb, var(--bg-panel) 86%, transparent);
-  }
-
-  .settings-loading-preview::after {
-    content: '';
-    position: absolute;
-    inset: auto 1.125rem 0.875rem;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 62%, transparent), transparent);
-    opacity: 0.86;
-    animation: settings-loading-preview-scan 1400ms ease-in-out infinite;
-    pointer-events: none;
-  }
-
-  .settings-loading-preview-stage {
-    min-height: 10rem;
-  }
-
-  .settings-loading-speed-slider {
-    display: grid;
-    gap: 0.625rem;
-    min-width: 0;
-  }
-
-  .settings-loading-speed-slider-meta {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-
-  .settings-loading-speed-slider-value {
-    flex: 0 0 auto;
-    color: var(--text-secondary);
-    font-size: 0.75rem;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .settings-loading-speed-slider input[type='range'] {
-    width: 100%;
-    accent-color: var(--accent);
-  }
-
-  @keyframes settings-loading-preview-scan {
-    0%,
-    100% {
-      transform: translateX(-1.125rem);
-      opacity: 0.28;
-    }
-    50% {
-      transform: translateX(1.125rem);
-      opacity: 0.78;
-    }
-  }
-
-  .settings-locale-list {
-    margin-top: 0.75rem;
-    display: grid;
-    gap: 0.625rem;
-  }
-
-  .settings-locale-option:focus-visible {
-    outline: none;
-    border-color: color-mix(in srgb, var(--accent) 62%, var(--border-color));
-    box-shadow: 0 0 0 0.1875rem color-mix(in srgb, var(--accent-soft) 100%, transparent);
-    color: var(--text-primary);
-  }
-
-  .settings-locale-label {
     font-size: 0.8125rem;
-    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 1100px) {
+    .settings-window-theme-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   @media (max-width: 900px) {
-    .settings-window-body {
-      grid-template-columns: 1fr;
+    .settings-window-header {
+      grid-template-columns: minmax(0, 1fr) auto;
     }
 
-    .settings-window-sidebar {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+    .settings-window-category-tabs {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      justify-self: stretch;
     }
 
     .settings-window-control-card {
@@ -506,13 +835,26 @@
       align-items: stretch;
     }
 
-    .settings-switch {
+    .settings-window-control-card .settings-switch {
       width: 100%;
       min-width: 0;
     }
 
     .launcher-settings-path-grid {
       grid-template-columns: 1fr;
+    }
+
+    .settings-window-row,
+    .settings-window-row-sub {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.65rem;
+    }
+
+    .settings-window-pill-wrap,
+    .settings-window-locale-row,
+    .settings-window-seg,
+    .settings-window-actions {
+      justify-content: flex-start;
     }
   }
 }

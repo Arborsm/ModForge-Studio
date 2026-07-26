@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { type EventAssetSummary, type GameDirectoryInfo, loadTextAsset, scanEvents } from '@entities/game/api'
+import { type EventAssetSummary, type GameDirectoryInfo, loadEventAsset, scanEvents } from '@entities/game/api'
 import type { EditorCopy, LocaleCode } from '@locales'
 import { parseEventAssetContent, EVENT_SETUP_ENTRY_ID } from '@entities/event'
 import {
@@ -169,12 +169,18 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
 
       for (const relativePath of candidates) {
         try {
-          const textAsset = await loadTextAsset(rootPath, relativePath, locale)
+          const eventAsset = await loadEventAsset(rootPath, relativePath, locale)
           if (cancelled) {
             return
           }
 
-          const parsed = parseEventAssetContent(textAsset.content, asset, relativePath === asset.relativePath ? null : locale, relativePath)
+          const parsed = {
+            asset,
+            locale: relativePath === asset.relativePath ? null : locale,
+            resolvedRelativePath: eventAsset.relativePath,
+            events: eventAsset.events,
+            eventIndex: Object.fromEntries(eventAsset.events.map((event) => [event.key, event])),
+          }
 
           setParsedEventAsset(parsed)
           setSelectedEventKey(parsed.events[0]?.key ?? null)

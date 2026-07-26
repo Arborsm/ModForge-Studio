@@ -1,6 +1,6 @@
 @layer components {
   .app-tooltip {
-    z-index: 100;
+    z-index: var(--z-tooltip);
     max-width: min(20rem, calc(100vw - 1.25rem));
     border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-color));
     border-radius: 0.4375rem;

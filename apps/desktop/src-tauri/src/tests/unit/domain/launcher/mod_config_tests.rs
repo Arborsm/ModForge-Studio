@@ -18,6 +18,9 @@ use std::process::Command;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
+// Fallback-heavy fixtures need extra cold-start budget under parallel Windows test load.
+const GMCM_REGRESSION_PROBE_TIMEOUT_MS: &str = "30000";
+
 fn write_manifest(root: &std::path::Path, config_schema: &str) {
     write_file(
         &root.join("manifest.json"),
@@ -123,31 +126,36 @@ fn repo_root() -> PathBuf {
 }
 
 fn build_gmcm_probe() -> PathBuf {
-    let root = repo_root();
-    let output = Command::new("dotnet")
-        .arg("build")
-        .arg(root.join("apps/desktop/tools/gmcm-probe/GmcmProbe.csproj"))
-        .arg("--configuration")
-        .arg("Release")
-        .arg("--nologo")
-        .output()
-        .expect("start GMCM probe build");
-    assert!(
-        output.status.success(),
-        "GMCM probe build failed.\nstdout:\n{}\nstderr:\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    static PROBE_ASSEMBLY: OnceLock<PathBuf> = OnceLock::new();
+    PROBE_ASSEMBLY
+        .get_or_init(|| {
+            let root = repo_root();
+            let output = Command::new("dotnet")
+                .arg("build")
+                .arg(root.join("apps/desktop/tools/gmcm-probe/GmcmProbe.csproj"))
+                .arg("--configuration")
+                .arg("Release")
+                .arg("--nologo")
+                .output()
+                .expect("start GMCM probe build");
+            assert!(
+                output.status.success(),
+                "GMCM probe build failed.\nstdout:\n{}\nstderr:\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
 
-    let probe_assembly = root
-        .join("apps/desktop/tools/gmcm-probe/bin/Release/net6.0")
-        .join("modforge-gmcm-probe.dll");
-    assert!(
-        probe_assembly.is_file(),
-        "GMCM probe build did not produce {}",
-        probe_assembly.display()
-    );
-    probe_assembly
+            let probe_assembly = root
+                .join("apps/desktop/tools/gmcm-probe/bin/Release/net6.0")
+                .join("modforge-gmcm-probe.dll");
+            assert!(
+                probe_assembly.is_file(),
+                "GMCM probe build did not produce {}",
+                probe_assembly.display()
+            );
+            probe_assembly
+        })
+        .clone()
 }
 
 fn build_fake_noisy_probe(root: &Path) -> Option<PathBuf> {
@@ -779,12 +787,14 @@ fn run_gmcm_runtime_probe(probe_path: &Path, root: &Path) -> Value {
         .arg("--game-path")
         .arg(game_path)
         .arg("--timeout-ms")
-        .arg("10000")
+        .arg(GMCM_REGRESSION_PROBE_TIMEOUT_MS)
         .output()
         .expect("run GMCM regression probe");
     assert!(
         output.status.success(),
-        "probe failed: {}",
+        "probe failed: status={:?}\nstdout:\n{}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     serde_json::from_slice(&output.stdout).unwrap_or_else(|error| {
@@ -2406,12 +2416,14 @@ fn gmcm_probe_uses_explicit_game_path_for_assembly_resolution() {
         .arg("--game-path")
         .arg(&game_path)
         .arg("--timeout-ms")
-        .arg("10000")
+        .arg(GMCM_REGRESSION_PROBE_TIMEOUT_MS)
         .output()
         .expect("run probe");
     assert!(
         output.status.success(),
-        "probe failed: {}",
+        "probe failed: status={:?}\nstdout:\n{}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
 
@@ -2477,12 +2489,14 @@ fn gmcm_probe_invokes_metadata_registration_when_mod_construction_fails() {
         .arg("--game-path")
         .arg(&game_path)
         .arg("--timeout-ms")
-        .arg("10000")
+        .arg(GMCM_REGRESSION_PROBE_TIMEOUT_MS)
         .output()
         .expect("run probe");
     assert!(
         output.status.success(),
-        "probe failed: {}",
+        "probe failed: status={:?}\nstdout:\n{}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
 
@@ -2552,12 +2566,14 @@ fn gmcm_probe_invokes_static_multi_parameter_registration_candidate() {
         .arg("--game-path")
         .arg(&game_path)
         .arg("--timeout-ms")
-        .arg("10000")
+        .arg(GMCM_REGRESSION_PROBE_TIMEOUT_MS)
         .output()
         .expect("run probe");
     assert!(
         output.status.success(),
-        "probe failed: {}",
+        "probe failed: status={:?}\nstdout:\n{}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
 
@@ -2617,12 +2633,14 @@ fn gmcm_probe_runs_harmony_mods_with_noop_shim() {
         .arg("--game-path")
         .arg(&game_path)
         .arg("--timeout-ms")
-        .arg("10000")
+        .arg(GMCM_REGRESSION_PROBE_TIMEOUT_MS)
         .output()
         .expect("run probe");
     assert!(
         output.status.success(),
-        "probe failed: {}",
+        "probe failed: status={:?}\nstdout:\n{}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
 

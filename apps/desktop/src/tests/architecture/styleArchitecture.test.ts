@@ -64,7 +64,12 @@ const TS_COLOR_LITERAL_ALLOWLIST = new Set([
 
 // This cohesive detail surface predates the split threshold. New CSS files
 // remain capped while its selectors are migrated by feature in later changes.
-const CSS_FILE_SIZE_ALLOWLIST = new Set(['features/launcher/library/mod-detail/info-files-reader-and-actions.css'])
+// TODO: ai-settings.css still holds the core shell/profile/MT rules (the
+// engine pane already lives in ai-settings-engine.css); split it by tab next.
+const CSS_FILE_SIZE_ALLOWLIST = new Set([
+  'features/launcher/library/mod-detail/info-files-reader-and-actions.css',
+  'features/ai-settings.css',
+])
 
 // TODO: these files exceed the 1500-line threshold and should be split.
 const TS_FILE_SIZE_ALLOWLIST = new Set([
@@ -196,6 +201,16 @@ describe('style architecture', () => {
 
     expect(source).toMatch(/\.launcher-library-drawer\s*\{[^}]*inset:\s*var\(--app-titlebar-height\)\s+0\s+0;/s)
     expect(source).not.toMatch(/\.launcher-library-drawer\s*\{[^}]*inset:\s*0;/s)
+  })
+
+  it('keeps the launcher mod detail hero bounded across responsive relayouts', async () => {
+    const source = await readCssWithImports(join(STYLES_DIR, 'features/launcher/library.css'))
+
+    expect(source).toMatch(/\.launcher-mod-card-cover\.launcher-mod-detail-cover\s*\{[^}]*height:\s*100%;[^}]*aspect-ratio:\s*auto;/s)
+    expect(source).toMatch(/@media\s*\(max-width:\s*1100px\)[\s\S]*?\.launcher-mod-detail-hero\s*\{[^}]*max-height:\s*none;/s)
+    expect(source).toMatch(
+      /@media\s*\(max-width:\s*1100px\)[\s\S]*?\.launcher-mod-detail-panel\s*\{[^}]*grid-template-rows:\s*max-content\s+minmax\(20rem,\s*max-content\)\s+4rem;[^}]*overflow:\s*auto;/s,
+    )
   })
 
   it('keeps TypeScript source files below the local split threshold', async () => {

@@ -1,6 +1,6 @@
-#[path = "support/infrastructure.rs"]
+#[path = "../support/infrastructure.rs"]
 mod infrastructure;
-#[path = "support.rs"]
+#[path = "../support/mod.rs"]
 mod test_support;
 
 use infrastructure::game_formats::xact;

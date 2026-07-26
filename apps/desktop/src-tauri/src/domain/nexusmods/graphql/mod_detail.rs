@@ -14,6 +14,7 @@ use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{
     build_mod_page_url, decode_html, extract_graphql_error, normalize_nexus_url, string_field,
 };
+use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 use regex::Regex;
 use reqwest::blocking::Client;
@@ -778,9 +779,11 @@ where
         Ok(Some(detail)) => return Ok(detail),
         Ok(None) => {}
         Err(error) => {
-            log::warn!(
-                "launcher REST API mod detail lookup failed, falling back to public routes: {error}"
-            );
+            LogEvent::new("nexus.modDetail.fallback")
+                .field("from", "rest-api")
+                .field("fallbackTo", "public-routes")
+                .error(&error)
+                .emit_warn(targets::NEXUS);
         }
     }
 
@@ -801,9 +804,11 @@ where
     match load_public_graphql() {
         Ok(detail) => return Ok(detail),
         Err(error) => {
-            log::warn!(
-                "launcher public GraphQL mod detail lookup failed, falling back to REST API: {error}"
-            );
+            LogEvent::new("nexus.modDetail.fallback")
+                .field("from", "public-graphql")
+                .field("fallbackTo", "rest-api")
+                .error(&error)
+                .emit_warn(targets::NEXUS);
         }
     }
 

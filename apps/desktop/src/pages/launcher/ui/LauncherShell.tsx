@@ -92,6 +92,7 @@ export default function LauncherShell({
       className: cx('launcher-shell-route', active && 'launcher-shell-route-active', entering && 'launcher-shell-route-enter'),
       'data-launcher-route': route,
       'data-launcher-route-enter': entering ? enterSequence : undefined,
+      'data-guide-surface': `launcher.${route}`,
     }
   }
   const shouldRenderRoute = (route: LauncherPage) => cachedPagesRef.current.has(route)

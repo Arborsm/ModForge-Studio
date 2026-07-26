@@ -50,8 +50,12 @@ import { createAppCommandHandler } from '../providers/appCommandRouting'
 import { createWorkbenchOrchestration } from '../providers/workbenchOrchestration'
 import { LauncherPage as LauncherPageView } from '@pages/launcher'
 import { DevDebugOverlay } from '@pages/workbench/ui/DevDebugOverlay'
-import type { PendingWorkbenchCommandIntent, SettingsWindowCategory } from '@shared/contracts'
+import type { AiSettingsTab, PendingWorkbenchCommandIntent, SettingsWindowCategory, SettingsWindowTarget } from '@shared/contracts'
+import { listenForAppSettingsRequests } from '@shared/lib/app-settings-events'
 import { QuitDialog } from '@widgets/quit-dialog'
+import { GuideTourOverlay } from '@widgets/guide-tour'
+import { useGuideEngineStore } from '@features/guide'
+import { appGuideDefinitions, resolveGuideSurfaceNavigation } from '../guide-setup'
 import { WorkbenchShellSkeleton } from '@shared/ui/WorkbenchShellSkeleton'
 
 const SettingsWindow = lazy(() => import('./SettingsWindow'))
@@ -102,6 +106,7 @@ configureObservability({
   writeFrontendLog,
 })
 setNotificationDispatcher(publishNotification)
+useGuideEngineStore.getState().registerGuideDefinitions(appGuideDefinitions)
 
 export default function App() {
   const [initialAppUiState] = useState(() => getAppUiStateSnapshot())
@@ -125,6 +130,7 @@ export default function App() {
   const [appUiStateReady, setAppUiStateReady] = useState(!canUseDesktopHost())
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
   const [settingsWindowCategory, setSettingsWindowCategory] = useState<SettingsWindowCategory>('appearance')
+  const [settingsWindowAiTab, setSettingsWindowAiTab] = useState<AiSettingsTab | null>(null)
   const [quitDialogOpen, setQuitDialogOpen] = useState(false)
   const [quitDialogRemember, setQuitDialogRemember] = useState(false)
   const [windowIsMaximized, setWindowIsMaximized] = useState(false)
@@ -524,9 +530,63 @@ export default function App() {
       return
     }
 
+    setSettingsWindowAiTab(null)
     setSettingsWindowCategory(category)
     setSettingsWindowOpen(true)
   }, [])
+
+  const openSettingsTarget = useCallback((target: SettingsWindowTarget) => {
+    if (target.category === 'launcher') {
+      setAppMode('launcher')
+      setLauncherPage('configuration')
+      setSettingsWindowOpen(false)
+      return
+    }
+    setSettingsWindowAiTab(target.category === 'ai' ? (target.aiTab ?? null) : null)
+    setSettingsWindowCategory(target.category)
+    setSettingsWindowOpen(true)
+  }, [])
+
+  useEffect(() => listenForAppSettingsRequests(openSettingsTarget), [openSettingsTarget])
+
+  useEffect(() => {
+    if (appUiStateReady) {
+      useGuideEngineStore.getState().markGuideStateReady()
+    }
+  }, [appUiStateReady])
+
+  const guideReplayRequest = useGuideEngineStore((state) => state.replayRequest)
+  useEffect(() => {
+    if (!guideReplayRequest) {
+      return
+    }
+
+    const navigation = resolveGuideSurfaceNavigation(guideReplayRequest.surface)
+    if (navigation?.appMode === 'workbench') {
+      setWorkbenchHasOpened(true)
+      setWorkbenchActivationKey((current) => current + 1)
+      setAppMode('workbench')
+    } else if (navigation?.appMode === 'launcher') {
+      setAppMode('launcher')
+      if (navigation.launcherPage) {
+        setLauncherPage(navigation.launcherPage)
+      }
+    }
+
+    setSettingsWindowOpen(false)
+    useGuideEngineStore.getState().acknowledgeGuideReplay(guideReplayRequest.nonce)
+  }, [guideReplayRequest])
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('mfSettingsMock') !== '1' && params.get('mfLauncherMock') !== '1') return
+    const category = params.get('mfOpenSettings')
+    if (!category) return
+    const allowed: SettingsWindowCategory[] = ['appearance', 'loading', 'view', 'interaction', 'ai', 'debug']
+    if (!allowed.includes(category as SettingsWindowCategory)) return
+    openSettingsWindow(category as SettingsWindowCategory)
+  }, [openSettingsWindow])
 
   return (
     <LocaleProvider locale={locale}>
@@ -618,6 +678,7 @@ export default function App() {
                 <SettingsWindow
                   open={settingsWindowOpen}
                   activeCategory={settingsWindowCategory}
+                  initialAiTab={settingsWindowAiTab ?? undefined}
                   onActiveCategoryChange={setSettingsWindowCategory}
                   onClose={() => setSettingsWindowOpen(false)}
                 />
@@ -632,6 +693,10 @@ export default function App() {
               rememberChoice={quitDialogRemember}
               onRememberChoiceChange={setQuitDialogRemember}
             />
+            {/* The settings window renders inside the window frame, so the
+                body-level guide overlay would cover it; suspend the guide
+                (engine keeps the run) until settings closes. */}
+            {settingsWindowOpen ? null : <GuideTourOverlay />}
             <div className="app-window-titlebar-divider" aria-hidden="true" />
           </div>
         </LoadingMotionProvider>

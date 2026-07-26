@@ -181,6 +181,19 @@ Rules:
 
 The point is explicit composition without service-locator behavior.
 
+## Guide Layer
+
+The product guide layer is a global overlay like the notification and dialog layers, but fully decoupled from pages.
+
+- Contracts (`GuideDefinition`, `GuideStepDefinition`) live in `shared/contracts/types/guide.ts`. A guide targets a functional area (`surface`) and lists ordered steps; a step optionally references a `data-guide` anchor.
+- The engine lives in `features/guide` (zustand store + pure helpers). It owns run state (active run, step index, pending replays) and persists completion under `workspace.modules.guideCenter.completed` in app UI state, so no app-ui-state schema change is needed.
+- Pages never import guide code. They only render declarative attributes: `data-guide-surface="<area>"` on the visible page root and `data-guide="<anchor>"` on highlighted elements. A DOM watcher in the overlay derives the current surface from the first visible surface element.
+- Guide registration objects are owned per domain (`features/launcher/guide`, `pages/workbench/guide-registrations.ts`) and composed statically in `app/guide-setup.ts`, mirroring the registry pattern. Step copy comes from the typed `guides` locale namespace; definitions only carry ids.
+- The overlay widget (`widgets/guide-tour`) is mounted once in `AppShell` and renders the spotlight card with previous/next/skip controls. `app` wires replay navigation: `requestGuideReplay` emits a typed replay request, the shell navigates to the guide surface, and pending replays start when the surface appears.
+- Stacking follows the body-portaled overlay model (`--z-drawer` < `--z-guide` < `--z-dialog`), so tours can spotlight page-level drawers such as mod detail while true dialogs keep priority. Because the settings window renders inside the window frame, the shell unmounts the overlay while settings is open and the engine resumes the run on close.
+- Steps that point at collapsible UI (pack drawer, mod detail drawer) stay decoupled through `shared/lib/guide-tour-events.ts`: the overlay announces each activated step on `window`, and pages listening for their anchor ids reveal the referenced UI. The overlay also scrolls anchors into view and tracks the anchor rect until layout settles.
+- The settings window hosts the replay entry (per-guide replay + reset all) and is the only place besides the overlay that calls the engine directly.
+
 ## Workbench shell composition (target)
 
 Workbench chrome is migrating to a left-nav + project-titlebar shell. Product intent and PR slices live in `docs/design/workbench-shell-migration.md`; visual/IA rules live in `docs/design/page-design-spec.md` §0.
@@ -341,9 +354,10 @@ These tests are mandatory because documentation alone will not stop architectura
 
 Tests are centralized under `apps/desktop/src/tests/` and must not live next to source files.
 
-- `src/tests/unit/` — component and module tests, arranged to mirror the source path they exercise. For example, a test for `src/features/launcher/model/useLauncher.ts` belongs at `src/tests/unit/features/launcher/model/useLauncher.test.ts`.
+- `src/tests/unit/` — **pure-logic tests only**, arranged to mirror the source path they exercise. These are always `.ts` files (never `.tsx`/`.spec.tsx`): they do not render components or use `renderHook`, and they avoid assertions on CSS classes, inline styles, or DOM hierarchy. Cover parsers, data transformation, reducers, command routing, and headless state logic — the behavior TypeScript cannot check. For example, a test for `src/features/launcher/model/launcherLibraryDisplay.ts` belongs at `src/tests/unit/features/launcher/model/launcherLibraryDisplay.test.ts`.
 - `src/tests/architecture/` — architecture and repository-shape assertions, including dependency direction, style ownership, and code-splitting rules.
-- `src/tests/integration/` — cross-module integration tests.
-- `src/tests/support/` — shared test infrastructure only: `setup.ts`, render helpers, mock ports, and test assets. Consume these through the `@test/*` alias, which resolves to `src/tests/support`.
+- `src/tests/support/` — shared test infrastructure only: `setup.ts` (jsdom environment + matchers), `sourceScan.ts` (used by the architecture scanners), and type declarations. Consume these through the `@test/*` alias, which resolves to `src/tests/support`.
+
+**No UI/render tests.** The frontend deliberately does not keep component-render or hook-render tests: they lock the UI to specific markup and break on any restyle, and their value is already covered by the architecture scanners plus manual/screenshot verification. UI and layout behavior is verified with a screenshot, Playwright script, or a clear manual path (see Validation expectations), not with jsdom render assertions.
 
 Source folders (`src/app`, `src/pages`, `src/widgets`, `src/features`, `src/entities`, `src/shared`, `src/platform`, `src/locales`) must not contain `*.test.ts` or `*.test.tsx` files.

@@ -43,6 +43,13 @@ export type TextAssetContent = {
   content: string
 }
 
+/** Parsed event asset payload produced by the canonical Rust event parser. */
+export type ParsedEventAssetContent = {
+  absolutePath: string
+  relativePath: string
+  events: import('@shared/contracts/event-script').EventScript[]
+}
+
 /** Local text file payload loaded outside the Stardew asset tree. */
 export type LocalTextFileContent = {
   absolutePath: string

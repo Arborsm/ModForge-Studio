@@ -24,7 +24,7 @@ internal sealed record ProbeRequest(string ModPath, string? GamePath, int Timeou
                     gamePath = args[++index];
                     break;
                 case "--timeout-ms" when index + 1 < args.Length && int.TryParse(args[++index], out var parsed):
-                    timeoutMs = Math.Clamp(parsed, 500, 10000);
+                    timeoutMs = Math.Clamp(parsed, 500, 30000);
                     break;
                 case "--mode" when index + 1 < args.Length:
                     mode = ParseMode(args[++index]);

@@ -14,7 +14,10 @@
     "react:devtools": "vp run --filter @modforge/desktop react:devtools",
     "build": "vp run --filter @modforge/desktop build",
     "lint": "vp run --filter @modforge/desktop lint",
+    "benchmark:localization-search": "vp run --filter @modforge/desktop benchmark:localization-search",
+    "benchmark:localization-lexical": "vp run --filter @modforge/desktop benchmark:localization-lexical",
     "desktop:build": "node ./scripts/desktop-host-dispatch.cjs build",
+    "installer:build": "node apps/installer/scripts/build-installer.cjs",
     "release:linux": "vp run --filter @modforge/desktop release:linux",
     "release:linux:deb": "vp run --filter @modforge/desktop release:linux:deb",
     "release:linux:rpm": "vp run --filter @modforge/desktop release:linux:rpm",
@@ -24,6 +27,10 @@
     "release:collect": "vp run --filter @modforge/desktop release:collect",
     "format": "vp fmt .",
     "format:check": "vp fmt . --check",
+    "design:lint": "npx -p @google/design.md designmd lint DESIGN.md",
+    "design:export": "npx -p @google/design.md designmd export --format json-tailwind DESIGN.md > design-tokens.json",
+    "design:export:css": "npx -p @google/design.md designmd export --format css-tailwind DESIGN.md > design-tokens.css",
+    "design:export:dtcg": "npx -p @google/design.md designmd export --format dtcg DESIGN.md > design-tokens.dtcg.json",
     "prepare": "husky"
   },
   "lint-staged": {

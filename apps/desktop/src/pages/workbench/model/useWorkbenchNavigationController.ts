@@ -20,12 +20,15 @@ type WorkbenchNavigationControllerOptions = {
   hasActiveProject: boolean
   getRegistration: (moduleId: string) => WorkbenchModuleRegistration | null
   resetAuthoringNavigation: () => void
-  ensureSectionOpen: (section: 'browseOpen' | 'authoringOpen' | 'toolsOpen' | 'devOpen') => void
+  ensureSectionOpen: (section: 'browseOpen' | 'authoringOpen' | 'translationOpen' | 'toolsOpen' | 'devOpen') => void
   runWithModuleGuard: Guard
-  runWithProjectGuard: Guard
 }
 
-/** Owns registry resolution, guarded transitions, shortcuts, and Workbench shell history. */
+/**
+ * Owns registry resolution, guarded transitions, shortcuts, and Workbench shell history.
+ * Navigation only runs the module guard: the managed-project draft lives above the module
+ * host and survives view switches, so the project guard must not intercept them.
+ */
 export function useWorkbenchNavigationController({
   active,
   rootRef,
@@ -35,7 +38,6 @@ export function useWorkbenchNavigationController({
   resetAuthoringNavigation,
   ensureSectionOpen,
   runWithModuleGuard,
-  runWithProjectGuard,
 }: WorkbenchNavigationControllerOptions) {
   const navigationInteractedRef = useRef(false)
   const getRegistrationRef = useRef(getRegistration)
@@ -52,30 +54,20 @@ export function useWorkbenchNavigationController({
       navigation.navigate(resolved)
       if (registration) {
         const sectionKey = registration.navigation.section === 'development' ? 'devOpen' : `${registration.navigation.section}Open`
-        ensureSectionOpen(sectionKey as 'browseOpen' | 'authoringOpen' | 'toolsOpen' | 'devOpen')
+        ensureSectionOpen(sectionKey as 'browseOpen' | 'authoringOpen' | 'translationOpen' | 'toolsOpen' | 'devOpen')
         if (registration.presentation === 'authoring') resetAuthoringNavigation()
       }
     },
     [ensureSectionOpen, navigation.navigate, resetAuthoringNavigation],
   )
-  const runGuarded = useCallback(
-    async (action: () => void | Promise<void>) => {
-      let projectAccepted = false
-      const moduleAccepted = await runWithModuleGuard(async () => {
-        projectAccepted = await runWithProjectGuard(action)
-      })
-      return moduleAccepted && projectAccepted
-    },
-    [runWithModuleGuard, runWithProjectGuard],
-  )
   const restoreHistoryLocation = useCallback(
     (location: WorkbenchLocation, commit: () => void) => {
-      void runGuarded(() => {
+      void runWithModuleGuard(() => {
         commit()
         applyLocation(location)
       })
     },
-    [applyLocation, runGuarded],
+    [applyLocation, runWithModuleGuard],
   )
   const history = useWorkbenchShellHistory({
     rootRef,
@@ -88,12 +80,12 @@ export function useWorkbenchNavigationController({
 
   const openHome = useCallback(() => {
     if (navigation.location.kind === 'home') return Promise.resolve(true)
-    return runGuarded(() => {
+    return runWithModuleGuard(() => {
       const location = { kind: 'home' as const }
       applyLocation(location)
       pushHistory(location)
     })
-  }, [applyLocation, navigation.location.kind, pushHistory, runGuarded])
+  }, [applyLocation, navigation.location.kind, pushHistory, runWithModuleGuard])
 
   const openModule = useCallback(
     (moduleId: string, options?: WorkbenchOpenModuleOptions) => {
@@ -102,14 +94,14 @@ export function useWorkbenchNavigationController({
       if (!registration || (registration.presentation === 'authoring' && !hasProject)) {
         return openHome()
       }
-      return runGuarded(() => {
+      return runWithModuleGuard(() => {
         const location = { kind: 'module' as const, moduleId: registration.id }
         applyLocation(location)
         if (options?.resetHistoryTo) resetHistoryAndPush(options.resetHistoryTo, location)
         else pushHistory(location)
       })
     },
-    [applyLocation, openHome, pushHistory, resetHistoryAndPush, runGuarded],
+    [applyLocation, openHome, pushHistory, resetHistoryAndPush, runWithModuleGuard],
   )
 
   useEffect(() => {

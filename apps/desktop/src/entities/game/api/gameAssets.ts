@@ -3,7 +3,12 @@ import { normalizeCachePathSegment } from '@shared/lib/assets'
 import { createPromiseCache, getLocalizedRootedAssetCacheKey, readCached, readPending } from '@shared/lib/cache'
 import { invokeDesktop } from '@platform/host/runtime'
 import type { HostCommandPolicy } from '@platform/host-command-client'
-import { loadImageDataUrlFromDevBridge, loadResourceRegistryFromDevBridge, loadTextAssetFromDevBridge } from './devAssetBridge'
+import {
+  loadEventAssetFromDevBridge,
+  loadImageDataUrlFromDevBridge,
+  loadResourceRegistryFromDevBridge,
+  loadTextAssetFromDevBridge,
+} from './devAssetBridge'
 import type {
   AudioAssetSummary,
   DefaultSaveSlotSummary,
@@ -12,6 +17,7 @@ import type {
   LocalTextFileContent,
   MapAssetContent,
   MapAssetSummary,
+  ParsedEventAssetContent,
   ResourceRegistry,
   TextAssetContent,
 } from './types'
@@ -21,6 +27,7 @@ const scanMapsCache = createPromiseCache<MapAssetSummary[]>()
 const scanEventsCache = createPromiseCache<EventAssetSummary[]>()
 const loadMapAssetCache = createPromiseCache<MapAssetContent>()
 const loadTextAssetCache = createPromiseCache<TextAssetContent>()
+const loadEventAssetCache = createPromiseCache<ParsedEventAssetContent>()
 const loadTextFileCache = createPromiseCache<LocalTextFileContent>()
 const loadImageDataUrlCache = createPromiseCache<string>()
 const scanAudioAssetsCache = createPromiseCache<AudioAssetSummary[]>()
@@ -46,6 +53,7 @@ export function clearGameAssetLocaleCache(locale: string) {
   scanMapsCache.deleteWhere((key) => key.endsWith(localizedSuffix))
   loadMapAssetCache.deleteWhere((key) => key.endsWith(localizedSuffix))
   loadTextAssetCache.deleteWhere((key) => key.endsWith(localizedSuffix))
+  loadEventAssetCache.deleteWhere((key) => key.endsWith(localizedSuffix))
   loadImageDataUrlCache.deleteWhere((key) => key.endsWith(localizedSuffix))
   loadResourceRegistryCache.deleteWhere((key) => key.endsWith(localizedSuffix))
 }
@@ -58,6 +66,7 @@ export function getGameAssetCacheStats() {
     scanEvents: scanEventsCache.size(),
     mapAsset: loadMapAssetCache.size(),
     textAsset: loadTextAssetCache.size(),
+    eventAsset: loadEventAssetCache.size(),
     textFile: loadTextFileCache.size(),
     imageDataUrl: loadImageDataUrlCache.size(),
     audioScan: scanAudioAssetsCache.size(),
@@ -122,6 +131,17 @@ export function loadTextAsset(rootPath: string, assetPath: string, locale?: stri
   return readPending(loadTextAssetCache, cacheKey, async () => {
     const bridged = await loadTextAssetFromDevBridge(rootPath, assetPath, locale)
     return bridged ?? invokeDesktop<TextAssetContent>(HOST_COMMANDS.loadTextAsset, { rootPath, assetPath, locale }, gameAssetPoolPolicy)
+  })
+}
+
+/** Loads a Stardew event asset already parsed by the canonical Rust parser. */
+export function loadEventAsset(rootPath: string, assetPath: string, locale?: string) {
+  const cacheKey = getLocalizedRootedAssetCacheKey(rootPath, assetPath, locale)
+  return readPending(loadEventAssetCache, cacheKey, async () => {
+    const bridged = await loadEventAssetFromDevBridge(rootPath, assetPath, locale)
+    return (
+      bridged ?? invokeDesktop<ParsedEventAssetContent>(HOST_COMMANDS.loadEventAsset, { rootPath, assetPath, locale }, gameAssetPoolPolicy)
+    )
   })
 }
 

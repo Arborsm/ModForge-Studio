@@ -32,6 +32,14 @@ pub struct EventAssetSummary {
     pub size_bytes: u64,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ParsedEventAssetContent {
+    pub absolute_path: String,
+    pub relative_path: String,
+    pub events: Vec<crate::domain::event_script::EventScript>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MapAssetContent {

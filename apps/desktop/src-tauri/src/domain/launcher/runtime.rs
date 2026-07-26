@@ -31,10 +31,7 @@ fn resolve_game_launch_target(
         .filter(|value| !value.is_empty())
         .context("Launcher game path is not configured.")?;
     let game_root = clean_input_path(game_path);
-    log_launcher_trace(
-        "launch.resolve",
-        &[("game-path", normalize_path(&game_root))],
-    );
+    log_launcher_trace("launch.resolve", |event| event.path("gamePath", &game_root));
     let smapi_candidates = smapi_launch_candidates(&game_root);
     if let Some(smapi_path) = smapi_candidates.iter().find(|path| path.is_file()) {
         return Ok((smapi_path.to_path_buf(), LauncherGameLaunchTarget::Smapi));
@@ -66,22 +63,18 @@ where
     F: FnMut(&Path) -> anyhow::Result<()>,
 {
     let (executable_path, target) = resolve_game_launch_target(settings)?;
-    log_launcher_trace(
-        "launch.start",
-        &[
-            ("target", format!("{target:?}")),
-            ("executable-path", normalize_path(&executable_path)),
-        ],
-    );
+    log_launcher_trace("launch.start", |event| {
+        event
+            .debug("target", target)
+            .path("executablePath", &executable_path)
+    });
     runner(&executable_path)
         .with_context(|| format!("Failed to launch {}", normalize_path(&executable_path)))?;
-    log_launcher_trace(
-        "launch.complete",
-        &[
-            ("target", format!("{target:?}")),
-            ("executable-path", normalize_path(&executable_path)),
-        ],
-    );
+    log_launcher_trace("launch.complete", |event| {
+        event
+            .debug("target", target)
+            .path("executablePath", &executable_path)
+    });
     Ok(LauncherGameLaunchResult {
         executable_path: normalize_path(&executable_path),
         target,

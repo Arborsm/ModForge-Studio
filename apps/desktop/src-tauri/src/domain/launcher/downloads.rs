@@ -16,22 +16,21 @@ use crate::domain::nexusmods::downloads::{
 };
 use crate::domain::nexusmods::http::launcher_http_client;
 use crate::infrastructure::fs::pathing::normalize_path;
+use crate::infrastructure::http::resumable_download::{
+    PartialRetention, ResumableDownloadRequest, ResumeRequest, download_resumable,
+};
 use crate::infrastructure::text_encoding::read_text_file;
+use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 use reqwest::blocking::Response;
 use reqwest::header::CONTENT_DISPOSITION;
-use reqwest::header::CONTENT_LENGTH;
 use std::collections::HashSet;
 use std::fs;
-use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, OnceLock};
-use std::time::Instant;
 
 const NEXUS_STARDEW_VALLEY_GAME_ID: i64 = 1303;
 const LAUNCHER_DOWNLOAD_PROGRESS_EVENT: &str = "launcher://download-progress";
-const DOWNLOAD_CHUNK_SIZE: usize = 64 * 1024;
-
 static LAUNCHER_DOWNLOAD_QUEUE_FILE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 fn lock_launcher_download_queue_file() -> MutexGuard<'static, ()> {
@@ -41,7 +40,9 @@ fn lock_launcher_download_queue_file() -> MutexGuard<'static, ()> {
     {
         Ok(guard) => guard,
         Err(poisoned) => {
-            log::error!(target: "Launcher Downloads", "Launcher download queue file lock was poisoned");
+            LogEvent::new("launcher.lock.poisoned")
+                .field("resource", "download-queue-file")
+                .emit_error(targets::LAUNCHER_DOWNLOADS);
             poisoned.into_inner()
         }
     }
@@ -118,15 +119,13 @@ fn nexus_manual_download_url(file_id: i64, game_id: i64) -> String {
 fn open_nexus_manual_download_page(mod_id: i64, file_id: i64, game_id: i64) -> anyhow::Result<()> {
     let url = nexus_manual_download_url(file_id, game_id);
     open_launcher_url_in_browser(&url)?;
-    log_launcher_trace(
-        "download.manual-page-opened",
-        &[
-            ("mod-id", mod_id.to_string()),
-            ("file-id", file_id.to_string()),
-            ("game-id", game_id.to_string()),
-            ("url", url),
-        ],
-    );
+    log_launcher_trace("download.manualPageOpened", |event| {
+        event
+            .field("modId", mod_id)
+            .field("fileId", file_id)
+            .field("gameId", game_id)
+            .field("url", &url)
+    });
     Ok(())
 }
 
@@ -158,22 +157,20 @@ fn manual_download_page_opened_result(
 }
 
 fn log_download_result_complete(result: &DownloadLauncherModResult) {
-    log_launcher_trace(
-        "download.complete",
-        &[
-            ("mod-id", result.mod_id.to_string()),
-            ("archive-path", result.archive_path.clone()),
-            ("installed", result.installed.to_string()),
-            (
-                "installed-target-path",
-                result.installed_target_path.clone().unwrap_or_default(),
-            ),
-            (
-                "manual-download-page-opened",
-                result.manual_download_page_opened.to_string(),
-            ),
-        ],
-    );
+    log_launcher_trace("download.complete", |event| {
+        event
+            .field("modId", result.mod_id)
+            .field("archivePath", &result.archive_path)
+            .flag("installed", result.installed)
+            .optional(
+                "installedTargetPath",
+                result.installed_target_path.as_deref(),
+            )
+            .flag(
+                "manualDownloadPageOpened",
+                result.manual_download_page_opened,
+            )
+    });
 }
 
 fn normalize_download_queue_state(state: LauncherDownloadQueueState) -> LauncherDownloadQueueState {
@@ -376,23 +373,12 @@ pub fn download_launcher_mod(
                 .map(str::trim)
                 .filter(|value| !value.is_empty());
             ensure_launcher_download_not_cancelled(download_id)?;
-            log_launcher_trace(
-                "download.start",
-                &[
-                    ("mod-id", request.mod_id.to_string()),
-                    (
-                        "requested-file-id",
-                        request
-                            .file_id
-                            .map(|value| value.to_string())
-                            .unwrap_or_default(),
-                    ),
-                    (
-                        "requested-version",
-                        request.version.clone().unwrap_or_default(),
-                    ),
-                ],
-            );
+            log_launcher_trace("download.start", |event| {
+                event
+                    .field("modId", request.mod_id)
+                    .optional("requestedFileId", request.file_id)
+                    .optional("requestedVersion", request.version.as_deref())
+            });
 
             let settings_path = launcher_settings_path()?;
             let settings = load_or_create_settings_at_path(&settings_path)?;
@@ -422,15 +408,13 @@ pub fn download_launcher_mod(
                 request.version.as_deref(),
             )?;
             ensure_launcher_download_not_cancelled(download_id)?;
-            log_launcher_trace(
-                "download.selected-file",
-                &[
-                    ("mod-id", request.mod_id.to_string()),
-                    ("file-id", candidate.file_id.to_string()),
-                    ("file-name", candidate.file_name.clone()),
-                    ("version", candidate.version.clone().unwrap_or_default()),
-                ],
-            );
+            log_launcher_trace("download.selectedFile", |event| {
+                event
+                    .field("modId", request.mod_id)
+                    .field("fileId", candidate.file_id)
+                    .field("fileName", &candidate.file_name)
+                    .optional("version", candidate.version.as_deref())
+            });
 
             if load_app_ui_state()
                 .map(|state| state.launcher.force_non_premium)
@@ -472,7 +456,7 @@ pub fn download_launcher_mod(
                     }
                 };
             ensure_launcher_download_not_cancelled(download_id)?;
-            let response = download_file_response(&client, &download_url)?;
+            let response = download_file_response(&client, &download_url, None, None)?;
             ensure_launcher_download_not_cancelled(download_id)?;
             if !response.status().is_success() {
                 bail!(
@@ -483,77 +467,58 @@ pub fn download_launcher_mod(
             }
 
             let file_name = download_file_name(&response, &candidate.file_name);
-            let archive_path = unique_path(&download_dir.join(file_name));
+            let archive_path = unique_path(&download_dir.join(&file_name));
             ensure_launcher_download_not_cancelled(download_id)?;
-            let mut archive_file = fs::File::create(&archive_path).with_context(|| {
-                format!(
-                    "Failed to create launcher archive {}",
-                    normalize_path(&archive_path)
-                )
-            })?;
-            let total_bytes = response
-                .headers()
-                .get(CONTENT_LENGTH)
-                .and_then(|value| value.to_str().ok())
-                .and_then(|value| value.parse::<u64>().ok());
-            let mut response_reader = response;
-            let mut buffer = [0_u8; DOWNLOAD_CHUNK_SIZE];
-            let started_at = Instant::now();
-            let mut bytes_written = 0_u64;
-            if let Some(download_id) = download_id {
-                emit_download_progress(&app, download_id, 0, total_bytes, Some(0))?;
-            }
-            loop {
-                if let Err(error) = ensure_launcher_download_not_cancelled(download_id) {
-                    let _ = fs::remove_file(&archive_path);
-                    return Err(error);
-                }
-
-                let read = response_reader
-                    .read(&mut buffer)
-                    .with_context(|| format!("Failed to stream launcher download bytes"))?;
-                if read == 0 {
-                    break;
-                }
-
-                archive_file
-                    .write_all(&buffer[..read])
-                    .with_context(|| format!("Failed to write launcher download bytes"))?;
-                bytes_written += read as u64;
-
-                if let Some(download_id) = download_id {
-                    let elapsed_seconds = started_at.elapsed().as_secs().max(1);
-                    emit_download_progress(
-                        &app,
-                        download_id,
-                        bytes_written,
-                        total_bytes,
-                        Some(bytes_written / elapsed_seconds),
-                    )?;
-                }
-            }
-            if let Err(error) = ensure_launcher_download_not_cancelled(download_id) {
-                let _ = fs::remove_file(&archive_path);
-                return Err(error);
-            }
-            archive_file.flush().with_context(|| {
-                format!(
-                    "Failed to flush launcher archive {}",
-                    normalize_path(&archive_path)
-                )
-            })?;
-            if let Err(error) = ensure_launcher_download_not_cancelled(download_id) {
-                let _ = fs::remove_file(&archive_path);
-                return Err(error);
-            }
-            log_launcher_trace(
-                "download.saved",
-                &[
-                    ("mod-id", request.mod_id.to_string()),
-                    ("archive-path", normalize_path(&archive_path)),
-                    ("bytes", bytes_written.to_string()),
-                ],
-            );
+            let download = download_resumable(
+                &ResumableDownloadRequest {
+                    destination: archive_path.clone(),
+                    expected_size: None,
+                    expected_sha256: None,
+                    version_identity: format!("nexus:{}:{}", request.mod_id, candidate.file_id),
+                    current_file: file_name,
+                    file_index: 1,
+                    file_count: 1,
+                    partial_retention: PartialRetention::DeleteOnFailure,
+                },
+                Some(response),
+                |resume: ResumeRequest| {
+                    download_file_response(
+                        &client,
+                        &download_url,
+                        Some(resume.start),
+                        resume.if_range.as_deref(),
+                    )
+                },
+                || {
+                    let Some(download_id) = download_id else {
+                        return Ok(false);
+                    };
+                    let cancelled = is_launcher_download_cancelled(download_id)?;
+                    if cancelled {
+                        let _ = take_cancelled_launcher_download(download_id)?;
+                    }
+                    Ok(cancelled)
+                },
+                |progress| {
+                    if let Some(download_id) = download_id {
+                        emit_download_progress(
+                            &app,
+                            download_id,
+                            progress.downloaded_bytes,
+                            progress.total_bytes,
+                            progress.bytes_per_second,
+                        )?;
+                    }
+                    Ok(())
+                },
+            )?;
+            let bytes_written = download.size;
+            log_launcher_trace("download.saved", |event| {
+                event
+                    .field("modId", request.mod_id)
+                    .path("archivePath", &archive_path)
+                    .field("bytes", bytes_written)
+            });
 
             let mut installed = false;
             let mut installed_target_path = None;
@@ -569,13 +534,11 @@ pub fn download_launcher_mod(
                 )?;
                 installed = true;
                 installed_target_path = Some(install_result.target_path.clone());
-                log_launcher_trace(
-                    "download.auto-install.complete",
-                    &[
-                        ("mod-id", request.mod_id.to_string()),
-                        ("target-path", install_result.target_path.clone()),
-                    ],
-                );
+                log_launcher_trace("download.autoInstall.complete", |event| {
+                    event
+                        .field("modId", request.mod_id)
+                        .field("targetPath", &install_result.target_path)
+                });
                 if !settings.keep_downloaded_archives {
                     let _ = fs::remove_file(&archive_path);
                 }

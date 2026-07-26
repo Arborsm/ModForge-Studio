@@ -55,6 +55,7 @@ export function LauncherLibraryPackSidebar({
     <aside
       className={cx('launcher-library-sidebar', drawerOpen ? 'launcher-library-sidebar-open' : 'launcher-library-sidebar-collapsed')}
       ref={drawerPanelRef}
+      data-guide="launcher-pack-sidebar"
     >
       <div className={cx('launcher-library-sidebar-inner', !drawerOpen && 'launcher-library-sidebar-inner-collapsed')}>
         <div className="launcher-library-sidebar-header">

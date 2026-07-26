@@ -60,6 +60,12 @@ describe('resolveTilesetImagePath', () => {
     expect(resolveTilesetImagePath(mapDocument, tileset)).toBe('maps\\springobjects.xnb')
   })
 
+  it('resolves a root-level map tileset without adding a leading separator', () => {
+    const mapDocument = createMapDocument({ sourcePath: 'TestMap.tmx' })
+    const tileset = createTileset({ imagePath: null, imageSource: 'springobjects' })
+    expect(resolveTilesetImagePath(mapDocument, tileset)).toBe('springobjects.xnb')
+  })
+
   it('does not append .xnb when imageSource already has an extension', () => {
     const mapDocument = createMapDocument({ sourcePath: 'maps\\TestMap.tmx' })
     const tileset = createTileset({ imagePath: null, imageSource: 'tilesheet.png' })

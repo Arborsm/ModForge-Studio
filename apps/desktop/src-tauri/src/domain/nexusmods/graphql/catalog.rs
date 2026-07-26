@@ -12,6 +12,7 @@ use crate::domain::nexusmods::graphql;
 use crate::domain::nexusmods::http::{api_headers, launcher_http_client, send_nexus_json_request};
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{build_mod_page_url, extract_graphql_error, string_field};
+use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 use reqwest::blocking::Client;
 use serde_json::{Value, json};
@@ -707,6 +708,19 @@ fn load_trending_catalog_page(
     parse_trending_catalog_response(&response_payload, page, ascending)
 }
 
+/// Traces a resolved catalog page, tagged with the source that produced it.
+fn log_catalog_search_complete(result: &LauncherCatalogPageResult, source: &str) {
+    log_launcher_trace("catalog.search.complete", |event| {
+        event
+            .field("page", result.page)
+            .field("pageSize", result.page_size)
+            .field("total", result.total_count)
+            .count("results", result.results.len())
+            .flag("hasMore", result.has_more)
+            .field("source", source)
+    });
+}
+
 pub(crate) fn search_launcher_catalog_blocking(
     _app: &AppHandle,
     request: &SearchLauncherCatalogRequest,
@@ -719,16 +733,14 @@ pub(crate) fn search_launcher_catalog_blocking(
     let settings_path = launcher_settings_path()?;
     let settings = load_or_create_settings_at_path(&settings_path)?;
     let client = launcher_http_client()?;
-    log_launcher_trace(
-        "catalog.search.start",
-        &[
-            ("page", page.to_string()),
-            ("page-size", page_size.to_string()),
-            ("sort", sort.clone()),
-            ("ascending", ascending.to_string()),
-            ("query", query.clone().unwrap_or_default()),
-        ],
-    );
+    log_launcher_trace("catalog.search.start", |event| {
+        event
+            .field("page", page)
+            .field("pageSize", page_size)
+            .field("sort", &sort)
+            .flag("ascending", ascending)
+            .optional("query", query.as_deref())
+    });
 
     if query.is_none() && sort == "trending" && !has_catalog_constraints(request) {
         if let Some(api_key) = settings
@@ -742,15 +754,7 @@ pub(crate) fn search_launcher_catalog_blocking(
                 || !result.facets.languages.is_empty()
                 || !result.facets.tags.is_empty()
             {
-                log_launcher_trace(
-                    "catalog.search.complete",
-                    &[
-                        ("page", result.page.to_string()),
-                        ("results", result.results.len().to_string()),
-                        ("has-more", result.has_more.to_string()),
-                        ("source", "trending".to_string()),
-                    ],
-                );
+                log_catalog_search_complete(&result, "trending");
                 return Ok(result);
             }
         }
@@ -758,33 +762,13 @@ pub(crate) fn search_launcher_catalog_blocking(
 
     if query.is_none() || has_catalog_advanced_filters(request) {
         let result = load_public_catalog_page(&client, request)?;
-        log_launcher_trace(
-            "catalog.search.complete",
-            &[
-                ("page", result.page.to_string()),
-                ("page-size", result.page_size.to_string()),
-                ("total", result.total_count.to_string()),
-                ("results", result.results.len().to_string()),
-                ("has-more", result.has_more.to_string()),
-                ("source", "public-graphql".to_string()),
-            ],
-        );
+        log_catalog_search_complete(&result, "public-graphql");
         return Ok(result);
     }
 
     if !can_use_nexus_graphql(&settings) {
         let result = load_public_catalog_page(&client, request)?;
-        log_launcher_trace(
-            "catalog.search.complete",
-            &[
-                ("page", result.page.to_string()),
-                ("page-size", result.page_size.to_string()),
-                ("total", result.total_count.to_string()),
-                ("results", result.results.len().to_string()),
-                ("has-more", result.has_more.to_string()),
-                ("source", "public-graphql".to_string()),
-            ],
-        );
+        log_catalog_search_complete(&result, "public-graphql");
         return Ok(result);
     }
 
@@ -792,35 +776,16 @@ pub(crate) fn search_launcher_catalog_blocking(
     let result = match load_catalog_page_from_graphql(&client, &settings, &payload, page, page_size)
     {
         Ok(result) => {
-            log_launcher_trace(
-                "catalog.search.complete",
-                &[
-                    ("page", result.page.to_string()),
-                    ("page-size", result.page_size.to_string()),
-                    ("total", result.total_count.to_string()),
-                    ("results", result.results.len().to_string()),
-                    ("has-more", result.has_more.to_string()),
-                    ("source", "graphql".to_string()),
-                ],
-            );
+            log_catalog_search_complete(&result, "graphql");
             result
         }
         Err(error) => {
-            log::warn!(
-                "launcher graphql catalog lookup failed, falling back to public GraphQL: {error}"
-            );
+            LogEvent::new("catalog.search.graphqlFallback")
+                .field("reason", "graphql-lookup-failed")
+                .error(&error)
+                .emit_warn(targets::NEXUS);
             let result = load_public_catalog_page(&client, request)?;
-            log_launcher_trace(
-                "catalog.search.complete",
-                &[
-                    ("page", result.page.to_string()),
-                    ("page-size", result.page_size.to_string()),
-                    ("total", result.total_count.to_string()),
-                    ("results", result.results.len().to_string()),
-                    ("has-more", result.has_more.to_string()),
-                    ("source", "public-graphql-fallback".to_string()),
-                ],
-            );
+            log_catalog_search_complete(&result, "public-graphql-fallback");
             result
         }
     };

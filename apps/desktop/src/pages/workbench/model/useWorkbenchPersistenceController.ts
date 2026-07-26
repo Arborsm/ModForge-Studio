@@ -6,6 +6,7 @@ import { resolveWorkbenchLocation } from './useWorkbenchNavigation'
 export type WorkbenchSideNavigationState = {
   browseOpen: boolean
   authoringOpen: boolean
+  translationOpen: boolean
   toolsOpen: boolean
   devOpen: boolean
 }
@@ -57,6 +58,7 @@ export function useWorkbenchPersistenceController({
       const nextSections = {
         browseOpen: workspace.navigation.expandedSections.includes('browse'),
         authoringOpen: workspace.navigation.expandedSections.includes('authoring'),
+        translationOpen: workspace.navigation.expandedSections.includes('translation'),
         toolsOpen: workspace.navigation.expandedSections.includes('tools'),
         devOpen: workspace.navigation.expandedSections.includes('development'),
       }
@@ -77,6 +79,7 @@ export function useWorkbenchPersistenceController({
         expandedSections: [
           ...(sections.browseOpen ? ['browse' as const] : []),
           ...(sections.authoringOpen ? ['authoring' as const] : []),
+          ...(sections.translationOpen ? ['translation' as const] : []),
           ...(sections.toolsOpen ? ['tools' as const] : []),
           ...(sections.devOpen ? ['development' as const] : []),
         ],

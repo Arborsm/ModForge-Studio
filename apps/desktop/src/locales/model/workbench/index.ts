@@ -7,6 +7,7 @@ import type { CharactersPanelCopy } from './characters'
 import type { BuildingsPanelCopy } from './buildings'
 import type { ItemsPanelCopy } from './items'
 import type { I18nGeneratorCopy } from './i18n-generator'
+import type { AiLocalizationCopy } from './ai-localization'
 
 export type { ModWorkspaceCopy } from './mods'
 export type { TranslationEditorCopy } from './translation-editor'
@@ -21,6 +22,7 @@ export type EditorCopy = WorkbenchShellCopy & {
   buildingsPanel: BuildingsPanelCopy
   itemsPanel: ItemsPanelCopy
   i18nGenerator: I18nGeneratorCopy
+  aiLocalization: AiLocalizationCopy
   viewportLabels: ViewportLabels
   buildAssetDialog: BuildAssetDialogCopy
   mapPanel: MapPanelCopy
@@ -35,3 +37,4 @@ export type { CharactersPanelCopy } from './characters'
 export type { BuildingsPanelCopy } from './buildings'
 export type { ItemsPanelCopy } from './items'
 export type { I18nGeneratorCopy } from './i18n-generator'
+export type { AiLocalizationCopy } from './ai-localization'

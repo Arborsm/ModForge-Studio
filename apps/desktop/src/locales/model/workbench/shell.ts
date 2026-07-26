@@ -156,6 +156,7 @@ export type WorkbenchShellCopy = {
     shellNavExpand: string
     shellNavBrowseGroup: string
     shellNavAuthoringGroup: string
+    shellNavTranslationGroup: string
     shellNavToolsGroup: string
     shellNavDevGroup: string
     moduleLabels: Record<WorkbenchModuleLocaleKey, string>

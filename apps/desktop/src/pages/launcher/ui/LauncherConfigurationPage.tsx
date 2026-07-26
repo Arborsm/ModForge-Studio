@@ -392,17 +392,20 @@ function createUnavailableProbeDiagnostics(error: unknown): LauncherGmcmProbeDia
   }
 }
 
-function getProbeDiagnosticLogMessage(diagnostics: LauncherGmcmProbeDiagnosticsResult) {
-  return [
-    `status=${diagnostics.status}`,
-    `probeAssemblyPath=${diagnostics.probeAssemblyPath ?? 'missing'}`,
-    `dotnetPath=${diagnostics.dotnetPath}`,
-    `dotnetAvailable=${diagnostics.dotnetAvailable}`,
-    `net6RuntimeAvailable=${diagnostics.net6RuntimeAvailable}`,
-    `installedRuntimes=${diagnostics.installedRuntimes.length}`,
-    `warnings=${diagnostics.warnings.join(',') || 'none'}`,
-    `repairActions=${diagnostics.repairActions.join(',') || 'none'}`,
-  ].join(' ')
+/**
+ * Fields for the probe diagnostics log line. The host already logs the paths and
+ * runtime inventory under `gmcmProbe.diagnostics`, so this records only what the
+ * UI resolved on top of it.
+ */
+function getProbeDiagnosticKeyValues(diagnostics: LauncherGmcmProbeDiagnosticsResult) {
+  return {
+    source: 'launcher-gmcm-probe',
+    status: diagnostics.status,
+    dotnetAvailable: String(diagnostics.dotnetAvailable),
+    net6RuntimeAvailable: String(diagnostics.net6RuntimeAvailable),
+    warnings: diagnostics.warnings.join(', ') || 'none',
+    repairActions: diagnostics.repairActions.join(', ') || 'none',
+  }
 }
 
 function getRouteDisplayName(route: LauncherNexusRouteSnapshot, copy: LauncherCopy) {
@@ -525,7 +528,11 @@ function ConfigPathPanel({
   ]
 
   return (
-    <section className="launcher-config-panel launcher-config-paths" aria-label={copy.settings.pathsTitle}>
+    <section
+      className="launcher-config-panel launcher-config-paths"
+      aria-label={copy.settings.pathsTitle}
+      data-guide="launcher-config-game"
+    >
       <ConfigPanelHeader title={copy.settings.pathsTitle} description={copy.settings.pathsHint} />
       <div className="launcher-config-path-list">
         {rows.map((row, index) => (
@@ -886,6 +893,7 @@ function ConfigNexusPanel({
       className="launcher-config-panel launcher-config-nexus"
       aria-label={copy.settings.nexusAccessTitle}
       data-testid="launcher-config-nexus"
+      data-guide="launcher-config-nexus"
     >
       <ConfigPanelHeader
         title={copy.settings.nexusAccessTitle}
@@ -1059,6 +1067,7 @@ function ConfigGmcmProbePanel({
       className={cx('launcher-config-panel launcher-config-gmcm-probe', `launcher-config-gmcm-probe-${statusTone}`)}
       aria-label={copy.configuration.gmcmProbeTitle}
       data-testid="launcher-config-gmcm-probe"
+      data-guide="launcher-config-diagnostics"
       tabIndex={-1}
     >
       <ConfigPanelHeader
@@ -1466,13 +1475,8 @@ export function LauncherConfigurationPage({
                   },
             debugDiagnosticsEnabled: debugEnabled,
             notify: false,
-            logMessage: getProbeDiagnosticLogMessage(diagnostics),
-            keyValues: {
-              source: 'launcher-gmcm-probe',
-              status: diagnostics.status,
-              dotnetAvailable: String(diagnostics.dotnetAvailable),
-              net6RuntimeAvailable: String(diagnostics.net6RuntimeAvailable),
-            },
+            logMessage: 'launcher.gmcmProbe.resolved',
+            keyValues: getProbeDiagnosticKeyValues(diagnostics),
           })
         }
       } catch (nextError) {
@@ -1489,11 +1493,8 @@ export function LauncherConfigurationPage({
             },
             debugDiagnosticsEnabled: true,
             notify: false,
-            logMessage: getProbeDiagnosticLogMessage(diagnostics),
-            keyValues: {
-              source: 'launcher-gmcm-probe',
-              status: diagnostics.status,
-            },
+            logMessage: 'launcher.gmcmProbe.resolveFailed',
+            keyValues: getProbeDiagnosticKeyValues(diagnostics),
           })
         }
       } finally {

@@ -384,44 +384,34 @@ fn load_content_patcher_project_normalizes_dot_segment_include_within_root() {
 }
 
 #[test]
-#[ignore = "requires local Stardew Valley Content Patcher mods"]
-fn load_real_cp_mods_produces_valid_snapshots() {
-    let mods_dir = std::path::PathBuf::from("E:/SteamLibrary/steamapps/common/Stardew Valley/Mods");
-    assert!(
-        mods_dir.is_dir(),
-        "missing real Stardew Mods directory: {}",
-        mods_dir.display()
+fn load_representative_cp_fixture_produces_a_complete_snapshot() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/content-patcher/representative-pack");
+    let snapshot = load_content_patcher_project(fixture.to_string_lossy().into_owned())
+        .expect("load representative Content Patcher fixture");
+
+    assert_eq!(snapshot.summary.name.as_deref(), Some("Audit Fixture Pack"));
+    assert_eq!(
+        snapshot.summary.unique_id.as_deref(),
+        Some("ModForge.AuditFixture")
     );
-
-    let test_mods = [
-        "[CP] DaisyNiko's Tilesheets",
-        "[CP] [DDF] Skimpy VN Portraits II",
-        "[CP] Childhood Sweetheart Caroline",
-        "[CP] Mermaid Replaces Mariner",
-    ];
-
-    for mod_name in test_mods {
-        let mod_path = mods_dir.join(mod_name);
-        if !mod_path.is_dir() {
-            continue;
-        }
-        let snapshot = load_content_patcher_project(mod_path.to_string_lossy().into_owned());
-        assert!(
-            snapshot.is_ok(),
-            "Failed to load {}: {:?}",
-            mod_name,
-            snapshot.err()
-        );
-        let snapshot = snapshot.unwrap();
-        assert!(
-            snapshot.summary.name.is_some(),
-            "{} missing summary name",
-            mod_name
-        );
-        assert!(
-            snapshot.sources.iter().any(|s| s.path == "content.json"),
-            "{} missing content.json source",
-            mod_name
-        );
-    }
+    assert_eq!(
+        snapshot
+            .sources
+            .iter()
+            .map(|source| source.path.as_str())
+            .collect::<Vec<_>>(),
+        vec!["content.json", "patches/spring.json"]
+    );
+    assert_eq!(snapshot.include_tree.len(), 1);
+    assert_eq!(snapshot.include_tree[0].source_path, "content.json");
+    assert_eq!(
+        snapshot.include_tree[0].included_path,
+        "patches/spring.json"
+    );
+    assert!(
+        snapshot.diagnostics.is_empty(),
+        "{:?}",
+        snapshot.diagnostics
+    );
 }

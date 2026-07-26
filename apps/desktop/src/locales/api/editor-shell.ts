@@ -21,6 +21,8 @@ export type {
   EventWorkflowCopy,
   EventWorkflowCommandKey,
   EventScenarioPresetId,
+  GuideId,
+  GuidesCopy,
   ItemsPanelCopy,
   LauncherCopy,
   LauncherUpdatesCopy,

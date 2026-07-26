@@ -51,10 +51,9 @@ struct ArchiveInspectionState {
 pub(crate) fn inspect_archive_at_path(
     archive_path: &Path,
 ) -> anyhow::Result<InspectLauncherArchiveResult> {
-    log_launcher_trace(
-        "inspect.start",
-        &[("archive-path", normalize_path(archive_path))],
-    );
+    log_launcher_trace("inspect.start", |event| {
+        event.path("archivePath", archive_path)
+    });
     if !archive_path.is_file() {
         bail!(
             "Launcher archive {} does not exist.",
@@ -78,14 +77,12 @@ pub(crate) fn inspect_archive_at_path(
             mod_roots: state.mod_roots.into_iter().collect(),
             tree,
         };
-        log_launcher_trace(
-            "inspect.complete",
-            &[
-                ("archive-path", result.archive_path.clone()),
-                ("mod-root-count", result.mod_roots.len().to_string()),
-                ("total-files", result.total_files.to_string()),
-            ],
-        );
+        log_launcher_trace("inspect.complete", |event| {
+            event
+                .field("archivePath", &result.archive_path)
+                .count("modRootCount", result.mod_roots.len())
+                .field("totalFiles", result.total_files)
+        });
         Ok(result)
     })
 }
@@ -197,17 +194,12 @@ pub(crate) fn install_archive_at_path(
     let mods_path = mods_path
         .map(clean_input_path)
         .context("modsPath is required to install launcher archives.")?;
-    log_launcher_trace(
-        "install.start",
-        &[
-            ("archive-path", normalize_path(archive_path)),
-            ("mods-path", normalize_path(&mods_path)),
-            (
-                "has-backup-root",
-                backup_root.map(Path::to_path_buf).is_some().to_string(),
-            ),
-        ],
-    );
+    log_launcher_trace("install.start", |event| {
+        event
+            .path("archivePath", archive_path)
+            .path("modsPath", &mods_path)
+            .flag("hasBackupRoot", backup_root.is_some())
+    });
     fs::create_dir_all(&mods_path).with_context(|| {
         format!(
             "Failed to create launcher mods directory {}",
@@ -255,32 +247,15 @@ pub(crate) fn install_archive_at_path(
         backup_id: result.backup_id,
         backup_path: result.backup_path,
     };
-    log_launcher_trace(
-        "install.complete",
-        &[
-            ("target-path", public_result.target_path.clone()),
-            ("mod-name", public_result.mod_name.clone()),
-            (
-                "unique-id",
-                public_result
-                    .unique_id
-                    .clone()
-                    .unwrap_or_else(|| "unknown".to_string()),
-            ),
-            (
-                "version",
-                public_result
-                    .version
-                    .clone()
-                    .unwrap_or_else(|| "unknown".to_string()),
-            ),
-            (
-                "installed-mod-count",
-                public_result.installed_mods.len().to_string(),
-            ),
-            ("backup-id", public_result.backup_id.clone()),
-        ],
-    );
+    log_launcher_trace("install.complete", |event| {
+        event
+            .field("targetPath", &public_result.target_path)
+            .field("modName", &public_result.mod_name)
+            .optional("uniqueId", public_result.unique_id.as_deref())
+            .optional("version", public_result.version.as_deref())
+            .count("installedModCount", public_result.installed_mods.len())
+            .field("backupId", &public_result.backup_id)
+    });
     Ok(public_result)
 }
 

@@ -58,156 +58,646 @@
     line-height: 1.45;
   }
 
-  .launcher-library-dialog-actions {
+  /* ===== Install flow dialogs (archive preview / summary / backups) =====
+   * Design language follows the mod-detail panel and the localization center:
+   * uppercase section heads, divided metric strips, dotted status rows and
+   * soft-tinted icon badges. */
+
+  .launcher-install-section-head {
     display: flex;
-    justify-content: flex-end;
-    gap: 0.625rem;
-  }
-
-  .launcher-library-install-dialog-grid {
-    display: grid;
-    gap: 1rem;
-  }
-
-  .launcher-archive-preview-grid {
-    grid-template-columns: minmax(15rem, 18.75rem) minmax(0, 1fr);
-    align-items: stretch;
-  }
-
-  .launcher-archive-preview-sidebar,
-  .launcher-archive-preview-detail,
-  .launcher-archive-preview-list-shell,
-  .launcher-archive-preview-detail-shell {
-    min-height: 0;
-  }
-
-  .launcher-archive-preview-list,
-  .launcher-archive-preview-detail-scroll {
-    min-height: 0;
-    max-height: min(56vh, 38.75rem);
-    overflow: auto;
-    overscroll-behavior: contain;
-    scrollbar-gutter: stable;
-  }
-
-  .launcher-archive-preview-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.625rem;
-    padding-right: 0.25rem;
-  }
-
-  .launcher-archive-preview-list-item {
-    width: 100%;
-    display: grid;
-    gap: 0.375rem;
-    padding: 0.75rem 0.8125rem;
-    border: 1px solid color-mix(in srgb, var(--launcher-border-soft) 88%, transparent);
-    border-radius: 0.75rem;
-    background: color-mix(in srgb, var(--launcher-surface-muted) 84%, transparent);
-    color: var(--launcher-text-secondary);
-    text-align: left;
-    transition:
-      border-color 140ms ease,
-      background-color 140ms ease,
-      color 140ms ease,
-      transform 140ms ease,
-      box-shadow 140ms ease;
-  }
-
-  .launcher-archive-preview-list-item:hover {
-    transform: translateY(-0.0625rem);
-    border-color: color-mix(in srgb, var(--accent) 30%, var(--launcher-border-soft));
-    background: color-mix(in srgb, var(--launcher-surface-accent) 88%, transparent);
-  }
-
-  .launcher-archive-preview-list-item-active {
-    border-color: color-mix(in srgb, var(--accent) 42%, var(--launcher-border-soft));
-    background: color-mix(in srgb, var(--launcher-surface-accent) 94%, transparent);
-    color: var(--launcher-text-accent);
-    box-shadow: 0 0.625rem 1.375rem color-mix(in srgb, var(--accent) 12%, transparent);
-  }
-
-  .launcher-archive-preview-list-item-title {
-    display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    min-width: 0;
-    color: var(--launcher-text-primary);
-    font-size: 0.8125rem;
-    font-weight: 700;
+    justify-content: space-between;
+    gap: 0.75rem;
   }
 
-  .launcher-archive-preview-list-item-title span:last-child {
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .launcher-install-section-head h3 {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .launcher-install-section-head > span {
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+    font-weight: 500;
     white-space: nowrap;
   }
 
-  .launcher-archive-preview-list-item-path {
-    color: var(--launcher-text-secondary);
+  .launcher-install-mono {
+    margin: 0;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
     font-size: 0.6875rem;
     line-height: 1.5;
     overflow-wrap: anywhere;
   }
 
-  .launcher-archive-preview-detail-scroll {
+  .launcher-install-mono-strong {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+  }
+
+  .launcher-install-field-label {
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    font-weight: 600;
+  }
+
+  /* Metric strip — mirrors the localization-center metric row. */
+  .launcher-install-metric-row {
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
+    border-radius: 0.875rem;
+    background: color-mix(in srgb, var(--bg-panel-muted) 42%, var(--bg-panel));
+  }
+
+  .launcher-install-metric {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0.75rem 1rem;
+    border-right: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
+  }
+
+  .launcher-install-metric:last-child {
+    border-right: 0;
+  }
+
+  .launcher-install-metric strong {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 1.375rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 780;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-install-metric[data-tone='ok'] strong {
+    color: var(--success);
+  }
+
+  .launcher-install-metric[data-tone='muted'] strong {
+    color: var(--text-tertiary);
+  }
+
+  .launcher-install-metric span {
+    overflow: hidden;
+    color: var(--text-tertiary);
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  /* Archive preview: archive rail + detail column. */
+  .launcher-install-preview {
+    display: grid;
+    grid-template-columns: minmax(15rem, 17.5rem) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+    min-height: 0;
+  }
+
+  .launcher-install-preview-rail {
+    display: grid;
+    gap: 0.625rem;
+    align-content: start;
+    min-height: 0;
+  }
+
+  .launcher-install-archive-list {
+    display: grid;
+    gap: 0.375rem;
+    max-height: min(52vh, 34rem);
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .launcher-install-archive-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.625rem;
+    width: 100%;
+    padding: 0.5625rem 0.625rem;
+    border: 1px solid transparent;
+    border-radius: 0.75rem;
+    background: transparent;
+    text-align: left;
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease;
+  }
+
+  .launcher-install-archive-item:hover {
+    background: var(--bg-hover);
+  }
+
+  .launcher-install-archive-item.is-active {
+    border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 72%, transparent);
+  }
+
+  .launcher-install-archive-item-icon {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border-radius: 0.625rem;
+    background: color-mix(in srgb, var(--bg-active) 72%, transparent);
+    color: var(--text-secondary);
+    transition:
+      background-color 140ms ease,
+      color 140ms ease;
+  }
+
+  .launcher-install-archive-item.is-active .launcher-install-archive-item-icon {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    color: var(--accent-strong);
+  }
+
+  .launcher-install-archive-item-main {
+    display: grid;
+    gap: 0.125rem;
+    min-width: 0;
+  }
+
+  .launcher-install-archive-item-main strong {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-install-archive-item-main span {
+    overflow: hidden;
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-install-preview-rail-hint {
+    margin: 0;
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    line-height: 1.5;
+  }
+
+  .launcher-install-preview-detail {
     display: grid;
     gap: 0.875rem;
+    align-content: start;
+    min-width: 0;
+    max-height: min(56vh, 38rem);
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
     padding-right: 0.25rem;
   }
 
-  .launcher-library-install-list {
+  .launcher-install-preview-detail-head {
     display: grid;
-    gap: 0.75rem;
+    gap: 0.25rem;
+    min-width: 0;
   }
 
-  .launcher-library-install-card {
-    display: grid;
-    gap: 0.5rem;
-    padding: 0.875rem 1rem;
-    border: 1px solid color-mix(in srgb, var(--launcher-border-soft) 92%, transparent);
-    border-radius: 0.75rem;
-    background: color-mix(in srgb, var(--launcher-surface-muted) 84%, transparent);
-  }
-
-  .launcher-library-install-card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    color: var(--launcher-text-primary);
-  }
-
-  .launcher-library-install-card-path,
-  .launcher-library-install-card-meta {
+  .launcher-install-preview-title {
     margin: 0;
-    color: var(--launcher-text-secondary);
-    font-size: 0.8125rem;
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 720;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-install-preview-path {
+    margin: 0;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
     line-height: 1.5;
     overflow-wrap: anywhere;
   }
 
-  .launcher-library-install-card-meta {
+  .launcher-install-preview-section {
     display: grid;
-    gap: 0.125rem;
+    gap: 0.5rem;
+    min-width: 0;
   }
 
-  .launcher-library-install-backup-card {
+  /* Detected mod roots. */
+  .launcher-install-root-list {
+    display: grid;
+    gap: 0.375rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .launcher-install-root-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4375rem 0.625rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
+    border-radius: 0.625rem;
+    background: color-mix(in srgb, var(--bg-panel-muted) 48%, transparent);
+  }
+
+  .launcher-install-root-dot {
+    width: 0.375rem;
+    height: 0.375rem;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--success);
+  }
+
+  .launcher-install-root-path {
+    min-width: 0;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    overflow-wrap: anywhere;
+  }
+
+  .launcher-install-root-empty {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0.5rem 0.625rem;
+    border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+    border-radius: 0.625rem;
+    background: var(--warning-soft);
+    color: var(--warning);
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+
+  /* Archive content tree: nesting handles indentation, guide line on children. */
+  .launcher-install-tree {
+    display: grid;
+    gap: 0.125rem;
+    min-width: 0;
+  }
+
+  .launcher-install-tree-node {
+    display: grid;
+    gap: 0.125rem;
+    min-width: 0;
+  }
+
+  .launcher-install-tree-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.5rem;
+    border-radius: 0.5rem;
+    transition: background-color 120ms ease;
+  }
+
+  .launcher-install-tree-row:hover {
+    background: var(--bg-hover);
+  }
+
+  .launcher-install-tree-icon {
+    display: inline-flex;
+    color: var(--text-tertiary);
+  }
+
+  .launcher-install-tree-row[data-kind='directory'] .launcher-install-tree-icon {
+    color: var(--accent);
+  }
+
+  .launcher-install-tree-name {
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-install-tree-row[data-kind='directory'] .launcher-install-tree-name {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .launcher-install-tree-size {
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+  }
+
+  .launcher-install-tree-children {
+    display: grid;
+    gap: 0.125rem;
+    margin-left: 0.9375rem;
+    padding-left: 0.375rem;
+    border-left: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
+  }
+
+  /* Preview footer: selection summary on the left, actions on the right. */
+  .launcher-install-footer-summary {
+    margin: 0;
+    min-width: 0;
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+  }
+
+  .launcher-install-footer-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+  }
+
+  /* Install summary dialog. */
+  .launcher-install-summary {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .launcher-install-summary-section {
     display: grid;
     gap: 0.625rem;
   }
 
-  .launcher-library-install-card-actions {
-    justify-content: flex-start;
+  .launcher-install-result-hero {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.875rem;
+    align-items: start;
+    padding: 1rem;
+    border: 1px solid color-mix(in srgb, var(--success) 26%, transparent);
+    border-radius: 1rem;
+    background: linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--success) 10%, transparent),
+      color-mix(in srgb, var(--bg-panel-muted) 55%, transparent)
+    );
   }
 
-  .launcher-library-install-restore-confirm {
-    margin-top: 0.75rem;
-    border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+  .launcher-install-result-icon {
+    display: grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    place-items: center;
+    border-radius: 0.875rem;
+    background: color-mix(in srgb, var(--success) 16%, transparent);
+    color: var(--success);
+  }
+
+  .launcher-install-result-main {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+  }
+
+  .launcher-install-result-main h3 {
+    margin: 0;
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 1.0625rem;
+    font-weight: 740;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-install-result-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    margin-top: 0.125rem;
+  }
+
+  /* Installed-mod cards and the backup summary row share the same skeleton. */
+  .launcher-install-mod-list,
+  .launcher-install-backup-list {
+    display: grid;
+    gap: 0.625rem;
+  }
+
+  .launcher-install-mod-card,
+  .launcher-install-backup-summary {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+    padding: 0.75rem 0.875rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    border-radius: 0.875rem;
+    background: color-mix(in srgb, var(--bg-panel-muted) 38%, var(--bg-panel));
+  }
+
+  .launcher-install-mod-icon {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border-radius: 0.625rem;
+    background: color-mix(in srgb, var(--bg-active) 72%, transparent);
+    color: var(--text-secondary);
+  }
+
+  .launcher-install-mod-main {
+    display: grid;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .launcher-install-mod-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .launcher-install-mod-title strong {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-install-version-pill {
+    flex: 0 0 auto;
+    padding: 0.125rem 0.5rem;
+    border-radius: 62.4375rem;
+    background: color-mix(in srgb, var(--accent-soft) 90%, transparent);
+    color: var(--accent-strong);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 700;
+  }
+
+  .launcher-install-mod-uid {
+    display: flex;
+    align-items: baseline;
+    gap: 0.375rem;
+    margin: 0;
+    min-width: 0;
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+  }
+
+  .launcher-install-backup-hint {
+    margin: 0;
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    line-height: 1.5;
+  }
+
+  /* Install backups dialog. */
+  .launcher-install-backup-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.75rem;
+    align-items: start;
+    padding: 0.75rem 0.875rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    border-radius: 0.875rem;
+    background: color-mix(in srgb, var(--bg-panel-muted) 38%, var(--bg-panel));
+    transition: border-color 140ms ease;
+  }
+
+  .launcher-install-backup-card[data-pending] {
+    border-color: color-mix(in srgb, var(--warning) 42%, transparent);
+  }
+
+  .launcher-install-backup-actions {
+    display: flex;
+    align-items: center;
+  }
+
+  .launcher-install-change-chip {
+    flex: 0 0 auto;
+    padding: 0.125rem 0.5rem;
+    border-radius: 62.4375rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .launcher-install-change-chip[data-tone='danger'] {
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
+    color: var(--danger);
+  }
+
+  .launcher-install-change-chip[data-tone='warning'] {
+    background: color-mix(in srgb, var(--warning) 14%, transparent);
+    color: var(--warning);
+  }
+
+  .launcher-install-restore-panel {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.625rem;
+    margin-top: 0.25rem;
+    padding: 0.75rem 0.875rem;
+    border: 1px solid color-mix(in srgb, var(--warning) 32%, transparent);
     border-radius: 0.75rem;
     background: var(--warning-soft);
-    padding: 0.75rem;
+  }
+
+  .launcher-install-restore-icon {
+    display: grid;
+    width: 1.75rem;
+    height: 1.75rem;
+    place-items: center;
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--warning) 18%, transparent);
+    color: var(--warning);
+  }
+
+  .launcher-install-restore-main {
+    display: grid;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .launcher-install-restore-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    font-weight: 650;
+  }
+
+  .launcher-install-restore-message {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+
+  .launcher-install-restore-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.375rem;
+  }
+
+  /* Shared loading / error / empty block for install-flow dialogs. */
+  .launcher-install-state {
+    display: grid;
+    justify-items: center;
+    gap: 0.5rem;
+    padding: 3rem 1rem;
+    text-align: center;
+  }
+
+  .launcher-install-state-icon {
+    display: grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--bg-active);
+    color: var(--text-secondary);
+  }
+
+  .launcher-install-state[data-tone='error'] .launcher-install-state-icon {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+
+  .launcher-install-state-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .launcher-install-state-detail {
+    margin: 0;
+    max-width: 32rem;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
   }
 
   .launcher-gallery-cover-grid {

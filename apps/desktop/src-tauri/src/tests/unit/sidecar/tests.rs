@@ -1,9 +1,131 @@
 use super::*;
 use crate::test_support::create_temp_dir;
+use std::collections::BTreeSet;
+use std::fs;
 use std::panic;
+use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;
 use std::time::Duration;
+use syn::visit::{self, Visit};
+use syn::{
+    ExprAwait, ExprCall, ExprMethodCall, File, Item, ItemFn, ItemUse, Macro, Path as SynPath,
+    UseTree,
+};
+
+fn parse_source(relative_path: &str) -> File {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("src")
+        .join(relative_path);
+    let source = fs::read_to_string(&path)
+        .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+    syn::parse_file(&source)
+        .unwrap_or_else(|error| panic!("failed to parse {}: {error}", path.display()))
+}
+
+fn find_function<'a>(file: &'a File, name: &str) -> &'a ItemFn {
+    file.items
+        .iter()
+        .find_map(|item| match item {
+            Item::Fn(function) if function.sig.ident == name => Some(function),
+            _ => None,
+        })
+        .unwrap_or_else(|| panic!("missing function {name}"))
+}
+
+fn path_name(path: &SynPath) -> String {
+    path.segments
+        .iter()
+        .map(|segment| segment.ident.to_string())
+        .collect::<Vec<_>>()
+        .join("::")
+}
+
+#[derive(Default)]
+struct RustStructure {
+    calls: BTreeSet<String>,
+    imports: BTreeSet<String>,
+    macros: Vec<(String, String)>,
+    paths: BTreeSet<String>,
+    await_count: usize,
+}
+
+impl<'ast> Visit<'ast> for RustStructure {
+    fn visit_expr_call(&mut self, node: &'ast ExprCall) {
+        if let syn::Expr::Path(path) = node.func.as_ref() {
+            if let Some(segment) = path.path.segments.last() {
+                self.calls.insert(segment.ident.to_string());
+            }
+        }
+        visit::visit_expr_call(self, node);
+    }
+
+    fn visit_expr_method_call(&mut self, node: &'ast ExprMethodCall) {
+        self.calls.insert(node.method.to_string());
+        visit::visit_expr_method_call(self, node);
+    }
+
+    fn visit_macro(&mut self, node: &'ast Macro) {
+        self.macros.push((
+            node.path
+                .segments
+                .last()
+                .expect("macro path should not be empty")
+                .ident
+                .to_string(),
+            node.tokens.to_string().replace(' ', ""),
+        ));
+        visit::visit_macro(self, node);
+    }
+
+    fn visit_item_use(&mut self, node: &'ast ItemUse) {
+        fn collect(tree: &UseTree, prefix: &str, imports: &mut BTreeSet<String>) {
+            match tree {
+                UseTree::Path(path) => {
+                    let next = if prefix.is_empty() {
+                        path.ident.to_string()
+                    } else {
+                        format!("{prefix}::{}", path.ident)
+                    };
+                    collect(&path.tree, &next, imports);
+                }
+                UseTree::Name(name) => {
+                    imports.insert(format!("{prefix}::{}", name.ident));
+                }
+                UseTree::Rename(rename) => {
+                    imports.insert(format!("{prefix}::{}", rename.ident));
+                }
+                UseTree::Glob(_) => {
+                    imports.insert(format!("{prefix}::*"));
+                }
+                UseTree::Group(group) => {
+                    for item in &group.items {
+                        collect(item, prefix, imports);
+                    }
+                }
+            }
+        }
+
+        collect(&node.tree, "", &mut self.imports);
+        visit::visit_item_use(self, node);
+    }
+
+    fn visit_path(&mut self, node: &'ast SynPath) {
+        self.paths.insert(path_name(node));
+        visit::visit_path(self, node);
+    }
+
+    fn visit_expr_await(&mut self, node: &'ast ExprAwait) {
+        self.await_count += 1;
+        visit::visit_expr_await(self, node);
+    }
+}
+
+fn function_structure(function: &ItemFn) -> RustStructure {
+    let mut structure = RustStructure::default();
+    structure.visit_block(&function.block);
+    structure
+}
 
 fn command_lane(command: &str) -> Option<SidecarLane> {
     let ctx = SidecarContext {
@@ -82,9 +204,17 @@ fn resolved_dynamic_resources(command: &str, args: Value) -> Vec<SidecarResource
 
 #[test]
 fn resolve_command_declares_lane_at_binding_site() {
-    let source = include_str!("../../../sidecar.rs");
-    let forbidden = ["fn ", "dispatch_mode", "(command"].concat();
-    assert!(!source.contains(&forbidden));
+    let sidecar = parse_source("sidecar.rs");
+    assert!(sidecar.items.iter().all(|item| {
+        !matches!(item, Item::Fn(function) if function.sig.ident == "dispatch_mode")
+    }));
+    let resolver = function_structure(find_function(&sidecar, "resolve_command"));
+    assert!(
+        resolver
+            .macros
+            .iter()
+            .any(|(name, _)| name == "host_command_wire")
+    );
     assert_eq!(
         command_lane("load_launcher_remote_mod_detail"),
         Some(SidecarLane::Network)
@@ -114,59 +244,95 @@ fn resolve_command_declares_lane_at_binding_site() {
 
 #[test]
 fn sidecar_uses_shared_host_runtime_scheduler() {
-    let sidecar_source = include_str!("../../../sidecar.rs");
-    let host_runtime_source = include_str!("../../../host_runtime.rs");
-    let tauri_runtime_source = include_str!("../../../commands/runtime.rs");
-    assert!(!sidecar_source.contains("struct SidecarScheduler"));
-    assert!(sidecar_source.contains("type SidecarScheduler = HostCommandScheduler"));
-    assert!(host_runtime_source.contains("pub struct HostCommandScheduler"));
-    assert!(tauri_runtime_source.contains("struct TauriCommandRuntime"));
-    assert!(tauri_runtime_source.contains("HostCommandScheduler::new"));
-    assert!(tauri_runtime_source.contains("scheduler.submit(command)"));
+    let sidecar = parse_source("sidecar.rs");
+    let host_runtime = parse_source("host_runtime.rs");
+    let tauri_runtime = parse_source("commands/runtime.rs");
+    assert!(sidecar.items.iter().any(|item| matches!(
+        item,
+        Item::Type(alias)
+            if alias.ident == "SidecarScheduler"
+                && matches!(alias.ty.as_ref(), syn::Type::Path(path) if path.path.segments.last().is_some_and(|segment| segment.ident == "HostCommandScheduler"))
+    )));
+    assert!(host_runtime.items.iter().any(|item| matches!(
+        item,
+        Item::Struct(item) if item.ident == "HostCommandScheduler"
+    )));
+    assert!(tauri_runtime.items.iter().any(|item| matches!(
+        item,
+        Item::Struct(item) if item.ident == "TauriCommandRuntime"
+    )));
+    let run_stdio = function_structure(find_function(&sidecar, "run_stdio"));
+    assert!(run_stdio.calls.contains("new"));
+    assert!(run_stdio.calls.contains("submit"));
 }
 
 #[test]
 fn tauri_command_wrappers_route_through_host_runtime() {
-    let wrappers = [
-        ("app_ui", include_str!("../../../commands/app_ui.rs")),
-        ("assets", include_str!("../../../commands/assets.rs")),
-        ("audio", include_str!("../../../commands/audio.rs")),
-        (
-            "content_patcher",
-            include_str!("../../../commands/content_patcher.rs"),
-        ),
-        ("cp_maker", include_str!("../../../commands/cp_maker.rs")),
-        ("launcher", include_str!("../../../commands/launcher.rs")),
-        ("logging", include_str!("../../../commands/logging.rs")),
-        ("mods", include_str!("../../../commands/mods.rs")),
-        (
-            "resource_registry",
-            include_str!("../../../commands/resource_registry.rs"),
-        ),
-        ("saves", include_str!("../../../commands/saves.rs")),
-    ];
-
-    for (name, source) in wrappers {
-        assert!(
-            source.contains("execute_tauri_command"),
-            "{name} wrapper should submit through the shared host runtime"
-        );
-        assert!(
-            !source.contains("pub fn "),
-            "{name} wrapper should be async so Tauri command handlers do not block while host runtime work is pending"
-        );
-        assert!(
-            source.contains("pub async fn "),
-            "{name} wrapper should expose async Tauri commands"
-        );
-        assert!(
-            source.contains("host_command_name!("),
-            "{name} wrapper should derive the host protocol name from its Tauri command function"
-        );
-        assert!(
-            !source.contains("log_tauri_command_error"),
-            "{name} wrapper should not keep the old direct logging path"
-        );
+    for name in [
+        "ai",
+        "ai_usage",
+        "app_ui",
+        "assets",
+        "audio",
+        "content_patcher",
+        "cp_maker",
+        "launcher",
+        "localization",
+        "logging",
+        "machine_translation",
+        "mods",
+        "resource_registry",
+        "saves",
+    ] {
+        let source_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("src")
+            .join(format!("commands/{name}.rs"));
+        let source = fs::read_to_string(&source_path).unwrap();
+        let file = parse_source(&format!("commands/{name}.rs"));
+        let wrappers = file.items.iter().filter_map(|item| match item {
+            Item::Fn(function)
+                if function
+                    .attrs
+                    .iter()
+                    .any(|attribute| path_name(attribute.path()) == "tauri::command") =>
+            {
+                Some(function)
+            }
+            _ => None,
+        });
+        let mut wrapper_count = 0;
+        for wrapper in wrappers {
+            wrapper_count += 1;
+            assert!(
+                wrapper.sig.asyncness.is_some(),
+                "{name}::{} must be async",
+                wrapper.sig.ident
+            );
+            assert!(matches!(wrapper.vis, syn::Visibility::Public(_)));
+            let structure = function_structure(wrapper);
+            let uses_execute_macro = structure
+                .macros
+                .iter()
+                .any(|(macro_name, _)| macro_name == "execute");
+            assert!(
+                structure.calls.contains("execute_tauri_command") || uses_execute_macro,
+                "{name}::{} must route through execute_tauri_command",
+                wrapper.sig.ident
+            );
+            if uses_execute_macro {
+                assert!(source.contains("execute_tauri_command"));
+                assert!(source.contains("host_command_name!($name)"));
+            }
+            assert!(!structure.calls.contains("log_tauri_command_error"));
+            assert!(
+                uses_execute_macro
+                    || structure.macros.iter().any(|(macro_name, tokens)| {
+                        macro_name == "host_command_name"
+                            && tokens == &wrapper.sig.ident.to_string()
+                    })
+            );
+        }
+        assert!(wrapper_count > 0, "{name} has no Tauri command wrappers");
     }
 }
 
@@ -188,16 +354,44 @@ fn command_execution_pool(command: &str) -> Option<HostCommandExecutionPool> {
     }
 }
 
+fn command_binding(
+    command: &str,
+) -> Option<(SidecarLane, HostCommandExecutionPool, Vec<SidecarResource>)> {
+    let ctx = SidecarContext {
+        app: AppHandle::sidecar(|_, _| Ok(())),
+        debug_logging_state: DebugLoggingState::new(),
+    };
+    match resolve_command(
+        &ctx,
+        RpcRequest {
+            id: json!(1),
+            command: command.to_string(),
+            args: Value::Null,
+        },
+    ) {
+        ResolvedSidecarCommandOrResponse::Command(command) => {
+            Some((command.lane, command.execution_pool, command.resources))
+        }
+        ResolvedSidecarCommandOrResponse::Response(_) => None,
+    }
+}
+
 #[test]
 fn tauri_host_runtime_waits_on_async_response_channel() {
-    let tauri_runtime_source = include_str!("../../../commands/runtime.rs");
-    assert!(tauri_runtime_source.contains("tauri::async_runtime"));
-    assert!(tauri_runtime_source.contains("channel as async_channel"));
-    assert!(tauri_runtime_source.contains("receiver.recv().await"));
-    assert!(!tauri_runtime_source.contains("std::sync::{Arc, Mutex, OnceLock, mpsc}"));
-    assert!(!tauri_runtime_source.contains("std::sync::mpsc"));
-    assert!(!tauri_runtime_source.contains("receiver.recv().map_err"));
-    assert!(!tauri_runtime_source.contains("spawn_blocking"));
+    let runtime = parse_source("commands/runtime.rs");
+    let execute = function_structure(find_function(&runtime, "execute_tauri_command"));
+    assert!(execute.calls.contains("recv"));
+    assert!(execute.calls.contains("submit"));
+    assert!(execute.await_count > 0);
+    assert!(!execute.calls.contains("spawn_blocking"));
+    let mut runtime_structure = RustStructure::default();
+    runtime_structure.visit_file(&runtime);
+    assert!(
+        runtime_structure
+            .imports
+            .iter()
+            .any(|path| path.starts_with("tauri::async_runtime::"))
+    );
 }
 
 #[test]
@@ -220,42 +414,219 @@ fn launcher_image_cdn_has_dedicated_host_pool() {
 }
 
 #[test]
+fn ai_commands_use_the_dedicated_pool_and_declared_resources() {
+    let config = SidecarSchedulerConfig::default();
+    assert_eq!(config.ai_max_concurrency, 2);
+    assert_eq!(config.ai_queue_capacity, 64);
+    assert_eq!(
+        command_binding("translate_ai_batch"),
+        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
+    );
+    assert_eq!(
+        command_binding("list_ai_models"),
+        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
+    );
+    assert_eq!(
+        command_binding("cancel_ai_job"),
+        Some((SidecarLane::Control, HostCommandExecutionPool::Lane, vec![]))
+    );
+    assert_eq!(
+        command_binding("save_ai_settings"),
+        Some((
+            SidecarLane::Mutation,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiSettings]
+        ))
+    );
+    assert_eq!(
+        command_binding("preview_ai_profiles_import"),
+        Some((
+            SidecarLane::Io,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiSettings]
+        ))
+    );
+    assert_eq!(
+        command_binding("apply_ai_profiles_import"),
+        Some((
+            SidecarLane::Mutation,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiSettings]
+        ))
+    );
+    assert_eq!(
+        command_binding("export_ai_profiles"),
+        Some((
+            SidecarLane::Io,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiSettings, SidecarResource::FileExport]
+        ))
+    );
+    assert_eq!(
+        command_binding("clear_ai_translation_cache"),
+        Some((
+            SidecarLane::Mutation,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiTranslationCache]
+        ))
+    );
+}
+
+#[test]
+fn official_localization_index_has_an_isolated_mutation_pool() {
+    let config = SidecarSchedulerConfig::default();
+    assert_eq!(config.ai_official_indexing_queue_capacity, 8);
+    assert_eq!(
+        command_binding("rebuild_official_localization_index"),
+        Some((
+            SidecarLane::Mutation,
+            HostCommandExecutionPool::AiOfficialIndexing,
+            vec![SidecarResource::AiOfficialLocalizationIndex],
+        ))
+    );
+    assert_eq!(
+        command_binding("search_official_localization"),
+        Some((
+            SidecarLane::Io,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiOfficialLocalizationIndex],
+        ))
+    );
+    assert_eq!(
+        command_binding("cancel_localization_job"),
+        Some((SidecarLane::Control, HostCommandExecutionPool::Lane, vec![]))
+    );
+}
+
+#[test]
+fn machine_translation_commands_use_host_runtime_policies() {
+    assert_eq!(
+        command_binding("load_machine_translation_settings"),
+        Some((
+            SidecarLane::Io,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::MachineTranslationSettings]
+        ))
+    );
+    assert_eq!(
+        command_binding("save_machine_translation_settings"),
+        Some((
+            SidecarLane::Mutation,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::MachineTranslationSettings]
+        ))
+    );
+    assert_eq!(
+        command_binding("list_machine_translation_languages"),
+        Some((SidecarLane::Network, HostCommandExecutionPool::Lane, vec![]))
+    );
+    assert_eq!(
+        command_binding("test_machine_translation_profile"),
+        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
+    );
+    assert_eq!(
+        command_binding("translate_machine_translation_batch"),
+        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
+    );
+}
+
+#[test]
+fn localization_review_releases_knowledge_lock_before_ai_network_work() {
+    assert_eq!(
+        command_binding("translate_localization_batch"),
+        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
+    );
+    assert_eq!(
+        command_binding("review_localization_batch"),
+        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
+    );
+    assert_eq!(
+        command_binding("list_localization_review_runs"),
+        Some((
+            SidecarLane::Io,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiLocalizationKnowledge]
+        ))
+    );
+    assert_eq!(
+        command_binding("load_localization_review_run"),
+        Some((
+            SidecarLane::Io,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiLocalizationKnowledge]
+        ))
+    );
+    assert_eq!(
+        command_binding("update_localization_review_issues"),
+        Some((
+            SidecarLane::Mutation,
+            HostCommandExecutionPool::Lane,
+            vec![SidecarResource::AiLocalizationKnowledge]
+        ))
+    );
+}
+
+#[test]
 fn sidecar_protocol_names_are_derived_from_command_functions() {
-    let host_commands_source = include_str!("../../../host_commands.rs");
-    let sidecar_source = include_str!("../../../sidecar.rs");
-    let wrapper_sources = [
-        include_str!("../../../commands/app_ui.rs"),
-        include_str!("../../../commands/assets.rs"),
-        include_str!("../../../commands/audio.rs"),
-        include_str!("../../../commands/content_patcher.rs"),
-        include_str!("../../../commands/cp_maker.rs"),
-        include_str!("../../../commands/launcher.rs"),
-        include_str!("../../../commands/logging.rs"),
-        include_str!("../../../commands/mods.rs"),
-        include_str!("../../../commands/resource_registry.rs"),
-        include_str!("../../../commands/saves.rs"),
-    ];
+    let sidecar = parse_source("sidecar.rs");
+    let resolver = function_structure(find_function(&sidecar, "resolve_command"));
+    let wire_names = resolver
+        .macros
+        .iter()
+        .filter_map(|(name, tokens)| (name == "host_command_wire").then_some(tokens.clone()))
+        .collect::<BTreeSet<_>>();
+    assert!(!wire_names.is_empty());
 
-    assert!(host_commands_source.contains("stringify!($command)"));
-    assert!(sidecar_source.contains("host_command_wire!("));
-    assert!(!host_commands_source.contains("define_host_commands"));
-    assert!(!host_commands_source.contains("=> \""));
-
-    for source in wrapper_sources {
-        assert!(!source.contains("HostCommandName::"));
+    let mut wrapper_names = BTreeSet::new();
+    for name in [
+        "ai",
+        "ai_usage",
+        "app_ui",
+        "assets",
+        "audio",
+        "content_patcher",
+        "cp_maker",
+        "launcher",
+        "localization",
+        "logging",
+        "machine_translation",
+        "mods",
+        "resource_registry",
+        "saves",
+    ] {
+        let file = parse_source(&format!("commands/{name}.rs"));
+        for item in file.items {
+            if let Item::Fn(function) = item
+                && function
+                    .attrs
+                    .iter()
+                    .any(|attribute| path_name(attribute.path()) == "tauri::command")
+            {
+                wrapper_names.insert(function.sig.ident.to_string());
+            }
+        }
     }
+
+    assert_eq!(wire_names, wrapper_names);
 }
 
 #[test]
 fn sidecar_resolver_does_not_call_tauri_command_wrappers() {
-    let sidecar_source = include_str!("../../../sidecar.rs");
-    assert!(!sidecar_source.contains("crate::commands"));
+    let sidecar = parse_source("sidecar.rs");
+    let resolver = function_structure(find_function(&sidecar, "resolve_command"));
+    assert!(
+        resolver
+            .paths
+            .iter()
+            .all(|path| !path.starts_with("crate::commands"))
+    );
 }
 
 #[test]
 fn sidecar_resolver_avoids_async_domain_wrappers_that_spawn_blocking() {
-    let sidecar_source = include_str!("../../../sidecar.rs");
-    assert!(!sidecar_source.contains("block_on("));
+    let sidecar = parse_source("sidecar.rs");
+    let resolver = function_structure(find_function(&sidecar, "resolve_command"));
+    assert!(!resolver.calls.contains("block_on"));
     for expected in [
         "persist_launcher_library_remote_cover_blocking",
         "search_launcher_catalog_blocking",
@@ -265,7 +636,7 @@ fn sidecar_resolver_avoids_async_domain_wrappers_that_spawn_blocking() {
         "check_launcher_updates_blocking",
     ] {
         assert!(
-            sidecar_source.contains(expected),
+            resolver.calls.contains(expected),
             "sidecar should call {expected} directly"
         );
     }
@@ -379,6 +750,85 @@ fn project_and_cp_maker_mutations_declare_resource_locks_at_binding_site() {
 }
 
 #[test]
+fn semantic_download_and_indexing_declare_exclusive_resources_at_binding_site() {
+    assert_eq!(
+        command_lane("download_localization_semantic_model"),
+        Some(SidecarLane::Network)
+    );
+    assert_eq!(
+        command_resources("download_localization_semantic_model"),
+        Some(vec![SidecarResource::AiSemanticModel])
+    );
+    for command in [
+        "rebuild_localization_semantic_index",
+        "sync_localization_semantic_index",
+    ] {
+        assert_eq!(command_lane(command), Some(SidecarLane::Mutation));
+        assert_eq!(
+            command_execution_pool(command),
+            Some(HostCommandExecutionPool::AiSemanticIndexing)
+        );
+        assert_eq!(
+            command_resources(command),
+            Some(vec![
+                SidecarResource::AiSemanticModel,
+                SidecarResource::AiSemanticIndex,
+                SidecarResource::AiLocalizationKnowledge,
+                SidecarResource::AiOfficialLocalizationIndex,
+            ])
+        );
+    }
+    assert_eq!(
+        command_execution_pool("probe_localization_semantic_search"),
+        Some(HostCommandExecutionPool::AiSemanticSearch)
+    );
+    assert_eq!(
+        command_lane("probe_localization_semantic_search"),
+        Some(SidecarLane::Network)
+    );
+    assert_eq!(
+        command_resources("probe_localization_semantic_search"),
+        Some(vec![
+            SidecarResource::AiSemanticSettings,
+            SidecarResource::AiSemanticModel,
+            SidecarResource::AiSemanticIndex,
+            SidecarResource::AiOfficialLocalizationIndex,
+            SidecarResource::AiLocalizationKnowledge,
+        ])
+    );
+    assert_eq!(
+        command_resources("verify_localization_semantic_model"),
+        Some(vec![
+            SidecarResource::AiSemanticSettings,
+            SidecarResource::AiSemanticModel,
+        ])
+    );
+    assert_eq!(
+        command_execution_pool("acquire_localization_semantic_runtime"),
+        Some(HostCommandExecutionPool::AiSemanticSearch)
+    );
+    assert_eq!(
+        command_resources("acquire_localization_semantic_runtime"),
+        Some(vec![
+            SidecarResource::AiSemanticSettings,
+            SidecarResource::AiSemanticModel,
+            SidecarResource::AiSemanticIndex,
+        ])
+    );
+    assert_eq!(
+        command_lane("release_localization_semantic_runtime"),
+        Some(SidecarLane::Io)
+    );
+    assert_eq!(
+        command_resources("unload_localization_semantic_runtime"),
+        Some(vec![
+            SidecarResource::AiSemanticModel,
+            SidecarResource::AiSemanticIndex,
+        ])
+    );
+}
+
+#[test]
 fn mod_i18n_save_resources_are_keyed_by_canonical_project_root() {
     let temp = create_temp_dir("sidecar-mod-i18n-resource");
     let first = temp.join("first");
@@ -451,6 +901,10 @@ fn test_config(
         mutation_max_concurrency,
         launcher_image_cdn_max_concurrency: SidecarSchedulerConfig::default()
             .launcher_image_cdn_max_concurrency,
+        ai_max_concurrency: SidecarSchedulerConfig::default().ai_max_concurrency,
+        ai_queue_capacity: SidecarSchedulerConfig::default().ai_queue_capacity,
+        ai_official_indexing_queue_capacity: SidecarSchedulerConfig::default()
+            .ai_official_indexing_queue_capacity,
         pool_queue_capacity,
     }
 }
@@ -494,8 +948,21 @@ impl TestSchedulerHarness {
         self.scheduler
             .diagnostics_summary("test")
             .expect("debug-enabled test scheduler should produce diagnostics")
-            .summary
+            .render()
     }
+}
+
+/// Checks the job counters of a pool row.
+///
+/// Pool rows pad every counter so columns line up across pools, so the fields
+/// are matched one at a time instead of as an adjacent `jobs=N ok=N` pair.
+fn pool_counters_are(summary: &str, submitted: u64, succeeded: u64) -> bool {
+    let jobs = format!("jobs={submitted}");
+    let ok = format!("ok={succeeded}");
+    summary.lines().any(|line| {
+        let fields: Vec<&str> = line.split_whitespace().collect();
+        fields.contains(&jobs.as_str()) && fields.contains(&ok.as_str())
+    })
 }
 
 fn create_test_command(
@@ -681,6 +1148,60 @@ fn launcher_image_cdn_pool_does_not_share_network_lane_workers() {
         .expect("cover command should start on the dedicated CDN pool");
     let response = scheduler.recv();
     assert_eq!(response.id, json!("cover"));
+    assert!(response.ok);
+
+    release_network_tx
+        .send(())
+        .expect("network command should be releasable");
+    let response = scheduler.recv();
+    assert_eq!(response.id, json!("blocked-network"));
+    assert!(response.ok);
+}
+
+#[test]
+fn ai_pool_does_not_share_network_lane_workers() {
+    let scheduler = TestSchedulerHarness::new(SidecarSchedulerConfig {
+        ai_max_concurrency: 1,
+        ..test_config(1, 1, 1, 1, 8)
+    });
+    let (network_started_tx, network_started_rx) = mpsc::channel();
+    let (release_network_tx, release_network_rx) = mpsc::channel();
+    scheduler.submit(create_test_command(
+        SidecarLane::Network,
+        "blocked-network",
+        NO_RESOURCES,
+        move || {
+            network_started_tx
+                .send(())
+                .expect("network should signal start");
+            release_network_rx
+                .recv()
+                .expect("network command should be released");
+            Ok(Value::Null)
+        },
+    ));
+    network_started_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("network command should start");
+
+    let (ai_started_tx, ai_started_rx) = mpsc::channel();
+    scheduler.submit(create_test_command_on_pool(
+        HostCommandExecutionPool::Ai,
+        SidecarLane::Network,
+        "ai",
+        NO_RESOURCES,
+        move || {
+            ai_started_tx
+                .send(())
+                .expect("AI command should signal start");
+            Ok(Value::Null)
+        },
+    ));
+    ai_started_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("AI command should start on its dedicated pool");
+    let response = scheduler.recv();
+    assert_eq!(response.id, json!("ai"));
     assert!(response.ok);
 
     release_network_tx
@@ -1024,7 +1545,7 @@ fn enqueue_failure_returns_error_response_for_request_id() {
     assert_eq!(scheduler.recv().id, json!("first"));
     assert_eq!(scheduler.recv().id, json!("queued"));
     let summary = scheduler.diagnostics_summary();
-    assert!(summary.contains("HostRuntime stats summary"));
+    assert!(summary.contains("hostRuntime.stats reason=test"));
     assert!(summary.contains("Pools"));
     assert!(summary.contains("usage="));
     assert!(summary.contains("jobs="));
@@ -1054,7 +1575,7 @@ fn writer_failure_records_diagnostics_and_releases_active_slot() {
         let summary = scheduler
             .diagnostics_summary("test")
             .expect("debug-enabled scheduler should produce diagnostics")
-            .summary;
+            .render();
         if summary.contains("writerFailed")
             && summary.contains("Io/Lane")
             && summary.contains("active=0/1")
@@ -1146,8 +1667,10 @@ fn telemetry_uses_per_command_sampling_when_debug_changes_mid_run() {
         let summary = scheduler
             .diagnostics_summary("test")
             .expect("debug-enabled scheduler should produce diagnostics")
-            .summary;
-        if summary.contains("jobs=1 ok=1") {
+            .render();
+        // The pool row pads its counters so columns line up across pools, so the
+        // fields are checked individually rather than as one adjacent pair.
+        if pool_counters_are(&summary, 1, 1) {
             break summary;
         }
         assert!(
@@ -1157,7 +1680,7 @@ fn telemetry_uses_per_command_sampling_when_debug_changes_mid_run() {
         std::thread::sleep(Duration::from_millis(10));
     };
     assert!(
-        summary.contains("jobs=1 ok=1"),
+        pool_counters_are(&summary, 1, 1),
         "debug-enabled command should keep jobs and ok counts aligned: {summary}"
     );
 }

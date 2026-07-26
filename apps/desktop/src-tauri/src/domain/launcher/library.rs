@@ -21,6 +21,7 @@ use crate::domain::manifest::{
 };
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use crate::infrastructure::text_encoding::read_text_file;
+use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -37,7 +38,9 @@ fn lock_launcher_library_covers_files() -> MutexGuard<'static, ()> {
     {
         Ok(guard) => guard,
         Err(poisoned) => {
-            log::error!(target: "Launcher", "Launcher library covers file lock was poisoned");
+            LogEvent::new("launcher.lock.poisoned")
+                .field("resource", "library-covers-file")
+                .emit_error(targets::LAUNCHER);
             poisoned.into_inner()
         }
     }
@@ -715,7 +718,10 @@ fn collect_scanned_projects(project_roots: Vec<PathBuf>) -> Vec<ScannedLauncherM
         let manifest = match read_json_file(&manifest_path) {
             Ok(manifest) => manifest,
             Err(error) => {
-                log::debug!("{error}");
+                LogEvent::new("launcher.library.manifestUnreadable")
+                    .path("manifestPath", &manifest_path)
+                    .error(format!("{error}"))
+                    .emit_debug(targets::LAUNCHER);
                 continue;
             }
         };
@@ -941,13 +947,9 @@ fn set_mod_enabled_at_path(
     current_path: &Path,
     enabled: bool,
 ) -> anyhow::Result<SetLauncherModEnabledResult> {
-    log_launcher_trace(
-        "toggle.start",
-        &[
-            ("mod-path", normalize_path(current_path)),
-            ("enabled", enabled.to_string()),
-        ],
-    );
+    log_launcher_trace("toggle.start", |event| {
+        event.path("modPath", current_path).flag("enabled", enabled)
+    });
     if !current_path.is_dir() {
         bail!(
             "Launcher mod path {} does not exist.",
@@ -963,13 +965,9 @@ fn set_mod_enabled_at_path(
         .context("Unable to resolve launcher mod parent folder.")?;
     let is_enabled = !current_name.starts_with('.');
     if is_enabled == enabled {
-        log_launcher_trace(
-            "toggle.noop",
-            &[
-                ("mod-path", normalize_path(current_path)),
-                ("enabled", enabled.to_string()),
-            ],
-        );
+        log_launcher_trace("toggle.noop", |event| {
+            event.path("modPath", current_path).flag("enabled", enabled)
+        });
         return Ok(SetLauncherModEnabledResult {
             absolute_path: normalize_path(current_path),
             enabled,
@@ -995,14 +993,12 @@ fn set_mod_enabled_at_path(
             normalize_path(current_path)
         )
     })?;
-    log_launcher_trace(
-        "toggle.complete",
-        &[
-            ("from-path", normalize_path(current_path)),
-            ("to-path", normalize_path(&next_path)),
-            ("enabled", enabled.to_string()),
-        ],
-    );
+    log_launcher_trace("toggle.complete", |event| {
+        event
+            .path("fromPath", current_path)
+            .path("toPath", &next_path)
+            .flag("enabled", enabled)
+    });
 
     Ok(SetLauncherModEnabledResult {
         absolute_path: normalize_path(&next_path),

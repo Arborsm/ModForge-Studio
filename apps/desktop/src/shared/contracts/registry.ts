@@ -19,8 +19,19 @@ export type PageRegistration<TProps = never> = RegistryItemMetadata & {
   component: ComponentFactory<TProps>
 }
 
-export type WorkbenchNavigationSection = 'browse' | 'authoring' | 'tools' | 'development'
-export type WorkbenchNavigationIcon = 'map' | 'events' | 'characters' | 'buildings' | 'items' | 'package' | 'languages' | 'files' | 'beaker'
+export type WorkbenchNavigationSection = 'browse' | 'authoring' | 'translation' | 'tools' | 'development'
+export type WorkbenchNavigationIcon =
+  | 'map'
+  | 'events'
+  | 'characters'
+  | 'buildings'
+  | 'items'
+  | 'package'
+  | 'languages'
+  | 'files'
+  | 'beaker'
+  | 'book-open-check'
+  | 'book-open'
 export type WorkbenchModuleLocaleKey =
   | 'map-browser'
   | 'event-browser'
@@ -30,6 +41,7 @@ export type WorkbenchModuleLocaleKey =
   | 'mod-browser'
   | 'mod-translation'
   | 'i18n-generator'
+  | 'ai-localization'
   | 'project-dashboard'
   | 'project-content'
   | 'map-authoring'

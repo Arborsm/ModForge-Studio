@@ -1,6 +1,6 @@
-#[path = "support/infrastructure.rs"]
+#[path = "../support/infrastructure.rs"]
 mod infrastructure;
-#[path = "support.rs"]
+#[path = "../support/mod.rs"]
 mod test_support;
 
 use std::fs;
@@ -8,8 +8,12 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use infrastructure::game_formats::xact;
-#[test]
-#[ignore = "manual XACT coverage report against installed game data"]
+
+fn main() {
+    report_xact_simple_cue_coverage();
+    report_xact_total_cue_coverage();
+}
+
 fn report_xact_simple_cue_coverage() {
     let game_root = test_support::resolve_game_root();
     let xsb_path = game_root.join("Content/XACT/Sound Bank.xsb");
@@ -24,6 +28,8 @@ fn report_xact_simple_cue_coverage() {
         parse_xsb_header(&xsb).unwrap_or_else(|error| panic!("{}: {error}", xsb_path.display()));
     let cue_names = read_xsb_cue_names(&xsb, &header)
         .unwrap_or_else(|error| panic!("{}: {error}", xsb_path.display()));
+    assert!(header.num_simple_cues > 0, "XACT bank has no simple cues");
+    assert!(header.num_complex_cues > 0, "XACT bank has no complex cues");
 
     let (passed, total, failures, timings) = collect_cue_results(
         &game_root,
@@ -32,6 +38,7 @@ fn report_xact_simple_cue_coverage() {
             .take(header.num_simple_cues as usize)
             .cloned(),
     );
+    assert!(total > 0, "XACT simple cue scan produced no cases");
 
     let timing_summary = summarize_timings(&timings);
     let report = format!(
@@ -56,8 +63,6 @@ fn report_xact_simple_cue_coverage() {
     assert_eq!(passed, total, "some simple cues still failed");
 }
 
-#[test]
-#[ignore = "manual XACT coverage report against installed game data"]
 fn report_xact_total_cue_coverage() {
     let game_root = test_support::resolve_game_root();
     let xsb_path = game_root.join("Content/XACT/Sound Bank.xsb");
@@ -77,6 +82,13 @@ fn report_xact_total_cue_coverage() {
         collect_cue_results(&game_root, cue_names.iter().cloned());
     let simple_total = header.num_simple_cues as usize;
     let complex_total = header.num_complex_cues as usize;
+    assert!(simple_total > 0, "XACT bank has no simple cues");
+    assert!(complex_total > 0, "XACT bank has no complex cues");
+    assert_eq!(
+        total,
+        simple_total + complex_total,
+        "XACT cue counts do not match the parsed cue list"
+    );
     let simple_passed = timings
         .iter()
         .take(simple_total)
@@ -166,7 +178,7 @@ fn load_as_wav(game_root: &std::path::Path, cue: &str) -> Result<(), String> {
     match xact::load_xact_audio_data_url(game_root.display().to_string(), cue.to_string()) {
         Ok(url) if url.starts_with("data:audio/wav;base64,") => Ok(()),
         Ok(_) => Err("returned non-wav data url".to_string()),
-        Err(error) => Err(error),
+        Err(error) => Err(error.to_string()),
     }
 }
 

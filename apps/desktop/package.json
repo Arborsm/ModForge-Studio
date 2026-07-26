@@ -33,12 +33,16 @@
     "lint": "vp lint .",
     "lint:tailwind": "tailwind-lint --config src/styles/index.css \"src/**/*.{ts,tsx}\"",
     "lint:tailwind:fix": "tailwind-lint --config src/styles/index.css \"src/**/*.{ts,tsx}\" --fix",
-    "test": "node ./scripts/cleanup-vitest-processes.cjs && vp test run --configLoader runner",
+    "test": "vp run test:frontend && vp run test:node",
+    "test:frontend": "node ./scripts/cleanup-vitest-processes.cjs && node ./scripts/run-frontend-tests.mjs",
+    "test:node": "node --test ./scripts/frontend-test-warning-gate.test.mjs ./scripts/linux-cuda-runtime.test.mjs ./scripts/scan-gmcm-probe.test.mjs ../../docs/nexusmods-graphql/convert-to-markdown.test.mjs",
     "test:cleanup": "node ./scripts/cleanup-vitest-processes.cjs",
     "test:launcher-custom-sort": "node ./scripts/verify-launcher-custom-sort.mjs",
     "test:launcher-drag": "node ./scripts/verify-launcher-drag.mjs",
     "test:launcher-fast-scroll": "node ./scripts/verify-launcher-fast-scroll.mjs",
     "test:launcher-cover-api-concurrency": "node ./scripts/probe-launcher-cover-api-concurrency.mjs --discover",
+    "benchmark:localization-search": "cargo run --manifest-path src-tauri/Cargo.toml --example localization_semantic_benchmark --",
+    "benchmark:localization-lexical": "node ./scripts/benchmark-localization-search.mjs",
     "test:launcher-performance": "node ./scripts/verify-launcher-performance.mjs",
     "test:performance:pages": "node ./scripts/verify-page-performance.mjs",
     "test:performance:compiler-cleanup": "node ./scripts/verify-compiler-cleanup-performance.mjs",
@@ -105,10 +109,6 @@
     ],
     "extraResources": [
       {
-        "from": "src-tauri/target/release/modforge_sidecar",
-        "to": "bin/modforge_sidecar"
-      },
-      {
         "from": "src-tauri/target/release/gmcm-probe",
         "to": "bin"
       },
@@ -119,6 +119,12 @@
     ],
     "linux": {
       "executableName": "modforge-studio",
+      "extraResources": [
+        {
+          "from": "src-tauri/target/release/ort-runtime",
+          "to": "bin/ort"
+        }
+      ],
       "syncDesktopName": true,
       "artifactName": "modforge-studio-${version}-${arch}.${ext}",
       "maintainer": "ModForge Studio <dev@modforge.studio>",

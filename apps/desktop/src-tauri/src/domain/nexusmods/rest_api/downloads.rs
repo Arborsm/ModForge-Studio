@@ -4,6 +4,7 @@ use crate::domain::nexusmods::http::{api_headers, send_nexus_request};
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use anyhow::{Context, bail};
 use reqwest::blocking::{Client, Response};
+use reqwest::header::{IF_RANGE, RANGE};
 use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,6 +60,41 @@ pub(crate) fn fetch_mod_files_payload(
         .with_context(|| format!("Failed to parse launcher mod files JSON"))
 }
 
+/// Nexus file category priority: main files beat update/optional/misc/old
+/// files; unknown categories rank lowest.
+fn download_file_category_rank(item: &Value) -> u8 {
+    let category_id = item.get("category_id").and_then(Value::as_i64);
+    let category_name = item
+        .get("category_name")
+        .and_then(Value::as_str)
+        .map(|value| value.trim().to_ascii_uppercase());
+    match (category_id, category_name.as_deref()) {
+        (_, Some("MAIN")) | (Some(1), _) => 5,
+        (_, Some("UPDATE" | "UPDATES")) | (Some(2), _) => 4,
+        (_, Some("OPTIONAL")) | (Some(3), _) => 3,
+        (_, Some("MISC" | "MISCELLANEOUS")) | (Some(5), _) => 2,
+        (_, Some("OLD" | "OLD_VERSION")) | (Some(4), _) => 1,
+        _ => 0,
+    }
+}
+
+/// Rank a downloadable file so the mod page's primary file wins, then main
+/// files over optional/old ones, then the newest upload inside a category.
+fn download_candidate_rank(item: &Value) -> (bool, u8, i64, i64) {
+    (
+        item.get("is_primary")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        download_file_category_rank(item),
+        item.get("uploaded_timestamp")
+            .and_then(Value::as_i64)
+            .unwrap_or_default(),
+        item.get("file_id")
+            .and_then(Value::as_i64)
+            .unwrap_or_default(),
+    )
+}
+
 pub(crate) fn select_download_candidate(
     payload: &Value,
     requested_file_id: Option<i64>,
@@ -77,18 +113,19 @@ pub(crate) fn select_download_candidate(
             .iter()
             .find(|item| item.get("file_id").and_then(Value::as_i64) == Some(file_id))
     } else if let Some(version) = requested_version {
-        files.iter().find(|item| {
-            item.get("version")
-                .and_then(Value::as_str)
-                .map(|value| value.trim() == version.trim())
-                .unwrap_or(false)
-        })
+        files
+            .iter()
+            .filter(|item| {
+                item.get("version")
+                    .and_then(Value::as_str)
+                    .map(|value| value.trim() == version.trim())
+                    .unwrap_or(false)
+            })
+            .max_by_key(|item| download_candidate_rank(item))
     } else {
-        files.iter().max_by_key(|item| {
-            item.get("uploaded_timestamp")
-                .and_then(Value::as_i64)
-                .unwrap_or_default()
-        })
+        files
+            .iter()
+            .max_by_key(|item| download_candidate_rank(item))
     }
     .context("Unable to resolve a launcher download file.")?;
 
@@ -181,9 +218,21 @@ pub(crate) fn resolve_download_url(
 pub(crate) fn download_file_response(
     client: &Client,
     download_url: &str,
+    range_start: Option<u64>,
+    if_range: Option<&str>,
 ) -> anyhow::Result<Response> {
-    let response = client.get(download_url);
+    let mut response = client.get(download_url);
+    if let Some(start) = range_start.filter(|value| *value > 0) {
+        response = response.header(RANGE, format!("bytes={start}-"));
+        if let Some(if_range) = if_range {
+            response = response.header(IF_RANGE, if_range);
+        }
+    }
     let response = send_nexus_request(|| response.try_clone().expect("request clone").send())
         .with_context(|| format!("Failed to download launcher mod"))?;
     Ok(response)
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/domain/nexusmods/rest_api_downloads_tests.rs"]
+mod tests;

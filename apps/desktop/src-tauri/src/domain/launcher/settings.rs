@@ -3,6 +3,7 @@ use super::types::{LauncherSettings, NullablePatch, SaveLauncherSettingsRequest}
 use crate::AppHandle;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use crate::infrastructure::text_encoding::read_text_file;
+use crate::support::logging::{LogEvent, targets};
 use anyhow::Context;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -17,7 +18,9 @@ fn lock_launcher_settings_file() -> MutexGuard<'static, ()> {
     {
         Ok(guard) => guard,
         Err(poisoned) => {
-            log::error!(target: "Launcher Settings", "Launcher settings file lock was poisoned");
+            LogEvent::new("launcher.lock.poisoned")
+                .field("resource", "settings-file")
+                .emit_error(targets::LAUNCHER_SETTINGS);
             poisoned.into_inner()
         }
     }
@@ -165,11 +168,14 @@ pub fn load_launcher_settings(_app: AppHandle) -> anyhow::Result<LauncherSetting
         (|| {
             let settings_path = launcher_settings_path()?;
             let settings = load_or_create_settings_at_path(&settings_path)?;
-            log::info!(
-                target: "Launcher Settings",
-                "Loaded settings: api-key-present={}",
-                optional_text_present(&settings.nexus_api_key)
-            );
+            // A read query the shell issues repeatedly; only interesting when
+            // tracing, so it must not claim an info line each time.
+            LogEvent::new("launcherSettings.loaded")
+                .flag(
+                    "apiKeyPresent",
+                    optional_text_present(&settings.nexus_api_key),
+                )
+                .emit_debug(targets::LAUNCHER_SETTINGS);
             Ok(settings)
         })(),
     )
@@ -214,20 +220,22 @@ pub fn save_launcher_settings(
             let _settings_file_guard = lock_launcher_settings_file();
             let existing = load_or_create_settings_at_path_unlocked(&settings_path)?;
             let nexus_api_key_request_state = request.nexus_api_key.state_label();
-            log::info!(
-                target: "Launcher Settings",
-                "Save settings request: api-key={} existing-api-key-present={}",
-                nexus_api_key_request_state,
-                optional_text_present(&existing.nexus_api_key)
-            );
+            LogEvent::new("launcherSettings.saveRequested")
+                .field("apiKey", nexus_api_key_request_state)
+                .flag(
+                    "existingApiKeyPresent",
+                    optional_text_present(&existing.nexus_api_key),
+                )
+                .emit_info(targets::LAUNCHER_SETTINGS);
 
             let merged = merge_launcher_settings(existing, request);
             let normalized = normalize_settings(merged);
-            log::info!(
-                target: "Launcher Settings",
-                "Saved settings: api-key-present={}",
-                optional_text_present(&normalized.nexus_api_key)
-            );
+            LogEvent::new("launcherSettings.saved")
+                .flag(
+                    "apiKeyPresent",
+                    optional_text_present(&normalized.nexus_api_key),
+                )
+                .emit_info(targets::LAUNCHER_SETTINGS);
             save_settings_at_path_unlocked(&settings_path, &normalized)?;
             restart_launcher_nexus_diagnostics_with_app(&app, &normalized);
             Ok(normalized)
@@ -239,11 +247,12 @@ pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
     app: &AppHandle,
     settings: &LauncherSettings,
 ) {
-    log::info!(
-        target: "Launcher Settings",
-        "Restart Nexus diagnostics after settings save: api-key-present={}",
-        optional_text_present(&settings.nexus_api_key)
-    );
+    LogEvent::new("launcherSettings.nexusDiagnosticsRestart")
+        .flag(
+            "apiKeyPresent",
+            optional_text_present(&settings.nexus_api_key),
+        )
+        .emit_info(targets::LAUNCHER_SETTINGS);
     crate::domain::nexusmods::diagnostics::restart_launcher_nexus_diagnostics_with_handle(
         Some(app),
         settings,

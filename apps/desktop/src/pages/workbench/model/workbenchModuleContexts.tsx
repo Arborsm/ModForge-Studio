@@ -2,7 +2,7 @@ import { createContext, useContext, type ReactNode, type RefObject } from 'react
 import type { GameDirectoryInfo } from '@entities/game/api'
 import type { PlayerAppearanceProfile } from '@entities/event'
 import type { WorkspaceStatus } from '@entities/map'
-import type { WorkbenchModuleRegistration, WorkspaceLayoutHandle, WorkspaceStoredState } from '@shared/contracts'
+import type { SettingsWindowCategory, WorkbenchModuleRegistration, WorkspaceLayoutHandle, WorkspaceStoredState } from '@shared/contracts'
 import type { UseCpMakerReturn } from '@features/cp-maker'
 
 export type WorkbenchEnvironment = {
@@ -23,6 +23,7 @@ export type WorkbenchEnvironment = {
   onExportProject: () => void
   onCloseProject: () => void
   onOpenGameDirectory: () => void
+  onOpenSettings?: (category?: SettingsWindowCategory) => void
 }
 
 export type WorkbenchModuleState = {

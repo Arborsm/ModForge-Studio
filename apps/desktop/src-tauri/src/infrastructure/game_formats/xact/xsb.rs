@@ -649,6 +649,6 @@ pub(crate) fn build_best_sound_offsets(
     best_offsets
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "installed-game-validation")))]
 #[path = "../../../tests/unit/infrastructure/game_formats/xact/xsb_tests.rs"]
 mod tests;

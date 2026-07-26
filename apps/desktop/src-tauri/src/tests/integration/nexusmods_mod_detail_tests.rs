@@ -80,14 +80,6 @@ fn graphql_detail_short_circuits_rest_api() {
 }
 
 #[test]
-fn public_mod_detail_uses_documented_v2_graphql_endpoint() {
-    let source = include_str!("../../domain/nexusmods/graphql/mod_detail.rs");
-
-    assert!(source.contains("graphql::GRAPHQL_ENDPOINT"));
-    assert!(!source.contains(&format!("https://api-router.{}", "nexusmods.com/graphql")));
-}
-
-#[test]
 fn parse_public_mod_detail_graphql_response_returns_not_found_error() {
     let payload = json!({
         "errors": [

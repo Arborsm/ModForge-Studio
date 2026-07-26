@@ -1,5 +1,7 @@
 import {
   Beaker,
+  BookOpen,
+  BookOpenCheck,
   Castle,
   ChevronDown,
   ChevronLeft,
@@ -30,11 +32,14 @@ const ICONS = {
   languages: Languages,
   files: FileText,
   beaker: Beaker,
+  'book-open-check': BookOpenCheck,
+  'book-open': BookOpen,
 } as const
 
 export type WorkbenchSideNavSectionState = {
   browseOpen: boolean
   authoringOpen: boolean
+  translationOpen: boolean
   toolsOpen: boolean
   devOpen: boolean
 }
@@ -56,7 +61,7 @@ export type WorkbenchSideNavProps = {
   onSectionStateChange: (state: WorkbenchSideNavSectionState) => void
 }
 
-const SECTIONS: readonly WorkbenchNavigationSection[] = ['authoring', 'browse', 'tools', 'development']
+const SECTIONS: readonly WorkbenchNavigationSection[] = ['authoring', 'browse', 'translation', 'tools', 'development']
 
 /** Registry-driven workbench navigation for home and every module section. */
 export default function WorkbenchSideNav({
@@ -80,6 +85,7 @@ export default function WorkbenchSideNav({
   const sectionMeta = {
     browse: { label: navCopy.shellNavBrowseGroup, stateKey: 'browseOpen' as const, dataSection: 'browse' },
     authoring: { label: navCopy.shellNavAuthoringGroup, stateKey: 'authoringOpen' as const, dataSection: 'authoring' },
+    translation: { label: navCopy.shellNavTranslationGroup, stateKey: 'translationOpen' as const, dataSection: 'translation' },
     tools: { label: navCopy.shellNavToolsGroup, stateKey: 'toolsOpen' as const, dataSection: 'tools' },
     development: { label: navCopy.shellNavDevGroup, stateKey: 'devOpen' as const, dataSection: 'dev' },
   }
@@ -89,6 +95,7 @@ export default function WorkbenchSideNav({
     <aside
       className={cx('workbench-side-nav', collapsed && 'workbench-side-nav-collapsed')}
       data-collapsed={collapsed ? 'true' : 'false'}
+      data-guide="workbench-nav"
       role="navigation"
       aria-label={navCopy.shellNavLabel}
     >

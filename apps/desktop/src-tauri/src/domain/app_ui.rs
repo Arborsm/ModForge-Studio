@@ -7,6 +7,7 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use crate::domain::app_paths::app_ui_state_path;
 use crate::infrastructure::text_encoding::read_text_file;
+use crate::support::logging::{LogEvent, targets};
 use anyhow::Context;
 
 static APP_UI_STATE_FILE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -15,7 +16,9 @@ fn lock_app_ui_state_file() -> MutexGuard<'static, ()> {
     match APP_UI_STATE_FILE_LOCK.get_or_init(|| Mutex::new(())).lock() {
         Ok(guard) => guard,
         Err(poisoned) => {
-            log::error!(target: "App UI", "App UI state file lock was poisoned");
+            LogEvent::new("appUi.lock.poisoned")
+                .field("resource", "app-ui-state-file")
+                .emit_error(targets::APP_UI);
             poisoned.into_inner()
         }
     }

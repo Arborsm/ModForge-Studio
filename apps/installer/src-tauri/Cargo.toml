@@ -1,0 +1,56 @@
+[package]
+name = "modforge_installer"
+version = "0.1.0"
+authors = ["ModForge Studio"]
+edition = "2021"
+description = "ModForge Studio Custom Installer - branded installation experience"
+license = "GPL-3.0-or-later"
+
+[lib]
+name = "modforge_installer_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "modforge-installer"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
+
+[dependencies]
+tauri = { version = "2.11.3", features = [] }
+tauri-plugin-dialog = "2.7.1"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+anyhow = "1.0.103"
+log = "0.4.33"
+dirs = "6.0.0"
+zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.56.0"
+mslnk = "0.1"
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+unexpected_cfgs = "warn"
+unreachable_pub = "warn"
+unused_lifetimes = "warn"
+
+[lints.clippy]
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+perf = { level = "warn", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+style = { level = "warn", priority = -1 }
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+undocumented_unsafe_blocks = "warn"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true

@@ -1,3 +1,4 @@
+use crate::support::logging::{LogEvent, targets};
 use anyhow::Context;
 use std::path::Path;
 
@@ -19,19 +20,17 @@ fn decode_without_bom(bytes: &[u8]) -> String {
     }
 
     if let (decoded, false) = encoding_rs::GB18030.decode_without_bom_handling(bytes) {
-        log::warn!(
-            target: "TextEncoding",
-            "Decoded file as GB18030 fallback ({} bytes)",
-            bytes.len()
-        );
+        LogEvent::new("textEncoding.fallback")
+            .field("encoding", "gb18030")
+            .count("bytes", bytes.len())
+            .emit_warn(targets::TEXT_ENCODING);
         return decoded.into_owned();
     }
 
-    log::warn!(
-        target: "TextEncoding",
-        "Falling back to lossy UTF-8 for file ({} bytes)",
-        bytes.len()
-    );
+    LogEvent::new("textEncoding.fallback")
+        .field("encoding", "utf-8-lossy")
+        .count("bytes", bytes.len())
+        .emit_warn(targets::TEXT_ENCODING);
     String::from_utf8_lossy(bytes).into_owned()
 }
 
@@ -64,6 +63,6 @@ pub fn read_text_file(path: &Path) -> anyhow::Result<String> {
     Ok(decode_text_bytes(&bytes))
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "installed-game-validation")))]
 #[path = "../tests/unit/infrastructure/text_encoding_tests.rs"]
 mod tests;

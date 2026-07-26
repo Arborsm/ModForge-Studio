@@ -19,6 +19,7 @@
     justify-content: center;
   }
 
+  /* Panel shell shared by floating windows; layout chrome lives in feature CSS. */
   .settings-window-panel,
   .appearance-window-panel {
     overflow: hidden;
@@ -27,7 +28,7 @@
     flex-direction: column;
   }
 
-  .settings-window-header,
+  /* Appearance-window only: settings-window chrome is fully owned by features/settings-window.css */
   .appearance-window-header {
     display: flex;
     align-items: flex-start;
@@ -36,7 +37,6 @@
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
   }
 
-  .settings-window-eyebrow,
   .appearance-window-eyebrow {
     margin: 0 0 0.5rem;
     display: inline-flex;
@@ -49,7 +49,6 @@
     text-transform: uppercase;
   }
 
-  .settings-window-title,
   .appearance-window-title {
     margin: 0;
     color: var(--text-primary);

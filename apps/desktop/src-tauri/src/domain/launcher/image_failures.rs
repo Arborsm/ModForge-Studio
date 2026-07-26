@@ -5,6 +5,7 @@ use super::types::{
 use crate::AppHandle;
 use crate::infrastructure::fs::pathing::normalize_path;
 use crate::infrastructure::text_encoding::read_text_file;
+use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 use std::collections::BTreeMap;
 use std::fs;
@@ -21,7 +22,9 @@ fn lock_launcher_image_failures_file() -> MutexGuard<'static, ()> {
     {
         Ok(guard) => guard,
         Err(poisoned) => {
-            log::error!(target: "Launcher", "Launcher image failures file lock was poisoned");
+            LogEvent::new("launcher.lock.poisoned")
+                .field("resource", "image-failures-file")
+                .emit_error(targets::LAUNCHER);
             poisoned.into_inner()
         }
     }
@@ -180,25 +183,21 @@ pub(crate) fn record_launcher_image_failure_at_path(
         next_failure_count
     };
     let blocked = failure_count >= LAUNCHER_IMAGE_FAILURE_THRESHOLD;
-    log::debug!(
-        target: "Launcher",
-        "launcher.image.cover.failure mod-key=\"{}\" failure-count={} threshold={} blocked={} skip-retry={} error=\"{}\"",
-        mod_key,
-        failure_count,
-        LAUNCHER_IMAGE_FAILURE_THRESHOLD,
-        blocked,
-        skip_retry,
-        trimmed_error
-    );
+    LogEvent::new("launcher.image.cover.failure")
+        .field("modKey", mod_key)
+        .field("failureCount", failure_count)
+        .field("threshold", LAUNCHER_IMAGE_FAILURE_THRESHOLD)
+        .flag("blocked", blocked)
+        .flag("skipRetry", skip_retry)
+        .error(&trimmed_error)
+        .emit_debug(targets::LAUNCHER);
     if blocked {
-        log::debug!(
-            target: "Launcher",
-            "launcher.image.cover.blocked mod-key=\"{}\" failure-count={} threshold={} skip-retry={}",
-            mod_key,
-            failure_count,
-            LAUNCHER_IMAGE_FAILURE_THRESHOLD,
-            skip_retry
-        );
+        LogEvent::new("launcher.image.cover.blocked")
+            .field("modKey", mod_key)
+            .field("failureCount", failure_count)
+            .field("threshold", LAUNCHER_IMAGE_FAILURE_THRESHOLD)
+            .flag("skipRetry", skip_retry)
+            .emit_debug(targets::LAUNCHER);
     }
 
     state.entries.push(LauncherImageFailureEntry {
