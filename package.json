@@ -27,6 +27,10 @@
     "release:collect": "vp run --filter @modforge/desktop release:collect",
     "format": "vp fmt .",
     "format:check": "vp fmt . --check",
+    "design:lint": "npx -p @google/design.md designmd lint DESIGN.md",
+    "design:export": "npx -p @google/design.md designmd export --format json-tailwind DESIGN.md > design-tokens.json",
+    "design:export:css": "npx -p @google/design.md designmd export --format css-tailwind DESIGN.md > design-tokens.css",
+    "design:export:dtcg": "npx -p @google/design.md designmd export --format dtcg DESIGN.md > design-tokens.dtcg.json",
     "prepare": "husky"
   },
   "lint-staged": {

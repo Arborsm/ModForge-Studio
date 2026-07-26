@@ -214,8 +214,7 @@ Conventions the builder enforces:
   empty string. `.path(...)` normalizes like command results. Values are quoted
   only when whitespace, `"` or `=` would break `key=value` parsing, and
   backslashes stay literal so Windows paths keep reading as paths.
-- `.error(...)` owns the `error` field; the terminal colors it red at
-  warn/error.
+- `.error(...)` owns the `error` field; the terminal colors it red.
 - `.block(body)` attaches a multi-line body to one record instead of fanning it
   into N lines (see `hostRuntime.stats`).
 - One record per state change, not per item. A per-item loop belongs in one
@@ -227,10 +226,18 @@ The terminal gets fixed columns and a `│` gutter for block bodies and wrapped
 fields. The palette is deliberately near-monochrome: timestamp, target, field
 keys, `=` and quotes are grey, values keep the default foreground, and event
 names are bold. Color is reserved for what needs acting on — a filled badge on
-warn and error only, and red for a failure reason (`error`, `warnings`, and
-`reason` at warn/error). Never reintroduce per-type value colors; coloring
-paths, numbers and booleans separately turns every line into a swatch. ANSI dim
-(SGR 2) is not used anywhere, as it is unreadable on mid-grey backgrounds.
+warn and error only, and red for the `error` and `warnings` fields. Never
+reintroduce per-type value colors; coloring paths, numbers and booleans
+separately turns every line into a swatch. Do not key colorization off the
+level either: `reason` is a general-purpose discriminator, so
+`hostRuntime.stats reason=shutdown` was painted like a failure while the badge
+already said `WARN`. ANSI dim (SGR 2) is not used anywhere, as it is unreadable
+on mid-grey backgrounds.
+
+Targets too wide for the column abbreviate their leading namespace segments
+(`Localization.MachineTranslation` → `L.MachineTranslation`) so every message
+starts in the same column; the distinguishing last segment is kept whole, and
+the log file always writes the full name so grepping by target still works.
 
 The log file repeats the full prefix on every line so each greps standalone,
 keeps console-bridge metadata the terminal hides, is never wrapped, and is
@@ -247,11 +254,16 @@ never colorized.
 
 Terminal lines wrap at the detected width, continuing in the message column
 rather than at column zero. A single field wider than the terminal is never
-split or truncated. Width detection tries stdout, stderr and stdin in turn, then
-falls back to a fixed width — under `tauri dev` every handle is a pipe, and
-without the fallback long records wrap to column zero and destroy the alignment.
-Override with `MODFORGE_LOG_WIDTH=<columns>`, or `MODFORGE_LOG_WIDTH=off` to
-disable wrapping.
+split or truncated, and a lone trailing field folds back rather than being
+stranded on a row of its own. Width detection tries stdout, stderr and stdin in
+turn — under `tauri dev` the host logger writes stdout while the sidecar writes
+stderr, and both are pipes. When no handle reports a width the record is left
+whole: guessing narrower than the real terminal wraps lines that would have fit,
+which reads worse than the terminal's own soft wrap. Override with
+`MODFORGE_LOG_WIDTH=<columns>`, or `MODFORGE_LOG_WIDTH=off` to disable wrapping.
+
+`cargo run --example log_format_sample` renders the whole sample set through both
+sinks, which is the fastest way to check a layout change.
 
 Force or suppress terminal color with `MODFORGE_LOG_COLOR=always|never`
 (`NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` and `CLICOLOR` are also honored).

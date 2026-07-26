@@ -1,0 +1,59 @@
+{
+  "theme": {
+    "extend": {
+      "colors": {
+        "primary": "#2563eb",
+        "accent": "#2563eb",
+        "success": "#16a34a",
+        "warning": "#d97706",
+        "danger": "#dc2626",
+        "info": "#0e9aa8",
+        "surface-app": "#f1f1f2",
+        "surface-panel": "#fbfbfc",
+        "surface-panel-muted": "#ececed",
+        "surface-viewport": "#e3e3e5",
+        "surface-active": "#e3ecfd",
+        "surface-elevated": "#fffffff2",
+        "text-primary": "#1c1c20",
+        "text-secondary": "#52535a",
+        "text-tertiary": "#86878e",
+        "text-inverse": "#f8fbff",
+        "border-subtle": "#6e70783d",
+        "grid-minor": "#6e70781a",
+        "grid-major": "#6e707829",
+        "cp-logic": "#22c55e",
+        "cp-file": "#3b82f6",
+        "cp-data": "#f97316",
+        "scrim": "#0f172a52",
+        "surface-inverse": "#0f172a",
+        "shadow-light": "#14161e0d",
+        "shadow-medium": "#14161e12",
+        "shadow-heavy": "#14161e2e"
+      },
+      "fontFamily": {
+        "font-sans": [
+          "'Segoe UI Variable Text', 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei UI', 'Noto Sans CJK SC', 'Noto Sans SC', 'Source Han Sans SC', 'WenQuanYi Micro Hei', system-ui, sans-serif"
+        ],
+        "font-mono": ["'IBM Plex Mono', 'Cascadia Mono', 'JetBrains Mono', monospace"]
+      },
+      "fontSize": {
+        "font-sans": ["1rem", {}],
+        "font-mono": ["0.875rem", {}]
+      },
+      "borderRadius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "12px",
+        "app-window": "12px"
+      },
+      "spacing": {
+        "xs": "4px",
+        "sm": "8px",
+        "md": "16px",
+        "lg": "24px",
+        "xl": "32px",
+        "titlebar-height": "57px"
+      }
+    }
+  }
+}

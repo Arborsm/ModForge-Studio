@@ -12,10 +12,10 @@ import {
   type HTMLAttributes,
   type MouseEvent,
 } from 'react'
-import { createPortal } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { useSelectionContainer, type Box } from '@air/react-drag-to-select'
-import { useVirtualizer } from '@tanstack/react-virtual'
+import { observeElementRect, useVirtualizer } from '@tanstack/react-virtual'
 import { AlertTriangle, ExternalLink, Folder, Info, X } from 'lucide-react'
 import { cx } from '@shared/lib/helper'
 import { LoadingMotionRevealItem } from '@shared/ui/loading-motion'
@@ -238,6 +238,16 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
     measureElement: measureVirtualRowElement,
     overscan: 2,
     useAnimationFrameWithResizeObserver: true,
+    // Minimized windows collapse the scroll rect to zero, which would unmount
+    // every virtual row and leave the restore/maximize animation on an empty
+    // grid. Keep the last real rect until the viewport is measurable again.
+    observeElementRect: (instance, cb) =>
+      observeElementRect(instance, (rect) => {
+        if (document.hidden || rect.width <= 0 || rect.height <= 0) {
+          return
+        }
+        cb(rect)
+      }),
   })
   // Re-measure visible rows synchronously before paint so a stale cached row
   // size (left over from a block that changed content in place) is corrected
@@ -455,9 +465,17 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
     }
 
     const updateGridMetrics = () => {
+      const viewportRect = viewport.getBoundingClientRect()
+      // Minimized or hidden windows report a collapsed viewport; deriving
+      // metrics from it would rebuild the grid as a single column and the
+      // restored window would briefly paint that stale layout. Keep the last
+      // real metrics until the viewport is measurable again.
+      if (document.hidden || viewportRect.width <= 0 || viewportRect.height <= 0) {
+        return
+      }
       const viewportStyle = window.getComputedStyle(viewport)
       const horizontalPadding = Number.parseFloat(viewportStyle.paddingLeft) + Number.parseFloat(viewportStyle.paddingRight)
-      const viewportWidth = Math.max(0, viewport.getBoundingClientRect().width - horizontalPadding)
+      const viewportWidth = Math.max(0, viewportRect.width - horizontalPadding)
       // Convert design-token pixel values to the current rem size so column math
       // matches the rem-based CSS grid, which scales with the root font size.
       const nextRootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16
@@ -494,19 +512,18 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       setRevealBatchSize((current) => (current === nextBatchSize ? current : nextBatchSize))
     }
 
-    let frameId: number | null = null
     const updateLayoutMeasurements = () => {
       updateGridMetrics()
       updateRevealBatchSize()
     }
-    const scheduleLayoutMeasurements = () => {
-      if (frameId !== null) {
-        window.cancelAnimationFrame(frameId)
-      }
-      frameId = window.requestAnimationFrame(() => {
-        frameId = null
-        updateLayoutMeasurements()
-      })
+    // Resize deliveries (ResizeObserver, window/visualViewport resize) run
+    // after layout but before the frame paints, so committing the recomputed
+    // metrics synchronously keeps the first frame at a new size on the final
+    // column count. Deferring the commit paints at least one frame with the
+    // stale layout, which is visible as the grid stretching and then snapping
+    // when the window maximizes or restores from minimized in a single jump.
+    const flushLayoutMeasurements = () => {
+      flushSync(updateLayoutMeasurements)
     }
 
     updateLayoutMeasurements()
@@ -515,19 +532,21 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       typeof ResizeObserver === 'undefined'
         ? null
         : new ResizeObserver(() => {
-            scheduleLayoutMeasurements()
+            flushLayoutMeasurements()
           })
     resizeObserver?.observe(viewport)
-    window.addEventListener('resize', scheduleLayoutMeasurements)
-    window.visualViewport?.addEventListener('resize', scheduleLayoutMeasurements)
+    window.addEventListener('resize', flushLayoutMeasurements)
+    window.visualViewport?.addEventListener('resize', flushLayoutMeasurements)
+    // Size changes that happen while the window is hidden are skipped above
+    // and may never produce another resize delivery, so re-measure as soon as
+    // the window becomes visible again.
+    document.addEventListener('visibilitychange', flushLayoutMeasurements)
 
     return () => {
-      if (frameId !== null) {
-        window.cancelAnimationFrame(frameId)
-      }
       resizeObserver?.disconnect()
-      window.removeEventListener('resize', scheduleLayoutMeasurements)
-      window.visualViewport?.removeEventListener('resize', scheduleLayoutMeasurements)
+      window.removeEventListener('resize', flushLayoutMeasurements)
+      window.visualViewport?.removeEventListener('resize', flushLayoutMeasurements)
+      document.removeEventListener('visibilitychange', flushLayoutMeasurements)
     }
   }, [cardMinWidth, items.length, shouldRevealItems])
 

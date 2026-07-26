@@ -12,6 +12,9 @@
     --cp-logic: #22c55e;
     --cp-file: #3b82f6;
     --cp-data: #f97316;
+    --cp-logic-dark: #15803d;
+    --cp-file-dark: #1d4ed8;
+    --cp-data-dark: #c2410c;
 
     /* Window border / divider derive from accent + border-color; theme-agnostic formulas. */
     --app-window-border-standard: color-mix(in srgb, var(--accent) 68%, transparent);
@@ -88,10 +91,10 @@
 
   [data-theme='warm-paper'] {
     --color-accent: #5b54d6;
-    --color-success: #3f9c5a;
-    --color-warning: #c9820f;
+    --color-success: #2d8344;
+    --color-warning: #b7740d;
     --color-danger: #d24b4b;
-    --color-info: #0e9aa8;
+    --color-info: #0e7490;
     --surface-app: #f4f2ee;
     --surface-panel: #fbfaf7;
     --surface-panel-muted: #f0ede7;
@@ -135,10 +138,10 @@
   :root,
   [data-theme='neutral-tool'] {
     --color-accent: #2563eb;
-    --color-success: #16a34a;
-    --color-warning: #d97706;
+    --color-success: #15803d;
+    --color-warning: #c2410c;
     --color-danger: #dc2626;
-    --color-info: #0e9aa8;
+    --color-info: #0e7490;
     --surface-app: #f1f1f2;
     --surface-panel: #fbfbfc;
     --surface-panel-muted: #ececed;
@@ -182,9 +185,10 @@
 
   [data-theme='slate-blue'] {
     --color-accent: #0e7490;
-    --color-success: #0d9488;
-    --color-warning: #ca8a04;
+    --color-success: #0d7a70;
+    --color-warning: #b37803;
     --color-danger: #e11d48;
+    --color-info: #0e7490;
     --surface-app: #eef1f4;
     --surface-panel: #f9fbfc;
     --surface-panel-muted: #e8ecf0;
@@ -226,8 +230,8 @@
 
   [data-theme='forest'] {
     --color-accent: #3f8f4f;
-    --color-success: #3f9c5a;
-    --color-warning: #c9820f;
+    --color-success: #2d8344;
+    --color-warning: #b7740d;
     --color-danger: #d24b4b;
     --surface-app: #f1f3ec;
     --surface-panel: #f9faf4;
@@ -270,8 +274,8 @@
 
   [data-theme='twilight'] {
     --color-accent: #7c5cd6;
-    --color-success: #3f9c5a;
-    --color-warning: #c9820f;
+    --color-success: #2d8344;
+    --color-warning: #b7740d;
     --color-danger: #d24b4b;
     --surface-app: #f3f1f5;
     --surface-panel: #faf9fc;
@@ -314,8 +318,8 @@
 
   [data-theme='stardew-wood'] {
     --color-accent: #c77d2e;
-    --color-success: #5a9c3f;
-    --color-warning: #c9820f;
+    --color-success: #4a8533;
+    --color-warning: #b7740d;
     --color-danger: #d24b4b;
     --surface-app: #f5f1e8;
     --surface-panel: #fcf9f2;
@@ -358,8 +362,8 @@
 
   [data-theme='crimson'] {
     --color-accent: #d4324a;
-    --color-success: #3f9c5a;
-    --color-warning: #c97a16;
+    --color-success: #2d8344;
+    --color-warning: #b76814;
     --color-danger: #a01f33;
     --surface-app: #f5f0ef;
     --surface-panel: #fcf9f8;
@@ -402,8 +406,8 @@
 
   [data-theme='blossom'] {
     --color-accent: #db2777;
-    --color-success: #3f9c5a;
-    --color-warning: #c97a16;
+    --color-success: #2d8344;
+    --color-warning: #b76814;
     --color-danger: #cf3030;
     --surface-app: #f6eff3;
     --surface-panel: #fdf8fb;
