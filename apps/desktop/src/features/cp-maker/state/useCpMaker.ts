@@ -826,6 +826,31 @@ export function useCpMaker() {
     }
   }, [activeDraft, port, refreshDrafts])
 
+  // 放弃未保存修改：回滚到最近持久化的记录
+  const discardDraftChanges = useCallback(async () => {
+    const storageKey = activeDraftKeyRef.current
+    if (!storageKey) {
+      setIsDirty(false)
+      setDirtyPatchIds(new Set())
+      return
+    }
+    setDraftLoading(true)
+    setDraftError(null)
+    try {
+      const record = await port.loadDraft(storageKey)
+      const draft = backendToFrontend(record)
+      setActiveDraft(draft)
+      setIsDirty(false)
+      setDirtyPatchIds(new Set())
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setDraftError(message)
+      throw error instanceof Error ? error : new Error(message)
+    } finally {
+      setDraftLoading(false)
+    }
+  }, [port])
+
   // 删除草稿
   const deleteDraft = useCallback(
     async (storageKey: string) => {
@@ -1166,6 +1191,8 @@ export function useCpMaker() {
     createDraft,
     loadDraft,
     saveDraft,
+    /** Reverts the active draft to its last persisted record and clears dirty tracking; keeps in-memory edits and rethrows when the stored record cannot be reloaded. */
+    discardDraftChanges,
     deleteDraft,
     clearActiveDraft,
     copyDraft,

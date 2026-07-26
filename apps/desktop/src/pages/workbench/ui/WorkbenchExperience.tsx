@@ -130,7 +130,6 @@ export default function WorkbenchExperience({
     resetAuthoringNavigation: resetNavigation,
     ensureSectionOpen: sideNavigation.ensureSectionOpen,
     runWithModuleGuard: runWithModUnsavedGuard,
-    runWithProjectGuard: runWithCpMakerUnsavedGuard,
   })
   const {
     navigationInteractedRef,
@@ -164,7 +163,6 @@ export default function WorkbenchExperience({
     desktopHost,
     appUiStateReady,
     runWithModuleGuard: runWithModUnsavedGuard,
-    runWithProjectGuard: runWithCpMakerUnsavedGuard,
   })
   const { directoryInfo, directoryStatus, handleDirectoryInvalid } = directoryController
   useEffect(() => {

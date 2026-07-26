@@ -464,6 +464,22 @@ describe('frontend module architecture', () => {
     await expect(access(sourcePath('src/styles/workspace/workbench-home.css'))).rejects.toThrow()
   })
 
+  it('keeps the managed-project unsaved guard off pure view transitions and makes discard revert the draft', async () => {
+    const navigationController = await readFile(sourcePath('src/pages/workbench/model/useWorkbenchNavigationController.ts'), 'utf8')
+    const directoryController = await readFile(sourcePath('src/pages/workbench/model/useWorkbenchDirectoryController.ts'), 'utf8')
+    const closeController = await readFile(sourcePath('src/pages/workbench/model/useWorkbenchCloseController.ts'), 'utf8')
+    const projectController = await readFile(sourcePath('src/pages/workbench/model/useWorkbenchProjectController.ts'), 'utf8')
+
+    // View navigation and directory validation never lose the lifted CP Maker draft; only the module guard applies.
+    expect(navigationController).not.toContain('runWithProjectGuard')
+    expect(directoryController).not.toContain('runWithProjectGuard')
+    // Window close genuinely endangers the in-memory draft and must keep both guards.
+    expect(closeController).toContain('runWithProjectGuard')
+    expect(closeController).toContain('runWithModuleGuard')
+    // "Discard and continue" must revert the draft to its persisted record, not merely run the deferred action.
+    expect(projectController).toContain('cpMaker.discardDraftChanges()')
+  })
+
   it('keeps launcher library drag measuring out of the always-on layout path', async () => {
     const launcherLibraryPage = await readFile(sourcePath('src/pages/launcher/ui/LauncherLibraryPage.tsx'), 'utf8')
 

@@ -141,11 +141,19 @@ export function useWorkbenchProjectController({
 
   const confirmDiscardAndContinue = useCallback(async () => {
     if (!pendingUnsavedAction) return
-    const action = pendingUnsavedAction
-    setPendingUnsavedAction(null)
+    setUnsavedSaving(true)
     setUnsavedError(null)
-    await action()
-  }, [pendingUnsavedAction])
+    try {
+      await cpMaker.discardDraftChanges()
+      const action = pendingUnsavedAction
+      setPendingUnsavedAction(null)
+      await action()
+    } catch (error) {
+      setUnsavedError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setUnsavedSaving(false)
+    }
+  }, [cpMaker, pendingUnsavedAction])
 
   const cancelUnsavedDecision = useCallback(() => {
     if (unsavedSaving) return
@@ -199,7 +207,12 @@ export function useWorkbenchProjectController({
     [cpMaker.clearActiveDraft, runProjectAction],
   )
   const deleteDraft = useCallback(
-    (draftStorageKey: string) => runProjectAction(() => cpMaker.deleteDraft(draftStorageKey)),
+    (draftStorageKey: string) => {
+      if (cpMaker.activeDraft?.draftStorageKey !== draftStorageKey) {
+        return cpMaker.deleteDraft(draftStorageKey).then(() => true)
+      }
+      return runProjectAction(() => cpMaker.deleteDraft(draftStorageKey))
+    },
     [cpMaker, runProjectAction],
   )
   const reloadDraft = useCallback(
