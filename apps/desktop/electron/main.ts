@@ -1,10 +1,11 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, Tray } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, shell, Tray } from 'electron'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import fs from 'node:fs/promises'
 import { createInterface, type Interface as ReadlineInterface } from 'node:readline'
 import path from 'node:path'
 import type { OpenDialogOptions, SaveDialogOptions } from '../src/shared/contracts/platform'
 import { resolveLinuxOrtSidecar } from './linux-cuda-runtime.mjs'
+import { isExternalBrowserUrl, isInternalNavigationUrl, type NavigationPolicy } from './navigation-policy'
 
 type RpcResponse = {
   id?: number
@@ -33,6 +34,11 @@ const appDisplayName = process.env.MODFORGE_APP_NAME?.trim() || 'ModForge Studio
 const appDesktopId = process.env.MODFORGE_DESKTOP_ID?.trim() || 'io.github.Arborsm.ModForgeStudio'
 const isDev = !app.isPackaged
 const devUrl = process.env.VITE_DEV_SERVER_URL ?? 'http://127.0.0.1:5173'
+const appFilePath = path.resolve(__dirname, '../dist/index.html')
+const navigationPolicy: NavigationPolicy = {
+  devUrl: isDev ? devUrl : undefined,
+  appFilePath,
+}
 const windowCloseRequestTimeoutMs = 1500
 const sidecarStopTimeoutMs = 2500
 let mainWindow: BrowserWindow | null = null
@@ -370,6 +376,8 @@ function createMainWindow() {
     },
   })
 
+  applyNavigationPolicy(mainWindow)
+
   mainWindow.once('ready-to-show', () => mainWindow?.show())
   mainWindow.once('closed', () => {
     mainWindow = null
@@ -399,8 +407,36 @@ function createMainWindow() {
   if (isDev) {
     void mainWindow.loadURL(devUrl)
   } else {
-    void mainWindow.loadFile(path.resolve(__dirname, '../dist/index.html'))
+    void mainWindow.loadFile(appFilePath)
   }
+}
+
+function applyNavigationPolicy(window: BrowserWindow) {
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    openInSystemBrowser(url)
+    return { action: 'deny' }
+  })
+
+  window.webContents.on('will-navigate', (event, url) => {
+    if (isInternalNavigationUrl(url, navigationPolicy)) {
+      return
+    }
+
+    event.preventDefault()
+    openInSystemBrowser(url)
+  })
+
+  window.webContents.on('will-attach-webview', (event) => {
+    event.preventDefault()
+  })
+}
+
+function openInSystemBrowser(url: string) {
+  if (!isExternalBrowserUrl(url)) {
+    return
+  }
+
+  void shell.openExternal(url)
 }
 
 function createTray() {

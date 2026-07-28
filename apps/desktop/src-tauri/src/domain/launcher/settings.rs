@@ -2,6 +2,7 @@ use super::paths::launcher_settings_path;
 use super::types::{LauncherSettings, NullablePatch, SaveLauncherSettingsRequest};
 use crate::AppHandle;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::fs::secret_file::write_secret_file;
 use crate::infrastructure::text_encoding::read_text_file;
 use crate::support::logging::{LogEvent, targets};
 use anyhow::Context;
@@ -136,7 +137,7 @@ fn save_settings_at_path_unlocked(
     let normalized = normalize_settings(settings.clone());
     let json = serde_json::to_string_pretty(&normalized)
         .with_context(|| format!("Failed to serialize launcher settings JSON"))?;
-    fs::write(settings_path, format!("{json}\n")).with_context(|| {
+    write_secret_file(settings_path, &format!("{json}\n")).with_context(|| {
         format!(
             "Failed to write launcher settings {}",
             normalize_path(settings_path)
