@@ -1,5 +1,5 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react'
-import type { BuildingWorkspaceEntry } from '../entities/building'
+import type { BuildingWorkspaceEntry } from '@entities/building'
 import type { LocaleCode, ThemeMode } from '@locales/api'
 import type { BuildingsPanelCopy } from '@locales/api'
 import type { MapDocument } from '@entities/map'

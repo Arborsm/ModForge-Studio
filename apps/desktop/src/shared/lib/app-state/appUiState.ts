@@ -73,6 +73,7 @@ export function createDefaultAppUiState(): AppUiState {
     workspace: {
       location: { kind: 'home' },
       navigation: { collapsed: true, expandedSections: ['browse'] },
+      expertMode: false,
       modules: {},
     },
     launcher: {
@@ -201,6 +202,7 @@ function normalizeWorkspace(value: unknown, defaults: AppUiState['workspace']): 
       collapsed: typeof value.navigation.collapsed === 'boolean' ? value.navigation.collapsed : defaults.navigation.collapsed,
       expandedSections,
     },
+    expertMode: typeof value.expertMode === 'boolean' ? value.expertMode : defaults.expertMode,
     modules: normalizeModules(value.modules),
   }
 }
@@ -275,6 +277,7 @@ function applyPatchToSnapshot(current: AppUiState, patch: PatchAppUiStateRequest
             ...current.workspace,
             ...patch.workspace,
             navigation: { ...current.workspace.navigation, ...patch.workspace.navigation },
+            expertMode: patch.workspace.expertMode ?? current.workspace.expertMode,
             modules: mergeWorkspaceModules(current.workspace.modules, patch.workspace.modules),
           },
         }

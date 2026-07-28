@@ -382,6 +382,39 @@ pub(crate) fn resolve_command(
                 ok(domain::assets::validate_game_directory(arg(&args, "path")?))
             })
         }
+        crate::host_command_wire!(get_debug_bridge_status) => {
+            network(id, &command_name, move || {
+                ok(domain::debug_bridge::get_debug_bridge_status(optional_arg(
+                    &args, "port",
+                )?))
+            })
+        }
+        crate::host_command_wire!(send_debug_bridge_command) => {
+            network(id, &command_name, move || {
+                ok(domain::debug_bridge::send_debug_bridge_command(
+                    arg_or_whole(&args, "request")?,
+                ))
+            })
+        }
+        crate::host_command_wire!(get_debug_bridge_mod_state) => {
+            io_lane(id, &command_name, move || {
+                ok(domain::debug_bridge::get_debug_bridge_mod_state(arg(
+                    &args,
+                    "gameRootPath",
+                )?))
+            })
+        }
+        crate::host_command_wire!(install_debug_bridge_mod) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::DebugBridgeInstall],
+            move || {
+                ok(domain::debug_bridge::install_debug_bridge_mod(arg(
+                    &args,
+                    "gameRootPath",
+                )?))
+            },
+        ),
         crate::host_command_wire!(scan_maps) => io_lane(id, &command_name, move || {
             ok(domain::assets::scan_maps(
                 arg(&args, "path")?,

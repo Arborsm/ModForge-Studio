@@ -11,10 +11,6 @@ export type CharactersPanelCopy = {
   noEntriesStatus: string
   workspaceTitle: string
   workspaceSubtitle: string
-  defaultVariant: string
-  currentVariant: string
-  defaultBadge: string
-  variantsTitle: string
   walkingTitle: string
   breathingTitle: string
   portraitTitle: string
@@ -30,8 +26,6 @@ export type CharactersPanelCopy = {
   giftRuleTag: string
   giftRuleDefault: string
   giftRuleSpecial: string
-  giftExpandPrompt: string
-  giftCollapsePrompt: string
   giftCategoryGem: string
   giftCategoryItem: string
   giftCategoryFish: string
@@ -87,29 +81,22 @@ export type CharactersPanelCopy = {
   giftTagCrabPot: string
   portraitMissing: string
   spriteMissing: string
-  breathHint: string
   expressions: string
   shakeBadge: string
   assetSource: string
-  directionLabels: {
-    down: string
-    left: string
-    right: string
-    up: string
-  }
   inspectorTitle: string
   inspectorSubtitle: string
   inspectorEmpty: string
+  openInAuthoringAction: string
+  openInAuthoringHint: string
   detailInfoTab: string
   detailVariantsTab: string
-  detailRelationsTab: string
   detailAssetsTab: string
   modSourcesTitle: string
   basics: string
   metadata: string
   assets: string
   variantsPanelTitle: string
-  variantsPanelSubtitle: string
   variantsPanelEmpty: string
   defaultBadgeShort: string
   alternateBadgeShort: string
@@ -127,24 +114,11 @@ export type CharactersPanelCopy = {
   displayNameLabel: string
   internalNameLabel: string
   textureLabel: string
-  birthdayLabel: string
-  homeRegionLabel: string
   romanceLabel: string
-  loveInterestLabel: string
   languageLabel: string
   genderLabel: string
-  ageLabel: string
-  mannerLabel: string
-  socialAnxietyLabel: string
-  optimismLabel: string
-  breatherLabel: string
   receivesGiftsLabel: string
   variantLabel: string
   portraitSizeLabel: string
   spriteSizeLabel: string
-  formerNamesLabel: string
-  festivalActorIndexLabel: string
-  darkSkinLabel: string
-  spawnIfMissingLabel: string
-  islandVisitLabel: string
 }

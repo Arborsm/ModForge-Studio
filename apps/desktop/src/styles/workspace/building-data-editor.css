@@ -1,0 +1,263 @@
+/*
+ * Building-specific chrome of the `Data/Buildings` authoring editor.
+ * The three-pane shell it sits in lives in `asset-data-editor.css`.
+ *
+ * The footprint overlay is the one piece with real geometry: it renders inside
+ * the scaled sprite stage and counter-scales itself, so grid lines stay a crisp
+ * device pixel no matter how far the sprite is blown up.
+ */
+
+@layer components {
+  /* --- Left pane: building rows --- */
+
+  .building-source-stage-badge {
+    flex-shrink: 0;
+    font-size: 0.625rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-tertiary);
+  }
+
+  /* --- Right pane: preview --- */
+
+  .building-preview-stage {
+    position: relative;
+    min-height: 14rem;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    border-radius: 0.625rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+    background: color-mix(in srgb, var(--bg-viewport) 75%, transparent);
+  }
+
+  .building-preview-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+  }
+
+  .building-preview-pick-button {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition:
+      border-color 0.15s ease,
+      background 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .building-preview-pick-button:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  .building-preview-pick-button.is-active {
+    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .building-preview-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.875rem;
+    margin: 0;
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+  }
+
+  .building-preview-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3125rem;
+  }
+
+  .building-preview-legend-swatch {
+    width: 0.6875rem;
+    height: 0.6875rem;
+    border-radius: 0.1875rem;
+    border: 1px solid currentcolor;
+  }
+
+  .building-preview-legend-item.is-footprint .building-preview-legend-swatch {
+    border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+
+  .building-preview-legend-item.is-human-door .building-preview-legend-swatch {
+    border-color: color-mix(in srgb, var(--success) 75%, transparent);
+    background: color-mix(in srgb, var(--success) 32%, transparent);
+  }
+
+  .building-preview-legend-item.is-upgrade-sign .building-preview-legend-swatch {
+    border-color: color-mix(in srgb, var(--warning) 75%, transparent);
+    background: color-mix(in srgb, var(--warning) 32%, transparent);
+  }
+
+  .building-preview-legend-item.is-animal-door .building-preview-legend-swatch {
+    border-color: color-mix(in srgb, var(--info) 75%, transparent);
+    background: color-mix(in srgb, var(--info) 32%, transparent);
+  }
+
+  /* Additional tiles are the one non-authored marker, so they stay neutral and
+     dashed instead of taking a semantic hue the pickable markers need. */
+  .building-preview-legend-item.is-additional .building-preview-legend-swatch {
+    border-style: dashed;
+    border-color: color-mix(in srgb, var(--text-tertiary) 80%, transparent);
+    background: color-mix(in srgb, var(--text-tertiary) 22%, transparent);
+  }
+
+  .building-preview-source-rect-value {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    color: var(--text-tertiary);
+  }
+
+  /* --- Footprint overlay, drawn on top of the scaled sprite --- */
+
+  .building-footprint-overlay {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    pointer-events: none;
+  }
+
+  .building-footprint-grid {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    display: grid;
+    outline: 1px solid color-mix(in srgb, var(--accent) 70%, transparent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  .building-footprint-cell {
+    border-right: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+  }
+
+  .building-footprint-overlay.is-picking {
+    pointer-events: auto;
+  }
+
+  .building-footprint-overlay.is-picking .building-footprint-cell {
+    cursor: crosshair;
+  }
+
+  .building-footprint-overlay.is-picking .building-footprint-cell:hover {
+    background: color-mix(in srgb, var(--accent) 38%, transparent);
+  }
+
+  .building-footprint-marker {
+    position: absolute;
+    pointer-events: none;
+  }
+
+  .building-footprint-marker.is-human-door {
+    border: 1px solid color-mix(in srgb, var(--success) 80%, transparent);
+    background: color-mix(in srgb, var(--success) 34%, transparent);
+  }
+
+  .building-footprint-marker.is-upgrade-sign {
+    border: 1px solid color-mix(in srgb, var(--warning) 80%, transparent);
+    background: color-mix(in srgb, var(--warning) 34%, transparent);
+  }
+
+  .building-footprint-marker.is-animal-door {
+    border: 1px solid color-mix(in srgb, var(--info) 80%, transparent);
+    background: color-mix(in srgb, var(--info) 32%, transparent);
+  }
+
+  .building-footprint-marker.is-additional {
+    border: 1px dashed color-mix(in srgb, var(--text-tertiary) 80%, transparent);
+    background: color-mix(in srgb, var(--text-tertiary) 18%, transparent);
+  }
+
+  /* The span between the first click and the tile under the cursor, before the
+     second click commits it. */
+  .building-footprint-marker.is-pending {
+    border: 1px dashed color-mix(in srgb, var(--accent) 85%, transparent);
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+
+  /* --- Upgrade chain strip --- */
+
+  .building-chain-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: none;
+  }
+
+  .building-chain-stage {
+    display: block;
+  }
+
+  .building-chain-button {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3125rem 0.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    text-align: start;
+    transition:
+      border-color 0.15s ease,
+      background 0.15s ease;
+  }
+
+  .building-chain-button:hover {
+    background: var(--bg-hover);
+  }
+
+  .building-chain-button.is-active {
+    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+    background: var(--accent-soft);
+  }
+
+  .building-chain-step {
+    flex-shrink: 0;
+    font-size: 0.625rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-tertiary);
+  }
+
+  .building-chain-name {
+    flex: 1;
+    overflow: hidden;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* --- Source rect dialog --- */
+
+  .building-source-rect-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .building-source-rect-snap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+  }
+
+  .building-source-rect-picker {
+    max-height: 26rem;
+  }
+}

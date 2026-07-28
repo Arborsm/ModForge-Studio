@@ -111,6 +111,12 @@ export type TranslationEditorCopy = {
   browserI18nEntries: (count: number) => string
   browserOpenFolder: string
   browserImportProject: string
+  bootstrapTitle: string
+  bootstrapDescription: string
+  bootstrapFound: (count: number) => string
+  bootstrapEmpty: string
+  bootstrapAction: string
+  bootstrapRunning: string
   workflowSetup: string
   workflowTranslate: string
   workflowReview: string

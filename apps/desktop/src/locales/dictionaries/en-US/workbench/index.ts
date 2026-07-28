@@ -5,10 +5,20 @@ import viewportLabels, { buildAssetDialog, mapPanel } from './map'
 import studioDesk from './studio-desk'
 import eventStage from './event-stage'
 import charactersPanel from './characters'
+import buildingDataEditor from './building-data'
+import characterDataEditor from './character-data'
+import itemDataEditor from './item-data'
+import assetAuthoring from './asset-authoring'
 import buildingsPanel from './buildings'
 import itemsPanel from './items'
 import i18nGenerator from './i18n-generator'
 import aiLocalization from './ai-localization'
+import dialogueEditor from './dialogue'
+import dialogueScriptField from './dialogue-script'
+import scheduleEditor from './schedule'
+import mailEditor from './mail'
+import gameDebugger from './debugger'
+import { authoringShell } from './authoring-shell'
 
 const editor: EditorCopy = {
   ...shell,
@@ -19,10 +29,20 @@ const editor: EditorCopy = {
   studioDesk,
   eventStage,
   charactersPanel,
+  characterDataEditor,
+  buildingDataEditor,
+  itemDataEditor,
+  assetAuthoring,
   buildingsPanel,
   itemsPanel,
   i18nGenerator,
   aiLocalization,
+  dialogueEditor,
+  dialogueScriptField,
+  scheduleEditor,
+  mailEditor,
+  gameDebugger,
+  authoringShell,
 }
 
 export default editor

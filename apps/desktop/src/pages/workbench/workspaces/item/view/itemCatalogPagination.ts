@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
-import type { ItemWorkspaceEntry } from '../entities/item'
+import type { ItemWorkspaceEntry } from '@entities/item'
 
 export type PaginationToken =
   | {

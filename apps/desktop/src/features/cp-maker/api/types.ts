@@ -2,12 +2,12 @@ import type { GameDirectoryInfo } from '@entities/game/api/types'
 
 export type { GameDirectoryInfo }
 
-/** Content pack target dependency selected from scanned mods or manual entry. */
-export type CpMakerOverlayTarget = {
+/** One entry of the manifest `Dependencies` list, as SMAPI reads it. */
+export type CpMakerDependency = {
   uniqueId: string
-  displayName: string | null
-  required: boolean
-  source: 'scanned-mod' | 'manual'
+  minimumVersion?: string
+  /** SMAPI treats a dependency without `IsRequired` as required. */
+  isRequired: boolean
 }
 
 /** Lightweight CP Maker draft metadata for draft lists. */
@@ -35,10 +35,11 @@ export type CpMakerDraftRecord = {
     projectUniqueId: string
     gameRootPath: string | null
     contentPackForUniqueId: string
+    contentPackForMinimumVersion?: string
     minimumApiVersion?: string
     updateKeys?: string[]
+    dependencies?: CpMakerDependency[]
   }
-  overlayTargets: CpMakerOverlayTarget[]
   configSchemaDraft: Record<string, unknown>
   serializedChangeRegistry: Record<string, unknown>
   dynamicTokens?: Array<{ name: string; value: string; when?: Record<string, unknown> }>

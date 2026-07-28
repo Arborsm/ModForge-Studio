@@ -240,6 +240,31 @@ const namedChunkGroups: NamedChunkGroup[] = [
     test: (id) => id.includes('/src/pages/workbench/workspaces/mod/'),
   },
   {
+    name: 'character-data-workspace',
+    priority: 40,
+    test: (id) => id.includes('/src/pages/workbench/workspaces/character-data/'),
+  },
+  {
+    name: 'dialogue-workspace',
+    priority: 40,
+    test: (id) => id.includes('/src/pages/workbench/workspaces/dialogue/'),
+  },
+  {
+    name: 'schedule-workspace',
+    priority: 40,
+    test: (id) => id.includes('/src/pages/workbench/workspaces/schedule/'),
+  },
+  {
+    name: 'mail-workspace',
+    priority: 40,
+    test: (id) => id.includes('/src/pages/workbench/workspaces/mail/'),
+  },
+  {
+    name: 'debugger-workspace',
+    priority: 40,
+    test: (id) => id.includes('/src/pages/workbench/workspaces/debugger/'),
+  },
+  {
     name: 'map-workspace',
     priority: 40,
     test: (id) =>

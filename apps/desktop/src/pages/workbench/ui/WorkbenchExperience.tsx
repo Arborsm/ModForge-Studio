@@ -6,6 +6,7 @@ import { WorkspaceDecisionDialog } from '../workspaces/mod'
 import {
   useCpMaker,
   buildStudioDeskModel,
+  collectDraftIssues,
   CreateDraftDialog,
   ExportDialog,
   ProjectPropertiesDialog,
@@ -63,6 +64,9 @@ const AUTHORING_MODULE_BY_WORKSPACE: Record<WorkspaceId, string> = {
   characters: 'character-authoring',
   buildings: 'building-authoring',
   items: 'item-authoring',
+  dialogue: 'dialogue-editor',
+  schedules: 'schedule-editor',
+  mail: 'mail-editor',
 }
 
 function isWorkspaceId(value: string): value is WorkspaceId {
@@ -396,7 +400,8 @@ export default function WorkbenchExperience({
                 studioDeskModel,
                 taskSummary: {
                   exportCount: studioDeskModel.gallery.projects.filter((project) => project.statuses.includes('export')).length,
-                  conflictCount: studioDeskModel.stats.conflictCount,
+                  errorCount: studioDeskModel.stats.errorCount,
+                  warningCount: studioDeskModel.stats.warningCount,
                   directoryStatus,
                 },
                 onProjectModuleOpen: handleOpenRegisteredWorkbenchView,
@@ -455,13 +460,17 @@ export default function WorkbenchExperience({
       />
       <ProjectPropertiesDialog
         open={projectPresentation.propertiesDialogOpen}
-        metadata={{
-          projectName: studioDeskModel.projectName,
-          projectDescription: studioDeskModel.projectDescription,
-          projectAuthor: studioDeskModel.projectAuthor,
-          projectVersion: studioDeskModel.projectVersion,
-          projectUniqueId: studioDeskModel.projectUniqueId,
-        }}
+        metadata={
+          cpMaker.activeDraft?.projectMetadata ?? {
+            projectName: studioDeskModel.projectName,
+            projectDescription: studioDeskModel.projectDescription,
+            projectAuthor: studioDeskModel.projectAuthor,
+            projectVersion: studioDeskModel.projectVersion,
+            projectUniqueId: studioDeskModel.projectUniqueId,
+            gameRootPath: null,
+            contentPackForUniqueId: 'Pathoschild.ContentPatcher',
+          }
+        }
         onClose={projectPresentation.closePropertiesDialog}
         onSave={projectPresentation.updateMetadata}
       />
@@ -470,6 +479,7 @@ export default function WorkbenchExperience({
           open
           draftName={studioDeskModel.projectName || copy.studioDesk.noActiveDraftTitle}
           fileList={studioDeskModel.exportSummary.fileList}
+          issues={cpMaker.activeDraft ? collectDraftIssues(cpMaker.activeDraft) : []}
           onClose={projectPresentation.closeExportDialog}
           onExport={projectPresentation.exportPack}
         />

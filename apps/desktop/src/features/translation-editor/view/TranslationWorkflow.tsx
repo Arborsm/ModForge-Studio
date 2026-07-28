@@ -225,7 +225,7 @@ export function TranslationWorkflow(props: TranslationWorkflowProps) {
                       .filter((file) => file.locale !== props.targetLocale)
                       .map((file) => (
                         <option key={file.locale} value={file.locale}>
-                          {file.locale}
+                          {file.locale === 'default' ? copy.defaultLocaleLabel : file.locale}
                         </option>
                       ))}
                   </select>

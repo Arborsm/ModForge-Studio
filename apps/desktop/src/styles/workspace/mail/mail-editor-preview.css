@@ -1,0 +1,283 @@
+/* Mail authoring right rail: letter preview and the letter info sidebar. */
+@layer components {
+  /* ── Preview ────────────────────────────────────────────── */
+
+  .mail-editor-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .mail-editor-preview-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .mail-editor-preview-badge {
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.625rem;
+    font-weight: 650;
+  }
+
+  .mail-editor-preview-scroll {
+    overflow: auto;
+    border-radius: 0.75rem;
+  }
+
+  .mail-editor-preview-paper {
+    position: relative;
+    width: 640px;
+    height: 360px;
+    flex-shrink: 0;
+    border-radius: 0.5rem;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+    overflow: hidden;
+  }
+
+  .mail-editor-preview-paper-fallback {
+    border: 1px solid var(--border-color);
+    background:
+      linear-gradient(
+        color-mix(in srgb, var(--bg-panel-muted) 70%, transparent),
+        color-mix(in srgb, var(--bg-panel-muted) 70%, transparent)
+      ),
+      var(--bg-panel);
+    box-shadow: inset 0 0 0 6px color-mix(in srgb, var(--border-color) 45%, transparent);
+  }
+
+  .mail-editor-preview-paper-fallback .mail-editor-preview-text {
+    color: var(--text-primary);
+  }
+
+  .mail-editor-preview-text {
+    position: absolute;
+    inset: 60px 84px 64px;
+    overflow: hidden;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    text-align: center;
+    font-size: 1.125rem;
+    line-height: 1.6;
+    font-weight: 550;
+  }
+
+  /*
+   * Letter ink colors emulate the in-game `[textcolor]` palette rendered onto the
+   * letterBG texture. They are decorative game-content colors (not themed UI), so
+   * they intentionally bypass theme tokens, like cover/category identifiers.
+   */
+  .mail-editor-ink-default {
+    color: #3d2e16;
+  }
+
+  .mail-editor-ink-black {
+    color: #2b2820;
+  }
+
+  .mail-editor-ink-blue {
+    color: #2e69f2;
+  }
+
+  .mail-editor-ink-cyan {
+    color: #0092b0;
+  }
+
+  .mail-editor-ink-gray {
+    color: #7d7b78;
+  }
+
+  .mail-editor-ink-green {
+    color: #0e8a2e;
+  }
+
+  .mail-editor-ink-orange {
+    color: #d7770a;
+  }
+
+  .mail-editor-ink-purple {
+    color: #8331c9;
+  }
+
+  .mail-editor-ink-red {
+    color: #b0202e;
+  }
+
+  .mail-editor-ink-white {
+    color: #fdf6e3;
+  }
+
+  .mail-editor-preview-attachments {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .mail-editor-preview-attachments-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .mail-editor-preview-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  .mail-editor-preview-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.3125rem 0.625rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+    border-radius: 0.625rem;
+    background: var(--bg-panel-muted);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .mail-editor-preview-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .mail-editor-preview-title-badge {
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    background: var(--bg-panel-muted);
+    color: var(--text-tertiary);
+    font-size: 0.625rem;
+    font-weight: 650;
+  }
+
+  /* ── Info sidebar ───────────────────────────────────────── */
+
+  .mail-editor-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  }
+
+  .mail-editor-info-heading {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .mail-editor-info-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3125rem;
+  }
+
+  .mail-editor-prefix-button {
+    align-self: flex-start;
+    font-size: 0.6875rem;
+  }
+
+  .mail-editor-bg-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+    gap: 0.5rem;
+  }
+
+  .mail-editor-bg-option {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.3125rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+    border-radius: 0.625rem;
+    background: var(--bg-panel);
+    transition:
+      border-color 120ms ease,
+      background-color 120ms ease;
+  }
+
+  .mail-editor-bg-option:hover {
+    background: var(--bg-hover);
+  }
+
+  .mail-editor-bg-option-active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .mail-editor-bg-thumb {
+    display: block;
+    width: 96px;
+    height: 54px;
+    max-width: 100%;
+    border-radius: 0.375rem;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+  }
+
+  .mail-editor-bg-thumb-fallback {
+    background: var(--bg-panel-muted);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .mail-editor-bg-name {
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  .mail-editor-status-ok {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.75rem;
+    color: var(--success);
+  }
+
+  .mail-editor-warning-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .mail-editor-warning-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.375rem;
+    padding: 0.375rem 0.5rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .mail-editor-warning-item svg {
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+  }
+
+  .mail-editor-warning-item-error {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+
+  .mail-editor-warning-item-warning {
+    background: var(--warning-soft);
+    color: var(--warning);
+  }
+
+  .mail-editor-delete-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    align-self: flex-start;
+    color: var(--danger);
+  }
+}

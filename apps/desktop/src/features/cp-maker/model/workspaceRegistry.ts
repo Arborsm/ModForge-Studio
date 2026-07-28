@@ -1,39 +1,41 @@
 import type { ComponentType } from 'react'
-import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@features/cp-maker'
+import type { AssetSchema } from '@entities/asset-schema'
 import type { GameDirectoryInfo } from '@entities/game/api'
-import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
+import type { LocaleCode, ThemeMode } from '@locales/api'
 import type { PlayerAppearanceProfile } from '@entities/event'
+import type { AssetDraftPort } from './draftPort'
+import type { DraftPatch, WorkspaceId } from './types'
 
-export type EditorComponent = ComponentType<{
+/** Host environment an editor renders against; never carries locale copy. */
+export type EditorResources = {
+  locale: LocaleCode
+  theme: ThemeMode
+  accentColor: string
+  gameRootPath: string | null
+  directoryInfo: GameDirectoryInfo | null
+  playerAppearanceProfile: PlayerAppearanceProfile | null
+  onOpenPlayerAppearanceWindow: () => void
+}
+
+/**
+ * Everything a registered editor receives. `schema` is null when the patch
+ * target has no registered `AssetSchema`, which is the only case that routes to
+ * the raw JSON escape hatch. Copy is not passed: editors consume their own
+ * typed locale bundles.
+ */
+export type EditorProps = {
   patch: DraftPatch
-  draft: CpMakerDraft
-  onPatchChange: (patchId: string, patch: Partial<DraftPatch>) => void
-  onAddVirtualAsset: (asset: { relativePath: string; mediaType: string; bytesBase64: string }) => void
-  onRemoveVirtualAsset?: (relativePath: string) => void
-  locale?: LocaleCode
-  theme?: ThemeMode
-  accentColor?: string
-  viewportLabels?: ViewportLabels
-  selectedEventKey?: string | null
-  gameRootPath?: string | null
-  directoryInfo?: GameDirectoryInfo | null
-  playerAppearanceProfile?: PlayerAppearanceProfile | null
-  onOpenPlayerAppearanceWindow?: () => void
-  onSelectedEventKeyChange?: (eventKey: string | null) => void
-  onOpenConfig?: () => void
-  onSaveDraft?: () => void
-  onReloadDraft?: () => void
-  isDirty?: boolean
-}>
+  schema: AssetSchema | null
+  draftPort: AssetDraftPort
+  resources: EditorResources
+}
+
+export type EditorComponent = ComponentType<EditorProps>
 
 export interface WorkspacePlugin {
   id: WorkspaceId
   editMode: {
     editor: EditorComponent
-  }
-  serializer: {
-    toChangeEntry: (patch: DraftPatch) => Record<string, unknown>
-    fromChangeEntry: (change: Record<string, unknown>) => unknown
   }
 }
 

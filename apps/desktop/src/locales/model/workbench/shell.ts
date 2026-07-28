@@ -137,8 +137,8 @@ export type WorkbenchShellCopy = {
     pendingExportDetail: string
     pendingExportEmptyTitle: string
     pendingExportEmptyDescription: string
-    conflictCount: (count: number) => string
-    conflictMetric: string
+    errorMetric: string
+    warningMetric: string
     conflictDetail: string
     conflictEmptyTitle: string
     conflictEmptyDescription: string

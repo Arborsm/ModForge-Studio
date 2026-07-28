@@ -22,9 +22,11 @@ export function WorkbenchModuleHost({ module, environment, project, moduleState 
   const access = module
     ? { id: module.id, presentation: module.presentation, projectAccess: module.projectAccess }
     : { id: '', presentation: 'standalone' as const, projectAccess: 'none' as const }
+  const providesProject =
+    module != null && (module.presentation === 'authoring' || (module.presentation === 'standalone' && module.projectAccess !== 'none'))
   return (
     <WorkbenchEnvironmentProvider value={environment}>
-      <WorkbenchProjectProvider value={module?.presentation === 'authoring' ? project : null}>
+      <WorkbenchProjectProvider value={providesProject ? project : null}>
         <WorkbenchModuleAccessProvider value={access}>
           <WorkbenchModuleStateProvider value={moduleState}>
             <WorkbenchViewHost module={module} />

@@ -1,6 +1,6 @@
 import { parseEventCommand, parseEventCommands, parseEventSceneSetup } from '@entities/event'
 import type { ResourceRegistry } from '@entities/game/api'
-import { getItemKindLabel, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@pages/workbench/workspaces/item/entities/item'
+import { getItemKindLabel, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
 import type { DraftPatch } from '@features/cp-maker'
 import { ACTOR_OPTIONS, ITEM_OPTIONS, MAP_OPTIONS, MUSIC_OPTIONS, SOUND_OPTIONS } from '../workflow-model/commandOptions'
 import type { EventResourceKind, EventResourceOption } from './EventResourcePicker'

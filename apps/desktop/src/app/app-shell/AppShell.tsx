@@ -35,6 +35,7 @@ import {
   configurePreferencesHostAdapter,
   usePreferencesStore,
 } from '@shared/lib/app-state/preferencesStore'
+import { syncEditorModeStoreFromAppUiState } from '@shared/lib/app-state/editorModeStore'
 import { clearImageMetricsLocaleCache, configureImageDataUrlLoader } from '@shared/lib/assets'
 import type { LauncherNexusDiagnosticsResult } from '@features/launcher/model/launcherContracts'
 import {
@@ -245,6 +246,7 @@ export default function App() {
 
         const nextShellState = normalizeAppShellState(state.shell)
         syncPreferencesStoreFromAppUiState(state, canUseDesktopHost())
+        syncEditorModeStoreFromAppUiState(state.workspace.expertMode)
         if (nextShellState.appMode === 'workbench') {
           setWorkbenchHasOpened(true)
           setWorkbenchActivationKey((current) => current + 1)

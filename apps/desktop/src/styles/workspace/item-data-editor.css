@@ -1,0 +1,39 @@
+/*
+ * Item-specific chrome of the `Data/Objects` authoring editor.
+ * The three-pane shell it sits in lives in `asset-data-editor.css`.
+ *
+ * Object sprites are 16x16 source pixels, so the preview stage exists mainly to
+ * give that tiny sprite a stable, checker-free frame at 4x without letting a
+ * mis-sized custom sheet stretch the pane.
+ */
+
+@layer components {
+  .item-preview-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 8rem;
+    padding: 0.75rem;
+    overflow: hidden;
+    border-radius: 0.625rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+    background: color-mix(in srgb, var(--bg-viewport) 75%, transparent);
+  }
+
+  .item-preview-sprite {
+    max-width: 100%;
+  }
+
+  .item-preview-name {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .item-preview-description {
+    margin: 0;
+    font-size: 0.6875rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+}

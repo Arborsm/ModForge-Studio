@@ -7,13 +7,8 @@ import {
   parseWarpEntries,
   getActionTargetMap,
 } from '@entities/map'
-import {
-  BUILDING_LOCATION_SEED_GROUP_LABELS,
-  BUILDING_LOCATION_SEED_GROUP_ORDER,
-  BUILDING_LOCATION_SEEDS,
-  type BuildingLocationSeedGroup,
-} from './buildingLocationSeeds'
-import { type BuildingWorkspaceEntry, type WorldBuildingEntrance, buildMapPathLabel } from '../entities/building'
+import { BUILDING_LOCATION_SEED_GROUP_ORDER, BUILDING_LOCATION_SEEDS, type BuildingLocationSeedGroup } from './buildingLocationSeeds'
+import { type BuildingWorkspaceEntry, type WorldBuildingEntrance, buildMapPathLabel } from '@entities/building'
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -39,7 +34,6 @@ type WorldLocationSeed = {
   name: string
   label: string | null
   group: BuildingLocationSeedGroup | null
-  groupLabel: string | null
   locationName: string | null
   mapAssetName: string | null
   typeName: string | null
@@ -182,12 +176,10 @@ function createWorldBuildingEntry({
   const locationType = locationSeed?.typeName ?? null
   const formerNames = locationSeed?.formerNames ?? []
   const sortedEntrances = sortWorldEntrances(entrances)
-  const groupLabel = locationSeed?.groupLabel ?? displayName
   const metadata: Record<string, string> = {}
 
   if (locationSeed?.group) {
     metadata.worldSeedGroupKey = locationSeed.group
-    metadata.worldSeedGroupLabel = groupLabel
     metadata.worldSeedGroupOrder = String(BUILDING_LOCATION_SEED_GROUP_ORDER[locationSeed.group])
   }
   if (locationSeed?.label) {
@@ -211,8 +203,11 @@ function createWorldBuildingEntry({
   return {
     sourceKind: 'world',
     key,
+    // World buildings are derived from map warps, not from a `Data/Buildings`
+    // record, so there is nothing for the read-only schema view to render.
+    rawEntry: {},
     groupKey: key,
-    groupDisplayName: groupLabel,
+    groupDisplayName: displayName,
     rawDisplayName: displayName,
     displayName,
     rawGeneralTypeDisplayName: locationType ?? (primaryExteriorMapName ? `Exterior ${primaryExteriorMapName}` : null),
@@ -227,7 +222,6 @@ function createWorldBuildingEntry({
     searchText: [
       displayName,
       internalName,
-      groupLabel,
       locationSeed?.label,
       locationSeed?.locationName,
       targetDocument?.name,
@@ -355,7 +349,6 @@ export function buildLocationSeeds(locationsContent: string | null) {
       name: seed.name,
       label: trimString(seed.label),
       group: seed.group,
-      groupLabel: BUILDING_LOCATION_SEED_GROUP_LABELS[seed.group],
       locationName: trimString(seed.locationName) ?? locationData?.locationName ?? null,
       mapAssetName: locationData?.mapAssetName ?? normalizeMapAssetName(seed.mapAssetName),
       typeName: locationData?.typeName ?? trimString(seed.typeName),

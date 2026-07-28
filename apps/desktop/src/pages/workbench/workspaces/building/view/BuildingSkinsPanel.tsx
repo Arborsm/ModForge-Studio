@@ -1,4 +1,4 @@
-import type { BuildingWorkspaceEntry } from '../entities/building'
+import type { BuildingWorkspaceEntry } from '@entities/building'
 import type { BuildingsPanelCopy } from '@locales/api'
 
 export type BuildingSkinsPanelProps = {

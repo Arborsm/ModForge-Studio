@@ -1,17 +1,20 @@
 import { useState, type ReactNode } from 'react'
+import { PenLine } from 'lucide-react'
 import { useCharactersCopy, useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { ModSourceList } from '@shared/ui/ModSourceList'
 import type { ModSourceEntry } from '@pages/workbench/workspaces/mod'
 import { getScaleUpFrameCount } from '@pages/workbench/workspaces/mod'
+import { AssetEntryCanvas, EMPTY_ASSET_RESOURCES, parseAssetEntry } from '@entities/asset-schema'
 import {
   buildSpriteStyle,
+  CHARACTER_DATA_SCHEMA,
   type CharacterAppearanceVariant,
   type CharacterVisualAssetState,
   type CharacterWorkspaceEntry,
-} from '../../../workspaces/character'
+} from '@entities/character'
 
-type DetailTab = 'info' | 'variants' | 'relations' | 'assets'
+type DetailTab = 'info' | 'variants' | 'assets'
 
 type CharacterDetailPanelProps = {
   character: CharacterWorkspaceEntry | null
@@ -19,6 +22,8 @@ type CharacterDetailPanelProps = {
   assetState: CharacterVisualAssetState
   modSources?: ModSourceEntry[]
   onSelectVariant: (variant: CharacterAppearanceVariant) => void
+  /** Opens this NPC in the character authoring module; omitted when unavailable. */
+  onOpenInAuthoring?: (characterKey: string) => void
 }
 
 function KvRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
@@ -82,8 +87,13 @@ function PortraitHeroArt({ character, assetState }: { character: CharacterWorksp
 }
 
 /**
- * Right-rail character detail: hero identity + tabbed flat sections.
- * Merges former inspector / variants / relations panels; empty optional blocks stay hidden.
+ * Right-rail character detail: hero identity, the read-only `Data/Characters`
+ * schema view, appearance variants, and resolved asset paths.
+ *
+ * The data tab renders the same `AssetSchema` the authoring page edits, so the
+ * two pages never drift on which fields exist or what they are called. Nothing
+ * here writes to a draft — editing happens after the handoff to the authoring
+ * module.
  */
 export function CharacterDetailPanel({
   character,
@@ -91,6 +101,7 @@ export function CharacterDetailPanel({
   assetState,
   modSources = [],
   onSelectVariant,
+  onOpenInAuthoring,
 }: CharacterDetailPanelProps) {
   const copy = useCharactersCopy()
   const { yes: yesLabel, no: noLabel, none: noneLabel } = useEditorCopy().common
@@ -121,9 +132,9 @@ export function CharacterDetailPanel({
   const tabs: Array<{ id: DetailTab; label: string }> = [
     { id: 'info', label: copy.detailInfoTab },
     { id: 'variants', label: copy.detailVariantsTab },
-    { id: 'relations', label: copy.detailRelationsTab },
     { id: 'assets', label: copy.detailAssetsTab },
   ]
+  const readOnlyDraft = parseAssetEntry(CHARACTER_DATA_SCHEMA, character.rawEntry)
 
   return (
     <section className="item-workspace-pane h-full">
@@ -165,6 +176,17 @@ export function CharacterDetailPanel({
               <strong className="font-bold text-(--text-primary)">{portraitCount || 0}</strong>
             </span>
           </div>
+          {onOpenInAuthoring ? (
+            <button
+              type="button"
+              className="control-button control-button-primary mt-1 self-start"
+              title={copy.openInAuthoringHint}
+              onClick={() => onOpenInAuthoring(character.key)}
+            >
+              <PenLine className="h-3.5 w-3.5" />
+              <span>{copy.openInAuthoringAction}</span>
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -188,46 +210,14 @@ export function CharacterDetailPanel({
 
       <div className="custom-scrollbar panel-body min-h-0 flex-1 overflow-auto px-3 py-3">
         {activeTab === 'info' ? (
-          <div className="detail-sections-stack">
-            <DetailSection title={copy.basics}>
-              <div className="flex flex-col">
-                <KvRow label={copy.displayNameLabel} value={character.displayName} />
-                <KvRow label={copy.internalNameLabel} value={character.internalName} mono />
-                <KvRow label={copy.textureLabel} value={character.textureName} mono />
-                <KvRow label={copy.birthdayLabel} value={birthday} />
-                <KvRow label={copy.homeRegionLabel} value={character.homeRegion ?? noneLabel} />
-                <KvRow label={copy.romanceLabel} value={character.canBeRomanced ? yesLabel : noLabel} />
-                <KvRow label={copy.loveInterestLabel} value={character.loveInterestDisplayName ?? character.loveInterest ?? noneLabel} />
-              </div>
-            </DetailSection>
-
-            <DetailSection title={copy.metadata}>
-              <div className="flex flex-col">
-                <KvRow label={copy.languageLabel} value={character.language ?? noneLabel} />
-                <KvRow label={copy.genderLabel} value={character.gender ?? noneLabel} />
-                <KvRow label={copy.ageLabel} value={character.age ?? noneLabel} />
-                <KvRow label={copy.mannerLabel} value={character.manner ?? noneLabel} />
-                <KvRow label={copy.socialAnxietyLabel} value={character.socialAnxiety ?? noneLabel} />
-                <KvRow label={copy.optimismLabel} value={character.optimism ?? noneLabel} />
-                <KvRow label={copy.breatherLabel} value={character.breather ? yesLabel : noLabel} />
-                <KvRow label={copy.receivesGiftsLabel} value={character.canReceiveGifts ? yesLabel : noLabel} />
-              </div>
-            </DetailSection>
-
-            <DetailSection title={copy.flags}>
-              <div className="flex flex-col">
-                <KvRow label={copy.formerNamesLabel} value={character.formerCharacterNames.join(', ') || noneLabel} />
-                <KvRow
-                  label={copy.festivalActorIndexLabel}
-                  value={character.festivalVanillaActorIndex != null ? String(character.festivalVanillaActorIndex) : noneLabel}
-                  mono
-                />
-                <KvRow label={copy.darkSkinLabel} value={character.isDarkSkinned ? yesLabel : noLabel} />
-                <KvRow label={copy.spawnIfMissingLabel} value={character.spawnIfMissing ? yesLabel : noLabel} />
-                <KvRow label={copy.islandVisitLabel} value={character.canVisitIsland ?? noneLabel} mono />
-              </div>
-            </DetailSection>
-          </div>
+          <AssetEntryCanvas
+            key={character.key}
+            schema={CHARACTER_DATA_SCHEMA}
+            draft={readOnlyDraft}
+            onDraftChange={() => undefined}
+            resources={EMPTY_ASSET_RESOURCES}
+            readOnly
+          />
         ) : null}
 
         {activeTab === 'variants' ? (
@@ -273,39 +263,6 @@ export function CharacterDetailPanel({
           ) : (
             <p className="text-sm text-(--text-secondary)">{copy.variantsPanelEmpty}</p>
           )
-        ) : null}
-
-        {activeTab === 'relations' ? (
-          <div className="detail-sections-stack">
-            <DetailSection title={copy.homes}>
-              {character.homes.length ? (
-                <div className="flex flex-col">
-                  {character.homes.map((home, index) => (
-                    <KvRow
-                      key={`${home.Location ?? 'home'}:${home.Tile?.X ?? 0}:${home.Tile?.Y ?? 0}:${index}`}
-                      label={home.Location ?? noneLabel}
-                      value={[home.Tile ? `${home.Tile.X}, ${home.Tile.Y}` : null, home.Condition].filter(Boolean).join(' / ') || noneLabel}
-                      mono
-                    />
-                  ))}
-                </div>
-              ) : (
-                <p className="py-2 text-sm text-(--text-secondary)">{noneLabel}</p>
-              )}
-            </DetailSection>
-
-            <DetailSection title={copy.relations}>
-              {character.friendsAndFamilyEntries.length ? (
-                <div className="flex flex-col">
-                  {character.friendsAndFamilyEntries.map((entry) => (
-                    <KvRow key={`${entry.internalName}:${entry.relation}`} label={entry.displayName} value={entry.relation} />
-                  ))}
-                </div>
-              ) : (
-                <p className="py-2 text-sm text-(--text-secondary)">{noneLabel}</p>
-              )}
-            </DetailSection>
-          </div>
         ) : null}
 
         {activeTab === 'assets' ? (

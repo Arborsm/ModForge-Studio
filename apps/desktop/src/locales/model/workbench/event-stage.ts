@@ -191,6 +191,28 @@ export type EventWorkflowCopy = {
     searchPlaceholder: string
     empty: string
   }
+  composer: {
+    addEvent: string
+    searchEvent: string
+    searchEvents: string
+    noEvents: string
+    chooseEvent: string
+    configure: string
+    saved: string
+    unsaved: string
+    fromPreset: string
+    configureGameRoot: string
+    actor: string
+    pickCamera: string
+    pathPointHint: (count: number) => string
+    pathPickHint: string
+    coordinatePickHint: string
+    cameraPickHint: string
+    actorPickHint: string
+    donePath: string
+    clearPath: string
+    cancelPick: string
+  }
   scriptEditor: ScriptEditorCopy
   scriptTimeline: {
     sceneSetup: string

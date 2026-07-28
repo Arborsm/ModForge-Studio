@@ -12,7 +12,7 @@ export function formatStudioTimestamp(copy: EditorCopy['studioDesk'], timestamp:
 
 export function getStudioProjectStatusLabel(copy: EditorCopy['studioDesk'], status: StudioDeskProjectStatus) {
   if (status === 'export') return copy.pendingExport
-  if (status === 'conflict') return copy.hasConflict
+  if (status === 'error') return copy.hasErrors
   if (status === 'archive') return copy.archived
   if (status === 'incomplete') return copy.metadataIncomplete
   return copy.neverExported

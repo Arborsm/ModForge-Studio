@@ -1,5 +1,5 @@
 import type { GameDirectoryInfo } from '@entities/game/api'
-import type { VirtualPreviewAsset } from '@features/cp-maker'
+import type { CpMakerDependency, VirtualPreviewAsset } from '@features/cp-maker'
 
 export type { GameDirectoryInfo }
 
@@ -26,10 +26,11 @@ export type CpMakerDraftRecord = {
     projectUniqueId: string
     gameRootPath: string | null
     contentPackForUniqueId: string
+    contentPackForMinimumVersion?: string
     minimumApiVersion?: string
     updateKeys?: string[]
+    dependencies?: CpMakerDependency[]
   }
-  overlayTargets: Array<{ uniqueId: string; displayName: string | null; required: boolean; source: 'scanned-mod' | 'manual' }>
   configSchemaDraft: Record<string, unknown>
   serializedChangeRegistry: Record<string, unknown>
   dynamicTokens?: Array<{ name: string; value: string; when?: Record<string, unknown> }>

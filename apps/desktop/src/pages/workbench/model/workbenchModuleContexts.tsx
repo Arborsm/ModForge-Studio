@@ -76,6 +76,11 @@ export function useWorkbenchProject() {
   return value
 }
 
+/** Returns the project context when the active module has project access, or null for project-less modules. */
+export function useOptionalWorkbenchProject() {
+  return useContext(ProjectContext)
+}
+
 export function useWorkbenchModuleState() {
   const value = useContext(ModuleStateContext)
   if (!value) throw new Error('useWorkbenchModuleState must be used within WorkbenchModuleStateProvider')

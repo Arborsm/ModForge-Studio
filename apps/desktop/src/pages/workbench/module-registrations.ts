@@ -88,6 +88,13 @@ export const projectContentRegistration = registration(
   'write',
   () => import('./ui/module-runtimes/ProjectContentModuleRuntime'),
 )
+export const projectSettingsRegistration = registration(
+  'project-settings',
+  { section: 'authoring', order: 195, icon: 'settings', labelKey: 'project-settings' },
+  'authoring',
+  'write',
+  () => import('./ui/module-runtimes/ProjectSettingsModuleRuntime'),
+)
 export const mapAuthoringRegistration = registration(
   'map-authoring',
   { section: 'authoring', order: 210, icon: 'map', labelKey: 'map-authoring' },
@@ -108,6 +115,34 @@ export const characterAuthoringRegistration = registration(
   'authoring',
   'write',
   () => import('./ui/module-runtimes/CharacterAuthoringModuleRuntime'),
+)
+export const dialogueEditorRegistration = registration(
+  'dialogue-editor',
+  { section: 'authoring', order: 232, icon: 'dialogue', labelKey: 'dialogue-editor' },
+  'authoring',
+  'write',
+  () => import('./ui/module-runtimes/DialogueEditorModuleRuntime'),
+)
+export const scheduleEditorRegistration = registration(
+  'schedule-editor',
+  { section: 'authoring', order: 234, icon: 'schedule', labelKey: 'schedule-editor' },
+  'authoring',
+  'write',
+  () => import('./ui/module-runtimes/ScheduleEditorModuleRuntime'),
+)
+export const mailEditorRegistration = registration(
+  'mail-editor',
+  { section: 'authoring', order: 236, icon: 'mail', labelKey: 'mail-editor' },
+  'authoring',
+  'write',
+  () => import('./ui/module-runtimes/MailEditorModuleRuntime'),
+)
+export const gameDebuggerRegistration = registration(
+  'game-debugger',
+  { section: 'tools', order: 140, icon: 'bug', labelKey: 'game-debugger' },
+  'standalone',
+  'read',
+  () => import('./ui/module-runtimes/GameDebuggerModuleRuntime'),
 )
 export const buildingAuthoringRegistration = registration(
   'building-authoring',

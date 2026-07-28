@@ -2,7 +2,8 @@
 
 export type UIControlType =
   | 'text' // 单行文本
-  | 'textarea' // 多行文本（对话内容）
+  | 'textarea' // 多行文本
+  | 'dialogue_script' // 结构化对话脚本（共享 entities/dialogue 编辑器）
   | 'number' // 数字
   | 'npc_selector' // NPC 头像选择器
   | 'tile_picker' // 地图瓷砖拾取器

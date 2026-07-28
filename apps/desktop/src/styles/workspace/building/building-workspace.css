@@ -157,23 +157,48 @@
     font-weight: 600;
   }
 
+  /*
+   * The row is a container, not a control: the label is one button and the
+   * "open in authoring" jump is another, so neither ends up nested inside the
+   * other.
+   */
   .building-workspace-browser-row {
-    display: grid;
-    grid-template-columns: 2rem minmax(0, 1fr) auto;
+    display: flex;
+    align-items: center;
     width: 100%;
     min-height: 2.75rem;
-    align-items: center;
-    column-gap: 0.625rem;
     border: 1px solid transparent;
     border-radius: 0.625rem;
     background: transparent;
-    padding: 0.4375rem 0.5rem;
-    text-align: left;
-    cursor: pointer;
     transition:
       background-color 130ms ease,
       border-color 130ms ease,
       box-shadow 130ms ease;
+  }
+
+  .building-workspace-browser-row-main {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+    column-gap: 0.625rem;
+    padding: 0.4375rem 0.5rem;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .building-workspace-browser-row-jump {
+    flex-shrink: 0;
+    margin-right: 0.375rem;
+    opacity: 0;
+    transition: opacity 130ms ease;
+  }
+
+  .building-workspace-browser-row:hover .building-workspace-browser-row-jump,
+  .building-workspace-browser-row-jump:focus-visible,
+  .building-workspace-browser-row-active .building-workspace-browser-row-jump {
+    opacity: 1;
   }
 
   .building-workspace-browser-row:hover {
@@ -433,6 +458,23 @@
     background: transparent !important;
     background-image: none !important;
     box-shadow: none !important;
+  }
+
+  /*
+   * Sprite cut-out shared by the codex preview and the authoring preview. The
+   * box itself is sized in game pixels by `buildAbsoluteSpriteLayerStyle`; the
+   * positioning context is what lets an overlay (the footprint grid) align to
+   * the sprite's own bottom-left corner.
+   */
+  .building-sprite-stage {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  /* Footprint frame stood in for a sheet that has not been patched in yet. */
+  .building-sprite-stage.is-untextured {
+    border: 1px dashed color-mix(in srgb, var(--border-color) 85%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-muted) 55%, transparent);
   }
 
   .building-workspace-square-title {

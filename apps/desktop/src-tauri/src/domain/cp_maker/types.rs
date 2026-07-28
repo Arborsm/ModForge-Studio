@@ -9,8 +9,6 @@ use std::collections::BTreeMap;
 pub struct CpMakerDraftRecord {
     pub draft_storage_key: String,
     pub project_metadata: CpMakerMetadata,
-    #[serde(default)]
-    pub overlay_targets: Vec<CpMakerOverlayTarget>,
     #[serde(default = "default_json_object")]
     pub config_schema_draft: Value,
     #[serde(default = "default_json_object")]
@@ -73,25 +71,29 @@ pub struct CpMakerMetadata {
     #[serde(default = "default_content_pack_for_unique_id")]
     pub content_pack_for_unique_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_pack_for_minimum_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub minimum_api_version: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub update_keys: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dependencies: Vec<CpMakerDependency>,
 }
 
+/// One entry of the manifest `Dependencies` list, as SMAPI reads it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CpMakerOverlayTarget {
+pub struct CpMakerDependency {
     pub unique_id: String,
-    pub display_name: Option<String>,
-    pub required: bool,
-    pub source: CpMakerOverlayTargetSource,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub minimum_version: Option<String>,
+    /// SMAPI treats a dependency without `IsRequired` as required.
+    #[serde(default = "default_dependency_required")]
+    pub is_required: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum CpMakerOverlayTargetSource {
-    ScannedMod,
-    Manual,
+fn default_dependency_required() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

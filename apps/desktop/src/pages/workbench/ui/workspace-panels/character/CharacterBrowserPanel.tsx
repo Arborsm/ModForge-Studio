@@ -1,8 +1,8 @@
-import { Search } from 'lucide-react'
+import { PenLine, Search } from 'lucide-react'
 import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup } from '@pages/workbench/workspaces/mod'
 import { useCharactersCopy, useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
-import type { CharacterWorkspaceEntry } from '../../../workspaces/character'
+import type { CharacterWorkspaceEntry } from '@entities/character'
 import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
 
 type CharacterBrowserPanelProps = {
@@ -17,6 +17,8 @@ type CharacterBrowserPanelProps = {
   onCharacterFilterChange: (value: string) => void
   onSelectCharacter: (characterKey: string) => void
   onSelectModCharacter: (entry: ModBrowserEntry<CharacterWorkspaceEntry>) => void
+  /** Opens an NPC in the character authoring module; omitted when unavailable. */
+  onOpenInAuthoring?: (characterKey: string) => void
 }
 
 function SourceSwitch({
@@ -77,6 +79,7 @@ function CharacterRow({
   metaPrimary,
   metaSecondary,
   onSelect,
+  onOpenInAuthoring,
   revealIndex,
 }: {
   character: CharacterWorkspaceEntry
@@ -84,12 +87,14 @@ function CharacterRow({
   metaPrimary: string
   metaSecondary: string
   onSelect: () => void
+  onOpenInAuthoring?: () => void
   revealIndex: number
 }) {
+  const copy = useCharactersCopy()
   const revealProps = getLoadingMotionChildRevealProps({
     index: revealIndex,
     className: cx(
-      'grid w-full grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-2.5 rounded-xl border border-transparent px-2 py-2 text-left transition-colors',
+      'group relative flex items-center rounded-xl border border-transparent transition-colors',
       isActive
         ? 'border-[color-mix(in_srgb,var(--accent)_16%,transparent)] bg-(--accent-soft) shadow-[inset_2px_0_0_0_var(--accent)]'
         : 'hover:bg-(--bg-hover)',
@@ -97,24 +102,47 @@ function CharacterRow({
   })
 
   return (
-    <button type="button" {...revealProps} aria-pressed={isActive} onClick={onSelect}>
-      <CharacterGlyph character={character} />
-      <span className="min-w-0">
-        <span
-          className={cx(
-            'block truncate text-[13px] font-semibold tracking-tight',
-            isActive ? 'text-[color-mix(in_srgb,var(--accent)_72%,var(--text-primary))]' : 'text-(--text-primary)',
-          )}
-        >
-          {character.displayName}
+    <div {...revealProps}>
+      <button
+        type="button"
+        className="grid min-w-0 flex-1 grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-2.5 px-2 py-2 text-left"
+        aria-pressed={isActive}
+        onClick={onSelect}
+      >
+        <CharacterGlyph character={character} />
+        <span className="min-w-0">
+          <span
+            className={cx(
+              'block truncate text-[13px] font-semibold tracking-tight',
+              isActive ? 'text-[color-mix(in_srgb,var(--accent)_72%,var(--text-primary))]' : 'text-(--text-primary)',
+            )}
+          >
+            {character.displayName}
+          </span>
+          <span className="mt-0.5 block truncate font-mono text-[11px] text-(--text-tertiary)">{metaPrimary}</span>
         </span>
-        <span className="mt-0.5 block truncate font-mono text-[11px] text-(--text-tertiary)">{metaPrimary}</span>
-      </span>
-      <span className="shrink-0 text-right text-[11px] leading-tight text-(--text-tertiary)">
-        <span className="block font-mono text-[11px] font-semibold text-(--text-secondary) tabular-nums">{character.variants.length}</span>
-        <span className="mt-0.5 block max-w-20 truncate">{metaSecondary}</span>
-      </span>
-    </button>
+        <span className="shrink-0 text-right text-[11px] leading-tight text-(--text-tertiary)">
+          <span className="block font-mono text-[11px] font-semibold text-(--text-secondary) tabular-nums">
+            {character.variants.length}
+          </span>
+          <span className="mt-0.5 block max-w-20 truncate">{metaSecondary}</span>
+        </span>
+      </button>
+      {onOpenInAuthoring ? (
+        <button
+          type="button"
+          className={cx(
+            'icon-button mr-1.5 shrink-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100',
+            isActive ? 'opacity-100' : 'opacity-0',
+          )}
+          aria-label={copy.openInAuthoringAction}
+          title={copy.openInAuthoringHint}
+          onClick={onOpenInAuthoring}
+        >
+          <PenLine className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+    </div>
   )
 }
 
@@ -134,6 +162,7 @@ export function CharacterBrowserPanel({
   onCharacterFilterChange,
   onSelectCharacter,
   onSelectModCharacter,
+  onOpenInAuthoring,
 }: CharacterBrowserPanelProps) {
   const copy = useCharactersCopy()
   const noneLabel = useEditorCopy().common.none
@@ -182,6 +211,7 @@ export function CharacterBrowserPanel({
                           metaSecondary={character.homeRegion ?? noneLabel}
                           revealIndex={groupIndex + itemIndex + 1}
                           onSelect={() => onSelectModCharacter(entry)}
+                          onOpenInAuthoring={onOpenInAuthoring ? () => onOpenInAuthoring(character.key) : undefined}
                         />
                       )
                     })}
@@ -203,6 +233,7 @@ export function CharacterBrowserPanel({
                 metaSecondary={character.homeRegion ?? noneLabel}
                 revealIndex={index}
                 onSelect={() => onSelectCharacter(character.key)}
+                onOpenInAuthoring={onOpenInAuthoring ? () => onOpenInAuthoring(character.key) : undefined}
               />
             ))
           ) : (

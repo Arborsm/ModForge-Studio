@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { useItemsCopy } from '@locales/provider'
 import type { ModBrowserEntry } from '@pages/workbench/workspaces/mod'
-import type { ItemWorkspaceEntry } from '../entities/item'
+import type { ItemWorkspaceEntry } from '@entities/item'
 import { paginateItems, sortItemsBySearchPriority } from './itemCatalogPagination'
 import { CatalogPane } from './ItemCatalogPane'
 import { DetailPane } from './ItemDetailPane'
@@ -39,6 +39,7 @@ function useItemWorkspaceViewModel({
   onItemFilterChange,
   onSelectItem,
   onSelectModItem,
+  onOpenItemInAuthoring,
 }: ItemWorkspaceProps) {
   const copy = useItemsCopy()
   const ui = useItemWorkspaceUi()
@@ -162,6 +163,7 @@ function useItemWorkspaceViewModel({
     setCatalogViewMode: ui.setCatalogViewMode,
     handleSelectItem,
     handleSelectModItem,
+    onOpenItemInAuthoring,
   }
 }
 
@@ -235,6 +237,7 @@ export function ItemDetailPanel(props: ItemWorkspaceProps) {
       onDetailTabChange={view.setActiveDetailTab}
       itemLookup={view.itemLookup}
       textureStatesByAssetName={view.textureStatesByAssetName}
+      onOpenItemInAuthoring={view.onOpenItemInAuthoring}
     />
   )
 }
@@ -310,6 +313,7 @@ export default function ItemWorkspace({ ...props }: ItemWorkspaceProps) {
             onDetailTabChange={view.setActiveDetailTab}
             itemLookup={view.itemLookup}
             textureStatesByAssetName={view.textureStatesByAssetName}
+            onOpenItemInAuthoring={view.onOpenItemInAuthoring}
           />
         </div>
       </div>

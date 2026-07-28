@@ -35,6 +35,10 @@ export function useEditorCopy() {
   return useLocaleBundle().editor
 }
 
+export function useAuthoringShellCopy() {
+  return useEditorCopy().authoringShell
+}
+
 export function useModCopy() {
   return useLocaleBundle().mods
 }
@@ -81,4 +85,40 @@ export function useMapPanelCopy() {
 
 export function useAiLocalizationCopy() {
   return useEditorCopy().aiLocalization
+}
+
+export function useCharacterDataEditorCopy() {
+  return useEditorCopy().characterDataEditor
+}
+
+export function useBuildingDataEditorCopy() {
+  return useEditorCopy().buildingDataEditor
+}
+
+export function useItemDataEditorCopy() {
+  return useEditorCopy().itemDataEditor
+}
+
+export function useAssetAuthoringCopy() {
+  return useEditorCopy().assetAuthoring
+}
+
+export function useDialogueEditorCopy() {
+  return useEditorCopy().dialogueEditor
+}
+
+export function useDialogueScriptFieldCopy() {
+  return useEditorCopy().dialogueScriptField
+}
+
+export function useScheduleEditorCopy() {
+  return useEditorCopy().scheduleEditor
+}
+
+export function useMailEditorCopy() {
+  return useEditorCopy().mailEditor
+}
+
+export function useGameDebuggerCopy() {
+  return useEditorCopy().gameDebugger
 }

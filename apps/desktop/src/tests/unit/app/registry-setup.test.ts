@@ -30,11 +30,16 @@ describe('registry setup', () => {
       'mod-translation',
       'i18n-generator',
       'ai-localization',
+      'game-debugger',
       'project-dashboard',
       'project-content',
+      'project-settings',
       'map-authoring',
       'event-authoring',
       'character-authoring',
+      'dialogue-editor',
+      'schedule-editor',
+      'mail-editor',
       'building-authoring',
       'item-authoring',
       'project-translation',
@@ -48,6 +53,22 @@ describe('registry setup', () => {
     expect(getWorkbenchModuleRegistration(appRegistry, 'mod-translation')).toMatchObject({
       presentation: 'standalone',
       projectAccess: 'write',
+    })
+    expect(getWorkbenchModuleRegistration(appRegistry, 'dialogue-editor')).toMatchObject({
+      presentation: 'authoring',
+      projectAccess: 'write',
+    })
+    expect(getWorkbenchModuleRegistration(appRegistry, 'schedule-editor')).toMatchObject({
+      presentation: 'authoring',
+      projectAccess: 'write',
+    })
+    expect(getWorkbenchModuleRegistration(appRegistry, 'mail-editor')).toMatchObject({
+      presentation: 'authoring',
+      projectAccess: 'write',
+    })
+    expect(getWorkbenchModuleRegistration(appRegistry, 'game-debugger')).toMatchObject({
+      presentation: 'standalone',
+      projectAccess: 'read',
     })
   })
 

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { BuildingWorkspaceEntry, ConstructibleBuildingGroup } from '../entities/building'
+import type { BuildingWorkspaceEntry, ConstructibleBuildingGroup } from '@entities/building'
 
 /**
  * Compute the active building through the fallback chain:

@@ -4,6 +4,7 @@ pub mod app_ui;
 pub mod assets;
 pub mod content_patcher;
 pub mod cp_maker;
+pub mod debug_bridge;
 pub mod event_script;
 pub mod launcher;
 pub mod localization;

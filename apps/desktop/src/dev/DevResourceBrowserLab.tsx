@@ -13,7 +13,7 @@ import {
   loadItemWorkspaceEntries,
   type ItemTextureAssetState,
   type ItemWorkspaceEntry,
-} from '@pages/workbench/workspaces/item/entities/item'
+} from '@entities/item'
 import { cx } from '@shared/lib/helper'
 import { configureImageDataUrlLoader } from '@shared/lib/assets'
 import { configureDesktopPlatformPorts } from '@platform/host'

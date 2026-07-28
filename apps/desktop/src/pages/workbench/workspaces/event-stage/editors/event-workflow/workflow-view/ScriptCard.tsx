@@ -210,7 +210,9 @@ export function ScriptCard({
   const commandLabel = schema ? (workflowCopy.commandLabels[schema.key as EventWorkflowCommandKey] ?? schema.key) : command.kind
   const categoryLabel = schema ? (workflowCopy.categoryLabels[schema.category] ?? schema.category) : command.kind
   const Icon = schema ? (BEAT_ICONS[schema.icon] ?? CATEGORY_FALLBACK_ICONS[schema.category] ?? CircleDot) : CircleDot
-  const dialogueTextNode = nodes?.find((node): node is ParamNode => isParamNode(node) && node.control === 'textarea') ?? null
+  const dialogueTextNode =
+    nodes?.find((node): node is ParamNode => isParamNode(node) && (node.control === 'dialogue_script' || node.control === 'textarea')) ??
+    null
   const actorNode = nodes?.find((node): node is ParamNode => isParamNode(node) && node.control === 'npc_selector') ?? null
   const isDialogueCard = schema?.category === 'dialogue' && dialogueTextNode != null
 

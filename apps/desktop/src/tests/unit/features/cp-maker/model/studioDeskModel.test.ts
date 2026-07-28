@@ -28,7 +28,6 @@ function draft(patches: DraftPatch[] = []): CpMakerDraft {
       gameRootPath: 'E:/Stardew Valley',
       contentPackForUniqueId: 'Pathoschild.ContentPatcher',
     },
-    overlayTargets: [],
     configSchema: [],
     patches,
     virtualAssets: [],
@@ -68,8 +67,30 @@ describe('buildStudioDeskModel', () => {
     })
 
     expect(model.gallery.projects.map((project) => project.title)).toEqual(['星露谷夏日祭扩展', '海风旅店'])
-    expect(model.gallery.projects[0]?.statuses).toEqual(['export', 'conflict'])
+    expect(model.gallery.projects[0]?.statuses).toEqual(['export'])
     expect(model.gallery.counts).toMatchObject({ all: 2 })
+  })
+
+  test('counts validation findings of enabled patches and skips switched-off ones', () => {
+    const broken = { entries: { '1000': 'continue/64 15/Abigail 20 20 2/speak Abigail "Hi!"' } }
+    const suspicious = { entries: { '1001': 'continue/64 15/Abigail 20 20 2/teleportEveryone 3/end' } }
+
+    const model = buildStudioDeskModel({
+      activeDraft: draft([
+        patch({ id: 'broken', editorState: broken }),
+        patch({ id: 'suspicious', editorState: suspicious }),
+        patch({ id: 'switched-off', enabled: false, editorState: broken }),
+      ]),
+      drafts: [],
+      patchCountByWorkspace: { events: 3 },
+      dirtyPatchIds: new Set(),
+      isDirty: false,
+    })
+
+    expect(model.stats.errorCount).toBe(1)
+    expect(model.stats.warningCount).toBe(1)
+    expect(model.worldBible.errorCount).toBe(1)
+    expect(model.gallery.projects[0]?.statuses).toContain('error')
   })
 
   test('sorts recent inspirations by updatedAt descending', () => {
@@ -112,6 +133,9 @@ describe('buildStudioDeskModel', () => {
       'events',
       'map',
       'characters',
+      'dialogue',
+      'schedules',
+      'mail',
       'buildings',
       'items',
       'mods',

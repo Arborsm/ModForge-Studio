@@ -1,4 +1,4 @@
-import { type ItemTextureAssetState, type ItemWorkspaceEntry } from '@pages/workbench/workspaces/item/entities/item'
+import { type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
 import { type ResourceRegistry } from '@entities/game/api'
 
 export type ItemCatalogState = {

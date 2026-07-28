@@ -41,6 +41,7 @@ describe('uiState store', () => {
       workspace: {
         location: { kind: 'module', moduleId: 'map-browser' },
         navigation: { collapsed: false, expandedSections: ['browse', 'tools'] },
+        expertMode: false,
         modules: {},
       },
       launcher: {
@@ -210,6 +211,7 @@ describe('uiState store', () => {
         workspace: {
           location: { kind: 'home' },
           navigation: { collapsed: true, expandedSections: ['browse'] },
+          expertMode: false,
           modules: {},
         },
         launcher: {
@@ -333,7 +335,12 @@ it('normalizes loading motion from persisted state', async () => {
         speedMultiplier: 0.68,
       }),
     },
-    workspace: { location: { kind: 'home' }, navigation: { collapsed: true, expandedSections: ['browse'] }, modules: {} },
+    workspace: {
+      location: { kind: 'home' },
+      navigation: { collapsed: true, expandedSections: ['browse'] },
+      expertMode: false,
+      modules: {},
+    },
     launcher: {
       discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false },
       forceOffline: false,
@@ -370,7 +377,12 @@ it('ignores the removed window border style field', async () => {
       playerAppearance: { profiles: [], activeProfileId: null },
       loadingMotion: createLoadingMotionPreference({}),
     },
-    workspace: { location: { kind: 'home' }, navigation: { collapsed: true, expandedSections: ['browse'] }, modules: {} },
+    workspace: {
+      location: { kind: 'home' },
+      navigation: { collapsed: true, expandedSections: ['browse'] },
+      expertMode: false,
+      modules: {},
+    },
     launcher: {
       discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false },
       forceOffline: false,
@@ -406,7 +418,12 @@ it('ignores removed accent preset ids and normalizes invalid theme ids', async (
       playerAppearance: { profiles: [], activeProfileId: null },
       loadingMotion: createLoadingMotionPreference({}),
     },
-    workspace: { location: { kind: 'home' }, navigation: { collapsed: true, expandedSections: ['browse'] }, modules: {} },
+    workspace: {
+      location: { kind: 'home' },
+      navigation: { collapsed: true, expandedSections: ['browse'] },
+      expertMode: false,
+      modules: {},
+    },
     launcher: {
       discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false },
       forceOffline: false,
@@ -438,7 +455,12 @@ it('keeps a valid persisted theme id', async () => {
       playerAppearance: { profiles: [], activeProfileId: null },
       loadingMotion: createLoadingMotionPreference({}),
     },
-    workspace: { location: { kind: 'home' }, navigation: { collapsed: true, expandedSections: ['browse'] }, modules: {} },
+    workspace: {
+      location: { kind: 'home' },
+      navigation: { collapsed: true, expandedSections: ['browse'] },
+      expertMode: false,
+      modules: {},
+    },
     launcher: {
       discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false },
       forceOffline: false,

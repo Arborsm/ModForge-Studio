@@ -1,9 +1,10 @@
+import { PenLine } from 'lucide-react'
 import { useItemsCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { ModSourceList } from '@shared/ui/ModSourceList'
 import type { ModSourceEntry } from '@pages/workbench/workspaces/mod'
-import { getContainedItemSpriteFrame, type ItemTextureAssetState, type ItemWorkspaceEntry } from '../entities/item'
-import { ItemSprite } from '../entities/item'
+import { findItemAssetFamily, getContainedItemSpriteFrame, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
+import { ItemSprite } from '@entities/item'
 import { getWorkspaceText } from './itemWorkspaceRows'
 import { DetailSectionCard, EmptyNotice, GiftTasteList, SourceGrid, UseGrid } from './itemWorkspaceSharedUi'
 import type { AsideRow, AsideSection, DetailTab, HeroChip, ObjectDataCard, SignalCard, SourceCard, UseCard } from './itemWorkspaceTypes'
@@ -27,6 +28,7 @@ export function DetailPane({
   onDetailTabChange,
   itemLookup,
   textureStatesByAssetName,
+  onOpenItemInAuthoring,
 }: {
   text: ReturnType<typeof getWorkspaceText>
   item: ItemWorkspaceEntry | null
@@ -46,6 +48,7 @@ export function DetailPane({
   onDetailTabChange: (tab: DetailTab) => void
   itemLookup: Map<string, ItemWorkspaceEntry>
   textureStatesByAssetName: Record<string, ItemTextureAssetState>
+  onOpenItemInAuthoring?: (item: ItemWorkspaceEntry) => void
 }) {
   const copy = useItemsCopy()
   const detailTabs: Array<{ id: DetailTab; label: string }> = [
@@ -129,6 +132,20 @@ export function DetailPane({
                 </span>
               ))}
             </div>
+          ) : null}
+
+          {onOpenItemInAuthoring ? (
+            <button
+              type="button"
+              className="control-button control-button-primary mt-1 self-start"
+              // Families with no structured editor still jump — into the raw JSON
+              // escape hatch — so the hint says which one the author will land in.
+              title={findItemAssetFamily(item.kind).editor === 'structured' ? copy.openInAuthoringHint : copy.openInAuthoringRawHint}
+              onClick={() => onOpenItemInAuthoring(item)}
+            >
+              <PenLine className="h-3.5 w-3.5" />
+              <span>{copy.openInAuthoringAction}</span>
+            </button>
           ) : null}
         </div>
       </div>

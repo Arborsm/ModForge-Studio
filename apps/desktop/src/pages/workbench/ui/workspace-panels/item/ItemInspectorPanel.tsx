@@ -1,7 +1,7 @@
 import { useItemsCopy } from '@locales/provider'
-import { getContainedItemSpriteScale, type ItemTextureAssetState, type ItemWorkspaceEntry } from '../../../workspaces/item'
+import { getContainedItemSpriteScale, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
 import { PanelFrame } from '@shared/ui/PanelFrame'
-import { ItemSprite } from '../../../workspaces/item'
+import { ItemSprite } from '@entities/item'
 import { PanelEmptyState, PanelSection } from '@shared/ui/PanelSection'
 
 type ItemInspectorPanelProps = {

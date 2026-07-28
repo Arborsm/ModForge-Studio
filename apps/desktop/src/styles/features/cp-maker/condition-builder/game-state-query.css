@@ -1,5 +1,15 @@
 @layer components {
   .game-state-query-stack {
+    /* Self-contained `--ephub-*` palette: the Dialog portals to `document.body`,
+       so these can never be inherited from a mounting page's container. */
+    --ephub-surface: color-mix(in srgb, var(--bg-panel) 94%, var(--bg-elevated) 6%);
+    --ephub-surface-strong: var(--bg-panel);
+    --ephub-surface-muted: color-mix(in srgb, var(--bg-panel-muted) 88%, var(--bg-panel) 12%);
+    --ephub-surface-accent: color-mix(in srgb, var(--accent-soft) 72%, var(--bg-panel) 28%);
+    --ephub-border-soft: color-mix(in srgb, var(--border-color) 78%, transparent);
+    --ephub-line: color-mix(in srgb, var(--border-color) 70%, transparent);
+    --ephub-shadow: rgba(15, 23, 42, 0.08);
+    --ephub-shadow-strong: rgba(15, 23, 42, 0.18);
     display: grid;
     width: min(61.25rem, calc(100vw - 3rem));
     gap: 0.5rem;

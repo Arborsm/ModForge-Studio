@@ -1,5 +1,5 @@
 import { useItemsCopy } from '@locales/provider'
-import type { ItemWorkspaceEntry } from '../../../workspaces/item'
+import type { ItemWorkspaceEntry } from '@entities/item'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { PanelEmptyState, PanelSection } from '@shared/ui/PanelSection'
 

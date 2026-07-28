@@ -1,0 +1,458 @@
+/* Mail authoring module: shell, body layout, letter body editor, delivery trigger cards. */
+@layer components {
+  .mail-editor {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    background: var(--bg-app);
+  }
+
+  /* ── Header ─────────────────────────────────────────────── */
+
+  .mail-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    background: var(--bg-panel);
+    flex-shrink: 0;
+  }
+
+  .mail-editor-heading {
+    min-width: 0;
+  }
+
+  .mail-editor-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .mail-editor-subtitle {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .mail-editor-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    flex-shrink: 0;
+  }
+
+  .mail-editor-dirty-badge {
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    background: var(--warning-soft);
+    color: var(--warning);
+    font-size: 0.6875rem;
+    font-weight: 650;
+  }
+
+  .mail-editor-save-status {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+  }
+
+  .mail-editor-save-status[data-state='error'] {
+    color: var(--danger);
+  }
+
+  .mail-editor-save-status[data-state='saved'] {
+    color: var(--success);
+  }
+
+  /* ── Body layout ────────────────────────────────────────── */
+
+  .mail-editor-body {
+    display: grid;
+    grid-template-columns: minmax(16rem, 19rem) minmax(0, 1fr) minmax(22rem, 27rem);
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .mail-editor-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+    min-height: 0;
+    padding: 1rem 1.25rem 1.5rem;
+    overflow-y: auto;
+  }
+
+  .mail-editor-side {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-height: 0;
+    padding: 1rem;
+    overflow-y: auto;
+    border-left: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    background: var(--bg-panel);
+  }
+
+  .mail-editor-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .mail-editor-section-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .mail-editor-field-label {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  .mail-editor-muted {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+  }
+
+  .mail-editor-field-error {
+    font-size: 0.6875rem;
+    color: var(--danger);
+  }
+
+  .mail-editor-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    flex: 1;
+    padding: 2rem;
+    text-align: center;
+  }
+
+  .mail-editor-empty-title {
+    font-size: 0.875rem;
+    font-weight: 650;
+    color: var(--text-primary);
+  }
+
+  .mail-editor-empty-hint {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  /* ── Body editor ────────────────────────────────────────── */
+
+  .mail-editor-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .mail-editor-toolbar-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3125rem;
+    padding: 0.3125rem 0.5625rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+    border-radius: 0.5rem;
+    background: var(--bg-panel);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    transition:
+      background-color 120ms ease,
+      color 120ms ease;
+  }
+
+  .mail-editor-toolbar-button:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .mail-editor-toolbar-color {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+  }
+
+  .mail-editor-toolbar-color .control-input {
+    width: auto;
+    min-width: 6.5rem;
+  }
+
+  .mail-editor-textarea {
+    width: 100%;
+    min-height: 13rem;
+    resize: vertical;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    background: var(--bg-panel);
+    color: var(--text-primary);
+    font-family: var(--font-mono, monospace);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+  }
+
+  .mail-editor-textarea:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    outline-offset: 1px;
+  }
+
+  .mail-editor-attachment-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  .mail-editor-attachment-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    max-width: 100%;
+    padding: 0.25rem 0.375rem 0.25rem 0.625rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+    border-radius: 999px;
+    background: var(--bg-panel-muted);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .mail-editor-attachment-chip-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mail-editor-attachment-chip-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.125rem;
+    height: 1.125rem;
+    border-radius: 999px;
+    color: var(--text-tertiary);
+  }
+
+  .mail-editor-attachment-chip-remove:hover {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+
+  /* ── Delivery section ───────────────────────────────────── */
+
+  .mail-editor-delivery-empty {
+    padding: 0.875rem 1rem;
+    border: 1px dashed var(--border-color);
+    border-radius: 0.75rem;
+    font-size: 0.75rem;
+    color: var(--warning);
+    background: color-mix(in srgb, var(--warning-soft) 55%, transparent);
+  }
+
+  .mail-editor-delivery-rules {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .mail-editor-delivery-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    padding: 0.875rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+    border-radius: 0.875rem;
+    background: var(--bg-panel);
+  }
+
+  .mail-editor-delivery-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .mail-editor-delivery-card-title {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .mail-editor-delivery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 0.625rem;
+  }
+
+  .mail-editor-delivery-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .mail-editor-delivery-field-wide {
+    grid-column: 1 / -1;
+  }
+
+  .mail-editor-delivery-condition-row {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .mail-editor-delivery-condition-row .control-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mail-editor-delivery-condition-text {
+    flex: 1;
+    min-width: 0;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    border-radius: 0.5rem;
+    background: var(--bg-panel-muted);
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+  }
+
+  .mail-editor-delivery-condition-text[data-empty='true'] {
+    border-style: dashed;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.6875rem;
+    color: var(--text-tertiary);
+  }
+
+  .mail-editor-delivery-builder-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-shrink: 0;
+  }
+
+  .mail-editor-delivery-clear-button {
+    flex-shrink: 0;
+    color: var(--text-secondary);
+  }
+
+  .mail-editor-delivery-clear-button:hover {
+    color: var(--danger);
+  }
+
+  .mail-editor-delivery-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .mail-editor-delivery-remove {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--danger);
+  }
+
+  .mail-editor-delivery-hint-text {
+    font-size: 0.6875rem;
+    color: var(--text-tertiary);
+  }
+
+  .mail-editor-delivery-expert {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    padding-top: 0.625rem;
+    border-top: 1px dashed color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .mail-editor-delivery-expert-heading {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--text-secondary);
+  }
+
+  /* ── Dialog fields ──────────────────────────────────────── */
+
+  .mail-editor-dialog-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3125rem;
+    margin-bottom: 0.625rem;
+  }
+
+  .mail-editor-dialog-label {
+    font-size: 0.6875rem;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  .mail-editor-dialog-hint {
+    font-size: 0.6875rem;
+    color: var(--text-tertiary);
+  }
+
+  .mail-editor-dialog-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: 0.625rem;
+  }
+
+  .mail-editor-dialog-item-row {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .mail-editor-dialog-item-row .control-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mail-editor-dialog-count {
+    max-width: 5rem;
+    flex: 0 0 auto;
+  }
+
+  .mail-editor-dialog-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .mail-editor-dialog-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.625rem;
+  }
+
+  .mail-editor-dialog-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+}

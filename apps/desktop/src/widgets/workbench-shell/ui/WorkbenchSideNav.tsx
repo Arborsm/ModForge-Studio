@@ -2,6 +2,8 @@ import {
   Beaker,
   BookOpen,
   BookOpenCheck,
+  Bug,
+  CalendarClock,
   Castle,
   ChevronDown,
   ChevronLeft,
@@ -11,11 +13,14 @@ import {
   Home,
   Languages,
   LockKeyhole,
+  Mail,
   Map,
+  MessagesSquare,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
   RotateCcw,
+  Settings,
   Users,
 } from 'lucide-react'
 import { useEditorCopy, useViewMenuCopy } from '@locales/provider'
@@ -34,6 +39,11 @@ const ICONS = {
   beaker: Beaker,
   'book-open-check': BookOpenCheck,
   'book-open': BookOpen,
+  dialogue: MessagesSquare,
+  schedule: CalendarClock,
+  mail: Mail,
+  bug: Bug,
+  settings: Settings,
 } as const
 
 export type WorkbenchSideNavSectionState = {

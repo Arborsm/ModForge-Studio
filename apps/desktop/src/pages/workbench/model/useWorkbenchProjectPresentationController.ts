@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppEvent, WorkbenchLocation } from '@shared/contracts'
 import type { CpMakerDraft, UseCpMakerReturn } from '@features/cp-maker'
+import { getPackTemplate, type CreateDraftInput } from '@features/cp-maker'
 import type { useWorkbenchProjectController } from './useWorkbenchProjectController'
 import type { WorkbenchOpenModuleOptions } from './useWorkbenchNavigationController'
-
-type CreateDraftMetadata = Pick<
-  CpMakerDraft['projectMetadata'],
-  'projectName' | 'projectDescription' | 'projectAuthor' | 'projectVersion' | 'projectUniqueId'
->
 
 type Options = {
   cpMaker: UseCpMakerReturn
@@ -61,11 +57,27 @@ export function useWorkbenchProjectPresentationController({
   }, [navigateToPatch, openModule])
 
   const createDraft = useCallback(
-    (metadata: CreateDraftMetadata) => {
-      void projectController.createDraft({ ...metadata, gameRootPath }, openProjectDashboard)
+    (input: CreateDraftInput) => {
+      const template = getPackTemplate(input.templateId)
+      void projectController.createDraft({ ...input.metadata, gameRootPath }, async () => {
+        // Seed the template's singleton patches; addPatch is idempotent, and a
+        // fresh draft has no patches yet, so this simply materializes them.
+        for (const seed of template.seedPatches) {
+          cpMaker.addPatch(seed.workspace, seed.target, seed.action)
+        }
+        if (template.seedPatches.length > 0) {
+          await cpMaker.saveDraft()
+        }
+        if (template.landingModule === null) {
+          openProjectDashboard()
+          return
+        }
+        navigateToPatch(null)
+        openModule(template.landingModule, { hasActiveProject: true, resetHistoryTo: { kind: 'home' } })
+      })
       setCreateDialogOpen(false)
     },
-    [gameRootPath, openProjectDashboard, projectController],
+    [cpMaker, gameRootPath, navigateToPatch, openModule, openProjectDashboard, projectController],
   )
 
   const importFromPath = useCallback(

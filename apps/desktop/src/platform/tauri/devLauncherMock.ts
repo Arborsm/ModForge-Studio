@@ -31,6 +31,7 @@ import type {
   SaveAiSettingsRequest,
   SaveMachineTranslationSettingsRequest,
 } from '@shared/contracts'
+import { createCpMakerMockHandler } from './devLauncherMockCpMaker'
 import { createLocalizationKnowledgeMockHandler } from './devLauncherMockLocalization'
 import { createModTranslationMockHandler } from './devLauncherMockModTranslation'
 import { DEFAULT_LOADING_MOTION_PREFERENCE } from '@shared/lib/loading-motion'
@@ -540,6 +541,7 @@ function createInitialAppUiState(): AppUiState {
     workspace: {
       location: { kind: 'home' },
       navigation: { collapsed: true, expandedSections: ['browse'] },
+      expertMode: false,
       modules: {},
     },
     launcher: {
@@ -650,6 +652,7 @@ export function installDevLauncherMock() {
   exposeLauncherCustomSortState(libraryState)
   const handleLocalizationKnowledgeMockCommand = createLocalizationKnowledgeMockHandler()
   const handleModTranslationMockCommand = createModTranslationMockHandler(DEV_MOCK_GAME_DIRECTORY)
+  const handleCpMakerMockCommand = createCpMakerMockHandler(DEV_MOCK_GAME_DIRECTORY)
 
   mockWindows('main')
   mockConvertFileSrc('windows')
@@ -662,6 +665,10 @@ export function installDevLauncherMock() {
       const modTranslationResult = handleModTranslationMockCommand(command, payload)
       if (modTranslationResult.handled) {
         return modTranslationResult.result
+      }
+      const cpMakerResult = handleCpMakerMockCommand(command, payload)
+      if (cpMakerResult.handled) {
+        return cpMakerResult.result
       }
       switch (command) {
         case 'load_app_ui_state':
@@ -758,7 +765,7 @@ export function installDevLauncherMock() {
             profiles: request.profiles.map((profile) => {
               const previous = machineTranslationSettings.profiles.find((item) => item.id === profile.id)
               const credentialSources: MachineTranslationSettingsSnapshot['profiles'][number]['credentialSources'] = {
-                ...(previous?.credentialSources ?? {}),
+                ...previous?.credentialSources,
               }
               for (const [field, value] of Object.entries(profile.credentials ?? {})) {
                 if (value) credentialSources[field] = 'keychain'

@@ -40,6 +40,7 @@ export function buildBuildingsWorkspacePanels(options: BuildBuildingPanelsOption
     onBuildingFilterChange,
     onSelectBuilding,
     onSelectModBuilding,
+    onOpenBuildingInAuthoring,
   } = options
 
   const withPreviewReveal = (itemId: string, index: number, content: ReactNode) => (
@@ -75,6 +76,7 @@ export function buildBuildingsWorkspacePanels(options: BuildBuildingPanelsOption
           onBuildingFilterChange={onBuildingFilterChange}
           onSelectBuilding={onSelectBuilding}
           onSelectModBuilding={onSelectModBuilding}
+          onOpenBuildingInAuthoring={onOpenBuildingInAuthoring}
         />
       ),
     },

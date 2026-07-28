@@ -5,6 +5,7 @@ pub mod assets;
 pub mod audio;
 pub mod content_patcher;
 pub mod cp_maker;
+pub mod debug_bridge;
 pub mod launcher;
 pub mod localization;
 pub mod logging;

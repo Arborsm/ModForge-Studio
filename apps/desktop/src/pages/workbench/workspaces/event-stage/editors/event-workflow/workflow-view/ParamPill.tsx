@@ -1,8 +1,10 @@
 // 参数胶囊 — 嵌入自然语言句子中的可编辑参数
 
 import { useState, useRef, useEffect, type SyntheticEvent } from 'react'
-import { Film, MapPin, Minus, Package, Plus, Route, User, Music, Volume2, Smile, Palette } from 'lucide-react'
-import { cx } from '@shared/lib/helper'
+import { Film, MapPin, MessageSquareText, Minus, Package, Plus, Route, User, Music, Volume2, Smile, Palette } from 'lucide-react'
+import { cx, formatCopyTemplate } from '@shared/lib/helper'
+import { useDialogueScriptFieldCopy } from '@locales/provider'
+import { DialogueScriptField, parseDialogueScript } from '@entities/dialogue'
 import type { UIControlType, OptionItem } from '../workflow-model/commandSchema'
 import { EventResourcePicker, type EventResourceKind, type EventResourceOption } from './EventResourcePicker'
 import type { EventResourceRegistry } from './eventResourceRegistry'
@@ -245,6 +247,7 @@ export function ParamPill({
   size = 'md',
   variant = 'default',
 }: ParamPillProps) {
+  const dialogueCopy = useDialogueScriptFieldCopy()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -267,6 +270,13 @@ export function ParamPill({
   const isEmpty = !value
 
   function resolveDisplayValue(rawValue: string): string {
+    if (control === 'dialogue_script') {
+      if (!rawValue) return placeholder || label
+      const pages = parseDialogueScript(rawValue).pages
+      const lead = pages[0]?.text.trim() || pages[0]?.raw.trim() || ''
+      const summary = formatCopyTemplate(dialogueCopy.pageCountTemplate, { count: pages.length })
+      return pages.length > 1 ? `${lead} · ${summary}` : lead || summary
+    }
     if (control === 'direction') return variant === 'script' ? directionTokenLabel(rawValue) : directionLabel(rawValue)
     if (control === 'toggle') {
       return rawValue === 'true' ? '是' : rawValue === 'false' ? '否' : rawValue
@@ -310,7 +320,7 @@ export function ParamPill({
           'pill',
           (control === 'npc_selector' || control === 'tile_picker' || control === 'item') && 'accent',
           (control === 'path_picker' || control === 'direction' || control === 'toggle' || control === 'quick_question') && 'muted',
-          control === 'textarea' && 'italic',
+          (control === 'textarea' || control === 'dialogue_script') && 'italic',
           isEmpty && 'text-(--text-tertiary) italic',
           disabled && 'cursor-not-allowed opacity-50',
         )
@@ -351,6 +361,8 @@ export function ParamPill({
         return <Route className={iconSize} />
       case 'color_rgb':
         return <Palette className={iconSize} />
+      case 'dialogue_script':
+        return <MessageSquareText className={iconSize} />
       default:
         return null
     }
@@ -532,6 +544,44 @@ export function ParamPill({
           >
             <Plus className="h-3 w-3" />
           </button>
+        </span>
+      )
+    }
+
+    if (control === 'dialogue_script') {
+      return (
+        <span
+          ref={containerRef}
+          className="inline-grid w-125 gap-2 rounded-md border border-(--accent) bg-(--bg-elevated) p-2 shadow-(--shadow-float)"
+          onPointerDown={stopInteractivePropagation}
+          onClick={stopInteractivePropagation}
+        >
+          <span className="truncate text-[10px] font-semibold tracking-wide text-(--text-tertiary) uppercase">{label}</span>
+          <span className="max-h-96 overflow-auto">
+            <DialogueScriptField value={draft} onChange={setDraft} density="compact" />
+          </span>
+          <span className="flex justify-end gap-1">
+            <button
+              type="button"
+              className="control-button"
+              onClick={() => {
+                setEditing(false)
+                setDraft(value)
+              }}
+            >
+              {dialogueCopy.cancelAction}
+            </button>
+            <button
+              type="button"
+              className="control-button control-button-primary"
+              onClick={() => {
+                setEditing(false)
+                onChange?.(draft)
+              }}
+            >
+              {dialogueCopy.applyAction}
+            </button>
+          </span>
         </span>
       )
     }

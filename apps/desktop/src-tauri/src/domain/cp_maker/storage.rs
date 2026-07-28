@@ -187,15 +187,6 @@ fn normalize_draft_record(mut draft: CpMakerDraftRecord) -> anyhow::Result<CpMak
         );
     }
 
-    for overlay_target in &draft.overlay_targets {
-        if overlay_target.unique_id.trim().is_empty() {
-            bail!(
-                "Cp-maker draft overlayTargets entries must include a uniqueId. [draftStorageKey={}]",
-                draft.draft_storage_key
-            );
-        }
-    }
-
     if draft
         .project_metadata
         .content_pack_for_unique_id
@@ -254,16 +245,6 @@ fn read_draft_record_from_path(
             draft_storage_key,
             path.display()
         );
-    }
-
-    for overlay_target in &draft.overlay_targets {
-        if overlay_target.unique_id.trim().is_empty() {
-            bail!(
-                "Cp-maker draft overlayTargets entries must include a uniqueId. [draftStorageKey={}] [path={}]",
-                draft_storage_key,
-                path.display()
-            );
-        }
     }
 
     Ok(draft)

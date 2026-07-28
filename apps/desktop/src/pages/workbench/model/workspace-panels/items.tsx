@@ -23,6 +23,7 @@ export function buildItemsWorkspacePanels(options: BuildItemPanelsOptions): Work
     onItemFilterChange,
     onSelectItem,
     onSelectModItem,
+    onOpenItemInAuthoring,
     itemStatusMessage,
   } = options
 
@@ -118,6 +119,7 @@ export function buildItemsWorkspacePanels(options: BuildItemPanelsOptions): Work
           onItemFilterChange={onItemFilterChange}
           onSelectItem={onSelectItem}
           onSelectModItem={onSelectModItem}
+          onOpenItemInAuthoring={onOpenItemInAuthoring}
         />
       ),
     },

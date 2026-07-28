@@ -12,6 +12,7 @@ pub mod targets {
     pub const BACKEND_LOG: &str = "BackendLog";
     pub const CLEANUP: &str = "Cleanup";
     pub const SIDECAR: &str = "Sidecar";
+    pub const DEBUG_BRIDGE: &str = "DebugBridge";
     pub const DEV_ASSET_BRIDGE: &str = "DevAssetBridge";
     pub const HOST_RUNTIME: &str = "HostRuntime";
     pub const LAUNCHER: &str = "Launcher";

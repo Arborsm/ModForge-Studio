@@ -1,4 +1,4 @@
-export type WorkspaceId = 'mods' | 'map' | 'events' | 'characters' | 'buildings' | 'items'
+export type WorkspaceId = 'mods' | 'map' | 'events' | 'characters' | 'buildings' | 'items' | 'dialogue' | 'schedules' | 'mail'
 
 export interface ConfigSchemaEntry {
   key: string
@@ -28,11 +28,12 @@ export interface DraftPatch {
   targetField?: string[]
 }
 
-export interface CpMakerOverlayTarget {
+/** One entry of the manifest `Dependencies` list, as SMAPI reads it. */
+export interface CpMakerDependency {
   uniqueId: string
-  displayName: string | null
-  required: boolean
-  source: 'scanned-mod' | 'manual'
+  minimumVersion?: string
+  /** SMAPI treats a dependency without `IsRequired` as required. */
+  isRequired: boolean
 }
 
 export interface CpMakerDraft {
@@ -45,10 +46,11 @@ export interface CpMakerDraft {
     projectUniqueId: string
     gameRootPath: string | null
     contentPackForUniqueId: string
+    contentPackForMinimumVersion?: string
     minimumApiVersion?: string
     updateKeys?: string[]
+    dependencies?: CpMakerDependency[]
   }
-  overlayTargets: CpMakerOverlayTarget[]
   configSchema: ConfigSchemaEntry[]
   patches: DraftPatch[]
   virtualAssets: VirtualPreviewAsset[]

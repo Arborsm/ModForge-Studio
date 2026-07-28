@@ -13,6 +13,15 @@ import type {
 } from '../model'
 
 export type {
+  AssetAuthoringCopy,
+  AssetEnumLabelKey,
+  AssetFieldLabel,
+  AssetFieldLabelKey,
+  AssetGroupLabelKey,
+  AssetIssueMessageKey,
+  AssetIssueParams,
+  AssetPickerKindKey,
+  AssetTextCategoryKey,
   BuildingsPanelCopy,
   CharactersPanelCopy,
   AppMode,

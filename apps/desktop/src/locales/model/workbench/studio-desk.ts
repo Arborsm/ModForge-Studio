@@ -3,8 +3,6 @@ export type StudioDeskCopy = {
   heading: string
   subtitle: string
   heroSubtitle: string
-  designTagsLabel: string
-  designTags: string[]
   projectLobby: string
   projectLobbyControl: string
   projectGrid: string
@@ -27,7 +25,7 @@ export type StudioDeskCopy = {
   returnCurrentDesk: string
   currentActive: string
   pendingExport: string
-  hasConflict: string
+  hasErrors: string
   archived: string
   openProject: string
   selectProject: (name: string) => string
@@ -96,28 +94,11 @@ export type StudioDeskCopy = {
   locationCount: (count: number) => string
   assetCount: (count: number) => string
   castCount: (count: number) => string
-  avatarInitials: string[]
-  avatarOverflow: (count: number) => string
-  scriptPreview: {
-    firstSpeakerInitial: string
-    firstSpeakerName: string
-    firstLine: string
-    secondSpeakerInitial: string
-    secondSpeakerName: string
-    choicesLine: string
-  }
   edited: {
     justNow: string
     recently: string
     minutesAgo: (minutes: number) => string
     hoursAgo: (hours: number) => string
-  }
-  stats: {
-    events: string
-    maps: string
-    festivals: string
-    assets: string
-    conflicts: string
   }
   createDialog: {
     title: string
@@ -128,6 +109,31 @@ export type StudioDeskCopy = {
     description: string
     cancel: string
     create: string
+    templateLabel: string
+    templates: Record<'blank' | 'npc' | 'item' | 'building' | 'map' | 'event' | 'mail', { label: string; description: string }>
+  }
+  manifestForm: {
+    projectName: string
+    uniqueId: string
+    uniqueIdHint: string
+    author: string
+    version: string
+    description: string
+    advancedTitle: string
+    advancedSubtitle: string
+    contentPackFor: string
+    contentPackForHint: string
+    contentPackForMinimumVersion: string
+    minimumApiVersion: string
+    updateKeys: string
+    updateKeysHint: string
+    dependencies: string
+    dependenciesHint: string
+    dependencyUniqueIdPlaceholder: string
+    dependencyMinimumVersionPlaceholder: string
+    dependencyRequired: string
+    addDependency: string
+    removeDependency: string
   }
   exportDialog: {
     title: string
@@ -139,6 +145,10 @@ export type StudioDeskCopy = {
     export: string
     exporting: string
     selectDirectory: string
+    preflightTitle: string
+    preflightOk: string
+    preflightBlocked: (count: number) => string
+    preflightWarnings: (count: number) => string
   }
   addPatchDialog: {
     selectActionTitle: string
@@ -149,6 +159,8 @@ export type StudioDeskCopy = {
     fromFile: string
     includeFromFilePlaceholder: string
     fromFileDescription: string
+    filterPlaceholder: string
+    noSuggestedTargets: string
     customTarget: string
     customTargetPlaceholder: string
     cancel: string
@@ -156,13 +168,81 @@ export type StudioDeskCopy = {
     actionLabels: Record<'EditData' | 'EditImage' | 'EditMap' | 'Load' | 'Include', string>
     actionDescriptions: Record<'EditData' | 'EditImage' | 'EditMap' | 'Load' | 'Include', string>
   }
+  mapTargetList: {
+    title: string
+    subtitle: string
+    searchPlaceholder: string
+    newMapAction: string
+    newMapNamePlaceholder: string
+    newMapConfirm: string
+    newMapCancel: string
+    newMapNameInvalid: string
+    patchedBadge: string
+    sectionProject: string
+    sectionVanilla: string
+    sectionLocationData: string
+    emptyMatches: string
+  }
+  editDataOps: {
+    title: string
+    subtitle: string
+    fieldsTitle: string
+    fieldsHint: string
+    fieldEntryPlaceholder: string
+    fieldNamePlaceholder: string
+    fieldValuePlaceholder: string
+    addField: string
+    moveTitle: string
+    moveHint: string
+    moveIdPlaceholder: string
+    moveTargetPlaceholder: string
+    moveModes: Record<'before' | 'after' | 'position', string>
+    addMove: string
+    textOpsTitle: string
+    textOpsHint: string
+    textOpTargetPlaceholder: string
+    textOpValuePlaceholder: string
+    textOpDelimiterPlaceholder: string
+    textOpSearchPlaceholder: string
+    replaceModeLabel: string
+    addTextOp: string
+    removeRow: string
+  }
+  projectSettings: {
+    title: string
+    subtitle: string
+    basicsTitle: string
+    basicsSubtitle: string
+    configTitle: string
+    configSubtitle: string
+    dynamicTokensTitle: string
+    dynamicTokensSubtitle: string
+    dynamicTokenWhenLabel: string
+    addDynamicToken: string
+    removeRow: string
+    customLocationsTitle: string
+    customLocationsSubtitle: string
+    locationNamePlaceholder: string
+    fromMapFilePlaceholder: string
+    migrateNamesLabel: string
+    migrateNamesPlaceholder: string
+    addLocation: string
+    aliasTitle: string
+    aliasSubtitle: string
+    aliasPlaceholder: string
+    aliasTargetPlaceholder: string
+    addAlias: string
+    formatTitle: string
+    formatVersionLabel: string
+    formatDescription: string
+  }
   editorPage: {
     patchNotFound: string
     noEditorRegistered: (workspaceId: string) => string
     patchName: string
     enabled: string
-    editorStateJson: string
-    invalidJson: string
+    unsupportedAssetTitle: string
+    unsupportedAssetHint: (target: string) => string
   }
   imagePatchEditor: {
     replacementImage: string
@@ -173,6 +253,10 @@ export type StudioDeskCopy = {
     dropHint: string
     loadAction: string
     loadDescription: string
+    targetLoading: string
+    targetLoadFailed: string
+    manualAreasTitle: string
+    manualAreasSubtitle: string
     patchMode: string
     modeLabels: Record<'Replace' | 'Overlay' | 'Mask', string>
     modeDescription: string
@@ -225,7 +309,7 @@ export type StudioDeskCopy = {
     removeTileEdit: string
   }
   referencePreview: {
-    workspaceLabels: Record<'mods' | 'map' | 'events' | 'characters' | 'buildings' | 'items', string>
+    workspaceLabels: Record<'mods' | 'map' | 'events' | 'characters' | 'buildings' | 'items' | 'dialogue' | 'schedules' | 'mail', string>
     noGameDirectoryTitle: string
     noGameDirectorySubtitle: string
     title: (workspaceLabel: string) => string
@@ -253,11 +337,17 @@ export type StudioDeskCopy = {
     noPreview: string
   }
   configSchemaDialog: {
-    propertiesTab: string
-    configTab: string
     closeLabel: string
     patchPropertiesTitle: (name: string) => string
     noPatchSelected: string
+    logName: string
+    advancedTitle: string
+    advancedSubtitle: string
+    targetField: string
+    targetFieldPlaceholder: string
+    targetFieldHint: string
+    tokenInputPlaceholder: string
+    unknownTokenHint: (token: string) => string
     priority: string
     priorityLoadPlaceholder: string
     priorityPatchPlaceholder: string
@@ -279,7 +369,6 @@ export type StudioDeskCopy = {
     tokenNamePlaceholder: string
     valuePlaceholder: string
     addToken: string
-    configDescription: string
     keyPlaceholder: string
     defaultPlaceholder: string
     allowValuesLabel: string
@@ -297,12 +386,15 @@ export type StudioDeskCopy = {
   toolbar: {
     back: string
     forward: string
+    undo: string
+    redo: string
     editView: string
     unsaved: string
     saved: string
     project: string
     add: string
-    config: string
+    patchSettings: string
+    projectSettings: string
     reload: string
     save: string
     saveDirty: string
@@ -361,6 +453,8 @@ export type StudioDeskCopy = {
     multiSelectLabel: string
     selectedCountLabel: (count: number) => string
     addEventLabel: string
+    /** Alias given to a freshly created event scene, e.g. "Untitled Town event 3". */
+    untitledEventAlias: (location: string, index: number) => string
     contextMenuLabel: string
     configurePatchAction: string
     duplicatePatchAction: string
@@ -642,7 +736,6 @@ export type StudioDeskCopy = {
     involvedActorsLabel: string
     commandMetricLabel: string
     patchConfigTitle: string
-    exportReadyLabel: string
     exportBlockedLabel: string
     eventCountLabel: string
     selectedEventLabel: string

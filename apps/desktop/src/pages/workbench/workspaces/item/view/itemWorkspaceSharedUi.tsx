@@ -2,8 +2,8 @@ import { Heart } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useItemsCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
-import { getContainedItemSpriteScale, type ItemGiftTasteNpc, type ItemTextureAssetState, type ItemWorkspaceEntry } from '../entities/item'
-import { ItemSprite } from '../entities/item'
+import { getContainedItemSpriteScale, type ItemGiftTasteNpc, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
+import { ItemSprite } from '@entities/item'
 import type { AsideRow, SourceCard, UseCard } from './itemWorkspaceTypes'
 
 export function EmptyNotice({ message }: { message: string }) {

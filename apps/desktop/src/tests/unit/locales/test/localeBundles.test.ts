@@ -29,10 +29,18 @@ const DOMAIN_FILES = [
   'workbench/translation-editor.ts',
   'workbench/event-stage.ts',
   'workbench/characters.ts',
+  'workbench/character-data.ts',
   'workbench/buildings.ts',
   'workbench/items.ts',
   'workbench/view-menu.ts',
   'workbench/world-atlas.ts',
+  'workbench/dialogue.ts',
+  'workbench/schedule.ts',
+  'workbench/mail.ts',
+  'workbench/debugger.ts',
+  'workbench/ai-localization.ts',
+  'workbench/i18n-generator.ts',
+  'guides.ts',
 ]
 
 describe('typed locale bundles', () => {

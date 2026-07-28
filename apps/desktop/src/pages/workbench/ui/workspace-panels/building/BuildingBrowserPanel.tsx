@@ -1,6 +1,6 @@
-import { Building2, ChevronDown, Home, MapPin, Package, Search, Sparkles, Store, type LucideIcon } from 'lucide-react'
+import { Building2, ChevronDown, Home, MapPin, Package, PenLine, Search, Sparkles, Store, type LucideIcon } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import type { ConstructibleBuildingGroup, BuildingWorkspaceEntry } from '../../../workspaces/building'
+import type { ConstructibleBuildingGroup, BuildingWorkspaceEntry } from '@entities/building'
 import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup } from '@pages/workbench/workspaces/mod'
 import { useBuildingsCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
@@ -49,22 +49,19 @@ type BuildingBrowserPanelProps = {
   onBuildingFilterChange: (value: string) => void
   onSelectBuilding: (buildingKey: string) => void
   onSelectModBuilding: (entry: ModBrowserEntry<BuildingWorkspaceEntry>) => void
+  onOpenBuildingInAuthoring: (buildingKey: string) => void
 }
 
+/**
+ * Groups world buildings by the layer their location seed assigns them, keeping
+ * the seed's render order. Titles stay out of the data: the panel resolves them
+ * from the dictionary by key, so a layer never renders an English literal.
+ */
 function buildWorldBuildingSections(worldBuildings: BuildingWorkspaceEntry[]) {
-  const sections = new Map<
-    string,
-    {
-      key: string
-      title: string
-      order: number
-      items: BuildingWorkspaceEntry[]
-    }
-  >()
+  const sections = new Map<string, { key: string; order: number; items: BuildingWorkspaceEntry[] }>()
 
   for (const building of worldBuildings) {
     const key = building.metadata.worldSeedGroupKey ?? 'ungrouped'
-    const title = building.metadata.worldSeedGroupLabel ?? building.groupDisplayName
     const order = Number.parseInt(building.metadata.worldSeedGroupOrder ?? '999', 10)
     const existing = sections.get(key)
     if (existing) {
@@ -72,21 +69,10 @@ function buildWorldBuildingSections(worldBuildings: BuildingWorkspaceEntry[]) {
       continue
     }
 
-    sections.set(key, {
-      key,
-      title,
-      order,
-      items: [building],
-    })
+    sections.set(key, { key, order, items: [building] })
   }
 
-  return Array.from(sections.values()).sort((left, right) => {
-    if (left.order !== right.order) {
-      return left.order - right.order
-    }
-
-    return left.title.localeCompare(right.title)
-  })
+  return Array.from(sections.values()).sort((left, right) => left.order - right.order || left.key.localeCompare(right.key))
 }
 
 function buildConstructibleSections(constructibleGroups: ConstructibleBuildingGroup[]) {
@@ -158,6 +144,7 @@ function CatalogRow({
   glyph,
   isActive,
   onSelect,
+  onOpenInAuthoring,
   revealIndex,
 }: {
   title: string
@@ -166,8 +153,11 @@ function CatalogRow({
   glyph: GlyphKind
   isActive: boolean
   onSelect: () => void
+  /** Only constructible buildings have a `Data/Buildings` record to author. */
+  onOpenInAuthoring?: () => void
   revealIndex: number
 }) {
+  const copy = useBuildingsCopy()
   const Icon = GLYPH_ICON[glyph]
   const revealProps = getLoadingMotionChildRevealProps({
     index: revealIndex,
@@ -175,16 +165,29 @@ function CatalogRow({
   })
 
   return (
-    <button type="button" {...revealProps} aria-pressed={isActive} onClick={onSelect}>
-      <span className="building-workspace-browser-glyph" aria-hidden="true">
-        <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
-      </span>
-      <span className="building-workspace-browser-copy">
-        <span className="building-workspace-browser-title">{title}</span>
-        <span className="building-workspace-browser-meta">{hint}</span>
-      </span>
-      {meta != null && meta !== '' ? <span className="building-workspace-browser-count">{meta}</span> : <span />}
-    </button>
+    <div {...revealProps}>
+      <button type="button" className="building-workspace-browser-row-main" aria-pressed={isActive} onClick={onSelect}>
+        <span className="building-workspace-browser-glyph" aria-hidden="true">
+          <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
+        </span>
+        <span className="building-workspace-browser-copy">
+          <span className="building-workspace-browser-title">{title}</span>
+          <span className="building-workspace-browser-meta">{hint}</span>
+        </span>
+        {meta != null && meta !== '' ? <span className="building-workspace-browser-count">{meta}</span> : <span />}
+      </button>
+      {onOpenInAuthoring ? (
+        <button
+          type="button"
+          className="icon-button building-workspace-browser-row-jump"
+          aria-label={copy.openInAuthoringAction}
+          title={copy.openInAuthoringHint}
+          onClick={onOpenInAuthoring}
+        >
+          <PenLine className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+    </div>
   )
 }
 
@@ -204,8 +207,16 @@ export function BuildingBrowserPanel({
   onBuildingFilterChange,
   onSelectBuilding,
   onSelectModBuilding,
+  onOpenBuildingInAuthoring,
 }: BuildingBrowserPanelProps) {
   const copy = useBuildingsCopy()
+  const worldSectionTitles: Record<string, string> = {
+    merchants: copy.browserGroupMerchants,
+    houses: copy.browserGroupHouses,
+    other: copy.browserGroupOther,
+    ungrouped: copy.browserGroupUngrouped,
+  }
+  const worldSectionTitle = (key: string) => worldSectionTitles[key] ?? copy.browserGroupUngrouped
   const filteredCount = filteredConstructibleGroups.length + filteredWorldBuildings.length
   const totalCount = constructibleGroups.length + worldBuildings.length
   const worldSections = buildWorldBuildingSections(filteredWorldBuildings)
@@ -266,6 +277,9 @@ export function BuildingBrowserPanel({
                       glyph="mod"
                       isActive={entry.selectionId === activeModBuildingSelectionId}
                       onSelect={() => onSelectModBuilding(entry)}
+                      onOpenInAuthoring={
+                        building.sourceKind === 'constructible' ? () => onOpenBuildingInAuthoring(building.key) : undefined
+                      }
                       revealIndex={groupIndex + itemIndex}
                     />
                   )
@@ -278,7 +292,7 @@ export function BuildingBrowserPanel({
         ) : filteredCount ? (
           <>
             {merchantSection?.items.length ? (
-              <CollapsibleGroup groupKey="merchants" title={merchantSection.title} count={merchantSection.items.length}>
+              <CollapsibleGroup groupKey="merchants" title={worldSectionTitle('merchants')} count={merchantSection.items.length}>
                 {merchantSection.items.map((building, index) => (
                   <CatalogRow
                     key={building.key}
@@ -295,7 +309,7 @@ export function BuildingBrowserPanel({
             ) : null}
 
             {houseSection?.items.length ? (
-              <CollapsibleGroup groupKey="houses" title={houseSection.title} count={houseSection.items.length}>
+              <CollapsibleGroup groupKey="houses" title={worldSectionTitle('houses')} count={houseSection.items.length}>
                 {houseSection.items.map((building, index) => (
                   <CatalogRow
                     key={building.key}
@@ -325,6 +339,7 @@ export function BuildingBrowserPanel({
                         glyph="farm"
                         isActive={group.key === activeBuildingGroupKey}
                         onSelect={() => onSelectBuilding(group.rootEntry.key)}
+                        onOpenInAuthoring={() => onOpenBuildingInAuthoring(group.rootEntry.key)}
                         revealIndex={index}
                       />
                     ))}
@@ -342,6 +357,7 @@ export function BuildingBrowserPanel({
                         glyph="spark"
                         isActive={group.key === activeBuildingGroupKey}
                         onSelect={() => onSelectBuilding(group.rootEntry.key)}
+                        onOpenInAuthoring={() => onOpenBuildingInAuthoring(group.rootEntry.key)}
                         revealIndex={index}
                       />
                     ))}
@@ -359,6 +375,7 @@ export function BuildingBrowserPanel({
                         glyph="farm"
                         isActive={group.key === activeBuildingGroupKey}
                         onSelect={() => onSelectBuilding(group.rootEntry.key)}
+                        onOpenInAuthoring={() => onOpenBuildingInAuthoring(group.rootEntry.key)}
                         revealIndex={index}
                       />
                     ))}
@@ -368,7 +385,7 @@ export function BuildingBrowserPanel({
             ) : null}
 
             {otherSection?.items.length ? (
-              <CollapsibleGroup groupKey="other" title={otherSection.title} count={otherSection.items.length} defaultOpen={false}>
+              <CollapsibleGroup groupKey="other" title={worldSectionTitle('other')} count={otherSection.items.length} defaultOpen={false}>
                 {otherSection.items.map((building, index) => (
                   <CatalogRow
                     key={building.key}
@@ -388,7 +405,7 @@ export function BuildingBrowserPanel({
               <CollapsibleGroup
                 key={section.key}
                 groupKey={section.key}
-                title={section.title}
+                title={worldSectionTitle(section.key)}
                 count={section.items.length}
                 defaultOpen={false}
               >

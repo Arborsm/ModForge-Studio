@@ -1,9 +1,13 @@
 import { getSpringObjectsSourceRect } from '@entities/event'
-import { buildAbsoluteSpriteLayerStyle } from './buildingViewHelpers'
 import { formatPoint } from '@shared/infra/game-formats/geometryFormatting'
 import { useBuildingsCopy } from '@locales/provider'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
-import type { BuildingTextureAssetState, BuildingWorkspaceEntry, WorldBuildingEntrance } from '../entities/building'
+import {
+  buildAbsoluteSpriteLayerStyle,
+  type BuildingTextureAssetState,
+  type BuildingWorkspaceEntry,
+  type WorldBuildingEntrance,
+} from '@entities/building'
 import type { BuildingsPanelCopy } from '@locales/api'
 
 export type BuildingMaterialsPanelProps = {

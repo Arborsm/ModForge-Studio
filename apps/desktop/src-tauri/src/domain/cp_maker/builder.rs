@@ -1,6 +1,6 @@
 use super::types::{
-    ChangeRegistry, ChangeRegistryPatch, CpMakerDraftRecord, CpMakerI18nFile, CpMakerMetadata,
-    CustomLocation, DynamicToken,
+    ChangeRegistry, ChangeRegistryPatch, CpMakerDependency, CpMakerDraftRecord, CpMakerI18nFile,
+    CpMakerMetadata, CustomLocation, DynamicToken,
 };
 use crate::infrastructure::text_encoding::read_text_file;
 use anyhow::{Context, bail};
@@ -62,7 +62,6 @@ pub fn import_cp_maker_pack(mod_directory_path: &str) -> anyhow::Result<CpMakerD
     Ok(CpMakerDraftRecord {
         draft_storage_key,
         project_metadata: metadata,
-        overlay_targets: Vec::new(),
         config_schema_draft,
         serialized_change_registry: serde_json::to_value(registry)
             .context("Failed to serialize change registry")?,
@@ -160,13 +159,41 @@ fn parse_manifest_json(manifest_json: &str) -> anyhow::Result<(CpMakerMetadata, 
         .to_string();
     let unique_id = get_string("UniqueID")?;
 
-    let content_pack_for = obj
-        .get("ContentPackFor")
-        .and_then(|v| v.as_object())
+    let content_pack_for_object = obj.get("ContentPackFor").and_then(|v| v.as_object());
+    let content_pack_for = content_pack_for_object
         .and_then(|o| o.get("UniqueID"))
         .and_then(Value::as_str)
         .unwrap_or("Pathoschild.ContentPatcher")
         .to_string();
+    let content_pack_for_minimum_version = content_pack_for_object
+        .and_then(|o| o.get("MinimumVersion"))
+        .and_then(Value::as_str)
+        .map(|s| s.to_string());
+
+    let dependencies = obj
+        .get("Dependencies")
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(Value::as_object)
+                .filter_map(|entry| {
+                    let unique_id = entry.get("UniqueID").and_then(Value::as_str)?;
+                    Some(CpMakerDependency {
+                        unique_id: unique_id.to_string(),
+                        minimum_version: entry
+                            .get("MinimumVersion")
+                            .and_then(Value::as_str)
+                            .map(|s| s.to_string()),
+                        // SMAPI defaults a dependency to required when the key is absent.
+                        is_required: entry
+                            .get("IsRequired")
+                            .and_then(Value::as_bool)
+                            .unwrap_or(true),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
 
     let minimum_api_version = obj
         .get("MinimumApiVersion")
@@ -197,8 +224,10 @@ fn parse_manifest_json(manifest_json: &str) -> anyhow::Result<(CpMakerMetadata, 
             project_unique_id: unique_id,
             game_root_path: None,
             content_pack_for_unique_id: content_pack_for,
+            content_pack_for_minimum_version,
             minimum_api_version,
             update_keys,
+            dependencies,
         },
         config_schema,
     ))

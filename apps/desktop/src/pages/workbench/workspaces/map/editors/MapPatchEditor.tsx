@@ -1,27 +1,14 @@
 import { useEffect, useId, useMemo, useState } from 'react'
 import { AlertCircle, CheckCircle2, Crosshair, Hammer, Loader2, Plus, Trash2 } from 'lucide-react'
-import type { DraftPatch, CpMakerDraft } from '@features/cp-maker'
-import type { VirtualPreviewAsset } from '@features/cp-maker'
+import type { EditorComponent, VirtualPreviewAsset } from '@features/cp-maker'
 import type { TileHoverInfo } from '@entities/map'
-import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
+import type { LocaleCode, ThemeMode } from '@locales/api'
 import type { MapDocument } from '@entities/map'
 import { loadMapAsset } from '@entities/game/api'
 import { buildCpMakerMapAsset } from '@features/cp-maker/api'
 import { MapViewport } from '@entities/map'
 import { useEditorCopy } from '@locales/provider'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
-
-interface MapPatchEditorProps {
-  patch: DraftPatch
-  draft: CpMakerDraft
-  onPatchChange: (patchId: string, patch: Partial<DraftPatch>) => void
-  onAddVirtualAsset: (asset: { relativePath: string; mediaType: string; bytesBase64: string }) => void
-  onRemoveVirtualAsset?: (relativePath: string) => void
-  locale?: LocaleCode
-  theme?: ThemeMode
-  accentColor?: string
-  viewportLabels?: ViewportLabels
-}
 
 type MapEditorTab = 'properties' | 'warps' | 'tiles' | 'file'
 
@@ -39,16 +26,9 @@ type LoadedMapState = {
   error: string | null
 }
 
-export function MapPatchEditor({
-  patch,
-  draft,
-  onPatchChange,
-  onAddVirtualAsset,
-  locale = 'en-US',
-  theme = 'dark',
-  accentColor = 'var(--accent)',
-  viewportLabels = {} as ViewportLabels,
-}: MapPatchEditorProps) {
+export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources }) => {
+  const { draft, updatePatch: onPatchChange, addVirtualAsset: onAddVirtualAsset } = draftPort
+  const { locale, theme, accentColor } = resources
   const copy = useEditorCopy().studioDesk.mapPatchEditor
   const [activeTab, setActiveTab] = useState<MapEditorTab>('properties')
   const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
@@ -228,7 +208,6 @@ export function MapPatchEditor({
             locale={locale}
             theme={theme}
             accentColor={accentColor}
-            viewportLabels={viewportLabels}
             gameRootPath={gameRootPath}
             onBuildAsset={() => setBuildDialogOpen(true)}
             mapTiles={mapTiles}
@@ -639,7 +618,6 @@ function MapTilesEditor({
   locale: LocaleCode
   theme: ThemeMode
   accentColor: string
-  viewportLabels: ViewportLabels
   gameRootPath: string | null
   onBuildAsset: () => void
   mapTiles: MapTileEdit[]

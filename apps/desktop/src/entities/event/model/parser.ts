@@ -186,6 +186,11 @@ function formatActorMoveGroups(args: string[]) {
   return groups
 }
 
+/** True when a Content Patcher target names a location event asset (Data/Events/<Location>). */
+export function isEventAssetTarget(target: string): boolean {
+  return /^Data\/Events\/[^/]+$/iu.test(target.trim())
+}
+
 /** Splits an event data key into event id and precondition segments. */
 export function splitEventPreconditions(rawKey: string) {
   return splitOutsideQuotes(rawKey, '/')

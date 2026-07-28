@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { Languages } from 'lucide-react'
 import type { ContentPatcherI18nFile } from '@entities/mod/api'
+import { buildI18nExtraction } from '@features/cp-maker'
 import { defaultTargetLocaleForAppLocale, TranslationWorkflow, type TranslationStatusFilter } from '@features/translation-editor'
-import { useLocale } from '@locales/provider'
+import { useLocale, useTranslationEditorCopy } from '@locales/provider'
 import { useWorkbenchProject } from '../../model/workbenchModuleContexts'
 import { useWorkbenchEnvironment } from '../../model/workbenchModuleContexts'
 import { openLocalizationCenter } from '../model/localizationNavigation'
@@ -20,10 +22,12 @@ export default function ProjectTranslationModuleRuntime() {
   const project = useWorkbenchProject()
   const environment = useWorkbenchEnvironment()
   const appLocale = useLocale()
+  const copy = useTranslationEditorCopy()
   const [sourceLocale, setSourceLocale] = useState('default')
   const [targetLocale, setTargetLocale] = useState(() => defaultTargetLocaleForAppLocale(appLocale))
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<TranslationStatusFilter>('all')
+  const [bootstrapping, setBootstrapping] = useState(false)
   const activeDraft = project.activeDraft
   const files: ContentPatcherI18nFile[] = project.i18nFiles.map((file) => ({
     ...file,
@@ -31,6 +35,48 @@ export default function ProjectTranslationModuleRuntime() {
     relativePath: `i18n/${file.locale}.json`,
     entryCount: countEntries(file.rawJson),
   }))
+
+  // Bootstrap: a fresh draft has no i18n files at all, so the workflow can
+  // never start. Offer to extract the authored text into `default.json`.
+  if (activeDraft && project.i18nFiles.length === 0) {
+    const extraction = buildI18nExtraction(activeDraft)
+    async function handleBootstrap() {
+      setBootstrapping(true)
+      try {
+        for (const [patchId, editorState] of extraction.editorStates) {
+          project.updatePatch(patchId, { editorState })
+        }
+        project.upsertI18nEntries('default', extraction.entries)
+        if (extraction.rewrittenCount === 0) {
+          project.upsertI18nEntries('default', {})
+        }
+        await project.saveDraft()
+      } finally {
+        setBootstrapping(false)
+      }
+    }
+    return (
+      <div className="flex h-full items-center justify-center overflow-auto p-6">
+        <div className="w-full max-w-lg rounded-lg border border-(--border-color) bg-(--bg-panel) p-6">
+          <Languages className="h-6 w-6 text-(--accent)" />
+          <h1 className="mt-2 text-base font-medium text-(--text-primary)">{copy.bootstrapTitle}</h1>
+          <p className="mt-2 text-sm text-(--text-secondary)">{copy.bootstrapDescription}</p>
+          <p className="mt-3 text-sm text-(--text-secondary)">
+            {extraction.rewrittenCount > 0 ? copy.bootstrapFound(extraction.rewrittenCount) : copy.bootstrapEmpty}
+          </p>
+          <button
+            type="button"
+            className="control-button control-button-primary mt-4"
+            disabled={bootstrapping}
+            onClick={() => void handleBootstrap()}
+          >
+            {bootstrapping ? copy.bootstrapRunning : copy.bootstrapAction}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <TranslationWorkflow
       project={activeDraft ? { name: activeDraft.projectMetadata.projectName, rootPath: activeDraft.draftStorageKey } : null}

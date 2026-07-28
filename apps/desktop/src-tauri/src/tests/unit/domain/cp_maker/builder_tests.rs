@@ -43,6 +43,50 @@ fn imports_manifest_metadata() {
 }
 
 #[test]
+fn imports_dependencies_and_the_content_pack_minimum_version() {
+    let root = create_temp_dir("import-dependencies");
+    write_file(
+        &root.join("manifest.json"),
+        r#"{
+  "Name": "TestMod",
+  "Author": "Author",
+  "Version": "1.0.0",
+  "UniqueID": "Author.TestMod",
+  "ContentPackFor": { "UniqueID": "Pathoschild.ContentPatcher", "MinimumVersion": "2.5.0" },
+  "Dependencies": [
+    { "UniqueID": "Author.Required", "MinimumVersion": "1.2.0" },
+    { "UniqueID": "Author.Optional", "IsRequired": false },
+    { "MinimumVersion": "9.9.9" }
+  ]
+}"#,
+    );
+    write_file(
+        &root.join("content.json"),
+        r#"{"Format": "2.0.0", "Changes": []}"#,
+    );
+
+    let draft = import_cp_maker_pack(root.to_str().unwrap()).unwrap();
+    assert_eq!(
+        draft.project_metadata.content_pack_for_minimum_version,
+        Some("2.5.0".to_string())
+    );
+    // The third entry has no `UniqueID`, so SMAPI could not resolve it either.
+    assert_eq!(draft.project_metadata.dependencies.len(), 2);
+
+    let required = &draft.project_metadata.dependencies[0];
+    assert_eq!(required.unique_id, "Author.Required");
+    assert_eq!(required.minimum_version, Some("1.2.0".to_string()));
+    assert!(required.is_required, "absent IsRequired means required");
+
+    let optional = &draft.project_metadata.dependencies[1];
+    assert_eq!(optional.unique_id, "Author.Optional");
+    assert_eq!(optional.minimum_version, None);
+    assert!(!optional.is_required);
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
 fn imports_i18n_files_into_the_managed_draft() {
     let root = create_temp_dir("import-i18n");
     write_file(

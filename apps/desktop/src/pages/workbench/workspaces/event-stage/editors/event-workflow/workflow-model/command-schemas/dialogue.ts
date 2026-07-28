@@ -20,7 +20,7 @@ export const dialogueCommandSchemas = [
         options: ACTOR_OPTIONS,
       },
       { type: 'text', copyKey: 'speak.template2' },
-      { type: 'param', index: 2, labelKey: 'speak.param2.label', ui: 'textarea', placeholderKey: 'speak.param2.placeholder' },
+      { type: 'param', index: 2, labelKey: 'speak.param2.label', ui: 'dialogue_script', placeholderKey: 'speak.param2.placeholder' },
     ],
     stageMeta: { affectsActorEmotion: true },
   },
@@ -41,7 +41,13 @@ export const dialogueCommandSchemas = [
         options: ACTOR_OPTIONS,
       },
       { type: 'text', copyKey: 'splitSpeak.template2' },
-      { type: 'param', index: 2, labelKey: 'splitSpeak.param2.label', ui: 'textarea', placeholderKey: 'splitSpeak.param2.placeholder' },
+      {
+        type: 'param',
+        index: 2,
+        labelKey: 'splitSpeak.param2.label',
+        ui: 'dialogue_script',
+        placeholderKey: 'splitSpeak.param2.placeholder',
+      },
     ],
     stageMeta: { affectsActorEmotion: true },
   },
@@ -53,7 +59,7 @@ export const dialogueCommandSchemas = [
     icon: 'MessageSquare',
     template: [
       { type: 'text', copyKey: 'message.template1' },
-      { type: 'param', index: 1, labelKey: 'message.param1.label', ui: 'textarea', placeholderKey: 'message.param1.placeholder' },
+      { type: 'param', index: 1, labelKey: 'message.param1.label', ui: 'dialogue_script', placeholderKey: 'message.param1.placeholder' },
     ],
   },
 

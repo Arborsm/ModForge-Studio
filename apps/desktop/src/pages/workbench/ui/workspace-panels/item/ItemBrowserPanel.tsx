@@ -1,9 +1,9 @@
 import { Search } from 'lucide-react'
 import { useItemsCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
-import { getContainedItemSpriteScale, type ItemTextureAssetState, type ItemWorkspaceEntry } from '../../../workspaces/item'
+import { getContainedItemSpriteScale, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
 import { PanelFrame } from '@shared/ui/PanelFrame'
-import { ItemSprite } from '../../../workspaces/item'
+import { ItemSprite } from '@entities/item'
 import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
 
 type ItemBrowserPanelProps = {

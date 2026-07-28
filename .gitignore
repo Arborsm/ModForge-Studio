@@ -11,6 +11,8 @@ apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/tests/fixtures/**/target/
 apps/desktop/tools/gmcm-probe/bin
 apps/desktop/tools/gmcm-probe/obj
+apps/desktop/tools/debug-bridge/bin
+apps/desktop/tools/debug-bridge/obj
 
 services/**/bin/
 services/**/obj/

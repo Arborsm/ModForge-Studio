@@ -50,6 +50,11 @@ export type ItemsPanelCopy = {
   inspectorTitle: string
   inspectorSubtitle: string
   inspectorEmpty: string
+  /** Jump from the codex into the authoring page for this item's asset family. */
+  openInAuthoringAction: string
+  openInAuthoringHint: string
+  /** Shown instead when the family has no structured editor yet. */
+  openInAuthoringRawHint: string
   basicsTitle: string
   assetTitle: string
   displayNameLabel: string

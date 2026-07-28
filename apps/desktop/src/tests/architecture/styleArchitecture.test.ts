@@ -43,7 +43,7 @@ const TS_COLOR_LITERAL_ALLOWLIST = new Set([
   'entities/map/ui/mapViewportHelpers.ts',
   // Item/appearance sprite rendering.
   'pages/workbench/ui/PlayerAppearanceWindow.tsx',
-  'pages/workbench/workspaces/item/entities/item/view/ItemSprite.tsx',
+  'entities/item/ui/ItemSprite.tsx',
   // Event stage preview overlays render to canvas.
   'pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventStagePreview.tsx',
   'pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/StagePathOverlay.tsx',

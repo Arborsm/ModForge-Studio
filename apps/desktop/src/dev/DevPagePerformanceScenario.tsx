@@ -12,11 +12,11 @@ import type { StudioDeskGalleryProject, StudioDeskInspiration, StudioDeskModel, 
 import { WorkbenchHomePage } from '@pages/workbench/ui/WorkbenchHomePage'
 import { EventPatchEditor } from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventPatchEditor'
 import ItemWorkspace from '@pages/workbench/workspaces/item/view/ItemWorkspace'
-import type { ItemTextureAssetState, ItemWorkspaceEntry } from '@pages/workbench/workspaces/item/entities/item'
+import type { ItemTextureAssetState, ItemWorkspaceEntry } from '@entities/item'
 import BuildingWorkspace from '@pages/workbench/workspaces/building/view/BuildingWorkspace'
-import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '@pages/workbench/workspaces/building/entities/building'
+import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '@entities/building'
 import { MapPatchEditor } from '@pages/workbench/workspaces/map/editors/MapPatchEditor'
-import type { CpMakerDraft, DraftPatch, WorkspaceId } from '@features/cp-maker'
+import { createAssetDraftPort, type CpMakerDraft, type DraftPatch, type EditorResources, type WorkspaceId } from '@features/cp-maker'
 import type { LauncherPage as LauncherPageId } from '@locales/api'
 
 type PageScenarioId =
@@ -65,7 +65,7 @@ function createWorldBible(count: number): StudioDeskWorldBibleModel {
     story: makeEntries('story'),
     items: makeEntries('item'),
     scenes: makeEntries('scene'),
-    conflictCount: Math.floor(count / 16),
+    errorCount: Math.floor(count / 16),
   }
 }
 
@@ -91,10 +91,10 @@ function createGalleryProjects(count: number): StudioDeskGalleryProject[] {
     lastEditedAt: Date.now() - index * 90_000,
     lastExportedAt: index % 5 === 0 ? null : Date.now() - index * 180_000,
     isCurrent: index === 0,
-    statuses: index % 9 === 0 ? ['conflict'] : ['export'],
+    statuses: index % 9 === 0 ? ['error'] : ['export'],
     searchText: `page performance content pack ${index} ModForge.PagePerformance.${index}`,
     coverTone: tones[index % tones.length],
-    conflictCount: index % 9 === 0 ? 3 : 0,
+    errorCount: index % 9 === 0 ? 3 : 0,
     needsMetadata: index % 14 === 0,
   }))
 }
@@ -120,9 +120,9 @@ function createStudioDeskModel(count: number): StudioDeskModel {
     stats: {
       eventCount: count,
       mapCount: Math.floor(count / 3),
-      festivalCount: Math.floor(count / 8),
       assetCount: Math.floor(count / 2),
-      conflictCount: Math.floor(count / 10),
+      errorCount: Math.floor(count / 10),
+      warningCount: Math.floor(count / 6),
     },
     worldBible: createWorldBible(Math.max(64, Math.floor(count / 3))),
     exportSummary: {
@@ -148,6 +148,37 @@ function createDraftPatch(index: number, workspace: WorkspaceId = workspaceFor(i
   }
 }
 
+const scenarioEditorResources: EditorResources = {
+  locale: 'en-US',
+  theme: 'dark',
+  accentColor,
+  gameRootPath: null,
+  directoryInfo: null,
+  playerAppearanceProfile: null,
+  onOpenPlayerAppearanceWindow: noop,
+}
+
+function createScenarioDraftPort(
+  draft: CpMakerDraft,
+  onPatchChange: (patch: Partial<DraftPatch>) => void,
+  selectedEntryKey: string | null,
+) {
+  return createAssetDraftPort({
+    draft,
+    activePatchId: draft.patches[0]?.id ?? null,
+    onPatchChange: (_patchId, nextPatch) => onPatchChange(nextPatch),
+    onAddVirtualAsset: noop,
+    onRemoveVirtualAsset: noop,
+    onSaveDraft: noop,
+    onReloadDraft: noop,
+    onOpenConfig: noop,
+    isDirty: false,
+    selectedEntryKey,
+    onPatchAdd: () => undefined,
+    onSelectEntry: noop,
+  })
+}
+
 function createCpMakerDraft(patches: DraftPatch[] = []): CpMakerDraft {
   return {
     draftStorageKey: 'page-performance-draft',
@@ -162,7 +193,6 @@ function createCpMakerDraft(patches: DraftPatch[] = []): CpMakerDraft {
       minimumApiVersion: '2.7.0',
       updateKeys: ['Nexus:900001'],
     },
-    overlayTargets: [],
     configSchema: [],
     patches,
     virtualAssets: [],
@@ -355,6 +385,7 @@ function createBuildingStage(index: number, stageCount: number): BuildingWorkspa
   return {
     sourceKind: 'constructible',
     key,
+    rawEntry: {},
     groupKey: 'performance-building',
     groupDisplayName: 'Performance Barn',
     rawDisplayName: `Performance Barn ${index + 1}`,
@@ -834,7 +865,6 @@ const performanceCpMakerPort: CpMakerPort = {
         gameRootPath: null,
         contentPackForUniqueId: 'Pathoschild.ContentPatcher',
       },
-      overlayTargets: [],
       configSchema: [],
       patches: [],
       virtualAssets: [],
@@ -902,7 +932,8 @@ function WorkbenchHomeScenario() {
         studioDeskModel={effectiveModel}
         taskSummary={{
           exportCount: effectiveModel.gallery.projects.filter((project) => project.statuses.includes('export')).length,
-          conflictCount: effectiveModel.stats.conflictCount,
+          errorCount: effectiveModel.stats.errorCount,
+          warningCount: effectiveModel.stats.warningCount,
           directoryStatus: gameDirectoryStatus,
         }}
         onProjectModuleOpen={noop}
@@ -927,16 +958,13 @@ function EventStageEditorScenario() {
     <ScenarioFrame id="event-stage-editor">
       <EventPatchEditor
         patch={patch}
-        draft={draft}
-        onPatchChange={(_, nextPatch) => setPatch((current) => ({ ...current, ...nextPatch }))}
-        onAddVirtualAsset={noop}
-        locale="en-US"
-        theme="dark"
-        accentColor={accentColor}
-        viewportLabels={editorCopy.viewportLabels}
-        selectedEventKey={Object.keys((patch.editorState as { entries?: Record<string, unknown> }).entries ?? {})[0] ?? null}
-        gameRootPath={null}
-        directoryInfo={null}
+        schema={null}
+        draftPort={createScenarioDraftPort(
+          draft,
+          (nextPatch) => setPatch((current) => ({ ...current, ...nextPatch })),
+          Object.keys((patch.editorState as { entries?: Record<string, unknown> }).entries ?? {})[0] ?? null,
+        )}
+        resources={scenarioEditorResources}
       />
     </ScenarioFrame>
   )
@@ -1047,13 +1075,9 @@ function MapPatchEditorScenario() {
     <ScenarioFrame id="map-patch-editor">
       <MapPatchEditor
         patch={patch}
-        draft={draft}
-        onPatchChange={(_, nextPatch) => setPatch((current) => ({ ...current, ...nextPatch }))}
-        onAddVirtualAsset={noop}
-        locale="en-US"
-        theme="dark"
-        accentColor={accentColor}
-        viewportLabels={editorCopy.viewportLabels}
+        schema={null}
+        draftPort={createScenarioDraftPort(draft, (nextPatch) => setPatch((current) => ({ ...current, ...nextPatch })), null)}
+        resources={scenarioEditorResources}
       />
     </ScenarioFrame>
   )

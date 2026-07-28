@@ -1,24 +1,33 @@
 import { useId, useState } from 'react'
-import { FolderOpen } from 'lucide-react'
+import { AlertTriangle, CircleAlert, FolderOpen } from 'lucide-react'
 import { useCpMakerPort } from '@features/cp-maker/provider'
-import { useEditorCopy } from '@locales/provider'
+import { useAssetAuthoringCopy, useEditorCopy } from '@locales/provider'
+import type { AssetIssue } from '@entities/asset-schema'
+import { countAssetIssues } from '@entities/asset-schema'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 interface ExportDialogProps {
   open: boolean
   draftName: string
   fileList: string[]
+  /** Preflight findings for the whole draft; errors block the export. */
+  issues: readonly AssetIssue[]
   onClose: () => void
   onExport: (outputPath: string) => Promise<void>
 }
 
-export function ExportDialog({ open, draftName, fileList, onClose, onExport }: ExportDialogProps) {
+export function ExportDialog({ open, draftName, fileList, issues, onClose, onExport }: ExportDialogProps) {
   const copy = useEditorCopy().studioDesk.exportDialog
+  const issueCopy = useAssetAuthoringCopy().issues
   const titleId = useId()
   const port = useCpMakerPort()
   const [outputPath, setOutputPath] = useState('')
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const counts = countAssetIssues(issues)
+  const blocking = counts.errors > 0
+  const shownIssues = issues.filter((issue) => issue.severity !== 'info').slice(0, 20)
 
   function handleClose() {
     if (exporting) {
@@ -36,7 +45,7 @@ export function ExportDialog({ open, draftName, fileList, onClose, onExport }: E
   }
 
   async function handleExport() {
-    if (!outputPath.trim()) return
+    if (!outputPath.trim() || blocking) return
     setExporting(true)
     setError(null)
     try {
@@ -58,6 +67,31 @@ export function ExportDialog({ open, draftName, fileList, onClose, onExport }: E
           <div className="rounded-lg border border-(--border-color) bg-(--bg-panel-muted) px-3 py-2">
             <div className="text-xs text-(--text-secondary)">{copy.project}</div>
             <div className="text-sm font-medium text-(--text-primary)">{draftName}</div>
+          </div>
+
+          <div className="rounded-lg border border-(--border-color) bg-(--bg-panel-muted) px-3 py-2">
+            <div className="text-xs font-medium text-(--text-primary)">{copy.preflightTitle}</div>
+            {counts.total === 0 ? (
+              <p className="mt-1 text-xs text-(--text-secondary)">{copy.preflightOk}</p>
+            ) : (
+              <>
+                <p className="mt-1 text-xs text-(--text-secondary)">
+                  {blocking ? copy.preflightBlocked(counts.errors) : copy.preflightWarnings(counts.warnings)}
+                </p>
+                <ul className="mt-1.5 max-h-32 space-y-1 overflow-auto">
+                  {shownIssues.map((issue, index) => (
+                    <li key={`${issue.code}:${index}`} className="flex items-start gap-1.5 text-xs text-(--text-primary)">
+                      {issue.severity === 'error' ? (
+                        <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-(--danger)" aria-hidden="true" />
+                      ) : (
+                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-(--accent)" aria-hidden="true" />
+                      )}
+                      <span>{issueCopy[issue.messageKey](issue.params ?? {})}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </div>
 
           <div>
@@ -92,7 +126,7 @@ export function ExportDialog({ open, draftName, fileList, onClose, onExport }: E
         <DialogAction onClick={handleClose} disabled={exporting}>
           {copy.cancel}
         </DialogAction>
-        <DialogAction tone="primary" disabled={!outputPath.trim() || exporting} onClick={handleExport}>
+        <DialogAction tone="primary" disabled={!outputPath.trim() || exporting || blocking} onClick={handleExport}>
           {exporting ? copy.exporting : copy.export}
         </DialogAction>
       </DialogFooter>

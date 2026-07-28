@@ -17,6 +17,7 @@
     "gen:app-icons": "node ./scripts/generate-app-icons.mjs",
     "electron:dev": "node ./scripts/run-electron-dev.mjs",
     "build:gmcm-probe": "node ./scripts/build-gmcm-probe.mjs",
+    "build:debug-bridge": "node ./scripts/build-debug-bridge.mjs",
     "electron:build": "node ./scripts/build-electron-release.cjs",
     "electron:build:deb": "node ./scripts/build-electron-release.cjs deb",
     "electron:build:rpm": "node ./scripts/build-electron-release.cjs rpm",

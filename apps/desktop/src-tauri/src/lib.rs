@@ -48,6 +48,10 @@ use commands::cp_maker::{
     import_cp_maker_pack, list_cp_maker_drafts, load_cp_maker_draft, load_cp_maker_session,
     save_cp_maker_draft, save_cp_maker_session,
 };
+use commands::debug_bridge::{
+    get_debug_bridge_mod_state, get_debug_bridge_status, install_debug_bridge_mod,
+    send_debug_bridge_command,
+};
 use commands::launcher::{
     cancel_launcher_download, cancel_nexus_sso, check_launcher_updates, clear_launcher_image_cache,
     download_launcher_mod, get_launcher_backup_directory, get_nexus_sso_status,
@@ -198,6 +202,10 @@ pub fn run() {
             get_file_cache_stats,
             clear_file_cache,
             validate_game_directory,
+            get_debug_bridge_status,
+            send_debug_bridge_command,
+            get_debug_bridge_mod_state,
+            install_debug_bridge_mod,
             scan_maps,
             scan_events,
             scan_mod_projects,

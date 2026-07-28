@@ -23,7 +23,8 @@ export default function ProjectDashboardModuleRuntime() {
       studioDeskModel={studioDeskModel}
       taskSummary={{
         exportCount: studioDeskModel.gallery.projects.filter((entry) => entry.statuses.includes('export')).length,
-        conflictCount: studioDeskModel.stats.conflictCount,
+        errorCount: studioDeskModel.stats.errorCount,
+        warningCount: studioDeskModel.stats.warningCount,
         directoryStatus: environment.directoryStatus,
       }}
       onProjectModuleOpen={environment.onOpenModule}

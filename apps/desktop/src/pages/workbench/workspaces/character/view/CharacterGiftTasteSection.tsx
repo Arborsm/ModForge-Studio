@@ -3,8 +3,8 @@ import type { CharactersPanelCopy } from '@locales/api'
 import { useCharactersCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { ItemGroupPopover } from '@shared/ui/ItemGroupPopover'
-import type { CharacterGiftGroup, CharacterGiftGroupKind, CharacterGiftItem } from '../entities/character'
-import { buildAbsoluteSpriteLayerStyle } from './characterSpriteStyles'
+import type { CharacterGiftGroup, CharacterGiftGroupKind, CharacterGiftItem } from '@entities/character'
+import { buildAbsoluteSpriteLayerStyle } from '@entities/character'
 
 export type GiftTone = 'love' | 'like' | 'neutral' | 'dislike' | 'hate'
 

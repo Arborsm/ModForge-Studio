@@ -1,6 +1,7 @@
 // Zustand 状态管理 — 事件编辑器全局状态
 
 import { create } from 'zustand'
+import { nextDraftEditMergeKey, tagNextDraftEdit } from '@features/cp-maker'
 import type { EventScript, EventCommand } from '@entities/event'
 import { parseRawArgs } from './rawSerializer'
 
@@ -54,6 +55,20 @@ interface EditorState {
 
   // ── 重置 ──
   reset: () => void
+}
+
+/**
+ * Announces the pipeline operation the resulting draft write belongs to.
+ *
+ * A command edit reaches the draft indirectly: the store rebuilds the raw
+ * script and the editor stages it as one entry write. Tagging the write keeps
+ * each pipeline operation its own undo step — structural ones (insert, remove,
+ * move) never merge, while retyping the same command's arguments does.
+ */
+function tagPipelineEdit(operation: 'insert' | 'remove' | 'move'): void
+function tagPipelineEdit(operation: 'update', index: number): void
+function tagPipelineEdit(operation: 'insert' | 'update' | 'remove' | 'move', index?: number): void {
+  tagNextDraftEdit(operation === 'update' ? `event:update:${index}` : nextDraftEditMergeKey(`event:${operation}`))
 }
 
 function rebuildScriptRaw(script: EventScript): EventScript {
@@ -114,6 +129,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   insertCommandAt: (index, raw) =>
     set((state) => {
       if (!state.currentScript) return state
+      tagPipelineEdit('insert')
       const cmds = [...state.currentScript.commands]
       const parsed = parseRawArgs(raw)
       const newCmd: EventCommand = {
@@ -138,6 +154,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   updateCommandAt: (index, raw) =>
     set((state) => {
       if (!state.currentScript) return state
+      tagPipelineEdit('update', index)
       const parsed = parseRawArgs(raw)
       const cmds = state.currentScript.commands.map((c, i) => (i === index ? { ...c, raw, command: parsed[0] ?? '', args: parsed } : c))
       const nextScript = rebuildScriptRaw({
@@ -150,6 +167,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   removeCommandAt: (index) =>
     set((state) => {
       if (!state.currentScript) return state
+      tagPipelineEdit('remove')
       const removedId = state.currentScript.commands[index]?.id
       const cmds = state.currentScript.commands.filter((_, i) => i !== index)
       const reindexed = cmds.map((c, i) => ({ ...c, index: i }))
@@ -174,6 +192,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   moveCommand: (fromIndex, toIndex) =>
     set((state) => {
       if (!state.currentScript) return state
+      tagPipelineEdit('move')
       const cmds = [...state.currentScript.commands]
       const [moved] = cmds.splice(fromIndex, 1)
       cmds.splice(toIndex, 0, moved)

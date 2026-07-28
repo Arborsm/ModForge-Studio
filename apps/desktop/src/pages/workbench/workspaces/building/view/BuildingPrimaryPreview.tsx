@@ -1,12 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
 import { useBuildingsCopy } from '@locales/provider'
 import { MapViewport } from '@entities/map'
-import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
-import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../entities/building'
+import { BuildingSpritePreview, type BuildingTextureAssetState, type BuildingWorkspaceEntry } from '@entities/building'
 import type { LocaleCode, ViewportLabels, ThemeMode } from '@locales/api'
 import type { MapDocument, ViewportWorldPoint } from '@entities/map'
-import { cx } from '@shared/lib/helper'
-import { buildAbsoluteSpriteLayerStyle, getResolvedSourceRect } from './buildingViewHelpers'
 
 export type BuildingPrimaryPreviewProps = {
   building: BuildingWorkspaceEntry
@@ -31,45 +27,13 @@ export type BuildingPrimaryPreviewProps = {
   fillContainer?: boolean
 }
 
-function useContainerFitSize(enabled: boolean, fallback: number) {
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const [fitBox, setFitBox] = useState(fallback)
-
-  useEffect(() => {
-    if (!enabled) {
-      setFitBox(fallback)
-      return
-    }
-
-    const element = containerRef.current
-    if (!element || typeof ResizeObserver === 'undefined') {
-      setFitBox(fallback)
-      return
-    }
-
-    const update = (width: number, height: number) => {
-      // Leave a little breathing room so the sprite never kisses the edges.
-      const next = Math.floor(Math.min(width, height) * 0.88)
-      if (next > 0) {
-        setFitBox(next)
-      }
-    }
-
-    update(element.clientWidth, element.clientHeight)
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0]
-      if (!entry) return
-      update(entry.contentRect.width, entry.contentRect.height)
-    })
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [enabled, fallback])
-
-  return { containerRef, fitBox }
-}
-
-/** Building body sprite or exterior map viewport content. */
+/**
+ * Building body sprite or exterior map viewport content.
+ *
+ * Constructible buildings render through the shared `BuildingSpritePreview` so
+ * the codex and the authoring preview assemble a texture identically; world
+ * buildings have no sheet of their own and fall back to their exterior map.
+ */
 export function BuildingPrimaryPreview({
   building,
   activeTextureState,
@@ -87,12 +51,6 @@ export function BuildingPrimaryPreview({
 }: BuildingPrimaryPreviewProps) {
   const copy = useBuildingsCopy()
   const isConstructible = building.sourceKind === 'constructible'
-  const { containerRef, fitBox } = useContainerFitSize(fillContainer, fitSize)
-  const sourceRect = getResolvedSourceRect(building, activeTextureState)
-  const previewScale =
-    sourceRect && sourceRect.Width > 0 && sourceRect.Height > 0
-      ? Math.max(1, Math.min(12, Math.min(fitBox / sourceRect.Width, fitBox / sourceRect.Height)))
-      : 1
 
   if (!isConstructible && activeExteriorMapDocument) {
     const map = (
@@ -118,37 +76,5 @@ export function BuildingPrimaryPreview({
     return <p className="px-4 text-center text-sm text-(--text-secondary)">{activeExteriorMapMessage || copy.noExteriorMap}</p>
   }
 
-  const sprite =
-    sourceRect && activeTextureState?.url && activeTextureState.width && activeTextureState.height ? (
-      <div
-        style={{
-          ...buildAbsoluteSpriteLayerStyle({
-            url: activeTextureState.url,
-            sheetWidth: activeTextureState.width,
-            sheetHeight: activeTextureState.height,
-            sourceX: sourceRect.X,
-            sourceY: sourceRect.Y,
-            width: sourceRect.Width,
-            height: sourceRect.Height,
-          }),
-          transform: `scale(${previewScale})`,
-          transformOrigin: 'center center',
-        }}
-      />
-    ) : (
-      <p className="text-sm text-(--text-secondary)">{copy.noTexture}</p>
-    )
-
-  return (
-    <div
-      ref={containerRef}
-      className={cx(
-        fillContainer ? 'building-workspace-square-inner' : 'relative flex items-center justify-center',
-        !fillContainer && 'h-full w-full',
-      )}
-    >
-      {sprite}
-      {activeTextureState?.loading ? <ImageSkeleton overlay className="building-primary-skeleton" rounded={false} /> : null}
-    </div>
-  )
+  return <BuildingSpritePreview building={building} textureState={activeTextureState} fitSize={fitSize} fillContainer={fillContainer} />
 }

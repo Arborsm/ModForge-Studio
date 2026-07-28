@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import type { WorkspacePanelConfig } from '@shared/contracts'
+import { useBuildingAuthoringHandoff } from '@entities/building'
+import { useWorkbenchEnvironment } from '../../model/workbenchModuleContexts'
 import { useBuildingWorkspace } from '../../workspaces/building/state/useBuildingWorkspace'
 import { buildBuildingsWorkspacePanels } from '../../model/workspace-panels/buildings'
 import { WorkbenchLayoutHost } from '../WorkbenchLayoutHost'
@@ -7,6 +9,8 @@ import { useEntityBrowserRuntimeProps } from './entityBrowserRuntimeProps'
 
 export default function BuildingBrowserModuleRuntime() {
   const props = useEntityBrowserRuntimeProps()
+  const { onOpenModule } = useWorkbenchEnvironment()
+  const requestAuthoringOpen = useBuildingAuthoringHandoff((state) => state.requestOpen)
   const workspace = useBuildingWorkspace({ directoryInfo: props.directoryInfo, locale: props.locale, copy: props.copy.buildingsPanel })
   const workspacePanels = useMemo(
     () =>
@@ -42,8 +46,12 @@ export default function BuildingBrowserModuleRuntime() {
         onBuildingFilterChange: workspace.setBuildingFilter,
         onSelectBuilding: workspace.handleSelectBuilding,
         onSelectModBuilding: workspace.handleSelectModBuilding,
+        onOpenBuildingInAuthoring: (buildingKey) => {
+          requestAuthoringOpen(buildingKey)
+          onOpenModule('building-authoring')
+        },
       }),
-    [props, workspace],
+    [props, workspace, requestAuthoringOpen, onOpenModule],
   ) satisfies WorkspacePanelConfig[]
   return (
     <WorkbenchLayoutHost

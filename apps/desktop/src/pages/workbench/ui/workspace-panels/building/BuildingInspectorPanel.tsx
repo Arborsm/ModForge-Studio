@@ -1,4 +1,4 @@
-import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../../../workspaces/building'
+import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '@entities/building'
 import type { ModSourceEntry } from '@pages/workbench/workspaces/mod'
 import { BuildingDetailPane } from '../../../workspaces/building/view/BuildingDetailPane'
 
