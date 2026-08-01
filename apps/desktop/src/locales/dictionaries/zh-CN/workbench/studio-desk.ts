@@ -448,6 +448,8 @@ const studiodesk: StudioDeskCopy = {
     importingMap: '正在导入...',
     importFromGame: '从游戏复制',
     openMapAsset: '打开地图素材编辑器',
+    importMapFailed: '导入地图素材失败。',
+    openMapAssetFailed: '无法打开地图素材编辑器。',
     noProjectLocations: '还没有项目地点。',
     noProjectMapAssets: '先在地图库中添加地图素材。',
     mapChanges: '本次改动',

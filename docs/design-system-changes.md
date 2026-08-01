@@ -53,12 +53,12 @@ npx -p "@google/design.md" designmd lint DESIGN.md
 
 ## 🔄 同步 tokens.css
 
-**重要：** DESIGN.md 的颜色调整是为了确保基准设计符合 WCAG 标准。实际项目中的 `tokens.css` 包含 8 个主题 × 2 种模式，**不需要立即同步这些变更**。
+**已完成：** DESIGN.md 的颜色调整已于 **2026-07-26 同步到 `tokens.css`**（commit `01b6abce`），全部 8 个主题 × 浅/深两种模式均已应用 WCAG AA 值。`design-tokens.json` 也已同步更新：补充 `cp-logic-dark` / `cp-file-dark` / `cp-data-dark`，`success` / `warning` / `info` 更新为 `#15803d` / `#c2410c` / `#0e7490`。
 
-### 何时同步
+### 同步原则
 
 1. **新组件开发** - 使用 DESIGN.md 中的颜色作为起点
-2. **无障碍审计** - 逐主题验证并调整 tokens.css
+2. **无障碍审计** - 逐主题验证并调整 tokens.css（首轮已完成，见上）
 3. **用户反馈** - 如果某个主题的徽章/芯片难以阅读
 
 ### 如何同步
@@ -132,7 +132,7 @@ npm run design:export
 
 ## 🚀 后续步骤
 
-- [ ] 逐个主题验证 tokens.css 的对比度
+- [x] 逐个主题验证 tokens.css 的对比度（2026-07-26 完成，commit `01b6abce`，8 主题 × 浅/深均已应用 WCAG AA 值）
 - [ ] 更新 Storybook/组件文档中的颜色示例
 - [ ] 添加自动化对比度测试到 CI/CD
 - [ ] 考虑添加深色模式的对比度验证

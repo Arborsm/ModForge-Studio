@@ -1,8 +1,8 @@
 # 页面设计规范（Page Design Spec）
 
 > 适用范围：`apps/desktop` 所有工作区/页面  
-> 最后更新：2026-07-11  
-> 相关：壳与主页迁移见 [`workbench-shell-migration.md`](./workbench-shell-migration.md)；产品级视觉与术语见 [`../DESIGN.md`](../DESIGN.md)；静态原型见 `prototype/workbench-shell-mock.html`
+> 最后更新：2026-07-29  
+> 相关：产品级视觉与术语见 [`../DESIGN.md`](../DESIGN.md)；导航模块注册见 `apps/desktop/src/pages/workbench/module-registrations.ts`（旧文档 `workbench-shell-migration.md` 已删除，静态原型 `prototype/workbench-shell-mock.html` 已不存在，壳 IA 以本规范 §0 为准）
 
 本文档从物品工作区（Item Workspace）的重设计中抽象出通用规则，并补充工作台壳与主页 IA。用于统一 ModForge Studio 的页面视觉与布局。
 
@@ -10,7 +10,7 @@
 
 ## 0. 工作台壳与主页（目标 IA）
 
-本节描述**目标壳信息架构**（以 `prototype/workbench-shell-mock.html` 为准）。产品落地进度见 `workbench-shell-migration.md`。新做工作台壳 / 主页 / 导航时以本节为准，不要回退到「顶栏 GooeyNav 切模块 + 整页项目画廊 launchpad」形态。
+本节描述工作台壳信息架构，落地实现见 `apps/desktop/src/pages/workbench/module-registrations.ts` 与 `apps/desktop/src/widgets/workbench-shell/ui/WorkbenchSideNav.tsx`。新做工作台壳 / 主页 / 导航时以本节为准，不要回退到「顶栏 GooeyNav 切模块 + 整页项目画廊 launchpad」形态。
 
 ### 0.1 壳结构（宽屏默认）
 
@@ -21,7 +21,7 @@
 ```
 
 - **顶栏**：工作台模式下，模块切换**不在**顶栏 GooeyNav；中央是**当前项目标题**（名称、版本、空态「未选择项目」）与项目菜单（最近项目、新建 / 打开 / 导入、设置、目录、导出、关闭）。
-- **左导航**：分组为 主页 · 浏览（地图 / 事件 / 角色 / 建筑 / 物品）· 工具 · 开发；展开显示文案，收起为图标轨。折叠分组默认不强制展开空组。
+- **左导航**：分组为 主页 · authoring（项目：项目总览 / 内容清单 / 项目设置 / 各制作页）· browse（图鉴：地图 / 事件 / 角色 / 建筑 / 物品）· translation（翻译）· tools（工具，含 mod-browser）· development（开发）；展开显示文案，收起为图标轨。折叠分组默认不强制展开空组。分组实现见 `WorkbenchSideNav.tsx` 的 `SECTIONS`。
 - **主内容**：`home` 与 `workspace` 二选一；不要再叠一层全宽 launchpad dock 作为主路径。
 
 ### 0.2 主页三态
@@ -42,7 +42,7 @@
 
 ### 0.3 工作区：浏览 / 编辑
 
-- 同一模块页内切换 **浏览** 与 **编辑**（代码层可仍为 `preview` / `edit`）。
+- 同一模块页内切换 **浏览** 与 **编辑**（代码层可仍为 `preview` / `edit`）。**注**：2026-07 authoring 重构后，图鉴（浏览）与制作（authoring）已拆分为独立 nav 模块（见 §0.5），页内「浏览 | 编辑」切换仅存于个别仍保留双模式的页面。
 - **编辑依赖当前项目**；无项目时显示内联编辑锁（选择项目 / 继续浏览），不要静默进空编辑器。
 - 浏览可无项目进入（读游戏资源）；写入 / 导出 / 补丁需要项目。
 - 工作区顶工具条：模块名 · 模式 · 浏览 | 编辑；多栏内容继续走 `WorkspaceLayout`，壳样式对齐「全宽分栏 + hairline」，见下文第 1–2 节。
@@ -52,6 +52,14 @@
 - 与产品壳一致：token 色、细边框列表、克制密度；避免 Linear 扁平风与假素材缩略图。
 - 主按钮在页内唯一主路径上（例如「继续编辑」只出现一次，不要顶栏与卡片各一颗重复 CTA）。
 - 内容概览用数量格或紧凑行，**不要**复制左导航的模块列表当第二套导航。
+
+### 0.5 authoring 重构后的实际 IA（2026-07-29 记录）
+
+2026-07 的 authoring 重构（方案见 [`workbench-authoring-rework.md`](./workbench-authoring-rework.md)）落地后，壳 IA 与 §0.1 早期描述的差异如下，以代码为准：
+
+- **浏览（图鉴）与制作（authoring）已拆为独立 nav 模块**：`map/event/character/building/item` 各有 `-browser`（图鉴，只读）与 `-authoring`（制作，依赖项目）两个条目，注册在 `apps/desktop/src/pages/workbench/module-registrations.ts`。
+- **左导航实际为 5 个分组**（`WorkbenchSideNav.tsx` 的 `SECTIONS`）：`authoring`（项目：dashboard / content / settings / asset-library / 各制作页）、`browse`（各族图鉴）、`translation`（翻译独立成组：mod-translation、ai-localization）、`tools`（mod-browser、i18n-generator 等）、`development`。
+- 无项目时 `authoring` 组条目整体锁定（图标 + 锁标），点击回主页引导选项目，而不是各页各自显示编辑锁。
 
 ## 1. 页面结构
 
@@ -97,7 +105,7 @@
 ### 3.1 工作区栏位分隔
 
 - edge / split resizer 必须位于两面板间隙正中，而不是贴在某一面板边缘。
-- 贴边三栏骨架（对齐 `prototype/workbench-shell-mock.html` 的 `ws-grid`）：
+- 贴边三栏骨架（落地几何见 `shared/workspace/layoutConstants.ts`）：
   - 外层 `ROOT_PADDING = 0`（无外围留白）
   - 栏间隙 `COLUMN_GAP` / `SPLIT_GAP = 5`
   - 拖拽命中 `RESIZER_THICKNESS = 5`
@@ -222,7 +230,7 @@
 
 若用户提出使用 mock 则执行以下流程，否则不默认执行：
 
-1. **先写静态 HTML mock**：在 `prototype/` 下建立独立 HTML 文件，用项目 tokens 和 Tailwind 类还原目标布局。工作台壳以 `workbench-shell-mock.html` 为对照，不要另起一套冲突 IA。
+1. **先写静态 HTML mock**：建立独立 HTML 文件（置于临时目录，不提交仓库），用项目 tokens 和 Tailwind 类还原目标布局。工作台壳的布局以本规范 §0 与 `WorkbenchSideNav.tsx` 为对照，不要另起一套冲突 IA。
 2. **用工具量布局，不要只看截图**：
    - 使用 Playwright / DevTools 获取元素 `getBoundingClientRect()`。
    - 验证分隔线是否居中、间隙是否对称、元素是否对齐。
@@ -244,6 +252,8 @@ vp run --filter @modforge/desktop test:launcher-drag
 新增布局脚本必须在真实页面上选择稳定的 `data-*` 或 ARIA 契约，使用 `getBoundingClientRect()`、`scrollWidth/clientWidth` 等数值做失败断言，并在控件缺失时直接失败。截图只用于确认观感，不能替代对齐、居中、间距或溢出的可执行断言。
 
 ## 12. 检查清单
+
+> 状态：2026-07-27 authoring 重构后复核，以下条款对拆分后的图鉴 / 制作独立模块仍然适用；§12.1 中「浏览 / 编辑页内切换」一条仅适用于仍保留双模式的个别页面（见 §0.3 / §0.5）。
 
 新增或修改页面时，对照以下检查：
 

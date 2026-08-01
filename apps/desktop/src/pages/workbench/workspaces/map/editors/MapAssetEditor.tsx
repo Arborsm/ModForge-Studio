@@ -387,7 +387,7 @@ function MapAssetEditorContent({
           }}
         />
 
-        <main className="map-asset-canvas">
+        <main className={cx('map-asset-canvas', editor.paletteOpen && 'has-palette')}>
           <MapAssetEditorToolbar tool={editor.tool} paletteSelection={editor.paletteSelection} onToolChange={editor.setTool} />
           <div className="map-asset-viewport">
             <MapViewport
@@ -498,7 +498,11 @@ function MapAssetEditorContent({
               }}
             />
           ) : null}
-          <button type="button" className="map-editor-palette-toggle" onClick={() => editor.setPaletteOpen((open) => !open)}>
+          <button
+            type="button"
+            className={cx('map-editor-palette-toggle', editor.paletteOpen && 'is-open')}
+            onClick={() => editor.setPaletteOpen((open) => !open)}
+          >
             {editor.paletteOpen ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRightOpen className="h-3.5 w-3.5" />}
             {editor.paletteOpen ? authoringCopy.editorShell.hidePalette : authoringCopy.editorShell.showPalette}
           </button>

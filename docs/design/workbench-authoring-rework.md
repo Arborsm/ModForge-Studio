@@ -1,5 +1,16 @@
 # 工作台「项目构建」页面职能与 UI 重组方案
 
+> **落地状态（截至 2026-07-29）**：切片 1–6 与 8 已全部落地，切片 7 主体落地。下文保留为原始计划（历史记录），与实际落点的差异以本状态块为准。
+>
+> | 项                                        | 状态                                                                                                                                                                                                                           |
+> | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+> | §3.2 `AssetSchema` 内核                   | 已落地，但实际建在 `entities/asset-schema/`（非计划的 `features/asset-authoring/`）；`EditorProps` 落地为 4 项 `{ patch, schema, draftPort, resources }`（无 `copy`，见 `features/cp-maker/model/workspaceRegistry.ts:39-44`） |
+> | §5.3 条件构建器注册表化                   | **残留**：`entities/event/ui/EventConditionBuilderModal.tsx` 仍为硬编码 `SKILL_OPTIONS` / `NPC_OPTIONS` / `ITEM_SUGGESTIONS`                                                                                                   |
+> | §2.1 `WorkspaceId` 扩展 festivals/shops   | **残留**：`features/cp-maker/model/types.ts` 仍为九元联合                                                                                                                                                                      |
+> | §9.5 图鉴命名口径                         | **部分残留**：仅 `character-browser` 完成「角色图鉴」命名，其余浏览页未改                                                                                                                                                      |
+> | §9.5 硬编码色值清理                       | **残留**：`tests/architecture/styleArchitecture.test.ts` 白名单仍有 10+ 文件                                                                                                                                                   |
+> | §3.3-5 `BuildWorkspacePanelsOptions` 拆分 | **残留**：现 325 行，各页 `Pick` 类型已建，但共享 base 仍是大袋子                                                                                                                                                              |
+
 事件页（`event-authoring`）是本方案的质量基准，不在重做范围内，只做被复用改造。其余项目构建页按下面的职能地图重新划分，并按 `docs/design/page-design-spec.md` 重画。
 
 ## 1. 已核实的现状问题

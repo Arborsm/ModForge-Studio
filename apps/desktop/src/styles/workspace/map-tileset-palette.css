@@ -45,7 +45,7 @@
     padding: 0.25rem;
     color: var(--text-secondary);
     cursor: pointer;
-    font-size: 0.5625rem;
+    font-size: 0.6875rem;
   }
 
   .map-tileset-palette-thumb:hover {
@@ -86,7 +86,7 @@
     overflow: hidden;
     padding: 0 0.125rem;
     color: var(--text-tertiary);
-    font-size: 0.5rem;
+    font-size: 0.625rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -116,7 +116,7 @@
   .map-tileset-palette-heading > span {
     overflow: hidden;
     color: var(--text-secondary);
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -181,6 +181,55 @@
     border: 2px solid var(--accent);
     background: color-mix(in srgb, var(--accent) 18%, transparent);
     box-shadow: 0 0 0 1px var(--bg-app);
+  }
+
+  /* ===== Grid view (virtualized per-tile cells) ===== */
+  .map-tileset-palette-virtual {
+    position: relative;
+    min-width: 0;
+  }
+
+  .map-tileset-palette-virtual-row {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: grid;
+    gap: 0.25rem;
+    width: max-content;
+  }
+
+  .map-tileset-palette-cell {
+    display: grid;
+    gap: 0.125rem;
+    justify-items: center;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    padding: 0.125rem;
+    color: var(--text-tertiary);
+    cursor: pointer;
+  }
+
+  .map-tileset-palette-cell:hover {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border-color));
+    background: var(--bg-hover);
+  }
+
+  .map-tileset-palette-cell.is-selected {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .map-tileset-palette-cell > span {
+    display: block;
+    background-image: var(--map-tileset-image);
+    background-size: var(--map-tileset-image-size);
+    image-rendering: pixelated;
+  }
+
+  .map-tileset-palette-cell > small {
+    font-size: 0.625rem;
+    line-height: 1;
   }
 
   @media (max-width: 48rem) {

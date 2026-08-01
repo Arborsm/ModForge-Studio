@@ -17,6 +17,33 @@ type MockDraftRecord = {
 
 type MockSession = { activeDraftKey: string | null; activeGeneratedDraftKey: string | null }
 
+type MockProjectAssetRef = {
+  relativePath: string
+  mediaType: string
+  sizeBytes: number
+  sha256: string
+  storageKey: string
+  sourceType: string
+  dependencies: Array<{ relativePath: string; kind: string }>
+}
+
+type MockProjectAssetWriteRequest = {
+  relativePath: string
+  mediaType: string
+  bytesBase64: string
+  sourceType?: string
+}
+
+/** Browser-safe deterministic digest: real hosts store a SHA-256, the mock only needs stable uniqueness. */
+function mockDigest(input: string) {
+  let hash = 0x811c9dc5
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index)
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  return hash.toString(16).padStart(8, '0')
+}
+
 /**
  * In-memory CP Maker draft storage for the browser dev mock.
  *
@@ -26,8 +53,13 @@ type MockSession = { activeDraftKey: string | null; activeGeneratedDraftKey: str
  */
 export function createCpMakerMockHandler(gameRootPath: string) {
   const drafts = new Map<string, MockDraftRecord>()
+  // In-memory project asset bytes, keyed by draft then lowercase relative path.
+  // Mirrors the host's per-draft asset store so browser-only verification can
+  // exercise the asset library (thumbnails, previews) without native dialogs.
+  const projectAssets = new Map<string, Map<string, { ref: MockProjectAssetRef; bytesBase64: string }>>()
   let session: MockSession = { activeDraftKey: null, activeGeneratedDraftKey: null }
   let copyCounter = 0
+  let assetCounter = 0
 
   function toSummary(record: MockDraftRecord) {
     return {
@@ -54,6 +86,42 @@ export function createCpMakerMockHandler(gameRootPath: string) {
     return (payload as Record<string, TValue>)[key]
   }
 
+  function assetStoreFor(draftStorageKey: string) {
+    let store = projectAssets.get(draftStorageKey)
+    if (!store) {
+      store = new Map()
+      projectAssets.set(draftStorageKey, store)
+    }
+    return store
+  }
+
+  function writeMockAsset(draftStorageKey: string, request: MockProjectAssetWriteRequest) {
+    assetCounter += 1
+    const bytesBase64 = request.bytesBase64 ?? ''
+    const ref: MockProjectAssetRef = {
+      relativePath: request.relativePath,
+      mediaType: request.mediaType,
+      sizeBytes: Math.floor((bytesBase64.length * 3) / 4),
+      sha256: (mockDigest(bytesBase64) + mockDigest(request.relativePath) + mockDigest(`${assetCounter}`)).padEnd(64, '0'),
+      storageKey: `mock-asset-${assetCounter}`,
+      sourceType: request.sourceType ?? 'imported',
+      dependencies: [],
+    }
+    assetStoreFor(draftStorageKey).set(request.relativePath.toLowerCase(), { ref, bytesBase64 })
+    return ref
+  }
+
+  /** Keeps the stored draft's asset refs in sync with the byte store, like the host does transactionally. */
+  function syncDraftAssets(draftStorageKey: string) {
+    const record = requireDraft(draftStorageKey)
+    const store = projectAssets.get(draftStorageKey)
+    const assets = store ? [...store.values()].map((entry) => entry.ref) : []
+    assets.sort((left, right) => left.relativePath.localeCompare(right.relativePath))
+    const next: MockDraftRecord = { ...record, projectAssets: assets }
+    drafts.set(draftStorageKey, next)
+    return next
+  }
+
   return function handleCpMakerMockCommand(command: string, payload: unknown): MockCommandResult {
     switch (command) {
       case 'list_cp_maker_drafts':
@@ -77,6 +145,7 @@ export function createCpMakerMockHandler(gameRootPath: string) {
       case 'delete_cp_maker_draft': {
         const storageKey = readPayload<string>(payload, 'draftStorageKey') ?? ''
         drafts.delete(storageKey)
+        projectAssets.delete(storageKey)
         if (session.activeDraftKey === storageKey) {
           session = { ...session, activeDraftKey: null }
         }
@@ -125,6 +194,105 @@ export function createCpMakerMockHandler(gameRootPath: string) {
           },
         }
       }
+
+      case 'read_cp_maker_project_asset': {
+        const request = readPayload<{ draftStorageKey: string; relativePath: string }>(payload, 'request')
+        const entry = projectAssets.get(request?.draftStorageKey ?? '')?.get((request?.relativePath ?? '').toLowerCase())
+        if (!entry) {
+          throw new Error(`Dev mock has no project asset "${request?.relativePath ?? ''}"`)
+        }
+        return { handled: true, result: { asset: entry.ref, bytesBase64: entry.bytesBase64 } }
+      }
+
+      case 'load_cp_maker_project_map_asset': {
+        // The real host parses TMX/TBin and returns the normalized MapDocument
+        // as a JSON string. The mock keeps that contract by convention: seeded
+        // map assets store the serialized MapDocument directly as their bytes.
+        const request = readPayload<{ draftStorageKey: string; relativePath: string }>(payload, 'request')
+        const entry = projectAssets.get(request?.draftStorageKey ?? '')?.get((request?.relativePath ?? '').toLowerCase())
+        if (!entry) {
+          throw new Error(`Dev mock has no project map asset "${request?.relativePath ?? ''}"`)
+        }
+        const content = new TextDecoder().decode(Uint8Array.from(atob(entry.bytesBase64), (char) => char.charCodeAt(0)))
+        const parsed = JSON.parse(content) as { width?: unknown; layers?: unknown; name?: unknown }
+        if (typeof parsed.width !== 'number' || !Array.isArray(parsed.layers)) {
+          throw new Error(`Dev mock project map "${request?.relativePath ?? ''}" does not hold a serialized MapDocument`)
+        }
+        return {
+          handled: true,
+          result: {
+            name: typeof parsed.name === 'string' ? parsed.name : (request?.relativePath ?? 'map').split('/').at(-1),
+            format: 'tmx',
+            absolutePath: `E:\\ModForge Dev\\Projects\\${request?.relativePath ?? ''}`,
+            relativePath: request?.relativePath ?? '',
+            content,
+          },
+        }
+      }
+
+      case 'write_cp_maker_project_asset': {
+        const request = readPayload<MockProjectAssetWriteRequest & { draftStorageKey: string }>(payload, 'request')
+        if (!request) throw new Error('write_cp_maker_project_asset called without a request payload')
+        const ref = writeMockAsset(request.draftStorageKey, request)
+        syncDraftAssets(request.draftStorageKey)
+        return { handled: true, result: ref }
+      }
+
+      case 'write_cp_maker_project_assets': {
+        const request = readPayload<{ draftStorageKey: string; assets: MockProjectAssetWriteRequest[] }>(payload, 'request')
+        if (!request) throw new Error('write_cp_maker_project_assets called without a request payload')
+        const refs = request.assets.map((asset) => writeMockAsset(request.draftStorageKey, asset))
+        syncDraftAssets(request.draftStorageKey)
+        return { handled: true, result: refs }
+      }
+
+      case 'rename_cp_maker_project_asset': {
+        const request = readPayload<{ draftStorageKey: string; relativePath: string; newRelativePath: string }>(payload, 'request')
+        if (!request) throw new Error('rename_cp_maker_project_asset called without a request payload')
+        const store = assetStoreFor(request.draftStorageKey)
+        const entry = store.get(request.relativePath.toLowerCase())
+        if (!entry) {
+          throw new Error(`Dev mock has no project asset "${request.relativePath}"`)
+        }
+        store.delete(request.relativePath.toLowerCase())
+        entry.ref = { ...entry.ref, relativePath: request.newRelativePath }
+        store.set(request.newRelativePath.toLowerCase(), entry)
+        return { handled: true, result: syncDraftAssets(request.draftStorageKey) }
+      }
+
+      case 'delete_cp_maker_project_asset': {
+        const request = readPayload<{ draftStorageKey: string; relativePath: string }>(payload, 'request')
+        if (!request) throw new Error('delete_cp_maker_project_asset called without a request payload')
+        assetStoreFor(request.draftStorageKey).delete(request.relativePath.toLowerCase())
+        return { handled: true, result: syncDraftAssets(request.draftStorageKey) }
+      }
+
+      case 'scan_maps':
+        // Two vanilla maps are enough for browser verification to exercise the
+        // catalog's create-on-click EditMap flow through the real UI path.
+        return {
+          handled: true,
+          result: [
+            {
+              id: 'mock-map-town',
+              name: 'Town',
+              fileName: 'Town.tmx',
+              format: 'tmx',
+              absolutePath: `${gameRootPath}\\Content\\Maps\\Town.tmx`,
+              relativePath: 'Maps/Town.tmx',
+              sizeBytes: 128_000,
+            },
+            {
+              id: 'mock-map-farm',
+              name: 'Farm',
+              fileName: 'Farm.tmx',
+              format: 'tmx',
+              absolutePath: `${gameRootPath}\\Content\\Maps\\Farm.tmx`,
+              relativePath: 'Maps/Farm.tmx',
+              sizeBytes: 96_000,
+            },
+          ],
+        }
 
       default:
         return { handled: false }

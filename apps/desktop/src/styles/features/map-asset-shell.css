@@ -60,7 +60,7 @@
   .map-asset-save-status {
     overflow: hidden;
     color: var(--text-tertiary);
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -237,22 +237,26 @@
   }
   .map-asset-layer-meta small {
     color: var(--text-tertiary);
-    font-size: 0.5625rem;
+    font-size: 0.6875rem;
     font-weight: 400;
   }
   .map-asset-layer-opacity {
     color: var(--text-tertiary);
     font-family: var(--font-mono);
-    font-size: 0.5625rem;
+    font-size: 0.6875rem;
     text-align: right;
   }
 
   .map-asset-canvas {
     position: relative;
     display: grid;
-    grid-template-rows: 2.625rem minmax(18rem, 1fr) 13.625rem;
+    grid-template-rows: 2.625rem minmax(0, 1fr);
     overflow: hidden;
     background: var(--bg-viewport);
+  }
+
+  .map-asset-canvas.has-palette {
+    grid-template-rows: 2.625rem minmax(18rem, 1fr) 13.625rem;
   }
 
   .map-asset-tools,
@@ -311,7 +315,7 @@
   .map-editor-palette-toggle {
     position: absolute;
     right: 0.5rem;
-    bottom: 14.125rem;
+    bottom: 0.5rem;
     z-index: 2;
     display: inline-flex;
     min-height: 1.75rem;
@@ -321,7 +325,11 @@
     padding: 0 0.5rem;
     background: var(--bg-panel);
     color: var(--text-secondary);
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
+  }
+
+  .map-editor-palette-toggle.is-open {
+    bottom: 14.125rem;
   }
 
   .map-asset-inspector {
@@ -348,7 +356,7 @@
     overflow: hidden;
     padding: 0.5rem 0.25rem;
     color: var(--text-secondary);
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -383,14 +391,14 @@
   .map-asset-inspector-content .map-asset-tileset-source-hint {
     margin: 0;
     color: var(--text-tertiary);
-    font-size: 0.5625rem;
+    font-size: 0.6875rem;
     line-height: 1.4;
   }
 
   .map-asset-inspector-content .map-asset-tileset-source-invalid {
     margin: 0;
     color: var(--danger);
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
   }
 
   .map-asset-object-list {
@@ -446,7 +454,7 @@
     overflow: hidden;
     color: var(--text-tertiary);
     font-family: var(--font-mono);
-    font-size: 0.5625rem;
+    font-size: 0.6875rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -524,7 +532,7 @@
     padding: 0 0.75rem;
     color: var(--text-tertiary);
     font-family: var(--font-mono);
-    font-size: 0.5625rem;
+    font-size: 0.6875rem;
   }
 
   /* ===== Patch-tiles session ===== */
@@ -532,7 +540,7 @@
     margin-left: auto;
     overflow: hidden;
     color: var(--text-secondary);
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }

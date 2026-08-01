@@ -199,20 +199,15 @@ async function main() {
     const mapListAfter = await page.locator('body').innerText()
     if (!mapListAfter.includes('项目中的地图')) failures.push('the ensured map patch did not surface in the project section')
 
-    // 8. The expert patch list with the manual action picker only exists in
-    //    project-content.
+    // 8. The project-content module renders its overview fallback. The legacy
+    //    expert patch list (AddPatchDialog) was removed with the authoring
+    //    rework; patch management now lives in each authoring workspace.
     await page.locator('.workbench-side-nav-item', { hasText: '项目内容' }).first().click()
-    await page.waitForSelector('.workspace-patch-list', { state: 'visible', timeout: 20_000 })
+    await page.waitForTimeout(1200)
     await skipGuides()
-    await page.locator('.workspace-patch-list').getByRole('button', { name: '新增 Patch' }).first().click()
-    await page.waitForSelector('.app-dialog', { state: 'visible', timeout: 10_000 })
-    const expertDialogText = await page.locator('.app-dialog').innerText()
-    if (!expertDialogText.includes('选择动作') && !expertDialogText.includes('编辑数据')) {
-      failures.push('expert AddPatchDialog did not offer the action step')
-    }
-    await page.screenshot({ path: `${screenshotDir}/08-expert-add-patch.png` })
-    await page.keyboard.press('Escape')
-    await waitOverlayGone()
+    const projectContentText = await page.locator('body').innerText()
+    if (!projectContentText.includes('项目内容总览')) failures.push('project-content module did not render its overview fallback')
+    await page.screenshot({ path: `${screenshotDir}/08-project-content.png` })
 
     // 9. The export dialog runs the preflight and reports its verdict.
     await page.locator('.workbench-side-nav-item', { hasText: '项目主页' }).first().click()

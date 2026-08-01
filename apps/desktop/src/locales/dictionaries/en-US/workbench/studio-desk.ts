@@ -453,6 +453,8 @@ const studiodesk: StudioDeskCopy = {
     importingMap: 'Importing...',
     importFromGame: 'Copy from game',
     openMapAsset: 'Open in map editor',
+    importMapFailed: 'The map asset could not be imported.',
+    openMapAssetFailed: 'The map asset editor could not be opened.',
     noProjectLocations: 'There are no project locations yet.',
     noProjectMapAssets: 'Add a map asset from the map library first.',
     mapChanges: 'This change set',

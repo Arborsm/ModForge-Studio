@@ -78,7 +78,7 @@
 ### 同期完成的创建链路易用性改造
 
 - 新建对话框 v2：内容模板（空白 / NPC / 物品 / 建筑 / 地图 / 事件 / 邮件），模板预建无歧义单例 patch 并落到对应制作页；UniqueID 由 作者.名称 自动派生（直接编辑优先）；高级字段全部收进折叠区。
-- patch 自动化：`WORKSPACE_CONTENT_ENTRY` 声明各工作区内容入口——characters / buildings / items 单例 patch 自动 ensure 直达编辑器；map 为地图目标清单（原版地图 / 位置数据 / 新建地图）；events 保留事件卡片 hub（位置选择器自动建 patch）；`AddPatchDialog` 仅保留在 project-content 作为专家入口（架构测试锁定）。
+- patch 自动化：`resolveWorkspaceLanding` + `patchTargets`（`features/cp-maker/model/workspaceLanding.ts`）声明各工作区落点与目标——characters / buildings / items 单例 patch 自动 ensure 直达编辑器；map 为地图目标清单（原版地图 / 位置数据 / 新建地图）；events 保留事件卡片 hub（位置选择器自动建 patch）。原 `WORKSPACE_CONTENT_ENTRY` / `getWorkspaceContentEntry`（`workspaceContentEntry.ts`）已成死代码，被 `workspaceLanding.ts` 取代；`AddPatchDialog` 组件已删除，`project-content` 现为项目内容总览 fallback（`AuthoringRuntime.tsx:256-261` 渲染 `projectContentFallback` 文案）。
 - 角色 / 建筑 / 物品编辑器的贴图卡片自动 ensure 对应 `EditImage` / `Load` patch 并跳转图像编辑器。
 - 渐进披露原语 `shared/ui/Disclosure.tsx`，应用于创建对话框、补丁设置对话框与高级操作区。
 
@@ -94,4 +94,4 @@
 - 资产字段本身的编辑器覆盖（归 `workbench-authoring-rework.md`）。
 - CP 的 `Action: Include` 之外的多文件组织策略；导出目录结构维持现状。
 - 翻译页与 `i18n/*.json` 的编辑流程（已有 GUI）。
-- 依赖编辑器的"从已装模组选择"picker（手填为完整功能；`scanModProjects` 接入选择器留作后续增强）。
+- 依赖编辑器的"从已装模组选择"picker（手填为完整功能；已由共享 resource picker 部分覆盖——`features/resource-browser`，commit `9e7d07eb`；`scanModProjects` 接入选择器仍留作后续增强）。

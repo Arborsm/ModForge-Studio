@@ -359,6 +359,8 @@ export type StudioDeskCopy = {
     importingMap: string
     importFromGame: string
     openMapAsset: string
+    importMapFailed: string
+    openMapAssetFailed: string
     noProjectLocations: string
     noProjectMapAssets: string
     mapChanges: string

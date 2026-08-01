@@ -122,9 +122,7 @@ export type AssetLibraryCopy = {
   missingDependencyImportFailed: string
   missingDependenciesBadge: string
   dependenciesLabel: string
-  dependenciesEmpty: string
   dependentsLabel: string
-  dependentsEmpty: string
   dependencyExistsLabel: string
   dependencyMissingLabel: string
   openDependencyAction: (path: string) => string

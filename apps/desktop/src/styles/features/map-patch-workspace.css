@@ -32,6 +32,12 @@
     flex: 1 1 auto;
   }
 
+  .map-patch-target-name {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
   .map-patch-preview-switch {
     display: inline-flex;
     overflow: hidden;
@@ -43,10 +49,10 @@
     min-height: 1.75rem;
     border: none;
     border-right: 1px solid var(--border-color);
-    padding: 0 0.625rem;
+    padding: 0 0.75rem;
     background: transparent;
     color: var(--text-tertiary);
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
     cursor: pointer;
   }
 
@@ -57,6 +63,7 @@
   .map-patch-preview-switch button.is-active {
     background: var(--bg-active);
     color: var(--text-primary);
+    font-weight: 600;
   }
 
   .map-patch-canvas {
@@ -114,7 +121,7 @@
 
   .map-patch-cards-header .count {
     color: var(--text-tertiary);
-    font-size: 0.5625rem;
+    font-size: 0.6875rem;
     font-weight: 400;
   }
 
@@ -206,7 +213,7 @@
   }
 
   .map-patch-type-option .type-text small {
-    font-size: 0.5625rem;
+    font-size: 0.6875rem;
     color: var(--text-tertiary);
   }
 
@@ -245,7 +252,7 @@
     display: flex;
     align-items: center;
     gap: 0.375rem;
-    padding: 0.75rem;
+    padding: 0.625rem 0.75rem;
   }
 
   .change-card-toggle {
@@ -259,8 +266,8 @@
 
   .change-card-header .card-icon {
     display: grid;
-    width: 2.25rem;
-    height: 2.25rem;
+    width: 2rem;
+    height: 2rem;
     place-items: center;
     border-radius: var(--radius-sm);
     background: var(--bg-active);
@@ -284,7 +291,7 @@
   }
 
   .change-card-header .card-title small {
-    font-size: 0.5625rem;
+    font-size: 0.6875rem;
     color: var(--text-tertiary);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -295,7 +302,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    font-size: 0.5625rem;
+    font-size: 0.6875rem;
     color: var(--success);
     flex-shrink: 0;
   }
@@ -365,7 +372,7 @@
   }
 
   .change-card-field .field-hint {
-    font-size: 0.5625rem;
+    font-size: 0.6875rem;
     color: var(--text-tertiary);
   }
 
@@ -403,7 +410,7 @@
     display: grid;
     place-items: center;
     color: var(--text-tertiary);
-    font-size: 0.5rem;
+    font-size: 0.625rem;
   }
 
   .change-card-source-preview .thumb > .panel-canvas {
@@ -427,12 +434,12 @@
   }
 
   .change-card-source-preview .source-info small {
-    font-size: 0.5625rem;
+    font-size: 0.625rem;
     color: var(--text-tertiary);
   }
 
   .change-card-source-preview .edit-link {
-    font-size: 0.5625rem;
+    font-size: 0.6875rem;
     color: var(--accent);
     cursor: pointer;
     text-decoration: underline;
@@ -481,14 +488,14 @@
   }
 
   .change-card-mini-asset .mini-info strong {
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .change-card-mini-asset .mini-info small {
-    font-size: 0.5rem;
+    font-size: 0.625rem;
     color: var(--text-tertiary);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -507,12 +514,12 @@
   }
 
   .change-card-area-row .field-label {
-    font-size: 0.5625rem;
+    font-size: 0.625rem;
   }
 
   .change-card-area-row .field-input {
     min-height: 1.75rem;
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
     text-align: center;
   }
 
@@ -530,7 +537,7 @@
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     cursor: pointer;
-    background: var(--bg-panel);
+    background: transparent;
   }
 
   .change-card-mode-option:hover {
@@ -568,7 +575,7 @@
   }
 
   .change-card-mode-option .mode-text small {
-    font-size: 0.5625rem;
+    font-size: 0.6875rem;
     color: var(--text-tertiary);
   }
 
@@ -583,7 +590,7 @@
     align-items: center;
     gap: 0.375rem;
     padding: 0.5rem 0;
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
     color: var(--text-tertiary);
     cursor: pointer;
     border: none;
@@ -603,14 +610,30 @@
     display: grid;
   }
 
-  /* ===== Inline error ===== */
-  .map-patch-inline-error {
+  /* ===== Import actions row + empty note inside the file card ===== */
+  .change-card-import-actions {
+    display: flex;
+    gap: 0.375rem;
+    margin-top: 0.375rem;
+  }
+
+  .change-card-import-actions .control-button {
+    flex: 1 1 0;
+    justify-content: center;
+    min-height: 1.75rem;
+  }
+
+  .change-card-empty-note {
+    margin: 0;
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+  }
+
+  .map-patch-enabled-label {
     display: flex;
     align-items: center;
     gap: 0.375rem;
-    color: var(--danger) !important;
-    font-size: 0.5625rem;
-    white-space: normal !important;
+    font-size: 0.6875rem;
   }
 
   /* ===== Tiles card summary + session entry ===== */
@@ -634,7 +657,7 @@
     background: var(--bg-panel-muted);
     padding: 0 0.5rem;
     color: var(--text-secondary);
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
     line-height: 1.5rem;
   }
 

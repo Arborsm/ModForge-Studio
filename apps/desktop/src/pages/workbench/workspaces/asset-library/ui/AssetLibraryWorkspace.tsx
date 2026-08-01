@@ -27,6 +27,7 @@ import { useAssetLibraryCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { useAssetLibraryFocusStore } from '@shared/lib/app-state/assetLibraryFocusStore'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
+import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
 import { useWorkbenchAssetDraftPort } from '../../../model/useWorkbenchAssetDraftPort'
 import { useWorkbenchEnvironment, useWorkbenchProject } from '../../../model/workbenchModuleContexts'
 import { useWorkbenchRuntimeInputs } from '../../../ui/module-runtimes/runtimeInputs'
@@ -50,6 +51,7 @@ import {
   type LoadAssetFamily,
 } from '../model/mapLoadBinding'
 import { prepareProjectMapCopy } from '../model/importGameMap'
+import { AssetImageThumbnail } from './AssetImageThumbnail'
 import { AssetMapThumbnail } from './AssetMapThumbnail'
 import { NewMapDialog } from './NewMapDialog'
 import { PixelEditorDialog } from './PixelEditorDialog'
@@ -91,6 +93,9 @@ function AssetGlyph({ kind }: { kind: ProjectAssetKind }) {
 export function AssetLibraryWorkspace() {
   const project = useWorkbenchProject()
   const copy = useAssetLibraryCopy()
+  // Operation failures surface through the shared notification system, not an
+  // inline banner; stable ids make repeated failures replace each other.
+  const publishNotification = useNotificationPublisher()
   const replaceRef = useRef<HTMLInputElement>(null)
   const renameTitleId = useId()
   const deleteTitleId = useId()
@@ -109,7 +114,6 @@ export function AssetLibraryWorkspace() {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [createMapOpen, setCreateMapOpen] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [repairingKey, setRepairingKey] = useState<string | null>(null)
   const [dismissedMissingSignature, setDismissedMissingSignature] = useState<string | null>(null)
   const assets = project.projectAssets
@@ -134,6 +138,17 @@ export function AssetLibraryWorkspace() {
   const loadBindings = port ? collectLoadPatches(port.draft.patches) : []
   const loadBindingsByFamily = groupLoadPatchesByFamily(loadBindings)
   const selectedBinding = loadBindings.find((patch) => patch.id === selectedLoadBindingId) ?? null
+
+  // The game map scan failure is an environment problem, not page state:
+  // surface it through the notification system and clear it once the scan recovers.
+  const mapScanError = mapCatalog.error
+  useEffect(() => {
+    if (!mapScanError) {
+      dismissNotification('asset-library-map-scan')
+      return
+    }
+    publishNotification({ id: 'asset-library-map-scan', level: 'error', title: copy.mapScanFailed, description: mapScanError })
+  }, [copy.mapScanFailed, mapScanError, publishNotification])
 
   useEffect(() => {
     if (selectedPath && !assets.some((asset) => asset.relativePath === selectedPath)) {
@@ -186,11 +201,11 @@ export function AssetLibraryWorkspace() {
       .then((payload) => {
         if (current) {
           setLoadedAsset({ ...payload.asset, bytesBase64: payload.bytesBase64 })
-          setError(null)
+          dismissNotification('asset-library-preview')
         }
       })
       .catch(() => {
-        if (current) setError(copy.previewFailed)
+        if (current) publishNotification({ id: 'asset-library-preview', level: 'error', title: copy.previewFailed })
       })
       .finally(() => {
         if (current) setPreviewLoading(false)
@@ -198,19 +213,19 @@ export function AssetLibraryWorkspace() {
     return () => {
       current = false
     }
-  }, [copy.previewFailed, readProjectAsset, selected?.relativePath, selected?.sha256])
+  }, [copy.previewFailed, publishNotification, readProjectAsset, selected?.relativePath, selected?.sha256])
 
   async function importPaths(sourcePaths: string[]) {
     if (sourcePaths.length === 0) return
     setImporting(true)
-    setError(null)
+    dismissNotification('asset-library-import')
     try {
       const previousPaths = new Set(assets.map((asset) => asset.relativePath.toLowerCase()))
       const imported = await project.importProjectAssets(sourcePaths)
       const firstImported = imported.projectAssets.find((asset) => !previousPaths.has(asset.relativePath.toLowerCase()))
       if (firstImported) setSelectedPath(firstImported.relativePath)
     } catch {
-      setError(copy.importFailed)
+      publishNotification({ id: 'asset-library-import', level: 'error', title: copy.importFailed })
     } finally {
       setImporting(false)
     }
@@ -254,7 +269,7 @@ export function AssetLibraryWorkspace() {
 
   /** Copies a scanned game map and its tilesheets into the project as assets. */
   async function importFromGame(asset: MapAssetSummary) {
-    setError(null)
+    dismissNotification('asset-library-import-map')
     try {
       const target = mapTargetFromAsset(asset)
       const usedPaths = new Set(project.projectAssets.map((a) => a.relativePath.replaceAll('\\', '/').toLowerCase()))
@@ -270,7 +285,7 @@ export function AssetLibraryWorkspace() {
       setSelectedPath(prepared.document.relativePath)
       setSection('assets')
     } catch {
-      setError(copy.importMapFailed)
+      publishNotification({ id: 'asset-library-import-map', level: 'error', title: copy.importMapFailed })
     }
   }
 
@@ -283,7 +298,7 @@ export function AssetLibraryWorkspace() {
   async function repairMissingDependency(missing: MissingAssetDependency) {
     const repairKey = `${missing.assetPath}\u0000${missing.missingPath}`
     setRepairingKey(repairKey)
-    setError(null)
+    dismissNotification('asset-library-dependency-repair')
     try {
       const paths = await project.chooseFiles(copy.missingDependencyPickTitle)
       if (paths.length === 0) return
@@ -298,7 +313,7 @@ export function AssetLibraryWorkspace() {
       if (others.length > 0) await project.importProjectAssets(others)
       setDismissedMissingSignature(null)
     } catch {
-      setError(copy.missingDependencyImportFailed)
+      publishNotification({ id: 'asset-library-dependency-repair', level: 'error', title: copy.missingDependencyImportFailed })
     } finally {
       setRepairingKey(null)
     }
@@ -308,11 +323,11 @@ export function AssetLibraryWorkspace() {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file || !selected) return
-    setError(null)
+    dismissNotification('asset-library-replace')
     try {
       await project.writeProjectAsset(await fileToAsset(file, selected.relativePath), 'edited')
     } catch {
-      setError(copy.replaceFailed)
+      publishNotification({ id: 'asset-library-replace', level: 'error', title: copy.replaceFailed })
     }
   }
 
@@ -328,7 +343,7 @@ export function AssetLibraryWorkspace() {
       setSelectedPath(nextPath)
       setRenamePath(null)
     } catch {
-      setError(copy.renameFailed)
+      publishNotification({ id: 'asset-library-rename', level: 'error', title: copy.renameFailed })
     }
   }
 
@@ -338,7 +353,7 @@ export function AssetLibraryWorkspace() {
       await project.deleteProjectAsset(deletePath)
       setDeletePath(null)
     } catch {
-      setError(copy.deleteFailed)
+      publishNotification({ id: 'asset-library-delete', level: 'error', title: copy.deleteFailed })
     }
   }
 
@@ -355,7 +370,7 @@ export function AssetLibraryWorkspace() {
       setSelectedPath(wantedPath)
       setPixelAsset(null)
     } catch {
-      setError(copy.pixelSaveFailed)
+      publishNotification({ id: 'asset-library-pixel-save', level: 'error', title: copy.pixelSaveFailed })
     }
   }
 
@@ -387,24 +402,9 @@ export function AssetLibraryWorkspace() {
           <h1>{copy.title}</h1>
           <p>{copy.subtitle}</p>
         </div>
-        <div className="asset-library-header-actions">
-          <span className="asset-library-save-state" aria-live="polite">
-            {saveStateLabel}
-          </span>
-          <button
-            type="button"
-            className="control-button control-button-primary"
-            disabled={importing}
-            onClick={() => void chooseImportFiles()}
-          >
-            <Upload className="h-4 w-4" aria-hidden="true" />
-            <span>{importing ? copy.importing : copy.importAction}</span>
-          </button>
-          <button type="button" className="control-button" disabled={importing} onClick={() => void chooseImportFolder()}>
-            <FolderInput className="h-4 w-4" aria-hidden="true" />
-            <span>{copy.importFolderAction}</span>
-          </button>
-        </div>
+        <span className="asset-library-save-state" aria-live="polite">
+          {saveStateLabel}
+        </span>
       </header>
 
       <div className="asset-library-toolbar">
@@ -472,34 +472,49 @@ export function AssetLibraryWorkspace() {
                 <List className="h-4 w-4" />
               </button>
             </div>
-            {mapCatalog.assets.length > 0 ? (
-              <ResourcePicker
-                value=""
-                label={copy.importFromGame}
-                placeholder={copy.importFromGame}
-                options={toMapResourceBrowserOptions(
-                  mapCatalog.assets,
-                  (asset) => copy.mapCategories[mapCatalogCategory(mapTargetFromAsset(asset))],
-                  'map-import',
-                )}
-                selectionMode="confirm"
-                triggerClassName="control-button"
-                triggerContent={
-                  <>
-                    <MapIcon className="h-4 w-4" />
-                    {copy.importFromGame}
-                  </>
-                }
-                onSelect={(value) => {
-                  const asset = mapCatalog.assets.find((a) => mapTargetFromAsset(a) === value)
-                  if (asset) void importFromGame(asset)
-                }}
-              />
-            ) : null}
-            <button type="button" className="control-button control-button-primary" onClick={() => setCreateMapOpen(true)}>
-              <FilePlus2 className="h-4 w-4" aria-hidden="true" />
-              {copy.newMapAction}
-            </button>
+            <div className="asset-library-toolbar-actions">
+              {mapCatalog.assets.length > 0 ? (
+                <ResourcePicker
+                  value=""
+                  label={copy.importFromGame}
+                  placeholder={copy.importFromGame}
+                  options={toMapResourceBrowserOptions(
+                    mapCatalog.assets,
+                    (asset) => copy.mapCategories[mapCatalogCategory(mapTargetFromAsset(asset))],
+                    'map-import',
+                  )}
+                  selectionMode="confirm"
+                  triggerClassName="control-button"
+                  triggerContent={
+                    <>
+                      <MapIcon className="h-4 w-4" />
+                      {copy.importFromGame}
+                    </>
+                  }
+                  onSelect={(value) => {
+                    const asset = mapCatalog.assets.find((a) => mapTargetFromAsset(a) === value)
+                    if (asset) void importFromGame(asset)
+                  }}
+                />
+              ) : null}
+              <button type="button" className="control-button" onClick={() => setCreateMapOpen(true)}>
+                <FilePlus2 className="h-4 w-4" aria-hidden="true" />
+                {copy.newMapAction}
+              </button>
+              <button type="button" className="control-button" disabled={importing} onClick={() => void chooseImportFolder()}>
+                <FolderInput className="h-4 w-4" aria-hidden="true" />
+                <span>{copy.importFolderAction}</span>
+              </button>
+              <button
+                type="button"
+                className="control-button control-button-primary"
+                disabled={importing}
+                onClick={() => void chooseImportFiles()}
+              >
+                <Upload className="h-4 w-4" aria-hidden="true" />
+                <span>{importing ? copy.importing : copy.importAction}</span>
+              </button>
+            </div>
           </>
         ) : (
           <>
@@ -513,23 +528,12 @@ export function AssetLibraryWorkspace() {
       </div>
 
       <div className="asset-library-status-rows">
-        {error ? (
-          <div className="asset-library-error" role="alert">
-            {error}
-          </div>
-        ) : null}
-
         {mapCatalog.loading ? (
           <div className="asset-library-missing-banner" role="status">
             <header className="asset-library-missing-header">
               <MapIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
               <strong>{copy.mapScanLoading}</strong>
             </header>
-          </div>
-        ) : null}
-        {mapCatalog.error ? (
-          <div className="asset-library-error" role="alert">
-            {copy.mapScanFailed}: {mapCatalog.error}
           </div>
         ) : null}
 
@@ -721,8 +725,13 @@ export function AssetLibraryWorkspace() {
                               height={176}
                               fallback={<AssetGlyph kind={kind} />}
                             />
-                          ) : kind === 'image' && selectedPayload?.relativePath === asset.relativePath ? (
-                            <img src={assetDataUrl(selectedPayload)} alt="" />
+                          ) : kind === 'image' ? (
+                            <AssetImageThumbnail
+                              assetPath={asset.relativePath}
+                              sha256={asset.sha256}
+                              mediaType={asset.mediaType}
+                              fallback={<AssetGlyph kind={kind} />}
+                            />
                           ) : (
                             <AssetGlyph kind={kind} />
                           )}
@@ -736,7 +745,7 @@ export function AssetLibraryWorkspace() {
                             </span>
                           ) : null}
                         </span>
-                        <span className="asset-library-asset-copy">
+                        <span className="asset-library-asset-copy" title={asset.relativePath}>
                           <strong>{asset.relativePath.split('/').at(-1)}</strong>
                           <span>{asset.relativePath}</span>
                         </span>
@@ -788,53 +797,55 @@ export function AssetLibraryWorkspace() {
                       <dd>{copy.referenceCount(selectedReferences.length)}</dd>
                     </div>
                   </dl>
-                  <section className="asset-library-dependencies">
-                    <h3>{copy.dependenciesLabel}</h3>
-                    {dependencyView.dependencies.length === 0 ? (
-                      <p className="asset-library-dependencies-empty">{copy.dependenciesEmpty}</p>
-                    ) : (
-                      <ul className="asset-library-dependency-list">
-                        {dependencyView.dependencies.map((dependency) => (
-                          <li key={dependency.path}>
-                            <button
-                              type="button"
-                              className="asset-library-dependency-link"
-                              disabled={!dependency.exists}
-                              title={dependency.exists ? copy.openDependencyAction(dependency.path) : undefined}
-                              onClick={() => {
-                                if (dependency.exists) setSelectedPath(dependency.path)
-                              }}
-                            >
-                              <span className="asset-library-dependency-path">{dependency.path}</span>
-                              <span className="asset-library-dependency-kind">{dependency.kind}</span>
-                            </button>
-                            <span className={cx('asset-editor-badge', dependency.exists ? 'is-ok' : 'is-missing')}>
-                              {dependency.exists ? copy.dependencyExistsLabel : copy.dependencyMissingLabel}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <h3>{copy.dependentsLabel}</h3>
-                    {dependencyView.dependents.length === 0 ? (
-                      <p className="asset-library-dependencies-empty">{copy.dependentsEmpty}</p>
-                    ) : (
-                      <ul className="asset-library-dependency-list">
-                        {dependencyView.dependents.map((path) => (
-                          <li key={path}>
-                            <button
-                              type="button"
-                              className="asset-library-dependency-link"
-                              title={copy.openDependencyAction(path)}
-                              onClick={() => setSelectedPath(path)}
-                            >
-                              {path}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </section>
+                  {dependencyView.dependencies.length > 0 || dependencyView.dependents.length > 0 ? (
+                    <section className="asset-library-dependencies">
+                      {dependencyView.dependencies.length > 0 ? (
+                        <>
+                          <h3>{copy.dependenciesLabel}</h3>
+                          <ul className="asset-library-dependency-list">
+                            {dependencyView.dependencies.map((dependency) => (
+                              <li key={dependency.path}>
+                                <button
+                                  type="button"
+                                  className="asset-library-dependency-link"
+                                  disabled={!dependency.exists}
+                                  title={dependency.exists ? copy.openDependencyAction(dependency.path) : undefined}
+                                  onClick={() => {
+                                    if (dependency.exists) setSelectedPath(dependency.path)
+                                  }}
+                                >
+                                  <span className="asset-library-dependency-path">{dependency.path}</span>
+                                  <span className="asset-library-dependency-kind">{dependency.kind}</span>
+                                </button>
+                                <span className={cx('asset-editor-badge', dependency.exists ? 'is-ok' : 'is-missing')}>
+                                  {dependency.exists ? copy.dependencyExistsLabel : copy.dependencyMissingLabel}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      ) : null}
+                      {dependencyView.dependents.length > 0 ? (
+                        <>
+                          <h3>{copy.dependentsLabel}</h3>
+                          <ul className="asset-library-dependency-list">
+                            {dependencyView.dependents.map((path) => (
+                              <li key={path}>
+                                <button
+                                  type="button"
+                                  className="asset-library-dependency-link"
+                                  title={copy.openDependencyAction(path)}
+                                  onClick={() => setSelectedPath(path)}
+                                >
+                                  {path}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      ) : null}
+                    </section>
+                  ) : null}
                   <div className="asset-library-actions">
                     {selected.mediaType.startsWith('image/') ? (
                       <button

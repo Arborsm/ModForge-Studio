@@ -17,6 +17,9 @@
 - 前端源码在 `apps/desktop/src`。
 - Rust/Tauri 后端在 `apps/desktop/src-tauri`。
 - Linux Electron 宿主在 `apps/desktop/electron`。
+- 产品引导在 `apps/desktop/src/features/guide` 和 `apps/desktop/src/widgets/guide-tour`；工作台壳在 `apps/desktop/src/widgets/workbench-shell`。
+- 资源选取与素材浏览在 `apps/desktop/src/features/resource-browser`；AI 翻译编辑在 `apps/desktop/src/features/translation-editor`。
+- 工作台各工作区（对话、邮件、素材库等）在 `apps/desktop/src/pages/workbench/workspaces/`；本地化中心在 `apps/desktop/src/pages/workbench/translation/localization-center`。
 - 结构性问题优先用 CodeGraph：理解功能/bug 用 `codegraph_context`，查文件用 `codegraph_files`，找 symbol 用 `codegraph_search`，看影响面用 `codegraph_impact`。
 - 原生搜索只用于字面量：文案、日志、注释、配置 key、错误字符串等。
 
@@ -98,7 +101,7 @@ MODFORGE_COMMAND_TRACE=1 vp run dev
 - `apps/desktop/electron/main.ts` 只做 transport/supervisor：IPC、sidecar 启停、pending promise、stdout frame、stderr log、exit/error reject；禁止在 Electron main 维护 command lane、resource、mutation 或取消策略。
 - sidecar stdin 主循环只 parse/enqueue，不能在 read loop 执行业务；blocking HTTP、文件扫描、解压、安装和重试 sleep 必须在 Host Runtime worker 内隔离。
 - Host command tracing 只能通过启动环境变量开启，不要做成前端可调用 command，也不要混入应用 debug diagnostics toggle；UI debug 仍应保留其他 backend debug/trace。
-- `domain` 按业务边界组织 launcher、mods、assets、content_patcher、cp_maker、saves、event_project、workbench_project、app_ui 等领域逻辑。
+- `domain` 按业务边界组织 launcher、mods、assets、content_patcher、cp_maker、saves、ai、localization、modding、nexusmods 等领域逻辑（其中 `mods`、`app_ui` 等以单文件形式存在）。
 - `infrastructure` 只放技术实现，如 game formats、filesystem、webview 基础设施；不要混入 launcher/Nexus 等领域规则。
 - 前端 `shared/infra` 对齐 game-format/asset-format 边界，不承载宿主桥、launcher/Nexus 业务规则。
 - 大型 Rust 测试不要新增内联 `#[cfg(test)] mod tests`；单元测试放 `apps/desktop/src-tauri/src/tests/unit/`，跨模块集成测试放 `apps/desktop/src-tauri/src/tests/integration/`，回归测试放 `apps/desktop/src-tauri/tests/`。

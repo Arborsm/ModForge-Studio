@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  AlertCircle,
   Check,
   ChevronDown,
   FileInput,
@@ -23,6 +22,7 @@ import { useEditorCopy, useMapAuthoringCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
 import { useAssetLibraryFocusStore } from '@shared/lib/app-state/assetLibraryFocusStore'
+import { useNotificationPublisher } from '@shared/ui/notifications'
 import { mapCatalogCategory } from '../state/mapAuthoringCatalog'
 import { useMapAuthoringCatalog } from '../state/useMapAuthoringCatalog'
 import { applyMapAreaPreview, applyMapTilePreview, splitMapTargets } from '../model/mapPatchReducer'
@@ -254,9 +254,11 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
   const [showAddPanel, setShowAddPanel] = useState(false)
   const [previewMode, setPreviewMode] = useState<PreviewMode>('result')
   const [warpPick, setWarpPick] = useState<WarpPick>(null)
-  const [assetOpenError, setAssetOpenError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  // Operation failures surface through the shared notification system; the
+  // original error message rides along as the description, never swallowed.
+  const publishNotification = useNotificationPublisher()
 
   const previewTargets = splitMapTargets(patch.target)
   const target = previewTargets[0] ?? patch.target
@@ -434,11 +436,15 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
 
   async function openProjectMapAsset(relativePath: string) {
     try {
-      setAssetOpenError(null)
-      if (!resources.onOpenMapAsset) throw new Error(copy.unableToLoadMap)
+      if (!resources.onOpenMapAsset) throw new Error(copy.openMapAssetFailed)
       resources.onOpenMapAsset(relativePath)
-    } catch {
-      setAssetOpenError(copy.unableToLoadMap)
+    } catch (error) {
+      publishNotification({
+        id: 'map-patch-open-asset',
+        level: 'error',
+        title: copy.openMapAssetFailed,
+        description: error instanceof Error ? error.message : null,
+      })
     }
   }
 
@@ -459,8 +465,13 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
       const paths = await project.chooseFiles(copy.importMapAction, [{ name: 'Map files', extensions: ['tmx', 'tbin'] }])
       if (paths.length === 0) return
       await project.importProjectAssets(paths, 'assets/maps')
-    } catch {
-      setAssetOpenError(copy.noProjectMapAssets)
+    } catch (error) {
+      publishNotification({
+        id: 'map-patch-import',
+        level: 'error',
+        title: copy.importMapFailed,
+        description: error instanceof Error ? error.message : null,
+      })
     } finally {
       setImporting(false)
     }
@@ -473,7 +484,6 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
     })
     if (!asset) return
     setImporting(true)
-    setAssetOpenError(null)
     try {
       const usedPaths = new Set(draft.projectAssets.map((a) => a.relativePath.replaceAll('\\', '/').toLowerCase()))
       const prepared = await prepareProjectMapCopy({
@@ -481,13 +491,18 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
         asset,
         resources,
         usedPaths,
-        invalidMapError: copy.noProjectMapAssets,
+        invalidMapError: copy.importMapFailed,
         tilesheetLoadError: (name) => authoringCopy.create.tilesheetLoadError(name),
       })
       await project.writeProjectAssets(prepared.assets, 'generated')
       updatePatch(patch.id, { fromFile: prepared.document.relativePath || undefined })
-    } catch {
-      setAssetOpenError(copy.noProjectMapAssets)
+    } catch (error) {
+      publishNotification({
+        id: 'map-patch-import-game',
+        level: 'error',
+        title: copy.importMapFailed,
+        description: error instanceof Error ? error.message : null,
+      })
     } finally {
       setImporting(false)
     }
@@ -547,7 +562,7 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
     <div className="map-patch-page">
       <div className="map-patch-canvas-area">
         <nav className="map-patch-canvas-toolbar">
-          <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{target.replace(/^Maps\//iu, '')}</span>
+          <span className="map-patch-target-name">{target.replace(/^Maps\//iu, '')}</span>
           <span className="spacer" />
           <div className="map-patch-preview-switch" role="group" aria-label={copy.previewTitle}>
             {(['before', 'result', 'diff'] as const).map((mode) => (
@@ -731,17 +746,11 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
                             </div>
                           ))
                         ) : (
-                          <p style={{ fontSize: '0.5625rem', color: 'var(--text-tertiary)' }}>{copy.noProjectMapAssets}</p>
+                          <p className="change-card-empty-note">{copy.noProjectMapAssets}</p>
                         )}
                       </div>
-                      <div style={{ display: 'flex', gap: '0.375rem', marginTop: '0.375rem' }}>
-                        <button
-                          type="button"
-                          className="control-button"
-                          style={{ flex: 1, justifyContent: 'center', minHeight: '1.75rem' }}
-                          disabled={importing}
-                          onClick={() => void importMapFiles()}
-                        >
+                      <div className="change-card-import-actions">
+                        <button type="button" className="control-button" disabled={importing} onClick={() => void importMapFiles()}>
                           {importing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
                           {copy.importMapAction}
                         </button>
@@ -967,25 +976,17 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
                               </div>
                             </>
                           ) : (
-                            <label className="map-asset-checkbox" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                            <label className="map-asset-checkbox map-patch-enabled-label">
                               <input
                                 type="checkbox"
                                 checked={patch.enabled !== false}
                                 onChange={(event) => updatePatch(patch.id, { enabled: event.target.checked })}
                               />
-                              <span style={{ fontSize: '0.625rem' }}>
-                                {patch.enabled !== false ? copy.advancedSettings.enabled : copy.advancedSettings.disabled}
-                              </span>
+                              <span>{patch.enabled !== false ? copy.advancedSettings.enabled : copy.advancedSettings.disabled}</span>
                             </label>
                           )}
                         </div>
                       </div>
-                    )}
-                    {assetOpenError && (
-                      <p className="map-patch-inline-error">
-                        <AlertCircle className="h-3 w-3" />
-                        {assetOpenError}
-                      </p>
                     )}
                   </>
                 )}
