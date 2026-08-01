@@ -597,7 +597,7 @@ pub(crate) fn resolve_command(
         crate::host_command_wire!(export_cp_maker_pack) => mutation_with_resources(
             id,
             &command_name,
-            &[SidecarResource::ModProject],
+            &[SidecarResource::ModProject, SidecarResource::CpMakerDrafts],
             move || {
                 ok(domain::cp_maker::export_cp_maker_pack(arg(
                     &args, "request",
@@ -611,12 +611,85 @@ pub(crate) fn resolve_command(
                 )?))
             })
         }
-        crate::host_command_wire!(import_cp_maker_pack) => mutation(id, &command_name, move || {
-            // Import reads a caller-selected content pack and returns an in-memory draft record;
-            // it does not write draft storage or the source mod directory.
-            let mod_directory_path: String = arg(&args, "modDirectoryPath")?;
-            ok(domain::cp_maker::import_cp_maker_pack(&mod_directory_path))
-        }),
+        crate::host_command_wire!(import_cp_maker_pack) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                let mod_directory_path: String = arg(&args, "modDirectoryPath")?;
+                ok(domain::cp_maker::import_cp_maker_pack(&mod_directory_path))
+            },
+        ),
+        crate::host_command_wire!(read_cp_maker_project_asset) => io_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                ok(domain::cp_maker::read_cp_maker_project_asset(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
+        crate::host_command_wire!(load_cp_maker_project_map_asset) => io_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                ok(domain::cp_maker::load_cp_maker_project_map_asset(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
+        crate::host_command_wire!(write_cp_maker_project_asset) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                ok(domain::cp_maker::write_cp_maker_project_asset(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
+        crate::host_command_wire!(write_cp_maker_project_assets) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                ok(domain::cp_maker::write_cp_maker_project_assets(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
+        crate::host_command_wire!(import_cp_maker_project_assets) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                ok(domain::cp_maker::import_cp_maker_project_assets(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
+        crate::host_command_wire!(rename_cp_maker_project_asset) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                ok(domain::cp_maker::rename_cp_maker_project_asset(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
+        crate::host_command_wire!(delete_cp_maker_project_asset) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                ok(domain::cp_maker::delete_cp_maker_project_asset(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
 
         crate::host_command_wire!(load_launcher_settings) => {
             let app = ctx.app.clone();

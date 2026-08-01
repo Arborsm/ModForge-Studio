@@ -162,3 +162,42 @@ describe('asset draft port draft binding', () => {
     expect(host.port().readValue(MAIL_TARGET, 'Letter_A')).toBe('body a')
   })
 })
+
+describe('asset draft port structural patch operations', () => {
+  it('moves a patch one position in export order and marks the draft dirty', () => {
+    const host = mountDraftPort([
+      makeTestPatch('patch-1', 'Data/Events/Town', {}, { action: 'EditData' }),
+      makeTestPatch('patch-2', 'Maps/Town', {}, { action: 'EditMap' }),
+      makeTestPatch('patch-3', 'Maps/Town', {}, { action: 'EditMap' }),
+    ])
+
+    host.port().reorderPatch('patch-3', -1)
+
+    expect(host.patches().map((patch) => patch.id)).toEqual(['patch-1', 'patch-3', 'patch-2'])
+    expect(host.port().isDirty()).toBe(true)
+  })
+
+  it('deep-copies a patch right after the original with a fresh id', () => {
+    const host = mountDraftPort([
+      makeTestPatch('patch-1', 'Maps/Town', {}, { action: 'EditMap', logName: 'Town overwrite' }),
+      makeTestPatch('patch-2', 'Maps/Farm', {}, { action: 'EditMap' }),
+    ])
+
+    host.port().duplicatePatch('patch-1')
+
+    expect(host.patches().map((patch) => patch.id)).toEqual(['patch-1', 'patch-copy-3', 'patch-2'])
+    expect(host.patches()[1]).toMatchObject({ action: 'EditMap', target: 'Maps/Town', logName: 'Town overwrite' })
+  })
+
+  it('removes a patch and forgets its editor state', () => {
+    const host = mountDraftPort([
+      makeTestPatch('patch-1', 'Maps/Town', { entries: { A: 'body a' } }, { action: 'EditMap' }),
+      makeTestPatch('patch-2', 'Maps/Farm', {}, { action: 'EditMap' }),
+    ])
+
+    host.port().removePatch('patch-1')
+
+    expect(host.patches().map((patch) => patch.id)).toEqual(['patch-2'])
+    expect(host.editorState('patch-1')).toBeUndefined()
+  })
+})

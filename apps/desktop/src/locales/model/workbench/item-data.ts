@@ -67,6 +67,10 @@ export type ItemDataEditorCopy = {
   }
   sources: {
     title: string
+    libraryTitle: string
+    libraryHint: string
+    backToLibrary: string
+    openItem: (name: string) => string
     searchPlaceholder: string
     modeAll: string
     modeProject: string
@@ -116,5 +120,12 @@ export type ItemDataEditorCopy = {
     patchMissing: string
     manageHint: string
     openEditorAction: string
+  }
+  workflow: {
+    status: {
+      complete: string
+      'needs-attention': string
+      optional: string
+    }
   }
 }

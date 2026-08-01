@@ -11,6 +11,18 @@ const mailEditor: MailEditorCopy = {
   dirtyBadge: 'Unsaved',
   noProjectTitle: 'No project open',
   noProjectHint: 'Create or open a Content Patcher project to start writing letters.',
+  backToLibrary: 'Back to mail library',
+  editorTabs: {
+    body: 'Body',
+    attachments: 'Attachments',
+    delivery: 'Delivery & triggers',
+    settings: 'Paper & data',
+  },
+  tabStatuses: {
+    complete: 'Complete',
+    attention: 'Needs attention',
+    optional: 'Optional',
+  },
   list: {
     heading: 'Project letters',
     countTemplate: '{count} letters',
@@ -66,6 +78,11 @@ const mailEditor: MailEditorCopy = {
     backgroundMissing: 'Letter background texture unavailable; showing a placeholder frame.',
     secretSantaPlaceholder: '???',
     collectionTitleBadge: 'Collection title',
+    dataHeading: 'Mail data',
+    dataIdLabel: 'Mail id',
+    dataAttachmentsLabel: 'Attachments',
+    dataDeliveryLabel: 'Delivery rules',
+    dataIssuesLabel: 'Issues',
   },
   info: {
     heading: 'Letter info',
@@ -80,6 +97,8 @@ const mailEditor: MailEditorCopy = {
     textColorDefault: 'Default',
     statusHeading: 'Status checks',
     statusOk: 'No issues found.',
+    rawDataLabel: 'Raw mail data',
+    rawDataHint: 'Expert mode edits the serialized Data/mail value directly; unknown commands remain intact.',
     deleteAction: 'Delete letter',
   },
   backgrounds: {

@@ -88,6 +88,13 @@ export const projectContentRegistration = registration(
   'write',
   () => import('./ui/module-runtimes/ProjectContentModuleRuntime'),
 )
+export const assetLibraryRegistration = registration(
+  'asset-library',
+  { section: 'authoring', order: 205, icon: 'images', labelKey: 'asset-library' },
+  'authoring',
+  'write',
+  () => import('./ui/module-runtimes/AssetLibraryModuleRuntime'),
+)
 export const projectSettingsRegistration = registration(
   'project-settings',
   { section: 'authoring', order: 195, icon: 'settings', labelKey: 'project-settings' },

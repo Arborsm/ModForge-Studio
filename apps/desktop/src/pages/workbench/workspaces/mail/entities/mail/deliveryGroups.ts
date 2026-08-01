@@ -60,6 +60,8 @@ export type MailLetterSummary = {
   mailId: string
   /** Collection title of the letter, or null when it has none. */
   title: string | null
+  /** Plain body excerpt used by the resource-library preview card. */
+  bodyPreview: string
   errors: number
   warnings: number
   deliveryGroup: MailDeliveryGroupId

@@ -285,10 +285,6 @@ export function useScheduleWorkspace() {
   // Converges on a valid NPC selection after loads and project patch changes;
   // the functional update bails out when the selection is already valid.
   useEffect(() => {
-    if (vanillaCharacters.status !== 'ready') {
-      return
-    }
-
     setSelectedNpcId((current) => {
       if (current && npcOptions.some((option) => option.id === current)) {
         return current
@@ -414,10 +410,12 @@ export function useScheduleWorkspace() {
   const assetId = selectedNpcId === null ? null : buildScheduleTarget(selectedNpcId)
   const patchState =
     assetId === null ? { entries: {}, disabledEntries: {}, entryLabels: {} } : readSchedulePatchStateFromPort(port, assetId)
-  const scheduleReady = vanillaSchedule.status === 'ready' && vanillaSchedule.npcId === selectedNpcId
-  const entries = scheduleReady ? buildScheduleEntrySummaries(vanillaSchedule.entries, patchState) : []
+  const scheduleResolved =
+    vanillaSchedule.npcId === selectedNpcId && (vanillaSchedule.status === 'ready' || vanillaSchedule.status === 'error')
+  const vanillaEntries = vanillaSchedule.status === 'ready' ? vanillaSchedule.entries : null
+  const entries = scheduleResolved ? buildScheduleEntrySummaries(vanillaEntries, patchState) : []
   const priorityGroups: SchedulePriorityGroup[] = buildSchedulePriorityGroups(entries)
-  const hasVanillaSchedule = scheduleReady && vanillaSchedule.entries != null
+  const hasVanillaSchedule = vanillaSchedule.status === 'ready' && vanillaSchedule.entries != null
 
   // Stages the entry a create action asked for, once its patch is reachable.
   useEffect(() => {
@@ -427,6 +425,8 @@ export function useScheduleWorkspace() {
     const target = buildScheduleTarget(pendingEntry.npcId)
     port.updatePatch(pendingEntry.patchId, { logName: `Schedules: ${pendingEntry.npcId}` })
     port.stageValue(target, pendingEntry.key, pendingEntry.script)
+    setSelectedKey(pendingEntry.key)
+    setMode('structured')
     setPendingEntry(null)
   }, [pendingEntry, port])
 
@@ -441,16 +441,16 @@ export function useScheduleWorkspace() {
           readOnly: activeSummary.origin === 'vanilla',
         }
 
-  // Recovers the selection when the active key disappears (delete, revert,
-  // switching NPC) and defaults to the first entry of a freshly loaded NPC.
+  // Recover the library when the active key disappears. The library owns
+  // entry selection; loading an NPC must not jump straight into an editor.
   useEffect(() => {
-    if (!scheduleReady) {
+    if (!scheduleResolved) {
       return
     }
-    if (selectedKey !== null && entries.some((entry) => entry.key === selectedKey)) {
+    if (selectedKey === null || entries.some((entry) => entry.key === selectedKey)) {
       return
     }
-    setSelectedKey(entries[0]?.key ?? null)
+    setSelectedKey(null)
     setDeleteArmed(false)
   })
 
@@ -473,6 +473,12 @@ export function useScheduleWorkspace() {
     setSelectedKey(key)
     setDeleteArmed(false)
     setMode(entries.find((entry) => entry.key === key)?.structured === false ? 'raw' : 'structured')
+  }
+
+  function closeEntry() {
+    setSelectedKey(null)
+    setDeleteArmed(false)
+    setMode('structured')
   }
 
   function refreshVanilla() {
@@ -672,7 +678,7 @@ export function useScheduleWorkspace() {
     selectedNpc,
     selectNpc,
     scheduleState: {
-      status: scheduleReady ? ('ready' as const) : vanillaSchedule.status,
+      status: vanillaSchedule.status,
       errorMessage: vanillaSchedule.errorMessage,
       hasVanillaSchedule,
     },
@@ -683,6 +689,7 @@ export function useScheduleWorkspace() {
     retrySchedule,
     selectedKey,
     selectEntry,
+    closeEntry,
     active,
     mode,
     setMode,

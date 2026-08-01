@@ -21,6 +21,7 @@ function draft(patches: DraftPatch[], i18nFiles: CpMakerDraft['i18nFiles'] = [])
     configSchema: [],
     patches,
     virtualAssets: [],
+    projectAssets: [],
     dynamicTokens: [],
     customLocations: [],
     aliasTokenNames: {},

@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { loadImageDataUrl, loadTextAsset } from '@entities/game/api'
-import { loadItemTextureAssetState, type ItemTextureAssetState } from '@entities/item'
+import {
+  getAllTextureAssetNames,
+  loadItemTextureAssetState,
+  loadItemWorkspaceEntries,
+  type ItemTextureAssetState,
+  type ItemWorkspaceEntry,
+} from '@entities/item'
 import type { AssetDraftPort } from '@features/cp-maker'
 import type { LocaleCode } from '@locales'
 import { useLocale } from '@locales/provider'
@@ -55,6 +61,8 @@ export type VanillaMailState = {
 
 export type MailItemTextureState = {
   status: 'idle' | 'loading' | 'ready' | 'missing'
+  items: ItemWorkspaceEntry[]
+  textures: Record<string, ItemTextureAssetState>
   springobjects: ItemTextureAssetState | null
 }
 
@@ -174,7 +182,12 @@ export function useMailWorkspace() {
   const [selectedMailId, setSelectedMailId] = useState<string | null>(null)
   const [vanillaMail, setVanillaMail] = useState<VanillaMailState>({ status: 'idle', letters: [] })
   const [letterBg, setLetterBg] = useState<MailLetterBgState>({ status: 'idle', url: null, geometry: null })
-  const [itemTextures, setItemTextures] = useState<MailItemTextureState>({ status: 'idle', springobjects: null })
+  const [itemTextures, setItemTextures] = useState<MailItemTextureState>({
+    status: 'idle',
+    items: [],
+    textures: {},
+    springobjects: null,
+  })
   const [pendingWrites, setPendingWrites] = useState<PendingWrite[]>([])
   // Patches added during this render pass; the port only sees them next render,
   // so a second write to the same asset must reuse the id instead of adding again.
@@ -239,25 +252,37 @@ export function useMailWorkspace() {
     }
   }, [locale, rootPath])
 
-  // ── Item textures ──
+  // ── Item catalog and textures ──
   useEffect(() => {
     if (!rootPath) {
       return deferToTimeout(() => {
-        setItemTextures({ status: 'missing', springobjects: null })
+        setItemTextures({ status: 'missing', items: [], textures: {}, springobjects: null })
       })
     }
     let cancelled = false
     const cancel = deferToTimeout(() => {
-      setItemTextures({ status: 'loading', springobjects: null })
+      setItemTextures({ status: 'loading', items: [], textures: {}, springobjects: null })
       void (async () => {
         try {
-          const springobjects = await loadItemTextureAssetState(rootPath, 'Maps\\springobjects', locale)
+          const items = await loadItemWorkspaceEntries(rootPath, locale)
+          const textureEntries = await Promise.all(
+            getAllTextureAssetNames(items).map(async (assetName) => {
+              const texture = await loadItemTextureAssetState(rootPath, assetName, locale)
+              return [assetName.replaceAll('\\', '/').toLowerCase(), texture] as const
+            }),
+          )
+          const textures = Object.fromEntries(textureEntries)
           if (!cancelled) {
-            setItemTextures({ status: 'ready', springobjects })
+            setItemTextures({
+              status: 'ready',
+              items,
+              textures,
+              springobjects: textures['maps/springobjects'] ?? null,
+            })
           }
         } catch {
           if (!cancelled) {
-            setItemTextures({ status: 'missing', springobjects: null })
+            setItemTextures({ status: 'missing', items: [], textures: {}, springobjects: null })
           }
         }
       })()
@@ -372,9 +397,11 @@ export function useMailWorkspace() {
 
   const letterSummaries: MailLetterSummary[] = allMailIds.map((mailId) => {
     const summary = summarizeIssues(validateLetter(mailId))
+    const draft = mailDraftFromString(lettersById[mailId] ?? '')
     return {
       mailId,
-      title: parseMailString(lettersById[mailId] ?? '').title,
+      title: draft.title,
+      bodyPreview: draft.body,
       errors: summary.errors,
       warnings: summary.warnings,
       deliveryGroup: classifyMailDelivery(triggersForLetter(mailId).map((row) => row.draft)),
@@ -382,14 +409,19 @@ export function useMailWorkspace() {
   })
   const deliveryGroups: MailDeliveryGroup[] = buildMailDeliveryGroups(letterSummaries)
 
-  const activeMailId = selectedMailId !== null && selectedMailId in lettersById ? selectedMailId : (allMailIds[0] ?? null)
+  const activeMailId = selectedMailId !== null && selectedMailId in lettersById ? selectedMailId : null
   const activeDraft: MailLetterDraft | null = activeMailId === null ? null : mailDraftFromString(lettersById[activeMailId] ?? '')
+  const activeRawValue = activeMailId === null ? '' : (lettersById[activeMailId] ?? '')
   const activeTriggers = activeMailId === null ? [] : triggersForLetter(activeMailId)
   const activeIssues = activeMailId === null ? [] : validateLetter(activeMailId)
 
   // ── Mutations ──
   function selectLetter(mailId: string) {
     setSelectedMailId(mailId)
+  }
+
+  function closeLetter() {
+    setSelectedMailId(null)
   }
 
   function createLetter(): string {
@@ -420,6 +452,12 @@ export function useMailWorkspace() {
       return
     }
     stageLetter(activeMailId, mailDraftToString(nextDraft))
+  }
+
+  function updateActiveRawValue(value: string) {
+    if (activeMailId !== null) {
+      stageLetter(activeMailId, value)
+    }
   }
 
   function renameActiveLetter(nextMailId: string): RenameResult {
@@ -490,6 +528,7 @@ export function useMailWorkspace() {
     letterCount: allMailIds.length,
     activeMailId,
     activeDraft,
+    activeRawValue,
     activeTriggers,
     activeIssues,
     isDirty: port?.isDirty() ?? false,
@@ -499,9 +538,11 @@ export function useMailWorkspace() {
     itemTextures,
     allTriggersByLetter: allTriggersByLetter(),
     selectLetter,
+    closeLetter,
     createLetter,
     createLetterFromVanilla,
     updateActiveDraft,
+    updateActiveRawValue,
     renameActiveLetter,
     deleteLetter,
     addTriggerForActiveLetter,
@@ -511,6 +552,8 @@ export function useMailWorkspace() {
     revert: () => port?.revert(),
     undo: () => void port?.undo(),
     redo: () => void port?.redo(),
+    gameRootPath: rootPath,
+    locale,
   }
 }
 

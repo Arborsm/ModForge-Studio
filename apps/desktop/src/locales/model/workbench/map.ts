@@ -28,6 +28,10 @@ export type BuildAssetDialogCopy = {
   title: string
   building: string
   buildingMessage: string
+  formatLabel: string
+  formats: Record<'tmx' | 'tbin', string>
+  destinationLabel: string
+  destinationHint: string
   doneTitle: string
   doneAssetSavedAs: (relativePath: string) => string
   doneSizeKb: (kilobytes: number) => string
@@ -35,6 +39,8 @@ export type BuildAssetDialogCopy = {
   doneAction: string
   closeAction: string
   cancelAction: string
+  saveAction: string
+  retryAction: string
 }
 
 /** Copy for the redesigned map browse workspace (browser + detail rail). */
@@ -64,4 +70,239 @@ export type MapPanelCopy = {
   objectsTotal: (count: number) => string
   warpsTotal: (count: number) => string
   moreObjects: (count: number) => string
+}
+
+/** Copy for direct TMX/TBin map asset authoring. */
+export type MapAssetEditorCopy = {
+  invalidDocument: string
+  returnToLibrary: string
+  subtitle: string
+  assetPath: string
+  save: string
+  saving: string
+  saved: (path: string) => string
+  tbinSaveBlocked: string
+  tbinConvertAction: string
+  tbinConvertHint: string
+  tbinConverted: (path: string) => string
+  xnbReadOnlyBanner: string
+  layerNameValidationTitle: string
+  emptyLayerName: (id: number) => string
+  duplicateLayerName: (name: string) => string
+  tbinIssues: Record<
+    | 'objects'
+    | 'transforms'
+    | 'extensions'
+    | 'tilesetLayout'
+    | 'tileDefinitions'
+    | 'layerPresentation'
+    | 'typedProperties'
+    | 'externalTilesets',
+    string
+  >
+  layers: string
+  layerDetails: string
+  layerName: string
+  layerPropertiesHint: string
+  mapProperties: string
+  addLayer: string
+  newLayerName: (index: number) => string
+  hideLayer: string
+  showLayer: string
+  lockLayer: string
+  unlockLayer: string
+  moveLayerUp: string
+  moveLayerDown: string
+  deleteLayer: string
+  deleteLayerTitle: string
+  deleteLayerDescription: string
+  cancel: string
+  tools: string
+  toolLabels: Record<'inspect' | 'brush' | 'stamp' | 'fill' | 'erase' | 'rectangle' | 'eyedropper' | 'hand', string>
+  inspectorTabs: Record<'tile' | 'objects' | 'map' | 'tileset', string>
+  selectedCell: (x: number, y: number) => string
+  selectCell: string
+  hoveredCell: (x: number, y: number) => string
+  flipHorizontal: string
+  flipVertical: string
+  rotateClockwise: string
+  cellPropertiesHint: string
+  addTileData: string
+  objectGroups: string
+  addObjectGroup: string
+  newObjectGroupName: (index: number) => string
+  objectGroupName: string
+  objectGroupVisible: string
+  objectGroupOpacity: string
+  objectGroupDrawOrder: string
+  objectGroupPropertiesHint: string
+  deleteObjectGroup: string
+  deleteNonEmptyObjectGroup: string
+  objectDetails: string
+  objectName: string
+  objectType: string
+  objectX: string
+  objectY: string
+  objectWidth: string
+  objectHeight: string
+  objectRotation: string
+  objectVisible: string
+  deleteObject: string
+  objectPropertiesHint: string
+  selectObject: string
+  addTileset: string
+  replaceTileset: string
+  chooseImage: string
+  projectImages: string
+  selectTileset: string
+  tilesetProperties: string
+  tileDefinitionProperties: (tileId: number) => string
+  tileDefinitionPropertiesHint: string
+  loadingTileset: string
+  invalidTilesetDimensions: (width: number, height: number, tileWidth: number, tileHeight: number) => string
+  tilesetExternalTsx: string
+  tilesetExternalTsxHint: (source: string) => string
+  tilesetExternalTsxInvalid: string
+  animation: string
+  animationTile: (tileId: number) => string
+  frameTile: string
+  frameDuration: string
+  removeFrame: string
+  addFrame: string
+  animationDurationWarning: string
+  documentSummary: string
+  formatCheck: string
+  formatReady: string
+  formatNeedsAttention: string
+  inspectorViews: Record<'properties' | 'history' | 'diagnostics', string>
+  noRecentChanges: string
+  undo: string
+  undoTitle: string
+  redo: string
+  redoTitle: string
+  undoHistory: (count: number) => string
+  redoHistory: (count: number) => string
+  formatNames: Record<'tbin' | 'xnb' | 'tmx', string>
+}
+
+/** Copy for the read-only map Load binding summary shown in the map workspace. */
+export type MapLoadSummaryCopy = {
+  title: string
+  hint: string
+  targetLabel: string
+  fromFileLabel: string
+  enabledLabel: string
+  enabledTrue: string
+  enabledFalse: string
+  enabledExpression: (expression: string) => string
+  previewSection: string
+  previewHint: string
+  previewTarget: string
+  previewResolved: string
+  previewStatus: string
+  statusExists: string
+  statusMissing: string
+  emptyResolved: string
+  noTargets: string
+  manageInAssetLibrary: string
+  manageHint: string
+}
+
+/** Copy for the patch-tiles editing session hosted by the map workspace. */
+export type MapTilesSessionCopy = {
+  title: string
+  changedCells: (count: number) => string
+  loading: string
+  loadFailed: string
+  retry: string
+  complete: string
+  discard: string
+  cancel: string
+}
+
+export type MapAuthoringCopy = {
+  editorShell: {
+    assetMode: string
+    patchMode: string
+    operationStack: string
+    fixedExecutionOrder: string
+    closeInspector: string
+    openMapInspector: string
+    openLayerInspector: string
+    openObjectInspector: string
+    openTilesetInspector: string
+    showPalette: string
+    hidePalette: string
+    noSelection: string
+  }
+  libraryTitle: string
+  libraryHint: string
+  searchPlaceholder: string
+  sourceAll: string
+  sourceProject: string
+  sourceGame: string
+  importMapAction: string
+  importFromGame: string
+  projectSection: string
+  gameSection: string
+  emptyTitle: string
+  emptyHint: string
+  loading: string
+  loadFailed: string
+  openingMap: string
+  openFailed: string
+  projectBadge: string
+  gameBadge: string
+  formatValue: (format: string, size: string) => string
+  openMap: (name: string) => string
+  patchGameMap: (name: string) => string
+  categories: Record<'farm' | 'town' | 'interior' | 'wild' | 'mine' | 'island' | 'festival' | 'other', string>
+  patchManager: {
+    viewLibrary: string
+    viewPatches: string
+    hint: string
+    count: (count: number) => string
+    when: string
+    priority: string
+    fromFile: string
+    moveUp: string
+    moveDown: string
+    duplicate: string
+    delete: string
+    deleteTitle: string
+    deleteMessage: (name: string) => string
+    cancel: string
+    confirmDelete: string
+    toggleEnable: (name: string) => string
+    toggleDisable: (name: string) => string
+    enabledByExpression: string
+    setAlwaysEnabled: string
+    setAlwaysDisabled: string
+    /** Compact badge label for the patch kind shown on each manager row. */
+    actionBadges: Record<'EditMap' | 'Load', string>
+  }
+  assetEditor: MapAssetEditorCopy
+  create: {
+    title: string
+    nameLabel: string
+    namePlaceholder: string
+    templateLabel: string
+    templatePlaceholder: string
+    templateHint: string
+    blankTemplate: string
+    dimensionsLabel: string
+    widthLabel: string
+    heightLabel: string
+    duplicateError: string
+    invalidNameError: string
+    templateLoadError: string
+    tilesheetLoadError: (name: string) => string
+    rollbackError: string
+    cancel: string
+    confirm: string
+    creating: string
+  }
+  importInAssetLibrary: (name: string) => string
+  mapLoadSummary: MapLoadSummaryCopy
+  tilesSession: MapTilesSessionCopy
 }

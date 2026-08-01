@@ -251,8 +251,6 @@ export type StudioDeskCopy = {
     removeImage: string
     dropTitle: string
     dropHint: string
-    loadAction: string
-    loadDescription: string
     targetLoading: string
     targetLoadFailed: string
     manualAreasTitle: string
@@ -268,7 +266,7 @@ export type StudioDeskCopy = {
     uploadFile: string
   }
   mapPatchEditor: {
-    tabs: Record<'properties' | 'warps' | 'tiles' | 'file', string>
+    tabs: Record<'properties' | 'warps' | 'tiles' | 'file' | 'advanced', string>
     playerWarps: string
     playerWarpsDescription: string
     npcWarps: string
@@ -290,23 +288,145 @@ export type StudioDeskCopy = {
     removeProperty: string
     addWarp: string
     removeWarp: string
+    noWarps: string
+    warpSource: string
+    warpDestination: string
+    pickWarpSource: string
     noGameRoot: string
     noGameRootDescription: string
     loadingMap: string
     unableToLoadMap: string
     unsupportedFormat: (format: string) => string
     unableToLoadTarget: (target: string) => string
-    tilePosition: (x: number, y: number) => string
-    tileLayer: (layer: string) => string
+    hoverHint: string
+    canvasTools: Record<'inspect' | 'brush' | 'stamp' | 'fill' | 'erase' | 'rectangle' | 'eyedropper' | 'warp', string>
+    activeLayer: string
+    selectBrushHint: string
+    tilesetPalette: string
+    tilesetView: string
+    tilesetGridView: string
+    tilesetSheetView: string
+    loadingTileset: string
+    noTilesets: string
+    tilesetImageMissing: string
+    tilesetImageError: (path: string) => string
+    tilesetSelection: (index: number, width: number, height: number) => string
     tileTileset: (tileset: string) => string
     tileId: (id: number) => string
-    hoverHint: string
-    addTileEdit: string
+    quickProperty: string
+    chooseQuickProperty: string
+    mapPropertyCategories: Record<'map' | 'warps' | 'lighting' | 'music' | 'spawning' | 'buildings' | 'other', string>
+    mapPropertyLabel: (key: string) => string
+    textOperationsTitle: string
+    textOperationsDescription: string
+    noTextOperations: string
+    addTextOperation: string
+    removeTextOperation: string
+    preservedTextOperationFields: (fields: string) => string
+    textOperationFields: Record<'operation' | 'target' | 'value' | 'delimiter' | 'search' | 'replaceMode', string>
     buildAsset: string
     mapTileEdits: (count: number) => string
-    tilePlaceholders: Record<'layer' | 'x' | 'y' | 'tilesheet' | 'index' | 'properties', string>
-    removeTile: string
-    removeTileEdit: string
+    returnToLibrary: string
+    previewTitle: string
+    previewModes: Record<'before' | 'result' | 'diff', string>
+    previewSummary: string
+    previewEmpty: string
+    mapTarget: string
+    mapSize: string
+    layers: string
+    tilesets: string
+    buildStatus: string
+    buildStatuses: Record<'notBuilt' | 'built' | 'source', string>
+    selectDestination: string
+    destinationPlaceholder: string
+    pickWarpDestination: string
+    pickWarpDestinationHint: string
+    destinationPreview: (target: string) => string
+    runtimeTargetUnavailable: (target: string) => string
+    /** Opens the current tiles change card in the full map editor session. */
+    editInMapEditor: string
+    /** Clears every tile edit on the card, resetting the summary to zero. */
+    clearTiles: string
+    tabStatuses: Record<'complete' | 'attention' | 'optional', string>
+    saveChanges: string
+    addChange: string
+    duplicateChange: string
+    deleteChange: string
+    changeTarget: string
+    projectLocations: string
+    projectMapAssets: string
+    importMapAction: string
+    importingMap: string
+    importFromGame: string
+    openMapAsset: string
+    noProjectLocations: string
+    noProjectMapAssets: string
+    mapChanges: string
+    diagnostics: string
+    readyToSave: string
+    scopeSummary: (conditionCount: number) => string
+    textOperationPresets: Record<
+      | 'light'
+      | 'warp'
+      | 'npcWarp'
+      | 'dayTiles'
+      | 'nightTiles'
+      | 'doors'
+      | 'sounds'
+      | 'lightEntrance'
+      | 'lightSingle'
+      | 'lightRoad'
+      | 'warpForest'
+      | 'warpFarm'
+      | 'warpTown'
+      | 'npcWarpOrchard'
+      | 'npcWarpBus'
+      | 'dayTilesEntrance'
+      | 'dayTilesBuilding'
+      | 'nightTilesEntrance'
+      | 'nightTilesBuilding'
+      | 'doorsGarden'
+      | 'doorsOrchard'
+      | 'soundsEntrance'
+      | 'soundsWarp',
+      string
+    >
+    textOperationApplyMode: string
+    textOperationApplyModes: Record<'append' | 'replace' | 'remove', string>
+    textOperationCustomKind: string
+    textOperationCustomValue: string
+    changeCards: {
+      addChange: string
+      changeCount: (n: number) => string
+      selectType: string
+    }
+    changeCardFileExists: string
+    changeCardTypes: Record<'file' | 'tiles' | 'properties' | 'warps' | 'text', string>
+    changeCardTypeDescriptions: Record<'file' | 'tiles' | 'properties' | 'warps' | 'text', string>
+    changeCardStatuses: Record<'configured' | 'optional' | 'empty', string>
+    changeCardActions: Record<'duplicate' | 'delete' | 'expand' | 'collapse', string>
+    copyMode: Record<'replaceByLayer' | 'overlay' | 'replace', string>
+    copyModeDescriptions: Record<'replaceByLayer' | 'overlay' | 'replace', string>
+    advancedSettings: {
+      title: string
+      whenCondition: string
+      whenConditionHint: string
+      priority: string
+      enabled: string
+      disabled: string
+      enabledByExpression: string
+      enabledByExpressionHint: (token: string) => string
+      setAlwaysEnabled: string
+      setAlwaysDisabled: string
+    }
+    sourceMapFile: string
+    sourceMapHint: string
+    pastePosition: string
+    copyRange: string
+    editInAssetEditor: string
+    manageInAssetLibrary: string
+    toAreaPickHint: string
+    fromAreaPickHint: string
   }
   referencePreview: {
     workspaceLabels: Record<'mods' | 'map' | 'events' | 'characters' | 'buildings' | 'items' | 'dialogue' | 'schedules' | 'mail', string>
@@ -365,6 +485,20 @@ export type StudioDeskCopy = {
     whenKeyPlaceholder: string
     whenValuePlaceholder: string
     addCondition: string
+    whenPresetsLabel: string
+    whenPresetSeason: string
+    whenPresetWeather: string
+    whenPresetDayOfWeek: string
+    whenPresetHasMod: string
+    whenPresetConfig: string
+    whenPresetMore: string
+    whenPresetGroups: Record<
+      'dateWeather' | 'player' | 'relationship' | 'world' | 'number' | 'string' | 'metadata' | 'fieldReference' | 'specialized' | 'random',
+      string
+    >
+    whenCustomValuePlaceholder: string
+    whenCustomValueAdd: string
+    whenHasModValuePlaceholder: string
     localTokens: string
     tokenNamePlaceholder: string
     valuePlaceholder: string
@@ -412,7 +546,6 @@ export type StudioDeskCopy = {
     actionFilterLabel: string
     allActions: string
     shown: (count: number) => string
-    addPatch: string
     emptyTitle: string
     emptySubtitle: string
     selectedPatch: string
@@ -449,15 +582,12 @@ export type StudioDeskCopy = {
     eventsLabel: string
     savedLabel: string
     unsavedLabel: string
-    patchSettingsLabel: string
     multiSelectLabel: string
     selectedCountLabel: (count: number) => string
     addEventLabel: string
     /** Alias given to a freshly created event scene, e.g. "Untitled Town event 3". */
     untitledEventAlias: (location: string, index: number) => string
     contextMenuLabel: string
-    configurePatchAction: string
-    duplicatePatchAction: string
     duplicatedPatchName: (name: string) => string
     deletePatchAction: string
     openEditorAction: string
@@ -742,7 +872,6 @@ export type StudioDeskCopy = {
     targetFieldPlaceholder: string
     noPatchTitle: string
     noPatchSubtitle: string
-    noPatchAction: string
     breadcrumbNoPatch: string
     selectEventAriaLabel: (eventKey: string) => string
     defaultEventTitle: string

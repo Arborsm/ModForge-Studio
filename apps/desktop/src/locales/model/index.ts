@@ -5,6 +5,7 @@ export type { NotificationCopy } from './notifications'
 export type { LauncherCopy, LauncherUpdatesCopy } from './launcher'
 export type {
   ViewportLabels,
+  MapAuthoringCopy,
   MapPanelCopy,
   EventStageCopy,
   EventWorkflowCopy,
@@ -21,6 +22,8 @@ export type {
   AssetIssueParams,
   AssetPickerKindKey,
   AssetTextCategoryKey,
+  ResourceBrowserCopy,
+  ResourceBrowserKindKey,
   BuildingsPanelCopy,
   ItemsPanelCopy,
   EditorCopy,

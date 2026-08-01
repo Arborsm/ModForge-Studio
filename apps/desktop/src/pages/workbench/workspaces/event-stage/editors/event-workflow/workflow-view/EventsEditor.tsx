@@ -39,7 +39,7 @@ import { EventStagePreview, type EventStagePreviewAssetLoader } from './EventSta
 import { PickModeOverlay } from './PickModeOverlay'
 import { DraftUndoButtons } from '@features/cp-maker'
 import { ScriptEditor } from './ScriptEditor'
-import { EventResourcePicker } from './EventResourcePicker'
+import { ResourcePicker } from '@features/resource-browser'
 import { buildEventResourceRegistry, type EventActorAssetPreview, type EventResourceRegistry } from './eventResourceRegistry'
 
 type DraftPathPoint = { tileX: number; tileY: number }
@@ -796,7 +796,7 @@ function ComposerSceneStrip({
     <div className="scene-bar" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
       <span className="scene-chip">
         <Music className="h-3.5 w-3.5" />
-        <EventResourcePicker
+        <ResourcePicker
           value={scene.musicCue ?? ''}
           label={musicLabel}
           placeholder={musicLabel}
@@ -827,7 +827,7 @@ function ComposerSceneStrip({
         const isPicking = pickingActorIndex === index
         return (
           <span key={actor.id} className={cx('scene-chip scene-chip-actor', isPicking && 'scene-chip-active')}>
-            <EventResourcePicker
+            <ResourcePicker
               value={actor.actorName}
               label={actorLabel}
               placeholder={actorLabel}

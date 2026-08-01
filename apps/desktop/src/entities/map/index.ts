@@ -1,6 +1,9 @@
 export * from './model'
 export { resolveTilesetImagePath } from './lib/assets'
+export { getMapContentBounds, getMapPreviewBounds, hasVisibleMapContent } from './lib/mapContentBounds'
+export type { MapContentBounds, MapContentBoundsOptions, MapPreviewBoundsOptions } from './lib/mapContentBounds'
 export { normalizeMapName } from './lib/mapNames'
+export { asMapPropertyString, unwrapMapPropertyValue } from './lib/properties'
 export {
   formatObjectPreviewMeta,
   getObjectDisplayName,
@@ -29,7 +32,12 @@ export {
 } from './lib/world'
 export { buildAtlasWorldOverlaySprites, buildBuildingDataIndex, buildStageWorldOverlaySprites } from './model/worldStatePreview'
 export type { StageBuildingDataEntry, StageWorldOverlaySprite } from './model/worldStatePreview'
+export { createMapTileRect } from './model/tileSelection'
+export type { MapTileRect } from './model/tileSelection'
 export { MapViewport } from './ui/MapViewport'
+export { MapTilesetPalette } from './ui/MapTilesetPalette'
+export type { MapTilesetPaletteSelection } from './ui/MapTilesetPalette'
+export { loadMapThumbnail } from './ui/mapThumbnail'
 export { default as MapWorldStatePreviewOverlay } from './ui/MapWorldStatePreviewOverlay'
 export type { MapViewportHandle } from './ui/MapViewport'
 export type { WarpEntry } from './lib/warps'

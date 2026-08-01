@@ -1,12 +1,14 @@
-import { useDeferredValue, useEffect, useId, useState } from 'react'
-import { AlertTriangle, Package, Plus, Trash2 } from 'lucide-react'
+import { useDeferredValue, useEffect, useId, useMemo, useState } from 'react'
+import { AlertCircle, AlertTriangle, ArrowLeft, CheckCircle2, CircleDashed, Trash2 } from 'lucide-react'
 import type { EditorComponent } from '@features/cp-maker'
+import { renderAssetResourcePicker, toItemResourceBrowserOptions } from '@features/resource-browser'
 import {
   AssetEntryCanvas,
   findTexturePatchState,
   parseAssetEditorState,
   parseAssetEntry,
   type AssetEntryDraft,
+  type AssetIssue,
   type AssetResources,
   type GsqBuilderRequest,
 } from '@entities/asset-schema'
@@ -22,6 +24,7 @@ import {
   type ObjectEntrySeed,
 } from '@entities/item'
 import { useEditorCopy, useItemDataEditorCopy } from '@locales/provider'
+import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { useItemAuthoringResources } from '../state/useItemAuthoringResources'
 import {
@@ -31,9 +34,33 @@ import {
   type ItemSourceMode,
   type ItemSourceRow,
 } from '../state/useItemAuthoringSources'
+import { evaluateItemReadiness, type ItemReadiness, type ItemReadinessStatus } from '../state/itemReadiness'
+import { buildItemTextureTarget, needsProjectItemTexture } from '../state/itemTextureTarget'
+import { useItemTexture } from '../state/useItemTexture'
 import { AddObjectDialog } from '../ui/AddObjectDialog'
+import { ItemCatalog } from '../ui/ItemCatalog'
+import { ItemGroupTools } from '../ui/ItemGroupTools'
 import { ItemPreviewPane } from '../ui/ItemPreviewPane'
-import { ItemSourcePane } from '../ui/ItemSourcePane'
+
+const ITEM_TECHNICAL_FIELD_KEYS = ['ArtifactSpotChances', 'CustomFields'] as const
+
+function issueGroup(issue: AssetIssue): string {
+  const fieldKey = issue.path[1]
+  if (typeof fieldKey !== 'string') return 'basics'
+  return OBJECT_DATA_SCHEMA.fields.find((field) => field.key === fieldKey)?.group ?? 'basics'
+}
+
+function ItemTabReadiness({ groupId, readiness }: { groupId: string; readiness: ItemReadiness }) {
+  const copy = useItemDataEditorCopy()
+  const status: ItemReadinessStatus = readiness.groups[groupId] ?? 'optional'
+  const Icon = status === 'complete' ? CheckCircle2 : status === 'needs-attention' ? AlertCircle : CircleDashed
+  return (
+    <span className={`item-tab-readiness is-${status}`} title={copy.workflow.status[status]}>
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      <span className="sr-only">{copy.workflow.status[status]}</span>
+    </span>
+  )
+}
 
 function RemoveEntryDialog({ objectId, onClose, onConfirm }: { objectId: string | null; onClose: () => void; onConfirm: () => void }) {
   const copy = useItemDataEditorCopy()
@@ -61,21 +88,11 @@ function RemoveEntryDialog({ objectId, onClose, onConfirm }: { objectId: string 
   )
 }
 
-/**
- * Three-pane authoring editor for `Data/Objects`.
- *
- * Left picks the asset family and the object — from this patch or from the ~800
- * vanilla objects, layered by `Type`; centre is the schema-driven form covering
- * basics, economy, food buffs, the sprite and geode drops; right assembles the
- * sprite the entry resolves to and lists every validation issue.
- *
- * Only `Data/Objects` has a structured form this round. The other item families
- * are still listed on the left and picking one routes to its raw JSON patch, so
- * the page never hides an asset it cannot yet model.
- */
+/** Two-level item library and focused `Data/Objects` editor. */
 export const ItemObjectPatchEditor: EditorComponent = ({ patch, draftPort, resources: environment }) => {
   const { draft } = draftPort
   const { gameRootPath, directoryInfo, locale } = environment
+  const expertMode = useEditorModeStore((state) => state.expertMode)
   const copy = useItemDataEditorCopy()
   const hubCopy = useEditorCopy().studioDesk.eventPatchHub
   const pendingEntry = useItemAuthoringHandoff((state) => state.pendingEntry)
@@ -87,46 +104,44 @@ export const ItemObjectPatchEditor: EditorComponent = ({ patch, draftPort, resou
   const [addOpen, setAddOpen] = useState(false)
   const [removeCandidate, setRemoveCandidate] = useState<string | null>(null)
   const [gsqRequest, setGsqRequest] = useState<GsqBuilderRequest | null>(null)
+  const [activeGroupId, setActiveGroupId] = useState('basics')
   const deferredSearch = useDeferredValue(search)
   const vanilla = useVanillaObjectIndex(gameRootPath, directoryInfo, locale)
   const referenceData = useItemAuthoringResources({ gameRootPath, directoryInfo, locale, patches: draft.patches })
+  const itemOptions = useMemo(
+    () => toItemResourceBrowserOptions(referenceData.items, referenceData.itemTextureStates, 'item-authoring'),
+    [referenceData.itemTextureStates, referenceData.items],
+  )
 
   useEffect(() => {
     setSelectedId(null)
     setAddOpen(false)
     setRemoveCandidate(null)
     setGsqRequest(null)
+    setActiveGroupId('basics')
   }, [patch.id])
 
   const entries = parseAssetEditorState(patch.editorState).entries
   const entryIds = draftPort.listEntries(OBJECT_DATA_ASSET_ID)
 
-  // The codex page hands over an object id once the workbench has opened this
-  // patch; consuming it here keeps a later remount from re-selecting an item the
-  // author has since moved away from.
   useEffect(() => {
-    if (pendingEntry === null) {
-      return
-    }
+    if (pendingEntry === null) return
     const target = consumePendingEntry()
-    if (target?.itemId == null) {
-      return
-    }
+    if (target?.itemId == null) return
     const itemId = target.itemId
     const known = entryIds.find((id) => id.toLowerCase() === itemId.toLowerCase())
     if (known === undefined) {
-      // The codex can reach an object this patch does not touch yet, so the jump
-      // seeds the override instead of landing on an empty selection.
       draftPort.stage(OBJECT_DATA_ASSET_ID, itemId, parseAssetEntry(OBJECT_DATA_SCHEMA, vanilla.records[itemId] ?? {}))
     }
     setSelectedId(known ?? itemId)
     setSourceMode('all')
-  }, [pendingEntry, consumePendingEntry, entryIds, draftPort, vanilla.records])
+    setActiveGroupId('basics')
+  }, [consumePendingEntry, draftPort, entryIds, pendingEntry, vanilla.records])
 
-  const activeId = selectedId !== null && entryIds.includes(selectedId) ? selectedId : (entryIds[0] ?? null)
+  const activeId = selectedId !== null && entryIds.includes(selectedId) ? selectedId : null
   const activeDraft = activeId !== null ? draftPort.read(OBJECT_DATA_ASSET_ID, activeId) : null
-
   const issues = validateObjectEntries(entries, { knownTextureAssets: referenceData.textureAssetNames })
+  const activeIssues = activeId === null ? [] : issues.filter((issue) => issue.path[0] === activeId)
   const resources: AssetResources = {
     npcs: [],
     items: referenceData.itemIds,
@@ -134,6 +149,7 @@ export const ItemObjectPatchEditor: EditorComponent = ({ patch, draftPort, resou
     textures: referenceData.textureAssetNames,
     maps: [],
     buildings: [],
+    options: { item: itemOptions },
     gameRootPath,
     locale,
   }
@@ -148,133 +164,126 @@ export const ItemObjectPatchEditor: EditorComponent = ({ patch, draftPort, resou
   const previewItem = buildPreviewItem(activeId, activeId === null ? null : entries[activeId], vanilla)
   const texturePatchState =
     previewItem === null ? null : findTexturePatchState(draft.patches, previewItem.textureAssetName ?? '', draft.virtualAssets)
+  const previewTextureKey = previewItem?.textureAssetName?.replaceAll('\\', '/').toLowerCase() ?? ''
+  const cachedTextureState = referenceData.itemTextureStates[previewTextureKey] ?? null
+  const loadedTextureState = useItemTexture(cachedTextureState ? null : (previewItem?.textureAssetName ?? null), gameRootPath, locale)
+  const textureState = cachedTextureState ?? loadedTextureState
+  const readiness =
+    activeDraft === null
+      ? null
+      : evaluateItemReadiness(activeDraft, {
+          issueGroups: activeIssues.map(issueGroup),
+        })
+  const entryKey = activeId !== null ? `${patch.id}:${activeId}` : patch.id
 
-  /** Opens the image patch providing the entry's sheet, creating the Load patch on first use. */
   function handleOpenTextureEditor() {
-    if (texturePatchState === null || texturePatchState.assetTarget.trim() === '') {
-      return
+    if (activeId === null || activeDraft === null) return
+    const currentTarget = texturePatchState?.assetTarget ?? ''
+    const assetTarget = needsProjectItemTexture(currentTarget)
+      ? buildItemTextureTarget(draft.projectMetadata.projectUniqueId, activeId)
+      : currentTarget.trim().replaceAll('\\', '/')
+    if (assetTarget === '') return
+
+    if (assetTarget !== currentTarget) {
+      draftPort.stage(
+        OBJECT_DATA_ASSET_ID,
+        activeId,
+        parseAssetEntry(OBJECT_DATA_SCHEMA, {
+          ...activeDraft.unknown,
+          ...activeDraft.fields,
+          Texture: assetTarget,
+        }),
+      )
     }
-    const wanted = texturePatchState.assetTarget.trim().replaceAll('\\', '/').toLowerCase()
+
+    const wanted = assetTarget.toLowerCase()
     const existing = draft.patches.find(
       (candidate) =>
         (candidate.action === 'Load' || candidate.action === 'EditImage') &&
         candidate.target.trim().replaceAll('\\', '/').toLowerCase() === wanted,
     )
-    const patchId = existing?.id ?? draftPort.addPatch('Load', texturePatchState.assetTarget)
-    if (patchId != null && draftPort.openPatch !== null) {
-      draftPort.openPatch(patchId)
-    }
+    const patchId = existing?.id ?? draftPort.addPatch('Load', assetTarget)
+    if (patchId != null && draftPort.openPatch !== null) draftPort.openPatch(patchId)
   }
 
   function handleDraftChange(next: AssetEntryDraft) {
-    if (activeId === null) {
-      return
-    }
-    draftPort.stage(OBJECT_DATA_ASSET_ID, activeId, next)
+    if (activeId !== null) draftPort.stage(OBJECT_DATA_ASSET_ID, activeId, next)
   }
 
   function handleCreate(objectId: string, seed: ObjectEntrySeed) {
     const result = addObjectEntry(entries, objectId, seed)
-    if (!result.ok) {
-      // The dialog validates before calling; reaching this branch means the
-      // draft changed underneath, so keep the dialog open with its own error.
-      return
-    }
+    if (!result.ok) return
     draftPort.stage(OBJECT_DATA_ASSET_ID, result.objectId, parseAssetEntry(OBJECT_DATA_SCHEMA, result.entries[result.objectId]))
     setSelectedId(result.objectId)
+    setActiveGroupId('basics')
     setAddOpen(false)
   }
 
-  /** Selecting a vanilla-only row seeds an override from the untouched record. */
   function handleSelectSource(row: ItemSourceRow) {
-    if (row.inProject) {
-      setSelectedId(row.key)
-      return
+    if (!row.inProject) {
+      draftPort.stage(OBJECT_DATA_ASSET_ID, row.key, parseAssetEntry(OBJECT_DATA_SCHEMA, vanilla.records[row.key] ?? {}))
     }
-    draftPort.stage(OBJECT_DATA_ASSET_ID, row.key, parseAssetEntry(OBJECT_DATA_SCHEMA, vanilla.records[row.key] ?? {}))
     setSelectedId(row.key)
+    setActiveGroupId('basics')
   }
 
-  /**
-   * Routing between item asset families is patch-level, so it goes through the
-   * handoff store the module runtime drains — the editor cannot navigate itself.
-   */
   function handleSelectFamily(family: ItemAssetFamily) {
     requestOpenFamily(resolveItemFamilyTarget(family.kind))
   }
 
   function handleRemoveConfirmed() {
-    if (removeCandidate === null) {
-      return
-    }
+    if (removeCandidate === null) return
     draftPort.stage(OBJECT_DATA_ASSET_ID, removeCandidate, null)
-    if (selectedId === removeCandidate) {
-      setSelectedId(null)
-    }
+    if (selectedId === removeCandidate) setSelectedId(null)
     setRemoveCandidate(null)
   }
 
-  const entryKey = activeId !== null ? `${patch.id}:${activeId}` : patch.id
+  function handleSelectIssue(issue: AssetIssue) {
+    const target = issue.path[0]
+    if (typeof target === 'string' && entryIds.includes(target)) setSelectedId(target)
+    setActiveGroupId(issueGroup(issue))
+  }
 
   return (
-    <div className="asset-editor">
-      <header className="asset-editor-header">
-        <div>
-          <div className="asset-editor-title">{copy.title}</div>
-          <div className="asset-editor-subtitle">{copy.subtitle}</div>
-        </div>
-        <div className="asset-editor-subtitle">{patch.target}</div>
-      </header>
-
-      <div className="asset-editor-body">
-        <ItemSourcePane
+    <div className="asset-editor item-data-editor">
+      {activeId === null ? (
+        <ItemCatalog
           groups={groups}
           activeAssetId={patch.target}
           mode={sourceMode}
           search={search}
-          activeKey={activeId}
           vanillaLoading={vanilla.loading}
           vanillaAvailable={vanilla.available}
+          textureStates={referenceData.itemTextureStates}
+          resolveItem={(row) => buildPreviewItem(row.key, row.inProject ? entries[row.key] : null, vanilla)}
           onSelectFamily={handleSelectFamily}
           onModeChange={setSourceMode}
           onSearchChange={setSearch}
           onSelect={handleSelectSource}
           onAddEntry={() => setAddOpen(true)}
         />
-
-        <div className="asset-editor-scroll custom-scrollbar">
-          {entryIds.length === 0 ? (
-            <div className="asset-editor-empty">
-              <Package className="asset-editor-empty-icon" aria-hidden="true" />
-              <div className="asset-editor-empty-title">{copy.emptyTitle}</div>
-              <div className="asset-editor-empty-hint">{copy.emptyHint}</div>
-              <button type="button" className="control-button control-button-primary" onClick={() => setAddOpen(true)}>
-                <Plus className="h-3.5 w-3.5" />
-                <span>{copy.addEntryAction}</span>
-              </button>
-            </div>
-          ) : (
-            <div className="asset-editor-main">
-              <section className="asset-editor-card">
-                <div className="asset-editor-entries">
-                  <div className="asset-editor-entries-head">
-                    <span className="asset-field-label">{copy.entries.label}</span>
-                    <span className="asset-editor-entries-count">{copy.entries.count(entryIds.length)}</span>
-                  </div>
-                  <div className="asset-editor-entry-chips">
-                    <span className="asset-editor-entry-chip is-active">{activeId ?? ''}</span>
-                    {activeId !== null ? (
-                      <button
-                        type="button"
-                        className="control-button asset-editor-remove-entry"
-                        onClick={() => setRemoveCandidate(activeId)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span>{copy.removeEntryAction}</span>
-                      </button>
-                    ) : null}
-                  </div>
+      ) : (
+        <div className="item-editor-detail">
+          <div className="asset-editor-scroll item-editor-center">
+            <div className="asset-editor-main item-editor-main">
+              <section className="item-editor-entry-toolbar">
+                <div className="item-editor-entry-identity">
+                  <button
+                    type="button"
+                    className="icon-button h-8 w-8"
+                    title={copy.sources.backToLibrary}
+                    aria-label={copy.sources.backToLibrary}
+                    onClick={() => setSelectedId(null)}
+                  >
+                    <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                  <strong className="item-editor-entry-name">{activeId}</strong>
+                  <span className="asset-editor-entries-count">{copy.entries.count(entryIds.length)}</span>
                 </div>
+                <button type="button" className="control-button asset-editor-remove-entry" onClick={() => setRemoveCandidate(activeId)}>
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{copy.removeEntryAction}</span>
+                </button>
               </section>
 
               {activeDraft !== null ? (
@@ -284,29 +293,31 @@ export const ItemObjectPatchEditor: EditorComponent = ({ patch, draftPort, resou
                   draft={activeDraft}
                   onDraftChange={handleDraftChange}
                   resources={resources}
+                  renderResourcePicker={renderAssetResourcePicker}
                   onOpenGsqBuilder={setGsqRequest}
+                  hiddenFieldKeys={expertMode ? [] : ITEM_TECHNICAL_FIELD_KEYS}
+                  groupPresentation="tabs"
+                  activeGroupId={activeGroupId}
+                  onActiveGroupChange={setActiveGroupId}
+                  renderGroupTabLead={(groupId) => (readiness ? <ItemTabReadiness groupId={groupId} readiness={readiness} /> : null)}
+                  renderGroupLead={(groupId) => (
+                    <ItemGroupTools
+                      groupId={groupId}
+                      issues={activeIssues}
+                      texturePatchState={texturePatchState}
+                      textureResolved={textureState.url !== null}
+                      onOpenTextureEditor={handleOpenTextureEditor}
+                      onSelectIssue={handleSelectIssue}
+                    />
+                  )}
                 />
               ) : null}
             </div>
-          )}
-        </div>
+          </div>
 
-        <ItemPreviewPane
-          item={previewItem}
-          draft={activeDraft}
-          issues={issues}
-          texturePatchState={texturePatchState}
-          gameRootPath={gameRootPath}
-          locale={locale}
-          onOpenTextureEditor={handleOpenTextureEditor}
-          onSelectIssue={(issue) => {
-            const target = issue.path[0]
-            if (typeof target === 'string') {
-              setSelectedId(target)
-            }
-          }}
-        />
-      </div>
+          <ItemPreviewPane item={previewItem} draft={activeDraft} textureState={textureState} />
+        </div>
+      )}
 
       <AddObjectDialog
         open={addOpen}

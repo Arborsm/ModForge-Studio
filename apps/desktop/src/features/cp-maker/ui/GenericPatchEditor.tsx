@@ -1,6 +1,7 @@
 import { Code2, FileWarning, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAssetAuthoringCopy, useEditorCopy } from '@locales/provider'
+import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
 import type { DraftPatch } from '../model/types'
 import type { EditorComponent } from '../model/workspaceRegistry'
 
@@ -20,6 +21,7 @@ export const GenericPatchEditor: EditorComponent = ({ patch, draftPort }) => {
   const desk = useEditorCopy().studioDesk
   const copy = desk.editorPage
   const rawCopy = useAssetAuthoringCopy().raw
+  const expertMode = useEditorModeStore((state) => state.expertMode)
   const [rawOpen, setRawOpen] = useState(false)
   const [jsonText, setJsonText] = useState(() => formatState(patch.editorState))
   const [jsonError, setJsonError] = useState(false)
@@ -42,6 +44,32 @@ export const GenericPatchEditor: EditorComponent = ({ patch, draftPort }) => {
     } catch {
       setJsonError(true)
     }
+  }
+
+  // Raw-JSON editing is an explicit expert-mode escape hatch: beginners see a
+  // guidance panel instead of a bare form + textarea and are pointed at the
+  // header toggle that unlocks it.
+  if (!expertMode) {
+    return (
+      <div className="custom-scrollbar h-full overflow-auto bg-(--bg-app) p-5">
+        <div className="mx-auto grid max-w-4xl gap-4">
+          <div className="flex items-start gap-3 rounded-xl border border-dashed border-(--border-color) bg-(--bg-panel-muted) p-4">
+            <FileWarning className="mt-0.5 h-5 w-5 shrink-0 text-(--warning)" aria-hidden="true" />
+            <div className="grid gap-1">
+              <strong className="text-sm text-(--text-primary)">{copy.unsupportedAssetTitle}</strong>
+              <p className="text-xs leading-relaxed text-(--text-secondary)">{copy.unsupportedAssetHint(patch.target)}</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 rounded-xl border border-(--border-color) bg-(--bg-panel-muted) p-4">
+            <Code2 className="mt-0.5 h-5 w-5 shrink-0 text-(--text-secondary)" aria-hidden="true" />
+            <div className="grid gap-1">
+              <strong className="text-sm text-(--text-primary)">{rawCopy.expertOnlyTitle}</strong>
+              <p className="text-xs leading-relaxed text-(--text-secondary)">{rawCopy.expertOnlyHint}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

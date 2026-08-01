@@ -5,6 +5,7 @@ export {
   parseWhenKey,
   parseWhenValueAlternatives,
   serializeWhenConditions,
+  toggleWhenValueAlternative,
   type WhenConditionRow,
 } from './model/whenConditions'
 export {

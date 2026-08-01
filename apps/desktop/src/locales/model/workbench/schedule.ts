@@ -2,6 +2,14 @@
 export type ScheduleEditorCopy = {
   title: string
   subtitle: string
+  editorTabs: Record<'route' | 'settings' | 'script', string>
+  tabStatuses: Record<'complete' | 'attention' | 'optional', string>
+  backToLibrary: string
+  routePreviewTitle: string
+  previewDataTitle: string
+  previewPointsLabel: string
+  previewCommandsLabel: string
+  previewIssuesLabel: string
   loading: string
   retryAction: string
   directoryMissingTitle: string

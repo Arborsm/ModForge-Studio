@@ -29,6 +29,7 @@ export { VANILLA_DATA_TARGETS, VANILLA_IMAGE_TARGETS, VANILLA_MAP_TARGETS } from
 export {
   EMPTY_ASSET_RESOURCES,
   resourceOptionLabel,
+  resourceOptionHasValue,
   resourceOptionMatches,
   resourceOptionsFor,
   resourceSpriteStyle,
@@ -55,6 +56,13 @@ export { AssetEntryCanvas, type AssetEntryCanvasProps } from './ui/AssetEntryCan
 export { AssetFieldRenderer, type AssetFieldRendererProps } from './ui/AssetFieldRenderer'
 export { AssetValidationRail, type AssetValidationRailProps } from './ui/AssetValidationRail'
 export { GameTextLibraryDialog, type GameTextLibraryDialogProps } from './ui/GameTextLibraryDialog'
-export { ResourcePickerDialog, type ResourcePickerDialogProps } from './ui/ResourcePickerDialog'
-export { ColorField, LocalizedTextField, ResourcePickerField, SeasonField, type SeasonOption } from './ui/visualControls'
+export {
+  ColorField,
+  LocalizedTextField,
+  ResourcePickerField,
+  SeasonField,
+  type RenderResourcePickerControl,
+  type ResourcePickerControlProps,
+  type SeasonOption,
+} from './ui/visualControls'
 export type { GsqBuilderRequest, OpenGsqBuilder } from './ui/controls'

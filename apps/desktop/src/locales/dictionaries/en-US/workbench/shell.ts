@@ -218,6 +218,7 @@ const shell: WorkbenchShellCopy = {
       'ai-localization': 'Localization Resources',
       'project-dashboard': 'Project home',
       'project-content': 'Project content',
+      'asset-library': 'Asset library',
       'project-settings': 'Project settings',
       'map-authoring': 'Map authoring',
       'event-authoring': 'Event authoring',

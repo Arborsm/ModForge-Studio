@@ -154,11 +154,7 @@ describe('vite config', () => {
         'E:/repo/apps/desktop/src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-model/command-schemas/visual.ts',
       ),
     ).toBe('event-stage-workflow-schemas')
-    expect(
-      resolveChunkGroup(
-        'E:/repo/apps/desktop/src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventResourcePicker.tsx',
-      ),
-    ).toBe('event-stage-resource-picker')
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/features/resource-browser/ui/ResourcePicker.tsx')).toBe('resource-browser')
     expect(
       resolveChunkGroup(
         'E:/repo/apps/desktop/src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/ScriptCard.tsx',

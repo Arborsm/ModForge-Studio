@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Trash2 } from 'lucide-react'
 import { useMailEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
+import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
 import { useMailWorkspaceContext } from '../state/MailWorkspaceContext'
 import {
   getLetterBgFrame,
@@ -14,6 +15,7 @@ import {
   VANILLA_LETTER_BACKGROUNDS,
 } from '../entities/mail'
 import { fillTemplate, formatValidationIssue } from './mailCopyHelpers'
+import { MailLocalizedTextPicker } from './MailEditorDialogs'
 
 const THUMBNAIL_SCALE = 0.3
 
@@ -183,11 +185,12 @@ function DeleteLetterAction() {
   )
 }
 
-/** Right rail: letter identity, collection title, background, ink color, and status checks. */
+/** Central settings tab: identity, paper, raw data, validation, and deletion. */
 export function MailInfoSidebar() {
   const copy = useMailEditorCopy()
   const workspace = useMailWorkspaceContext()
   const draft = workspace.activeDraft
+  const expertMode = useEditorModeStore((state) => state.expertMode)
   if (!draft || workspace.activeMailId === null) {
     return null
   }
@@ -196,16 +199,24 @@ export function MailInfoSidebar() {
     <section className="mail-editor-info">
       <span className="mail-editor-info-heading">{copy.info.heading}</span>
       <MailIdField key={workspace.activeMailId} />
-      <label className="mail-editor-info-field">
+      <div className="mail-editor-info-field">
         <span className="mail-editor-field-label">{copy.info.collectionTitleLabel}</span>
-        <input
-          className="control-input"
-          value={draft.title ?? ''}
-          onChange={(event) => workspace.updateActiveDraft({ ...draft, title: event.target.value || null })}
-          placeholder={copy.info.collectionTitlePlaceholder}
-          spellCheck={false}
-        />
-      </label>
+        <div className="mail-editor-localized-row">
+          <input
+            className="control-input"
+            value={draft.title ?? ''}
+            onChange={(event) => workspace.updateActiveDraft({ ...draft, title: event.target.value || null })}
+            placeholder={copy.info.collectionTitlePlaceholder}
+            spellCheck={false}
+          />
+          <MailLocalizedTextPicker
+            gameRootPath={workspace.gameRootPath}
+            locale={workspace.locale}
+            category="dialogue"
+            onInsert={(value) => workspace.updateActiveDraft({ ...draft, title: value })}
+          />
+        </div>
+      </div>
       <BackgroundPicker />
       <label className="mail-editor-info-field">
         <span className="mail-editor-field-label">{copy.info.textColorLabel}</span>
@@ -240,6 +251,18 @@ export function MailInfoSidebar() {
           </ul>
         )}
       </div>
+      {expertMode ? (
+        <label className="mail-editor-info-field">
+          <span className="mail-editor-field-label">{copy.info.rawDataLabel}</span>
+          <textarea
+            className="control-input mail-editor-raw-textarea"
+            value={workspace.activeRawValue}
+            onChange={(event) => workspace.updateActiveRawValue(event.target.value)}
+            spellCheck={false}
+          />
+          <span className="mail-editor-muted">{copy.info.rawDataHint}</span>
+        </label>
+      ) : null}
       <DeleteLetterAction />
     </section>
   )

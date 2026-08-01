@@ -8,9 +8,10 @@
  * removes the key so the game default applies.
  */
 
-import { useMemo, useState } from 'react'
-import { BookText, Eraser, Search } from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { BookText, Eraser } from 'lucide-react'
 import { useLocalizedTextResolution } from '@entities/game/api'
+import type { AssetTextCategoryKey } from '@locales/api'
 import { useAssetAuthoringCopy, useLocale } from '@locales/provider'
 import {
   COLOR_SWATCH_PRESETS,
@@ -23,10 +24,28 @@ import {
   prefersLightForeground,
   type ColorRgb,
 } from '../model/colorValue'
-import { resourceOptionsFor, type AssetResources, type ResourceRefKind } from '../model/resources'
+import {
+  resourceOptionHasValue,
+  resourceOptionLabel,
+  resourceOptionsFor,
+  resourceSpriteStyle,
+  type AssetResources,
+  type ResourceOption,
+  type ResourceRefKind,
+} from '../model/resources'
 import { FieldGroup } from './controls'
 import { GameTextLibraryDialog } from './GameTextLibraryDialog'
-import { ResourcePickerDialog } from './ResourcePickerDialog'
+
+export type ResourcePickerControlProps = {
+  kind: ResourceRefKind
+  label: string
+  value: string
+  options: readonly ResourceOption[]
+  onSelect: (next: string) => void
+}
+
+/** Injects the workbench resource-browser feature without reversing FSD dependencies. */
+export type RenderResourcePickerControl = (props: ResourcePickerControlProps) => ReactNode
 
 type ResourcePickerFieldProps = {
   label: string
@@ -35,7 +54,22 @@ type ResourcePickerFieldProps = {
   kind: ResourceRefKind
   value: unknown
   resources: AssetResources
+  renderResourcePicker?: RenderResourcePickerControl
   onCommit: (next: string | undefined) => void
+}
+
+function ResourceOptionPreview({ option }: { option: ResourceOption }) {
+  if (option.sprite) {
+    return (
+      <span className="asset-picker-option-preview is-sprite" role="presentation">
+        <span className="asset-picker-option-sprite" style={resourceSpriteStyle(option.sprite)} />
+      </span>
+    )
+  }
+  if (option.preview) {
+    return <img src={option.preview} alt="" className="asset-picker-option-preview" />
+  }
+  return null
 }
 
 /**
@@ -46,43 +80,62 @@ type ResourcePickerFieldProps = {
  * picker is an accelerator over what the registry does know, and an unknown id
  * is flagged as a hint rather than an error.
  */
-export function ResourcePickerField({ label, hint, wide, kind, value, resources, onCommit }: ResourcePickerFieldProps) {
+export function ResourcePickerField({
+  label,
+  hint,
+  wide,
+  kind,
+  value,
+  resources,
+  renderResourcePicker,
+  onCommit,
+}: ResourcePickerFieldProps) {
   const copy = useAssetAuthoringCopy().picker
-  const [open, setOpen] = useState(false)
   const text = typeof value === 'string' ? value : ''
   const options = useMemo(() => resourceOptionsFor(resources, kind), [resources, kind])
-  const unresolved = text !== '' && options.length > 0 && !options.some((option) => option.value === text)
+  const selectedOption = options.find((option) => resourceOptionHasValue(option, text)) ?? null
+  const unresolved = text !== '' && options.length > 0 && selectedOption === null
 
   return (
     <FieldGroup label={label} hint={hint} wide={wide}>
       <div className="asset-field-picker-row">
-        <input
-          type="text"
-          className="control-input"
-          value={text}
-          aria-label={label}
-          onChange={(event) => onCommit(event.target.value === '' ? undefined : event.target.value)}
-        />
-        <button
-          type="button"
-          className="control-button"
-          aria-label={copy.browseAction}
-          title={copy.browseAction}
-          disabled={options.length === 0}
-          onClick={() => setOpen(true)}
-        >
-          <Search className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
+        {selectedOption ? (
+          <div className="asset-field-resource-selection">
+            <ResourceOptionPreview option={selectedOption} />
+            <span className="asset-field-resource-copy">
+              <span className="asset-field-resource-label">{resourceOptionLabel(selectedOption)}</span>
+              <span className="asset-field-resource-value">{selectedOption.value}</span>
+            </span>
+            <button
+              type="button"
+              className="asset-field-resource-clear"
+              aria-label={copy.clearAction}
+              title={copy.clearAction}
+              onClick={() => onCommit(undefined)}
+            >
+              <Eraser className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </div>
+        ) : (
+          <input
+            type="text"
+            className="control-input"
+            value={text}
+            aria-label={label}
+            onChange={(event) => onCommit(event.target.value === '' ? undefined : event.target.value)}
+          />
+        )}
+        {renderResourcePicker
+          ? renderResourcePicker({
+              kind,
+              label: copy.kindLabels[kind],
+              value: selectedOption?.value ?? text,
+              options,
+              onSelect: (next) => onCommit(next === '' ? undefined : next),
+            })
+          : null}
       </div>
       {unresolved ? <span className="asset-field-hint">{copy.unresolvedHint}</span> : null}
-      <ResourcePickerDialog
-        open={open}
-        kindLabel={copy.kindLabels[kind]}
-        value={text}
-        options={options}
-        onClose={() => setOpen(false)}
-        onSelect={(next) => onCommit(next === '' ? undefined : next)}
-      />
     </FieldGroup>
   )
 }
@@ -281,6 +334,7 @@ type LocalizedTextFieldProps = {
   hint?: string
   wide?: boolean
   multiline?: boolean
+  textCategory?: AssetTextCategoryKey
   value: unknown
   resources: AssetResources
   onCommit: (next: string | undefined) => void
@@ -291,10 +345,10 @@ type LocalizedTextFieldProps = {
  *
  * Two things a plain input cannot do: show what a reference token actually says
  * in the current language, and let the author reuse an existing game string
- * instead of inventing an untranslated one. Both are additive — the raw value
- * stays editable and is never rewritten without an explicit action.
+ * instead of inventing an untranslated one. A resolved reference stays intact
+ * until the author explicitly converts it to custom text.
  */
-export function LocalizedTextField({ label, hint, wide, multiline, value, resources, onCommit }: LocalizedTextFieldProps) {
+export function LocalizedTextField({ label, hint, wide, multiline, textCategory, value, resources, onCommit }: LocalizedTextFieldProps) {
   const copy = useAssetAuthoringCopy()
   const uiLocale = useLocale()
   const [libraryOpen, setLibraryOpen] = useState(false)
@@ -302,6 +356,8 @@ export function LocalizedTextField({ label, hint, wide, multiline, value, resour
   const rootPath = resources.gameRootPath ?? null
   const locale = resources.locale ?? uiLocale
   const resolution = useLocalizedTextResolution(rootPath, locale, text)
+  const visibleText = resolution?.isReference && resolution.resolved ? resolution.text : text
+  const referenceLabel = /^\[LocalizedText\s+(.+)\]$/u.exec(text.trim())?.[1] ?? text
 
   function commitFromLibrary(next: string) {
     onCommit(next === '' ? undefined : next)
@@ -315,7 +371,8 @@ export function LocalizedTextField({ label, hint, wide, multiline, value, resour
           {multiline ? (
             <textarea
               className="control-input asset-field-textarea"
-              value={text}
+              value={visibleText}
+              readOnly={resolution?.isReference && resolution.resolved}
               aria-label={label}
               onChange={(event) => onCommit(event.target.value === '' ? undefined : event.target.value)}
             />
@@ -323,7 +380,8 @@ export function LocalizedTextField({ label, hint, wide, multiline, value, resour
             <input
               type="text"
               className="control-input"
-              value={text}
+              value={visibleText}
+              readOnly={resolution?.isReference && resolution.resolved}
               aria-label={label}
               onChange={(event) => onCommit(event.target.value === '' ? undefined : event.target.value)}
             />
@@ -337,6 +395,7 @@ export function LocalizedTextField({ label, hint, wide, multiline, value, resour
               onClick={() => setLibraryOpen(true)}
             >
               <BookText className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{copy.textLibrary.openAction}</span>
             </button>
           ) : null}
         </div>
@@ -345,7 +404,7 @@ export function LocalizedTextField({ label, hint, wide, multiline, value, resour
           <div className="asset-field-localized-preview">
             {resolution.resolved ? (
               <>
-                <span className="asset-field-localized-text">{copy.chrome.localizedResolvedHint(resolution.text)}</span>
+                <span className="asset-field-localized-text">{copy.chrome.localizedReferenceHint(referenceLabel)}</span>
                 <button type="button" className="asset-field-localized-action" onClick={() => onCommit(resolution.text)}>
                   {copy.chrome.localizedRewriteAction}
                 </button>
@@ -361,6 +420,7 @@ export function LocalizedTextField({ label, hint, wide, multiline, value, resour
             open={libraryOpen}
             gameRootPath={rootPath}
             locale={locale}
+            initialCategory={textCategory}
             onClose={() => setLibraryOpen(false)}
             onInsertToken={commitFromLibrary}
             onInsertText={commitFromLibrary}

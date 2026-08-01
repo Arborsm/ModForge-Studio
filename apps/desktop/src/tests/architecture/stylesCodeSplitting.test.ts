@@ -38,6 +38,7 @@ describe('style code splitting', () => {
 
     expect(mainSource).toContain("import './styles/index.css'")
     expect(appSource).toContain("import('../../styles/workbench.css')")
+    expect(appSource).toMatch(/Promise\.all\(\[[\s\S]*preloadWorkbenchStyles\(\),[\s\S]*\]\)/)
 
     expectCssImport(indexStyles, 'tailwindcss', ' source\\(none\\)')
     expectCssSource(indexStyles, '../main.tsx')

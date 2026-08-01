@@ -12,12 +12,13 @@ import { BUILDING_DATA_ASSET_ID } from '@entities/building'
 import { CHARACTER_DATA_ASSET_ID } from '@entities/character'
 import { OBJECT_DATA_ASSET_ID } from '@entities/item'
 
-export type EditorKind = 'map' | 'image' | 'character-data' | 'building-data' | 'item-data' | 'events' | 'raw'
+export type EditorKind = 'map-patch' | 'load-summary' | 'image' | 'character-data' | 'building-data' | 'item-data' | 'events' | 'raw'
 
 /** Minimal structural view of a patch needed to pick its editor. */
 export type EditorRoutingPatch = {
   action: string
   target: string
+  editorState?: unknown
 }
 
 type AssetRoute = {
@@ -40,12 +41,6 @@ const DATA_ASSET_ROUTES: readonly AssetRoute[] = [
   { assetId: 'Data/Events/', match: 'prefix', kind: 'events' },
 ]
 
-/** Asset families a whole-file `Load` replaces through the image editor. */
-const LOAD_IMAGE_PREFIXES = ['Portraits/', 'Characters/', 'TileSheets/', 'LooseSprites/', 'Animals/', 'Buildings/'] as const
-
-/** Asset family a whole-file `Load` replaces through the map editor. */
-const LOAD_MAP_PREFIX = 'Maps/'
-
 function normalizeTarget(target: string): string {
   return target.trim().replaceAll('\\', '/').toLowerCase()
 }
@@ -61,23 +56,21 @@ function dataAssetKind(target: string): EditorKind {
   return 'raw'
 }
 
-function loadKind(target: string): EditorKind {
-  const normalized = normalizeTarget(target)
-  if (normalized.startsWith(normalizeTarget(LOAD_MAP_PREFIX))) {
-    return 'map'
-  }
-  return LOAD_IMAGE_PREFIXES.some((prefix) => normalized.startsWith(normalizeTarget(prefix))) ? 'image' : 'raw'
+function loadKind(): EditorKind {
+  // Every Load patch is created, edited, and deleted in the asset library; the
+  // workspace-side editor is a read-only summary that jumps back to it.
+  return 'load-summary'
 }
 
 /** Resolves the editor a patch opens in; `raw` means no structured editor exists. */
 export function selectEditorKind(patch: EditorRoutingPatch): EditorKind {
   switch (patch.action) {
     case 'EditMap':
-      return 'map'
+      return 'map-patch'
     case 'EditImage':
       return 'image'
     case 'Load':
-      return loadKind(patch.target)
+      return loadKind()
     case 'EditData':
       return dataAssetKind(patch.target)
     default:

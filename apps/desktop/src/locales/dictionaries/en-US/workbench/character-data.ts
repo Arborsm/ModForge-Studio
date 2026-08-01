@@ -41,6 +41,10 @@ const characterDataEditor: CharacterDataEditorCopy = {
   },
   sources: {
     title: 'Character source',
+    libraryTitle: 'Character library',
+    libraryHint: 'Browse project and vanilla characters, then open one in a focused editor.',
+    backToLibrary: 'Back to character library',
+    openCharacter: (name) => `Edit character “${name}”`,
     searchPlaceholder: 'Search internal or display name',
     modeAll: 'All',
     modeProject: 'Project',
@@ -80,6 +84,10 @@ const characterDataEditor: CharacterDataEditorCopy = {
     itemsLabel: 'Items and tags',
     itemsPlaceholder: 'e.g. (O)220 -75 item_hardwood',
     itemsHint: 'Space separated; qualified item ids, category ids (negative) and context tags all work.',
+    pickItemAction: 'Choose items',
+    pickItemPlaceholder: 'Search item name, ID, or category',
+    removeItemLabel: (item) => `Remove item ${item}`,
+    noItems: 'No items or tags added yet.',
     itemCount: (count) => `${count} item${count === 1 ? '' : 's'}`,
     createAction: 'Create gift-taste patch',
     createHint: 'This draft has no patch editing Data/NPCGiftTastes yet.',
@@ -113,6 +121,13 @@ const characterDataEditor: CharacterDataEditorCopy = {
     romanceNo: 'Not romanceable',
     loveInterest: 'Love interest',
     notSet: 'Not set',
+  },
+  workflow: {
+    status: {
+      complete: 'Complete',
+      'needs-attention': 'Needs attention',
+      optional: 'Optional',
+    },
   },
 }
 

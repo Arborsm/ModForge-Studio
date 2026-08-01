@@ -66,6 +66,9 @@ function trimCache<K, V>(cache: Map<K, V>, maxEntries: number) {
 }
 
 function loadConfiguredImageDataUrl(path: string, locale?: string) {
+  if (/^data:image\//iu.test(path)) {
+    return Promise.resolve(path)
+  }
   if (!imageDataUrlLoader) {
     return Promise.reject(new Error('Image data URL loader has not been configured.'))
   }

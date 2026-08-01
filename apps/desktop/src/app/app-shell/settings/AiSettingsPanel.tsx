@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { lazy, Suspense, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { usePlatformPorts } from '@app/providers/usePlatformPorts'
 import { parseAiFailure, useAi } from '@entities/ai'
 import { useLocalization } from '@entities/localization'
@@ -21,10 +21,16 @@ import type {
 import { cx } from '@shared/lib/helper'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
-import { AiUsageSection } from './AiUsageSection'
-import { DefaultTranslationEngineSection } from './DefaultTranslationEngineSection'
-import { MachineTranslationProfilesSection } from './MachineTranslationProfilesSection'
-import { SemanticSearchSection } from './SemanticSearchSection'
+import { LoadingMotionFallback } from '@shared/ui/loading-motion'
+
+const AiUsageSection = lazy(() => import('./AiUsageSection').then((module) => ({ default: module.AiUsageSection })))
+const DefaultTranslationEngineSection = lazy(() =>
+  import('./DefaultTranslationEngineSection').then((module) => ({ default: module.DefaultTranslationEngineSection })),
+)
+const MachineTranslationProfilesSection = lazy(() =>
+  import('./MachineTranslationProfilesSection').then((module) => ({ default: module.MachineTranslationProfilesSection })),
+)
+const SemanticSearchSection = lazy(() => import('./SemanticSearchSection').then((module) => ({ default: module.SemanticSearchSection })))
 
 const AI_SETTINGS_SAVE_NOTIFICATION_ID = 'ai-settings-save-error'
 const AI_SETTINGS_CACHE_NOTIFICATION_ID = 'ai-settings-cache-error'
@@ -55,6 +61,7 @@ function SemanticStatusStrip({ active, onConfigure }: { active: boolean; onConfi
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {
+    if (!active) return
     let mounted = true
     let dispose: (() => void) | undefined
     const refreshStatus = async () => {
@@ -211,6 +218,7 @@ export function AiSettingsPanel({
   })
 
   useEffect(() => {
+    if (activeTab !== 'generative') return
     let active = true
     void ai
       .loadSettings()
@@ -239,7 +247,7 @@ export function AiSettingsPanel({
     return () => {
       active = false
     }
-  }, [ai, copy.loadError, notificationCopy.failureDescriptions])
+  }, [activeTab, ai, copy.loadError, notificationCopy.failureDescriptions])
 
   useEffect(() => {
     mountedRef.current = true
@@ -572,7 +580,9 @@ export function AiSettingsPanel({
             aria-labelledby="ai-settings-tab-engine"
             className="settings-ai-engine-panel"
           >
-            <DefaultTranslationEngineSection onDirtyChange={setDefaultEngineDirty} onNavigateTab={(tab) => focusTab(tab)} />
+            <Suspense fallback={<LoadingMotionFallback />}>
+              <DefaultTranslationEngineSection onDirtyChange={setDefaultEngineDirty} onNavigateTab={(tab) => focusTab(tab)} />
+            </Suspense>
           </section>
         ) : null}
 
@@ -932,7 +942,9 @@ export function AiSettingsPanel({
             hidden={activeTab !== 'machine-translation'}
           >
             {activeTab === 'machine-translation' ? (
-              <MachineTranslationProfilesSection onDirtyChange={setMachineTranslationDirty} requestLeave={requestLeave} />
+              <Suspense fallback={<LoadingMotionFallback />}>
+                <MachineTranslationProfilesSection onDirtyChange={setMachineTranslationDirty} requestLeave={requestLeave} />
+              </Suspense>
             ) : null}
           </section>
           <section
@@ -941,10 +953,18 @@ export function AiSettingsPanel({
             aria-labelledby="ai-settings-tab-semantic"
             hidden={activeTab !== 'semantic'}
           >
-            {activeTab === 'semantic' ? <SemanticSearchSection onDirtyChange={setSemanticDirty} /> : null}
+            {activeTab === 'semantic' ? (
+              <Suspense fallback={<LoadingMotionFallback />}>
+                <SemanticSearchSection onDirtyChange={setSemanticDirty} />
+              </Suspense>
+            ) : null}
           </section>
           <section role="tabpanel" id="ai-settings-panel-usage" aria-labelledby="ai-settings-tab-usage" hidden={activeTab !== 'usage'}>
-            {activeTab === 'usage' ? <AiUsageSection /> : null}
+            {activeTab === 'usage' ? (
+              <Suspense fallback={<LoadingMotionFallback />}>
+                <AiUsageSection />
+              </Suspense>
+            ) : null}
           </section>
         </div>
 

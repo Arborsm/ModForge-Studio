@@ -41,6 +41,10 @@ const characterDataEditor: CharacterDataEditorCopy = {
   },
   sources: {
     title: '角色来源',
+    libraryTitle: '角色库',
+    libraryHint: '浏览项目角色与原版角色，选择后进入独立编辑界面。',
+    backToLibrary: '返回角色库',
+    openCharacter: (name) => `编辑角色“${name}”`,
     searchPlaceholder: '搜索内部名称或显示名',
     modeAll: '全部',
     modeProject: '项目',
@@ -80,6 +84,10 @@ const characterDataEditor: CharacterDataEditorCopy = {
     itemsLabel: '物品与标签',
     itemsPlaceholder: '例如 (O)220 -75 item_hardwood',
     itemsHint: '空格分隔；支持限定物品 ID、分类 ID（负数）与上下文标签。',
+    pickItemAction: '选择物品',
+    pickItemPlaceholder: '搜索物品名称、ID 或分类',
+    removeItemLabel: (item) => `移除物品 ${item}`,
+    noItems: '尚未添加物品或标签。',
     itemCount: (count) => `${count} 项`,
     createAction: '创建礼物喜好补丁',
     createHint: '当前草稿还没有编辑 Data/NPCGiftTastes 的补丁。',
@@ -113,6 +121,13 @@ const characterDataEditor: CharacterDataEditorCopy = {
     romanceNo: '不可恋爱',
     loveInterest: '爱慕对象',
     notSet: '未设置',
+  },
+  workflow: {
+    status: {
+      complete: '已完成',
+      'needs-attention': '需要处理',
+      optional: '选填',
+    },
   },
 }
 

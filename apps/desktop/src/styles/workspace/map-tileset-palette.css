@@ -1,0 +1,198 @@
+@layer components {
+  .map-tileset-palette {
+    display: grid;
+    min-width: 0;
+    max-height: 11rem;
+    grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr);
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-panel);
+  }
+
+  .map-tileset-palette-heading {
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 0.5rem;
+    border-right: 1px solid var(--border-color);
+    padding: 0.75rem;
+  }
+
+  .map-tileset-palette-heading strong {
+    color: var(--text-primary);
+    font-size: 0.6875rem;
+    font-weight: 650;
+  }
+
+  .map-tileset-palette-switcher {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    align-items: stretch;
+    gap: 0.375rem;
+    overflow-x: auto;
+    padding: 0.125rem;
+  }
+
+  .map-tileset-palette-thumb {
+    display: grid;
+    flex: 0 0 auto;
+    min-width: 0;
+    gap: 0.25rem;
+    justify-items: center;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-panel);
+    padding: 0.25rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.5625rem;
+  }
+
+  .map-tileset-palette-thumb:hover {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+  }
+
+  .map-tileset-palette-thumb.is-active {
+    border-color: var(--accent);
+    background: var(--bg-active);
+    color: var(--text-primary);
+  }
+
+  .map-tileset-palette-thumb-image {
+    display: grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    place-items: center;
+    overflow: hidden;
+    border-radius: calc(var(--radius-sm) - 0.125rem);
+    background: var(--bg-viewport);
+  }
+
+  .map-tileset-palette-thumb-image > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: pixelated;
+    pointer-events: none;
+  }
+
+  .map-tileset-palette-thumb-fallback {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    place-items: center;
+    overflow: hidden;
+    padding: 0 0.125rem;
+    color: var(--text-tertiary);
+    font-size: 0.5rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .map-tileset-palette-thumb-name {
+    max-width: 3.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  .map-tileset-palette-switcher.is-compact .map-tileset-palette-thumb {
+    gap: 0;
+    padding: 0.1875rem;
+  }
+
+  .map-tileset-palette-switcher.is-compact .map-tileset-palette-thumb-image {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .map-tileset-palette-switcher.is-compact .map-tileset-palette-thumb-name {
+    display: none;
+  }
+
+  .map-tileset-palette-heading > span {
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-size: 0.625rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .map-tileset-palette-scroll {
+    min-width: 0;
+    min-height: 5rem;
+    overflow: auto;
+    padding: 0.5rem;
+    background: var(--bg-viewport);
+  }
+
+  .map-tileset-palette-scroll.is-state,
+  .map-tileset-palette-empty,
+  .map-tileset-palette-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.6875rem;
+  }
+
+  .map-tileset-palette-empty {
+    min-height: 4rem;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-panel);
+  }
+
+  .map-tileset-palette-image {
+    position: relative;
+    width: max-content;
+    max-width: none;
+    height: calc(10rem - 1px);
+    touch-action: none;
+    user-select: none;
+  }
+
+  .map-tileset-palette-image > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    pointer-events: none;
+  }
+
+  .map-tileset-palette-grid,
+  .map-tileset-palette-selection {
+    position: absolute;
+    pointer-events: none;
+  }
+
+  .map-tileset-palette-grid {
+    inset: 0;
+    background-image:
+      linear-gradient(to right, var(--border-color) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--border-color) 1px, transparent 1px);
+    opacity: 0.52;
+  }
+
+  .map-tileset-palette-selection {
+    border: 2px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    box-shadow: 0 0 0 1px var(--bg-app);
+  }
+
+  @media (max-width: 48rem) {
+    .map-tileset-palette {
+      max-height: 14rem;
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .map-tileset-palette-heading {
+      grid-template-columns: minmax(0, 1fr);
+      border-right: 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+  }
+}

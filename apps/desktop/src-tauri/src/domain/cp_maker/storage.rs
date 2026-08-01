@@ -1,3 +1,4 @@
+use super::project_assets::{copy_project_assets_at_dir, delete_project_assets_at_dir};
 use super::types::{CopyCpMakerDraftRequest, CpMakerDraftRecord, CpMakerDraftSummary};
 use crate::infrastructure::text_encoding::read_text_file;
 use anyhow::{Context, bail};
@@ -131,7 +132,8 @@ pub fn delete_cp_maker_draft_at_dir(
             draft_storage_key,
             draft_path.display()
         )
-    })
+    })?;
+    delete_project_assets_at_dir(&projects_dir_for(drafts_dir), draft_storage_key)
 }
 
 pub fn copy_cp_maker_draft_at_dir(
@@ -140,8 +142,9 @@ pub fn copy_cp_maker_draft_at_dir(
 ) -> anyhow::Result<CpMakerDraftRecord> {
     let source = load_cp_maker_draft_at_dir(drafts_dir, &request.source_draft_storage_key)?;
 
+    let copied_key = next_cp_maker_draft_storage_key(drafts_dir);
     let copied = CpMakerDraftRecord {
-        draft_storage_key: next_cp_maker_draft_storage_key(drafts_dir),
+        draft_storage_key: copied_key.clone(),
         last_draft_saved_at: None,
         last_exported_at: None,
         last_export_path: None,
@@ -149,11 +152,27 @@ pub fn copy_cp_maker_draft_at_dir(
         ..source
     };
 
-    save_cp_maker_draft_at_dir(drafts_dir, copied)
+    let projects_dir = projects_dir_for(drafts_dir);
+    copy_project_assets_at_dir(
+        &projects_dir,
+        &request.source_draft_storage_key,
+        &copied_key,
+    )?;
+    match save_cp_maker_draft_at_dir(drafts_dir, copied) {
+        Ok(saved) => Ok(saved),
+        Err(error) => {
+            let _ = delete_project_assets_at_dir(&projects_dir, &copied_key);
+            Err(error)
+        }
+    }
 }
 
 pub fn draft_file_path_at_dir(drafts_dir: &Path, draft_storage_key: &str) -> PathBuf {
     drafts_dir.join(format!("{draft_storage_key}.json"))
+}
+
+fn projects_dir_for(drafts_dir: &Path) -> PathBuf {
+    drafts_dir.parent().unwrap_or(drafts_dir).join("projects")
 }
 
 fn current_time_millis(draft_storage_key: &str, path: &Path) -> anyhow::Result<i64> {
@@ -250,7 +269,7 @@ fn read_draft_record_from_path(
     Ok(draft)
 }
 
-fn validate_draft_storage_key(draft_storage_key: &str) -> anyhow::Result<()> {
+pub(super) fn validate_draft_storage_key(draft_storage_key: &str) -> anyhow::Result<()> {
     let trimmed = draft_storage_key.trim();
     if trimmed.is_empty() {
         bail!(

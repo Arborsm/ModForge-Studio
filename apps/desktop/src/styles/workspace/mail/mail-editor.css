@@ -1,46 +1,9 @@
-/* Mail authoring module: shell, body layout, letter body editor, delivery trigger cards. */
+/* Mail authoring module: focused editor, compact tabs, and central controls. */
 @layer components {
   .mail-editor {
-    display: flex;
-    flex-direction: column;
     height: 100%;
     min-height: 0;
-    background: var(--bg-app);
-  }
-
-  /* ── Header ─────────────────────────────────────────────── */
-
-  .mail-editor-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.75rem 1.25rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
     background: var(--bg-panel);
-    flex-shrink: 0;
-  }
-
-  .mail-editor-heading {
-    min-width: 0;
-  }
-
-  .mail-editor-title {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .mail-editor-subtitle {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-  }
-
-  .mail-editor-header-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.625rem;
-    flex-shrink: 0;
   }
 
   .mail-editor-dirty-badge {
@@ -65,35 +28,159 @@
     color: var(--success);
   }
 
-  /* ── Body layout ────────────────────────────────────────── */
-
   .mail-editor-body {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .mail-editor-focused-layout {
     display: grid;
-    grid-template-columns: minmax(16rem, 19rem) minmax(0, 1fr) minmax(22rem, 27rem);
-    flex: 1;
+    grid-template-columns: minmax(0, 1fr) minmax(22rem, 26rem);
+    height: 100%;
     min-height: 0;
     overflow: hidden;
   }
 
   .mail-editor-main {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
     min-width: 0;
     min-height: 0;
-    padding: 1rem 1.25rem 1.5rem;
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   .mail-editor-side {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
     min-height: 0;
-    padding: 1rem;
+    padding: 0.75rem;
     overflow-y: auto;
     border-left: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
     background: var(--bg-panel);
+  }
+
+  .mail-editor-tabs {
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+    height: 2.375rem;
+    padding: 0 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+    overflow-x: auto;
+  }
+
+  .mail-editor-tab-back,
+  .mail-editor-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    flex: 0 0 auto;
+    min-width: 0;
+    padding: 0 0.75rem;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    transition:
+      color 120ms ease,
+      background-color 120ms ease,
+      border-color 120ms ease;
+  }
+
+  .mail-editor-tab-back {
+    width: 2rem;
+    padding: 0;
+    margin-right: 0.25rem;
+  }
+
+  .mail-editor-tab:hover,
+  .mail-editor-tab-back:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .mail-editor-tab.is-active {
+    border-bottom-color: var(--accent);
+    color: var(--text-primary);
+  }
+
+  .mail-editor-tab.is-complete svg {
+    color: var(--success);
+  }
+
+  .mail-editor-tab.is-attention svg {
+    color: var(--warning);
+  }
+
+  .mail-editor-tab.is-optional svg {
+    color: var(--text-tertiary);
+  }
+
+  .mail-editor-tabs-spacer {
+    flex: 1 1 auto;
+  }
+
+  .mail-editor-tabs .authoring-header-expert-toggle {
+    align-self: center;
+    flex: 0 0 auto;
+    margin-left: 0.5rem;
+  }
+
+  .mail-editor-workbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-width: 0;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .mail-editor-workbar-title {
+    display: grid;
+    min-width: 0;
+    gap: 0.0625rem;
+  }
+
+  .mail-editor-workbar-title strong,
+  .mail-editor-workbar-title span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mail-editor-workbar-title strong {
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+  }
+
+  .mail-editor-workbar-title span {
+    color: var(--text-tertiary);
+    font-family: var(--font-mono, monospace);
+    font-size: 0.625rem;
+  }
+
+  .mail-editor-workbar-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .mail-editor-tab-content {
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0.875rem 1rem 1.25rem;
+  }
+
+  .mail-editor-tab-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    max-width: 64rem;
+    margin-inline: auto;
   }
 
   .mail-editor-section {
@@ -431,6 +518,31 @@
     min-width: 0;
   }
 
+  .mail-editor-dialog-resource-field,
+  .mail-editor-localized-row {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-width: 0;
+  }
+
+  .mail-editor-dialog-resource-field {
+    flex: 1;
+  }
+
+  .mail-editor-dialog-resource-field > .control-input,
+  .mail-editor-localized-row > .control-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mail-editor-raw-textarea {
+    min-height: 8rem;
+    resize: vertical;
+    font-family: var(--font-mono, monospace);
+    line-height: 1.5;
+  }
+
   .mail-editor-dialog-count {
     max-width: 5rem;
     flex: 0 0 auto;
@@ -454,5 +566,41 @@
     gap: 0.375rem;
     font-size: 0.75rem;
     color: var(--text-secondary);
+  }
+
+  @media (max-width: 48rem) {
+    .mail-editor,
+    .mail-editor-focused-layout {
+      height: auto;
+      min-height: 100%;
+    }
+
+    .mail-editor-focused-layout {
+      grid-template-columns: minmax(0, 1fr);
+      overflow: visible;
+    }
+
+    .mail-editor-main {
+      overflow: visible;
+    }
+
+    .mail-editor-tab-content {
+      overflow: visible;
+    }
+
+    .mail-editor-side {
+      min-height: 24rem;
+      border-top: 1px solid var(--border-color);
+      border-left: 0;
+    }
+
+    .mail-editor-workbar {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .mail-editor-workbar-actions {
+      flex-wrap: wrap;
+    }
   }
 }

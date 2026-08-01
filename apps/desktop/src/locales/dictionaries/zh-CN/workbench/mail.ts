@@ -11,6 +11,18 @@ const mailEditor: MailEditorCopy = {
   dirtyBadge: '未保存',
   noProjectTitle: '还没有打开项目',
   noProjectHint: '新建或打开一个 Content Patcher 项目后，才能编写信件。',
+  backToLibrary: '返回邮件库',
+  editorTabs: {
+    body: '正文',
+    attachments: '附件',
+    delivery: '投递与触发',
+    settings: '信纸与数据',
+  },
+  tabStatuses: {
+    complete: '已完成',
+    attention: '需要处理',
+    optional: '选填',
+  },
   list: {
     heading: '项目信件',
     countTemplate: '共 {count} 封信件',
@@ -66,6 +78,11 @@ const mailEditor: MailEditorCopy = {
     backgroundMissing: '未找到信纸材质，以占位样式预览。',
     secretSantaPlaceholder: '？？？',
     collectionTitleBadge: '收藏标题',
+    dataHeading: '邮件数据',
+    dataIdLabel: '信件 ID',
+    dataAttachmentsLabel: '附件',
+    dataDeliveryLabel: '投递方式',
+    dataIssuesLabel: '问题',
   },
   info: {
     heading: '信件信息',
@@ -80,6 +97,8 @@ const mailEditor: MailEditorCopy = {
     textColorDefault: '默认',
     statusHeading: '状态检查',
     statusOk: '未发现问题。',
+    rawDataLabel: '原始邮件数据',
+    rawDataHint: '专家模式下直接编辑序列化后的 Data/mail 值，未知指令会原样保留。',
     deleteAction: '删除信件',
   },
   backgrounds: {

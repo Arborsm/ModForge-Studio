@@ -66,6 +66,10 @@ const itemDataEditor: ItemDataEditorCopy = {
   },
   sources: {
     title: '物品',
+    libraryTitle: '物品库',
+    libraryHint: '按资产族与物品类型浏览，选择后进入独立编辑界面。',
+    backToLibrary: '返回物品库',
+    openItem: (name) => `编辑物品“${name}”`,
     searchPlaceholder: '搜索名称或 ID',
     modeAll: '全部',
     modeProject: '本项目',
@@ -112,6 +116,13 @@ const itemDataEditor: ItemDataEditorCopy = {
     patchMissing: '项目未提供',
     manageHint: '点击下方按钮打开图像编辑器；Load 补丁会自动创建，无需手动选择。',
     openEditorAction: '提供贴图',
+  },
+  workflow: {
+    status: {
+      complete: '已完成',
+      'needs-attention': '需要处理',
+      optional: '选填',
+    },
   },
 }
 

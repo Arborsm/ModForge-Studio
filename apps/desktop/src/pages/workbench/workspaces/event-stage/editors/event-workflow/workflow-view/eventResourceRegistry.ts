@@ -2,8 +2,8 @@ import { parseEventCommand, parseEventCommands, parseEventSceneSetup } from '@en
 import type { ResourceRegistry } from '@entities/game/api'
 import { getItemKindLabel, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
 import type { DraftPatch } from '@features/cp-maker'
+import type { ResourceBrowserOption } from '@features/resource-browser'
 import { ACTOR_OPTIONS, ITEM_OPTIONS, MAP_OPTIONS, MUSIC_OPTIONS, SOUND_OPTIONS } from '../workflow-model/commandOptions'
-import type { EventResourceKind, EventResourceOption } from './EventResourcePicker'
 import type { EventWorkflowCopy } from '@locales/api'
 
 export type EventActorAssetPreview = {
@@ -11,6 +11,8 @@ export type EventActorAssetPreview = {
   portraitUrl: string | null
 }
 
+export type EventResourceKind = 'actor' | 'item' | 'location' | 'music' | 'sound'
+export type EventResourceOption = ResourceBrowserOption & { kind: EventResourceKind }
 export type EventResourceRegistry = Record<EventResourceKind, EventResourceOption[]>
 
 type BuildEventResourceRegistryOptions = {

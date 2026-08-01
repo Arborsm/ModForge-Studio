@@ -1,35 +1,33 @@
 import { useDeferredValue, useEffect, useId, useMemo, useState } from 'react'
-import { AlertTriangle, ImageIcon, Plus, Trash2, UserRound, Users } from 'lucide-react'
+import { AlertCircle, AlertTriangle, ArrowLeft, CheckCircle2, CircleDashed, Trash2 } from 'lucide-react'
 import type { EditorComponent } from '@features/cp-maker'
+import { renderAssetResourcePicker, toItemResourceBrowserOptions } from '@features/resource-browser'
 import {
   AssetEntryCanvas,
-  enumLabelKey,
-  matchEnumValue,
   parseAssetEditorState,
   parseAssetEntry,
   type AssetEntryDraft,
+  type AssetIssue,
   type AssetResources,
   type GsqBuilderRequest,
 } from '@entities/asset-schema'
 import { EventGameStateQueryBuilderModal } from '@entities/event/ui/EventGameStateQueryBuilderModal'
-import { useAssetAuthoringCopy, useCharacterDataEditorCopy, useEditorCopy } from '@locales/provider'
-import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import {
   addCharacterEntry,
-  AGE_VALUES,
   CHARACTER_DATA_ASSET_ID,
   CHARACTER_DATA_SCHEMA,
   findCharacterAssetPatchState,
-  GENDER_VALUES,
   loadVanillaGiftTasteEntries,
   NPC_GIFT_TASTES_ASSET_ID,
-  SEASON_VALUES,
   useCharacterAuthoringHandoff,
   validateCharacterEntries,
   validateGiftTasteEntries,
   type CharacterAssetPatchState,
   type CharacterHomePlacement,
 } from '@entities/character'
+import { useCharacterDataEditorCopy, useEditorCopy } from '@locales/provider'
+import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import {
   buildCharacterSourceGroups,
   buildPreviewEntry,
@@ -38,97 +36,68 @@ import {
   type CharacterSourceRow,
 } from '../state/useCharacterAuthoringSources'
 import { useCharacterAuthoringResources } from '../state/useCharacterAuthoringResources'
+import { evaluateCharacterReadiness, type CharacterReadiness, type CharacterReadinessStatus } from '../state/characterReadiness'
 import { AddCharacterDialog } from '../ui/AddCharacterDialog'
+import { CharacterCatalog } from '../ui/CharacterCatalog'
 import { CharacterGiftTasteEditor } from '../ui/CharacterGiftTasteEditor'
+import { CharacterGroupTools } from '../ui/CharacterGroupTools'
 import { CharacterPreviewPane } from '../ui/CharacterPreviewPane'
-import { CharacterSourcePane } from '../ui/CharacterSourcePane'
 
-function AssetCard({ title, state, onOpenEditor }: { title: string; state: CharacterAssetPatchState; onOpenEditor: () => void }) {
-  const copy = useCharacterDataEditorCopy()
-  return (
-    <div className="asset-editor-asset-card">
-      <div className="asset-editor-asset-head">
-        <ImageIcon className="h-4 w-4" aria-hidden="true" />
-        <span className="asset-editor-asset-title">{title}</span>
-        <span className={state.patchFound ? 'asset-editor-badge is-ok' : 'asset-editor-badge is-missing'}>
-          {state.patchFound ? copy.assets.patchFound : copy.assets.patchMissing}
-        </span>
-      </div>
-      <div className="asset-editor-asset-target">{state.assetTarget}</div>
-      {state.patchFound ? (
-        <div className="asset-editor-asset-file">
-          <span className="asset-editor-asset-file-label">{copy.assets.fromFileLabel}</span>
-          <span className="asset-editor-asset-file-value">{state.fromFile ?? copy.assets.noFromFile}</span>
-          {state.fromFile ? (
-            <span className={state.fileInDraft ? 'asset-editor-badge is-ok' : 'asset-editor-badge is-warn'}>
-              {state.fileInDraft ? copy.assets.fileInDraft : copy.assets.fileNotInDraft}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-      <p className="asset-editor-asset-hint">{copy.assets.manageHint}</p>
-      <button type="button" className="control-button mt-2" onClick={onOpenEditor}>
-        <ImageIcon className="h-3.5 w-3.5" aria-hidden="true" />
-        <span>{copy.assets.openEditorAction}</span>
-      </button>
-    </div>
-  )
+const CHARACTER_TECHNICAL_FIELD_KEYS = [
+  'CanGreetNearbyCharacters',
+  'CanCommentOnPurchasedShopItems',
+  'CanVisitIsland',
+  'ItemDeliveryQuests',
+  'PerfectionScore',
+  'EndSlideShow',
+  'FriendsAndFamily',
+  'DumpsterDiveFriendshipEffect',
+  'DumpsterDiveEmote',
+  'Size',
+  'BreathChestRect',
+  'BreathChestPosition',
+  'Shadow',
+  'EmoteOffset',
+  'ShakePortraits',
+  'KissSpriteIndex',
+  'KissSpriteFacingRight',
+  'MugShotSourceRect',
+  'HiddenProfileEmoteSound',
+  'HiddenProfileEmoteDuration',
+  'HiddenProfileEmoteStartFrame',
+  'HiddenProfileEmoteFrameCount',
+  'HiddenProfileEmoteFrameDuration',
+  'Language',
+  'IsDarkSkinned',
+  'FormerCharacterNames',
+  'FestivalVanillaActorIndex',
+  'SpouseAdopts',
+  'SpouseWantsChildren',
+  'SpouseGiftJealousy',
+  'SpouseGiftJealousyFriendshipChange',
+  'SpouseRoom',
+  'SpousePatio',
+  'SpouseFloors',
+  'SpouseWallpapers',
+  'CustomFields',
+] as const
+
+function issueGroup(issue: AssetIssue): string {
+  if (issue.code.startsWith('giftTaste')) return 'festival'
+  const fieldKey = issue.path[1]
+  if (typeof fieldKey !== 'string') return 'core'
+  return CHARACTER_DATA_SCHEMA.fields.find((field) => field.key === fieldKey)?.group ?? 'core'
 }
 
-/** Resolves an enum value to its localized label, keeping unknown spellings visible. */
-function useEnumLabel() {
-  const authoring = useAssetAuthoringCopy()
-  return (catalog: string, values: readonly string[], raw: unknown): string | null => {
-    if (typeof raw !== 'string' || raw === '') {
-      return null
-    }
-    const canonical = matchEnumValue(values, raw)
-    return canonical === null ? raw : (authoring.enums[enumLabelKey(catalog, canonical)] ?? canonical)
-  }
-}
-
-function SummaryCard({ draft }: { draft: AssetEntryDraft }) {
+function CharacterTabReadiness({ groupId, readiness }: { groupId: string; readiness: CharacterReadiness }) {
   const copy = useCharacterDataEditorCopy()
-  const enumLabel = useEnumLabel()
-  const fields = draft.fields
-  const birthDay = typeof fields['BirthDay'] === 'number' ? fields['BirthDay'] : undefined
-  const homeRegion = typeof fields['HomeRegion'] === 'string' ? fields['HomeRegion'] : null
-  const loveInterest = typeof fields['LoveInterest'] === 'string' ? fields['LoveInterest'] : ''
-
-  const identityParts = [
-    enumLabel('character.gender', GENDER_VALUES, fields['Gender']),
-    enumLabel('character.age', AGE_VALUES, fields['Age']),
-  ].filter((part): part is string => part !== null)
-  const seasonLabel = enumLabel('character.season', SEASON_VALUES, fields['BirthSeason'])
-  const birthday = seasonLabel !== null || birthDay !== undefined ? [seasonLabel, birthDay].filter((part) => part != null).join(' ') : null
-  const romance =
-    fields['CanBeRomanced'] === true ? copy.summary.romanceYes : fields['CanBeRomanced'] === false ? copy.summary.romanceNo : null
-
-  const chips: Array<{ label: string; value: string | null }> = [
-    { label: copy.summary.identity, value: identityParts.length > 0 ? identityParts.join(' · ') : null },
-    { label: copy.summary.birthday, value: birthday },
-    { label: copy.summary.region, value: homeRegion },
-    { label: copy.summary.romance, value: romance },
-  ]
-  if (loveInterest) {
-    chips.push({ label: copy.summary.loveInterest, value: loveInterest })
-  }
-
+  const status: CharacterReadinessStatus = readiness.groups[groupId] ?? 'optional'
+  const Icon = status === 'complete' ? CheckCircle2 : status === 'needs-attention' ? AlertCircle : CircleDashed
   return (
-    <div className="asset-editor-card">
-      <div className="asset-editor-card-title">
-        <UserRound className="h-4 w-4" aria-hidden="true" />
-        <span>{copy.summary.title}</span>
-      </div>
-      <dl className="asset-editor-summary-list">
-        {chips.map((chip) => (
-          <div key={chip.label} className="asset-editor-summary-chip">
-            <dt>{chip.label}</dt>
-            <dd className={chip.value === null ? 'is-unset' : undefined}>{chip.value ?? copy.summary.notSet}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
+    <span className={`character-tab-readiness is-${status}`} title={copy.workflow.status[status]}>
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      <span className="sr-only">{copy.workflow.status[status]}</span>
+    </span>
   )
 }
 
@@ -158,17 +127,11 @@ function RemoveEntryDialog({ npcId, onClose, onConfirm }: { npcId: string | null
   )
 }
 
-/**
- * Three-pane authoring editor for `Data/Characters`.
- *
- * Left picks the NPC — from this patch or from the vanilla roster; center is
- * the schema-driven form plus the gift-taste rows that live in a separate
- * asset; right previews the sprite the entry actually describes and lists every
- * validation issue across both assets.
- */
+/** Two-level visual library and focused editor for `Data/Characters`. */
 export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, resources: environment }) => {
   const { draft } = draftPort
   const { gameRootPath, directoryInfo, locale } = environment
+  const expertMode = useEditorModeStore((state) => state.expertMode)
   const copy = useCharacterDataEditorCopy()
   const hubCopy = useEditorCopy().studioDesk.eventPatchHub
   const requestedNpcKey = useCharacterAuthoringHandoff((state) => state.pendingNpcKey)
@@ -180,10 +143,10 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
   const [removeCandidate, setRemoveCandidate] = useState<string | null>(null)
   const [gsqRequest, setGsqRequest] = useState<GsqBuilderRequest | null>(null)
   const [vanillaGiftTastes, setVanillaGiftTastes] = useState<Record<string, string>>({})
+  const [activeGroupId, setActiveGroupId] = useState('core')
+  const [activeVariantKey, setActiveVariantKey] = useState<string | null>(null)
   const deferredSearch = useDeferredValue(search)
   const vanilla = useVanillaCharacterIndex(gameRootPath, directoryInfo, locale)
-  // Portrait/sprite sheets the vanilla roster uses; the hook folds in this
-  // draft's own `Load`/`EditImage` targets so project-only art is browsable too.
   const vanillaTextureNames = useMemo(() => {
     const names: string[] = []
     for (const entry of vanilla.entries.values()) {
@@ -198,30 +161,36 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
     patches: draft.patches,
     vanillaTextureNames,
   })
-  const locationNames = referenceData.locationNames
+  const itemOptions = useMemo(
+    () => toItemResourceBrowserOptions(referenceData.items, referenceData.itemTextureStates, 'character-gift'),
+    [referenceData.itemTextureStates, referenceData.items],
+  )
 
   useEffect(() => {
     setSelectedId(null)
     setAddOpen(false)
     setRemoveCandidate(null)
     setGsqRequest(null)
+    setActiveGroupId('core')
+    setActiveVariantKey(null)
   }, [patch.id])
 
-  // The codex page hands over an NPC key when the author picks "open in
-  // character authoring"; consuming it here keeps a later remount from
-  // re-selecting a character the author has since moved away from.
   useEffect(() => {
-    if (requestedNpcKey === null) {
-      return
-    }
+    if (requestedNpcKey === null || vanilla.loading) return
     const pending = consumePendingNpcKey()
-    if (pending !== null) {
-      setSelectedId(pending)
-      setSourceMode('all')
+    if (pending === null) return
+    const existing = draftPort.listEntries(CHARACTER_DATA_ASSET_ID).find((key) => key.toLowerCase() === pending.toLowerCase())
+    const vanillaEntry = vanilla.entries.get(pending.toLowerCase()) ?? null
+    const resolvedKey = existing ?? vanillaEntry?.key ?? null
+    if (resolvedKey === null) return
+    if (existing === undefined) {
+      draftPort.stage(CHARACTER_DATA_ASSET_ID, resolvedKey, parseAssetEntry(CHARACTER_DATA_SCHEMA, vanilla.records[resolvedKey] ?? {}))
     }
-  }, [requestedNpcKey, consumePendingNpcKey])
+    setSelectedId(resolvedKey)
+    setSourceMode('all')
+    setActiveGroupId('core')
+  }, [consumePendingNpcKey, draftPort, requestedNpcKey, vanilla.entries, vanilla.loading, vanilla.records])
 
-  // Vanilla gift-taste rows back the "import vanilla tastes" action.
   useEffect(() => {
     if (!gameRootPath || !directoryInfo) {
       setVanillaGiftTastes({})
@@ -230,14 +199,10 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
     let cancelled = false
     void loadVanillaGiftTasteEntries(gameRootPath, locale)
       .then((entries) => {
-        if (!cancelled) {
-          setVanillaGiftTastes(entries)
-        }
+        if (!cancelled) setVanillaGiftTastes(entries)
       })
       .catch(() => {
-        if (!cancelled) {
-          setVanillaGiftTastes({})
-        }
+        if (!cancelled) setVanillaGiftTastes({})
       })
     return () => {
       cancelled = true
@@ -246,20 +211,22 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
 
   const entries = parseAssetEditorState(patch.editorState).entries
   const entryIds = draftPort.listEntries(CHARACTER_DATA_ASSET_ID)
-  const activeId = selectedId !== null && entryIds.includes(selectedId) ? selectedId : (entryIds[0] ?? null)
+  const activeId = selectedId !== null && entryIds.includes(selectedId) ? selectedId : null
   const activeDraft = activeId !== null ? draftPort.read(CHARACTER_DATA_ASSET_ID, activeId) : null
   const giftTastePatchExists = draftPort.hasAsset(NPC_GIFT_TASTES_ASSET_ID)
   const giftTasteEntries = Object.fromEntries(
     draftPort.listEntries(NPC_GIFT_TASTES_ASSET_ID).map((key) => [key, draftPort.readValue(NPC_GIFT_TASTES_ASSET_ID, key)]),
   )
   const issues = [...validateCharacterEntries(entries), ...validateGiftTasteEntries(giftTasteEntries, Object.keys(entries))]
+  const activeIssues = activeId === null ? [] : issues.filter((issue) => issue.path[0] === activeId)
   const resources: AssetResources = {
     npcs: entryIds,
     items: referenceData.itemIds,
-    locations: locationNames,
+    locations: referenceData.locationNames,
     textures: referenceData.textureAssetNames,
     maps: [],
     buildings: [],
+    options: { item: itemOptions },
     gameRootPath,
     locale,
   }
@@ -271,56 +238,51 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
     search: deferredSearch,
   })
   const previewCharacter = buildPreviewEntry(activeId, activeId === null ? null : entries[activeId], vanilla)
+  const portraitState = activeId !== null ? findCharacterAssetPatchState(draft.patches, 'Portraits', activeId, draft.virtualAssets) : null
+  const spriteState = activeId !== null ? findCharacterAssetPatchState(draft.patches, 'Characters', activeId, draft.virtualAssets) : null
+  const rawGiftTaste = activeId === null ? undefined : draftPort.readValue(NPC_GIFT_TASTES_ASSET_ID, activeId)
+  const readiness =
+    activeDraft === null
+      ? null
+      : evaluateCharacterReadiness(activeDraft, {
+          issueGroups: activeIssues.map(issueGroup),
+          hasGiftTastes: typeof rawGiftTaste === 'string',
+        })
+  const entryKey = activeId !== null ? `${patch.id}:${activeId}` : patch.id
 
   function handleDraftChange(next: AssetEntryDraft) {
-    if (activeId === null) {
-      return
-    }
-    draftPort.stage(CHARACTER_DATA_ASSET_ID, activeId, next)
+    if (activeId !== null) draftPort.stage(CHARACTER_DATA_ASSET_ID, activeId, next)
   }
 
   function handleCreate(npcId: string, home: CharacterHomePlacement) {
     const result = addCharacterEntry(entries, npcId, home)
-    if (!result.ok) {
-      // The dialog validates before calling; reaching this branch means the
-      // draft changed underneath, so keep the dialog open with its own error.
-      return
-    }
+    if (!result.ok) return
     draftPort.stage(CHARACTER_DATA_ASSET_ID, result.npcId, parseAssetEntry(CHARACTER_DATA_SCHEMA, result.entries[result.npcId]))
     setSelectedId(result.npcId)
+    setActiveGroupId('core')
+    setActiveVariantKey(null)
     setAddOpen(false)
   }
 
-  /** Selecting a vanilla-only row seeds an override from the untouched record. */
   function handleSelectSource(row: CharacterSourceRow) {
-    if (row.inProject) {
-      setSelectedId(row.key)
-      return
+    if (!row.inProject) {
+      draftPort.stage(CHARACTER_DATA_ASSET_ID, row.key, parseAssetEntry(CHARACTER_DATA_SCHEMA, vanilla.records[row.key] ?? {}))
     }
-    const record = vanilla.records[row.key]
-    draftPort.stage(CHARACTER_DATA_ASSET_ID, row.key, parseAssetEntry(CHARACTER_DATA_SCHEMA, record ?? {}))
     setSelectedId(row.key)
+    setActiveGroupId('core')
+    setActiveVariantKey(null)
   }
 
   function handleRemoveConfirmed() {
-    if (removeCandidate === null) {
-      return
-    }
+    if (removeCandidate === null) return
     draftPort.stage(CHARACTER_DATA_ASSET_ID, removeCandidate, null)
     if (giftTastePatchExists && typeof draftPort.readValue(NPC_GIFT_TASTES_ASSET_ID, removeCandidate) === 'string') {
       draftPort.stageValue(NPC_GIFT_TASTES_ASSET_ID, removeCandidate, null)
     }
-    if (selectedId === removeCandidate) {
-      setSelectedId(null)
-    }
+    if (selectedId === removeCandidate) setSelectedId(null)
     setRemoveCandidate(null)
   }
 
-  const portraitState = activeId !== null ? findCharacterAssetPatchState(draft.patches, 'Portraits', activeId, draft.virtualAssets) : null
-  const spriteState = activeId !== null ? findCharacterAssetPatchState(draft.patches, 'Characters', activeId, draft.virtualAssets) : null
-  const entryKey = activeId !== null ? `${patch.id}:${activeId}` : patch.id
-
-  /** Opens the image patch backing one NPC asset, creating the EditImage patch on first use. */
   function openAssetPatch(state: CharacterAssetPatchState) {
     const wanted = state.assetTarget.trim().replaceAll('\\', '/').toLowerCase()
     const existing = draft.patches.find(
@@ -329,80 +291,55 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
         candidate.target.trim().replaceAll('\\', '/').toLowerCase() === wanted,
     )
     const patchId = existing?.id ?? draftPort.addPatch('EditImage', state.assetTarget)
-    if (patchId != null && draftPort.openPatch !== null) {
-      draftPort.openPatch(patchId)
-    }
+    if (patchId != null && draftPort.openPatch !== null) draftPort.openPatch(patchId)
+  }
+
+  function handleSelectIssue(issue: AssetIssue) {
+    const target = issue.path[0]
+    if (typeof target === 'string' && entryIds.includes(target)) setSelectedId(target)
+    setActiveGroupId(issueGroup(issue))
   }
 
   return (
-    <div className="asset-editor">
-      <header className="asset-editor-header">
-        <div>
-          <div className="asset-editor-title">{copy.title}</div>
-          <div className="asset-editor-subtitle">{copy.subtitle}</div>
-        </div>
-        <div className="asset-editor-subtitle">{patch.target}</div>
-      </header>
-
-      <div className="asset-editor-body">
-        <CharacterSourcePane
+    <div className="asset-editor character-data-editor">
+      {activeId === null ? (
+        <CharacterCatalog
           groups={groups}
           mode={sourceMode}
           search={search}
-          activeKey={activeId}
           vanillaLoading={vanilla.loading}
           vanillaAvailable={vanilla.available}
           gameRootPath={gameRootPath}
           locale={locale}
+          resolveCharacter={(row) => buildPreviewEntry(row.key, row.inProject ? entries[row.key] : null, vanilla)}
           onModeChange={setSourceMode}
           onSearchChange={setSearch}
           onSelect={handleSelectSource}
           onAddEntry={() => setAddOpen(true)}
         />
-
-        <div className="asset-editor-scroll custom-scrollbar">
-          {entryIds.length === 0 ? (
-            <div className="asset-editor-empty">
-              <Users className="asset-editor-empty-icon" aria-hidden="true" />
-              <div className="asset-editor-empty-title">{copy.emptyTitle}</div>
-              <div className="asset-editor-empty-hint">{copy.emptyHint}</div>
-              <button type="button" className="control-button control-button-primary" onClick={() => setAddOpen(true)}>
-                <Plus className="h-3.5 w-3.5" />
-                <span>{copy.addEntryAction}</span>
-              </button>
-            </div>
-          ) : (
-            <div className="asset-editor-main">
-              <section className="asset-editor-card">
-                <div className="asset-editor-entries">
-                  <div className="asset-editor-entries-head">
-                    <span className="asset-field-label">{copy.entries.label}</span>
-                    <span className="asset-editor-entries-count">{copy.entries.count(entryIds.length)}</span>
-                  </div>
-                  <div className="asset-editor-entry-chips">
-                    <span className="asset-editor-entry-chip is-active">{activeId ?? ''}</span>
-                    {activeId !== null ? (
-                      <button
-                        type="button"
-                        className="control-button asset-editor-remove-entry"
-                        onClick={() => setRemoveCandidate(activeId)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span>{copy.removeEntryAction}</span>
-                      </button>
-                    ) : null}
-                  </div>
+      ) : (
+        <div className="character-editor-detail">
+          <div className="asset-editor-scroll character-editor-center">
+            <div className="asset-editor-main character-editor-main">
+              <section className="character-editor-entry-toolbar">
+                <div className="character-editor-entry-identity">
+                  <button
+                    type="button"
+                    className="icon-button h-8 w-8"
+                    title={copy.sources.backToLibrary}
+                    aria-label={copy.sources.backToLibrary}
+                    onClick={() => setSelectedId(null)}
+                  >
+                    <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                  <strong className="character-editor-entry-name">{activeId}</strong>
+                  <span className="asset-editor-entries-count">{copy.entries.count(entryIds.length)}</span>
                 </div>
+                <button type="button" className="control-button asset-editor-remove-entry" onClick={() => setRemoveCandidate(activeId)}>
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{copy.removeEntryAction}</span>
+                </button>
               </section>
-
-              {activeDraft !== null ? <SummaryCard draft={activeDraft} /> : null}
-
-              {portraitState !== null && spriteState !== null ? (
-                <div className="asset-editor-assets">
-                  <AssetCard title={copy.assets.portraitTitle} state={portraitState} onOpenEditor={() => openAssetPatch(portraitState)} />
-                  <AssetCard title={copy.assets.spriteTitle} state={spriteState} onOpenEditor={() => openAssetPatch(spriteState)} />
-                </div>
-              ) : null}
 
               {activeDraft !== null ? (
                 <AssetEntryCanvas
@@ -411,50 +348,65 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
                   draft={activeDraft}
                   onDraftChange={handleDraftChange}
                   resources={resources}
+                  renderResourcePicker={renderAssetResourcePicker}
                   onOpenGsqBuilder={setGsqRequest}
+                  hiddenFieldKeys={expertMode ? [] : CHARACTER_TECHNICAL_FIELD_KEYS}
+                  groupPresentation="tabs"
+                  activeGroupId={activeGroupId}
+                  onActiveGroupChange={setActiveGroupId}
+                  renderGroupTabLead={(groupId) =>
+                    readiness === null ? null : <CharacterTabReadiness groupId={groupId} readiness={readiness} />
+                  }
+                  renderGroupLead={(groupId) => (
+                    <CharacterGroupTools
+                      groupId={groupId}
+                      issues={activeIssues}
+                      portraitState={portraitState}
+                      spriteState={spriteState}
+                      variants={previewCharacter?.variants ?? []}
+                      activeVariantKey={activeVariantKey}
+                      giftTasteEditor={
+                        <CharacterGiftTasteEditor
+                          npcId={activeId}
+                          rawValue={rawGiftTaste}
+                          patchExists={giftTastePatchExists}
+                          vanillaRow={vanillaGiftTastes[activeId] ?? null}
+                          itemOptions={itemOptions}
+                          onCreatePatch={() => draftPort.addPatch('EditData', NPC_GIFT_TASTES_ASSET_ID)}
+                          onChange={(row) => draftPort.stageValue(NPC_GIFT_TASTES_ASSET_ID, activeId, row)}
+                          onRemove={() => draftPort.stageValue(NPC_GIFT_TASTES_ASSET_ID, activeId, null)}
+                        />
+                      }
+                      onOpenPortrait={() => {
+                        if (portraitState !== null) openAssetPatch(portraitState)
+                      }}
+                      onOpenSprite={() => {
+                        if (spriteState !== null) openAssetPatch(spriteState)
+                      }}
+                      onSelectVariant={setActiveVariantKey}
+                      onSelectIssue={handleSelectIssue}
+                    />
+                  )}
                 />
               ) : null}
-
-              <CharacterGiftTasteEditor
-                npcId={activeId}
-                rawValue={activeId === null ? undefined : draftPort.readValue(NPC_GIFT_TASTES_ASSET_ID, activeId)}
-                patchExists={giftTastePatchExists}
-                vanillaRow={activeId === null ? null : (vanillaGiftTastes[activeId] ?? null)}
-                onCreatePatch={() => draftPort.addPatch('EditData', NPC_GIFT_TASTES_ASSET_ID)}
-                onChange={(row) => {
-                  if (activeId !== null) {
-                    draftPort.stageValue(NPC_GIFT_TASTES_ASSET_ID, activeId, row)
-                  }
-                }}
-                onRemove={() => {
-                  if (activeId !== null) {
-                    draftPort.stageValue(NPC_GIFT_TASTES_ASSET_ID, activeId, null)
-                  }
-                }}
-              />
             </div>
-          )}
-        </div>
+          </div>
 
-        <CharacterPreviewPane
-          character={previewCharacter}
-          issues={issues}
-          gameRootPath={gameRootPath}
-          locale={locale}
-          onSelectIssue={(issue) => {
-            const target = issue.path[0]
-            if (typeof target === 'string') {
-              setSelectedId(target)
-            }
-          }}
-        />
-      </div>
+          <CharacterPreviewPane
+            character={previewCharacter}
+            draft={activeDraft}
+            activeVariantKey={activeVariantKey}
+            gameRootPath={gameRootPath}
+            locale={locale}
+          />
+        </div>
+      )}
 
       <AddCharacterDialog
         open={addOpen}
         existingIds={entryIds}
         projectUniqueId={draft.projectMetadata.projectUniqueId}
-        locationNames={locationNames}
+        locationNames={referenceData.locationNames}
         onClose={() => setAddOpen(false)}
         onCreate={handleCreate}
       />

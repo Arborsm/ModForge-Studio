@@ -4,7 +4,7 @@ import type { GameDirectoryInfo } from '@entities/game/api'
 import type { LocaleCode, ThemeMode } from '@locales/api'
 import type { PlayerAppearanceProfile } from '@entities/event'
 import type { AssetDraftPort } from './draftPort'
-import type { DraftPatch, WorkspaceId } from './types'
+import type { DraftPatch, ProjectAssetRef, WorkspaceId } from './types'
 
 /** Host environment an editor renders against; never carries locale copy. */
 export type EditorResources = {
@@ -15,6 +15,19 @@ export type EditorResources = {
   directoryInfo: GameDirectoryInfo | null
   playerAppearanceProfile: PlayerAppearanceProfile | null
   onOpenPlayerAppearanceWindow: () => void
+  /** Returns an asset-group editor to its first-level resource library. */
+  onReturnToLibrary?: () => void
+  /** Opens a project map file in the standalone map-asset editor. */
+  onOpenMapAsset?: (relativePath: string) => void
+  /**
+   * Opens a patch-tiles editing session for one tiles change card, seeding the
+   * session from that card's staged MapTiles and writing the delta back on
+   * completion. Hosts without a game directory or with token targets never
+   * trigger this.
+   */
+  onEditPatchTiles?: (args: { patchId: string; cardId: string; target: string }) => void
+  /** Reads a project asset's persisted bytes so an editor can preview it. */
+  onReadProjectAsset?: (relativePath: string) => Promise<{ asset: ProjectAssetRef; bytesBase64: string }>
 }
 
 /**

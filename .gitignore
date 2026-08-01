@@ -51,7 +51,6 @@ CLAUDE.md
 
 #temp
 *.png*
-*.html*
 !website/**/*.html
 
 # Local integration-test credentials

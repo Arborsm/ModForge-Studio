@@ -7,7 +7,14 @@
  * Pure types and lookups — no React, no host access.
  */
 
-import type { AssetEnumLabelKey, AssetFieldLabelKey, AssetGroupLabelKey, AssetIssueMessageKey, AssetIssueParams } from '@locales/api'
+import type {
+  AssetEnumLabelKey,
+  AssetFieldLabelKey,
+  AssetGroupLabelKey,
+  AssetIssueMessageKey,
+  AssetIssueParams,
+  AssetTextCategoryKey,
+} from '@locales/api'
 
 /**
  * Control kinds the shared renderer knows how to draw.
@@ -88,6 +95,8 @@ export type AssetFieldSchema = {
   required?: boolean
   /** Static enum catalog id registered through `registerEnumCatalog`. */
   enumCatalog?: string
+  /** Initial game-text-library category for a `localized_text` field. */
+  textCategory?: AssetTextCategoryKey
   /** Static datalist suggestions for free-text controls. */
   suggestions?: readonly string[]
   /** Expected JSON shape of a `raw` control, checked before committing. */

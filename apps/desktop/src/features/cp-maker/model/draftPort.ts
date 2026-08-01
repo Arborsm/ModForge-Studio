@@ -93,6 +93,18 @@ export type AssetDraftPort = {
   isDirty: () => boolean
   /** Stages a change to patch metadata (target, action, logName, enabled, …). */
   updatePatch: (patchId: string, changes: Partial<DraftPatch>) => void
+  /**
+   * Moves one patch one position in the draft's export order; a boundary move
+   * is a no-op. Structural, so it is not recorded on the entry undo stack.
+   */
+  reorderPatch: (patchId: string, delta: -1 | 1) => void
+  /**
+   * Deep-copies a patch right after the original with a fresh id. Structural,
+   * so it is not recorded on the entry undo stack.
+   */
+  duplicatePatch: (patchId: string) => void
+  /** Removes a patch from the draft entirely. Structural, so it is not recorded on the entry undo stack. */
+  removePatch: (patchId: string) => void
   /** Adds a binary asset to the draft's virtual file tree. */
   addVirtualAsset: (asset: VirtualPreviewAsset) => void
   /** Removes a binary asset from the draft's virtual file tree. */
@@ -113,6 +125,12 @@ export type AssetDraftPortOptions = {
   activePatchId: string | null
   onPatchChange: (patchId: string, patch: Partial<DraftPatch>) => void
   onPatchAdd: (action: DraftPatch['action'], target: string, fromFile?: string) => string | void
+  /** Moves one patch one position in the draft's export order; boundary moves are no-ops. */
+  onPatchReorder: (patchId: string, delta: -1 | 1) => void
+  /** Deep-copies a patch after the original, assigning a fresh id. */
+  onPatchDuplicate: (patchId: string) => void
+  /** Removes a patch from the draft. */
+  onPatchRemove: (patchId: string) => void
   onAddVirtualAsset: (asset: VirtualPreviewAsset) => void
   onRemoveVirtualAsset: (relativePath: string) => void
   onSaveDraft: () => void
@@ -413,6 +431,9 @@ export function createAssetDraftPort(options: AssetDraftPortOptions): AssetDraft
     updatePatch: (patchId, changes) => {
       onPatchChange(patchId, changes, `${patchId}:patch:${Object.keys(changes).sort().join(',')}`)
     },
+    reorderPatch: options.onPatchReorder,
+    duplicatePatch: options.onPatchDuplicate,
+    removePatch: options.onPatchRemove,
     addVirtualAsset: options.onAddVirtualAsset,
     removeVirtualAsset: options.onRemoveVirtualAsset,
     openConfig: options.onOpenConfig ?? null,

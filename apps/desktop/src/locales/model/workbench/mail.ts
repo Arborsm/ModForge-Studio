@@ -10,6 +10,9 @@ export type MailEditorCopy = {
   dirtyBadge: string
   noProjectTitle: string
   noProjectHint: string
+  backToLibrary: string
+  editorTabs: Record<'body' | 'attachments' | 'delivery' | 'settings', string>
+  tabStatuses: Record<'complete' | 'attention' | 'optional', string>
   list: {
     heading: string
     countTemplate: string
@@ -67,6 +70,11 @@ export type MailEditorCopy = {
     backgroundMissing: string
     secretSantaPlaceholder: string
     collectionTitleBadge: string
+    dataHeading: string
+    dataIdLabel: string
+    dataAttachmentsLabel: string
+    dataDeliveryLabel: string
+    dataIssuesLabel: string
   }
   info: {
     heading: string
@@ -81,6 +89,8 @@ export type MailEditorCopy = {
     textColorDefault: string
     statusHeading: string
     statusOk: string
+    rawDataLabel: string
+    rawDataHint: string
     deleteAction: string
   }
   backgrounds: {

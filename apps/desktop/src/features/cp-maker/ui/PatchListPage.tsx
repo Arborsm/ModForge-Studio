@@ -13,13 +13,9 @@ import {
   GripVertical,
   Heart,
   ListTree,
-  Package,
   PencilLine,
   Plus,
-  RefreshCw,
-  Save,
   Search,
-  Settings,
   Sun,
   Trash2,
 } from 'lucide-react'
@@ -44,21 +40,15 @@ type ContextMenuState =
 interface PatchListPageProps {
   patches: DraftPatch[]
   onEditPatch: (patchId: string, eventKey?: string) => void
-  onAddPatchRequest: () => void
   onRemovePatch: (patchId: string) => void
   onTogglePatch: (patchId: string, enabled: boolean) => void
   onPatchUpdate?: (patchId: string, patch: Partial<DraftPatch>) => void
-  onDuplicatePatch?: (patch: DraftPatch) => void
   canGoBack: boolean
   canGoForward: boolean
   onGoBack: () => void
   onGoForward: () => void
-  onOpenConfig: () => void
-  onSaveDraft: () => void
-  onReloadDraft?: () => void
   workspaceId: WorkspaceId
   draft: CpMakerDraft | null
-  isDirty: boolean
 }
 
 function getDefaultEventKey(patch: EventPatchHubPatch | null) {
@@ -142,20 +132,14 @@ function clampContextMenuPoint(x: number, y: number) {
 export function PatchListPage({
   patches,
   onEditPatch,
-  onAddPatchRequest,
   onRemovePatch,
   onPatchUpdate,
-  onDuplicatePatch,
   canGoBack,
   canGoForward,
   onGoBack,
   onGoForward,
-  onOpenConfig,
-  onSaveDraft,
-  onReloadDraft,
   workspaceId,
   draft,
-  isDirty,
 }: PatchListPageProps) {
   const copy = useEditorCopy().studioDesk
   const catalog = copy.patchCatalog
@@ -374,15 +358,10 @@ export function PatchListPage({
     }
   }
 
-  function handlePatchMenuAction(action: 'configure' | 'addEvent' | 'duplicatePatch' | 'deletePatch') {
+  function handlePatchMenuAction(action: 'addEvent' | 'deletePatch') {
     const patch = contextMenu?.kind === 'patch' ? hubPatches.find((item) => item.id === contextMenu.patchId) : null
     setContextMenu(null)
     if (!patch) {
-      return
-    }
-    if (action === 'configure') {
-      setSelectedPatchId(patch.id)
-      onOpenConfig()
       return
     }
     if (action === 'addEvent') {
@@ -391,10 +370,6 @@ export function PatchListPage({
       if (eventKey) {
         onEditPatch(patch.id, eventKey)
       }
-      return
-    }
-    if (action === 'duplicatePatch') {
-      onDuplicatePatch?.(patch.sourcePatch)
       return
     }
     onRemovePatch(patch.id)
@@ -581,17 +556,6 @@ export function PatchListPage({
             </section>
           ) : null}
         </div>
-
-        <div className="event-patch-sidebar-footer studio-tree-footer">
-          <button
-            type="button"
-            className="control-button control-button-primary studio-tree-footer-button w-full"
-            onClick={onAddPatchRequest}
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            <span>{catalog.addPatch}</span>
-          </button>
-        </div>
       </aside>
 
       <section className="event-patch-main" aria-label={hub.hubLabel}>
@@ -628,27 +592,9 @@ export function PatchListPage({
           </div>
 
           <div className="event-patch-workspace-actions">
-            {onReloadDraft ? (
-              <button
-                type="button"
-                className="icon-button h-8 w-8"
-                aria-label={copy.toolbar.reload}
-                title={copy.toolbar.reload}
-                onClick={onReloadDraft}
-              >
-                <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              </button>
-            ) : null}
             <button type="button" className="icon-button h-8 w-8" aria-label={hub.hubLabel} title={hub.hubLabel}>
               <ListTree className="h-4 w-4" aria-hidden="true" />
             </button>
-            {activePatch ? (
-              <button type="button" className={cx('event-patch-save-state', isDirty && 'dirty')} onClick={onSaveDraft} disabled={!isDirty}>
-                <span aria-hidden="true" />
-                <Save className="h-3.5 w-3.5" aria-hidden="true" />
-                {isDirty ? hub.unsavedLabel : hub.savedLabel}
-              </button>
-            ) : null}
           </div>
         </header>
 
@@ -660,15 +606,6 @@ export function PatchListPage({
           <div className="event-patch-hub-actions">
             {activePatch ? (
               <>
-                <button
-                  type="button"
-                  className="icon-button h-8 w-8"
-                  aria-label={hub.patchSettingsLabel}
-                  title={hub.patchSettingsLabel}
-                  onClick={onOpenConfig}
-                >
-                  <Settings className="h-4 w-4" aria-hidden="true" />
-                </button>
                 <button
                   type="button"
                   className={cx('control-button', multiSelect && 'edit-mode-button-active')}
@@ -686,12 +623,7 @@ export function PatchListPage({
                   <span>{hub.addEventLabel}</span>
                 </button>
               </>
-            ) : (
-              <button type="button" className="control-button control-button-primary" onClick={onAddPatchRequest}>
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                <span>{hub.noPatchAction}</span>
-              </button>
-            )}
+            ) : null}
           </div>
         </header>
 
@@ -832,10 +764,6 @@ export function PatchListPage({
                 </div>
                 <strong>{hub.noPatchTitle}</strong>
                 <p>{hub.noPatchSubtitle}</p>
-                <button type="button" className="control-button control-button-primary" onClick={onAddPatchRequest}>
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                  <span>{hub.noPatchAction}</span>
-                </button>
               </section>
             )}
           </div>
@@ -851,17 +779,9 @@ export function PatchListPage({
         >
           {contextMenu.kind === 'patch' ? (
             <>
-              <button type="button" role="menuitem" onClick={() => handlePatchMenuAction('configure')}>
-                <Settings className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>{hub.configurePatchAction}</span>
-              </button>
               <button type="button" role="menuitem" onClick={() => handlePatchMenuAction('addEvent')}>
                 <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>{hub.addEventLabel}</span>
-              </button>
-              <button type="button" role="menuitem" onClick={() => handlePatchMenuAction('duplicatePatch')}>
-                <Package className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>{hub.duplicatePatchAction}</span>
               </button>
               <button type="button" role="menuitem" className="danger" onClick={() => handlePatchMenuAction('deletePatch')}>
                 <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />

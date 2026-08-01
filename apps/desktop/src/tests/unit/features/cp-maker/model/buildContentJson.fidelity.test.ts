@@ -153,4 +153,47 @@ describe('content.json export fidelity', () => {
     expect(changes[1]!['Entries']).toEqual({ C: 'c' })
     expect(changes[1]!['When']).toEqual({ Season: 'winter' })
   })
+
+  it('keeps a string Enabled token verbatim through parse and export', () => {
+    // The parser stores a string `enabled` as-is (never coerced to boolean); an
+    // untouched token must reach the pack unchanged and keep the patch active.
+    const { changes } = readPack(
+      mailDraft([makeTestPatch('p1', MAIL_TARGET, { entries: { A: 'a' } }, { workspace: 'mail', enabled: '{{EnableMail}}' })]),
+    )
+    expect(changes[0]!['Enabled']).toBe('{{EnableMail}}')
+  })
+
+  it('drops a stale patch-level FromFile for EditMap once the card model has no file card', () => {
+    const { changes } = readPack(
+      mailDraft([
+        makeTestPatch(
+          'p1',
+          'Maps/Town',
+          { changes: [{ id: 'tiles-1', type: 'tiles', mapTiles: [{ layer: 'Back', x: 1, y: 2 }] }] },
+          { workspace: 'map', action: 'EditMap', fromFile: 'assets/maps/Stale.tbin' },
+        ),
+      ]),
+    )
+    expect(changes[0]!['FromFile']).toBeUndefined()
+    expect(changes[0]!['MapTiles']).toEqual([{ Layer: 'Back', Position: { X: 1, Y: 2 } }])
+  })
+
+  it('exports the patch-level FromFile for an EditMap file card', () => {
+    const { changes } = readPack(
+      mailDraft([
+        makeTestPatch(
+          'p1',
+          'Maps/Town',
+          {
+            changes: [
+              { id: 'file-1', type: 'file', fromArea: { x: 0, y: 0, width: 1, height: 1 }, toArea: { x: 5, y: 5, width: 1, height: 1 } },
+            ],
+          },
+          { workspace: 'map', action: 'EditMap', fromFile: 'assets/maps/Source.tbin' },
+        ),
+      ]),
+    )
+    expect(changes[0]!['FromFile']).toBe('assets/maps/Source.tbin')
+    expect(changes[0]!['FromArea']).toEqual({ X: 0, Y: 0, Width: 1, Height: 1 })
+  })
 })

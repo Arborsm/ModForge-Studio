@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useId, useState } from 'react'
-import { AlertTriangle, Building2, Plus, Trash2 } from 'lucide-react'
+import { AlertCircle, AlertTriangle, ArrowLeft, CheckCircle2, CircleDashed, Trash2 } from 'lucide-react'
 import type { EditorComponent } from '@features/cp-maker'
+import { renderAssetResourcePicker } from '@features/resource-browser'
 import {
   AssetEntryCanvas,
   isPlainObject,
@@ -22,6 +23,7 @@ import {
 } from '@entities/building'
 import { useBuildingDataEditorCopy, useEditorCopy } from '@locales/provider'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
+import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
 import {
   buildBuildingSourceGroups,
   buildPreviewEntry,
@@ -31,16 +33,95 @@ import {
   type BuildingSourceRow,
 } from '../state/useBuildingAuthoringSources'
 import { AddBuildingDialog } from '../ui/AddBuildingDialog'
-import { BuildingPreviewPane } from '../ui/BuildingPreviewPane'
-import { BuildingSourcePane } from '../ui/BuildingSourcePane'
-import type { FootprintRect, FootprintRectPickTarget, FootprintTilePickTarget } from '../ui/BuildingFootprintOverlay'
+import { BuildingPreviewPane, type BuildingAuthoringToolRequest } from '../ui/BuildingPreviewPane'
+import { BuildingCatalog } from '../ui/BuildingCatalog'
+import { BuildingGroupTools } from '../ui/BuildingGroupTools'
+import type { FootprintPickTarget, FootprintRect, FootprintRectPickTarget, FootprintTilePickTarget } from '../ui/BuildingFootprintOverlay'
 import { useBuildingAuthoringResources } from '../state/useBuildingAuthoringResources'
 import {
   buildBuildingRefOptions,
   buildIndoorMapOptions,
   buildMaterialOptions,
   buildTextureRefOptions,
+  findMapAssetByName,
 } from '../state/buildingPickerOptions'
+import {
+  evaluateBuildingReadiness,
+  type BuildingReadiness,
+  type BuildingReadinessStepId,
+  type BuildingReadinessStepStatus,
+} from '../state/buildingReadiness'
+
+const BUILDING_VISUAL_FIELD_KEYS = [
+  'Size',
+  'AdditionalPlacementTiles',
+  'HumanDoor',
+  'AnimalDoor',
+  'UpgradeSignTile',
+  'IndoorMap',
+  'SourceRect',
+  'SeasonOffset',
+  'DrawOffset',
+  'BuildMenuDrawOffset',
+] as const
+
+const BUILDING_TECHNICAL_FIELD_KEYS = [
+  'NameForGeneralType',
+  'MagicalConstruction',
+  'DefaultAction',
+  'BuildCondition',
+  'AddMailOnBuild',
+  'CollisionMap',
+  'AdditionalTilePropertyRadius',
+  'ActionTiles',
+  'TileProperties',
+  'AnimalDoorOpenDuration',
+  'AnimalDoorOpenSound',
+  'AnimalDoorCloseDuration',
+  'AnimalDoorCloseSound',
+  'UpgradeSignHeight',
+  'IndoorMapType',
+  'NonInstancedIndoorLocation',
+  'IndoorItems',
+  'IndoorItemMoves',
+  'Chests',
+  'SortTileOffset',
+  'DrawLayers',
+  'ItemConversions',
+  'Metadata',
+  'ModData',
+  'CustomFields',
+] as const
+
+const BUILDING_BEGINNER_HIDDEN_FIELD_KEYS = [...BUILDING_VISUAL_FIELD_KEYS, ...BUILDING_TECHNICAL_FIELD_KEYS]
+
+const TAB_READINESS_STEPS: Readonly<Record<string, readonly BuildingReadinessStepId[]>> = {
+  basics: ['identity'],
+  texture: ['artwork'],
+  construction: ['construction', 'cost'],
+  placement: ['placement'],
+  indoor: ['interior'],
+  upgrade: ['upgrade'],
+}
+
+function BuildingTabReadiness({ groupId, readiness }: { groupId: string; readiness: BuildingReadiness }) {
+  const copy = useBuildingDataEditorCopy()
+  const steps = TAB_READINESS_STEPS[groupId]
+  if (steps === undefined) return null
+  const statuses = steps.flatMap((id) => readiness.steps.find((step) => step.id === id)?.status ?? [])
+  const status: BuildingReadinessStepStatus = statuses.includes('needs-attention')
+    ? 'needs-attention'
+    : statuses.every((value) => value === 'complete')
+      ? 'complete'
+      : 'optional'
+  const Icon = status === 'complete' ? CheckCircle2 : status === 'needs-attention' ? AlertCircle : CircleDashed
+  return (
+    <span className={`building-tab-readiness is-${status}`} title={copy.workflow.status[status]}>
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      <span className="sr-only">{copy.workflow.status[status]}</span>
+    </span>
+  )
+}
 
 function RemoveEntryDialog({ buildingId, onClose, onConfirm }: { buildingId: string | null; onClose: () => void; onConfirm: () => void }) {
   const copy = useBuildingDataEditorCopy()
@@ -94,7 +175,8 @@ function sortedBuildingKeys(projectKeys: readonly string[], vanillaKeys: readonl
  */
 export const BuildingDataPatchEditor: EditorComponent = ({ patch, draftPort, resources: environment }) => {
   const { draft } = draftPort
-  const { gameRootPath, directoryInfo, locale } = environment
+  const { gameRootPath, directoryInfo, locale, theme, accentColor } = environment
+  const expertMode = useEditorModeStore((state) => state.expertMode)
   const copy = useBuildingDataEditorCopy()
   const hubCopy = useEditorCopy().studioDesk.eventPatchHub
   const requestedBuildingKey = useBuildingAuthoringHandoff((state) => state.pendingBuildingKey)
@@ -105,6 +187,9 @@ export const BuildingDataPatchEditor: EditorComponent = ({ patch, draftPort, res
   const [addOpen, setAddOpen] = useState(false)
   const [removeCandidate, setRemoveCandidate] = useState<string | null>(null)
   const [gsqRequest, setGsqRequest] = useState<GsqBuilderRequest | null>(null)
+  const [toolRequest, setToolRequest] = useState<BuildingAuthoringToolRequest | null>(null)
+  const [pickTarget, setPickTarget] = useState<FootprintPickTarget | null>(null)
+  const [activeGroupId, setActiveGroupId] = useState('basics')
   const deferredSearch = useDeferredValue(search)
   const vanilla = useVanillaBuildingIndex(gameRootPath, directoryInfo, locale)
   const vanillaEntries = Array.from(vanilla.entries.values())
@@ -113,6 +198,7 @@ export const BuildingDataPatchEditor: EditorComponent = ({ patch, draftPort, res
     directoryInfo,
     locale,
     patches: draft.patches,
+    virtualAssets: draft.virtualAssets,
     vanillaTextureNames: vanillaEntries.map((entry) => entry.textureAssetName).filter((name): name is string => Boolean(name)),
   })
 
@@ -121,6 +207,7 @@ export const BuildingDataPatchEditor: EditorComponent = ({ patch, draftPort, res
     setAddOpen(false)
     setRemoveCandidate(null)
     setGsqRequest(null)
+    setActiveGroupId('basics')
   }, [patch.id])
 
   // The codex page hands over a building key when the author picks "open in
@@ -139,13 +226,19 @@ export const BuildingDataPatchEditor: EditorComponent = ({ patch, draftPort, res
 
   const entries = parseAssetEditorState(patch.editorState).entries
   const entryIds = draftPort.listEntries(BUILDING_DATA_ASSET_ID)
-  const activeId = selectedId !== null && entryIds.includes(selectedId) ? selectedId : (entryIds[0] ?? null)
+  const activeId = selectedId !== null && entryIds.includes(selectedId) ? selectedId : null
   const activeDraft = activeId !== null ? draftPort.read(BUILDING_DATA_ASSET_ID, activeId) : null
 
   const issues = validateBuildingEntries(entries, {
     knownItemIds: referenceData.itemIds,
     knownBuildingKeys: vanillaEntries.map((entry) => entry.key),
     knownMapAssets: referenceData.mapAssetNames,
+  })
+  const indoorMapOptions = buildIndoorMapOptions({
+    assetNames: referenceData.mapAssetNames,
+    mapAssets: referenceData.mapAssets,
+    projectCategory: copy.pickers.projectMaps,
+    vanillaCategory: copy.pickers.vanillaMaps,
   })
   const resources: AssetResources = {
     npcs: [],
@@ -160,20 +253,20 @@ export const BuildingDataPatchEditor: EditorComponent = ({ patch, draftPort, res
     // A material id or a chain stage is unpickable as a bare string, so each
     // reference kind gets the browsable catalog the picker dialog renders.
     options: {
-      item: buildMaterialOptions(referenceData.materials, referenceData.objectSheet),
+      item: buildMaterialOptions(referenceData.materials, referenceData.itemTextureStates),
       building: buildBuildingRefOptions({
         vanillaEntries,
         projectKeys: entryIds,
         projectCategory: copy.pickers.projectBuildings,
         stageDetail: copy.pickers.buildingStageDetail,
       }),
-      map: buildIndoorMapOptions({
-        assetNames: referenceData.mapAssetNames,
-        mapAssets: referenceData.mapAssets,
-        projectCategory: copy.pickers.projectMaps,
-        vanillaCategory: copy.pickers.vanillaMaps,
-      }),
-      texture: buildTextureRefOptions(referenceData.textureAssetNames, copy.pickers.textureRoot),
+      map: indoorMapOptions,
+      texture: buildTextureRefOptions(
+        referenceData.textureAssetNames,
+        copy.pickers.textureRoot,
+        referenceData.texturePreviews,
+        referenceData.projectTextureAssetNames,
+      ),
     },
     gameRootPath,
     locale,
@@ -191,6 +284,20 @@ export const BuildingDataPatchEditor: EditorComponent = ({ patch, draftPort, res
     previewBuilding === null
       ? null
       : findBuildingTexturePatchState(draft.patches, previewBuilding.textureAssetName ?? '', draft.virtualAssets)
+  const activeErrorCount = activeId === null ? 0 : issues.filter((issue) => issue.severity === 'error' && issue.path[0] === activeId).length
+  const activeTextureName =
+    typeof activeDraft?.fields['Texture'] === 'string' ? activeDraft.fields['Texture'].replaceAll('\\', '/').toLowerCase() : ''
+  const readiness =
+    activeDraft === null
+      ? null
+      : evaluateBuildingReadiness(activeDraft, {
+          textureAvailable: Boolean(referenceData.texturePreviews[activeTextureName]) || texturePatchState?.fileInDraft === true,
+          errorCount: activeErrorCount,
+        })
+
+  function requestVisualTool(tool: BuildingAuthoringToolRequest['tool']) {
+    setToolRequest((current) => ({ id: (current?.id ?? 0) + 1, tool }))
+  }
 
   /** Opens the image patch providing the entry's texture, creating the Load patch on first use. */
   function handleOpenTextureEditor() {
@@ -232,11 +339,13 @@ export const BuildingDataPatchEditor: EditorComponent = ({ patch, draftPort, res
   function handleSelectSource(row: BuildingSourceRow) {
     if (row.inProject) {
       setSelectedId(row.key)
+      setActiveGroupId('basics')
       return
     }
     const record = vanilla.records[row.key]
     draftPort.stage(BUILDING_DATA_ASSET_ID, row.key, parseAssetEntry(BUILDING_DATA_SCHEMA, record ?? {}))
     setSelectedId(row.key)
+    setActiveGroupId('basics')
   }
 
   function handleRemoveConfirmed() {
@@ -260,14 +369,30 @@ export const BuildingDataPatchEditor: EditorComponent = ({ patch, draftPort, res
     draftPort.stage(BUILDING_DATA_ASSET_ID, activeId, { ...activeDraft, fields: { ...activeDraft.fields, [field]: next } })
   }
 
+  /** Replaces or clears one visually authored field without disturbing siblings. */
+  function stageValue(field: string, value: unknown) {
+    if (activeId === null || activeDraft === null) {
+      return
+    }
+    const fields = { ...activeDraft.fields }
+    if (value === undefined) {
+      delete fields[field]
+    } else {
+      fields[field] = value
+    }
+    draftPort.stage(BUILDING_DATA_ASSET_ID, activeId, { ...activeDraft, fields })
+  }
+
   /** Writes a tile picked on the footprint grid back into the staged entry. */
   function handlePickTile(target: FootprintTilePickTarget, tile: { X: number; Y: number }) {
     stageField(target, { X: tile.X, Y: tile.Y })
+    setPickTarget(null)
   }
 
   /** Writes a tile rectangle picked on the footprint grid, e.g. the animal door. */
   function handlePickRect(target: FootprintRectPickTarget, rect: FootprintRect) {
     stageField(target, { X: rect.X, Y: rect.Y, Width: rect.Width, Height: rect.Height })
+    setPickTarget(null)
   }
 
   /** Writes the region picked over the building sheet into `SourceRect`. */
@@ -292,65 +417,48 @@ export const BuildingDataPatchEditor: EditorComponent = ({ patch, draftPort, res
   }
 
   const chainStages = buildUpgradeChainStages({ activeKey: activeId, projectKeys: entryIds, projectEntries: entries, vanilla })
+  const activeIssues = activeId === null ? [] : issues.filter((issue) => issue.path[0] === activeId)
   const entryKey = activeId !== null ? `${patch.id}:${activeId}` : patch.id
 
   return (
-    <div className="asset-editor">
-      <header className="asset-editor-header">
-        <div>
-          <div className="asset-editor-title">{copy.title}</div>
-          <div className="asset-editor-subtitle">{copy.subtitle}</div>
-        </div>
-        <div className="asset-editor-subtitle">{patch.target}</div>
-      </header>
-
-      <div className="asset-editor-body">
-        <BuildingSourcePane
+    <div className="asset-editor building-data-editor">
+      {activeId === null ? (
+        <BuildingCatalog
           groups={groups}
           mode={sourceMode}
           search={search}
-          activeKey={activeId}
           vanillaLoading={vanilla.loading}
           vanillaAvailable={vanilla.available}
+          gameRootPath={gameRootPath}
+          locale={locale}
+          resolveBuilding={(row) => buildPreviewEntry(row.key, row.inProject ? entries[row.key] : null, vanilla)}
           onModeChange={setSourceMode}
           onSearchChange={setSearch}
           onSelect={handleSelectSource}
           onAddEntry={() => setAddOpen(true)}
         />
-
-        <div className="asset-editor-scroll custom-scrollbar">
-          {entryIds.length === 0 ? (
-            <div className="asset-editor-empty">
-              <Building2 className="asset-editor-empty-icon" aria-hidden="true" />
-              <div className="asset-editor-empty-title">{copy.emptyTitle}</div>
-              <div className="asset-editor-empty-hint">{copy.emptyHint}</div>
-              <button type="button" className="control-button control-button-primary" onClick={() => setAddOpen(true)}>
-                <Plus className="h-3.5 w-3.5" />
-                <span>{copy.addEntryAction}</span>
-              </button>
-            </div>
-          ) : (
-            <div className="asset-editor-main">
-              <section className="asset-editor-card">
-                <div className="asset-editor-entries">
-                  <div className="asset-editor-entries-head">
-                    <span className="asset-field-label">{copy.entries.label}</span>
-                    <span className="asset-editor-entries-count">{copy.entries.count(entryIds.length)}</span>
-                  </div>
-                  <div className="asset-editor-entry-chips">
-                    <span className="asset-editor-entry-chip is-active">{activeId ?? ''}</span>
-                    {activeId !== null ? (
-                      <button
-                        type="button"
-                        className="control-button asset-editor-remove-entry"
-                        onClick={() => setRemoveCandidate(activeId)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span>{copy.removeEntryAction}</span>
-                      </button>
-                    ) : null}
-                  </div>
+      ) : (
+        <div className="building-editor-detail">
+          <div className="asset-editor-scroll building-editor-center">
+            <div className="asset-editor-main building-editor-main">
+              <section className="building-editor-entry-toolbar">
+                <div className="building-editor-entry-identity">
+                  <button
+                    type="button"
+                    className="icon-button h-8 w-8"
+                    title={copy.sources.backToLibrary}
+                    aria-label={copy.sources.backToLibrary}
+                    onClick={() => setSelectedId(null)}
+                  >
+                    <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                  <strong className="building-editor-entry-name">{activeId}</strong>
+                  <span className="asset-editor-entries-count">{copy.entries.count(entryIds.length)}</span>
                 </div>
+                <button type="button" className="control-button asset-editor-remove-entry" onClick={() => setRemoveCandidate(activeId)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>{copy.removeEntryAction}</span>
+                </button>
               </section>
 
               {activeDraft !== null ? (
@@ -360,34 +468,58 @@ export const BuildingDataPatchEditor: EditorComponent = ({ patch, draftPort, res
                   draft={activeDraft}
                   onDraftChange={handleDraftChange}
                   resources={resources}
+                  renderResourcePicker={renderAssetResourcePicker}
                   onOpenGsqBuilder={setGsqRequest}
+                  hiddenFieldKeys={expertMode ? [] : BUILDING_BEGINNER_HIDDEN_FIELD_KEYS}
+                  groupPresentation="tabs"
+                  activeGroupId={activeGroupId}
+                  onActiveGroupChange={setActiveGroupId}
+                  renderGroupTabLead={(groupId) =>
+                    readiness === null ? null : <BuildingTabReadiness groupId={groupId} readiness={readiness} />
+                  }
+                  renderGroupLead={(groupId) => (
+                    <BuildingGroupTools
+                      groupId={groupId}
+                      draft={activeDraft}
+                      issues={activeIssues}
+                      texturePatchState={texturePatchState}
+                      chainStages={chainStages}
+                      indoorMapOptions={indoorMapOptions}
+                      pickTarget={pickTarget}
+                      onPickTargetChange={setPickTarget}
+                      onOpenFootprint={() => requestVisualTool('footprint')}
+                      onOpenSourceRect={() => requestVisualTool('source-rect')}
+                      onOpenTextureEditor={handleOpenTextureEditor}
+                      onApplyIndoorMap={(value) => stageValue('IndoorMap', value)}
+                      onSelectStage={handleSelectStage}
+                      onSelectIssue={(issue) => {
+                        const target = issue.path[0]
+                        if (typeof target === 'string') setSelectedId(target)
+                      }}
+                    />
+                  )}
                 />
               ) : null}
             </div>
-          )}
-        </div>
+          </div>
 
-        <BuildingPreviewPane
-          building={previewBuilding}
-          draft={activeDraft}
-          issues={issues}
-          texturePatchState={texturePatchState}
-          chainStages={chainStages}
-          gameRootPath={gameRootPath}
-          locale={locale}
-          onPickTile={handlePickTile}
-          onPickRect={handlePickRect}
-          onApplySourceRect={handleApplySourceRect}
-          onSelectStage={handleSelectStage}
-          onOpenTextureEditor={handleOpenTextureEditor}
-          onSelectIssue={(issue) => {
-            const target = issue.path[0]
-            if (typeof target === 'string') {
-              setSelectedId(target)
-            }
-          }}
-        />
-      </div>
+          <BuildingPreviewPane
+            building={previewBuilding}
+            draft={activeDraft}
+            gameRootPath={gameRootPath}
+            locale={locale}
+            theme={theme}
+            accentColor={accentColor}
+            farmAsset={findMapAssetByName('Maps/Farm', referenceData.mapAssets)}
+            pickTarget={pickTarget}
+            onPickTile={handlePickTile}
+            onPickRect={handlePickRect}
+            onApplySourceRect={handleApplySourceRect}
+            onApplyFootprint={({ width, height }) => stageField('Size', { X: width, Y: height })}
+            toolRequest={toolRequest}
+          />
+        </div>
+      )}
 
       <AddBuildingDialog
         open={addOpen}

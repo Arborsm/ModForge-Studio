@@ -1,4 +1,4 @@
-import { useDeferredValue, useState, type ReactNode } from 'react'
+import { useDeferredValue, useEffect, useState, type ReactNode } from 'react'
 import '../styles/workbench.css'
 import { localeBundles } from '@locales'
 import { LocaleProvider } from '@locales/provider'
@@ -15,8 +15,20 @@ import ItemWorkspace from '@pages/workbench/workspaces/item/view/ItemWorkspace'
 import type { ItemTextureAssetState, ItemWorkspaceEntry } from '@entities/item'
 import BuildingWorkspace from '@pages/workbench/workspaces/building/view/BuildingWorkspace'
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '@entities/building'
-import { MapPatchEditor } from '@pages/workbench/workspaces/map/editors/MapPatchEditor'
-import { createAssetDraftPort, type CpMakerDraft, type DraftPatch, type EditorResources, type WorkspaceId } from '@features/cp-maker'
+import { MapAssetEditor, MapCatalog, MapPatchEditor } from '@pages/workbench/workspaces/map'
+import { AssetLibraryWorkspace } from '@pages/workbench/workspaces/asset-library'
+import type { MapDocument } from '@entities/map'
+import { configureImageDataUrlLoader } from '@shared/lib/assets'
+import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import {
+  createAssetDraftPort,
+  useCpMaker,
+  type CpMakerDraft,
+  type DraftPatch,
+  type EditorResources,
+  type WorkspaceId,
+} from '@features/cp-maker'
+import { WorkbenchProjectProvider } from '@pages/workbench/model/workbenchModuleContexts'
 import type { LauncherPage as LauncherPageId } from '@locales/api'
 
 type PageScenarioId =
@@ -25,6 +37,9 @@ type PageScenarioId =
   | 'item-workspace'
   | 'building-workspace'
   | 'map-patch-editor'
+  | 'map-asset-editor'
+  | 'map-catalog'
+  | 'asset-library'
   | 'launcher-shell'
 
 const pageScenarioIds: PageScenarioId[] = [
@@ -33,6 +48,9 @@ const pageScenarioIds: PageScenarioId[] = [
   'item-workspace',
   'building-workspace',
   'map-patch-editor',
+  'map-asset-editor',
+  'map-catalog',
+  'asset-library',
   'launcher-shell',
 ]
 
@@ -41,6 +59,16 @@ const editorCopy = copy.editor
 const accentColor = '#f97316'
 const noop = () => {}
 const asyncNoop = async () => {}
+
+const pagePerformanceAsset = {
+  relativePath: 'assets/maps/PagePerformanceTown.tmx',
+  mediaType: 'application/xml',
+  sizeBytes: 16_384,
+  sha256: '4b2f954b8b96e4f51a99306087f61f338a68d76c3c8124dff79b583334c2796a',
+  storageKey: 'assets/maps/PagePerformanceTown.tmx',
+  sourceType: 'imported' as const,
+  dependencies: [],
+}
 
 function range(count: number) {
   return Array.from({ length: count }, (_, index) => index)
@@ -175,6 +203,9 @@ function createScenarioDraftPort(
     isDirty: false,
     selectedEntryKey,
     onPatchAdd: () => undefined,
+    onPatchReorder: noop,
+    onPatchDuplicate: noop,
+    onPatchRemove: noop,
     onSelectEntry: noop,
   })
 }
@@ -196,11 +227,76 @@ function createCpMakerDraft(patches: DraftPatch[] = []): CpMakerDraft {
     configSchema: [],
     patches,
     virtualAssets: [],
+    projectAssets: [pagePerformanceAsset],
     dynamicTokens: [],
     customLocations: [],
     aliasTokenNames: {},
     eventSourceSnapshotsByTarget: {},
     i18nFiles: [],
+  }
+}
+
+function createMapCatalogDocument(index: number): MapDocument {
+  const width = 20 + (index % 5) * 4
+  const height = 15 + (index % 4) * 3
+  const gids = new Uint32Array(width * height)
+  const contentLeft = 2 + (index % 5)
+  const contentTop = 2 + (index % 3)
+  const contentWidth = Math.min(width - contentLeft, 5 + (index % 9))
+  const contentHeight = Math.min(height - contentTop, 4 + (index % 7))
+  let nonEmptyTiles = 0
+
+  for (let y = contentTop; y < contentTop + contentHeight; y += 1) {
+    for (let x = contentLeft; x < contentLeft + contentWidth; x += 1) {
+      gids[y * width + x] = 1
+      nonEmptyTiles += 1
+    }
+  }
+
+  return {
+    name: `PerformanceMap${index}`,
+    format: 'tmx',
+    sourcePath: `Maps/PerformanceMap${index}.tmx`,
+    relativePath: `assets/maps/PerformanceMap${index}.tmx`,
+    width,
+    height,
+    tileWidth: 16,
+    tileHeight: 16,
+    orientation: 'orthogonal',
+    renderOrder: 'right-down',
+    properties: {},
+    tilesets: [],
+    layers: [
+      {
+        id: 1,
+        name: 'Back',
+        kind: 'tile',
+        width,
+        height,
+        visible: index % 17 !== 0,
+        opacity: 1,
+        offsetX: 0,
+        offsetY: 0,
+        properties: {},
+        gids,
+        nonEmptyTiles,
+      },
+    ],
+    objectGroups: [],
+  }
+}
+
+function createMapCatalogPatch(index: number): DraftPatch {
+  const document = createMapCatalogDocument(index)
+  return {
+    ...createDraftPatch(index, 'map'),
+    id: `map-catalog-${index}`,
+    action: 'Load',
+    enabled: true,
+    target: `Maps/PerformanceMap${index}`,
+    logName: `Performance map ${index}`,
+    fromFile: document.relativePath,
+    editorState: { mapDocument: document, mapAssetMode: true },
   }
 }
 
@@ -849,8 +945,54 @@ const performanceLauncherPort: LauncherPort = {
   cancelNexusSso: async () => {},
 }
 
+function serializePerformanceMap(document: MapDocument) {
+  return JSON.stringify({
+    ...document,
+    layers: document.layers.map((layer) => (layer.kind === 'tile' ? { ...layer, gids: Array.from(layer.gids) } : layer)),
+  })
+}
+
 const performanceCpMakerPort: CpMakerPort = {
-  loadSession: async () => ({ activeDraftKey: null, activeGeneratedDraftKey: null }),
+  loadSession: async () => ({ activeDraftKey: 'page-performance-draft', activeGeneratedDraftKey: null }),
+  readProjectAsset: async () => ({ asset: pagePerformanceAsset, bytesBase64: btoa('<map/>') }),
+  loadProjectMapAsset: async (request) => {
+    const document = createMapCatalogDocument(12)
+    return {
+      name: 'PagePerformanceTown',
+      format: 'tmx',
+      absolutePath: `E:\\ModForge Dev\\${request.relativePath.replaceAll('/', '\\')}`,
+      relativePath: request.relativePath,
+      content: serializePerformanceMap({ ...document, name: 'PagePerformanceTown', relativePath: request.relativePath }),
+    }
+  },
+  writeProjectAsset: async (request) => ({
+    relativePath: request.relativePath,
+    mediaType: request.mediaType,
+    sizeBytes: Math.floor((request.bytesBase64.length * 3) / 4),
+    sha256: `page-performance-${request.relativePath}`,
+    storageKey: request.relativePath,
+    sourceType: request.sourceType,
+    dependencies: [],
+  }),
+  writeProjectAssets: async (request) =>
+    request.assets.map((asset) => ({
+      relativePath: asset.relativePath,
+      mediaType: asset.mediaType,
+      sizeBytes: Math.floor((asset.bytesBase64.length * 3) / 4),
+      sha256: `page-performance-${asset.relativePath}`,
+      storageKey: asset.relativePath,
+      sourceType: asset.sourceType,
+      dependencies: [],
+    })),
+  importProjectAssets: async () => {
+    throw new Error('Project asset imports are not configured in the page performance scenario.')
+  },
+  renameProjectAsset: async () => {
+    throw new Error('Project asset renames are not configured in the page performance scenario.')
+  },
+  deleteProjectAsset: async () => {
+    throw new Error('Project asset deletes are not configured in the page performance scenario.')
+  },
   saveSession: async (session) => session,
   listDrafts: async () => [] as any,
   loadDraft: async (storageKey) =>
@@ -865,14 +1007,18 @@ const performanceCpMakerPort: CpMakerPort = {
         gameRootPath: null,
         contentPackForUniqueId: 'Pathoschild.ContentPatcher',
       },
-      configSchema: [],
-      patches: [],
-      virtualAssets: [],
+      configSchemaDraft: {},
+      serializedChangeRegistry: { patches: [] },
       dynamicTokens: [],
       customLocations: [],
       aliasTokenNames: {},
       eventSourceSnapshotsByTarget: {},
       i18nFiles: [],
+      projectAssets: [pagePerformanceAsset],
+      lastDraftSavedAt: null,
+      lastExportedAt: null,
+      lastExportPath: null,
+      lastExportFingerprint: null,
     }) as any,
   saveDraft: async (draft) => draft as any,
   deleteDraft: async () => {},
@@ -880,6 +1026,7 @@ const performanceCpMakerPort: CpMakerPort = {
   importPack: async (modDirectoryPath) => ({ draftStorageKey: modDirectoryPath }) as any,
   exportPack: async (request) => ({ outputPath: request.output_path ?? '', archivePath: request.output_path ?? '' }) as any,
   chooseDirectory: async () => 'E:\\ModForge Dev\\Exports',
+  chooseFiles: async () => [],
   scanMaps: async () => [] as any,
   scanEvents: async () => [] as any,
   scanModProjects: async () => [] as any,
@@ -888,6 +1035,8 @@ const performanceCpMakerPort: CpMakerPort = {
   loadImageDataUrl: async () =>
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO9nQ1YAAAAASUVORK5CYII=',
 }
+
+configureImageDataUrlLoader((path, locale) => performanceCpMakerPort.loadImageDataUrl(path, locale))
 
 function ScenarioFrame({ id, children }: { id: PageScenarioId; children: ReactNode }) {
   return (
@@ -1050,25 +1199,81 @@ function BuildingWorkspaceScenario() {
 }
 
 function MapPatchEditorScenario() {
-  const [patch, setPatch] = useState<DraftPatch>(() => ({
-    ...createDraftPatch(4, 'map'),
-    target: 'Maps/Town',
-    action: 'EditMap',
-    fromFile: 'assets/maps/PagePerformanceTown.tmx',
-    editorState: {
-      patchMode: 'ReplaceByLayer',
-      properties: {
-        Music: 'spring2',
-        Outdoors: true,
-        Light: '0 0 0',
+  const expertMode = new URLSearchParams(window.location.search).get('mfExpert') !== '0'
+  useEffect(() => {
+    useEditorModeStore.setState({ expertMode })
+    return () => useEditorModeStore.setState({ expertMode: false })
+  }, [expertMode])
+  const [patch, setPatch] = useState<DraftPatch>(() => {
+    const mapDocument = createMapCatalogDocument(24)
+    mapDocument.tilesets = [
+      {
+        firstGid: 1,
+        name: 'townInterior',
+        tileWidth: 16,
+        tileHeight: 16,
+        tileCount: 256,
+        columns: 16,
+        imageSource: 'townInterior.png',
+        imagePath: 'Maps/townInterior.png',
+        imageWidth: 256,
+        imageHeight: 256,
+        properties: {},
+        tileProperties: {},
+        animations: {},
       },
-      warps: range(24).map((index) => ({ fromX: index + 2, fromY: index + 4, toMap: 'Town', toX: 12 + index, toY: 18 })),
-      npcWarps: range(18).map((index) => ({ fromX: index + 1, fromY: index + 2, toMap: 'Beach', toX: 8 + index, toY: 12 })),
-      mapTiles: range(24).map((index) => ({ layer: 'Back', x: index, y: index % 8, setTilesheet: 'townInterior', setIndex: index + 120 })),
-      fromArea: { x: 0, y: 0, width: 12, height: 12 },
-      toArea: { x: 4, y: 4, width: 12, height: 12 },
-    },
-  }))
+      {
+        firstGid: 257,
+        name: 'longStrip845',
+        tileWidth: 16,
+        tileHeight: 16,
+        tileCount: 845,
+        columns: 1,
+        imageSource: 'longStrip845.png',
+        imagePath: 'Maps/longStrip845.png',
+        imageWidth: 16,
+        imageHeight: 13_520,
+        properties: {},
+        tileProperties: {},
+        animations: {},
+      },
+    ]
+    return {
+      ...createDraftPatch(4, 'map'),
+      target: 'Maps/Town, Maps/Beach, Maps/{{SelectedMap}}',
+      action: 'EditMap',
+      fromFile: 'assets/maps/PagePerformanceTown.tmx',
+      editorState: {
+        mapDocument,
+        patchMode: 'ReplaceByLayer',
+        properties: {
+          Music: 'spring2',
+          Outdoors: true,
+          Light: '0 0 0',
+        },
+        warps: range(24).map((index) => ({ fromX: index + 2, fromY: index + 4, toMap: 'Town', toX: 12 + index, toY: 18 })),
+        npcWarps: range(18).map((index) => ({ fromX: index + 1, fromY: index + 2, toMap: 'Beach', toX: 8 + index, toY: 12 })),
+        mapTiles: range(24).map((index) => ({
+          layer: 'Back',
+          x: index,
+          y: index % 8,
+          setTilesheet: 'townInterior',
+          setIndex: index + 120,
+        })),
+        fromArea: { x: 0, y: 0, width: 12, height: 12 },
+        toArea: { x: 30, y: 4, width: 12, height: 12 },
+        textOperations: [
+          {
+            operation: 'Replace',
+            target: ['MapProperties', 'Music'],
+            search: 'spring2',
+            value: '{{Season}}_day_ambient',
+            CustomField: '{{ModConfig:PreserveMe}}',
+          },
+        ],
+      },
+    }
+  })
   const draft = createCpMakerDraft([patch])
 
   return (
@@ -1079,6 +1284,112 @@ function MapPatchEditorScenario() {
         draftPort={createScenarioDraftPort(draft, (nextPatch) => setPatch((current) => ({ ...current, ...nextPatch })), null)}
         resources={scenarioEditorResources}
       />
+    </ScenarioFrame>
+  )
+}
+
+function MapAssetEditorScenario() {
+  const [patch, setPatch] = useState<DraftPatch>(() => {
+    const mapDocument = createMapCatalogDocument(24)
+    mapDocument.name = 'PagePerformanceTown'
+    mapDocument.sourcePath = 'assets/maps/PagePerformanceTown.tmx'
+    mapDocument.relativePath = 'assets/maps/PagePerformanceTown.tmx'
+    mapDocument.properties = { Music: 'spring2', Outdoors: true, Light: '0 0 0' }
+    mapDocument.tilesets = [
+      {
+        firstGid: 1,
+        name: 'townInterior',
+        tileWidth: 16,
+        tileHeight: 16,
+        tileCount: 256,
+        columns: 16,
+        imageSource: 'townInterior.png',
+        imagePath: 'Maps/townInterior.png',
+        imageWidth: 256,
+        imageHeight: 256,
+        properties: { ModForgeFixture: true },
+        tileProperties: { 1: { Action: 'Message Page performance tile' } },
+        animations: {
+          2: [
+            { tileId: 2, duration: 120 },
+            { tileId: 3, duration: 120 },
+          ],
+        },
+      },
+    ]
+    mapDocument.layers = [
+      { ...mapDocument.layers[0]!, name: 'Back', cellProperties: { 42: { Action: 'Warp Town 12 18' } } },
+      {
+        ...mapDocument.layers[0]!,
+        id: 2,
+        name: 'Buildings',
+        gids: new Uint32Array(mapDocument.width * mapDocument.height),
+        nonEmptyTiles: 0,
+      },
+    ]
+    mapDocument.objectGroups = [
+      {
+        id: 3,
+        name: 'TileData',
+        kind: 'object',
+        visible: true,
+        opacity: 1,
+        drawOrder: 'topdown',
+        properties: {},
+        objects: [
+          {
+            id: 1,
+            name: 'FixtureObject',
+            type: '',
+            x: 96,
+            y: 80,
+            width: 16,
+            height: 16,
+            rotation: 0,
+            visible: true,
+            shape: 'rectangle',
+            properties: { Action: 'Message Fixture object' },
+          },
+        ],
+      },
+    ]
+    return {
+      ...createDraftPatch(5, 'map'),
+      target: 'Maps/PagePerformanceTown',
+      action: 'Load',
+      fromFile: mapDocument.relativePath,
+      editorState: { mapDocument, mapAssetMode: true },
+    }
+  })
+  const draft = createCpMakerDraft([patch])
+
+  return (
+    <ScenarioFrame id="map-asset-editor">
+      <MapAssetEditor
+        patch={patch}
+        schema={null}
+        draftPort={createScenarioDraftPort(draft, (nextPatch) => setPatch((current) => ({ ...current, ...nextPatch })), null)}
+        resources={scenarioEditorResources}
+      />
+    </ScenarioFrame>
+  )
+}
+
+function MapCatalogScenario() {
+  const [draft] = useState(() => createCpMakerDraft(range(400).map(createMapCatalogPatch)))
+  const draftPort = createScenarioDraftPort(draft, noop, null)
+
+  return (
+    <ScenarioFrame id="map-catalog">
+      <MapCatalog draftPort={draftPort} resources={scenarioEditorResources} onOpenPatch={noop} onOpenMapAsset={noop} />
+    </ScenarioFrame>
+  )
+}
+
+function AssetLibraryScenario() {
+  return (
+    <ScenarioFrame id="asset-library">
+      <AssetLibraryWorkspace />
     </ScenarioFrame>
   )
 }
@@ -1116,6 +1427,9 @@ function scenarioFor(id: PageScenarioId) {
   if (id === 'item-workspace') return <ItemWorkspaceScenario />
   if (id === 'building-workspace') return <BuildingWorkspaceScenario />
   if (id === 'map-patch-editor') return <MapPatchEditorScenario />
+  if (id === 'map-asset-editor') return <MapAssetEditorScenario />
+  if (id === 'map-catalog') return <MapCatalogScenario />
+  if (id === 'asset-library') return <AssetLibraryScenario />
   return <LauncherShellScenario />
 }
 
@@ -1125,11 +1439,26 @@ function resolveScenarioId(): PageScenarioId {
 }
 
 export function DevPagePerformanceScenario() {
+  const locale = new URLSearchParams(window.location.search).get('mfLocale') === 'zh-CN' ? 'zh-CN' : 'en-US'
   return (
-    <LocaleProvider locale="en-US">
+    <LocaleProvider locale={locale}>
       <CpMakerPortContext.Provider value={performanceCpMakerPort}>
-        <LauncherPortContext.Provider value={performanceLauncherPort}>{scenarioFor(resolveScenarioId())}</LauncherPortContext.Provider>
+        <PerformanceScenarioBody />
       </CpMakerPortContext.Provider>
     </LocaleProvider>
+  )
+}
+
+function PerformanceScenarioBody() {
+  const project = useCpMaker()
+
+  useEffect(() => {
+    void project.loadDraft('page-performance-draft')
+  }, [project.loadDraft])
+
+  return (
+    <LauncherPortContext.Provider value={performanceLauncherPort}>
+      <WorkbenchProjectProvider value={project}>{scenarioFor(resolveScenarioId())}</WorkbenchProjectProvider>
+    </LauncherPortContext.Provider>
   )
 }

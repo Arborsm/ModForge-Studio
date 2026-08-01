@@ -24,7 +24,7 @@ import {
   type EnumOption,
   type OpenGsqBuilder,
 } from './controls'
-import { ColorField, LocalizedTextField, ResourcePickerField, SeasonField } from './visualControls'
+import { ColorField, LocalizedTextField, ResourcePickerField, SeasonField, type RenderResourcePickerControl } from './visualControls'
 
 export type AssetFieldRendererProps = {
   field: AssetFieldSchema
@@ -37,6 +37,8 @@ export type AssetFieldRendererProps = {
   readOnly?: boolean
   /** Opens the shared GameStateQuery builder for `gsq` controls. */
   onOpenGsqBuilder?: OpenGsqBuilder
+  /** Resource browser supplied by a higher FSD layer. */
+  renderResourcePicker?: RenderResourcePickerControl
 }
 
 function stringList(value: unknown): string[] | undefined {
@@ -124,7 +126,15 @@ function formatReadOnly(value: unknown): string | null {
  * names. `schedule_script` is the one kind still routed to the raw JSON control
  * instead of a guessed widget, so no field silently loses its value.
  */
-export function AssetFieldRenderer({ field, value, onChange, resources, readOnly, onOpenGsqBuilder }: AssetFieldRendererProps) {
+export function AssetFieldRenderer({
+  field,
+  value,
+  onChange,
+  resources,
+  readOnly,
+  onOpenGsqBuilder,
+  renderResourcePicker,
+}: AssetFieldRendererProps) {
   const copy = useAssetAuthoringCopy()
   const listId = useId()
   const label = copy.fields[field.labelKey]
@@ -145,6 +155,7 @@ export function AssetFieldRenderer({ field, value, onChange, resources, readOnly
               resources={resources}
               readOnly={readOnly}
               onOpenGsqBuilder={onOpenGsqBuilder}
+              renderResourcePicker={renderResourcePicker}
             />
           ))}
         </div>
@@ -194,6 +205,7 @@ export function AssetFieldRenderer({ field, value, onChange, resources, readOnly
                       resources={resources}
                       readOnly={readOnly}
                       onOpenGsqBuilder={onOpenGsqBuilder}
+                      renderResourcePicker={renderResourcePicker}
                     />
                   ))}
                 </div>
@@ -252,6 +264,7 @@ export function AssetFieldRenderer({ field, value, onChange, resources, readOnly
           kind={REF_KIND_BY_CONTROL[field.control]}
           value={value}
           resources={resources}
+          renderResourcePicker={renderResourcePicker}
           onCommit={onChange}
         />
       )
@@ -274,6 +287,7 @@ export function AssetFieldRenderer({ field, value, onChange, resources, readOnly
           hint={hint}
           wide={field.wide}
           multiline={field.wide}
+          textCategory={field.textCategory}
           value={value}
           resources={resources}
           onCommit={onChange}

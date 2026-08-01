@@ -64,6 +64,51 @@ export function parseWhenValueAlternatives(value: string): string[] {
 }
 
 /**
+ * Toggles one alternative in a comma-separated `When` value (CP values are
+ * comma-separated OR alternatives). Removal matches case-insensitively, the
+ * same way CP matches values; adding never produces duplicates and keeps the
+ * list stably ordered: enumerable `domain` values come first in domain order,
+ * then custom values in their original order. Returns the new value string.
+ */
+export function toggleWhenValueAlternative(value: string, alternative: string, domain?: readonly string[]): string {
+  const candidate = alternative.trim()
+  if (candidate === '') {
+    return value
+  }
+
+  // De-duplicate case-insensitively so toggling never re-introduces a
+  // redundant spelling (e.g. `spring, Spring`).
+  const seen = new Set<string>()
+  const unique = parseWhenValueAlternatives(value).filter((entry) => {
+    const key = entry.toLowerCase()
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  const matchIndex = unique.findIndex((entry) => entry.toLowerCase() === candidate.toLowerCase())
+  if (matchIndex >= 0) {
+    return unique.filter((_, index) => index !== matchIndex).join(', ')
+  }
+
+  const next = [...unique, candidate]
+  if (domain === undefined || domain.length === 0) {
+    return next.join(', ')
+  }
+
+  const domainKeys = new Set(domain.map((entry) => entry.toLowerCase()))
+  const domainEntries: string[] = []
+  for (const domainValue of domain) {
+    const existing = next.find((entry) => entry.toLowerCase() === domainValue.toLowerCase())
+    if (existing !== undefined) {
+      domainEntries.push(existing)
+    }
+  }
+  const customEntries = next.filter((entry) => !domainKeys.has(entry.toLowerCase()))
+  return [...domainEntries, ...customEntries].join(', ')
+}
+
+/**
  * Parses a persisted `When` record into editor rows. Values normalize to
  * strings the way the export does; keys that do not parse keep their raw form
  * in `token` so a hand-written exotic key is never silently rewritten.

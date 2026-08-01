@@ -117,7 +117,7 @@ export function MapViewportCanvasLayers({
 type MapViewportContextMenuProps = {
   viewportContent: ReactNode
   contextMenuHover: TileHoverInfo | null
-  contextMenuExtraItems?: ReactNode
+  contextMenuExtraItems?: ReactNode | ((hover: TileHoverInfo | null) => ReactNode)
   onOpen: () => void
   onFitZoom: () => void
   onOneToOneZoom: () => void
@@ -181,27 +181,25 @@ export function MapViewportContextMenu({
               {labels.exportPng}
             </ContextMenu.Item>
           ) : null}
-          <ContextMenu.Separator className="context-menu-separator" />
           {onAddObjectHere ? (
-            <ContextMenu.Item
-              className="context-menu-item"
-              disabled={!contextMenuHover}
-              onSelect={() => {
-                const hover = contextMenuHover
-                if (hover) {
-                  onAddObjectHere(hover.tileX, hover.tileY)
-                }
-              }}
-            >
-              {labels.addObjectHere}
-              {contextMenuHover ? ` (${contextMenuHover.tileX}, ${contextMenuHover.tileY})` : ''}
-            </ContextMenu.Item>
-          ) : (
-            <ContextMenu.Item className="context-menu-item" disabled>
-              {labels.addObjectHere} · {labels.unavailable}
-            </ContextMenu.Item>
-          )}
-          {contextMenuExtraItems}
+            <>
+              <ContextMenu.Separator className="context-menu-separator" />
+              <ContextMenu.Item
+                className="context-menu-item"
+                disabled={!contextMenuHover}
+                onSelect={() => {
+                  const hover = contextMenuHover
+                  if (hover) {
+                    onAddObjectHere(hover.tileX, hover.tileY)
+                  }
+                }}
+              >
+                {labels.addObjectHere}
+                {contextMenuHover ? ` (${contextMenuHover.tileX}, ${contextMenuHover.tileY})` : ''}
+              </ContextMenu.Item>
+            </>
+          ) : null}
+          {typeof contextMenuExtraItems === 'function' ? contextMenuExtraItems(contextMenuHover) : contextMenuExtraItems}
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>

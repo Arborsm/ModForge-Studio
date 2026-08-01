@@ -33,6 +33,7 @@ describe('registry setup', () => {
       'game-debugger',
       'project-dashboard',
       'project-content',
+      'asset-library',
       'project-settings',
       'map-authoring',
       'event-authoring',

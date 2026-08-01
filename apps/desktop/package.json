@@ -46,6 +46,7 @@
     "benchmark:localization-lexical": "node ./scripts/benchmark-localization-search.mjs",
     "test:launcher-performance": "node ./scripts/verify-launcher-performance.mjs",
     "test:performance:pages": "node ./scripts/verify-page-performance.mjs",
+    "test:performance:chunks": "node ./scripts/verify-chunk-budgets.mjs",
     "test:performance:compiler-cleanup": "node ./scripts/verify-compiler-cleanup-performance.mjs",
     "test:performance": "vp run test:launcher-fast-scroll && vp run test:launcher-performance && vp run test:launcher-drag && vp run test:performance:compiler-cleanup && vp run test:performance:pages",
     "preview": "vp preview --configLoader runner",

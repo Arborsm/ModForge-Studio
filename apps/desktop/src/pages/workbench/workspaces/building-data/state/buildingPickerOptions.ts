@@ -13,15 +13,25 @@
  */
 
 import type { ResourceOption, ResourceSprite } from '@entities/asset-schema'
-import type { BuildingMaterialOption, BuildingTextureAssetState, BuildingWorkspaceEntry } from '@entities/building'
+import type { BuildingWorkspaceEntry } from '@entities/building'
 import type { MapAssetSummary } from '@entities/game/api'
-
-/** Vanilla object sheet geometry: 16px cells across a 384px-wide sheet. */
-const OBJECT_SPRITE_PIXELS = 16
-const OBJECT_SHEET_WIDTH = 384
+import { getItemSpriteSourceRect, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
 
 /** Magnification that makes a 16px object icon legible as a list thumbnail. */
 const OBJECT_SPRITE_SCALE = 1.75
+
+/** Converts a scanned map path into the `Maps/...` asset name stored by building data. */
+export function mapAssetNameFromSummary(asset: MapAssetSummary): string | null {
+  const normalized = asset.relativePath.replaceAll('\\', '/').replace(/^Content\//iu, '')
+  const withoutExtension = normalized.replace(/\.(xnb|tmx|tbin)$/iu, '')
+  return withoutExtension === '' ? null : withoutExtension
+}
+
+/** Finds the on-disk map that provides one logical `Maps/...` asset name. */
+export function findMapAssetByName(assetName: string, assets: readonly MapAssetSummary[]): MapAssetSummary | null {
+  const wanted = assetName.trim().replaceAll('\\', '/').toLowerCase()
+  return assets.find((asset) => mapAssetNameFromSummary(asset)?.toLowerCase() === wanted) ?? null
+}
 
 /**
  * Where one object index sits on the shared object sheet.
@@ -29,45 +39,36 @@ const OBJECT_SPRITE_SCALE = 1.75
  * Indices run left-to-right then wrap, which is the same walk the game does when
  * it resolves a `SpriteIndex` against `Maps/springobjects`.
  */
-function objectSpriteRect(spriteIndex: number) {
-  const pixelOffset = spriteIndex * OBJECT_SPRITE_PIXELS
-  return {
-    x: pixelOffset % OBJECT_SHEET_WIDTH,
-    y: Math.floor(pixelOffset / OBJECT_SHEET_WIDTH) * OBJECT_SPRITE_PIXELS,
-    width: OBJECT_SPRITE_PIXELS,
-    height: OBJECT_SPRITE_PIXELS,
-  }
-}
-
 /**
- * Build-material options, sprite-previewed off the shared object sheet.
- *
- * Only objects drawn from the vanilla sheet get a sprite: a modded object with
- * its own `Texture` would need that sheet loaded too, and a wrong cut-out is
- * worse than none, so those fall back to a label-only row.
+ * Build-material options backed by the same complete, qualified catalog as the
+ * item workspace. Each texture atlas is loaded once and shared by its entries.
  */
 export function buildMaterialOptions(
-  materials: readonly BuildingMaterialOption[],
-  objectSheet: BuildingTextureAssetState,
+  materials: readonly ItemWorkspaceEntry[],
+  textureStates: Readonly<Record<string, ItemTextureAssetState>>,
 ): ResourceOption[] {
-  const sheetReady = objectSheet.url !== null && objectSheet.width !== null && objectSheet.height !== null
-
   return materials.map((material) => {
+    const textureName = material.textureAssetName?.replaceAll('\\', '/').toLowerCase() ?? ''
+    const texture = textureStates[textureName] ?? null
+    const rect = getItemSpriteSourceRect(material, texture)
     const sprite: ResourceSprite | undefined =
-      sheetReady && material.spriteIndex !== null && material.textureAssetName === null
+      texture?.url && texture.width && texture.height && rect
         ? {
-            url: objectSheet.url as string,
-            sheetWidth: objectSheet.width as number,
-            sheetHeight: objectSheet.height as number,
-            ...objectSpriteRect(material.spriteIndex),
+            url: texture.url,
+            sheetWidth: texture.width,
+            sheetHeight: texture.height,
+            ...rect,
             scale: OBJECT_SPRITE_SCALE,
           }
         : undefined
 
     return {
-      value: material.itemId,
+      value: material.qualifiedItemId,
+      aliases: [material.itemId],
       label: material.displayName,
-      category: material.type ?? undefined,
+      category: material.kindMetaLabel ?? material.kind,
+      detail: material.internalName !== material.displayName ? material.internalName : undefined,
+      sourceKind: 'catalog',
       sprite,
     }
   })
@@ -114,7 +115,7 @@ export function buildBuildingRefOptions({
       continue
     }
     seen.add(normalized.toLowerCase())
-    options.push({ value: normalized, category: projectCategory })
+    options.push({ value: normalized, category: projectCategory, sourceKind: 'project' })
   }
 
   for (const entry of vanillaEntries) {
@@ -129,6 +130,7 @@ export function buildBuildingRefOptions({
       label: entry.displayName,
       category: entry.groupDisplayName,
       detail: stages.length > 1 ? stageDetail(entry.groupDisplayName, position, stages.length) : undefined,
+      sourceKind: 'game',
     })
   }
 
@@ -157,10 +159,9 @@ export function buildIndoorMapOptions({
 }): ResourceOption[] {
   const pathByName = new Map<string, string>()
   for (const asset of mapAssets) {
-    const normalized = asset.relativePath.replaceAll('\\', '/').replace(/^Content\//iu, '')
-    const withoutExtension = normalized.replace(/\.(xnb|tmx|tbin)$/iu, '')
-    if (withoutExtension !== '') {
-      pathByName.set(withoutExtension.toLowerCase(), asset.relativePath)
+    const assetName = mapAssetNameFromSummary(asset)
+    if (assetName !== null) {
+      pathByName.set(assetName.toLowerCase(), asset.relativePath)
     }
   }
 
@@ -175,6 +176,7 @@ export function buildIndoorMapOptions({
       label: leaf,
       category: diskPath === null ? projectCategory : (folder ?? vanillaCategory),
       detail: diskPath ?? undefined,
+      sourceKind: diskPath === null ? 'project' : 'game',
     }
   })
 }
@@ -186,7 +188,13 @@ export function buildIndoorMapOptions({
  * anywhere, so the folder is the only grouping that stays meaningful once a pack
  * adds its own art.
  */
-export function buildTextureRefOptions(assetNames: readonly string[], rootCategory: string): ResourceOption[] {
+export function buildTextureRefOptions(
+  assetNames: readonly string[],
+  rootCategory: string,
+  previews: Readonly<Record<string, string>> = {},
+  projectAssetNames: readonly string[] = [],
+): ResourceOption[] {
+  const projectAssets = new Set(projectAssetNames.map((name) => name.replaceAll('\\', '/').toLowerCase()))
   return assetNames.map((name) => {
     const segments = name.replaceAll('\\', '/').split('/')
     const leaf = segments.at(-1) ?? name
@@ -195,6 +203,8 @@ export function buildTextureRefOptions(assetNames: readonly string[], rootCatego
       label: leaf,
       category: segments.length > 1 ? segments.slice(0, -1).join('/') : rootCategory,
       detail: segments.length > 1 ? name : undefined,
+      preview: previews[name.replaceAll('\\', '/').toLowerCase()],
+      sourceKind: projectAssets.has(name.replaceAll('\\', '/').toLowerCase()) ? 'project' : 'game',
     }
   })
 }

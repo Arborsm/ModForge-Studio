@@ -9,25 +9,21 @@
  */
 
 import { useEffect, useState } from 'react'
-import {
-  loadBuildingImageState,
-  loadBuildingMaterialOptions,
-  normalizeIndoorMapAssetName,
-  type BuildingMaterialOption,
-  type BuildingTextureAssetState,
-} from '@entities/building'
+import { loadBuildingImageState, normalizeIndoorMapAssetName } from '@entities/building'
 import { loadResourceRegistry, scanMaps, type GameDirectoryInfo, type MapAssetSummary } from '@entities/game/api'
-import type { DraftPatch } from '@features/cp-maker'
+import { loadItemTextureAssetState, loadItemWorkspaceEntries, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
+import type { DraftPatch, VirtualPreviewAsset } from '@features/cp-maker'
 import type { LocaleCode } from '@locales'
-import { buildGameContentPath, SPRING_OBJECTS_ASSET_PATH } from '@shared/infra/stardew-assets/contentPaths'
+import { buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
+import { mapAssetNameFromSummary } from './buildingPickerOptions'
 
 export type BuildingAuthoringResources = {
   /** Object ids `BuildMaterials` may reference. */
   itemIds: string[]
-  /** The same objects with the label, category and sprite index the picker shows. */
-  materials: BuildingMaterialOption[]
-  /** Shared object sheet backing the material sprites. */
-  objectSheet: BuildingTextureAssetState
+  /** Complete item catalog, including qualified ids and every vanilla item kind. */
+  materials: ItemWorkspaceEntry[]
+  /** Item atlas states keyed by normalized logical asset name. */
+  itemTextureStates: Record<string, ItemTextureAssetState>
   /** Location names `NonInstancedIndoorLocation` may reference. */
   locationNames: string[]
   /** `Maps/...` asset names the game ships or the project loads. */
@@ -36,26 +32,22 @@ export type BuildingAuthoringResources = {
   mapAssets: MapAssetSummary[]
   /** Texture asset names vanilla buildings use, plus the ones this draft loads. */
   textureAssetNames: string[]
+  /** Texture assets supplied by this project, used by browser source filters. */
+  projectTextureAssetNames: string[]
+  /** Loaded vanilla texture sheets keyed by normalized asset name. */
+  texturePreviews: Record<string, string>
 }
 
-type GameSideResources = Omit<BuildingAuthoringResources, 'textureAssetNames'>
-
-const EMPTY_OBJECT_SHEET: BuildingTextureAssetState = { loading: false, path: null, url: null, width: null, height: null }
+type GameSideResources = Omit<BuildingAuthoringResources, 'textureAssetNames' | 'projectTextureAssetNames'>
 
 const EMPTY_RESOURCES: GameSideResources = {
   itemIds: [],
   materials: [],
-  objectSheet: EMPTY_OBJECT_SHEET,
+  itemTextureStates: {},
   locationNames: [],
   mapAssetNames: [],
   mapAssets: [],
-}
-
-/** `Content/Maps/Barn.xnb` → `Maps/Barn`, the name a patch target uses. */
-function mapAssetName(asset: MapAssetSummary): string | null {
-  const normalized = asset.relativePath.replaceAll('\\', '/').replace(/^Content\//iu, '')
-  const withoutExtension = normalized.replace(/\.(xnb|tmx|tbin)$/iu, '')
-  return withoutExtension ? normalizeIndoorMapAssetName(withoutExtension) : null
+  texturePreviews: {},
 }
 
 function sortedUnique(values: Iterable<string>): string[] {
@@ -72,16 +64,19 @@ export function useBuildingAuthoringResources({
   directoryInfo,
   locale,
   patches,
+  virtualAssets,
   vanillaTextureNames,
 }: {
   gameRootPath: string | null
   directoryInfo: GameDirectoryInfo | null
   locale: LocaleCode
   patches: readonly DraftPatch[]
+  virtualAssets: readonly VirtualPreviewAsset[]
   /** Texture asset names read off the vanilla building index. */
   vanillaTextureNames: readonly string[]
 }): BuildingAuthoringResources {
   const [gameResources, setGameResources] = useState<GameSideResources>(EMPTY_RESOURCES)
+  const vanillaTextureKey = sortedUnique(vanillaTextureNames).join('\u0000')
 
   useEffect(() => {
     if (!gameRootPath || !directoryInfo) {
@@ -92,24 +87,48 @@ export function useBuildingAuthoringResources({
     let cancelled = false
 
     void Promise.all([
-      loadBuildingMaterialOptions(gameRootPath, locale).catch(() => [] as BuildingMaterialOption[]),
+      loadItemWorkspaceEntries(gameRootPath, locale).catch(() => [] as ItemWorkspaceEntry[]),
       loadResourceRegistry(gameRootPath, locale).catch(() => null),
       scanMaps(gameRootPath, locale).catch(() => [] as MapAssetSummary[]),
-      // The object sheet only feeds material thumbnails, so a missing sheet
-      // degrades to label-only rows instead of failing the whole batch.
-      loadBuildingImageState(buildGameContentPath(gameRootPath, SPRING_OBJECTS_ASSET_PATH), locale).catch(() => EMPTY_OBJECT_SHEET),
+      Promise.all(
+        sortedUnique(vanillaTextureNames).map(async (assetName) => {
+          try {
+            const state = await loadBuildingImageState(buildGameContentPath(gameRootPath, assetName), locale)
+            return state.url === null ? null : ([assetName.replaceAll('\\', '/').toLowerCase(), state.url] as const)
+          } catch {
+            return null
+          }
+        }),
+      ),
     ])
-      .then(([materials, registry, mapAssets, objectSheet]) => {
+      .then(async ([materials, registry, mapAssets, texturePreviews]) => {
+        if (cancelled) {
+          return
+        }
+        const textureNames = sortedUnique(materials.flatMap((material) => (material.textureAssetName ? [material.textureAssetName] : [])))
+        const itemTextures = await Promise.all(
+          textureNames.map(
+            async (assetName) =>
+              [assetName.replaceAll('\\', '/').toLowerCase(), await loadItemTextureAssetState(gameRootPath, assetName, locale)] as const,
+          ),
+        )
         if (cancelled) {
           return
         }
         setGameResources({
-          itemIds: sortedUnique(materials.map((material) => material.itemId)),
+          itemIds: sortedUnique(materials.map((material) => material.qualifiedItemId)),
           materials,
-          objectSheet,
+          itemTextureStates: Object.fromEntries(itemTextures),
           locationNames: sortedUnique((registry?.entries ?? []).filter((entry) => entry.kind === 'location').map((entry) => entry.value)),
-          mapAssetNames: sortedUnique(mapAssets.map(mapAssetName).filter((name): name is string => name !== null)),
+          mapAssetNames: sortedUnique(
+            mapAssets.flatMap((asset) => {
+              const name = mapAssetNameFromSummary(asset)
+              const normalized = name === null ? null : normalizeIndoorMapAssetName(name)
+              return normalized === null ? [] : [normalized]
+            }),
+          ),
           mapAssets,
+          texturePreviews: Object.fromEntries(texturePreviews.filter((entry): entry is readonly [string, string] => entry !== null)),
         })
       })
       .catch(() => {
@@ -121,10 +140,12 @@ export function useBuildingAuthoringResources({
     return () => {
       cancelled = true
     }
-  }, [gameRootPath, directoryInfo, locale])
+  }, [gameRootPath, directoryInfo, locale, vanillaTextureKey])
 
   const projectMaps: string[] = []
   const projectTextures: string[] = []
+  const projectTexturePreviews: Record<string, string> = {}
+  const virtualAssetsByPath = new Map(virtualAssets.map((asset) => [asset.relativePath.replaceAll('\\', '/').toLowerCase(), asset]))
   for (const patch of patches) {
     const target = patch.target.trim().replaceAll('\\', '/')
     if (!target) {
@@ -135,16 +156,23 @@ export function useBuildingAuthoringResources({
     }
     if ((patch.action === 'Load' || patch.action === 'EditImage') && !/^Maps\//iu.test(target) && !/^Data\//iu.test(target)) {
       projectTextures.push(target)
+      const fromFile = patch.fromFile?.trim().replaceAll('\\', '/').toLowerCase() ?? ''
+      const asset = virtualAssetsByPath.get(fromFile)
+      if (asset?.mediaType.startsWith('image/')) {
+        projectTexturePreviews[target.toLowerCase()] = `data:${asset.mediaType};base64,${asset.bytesBase64}`
+      }
     }
   }
 
   return {
     itemIds: gameResources.itemIds,
     materials: gameResources.materials,
-    objectSheet: gameResources.objectSheet,
+    itemTextureStates: gameResources.itemTextureStates,
     locationNames: gameResources.locationNames,
     mapAssetNames: sortedUnique([...gameResources.mapAssetNames, ...projectMaps]),
     mapAssets: gameResources.mapAssets,
     textureAssetNames: sortedUnique([...vanillaTextureNames, ...projectTextures]),
+    projectTextureAssetNames: sortedUnique(projectTextures),
+    texturePreviews: { ...gameResources.texturePreviews, ...projectTexturePreviews },
   }
 }

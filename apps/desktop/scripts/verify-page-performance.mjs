@@ -7,21 +7,53 @@ import {
 } from './performance/browser-perf-harness.mjs'
 
 const baseUrl = process.env.MODFORGE_PAGE_PERF_URL ?? 'http://127.0.0.1:5175/'
-const scenarios = [
+const defaultScenarios = [
   'workbench-home',
   'event-stage-editor',
   'item-workspace',
   'building-workspace',
   'map-patch-editor',
+  'map-catalog',
+  'app-cold-workbench',
+  'app-cold-settings',
   'content-patcher-workspace',
   'launcher-shell',
 ]
+const requestedScenarios = process.env.MODFORGE_PAGE_PERF_SCENARIOS?.split(',')
+  .map((value) => value.trim())
+  .filter(Boolean)
+const scenarios = requestedScenarios?.length ? requestedScenarios : defaultScenarios
+
+for (const scenario of scenarios) {
+  if (!defaultScenarios.includes(scenario)) throw new Error(`Unknown page performance scenario: ${scenario}`)
+}
 
 function scenarioUrl(id) {
   const url = new URL(baseUrl)
-  url.searchParams.set('mfPagePerfScenario', id)
   url.searchParams.set('mfLauncherMock', '1')
+  if (id === 'app-cold-settings') {
+    url.searchParams.set('mfSettingsMock', '1')
+  } else if (id !== 'app-cold-workbench') {
+    url.searchParams.set('mfPagePerfScenario', id)
+  }
   return url.toString()
+}
+
+function scenarioReadySelector(scenario) {
+  if (scenario === 'app-cold-settings' || scenario === 'app-cold-workbench') return '.launcher-shell'
+  return `[data-mf-page-perf-scenario="${scenario}"]`
+}
+
+async function collectHeap(page) {
+  const session = await page.context().newCDPSession(page)
+  try {
+    await session.send('Performance.enable')
+    await session.send('HeapProfiler.collectGarbage')
+    const { metrics } = await session.send('Performance.getMetrics')
+    return metrics.find((metric) => metric.name === 'JSHeapUsedSize')?.value ?? null
+  } finally {
+    await session.detach()
+  }
 }
 
 async function fillFirstSearch(page, text) {
@@ -83,9 +115,45 @@ async function runScenarioInteraction(page, scenario) {
 
   if (scenario === 'map-patch-editor') {
     await measureInteraction(page, 'switch-map-tabs', async () => {
-      for (const name of [/warps/i, /tiles/i, /fromfile/i, /properties/i]) {
-        await page.getByRole('button', { name }).click()
+      for (const label of ['Warps', 'Tiles', 'Source file', 'Map properties']) {
+        await page.locator('.map-patch-operation-row').filter({ hasText: label }).click()
       }
+    })
+    await measureInteraction(page, 'switch-large-tileset-grid', async () => {
+      await page.locator('.map-patch-operation-row').filter({ hasText: 'Tiles' }).click()
+      await page.getByRole('button', { name: /grid view/i }).click()
+      await page.locator('.map-tileset-palette-scroll').evaluate((element) => {
+        element.scrollTop = element.scrollHeight
+      })
+    })
+    return
+  }
+
+  if (scenario === 'map-catalog') {
+    await measureInteraction(page, 'scroll-map-catalog', async () => {
+      await page.locator('.map-catalog-content').evaluate(async (element) => {
+        const maxScroll = Math.max(0, element.scrollHeight - element.clientHeight)
+        for (let step = 1; step <= 16; step += 1) {
+          element.scrollTop = (maxScroll * step) / 16
+          await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
+        }
+      })
+    })
+    return
+  }
+
+  if (scenario === 'app-cold-workbench') {
+    await measureInteraction(page, 'open-workbench', async () => {
+      await page.getByRole('button', { name: /workbench/i }).evaluate((button) => button.click())
+      await page.locator('[data-guide-surface="workbench.home"]').waitFor({ state: 'visible', timeout: 20_000 })
+    })
+    return
+  }
+
+  if (scenario === 'app-cold-settings') {
+    await measureInteraction(page, 'open-settings', async () => {
+      await page.getByRole('button', { name: /settings|设置/i }).evaluate((button) => button.click())
+      await page.locator('.settings-window-panel').waitFor({ state: 'visible', timeout: 20_000 })
     })
     return
   }
@@ -134,19 +202,73 @@ try {
     try {
       const startedAt = Date.now()
       await page.goto(scenarioUrl(scenario), { waitUntil: 'commit', timeout: 45_000 })
-      await page.waitForSelector(`[data-mf-page-perf-scenario="${scenario}"]`, { state: 'visible', timeout: 45_000 })
+      await page.waitForSelector(scenarioReadySelector(scenario), { state: 'visible', timeout: 45_000 })
       const initialRenderMs = Date.now() - startedAt
       await page.waitForTimeout(400)
+      if (scenario === 'app-cold-settings') await page.waitForTimeout(900)
+      if (scenario === 'app-cold-workbench') await page.waitForTimeout(5_000)
+      const heapBeforeBytes = await collectHeap(page)
       await page.evaluate((duration) => window.__modforgePerf?.measure?.('initial-render', duration), initialRenderMs)
+      await page.evaluate(() => {
+        if (window.__modforgeDevHostCommands) window.__modforgeDevHostCommands.length = 0
+      })
       await runScenarioInteraction(page, scenario)
+      const heapAfterBytes = await collectHeap(page)
 
       const summary = {
         scenario,
         url: scenarioUrl(scenario),
         ...(await readPerformanceSummary(page, consoleErrors)),
+        heap: {
+          beforeBytes: heapBeforeBytes,
+          afterBytes: heapAfterBytes,
+          growthBytes: heapBeforeBytes === null || heapAfterBytes === null ? null : heapAfterBytes - heapBeforeBytes,
+        },
+        hostCommands: await page.evaluate(() => window.__modforgeDevHostCommands ?? []),
+      }
+      if (scenario === 'map-catalog') {
+        summary.catalog = await page.evaluate(() => ({
+          cards: document.querySelectorAll('.map-catalog-card').length,
+          canvases: document.querySelectorAll('.map-catalog canvas').length,
+          previews: document.querySelectorAll('.map-catalog-preview').length,
+        }))
       }
       summaries.push(summary)
-      assertPerformanceSummary(summary)
+      const thresholds =
+        scenario === 'map-catalog'
+          ? { maxFrameP95Ms: 45, maxLongTaskMs: 170, maxInitialRenderMs: 2_500 }
+          : scenario === 'app-cold-workbench'
+            ? { maxFrameP95Ms: 70, maxLongTaskMs: 250, maxInteractionP95Ms: 800 }
+            : scenario === 'app-cold-settings'
+              ? { maxFrameP95Ms: 100, maxLongTaskMs: 250, maxInteractionP95Ms: 250 }
+              : undefined
+      assertPerformanceSummary(summary, thresholds)
+      if (scenario === 'map-catalog') {
+        if (summary.catalog.cards > 60 || summary.catalog.canvases !== 0 || (summary.heap.growthBytes ?? 0) > 25 * 1024 * 1024) {
+          throw new Error(
+            `Map catalog runtime budget exceeded: ${JSON.stringify({ catalog: summary.catalog, heap: summary.heap }, null, 2)}`,
+          )
+        }
+      }
+      if (scenario === 'app-cold-workbench' && summary.hostCommands.includes('scan_maps')) {
+        throw new Error(`Workbench home issued scan_maps: ${JSON.stringify(summary.hostCommands)}`)
+      }
+      if (scenario === 'app-cold-workbench') {
+        const frames = summary.frames['open-workbench']
+        const longTasks = summary.longTasks.filter((entry) => entry.phase === 'open-workbench' && entry.durationMs > 120)
+        if ((frames?.p95Ms ?? 0) > 40 || longTasks.length) {
+          throw new Error(`Workbench open runtime budget exceeded: ${JSON.stringify({ frames, longTasks }, null, 2)}`)
+        }
+      }
+      if (scenario === 'app-cold-settings') {
+        const forbidden = summary.hostCommands.filter((command) => /(?:ai_settings|ai_usage|semantic|machine_translation)/u.test(command))
+        if (forbidden.length) throw new Error(`Appearance settings issued AI commands: ${JSON.stringify(forbidden)}`)
+        const frames = summary.frames['open-settings']
+        const longTasks = summary.longTasks.filter((entry) => entry.phase === 'open-settings' && entry.durationMs > 50)
+        if ((frames?.p95Ms ?? 0) > 40 || longTasks.length) {
+          throw new Error(`Settings open runtime budget exceeded: ${JSON.stringify({ frames, longTasks }, null, 2)}`)
+        }
+      }
     } finally {
       await page.close()
     }

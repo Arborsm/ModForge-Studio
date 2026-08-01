@@ -6,7 +6,14 @@
  * the mutated draft, keeping the tests honest about what a page actually sees.
  */
 
-import { createAssetDraftPort, type AssetDraftPort, type CpMakerDraft, type DraftPatch } from '@features/cp-maker'
+import {
+  createAssetDraftPort,
+  duplicatePatchInArray,
+  movePatchWithin,
+  type AssetDraftPort,
+  type CpMakerDraft,
+  type DraftPatch,
+} from '@features/cp-maker'
 
 /** Minimal draft carrying only what the port reads: the patch list. */
 export function makeTestDraft(storageKey: string, patches: DraftPatch[]): CpMakerDraft {
@@ -24,6 +31,7 @@ export function makeTestDraft(storageKey: string, patches: DraftPatch[]): CpMake
     configSchema: [],
     patches,
     virtualAssets: [],
+    projectAssets: [],
     dynamicTokens: [],
     customLocations: [],
     aliasTokenNames: {},
@@ -67,6 +75,23 @@ export function mountDraftPort(patches: DraftPatch[], storageKey = 'draft-a'): D
         const id = `patch-${draft.patches.length + 1}`
         draft = { ...draft, patches: [...draft.patches, makeTestPatch(id, target, {}, { action })] }
         return id
+      },
+      onPatchReorder: (patchId, delta) => {
+        const nextPatches = movePatchWithin(draft.patches, patchId, delta)
+        if (nextPatches === draft.patches) return
+        dirty = true
+        draft = { ...draft, patches: nextPatches }
+      },
+      onPatchDuplicate: (patchId) => {
+        const id = `patch-copy-${draft.patches.length + 1}`
+        const nextPatches = duplicatePatchInArray(draft.patches, patchId, id)
+        if (nextPatches === draft.patches) return
+        dirty = true
+        draft = { ...draft, patches: nextPatches }
+      },
+      onPatchRemove: (patchId) => {
+        dirty = true
+        draft = { ...draft, patches: draft.patches.filter((patch) => patch.id !== patchId) }
       },
       onAddVirtualAsset: () => {},
       onRemoveVirtualAsset: () => {},

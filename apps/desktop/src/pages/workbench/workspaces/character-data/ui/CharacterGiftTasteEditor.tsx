@@ -10,7 +10,7 @@
  */
 
 import { useId, useState } from 'react'
-import { AlertTriangle, Download, Gift, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, Download, Gift, PackagePlus, Plus, Trash2, X } from 'lucide-react'
 import {
   GIFT_TASTE_KINDS,
   createEmptyNpcGiftTasteEntry,
@@ -20,7 +20,9 @@ import {
   type GiftTasteKind,
   type NpcGiftTasteEntry,
 } from '@entities/character'
+import { ResourcePicker, type ResourceBrowserOption } from '@features/resource-browser'
 import { useCharacterDataEditorCopy } from '@locales/provider'
+import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 export type GiftTasteEditorProps = {
@@ -32,6 +34,8 @@ export type GiftTasteEditorProps = {
   patchExists: boolean
   /** Vanilla row for this NPC, offered as a starting point. */
   vanillaRow: string | null
+  /** Shared resource-browser options used to add concrete gift items. */
+  itemOptions: readonly ResourceBrowserOption[]
   onCreatePatch: () => void
   onChange: (row: string) => void
   onRemove: () => void
@@ -55,13 +59,16 @@ function kindLabel(copy: ReturnType<typeof useCharacterDataEditorCopy>, kind: Gi
 function TasteSection({
   kind,
   entry,
+  itemOptions,
   onChange,
 }: {
   kind: GiftTasteKind
   entry: NpcGiftTasteEntry
+  itemOptions: readonly ResourceBrowserOption[]
   onChange: (next: NpcGiftTasteEntry) => void
 }) {
   const copy = useCharacterDataEditorCopy()
+  const expertMode = useEditorModeStore((state) => state.expertMode)
   const section = entry[kind]
   const externalText = section.items.join(' ')
   const [itemsText, setItemsText] = useState(externalText)
@@ -82,6 +89,17 @@ function TasteSection({
     onChange({ ...entry, [kind]: { ...section, items } })
   }
 
+  function addItem(value: string) {
+    if (section.items.some((item) => item.toLowerCase() === value.toLowerCase())) return
+    onChange({ ...entry, [kind]: { ...section, items: [...section.items, value] } })
+  }
+
+  function removeItem(value: string) {
+    onChange({ ...entry, [kind]: { ...section, items: section.items.filter((item) => item !== value) } })
+  }
+
+  const optionByValue = new Map(itemOptions.map((option) => [option.value.toLowerCase(), option]))
+
   return (
     <section className={`character-gift-taste-section is-${kind}`}>
       <header className="character-gift-taste-head">
@@ -98,17 +116,56 @@ function TasteSection({
           onChange={(event) => onChange({ ...entry, [kind]: { ...section, reaction: event.target.value } })}
         />
       </label>
-      <label className="asset-field">
+      <div className="asset-field">
         <span className="asset-field-label">{copy.giftTastes.itemsLabel}</span>
-        <input
-          type="text"
-          className="control-input font-mono"
-          value={itemsText}
-          placeholder={copy.giftTastes.itemsPlaceholder}
-          onChange={(event) => commitItems(event.target.value)}
-        />
-        <span className="asset-field-hint">{copy.giftTastes.itemsHint}</span>
-      </label>
+        <div className="character-gift-item-toolbar">
+          <ResourcePicker
+            value=""
+            label={copy.giftTastes.pickItemAction}
+            placeholder={copy.giftTastes.pickItemPlaceholder}
+            options={itemOptions}
+            selectionMode="confirm"
+            triggerClassName="control-button"
+            triggerContent={
+              <>
+                <PackagePlus className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>{copy.giftTastes.pickItemAction}</span>
+              </>
+            }
+            onSelect={addItem}
+          />
+        </div>
+        {section.items.length > 0 ? (
+          <div className="character-gift-item-list">
+            {section.items.map((item) => {
+              const option = optionByValue.get(item.toLowerCase())
+              return (
+                <span key={item} className="character-gift-item-chip" title={item}>
+                  <span>{option?.label ?? item}</span>
+                  <button type="button" title={copy.giftTastes.removeItemLabel(item)} onClick={() => removeItem(item)}>
+                    <X className="h-3 w-3" aria-hidden="true" />
+                    <span className="sr-only">{copy.giftTastes.removeItemLabel(item)}</span>
+                  </button>
+                </span>
+              )
+            })}
+          </div>
+        ) : (
+          <span className="asset-field-hint">{copy.giftTastes.noItems}</span>
+        )}
+        {expertMode ? (
+          <>
+            <input
+              type="text"
+              className="control-input font-mono"
+              value={itemsText}
+              placeholder={copy.giftTastes.itemsPlaceholder}
+              onChange={(event) => commitItems(event.target.value)}
+            />
+            <span className="asset-field-hint">{copy.giftTastes.itemsHint}</span>
+          </>
+        ) : null}
+      </div>
     </section>
   )
 }
@@ -118,6 +175,7 @@ export function CharacterGiftTasteEditor({
   rawValue,
   patchExists,
   vanillaRow,
+  itemOptions,
   onCreatePatch,
   onChange,
   onRemove,
@@ -133,7 +191,7 @@ export function CharacterGiftTasteEditor({
   }
 
   return (
-    <section className="asset-editor-card">
+    <section className="character-gift-taste-editor">
       <div className="asset-editor-card-title">
         <Gift className="h-4 w-4" aria-hidden="true" />
         <span>{copy.giftTastes.title}</span>
@@ -179,6 +237,7 @@ export function CharacterGiftTasteEditor({
                 key={`${npcId}:${kind}`}
                 kind={kind}
                 entry={entry}
+                itemOptions={itemOptions}
                 onChange={(next) => onChange(serializeNpcGiftTasteEntry(next))}
               />
             ))}

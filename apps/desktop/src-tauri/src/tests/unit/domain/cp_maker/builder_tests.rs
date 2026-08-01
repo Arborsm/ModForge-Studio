@@ -271,9 +271,11 @@ fn maps_cp_fields_back_to_internal_names() {
       "Action": "EditMap",
       "Target": "Maps/Town",
       "MapProperties": { "Music": "springtown" },
-      "AddWarps": ["5 10 Farm 15 20"],
+      "AddWarps": "{{WarpExpression}}",
+      "AddNpcWarps": ["5 10 Farm 15 20"],
+      "FromArea": "{{FromArea}}",
       "MapTiles": [
-        { "Layer": "Back", "Position": { "X": 1, "Y": 2 }, "SetIndex": 42 }
+        { "Layer": "Back", "Position": { "X": 1, "Y": 2 }, "SetIndex": "42", "Remove": true, "FutureField": "keep" }
       ]
     }
   ]
@@ -290,7 +292,7 @@ fn maps_cp_fields_back_to_internal_names() {
     assert!(state.contains_key("warps"));
     assert!(state.contains_key("mapTiles"));
 
-    let warps = state.get("warps").unwrap().as_array().unwrap();
+    let warps = state.get("npcWarps").unwrap().as_array().unwrap();
     assert_eq!(warps.len(), 1);
     let warp = warps[0].as_object().unwrap();
     assert_eq!(warp.get("fromX").unwrap().as_str().unwrap(), "5");
@@ -301,7 +303,146 @@ fn maps_cp_fields_back_to_internal_names() {
     assert_eq!(tile.get("layer").unwrap().as_str().unwrap(), "Back");
     assert_eq!(tile.get("x").unwrap().as_i64().unwrap(), 1);
     assert_eq!(tile.get("y").unwrap().as_i64().unwrap(), 2);
-    assert_eq!(tile.get("setIndex").unwrap().as_i64().unwrap(), 42);
+    assert_eq!(tile.get("setIndex").unwrap().as_str().unwrap(), "42");
+    assert!(tile.get("remove").unwrap().as_bool().unwrap());
+    assert_eq!(
+        tile.get("_raw")
+            .and_then(Value::as_object)
+            .and_then(|raw| raw.get("FutureField"))
+            .and_then(Value::as_str),
+        Some("keep")
+    );
+    assert_eq!(
+        state.get("warpsSourceShape").and_then(Value::as_str),
+        Some("string")
+    );
+    assert_eq!(
+        state
+            .get("rawWarps")
+            .and_then(Value::as_array)
+            .and_then(|values| values.first())
+            .and_then(Value::as_str),
+        Some("{{WarpExpression}}")
+    );
+    assert_eq!(
+        state.get("fromArea").and_then(Value::as_str),
+        Some("{{FromArea}}")
+    );
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn imports_relaxed_json_across_manifest_content_include_and_i18n() {
+    let root = create_temp_dir("import-relaxed-json");
+    write_file(
+        &root.join("manifest.json"),
+        r#"{
+  // SMAPI accepts comments and trailing commas.
+  "Name": "Relaxed",
+  "Author": "Author",
+  "Version": "1.0.0",
+  "UniqueID": "Author.Relaxed",
+  "ContentPackFor": { "UniqueID": "Pathoschild.ContentPatcher", },
+}"#,
+    );
+    write_file(
+        &root.join("content.json"),
+        r#"{
+  "Format": "2.0.0",
+  "Changes": [{
+    "Action": "Include",
+    "FromFile": ["changes/maps.json", "changes/crafting.json"],
+  },],
+}"#,
+    );
+    write_file(
+        &root.join("changes/maps.json"),
+        r#"{
+  "Changes": [
+    { "Action": "EditMap", "Target": "Maps/Town", "LocalTokens": { "Chance": .03, }, },
+    ,
+    { "Action": "EditMap", "Target": "Maps/Forest", "FromFile": "assets/forest.tmx" },
+  ],
+}"#,
+    );
+    write_file(
+        &root.join("changes/crafting.json"),
+        r#"{
+  "Changes": [{
+    "Action": "EditData",
+    "Target": "Data/CraftingRecipes",
+    "Fields": { "Wood Fence": { 0: "388 2" } }
+  }]
+}"#,
+    );
+    write_file(
+        &root.join("i18n/default.json"),
+        r#"{ "map.name": "Town", }"#,
+    );
+
+    let draft = import_cp_maker_pack(root.to_str().unwrap()).expect("import relaxed CP JSON");
+    let registry: ChangeRegistry =
+        serde_json::from_value(draft.serialized_change_registry).expect("decode registry");
+    assert_eq!(registry.patches.len(), 3);
+    assert!(
+        registry
+            .patches
+            .iter()
+            .any(|patch| patch.action == "EditMap" && patch.target == "Maps/Town")
+    );
+    assert!(
+        registry
+            .patches
+            .iter()
+            .any(|patch| patch.action == "EditMap" && patch.target == "Maps/Forest")
+    );
+    assert!(
+        registry
+            .patches
+            .iter()
+            .any(|patch| { patch.action == "EditData" && patch.target == "Data/CraftingRecipes" })
+    );
+    assert_eq!(draft.i18n_files.len(), 1);
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn expands_include_lists_and_repeated_non_cyclic_references() {
+    let root = create_temp_dir("import-include-lists");
+    write_file(
+        &root.join("manifest.json"),
+        r#"{"Name":"Includes","Author":"A","Version":"1.0.0","UniqueID":"A.Includes","ContentPackFor":{"UniqueID":"Pathoschild.ContentPatcher"}}"#,
+    );
+    write_file(
+        &root.join("content.json"),
+        r#"{"Format":"2.0.0","Changes":[
+  {"Action":"Include","FromFile":"changes/a.json, changes/b.json"},
+  {"Action":"Include","FromFile":["changes/a.json"]}
+]}"#,
+    );
+    write_file(
+        &root.join("changes/a.json"),
+        r#"{"Changes":[{"Action":"EditMap","Target":"Maps/A"}]}"#,
+    );
+    write_file(
+        &root.join("changes/b.json"),
+        r#"{"Changes":[{"Action":"EditMap","Target":"Maps/B"}]}"#,
+    );
+
+    let draft = import_cp_maker_pack(root.to_str().unwrap()).expect("expand includes");
+    let registry: ChangeRegistry =
+        serde_json::from_value(draft.serialized_change_registry).expect("decode registry");
+    assert_eq!(registry.patches.len(), 3);
+    assert_eq!(
+        registry
+            .patches
+            .iter()
+            .map(|patch| patch.target.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Maps/A", "Maps/B", "Maps/A"]
+    );
 
     fs::remove_dir_all(root).expect("cleanup");
 }

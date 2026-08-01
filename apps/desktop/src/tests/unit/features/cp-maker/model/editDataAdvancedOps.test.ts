@@ -105,6 +105,7 @@ describe('export integration', () => {
         }),
       ],
       virtualAssets: [],
+      projectAssets: [],
       dynamicTokens: [],
       customLocations: [],
       aliasTokenNames: {},

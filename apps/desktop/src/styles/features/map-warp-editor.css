@@ -1,0 +1,199 @@
+@layer components {
+  .map-warp-editor {
+    display: grid;
+    gap: 0.625rem;
+  }
+
+  .map-warp-editor-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .map-warp-editor-heading > div {
+    display: grid;
+    min-width: 0;
+    gap: 0.125rem;
+  }
+
+  .map-warp-editor-heading strong {
+    color: var(--text-primary);
+    font-size: 0.6875rem;
+  }
+
+  .map-warp-editor-heading span,
+  .map-warp-editor-empty {
+    color: var(--text-tertiary);
+    font-size: 0.625rem;
+  }
+
+  .map-warp-editor-heading .icon-button,
+  .map-warp-source-row .icon-button,
+  .map-warp-destination-point .icon-button {
+    width: 1.875rem;
+    height: 1.875rem;
+  }
+
+  .map-warp-list {
+    display: grid;
+    max-height: 11rem;
+    overflow-y: auto;
+    border-block: 1px solid var(--border-color);
+  }
+
+  .map-warp-list > button {
+    display: grid;
+    min-width: 0;
+    min-height: 2rem;
+    grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.375rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
+    padding: 0 0.375rem;
+    color: var(--text-secondary);
+    text-align: left;
+  }
+
+  .map-warp-list > button:last-child {
+    border-bottom: 0;
+  }
+
+  .map-warp-list > button:hover,
+  .map-warp-list > button.is-active {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .map-warp-list > button.is-active {
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+
+  .map-warp-list > button strong {
+    overflow: hidden;
+    font-size: 0.6875rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .map-warp-list > button span,
+  .map-warp-list > button small {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    white-space: nowrap;
+  }
+
+  .map-warp-list > button small {
+    color: var(--text-tertiary);
+  }
+
+  .map-warp-entry {
+    display: grid;
+    gap: 0.625rem;
+  }
+
+  .map-warp-source-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .map-warp-source-row > div,
+  .map-warp-destination-row {
+    display: grid;
+    min-width: 0;
+    gap: 0.25rem;
+  }
+
+  .map-warp-source-row span,
+  .map-warp-destination-row > span {
+    color: var(--text-tertiary);
+    font-size: 0.5625rem;
+    font-weight: 650;
+    text-transform: uppercase;
+  }
+
+  .map-warp-source-row strong,
+  .map-warp-destination-point strong {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+  }
+
+  .map-warp-destination-trigger {
+    width: 100%;
+    min-width: 0;
+    justify-content: flex-start;
+  }
+
+  .map-warp-destination-trigger span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .map-warp-destination-point {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    border-top: 1px solid var(--border-color);
+    padding-top: 0.5rem;
+  }
+
+  .map-warp-editor-empty {
+    margin: 0;
+    border-block: 1px solid var(--border-color);
+    padding: 0.75rem 0;
+    text-align: center;
+  }
+
+  .map-warp-destination-picker {
+    display: grid;
+    height: min(16rem, 45vh);
+    min-height: 11rem;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-viewport);
+  }
+
+  .map-warp-destination-picker > header {
+    display: grid;
+    gap: 0.125rem;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-panel-muted);
+    padding: 0.5rem 0.625rem;
+  }
+
+  .map-warp-destination-picker > header strong {
+    color: var(--text-primary);
+    font-size: 0.6875rem;
+  }
+
+  .map-warp-destination-picker > header span {
+    color: var(--text-secondary);
+    font-size: 0.625rem;
+  }
+
+  .map-warp-destination-picker > .map-viewport-root {
+    min-height: 0;
+  }
+
+  .map-warp-destination-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    color: var(--text-secondary);
+    font-size: 0.6875rem;
+    text-align: center;
+  }
+
+  .map-warp-destination-state.is-error {
+    color: var(--danger);
+  }
+}

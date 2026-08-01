@@ -921,19 +921,3 @@
     border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   }
 }
-
-@layer components {
-  .dialogue-editor-bulk-text {
-    width: 100%;
-    min-height: 2.25rem;
-    resize: vertical;
-    font-size: 0.8125rem;
-    line-height: 1.5;
-  }
-
-  .dialogue-editor-entry-bulk-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-}

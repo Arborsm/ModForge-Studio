@@ -1,7 +1,9 @@
-use crate::domain::content_patcher::types::VirtualPreviewAsset;
 use crate::domain::cp_maker::types::{
-    BuildCpMakerMapAssetRequest, CopyCpMakerDraftRequest, CpMakerDraftRecord, CpMakerDraftSummary,
-    CpMakerExportRequest, CpMakerExportResult, CpMakerSession,
+    BuildCpMakerMapAssetRequest, BuildCpMakerMapAssetResult, CopyCpMakerDraftRequest,
+    CpMakerDraftRecord, CpMakerDraftSummary, CpMakerExportRequest, CpMakerExportResult,
+    CpMakerSession, DeleteProjectAssetRequest, ImportProjectAssetsRequest, ProjectAssetPayload,
+    ProjectAssetRef, ReadProjectAssetRequest, RenameProjectAssetRequest, WriteProjectAssetRequest,
+    WriteProjectAssetsRequest,
 };
 use crate::support::logging::DebugLoggingState;
 use crate::{AppHandle, AppRuntime};
@@ -131,7 +133,7 @@ pub async fn build_cp_maker_map_asset(
     app: tauri::AppHandle<AppRuntime>,
     debug_logging_state: State<'_, DebugLoggingState>,
     request: BuildCpMakerMapAssetRequest,
-) -> Result<VirtualPreviewAsset, String> {
+) -> Result<BuildCpMakerMapAssetResult, String> {
     crate::commands::runtime::execute_tauri_command(
         AppHandle::from_tauri(app),
         debug_logging_state.inner().clone(),
@@ -152,6 +154,111 @@ pub async fn import_cp_maker_pack(
         debug_logging_state.inner().clone(),
         crate::host_command_name!(import_cp_maker_pack),
         json!({ "modDirectoryPath": mod_directory_path }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn read_cp_maker_project_asset(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    request: ReadProjectAssetRequest,
+) -> Result<ProjectAssetPayload, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(read_cp_maker_project_asset),
+        json!({ "request": request }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn load_cp_maker_project_map_asset(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    request: ReadProjectAssetRequest,
+) -> Result<crate::domain::assets::MapAssetContent, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(load_cp_maker_project_map_asset),
+        json!({ "request": request }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn write_cp_maker_project_asset(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    request: WriteProjectAssetRequest,
+) -> Result<ProjectAssetRef, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(write_cp_maker_project_asset),
+        json!({ "request": request }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn write_cp_maker_project_assets(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    request: WriteProjectAssetsRequest,
+) -> Result<Vec<ProjectAssetRef>, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(write_cp_maker_project_assets),
+        json!({ "request": request }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn import_cp_maker_project_assets(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    request: ImportProjectAssetsRequest,
+) -> Result<CpMakerDraftRecord, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(import_cp_maker_project_assets),
+        json!({ "request": request }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn rename_cp_maker_project_asset(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    request: RenameProjectAssetRequest,
+) -> Result<CpMakerDraftRecord, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(rename_cp_maker_project_asset),
+        json!({ "request": request }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn delete_cp_maker_project_asset(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    request: DeleteProjectAssetRequest,
+) -> Result<CpMakerDraftRecord, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(delete_cp_maker_project_asset),
+        json!({ "request": request }),
     )
     .await
 }

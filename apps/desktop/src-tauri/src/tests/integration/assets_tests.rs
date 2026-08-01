@@ -1,11 +1,14 @@
 use super::{
-    cache_file_path, encode_hex, export_file, export_map_png, localized_variant_path,
-    logicalized_asset_path, preferred_existing_xnb_path, read_directory_info, split_localized_stem,
+    MAP_CLASSIFICATION_CACHE_VERSION, cache_file_path, classify_map_xnb_with_cache, encode_hex,
+    export_file, export_map_png, localized_variant_path, logicalized_asset_path,
+    map_classification_cache_path, preferred_existing_xnb_path, read_directory_info,
+    split_localized_stem,
 };
 use crate::test_support::{create_temp_dir, write_file};
 use base64::Engine;
 use std::fs;
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[test]
 fn strips_locale_suffix_from_asset_stems() {
@@ -67,6 +70,95 @@ fn cache_file_path_uses_lower_hex_sha256_file_names() {
         hash.chars()
             .all(|value| value.is_ascii_hexdigit() && !value.is_ascii_uppercase())
     );
+}
+
+#[test]
+fn map_classification_cache_hits_and_invalidates_changed_files() {
+    let root = create_temp_dir("map-classification-cache");
+    let cache_root = root.join("cache");
+    let source = root.join("Town.xnb");
+    fs::write(&source, b"first").expect("write source");
+    let calls = AtomicUsize::new(0);
+    let classify = |_: &Path| {
+        calls.fetch_add(1, Ordering::SeqCst);
+        true
+    };
+
+    assert!(classify_map_xnb_with_cache(&cache_root, &source, classify).expect("classify"));
+    assert!(classify_map_xnb_with_cache(&cache_root, &source, classify).expect("cached classify"));
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+    fs::write(&source, b"changed-size").expect("change source");
+    assert!(classify_map_xnb_with_cache(&cache_root, &source, classify).expect("reclassify"));
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    fs::remove_dir_all(root).expect("cleanup test directory");
+}
+
+#[test]
+fn map_classification_cache_recovers_from_corrupt_or_old_entries() {
+    let root = create_temp_dir("map-classification-cache-corrupt");
+    let cache_root = root.join("cache");
+    let source = root.join("Town.xnb");
+    fs::write(&source, b"source").expect("write source");
+    fs::create_dir_all(&cache_root).expect("create cache");
+    let cache_path = map_classification_cache_path(&cache_root, &source);
+    fs::write(&cache_path, b"not-json").expect("write corrupt cache");
+    let calls = AtomicUsize::new(0);
+
+    assert!(
+        !classify_map_xnb_with_cache(&cache_root, &source, |_| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            false
+        })
+        .expect("recover corrupt cache")
+    );
+    let mut cached: serde_json::Value =
+        serde_json::from_slice(&fs::read(&cache_path).expect("read cache")).expect("parse cache");
+    cached["version"] = serde_json::json!(MAP_CLASSIFICATION_CACHE_VERSION + 1);
+    fs::write(
+        &cache_path,
+        serde_json::to_vec(&cached).expect("serialize old cache"),
+    )
+    .expect("write old cache");
+    assert!(
+        classify_map_xnb_with_cache(&cache_root, &source, |_| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            true
+        })
+        .expect("replace old cache")
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    fs::remove_dir_all(root).expect("cleanup test directory");
+}
+
+#[test]
+fn map_classification_cache_does_not_reuse_deleted_or_localized_sources() {
+    let root = create_temp_dir("map-classification-cache-variants");
+    let cache_root = root.join("cache");
+    let base = root.join("Town.xnb");
+    let localized = root.join("Town.zh-CN.xnb");
+    fs::write(&base, b"base").expect("write base source");
+    fs::write(&localized, b"localized").expect("write localized source");
+    let calls = AtomicUsize::new(0);
+
+    for source in [&base, &localized] {
+        assert!(
+            classify_map_xnb_with_cache(&cache_root, source, |_| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                true
+            })
+            .expect("classify source variant")
+        );
+    }
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert_ne!(
+        map_classification_cache_path(&cache_root, &base),
+        map_classification_cache_path(&cache_root, &localized)
+    );
+
+    fs::remove_file(&base).expect("delete base source");
+    assert!(classify_map_xnb_with_cache(&cache_root, &base, |_| true).is_err());
+    fs::remove_dir_all(root).expect("cleanup test directory");
 }
 
 #[test]

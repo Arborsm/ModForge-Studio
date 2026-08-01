@@ -66,6 +66,10 @@ const itemDataEditor: ItemDataEditorCopy = {
   },
   sources: {
     title: 'Items',
+    libraryTitle: 'Item library',
+    libraryHint: 'Browse by asset family and item type, then open one in a focused editor.',
+    backToLibrary: 'Back to item library',
+    openItem: (name) => `Edit item “${name}”`,
     searchPlaceholder: 'Search name or ID',
     modeAll: 'All',
     modeProject: 'Project',
@@ -112,6 +116,13 @@ const itemDataEditor: ItemDataEditorCopy = {
     patchMissing: 'Not provided by the project',
     manageHint: 'The button below opens the image editor; the Load patch is created automatically.',
     openEditorAction: 'Provide texture',
+  },
+  workflow: {
+    status: {
+      complete: 'Complete',
+      'needs-attention': 'Needs attention',
+      optional: 'Optional',
+    },
   },
 }
 

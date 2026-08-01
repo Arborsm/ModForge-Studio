@@ -355,6 +355,69 @@
     flex: 0 0 auto;
   }
 
+  .asset-field-resource-browse {
+    display: grid;
+    place-items: center;
+    flex: 0 0 2rem;
+    width: 2rem;
+    min-width: 2rem;
+    padding: 0;
+  }
+
+  .asset-field-resource-selection {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 2.5rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--bg-panel-muted) 52%, transparent);
+    padding: 0.25rem 0.375rem;
+  }
+
+  .asset-field-resource-copy {
+    display: grid;
+    gap: 0.0625rem;
+    min-width: 0;
+  }
+
+  .asset-field-resource-label {
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+  }
+
+  .asset-field-resource-value {
+    color: var(--text-tertiary);
+    font-family: var(--font-mono, monospace);
+    font-size: 0.625rem;
+    overflow-wrap: anywhere;
+  }
+
+  .asset-field-resource-clear {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.375rem;
+    color: var(--text-tertiary);
+    cursor: pointer;
+  }
+
+  .asset-field-resource-clear:hover {
+    background: color-mix(in srgb, var(--bg-active) 65%, transparent);
+    color: var(--text-primary);
+  }
+
+  .asset-field-resource-clear:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+    outline-offset: 0.0625rem;
+  }
+
   /* Colour control: swatch + raw text on one row, RGB channels and presets below. */
 
   .asset-field-color {
@@ -587,99 +650,6 @@
     outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
     outline-offset: 0.125rem;
   }
-  /* Resource picker dialog: search + category filter over a scrolling option list. */
-
-  .asset-picker-body {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: 0.625rem;
-    min-height: 18rem;
-  }
-
-  .asset-picker-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    flex-wrap: wrap;
-  }
-
-  .asset-picker-search {
-    position: relative;
-    display: flex;
-    align-items: center;
-    flex: 1 1 12rem;
-    min-width: 0;
-  }
-
-  .asset-picker-search > svg {
-    position: absolute;
-    left: 0.625rem;
-    color: var(--text-tertiary);
-    pointer-events: none;
-  }
-
-  .asset-picker-search > .control-input {
-    padding-left: 1.875rem;
-  }
-
-  .asset-picker-category {
-    flex: 0 1 10rem;
-    min-width: 0;
-  }
-
-  .asset-picker-count {
-    flex: 0 0 auto;
-    font-size: 0.6875rem;
-    color: var(--text-tertiary);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .asset-picker-list {
-    display: grid;
-    gap: 0.25rem;
-    align-content: start;
-    overflow-y: auto;
-    min-height: 0;
-    padding-right: 0.125rem;
-  }
-
-  .asset-picker-option {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 0.125rem 0.5rem;
-    width: 100%;
-    border: 1px solid transparent;
-    border-radius: 0.5rem;
-    background: color-mix(in srgb, var(--bg-panel-muted) 45%, transparent);
-    padding: 0.4375rem 0.625rem;
-    text-align: left;
-    cursor: pointer;
-    transition:
-      background 0.12s ease,
-      border-color 0.12s ease;
-  }
-
-  .asset-picker-option:hover {
-    background: color-mix(in srgb, var(--bg-active) 60%, transparent);
-  }
-
-  .asset-picker-option:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
-    outline-offset: 0.0625rem;
-  }
-
-  .asset-picker-option.is-selected {
-    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
-    background: var(--accent-soft);
-  }
-
-  .asset-picker-option.is-custom {
-    border-style: dashed;
-    border-color: color-mix(in srgb, var(--border-color) 90%, transparent);
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .asset-picker-option-preview {
     grid-row: span 2;
     width: 2rem;
@@ -704,53 +674,6 @@
     flex: none;
   }
 
-  .asset-picker-option-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    overflow-wrap: anywhere;
-  }
-
-  .asset-picker-option-value {
-    grid-column: 2;
-    font-family: var(--font-mono, monospace);
-    font-size: 0.625rem;
-    color: var(--text-tertiary);
-    overflow-wrap: anywhere;
-  }
-
-  .asset-picker-option-tag {
-    grid-column: 3;
-    grid-row: 1;
-    border-radius: 9999px;
-    background: color-mix(in srgb, var(--bg-panel) 85%, transparent);
-    color: var(--text-tertiary);
-    font-size: 0.5625rem;
-    font-weight: 600;
-    padding: 0.0625rem 0.4375rem;
-    white-space: nowrap;
-  }
-
-  .asset-picker-option-detail {
-    grid-column: 2 / -1;
-    font-size: 0.625rem;
-    color: var(--text-secondary);
-    overflow-wrap: anywhere;
-  }
-
-  .asset-picker-empty {
-    display: grid;
-    place-items: center;
-    font-size: 0.75rem;
-    color: var(--text-tertiary);
-    padding: 2rem 1rem;
-  }
-
-  .asset-picker-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-  }
   /* Game text library dialog: category tabs over a scrolling result table. */
 
   .text-library {

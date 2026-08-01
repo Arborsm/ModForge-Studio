@@ -47,6 +47,7 @@ export type CpMakerDraftRecord = {
   aliasTokenNames?: Record<string, string>
   eventSourceSnapshotsByTarget: Record<string, { rawScriptsByKey: Record<string, string> }>
   i18nFiles: Array<{ locale: string; rawJson: string }>
+  projectAssets: ProjectAssetRef[]
   lastDraftSavedAt: number | null
   lastExportedAt: number | null
   lastExportPath: string | null
@@ -57,6 +58,59 @@ export type CpMakerDraftRecord = {
   } | null
 }
 
+export type ProjectAssetSource = 'imported' | 'generated' | 'edited'
+
+export type ProjectAssetRef = {
+  relativePath: string
+  mediaType: string
+  sizeBytes: number
+  sha256: string
+  storageKey: string
+  sourceType: ProjectAssetSource
+  dependencies: Array<{ relativePath: string; kind: string }>
+}
+
+export type ProjectAssetPayload = {
+  asset: ProjectAssetRef
+  bytesBase64: string
+}
+
+export type ProjectMapAssetContent = {
+  name: string
+  format: string
+  absolutePath: string
+  relativePath: string
+  content: string
+}
+
+export type ReadProjectAssetRequest = {
+  draftStorageKey: string
+  relativePath: string
+}
+
+export type WriteProjectAssetRequest = ReadProjectAssetRequest & {
+  mediaType: string
+  bytesBase64: string
+  sourceType: ProjectAssetSource
+}
+
+export type WriteProjectAssetsRequest = {
+  draftStorageKey: string
+  assets: Array<Omit<WriteProjectAssetRequest, 'draftStorageKey'>>
+}
+
+export type RenameProjectAssetRequest = ReadProjectAssetRequest & {
+  newRelativePath: string
+}
+
+export type DeleteProjectAssetRequest = ReadProjectAssetRequest
+
+export type ImportProjectAssetsRequest = {
+  draftStorageKey: string
+  sourcePaths: string[]
+  destinationDirectory: string
+}
+
 /** Request to duplicate an existing draft by storage key. */
 export type CopyCpMakerDraftRequest = {
   source_draft_storage_key: string
@@ -64,6 +118,7 @@ export type CopyCpMakerDraftRequest = {
 
 /** Request to export a generated Content Patcher pack to disk. */
 export type CpMakerExportRequest = {
+  draft_storage_key: string
   output_path: string
   manifest_json: string
   content_json: string
@@ -81,8 +136,13 @@ export type CpMakerExportResult = {
 
 /** Request to build a previewable map asset from an in-memory map document. */
 export type BuildCpMakerMapAssetRequest = {
-  relative_path: string
-  map_document: unknown // MapDocument from backend
+  relativePath: string
+  mapDocument: unknown // MapDocument from backend
+}
+
+export type BuildCpMakerMapAssetResult = {
+  asset: VirtualPreviewAsset
+  companionAssets: VirtualPreviewAsset[]
 }
 
 /** Virtual asset bundled into preview/export flows before it exists on disk. */

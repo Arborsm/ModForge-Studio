@@ -39,6 +39,7 @@ import { DEFAULT_LOADING_MOTION_PREFERENCE } from '@shared/lib/loading-motion'
 declare global {
   interface Window {
     __modforgeLauncherCustomSortState?: Pick<LauncherLibraryState, 'customOrders' | 'childModGroups'>
+    __modforgeDevHostCommands?: string[]
   }
 }
 
@@ -653,11 +654,13 @@ export function installDevLauncherMock() {
   const handleLocalizationKnowledgeMockCommand = createLocalizationKnowledgeMockHandler()
   const handleModTranslationMockCommand = createModTranslationMockHandler(DEV_MOCK_GAME_DIRECTORY)
   const handleCpMakerMockCommand = createCpMakerMockHandler(DEV_MOCK_GAME_DIRECTORY)
+  window.__modforgeDevHostCommands = []
 
   mockWindows('main')
   mockConvertFileSrc('windows')
   mockIPC(
     async (command, payload) => {
+      window.__modforgeDevHostCommands?.push(command)
       const localizationKnowledgeResult = handleLocalizationKnowledgeMockCommand(command, payload)
       if (localizationKnowledgeResult.handled) {
         return localizationKnowledgeResult.result

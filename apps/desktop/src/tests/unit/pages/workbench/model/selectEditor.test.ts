@@ -28,18 +28,23 @@ describe('selectEditorKind', () => {
     }
   })
 
-  it('routes by action for map and image patches regardless of target', () => {
-    expect(selectEditorKind({ action: 'EditMap', target: 'Maps/Town' })).toBe('map')
-    expect(selectEditorKind({ action: 'EditMap', target: 'Data/Characters' })).toBe('map')
+  it('routes map changes and image patches by action regardless of target', () => {
+    expect(selectEditorKind({ action: 'EditMap', target: 'Maps/Town' })).toBe('map-patch')
+    expect(selectEditorKind({ action: 'EditMap', target: 'Data/Characters' })).toBe('map-patch')
     expect(selectEditorKind({ action: 'EditImage', target: 'Portraits/Abigail' })).toBe('image')
     expect(selectEditorKind({ action: 'EditImage', target: 'Data/Characters' })).toBe('image')
   })
 
-  it('routes whole-file Load patches by asset family', () => {
-    expect(selectEditorKind({ action: 'Load', target: 'Maps/Custom_Shop' })).toBe('map')
-    expect(selectEditorKind({ action: 'Load', target: 'Portraits/{{ModId}}_Aspen' })).toBe('image')
-    expect(selectEditorKind({ action: 'Load', target: 'Characters/{{ModId}}_Aspen' })).toBe('image')
-    expect(selectEditorKind({ action: 'Load', target: 'Data/Characters' })).toBe('raw')
+  it('routes every whole-file Load patch to the read-only binding summary', () => {
+    expect(selectEditorKind({ action: 'Load', target: 'Portraits/{{ModId}}_Aspen' })).toBe('load-summary')
+    expect(selectEditorKind({ action: 'Load', target: 'Characters/{{ModId}}_Aspen' })).toBe('load-summary')
+    expect(selectEditorKind({ action: 'Load', target: 'Data/Characters' })).toBe('load-summary')
+    expect(selectEditorKind({ action: 'Load', target: 'Maps/Custom_Shop' })).toBe('load-summary')
+    expect(selectEditorKind({ action: 'Load', target: 'maps\\springobjects' })).toBe('load-summary')
+    expect(selectEditorKind({ action: 'Load', target: 'Maps/Town, Maps/Forest' })).toBe('load-summary')
+    expect(selectEditorKind({ action: 'Load', target: 'Maps/{{ModId}}_Tiles' })).toBe('load-summary')
+    expect(selectEditorKind({ action: 'Load', target: 'Audio/NewCue' })).toBe('load-summary')
+    expect(selectEditorKind({ action: 'Load', target: '' })).toBe('load-summary')
   })
 
   it('sends Include patches to the raw escape hatch', () => {

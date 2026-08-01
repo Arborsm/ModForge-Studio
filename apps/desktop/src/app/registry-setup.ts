@@ -1,4 +1,5 @@
 import {
+  assetLibraryRegistration,
   buildingAuthoringRegistration,
   buildingBrowserRegistration,
   characterAuthoringRegistration,
@@ -39,6 +40,7 @@ export const appRegistry = createAppRegistry({
     gameDebuggerRegistration,
     projectDashboardRegistration,
     projectContentRegistration,
+    assetLibraryRegistration,
     projectSettingsRegistration,
     mapAuthoringRegistration,
     eventAuthoringRegistration,

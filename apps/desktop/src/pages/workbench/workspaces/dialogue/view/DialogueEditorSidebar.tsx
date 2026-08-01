@@ -762,12 +762,12 @@ type DialogueEditorSidebarProps = {
   warnings: DialogueScriptWarning[]
 }
 
-/** Properties sidebar: start-node key builder or the selected page's editors, plus validation notes. */
+/** Node-properties pane used by the focused editor's central properties tab. */
 export function DialogueEditorSidebar({ workspace, selectedPage, warnings }: DialogueEditorSidebarProps) {
   const copy = useDialogueEditorCopy()
 
   return (
-    <aside className="dialogue-editor-sidebar custom-scrollbar">
+    <div className="dialogue-editor-sidebar custom-scrollbar">
       {selectedPage ? <PageProperties workspace={workspace} page={selectedPage} /> : <StartNodeProperties workspace={workspace} />}
 
       <ShadowSection workspace={workspace} />
@@ -789,6 +789,6 @@ export function DialogueEditorSidebar({ workspace, selectedPage, warnings }: Dia
           </ul>
         </section>
       ) : null}
-    </aside>
+    </div>
   )
 }

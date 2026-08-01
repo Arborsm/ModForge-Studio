@@ -26,12 +26,13 @@ use crate::infrastructure::fs::pathing::{
     audio_source_roots, clean_input_path, collect_known_game_paths, event_source_path,
     map_source_path, normalize_path, stardew_game_validation_candidates,
 };
-use crate::infrastructure::game_formats::tbin::parse_tbin_map;
+use crate::infrastructure::game_formats::parse_map_asset;
 use crate::infrastructure::game_formats::xnb::{self, read_xnb_from_path};
 use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 
 const FILE_CACHE_VERSION: u32 = 1;
+const MAP_CLASSIFICATION_CACHE_VERSION: u32 = 1;
 const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
 const MAX_EXPORTED_MAP_PNG_BYTES: usize = 256 * 1024 * 1024;
 const MAX_EXPORTED_FILE_BYTES: usize = 256 * 1024 * 1024;
@@ -44,6 +45,15 @@ struct CachedStringAsset {
     source_modified_time_ms: u128,
     locale: String,
     payload: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CachedMapClassification {
+    version: u32,
+    source_path: String,
+    source_size_bytes: u64,
+    source_modified_time_ns: u128,
+    is_map: bool,
 }
 
 #[derive(Debug, Default)]
@@ -219,11 +229,82 @@ pub(crate) fn preferred_existing_xnb_path(path: &Path, locale: Option<&str>) -> 
     path.to_path_buf()
 }
 
-fn is_map_xnb(path: &Path) -> bool {
+fn parse_map_xnb_classification(path: &Path) -> bool {
     read_xnb_from_path(path)
         .ok()
         .and_then(|xnb| xnb.content.as_bytes().map(|_| ()))
         .is_some()
+}
+
+fn map_classification_cache_path(cache_root: &Path, source_path: &Path) -> PathBuf {
+    let normalized_source_path = normalize_path(source_path);
+    let mut digest = Sha256::new();
+    digest.update(b"map-classification\0");
+    digest.update(normalized_source_path.as_bytes());
+    cache_root.join(format!("{}.json", encode_hex(&digest.finalize())))
+}
+
+fn classify_map_xnb_with_cache(
+    cache_root: &Path,
+    path: &Path,
+    classifier: impl FnOnce(&Path) -> bool,
+) -> anyhow::Result<bool> {
+    let metadata = path
+        .metadata()
+        .with_context(|| format!("Failed to read file metadata"))?;
+    let source_path = normalize_path(path);
+    let source_modified_time_ns = metadata
+        .modified()
+        .with_context(|| format!("Failed to read file modified time"))?
+        .duration_since(UNIX_EPOCH)
+        .with_context(|| format!("Invalid file modified time"))?
+        .as_nanos();
+    let cache_path = map_classification_cache_path(cache_root, path);
+
+    if let Ok(bytes) = fs::read(&cache_path)
+        && let Ok(cached) = serde_json::from_slice::<CachedMapClassification>(&bytes)
+        && cached.version == MAP_CLASSIFICATION_CACHE_VERSION
+        && cached.source_path == source_path
+        && cached.source_size_bytes == metadata.len()
+        && cached.source_modified_time_ns == source_modified_time_ns
+    {
+        return Ok(cached.is_map);
+    }
+
+    let is_map = classifier(path);
+    fs::create_dir_all(cache_root)
+        .with_context(|| format!("Failed to create {}", normalize_path(cache_root)))?;
+    let cached = CachedMapClassification {
+        version: MAP_CLASSIFICATION_CACHE_VERSION,
+        source_path,
+        source_size_bytes: metadata.len(),
+        source_modified_time_ns,
+        is_map,
+    };
+    let bytes =
+        serde_json::to_vec(&cached).context("Failed to serialize map classification cache")?;
+    let temporary_path = cache_path.with_extension(format!("{}.tmp", uuid::Uuid::new_v4()));
+    fs::write(&temporary_path, bytes)
+        .with_context(|| format!("Failed to write {}", normalize_path(&temporary_path)))?;
+    if cache_path.exists() {
+        fs::remove_file(&cache_path)
+            .with_context(|| format!("Failed to replace {}", normalize_path(&cache_path)))?;
+    }
+    if let Err(error) = fs::rename(&temporary_path, &cache_path) {
+        let _ = fs::remove_file(&temporary_path);
+        return Err(error)
+            .with_context(|| format!("Failed to save {}", normalize_path(&cache_path)));
+    }
+    Ok(is_map)
+}
+
+fn is_map_xnb(path: &Path) -> bool {
+    let cache_root = match active_file_cache_dir() {
+        Ok(root) => root.join("map-classification"),
+        Err(_) => return parse_map_xnb_classification(path),
+    };
+    classify_map_xnb_with_cache(&cache_root, path, parse_map_xnb_classification)
+        .unwrap_or_else(|_| parse_map_xnb_classification(path))
 }
 
 fn build_map_summary(
@@ -840,19 +921,17 @@ pub(crate) fn load_map_asset(
         .to_ascii_lowercase();
 
     let content = match format.as_str() {
-        "xnb" => {
+        "xnb" | "tmx" | "tbin" => {
             if let Some(content) =
                 read_cached_string_asset("map", &absolute_path, requested_locale)?
             {
                 content
             } else {
-                let xnb = read_xnb_from_path(&absolute_path)?;
-                let bytes = xnb
-                    .content
-                    .as_bytes()
-                    .context("Map XNB did not contain TBin data.")?;
-                let map = parse_tbin_map(
-                    bytes,
+                let bytes = std::fs::read(&absolute_path).with_context(|| {
+                    format!("Failed to read map {}", normalize_path(&absolute_path))
+                })?;
+                let map = parse_map_asset(
+                    &bytes,
                     &absolute_path,
                     &normalize_path(&logical_relative_path),
                 )?;
@@ -869,9 +948,6 @@ pub(crate) fn load_map_asset(
                 }
                 content
             }
-        }
-        "tmx" => {
-            bail!("TMX loading is no longer supported. Load XNB maps instead.");
         }
         _ => {
             bail!(

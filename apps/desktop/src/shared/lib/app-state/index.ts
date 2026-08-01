@@ -1,6 +1,7 @@
 export { normalizeAppShellState } from './appShellState'
 export type { AppShellState as NormalizedAppShellState } from './appShellState'
 export { applyAppUiStatePatch, configureAppUiStatePersistence, getAppUiStateSnapshot, initializeAppUiState } from './appUiState'
+export { useAssetLibraryFocusStore, type AssetLibraryFocus } from './assetLibraryFocusStore'
 export { useModulePersistentState } from './useModulePersistentState'
 export {
   resetPreferencesStoreForTest,

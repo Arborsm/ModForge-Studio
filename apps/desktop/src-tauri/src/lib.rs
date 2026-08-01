@@ -25,6 +25,70 @@ pub mod diagnostics {
     pub use crate::domain::localization::semantic::{SemanticBenchmarkSample, benchmark_query};
 }
 
+/// Read-only helpers for maintainer-owned, local map-pack acceptance reports.
+#[cfg(feature = "installed-game-validation")]
+pub mod map_validation {
+    use anyhow::Context;
+    use serde_json::Value;
+    use std::path::Path;
+
+    pub use crate::infrastructure::game_formats::map::MapDocument;
+
+    pub fn read_relaxed_json(path: &Path) -> anyhow::Result<Value> {
+        crate::infrastructure::game_formats::json_relaxed::read_json_file(
+            path,
+            &format!("map-pack audit JSON `{}`", path.display()),
+        )
+        .map(|(_, value)| value)
+    }
+
+    pub fn import_content_pack(path: &Path) -> anyhow::Result<Value> {
+        let draft = crate::domain::cp_maker::builder::import_cp_maker_pack(
+            path.to_string_lossy().as_ref(),
+        )?;
+        serde_json::to_value(draft).context("Failed to serialize imported content pack draft")
+    }
+
+    pub fn parse_map(path: &Path, relative_path: &str) -> anyhow::Result<MapDocument> {
+        let bytes = std::fs::read(path)
+            .with_context(|| format!("Failed to read map asset `{}`", path.display()))?;
+        crate::infrastructure::game_formats::parse_map_asset(&bytes, path, relative_path)
+    }
+
+    pub fn is_tbin_xnb(path: &Path) -> anyhow::Result<bool> {
+        let xnb = crate::infrastructure::game_formats::xnb::read_xnb_from_path(path)?;
+        let has_tbin_reader = xnb.readers.iter().any(|reader| {
+            matches!(
+                reader.name.split(',').next().unwrap_or_default().trim(),
+                "xTile.Pipeline.TideReader"
+                    | "xTile.Pipeline.TbinReader"
+                    | "xTile.Pipeline.TBinReader"
+            )
+        });
+        Ok(has_tbin_reader && xnb.content.as_bytes().is_some())
+    }
+
+    pub fn serialize_map(document: &MapDocument) -> anyhow::Result<Option<Vec<u8>>> {
+        match document.format {
+            crate::infrastructure::game_formats::map::MapFormat::Tmx => {
+                crate::infrastructure::game_formats::tmx::serialize_tmx_map(document).map(Some)
+            }
+            crate::infrastructure::game_formats::map::MapFormat::Tbin => {
+                crate::infrastructure::game_formats::tbin::serialize_tbin_map(document).map(Some)
+            }
+            crate::infrastructure::game_formats::map::MapFormat::Xnb => Ok(None),
+        }
+    }
+
+    pub fn parse_map_bytes(
+        bytes: &[u8],
+        source_path: &Path,
+        relative_path: &str,
+    ) -> anyhow::Result<MapDocument> {
+        crate::infrastructure::game_formats::parse_map_asset(bytes, source_path, relative_path)
+    }
+}
+
 use commands::ai::{
     apply_ai_profiles_import, cancel_ai_job, clear_ai_translation_cache, export_ai_profiles,
     get_ai_translation_cache_stats, list_ai_models, load_ai_settings, preview_ai_profiles_import,
@@ -44,9 +108,12 @@ use commands::assets::{
 use commands::audio::load_xact_audio_data_url;
 use commands::content_patcher::load_content_patcher_result_asset;
 use commands::cp_maker::{
-    build_cp_maker_map_asset, copy_cp_maker_draft, delete_cp_maker_draft, export_cp_maker_pack,
-    import_cp_maker_pack, list_cp_maker_drafts, load_cp_maker_draft, load_cp_maker_session,
-    save_cp_maker_draft, save_cp_maker_session,
+    build_cp_maker_map_asset, copy_cp_maker_draft, delete_cp_maker_draft,
+    delete_cp_maker_project_asset, export_cp_maker_pack, import_cp_maker_pack,
+    import_cp_maker_project_assets, list_cp_maker_drafts, load_cp_maker_draft,
+    load_cp_maker_project_map_asset, load_cp_maker_session, read_cp_maker_project_asset,
+    rename_cp_maker_project_asset, save_cp_maker_draft, save_cp_maker_session,
+    write_cp_maker_project_asset, write_cp_maker_project_assets,
 };
 use commands::debug_bridge::{
     get_debug_bridge_mod_state, get_debug_bridge_status, install_debug_bridge_mod,
@@ -223,6 +290,13 @@ pub fn run() {
             build_cp_maker_map_asset,
             export_cp_maker_pack,
             import_cp_maker_pack,
+            read_cp_maker_project_asset,
+            load_cp_maker_project_map_asset,
+            write_cp_maker_project_asset,
+            write_cp_maker_project_assets,
+            import_cp_maker_project_assets,
+            rename_cp_maker_project_asset,
+            delete_cp_maker_project_asset,
             load_content_patcher_result_asset,
             load_map_asset,
             export_map_png,

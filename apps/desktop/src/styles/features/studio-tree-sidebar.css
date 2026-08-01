@@ -226,29 +226,4 @@
   .studio-tree-filter-row.active svg {
     color: var(--accent);
   }
-
-  .studio-tree-footer {
-    border-top: 1px solid var(--border-color);
-    background: var(--bg-panel-muted);
-    padding: 0.625rem;
-  }
-
-  .studio-tree-footer-button {
-    min-height: 2.25rem;
-    border-color: var(--border-color);
-    border-radius: 0.5625rem;
-    background: var(--bg-panel);
-    color: var(--text-primary);
-    box-shadow: var(--shadow-panel);
-  }
-
-  .studio-tree-footer-button svg {
-    color: var(--accent);
-  }
-
-  .studio-tree-footer-button:hover {
-    border-color: color-mix(in srgb, var(--accent) 34%, var(--border-color));
-    background: var(--bg-active);
-    transform: none;
-  }
 }

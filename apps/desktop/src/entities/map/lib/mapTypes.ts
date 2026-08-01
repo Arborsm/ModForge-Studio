@@ -1,4 +1,4 @@
-export type MapPropertyValue = string | number | boolean
+export type MapPropertyValue = string | number | boolean | { value: MapPropertyValue; tmxType: string; propertyType?: string }
 
 export type MapTilesetAnimationFrame = {
   tileId: number
@@ -12,13 +12,23 @@ export type MapTileset = {
   tileHeight: number
   tileCount: number
   columns: number
+  source?: string | null
+  margin?: number
+  spacing?: number
+  tileOffsetX?: number
+  tileOffsetY?: number
   imageSource: string | null
   imagePath: string | null
   imageWidth: number | null
   imageHeight: number | null
+  imageTrans?: string | null
   properties: Record<string, MapPropertyValue>
   tileProperties: Record<number, Record<string, MapPropertyValue>>
   animations: Record<number, MapTilesetAnimationFrame[]>
+  preservedAttributes?: Record<string, string>
+  tilePreservedAttributes?: Record<number, Record<string, string>>
+  tilePreservedXml?: Record<number, Array<{ xml: string }>>
+  preservedXml?: Array<{ xml: string }>
 }
 
 export type MapLayer = {
@@ -34,6 +44,11 @@ export type MapLayer = {
   properties: Record<string, MapPropertyValue>
   gids: Uint32Array
   nonEmptyTiles: number
+  dataEncoding?: 'csv' | 'xml' | 'base64'
+  dataCompression?: string | null
+  cellProperties?: Record<number, Record<string, MapPropertyValue>>
+  cellAnimations?: Record<number, MapTilesetAnimationFrame[]>
+  preservedXml?: Array<{ xml: string }>
 }
 
 export type MapObject = {
@@ -45,7 +60,13 @@ export type MapObject = {
   width: number
   height: number
   rotation: number
+  visible?: boolean
+  gid?: number | null
+  template?: string | null
+  class?: string | null
+  shape?: string
   properties: Record<string, MapPropertyValue>
+  preservedXml?: Array<{ xml: string }>
 }
 
 export type MapObjectGroup = {
@@ -57,6 +78,7 @@ export type MapObjectGroup = {
   drawOrder: string
   properties: Record<string, MapPropertyValue>
   objects: MapObject[]
+  preservedXml?: Array<{ xml: string }>
 }
 
 export type MapAtlasPlacement = {
@@ -102,7 +124,7 @@ export type MapAtlasData = {
 
 export type MapDocument = {
   name: string
-  format: 'tmx' | 'xnb' | 'atlas'
+  format: 'tmx' | 'tbin' | 'xnb' | 'atlas'
   sourcePath: string
   relativePath: string
   width: number
@@ -111,9 +133,16 @@ export type MapDocument = {
   tileHeight: number
   orientation: string
   renderOrder: string
+  tmxVersion?: string | null
+  tiledVersion?: string | null
+  nextLayerId?: number | null
+  nextObjectId?: number | null
+  infinite?: boolean
   properties: Record<string, MapPropertyValue>
   tilesets: MapTileset[]
   layers: MapLayer[]
   objectGroups: MapObjectGroup[]
+  layerOrder?: Array<{ tileLayer: number } | { objectGroup: number } | { preserved: number }>
+  preservedXml?: Array<{ xml: string }>
   atlas?: MapAtlasData
 }

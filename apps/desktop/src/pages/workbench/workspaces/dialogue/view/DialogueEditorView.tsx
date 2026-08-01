@@ -1,5 +1,19 @@
 import { useState } from 'react'
-import { AlertTriangle, ArrowLeft, CircleHelp, Copy, Eye, Play, Plus, Save, Terminal, Trash2 } from 'lucide-react'
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  CircleDashed,
+  CircleHelp,
+  Copy,
+  Eye,
+  Play,
+  Plus,
+  Save,
+  Terminal,
+  Trash2,
+} from 'lucide-react'
 import { useDialogueEditorCopy } from '@locales/provider'
 import { cx, formatCopyTemplate } from '@shared/lib/helper'
 import {
@@ -17,6 +31,8 @@ import type { UseDialogueWorkspaceReturn } from '../state/useDialogueWorkspace'
 import { DialogueEditorSidebar } from './DialogueEditorSidebar'
 import { DialogueScriptPreviewDialog } from './DialogueScriptPreviewDialog'
 import { getKeyModeLabel } from './dialogueViewHelpers'
+
+type DialogueEditorTab = 'flow' | 'properties' | 'script'
 
 function AddPageInline({ onAdd, disabled }: { onAdd: (separator: DialoguePageSeparator) => void; disabled: boolean }) {
   const copy = useDialogueEditorCopy()
@@ -195,6 +211,7 @@ export function DialogueEditorView({ workspace }: { workspace: UseDialogueWorksp
   const copy = useDialogueEditorCopy()
   const [previewOpen, setPreviewOpen] = useState(false)
   const [confirmingDiscard, setConfirmingDiscard] = useState(false)
+  const [activeTab, setActiveTab] = useState<DialogueEditorTab>('flow')
   const { draft, draftAst, draftKey, isDraftDirty } = workspace
 
   if (!draft || !draftAst) {
@@ -205,6 +222,29 @@ export function DialogueEditorView({ workspace }: { workspace: UseDialogueWorksp
   const npcDisplayName = workspace.npcs.find((npc) => npc.id === draft.npcId)?.displayName ?? draft.npcId
   const headerTitle = draft.title.trim() || (draft.originalKey ?? (draftKey || copy.newEntryTitle))
   const selectedPage = draftAst.pages.find((page) => page.id === draft.selectedNodeId) ?? null
+  const previewText = selectedPage
+    ? selectedPage.kind === 'raw'
+      ? selectedPage.raw
+      : selectedPage.kind === 'command'
+        ? selectedPage.segments
+            .filter((segment): segment is DialogueTextSegment => segment.kind === 'text')
+            .map((segment) => segment.text)
+            .filter(Boolean)
+            .join(' ')
+        : selectedPage.text || selectedPage.question?.prompt || ''
+    : ''
+  const previewPortrait = selectedPage
+    ? selectedPage.kind === 'command'
+      ? selectedPage.segments.find((segment): segment is DialogueTextSegment => segment.kind === 'text')?.portrait
+      : selectedPage.kind === 'raw'
+        ? undefined
+        : selectedPage.portrait
+    : undefined
+  const tabStatuses: Record<DialogueEditorTab, 'complete' | 'attention' | 'optional'> = {
+    flow: warnings.length > 0 ? 'attention' : 'complete',
+    properties: draftKey && !workspace.isDraftKeyDuplicate ? 'complete' : 'attention',
+    script: draft.script.trim() ? 'complete' : 'attention',
+  }
 
   function handleBack() {
     if (isDraftDirty && !confirmingDiscard) {
@@ -216,102 +256,181 @@ export function DialogueEditorView({ workspace }: { workspace: UseDialogueWorksp
 
   return (
     <div className="dialogue-editor">
-      <header className="dialogue-editor-topbar">
-        <div className="dialogue-editor-topbar-lead">
-          <button
-            type="button"
-            className={cx('control-button', confirmingDiscard && 'dialogue-editor-entry-action-danger')}
-            onClick={handleBack}
-            onBlur={() => setConfirmingDiscard(false)}
-          >
-            <ArrowLeft className="dialogue-editor-action-icon" />
-            {confirmingDiscard ? copy.discardChangesAction : copy.backToList}
-          </button>
-          <div className="dialogue-editor-topbar-heading">
-            <p className="dialogue-editor-topbar-title">{headerTitle}</p>
-            <p className="dialogue-editor-breadcrumb">
-              <span>{npcDisplayName}</span>
-              <span className="dialogue-editor-breadcrumb-sep">/</span>
-              <span>{getKeyModeLabel(copy, draft.keyBuild.mode)}</span>
-              <span className="dialogue-editor-breadcrumb-sep">/</span>
-              <span className="dialogue-editor-breadcrumb-key">{draftKey || '—'}</span>
-            </p>
-          </div>
-        </div>
-        <div className="dialogue-editor-topbar-actions">
-          {draft.readOnly ? (
-            <>
-              <span className="dialogue-editor-readonly-badge">
-                <Eye className="dialogue-editor-action-icon" />
-                {copy.readOnlyBadge}
-              </span>
-              <button type="button" className="control-button control-button-primary" onClick={workspace.copyDraftToProject}>
-                <Copy className="dialogue-editor-action-icon" />
-                {copy.copyToProjectAction}
-              </button>
-            </>
-          ) : (
-            <span className={cx('dialogue-editor-save-status', isDraftDirty && 'dialogue-editor-save-status-dirty')}>
-              {isDraftDirty ? copy.unsavedStatus : copy.savedStatus}
-            </span>
-          )}
-          <button type="button" className="control-button" onClick={() => setPreviewOpen(true)}>
-            <Eye className="dialogue-editor-action-icon" />
-            {copy.previewScriptAction}
-          </button>
-          {!draft.readOnly ? (
+      <div className="dialogue-editor-focused-layout">
+        <section className="dialogue-editor-focused-main">
+          <nav className="dialogue-editor-tabs" aria-label={copy.title}>
             <button
               type="button"
-              className="control-button control-button-primary"
-              onClick={workspace.saveEntry}
-              disabled={!draftKey || !isDraftDirty}
+              className={cx('dialogue-editor-tab-back', confirmingDiscard && 'is-danger')}
+              title={confirmingDiscard ? copy.discardChangesAction : copy.backToList}
+              aria-label={confirmingDiscard ? copy.discardChangesAction : copy.backToList}
+              onClick={handleBack}
+              onBlur={() => setConfirmingDiscard(false)}
             >
-              <Save className="dialogue-editor-action-icon" />
-              {copy.saveAction}
+              <ArrowLeft className="h-3.5 w-3.5" />
             </button>
-          ) : null}
-        </div>
-      </header>
+            {(['flow', 'properties', 'script'] as DialogueEditorTab[]).map((tab) => {
+              const status = tabStatuses[tab]
+              const StatusIcon = status === 'complete' ? CheckCircle2 : status === 'attention' ? AlertCircle : CircleDashed
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  className={cx('dialogue-editor-tab', activeTab === tab && 'is-active', `is-${status}`)}
+                  onClick={() => setActiveTab(tab)}
+                >
+                  <StatusIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{copy.editorTabs[tab]}</span>
+                  <span className="sr-only">{copy.tabStatuses[status]}</span>
+                </button>
+              )
+            })}
+          </nav>
 
-      <div className="dialogue-editor-editor-body">
-        <section className="dialogue-editor-canvas custom-scrollbar">
-          <div className="dialogue-editor-flow">
-            <article
-              className={cx('dialogue-editor-start-card', draft.selectedNodeId === 'start' && 'dialogue-editor-page-card-selected')}
-              onClick={() => workspace.selectNode('start')}
-            >
-              <header className="dialogue-editor-page-card-head">
-                <span className="dialogue-editor-start-card-icon">
-                  <Play className="dialogue-editor-action-icon" />
-                </span>
-                <span className="dialogue-editor-page-card-title">{copy.canvasStartTitle}</span>
-              </header>
-              <p className="dialogue-editor-start-card-meta">
-                <span>{npcDisplayName}</span>
-                <span className="dialogue-editor-breadcrumb-sep">·</span>
-                <span>{getKeyModeLabel(copy, draft.keyBuild.mode)}</span>
-                <span className="dialogue-editor-breadcrumb-sep">·</span>
-                <span className="dialogue-editor-breadcrumb-key">{draftKey || '—'}</span>
-              </p>
-              <p className="dialogue-editor-start-card-hint">{copy.canvasStartHint}</p>
-            </article>
+          <div className="dialogue-editor-workbar">
+            <div className="dialogue-editor-workbar-title">
+              <strong>{headerTitle}</strong>
+              <span>
+                {npcDisplayName} / {getKeyModeLabel(copy, draft.keyBuild.mode)} / {draftKey || '—'}
+              </span>
+            </div>
+            <div className="dialogue-editor-workbar-actions">
+              {draft.readOnly ? (
+                <button type="button" className="control-button control-button-primary" onClick={workspace.copyDraftToProject}>
+                  <Copy className="dialogue-editor-action-icon" />
+                  {copy.copyToProjectAction}
+                </button>
+              ) : (
+                <>
+                  <span className={cx('dialogue-editor-save-status', isDraftDirty && 'dialogue-editor-save-status-dirty')}>
+                    {isDraftDirty ? copy.unsavedStatus : copy.savedStatus}
+                  </span>
+                  <button
+                    type="button"
+                    className="control-button control-button-primary"
+                    onClick={workspace.saveEntry}
+                    disabled={!draftKey || !isDraftDirty}
+                  >
+                    <Save className="dialogue-editor-action-icon" />
+                    {copy.saveAction}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
 
-            {draftAst.pages.map((page) => (
-              <div key={page.id} className="dialogue-editor-flow-step">
-                <span className="dialogue-editor-connector" aria-hidden="true" />
-                <DialoguePageCard
-                  page={page}
-                  workspace={workspace}
-                  selected={draft.selectedNodeId === page.id}
-                  warningCount={warnings.filter((warning) => warning.pageIndex === page.index).length}
-                />
-                <AddPageInline onAdd={(separator) => workspace.addPage(page.id, separator)} disabled={draft.readOnly} />
+          <div className="dialogue-editor-tab-content">
+            {activeTab === 'flow' ? (
+              <section className="dialogue-editor-canvas custom-scrollbar">
+                <div className="dialogue-editor-flow">
+                  <article
+                    className={cx('dialogue-editor-start-card', draft.selectedNodeId === 'start' && 'dialogue-editor-page-card-selected')}
+                    onClick={() => workspace.selectNode('start')}
+                  >
+                    <header className="dialogue-editor-page-card-head">
+                      <span className="dialogue-editor-start-card-icon">
+                        <Play className="dialogue-editor-action-icon" />
+                      </span>
+                      <span className="dialogue-editor-page-card-title">{copy.canvasStartTitle}</span>
+                    </header>
+                    <p className="dialogue-editor-start-card-meta">
+                      <span>{npcDisplayName}</span>
+                      <span className="dialogue-editor-breadcrumb-sep">·</span>
+                      <span>{getKeyModeLabel(copy, draft.keyBuild.mode)}</span>
+                      <span className="dialogue-editor-breadcrumb-sep">·</span>
+                      <span className="dialogue-editor-breadcrumb-key">{draftKey || '—'}</span>
+                    </p>
+                    <p className="dialogue-editor-start-card-hint">{copy.canvasStartHint}</p>
+                  </article>
+
+                  {draftAst.pages.map((page) => (
+                    <div key={page.id} className="dialogue-editor-flow-step">
+                      <span className="dialogue-editor-connector" aria-hidden="true" />
+                      <DialoguePageCard
+                        page={page}
+                        workspace={workspace}
+                        selected={draft.selectedNodeId === page.id}
+                        warningCount={warnings.filter((warning) => warning.pageIndex === page.index).length}
+                      />
+                      <AddPageInline onAdd={(separator) => workspace.addPage(page.id, separator)} disabled={draft.readOnly} />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : activeTab === 'properties' ? (
+              <div className="dialogue-editor-properties-pane">
+                <DialogueEditorSidebar workspace={workspace} selectedPage={selectedPage} warnings={warnings} />
               </div>
-            ))}
+            ) : (
+              <div className="dialogue-editor-script-pane">
+                <p>{copy.rawScriptHint}</p>
+                <textarea
+                  className="control-input dialogue-editor-script-textarea"
+                  value={draft.script}
+                  readOnly={draft.readOnly}
+                  spellCheck={false}
+                  onChange={(event) => workspace.updateDraft({ script: event.target.value })}
+                />
+                <button type="button" className="control-button" onClick={() => setPreviewOpen(true)}>
+                  <Eye className="dialogue-editor-action-icon" />
+                  {copy.previewScriptAction}
+                </button>
+              </div>
+            )}
           </div>
         </section>
 
-        <DialogueEditorSidebar workspace={workspace} selectedPage={selectedPage} warnings={warnings} />
+        <aside className="dialogue-editor-live-preview">
+          <header>
+            <div>
+              <strong>{copy.livePreviewTitle}</strong>
+              <span>{npcDisplayName}</span>
+            </div>
+            {draft.readOnly ? <span className="dialogue-editor-readonly-badge">{copy.readOnlyBadge}</span> : null}
+          </header>
+          <div className="dialogue-editor-live-preview-body">
+            {selectedPage ? (
+              <div className="dialogue-editor-live-bubble">
+                {workspace.portrait.url ? (
+                  <DialoguePortraitFrame
+                    portrait={workspace.portrait}
+                    frameIndex={getPortraitFrameIndex(previewPortrait ?? { kind: 'none' })}
+                    scale={2}
+                    className="dialogue-editor-live-portrait"
+                  />
+                ) : null}
+                <strong>{npcDisplayName}</strong>
+                <p>{previewText ? <DialogueScriptTokens script={previewText} /> : copy.textPlaceholder}</p>
+              </div>
+            ) : (
+              <div className="dialogue-editor-live-empty">
+                <Play className="h-6 w-6" />
+                <span>{copy.livePreviewEmpty}</span>
+              </div>
+            )}
+          </div>
+          <div className="dialogue-editor-live-data">
+            <strong>{copy.previewDataTitle}</strong>
+            <dl>
+              <div>
+                <dt>{copy.previewNpcLabel}</dt>
+                <dd>{draft.npcId}</dd>
+              </div>
+              <div>
+                <dt>{copy.previewKeyLabel}</dt>
+                <dd>{draftKey || '—'}</dd>
+              </div>
+              <div>
+                <dt>{copy.previewPagesLabel}</dt>
+                <dd>{draftAst.pages.length}</dd>
+              </div>
+              <div>
+                <dt>{copy.previewWarningsLabel}</dt>
+                <dd>{warnings.length}</dd>
+              </div>
+            </dl>
+          </div>
+        </aside>
       </div>
 
       <DialogueScriptPreviewDialog

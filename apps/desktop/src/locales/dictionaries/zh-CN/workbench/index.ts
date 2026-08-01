@@ -1,7 +1,7 @@
 import type { EditorCopy } from '../../../model/workbench'
 import launcher from '../launcher'
 import shell from './shell'
-import viewportLabels, { buildAssetDialog, mapPanel } from './map'
+import viewportLabels, { buildAssetDialog, mapAuthoring, mapPanel } from './map'
 import studioDesk from './studio-desk'
 import eventStage from './event-stage'
 import charactersPanel from './characters'
@@ -19,6 +19,8 @@ import scheduleEditor from './schedule'
 import mailEditor from './mail'
 import gameDebugger from './debugger'
 import { authoringShell } from './authoring-shell'
+import assetLibrary from './asset-library'
+import resourceBrowser from './resource-browser'
 
 const editor: EditorCopy = {
   ...shell,
@@ -26,6 +28,7 @@ const editor: EditorCopy = {
   viewportLabels,
   buildAssetDialog,
   mapPanel,
+  mapAuthoring,
   studioDesk,
   eventStage,
   charactersPanel,
@@ -43,6 +46,8 @@ const editor: EditorCopy = {
   mailEditor,
   gameDebugger,
   authoringShell,
+  assetLibrary,
+  resourceBrowser,
 }
 
 export default editor

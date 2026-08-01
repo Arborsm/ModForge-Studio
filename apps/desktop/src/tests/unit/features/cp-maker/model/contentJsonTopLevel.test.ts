@@ -17,6 +17,7 @@ function draft(overrides: Partial<CpMakerDraft> = {}): CpMakerDraft {
     configSchema: [],
     patches: [],
     virtualAssets: [],
+    projectAssets: [],
     dynamicTokens: [],
     customLocations: [],
     aliasTokenNames: {},

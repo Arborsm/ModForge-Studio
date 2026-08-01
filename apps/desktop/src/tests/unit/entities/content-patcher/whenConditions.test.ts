@@ -6,7 +6,10 @@ import {
   parseWhenKey,
   parseWhenValueAlternatives,
   serializeWhenConditions,
+  toggleWhenValueAlternative,
 } from '@entities/content-patcher'
+
+const SEASON_DOMAIN = ['Spring', 'Summer', 'Fall', 'Winter'] as const
 
 describe('parseWhenKey', () => {
   test('parses bare token names', () => {
@@ -43,6 +46,39 @@ describe('parseWhenValueAlternatives', () => {
     expect(parseWhenValueAlternatives('spring, summer')).toEqual(['spring', 'summer'])
     expect(parseWhenValueAlternatives('rain')).toEqual(['rain'])
     expect(parseWhenValueAlternatives('')).toEqual([])
+  })
+})
+
+describe('toggleWhenValueAlternative', () => {
+  test('appends a new alternative', () => {
+    expect(toggleWhenValueAlternative('', 'Spring', SEASON_DOMAIN)).toBe('Spring')
+    expect(toggleWhenValueAlternative('Spring', 'Summer', SEASON_DOMAIN)).toBe('Spring, Summer')
+  })
+
+  test('removes an existing alternative, matching case-insensitively', () => {
+    expect(toggleWhenValueAlternative('Spring, Summer', 'spring', SEASON_DOMAIN)).toBe('Summer')
+    expect(toggleWhenValueAlternative('spring', 'Spring', SEASON_DOMAIN)).toBe('')
+  })
+
+  test('keeps domain values in domain order, then custom values in entry order', () => {
+    expect(toggleWhenValueAlternative('Winter', 'Spring', SEASON_DOMAIN)).toBe('Spring, Winter')
+    expect(toggleWhenValueAlternative('X, Summer', 'Y', SEASON_DOMAIN)).toBe('Summer, X, Y')
+    expect(toggleWhenValueAlternative('Summer, Winter', 'CustomB', SEASON_DOMAIN)).toBe('Summer, Winter, CustomB')
+  })
+
+  test('never produces duplicates, even with case variants in the source', () => {
+    expect(toggleWhenValueAlternative('spring, Spring, Summer', 'Fall', SEASON_DOMAIN)).toBe('spring, Summer, Fall')
+    expect(toggleWhenValueAlternative('Spring, Spring', 'Spring', SEASON_DOMAIN)).toBe('')
+  })
+
+  test('without a domain, appends custom values in entry order', () => {
+    expect(toggleWhenValueAlternative('', 'a')).toBe('a')
+    expect(toggleWhenValueAlternative('a', 'b')).toBe('a, b')
+    expect(toggleWhenValueAlternative('a', 'a')).toBe('')
+  })
+
+  test('ignores blank alternatives', () => {
+    expect(toggleWhenValueAlternative('Spring', '   ', SEASON_DOMAIN)).toBe('Spring')
   })
 })
 

@@ -58,6 +58,7 @@ function createDraft(patch: DraftPatch): CpMakerDraft {
     configSchema: [],
     patches: [patch],
     virtualAssets: [],
+    projectAssets: [],
     dynamicTokens: [],
     customLocations: [],
     aliasTokenNames: {},
@@ -145,6 +146,9 @@ export function DevEventPatchEditorMock() {
     isDirty: false,
     selectedEntryKey: null,
     onPatchAdd: () => undefined,
+    onPatchReorder: () => {},
+    onPatchDuplicate: () => {},
+    onPatchRemove: () => {},
     onSelectEntry: () => {},
   })
 

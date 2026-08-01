@@ -6,7 +6,8 @@ import { cx, formatCopyTemplate } from '@shared/lib/helper'
 import { useDialogueScriptFieldCopy } from '@locales/provider'
 import { DialogueScriptField, parseDialogueScript } from '@entities/dialogue'
 import type { UIControlType, OptionItem } from '../workflow-model/commandSchema'
-import { EventResourcePicker, type EventResourceKind, type EventResourceOption } from './EventResourcePicker'
+import { ResourcePicker } from '@features/resource-browser'
+import type { EventResourceKind, EventResourceOption } from './eventResourceRegistry'
 import type { EventResourceRegistry } from './eventResourceRegistry'
 
 export type ParamPillProps = {
@@ -399,7 +400,7 @@ export function ParamPill({
         ) : (
           <span className={cx('inline-flex items-center justify-center pl-1.5', iconSize)}>{renderIcon()}</span>
         )}
-        <EventResourcePicker
+        <ResourcePicker
           value={value}
           label={label}
           placeholder={placeholder ?? label}

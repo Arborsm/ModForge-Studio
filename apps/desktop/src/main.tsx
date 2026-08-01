@@ -4,6 +4,16 @@ async function bootstrap() {
   const [{ StrictMode }, { createRoot }] = await Promise.all([import('react'), import('react-dom/client')])
 
   if (import.meta.env.DEV) {
+    if (new URLSearchParams(window.location.search).has('mfMapAuthoringCompare')) {
+      const { DevMapAuthoringCompare } = await import('./dev/DevMapAuthoringCompare')
+      createRoot(document.getElementById('root')!).render(
+        <StrictMode>
+          <DevMapAuthoringCompare />
+        </StrictMode>,
+      )
+      return
+    }
+
     if (new URLSearchParams(window.location.search).has('mfPagePerfScenario')) {
       const { installDevLauncherMock } = await import('@platform/tauri/devLauncherMock')
       installDevLauncherMock()

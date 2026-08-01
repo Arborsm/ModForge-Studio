@@ -217,6 +217,7 @@ const shell: WorkbenchShellCopy = {
       'ai-localization': '本地化资源中心',
       'project-dashboard': '项目主页',
       'project-content': '项目内容',
+      'asset-library': '素材库',
       'project-settings': '项目设置',
       'map-authoring': '地图制作',
       'event-authoring': '事件制作',

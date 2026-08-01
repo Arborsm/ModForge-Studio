@@ -50,7 +50,7 @@ const TS_COLOR_LITERAL_ALLOWLIST = new Set([
   // TODO: migrate the following UI files to CSS theme tokens instead of hard-coded literals.
   'pages/workbench/workspaces/character/view/CharacterGiftTasteSection.tsx',
   'pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/CommandPalette.tsx',
-  'pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventResourcePicker.tsx',
+  'features/resource-browser/ui/ResourcePicker.tsx',
   'pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/ParamPill.tsx',
   'pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/eventResourceRegistry.ts',
   'pages/workbench/workspaces/item/view/ItemDetailPane.tsx',

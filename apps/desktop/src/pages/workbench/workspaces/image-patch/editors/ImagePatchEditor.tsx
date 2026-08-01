@@ -60,15 +60,15 @@ function regionToArea(region: SheetRegion): Area {
 }
 
 /**
- * EditImage/Load editor. Authors pick regions directly on the sheets: the left
+ * EditImage editor. Authors pick regions directly on the sheets: the left
  * stage is the uploaded replacement (FromArea), the right stage is the vanilla
  * target loaded from the game directory (ToArea). The numeric inputs remain as
- * the advanced escape for tokenized values.
+ * the advanced escape for tokenized values. Load patches are edited in the
+ * asset library and never route here.
  */
 export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources }) => {
   const { draft, updatePatch: onPatchChange, addVirtualAsset: onAddVirtualAsset, removeVirtualAsset: onRemoveVirtualAsset } = draftPort
   const copy = useEditorCopy().studioDesk.imagePatchEditor
-  const isLoad = patch.action === 'Load'
   const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
   const fromArea = (editorState['fromArea'] as Area | undefined) ?? null
   const toArea = (editorState['toArea'] as Area | undefined) ?? null
@@ -91,7 +91,7 @@ export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources 
   // Load the vanilla target sheet so ToArea can be picked visually.
   useEffect(() => {
     const targetPath = resources.gameRootPath !== null ? buildGameContentPath(resources.gameRootPath, patch.target) : null
-    if (isLoad || targetPath === null || patch.target.trim() === '') {
+    if (targetPath === null || patch.target.trim() === '') {
       setTargetImage(null)
       setTargetFailed(false)
       return
@@ -117,7 +117,7 @@ export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources 
     return () => {
       cancelled = true
     }
-  }, [isLoad, patch.target, resources.gameRootPath, resources.locale])
+  }, [patch.target, resources.gameRootPath, resources.locale])
 
   function updateEditorState(updates: Record<string, unknown>) {
     onPatchChange(patch.id, {
@@ -189,7 +189,6 @@ export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources 
       {/* Header */}
       <div className="flex items-center border-b border-(--border-color) px-3 py-2">
         <span className="text-xs font-medium text-(--text-primary)">{patch.target}</span>
-        <span className="ml-2 text-[10px] text-(--text-secondary)">({patch.action})</span>
       </div>
 
       <div className="flex min-h-0 flex-1">
@@ -200,7 +199,7 @@ export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources 
           {displayUrl ? (
             <div className="flex min-h-0 flex-1 flex-col gap-2">
               <div className="min-h-0 flex-1 overflow-auto">
-                {replacementSize !== null && !isLoad ? (
+                {replacementSize !== null ? (
                   <SheetRegionPicker
                     imageUrl={displayUrl}
                     imageWidth={replacementSize.width}
@@ -275,109 +274,100 @@ export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources 
         {/* Right: vanilla target + ToArea picking */}
         <div className="min-w-0 flex-1 overflow-auto p-3">
           <div className="space-y-4">
-            {isLoad ? (
-              <div className="rounded-lg border border-(--border-color) bg-(--bg-panel-muted) p-3">
-                <p className="text-xs font-medium text-(--text-primary)">{copy.loadAction}</p>
-                <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.loadDescription}</p>
-              </div>
-            ) : (
+            {/* Patch Mode */}
+            <div>
+              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
+                {copy.patchMode}
+              </label>
+              <select
+                className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
+                value={patchMode}
+                onChange={(e) => updateEditorState({ patchMode: e.target.value })}
+              >
+                <option value="Replace">{copy.modeLabels.Replace}</option>
+                <option value="Overlay">{copy.modeLabels.Overlay}</option>
+                <option value="Mask">{copy.modeLabels.Mask}</option>
+              </select>
+              <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.modeDescription}</p>
+            </div>
+
+            {/* Vanilla target with ToArea picking */}
+            <div>
+              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
+                {copy.toArea}
+              </label>
+              {targetImage !== null ? (
+                <SheetRegionPicker
+                  imageUrl={targetImage.url}
+                  imageWidth={targetImage.width}
+                  imageHeight={targetImage.height}
+                  value={areaToRegion(toArea)}
+                  onChange={(region) => updateEditorState({ toArea: regionToArea(region) })}
+                />
+              ) : (
+                <p className="rounded-md border border-(--border-color) bg-(--bg-panel-muted) px-3 py-2 text-[11px] text-(--text-secondary)">
+                  {targetFailed ? copy.targetLoadFailed : copy.targetLoading}
+                </p>
+              )}
+            </div>
+
+            {/* Manual coordinates stay available for tokenized values */}
+            <Disclosure title={copy.manualAreasTitle} subtitle={copy.manualAreasSubtitle}>
               <div className="space-y-4">
-                {/* Patch Mode */}
                 <div>
                   <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
-                    {copy.patchMode}
+                    {copy.fromArea}
                   </label>
-                  <select
-                    className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
-                    value={patchMode}
-                    onChange={(e) => updateEditorState({ patchMode: e.target.value })}
-                  >
-                    <option value="Replace">{copy.modeLabels.Replace}</option>
-                    <option value="Overlay">{copy.modeLabels.Overlay}</option>
-                    <option value="Mask">{copy.modeLabels.Mask}</option>
-                  </select>
-                  <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.modeDescription}</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(['x', 'y', 'width', 'height'] as const).map((field) => (
+                      <div key={field}>
+                        <span className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{field}</span>
+                        <input
+                          type="text"
+                          className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
+                          value={fromArea?.[field] ?? ''}
+                          placeholder="0"
+                          onChange={(e) => updateArea('fromArea', field, e.target.value)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.fromAreaDescription}</p>
                 </div>
 
-                {/* Vanilla target with ToArea picking */}
                 <div>
                   <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
                     {copy.toArea}
                   </label>
-                  {targetImage !== null ? (
-                    <SheetRegionPicker
-                      imageUrl={targetImage.url}
-                      imageWidth={targetImage.width}
-                      imageHeight={targetImage.height}
-                      value={areaToRegion(toArea)}
-                      onChange={(region) => updateEditorState({ toArea: regionToArea(region) })}
-                    />
-                  ) : (
-                    <p className="rounded-md border border-(--border-color) bg-(--bg-panel-muted) px-3 py-2 text-[11px] text-(--text-secondary)">
-                      {targetFailed ? copy.targetLoadFailed : copy.targetLoading}
-                    </p>
-                  )}
-                </div>
-
-                {/* Manual coordinates stay available for tokenized values */}
-                <Disclosure title={copy.manualAreasTitle} subtitle={copy.manualAreasSubtitle}>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
-                        {copy.fromArea}
-                      </label>
-                      <div className="grid grid-cols-4 gap-2">
-                        {(['x', 'y', 'width', 'height'] as const).map((field) => (
-                          <div key={field}>
-                            <span className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{field}</span>
-                            <input
-                              type="text"
-                              className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
-                              value={fromArea?.[field] ?? ''}
-                              placeholder="0"
-                              onChange={(e) => updateArea('fromArea', field, e.target.value)}
-                            />
-                          </div>
-                        ))}
+                  <div className="grid grid-cols-4 gap-2">
+                    {(['x', 'y', 'width', 'height'] as const).map((field) => (
+                      <div key={field}>
+                        <span className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{field}</span>
+                        <input
+                          type="text"
+                          className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
+                          value={toArea?.[field] ?? ''}
+                          placeholder="0"
+                          onChange={(e) => updateArea('toArea', field, e.target.value)}
+                        />
                       </div>
-                      <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.fromAreaDescription}</p>
-                    </div>
-
-                    <div>
-                      <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
-                        {copy.toArea}
-                      </label>
-                      <div className="grid grid-cols-4 gap-2">
-                        {(['x', 'y', 'width', 'height'] as const).map((field) => (
-                          <div key={field}>
-                            <span className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{field}</span>
-                            <input
-                              type="text"
-                              className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
-                              value={toArea?.[field] ?? ''}
-                              placeholder="0"
-                              onChange={(e) => updateArea('toArea', field, e.target.value)}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.toAreaDescription}</p>
-                    </div>
+                    ))}
                   </div>
-                </Disclosure>
+                  <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.toAreaDescription}</p>
+                </div>
               </div>
-            )}
-
-            {/* Quick Upload Button */}
-            <button
-              type="button"
-              className="control-button control-button-primary flex w-full items-center justify-center gap-1.5 text-xs"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="h-3.5 w-3.5" />
-              {displayUrl ? copy.replaceFile : copy.uploadFile}
-            </button>
+            </Disclosure>
           </div>
+
+          {/* Quick Upload Button */}
+          <button
+            type="button"
+            className="control-button control-button-primary flex w-full items-center justify-center gap-1.5 text-xs"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="h-3.5 w-3.5" />
+            {displayUrl ? copy.replaceFile : copy.uploadFile}
+          </button>
         </div>
       </div>
     </div>

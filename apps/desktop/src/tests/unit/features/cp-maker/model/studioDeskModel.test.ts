@@ -31,6 +31,7 @@ function draft(patches: DraftPatch[] = []): CpMakerDraft {
     configSchema: [],
     patches,
     virtualAssets: [],
+    projectAssets: [],
     dynamicTokens: [],
     customLocations: [],
     aliasTokenNames: {},

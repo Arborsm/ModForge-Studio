@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test'
 import type { MapAssetSummary } from '@entities/game/api'
-import type { MapDocument } from '@entities/map'
+import { getMapContentBounds, getMapPreviewBounds, hasVisibleMapContent, type MapDocument } from '@entities/map'
 import {
   buildMapWorkspaceTabs,
   getDefaultVisibleLayerIds,
@@ -223,6 +223,223 @@ describe('getDefaultVisibleObjectGroupIds', () => {
         }),
       ),
     ).toEqual([])
+  })
+})
+
+describe('getMapContentBounds', () => {
+  it('crops to visible non-empty tiles with tile padding', () => {
+    const gids = new Uint32Array(100)
+    gids[3 * 10 + 4] = 7
+    gids[4 * 10 + 5] = 8
+    const document = makeDoc({
+      layers: [
+        {
+          id: 1,
+          name: 'Back',
+          kind: 'tile',
+          width: 10,
+          height: 10,
+          visible: true,
+          opacity: 1,
+          offsetX: 0,
+          offsetY: 0,
+          properties: {},
+          gids,
+          nonEmptyTiles: 2,
+        },
+      ],
+      objectGroups: [],
+    })
+
+    expect(getMapContentBounds(document)).toEqual({ x: 48, y: 32, width: 64, height: 64 })
+  })
+
+  it('ignores hidden layers and falls back to the full map', () => {
+    const gids = new Uint32Array(100)
+    gids[3] = 7
+    const document = makeDoc({
+      layers: [
+        {
+          id: 1,
+          name: 'Hidden',
+          kind: 'tile',
+          width: 10,
+          height: 10,
+          visible: false,
+          opacity: 1,
+          offsetX: 0,
+          offsetY: 0,
+          properties: {},
+          gids,
+          nonEmptyTiles: 1,
+        },
+      ],
+      objectGroups: [],
+    })
+
+    expect(getMapContentBounds(document)).toEqual({ x: 0, y: 0, width: 160, height: 160 })
+    expect(hasVisibleMapContent(document)).toBe(false)
+    expect(hasVisibleMapContent(document, { includeHiddenLayers: true })).toBe(true)
+    expect(getMapContentBounds(document, { includeHiddenLayers: true, paddingTiles: 0 })).toEqual({
+      x: 48,
+      y: 0,
+      width: 16,
+      height: 16,
+    })
+  })
+
+  it('includes point objects when a map has no non-empty tiles', () => {
+    const document = makeDoc({
+      layers: [],
+      objectGroups: [
+        {
+          id: 1,
+          name: 'Objects',
+          kind: 'object',
+          visible: true,
+          opacity: 1,
+          drawOrder: 'top-down',
+          properties: {},
+          objects: [{ id: 1, name: 'Warp', type: 'Warp', x: 96, y: 80, width: 0, height: 0, rotation: 0, properties: {} }],
+        },
+      ],
+    })
+
+    expect(getMapContentBounds(document, { paddingTiles: 0 })).toEqual({ x: 88, y: 72, width: 16, height: 16 })
+  })
+
+  it('reports whether a map has visible thumbnail content', () => {
+    const emptyDocument = makeDoc({
+      layers: [
+        {
+          id: 1,
+          name: 'Back',
+          kind: 'tile',
+          width: 10,
+          height: 10,
+          visible: true,
+          opacity: 1,
+          offsetX: 0,
+          offsetY: 0,
+          properties: {},
+          gids: new Uint32Array(100),
+          nonEmptyTiles: 0,
+        },
+      ],
+      objectGroups: [],
+    })
+    const contentDocument = makeDoc({
+      layers: [
+        {
+          id: 1,
+          name: 'Back',
+          kind: 'tile',
+          width: 10,
+          height: 10,
+          visible: true,
+          opacity: 1,
+          offsetX: 0,
+          offsetY: 0,
+          properties: {},
+          gids: Uint32Array.from([1, ...Array.from({ length: 99 }, () => 0)]),
+          nonEmptyTiles: 1,
+        },
+      ],
+      objectGroups: [],
+    })
+
+    expect(hasVisibleMapContent(emptyDocument)).toBe(false)
+    expect(hasVisibleMapContent(contentDocument)).toBe(true)
+  })
+
+  it('expands narrow fragment bounds for catalog previews', () => {
+    const gids = new Uint32Array(100)
+    for (let y = 1; y <= 8; y += 1) {
+      gids[y * 10 + 5] = 7
+    }
+    const document = makeDoc({
+      layers: [
+        {
+          id: 1,
+          name: 'Back',
+          kind: 'tile',
+          width: 10,
+          height: 10,
+          visible: true,
+          opacity: 1,
+          offsetX: 0,
+          offsetY: 0,
+          properties: {},
+          gids,
+          nonEmptyTiles: 8,
+        },
+      ],
+      objectGroups: [],
+    })
+
+    const tight = getMapContentBounds(document, { paddingTiles: 0 })
+    const preview = getMapPreviewBounds(document, { paddingTiles: 0, minimumCoverageRatio: 0.5, targetAspectRatio: 4 / 3 })
+
+    expect(tight).toEqual({ x: 80, y: 16, width: 16, height: 128 })
+    expect(preview.width).toBeGreaterThan(80)
+    expect(preview.height).toBe(128)
+    expect(preview.x).toBeGreaterThan(0)
+  })
+
+  it('ignores transparent tile gids when reporting visible thumbnail content', () => {
+    const document = makeDoc({
+      layers: [
+        {
+          id: 1,
+          name: 'Back',
+          kind: 'tile',
+          width: 10,
+          height: 10,
+          visible: true,
+          opacity: 1,
+          offsetX: 0,
+          offsetY: 0,
+          properties: {},
+          gids: Uint32Array.from({ length: 100 }, () => 9),
+          nonEmptyTiles: 100,
+        },
+      ],
+      objectGroups: [],
+    })
+
+    expect(hasVisibleMapContent(document)).toBe(true)
+    expect(hasVisibleMapContent(document, { transparentTileGids: new Set([9]) })).toBe(false)
+  })
+
+  it('crops around visible tiles after transparent blocks are preprocessed', () => {
+    const gids = Uint32Array.from({ length: 100 }, () => 9)
+    gids[4 * 10 + 6] = 7
+    const document = makeDoc({
+      layers: [
+        {
+          id: 1,
+          name: 'Back',
+          kind: 'tile',
+          width: 10,
+          height: 10,
+          visible: true,
+          opacity: 1,
+          offsetX: 0,
+          offsetY: 0,
+          properties: {},
+          gids,
+          nonEmptyTiles: 100,
+        },
+      ],
+      objectGroups: [],
+    })
+
+    expect(getMapContentBounds(document, { paddingTiles: 0, transparentTileGids: new Set([9]) })).toEqual({
+      x: 96,
+      y: 64,
+      width: 16,
+      height: 16,
+    })
   })
 })
 

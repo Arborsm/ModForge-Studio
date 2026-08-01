@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from 'react'
-import { AlertTriangle, Copy, Plus } from 'lucide-react'
+import { AlertCircle, AlertTriangle, ArrowLeft, CheckCircle2, CircleDashed, Copy, Plus } from 'lucide-react'
+import { DraftUndoButtons } from '@features/cp-maker'
 import { useScheduleEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import {
@@ -10,15 +11,9 @@ import {
   type ScheduleSegment,
 } from '../entities/schedule'
 import type { ScheduleActiveEntry, ScheduleEditorMode, ScheduleLocationOption } from '../state/useScheduleWorkspace'
-import {
-  ScheduleFriendshipRow,
-  ScheduleGotoRow,
-  ScheduleMailRow,
-  SchedulePointColumnsHeader,
-  SchedulePointRow,
-  ScheduleRawRow,
-} from './ScheduleSegmentRows'
 import { ScheduleMapPanel } from './ScheduleMapPanel'
+import { ScheduleNodeInspector } from './ScheduleNodeInspector'
+import { ScheduleRouteGraph } from './ScheduleRouteGraph'
 
 type ScheduleEntryEditorProps = {
   active: ScheduleActiveEntry
@@ -33,6 +28,13 @@ type ScheduleEntryEditorProps = {
   /** Selected NPC, used to mark the current point with their sprite. */
   npcId: string | null
   vanillaReferenceScript: string | null
+  isDirty: boolean
+  saveState: 'idle' | 'saving' | 'saved' | 'error'
+  onBack: () => void
+  onSave: () => void
+  onRevert: () => void
+  onUndo: () => void
+  onRedo: () => void
   onSetMode: (mode: ScheduleEditorMode) => void
   onRenameEntry: (key: string) => 'empty' | 'conflict' | null
   onSetLabel: (label: string) => void
@@ -207,6 +209,13 @@ export function ScheduleEntryEditor({
   animationOptions,
   npcId,
   vanillaReferenceScript,
+  isDirty,
+  saveState,
+  onBack,
+  onSave,
+  onRevert,
+  onUndo,
+  onRedo,
   onSetMode,
   onRenameEntry,
   onSetLabel,
@@ -226,217 +235,292 @@ export function ScheduleEntryEditor({
   const animationListId = useId()
   const { summary, model, issues, readOnly } = active
   const segments = model.segments
-  const hasPointSegments = segments.some((segment) => segment.kind === 'point')
   const [selectedSegmentIndex, setSelectedSegmentIndex] = useState<number | null>(null)
+  const [activeTab, setActiveTab] = useState<'route' | 'settings' | 'script'>('route')
+
+  useEffect(() => {
+    if (selectedSegmentIndex !== null && segments[selectedSegmentIndex] !== undefined) return
+    const firstPointIndex = segments.findIndex((segment) => segment.kind === 'point')
+    setSelectedSegmentIndex(firstPointIndex >= 0 ? firstPointIndex : segments.length > 0 ? 0 : null)
+  }, [segments, selectedSegmentIndex])
 
   // Removing or reordering rows can leave the stored index pointing at a gone or
   // non-point segment, so the selection is re-validated against the live array
   // instead of being trusted.
   const selectedPointIndex = selectedSegmentIndex !== null && segments[selectedSegmentIndex]?.kind === 'point' ? selectedSegmentIndex : null
+  const pointCount = segments.filter((segment) => segment.kind === 'point').length
+  const commandCount = segments.length - pointCount
+  const tabStatuses: Record<'route' | 'settings' | 'script', 'complete' | 'attention' | 'optional'> = {
+    route: pointCount > 0 ? 'complete' : 'attention',
+    settings: summary.key.trim() && summary.enabled ? 'complete' : 'attention',
+    script: issues.length > 0 ? 'attention' : summary.script.trim() ? 'complete' : 'attention',
+  }
+  const saveStatusText =
+    saveState === 'saving'
+      ? copy.savingStatus
+      : saveState === 'saved'
+        ? copy.savedStatus
+        : saveState === 'error'
+          ? copy.saveFailedStatus
+          : null
 
   return (
     <div className="schedule-editor-content">
       <div className="schedule-editor-form-column">
-        <datalist id={locationListId}>
-          {locationOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </datalist>
-        <datalist id={gotoListId}>
-          {[...new Set([...entryKeys, ...SCHEDULE_GOTO_EXTRA_TARGETS])].map((target) => (
-            <option key={target} value={target} />
-          ))}
-        </datalist>
-        <datalist id={animationListId}>
-          {animationOptions.map((animation) => (
-            <option key={animation} value={animation} />
-          ))}
-        </datalist>
+        <nav className="schedule-editor-tabs" aria-label={copy.title}>
+          <button
+            type="button"
+            className="schedule-editor-tab-back"
+            title={copy.backToLibrary}
+            aria-label={copy.backToLibrary}
+            onClick={onBack}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+          </button>
+          {(['route', 'settings', 'script'] as const).map((tab) => {
+            const status = tabStatuses[tab]
+            const StatusIcon = status === 'complete' ? CheckCircle2 : status === 'attention' ? AlertCircle : CircleDashed
+            return (
+              <button
+                key={tab}
+                type="button"
+                className={cx('schedule-editor-tab', activeTab === tab && 'is-active', `is-${status}`)}
+                onClick={() => setActiveTab(tab)}
+              >
+                <StatusIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>{copy.editorTabs[tab]}</span>
+                <span className="sr-only">{copy.tabStatuses[status]}</span>
+              </button>
+            )
+          })}
+        </nav>
 
-        {readOnly ? (
-          <div className="schedule-editor-readonly-banner">
-            <span className="schedule-editor-badge">{copy.readOnlyBadge}</span>
-            <span className="schedule-editor-hint">{copy.readOnlyHint}</span>
-            <button type="button" className="control-button control-button-primary" onClick={onOverrideVanilla}>
-              <Copy className="h-3.5 w-3.5" />
-              <span>{copy.overrideVanillaAction}</span>
+        <div className="schedule-editor-workbar">
+          <div>
+            <strong>{summary.label || summary.key}</strong>
+            <span>
+              {npcId ?? ''} / {summary.key}
+            </span>
+          </div>
+          <div>
+            {isDirty ? <span className="schedule-editor-badge is-warn">{copy.dirtyBadge}</span> : null}
+            {saveStatusText ? (
+              <span className={cx('schedule-editor-save-status', saveState === 'error' && 'is-error')}>{saveStatusText}</span>
+            ) : null}
+            <DraftUndoButtons onUndo={onUndo} onRedo={onRedo} />
+            <button type="button" className="control-button" disabled={!isDirty} onClick={onRevert}>
+              {copy.revertAction}
+            </button>
+            <button
+              type="button"
+              className="control-button control-button-primary"
+              disabled={!isDirty || saveState === 'saving'}
+              onClick={onSave}
+            >
+              {copy.saveAction}
             </button>
           </div>
-        ) : null}
-
-        <div className="schedule-editor-form">
-          <EntryKeyField entryKey={summary.key} readOnly={readOnly} onRename={onRenameEntry} />
-          <label className="schedule-editor-form-field">
-            <span className="schedule-editor-field-label">{copy.labelLabel}</span>
-            <input
-              className="control-input"
-              value={summary.label ?? ''}
-              disabled={readOnly}
-              placeholder={copy.labelPlaceholder}
-              onChange={(event) => onSetLabel(event.target.value)}
-            />
-          </label>
-          <div className="schedule-editor-form-field">
-            <span className="schedule-editor-field-label">{copy.modeLabel}</span>
-            <ModeSwitch mode={mode} onSetMode={onSetMode} />
-          </div>
-          <label className="schedule-editor-checkbox">
-            <input type="checkbox" checked={summary.enabled} disabled={readOnly} onChange={(event) => onSetEnabled(event.target.checked)} />
-            <span>{copy.enabledLabel}</span>
-          </label>
         </div>
 
-        {mode === 'structured' ? (
-          <section className="schedule-editor-section">
-            <div className="schedule-editor-segment-table">
-              {hasPointSegments ? <SchedulePointColumnsHeader /> : null}
-              {segments.length === 0 ? <span className="schedule-editor-hint">{copy.noSegmentsHint}</span> : null}
-              {segments.map((segment, index) => {
-                const chrome = {
-                  canMoveUp: index > 0,
-                  canMoveDown: index < segments.length - 1,
-                  onMove: (offset: -1 | 1) => onMoveSegment(index, offset),
-                  onRemove: () => onRemoveSegment(index),
-                }
-                const isSelected = selectedSegmentIndex === index
-                switch (segment.kind) {
-                  case 'point':
-                    return (
-                      <div
-                        key={index}
-                        className={cx('schedule-editor-segment-row', isSelected && 'is-selected')}
-                        onClick={() => setSelectedSegmentIndex(index)}
-                      >
-                        <SchedulePointRow
-                          point={segment}
-                          locationOptions={locationOptions}
-                          locationCatalogReady={locationCatalogReady}
-                          locationListId={locationListId}
-                          animationListId={animationListId}
-                          onChange={(next) => onUpdateSegment(index, next)}
-                          {...chrome}
-                        />
-                      </div>
-                    )
-                  case 'goto':
-                    return (
-                      <ScheduleGotoRow
-                        key={index}
-                        segment={segment}
-                        gotoListId={gotoListId}
-                        onChange={(next) => onUpdateSegment(index, next)}
-                        {...chrome}
-                      />
-                    )
-                  case 'notFriendship':
-                    return (
-                      <ScheduleFriendshipRow key={index} segment={segment} onChange={(next) => onUpdateSegment(index, next)} {...chrome} />
-                    )
-                  case 'mail':
-                    return <ScheduleMailRow key={index} segment={segment} onChange={(next) => onUpdateSegment(index, next)} {...chrome} />
-                  case 'raw':
-                    return <ScheduleRawRow key={index} segment={segment} onChange={(next) => onUpdateSegment(index, next)} {...chrome} />
-                }
-              })}
+        <div className={cx('schedule-editor-tab-content', activeTab === 'route' && 'is-route')}>
+          <datalist id={locationListId}>
+            {locationOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </datalist>
+          <datalist id={gotoListId}>
+            {[...new Set([...entryKeys, ...SCHEDULE_GOTO_EXTRA_TARGETS])].map((target) => (
+              <option key={target} value={target} />
+            ))}
+          </datalist>
+          <datalist id={animationListId}>
+            {animationOptions.map((animation) => (
+              <option key={animation} value={animation} />
+            ))}
+          </datalist>
+
+          {activeTab === 'settings' ? (
+            <div className="schedule-editor-tab-pane">
+              {readOnly ? (
+                <div className="schedule-editor-readonly-banner">
+                  <span className="schedule-editor-badge">{copy.readOnlyBadge}</span>
+                  <span className="schedule-editor-hint">{copy.readOnlyHint}</span>
+                  <button type="button" className="control-button control-button-primary" onClick={onOverrideVanilla}>
+                    <Copy className="h-3.5 w-3.5" />
+                    <span>{copy.overrideVanillaAction}</span>
+                  </button>
+                </div>
+              ) : null}
+
+              <div className="schedule-editor-form">
+                <EntryKeyField entryKey={summary.key} readOnly={readOnly} onRename={onRenameEntry} />
+                <label className="schedule-editor-form-field">
+                  <span className="schedule-editor-field-label">{copy.labelLabel}</span>
+                  <input
+                    className="control-input"
+                    value={summary.label ?? ''}
+                    disabled={readOnly}
+                    placeholder={copy.labelPlaceholder}
+                    onChange={(event) => onSetLabel(event.target.value)}
+                  />
+                </label>
+                <label className="schedule-editor-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={summary.enabled}
+                    disabled={readOnly}
+                    onChange={(event) => onSetEnabled(event.target.checked)}
+                  />
+                  <span>{copy.enabledLabel}</span>
+                </label>
+              </div>
+
+              {canDelete ? (
+                <div className="schedule-editor-actions">
+                  <span className="schedule-editor-actions-spacer" />
+                  <button type="button" className={cx('control-button', deleteArmed && 'text-(--danger)')} onClick={onDelete}>
+                    <span>{deleteArmed ? copy.deleteConfirmAction : copy.deleteAction}</span>
+                  </button>
+                </div>
+              ) : null}
             </div>
-            <div className="schedule-editor-segment-toolbar">
-              <button type="button" className="control-button control-button-primary" disabled={readOnly} onClick={onAddTimePoint}>
-                <Plus className="h-3.5 w-3.5" />
-                <span>{copy.addTimePointAction}</span>
-              </button>
-              <button
-                type="button"
-                className="control-button"
-                disabled={readOnly}
-                onClick={() => onAppendSegment({ kind: 'goto', target: '' })}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>{copy.addGotoAction}</span>
-              </button>
-              <button
-                type="button"
-                className="control-button"
-                disabled={readOnly}
-                onClick={() => onAppendSegment({ kind: 'notFriendship', requirements: [{ npc: '', hearts: 6 }] })}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>{copy.addFriendshipAction}</span>
-              </button>
-              <button
-                type="button"
-                className="control-button"
-                disabled={readOnly}
-                onClick={() => onAppendSegment({ kind: 'mail', mailId: '' })}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>{copy.addMailAction}</span>
-              </button>
+          ) : null}
+
+          {activeTab === 'route' ? (
+            <section className="schedule-route-workspace">
+              <div className="schedule-route-map">
+                <ScheduleMapPanel
+                  segments={segments}
+                  locationOptions={locationOptions}
+                  selectedIndex={selectedPointIndex}
+                  npcId={npcId}
+                  readOnly={readOnly}
+                  onPickTile={(location, tileX, tileY) => {
+                    if (readOnly) return
+                    const resolved = resolveScheduleTilePick(segments, selectedPointIndex, location, tileX, tileY)
+                    if (resolved) onUpdateSegment(resolved.segmentIndex, resolved.segment)
+                  }}
+                />
+              </div>
+              <div className="schedule-route-graph-pane">
+                <header>
+                  <strong>{copy.routePreviewTitle}</strong>
+                  <span className="schedule-route-metrics">
+                    <span>
+                      {copy.previewPointsLabel}: {pointCount}
+                    </span>
+                    <span>
+                      {copy.previewCommandsLabel}: {commandCount}
+                    </span>
+                    <span>
+                      {copy.previewIssuesLabel}: {issues.length}
+                    </span>
+                  </span>
+                </header>
+                <ScheduleRouteGraph segments={segments} selectedIndex={selectedSegmentIndex} onSelect={setSelectedSegmentIndex} />
+              </div>
+              <ScheduleNodeInspector
+                segment={selectedSegmentIndex === null ? null : (segments[selectedSegmentIndex] ?? null)}
+                segmentIndex={selectedSegmentIndex}
+                segmentCount={segments.length}
+                locationOptions={locationOptions}
+                locationCatalogReady={locationCatalogReady}
+                locationListId={locationListId}
+                gotoListId={gotoListId}
+                animationListId={animationListId}
+                readOnly={readOnly}
+                onChange={(segment) => {
+                  if (selectedSegmentIndex !== null) onUpdateSegment(selectedSegmentIndex, segment)
+                }}
+                onMove={(offset) => {
+                  if (selectedSegmentIndex === null) return
+                  const nextIndex = selectedSegmentIndex + offset
+                  onMoveSegment(selectedSegmentIndex, offset)
+                  setSelectedSegmentIndex(nextIndex)
+                }}
+                onRemove={() => {
+                  if (selectedSegmentIndex === null) return
+                  onRemoveSegment(selectedSegmentIndex)
+                  setSelectedSegmentIndex(null)
+                }}
+              />
+              <div className="schedule-editor-segment-toolbar schedule-route-toolbar">
+                <button type="button" className="control-button control-button-primary" disabled={readOnly} onClick={onAddTimePoint}>
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>{copy.addTimePointAction}</span>
+                </button>
+                <button
+                  type="button"
+                  className="control-button"
+                  disabled={readOnly}
+                  onClick={() => onAppendSegment({ kind: 'goto', target: '' })}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>{copy.addGotoAction}</span>
+                </button>
+                <button
+                  type="button"
+                  className="control-button"
+                  disabled={readOnly}
+                  onClick={() => onAppendSegment({ kind: 'notFriendship', requirements: [{ npc: '', hearts: 6 }] })}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>{copy.addFriendshipAction}</span>
+                </button>
+                <button
+                  type="button"
+                  className="control-button"
+                  disabled={readOnly}
+                  onClick={() => onAppendSegment({ kind: 'mail', mailId: '' })}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>{copy.addMailAction}</span>
+                </button>
+              </div>
+            </section>
+          ) : null}
+
+          {activeTab === 'script' ? (
+            <div className="schedule-editor-tab-pane">
+              <div className="schedule-editor-form-field">
+                <span className="schedule-editor-field-label">{copy.modeLabel}</span>
+                <ModeSwitch mode={mode} onSetMode={onSetMode} />
+              </div>
+              <section className="schedule-editor-section">
+                <textarea
+                  className="control-input schedule-editor-raw-textarea"
+                  value={summary.script}
+                  disabled={readOnly}
+                  placeholder={copy.rawTextareaPlaceholder}
+                  spellCheck={false}
+                  onChange={(event) => onSetRawScript(event.target.value)}
+                />
+              </section>
+
+              <ScheduleIssueList issues={issues} />
+
+              <section className="schedule-editor-script-panel">
+                <div className="schedule-editor-section-title">
+                  <span>{copy.rawScriptTitle}</span>
+                  <span className="schedule-editor-section-hint">{copy.rawScriptHint}</span>
+                </div>
+                <pre className="schedule-editor-script-pre">{summary.script}</pre>
+              </section>
+
+              {vanillaReferenceScript != null ? (
+                <section className="schedule-editor-script-panel">
+                  <div className="schedule-editor-section-title">
+                    <span>{copy.vanillaReferenceTitle}</span>
+                  </div>
+                  <pre className="schedule-editor-script-pre">{vanillaReferenceScript}</pre>
+                </section>
+              ) : null}
             </div>
-          </section>
-        ) : (
-          <section className="schedule-editor-section">
-            <textarea
-              className="control-input schedule-editor-raw-textarea"
-              value={summary.script}
-              disabled={readOnly}
-              placeholder={copy.rawTextareaPlaceholder}
-              spellCheck={false}
-              onChange={(event) => onSetRawScript(event.target.value)}
-            />
-          </section>
-        )}
-
-        <ScheduleIssueList issues={issues} />
-
-        <section className="schedule-editor-script-panel">
-          <div className="schedule-editor-section-title">
-            <span>{copy.rawScriptTitle}</span>
-            <span className="schedule-editor-section-hint">{copy.rawScriptHint}</span>
-          </div>
-          <pre className="schedule-editor-script-pre">{summary.script}</pre>
-        </section>
-
-        {vanillaReferenceScript != null ? (
-          <section className="schedule-editor-script-panel">
-            <div className="schedule-editor-section-title">
-              <span>{copy.vanillaReferenceTitle}</span>
-            </div>
-            <pre className="schedule-editor-script-pre">{vanillaReferenceScript}</pre>
-          </section>
-        ) : null}
-
-        {canDelete ? (
-          <div className="schedule-editor-actions">
-            <span className="schedule-editor-actions-spacer" />
-            <button type="button" className={cx('control-button', deleteArmed && 'text-(--danger)')} onClick={onDelete}>
-              <span>{deleteArmed ? copy.deleteConfirmAction : copy.deleteAction}</span>
-            </button>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
-
-      {mode === 'structured' ? (
-        <div className="schedule-editor-map-container">
-          <ScheduleMapPanel
-            segments={segments}
-            locationOptions={locationOptions}
-            selectedIndex={selectedPointIndex}
-            npcId={npcId}
-            readOnly={readOnly}
-            onPickTile={(location, tileX, tileY) => {
-              if (readOnly) {
-                return
-              }
-              const resolved = resolveScheduleTilePick(segments, selectedPointIndex, location, tileX, tileY)
-              if (resolved) {
-                onUpdateSegment(resolved.segmentIndex, resolved.segment)
-              }
-            }}
-          />
-        </div>
-      ) : null}
     </div>
   )
 }

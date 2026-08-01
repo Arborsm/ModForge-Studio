@@ -12,7 +12,9 @@ import {
   type PointerEvent,
 } from 'react'
 import { getObjectInteractionTag } from '@entities/map'
+import { createMapTileRect, type MapTileRect } from '../model/tileSelection'
 import { resolveTilesetImagePath } from '../lib/assets'
+import { getMapContentBounds, getMapPreviewBounds, type MapContentBounds } from '../lib/mapContentBounds'
 import type { LocaleCode, ThemeMode } from '@locales/api'
 import { useEditorCopy } from '@locales/provider'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
@@ -32,6 +34,8 @@ import {
   getGroupColor,
   getObjectBounds,
   getObjectDisplayLabel,
+  getRasterAlphaBounds,
+  getTransparentTileGids,
   isForegroundTileLayer,
   loadImage,
   rasterizeTileLayers,
@@ -60,14 +64,38 @@ type MapViewportProps = {
   showStatsChips?: boolean
   mapOverlay?: ReactNode
   scaleMapOverlayWithViewport?: boolean
+  mapOverlayLayer?: 'between' | 'top'
   viewportOverlay?: ReactNode
   focusWorldPoint?: ViewportWorldPoint | null
   contextMenuEnabled?: boolean
-  contextMenuExtraItems?: ReactNode
+  /** Adds editor-specific commands using the tile under the context-menu pointer. */
+  contextMenuExtraItems?: ReactNode | ((hover: TileHoverInfo | null) => ReactNode)
   onExportPng?: () => void
   onAddObjectHere?: (tileX: number, tileY: number) => void
   onTileClick?: (tileX: number, tileY: number) => void
+  /** Enables a left-button tile stroke and commits its unique points on pointerup. */
+  onTileStroke?: (points: readonly { tileX: number; tileY: number }[]) => void
+  /** Persisted tile rectangle drawn over the map when no drag is active. */
+  selectedTileRect?: MapTileRect | null
+  /** Enables left-button rectangle selection and receives the committed tile bounds. */
+  onTileRectSelect?: (rect: MapTileRect) => void
   initialZoom?: number | null
+  includeHiddenLayers?: boolean
+  fitContentBounds?: boolean
+  fitContentOptions?: {
+    mode?: 'content' | 'preview'
+    includeObjects?: boolean
+    paddingTiles?: number
+    minimumCoverageRatio?: number
+    targetAspectRatio?: number
+    ignoreTransparentTiles?: boolean
+    includeHiddenLayers?: boolean
+  }
+  fitBounds?: MapContentBounds | null
+  fitPadding?: number
+  maxFitZoom?: number | null
+  minimumFitViewportSize?: number
+  viewportOverpan?: number
 }
 
 type TilesetImageState = {
@@ -105,6 +133,20 @@ type LeftPressState = {
   button: number
 }
 
+type TileRectDragState = {
+  pointerId: number
+  startTileX: number
+  startTileY: number
+  currentTileX: number
+  currentTileY: number
+}
+
+type TileStrokeDragState = {
+  pointerId: number
+  points: TilePoint[]
+  keys: Set<string>
+}
+
 type TilePoint = {
   tileX: number
   tileY: number
@@ -119,6 +161,34 @@ type ZoomAnchor = {
   viewportY: number
   worldX: number
   worldY: number
+}
+
+function sameContentBounds(left: MapContentBounds | null | undefined, right: MapContentBounds | null | undefined) {
+  return (
+    left === right ||
+    (left != null &&
+      right != null &&
+      left.x === right.x &&
+      left.y === right.y &&
+      left.width === right.width &&
+      left.height === right.height)
+  )
+}
+
+function includeContentBounds(current: MapContentBounds | null, next: MapContentBounds | null) {
+  if (!next) {
+    return current
+  }
+
+  if (!current) {
+    return next
+  }
+
+  const left = Math.min(current.x, next.x)
+  const top = Math.min(current.y, next.y)
+  const right = Math.max(current.x + current.width, next.x + next.width)
+  const bottom = Math.max(current.y + current.height, next.y + next.height)
+  return { x: left, y: top, width: right - left, height: bottom - top }
 }
 
 export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(function MapViewport(
@@ -136,6 +206,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     showStatsChips = true,
     mapOverlay,
     scaleMapOverlayWithViewport = false,
+    mapOverlayLayer = 'between',
     viewportOverlay,
     focusWorldPoint,
     contextMenuEnabled = true,
@@ -143,13 +214,34 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     onExportPng,
     onAddObjectHere,
     onTileClick,
+    onTileStroke,
+    selectedTileRect = null,
+    onTileRectSelect,
     initialZoom = null,
+    includeHiddenLayers = false,
+    fitContentBounds = false,
+    fitContentOptions = {},
+    fitBounds: fitBoundsOverride = null,
+    fitPadding = VIEWPORT_PADDING,
+    maxFitZoom = null,
+    minimumFitViewportSize = 96,
+    viewportOverpan = VIEWPORT_OVERPAN,
   },
   ref,
 ) {
   const labels = useEditorCopy().viewportLabels
   const initialDefaultViewportState = useMemo(() => getDefaultViewportState(mapDocument), [mapDocument])
   const resolvedInitialZoom = clampZoom(initialZoom ?? initialDefaultViewportState?.zoom ?? 1)
+  const defaultFocusWorldPoint = useMemo(
+    () =>
+      !fitContentBounds && initialDefaultViewportState
+        ? {
+            worldX: initialDefaultViewportState.worldX,
+            worldY: initialDefaultViewportState.worldY,
+          }
+        : null,
+    [fitContentBounds, initialDefaultViewportState],
+  )
   const frameRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const foregroundCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -160,15 +252,11 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const dragStateRef = useRef<DragState | null>(null)
   const leftPressStateRef = useRef<LeftPressState | null>(null)
+  const [tileRectDrag, setTileRectDrag] = useState<TileRectDragState | null>(null)
+  const tileRectDragRef = useRef<TileRectDragState | null>(null)
+  const tileStrokeDragRef = useRef<TileStrokeDragState | null>(null)
   const pendingZoomAnchorRef = useRef<ZoomAnchor | null>(null)
-  const pendingFocusWorldPointRef = useRef<FocusWorldPoint | null>(
-    initialDefaultViewportState
-      ? {
-          worldX: initialDefaultViewportState.worldX,
-          worldY: initialDefaultViewportState.worldY,
-        }
-      : null,
-  )
+  const pendingFocusWorldPointRef = useRef<FocusWorldPoint | null>(defaultFocusWorldPoint)
   const wheelZoomFrameRef = useRef<number | null>(null)
   const pendingWheelDeltaRef = useRef(0)
   const zoomRef = useRef(1)
@@ -179,13 +267,33 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     loading: false,
   })
   const [manualZoom, setManualZoom] = useState(() => resolvedInitialZoom)
-  const [zoomMode, setZoomMode] = useState<'fit' | 'manual'>(() => (initialZoom != null || initialDefaultViewportState ? 'manual' : 'fit'))
+  const [zoomMode, setZoomMode] = useState<'fit' | 'manual'>(() =>
+    fitContentBounds ? 'fit' : initialZoom != null || initialDefaultViewportState ? 'manual' : 'fit',
+  )
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
   const [viewportScroll, setViewportScroll] = useState({ left: 0, top: 0 })
   const [refreshToken, setRefreshToken] = useState(0)
+  const [renderedContentBounds, setRenderedContentBounds] = useState<MapContentBounds | null | undefined>(undefined)
   const [highlightedObjectTarget, setHighlightedObjectTarget] = useState<FocusedMapObjectTarget | null>(null)
   const [hoveredTile, setHoveredTile] = useState<TilePoint | null>(null)
   const [pickFlash, setPickFlash] = useState<PickFlashState | null>(null)
+  const tilesetLoadKey = mapDocument
+    ? JSON.stringify({
+        sourcePath: mapDocument.sourcePath,
+        tilesets: mapDocument.tilesets.map((tileset) => ({
+          firstGid: tileset.firstGid,
+          imagePath: tileset.imagePath,
+          imageSource: tileset.imageSource,
+          tileWidth: tileset.tileWidth,
+          tileHeight: tileset.tileHeight,
+          tileCount: tileset.tileCount,
+          columns: tileset.columns,
+          imageWidth: tileset.imageWidth,
+          imageHeight: tileset.imageHeight,
+        })),
+      })
+    : null
+  const tilesetLoadDocument = useMemo(() => mapDocument, [tilesetLoadKey])
 
   useLayoutEffect(() => {
     const frame = frameRef.current
@@ -210,19 +318,19 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   }, [])
 
   useEffect(() => {
-    if (!mapDocument) {
+    if (!tilesetLoadDocument) {
       return
     }
 
     let disposed = false
 
-    setTilesetImageState((current) => ({ ...current, sourcePath: mapDocument.sourcePath, loading: true }))
+    setTilesetImageState((current) => ({ ...current, sourcePath: tilesetLoadDocument.sourcePath, loading: true }))
 
     void (async () => {
       try {
         const results = await Promise.allSettled(
-          mapDocument.tilesets.map(async (tileset) => {
-            const imagePath = resolveTilesetImagePath(mapDocument, tileset)
+          tilesetLoadDocument.tilesets.map(async (tileset) => {
+            const imagePath = resolveTilesetImagePath(tilesetLoadDocument, tileset)
             if (!imagePath) {
               return null
             }
@@ -249,7 +357,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
         }
 
         setTilesetImageState({
-          sourcePath: mapDocument.sourcePath,
+          sourcePath: tilesetLoadDocument.sourcePath,
           items: Object.fromEntries(entries),
           error: errors.length > 0 ? errors.join('\n') : null,
           loading: false,
@@ -257,7 +365,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       } catch (error) {
         if (!disposed) {
           setTilesetImageState({
-            sourcePath: mapDocument.sourcePath,
+            sourcePath: tilesetLoadDocument.sourcePath,
             items: {},
             error: error instanceof Error ? error.message : String(error),
             loading: false,
@@ -269,11 +377,15 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     return () => {
       disposed = true
     }
-  }, [labels.failedToLoadTilesetImage, locale, mapDocument])
+  }, [labels.failedToLoadTilesetImage, locale, tilesetLoadDocument])
 
   const tilesetImages = useMemo(
     () => (mapDocument && tilesetImageState.sourcePath === mapDocument.sourcePath ? tilesetImageState.items : {}),
     [mapDocument, tilesetImageState],
+  )
+  const sortedTilesets = useMemo(
+    () => (mapDocument ? [...mapDocument.tilesets].sort((left, right) => left.firstGid - right.firstGid) : []),
+    [mapDocument],
   )
   const imageError = useMemo(
     () => (mapDocument && tilesetImageState.sourcePath === mapDocument.sourcePath ? tilesetImageState.error : null),
@@ -286,8 +398,9 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   const visibleLayerIdSet = useMemo(() => new Set(visibleLayerIds), [visibleLayerIds])
   const visibleObjectGroupIdSet = useMemo(() => new Set(visibleObjectGroupIds), [visibleObjectGroupIds])
   const visibleLayers = useMemo(
-    () => (mapDocument ? mapDocument.layers.filter((layer) => layer.visible && visibleLayerIdSet.has(layer.id)) : []),
-    [mapDocument, visibleLayerIdSet],
+    () =>
+      mapDocument ? mapDocument.layers.filter((layer) => (includeHiddenLayers || layer.visible) && visibleLayerIdSet.has(layer.id)) : [],
+    [includeHiddenLayers, mapDocument, visibleLayerIdSet],
   )
   const shouldSplitForegroundLayers = Boolean(mapOverlay)
   const backgroundLayers = useMemo(
@@ -302,6 +415,53 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     () => (mapDocument ? mapDocument.objectGroups.filter((group) => group.visible && visibleObjectGroupIdSet.has(group.id)) : []),
     [mapDocument, visibleObjectGroupIdSet],
   )
+  const transparentTileGids = useMemo(
+    () => (fitContentBounds && fitContentOptions.ignoreTransparentTiles ? getTransparentTileGids(sortedTilesets, tilesetImages) : null),
+    [fitContentBounds, fitContentOptions.ignoreTransparentTiles, sortedTilesets, tilesetImages],
+  )
+  const fitBounds = useMemo(() => {
+    if (fitBoundsOverride) {
+      return fitBoundsOverride
+    }
+    if (!fitContentBounds || !mapDocument) {
+      return null
+    }
+
+    const options = {
+      layerIds: visibleLayerIds,
+      objectGroupIds: visibleObjectGroupIds,
+      includeObjects: fitContentOptions.includeObjects,
+      includeHiddenLayers: fitContentOptions.includeHiddenLayers,
+      paddingTiles: fitContentOptions.paddingTiles ?? 1,
+      transparentTileGids: transparentTileGids ?? undefined,
+    }
+
+    if (renderedContentBounds !== undefined) {
+      return renderedContentBounds
+    }
+
+    return fitContentOptions.mode === 'preview'
+      ? getMapPreviewBounds(mapDocument, {
+          ...options,
+          minimumCoverageRatio: fitContentOptions.minimumCoverageRatio,
+          targetAspectRatio: fitContentOptions.targetAspectRatio,
+        })
+      : getMapContentBounds(mapDocument, options)
+  }, [
+    fitBoundsOverride,
+    fitContentBounds,
+    fitContentOptions.includeObjects,
+    fitContentOptions.includeHiddenLayers,
+    fitContentOptions.minimumCoverageRatio,
+    fitContentOptions.mode,
+    fitContentOptions.paddingTiles,
+    fitContentOptions.targetAspectRatio,
+    mapDocument,
+    renderedContentBounds,
+    transparentTileGids,
+    visibleLayerIds,
+    visibleObjectGroupIds,
+  ])
   const atlasPlacements = useMemo(() => mapDocument?.atlas?.placements ?? [], [mapDocument])
   const atlasWarpRoutes = useMemo(() => mapDocument?.atlas?.warpRoutes ?? [], [mapDocument])
   const atlasPortals = useMemo(() => mapDocument?.atlas?.portals ?? [], [mapDocument])
@@ -367,14 +527,29 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       return 1
     }
 
-    const mapWidth = document.width * document.tileWidth
-    const mapHeight = document.height * document.tileHeight
-    const availableWidth = Math.max(96, viewportSize.width - VIEWPORT_PADDING * 2)
-    const availableHeight = Math.max(96, viewportSize.height - VIEWPORT_PADDING * 2)
-    return clampZoom(Math.min(availableWidth / mapWidth, availableHeight / mapHeight))
+    const mapWidth = fitBounds?.width ?? document.width * document.tileWidth
+    const mapHeight = fitBounds?.height ?? document.height * document.tileHeight
+    const availableWidth = Math.max(minimumFitViewportSize, viewportSize.width - fitPadding * 2)
+    const availableHeight = Math.max(minimumFitViewportSize, viewportSize.height - fitPadding * 2)
+    const nextZoom = Math.min(availableWidth / mapWidth, availableHeight / mapHeight)
+    return clampZoom(maxFitZoom === null ? nextZoom : Math.min(nextZoom, maxFitZoom))
   }
 
   const zoom = mapDocument && zoomMode === 'fit' ? getFitZoom(mapDocument) : manualZoom
+  const directFitDisplayRect = useMemo(() => {
+    if (!fitContentBounds || zoomMode !== 'fit' || !fitBounds || !viewportSize.width || !viewportSize.height) {
+      return null
+    }
+
+    const width = fitBounds.width * zoom
+    const height = fitBounds.height * zoom
+    return {
+      left: (viewportSize.width - width) / 2,
+      top: (viewportSize.height - height) / 2,
+      width,
+      height,
+    }
+  }, [fitBounds, fitContentBounds, viewportSize.height, viewportSize.width, zoom, zoomMode])
   const canvasLogicalSize = useMemo(
     () =>
       mapDocument
@@ -385,20 +560,51 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
         : { width: 0, height: 0 },
     [mapDocument, zoom],
   )
-  const stageSize = useMemo(
-    () => ({
-      width: Math.max(viewportSize.width + VIEWPORT_OVERPAN * 2, canvasLogicalSize.width + VIEWPORT_PADDING * 2),
-      height: Math.max(viewportSize.height + VIEWPORT_OVERPAN * 2, canvasLogicalSize.height + VIEWPORT_PADDING * 2),
-    }),
-    [canvasLogicalSize.height, canvasLogicalSize.width, viewportSize.height, viewportSize.width],
-  )
-  const canvasOffset = useMemo(
-    () => ({
+  const stageSize = useMemo(() => {
+    if (zoomMode === 'fit' && fitBounds) {
+      return {
+        width: Math.max(1, viewportSize.width + viewportOverpan * 2),
+        height: Math.max(1, viewportSize.height + viewportOverpan * 2),
+      }
+    }
+
+    return {
+      width: Math.max(viewportSize.width + viewportOverpan * 2, canvasLogicalSize.width + fitPadding * 2),
+      height: Math.max(viewportSize.height + viewportOverpan * 2, canvasLogicalSize.height + fitPadding * 2),
+    }
+  }, [
+    canvasLogicalSize.height,
+    canvasLogicalSize.width,
+    fitBounds,
+    fitPadding,
+    viewportOverpan,
+    viewportSize.height,
+    viewportSize.width,
+    zoomMode,
+  ])
+  const canvasOffset = useMemo(() => {
+    if (zoomMode === 'fit' && fitBounds && viewportSize.width > 0 && viewportSize.height > 0) {
+      return {
+        left: viewportSize.width / 2 - (fitBounds.x + fitBounds.width / 2) * zoom,
+        top: viewportSize.height / 2 - (fitBounds.y + fitBounds.height / 2) * zoom,
+      }
+    }
+
+    return {
       left: (stageSize.width - canvasLogicalSize.width) / 2,
       top: (stageSize.height - canvasLogicalSize.height) / 2,
-    }),
-    [canvasLogicalSize.height, canvasLogicalSize.width, stageSize.height, stageSize.width],
-  )
+    }
+  }, [
+    canvasLogicalSize.height,
+    canvasLogicalSize.width,
+    fitBounds,
+    stageSize.height,
+    stageSize.width,
+    viewportSize.height,
+    viewportSize.width,
+    zoom,
+    zoomMode,
+  ])
   const viewportCanvasRect = useMemo(
     () =>
       mapDocument
@@ -432,8 +638,16 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     }),
     [canvasOffset.left, canvasOffset.top, viewportScroll.left, viewportScroll.top],
   )
-  const tileInteractionEnabled = Boolean(onTileClick)
+  const tileInteractionEnabled = Boolean(onTileClick || onTileRectSelect || onTileStroke)
   const viewportCursorClass = tileInteractionEnabled ? 'cursor-crosshair' : 'cursor-default'
+  const activeTileRect =
+    tileRectDrag && mapDocument
+      ? createMapTileRect(
+          { x: tileRectDrag.startTileX, y: tileRectDrag.startTileY },
+          { x: tileRectDrag.currentTileX, y: tileRectDrag.currentTileY },
+          mapDocument,
+        )
+      : selectedTileRect
 
   useEffect(() => {
     if (!pickFlash) {
@@ -451,12 +665,23 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     zoomRef.current = zoom
   }, [zoom])
 
+  useLayoutEffect(() => {
+    if (!fitContentBounds) {
+      return
+    }
+
+    pendingZoomAnchorRef.current = null
+    pendingFocusWorldPointRef.current = null
+    setZoomMode((current) => (current === 'fit' ? current : 'fit'))
+  }, [fitContentBounds, mapDocument?.sourcePath])
+
   useEffect(() => {
     lastHoverRef.current = null
     leftPressStateRef.current = null
     dragStateRef.current = null
     setHoveredTile(null)
     setPickFlash(null)
+    setRenderedContentBounds(undefined)
   }, [mapDocument?.sourcePath])
 
   useEffect(() => {
@@ -495,7 +720,6 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       return
     }
 
-    const sortedTilesets = [...mapDocument.tilesets].sort((left, right) => left.firstGid - right.firstGid)
     const backgroundRasterCanvas = mapRasterCanvasRef.current ?? document.createElement('canvas')
     const foregroundRasterCanvas = foregroundRasterCanvasRef.current ?? document.createElement('canvas')
     mapRasterCanvasRef.current = backgroundRasterCanvas
@@ -503,7 +727,21 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
 
     rasterizeTileLayers(backgroundRasterCanvas, mapDocument, backgroundLayers, sortedTilesets, tilesetImages)
     rasterizeTileLayers(foregroundRasterCanvas, mapDocument, foregroundLayers, sortedTilesets, tilesetImages)
-  }, [backgroundLayers, foregroundLayers, mapDocument, tilesetImages])
+
+    const nextRenderedContentBounds =
+      fitContentBounds && fitContentOptions.ignoreTransparentTiles
+        ? includeContentBounds(getRasterAlphaBounds(backgroundRasterCanvas), getRasterAlphaBounds(foregroundRasterCanvas))
+        : undefined
+    setRenderedContentBounds((current) => (sameContentBounds(current, nextRenderedContentBounds) ? current : nextRenderedContentBounds))
+  }, [
+    backgroundLayers,
+    fitContentBounds,
+    fitContentOptions.ignoreTransparentTiles,
+    foregroundLayers,
+    mapDocument,
+    sortedTilesets,
+    tilesetImages,
+  ])
 
   useEffect(() => {
     onZoomChange?.(zoom, zoomMode)
@@ -567,13 +805,8 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
           worldX: focusWorldPoint.worldX,
           worldY: focusWorldPoint.worldY,
         }
-      : initialDefaultViewportState
-        ? {
-            worldX: initialDefaultViewportState.worldX,
-            worldY: initialDefaultViewportState.worldY,
-          }
-        : null
-  }, [focusWorldPoint, initialDefaultViewportState])
+      : defaultFocusWorldPoint
+  }, [defaultFocusWorldPoint, focusWorldPoint])
 
   const setZoomAnchorFromClient = useCallback(
     (clientX: number, clientY: number) => {
@@ -747,7 +980,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     }
 
     centerViewport()
-  }, [centerViewport, focusWorldPoint, mapDocument, zoom, zoomMode])
+  }, [centerViewport, fitBounds, focusWorldPoint, mapDocument, viewportSize.height, viewportSize.width, zoom, zoomMode])
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current
@@ -868,10 +1101,10 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     const renderScale = getCanvasRenderScale(logicalWidth, logicalHeight, pixelRatio)
     const width = Math.max(1, Math.ceil(logicalWidth * pixelRatio * renderScale))
     const height = Math.max(1, Math.ceil(logicalHeight * pixelRatio * renderScale))
-    const worldLeft = viewportCanvasRect.left / zoom
-    const worldTop = viewportCanvasRect.top / zoom
-    const worldWidth = viewportCanvasRect.width / zoom
-    const worldHeight = viewportCanvasRect.height / zoom
+    const worldLeft = directFitDisplayRect && fitBounds ? fitBounds.x : viewportCanvasRect.left / zoom
+    const worldTop = directFitDisplayRect && fitBounds ? fitBounds.y : viewportCanvasRect.top / zoom
+    const worldWidth = directFitDisplayRect && fitBounds ? fitBounds.width : viewportCanvasRect.width / zoom
+    const worldHeight = directFitDisplayRect && fitBounds ? fitBounds.height : viewportCanvasRect.height / zoom
 
     canvas.width = width
     canvas.height = height
@@ -879,10 +1112,10 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     const canvasFill = theme === 'light' ? '#f8fafc' : '#12151c'
     const overlayLabelFill = theme === 'light' ? '#ffffff' : '#080a10'
     const overlayLabelText = theme === 'light' ? '#101724' : '#eef4ff'
-    const visibleMapLeft = mapDisplayOffset.left + viewportCanvasRect.left
-    const visibleMapTop = mapDisplayOffset.top + viewportCanvasRect.top
-    const visibleMapWidth = viewportCanvasRect.width
-    const visibleMapHeight = viewportCanvasRect.height
+    const visibleMapLeft = directFitDisplayRect?.left ?? mapDisplayOffset.left + viewportCanvasRect.left
+    const visibleMapTop = directFitDisplayRect?.top ?? mapDisplayOffset.top + viewportCanvasRect.top
+    const visibleMapWidth = directFitDisplayRect?.width ?? viewportCanvasRect.width
+    const visibleMapHeight = directFitDisplayRect?.height ?? viewportCanvasRect.height
 
     context.imageSmoothingEnabled = false
     context.setTransform(1, 0, 0, 1, 0, 0)
@@ -903,10 +1136,10 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
         worldTop,
         worldWidth,
         worldHeight,
-        mapDisplayOffset.left + viewportCanvasRect.left,
-        mapDisplayOffset.top + viewportCanvasRect.top,
-        viewportCanvasRect.width,
-        viewportCanvasRect.height,
+        visibleMapLeft,
+        visibleMapTop,
+        visibleMapWidth,
+        visibleMapHeight,
       )
     }
 
@@ -1145,6 +1378,8 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     zoom,
     canvasLogicalSize.height,
     canvasLogicalSize.width,
+    directFitDisplayRect,
+    fitBounds,
     mapDisplayOffset.left,
     mapDisplayOffset.top,
     refreshToken,
@@ -1165,10 +1400,10 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     const renderScale = getCanvasRenderScale(viewportSize.width, viewportSize.height, pixelRatio)
     const width = Math.max(1, Math.round(viewportSize.width * pixelRatio * renderScale))
     const height = Math.max(1, Math.round(viewportSize.height * pixelRatio * renderScale))
-    const worldLeft = viewportCanvasRect.left / zoom
-    const worldTop = viewportCanvasRect.top / zoom
-    const worldWidth = viewportCanvasRect.width / zoom
-    const worldHeight = viewportCanvasRect.height / zoom
+    const worldLeft = directFitDisplayRect && fitBounds ? fitBounds.x : viewportCanvasRect.left / zoom
+    const worldTop = directFitDisplayRect && fitBounds ? fitBounds.y : viewportCanvasRect.top / zoom
+    const worldWidth = directFitDisplayRect && fitBounds ? fitBounds.width : viewportCanvasRect.width / zoom
+    const worldHeight = directFitDisplayRect && fitBounds ? fitBounds.height : viewportCanvasRect.height / zoom
 
     canvas.width = width
     canvas.height = height
@@ -1184,12 +1419,11 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     context.setTransform(pixelRatio * renderScale, 0, 0, pixelRatio * renderScale, 0, 0)
     context.save()
     context.beginPath()
-    context.rect(
-      mapDisplayOffset.left + viewportCanvasRect.left,
-      mapDisplayOffset.top + viewportCanvasRect.top,
-      viewportCanvasRect.width,
-      viewportCanvasRect.height,
-    )
+    const destinationLeft = directFitDisplayRect?.left ?? mapDisplayOffset.left + viewportCanvasRect.left
+    const destinationTop = directFitDisplayRect?.top ?? mapDisplayOffset.top + viewportCanvasRect.top
+    const destinationWidth = directFitDisplayRect?.width ?? viewportCanvasRect.width
+    const destinationHeight = directFitDisplayRect?.height ?? viewportCanvasRect.height
+    context.rect(destinationLeft, destinationTop, destinationWidth, destinationHeight)
     context.clip()
     context.drawImage(
       rasterCanvas,
@@ -1197,13 +1431,15 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       worldTop,
       worldWidth,
       worldHeight,
-      mapDisplayOffset.left + viewportCanvasRect.left,
-      mapDisplayOffset.top + viewportCanvasRect.top,
-      viewportCanvasRect.width,
-      viewportCanvasRect.height,
+      destinationLeft,
+      destinationTop,
+      destinationWidth,
+      destinationHeight,
     )
     context.restore()
   }, [
+    directFitDisplayRect,
+    fitBounds,
     foregroundLayers,
     mapDisplayOffset.left,
     mapDisplayOffset.top,
@@ -1288,6 +1524,40 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     }
 
     if (event.button === 0) {
+      if (onTileStroke && mapDocument) {
+        const point = getCanvasWorldPoint(event.clientX, event.clientY)
+        if (!point || point.tileX < 0 || point.tileY < 0 || point.tileX >= mapDocument.width || point.tileY >= mapDocument.height) {
+          return
+        }
+        tileStrokeDragRef.current = {
+          pointerId: event.pointerId,
+          points: [{ tileX: point.tileX, tileY: point.tileY }],
+          keys: new Set([`${point.tileX}:${point.tileY}`]),
+        }
+        viewport.setPointerCapture(event.pointerId)
+        updateHover(event)
+        event.preventDefault()
+        return
+      }
+      if (onTileRectSelect && mapDocument) {
+        const point = getCanvasWorldPoint(event.clientX, event.clientY)
+        if (!point || point.tileX < 0 || point.tileY < 0 || point.tileX >= mapDocument.width || point.tileY >= mapDocument.height) {
+          return
+        }
+        const next: TileRectDragState = {
+          pointerId: event.pointerId,
+          startTileX: point.tileX,
+          startTileY: point.tileY,
+          currentTileX: point.tileX,
+          currentTileY: point.tileY,
+        }
+        tileRectDragRef.current = next
+        setTileRectDrag(next)
+        viewport.setPointerCapture(event.pointerId)
+        updateHover(event)
+        event.preventDefault()
+        return
+      }
       leftPressStateRef.current = {
         pointerId: event.pointerId,
         startX: event.clientX,
@@ -1331,11 +1601,63 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       return
     }
 
+    const tileSelection = tileRectDragRef.current
+    if (tileSelection?.pointerId === event.pointerId) {
+      const point = getCanvasWorldPoint(event.clientX, event.clientY)
+      if (point) {
+        const next = { ...tileSelection, currentTileX: point.tileX, currentTileY: point.tileY }
+        tileRectDragRef.current = next
+        setTileRectDrag(next)
+      }
+      updateHover(event)
+      return
+    }
+
+    const tileStroke = tileStrokeDragRef.current
+    if (tileStroke?.pointerId === event.pointerId) {
+      const point = getCanvasWorldPoint(event.clientX, event.clientY)
+      if (point && point.tileX >= 0 && point.tileY >= 0 && point.tileX < mapDocument.width && point.tileY < mapDocument.height) {
+        const key = `${point.tileX}:${point.tileY}`
+        if (!tileStroke.keys.has(key)) {
+          tileStroke.keys.add(key)
+          tileStroke.points.push({ tileX: point.tileX, tileY: point.tileY })
+        }
+      }
+      updateHover(event)
+      return
+    }
+
     updateHover(event)
   }
 
   function handlePointerUp(event: PointerEvent<HTMLDivElement>) {
     const viewport = viewportRef.current
+    const tileStroke = tileStrokeDragRef.current
+    if (viewport && tileStroke?.pointerId === event.pointerId) {
+      tileStrokeDragRef.current = null
+      if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId)
+      onTileStroke?.(tileStroke.points)
+      updateHover(event)
+      return
+    }
+    const tileSelection = tileRectDragRef.current
+    if (viewport && mapDocument && tileSelection?.pointerId === event.pointerId) {
+      const point = getCanvasWorldPoint(event.clientX, event.clientY)
+      const end = point ?? { tileX: tileSelection.currentTileX, tileY: tileSelection.currentTileY }
+      const rect = createMapTileRect(
+        { x: tileSelection.startTileX, y: tileSelection.startTileY },
+        { x: end.tileX, y: end.tileY },
+        mapDocument,
+      )
+      tileRectDragRef.current = null
+      setTileRectDrag(null)
+      if (viewport.hasPointerCapture(event.pointerId)) {
+        viewport.releasePointerCapture(event.pointerId)
+      }
+      onTileRectSelect?.(rect)
+      updateHover(event)
+      return
+    }
     const dragState = dragStateRef.current
     if (!viewport || !dragState || dragState.pointerId !== event.pointerId) {
       const leftPressState = leftPressStateRef.current
@@ -1363,6 +1685,25 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
 
   function handlePointerCancel(event: PointerEvent<HTMLDivElement>) {
     const viewport = viewportRef.current
+    const tileStroke = tileStrokeDragRef.current
+    if (viewport && tileStroke?.pointerId === event.pointerId) {
+      tileStrokeDragRef.current = null
+      if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId)
+      onHoverChange?.(null)
+      setHoveredTile(null)
+      return
+    }
+    const tileSelection = tileRectDragRef.current
+    if (viewport && tileSelection?.pointerId === event.pointerId) {
+      tileRectDragRef.current = null
+      setTileRectDrag(null)
+      if (viewport.hasPointerCapture(event.pointerId)) {
+        viewport.releasePointerCapture(event.pointerId)
+      }
+      onHoverChange?.(null)
+      setHoveredTile(null)
+      return
+    }
     const dragState = dragStateRef.current
     if (!viewport || !dragState || dragState.pointerId !== event.pointerId) {
       const leftPressState = leftPressStateRef.current
@@ -1423,7 +1764,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
 
       {scaleMapOverlayWithViewport && mapOverlay ? (
         <div
-          className="pointer-events-none absolute z-2"
+          className={`pointer-events-none absolute ${mapOverlayLayer === 'top' ? 'z-4' : 'z-2'}`}
           style={{
             left: `${mapDisplayOffset.left}px`,
             top: `${mapDisplayOffset.top}px`,
@@ -1457,16 +1798,18 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
               height: `${stageSize.height}px`,
             }}
           >
-            <div
-              className="pointer-events-none absolute border border-white/10"
-              style={{
-                left: `${canvasOffset.left}px`,
-                top: `${canvasOffset.top}px`,
-                width: `${canvasLogicalSize.width}px`,
-                height: `${canvasLogicalSize.height}px`,
-                boxShadow: tileInteractionEnabled ? `0 0 0 1px ${rgbaFromHex(accentColor, 0.22)}` : undefined,
-              }}
-            />
+            {!fitContentBounds ? (
+              <div
+                className="pointer-events-none absolute border border-white/10"
+                style={{
+                  left: `${canvasOffset.left}px`,
+                  top: `${canvasOffset.top}px`,
+                  width: `${canvasLogicalSize.width}px`,
+                  height: `${canvasLogicalSize.height}px`,
+                  boxShadow: tileInteractionEnabled ? `0 0 0 1px ${rgbaFromHex(accentColor, 0.22)}` : undefined,
+                }}
+              />
+            ) : null}
             {mapOverlay && !scaleMapOverlayWithViewport ? (
               <div
                 className="pointer-events-none absolute z-2"
@@ -1480,7 +1823,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
                 {mapOverlay}
               </div>
             ) : null}
-            {tileInteractionEnabled && (hoveredTile || pickFlash) ? (
+            {tileInteractionEnabled && (hoveredTile || pickFlash || activeTileRect) ? (
               <div
                 className="pointer-events-none absolute z-5"
                 style={{
@@ -1517,6 +1860,21 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
                       backgroundColor: rgbaFromHex(accentColor, theme === 'light' ? 0.22 : 0.26),
                       border: `2px solid ${rgbaFromHex(accentColor, 0.98)}`,
                       boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.78), 0 0 0 3px ${rgbaFromHex(accentColor, 0.2)}`,
+                    }}
+                  />
+                ) : null}
+                {activeTileRect ? (
+                  <div
+                    className="absolute"
+                    data-map-tile-rect-selection="true"
+                    style={{
+                      left: `${activeTileRect.x * mapDocument.tileWidth * zoom}px`,
+                      top: `${activeTileRect.y * mapDocument.tileHeight * zoom}px`,
+                      width: `${activeTileRect.width * mapDocument.tileWidth * zoom}px`,
+                      height: `${activeTileRect.height * mapDocument.tileHeight * zoom}px`,
+                      backgroundColor: rgbaFromHex(accentColor, theme === 'light' ? 0.2 : 0.24),
+                      border: `2px solid ${rgbaFromHex(accentColor, 0.98)}`,
+                      boxShadow: `inset 0 0 0 1px ${rgbaFromHex(accentColor, 0.24)}, 0 0 0 3px ${rgbaFromHex(accentColor, 0.18)}`,
                     }}
                   />
                 ) : null}

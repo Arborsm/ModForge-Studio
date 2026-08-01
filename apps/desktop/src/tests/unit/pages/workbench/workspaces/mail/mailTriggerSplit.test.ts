@@ -30,7 +30,7 @@ function makeTrigger(id: string, mailId: string, trigger: string): MailTriggerDr
 }
 
 function makeLetter(mailId: string, deliveryGroup: MailDeliveryGroupId): MailLetterSummary {
-  return { mailId, title: null, errors: 0, warnings: 0, deliveryGroup }
+  return { mailId, title: null, bodyPreview: '', errors: 0, warnings: 0, deliveryGroup }
 }
 
 describe('mail delivery classification', () => {

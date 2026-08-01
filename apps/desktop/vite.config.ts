@@ -156,11 +156,9 @@ const namedChunkGroups: NamedChunkGroup[] = [
     test: (id) => id.includes('/src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-model/'),
   },
   {
-    name: 'event-stage-resource-picker',
+    name: 'resource-browser',
     priority: 69,
-    test: (id) =>
-      id.includes('/src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventResourcePicker') ||
-      id.includes('/src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/eventResourceRegistry'),
+    test: (id) => id.includes('/src/features/resource-browser/'),
   },
   {
     name: 'event-stage-script-editor',
@@ -318,6 +316,7 @@ export default defineConfig({
     exclude: ['**/node_modules/**', '**/dist/**', 'src/dev/**'],
   },
   build: {
+    manifest: true,
     rolldownOptions: {
       checks: {
         pluginTimings: false,

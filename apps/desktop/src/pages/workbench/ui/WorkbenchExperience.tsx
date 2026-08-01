@@ -2,7 +2,6 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { WorkspaceLayoutHandle } from '@shared/contracts'
 import { type AppMode } from '@locales/api'
 import { useEditorCopy, useModCopy } from '@locales/provider'
-import { WorkspaceDecisionDialog } from '../workspaces/mod'
 import {
   useCpMaker,
   buildStudioDeskModel,
@@ -36,6 +35,11 @@ import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { THEME_PRESETS } from '@shared/lib/theme/presets'
 
 const PlayerAppearanceWindow = lazy(() => import('./PlayerAppearanceWindow'))
+const WorkspaceDecisionDialog = lazy(() =>
+  import('../workspaces/mod/mods/content-patcher/content-view/ModWorkspaceDecisionDialogs').then((module) => ({
+    default: module.WorkspaceDecisionDialog,
+  })),
+)
 
 type WorkbenchExperienceProps = {
   pendingWorkbenchIntent: PendingWorkbenchCommandIntent | null
@@ -438,20 +442,24 @@ export default function WorkbenchExperience({
         </Suspense>
       ) : null}
 
-      <WorkspaceDecisionDialog
-        open={Boolean(projectController.pendingUnsavedAction)}
-        title={modWorkspaceCopy.unsavedChangesTitle}
-        message={copy.studioDesk.unsavedChangesMessage}
-        error={projectController.unsavedError}
-        saving={projectController.unsavedSaving}
-        cancelLabel={modWorkspaceCopy.unsavedCancel}
-        secondaryLabel={modWorkspaceCopy.unsavedDiscardAndContinue}
-        primaryLabel={modWorkspaceCopy.unsavedSaveAndContinue}
-        cancelDisabled={projectController.unsavedSaving}
-        onCancel={projectController.cancelUnsavedDecision}
-        onSecondary={() => void projectController.confirmDiscardAndContinue()}
-        onPrimary={() => void projectController.confirmSaveAndContinue()}
-      />
+      {projectController.pendingUnsavedAction ? (
+        <Suspense fallback={<LoadingMotionFallback />}>
+          <WorkspaceDecisionDialog
+            open
+            title={modWorkspaceCopy.unsavedChangesTitle}
+            message={copy.studioDesk.unsavedChangesMessage}
+            error={projectController.unsavedError}
+            saving={projectController.unsavedSaving}
+            cancelLabel={modWorkspaceCopy.unsavedCancel}
+            secondaryLabel={modWorkspaceCopy.unsavedDiscardAndContinue}
+            primaryLabel={modWorkspaceCopy.unsavedSaveAndContinue}
+            cancelDisabled={projectController.unsavedSaving}
+            onCancel={projectController.cancelUnsavedDecision}
+            onSecondary={() => void projectController.confirmDiscardAndContinue()}
+            onPrimary={() => void projectController.confirmSaveAndContinue()}
+          />
+        </Suspense>
+      ) : null}
 
       <CreateDraftDialog
         open={projectPresentation.createDialogOpen}

@@ -58,15 +58,35 @@ import { GuideTourOverlay } from '@widgets/guide-tour'
 import { useGuideEngineStore } from '@features/guide'
 import { appGuideDefinitions, resolveGuideSurfaceNavigation } from '../guide-setup'
 import { WorkbenchShellSkeleton } from '@shared/ui/WorkbenchShellSkeleton'
+import { deferToTimeout } from '@shared/lib/react'
 
-const SettingsWindow = lazy(() => import('./SettingsWindow'))
-const WorkbenchPage = lazy(async () => {
+let settingsWindowPromise: ReturnType<typeof importSettingsWindow> | null = null
+let workbenchPagePromise: ReturnType<typeof importWorkbenchPage> | null = null
+let workbenchStylesPromise: Promise<unknown> | null = null
+
+function importSettingsWindow() {
+  return import('./SettingsWindow')
+}
+
+function preloadSettingsWindow() {
+  settingsWindowPromise ??= importSettingsWindow()
+  return settingsWindowPromise
+}
+
+function preloadWorkbenchStyles() {
+  workbenchStylesPromise ??= import('../../styles/workbench.css')
+  return workbenchStylesPromise
+}
+
+async function importWorkbenchPage() {
   const [workbenchModule, registrySetupModule, registryModule, cpMakerProviderModule] = await Promise.all([
     import('@pages/workbench'),
     import('@app/registry-setup'),
     import('@app/registry'),
     import('../providers/CpMakerPlatformProvider'),
+    preloadWorkbenchStyles(),
   ])
+  await workbenchModule.preloadWorkbenchExperience()
 
   return {
     default: function WorkbenchPageWithRegistry(
@@ -87,9 +107,15 @@ const WorkbenchPage = lazy(async () => {
       )
     },
   }
-})
+}
 
-let workbenchStylesPromise: Promise<unknown> | null = null
+function preloadWorkbenchPage() {
+  workbenchPagePromise ??= importWorkbenchPage()
+  return workbenchPagePromise
+}
+
+const SettingsWindow = lazy(preloadSettingsWindow)
+const WorkbenchPage = lazy(preloadWorkbenchPage)
 
 configureImageDataUrlLoader(loadImageDataUrl)
 configureAppUiStatePersistence({
@@ -130,6 +156,7 @@ export default function App() {
   const [workbenchHomeActive, setWorkbenchHomeActive] = useState(initialShellState.appMode === 'workbench')
   const [appUiStateReady, setAppUiStateReady] = useState(!canUseDesktopHost())
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
+  const [settingsShellPrepared, setSettingsShellPrepared] = useState(false)
   const [settingsWindowCategory, setSettingsWindowCategory] = useState<SettingsWindowCategory>('appearance')
   const [settingsWindowAiTab, setSettingsWindowAiTab] = useState<AiSettingsTab | null>(null)
   const [quitDialogOpen, setQuitDialogOpen] = useState(false)
@@ -363,9 +390,28 @@ export default function App() {
       return
     }
 
-    workbenchStylesPromise ??= import('../../styles/workbench.css')
-    void workbenchStylesPromise
+    void preloadWorkbenchStyles()
   }, [appMode])
+
+  useEffect(() => {
+    if (!appUiStateReady || appMode !== 'launcher') return
+    let cancelled = false
+    let cancelWorkbenchPreload: (() => void) | null = null
+    const cancelSettingsPreload = deferToTimeout(() => {
+      void preloadSettingsWindow().then(() => {
+        if (cancelled) return
+        setSettingsShellPrepared(true)
+        cancelWorkbenchPreload = deferToTimeout(() => {
+          void preloadWorkbenchPage()
+        }, 0)
+      })
+    }, 0)
+    return () => {
+      cancelled = true
+      cancelSettingsPreload()
+      cancelWorkbenchPreload?.()
+    }
+  }, [appMode, appUiStateReady])
 
   useEffect(() => {
     if (!appUiStateReady) {
@@ -675,7 +721,7 @@ export default function App() {
               />
             ) : null}
 
-            {settingsWindowOpen ? (
+            {settingsWindowOpen || settingsShellPrepared ? (
               <Suspense fallback={<LoadingMotionFallback />}>
                 <SettingsWindow
                   open={settingsWindowOpen}

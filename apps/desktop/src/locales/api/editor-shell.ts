@@ -22,6 +22,8 @@ export type {
   AssetIssueParams,
   AssetPickerKindKey,
   AssetTextCategoryKey,
+  ResourceBrowserCopy,
+  ResourceBrowserKindKey,
   BuildingsPanelCopy,
   CharactersPanelCopy,
   AppMode,

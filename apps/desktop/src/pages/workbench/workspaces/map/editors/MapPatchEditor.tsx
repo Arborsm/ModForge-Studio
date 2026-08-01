@@ -1,590 +1,45 @@
-import { useEffect, useId, useMemo, useState } from 'react'
-import { AlertCircle, CheckCircle2, Crosshair, Hammer, Loader2, Plus, Trash2 } from 'lucide-react'
-import type { EditorComponent, VirtualPreviewAsset } from '@features/cp-maker'
-import type { TileHoverInfo } from '@entities/map'
-import type { LocaleCode, ThemeMode } from '@locales/api'
-import type { MapDocument } from '@entities/map'
-import { loadMapAsset } from '@entities/game/api'
-import { buildCpMakerMapAsset } from '@features/cp-maker/api'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import {
+  AlertCircle,
+  Check,
+  ChevronDown,
+  FileInput,
+  FilePlus2,
+  FileText,
+  Link2,
+  Loader2,
+  Map as MapIcon,
+  MousePointer2,
+  SlidersHorizontal,
+  Trash2,
+  Upload,
+} from 'lucide-react'
+import { WhenConditionEditor, type EditorComponent } from '@features/cp-maker'
+import { parseWhenConditions, serializeWhenConditions } from '@entities/content-patcher'
+import { ResourcePicker, toMapResourceBrowserOptions, type ResourceBrowserOption } from '@features/resource-browser'
+import type { MapDocument, MapTileRect } from '@entities/map'
 import { MapViewport } from '@entities/map'
-import { useEditorCopy } from '@locales/provider'
-import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
+import { useEditorCopy, useMapAuthoringCopy } from '@locales/provider'
+import { cx } from '@shared/lib/helper'
+import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { useAssetLibraryFocusStore } from '@shared/lib/app-state/assetLibraryFocusStore'
+import { mapCatalogCategory } from '../state/mapAuthoringCatalog'
+import { useMapAuthoringCatalog } from '../state/useMapAuthoringCatalog'
+import { applyMapAreaPreview, applyMapTilePreview, splitMapTargets } from '../model/mapPatchReducer'
+import { prepareProjectMapCopy } from '../../asset-library/model/importGameMap'
+import { loadGameMapDocument } from '../model/gameMapLoad'
+import { canEditPatchTiles } from '../model/mapTilesSession'
+import { useWorkbenchEnvironment, useWorkbenchProject } from '../../../model/workbenchModuleContexts'
+import { MapPropertiesEditor, MapWarpsEditor, TextOperationsEditor, type MapWarpValue } from './MapPatchInspectorPanels'
 
-type MapEditorTab = 'properties' | 'warps' | 'tiles' | 'file'
+type PatchOperation = 'file' | 'tiles' | 'properties' | 'warps' | 'text'
+type PreviewMode = 'before' | 'result' | 'diff'
+type MapLoadState = { key: string; status: 'idle' | 'loading' | 'ready' | 'error'; document: MapDocument | null; error: string | null }
+type Area = { x: number | string; y: number | string; width: number | string; height: number | string }
+type WarpPick = { kind: 'player' | 'npc'; index: number } | null
 
-type Area = {
-  x: number | string
-  y: number | string
-  width: number | string
-  height: number | string
-}
-
-type LoadedMapState = {
-  key: string
-  status: 'idle' | 'loading' | 'ready' | 'error'
-  document: MapDocument | null
-  error: string | null
-}
-
-export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources }) => {
-  const { draft, updatePatch: onPatchChange, addVirtualAsset: onAddVirtualAsset } = draftPort
-  const { locale, theme, accentColor } = resources
-  const copy = useEditorCopy().studioDesk.mapPatchEditor
-  const [activeTab, setActiveTab] = useState<MapEditorTab>('properties')
-  const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
-  const properties = (editorState['properties'] as Record<string, unknown> | undefined) ?? {}
-  const warps = (editorState['warps'] as Array<{ fromX: number; fromY: number; toMap: string; toX: number; toY: number }> | undefined) ?? []
-  const npcWarps =
-    (editorState['npcWarps'] as Array<{ fromX: number; fromY: number; toMap: string; toX: number; toY: number }> | undefined) ?? []
-  const mapTiles = (editorState['mapTiles'] as Array<MapTileEdit> | undefined) ?? []
-  const patchMode = (editorState['patchMode'] as string | undefined) ?? 'ReplaceByLayer'
-  const fromArea = (editorState['fromArea'] as Area | undefined) ?? null
-  const toArea = (editorState['toArea'] as Area | undefined) ?? null
-
-  // Tiles tab state
-  const gameRootPath = draft.projectMetadata.gameRootPath
-  const mapLoadKey = `${activeTab}:${gameRootPath ?? ''}:${patch.target}:${locale}`
-  const [loadedMapState, setLoadedMapState] = useState<LoadedMapState>({
-    key: mapLoadKey,
-    status: activeTab === 'tiles' && gameRootPath ? 'loading' : 'idle',
-    document: null,
-    error: null,
-  })
-  const [hoverInfo, setHoverInfo] = useState<TileHoverInfo | null>(null)
-  const [buildDialogOpen, setBuildDialogOpen] = useState(false)
-
-  // Load target map for tiles tab
-  useEffect(() => {
-    if (activeTab !== 'tiles' || !gameRootPath) {
-      return
-    }
-
-    let cancelled = false
-
-    void (async () => {
-      try {
-        // Extract map name from target, e.g. "Maps/Town" -> "Town"
-        const targetParts = patch.target.split('/')
-        const mapName = targetParts[targetParts.length - 1] ?? patch.target
-
-        // Try loading in order of preference: .xnb, .tbin, .tmx
-        const extensions = ['.xnb', '.tbin', '.tmx']
-        let lastError: Error | null = null
-        let loadedAsset: Awaited<ReturnType<typeof loadMapAsset>> | null = null
-
-        for (const ext of extensions) {
-          const mapPath = `${gameRootPath}/Content/Maps/${mapName}${ext}`
-          try {
-            loadedAsset = await loadMapAsset(gameRootPath, mapPath, locale)
-            if (!cancelled) break
-          } catch (err) {
-            lastError = err instanceof Error ? err : new Error(String(err))
-          }
-        }
-
-        if (cancelled) return
-
-        if (loadedAsset) {
-          if (loadedAsset.format === 'xnb' || loadedAsset.format === 'tbin') {
-            const doc = JSON.parse(loadedAsset.content) as MapDocument
-            setLoadedMapState({ key: mapLoadKey, status: 'ready', document: doc, error: null })
-          } else {
-            setLoadedMapState({
-              key: mapLoadKey,
-              status: 'error',
-              document: null,
-              error: copy.unsupportedFormat(loadedAsset.format),
-            })
-          }
-        } else if (lastError) {
-          setLoadedMapState({ key: mapLoadKey, status: 'error', document: null, error: lastError.message })
-        } else {
-          setLoadedMapState({
-            key: mapLoadKey,
-            status: 'error',
-            document: null,
-            error: copy.unableToLoadTarget(patch.target),
-          })
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setLoadedMapState({
-            key: mapLoadKey,
-            status: 'error',
-            document: null,
-            error: err instanceof Error ? err.message : String(err),
-          })
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [activeTab, gameRootPath, patch.target, locale, mapLoadKey, copy])
-
-  const currentMapState =
-    loadedMapState.key === mapLoadKey
-      ? loadedMapState
-      : {
-          key: mapLoadKey,
-          status: activeTab === 'tiles' && gameRootPath ? ('loading' as const) : ('idle' as const),
-          document: null,
-          error: null,
-        }
-  const mapDocument = currentMapState.document
-  const mapLoading = currentMapState.status === 'loading'
-  const mapError = currentMapState.error
-
-  const visibleLayerIds = useMemo(() => mapDocument?.layers.map((l) => l.id) ?? [], [mapDocument])
-
-  function updateEditorState(updates: Record<string, unknown>) {
-    onPatchChange(patch.id, {
-      editorState: { ...editorState, ...updates },
-    })
-  }
-
-  function updateArea(areaType: 'fromArea' | 'toArea', field: keyof Area, raw: string) {
-    const current = areaType === 'fromArea' ? fromArea : toArea
-    const next: Area = current ? { ...current } : { x: 0, y: 0, width: 0, height: 0 }
-    const num = Number(raw)
-    next[field] = Number.isNaN(num) ? raw : num
-    updateEditorState({ [areaType]: next })
-  }
-
-  return (
-    <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex items-center border-b border-(--border-color) px-3 py-2">
-        <span className="text-xs font-medium text-(--text-primary)">{patch.target}</span>
-        <span className="ml-2 text-[10px] text-(--text-secondary)">({patch.action})</span>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-0.5 border-b border-(--border-color) bg-(--bg-panel-muted) px-2 py-1">
-        {(['properties', 'warps', 'tiles', 'file'] as MapEditorTab[]).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            className={`rounded-md px-3 py-1 text-[11px] font-medium transition-colors ${
-              activeTab === tab ? 'bg-(--bg-active) text-(--text-primary)' : 'text-(--text-secondary) hover:text-(--text-primary)'
-            }`}
-            onClick={() => setActiveTab(tab)}
-          >
-            {copy.tabs[tab]}
-          </button>
-        ))}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-auto">
-        {activeTab === 'properties' ? (
-          <div className="p-3">
-            <MapPropertiesEditor properties={properties} onChange={(newProps) => updateEditorState({ properties: newProps })} />
-          </div>
-        ) : activeTab === 'warps' ? (
-          <div className="space-y-4 p-3">
-            <MapWarpsEditor
-              title={copy.playerWarps}
-              description={copy.playerWarpsDescription}
-              warps={warps}
-              onChange={(newWarps) => updateEditorState({ warps: newWarps })}
-            />
-            <MapWarpsEditor
-              title={copy.npcWarps}
-              description={copy.npcWarpsDescription}
-              warps={npcWarps}
-              onChange={(newWarps) => updateEditorState({ npcWarps: newWarps })}
-            />
-          </div>
-        ) : activeTab === 'tiles' ? (
-          <MapTilesEditor
-            mapDocument={mapDocument}
-            mapLoading={mapLoading}
-            mapError={mapError}
-            hoverInfo={hoverInfo}
-            onHoverChange={setHoverInfo}
-            visibleLayerIds={visibleLayerIds}
-            locale={locale}
-            theme={theme}
-            accentColor={accentColor}
-            gameRootPath={gameRootPath}
-            onBuildAsset={() => setBuildDialogOpen(true)}
-            mapTiles={mapTiles}
-            onMapTilesChange={(tiles) => updateEditorState({ mapTiles: tiles })}
-          />
-        ) : (
-          <div className="space-y-4 p-3">
-            {/* FromFile */}
-            <div>
-              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
-                {copy.fromFile}
-              </label>
-              <input
-                type="text"
-                placeholder={copy.fromFilePlaceholder}
-                className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
-                value={patch.fromFile ?? ''}
-                onChange={(e) => {
-                  const val = e.target.value.trim()
-                  onPatchChange(patch.id, { fromFile: val || undefined })
-                }}
-              />
-              <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.fromFileDescription}</p>
-            </div>
-
-            {/* PatchMode */}
-            <div>
-              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
-                {copy.patchMode}
-              </label>
-              <select
-                className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
-                value={patchMode}
-                onChange={(e) => updateEditorState({ patchMode: e.target.value })}
-              >
-                <option value="ReplaceByLayer">{copy.modeLabels.ReplaceByLayer}</option>
-                <option value="Overlay">{copy.modeLabels.Overlay}</option>
-                <option value="Replace">{copy.modeLabels.Replace}</option>
-              </select>
-              <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.modeDescription}</p>
-            </div>
-
-            {/* FromArea */}
-            <div>
-              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
-                {copy.fromArea}
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {(['x', 'y', 'width', 'height'] as const).map((field) => (
-                  <div key={field}>
-                    <span className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{field}</span>
-                    <input
-                      type="text"
-                      className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
-                      value={fromArea?.[field] ?? ''}
-                      placeholder="0"
-                      onChange={(e) => updateArea('fromArea', field, e.target.value)}
-                    />
-                  </div>
-                ))}
-              </div>
-              <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.fromAreaDescription}</p>
-            </div>
-
-            {/* ToArea */}
-            <div>
-              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
-                {copy.toArea}
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {(['x', 'y', 'width', 'height'] as const).map((field) => (
-                  <div key={field}>
-                    <span className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{field}</span>
-                    <input
-                      type="text"
-                      className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
-                      value={toArea?.[field] ?? ''}
-                      placeholder="0"
-                      onChange={(e) => updateArea('toArea', field, e.target.value)}
-                    />
-                  </div>
-                ))}
-              </div>
-              <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.toAreaDescription}</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {buildDialogOpen && mapDocument && (
-        <BuildAssetDialog
-          key={mapLoadKey}
-          mapDocument={mapDocument}
-          targetMapName={patch.target.split('/').pop() ?? patch.target}
-          onClose={() => setBuildDialogOpen(false)}
-          onAssetBuilt={(asset) => {
-            onAddVirtualAsset(asset)
-            onPatchChange(patch.id, { fromFile: asset.relativePath })
-          }}
-        />
-      )}
-    </div>
-  )
-}
-
-type BuildAssetDialogProps = {
-  mapDocument: unknown
-  targetMapName: string
-  onClose: () => void
-  onAssetBuilt: (asset: VirtualPreviewAsset) => void
-}
-
-type BuildState =
-  | { phase: 'building'; message: string }
-  | { phase: 'done'; asset: VirtualPreviewAsset }
-  | { phase: 'error'; message: string }
-
-function BuildAssetDialog({ mapDocument, targetMapName, onClose, onAssetBuilt }: BuildAssetDialogProps) {
-  const copy = useEditorCopy().buildAssetDialog
-  const titleId = useId()
-  const [buildState, setBuildState] = useState<BuildState>({
-    phase: 'building',
-    message: copy.buildingMessage,
-  })
-
-  useEffect(() => {
-    let cancelled = false
-
-    void (async () => {
-      try {
-        const relativePath = `assets/maps/${targetMapName.replace(/\//g, '_')}.tbin`
-        const asset = await buildCpMakerMapAsset({
-          relative_path: relativePath,
-          map_document: mapDocument,
-        })
-
-        if (cancelled) {
-          return
-        }
-
-        setBuildState({ phase: 'done', asset })
-        onAssetBuilt(asset)
-      } catch (error) {
-        if (cancelled) {
-          return
-        }
-
-        setBuildState({
-          phase: 'error',
-          message: error instanceof Error ? error.message : String(error),
-        })
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [mapDocument, onAssetBuilt, targetMapName, copy.buildingMessage])
-
-  const building = buildState.phase === 'building'
-  const handleClose = () => {
-    if (building) {
-      return
-    }
-    onClose()
-  }
-
-  return (
-    <Dialog open onClose={handleClose} size="sm" labelledBy={titleId} closeOnBackdrop={!building} closeOnEscape={!building}>
-      <DialogHeader
-        title={copy.title}
-        icon={<Hammer className="h-4 w-4" />}
-        onClose={handleClose}
-        closeLabel={copy.closeAction}
-        closeDisabled={building}
-        id={titleId}
-      />
-      <DialogBody>
-        {buildState.phase === 'building' ? (
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-(--accent)" />
-            <div className="text-center">
-              <p className="text-sm font-medium text-(--text-primary)">{copy.building}</p>
-              <p className="mt-1 text-xs text-(--text-secondary)">{buildState.message}</p>
-            </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-(--bg-panel-muted)">
-              <div className="h-full w-2/3 animate-pulse rounded-full bg-(--accent)" />
-            </div>
-          </div>
-        ) : null}
-
-        {buildState.phase === 'done' ? (
-          <div className="flex flex-col items-center gap-3">
-            <CheckCircle2 className="h-8 w-8 text-(--success)" />
-            <div className="text-center">
-              <p className="text-sm font-medium text-(--text-primary)">{copy.doneTitle}</p>
-              <p className="mt-1 text-xs text-(--text-secondary)">{copy.doneAssetSavedAs(buildState.asset.relativePath)}</p>
-              <p className="mt-0.5 text-[10px] text-(--text-secondary)">
-                {copy.doneSizeKb(Math.round((buildState.asset.bytesBase64.length * 3) / 4 / 1024))}
-              </p>
-            </div>
-          </div>
-        ) : null}
-
-        {buildState.phase === 'error' ? (
-          <div className="flex flex-col items-center gap-3">
-            <AlertCircle className="h-8 w-8 text-(--danger)" />
-            <div className="text-center">
-              <p className="text-sm font-medium text-(--text-primary)">{copy.errorTitle}</p>
-              <p className="app-dialog-error mt-1">{buildState.message}</p>
-            </div>
-          </div>
-        ) : null}
-      </DialogBody>
-      <DialogFooter>
-        {building ? (
-          <DialogAction onClick={handleClose} disabled>
-            {copy.cancelAction}
-          </DialogAction>
-        ) : (
-          <DialogAction tone="primary" onClick={handleClose}>
-            {buildState.phase === 'done' ? copy.doneAction : copy.closeAction}
-          </DialogAction>
-        )}
-      </DialogFooter>
-    </Dialog>
-  )
-}
-
-function MapPropertiesEditor({
-  properties,
-  onChange,
-}: {
-  properties: Record<string, unknown>
-  onChange: (props: Record<string, unknown>) => void
-}) {
-  const copy = useEditorCopy().studioDesk.mapPatchEditor
-  const [entries, setEntries] = useState<Array<{ key: string; value: string }>>(() => {
-    return Object.entries(properties).map(([k, v]) => ({
-      key: k,
-      value: typeof v === 'string' ? v : JSON.stringify(v),
-    }))
-  })
-
-  function syncToParent(newEntries: Array<{ key: string; value: string }>) {
-    const props: Record<string, unknown> = {}
-    for (const e of newEntries) {
-      if (!e.key.trim()) continue
-      // Try parse as JSON, fallback to string
-      try {
-        props[e.key.trim()] = JSON.parse(e.value)
-      } catch {
-        props[e.key.trim()] = e.value
-      }
-    }
-    onChange(props)
-  }
-
-  return (
-    <div className="space-y-2">
-      <p className="text-[10px] text-(--text-secondary)">{copy.propertiesDescription}</p>
-      {entries.map((entry, index) => (
-        <div key={index} className="flex items-center gap-2">
-          <input
-            type="text"
-            placeholder={copy.propertyPlaceholder}
-            className="flex-1 rounded-md border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
-            value={entry.key}
-            onChange={(e) => {
-              const next = [...entries]
-              next[index] = { ...entry, key: e.target.value }
-              setEntries(next)
-              syncToParent(next)
-            }}
-          />
-          <input
-            type="text"
-            placeholder={copy.valuePlaceholder}
-            className="flex-1 rounded-md border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
-            value={entry.value}
-            onChange={(e) => {
-              const next = [...entries]
-              next[index] = { ...entry, value: e.target.value }
-              setEntries(next)
-              syncToParent(next)
-            }}
-          />
-          <button
-            type="button"
-            className="icon-button h-7 w-7 shrink-0 text-(--danger)"
-            aria-label={copy.removeProperty}
-            title={copy.removeProperty}
-            onClick={() => {
-              const next = entries.filter((_, i) => i !== index)
-              setEntries(next)
-              syncToParent(next)
-            }}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      ))}
-      <button
-        type="button"
-        className="flex items-center gap-1 text-xs text-(--accent) hover:underline"
-        onClick={() => {
-          const next = [...entries, { key: '', value: '' }]
-          setEntries(next)
-        }}
-      >
-        <Plus className="h-3 w-3" /> {copy.addProperty}
-      </button>
-    </div>
-  )
-}
-
-function MapWarpsEditor({
-  title,
-  description,
-  warps,
-  onChange,
-}: {
-  title: string
-  description: string
-  warps: Array<{ fromX: number; fromY: number; toMap: string; toX: number; toY: number }>
-  onChange: (warps: Array<{ fromX: number; fromY: number; toMap: string; toX: number; toY: number }>) => void
-}) {
-  const copy = useEditorCopy().studioDesk.mapPatchEditor
-  return (
-    <div className="space-y-2">
-      <div className="text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">{title}</div>
-      <p className="text-[10px] text-(--text-secondary)">{description}</p>
-      {warps.map((warp, index) => (
-        <div key={index} className="flex items-center gap-1.5 rounded-lg border border-(--border-color) bg-(--bg-panel-muted) p-2">
-          <div className="grid flex-1 grid-cols-5 gap-1.5">
-            {(['fromX', 'fromY', 'toMap', 'toX', 'toY'] as const).map((field) => (
-              <div key={field}>
-                <span className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{field}</span>
-                <input
-                  type={field === 'toMap' ? 'text' : 'number'}
-                  className="w-full rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-1 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
-                  value={warp[field]}
-                  onChange={(e) => {
-                    const next = [...warps]
-                    next[index] = {
-                      ...warp,
-                      [field]: field === 'toMap' ? e.target.value : Number(e.target.value),
-                    }
-                    onChange(next)
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="icon-button h-7 w-7 shrink-0 self-end text-(--danger)"
-            aria-label={copy.removeWarp}
-            title={copy.removeWarp}
-            onClick={() => onChange(warps.filter((_, i) => i !== index))}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      ))}
-      <button
-        type="button"
-        className="flex items-center gap-1 text-xs text-(--accent) hover:underline"
-        onClick={() => onChange([...warps, { fromX: 0, fromY: 0, toMap: '', toX: 0, toY: 0 }])}
-      >
-        <Plus className="h-3 w-3" /> {copy.addWarp}
-      </button>
-    </div>
-  )
-}
-
-interface MapTileEdit {
+/** One CP MapTiles edit entry carried by a tiles change card. */
+type MapTileEdit = {
   layer: string
   x: number
   y: number
@@ -594,261 +49,1106 @@ interface MapTileEdit {
   setProperties?: Record<string, string>
 }
 
-function MapTilesEditor({
-  mapDocument,
-  mapLoading,
-  mapError,
-  hoverInfo,
-  onHoverChange,
-  visibleLayerIds,
-  locale,
-  theme,
-  accentColor,
-  gameRootPath,
-  onBuildAsset,
-  mapTiles,
-  onMapTilesChange,
-}: {
-  mapDocument: MapDocument | null
-  mapLoading: boolean
-  mapError: string | null
-  hoverInfo: TileHoverInfo | null
-  onHoverChange: (info: TileHoverInfo | null) => void
-  visibleLayerIds: number[]
-  locale: LocaleCode
-  theme: ThemeMode
-  accentColor: string
-  gameRootPath: string | null
-  onBuildAsset: () => void
-  mapTiles: MapTileEdit[]
-  onMapTilesChange: (tiles: MapTileEdit[]) => void
-}) {
+/** Distinct layer names touched by the card's tile edits, in first-use order. */
+function mapTileEditLayers(edits: readonly MapTileEdit[] | undefined): string[] {
+  const layers: string[] = []
+  for (const edit of edits ?? []) {
+    if (edit.layer && !layers.includes(edit.layer)) layers.push(edit.layer)
+  }
+  return layers
+}
+
+type ChangeEntry = {
+  id: string
+  type: PatchOperation
+  fromArea?: Area
+  toArea?: Area
+  patchMode?: string
+  mapTiles?: MapTileEdit[]
+  properties?: Record<string, unknown>
+  warps?: MapWarpValue[]
+  npcWarps?: MapWarpValue[]
+  textOperations?: Array<Record<string, unknown>>
+}
+
+let changeIdCounter = 0
+function newChangeId() {
+  changeIdCounter += 1
+  return `change-${Date.now()}-${changeIdCounter}`
+}
+
+function migrateToChanges(editorState: Record<string, unknown>): ChangeEntry[] {
+  const existing = editorState['changes']
+  if (Array.isArray(existing) && existing.length > 0) return existing as ChangeEntry[]
+  const entries: ChangeEntry[] = []
+  const fromArea = editorState['fromArea'] as Area | undefined
+  const toArea = editorState['toArea'] as Area | undefined
+  const patchMode = (editorState['patchMode'] as string | undefined) ?? 'ReplaceByLayer'
+  const mapTiles = editorState['mapTiles'] as MapTileEdit[] | undefined
+  const properties = editorState['properties'] as Record<string, string> | undefined
+  const warps = editorState['warps'] as MapWarpValue[] | undefined
+  const npcWarps = editorState['npcWarps'] as MapWarpValue[] | undefined
+  const textOperations = editorState['textOperations'] as Array<Record<string, unknown>> | undefined
+  if (fromArea || toArea) entries.push({ id: newChangeId(), type: 'file', fromArea, toArea, patchMode })
+  if (mapTiles && mapTiles.length > 0) entries.push({ id: newChangeId(), type: 'tiles', mapTiles })
+  if (properties && Object.keys(properties).length > 0) entries.push({ id: newChangeId(), type: 'properties', properties })
+  if ((warps && warps.length > 0) || (npcWarps && npcWarps.length > 0))
+    entries.push({ id: newChangeId(), type: 'warps', warps: warps ?? [], npcWarps: npcWarps ?? [] })
+  if (textOperations && textOperations.length > 0) entries.push({ id: newChangeId(), type: 'text', textOperations })
+  return entries
+}
+
+function createEmptyChange(type: PatchOperation): ChangeEntry {
+  const base = { id: newChangeId(), type }
+  switch (type) {
+    case 'file':
+      return { ...base, fromArea: undefined, toArea: undefined, patchMode: 'ReplaceByLayer' }
+    case 'tiles':
+      return { ...base, mapTiles: [] }
+    case 'properties':
+      return { ...base, properties: {} }
+    case 'warps':
+      return { ...base, warps: [], npcWarps: [] }
+    case 'text':
+      return { ...base, textOperations: [] }
+  }
+}
+
+function changeSummary(
+  entry: ChangeEntry,
+  fromFile: string | undefined,
+  copy: ReturnType<typeof useEditorCopy>['studioDesk']['mapPatchEditor'],
+): string {
+  switch (entry.type) {
+    case 'file':
+      return fromFile
+        ? `${copy.modeLabels[(entry.patchMode ?? 'ReplaceByLayer') as keyof typeof copy.modeLabels]} · ${areaSummary(entry.fromArea ?? null)} → ${areaSummary(entry.toArea ?? null)}`
+        : copy.changeCardTypeDescriptions.file
+    case 'tiles':
+      return (entry.mapTiles?.length ?? 0) > 0 ? copy.mapTileEdits(entry.mapTiles!.length) : copy.changeCardTypeDescriptions.tiles
+    case 'properties':
+      const propCount = entry.properties ? Object.keys(entry.properties).length : 0
+      return propCount > 0 ? String(propCount) : copy.changeCardTypeDescriptions.properties
+    case 'warps': {
+      const warpCount = (entry.warps?.length ?? 0) + (entry.npcWarps?.length ?? 0)
+      return warpCount > 0 ? String(warpCount) : copy.changeCardTypeDescriptions.warps
+    }
+    case 'text':
+      return (entry.textOperations?.length ?? 0) > 0 ? String(entry.textOperations!.length) : copy.changeCardTypeDescriptions.text
+  }
+}
+
+function changeStatus(entry: ChangeEntry, fromFile: string | undefined): 'configured' | 'optional' | 'empty' {
+  switch (entry.type) {
+    case 'file':
+      return fromFile ? 'configured' : 'optional'
+    case 'tiles':
+      return (entry.mapTiles?.length ?? 0) > 0 ? 'configured' : 'optional'
+    case 'properties':
+      return entry.properties && Object.keys(entry.properties).length > 0 ? 'configured' : 'optional'
+    case 'warps':
+      return (entry.warps?.length ?? 0) + (entry.npcWarps?.length ?? 0) > 0 ? 'configured' : 'optional'
+    case 'text':
+      return (entry.textOperations?.length ?? 0) > 0 ? 'configured' : 'optional'
+  }
+}
+
+const OPERATION_ICONS: Record<PatchOperation, typeof FileInput> = {
+  file: FileInput,
+  tiles: MousePointer2,
+  properties: SlidersHorizontal,
+  warps: Link2,
+  text: FileText,
+}
+
+const COPY_MODES: Array<{ id: 'ReplaceByLayer' | 'Overlay' | 'Replace'; copyKey: 'replaceByLayer' | 'overlay' | 'replace' }> = [
+  { id: 'ReplaceByLayer', copyKey: 'replaceByLayer' },
+  { id: 'Overlay', copyKey: 'overlay' },
+  { id: 'Replace', copyKey: 'replace' },
+]
+
+function readEmbeddedMapDocument(editorState: Record<string, unknown>): MapDocument | null {
+  const value = editorState['mapDocument']
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  const candidate = value as Partial<MapDocument>
+  return typeof candidate.width === 'number' && typeof candidate.height === 'number' && Array.isArray(candidate.layers)
+    ? (value as MapDocument)
+    : null
+}
+
+function normalizePath(value: string) {
+  return value.replaceAll('\\', '/').toLowerCase()
+}
+
+function uniqueResourceOptions(options: readonly ResourceBrowserOption[]) {
+  const seen = new Set<string>()
+  return options.filter((option) => {
+    const key = option.value.trim().toLowerCase()
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+function areaToTileRect(area: Area | null): MapTileRect | null {
+  return area &&
+    typeof area.x === 'number' &&
+    typeof area.y === 'number' &&
+    typeof area.width === 'number' &&
+    typeof area.height === 'number'
+    ? { x: area.x, y: area.y, width: area.width, height: area.height }
+    : null
+}
+
+function areaSummary(area: Area | null) {
+  return area ? `${area.x}, ${area.y} · ${area.width} × ${area.height}` : '-'
+}
+
+function MapTileDiffOverlay({ document, edits }: { document: MapDocument; edits: readonly MapTileEdit[] }) {
+  return edits.map((edit, index) => (
+    <span
+      key={`${edit.layer}:${edit.x}:${edit.y}:${index}`}
+      className={cx('map-patch-diff-cell', edit.remove && 'is-remove')}
+      style={{
+        left: edit.x * document.tileWidth,
+        top: edit.y * document.tileHeight,
+        width: document.tileWidth,
+        height: document.tileHeight,
+      }}
+    />
+  ))
+}
+
+function MapWarpOverlay({ document, warps }: { document: MapDocument; warps: readonly MapWarpValue[] }) {
+  return warps.map((warp, index) => (
+    <span
+      key={`${warp.fromX}:${warp.fromY}:${warp.toMap}:${index}`}
+      className="map-warp-connection"
+      style={{ left: (warp.fromX + 0.5) * document.tileWidth, top: (warp.fromY + 0.5) * document.tileHeight }}
+    >
+      <Link2 aria-hidden="true" />
+      <span>{warp.toMap || '?'}</span>
+    </span>
+  ))
+}
+
+/** Project-map changes. Source map files are authored separately in MapAssetEditor. */
+export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources }) => {
+  const { draft, updatePatch } = draftPort
+  const { locale, accentColor, theme } = resources
   const copy = useEditorCopy().studioDesk.mapPatchEditor
-  if (!gameRootPath) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 text-(--text-secondary)">
-        <Crosshair className="h-8 w-8 opacity-30" />
-        <p className="text-xs">{copy.noGameRoot}</p>
-        <p className="text-[10px]">{copy.noGameRootDescription}</p>
-      </div>
-    )
+  const patchCopy = useEditorCopy().studioDesk.configSchemaDialog
+  const authoringCopy = useMapAuthoringCopy()
+  const expertMode = useEditorModeStore((state) => state.expertMode)
+  const project = useWorkbenchProject()
+  const environment = useWorkbenchEnvironment()
+  const copyRef = useRef(copy)
+  copyRef.current = copy
+
+  const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
+  const changes = useMemo(() => migrateToChanges(editorState), [editorState])
+  const embeddedDocument = readEmbeddedMapDocument(editorState)
+
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(() => new Set(changes.length > 0 ? [changes[0]!.id] : []))
+  const [activeCardId, setActiveCardId] = useState<string | null>(changes.length > 0 ? changes[0]!.id : null)
+  const [showAddPanel, setShowAddPanel] = useState(false)
+  const [previewMode, setPreviewMode] = useState<PreviewMode>('result')
+  const [warpPick, setWarpPick] = useState<WarpPick>(null)
+  const [assetOpenError, setAssetOpenError] = useState<string | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+
+  const previewTargets = splitMapTargets(patch.target)
+  const target = previewTargets[0] ?? patch.target
+  const gameRootPath = draft.projectMetadata.gameRootPath
+  const mapLoadKey = `${gameRootPath ?? ''}:${target}:${locale}`
+  const [targetMapState, setTargetMapState] = useState<MapLoadState>({
+    key: mapLoadKey,
+    status: embeddedDocument ? 'ready' : gameRootPath ? 'loading' : 'idle',
+    document: embeddedDocument,
+    error: null,
+  })
+
+  useEffect(() => {
+    if (embeddedDocument) {
+      setTargetMapState({ key: mapLoadKey, status: 'ready', document: embeddedDocument, error: null })
+      return
+    }
+    if (!gameRootPath) {
+      setTargetMapState({ key: mapLoadKey, status: 'idle', document: null, error: null })
+      return
+    }
+    let active = true
+    setTargetMapState({ key: mapLoadKey, status: 'loading', document: null, error: null })
+    void loadGameMapDocument(gameRootPath, target, locale)
+      .then((document) => {
+        if (active) setTargetMapState({ key: mapLoadKey, status: 'ready', document, error: null })
+      })
+      .catch(() => {
+        if (active)
+          setTargetMapState({ key: mapLoadKey, status: 'error', document: null, error: copyRef.current.unableToLoadTarget(target) })
+      })
+    return () => {
+      active = false
+    }
+  }, [embeddedDocument, gameRootPath, locale, mapLoadKey, target])
+
+  // The file card never owns a source path: patch.fromFile is the single
+  // source of truth, so rename/delete/convert reference rewrites stay in sync.
+  const fromFileForPatch = patch.fromFile
+  const sourceAsset = draft.projectAssets.find((asset) => normalizePath(asset.relativePath) === normalizePath(fromFileForPatch ?? ''))
+  const sourceLoadKey = sourceAsset?.relativePath ?? ''
+  const [sourceMapState, setSourceMapState] = useState<MapLoadState>({ key: '', status: 'idle', document: null, error: null })
+  useEffect(() => {
+    if (!sourceAsset) {
+      setSourceMapState({ key: sourceLoadKey, status: 'idle', document: null, error: null })
+      return
+    }
+    let active = true
+    setSourceMapState({ key: sourceLoadKey, status: 'loading', document: null, error: null })
+    void project
+      .loadProjectMapAsset(sourceAsset.relativePath)
+      .then((asset) => {
+        if (active)
+          setSourceMapState({ key: sourceLoadKey, status: 'ready', document: JSON.parse(asset.content) as MapDocument, error: null })
+      })
+      .catch(() => {
+        if (active) setSourceMapState({ key: sourceLoadKey, status: 'error', document: null, error: copyRef.current.unableToLoadMap })
+      })
+    return () => {
+      active = false
+    }
+  }, [project, sourceAsset, sourceLoadKey])
+
+  const targetDocument = embeddedDocument ?? (targetMapState.key === mapLoadKey ? targetMapState.document : null)
+  const sourceDocument = sourceMapState.key === sourceLoadKey ? sourceMapState.document : null
+  const allMapTiles = useMemo(() => changes.filter((c) => c.type === 'tiles').flatMap((c) => c.mapTiles ?? []), [changes])
+  const allWarps = useMemo(() => changes.filter((c) => c.type === 'warps').flatMap((c) => c.warps ?? []), [changes])
+  const previewDocument = useMemo(() => {
+    if (!targetDocument) return null
+    let doc = targetDocument
+    for (const entry of changes) {
+      if (entry.type === 'file' && patch.fromFile && sourceDocument) {
+        doc = applyMapAreaPreview(
+          doc,
+          sourceDocument,
+          areaToTileRect(entry.fromArea ?? null),
+          areaToTileRect(entry.toArea ?? null),
+          (entry.patchMode ?? 'ReplaceByLayer') as 'Overlay' | 'Replace' | 'ReplaceByLayer',
+        )
+      }
+    }
+    return applyMapTilePreview(doc, allMapTiles)
+  }, [allMapTiles, changes, patch.fromFile, sourceDocument, targetDocument])
+  const displayedDocument = previewMode === 'before' ? targetDocument : previewDocument
+
+  const mapCatalog = useMapAuthoringCatalog(resources.gameRootPath, resources.directoryInfo, resources.locale)
+  const mapOptions = useMemo(() => {
+    const projectMaps: ResourceBrowserOption[] = draft.patches
+      .filter((candidate) => candidate.target.trim().toLowerCase().startsWith('maps/'))
+      .map((candidate) => ({
+        id: `project-map:${candidate.id}`,
+        kind: 'map' as const,
+        value: candidate.target,
+        label: candidate.target.replace(/^Maps\//iu, ''),
+        category: authoringCopy.categories[mapCatalogCategory(candidate.target)],
+        subtitle: authoringCopy.projectBadge,
+        sourceKind: 'project' as const,
+      }))
+    return uniqueResourceOptions([
+      ...projectMaps,
+      ...toMapResourceBrowserOptions(mapCatalog.assets, (asset) => authoringCopy.categories[mapCatalogCategory(asset.name)], 'map-editor'),
+    ])
+  }, [authoringCopy, draft.patches, mapCatalog.assets])
+  const projectMapAssetOptions = useMemo<ResourceBrowserOption[]>(
+    () =>
+      draft.projectAssets
+        .filter((asset) => /\.(?:tmx|tbin)$/iu.test(asset.relativePath))
+        .map((asset) => ({
+          id: `project-map-asset:${asset.relativePath.toLowerCase()}`,
+          kind: 'map' as const,
+          value: asset.relativePath,
+          label: asset.relativePath.split('/').pop() ?? asset.relativePath,
+          subtitle: asset.relativePath,
+          category: authoringCopy.projectBadge,
+          sourceKind: 'project' as const,
+        })),
+    [authoringCopy.projectBadge, draft.projectAssets],
+  )
+
+  const updateChanges = useCallback(
+    (next: ChangeEntry[]) => {
+      updatePatch(patch.id, { editorState: { ...editorState, changes: next } })
+    },
+    [editorState, patch.id, updatePatch],
+  )
+
+  const updateChange = useCallback(
+    (id: string, data: Partial<ChangeEntry>) => {
+      updateChanges(changes.map((c) => (c.id === id ? { ...c, ...data } : c)))
+    },
+    [changes, updateChanges],
+  )
+
+  const addChange = useCallback(
+    (type: PatchOperation) => {
+      // A patch can carry at most one file card; the serializer reads the first.
+      if (type === 'file' && changes.some((c) => c.type === 'file')) return
+      const entry = createEmptyChange(type)
+      updateChanges([...changes, entry])
+      setExpandedCards((prev) => new Set(prev).add(entry.id))
+      setActiveCardId(entry.id)
+    },
+    [changes, updateChanges],
+  )
+
+  const deleteChange = useCallback(
+    (id: string) => {
+      const entry = changes.find((c) => c.id === id)
+      const next = changes.filter((c) => c.id !== id)
+      if (entry?.type === 'file' && !next.some((c) => c.type === 'file')) {
+        // Deleting the last file card must clear the patch-level path in the
+        // same write, or the region-less FromFile would export as a full-map
+        // copy onto the target.
+        updatePatch(patch.id, { fromFile: undefined, editorState: { ...editorState, changes: next } })
+      } else {
+        updateChanges(next)
+      }
+      setExpandedCards((prev) => {
+        const nextCards = new Set(prev)
+        nextCards.delete(id)
+        return nextCards
+      })
+      if (activeCardId === id) setActiveCardId(null)
+    },
+    [activeCardId, changes, editorState, patch.id, updateChanges, updatePatch],
+  )
+
+  const loadWarpTargetDocument = useCallback(
+    (mapTarget: string) => {
+      if (!gameRootPath) return Promise.reject(new Error(copyRef.current.noGameRoot))
+      return loadGameMapDocument(gameRootPath, mapTarget, locale)
+    },
+    [gameRootPath, locale],
+  )
+
+  async function openProjectMapAsset(relativePath: string) {
+    try {
+      setAssetOpenError(null)
+      if (!resources.onOpenMapAsset) throw new Error(copy.unableToLoadMap)
+      resources.onOpenMapAsset(relativePath)
+    } catch {
+      setAssetOpenError(copy.unableToLoadMap)
+    }
   }
 
-  if (mapLoading) {
-    return <div className="flex h-full items-center justify-center text-sm text-(--text-secondary)">{copy.loadingMap}</div>
+  /**
+   * Jumps to the asset library, pre-selecting the current `fromFile` source
+   * asset so the author lands on the file they were working with.
+   */
+  function manageSourceInAssetLibrary() {
+    if (patch.fromFile) {
+      useAssetLibraryFocusStore.getState().setFocus({ kind: 'asset', key: patch.fromFile })
+    }
+    environment.onOpenModule('asset-library')
   }
 
-  if (mapError) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 text-(--text-secondary)">
-        <Crosshair className="h-8 w-8 opacity-30" />
-        <p className="text-sm text-(--danger)">{mapError}</p>
-      </div>
-    )
+  async function importMapFiles() {
+    setImporting(true)
+    try {
+      const paths = await project.chooseFiles(copy.importMapAction, [{ name: 'Map files', extensions: ['tmx', 'tbin'] }])
+      if (paths.length === 0) return
+      await project.importProjectAssets(paths, 'assets/maps')
+    } catch {
+      setAssetOpenError(copy.noProjectMapAssets)
+    } finally {
+      setImporting(false)
+    }
   }
 
-  if (!mapDocument) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 text-(--text-secondary)">
-        <Crosshair className="h-8 w-8 opacity-30" />
-        <p className="text-xs">{copy.unableToLoadMap}</p>
-      </div>
-    )
+  async function importFromGame(target: string) {
+    const asset = mapCatalog.assets.find((a) => {
+      const assetTarget = `Maps/${a.name.replace(/^Maps\//iu, '').replace(/\.(?:xnb|tbin|tmx)$/iu, '')}`
+      return assetTarget === target
+    })
+    if (!asset) return
+    setImporting(true)
+    setAssetOpenError(null)
+    try {
+      const usedPaths = new Set(draft.projectAssets.map((a) => a.relativePath.replaceAll('\\', '/').toLowerCase()))
+      const prepared = await prepareProjectMapCopy({
+        target,
+        asset,
+        resources,
+        usedPaths,
+        invalidMapError: copy.noProjectMapAssets,
+        tilesheetLoadError: (name) => authoringCopy.create.tilesheetLoadError(name),
+      })
+      await project.writeProjectAssets(prepared.assets, 'generated')
+      updatePatch(patch.id, { fromFile: prepared.document.relativePath || undefined })
+    } catch {
+      setAssetOpenError(copy.noProjectMapAssets)
+    } finally {
+      setImporting(false)
+    }
   }
+
+  function toggleCard(id: string) {
+    setExpandedCards((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function handleTargetTileClick(tileX: number, tileY: number) {
+    if (!activeCardId) return
+    const entry = changes.find((c) => c.id === activeCardId)
+    if (!entry) return
+    if (entry.type === 'file' && sourceDocument) {
+      const selected = areaToTileRect(entry.fromArea ?? null) ?? { x: 0, y: 0, width: sourceDocument.width, height: sourceDocument.height }
+      updateChange(entry.id, { toArea: { x: tileX, y: tileY, width: selected.width, height: selected.height } })
+      return
+    }
+    if (entry.type === 'warps' && warpPick) {
+      const current = warpPick.kind === 'player' ? (entry.warps ?? []) : (entry.npcWarps ?? [])
+      const next = [...current]
+      const existing = next[warpPick.index]
+      if (existing) next[warpPick.index] = { ...existing, fromX: tileX, fromY: tileY }
+      updateChange(entry.id, warpPick.kind === 'player' ? { warps: next } : { npcWarps: next })
+      setWarpPick(null)
+    }
+  }
+
+  function handleFileRectSelect(rect: MapTileRect) {
+    if (rect.width === 1 && rect.height === 1) {
+      // Click: quickly place the ToArea origin (size follows FromArea/source map), as before.
+      handleTargetTileClick(rect.x, rect.y)
+      return
+    }
+    const entry = activeCardId ? changes.find((c) => c.id === activeCardId) : undefined
+    if (!entry || entry.type !== 'file') return
+    updateChange(entry.id, { toArea: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } })
+  }
+
+  const allOps: PatchOperation[] = ['file', 'tiles', 'properties', 'warps', 'text']
+  const activeEntry = activeCardId ? changes.find((c) => c.id === activeCardId) : undefined
+  const tilesSessionEnabled = canEditPatchTiles(patch.target, gameRootPath) && targetMapState.status !== 'error'
+  const tilesSessionTitle = !gameRootPath
+    ? copy.noGameRoot
+    : patch.target.includes('{{')
+      ? copy.runtimeTargetUnavailable(patch.target)
+      : targetMapState.status === 'error'
+        ? (targetMapState.error ?? copy.unableToLoadTarget(patch.target))
+        : copy.editInMapEditor
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Map Viewport */}
-      <div className="min-h-0 flex-1">
-        <MapViewport
-          locale={locale}
-          mapDocument={mapDocument}
-          visibleLayerIds={visibleLayerIds}
-          visibleObjectGroupIds={[]}
-          theme={theme}
-          accentColor={accentColor}
-          showGrid={true}
-          showStatsChips={false}
-          contextMenuEnabled={false}
-          onHoverChange={onHoverChange}
-        />
+    <div className="map-patch-page">
+      <div className="map-patch-canvas-area">
+        <nav className="map-patch-canvas-toolbar">
+          <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{target.replace(/^Maps\//iu, '')}</span>
+          <span className="spacer" />
+          <div className="map-patch-preview-switch" role="group" aria-label={copy.previewTitle}>
+            {(['before', 'result', 'diff'] as const).map((mode) => (
+              <button key={mode} type="button" className={cx(previewMode === mode && 'is-active')} onClick={() => setPreviewMode(mode)}>
+                {copy.previewModes[mode]}
+              </button>
+            ))}
+          </div>
+        </nav>
+        <section className="map-patch-canvas" aria-label={copy.previewTitle}>
+          {displayedDocument ? (
+            <MapViewport
+              locale={locale}
+              mapDocument={displayedDocument}
+              visibleLayerIds={displayedDocument.layers.map((layer) => layer.id)}
+              visibleObjectGroupIds={displayedDocument.objectGroups.map((group) => group.id)}
+              theme={theme}
+              accentColor={accentColor}
+              showGrid
+              showStatsChips={false}
+              contextMenuEnabled={false}
+              onTileClick={handleTargetTileClick}
+              onTileRectSelect={activeEntry?.type === 'file' ? handleFileRectSelect : undefined}
+              selectedTileRect={activeEntry?.type === 'file' ? areaToTileRect(activeEntry.toArea ?? null) : null}
+              mapOverlay={
+                previewMode === 'diff' ? (
+                  <MapTileDiffOverlay document={displayedDocument} edits={allMapTiles} />
+                ) : (
+                  <MapWarpOverlay document={displayedDocument} warps={allWarps} />
+                )
+              }
+              scaleMapOverlayWithViewport
+              mapOverlayLayer="top"
+            />
+          ) : (
+            <div className={cx('map-patch-canvas-state', targetMapState.status === 'error' && 'is-error')}>
+              {targetMapState.status === 'loading' ? <span className="animate-spin">◌</span> : <MapIcon className="h-6 w-6" />}
+              <span>{targetMapState.error ?? copy.loadingMap}</span>
+            </div>
+          )}
+        </section>
       </div>
 
-      {/* Toolbar */}
-      <div className="flex shrink-0 items-center justify-between border-t border-(--border-color) bg-(--bg-panel) px-3 py-1.5">
-        <div className="flex items-center gap-2 text-[10px] text-(--text-secondary)">
-          {hoverInfo ? (
-            <>
-              <span className="text-(--text-primary)">{copy.tilePosition(hoverInfo.tileX, hoverInfo.tileY)}</span>
-              {hoverInfo.layerName && <span>{copy.tileLayer(hoverInfo.layerName)}</span>}
-              {hoverInfo.tilesetName && <span>{copy.tileTileset(hoverInfo.tilesetName)}</span>}
-              {hoverInfo.tileId != null && <span>{copy.tileId(hoverInfo.tileId)}</span>}
-            </>
-          ) : (
-            <span>{copy.hoverHint}</span>
+      <aside className="map-patch-cards-panel">
+        <div className="map-patch-cards-header">
+          <h2>
+            {copy.mapChanges} <span className="count">({copy.changeCards.changeCount(changes.length)})</span>
+          </h2>
+          <button type="button" className="map-patch-add-btn" onClick={() => setShowAddPanel((v) => !v)}>
+            <FilePlus2 className="h-3.5 w-3.5" />
+            {copy.changeCards.addChange}
+          </button>
+        </div>
+        <div className="map-patch-cards-scroll">
+          {showAddPanel && (
+            <div className="map-patch-add-panel">
+              <strong>{copy.changeCards.selectType}</strong>
+              <div className="map-patch-type-selector">
+                {allOps.map((op) => {
+                  const Icon = OPERATION_ICONS[op]
+                  const fileCardExists = op === 'file' && changes.some((c) => c.type === 'file')
+                  return (
+                    <button
+                      key={op}
+                      type="button"
+                      className="map-patch-type-option"
+                      disabled={fileCardExists}
+                      title={fileCardExists ? copy.changeCardFileExists : undefined}
+                      onClick={() => {
+                        addChange(op)
+                        setShowAddPanel(false)
+                      }}
+                    >
+                      <span className="type-icon">
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span className="type-text">
+                        <strong>{copy.changeCardTypes[op]}</strong>
+                        <small>{copy.changeCardTypeDescriptions[op]}</small>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {changes.map((entry) => {
+            const Icon = OPERATION_ICONS[entry.type]
+            const typeCount = changes.filter((c) => c.type === entry.type).indexOf(entry) + 1
+            const title = `${copy.changeCardTypes[entry.type]}${typeCount > 1 ? ` ${typeCount}` : ''}`
+            const status = changeStatus(entry, patch.fromFile)
+            const summary = changeSummary(entry, patch.fromFile, copy)
+            return (
+              <ChangeCard
+                key={entry.id}
+                icon={Icon}
+                title={title}
+                subtitle={summary}
+                status={status}
+                expanded={expandedCards.has(entry.id)}
+                onToggle={() => toggleCard(entry.id)}
+                onDelete={() => deleteChange(entry.id)}
+                onActivate={() => setActiveCardId(entry.id)}
+                isActive={activeCardId === entry.id}
+                copy={copy}
+              >
+                {entry.type === 'file' && (
+                  <>
+                    <div className="change-card-field">
+                      <span className="field-label">{copy.sourceMapFile}</span>
+                      <span className="field-hint">{copy.sourceMapHint}</span>
+                      <ResourcePicker
+                        value={patch.fromFile ?? ''}
+                        label={copy.fromFilePlaceholder}
+                        placeholder={copy.fromFilePlaceholder}
+                        emptyLabel={copy.fromFilePlaceholder}
+                        options={projectMapAssetOptions}
+                        selectionMode="confirm"
+                        triggerClassName="control-button"
+                        onSelect={(value) => updatePatch(patch.id, { fromFile: value || undefined })}
+                      />
+                    </div>
+                    {sourceAsset && patch.fromFile && (
+                      <div className="change-card-source-preview">
+                        <div className="thumb">
+                          {sourceDocument ? (
+                            <MapViewport
+                              locale={locale}
+                              mapDocument={sourceDocument}
+                              visibleLayerIds={sourceDocument.layers.map((layer) => layer.id)}
+                              visibleObjectGroupIds={sourceDocument.objectGroups.map((group) => group.id)}
+                              theme={theme}
+                              accentColor={accentColor}
+                              showGrid={false}
+                              showStatsChips={false}
+                              contextMenuEnabled={false}
+                              onTileRectSelect={(rect) =>
+                                updateChange(entry.id, { fromArea: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } })
+                              }
+                              selectedTileRect={areaToTileRect(entry.fromArea ?? null)}
+                            />
+                          ) : sourceMapState.status === 'loading' ? (
+                            <span className="animate-spin">◌</span>
+                          ) : sourceMapState.status === 'error' ? (
+                            copy.unableToLoadMap
+                          ) : (
+                            '...'
+                          )}
+                        </div>
+                        <div className="source-info">
+                          <strong>{sourceAsset.relativePath.split('/').pop()}</strong>
+                          <small>{sourceAsset.relativePath}</small>
+                          <div className="source-links">
+                            <button type="button" className="edit-link" onClick={() => void openProjectMapAsset(sourceAsset.relativePath)}>
+                              {copy.editInAssetEditor}
+                            </button>
+                            <button type="button" className="edit-link" onClick={manageSourceInAssetLibrary}>
+                              {copy.manageInAssetLibrary}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <span className="field-hint">{copy.fromAreaPickHint}</span>
+                    <div className="change-card-field">
+                      <span className="field-label">{copy.projectMapAssets}</span>
+                      <div className="change-card-mini-assets">
+                        {projectMapAssetOptions.length ? (
+                          projectMapAssetOptions.map((asset) => (
+                            <div
+                              key={asset.id}
+                              className={cx('change-card-mini-asset', patch.fromFile === asset.value && 'is-selected')}
+                              onClick={() => updatePatch(patch.id, { fromFile: asset.value || undefined })}
+                            >
+                              <MapIcon className="h-3.5 w-3.5" />
+                              <div className="mini-info">
+                                <strong>{asset.label}</strong>
+                                <small>{asset.subtitle}</small>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p style={{ fontSize: '0.5625rem', color: 'var(--text-tertiary)' }}>{copy.noProjectMapAssets}</p>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.375rem', marginTop: '0.375rem' }}>
+                        <button
+                          type="button"
+                          className="control-button"
+                          style={{ flex: 1, justifyContent: 'center', minHeight: '1.75rem' }}
+                          disabled={importing}
+                          onClick={() => void importMapFiles()}
+                        >
+                          {importing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                          {copy.importMapAction}
+                        </button>
+                        {mapCatalog.assets.length > 0 ? (
+                          <ResourcePicker
+                            value=""
+                            label={copy.importFromGame}
+                            placeholder={copy.importFromGame}
+                            options={mapOptions.filter((opt) => opt.sourceKind === 'game')}
+                            selectionMode="confirm"
+                            triggerClassName="control-button"
+                            triggerContent={
+                              <>
+                                <MapIcon className="h-3 w-3" />
+                                {copy.importFromGame}
+                              </>
+                            }
+                            onSelect={(value) => void importFromGame(value)}
+                          />
+                        ) : null}
+                      </div>
+                    </div>
+                    <span className="field-hint">{copy.toAreaPickHint}</span>
+                    <div className="change-card-field">
+                      <span className="field-label">{copy.patchMode}</span>
+                      <div className="change-card-mode-options">
+                        {COPY_MODES.map((mode) => (
+                          <div
+                            key={mode.id}
+                            className={cx('change-card-mode-option', (entry.patchMode ?? 'ReplaceByLayer') === mode.id && 'is-active')}
+                            onClick={() => updateChange(entry.id, { patchMode: mode.id })}
+                          >
+                            <span className="radio" />
+                            <span className="mode-text">
+                              <strong>{copy.copyMode[mode.copyKey]}</strong>
+                              <small>{copy.copyModeDescriptions[mode.copyKey]}</small>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <button type="button" className="change-card-advanced-toggle" onClick={() => setShowAdvanced((v) => !v)}>
+                      <ChevronDown className="h-3 w-3" style={{ transform: showAdvanced ? '' : 'rotate(-90deg)' }} />
+                      {copy.advancedSettings.title}
+                    </button>
+                    {showAdvanced && (
+                      <div className="change-card-advanced-section is-open">
+                        <div className="change-card-field">
+                          <span className="field-label">{copy.copyRange}</span>
+                          <div className="change-card-area-row">
+                            <div className="change-card-field">
+                              <span className="field-label">X</span>
+                              <input
+                                className="field-input"
+                                type="number"
+                                value={entry.fromArea?.x ?? 0}
+                                onChange={(e) =>
+                                  updateChange(entry.id, {
+                                    fromArea: {
+                                      ...entry.fromArea,
+                                      x: Number(e.target.value),
+                                      y: entry.fromArea?.y ?? 0,
+                                      width: entry.fromArea?.width ?? 0,
+                                      height: entry.fromArea?.height ?? 0,
+                                    },
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className="change-card-field">
+                              <span className="field-label">Y</span>
+                              <input
+                                className="field-input"
+                                type="number"
+                                value={entry.fromArea?.y ?? 0}
+                                onChange={(e) =>
+                                  updateChange(entry.id, {
+                                    fromArea: {
+                                      ...entry.fromArea,
+                                      x: entry.fromArea?.x ?? 0,
+                                      y: Number(e.target.value),
+                                      width: entry.fromArea?.width ?? 0,
+                                      height: entry.fromArea?.height ?? 0,
+                                    },
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className="change-card-field">
+                              <span className="field-label">W</span>
+                              <input
+                                className="field-input"
+                                type="number"
+                                value={entry.fromArea?.width ?? 0}
+                                onChange={(e) =>
+                                  updateChange(entry.id, {
+                                    fromArea: {
+                                      ...entry.fromArea,
+                                      x: entry.fromArea?.x ?? 0,
+                                      y: entry.fromArea?.y ?? 0,
+                                      width: Number(e.target.value),
+                                      height: entry.fromArea?.height ?? 0,
+                                    },
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className="change-card-field">
+                              <span className="field-label">H</span>
+                              <input
+                                className="field-input"
+                                type="number"
+                                value={entry.fromArea?.height ?? 0}
+                                onChange={(e) =>
+                                  updateChange(entry.id, {
+                                    fromArea: {
+                                      ...entry.fromArea,
+                                      x: entry.fromArea?.x ?? 0,
+                                      y: entry.fromArea?.y ?? 0,
+                                      width: entry.fromArea?.width ?? 0,
+                                      height: Number(e.target.value),
+                                    },
+                                  })
+                                }
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="change-card-field">
+                          <span className="field-label">{copy.pastePosition}</span>
+                          <div className="change-card-area-row">
+                            <div className="change-card-field">
+                              <span className="field-label">X</span>
+                              <input
+                                className="field-input"
+                                type="number"
+                                value={entry.toArea?.x ?? 0}
+                                onChange={(e) =>
+                                  updateChange(entry.id, {
+                                    toArea: {
+                                      ...entry.toArea,
+                                      x: Number(e.target.value),
+                                      y: entry.toArea?.y ?? 0,
+                                      width: entry.toArea?.width ?? 0,
+                                      height: entry.toArea?.height ?? 0,
+                                    },
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className="change-card-field">
+                              <span className="field-label">Y</span>
+                              <input
+                                className="field-input"
+                                type="number"
+                                value={entry.toArea?.y ?? 0}
+                                onChange={(e) =>
+                                  updateChange(entry.id, {
+                                    toArea: {
+                                      ...entry.toArea,
+                                      x: entry.toArea?.x ?? 0,
+                                      y: Number(e.target.value),
+                                      width: entry.toArea?.width ?? 0,
+                                      height: entry.toArea?.height ?? 0,
+                                    },
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className="change-card-field" style={{ gridColumn: 'span 2' }}>
+                              <span className="field-label">{copy.mapSize}</span>
+                              <input
+                                className="field-input"
+                                value={`${entry.toArea?.width ?? 0} × ${entry.toArea?.height ?? 0}`}
+                                disabled
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="change-card-field">
+                          <span className="field-label">{copy.advancedSettings.whenCondition}</span>
+                          <span className="field-hint">{copy.advancedSettings.whenConditionHint}</span>
+                          <WhenConditionEditor
+                            rows={parseWhenConditions(patch.when)}
+                            onChange={(rows) => updatePatch(patch.id, { when: serializeWhenConditions(rows) })}
+                            extraTokenNames={[...draft.configSchema.map((e) => e.key), ...draft.dynamicTokens.map((token) => token.name)]}
+                          />
+                        </div>
+                        {expertMode ? (
+                          <div className="change-card-field">
+                            <span className="field-label">{copy.advancedSettings.priority}</span>
+                            <input
+                              className="field-input"
+                              list="map-patch-priority-options"
+                              value={patch.priority ?? ''}
+                              placeholder={patchCopy.priorityPatchPlaceholder}
+                              onChange={(event) => {
+                                const value = event.target.value.trim()
+                                const numeric = Number(value)
+                                updatePatch(patch.id, { priority: value === '' ? undefined : Number.isNaN(numeric) ? value : numeric })
+                              }}
+                            />
+                            <datalist id="map-patch-priority-options">
+                              <option value="Early" />
+                              <option value="Default" />
+                              <option value="Late" />
+                            </datalist>
+                          </div>
+                        ) : null}
+                        <div className="change-card-field">
+                          <span className="field-label">{copy.advancedSettings.enabled}</span>
+                          {typeof patch.enabled === 'string' ? (
+                            <>
+                              <span className="field-hint">{copy.advancedSettings.enabledByExpressionHint(patch.enabled)}</span>
+                              <code className="map-enabled-token-chip">{patch.enabled}</code>
+                              <div className="change-card-enabled-actions">
+                                <button type="button" className="control-button" onClick={() => updatePatch(patch.id, { enabled: true })}>
+                                  {copy.advancedSettings.setAlwaysEnabled}
+                                </button>
+                                <button type="button" className="control-button" onClick={() => updatePatch(patch.id, { enabled: false })}>
+                                  {copy.advancedSettings.setAlwaysDisabled}
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <label className="map-asset-checkbox" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                              <input
+                                type="checkbox"
+                                checked={patch.enabled !== false}
+                                onChange={(event) => updatePatch(patch.id, { enabled: event.target.checked })}
+                              />
+                              <span style={{ fontSize: '0.625rem' }}>
+                                {patch.enabled !== false ? copy.advancedSettings.enabled : copy.advancedSettings.disabled}
+                              </span>
+                            </label>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {assetOpenError && (
+                      <p className="map-patch-inline-error">
+                        <AlertCircle className="h-3 w-3" />
+                        {assetOpenError}
+                      </p>
+                    )}
+                  </>
+                )}
+                {entry.type === 'tiles' && (
+                  <>
+                    <div className="map-patch-tiles-summary">
+                      <span className="map-patch-tiles-count">{copy.mapTileEdits(entry.mapTiles?.length ?? 0)}</span>
+                      {mapTileEditLayers(entry.mapTiles).map((layer) => (
+                        <span key={layer} className="map-patch-tiles-layer-chip">
+                          {layer}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="map-patch-tiles-actions">
+                      <button
+                        type="button"
+                        className="control-button control-button-primary"
+                        disabled={!tilesSessionEnabled}
+                        title={tilesSessionTitle}
+                        onClick={() => resources.onEditPatchTiles?.({ patchId: patch.id, cardId: entry.id, target: patch.target })}
+                      >
+                        <MapIcon className="h-3.5 w-3.5" />
+                        {copy.editInMapEditor}
+                      </button>
+                      {(entry.mapTiles?.length ?? 0) > 0 && (
+                        <button type="button" className="control-button" onClick={() => updateChange(entry.id, { mapTiles: [] })}>
+                          {copy.clearTiles}
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+                {entry.type === 'properties' && (
+                  <MapPropertiesEditor
+                    properties={entry.properties ?? {}}
+                    categorized
+                    onChange={(next) => updateChange(entry.id, { properties: next })}
+                  />
+                )}
+                {entry.type === 'warps' && (
+                  <>
+                    <MapWarpsEditor
+                      title={copy.playerWarps}
+                      description={copy.playerWarpsDescription}
+                      warps={entry.warps ?? []}
+                      mapOptions={mapOptions}
+                      locale={locale}
+                      theme={theme}
+                      accentColor={accentColor}
+                      loadTargetDocument={loadWarpTargetDocument}
+                      onRequestSourcePick={(index) => {
+                        setWarpPick({ kind: 'player', index })
+                        setActiveCardId(entry.id)
+                      }}
+                      onChange={(next) => updateChange(entry.id, { warps: next })}
+                    />
+                    <MapWarpsEditor
+                      title={copy.npcWarps}
+                      description={copy.npcWarpsDescription}
+                      warps={entry.npcWarps ?? []}
+                      mapOptions={mapOptions}
+                      locale={locale}
+                      theme={theme}
+                      accentColor={accentColor}
+                      loadTargetDocument={loadWarpTargetDocument}
+                      onRequestSourcePick={(index) => {
+                        setWarpPick({ kind: 'npc', index })
+                        setActiveCardId(entry.id)
+                      }}
+                      onChange={(next) => updateChange(entry.id, { npcWarps: next })}
+                    />
+                  </>
+                )}
+                {entry.type === 'text' && (
+                  <TextOperationsEditor
+                    operations={entry.textOperations ?? []}
+                    onChange={(next) => updateChange(entry.id, { textOperations: next })}
+                  />
+                )}
+              </ChangeCard>
+            )
+          })}
+          {changes.length === 0 && !showAddPanel && (
+            <div className="map-patch-cards-empty">
+              <FilePlus2 className="h-6 w-6" />
+              <span>{copy.changeCards.selectType}</span>
+              <button type="button" className="control-button control-button-primary" onClick={() => setShowAddPanel(true)}>
+                {copy.changeCards.addChange}
+              </button>
+            </div>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {hoverInfo?.layerName && (
-            <button
-              type="button"
-              className="flex items-center gap-1 rounded-md border border-(--border-color) bg-(--bg-panel-muted) px-2 py-1 text-[10px] font-medium text-(--text-primary) hover:bg-(--bg-active)"
-              onClick={() => {
-                onMapTilesChange([
-                  ...mapTiles,
-                  {
-                    layer: hoverInfo.layerName || 'Back',
-                    x: hoverInfo.tileX,
-                    y: hoverInfo.tileY,
-                    setTilesheet: hoverInfo.tilesetName ?? undefined,
-                    setIndex: hoverInfo.tileId ?? undefined,
-                  },
-                ])
-              }}
-            >
-              <Plus className="h-3 w-3" /> {copy.addTileEdit}
-            </button>
-          )}
-          <button
-            type="button"
-            className="flex items-center gap-1 rounded-md bg-(--accent) px-2.5 py-1 text-[10px] font-medium text-(--text-on-accent) hover:opacity-90"
-            onClick={onBuildAsset}
-          >
-            <Hammer className="h-3 w-3" /> {copy.buildAsset}
+      </aside>
+    </div>
+  )
+}
+
+function ChangeCard({
+  icon: Icon,
+  title,
+  subtitle,
+  status,
+  expanded,
+  onToggle,
+  onDelete,
+  onActivate,
+  isActive,
+  copy,
+  children,
+}: {
+  icon: typeof FileInput
+  title: string
+  subtitle: string
+  status: 'configured' | 'optional' | 'empty'
+  expanded: boolean
+  onToggle: () => void
+  onDelete: () => void
+  onActivate: () => void
+  isActive: boolean
+  copy: ReturnType<typeof useEditorCopy>['studioDesk']['mapPatchEditor']
+  children: ReactNode
+}) {
+  const statusLabel =
+    status === 'configured'
+      ? copy.changeCardStatuses.configured
+      : status === 'empty'
+        ? copy.changeCardStatuses.empty
+        : copy.changeCardStatuses.optional
+  return (
+    <div className={cx('change-card', expanded && 'is-active', isActive && 'is-focused')} onClick={onActivate}>
+      <div className="change-card-header">
+        <div
+          className="change-card-toggle"
+          onClick={onToggle}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              onToggle()
+            }
+          }}
+        >
+          <span className="card-icon">
+            <Icon className="h-4 w-4" />
+          </span>
+          <div className="card-title">
+            <strong>{title}</strong>
+            <small>{subtitle}</small>
+          </div>
+          <span className={cx('card-status', status === 'optional' && 'is-optional')}>
+            {status === 'configured' && <Check className="h-3 w-3" />}
+            {statusLabel}
+          </span>
+          <ChevronDown className="expand-arrow h-4 w-4" />
+        </div>
+        <div className="card-actions">
+          <button type="button" className="is-delete" title={copy.changeCardActions.delete} onClick={onDelete}>
+            <Trash2 className="h-3 w-3" />
           </button>
         </div>
       </div>
-
-      {/* MapTiles Editor */}
-      {mapTiles.length > 0 && (
-        <div className="max-h-45 shrink-0 overflow-auto border-t border-(--border-color) bg-(--bg-panel-muted) px-3 py-2">
-          <div className="mb-1.5 text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
-            {copy.mapTileEdits(mapTiles.length)}
-          </div>
-          <div className="space-y-1.5">
-            {mapTiles.map((tile, index) => (
-              <div key={index} className="flex items-center gap-1.5 rounded border border-(--border-color) bg-(--bg-panel) p-1.5">
-                <input
-                  type="text"
-                  placeholder={copy.tilePlaceholders.layer}
-                  className="w-20 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
-                  value={tile.layer}
-                  onChange={(e) => {
-                    const next = [...mapTiles]
-                    next[index] = { ...tile, layer: e.target.value }
-                    onMapTilesChange(next)
-                  }}
-                />
-                <input
-                  type="number"
-                  placeholder={copy.tilePlaceholders.x}
-                  className="w-12 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
-                  value={tile.x}
-                  onChange={(e) => {
-                    const next = [...mapTiles]
-                    next[index] = { ...tile, x: Number(e.target.value) }
-                    onMapTilesChange(next)
-                  }}
-                />
-                <input
-                  type="number"
-                  placeholder={copy.tilePlaceholders.y}
-                  className="w-12 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
-                  value={tile.y}
-                  onChange={(e) => {
-                    const next = [...mapTiles]
-                    next[index] = { ...tile, y: Number(e.target.value) }
-                    onMapTilesChange(next)
-                  }}
-                />
-                <input
-                  type="text"
-                  placeholder={copy.tilePlaceholders.tilesheet}
-                  className="w-20 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
-                  value={tile.setTilesheet ?? ''}
-                  onChange={(e) => {
-                    const next = [...mapTiles]
-                    const val = e.target.value.trim()
-                    next[index] = { ...tile, setTilesheet: val || undefined }
-                    onMapTilesChange(next)
-                  }}
-                />
-                <input
-                  type="text"
-                  placeholder={copy.tilePlaceholders.index}
-                  className="w-14 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
-                  value={tile.setIndex ?? ''}
-                  onChange={(e) => {
-                    const next = [...mapTiles]
-                    const val = e.target.value.trim()
-                    if (!val) {
-                      const { setIndex, ...rest } = tile
-                      void setIndex
-                      next[index] = rest
-                    } else {
-                      const num = Number(val)
-                      next[index] = { ...tile, setIndex: Number.isNaN(num) ? val : num }
-                    }
-                    onMapTilesChange(next)
-                  }}
-                />
-                <label className="flex items-center gap-1 text-[10px] text-(--text-secondary)">
-                  <input
-                    type="checkbox"
-                    checked={tile.remove ?? false}
-                    onChange={(e) => {
-                      const next = [...mapTiles]
-                      next[index] = { ...tile, remove: e.target.checked || undefined }
-                      onMapTilesChange(next)
-                    }}
-                  />
-                  {copy.removeTile}
-                </label>
-                <input
-                  type="text"
-                  placeholder={copy.tilePlaceholders.properties}
-                  className="min-w-0 flex-1 rounded border border-(--border-color) bg-(--bg-app) px-1.5 py-0.5 text-[10px] text-(--text-primary) outline-none focus:border-(--accent)"
-                  value={
-                    tile.setProperties
-                      ? Object.entries(tile.setProperties)
-                          .map(([k, v]) => `${k}=${v}`)
-                          .join(', ')
-                      : ''
-                  }
-                  onChange={(e) => {
-                    const next = [...mapTiles]
-                    const text = e.target.value.trim()
-                    if (!text) {
-                      const { setProperties, ...rest } = tile
-                      void setProperties
-                      next[index] = rest
-                    } else {
-                      const props: Record<string, string> = {}
-                      for (const part of text.split(',')) {
-                        const [k, ...vParts] = part.split('=')
-                        if (k?.trim()) {
-                          props[k.trim()] = vParts.join('=').trim()
-                        }
-                      }
-                      next[index] = { ...tile, setProperties: props }
-                    }
-                    onMapTilesChange(next)
-                  }}
-                />
-                <button
-                  type="button"
-                  className="icon-button h-5 w-5 shrink-0 text-(--danger)"
-                  aria-label={copy.removeTileEdit}
-                  title={copy.removeTileEdit}
-                  onClick={() => onMapTilesChange(mapTiles.filter((_, i) => i !== index))}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {expanded && <div className="change-card-body">{children}</div>}
     </div>
   )
 }

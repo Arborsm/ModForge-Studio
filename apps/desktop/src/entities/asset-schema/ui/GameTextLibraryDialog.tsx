@@ -31,6 +31,8 @@ export type GameTextLibraryDialogProps = {
   /** Game root used to read the string tables. */
   gameRootPath: string
   locale: LocaleCode
+  /** Category selected whenever the dialog opens. */
+  initialCategory?: StringCatalogCategory
   /** Commits the `[LocalizedText ...]` reference token. */
   onInsertToken: (token: string) => void
   /** Commits the resolved literal text instead of the reference. */
@@ -45,7 +47,15 @@ type CategoryState = {
 
 const RESULT_LIMIT = 200
 
-export function GameTextLibraryDialog({ open, gameRootPath, locale, onInsertToken, onInsertText, onClose }: GameTextLibraryDialogProps) {
+export function GameTextLibraryDialog({
+  open,
+  gameRootPath,
+  locale,
+  initialCategory = 'items',
+  onInsertToken,
+  onInsertText,
+  onClose,
+}: GameTextLibraryDialogProps) {
   const copy = useAssetAuthoringCopy().textLibrary
   const [category, setCategory] = useState<StringCatalogCategory>('items')
   const [query, setQuery] = useState('')
@@ -88,11 +98,12 @@ export function GameTextLibraryDialog({ open, gameRootPath, locale, onInsertToke
 
   useEffect(() => {
     if (open) {
-      return
+      setCategory(initialCategory)
+    } else {
+      setQuery('')
+      setSelectedId(null)
     }
-    setQuery('')
-    setSelectedId(null)
-  }, [open])
+  }, [initialCategory, open])
 
   const { results, total } = useMemo(() => searchStringCatalog(state.entries, query, RESULT_LIMIT), [state.entries, query])
   const selected = results.find((entry) => entry.id === selectedId) ?? null

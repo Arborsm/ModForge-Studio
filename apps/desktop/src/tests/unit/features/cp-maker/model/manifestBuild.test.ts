@@ -18,6 +18,7 @@ function draft(metadataOverrides: Partial<CpMakerDraft['projectMetadata']> = {})
     configSchema: [],
     patches: [],
     virtualAssets: [],
+    projectAssets: [],
     dynamicTokens: [],
     customLocations: [],
     aliasTokenNames: {},

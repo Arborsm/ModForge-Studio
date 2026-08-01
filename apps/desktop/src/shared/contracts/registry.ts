@@ -37,6 +37,7 @@ export type WorkbenchNavigationIcon =
   | 'mail'
   | 'bug'
   | 'settings'
+  | 'images'
 export type WorkbenchModuleLocaleKey =
   | 'map-browser'
   | 'event-browser'
@@ -49,6 +50,7 @@ export type WorkbenchModuleLocaleKey =
   | 'ai-localization'
   | 'project-dashboard'
   | 'project-content'
+  | 'asset-library'
   | 'project-settings'
   | 'map-authoring'
   | 'event-authoring'

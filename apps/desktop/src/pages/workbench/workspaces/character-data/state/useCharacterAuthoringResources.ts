@@ -10,13 +10,17 @@
 
 import { useEffect, useState } from 'react'
 import { loadResourceRegistry, type GameDirectoryInfo } from '@entities/game/api'
-import { loadItemWorkspaceEntries } from '@entities/item'
+import { loadItemTextureAssetState, loadItemWorkspaceEntries, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
 import type { DraftPatch } from '@features/cp-maker'
 import type { LocaleCode } from '@locales'
 
 export type CharacterAuthoringResources = {
   /** Qualified item ids the Winter Star gift override may reference. */
   itemIds: string[]
+  /** Full catalog used by gift-taste resource pickers. */
+  items: ItemWorkspaceEntry[]
+  /** Item atlas states keyed by normalized logical asset name. */
+  itemTextureStates: Record<string, ItemTextureAssetState>
   /** Location names `Home[].Location` may reference. */
   locationNames: string[]
   /** Portrait and sprite sheets vanilla NPCs use, plus the ones this draft loads. */
@@ -25,7 +29,7 @@ export type CharacterAuthoringResources = {
 
 type GameSideResources = Omit<CharacterAuthoringResources, 'textureAssetNames'>
 
-const EMPTY_RESOURCES: GameSideResources = { itemIds: [], locationNames: [] }
+const EMPTY_RESOURCES: GameSideResources = { itemIds: [], items: [], itemTextureStates: {}, locationNames: [] }
 
 function sortedUnique(values: Iterable<string>): string[] {
   return Array.from(new Set(values)).sort((left, right) => left.localeCompare(right))
@@ -64,12 +68,24 @@ export function useCharacterAuthoringResources({
       loadItemWorkspaceEntries(gameRootPath, locale).catch(() => []),
       loadResourceRegistry(gameRootPath, locale).catch(() => null),
     ])
-      .then(([items, registry]) => {
+      .then(async ([items, registry]) => {
+        if (cancelled) {
+          return
+        }
+        const textureNames = sortedUnique(items.flatMap((item) => (item.textureAssetName ? [item.textureAssetName] : [])))
+        const itemTextures = await Promise.all(
+          textureNames.map(
+            async (assetName) =>
+              [assetName.replaceAll('\\', '/').toLowerCase(), await loadItemTextureAssetState(gameRootPath, assetName, locale)] as const,
+          ),
+        )
         if (cancelled) {
           return
         }
         setGameResources({
           itemIds: sortedUnique(items.map((entry) => entry.qualifiedItemId)),
+          items,
+          itemTextureStates: Object.fromEntries(itemTextures),
           locationNames: sortedUnique((registry?.entries ?? []).filter((entry) => entry.kind === 'location').map((entry) => entry.value)),
         })
       })
@@ -99,6 +115,8 @@ export function useCharacterAuthoringResources({
 
   return {
     itemIds: gameResources.itemIds,
+    items: gameResources.items,
+    itemTextureStates: gameResources.itemTextureStates,
     locationNames: gameResources.locationNames,
     textureAssetNames: sortedUnique([...vanillaTextureNames, ...projectTextures]),
   }

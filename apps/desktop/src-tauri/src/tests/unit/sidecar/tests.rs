@@ -734,9 +734,38 @@ fn project_and_cp_maker_mutations_declare_resource_locks_at_binding_site() {
     );
     assert_eq!(
         command_resources("export_cp_maker_pack"),
-        Some(vec![SidecarResource::ModProject])
+        Some(vec![
+            SidecarResource::ModProject,
+            SidecarResource::CpMakerDrafts
+        ])
     );
-    assert_eq!(command_resources("import_cp_maker_pack"), Some(vec![]));
+    assert_eq!(
+        command_resources("import_cp_maker_pack"),
+        Some(vec![SidecarResource::CpMakerDrafts])
+    );
+    assert_eq!(
+        command_resources("read_cp_maker_project_asset"),
+        Some(vec![SidecarResource::CpMakerDrafts])
+    );
+    assert_eq!(
+        command_resources("load_cp_maker_project_map_asset"),
+        Some(vec![SidecarResource::CpMakerDrafts])
+    );
+    for command in [
+        "write_cp_maker_project_asset",
+        "rename_cp_maker_project_asset",
+        "delete_cp_maker_project_asset",
+    ] {
+        assert_eq!(command_lane(command), Some(SidecarLane::Mutation));
+        assert_eq!(
+            command_resources(command),
+            Some(vec![SidecarResource::CpMakerDrafts])
+        );
+    }
+    assert_eq!(
+        command_lane("load_cp_maker_project_map_asset"),
+        Some(SidecarLane::Io)
+    );
     assert_eq!(command_lane("export_map_png"), Some(SidecarLane::Mutation));
     assert_eq!(
         command_resources("export_map_png"),

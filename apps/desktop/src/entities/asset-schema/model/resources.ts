@@ -41,10 +41,14 @@ export type ResourceSprite = {
 export type ResourceOption = {
   /** Value written into the asset JSON. */
   value: string
+  /** Legacy or shorthand spellings that resolve to this canonical value. */
+  aliases?: readonly string[]
   /** Human readable label; falls back to `value` when absent. */
   label?: string
   /** Grouping bucket shown in the picker sidebar. */
   category?: string
+  /** Origin used by the shared browser's game/project/catalog filters. */
+  sourceKind?: 'game' | 'project' | 'catalog'
   /** Secondary line under the label (internal name, path, …). */
   detail?: string
   /** Image data URL rendered as the option preview. */
@@ -115,7 +119,15 @@ export function resourceOptionMatches(option: ResourceOption, query: string): bo
   if (needle === '') {
     return true
   }
-  return [option.value, option.label, option.category, option.detail].some((part) => part?.toLowerCase().includes(needle))
+  return [option.value, ...(option.aliases ?? []), option.label, option.category, option.detail].some((part) =>
+    part?.toLowerCase().includes(needle),
+  )
+}
+
+/** Whether a stored reference uses an option's canonical value or a supported alias. */
+export function resourceOptionHasValue(option: ResourceOption, value: string): boolean {
+  const wanted = value.trim().toLowerCase()
+  return wanted !== '' && [option.value, ...(option.aliases ?? [])].some((candidate) => candidate.trim().toLowerCase() === wanted)
 }
 
 /**

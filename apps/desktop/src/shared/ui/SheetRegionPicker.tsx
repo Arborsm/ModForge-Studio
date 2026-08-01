@@ -134,6 +134,7 @@ export function SheetRegionPicker({
   className,
 }: SheetRegionPickerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null)
   const [draft, setDraft] = useState<SheetRegion | null>(null)
 
   function toClientPoint(event: ReactPointerEvent): { x: number; y: number } {
@@ -161,6 +162,7 @@ export function SheetRegionPicker({
       }
       return
     }
+    dragStartRef.current = point
     setDraft(normalizeDragRect(point, point, clientPerSource(), { width: imageWidth, height: imageHeight }, snap))
   }
 
@@ -168,9 +170,9 @@ export function SheetRegionPicker({
     if (draft === null || cellPick) return
     if ((event.buttons & 1) === 0) return
     setDraft((current) => {
-      if (current === null) return current
+      const start = dragStartRef.current
+      if (current === null || start === null) return current
       const point = toClientPoint(event)
-      const start = { x: current.x * clientPerSource(), y: current.y * clientPerSource() }
       return normalizeDragRect(start, point, clientPerSource(), { width: imageWidth, height: imageHeight }, snap)
     })
   }
@@ -179,6 +181,7 @@ export function SheetRegionPicker({
     if (draft !== null && !cellPick) {
       onChange(draft)
     }
+    dragStartRef.current = null
     setDraft(null)
   }
 

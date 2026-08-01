@@ -1,12 +1,18 @@
 use crate::domain::content_patcher::types::VirtualPreviewAsset;
+use crate::domain::cp_maker::export::export_cp_maker_pack_at_dir;
+use crate::domain::cp_maker::project_assets::{import_project_assets_at_dir, project_assets_dir};
+use crate::domain::cp_maker::types::CpMakerExportRequest;
 use crate::domain::cp_maker::types::{CpMakerExportResult, CpMakerI18nFile};
-use crate::domain::cp_maker::{export_cp_maker_pack, types::CpMakerExportRequest};
 use crate::infrastructure::fs::pathing::normalize_path;
 use crate::test_support::{create_temp_dir, write_file};
 use base64::Engine;
 use serde_json::{Value, json};
 use std::fs;
 use std::path::Path;
+
+fn export_cp_maker_pack(request: CpMakerExportRequest) -> anyhow::Result<CpMakerExportResult> {
+    export_cp_maker_pack_at_dir(request, Path::new("unused-project-assets"), &[])
+}
 
 fn virtual_asset(relative_path: &str, bytes: &[u8]) -> VirtualPreviewAsset {
     VirtualPreviewAsset {
@@ -33,6 +39,7 @@ fn export_request(
     virtual_assets: Vec<VirtualPreviewAsset>,
 ) -> CpMakerExportRequest {
     CpMakerExportRequest {
+        draft_storage_key: "test-draft".to_string(),
         output_path: output_dir.to_string_lossy().into_owned(),
         manifest_json: json!({
             "Name": "Generated Export",
@@ -82,6 +89,7 @@ fn exports_cp_maker_pack_to_a_fresh_directory() {
     let asset_a_path = output_dir.join("assets/mail.json");
     let asset_b_path = output_dir.join("assets/nested/texture.bin");
     let request = CpMakerExportRequest {
+        draft_storage_key: "test-draft".to_string(),
         output_path: output_dir.to_string_lossy().into_owned(),
         manifest_json: manifest.to_string(),
         content_json: content.to_string(),
@@ -123,6 +131,117 @@ fn exports_cp_maker_pack_to_a_fresh_directory() {
     );
 
     fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn streams_verified_persisted_assets_and_allows_exact_generated_overrides() {
+    let root = create_temp_dir("cp-maker-export-persisted-assets");
+    let source = root.join("source");
+    let projects = root.join("projects");
+    let output = root.join("output");
+    write_file(&source.join("assets/map.tmx"), "persisted map");
+    write_file(&source.join("assets/include.json"), "old include");
+    let refs = import_project_assets_at_dir(&source, &projects, "draft").unwrap();
+    let mut request = export_request(
+        &output,
+        vec![virtual_asset("assets/include.json", b"generated include")],
+    );
+    request.draft_storage_key = "draft".to_string();
+
+    export_cp_maker_pack_at_dir(request, &project_assets_dir(&projects, "draft"), &refs)
+        .expect("export persisted project assets");
+
+    assert_eq!(
+        fs::read(output.join("assets/map.tmx")).unwrap(),
+        b"persisted map"
+    );
+    assert_eq!(
+        fs::read(output.join("assets/include.json")).unwrap(),
+        b"generated include"
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn rejects_export_when_a_persisted_asset_no_longer_matches_its_ref() {
+    let root = create_temp_dir("cp-maker-export-stale-asset");
+    let source = root.join("source");
+    let projects = root.join("projects");
+    let output = root.join("output");
+    write_file(&source.join("assets/map.tmx"), "persisted map");
+    let refs = import_project_assets_at_dir(&source, &projects, "draft").unwrap();
+    write_file(
+        &project_assets_dir(&projects, "draft").join("assets/map.tmx"),
+        "tampered",
+    );
+
+    let error = export_cp_maker_pack_at_dir(
+        export_request(&output, Vec::new()),
+        &project_assets_dir(&projects, "draft"),
+        &refs,
+    )
+    .expect_err("reject stale project asset");
+    assert!(error.to_string().contains("persisted ref"));
+    assert!(!output.exists());
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn rejects_export_when_a_tmx_dependency_is_missing() {
+    let root = create_temp_dir("cp-maker-export-missing-tsx");
+    let source = root.join("source");
+    let projects = root.join("projects");
+    let output = root.join("output");
+    write_file(
+        &source.join("assets/map.tmx"),
+        r#"<map><tileset firstgid="1" source="tiles/missing.tsx"/></map>"#,
+    );
+    let refs = import_project_assets_at_dir(&source, &projects, "draft").unwrap();
+
+    let error = export_cp_maker_pack_at_dir(
+        export_request(&output, Vec::new()),
+        &project_assets_dir(&projects, "draft"),
+        &refs,
+    )
+    .expect_err("reject missing external TSX dependency");
+
+    let message = error.to_string();
+    assert!(message.contains("assets/map.tmx"), "{message}");
+    assert!(message.contains("assets/tiles/missing.tsx"), "{message}");
+    assert!(message.contains("chain="), "{message}");
+    assert!(!output.exists());
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn rejects_export_when_a_transitive_tsx_image_dependency_is_missing() {
+    let root = create_temp_dir("cp-maker-export-missing-tilesheet");
+    let source = root.join("source");
+    let projects = root.join("projects");
+    let output = root.join("output");
+    write_file(
+        &source.join("assets/map.tmx"),
+        r#"<map><tileset firstgid="1" source="tiles/map.tsx"/></map>"#,
+    );
+    write_file(
+        &source.join("assets/tiles/map.tsx"),
+        r#"<tileset><image source="../images/missing.png"/></tileset>"#,
+    );
+    let refs = import_project_assets_at_dir(&source, &projects, "draft").unwrap();
+
+    let error = export_cp_maker_pack_at_dir(
+        export_request(&output, Vec::new()),
+        &project_assets_dir(&projects, "draft"),
+        &refs,
+    )
+    .expect_err("reject missing transitive tilesheet image dependency");
+
+    let message = error.to_string();
+    assert!(message.contains("assets/tiles/map.tsx"), "{message}");
+    assert!(message.contains("assets/images/missing.png"), "{message}");
+    assert!(message.contains("kind=image"), "{message}");
+    assert!(!output.exists());
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
@@ -172,6 +291,7 @@ fn rejects_cp_maker_export_when_target_directory_is_not_fresh() {
     write_file(&output_dir.join("keep.txt"), "leave me alone");
 
     let error = export_cp_maker_pack(CpMakerExportRequest {
+        draft_storage_key: "test-draft".to_string(),
         output_path: output_dir.to_string_lossy().into_owned(),
         manifest_json: manifest.to_string(),
         content_json: content.to_string(),
@@ -346,6 +466,7 @@ fn exported_json_files_keep_pretty_format_with_trailing_newline() {
     });
 
     export_cp_maker_pack(CpMakerExportRequest {
+        draft_storage_key: "test-draft".to_string(),
         output_path: output_dir.to_string_lossy().into_owned(),
         manifest_json: manifest.to_string(),
         content_json: content.to_string(),

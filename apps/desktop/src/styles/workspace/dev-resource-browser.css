@@ -42,6 +42,32 @@
     margin-bottom: 1.25rem;
   }
 
+  .dev-resource-browser__intro-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .dev-resource-browser__load-state {
+    border-radius: 0.375rem;
+    background: var(--bg-panel-muted);
+    color: var(--text-tertiary);
+    font-size: 0.625rem;
+    font-weight: 650;
+    padding: 0.1875rem 0.5rem;
+  }
+
+  .dev-resource-browser__load-state[data-state='loaded'] {
+    background: color-mix(in srgb, var(--success) 12%, var(--bg-panel));
+    color: var(--success);
+  }
+
+  .dev-resource-browser__load-state[data-state='partial'] {
+    background: color-mix(in srgb, var(--warning) 12%, var(--bg-panel));
+    color: var(--warning);
+  }
+
   .dev-resource-browser__intro-title {
     font-size: 0.625rem;
     font-weight: 700;

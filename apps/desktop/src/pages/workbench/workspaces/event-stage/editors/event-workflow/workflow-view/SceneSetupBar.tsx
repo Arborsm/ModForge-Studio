@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { cx } from '@shared/lib/helper'
 import type { EventSceneActor, EventSceneSetup } from '@entities/event'
-import { EventResourcePicker } from './EventResourcePicker'
+import { ResourcePicker } from '@features/resource-browser'
 import { buildDefaultEventResourceRegistry, type EventResourceRegistry } from './eventResourceRegistry'
 import type { EventWorkflowCopy } from '@locales/api'
 import { useEventStageCopy } from '@locales/provider'
@@ -281,7 +281,7 @@ export function SceneSetupBar({
     <div className={cx('flex min-h-10 items-center gap-2 border-b border-(--border-color) bg-(--bg-panel) px-2 py-1.5', className)}>
       <div className="inline-flex h-8 items-center gap-1.5 rounded-md border border-(--border-color) bg-(--bg-app) px-1.5">
         <Music className="h-3.5 w-3.5 shrink-0 text-(--text-tertiary)" />
-        <EventResourcePicker
+        <ResourcePicker
           value={scene.musicCue ?? ''}
           label={labels.music}
           placeholder={labels.music}
@@ -353,7 +353,7 @@ export function SceneSetupBar({
                     : 'border-(--border-color) bg-(--bg-app) hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border-color))]',
                 )}
               >
-                <EventResourcePicker
+                <ResourcePicker
                   value={actor.actorName}
                   label={labels.actors}
                   placeholder={labels.actors}

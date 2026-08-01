@@ -12,6 +12,7 @@ import {
   GitMerge,
   Home,
   Languages,
+  Images,
   LockKeyhole,
   Mail,
   Map,
@@ -44,6 +45,7 @@ const ICONS = {
   mail: Mail,
   bug: Bug,
   settings: Settings,
+  images: Images,
 } as const
 
 export type WorkbenchSideNavSectionState = {

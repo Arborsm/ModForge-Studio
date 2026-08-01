@@ -1,6 +1,6 @@
 import type { LauncherCopy } from '../launcher'
 import type { WorkbenchShellCopy } from './shell'
-import type { ViewportLabels, BuildAssetDialogCopy, MapPanelCopy } from './map'
+import type { ViewportLabels, BuildAssetDialogCopy, MapAuthoringCopy, MapPanelCopy } from './map'
 import type { StudioDeskCopy } from './studio-desk'
 import type { EventStageCopy } from './event-stage'
 import type { CharactersPanelCopy } from './characters'
@@ -18,6 +18,8 @@ import type { ScheduleEditorCopy } from './schedule'
 import type { MailEditorCopy } from './mail'
 import type { GameDebuggerCopy } from './debugger'
 import type { AuthoringShellCopy } from './authoring-shell'
+import type { AssetLibraryCopy } from './asset-library'
+import type { ResourceBrowserCopy } from './resource-browser'
 
 export type { ModWorkspaceCopy } from './mods'
 export type { TranslationEditorCopy } from './translation-editor'
@@ -45,12 +47,15 @@ export type EditorCopy = WorkbenchShellCopy & {
   viewportLabels: ViewportLabels
   buildAssetDialog: BuildAssetDialogCopy
   mapPanel: MapPanelCopy
+  mapAuthoring: MapAuthoringCopy
   authoringShell: AuthoringShellCopy
+  assetLibrary: AssetLibraryCopy
+  resourceBrowser: ResourceBrowserCopy
 }
 
 // Re-export all sub-types for consumer convenience
 export type { WorkbenchShellCopy } from './shell'
-export type { ViewportLabels, BuildAssetDialogCopy, MapPanelCopy } from './map'
+export type { ViewportLabels, BuildAssetDialogCopy, MapAuthoringCopy, MapPanelCopy } from './map'
 export type { StudioDeskCopy } from './studio-desk'
 export type { EventStageCopy, EventWorkflowCopy, EventWorkflowCommandKey, EventScenarioPresetId, ScriptEditorCopy } from './event-stage'
 export type { CharactersPanelCopy } from './characters'
@@ -78,3 +83,5 @@ export type { ScheduleEditorCopy } from './schedule'
 export type { MailEditorCopy } from './mail'
 export type { GameDebuggerCopy } from './debugger'
 export type { AuthoringShellCopy } from './authoring-shell'
+export type { AssetLibraryCopy, MapLoadBindingCopy, AssetLibraryCreateMapCopy, AssetLibraryMapCategory } from './asset-library'
+export type { ResourceBrowserCopy, ResourceBrowserKindKey } from './resource-browser'

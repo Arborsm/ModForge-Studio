@@ -2,12 +2,13 @@ use super::types::{
     ChangeRegistry, ChangeRegistryPatch, CpMakerDependency, CpMakerDraftRecord, CpMakerI18nFile,
     CpMakerMetadata, CustomLocation, DynamicToken,
 };
+use crate::infrastructure::game_formats::json_relaxed::parse_json_str;
 use crate::infrastructure::text_encoding::read_text_file;
 use anyhow::{Context, bail};
 use serde_json::{Map, Value, json};
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Import a CP mod directory into a draft record.
@@ -70,6 +71,7 @@ pub fn import_cp_maker_pack(mod_directory_path: &str) -> anyhow::Result<CpMakerD
         alias_token_names,
         event_source_snapshots_by_target: BTreeMap::new(),
         i18n_files,
+        project_assets: Vec::new(),
         last_draft_saved_at: None,
         last_exported_at: None,
         last_export_path: None,
@@ -109,8 +111,7 @@ fn read_i18n_files(project_dir: &Path) -> anyhow::Result<Vec<CpMakerI18nFile>> {
         validate_i18n_locale(&locale)?;
         let raw_json = read_text_file(&path)
             .with_context(|| format!("Failed to read i18n file [path={}]", path.display()))?;
-        let value: Value = serde_json::from_str(&raw_json)
-            .with_context(|| format!("i18n/{locale}.json is not valid JSON"))?;
+        let value = parse_json_str(&raw_json, &format!("i18n/{locale}.json"))?;
         if !value.is_object() {
             bail!("i18n/{locale}.json must contain a JSON object");
         }
@@ -135,8 +136,7 @@ pub(super) fn validate_i18n_locale(locale: &str) -> anyhow::Result<()> {
 // ─── manifest.json ────────────────────────────────────────────────────
 
 fn parse_manifest_json(manifest_json: &str) -> anyhow::Result<(CpMakerMetadata, Value)> {
-    let value: Value =
-        serde_json::from_str(manifest_json).context("manifest.json is not valid JSON")?;
+    let value = parse_json_str(manifest_json, "manifest.json")?;
 
     let obj = value
         .as_object()
@@ -245,8 +245,7 @@ fn parse_content_json(
     BTreeMap<String, String>,
     Value,
 )> {
-    let value: Value =
-        serde_json::from_str(content_json).context("content.json is not valid JSON")?;
+    let value = parse_json_str(content_json, "content.json")?;
 
     let obj = value
         .as_object()
@@ -305,43 +304,51 @@ fn resolve_changes(
             .unwrap_or("");
 
         if action == "Include" {
-            let from_file = change_obj
-                .get("FromFile")
-                .and_then(Value::as_str)
-                .context("Include action must have FromFile")?;
-
-            if !visited.insert(from_file.to_string()) {
-                bail!("Cyclic or duplicate include detected: {from_file}");
-            }
-
-            let include_path = mod_dir.join(from_file);
-            let include_json = read_text_file(&include_path).with_context(|| {
-                format!(
-                    "Failed to read include file {from_file} [path={}]",
-                    include_path.to_string_lossy()
-                )
-            })?;
-
-            let include_value: Value = serde_json::from_str(&include_json)
-                .with_context(|| format!("Include file {from_file} is not valid JSON"))?;
-
-            let include_obj = include_value
-                .as_object()
-                .with_context(|| format!("Include file {from_file} must be a JSON object"))?;
-
-            // Infer workspace from include file path, e.g. "changes/mods.json" -> "mods"
-            let workspace = extract_workspace_from_include_path(from_file);
-
-            // Recursively resolve (supports nested includes)
-            let nested = resolve_changes(include_obj, mod_dir, visited)?;
-            for (nested_ws, ch) in nested {
-                // Inner include wins if it already has a workspace, otherwise use outer
-                let effective = if nested_ws == "mods" {
-                    workspace.clone()
-                } else {
-                    nested_ws
-                };
-                result.push((effective, ch));
+            let from_files = parse_include_paths(
+                change_obj
+                    .get("FromFile")
+                    .context("Include action must have FromFile")?,
+            )?;
+            for from_file in from_files {
+                if from_file.contains("{{") {
+                    result.push(("mods".to_string(), change.clone()));
+                    continue;
+                }
+                let include_path = resolve_include_path(mod_dir, &from_file)?;
+                let include_key = from_file.replace('\\', "/").to_ascii_lowercase();
+                if !visited.insert(include_key.clone()) {
+                    bail!("Cyclic include detected: {from_file}");
+                }
+                let nested_result = (|| {
+                    let include_json = read_text_file(&include_path).with_context(|| {
+                        format!(
+                            "Failed to read include file {from_file} [path={}]",
+                            include_path.to_string_lossy()
+                        )
+                    })?;
+                    let include_value =
+                        parse_json_str(&include_json, &format!("Include file {from_file}"))?;
+                    let include_obj = include_value.as_object().with_context(|| {
+                        format!("Include file {from_file} must be a JSON object")
+                    })?;
+                    let workspace = extract_workspace_from_include_path(&from_file);
+                    let nested = resolve_changes(include_obj, mod_dir, visited)?;
+                    Ok::<_, anyhow::Error>(
+                        nested
+                            .into_iter()
+                            .map(|(nested_ws, change)| {
+                                let effective = if nested_ws == "mods" {
+                                    workspace.clone()
+                                } else {
+                                    nested_ws
+                                };
+                                (effective, change)
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                })();
+                visited.remove(&include_key);
+                result.extend(nested_result?);
             }
         } else {
             result.push(("mods".to_string(), change.clone()));
@@ -349,6 +356,44 @@ fn resolve_changes(
     }
 
     Ok(result)
+}
+
+fn parse_include_paths(value: &Value) -> anyhow::Result<Vec<String>> {
+    let values = match value {
+        Value::String(value) => vec![value.as_str()],
+        Value::Array(values) => values
+            .iter()
+            .map(|value| {
+                value
+                    .as_str()
+                    .context("Include FromFile arrays may only contain strings")
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?,
+        _ => bail!("Include FromFile must be a string or string array"),
+    };
+    let paths = values
+        .into_iter()
+        .flat_map(|value| value.split(','))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+    if paths.is_empty() {
+        bail!("Include FromFile must contain at least one path");
+    }
+    Ok(paths)
+}
+
+fn resolve_include_path(mod_dir: &Path, raw: &str) -> anyhow::Result<PathBuf> {
+    let relative = PathBuf::from(raw.replace('/', "\\"));
+    if relative.is_absolute()
+        || relative
+            .components()
+            .any(|component| !matches!(component, Component::Normal(_)))
+    {
+        bail!("Include path must stay inside the content pack: {raw}");
+    }
+    Ok(mod_dir.join(relative))
 }
 
 fn extract_workspace_from_include_path(path: &str) -> String {
@@ -595,42 +640,70 @@ fn standalone_change_to_patch(
         };
 
         let mapped = if internal_key == "warps" || internal_key == "npcWarps" {
-            v.as_array()
-                .map(|arr| {
-                    Value::Array(
-                        arr.iter()
-                            .filter_map(|s| {
-                                let parts: Vec<&str> = s.as_str()?.split_whitespace().collect();
-                                if parts.len() >= 5 {
-                                    let mut warp = Map::new();
-                                    warp.insert("fromX".to_string(), json!(parts[0]));
-                                    warp.insert("fromY".to_string(), json!(parts[1]));
-                                    warp.insert("toMap".to_string(), json!(parts[2]));
-                                    warp.insert("toX".to_string(), json!(parts[3]));
-                                    warp.insert("toY".to_string(), json!(parts[4]));
-                                    Some(Value::Object(warp))
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect(),
-                    )
-                })
-                .unwrap_or_else(|| v.clone())
+            let source_shape_key = if internal_key == "warps" {
+                "warpsSourceShape"
+            } else {
+                "npcWarpsSourceShape"
+            };
+            let raw_key = if internal_key == "warps" {
+                "rawWarps"
+            } else {
+                "rawNpcWarps"
+            };
+            let (shape, values) = match v {
+                Value::String(value) => ("string", vec![Value::String(value.clone())]),
+                Value::Array(values) => ("array", values.clone()),
+                _ => ("raw", Vec::new()),
+            };
+            editor_state.insert(source_shape_key.to_string(), json!(shape));
+            if shape == "raw" {
+                editor_state.insert(raw_key.to_string(), v.clone());
+                Value::Array(Vec::new())
+            } else {
+                let mut structured = Vec::new();
+                let mut raw = Vec::new();
+                for value in values {
+                    let Some(expression) = value.as_str() else {
+                        raw.push(value);
+                        continue;
+                    };
+                    let parts = expression.split_whitespace().collect::<Vec<_>>();
+                    if parts.len() == 5 {
+                        structured.push(json!({
+                            "fromX": parts[0], "fromY": parts[1], "toMap": parts[2],
+                            "toX": parts[3], "toY": parts[4], "rawExpression": expression,
+                        }));
+                    } else {
+                        raw.push(Value::String(expression.to_string()));
+                    }
+                }
+                if !raw.is_empty() {
+                    editor_state.insert(raw_key.to_string(), Value::Array(raw));
+                }
+                Value::Array(structured)
+            }
         } else if internal_key == "mapTiles" {
             v.as_array()
                 .map(|arr| {
-                    Value::Array(
-                        arr.iter()
-                            .filter_map(|t| {
-                                let t_obj = t.as_object()?;
+                    let mut mapped_tiles = Vec::new();
+                    let mut raw_tiles = Vec::new();
+                    for t in arr {
+                        if let Some(t_obj) = t.as_object() {
+                            if let (Some(layer), Some(pos)) = (
+                                t_obj.get("Layer"),
+                                t_obj.get("Position").and_then(Value::as_object),
+                            ) {
                                 let mut tile = Map::new();
-                                tile.insert("layer".to_string(), t_obj.get("Layer")?.clone());
-                                if let Some(pos) = t_obj.get("Position").and_then(Value::as_object)
-                                {
-                                    tile.insert("x".to_string(), pos.get("X")?.clone());
-                                    tile.insert("y".to_string(), pos.get("Y")?.clone());
-                                }
+                                tile.insert("_raw".to_string(), t.clone());
+                                tile.insert("layer".to_string(), layer.clone());
+                                tile.insert(
+                                    "x".to_string(),
+                                    pos.get("X").cloned().unwrap_or(json!(0)),
+                                );
+                                tile.insert(
+                                    "y".to_string(),
+                                    pos.get("Y").cloned().unwrap_or(json!(0)),
+                                );
                                 if let Some(ts) = t_obj.get("SetTilesheet") {
                                     tile.insert("setTilesheet".to_string(), ts.clone());
                                 }
@@ -638,21 +711,35 @@ fn standalone_change_to_patch(
                                     tile.insert("setIndex".to_string(), si.clone());
                                 }
                                 if let Some(r) = t_obj.get("Remove") {
-                                    tile.insert("remove".to_string(), json!(r == "true"));
+                                    let remove = match r {
+                                        Value::Bool(value) => *value,
+                                        Value::String(value) => value.eq_ignore_ascii_case("true"),
+                                        _ => false,
+                                    };
+                                    tile.insert("remove".to_string(), json!(remove));
                                 }
                                 if let Some(sp) = t_obj.get("SetProperties") {
                                     tile.insert("setProperties".to_string(), sp.clone());
                                 }
-                                Some(Value::Object(tile))
-                            })
-                            .collect(),
-                    )
+                                mapped_tiles.push(Value::Object(tile));
+                            } else {
+                                raw_tiles.push(t.clone());
+                            }
+                        } else {
+                            raw_tiles.push(t.clone());
+                        }
+                    }
+                    if !raw_tiles.is_empty() {
+                        editor_state.insert("rawMapTiles".to_string(), Value::Array(raw_tiles));
+                    }
+                    Value::Array(mapped_tiles)
                 })
                 .unwrap_or_else(|| v.clone())
         } else if internal_key == "fromArea" || internal_key == "toArea" {
             v.as_object()
                 .map(|area_obj| {
                     let mut area = Map::new();
+                    area.insert("_raw".to_string(), v.clone());
                     area.insert(
                         "x".to_string(),
                         area_obj.get("X").cloned().unwrap_or(json!(0)),

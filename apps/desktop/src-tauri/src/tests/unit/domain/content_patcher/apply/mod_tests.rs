@@ -1,6 +1,7 @@
 use super::{LoadedTargetBase, load_target_base_with};
 use crate::domain::content_patcher::assets::{LoadedBaseImageAsset, LoadedMapAsset};
 use crate::domain::content_patcher::types::ContentPatcherMapDebugSummary;
+use crate::infrastructure::game_formats::map::MapFormat;
 use crate::infrastructure::game_formats::tbin::MapDocument;
 use image::RgbaImage;
 use serde_json::json;
@@ -10,7 +11,7 @@ use std::collections::HashMap;
 fn empty_map_document() -> MapDocument {
     MapDocument {
         name: "Test".to_string(),
-        format: "xnb".to_string(),
+        format: MapFormat::Xnb,
         source_path: "Content/Maps/Test.xnb".to_string(),
         relative_path: "Content/Maps/Test.xnb".to_string(),
         width: 0,
@@ -19,10 +20,17 @@ fn empty_map_document() -> MapDocument {
         tile_height: 16,
         orientation: "orthogonal".to_string(),
         render_order: "right-down".to_string(),
+        tmx_version: None,
+        tiled_version: None,
+        next_layer_id: Some(1),
+        next_object_id: Some(1),
+        infinite: false,
         properties: HashMap::new(),
         tilesets: Vec::new(),
         layers: Vec::new(),
         object_groups: Vec::new(),
+        layer_order: Vec::new(),
+        preserved_xml: Vec::new(),
     }
 }
 

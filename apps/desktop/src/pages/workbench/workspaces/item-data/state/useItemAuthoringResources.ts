@@ -10,13 +10,17 @@
 
 import { useEffect, useState } from 'react'
 import { loadResourceRegistry, type GameDirectoryInfo } from '@entities/game/api'
-import { loadItemWorkspaceEntries } from '@entities/item'
+import { loadItemTextureAssetState, loadItemWorkspaceEntries, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
 import type { DraftPatch } from '@features/cp-maker'
 import type { LocaleCode } from '@locales'
 
 export type ItemAuthoringResources = {
   /** Qualified item ids `GeodeDrops` may reference. */
   itemIds: string[]
+  /** Complete localized catalog used by item reference pickers. */
+  items: ItemWorkspaceEntry[]
+  /** Loaded texture atlases keyed by normalized logical asset name. */
+  itemTextureStates: Record<string, ItemTextureAssetState>
   /** Location names `ArtifactSpotChances` may key on. */
   locationNames: string[]
   /** Sprite sheets vanilla items use, plus the ones this draft loads. */
@@ -25,7 +29,13 @@ export type ItemAuthoringResources = {
 
 type GameSideResources = Omit<ItemAuthoringResources, 'textureAssetNames'> & { vanillaTextures: string[] }
 
-const EMPTY_RESOURCES: GameSideResources = { itemIds: [], locationNames: [], vanillaTextures: [] }
+const EMPTY_RESOURCES: GameSideResources = {
+  itemIds: [],
+  items: [],
+  itemTextureStates: {},
+  locationNames: [],
+  vanillaTextures: [],
+}
 
 function sortedUnique(values: Iterable<string>): string[] {
   return Array.from(new Set(values)).sort((left, right) => left.localeCompare(right))
@@ -58,17 +68,33 @@ export function useItemAuthoringResources({
     let cancelled = false
 
     void Promise.all([loadItemWorkspaceEntries(gameRootPath, locale), loadResourceRegistry(gameRootPath, locale).catch(() => null)])
-      .then(([entries, registry]) => {
+      .then(async ([entries, registry]) => {
         if (cancelled) {
           return
         }
-        setGameResources({
+        const textureNames = sortedUnique(entries.flatMap((entry) => (entry.textureAssetName ? [entry.textureAssetName] : [])))
+        const baseResources: GameSideResources = {
           itemIds: sortedUnique(entries.map((entry) => entry.qualifiedItemId)),
+          items: entries,
+          itemTextureStates: {},
           locationNames: sortedUnique((registry?.entries ?? []).filter((entry) => entry.kind === 'location').map((entry) => entry.value)),
           vanillaTextures: sortedUnique(
             entries.map((entry) => entry.textureAssetName).filter((name): name is string => typeof name === 'string' && name !== ''),
           ),
-        })
+        }
+        setGameResources(baseResources)
+
+        await Promise.all(
+          textureNames.map(async (assetName) => {
+            const texture = await loadItemTextureAssetState(gameRootPath, assetName, locale)
+            if (cancelled) return
+            const textureKey = assetName.replaceAll('\\', '/').toLowerCase()
+            setGameResources((current) => ({
+              ...current,
+              itemTextureStates: { ...current.itemTextureStates, [textureKey]: texture },
+            }))
+          }),
+        )
       })
       .catch(() => {
         if (!cancelled) {
@@ -96,6 +122,8 @@ export function useItemAuthoringResources({
 
   return {
     itemIds: gameResources.itemIds,
+    items: gameResources.items,
+    itemTextureStates: gameResources.itemTextureStates,
     locationNames: gameResources.locationNames,
     textureAssetNames: sortedUnique([...gameResources.vanillaTextures, ...projectTextures]),
   }

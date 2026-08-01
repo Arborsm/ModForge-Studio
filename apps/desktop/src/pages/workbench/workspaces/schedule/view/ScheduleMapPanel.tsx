@@ -397,6 +397,7 @@ export function ScheduleMapPanel({ segments, locationOptions, selectedIndex, npc
             contextMenuEnabled={false}
             focusWorldPoint={focusWorldPoint}
             scaleMapOverlayWithViewport
+            mapOverlayLayer="top"
             mapOverlay={
               <SchedulePathOverlay
                 path={path}

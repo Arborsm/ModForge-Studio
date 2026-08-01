@@ -40,6 +40,16 @@ export type DialogueEditorCopy = {
   saveAction: string
   savedStatus: string
   unsavedStatus: string
+  editorTabs: Record<'flow' | 'properties' | 'script', string>
+  tabStatuses: Record<'complete' | 'attention' | 'optional', string>
+  livePreviewTitle: string
+  livePreviewEmpty: string
+  previewDataTitle: string
+  previewNpcLabel: string
+  previewKeyLabel: string
+  previewPagesLabel: string
+  previewWarningsLabel: string
+  rawScriptHint: string
   /** Header controls for the project draft, shared with the other authoring pages. */
   draft: {
     saveAction: string

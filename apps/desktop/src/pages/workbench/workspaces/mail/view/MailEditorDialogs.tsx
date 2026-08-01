@@ -1,6 +1,9 @@
 import { useId, useState } from 'react'
-import { Gift, Users } from 'lucide-react'
-import { useMailEditorCopy } from '@locales/provider'
+import { BookText, Gift, Users, X } from 'lucide-react'
+import { GameTextLibraryDialog } from '@entities/asset-schema'
+import { ResourcePicker, toItemResourceBrowserOptions } from '@features/resource-browser'
+import type { AssetTextCategoryKey, LocaleCode } from '@locales'
+import { useAssetAuthoringCopy, useMailEditorCopy } from '@locales/provider'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import {
   DEPRECATED_ATTACHMENT_KINDS,
@@ -9,6 +12,48 @@ import {
   type MailAttachmentKind,
   type MailItemPair,
 } from '../entities/mail'
+import { useMailWorkspaceContext } from '../state/MailWorkspaceContext'
+
+type MailLocalizedTextPickerProps = {
+  gameRootPath: string | null
+  locale: LocaleCode
+  category: AssetTextCategoryKey
+  onInsert: (value: string) => void
+}
+
+/** Opens the shared game-text library and writes either its token or resolved text. */
+export function MailLocalizedTextPicker({ gameRootPath, locale, category, onInsert }: MailLocalizedTextPickerProps) {
+  const copy = useAssetAuthoringCopy().textLibrary
+  const [open, setOpen] = useState(false)
+
+  if (gameRootPath === null) {
+    return null
+  }
+
+  return (
+    <>
+      <button type="button" className="control-button" onClick={() => setOpen(true)}>
+        <BookText className="h-3.5 w-3.5" aria-hidden="true" />
+        <span>{copy.openAction}</span>
+      </button>
+      <GameTextLibraryDialog
+        open={open}
+        gameRootPath={gameRootPath}
+        locale={locale}
+        initialCategory={category}
+        onClose={() => setOpen(false)}
+        onInsertToken={(value) => {
+          onInsert(value)
+          setOpen(false)
+        }}
+        onInsertText={(value) => {
+          onInsert(value)
+          setOpen(false)
+        }}
+      />
+    </>
+  )
+}
 
 /** Attachment kinds offered by the builder; `unknown` is parse-only and not buildable. */
 const BUILDABLE_KINDS: readonly MailAttachmentKind[] = [
@@ -110,24 +155,41 @@ function buildAttachment(form: AttachmentFormState): MailAttachment | null {
 
 function ItemPairFields({ form, onChange }: { form: AttachmentFormState; onChange: (next: AttachmentFormState) => void }) {
   const copy = useMailEditorCopy().attachments
+  const workspace = useMailWorkspaceContext()
+  const itemOptions = toItemResourceBrowserOptions(workspace.itemTextures.items, workspace.itemTextures.textures, 'mail-attachment')
   return (
     <div className="mail-editor-dialog-field">
       <span className="mail-editor-dialog-label">{copy.itemsLabel}</span>
       {form.items.map((item, index) => (
         <div key={index} className="mail-editor-dialog-item-row">
-          <input
-            className="control-input"
-            value={item.itemId}
-            onChange={(event) =>
-              onChange({
-                ...form,
-                items: form.items.map((row, rowIndex) => (rowIndex === index ? { ...row, itemId: event.target.value } : row)),
-              })
-            }
-            placeholder={copy.itemIdPlaceholder}
-            aria-label={copy.itemIdLabel}
-            spellCheck={false}
-          />
+          <span className="mail-editor-dialog-resource-field">
+            <input
+              className="control-input"
+              value={item.itemId}
+              onChange={(event) =>
+                onChange({
+                  ...form,
+                  items: form.items.map((row, rowIndex) => (rowIndex === index ? { ...row, itemId: event.target.value } : row)),
+                })
+              }
+              placeholder={copy.itemIdPlaceholder}
+              aria-label={copy.itemIdLabel}
+              spellCheck={false}
+            />
+            <ResourcePicker
+              value={item.itemId}
+              label={copy.itemIdLabel}
+              placeholder={copy.itemIdPlaceholder}
+              options={itemOptions}
+              selectionMode="confirm"
+              onSelect={(value) =>
+                onChange({
+                  ...form,
+                  items: form.items.map((row, rowIndex) => (rowIndex === index ? { ...row, itemId: value } : row)),
+                })
+              }
+            />
+          </span>
           <input
             className="control-input mail-editor-dialog-count"
             type="number"
@@ -150,7 +212,7 @@ function ItemPairFields({ form, onChange }: { form: AttachmentFormState; onChang
             disabled={form.items.length === 1}
             onClick={() => onChange({ ...form, items: form.items.filter((_, rowIndex) => rowIndex !== index) })}
           >
-            ×
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
         </div>
       ))}

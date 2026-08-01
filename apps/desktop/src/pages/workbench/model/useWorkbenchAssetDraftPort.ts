@@ -44,7 +44,7 @@ export type WorkbenchAssetDraftPort = {
  */
 export function useWorkbenchAssetDraftPort(
   workspaceId: WorkspaceId,
-  { shortcutsEnabled = true }: { shortcutsEnabled?: boolean } = {},
+  { shortcutsEnabled = true, onOpenPatch }: { shortcutsEnabled?: boolean; onOpenPatch?: (patchId: string) => void } = {},
 ): WorkbenchAssetDraftPort {
   const project = useWorkbenchProject()
   const [selectedEntryKey, setSelectedEntryKey] = useState<string | null>(null)
@@ -59,6 +59,21 @@ export function useWorkbenchAssetDraftPort(
   function stagePatchChange(patchId: string, changes: Partial<DraftPatch>) {
     setSaveState('idle')
     project.updatePatch(patchId, changes)
+  }
+
+  function stagePatchReorder(patchId: string, delta: -1 | 1) {
+    setSaveState('idle')
+    project.reorderPatch(patchId, delta)
+  }
+
+  function stagePatchDuplicate(patchId: string) {
+    setSaveState('idle')
+    project.duplicatePatch(patchId)
+  }
+
+  function stagePatchRemove(patchId: string) {
+    setSaveState('idle')
+    project.removePatch(patchId)
   }
 
   /**
@@ -86,8 +101,12 @@ export function useWorkbenchAssetDraftPort(
           setSaveState('idle')
           return project.addPatch(workspaceId, target, action, fromFile)
         },
+        onPatchReorder: stagePatchReorder,
+        onPatchDuplicate: stagePatchDuplicate,
+        onPatchRemove: stagePatchRemove,
         onAddVirtualAsset: project.addVirtualAsset,
         onRemoveVirtualAsset: project.removeVirtualAsset,
+        onOpenPatch,
         onSaveDraft: () => {
           void commitDraft()
         },

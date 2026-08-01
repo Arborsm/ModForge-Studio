@@ -161,6 +161,8 @@ fn assert_documents_match(
     assert_eq!(actual_layer.visible, expected_layer.visible);
     assert_eq!(actual_layer.non_empty_tiles, expected_layer.non_empty_tiles);
     assert_eq!(actual_layer.gids, expected_layer.gids);
+    assert_eq!(actual_layer.cell_properties, expected_layer.cell_properties);
+    assert_eq!(actual_layer.cell_animations, expected_layer.cell_animations);
     assert_eq!(
         serde_json::to_value(&actual_layer.properties).unwrap(),
         serde_json::to_value(&expected_layer.properties).unwrap()
@@ -185,4 +187,63 @@ fn serializes_parsed_map_document_back_to_tbin_without_losing_structure() {
         parse_tbin_map(&serialized, map_path, relative_path).expect("parse serialized tbin");
 
     assert_documents_match(&reparsed, &original);
+}
+
+#[test]
+fn keeps_tbin_tile_properties_and_animations_on_their_cells() {
+    let document = parse_tbin_map(
+        &sample_tbin_bytes(),
+        Path::new("Content/Maps/Town.xnb"),
+        "Content/Maps/Town.xnb",
+    )
+    .expect("parse tbin");
+
+    let layer = &document.layers[0];
+    assert!(layer.cell_properties[&0].contains_key("Diggable"));
+    assert!(layer.cell_properties[&1].contains_key("Animated"));
+    assert_eq!(layer.cell_animations[&1].len(), 2);
+    assert!(document.tilesets[0].tile_properties.is_empty());
+    assert!(document.tilesets[0].animations.is_empty());
+}
+
+#[test]
+fn rejects_tmx_tile_transforms_when_serializing_tbin() {
+    let mut document = parse_tbin_map(
+        &sample_tbin_bytes(),
+        Path::new("Content/Maps/Town.xnb"),
+        "Content/Maps/Town.xnb",
+    )
+    .expect("parse tbin");
+    document.layers[0].gids[0] |=
+        crate::infrastructure::game_formats::map::TMX_FLIPPED_HORIZONTALLY_FLAG;
+
+    let error = serialize_tbin_map(&document).expect_err("transforms must be rejected");
+    assert!(error.to_string().contains("Save as TMX"), "{error:#}");
+}
+
+#[test]
+fn rejects_tmx_metadata_that_tbin_cannot_preserve() {
+    let mut document = parse_tbin_map(
+        &sample_tbin_bytes(),
+        Path::new("Content/Maps/Town.xnb"),
+        "Content/Maps/Town.xnb",
+    )
+    .expect("parse tbin");
+    document.layers[0].opacity = 0.5;
+    let error = serialize_tbin_map(&document).expect_err("layer opacity must be rejected");
+    assert!(error.to_string().contains("layer opacity"), "{error:#}");
+
+    document.layers[0].opacity = 1.0;
+    document.tilesets[0].margin = 1;
+    let error = serialize_tbin_map(&document).expect_err("tileset margin must be rejected");
+    assert!(error.to_string().contains("tileset margin"), "{error:#}");
+
+    document.tilesets[0].margin = 0;
+    document
+        .preserved_xml
+        .push(crate::infrastructure::game_formats::map::MapPreservedXml {
+            xml: "<custom/>".to_string(),
+        });
+    let error = serialize_tbin_map(&document).expect_err("extension nodes must be rejected");
+    assert!(error.to_string().contains("extension nodes"), "{error:#}");
 }

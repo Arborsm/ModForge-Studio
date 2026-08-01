@@ -69,6 +69,21 @@ describe('Data/Buildings schema round-trip', () => {
     expect(BUILDING_DATA_SCHEMA.fields.filter((field) => !groupIds.has(field.group))).toEqual([])
   })
 
+  it('routes player-facing building text through the localized text library', () => {
+    for (const key of ['Name', 'NameForGeneralType', 'Description']) {
+      const field = BUILDING_DATA_SCHEMA.fields.find((candidate) => candidate.key === key)
+      expect(field?.control).toBe('localized_text')
+      expect(field?.textCategory).toBe('locations')
+    }
+
+    const skins = BUILDING_DATA_SCHEMA.fields.find((candidate) => candidate.key === 'Skins')
+    for (const key of ['Name', 'NameForGeneralType', 'Description']) {
+      const field = skins?.itemSchema?.find((candidate) => candidate.key === key)
+      expect(field?.control).toBe('localized_text')
+      expect(field?.textCategory).toBe('locations')
+    }
+  })
+
   it('keeps extra keys on a skin row when one skin field is edited', () => {
     const draft = parseAssetEntry(BUILDING_DATA_SCHEMA, barnLike)
     const skins = draft.fields['Skins'] as BuildingSkinFields[]

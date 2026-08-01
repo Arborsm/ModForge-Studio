@@ -15,6 +15,14 @@ export type BuildingDataEditorCopy = {
     cancelAction: string
     closeLabel: string
   }
+  workflow: {
+    title: string
+    ready: string
+    progress: (complete: number, total: number) => string
+    openStep: (step: string) => string
+    steps: Record<'identity' | 'artwork' | 'placement' | 'construction' | 'cost' | 'interior' | 'upgrade', string>
+    status: Record<'complete' | 'needs-attention' | 'optional', string>
+  }
   addDialog: {
     title: string
     subtitle: string
@@ -39,6 +47,10 @@ export type BuildingDataEditorCopy = {
   /** Left pane: which building is being edited and where it came from. */
   sources: {
     title: string
+    libraryTitle: string
+    libraryHint: string
+    backToLibrary: string
+    openBuilding: (name: string) => string
     searchPlaceholder: string
     modeAll: string
     modeProject: string
@@ -92,6 +104,40 @@ export type BuildingDataEditorCopy = {
     footprintLabel: string
     footprintValue: (width: number, height: number) => string
     footprintHint: string
+    applyAction: string
+    cancelAction: string
+  }
+  /** Farm-map rectangle picker used to choose the building footprint. */
+  footprintMap: {
+    title: string
+    subtitle: string
+    openAction: string
+    loading: string
+    unavailable: string
+    loadFailed: (message: string) => string
+    retryAction: string
+    currentLabel: string
+    selectedLabel: string
+    sizeValue: (width: number, height: number) => string
+    emptySelection: string
+    hint: string
+    applyAction: string
+    cancelAction: string
+  }
+  /** Interior map browser with a live map preview. */
+  indoorMap: {
+    openAction: string
+    title: string
+    subtitle: string
+    searchPlaceholder: string
+    empty: string
+    customValue: string
+    previewTitle: string
+    previewLoading: string
+    previewUnavailable: string
+    previewFailed: (message: string) => string
+    retryAction: string
+    clearAction: string
     applyAction: string
     cancelAction: string
   }

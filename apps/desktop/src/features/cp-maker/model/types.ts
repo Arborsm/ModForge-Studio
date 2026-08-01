@@ -62,6 +62,7 @@ export interface CpMakerDraft {
   configSchema: ConfigSchemaEntry[]
   patches: DraftPatch[]
   virtualAssets: VirtualPreviewAsset[]
+  projectAssets: ProjectAssetRef[]
   dynamicTokens: Array<{ name: string; value: string; when?: Record<string, unknown> }>
   customLocations: Array<{
     name: string
@@ -71,6 +72,16 @@ export interface CpMakerDraft {
   aliasTokenNames: Record<string, string>
   eventSourceSnapshotsByTarget: Record<string, { rawScriptsByKey: Record<string, string> }>
   i18nFiles: Array<{ locale: string; rawJson: string }>
+}
+
+export interface ProjectAssetRef {
+  relativePath: string
+  mediaType: string
+  sizeBytes: number
+  sha256: string
+  storageKey: string
+  sourceType: 'imported' | 'generated' | 'edited'
+  dependencies: Array<{ relativePath: string; kind: string }>
 }
 
 export interface VirtualPreviewAsset {

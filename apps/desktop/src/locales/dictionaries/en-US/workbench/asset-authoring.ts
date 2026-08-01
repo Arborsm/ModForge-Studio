@@ -19,8 +19,8 @@ const assetAuthoring: AssetAuthoringCopy = {
     unknownFieldsHint: 'These keys are not part of this asset schema; they are exported unchanged.',
     unknownFieldsCount: (count) => `${count} field${count === 1 ? '' : 's'}`,
     readOnlyEmptyValue: 'Not set',
-    localizedResolvedHint: (text) => `Resolves to: ${text}`,
-    localizedRewriteAction: 'Rewrite as default text',
+    localizedReferenceHint: (reference) => `Reference ${reference}`,
+    localizedRewriteAction: 'Use custom text',
     localizedTableFailed: 'The game string table is not loaded; this text reference cannot be resolved yet.',
   },
   picker: {
@@ -101,6 +101,8 @@ const assetAuthoring: AssetAuthoringCopy = {
     title: 'Raw JSON',
     hint: 'Edit this patch payload directly. Structures the form cannot express live here; validated on blur.',
     invalidJson: 'Invalid JSON, not saved.',
+    expertOnlyTitle: 'This content requires expert mode',
+    expertOnlyHint: 'Turn on Expert mode from the header (wrench icon) to unlock raw editing.',
   },
   groups: {
     'character.core': 'Core profile',
@@ -236,12 +238,18 @@ const assetAuthoring: AssetAuthoringCopy = {
       hint: 'Used by vanilla NPCs only; leave empty for custom NPCs.',
     },
     'character.customFields': { label: 'Custom fields', hint: 'Key-value pairs read by other mods.' },
-    'building.name': { label: 'Display name', hint: 'Shown in the construction menu; supports [LocalizedText] and {{i18n:key}} tokens.' },
+    'building.name': {
+      label: 'Display name',
+      hint: 'Shown in the construction menu; enter custom text or reuse translated copy from the game text library.',
+    },
     'building.nameForGeneralType': {
       label: 'Type name',
       hint: 'Shared name for the whole upgrade chain, e.g. "Barn"; falls back to the display name.',
     },
-    'building.description': { label: 'Description', hint: 'Blurb shown in the construction menu.' },
+    'building.description': {
+      label: 'Description',
+      hint: 'Blurb shown in the construction menu; enter custom text or reuse copy from the game text library.',
+    },
     'building.buildingType': {
       label: 'Building class',
       hint: 'Full class name that drives runtime behaviour; empty means the generic building.',

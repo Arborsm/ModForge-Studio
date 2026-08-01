@@ -406,7 +406,7 @@ export type AssetAuthoringCopy = {
     unknownFieldsHint: string
     unknownFieldsCount: (count: number) => string
     readOnlyEmptyValue: string
-    localizedResolvedHint: (text: string) => string
+    localizedReferenceHint: (reference: string) => string
     localizedRewriteAction: string
     localizedTableFailed: string
   }
@@ -479,6 +479,10 @@ export type AssetAuthoringCopy = {
     title: string
     hint: string
     invalidJson: string
+    /** Shown instead of the editor when expert mode is off. */
+    expertOnlyTitle: string
+    /** Points the user to the header toggle that unlocks raw editing. */
+    expertOnlyHint: string
   }
   groups: Record<AssetGroupLabelKey, string>
   fields: Record<AssetFieldLabelKey, AssetFieldLabel>

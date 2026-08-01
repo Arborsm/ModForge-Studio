@@ -13,7 +13,7 @@ import {
 import { fillTemplate } from './mailCopyHelpers'
 import { MailAttachmentSprite } from './MailAttachmentSprite'
 
-const PREVIEW_SCALE = 3
+const PREVIEW_SCALE = 1
 
 type PreviewText = { text: string; hasGenderSplit: boolean }
 
@@ -116,6 +116,27 @@ export function MailPreviewPanel() {
           {draft.title}
         </p>
       ) : null}
+      <div className="mail-editor-preview-data">
+        <strong>{copy.preview.dataHeading}</strong>
+        <dl>
+          <div>
+            <dt>{copy.preview.dataIdLabel}</dt>
+            <dd>{workspace.activeMailId}</dd>
+          </div>
+          <div>
+            <dt>{copy.preview.dataAttachmentsLabel}</dt>
+            <dd>{draft.attachments.length}</dd>
+          </div>
+          <div>
+            <dt>{copy.preview.dataDeliveryLabel}</dt>
+            <dd>{workspace.activeTriggers.length}</dd>
+          </div>
+          <div>
+            <dt>{copy.preview.dataIssuesLabel}</dt>
+            <dd>{workspace.activeIssues.length}</dd>
+          </div>
+        </dl>
+      </div>
     </section>
   )
 }

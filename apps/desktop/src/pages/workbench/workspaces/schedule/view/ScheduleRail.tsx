@@ -188,7 +188,7 @@ export function ScheduleRail({
         {scheduleStatus === 'ready' && !hasVanillaSchedule && selectedNpcId != null ? (
           <span className="schedule-editor-hint">{copy.noVanillaScheduleHint}</span>
         ) : null}
-        {scheduleStatus === 'ready' && entryCount === 0 ? (
+        {(scheduleStatus === 'ready' || scheduleStatus === 'error') && entryCount === 0 ? (
           <div className="schedule-editor-empty-card">
             <span className="schedule-editor-empty-card-title">{copy.emptyTitle}</span>
             <span>{copy.emptyHint}</span>
@@ -201,7 +201,7 @@ export function ScheduleRail({
         <button
           type="button"
           className="control-button w-full"
-          disabled={selectedNpcId == null || scheduleStatus !== 'ready'}
+          disabled={selectedNpcId == null || (scheduleStatus !== 'ready' && scheduleStatus !== 'error')}
           onClick={onAddEntry}
         >
           <Plus className="h-3.5 w-3.5" />

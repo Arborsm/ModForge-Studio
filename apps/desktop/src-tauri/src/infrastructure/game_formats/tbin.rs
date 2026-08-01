@@ -1,8 +1,12 @@
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::infrastructure::fs::pathing::normalize_path;
+#[allow(unused_imports)]
+pub use crate::infrastructure::game_formats::map::{
+    MapDocument, MapFormat, MapLayer, MapLayerDataEncoding, MapLayerOrderEntry, MapObject,
+    MapObjectGroup, MapPropertyValue, MapTileset, MapTilesetAnimationFrame, base_gid, gid_flags,
+};
 use anyhow::{Context, bail};
 
 #[derive(Debug, Clone)]
@@ -297,103 +301,6 @@ fn read_map(cursor: &mut Cursor<'_>) -> anyhow::Result<Map> {
     })
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MapDocument {
-    pub name: String,
-    pub format: String,
-    pub source_path: String,
-    pub relative_path: String,
-    pub width: u32,
-    pub height: u32,
-    pub tile_width: u32,
-    pub tile_height: u32,
-    pub orientation: String,
-    pub render_order: String,
-    pub properties: HashMap<String, MapPropertyValue>,
-    pub tilesets: Vec<MapTileset>,
-    pub layers: Vec<MapLayer>,
-    pub object_groups: Vec<MapObjectGroup>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum MapPropertyValue {
-    String(String),
-    Number(f64),
-    Bool(bool),
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MapTileset {
-    pub first_gid: u32,
-    pub name: String,
-    pub tile_width: u32,
-    pub tile_height: u32,
-    pub tile_count: u32,
-    pub columns: u32,
-    pub image_source: Option<String>,
-    pub image_path: Option<String>,
-    pub image_width: Option<u32>,
-    pub image_height: Option<u32>,
-    pub properties: HashMap<String, MapPropertyValue>,
-    pub tile_properties: HashMap<u32, HashMap<String, MapPropertyValue>>,
-    pub animations: HashMap<u32, Vec<MapTilesetAnimationFrame>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MapTilesetAnimationFrame {
-    pub tile_id: u32,
-    pub duration: u32,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MapLayer {
-    pub id: u32,
-    pub name: String,
-    pub kind: String,
-    pub width: u32,
-    pub height: u32,
-    pub visible: bool,
-    pub opacity: f32,
-    pub offset_x: f32,
-    pub offset_y: f32,
-    pub properties: HashMap<String, MapPropertyValue>,
-    pub gids: Vec<u32>,
-    pub non_empty_tiles: u32,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MapObjectGroup {
-    pub id: u32,
-    pub name: String,
-    pub kind: String,
-    pub visible: bool,
-    pub opacity: f32,
-    pub draw_order: String,
-    pub properties: HashMap<String, MapPropertyValue>,
-    pub objects: Vec<MapObject>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MapObject {
-    pub id: u32,
-    pub name: String,
-    #[serde(rename = "type")]
-    pub r#type: String,
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
-    pub rotation: f32,
-    pub properties: HashMap<String, MapPropertyValue>,
-}
-
 fn property_to_value(value: &PropertyValue) -> MapPropertyValue {
     match value {
         PropertyValue::Bool(value) => MapPropertyValue::Bool(*value),
@@ -456,35 +363,57 @@ fn write_properties(
     );
     for (key, value) in entries {
         push_string(bytes, key)?;
-        match value {
-            MapPropertyValue::Bool(value) => {
-                push_u8(bytes, 0);
-                push_u8(bytes, u8::from(*value));
-            }
-            MapPropertyValue::Number(value) => {
-                if !value.is_finite() {
-                    bail!("Property '{key}' has unsupported non-finite number {value}.");
-                }
-
-                if value.fract() == 0.0 && *value >= i32::MIN as f64 && *value <= i32::MAX as f64 {
-                    push_u8(bytes, 1);
-                    push_i32(bytes, *value as i32);
-                } else if *value >= f32::MIN as f64 && *value <= f32::MAX as f64 {
-                    push_u8(bytes, 2);
-                    push_f32(bytes, *value as f32);
-                } else {
-                    bail!(
-                        "Property '{key}' number {value} is out of range for tBIN serialization."
-                    );
-                }
-            }
-            MapPropertyValue::String(value) => {
-                push_u8(bytes, 3);
-                push_string(bytes, value)?;
-            }
-        }
+        write_property_value(bytes, key, value)?;
     }
 
+    Ok(())
+}
+
+fn write_property_value(
+    bytes: &mut Vec<u8>,
+    key: &str,
+    value: &MapPropertyValue,
+) -> anyhow::Result<()> {
+    match value {
+        MapPropertyValue::Bool(value) => {
+            push_u8(bytes, 0);
+            push_u8(bytes, u8::from(*value));
+        }
+        MapPropertyValue::Number(value) => {
+            if !value.is_finite() {
+                bail!("Property '{key}' has unsupported non-finite number {value}.");
+            }
+
+            if value.fract() == 0.0 && *value >= i32::MIN as f64 && *value <= i32::MAX as f64 {
+                push_u8(bytes, 1);
+                push_i32(bytes, *value as i32);
+            } else if *value >= f32::MIN as f64 && *value <= f32::MAX as f64 {
+                push_u8(bytes, 2);
+                push_f32(bytes, *value as f32);
+            } else {
+                bail!("Property '{key}' number {value} is out of range for tBIN serialization.");
+            }
+        }
+        MapPropertyValue::String(value) => {
+            push_u8(bytes, 3);
+            push_string(bytes, value)?;
+        }
+        MapPropertyValue::Typed {
+            value,
+            tmx_type,
+            property_type,
+        } => {
+            if property_type.is_some()
+                || !matches!(tmx_type.as_str(), "" | "string" | "bool" | "int" | "float")
+            {
+                bail!(
+                    "Property '{key}' uses TMX type '{tmx_type}' or custom property type '{}' which tBIN cannot preserve. Save as TMX instead.",
+                    property_type.as_deref().unwrap_or("")
+                );
+            }
+            write_property_value(bytes, key, value)?;
+        }
+    }
     Ok(())
 }
 
@@ -561,7 +490,7 @@ fn resolve_tileset_for_gid<'a>(
     gid: u32,
     tilesets: &[&'a MapTileset],
 ) -> anyhow::Result<(&'a MapTileset, u32)> {
-    let gid = u64::from(gid);
+    let gid = u64::from(base_gid(gid));
 
     for tileset in tilesets {
         let start = u64::from(tileset.first_gid);
@@ -576,13 +505,13 @@ fn resolve_tileset_for_gid<'a>(
 
 fn write_static_tile(
     bytes: &mut Vec<u8>,
-    tileset: &MapTileset,
     local_tile_id: u32,
+    properties: Option<&HashMap<String, MapPropertyValue>>,
 ) -> anyhow::Result<()> {
     push_u8(bytes, b'S');
     push_i32(bytes, checked_i32_from_u32("Tile id", local_tile_id)?);
     push_u8(bytes, 0);
-    write_optional_properties(bytes, tileset.tile_properties.get(&local_tile_id))
+    write_optional_properties(bytes, properties)
 }
 
 fn write_animated_tile(
@@ -590,6 +519,7 @@ fn write_animated_tile(
     tileset: &MapTileset,
     local_tile_id: u32,
     frames: &[MapTilesetAnimationFrame],
+    properties: Option<&HashMap<String, MapPropertyValue>>,
 ) -> anyhow::Result<()> {
     let first_frame = frames.first().with_context(|| {
         format!(
@@ -642,7 +572,7 @@ fn write_animated_tile(
         push_i32(bytes, 0);
     }
 
-    write_optional_properties(bytes, tileset.tile_properties.get(&local_tile_id))
+    write_optional_properties(bytes, properties)
 }
 
 pub fn parse_tbin_map(
@@ -702,21 +632,26 @@ pub fn parse_tbin_map(
             tile_height: sheet.tile_size.y.max(0) as u32,
             tile_count,
             columns,
+            source: None,
+            margin: 0,
+            spacing: 0,
+            tile_offset_x: 0,
+            tile_offset_y: 0,
             image_source,
             image_path,
             image_width,
             image_height,
+            image_trans: None,
             properties: convert_properties(&sheet.properties),
             tile_properties: HashMap::new(),
             animations: HashMap::new(),
+            preserved_attributes: HashMap::new(),
+            tile_preserved_attributes: HashMap::new(),
+            tile_preserved_xml: HashMap::new(),
+            preserved_xml: Vec::new(),
         });
 
         next_gid = next_gid.saturating_add(tile_count.max(1));
-    }
-
-    let mut tilesets_by_name: HashMap<String, usize> = HashMap::new();
-    for (index, tileset) in tilesets.iter().enumerate() {
-        tilesets_by_name.insert(tileset.name.clone(), index);
     }
 
     let mut layers = Vec::with_capacity(map.layers.len());
@@ -725,6 +660,8 @@ pub fn parse_tbin_map(
     for layer in &map.layers {
         let mut gids = vec![0u32; (layer.layer_size.x * layer.layer_size.y) as usize];
         let mut non_empty_tiles = 0u32;
+        let mut cell_properties = HashMap::new();
+        let mut cell_animations = HashMap::new();
 
         for (index, tile) in layer.tiles.iter().enumerate() {
             if tile.is_null() {
@@ -732,23 +669,39 @@ pub fn parse_tbin_map(
             }
 
             if tile.animation_frames.is_empty() {
-                if let Some(gid) =
-                    resolve_gid(&tilesheet_gid, &tilesets_by_name, &mut tilesets, tile)
-                {
+                if let Some(gid) = resolve_gid(&tilesheet_gid, tile) {
                     gids[index] = gid;
                     if gid != 0 {
                         non_empty_tiles += 1;
                     }
                 }
             } else {
-                if let Some(gid) =
-                    resolve_animated_gid(&tilesheet_gid, &tilesets_by_name, &mut tilesets, tile)
-                {
+                if let Some(gid) = resolve_animated_gid(&tilesheet_gid, tile) {
                     gids[index] = gid;
+                    if let Some(first_frame) = tile.animation_frames.first() {
+                        let duration = tile.animation_interval.max(0) as u32;
+                        let frames = tile
+                            .animation_frames
+                            .iter()
+                            .filter(|frame| {
+                                frame.tilesheet == first_frame.tilesheet && frame.tile_index >= 0
+                            })
+                            .map(|frame| MapTilesetAnimationFrame {
+                                tile_id: frame.tile_index as u32,
+                                duration,
+                            })
+                            .collect::<Vec<_>>();
+                        if !frames.is_empty() {
+                            cell_animations.insert(index as u32, frames);
+                        }
+                    }
                     if gid != 0 {
                         non_empty_tiles += 1;
                     }
                 }
+            }
+            if !tile.properties.is_empty() {
+                cell_properties.insert(index as u32, convert_properties(&tile.properties));
             }
         }
 
@@ -765,13 +718,29 @@ pub fn parse_tbin_map(
             properties: convert_properties(&layer.properties),
             gids,
             non_empty_tiles,
+            data_encoding: MapLayerDataEncoding::Csv,
+            data_compression: None,
+            cell_properties,
+            cell_animations,
+            preserved_xml: Vec::new(),
         });
         next_layer_id += 1;
     }
 
+    let layer_order = layers
+        .iter()
+        .map(|layer| MapLayerOrderEntry::TileLayer(layer.id))
+        .collect();
     let document = MapDocument {
         name: map.id.clone(),
-        format: "xnb".to_string(),
+        format: if map_path
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("tbin"))
+        {
+            MapFormat::Tbin
+        } else {
+            MapFormat::Xnb
+        },
         source_path: normalize_path(map_path),
         relative_path: relative_path.to_string(),
         width: map_width,
@@ -780,22 +749,79 @@ pub fn parse_tbin_map(
         tile_height,
         orientation: "orthogonal".to_string(),
         render_order: "right-down".to_string(),
+        tmx_version: None,
+        tiled_version: None,
+        next_layer_id: Some(next_layer_id),
+        next_object_id: None,
+        infinite: false,
         properties: convert_properties(&map.properties),
         tilesets,
         layers,
         object_groups: Vec::new(),
+        layer_order,
+        preserved_xml: Vec::new(),
     };
 
     Ok(document)
 }
 
 pub fn serialize_tbin_map(document: &MapDocument) -> anyhow::Result<Vec<u8>> {
-    if document
-        .object_groups
-        .iter()
-        .any(|group| !group.objects.is_empty())
+    if !document.object_groups.is_empty() {
+        bail!("Object groups are not supported by tBIN serialization. Save as TMX instead.");
+    }
+
+    if !document.preserved_xml.is_empty()
+        || document
+            .layers
+            .iter()
+            .any(|layer| !layer.preserved_xml.is_empty())
+        || document
+            .tilesets
+            .iter()
+            .any(|tileset| !tileset.preserved_xml.is_empty())
     {
-        bail!("Non-empty object groups are not supported by tBIN serialization.");
+        bail!("tBIN cannot preserve unsupported TMX extension nodes. Save as TMX instead.");
+    }
+
+    if document
+        .layers
+        .iter()
+        .flat_map(|layer| layer.gids.iter())
+        .any(|gid| gid_flags(*gid) != 0)
+    {
+        bail!(
+            "tBIN cannot represent flipped or rotated tiles. Save as TMX or bake the transforms into a tilesheet first."
+        );
+    }
+
+    if document.tilesets.iter().any(|tileset| {
+        tileset.margin != 0
+            || tileset.spacing != 0
+            || tileset.tile_offset_x != 0
+            || tileset.tile_offset_y != 0
+            || tileset.image_trans.is_some()
+    }) {
+        bail!(
+            "tBIN cannot preserve tileset margin, spacing, tile offsets, or transparent-color metadata. Save as TMX instead."
+        );
+    }
+
+    if document
+        .tilesets
+        .iter()
+        .any(|tileset| !tileset.tile_properties.is_empty() || !tileset.animations.is_empty())
+    {
+        bail!(
+            "tBIN cannot preserve definition-level tile properties or animations. Convert them to map-cell instances or save as TMX instead."
+        );
+    }
+
+    if document.layers.iter().any(|layer| {
+        (layer.opacity - 1.0).abs() > f32::EPSILON
+            || layer.offset_x.abs() > f32::EPSILON
+            || layer.offset_y.abs() > f32::EPSILON
+    }) {
+        bail!("tBIN cannot preserve layer opacity or offsets. Reset them or save as TMX instead.");
     }
 
     let layer_tile_width = checked_i32_from_u32("Layer tile width", document.tile_width)?;
@@ -895,16 +921,25 @@ pub fn serialize_tbin_map(document: &MapDocument) -> anyhow::Result<Vec<u8>> {
                 }
 
                 let (tileset, local_tile_id) = resolve_tileset_for_gid(gid, &sorted_tilesets)?;
+                let cell_index = (row_start + column_index) as u32;
+                let properties = layer
+                    .cell_properties
+                    .get(&cell_index)
+                    .or_else(|| tileset.tile_properties.get(&local_tile_id));
                 if current_tileset_name != Some(tileset.name.as_str()) {
                     push_u8(&mut bytes, b'T');
                     push_string(&mut bytes, &tileset.name)?;
                     current_tileset_name = Some(tileset.name.as_str());
                 }
 
-                if let Some(frames) = tileset.animations.get(&local_tile_id) {
-                    write_animated_tile(&mut bytes, tileset, local_tile_id, frames)?;
+                if let Some(frames) = layer
+                    .cell_animations
+                    .get(&cell_index)
+                    .or_else(|| tileset.animations.get(&local_tile_id))
+                {
+                    write_animated_tile(&mut bytes, tileset, local_tile_id, frames, properties)?;
                 } else {
-                    write_static_tile(&mut bytes, tileset, local_tile_id)?;
+                    write_static_tile(&mut bytes, local_tile_id, properties)?;
                 }
 
                 column_index += 1;
@@ -915,15 +950,8 @@ pub fn serialize_tbin_map(document: &MapDocument) -> anyhow::Result<Vec<u8>> {
     Ok(bytes)
 }
 
-fn resolve_gid(
-    tilesheet_gid: &HashMap<String, u32>,
-    tilesets_by_name: &HashMap<String, usize>,
-    tilesets: &mut [MapTileset],
-    tile: &Tile,
-) -> Option<u32> {
+fn resolve_gid(tilesheet_gid: &HashMap<String, u32>, tile: &Tile) -> Option<u32> {
     let tilesheet_first_gid = tilesheet_gid.get(&tile.tilesheet)?;
-    let tileset_index = tilesets_by_name.get(&tile.tilesheet)?;
-    let tileset = tilesets.get_mut(*tileset_index)?;
 
     if tile.tile_index < 0 {
         return Some(0);
@@ -931,58 +959,14 @@ fn resolve_gid(
 
     let tile_id = tile.tile_index as u32;
     let gid = tilesheet_first_gid.saturating_add(tile_id);
-    if !tile.properties.is_empty() {
-        let entry = tileset
-            .tile_properties
-            .entry(tile_id)
-            .or_insert_with(HashMap::new);
-        for (key, value) in &tile.properties {
-            entry.insert(key.clone(), property_to_value(value));
-        }
-    }
     Some(gid)
 }
 
-fn resolve_animated_gid(
-    tilesheet_gid: &HashMap<String, u32>,
-    tilesets_by_name: &HashMap<String, usize>,
-    tilesets: &mut [MapTileset],
-    tile: &Tile,
-) -> Option<u32> {
+fn resolve_animated_gid(tilesheet_gid: &HashMap<String, u32>, tile: &Tile) -> Option<u32> {
     let first_frame = tile.animation_frames.first()?;
     let tilesheet_first_gid = tilesheet_gid.get(&first_frame.tilesheet)?;
-    let tileset_index = tilesets_by_name.get(&first_frame.tilesheet)?;
-    let tileset = tilesets.get_mut(*tileset_index)?;
     let tile_id = first_frame.tile_index.max(0) as u32;
     let gid = tilesheet_first_gid.saturating_add(tile_id);
-
-    let frame_duration = tile.animation_interval.max(0) as u32;
-    let frames = tile
-        .animation_frames
-        .iter()
-        .filter_map(|frame| {
-            if frame.tilesheet != first_frame.tilesheet || frame.tile_index < 0 {
-                return None;
-            }
-            Some(MapTilesetAnimationFrame {
-                tile_id: frame.tile_index as u32,
-                duration: frame_duration,
-            })
-        })
-        .collect::<Vec<_>>();
-
-    if !frames.is_empty() {
-        tileset.animations.insert(tile_id, frames);
-    }
-    if !tile.properties.is_empty() {
-        let entry = tileset
-            .tile_properties
-            .entry(tile_id)
-            .or_insert_with(HashMap::new);
-        for (key, value) in &tile.properties {
-            entry.insert(key.clone(), property_to_value(value));
-        }
-    }
 
     Some(gid)
 }

@@ -83,15 +83,16 @@ export function BuildingSourceRectDialog({
         </label>
         <p className="asset-field-hint">{copy.snapHint}</p>
 
-        <SheetRegionPicker
-          imageUrl={textureUrl}
-          imageWidth={textureWidth}
-          imageHeight={textureHeight}
-          value={region}
-          snap={snapToTiles ? TILE_PIXELS : undefined}
-          onChange={setRegion}
-          className="building-source-rect-picker"
-        />
+        <div className="building-source-rect-picker-frame" style={{ maxWidth: `min(100%, ${26 * (textureWidth / textureHeight)}rem)` }}>
+          <SheetRegionPicker
+            imageUrl={textureUrl}
+            imageWidth={textureWidth}
+            imageHeight={textureHeight}
+            value={region}
+            snap={snapToTiles ? TILE_PIXELS : undefined}
+            onChange={setRegion}
+          />
+        </div>
 
         <dl className="asset-editor-summary-list">
           <div className="asset-editor-summary-chip">

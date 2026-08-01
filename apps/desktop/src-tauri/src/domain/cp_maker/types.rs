@@ -24,6 +24,8 @@ pub struct CpMakerDraftRecord {
     #[serde(default)]
     pub i18n_files: Vec<CpMakerI18nFile>,
     #[serde(default)]
+    pub project_assets: Vec<ProjectAssetRef>,
+    #[serde(default)]
     pub last_draft_saved_at: Option<i64>,
     #[serde(default)]
     pub last_exported_at: Option<i64>,
@@ -31,6 +33,97 @@ pub struct CpMakerDraftRecord {
     pub last_export_path: Option<String>,
     #[serde(default)]
     pub last_export_fingerprint: Option<CpMakerExportFingerprint>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectAssetRef {
+    pub relative_path: String,
+    pub media_type: String,
+    pub size_bytes: u64,
+    pub sha256: String,
+    pub storage_key: String,
+    pub source_type: ProjectAssetSource,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dependencies: Vec<ProjectAssetDependency>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ProjectAssetSource {
+    Imported,
+    Generated,
+    Edited,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectAssetDependency {
+    pub relative_path: String,
+    pub kind: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadProjectAssetRequest {
+    pub draft_storage_key: String,
+    pub relative_path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WriteProjectAssetRequest {
+    pub draft_storage_key: String,
+    pub relative_path: String,
+    pub media_type: String,
+    pub bytes_base64: String,
+    pub source_type: ProjectAssetSource,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectAssetWriteEntry {
+    pub relative_path: String,
+    pub media_type: String,
+    pub bytes_base64: String,
+    pub source_type: ProjectAssetSource,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WriteProjectAssetsRequest {
+    pub draft_storage_key: String,
+    pub assets: Vec<ProjectAssetWriteEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportProjectAssetsRequest {
+    pub draft_storage_key: String,
+    pub source_paths: Vec<String>,
+    pub destination_directory: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenameProjectAssetRequest {
+    pub draft_storage_key: String,
+    pub relative_path: String,
+    pub new_relative_path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteProjectAssetRequest {
+    pub draft_storage_key: String,
+    pub relative_path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectAssetPayload {
+    pub asset: ProjectAssetRef,
+    pub bytes_base64: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -132,6 +225,7 @@ pub struct CopyCpMakerDraftRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CpMakerExportRequest {
+    pub draft_storage_key: String,
     pub output_path: String,
     pub manifest_json: String,
     pub content_json: String,
@@ -153,6 +247,14 @@ pub struct CpMakerI18nFile {
 pub struct BuildCpMakerMapAssetRequest {
     pub relative_path: String,
     pub map_document: MapDocument,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildCpMakerMapAssetResult {
+    pub asset: VirtualPreviewAsset,
+    #[serde(default)]
+    pub companion_assets: Vec<VirtualPreviewAsset>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

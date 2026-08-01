@@ -1,6 +1,9 @@
 use super::super::assets::{LoadedMapAsset, load_map_patch_asset};
 use super::super::schema::coerce_u32;
 use super::super::types::{ContentPatcherMapDebugSummary, ContentPatcherProjectSnapshot};
+use crate::infrastructure::game_formats::map::{
+    MapLayerDataEncoding, MapLayerOrderEntry, base_gid, gid_flags,
+};
 use crate::infrastructure::game_formats::tbin::{MapDocument, MapLayer, MapPropertyValue};
 use anyhow::{Context, bail};
 use serde_json::Value;
@@ -145,14 +148,33 @@ fn extend_map_to_fit(document: &mut MapDocument, min_width: u32, min_height: u32
         if layer.width == new_width && layer.height == new_height {
             continue;
         }
+        let old_width = layer.width;
         let mut new_gids = vec![0u32; (new_width * new_height) as usize];
         for y in 0..layer.height {
-            for x in 0..layer.width {
-                let old_idx = (y * layer.width + x) as usize;
+            for x in 0..old_width {
+                let old_idx = (y * old_width + x) as usize;
                 let new_idx = (y * new_width + x) as usize;
                 new_gids[new_idx] = layer.gids[old_idx];
             }
         }
+        layer.cell_properties = layer
+            .cell_properties
+            .drain()
+            .map(|(index, value)| {
+                let x = index % old_width;
+                let y = index / old_width;
+                (y * new_width + x, value)
+            })
+            .collect();
+        layer.cell_animations = layer
+            .cell_animations
+            .drain()
+            .map(|(index, value)| {
+                let x = index % old_width;
+                let y = index / old_width;
+                (y * new_width + x, value)
+            })
+            .collect();
         layer.gids = new_gids;
         layer.width = new_width;
         layer.height = new_height;
@@ -165,23 +187,17 @@ fn merge_source_tilesets(document: &mut MapDocument, source: &MapDocument) -> Ha
     let mut gid_mapping: HashMap<u32, u32> = HashMap::new();
 
     for source_tileset in &source.tilesets {
-        // Try to find a compatible tileset by name
-        if let Some(target_tileset) = document
-            .tilesets
-            .iter()
-            .find(|t| t.name == source_tileset.name)
-        {
-            if target_tileset.tile_count == source_tileset.tile_count
-                && target_tileset.tile_width == source_tileset.tile_width
-                && target_tileset.tile_height == source_tileset.tile_height
-            {
-                for i in 0..source_tileset.tile_count {
-                    let source_gid = source_tileset.first_gid + i;
-                    let target_gid = target_tileset.first_gid + i;
-                    gid_mapping.insert(source_gid, target_gid);
-                }
-                continue;
+        let source_image = normalized_tileset_image(source_tileset.image_source.as_deref());
+        if let Some(target_tileset) = document.tilesets.iter().find(|target| {
+            target.name == source_tileset.name
+                && normalized_tileset_image(target.image_source.as_deref()) == source_image
+        }) {
+            for i in 0..source_tileset.tile_count {
+                let source_gid = source_tileset.first_gid + i;
+                let target_gid = target_tileset.first_gid + i;
+                gid_mapping.insert(source_gid, target_gid);
             }
+            continue;
         }
 
         // Add as a new tileset
@@ -198,6 +214,24 @@ fn merge_source_tilesets(document: &mut MapDocument, source: &MapDocument) -> Ha
 
         let mut new_tileset = source_tileset.clone();
         new_tileset.first_gid = new_first_gid;
+        if document
+            .tilesets
+            .iter()
+            .any(|target| target.name == new_tileset.name)
+        {
+            let base_name = format!("z_{}", new_tileset.name.trim_start_matches("z_"));
+            let mut candidate = base_name.clone();
+            let mut suffix = 2u32;
+            while document
+                .tilesets
+                .iter()
+                .any(|target| target.name == candidate)
+            {
+                candidate = format!("{base_name}_{suffix}");
+                suffix += 1;
+            }
+            new_tileset.name = candidate;
+        }
         document.tilesets.push(new_tileset);
 
         for i in 0..source_tileset.tile_count {
@@ -208,6 +242,56 @@ fn merge_source_tilesets(document: &mut MapDocument, source: &MapDocument) -> Ha
     }
 
     gid_mapping
+}
+
+fn normalized_tileset_image(value: Option<&str>) -> String {
+    let mut segments = Vec::new();
+    let normalized = value.unwrap_or_default().replace('\\', "/");
+    for segment in normalized.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                segments.pop();
+            }
+            value => segments.push(value.to_lowercase()),
+        }
+    }
+    segments.join("/")
+}
+
+fn remap_gid(gid: u32, mapping: &HashMap<u32, u32>) -> u32 {
+    let base = base_gid(gid);
+    mapping.get(&base).copied().unwrap_or(base) | gid_flags(gid)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn remap_sparse_cells<T: Clone>(
+    source: &HashMap<u32, T>,
+    source_width: u32,
+    target_width: u32,
+    source_x: u32,
+    source_y: u32,
+    source_width_area: u32,
+    source_height_area: u32,
+    target_x: u32,
+    target_y: u32,
+) -> HashMap<u32, T> {
+    source
+        .iter()
+        .filter_map(|(source_index, value)| {
+            let x = *source_index % source_width;
+            let y = *source_index / source_width;
+            (x >= source_x
+                && x < source_x + source_width_area
+                && y >= source_y
+                && y < source_y + source_height_area)
+                .then(|| {
+                    let target_index =
+                        (target_y + y - source_y) * target_width + target_x + x - source_x;
+                    (target_index, value.clone())
+                })
+        })
+        .collect()
 }
 
 fn apply_map_properties(
@@ -288,13 +372,19 @@ fn apply_warps(
     let prev_warps = document
         .properties
         .get(property_name)
-        .and_then(|v| match v {
+        .and_then(|v| match v.untyped() {
             MapPropertyValue::String(s) => Some(s.clone()),
             _ => None,
         })
         .unwrap_or_default();
 
-    let new_warps = valid_warps.join(" ");
+    // Content Patcher prepends each declaration as it iterates, so later entries win.
+    let new_warps = valid_warps
+        .iter()
+        .rev()
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .join(" ");
     let combined = if prev_warps.is_empty() {
         new_warps
     } else {
@@ -325,6 +415,26 @@ fn require_u32_no_token(value: Option<&Value>, field: &str) -> anyhow::Result<u3
         .map(|v| v as u32)
 }
 
+fn optional_u32_no_token(value: Option<&Value>, field: &str) -> anyhow::Result<Option<u32>> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    if let Some(text) = value.as_str() {
+        if contains_unresolved_token(text) {
+            bail!("{field} contains an unresolved token.");
+        }
+        return text
+            .parse::<u32>()
+            .with_context(|| format!("{field} '{text}' is not a valid non-negative integer."))
+            .map(Some);
+    }
+    value
+        .as_u64()
+        .and_then(|number| u32::try_from(number).ok())
+        .with_context(|| format!("{field} must be a non-negative integer."))
+        .map(Some)
+}
+
 fn apply_map_tiles(document: &mut MapDocument, map_tiles: &Value) -> anyhow::Result<usize> {
     let tiles = map_tiles.as_array().context("MapTiles must be an array.")?;
     let mut applied = 0;
@@ -350,12 +460,12 @@ fn apply_map_tiles(document: &mut MapDocument, map_tiles: &Value) -> anyhow::Res
             .and_then(Value::as_str)
             .map(str::trim)
             .filter(|s| !s.is_empty());
-        let set_index_str = obj.get("SetIndex").and_then(Value::as_str);
-        let remove = obj
-            .get("Remove")
-            .and_then(Value::as_str)
-            .map(|s| s.eq_ignore_ascii_case("true"))
-            .unwrap_or(false);
+        let set_index = optional_u32_no_token(obj.get("SetIndex"), "SetIndex")?;
+        let remove = match obj.get("Remove") {
+            Some(Value::Bool(value)) => *value,
+            Some(Value::String(value)) => value.eq_ignore_ascii_case("true"),
+            _ => false,
+        };
 
         let layer_idx = document
             .layers
@@ -373,30 +483,31 @@ fn apply_map_tiles(document: &mut MapDocument, map_tiles: &Value) -> anyhow::Res
         }
 
         let idx = (pos_y * layer.width + pos_x) as usize;
-        let current_gid = layer.gids[idx];
+        let mut current_gid = layer.gids[idx];
 
         if remove {
             let layer = &mut document.layers[layer_idx];
             layer.gids[idx] = 0;
-            layer.non_empty_tiles = layer.gids.iter().filter(|&&g| g != 0).count() as u32;
-            applied += 1;
-            continue;
+            layer.cell_properties.remove(&(idx as u32));
+            layer.cell_animations.remove(&(idx as u32));
+            current_gid = 0;
         }
 
-        let has_edits = set_tilesheet.is_some()
-            || set_index_str.is_some()
-            || obj.get("SetProperties").is_some();
+        let has_edits =
+            set_tilesheet.is_some() || set_index.is_some() || obj.get("SetProperties").is_some();
 
         if !has_edits {
+            if remove {
+                let layer = &mut document.layers[layer_idx];
+                layer.non_empty_tiles = layer.gids.iter().filter(|&&g| g != 0).count() as u32;
+                applied += 1;
+            }
             continue;
         }
 
         // Determine new gid using only immutable borrows
-        let new_gid = match (set_tilesheet, set_index_str) {
-            (Some(tilesheet_name), Some(idx_str)) => {
-                if contains_unresolved_token(idx_str) {
-                    bail!("SetIndex contains an unresolved token.");
-                }
+        let new_gid = match (set_tilesheet, set_index) {
+            (Some(tilesheet_name), Some(index)) => {
                 let tileset = document
                     .tilesets
                     .iter()
@@ -404,9 +515,12 @@ fn apply_map_tiles(document: &mut MapDocument, map_tiles: &Value) -> anyhow::Res
                     .with_context(|| {
                         format!("SetTilesheet specifies '{tilesheet_name}' which doesn't exist.")
                     })?;
-                let index = idx_str
-                    .parse::<u32>()
-                    .with_context(|| format!("SetIndex '{idx_str}' is not a valid number."))?;
+                if index >= tileset.tile_count {
+                    bail!(
+                        "SetIndex {index} is outside tileset '{tilesheet_name}' ({} tiles).",
+                        tileset.tile_count
+                    );
+                }
                 tileset.first_gid + index
             }
             (Some(tilesheet_name), None) => {
@@ -415,15 +529,17 @@ fn apply_map_tiles(document: &mut MapDocument, map_tiles: &Value) -> anyhow::Res
                         "No tile at {layer_name} ({pos_x}, {pos_y}). To set tilesheet without index, the tile must exist."
                     );
                 }
+                let current_base_gid = base_gid(current_gid);
                 let current_first_gid = document
                     .tilesets
                     .iter()
                     .find(|t| {
-                        current_gid >= t.first_gid && current_gid < t.first_gid + t.tile_count
+                        current_base_gid >= t.first_gid
+                            && current_base_gid < t.first_gid + t.tile_count
                     })
                     .map(|t| t.first_gid)
                     .context("Cannot resolve current tileset.")?;
-                let local_id = current_gid - current_first_gid;
+                let local_id = current_base_gid - current_first_gid;
                 let tileset = document
                     .tilesets
                     .iter()
@@ -431,26 +547,31 @@ fn apply_map_tiles(document: &mut MapDocument, map_tiles: &Value) -> anyhow::Res
                     .with_context(|| {
                         format!("SetTilesheet specifies '{tilesheet_name}' which doesn't exist.")
                     })?;
-                tileset.first_gid + local_id
+                (tileset.first_gid + local_id) | gid_flags(current_gid)
             }
-            (None, Some(idx_str)) => {
+            (None, Some(index)) => {
                 if current_gid == 0 {
                     bail!(
                         "No tile at {layer_name} ({pos_x}, {pos_y}). To add a tile, SetTilesheet and SetIndex must both be set."
                     );
                 }
-                let current_first_gid = document
+                let current_base_gid = base_gid(current_gid);
+                let current_tileset = document
                     .tilesets
                     .iter()
                     .find(|t| {
-                        current_gid >= t.first_gid && current_gid < t.first_gid + t.tile_count
+                        current_base_gid >= t.first_gid
+                            && current_base_gid < t.first_gid + t.tile_count
                     })
-                    .map(|t| t.first_gid)
                     .context("Cannot resolve current tileset.")?;
-                let index = idx_str
-                    .parse::<u32>()
-                    .with_context(|| format!("SetIndex '{idx_str}' is not a valid number."))?;
-                current_first_gid + index
+                if index >= current_tileset.tile_count {
+                    bail!(
+                        "SetIndex {index} is outside tileset '{}' ({} tiles).",
+                        current_tileset.name,
+                        current_tileset.tile_count
+                    );
+                }
+                (current_tileset.first_gid + index) | gid_flags(current_gid)
             }
             (None, None) => current_gid,
         };
@@ -462,25 +583,18 @@ fn apply_map_tiles(document: &mut MapDocument, map_tiles: &Value) -> anyhow::Res
             layer.non_empty_tiles = layer.gids.iter().filter(|&&g| g != 0).count() as u32;
         }
 
-        // SetProperties
+        // Content Patcher SetProperties changes this tile instance, not its tileset definition.
         if let Some(props) = obj.get("SetProperties").and_then(Value::as_object) {
             if new_gid != 0 {
-                if let Some(tileset) = document
-                    .tilesets
-                    .iter_mut()
-                    .find(|t| new_gid >= t.first_gid && new_gid < t.first_gid + t.tile_count)
-                {
-                    let local_id = new_gid - tileset.first_gid;
-                    let entry = tileset
-                        .tile_properties
-                        .entry(local_id)
-                        .or_insert_with(HashMap::new);
-                    for (key, value) in props {
-                        if value.is_null() {
-                            entry.remove(key);
-                        } else {
-                            entry.insert(key.clone(), json_to_map_property_value(value));
-                        }
+                let entry = document.layers[layer_idx]
+                    .cell_properties
+                    .entry(idx as u32)
+                    .or_insert_with(HashMap::new);
+                for (key, value) in props {
+                    if value.is_null() {
+                        entry.remove(key);
+                    } else {
+                        entry.insert(key.clone(), json_to_map_property_value(value));
                     }
                 }
             }
@@ -516,12 +630,17 @@ fn apply_map_patch(
 
     let is_overlay = patch_mode.eq_ignore_ascii_case("Overlay");
     let is_replace = patch_mode.eq_ignore_ascii_case("Replace");
+    let is_replace_by_layer = patch_mode.eq_ignore_ascii_case("ReplaceByLayer");
+    if !is_overlay && !is_replace && !is_replace_by_layer {
+        bail!("Unsupported EditMap PatchMode '{patch_mode}'.");
+    }
 
     // Update existing layers
     for target_layer in document.layers.iter_mut() {
         let source_layer = source.layers.iter().find(|l| l.name == target_layer.name);
 
         if let Some(source_layer) = source_layer {
+            target_layer.properties = source_layer.properties.clone();
             for dy in 0..target_h {
                 for dx in 0..target_w {
                     let sx = source_x + dx;
@@ -541,8 +660,23 @@ fn apply_map_patch(
                         continue;
                     }
 
-                    target_layer.gids[target_idx] =
-                        gid_mapping.get(&source_gid).copied().unwrap_or(source_gid);
+                    target_layer.gids[target_idx] = remap_gid(source_gid, &gid_mapping);
+                    let source_cell = source_idx as u32;
+                    let target_cell = target_idx as u32;
+                    if let Some(properties) = source_layer.cell_properties.get(&source_cell) {
+                        target_layer
+                            .cell_properties
+                            .insert(target_cell, properties.clone());
+                    } else {
+                        target_layer.cell_properties.remove(&target_cell);
+                    }
+                    if let Some(animation) = source_layer.cell_animations.get(&source_cell) {
+                        target_layer
+                            .cell_animations
+                            .insert(target_cell, animation.clone());
+                    } else {
+                        target_layer.cell_animations.remove(&target_cell);
+                    }
                 }
             }
         } else if is_replace {
@@ -552,47 +686,79 @@ fn apply_map_patch(
                     let ty = target_y + dy;
                     let target_idx = (ty * target_layer.width + tx) as usize;
                     target_layer.gids[target_idx] = 0;
+                    target_layer.cell_properties.remove(&(target_idx as u32));
+                    target_layer.cell_animations.remove(&(target_idx as u32));
                 }
             }
         }
+        target_layer.non_empty_tiles = target_layer
+            .gids
+            .iter()
+            .filter(|gid| base_gid(**gid) != 0)
+            .count() as u32;
     }
 
-    // ReplaceByLayer and Replace both materialize layers that exist only in the patch source.
-    if !is_overlay {
-        for source_layer in &source.layers {
-            if !document.layers.iter().any(|l| l.name == source_layer.name) {
-                let mut new_gids = vec![0u32; (document.width * document.height) as usize];
-                for dy in 0..target_h {
-                    for dx in 0..target_w {
-                        let sx = source_x + dx;
-                        let sy = source_y + dy;
-                        if sx < source_layer.width && sy < source_layer.height {
-                            let source_idx = (sy * source_layer.width + sx) as usize;
-                            let target_idx =
-                                ((target_y + dy) * document.width + (target_x + dx)) as usize;
-                            let source_gid = source_layer.gids[source_idx];
-                            new_gids[target_idx] =
-                                gid_mapping.get(&source_gid).copied().unwrap_or(source_gid);
-                        }
+    // All patch modes materialize layers that exist only in the patch source.
+    for source_layer in &source.layers {
+        if !document.layers.iter().any(|l| l.name == source_layer.name) {
+            let mut new_gids = vec![0u32; (document.width * document.height) as usize];
+            for dy in 0..target_h {
+                for dx in 0..target_w {
+                    let sx = source_x + dx;
+                    let sy = source_y + dy;
+                    if sx < source_layer.width && sy < source_layer.height {
+                        let source_idx = (sy * source_layer.width + sx) as usize;
+                        let target_idx =
+                            ((target_y + dy) * document.width + (target_x + dx)) as usize;
+                        let source_gid = source_layer.gids[source_idx];
+                        new_gids[target_idx] = remap_gid(source_gid, &gid_mapping);
                     }
                 }
-                let non_empty_tiles = new_gids.iter().filter(|&&g| g != 0).count() as u32;
-                let new_id = document.layers.iter().map(|l| l.id).max().unwrap_or(0) + 1;
-                document.layers.push(MapLayer {
-                    id: new_id,
-                    name: source_layer.name.clone(),
-                    kind: "tile".to_string(),
-                    width: document.width,
-                    height: document.height,
-                    visible: source_layer.visible,
-                    opacity: source_layer.opacity,
-                    offset_x: source_layer.offset_x,
-                    offset_y: source_layer.offset_y,
-                    properties: source_layer.properties.clone(),
-                    gids: new_gids,
-                    non_empty_tiles,
-                });
             }
+            let non_empty_tiles = new_gids.iter().filter(|&&g| g != 0).count() as u32;
+            let new_id = document.layers.iter().map(|l| l.id).max().unwrap_or(0) + 1;
+            document.layers.push(MapLayer {
+                id: new_id,
+                name: source_layer.name.clone(),
+                kind: "tile".to_string(),
+                width: document.width,
+                height: document.height,
+                visible: source_layer.visible,
+                opacity: source_layer.opacity,
+                offset_x: source_layer.offset_x,
+                offset_y: source_layer.offset_y,
+                properties: source_layer.properties.clone(),
+                gids: new_gids,
+                non_empty_tiles,
+                data_encoding: source_layer.data_encoding,
+                data_compression: source_layer.data_compression.clone(),
+                cell_properties: remap_sparse_cells(
+                    &source_layer.cell_properties,
+                    source_layer.width,
+                    document.width,
+                    source_x,
+                    source_y,
+                    source_w,
+                    source_h,
+                    target_x,
+                    target_y,
+                ),
+                cell_animations: remap_sparse_cells(
+                    &source_layer.cell_animations,
+                    source_layer.width,
+                    document.width,
+                    source_x,
+                    source_y,
+                    source_w,
+                    source_h,
+                    target_x,
+                    target_y,
+                ),
+                preserved_xml: source_layer.preserved_xml.clone(),
+            });
+            document
+                .layer_order
+                .push(MapLayerOrderEntry::TileLayer(new_id));
         }
     }
 
@@ -692,6 +858,11 @@ fn apply_add_layer(
             properties: HashMap::new(),
             gids: vec![0; (document.width * document.height) as usize],
             non_empty_tiles,
+            data_encoding: MapLayerDataEncoding::Csv,
+            data_compression: None,
+            cell_properties: HashMap::new(),
+            cell_animations: HashMap::new(),
+            preserved_xml: Vec::new(),
         });
         push_unique(&mut debug.layers, format!("+{name}"));
         added += 1;
@@ -828,7 +999,7 @@ fn apply_text_operations_to_map(
         let current_text = document
             .properties
             .get(property_name)
-            .and_then(|v| match v {
+            .and_then(|v| match v.untyped() {
                 MapPropertyValue::String(s) => Some(s.as_str()),
                 _ => None,
             })

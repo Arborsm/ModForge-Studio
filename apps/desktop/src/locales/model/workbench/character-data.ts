@@ -38,9 +38,13 @@ export type CharacterDataEditorCopy = {
     cancelAction: string
     closeLabel: string
   }
-  /** Left pane: where the NPC being edited comes from. */
+  /** First-level library where the NPC being edited comes from. */
   sources: {
     title: string
+    libraryTitle: string
+    libraryHint: string
+    backToLibrary: string
+    openCharacter: (name: string) => string
     searchPlaceholder: string
     modeAll: string
     modeProject: string
@@ -82,6 +86,10 @@ export type CharacterDataEditorCopy = {
     itemsLabel: string
     itemsPlaceholder: string
     itemsHint: string
+    pickItemAction: string
+    pickItemPlaceholder: string
+    removeItemLabel: (item: string) => string
+    noItems: string
     itemCount: (count: number) => string
     createAction: string
     createHint: string
@@ -115,5 +123,12 @@ export type CharacterDataEditorCopy = {
     romanceNo: string
     loveInterest: string
     notSet: string
+  }
+  workflow: {
+    status: {
+      complete: string
+      'needs-attention': string
+      optional: string
+    }
   }
 }

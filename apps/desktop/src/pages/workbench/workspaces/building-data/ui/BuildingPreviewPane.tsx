@@ -9,24 +9,14 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Crop, Image as ImageIcon, MousePointerClick } from 'lucide-react'
-import { AssetValidationRail, type AssetEntryDraft, type AssetIssue } from '@entities/asset-schema'
-import {
-  BuildingSpritePreview,
-  getBuildingTexturePath,
-  loadBuildingImageState,
-  parseBuildingPoint,
-  parseBuildingRectangle,
-  type BuildingAssetPatchState,
-  type BuildingTextureAssetState,
-  type BuildingWorkspaceEntry,
-} from '@entities/building'
-import type { LocaleCode } from '@locales'
+import type { AssetEntryDraft } from '@entities/asset-schema'
+import type { MapAssetSummary } from '@entities/game/api'
+import { BuildingSpritePreview, parseBuildingPoint, parseBuildingRectangle, type BuildingWorkspaceEntry } from '@entities/building'
+import type { LocaleCode, ThemeMode } from '@locales'
 import { useBuildingDataEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import {
   BuildingFootprintOverlay,
-  isFootprintRectTarget,
   TILE_PIXELS,
   type FootprintPickTarget,
   type FootprintRect,
@@ -34,48 +24,12 @@ import {
   type FootprintTilePickTarget,
 } from './BuildingFootprintOverlay'
 import { BuildingSourceRectDialog } from './BuildingSourceRectDialog'
-import type { BuildingChainStage } from '../state/useBuildingAuthoringSources'
+import { BuildingFootprintMapDialog } from './BuildingFootprintMapDialog'
+import { useBuildingTexture } from '../state/useBuildingTexture'
 
-const EMPTY_TEXTURE: BuildingTextureAssetState = { loading: false, path: null, url: null, width: null, height: null }
-
-/** Loads the sheet the entry's `Texture` points at, from the game directory. */
-function useBuildingTexture(
-  building: BuildingWorkspaceEntry | null,
-  gameRootPath: string | null,
-  locale: LocaleCode,
-): BuildingTextureAssetState {
-  const [state, setState] = useState<BuildingTextureAssetState>(EMPTY_TEXTURE)
-  const texturePath = getBuildingTexturePath(gameRootPath, building)
-
-  useEffect(() => {
-    if (!texturePath) {
-      setState(EMPTY_TEXTURE)
-      return
-    }
-
-    let cancelled = false
-    setState({ ...EMPTY_TEXTURE, loading: true })
-
-    void loadBuildingImageState(texturePath, locale)
-      .then((image) => {
-        if (!cancelled) {
-          setState(image)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          // The texture may only exist as a Load patch the project ships; the
-          // texture card below says so, so the preview just stays empty.
-          setState(EMPTY_TEXTURE)
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [texturePath, locale])
-
-  return state
+export type BuildingAuthoringToolRequest = {
+  id: number
+  tool: 'footprint' | 'source-rect'
 }
 
 /** Footprint-relative rectangles from `AdditionalPlacementTiles`. */
@@ -88,7 +42,7 @@ function readAdditionalTiles(raw: unknown): FootprintRect[] {
     .filter((rect): rect is FootprintRect => rect !== null && rect.Width > 0 && rect.Height > 0)
 }
 
-function SummaryCard({ draft }: { draft: AssetEntryDraft }) {
+function SummaryStrip({ draft }: { draft: AssetEntryDraft }) {
   const copy = useBuildingDataEditorCopy()
   const fields = draft.fields
   const size = parseBuildingPoint(fields['Size'])
@@ -112,134 +66,59 @@ function SummaryCard({ draft }: { draft: AssetEntryDraft }) {
   ]
 
   return (
-    <section className="asset-editor-card">
-      <div className="asset-editor-card-title">{copy.summary.title}</div>
-      <dl className="asset-editor-summary-list">
-        {chips.map((chip) => (
-          <div key={chip.label} className="asset-editor-summary-chip">
-            <dt>{chip.label}</dt>
-            <dd className={chip.value === null ? 'is-unset' : undefined}>{chip.value ?? copy.summary.notSet}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
-  )
-}
-
-/**
- * The upgrade chain the entry sits in, in build order.
- *
- * `BuildingToUpgrade` is a single backwards link, so a chain is only visible once
- * every link is followed — which is exactly what an author cannot do while
- * staring at one text field. Showing the resolved order here, and letting a click
- * jump to a stage, is what makes the chain editable rather than guessable.
- */
-function UpgradeChainCard({ stages, onSelectStage }: { stages: readonly BuildingChainStage[]; onSelectStage: (key: string) => void }) {
-  const copy = useBuildingDataEditorCopy()
-
-  if (stages.length < 2) {
-    return null
-  }
-
-  return (
-    <section className="asset-editor-card">
-      <div className="asset-editor-card-title">{copy.chain.title}</div>
-      <ol className="building-chain-strip">
-        {stages.map((stage, index) => (
-          <li key={stage.key} className="building-chain-stage">
-            <button
-              type="button"
-              className={cx('building-chain-button', stage.isActive && 'is-active')}
-              aria-current={stage.isActive ? 'true' : undefined}
-              onClick={() => onSelectStage(stage.key)}
-            >
-              <span className="building-chain-step">{copy.chain.stageLabel(index + 1, stages.length)}</span>
-              <span className="building-chain-name">{stage.displayName}</span>
-              <span className={stage.inProject ? 'asset-editor-badge is-ok' : 'asset-editor-badge'}>
-                {stage.inProject ? copy.chain.inProjectBadge : copy.chain.vanillaBadge}
-              </span>
-            </button>
-          </li>
-        ))}
-      </ol>
-      <p className="asset-editor-asset-hint">{copy.chain.hint}</p>
-    </section>
-  )
-}
-
-function TextureCard({ state, onOpenEditor }: { state: BuildingAssetPatchState | null; onOpenEditor: () => void }) {
-  const copy = useBuildingDataEditorCopy()
-
-  return (
-    <section className="asset-editor-card">
-      <div className="asset-editor-card-title">
-        <ImageIcon className="h-4 w-4" aria-hidden="true" />
-        <span>{copy.texture.title}</span>
-      </div>
-      {state === null || state.assetTarget === '' ? (
-        <p className="asset-editor-asset-hint">{copy.texture.noAsset}</p>
-      ) : (
-        <>
-          <div className="asset-editor-asset-row">
-            <span className="asset-editor-asset-file-label">{copy.texture.assetLabel}</span>
-            <span className={state.patchFound ? 'asset-editor-badge is-ok' : 'asset-editor-badge is-warn'}>
-              {state.patchFound ? copy.texture.patchFound : copy.texture.patchMissing}
-            </span>
-          </div>
-          <div className="asset-editor-asset-target">{state.assetTarget}</div>
-          {state.fromFile !== null ? (
-            <div className="asset-editor-asset-file">
-              <span className="asset-editor-asset-file-value">{state.fromFile}</span>
-              <span className={state.fileInDraft ? 'asset-editor-badge is-ok' : 'asset-editor-badge is-warn'}>
-                {state.fileInDraft ? copy.texture.patchFound : copy.texture.patchMissing}
-              </span>
-            </div>
-          ) : null}
-          <p className="asset-editor-asset-hint">{copy.texture.manageHint}</p>
-          <button type="button" className="control-button mt-2" onClick={onOpenEditor}>
-            <ImageIcon className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{copy.texture.openEditorAction}</span>
-          </button>
-        </>
-      )}
-    </section>
+    <dl className="asset-editor-summary-list building-preview-summary" aria-label={copy.summary.title}>
+      {chips.map((chip) => (
+        <div key={chip.label} className="asset-editor-summary-chip">
+          <dt>{chip.label}</dt>
+          <dd className={chip.value === null ? 'is-unset' : undefined}>{chip.value ?? copy.summary.notSet}</dd>
+        </div>
+      ))}
+    </dl>
   )
 }
 
 export function BuildingPreviewPane({
   building,
   draft,
-  issues,
-  texturePatchState,
-  chainStages,
   gameRootPath,
   locale,
+  theme,
+  accentColor,
+  farmAsset,
+  pickTarget,
   onPickTile,
   onPickRect,
   onApplySourceRect,
-  onSelectStage,
-  onOpenTextureEditor,
-  onSelectIssue,
+  onApplyFootprint,
+  toolRequest,
 }: {
   building: BuildingWorkspaceEntry | null
   draft: AssetEntryDraft | null
-  issues: AssetIssue[]
-  texturePatchState: BuildingAssetPatchState | null
-  /** Upgrade chain the active entry belongs to, in build order. */
-  chainStages: readonly BuildingChainStage[]
   gameRootPath: string | null
   locale: LocaleCode
+  theme: ThemeMode
+  accentColor: string
+  farmAsset: MapAssetSummary | null
+  pickTarget: FootprintPickTarget | null
   onPickTile: (target: FootprintTilePickTarget, tile: { X: number; Y: number }) => void
   onPickRect: (target: FootprintRectPickTarget, rect: FootprintRect) => void
   onApplySourceRect: (rect: FootprintRect) => void
-  onSelectStage: (key: string) => void
-  onOpenTextureEditor: () => void
-  onSelectIssue: (issue: AssetIssue) => void
+  onApplyFootprint: (size: { width: number; height: number }) => void
+  /** Opens a visual dialog requested by a tool inside the active centre tab. */
+  toolRequest: BuildingAuthoringToolRequest | null
 }) {
   const copy = useBuildingDataEditorCopy()
-  const [pickTarget, setPickTarget] = useState<FootprintPickTarget | null>(null)
   const [sourceRectOpen, setSourceRectOpen] = useState(false)
+  const [footprintMapOpen, setFootprintMapOpen] = useState(false)
   const textureState = useBuildingTexture(building, gameRootPath, locale)
+
+  useEffect(() => {
+    if (toolRequest?.tool === 'footprint') {
+      setFootprintMapOpen(true)
+    } else if (toolRequest?.tool === 'source-rect') {
+      setSourceRectOpen(true)
+    }
+  }, [toolRequest])
 
   const fields = draft?.fields ?? {}
   const size = parseBuildingPoint(fields['Size'])
@@ -249,14 +128,14 @@ export function BuildingPreviewPane({
   const sourceRect = parseBuildingRectangle(fields['SourceRect'])
   const additionalTiles = readAdditionalTiles(fields['AdditionalPlacementTiles'])
   const hasFootprint = size !== null && size.X > 0 && size.Y > 0
-  const canPickSourceRect = draft !== null && textureState.url !== null && textureState.width !== null && textureState.height !== null
-
-  const pickButtons: Array<{ id: FootprintPickTarget; label: string }> = [
-    { id: 'HumanDoor', label: copy.preview.pickHumanDoor },
-    { id: 'AnimalDoor', label: copy.preview.pickAnimalDoor },
-    { id: 'UpgradeSignTile', label: copy.preview.pickUpgradeSign },
-  ]
-  const activePickLabel = pickButtons.find((button) => button.id === pickTarget)?.label ?? null
+  const activePickLabel =
+    pickTarget === 'HumanDoor'
+      ? copy.preview.pickHumanDoor
+      : pickTarget === 'AnimalDoor'
+        ? copy.preview.pickAnimalDoor
+        : pickTarget === 'UpgradeSignTile'
+          ? copy.preview.pickUpgradeSign
+          : null
 
   return (
     <aside className="asset-preview-pane">
@@ -288,61 +167,22 @@ export function BuildingPreviewPane({
                   animalDoor={animalDoor}
                   additionalTiles={additionalTiles}
                   pickTarget={pickTarget}
-                  onPickTile={(target, tile) => {
-                    onPickTile(target, tile)
-                    setPickTarget(null)
-                  }}
-                  onPickRect={(target, rect) => {
-                    onPickRect(target, rect)
-                    setPickTarget(null)
-                  }}
+                  onPickTile={onPickTile}
+                  onPickRect={onPickRect}
                 />
               )}
             />
           </div>
 
-          <div className="building-preview-toolbar">
-            <button type="button" className="control-button" onClick={() => setSourceRectOpen(true)} disabled={!canPickSourceRect}>
-              <Crop className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{copy.preview.pickSourceRectAction}</span>
-            </button>
-            <span className="building-preview-source-rect-value">
-              {sourceRect === null
-                ? copy.sourceRect.noRegion
-                : copy.sourceRect.regionValue(sourceRect.X, sourceRect.Y, sourceRect.Width, sourceRect.Height)}
-            </span>
-          </div>
-
           {hasFootprint ? (
             <>
-              <div className="building-preview-toolbar">
-                <MousePointerClick className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>{copy.preview.pickIdle}</span>
-                {pickButtons.map((button) => (
-                  <button
-                    key={button.id}
-                    type="button"
-                    aria-pressed={button.id === pickTarget}
-                    className={cx('building-preview-pick-button', button.id === pickTarget && 'is-active')}
-                    onClick={() => setPickTarget((current) => (current === button.id ? null : button.id))}
-                    disabled={draft === null}
-                  >
-                    {button.label}
-                  </button>
-                ))}
-                {pickTarget !== null ? (
-                  <button type="button" className="building-preview-pick-button" onClick={() => setPickTarget(null)}>
-                    {copy.preview.pickCancelAction}
-                  </button>
-                ) : null}
-              </div>
-              <p className="asset-editor-asset-hint">
-                {activePickLabel === null
-                  ? copy.preview.footprintHint
-                  : pickTarget !== null && isFootprintRectTarget(pickTarget)
+              {activePickLabel !== null ? (
+                <p className="building-preview-pick-status">
+                  {pickTarget === 'AnimalDoor'
                     ? copy.preview.pickRectActiveHint(activePickLabel)
                     : copy.preview.pickActiveHint(activePickLabel)}
-              </p>
+                </p>
+              ) : null}
               <ul className="building-preview-legend" aria-label={copy.preview.footprintTitle}>
                 {[
                   { id: 'footprint', className: 'is-footprint', label: copy.preview.legendFootprint },
@@ -361,14 +201,10 @@ export function BuildingPreviewPane({
           ) : (
             <p className="asset-editor-asset-hint">{copy.preview.noFootprint}</p>
           )}
+
+          {draft !== null ? <SummaryStrip draft={draft} /> : null}
         </section>
       )}
-
-      {draft !== null ? <SummaryCard draft={draft} /> : null}
-      <UpgradeChainCard stages={chainStages} onSelectStage={onSelectStage} />
-      {building !== null ? <TextureCard state={texturePatchState} onOpenEditor={onOpenTextureEditor} /> : null}
-
-      <AssetValidationRail issues={issues} onSelectIssue={onSelectIssue} />
 
       <BuildingSourceRectDialog
         open={sourceRectOpen}
@@ -381,6 +217,20 @@ export function BuildingPreviewPane({
         onApply={(rect) => {
           onApplySourceRect(rect)
           setSourceRectOpen(false)
+        }}
+      />
+      <BuildingFootprintMapDialog
+        open={footprintMapOpen}
+        gameRootPath={gameRootPath}
+        farmAsset={farmAsset}
+        locale={locale}
+        theme={theme}
+        accentColor={accentColor}
+        currentSize={size === null ? null : { width: size.X, height: size.Y }}
+        onClose={() => setFootprintMapOpen(false)}
+        onApply={(next) => {
+          onApplyFootprint(next)
+          setFootprintMapOpen(false)
         }}
       />
     </aside>

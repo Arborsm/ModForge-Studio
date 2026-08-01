@@ -83,6 +83,10 @@ export function useMapPanelCopy() {
   return useEditorCopy().mapPanel
 }
 
+export function useMapAuthoringCopy() {
+  return useEditorCopy().mapAuthoring
+}
+
 export function useAiLocalizationCopy() {
   return useEditorCopy().aiLocalization
 }
@@ -121,4 +125,12 @@ export function useMailEditorCopy() {
 
 export function useGameDebuggerCopy() {
   return useEditorCopy().gameDebugger
+}
+
+export function useAssetLibraryCopy() {
+  return useEditorCopy().assetLibrary
+}
+
+export function useResourceBrowserCopy() {
+  return useEditorCopy().resourceBrowser
 }
