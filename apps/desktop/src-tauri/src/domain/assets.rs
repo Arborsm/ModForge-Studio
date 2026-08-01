@@ -4,8 +4,9 @@ mod mime;
 pub mod types;
 
 pub use types::{
-    AudioAssetSummary, EventAssetSummary, FileCacheStats, GameDirectoryInfo, LocalTextFileContent,
-    MapAssetContent, MapAssetSummary, ParsedEventAssetContent, TextAssetContent,
+    AudioAssetSummary, DataAssetSummary, EventAssetSummary, FileCacheStats, GameDirectoryInfo,
+    ImageAssetSummary, LocalTextFileContent, MapAssetContent, MapAssetSummary,
+    ParsedEventAssetContent, TextAssetContent,
 };
 
 use base64::Engine;
@@ -1230,6 +1231,183 @@ pub(crate) fn load_audio_data_url(path: String) -> anyhow::Result<String> {
     let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
     let mime = infer_audio_mime(&absolute_path);
     Ok(format!("data:{mime};base64,{encoded}"))
+}
+
+fn is_xnb_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|value| value.eq_ignore_ascii_case("xnb"))
+}
+
+fn is_data_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|value| {
+            value.eq_ignore_ascii_case("xnb") || value.eq_ignore_ascii_case("json")
+        })
+}
+
+/// Turns a game-root-relative path into the Content Patcher asset key the game
+/// uses to load the file: `Content/Characters/Abigail.xnb` → `Characters/Abigail`.
+fn cp_asset_key(relative_path: &str) -> String {
+    let without_content = relative_path
+        .strip_prefix("Content/")
+        .unwrap_or(relative_path);
+    let key = without_content
+        .rsplit_once('.')
+        .map(|(stem, _)| stem)
+        .unwrap_or(without_content);
+    key.to_string()
+}
+
+fn collect_image_assets(
+    base_root: &Path,
+    root: &Path,
+    results: &mut Vec<ImageAssetSummary>,
+) -> anyhow::Result<()> {
+    if !root.exists() {
+        return Ok(());
+    }
+
+    let entries =
+        fs::read_dir(root).with_context(|| format!("Failed to read {}", normalize_path(root)))?;
+
+    for entry in entries {
+        let entry = entry.with_context(|| format!("Failed to inspect image asset entry"))?;
+        let path = entry.path();
+        if path.is_dir() {
+            let relative = path.strip_prefix(base_root).unwrap_or(&path);
+            let normalized = normalize_path(relative).replace('\\', "/");
+            if normalized.eq_ignore_ascii_case("Content/Maps")
+                || normalized.eq_ignore_ascii_case("Content/Data")
+            {
+                continue;
+            }
+            collect_image_assets(base_root, &path, results)?;
+            continue;
+        }
+
+        if !path.is_file() || !is_xnb_file(&path) {
+            continue;
+        }
+
+        let relative_path = path
+            .strip_prefix(base_root)
+            .map(normalize_path)
+            .unwrap_or_else(|_| normalize_path(&path))
+            .replace('\\', "/");
+        if relative_path.starts_with("Content/Maps/") || relative_path.starts_with("Content/Data/")
+        {
+            continue;
+        }
+
+        let stem = path
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+        // Localized variants are resolved by the loaders from the base asset,
+        // so the picker lists each logical asset exactly once.
+        if split_localized_stem(stem).1.is_some() {
+            continue;
+        }
+
+        let name = cp_asset_key(&relative_path);
+        if name.is_empty() {
+            continue;
+        }
+
+        let metadata = path
+            .metadata()
+            .with_context(|| format!("Failed to read file metadata"))?;
+        results.push(ImageAssetSummary {
+            name,
+            absolute_path: normalize_path(&path),
+            relative_path,
+            size_bytes: metadata.len(),
+        });
+    }
+
+    Ok(())
+}
+
+fn collect_data_assets(
+    base_root: &Path,
+    root: &Path,
+    results: &mut Vec<DataAssetSummary>,
+) -> anyhow::Result<()> {
+    if !root.exists() {
+        return Ok(());
+    }
+
+    let entries =
+        fs::read_dir(root).with_context(|| format!("Failed to read {}", normalize_path(root)))?;
+
+    for entry in entries {
+        let entry = entry.with_context(|| format!("Failed to inspect data asset entry"))?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_data_assets(base_root, &path, results)?;
+            continue;
+        }
+
+        if !path.is_file() || !is_data_file(&path) {
+            continue;
+        }
+
+        let stem = path
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+        if split_localized_stem(stem).1.is_some() {
+            continue;
+        }
+
+        let relative_path = path
+            .strip_prefix(base_root)
+            .map(normalize_path)
+            .unwrap_or_else(|_| normalize_path(&path))
+            .replace('\\', "/");
+        let name = cp_asset_key(&relative_path);
+        if name.is_empty() {
+            continue;
+        }
+
+        let metadata = path
+            .metadata()
+            .with_context(|| format!("Failed to read file metadata"))?;
+        results.push(DataAssetSummary {
+            name,
+            absolute_path: normalize_path(&path),
+            relative_path,
+            size_bytes: metadata.len(),
+        });
+    }
+
+    Ok(())
+}
+
+/// Scans the game Content tree for XNB textures, excluding map and data assets.
+pub(crate) fn scan_image_assets(path: String) -> anyhow::Result<Vec<ImageAssetSummary>> {
+    let root = clean_input_path(&path);
+    read_directory_info(&root)?;
+
+    let mut assets = Vec::new();
+    collect_image_assets(&root, &root.join("Content"), &mut assets)?;
+
+    assets.sort_by(|left, right| left.name.cmp(&right.name));
+    Ok(assets)
+}
+
+/// Scans `Content/Data` for XNB and JSON data assets.
+pub(crate) fn scan_data_assets(path: String) -> anyhow::Result<Vec<DataAssetSummary>> {
+    let root = clean_input_path(&path);
+    read_directory_info(&root)?;
+
+    let mut assets = Vec::new();
+    collect_data_assets(&root, &root.join("Content").join("Data"), &mut assets)?;
+
+    assets.sort_by(|left, right| left.name.cmp(&right.name));
+    Ok(assets)
 }
 
 #[cfg(test)]

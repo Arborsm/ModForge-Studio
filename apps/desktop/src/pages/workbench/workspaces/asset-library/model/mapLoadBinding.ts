@@ -271,5 +271,5 @@ export function projectAssetsForLoadFamily<T extends Pick<ProjectAssetRef, 'rela
     return assets.filter((asset) => MAP_FROM_FILE_EXTENSIONS.test(asset.relativePath))
   }
   const kind = family === 'images' ? 'image' : family === 'audio' ? 'audio' : family === 'fonts' || family === 'data' ? 'data' : 'other'
-  return assets.filter((asset) => classifyProjectAsset(asset.mediaType) === kind)
+  return assets.filter((asset) => classifyProjectAsset(asset.mediaType, asset.relativePath) === kind)
 }

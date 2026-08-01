@@ -74,10 +74,11 @@ export type AssetLibraryCopy = {
   selectFolderTitle: string
   searchPlaceholder: string
   filterLabel: string
-  filters: Record<'all' | 'image' | 'audio' | 'data' | 'other', string>
+  filters: Record<'all' | 'map' | 'image' | 'audio' | 'data' | 'other', string>
   gridView: string
   listView: string
   assetCount: (visible: number, total: number) => string
+  assetKindCount: (count: number) => string
   emptyTitle: string
   emptyHint: string
   noResults: string
@@ -101,6 +102,13 @@ export type AssetLibraryCopy = {
   deleteTitle: string
   deleteMessage: (path: string, references: number) => string
   confirmDeleteAction: string
+  deleteSelectedAction: string
+  deleteSelectedTitle: string
+  deleteSelectedMessage: (count: number) => string
+  deleteSelectedPartialFailed: (count: number) => string
+  selectionCount: (count: number) => string
+  selectAll: string
+  clearSelection: string
   closeAction: string
   loadFailed: string
   importFailed: string
@@ -181,6 +189,13 @@ export type AssetLibraryCopy = {
   }
   newMapAction: string
   importFromGame: string
+  /** Labels for the four copy-from-game kind entries (map/image/audio/data). */
+  importGameKinds: Record<'map' | 'image' | 'audio' | 'data', string>
+  /** Dialog titles for each copy-from-game resource picker. */
+  importGamePickerLabel: Record<'map' | 'image' | 'audio' | 'data', string>
+  importGameAssetFailed: string
+  gameAssetScanLoading: string
+  gameAssetScanFailed: string
   importMapFailed: string
   openingMap: string
   mapScanLoading: string

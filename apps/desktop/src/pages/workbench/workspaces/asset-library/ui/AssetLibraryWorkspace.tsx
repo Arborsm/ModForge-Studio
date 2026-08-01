@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react'
+import { Fragment, useCallback, useEffect, useId, useRef, useState, type ChangeEvent, type HTMLAttributes } from 'react'
+import { useSelectionContainer, type Box } from '@air/react-drag-to-select'
 import {
   AlertCircle,
   ExternalLink,
@@ -20,9 +21,16 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import { type EditorResources, type VirtualPreviewAsset } from '@features/cp-maker'
-import type { MapAssetSummary } from '@entities/game/api'
-import { ResourcePicker, toMapResourceBrowserOptions } from '@features/resource-browser'
+import { type EditorResources, type ProjectAssetRef, type VirtualPreviewAsset } from '@features/cp-maker'
+import { scanAudioAssets, scanDataAssets, scanImageAssets, type MapAssetSummary } from '@entities/game/api'
+import {
+  ResourcePicker,
+  toGameAudioResourceBrowserOptions,
+  toGameDataResourceBrowserOptions,
+  toGameImageResourceBrowserOptions,
+  toMapResourceBrowserOptions,
+  type ResourceBrowserOption,
+} from '@features/resource-browser'
 import { useAssetLibraryCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { useAssetLibraryFocusStore } from '@shared/lib/app-state/assetLibraryFocusStore'
@@ -51,6 +59,8 @@ import {
   type LoadAssetFamily,
 } from '../model/mapLoadBinding'
 import { prepareProjectMapCopy } from '../model/importGameMap'
+import { prepareGameAssetImport, type GameAssetImportKind, type GameAssetImportSource } from '../model/importGameAsset'
+import { useGameAssetScan } from '../model/useGameAssetScan'
 import { AssetImageThumbnail } from './AssetImageThumbnail'
 import { AssetMapThumbnail } from './AssetMapThumbnail'
 import { NewMapDialog } from './NewMapDialog'
@@ -61,6 +71,17 @@ import { LoadFamilyIcon } from './LoadFamilyIcon'
 type AssetView = 'grid' | 'list'
 type AssetFilter = 'all' | ProjectAssetKind
 type AssetLibrarySection = 'assets' | 'load-bindings'
+
+/** Group display order for the all-filter grid view. */
+const ASSET_KIND_ORDER: ProjectAssetKind[] = ['map', 'image', 'audio', 'data', 'other']
+
+/** The four copy-from-game entries; each opens its own resource picker. */
+const GAME_IMPORT_KINDS: Array<{ kind: GameAssetImportKind; icon: typeof MapIcon }> = [
+  { kind: 'map', icon: MapIcon },
+  { kind: 'image', icon: ImageIcon },
+  { kind: 'audio', icon: Music2 },
+  { kind: 'data', icon: FileCode2 },
+]
 
 function assetDataUrl(asset: VirtualPreviewAsset) {
   return `data:${asset.mediaType};base64,${asset.bytesBase64}`
@@ -85,7 +106,8 @@ function formatBytes(bytes: number) {
 }
 
 function AssetGlyph({ kind }: { kind: ProjectAssetKind }) {
-  const Icon = kind === 'image' ? ImageIcon : kind === 'audio' ? Music2 : kind === 'data' ? FileCode2 : FileQuestion
+  const Icon =
+    kind === 'map' ? MapIcon : kind === 'image' ? ImageIcon : kind === 'audio' ? Music2 : kind === 'data' ? FileCode2 : FileQuestion
   return <Icon className="h-5 w-5" aria-hidden="true" />
 }
 
@@ -99,13 +121,21 @@ export function AssetLibraryWorkspace() {
   const replaceRef = useRef<HTMLInputElement>(null)
   const renameTitleId = useId()
   const deleteTitleId = useId()
+  const deleteSelectedTitleId = useId()
+  const browserRef = useRef<HTMLDivElement | null>(null)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<AssetFilter>('all')
   const [view, setView] = useState<AssetView>('grid')
   const [section, setSection] = useState<AssetLibrarySection>('assets')
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
+  const [selectedAssetPaths, setSelectedAssetPaths] = useState<ReadonlySet<string>>(new Set())
+  const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false)
+  const [isBoxSelecting, setIsBoxSelecting] = useState(false)
+  const [browserElement, setBrowserElement] = useState<HTMLDivElement | null>(null)
   const [selectedLoadBindingId, setSelectedLoadBindingId] = useState<string | null>(null)
   const [showLoadFamilyPicker, setShowLoadFamilyPicker] = useState(false)
+  const [showGameImportPicker, setShowGameImportPicker] = useState(false)
+  const [gameImportPicker, setGameImportPicker] = useState<{ kind: GameAssetImportKind; request: number } | null>(null)
   const [renamePath, setRenamePath] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [deletePath, setDeletePath] = useState<string | null>(null)
@@ -124,7 +154,16 @@ export function AssetLibraryWorkspace() {
   const environment = useWorkbenchEnvironment()
   const { locale, theme } = useWorkbenchRuntimeInputs()
   const { port, saveState } = useWorkbenchAssetDraftPort('map')
-  const mapCatalog = useMapAuthoringCatalog(environment.directoryInfo?.rootPath ?? null, environment.directoryInfo, locale)
+  const gameRootPath = environment.directoryInfo?.rootPath ?? null
+  const mapCatalog = useMapAuthoringCatalog(gameRootPath, environment.directoryInfo, locale)
+  // The non-map game asset scans run beside the map catalog and surface their
+  // failures through the shared notification system (see effects below).
+  const scanImages = useCallback((path: string) => scanImageAssets(path), [])
+  const scanAudios = useCallback((path: string) => scanAudioAssets(path), [])
+  const scanDatas = useCallback((path: string) => scanDataAssets(path), [])
+  const imageScan = useGameAssetScan(gameRootPath, scanImages)
+  const audioScan = useGameAssetScan(gameRootPath, scanAudios)
+  const dataScan = useGameAssetScan(gameRootPath, scanDatas)
   const resources: EditorResources = {
     locale,
     theme,
@@ -150,11 +189,113 @@ export function AssetLibraryWorkspace() {
     publishNotification({ id: 'asset-library-map-scan', level: 'error', title: copy.mapScanFailed, description: mapScanError })
   }, [copy.mapScanFailed, mapScanError, publishNotification])
 
+  // Image/audio/data scans follow the same contract: errors go to notifications
+  // with the original message and are dismissed as soon as the scan recovers.
+  useEffect(() => {
+    if (!imageScan.error) {
+      dismissNotification('asset-library-image-scan')
+      return
+    }
+    publishNotification({
+      id: 'asset-library-image-scan',
+      level: 'error',
+      title: copy.gameAssetScanFailed,
+      description: imageScan.error,
+    })
+  }, [copy.gameAssetScanFailed, imageScan.error, publishNotification])
+
+  useEffect(() => {
+    if (!audioScan.error) {
+      dismissNotification('asset-library-audio-scan')
+      return
+    }
+    publishNotification({
+      id: 'asset-library-audio-scan',
+      level: 'error',
+      title: copy.gameAssetScanFailed,
+      description: audioScan.error,
+    })
+  }, [audioScan.error, copy.gameAssetScanFailed, publishNotification])
+
+  useEffect(() => {
+    if (!dataScan.error) {
+      dismissNotification('asset-library-data-scan')
+      return
+    }
+    publishNotification({
+      id: 'asset-library-data-scan',
+      level: 'error',
+      title: copy.gameAssetScanFailed,
+      description: dataScan.error,
+    })
+  }, [copy.gameAssetScanFailed, dataScan.error, publishNotification])
+
   useEffect(() => {
     if (selectedPath && !assets.some((asset) => asset.relativePath === selectedPath)) {
       setSelectedPath(assets[0]?.relativePath ?? null)
     }
   }, [assets, selectedPath])
+
+  // Keep the multi-selection free of paths that left the project (e.g. an
+  // asset deleted through the inspector while the batch bar is visible).
+  useEffect(() => {
+    setSelectedAssetPaths((current) => {
+      if (current.size === 0) return current
+      const existing = new Set(assets.map((asset) => asset.relativePath))
+      const pruned = new Set(Array.from(current).filter((path) => existing.has(path)))
+      return pruned.size === current.size ? current : pruned
+    })
+  }, [assets])
+
+  // Escape dismisses the batch selection without touching the inspector focus.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectedAssetPaths(new Set())
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  const setBrowserNode = (node: HTMLDivElement | null) => {
+    browserRef.current = node
+    setBrowserElement((current) => (current === node ? current : node))
+  }
+
+  // Box selection mirrors the launcher library grid: cards carry a
+  // `data-asset-path` marker, the drag box is compared against their
+  // viewport-relative rects, and the drawn overlay lives in a dedicated layer.
+  const updateDragSelection = (box: Box) => {
+    const browser = browserRef.current
+    if (!browser) return
+    const selectedPaths = Array.from(browser.querySelectorAll<HTMLElement>('[data-asset-path]'))
+      .filter((element) => {
+        const path = element.getAttribute('data-asset-path')
+        if (!path) return false
+        const rect = element.getBoundingClientRect()
+        return (
+          box.left <= rect.left + rect.width &&
+          box.left + box.width >= rect.left &&
+          box.top <= rect.top + rect.height &&
+          box.top + box.height >= rect.top
+        )
+      })
+      .map((element) => element.getAttribute('data-asset-path'))
+      .filter((path): path is string => Boolean(path))
+    setSelectedAssetPaths(new Set(selectedPaths))
+  }
+  const { DragSelection } = useSelectionContainer<HTMLDivElement>({
+    eventsElement: browserElement,
+    isEnabled: view === 'grid' && section === 'assets',
+    isValidSelectionStart: () => true,
+    onSelectionStart: () => setIsBoxSelecting(true),
+    onSelectionEnd: () => setIsBoxSelecting(false),
+    onSelectionChange: updateDragSelection,
+    selectionProps: {
+      'data-testid': 'asset-library-box-select',
+      className: 'asset-library-box-select',
+    } as HTMLAttributes<HTMLDivElement>,
+    shouldStartSelecting: (target) => target instanceof HTMLElement && !target.closest('.asset-library-asset'),
+  })
 
   // Cross-module jumps (map workspace "manage in asset library" links) stage a
   // transient focus here; consume it once and clear it so a stale value never
@@ -175,11 +316,27 @@ export function AssetLibraryWorkspace() {
 
   const normalizedQuery = query.trim().toLowerCase()
   const visibleAssets = assets.filter((asset) => {
-    const kind = classifyProjectAsset(asset.mediaType)
+    const kind = classifyProjectAsset(asset.mediaType, asset.relativePath)
     return (filter === 'all' || filter === kind) && (normalizedQuery === '' || asset.relativePath.toLowerCase().includes(normalizedQuery))
   })
   const selected = assets.find((asset) => asset.relativePath === selectedPath) ?? visibleAssets[0] ?? null
+  const selectedKind = selected ? classifyProjectAsset(selected.mediaType, selected.relativePath) : null
+  // The all-filter grid view groups cards by kind (path order is preserved by
+  // filtering the already sorted project asset list); list view and filtered
+  // grids stay flat.
+  const kindGroups =
+    view === 'grid' && filter === 'all'
+      ? ASSET_KIND_ORDER.map((kind) => ({
+          kind,
+          assets: visibleAssets.filter((asset) => classifyProjectAsset(asset.mediaType, asset.relativePath) === kind),
+        })).filter((group) => group.assets.length > 0)
+      : null
   const selectedPayload = loadedAsset?.relativePath === selected?.relativePath ? loadedAsset : null
+  const gameImportOptions: Record<Exclude<GameAssetImportKind, 'map'>, ResourceBrowserOption[]> = {
+    image: toGameImageResourceBrowserOptions(imageScan.assets),
+    audio: toGameAudioResourceBrowserOptions(audioScan.assets),
+    data: toGameDataResourceBrowserOptions(dataScan.assets),
+  }
   const selectedReferences = selected
     ? (project.activeDraft?.patches.filter(
         (patch) => patch.fromFile?.replaceAll('\\', '/').toLowerCase() === selected.relativePath.replaceAll('\\', '/').toLowerCase(),
@@ -289,6 +446,59 @@ export function AssetLibraryWorkspace() {
     }
   }
 
+  /** Opens the copy-from-game picker for one asset family (map/image/audio/data). */
+  function openGameImportPicker(kind: GameAssetImportKind) {
+    setShowGameImportPicker(false)
+    setGameImportPicker((current) => ({ kind, request: (current?.request ?? 0) + 1 }))
+  }
+
+  function findGameAssetImportSource(kind: Exclude<GameAssetImportKind, 'map'>, value: string): GameAssetImportSource | null {
+    if (kind === 'image') {
+      const asset = imageScan.assets.find((candidate) => candidate.relativePath === value)
+      return asset ? { kind, asset } : null
+    }
+    if (kind === 'audio') {
+      const asset = audioScan.assets.find((candidate) => candidate.relativePath === value)
+      return asset ? { kind, asset } : null
+    }
+    const asset = dataScan.assets.find((candidate) => candidate.relativePath === value)
+    return asset ? { kind, asset } : null
+  }
+
+  /**
+   * Imports one scanned game asset (image/audio/data) into the project through
+   * the shared pipeline. Failures keep the original error message in the
+   * notification description so nothing is silently swallowed.
+   */
+  async function importGameSelection(kind: GameAssetImportKind, value: string) {
+    if (kind === 'map') {
+      const asset = mapCatalog.assets.find((candidate) => mapTargetFromAsset(candidate) === value)
+      if (asset) await importFromGame(asset)
+      return
+    }
+    const source = findGameAssetImportSource(kind, value)
+    if (!source) return
+    dismissNotification('asset-library-import-game-asset')
+    try {
+      const usedPaths = new Set(project.projectAssets.map((asset) => asset.relativePath.replaceAll('\\', '/').toLowerCase()))
+      const prepared = await prepareGameAssetImport(source, {
+        resources,
+        existingPaths: usedPaths,
+        invalidDataError: copy.importGameAssetFailed,
+      })
+      await project.writeProjectAssets([prepared], 'generated')
+      setSelectedPath(prepared.relativePath)
+      setSection('assets')
+    } catch (error) {
+      publishNotification({
+        id: 'asset-library-import-game-asset',
+        level: 'error',
+        title: copy.importGameAssetFailed,
+        description: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
   /**
    * Imports files picked to satisfy one missing dependency edge. Files whose
    * basename matches the missing file are placed into the expected directory
@@ -357,6 +567,37 @@ export function AssetLibraryWorkspace() {
     }
   }
 
+  /**
+   * Deletes every box-selected asset sequentially; a single failure keeps the
+   * remaining deletes running and is reported with the original error message
+   * through the notification system. Successfully deleted paths leave the
+   * selection, failed ones stay so the user can retry.
+   */
+  async function confirmDeleteSelected() {
+    if (selectedAssetPaths.size === 0) return
+    dismissNotification('asset-library-delete-selected')
+    const remaining = new Set(selectedAssetPaths)
+    const failed: Array<{ path: string; message: string }> = []
+    for (const path of Array.from(selectedAssetPaths)) {
+      try {
+        await project.deleteProjectAsset(path)
+        remaining.delete(path)
+      } catch (error) {
+        failed.push({ path, message: error instanceof Error ? error.message : String(error) })
+      }
+    }
+    if (failed.length > 0) {
+      publishNotification({
+        id: 'asset-library-delete-selected',
+        level: 'error',
+        title: copy.deleteSelectedPartialFailed(failed.length),
+        description: failed.map((item) => `${item.path}: ${item.message}`).join('\n'),
+      })
+    }
+    setSelectedAssetPaths(remaining)
+    setDeleteSelectedOpen(false)
+  }
+
   async function savePixelEdit(bytesBase64: string) {
     if (!pixelAsset) return
     const wantedPath = allocateProjectAssetPath(
@@ -395,6 +636,55 @@ export function AssetLibraryWorkspace() {
           ? copy.savedStatus
           : copy.dirtyStatus
 
+  const renderAssetCard = (asset: ProjectAssetRef) => {
+    const kind = classifyProjectAsset(asset.mediaType, asset.relativePath)
+    const active = selected?.relativePath === asset.relativePath
+    const multiSelected = selectedAssetPaths.has(asset.relativePath)
+    return (
+      <button
+        key={asset.relativePath}
+        type="button"
+        data-asset-path={asset.relativePath}
+        className={cx('asset-library-asset', active && 'is-selected', multiSelected && 'is-multi-selected')}
+        aria-pressed={active || multiSelected}
+        onClick={() => setSelectedPath(asset.relativePath)}
+      >
+        <span className="asset-library-thumb">
+          {isProjectMapAssetPath(asset.relativePath) ? (
+            <AssetMapThumbnail
+              assetPath={asset.relativePath}
+              sha256={asset.sha256}
+              width={240}
+              height={176}
+              fallback={<AssetGlyph kind={kind} />}
+            />
+          ) : kind === 'image' ? (
+            <AssetImageThumbnail
+              assetPath={asset.relativePath}
+              sha256={asset.sha256}
+              mediaType={asset.mediaType}
+              fallback={<AssetGlyph kind={kind} />}
+            />
+          ) : (
+            <AssetGlyph kind={kind} />
+          )}
+          {missingByAsset.has(asset.relativePath) ? (
+            <span className="asset-library-missing-badge" title={copy.missingDependenciesBadge} aria-label={copy.missingDependenciesBadge}>
+              {copy.missingDependenciesBadge}
+            </span>
+          ) : null}
+        </span>
+        <span className="asset-library-asset-copy" title={asset.relativePath}>
+          <strong>{asset.relativePath.split('/').at(-1)}</strong>
+          <span>{asset.relativePath}</span>
+        </span>
+        <span className="asset-library-asset-meta">
+          {copy.filters[kind]} · {formatBytes(asset.sizeBytes)}
+        </span>
+      </button>
+    )
+  }
+
   return (
     <div className="asset-library-workspace">
       <header className="asset-library-header">
@@ -413,7 +703,10 @@ export function AssetLibraryWorkspace() {
             type="button"
             className={cx(section === 'assets' && 'is-active')}
             aria-pressed={section === 'assets'}
-            onClick={() => setSection('assets')}
+            onClick={() => {
+              setSection('assets')
+              setSelectedAssetPaths(new Set())
+            }}
           >
             {copy.viewAssets}
           </button>
@@ -421,7 +714,10 @@ export function AssetLibraryWorkspace() {
             type="button"
             className={cx(section === 'load-bindings' && 'is-active')}
             aria-pressed={section === 'load-bindings'}
-            onClick={() => setSection('load-bindings')}
+            onClick={() => {
+              setSection('load-bindings')
+              setSelectedAssetPaths(new Set())
+            }}
           >
             {copy.viewLoadBindings}
           </button>
@@ -436,12 +732,22 @@ export function AssetLibraryWorkspace() {
                 type="search"
                 value={query}
                 placeholder={copy.searchPlaceholder}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  setQuery(event.target.value)
+                  setSelectedAssetPaths(new Set())
+                }}
               />
             </label>
             <label className="asset-library-filter">
               <span className="sr-only">{copy.filterLabel}</span>
-              <select className="control-input" value={filter} onChange={(event) => setFilter(event.target.value as AssetFilter)}>
+              <select
+                className="control-input"
+                value={filter}
+                onChange={(event) => {
+                  setFilter(event.target.value as AssetFilter)
+                  setSelectedAssetPaths(new Set())
+                }}
+              >
                 {Object.entries(copy.filters).map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
@@ -467,34 +773,56 @@ export function AssetLibraryWorkspace() {
                 aria-label={copy.listView}
                 title={copy.listView}
                 aria-pressed={view === 'list'}
-                onClick={() => setView('list')}
+                onClick={() => {
+                  setView('list')
+                  setSelectedAssetPaths(new Set())
+                }}
               >
                 <List className="h-4 w-4" />
               </button>
             </div>
             <div className="asset-library-toolbar-actions">
-              {mapCatalog.assets.length > 0 ? (
+              <div className="asset-library-import-game">
+                <button
+                  type="button"
+                  className="control-button"
+                  aria-expanded={showGameImportPicker}
+                  aria-haspopup="menu"
+                  onClick={() => setShowGameImportPicker((value) => !value)}
+                >
+                  <FolderInput className="h-4 w-4" aria-hidden="true" />
+                  {copy.importFromGame}
+                </button>
+                {showGameImportPicker ? (
+                  <div className="asset-library-import-kind-picker" role="menu" aria-label={copy.importFromGame}>
+                    {GAME_IMPORT_KINDS.map(({ kind, icon: KindIcon }) => (
+                      <button key={kind} type="button" role="menuitem" onClick={() => openGameImportPicker(kind)}>
+                        <KindIcon className="h-4 w-4" aria-hidden="true" />
+                        {copy.importGameKinds[kind]}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              {gameImportPicker ? (
                 <ResourcePicker
+                  key={gameImportPicker.kind}
                   value=""
-                  label={copy.importFromGame}
-                  placeholder={copy.importFromGame}
-                  options={toMapResourceBrowserOptions(
-                    mapCatalog.assets,
-                    (asset) => copy.mapCategories[mapCatalogCategory(mapTargetFromAsset(asset))],
-                    'map-import',
-                  )}
-                  selectionMode="confirm"
-                  triggerClassName="control-button"
-                  triggerContent={
-                    <>
-                      <MapIcon className="h-4 w-4" />
-                      {copy.importFromGame}
-                    </>
+                  label={copy.importGamePickerLabel[gameImportPicker.kind]}
+                  placeholder={copy.importGamePickerLabel[gameImportPicker.kind]}
+                  options={
+                    gameImportPicker.kind === 'map'
+                      ? toMapResourceBrowserOptions(
+                          mapCatalog.assets,
+                          (asset) => copy.mapCategories[mapCatalogCategory(mapTargetFromAsset(asset))],
+                          'map-import',
+                        )
+                      : gameImportOptions[gameImportPicker.kind]
                   }
-                  onSelect={(value) => {
-                    const asset = mapCatalog.assets.find((a) => mapTargetFromAsset(a) === value)
-                    if (asset) void importFromGame(asset)
-                  }}
+                  selectionMode="confirm"
+                  triggerClassName="sr-only"
+                  openRequest={gameImportPicker.request}
+                  onSelect={(value) => void importGameSelection(gameImportPicker.kind, value)}
                 />
               ) : null}
               <button type="button" className="control-button" onClick={() => setCreateMapOpen(true)}>
@@ -527,12 +855,42 @@ export function AssetLibraryWorkspace() {
         )}
       </div>
 
+      {section === 'assets' && view === 'grid' && selectedAssetPaths.size > 0 ? (
+        <div className="asset-library-selection-bar" role="toolbar" aria-label={copy.selectionCount(selectedAssetPaths.size)}>
+          <span className="asset-library-selection-count">{copy.selectionCount(selectedAssetPaths.size)}</span>
+          <button
+            type="button"
+            className="control-button"
+            disabled={selectedAssetPaths.size >= visibleAssets.length}
+            onClick={() => setSelectedAssetPaths(new Set(visibleAssets.map((asset) => asset.relativePath)))}
+          >
+            {copy.selectAll}
+          </button>
+          <button type="button" className="control-button" onClick={() => setSelectedAssetPaths(new Set())}>
+            {copy.clearSelection}
+          </button>
+          <button type="button" className="control-button is-danger" onClick={() => setDeleteSelectedOpen(true)}>
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            {copy.deleteSelectedAction}
+          </button>
+        </div>
+      ) : null}
+
       <div className="asset-library-status-rows">
         {mapCatalog.loading ? (
           <div className="asset-library-missing-banner" role="status">
             <header className="asset-library-missing-header">
               <MapIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
               <strong>{copy.mapScanLoading}</strong>
+            </header>
+          </div>
+        ) : null}
+
+        {imageScan.loading || audioScan.loading || dataScan.loading ? (
+          <div className="asset-library-missing-banner" role="status">
+            <header className="asset-library-missing-header">
+              <RefreshCw className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <strong>{copy.gameAssetScanLoading}</strong>
             </header>
           </div>
         ) : null}
@@ -683,7 +1041,10 @@ export function AssetLibraryWorkspace() {
           </div>
         ) : (
           <>
-            <main className="asset-library-browser custom-scrollbar">
+            <main ref={setBrowserNode} className={cx('asset-library-browser custom-scrollbar', isBoxSelecting && 'is-box-selecting')}>
+              <div className="asset-library-box-select-layer" data-asset-library-box-select-layer="browser">
+                <DragSelection />
+              </div>
               {assets.length === 0 ? (
                 <div className="asset-library-empty">
                   <ImageIcon className="h-10 w-10" />
@@ -705,56 +1066,17 @@ export function AssetLibraryWorkspace() {
                 </div>
               ) : (
                 <div className={cx('asset-library-assets', view === 'list' && 'is-list')}>
-                  {visibleAssets.map((asset) => {
-                    const kind = classifyProjectAsset(asset.mediaType)
-                    const active = selected?.relativePath === asset.relativePath
-                    return (
-                      <button
-                        key={asset.relativePath}
-                        type="button"
-                        className={cx('asset-library-asset', active && 'is-selected')}
-                        aria-pressed={active}
-                        onClick={() => setSelectedPath(asset.relativePath)}
-                      >
-                        <span className="asset-library-thumb">
-                          {isProjectMapAssetPath(asset.relativePath) ? (
-                            <AssetMapThumbnail
-                              assetPath={asset.relativePath}
-                              sha256={asset.sha256}
-                              width={240}
-                              height={176}
-                              fallback={<AssetGlyph kind={kind} />}
-                            />
-                          ) : kind === 'image' ? (
-                            <AssetImageThumbnail
-                              assetPath={asset.relativePath}
-                              sha256={asset.sha256}
-                              mediaType={asset.mediaType}
-                              fallback={<AssetGlyph kind={kind} />}
-                            />
-                          ) : (
-                            <AssetGlyph kind={kind} />
-                          )}
-                          {missingByAsset.has(asset.relativePath) ? (
-                            <span
-                              className="asset-library-missing-badge"
-                              title={copy.missingDependenciesBadge}
-                              aria-label={copy.missingDependenciesBadge}
-                            >
-                              {copy.missingDependenciesBadge}
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className="asset-library-asset-copy" title={asset.relativePath}>
-                          <strong>{asset.relativePath.split('/').at(-1)}</strong>
-                          <span>{asset.relativePath}</span>
-                        </span>
-                        <span className="asset-library-asset-meta">
-                          {copy.filters[kind]} · {formatBytes(asset.sizeBytes)}
-                        </span>
-                      </button>
-                    )
-                  })}
+                  {kindGroups
+                    ? kindGroups.map((group) => (
+                        <Fragment key={group.kind}>
+                          <header className="asset-library-kind-header" data-kind={group.kind}>
+                            <strong>{copy.filters[group.kind]}</strong>
+                            <span>{copy.assetKindCount(group.assets.length)}</span>
+                          </header>
+                          {group.assets.map((asset) => renderAssetCard(asset))}
+                        </Fragment>
+                      ))
+                    : visibleAssets.map((asset) => renderAssetCard(asset))}
                 </div>
               )}
             </main>
@@ -769,14 +1091,14 @@ export function AssetLibraryWorkspace() {
                         sha256={selected.sha256}
                         width={480}
                         height={352}
-                        fallback={<AssetGlyph kind={classifyProjectAsset(selected.mediaType)} />}
+                        fallback={<AssetGlyph kind={selectedKind ?? 'other'} />}
                       />
-                    ) : classifyProjectAsset(selected.mediaType) === 'image' && selectedPayload ? (
+                    ) : selectedKind === 'image' && selectedPayload ? (
                       <img src={assetDataUrl(selectedPayload)} alt={copy.previewAlt(selected.relativePath)} />
-                    ) : classifyProjectAsset(selected.mediaType) === 'audio' && selectedPayload ? (
+                    ) : selectedKind === 'audio' && selectedPayload ? (
                       <audio controls src={assetDataUrl(selectedPayload)} />
                     ) : (
-                      <AssetGlyph kind={classifyProjectAsset(selected.mediaType)} />
+                      <AssetGlyph kind={selectedKind ?? 'other'} />
                     )}
                   </div>
                   <div className="asset-library-inspector-title">
@@ -927,6 +1249,25 @@ export function AssetLibraryWorkspace() {
         <DialogFooter>
           <DialogAction onClick={() => setDeletePath(null)}>{copy.cancelAction}</DialogAction>
           <DialogAction tone="danger" onClick={() => void confirmDelete()}>
+            {copy.confirmDeleteAction}
+          </DialogAction>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog open={deleteSelectedOpen} onClose={() => setDeleteSelectedOpen(false)} labelledBy={deleteSelectedTitleId} size="sm">
+        <DialogHeader
+          id={deleteSelectedTitleId}
+          title={copy.deleteSelectedTitle}
+          tone="danger"
+          onClose={() => setDeleteSelectedOpen(false)}
+          closeLabel={copy.closeAction}
+        />
+        <DialogBody>
+          <p className="asset-library-delete-message">{copy.deleteSelectedMessage(selectedAssetPaths.size)}</p>
+        </DialogBody>
+        <DialogFooter>
+          <DialogAction onClick={() => setDeleteSelectedOpen(false)}>{copy.cancelAction}</DialogAction>
+          <DialogAction tone="danger" onClick={() => void confirmDeleteSelected()}>
             {copy.confirmDeleteAction}
           </DialogAction>
         </DialogFooter>

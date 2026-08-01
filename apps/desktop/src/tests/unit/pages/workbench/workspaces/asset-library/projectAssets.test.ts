@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vite-plus/test'
 import type { DraftPatch, VirtualPreviewAsset } from '@features/cp-maker'
-import { allocateProjectAssetPath, planProjectAssetRename, sanitizeProjectAssetPath } from '@pages/workbench/workspaces/asset-library'
+import {
+  allocateProjectAssetPath,
+  classifyProjectAsset,
+  planProjectAssetRename,
+  sanitizeProjectAssetPath,
+} from '@pages/workbench/workspaces/asset-library'
 
 const asset: VirtualPreviewAsset = { relativePath: 'assets/barn.png', mediaType: 'image/png', bytesBase64: 'AA==' }
 
@@ -23,5 +28,27 @@ describe('project asset paths', () => {
       oldPath: 'assets/barn.png',
       patchUpdates: [{ patchId: 'load', fromFile: 'assets/coop.png' }],
     })
+  })
+})
+
+describe('classifyProjectAsset', () => {
+  it('classifies TMX and TBIN map documents by path even without a MIME', () => {
+    expect(classifyProjectAsset('application/octet-stream', 'assets/maps/Mountain.tmx')).toBe('map')
+    expect(classifyProjectAsset('', 'assets/maps/Festival.tbin')).toBe('map')
+  })
+
+  it('classifies known media types by MIME', () => {
+    expect(classifyProjectAsset('image/png', 'assets/portrait.png')).toBe('image')
+    expect(classifyProjectAsset('audio/wav', 'assets/birds.wav')).toBe('audio')
+    expect(classifyProjectAsset('application/json', 'assets/data/shops.json')).toBe('data')
+  })
+
+  it('falls back to the path extension when the MIME is empty or generic', () => {
+    expect(classifyProjectAsset('application/octet-stream', 'assets/tilesheet.png')).toBe('image')
+    expect(classifyProjectAsset('', 'assets/data/events.json')).toBe('data')
+  })
+
+  it('keeps unknown binary payloads in other', () => {
+    expect(classifyProjectAsset('application/octet-stream', 'assets/data/patch.dll')).toBe('other')
   })
 })

@@ -1,6 +1,6 @@
 import type { DraftPatch, VirtualPreviewAsset } from '@features/cp-maker'
 
-export type ProjectAssetKind = 'image' | 'audio' | 'data' | 'other'
+export type ProjectAssetKind = 'map' | 'image' | 'audio' | 'data' | 'other'
 
 /** Normalizes an imported or renamed project-relative path without allowing parent traversal. */
 export function sanitizeProjectAssetPath(input: string): string {
@@ -46,11 +46,27 @@ export function isProjectMapAssetPath(path: string): boolean {
   return normalized.endsWith('.tmx') || normalized.endsWith('.tbin')
 }
 
-/** Broad media bucket used by the library filters and preview renderer. */
-export function classifyProjectAsset(mediaType: string): ProjectAssetKind {
+/** Common image extensions used when the browser reports no usable MIME. */
+const IMAGE_EXTENSION_FALLBACK = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'])
+
+/**
+ * Broad media bucket used by the library filters and preview renderer.
+ *
+ * Map documents have no standard MIME (browsers report `application/octet-stream`),
+ * so the project-relative path is checked first; when the MIME is missing or
+ * generic, the path extension is the fallback so imported assets never silently
+ * land in "other".
+ */
+export function classifyProjectAsset(mediaType: string, relativePath: string): ProjectAssetKind {
+  if (isProjectMapAssetPath(relativePath)) return 'map'
   if (mediaType.startsWith('image/')) return 'image'
   if (mediaType.startsWith('audio/')) return 'audio'
   if (mediaType.includes('json') || mediaType.startsWith('text/')) return 'data'
+  if (mediaType === '' || mediaType === 'application/octet-stream') {
+    const extension = relativePath.split('.').at(-1)?.toLowerCase() ?? ''
+    if (IMAGE_EXTENSION_FALLBACK.has(extension)) return 'image'
+    if (extension === 'json') return 'data'
+  }
   return 'other'
 }
 

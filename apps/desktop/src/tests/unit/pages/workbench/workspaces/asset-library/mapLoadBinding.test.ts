@@ -233,9 +233,8 @@ describe('load binding creation helpers', () => {
       'assets/data/objects.json',
       'assets/readme.txt',
     ])
-    expect(projectAssetsForLoadFamily('other', assets).map((asset) => asset.relativePath)).toEqual([
-      'assets/maps/Custom.tmx',
-      'assets/maps/Custom.tbin',
-    ])
+    // TMX/TBIN map documents classify as `map`, so they no longer leak into
+    // the generic `other` bucket.
+    expect(projectAssetsForLoadFamily('other', assets).map((asset) => asset.relativePath)).toEqual([])
   })
 })

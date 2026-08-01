@@ -13,7 +13,9 @@ import type {
   AudioAssetSummary,
   DefaultSaveSlotSummary,
   EventAssetSummary,
+  GameDataAssetSummary,
   GameDirectoryInfo,
+  GameImageAssetSummary,
   LocalTextFileContent,
   MapAssetContent,
   MapAssetSummary,
@@ -33,6 +35,8 @@ const loadImageDataUrlCache = createPromiseCache<string>()
 const scanAudioAssetsCache = createPromiseCache<AudioAssetSummary[]>()
 const loadAudioDataUrlCache = createPromiseCache<string>()
 const loadXactAudioDataUrlCache = createPromiseCache<string>()
+const scanImageAssetsCache = createPromiseCache<GameImageAssetSummary[]>()
+const scanDataAssetsCache = createPromiseCache<GameDataAssetSummary[]>()
 const scanDefaultSaveSlotsCache = createPromiseCache<DefaultSaveSlotSummary[]>()
 const loadResourceRegistryCache = createPromiseCache<ResourceRegistry>()
 
@@ -72,6 +76,8 @@ export function getGameAssetCacheStats() {
     audioScan: scanAudioAssetsCache.size(),
     audioDataUrl: loadAudioDataUrlCache.size(),
     xactAudioDataUrl: loadXactAudioDataUrlCache.size(),
+    imageScan: scanImageAssetsCache.size(),
+    dataScan: scanDataAssetsCache.size(),
     saveSlots: scanDefaultSaveSlotsCache.size(),
     resourceRegistry: loadResourceRegistryCache.size(),
   }
@@ -175,6 +181,22 @@ export function loadAudioDataUrl(path: string) {
   const cacheKey = normalizeCachePathSegment(path)
   return readPending(loadAudioDataUrlCache, cacheKey, () =>
     invokeDesktop<string>(HOST_COMMANDS.loadAudioDataUrl, { path }, audioResolvePoolPolicy),
+  )
+}
+
+/** Scans the game Content tree for XNB texture assets (maps and data excluded). */
+export function scanImageAssets(path: string) {
+  const cacheKey = normalizeCachePathSegment(path)
+  return readCached(scanImageAssetsCache, cacheKey, () =>
+    invokeDesktop<GameImageAssetSummary[]>(HOST_COMMANDS.scanImageAssets, { path }, gameAssetPoolPolicy),
+  )
+}
+
+/** Scans `Content/Data` for XNB and JSON data assets. */
+export function scanDataAssets(path: string) {
+  const cacheKey = normalizeCachePathSegment(path)
+  return readCached(scanDataAssetsCache, cacheKey, () =>
+    invokeDesktop<GameDataAssetSummary[]>(HOST_COMMANDS.scanDataAssets, { path }, gameAssetPoolPolicy),
   )
 }
 

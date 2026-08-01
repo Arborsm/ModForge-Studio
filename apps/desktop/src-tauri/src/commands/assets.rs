@@ -1,6 +1,7 @@
 use crate::domain::assets::{
-    AudioAssetSummary, EventAssetSummary, FileCacheStats, GameDirectoryInfo, LocalTextFileContent,
-    MapAssetContent, MapAssetSummary, ParsedEventAssetContent, TextAssetContent,
+    AudioAssetSummary, DataAssetSummary, EventAssetSummary, FileCacheStats, GameDirectoryInfo,
+    ImageAssetSummary, LocalTextFileContent, MapAssetContent, MapAssetSummary,
+    ParsedEventAssetContent, TextAssetContent,
 };
 use crate::support::logging::DebugLoggingState;
 use crate::{AppHandle, AppRuntime};
@@ -201,6 +202,36 @@ pub async fn scan_audio_assets(
         AppHandle::from_tauri(app),
         debug_logging_state.inner().clone(),
         crate::host_command_name!(scan_audio_assets),
+        json!({ "path": path }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn scan_image_assets(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    path: String,
+) -> Result<Vec<ImageAssetSummary>, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(scan_image_assets),
+        json!({ "path": path }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn scan_data_assets(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    path: String,
+) -> Result<Vec<DataAssetSummary>, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(scan_data_assets),
         json!({ "path": path }),
     )
     .await

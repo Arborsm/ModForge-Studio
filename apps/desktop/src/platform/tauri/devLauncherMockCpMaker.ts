@@ -44,6 +44,82 @@ function mockDigest(input: string) {
   return hash.toString(16).padStart(8, '0')
 }
 
+/** 16x16 solid PNG so mock textures decode for thumbnails and pixel previews. */
+const MOCK_TEXTURE_PNG_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAHUlEQVR4nGO45uBAEmIY1TCqAYeGBjU1ktAg1AAAIwEzkBpWLWMAAAAASUVORK5CYII='
+
+/** Builds a minimal valid 16-bit mono WAV (silence) so <audio> previews can decode it. */
+function mockWavDataUrl() {
+  const sampleRate = 8000
+  const samples = 800
+  const dataSize = samples * 2
+  const bytes = new Uint8Array(44 + dataSize)
+  const view = new DataView(bytes.buffer)
+  const writeAscii = (offset: number, text: string) => {
+    for (let index = 0; index < text.length; index += 1) bytes[offset + index] = text.charCodeAt(index)
+  }
+  writeAscii(0, 'RIFF')
+  view.setUint32(4, 36 + dataSize, true)
+  writeAscii(8, 'WAVE')
+  writeAscii(12, 'fmt ')
+  view.setUint32(16, 16, true)
+  view.setUint16(20, 1, true)
+  view.setUint16(22, 1, true)
+  view.setUint32(24, sampleRate, true)
+  view.setUint32(28, sampleRate * 2, true)
+  view.setUint16(32, 2, true)
+  view.setUint16(34, 16, true)
+  writeAscii(36, 'data')
+  view.setUint32(40, dataSize, true)
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return `data:audio/wav;base64,${btoa(binary)}`
+}
+
+function encodeTextBase64(text: string): string {
+  const bytes = new TextEncoder().encode(text)
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary)
+}
+
+/** Minimal TMX map document so the copy-from-game map flow can run in the browser. */
+function createMockMapDocument(name: string) {
+  const width = 16
+  const height = 16
+  return {
+    name,
+    format: 'tmx',
+    sourcePath: `Content/Maps/${name}.tmx`,
+    relativePath: `Content/Maps/${name}.tmx`,
+    width,
+    height,
+    tileWidth: 16,
+    tileHeight: 16,
+    orientation: 'orthogonal',
+    renderOrder: 'right-down',
+    properties: {},
+    tilesets: [],
+    layers: [
+      {
+        id: 1,
+        name: 'Back',
+        kind: 'tile',
+        width,
+        height,
+        visible: true,
+        opacity: 1,
+        offsetX: 0,
+        offsetY: 0,
+        properties: {},
+        gids: Array.from({ length: width * height }, () => 0),
+        nonEmptyTiles: 0,
+      },
+    ],
+    objectGroups: [],
+  }
+}
+
 /**
  * In-memory CP Maker draft storage for the browser dev mock.
  *
@@ -293,6 +369,115 @@ export function createCpMakerMockHandler(gameRootPath: string) {
             },
           ],
         }
+
+      case 'load_map_asset': {
+        const request = readPayload<{ mapPath?: string }>(payload, 'mapPath')
+        const mapPath = request?.mapPath ?? `${gameRootPath}\\Content\\Maps\\Town.xnb`
+        const name = (mapPath.split(/[\\/]/).at(-1) ?? 'Town').replace(/\.(?:xnb|tmx|tbin)$/iu, '')
+        return {
+          handled: true,
+          result: {
+            name,
+            format: 'tmx',
+            absolutePath: mapPath,
+            relativePath: `Content/Maps/${name}.tmx`,
+            content: JSON.stringify(createMockMapDocument(name)),
+          },
+        }
+      }
+
+      case 'build_cp_maker_map_asset': {
+        const request = readPayload<{ relativePath?: string; mapDocument?: unknown }>(payload, 'request')
+        const relativePath = request?.relativePath ?? 'assets/maps/map.tmx'
+        return {
+          handled: true,
+          result: {
+            asset: {
+              relativePath,
+              mediaType: 'application/octet-stream',
+              bytesBase64: encodeTextBase64(request?.mapDocument != null ? JSON.stringify(request.mapDocument) : '{}'),
+            },
+            companionAssets: [],
+          },
+        }
+      }
+
+      case 'scan_audio_assets':
+        return {
+          handled: true,
+          result: [
+            {
+              cue: 'cowboy_kidnapping',
+              kind: 'music',
+              absolutePath: `${gameRootPath}\\Content\\Music\\cowboy_kidnapping.wav`,
+              relativePath: 'Content/Music/cowboy_kidnapping.wav',
+            },
+            {
+              cue: 'achievement',
+              kind: 'sound',
+              absolutePath: `${gameRootPath}\\Content\\Audio\\achievement.wav`,
+              relativePath: 'Content/Audio/achievement.wav',
+            },
+          ],
+        }
+
+      case 'scan_image_assets':
+        return {
+          handled: true,
+          result: [
+            {
+              name: 'Characters/Abigail',
+              relativePath: 'Content/Characters/Abigail.xnb',
+              absolutePath: `${gameRootPath}\\Content\\Characters\\Abigail.xnb`,
+              sizeBytes: 128_000,
+            },
+            {
+              name: 'Portraits/Abigail',
+              relativePath: 'Content/Portraits/Abigail.xnb',
+              absolutePath: `${gameRootPath}\\Content\\Portraits\\Abigail.xnb`,
+              sizeBytes: 96_000,
+            },
+          ],
+        }
+
+      case 'scan_data_assets':
+        return {
+          handled: true,
+          result: [
+            {
+              name: 'Data/ObjectInformation',
+              relativePath: 'Content/Data/ObjectInformation.xnb',
+              absolutePath: `${gameRootPath}\\Content\\Data\\ObjectInformation.xnb`,
+              sizeBytes: 256_000,
+            },
+            {
+              name: 'Data/NPCGiftTastes',
+              relativePath: 'Content/Data/NPCGiftTastes.xnb',
+              absolutePath: `${gameRootPath}\\Content\\Data\\NPCGiftTastes.xnb`,
+              sizeBytes: 48_000,
+            },
+          ],
+        }
+
+      case 'load_image_data_url':
+        return { handled: true, result: `data:image/png;base64,${MOCK_TEXTURE_PNG_BASE64}` }
+
+      case 'load_audio_data_url':
+        return { handled: true, result: mockWavDataUrl() }
+
+      case 'load_text_asset': {
+        const request = readPayload<{ assetPath?: string }>(payload, 'assetPath')
+        const assetPath = request?.assetPath ?? 'Content/Data/ObjectInformation.xnb'
+        const name = (assetPath.split(/[\\/]/).at(-1) ?? 'Asset').replace(/\.(?:xnb|json)$/iu, '')
+        return {
+          handled: true,
+          result: {
+            absolutePath: `${gameRootPath}\\${assetPath}`,
+            relativePath: assetPath,
+            content: JSON.stringify({ asset: name, mock: true }, null, 2),
+          },
+        }
+      }
 
       default:
         return { handled: false }

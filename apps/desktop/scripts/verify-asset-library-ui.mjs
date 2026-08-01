@@ -13,9 +13,12 @@ import { deflateSync } from 'node:zlib'
  * the draft round-trips, then asserts the polished layout: single primary CTA
  * in the toolbar, header free of action buttons, real lazy image thumbnails,
  * chrome-free detail preview (page-design-spec §6.2), hidden empty dependency
- * sections (§5.3) and a demoted destructive action. Runs light and dark at
- * 1680 and 1440. Screenshots land in the system temp dir unless overridden via
- * MODFORGE_ASSET_LIBRARY_SCREENSHOT_DIR.
+ * sections (§5.3) and a demoted destructive action. It also verifies the
+ * classify/group/multi-select slices: TMX/TBIN maps read 地图 (never 其他),
+ * the all-filter grid groups cards under canonical kind headers, and a real
+ * mouse drag box-selects two cards whose batch delete goes through the shared
+ * Dialog. Runs light and dark at 1680 and 1440. Screenshots land in the system
+ * temp dir unless overridden via MODFORGE_ASSET_LIBRARY_SCREENSHOT_DIR.
  *
  * Prereq: `vp run web:dev -- --host 127.0.0.1 --port 5175`
  */
@@ -106,6 +109,42 @@ async function main() {
     await skipGuides()
   }
 
+  /**
+   * Imports one game asset kind through the real copy-from-game UI path and
+   * asserts the imported card lands in the expected grid group without
+   * surfacing an error notification. The dialog is opened programmatically by
+   * the workspace (openRequest), so only the kind entry is clicked here.
+   */
+  async function importFromGameKind(kindLabel, expectedAssetPath, expectedGroupKind, expectedMetaPrefix) {
+    await page.getByRole('button', { name: '从游戏复制', exact: true }).click()
+    await page.waitForSelector('.asset-library-import-kind-picker', { state: 'visible', timeout: 5_000 })
+    await page.getByRole('menuitem', { name: kindLabel }).click()
+    await page.waitForSelector('.resource-picker__dialog', { state: 'visible', timeout: 8_000 })
+    await page.locator('.resource-picker__item-card-main').first().click()
+    await page.locator('.resource-picker__button--primary').click()
+    await page.waitForFunction(
+      (assetPath) => Boolean(document.querySelector(`.asset-library-asset[data-asset-path="${assetPath}"]`)),
+      expectedAssetPath,
+      { timeout: 15_000 },
+    )
+    const groupKind = await page.evaluate((assetPath) => {
+      let node = document.querySelector(`.asset-library-asset[data-asset-path="${assetPath}"]`)
+      while (node) {
+        node = node.previousElementSibling
+        if (node?.classList.contains('asset-library-kind-header')) return node.getAttribute('data-kind')
+      }
+      return null
+    }, expectedAssetPath)
+    if (groupKind !== expectedGroupKind) {
+      failures.push(`imported game ${kindLabel} asset ${expectedAssetPath} grouped under "${groupKind}", expected "${expectedGroupKind}"`)
+    }
+    const meta =
+      (await page.locator(`.asset-library-asset[data-asset-path="${expectedAssetPath}"] .asset-library-asset-meta`).textContent()) ?? ''
+    if (!meta.startsWith(expectedMetaPrefix)) {
+      failures.push(`imported game ${kindLabel} asset ${expectedAssetPath} meta reads "${meta}", expected prefix "${expectedMetaPrefix}"`)
+    }
+  }
+
   try {
     let opened = null
     for (const url of process.env.MODFORGE_ASSET_LIBRARY_URL ? [process.env.MODFORGE_ASSET_LIBRARY_URL] : fallbackUrls) {
@@ -135,13 +174,17 @@ async function main() {
     await skipGuides()
 
     // 2. Empty state: no fake thumbnails, import hint visible. Errors must go
-    //    through the shared notification system — the dev mock cannot scan game
-    //    maps, so the scan failure arrives as a toast, never as an inline banner.
+    //    through the shared notification system — scan problems surface as a
+    //    toast, never as an inline banner. The dev mock's map scan now
+    //    succeeds (the map workspace verification depends on the mocked
+    //    catalog), so the failure toast is not expected here; instead assert
+    //    the catalog loaded and the "copy from game" picker appeared.
     await openAssetLibrary()
     if ((await page.locator('.asset-library-empty').count()) === 0) failures.push('asset library did not render its empty state')
     if ((await page.locator('.asset-library-error').count()) !== 0) failures.push('asset library still renders an inline error banner')
-    const scanToast = page.locator('.notification-toast-title', { hasText: '地图资源扫描失败' })
-    if ((await scanToast.count()) === 0) failures.push('map scan failure did not surface through the notification system')
+    const copyFromGameCount = await page.getByRole('button', { name: '从游戏复制' }).count()
+    if (copyFromGameCount !== 1)
+      failures.push(`map catalog did not load in the dev mock (copy from game picker missing, found ${copyFromGameCount})`)
     await page.screenshot({ path: `${screenshotDir}/01-empty-1680.png` })
 
     // 3. Seed assets through the mock's in-memory store, then reload so the
@@ -159,6 +202,18 @@ async function main() {
         relativePath: 'assets/data/shops.json',
         mediaType: 'application/json',
         bytesBase64: Buffer.from(JSON.stringify({ shops: [] })).toString('base64'),
+      },
+      // Map documents carry no MIME (browsers report octet-stream); they must
+      // classify by path extension, not fall into "other".
+      {
+        relativePath: 'assets/maps/Mountain.tmx',
+        mediaType: 'application/octet-stream',
+        bytesBase64: Buffer.from('<map version="1.4"><properties></properties></map>').toString('base64'),
+      },
+      {
+        relativePath: 'assets/maps/Festival.tbin',
+        mediaType: 'application/octet-stream',
+        bytesBase64: Buffer.from('not-a-real-tbin-payload').toString('base64'),
       },
     ]
     await page.evaluate(
@@ -179,6 +234,50 @@ async function main() {
     // 4. Populated grid renders every seeded asset.
     await page.waitForFunction((count) => document.querySelectorAll('.asset-library-asset').length === count, assets.length, {
       timeout: 15_000,
+    })
+
+    // 4.1. TMX/TBIN map documents classify as "map" by path extension, even
+    //      with no MIME (slice 1): the meta line reads 地图, not 其他.
+    for (const mapPath of ['assets/maps/Mountain.tmx', 'assets/maps/Festival.tbin']) {
+      const meta = await page.locator(`.asset-library-asset[data-asset-path="${mapPath}"] .asset-library-asset-meta`).textContent()
+      if (!meta || !meta.startsWith('地图')) failures.push(`map asset ${mapPath} meta does not read 地图: "${meta}"`)
+      if (meta && meta.includes('其他')) failures.push(`map asset ${mapPath} meta still reads 其他: "${meta}"`)
+    }
+
+    // 4.2. All-filter grid groups cards by kind with headers in the canonical
+    //      map → image → audio → data → other order; header counts match the
+    //      cards that follow (slice 2).
+    const groupInfo = await page.evaluate(() => {
+      const headers = [...document.querySelectorAll('.asset-library-kind-header')]
+      const canonical = ['map', 'image', 'audio', 'data', 'other']
+      const headerOrder = headers.map((node) => node.getAttribute('data-kind') ?? '')
+      let cursor = 0
+      const orderValid = headerOrder.every((kind) => {
+        const index = canonical.indexOf(kind)
+        if (index < cursor) return false
+        cursor = index
+        return true
+      })
+      const counts = headers.map((header) => {
+        let count = 0
+        let node = header.nextElementSibling
+        while (node && !node.classList.contains('asset-library-kind-header')) {
+          if (node.classList.contains('asset-library-asset')) count += 1
+          node = node.nextElementSibling
+        }
+        return count
+      })
+      const countTexts = headers.map((header) => header.querySelector('span')?.textContent ?? '')
+      return { headerOrder, orderValid, counts, countTexts }
+    })
+    if (groupInfo.headerOrder.join(',') !== 'map,image,data') {
+      failures.push(`unexpected kind header order: ${groupInfo.headerOrder.join(',')}`)
+    }
+    if (!groupInfo.orderValid) failures.push('kind headers are not in canonical map→image→audio→data→other order')
+    if (groupInfo.counts.join(',') !== '2,3,1') failures.push(`kind header card counts mismatch: ${groupInfo.counts.join(',')}`)
+    groupInfo.counts.forEach((count, index) => {
+      const parsed = Number.parseInt(groupInfo.countTexts[index], 10)
+      if (parsed !== count) failures.push(`kind header count text "${groupInfo.countTexts[index]}" does not match its ${count} cards`)
     })
 
     // 5. Lazy image thumbnails load real bytes for every image card, not only
@@ -247,14 +346,74 @@ async function main() {
     }
     await page.screenshot({ path: `${screenshotDir}/03-inspector-1680.png` })
 
-    // 9. List view keeps thumbnails and single-line rows.
+    // 9. List view keeps thumbnails and single-line rows; grouping stays
+    //    grid-only, so no kind headers are rendered here.
     await page.locator('.asset-library-view-switch button[aria-pressed="false"]').first().click()
     await page.waitForTimeout(400)
     const listThumbnails = await page.locator('.asset-library-assets.is-list .asset-image-thumbnail img').count()
     if (listThumbnails !== 3) failures.push(`list view lost image thumbnails (found ${listThumbnails})`)
+    const listHeaders = await page.locator('.asset-library-kind-header').count()
+    if (listHeaders !== 0) failures.push(`list view should not render kind headers (found ${listHeaders})`)
     await page.screenshot({ path: `${screenshotDir}/04-list-1680.png` })
     await page.locator('.asset-library-view-switch button[aria-pressed="false"]').first().click()
     await page.waitForTimeout(300)
+
+    // 9.1. Box-select two map cards with a real drag (slice 3): the batch bar
+    //      appears with the right count, and batch delete removes exactly those
+    //      cards through the shared Dialog.
+    await page.waitForSelector('.asset-library-kind-header', { state: 'visible', timeout: 10_000 })
+    const mapCardLocator = page.locator(
+      '.asset-library-asset[data-asset-path="assets/maps/Festival.tbin"], .asset-library-asset[data-asset-path="assets/maps/Mountain.tmx"]',
+    )
+    if ((await mapCardLocator.count()) !== 2) {
+      failures.push('expected two seeded map cards before box select')
+    } else {
+      const firstBox = await mapCardLocator.first().boundingBox()
+      const secondBox = await mapCardLocator.nth(1).boundingBox()
+      if (!firstBox || !secondBox) {
+        failures.push('map cards have no bounding box for box select')
+      } else {
+        await page.mouse.move(firstBox.x + firstBox.width / 2, firstBox.y - 20)
+        await page.mouse.down()
+        await page.mouse.move(secondBox.x + secondBox.width - 6, secondBox.y + secondBox.height - 6, { steps: 12 })
+        await page.mouse.up()
+        await page.waitForSelector('.asset-library-selection-bar', { state: 'visible', timeout: 5_000 })
+        const selectionText = (await page.locator('.asset-library-selection-count').textContent()) ?? ''
+        if (!selectionText.includes('2')) failures.push(`batch bar selection count mismatch: "${selectionText}"`)
+        const multiSelected = await page.locator('.asset-library-asset.is-multi-selected').count()
+        if (multiSelected !== 2) failures.push(`box select marked ${multiSelected} cards, expected 2`)
+        await page.screenshot({ path: `${screenshotDir}/07-box-select-1680.png` })
+
+        await page.getByRole('button', { name: '删除选中' }).click()
+        await page.waitForSelector('.app-dialog', { state: 'visible', timeout: 5_000 })
+        const dialogTitle = (await page.locator('.app-dialog .app-dialog-title').textContent()) ?? ''
+        if (!dialogTitle.includes('删除选中')) failures.push(`batch delete dialog title mismatch: "${dialogTitle}"`)
+        await page.locator('.app-dialog').getByRole('button', { name: '删除', exact: true }).click()
+        await page.waitForFunction((total) => document.querySelectorAll('.asset-library-asset').length === total, 4, { timeout: 15_000 })
+        if ((await page.locator('.asset-library-selection-bar').count()) !== 0) {
+          failures.push('batch bar survived a successful batch delete')
+        }
+        if ((await page.locator('.asset-library-asset[data-asset-path="assets/maps/Mountain.tmx"]').count()) !== 0) {
+          failures.push('box-selected map asset survived the batch delete')
+        }
+        await page.screenshot({ path: `${screenshotDir}/08-after-batch-delete-1680.png` })
+      }
+    }
+
+    // 9.2. Copy-from-game imports four asset kinds (map/image/audio/data)
+    //      through the real segmented entries and pickers; each imported asset
+    //      must land in the correct grid group and no error toast may appear.
+    const errorsBeforeImports = await page.locator('.notification-toast.level-error').count()
+    await importFromGameKind('地图', 'assets/maps/Town.tmx', 'map', '地图')
+    await importFromGameKind('图片', 'assets/Abigail.png', 'image', '图片')
+    await importFromGameKind('音频', 'assets/cowboy_kidnapping.wav', 'audio', '音频')
+    await importFromGameKind('数据', 'assets/ObjectInformation.json', 'data', '数据')
+    await page.waitForFunction((total) => document.querySelectorAll('.asset-library-asset').length === total, 8, { timeout: 15_000 })
+    const errorsAfterImports = await page.locator('.notification-toast.level-error').count()
+    if (errorsAfterImports > errorsBeforeImports) {
+      failures.push(`game asset imports surfaced ${errorsAfterImports - errorsBeforeImports} error notification(s)`)
+    }
+    await page.screenshot({ path: `${screenshotDir}/09-after-game-imports-1680.png` })
 
     // 10. Narrow desktop width and dark theme.
     await page.setViewportSize({ width: 1440, height: 900 })

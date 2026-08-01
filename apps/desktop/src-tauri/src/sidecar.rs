@@ -479,6 +479,12 @@ pub(crate) fn resolve_command(
         crate::host_command_wire!(scan_audio_assets) => io_lane(id, &command_name, move || {
             ok(domain::assets::scan_audio_assets(arg(&args, "path")?))
         }),
+        crate::host_command_wire!(scan_image_assets) => io_lane(id, &command_name, move || {
+            ok(domain::assets::scan_image_assets(arg(&args, "path")?))
+        }),
+        crate::host_command_wire!(scan_data_assets) => io_lane(id, &command_name, move || {
+            ok(domain::assets::scan_data_assets(arg(&args, "path")?))
+        }),
         crate::host_command_wire!(load_audio_data_url) => io_lane(id, &command_name, move || {
             ok(domain::assets::load_audio_data_url(arg(&args, "path")?))
         }),

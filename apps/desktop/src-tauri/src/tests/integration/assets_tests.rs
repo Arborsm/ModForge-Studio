@@ -2,7 +2,7 @@ use super::{
     MAP_CLASSIFICATION_CACHE_VERSION, cache_file_path, classify_map_xnb_with_cache, encode_hex,
     export_file, export_map_png, localized_variant_path, logicalized_asset_path,
     map_classification_cache_path, preferred_existing_xnb_path, read_directory_info,
-    split_localized_stem,
+    scan_data_assets, scan_image_assets, split_localized_stem,
 };
 use crate::test_support::{create_temp_dir, write_file};
 use base64::Engine;
@@ -209,6 +209,59 @@ fn rejects_map_png_exports_with_invalid_path_or_payload() {
         )
         .is_err()
     );
+    fs::remove_dir_all(root).expect("cleanup test directory");
+}
+
+#[test]
+fn scan_image_assets_lists_xnb_textures_outside_maps_and_data() {
+    let root = create_temp_dir("assets-scan-image");
+    write_file(&root.join("Stardew Valley.dll"), "game");
+    let content = root.join("Content");
+    fs::create_dir_all(&content.join("Characters")).expect("create characters directory");
+    fs::create_dir_all(&content.join("Maps")).expect("create maps directory");
+    fs::create_dir_all(&content.join("Data")).expect("create data directory");
+    write_file(&content.join("Characters").join("Abigail.xnb"), "texture");
+    write_file(
+        &content.join("Characters").join("Abigail.zh-CN.xnb"),
+        "texture",
+    );
+    write_file(&content.join("Maps").join("Town.xnb"), "map");
+    write_file(&content.join("Data").join("ObjectInformation.xnb"), "data");
+
+    let assets = scan_image_assets(root.to_string_lossy().into_owned()).expect("scan image assets");
+
+    assert_eq!(assets.len(), 1);
+    assert_eq!(assets[0].name, "Characters/Abigail");
+    assert_eq!(assets[0].relative_path, "Content/Characters/Abigail.xnb");
+    assert!(assets[0].absolute_path.ends_with("Abigail.xnb"));
+    assert!(assets[0].size_bytes > 0);
+
+    fs::remove_dir_all(root).expect("cleanup test directory");
+}
+
+#[test]
+fn scan_data_assets_lists_xnb_and_json_under_content_data() {
+    let root = create_temp_dir("assets-scan-data");
+    write_file(&root.join("Stardew Valley.dll"), "game");
+    let data = root.join("Content").join("Data");
+    fs::create_dir_all(&data.join("Events")).expect("create data events directory");
+    fs::create_dir_all(root.join("Content").join("Maps")).expect("create maps directory");
+    write_file(&data.join("ObjectInformation.xnb"), "data");
+    write_file(&data.join("Extra.json"), "{}");
+    write_file(&data.join("Events").join("Spring.xnb"), "event");
+
+    let assets = scan_data_assets(root.to_string_lossy().into_owned()).expect("scan data assets");
+
+    let names: Vec<&str> = assets.iter().map(|asset| asset.name.as_str()).collect();
+    assert_eq!(
+        names,
+        vec!["Data/Events/Spring", "Data/Extra", "Data/ObjectInformation"]
+    );
+    assert_eq!(
+        assets[2].relative_path,
+        "Content/Data/ObjectInformation.xnb"
+    );
+
     fs::remove_dir_all(root).expect("cleanup test directory");
 }
 

@@ -76,6 +76,26 @@ pub struct AudioAssetSummary {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ImageAssetSummary {
+    /// Content Patcher asset key (forward slashes, no extension), e.g. `Characters/Abigail`.
+    pub name: String,
+    pub absolute_path: String,
+    pub relative_path: String,
+    pub size_bytes: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DataAssetSummary {
+    /// Content Patcher asset key (forward slashes, no extension), e.g. `Data/ObjectInformation`.
+    pub name: String,
+    pub absolute_path: String,
+    pub relative_path: String,
+    pub size_bytes: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FileCacheStats {
     pub root_path: String,
     pub entry_count: usize,

@@ -103,7 +103,7 @@ use commands::assets::{
     clear_file_cache, detect_default_game_directory, export_file, export_map_png,
     get_file_cache_stats, list_known_game_directories, load_audio_data_url, load_event_asset,
     load_image_data_url, load_map_asset, load_text_asset, load_text_file, scan_audio_assets,
-    scan_events, scan_maps, validate_game_directory,
+    scan_data_assets, scan_events, scan_image_assets, scan_maps, validate_game_directory,
 };
 use commands::audio::load_xact_audio_data_url;
 use commands::content_patcher::load_content_patcher_result_asset;
@@ -306,6 +306,8 @@ pub fn run() {
             load_text_file,
             load_image_data_url,
             scan_audio_assets,
+            scan_image_assets,
+            scan_data_assets,
             load_audio_data_url,
             load_xact_audio_data_url,
             load_resource_registry,

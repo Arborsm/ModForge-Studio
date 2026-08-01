@@ -8,3 +8,8 @@ export {
 export { AssetResourcePickerControl, renderAssetResourcePicker, toResourceBrowserOptions } from './ui/AssetResourcePickerControl'
 export { toItemResourceBrowserOptions } from './ui/ItemResourceOptions'
 export { toMapResourceBrowserOptions } from './ui/MapResourceOptions'
+export {
+  toGameAudioResourceBrowserOptions,
+  toGameDataResourceBrowserOptions,
+  toGameImageResourceBrowserOptions,
+} from './ui/GameAssetResourceOptions'

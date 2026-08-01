@@ -41,6 +41,47 @@
     margin-left: auto;
   }
 
+  /* Copy-from-game segmented entry and its kind picker popover. */
+  .asset-library-import-game {
+    position: relative;
+    display: flex;
+  }
+
+  .asset-library-import-kind-picker {
+    position: absolute;
+    top: calc(100% + 0.375rem);
+    right: 0;
+    z-index: 40;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(7rem, 1fr));
+    gap: 0.375rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-float);
+    padding: 0.5rem;
+  }
+
+  .asset-library-import-kind-picker button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid transparent;
+    border-radius: calc(var(--radius-md) - 0.25rem);
+    background: transparent;
+    padding: 0.5rem 0.625rem;
+    color: var(--text-primary);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .asset-library-import-kind-picker button:hover {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border-color));
+    background: var(--bg-active);
+  }
+
   .asset-library-save-state,
   .asset-library-count {
     color: var(--text-tertiary);
@@ -114,6 +155,33 @@
     display: grid;
   }
 
+  /* Batch action bar shown above the grid while box selection is active. */
+  .asset-library-selection-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
+    background: var(--accent-soft);
+    padding: 0.375rem 1rem;
+  }
+  .asset-library-selection-count {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .asset-library-selection-bar .control-button {
+    min-width: 0;
+  }
+  .asset-library-selection-bar .control-button.is-danger {
+    margin-left: auto;
+    border-color: transparent;
+    background: transparent;
+    color: var(--danger);
+  }
+  .asset-library-selection-bar .control-button.is-danger:hover {
+    background: color-mix(in srgb, var(--danger) 10%, transparent);
+  }
+
   .asset-library-content {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 18rem;
@@ -121,15 +189,62 @@
   }
 
   .asset-library-browser {
+    position: relative;
     min-height: 0;
     overflow: auto;
     padding: 0.75rem;
+  }
+
+  /* Box-selection overlay: the drag rectangle layer mirrors the launcher
+     library grid (absolute inset-0, pointer-events none, token colors). */
+  .asset-library-box-select-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    pointer-events: none;
+  }
+  .asset-library-box-select {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    box-shadow: none;
+  }
+  .asset-library-browser.is-box-selecting .asset-library-box-select {
+    border: 1px solid color-mix(in srgb, var(--accent) 64%, transparent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, white 34%, transparent);
   }
 
   .asset-library-assets {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
     gap: 0.625rem;
+  }
+
+  /* Kind group header in the all-filter grid view; mirrors the map-catalog
+     virtual-header: 12px secondary-title + hairline, token colors only. */
+  .asset-library-kind-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    grid-column: 1 / -1;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+    padding: 0.75rem 0 0.375rem;
+  }
+  .asset-library-kind-header strong {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .asset-library-kind-header span {
+    color: var(--text-tertiary);
+    font-size: 0.625rem;
   }
 
   .asset-library-asset {
@@ -154,6 +269,11 @@
   .asset-library-asset.is-selected {
     border-color: var(--accent);
     box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .asset-library-asset.is-multi-selected {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+    background: color-mix(in srgb, var(--accent-soft) 55%, var(--bg-panel));
   }
 
   .asset-library-thumb {
