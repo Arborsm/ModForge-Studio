@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test'
 import type { DraftPatch } from '@features/cp-maker'
-import { duplicatePatchInArray, groupPatchesByTarget, movePatchWithin } from '@features/cp-maker'
+import { duplicatePatchInArray, movePatchWithin } from '@features/cp-maker'
 
 function makePatch(id: string, target: string, action: DraftPatch['action'] = 'EditMap', extra: Partial<DraftPatch> = {}): DraftPatch {
   return {
@@ -50,6 +50,22 @@ describe('movePatchWithin', () => {
     const patches = [makePatch('a', 'Maps/Town'), makePatch('b', 'Maps/Town')]
 
     expect(movePatchWithin(patches, 'a', 1)).not.toBe(patches)
+  })
+
+  it('skips patches the within predicate rejects when finding the swap position', () => {
+    const isMap = (patch: DraftPatch) => patch.action === 'EditMap'
+    const patches = [makePatch('a', 'Maps/Town'), makePatch('x', 'Data/Events/Town', 'EditData'), makePatch('b', 'Maps/Farm')]
+
+    expect(movePatchWithin(patches, 'a', 1, isMap).map((patch) => patch.id)).toEqual(['x', 'b', 'a'])
+    expect(movePatchWithin(patches, 'b', -1, isMap).map((patch) => patch.id)).toEqual(['b', 'a', 'x'])
+  })
+
+  it('returns the original array when the filtered move would cross the boundary', () => {
+    const isMap = (patch: DraftPatch) => patch.action === 'EditMap'
+    const patches = [makePatch('a', 'Maps/Town'), makePatch('x', 'Data/Events/Town', 'EditData')]
+
+    expect(movePatchWithin(patches, 'a', 1, isMap)).toBe(patches)
+    expect(movePatchWithin(patches, 'a', -1, isMap)).toBe(patches)
   })
 })
 
@@ -103,60 +119,5 @@ describe('duplicatePatchInArray', () => {
     const patches = [makePatch('a', 'Maps/Town')]
 
     expect(duplicatePatchInArray(patches, 'missing', 'copy')).toBe(patches)
-  })
-})
-
-describe('groupPatchesByTarget', () => {
-  it('groups case- and separator-equivalent targets under the first-seen spelling', () => {
-    const patches = [makePatch('a', 'Maps/Town'), makePatch('b', 'Maps/Farm'), makePatch('c', 'maps\\town')]
-
-    const groups = groupPatchesByTarget(patches)
-
-    expect(groups.map((group) => group.target)).toEqual(['Maps/Town', 'Maps/Farm'])
-    expect(groups[0]?.patches.map((patch) => patch.id)).toEqual(['a', 'c'])
-  })
-
-  it('keeps group order by first appearance and patch order by array order', () => {
-    const patches = [makePatch('p2', 'Maps/Beach'), makePatch('p1', 'Maps/Town'), makePatch('p3', 'Maps/Town')]
-
-    const groups = groupPatchesByTarget(patches)
-
-    expect(groups.map((group) => group.target)).toEqual(['Maps/Beach', 'Maps/Town'])
-    expect(groups[1]?.patches.map((patch) => patch.id)).toEqual(['p1', 'p3'])
-  })
-
-  it('keeps a multi-target comma expression as one group instead of splitting it', () => {
-    const patches = [makePatch('a', 'Maps/Town, Maps/Beach'), makePatch('b', 'maps/town, maps/beach')]
-
-    const groups = groupPatchesByTarget(patches)
-
-    expect(groups).toHaveLength(1)
-    expect(groups[0]?.target).toBe('Maps/Town, Maps/Beach')
-    expect(groups[0]?.patches.map((patch) => patch.id)).toEqual(['a', 'b'])
-  })
-
-  it('keeps comma tokens inside braces intact', () => {
-    const patches = [makePatch('a', 'Maps/{{Comma,Target}}'), makePatch('b', 'maps/{{comma,target}}')]
-
-    const groups = groupPatchesByTarget(patches)
-
-    expect(groups).toHaveLength(1)
-    expect(groups[0]?.patches.map((patch) => patch.id)).toEqual(['a', 'b'])
-  })
-
-  it('applies the action filter before grouping', () => {
-    const patches = [
-      makePatch('a', 'Maps/Town', 'EditMap'),
-      makePatch('b', 'Maps/Town', 'Load', { fromFile: 'assets/maps/Town.tmx' }),
-      makePatch('c', 'Maps/Town', 'EditData'),
-    ]
-
-    const groups = groupPatchesByTarget(patches, (action) => action === 'EditMap' || action === 'Load')
-
-    expect(groups[0]?.patches.map((patch) => patch.id)).toEqual(['a', 'b'])
-  })
-
-  it('returns an empty list for an empty input', () => {
-    expect(groupPatchesByTarget([])).toEqual([])
   })
 })

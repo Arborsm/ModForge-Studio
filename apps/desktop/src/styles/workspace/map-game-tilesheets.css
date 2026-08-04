@@ -1,0 +1,160 @@
+@layer components {
+  /* Patch-tiles session: tilesheets always come from the target map, so the
+     tile tray carries a hint pointing at the asset library for new sheets. */
+  .map-tiles-session-tileset-hint {
+    grid-column: 1 / -1;
+    color: var(--text-tertiary);
+    font-size: 0.65625rem;
+    line-height: 1.4;
+    padding: 0.375rem 0.75rem 0.5rem;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+  }
+
+  /* Vanilla tilesheet picker: thumbnail grid with name-block fallbacks. */
+  .game-tilesheet-picker {
+    display: grid;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .game-tilesheet-picker-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .game-tilesheet-picker-search > svg {
+    position: absolute;
+    left: 0.625rem;
+    color: var(--text-tertiary);
+    pointer-events: none;
+  }
+
+  .game-tilesheet-picker-search input {
+    width: 100%;
+    min-height: 1.875rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-app);
+    padding: 0 0.625rem 0 1.875rem;
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    outline: none;
+  }
+
+  .game-tilesheet-picker-search input:focus {
+    border-color: var(--accent);
+  }
+
+  .game-tilesheet-picker-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 9rem;
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+  }
+
+  .game-tilesheet-picker-state.is-error {
+    color: var(--danger);
+  }
+
+  .game-tilesheet-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+    gap: 0.625rem;
+    max-height: 24rem;
+    overflow-y: auto;
+    padding: 0.125rem;
+  }
+
+  .game-tilesheet-cell {
+    display: grid;
+    grid-template-rows: 5.5rem auto;
+    min-width: 0;
+    border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
+    border-radius: 0.5rem;
+    background: var(--bg-panel);
+    padding: 0.375rem;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .game-tilesheet-cell:hover {
+    border-color: color-mix(in srgb, var(--accent) 42%, var(--border-color));
+  }
+
+  .game-tilesheet-cell.is-busy {
+    cursor: default;
+  }
+
+  .game-tilesheet-cell-image {
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 0.375rem;
+    background-color: var(--bg-panel-muted);
+    background-image:
+      linear-gradient(45deg, color-mix(in srgb, var(--border-color) 35%, transparent) 25%, transparent 25%),
+      linear-gradient(-45deg, color-mix(in srgb, var(--border-color) 35%, transparent) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--border-color) 35%, transparent) 75%),
+      linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--border-color) 35%, transparent) 75%);
+    background-position:
+      0 0,
+      0 4px,
+      4px -4px,
+      -4px 0;
+    background-size: 8px 8px;
+  }
+
+  .game-tilesheet-cell-image img {
+    max-width: 100%;
+    max-height: 5.5rem;
+    object-fit: contain;
+    image-rendering: pixelated;
+  }
+
+  .game-tilesheet-cell-fallback {
+    display: grid;
+    place-items: center;
+    gap: 0.25rem;
+    width: 100%;
+    height: 100%;
+    color: var(--text-tertiary);
+    font-size: 0.625rem;
+    text-align: center;
+    padding: 0.375rem;
+  }
+
+  .game-tilesheet-cell-fallback.is-failed {
+    color: var(--text-secondary);
+  }
+
+  .game-tilesheet-cell-fallback span {
+    overflow: hidden;
+    max-width: 100%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .game-tilesheet-cell-name {
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-size: 0.6875rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0.3125rem 0.125rem 0;
+  }
+
+  .game-tilesheet-picker-adding {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+  }
+}

@@ -7,16 +7,19 @@ import type {
   AiTranslationCacheEntry,
   AiTranslationCacheStats,
   AiTranslationProgressPayload,
+  AiTranslationStreamPayload,
   SaveAiSettingsRequest,
   ExportAiProfilesRequest,
   AiProfileImportConflictPolicy,
   AiProfileImportPreview,
   AiProfileImportResult,
+  ModelsDevCatalog,
 } from '@shared/contracts'
 import { HOST_COMMANDS } from '@platform/host-commands'
 import { getPlatformPorts, invokeDesktop } from './runtime'
 
 const AI_PROGRESS_EVENT = 'ai://translation-progress'
+const AI_STREAM_EVENT = 'ai://translation-stream'
 
 /** Loads sanitized AI profiles and provider presets without exposing credentials. */
 export function loadAiSettings() {
@@ -64,6 +67,18 @@ export function listAiModels(profileId: string) {
   )
 }
 
+/**
+ * Fetches the models.dev catalog through the backend Network lane with a
+ * memory/disk TTL cache, so repeated dialog opens never re-download the full
+ * catalog. Keyed latest keeps concurrent opens on a single in-flight request.
+ */
+export function fetchAiModelsDevCatalog() {
+  return invokeDesktop<ModelsDevCatalog>(HOST_COMMANDS.fetchAiModelsDevCatalog, undefined, {
+    kind: 'keyedLatest',
+    key: 'ai-models-dev-catalog',
+  })
+}
+
 /** Executes a small end-to-end inference probe for one saved profile. */
 export function testAiProfile(profileId: string) {
   return invokeDesktop<AiProfileTestResult>(
@@ -90,6 +105,11 @@ export function cancelAiJob(jobId: string) {
 /** Subscribes to backend translation progress events. */
 export function listenToAiProgress(listener: (payload: AiTranslationProgressPayload) => void) {
   return getPlatformPorts().hostEvents.listen<AiTranslationProgressPayload>(AI_PROGRESS_EVENT, listener)
+}
+
+/** Subscribes to backend streaming translation deltas (content + reasoning). */
+export function listenToAiStream(listener: (payload: AiTranslationStreamPayload) => void) {
+  return getPlatformPorts().hostEvents.listen<AiTranslationStreamPayload>(AI_STREAM_EVENT, listener)
 }
 
 export function readAiTranslationCache(request: Pick<AiTranslationCacheEntry, 'scopeKey' | 'targetLocale' | 'sourceHash'>) {

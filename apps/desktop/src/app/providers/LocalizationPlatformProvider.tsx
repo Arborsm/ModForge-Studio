@@ -55,6 +55,7 @@ import {
   testLocalizationSemanticRemoteProfile,
   loadLocalizationDefaultEngine,
   saveLocalizationDefaultEngine,
+  prewarmLocalizationCorpus,
   initializeLocalizationPlan,
   acquireLocalizationSemanticRuntime,
   releaseLocalizationSemanticRuntime,
@@ -68,6 +69,7 @@ export function LocalizationPlatformProvider({ children }: { children: ReactNode
   const { dialog } = usePlatformPorts()
   const port = useMemo<LocalizationPort>(
     () => ({
+      prewarmCorpus: prewarmLocalizationCorpus,
       loadSemanticSettings: loadLocalizationSemanticSettings,
       saveSemanticSettings: saveLocalizationSemanticSettings,
       inspectSemanticModel: inspectLocalizationSemanticModel,

@@ -61,9 +61,9 @@ export function useWorkbenchAssetDraftPort(
     project.updatePatch(patchId, changes)
   }
 
-  function stagePatchReorder(patchId: string, delta: -1 | 1) {
+  function stagePatchReorder(patchId: string, delta: -1 | 1, within?: (patch: DraftPatch) => boolean) {
     setSaveState('idle')
-    project.reorderPatch(patchId, delta)
+    project.reorderPatch(patchId, delta, within)
   }
 
   function stagePatchDuplicate(patchId: string) {

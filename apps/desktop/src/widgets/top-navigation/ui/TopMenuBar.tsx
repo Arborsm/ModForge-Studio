@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { type AppMode, type LauncherPage, type ThemeMode, type WorkspaceTone } from '@locales/api'
 import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
+import { requestLauncherModDetailDismiss } from '@shared/lib/launcher-overlay-events'
 import { ProgressRing } from '@shared/ui/ProgressRing'
 import GooeyNav, { type GooeyNavItem } from '@shared/ui/GooeyNav'
 
@@ -358,7 +359,16 @@ export default function TopMenuBar({
                 aria-haspopup="dialog"
                 aria-expanded={downloadsMenuOpen}
                 aria-controls={downloadsMenuId}
-                onClick={() => setActiveMenu((current) => (current === 'downloads' ? null : 'downloads'))}
+                onClick={() => {
+                  const downloadsOpening = activeMenu !== 'downloads'
+                  setActiveMenu(downloadsOpening ? 'downloads' : null)
+                  // The downloads float renders inside the window frame, so it
+                  // cannot stack above the body-portal mod detail drawer; ask
+                  // launcher pages to close their detail panel instead.
+                  if (downloadsOpening) {
+                    requestLauncherModDetailDismiss()
+                  }
+                }}
               >
                 {launcherNav.downloadsProgressPercent !== null ? (
                   <ProgressRing

@@ -22,6 +22,12 @@ interface EditorState {
   selectedCommandIndex: number | null
   setSelectedCommandIndex: (index: number | null) => void
 
+  // ── 播放位置（预览播放推进到的命令 id）──
+  // 走 store 而非编辑器根 state：播放推进时只有订阅的卡片重渲染，
+  // 避免每次命令跃迁都重渲染整个编辑器（含全部 dnd 卡片）。
+  playbackCommandId: string | null
+  setPlaybackCommandId: (id: string | null) => void
+
   // ── 当前解析后的事件脚本（由上层注入）──
   currentScript: EventScript | null
   setCurrentScript: (script: EventScript | null) => void
@@ -93,6 +99,10 @@ export const useEditorStore = create<EditorState>((set) => ({
   // 命令选择
   selectedCommandIndex: null,
   setSelectedCommandIndex: (index) => set({ selectedCommandIndex: index }),
+
+  // 播放位置
+  playbackCommandId: null,
+  setPlaybackCommandId: (id) => set({ playbackCommandId: id }),
 
   // 当前脚本
   currentScript: null,
@@ -220,6 +230,7 @@ export const useEditorStore = create<EditorState>((set) => ({
     set({
       currentScript: null,
       selectedCommandIndex: null,
+      playbackCommandId: null,
       pickModeTarget: null,
       isPickMode: false,
       commandPaletteOpen: false,

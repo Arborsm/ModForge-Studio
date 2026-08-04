@@ -1,5 +1,5 @@
 import type { EventCommand } from '@entities/event'
-import { createStageEffect, parsePoint, type StageEffectState } from '@entities/event'
+import { appendStageEffect, appendStageEffects, createStageEffect, parsePoint, type StageEffectState } from '@entities/event'
 import { parseTemporaryAnimatedSpriteCommand, parseTemporarySpriteCommand } from './eventStageTemporarySpriteCommands'
 import { buildSpecificTemporarySpriteEffects } from './eventStageSpecificSpriteEffects'
 
@@ -39,11 +39,11 @@ function applyStageEffectCommand(effects: StageEffectState[], command: EventComm
   switch (command.command) {
     case 'temporaryAnimatedSprite': {
       const effect = parseTemporaryAnimatedSpriteCommand(command)
-      return effect ? [...effects, effect] : effects
+      return effect ? appendStageEffect(effects, effect) : effects
     }
     case 'temporarySprite': {
       const effect = parseTemporarySpriteCommand(command)
-      return effect ? [...effects, effect] : effects
+      return effect ? appendStageEffect(effects, effect) : effects
     }
     case 'removeSprite': {
       const tile = parsePoint(command.args[1], command.args[2])
@@ -75,27 +75,29 @@ function applyStageEffectCommand(effects: StageEffectState[], command: EventComm
             scaleChange: 0,
           }))
         case 'replace-jas-gift':
-          return [
-            ...effects.filter((effect) => effect.effectNumericId !== 999),
-            createStageEffect(command.id, 'jasGiftOpen:gift', {
-              effectNumericId: 999,
-              textureName: 'LooseSprites\\Cursors',
-              sourceX: 288,
-              sourceY: 1231,
-              sourceWidth: 16,
-              sourceHeight: 16,
-              baseX: 22 * 64,
-              baseY: 16 * 64,
-              space: 'world',
-              animationIntervalMs: 100,
-              animationLength: 6,
-              loops: 1,
-              holdLastFrame: true,
-              scale: 4,
-              layerDepth: 0.01,
-            }),
-            ...result.effects,
-          ]
+          return appendStageEffects(
+            effects.filter((effect) => effect.effectNumericId !== 999),
+            [
+              createStageEffect(command.id, 'jasGiftOpen:gift', {
+                effectNumericId: 999,
+                textureName: 'LooseSprites\\Cursors',
+                sourceX: 288,
+                sourceY: 1231,
+                sourceWidth: 16,
+                sourceHeight: 16,
+                baseX: 22 * 64,
+                baseY: 16 * 64,
+                space: 'world',
+                animationIntervalMs: 100,
+                animationLength: 6,
+                loops: 1,
+                holdLastFrame: true,
+                scale: 4,
+                layerDepth: 0.01,
+              }),
+              ...result.effects,
+            ],
+          )
         case 'update-shake':
           return result.effectNumericId != null
             ? replaceStageEffectByNumericId(effects, result.effectNumericId, (current) => ({
@@ -167,7 +169,7 @@ function applyStageEffectCommand(effects: StageEffectState[], command: EventComm
                 : effect,
             )
 
-          return [...nextEffects, ...result.effects]
+          return appendStageEffects(nextEffects, result.effects)
         }
         case 'update-leah-painting-release':
           return effects
@@ -192,7 +194,7 @@ function applyStageEffectCommand(effects: StageEffectState[], command: EventComm
                 : effect,
             )
 
-          return [...nextEffects, ...result.effects]
+          return appendStageEffects(nextEffects, result.effects)
         }
         case 'update-candle-boat':
           return result.effectNumericId != null
@@ -204,7 +206,7 @@ function applyStageEffectCommand(effects: StageEffectState[], command: EventComm
         case 'update-remove-all-id-1':
           return removeStageEffectsByNumericId(effects, 1)
         default:
-          return [...effects, ...result.effects]
+          return appendStageEffects(effects, result.effects)
       }
     }
     default:

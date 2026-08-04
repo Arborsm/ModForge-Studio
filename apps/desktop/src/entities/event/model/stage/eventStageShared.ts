@@ -1,5 +1,6 @@
 import { loadTextAsset } from '@entities/game/api'
 import type { LocaleCode } from '@locales/api'
+import type { LightingColor } from '@entities/map'
 import {
   getFarmerDirectionalFrame,
   getFarmerWalkAnimation,
@@ -188,6 +189,23 @@ type ActiveDialogueState = {
   pageIndex: number
 }
 
+type StageCameraPan = {
+  fromTile: { tileX: number; tileY: number }
+  toTile: { tileX: number; tileY: number }
+  startedAtMs: number
+  durationMs: number
+}
+
+/** Warm light spot emitted by an `addLantern x y radius` command (position in game pixels). */
+type StageLanternLight = {
+  id: string
+  commandId: string
+  worldX: number
+  worldY: number
+  /** Game light radius (tiles); the glow is scaled from it like the game's light source. */
+  radius: number
+}
+
 type PlaybackState = {
   rootEventKey: string | null
   activeEventKey: string | null
@@ -195,6 +213,8 @@ type PlaybackState = {
   commands: EventCommand[]
   pointer: number
   forkFlag: boolean
+  /** Total commands executed by the playback engine. Bounds runaway switchEvent/fork loops across continuePlayback calls. */
+  executionCount: number
   actors: Record<string, EventActorState>
   stageEffects: StageEffectState[]
   currentEntry: PlaybackLogEntry | null
@@ -205,8 +225,13 @@ type PlaybackState = {
   waitingStartedAtMs: number | null
   blockingMovement: boolean
   focusTile: { tileX: number; tileY: number } | null
+  /** Active `viewport move` pan; the stage interpolates the camera per frame and settles into focusTile when done. */
+  cameraPan: StageCameraPan | null
   notices: PlaybackNotice[]
-  ambientOverlayColor: string | null
+  /** Lightmap base color set by the `ambientLight r g b` command (feeds the world-lighting overlay). */
+  ambientOverlayColor: LightingColor | null
+  /** Warm light spots emitted by `addLantern` commands (world space, game pixels). */
+  lanternLights: StageLanternLight[]
   fadeOverlay: FadeOverlayState | null
   flashOverlay: ScreenFlashState | null
   activeMusicCue: string | null
@@ -423,6 +448,41 @@ function deriveEventTimeOfDay(event: EventScript | null) {
   }
 
   return 1200
+}
+
+/**
+ * Preview time of day used for the lighting tint. Stardew's `t A B`
+ * precondition means the event can trigger any time between A and B; the game
+ * then renders with the *actual* time, which for the late-afternoon/evening
+ * events users author is usually the end of the window. Using B (the latest
+ * possible time) makes e.g. `t 900 1830` render as the evening the event
+ * actually depicts, instead of a flat noon look.
+ */
+function deriveEventPreviewTimeOfDay(event: EventScript | null) {
+  if (!event) {
+    return 1200
+  }
+
+  for (const precondition of event.preconditions.slice(1)) {
+    const match = /^t\s+(\d+)(?:\s+(\d+))?/iu.exec(precondition.trim())
+    if (match) {
+      const startTime = Number.parseInt(match[1] ?? '', 10)
+      const endTime = Number.parseInt(match[2] ?? '', 10)
+      if (Number.isFinite(endTime)) {
+        return endTime
+      }
+      if (Number.isFinite(startTime)) {
+        return startTime
+      }
+    }
+  }
+
+  return 1200
+}
+
+/** Appends a lantern light, replacing any earlier light from the same command id. */
+function appendLanternLight(lights: StageLanternLight[], light: StageLanternLight) {
+  return [...lights.filter((existing) => existing.commandId !== light.commandId), light]
 }
 
 function createFarmerRenderState(nowMs = performance.now()): FarmerRenderState {
@@ -667,6 +727,18 @@ function parseRgbColorFromArgs(args: string[], startIndex: number) {
   return `rgb(${red} ${green} ${blue})`
 }
 
+/** Parses an `r g b` command tail into a lightmap color triple; null when malformed. */
+function parseLightingColorFromArgs(args: string[], startIndex: number): LightingColor | null {
+  const red = clampColorChannel(args[startIndex])
+  const green = clampColorChannel(args[startIndex + 1])
+  const blue = clampColorChannel(args[startIndex + 2])
+  if (red == null || green == null || blue == null) {
+    return null
+  }
+
+  return { r: red, g: green, b: blue }
+}
+
 const ITEM_TOKEN_ALIASES: Record<string, string> = {
   pan: '(T)Pan',
   hero: '(BC)116',
@@ -745,6 +817,24 @@ function enqueuePlaybackNotice(
   }
 
   return [...prunePlaybackNotices(state.notices, nowMs), nextNotice].slice(-4)
+}
+
+const MAX_STAGE_EFFECTS = 600
+
+/** Appends a stage effect, dropping the oldest entry once the concurrent-effect cap is reached. */
+function appendStageEffect(effects: StageEffectState[], effect: StageEffectState) {
+  if (effects.length >= MAX_STAGE_EFFECTS) {
+    return [...effects.slice(1), effect]
+  }
+  return [...effects, effect]
+}
+
+/** Appends several stage effects, keeping the same concurrent-effect cap as `appendStageEffect`. */
+function appendStageEffects(effects: StageEffectState[], nextEffects: StageEffectState[]) {
+  if (nextEffects.length === 0) {
+    return effects
+  }
+  return [...effects, ...nextEffects].slice(-MAX_STAGE_EFFECTS)
 }
 
 function buildStageEffectId(commandId: string, suffix: string) {
@@ -991,6 +1081,7 @@ function createInitialPlaybackState(event: EventScript | null, initialMapName: s
       commands: [],
       pointer: 0,
       forkFlag: false,
+      executionCount: 0,
       actors: {},
       stageEffects: [],
       currentEntry: null,
@@ -1001,8 +1092,10 @@ function createInitialPlaybackState(event: EventScript | null, initialMapName: s
       waitingStartedAtMs: null,
       blockingMovement: false,
       focusTile: null,
+      cameraPan: null,
       notices: [],
       ambientOverlayColor: null,
+      lanternLights: [],
       fadeOverlay: null,
       flashOverlay: null,
       activeMusicCue: null,
@@ -1019,6 +1112,7 @@ function createInitialPlaybackState(event: EventScript | null, initialMapName: s
     commands: event.commands,
     pointer: 0,
     forkFlag: false,
+    executionCount: 0,
     actors,
     stageEffects: [],
     currentEntry: null,
@@ -1029,8 +1123,10 @@ function createInitialPlaybackState(event: EventScript | null, initialMapName: s
     waitingStartedAtMs: null,
     blockingMovement: false,
     focusTile: resolveCameraFocus(event, actors),
+    cameraPan: null,
     notices: [],
     ambientOverlayColor: null,
+    lanternLights: [],
     fadeOverlay: null,
     flashOverlay: null,
     activeMusicCue: null,
@@ -1085,9 +1181,14 @@ export {
   resolveActorFocusTile,
   isFadeOverlayAnimating,
   deriveEventTimeOfDay,
+  deriveEventPreviewTimeOfDay,
+  appendLanternLight,
+  parseLightingColorFromArgs,
   applyEventFarmerStateSeeds,
   toActorKey,
   toLookupTokens,
+  appendStageEffect,
+  appendStageEffects,
   loadHatMetadataIndex,
   DEFAULT_FARMER_HAIR_STYLE_INDEX,
   DEFAULT_FARMER_PANTS_SPRITE_INDEX,
@@ -1122,8 +1223,10 @@ export type {
   ScreenFlashState,
   SpecificTemporarySpriteResolution,
   SpriteLayerDescriptor,
+  StageCameraPan,
   StageEffectSpace,
   StageEffectState,
+  StageLanternLight,
   StagePoint,
   StageRectangle,
 }

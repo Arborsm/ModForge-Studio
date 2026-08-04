@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import {
   ArrowLeft,
@@ -15,13 +15,18 @@ import {
   Redo2,
 } from 'lucide-react'
 import { MapTilesetPalette, MapViewport, type MapDocument, type MapTileRect } from '@entities/map'
+import { deriveMapDocumentLighting, getLightingPreviewTimeOfDay, type GameSeason, type MapLightingPreviewMode } from '@entities/map'
+import { loadImageDataUrl, type GameImageAssetSummary } from '@entities/game/api'
 import { type AssetDraftPort, type DraftPatch, type EditorComponent, type EditorResources } from '@features/cp-maker'
 import { buildCpMakerMapAsset } from '@features/cp-maker/api'
 import { type ResourceBrowserOption } from '@features/resource-browser'
-import { useMapAuthoringCopy } from '@locales/provider'
+import { useMapAuthoringCopy, useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
+import { measureImageDimensions } from '@shared/lib/assets'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { useWorkbenchProject } from '../../../model/workbenchModuleContexts'
+import { availableAssetPath } from '../../asset-library/model/importGameMap'
+import { dataUrlToProjectAsset } from '../../asset-library/model/importGameAsset'
 import {
   applyMapAssetStroke,
   collectMapAssetLayerNameIssues,
@@ -32,10 +37,13 @@ import {
 import { collectPatchesReferencingAsset, tmxConversionPath } from '../model/mapAssetConversion'
 import { rectangleTilePoints } from '../model/mapPatchReducer'
 import { isValidTsxSource } from '../model/mapTilesetSource'
+import { GameTilesheetPickerDialog } from './core/GameTilesheetPickerDialog'
 import { MapAssetEditorInspector } from './core/MapAssetEditorInspector'
 import { MapAssetEditorLayersPanel } from './core/MapAssetEditorLayersPanel'
 import { MapAssetEditorToolbar } from './core/MapAssetEditorToolbar'
 import { useMapDocumentEditor, type AssetTool } from './core/useMapDocumentEditor'
+import { MapLightingPreviewControls } from '../ui/MapLightingPreviewControls'
+import { useObjectLightItemIndex } from '../state/useObjectLightItemIndex'
 
 function embeddedDocument(editorState: unknown): MapDocument | null {
   if (!editorState || typeof editorState !== 'object' || Array.isArray(editorState)) return null
@@ -172,6 +180,46 @@ function MapAssetEditorContent({
   const activeLayer = editor.activeLayer
   const selectedTileset = editor.selectedTileset
   const paletteSelection = editor.paletteSelection
+  const [gameTilesetPickerOpen, setGameTilesetPickerOpen] = useState(false)
+  const [addingGameTileset, setAddingGameTileset] = useState<string | null>(null)
+  const [lightingMode, setLightingMode] = useState<MapLightingPreviewMode>('day')
+  const [lightingSeason, setLightingSeason] = useState<GameSeason>('spring')
+  const editorCopy = useEditorCopy()
+  const objectLightIndex = useObjectLightItemIndex(resources.directoryInfo, resources.locale)
+  const worldLighting = useMemo(
+    () =>
+      deriveMapDocumentLighting(editor.renderDocument, getLightingPreviewTimeOfDay(lightingMode, lightingSeason), lightingSeason, {
+        objectLightIndex,
+      }),
+    [editor.renderDocument, lightingMode, lightingSeason, objectLightIndex],
+  )
+
+  /**
+   * Copies a vanilla game tilesheet into the project under
+   * `assets/maps/tilesheets/` (deduplicating names), then attaches it to the
+   * map through the standard addTileset path. Dimensions are validated before
+   * the copy so a rejected tilesheet never leaves an orphan project asset.
+   */
+  async function addGameTilesheet(asset: GameImageAssetSummary) {
+    setAddingGameTileset(asset.relativePath)
+    try {
+      const dataUrl = await loadImageDataUrl(asset.absolutePath, resources.locale)
+      const dimensions = await measureImageDimensions(dataUrl)
+      if (dimensions.width % mapDocument.tileWidth !== 0 || dimensions.height % mapDocument.tileHeight !== 0) {
+        throw new Error(copy.invalidTilesetDimensions(dimensions.width, dimensions.height, mapDocument.tileWidth, mapDocument.tileHeight))
+      }
+      const safeName = (asset.name.split('/').at(-1) ?? 'tilesheet').replace(/[^A-Za-z0-9._-]+/gu, '_') || 'tilesheet'
+      const usedPaths = new Set(project.projectAssets.map((entry) => entry.relativePath.replaceAll('\\', '/').toLowerCase()))
+      const imagePath = availableAssetPath(`assets/maps/tilesheets/${safeName}.png`, usedPaths)
+      await project.writeProjectAssets([dataUrlToProjectAsset(dataUrl, imagePath, copy.loadingTileset)], 'generated')
+      await editor.addTileset(imagePath)
+      setGameTilesetPickerOpen(false)
+    } catch (error) {
+      editor.setSaveState({ status: 'error', message: error instanceof Error ? error.message : String(error) })
+    } finally {
+      setAddingGameTileset(null)
+    }
+  }
 
   async function saveMap() {
     if (isXnbAsset || tbinIssues.length > 0 || layerNameIssues.length > 0 || invalidTsxSourceTilesets.length > 0) return
@@ -485,7 +533,16 @@ function MapAssetEditorContent({
                       )
                   : undefined
               }
+              worldLighting={worldLighting}
             />
+            <div className="workspace-viewport-toolbar" role="toolbar" aria-label={editorCopy.center.lightingPreview}>
+              <MapLightingPreviewControls
+                mode={lightingMode}
+                season={lightingSeason}
+                onModeChange={setLightingMode}
+                onSeasonChange={setLightingSeason}
+              />
+            </div>
           </div>
           {editor.paletteOpen ? (
             <MapTilesetPalette
@@ -547,6 +604,9 @@ function MapAssetEditorContent({
           onDeleteSelectedObject={editor.deleteSelectedObject}
           onAddTileDataObject={editor.addTileDataObject}
           onAddTileset={editor.addTileset}
+          onAddGameTileset={() => setGameTilesetPickerOpen(true)}
+          gameTilesetAvailable={Boolean(resources.gameRootPath)}
+          gameTilesetUnavailableTitle={copy.gameTilesetNoGameRoot}
           onConvertToTmx={convertToTmx}
         />
       </div>
@@ -594,6 +654,15 @@ function MapAssetEditorContent({
           </DialogAction>
         </DialogFooter>
       </Dialog>
+
+      <GameTilesheetPickerDialog
+        open={gameTilesetPickerOpen}
+        gameRootPath={resources.gameRootPath}
+        locale={resources.locale}
+        busyAssetPath={addingGameTileset}
+        onClose={() => setGameTilesetPickerOpen(false)}
+        onPick={(asset) => void addGameTilesheet(asset)}
+      />
     </div>
   )
 }

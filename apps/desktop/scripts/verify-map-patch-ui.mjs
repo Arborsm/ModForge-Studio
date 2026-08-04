@@ -17,7 +17,9 @@ import path from 'node:path'
  * Prereq: `vp run web:dev -- --host 127.0.0.1 --port 5175`
  */
 
-const fallbackUrls = ['http://127.0.0.1:5175', 'http://127.0.0.1:5176', 'http://localhost:5173']
+const fallbackUrls = process.env.MODFORGE_MAP_PATCH_URL
+  ? [process.env.MODFORGE_MAP_PATCH_URL]
+  : ['http://127.0.0.1:5175', 'http://127.0.0.1:5176', 'http://localhost:5173']
 const mockQuery = '/?mfLauncherMock=1&mfSettingsMock=1'
 const screenshotDir = process.env.MODFORGE_MAP_PATCH_SCREENSHOT_DIR ?? path.join(os.tmpdir(), 'modforge-map-patch-ui')
 const executablePath = [

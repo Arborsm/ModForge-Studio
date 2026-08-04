@@ -34,6 +34,7 @@ export const BuildingIndoorMapPanel = forwardRef<MapViewportHandle, BuildingIndo
       centerView: () => viewportRef.current?.centerView(),
       resetPan: () => viewportRef.current?.resetPan(),
       focusObject: (target) => viewportRef.current?.focusObject(target),
+      centerOnWorldPoint: (worldX, worldY) => viewportRef.current?.centerOnWorldPoint(worldX, worldY),
       exportPng: async () => {
         if (!viewportRef.current) {
           throw new Error('Map viewport is not ready')

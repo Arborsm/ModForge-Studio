@@ -1,4 +1,5 @@
 export * from './model'
+export * from './model/lighting'
 export { resolveTilesetImagePath } from './lib/assets'
 export { getMapContentBounds, getMapPreviewBounds, hasVisibleMapContent } from './lib/mapContentBounds'
 export type { MapContentBounds, MapContentBoundsOptions, MapPreviewBoundsOptions } from './lib/mapContentBounds'

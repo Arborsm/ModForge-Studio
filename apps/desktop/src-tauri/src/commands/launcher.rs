@@ -1,12 +1,14 @@
 use crate::domain::launcher::types::{
-    CheckLauncherUpdatesRequest, DownloadLauncherModRequest, DownloadLauncherModResult,
-    InspectLauncherArchiveRequest, InspectLauncherArchiveResult, InstallLauncherArchiveRequest,
-    InstallLauncherArchiveResult, LauncherCatalogPageResult, LauncherDownloadQueueState,
-    LauncherGameLaunchResult, LauncherGmcmProbeDiagnosticsResult, LauncherImageFailuresState,
-    LauncherInstallBackupSummary, LauncherLibraryCoversState, LauncherLibraryScanResult,
-    LauncherLibraryState, LauncherModConfigResult, LauncherRemoteModDetail, LauncherRuntimeInfo,
-    LauncherSettings, LauncherSuppressedUpdateModIdsResult, LauncherUpdateChangelogResult,
-    LauncherUpdatesResult, ListLauncherInstallBackupsRequest, LoadCachedLauncherUpdatesRequest,
+    CheckLauncherUpdatesRequest, CheckSmapiUpdateResult, DownloadLauncherModRequest,
+    DownloadLauncherModResult, FindSmapiInstallerDownloadsResult, InspectLauncherArchiveRequest,
+    InspectLauncherArchiveResult, InstallLauncherArchiveRequest, InstallLauncherArchiveResult,
+    InstallSmapiUpdateRequest, InstallSmapiUpdateResult, LauncherCatalogPageResult,
+    LauncherDownloadQueueState, LauncherGameLaunchResult, LauncherGmcmProbeDiagnosticsResult,
+    LauncherImageFailuresState, LauncherInstallBackupSummary, LauncherLibraryCoversState,
+    LauncherLibraryScanResult, LauncherLibraryState, LauncherModConfigResult,
+    LauncherRemoteModDetail, LauncherRuntimeInfo, LauncherSettings,
+    LauncherSuppressedUpdateModIdsResult, LauncherUpdateChangelogResult, LauncherUpdatesResult,
+    ListLauncherInstallBackupsRequest, LoadCachedLauncherUpdatesRequest,
     LoadLauncherModConfigRequest, LoadLauncherRemoteModDetailRequest,
     LoadLauncherUpdateChangelogRequest, LoadSuppressedLauncherUpdateModIdsRequest,
     OpenLauncherPathRequest, OpenLauncherUrlRequest, PersistLauncherLibraryRemoteCoverRequest,
@@ -547,6 +549,49 @@ pub async fn check_launcher_updates(
         debug_logging_state.inner().clone(),
         crate::host_command_name!(check_launcher_updates),
         json!({ "request": request }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn check_smapi_update(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<CheckSmapiUpdateResult, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(check_smapi_update),
+        json!({}),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn install_smapi_update(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    request: InstallSmapiUpdateRequest,
+) -> Result<InstallSmapiUpdateResult, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(install_smapi_update),
+        json!({ "request": request }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn find_smapi_installer_downloads(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<FindSmapiInstallerDownloadsResult, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state.inner().clone(),
+        crate::host_command_name!(find_smapi_installer_downloads),
+        json!({}),
     )
     .await
 }

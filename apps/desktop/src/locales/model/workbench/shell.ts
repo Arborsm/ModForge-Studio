@@ -71,6 +71,15 @@ export type WorkbenchShellCopy = {
     hideGameWorldAdditions: string
     showGrid: string
     hideGrid: string
+    lightingPreview: string
+    lightingDay: string
+    lightingDusk: string
+    lightingNight: string
+    lightingSeason: string
+    seasonSpring: string
+    seasonSummer: string
+    seasonFall: string
+    seasonWinter: string
     moduleWorkspace: string
     moduleWorkspaceDisabled: string
     moduleCanvas: string

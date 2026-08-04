@@ -1,11 +1,14 @@
 import { useId } from 'react'
 import { AlertTriangle, File, FileArchive, Folder, PackageOpen } from 'lucide-react'
-import type { InspectLauncherArchiveResult, LauncherArchiveTreeNode } from '../../model/launcherContracts'
+import type { InspectLauncherArchiveResult, LauncherArchiveModRootInfo, LauncherArchiveTreeNode } from '../../model/launcherContracts'
+import { isArchiveUpdateOnly, planArchiveModRootInstall } from '../../model/archiveInstallPlan'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { formatBytesOrPlaceholder } from '@shared/lib/formatting'
 import { LauncherInstallStateView } from './LauncherInstallStateView'
+import { LauncherArchiveStatusBadge } from './LauncherArchiveStatusBadge'
+import { LauncherArchiveDiffView } from './LauncherArchiveDiffView'
 
 type LauncherArchiveInstallDialogProps = {
   open: boolean
@@ -41,6 +44,34 @@ function ArchiveTreeNode({ node }: { node: LauncherArchiveTreeNode }) {
   )
 }
 
+/** One detected mod root row: path, install state badge, version change and file diff summary. */
+function ModRootRow({ root }: { root: LauncherArchiveModRootInfo }) {
+  const copy = useEditorCopy().launcher
+  const plan = planArchiveModRootInstall(root.manifestVersion, root.existingVersion, Boolean(root.existingUniqueId))
+
+  return (
+    <li data-status={plan.status}>
+      <span className="launcher-install-root-dot" aria-hidden="true" />
+      <span className="launcher-install-root-main">
+        <span className="launcher-install-root-path">{root.path}</span>
+        <span className="launcher-install-root-meta">
+          {plan.fromVersion && plan.toVersion ? (
+            <span className="launcher-install-root-version">{copy.library.previewVersionChange(plan.fromVersion, plan.toVersion)}</span>
+          ) : plan.toVersion ? (
+            <span className="launcher-install-root-version">{`v${plan.toVersion}`}</span>
+          ) : null}
+          <LauncherArchiveStatusBadge status={plan.status} />
+        </span>
+        {root.diffSummary ? (
+          <span className="launcher-install-root-diff">
+            {copy.library.previewDiffSummary(root.diffSummary.added, root.diffSummary.changed, root.diffSummary.removed)}
+          </span>
+        ) : null}
+      </span>
+    </li>
+  )
+}
+
 export function LauncherArchiveInstallDialog({
   open,
   loading,
@@ -56,6 +87,8 @@ export function LauncherArchiveInstallDialog({
   const titleId = useId()
   const selectedPreview = previews.find((preview) => preview.archivePath === selectedArchivePath) ?? previews[0] ?? null
   const totalModRoots = previews.reduce((sum, preview) => sum + preview.modRoots.length, 0)
+  const updateOnly = previews.length > 0 && previews.every((preview) => isArchiveUpdateOnly(preview.modRoots))
+  const showDiffView = Boolean(selectedPreview?.modRoots.length) && isArchiveUpdateOnly(selectedPreview?.modRoots ?? [])
   const handleClose = () => {
     if (installing) {
       return
@@ -140,10 +173,7 @@ export function LauncherArchiveInstallDialog({
                 {selectedPreview.modRoots.length ? (
                   <ul className="launcher-install-root-list">
                     {selectedPreview.modRoots.map((root) => (
-                      <li key={root}>
-                        <span className="launcher-install-root-dot" aria-hidden="true" />
-                        <span className="launcher-install-root-path">{root}</span>
-                      </li>
+                      <ModRootRow key={root.path} root={root} />
                     ))}
                   </ul>
                 ) : (
@@ -159,11 +189,15 @@ export function LauncherArchiveInstallDialog({
                   <h3>{copy.library.previewContentsTitle}</h3>
                   <span>{copy.library.previewArchiveMeta(selectedPreview.totalEntries, selectedPreview.totalFiles)}</span>
                 </div>
-                <div className="launcher-install-tree">
-                  {selectedPreview.tree.map((node) => (
-                    <ArchiveTreeNode key={node.path} node={node} />
-                  ))}
-                </div>
+                {showDiffView ? (
+                  <LauncherArchiveDiffView roots={selectedPreview.modRoots} />
+                ) : (
+                  <div className="launcher-install-tree">
+                    {selectedPreview.tree.map((node) => (
+                      <ArchiveTreeNode key={node.path} node={node} />
+                    ))}
+                  </div>
+                )}
               </section>
             </section>
           </div>
@@ -179,7 +213,7 @@ export function LauncherArchiveInstallDialog({
             {copy.actions.closeDialog}
           </DialogAction>
           <DialogAction tone="primary" disabled={!previews.length || loading || installing} onClick={onConfirm}>
-            {copy.actions.install}
+            {updateOnly ? copy.library.previewActionUpdate : copy.actions.install}
           </DialogAction>
         </div>
       </DialogFooter>

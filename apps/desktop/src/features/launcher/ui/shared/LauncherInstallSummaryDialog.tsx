@@ -45,6 +45,11 @@ export function LauncherInstallSummaryDialog({ open, result, onClose, onManageBa
                   {result.uniqueId ? <span className="dock-chip">{result.uniqueId}</span> : null}
                 </div>
               ) : null}
+              {result.upgraded && result.previousVersion && result.version ? (
+                <p className="launcher-install-result-upgrade">
+                  {copy.library.installSummaryUpgraded(result.previousVersion, result.version)}
+                </p>
+              ) : null}
             </div>
           </section>
 

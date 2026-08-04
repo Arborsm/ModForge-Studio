@@ -18,8 +18,10 @@ use anyhow::{Context, bail};
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
-#[cfg(target_os = "windows")]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
+/// Win32 process creation flags for the game executable. Kept platform-agnostic
+/// so the settings-to-flag decision can be unit-tested on non-Windows CI.
+pub(crate) const CREATE_NO_WINDOW: u32 = 0x08000000;
+pub(crate) const CREATE_NEW_CONSOLE: u32 = 0x00000010;
 
 fn resolve_game_launch_target(
     settings: &LauncherSettings,
@@ -81,10 +83,36 @@ where
     })
 }
 
-fn spawn_launcher_process(path: &Path) -> anyhow::Result<()> {
+/// Process-spawn options for the game executable, derived from launcher settings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LauncherProcessOptions {
+    /// Win32 creation flag applied when spawning the game (Windows only; unused
+    /// elsewhere). The two console modes are mutually exclusive: either the game
+    /// runs without any console (`CREATE_NO_WINDOW`) or it gets its own dedicated
+    /// console window (`CREATE_NEW_CONSOLE`). Never spawn without a flag on
+    /// Windows, which would inherit ModForge's console and mix SMAPI output into
+    /// the app's own command-line window.
+    pub windows_creation_flags: u32,
+}
+
+impl LauncherProcessOptions {
+    pub(crate) fn from_settings(settings: &LauncherSettings) -> Self {
+        Self {
+            windows_creation_flags: if settings.show_console_window {
+                CREATE_NEW_CONSOLE
+            } else {
+                CREATE_NO_WINDOW
+            },
+        }
+    }
+}
+
+fn spawn_launcher_process(path: &Path, options: LauncherProcessOptions) -> anyhow::Result<()> {
     let mut command = Command::new(path);
     #[cfg(target_os = "windows")]
-    command.creation_flags(CREATE_NO_WINDOW);
+    command.creation_flags(options.windows_creation_flags);
+    #[cfg(not(target_os = "windows"))]
+    let _ = options;
 
     command
         .spawn()
@@ -98,7 +126,10 @@ pub fn launch_launcher_game(_app: AppHandle) -> anyhow::Result<LauncherGameLaunc
         (|| {
             let settings_path = launcher_settings_path()?;
             let settings = load_or_create_settings_at_path(&settings_path)?;
-            launch_game_with_runner(&settings, spawn_launcher_process)
+            let process_options = LauncherProcessOptions::from_settings(&settings);
+            launch_game_with_runner(&settings, |path| {
+                spawn_launcher_process(path, process_options)
+            })
         })(),
         |error| error.to_string(),
     )
@@ -273,3 +304,7 @@ fn open_path_in_shell(path: &Path) -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/domain/launcher/runtime_tests.rs"]
+mod runtime_tests;

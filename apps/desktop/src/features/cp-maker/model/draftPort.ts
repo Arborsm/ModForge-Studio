@@ -95,9 +95,11 @@ export type AssetDraftPort = {
   updatePatch: (patchId: string, changes: Partial<DraftPatch>) => void
   /**
    * Moves one patch one position in the draft's export order; a boundary move
-   * is a no-op. Structural, so it is not recorded on the entry undo stack.
+   * is a no-op. `within` skips patches the predicate rejects, so a filtered
+   * manager view swaps with its visible neighbor. Structural, so it is not
+   * recorded on the entry undo stack.
    */
-  reorderPatch: (patchId: string, delta: -1 | 1) => void
+  reorderPatch: (patchId: string, delta: -1 | 1, within?: (patch: DraftPatch) => boolean) => void
   /**
    * Deep-copies a patch right after the original with a fresh id. Structural,
    * so it is not recorded on the entry undo stack.
@@ -126,7 +128,7 @@ export type AssetDraftPortOptions = {
   onPatchChange: (patchId: string, patch: Partial<DraftPatch>) => void
   onPatchAdd: (action: DraftPatch['action'], target: string, fromFile?: string) => string | void
   /** Moves one patch one position in the draft's export order; boundary moves are no-ops. */
-  onPatchReorder: (patchId: string, delta: -1 | 1) => void
+  onPatchReorder: (patchId: string, delta: -1 | 1, within?: (patch: DraftPatch) => boolean) => void
   /** Deep-copies a patch after the original, assigning a fresh id. */
   onPatchDuplicate: (patchId: string) => void
   /** Removes a patch from the draft. */

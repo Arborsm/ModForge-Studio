@@ -10,7 +10,14 @@
     @apply rounded-2xl p-4 backdrop-blur;
   }
 
-  .settings-window-backdrop,
+  .settings-window-backdrop {
+    position: fixed;
+    inset: 3.5625rem 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   .appearance-window-backdrop {
     position: absolute;
     inset: 3.5625rem 0 0;

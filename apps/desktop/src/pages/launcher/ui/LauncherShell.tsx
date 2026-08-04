@@ -108,6 +108,7 @@ export default function LauncherShell({
         settings={settingsState.settings}
         library={library}
         routeEnterSequence={libraryRouteEnterSequence}
+        routeActive={activePage === 'library'}
         launchGameLabel={launchGameLabel}
         launchGameDisabled={launchGameDisabled}
         launchGameBusy={launchGameBusy}
@@ -120,6 +121,7 @@ export default function LauncherShell({
       />
     ),
     [
+      activePage,
       downloadInstallRequest,
       downloads.queueDownload,
       library,
@@ -150,6 +152,7 @@ export default function LauncherShell({
                 onRetryDiagnostics={onRetryDiagnostics}
                 onNavigateToSettings={onNavigateToSettings}
                 searchRequest={discoverSearchRequest}
+                routeActive={activePage === 'discover'}
               />
             </Suspense>
           ) : null}
@@ -164,6 +167,7 @@ export default function LauncherShell({
                 onNavigateToDiagnostics={onNavigateToDiagnostics}
                 onRetryDiagnostics={onRetryDiagnostics}
                 onNavigateToSettings={onNavigateToSettings}
+                routeActive={activePage === 'updates'}
               />
             </Suspense>
           ) : null}

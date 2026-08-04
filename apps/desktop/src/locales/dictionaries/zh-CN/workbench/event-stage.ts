@@ -35,6 +35,8 @@ const eventstage: EventStageCopy = {
   cueLabel: (cue) => `Cue: ${cue}`,
   stopCueLabel: (cue) => `停止: ${cue}`,
   flashAlphaLabel: (alpha) => `透明度 ${alpha}`,
+  playbackHaltedTitle: '播放已终止',
+  playbackHaltedDetail: '事件不断跳转而无法继续推进，请检查 switchEvent/fork 分支是否成环，并重置播放。',
   workflow: {
     commandLabels: {
       farmerAnimation: '玩家动画',

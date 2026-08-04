@@ -1,6 +1,9 @@
-import { EditorPage, ExpertModeButton, ExpertPanel, PatchListPage, resolveWorkspaceLanding, type WorkspaceId } from '@features/cp-maker'
+import { EditorPage, ExpertPanel, PatchListPage, resolveWorkspaceLanding, WorkspacePatchList, type WorkspaceId } from '@features/cp-maker'
 import { useAuthoringShellCopy, useEditorCopy, useMapAuthoringCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
+import { usePendingMapAssetEditStore } from '@shared/lib/app-state/pendingMapAssetEditStore'
+import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { WorkspaceSplitView } from '@shared/ui/WorkspaceSplitView'
 import { useWorkbenchAssetDraftPort } from '../../model/useWorkbenchAssetDraftPort'
 import { useEditModeNavigation } from '../../model/useEditModeNavigation'
 import { useWorkbenchEnvironment, useWorkbenchProject } from '../../model/workbenchModuleContexts'
@@ -30,8 +33,10 @@ export type AuthoringRuntimeProps = {
 
 /**
  * Host runtime for content workspaces (map / events / characters / buildings /
- * items / mods). Owns the page layout directly: a slim header (title, breadcrumb,
- * save state, expert toggle), the routed main view, and the ExpertPanel drawer.
+ * items / mods). Owns the page layout directly: the routed main view and the
+ * ExpertPanel drawer. There is no page header; save failures surface through
+ * the shared notification system and the expert toggle lives in the workbench
+ * side navigation.
  *
  * There is no shared shell skeleton: each workspace page keeps its own layout,
  * patch-level history lives in `useEditModeNavigation`, and undo/redo belong to
@@ -39,12 +44,13 @@ export type AuthoringRuntimeProps = {
  */
 export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPendingAssetTargetOpened }: AuthoringRuntimeProps) {
   const { locale, theme } = useWorkbenchRuntimeInputs()
-  const copy = useEditorCopy()
   const shellCopy = useAuthoringShellCopy()
+  const editorCopy = useEditorCopy()
   const mapAuthoringCopy = useMapAuthoringCopy()
   const environment = useWorkbenchEnvironment()
   const project = useWorkbenchProject()
   const navigation = useEditModeNavigation(true)
+  const publishNotification = useNotificationPublisher()
   const patches = project.getPatchesForWorkspace(workspaceId)
   const [mapAssetSession, setMapAssetSession] = useState<{ relativePath: string; document: MapDocument } | null>(null)
   const [mapTilesSession, setMapTilesSession] = useState<{ patchId: string; cardId: string; target: string } | null>(null)
@@ -91,12 +97,25 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
     }
   }, [port, landing])
 
-  const workspaceLabel = copy.studioDesk.referencePreview.workspaceLabels[workspaceId]
-  const workspaceTitle = workspaceId === 'mods' ? shellCopy.projectContentTitle : shellCopy.workspaceLabel(workspaceLabel)
+  // Save failures replace the old header badge with a transient notification;
+  // the notification is dismissed as soon as the auto-save pipeline recovers.
+  useEffect(() => {
+    if (saveState === 'error') {
+      publishNotification({ id: 'authoring-save-error', level: 'error', title: shellCopy.saveFailed })
+    } else {
+      dismissNotification('authoring-save-error')
+    }
+  }, [publishNotification, saveState, shellCopy.saveFailed])
 
-  // Breadcrumb: patch logName when editing, null otherwise
-  const activePatch = patches.find((p) => p.id === navigation.activeEditPatchId) ?? null
-  const breadcrumb = activePatch ? activePatch.logName || activePatch.target : null
+  // "Edit in map editor" handoffs from the asset library stage a transient
+  // request; consume it once the map draft port is ready and open the asset.
+  const pendingMapEditPath = usePendingMapAssetEditStore((state) => state.relativePath)
+  useEffect(() => {
+    if (workspaceId !== 'map' || !port || !pendingMapEditPath) return
+    const relativePath = usePendingMapAssetEditStore.getState().consumeEdit()
+    if (!relativePath) return
+    void openMapAsset(relativePath)
+  }, [pendingMapEditPath, port, workspaceId])
 
   // Resources: subset the editors bind — real gameRootPath, directoryInfo,
   // playerAppearanceProfile, appearance window callback, locale, theme, accent.
@@ -215,6 +234,7 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
   }
 
   let mainContent: ReactElement | null = null
+  const activePatch = patches.find((p) => p.id === navigation.activeEditPatchId) ?? null
   if (navigation.activeEditPatchId && activePatch && port) {
     mainContent = <EditorPage workspaceId={workspaceId} patch={activePatch} draftPort={port} resources={resources} />
   } else if (landing.kind === 'asset' && port) {
@@ -222,17 +242,8 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
     const singletonPatch = port.draft.patches.find((p) => p.action === landing.action && p.target === landing.target) ?? null
     mainContent = <EditorPage workspaceId={workspaceId} patch={singletonPatch} draftPort={port} resources={resources} />
   } else if (landing.kind === 'assetGroup' && port) {
-    // Map: page-owned first-level browser (library + patch manager).
-    mainContent = (
-      <MapCatalog
-        draftPort={port}
-        resources={resources}
-        onOpenPatch={navigation.navigateToPatch}
-        onOpenMapAsset={(relativePath, document) => {
-          void openMapAsset(relativePath, document)
-        }}
-      />
-    )
+    // Map: page-owned first-level gallery (game maps + patch manager).
+    mainContent = <MapCatalog draftPort={port} resources={resources} onOpenPatch={navigation.navigateToPatch} />
   } else if (landing.kind === 'module' && workspaceId === 'events' && port) {
     // Events hub: list-based entry into the per-patch event editors.
     mainContent = (
@@ -243,14 +254,10 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
           navigateToPatch(patchId)
         }}
         onRemovePatch={(patchId) => port.updatePatch(patchId, { enabled: false })}
-        onTogglePatch={(patchId, enabled) => port.updatePatch(patchId, { enabled })}
         onPatchUpdate={(patchId, changes) => port.updatePatch(patchId, changes)}
-        canGoBack={navigation.canGoBack}
-        canGoForward={navigation.canGoForward}
-        onGoBack={navigation.goBack}
-        onGoForward={navigation.goForward}
+        gameRootPath={environment.directoryInfo?.rootPath ?? null}
+        onCreatePatch={(target) => port.addPatch('EditData', target)}
         workspaceId="events"
-        draft={port.draft}
       />
     )
   } else if (landing.kind === 'projectContent') {
@@ -261,35 +268,29 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
     )
   }
 
-  const saveLabel =
-    saveState === 'saving'
-      ? shellCopy.saving
-      : saveState === 'saved'
-        ? shellCopy.saved
-        : saveState === 'error'
-          ? shellCopy.saveFailed
-          : shellCopy.unsaved
+  // Asset landings (characters / buildings / items) share the two-pane layout:
+  // a patch list sidebar next to the singleton patch editor, regardless of
+  // whether the editor came from an active patch or the singleton fallback.
+  if (landing.kind === 'asset' && port && mainContent !== null) {
+    mainContent = (
+      <WorkspaceSplitView
+        sidebarLabel={editorCopy.studioDesk.patchList.regionLabel}
+        sidebar={
+          <WorkspacePatchList
+            patches={patches}
+            draftPort={port}
+            reorderWithin={(candidate) => candidate.workspace === workspaceId}
+            onOpenPatch={navigation.navigateToPatch}
+          />
+        }
+      >
+        {mainContent}
+      </WorkspaceSplitView>
+    )
+  }
 
   return (
     <div className="authoring-shell">
-      <header className="authoring-header">
-        <div className="authoring-header-context">
-          <span className="authoring-header-title">{workspaceTitle}</span>
-          {breadcrumb ? <span className="authoring-header-breadcrumb">{breadcrumb}</span> : null}
-        </div>
-
-        <div className="authoring-header-spacer" />
-
-        <span
-          className={cx('authoring-header-save-status', saveState === 'error' && 'is-error', saveState === 'saving' && 'is-working')}
-          data-state={saveState}
-        >
-          {saveLabel}
-        </span>
-
-        <ExpertModeButton />
-      </header>
-
       <div className="authoring-shell-body">
         <main className="authoring-shell-main">{mainContent}</main>
 

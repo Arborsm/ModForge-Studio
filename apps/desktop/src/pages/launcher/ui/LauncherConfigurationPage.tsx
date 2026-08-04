@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   ChevronRight,
   Database,
+  Download,
   FolderOpen,
   HelpCircle,
   Image,
@@ -53,6 +54,9 @@ import type {
   ValidateApiKeyResult,
 } from '@features/launcher/model/launcherContracts'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
+import { useSmapiUpdate } from '@features/launcher/model/useSmapiUpdate'
+import { deriveSmapiUpdateActionMode } from '@features/launcher/model/smapiUpdateModel'
+import type { SmapiUpdateCardStatus } from '@features/launcher/model/smapiUpdateModel'
 import { LauncherConfigurationMoreTools } from './LauncherConfigurationMoreTools'
 import { ConfigAccountCard, ConfigCompletionRail, ConfigDownloadDefaults, type ConfigStep } from './LauncherConfigurationRailCards'
 
@@ -1210,6 +1214,227 @@ function ConfigGmcmProbePanel({
   )
 }
 
+function getSmapiUpdateStatusTone(status: SmapiUpdateCardStatus): ApiRouteTone {
+  switch (status.kind) {
+    case 'up-to-date':
+    case 'install-success':
+      return 'ok'
+    case 'not-configured':
+    case 'update-available':
+      return 'warn'
+    case 'check-failed':
+    case 'install-failed':
+      return 'danger'
+    case 'checking':
+    case 'installing':
+      return 'loading'
+  }
+}
+
+type SmapiUpdateCopy = LauncherCopy['configuration']['smapiUpdate']
+
+function getSmapiUpdateStatusLabel(status: SmapiUpdateCardStatus, copy: SmapiUpdateCopy) {
+  switch (status.kind) {
+    case 'not-configured':
+      return copy.statusNotConfigured
+    case 'checking':
+      return copy.statusChecking
+    case 'up-to-date':
+      return copy.statusUpToDate
+    case 'update-available':
+      return copy.statusUpdateAvailable
+    case 'installing':
+      return copy.statusInstalling
+    case 'install-success':
+      return copy.statusInstalled
+    case 'check-failed':
+      return copy.statusCheckFailed
+    case 'install-failed':
+      return copy.statusInstallFailed
+  }
+}
+
+function ConfigSmapiUpdateCard({
+  copy,
+  gamePath,
+  onRuntimeInfoRefreshed,
+}: {
+  copy: LauncherCopy
+  gamePath: string | null
+  onRuntimeInfoRefreshed?: (info: LauncherRuntimeInfo) => void
+}) {
+  const smapiUpdate = useSmapiUpdate({ gamePath, onRuntimeInfoRefreshed })
+  const status = smapiUpdate.status
+  const smapiCopy = copy.configuration.smapiUpdate
+  const tone = getSmapiUpdateStatusTone(status)
+  const statusLabel = getSmapiUpdateStatusLabel(status, smapiCopy)
+  const requiredByModsTooltip =
+    status.kind === 'update-available' && status.requiredByMods.length
+      ? status.requiredByMods.map((mod) => smapiCopy.requiredByModsTooltip(mod.modName, mod.minimumApiVersion)).join('\n')
+      : null
+  const installing = status.kind === 'installing'
+  const updateAvailable = status.kind === 'update-available'
+  const actionMode = deriveSmapiUpdateActionMode(updateAvailable ? status.download : null)
+  const localCandidate = updateAvailable ? status.installerCandidate : null
+  const showLocalSection =
+    updateAvailable && (localCandidate !== null || status.installerScanState === 'scanning' || status.installerScanState === 'failed')
+  const showManualFlowGuidance = updateAvailable && (actionMode === 'nexus' || actionMode === 'none')
+
+  return (
+    <section
+      className={cx('launcher-config-panel launcher-config-smapi-update', `launcher-config-smapi-update-${tone}`)}
+      aria-label={smapiCopy.title}
+      data-testid="launcher-config-smapi-update"
+    >
+      <ConfigPanelHeader
+        title={smapiCopy.title}
+        description={smapiCopy.subtitle}
+        actions={
+          <div className="launcher-config-actions">
+            <span className={cx('launcher-config-status-tag', `launcher-config-status-tag-${tone}`)}>{statusLabel}</span>
+            <button
+              type="button"
+              className="launcher-config-icon-button launcher-config-panel-icon-button launcher-config-refresh-button"
+              aria-busy={smapiUpdate.checking}
+              disabled={smapiUpdate.checking || installing}
+              aria-label={smapiCopy.title}
+              title={smapiCopy.title}
+              onClick={() => void smapiUpdate.runCheck()}
+            >
+              <RefreshCw className={cx('h-3.5 w-3.5', smapiUpdate.checking && 'animate-spin')} aria-hidden="true" />
+            </button>
+          </div>
+        }
+      />
+
+      <div className="launcher-config-smapi-body">
+        {status.kind === 'not-configured' ? <p className="launcher-config-smapi-detail">{smapiCopy.notConfiguredDetail}</p> : null}
+        {status.kind === 'checking' ? <p className="launcher-config-smapi-detail">{smapiCopy.checkingDetail}</p> : null}
+        {status.kind === 'up-to-date' ? (
+          <p className="launcher-config-smapi-detail">{smapiCopy.upToDateDetail(status.installedVersion, status.gameVersion)}</p>
+        ) : null}
+        {status.kind === 'update-available' ? (
+          <div className="launcher-config-smapi-update-detail">
+            <p className="launcher-config-smapi-detail">{smapiCopy.updateAvailableDetail(status.installedVersion, status.targetVersion)}</p>
+            <p className="launcher-config-smapi-hint">{smapiCopy.latestStableHint(status.latestStableVersion)}</p>
+            {status.versionSource === 'nexus' ? <p className="launcher-config-smapi-hint">{smapiCopy.nexusSourceHint}</p> : null}
+            {status.requiredByMods.length ? (
+              <span
+                className="launcher-config-smapi-affected"
+                aria-label={requiredByModsTooltip ?? undefined}
+                data-tooltip={requiredByModsTooltip ?? undefined}
+              >
+                <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>{smapiCopy.requiredByModsSummary(status.requiredByMods.length)}</span>
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+        {showManualFlowGuidance ? <p className="launcher-config-smapi-hint">{smapiCopy.nexusManualGuidance}</p> : null}
+        {showLocalSection ? (
+          <div className="launcher-config-smapi-local">
+            <div className="launcher-config-smapi-local-head">
+              <span className="launcher-config-smapi-local-title">{smapiCopy.localSectionTitle}</span>
+              {status.installerScanState === 'scanning' ? (
+                <span className="launcher-config-smapi-hint">{smapiCopy.installerScanningDetail}</span>
+              ) : null}
+              {status.installerScanState === 'failed' ? (
+                <span className="launcher-config-smapi-hint launcher-config-smapi-error">
+                  {status.installerScanError ?? smapiCopy.installerScanFallback}
+                </span>
+              ) : null}
+            </div>
+            {localCandidate ? (
+              <div className="launcher-config-smapi-candidate">
+                <span className="launcher-config-smapi-candidate-copy">
+                  <span className="launcher-config-smapi-candidate-name" title={localCandidate.path}>
+                    {localCandidate.fileName}
+                  </span>
+                  <span className="launcher-config-smapi-candidate-meta">
+                    {smapiCopy.localCandidateVersionLabel(localCandidate.version)} ·{' '}
+                    {localCandidate.naming === 'github' ? smapiCopy.candidateNamingGithub : smapiCopy.candidateNamingNexus}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className="launcher-config-button launcher-config-button-primary"
+                  onClick={() => void smapiUpdate.startLocalInstall(localCandidate)}
+                >
+                  <PackageCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{smapiCopy.installLocalAction}</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {status.kind === 'check-failed' || status.kind === 'install-failed' ? (
+          <p className="launcher-config-smapi-detail launcher-config-smapi-error">{status.message}</p>
+        ) : null}
+        {status.kind === 'installing' ? (
+          <div className="launcher-config-smapi-install-progress">
+            <span className={cx('launcher-config-progress', tone === 'warn' && 'launcher-config-progress-warn')}>
+              <i style={{ width: `${status.percent ?? 0}%` }} />
+            </span>
+            <span className="launcher-config-smapi-progress-meta">
+              {smapiCopy.installingDetail(smapiCopy.installPhaseLabels[status.phase], status.message)}
+              {status.percent != null ? ` · ${smapiCopy.installPercent(status.percent)}` : ''}
+            </span>
+          </div>
+        ) : null}
+        {status.kind === 'install-success' ? (
+          <p className="launcher-config-smapi-detail">{smapiCopy.installedDetail(status.installedVersion)}</p>
+        ) : null}
+
+        <div className="launcher-config-smapi-actions">
+          {status.kind === 'update-available' && actionMode === 'github' ? (
+            <button
+              type="button"
+              className="launcher-config-button launcher-config-button-primary"
+              onClick={() => void smapiUpdate.startInstall()}
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{smapiCopy.updateAction}</span>
+            </button>
+          ) : null}
+          {status.kind === 'update-available' && actionMode === 'nexus' ? (
+            <button
+              type="button"
+              className="launcher-config-button launcher-config-button-primary"
+              onClick={() => void smapiUpdate.openNexusManualDownload()}
+            >
+              <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{smapiCopy.openNexusAction}</span>
+            </button>
+          ) : null}
+          {status.kind === 'update-available' && (actionMode === 'nexus' || actionMode === 'none') ? (
+            <button type="button" className="launcher-config-button" onClick={smapiUpdate.rescanInstallerDownloads}>
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{smapiCopy.rescanAction}</span>
+            </button>
+          ) : null}
+          {status.kind === 'update-available' ? (
+            <button type="button" className="launcher-config-button" onClick={() => void smapiUpdate.pickLocalInstaller()}>
+              <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{smapiCopy.pickLocalAction}</span>
+            </button>
+          ) : null}
+          {status.kind === 'check-failed' || status.kind === 'install-failed' ? (
+            <button type="button" className="launcher-config-button" onClick={() => void smapiUpdate.runCheck()}>
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{smapiCopy.retryAction}</span>
+            </button>
+          ) : null}
+          {status.kind === 'installing' && status.cancellable ? (
+            <button type="button" className="launcher-config-button launcher-config-danger-button" onClick={smapiUpdate.cancelInstall}>
+              {smapiCopy.cancelAction}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export function LauncherConfigurationPage({
   debugEnabled,
   onToggleDebugMode,
@@ -1294,6 +1519,13 @@ export function LauncherConfigurationPage({
       onLauncherDiagnosticsUpdate?.(diagnostics)
     },
     [onLauncherDiagnosticsUpdate],
+  )
+  const handleRuntimeInfoRefreshed = useCallback(
+    (info: LauncherRuntimeInfo) => {
+      setRuntimeInfo(info)
+      writeCachedLauncherConfigurationRuntimeInfo(info, { gamePath: settingsState.settings.gamePath ?? '' })
+    },
+    [settingsState.settings.gamePath],
   )
   const handleRefreshDiagnostics = useCallback(() => {
     setDiagnosticsRefreshing(true)
@@ -1609,11 +1841,19 @@ export function LauncherConfigurationPage({
               </header>
             </LoadingMotionReveal>
 
-            <LoadingMotionReveal itemId="launcher-settings-panel" index={1}>
+            <LoadingMotionReveal itemId="launcher-smapi-update" index={1}>
+              <ConfigSmapiUpdateCard
+                copy={copy}
+                gamePath={settingsState.settings.gamePath}
+                onRuntimeInfoRefreshed={handleRuntimeInfoRefreshed}
+              />
+            </LoadingMotionReveal>
+
+            <LoadingMotionReveal itemId="launcher-settings-panel" index={2}>
               <ConfigPathPanel settingsState={settingsState} copy={copy} browseLabel={rootCopy.controls.browse} />
             </LoadingMotionReveal>
 
-            <LoadingMotionReveal itemId="launcher-config-network" index={2}>
+            <LoadingMotionReveal itemId="launcher-config-network" index={3}>
               <ConfigNexusPanel
                 settingsState={settingsState}
                 account={account}
@@ -1635,7 +1875,7 @@ export function LauncherConfigurationPage({
             <ConfigDownloadDefaults settingsState={settingsState} />
           </aside>
 
-          <LoadingMotionReveal itemId="launcher-config-gmcm-probe" index={3} className="launcher-config-wide-panel">
+          <LoadingMotionReveal itemId="launcher-config-gmcm-probe" index={4} className="launcher-config-wide-panel">
             <ConfigGmcmProbePanel
               copy={copy}
               diagnostics={gmcmProbeDiagnostics}

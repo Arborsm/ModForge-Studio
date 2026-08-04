@@ -84,6 +84,8 @@ export type LauncherSharedCopy = {
     autoInstallDownloads: string
     keepDownloadedArchives: string
     gmcmParsingEnabled: string
+    showConsoleWindow: string
+    showConsoleWindowDescription: string
     autoCheckModUpdates: string
   }
   sortOptions: Record<'newest' | 'updated' | 'trending' | 'downloads' | 'endorsements' | 'name', string>

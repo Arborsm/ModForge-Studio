@@ -65,8 +65,6 @@ export type AssetLibraryCreateMapCopy = {
 }
 
 export type AssetLibraryCopy = {
-  title: string
-  subtitle: string
   importAction: string
   importFolderAction: string
   importing: string
@@ -91,6 +89,8 @@ export type AssetLibraryCopy = {
   referencesLabel: string
   referenceCount: (count: number) => string
   editPixelsAction: string
+  /** Primary action for a map asset: open it in the map workspace editor. */
+  editInMapEditorAction: string
   replaceAction: string
   renameAction: string
   deleteAction: string
@@ -109,6 +109,8 @@ export type AssetLibraryCopy = {
   selectionCount: (count: number) => string
   selectAll: string
   clearSelection: string
+  /** Aria label for the per-card multi-select checkbox. */
+  selectAsset: (name: string) => string
   closeAction: string
   loadFailed: string
   importFailed: string
@@ -152,7 +154,6 @@ export type AssetLibraryCopy = {
     decodeFailed: string
   }
   // Map asset creation and Load binding management, owned by the asset library.
-  viewAssets: string
   viewLoadBindings: string
   loadBindingsTitle: string
   loadBindingsHint: string

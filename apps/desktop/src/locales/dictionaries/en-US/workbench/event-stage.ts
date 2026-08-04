@@ -35,6 +35,8 @@ const eventstage: EventStageCopy = {
   cueLabel: (cue) => `Cue: ${cue}`,
   stopCueLabel: (cue) => `Stop: ${cue}`,
   flashAlphaLabel: (alpha) => `Alpha ${alpha}`,
+  playbackHaltedTitle: 'Playback halted',
+  playbackHaltedDetail: 'The event keeps switching without advancing. Check for a switchEvent/fork cycle and reset playback.',
   workflow: {
     commandLabels: {
       farmerAnimation: 'Farmer Animation',

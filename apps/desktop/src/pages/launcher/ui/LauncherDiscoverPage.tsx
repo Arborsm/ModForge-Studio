@@ -23,10 +23,11 @@ import type { LauncherSettings } from '@features/launcher/api'
 import { canUseDesktopHost } from '@platform/host'
 import { reportAppEvent } from '@platform/observability'
 import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarState } from '@features/launcher'
-import { useLauncherDiscover, useLauncherRemoteModDetail } from '@features/launcher'
+import { useLauncherDiscover, useLauncherPort, useLauncherRemoteModDetail, parseLauncherModIdQuery } from '@features/launcher'
 import type { LauncherDiscoverDetail, QueueLauncherDownloadInput } from '@features/launcher'
 import { LauncherBlockedState, LauncherEmptyState, LauncherModDetailPanel } from '@features/launcher'
 import { applyAppUiStatePatch, getAppUiStateSnapshot, initializeAppUiState } from '@shared/lib/app-state'
+import { listenForLauncherModDetailDismiss } from '@shared/lib/launcher-overlay-events'
 import { LauncherDiscoverCard } from './LauncherDiscoverCard'
 import { formatCompactNumber } from './launcherDiscoverFormat'
 import type { LauncherDiscoverSearchRequest } from '../model/launcherDiscoverSearchRequest'
@@ -38,6 +39,8 @@ type LauncherDiscoverPageProps = {
   onNavigateToDiagnostics?: () => void
   onRetryDiagnostics?: (() => Promise<void> | void) | null
   searchRequest?: LauncherDiscoverSearchRequest | null
+  /** False while the discover route is hidden (cached pages stay mounted). */
+  routeActive?: boolean
 }
 
 type DiscoverOption<T extends string | number> = {
@@ -133,6 +136,7 @@ function applyTagSuggestion(currentValue: string, tag: string) {
 }
 
 const LAUNCHER_DISCOVER_PROGRESS_NOTIFICATION_ID = 'launcher-discover-progress'
+const LAUNCHER_DISCOVER_MOD_ID_NOTIFICATION_ID = 'launcher-discover-mod-id-not-found'
 
 function getDiscoverPaginationItems(page: number, totalPages: number, capacity: number) {
   if (totalPages <= 0) {
@@ -581,6 +585,43 @@ function createDiscoverRemoteDetail(item: DiscoverItem): LauncherDiscoverDetail 
   }
 }
 
+function createModIdRemoteDetail(modId: number): LauncherDiscoverDetail {
+  return {
+    modId,
+    title: `Nexus #${modId}`,
+    summary: null,
+    description: null,
+    author: null,
+    version: null,
+    modUrl: `https://www.nexusmods.com/stardewvalley/mods/${modId}`,
+    imageUrl: null,
+    galleryImages: [],
+    updatedAt: null,
+    fileSize: null,
+    category: null,
+    downloads: null,
+    endorsements: null,
+    tags: [],
+    directDownloadEnabled: null,
+    supportsVortex: null,
+    primaryFileId: null,
+    primaryFileName: null,
+    primaryFileVersion: null,
+    primaryFileCategory: null,
+    primaryFileSize: null,
+    primaryFileSizeBytes: null,
+    primaryFileScanned: null,
+    primaryFileScanStatus: null,
+    primaryFileChangelog: [],
+    requiredLoader: null,
+    gameVersion: null,
+    archiveType: null,
+    updateRisk: null,
+    requirements: [],
+    files: [],
+  }
+}
+
 function mergeDiscoverRemoteDetail(item: DiscoverItem, detail: LauncherDiscoverDetail): LauncherDiscoverDetail {
   return {
     ...detail,
@@ -600,16 +641,38 @@ function mergeDiscoverRemoteDetail(item: DiscoverItem, detail: LauncherDiscoverD
 
 function LauncherDiscoverDetailPanel({
   item,
+  modId,
   onClose,
   onQueueDownload,
+  onModIdNotFound,
 }: {
-  item: DiscoverItem
+  item: DiscoverItem | null
+  modId: number | null
   onClose: () => void
   onQueueDownload: (input: QueueLauncherDownloadInput) => void
+  onModIdNotFound: (modId: number) => void
 }) {
-  const remoteDetail = useLauncherRemoteModDetail(item.modId, { includeFiles: false })
-  const fallbackDetail = createDiscoverRemoteDetail(item)
-  const displayedDetail = remoteDetail.detail ? mergeDiscoverRemoteDetail(item, remoteDetail.detail) : fallbackDetail
+  const remoteDetail = useLauncherRemoteModDetail(item?.modId ?? modId, { includeFiles: false })
+  const fallbackDetail = item ? createDiscoverRemoteDetail(item) : modId ? createModIdRemoteDetail(modId) : null
+  const displayedDetail = item
+    ? remoteDetail.detail
+      ? mergeDiscoverRemoteDetail(item, remoteDetail.detail)
+      : fallbackDetail
+    : (remoteDetail.detail ?? fallbackDetail)
+
+  // Direct mod-id opens have no catalog item to fall back to: when the remote
+  // lookup fails, let the page close the panel and surface a notification
+  // instead of leaving the user stuck on an empty detail drawer.
+  const modIdNotFound = !item && modId != null && remoteDetail.state === 'error'
+  useEffect(() => {
+    if (modIdNotFound && modId != null) {
+      onModIdNotFound(modId)
+    }
+  }, [modId, modIdNotFound, onModIdNotFound])
+
+  if (modIdNotFound) {
+    return null
+  }
 
   return (
     <LauncherModDetailPanel
@@ -633,6 +696,7 @@ export function LauncherDiscoverPage({
   onNavigateToDiagnostics,
   onRetryDiagnostics,
   searchRequest,
+  routeActive = true,
 }: LauncherDiscoverPageProps) {
   const desktopHost = canUseDesktopHost()
   const [hydratedToolbarState, setHydratedToolbarState] = useState<LauncherDiscoverToolbarState>(() => getInitialDiscoverToolbarState())
@@ -677,6 +741,7 @@ export function LauncherDiscoverPage({
       searchRequest={searchRequest}
       initialToolbarState={hydratedToolbarState}
       launcherUiStateReady={launcherUiStateReady}
+      routeActive={routeActive}
     />
   )
 }
@@ -688,6 +753,7 @@ function LauncherDiscoverPageContent({
   searchRequest,
   initialToolbarState,
   launcherUiStateReady,
+  routeActive = true,
 }: {
   onQueueDownload: (input: QueueLauncherDownloadInput) => void
   onNavigateToDiagnostics?: () => void
@@ -695,8 +761,10 @@ function LauncherDiscoverPageContent({
   searchRequest?: LauncherDiscoverSearchRequest | null
   initialToolbarState: LauncherDiscoverToolbarState
   launcherUiStateReady: boolean
+  routeActive?: boolean
 }) {
   const copy = useEditorCopy().launcher
+  const launcherPort = useLauncherPort()
   const discover = useLauncherDiscover(initialToolbarState)
   const [filtersHidden, setFiltersHidden] = useState(initialToolbarState.filtersHidden)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
@@ -706,6 +774,7 @@ function LauncherDiscoverPageContent({
   const [jumpPageDraft, setJumpPageDraft] = useState('')
   const [jumpPageDirty, setJumpPageDirty] = useState(false)
   const [detailItem, setDetailItem] = useState<DiscoverItem | null>(null)
+  const [detailModId, setDetailModId] = useState<number | null>(null)
   const [advancedLimitId, setAdvancedLimitId] = useState<string | null>(null)
   const [searchDraft, setSearchDraft] = useState(discover.query)
   const handledSearchRequestIdRef = useRef<number | null>(null)
@@ -866,6 +935,11 @@ function LauncherDiscoverPageContent({
     setOpenSection(DEFAULT_DISCOVER_OPEN_SECTION)
     discover.resetFilters()
     discover.setQuery(query)
+
+    const modId = parseLauncherModIdQuery(query)
+    if (modId != null) {
+      openModIdDetail(modId)
+    }
   })
 
   useEffect(() => {
@@ -958,11 +1032,67 @@ function LauncherDiscoverPageContent({
     }
   }
   const submitDiscoverSearch = () => {
-    if (!searchDirty || discoverBlocked || discoverRequestFailed) {
+    if (discoverBlocked || discoverRequestFailed) {
       return
     }
-    discover.setQuery(normalizedSearchDraft)
+
+    if (searchDirty) {
+      discover.setQuery(normalizedSearchDraft)
+    }
+
+    const modId = parseLauncherModIdQuery(normalizedSearchDraft)
+    if (modId != null) {
+      openModIdDetail(modId)
+    }
   }
+
+  const notifyModIdNotFound = (modId: number) => {
+    publishNotification({
+      id: LAUNCHER_DISCOVER_MOD_ID_NOTIFICATION_ID,
+      level: 'warning',
+      title: copy.discover.modIdNotFoundTitle,
+      description: copy.discover.modIdNotFoundDetail(modId),
+      autoDismissMs: 5_000,
+    })
+  }
+
+  const handleModIdDetailNotFound = (modId: number) => {
+    setDetailModId(null)
+    notifyModIdNotFound(modId)
+  }
+
+  const openModIdDetail = (modId: number) => {
+    if (launcherPort.isRemoteModIdInvalid(modId)) {
+      handleModIdDetailNotFound(modId)
+      return
+    }
+    if (detailModId === modId) {
+      return
+    }
+
+    setDetailItem(null)
+    setDetailModId(modId)
+  }
+
+  // The downloads manager floats inside the window frame, so it cannot stack
+  // above the body-portal detail drawer; pages close their drawer on request.
+  useEffect(
+    () =>
+      listenForLauncherModDetailDismiss(() => {
+        setDetailModId(null)
+        setDetailItem(null)
+      }),
+    [],
+  )
+
+  // Cached launcher routes stay mounted while hidden; close the body-portal
+  // detail drawer as soon as the discover route leaves the active page.
+  useEffect(() => {
+    if (routeActive === false) {
+      setDetailModId(null)
+      setDetailItem(null)
+    }
+  }, [routeActive])
 
   return (
     <section className="launcher-discover-page">
@@ -1438,7 +1568,10 @@ function LauncherDiscoverPageContent({
                       >
                         <LauncherDiscoverCard
                           item={item}
-                          onOpenDetails={() => setDetailItem(item)}
+                          onOpenDetails={() => {
+                            setDetailModId(null)
+                            setDetailItem(item)
+                          }}
                           onQueueDownload={() =>
                             onQueueDownload({
                               modId: item.modId,
@@ -1544,8 +1677,22 @@ function LauncherDiscoverPageContent({
             </div>
           ) : null}
 
-          {detailItem ? (
-            <LauncherDiscoverDetailPanel item={detailItem} onClose={() => setDetailItem(null)} onQueueDownload={onQueueDownload} />
+          {detailModId != null ? (
+            <LauncherDiscoverDetailPanel
+              item={null}
+              modId={detailModId}
+              onClose={() => setDetailModId(null)}
+              onQueueDownload={onQueueDownload}
+              onModIdNotFound={handleModIdDetailNotFound}
+            />
+          ) : detailItem ? (
+            <LauncherDiscoverDetailPanel
+              item={detailItem}
+              modId={null}
+              onClose={() => setDetailItem(null)}
+              onQueueDownload={onQueueDownload}
+              onModIdNotFound={handleModIdDetailNotFound}
+            />
           ) : null}
         </div>
       </LoadingMotionReveal>

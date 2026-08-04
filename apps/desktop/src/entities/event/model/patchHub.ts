@@ -185,6 +185,71 @@ function hubStatus(enabled: boolean, severity: EventHubSeverity, issueCount: num
   return issueCount === 0 ? 'done' : 'draft'
 }
 
+/** Pure parse+validate outcome of one event script; shared from the analysis cache, never mutate. */
+type EventScriptAnalysis = {
+  eventId: string
+  triggers: string[]
+  preconditionGroups: EventPreconditionGroups
+  actors: EventPatchHubActor[]
+  cameraTile: { x: number; y: number } | null
+  commandCount: number
+  dialogueCount: number
+  scriptSteps: EventPatchHubScriptStep[]
+  issues: AssetIssue[]
+}
+
+const EVENT_SCRIPT_ANALYSIS_CACHE_LIMIT = 1000
+const eventScriptAnalysisCache = new Map<string, EventScriptAnalysis>()
+
+/**
+ * Parses and validates one event script. Cached by key + raw script: the hub
+ * analyzes every patch on mount and the editor re-analyzes on entry, while the
+ * same vanilla scripts repeat across patches, so the cache turns editor entry
+ * after a hub visit into a lookup.
+ */
+function analyzeEventScript(key: string, rawScript: string): EventScriptAnalysis {
+  const cacheKey = `${key}\n${rawScript}`
+  const cached = eventScriptAnalysisCache.get(cacheKey)
+  if (cached) {
+    return cached
+  }
+
+  const parser = new EventPreconditionParser()
+  const keyParts = splitEventPreconditions(key)
+  const preconditionGroups = parser.parse(keyParts.slice(1))
+  const segments = parseEventCommands(rawScript)
+  const scene = parseEventSceneSetup(segments)
+  const commands = segments.slice(3).map((raw, index) => parseEventCommand(raw, index))
+  const firstActor = scene.actors[0] ?? null
+  const analysis: EventScriptAnalysis = {
+    eventId: keyParts[0] ?? key,
+    triggers: keyParts.slice(1).filter(Boolean),
+    preconditionGroups,
+    actors: scene.actors.map(actorToHubActor),
+    cameraTile: firstCoordinatePair(scene.cameraInstruction) ?? (firstActor ? { x: firstActor.tileX, y: firstActor.tileY } : null),
+    commandCount: commands.length,
+    dialogueCount: countDialogueCommands(commands),
+    scriptSteps: buildScriptSteps(commands),
+    issues: validateEventScript({
+      key,
+      rawScript,
+      scene,
+      commands,
+      preconditionGroups,
+      segmentCount: segments.length,
+    }),
+  }
+
+  if (eventScriptAnalysisCache.size >= EVENT_SCRIPT_ANALYSIS_CACHE_LIMIT) {
+    const oldest = eventScriptAnalysisCache.keys().next().value
+    if (oldest !== undefined) {
+      eventScriptAnalysisCache.delete(oldest)
+    }
+  }
+  eventScriptAnalysisCache.set(cacheKey, analysis)
+  return analysis
+}
+
 function buildHubEvent(
   patch: EventPatchHubSourcePatch,
   key: string,
@@ -193,54 +258,41 @@ function buildHubEvent(
   eventAliases: Record<string, string>,
   duplicateKeys: Set<string>,
 ): EventPatchHubEvent {
-  const parser = new EventPreconditionParser()
-  const keyParts = splitEventPreconditions(key)
-  const eventId = keyParts[0] ?? key
+  const analysis = analyzeEventScript(key, rawScript)
   const alias = eventAliases[key]?.trim() ?? ''
-  const triggers = keyParts.slice(1).filter(Boolean)
-  const preconditionGroups = parser.parse(keyParts.slice(1))
-  const segments = parseEventCommands(rawScript)
-  const scene = parseEventSceneSetup(segments)
-  const commands = segments.slice(3).map((raw, index) => parseEventCommand(raw, index))
-  const cameraCoordinates = firstCoordinatePair(scene.cameraInstruction)
-  const firstActor = scene.actors[0] ?? null
-  const tile = cameraCoordinates ?? (firstActor ? { x: firstActor.tileX, y: firstActor.tileY } : null)
   const targetName = getTargetName(patch.target)
   const enabled = Boolean(patch.enabled) && !disabledEventKeys.has(key)
-  const issues = validateEventScript({
-    key,
-    rawScript,
-    scene,
-    commands,
-    preconditionGroups,
-    segmentCount: segments.length,
-  })
-  if (duplicateKeys.has(key)) {
-    issues.unshift({
-      severity: 'error',
-      code: 'duplicateEntryKey',
-      messageKey: 'duplicateEntryKey',
-      path: [key],
-      params: { entryKey: key },
-    })
-  }
+  // Duplicate flags are draft-session state, not script content, so they layer
+  // over the cached analysis (copy — the cached issues array is shared).
+  const issues: AssetIssue[] = duplicateKeys.has(key)
+    ? [
+        {
+          severity: 'error',
+          code: 'duplicateEntryKey',
+          messageKey: 'duplicateEntryKey',
+          path: [key],
+          params: { entryKey: key },
+        },
+        ...analysis.issues,
+      ]
+    : analysis.issues
   const severity = hubSeverity(issues)
 
   return {
     key,
-    eventId,
-    title: alias || eventId || key,
+    eventId: analysis.eventId,
+    title: alias || analysis.eventId || key,
     status: hubStatus(enabled, severity, issues.length),
     severity,
-    triggers,
-    location: tile ? `${targetName} (${tile.x}, ${tile.y})` : targetName,
-    actors: scene.actors.map(actorToHubActor),
-    commandCount: commands.length,
-    dialogueCount: countDialogueCommands(commands),
+    triggers: analysis.triggers,
+    location: analysis.cameraTile ? `${targetName} (${analysis.cameraTile.x}, ${analysis.cameraTile.y})` : targetName,
+    actors: analysis.actors,
+    commandCount: analysis.commandCount,
+    dialogueCount: analysis.dialogueCount,
     issues,
     issueCount: issues.length,
-    scriptSteps: buildScriptSteps(commands),
-    preconditionGroups,
+    scriptSteps: analysis.scriptSteps,
+    preconditionGroups: analysis.preconditionGroups,
   }
 }
 

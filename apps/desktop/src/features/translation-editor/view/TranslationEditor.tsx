@@ -752,7 +752,12 @@ export function TranslationEditor({
       })
     }
   }
-  const { progress: aiProgress, run: runAiTranslation } = useLocalizationTranslation({
+  const {
+    progress: aiProgress,
+    run: runAiTranslation,
+    cancel: cancelAiTranslation,
+    streamingValues,
+  } = useLocalizationTranslation({
     activeEntry,
     allEntries,
     sourceLocale,
@@ -763,6 +768,9 @@ export function TranslationEditor({
     engineRef,
     applyResults: applyAiResults,
   })
+  // 流式预览只作用于正在生成的条目：文本区展示流式值并锁定编辑，正式结果
+  // 落地后（streamingValues 归 null）自动恢复可编辑与文件内容。
+  const streamingEntryValue = activeEntry ? (streamingValues?.get(activeEntry.key) ?? null) : null
   const [reviewOpen, setReviewOpen] = useState(false)
   const [mobilePanel, setMobilePanel] = useState<'entries' | 'translation' | 'review'>('translation')
   const reviewTriggerRef = useRef<HTMLButtonElement | null>(null)
@@ -1243,6 +1251,21 @@ export function TranslationEditor({
 
         {corpusReadiness.visible ? <CorpusReadinessBanner readiness={corpusReadiness} onOpenSettings={onOpenAiSettings} /> : null}
 
+        {aiProgress.running ? (
+          <div className="translation-ai-progress" role="status">
+            <span>{aiProgress.error ?? copy.aiTranslating(aiProgress.completed, aiProgress.total)}</span>
+            <button
+              type="button"
+              className="icon-button h-10 w-10"
+              onClick={cancelAiTranslation}
+              title={copy.aiCancel}
+              aria-label={copy.aiCancel}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : null}
+
         {review.running || review.error ? (
           <div className="translation-ai-progress" role="status">
             <span>{review.error ?? copy.reviewing(0, review.result?.run.summary.total ?? allEntries.length)}</span>
@@ -1323,6 +1346,7 @@ export function TranslationEditor({
                     className={cx(
                       'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors',
                       selectedKey === entry.key ? 'bg-(--accent-soft)' : 'hover:bg-(--bg-hover)',
+                      streamingValues?.has(entry.key) && 'is-ai-streaming',
                     )}
                     onClick={() => setSelectedKey(entry.key)}
                   >
@@ -1335,6 +1359,7 @@ export function TranslationEditor({
                       </code>
                       <p className="truncate text-[10px] text-(--text-tertiary)">{entry.sourceText || entry.targetText}</p>
                     </div>
+                    {streamingValues?.has(entry.key) ? <span className="translation-entry-stream-dot" aria-hidden="true" /> : null}
                   </button>
                 ))
               ) : (
@@ -1399,13 +1424,23 @@ export function TranslationEditor({
                       {targetLocale}
                     </span>
                     {copy.targetLabel}
+                    {streamingEntryValue !== null ? (
+                      <span className="translation-ai-streaming-badge" role="status">
+                        {copy.aiStreaming}
+                      </span>
+                    ) : null}
                   </div>
                   <textarea
                     ref={textareaRef}
-                    className="control-input min-h-40 resize-y rounded-xl p-4 text-base leading-relaxed"
-                    value={activeEntry.targetText}
+                    className={cx(
+                      'control-input min-h-40 resize-y rounded-xl p-4 text-base leading-relaxed',
+                      streamingEntryValue !== null && 'is-ai-streaming',
+                    )}
+                    value={streamingEntryValue ?? activeEntry.targetText}
                     onChange={(event) => updateEntry(activeEntry.key, event.target.value)}
                     onKeyDown={handleKeyboard}
+                    readOnly={streamingEntryValue !== null}
+                    aria-readonly={streamingEntryValue !== null ? true : undefined}
                   />
                   <p className="mt-2 text-[11px] text-(--text-tertiary)">{copy.shortcutHint}</p>
                 </div>

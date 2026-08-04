@@ -50,12 +50,13 @@
     transform: scale(0.97);
   }
   .ai-localization-center .control-button-primary {
-    border-color: transparent;
-    background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 92%, white 8%), var(--accent));
-    color: var(--accent-contrast);
+    border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: var(--accent);
   }
   .ai-localization-center .control-button-primary:hover {
-    background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 88%, var(--text-primary) 12%));
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+    color: var(--accent);
   }
   .ai-localization-tab-content {
     position: relative;

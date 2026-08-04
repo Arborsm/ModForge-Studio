@@ -18,6 +18,8 @@ import {
 } from './eventStagePlaybackCommands'
 import {
   applyEventFarmerStateSeeds,
+  appendLanternLight,
+  appendStageEffect,
   applyStageEffectCommand,
   buildActorMap,
   createFadeOverlayState,
@@ -32,6 +34,7 @@ import {
   normalizeEventItemId,
   normalizeStageMapName,
   parseBoolean,
+  parseLightingColorFromArgs,
   parseNumber,
   parsePoint,
   parseRgbColorFromArgs,
@@ -44,10 +47,39 @@ import {
   type PlaybackLogEntry,
   type PlaybackNoticeTone,
   type PlaybackState,
+  type StageLanternLight,
 } from '@entities/event'
 
 type PlaybackContext = {
   objectDrinkIndex?: Record<string, boolean>
+}
+
+/** Cap on commands executed in fast-forward chains. Bounds runaway switchEvent/fork cycles across continuePlayback calls. */
+const MAX_EVENT_PLAYBACK_STEPS = 4_000
+
+function haltPlaybackForRunawayLoop(state: PlaybackState, copy: EventStageCopy): PlaybackState {
+  return {
+    ...state,
+    currentEntry: {
+      id: 'playback:halted',
+      tone: 'system',
+      title: copy.playbackHaltedTitle,
+      detail: copy.playbackHaltedDetail,
+    },
+    activeDialogue: null,
+    pendingChoice: null,
+    waitingMs: null,
+    waitingStartedAtMs: null,
+    blockingMovement: false,
+    ended: true,
+    notices: enqueuePlaybackNotice(state, {
+      id: 'playback:halted',
+      title: copy.playbackHaltedTitle,
+      detail: copy.playbackHaltedDetail,
+      tone: 'system',
+      durationMs: 8000,
+    }),
+  }
 }
 
 function resolveViewportFocus(command: EventCommand, actors: Record<string, EventActorState>, currentFocus: PlaybackState['focusTile']) {
@@ -83,6 +115,7 @@ function applyStageMapChange(state: PlaybackState, mapName: string | null) {
     ...state,
     currentMapName: nextMapName,
     stageEffects: [],
+    cameraPan: null,
   }
 }
 
@@ -134,6 +167,8 @@ function seekPlaybackToEntry(
       waitingMs: null,
       waitingStartedAtMs: null,
       blockingMovement: false,
+      focusTile: rawNextState.cameraPan ? rawNextState.cameraPan.toTile : rawNextState.focusTile,
+      cameraPan: null,
       actors: Object.fromEntries(
         Object.entries(rawNextState.actors).map(([actorKey, actor]) => [actorKey, actor.movement ? { ...actor, movement: null } : actor]),
       ),
@@ -143,6 +178,13 @@ function seekPlaybackToEntry(
     }
     if (nextState.ended) {
       return nextState
+    }
+    if (nextState.pendingChoice) {
+      // Fast-forward through interactive questions (quickQuestion / embedded
+      // $q speak) by auto-picking the first branch. Without this a seek to an
+      // entry after a choice spins forever on the pending question.
+      state = resolveChoice(nextState, eventIndex, 0, copy, playbackContext)
+      continue
     }
     state = nextState
   }
@@ -229,13 +271,26 @@ function continuePlayback(
     }
   }
 
+  const visitedPositions = new Set<string>()
+
   for (let guard = 0; guard < 400; guard += 1) {
     const command = nextState.commands[nextState.pointer]
     if (!command) {
       return { ...nextState, activeDialogue: null, ended: true, pendingChoice: null, waitingMs: null, blockingMovement: false }
     }
 
-    const base = { ...nextState, currentCommandId: command.id }
+    if (nextState.executionCount >= MAX_EVENT_PLAYBACK_STEPS) {
+      return haltPlaybackForRunawayLoop(nextState, copy)
+    }
+
+    const positionKey = `${nextState.activeEventKey ?? ''}:${nextState.pointer}`
+    if (visitedPositions.has(positionKey)) {
+      return haltPlaybackForRunawayLoop(nextState, copy)
+    }
+    visitedPositions.add(positionKey)
+
+    const executionCount = nextState.executionCount + 1
+    const base = { ...nextState, currentCommandId: command.id, executionCount }
 
     switch (command.command) {
       case 'pause':
@@ -505,18 +560,39 @@ function continuePlayback(
           ended: false,
           pendingChoice: null,
         }
-      case 'viewport':
+      case 'viewport': {
+        const focusTile = resolveViewportFocus(command, nextState.actors, nextState.focusTile)
+        const moveDurationMs = command.args[1] === 'move' ? Number.parseInt(command.args[4] ?? '', 10) : Number.NaN
+        if (focusTile && Number.isFinite(moveDurationMs) && moveDurationMs > 0) {
+          // `viewport move x y duration` pans the camera smoothly and holds the
+          // script until the pan completes, like the game does.
+          const nowMs = performance.now()
+          return {
+            ...base,
+            pointer: nextState.pointer + 1,
+            currentEntry: { id: `${command.id}:viewport`, tone: 'command', title: command.title, detail: command.detail },
+            activeDialogue: null,
+            cameraPan: { fromTile: nextState.focusTile ?? focusTile, toTile: focusTile, startedAtMs: nowMs, durationMs: moveDurationMs },
+            waitingMs: moveDurationMs,
+            waitingStartedAtMs: nowMs,
+            blockingMovement: false,
+            ended: false,
+            pendingChoice: null,
+          }
+        }
         return {
           ...base,
           pointer: nextState.pointer + 1,
           currentEntry: { id: `${command.id}:viewport`, tone: 'command', title: command.title, detail: command.detail },
           activeDialogue: null,
-          focusTile: resolveViewportFocus(command, nextState.actors, nextState.focusTile),
+          focusTile,
+          cameraPan: null,
           waitingMs: null,
           blockingMovement: false,
           ended: false,
           pendingChoice: null,
         }
+      }
       case 'changeLocation': {
         const locationName = normalizeStageMapName(command.args[1])
         const stageState = applyStageMapChange(nextState, locationName)
@@ -617,18 +693,23 @@ function continuePlayback(
         return advanceCommandPlayback(nextBase, command, { entrySuffix: 'sound', entryDetail: cue ?? command.detail })
       }
       case 'ambientLight': {
-        const ambientOverlayColor = parseRgbColorFromArgs(command.args, 1)
+        // Game behavior: sets Game1.ambientLight for the rest of the event —
+        // the lightmap base switches to this color until the event ends.
+        const ambientOverlayColor = parseLightingColorFromArgs(command.args, 1)
+        const ambientDetail = ambientOverlayColor
+          ? `${ambientOverlayColor.r} ${ambientOverlayColor.g} ${ambientOverlayColor.b}`
+          : command.detail
         const nextBase = {
           ...base,
           ambientOverlayColor,
           notices: enqueuePlaybackNotice(base, {
             title: command.title,
-            detail: ambientOverlayColor ?? command.detail,
+            detail: ambientDetail,
             tone: 'visual',
             durationMs: 2400,
           }),
         }
-        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'ambient', entryDetail: ambientOverlayColor ?? command.detail })
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'ambient', entryDetail: ambientDetail })
       }
       case 'fade': {
         const nowMs = performance.now()
@@ -840,7 +921,7 @@ function continuePlayback(
         const detail = normalizeEventItemId(command.args[1]) ?? command.detail
         const nextBase = {
           ...base,
-          stageEffects: stageEffect ? [...nextState.stageEffects, stageEffect] : nextState.stageEffects,
+          stageEffects: stageEffect ? appendStageEffect(nextState.stageEffects, stageEffect) : nextState.stageEffects,
           notices: enqueuePlaybackNotice(base, {
             title: command.title,
             detail,
@@ -857,7 +938,7 @@ function continuePlayback(
         const detail = point ? `${normalizeEventItemId(command.args[3]) ?? 'object'} @ (${point.tileX}, ${point.tileY})` : command.detail
         const nextBase = {
           ...base,
-          stageEffects: stageEffect ? [...nextState.stageEffects, stageEffect] : nextState.stageEffects,
+          stageEffects: stageEffect ? appendStageEffect(nextState.stageEffects, stageEffect) : nextState.stageEffects,
           notices: enqueuePlaybackNotice(base, {
             title: command.title,
             detail,
@@ -882,6 +963,38 @@ function continuePlayback(
           }),
         }
         return advanceCommandPlayback(nextBase, command, { entrySuffix: 'removeObject', entryDetail: detail })
+      }
+      case 'addLantern': {
+        // Game form: `addLantern spriteId x y radius` — position is tile coords
+        // scaled to world pixels, radius is the light radius in tiles.
+        const lanternTileX = parseNumber(command.args[2])
+        const lanternTileY = parseNumber(command.args[3])
+        const lanternRadius = Math.max(0.5, parseNumber(command.args[4]) ?? 1)
+        const lantern: StageLanternLight | null =
+          lanternTileX != null && lanternTileY != null
+            ? {
+                id: `${command.id}:lantern`,
+                commandId: command.id,
+                worldX: lanternTileX * 64,
+                worldY: lanternTileY * 64,
+                radius: lanternRadius,
+              }
+            : null
+        const detail =
+          lanternTileX != null && lanternTileY != null
+            ? `${lanternTileX}, ${lanternTileY} (r ${lanternRadius})`
+            : command.detail || command.raw
+        const nextBase = {
+          ...base,
+          lanternLights: lantern ? appendLanternLight(nextState.lanternLights, lantern) : nextState.lanternLights,
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail,
+            tone: 'visual',
+            durationMs: 2400,
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'lantern', entryDetail: detail })
       }
       case 'addTemporaryActor': {
         const actorName = command.args[1]
@@ -1013,7 +1126,6 @@ function continuePlayback(
       case 'addBigProp':
       case 'addFloorProp':
       case 'addProp':
-      case 'addLantern':
       case 'proceedPosition':
       case 'resetVariable':
       case 'startJittering':
@@ -1048,6 +1160,7 @@ function continuePlayback(
           nextState = {
             ...nextState,
             ...mergeEventScene(nextState, targetEvent),
+            executionCount,
             currentEntry: {
               id: `${command.id}:fork`,
               tone: 'system',
@@ -1079,6 +1192,7 @@ function continuePlayback(
           nextState = {
             ...nextState,
             ...mergeEventScene(nextState, targetEvent),
+            executionCount,
             currentEntry: {
               id: `${command.id}:switch`,
               tone: 'system',
@@ -1093,7 +1207,7 @@ function continuePlayback(
           continue
         }
 
-        nextState = { ...nextState, pointer: nextState.pointer + 1 }
+        nextState = { ...nextState, pointer: nextState.pointer + 1, executionCount }
         break
       }
       case 'end':

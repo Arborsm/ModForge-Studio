@@ -3,6 +3,8 @@ import { useLauncherPort } from './launcherPortContext'
 import { useEditorCopy } from '@locales/provider'
 import { TaskCancelledError, useQueuedMutationTask, useTaskScope, type TaskScope } from '@shared/lib/task-runtime'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
+import { reportAppEvent } from '@platform/observability'
+import { toErrorMessage } from './errorMessage'
 import type {
   LauncherLibraryModSummary,
   LauncherLibraryPackPreset,
@@ -769,8 +771,18 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
             return
           }
 
-          setError(nextError instanceof Error ? nextError.message : 'Failed to scan launcher library.')
+          const message = toErrorMessage(nextError, copy.library.genericError)
+          setError(message)
           setState('error')
+          reportAppEvent({
+            level: 'error',
+            title: copy.library.actionErrorTitle,
+            description: message,
+            keyValues: {
+              source: 'launcher-library',
+              operation: 'refresh',
+            },
+          })
         }
       })
       .catch((nextError) => {

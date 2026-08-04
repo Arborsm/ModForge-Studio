@@ -89,6 +89,7 @@ const translationEditor: TranslationEditorCopy = {
   aiTranslateAllConfirm: 'Replace every existing target translation with AI output?',
   aiTranslating: (completed, total) => `Translating ${completed}/${total}`,
   aiCancel: 'Cancel translation',
+  aiStreaming: 'Generating…',
   aiNotConfigured: 'Configure a default AI profile in Settings before translating.',
   aiFailed: 'AI translation failed.',
   aiPartialFailed: (count) => `${count} translation ${count === 1 ? 'item' : 'items'} failed. Successful results remain in the draft.`,

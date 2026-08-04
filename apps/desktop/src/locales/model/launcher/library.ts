@@ -1,7 +1,8 @@
 export type LauncherLibraryCopy = {
   title: string
   subtitle: string
-  empty: string
+  actionErrorTitle: string
+  genericError: string
   emptyTitle: string
   emptyDetail: string
   emptyRefreshAction: string
@@ -85,6 +86,8 @@ export type LauncherLibraryCopy = {
     remoteRequirement: string
     missing: string
     satisfied: string
+    requiresSmapiBadge: (version: string) => string
+    requiresSmapiTooltip: (version: string) => string
     optionalDependency: string
     disabledDependency: string
     dependencyIssue: string
@@ -108,9 +111,16 @@ export type LauncherLibraryCopy = {
     changelogEmpty: string
     aiTranslate: string
     aiTranslating: string
+    aiTranslatingProgress: (completed: number, total: number) => string
     aiOriginal: string
     aiTranslated: string
     aiRefresh: string
+    aiCorpusWarming: string
+    aiCorpusWarmupFailed: string
+    aiCorpusRetry: string
+    aiReasoningChain: string
+    aiReasoningChainShow: string
+    aiReasoningChainHide: string
     config: {
       title: string
       loading: string
@@ -177,8 +187,32 @@ export type LauncherLibraryCopy = {
   previewContentsTitle: string
   previewArchiveMeta: (entries: number, files: number) => string
   previewSelectionSummary: (archiveCount: number, rootCount: number) => string
+  previewStatusNew: string
+  previewStatusUpdate: string
+  previewStatusReinstall: string
+  previewStatusDowngrade: string
+  previewVersionChange: (from: string, to: string) => string
+  previewDiffSummary: (added: number, changed: number, removed: number) => string
+  previewActionUpdate: string
+  installSummaryUpgraded: (from: string, to: string) => string
+  diffChangeAdded: string
+  diffChangeRemoved: string
+  diffChangeChanged: string
+  diffModifiedLabel: string
+  diffSizeLabel: string
+  diffModifiedChange: (from: string, to: string) => string
+  diffSizeChange: (from: string, to: string, delta: string) => string
+  diffExpandLines: (count: number) => string
+  diffExpandFiles: (count: number) => string
+  diffCollapse: string
+  diffMoreFiles: (count: number) => string
+  diffTruncatedHint: string
+  diffNoChanges: string
+  diffUnavailable: string
   dragDropInstallTitle: string
   dragDropInstallSubtitle: (formats: string) => string
+  dragDropZoneTitle: string
+  dragDropZoneBrowseHint: string
   dragDropMultipleFiles: string
   dragDropUnsupportedArchive: (formats: string) => string
   dragDropMissingPath: string
@@ -208,6 +242,8 @@ export type LauncherLibraryCopy = {
   installBackupIdLabel: string
   installBackupDeleteCount: (count: number) => string
   installBackupOverwriteCount: (count: number) => string
+  installBackupCreatedAt: (timestamp: string) => string
+  installBackupModCount: (count: number) => string
   filteredEmpty: string
   scopeTitle: string
   scopeHint: string

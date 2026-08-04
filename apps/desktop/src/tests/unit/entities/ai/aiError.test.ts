@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { parseAiFailure } from '@entities/ai'
+import { isTransientAiFailure, parseAiFailure } from '@entities/ai'
 
 describe('parseAiFailure', () => {
   it('parses stable backend envelopes and preserves inline diagnostic detail', () => {
@@ -21,5 +21,28 @@ describe('parseAiFailure', () => {
       code: 'cache',
       detail: 'database is locked',
     })
+  })
+})
+
+describe('isTransientAiFailure', () => {
+  it('treats timeout and network failures as transient for per-batch degradation', () => {
+    expect(isTransientAiFailure(parseAiFailure(new Error('AI_ERROR::timeout::operation timed out')))).toBe(true)
+    expect(isTransientAiFailure(parseAiFailure(new Error('AI_ERROR::network::could not be sent')))).toBe(true)
+  })
+
+  it('keeps deterministic failures fatal so multi-batch jobs never mask them', () => {
+    for (const code of [
+      'authentication',
+      'model',
+      'rate-limit',
+      'invalid-response',
+      'placeholder-mismatch',
+      'cache',
+      'cancelled',
+      'unknown',
+      'not-configured',
+    ]) {
+      expect(isTransientAiFailure(parseAiFailure(new Error(`AI_ERROR::${code}::detail`)))).toBe(false)
+    }
   })
 })

@@ -284,6 +284,29 @@ async function main() {
     //    the selected one (regression: tilesheets used to render grey glyphs).
     await page.waitForFunction(() => document.querySelectorAll('.asset-image-thumbnail img').length === 3, null, { timeout: 15_000 })
 
+    // 5.5. Merged two-column layout: the replacements column sits on the left
+    //      with its own new-replacement CTA; creating a replacement opens the
+    //      binding editor in the right-hand main cell (the asset grid unmounts)
+    //      and closing it returns to the grid with the row kept in the list.
+    if ((await page.locator('.asset-library-bindings').count()) !== 1) {
+      failures.push('merged layout is missing the left replacements column')
+    }
+    const newBindingCtas = await page.locator('.asset-library-bindings-header .control-button-primary').count()
+    if (newBindingCtas !== 1) failures.push(`expected exactly 1 new-replacement CTA in the bindings header, found ${newBindingCtas}`)
+    await page.locator('.asset-library-bindings-header .control-button-primary').click()
+    await page.waitForSelector('.load-family-picker', { state: 'visible', timeout: 5_000 })
+    await page.locator('.load-family-picker-card', { hasText: '图片' }).click()
+    await page.waitForSelector('.asset-library-load-binding-editor .map-load-editor', { state: 'visible', timeout: 10_000 })
+    if ((await page.locator('.asset-library-browser').count()) !== 0) {
+      failures.push('asset grid stayed mounted while the replacement editor is open')
+    }
+    await page.screenshot({ path: `${screenshotDir}/10-binding-editor-1680.png` })
+    await page.locator('.asset-library-binding-editor-header .icon-button').click()
+    await page.waitForSelector('.asset-library-browser', { state: 'visible', timeout: 10_000 })
+    const bindingRows = await page.locator('.asset-library-load-binding-row').count()
+    if (bindingRows !== 1) failures.push(`expected the created replacement to stay in the left list, found ${bindingRows} rows`)
+    await page.screenshot({ path: `${screenshotDir}/11-merged-layout-1680.png` })
+
     // 6. Header carries no action buttons; the single primary CTA lives in the toolbar.
     if ((await page.locator('.asset-library-header button').count()) !== 0) {
       failures.push('asset library header still renders action buttons')
@@ -377,7 +400,7 @@ async function main() {
         await page.mouse.down()
         await page.mouse.move(secondBox.x + secondBox.width - 6, secondBox.y + secondBox.height - 6, { steps: 12 })
         await page.mouse.up()
-        await page.waitForSelector('.asset-library-selection-bar', { state: 'visible', timeout: 5_000 })
+        await page.waitForSelector('.asset-library-selection-pill', { state: 'visible', timeout: 5_000 })
         const selectionText = (await page.locator('.asset-library-selection-count').textContent()) ?? ''
         if (!selectionText.includes('2')) failures.push(`batch bar selection count mismatch: "${selectionText}"`)
         const multiSelected = await page.locator('.asset-library-asset.is-multi-selected').count()
@@ -390,7 +413,7 @@ async function main() {
         if (!dialogTitle.includes('删除选中')) failures.push(`batch delete dialog title mismatch: "${dialogTitle}"`)
         await page.locator('.app-dialog').getByRole('button', { name: '删除', exact: true }).click()
         await page.waitForFunction((total) => document.querySelectorAll('.asset-library-asset').length === total, 4, { timeout: 15_000 })
-        if ((await page.locator('.asset-library-selection-bar').count()) !== 0) {
+        if ((await page.locator('.asset-library-selection-pill').count()) !== 0) {
           failures.push('batch bar survived a successful batch delete')
         }
         if ((await page.locator('.asset-library-asset[data-asset-path="assets/maps/Mountain.tmx"]').count()) !== 0) {

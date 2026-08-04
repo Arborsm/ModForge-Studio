@@ -24,6 +24,7 @@ import {
   Settings,
   Users,
 } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { useEditorCopy, useViewMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import type { WorkbenchLocation, WorkbenchModuleRegistration, WorkbenchNavigationSection } from '@shared/contracts'
@@ -71,6 +72,8 @@ export type WorkbenchSideNavProps = {
   onModuleOpen: (moduleId: string) => void
   sectionState: WorkbenchSideNavSectionState
   onSectionStateChange: (state: WorkbenchSideNavSectionState) => void
+  /** Extra head tools (e.g. the global expert-mode toggle) rendered beside history. */
+  headTools?: ReactNode
 }
 
 const SECTIONS: readonly WorkbenchNavigationSection[] = ['authoring', 'browse', 'translation', 'tools', 'development']
@@ -91,6 +94,7 @@ export default function WorkbenchSideNav({
   onModuleOpen,
   sectionState,
   onSectionStateChange,
+  headTools,
 }: WorkbenchSideNavProps) {
   const navCopy = useEditorCopy().workbenchNavigation
   const viewMenuCopy = useViewMenuCopy()
@@ -143,6 +147,7 @@ export default function WorkbenchSideNav({
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
+            {headTools}
           </div>
         ) : null}
         <button

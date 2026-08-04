@@ -6,6 +6,7 @@ import type { HostCommandPolicy } from '@platform/host-command-client'
 import {
   loadEventAssetFromDevBridge,
   loadImageDataUrlFromDevBridge,
+  loadMapAssetFromDevBridge,
   loadResourceRegistryFromDevBridge,
   loadTextAssetFromDevBridge,
 } from './devAssetBridge'
@@ -121,9 +122,10 @@ export function scanEvents(path: string) {
 /** Loads a map asset body from the game root for editor preview and patching. */
 export function loadMapAsset(rootPath: string, mapPath: string, locale?: string) {
   const cacheKey = getLocalizedRootedAssetCacheKey(rootPath, mapPath, locale)
-  return readPending(loadMapAssetCache, cacheKey, () =>
-    invokeDesktop<MapAssetContent>(HOST_COMMANDS.loadMapAsset, { rootPath, mapPath, locale }, gameAssetPoolPolicy),
-  )
+  return readPending(loadMapAssetCache, cacheKey, async () => {
+    const bridged = await loadMapAssetFromDevBridge(rootPath, mapPath, locale)
+    return bridged ?? invokeDesktop<MapAssetContent>(HOST_COMMANDS.loadMapAsset, { rootPath, mapPath, locale }, gameAssetPoolPolicy)
+  })
 }
 
 /** Persists an already encoded map PNG through the desktop Host Runtime. */

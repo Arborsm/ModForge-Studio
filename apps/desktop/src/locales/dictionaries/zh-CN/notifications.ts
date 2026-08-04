@@ -19,9 +19,13 @@ const notifications: NotificationCopy = {
     cacheFailedTitle: '本地翻译缓存不可用',
     translationFailedTitle: 'AI 翻译失败',
     partialTranslationFailedTitle: '部分翻译失败',
+    partialTranslationKeptOriginalTitle: '部分条目未能翻译，已保留原文',
+    partialTranslationBatchFailedTitle: '部分内容未能翻译，已保留原文',
     usageRecordFailedTitle: '用量记录失败',
     usageRecordFailedDescription: '供应商操作已完成，但无法保存本次用量记录。',
     partialTranslationFailedDescription: (count) => `${count} 个条目未能翻译，成功结果仍保留在草稿中。`,
+    partialTranslationKeptOriginalDescription: (count) => `${count} 个条目因供应商修改了受保护占位符而保留原文，其余结果已正常应用。`,
+    partialTranslationBatchFailedDescription: (count) => `${count} 个条目因供应商请求超时或网络错误保留了原文，其余结果已正常应用。`,
     retryAction: '重试',
     failureDescriptions: {
       'not-configured': '请先在设置中配置并选择默认 AI 档案。',

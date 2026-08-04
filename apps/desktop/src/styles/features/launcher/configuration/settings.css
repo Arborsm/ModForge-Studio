@@ -135,6 +135,18 @@
     border-top: 0;
   }
 
+  .launcher-config-default-text {
+    display: grid;
+    gap: 0.125rem;
+    min-width: 0;
+  }
+
+  .launcher-config-default-note {
+    color: var(--config-muted);
+    font-size: 0.6875rem;
+    line-height: 1.4;
+  }
+
   .launcher-config-mini-switch {
     position: relative;
     width: 2.125rem;
@@ -322,13 +334,13 @@
   }
 
   .launcher-configuration-page .control-button-primary {
-    background: var(--config-primary);
-    color: var(--text-inverse);
+    background: color-mix(in srgb, var(--config-primary) 18%, transparent);
+    color: var(--config-primary);
   }
 
   .launcher-configuration-page .control-button-primary:hover {
-    background: var(--accent-strong);
-    color: var(--text-inverse);
+    background: color-mix(in srgb, var(--config-primary) 26%, transparent);
+    color: var(--config-primary);
   }
 
   .launcher-config-main .launcher-settings-inline-actions .control-button {

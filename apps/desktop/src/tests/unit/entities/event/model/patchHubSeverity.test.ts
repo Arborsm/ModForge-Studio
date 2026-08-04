@@ -128,3 +128,28 @@ describe('event hub severity', () => {
     expect(patch?.stats.events).toBe(3)
   })
 })
+
+describe('event script analysis cache', () => {
+  it('does not leak duplicate flags from an earlier build into later builds', () => {
+    const duplicated = buildEventPatchHubPatches([sourcePatch('p1', { '1000': CLEAN_SCRIPT }), sourcePatch('p2', { '1000': CLEAN_SCRIPT })])
+    expect(duplicated[0]?.events[0]?.issues.some((issue) => issue.code === 'duplicateEntryKey')).toBe(true)
+
+    const solo = buildEventPatchHubPatches([sourcePatch('p3', { '1000': CLEAN_SCRIPT })])
+    expect(solo[0]?.events[0]?.issues.some((issue) => issue.code === 'duplicateEntryKey')).toBe(false)
+    expect(solo[0]?.events[0]?.issueCount).toBe(0)
+  })
+
+  it('keeps alias-driven titles fresh while reusing cached analysis', () => {
+    const first = buildEventPatchHubPatches([sourcePatch('p1', { '1000': CLEAN_SCRIPT })])
+    const second = buildEventPatchHubPatches([
+      sourcePatch(
+        'p1',
+        { '1000': CLEAN_SCRIPT },
+        { editorState: { entries: { '1000': CLEAN_SCRIPT }, eventAliases: { '1000': 'Flower dance' } } },
+      ),
+    ])
+
+    expect(first[0]?.events[0]?.title).not.toBe('Flower dance')
+    expect(second[0]?.events[0]?.title).toBe('Flower dance')
+  })
+})

@@ -8,6 +8,7 @@ import type { EditorCopy, LocaleCode, ThemeMode } from '@locales'
 import type { EventScript, ParsedEventAsset } from '@entities/event'
 import type { EffectAssetState, PlayerAppearanceProfile } from '@entities/event'
 import type { MapDocument } from '@entities/map'
+import type { ObjectLightItemIndex } from '@entities/map'
 import type { StageWorldOverlaySprite } from '@entities/map'
 import type { WorldAtlasView } from '@entities/map'
 
@@ -60,6 +61,8 @@ export type BuildWorkspacePanelsOptions = {
   onToggleGameWorldAdditions: () => void
   worldOverlaySprites: StageWorldOverlaySprite[]
   worldOverlayTextureAssets: Record<string, EffectAssetState>
+  /** Data/BigCraftables + Data/Furniture lookup for object-layer lamp markers in the lighting preview. */
+  objectLightIndex: ObjectLightItemIndex | null
   onFocusObject: (groupId: number, objectId: number) => void
   onHoverChange: (hoverInfo: TileHoverInfo | null) => void
   workspaceStatus: {
@@ -201,6 +204,7 @@ export type BuildMapPanelsOptions = Pick<
   | 'onToggleGameWorldAdditions'
   | 'worldOverlaySprites'
   | 'worldOverlayTextureAssets'
+  | 'objectLightIndex'
   | 'onFocusObject'
   | 'onHoverChange'
   | 'heavyWorkspaceReady'

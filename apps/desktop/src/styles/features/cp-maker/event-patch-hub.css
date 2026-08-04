@@ -1,6 +1,5 @@
 @layer components {
   .event-patch-hub {
-    --ephub-shell-bg: color-mix(in srgb, var(--bg-app) 94%, var(--bg-panel) 6%);
     --ephub-surface: color-mix(in srgb, var(--bg-panel) 94%, var(--bg-elevated) 6%);
     --ephub-surface-strong: var(--bg-panel);
     --ephub-surface-muted: color-mix(in srgb, var(--bg-panel-muted) 88%, var(--bg-panel) 12%);
@@ -9,103 +8,44 @@
     --ephub-line: color-mix(in srgb, var(--border-color) 86%, var(--bg-panel-muted));
     --ephub-shadow: color-mix(in srgb, var(--surface-inverse) 10%, transparent);
     --ephub-shadow-strong: color-mix(in srgb, var(--surface-inverse) 14%, transparent);
-    display: grid;
-    height: 100%;
-    min-height: 0;
-    grid-template-columns: 16.25rem minmax(0, 1fr);
-    overflow: hidden;
-    background:
-      linear-gradient(90deg, color-mix(in srgb, var(--border-color) 18%, transparent) 0 1px, transparent 1px 4rem),
-      linear-gradient(180deg, color-mix(in srgb, var(--border-color) 14%, transparent) 0 1px, transparent 1px 4rem), var(--ephub-shell-bg);
-    background-size:
-      4rem 4rem,
-      4rem 4rem,
-      auto;
-    color: var(--text-primary);
   }
 
-  .event-patch-navigator,
   .event-patch-main {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
     min-width: 0;
     min-height: 0;
-    overflow: hidden;
-  }
-
-  .event-patch-navigator {
-    background: color-mix(in srgb, var(--bg-panel-muted) 92%, transparent);
-    border-right: 1px solid var(--ephub-border-soft);
-  }
-
-  .event-patch-nav-scroll {
-    min-height: 0;
-  }
-
-  .event-patch-main {
-    display: grid;
-    grid-template-rows: 4rem auto minmax(0, 1fr);
+    height: 100%;
     overflow: auto;
     background: transparent;
   }
 
-  .event-patch-workspace-header,
+  /* The condition builder mounts inside the scrolling main column; keep it a centered overlay. */
+  .event-patch-main > .event-condition-builder-stack {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: 70;
+    transform: translate(-50%, -50%);
+  }
+
   .event-patch-hub-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.625rem;
-    border-bottom: 0;
-  }
-
-  .event-patch-workspace-header {
-    min-height: 4rem;
-    border-bottom: 1px solid var(--ephub-line);
-    background: color-mix(in srgb, var(--ephub-surface-strong) 72%, transparent);
-    backdrop-filter: blur(0.75rem) saturate(1.1);
-    padding: 0 1.5rem;
-  }
-
-  .event-patch-hub-header {
     width: min(62.5rem, calc(100% - 4rem));
     min-height: auto;
     margin: 0 auto 1.25rem;
+    border-bottom: 0;
     padding: 2rem 1.75rem 0;
   }
 
-  .event-patch-workspace-nav,
-  .event-patch-workspace-actions,
-  .event-patch-hub-actions,
-  .event-patch-breadcrumbs {
+  .event-patch-hub-actions {
     display: flex;
     min-width: 0;
     align-items: center;
     gap: 0.5rem;
-  }
-
-  .event-patch-breadcrumbs {
-    overflow: hidden;
-    color: var(--text-tertiary);
-    font-size: 0.75rem;
-    white-space: nowrap;
-  }
-
-  .event-patch-breadcrumbs span,
-  .event-patch-breadcrumbs strong {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4375rem;
-    min-height: 1.875rem;
-    border-radius: 0.625rem;
-    background: var(--ephub-surface-muted);
-    color: var(--text-secondary);
-    padding: 0 0.625rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .event-patch-breadcrumbs strong {
-    background: var(--ephub-line);
-    color: var(--text-primary);
-    font-weight: 800;
   }
 
   .event-patch-heading {
@@ -444,47 +384,6 @@
     text-align: center;
   }
 
-  .event-patch-hub-empty {
-    display: grid;
-    min-height: 16rem;
-    place-items: center;
-    align-content: center;
-    gap: 0.75rem;
-    margin-top: 2rem;
-    border: 1px dashed var(--ephub-border-soft);
-    border-radius: 1rem;
-    background: color-mix(in srgb, var(--ephub-surface) 60%, transparent);
-    padding: 2.5rem 1.5rem;
-    color: var(--text-secondary);
-    text-align: center;
-  }
-
-  .event-patch-hub-empty-icon {
-    display: grid;
-    width: 4rem;
-    height: 4rem;
-    place-items: center;
-    border-radius: 50%;
-    background: var(--ephub-surface-muted);
-    color: var(--text-tertiary);
-  }
-
-  .event-patch-hub-empty strong {
-    color: var(--text-primary);
-    font-size: 1rem;
-    font-weight: 700;
-  }
-
-  .event-patch-hub-empty p {
-    max-width: 28rem;
-    margin: 0 auto;
-    line-height: 1.6;
-  }
-
-  .event-patch-hub-empty .control-button {
-    margin-top: 0.5rem;
-  }
-
   .event-patch-context-menu {
     position: fixed;
     z-index: 80;
@@ -552,5 +451,186 @@
       opacity: 1;
       transform: scale(1) translateY(0);
     }
+  }
+
+  .event-patch-tree-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .event-patch-tree-add {
+    display: inline-grid;
+    width: 1.375rem;
+    height: 1.375rem;
+    place-items: center;
+    border: 1px solid var(--border-color);
+    border-radius: 0.4375rem;
+    background: var(--bg-panel);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition:
+      background 150ms ease,
+      color 150ms ease,
+      border-color 150ms ease;
+  }
+
+  .event-patch-tree-add:hover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .event-patch-create {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .event-patch-create-search {
+    display: grid;
+    grid-template-columns: 0.875rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.4375rem;
+    min-height: 2.25rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5625rem;
+    background: var(--bg-panel);
+    padding: 0 0.5625rem;
+    color: var(--text-secondary);
+  }
+
+  .event-patch-create-search input {
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.75rem;
+  }
+
+  .event-patch-create-section {
+    display: grid;
+    min-height: 6rem;
+  }
+
+  .event-patch-create-list {
+    display: grid;
+    align-content: start;
+    gap: 0.3125rem;
+    max-height: 16rem;
+    overflow-y: auto;
+  }
+
+  .event-patch-create-row {
+    display: grid;
+    grid-template-columns: 1.125rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.5rem;
+    border: 1px solid transparent;
+    border-radius: 0.5625rem;
+    background: transparent;
+    padding: 0 0.5625rem;
+    color: var(--text-secondary);
+    text-align: left;
+    cursor: pointer;
+    transition:
+      background 150ms ease,
+      color 150ms ease,
+      border-color 150ms ease;
+  }
+
+  .event-patch-create-row:hover {
+    background: var(--bg-active);
+    color: var(--text-primary);
+  }
+
+  .event-patch-create-row.active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .event-patch-create-row-copy {
+    display: grid;
+    min-width: 0;
+    gap: 0.125rem;
+  }
+
+  .event-patch-create-row-copy strong {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    font-weight: 760;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .event-patch-create-row-copy span {
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .event-patch-create-badge {
+    display: inline-flex;
+    height: 1.125rem;
+    align-items: center;
+    border-radius: 62.4375rem;
+    background: var(--accent-soft);
+    color: var(--accent);
+    padding: 0 0.375rem;
+    font-size: 0.625rem;
+    font-weight: 800;
+  }
+
+  .event-patch-create-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    margin: 0;
+    padding: 1.5rem 1rem;
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+    text-align: center;
+  }
+
+  .event-patch-create-state.is-error {
+    color: var(--danger);
+  }
+
+  .event-patch-create-custom {
+    display: grid;
+    gap: 0.375rem;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+  }
+
+  .event-patch-create-hint {
+    color: var(--danger);
+    font-size: 0.6875rem;
+  }
+
+  .event-patch-create-row:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .event-patch-create-row:disabled:hover {
+    background: transparent;
+    color: var(--text-secondary);
+  }
+
+  .event-patch-create-import {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    cursor: pointer;
   }
 }

@@ -13,10 +13,10 @@ colors:
   info: '#0e7490'
 
   # Surfaces
-  surface-app: '#f1f1f2'
-  surface-panel: '#fbfbfc'
-  surface-panel-muted: '#ececed'
-  surface-viewport: '#e3e3e5'
+  surface-app: '#ffffff'
+  surface-panel: '#ffffff'
+  surface-panel-muted: '#f0f0f3'
+  surface-viewport: '#ebebef'
   surface-active: '#e3ecfd'
   surface-elevated: 'rgba(255, 255, 255, 0.95)'
 

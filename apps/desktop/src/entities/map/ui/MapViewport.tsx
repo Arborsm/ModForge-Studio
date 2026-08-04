@@ -47,8 +47,11 @@ import {
   MapViewportContextMenu,
   MapViewportEmptyState,
   MapViewportImageError,
+  MapViewportLightingOverlay,
   MapViewportStatsChips,
 } from './MapViewportChrome'
+import { bakeWorldLightingCanvas, preloadWorldLightingTextures } from './worldLightingOverlay'
+import { GAME_TILE_SIZE, type WorldLightingState } from '../model/lighting'
 
 type MapViewportProps = {
   locale: LocaleCode
@@ -66,6 +69,8 @@ type MapViewportProps = {
   scaleMapOverlayWithViewport?: boolean
   mapOverlayLayer?: 'between' | 'top'
   viewportOverlay?: ReactNode
+  /** Static world lightmap (time-of-day base + light glows); baked to a multiply overlay over the map. */
+  worldLighting?: WorldLightingState | null
   focusWorldPoint?: ViewportWorldPoint | null
   contextMenuEnabled?: boolean
   /** Adds editor-specific commands using the tile under the context-menu pointer. */
@@ -115,6 +120,8 @@ export type MapViewportHandle = {
   centerView: () => void
   resetPan: () => void
   focusObject: (target: FocusedMapObjectTarget) => void
+  /** Scrolls so the given world pixel point lands at the viewport center. */
+  centerOnWorldPoint: (worldX: number, worldY: number) => void
   exportPng: () => Promise<string>
 }
 
@@ -208,6 +215,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     scaleMapOverlayWithViewport = false,
     mapOverlayLayer = 'between',
     viewportOverlay,
+    worldLighting = null,
     focusWorldPoint,
     contextMenuEnabled = true,
     contextMenuExtraItems,
@@ -638,6 +646,18 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     }),
     [canvasOffset.left, canvasOffset.top, viewportScroll.left, viewportScroll.top],
   )
+  // The lighting model works in game pixels (64px per tile); the baked overlay
+  // stretches over the map display rect, so the spaces stay aligned.
+  // Glow textures decode asynchronously; the version bump re-bakes once ready.
+  const [lightingTexturesVersion, setLightingTexturesVersion] = useState(0)
+  useEffect(() => preloadWorldLightingTextures(() => setLightingTexturesVersion((version) => version + 1)), [])
+  const bakedWorldLighting = useMemo(
+    () =>
+      mapDocument && worldLighting
+        ? bakeWorldLightingCanvas(mapDocument.width * GAME_TILE_SIZE, mapDocument.height * GAME_TILE_SIZE, worldLighting)
+        : null,
+    [mapDocument, worldLighting, lightingTexturesVersion],
+  )
   const tileInteractionEnabled = Boolean(onTileClick || onTileRectSelect || onTileStroke)
   const viewportCursorClass = tileInteractionEnabled ? 'cursor-crosshair' : 'cursor-default'
   const activeTileRect =
@@ -949,9 +969,20 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       centerView: centerViewport,
       resetPan: resetViewportToOrigin,
       focusObject: focusObjectTarget,
+      centerOnWorldPoint: centerViewportOnWorldPoint,
       exportPng,
     }),
-    [applyFitZoom, applyManualZoom, centerViewport, exportPng, focusObjectTarget, resetViewportToOrigin, zoomInStep, zoomOutStep],
+    [
+      applyFitZoom,
+      applyManualZoom,
+      centerViewport,
+      centerViewportOnWorldPoint,
+      exportPng,
+      focusObjectTarget,
+      resetViewportToOrigin,
+      zoomInStep,
+      zoomOutStep,
+    ],
   )
 
   useEffect(() => {
@@ -1737,7 +1768,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
 
   const viewportContent = (
     <div
-      className="panel-canvas relative h-full shadow-(--shadow-panel)"
+      className="panel-canvas relative isolate h-full shadow-(--shadow-panel)"
       style={viewportBackdropStyle}
       aria-busy={tilesetLoading ? 'true' : undefined}
     >
@@ -1761,6 +1792,16 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
         viewportSize={viewportSize}
         foregroundLayerCount={foregroundLayers.length}
       />
+
+      {bakedWorldLighting ? (
+        <MapViewportLightingOverlay
+          bakedCanvas={bakedWorldLighting}
+          left={mapDisplayOffset.left}
+          top={mapDisplayOffset.top}
+          width={canvasLogicalSize.width}
+          height={canvasLogicalSize.height}
+        />
+      ) : null}
 
       {scaleMapOverlayWithViewport && mapOverlay ? (
         <div

@@ -98,6 +98,12 @@ export function ConfigDownloadDefaults({ settingsState }: { settingsState: Retur
       label: copy.toggles.gmcmParsingEnabled,
       checked: settings.gmcmParsingEnabled !== false,
     },
+    {
+      field: 'showConsoleWindow' as const,
+      label: copy.toggles.showConsoleWindow,
+      description: copy.toggles.showConsoleWindowDescription,
+      checked: settings.showConsoleWindow === true,
+    },
   ]
 
   return (
@@ -112,7 +118,10 @@ export function ConfigDownloadDefaults({ settingsState }: { settingsState: Retur
       <div className="launcher-config-defaults">
         {defaults.map((item, index) => (
           <LoadingMotionRevealItem key={item.label} index={index} as="div" className="launcher-config-default-row">
-            <span>{item.label}</span>
+            <div className="launcher-config-default-text">
+              <span>{item.label}</span>
+              {'description' in item && item.description ? <span className="launcher-config-default-note">{item.description}</span> : null}
+            </div>
             <button
               type="button"
               role="switch"

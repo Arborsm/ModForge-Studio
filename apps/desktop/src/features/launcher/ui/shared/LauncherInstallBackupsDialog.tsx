@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import { AlertTriangle, History } from 'lucide-react'
 import type { LauncherInstallBackupSummary } from '../../model/launcherContracts'
+import { formatInstallBackupTimestamp, formatInstallBackupVersion, resolveInstallBackupTitle } from '../../model/installBackupDisplay'
 import { useEditorCopy } from '@locales/provider'
 import { Dialog, DialogAction, DialogBody, DialogHeader } from '@shared/ui/Dialog'
 import { LauncherInstallStateView } from './LauncherInstallStateView'
@@ -60,6 +61,10 @@ export function LauncherInstallBackupsDialog({
             {backups.map((backup) => {
               const restoring = restoringBackupId === backup.backupId
               const pending = pendingRestoreBackupId === backup.backupId
+              const title = resolveInstallBackupTitle(backup)
+              const version = formatInstallBackupVersion(backup.primaryVersion)
+              const createdAt = formatInstallBackupTimestamp(backup.createdAtMs)
+              const showBackupId = title !== backup.backupId
               return (
                 <article key={backup.backupId} className="launcher-install-backup-card" data-pending={pending || undefined}>
                   <span className="launcher-install-mod-icon" aria-hidden="true">
@@ -67,7 +72,13 @@ export function LauncherInstallBackupsDialog({
                   </span>
                   <div className="launcher-install-mod-main">
                     <div className="launcher-install-mod-title">
-                      <span className="launcher-install-mono-strong">{backup.backupId}</span>
+                      <strong>{title}</strong>
+                      {version ? <span className="launcher-install-version-pill">{version}</span> : null}
+                      {backup.modCount > 1 ? (
+                        <span className="launcher-install-change-chip" data-tone="info">
+                          {copy.library.installBackupModCount(backup.modCount)}
+                        </span>
+                      ) : null}
                       <span className="launcher-install-change-chip" data-tone="danger">
                         {copy.library.installBackupDeleteCount(backup.deleteCount)}
                       </span>
@@ -75,6 +86,8 @@ export function LauncherInstallBackupsDialog({
                         {copy.library.installBackupOverwriteCount(backup.overwriteCount)}
                       </span>
                     </div>
+                    {createdAt ? <p className="launcher-install-backup-hint">{copy.library.installBackupCreatedAt(createdAt)}</p> : null}
+                    {showBackupId ? <p className="launcher-install-mono">{backup.backupId}</p> : null}
                     <p className="launcher-install-mono">{backup.backupPath}</p>
                   </div>
                   <div className="launcher-install-backup-actions">

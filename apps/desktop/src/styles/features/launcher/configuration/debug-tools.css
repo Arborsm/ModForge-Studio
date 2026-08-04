@@ -149,12 +149,13 @@
   }
 
   .launcher-debug-tools-stack .control-button-primary {
-    background: var(--accent);
-    color: var(--text-inverse);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--accent);
   }
 
   .launcher-debug-tools-stack .control-button-primary:hover {
-    background: var(--accent-strong);
+    background: color-mix(in srgb, var(--accent) 26%, transparent);
+    color: var(--accent);
   }
 
   .launcher-debug-tools-stack .launcher-config-danger-button {

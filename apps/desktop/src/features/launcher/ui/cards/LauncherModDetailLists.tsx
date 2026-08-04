@@ -393,13 +393,22 @@ export function DetailDataLoading({ label }: { label: string }) {
   )
 }
 
-export function ChangelogList({ items, emptyLabel }: { items: ChangelogListItem[]; emptyLabel: string }) {
+export function ChangelogList({
+  items,
+  emptyLabel,
+  streaming = false,
+}: {
+  items: ChangelogListItem[]
+  emptyLabel: string
+  /** Marks the list as mid-translation so newly completed lines animate in. */
+  streaming?: boolean
+}) {
   if (!items.length) {
     return <PanelEmptyState>{emptyLabel}</PanelEmptyState>
   }
 
   return (
-    <div className="launcher-mod-detail-changelog-list">
+    <div className={cx('launcher-mod-detail-changelog-list', streaming && 'is-ai-streaming')}>
       {items.map((item) => (
         <article className="launcher-mod-detail-changelog-entry" key={item.id}>
           <header>

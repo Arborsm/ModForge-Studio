@@ -21,7 +21,17 @@ import type {
 
 type MockCommandResult = { handled: true; result: unknown } | { handled: false }
 
-const MOCK_GAME_DIRECTORY = 'E:\\ModForge Dev\\Stardew Valley'
+const MOCK_GAME_DIRECTORY_DEFAULT = 'E:\\ModForge Dev\\Stardew Valley'
+
+/** Mirrors the main dev mock: `?mfMockGameRoot=<path>` points browser-only debugging at a real install. */
+function resolveMockGameDirectory() {
+  if (typeof window === 'undefined') {
+    return MOCK_GAME_DIRECTORY_DEFAULT
+  }
+  return new URLSearchParams(window.location.search).get('mfMockGameRoot')?.trim() || MOCK_GAME_DIRECTORY_DEFAULT
+}
+
+const MOCK_GAME_DIRECTORY = resolveMockGameDirectory()
 
 function getMockRequest<TRequest>(payload: unknown): TRequest | null {
   if (!payload || typeof payload !== 'object' || !('request' in payload)) {

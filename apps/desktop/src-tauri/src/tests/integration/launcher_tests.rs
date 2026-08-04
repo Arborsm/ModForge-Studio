@@ -2008,11 +2008,15 @@ fn inspect_archive_detects_manifest_roots_and_builds_tree() {
     let archive_path = root.join("bundle.zip");
     create_zip_from_directory(&source, &archive_path);
 
-    let result = inspect_archive_at_path(&archive_path).expect("inspect archive");
+    let result = inspect_archive_at_path(&archive_path, None).expect("inspect archive");
     assert_eq!(result.archive_file_name, "bundle.zip");
     assert_eq!(result.total_files, 4);
     assert_eq!(
-        result.mod_roots,
+        result
+            .mod_roots
+            .iter()
+            .map(|root| root.path.clone())
+            .collect::<Vec<_>>(),
         vec!["ModA".to_string(), "Nested/ModB".to_string()]
     );
 
@@ -2055,8 +2059,15 @@ fn inspect_archive_detects_manifest_at_archive_root() {
     let archive_path = root.join("root.zip");
     create_zip_from_directory(&source, &archive_path);
 
-    let result = inspect_archive_at_path(&archive_path).expect("inspect archive");
-    assert_eq!(result.mod_roots, vec![".".to_string()]);
+    let result = inspect_archive_at_path(&archive_path, None).expect("inspect archive");
+    assert_eq!(
+        result
+            .mod_roots
+            .iter()
+            .map(|root| root.path.clone())
+            .collect::<Vec<_>>(),
+        vec![".".to_string()]
+    );
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -2241,8 +2252,15 @@ fn inspect_archive_detects_chinese_root_from_gbk_zip() {
         &[(&format!("{folder_name}/manifest.json"), manifest.as_bytes())],
     );
 
-    let result = inspect_archive_at_path(&archive_path).expect("inspect gbk zip archive");
-    assert_eq!(result.mod_roots, vec![folder_name.to_string()]);
+    let result = inspect_archive_at_path(&archive_path, None).expect("inspect gbk zip archive");
+    assert_eq!(
+        result
+            .mod_roots
+            .iter()
+            .map(|root| root.path.clone())
+            .collect::<Vec<_>>(),
+        vec![folder_name.to_string()]
+    );
 
     fs::remove_dir_all(root).expect("cleanup");
 }

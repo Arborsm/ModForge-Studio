@@ -1,0 +1,80 @@
+@layer components {
+  .workspace-split-view {
+    display: grid;
+    grid-template-columns: var(--workspace-split-sidebar-width, 20rem) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    color: var(--text-primary);
+  }
+
+  .workspace-split-view-sidebar {
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    border-right: 1px solid var(--border-color);
+    background: var(--bg-panel);
+  }
+
+  .workspace-split-view-main {
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background:
+      linear-gradient(90deg, color-mix(in srgb, var(--border-color) 42%, transparent) 0 1px, transparent 1px 4rem),
+      linear-gradient(180deg, color-mix(in srgb, var(--border-color) 32%, transparent) 0 1px, transparent 1px 4rem), var(--bg-panel);
+    background-size:
+      4rem 4rem,
+      4rem 4rem,
+      auto;
+  }
+
+  .workspace-split-view-main > * {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .workspace-split-view-empty {
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 0.625rem;
+    overflow: auto;
+    padding: 2rem;
+    text-align: center;
+  }
+
+  .workspace-split-view-empty-icon {
+    display: grid;
+    color: var(--text-tertiary);
+  }
+
+  .workspace-split-view-empty-title {
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+    font-weight: 720;
+  }
+
+  .workspace-split-view-empty-hint {
+    max-width: 28rem;
+    margin: 0;
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 60rem) {
+    .workspace-split-view {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .workspace-split-view-sidebar {
+      max-height: 16rem;
+      border-right: 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+  }
+}

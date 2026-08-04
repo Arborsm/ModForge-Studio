@@ -1,0 +1,219 @@
+@layer components {
+  /* Git-style diff view: replaces the file tree when every detected mod root
+   * already exists (pure update/reinstall/downgrade). Groups by mod root, with
+   * per-file unified diffs and binary metadata rows. Content flows naturally in
+   * the dialog body — no nested scroll containers; the dialog body scrolls. */
+  .launcher-install-diff-view {
+    display: grid;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .launcher-install-diff-group {
+    display: grid;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--bg-panel-muted) 42%, var(--bg-panel));
+  }
+
+  .launcher-install-diff-group-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .launcher-install-diff-empty {
+    margin: 0;
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+
+  .launcher-install-diff-files {
+    display: grid;
+    gap: 0.375rem;
+    min-width: 0;
+  }
+
+  .launcher-install-diff-file {
+    display: grid;
+    gap: 0;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--border-color) 58%, transparent);
+    border-radius: 0.625rem;
+    background: var(--bg-panel);
+  }
+
+  .launcher-install-diff-file[data-kind='added'] {
+    border-color: color-mix(in srgb, var(--success) 30%, transparent);
+  }
+
+  .launcher-install-diff-file[data-kind='removed'] {
+    border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+  }
+
+  .launcher-install-diff-file-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0.4rem 0.625rem;
+    background: color-mix(in srgb, var(--bg-active) 34%, transparent);
+  }
+
+  .launcher-install-diff-badge {
+    flex: 0 0 auto;
+    padding: 0.0625rem 0.4375rem;
+    border-radius: 62.4375rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .launcher-install-diff-badge[data-kind='added'] {
+    background: color-mix(in srgb, var(--success) 16%, transparent);
+    color: var(--success);
+  }
+
+  .launcher-install-diff-badge[data-kind='removed'] {
+    background: color-mix(in srgb, var(--danger) 16%, transparent);
+    color: var(--danger);
+  }
+
+  .launcher-install-diff-badge[data-kind='changed'] {
+    background: color-mix(in srgb, var(--bg-active) 85%, transparent);
+    color: var(--text-secondary);
+  }
+
+  .launcher-install-diff-file-path {
+    min-width: 0;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    overflow-wrap: anywhere;
+  }
+
+  .launcher-install-diff-file-size {
+    flex: 0 0 auto;
+    margin-left: auto;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+  }
+
+  /* Unified diff lines: + green, - red, context neutral, headers muted.
+   * Flows in the document; long diffs are folded with an expand/collapse
+   * toggle instead of a nested scroll container. */
+  .launcher-install-diff-lines {
+    display: grid;
+    min-width: 0;
+  }
+
+  .launcher-install-diff-line {
+    min-width: 0;
+    padding: 0.0625rem 0.625rem;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .launcher-install-diff-line[data-kind='add'] {
+    background: color-mix(in srgb, var(--success) 11%, var(--bg-panel));
+    color: var(--success);
+  }
+
+  .launcher-install-diff-line[data-kind='remove'] {
+    background: color-mix(in srgb, var(--danger) 11%, var(--bg-panel));
+    color: var(--danger);
+  }
+
+  .launcher-install-diff-line[data-kind='hunk'] {
+    background: color-mix(in srgb, var(--bg-active) 60%, var(--bg-panel));
+    color: var(--text-tertiary);
+  }
+
+  .launcher-install-diff-line[data-kind='header'] {
+    color: var(--text-tertiary);
+  }
+
+  .launcher-install-diff-line[data-kind='context'] {
+    color: var(--text-secondary);
+  }
+
+  /* Fold toggles: quiet text-button row under a file diff or file list. */
+  .launcher-install-diff-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-self: start;
+    gap: 0.25rem;
+    margin: 0.125rem 0.25rem;
+    padding: 0.125rem 0.25rem;
+    border: 0;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.5;
+    cursor: pointer;
+    transition:
+      background-color 120ms ease,
+      color 120ms ease;
+  }
+
+  .launcher-install-diff-toggle:hover {
+    background: color-mix(in srgb, var(--bg-active) 55%, transparent);
+    color: var(--text-primary);
+  }
+
+  .launcher-install-diff-toggle:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 0.125rem var(--focus-ring);
+  }
+
+  /* Binary change metadata rows. */
+  .launcher-install-diff-file-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 1rem;
+    padding: 0.4rem 0.625rem;
+    min-width: 0;
+  }
+
+  .launcher-install-diff-file-meta > span {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.375rem;
+    min-width: 0;
+  }
+
+  .launcher-install-diff-meta-label {
+    flex: 0 0 auto;
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+  }
+
+  .launcher-install-diff-meta-value {
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+  }
+
+  .launcher-install-diff-more {
+    margin: 0;
+    padding: 0.25rem 0.375rem 0;
+    color: var(--text-tertiary);
+    font-size: 0.6875rem;
+    line-height: 1.5;
+  }
+}

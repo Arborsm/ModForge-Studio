@@ -153,6 +153,24 @@ export type MapAssetEditorCopy = {
   addTileset: string
   replaceTileset: string
   chooseImage: string
+  /** Adds a vanilla game tilesheet into the project and attaches it to this map. */
+  addGameTileset: string
+  /** Disabled-state title for the game tilesheet entry when no game directory is configured. */
+  gameTilesetNoGameRoot: string
+  /** Dialog title for the vanilla tilesheet picker. */
+  gameTilesetPickerTitle: string
+  /** Scan status while the game tilesheet list loads. */
+  gameTilesetPickerLoading: string
+  /** Empty state for the game tilesheet picker. */
+  gameTilesetPickerEmpty: string
+  /** Scan failure state for the game tilesheet picker. */
+  gameTilesetPickerScanFailed: string
+  /** Search placeholder inside the game tilesheet picker. */
+  gameTilesetPickerSearch: string
+  /** Thumbnail alt text for a game tilesheet. */
+  gameTilesetThumbnailAlt: (name: string) => string
+  /** Disabled-state label while a selected tilesheet is being copied into the project. */
+  gameTilesetAdding: string
   projectImages: string
   selectTileset: string
   tilesetProperties: string
@@ -218,6 +236,8 @@ export type MapTilesSessionCopy = {
   complete: string
   discard: string
   cancel: string
+  /** Shown in the tile tray: tilesheets always come from the target map. */
+  tilesetSourceHint: string
 }
 
 export type MapAuthoringCopy = {
@@ -236,50 +256,23 @@ export type MapAuthoringCopy = {
     noSelection: string
   }
   libraryTitle: string
-  libraryHint: string
   searchPlaceholder: string
-  sourceAll: string
-  sourceProject: string
-  sourceGame: string
   importMapAction: string
   importFromGame: string
-  projectSection: string
-  gameSection: string
   emptyTitle: string
   emptyHint: string
   loading: string
   loadFailed: string
-  openingMap: string
-  openFailed: string
   projectBadge: string
-  gameBadge: string
   formatValue: (format: string, size: string) => string
-  openMap: (name: string) => string
   patchGameMap: (name: string) => string
   categories: Record<'farm' | 'town' | 'interior' | 'wild' | 'mine' | 'island' | 'festival' | 'other', string>
   patchManager: {
-    viewLibrary: string
     viewPatches: string
-    hint: string
-    count: (count: number) => string
-    when: string
-    priority: string
-    fromFile: string
-    moveUp: string
-    moveDown: string
-    duplicate: string
-    delete: string
-    deleteTitle: string
-    deleteMessage: (name: string) => string
-    cancel: string
-    confirmDelete: string
-    toggleEnable: (name: string) => string
-    toggleDisable: (name: string) => string
-    enabledByExpression: string
-    setAlwaysEnabled: string
-    setAlwaysDisabled: string
-    /** Compact badge label for the patch kind shown on each manager row. */
-    actionBadges: Record<'EditMap' | 'Load', string>
+    noMatches: string
+    /** Guide empty state shown in the change-manager area when there are no map changes yet. */
+    noPatchesTitle: string
+    noPatchesHint: string
   }
   assetEditor: MapAssetEditorCopy
   create: {

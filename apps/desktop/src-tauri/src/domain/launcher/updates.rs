@@ -14,6 +14,7 @@ use super::update_cache::{
     mark_launcher_updates_check_in_progress_at_path, normalize_launcher_updates_cache_key,
     record_launcher_update_auto_failure_at_path, save_launcher_updates_cache_at_path,
 };
+pub(crate) use super::versions::version_is_newer;
 use crate::AppHandle;
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::http::launcher_http_client;
@@ -28,7 +29,6 @@ use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 use reqwest::blocking::Client;
 use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
-use semver::Version;
 use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 #[cfg(target_os = "windows")]
@@ -188,7 +188,10 @@ fn parse_version_triplet(value: &str) -> Option<String> {
     Some(parts.into_iter().take(3).collect::<Vec<_>>().join("."))
 }
 
-fn resolve_update_check_game_root(settings: &LauncherSettings, mods_path: &str) -> Option<PathBuf> {
+pub(crate) fn resolve_update_check_game_root(
+    settings: &LauncherSettings,
+    mods_path: &str,
+) -> Option<PathBuf> {
     settings
         .game_path
         .as_deref()
@@ -749,15 +752,6 @@ fn save_incremental_launcher_updates_cache(
     Ok(partial_result)
 }
 
-fn version_is_newer(current: &str, latest: &str) -> bool {
-    let current_clean = current.trim().trim_start_matches('v');
-    let latest_clean = latest.trim().trim_start_matches('v');
-    match (Version::parse(current_clean), Version::parse(latest_clean)) {
-        (Ok(current_version), Ok(latest_version)) => latest_version > current_version,
-        _ => latest_clean != current_clean,
-    }
-}
-
 pub(crate) fn build_launcher_update_summary(
     candidate: &UpdateCheckCandidate,
     remote: &RemoteModDetail,
@@ -1165,6 +1159,10 @@ pub(crate) fn check_launcher_updates_blocking(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/domain/launcher/updates_tests.rs"]
+mod updates_tests;
 
 #[cfg(test)]
 #[path = "../../tests/integration/launcher_update_suppression_tests.rs"]

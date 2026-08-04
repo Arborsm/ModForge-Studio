@@ -86,6 +86,8 @@ fn install_staged_bundle_installs_multiple_mods_from_nested_roots() {
     assert!(mods_root.join("Core").join("manifest.json").is_file());
     assert!(mods_root.join("AddOn").join("manifest.json").is_file());
     assert!(Path::new(&result.backup_path).is_dir());
+    assert!(!result.upgraded);
+    assert_eq!(result.previous_version, None);
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -158,6 +160,46 @@ fn install_staged_bundle_prefers_a_non_content_pack_as_the_primary_install_resul
     assert_eq!(result.mod_name, "Core Pack");
     assert_eq!(result.unique_id.as_deref(), Some("ModForge.Core"));
 
+    let backup_metadata = read_json_file(
+        Path::new(&result.backup_path)
+            .join("metadata.json")
+            .as_path(),
+    );
+    assert_eq!(
+        backup_metadata.get("primaryModName"),
+        Some(&Value::String("Core Pack".to_string()))
+    );
+    assert_eq!(
+        backup_metadata.get("primaryVersion"),
+        Some(&Value::String("1.0.0".to_string()))
+    );
+    let installed_mods = backup_metadata
+        .get("installedMods")
+        .and_then(Value::as_array)
+        .expect("installed mods metadata");
+    assert_eq!(installed_mods.len(), 2);
+    assert_eq!(
+        installed_mods[0].get("modName"),
+        Some(&Value::String("Add On".to_string()))
+    );
+    assert_eq!(
+        installed_mods[0].get("operation"),
+        Some(&Value::String("freshInstall".to_string()))
+    );
+    assert_eq!(
+        installed_mods[1].get("modName"),
+        Some(&Value::String("Core Pack".to_string()))
+    );
+    assert!(backup_metadata.get("createdAtMs").is_some());
+
+    let summaries = list_backup_sessions_at_root(&backup_root, Some(&mods_root))
+        .expect("list backups with context");
+    assert_eq!(summaries.len(), 1);
+    assert_eq!(summaries[0].primary_mod_name.as_deref(), Some("Core Pack"));
+    assert_eq!(summaries[0].primary_version.as_deref(), Some("1.0.0"));
+    assert_eq!(summaries[0].mod_count, 2);
+    assert!(summaries[0].created_at_ms > 0);
+
     fs::remove_dir_all(root).expect("cleanup");
 }
 
@@ -221,6 +263,9 @@ fn install_staged_bundle_preserves_config_and_existing_i18n_on_upgrade() {
         result.installed_mods[0].target_path,
         existing_root.to_string_lossy().to_string()
     );
+    assert!(result.upgraded);
+    assert_eq!(result.previous_version.as_deref(), Some("1.0.0"));
+    assert_eq!(result.version.as_deref(), Some("2.0.0"));
 
     let merged_config = read_json_file(&existing_root.join("config.json"));
     assert_eq!(merged_config.get("EnableFeature"), Some(&Value::Bool(true)));
@@ -550,6 +595,54 @@ fn list_and_restore_backups_are_scoped_to_the_matching_mods_path() {
         restore_backup_session_at_path(Path::new(&result_a.backup_path), Some(&mods_b))
             .expect_err("reject mismatched restore");
     assert!(restore_error.to_string().contains("belongs to modsPath"));
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn list_backup_sessions_supports_legacy_metadata_without_mod_context() {
+    let root = create_temp_dir("install-manager-legacy-metadata");
+    let backup_root = root.join("backups");
+    let mods_root = root.join("Mods");
+    let session_root = backup_root.join("install-1700000000000");
+    fs::create_dir_all(&mods_root).expect("create mods root");
+    fs::create_dir_all(&session_root).expect("create legacy backup dir");
+
+    let legacy_metadata = format!(
+        r#"{{
+  "backupId": "install-1700000000000",
+  "backupPath": "{}",
+  "createdAtMs": 1700000000000,
+  "modsPath": "{}",
+  "entries": [
+    {{
+      "entryId": "entry-01",
+      "targetPath": "{}",
+      "existedBefore": true,
+      "savedPaths": ["content.json"],
+      "addedPaths": ["i18n/zh.json"]
+    }}
+  ]
+}}"#,
+        session_root.to_string_lossy().replace('\\', "\\\\"),
+        mods_root.to_string_lossy().replace('\\', "\\\\"),
+        mods_root
+            .join("Example")
+            .to_string_lossy()
+            .replace('\\', "\\\\"),
+    );
+    fs::write(session_root.join("metadata.json"), legacy_metadata).expect("write legacy metadata");
+
+    let sessions =
+        list_backup_sessions_at_root(&backup_root, Some(&mods_root)).expect("list legacy backups");
+    assert_eq!(sessions.len(), 1);
+    assert_eq!(sessions[0].backup_id, "install-1700000000000");
+    assert_eq!(sessions[0].created_at_ms, 1700000000000);
+    assert_eq!(sessions[0].primary_mod_name, None);
+    assert_eq!(sessions[0].primary_version, None);
+    assert_eq!(sessions[0].mod_count, 1);
+    assert_eq!(sessions[0].delete_count, 1);
+    assert_eq!(sessions[0].overwrite_count, 1);
 
     fs::remove_dir_all(root).expect("cleanup");
 }

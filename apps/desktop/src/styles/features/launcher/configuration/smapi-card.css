@@ -1,0 +1,170 @@
+@layer components {
+  .launcher-config-smapi-update {
+    min-width: 0;
+  }
+
+  .launcher-config-smapi-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem 1.125rem 1.5rem;
+  }
+
+  .launcher-config-smapi-detail {
+    margin: 0;
+    color: var(--config-text);
+    font-size: 0.8125rem;
+    line-height: 1.55;
+  }
+
+  .launcher-config-smapi-hint {
+    margin: 0;
+    color: var(--config-muted);
+    font-size: 0.7188rem;
+    line-height: 1.5;
+  }
+
+  .launcher-config-smapi-error {
+    color: var(--config-error-text);
+  }
+
+  .launcher-config-smapi-update-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    align-items: flex-start;
+  }
+
+  .launcher-config-smapi-affected {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    max-width: 100%;
+    margin-top: 0.375rem;
+    border: 1px solid color-mix(in srgb, var(--warning) 34%, var(--config-line));
+    border-radius: 62.4375rem;
+    background: color-mix(in srgb, var(--warning) 12%, var(--config-surface-soft));
+    color: var(--config-warning-text);
+    padding: 0.25rem 0.625rem;
+    font-size: 0.6875rem;
+    font-weight: 750;
+    line-height: 1.4;
+    cursor: help;
+  }
+
+  .launcher-config-smapi-affected::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 0;
+    top: calc(100% + 0.5rem);
+    z-index: 8;
+    width: max-content;
+    max-width: min(17rem, 72vw);
+    transform: translate(0, -0.1875rem);
+    border: 1px solid color-mix(in srgb, var(--warning) 26%, var(--config-line));
+    border-radius: 0.375rem;
+    background: color-mix(in srgb, var(--bg-panel) 97%, var(--warning) 3%);
+    color: var(--text-primary);
+    padding: 0.4375rem 0.5625rem;
+    font-size: 0.6875rem;
+    font-weight: 650;
+    line-height: 1.45;
+    white-space: pre-line;
+    opacity: 0;
+    pointer-events: none;
+    box-shadow: 0 0.625rem 1.375rem color-mix(in srgb, var(--bg-panel) 42%, transparent);
+    transition:
+      opacity 120ms ease,
+      transform 120ms ease;
+  }
+
+  .launcher-config-smapi-affected:hover::after,
+  .launcher-config-smapi-affected:focus-visible::after {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+
+  .launcher-config-smapi-install-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .launcher-config-smapi-progress-meta {
+    color: var(--config-muted);
+    font-size: 0.7188rem;
+    font-weight: 650;
+    line-height: 1.4;
+  }
+
+  .launcher-config-smapi-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.25rem;
+  }
+
+  .launcher-config-smapi-actions .launcher-config-button {
+    gap: 0.375rem;
+  }
+
+  .launcher-config-smapi-local {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    border: 1px solid color-mix(in srgb, var(--config-line) 78%, transparent);
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--config-surface-soft) 55%, transparent);
+    padding: 0.75rem 0.875rem;
+  }
+
+  .launcher-config-smapi-local-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.625rem;
+    flex-wrap: wrap;
+  }
+
+  .launcher-config-smapi-local-title {
+    color: var(--config-text);
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+  }
+
+  .launcher-config-smapi-candidate {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.875rem;
+    min-width: 0;
+  }
+
+  .launcher-config-smapi-candidate-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1875rem;
+    min-width: 0;
+  }
+
+  .launcher-config-smapi-candidate-name {
+    overflow: hidden;
+    color: var(--config-text);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-config-smapi-candidate-meta {
+    color: var(--config-muted);
+    font-size: 0.6875rem;
+    line-height: 1.4;
+  }
+
+  .launcher-config-smapi-update-ok .launcher-config-status-tag-ok::before {
+    color: var(--success);
+  }
+}

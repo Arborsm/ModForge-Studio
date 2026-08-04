@@ -983,11 +983,11 @@ export function useCpMaker() {
     setDirtyPatchIds((current) => new Set(current).add(patchId))
   }, [])
 
-  /** Moves one patch one position in the draft's export order; a boundary move is a no-op. */
+  /** Moves one patch one position in the draft's export order; a boundary move is a no-op. `within` skips non-matching patches. */
   const reorderPatch = useCallback(
-    (patchId: string, delta: -1 | 1) => {
+    (patchId: string, delta: -1 | 1, within?: (patch: DraftPatch) => boolean) => {
       if (!activeDraft) return
-      const nextPatches = movePatchWithin(activeDraft.patches, patchId, delta)
+      const nextPatches = movePatchWithin(activeDraft.patches, patchId, delta, within)
       if (nextPatches === activeDraft.patches) return
       setActiveDraft((current) => (current ? { ...current, patches: nextPatches } : current))
       setIsDirty(true)

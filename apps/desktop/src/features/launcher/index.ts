@@ -11,6 +11,7 @@ export { LauncherStateBlock } from './ui/shared/LauncherStateBlock'
 export { orderLauncherDownloadItems } from './ui/shared/orderLauncherDownloadItems'
 export { getLauncherCoverKey } from './model/coverKey'
 export { useLauncherImage } from './model/imageLoader'
+export { parseLauncherModIdQuery } from './model/launcherModIdQuery'
 export {
   DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE,
   LAUNCHER_DISCOVER_TOOLBAR_STORAGE_KEY,

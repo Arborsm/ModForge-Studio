@@ -1,15 +1,14 @@
 import {
   AlertTriangle,
   CheckSquare,
-  ChevronRight,
   Clock,
   CloudRain,
   Code2,
   Copy,
+  Download,
   Eye,
   FileJson,
   Flag,
-  FolderOpen,
   GripVertical,
   Heart,
   ListTree,
@@ -19,12 +18,17 @@ import {
   Sun,
   Trash2,
 } from 'lucide-react'
-import { lazy, Suspense, useMemo, useRef, useState, type MouseEvent } from 'react'
-import type { DraftPatch, CpMakerDraft } from '@features/cp-maker'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import type { DraftPatch } from '@features/cp-maker'
 import type { WorkspaceId } from '@features/cp-maker'
 import { cx } from '@shared/lib/helper'
-import { useEditorCopy } from '@locales/provider'
-import { buildEventPatchHubPatches, type EventPatchHubEvent, type EventPatchHubPatch } from '@entities/event'
+import { WorkspaceSplitView } from '@shared/ui/WorkspaceSplitView'
+import { useEditorCopy, useLocale } from '@locales/provider'
+import { loadEventAsset, type EventAssetSummary } from '@entities/game/api'
+import { useNotificationPublisher } from '@shared/ui/notifications'
+import { buildEventPatchHubPatches, warmEventEditorResources, type EventPatchHubEvent, type EventPatchHubPatch } from '@entities/event'
+import { EventPatchCreateDialog } from './EventPatchCreateDialog'
+import { EventVanillaImportDialog } from './EventVanillaImportDialog'
 import type { EventConditionBuilderResult } from './EventConditionBuilderModal'
 import { formatEventPreconditionForHub, type ParsedEventPrecondition } from '@entities/event'
 
@@ -41,14 +45,12 @@ interface PatchListPageProps {
   patches: DraftPatch[]
   onEditPatch: (patchId: string, eventKey?: string) => void
   onRemovePatch: (patchId: string) => void
-  onTogglePatch: (patchId: string, enabled: boolean) => void
   onPatchUpdate?: (patchId: string, patch: Partial<DraftPatch>) => void
-  canGoBack: boolean
-  canGoForward: boolean
-  onGoBack: () => void
-  onGoForward: () => void
+  /** Game root forwarded to the create dialog's vanilla event scan. */
+  gameRootPath: string | null
+  /** Creates an EditData event patch for the target and returns its id (existing id when already present). */
+  onCreatePatch?: (target: string) => string | null
   workspaceId: WorkspaceId
-  draft: CpMakerDraft | null
 }
 
 function getDefaultEventKey(patch: EventPatchHubPatch | null) {
@@ -134,16 +136,15 @@ export function PatchListPage({
   onEditPatch,
   onRemovePatch,
   onPatchUpdate,
-  canGoBack,
-  canGoForward,
-  onGoBack,
-  onGoForward,
+  gameRootPath,
+  onCreatePatch,
   workspaceId,
-  draft,
 }: PatchListPageProps) {
   const copy = useEditorCopy().studioDesk
   const catalog = copy.patchCatalog
   const hub = copy.eventPatchHub
+  const locale = useLocale()
+  const publishNotification = useNotificationPublisher()
   const [query, setQuery] = useState('')
   const [selectedPatchId, setSelectedPatchId] = useState<string | null>(patches[0]?.id ?? null)
   const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null)
@@ -153,7 +154,18 @@ export function PatchListPage({
   const [selectedEventKeys, setSelectedEventKeys] = useState<Set<string>>(() => new Set())
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [conditionBuilder, setConditionBuilder] = useState<{ patchId: string; eventKey: string } | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const nextEventIdRef = useRef(0)
+
+  // Entering the hub pre-warms the editor's shared caches (registry + item
+  // catalog), so opening an event afterwards skips the loading gate.
+  useEffect(() => {
+    if (!gameRootPath) {
+      return
+    }
+    void warmEventEditorResources(gameRootPath, locale)
+  }, [gameRootPath, locale])
 
   const hubPatches = useMemo(() => buildEventPatchHubPatches(patches), [patches])
   const normalizedQuery = query.trim().toLowerCase()
@@ -161,6 +173,9 @@ export function PatchListPage({
     () => hubPatches.filter((patch) => !normalizedQuery || patch.searchText.includes(normalizedQuery)),
     [hubPatches, normalizedQuery],
   )
+  const existingEventTargets = patches
+    .filter((patch) => patch.action === 'EditData')
+    .map((patch) => patch.target.trim().replaceAll('\\', '/').toLowerCase())
 
   const activePatch =
     (selectedPatchId ? hubPatches.find((patch) => patch.id === selectedPatchId) : null) ?? visiblePatches[0] ?? hubPatches[0] ?? null
@@ -176,6 +191,14 @@ export function PatchListPage({
     conditionBuilderPatch && conditionBuilderEvent
       ? (eventAliasesFromState(patchEditorState(conditionBuilderPatch.sourcePatch))[conditionBuilderEvent.key] ?? '')
       : ''
+  const normalizedActiveTarget = activePatch?.target.trim().replaceAll('\\', '/') ?? ''
+  const canImportVanilla =
+    activePatch !== null &&
+    gameRootPath !== null &&
+    onPatchUpdate !== undefined &&
+    /^data\/events\//i.test(normalizedActiveTarget) &&
+    !normalizedActiveTarget.includes('{{')
+  const activeDraftEventKeys = sourcePatch ? Object.keys(eventEntriesFromState(patchEditorState(sourcePatch))) : []
 
   const filterOptions: Array<{ id: EventFilter; label: string; count: number; icon: typeof ListTree }> = activePatch
     ? [
@@ -206,6 +229,49 @@ export function PatchListPage({
     setSelectedPatchId(patch.id)
     setSelectedEventKey(nextEventKey)
     setExpandedEventKey(nextEventKey)
+    setEventFilter('all')
+  }
+
+  async function handleCreatePatch(target: string, importSource: EventAssetSummary | null) {
+    const patchId = onCreatePatch?.(target) ?? null
+    if (patchId && importSource && gameRootPath && onPatchUpdate) {
+      try {
+        const parsed = await loadEventAsset(gameRootPath, importSource.relativePath, locale)
+        onPatchUpdate(patchId, {
+          editorState: { entries: Object.fromEntries(parsed.events.map((event) => [event.key, event.rawScript])) },
+        })
+      } catch {
+        publishNotification({ id: 'event-vanilla-import-error', level: 'error', title: hub.importVanilla.loadErrorLabel })
+      }
+    }
+    setCreateOpen(false)
+    if (!patchId) {
+      return
+    }
+    setQuery('')
+    setSelectedPatchId(patchId)
+    setSelectedEventKey(null)
+    setExpandedEventKey(null)
+    setEventFilter('all')
+  }
+
+  function handleImportVanilla(entries: Record<string, string>) {
+    if (!sourcePatch || !onPatchUpdate) {
+      return
+    }
+    const state = patchEditorState(sourcePatch)
+    const currentEntries = eventEntriesFromState(state)
+    const merged = { ...currentEntries }
+    for (const [key, rawScript] of Object.entries(entries)) {
+      if (merged[key] == null) {
+        merged[key] = rawScript
+      }
+    }
+    onPatchUpdate(sourcePatch.id, { editorState: { ...state, entries: merged } })
+    const firstImportedKey = Object.keys(entries)[0] ?? null
+    setImportOpen(false)
+    setSelectedEventKey(firstImportedKey)
+    setExpandedEventKey(firstImportedKey)
     setEventFilter('all')
   }
 
@@ -467,145 +533,142 @@ export function PatchListPage({
   }
 
   return (
-    <div className="event-patch-hub" data-workspace={workspaceId} onClick={() => setContextMenu(null)}>
-      <aside className="event-patch-navigator studio-tree-sidebar" aria-label={hub.navigationLabel}>
-        <label className="event-patch-search studio-tree-search">
-          <Search className="h-3.5 w-3.5" aria-hidden="true" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={hub.searchPlaceholder}
-            aria-label={hub.searchPlaceholder}
-            spellCheck={false}
-          />
-        </label>
+    <>
+      <WorkspaceSplitView
+        className="event-patch-hub"
+        data-workspace={workspaceId}
+        onClick={() => setContextMenu(null)}
+        sidebarLabel={hub.navigationLabel}
+        sidebar={
+          <div className="studio-tree-sidebar">
+            <label className="event-patch-search studio-tree-search">
+              <Search className="h-3.5 w-3.5" aria-hidden="true" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={hub.searchPlaceholder}
+                aria-label={hub.searchPlaceholder}
+                spellCheck={false}
+              />
+            </label>
 
-        <div className="event-patch-nav-scroll studio-tree-scroll">
-          <section className="event-patch-nav-group studio-tree-group" aria-label={hub.eventTreeLabel}>
-            <div className="event-patch-tree studio-tree-list">
-              {visiblePatches.length === 0 ? (
-                <div className="event-patch-tree-empty">{hubPatches.length === 0 ? hub.noPatchTitle : catalog.noSearchMatches}</div>
-              ) : (
-                visiblePatches.map((patch) => {
-                  const patchActive = patch.id === activePatch?.id
-                  return (
-                    <div key={patch.id} className="event-patch-tree-block studio-tree-block">
-                      <button
-                        type="button"
-                        className={cx('event-patch-tree-item studio-tree-item', patchActive && 'active')}
-                        onClick={() => handleSelectPatch(patch)}
-                        onContextMenu={(event) => openPatchContextMenu(event, patch)}
-                        aria-expanded={patchActive}
-                        title={`${patch.displayName} · ${hub.eventCount(patch.events.length)}`}
-                      >
-                        <FileJson className="studio-tree-file-icon h-4 w-4" aria-hidden="true" />
-                        <span className="event-patch-tree-copy studio-tree-item-copy">
-                          <strong>{patch.displayName}</strong>
-                        </span>
-                        <span className="event-patch-tree-count studio-tree-count">{patch.events.length}</span>
-                      </button>
-
-                      {patchActive ? (
-                        <div className="event-patch-tree-events studio-tree-child-list">
-                          {patch.events.map((event, index) => (
-                            <button
-                              key={event.key}
-                              type="button"
-                              className={cx(
-                                'event-patch-tree-event studio-tree-child-item',
-                                event.key === activeEvent?.key && 'active',
-                                event.status === 'disabled' && 'disabled',
-                              )}
-                              onClick={() => handleSelectEvent(event)}
-                              onContextMenu={(contextEvent) => openEventContextMenu(contextEvent, event)}
-                            >
-                              <span>#{formatStepIndex(index + 1)}</span>
-                              <strong>{event.title}</strong>
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          </section>
-
-          {activePatch ? (
-            <section className="event-patch-nav-group studio-tree-group">
-              <div className="event-patch-nav-title studio-tree-group-title">{hub.filtersTitle}</div>
-              <div className="event-patch-filter-list studio-tree-filter-list">
-                {filterOptions.map((filter) => {
-                  const FilterIcon = filter.icon
-                  return (
+            <div className="studio-tree-scroll">
+              <section className="event-patch-nav-group studio-tree-group" aria-label={hub.eventTreeLabel}>
+                <div className="event-patch-tree-title studio-tree-group-title">
+                  <span>{hub.eventTreeLabel}</span>
+                  {onCreatePatch ? (
                     <button
-                      key={filter.id}
                       type="button"
-                      className={cx('event-patch-filter-row studio-tree-filter-row', eventFilter === filter.id && 'active')}
-                      aria-pressed={eventFilter === filter.id}
-                      onClick={() => setEventFilter(filter.id)}
+                      className="event-patch-tree-add"
+                      aria-label={hub.createPatch.action}
+                      title={hub.createPatch.action}
+                      onClick={() => setCreateOpen(true)}
                     >
-                      <FilterIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>{filter.label}</span>
-                      <strong className="studio-tree-count">{filter.count}</strong>
+                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
-                  )
-                })}
+                  ) : null}
+                </div>
+                <div className="event-patch-tree studio-tree-list">
+                  {visiblePatches.length === 0 ? (
+                    <div className="event-patch-tree-empty">{hubPatches.length === 0 ? hub.noPatchTitle : catalog.noSearchMatches}</div>
+                  ) : (
+                    visiblePatches.map((patch) => {
+                      const patchActive = patch.id === activePatch?.id
+                      return (
+                        <div key={patch.id} className="event-patch-tree-block studio-tree-block">
+                          <button
+                            type="button"
+                            className={cx('event-patch-tree-item studio-tree-item', patchActive && 'active')}
+                            onClick={() => handleSelectPatch(patch)}
+                            onContextMenu={(event) => openPatchContextMenu(event, patch)}
+                            aria-expanded={patchActive}
+                            title={`${patch.displayName} · ${hub.eventCount(patch.events.length)}`}
+                          >
+                            <FileJson className="studio-tree-file-icon h-4 w-4" aria-hidden="true" />
+                            <span className="event-patch-tree-copy studio-tree-item-copy">
+                              <strong>{patch.displayName}</strong>
+                            </span>
+                            <span className="event-patch-tree-count studio-tree-count">{patch.events.length}</span>
+                          </button>
+
+                          {patchActive ? (
+                            <div className="event-patch-tree-events studio-tree-child-list">
+                              {patch.events.map((event, index) => (
+                                <button
+                                  key={event.key}
+                                  type="button"
+                                  className={cx(
+                                    'event-patch-tree-event studio-tree-child-item',
+                                    event.key === activeEvent?.key && 'active',
+                                    event.status === 'disabled' && 'disabled',
+                                  )}
+                                  onClick={() => handleSelectEvent(event)}
+                                  onContextMenu={(contextEvent) => openEventContextMenu(contextEvent, event)}
+                                >
+                                  <span>#{formatStepIndex(index + 1)}</span>
+                                  <strong>{event.title}</strong>
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </section>
+
+              {activePatch ? (
+                <section className="event-patch-nav-group studio-tree-group">
+                  <div className="event-patch-nav-title studio-tree-group-title">{hub.filtersTitle}</div>
+                  <div className="event-patch-filter-list studio-tree-filter-list">
+                    {filterOptions.map((filter) => {
+                      const FilterIcon = filter.icon
+                      return (
+                        <button
+                          key={filter.id}
+                          type="button"
+                          className={cx('event-patch-filter-row studio-tree-filter-row', eventFilter === filter.id && 'active')}
+                          aria-pressed={eventFilter === filter.id}
+                          onClick={() => setEventFilter(filter.id)}
+                        >
+                          <FilterIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span>{filter.label}</span>
+                          <strong className="studio-tree-count">{filter.count}</strong>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+          </div>
+        }
+        emptyState={{
+          icon: <FileJson className="h-10 w-10" aria-hidden="true" />,
+          title: hub.noPatchTitle,
+          hint: hub.noPatchSubtitle,
+          action: onCreatePatch ? (
+            <button type="button" className="control-button control-button-primary" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              <span>{hub.createPatch.action}</span>
+            </button>
+          ) : undefined,
+        }}
+      >
+        {activePatch ? (
+          <div className="event-patch-main" aria-label={hub.hubLabel}>
+            <header className="event-patch-hub-header">
+              <div className="event-patch-heading">
+                <h1>{activePatch.displayName}</h1>
               </div>
-            </section>
-          ) : null}
-        </div>
-      </aside>
-
-      <section className="event-patch-main" aria-label={hub.hubLabel}>
-        <header className="event-patch-workspace-header">
-          <div className="event-patch-workspace-nav">
-            <button type="button" className="icon-button h-8 w-8" aria-label={hub.backLabel} onClick={onGoBack} disabled={!canGoBack}>
-              <ChevronRight className={cx('h-4 w-4 rotate-180', !canGoBack && 'opacity-35')} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="icon-button h-8 w-8"
-              aria-label={hub.forwardLabel}
-              onClick={onGoForward}
-              disabled={!canGoForward}
-            >
-              <ChevronRight className={cx('h-4 w-4', !canGoForward && 'opacity-35')} aria-hidden="true" />
-            </button>
-            <nav className="event-patch-breadcrumbs" aria-label={hub.breadcrumbLabel}>
-              <span>
-                <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
-                {draft?.projectMetadata.projectName ?? hub.projectFallback}
-              </span>
-              <ChevronRight className="h-3 w-3" aria-hidden="true" />
-              <span>
-                <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
-                {hub.eventsLabel}
-              </span>
-              <ChevronRight className="h-3 w-3" aria-hidden="true" />
-              <strong>
-                <FileJson className="h-3.5 w-3.5" aria-hidden="true" />
-                {activePatch?.displayName ?? hub.breadcrumbNoPatch}
-              </strong>
-            </nav>
-          </div>
-
-          <div className="event-patch-workspace-actions">
-            <button type="button" className="icon-button h-8 w-8" aria-label={hub.hubLabel} title={hub.hubLabel}>
-              <ListTree className="h-4 w-4" aria-hidden="true" />
-            </button>
-          </div>
-        </header>
-
-        <header className="event-patch-hub-header">
-          <div className="event-patch-heading">
-            <h1>{activePatch?.displayName ?? hub.noPatchTitle}</h1>
-            {activePatch ? null : <span>{hub.noPatchSubtitle}</span>}
-          </div>
-          <div className="event-patch-hub-actions">
-            {activePatch ? (
-              <>
+              <div className="event-patch-hub-actions">
+                {canImportVanilla ? (
+                  <button type="button" className="control-button" onClick={() => setImportOpen(true)}>
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    <span>{hub.importVanilla.action}</span>
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className={cx('control-button', multiSelect && 'edit-mode-button-active')}
@@ -622,15 +685,11 @@ export function PatchListPage({
                   <Plus className="h-4 w-4" aria-hidden="true" />
                   <span>{hub.addEventLabel}</span>
                 </button>
-              </>
-            ) : null}
-          </div>
-        </header>
+              </div>
+            </header>
 
-        <div className="event-patch-hub-body">
-          <div className="event-storyboard">
-            {activePatch ? (
-              <>
+            <div className="event-patch-hub-body">
+              <div className="event-storyboard">
                 <div className="event-storyboard-head">
                   <div>
                     <h2>{hub.storyboardTitle}</h2>
@@ -754,84 +813,108 @@ export function PatchListPage({
                   <section className="event-storyboard-empty">
                     <strong>{hub.emptyTitle}</strong>
                     <span>{hub.emptySubtitle}</span>
+                    {canImportVanilla ? (
+                      <button type="button" className="control-button control-button-primary" onClick={() => setImportOpen(true)}>
+                        <Download className="h-4 w-4" aria-hidden="true" />
+                        <span>{hub.importVanilla.action}</span>
+                      </button>
+                    ) : null}
                   </section>
                 )}
-              </>
-            ) : (
-              <section className="event-patch-hub-empty">
-                <div className="event-patch-hub-empty-icon">
-                  <FileJson className="h-7 w-7" aria-hidden="true" />
-                </div>
-                <strong>{hub.noPatchTitle}</strong>
-                <p>{hub.noPatchSubtitle}</p>
-              </section>
-            )}
+              </div>
+            </div>
+
+            {contextMenu ? (
+              <div
+                className="event-patch-context-menu"
+                role="menu"
+                aria-label={hub.contextMenuLabel}
+                style={{ left: contextMenu.x, top: contextMenu.y }}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {contextMenu.kind === 'patch' ? (
+                  <>
+                    <button type="button" role="menuitem" onClick={() => handlePatchMenuAction('addEvent')}>
+                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{hub.addEventLabel}</span>
+                    </button>
+                    <button type="button" role="menuitem" className="danger" onClick={() => handlePatchMenuAction('deletePatch')}>
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{hub.deletePatchAction}</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button type="button" role="menuitem" onClick={() => handleEventMenuAction('edit')}>
+                      <PencilLine className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{hub.openEditorAction}</span>
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => handleEventMenuAction('conditionBuilder')}
+                      disabled={!onPatchUpdate}
+                    >
+                      <Code2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{hub.conditionBuilderAction}</span>
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => handleEventMenuAction('duplicate')}>
+                      <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{hub.duplicateEventAction}</span>
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => handleEventMenuAction('toggle')}>
+                      <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>
+                        {hubPatches
+                          .find((patch) => patch.id === contextMenu.patchId)
+                          ?.events.find((event) => event.key === contextMenu.eventKey)?.status === 'disabled'
+                          ? hub.enableEventAction
+                          : hub.disableEventAction}
+                      </span>
+                    </button>
+                    <button type="button" role="menuitem" className="danger" onClick={() => handleEventMenuAction('delete')}>
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{hub.deleteEventAction}</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            ) : null}
+            {conditionBuilderEvent && conditionBuilderPatch ? (
+              <Suspense fallback={null}>
+                <EventConditionBuilderModal
+                  event={conditionBuilderEvent}
+                  allEvents={conditionBuilderPatch.events}
+                  alias={conditionBuilderAlias}
+                  hubCopy={hub}
+                  copy={hub.conditionBuilder}
+                  onApply={applyConditionBuilder}
+                  onCancel={() => setConditionBuilder(null)}
+                />
+              </Suspense>
+            ) : null}
           </div>
-        </div>
-      </section>
-      {contextMenu ? (
-        <div
-          className="event-patch-context-menu"
-          role="menu"
-          aria-label={hub.contextMenuLabel}
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          onClick={(event) => event.stopPropagation()}
-        >
-          {contextMenu.kind === 'patch' ? (
-            <>
-              <button type="button" role="menuitem" onClick={() => handlePatchMenuAction('addEvent')}>
-                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>{hub.addEventLabel}</span>
-              </button>
-              <button type="button" role="menuitem" className="danger" onClick={() => handlePatchMenuAction('deletePatch')}>
-                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>{hub.deletePatchAction}</span>
-              </button>
-            </>
-          ) : (
-            <>
-              <button type="button" role="menuitem" onClick={() => handleEventMenuAction('edit')}>
-                <PencilLine className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>{hub.openEditorAction}</span>
-              </button>
-              <button type="button" role="menuitem" onClick={() => handleEventMenuAction('conditionBuilder')} disabled={!onPatchUpdate}>
-                <Code2 className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>{hub.conditionBuilderAction}</span>
-              </button>
-              <button type="button" role="menuitem" onClick={() => handleEventMenuAction('duplicate')}>
-                <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>{hub.duplicateEventAction}</span>
-              </button>
-              <button type="button" role="menuitem" onClick={() => handleEventMenuAction('toggle')}>
-                <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>
-                  {hubPatches.find((patch) => patch.id === contextMenu.patchId)?.events.find((event) => event.key === contextMenu.eventKey)
-                    ?.status === 'disabled'
-                    ? hub.enableEventAction
-                    : hub.disableEventAction}
-                </span>
-              </button>
-              <button type="button" role="menuitem" className="danger" onClick={() => handleEventMenuAction('delete')}>
-                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>{hub.deleteEventAction}</span>
-              </button>
-            </>
-          )}
-        </div>
+        ) : null}
+      </WorkspaceSplitView>
+      {onCreatePatch ? (
+        <EventPatchCreateDialog
+          open={createOpen}
+          gameRootPath={gameRootPath}
+          existingTargets={existingEventTargets}
+          onClose={() => setCreateOpen(false)}
+          onConfirm={handleCreatePatch}
+        />
       ) : null}
-      {conditionBuilderEvent && conditionBuilderPatch ? (
-        <Suspense fallback={null}>
-          <EventConditionBuilderModal
-            event={conditionBuilderEvent}
-            allEvents={conditionBuilderPatch.events}
-            alias={conditionBuilderAlias}
-            hubCopy={hub}
-            copy={hub.conditionBuilder}
-            onApply={applyConditionBuilder}
-            onCancel={() => setConditionBuilder(null)}
-          />
-        </Suspense>
+      {canImportVanilla && gameRootPath ? (
+        <EventVanillaImportDialog
+          open={importOpen}
+          gameRootPath={gameRootPath}
+          target={normalizedActiveTarget}
+          existingKeys={activeDraftEventKeys}
+          onClose={() => setImportOpen(false)}
+          onImport={handleImportVanilla}
+        />
       ) : null}
-    </div>
+    </>
   )
 }

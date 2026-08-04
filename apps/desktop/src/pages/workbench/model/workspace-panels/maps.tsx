@@ -51,6 +51,7 @@ export function buildMapsWorkspacePanels(options: BuildMapPanelsOptions): Worksp
     onToggleGameWorldAdditions,
     worldOverlaySprites,
     worldOverlayTextureAssets,
+    objectLightIndex,
     onFocusObject,
     onHoverChange,
     heavyWorkspaceReady,
@@ -132,6 +133,7 @@ export function buildMapsWorkspacePanels(options: BuildMapPanelsOptions): Worksp
                 onToggleGameWorldAdditions={onToggleGameWorldAdditions}
                 worldOverlaySprites={worldOverlaySprites}
                 worldOverlayTextureAssets={worldOverlayTextureAssets}
+                objectLightIndex={objectLightIndex}
                 onHoverChange={onHoverChange}
               />,
             )}

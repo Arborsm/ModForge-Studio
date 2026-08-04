@@ -11,6 +11,14 @@ import { cx } from '@shared/lib/helper'
 import { useNotificationPublisher } from '@shared/ui/notifications'
 import { chooseSaveFile } from '@platform/host'
 import { MapViewport, MapWorldStatePreviewOverlay, type MapViewportHandle } from '@entities/map'
+import {
+  deriveMapDocumentLighting,
+  getLightingPreviewTimeOfDay,
+  type GameSeason,
+  type MapLightingPreviewMode,
+  type ObjectLightItemIndex,
+} from '@entities/map'
+import { MapLightingPreviewControls } from '../ui/MapLightingPreviewControls'
 
 type CentralWorkspaceProps = {
   tabs: Array<{
@@ -38,6 +46,8 @@ type CentralWorkspaceProps = {
   onToggleGameWorldAdditions: () => void
   worldOverlaySprites: StageWorldOverlaySprite[]
   worldOverlayTextureAssets: Record<string, EffectAssetState>
+  /** Item-data lookup enabling object-layer lamp/torch markers in the lighting preview. */
+  objectLightIndex: ObjectLightItemIndex | null
   onHoverChange: (info: TileHoverInfo | null) => void
 }
 
@@ -63,6 +73,7 @@ export default function CentralWorkspace({
   onToggleGameWorldAdditions,
   worldOverlaySprites,
   worldOverlayTextureAssets,
+  objectLightIndex,
   onHoverChange,
 }: CentralWorkspaceProps) {
   const locale = useLocale()
@@ -70,6 +81,8 @@ export default function CentralWorkspace({
   const publishNotification = useNotificationPublisher()
   const [toolMode, setToolMode] = useState<ToolMode>('select')
   const [showGrid, setShowGrid] = useState(true)
+  const [lightingMode, setLightingMode] = useState<MapLightingPreviewMode>('day')
+  const [lightingSeason, setLightingSeason] = useState<GameSeason>('spring')
   const [zoomLabel, setZoomLabel] = useState('100%')
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null)
   const [dropTargetTabId, setDropTargetTabId] = useState<string | null>(null)
@@ -97,6 +110,15 @@ export default function CentralWorkspace({
       />
     )
   }, [mapDocument, showGameWorldAdditions, worldOverlaySprites, worldOverlayTextureAssets])
+  const worldLighting = useMemo(
+    () =>
+      mapDocument
+        ? deriveMapDocumentLighting(mapDocument, getLightingPreviewTimeOfDay(lightingMode, lightingSeason), lightingSeason, {
+            objectLightIndex,
+          })
+        : null,
+    [lightingMode, lightingSeason, mapDocument, objectLightIndex],
+  )
   const previewGameWorldAdditionsLabel = copy.center.previewGameWorldAdditions
   const hideGameWorldAdditionsLabel = copy.center.hideGameWorldAdditions
   const gridToggleLabel = showGrid ? copy.center.hideGrid : copy.center.showGrid
@@ -228,6 +250,7 @@ export default function CentralWorkspace({
               showGrid={showGrid}
               mapOverlay={mapOverlay}
               scaleMapOverlayWithViewport
+              worldLighting={worldLighting}
               onZoomChange={(nextZoom) => setZoomLabel(copy.viewportLabels.zoomLabel(nextZoom))}
               onExportPng={() => {
                 void exportMapPngAtFullSize()
@@ -321,6 +344,14 @@ export default function CentralWorkspace({
                   <Grid2x2 className="h-4 w-4" />
                 </button>
               </div>
+
+              <MapLightingPreviewControls
+                mode={lightingMode}
+                season={lightingSeason}
+                disabled={!mapDocument}
+                onModeChange={setLightingMode}
+                onSeasonChange={setLightingSeason}
+              />
 
               <div className="workspace-viewport-toolbar-group workspace-viewport-toolbar-group-push">
                 <button

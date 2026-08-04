@@ -1,15 +1,91 @@
 @layer components {
-  .asset-library-load-bindings {
+  /* Left-hand replacements column content of the merged asset library layout.
+     The column shell (border, scrolling) comes from WorkspaceSplitView's
+     sidebar; .asset-library-bindings is a plain content wrapper whose header
+     stays pinned via sticky while the sidebar scrolls. */
+  .asset-library-bindings-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     display: grid;
-    min-height: 0;
-    grid-template-columns: 20rem minmax(0, 1fr);
+    gap: 0.375rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+    background: var(--bg-panel);
+    padding: 0.625rem 0.75rem;
+  }
+
+  .asset-library-bindings-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .asset-library-bindings-title-row strong {
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .asset-library-bindings-title-row .control-button {
+    margin-left: auto;
+    min-width: 0;
+  }
+
+  .asset-library-bindings-hint {
+    margin: 0;
+    color: var(--text-tertiary);
+    font-size: 0.625rem;
+    line-height: 1.45;
   }
 
   .asset-library-load-binding-list {
-    min-height: 0;
-    overflow: auto;
-    border-right: 1px solid var(--border-color);
     padding: 0.5rem;
+  }
+
+  /* The editor shares the right-hand main cell with the asset browser pane
+     (explicit placement keeps it stable while the family picker overlays). */
+  .asset-library-load-binding-editor {
+    display: flex;
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 0;
+    flex-direction: column;
+    overflow: auto;
+  }
+
+  .asset-library-binding-editor-header {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+    background: var(--bg-panel);
+    padding: 0.5rem 1rem;
+  }
+
+  .asset-library-binding-editor-header > svg {
+    flex: 0 0 auto;
+    color: var(--text-tertiary);
+  }
+
+  .asset-library-binding-editor-header strong {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text-primary);
+    font-family: var(--font-mono, monospace);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .asset-library-binding-editor-header .icon-button {
+    flex: 0 0 auto;
+    margin-left: auto;
   }
 
   .asset-library-load-binding-row {
@@ -44,7 +120,7 @@
     max-width: 100%;
     overflow: hidden;
     font-family: var(--font-mono, monospace);
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     font-weight: 700;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -55,15 +131,20 @@
     overflow: hidden;
     color: var(--text-tertiary);
     font-family: var(--font-mono, monospace);
-    font-size: 0.5625rem;
+    font-size: 0.625rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .asset-library-load-binding-editor {
-    min-height: 0;
-    overflow: auto;
+  .asset-library-load-binding-file::before {
+    content: '→ ';
   }
+
+  .asset-library-load-binding-file.is-empty {
+    font-family: inherit;
+    font-style: italic;
+  }
+
   /* ===== Load binding editor ===== */
   .map-load-editor {
     display: flex;
@@ -98,7 +179,6 @@
     gap: 0.5rem;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    background: var(--bg-panel-muted);
     padding: 0.75rem;
   }
 
@@ -138,7 +218,6 @@
     gap: 0.25rem;
     border: 1px solid var(--border-color);
     border-radius: 999px;
-    background: var(--bg-app);
     padding: 0.25rem 0.5rem;
     color: var(--text-primary);
     font-size: 0.625rem;
@@ -401,13 +480,22 @@
   }
 
   /* ===== Family picker ===== */
+  /* Floats over the top of the right-hand main cell so the browser/editor keep
+     their grid placement; solid panel background + float shadow separate it
+     from the content behind. */
   .load-family-picker {
     display: flex;
     flex-direction: column;
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+    z-index: 5;
     gap: 0.625rem;
+    margin: 0.75rem;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     background: var(--bg-panel);
+    box-shadow: var(--shadow-float);
     padding: 0.75rem;
   }
 
@@ -422,6 +510,10 @@
     font-size: 0.75rem;
   }
 
+  .load-family-picker > .control-button {
+    align-self: flex-end;
+  }
+
   .load-family-picker-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
@@ -430,14 +522,15 @@
 
   .load-family-picker-card {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.375rem;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    background: var(--bg-panel-muted);
-    padding: 0.625rem 0.75rem;
+    background: transparent;
+    padding: 0.75rem;
     color: var(--text-primary);
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
     transition:
@@ -445,9 +538,17 @@
       background 120ms ease;
   }
 
+  .load-family-picker-card svg {
+    color: var(--text-tertiary);
+  }
+
   .load-family-picker-card:hover {
     border-color: color-mix(in srgb, var(--accent) 45%, var(--border-color));
     background: var(--bg-active);
+  }
+
+  .load-family-picker-card:hover svg {
+    color: var(--accent);
   }
 
   /* ===== Image thumbnail target grid ===== */
@@ -485,7 +586,6 @@
     gap: 0.25rem;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
-    background: var(--bg-app);
     padding: 0.375rem;
     color: var(--text-secondary);
     font-size: 0.5625rem;
@@ -541,7 +641,6 @@
     gap: 0.5rem;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
-    background: var(--bg-app);
     padding: 0.375rem 0.5rem;
     color: var(--text-primary);
     font-size: 0.625rem;
@@ -587,7 +686,6 @@
     gap: 0.25rem;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
-    background: var(--bg-app);
     padding: 0.375rem;
   }
 
@@ -600,16 +698,6 @@
   @media (max-width: 60rem) {
     .map-load-grid {
       grid-template-columns: minmax(0, 1fr);
-    }
-  }
-  @media (max-width: 760px) {
-    .asset-library-load-bindings {
-      grid-template-columns: 1fr;
-      overflow: visible;
-    }
-    .asset-library-load-binding-list {
-      border-right: 0;
-      border-bottom: 1px solid var(--border-color);
     }
   }
 }

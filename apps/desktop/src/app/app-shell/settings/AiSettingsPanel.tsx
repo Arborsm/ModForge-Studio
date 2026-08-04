@@ -1,27 +1,39 @@
 import { lazy, Suspense, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { usePlatformPorts } from '@app/providers/usePlatformPorts'
-import { parseAiFailure, useAi } from '@entities/ai'
-import { useLocalization } from '@entities/localization'
+import { Eraser } from 'lucide-react'
+import { parseAiFailure, useAi, validateAiGenerationParams } from '@entities/ai'
+import type { AiGenerationParamField } from '@entities/ai'
 import { useNotificationCopy, useSettingsMenuCopy } from '@locales/provider'
-import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import type {
   AiModelInfo,
-  AiSettingsTab,
   AiProfileImportConflictPolicy,
   AiProfileImportPreview,
   AiProfileTestResult,
-  AiProviderPreset,
-  AiSemanticIndexStatus,
-  AiSemanticModelStatus,
-  AiSemanticProgress,
-  AiSemanticSettingsSnapshot,
   AiSettingsSnapshot,
-  SaveAiProviderProfile,
+  AiSettingsTab,
+  ModelsDevCatalog,
+  ModelsDevModelEntry,
 } from '@shared/contracts'
 import { cx } from '@shared/lib/helper'
+import { CompactSelect } from '@shared/ui/CompactSelect'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
 import { LoadingMotionFallback } from '@shared/ui/loading-motion'
+import { AiProfileEditor } from './AiProfileEditor'
+import { ModelsDevImportDialog } from './ModelsDevImportDialog'
+import { ReasoningChainView } from './ReasoningChainView'
+import { SemanticStatusStrip } from './SemanticStatusStrip'
+import {
+  AI_GENERATION_PARAM_FIELDS,
+  paramErrorMessage,
+  paramStringsFromProfile,
+  paramValueFromString,
+  profilesAreSaved,
+  toDrafts,
+  type GenerationParamSource,
+  type ParamDraftStrings,
+  type ProfileDraft,
+} from './profileDraftModel'
 
 const AiUsageSection = lazy(() => import('./AiUsageSection').then((module) => ({ default: module.AiUsageSection })))
 const DefaultTranslationEngineSection = lazy(() =>
@@ -42,94 +54,11 @@ function profileNotificationId(profileId: string) {
   return `ai-settings-profile-${profileId}`
 }
 
-type ProfileDraft = SaveAiProviderProfile & { keyStatus: 'keychain' | 'environment' | null }
-
 type AiSettingsActions = {
   save: () => Promise<void>
   loadModels: (id: string) => Promise<void>
   testProfile: (id: string) => Promise<void>
   clearCache: () => Promise<void>
-}
-
-function SemanticStatusStrip({ active, onConfigure }: { active: boolean; onConfigure: () => void }) {
-  const localization = useLocalization()
-  const copy = useSettingsMenuCopy().ai.semantic
-  const [settings, setSettings] = useState<AiSemanticSettingsSnapshot | null>(null)
-  const [model, setModel] = useState<AiSemanticModelStatus | null>(null)
-  const [index, setIndex] = useState<AiSemanticIndexStatus | null>(null)
-  const [progress, setProgress] = useState<AiSemanticProgress | null>(null)
-  const [failed, setFailed] = useState(false)
-
-  useEffect(() => {
-    if (!active) return
-    let mounted = true
-    let dispose: (() => void) | undefined
-    const refreshStatus = async () => {
-      try {
-        const [nextSettings, nextModel, nextIndex] = await Promise.all([
-          localization.loadSemanticSettings(),
-          localization.inspectSemanticModel(),
-          localization.inspectSemanticIndex([]),
-        ])
-        if (!mounted) return
-        setSettings(nextSettings)
-        setModel(nextModel)
-        setIndex(nextIndex)
-        setFailed(false)
-      } catch {
-        if (mounted) setFailed(true)
-      }
-    }
-    void refreshStatus()
-    void localization
-      .listenSemanticProgress((value) => {
-        if (!mounted) return
-        setProgress(value)
-        if (value.phase === 'complete') void refreshStatus()
-      })
-      .then((value) => {
-        if (mounted) dispose = value
-        else value()
-      })
-    return () => {
-      mounted = false
-      dispose?.()
-    }
-  }, [active, localization])
-
-  const mode = settings?.mode ?? 'lexical'
-  const stripText = (() => {
-    if (failed) return copy.loadError
-    if (!settings) return copy.loading
-    const parts: string[] = [copy.modes[mode]]
-    if (mode === 'lexical') {
-      parts.push(copy.lexicalIndexNotRequired)
-      return parts.join(' · ')
-    }
-    if (model) parts.push(model.available ? copy.available : copy.unavailable)
-    if (index) {
-      parts.push(`${index.coveragePercentage.toFixed(1)}%`)
-      if (index.pendingRecords > 0) parts.push(copy.pending(index.pendingRecords))
-    }
-    if (progress && progress.phase !== 'complete') {
-      parts.push(`${progress.currentFile} · ${progress.percentage.toFixed(1)}%`)
-    }
-    return parts.join(' · ')
-  })()
-
-  return (
-    <aside className="settings-ai-semantic-strip" aria-label={copy.title}>
-      <div>
-        <strong>{copy.title}</strong>
-        <span> · {stripText}</span>
-      </div>
-      {!active ? (
-        <button type="button" className="settings-window-btn settings-ai-link-btn" onClick={onConfigure}>
-          {copy.configure}
-        </button>
-      ) : null}
-    </aside>
-  )
 }
 
 function formatBytes(value: number) {
@@ -138,37 +67,12 @@ function formatBytes(value: number) {
   return `${value} B`
 }
 
-function toDrafts(snapshot: AiSettingsSnapshot): ProfileDraft[] {
-  return snapshot.profiles.map((profile) => ({
-    id: profile.id,
-    name: profile.name,
-    presetId: profile.presetId,
-    protocol: profile.protocol,
-    baseUrl: profile.baseUrl,
-    model: profile.model,
-    credentialEnvironment: profile.credentialEnvironment,
-    keyStatus: profile.resolvedCredentialSource,
-  }))
-}
-
-function profilesAreSaved(snapshot: AiSettingsSnapshot | null, profiles: ProfileDraft[], defaultProfileId: string | null) {
-  if (!snapshot || snapshot.defaultProfileId !== defaultProfileId || snapshot.profiles.length !== profiles.length) return false
-  return profiles.every((profile, index) => {
-    const saved = snapshot.profiles[index]
-    return (
-      saved?.id === profile.id &&
-      saved.name === profile.name &&
-      saved.presetId === profile.presetId &&
-      saved.protocol === profile.protocol &&
-      saved.baseUrl === profile.baseUrl &&
-      saved.model === profile.model &&
-      saved.credentialEnvironment === profile.credentialEnvironment &&
-      !profile.apiKey &&
-      !profile.clearApiKey
-    )
-  })
-}
-
+/**
+ * AI settings shell: owns tab orchestration and shared generative-profile state
+ * (drafts, dirty comparison, remote-action gating), delegating the profile
+ * editor, models.dev import dialog, chain-of-thought viewer and semantic strip
+ * to dedicated components.
+ */
 export function AiSettingsPanel({
   initialTab = 'engine',
   onDirtyChange,
@@ -184,7 +88,6 @@ export function AiSettingsPanel({
   const copy = settingsMenuCopy.ai
   const settingsCategories = settingsMenuCopy.categories
   const categoryDescriptions = settingsMenuCopy.categoryDescriptions
-  const locale = usePreferencesStore((state) => state.locale)
   const notificationCopy = useNotificationCopy().ai
   const publishNotification = useNotificationPublisher()
   const [snapshot, setSnapshot] = useState<AiSettingsSnapshot | null>(null)
@@ -194,6 +97,7 @@ export function AiSettingsPanel({
   const [testResult, setTestResult] = useState<AiProfileTestResult | null>(null)
   const [testedProfileIds, setTestedProfileIds] = useState<Record<string, boolean>>({})
   const [testingProfileId, setTestingProfileId] = useState<string | null>(null)
+  const [testReasoningExpanded, setTestReasoningExpanded] = useState(false)
   const [loadingModelsId, setLoadingModelsId] = useState<string | null>(null)
   const [importPreview, setImportPreview] = useState<{ sourcePath: string; preview: AiProfileImportPreview } | null>(null)
   const testDialogTitleId = useId()
@@ -208,6 +112,15 @@ export function AiSettingsPanel({
   const [defaultEngineDirty, setDefaultEngineDirty] = useState(false)
   const [machineTranslationDirty, setMachineTranslationDirty] = useState(false)
   const [semanticDirty, setSemanticDirty] = useState(false)
+  const [paramStrings, setParamStrings] = useState<Record<string, ParamDraftStrings>>({})
+  const [paramErrors, setParamErrors] = useState<Record<string, Partial<Record<AiGenerationParamField, string>>>>({})
+  const [advancedExpanded, setAdvancedExpanded] = useState<Record<string, boolean>>({})
+  const [modelsDevOpen, setModelsDevOpen] = useState(false)
+  const [modelsDevCatalog, setModelsDevCatalog] = useState<ModelsDevCatalog | null>(null)
+  const [modelsDevLoading, setModelsDevLoading] = useState(false)
+  const [modelsDevLoadFailed, setModelsDevLoadFailed] = useState(false)
+  const [modelsDevQuery, setModelsDevQuery] = useState('')
+  const [modelsDevSelected, setModelsDevSelected] = useState<string | null>(null)
   const mountedRef = useRef(false)
   const profileNotificationIds = useRef(new Set<string>())
   const actionsRef = useRef<AiSettingsActions>({
@@ -274,7 +187,18 @@ export function AiSettingsPanel({
     selectedPersisted.protocol === selectedProfile.protocol &&
     selectedPersisted.baseUrl === selectedProfile.baseUrl &&
     selectedPersisted.model === selectedProfile.model &&
-    selectedPersisted.credentialEnvironment === selectedProfile.credentialEnvironment,
+    selectedPersisted.credentialEnvironment === selectedProfile.credentialEnvironment &&
+    selectedPersisted.allowInsecureHttp === selectedProfile.allowInsecureHttp &&
+    selectedPersisted.contextWindowTokens === selectedProfile.contextWindowTokens &&
+    selectedPersisted.maxOutputTokens === selectedProfile.maxOutputTokens &&
+    selectedPersisted.maxBatchBytes === selectedProfile.maxBatchBytes &&
+    selectedPersisted.temperature === selectedProfile.temperature &&
+    selectedPersisted.topP === selectedProfile.topP &&
+    selectedPersisted.frequencyPenalty === selectedProfile.frequencyPenalty &&
+    selectedPersisted.presencePenalty === selectedProfile.presencePenalty &&
+    selectedPersisted.enableReasoning === selectedProfile.enableReasoning &&
+    selectedPersisted.reasoningEffort === selectedProfile.reasoningEffort &&
+    selectedPersisted.streamTranslation === selectedProfile.streamTranslation,
   )
 
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange])
@@ -294,15 +218,17 @@ export function AiSettingsPanel({
     setProfiles((current) => current.map((profile) => (profile.id === id ? { ...profile, ...patch } : profile)))
   }
 
-  const selectPreset = (profile: ProfileDraft, preset: AiProviderPreset) => {
-    updateProfile(profile.id, {
-      presetId: preset.id,
-      protocol: preset.protocol,
-      baseUrl: preset.baseUrl,
-      credentialEnvironment: preset.credentialEnvironment,
-      keyStatus: null,
-      apiKey: '',
-      clearApiKey: true,
+  const draftStringsFor = (profile: GenerationParamSource): ParamDraftStrings =>
+    paramStrings[profile.id] ?? paramStringsFromProfile(profile)
+
+  const updateParamString = (id: string, field: (typeof AI_GENERATION_PARAM_FIELDS)[number], value: string) => {
+    const seed = paramStrings[id] ?? paramStringsFromProfile(profiles.find((profile) => profile.id === id) ?? profiles[0]!)
+    setParamStrings((current) => ({ ...current, [id]: { ...seed, [field]: value } }))
+    setParamErrors((current) => {
+      if (!current[id]?.[field]) return current
+      const next = { ...current, [id]: { ...current[id] } }
+      delete next[id]?.[field]
+      return next
     })
   }
 
@@ -320,26 +246,94 @@ export function AiSettingsPanel({
         baseUrl: preset.baseUrl,
         model: '',
         credentialEnvironment: preset.credentialEnvironment,
+        allowInsecureHttp: false,
+        contextWindowTokens: null,
+        maxOutputTokens: null,
+        maxBatchBytes: null,
+        temperature: null,
+        topP: null,
+        frequencyPenalty: null,
+        presencePenalty: null,
+        enableReasoning: false,
+        reasoningEffort: null,
+        streamTranslation: false,
         keyStatus: null,
       },
     ])
-    setDefaultProfileId((current) => current ?? id)
+    setDefaultProfileId((current) => (current && profiles.some((profile) => profile.id === current) ? current : id))
     setSelectedProfileId(id)
+  }
+
+  const deleteProfile = (id: string) => {
+    dismissNotification(profileNotificationId(id))
+    profileNotificationIds.current.delete(profileNotificationId(id))
+    setModels((current) => Object.fromEntries(Object.entries(current).filter(([profileId]) => profileId !== id)))
+    setTestedProfileIds((current) => {
+      const next = { ...current }
+      delete next[id]
+      return next
+    })
+    setParamStrings((current) => {
+      const next = { ...current }
+      delete next[id]
+      return next
+    })
+    setParamErrors((current) => {
+      const next = { ...current }
+      delete next[id]
+      return next
+    })
+    const remaining = profiles.filter((item) => item.id !== id)
+    setProfiles(remaining)
+    setSelectedProfileId(remaining[0]?.id ?? null)
+    if (defaultProfileId === id) setDefaultProfileId(null)
   }
 
   const save = async () => {
     dismissNotification(AI_SETTINGS_SAVE_NOTIFICATION_ID)
+    // Field-level validation runs before any remote call: invalid generation
+    // parameters block the save and are surfaced next to their inputs.
+    const validationErrors: Record<string, Partial<Record<AiGenerationParamField, string>>> = {}
+    for (const profile of profiles) {
+      const draft = draftStringsFor(profile)
+      const fieldErrors = validateAiGenerationParams(draft)
+      if (fieldErrors.length) {
+        validationErrors[profile.id] = Object.fromEntries(
+          fieldErrors.map((fieldError) => [fieldError.field, paramErrorMessage(copy, fieldError)]),
+        )
+      }
+    }
+    const hasValidationErrors = Object.keys(validationErrors).length > 0
+    setParamErrors(validationErrors)
+    if (hasValidationErrors) {
+      setError(copy.saveError)
+      return
+    }
     setSaving(true)
     setError(null)
     try {
       const settings = await ai.saveSettings({
         defaultProfileId,
-        profiles: profiles.map(({ keyStatus: _keyStatus, ...profile }) => profile),
+        profiles: profiles.map(({ keyStatus: _keyStatus, ...profile }) => {
+          const draft = draftStringsFor(profile)
+          return {
+            ...profile,
+            contextWindowTokens: paramValueFromString('contextWindowTokens', draft.contextWindowTokens),
+            maxOutputTokens: paramValueFromString('maxOutputTokens', draft.maxOutputTokens),
+            maxBatchBytes: paramValueFromString('maxBatchBytes', draft.maxBatchBytes),
+            temperature: paramValueFromString('temperature', draft.temperature),
+            topP: paramValueFromString('topP', draft.topP),
+            frequencyPenalty: paramValueFromString('frequencyPenalty', draft.frequencyPenalty),
+            presencePenalty: paramValueFromString('presencePenalty', draft.presencePenalty),
+          }
+        }),
       })
       if (!mountedRef.current) return
       setSnapshot(settings)
       setProfiles(toDrafts(settings))
       setDefaultProfileId(settings.defaultProfileId)
+      setParamStrings({})
+      setParamErrors({})
       setSelectedProfileId((current) =>
         current && settings.profiles.some((profile) => profile.id === current) ? current : (settings.profiles[0]?.id ?? null),
       )
@@ -397,6 +391,66 @@ export function AiSettingsPanel({
     }
   }
 
+  const openModelsDevDialog = async () => {
+    setModelsDevOpen(true)
+    setModelsDevQuery('')
+    setModelsDevSelected(null)
+    if (modelsDevCatalog) return
+    setModelsDevLoading(true)
+    setModelsDevLoadFailed(false)
+    try {
+      const catalog = await ai.fetchModelsDevCatalog()
+      if (!mountedRef.current) return
+      setModelsDevCatalog(catalog)
+      setModelsDevLoading(false)
+    } catch {
+      if (!mountedRef.current) return
+      setModelsDevLoading(false)
+      setModelsDevLoadFailed(true)
+    }
+  }
+
+  const retryModelsDevDialog = async () => {
+    setModelsDevLoading(true)
+    setModelsDevLoadFailed(false)
+    try {
+      const catalog = await ai.fetchModelsDevCatalog()
+      if (!mountedRef.current) return
+      setModelsDevCatalog(catalog)
+      setModelsDevLoading(false)
+    } catch {
+      if (!mountedRef.current) return
+      setModelsDevLoading(false)
+      setModelsDevLoadFailed(true)
+    }
+  }
+
+  const applyModelsDevSelection = (model: ModelsDevModelEntry) => {
+    if (!selectedProfile) return
+    updateProfile(selectedProfile.id, {
+      model: model.id,
+      contextWindowTokens: model.contextWindowTokens ?? selectedProfile.contextWindowTokens,
+      maxOutputTokens: model.maxOutputTokens ?? selectedProfile.maxOutputTokens,
+    })
+    setParamStrings((current) => {
+      const seed = current[selectedProfile.id] ?? paramStringsFromProfile(selectedProfile)
+      return {
+        ...current,
+        [selectedProfile.id]: {
+          ...seed,
+          contextWindowTokens: model.contextWindowTokens == null ? seed.contextWindowTokens : String(model.contextWindowTokens),
+          maxOutputTokens: model.maxOutputTokens == null ? seed.maxOutputTokens : String(model.maxOutputTokens),
+        },
+      }
+    })
+    setParamErrors((current) => {
+      const next = { ...current }
+      delete next[selectedProfile.id]
+      return next
+    })
+    setModelsDevOpen(false)
+  }
+
   const testProfile = async (id: string) => {
     const notificationId = profileNotificationId(id)
     profileNotificationIds.current.add(notificationId)
@@ -413,6 +467,7 @@ export function AiSettingsPanel({
       const result = await ai.testProfile(id)
       if (!mountedRef.current) return
       setTestResult(result)
+      setTestReasoningExpanded(false)
       setTestedProfileIds((current) => ({ ...current, [id]: true }))
       dismissNotification(AI_SETTINGS_TEST_NOTIFICATION_ID)
       publishNotification({
@@ -519,6 +574,9 @@ export function AiSettingsPanel({
         setModels({})
         setTestResult(null)
         setTestedProfileIds({})
+        setParamStrings({})
+        setParamErrors({})
+        setModelsDevOpen(false)
       }
       setActiveTab(tab)
       requestAnimationFrame(() => document.getElementById(`ai-settings-tab-${tab}`)?.focus())
@@ -624,15 +682,20 @@ export function AiSettingsPanel({
                   <footer>
                     <label>
                       <span>{copy.importConflictPolicy}</span>
-                      <select
-                        className="control-input"
+                      <CompactSelect
                         value={importPolicy}
-                        onChange={(event) => setImportPolicy(event.target.value as AiProfileImportConflictPolicy)}
-                      >
-                        <option value="overwrite">{copy.importOverwrite}</option>
-                        <option value="copy">{copy.importCopy}</option>
-                        <option value="skip">{copy.importSkip}</option>
-                      </select>
+                        options={[
+                          { value: 'overwrite', label: copy.importOverwrite },
+                          { value: 'copy', label: copy.importCopy },
+                          { value: 'skip', label: copy.importSkip },
+                        ]}
+                        onChange={(next) => setImportPolicy(next)}
+                        ariaLabel={copy.importConflictPolicy}
+                        placement="bottom-start"
+                        className="settings-ai-import-policy-select"
+                        triggerClassName="settings-ai-import-policy-select-trigger"
+                        menuClassName="settings-ai-import-policy-select-menu"
+                      />
                     </label>
                     <button type="button" className="control-button control-button-primary" onClick={() => void applyImport()}>
                       {copy.importApply}
@@ -667,9 +730,7 @@ export function AiSettingsPanel({
                       const tested = Boolean(testedProfileIds[profile.id])
                       const noKey = preset?.requiresApiKey === false
                       const credTag = noKey
-                        ? locale.startsWith('zh')
-                          ? '无需 Key'
-                          : 'No key'
+                        ? copy.requiresNoKey
                         : profile.keyStatus === 'keychain'
                           ? copy.credentialKeychain
                           : profile.keyStatus === 'environment'
@@ -714,165 +775,28 @@ export function AiSettingsPanel({
                 </aside>
 
                 {selectedProfile ? (
-                  (() => {
-                    const profile = selectedProfile
-                    const defaultProfile = profile.id === defaultProfileId
-                    const preset = presets.find((item) => item.id === profile.presetId)
-                    const keyConfigured = Boolean(profile.keyStatus)
-                    return (
-                      <article className={cx('settings-ai-profile-detail', defaultProfile && 'is-default', generativeDirty && 'is-dirty')}>
-                        <header className="settings-ai-profile-detail-head">
-                          <div>
-                            <h3>{profile.name || copy.untitledProfile}</h3>
-                            <span className="saved-at">{generativeDirty ? copy.unsavedChanges : copy.savedState}</span>
-                          </div>
-                          <div className="settings-window-actions">
-                            <button
-                              type="button"
-                              className="settings-window-btn"
-                              onClick={() => setDefaultProfileId(profile.id)}
-                              disabled={defaultProfile}
-                            >
-                              {defaultProfile ? copy.defaultProfile : copy.setDefault}
-                            </button>
-                            <button
-                              type="button"
-                              className="settings-window-btn settings-window-btn-danger"
-                              onClick={() => {
-                                dismissNotification(profileNotificationId(profile.id))
-                                profileNotificationIds.current.delete(profileNotificationId(profile.id))
-                                setModels((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== profile.id)))
-                                setTestedProfileIds((current) => {
-                                  const next = { ...current }
-                                  delete next[profile.id]
-                                  return next
-                                })
-                                const remaining = profiles.filter((item) => item.id !== profile.id)
-                                setProfiles(remaining)
-                                setSelectedProfileId(remaining[0]?.id ?? null)
-                                if (defaultProfile) setDefaultProfileId(null)
-                              }}
-                            >
-                              {copy.delete}
-                            </button>
-                          </div>
-                        </header>
-
-                        <div className="settings-ai-grid">
-                          <label>
-                            <span>{copy.profileName}</span>
-                            <input
-                              className="control-input"
-                              value={profile.name}
-                              onChange={(event) => updateProfile(profile.id, { name: event.target.value })}
-                            />
-                          </label>
-                          <label>
-                            <span>{copy.provider}</span>
-                            <select
-                              className="control-input"
-                              value={profile.presetId}
-                              onChange={(event) => {
-                                const next = presets.find((item) => item.id === event.target.value)
-                                if (next) selectPreset(profile, next)
-                              }}
-                            >
-                              {presets.map((item) => (
-                                <option key={item.id} value={item.id}>
-                                  {item.name}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label>
-                            <span>{copy.protocol}</span>
-                            <select
-                              className="control-input"
-                              value={profile.protocol}
-                              onChange={(event) => updateProfile(profile.id, { protocol: event.target.value as ProfileDraft['protocol'] })}
-                            >
-                              <option value="openai-responses">openai-responses</option>
-                              <option value="openai-chat-completions">openai-chat-completions</option>
-                              <option value="anthropic-messages">anthropic-messages</option>
-                            </select>
-                          </label>
-                          <label>
-                            <span>{copy.model}</span>
-                            <div className="settings-ai-inline-field">
-                              <input
-                                className="control-input mono"
-                                list={`ai-models-${profile.id}`}
-                                value={profile.model}
-                                onChange={(event) => updateProfile(profile.id, { model: event.target.value })}
-                              />
-                              <button
-                                type="button"
-                                className="settings-window-btn"
-                                title={!remoteActionsReady ? copy.saveBeforeRemoteActions : undefined}
-                                disabled={!remoteActionsReady || preset?.supportsModelListing === false || loadingModelsId === profile.id}
-                                onClick={() => void loadModels(profile.id)}
-                              >
-                                {loadingModelsId === profile.id ? copy.loadModelsRunning : copy.loadModels}
-                              </button>
-                            </div>
-                            <datalist id={`ai-models-${profile.id}`}>
-                              {(models[profile.id] ?? []).map((model) => (
-                                <option key={model.id} value={model.id}>
-                                  {model.displayName ?? model.id}
-                                </option>
-                              ))}
-                            </datalist>
-                          </label>
-                          <label className="settings-ai-wide">
-                            <span>{copy.baseUrl}</span>
-                            <input
-                              className="control-input mono"
-                              value={profile.baseUrl}
-                              onChange={(event) => updateProfile(profile.id, { baseUrl: event.target.value })}
-                            />
-                          </label>
-                          <label>
-                            <span>{copy.apiKey}</span>
-                            <div className="settings-ai-secret-field">
-                              <input
-                                className="control-input"
-                                type="password"
-                                value={profile.apiKey ?? ''}
-                                placeholder={copy.apiKeyPlaceholder}
-                                onChange={(event) => updateProfile(profile.id, { apiKey: event.target.value, clearApiKey: false })}
-                              />
-                              <div className="settings-ai-secret-meta">
-                                <span className={cx('settings-ai-tag', keyConfigured && 'is-ok')}>
-                                  {keyConfigured ? copy.credentialKeychain : copy.credentialMissing}
-                                </span>
-                                <button
-                                  type="button"
-                                  className="settings-window-btn settings-window-btn-ghost"
-                                  disabled={!profile.keyStatus && !profile.apiKey}
-                                  onClick={() => updateProfile(profile.id, { apiKey: '', clearApiKey: true, keyStatus: null })}
-                                >
-                                  {copy.clearApiKey}
-                                </button>
-                              </div>
-                            </div>
-                          </label>
-                          <label>
-                            <span>{copy.environment}</span>
-                            <div className="settings-ai-secret-field">
-                              <input
-                                className="control-input mono"
-                                value={profile.credentialEnvironment ?? ''}
-                                onChange={(event) => updateProfile(profile.id, { credentialEnvironment: event.target.value || null })}
-                              />
-                              <div className="settings-ai-secret-meta">
-                                <span className="settings-ai-tag">{copy.credentialEnvironment}</span>
-                              </div>
-                            </div>
-                          </label>
-                        </div>
-                      </article>
-                    )
-                  })()
+                  <AiProfileEditor
+                    profile={selectedProfile}
+                    presets={presets}
+                    isDefault={selectedProfile.id === defaultProfileId}
+                    isDirty={generativeDirty}
+                    models={models[selectedProfile.id] ?? []}
+                    modelsDevCatalog={modelsDevCatalog}
+                    remoteActionsReady={remoteActionsReady}
+                    loadingModels={loadingModelsId === selectedProfile.id}
+                    paramStrings={draftStringsFor(selectedProfile)}
+                    paramErrors={paramErrors[selectedProfile.id] ?? {}}
+                    advancedExpanded={Boolean(advancedExpanded[selectedProfile.id])}
+                    onUpdate={(patch) => updateProfile(selectedProfile.id, patch)}
+                    onSetDefault={() => setDefaultProfileId(selectedProfile.id)}
+                    onDelete={() => deleteProfile(selectedProfile.id)}
+                    onParamStringChange={(field, value) => updateParamString(selectedProfile.id, field, value)}
+                    onToggleAdvanced={() =>
+                      setAdvancedExpanded((current) => ({ ...current, [selectedProfile.id]: !current[selectedProfile.id] }))
+                    }
+                    onLoadModels={() => void loadModels(selectedProfile.id)}
+                    onOpenModelsDev={() => void openModelsDevDialog()}
+                  />
                 ) : (
                   <div className="settings-ai-profile-empty">
                     <p>{copy.noProfiles}</p>
@@ -906,11 +830,13 @@ export function AiSettingsPanel({
                 {selectedProfile ? (
                   <button
                     type="button"
-                    className="settings-window-btn"
+                    className="settings-ai-icon-btn"
+                    title={copy.clearApiKey}
+                    aria-label={copy.clearApiKey}
                     disabled={!selectedProfile.keyStatus && !selectedProfile.apiKey}
                     onClick={() => updateProfile(selectedProfile.id, { apiKey: '', clearApiKey: true, keyStatus: null })}
                   >
-                    {copy.clearApiKey}
+                    <Eraser aria-hidden="true" />
                   </button>
                 ) : null}
                 {selectedProfile ? (
@@ -1005,6 +931,13 @@ export function AiSettingsPanel({
                 </div>
               </dl>
             ) : null}
+            {testResult?.reasoning ? (
+              <ReasoningChainView
+                expanded={testReasoningExpanded}
+                onToggle={() => setTestReasoningExpanded((current) => !current)}
+                content={testResult.reasoning}
+              />
+            ) : null}
           </DialogBody>
           <DialogFooter>
             <DialogAction tone="primary" onClick={() => setTestResult(null)}>
@@ -1012,6 +945,24 @@ export function AiSettingsPanel({
             </DialogAction>
           </DialogFooter>
         </Dialog>
+
+        <ModelsDevImportDialog
+          open={modelsDevOpen}
+          catalog={modelsDevCatalog}
+          loading={modelsDevLoading}
+          loadFailed={modelsDevLoadFailed}
+          query={modelsDevQuery}
+          selectedKey={modelsDevSelected}
+          providerPresetId={selectedProfile?.presetId ?? ''}
+          onQueryChange={(query) => {
+            setModelsDevQuery(query)
+            setModelsDevSelected(null)
+          }}
+          onSelect={setModelsDevSelected}
+          onRetry={() => void retryModelsDevDialog()}
+          onClose={() => setModelsDevOpen(false)}
+          onApply={(model) => applyModelsDevSelection(model)}
+        />
       </div>
     </div>
   )

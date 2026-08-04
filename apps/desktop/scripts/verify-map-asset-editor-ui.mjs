@@ -226,11 +226,13 @@ async function main() {
     await page.waitForTimeout(1000)
     await skipGuides()
 
-    // 3. Open the project map from the catalog: a real editing session.
-    await page.locator('.workbench-side-nav-item[data-tip="地图制作"]').first().click()
-    await page.waitForSelector('.map-catalog', { state: 'visible', timeout: 20_000 })
+    // 3. Open the project map through the current product path: the asset
+    //    library inspector's "edit in map editor" action starts a real session.
+    await page.locator('.workbench-side-nav-item[data-tip="素材库"]').first().click()
+    await page.waitForSelector('.asset-library-workspace', { state: 'visible', timeout: 20_000 })
     await skipGuides()
-    await page.locator('.map-catalog-card', { hasText: 'Untitled' }).first().click()
+    await page.locator('[data-asset-path="assets/maps/Untitled.tmx"] .asset-library-asset-main').first().click()
+    await page.getByRole('button', { name: '在地图编辑器中编辑' }).first().click()
     await page.waitForSelector('.map-asset-editor', { state: 'visible', timeout: 20_000 })
     await skipGuides()
 

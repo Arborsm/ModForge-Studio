@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   canUseDesktopHost,
   forceCloseCurrentWindow,
@@ -721,17 +722,20 @@ export default function App() {
               />
             ) : null}
 
-            {settingsWindowOpen || settingsShellPrepared ? (
-              <Suspense fallback={<LoadingMotionFallback />}>
-                <SettingsWindow
-                  open={settingsWindowOpen}
-                  activeCategory={settingsWindowCategory}
-                  initialAiTab={settingsWindowAiTab ?? undefined}
-                  onActiveCategoryChange={setSettingsWindowCategory}
-                  onClose={() => setSettingsWindowOpen(false)}
-                />
-              </Suspense>
-            ) : null}
+            {settingsWindowOpen || settingsShellPrepared
+              ? createPortal(
+                  <Suspense fallback={<LoadingMotionFallback />}>
+                    <SettingsWindow
+                      open={settingsWindowOpen}
+                      activeCategory={settingsWindowCategory}
+                      initialAiTab={settingsWindowAiTab ?? undefined}
+                      onActiveCategoryChange={setSettingsWindowCategory}
+                      onClose={() => setSettingsWindowOpen(false)}
+                    />
+                  </Suspense>,
+                  document.body,
+                )
+              : null}
 
             <QuitDialog
               open={quitDialogOpen}
@@ -741,9 +745,10 @@ export default function App() {
               rememberChoice={quitDialogRemember}
               onRememberChoiceChange={setQuitDialogRemember}
             />
-            {/* The settings window renders inside the window frame, so the
-                body-level guide overlay would cover it; suspend the guide
-                (engine keeps the run) until settings closes. */}
+            {/* The settings window portals to document.body above the guide
+                overlay (dialog layer outranks the guide), so it can no longer
+                be covered; keep the guide suspended while settings is open so
+                the tour does not fight the modal (engine keeps the run). */}
             {settingsWindowOpen ? null : <GuideTourOverlay />}
             <div className="app-window-titlebar-divider" aria-hidden="true" />
           </div>

@@ -23,7 +23,6 @@ export type ScriptTimelineProps = {
   copy: ScriptEditorCopy
   workflowCopy: EventWorkflowCopy
   resourceRegistry?: EventResourceRegistry
-  currentPlaybackCommandId?: string | null
   onUpdateArg: (commandIndex: number, argIndex: number, value: string) => void
   onUpdateArgs: (commandIndex: number, argIndex: number, values: string[]) => void
   onSetInlineDelay: (commandIndex: number, pauseCommandIndex: number | null, valueMs: number) => void
@@ -45,8 +44,8 @@ function GapInsertButton({ index, label, onClick }: { index: number; label: stri
 function SortableScriptCard({
   cmd,
   index,
+  allCommands,
   selected,
-  playing,
   expanded,
   showLineNumber,
   cardView,
@@ -70,8 +69,9 @@ function SortableScriptCard({
 }: {
   cmd: EventCommand
   index: number
+  /** The exact command list the timeline renders; used to fold a playing `pause` onto its host card. */
+  allCommands: EventCommand[]
   selected: boolean
-  playing: boolean
   expanded: boolean
   showLineNumber: boolean
   cardView: 'compact' | 'comfortable'
@@ -94,6 +94,21 @@ function SortableScriptCard({
   branchLabel?: string | null
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cmd.id })
+  // Per-card playback subscription: only the previously/currently playing cards
+  // re-render when playback advances, instead of the whole timeline. The fold
+  // check reads the rendered list (not the store's currentScript, which is only
+  // synced lazily once editing starts).
+  const playing = useEditorStore((state) => {
+    const playbackId = state.playbackCommandId
+    if (!playbackId) {
+      return false
+    }
+    if (cmd.id === playbackId) {
+      return true
+    }
+    const playbackIndex = allCommands.findIndex((command) => command.id === playbackId)
+    return playbackIndex > 0 && shouldFoldPauseIntoPrevious(allCommands, playbackIndex) && allCommands[playbackIndex - 1]?.id === cmd.id
+  })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -160,7 +175,6 @@ export function ScriptTimeline({
   copy,
   workflowCopy,
   resourceRegistry,
-  currentPlaybackCommandId = null,
   onUpdateArg,
   onUpdateArgs,
   onSetInlineDelay,
@@ -191,17 +205,28 @@ export function ScriptTimeline({
 
   // Only scroll when the playback position actually moves — not on every edit
   // that mutates `commands` (which would jolt the view on each keystroke).
-  const lastPlaybackIdRef = useRef<string | null>(null)
+  // Store subscription keeps this off the render path entirely; the rendered
+  // command list comes from the prop mirror (store currentScript is lazy).
+  const commandsRef = useRef(commands)
   useEffect(() => {
-    if (currentPlaybackCommandId === lastPlaybackIdRef.current) return
-    lastPlaybackIdRef.current = currentPlaybackCommandId
-    const playbackCommandIndex = getVisiblePlaybackCommandIndex(commands, currentPlaybackCommandId)
-    if (playbackCommandIndex == null) return
-    const el = document.querySelector(`[data-cmd-index="${playbackCommandIndex}"]`)
-    if (typeof el?.scrollIntoView === 'function') {
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    }
-  }, [commands, currentPlaybackCommandId])
+    commandsRef.current = commands
+  })
+  useEffect(() => {
+    let lastPlaybackId: string | null = null
+    return useEditorStore.subscribe((state) => {
+      const playbackId = state.playbackCommandId
+      if (playbackId === lastPlaybackId) return
+      lastPlaybackId = playbackId
+      const playbackCommandIndex = getVisiblePlaybackCommandIndex(commandsRef.current, playbackId)
+      if (playbackCommandIndex == null) return
+      const el = document.querySelector(`[data-cmd-index="${playbackCommandIndex}"]`)
+      if (typeof el?.scrollIntoView === 'function') {
+        // Keep the playing command vertically centered so the author always sees
+        // the surrounding beats; `center` clamps naturally at both list ends.
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    })
+  }, [])
 
   // Keyboard navigation — uses getState() inside listener so we don't need
   // commands in deps and avoid re-registering on every store update.
@@ -290,7 +315,6 @@ export function ScriptTimeline({
     .map((cmd, index) => ({ cmd, index }))
     .filter(({ index }) => !shouldFoldPauseIntoPrevious(commands, index))
   const sortableIds = visibleCommandEntries.map(({ cmd }) => cmd.id)
-  const playbackCommandIndex = getVisiblePlaybackCommandIndex(commands, currentPlaybackCommandId)
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
@@ -301,9 +325,9 @@ export function ScriptTimeline({
               <SortableScriptCard
                 cmd={cmd}
                 index={i}
+                allCommands={commands}
                 branchLabel={getBranchLabel(visibleCommandEntries[visibleIndex - 1]?.cmd, cmd, copy)}
                 selected={selectedCommandIndex === i}
-                playing={playbackCommandIndex === i}
                 expanded={expandedCards.has(cmd.id)}
                 showLineNumber={showLineNumbers}
                 cardView={cardView}

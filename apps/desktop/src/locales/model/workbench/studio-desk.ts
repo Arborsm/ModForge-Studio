@@ -151,14 +151,8 @@ export type StudioDeskCopy = {
     preflightWarnings: (count: number) => string
   }
   addPatchDialog: {
-    selectActionTitle: string
-    includeFileTitle: string
     selectTargetTitle: string
     closeLabel: string
-    back: string
-    fromFile: string
-    includeFromFilePlaceholder: string
-    fromFileDescription: string
     filterPlaceholder: string
     noSuggestedTargets: string
     customTarget: string
@@ -166,22 +160,6 @@ export type StudioDeskCopy = {
     cancel: string
     addPatch: string
     actionLabels: Record<'EditData' | 'EditImage' | 'EditMap' | 'Load' | 'Include', string>
-    actionDescriptions: Record<'EditData' | 'EditImage' | 'EditMap' | 'Load' | 'Include', string>
-  }
-  mapTargetList: {
-    title: string
-    subtitle: string
-    searchPlaceholder: string
-    newMapAction: string
-    newMapNamePlaceholder: string
-    newMapConfirm: string
-    newMapCancel: string
-    newMapNameInvalid: string
-    patchedBadge: string
-    sectionProject: string
-    sectionVanilla: string
-    sectionLocationData: string
-    emptyMatches: string
   }
   editDataOps: {
     title: string
@@ -570,6 +548,26 @@ export type StudioDeskCopy = {
     deleteMessage: (name: string) => string
     deleteAction: string
   }
+  patchList: {
+    regionLabel: string
+    openPatch: (name: string) => string
+    moveUp: string
+    moveDown: string
+    duplicate: string
+    delete: string
+    deleteTitle: string
+    deleteMessage: (name: string) => string
+    cancel: string
+    confirmDelete: string
+    toggleEnable: (name: string) => string
+    toggleDisable: (name: string) => string
+    enabledByExpression: string
+    setAlwaysEnabled: string
+    setAlwaysDisabled: string
+    when: string
+    priority: string
+    fromFile: string
+  }
   eventPatchHub: {
     navigationLabel: string
     eventTreeLabel: string
@@ -577,16 +575,34 @@ export type StudioDeskCopy = {
     filtersTitle: string
     filters: Record<'all' | 'withTriggers' | 'withoutTriggers' | 'disabled', string>
     hubLabel: string
-    breadcrumbLabel: string
-    backLabel: string
-    forwardLabel: string
-    projectFallback: string
-    eventsLabel: string
     savedLabel: string
     unsavedLabel: string
     multiSelectLabel: string
     selectedCountLabel: (count: number) => string
     addEventLabel: string
+    /** Loading state shown while the event editor pre-warms its caches on entry. */
+    preparingEditor: string
+    createPatch: {
+      /** Sidebar + empty-state entry that opens the create-event-patch dialog. */
+      action: string
+      loading: string
+      loadError: string
+      alreadyAdded: string
+      invalidTarget: string
+    }
+    importVanilla: {
+      /** Hub action that opens the vanilla-event import picker. */
+      action: string
+      closeLabel: string
+      searchPlaceholder: string
+      loadingLabel: string
+      loadErrorLabel: string
+      emptyLabel: string
+      alreadyInDraft: string
+      confirm: (count: number) => string
+      /** Create-dialog checkbox: parse the picked vanilla file into the fresh draft. */
+      importAllLabel: string
+    }
     /** Alias given to a freshly created event scene, e.g. "Untitled Town event 3". */
     untitledEventAlias: (location: string, index: number) => string
     contextMenuLabel: string
@@ -874,7 +890,6 @@ export type StudioDeskCopy = {
     targetFieldPlaceholder: string
     noPatchTitle: string
     noPatchSubtitle: string
-    breadcrumbNoPatch: string
     selectEventAriaLabel: (eventKey: string) => string
     defaultEventTitle: string
   }

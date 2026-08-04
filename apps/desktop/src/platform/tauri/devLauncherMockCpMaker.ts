@@ -83,6 +83,35 @@ function encodeTextBase64(text: string): string {
   return btoa(binary)
 }
 
+/** Fixture vanilla events in the canonical script shape, so hub validation and the import picker behave like the real parser's output. */
+function createMockEventScripts() {
+  const make = (id: number, actor: string, line: string) => {
+    const key = `${910000 + id}/Season spring/Time 900 1400`
+    const rawScript = `farmer 12 47 0 ${actor} 12 45 2/skippable/viewport 12 45/speak ${actor} "${line}"/end dialogue`
+    return {
+      key,
+      eventId: `${910000 + id}`,
+      preconditions: ['Season spring', 'Time 900 1400'],
+      rawScript,
+      rawSegments: rawScript.split('/'),
+      scene: {
+        musicCue: null,
+        cameraInstruction: 'viewport 12 45',
+        characterInstruction: null,
+        actors: [{ id: `${actor}-0`, actorName: actor, tileX: 12, tileY: 45, facingDirection: 2 }],
+      },
+      commands: [],
+    }
+  }
+  return [
+    make(1, 'Abigail', 'The air smells like fresh bread today.'),
+    make(2, 'Lewis', 'Welcome to the valley, newcomer!'),
+    make(3, 'Sebastian', '...Oh. Didn’t see you there.'),
+    make(4, 'Maru', 'I’m tuning my latest invention right now.'),
+    make(5, 'Elliott', 'The tide whispers stories to those who listen.'),
+  ]
+}
+
 /** Minimal TMX map document so the copy-from-game map flow can run in the browser. */
 function createMockMapDocument(name: string) {
   const width = 16
@@ -475,6 +504,34 @@ export function createCpMakerMockHandler(gameRootPath: string) {
             absolutePath: `${gameRootPath}\\${assetPath}`,
             relativePath: assetPath,
             content: JSON.stringify({ asset: name, mock: true }, null, 2),
+          },
+        }
+      }
+
+      case 'scan_events':
+        // Two vanilla event files so the create dialog can list locations and
+        // prefill a draft from parsed "game" events through the real UI path.
+        return {
+          handled: true,
+          result: ['Town', 'Beach'].map((name) => ({
+            id: `Content/Data/Events/${name}.xnb`,
+            name,
+            fileName: `${name}.xnb`,
+            absolutePath: `${gameRootPath}\\Content\\Data\\Events\\${name}.xnb`,
+            relativePath: `Content/Data/Events/${name}.xnb`,
+            sizeBytes: 64_000,
+          })),
+        }
+
+      case 'load_event_asset': {
+        const request = readPayload<{ assetPath?: string }>(payload, 'assetPath')
+        const assetPath = request?.assetPath ?? 'Content/Data/Events/Town.xnb'
+        return {
+          handled: true,
+          result: {
+            absolutePath: `${gameRootPath}\\${assetPath.replaceAll('/', '\\')}`,
+            relativePath: assetPath,
+            events: createMockEventScripts(),
           },
         }
       }

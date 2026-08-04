@@ -48,6 +48,7 @@ import type {
   InitializeLocalizationPlanResult,
   InspectLocalizationContextRequest,
   LocalizationContextInspection,
+  LocalizationCorpusWarmupStatus,
 } from '@shared/contracts'
 import { HOST_COMMANDS } from '@platform/host-commands'
 import { getPlatformPorts, invokeDesktop } from './runtime'
@@ -61,6 +62,14 @@ export const loadLocalizationDefaultEngine = () =>
     HOST_COMMANDS.loadLocalizationDefaultEngine,
     {},
     { kind: 'parallelPool', pool: 'settings-read', limit: 4 },
+  )
+
+/** Warms the localization corpus (knowledge DB, semantic runtime, official index check). */
+export const prewarmLocalizationCorpus = () =>
+  invokeDesktop<LocalizationCorpusWarmupStatus>(
+    HOST_COMMANDS.prewarmLocalizationCorpus,
+    {},
+    { kind: 'serviceGate', key: 'localization-corpus-prewarm' },
   )
 
 /** Persists an application-wide engine only after Rust validates its profile. */

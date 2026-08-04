@@ -465,6 +465,8 @@ function createLocalMod(): LauncherLibraryItem {
     dependencies: range(20).map((index) => ({ uniqueId: `Required dependency ${index}`, required: true })),
     requiredDependencies: range(20).map((index) => `Required dependency ${index}`),
     missingRequiredDependencies: range(4).map((index) => `Missing dependency ${index}`),
+    minimumApiVersion: null,
+    requiresNewerSmapi: false,
   }
 }
 

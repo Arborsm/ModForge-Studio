@@ -8,6 +8,14 @@
     padding-left: 0.75rem;
   }
 
+  /* Tooltip 的参考元素是无样式的 inline <span>，内部的 inline-flex
+     icon-button 会落到文本基线上，strut 下行空间把按钮顶高 1-2px，
+     与旁边的译文/原文切换（grid 块级居中）产生可见的纵向错位。
+     让包装 span 变 inline-flex，按钮块化后精确填满并居中。 */
+  .launcher-mod-detail-ai-tools > span:has(> .icon-button) {
+    display: inline-flex;
+  }
+
   .launcher-mod-detail-ai-mode {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -28,6 +36,227 @@
   .launcher-mod-detail-ai-mode button.is-active {
     background: var(--accent-soft);
     color: var(--accent);
+  }
+
+  .launcher-mod-detail-ai-corpus-status {
+    max-width: 11rem;
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-size: 0.6875rem;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-mod-detail-ai-corpus-status.is-error {
+    color: var(--danger);
+  }
+
+  .launcher-mod-detail-ai-reasoning {
+    margin-top: 0.85rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    border-radius: 0.7rem;
+    background: color-mix(in srgb, var(--bg-panel-muted) 45%, var(--bg-panel));
+  }
+
+  .launcher-mod-detail-ai-reasoning-toggle {
+    display: flex;
+    width: 100%;
+    min-height: 2.4rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border: 0;
+    border-radius: 0.7rem;
+    padding: 0.5rem 0.75rem;
+    background: transparent;
+    color: var(--text-primary);
+    text-align: left;
+  }
+
+  .launcher-mod-detail-ai-reasoning-toggle:hover,
+  .launcher-mod-detail-ai-reasoning-toggle:focus-visible {
+    background: var(--bg-hover);
+  }
+
+  .launcher-mod-detail-ai-reasoning-toggle > span {
+    font-size: 0.75rem;
+    font-weight: 750;
+  }
+
+  .launcher-mod-detail-ai-reasoning-toggle > small {
+    color: var(--accent);
+    font-size: 0.6875rem;
+    font-weight: 700;
+  }
+
+  .launcher-mod-detail-ai-reasoning-body {
+    display: grid;
+    gap: 0.5rem;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    padding: 0.6rem 0.75rem 0.75rem;
+  }
+
+  .launcher-mod-detail-ai-reasoning-entry {
+    max-height: 12rem;
+    overflow: auto;
+    margin: 0;
+    padding: 0.55rem 0.6rem;
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--bg-panel) 70%, transparent);
+    color: var(--text-secondary);
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+    font-size: 0.6875rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .launcher-mod-detail-ai-reasoning-entry.is-streaming::after {
+    content: '';
+    display: inline-block;
+    width: 0.45rem;
+    height: 0.9rem;
+    margin-left: 0.25rem;
+    vertical-align: text-bottom;
+    border-radius: 1px;
+    background: var(--accent);
+    animation: modforge-stream-caret 1s steps(2, start) infinite;
+  }
+
+  @keyframes modforge-stream-caret {
+    0% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0;
+    }
+
+    100% {
+      opacity: 1;
+    }
+  }
+
+  /* ── 翻译进度环：围绕翻译图标的一圈 SVG 描边进度 ────────────────
+     容器负责 flex 居中包裹的图标（保持 h-3.5 w-3.5 原尺寸）；进度环
+     SVG 通过专属 class 绝对定位铺满容器、绘制在图标外层。绝对定位
+     规则只作用于环本身，不能命中图标 svg（否则图标被拉伸/偏移）。 */
+  .launcher-mod-detail-ai-ring {
+    position: relative;
+    display: inline-flex;
+    width: 1.375rem;
+    height: 1.375rem;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .launcher-mod-detail-ai-ring-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .launcher-mod-detail-ai-ring-track,
+  .launcher-mod-detail-ai-ring-arc {
+    fill: none;
+  }
+
+  .launcher-mod-detail-ai-ring-track {
+    stroke: color-mix(in srgb, var(--border-color) 60%, transparent);
+    stroke-width: 1.5;
+  }
+
+  .launcher-mod-detail-ai-ring-arc {
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    transform: rotate(-90deg);
+    transform-origin: center;
+    transition: stroke-dashoffset 160ms linear;
+    animation: modforge-ai-ring-in 180ms ease-out;
+  }
+
+  .launcher-mod-detail-ai-ring-arc.is-indeterminate {
+    animation: modforge-ai-ring-spin 0.85s linear infinite;
+  }
+
+  .launcher-mod-detail-ai-ring-svg.is-leaving {
+    opacity: 0;
+    transition: opacity 180ms ease-out;
+  }
+
+  @keyframes modforge-ai-ring-in {
+    from {
+      opacity: 0.3;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes modforge-ai-ring-spin {
+    from {
+      transform: rotate(-90deg);
+    }
+
+    to {
+      transform: rotate(270deg);
+    }
+  }
+
+  /* ── 流式翻译逐字段渐入 ───────────────────────────────────────
+     流式期间文本容器使用稳定 key（mod 维度），提交只就地更新内容、不再
+     整块重挂载，因此不存在「每次 delta 全量闪动」。渐入动画只在该字段
+     译文首次落地（.is-ai-arrived）时播放一次，已显示内容不再触发动画；
+     长文档（完整描述/阅读器）只做轻量淡入，避免整块反复闪动。 */
+  .launcher-mod-detail-hero-summary.is-ai-streaming.is-ai-arrived > .nexusmods-bbcode {
+    animation: modforge-field-enter 220ms ease-out;
+  }
+
+  .launcher-mod-detail-description.is-ai-streaming.is-ai-arrived > .nexusmods-bbcode,
+  .launcher-mod-detail-reader-body.is-ai-streaming.is-ai-arrived > .nexusmods-bbcode {
+    animation: modforge-field-soft 160ms ease-out;
+  }
+
+  .launcher-mod-detail-changelog-list.is-ai-streaming .launcher-mod-detail-changelog-entry li {
+    animation: modforge-field-enter 220ms ease-out;
+  }
+
+  @keyframes modforge-field-enter {
+    from {
+      opacity: 0;
+      transform: translateY(0.1875rem);
+    }
+
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes modforge-field-soft {
+    from {
+      opacity: 0.55;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .launcher-mod-detail-hero-summary.is-ai-streaming.is-ai-arrived > .nexusmods-bbcode,
+    .launcher-mod-detail-description.is-ai-streaming.is-ai-arrived > .nexusmods-bbcode,
+    .launcher-mod-detail-reader-body.is-ai-streaming.is-ai-arrived > .nexusmods-bbcode,
+    .launcher-mod-detail-changelog-list.is-ai-streaming .launcher-mod-detail-changelog-entry li,
+    .launcher-mod-detail-ai-ring-arc,
+    .launcher-mod-detail-ai-ring-svg.is-leaving {
+      animation: none;
+      transition: none;
+    }
   }
 
   @media (max-width: 1100px) {

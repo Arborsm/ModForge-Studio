@@ -48,6 +48,7 @@ pub(crate) fn normalize_settings(settings: LauncherSettings) -> LauncherSettings
         keep_downloaded_archives: settings.keep_downloaded_archives,
         auto_check_mod_updates: settings.auto_check_mod_updates,
         gmcm_parsing_enabled: settings.gmcm_parsing_enabled,
+        show_console_window: settings.show_console_window,
     }
 }
 
@@ -206,6 +207,9 @@ pub(crate) fn merge_launcher_settings(
         gmcm_parsing_enabled: request
             .gmcm_parsing_enabled
             .unwrap_or(existing.gmcm_parsing_enabled),
+        show_console_window: request
+            .show_console_window
+            .unwrap_or(existing.show_console_window),
     }
 }
 

@@ -6,8 +6,8 @@ import { getModKey, normalizeLookupKey } from '@features/launcher/model/libraryH
 import type { LauncherSettingsDraft, QueueLauncherDownloadInput } from '@features/launcher/model/types'
 import { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
 import { LauncherEmptyState } from '@features/launcher/ui/shared/LauncherEmptyState'
-import { LauncherStateBlock } from '@features/launcher/ui/shared/LauncherStateBlock'
 import { LauncherModDetailPanel } from '@features/launcher/ui/cards/LauncherModDetailPanel'
+import { LauncherLibraryArchiveDropZone } from './ui/LauncherLibraryArchiveDropZone'
 import { LauncherLibraryDndScope, VirtualizedLauncherGrid } from './ui/LauncherLibraryGrid'
 import { LauncherLibraryHeader } from './ui/LauncherLibraryHeader'
 import { LauncherLibraryPackSidebar } from './ui/LauncherLibraryPackSidebar'
@@ -21,6 +21,8 @@ export type LauncherLibraryPageProps = {
   launchGameDisabled: boolean
   launchGameBusy: boolean
   routeEnterSequence?: number
+  /** False while the library route is hidden (cached pages stay mounted). */
+  routeActive?: boolean
   onLaunchGame: () => void
   onQueueDownload?: (input: QueueLauncherDownloadInput) => void
   onSearchDiscover?: (query: string) => void
@@ -40,6 +42,7 @@ export function LauncherLibraryPageContent({
   launchGameDisabled,
   launchGameBusy,
   routeEnterSequence = 0,
+  routeActive = true,
   onLaunchGame,
   onQueueDownload,
   onSearchDiscover,
@@ -57,6 +60,7 @@ export function LauncherLibraryPageContent({
     refresh,
     copy,
     onArchiveInstallSuccess: onDownloadArchivesInstalled,
+    routeActive,
   })
   const { viewModel, refs, dialogState, dragState, shellState, actions: controllerActions } = controller
   const {
@@ -94,7 +98,6 @@ export function LauncherLibraryPageContent({
   } = dialogState
   const { editMode, editingSelectionIds, boxSelectionIds, childModSelection, archiveDropActive } = dragState
   const {
-    actionError,
     sortMode,
     sortingBannerOpen,
     sortingActive,
@@ -302,18 +305,11 @@ export function LauncherLibraryPageContent({
             />{' '}
             <div className="launcher-library-content">
               <div className="launcher-library-browser">
-                {archiveDropActive ? (
-                  <div className="launcher-library-drop-overlay" role="status" aria-live="polite">
-                    <div className="launcher-library-drop-overlay-card">
-                      <strong>{copy.library.dragDropInstallTitle}</strong>
-                      <span>{copy.library.dragDropInstallSubtitle(supportedArchiveFormatsLabel)}</span>
-                    </div>
-                  </div>
-                ) : null}
-                {actionError ? <LauncherStateBlock title={currentPackLabel} detail={actionError} tone="warning" /> : null}
-                {library.state === 'error' ? (
-                  <LauncherStateBlock title={currentPackLabel} detail={library.error ?? copy.library.empty} tone="warning" />
-                ) : null}
+                <LauncherLibraryArchiveDropZone
+                  active={archiveDropActive}
+                  formatsLabel={supportedArchiveFormatsLabel}
+                  onChooseArchives={() => void inspectArchive()}
+                />
                 {library.state !== 'error' && !visibleDisplayItems.length ? (
                   <div className="launcher-library-empty-host">
                     {!settings.modsPath ? (
@@ -367,6 +363,7 @@ export function LauncherLibraryPageContent({
                     latestVersionByModId={library.latestVersionByModId}
                     openFolderItemsById={openLibraryFolderItemsById}
                     routeEnterSequence={routeEnterSequence}
+                    routeActive={routeActive}
                     editMode={editMode}
                     sortingActive={sortingActive}
                     rootOrderContainerKey={getLibraryViewOrderContainerKey(viewKey)}

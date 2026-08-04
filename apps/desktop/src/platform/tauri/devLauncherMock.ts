@@ -8,10 +8,15 @@ import type {
   LauncherLibraryScanResult,
   LauncherLibraryState,
   LauncherNexusDiagnosticsResult,
+  LauncherRemoteModDetail,
   LauncherRuntimeInfo,
   LauncherSettings,
   LauncherSuppressedUpdateModIdsResult,
   LauncherUpdatesResult,
+  SmapiUpdateCheckResult,
+  InstallSmapiUpdateRequest,
+  InstallSmapiUpdateResult,
+  FindSmapiInstallerDownloadsResult,
 } from '@features/launcher/model/launcherContracts'
 import type {
   AiProfileTestResult,
@@ -26,6 +31,8 @@ import type {
   AiUsageSummary,
   AppUiState,
   LocalizationEngineRef,
+  LocalizationTranslateBatchRequest,
+  LocalizationTranslateBatchResult,
   MachineTranslationSettingsSnapshot,
   PatchAppUiStateRequest,
   SaveAiSettingsRequest,
@@ -45,7 +52,16 @@ declare global {
 
 const DEV_LAUNCHER_MOCK_QUERY_PARAM = 'mfLauncherMock'
 const DEV_SETTINGS_MOCK_QUERY_PARAM = 'mfSettingsMock'
-const DEV_MOCK_GAME_DIRECTORY = 'E:\\ModForge Dev\\Stardew Valley'
+const DEV_MOCK_GAME_ROOT_QUERY_PARAM = 'mfMockGameRoot'
+const DEV_MOCK_GAME_DIRECTORY_DEFAULT = 'E:\\ModForge Dev\\Stardew Valley'
+
+/** Game root used by the browser dev mock; `?mfMockGameRoot=<path>` points it at a real install (pairs with the dev asset bridge). */
+function resolveDevMockGameDirectory() {
+  if (typeof window === 'undefined') {
+    return DEV_MOCK_GAME_DIRECTORY_DEFAULT
+  }
+  return new URLSearchParams(window.location.search).get(DEV_MOCK_GAME_ROOT_QUERY_PARAM)?.trim() || DEV_MOCK_GAME_DIRECTORY_DEFAULT
+}
 const DEV_LAUNCHER_MOCK_MODS_PATH = 'E:\\ModForge Dev\\Stardew Valley\\Mods'
 
 const DEV_AI_PRESETS: AiSettingsSnapshot['presets'] = [
@@ -69,7 +85,7 @@ const DEV_AI_PRESETS: AiSettingsSnapshot['presets'] = [
     requiresApiKey: false,
     authentication: 'none',
     supportsModelListing: true,
-    structuredOutput: 'json-object',
+    structuredOutput: 'none',
   },
   {
     id: 'gemini',
@@ -91,7 +107,18 @@ const DEV_AI_PRESETS: AiSettingsSnapshot['presets'] = [
     requiresApiKey: true,
     authentication: 'anthropic-api-key',
     supportsModelListing: true,
-    structuredOutput: 'anthropic-tool',
+    structuredOutput: 'tool-use',
+  },
+  {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    protocol: 'openai-chat-completions',
+    baseUrl: 'https://api.deepseek.com',
+    credentialEnvironment: 'DEEPSEEK_API_KEY',
+    requiresApiKey: true,
+    authentication: 'bearer',
+    supportsModelListing: true,
+    structuredOutput: 'json-object',
   },
 ]
 
@@ -108,6 +135,17 @@ function createInitialAiSettings(): AiSettingsSnapshot {
         baseUrl: 'https://api.openai.com/v1',
         model: 'gpt-4.1-mini',
         credentialEnvironment: 'OPENAI_API_KEY',
+        allowInsecureHttp: false,
+        contextWindowTokens: 128000,
+        maxOutputTokens: null,
+        maxBatchBytes: null,
+        temperature: null,
+        topP: null,
+        frequencyPenalty: null,
+        presencePenalty: null,
+        enableReasoning: false,
+        reasoningEffort: null,
+        streamTranslation: false,
         keyConfigured: true,
         resolvedCredentialSource: 'keychain',
       },
@@ -119,8 +157,41 @@ function createInitialAiSettings(): AiSettingsSnapshot {
         baseUrl: 'http://127.0.0.1:11434/v1',
         model: 'qwen2.5:14b',
         credentialEnvironment: null,
+        allowInsecureHttp: false,
+        contextWindowTokens: 32768,
+        maxOutputTokens: null,
+        maxBatchBytes: null,
+        temperature: null,
+        topP: null,
+        frequencyPenalty: null,
+        presencePenalty: null,
+        enableReasoning: false,
+        reasoningEffort: null,
+        streamTranslation: false,
         keyConfigured: false,
         resolvedCredentialSource: null,
+      },
+      {
+        id: 'deepseek-workbench',
+        name: 'DeepSeek · 思考链',
+        presetId: 'deepseek',
+        protocol: 'openai-chat-completions',
+        baseUrl: 'https://api.deepseek.com',
+        model: 'deepseek-chat',
+        credentialEnvironment: 'DEEPSEEK_API_KEY',
+        allowInsecureHttp: false,
+        contextWindowTokens: 65536,
+        maxOutputTokens: null,
+        maxBatchBytes: null,
+        temperature: null,
+        topP: null,
+        frequencyPenalty: null,
+        presencePenalty: null,
+        enableReasoning: true,
+        reasoningEffort: 'low',
+        streamTranslation: false,
+        keyConfigured: true,
+        resolvedCredentialSource: 'keychain',
       },
     ],
     presets: DEV_AI_PRESETS,
@@ -431,6 +502,8 @@ function createMockMod(index: number): LauncherLibraryModSummary {
     dependencies: [],
     requiredDependencies: [],
     missingRequiredDependencies: [],
+    minimumApiVersion: index % 9 === 0 ? '4.1.0' : null,
+    requiresNewerSmapi: index % 9 === 0,
   }
 }
 
@@ -512,6 +585,16 @@ function getMockRequest<TRequest>(payload: unknown): TRequest | null {
 function isSettingsMockPreferred() {
   if (typeof window === 'undefined') return false
   return new URLSearchParams(window.location.search).get(DEV_SETTINGS_MOCK_QUERY_PARAM) === '1'
+}
+
+/**
+ * Forces the launcher AI translate mock to stream content deltas even when the
+ * active profile has `streamTranslation` disabled. Lets launcher mod detail
+ * screenshots exercise the streaming fade-in and the determinate progress ring.
+ */
+function shouldStreamLauncherAiMock() {
+  if (typeof window === 'undefined') return false
+  return new URLSearchParams(window.location.search).get('mfLauncherAiStream') === '1'
 }
 
 function createInitialAppUiState(): AppUiState {
@@ -620,15 +703,22 @@ export function installDevLauncherMock() {
 
   const mods = createMockMods()
   let appUiState = createInitialAppUiState()
+  const mockGameDirectory = resolveDevMockGameDirectory()
   let settings: LauncherSettings = {
-    gamePath: DEV_MOCK_GAME_DIRECTORY,
+    gamePath: mockGameDirectory,
     modsPath: DEV_LAUNCHER_MOCK_MODS_PATH,
     downloadPath: 'E:\\ModForge Dev\\Downloads',
     nexusApiKey: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
     autoCheckModUpdates: false,
+    showConsoleWindow: false,
   }
+  let mockSmapiInstalledVersion = '4.0.8'
+  const MOCK_SMAPI_TARGET_VERSION = '4.1.10'
+  const MOCK_NEXUS_INSTALLER_FILE_NAME = 'SMAPI 4.1.10-2400-4-1-10-123456.zip'
+  // `?mfSmapiSource=nexus` forces the Nexus manual-download flow (GitHub unreachable).
+  const mockSmapiNexusSource = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mfSmapiSource') === 'nexus'
   let libraryState = createInitialLibraryState(mods)
   let queueState: LauncherDownloadQueueState = { items: [] }
   let aiSettings: AiSettingsSnapshot = createInitialAiSettings()
@@ -652,8 +742,8 @@ export function installDevLauncherMock() {
   }
   exposeLauncherCustomSortState(libraryState)
   const handleLocalizationKnowledgeMockCommand = createLocalizationKnowledgeMockHandler()
-  const handleModTranslationMockCommand = createModTranslationMockHandler(DEV_MOCK_GAME_DIRECTORY)
-  const handleCpMakerMockCommand = createCpMakerMockHandler(DEV_MOCK_GAME_DIRECTORY)
+  const handleModTranslationMockCommand = createModTranslationMockHandler(mockGameDirectory)
+  const handleCpMakerMockCommand = createCpMakerMockHandler(mockGameDirectory)
   window.__modforgeDevHostCommands = []
 
   mockWindows('main')
@@ -674,6 +764,10 @@ export function installDevLauncherMock() {
         return cpMakerResult.result
       }
       switch (command) {
+        case 'detect_default_game_directory':
+          return mockGameDirectory
+        case 'list_known_game_directories':
+          return [mockGameDirectory]
         case 'load_app_ui_state':
           return appUiState
         case 'patch_app_ui_state':
@@ -702,6 +796,17 @@ export function installDevLauncherMock() {
                 baseUrl: profile.baseUrl,
                 model: profile.model,
                 credentialEnvironment: profile.credentialEnvironment,
+                allowInsecureHttp: profile.allowInsecureHttp,
+                contextWindowTokens: profile.contextWindowTokens,
+                maxOutputTokens: profile.maxOutputTokens,
+                maxBatchBytes: profile.maxBatchBytes,
+                temperature: profile.temperature,
+                topP: profile.topP,
+                frequencyPenalty: profile.frequencyPenalty,
+                presencePenalty: profile.presencePenalty,
+                enableReasoning: profile.enableReasoning,
+                reasoningEffort: profile.reasoningEffort,
+                streamTranslation: profile.streamTranslation,
                 keyConfigured,
                 resolvedCredentialSource: keyConfigured ? 'keychain' : preset?.requiresApiKey === false ? null : null,
               }
@@ -711,11 +816,32 @@ export function installDevLauncherMock() {
         }
         case 'list_ai_models':
           return [
-            { id: 'gpt-4.1-mini', displayName: 'GPT-4.1 mini' },
-            { id: 'gpt-4.1', displayName: 'GPT-4.1' },
-            { id: 'qwen2.5:14b', displayName: 'Qwen2.5 14B' },
-            { id: 'mock-translation-model', displayName: 'Mock translation model' },
+            { id: 'gpt-4.1-mini', displayName: 'GPT-4.1 mini', contextWindowTokens: 128000 },
+            { id: 'gpt-4.1', displayName: 'GPT-4.1', contextWindowTokens: 128000 },
+            { id: 'qwen2.5:14b', displayName: 'Qwen2.5 14B', contextWindowTokens: 32768 },
+            { id: 'mock-translation-model', displayName: 'Mock translation model', contextWindowTokens: 65536 },
           ]
+        case 'fetch_ai_models_dev_catalog':
+          return {
+            fetchedAtMs: Date.now(),
+            providers: [
+              {
+                id: 'openai',
+                name: 'OpenAI',
+                models: [
+                  { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', contextWindowTokens: 128000, maxOutputTokens: 32768 },
+                  { id: 'gpt-4.1', name: 'GPT-4.1', contextWindowTokens: 128000, maxOutputTokens: 32768 },
+                ],
+              },
+              {
+                id: 'anthropic',
+                name: 'Anthropic',
+                models: [
+                  { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', contextWindowTokens: 200000, maxOutputTokens: 8192 },
+                ],
+              },
+            ],
+          }
         case 'test_ai_profile': {
           const profileId =
             getMockRequest<{ profileId?: string }>(payload)?.profileId ??
@@ -730,6 +856,9 @@ export function installDevLauncherMock() {
             model: profile?.model || 'gpt-4.1-mini',
             latencyMs: 142,
             credentialSource: profile?.resolvedCredentialSource ?? null,
+            reasoning: profile?.enableReasoning
+              ? 'Dev mock reasoning: the probe sentence was tokenized and translated through the mock pipeline.'
+              : null,
           }
           return result
         }
@@ -803,6 +932,10 @@ export function installDevLauncherMock() {
           return { latencyMs: 186, detectedLanguage: 'EN' }
         case 'load_localization_default_engine':
           return defaultEngine
+        case 'prewarm_localization_corpus':
+          // The browser mock keeps knowledge in memory and the semantic runtime is
+          // considered builtin-ready, so the corpus is warm by construction.
+          return { knowledge: 'ready', semantic: 'ready', official: 'skipped', ready: true, error: null }
         case 'save_localization_default_engine': {
           const engine =
             payload && typeof payload === 'object' && 'engine' in payload
@@ -955,17 +1088,77 @@ export function installDevLauncherMock() {
         case 'translate_ai_batch': {
           const request = getMockRequest<AiTranslateBatchRequest>(payload)
           if (!request) throw new Error('Missing mock AI translation request')
+          const profile = aiSettings.profiles.find((item) => item.id === request.profileId)
+          if (profile?.streamTranslation || shouldStreamLauncherAiMock()) {
+            const reasoning = 'Dev mock reasoning: tokenize the batch items, translate each segment, then reassemble the bbcode blocks.'
+            const reasoningSteps = reasoning.match(/.{1,24}/g) ?? [reasoning]
+            for (const step of reasoningSteps) {
+              await emit('ai://translation-stream', { jobId: request.jobId, kind: 'reasoning', delta: step })
+              await new Promise((resolve) => window.setTimeout(resolve, 40))
+            }
+            const encoded = JSON.stringify(
+              request.items.map((item) => ({
+                id: item.id,
+                translatedText: `AI/${request.targetLocale} · ${item.text}`,
+                detectedLanguage: request.sourceLocale ?? null,
+              })),
+            )
+            for (let index = 0; index < encoded.length; index += 24) {
+              await emit('ai://translation-stream', { jobId: request.jobId, kind: 'content', delta: encoded.slice(index, index + 24) })
+              await new Promise((resolve) => window.setTimeout(resolve, 30))
+            }
+          }
           return {
             jobId: request.jobId,
             profileId: request.profileId ?? aiSettings.defaultProfileId ?? 'mock-profile',
             model: 'mock-translation-model',
             items: request.items.map((item) => ({
               id: item.id,
-              translatedText: `[AI ${request.targetLocale}] ${item.text}`,
+              translatedText: `AI/${request.targetLocale} · ${item.text}`,
               detectedLanguage: request.sourceLocale ?? null,
               skippedSameLanguage: false,
             })),
+            reasoning: profile?.enableReasoning
+              ? 'Dev mock reasoning: split the batch items, translated each segment, then reassembled the bbcode blocks.'
+              : null,
           }
+        }
+        case 'translate_localization_batch': {
+          const request = getMockRequest<LocalizationTranslateBatchRequest>(payload)
+          if (!request) throw new Error('Missing mock localization translation request')
+          const profile =
+            request.engine.kind === 'generative-ai' ? aiSettings.profiles.find((item) => item.id === request.engine.profileId) : undefined
+          if (profile?.streamTranslation || shouldStreamLauncherAiMock()) {
+            // 与 translate_ai_batch 同款：按 jobId 发射 content delta（不发射
+            // reasoning，工作台没有思考链控件），方便 dev 模式人工验证流式渲染。
+            const encoded = JSON.stringify(
+              request.items.map((item) => ({
+                id: item.id,
+                translatedText: `AI/${request.targetLocale} · ${item.text}`,
+                detectedLanguage: request.sourceLocale ?? null,
+              })),
+            )
+            for (let index = 0; index < encoded.length; index += 24) {
+              await emit('ai://translation-stream', { jobId: request.jobId, kind: 'content', delta: encoded.slice(index, index + 24) })
+              await new Promise((resolve) => window.setTimeout(resolve, 30))
+            }
+          }
+          const result: LocalizationTranslateBatchResult = {
+            jobId: request.jobId,
+            engine: request.engine,
+            model: request.engine.kind === 'generative-ai' ? 'mock-translation-model' : null,
+            items: request.items.map((item) => ({
+              id: item.id,
+              translatedText: `AI/${request.targetLocale} · ${item.text}`,
+              detectedLanguage: request.sourceLocale ?? null,
+              skippedSameLanguage: false,
+            })),
+            validationIssues: [],
+            usageRecordState: 'recorded',
+            knowledgeTrace: { officialMatches: 0, globalGlossaryMatches: 0, projectGlossaryMatches: 0, translationMemoryMatches: 0 },
+            knowledgeRevision: 'disabled',
+          }
+          return result
         }
         case 'cancel_ai_job':
           return null
@@ -1012,7 +1205,143 @@ export function installDevLauncherMock() {
         case 'scan_launcher_library':
           return { modsPath: DEV_LAUNCHER_MOCK_MODS_PATH, mods } satisfies LauncherLibraryScanResult
         case 'load_launcher_runtime_info':
-          return { gameVersion: '1.6.15', smapiVersion: '4.3.0' } satisfies LauncherRuntimeInfo
+          return { gameVersion: '1.6.15', smapiVersion: mockSmapiInstalledVersion } satisfies LauncherRuntimeInfo
+        case 'check_smapi_update': {
+          const updateAvailable = mockSmapiInstalledVersion !== MOCK_SMAPI_TARGET_VERSION
+          return {
+            installedVersion: mockSmapiInstalledVersion,
+            gameVersion: '1.6.15',
+            latestStableVersion: MOCK_SMAPI_TARGET_VERSION,
+            targetVersion: MOCK_SMAPI_TARGET_VERSION,
+            updateAvailable,
+            versionSource: mockSmapiNexusSource ? 'nexus' : 'github',
+            requiredByMods: updateAvailable
+              ? [
+                  { modId: 'ModForge.Dev.Mock01', modName: 'Mock Mod 01', minimumApiVersion: '4.1.0' },
+                  { modId: 'ModForge.Dev.Mock10', modName: 'Mock Mod 10', minimumApiVersion: '4.1.0' },
+                ]
+              : [],
+            download: updateAvailable
+              ? mockSmapiNexusSource
+                ? {
+                    source: 'nexus',
+                    sizeBytes: 1_024,
+                    assetName: MOCK_NEXUS_INSTALLER_FILE_NAME,
+                    nexusModPageUrl: 'https://www.nexusmods.com/stardewvalley/mods/2400',
+                    nexusDownloadPopupUrl: 'https://www.nexusmods.com/stardewvalley/mods/2400?tab=files&file_id=123456',
+                    nexusFileId: 123456,
+                  }
+                : {
+                    source: 'github',
+                    url: 'https://smapi.io/download/SMAPI-4.1.10-installer.zip',
+                    sha256: 'dev-mock-smapi-sha256',
+                    sizeBytes: 1_024,
+                    assetName: 'SMAPI-4.1.10-installer.zip',
+                  }
+              : null,
+          } satisfies SmapiUpdateCheckResult
+        }
+        case 'install_smapi_update': {
+          const request = getMockRequest<InstallSmapiUpdateRequest>(payload)
+          if (!request?.targetVersion?.trim()) {
+            throw new Error('targetVersion is required.')
+          }
+          if (!request.downloadUrl?.trim() && !request.localFilePath?.trim()) {
+            throw new Error('downloadUrl or localFilePath is required.')
+          }
+          mockSmapiInstalledVersion = request.targetVersion.trim()
+          return { success: true, installedVersion: mockSmapiInstalledVersion } satisfies InstallSmapiUpdateResult
+        }
+        case 'find_smapi_installer_downloads': {
+          // One satisfying Nexus-named candidate; junk files are ignored by the scanner.
+          return {
+            candidates: [
+              {
+                path: `C:\\Users\\Mock\\Downloads\\${MOCK_NEXUS_INSTALLER_FILE_NAME}`,
+                fileName: MOCK_NEXUS_INSTALLER_FILE_NAME,
+                version: MOCK_SMAPI_TARGET_VERSION,
+                sizeBytes: 1_024,
+                doubleZipped: false,
+                naming: 'nexus',
+                compatible: true,
+                satisfiesTarget: true,
+              },
+            ],
+          } satisfies FindSmapiInstallerDownloadsResult
+        }
+        case 'open_launcher_url':
+          return undefined
+        case 'load_launcher_remote_mod_detail': {
+          const request = getMockRequest<{ modId?: number; includeFiles?: boolean }>(payload)
+          const modId = request?.modId ?? 20001
+          const index = Math.max(1, modId - 20000)
+          const includeFiles = request?.includeFiles ?? true
+          // Rich detail so the launcher mod detail panel can exercise the AI
+          // translation streaming (multiple bbcode segments + changelog lines).
+          return {
+            modId,
+            title: `Mock Nexus Mod ${String(index).padStart(2, '0')}`,
+            summary: 'Adds a seasonal crop with [b]custom textures[/b] and a small [i]quest chain[/i] for the valley.',
+            description: [
+              'This mod reworks the forest path with [b]new sprites[/b], a [color=#d4a15f]golden hour[/color] palette and gentle particle effects. The content ships as ContentPatcher packs with per-season variants for every climate.',
+              '[b]Features[/b]',
+              '[list]',
+              '[*][b]Four seasons[/b] of retextures, plus a [color=#7fc97f]spring-only[/color] bonus variant.',
+              '[*]Configurable intensity through [b]Generic Mod Config Menu[/b].',
+              '[*]Compatible with [url=https://smapi.io]SMAPI[/url] 4.0+ and Stardew Valley 1.6.',
+              '[/list]',
+              'Requires ContentPatcher. The optional seasonal variant is recommended for full visual parity. Installation is a standard drop-in folder copy; existing saves keep working.',
+            ].join('\n\n'),
+            author: 'Mock Author',
+            version: '2.1.0',
+            modUrl: `https://www.nexusmods.com/stardewvalley/mods/${modId}`,
+            imageUrl: null,
+            galleryImages: [],
+            category: 'Misc',
+            downloads: 12_345,
+            endorsements: 678,
+            tags: ['Content Patcher', 'Visual'],
+            updatedAt: '2025-03-10T12:00:00Z',
+            fileSize: 2_400_000,
+            primaryFileId: 90_001,
+            primaryFileName: `Mock Mod ${String(index).padStart(2, '0')} 2.1.0.zip`,
+            primaryFileVersion: '2.1.0',
+            primaryFileCategory: 'MAIN',
+            primaryFileChangelog: [
+              '2.1.0 — Added golden-hour palette and per-season variants.',
+              '2.0.2 — Fixed winter sprite clipping on the riverbank.',
+              '2.0.0 — Initial release with forest path rework.',
+            ],
+            files: includeFiles
+              ? [
+                  {
+                    fileId: 90_001,
+                    name: `Mock Mod ${String(index).padStart(2, '0')} 2.1.0.zip`,
+                    version: '2.1.0',
+                    category: 'MAIN',
+                    primary: true,
+                    sizeBytes: 2_400_000,
+                    managerDownloadEnabled: true,
+                    changelog: ['2.1.0 — Added golden-hour palette and per-season variants.'],
+                  },
+                  {
+                    fileId: 90_002,
+                    name: 'Optional seasonal variant.zip',
+                    version: '2.0.0',
+                    category: 'OPTIONAL',
+                    primary: false,
+                    sizeBytes: 860_000,
+                    managerDownloadEnabled: true,
+                    changelog: ['2.0.0 — Initial seasonal variant release.'],
+                  },
+                ]
+              : [],
+            requirements: [
+              { name: 'Content Patcher', notes: 'Required for loading content packs.', modId: 1915 },
+              { name: 'SMAPI', notes: 'Required mod loader.', external: true },
+            ],
+          } satisfies LauncherRemoteModDetail
+        }
         case 'load_launcher_gmcm_probe_diagnostics':
           // Quiet ready status for settings mock screenshots; keep warning for launcher-only mock.
           return {

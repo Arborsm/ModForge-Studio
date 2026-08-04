@@ -4,6 +4,7 @@
 @import './base.css';
 @import './primitives/panel.css';
 @import './primitives/empty-state-card.css';
+@import './primitives/workspace-split-view.css';
 @import './primitives/controls.css';
 @import './primitives/status.css';
 @import './primitives/menu.css';

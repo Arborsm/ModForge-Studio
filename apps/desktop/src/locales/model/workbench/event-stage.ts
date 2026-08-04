@@ -326,6 +326,8 @@ export type EventStageCopy = {
   cueLabel: (cue: string) => string
   stopCueLabel: (cue: string) => string
   flashAlphaLabel: (alpha: string) => string
+  playbackHaltedTitle: string
+  playbackHaltedDetail: string
   workflow: EventWorkflowCopy
   playerAppearance: PlayerAppearanceCopy
 }

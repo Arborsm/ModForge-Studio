@@ -1,5 +1,5 @@
 @layer components {
-  /* Authoring workspace layout: header + main + expert panel.
+  /* Authoring workspace layout: main view + expert panel.
      The shared shell skeleton is gone; these classes are owned by the
      module runtimes that render their own page layout. */
   .authoring-shell {
@@ -25,77 +25,21 @@
     overflow: hidden;
   }
 
-  /* Header */
-  .authoring-header {
-    display: flex;
-    min-height: 3.25rem;
-    flex: 0 0 auto;
-    align-items: center;
-    gap: 0.625rem;
-    border-bottom: 1px solid var(--border-color);
-    background: color-mix(in srgb, var(--bg-panel) 94%, transparent);
-    padding: 0.5rem 0.75rem;
-  }
-
-  .authoring-header-context {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .authoring-header-title {
-    overflow: hidden;
-    color: var(--text-primary);
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .authoring-header-breadcrumb {
-    overflow: hidden;
-    color: var(--text-secondary);
-    font-size: 0.6875rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .authoring-header-spacer {
-    flex: 1 1 auto;
-    min-width: 0.75rem;
-  }
-
-  .authoring-header-save-status {
-    font-size: 0.6875rem;
-    color: var(--text-secondary);
-    transition: color 0.15s ease;
-  }
-
-  .authoring-header-save-status.is-error {
-    color: var(--danger);
-  }
-
-  .authoring-header-save-status.is-working {
-    color: var(--accent);
-  }
-
+  /* Expert toggle (hosted by the workbench side nav and the mail editor tabs).
+     Icon-only button sized to match the side-nav head tool squares. */
   .authoring-header-expert-toggle {
-    display: inline-flex;
-    min-height: 2rem;
-    align-items: center;
-    gap: 0.375rem;
-    border: 1px solid var(--border-color);
-    border-radius: 0.375rem;
-    background: var(--bg-panel);
-    padding: 0.25rem 0.625rem;
+    display: inline-grid;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex-shrink: 0;
+    place-items: center;
+    border: 0;
+    border-radius: 0.4375rem;
+    background: transparent;
+    color: var(--text-tertiary);
     cursor: pointer;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    color: var(--text-secondary);
     user-select: none;
     transition:
-      border-color 0.15s ease,
       background-color 0.15s ease,
       color 0.15s ease;
   }
@@ -111,7 +55,6 @@
   }
 
   .authoring-header-expert-toggle.is-active {
-    border-color: color-mix(in srgb, var(--accent) 58%, var(--border-color));
     background: var(--accent-soft);
     color: var(--accent);
   }

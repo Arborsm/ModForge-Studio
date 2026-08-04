@@ -39,9 +39,11 @@ export { loadAppUiState, patchAppUiState } from './appUi'
 export {
   cancelAiJob,
   clearAiTranslationCache,
+  fetchAiModelsDevCatalog,
   getAiTranslationCacheStats,
   listAiModels,
   listenToAiProgress,
+  listenToAiStream,
   loadAiSettings,
   readAiTranslationCache,
   saveAiSettings,
@@ -57,6 +59,7 @@ export { clearAiUsage, exportAiUsage, queryAiUsageRecords, queryAiUsageSummary }
 export {
   loadLocalizationDefaultEngine,
   saveLocalizationDefaultEngine,
+  prewarmLocalizationCorpus,
   loadLocalizationSemanticSettings,
   saveLocalizationSemanticSettings,
   inspectLocalizationSemanticModel,

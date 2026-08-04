@@ -8,7 +8,7 @@ const shared: LauncherSharedCopy = {
     library: '模组库',
     discover: '发现',
     updates: '更新',
-    configuration: '配置',
+    configuration: '诊断',
   },
   descriptions: {
     library: '这里会显示已安装和置顶的模组。',
@@ -96,6 +96,8 @@ const shared: LauncherSharedCopy = {
     autoInstallDownloads: '下载完成后自动安装',
     keepDownloadedArchives: '保留已下载归档',
     gmcmParsingEnabled: '解析 GMCM 动态配置',
+    showConsoleWindow: '显示 SMAPI 控制台窗口',
+    showConsoleWindowDescription: '启动游戏时显示 SMAPI 控制台窗口，用于查看 mod 加载日志。',
   },
   sortOptions: {
     newest: '最新发布',

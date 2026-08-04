@@ -426,6 +426,12 @@ fn ai_commands_use_the_dedicated_pool_and_declared_resources() {
         command_binding("list_ai_models"),
         Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
     );
+    // models.dev is a public CDN catalog fetch; it uses the general network
+    // pool so it never competes with bounded AI translation work.
+    assert_eq!(
+        command_binding("fetch_ai_models_dev_catalog"),
+        Some((SidecarLane::Network, HostCommandExecutionPool::Lane, vec![]))
+    );
     assert_eq!(
         command_binding("cancel_ai_job"),
         Some((SidecarLane::Control, HostCommandExecutionPool::Lane, vec![]))
@@ -586,6 +592,7 @@ fn sidecar_protocol_names_are_derived_from_command_functions() {
         "audio",
         "content_patcher",
         "cp_maker",
+        "debug_bridge",
         "launcher",
         "localization",
         "logging",
@@ -836,12 +843,22 @@ fn semantic_download_and_indexing_declare_exclusive_resources_at_binding_site() 
         command_execution_pool("acquire_localization_semantic_runtime"),
         Some(HostCommandExecutionPool::AiSemanticSearch)
     );
+    // Warmup commands must stay off the semantic status locks: they warm
+    // internally synchronized caches and would otherwise stall the fast
+    // status queries behind a multi-second local model load.
     assert_eq!(
         command_resources("acquire_localization_semantic_runtime"),
+        Some(vec![])
+    );
+    assert_eq!(
+        command_execution_pool("prewarm_localization_corpus"),
+        Some(HostCommandExecutionPool::AiSemanticSearch)
+    );
+    assert_eq!(
+        command_resources("prewarm_localization_corpus"),
         Some(vec![
-            SidecarResource::AiSemanticSettings,
-            SidecarResource::AiSemanticModel,
-            SidecarResource::AiSemanticIndex,
+            SidecarResource::AiLocalizationKnowledge,
+            SidecarResource::AiOfficialLocalizationIndex,
         ])
     );
     assert_eq!(

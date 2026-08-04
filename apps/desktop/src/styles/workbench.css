@@ -10,6 +10,7 @@
 @import './features/asset-authoring.css';
 @import './features/asset-authoring-tabs.css';
 @import './features/map-catalog.css';
+@import './features/workspace-patch-list.css';
 @import './features/map-warp-editor.css';
 @import './features/map-asset-shell.css';
 @import './features/map-authoring-compare.css';
@@ -30,6 +31,7 @@
 @import './workspace/asset-library-load-bindings.css';
 @import './workspace/item-data-editor.css';
 @import './workspace/map-authoring.css';
+@import './workspace/map-game-tilesheets.css';
 @import './workspace/map-tileset-palette.css';
 @import './features/map-patch-workspace.css';
 @import './workspace/ai-localization.css';

@@ -8,6 +8,7 @@ import {
   collectDraftIssues,
   CreateDraftDialog,
   ExportDialog,
+  ExpertModeButton,
   ProjectPropertiesDialog,
   type WorkspaceId,
 } from '@features/cp-maker'
@@ -357,6 +358,7 @@ export default function WorkbenchExperience({
           onModuleOpen: handleOpenRegisteredWorkbenchView,
           sectionState: sideNavigation.sections,
           onSectionStateChange: sideNavigation.changeSections,
+          headTools: <ExpertModeButton />,
         }}
         moduleHost={
           navigation.location.kind === 'module'

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 
 const LAUNCHER_UPDATE_PROGRESS_EVENT = 'launcher://update-check-progress'
 const LAUNCHER_IMAGE_FETCH_DISCONNECTED_EVENT = 'launcher://image-fetch-disconnected'
+const LAUNCHER_SMAPI_UPDATE_PROGRESS_EVENT = 'launcher://smapi-update-progress'
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -79,6 +80,103 @@ describe('launcher desktop API', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks()
+  })
+
+  it('routes SMAPI update checks and installs through the configured file system port', async () => {
+    const { launcherDesktop, invokeCommand } = await loadConfiguredLauncherDesktop()
+    const checkResult = {
+      installedVersion: '4.0.8',
+      gameVersion: '1.6.15',
+      latestStableVersion: '4.1.10',
+      targetVersion: '4.1.10',
+      updateAvailable: true,
+      versionSource: 'github',
+      requiredByMods: [{ modId: 'ModForge.NPCAdventures', modName: 'NPC Adventures', minimumApiVersion: '4.1.0' }],
+      download: {
+        source: 'github',
+        url: 'https://smapi.io/download/SMAPI-4.1.10-installer.zip',
+        sha256: 'abc123',
+        sizeBytes: 42,
+        assetName: 'SMAPI-4.1.10-installer.zip',
+      },
+    }
+    const installResult = { success: true, installedVersion: '4.1.10' }
+    invokeCommand.mockResolvedValueOnce(checkResult).mockResolvedValueOnce(installResult)
+
+    await expect(launcherDesktop.checkLauncherSmapiUpdate()).resolves.toEqual(checkResult)
+    await expect(
+      launcherDesktop.installLauncherSmapiUpdate({
+        jobId: 'smapi-update:1',
+        downloadUrl: 'https://smapi.io/download/SMAPI-4.1.10-installer.zip',
+        expectedSha256: 'abc123',
+        targetVersion: '4.1.10',
+      }),
+    ).resolves.toEqual(installResult)
+
+    expect(invokeCommand).toHaveBeenNthCalledWith(1, 'check_smapi_update', undefined)
+    expect(invokeCommand).toHaveBeenNthCalledWith(2, 'install_smapi_update', {
+      request: {
+        jobId: 'smapi-update:1',
+        downloadUrl: 'https://smapi.io/download/SMAPI-4.1.10-installer.zip',
+        expectedSha256: 'abc123',
+        targetVersion: '4.1.10',
+      },
+    })
+  })
+
+  it('routes local-file SMAPI installs and the installer download scan through the file system port', async () => {
+    const { launcherDesktop, invokeCommand } = await loadConfiguredLauncherDesktop()
+    const localInstallResult = { success: true, installedVersion: '4.1.10' }
+    const scanResult = {
+      candidates: [
+        {
+          path: 'C:\\Users\\Mock\\Downloads\\SMAPI 4.1.10-2400-4-1-10-123456.zip',
+          fileName: 'SMAPI 4.1.10-2400-4-1-10-123456.zip',
+          version: '4.1.10',
+          sizeBytes: 1024,
+          doubleZipped: false,
+          naming: 'nexus',
+          compatible: true,
+          satisfiesTarget: true,
+        },
+      ],
+    }
+    invokeCommand.mockResolvedValueOnce(localInstallResult).mockResolvedValueOnce(scanResult)
+
+    await expect(
+      launcherDesktop.installLauncherSmapiUpdate({
+        jobId: 'smapi-update:2',
+        targetVersion: '4.1.10',
+        localFilePath: 'C:\\Users\\Mock\\Downloads\\SMAPI-4.1.10-installer.zip',
+      }),
+    ).resolves.toEqual(localInstallResult)
+    await expect(launcherDesktop.findLauncherSmapiInstallerDownloads()).resolves.toEqual(scanResult)
+
+    expect(invokeCommand).toHaveBeenNthCalledWith(1, 'install_smapi_update', {
+      request: {
+        jobId: 'smapi-update:2',
+        targetVersion: '4.1.10',
+        localFilePath: 'C:\\Users\\Mock\\Downloads\\SMAPI-4.1.10-installer.zip',
+      },
+    })
+    expect(invokeCommand).toHaveBeenNthCalledWith(2, 'find_smapi_installer_downloads', undefined)
+  })
+
+  it('forwards SMAPI update install progress events from the host', async () => {
+    const { launcherDesktop, eventListeners } = await loadConfiguredLauncherDesktop()
+    const listener = vi.fn()
+    const unlisten = await launcherDesktop.listenToLauncherSmapiUpdateProgress(listener)
+    const payload = {
+      phase: 'downloading' as const,
+      percent: 55,
+      message: 'Downloading SMAPI installer...',
+    }
+
+    eventListeners.get(LAUNCHER_SMAPI_UPDATE_PROGRESS_EVENT)?.(payload)
+
+    expect(listener).toHaveBeenCalledWith(payload)
+
+    unlisten()
   })
 
   it('routes launcher commands through the configured file system port', async () => {

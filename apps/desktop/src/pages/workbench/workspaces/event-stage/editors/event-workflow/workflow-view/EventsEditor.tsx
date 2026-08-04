@@ -18,6 +18,7 @@ import {
   parseEventCommand,
   parseEventCommands,
   parseEventSceneSetup,
+  splitEventPreconditions,
   type EventSceneActor,
   type EventSceneSetup,
   type EventScript,
@@ -115,7 +116,6 @@ export default function EventsEditor({
   const [pickingActorIndex, setPickingActorIndex] = useState<number | null>(null)
   const [cameraPickMode, setCameraPickMode] = useState(false)
   const [actorAssetPreviews, setActorAssetPreviews] = useState<Record<string, EventActorAssetPreview>>({})
-  const [currentPlaybackCommandId, setCurrentPlaybackCommandId] = useState<string | null>(null)
   const [globalResourceRegistry, dispatchGlobalResourceRegistry] = useReducer(globalResourceRegistryReducer, null)
   const [itemCatalogState, dispatchItemCatalog] = useReducer(itemCatalogReducer, { entries: [], texturesByAssetName: {} })
   const [draftPathPoints, setDraftPathPoints] = useState<DraftPathPoint[]>([])
@@ -144,7 +144,7 @@ export default function EventsEditor({
     return {
       key: selectedKey,
       eventId: selectedKey,
-      preconditions: [],
+      preconditions: splitEventPreconditions(selectedKey),
       rawScript: selectedEntryString,
       rawSegments: parsedEvent.segments,
       scene: parsedEvent.scene,
@@ -586,7 +586,7 @@ export default function EventsEditor({
                   onContextMenuAction={handleContextMenuAction}
                   conditionBuilderLabel={conditionBuilderLabel}
                   onActorAssetsChange={setActorAssetPreviews}
-                  onPlaybackCommandChange={setCurrentPlaybackCommandId}
+                  onPlaybackCommandChange={(commandId) => useEditorStore.getState().setPlaybackCommandId(commandId)}
                 />
               ) : (
                 <div className="stage-empty">
@@ -735,7 +735,6 @@ export default function EventsEditor({
             script={eventScript}
             locale={locale}
             resourceRegistry={resourceRegistry}
-            currentPlaybackCommandId={currentPlaybackCommandId}
             eventId={selectedKey ? getEventIdFromKey(selectedKey) : null}
             onScriptChange={handleScriptChange}
             className="h-full"

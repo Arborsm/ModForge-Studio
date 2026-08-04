@@ -13,11 +13,13 @@ import type {
   SaveAiSemanticRemoteProfile,
 } from '@shared/contracts'
 import { cx } from '@shared/lib/helper'
+import { isTimeoutError, withLoadTimeout } from '@shared/lib/async/withLoadTimeout'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
 
 const SEMANTIC_VERIFY_NOTIFICATION = 'semantic-model-verify'
 const SEMANTIC_TEST_NOTIFICATION = 'semantic-remote-test'
+const SEMANTIC_LOAD_TIMEOUT_MS = 20_000
 
 const BUILTIN_MODEL_ID = BUILTIN_SEMANTIC_MODEL_ID
 const SEMANTIC_MODES: AiSemanticSearchMode[] = ['lexical', 'builtin', 'local-onnx', 'remote-openai']
@@ -71,6 +73,7 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
   const [savedSettings, setSavedSettings] = useState<AiSemanticSettingsSnapshot | null>(null)
   const [model, setModel] = useState<AiSemanticModelStatus | null>(null)
   const [index, setIndex] = useState<AiSemanticIndexStatus>(pendingIndexStatus('lexical'))
+  const [indexFailed, setIndexFailed] = useState(false)
   const [progress, setProgress] = useState<AiSemanticProgress | null>(null)
   const [downloadPaused, setDownloadPaused] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
@@ -113,8 +116,13 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
 
   const refresh = async () => {
     const generation = ++refreshGeneration.current
+    if (mounted.current) setError(null)
+    setIndexFailed(false)
     try {
-      const [nextSettings, nextModel] = await Promise.all([localization.loadSemanticSettings(), localization.inspectSemanticModel()])
+      const [nextSettings, nextModel] = await withLoadTimeout(
+        Promise.all([localization.loadSemanticSettings(), localization.inspectSemanticModel()]),
+        SEMANTIC_LOAD_TIMEOUT_MS,
+      )
       if (!mounted.current || generation !== refreshGeneration.current) return
       setSettings(nextSettings)
       setSavedSettings(nextSettings)
@@ -132,14 +140,22 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
           credentialEnvironment: active.credentialEnvironment,
         })
       setRemoteCredentialSource(active?.resolvedCredentialSource ?? null)
-      void localization
-        .inspectSemanticIndex([])
+      void withLoadTimeout(localization.inspectSemanticIndex([]), SEMANTIC_LOAD_TIMEOUT_MS)
         .then((nextIndex) => {
-          if (mounted.current && generation === refreshGeneration.current) setIndex(nextIndex)
+          if (mounted.current && generation === refreshGeneration.current) {
+            setIndex(nextIndex)
+            setIndexFailed(false)
+          }
         })
-        .catch(() => undefined)
+        .catch(() => {
+          // 索引状态查询失败/超时：降级为「未知」并暴露重试入口，而不是把
+          // 错误吞掉或假装索引为空。
+          if (mounted.current && generation === refreshGeneration.current) setIndexFailed(true)
+        })
     } catch (cause) {
-      if (mounted.current && generation === refreshGeneration.current) setError(copy.loadError)
+      if (mounted.current && generation === refreshGeneration.current) {
+        setError(isTimeoutError(cause) ? copy.loadTimeout : copy.loadError)
+      }
       throw cause
     }
   }
@@ -331,15 +347,24 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
 
   if (!settings || !model)
     return (
-      <section className="settings-semantic" aria-busy="true" aria-live="polite">
+      <section className="settings-semantic" aria-busy={error ? 'false' : 'true'} aria-live="polite">
         <div className="settings-ai-tab-body">
           <div className="settings-semantic-loading" role="status">
             <div className="settings-semantic-loading-head">
-              <span className="settings-semantic-loading-spinner" aria-hidden="true" />
+              {error ? null : <span className="settings-semantic-loading-spinner" aria-hidden="true" />}
               <div>
                 <strong>{error ?? copy.loading}</strong>
-                <p>{copy.loadingHint}</p>
+                <p>{error ? copy.loadTimeoutHint : copy.loadingHint}</p>
               </div>
+              {error ? (
+                <button
+                  type="button"
+                  className="settings-window-btn settings-window-btn-primary"
+                  onClick={() => void refresh().catch(() => undefined)}
+                >
+                  {copy.retry}
+                </button>
+              ) : null}
             </div>
             <p className="settings-window-group-label">{copy.mode}</p>
             <div className="settings-semantic-mode-grid settings-semantic-loading-modes" aria-hidden="true">
@@ -701,7 +726,14 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
                     </div>
                   ) : null}
                 </div>
-                {mode !== 'lexical' ? (
+                {indexFailed ? (
+                  <div className="settings-semantic-health-degraded" role="status">
+                    <span>{copy.indexLoadError}</span>
+                    <button type="button" className="settings-window-btn" onClick={() => void refresh().catch(() => undefined)}>
+                      {copy.retry}
+                    </button>
+                  </div>
+                ) : mode !== 'lexical' ? (
                   <div className="settings-semantic-health-metrics" role="group" aria-label={copy.indexCoverage}>
                     <div className="settings-semantic-health-metric">
                       <strong>{index.coveragePercentage.toFixed(1)}%</strong>
@@ -927,12 +959,14 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
                   <div>
                     <p className="settings-semantic-section-label">{copy.step3Title}</p>
                     <p className="settings-semantic-inline-note">
-                      {copy.indexDesc(
-                        index.indexedRecords,
-                        index.sourceRecords,
-                        index.pendingRecords,
-                        verification?.fingerprint ?? model.revision ?? '',
-                      )}
+                      {indexFailed
+                        ? copy.indexLoadError
+                        : copy.indexDesc(
+                            index.indexedRecords,
+                            index.sourceRecords,
+                            index.pendingRecords,
+                            verification?.fingerprint ?? model.revision ?? '',
+                          )}
                     </p>
                   </div>
                   <div className="settings-semantic-actions">

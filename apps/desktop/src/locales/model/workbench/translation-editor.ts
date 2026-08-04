@@ -78,6 +78,7 @@ export type TranslationEditorCopy = {
   aiTranslateAllConfirm: string
   aiTranslating: (completed: number, total: number) => string
   aiCancel: string
+  aiStreaming: string
   aiNotConfigured: string
   aiFailed: string
   aiPartialFailed: (count: number) => string

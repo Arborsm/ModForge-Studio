@@ -18,6 +18,7 @@ import { ChangelogList, DependencyTree, DetailDataLoading, DetailSection, FileLi
 import { normalizeVersion, type DependencyTreeNode, type FileListItem, type LauncherDetailTab } from './launcherModDetailData'
 import { useLauncherModDetailViewModel } from './useLauncherModDetailViewModel'
 import { useLauncherAiTranslation } from './useLauncherAiTranslation'
+import { TranslationProgressRing } from './TranslationProgressRing'
 
 function shouldDeferDetailContent() {
   return import.meta.env.MODE !== 'test' && (typeof navigator === 'undefined' || !navigator.userAgent.toLowerCase().includes('jsdom'))
@@ -67,6 +68,7 @@ export function LauncherModDetailPanel({
   const [pendingConfigLeave, setPendingConfigLeave] = useState<{ kind: 'close' } | { kind: 'tab'; tab: LauncherDetailTab } | null>(null)
   const [descriptionReaderOpen, setDescriptionReaderOpen] = useState(false)
   const [showAiTranslation, setShowAiTranslation] = useState(true)
+  const [reasoningExpanded, setReasoningExpanded] = useState(false)
   const [expandedDependencyNodeIds, setExpandedDependencyNodeIds] = useState<Set<string>>(new Set())
   const detailContentKey = `${mod?.id ?? 'empty'}:${remoteDetail?.modId ?? mod?.nexusModId ?? 'local'}`
   const deferDetailContent = shouldDeferDetailContent()
@@ -81,7 +83,6 @@ export function LauncherModDetailPanel({
     open && remoteFilesDeferred && (activeTab === 'files' || activeTab === 'changelog') && deferredFilesModId ? deferredFilesModId : null
   const fetchedRemoteWithFiles = useLauncherRemoteModDetail(shouldFetchDeferredFiles, {
     includeFiles: true,
-    notify: false,
   })
   const deferredFilesLoading = Boolean(shouldFetchDeferredFiles && fetchedRemoteWithFiles.state === 'loading')
   const remote = fetchedRemoteWithFiles.detail ?? remoteDetail ?? fetchedRemote.detail
@@ -158,9 +159,24 @@ export function LauncherModDetailPanel({
     full: fullDescription,
     changelog: changelogItems,
   })
-  const visibleOverview = showAiTranslation ? (aiTranslation.translation?.overview ?? overviewDescription) : overviewDescription
-  const visibleFullDescription = showAiTranslation ? (aiTranslation.translation?.full ?? fullDescription) : fullDescription
-  const visibleChangelog = showAiTranslation ? (aiTranslation.translation?.changelog ?? changelogItems) : changelogItems
+  // 流式翻译期间优先渲染部分译文（边生成边显示）；结束后被正式结构化结果替换。
+  const visibleOverview = showAiTranslation
+    ? (aiTranslation.streamPreview?.overview ?? aiTranslation.translation?.overview ?? overviewDescription)
+    : overviewDescription
+  const visibleFullDescription = showAiTranslation
+    ? (aiTranslation.streamPreview?.full ?? aiTranslation.translation?.full ?? fullDescription)
+    : fullDescription
+  const visibleChangelog = showAiTranslation
+    ? (aiTranslation.streamPreview?.changelog ?? aiTranslation.translation?.changelog ?? changelogItems)
+    : changelogItems
+  // 部分译文在屏 = 流式翻译中；逐字段渐入动画只在该窗口内生效，结束时无动画切换。
+  const aiStreaming = aiTranslation.streamPreview !== null
+  // 流式会话（state === 'loading'）跨整个任务的所有批次，批次间隙 streamPreview
+  // 置空的瞬时回退不会让 .is-ai-arrived 类被移除，因此渐入动画整场只播放一次。
+  const aiStreamingSession = aiTranslation.state === 'loading'
+  // 字段级「已到达」标记：译文首次与原文不同即置位；已显示内容不再重复触发动画。
+  const overviewArrived = visibleOverview !== overviewDescription
+  const fullArrived = visibleFullDescription !== fullDescription
 
   useEffect(() => {
     setShowAiTranslation(true)
@@ -451,8 +467,15 @@ export function LauncherModDetailPanel({
                         </div>
                       </div>
                     )}
-                    <div className="launcher-mod-detail-hero-summary">
-                      <NexusModsBbcode source={visibleOverview} />
+                    <div
+                      className={cx(
+                        'launcher-mod-detail-hero-summary',
+                        aiStreaming && 'is-ai-streaming',
+                        aiStreamingSession && overviewArrived && 'is-ai-arrived',
+                      )}
+                    >
+                      {/* 稳定 key（mod 维度而非文本内容）：流式提交只就地更新文本，不再整块重挂载；动画由 .is-ai-arrived 触发一次 */}
+                      <NexusModsBbcode key={`ai-overview:${detailContentKey}`} source={visibleOverview} />
                     </div>
                   </div>
 
@@ -508,7 +531,7 @@ export function LauncherModDetailPanel({
                           {detailCopy.aiOriginal}
                         </button>
                       </div>
-                    ) : (
+                    ) : aiTranslation.corpusState === 'ready' ? (
                       <Tooltip label={aiTranslation.state === 'loading' ? detailCopy.aiTranslating : detailCopy.aiTranslate}>
                         <button
                           type="button"
@@ -517,20 +540,78 @@ export function LauncherModDetailPanel({
                           onClick={() => aiTranslation.translate(false)}
                           aria-label={detailCopy.aiTranslate}
                         >
-                          <Languages className={cx('h-3.5 w-3.5', aiTranslation.state === 'loading' && 'animate-spin')} />
+                          <TranslationProgressRing
+                            visible={aiTranslation.state === 'loading'}
+                            progress={aiTranslation.streamProgress}
+                            label={
+                              aiTranslation.state === 'loading' && aiTranslation.streamProgress
+                                ? detailCopy.aiTranslatingProgress(
+                                    aiTranslation.streamProgress.completed,
+                                    aiTranslation.streamProgress.total,
+                                  )
+                                : detailCopy.aiTranslating
+                            }
+                          >
+                            <Languages className="h-3.5 w-3.5" />
+                          </TranslationProgressRing>
+                        </button>
+                      </Tooltip>
+                    ) : aiTranslation.corpusState === 'warming' ? (
+                      <Tooltip label={detailCopy.aiCorpusWarming}>
+                        <button type="button" className="icon-button h-8 w-8" disabled aria-label={detailCopy.aiCorpusWarming}>
+                          <Languages className="h-3.5 w-3.5" />
+                        </button>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip label={detailCopy.aiCorpusWarmupFailed}>
+                        <button type="button" className="icon-button h-8 w-8" disabled aria-label={detailCopy.aiCorpusWarmupFailed}>
+                          <Languages className="h-3.5 w-3.5" />
                         </button>
                       </Tooltip>
                     )}
+                    {aiTranslation.corpusState !== 'ready' ? (
+                      <span
+                        className={cx('launcher-mod-detail-ai-corpus-status', aiTranslation.corpusState === 'error' && 'is-error')}
+                        role="status"
+                      >
+                        {aiTranslation.corpusState === 'warming' ? detailCopy.aiCorpusWarming : detailCopy.aiCorpusWarmupFailed}
+                      </span>
+                    ) : null}
                     {aiTranslation.translation ? (
                       <Tooltip label={detailCopy.aiRefresh}>
                         <button
                           type="button"
                           className="icon-button h-8 w-8"
-                          disabled={aiTranslation.state === 'loading'}
+                          disabled={aiTranslation.state === 'loading' || aiTranslation.corpusState !== 'ready'}
                           onClick={() => aiTranslation.translate(true)}
                           aria-label={detailCopy.aiRefresh}
                         >
-                          <RefreshCw className={cx('h-3.5 w-3.5', aiTranslation.state === 'loading' && 'animate-spin')} />
+                          <TranslationProgressRing
+                            visible={aiTranslation.state === 'loading'}
+                            progress={aiTranslation.streamProgress}
+                            label={
+                              aiTranslation.state === 'loading' && aiTranslation.streamProgress
+                                ? detailCopy.aiTranslatingProgress(
+                                    aiTranslation.streamProgress.completed,
+                                    aiTranslation.streamProgress.total,
+                                  )
+                                : detailCopy.aiTranslating
+                            }
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          </TranslationProgressRing>
+                        </button>
+                      </Tooltip>
+                    ) : null}
+                    {aiTranslation.corpusState === 'error' ? (
+                      <Tooltip label={detailCopy.aiCorpusRetry}>
+                        <button
+                          type="button"
+                          className="icon-button h-8 w-8"
+                          onClick={() => void aiTranslation.retryCorpus()}
+                          aria-label={detailCopy.aiCorpusRetry}
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
                         </button>
                       </Tooltip>
                     ) : null}
@@ -544,8 +625,44 @@ export function LauncherModDetailPanel({
                   hidden={selectedTab !== 'description'}
                   aria-hidden={selectedTab !== 'description'}
                 >
-                  <div className="launcher-mod-detail-description">
-                    {selectedTab === 'description' ? <NexusModsBbcode source={visibleFullDescription} /> : null}
+                  <div
+                    className={cx(
+                      'launcher-mod-detail-description',
+                      aiStreaming && 'is-ai-streaming',
+                      aiStreamingSession && fullArrived && 'is-ai-arrived',
+                    )}
+                  >
+                    {selectedTab === 'description' ? (
+                      // 稳定 key：.nexusmods-bbcode 是滚动容器，按文本内容做 key 会让每次
+                      // 提交重挂载容器导致 scrollTop 归零、阅读位置被拉回；固定 key 后 DOM 存活，
+                      // 交给浏览器 scroll anchoring 保持锚点。
+                      <NexusModsBbcode key={`ai-full:${detailContentKey}`} source={visibleFullDescription} />
+                    ) : null}
+                    {selectedTab === 'description' && (aiTranslation.reasoning.length > 0 || aiTranslation.streamingReasoning) ? (
+                      <section className="launcher-mod-detail-ai-reasoning">
+                        <button
+                          type="button"
+                          className="launcher-mod-detail-ai-reasoning-toggle"
+                          aria-expanded={reasoningExpanded}
+                          onClick={() => setReasoningExpanded((current) => !current)}
+                        >
+                          <span>{detailCopy.aiReasoningChain}</span>
+                          <small>{reasoningExpanded ? detailCopy.aiReasoningChainHide : detailCopy.aiReasoningChainShow}</small>
+                        </button>
+                        {reasoningExpanded ? (
+                          <div className="launcher-mod-detail-ai-reasoning-body" role="region" aria-label={detailCopy.aiReasoningChain}>
+                            {aiTranslation.reasoning.map((text, index) => (
+                              <pre key={index} className="launcher-mod-detail-ai-reasoning-entry">
+                                {text}
+                              </pre>
+                            ))}
+                            {aiTranslation.streamingReasoning ? (
+                              <pre className="launcher-mod-detail-ai-reasoning-entry is-streaming">{aiTranslation.streamingReasoning}</pre>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </section>
+                    ) : null}
                     {selectedTab === 'description' ? (
                       <button type="button" className="control-button" onClick={() => setDescriptionReaderOpen(true)}>
                         {detailCopy.readFullDescription}
@@ -566,7 +683,7 @@ export function LauncherModDetailPanel({
                         deferredFilesLoading ? (
                           <DetailDataLoading label={detailCopy.filesLoading} />
                         ) : (
-                          <ChangelogList items={visibleChangelog} emptyLabel={detailCopy.changelogEmpty} />
+                          <ChangelogList items={visibleChangelog} emptyLabel={detailCopy.changelogEmpty} streaming={aiStreaming} />
                         )
                       ) : null}
                     </div>
@@ -702,8 +819,15 @@ export function LauncherModDetailPanel({
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <article className="launcher-mod-detail-reader-body">
-                  <NexusModsBbcode source={visibleFullDescription} />
+                <article
+                  className={cx(
+                    'launcher-mod-detail-reader-body',
+                    aiStreaming && 'is-ai-streaming',
+                    aiStreamingSession && fullArrived && 'is-ai-arrived',
+                  )}
+                >
+                  {/* 稳定 key：正文节点随流式提交保留，滚动锚点不被替换，阅读位置不跳动 */}
+                  <NexusModsBbcode key={`ai-reader:${detailContentKey}`} source={visibleFullDescription} />
                 </article>
               </div>
             ) : null}

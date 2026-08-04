@@ -21,7 +21,7 @@ const guides: GuidesCopy = {
         },
         'nav-tabs': {
           title: 'Page navigation',
-          description: 'Switch between Library, Discover, Updates, and Configuration. Badges highlight pending updates and downloads.',
+          description: 'Switch between Library, Discover, Updates, and Diagnostics. Badges highlight pending updates and downloads.',
         },
         'library-toolbar': {
           title: 'Search and view',
@@ -81,10 +81,10 @@ const guides: GuidesCopy = {
       },
     },
     'launcher-configuration': {
-      title: 'Launcher Configuration',
+      title: 'Launcher Diagnostics',
       steps: {
         welcome: {
-          title: 'Configure the launcher',
+          title: 'Diagnose the launcher',
           description: 'Game paths, your Nexus account, and diagnostics are all maintained here.',
         },
         'config-game': {

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { Loader2 } from 'lucide-react'
 import type { EditorProps } from '@features/cp-maker'
 import type { ThemeMode } from '@locales/api'
 import { parseEventCommands } from '@entities/event'
 import type { EventStagePreviewAssetLoader } from './EventStagePreview'
 import { useEditorCopy } from '@locales/provider'
-import { buildEventPatchHubPatches } from '@entities/event'
+import { buildEventPatchHubPatches, warmEventEditorResources } from '@entities/event'
 import { EventConditionBuilderModal, type EventConditionBuilderResult } from './EventConditionBuilderModal'
 import { rgbaFromHex } from '@shared/lib/color'
 import { EVENT_SCENARIO_PRESETS, type EventScenarioPreset } from '../workflow-model/eventScenarioPresets'
@@ -56,6 +57,24 @@ export function EventPatchEditor({ patch, draftPort, resources, assetLoader }: E
   const gameRootPath = externalGameRootPath ?? draft.projectMetadata.gameRootPath ?? null
   const [conditionBuilderOpen, setConditionBuilderOpen] = useState(false)
   const [localSelectedKey, setLocalSelectedKey] = useState<string | null>(null)
+  const [preparedPatchId, setPreparedPatchId] = useState<string | null>(null)
+
+  // Entry gate: pre-warm the shared caches (script analysis, resource
+  // registry, item catalog) behind a loading state instead of letting the
+  // editor freeze and pop in progressively. Cached loads make re-entry instant.
+  useEffect(() => {
+    let cancelled = false
+    const warm = gameRootPath ? warmEventEditorResources(gameRootPath, locale ?? 'zh-CN') : Promise.resolve([])
+    void warm.then(() => {
+      if (!cancelled) {
+        setPreparedPatchId(patch.id)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [patch.id, gameRootPath, locale])
+  const prepared = preparedPatchId === patch.id
 
   const entryKeys = useMemo(() => Object.keys(entries), [entries])
   const selectedKey =
@@ -195,38 +214,45 @@ export function EventPatchEditor({ patch, draftPort, resources, assetLoader }: E
 
   return (
     <div className={theme === 'dark' ? 'event-edit-shell dark' : 'event-edit-shell'} style={eventShellStyle(theme, accentColor)}>
-      <EventsEditor
-        entries={entries}
-        selectedKey={selectedKey}
-        onSelectEvent={setSelectedKey}
-        updateEntries={updateEntries}
-        updateCommand={updateCommand}
-        patch={patch}
-        draftPatches={draft.patches}
-        presets={EVENT_SCENARIO_PRESETS}
-        eventAliases={eventAliases}
-        eventLocations={eventLocations}
-        activeLocation={activeLocation}
-        onAddBlankEvent={addBlankEvent}
-        onApplyPreset={applyScenarioPreset}
-        gameRootPath={gameRootPath}
-        locale={locale}
-        theme={theme}
-        accentColor={accentColor}
-        viewportLabels={viewportLabels}
-        assetLoader={assetLoader}
-        directoryInfo={directoryInfo}
-        playerAppearanceProfile={playerAppearanceProfile}
-        onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
-        conditionBuilderLabel={hubCopy.conditionBuilderAction}
-        onOpenConditionBuilder={() => setConditionBuilderOpen(true)}
-        onOpenConfig={onOpenConfig}
-        onSaveDraft={onSaveDraft}
-        onReloadDraft={onReloadDraft}
-        onUndo={() => void draftPort.undo()}
-        onRedo={() => void draftPort.redo()}
-        isDirty={isDirty}
-      />
+      {!prepared ? (
+        <div className="event-editor-preparing" role="status">
+          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+          <span>{hubCopy.preparingEditor}</span>
+        </div>
+      ) : (
+        <EventsEditor
+          entries={entries}
+          selectedKey={selectedKey}
+          onSelectEvent={setSelectedKey}
+          updateEntries={updateEntries}
+          updateCommand={updateCommand}
+          patch={patch}
+          draftPatches={draft.patches}
+          presets={EVENT_SCENARIO_PRESETS}
+          eventAliases={eventAliases}
+          eventLocations={eventLocations}
+          activeLocation={activeLocation}
+          onAddBlankEvent={addBlankEvent}
+          onApplyPreset={applyScenarioPreset}
+          gameRootPath={gameRootPath}
+          locale={locale}
+          theme={theme}
+          accentColor={accentColor}
+          viewportLabels={viewportLabels}
+          assetLoader={assetLoader}
+          directoryInfo={directoryInfo}
+          playerAppearanceProfile={playerAppearanceProfile}
+          onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
+          conditionBuilderLabel={hubCopy.conditionBuilderAction}
+          onOpenConditionBuilder={() => setConditionBuilderOpen(true)}
+          onOpenConfig={onOpenConfig}
+          onSaveDraft={onSaveDraft}
+          onReloadDraft={onReloadDraft}
+          onUndo={() => void draftPort.undo()}
+          onRedo={() => void draftPort.redo()}
+          isDirty={isDirty}
+        />
+      )}
       {conditionBuilderOpen && conditionBuilderEvent && hubPatch ? (
         <EventConditionBuilderModal
           event={conditionBuilderEvent}

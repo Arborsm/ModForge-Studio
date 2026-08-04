@@ -1,6 +1,6 @@
 import type { MapAssetSummary } from '@entities/game/api'
 import type { MapDocument } from '@entities/map'
-import type { DraftPatch, ProjectAssetRef } from '@features/cp-maker'
+import { splitMapTargets } from '../model/mapPatchReducer'
 
 export type MapCatalogCategory = 'farm' | 'town' | 'interior' | 'wild' | 'mine' | 'island' | 'festival' | 'other'
 
@@ -9,15 +9,7 @@ export type MapCatalogEntry = {
   target: string
   name: string
   category: MapCatalogCategory
-  sourceKind: 'project' | 'game'
-  patch: DraftPatch | null
-  asset: MapAssetSummary | null
-  projectAsset: ProjectAssetRef | null
-  embeddedDocument: MapDocument | null
-}
-
-function normalizeTarget(target: string): string {
-  return target.trim().replaceAll('\\', '/').toLowerCase()
+  asset: MapAssetSummary
 }
 
 /** Returns the logical Content Patcher target represented by a scanned map file. */
@@ -53,6 +45,20 @@ export function resolveGameMapPatchTarget(entry: Pick<MapCatalogEntry, 'target'>
   return target === 'Maps' || target.startsWith('Maps/') ? target : `Maps/${target}`
 }
 
+/**
+ * Resolves a patch target to the single literal `Maps/` game-map target a
+ * patch-row thumbnail can render. Returns null for token expressions, for
+ * multi-target Load patches, and for targets outside `Maps/`, so those rows
+ * fall back to a static map icon instead of forcing a game-map load.
+ */
+export function resolvePatchThumbnailTarget(target: string): string | null {
+  const split = splitMapTargets(target.trim().replaceAll('\\', '/'))
+  if (split.length !== 1) return null
+  const single = split[0]!.trim().replaceAll('\\', '/')
+  if (single === '' || single.includes('{{') || !/^Maps\//iu.test(single)) return null
+  return single.replace(/\.(?:xnb|tbin|tmx)$/iu, '')
+}
+
 /** Stable domain grouping used by both the catalog and shared map picker. */
 export function mapCatalogCategory(target: string): MapCatalogCategory {
   const key = target.toLowerCase()
@@ -66,83 +72,26 @@ export function mapCatalogCategory(target: string): MapCatalogCategory {
   return 'other'
 }
 
-function embeddedMapDocument(patch: DraftPatch): MapDocument | null {
-  const state = patch.editorState
-  if (typeof state !== 'object' || state === null || Array.isArray(state)) return null
-  const document = (state as Record<string, unknown>)['mapDocument']
-  if (typeof document !== 'object' || document === null || Array.isArray(document)) return null
-  return document as MapDocument
-}
-
-function mapTargetFromProjectAsset(asset: ProjectAssetRef): string {
-  const fileName = asset.relativePath.replaceAll('\\', '/').split('/').at(-1) ?? asset.relativePath
-  return `Maps/${fileName.replace(/\.(?:tmx|tbin)$/iu, '')}`
-}
-
-/** Builds distinct project-file, map-change, and game-map entries for the map library. */
-export function buildMapCatalogEntries(
-  patches: readonly DraftPatch[],
-  assets: readonly MapAssetSummary[],
-  projectAssets: readonly ProjectAssetRef[] = [],
-): MapCatalogEntry[] {
-  const mapPatches = patches.filter(
-    (patch) => (patch.action === 'EditMap' || patch.action === 'Load') && normalizeTarget(patch.target).startsWith('maps/'),
-  )
-  const patchByTarget = new Map(mapPatches.map((patch) => [normalizeTarget(patch.target), patch]))
-  const assetByTarget = new Map(assets.map((asset) => [normalizeTarget(mapTargetFromAsset(asset)), asset]))
-  const entries: MapCatalogEntry[] = []
-
-  for (const patch of mapPatches) {
-    const target = patch.target.trim().replaceAll('\\', '/') || 'Maps/Untitled'
-    const asset = assetByTarget.get(normalizeTarget(target)) ?? null
-    entries.push({
-      id: `project:${patch.id}`,
-      target,
-      name: target.replace(/^Maps\//iu, ''),
-      category: mapCatalogCategory(target),
-      sourceKind: 'project',
-      patch,
-      asset,
-      projectAsset: null,
-      embeddedDocument: embeddedMapDocument(patch),
+/**
+ * Builds the game-map library entries shown by the map workspace gallery.
+ *
+ * Project maps are authored in the asset library and opened from there, so the
+ * gallery only surfaces scanned game maps; clicking one opens (or reuses) the
+ * EditMap patch for its target.
+ */
+export function buildMapCatalogEntries(assets: readonly MapAssetSummary[]): MapCatalogEntry[] {
+  return assets
+    .map((asset) => {
+      const target = mapTargetFromAsset(asset)
+      return {
+        id: `game:${asset.id}`,
+        target,
+        name: asset.name,
+        category: mapCatalogCategory(target),
+        asset,
+      }
     })
-  }
-
-  for (const projectAsset of projectAssets.filter((asset) => /\.(?:tmx|tbin)$/iu.test(asset.relativePath))) {
-    const target = mapTargetFromProjectAsset(projectAsset)
-    entries.push({
-      id: `project-asset:${projectAsset.relativePath.toLowerCase()}`,
-      target,
-      name: projectAsset.relativePath.split('/').at(-1) ?? projectAsset.relativePath,
-      category: mapCatalogCategory(target),
-      sourceKind: 'project',
-      patch: null,
-      asset: null,
-      projectAsset,
-      embeddedDocument: null,
-    })
-  }
-
-  for (const asset of assets) {
-    const target = mapTargetFromAsset(asset)
-    if (patchByTarget.has(normalizeTarget(target))) continue
-    entries.push({
-      id: `game:${asset.id}`,
-      target,
-      name: asset.name,
-      category: mapCatalogCategory(target),
-      sourceKind: 'game',
-      patch: null,
-      asset,
-      projectAsset: null,
-      embeddedDocument: null,
-    })
-  }
-
-  return entries.sort((left, right) => {
-    if (left.sourceKind !== right.sourceKind) return left.sourceKind === 'project' ? -1 : 1
-    return left.name.localeCompare(right.name)
-  })
+    .sort((left, right) => left.name.localeCompare(right.name))
 }
 
 /** Minimal editable document used when an author creates a map without a template. */

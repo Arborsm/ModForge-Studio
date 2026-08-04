@@ -89,6 +89,7 @@ const translationEditor: TranslationEditorCopy = {
   aiTranslateAllConfirm: '确定用 AI 译文覆盖全部已有目标文本吗？',
   aiTranslating: (completed, total) => `正在翻译 ${completed}/${total}`,
   aiCancel: '取消翻译',
+  aiStreaming: '正在生成…',
   aiNotConfigured: '请先在设置中配置默认 AI 档案。',
   aiFailed: 'AI 翻译失败。',
   aiPartialFailed: (count) => `${count} 个翻译项失败，成功结果已保留在草稿中。`,

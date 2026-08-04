@@ -41,6 +41,7 @@
     "test:asset-library-ui": "node ./scripts/verify-asset-library-ui.mjs",
     "test:map-patch-ui": "node ./scripts/verify-map-patch-ui.mjs",
     "test:map-asset-editor-ui": "node ./scripts/verify-map-asset-editor-ui.mjs",
+    "test:ai-settings-ui": "node ./scripts/verify-ai-settings.mjs",
     "test:launcher-custom-sort": "node ./scripts/verify-launcher-custom-sort.mjs",
     "test:launcher-drag": "node ./scripts/verify-launcher-drag.mjs",
     "test:launcher-fast-scroll": "node ./scripts/verify-launcher-fast-scroll.mjs",

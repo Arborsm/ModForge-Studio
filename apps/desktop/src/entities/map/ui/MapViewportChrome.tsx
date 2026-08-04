@@ -1,5 +1,5 @@
 import * as ContextMenu from '@radix-ui/react-context-menu'
-import type { CSSProperties, ReactNode, RefObject } from 'react'
+import { useLayoutEffect, useRef, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { useEditorCopy } from '@locales/provider'
 import type { ThemeMode } from '@locales/api'
 import type { TileHoverInfo } from '@entities/map'
@@ -111,6 +111,41 @@ export function MapViewportCanvasLayers({
         }}
       />
     </>
+  )
+}
+
+type MapViewportLightingOverlayProps = {
+  bakedCanvas: HTMLCanvasElement
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+/**
+ * Multiply-blended world-lighting layer. The baked canvas is already in
+ * overlay space (`255 - stored^2 / 255`); it is drawn once per bake and then
+ * only repositioned/resized with the map, so panning/zooming costs no rebake.
+ */
+export function MapViewportLightingOverlay({ bakedCanvas, left, top, width, height }: MapViewportLightingOverlayProps) {
+  const ref = useRef<HTMLCanvasElement>(null)
+
+  useLayoutEffect(() => {
+    const canvas = ref.current
+    if (!canvas) {
+      return
+    }
+    canvas.width = bakedCanvas.width
+    canvas.height = bakedCanvas.height
+    canvas.getContext('2d')?.drawImage(bakedCanvas, 0, 0)
+  }, [bakedCanvas])
+
+  return (
+    <canvas
+      ref={ref}
+      className="pointer-events-none absolute z-3"
+      style={{ left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px`, mixBlendMode: 'multiply' }}
+    />
   )
 }
 

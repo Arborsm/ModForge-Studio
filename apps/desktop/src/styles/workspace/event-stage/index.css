@@ -6,4 +6,45 @@
     backdrop-filter: none;
     border-radius: 0;
   }
+
+  /*
+   * Reserves the bottom strip of the stage shell for the floating playback
+   * toolbar so it never covers rendered map content. The map viewport is
+   * h-full inside the padded shell, so it shrinks by exactly the toolbar band.
+   */
+  .event-stage-viewport-shell {
+    padding-bottom: 3.5rem;
+  }
+
+  .event-stage-console-surface .event-stage-viewport-shell {
+    padding-bottom: 3.625rem;
+  }
+
+  /* quickQuestion choice buttons: hover / keyboard focus / pressed feedback. */
+  .event-stage-choice-button {
+    cursor: pointer;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      transform 120ms ease;
+  }
+
+  .event-stage-choice-button:hover {
+    border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+
+  .event-stage-choice-button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-color: color-mix(in srgb, var(--accent) 62%, transparent);
+  }
+
+  .event-stage-choice-button:active {
+    transform: scale(0.98);
+    border-color: color-mix(in srgb, var(--accent) 66%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  }
 }

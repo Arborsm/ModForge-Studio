@@ -286,6 +286,13 @@
     overflow: hidden;
   }
 
+  /* The lighting preview toolbar floats bottom-center so it never covers the palette toggle in the bottom-right corner. */
+  .map-asset-viewport > .workspace-viewport-toolbar {
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
   .map-asset-canvas > .map-tileset-palette {
     display: grid;
     max-height: none;

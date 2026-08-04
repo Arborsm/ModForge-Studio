@@ -4,6 +4,7 @@ import {
   launchPerfBrowser,
   measureInteraction,
   readPerformanceSummary,
+  setPerfPhase,
 } from './performance/browser-perf-harness.mjs'
 
 const baseUrl = process.env.MODFORGE_PAGE_PERF_URL ?? 'http://127.0.0.1:5175/'
@@ -83,13 +84,24 @@ async function runScenarioInteraction(page, scenario) {
 
   if (scenario === 'event-stage-editor') {
     await measureInteraction(page, 'switch-event-tabs', async () => {
-      await page.getByRole('button', { name: /town market introduction/i }).click()
+      await page.locator('.event-picker').first().click()
+      await page.getByRole('button', { name: /town fair opening/i }).click()
+      await page.locator('.event-picker').first().click()
       await page.getByRole('button', { name: /beach lost item/i }).click()
+      await page.locator('.event-picker').first().click()
       await page.getByRole('button', { name: /mine rescue branch/i }).click()
     })
     await measureInteraction(page, 'open-condition-builder', async () => {
       await page.getByRole('button', { name: /add actor/i }).click({ force: true })
       await page.getByRole('button', { name: /^play$/i }).click()
+      await page.getByRole('button', { name: /^reset$/i }).click()
+    })
+    await measureInteraction(page, 'start-playback', async () => {
+      await page.getByRole('button', { name: /^play$/i }).click()
+    })
+    await setPerfPhase(page, 'playback-sustained')
+    await page.waitForTimeout(4_000)
+    await measureInteraction(page, 'stop-playback', async () => {
       await page.getByRole('button', { name: /^reset$/i }).click()
     })
     return
@@ -131,7 +143,7 @@ async function runScenarioInteraction(page, scenario) {
 
   if (scenario === 'map-catalog') {
     await measureInteraction(page, 'scroll-map-catalog', async () => {
-      await page.locator('.map-catalog-content').evaluate(async (element) => {
+      await page.locator('.map-catalog-library-content').evaluate(async (element) => {
         const maxScroll = Math.max(0, element.scrollHeight - element.clientHeight)
         for (let step = 1; step <= 16; step += 1) {
           element.scrollTop = (maxScroll * step) / 16
@@ -171,7 +183,7 @@ async function runScenarioInteraction(page, scenario) {
 
   if (scenario === 'launcher-shell') {
     await measureInteraction(page, 'navigate-launcher-pages', async () => {
-      for (const name of ['Discover', 'Updates', 'Configuration', 'Library']) {
+      for (const name of ['Discover', 'Updates', 'Diagnostics', 'Library']) {
         await page.getByText(name, { exact: true }).first().click()
       }
     })

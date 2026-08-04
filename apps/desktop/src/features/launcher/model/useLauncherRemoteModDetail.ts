@@ -1,11 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLauncherPort } from './launcherPortContext'
-import { useEditorCopy } from '@locales/provider'
-import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 
 import type { LauncherDiscoverDetail, LauncherViewState } from './types'
-
-const LAUNCHER_REMOTE_MOD_DETAIL_NOTIFICATION_ID = 'launcher-remote-mod-detail'
 
 type RemoteModDetailState = {
   requestKey: string | null
@@ -16,14 +12,11 @@ type RemoteModDetailState = {
 
 type UseLauncherRemoteModDetailOptions = {
   includeFiles?: boolean
-  notify?: boolean
 }
 
 export function useLauncherRemoteModDetail(modId: number | null, options: UseLauncherRemoteModDetailOptions = {}) {
   const launcherPort = useLauncherPort()
-  const copy = useEditorCopy().launcher
   const includeFiles = options.includeFiles
-  const notify = options.notify ?? true
   const requestKey = modId ? `${modId}:${includeFiles === false ? 'meta' : 'files'}` : null
   const [requestState, setRequestState] = useState<RemoteModDetailState>({
     requestKey: null,
@@ -34,15 +27,9 @@ export function useLauncherRemoteModDetail(modId: number | null, options: UseLau
 
   useEffect(() => {
     if (!modId) {
-      if (notify) {
-        dismissNotification(LAUNCHER_REMOTE_MOD_DETAIL_NOTIFICATION_ID)
-      }
       return
     }
     if (launcherPort.isRemoteModIdInvalid(modId)) {
-      if (notify) {
-        dismissNotification(LAUNCHER_REMOTE_MOD_DETAIL_NOTIFICATION_ID)
-      }
       setRequestState({
         requestKey,
         detail: null,
@@ -53,17 +40,6 @@ export function useLauncherRemoteModDetail(modId: number | null, options: UseLau
     }
 
     let cancelled = false
-    if (notify) {
-      publishNotification({
-        id: LAUNCHER_REMOTE_MOD_DETAIL_NOTIFICATION_ID,
-        level: 'info',
-        title: copy.actions.viewDetails,
-        description: `Nexus #${modId}`,
-        autoDismissMs: null,
-        progress: 18,
-      })
-    }
-
     void launcherPort
       .loadRemoteModDetail({
         modId,
@@ -72,9 +48,6 @@ export function useLauncherRemoteModDetail(modId: number | null, options: UseLau
       .then((result) => {
         if (cancelled) {
           return
-        }
-        if (notify) {
-          dismissNotification(LAUNCHER_REMOTE_MOD_DETAIL_NOTIFICATION_ID)
         }
         setRequestState({
           requestKey,
@@ -87,9 +60,6 @@ export function useLauncherRemoteModDetail(modId: number | null, options: UseLau
         if (cancelled) {
           return
         }
-        if (notify) {
-          dismissNotification(LAUNCHER_REMOTE_MOD_DETAIL_NOTIFICATION_ID)
-        }
         setRequestState({
           requestKey,
           detail: null,
@@ -100,11 +70,8 @@ export function useLauncherRemoteModDetail(modId: number | null, options: UseLau
 
     return () => {
       cancelled = true
-      if (notify) {
-        dismissNotification(LAUNCHER_REMOTE_MOD_DETAIL_NOTIFICATION_ID)
-      }
     }
-  }, [copy.actions.viewDetails, includeFiles, modId, notify, launcherPort, requestKey])
+  }, [includeFiles, modId, launcherPort, requestKey])
 
   if (!modId) {
     return {

@@ -111,35 +111,35 @@ export const mapAuthoringRegistration = registration(
 )
 export const eventAuthoringRegistration = registration(
   'event-authoring',
-  { section: 'authoring', order: 220, icon: 'events', labelKey: 'event-authoring' },
+  { section: 'authoring', order: 250, icon: 'events', labelKey: 'event-authoring' },
   'authoring',
   'write',
   () => import('./ui/module-runtimes/EventAuthoringModuleRuntime'),
 )
 export const characterAuthoringRegistration = registration(
   'character-authoring',
-  { section: 'authoring', order: 230, icon: 'characters', labelKey: 'character-authoring' },
+  { section: 'authoring', order: 220, icon: 'characters', labelKey: 'character-authoring' },
   'authoring',
   'write',
   () => import('./ui/module-runtimes/CharacterAuthoringModuleRuntime'),
 )
 export const dialogueEditorRegistration = registration(
   'dialogue-editor',
-  { section: 'authoring', order: 232, icon: 'dialogue', labelKey: 'dialogue-editor' },
+  { section: 'authoring', order: 280, icon: 'dialogue', labelKey: 'dialogue-editor' },
   'authoring',
   'write',
   () => import('./ui/module-runtimes/DialogueEditorModuleRuntime'),
 )
 export const scheduleEditorRegistration = registration(
   'schedule-editor',
-  { section: 'authoring', order: 234, icon: 'schedule', labelKey: 'schedule-editor' },
+  { section: 'authoring', order: 260, icon: 'schedule', labelKey: 'schedule-editor' },
   'authoring',
   'write',
   () => import('./ui/module-runtimes/ScheduleEditorModuleRuntime'),
 )
 export const mailEditorRegistration = registration(
   'mail-editor',
-  { section: 'authoring', order: 236, icon: 'mail', labelKey: 'mail-editor' },
+  { section: 'authoring', order: 270, icon: 'mail', labelKey: 'mail-editor' },
   'authoring',
   'write',
   () => import('./ui/module-runtimes/MailEditorModuleRuntime'),
@@ -153,21 +153,21 @@ export const gameDebuggerRegistration = registration(
 )
 export const buildingAuthoringRegistration = registration(
   'building-authoring',
-  { section: 'authoring', order: 240, icon: 'buildings', labelKey: 'building-authoring' },
+  { section: 'authoring', order: 230, icon: 'buildings', labelKey: 'building-authoring' },
   'authoring',
   'write',
   () => import('./ui/module-runtimes/BuildingAuthoringModuleRuntime'),
 )
 export const itemAuthoringRegistration = registration(
   'item-authoring',
-  { section: 'authoring', order: 250, icon: 'items', labelKey: 'item-authoring' },
+  { section: 'authoring', order: 240, icon: 'items', labelKey: 'item-authoring' },
   'authoring',
   'write',
   () => import('./ui/module-runtimes/ItemAuthoringModuleRuntime'),
 )
 export const projectTranslationRegistration = registration(
   'project-translation',
-  { section: 'authoring', order: 260, icon: 'languages', labelKey: 'project-translation' },
+  { section: 'authoring', order: 290, icon: 'languages', labelKey: 'project-translation' },
   'authoring',
   'write',
   () => import('./translation/runtimes/ProjectTranslationModuleRuntime'),

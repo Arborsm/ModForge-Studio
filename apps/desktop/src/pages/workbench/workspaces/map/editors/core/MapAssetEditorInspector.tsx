@@ -1,4 +1,4 @@
-import { FileOutput, FlipHorizontal2, FlipVertical2, PanelRightClose, Plus, RotateCw, Trash2 } from 'lucide-react'
+import { FileOutput, FlipHorizontal2, FlipVertical2, Gamepad2, PanelRightClose, Plus, RotateCw, Trash2 } from 'lucide-react'
 import {
   FLIPPED_HORIZONTALLY_FLAG,
   FLIPPED_VERTICALLY_FLAG,
@@ -64,6 +64,12 @@ export type MapAssetEditorInspectorProps = {
   onDeleteSelectedObject: () => void
   onAddTileDataObject: (point?: { x: number; y: number }) => void
   onAddTileset: (relativePath: string, replaceName?: string) => Promise<void>
+  /** Opens the vanilla game tilesheet picker; omitted in session modes. */
+  onAddGameTileset?: (() => void) | null
+  /** Whether the game tilesheet entry is usable (a game directory is connected). */
+  gameTilesetAvailable?: boolean
+  /** Disabled-state title for the game tilesheet entry. */
+  gameTilesetUnavailableTitle?: string | null
   onConvertToTmx: () => Promise<void>
 }
 
@@ -112,6 +118,9 @@ export function MapAssetEditorInspector({
   onDeleteSelectedObject,
   onAddTileDataObject,
   onAddTileset,
+  onAddGameTileset,
+  gameTilesetAvailable = false,
+  gameTilesetUnavailableTitle,
   onConvertToTmx,
 }: MapAssetEditorInspectorProps) {
   const copy = useMapAuthoringCopy().assetEditor
@@ -135,7 +144,15 @@ export function MapAssetEditorInspector({
         <>
           <nav className="map-asset-inspector-tabs">
             {(['tile', 'objects', 'map', 'tileset'] as const)
-              .filter((tab) => (tab === 'objects' ? capabilities.objectGroups : tab === 'tileset' ? capabilities.tilesetManagement : true))
+              .filter((tab) =>
+                tab === 'objects'
+                  ? capabilities.objectGroups
+                  : tab === 'tileset'
+                    ? capabilities.tilesetManagement
+                    : tab === 'map'
+                      ? capabilities.layerManagement || capabilities.mapProperties
+                      : true,
+              )
               .map((tab) => (
                 <button
                   key={tab}
@@ -425,6 +442,18 @@ export function MapAssetEditorInspector({
                     }
                     onSelect={(value) => void onAddTileset(value)}
                   />
+                  {onAddGameTileset ? (
+                    <button
+                      type="button"
+                      className="control-button"
+                      disabled={!gameTilesetAvailable}
+                      title={gameTilesetAvailable ? undefined : (gameTilesetUnavailableTitle ?? undefined)}
+                      onClick={onAddGameTileset}
+                    >
+                      <Gamepad2 className="h-3.5 w-3.5" />
+                      {copy.addGameTileset}
+                    </button>
+                  ) : null}
                   {selectedTileset ? (
                     <section className="map-asset-tileset-details">
                       <strong>{selectedTileset.name}</strong>

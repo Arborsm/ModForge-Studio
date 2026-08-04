@@ -226,15 +226,18 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
             />
           </div>
           {editor.paletteOpen ? (
-            <MapTilesetPalette
-              document={editor.renderDocument}
-              locale={resources.locale}
-              selection={editor.paletteSelection}
-              onSelectionChange={(selection) => {
-                editor.setPaletteSelection(selection)
-                editor.setTool(selection.width === 1 && selection.height === 1 ? 'brush' : 'stamp')
-              }}
-            />
+            <>
+              <MapTilesetPalette
+                document={editor.renderDocument}
+                locale={resources.locale}
+                selection={editor.paletteSelection}
+                onSelectionChange={(selection) => {
+                  editor.setPaletteSelection(selection)
+                  editor.setTool(selection.width === 1 && selection.height === 1 ? 'brush' : 'stamp')
+                }}
+              />
+              <p className="map-tiles-session-tileset-hint">{sessionCopy.tilesetSourceHint}</p>
+            </>
           ) : null}
           <button type="button" className="map-editor-palette-toggle" onClick={() => editor.setPaletteOpen((open) => !open)}>
             {editor.paletteOpen ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRightOpen className="h-3.5 w-3.5" />}

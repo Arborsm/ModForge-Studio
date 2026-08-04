@@ -27,6 +27,8 @@ function mod(id: string): LauncherLibraryItem {
     dependencies: [],
     requiredDependencies: [],
     missingRequiredDependencies: [],
+    minimumApiVersion: null,
+    requiresNewerSmapi: false,
   }
 }
 

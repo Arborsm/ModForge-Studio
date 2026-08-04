@@ -1,0 +1,91 @@
+/* ── 工作台 AI 翻译流式渲染 ──────────────────────────────────
+   与 launcher mod detail 一致的克制视觉语言：进行中标记（脉冲圆点 +
+   流式光标）与条目译文首次落地的轻量淡入。只使用 tokens 变量；
+   prefers-reduced-motion 下全部直显（无动画/过渡）。 */
+
+/* 目标文本区：流式预览期间锁定编辑并以 accent 描边 + 淡入标识。
+   类名随条目是否在流式而增减，动画只在类名首次落地时播放一次，
+   后续 delta 就地更新内容、不再整块闪动。 */
+.translation-editor-main textarea.control-input.is-ai-streaming {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-color));
+  background: color-mix(in srgb, var(--accent-soft) 55%, var(--bg-panel));
+  animation: modforge-workbench-stream-fade 220ms ease-out;
+}
+
+@keyframes modforge-workbench-stream-fade {
+  from {
+    opacity: 0.45;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* 目标 locale 标签旁的「正在生成」徽标：accent 胶囊 + 流式光标。 */
+.translation-ai-streaming-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 0.3rem;
+  padding: 0.125rem 0.4rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.translation-ai-streaming-badge::after {
+  content: '';
+  width: 0.35rem;
+  height: 0.7rem;
+  border-radius: 1px;
+  background: var(--accent);
+  animation: modforge-workbench-stream-caret 1s steps(2, start) infinite;
+}
+
+@keyframes modforge-workbench-stream-caret {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
+}
+
+/* 条目行尾的进行中圆点：仅流式期间出现，脉冲提示该条目正在生成。 */
+.translation-entry-stream-dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: var(--accent);
+  animation: modforge-workbench-stream-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes modforge-workbench-stream-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .translation-editor-main textarea.control-input.is-ai-streaming,
+  .translation-ai-streaming-badge::after,
+  .translation-entry-stream-dot {
+    animation: none;
+    transition: none;
+  }
+}

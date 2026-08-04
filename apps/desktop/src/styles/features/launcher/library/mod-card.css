@@ -233,7 +233,8 @@
 
   .launcher-mod-card-author::after,
   .launcher-mod-card-version::after,
-  .launcher-mod-card-missing-dependencies::after {
+  .launcher-mod-card-missing-dependencies::after,
+  .launcher-mod-card-requires-smapi::after {
     content: attr(data-tooltip);
     position: absolute;
     left: 50%;
@@ -260,7 +261,8 @@
 
   .launcher-mod-card-author::before,
   .launcher-mod-card-version::before,
-  .launcher-mod-card-missing-dependencies::before {
+  .launcher-mod-card-missing-dependencies::before,
+  .launcher-mod-card-requires-smapi::before {
     content: '';
     position: absolute;
     left: 50%;
@@ -309,6 +311,29 @@
     background: color-mix(in srgb, var(--bg-panel) 96%, var(--danger) 4%);
   }
 
+  .launcher-mod-card-requires-smapi::after {
+    left: 0;
+    bottom: auto;
+    top: calc(100% + 0.5625rem);
+    max-width: min(17rem, 72vw);
+    transform: translate(0, -0.1875rem);
+    border-color: color-mix(in srgb, var(--warning) 26%, transparent);
+    background: color-mix(in srgb, var(--bg-panel) 96%, var(--warning) 4%);
+    white-space: normal;
+  }
+
+  .launcher-mod-card-requires-smapi::before {
+    left: 0.875rem;
+    bottom: auto;
+    top: calc(100% + 0.25rem);
+    transform: translate(0, -0.1875rem) rotate(45deg);
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 1px solid color-mix(in srgb, var(--warning) 26%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--warning) 26%, transparent);
+    background: color-mix(in srgb, var(--bg-panel) 96%, var(--warning) 4%);
+  }
+
   .launcher-mod-card-version-update:hover::after,
   .launcher-mod-card-version-update:focus-visible::after,
   .launcher-mod-card-version-update:hover::before,
@@ -326,13 +351,17 @@
   }
 
   .launcher-mod-card-missing-dependencies:hover::after,
-  .launcher-mod-card-missing-dependencies:focus-visible::after {
+  .launcher-mod-card-missing-dependencies:focus-visible::after,
+  .launcher-mod-card-requires-smapi:hover::after,
+  .launcher-mod-card-requires-smapi:focus-visible::after {
     opacity: 1;
     transform: translate(0, 0);
   }
 
   .launcher-mod-card-missing-dependencies:hover::before,
-  .launcher-mod-card-missing-dependencies:focus-visible::before {
+  .launcher-mod-card-missing-dependencies:focus-visible::before,
+  .launcher-mod-card-requires-smapi:hover::before,
+  .launcher-mod-card-requires-smapi:focus-visible::before {
     opacity: 1;
     transform: translate(0, 0) rotate(45deg);
   }
@@ -381,13 +410,64 @@
     box-shadow: 0 0.375rem 0.875rem color-mix(in srgb, var(--danger) 14%, transparent);
   }
 
-  .launcher-mod-card-missing-dependencies svg {
+  .launcher-mod-card-missing-dependencies svg,
+  .launcher-mod-card-requires-smapi svg {
     stroke-width: 2.4;
+  }
+
+  .launcher-mod-card-status-badges,
+  .launcher-library-module-status-badges {
+    position: absolute;
+    top: 0.625rem;
+    left: 0.625rem;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3125rem;
+  }
+
+  .launcher-mod-card-status-badges .launcher-mod-card-missing-dependencies,
+  .launcher-mod-card-status-badges .launcher-mod-card-requires-smapi,
+  .launcher-library-module-status-badges .launcher-mod-card-missing-dependencies,
+  .launcher-library-module-status-badges .launcher-mod-card-requires-smapi {
+    position: relative;
+    top: auto;
+    left: auto;
+    flex: 0 0 auto;
+    box-shadow: none;
+  }
+
+  .launcher-mod-card-requires-smapi {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.1875rem;
+    min-width: 1.75rem;
+    height: 1.375rem;
+    border: 1px solid color-mix(in srgb, var(--warning) 38%, var(--border-color));
+    border-radius: 62.4375rem;
+    background: color-mix(in srgb, var(--warning) 13%, var(--bg-panel));
+    color: var(--warning);
+    padding: 0 0.4375rem;
+    font-size: 0.6875rem;
+    font-weight: 850;
+    line-height: 1;
+    cursor: help;
   }
 
   .launcher-library-module-missing-dependencies {
     top: 0.4375rem;
     left: 0.4375rem;
+    height: 1.25rem;
+    min-width: 1.625rem;
+    padding: 0 0.375rem;
+  }
+
+  .launcher-library-module-status-badges {
+    top: 0.4375rem;
+    left: 0.4375rem;
+  }
+
+  .launcher-library-module-requires-smapi {
     height: 1.25rem;
     min-width: 1.625rem;
     padding: 0 0.375rem;

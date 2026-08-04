@@ -29,6 +29,8 @@ function mod(overrides: Partial<LauncherLibraryItem>): LauncherLibraryItem {
     dependencies: [],
     requiredDependencies: [],
     missingRequiredDependencies: [],
+    minimumApiVersion: null,
+    requiresNewerSmapi: false,
     ...overrides,
   }
 }

@@ -629,6 +629,8 @@ function createLauncherLibraryMods(count: number) {
     dependencies: [],
     requiredDependencies: [],
     missingRequiredDependencies: [],
+    minimumApiVersion: index % 11 === 0 ? '4.1.0' : null,
+    requiresNewerSmapi: index % 11 === 0,
   }))
 }
 
@@ -763,6 +765,24 @@ const performanceLauncherPort: LauncherPort = {
     warnings: [],
     repairActions: [],
   }),
+  checkSmapiUpdate: async () => ({
+    installedVersion: '4.0.8',
+    gameVersion: '1.6.15',
+    latestStableVersion: '4.1.10',
+    targetVersion: '4.1.10',
+    updateAvailable: true,
+    versionSource: 'github',
+    requiredByMods: [{ modId: 'ModForge.Performance.0', modName: 'Launcher Library Mod 0', minimumApiVersion: '4.1.0' }],
+    download: {
+      source: 'github',
+      url: 'https://smapi.io/download/SMAPI-4.1.10-installer.zip',
+      sha256: 'dev-mock-sha256',
+      assetName: 'SMAPI-4.1.10-installer.zip',
+    },
+  }),
+  installSmapiUpdate: async () => ({ success: true, installedVersion: '4.1.10' }),
+  listenToSmapiUpdateProgress: async () => () => {},
+  findSmapiInstallerDownloads: async () => ({ candidates: [] }),
   loadLibraryState: async () => {
     const state = getPerformanceLauncherLibraryState()
     exposePerformanceLauncherLibraryState(state)
@@ -1381,7 +1401,7 @@ function MapCatalogScenario() {
 
   return (
     <ScenarioFrame id="map-catalog">
-      <MapCatalog draftPort={draftPort} resources={scenarioEditorResources} onOpenPatch={noop} onOpenMapAsset={noop} />
+      <MapCatalog draftPort={draftPort} resources={scenarioEditorResources} onOpenPatch={noop} />
     </ScenarioFrame>
   )
 }

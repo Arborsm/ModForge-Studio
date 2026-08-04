@@ -47,6 +47,7 @@ import {
 import { useModAssetIndex } from '@pages/workbench/workspaces/mod'
 import { loadModResultMapDocument } from '@pages/workbench/workspaces/mod'
 import type { ResourcePreloadState, WorldAtlasView, WorkspaceStatus } from '@entities/map'
+import { useObjectLightItemIndex } from './useObjectLightItemIndex'
 
 const WORLD_ROOT_MAP_NAME = 'Town'
 const REMOTE_WORLD_ROOT_CANDIDATES = ['Island_S', 'Desert', 'Summit', 'Island_W', 'Island_N', 'Island_E', 'Island_SE'] as const
@@ -217,6 +218,7 @@ export function useMapWorkspace({
     () => (buildingDataState.rootPath === (directoryInfo?.rootPath ?? '') ? buildingDataState.index : {}),
     [buildingDataState.index, buildingDataState.rootPath, directoryInfo?.rootPath],
   )
+  const objectLightIndex = useObjectLightItemIndex(active ? directoryInfo : null, locale)
 
   const deferredAssetFilter = useDeferredValue(assetFilter.trim().toLowerCase())
   const filteredAssets = useMemo(
@@ -1323,6 +1325,7 @@ export function useMapWorkspace({
     worldOverlaySprites,
     worldOverlayTextureAssets: currentWorldOverlayTextureAssets,
     worldAtlasDocument,
+    objectLightIndex,
     openMap,
     handleOpenModMapAsset,
     handleSelectWorldAtlasView,

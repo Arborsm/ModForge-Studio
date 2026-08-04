@@ -1,6 +1,6 @@
 use super::{
-    load_or_create_library_state_at_path, normalize_library_state, save_library_state_at_path,
-    scan_library_at_path,
+    apply_smapi_requirement_flags, load_or_create_library_state_at_path, normalize_library_state,
+    save_library_state_at_path, scan_library_at_path,
 };
 use crate::domain::launcher::types::{
     LauncherLibraryFolder, LauncherLibraryFolderClassificationMode, LauncherLibraryPackPreset,
@@ -451,6 +451,78 @@ fn scan_library_ignores_required_dependency_cycles() {
             .iter()
             .all(|item| item.missing_required_dependencies.is_empty())
     );
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn scan_library_parses_minimum_api_version_but_flags_require_detected_smapi() {
+    let root = create_temp_dir("launcher-library-minimum-api-version");
+    let pinned = root.join("Mods").join("PinnedMod");
+    let plain = root.join("Mods").join("PlainMod");
+
+    write_file(
+        &pinned.join("manifest.json"),
+        r#"{
+  "Name": "Pinned Mod",
+  "UniqueID": "ModForge.PinnedMod",
+  "Version": "1.0.0",
+  "MinimumApiVersion": "4.4.0"
+}"#,
+    );
+    write_file(
+        &plain.join("manifest.json"),
+        &sample_manifest("ModForge.PlainMod"),
+    );
+
+    let mut scan = scan_library_at_path(&root).expect("scan launcher library");
+    assert_eq!(scan.mods.len(), 2);
+
+    let pinned_summary = scan
+        .mods
+        .iter()
+        .find(|item| item.unique_id.as_deref() == Some("ModForge.PinnedMod"))
+        .expect("pinned mod summary");
+    assert_eq!(pinned_summary.minimum_api_version.as_deref(), Some("4.4.0"));
+    assert!(
+        !pinned_summary.requires_newer_smapi,
+        "raw scan never computes the flag without a detected installed version"
+    );
+    let plain_summary = scan
+        .mods
+        .iter()
+        .find(|item| item.unique_id.as_deref() == Some("ModForge.PlainMod"))
+        .expect("plain mod summary");
+    assert_eq!(plain_summary.minimum_api_version, None);
+    assert!(!plain_summary.requires_newer_smapi);
+
+    // A detected installed SMAPI older than the declared minimum flips the flag.
+    apply_smapi_requirement_flags(&mut scan.mods, Some("4.3.2"));
+    let pinned_summary = scan
+        .mods
+        .iter()
+        .find(|item| item.unique_id.as_deref() == Some("ModForge.PinnedMod"))
+        .expect("pinned mod summary");
+    assert!(pinned_summary.requires_newer_smapi);
+    let plain_summary = scan
+        .mods
+        .iter()
+        .find(|item| item.unique_id.as_deref() == Some("ModForge.PlainMod"))
+        .expect("plain mod summary");
+    assert!(!plain_summary.requires_newer_smapi);
+
+    // A detected installed SMAPI that satisfies the minimum clears the flag.
+    apply_smapi_requirement_flags(&mut scan.mods, Some("4.5.0"));
+    let pinned_summary = scan
+        .mods
+        .iter()
+        .find(|item| item.unique_id.as_deref() == Some("ModForge.PinnedMod"))
+        .expect("pinned mod summary");
+    assert!(!pinned_summary.requires_newer_smapi);
+
+    // No detected installed version leaves every flag at its default.
+    apply_smapi_requirement_flags(&mut scan.mods, None);
+    assert!(scan.mods.iter().all(|item| !item.requires_newer_smapi));
 
     fs::remove_dir_all(root).expect("cleanup");
 }
