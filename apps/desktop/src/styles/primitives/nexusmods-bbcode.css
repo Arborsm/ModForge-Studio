@@ -1,30 +1,23 @@
 @layer components {
   .nexusmods-bbcode {
-    display: block;
-    min-width: 0;
-    color: var(--text-primary);
-    font-size: 0.8125rem;
+    @apply text-text-primary text-body block min-w-0;
     line-height: 1.65;
     overflow-wrap: anywhere;
     white-space: normal;
   }
 
   .nexusmods-bbcode a {
-    color: var(--accent);
-    font-weight: 700;
-    text-decoration: none;
+    @apply text-accent font-bold no-underline;
   }
 
   .nexusmods-bbcode a:hover {
-    text-decoration: underline;
+    @apply underline;
   }
 
   .nexusmods-bbcode ul,
   .nexusmods-bbcode ol {
-    display: grid;
-    gap: 0.1875rem;
+    @apply grid gap-0.75 p-0;
     margin: 0.5rem 0 0.5rem 1.375rem;
-    padding: 0;
     white-space: normal;
   }
 
@@ -43,11 +36,11 @@
   }
 
   .nexusmods-bbcode-line {
-    display: block;
+    @apply block;
   }
 
   .nexusmods-bbcode-section-heading {
-    display: block;
+    @apply block;
     margin-top: 1.1em;
     margin-bottom: 0.25em;
     font-style: italic;
@@ -55,7 +48,7 @@
   }
 
   .nexusmods-bbcode-indent {
-    display: inline-block;
+    @apply inline-block;
   }
 
   .nexusmods-bbcode-indent-1 {
@@ -71,70 +64,53 @@
   }
 
   .nexusmods-bbcode blockquote {
-    margin: 0.625rem 0;
-    padding: 0.625rem 0.75rem;
+    @apply text-text-secondary my-2.5 rounded-lg px-3 py-2.5;
     border-left: 0.1875rem solid var(--accent);
-    border-radius: 0.5rem;
     background: color-mix(in srgb, var(--accent-soft) 42%, var(--bg-panel-muted));
-    color: var(--text-secondary);
   }
 
   .nexusmods-bbcode pre {
-    margin: 0.625rem 0;
-    padding: 0.75rem;
-    border: 1px solid var(--border-color);
-    border-radius: 0.625rem;
-    background: var(--bg-panel-muted);
-    overflow: auto;
+    @apply border-border-subtle bg-surface-panel-muted rounded-field my-2.5 overflow-auto border p-3;
     white-space: pre;
   }
 
   .nexusmods-bbcode img {
-    display: block;
+    @apply block rounded-lg;
     max-width: 100%;
     height: auto;
     margin: 0.375rem auto;
-    border-radius: 0.5rem;
   }
 
   .nexusmods-bbcode-img-wrapper {
-    display: block;
-    margin: 0.375rem 0;
+    @apply my-1.5 block;
     text-align: center;
   }
 
   .nexusmods-bbcode-youtube-container {
-    display: block;
-    margin: 0.625rem 0;
+    @apply my-2.5 block;
   }
 
   .nexusmods-bbcode hr {
-    width: 100%;
-    height: 0;
-    margin: 0.75rem 0;
-    border: 0;
+    @apply my-3 h-0 w-full border-0;
     border-top: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
   }
 
   .nexusmods-bbcode-soft-spacer {
-    display: block;
-    height: 0.625rem;
+    @apply block h-2.5;
   }
 
   .nexusmods-bbcode-align-center,
   .nexusmods-bbcode-align-left,
   .nexusmods-bbcode-align-right,
   .nexusmods-bbcode-align-justify {
-    min-width: 0;
-    max-width: 100%;
-    overflow: hidden;
+    @apply max-w-full min-w-0 overflow-hidden;
   }
 
   .nexusmods-bbcode-align-center a,
   .nexusmods-bbcode-align-left a,
   .nexusmods-bbcode-align-right a,
   .nexusmods-bbcode-align-justify a {
-    display: inline-block;
+    @apply inline-block;
   }
 
   .nexusmods-bbcode-align-center a img,
@@ -158,40 +134,32 @@
   }
 
   .nexusmods-bbcode-div {
-    display: inline-block;
-    max-width: 100%;
+    @apply inline-block max-w-full;
     vertical-align: top;
   }
 
   .nexusmods-bbcode-align-left {
-    text-align: left;
+    @apply text-left;
   }
 
   .nexusmods-bbcode-align-right {
-    text-align: right;
+    @apply text-right;
   }
 
   .nexusmods-bbcode-align-justify {
-    text-align: justify;
+    @apply text-justify;
   }
 
   .nexusmods-bbcode-underline {
-    text-decoration: underline;
+    @apply underline;
   }
 
   .nexusmods-bbcode-spoiler {
-    margin: 0.625rem 0;
-    border: 1px solid var(--border-color);
-    border-radius: 0.625rem;
-    background: var(--bg-panel);
+    @apply border-border-subtle bg-surface-panel rounded-field my-2.5 border;
   }
 
   .nexusmods-bbcode-spoiler summary {
-    cursor: pointer;
-    padding: 0.5rem 0.625rem;
-    color: var(--text-secondary);
-    font-size: 0.75rem;
-    font-weight: 800;
+    @apply text-text-secondary cursor-pointer px-2.5 py-2 text-xs font-extrabold;
   }
 
   .nexusmods-bbcode-spoiler > div {

@@ -11,28 +11,14 @@
   }
 
   .event-patch-main {
-    display: grid;
+    @apply grid min-h-0 min-w-0 overflow-auto;
     grid-template-rows: auto minmax(0, 1fr);
-    min-width: 0;
-    min-height: 0;
     height: 100%;
-    overflow: auto;
     background: transparent;
   }
 
-  /* The condition builder mounts inside the scrolling main column; keep it a centered overlay. */
-  .event-patch-main > .event-condition-builder-stack {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    z-index: 70;
-    transform: translate(-50%, -50%);
-  }
-
   .event-patch-hub-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    @apply flex items-center justify-between;
     gap: 0.625rem;
     width: min(62.5rem, calc(100% - 4rem));
     min-height: auto;
@@ -42,271 +28,169 @@
   }
 
   .event-patch-hub-actions {
-    display: flex;
-    min-width: 0;
-    align-items: center;
+    @apply flex min-w-0 items-center;
     gap: 0.5rem;
   }
 
   .event-patch-heading {
-    display: grid;
-    min-width: 0;
+    @apply grid min-w-0;
   }
 
   .event-patch-heading h1,
   .event-storyboard-head h2 {
-    margin: 0;
-    overflow: hidden;
-    color: var(--text-primary);
+    @apply text-text-primary m-0 overflow-hidden whitespace-nowrap;
     font-size: 1.5rem;
     font-weight: 700;
     letter-spacing: 0;
     line-height: 1.25;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .event-patch-heading span,
   .event-storyboard-head span {
-    color: var(--text-secondary);
+    @apply text-text-secondary;
     font-size: 0.6875rem;
   }
 
   .event-patch-hub-body {
-    display: grid;
+    @apply grid min-h-0;
     width: min(62.5rem, calc(100% - 4rem));
-    min-height: 0;
     margin: 0 auto;
     overflow: visible;
     padding: 0 1.75rem 4rem;
   }
 
   .event-storyboard {
-    min-width: 0;
-    min-height: 0;
+    @apply min-h-0 min-w-0;
     overflow: visible;
     border: 0;
     background: transparent;
   }
 
   .event-storyboard-head {
-    display: none;
-    align-items: center;
-    justify-content: space-between;
+    @apply hidden items-center justify-between;
     min-height: 3rem;
     border-bottom: 1px solid var(--ephub-line);
     padding: 0 0.875rem;
   }
 
   .event-scene-list {
-    display: grid;
+    @apply grid p-0;
     gap: 0.625rem;
-    padding: 0;
-  }
-
-  .event-scene-row {
-    overflow: hidden;
-    border: 1px solid var(--ephub-border-soft);
-    border-radius: 0.75rem;
-    background: var(--ephub-surface);
-    box-shadow: 0 0.125rem 0.5rem var(--ephub-shadow);
-    transition:
-      transform 180ms ease,
-      background-color 180ms ease,
-      box-shadow 180ms ease,
-      border-color 180ms ease;
-  }
-
-  .event-scene-row:hover {
-    transform: translateY(-0.0625rem);
-    background: color-mix(in srgb, var(--ephub-surface) 92%, var(--ephub-surface-accent) 8%);
-    box-shadow: 0 0.5rem 1.5rem var(--ephub-shadow);
-    border-color: color-mix(in srgb, var(--accent) 24%, var(--ephub-border-soft));
-  }
-
-  .event-scene-row.active,
-  .event-scene-row.expanded {
-    border-color: color-mix(in srgb, var(--accent) 35%, var(--ephub-border-soft));
-    background: var(--ephub-surface);
-    box-shadow: 0 0.25rem 1rem color-mix(in srgb, var(--accent) 8%, var(--ephub-shadow));
-  }
-
-  .event-scene-row.selected {
-    border-color: color-mix(in srgb, var(--accent) 55%, var(--ephub-border-soft));
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent),
-      0 0.25rem 1rem color-mix(in srgb, var(--accent) 8%, var(--ephub-shadow));
   }
 
   .event-scene-summary {
-    display: flex;
-    align-items: center;
+    @apply flex cursor-pointer items-center;
     min-height: 4rem;
     padding: 0 1rem 0 0;
-    cursor: pointer;
   }
 
   .event-scene-drag-handle {
-    display: grid;
+    @apply text-text-tertiary grid;
     width: 1.5rem;
     flex: 0 0 1.5rem;
     place-items: center;
-    color: var(--text-tertiary);
   }
 
   .event-scene-summary:hover .event-scene-drag-handle {
-    color: var(--text-secondary);
-  }
-
-  .event-scene-select {
-    display: inline-grid;
-    width: 1.75rem;
-    height: 1.75rem;
-    flex: 0 0 1.75rem;
-    place-items: center;
-    margin: 0 0.5rem 0 0.75rem;
-    border: 1px solid var(--ephub-border-soft);
-    border-radius: 0.5rem;
-    background: var(--ephub-surface-strong);
-    color: var(--text-tertiary);
-    cursor: pointer;
-    transition:
-      border-color 150ms ease,
-      background 150ms ease,
-      color 150ms ease;
-  }
-
-  .event-scene-select:hover,
-  .event-scene-select.selected {
-    border-color: color-mix(in srgb, var(--accent) 50%, var(--ephub-border-soft));
-    background: var(--ephub-surface-accent);
-    color: var(--accent);
-    transform: none;
-  }
-
-  .event-scene-select + .event-scene-drag-handle {
-    width: 1.125rem;
-    flex-basis: 1.125rem;
+    @apply text-text-secondary;
   }
 
   .event-scene-index {
+    @apply text-text-secondary;
     flex: 0 0 auto;
     margin-right: 1rem;
-    color: var(--text-secondary);
     font-family: var(--font-mono);
     font-size: 0.8125rem;
     font-weight: 700;
   }
 
   .event-scene-title {
-    display: flex;
-    min-width: 0;
-    align-items: center;
+    @apply flex min-w-0 items-center;
     gap: 0.5rem;
   }
 
   .event-scene-title strong {
-    overflow: hidden;
-    color: var(--text-primary);
+    @apply text-text-primary overflow-hidden whitespace-nowrap;
     font-size: 1rem;
     font-weight: 500;
     line-height: 1.25;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .event-disabled-badge {
-    display: inline-flex;
-    align-items: center;
+    @apply text-text-secondary inline-flex items-center;
     min-height: 1.25rem;
     border-radius: 62.4375rem;
     background: var(--ephub-line);
-    color: var(--text-secondary);
     padding: 0 0.5rem;
     font-size: 0.625rem;
     font-weight: 700;
   }
 
   .event-scene-spacer {
-    min-width: 1.5rem;
+    @apply min-w-6;
     flex: 1 1 auto;
   }
 
   .event-scene-actors {
-    display: flex;
+    @apply flex justify-end;
     flex: 0 0 auto;
-    justify-content: flex-end;
     margin-right: 1.125rem;
     padding-left: 0.5rem;
   }
 
   .event-scene-actors i {
-    display: inline-grid;
+    @apply text-accent inline-grid;
     width: 1.75rem;
     height: 1.75rem;
     place-items: center;
     border: 0.125rem solid var(--ephub-surface);
     border-radius: 62.4375rem;
     background: var(--ephub-surface-accent);
-    color: var(--accent);
     font-size: 0.625rem;
     font-style: normal;
     font-weight: 800;
     box-shadow: 0 1px 0.1875rem var(--ephub-shadow);
   }
 
-  .event-scene-actors i + i {
-    margin-left: -0.5rem;
-  }
-
   .event-scene-edit-button {
+    @apply text-accent whitespace-nowrap;
     min-height: 2.25rem;
     border: 0;
     border-radius: 0.625rem;
     background: var(--ephub-surface-accent);
-    color: var(--accent);
     padding: 0 0.75rem;
     font-size: 0.75rem;
     font-weight: 700;
-    white-space: nowrap;
     transition:
       background-color 160ms ease,
       color 160ms ease;
   }
 
-  .event-scene-edit-button:hover {
-    background: color-mix(in srgb, var(--accent) 15%, var(--ephub-surface-accent));
-    color: var(--accent);
-    transform: none;
-  }
-
   .event-scene-panel-shell {
-    overflow: hidden;
+    @apply overflow-hidden;
     border-top: 1px dashed var(--ephub-border-soft);
   }
 
   .event-scene-panel {
-    display: grid;
+    @apply grid min-h-0 overflow-hidden;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 2.5rem;
     border-top: 0;
     border-radius: 0 0 0.75rem 0.75rem;
     background: var(--ephub-surface-muted);
-    min-height: 0;
-    overflow: hidden;
     padding: 1.5rem 4rem;
   }
 
   .event-scene-detail-column {
-    min-width: 0;
+    @apply min-w-0;
   }
 
   .event-scene-detail-column h3 {
-    display: flex;
-    align-items: center;
+    @apply text-text-secondary flex items-center uppercase;
     gap: 0.5rem;
     margin: 0 0 0.875rem;
-    color: var(--text-secondary);
     font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.04em;
@@ -321,155 +205,105 @@
   }
 
   .event-scene-detail-list {
-    display: grid;
+    @apply grid min-w-0;
     gap: 0.75rem;
-    min-width: 0;
   }
 
   .event-scene-detail-row {
-    display: flex;
-    min-width: 0;
-    align-items: center;
+    @apply text-text-primary flex min-w-0 items-center;
     gap: 0.625rem;
-    color: var(--text-primary);
     font-size: 0.8125rem;
     line-height: 1.35;
   }
 
   .event-scene-detail-row > span:last-child {
-    min-width: 0;
-    overflow: hidden;
+    @apply min-w-0 overflow-hidden whitespace-nowrap;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .event-scene-detail-list i {
-    display: grid;
+    @apply text-accent grid;
     width: 1.25rem;
     height: 1.25rem;
     flex: 0 0 1.25rem;
     place-items: center;
     border-radius: 62.4375rem;
     background: var(--ephub-surface-accent);
-    color: var(--accent);
     font-size: 0.5625rem;
     font-style: normal;
     font-weight: 800;
   }
 
   .event-storyboard-empty {
-    display: grid;
+    @apply text-text-secondary grid text-center;
     min-height: 13.75rem;
     place-items: center;
     align-content: center;
     gap: 0.5rem;
-    color: var(--text-secondary);
     padding: 1.5rem;
-    text-align: center;
   }
 
   .event-storyboard-empty strong {
-    color: var(--text-primary);
+    @apply text-text-primary;
     font-size: 0.9375rem;
   }
 
   .event-patch-tree-empty {
+    @apply text-text-secondary text-center;
     margin: 0.75rem;
     border-radius: 0.75rem;
     background: var(--ephub-surface-muted);
     padding: 1rem;
-    color: var(--text-secondary);
     font-size: 0.75rem;
     line-height: 1.5;
-    text-align: center;
-  }
-
-  .event-patch-context-menu {
-    position: fixed;
-    z-index: 80;
-    display: grid;
-    min-width: 11.875rem;
-    border: 1px solid var(--ephub-border-soft);
-    border-radius: 0.75rem;
-    background: var(--ephub-surface-strong);
-    padding: 0.375rem;
-    box-shadow: 0 1.125rem 3rem var(--ephub-shadow-strong);
-    transform-origin: top left;
-    animation: eventPatchMenuPop 120ms ease-out both;
   }
 
   .event-patch-context-menu button {
-    display: flex;
-    align-items: center;
+    @apply text-text-primary flex cursor-pointer items-center text-left;
     gap: 0.5rem;
     width: 100%;
     min-height: 2rem;
     border: 0;
     border-radius: 0.5rem;
     background: transparent;
-    color: var(--text-primary);
     padding: 0 0.5625rem;
-    text-align: left;
     font-size: 0.75rem;
     font-weight: 600;
-    cursor: pointer;
     transition:
       background-color 120ms ease,
       color 120ms ease;
   }
 
-  .event-patch-context-menu button:hover {
-    background: var(--ephub-surface-accent);
-    color: var(--text-primary);
-    transform: none;
-  }
-
   .event-patch-context-menu button:disabled {
-    cursor: not-allowed;
+    @apply cursor-not-allowed;
     opacity: 0.45;
   }
 
   .event-patch-context-menu button.danger {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .event-patch-context-menu button svg {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
   }
 
   .event-patch-context-menu button.danger svg {
-    color: var(--danger);
-  }
-
-  @keyframes eventPatchMenuPop {
-    from {
-      opacity: 0;
-      transform: scale(0.98) translateY(-0.125rem);
-    }
-
-    to {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-    }
+    @apply text-danger;
   }
 
   .event-patch-tree-title {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    @apply flex items-center justify-between;
     gap: 0.5rem;
   }
 
   .event-patch-tree-add {
-    display: inline-grid;
+    @apply text-text-secondary inline-grid cursor-pointer;
     width: 1.375rem;
     height: 1.375rem;
     place-items: center;
     border: 1px solid var(--border-color);
     border-radius: 0.4375rem;
     background: var(--bg-panel);
-    color: var(--text-secondary);
-    cursor: pointer;
     transition:
       background 150ms ease,
       color 150ms ease,
@@ -477,64 +311,56 @@
   }
 
   .event-patch-tree-add:hover {
+    @apply text-accent;
     border-color: var(--accent);
     background: var(--accent-soft);
-    color: var(--accent);
   }
 
   .event-patch-create {
-    display: grid;
+    @apply grid;
     gap: 0.75rem;
   }
 
   .event-patch-create-search {
-    display: grid;
+    @apply text-text-secondary grid items-center;
     grid-template-columns: 0.875rem minmax(0, 1fr);
-    align-items: center;
     gap: 0.4375rem;
     min-height: 2.25rem;
     border: 1px solid var(--border-color);
     border-radius: 0.5625rem;
     background: var(--bg-panel);
     padding: 0 0.5625rem;
-    color: var(--text-secondary);
   }
 
   .event-patch-create-search input {
-    min-width: 0;
+    @apply text-text-primary min-w-0;
     border: 0;
     outline: 0;
     background: transparent;
-    color: var(--text-primary);
     font-size: 0.75rem;
   }
 
   .event-patch-create-section {
-    display: grid;
+    @apply grid;
     min-height: 6rem;
   }
 
   .event-patch-create-list {
-    display: grid;
+    @apply grid overflow-y-auto;
     align-content: start;
     gap: 0.3125rem;
     max-height: 16rem;
-    overflow-y: auto;
   }
 
   .event-patch-create-row {
-    display: grid;
+    @apply text-text-secondary grid cursor-pointer items-center text-left;
     grid-template-columns: 1.125rem minmax(0, 1fr) auto;
-    align-items: center;
     gap: 0.5rem;
     min-height: 2.5rem;
     border: 1px solid transparent;
     border-radius: 0.5625rem;
     background: transparent;
     padding: 0 0.5625rem;
-    color: var(--text-secondary);
-    text-align: left;
-    cursor: pointer;
     transition:
       background 150ms ease,
       color 150ms ease,
@@ -542,95 +368,80 @@
   }
 
   .event-patch-create-row:hover {
+    @apply text-text-primary;
     background: var(--bg-active);
-    color: var(--text-primary);
   }
 
   .event-patch-create-row.active {
+    @apply text-accent;
     border-color: var(--accent);
     background: var(--accent-soft);
-    color: var(--accent);
   }
 
   .event-patch-create-row-copy {
-    display: grid;
-    min-width: 0;
+    @apply grid min-w-0;
     gap: 0.125rem;
   }
 
   .event-patch-create-row-copy strong {
-    overflow: hidden;
-    color: var(--text-primary);
+    @apply text-text-primary overflow-hidden whitespace-nowrap;
     font-size: 0.75rem;
     font-weight: 760;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .event-patch-create-row-copy span {
-    overflow: hidden;
+    @apply overflow-hidden whitespace-nowrap;
     font-family: var(--font-mono);
     font-size: 0.625rem;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .event-patch-create-badge {
-    display: inline-flex;
+    @apply text-accent inline-flex items-center;
     height: 1.125rem;
-    align-items: center;
     border-radius: 62.4375rem;
     background: var(--accent-soft);
-    color: var(--accent);
     padding: 0 0.375rem;
     font-size: 0.625rem;
     font-weight: 800;
   }
 
   .event-patch-create-state {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    @apply text-text-tertiary m-0 flex items-center justify-center text-center;
     gap: 0.375rem;
-    margin: 0;
     padding: 1.5rem 1rem;
-    color: var(--text-tertiary);
     font-size: 0.75rem;
-    text-align: center;
   }
 
   .event-patch-create-state.is-error {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .event-patch-create-custom {
-    display: grid;
+    @apply text-text-secondary grid;
     gap: 0.375rem;
-    color: var(--text-secondary);
     font-size: 0.75rem;
   }
 
   .event-patch-create-hint {
-    color: var(--danger);
+    @apply text-danger;
     font-size: 0.6875rem;
   }
 
   .event-patch-create-row:disabled {
-    cursor: not-allowed;
+    @apply cursor-not-allowed;
     opacity: 0.55;
   }
 
   .event-patch-create-row:disabled:hover {
+    @apply text-text-secondary;
     background: transparent;
-    color: var(--text-secondary);
   }
 
   .event-patch-create-import {
-    display: flex;
-    align-items: center;
+    @apply text-text-secondary flex cursor-pointer items-center;
     gap: 0.5rem;
-    color: var(--text-secondary);
     font-size: 0.75rem;
-    cursor: pointer;
   }
 }

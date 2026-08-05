@@ -20,27 +20,27 @@ const GIFT_TONE_STYLES: Record<
   love: {
     sectionClassName:
       'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--success)_12%,var(--bg-panel)),color-mix(in_srgb,var(--success)_6%,var(--bg-panel-muted)))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--success)_18%,transparent)]',
-    dotClassName: 'bg-(--success)',
+    dotClassName: 'bg-success',
   },
   like: {
     sectionClassName:
       'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--accent)_12%,var(--bg-panel)),color-mix(in_srgb,var(--accent-soft)_92%,var(--bg-panel-muted)))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_18%,transparent)]',
-    dotClassName: 'bg-(--accent)',
+    dotClassName: 'bg-accent',
   },
   neutral: {
     sectionClassName:
       'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--bg-elevated)_76%,var(--bg-panel)),color-mix(in_srgb,var(--bg-panel-muted)_92%,var(--bg-panel)))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--border-color)_72%,transparent)]',
-    dotClassName: 'bg-(--text-tertiary)',
+    dotClassName: 'bg-text-tertiary',
   },
   dislike: {
     sectionClassName:
       'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--warning)_12%,var(--bg-panel)),color-mix(in_srgb,var(--warning)_6%,var(--bg-panel-muted)))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--warning)_18%,transparent)]',
-    dotClassName: 'bg-(--warning)',
+    dotClassName: 'bg-warning',
   },
   hate: {
     sectionClassName:
       'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--danger)_12%,var(--bg-panel)),color-mix(in_srgb,var(--danger)_6%,var(--bg-panel-muted)))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--danger)_18%,transparent)]',
-    dotClassName: 'bg-(--danger)',
+    dotClassName: 'bg-danger',
   },
 }
 
@@ -51,7 +51,7 @@ const GIFT_GROUP_KIND_STYLES: Record<
   }
 > = {
   item: {
-    cardClassName: 'border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_94%,transparent)]',
+    cardClassName: 'border-border-subtle bg-[color-mix(in_srgb,var(--bg-panel)_94%,transparent)]',
   },
   category: {
     cardClassName:
@@ -61,7 +61,7 @@ const GIFT_GROUP_KIND_STYLES: Record<
     cardClassName: 'border-[color-mix(in_srgb,var(--warning)_28%,transparent)] bg-[color-mix(in_srgb,var(--warning)_10%,var(--bg-panel))]',
   },
   default: {
-    cardClassName: 'border-(--border-color) bg-[color-mix(in_srgb,var(--bg-elevated)_72%,var(--bg-panel))]',
+    cardClassName: 'border-border-subtle bg-[color-mix(in_srgb,var(--bg-elevated)_72%,var(--bg-panel))]',
   },
   special: {
     cardClassName: 'border-[color-mix(in_srgb,var(--success)_28%,transparent)] bg-[color-mix(in_srgb,var(--success)_12%,var(--bg-panel))]',
@@ -351,7 +351,7 @@ function formatGiftTagLabel(copy: CharactersPanelCopy, rawLabel: string) {
 }
 
 function GiftItemName({ label }: { label: string }) {
-  return <p className="line-clamp-2 w-full text-center text-[12px] leading-4 text-(--text-primary)">{label}</p>
+  return <p className="text-text-primary text-body-px line-clamp-2 w-full text-center leading-4">{label}</p>
 }
 
 function GiftItemTile({
@@ -403,7 +403,7 @@ function GiftItemTile({
       className={cx(
         absolute
           ? 'pointer-events-none absolute h-14.5 w-14.5'
-          : 'rounded-2xl border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_92%,transparent)] px-2 py-2.5 shadow-[0_6px_16px_rgba(15,23,42,0.06)]',
+          : 'rounded-2xl border border-border-subtle bg-[color-mix(in_srgb,var(--bg-panel)_92%,transparent)] px-2 py-2.5 shadow-[0_6px_16px_rgba(15,23,42,0.06)]',
         absolute ? '' : fluid ? 'w-full min-w-0' : 'w-22',
       )}
       title={item.displayName}
@@ -428,7 +428,7 @@ function GiftItemTile({
       <div className={cx('flex flex-col items-center gap-2', absolute && 'h-full w-full justify-center')}>
         <div
           className={cx(
-            'relative shrink-0 overflow-hidden border border-(--border-color) bg-(--bg-panel-muted)',
+            'relative shrink-0 overflow-hidden border border-border-subtle bg-surface-panel-muted',
             absolute
               ? 'h-13 w-13 rounded-full bg-[radial-gradient(circle_at_32%_28%,color-mix(in_srgb,var(--bg-panel)_96%,rgba(255,255,255,0.14)),color-mix(in_srgb,var(--bg-panel-muted)_86%,transparent)_58%,transparent)] shadow-[0_12px_28px_color-mix(in_srgb,var(--accent)_18%,transparent)]'
               : 'h-10 w-10 rounded-xl',
@@ -458,7 +458,7 @@ function GiftItemTile({
               }}
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tracking-[0.08em] text-(--text-secondary) uppercase">
+            <div className="text-text-secondary text-caption-px tracking-ui-wide absolute inset-0 flex items-center justify-center font-semibold uppercase">
               ?
             </div>
           )}
@@ -510,7 +510,7 @@ function GiftGroupCard({
         <div
           data-gift-anchor="true"
           className={cx(
-            'relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-panel-muted) transition-transform duration-200',
+            'relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-border-subtle bg-surface-panel-muted transition-transform duration-200',
             isActive && 'scale-110',
           )}
         >
@@ -532,17 +532,17 @@ function GiftGroupCard({
               }}
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tracking-[0.08em] text-(--text-secondary) uppercase">
+            <div className="text-text-secondary text-caption-px tracking-ui-wide absolute inset-0 flex items-center justify-center font-semibold uppercase">
               ?
             </div>
           )}
         </div>
 
         <div className="w-full space-y-1 text-center">
-          <p className="truncate text-[10px] font-semibold tracking-[0.12em] text-(--text-secondary) uppercase">
+          <p className="text-text-secondary text-caption-px tracking-ui-wide truncate font-semibold uppercase">
             {getGiftGroupKindLabel(copy, group.kind)}
           </p>
-          <p className="line-clamp-2 text-[12px] leading-4 text-(--text-primary)">{getGiftGroupDisplayLabel(copy, group)}</p>
+          <p className="text-text-primary text-body-px line-clamp-2 leading-4">{getGiftGroupDisplayLabel(copy, group)}</p>
         </div>
       </div>
     </div>

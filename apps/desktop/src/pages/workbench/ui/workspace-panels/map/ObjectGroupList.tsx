@@ -8,17 +8,17 @@ import { formatObjectPreviewMeta, getObjectDisplayName, getObjectInteractionTag,
 type ObjectGroupListVariant = 'panel' | 'dock'
 
 const objectGroupCardClassName = {
-  panel: 'overflow-hidden rounded-xl bg-(--bg-panel-muted)',
+  panel: 'overflow-hidden rounded-xl bg-surface-panel-muted',
   dock: 'panel-section-muted panel-section overflow-hidden',
 } satisfies Record<ObjectGroupListVariant, string>
 
 const objectGroupSectionClassName = {
-  panel: 'overflow-hidden rounded-xl bg-(--bg-panel-muted)',
+  panel: 'overflow-hidden rounded-xl bg-surface-panel-muted',
   dock: 'panel-section-muted panel-section overflow-hidden',
 } satisfies Record<ObjectGroupListVariant, string>
 
 const objectGroupEmptyStateClassName = {
-  panel: 'rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)',
+  panel: 'rounded-xl border border-dashed border-border-subtle px-4 py-5 text-sm text-text-secondary',
   dock: 'panel-empty-state',
 } satisfies Record<ObjectGroupListVariant, string>
 
@@ -38,12 +38,12 @@ function ObjectGroupCard({
     <div className={objectGroupCardClassName[variant]}>
       <div className="flex items-start justify-between gap-3 px-3 py-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-(--text-primary)">{item.name}</p>
-          <p className="mt-1 text-[11px] text-(--text-secondary)">
+          <p className="text-text-primary truncate text-sm font-semibold">{item.name}</p>
+          <p className="text-text-secondary text-meta-px mt-1">
             {copy.rightDock.objectGroupSummary(item.objectCount, item.interactionCount, item.pointCount)}
           </p>
           {item.propertyKeys.length ? (
-            <p className="mt-1 truncate text-[11px] text-(--text-tertiary)">{item.propertyKeys.join(' / ')}</p>
+            <p className="text-text-tertiary text-meta-px mt-1 truncate">{item.propertyKeys.join(' / ')}</p>
           ) : null}
         </div>
         <button type="button" className="shrink-0" onClick={() => item.setVisible(!item.visible)}>
@@ -52,7 +52,7 @@ function ObjectGroupCard({
       </div>
 
       {item.previewObjects.length ? (
-        <div className="border-t border-(--border-color) px-2 py-2">
+        <div className="border-border-subtle border-t px-2 py-2">
           <div className="space-y-2">
             {item.previewObjects.map((object) => {
               const interactionTag = getObjectInteractionTag(object)
@@ -68,17 +68,17 @@ function ObjectGroupCard({
                     isFocused
                       ? variant === 'dock'
                         ? 'panel-list-card-active'
-                        : 'border-(--accent) bg-[color-mix(in_srgb,var(--accent)_16%,var(--bg-panel))]'
+                        : 'border-accent bg-[color-mix(in_srgb,var(--accent)_16%,var(--bg-panel))]'
                       : variant === 'dock'
                         ? 'hover:bg-[color-mix(in_srgb,var(--bg-active)_66%,transparent)]'
-                        : 'border-(--border-color) bg-(--bg-panel) hover:bg-(--bg-active)',
+                        : 'border-border-subtle bg-surface-panel hover:bg-surface-active',
                   )}
                   onClick={() => onFocusObject(item.group.id, object.id)}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-xs font-semibold text-(--text-primary)">{getObjectDisplayName(object, copy)}</p>
-                      <p className="mt-1 truncate text-[11px] text-(--text-secondary)">{formatObjectPreviewMeta(object, copy)}</p>
+                      <p className="text-text-primary truncate text-xs font-semibold">{getObjectDisplayName(object, copy)}</p>
+                      <p className="text-text-secondary text-meta-px mt-1 truncate">{formatObjectPreviewMeta(object, copy)}</p>
                     </div>
                     <span className="dock-chip shrink-0">{interactionTag ?? object.type ?? `#${object.id}`}</span>
                   </div>
@@ -88,7 +88,7 @@ function ObjectGroupCard({
           </div>
 
           {item.group.objects.length > item.previewObjects.length ? (
-            <p className="px-1 pt-2 text-[11px] text-(--text-tertiary)">+{item.group.objects.length - item.previewObjects.length}</p>
+            <p className="text-text-tertiary text-meta-px px-1 pt-2">+{item.group.objects.length - item.previewObjects.length}</p>
           ) : null}
         </div>
       ) : null}
@@ -157,7 +157,7 @@ export function GroupedObjectGroupList({
   return (
     <div className="space-y-3 p-3">
       <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-(--text-tertiary)" />
+        <Search className="text-text-tertiary pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
         <input
           className="control-input pl-9"
           value={filterValue}
@@ -188,7 +188,7 @@ export function GroupedObjectGroupList({
               <section key={entry.groupLabel} className={objectGroupSectionClassName[variant]}>
                 <button
                   type="button"
-                  className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-(--bg-active)"
+                  className="hover:bg-surface-active flex w-full items-center justify-between gap-3 px-3 py-2 text-left"
                   onClick={() =>
                     setCollapsedGroups((current) => ({
                       ...current,
@@ -197,8 +197,8 @@ export function GroupedObjectGroupList({
                   }
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold tracking-[0.16em] text-(--text-primary) uppercase">{entry.groupLabel}</p>
-                    <p className="text-[11px] text-(--text-secondary)">
+                    <p className="text-text-primary tracking-ui-wider truncate text-xs font-semibold uppercase">{entry.groupLabel}</p>
+                    <p className="text-text-secondary text-meta-px">
                       {copy.rightDock.objectGroupCollectionSummary(
                         entry.items.length,
                         entry.objectCount,
@@ -207,13 +207,11 @@ export function GroupedObjectGroupList({
                       )}
                     </p>
                   </div>
-                  <ChevronDown
-                    className={cx('h-4 w-4 shrink-0 text-(--text-secondary) transition-transform', !isCollapsed && 'rotate-180')}
-                  />
+                  <ChevronDown className={cx('h-4 w-4 shrink-0 text-text-secondary transition-transform', !isCollapsed && 'rotate-180')} />
                 </button>
 
                 {!isCollapsed ? (
-                  <div className="space-y-2 border-t border-(--border-color) p-2">
+                  <div className="border-border-subtle space-y-2 border-t p-2">
                     {entry.items.map((item) => (
                       <ObjectGroupCard
                         key={item.id}

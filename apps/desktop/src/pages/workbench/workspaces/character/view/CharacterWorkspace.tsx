@@ -222,7 +222,7 @@ export default function CharacterWorkspace({ character, activeVariant, assetStat
                       className="rounded-[22px] bg-[color-mix(in_srgb,var(--bg-panel)_78%,transparent)] p-2.5 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--border-color)_64%,transparent)]"
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <p className="text-[11px] font-semibold tracking-[0.16em] text-(--text-secondary) uppercase">#{index}</p>
+                        <p className="text-text-secondary text-meta-px tracking-ui-wider font-semibold uppercase">#{index}</p>
                         {character.shakePortraits.includes(index) ? <span className="dock-chip">{copy.shakeBadge}</span> : null}
                       </div>
                       <div className="mt-2.5 flex justify-center">

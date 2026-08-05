@@ -5,13 +5,7 @@
     --loading-motion-effective-duration: calc(var(--loading-motion-duration) * var(--loading-motion-speed-multiplier));
     --loading-motion-distance: 0.75rem;
     --loading-motion-scale: 1.08;
-    display: flex;
-    position: relative;
-    min-height: 100%;
-    width: 100%;
-    align-items: center;
-    justify-content: center;
-    color: var(--accent);
+    @apply text-accent relative flex min-h-full w-full items-center justify-center;
   }
 
   .loading-motion-fallback[data-loading-intensity='light'] {
@@ -120,20 +114,16 @@
   }
 
   .loading-motion-visual {
-    display: flex;
+    @apply flex items-center justify-center gap-1;
     width: 2.75rem;
     height: 1.5rem;
     flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    gap: 0.25rem;
   }
 
   .loading-motion-layer {
+    @apply bg-accent rounded-xs;
     width: 0.1875rem;
     height: 1rem;
-    border-radius: 0.125rem;
-    background: var(--accent);
     opacity: 0.36;
     transform: scaleY(0.42);
     animation: loading-motion-signal var(--loading-motion-effective-duration) cubic-bezier(0.4, 0, 0.2, 1) infinite;

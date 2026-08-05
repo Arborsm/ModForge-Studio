@@ -17,7 +17,7 @@ export function EditorPage({ workspaceId, patch, draftPort, resources }: EditorP
   const copy = useEditorCopy().studioDesk.editorPage
 
   if (!patch || !draftPort) {
-    return <div className="flex h-full items-center justify-center text-xs text-(--text-secondary)">{copy.patchNotFound}</div>
+    return <div className="text-text-secondary flex h-full items-center justify-center text-xs">{copy.patchNotFound}</div>
   }
 
   const Editor = getWorkspacePlugin(workspaceId)?.editMode.editor
@@ -28,9 +28,7 @@ export function EditorPage({ workspaceId, patch, draftPort, resources }: EditorP
         {Editor ? (
           <Editor patch={patch} schema={getAssetSchema(patch.target) ?? null} draftPort={draftPort} resources={resources} />
         ) : (
-          <div className="flex h-full items-center justify-center text-xs text-(--text-secondary)">
-            {copy.noEditorRegistered(workspaceId)}
-          </div>
+          <div className="text-text-secondary flex h-full items-center justify-center text-xs">{copy.noEditorRegistered(workspaceId)}</div>
         )}
       </div>
     </div>

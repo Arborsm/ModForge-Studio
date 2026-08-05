@@ -296,7 +296,7 @@ export function ScriptCard({
 
   function renderTemplateNodes(skipParamIndexes = new Set<number>()) {
     if (!nodes) {
-      return <span className="font-mono text-xs text-(--text-secondary)">{command.raw}</span>
+      return <span className="text-text-secondary font-mono text-xs">{command.raw}</span>
     }
 
     return nodes.map((node, nodeIndex) => {
@@ -305,7 +305,7 @@ export function ScriptCard({
           return null
         }
         return (
-          <span key={nodeIndex} className="text-(--text-secondary)">
+          <span key={nodeIndex} className="text-text-secondary">
             {node.text}
           </span>
         )
@@ -338,7 +338,7 @@ export function ScriptCard({
     }
     return (
       <>
-        <span className="mr-0.5 text-xs font-medium text-(--text-tertiary)">[{schema ? commandLabel : categoryLabel}]</span>
+        <span className="text-text-tertiary mr-0.5 text-xs font-medium">[{schema ? commandLabel : categoryLabel}]</span>
         {renderTemplateNodes(new Set([dialogueTextNode?.index ?? -1]))}
       </>
     )
@@ -438,8 +438,8 @@ export function ScriptCard({
           <div className="overflow-hidden">
             <div className="flex flex-col gap-2.5 py-2 pr-1 pl-17">
               <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold tracking-[0.06em] text-(--text-tertiary) uppercase">{copy.rawCommand}</span>
-                <code className="block rounded-lg border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel-muted)_76%,transparent)] px-3 py-2 font-mono text-xs leading-[1.55] text-(--text-secondary)">
+                <span className="text-text-tertiary text-meta-px tracking-ui font-semibold uppercase">{copy.rawCommand}</span>
+                <code className="border-border-subtle text-text-secondary leading-ui-relaxed block rounded-lg border bg-[color-mix(in_srgb,var(--bg-panel-muted)_76%,transparent)] px-3 py-2 font-mono text-xs">
                   {command.raw}
                 </code>
               </div>
@@ -447,9 +447,9 @@ export function ScriptCard({
                 <div className="grid grid-cols-2 gap-2">
                   {command.args.map((arg, argIndex) => (
                     <div key={argIndex} className="flex min-w-0 items-center gap-1.5">
-                      <span className="font-mono text-[10px] text-(--text-tertiary)">[{argIndex}]</span>
-                      <span className="truncate text-[11px] text-(--text-primary)">
-                        {arg || <span className="text-(--text-tertiary) italic">{copy.emptyArg}</span>}
+                      <span className="text-text-tertiary text-caption-px font-mono">[{argIndex}]</span>
+                      <span className="text-text-primary text-meta-px truncate">
+                        {arg || <span className="text-text-tertiary italic">{copy.emptyArg}</span>}
                       </span>
                     </div>
                   ))}
@@ -517,7 +517,7 @@ function InlineDelayControl({
           type="number"
           min={0}
           step={delay.stepMs}
-          className="h-5 w-10 rounded border border-(--border-color) bg-(--bg-panel) px-1 font-mono text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
+          className="border-border-subtle bg-surface-panel text-text-primary focus:border-accent text-meta-px h-5 w-10 rounded border px-1 font-mono outline-none"
           value={delay.valueMs}
           aria-label={label}
           onChange={(event) => {
@@ -532,7 +532,7 @@ function InlineDelayControl({
         />
         <button
           type="button"
-          className="flex h-5 w-5 items-center justify-center rounded text-(--text-tertiary) hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] hover:text-(--danger)"
+          className="text-text-tertiary hover:text-danger flex h-5 w-5 items-center justify-center rounded hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)]"
           title={copy.removeDelay}
           aria-label={copy.removeDelay}
           onClick={(event) => {
@@ -588,11 +588,11 @@ function CoordinateParamPill({
         onPointerDown={(event) => event.stopPropagation()}
       >
         {(['x', 'y'] as const).map((axis) => (
-          <label key={axis} className="inline-flex items-center gap-1 text-[10px] font-semibold text-(--text-tertiary) uppercase">
+          <label key={axis} className="text-text-tertiary text-caption-px inline-flex items-center gap-1 font-semibold uppercase">
             {axis === 'x' ? xLabel : yLabel}
             <input
               type="number"
-              className="h-5 w-9 rounded border border-(--border-color) bg-(--bg-panel) px-1 font-mono text-[11px] font-medium text-(--text-primary) outline-none focus:border-(--accent)"
+              className="border-border-subtle bg-surface-panel text-text-primary focus:border-accent text-meta-px h-5 w-9 rounded border px-1 font-mono font-medium outline-none"
               value={axis === 'x' ? x : y}
               onChange={(event) => onChange(axis, event.target.value)}
             />
@@ -600,7 +600,7 @@ function CoordinateParamPill({
         ))}
         <button
           type="button"
-          className="inline-flex h-5 w-5 items-center justify-center rounded text-(--text-tertiary) transition-colors hover:bg-(--bg-panel-muted) hover:text-(--accent)"
+          className="text-text-tertiary hover:bg-surface-panel-muted hover:text-accent inline-flex h-5 w-5 items-center justify-center rounded transition-colors"
           title="Pick from map"
           onClick={(event) => {
             event.stopPropagation()

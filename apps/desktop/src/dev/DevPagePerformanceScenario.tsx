@@ -1062,8 +1062,8 @@ function ScenarioFrame({ id, children }: { id: PageScenarioId; children: ReactNo
   return (
     <div className="dev-performance-scenario dev-page-performance-scenario" data-mf-page-perf-scenario={id}>
       <header className="panel-surface p-3">
-        <p className="text-xs font-semibold text-(--text-secondary) uppercase">Page performance scenario</p>
-        <h1 className="text-lg font-semibold text-(--text-primary)">{id}</h1>
+        <p className="text-text-secondary text-xs font-semibold uppercase">Page performance scenario</p>
+        <h1 className="text-text-primary text-lg font-semibold">{id}</h1>
       </header>
       <main className="dev-page-performance-scenario-main">{children}</main>
     </div>

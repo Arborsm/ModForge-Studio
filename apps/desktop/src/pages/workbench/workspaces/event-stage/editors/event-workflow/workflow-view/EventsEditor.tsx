@@ -816,9 +816,9 @@ function ComposerSceneStrip({
           onPickCamera()
         }}
       >
-        <Camera className="h-3.5 w-3.5 text-(--text-tertiary)" />
+        <Camera className="text-text-tertiary h-3.5 w-3.5" />
         <span className="mono">{cameraTarget ? `${cameraTarget.x},${cameraTarget.y}` : (scene.cameraInstruction ?? 'follow')}</span>
-        <MapPin className="h-3.5 w-3.5 text-(--accent)" />
+        <MapPin className="text-accent h-3.5 w-3.5" />
       </button>
 
       <span className="scene-label">{workflowCopy.sceneSetup.actors}</span>

@@ -5,197 +5,131 @@
   /* ── Sidebar ── */
 
   .dialogue-editor-sidebar {
-    min-height: 0;
-    overflow-y: auto;
+    @apply bg-surface-panel min-h-0 overflow-y-auto p-3.5;
     border-left: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
-    background: var(--bg-panel);
-    padding: 0.875rem;
   }
 
   .dialogue-editor-sidebar-section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.625rem;
+    @apply flex flex-col gap-2.5;
   }
 
   .dialogue-editor-sidebar-section + .dialogue-editor-sidebar-section {
-    margin-top: 1rem;
-    padding-top: 1rem;
+    @apply mt-4 pt-4;
     border-top: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
   }
 
   .dialogue-editor-sidebar-section-head {
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
+    @apply flex flex-col gap-0.5;
   }
 
   .dialogue-editor-sidebar-section-title {
-    font-size: 0.8125rem;
-    font-weight: 700;
-    color: var(--text-primary);
+    @apply text-text-primary text-body font-bold;
   }
 
   .dialogue-editor-sidebar-section-hint {
-    font-size: 0.6875rem;
-    color: var(--text-tertiary);
+    @apply text-text-tertiary text-meta;
   }
 
   .dialogue-editor-sidebar-subtitle {
-    margin-top: 0.25rem;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-tertiary);
+    @apply text-text-tertiary text-meta tracking-ui mt-1 font-bold uppercase;
   }
 
   .dialogue-editor-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3125rem;
-    min-width: 0;
+    @apply flex min-w-0 flex-col gap-1.25;
   }
 
   .dialogue-editor-field-label {
-    font-size: 0.6875rem;
-    font-weight: 600;
-    color: var(--text-secondary);
+    @apply text-text-secondary text-meta font-semibold;
   }
 
   .dialogue-editor-field-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
+    @apply grid grid-cols-2 gap-2;
   }
 
   .dialogue-editor-field-grid-three {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    @apply grid-cols-3;
   }
 
   .dialogue-editor-generated-key {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3125rem;
+    @apply flex flex-col gap-1.25;
   }
 
   .dialogue-editor-generated-key-value {
-    padding: 0.4375rem 0.625rem;
+    @apply font-ui-semibold rounded-lg px-2.5 py-1.75 font-mono text-xs;
     border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border-color));
-    border-radius: 0.5rem;
     background: color-mix(in srgb, var(--accent-soft) 55%, var(--bg-panel-muted));
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    font-weight: 650;
     color: color-mix(in srgb, var(--accent) 75%, var(--text-primary));
     overflow-wrap: anywhere;
   }
 
   .dialogue-editor-inline-warning {
-    padding: 0.375rem 0.5625rem;
-    border-radius: 0.5rem;
-    background: var(--warning-soft);
-    font-size: 0.6875rem;
+    @apply bg-warning-soft text-meta rounded-lg px-2.25 py-1.5;
     color: color-mix(in srgb, var(--warning) 65%, var(--text-primary));
   }
 
   .dialogue-editor-separator-toggle {
-    display: flex;
-    gap: 1px;
-    padding: 1px;
-    border: 1px solid var(--border-color);
-    border-radius: 0.5625rem;
-    background: var(--bg-panel-muted);
+    @apply border-border-subtle bg-surface-panel-muted rounded-field flex gap-px border p-px;
   }
 
   .dialogue-editor-separator-option {
-    flex: 1;
-    padding: 0.3125rem 0.5rem;
-    border-radius: 0.4375rem;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    color: var(--text-secondary);
+    @apply text-text-secondary rounded-button text-meta flex-1 px-2 py-1.25 font-semibold;
     transition:
       background-color 120ms ease,
       color 120ms ease;
   }
 
   .dialogue-editor-separator-option:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
+    @apply bg-surface-hover text-text-primary;
   }
 
   .dialogue-editor-separator-option-active {
-    background: var(--bg-panel);
-    color: var(--text-primary);
+    @apply bg-surface-panel text-text-primary;
     box-shadow: inset 0 -1.5px 0 0 var(--accent);
   }
 
   .dialogue-editor-portrait-block {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3125rem;
+    @apply flex flex-col gap-1.25;
   }
 
   .dialogue-editor-portrait-frame {
-    border-radius: 0.625rem;
-    background-color: var(--bg-panel-muted);
+    @apply bg-surface-panel-muted rounded-field;
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-color) 70%, transparent);
   }
 
   .dialogue-editor-textarea {
-    min-height: 5.5rem;
-    resize: vertical;
-    line-height: 1.5;
+    @apply min-h-22 resize-y leading-normal;
   }
 
   .dialogue-editor-insert-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.375rem;
+    @apply flex flex-wrap gap-1.5;
   }
 
   .dialogue-editor-insert-button {
-    height: 1.625rem;
-    padding-inline: 0.5625rem;
-    border-radius: 0.4375rem;
-    font-size: 0.6875rem;
+    @apply rounded-button text-meta h-6.5 px-2.25;
   }
 
   .dialogue-editor-raw-notice {
-    padding: 0.4375rem 0.5625rem;
-    border-radius: 0.5rem;
+    @apply bg-surface-panel-muted text-text-secondary text-meta rounded-lg px-2.25 py-1.75;
     border: 1px dashed color-mix(in srgb, var(--border-color) 90%, transparent);
-    background: var(--bg-panel-muted);
-    font-size: 0.6875rem;
-    color: var(--text-secondary);
   }
 
   .dialogue-editor-bridge-note {
-    font-size: 0.6875rem;
-    line-height: 1.5;
-    color: var(--text-secondary);
+    @apply text-text-secondary text-meta leading-normal;
     overflow-wrap: anywhere;
   }
 
   .dialogue-editor-bridge-note[data-tone='error'] {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   /* ── Structured command-segment editor (right rail) ── */
 
   .dialogue-editor-segments {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+    @apply flex flex-col gap-2;
   }
 
   .dialogue-editor-segment {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.625rem;
-    border-radius: 0.75rem;
+    @apply flex flex-col gap-2 rounded-xl p-2.5;
   }
 
   .dialogue-editor-segment[data-segment='command'] {
@@ -204,118 +138,78 @@
   }
 
   .dialogue-editor-segment[data-segment='text'] {
+    @apply bg-surface-panel-muted;
     border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
-    background: var(--bg-panel-muted);
   }
 
   .dialogue-editor-segment-title {
-    font-size: 0.6875rem;
-    font-weight: 700;
+    @apply text-meta font-bold;
     color: color-mix(in srgb, var(--info) 70%, var(--text-primary));
   }
 
   .dialogue-editor-question {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.625rem;
+    @apply flex flex-col gap-2 rounded-xl p-2.5;
     border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border-color));
-    border-radius: 0.75rem;
     background: color-mix(in srgb, var(--accent-soft) 40%, var(--bg-panel));
   }
 
   .dialogue-editor-question-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
+    @apply flex items-center justify-between gap-2;
   }
 
   .dialogue-editor-question-attach {
-    display: flex;
-    justify-content: flex-start;
+    @apply flex justify-start;
   }
 
   .dialogue-editor-responses {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+    @apply flex flex-col gap-2;
   }
 
   .dialogue-editor-response {
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
-    padding: 0.5rem;
+    @apply bg-surface-panel rounded-field flex flex-col gap-1.5 p-2;
     border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
-    border-radius: 0.625rem;
-    background: var(--bg-panel);
   }
 
   .dialogue-editor-response-text-row {
-    display: flex;
-    align-items: flex-end;
-    gap: 0.375rem;
+    @apply flex items-end gap-1.5;
   }
 
   .dialogue-editor-response-text-row .dialogue-editor-field {
-    flex: 1;
+    @apply flex-1;
   }
 
   .dialogue-editor-response-remove {
-    flex-shrink: 0;
-    margin-bottom: 0.25rem;
-    color: var(--text-tertiary);
+    @apply text-text-tertiary mb-1 shrink-0;
   }
 
   .dialogue-editor-response-remove:hover {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .dialogue-editor-warning-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
+    @apply flex flex-col gap-1.5;
   }
 
   .dialogue-editor-warning-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.375rem;
-    padding: 0.375rem 0.5625rem;
-    border-radius: 0.5rem;
-    background: var(--warning-soft);
-    font-size: 0.6875rem;
-    line-height: 1.4;
+    @apply bg-warning-soft text-meta leading-ui flex items-start gap-1.5 rounded-lg px-2.25 py-1.5;
     color: color-mix(in srgb, var(--warning) 60%, var(--text-primary));
   }
 
   .dialogue-editor-warning-item .dialogue-editor-flag-icon {
-    margin-top: 0.0625rem;
-    color: var(--warning);
+    @apply text-warning mt-px;
   }
 
   /* ── Script preview dialog ── */
 
   .dialogue-editor-script-preview {
-    margin: 0;
-    padding: 0.75rem 0.875rem;
+    @apply bg-surface-panel-muted text-text-primary leading-ui-relaxed m-0 rounded-xl px-3.5 py-3 font-mono text-xs whitespace-pre-wrap;
     border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
-    border-radius: 0.75rem;
-    background: var(--bg-panel-muted);
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    line-height: 1.7;
-    color: var(--text-primary);
-    white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
 
   .dialogue-editor-token {
-    padding: 0.0625rem 0.1875rem;
-    border-radius: 0.25rem;
+    @apply rounded px-0.75 py-px font-semibold;
     background: color-mix(in srgb, var(--accent) 14%, transparent);
     color: color-mix(in srgb, var(--accent) 82%, var(--text-primary));
-    font-weight: 600;
   }
 }

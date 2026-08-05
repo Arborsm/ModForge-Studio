@@ -440,7 +440,7 @@ export default function TopMenuBar({
               </button>
               <button
                 type="button"
-                className="window-control-button border-l border-(--border-color)"
+                className="window-control-button border-border-subtle border-l"
                 onClick={onToggleMaximizeWindow}
                 aria-label="Maximize window"
                 title="Maximize"
@@ -449,7 +449,7 @@ export default function TopMenuBar({
               </button>
               <button
                 type="button"
-                className="window-control-button window-control-close border-l border-(--border-color)"
+                className="window-control-button window-control-close border-border-subtle border-l"
                 onClick={onCloseWindow}
                 aria-label="Close window"
                 title="Close"

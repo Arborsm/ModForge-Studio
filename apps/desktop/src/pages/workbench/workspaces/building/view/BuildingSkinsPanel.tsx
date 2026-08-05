@@ -19,8 +19,8 @@ export function BuildingSkinsPanel(props: BuildingSkinsPanelProps) {
         {props.building.skins.map((skin) => (
           <div key={`${props.building.key}:${skin.id}`} className="flex items-start justify-between gap-2 py-1">
             <div className="min-w-0">
-              <p className="truncate text-xs font-semibold text-(--text-primary)">{skin.displayName}</p>
-              <p className="truncate text-[0.65rem] text-(--text-secondary)">{skin.texturePathLabel}</p>
+              <p className="text-text-primary truncate text-xs font-semibold">{skin.displayName}</p>
+              <p className="text-text-secondary text-meta truncate">{skin.texturePathLabel}</p>
             </div>
             {skin.showAsSeparateConstructionEntry ? <span className="dock-chip shrink-0">{props.copy.separateBuildBadge}</span> : null}
           </div>

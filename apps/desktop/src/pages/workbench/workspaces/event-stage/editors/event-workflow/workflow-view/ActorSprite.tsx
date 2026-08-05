@@ -334,7 +334,7 @@ export function ActorSprite({
         </div>
       ) : (
         <div className="flex h-full w-full items-end justify-center">
-          <div className="rounded-full border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-2 py-1 text-[10px] font-semibold tracking-[0.16em] text-(--text-primary) uppercase shadow-(--shadow-panel)">
+          <div className="border-border-subtle text-text-primary shadow-panel text-caption-px tracking-ui-wider rounded-full border bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-2 py-1 font-semibold uppercase">
             {label}
           </div>
         </div>
@@ -343,7 +343,7 @@ export function ActorSprite({
       {/* 表情气泡 */}
       {runtime.emoteId != null && (
         <div
-          className="pointer-events-none absolute -top-5 left-1/2 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_90%,transparent)] text-xs shadow-(--shadow-panel)"
+          className="shadow-panel pointer-events-none absolute -top-5 left-1/2 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_90%,transparent)] text-xs"
           style={{ zIndex: runtime.tileY + 1 }}
         >
           {getEmoteIcon(runtime.emoteId)}
@@ -353,7 +353,7 @@ export function ActorSprite({
       {/* 名称标签 */}
       {showLabel && (
         <div
-          className="pointer-events-none absolute -top-4 left-1/2 -translate-x-1/2 rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_86%,transparent)] px-2 py-0.5 text-[10px] font-semibold text-(--text-primary) shadow-(--shadow-panel)"
+          className="text-text-primary shadow-panel text-caption-px pointer-events-none absolute -top-4 left-1/2 -translate-x-1/2 rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_86%,transparent)] px-2 py-0.5 font-semibold"
           style={{ zIndex: runtime.tileY + 1 }}
         >
           {label}
@@ -361,7 +361,7 @@ export function ActorSprite({
       )}
 
       {/* 选中指示器 */}
-      {selected && <div className="pointer-events-none absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-(--accent)" />}
+      {selected && <div className="bg-accent pointer-events-none absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full" />}
     </div>
   )
 }

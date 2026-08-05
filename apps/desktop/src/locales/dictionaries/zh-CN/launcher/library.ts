@@ -219,8 +219,6 @@ const library: LauncherLibraryCopy = {
   diffUnavailable: '没有可用的差异信息',
   dragDropInstallTitle: '释放以预览归档',
   dragDropInstallSubtitle: (formats) => `拖入一个或多个归档进行安装，支持格式：${formats}`,
-  dragDropZoneTitle: '从压缩包安装模组',
-  dragDropZoneBrowseHint: '或点击选择文件',
   dragDropMultipleFiles: '一次只能拖入一个归档文件。',
   dragDropUnsupportedArchive: (formats) => `仅支持这些归档格式：${formats}`,
   dragDropMissingPath: '无法解析拖入文件的本地路径。',

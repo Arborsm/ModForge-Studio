@@ -160,8 +160,8 @@ export default function CentralWorkspace({
   }, [copy.viewportLabels, mapDocument, publishNotification])
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-[1.125rem] bg-(--bg-canvas)">
-      <div className="flex h-10 items-end gap-1 overflow-x-auto border-b border-(--border-color)/55 bg-[color-mix(in_srgb,var(--bg-panel)_88%,var(--bg-canvas))] px-2">
+    <div className="bg-surface-viewport rounded-panel flex h-full flex-col overflow-hidden">
+      <div className="border-border-subtle/55 flex h-10 items-end gap-1 overflow-x-auto border-b bg-[color-mix(in_srgb,var(--bg-panel)_88%,var(--bg-viewport))] px-2">
         <div className="flex min-w-0 flex-1 items-end gap-1">
           {tabs.map((tab) => {
             const isActive = activeTabId === tab.id
@@ -175,10 +175,10 @@ export default function CentralWorkspace({
                 className={cx(
                   'group flex h-9 shrink-0 items-center gap-2 rounded-t-lg border-x border-t px-3 text-xs transition-colors',
                   isActive
-                    ? 'border-(--border-color) bg-(--bg-panel) text-(--text-primary) shadow-[inset_0_-2px_0_0_var(--accent)]'
-                    : 'border-transparent bg-transparent text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
+                    ? 'border-border-subtle bg-surface-panel text-text-primary shadow-[inset_0_-2px_0_0_var(--accent)]'
+                    : 'border-transparent bg-transparent text-text-secondary hover:bg-surface-hover hover:text-text-primary',
                   isDragged && 'opacity-50',
-                  isDropTarget && 'border-(--accent)',
+                  isDropTarget && 'border-accent',
                 )}
                 onDragStart={(event) => {
                   if (!tab.closable) {
@@ -215,13 +215,13 @@ export default function CentralWorkspace({
                 }}
               >
                 <button type="button" className="flex min-w-0 flex-1 items-center gap-2" onClick={() => onSelectTab(tab.id)}>
-                  {tab.pinned ? <Pin className="h-3.5 w-3.5 text-(--accent)" /> : <MapIcon className="h-3.5 w-3.5" />}
+                  {tab.pinned ? <Pin className="text-accent h-3.5 w-3.5" /> : <MapIcon className="h-3.5 w-3.5" />}
                   <span className="max-w-44 truncate font-semibold">{tab.title}</span>
                 </button>
                 {tab.closable ? (
                   <button
                     type="button"
-                    className="rounded p-0.5 text-(--text-tertiary) opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-(--bg-panel) hover:text-(--text-primary)"
+                    className="text-text-tertiary hover:bg-surface-panel hover:text-text-primary rounded p-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
                     onClick={() => onCloseTab(tab.id)}
                   >
                     <X className="h-3.5 w-3.5" />

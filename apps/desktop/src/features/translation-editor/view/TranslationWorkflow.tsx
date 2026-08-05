@@ -173,10 +173,10 @@ export function TranslationWorkflow(props: TranslationWorkflowProps) {
 
   if (!props.project) return <TranslationEditor {...props} />
   return (
-    <div className="translation-workflow flex h-full min-h-0 flex-col bg-(--bg-app)">
-      <header className="translation-workflow-header flex shrink-0 items-center gap-4 border-b border-(--border-color) px-5 py-3">
+    <div className="translation-workflow bg-surface-app flex h-full min-h-0 flex-col">
+      <header className="translation-workflow-header border-border-subtle flex shrink-0 items-center gap-4 border-b px-5 py-3">
         <div className="min-w-0 flex-1">
-          <strong className="block truncate text-sm text-(--text-primary)">{props.project.name}</strong>
+          <strong className="text-text-primary block truncate text-sm">{props.project.name}</strong>
           <nav className="mt-2 flex items-center gap-1" aria-label={copy.workspaceLabel}>
             {steps.map(([id, label], index) => (
               <button
@@ -209,7 +209,7 @@ export function TranslationWorkflow(props: TranslationWorkflowProps) {
           <main className="translation-workflow-setup custom-scrollbar h-full overflow-auto p-6">
             <div className="mx-auto max-w-3xl">
               <header>
-                <Languages className="h-6 w-6 text-(--accent)" />
+                <Languages className="text-accent h-6 w-6" />
                 <h1>{copy.workflowSetupTitle}</h1>
                 <p>{copy.workflowSetupDescription}</p>
               </header>

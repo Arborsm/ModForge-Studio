@@ -9,14 +9,13 @@
      pointer-transparent; only the scrims and the card intercept clicks, so the
      highlighted anchor stays interactive (steps can advance on anchor click). */
   .guide-tour-backdrop {
-    position: fixed;
+    @apply pointer-events-none fixed;
     inset: var(--app-titlebar-height) 0 0;
     z-index: var(--z-guide);
-    pointer-events: none;
   }
 
   .guide-tour-scrim {
-    position: fixed;
+    @apply fixed;
     background: var(--scrim);
     pointer-events: auto;
     transition:
@@ -27,11 +26,10 @@
   }
 
   .guide-tour-highlight {
-    position: fixed;
+    @apply pointer-events-none fixed;
     border: 1.5px solid var(--accent);
     border-radius: 0.625rem;
     box-shadow: 0 0 1.5rem color-mix(in srgb, var(--accent) 28%, transparent);
-    pointer-events: none;
     transition:
       top 240ms cubic-bezier(0.4, 0, 0.2, 1),
       left 240ms cubic-bezier(0.4, 0, 0.2, 1),
@@ -40,15 +38,13 @@
   }
 
   .guide-tour-card {
-    position: fixed;
+    @apply text-text-primary pointer-events-auto fixed;
     width: 21.25rem;
     max-width: calc(100vw - 1.5rem);
     background: var(--bg-overlay);
     border: 1px solid var(--border-color);
     border-radius: var(--app-window-radius);
     box-shadow: var(--shadow-float);
-    color: var(--text-primary);
-    pointer-events: auto;
     outline: none;
     transition:
       top 240ms cubic-bezier(0.4, 0, 0.2, 1),
@@ -62,8 +58,7 @@
   }
 
   .guide-tour-card-content {
-    display: flex;
-    flex-direction: column;
+    @apply flex flex-col;
     gap: 0.375rem;
     padding: 0.875rem 1rem 0.75rem;
     animation: guide-tour-card-in 200ms ease-out;
@@ -72,7 +67,7 @@
   /* Rotated square peeking out of the card edge toward the anchor; the two
      visible sides carry the card border so the outline reads as continuous. */
   .guide-tour-arrow {
-    position: absolute;
+    @apply absolute;
     width: 0.625rem;
     height: 0.625rem;
     background: var(--bg-overlay);
@@ -108,77 +103,63 @@
   }
 
   .guide-tour-card-eyebrow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    @apply text-text-tertiary text-meta flex items-center justify-between;
     gap: 0.5rem;
-    font-size: 0.6875rem;
     letter-spacing: 0.04em;
-    color: var(--text-tertiary);
     text-transform: uppercase;
   }
 
   .guide-tour-card-title {
-    font-size: 0.9375rem;
-    font-weight: 600;
+    @apply text-[0.9375rem] font-semibold;
     line-height: 1.35;
   }
 
   .guide-tour-card-description {
-    font-size: 0.8125rem;
+    @apply text-text-secondary text-body;
     line-height: 1.6;
-    color: var(--text-secondary);
   }
 
   .guide-tour-card-hint {
-    font-size: 0.75rem;
+    @apply text-accent text-xs;
     line-height: 1.5;
-    color: var(--accent);
   }
 
   .guide-tour-card-actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    @apply flex items-center justify-between;
     gap: 0.5rem;
     margin-top: 0.5rem;
   }
 
   .guide-tour-dots {
-    display: flex;
-    align-items: center;
+    @apply flex items-center;
     gap: 0.375rem;
   }
 
   .guide-tour-dot {
+    @apply rounded-full;
     width: 0.375rem;
     height: 0.375rem;
-    border-radius: 50%;
     background: var(--border-color);
     transition: background 150ms ease;
   }
 
   .guide-tour-dot--active {
-    background: var(--accent);
+    @apply bg-accent;
   }
 
   .guide-tour-card-actions-primary {
-    display: flex;
-    align-items: center;
+    @apply flex items-center;
     gap: 0.5rem;
   }
 
   .guide-tour-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    @apply inline-flex cursor-pointer items-center justify-center;
     min-height: 1.75rem;
     padding: 0.25rem 0.75rem;
     border-radius: 0.5rem;
     border: 1px solid transparent;
     font-size: 0.8125rem;
     font-weight: 500;
-    cursor: pointer;
     transition:
       background 150ms ease,
       border-color 150ms ease,
@@ -186,18 +167,16 @@
   }
 
   .guide-tour-btn-ghost {
+    @apply text-text-secondary;
     background: transparent;
-    color: var(--text-secondary);
   }
 
   .guide-tour-btn-ghost:hover {
-    background: var(--bg-panel-muted);
-    color: var(--text-primary);
+    @apply bg-surface-panel-muted text-text-primary;
   }
 
   .guide-tour-btn-primary {
-    background: var(--accent);
-    border-color: var(--accent);
+    @apply bg-accent border-accent;
     color: var(--accent-contrast);
   }
 

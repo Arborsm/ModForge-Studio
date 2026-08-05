@@ -57,11 +57,11 @@ export default function ProjectTranslationModuleRuntime() {
     }
     return (
       <div className="flex h-full items-center justify-center overflow-auto p-6">
-        <div className="w-full max-w-lg rounded-lg border border-(--border-color) bg-(--bg-panel) p-6">
-          <Languages className="h-6 w-6 text-(--accent)" />
-          <h1 className="mt-2 text-base font-medium text-(--text-primary)">{copy.bootstrapTitle}</h1>
-          <p className="mt-2 text-sm text-(--text-secondary)">{copy.bootstrapDescription}</p>
-          <p className="mt-3 text-sm text-(--text-secondary)">
+        <div className="border-border-subtle bg-surface-panel w-full max-w-lg rounded-lg border p-6">
+          <Languages className="text-accent h-6 w-6" />
+          <h1 className="text-text-primary mt-2 text-base font-medium">{copy.bootstrapTitle}</h1>
+          <p className="text-text-secondary mt-2 text-sm">{copy.bootstrapDescription}</p>
+          <p className="text-text-secondary mt-3 text-sm">
             {extraction.rewrittenCount > 0 ? copy.bootstrapFound(extraction.rewrittenCount) : copy.bootstrapEmpty}
           </p>
           <button

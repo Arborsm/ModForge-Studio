@@ -358,12 +358,12 @@ export function ScriptTimeline({
         {commands.length === 0 && (
           <div className="script-empty">
             <ListPlus className="h-7 w-7 opacity-40" />
-            <p className="text-sm font-medium text-(--text-secondary)">{copy.emptyTitle}</p>
-            <p className="text-[11px]">{copy.emptyHint}</p>
+            <p className="text-text-secondary text-sm font-medium">{copy.emptyTitle}</p>
+            <p className="text-meta-px">{copy.emptyHint}</p>
             <button
               type="button"
               onClick={() => handleInsert(0)}
-              className="mt-1 inline-flex items-center gap-1 rounded-md bg-(--accent) px-3 py-1.5 text-xs font-medium text-(--text-inverse) transition-opacity hover:opacity-90"
+              className="bg-accent text-text-inverse mt-1 inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-90"
             >
               <Plus className="h-3.5 w-3.5" />
               {copy.emptyAction}

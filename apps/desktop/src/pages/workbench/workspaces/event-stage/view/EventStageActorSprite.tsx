@@ -231,7 +231,7 @@ export function EventStageActorSprite({
         </div>
       ) : showFallbackLabel ? (
         <div className="flex h-full w-full items-end justify-center">
-          <div className="rounded-full border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-2 py-1 text-[10px] font-semibold tracking-[0.16em] text-(--text-primary) uppercase shadow-(--shadow-panel)">
+          <div className="border-border-subtle text-text-primary shadow-panel text-caption-px tracking-ui-wider rounded-full border bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-2 py-1 font-semibold uppercase">
             {normalizeActorName(actor.actorName)}
           </div>
         </div>

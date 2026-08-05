@@ -1,19 +1,17 @@
 @layer components {
   .image-skeleton {
-    position: relative;
-    display: block;
-    overflow: hidden;
+    @apply relative block overflow-hidden;
     background: color-mix(in srgb, var(--bg-panel-muted) 72%, var(--border-color));
   }
 
   .image-skeleton-overlay {
-    position: absolute;
+    @apply absolute;
     inset: 0;
     z-index: 1;
   }
 
   .image-skeleton-rounded {
-    border-radius: 1rem;
+    @apply rounded-xl;
   }
 
   .image-skeleton::after {

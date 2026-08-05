@@ -10,32 +10,27 @@
   }
 
   .map-asset-editor {
-    display: flex;
+    @apply text-text-primary flex min-h-0 overflow-hidden;
     height: 100%;
     flex-direction: column;
-    overflow: hidden;
     background: var(--bg-panel);
-    color: var(--text-primary);
   }
 
   .map-asset-editor-state {
-    display: grid;
+    @apply text-text-secondary grid p-8;
     min-height: 18rem;
     place-items: center;
-    padding: 2rem;
-    color: var(--text-secondary);
   }
 
   .map-asset-editor-state.is-error,
   .map-asset-save-status.is-error {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .map-asset-editor-header {
-    display: flex;
+    @apply flex items-center;
     min-height: 3rem;
     flex: 0 0 auto;
-    align-items: center;
     gap: 0.625rem;
     border-bottom: 1px solid var(--border-color);
     padding: 0 0.75rem;
@@ -47,22 +42,20 @@
   }
 
   .map-asset-editor-header > div {
-    display: grid;
+    @apply grid;
     flex: 0 1 auto;
   }
 
   .map-asset-save-status {
-    margin-left: auto;
+    @apply ml-auto;
   }
 
   .map-asset-editor-header > div > span,
   .map-asset-path,
   .map-asset-save-status {
-    overflow: hidden;
-    color: var(--text-tertiary);
+    @apply text-text-tertiary overflow-hidden whitespace-nowrap;
     font-size: 0.6875rem;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .map-asset-path {
@@ -71,29 +64,27 @@
 
   .map-asset-inspector input,
   .map-asset-inspector select {
+    @apply text-text-primary w-full min-w-0;
     box-sizing: border-box;
-    width: 100%;
-    min-width: 0;
     min-height: 1.75rem;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     background: var(--bg-app);
     padding: 0 0.5rem;
-    color: var(--text-primary);
     font-size: 0.6875rem;
   }
 
   .map-asset-inspector input:focus,
   .map-asset-inspector select:focus {
+    @apply text-accent;
     border-color: var(--accent);
     outline: none;
   }
 
   .map-asset-editor-body {
-    display: grid;
+    @apply grid overflow-hidden;
     flex: 1 1 auto;
     grid-template-columns: 15.25rem minmax(28.75rem, 1fr) 18.375rem;
-    overflow: hidden;
   }
 
   .map-asset-editor-body.has-collapsed-inspector {
@@ -101,53 +92,43 @@
   }
 
   .map-asset-tbin-diagnostics {
-    display: flex;
+    @apply text-danger flex flex-wrap items-baseline;
     flex: 0 0 auto;
-    flex-wrap: wrap;
-    align-items: baseline;
     gap: 0.75rem;
     border-bottom: 1px solid color-mix(in srgb, var(--danger) 48%, var(--border-color));
     background: color-mix(in srgb, var(--danger) 8%, var(--bg-panel));
     padding: 0.5rem 0.75rem;
-    color: var(--danger);
     font-size: 0.6875rem;
   }
 
   .map-asset-xnb-banner {
-    display: flex;
+    @apply text-warning flex items-center;
     flex: 0 0 auto;
-    align-items: center;
     gap: 0.75rem;
     border-bottom: 1px solid color-mix(in srgb, var(--warning) 48%, var(--border-color));
     background: color-mix(in srgb, var(--warning) 8%, var(--bg-panel));
     padding: 0.5rem 0.75rem;
-    color: var(--warning);
     font-size: 0.6875rem;
   }
 
   .map-asset-convert-hint {
-    color: var(--text-secondary);
+    @apply text-text-secondary;
   }
 
   .map-asset-convert-action,
   .map-asset-xnb-banner .control-button {
-    margin-left: auto;
-    align-self: center;
+    @apply ml-auto self-center;
   }
 
   .map-asset-tbin-diagnostics ul {
-    display: flex;
-    flex-wrap: wrap;
+    @apply text-text-secondary m-0 flex flex-wrap;
     gap: 0.25rem 1rem;
-    margin: 0;
     padding-left: 1rem;
-    color: var(--text-secondary);
   }
 
   .map-asset-layers,
   .map-asset-inspector {
-    display: flex;
-    flex-direction: column;
+    @apply flex flex-col;
     background: var(--bg-panel);
   }
 
@@ -156,25 +137,22 @@
   }
 
   .map-asset-layers > header {
-    display: flex;
+    @apply flex items-center justify-between;
     min-height: 2.5rem;
-    align-items: center;
-    justify-content: space-between;
     border-bottom: 1px solid var(--border-color);
     padding: 0.375rem 0.5rem 0.375rem 0.75rem;
     font-size: 0.6875rem;
   }
 
   .map-asset-layers > div {
-    overflow: auto;
+    @apply overflow-auto;
     padding: 0.375rem;
   }
 
   .map-asset-layer-row {
-    display: grid;
+    @apply grid items-center;
     min-height: 2.875rem;
     grid-template-columns: 1.75rem minmax(0, 1fr) 2.5rem 1.75rem;
-    align-items: center;
     border-radius: var(--radius-sm);
   }
 
@@ -194,25 +172,19 @@
   }
 
   .map-asset-layer-name {
-    display: grid;
-    min-width: 0;
+    @apply text-text-secondary grid min-w-0 items-center overflow-hidden text-left;
     grid-template-columns: 2.5rem minmax(0, 1fr);
-    align-items: center;
     gap: 0.5rem;
-    overflow: hidden;
     padding: 0.25rem;
-    color: var(--text-secondary);
     font-size: 0.6875rem;
-    text-align: left;
   }
 
   .map-asset-layer-row.is-active .map-asset-layer-name {
-    color: var(--text-primary);
-    font-weight: 600;
+    @apply text-text-primary font-semibold;
   }
 
   .map-asset-layer-preview {
-    display: grid;
+    @apply text-text-tertiary grid;
     width: 2.375rem;
     height: 1.875rem;
     place-items: center;
@@ -221,37 +193,32 @@
     background-color: var(--bg-panel-muted);
     background-image: conic-gradient(var(--border-color) 25%, transparent 0 50%, var(--border-color) 0 75%, transparent 0);
     background-size: 0.5rem 0.5rem;
-    color: var(--text-tertiary);
   }
 
   .map-asset-layer-meta {
-    display: grid;
-    min-width: 0;
+    @apply grid min-w-0;
     gap: 0.125rem;
   }
   .map-asset-layer-meta strong,
   .map-asset-layer-meta small {
-    overflow: hidden;
+    @apply overflow-hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .map-asset-layer-meta small {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
     font-size: 0.6875rem;
     font-weight: 400;
   }
   .map-asset-layer-opacity {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary text-right;
     font-family: var(--font-mono);
     font-size: 0.6875rem;
-    text-align: right;
   }
 
   .map-asset-canvas {
-    position: relative;
-    display: grid;
+    @apply relative grid overflow-hidden;
     grid-template-rows: 2.625rem minmax(0, 1fr);
-    overflow: hidden;
     background: var(--bg-viewport);
   }
 
@@ -261,13 +228,12 @@
 
   .map-asset-tools,
   .map-asset-transform-tools {
-    display: flex;
-    align-items: center;
+    @apply flex items-center;
     gap: 0.25rem;
   }
 
   .map-asset-tools {
-    min-height: 2.625rem;
+    @apply min-h-10.5;
     border-bottom: 1px solid var(--border-color);
     background: var(--bg-panel);
     padding: 0.375rem 0.5rem;
@@ -276,14 +242,13 @@
   .map-asset-tools .is-active,
   .map-asset-inspector nav button.is-active,
   .map-asset-object-list button.is-active {
+    @apply text-text-primary;
     background: var(--bg-active);
-    color: var(--text-primary);
     box-shadow: inset 0 -2px 0 var(--accent);
   }
 
   .map-asset-viewport {
-    position: relative;
-    overflow: hidden;
+    @apply relative overflow-hidden;
   }
 
   /* The lighting preview toolbar floats bottom-center so it never covers the palette toggle in the bottom-right corner. */
@@ -301,8 +266,7 @@
   }
 
   .map-asset-canvas > .map-tileset-palette .map-tileset-palette-heading {
-    display: flex;
-    align-items: center;
+    @apply flex items-center;
     gap: 0.625rem;
     border-right: 0;
     border-bottom: 1px solid var(--border-color);
@@ -310,28 +274,25 @@
   }
 
   .map-asset-canvas > .map-tileset-palette .map-tileset-palette-title {
-    min-width: 8rem;
+    @apply min-w-32;
   }
   .map-asset-canvas > .map-tileset-palette .map-tileset-palette-switcher {
     flex: 1 1 auto;
   }
   .map-asset-canvas > .map-tileset-palette .map-tileset-palette-controls {
-    margin-left: auto;
+    @apply ml-auto;
   }
 
   .map-editor-palette-toggle {
-    position: absolute;
+    @apply text-text-secondary absolute inline-flex items-center;
     right: 0.5rem;
     bottom: 0.5rem;
     z-index: 2;
-    display: inline-flex;
     min-height: 1.75rem;
-    align-items: center;
     gap: 0.375rem;
     border-radius: var(--radius-sm);
     padding: 0 0.5rem;
     background: var(--bg-panel);
-    color: var(--text-secondary);
     font-size: 0.6875rem;
   }
 
@@ -360,78 +321,66 @@
   }
 
   .map-asset-inspector > nav button {
-    overflow: hidden;
+    @apply text-text-secondary overflow-hidden whitespace-nowrap;
     padding: 0.5rem 0.25rem;
-    color: var(--text-secondary);
     font-size: 0.6875rem;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .map-asset-inspector-content {
-    display: grid;
+    @apply grid overflow-auto;
     align-content: start;
     gap: 0.75rem;
-    overflow: auto;
     padding: 0.75rem;
     font-size: 0.6875rem;
   }
 
   .map-asset-inspector-content > header,
   .map-asset-animation > header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
+    @apply flex items-baseline justify-between;
     gap: 0.5rem;
   }
 
   .map-asset-inspector-content p,
   .map-asset-inspector-content footer {
-    margin: 0;
-    color: var(--text-secondary);
+    @apply text-text-secondary m-0;
   }
 
   .map-asset-inspector-content .is-warning {
-    color: var(--warning);
+    @apply text-warning;
   }
 
   .map-asset-inspector-content .map-asset-tileset-source-hint {
-    margin: 0;
-    color: var(--text-tertiary);
+    @apply text-text-tertiary m-0;
     font-size: 0.6875rem;
     line-height: 1.4;
   }
 
   .map-asset-inspector-content .map-asset-tileset-source-invalid {
-    margin: 0;
-    color: var(--danger);
+    @apply text-danger m-0;
     font-size: 0.6875rem;
   }
 
   .map-asset-object-list {
-    display: grid;
+    @apply grid overflow-auto;
     max-height: 9rem;
     gap: 0.25rem;
-    overflow: auto;
   }
 
   .map-asset-object-list button {
-    overflow: hidden;
+    @apply text-text-secondary overflow-hidden text-left whitespace-nowrap;
     border-radius: var(--radius-sm);
     padding: 0.375rem 0.5rem;
-    color: var(--text-secondary);
-    text-align: left;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .map-asset-document-summary,
   .map-asset-layer-section {
-    display: grid;
-    min-width: 0;
+    @apply grid min-w-0;
   }
 
   .map-asset-document-summary {
+    @apply border-b;
     gap: 0.25rem;
     border-bottom: 1px solid var(--border-color);
     padding: 0.625rem 0.75rem;
@@ -439,35 +388,29 @@
 
   .map-asset-document-summary > header,
   .map-asset-layer-section > header {
-    display: flex;
+    @apply flex items-center justify-between;
     min-height: 1.5rem;
-    align-items: center;
-    justify-content: space-between;
     gap: 0.5rem;
     padding: 0;
   }
 
   .map-asset-document-summary > strong {
-    overflow: hidden;
-    color: var(--text-primary);
+    @apply text-text-primary overflow-hidden whitespace-nowrap;
     font-size: 0.6875rem;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .map-asset-document-summary > span,
   .map-asset-document-summary > small,
   .map-asset-layer-section > header > span {
-    overflow: hidden;
-    color: var(--text-tertiary);
+    @apply text-text-tertiary overflow-hidden whitespace-nowrap;
     font-family: var(--font-mono);
     font-size: 0.6875rem;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .map-asset-layer-section {
-    min-height: 0;
+    @apply min-h-0;
     flex: 1 1 auto;
   }
 
@@ -479,104 +422,73 @@
   }
 
   .map-asset-layer-section > div {
-    min-height: 0;
-    overflow: auto;
+    @apply min-h-0 overflow-auto;
     padding: 0.375rem;
   }
 
   .map-asset-layer-toolbar {
-    display: grid;
+    @apply grid items-center;
     min-height: 2.5rem;
     grid-template-columns: repeat(3, 1.75rem) 1fr repeat(2, 1.75rem);
-    align-items: center;
     gap: 0.125rem;
     border-top: 1px solid var(--border-color);
     padding: 0.375rem;
   }
 
-  .map-asset-inspector > .map-asset-inspector-views {
-    display: grid;
-    min-height: 2.5rem;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .map-asset-inspector > .map-asset-inspector-tabs {
-    display: grid;
-    min-height: 2.25rem;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
-    border-bottom: 1px solid var(--border-color);
-    background: var(--bg-panel-muted);
-  }
-
-  .map-asset-inspector > .map-asset-inspector-views button,
-  .map-asset-inspector > .map-asset-inspector-tabs button {
-    min-width: 0;
-    min-height: 2.25rem;
-  }
-
   .map-asset-inspector > .map-asset-inspector-views button.is-active,
   .map-asset-inspector > .map-asset-inspector-tabs button.is-active {
+    @apply text-text-primary;
     background: var(--bg-hover);
-    color: var(--text-primary);
     box-shadow: inset 0 -2px 0 var(--accent);
   }
 
   .map-asset-inspector.is-collapsed > .map-asset-inspector-tabs,
   .map-asset-inspector.is-collapsed > .map-asset-inspector-content {
-    display: none;
+    @apply hidden;
   }
 
   .map-asset-statusbar {
-    display: grid;
+    @apply text-text-tertiary grid items-center;
     min-height: 1.75rem;
     flex: 0 0 auto;
     grid-template-columns: repeat(3, auto) 1fr auto;
-    align-items: center;
     gap: 0.75rem;
     border-top: 1px solid var(--border-color);
     background: var(--bg-panel);
     padding: 0 0.75rem;
-    color: var(--text-tertiary);
     font-family: var(--font-mono);
     font-size: 0.6875rem;
   }
 
   /* ===== Patch-tiles session ===== */
   .map-tiles-session-changed {
-    margin-left: auto;
-    overflow: hidden;
-    color: var(--text-secondary);
+    @apply text-text-secondary ml-auto overflow-hidden whitespace-nowrap;
     font-size: 0.6875rem;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .map-tiles-session-state {
-    display: grid;
+    @apply text-text-secondary grid text-center;
     height: 100%;
     place-items: center;
     align-content: center;
     gap: 0.75rem;
     padding: 2rem;
     background: var(--bg-panel);
-    color: var(--text-secondary);
     font-size: 0.75rem;
-    text-align: center;
   }
 
   .map-tiles-session-state > strong {
-    color: var(--text-primary);
+    @apply text-text-primary font-bold;
     font-size: 0.8125rem;
-    font-weight: 700;
   }
 
   .map-tiles-session-state.is-error {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .map-tiles-session-state .map-tiles-session-actions {
-    display: flex;
+    @apply flex;
     gap: 0.5rem;
   }
 }

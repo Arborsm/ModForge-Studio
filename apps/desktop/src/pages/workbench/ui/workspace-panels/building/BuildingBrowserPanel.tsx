@@ -231,9 +231,9 @@ export function BuildingBrowserPanel({
     <aside className="building-workspace-pane h-full">
       <div className="building-workspace-browser-head">
         <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-(--text-tertiary)" />
+          <Search className="text-text-tertiary pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2" />
           <input
-            className="control-input border-transparent bg-(--bg-panel-muted) pl-9"
+            className="control-input bg-surface-panel-muted border-transparent pl-9"
             value={buildingFilter}
             onChange={(event) => onBuildingFilterChange(event.target.value)}
             placeholder={copy.browserFilterPlaceholder}

@@ -1,8 +1,6 @@
 @layer components {
   .workbench-shell-body {
-    display: grid;
-    min-height: 0;
-    flex: 1;
+    @apply grid min-h-0 flex-1;
     grid-template-columns: var(--workbench-nav-w, 13.75rem) minmax(0, 1fr);
     transition: grid-template-columns 180ms cubic-bezier(0.2, 0, 0, 1);
   }
@@ -16,127 +14,71 @@
   }
 
   .workbench-shell-main {
-    position: relative;
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-    background: var(--bg-app);
-    display: flex;
-    flex-direction: column;
+    @apply bg-surface-app relative flex min-h-0 min-w-0 flex-col overflow-hidden;
   }
 
   .workbench-side-nav {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
+    @apply bg-surface-panel flex min-h-0 flex-col overflow-hidden;
     border-right: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
-    background: var(--bg-panel);
-    overflow: hidden;
   }
 
   .workbench-side-nav-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.25rem;
-    height: 2.5rem;
-    padding: 0 0.5rem;
-    flex-shrink: 0;
+    @apply flex h-10 shrink-0 items-center justify-between gap-1 px-2;
   }
 
   .workbench-side-nav-collapsed .workbench-side-nav-head {
-    justify-content: center;
+    @apply justify-center;
   }
 
   .workbench-side-nav-head-tools {
-    display: flex;
-    align-items: center;
-    gap: 0.125rem;
+    @apply flex items-center gap-0.5;
   }
 
   .workbench-side-nav-tool {
-    width: 1.75rem;
-    height: 1.75rem;
-    border: 0;
-    border-radius: 0.4375rem;
-    background: transparent;
-    color: var(--text-tertiary);
-    cursor: pointer;
-    display: grid;
-    place-items: center;
-    flex-shrink: 0;
+    @apply text-text-tertiary rounded-button grid h-7 w-7 shrink-0 cursor-pointer place-items-center border-0 bg-transparent;
   }
 
   .workbench-side-nav-tool:hover:not(:disabled) {
-    background: var(--bg-hover);
-    color: var(--text-primary);
+    @apply bg-surface-hover text-text-primary;
   }
 
   .workbench-side-nav-tool:disabled {
-    opacity: 0.35;
-    cursor: default;
+    @apply cursor-default opacity-35;
   }
 
   .workbench-side-nav-scroll {
-    flex: 1;
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    padding: 0.25rem 0.5rem 0.75rem;
+    @apply min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 pt-1 pb-3;
     scrollbar-width: thin;
   }
 
   .workbench-side-nav-section {
-    margin-bottom: 0.375rem;
+    @apply mb-1.5;
   }
 
   .workbench-side-nav-section-hd {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    height: 1.75rem;
-    padding: 0 0.5rem;
-    margin-bottom: 0.125rem;
-    border: 0;
-    border-radius: 0.375rem;
-    background: transparent;
-    color: var(--text-tertiary);
     font: inherit;
-    font-size: 0.65625rem;
-    font-weight: 750;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    cursor: pointer;
-    text-align: left;
+    @apply text-text-tertiary text-meta font-ui-bold tracking-ui-wide mb-0.5 flex h-7 w-full cursor-pointer items-center justify-between rounded-md border-0 bg-transparent px-2 text-left uppercase;
   }
 
   .workbench-side-nav-section-hd:hover {
-    color: var(--text-secondary);
-    background: var(--bg-hover);
+    @apply text-text-secondary bg-surface-hover;
   }
 
   .workbench-side-nav-item.is-locked {
-    color: var(--text-tertiary);
-    opacity: 0.55;
+    @apply text-text-tertiary opacity-55;
   }
 
   .workbench-side-nav-item.is-locked:hover {
-    background: transparent;
-    color: var(--text-tertiary);
+    @apply text-text-tertiary bg-transparent;
   }
 
   .workbench-side-nav-lock {
-    width: 0.75rem;
-    height: 0.75rem;
-    opacity: 0.75;
+    @apply h-3 w-3 opacity-75;
   }
 
   .workbench-side-nav-chev {
-    width: 0.875rem;
-    height: 0.875rem;
+    @apply h-3.5 w-3.5 opacity-70;
     transition: transform 150ms cubic-bezier(0.2, 0, 0, 1);
-    opacity: 0.7;
   }
 
   .workbench-side-nav-chev.is-collapsed {
@@ -144,58 +86,37 @@
   }
 
   .workbench-side-nav-section[data-open='false'] .workbench-side-nav-section-bd {
-    display: none;
+    @apply hidden;
   }
 
   .workbench-side-nav-collapsed .workbench-side-nav-section-hd {
-    display: none;
+    @apply hidden;
   }
 
   .workbench-side-nav-collapsed .workbench-side-nav-section[data-open='true'] .workbench-side-nav-section-bd {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.125rem;
+    @apply flex flex-col items-center gap-0.5;
   }
 
   .workbench-side-nav-collapsed .workbench-side-nav-section[data-open='true'] + .workbench-side-nav-section[data-open='true'],
   .workbench-side-nav-collapsed .workbench-side-nav-section:not([data-section]) + .workbench-side-nav-section[data-open='true'] {
-    margin-top: 0.375rem;
-    padding-top: 0.375rem;
+    @apply mt-1.5 pt-1.5;
     border-top: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
   }
 
   .workbench-side-nav-item {
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-    width: 100%;
-    height: 2.25rem;
-    padding: 0 0.625rem;
-    margin-bottom: 0.0625rem;
-    border: 0;
-    border-radius: 0.5625rem;
-    background: transparent;
-    color: var(--text-secondary);
     font: inherit;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    cursor: pointer;
-    text-align: left;
-    position: relative;
+    @apply text-text-secondary rounded-field text-body relative mb-px flex h-9 w-full cursor-pointer items-center gap-2.5 border-0 bg-transparent px-2.5 text-left font-semibold;
     transition:
       background 120ms cubic-bezier(0.2, 0, 0, 1),
       color 120ms cubic-bezier(0.2, 0, 0, 1);
   }
 
   .workbench-side-nav-item:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
+    @apply bg-surface-hover text-text-primary;
   }
 
   .workbench-side-nav-item.is-current {
-    background: var(--accent-soft);
-    color: var(--accent);
+    @apply bg-accent-soft text-accent;
   }
 
   .workbench-side-nav-item.is-current::before {
@@ -210,47 +131,28 @@
   }
 
   .workbench-side-nav-ico {
-    width: 1.125rem;
-    height: 1.125rem;
-    flex-shrink: 0;
-    display: grid;
-    place-items: center;
+    @apply grid h-4.5 w-4.5 shrink-0 place-items-center;
   }
 
   .workbench-side-nav-label {
-    min-width: 0;
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    @apply min-w-0 flex-1 truncate;
   }
 
   .workbench-side-nav-tag {
-    font-size: 0.625rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    padding: 0.125rem 0.375rem;
-    border-radius: 62.4375rem;
-    background: var(--bg-panel-muted);
-    color: var(--text-tertiary);
-    flex-shrink: 0;
+    @apply bg-surface-panel-muted text-text-tertiary text-caption tracking-ui shrink-0 rounded-full px-1.5 py-0.5 font-bold;
   }
 
   .workbench-side-nav-collapsed .workbench-side-nav-item {
-    justify-content: center;
-    padding: 0;
-    width: 2.5rem;
-    height: 2.5rem;
-    margin: 0;
+    @apply m-0 h-10 w-10 justify-center p-0;
   }
 
   .workbench-side-nav-collapsed .workbench-side-nav-label,
   .workbench-side-nav-collapsed .workbench-side-nav-tag {
-    display: none;
+    @apply hidden;
   }
 
   .workbench-side-nav-collapsed .workbench-side-nav-item[data-tip] {
-    position: relative;
+    @apply relative;
   }
 
   .workbench-side-nav-collapsed .workbench-side-nav-item[data-tip]:hover::after {
@@ -271,43 +173,29 @@
   }
 
   .top-menu-project-title {
-    display: inline-flex;
-    max-width: min(42vw, 26.25rem);
-    min-width: 0;
-    align-items: center;
-    gap: 0.5rem;
-    height: 2.25rem;
-    padding: 0 0.75rem;
-    border: 1px solid transparent;
-    border-radius: 0.625rem;
-    background: transparent;
-    color: var(--text-primary);
+    @apply text-text-primary rounded-field inline-flex h-9 min-w-0 cursor-pointer items-center gap-2 border border-transparent bg-transparent px-3;
     font: inherit;
-    cursor: pointer;
+    max-width: min(42vw, 26.25rem);
     transition:
       background 140ms ease,
       border-color 140ms ease;
   }
 
   .top-menu-project-title:hover {
-    background: var(--bg-hover);
+    @apply bg-surface-hover;
   }
 
   .top-menu-project-title[aria-expanded='true'] {
-    background: var(--bg-active);
+    @apply bg-surface-active;
     border-color: color-mix(in srgb, var(--border-color) 80%, transparent);
   }
 
   .top-menu-project-title.is-empty {
-    color: var(--text-secondary);
+    @apply text-text-secondary;
   }
 
   .top-menu-project-title .dot {
-    width: 0.5rem;
-    height: 0.5rem;
-    border-radius: 62.4375rem;
-    background: var(--accent);
-    flex-shrink: 0;
+    @apply bg-accent h-2 w-2 shrink-0 rounded-full;
   }
 
   .top-menu-project-title.is-empty .dot {
@@ -315,26 +203,15 @@
   }
 
   .top-menu-project-title .name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.8125rem;
-    font-weight: 650;
+    @apply text-body font-ui-semibold min-w-0 truncate;
   }
 
   .top-menu-project-title .meta {
-    flex-shrink: 0;
-    font-size: 0.6875rem;
-    font-weight: 550;
-    color: var(--text-tertiary);
+    @apply text-text-tertiary text-meta font-ui shrink-0;
   }
 
   .top-menu-project-title .chev {
-    width: 0.875rem;
-    height: 0.875rem;
-    color: var(--text-tertiary);
-    flex-shrink: 0;
+    @apply text-text-tertiary h-3.5 w-3.5 shrink-0;
     transition: transform 140ms ease;
   }
 
@@ -343,152 +220,87 @@
   }
 
   .top-menu-project-menu {
-    position: absolute;
+    @apply border-border-subtle bg-surface-overlay shadow-float rounded-card absolute left-1/2 border p-2;
     top: calc(100% + 0.5rem);
-    left: 50%;
     z-index: 200;
     width: min(20rem, 80vw);
     transform: translateX(-50%);
-    border: 1px solid var(--border-color);
-    border-radius: 0.875rem;
-    background: var(--bg-overlay);
-    box-shadow: var(--shadow-float);
-    padding: 0.5rem;
     backdrop-filter: blur(0.75rem);
   }
 
   .top-menu-project-menu-head {
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
-    padding: 0.5rem 0.625rem 0.625rem;
+    @apply flex flex-col gap-0.5 px-2.5 pt-2 pb-2.5;
   }
 
   .top-menu-project-menu-head strong {
-    font-size: 0.8125rem;
-    font-weight: 700;
-    color: var(--text-primary);
+    @apply text-text-primary text-body font-bold;
   }
 
   .top-menu-project-menu-head span {
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: 0.6875rem;
-    color: var(--text-tertiary);
+    @apply text-text-tertiary text-meta font-mono;
   }
 
   .top-menu-project-menu-label {
-    margin: 0.25rem 0;
-    padding: 0 0.625rem;
-    color: var(--text-tertiary);
-    font-size: 0.625rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    @apply text-text-tertiary text-caption tracking-ui-wide my-1 px-2.5 font-bold uppercase;
   }
 
   .top-menu-project-menu-sep {
-    height: 1px;
-    margin: 0.375rem 0.25rem;
+    @apply mx-1 my-1.5 h-px;
     background: color-mix(in srgb, var(--border-color) 88%, transparent);
   }
 
   .top-menu-project-menu-item {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-    min-height: 2.25rem;
-    padding: 0.5rem 0.625rem;
-    border: 0;
-    border-radius: 0.625rem;
-    background: transparent;
-    color: var(--text-primary);
     font: inherit;
-    font-size: 0.8125rem;
-    font-weight: 550;
-    text-align: left;
-    cursor: pointer;
+    @apply text-text-primary rounded-field text-body font-ui flex min-h-9 w-full cursor-pointer items-center gap-2.5 border-0 bg-transparent px-2.5 py-2 text-left;
   }
 
   .top-menu-project-menu-item:hover {
-    background: var(--bg-hover);
+    @apply bg-surface-hover;
   }
 
   .top-menu-project-menu-item[aria-current='true'] {
-    background: var(--accent-soft);
-    color: var(--accent);
+    @apply bg-accent-soft text-accent;
   }
 
   .top-menu-project-menu-item .pm-copy {
-    min-width: 0;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.0625rem;
+    @apply flex min-w-0 flex-1 flex-col gap-px;
   }
 
   .top-menu-project-menu-item .pm-copy strong {
-    font-size: 0.8125rem;
-    font-weight: 650;
+    @apply text-body font-ui-semibold;
   }
 
   .top-menu-project-menu-item .pm-copy em {
-    font-style: normal;
-    font-size: 0.6875rem;
-    color: var(--text-tertiary);
-    font-weight: 500;
+    @apply text-text-tertiary text-meta font-medium not-italic;
   }
 
   .top-menu-history {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.125rem;
+    @apply inline-flex items-center gap-0.5;
   }
 
   .top-menu-history-button {
-    width: 1.75rem;
-    height: 1.75rem;
-    display: inline-grid;
-    place-items: center;
-    border: 0;
-    border-radius: 0.4375rem;
-    background: transparent;
-    color: var(--text-secondary);
-    cursor: pointer;
+    @apply text-text-secondary rounded-button inline-grid h-7 w-7 cursor-pointer place-items-center border-0 bg-transparent;
   }
 
   .top-menu-history-button:hover:not(:disabled) {
-    background: var(--bg-hover);
-    color: var(--text-primary);
+    @apply bg-surface-hover text-text-primary;
   }
 
   .top-menu-history-button:disabled {
-    opacity: 0.35;
-    cursor: default;
+    @apply cursor-default opacity-35;
   }
 
   .workbench-ws-toolbar {
-    height: 2.5rem;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-    padding: 0 0.875rem;
+    @apply bg-surface-panel flex h-10 shrink-0 items-center gap-2.5 px-3.5;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
-    background: var(--bg-panel);
   }
 
   .workbench-ws-toolbar-title {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: var(--text-primary);
+    @apply text-text-primary text-body tracking-ui-tight font-semibold;
   }
 
   .workbench-ws-toolbar-sub {
-    font-size: 0.75rem;
-    font-weight: 450;
-    color: var(--text-tertiary);
+    @apply text-text-tertiary font-ui text-xs;
   }
 
   .workbench-ws-toolbar-sub::before {
@@ -498,64 +310,40 @@
   }
 
   .workbench-ws-mode-seg {
-    display: inline-flex;
-    height: 100%;
-    align-items: stretch;
-    margin-left: auto;
+    @apply ml-auto inline-flex h-full items-stretch;
   }
 
   .workbench-ws-mode-seg button {
-    height: auto;
-    padding: 0 0.625rem;
+    font: inherit;
+    @apply text-text-tertiary text-body font-ui -mb-px h-auto cursor-pointer rounded-none bg-transparent px-2.5;
     border: 0;
     border-bottom: 2px solid transparent;
-    border-radius: 0;
-    background: transparent;
-    color: var(--text-tertiary);
-    font: inherit;
-    font-size: 0.78125rem;
-    font-weight: 550;
-    cursor: pointer;
-    margin-bottom: -1px;
   }
 
   .workbench-ws-mode-seg button:hover {
-    color: var(--text-secondary);
+    @apply text-text-secondary;
   }
 
   .workbench-ws-mode-seg button[aria-pressed='true'] {
-    color: var(--text-primary);
+    @apply text-text-primary;
     border-bottom-color: var(--text-primary);
   }
 
   .workbench-ws-mode-seg button[data-locked='true'] {
-    opacity: 0.5;
+    @apply opacity-50;
   }
 
   .workbench-edit-gate {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.625rem;
-    padding: 0.75rem 0.875rem;
+    @apply bg-surface-panel text-text-secondary text-body leading-ui flex items-start gap-2.5 px-3.5 py-3;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
-    background: var(--bg-panel);
-    color: var(--text-secondary);
-    font-size: 0.78125rem;
-    line-height: 1.45;
   }
 
   .workbench-edit-gate strong {
-    display: block;
-    margin-bottom: 0.125rem;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--warning);
+    @apply text-warning text-body mb-0.5 block font-semibold;
   }
 
   .workbench-edit-gate-actions {
-    margin-top: 0.5rem;
-    display: flex;
-    gap: 0.5rem;
+    @apply mt-2 flex gap-2;
   }
 
   @media (max-width: 1100px) {

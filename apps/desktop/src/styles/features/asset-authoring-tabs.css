@@ -1,37 +1,29 @@
 @layer components {
   .asset-entry-tabs {
-    display: grid;
-    min-width: 0;
+    @apply bg-surface-panel grid min-w-0 overflow-hidden;
     border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
     border-radius: 0.75rem;
-    background: var(--bg-panel);
-    overflow: hidden;
   }
 
   .asset-entry-tab-list {
-    display: flex;
-    align-items: stretch;
-    min-width: 0;
-    overflow-x: auto;
+    @apply flex min-w-0 items-stretch overflow-x-auto;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
     background: color-mix(in srgb, var(--bg-panel-muted) 52%, transparent);
     scrollbar-width: thin;
   }
 
   .asset-entry-tab {
+    @apply text-text-secondary cursor-pointer text-xs;
     flex: 0 0 auto;
     min-height: 2.5rem;
     border-bottom: 2px solid transparent;
-    color: var(--text-secondary);
-    font-size: 0.75rem;
     font-weight: 650;
     padding: 0.5625rem 0.875rem;
-    cursor: pointer;
   }
 
   .asset-entry-tab:hover {
+    @apply text-text-primary;
     background: color-mix(in srgb, var(--bg-active) 55%, transparent);
-    color: var(--text-primary);
   }
 
   .asset-entry-tab:focus-visible {
@@ -40,13 +32,11 @@
   }
 
   .asset-entry-tab[aria-selected='true'] {
+    @apply bg-surface-panel text-accent;
     border-bottom-color: var(--accent);
-    background: var(--bg-panel);
-    color: var(--accent);
   }
 
   .asset-entry-tab-panel {
-    min-width: 0;
-    padding: 1rem;
+    @apply min-w-0 p-4;
   }
 }

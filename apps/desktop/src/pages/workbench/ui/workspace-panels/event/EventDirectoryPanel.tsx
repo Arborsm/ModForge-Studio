@@ -21,8 +21,8 @@ export function EventDirectoryPanel({ events, selectedEventKey, subtitle, modSou
     <PanelFrame flat title={labels.directoryTitle} subtitle={subtitle} bodyClassName="p-3">
       <div className="space-y-3">
         {modSources.length ? (
-          <div className="rounded-xl bg-(--bg-panel-muted) px-3 py-3">
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">{labels.modSourcesTitle}</p>
+          <div className="bg-surface-panel-muted rounded-xl px-3 py-3">
+            <p className="text-text-secondary text-meta-px tracking-ui-wider font-semibold uppercase">{labels.modSourcesTitle}</p>
             <div className="mt-3">
               <ModSourceList sources={modSources} variant="flat" />
             </div>
@@ -43,10 +43,8 @@ export function EventDirectoryPanel({ events, selectedEventKey, subtitle, modSou
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-(--text-primary)">{event.eventId}</p>
-                        <p className="mt-1 truncate text-xs text-(--text-secondary)">
-                          {event.preconditions.slice(1).join(' / ') || event.key}
-                        </p>
+                        <p className="text-text-primary truncate text-sm font-semibold">{event.eventId}</p>
+                        <p className="text-text-secondary mt-1 truncate text-xs">{event.preconditions.slice(1).join(' / ') || event.key}</p>
                       </div>
                       <span className="dock-chip shrink-0">{event.commands.length}</span>
                     </div>

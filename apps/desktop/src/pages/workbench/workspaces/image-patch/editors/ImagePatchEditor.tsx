@@ -187,14 +187,14 @@ export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources 
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center border-b border-(--border-color) px-3 py-2">
-        <span className="text-xs font-medium text-(--text-primary)">{patch.target}</span>
+      <div className="border-border-subtle flex items-center border-b px-3 py-2">
+        <span className="text-text-primary text-xs font-medium">{patch.target}</span>
       </div>
 
       <div className="flex min-h-0 flex-1">
         {/* Left: replacement image + FromArea picking */}
-        <div className="flex w-1/2 shrink-0 flex-col border-r border-(--border-color) p-3">
-          <span className="mb-2 text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">{copy.replacementImage}</span>
+        <div className="border-border-subtle flex w-1/2 shrink-0 flex-col border-r p-3">
+          <span className="text-text-secondary text-caption-px mb-2 font-semibold tracking-wider uppercase">{copy.replacementImage}</span>
 
           {displayUrl ? (
             <div className="flex min-h-0 flex-1 flex-col gap-2">
@@ -209,7 +209,7 @@ export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources 
                     className="max-h-full"
                   />
                 ) : (
-                  <div className="flex items-center justify-center overflow-auto rounded-lg border border-(--border-color) bg-(--bg-app) p-2">
+                  <div className="border-border-subtle bg-surface-app flex items-center justify-center overflow-auto rounded-lg border p-2">
                     <img
                       src={displayUrl}
                       alt={copy.previewAlt}
@@ -220,10 +220,10 @@ export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources 
                 )}
               </div>
               <div className="flex items-center justify-between">
-                <span className="truncate text-[10px] text-(--text-secondary)">{patch.fromFile ?? copy.unsaved}</span>
+                <span className="text-text-secondary text-caption-px truncate">{patch.fromFile ?? copy.unsaved}</span>
                 <button
                   type="button"
-                  className="icon-button h-6 w-6 text-(--danger)"
+                  className="icon-button text-danger h-6 w-6"
                   aria-label={copy.removeImage}
                   title={copy.removeImage}
                   onClick={() => {
@@ -243,15 +243,15 @@ export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources 
             </div>
           ) : (
             <div
-              className="flex min-h-0 flex-1 cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-(--border-color) bg-(--bg-panel-muted) transition-colors hover:border-(--accent) hover:bg-[color-mix(in_srgb,var(--accent)_3%,var(--bg-panel-muted))]"
+              className="border-border-subtle bg-surface-panel-muted hover:border-accent flex min-h-0 flex-1 cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed transition-colors hover:bg-[color-mix(in_srgb,var(--accent)_3%,var(--bg-panel-muted))]"
               onClick={() => fileInputRef.current?.click()}
               onDrop={handleDrop}
               onDragOver={(e) => e.preventDefault()}
             >
-              <ImageIcon className="h-10 w-10 text-(--text-secondary) opacity-40" />
+              <ImageIcon className="text-text-secondary h-10 w-10 opacity-40" />
               <div className="text-center">
-                <p className="text-xs text-(--text-primary)">{copy.dropTitle}</p>
-                <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.dropHint}</p>
+                <p className="text-text-primary text-xs">{copy.dropTitle}</p>
+                <p className="text-text-secondary text-caption-px mt-1">{copy.dropHint}</p>
               </div>
             </div>
           )}
@@ -276,11 +276,11 @@ export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources 
           <div className="space-y-4">
             {/* Patch Mode */}
             <div>
-              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
+              <label className="text-text-secondary text-caption-px mb-1.5 block font-semibold tracking-wider uppercase">
                 {copy.patchMode}
               </label>
               <select
-                className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
+                className="border-border-subtle bg-surface-app text-text-primary focus:border-accent w-full rounded-md border px-3 py-2 text-xs outline-none"
                 value={patchMode}
                 onChange={(e) => updateEditorState({ patchMode: e.target.value })}
               >
@@ -288,12 +288,12 @@ export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources 
                 <option value="Overlay">{copy.modeLabels.Overlay}</option>
                 <option value="Mask">{copy.modeLabels.Mask}</option>
               </select>
-              <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.modeDescription}</p>
+              <p className="text-text-secondary text-caption-px mt-1">{copy.modeDescription}</p>
             </div>
 
             {/* Vanilla target with ToArea picking */}
             <div>
-              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
+              <label className="text-text-secondary text-caption-px mb-1.5 block font-semibold tracking-wider uppercase">
                 {copy.toArea}
               </label>
               {targetImage !== null ? (
@@ -305,7 +305,7 @@ export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources 
                   onChange={(region) => updateEditorState({ toArea: regionToArea(region) })}
                 />
               ) : (
-                <p className="rounded-md border border-(--border-color) bg-(--bg-panel-muted) px-3 py-2 text-[11px] text-(--text-secondary)">
+                <p className="border-border-subtle bg-surface-panel-muted text-text-secondary text-meta-px rounded-md border px-3 py-2">
                   {targetFailed ? copy.targetLoadFailed : copy.targetLoading}
                 </p>
               )}
@@ -315,16 +315,16 @@ export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources 
             <Disclosure title={copy.manualAreasTitle} subtitle={copy.manualAreasSubtitle}>
               <div className="space-y-4">
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
+                  <label className="text-text-secondary text-caption-px mb-1.5 block font-semibold tracking-wider uppercase">
                     {copy.fromArea}
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {(['x', 'y', 'width', 'height'] as const).map((field) => (
                       <div key={field}>
-                        <span className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{field}</span>
+                        <span className="text-text-secondary text-caption-px mb-0.5 block uppercase">{field}</span>
                         <input
                           type="text"
-                          className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
+                          className="border-border-subtle bg-surface-app text-text-primary focus:border-accent text-meta-px w-full rounded border px-2 py-1.5 outline-none"
                           value={fromArea?.[field] ?? ''}
                           placeholder="0"
                           onChange={(e) => updateArea('fromArea', field, e.target.value)}
@@ -332,20 +332,20 @@ export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources 
                       </div>
                     ))}
                   </div>
-                  <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.fromAreaDescription}</p>
+                  <p className="text-text-secondary text-caption-px mt-1">{copy.fromAreaDescription}</p>
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
+                  <label className="text-text-secondary text-caption-px mb-1.5 block font-semibold tracking-wider uppercase">
                     {copy.toArea}
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {(['x', 'y', 'width', 'height'] as const).map((field) => (
                       <div key={field}>
-                        <span className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{field}</span>
+                        <span className="text-text-secondary text-caption-px mb-0.5 block uppercase">{field}</span>
                         <input
                           type="text"
-                          className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
+                          className="border-border-subtle bg-surface-app text-text-primary focus:border-accent text-meta-px w-full rounded border px-2 py-1.5 outline-none"
                           value={toArea?.[field] ?? ''}
                           placeholder="0"
                           onChange={(e) => updateArea('toArea', field, e.target.value)}
@@ -353,7 +353,7 @@ export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources 
                       </div>
                     ))}
                   </div>
-                  <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.toAreaDescription}</p>
+                  <p className="text-text-secondary text-caption-px mt-1">{copy.toAreaDescription}</p>
                 </div>
               </div>
             </Disclosure>

@@ -73,7 +73,7 @@ export function BuildingPrimaryPreview({
   }
 
   if (!isConstructible) {
-    return <p className="px-4 text-center text-sm text-(--text-secondary)">{activeExteriorMapMessage || copy.noExteriorMap}</p>
+    return <p className="text-text-secondary px-4 text-center text-sm">{activeExteriorMapMessage || copy.noExteriorMap}</p>
   }
 
   return <BuildingSpritePreview building={building} textureState={activeTextureState} fitSize={fitSize} fillContainer={fillContainer} />

@@ -1,18 +1,11 @@
 @layer components {
   .map-catalog {
-    display: flex;
-    height: 100%;
-    min-height: 0;
-    flex-direction: column;
-    overflow: hidden;
-    background: var(--bg-panel);
+    @apply bg-surface-panel flex h-full min-h-0 flex-col overflow-hidden;
   }
 
   .map-catalog-toolbar {
-    display: flex;
+    @apply flex flex-wrap items-center;
     flex: 0 0 auto;
-    flex-wrap: wrap;
-    align-items: center;
     gap: 0.625rem;
     border-bottom: 1px solid var(--border-color);
     padding: 0.75rem 1rem;
@@ -31,27 +24,23 @@
 
   .map-catalog-virtual-header h3,
   .map-catalog-state h3 {
-    color: var(--text-primary);
+    @apply text-text-primary m-0 font-bold;
     font-size: 0.8125rem;
-    font-weight: 700;
   }
 
   .map-catalog-search {
-    position: relative;
-    display: flex;
+    @apply text-text-tertiary relative flex items-center;
     min-width: 12rem;
     flex: 1 1 18rem;
-    align-items: center;
-    color: var(--text-tertiary);
   }
 
   .map-catalog-search > svg {
-    position: absolute;
+    @apply absolute;
     left: 0.625rem;
   }
 
   .map-catalog-search .control-input {
-    width: 100%;
+    @apply w-full;
     padding-left: 1.875rem;
   }
 
@@ -63,9 +52,7 @@
   }
 
   .map-catalog-patches {
-    display: flex;
-    min-height: 0;
-    flex-direction: column;
+    @apply flex min-h-0 flex-col;
     padding: 1rem;
   }
 
@@ -82,9 +69,7 @@
   /* —— Right-hand map library column —— */
 
   .map-catalog-library {
-    display: flex;
-    min-height: 0;
-    flex-direction: column;
+    @apply flex min-h-0 flex-col;
   }
 
   .map-catalog-library-content {
@@ -95,12 +80,11 @@
   }
 
   .map-catalog-virtual-space {
-    position: relative;
-    width: 100%;
+    @apply relative w-full;
   }
 
   .map-catalog-virtual-row {
-    position: absolute;
+    @apply absolute;
     top: 0;
     left: 0;
     box-sizing: border-box;
@@ -117,35 +101,29 @@
   }
 
   .map-catalog-virtual-header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
+    @apply flex items-baseline justify-between;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
     padding-bottom: 0.375rem;
   }
 
   .map-catalog-virtual-header > span {
-    color: var(--text-tertiary);
-    font-size: 0.625rem;
+    @apply text-text-tertiary text-caption;
   }
 
   .map-catalog-virtual-grid {
-    display: grid;
+    @apply grid;
     gap: 0.75rem;
   }
 
   .map-catalog-card {
-    display: grid;
-    min-width: 0;
+    @apply bg-surface-panel grid min-w-0 cursor-pointer;
     min-height: 6.5rem;
     grid-template-columns: 7.5rem minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) auto;
     align-items: center;
     gap: 0.375rem 0.75rem;
-    cursor: pointer;
     border: 1px solid var(--border-color);
     border-radius: 0.5rem;
-    background: var(--bg-panel);
     padding: 0.5rem;
     transition:
       border-color 0.15s ease,
@@ -153,8 +131,8 @@
   }
 
   .map-catalog-card:hover {
+    @apply bg-surface-hover;
     border-color: color-mix(in srgb, var(--accent) 54%, var(--border-color));
-    background: var(--bg-hover);
   }
 
   .map-catalog-card.is-opening {
@@ -168,38 +146,31 @@
   }
 
   .map-catalog-preview {
-    position: relative;
+    @apply pointer-events-none relative overflow-hidden;
     width: 7.5rem;
     height: 5.5rem;
     grid-row: 1 / 3;
-    overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
     border-radius: 0.375rem;
-    pointer-events: none;
   }
 
   .map-catalog-preview > img {
-    display: block;
-    width: 100%;
-    height: 100%;
+    @apply block h-full w-full;
     object-fit: contain;
     image-rendering: pixelated;
   }
 
   .map-catalog-preview-placeholder {
-    display: grid;
-    width: 100%;
-    height: 100%;
+    @apply text-text-tertiary grid h-full w-full;
     place-items: center;
-    color: var(--text-tertiary);
   }
 
   .map-catalog-preview-placeholder.is-error {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .map-catalog-card-copy {
-    display: grid;
+    @apply grid;
     align-content: center;
     gap: 0.25rem;
   }
@@ -207,45 +178,37 @@
   .map-catalog-card-copy strong,
   .map-catalog-card-copy span,
   .map-catalog-card-meta > span:not(.asset-editor-badge) {
-    overflow: hidden;
+    @apply overflow-hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .map-catalog-card-copy strong {
-    color: var(--text-primary);
-    font-size: 0.75rem;
+    @apply text-text-primary text-xs;
   }
 
   .map-catalog-card-copy span,
   .map-catalog-card-meta > span:not(.asset-editor-badge) {
-    color: var(--text-tertiary);
-    font-family: var(--font-mono);
-    font-size: 0.625rem;
+    @apply text-text-tertiary text-caption font-mono;
   }
 
   .map-catalog-card-meta {
-    display: flex;
-    min-width: 0;
-    align-items: center;
+    @apply flex min-w-0 items-center;
     gap: 0.5rem;
   }
 
   .map-catalog-card-import {
-    display: grid;
+    @apply text-text-tertiary grid cursor-pointer;
     width: 1.5rem;
     height: 1.5rem;
     flex: 0 0 auto;
     margin-left: auto;
     place-items: center;
     border-radius: 0.25rem;
-    color: var(--text-tertiary);
-    cursor: pointer;
   }
 
   .map-catalog-card-import:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
+    @apply bg-surface-hover text-text-primary;
   }
 
   .map-catalog-card-import:focus-visible {
@@ -254,37 +217,33 @@
   }
 
   .map-catalog-state {
-    display: grid;
+    @apply text-text-tertiary grid;
     min-height: 14rem;
     place-items: center;
     align-content: center;
     gap: 0.5rem;
-    color: var(--text-tertiary);
     text-align: center;
   }
 
   .map-catalog-state p,
   .map-catalog-state span {
-    color: var(--text-secondary);
-    font-size: 0.6875rem;
+    @apply text-text-secondary text-meta;
   }
 
   .map-catalog-state.is-error {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .map-create-form {
-    display: grid;
+    @apply grid;
     gap: 1rem;
   }
 
   .map-create-form > label,
   .map-create-template,
   .map-create-dimensions label {
-    display: grid;
+    @apply text-text-secondary text-meta grid;
     gap: 0.375rem;
-    color: var(--text-secondary);
-    font-size: 0.6875rem;
   }
 
   .map-create-template {
@@ -292,12 +251,11 @@
   }
 
   .map-create-template p {
-    color: var(--text-tertiary);
-    font-size: 0.625rem;
+    @apply text-text-tertiary text-caption;
   }
 
   .map-create-dimensions {
-    display: grid;
+    @apply grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.625rem;
     border: 0;
@@ -305,30 +263,25 @@
   }
 
   .map-create-dimensions legend {
+    @apply text-text-secondary text-meta;
     grid-column: 1 / -1;
     margin-bottom: 0.375rem;
-    color: var(--text-secondary);
-    font-size: 0.6875rem;
   }
 
   /* —— Map patch row thumbnail: map-specific game-map preview for WorkspacePatchList rows —— */
 
   .map-patch-row-thumb {
-    display: grid;
+    @apply text-text-tertiary grid overflow-hidden;
     width: 2.5rem;
     height: 2.5rem;
     flex: 0 0 auto;
     place-items: center;
-    overflow: hidden;
     border: 1px solid var(--border-color);
     border-radius: 0.375rem;
-    color: var(--text-tertiary);
   }
 
   .map-patch-row-thumb img {
-    display: block;
-    width: 100%;
-    height: 100%;
+    @apply block h-full w-full;
     object-fit: contain;
     image-rendering: pixelated;
   }

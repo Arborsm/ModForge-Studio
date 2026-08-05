@@ -262,7 +262,7 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
     )
   } else if (landing.kind === 'projectContent') {
     mainContent = (
-      <div className="flex h-full items-center justify-center px-6 text-center text-xs text-(--text-secondary)">
+      <div className="text-text-secondary flex h-full items-center justify-center px-6 text-center text-xs">
         {shellCopy.projectContentFallback}
       </div>
     )

@@ -1,25 +1,23 @@
 @layer components {
   @media (max-width: 1400px) {
     .ai-localization-official-toolbar {
+      @apply flex-wrap;
       min-height: auto;
-      flex-wrap: wrap;
       gap: 6px 12px;
       padding-top: 8px;
       padding-bottom: 8px;
     }
 
     .ai-localization-official-stats {
-      width: 100%;
-      min-width: 0;
+      @apply w-full min-w-0 overflow-x-auto;
       flex: 0 0 100%;
-      overflow-x: auto;
       border-top: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
       padding-top: 6px;
       scrollbar-width: none;
     }
 
     .ai-localization-official-stats::-webkit-scrollbar {
-      display: none;
+      @apply hidden;
     }
 
     .ai-localization-official-filters {
@@ -42,14 +40,13 @@
     }
 
     .ai-localization-session-actions {
-      flex: 0 0 auto;
+      @apply flex-none overflow-x-auto;
       max-width: 62%;
-      overflow-x: auto;
       scrollbar-width: none;
     }
 
     .ai-localization-session-actions::-webkit-scrollbar {
-      display: none;
+      @apply hidden;
     }
 
     .ai-localization-shell {
@@ -58,27 +55,25 @@
     }
 
     .ai-localization-scope-rail {
+      @apply border-r-0;
       grid-column: 1;
       grid-row: 2;
-      border-right: 0;
       border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
     }
 
     .ai-localization-scope-search {
+      @apply items-center;
       grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr);
-      align-items: center;
     }
 
     .ai-localization-scope-search-head {
-      grid-column: 1 / -1;
+      @apply col-span-full;
     }
 
     .ai-localization-scope-list {
-      display: grid;
+      @apply grid overflow-x-auto overflow-y-hidden;
       grid-auto-columns: minmax(180px, 42vw);
       grid-auto-flow: column;
-      overflow-x: auto;
-      overflow-y: hidden;
     }
 
     .ai-localization-workarea {
@@ -88,8 +83,7 @@
 
     .ai-localization-tabs,
     .ai-localization-subtabs {
-      overflow-x: auto;
-      white-space: nowrap;
+      @apply overflow-x-auto whitespace-nowrap;
     }
 
     .ai-localization-tab-content > .ai-localization-layout,
@@ -104,21 +98,19 @@
     }
 
     .ai-localization-inspector {
+      @apply border-l-0;
       border-top: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-      border-left: 0;
     }
 
     .ai-localization-toolbar,
     .ai-localization-filters,
     .ai-localization-status {
-      flex-wrap: wrap;
+      @apply flex-wrap;
     }
 
     .ai-localization-toolbar-stats,
     .ai-localization-status dl {
-      width: 100%;
-      margin-left: 0;
-      overflow-x: auto;
+      @apply ml-0 w-full overflow-x-auto;
     }
 
     .ai-localization-metric-row {
@@ -126,7 +118,7 @@
     }
 
     .ai-localization-metric:nth-child(2) {
-      border-right: 0;
+      @apply border-r-0;
     }
 
     .ai-localization-metric:nth-child(1),
@@ -137,37 +129,34 @@
     }
 
     .ai-localization-defaults-row {
-      flex-direction: column;
-      align-items: stretch;
+      @apply flex-col items-stretch;
     }
 
     .ai-localization-defaults-row .control-button {
-      justify-self: start;
+      @apply justify-self-start;
     }
   }
 
   @media (max-width: 680px) {
     .ai-localization-workarea-head {
-      flex-wrap: wrap;
+      @apply flex-wrap overflow-hidden;
       gap: 2px;
       padding: 4px 10px;
-      overflow: hidden;
     }
 
     .ai-localization-workarea-head .ai-localization-tabs {
-      width: 100%;
+      @apply w-full;
       height: 32px;
       flex: 0 0 100%;
       order: 1;
     }
 
     .ai-localization-tabs button {
-      padding: 0 10px;
+      @apply py-0;
     }
 
     .ai-localization-session-actions {
-      width: 100%;
-      max-width: 100%;
+      @apply w-full max-w-full;
       flex: 0 0 100%;
       order: 2;
       padding-bottom: 2px;
@@ -182,18 +171,17 @@
     }
 
     .ai-localization-toolbar {
-      overflow-x: auto;
+      @apply overflow-x-auto;
     }
 
     .ai-localization-filters {
-      display: grid;
+      @apply grid items-stretch;
       grid-template-columns: minmax(0, 1fr);
-      align-items: stretch;
     }
 
     .ai-localization-filters > label,
     .ai-localization-filters > label:first-child {
-      min-width: 0;
+      @apply min-w-0;
       max-width: none;
     }
 
@@ -209,7 +197,7 @@
 
     .ai-localization-toolbar > strong,
     .ai-localization-semantic-status {
-      flex: 0 0 auto;
+      @apply flex-none;
     }
 
     .ai-localization-toolbar-search {

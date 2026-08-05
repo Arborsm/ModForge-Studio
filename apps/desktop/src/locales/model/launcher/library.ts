@@ -211,8 +211,6 @@ export type LauncherLibraryCopy = {
   diffUnavailable: string
   dragDropInstallTitle: string
   dragDropInstallSubtitle: (formats: string) => string
-  dragDropZoneTitle: string
-  dragDropZoneBrowseHint: string
   dragDropMultipleFiles: string
   dragDropUnsupportedArchive: (formats: string) => string
   dragDropMissingPath: string

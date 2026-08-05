@@ -1,13 +1,11 @@
 @layer components {
   .dock-chip {
-    border: 1px solid var(--border-color);
+    @apply border-border-subtle text-text-secondary text-meta inline-flex items-center rounded-md border px-2 py-1 font-medium;
     background: color-mix(in srgb, var(--bg-panel-muted) 88%, transparent);
-    color: var(--text-secondary);
-    @apply inline-flex items-center rounded-md px-2 py-1 text-[0.6875rem] font-medium;
   }
 
   .status-pill {
-    @apply inline-flex items-center gap-1 rounded-md px-2 py-1 text-[0.6875rem] font-semibold;
+    @apply text-meta inline-flex items-center gap-1 rounded-md px-2 py-1 font-semibold;
   }
 
   .status-pill-compact {
@@ -24,21 +22,21 @@
 
   .status-pill-idle {
     background: color-mix(in srgb, var(--bg-active) 72%, transparent);
-    color: var(--text-secondary);
+    @apply text-text-secondary;
   }
 
   .status-pill-working {
     background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
-    color: var(--text-primary);
+    @apply text-text-primary;
   }
 
   .status-pill-ready {
     background: color-mix(in srgb, var(--success) 16%, transparent);
-    color: var(--success);
+    @apply text-success;
   }
 
   .status-pill-error {
     background: color-mix(in srgb, var(--danger) 14%, transparent);
-    color: var(--danger);
+    @apply text-danger;
   }
 }

@@ -37,7 +37,7 @@
   /* ------------------------------------------------------------------ */
 
   .gooey-nav-container {
-    position: relative;
+    @apply relative;
     --gooey-idle-color: var(--text-secondary);
     --gooey-idle-shadow: none;
     --gooey-active-bg: color-mix(in srgb, var(--accent) 90%, var(--bg-panel) 10%);
@@ -51,19 +51,14 @@
   }
 
   .gooey-nav-container nav {
-    display: flex;
-    position: relative;
+    @apply relative flex;
     z-index: 10;
     transform: translate3d(0, 0, 0.0006rem);
   }
 
   .gooey-nav-container nav ul {
-    display: flex;
+    @apply relative m-0 flex list-none px-4;
     gap: 2em;
-    list-style: none;
-    padding: 0 1em;
-    margin: 0;
-    position: relative;
     z-index: 10;
     color: var(--gooey-idle-color);
     text-shadow: var(--gooey-idle-shadow);
@@ -74,10 +69,8 @@
   /* ------------------------------------------------------------------ */
 
   .gooey-nav-container nav ul li {
-    border-radius: 100vw;
-    position: relative;
+    @apply relative cursor-pointer rounded-full;
     z-index: 10;
-    cursor: pointer;
     transition:
       background-color 0.3s ease,
       color 0.3s ease,
@@ -88,14 +81,10 @@
 
   .gooey-nav-container nav ul li a,
   .gooey-nav-container nav ul li button {
-    display: inline-flex;
-    align-items: center;
+    @apply relative inline-flex items-center border-0 bg-transparent;
     gap: 0.5em;
-    position: relative;
     z-index: 12;
-    border: 0;
     padding: 0.6em 1em;
-    background: transparent;
     color: inherit;
     font: inherit;
     text-decoration: none;
@@ -143,10 +132,9 @@
   }
 
   .gooey-nav-svg-filter {
-    position: absolute;
+    @apply absolute overflow-hidden;
     width: 0;
     height: 0;
-    overflow: hidden;
   }
 
   /* ------------------------------------------------------------------ */
@@ -154,9 +142,7 @@
   /* ------------------------------------------------------------------ */
 
   .gooey-nav-item-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    @apply inline-flex items-center justify-center;
     flex-shrink: 0;
   }
 
@@ -170,23 +156,16 @@
   }
 
   .gooey-nav-item-badge {
-    display: inline-flex;
-    position: absolute;
+    @apply text-caption pointer-events-none absolute inline-flex items-center justify-center rounded-full font-extrabold;
     top: -0.55em;
     right: -0.55em;
     z-index: 20;
     min-width: 1.125rem;
     height: 1.125rem;
-    align-items: center;
-    justify-content: center;
-    border-radius: 62.4375rem;
     padding: 0 0.375rem;
     background: color-mix(in srgb, var(--accent) 82%, white 18%);
     color: var(--accent-contrast);
-    font-size: 0.625rem;
-    font-weight: 800;
     line-height: 1;
-    pointer-events: none;
     box-shadow: inset 0 0 0 1px color-mix(in srgb, white 18%, transparent);
   }
 
@@ -203,14 +182,12 @@
   /* ------------------------------------------------------------------ */
 
   .gooey-nav-container .effect {
-    position: absolute;
+    @apply pointer-events-none absolute grid;
     left: 0;
     top: 0;
     width: 0;
     height: 0;
     opacity: 1;
-    pointer-events: none;
-    display: grid;
     place-items: center;
     z-index: 0;
   }
@@ -260,7 +237,7 @@
 
   .particle,
   .point {
-    display: block;
+    @apply block;
     opacity: 0;
     width: 1.25rem;
     height: 1.25rem;
@@ -270,7 +247,7 @@
 
   .particle {
     --time: 5s;
-    position: absolute;
+    @apply absolute;
     top: calc(50% - 0.5rem);
     left: calc(50% - 0.5rem);
     animation: gooey-particle calc(var(--time)) ease 1 -350ms;

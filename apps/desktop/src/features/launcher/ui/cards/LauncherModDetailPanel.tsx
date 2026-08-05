@@ -850,7 +850,7 @@ export function LauncherModDetailPanel({
                 id={configLeaveDialogTitleId}
               />
               <DialogBody>
-                <p className="text-sm text-(--text-secondary)">{detailCopy.config.unsavedMessage}</p>
+                <p className="text-text-secondary text-sm">{detailCopy.config.unsavedMessage}</p>
               </DialogBody>
               <DialogFooter>
                 <DialogAction onClick={() => setPendingConfigLeave(null)} disabled={configLeaveGuard?.saving}>

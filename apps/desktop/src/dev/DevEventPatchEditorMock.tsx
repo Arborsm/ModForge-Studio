@@ -154,7 +154,7 @@ export function DevEventPatchEditorMock() {
 
   return (
     <LocaleProvider locale={locale}>
-      <div className="h-screen w-screen overflow-hidden bg-(--bg-app) text-(--text-primary)">
+      <div className="bg-surface-app text-text-primary h-screen w-screen overflow-hidden">
         <EventPatchEditor patch={patch} schema={null} draftPort={draftPort} resources={resources} assetLoader={assetLoader} />
       </div>
     </LocaleProvider>

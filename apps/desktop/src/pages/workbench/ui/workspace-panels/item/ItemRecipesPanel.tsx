@@ -22,15 +22,15 @@ export function ItemRecipesPanel({ item }: ItemRecipesPanelProps) {
                   <div key={recipe.key} className="panel-list-card">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-(--text-primary)">{recipe.displayName}</p>
-                        <p className="mt-1 text-xs text-(--text-secondary)">{recipe.unlockLabel}</p>
+                        <p className="text-text-primary truncate text-sm font-semibold">{recipe.displayName}</p>
+                        <p className="text-text-secondary mt-1 text-xs">{recipe.unlockLabel}</p>
                       </div>
                       <span className="dock-chip">x{recipe.outputCount}</span>
                     </div>
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-(--text-secondary)">{copy.noneLabel}</p>
+                <p className="text-text-secondary text-sm">{copy.noneLabel}</p>
               )}
             </PanelSection>
 
@@ -38,9 +38,9 @@ export function ItemRecipesPanel({ item }: ItemRecipesPanelProps) {
               {item.recipesUsing.length ? (
                 item.recipesUsing.map((recipe) => (
                   <div key={recipe.key} className="panel-list-card">
-                    <p className="text-sm font-semibold text-(--text-primary)">{recipe.displayName}</p>
+                    <p className="text-text-primary text-sm font-semibold">{recipe.displayName}</p>
                     <div className="mt-2 flex items-center justify-between gap-3">
-                      <p className="text-xs text-(--text-secondary)">
+                      <p className="text-text-secondary text-xs">
                         {recipe.kind === 'crafting' ? copy.craftingRecipeLabel : copy.cookingRecipeLabel}
                       </p>
                       <span className="dock-chip">{recipe.ingredients.length}</span>
@@ -48,7 +48,7 @@ export function ItemRecipesPanel({ item }: ItemRecipesPanelProps) {
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-(--text-secondary)">{copy.noneLabel}</p>
+                <p className="text-text-secondary text-sm">{copy.noneLabel}</p>
               )}
             </PanelSection>
           </>

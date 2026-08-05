@@ -51,20 +51,20 @@ export const GenericPatchEditor: EditorComponent = ({ patch, draftPort }) => {
   // header toggle that unlocks it.
   if (!expertMode) {
     return (
-      <div className="custom-scrollbar h-full overflow-auto bg-(--bg-app) p-5">
+      <div className="custom-scrollbar bg-surface-app h-full overflow-auto p-5">
         <div className="mx-auto grid max-w-4xl gap-4">
-          <div className="flex items-start gap-3 rounded-xl border border-dashed border-(--border-color) bg-(--bg-panel-muted) p-4">
-            <FileWarning className="mt-0.5 h-5 w-5 shrink-0 text-(--warning)" aria-hidden="true" />
+          <div className="border-border-subtle bg-surface-panel-muted flex items-start gap-3 rounded-xl border border-dashed p-4">
+            <FileWarning className="text-warning mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
             <div className="grid gap-1">
-              <strong className="text-sm text-(--text-primary)">{copy.unsupportedAssetTitle}</strong>
-              <p className="text-xs leading-relaxed text-(--text-secondary)">{copy.unsupportedAssetHint(patch.target)}</p>
+              <strong className="text-text-primary text-sm">{copy.unsupportedAssetTitle}</strong>
+              <p className="text-text-secondary text-xs leading-relaxed">{copy.unsupportedAssetHint(patch.target)}</p>
             </div>
           </div>
-          <div className="flex items-start gap-3 rounded-xl border border-(--border-color) bg-(--bg-panel-muted) p-4">
-            <Code2 className="mt-0.5 h-5 w-5 shrink-0 text-(--text-secondary)" aria-hidden="true" />
+          <div className="border-border-subtle bg-surface-panel-muted flex items-start gap-3 rounded-xl border p-4">
+            <Code2 className="text-text-secondary mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
             <div className="grid gap-1">
-              <strong className="text-sm text-(--text-primary)">{rawCopy.expertOnlyTitle}</strong>
-              <p className="text-xs leading-relaxed text-(--text-secondary)">{rawCopy.expertOnlyHint}</p>
+              <strong className="text-text-primary text-sm">{rawCopy.expertOnlyTitle}</strong>
+              <p className="text-text-secondary text-xs leading-relaxed">{rawCopy.expertOnlyHint}</p>
             </div>
           </div>
         </div>
@@ -73,17 +73,17 @@ export const GenericPatchEditor: EditorComponent = ({ patch, draftPort }) => {
   }
 
   return (
-    <div className="custom-scrollbar h-full overflow-auto bg-(--bg-app) p-5">
+    <div className="custom-scrollbar bg-surface-app h-full overflow-auto p-5">
       <div className="mx-auto grid max-w-4xl gap-4">
-        <div className="flex items-start gap-3 rounded-xl border border-dashed border-(--border-color) bg-(--bg-panel-muted) p-4">
-          <FileWarning className="mt-0.5 h-5 w-5 shrink-0 text-(--warning)" aria-hidden="true" />
+        <div className="border-border-subtle bg-surface-panel-muted flex items-start gap-3 rounded-xl border border-dashed p-4">
+          <FileWarning className="text-warning mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <div className="grid gap-1">
-            <strong className="text-sm text-(--text-primary)">{copy.unsupportedAssetTitle}</strong>
-            <p className="text-xs leading-relaxed text-(--text-secondary)">{copy.unsupportedAssetHint(patch.target)}</p>
+            <strong className="text-text-primary text-sm">{copy.unsupportedAssetTitle}</strong>
+            <p className="text-text-secondary text-xs leading-relaxed">{copy.unsupportedAssetHint(patch.target)}</p>
           </div>
         </div>
 
-        <label className="grid gap-1.5 text-xs text-(--text-secondary)">
+        <label className="text-text-secondary grid gap-1.5 text-xs">
           <span>{copy.patchName}</span>
           <input
             className="control-input"
@@ -92,7 +92,7 @@ export const GenericPatchEditor: EditorComponent = ({ patch, draftPort }) => {
           />
         </label>
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-1.5 text-xs text-(--text-secondary)">
+          <label className="text-text-secondary grid gap-1.5 text-xs">
             <span>{desk.patchCatalog.action}</span>
             <select
               className="control-select"
@@ -106,7 +106,7 @@ export const GenericPatchEditor: EditorComponent = ({ patch, draftPort }) => {
               ))}
             </select>
           </label>
-          <label className="grid gap-1.5 text-xs text-(--text-secondary)">
+          <label className="text-text-secondary grid gap-1.5 text-xs">
             <span>{desk.patchCatalog.target}</span>
             <input
               className="control-input"
@@ -116,7 +116,7 @@ export const GenericPatchEditor: EditorComponent = ({ patch, draftPort }) => {
             />
           </label>
         </div>
-        <label className="grid gap-1.5 text-xs text-(--text-secondary)">
+        <label className="text-text-secondary grid gap-1.5 text-xs">
           <span>{desk.patchCatalog.fromFile}</span>
           <input
             className="control-input"
@@ -124,7 +124,7 @@ export const GenericPatchEditor: EditorComponent = ({ patch, draftPort }) => {
             onChange={(event) => draftPort.updatePatch(patch.id, { fromFile: event.target.value || undefined })}
           />
         </label>
-        <label className="inline-flex items-center gap-2 text-xs text-(--text-secondary)">
+        <label className="text-text-secondary inline-flex items-center gap-2 text-xs">
           <input
             type="checkbox"
             checked={patch.enabled === true}
@@ -134,9 +134,9 @@ export const GenericPatchEditor: EditorComponent = ({ patch, draftPort }) => {
         </label>
 
         {rawOpen ? (
-          <section className="grid gap-1.5 text-xs text-(--text-secondary)">
+          <section className="text-text-secondary grid gap-1.5 text-xs">
             <div className="flex items-center justify-between gap-3">
-              <span className="font-semibold text-(--text-primary)">{rawCopy.title}</span>
+              <span className="text-text-primary font-semibold">{rawCopy.title}</span>
               <button type="button" className="control-button" onClick={() => setRawOpen(false)}>
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>{rawCopy.closeAction}</span>
@@ -151,7 +151,7 @@ export const GenericPatchEditor: EditorComponent = ({ patch, draftPort }) => {
               aria-label={rawCopy.title}
               onChange={(event) => handleJsonChange(event.target.value)}
             />
-            {jsonError ? <span className="text-(--danger)">{rawCopy.invalidJson}</span> : null}
+            {jsonError ? <span className="text-danger">{rawCopy.invalidJson}</span> : null}
           </section>
         ) : (
           <button type="button" className="control-button justify-self-start" onClick={() => setRawOpen(true)}>

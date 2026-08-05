@@ -47,7 +47,7 @@ export function ItemSprite({ item, textureState, scale = 2, className = '', fall
       style={style}
       fallback={
         <div
-          className={`absolute inset-0 flex items-center justify-center font-semibold text-(--text-secondary) uppercase ${fallbackClassName}`}
+          className={`text-text-secondary absolute inset-0 flex items-center justify-center font-semibold uppercase ${fallbackClassName}`}
         >
           {item.displayName.slice(0, 1)}
         </div>

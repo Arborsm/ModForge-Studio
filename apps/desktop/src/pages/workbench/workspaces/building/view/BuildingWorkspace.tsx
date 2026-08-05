@@ -46,7 +46,7 @@ export default function BuildingWorkspace(props: BuildingWorkspaceProps) {
   if (!props.building) {
     return (
       <div className="building-workspace-pane h-full">
-        <div className="flex h-full min-h-0 items-center justify-center px-6 text-sm text-(--text-secondary)">{copy.inspectorEmpty}</div>
+        <div className="text-text-secondary flex h-full min-h-0 items-center justify-center px-6 text-sm">{copy.inspectorEmpty}</div>
       </div>
     )
   }

@@ -37,27 +37,27 @@ export function ConfigSchemaEditor({ entries, onChange }: ConfigSchemaEditorProp
   return (
     <div className="space-y-2">
       {entries.map((entry, index) => (
-        <div key={index} className="rounded-lg border border-(--border-color) bg-(--bg-panel-muted)">
+        <div key={index} className="border-border-subtle bg-surface-panel-muted rounded-lg border">
           {/* Collapsed row */}
           <div className="flex items-center gap-2 px-2.5 py-2">
             <button type="button" className="icon-button h-5 w-5 shrink-0" onClick={() => toggleRow(index)}>
               {expandedRows.has(index) ? (
-                <ChevronDown className="h-3.5 w-3.5 text-(--text-secondary)" />
+                <ChevronDown className="text-text-secondary h-3.5 w-3.5" />
               ) : (
-                <ChevronRight className="h-3.5 w-3.5 text-(--text-secondary)" />
+                <ChevronRight className="text-text-secondary h-3.5 w-3.5" />
               )}
             </button>
             <input
               type="text"
               placeholder={copy.keyPlaceholder}
-              className="min-w-0 flex-1 rounded border border-(--border-color) bg-(--bg-app) px-2 py-1 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
+              className="border-border-subtle bg-surface-app text-text-primary focus:border-accent min-w-0 flex-1 rounded border px-2 py-1 text-xs outline-none"
               value={entry.key}
               onChange={(e) => updateEntry(index, { key: e.target.value })}
             />
             <input
               type="text"
               placeholder={copy.defaultPlaceholder}
-              className="min-w-0 flex-1 rounded border border-(--border-color) bg-(--bg-app) px-2 py-1 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
+              className="border-border-subtle bg-surface-app text-text-primary focus:border-accent min-w-0 flex-1 rounded border px-2 py-1 text-xs outline-none"
               value={
                 entry.defaultValue === null
                   ? ''
@@ -76,7 +76,7 @@ export function ConfigSchemaEditor({ entries, onChange }: ConfigSchemaEditorProp
             />
             <button
               type="button"
-              className="icon-button h-6 w-6 shrink-0 text-(--danger)"
+              className="icon-button text-danger h-6 w-6 shrink-0"
               onClick={() => onChange(entries.filter((_, i) => i !== index))}
             >
               <Trash2 className="h-3 w-3" />
@@ -85,54 +85,54 @@ export function ConfigSchemaEditor({ entries, onChange }: ConfigSchemaEditorProp
 
           {/* Expanded detail */}
           {expandedRows.has(index) && (
-            <div className="space-y-2 border-t border-(--border-color) px-2.5 py-2">
+            <div className="border-border-subtle space-y-2 border-t px-2.5 py-2">
               <div>
-                <label className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{copy.allowValuesLabel}</label>
+                <label className="text-text-secondary text-caption-px mb-0.5 block uppercase">{copy.allowValuesLabel}</label>
                 <input
                   type="text"
                   placeholder={copy.allowValuesPlaceholder}
-                  className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
+                  className="border-border-subtle bg-surface-app text-text-primary focus:border-accent text-meta-px w-full rounded border px-2 py-1 outline-none"
                   value={entry.allowValues ?? ''}
                   onChange={(e) => updateEntry(index, { allowValues: e.target.value || undefined })}
                 />
               </div>
 
               <div>
-                <label className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{copy.descriptionLabel}</label>
+                <label className="text-text-secondary text-caption-px mb-0.5 block uppercase">{copy.descriptionLabel}</label>
                 <input
                   type="text"
                   placeholder={copy.descriptionPlaceholder}
-                  className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
+                  className="border-border-subtle bg-surface-app text-text-primary focus:border-accent text-meta-px w-full rounded border px-2 py-1 outline-none"
                   value={entry.description ?? ''}
                   onChange={(e) => updateEntry(index, { description: e.target.value || undefined })}
                 />
               </div>
 
               <div>
-                <label className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{copy.sectionLabel}</label>
+                <label className="text-text-secondary text-caption-px mb-0.5 block uppercase">{copy.sectionLabel}</label>
                 <input
                   type="text"
                   placeholder={copy.sectionPlaceholder}
-                  className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
+                  className="border-border-subtle bg-surface-app text-text-primary focus:border-accent text-meta-px w-full rounded border px-2 py-1 outline-none"
                   value={entry.section ?? ''}
                   onChange={(e) => updateEntry(index, { section: e.target.value || undefined })}
                 />
               </div>
 
               <div className="flex items-center gap-4">
-                <label className="flex items-center gap-1.5 text-[11px] text-(--text-primary)">
+                <label className="text-text-primary text-meta-px flex items-center gap-1.5">
                   <input
                     type="checkbox"
-                    className="h-3.5 w-3.5 accent-(--accent)"
+                    className="accent-accent h-3.5 w-3.5"
                     checked={entry.allowBlank ?? false}
                     onChange={(e) => updateEntry(index, { allowBlank: e.target.checked || undefined })}
                   />
                   {copy.allowBlank}
                 </label>
-                <label className="flex items-center gap-1.5 text-[11px] text-(--text-primary)">
+                <label className="text-text-primary text-meta-px flex items-center gap-1.5">
                   <input
                     type="checkbox"
-                    className="h-3.5 w-3.5 accent-(--accent)"
+                    className="accent-accent h-3.5 w-3.5"
                     checked={entry.allowMultiple ?? false}
                     onChange={(e) => updateEntry(index, { allowMultiple: e.target.checked || undefined })}
                   />
@@ -145,7 +145,7 @@ export function ConfigSchemaEditor({ entries, onChange }: ConfigSchemaEditorProp
       ))}
       <button
         type="button"
-        className="flex items-center gap-1 text-xs text-(--accent) hover:underline"
+        className="text-accent flex items-center gap-1 text-xs hover:underline"
         onClick={() => onChange([...entries, { key: '', defaultValue: null }])}
       >
         <Plus className="h-3 w-3" /> {copy.addConfigEntry}

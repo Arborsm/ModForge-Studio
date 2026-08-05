@@ -125,14 +125,14 @@ function ProjectSettingsPageInner({
   }
 
   const inputClass =
-    'w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1 text-xs text-(--text-primary) outline-none focus:border-(--accent)'
+    'w-full rounded border border-border-subtle bg-surface-app px-2 py-1 text-xs text-text-primary outline-none focus:border-accent'
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <header className="flex items-center gap-3 border-b border-(--border-color) px-5 py-3">
+      <header className="border-border-subtle flex items-center gap-3 border-b px-5 py-3">
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-medium text-(--text-primary)">{copy.title}</h2>
-          <p className="text-xs text-(--text-secondary)">{copy.subtitle}</p>
+          <h2 className="text-text-primary text-sm font-medium">{copy.title}</h2>
+          <p className="text-text-secondary text-xs">{copy.subtitle}</p>
         </div>
         <span className={cx('status-pill', isDirty ? 'status-pill-working' : 'status-pill-ready')}>
           {isDirty ? toolbar.unsaved : toolbar.saved}
@@ -159,7 +159,7 @@ function ProjectSettingsPageInner({
                 const patchToken = (updates: Partial<(typeof dynamicTokens)[number]>) =>
                   handleDynamicTokensChange(dynamicTokens.map((entry, i) => (i === index ? { ...entry, ...updates } : entry)))
                 return (
-                  <div key={index} className="rounded-lg border border-(--border-color) bg-(--bg-panel-muted) px-2.5 py-2">
+                  <div key={index} className="border-border-subtle bg-surface-panel-muted rounded-lg border px-2.5 py-2">
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
@@ -179,7 +179,7 @@ function ProjectSettingsPageInner({
                       </div>
                       <button
                         type="button"
-                        className="icon-button h-6 w-6 shrink-0 text-(--danger)"
+                        className="icon-button text-danger h-6 w-6 shrink-0"
                         aria-label={copy.removeRow}
                         onClick={() => handleDynamicTokensChange(dynamicTokens.filter((_, i) => i !== index))}
                       >
@@ -187,7 +187,7 @@ function ProjectSettingsPageInner({
                       </button>
                     </div>
                     <div className="mt-2">
-                      <span className="mb-1 block text-[9px] text-(--text-secondary) uppercase">{copy.dynamicTokenWhenLabel}</span>
+                      <span className="text-text-secondary text-caption-px mb-1 block uppercase">{copy.dynamicTokenWhenLabel}</span>
                       <WhenConditionEditor
                         rows={token.when}
                         onChange={(when) => patchToken({ when })}
@@ -200,7 +200,7 @@ function ProjectSettingsPageInner({
               })}
               <button
                 type="button"
-                className="flex items-center gap-1 text-xs text-(--accent) hover:underline"
+                className="text-accent flex items-center gap-1 text-xs hover:underline"
                 onClick={() => handleDynamicTokensChange([...dynamicTokens, { name: '', value: '', when: [] }])}
               >
                 <Plus className="h-3 w-3" /> {copy.addDynamicToken}
@@ -214,7 +214,7 @@ function ProjectSettingsPageInner({
                 const patchLocation = (updates: Partial<(typeof customLocations)[number]>) =>
                   handleCustomLocationsChange(customLocations.map((entry, i) => (i === index ? { ...entry, ...updates } : entry)))
                 return (
-                  <div key={index} className="rounded-lg border border-(--border-color) bg-(--bg-panel-muted) px-2.5 py-2">
+                  <div key={index} className="border-border-subtle bg-surface-panel-muted rounded-lg border px-2.5 py-2">
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
@@ -232,7 +232,7 @@ function ProjectSettingsPageInner({
                       />
                       <button
                         type="button"
-                        className="icon-button h-6 w-6 shrink-0 text-(--danger)"
+                        className="icon-button text-danger h-6 w-6 shrink-0"
                         aria-label={copy.removeRow}
                         onClick={() => handleCustomLocationsChange(customLocations.filter((_, i) => i !== index))}
                       >
@@ -240,7 +240,7 @@ function ProjectSettingsPageInner({
                       </button>
                     </div>
                     <div className="mt-2">
-                      <span className="mb-1 block text-[9px] text-(--text-secondary) uppercase">{copy.migrateNamesLabel}</span>
+                      <span className="text-text-secondary text-caption-px mb-1 block uppercase">{copy.migrateNamesLabel}</span>
                       <input
                         type="text"
                         placeholder={copy.migrateNamesPlaceholder}
@@ -254,7 +254,7 @@ function ProjectSettingsPageInner({
               })}
               <button
                 type="button"
-                className="flex items-center gap-1 text-xs text-(--accent) hover:underline"
+                className="text-accent flex items-center gap-1 text-xs hover:underline"
                 onClick={() => handleCustomLocationsChange([...customLocations, { name: '', fromMapFile: '', migrateNamesText: '' }])}
               >
                 <Plus className="h-3 w-3" /> {copy.addLocation}
@@ -286,7 +286,7 @@ function ProjectSettingsPageInner({
                   />
                   <button
                     type="button"
-                    className="icon-button h-6 w-6 shrink-0 text-(--danger)"
+                    className="icon-button text-danger h-6 w-6 shrink-0"
                     aria-label={copy.removeRow}
                     onClick={() => handleAliasRowsChange(aliasRows.filter((_, i) => i !== index))}
                   >
@@ -296,7 +296,7 @@ function ProjectSettingsPageInner({
               ))}
               <button
                 type="button"
-                className="flex items-center gap-1 text-xs text-(--accent) hover:underline"
+                className="text-accent flex items-center gap-1 text-xs hover:underline"
                 onClick={() => handleAliasRowsChange([...aliasRows, { key: '', value: '' }])}
               >
                 <Plus className="h-3 w-3" /> {copy.addAlias}
@@ -305,11 +305,11 @@ function ProjectSettingsPageInner({
           </PanelSection>
 
           <PanelSection title={copy.formatTitle}>
-            <div className="flex items-center gap-2 text-xs text-(--text-primary)">
-              <span className="text-(--text-secondary)">{copy.formatVersionLabel}</span>
-              <span className="rounded bg-(--bg-panel-muted) px-1.5 py-0.5 font-mono">2.9.0</span>
+            <div className="text-text-primary flex items-center gap-2 text-xs">
+              <span className="text-text-secondary">{copy.formatVersionLabel}</span>
+              <span className="bg-surface-panel-muted rounded px-1.5 py-0.5 font-mono">2.9.0</span>
             </div>
-            <p className="mt-1.5 text-xs text-(--text-secondary)">{copy.formatDescription}</p>
+            <p className="text-text-secondary mt-1.5 text-xs">{copy.formatDescription}</p>
           </PanelSection>
         </div>
       </div>

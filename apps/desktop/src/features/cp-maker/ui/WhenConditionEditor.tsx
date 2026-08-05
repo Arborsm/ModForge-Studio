@@ -21,7 +21,7 @@ type WhenConditionEditorProps = {
 }
 
 const inputClass =
-  'w-full rounded-md border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-xs text-(--text-primary) outline-none focus:border-(--accent)'
+  'w-full rounded-md border border-border-subtle bg-surface-app px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent'
 
 /** Catalog order for the "more tokens" quick-add picker. */
 const PRESET_GROUP_ORDER: readonly CpTokenGroup[] = [
@@ -119,7 +119,7 @@ export function WhenConditionEditor({ rows, onChange, extraTokenNames = [], excl
               ) : null}
               <button
                 type="button"
-                className="icon-button h-7 w-7 shrink-0 text-(--danger)"
+                className="icon-button text-danger h-7 w-7 shrink-0"
                 onClick={() => onChange(rows.filter((_, i) => i !== index))}
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -135,7 +135,7 @@ export function WhenConditionEditor({ rows, onChange, extraTokenNames = [], excl
                 onChange={(value) => patchRow(index, { value })}
               />
             ) : null}
-            {unknown ? <p className="text-[11px] text-(--text-secondary)">{copy.unknownTokenHint(row.token)}</p> : null}
+            {unknown ? <p className="text-text-secondary text-meta-px">{copy.unknownTokenHint(row.token)}</p> : null}
           </div>
         )
       })}
@@ -227,7 +227,7 @@ export function WhenConditionEditor({ rows, onChange, extraTokenNames = [], excl
 
       <button
         type="button"
-        className="flex items-center gap-1 text-xs text-(--accent) hover:underline"
+        className="text-accent flex items-center gap-1 text-xs hover:underline"
         onClick={() => onChange([...rows, { token: '', value: '' }])}
       >
         <Plus className="h-3 w-3" /> {copy.addCondition}

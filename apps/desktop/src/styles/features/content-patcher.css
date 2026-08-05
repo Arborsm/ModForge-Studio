@@ -1,12 +1,10 @@
 @layer components {
   .cp-debugger-shell {
-    display: flex;
+    @apply flex min-h-0 overflow-hidden;
     height: 100%;
-    min-height: 0;
     flex: 1;
     flex-direction: column;
     gap: 0.625rem;
-    overflow: hidden;
     padding: 0.75rem;
     background:
       linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 96%, white 4%), var(--bg-panel)),
@@ -14,10 +12,7 @@
   }
 
   .cp-debugger-header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
+    @apply flex flex-wrap items-center justify-between;
     gap: 0.625rem 0.75rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
     border-radius: 1.125rem;
@@ -31,40 +26,33 @@
   }
 
   .cp-debugger-title-group {
-    display: grid;
+    @apply grid;
     gap: 0.25rem;
   }
 
   .cp-debugger-title {
-    margin: 0;
-    color: var(--text-primary);
+    @apply text-text-primary m-0 font-bold;
     font-size: 1.125rem;
-    font-weight: 700;
     line-height: 1.05;
   }
 
   .cp-debugger-chip-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
+    @apply flex flex-wrap items-center justify-end;
     gap: 0.375rem;
   }
 
   .cp-debugger-body {
-    display: flex;
-    min-height: 0;
+    @apply flex min-h-0 overflow-hidden;
     flex: 1;
-    overflow: hidden;
   }
 
   .cp-debugger-body > * {
-    min-height: 0;
+    @apply min-h-0;
   }
 
   .cp-debugger-nav,
   .cp-debugger-preview {
-    min-height: 0;
+    @apply min-h-0;
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
     border-radius: 1.25rem;
     background: linear-gradient(
@@ -76,38 +64,27 @@
   }
 
   .cp-debugger-nav {
-    display: flex;
-    min-height: 0;
+    @apply flex min-h-0 overflow-hidden;
     flex-direction: column;
-    overflow: hidden;
   }
 
   .cp-debugger-preview {
-    display: flex;
+    @apply flex min-h-0 min-w-0 overflow-hidden;
     flex: 1;
-    min-width: 0;
-    min-height: 0;
     flex-direction: column;
-    overflow: hidden;
     padding: 1rem;
   }
 
   .cp-debugger-preview-title {
-    margin: 0 0 0.75rem;
-    color: var(--text-primary);
+    @apply text-text-primary m-0 font-bold;
+    margin-bottom: 0.75rem;
     font-size: 0.875rem;
-    font-weight: 700;
     letter-spacing: 0.04em;
   }
 
   .cp-debugger-image-stage {
-    position: relative;
-    display: flex;
+    @apply relative flex min-h-0 items-center justify-center overflow-hidden;
     flex: 1;
-    min-height: 0;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
     border-radius: 0.875rem;
     background:
@@ -140,16 +117,13 @@
   }
 
   .cp-debugger-image-preview {
-    display: flex;
-    min-height: 0;
+    @apply flex min-h-0 flex-col;
     flex: 1;
-    flex-direction: column;
     gap: 0.75rem;
   }
 
   .cp-debugger-image-meta {
-    margin: 0;
-    color: var(--text-secondary);
+    @apply text-text-secondary m-0;
     font-size: 0.6875rem;
     line-height: 1.5;
     word-break: break-word;
@@ -157,33 +131,27 @@
 
   .cp-debugger-compare-single,
   .cp-debugger-compare-overlay {
+    @apply min-h-0 overflow-hidden;
     width: 100%;
     height: 100%;
-    min-height: 0;
-    overflow: hidden;
   }
 
   .cp-debugger-compare-single {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    @apply flex items-center justify-center;
   }
 
   .cp-debugger-compare-split {
-    display: grid;
+    @apply grid min-h-0;
     width: 100%;
     height: 100%;
-    min-height: 0;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.75rem;
   }
 
   .cp-debugger-compare-pane {
-    display: grid;
-    min-height: 0;
+    @apply m-0 grid min-h-0;
     grid-template-rows: auto minmax(0, 1fr);
     gap: 0.5rem;
-    margin: 0;
     border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
     border-radius: 0.75rem;
     background: color-mix(in srgb, var(--bg-panel) 76%, transparent);
@@ -191,47 +159,33 @@
   }
 
   .cp-debugger-compare-pane-body {
-    position: relative;
-    display: flex;
-    width: 100%;
-    min-height: 0;
-    overflow: hidden;
+    @apply relative flex min-h-0 w-full overflow-hidden;
   }
 
   .cp-debugger-compare-label {
-    color: var(--text-secondary);
+    @apply text-text-secondary uppercase;
     font-size: 0.625rem;
     font-weight: 700;
     letter-spacing: 0.12em;
-    text-transform: uppercase;
   }
 
   .cp-debugger-compare-overlay {
-    position: relative;
+    @apply relative;
   }
 
   .cp-debugger-compare-overlay-centered {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    @apply flex items-center justify-center;
   }
 
   .cp-debugger-panzoom-viewport {
-    position: relative;
+    @apply relative min-h-0 cursor-grab overflow-hidden;
     width: 100%;
     height: 100%;
-    min-height: 0;
-    overflow: hidden;
-    cursor: grab;
     outline: none;
   }
 
-  .cp-debugger-panzoom-viewport:focus-visible {
-    box-shadow: inset 0 0 0 1px var(--focus-ring);
-  }
-
   .cp-debugger-panzoom-viewport-dragging {
-    cursor: grabbing;
+    @apply cursor-grabbing;
   }
 
   .cp-debugger-panzoom-content {
@@ -248,57 +202,51 @@
   }
 
   .cp-debugger-image-frame {
-    position: relative;
+    @apply relative overflow-hidden;
     width: 100%;
     height: 100%;
-    overflow: hidden;
   }
 
   .cp-debugger-image {
+    @apply min-h-0;
     width: 100%;
     height: 100%;
-    min-height: 0;
     object-position: center;
     object-fit: contain;
     image-rendering: pixelated;
   }
 
   .cp-debugger-patch-bounds {
-    position: absolute;
+    @apply pointer-events-none absolute;
     border: 0.125rem dashed color-mix(in srgb, var(--accent) 84%, white 16%);
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg-app) 70%, transparent);
-    pointer-events: none;
   }
 
   .cp-debugger-toolbar-badge {
-    display: inline-flex;
-    align-items: center;
+    @apply text-text-primary inline-flex items-center;
     min-height: 1.75rem;
     border-radius: 62.4375rem;
     background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
-    color: var(--text-primary);
     padding: 0 0.625rem;
     font-size: 0.6875rem;
     font-weight: 700;
   }
 
   .cp-debugger-toolbar-slider {
-    display: flex;
+    @apply text-text-secondary flex items-center;
     min-width: min(15rem, 100%);
-    align-items: center;
     gap: 0.625rem;
-    color: var(--text-secondary);
     font-size: 0.6875rem;
     font-weight: 700;
   }
 
   .cp-debugger-toolbar-slider input {
-    flex: 1;
+    @apply flex-1;
     accent-color: var(--accent);
   }
 
   .cp-debugger-toolbar-popup {
-    position: absolute;
+    @apply absolute;
     right: 0;
     bottom: calc(100% + 0.625rem);
     z-index: 4;
@@ -306,10 +254,8 @@
   }
 
   .cp-debugger-code {
-    min-height: 0;
+    @apply text-text-primary m-0 min-h-0 overflow-auto;
     flex: 1;
-    overflow: auto;
-    margin: 0;
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
     border-radius: 1rem;
     background: linear-gradient(
@@ -317,7 +263,6 @@
       color-mix(in srgb, var(--bg-panel-muted) 76%, transparent),
       color-mix(in srgb, var(--bg-app) 16%, transparent)
     );
-    color: var(--text-primary);
     padding: 0.875rem;
     font-family: var(--font-mono);
     font-size: 0.75rem;
@@ -327,7 +272,7 @@
   }
 
   .cp-debugger-tabs {
-    display: grid;
+    @apply grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     flex-shrink: 0;
     gap: 0.5rem;
@@ -351,98 +296,75 @@
   }
 
   .cp-debugger-tab:hover {
+    @apply text-text-primary;
     background: color-mix(in srgb, var(--bg-active) 78%, transparent);
-    color: var(--text-primary);
   }
 
   .cp-debugger-tab-active {
+    @apply text-text-primary;
     border-color: color-mix(in srgb, var(--accent) 48%, transparent);
     background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
-    color: var(--text-primary);
   }
 
   .cp-debugger-nav-scroll {
-    display: grid;
+    @apply grid min-h-0 overflow-auto;
     align-content: start;
     flex: 1 1 auto;
-    min-height: 0;
-    overflow: auto;
   }
 
   .cp-debugger-list {
-    display: grid;
+    @apply m-0 grid;
     gap: 0.5rem;
-    margin: 0;
     padding: 0.875rem;
     list-style: none;
   }
 
   .cp-debugger-list-item {
-    width: 100%;
+    @apply w-full text-left;
     border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
     border-radius: 0.875rem;
     background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
     padding: 0.75rem;
-    text-align: left;
     transition:
       border-color 160ms ease,
       background-color 160ms ease,
       transform 160ms ease;
   }
 
-  .cp-debugger-list-item:hover {
-    border-color: color-mix(in srgb, var(--accent) 32%, var(--border-color));
-    background: color-mix(in srgb, var(--bg-active) 76%, transparent);
-    transform: translateY(-0.0625rem);
-  }
-
-  .cp-debugger-list-item-active {
-    border-color: color-mix(in srgb, var(--accent) 52%, transparent);
-    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
-  }
-
   .cp-debugger-list-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    @apply flex items-center justify-between;
     gap: 0.625rem;
   }
 
   .cp-debugger-list-title {
-    min-width: 0;
-    overflow: hidden;
-    color: var(--text-primary);
+    @apply text-text-primary min-w-0 overflow-hidden font-bold whitespace-nowrap;
     font-size: 0.8125rem;
-    font-weight: 700;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .cp-debugger-list-meta {
+    @apply text-text-secondary;
     margin: 0.375rem 0 0;
-    color: var(--text-secondary);
     font-size: 0.6875rem;
     line-height: 1.5;
     word-break: break-word;
   }
 
   .cp-debugger-target-groups {
-    display: grid;
+    @apply grid;
     gap: 0.75rem;
     padding: 0.875rem;
   }
 
   .cp-debugger-target-group {
-    overflow: hidden;
+    @apply overflow-hidden;
     border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
     border-radius: 1rem;
     background: color-mix(in srgb, var(--bg-panel) 80%, transparent);
   }
 
   .cp-debugger-target-group-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    @apply flex items-center justify-between;
     gap: 0.75rem;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
     background: color-mix(in srgb, var(--bg-panel-muted) 82%, transparent);
@@ -450,72 +372,67 @@
   }
 
   .cp-debugger-target-group-title {
-    margin: 0;
-    color: var(--text-primary);
+    @apply text-text-primary m-0 uppercase;
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.08em;
-    text-transform: uppercase;
   }
 
   .cp-debugger-target-group-meta {
+    @apply text-text-secondary;
     margin: 0.25rem 0 0;
-    color: var(--text-secondary);
     font-size: 0.6875rem;
   }
 
   .cp-debugger-target-group-body {
-    display: grid;
+    @apply grid;
     gap: 0.5rem;
     padding: 0.75rem;
   }
 
   .cp-debugger-pill {
+    @apply uppercase;
     border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
     border-radius: 62.4375rem;
     padding: 0.1875rem 0.5rem;
     font-size: 0.625rem;
     font-weight: 700;
     letter-spacing: 0.12em;
-    text-transform: uppercase;
   }
 
   .cp-debugger-pill-ok {
+    @apply text-success;
     border-color: color-mix(in srgb, var(--success) 36%, transparent);
     background: color-mix(in srgb, var(--success) 14%, transparent);
-    color: var(--success);
   }
 
   .cp-debugger-pill-muted {
+    @apply text-text-secondary;
     background: color-mix(in srgb, var(--bg-panel-muted) 86%, transparent);
-    color: var(--text-secondary);
   }
 
   .cp-debugger-pill-warn {
+    @apply text-warning;
     border-color: color-mix(in srgb, var(--warning) 36%, transparent);
     background: color-mix(in srgb, var(--warning) 12%, transparent);
-    color: var(--warning);
   }
 
   .cp-debugger-pill-error {
+    @apply text-danger;
     border-color: color-mix(in srgb, var(--danger) 36%, transparent);
     background: color-mix(in srgb, var(--danger) 12%, transparent);
-    color: var(--danger);
   }
 
   .cp-debugger-rail-scroll {
-    display: flex;
-    flex-direction: column;
+    @apply flex min-h-0 flex-col overflow-auto;
     flex: 1 1 auto;
     align-items: stretch;
     gap: 0.625rem;
-    min-height: 0;
-    overflow: auto;
     padding: 0.75rem;
   }
 
   .cp-debugger-rail-top {
-    display: flex;
+    @apply flex;
     flex: 0 0 auto;
     padding: 0.75rem 0.75rem 0.625rem;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
@@ -523,29 +440,28 @@
   }
 
   .cp-debugger-rail-top > * {
+    @apply min-w-0;
     flex: 1 1 auto;
-    min-width: 0;
   }
 
   .cp-debugger-card {
+    @apply min-h-0;
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
     border-radius: 0.875rem;
     background: color-mix(in srgb, var(--bg-panel) 84%, transparent);
-    min-height: 0;
     padding: 0.75rem;
   }
 
   .cp-debugger-card-title {
-    margin: 0 0 0.5rem;
-    color: var(--text-secondary);
+    @apply text-text-secondary m-0 uppercase;
+    margin-bottom: 0.5rem;
     font-size: 0.625rem;
     font-weight: 700;
     letter-spacing: 0.16em;
-    text-transform: uppercase;
   }
 
   .cp-debugger-card-title-tight {
-    margin: 0;
+    @apply m-0;
   }
 
   .cp-debugger-context-card {
@@ -553,7 +469,7 @@
   }
 
   .cp-debugger-form-grid {
-    display: grid;
+    @apply grid;
     gap: 0.5rem;
   }
 
@@ -562,33 +478,30 @@
   }
 
   .cp-debugger-field {
-    display: grid;
+    @apply grid;
     gap: 0.25rem;
   }
 
   .cp-debugger-field span {
-    color: var(--text-secondary);
+    @apply text-text-secondary uppercase;
     font-size: 0.625rem;
     font-weight: 700;
     letter-spacing: 0.08em;
-    text-transform: uppercase;
   }
 
   .cp-debugger-field input,
   .cp-debugger-field select {
+    @apply text-text-primary;
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
     border-radius: 0.75rem;
     background: color-mix(in srgb, var(--bg-panel-muted) 80%, transparent);
-    color: var(--text-primary);
     min-height: 2.125rem;
     padding: 0 0.625rem;
   }
 
   .cp-debugger-trace-list {
-    display: grid;
+    @apply m-0 grid p-0;
     gap: 0.375rem;
-    margin: 0;
-    padding: 0;
     list-style: none;
   }
 
@@ -600,36 +513,26 @@
   }
 
   .cp-debugger-dock-card {
-    padding: 0;
-    overflow: hidden;
+    @apply overflow-hidden p-0;
   }
 
   .cp-debugger-dock-toggle {
-    display: flex;
-    width: 100%;
-    align-items: center;
-    justify-content: space-between;
+    @apply flex w-full items-center justify-between text-left;
     gap: 0.625rem;
     border: 0;
     background: transparent;
     color: inherit;
     padding: 0.75rem;
-    text-align: left;
-  }
-
-  .cp-debugger-dock-toggle:hover {
-    background: color-mix(in srgb, var(--bg-active) 36%, transparent);
   }
 
   .cp-debugger-dock-toggle-meta {
-    display: inline-flex;
+    @apply inline-flex items-center;
     flex: 0 0 auto;
-    align-items: center;
     gap: 0.5rem;
   }
 
   .cp-debugger-dock-chevron {
-    color: var(--text-secondary);
+    @apply text-text-secondary;
     transition: transform 160ms ease;
   }
 
@@ -638,7 +541,7 @@
   }
 
   .cp-debugger-dock-body {
-    display: grid;
+    @apply grid;
     gap: 0.5rem;
     padding: 0 0.75rem 0.75rem;
     border-top: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);

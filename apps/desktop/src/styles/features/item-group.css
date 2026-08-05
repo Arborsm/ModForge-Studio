@@ -1,35 +1,24 @@
 @layer components {
   .item-group-trigger {
-    position: relative;
-    display: inline-flex;
-    align-items: stretch;
+    @apply relative inline-flex items-stretch;
     isolation: isolate;
   }
 
   .item-group-badge {
-    position: absolute;
+    @apply text-text-primary text-caption pointer-events-none absolute inline-flex items-center justify-center rounded-full font-bold;
     top: -0.375rem;
     right: -0.375rem;
-    display: inline-flex;
     min-width: 1.375rem;
     height: 1.375rem;
-    align-items: center;
-    justify-content: center;
     padding: 0 0.375rem;
-    border-radius: 62.4375rem;
     border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border-color));
     background: color-mix(in srgb, var(--bg-elevated) 92%, rgba(255, 255, 255, 0.08));
     box-shadow: 0 0.5rem 1.125rem rgba(15, 23, 42, 0.18);
-    font-size: 0.625rem;
-    font-weight: 700;
     line-height: 1;
-    color: var(--text-primary);
-    pointer-events: none;
   }
 
   .item-group-popover {
-    position: fixed;
-    display: inline-block;
+    @apply fixed inline-block overflow-hidden;
     z-index: 40;
     max-width: calc(100vw - 1.5rem);
     border-radius: 1.375rem;
@@ -37,7 +26,6 @@
     background: color-mix(in srgb, var(--bg-panel) 94%, rgba(255, 255, 255, 0.04));
     box-shadow: 0 1.125rem 2.75rem rgba(15, 23, 42, 0.18);
     backdrop-filter: blur(0.5rem);
-    overflow: hidden;
     will-change: transform, opacity;
   }
 
@@ -50,12 +38,11 @@
   }
 
   .item-group-popover-inner {
+    @apply flex flex-col;
     --item-group-enter-y: 0.625rem;
     width: max-content;
     max-width: min(35rem, calc(100vw - 1.5rem));
     max-height: inherit;
-    display: flex;
-    flex-direction: column;
     opacity: 0;
     transform: translateY(var(--item-group-enter-y)) scale(0.95);
     transform-origin: inherit;
@@ -76,39 +63,26 @@
   }
 
   .item-group-title {
-    margin: 0;
-    font-size: 0.625rem;
-    font-weight: 600;
+    @apply text-text-secondary text-caption m-0 font-semibold;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: var(--text-secondary);
   }
 
   .item-group-subtitle {
-    margin: 0.25rem 0 0;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--text-primary);
+    @apply text-text-primary mt-1 text-xs font-medium;
   }
 
   .item-group-grid {
-    display: grid;
+    @apply grid content-start justify-center justify-items-center overflow-auto p-3;
     grid-template-columns: repeat(var(--item-group-columns, 1), minmax(0, var(--item-group-tile-width, 5.5rem)));
-    justify-content: center;
-    justify-items: center;
-    align-content: flex-start;
     gap: var(--item-group-gap, 0.5rem);
-    padding: 0.75rem;
     flex: 1 1 auto;
     max-height: inherit;
-    overflow: auto;
   }
 
   .item-group-cell {
-    display: flex;
+    @apply flex min-w-0 justify-center;
     width: var(--item-group-tile-width, 5.5rem);
-    min-width: 0;
-    justify-content: center;
   }
 
   @keyframes popIn {

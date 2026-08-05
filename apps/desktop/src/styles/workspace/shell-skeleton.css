@@ -1,10 +1,6 @@
 @layer components {
   .workbench-shell-skeleton {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+    @apply absolute inset-0 flex flex-col overflow-hidden;
     background:
       radial-gradient(circle 32.5rem at 14% -6%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 68%),
       radial-gradient(circle 28.75rem at 98% -2%, color-mix(in srgb, var(--info) 6%, transparent), transparent 70%),
@@ -15,13 +11,10 @@
   }
 
   .workbench-shell-skeleton-topbar {
-    display: grid;
-    height: 3rem;
+    @apply grid h-12 items-center px-3.5;
     grid-template-columns: minmax(11.25rem, 1fr) auto minmax(11.25rem, 1fr);
-    align-items: center;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
     background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
-    padding: 0 0.875rem;
     backdrop-filter: blur(0.625rem);
   }
 
@@ -31,18 +24,17 @@
   .workbench-shell-skeleton-maker-chip,
   .workbench-shell-skeleton-metric,
   .workbench-shell-skeleton-project-row {
-    display: flex;
-    align-items: center;
+    @apply flex items-center;
   }
 
   .workbench-shell-skeleton-brand,
   .workbench-shell-skeleton-actions,
   .workbench-shell-skeleton-nav {
-    gap: 0.625rem;
+    @apply gap-2.5;
   }
 
   .workbench-shell-skeleton-actions {
-    justify-content: flex-end;
+    @apply justify-end;
   }
 
   .workbench-shell-skeleton-mark,
@@ -58,9 +50,7 @@
   .workbench-shell-skeleton-library-action,
   .workbench-shell-skeleton-project-cover,
   .workbench-shell-skeleton-project-pill {
-    display: block;
-    position: relative;
-    overflow: hidden;
+    @apply relative block overflow-hidden;
     background: color-mix(in srgb, var(--bg-panel-muted) 72%, var(--border-color));
   }
 
@@ -86,19 +76,15 @@
   }
 
   .workbench-shell-skeleton-mark {
-    width: 2rem;
-    height: 2rem;
-    border-radius: 0.5rem;
+    @apply h-8 w-8 rounded-lg;
   }
 
   .workbench-shell-skeleton-line {
-    height: 0.625rem;
-    width: 5.5rem;
-    border-radius: 62.4375rem;
+    @apply h-2.5 w-22 rounded-full;
   }
 
   .workbench-shell-skeleton-line-brand {
-    width: 8rem;
+    @apply w-32;
   }
 
   .workbench-shell-skeleton-line-wide {
@@ -110,74 +96,49 @@
   }
 
   .workbench-shell-skeleton-line-short {
-    width: 4.25rem;
+    @apply w-17;
   }
 
   .workbench-shell-skeleton-line-title {
+    @apply h-3.5;
     width: min(58%, 15rem);
-    height: 0.875rem;
   }
 
   .workbench-shell-skeleton-search-line {
-    flex: 1;
-    width: auto;
+    @apply w-auto flex-1;
   }
 
   .workbench-shell-skeleton-pill {
-    width: 4.625rem;
-    height: 1.75rem;
-    border-radius: 62.4375rem;
+    @apply h-7 w-18.5 rounded-full;
   }
 
   .workbench-shell-skeleton-dot {
-    width: 1.75rem;
-    height: 1.75rem;
-    border-radius: 0.625rem;
+    @apply rounded-field h-7 w-7;
   }
 
   .workbench-shell-skeleton-home {
-    display: flex;
-    min-height: 0;
-    flex: 1;
-    flex-direction: column;
-    gap: 1.5rem;
+    @apply mx-auto flex min-h-0 flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto pt-8 pb-18;
     width: min(110rem, calc(100vw - 4rem));
-    margin: 0 auto;
-    padding: 2rem 0 4.5rem;
-    overflow-x: hidden;
-    overflow-y: auto;
   }
 
   .workbench-shell-skeleton-search {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    height: 3rem;
+    @apply shadow-panel flex h-12 items-center gap-3 rounded-full px-4.5;
     border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
-    border-radius: 62.4375rem;
     background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
-    box-shadow: var(--shadow-panel);
-    padding: 0 1.125rem;
     backdrop-filter: blur(0.625rem);
   }
 
   .workbench-shell-skeleton-search-icon {
-    width: 1.125rem;
-    height: 1.125rem;
-    flex: 0 0 auto;
-    border-radius: 62.4375rem;
+    @apply h-4.5 w-4.5 flex-none rounded-full;
   }
 
   .workbench-shell-skeleton-keycap {
-    width: 3.125rem;
-    height: 1.25rem;
-    border-radius: 0.4375rem;
+    @apply rounded-button h-5 w-12.5;
   }
 
   .workbench-shell-skeleton-hero {
-    display: grid;
+    @apply grid gap-6;
     grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.42fr);
-    gap: 1.5rem;
   }
 
   .workbench-shell-skeleton-current-card,
@@ -185,171 +146,117 @@
   .workbench-shell-skeleton-app-card,
   .workbench-shell-skeleton-library,
   .workbench-shell-skeleton-project-row {
+    @apply shadow-panel;
     border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
     background: color-mix(in srgb, var(--bg-panel) 92%, transparent);
-    box-shadow: var(--shadow-panel);
     backdrop-filter: blur(0.75rem);
   }
 
   .workbench-shell-skeleton-current-card {
-    display: grid;
+    @apply grid min-h-64 gap-4 rounded-2xl p-5;
     grid-template-columns: auto minmax(0, 1fr);
-    gap: 1rem;
-    min-height: 16rem;
-    border-radius: 1rem;
-    padding: 1.25rem;
   }
 
   .workbench-shell-skeleton-cover {
+    @apply aspect-square rounded-2xl;
     width: clamp(5rem, 12vw, 8rem);
-    aspect-ratio: 1;
-    border-radius: 1rem;
     background:
       linear-gradient(135deg, color-mix(in srgb, var(--accent) 20%, transparent), transparent),
       color-mix(in srgb, var(--bg-panel-muted) 82%, var(--border-color));
   }
 
   .workbench-shell-skeleton-current-copy {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 0.875rem;
-    align-self: center;
+    @apply flex min-w-0 flex-col gap-3.5 self-center;
   }
 
   .workbench-shell-skeleton-makerbar {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.75rem;
-    align-self: end;
+    @apply col-span-full grid grid-cols-3 gap-3 self-end;
   }
 
   .workbench-shell-skeleton-maker-chip {
-    gap: 0.625rem;
-    min-height: 4.25rem;
+    @apply rounded-card min-h-17 gap-2.5 p-3;
     border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
-    border-radius: 0.875rem;
     background: color-mix(in srgb, var(--bg-panel-muted) 76%, transparent);
-    padding: 0.75rem;
   }
 
   .workbench-shell-skeleton-maker-icon,
   .workbench-shell-skeleton-metric-icon,
   .workbench-shell-skeleton-app-icon {
-    flex: 0 0 auto;
-    border-radius: 0.75rem;
+    @apply flex-none rounded-xl;
   }
 
   .workbench-shell-skeleton-maker-icon {
-    width: 2rem;
-    height: 2rem;
+    @apply h-8 w-8;
   }
 
   .workbench-shell-skeleton-metrics {
-    display: grid;
-    gap: 0.75rem;
+    @apply grid gap-3;
   }
 
   .workbench-shell-skeleton-metric {
-    gap: 0.875rem;
-    min-height: 5rem;
-    border-radius: 0.875rem;
-    padding: 0.875rem;
+    @apply rounded-card min-h-20 gap-3.5 p-3.5;
   }
 
   .workbench-shell-skeleton-metric-icon {
-    width: 2.25rem;
-    height: 2.25rem;
+    @apply h-9 w-9;
   }
 
   .workbench-shell-skeleton-section {
-    display: grid;
-    gap: 0.875rem;
+    @apply grid gap-3.5;
   }
 
   .workbench-shell-skeleton-section-head,
   .workbench-shell-skeleton-library-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
+    @apply flex items-center justify-between gap-4;
   }
 
   .workbench-shell-skeleton-section-head {
-    padding: 0 0.125rem;
+    @apply px-0.5;
   }
 
   .workbench-shell-skeleton-app-grid {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 0.875rem;
+    @apply grid grid-cols-6 gap-3.5;
   }
 
   .workbench-shell-skeleton-app-card {
-    display: flex;
-    min-height: 8.75rem;
-    flex-direction: column;
-    justify-content: space-between;
-    border-radius: 1rem;
-    padding: 1rem;
+    @apply flex min-h-35 flex-col justify-between rounded-2xl p-4;
   }
 
   .workbench-shell-skeleton-app-icon {
-    width: 2.5rem;
-    height: 2.5rem;
+    @apply h-10 w-10;
   }
 
   .workbench-shell-skeleton-library {
-    display: grid;
-    gap: 1rem;
-    min-height: 0;
-    border-radius: 1rem;
-    padding: 1rem;
+    @apply grid min-h-0 gap-4 rounded-2xl p-4;
   }
 
   .workbench-shell-skeleton-library-head > div,
   .workbench-shell-skeleton-project-copy {
-    display: grid;
-    min-width: 0;
-    gap: 0.625rem;
+    @apply grid min-w-0 gap-2.5;
   }
 
   .workbench-shell-skeleton-library-action {
-    width: 8rem;
-    height: 2.25rem;
-    flex: 0 0 auto;
-    border-radius: 62.4375rem;
+    @apply h-9 w-32 flex-none rounded-full;
   }
 
   .workbench-shell-skeleton-project-list {
-    display: grid;
-    gap: 0.75rem;
+    @apply grid gap-3;
   }
 
   .workbench-shell-skeleton-project-row {
-    gap: 0.875rem;
-    min-height: 5rem;
-    border-radius: 0.875rem;
-    padding: 0.75rem;
+    @apply rounded-card min-h-20 gap-3.5 p-3;
   }
 
   .workbench-shell-skeleton-project-cover {
-    width: 3.25rem;
-    height: 3.25rem;
-    flex: 0 0 auto;
-    border-radius: 0.75rem;
+    @apply h-13 w-13 flex-none rounded-xl;
   }
 
   .workbench-shell-skeleton-project-copy {
-    flex: 1;
+    @apply flex-1;
   }
 
   .workbench-shell-skeleton-project-pill {
-    width: 4.25rem;
-    height: 1.5rem;
-    flex: 0 0 auto;
-    border-radius: 62.4375rem;
+    @apply h-6 w-17 flex-none rounded-full;
   }
 
   @media (max-width: 86rem) {
@@ -364,12 +271,12 @@
     }
 
     .workbench-shell-skeleton-nav {
-      display: none;
+      @apply hidden;
     }
 
     .workbench-shell-skeleton-home {
       width: min(100%, calc(100vw - 1.75rem));
-      padding: 1rem 0 2rem;
+      @apply pt-4 pb-8;
     }
 
     .workbench-shell-skeleton-hero,
@@ -385,7 +292,7 @@
     .workbench-shell-skeleton-keycap,
     .workbench-shell-skeleton-library-action,
     .workbench-shell-skeleton-project-pill {
-      display: none;
+      @apply hidden;
     }
   }
 

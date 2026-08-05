@@ -104,8 +104,8 @@ function ExpertPanelInner({ patch, extraTokenNames, onPatchChange }: ExpertPanel
   }
 
   const inputClass =
-    'w-full rounded-md border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-xs text-(--text-primary) outline-none focus:border-(--accent)'
-  const labelClass = 'mb-0.5 block text-[9px] text-(--text-secondary) uppercase'
+    'w-full rounded-md border border-border-subtle bg-surface-app px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent'
+  const labelClass = 'mb-0.5 block text-caption-px text-text-secondary uppercase'
 
   return (
     <aside className="expert-panel custom-scrollbar">
@@ -141,10 +141,10 @@ function ExpertPanelInner({ patch, extraTokenNames, onPatchChange }: ExpertPanel
             <option value="token">{copy.enabledModeToken}</option>
           </select>
           {enabledMode === 'bool' ? (
-            <label className="mt-1.5 flex items-center gap-2 text-xs text-(--text-primary)">
+            <label className="text-text-primary mt-1.5 flex items-center gap-2 text-xs">
               <input
                 type="checkbox"
-                className="h-4 w-4 accent-(--accent)"
+                className="accent-accent h-4 w-4"
                 checked={enabledBool}
                 onChange={(e) => setEnabledBool(e.target.checked)}
               />
@@ -162,8 +162,8 @@ function ExpertPanelInner({ patch, extraTokenNames, onPatchChange }: ExpertPanel
         </div>
 
         {/* When conditions */}
-        <div className="mt-3 border-t border-(--border-color) pt-2">
-          <span className="text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">{copy.when}</span>
+        <div className="border-border-subtle mt-3 border-t pt-2">
+          <span className="text-text-secondary text-caption-px font-semibold tracking-wider uppercase">{copy.when}</span>
           <div className="mt-1.5">
             <WhenConditionEditor rows={whenRows} onChange={setWhenRows} extraTokenNames={extraTokenNames} />
           </div>
@@ -234,12 +234,12 @@ function ExpertPanelInner({ patch, extraTokenNames, onPatchChange }: ExpertPanel
                 value={targetFieldText}
                 onChange={(e) => setTargetFieldText(e.target.value)}
               />
-              <p className="mt-1 text-[11px] text-(--text-secondary)">{copy.targetFieldHint}</p>
+              <p className="text-text-secondary text-meta-px mt-1">{copy.targetFieldHint}</p>
             </div>
 
             {/* LocalTokens */}
-            <div className="border-t border-(--border-color) pt-2">
-              <span className="text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">{copy.localTokens}</span>
+            <div className="border-border-subtle border-t pt-2">
+              <span className="text-text-secondary text-caption-px font-semibold tracking-wider uppercase">{copy.localTokens}</span>
               <div className="mt-1.5 space-y-2">
                 {localTokens.map((entry, index) => (
                   <div key={index} className="flex items-center gap-2">
@@ -269,7 +269,7 @@ function ExpertPanelInner({ patch, extraTokenNames, onPatchChange }: ExpertPanel
                     </div>
                     <button
                       type="button"
-                      className="icon-button h-7 w-7 shrink-0 text-(--danger)"
+                      className="icon-button text-danger h-7 w-7 shrink-0"
                       onClick={() => setLocalTokens(localTokens.filter((_, i) => i !== index))}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -278,7 +278,7 @@ function ExpertPanelInner({ patch, extraTokenNames, onPatchChange }: ExpertPanel
                 ))}
                 <button
                   type="button"
-                  className="flex items-center gap-1 text-xs text-(--accent) hover:underline"
+                  className="text-accent flex items-center gap-1 text-xs hover:underline"
                   onClick={() => setLocalTokens([...localTokens, { key: '', value: '' }])}
                 >
                   <Plus className="h-3 w-3" /> {copy.addToken}
@@ -290,7 +290,7 @@ function ExpertPanelInner({ patch, extraTokenNames, onPatchChange }: ExpertPanel
 
         {/* EditData advanced ops: lifted from EditorPage */}
         {patch.action === 'EditData' ? (
-          <div className="mt-3 border-t border-(--border-color) pt-3">
+          <div className="border-border-subtle mt-3 border-t pt-3">
             <EditDataAdvancedOps patch={patch} onEditorStateChange={(editorState) => onPatchChange(patch.id, { editorState })} />
           </div>
         ) : null}

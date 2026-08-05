@@ -52,7 +52,7 @@ type ScheduleEntryEditorProps = {
 function ModeSwitch({ mode, onSetMode }: { mode: ScheduleEditorMode; onSetMode: (mode: ScheduleEditorMode) => void }) {
   const copy = useScheduleEditorCopy()
   return (
-    <div className="flex gap-px rounded-lg border border-(--border-color) bg-(--bg-panel-muted) p-px">
+    <div className="border-border-subtle bg-surface-panel-muted flex gap-px rounded-lg border p-px">
       {(
         [
           ['structured', copy.modeStructured],
@@ -63,10 +63,10 @@ function ModeSwitch({ mode, onSetMode }: { mode: ScheduleEditorMode; onSetMode: 
           key={value}
           type="button"
           className={cx(
-            'rounded-[0.4375rem] px-3 py-1.5 text-xs font-semibold transition-colors',
+            'rounded-button px-3 py-1.5 text-xs font-semibold transition-colors',
             mode === value
-              ? 'bg-(--bg-panel) text-(--text-primary) shadow-[inset_0_-1.5px_0_0_var(--accent)]'
-              : 'text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
+              ? 'bg-surface-panel text-text-primary shadow-[inset_0_-1.5px_0_0_var(--accent)]'
+              : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',
           )}
           onClick={() => onSetMode(value)}
         >
@@ -380,7 +380,7 @@ export function ScheduleEntryEditor({
               {canDelete ? (
                 <div className="schedule-editor-actions">
                   <span className="schedule-editor-actions-spacer" />
-                  <button type="button" className={cx('control-button', deleteArmed && 'text-(--danger)')} onClick={onDelete}>
+                  <button type="button" className={cx('control-button', deleteArmed && 'text-danger')} onClick={onDelete}>
                     <span>{deleteArmed ? copy.deleteConfirmAction : copy.deleteAction}</span>
                   </button>
                 </div>

@@ -3,32 +3,23 @@
      The shared shell skeleton is gone; these classes are owned by the
      module runtimes that render their own page layout. */
   .authoring-shell {
-    display: flex;
-    height: 100%;
-    min-height: 0;
-    flex-direction: column;
-    overflow: hidden;
-    background: var(--bg-app);
+    @apply bg-surface-app flex h-full min-h-0 flex-col overflow-hidden;
   }
 
   .authoring-shell-body {
-    display: flex;
-    min-height: 0;
+    @apply flex min-h-0 overflow-hidden;
     flex: 1 1 auto;
-    overflow: hidden;
   }
 
   .authoring-shell-main {
-    min-width: 0;
-    min-height: 0;
+    @apply min-h-0 min-w-0 overflow-hidden;
     flex: 1 1 auto;
-    overflow: hidden;
   }
 
   /* Expert toggle (hosted by the workbench side nav and the mail editor tabs).
      Icon-only button sized to match the side-nav head tool squares. */
   .authoring-header-expert-toggle {
-    display: inline-grid;
+    @apply text-text-tertiary inline-grid cursor-pointer;
     width: 1.75rem;
     height: 1.75rem;
     flex-shrink: 0;
@@ -36,8 +27,6 @@
     border: 0;
     border-radius: 0.4375rem;
     background: transparent;
-    color: var(--text-tertiary);
-    cursor: pointer;
     user-select: none;
     transition:
       background-color 0.15s ease,
@@ -45,8 +34,7 @@
   }
 
   .authoring-header-expert-toggle:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
+    @apply bg-surface-hover text-text-primary;
   }
 
   .authoring-header-expert-toggle:focus-visible {
@@ -55,47 +43,35 @@
   }
 
   .authoring-header-expert-toggle.is-active {
-    background: var(--accent-soft);
-    color: var(--accent);
+    @apply bg-accent-soft text-accent;
   }
 
   /* Expert panel */
   .expert-panel {
-    display: flex;
+    @apply bg-surface-panel flex min-h-0 min-w-0 flex-col overflow-hidden;
     width: 22rem;
-    min-width: 0;
-    min-height: 0;
     flex: 0 0 auto;
-    flex-direction: column;
-    overflow: hidden;
     border-left: 1px solid var(--border-color);
-    background: var(--bg-panel);
   }
 
   .expert-panel-head {
-    display: flex;
+    @apply flex items-center justify-between;
     min-height: 2.5rem;
     flex: 0 0 auto;
-    align-items: center;
-    justify-content: space-between;
     gap: 0.5rem;
     border-bottom: 1px solid var(--border-color);
     padding: 0.5rem 0.75rem;
   }
 
   .expert-panel-title {
-    overflow: hidden;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    color: var(--text-primary);
+    @apply text-text-primary text-meta overflow-hidden font-semibold;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .expert-panel-body {
-    min-height: 0;
+    @apply min-h-0 overflow-y-auto;
     flex: 1 1 auto;
-    overflow-y: auto;
     padding: 0.75rem;
   }
 

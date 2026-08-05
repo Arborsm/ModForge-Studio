@@ -2,29 +2,24 @@
   /* Schema-driven asset editors: shared field controls, entry canvas, validation rail. */
 
   .asset-entry-canvas {
-    display: grid;
+    @apply grid min-w-0;
     gap: 0.75rem;
-    min-width: 0;
   }
 
   .asset-entry-group {
+    @apply overflow-hidden;
     border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
     border-radius: 0.75rem;
     background: var(--bg-panel);
-    overflow: hidden;
   }
 
   .asset-entry-group-summary {
-    display: flex;
-    align-items: center;
+    @apply text-text-primary flex cursor-pointer items-center select-none;
     gap: 0.4375rem;
     padding: 0.75rem 1rem;
     font-size: 0.8125rem;
     font-weight: 700;
-    color: var(--text-primary);
-    cursor: pointer;
     list-style: none;
-    user-select: none;
   }
 
   .asset-entry-group-summary::-webkit-details-marker {
@@ -36,12 +31,10 @@
   }
 
   .asset-entry-group-count {
-    margin-left: auto;
+    @apply text-text-tertiary ml-auto font-semibold;
     border-radius: 9999px;
     background: color-mix(in srgb, var(--bg-panel-muted) 80%, transparent);
-    color: var(--text-tertiary);
     font-size: 0.625rem;
-    font-weight: 600;
     padding: 0.125rem 0.5rem;
   }
 
@@ -63,17 +56,14 @@
   /* Fields */
 
   .asset-field-grid {
-    display: grid;
+    @apply grid min-w-0 items-start;
     grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
     gap: 0.75rem 1rem;
-    align-items: start;
-    min-width: 0;
   }
 
   .asset-field {
-    display: grid;
+    @apply grid min-w-0;
     gap: 0.3125rem;
-    min-width: 0;
     align-content: start;
   }
 
@@ -82,41 +72,36 @@
   }
 
   .asset-field-label {
-    display: inline-flex;
-    align-items: center;
+    @apply text-text-secondary inline-flex items-center font-semibold;
     gap: 0.375rem;
     font-size: 0.6875rem;
-    font-weight: 600;
     letter-spacing: 0.02em;
-    color: var(--text-secondary);
   }
 
   .asset-field-hint {
+    @apply text-text-tertiary;
     font-size: 0.6875rem;
-    color: var(--text-tertiary);
   }
 
   .asset-field-error {
+    @apply text-danger;
     font-size: 0.6875rem;
-    color: var(--danger);
   }
 
   .asset-field-empty {
-    margin: 0;
+    @apply text-text-tertiary m-0;
     font-size: 0.6875rem;
-    color: var(--text-tertiary);
   }
 
   .asset-field-readonly {
-    display: block;
+    @apply text-text-primary block;
     min-height: 1.75rem;
     font-size: 0.8125rem;
-    color: var(--text-primary);
     overflow-wrap: anywhere;
   }
 
   .asset-field-readonly.is-unset {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
   }
 
   .asset-field-checkbox {
@@ -145,20 +130,19 @@
   }
 
   .asset-field-gsq-row {
-    display: grid;
+    @apply grid items-center;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.375rem;
-    align-items: center;
   }
 
   .asset-field-gsq-row > .control-button {
+    @apply p-0;
     height: 2.5rem;
     width: 2.5rem;
-    padding: 0;
   }
 
   .asset-field-axis-grid {
-    display: grid;
+    @apply grid;
     gap: 0.375rem;
   }
 
@@ -171,32 +155,30 @@
   }
 
   .asset-field-list {
-    display: grid;
+    @apply grid;
     gap: 0.375rem;
   }
 
   .asset-field-list-row {
-    display: grid;
+    @apply grid items-center;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.375rem;
-    align-items: center;
   }
 
   .asset-field-kv-row {
-    display: grid;
+    @apply grid items-center;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
     gap: 0.375rem;
-    align-items: center;
   }
 
   .asset-field-add-row {
-    justify-self: start;
+    @apply justify-self-start;
   }
 
   /* Nested structures */
 
   .asset-field-nested-object {
-    display: grid;
+    @apply grid;
     grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
     gap: 0.5rem 0.75rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
@@ -206,12 +188,12 @@
   }
 
   .asset-field-nested-list {
-    display: grid;
+    @apply grid;
     gap: 0.5rem;
   }
 
   .asset-field-nested-item {
-    display: grid;
+    @apply grid;
     gap: 0.5rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
     border-radius: 0.625rem;
@@ -220,135 +202,115 @@
   }
 
   .asset-field-nested-item-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    @apply flex items-center justify-between;
     gap: 0.5rem;
   }
 
   .asset-field-nested-item-title {
+    @apply text-text-primary font-bold;
     font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--text-primary);
   }
 
   /* Validation rail */
 
   .asset-validation-rail {
-    display: grid;
+    @apply grid min-w-0;
     gap: 0.625rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
     border-radius: 0.75rem;
     background: var(--bg-panel);
     padding: 0.875rem 1rem;
-    min-width: 0;
   }
 
   .asset-validation-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
+    @apply flex items-baseline justify-between;
     gap: 0.5rem;
   }
 
   .asset-validation-title {
+    @apply text-text-primary font-bold;
     font-size: 0.8125rem;
-    font-weight: 700;
-    color: var(--text-primary);
   }
 
   .asset-validation-count {
+    @apply text-text-tertiary;
     font-size: 0.6875rem;
-    color: var(--text-tertiary);
   }
 
   .asset-validation-empty {
-    margin: 0;
+    @apply text-text-tertiary m-0;
     font-size: 0.75rem;
-    color: var(--text-tertiary);
   }
 
   .asset-validation-list {
-    display: grid;
+    @apply m-0 grid p-0;
     gap: 0.375rem;
-    margin: 0;
-    padding: 0;
     list-style: none;
   }
 
   .asset-validation-item {
-    border-radius: 0.5rem;
+    @apply rounded-lg;
     background: color-mix(in srgb, var(--bg-panel-muted) 60%, transparent);
   }
 
   .asset-validation-button,
   .asset-validation-static {
-    display: flex;
-    align-items: start;
+    @apply flex w-full items-start text-start;
     gap: 0.4375rem;
-    width: 100%;
-    text-align: start;
     padding: 0.4375rem 0.625rem;
     border-radius: 0.5rem;
   }
 
   .asset-validation-button {
-    cursor: pointer;
+    @apply cursor-pointer;
     transition: background 0.15s ease;
   }
 
-  .asset-validation-button:hover {
-    background: color-mix(in srgb, var(--bg-active) 60%, transparent);
-  }
-
   .asset-validation-icon {
+    @apply mt-0.5;
     flex: 0 0 auto;
-    margin-top: 0.125rem;
   }
 
   .asset-validation-item.is-error .asset-validation-icon {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .asset-validation-item.is-warning .asset-validation-icon {
-    color: var(--warning);
+    @apply text-warning;
   }
 
   .asset-validation-item.is-info .asset-validation-icon {
-    color: var(--accent);
+    @apply text-accent;
   }
 
   .asset-validation-body {
-    display: grid;
+    @apply grid min-w-0;
     gap: 0.125rem;
-    min-width: 0;
   }
 
   .asset-validation-message {
+    @apply text-text-secondary;
     font-size: 0.75rem;
-    color: var(--text-secondary);
     overflow-wrap: anywhere;
   }
 
   .asset-validation-path {
+    @apply text-text-tertiary;
     font-family: var(--font-mono, monospace);
     font-size: 0.625rem;
-    color: var(--text-tertiary);
     overflow-wrap: anywhere;
   }
 
   /* Resource picker / localized text: text input keeps its width, browse button hugs the end. */
 
   .asset-field-picker-row {
-    display: flex;
-    align-items: flex-start;
+    @apply flex min-w-0 items-start;
     gap: 0.375rem;
-    min-width: 0;
   }
 
   .asset-field-picker-row > .control-input {
+    @apply min-w-0;
     flex: 1 1 auto;
-    min-width: 0;
   }
 
   .asset-field-picker-row > .control-button {
@@ -399,18 +361,16 @@
   }
 
   .asset-field-resource-clear {
-    display: grid;
-    place-items: center;
+    @apply text-text-tertiary grid cursor-pointer;
     width: 1.75rem;
     height: 1.75rem;
+    place-items: center;
     border-radius: 0.375rem;
-    color: var(--text-tertiary);
-    cursor: pointer;
   }
 
   .asset-field-resource-clear:hover {
+    @apply text-text-primary;
     background: color-mix(in srgb, var(--bg-active) 65%, transparent);
-    color: var(--text-primary);
   }
 
   .asset-field-resource-clear:focus-visible {
@@ -421,19 +381,17 @@
   /* Colour control: swatch + raw text on one row, RGB channels and presets below. */
 
   .asset-field-color {
-    display: grid;
+    @apply grid min-w-0;
     gap: 0.4375rem;
-    min-width: 0;
   }
 
   .asset-field-color-head {
-    display: flex;
-    align-items: center;
+    @apply flex min-w-0 items-center;
     gap: 0.375rem;
-    min-width: 0;
   }
 
   .asset-field-color-swatch {
+    @apply cursor-pointer;
     flex: 0 0 auto;
     width: 2.5rem;
     height: 2.5rem;
@@ -441,7 +399,6 @@
     border-radius: 0.5rem;
     padding: 0.1875rem;
     background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
-    cursor: pointer;
     appearance: none;
   }
 
@@ -466,8 +423,8 @@
     border-radius: 0.3125rem;
   }
   .asset-field-color-text {
+    @apply min-w-0;
     flex: 1 1 auto;
-    min-width: 0;
     font-family: var(--font-mono, monospace);
   }
 
@@ -476,19 +433,16 @@
   }
 
   .asset-field-color-channels {
-    display: grid;
+    @apply grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.375rem;
   }
 
   .asset-field-color-channel {
-    display: grid;
+    @apply text-text-tertiary grid min-w-0 uppercase;
     gap: 0.1875rem;
-    min-width: 0;
     font-size: 0.625rem;
     font-weight: 600;
-    color: var(--text-tertiary);
-    text-transform: uppercase;
     letter-spacing: 0.03em;
   }
 
@@ -500,17 +454,16 @@
   }
 
   .asset-field-color-presets {
-    display: flex;
-    flex-wrap: wrap;
+    @apply flex flex-wrap;
     gap: 0.25rem;
   }
 
   .asset-field-color-preset {
+    @apply cursor-pointer;
     width: 1.375rem;
     height: 1.375rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
     border-radius: 0.3125rem;
-    cursor: pointer;
     transition:
       transform 0.12s ease,
       box-shadow 0.12s ease;
@@ -541,20 +494,18 @@
   /* Season control: chip row where the first chip clears the key. */
 
   .asset-field-season {
-    display: flex;
-    flex-wrap: wrap;
+    @apply flex flex-wrap;
     gap: 0.3125rem;
   }
 
   .asset-field-season-chip {
+    @apply text-text-secondary cursor-pointer;
     border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
     border-radius: 9999px;
     background: color-mix(in srgb, var(--bg-panel-muted) 60%, transparent);
-    color: var(--text-secondary);
     font-size: 0.6875rem;
     font-weight: 600;
     padding: 0.25rem 0.6875rem;
-    cursor: pointer;
     transition:
       background 0.12s ease,
       border-color 0.12s ease,
@@ -562,8 +513,8 @@
   }
 
   .asset-field-season-chip:hover {
+    @apply text-text-primary;
     border-color: color-mix(in srgb, var(--accent) 40%, var(--border-color));
-    color: var(--text-primary);
   }
 
   .asset-field-season-chip:focus-visible {
@@ -572,9 +523,9 @@
   }
 
   .asset-field-season-chip[data-selected] {
+    @apply text-accent;
     border-color: color-mix(in srgb, var(--accent) 60%, transparent);
     background: var(--accent-soft);
-    color: var(--accent);
   }
 
   /* Seasonal tint so the chips stay scannable at a glance. */
@@ -604,42 +555,36 @@
   }
 
   .asset-field-season-chip.is-unknown {
+    @apply text-warning cursor-default;
     border-style: dashed;
     border-color: color-mix(in srgb, var(--warning) 50%, var(--border-color));
     background: color-mix(in srgb, var(--warning) 12%, transparent);
-    color: var(--warning);
-    cursor: default;
   }
 
   /* Localized text control: input plus the resolved-token preview. */
 
   .asset-field-localized {
-    display: grid;
+    @apply grid min-w-0;
     gap: 0.3125rem;
-    min-width: 0;
   }
 
   .asset-field-localized-preview {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
+    @apply flex min-w-0 flex-wrap items-baseline;
     gap: 0.375rem;
-    min-width: 0;
   }
 
   .asset-field-localized-text {
+    @apply text-text-tertiary;
     font-size: 0.6875rem;
-    color: var(--text-tertiary);
     overflow-wrap: anywhere;
   }
 
   .asset-field-localized-action {
+    @apply text-accent cursor-pointer;
     border-radius: 0.25rem;
     background: none;
-    color: var(--accent);
     font-size: 0.6875rem;
     font-weight: 600;
-    cursor: pointer;
   }
 
   .asset-field-localized-action:hover {
@@ -664,10 +609,7 @@
   /* Sheet-backed variant: the cut-out is a child so its own size and scale stay
      independent of this fixed frame. */
   .asset-picker-option-preview.is-sprite {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
+    @apply flex items-center justify-center overflow-hidden;
   }
 
   .asset-picker-option-sprite {
@@ -677,34 +619,30 @@
   /* Game text library dialog: category tabs over a scrolling result table. */
 
   .text-library {
-    display: grid;
+    @apply grid;
     grid-template-rows: auto auto minmax(0, 1fr);
     gap: 0.625rem;
     min-height: 22rem;
   }
 
   .text-library-toolbar {
-    display: flex;
-    align-items: center;
+    @apply flex items-center;
     gap: 0.375rem;
   }
 
   .text-library-categories {
-    display: flex;
-    align-items: center;
+    @apply flex flex-wrap items-center;
     gap: 0.25rem;
-    flex-wrap: wrap;
   }
 
   .text-library-category {
+    @apply text-text-secondary cursor-pointer;
     border: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
     border-radius: 9999px;
     background: color-mix(in srgb, var(--bg-panel-muted) 50%, transparent);
-    color: var(--text-secondary);
     font-size: 0.6875rem;
     font-weight: 600;
     padding: 0.1875rem 0.625rem;
-    cursor: pointer;
     transition:
       background 0.12s ease,
       color 0.12s ease,
@@ -712,116 +650,82 @@
   }
 
   .text-library-category:hover {
+    @apply text-text-primary;
     background: color-mix(in srgb, var(--bg-active) 65%, transparent);
-    color: var(--text-primary);
-  }
-
-  .text-library-category:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
-    outline-offset: 0.0625rem;
   }
 
   .text-library-category.is-active {
+    @apply text-accent;
     border-color: color-mix(in srgb, var(--accent) 60%, transparent);
     background: var(--accent-soft);
-    color: var(--accent);
   }
 
   .text-library-warning {
-    margin: 0;
+    @apply text-warning m-0;
     font-size: 0.6875rem;
-    color: var(--warning);
     overflow-wrap: anywhere;
   }
 
   .text-library-results {
-    overflow: auto;
-    min-height: 0;
+    @apply min-h-0 overflow-auto;
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
     border-radius: 0.5rem;
     background: color-mix(in srgb, var(--bg-panel) 75%, transparent);
   }
 
   .text-library-status {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    @apply text-text-tertiary m-0 flex items-center justify-center;
     gap: 0.375rem;
-    margin: 0;
     font-size: 0.75rem;
-    color: var(--text-tertiary);
     padding: 1.75rem 1rem;
   }
 
   .text-library-table {
-    width: 100%;
+    @apply w-full;
     border-collapse: collapse;
     font-size: 0.6875rem;
   }
 
   .text-library-table th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
+    @apply text-text-tertiary sticky top-0 z-1 text-left uppercase;
     background: var(--bg-panel);
-    color: var(--text-tertiary);
     font-size: 0.5625rem;
     font-weight: 700;
     letter-spacing: 0.03em;
-    text-transform: uppercase;
-    text-align: left;
     padding: 0.375rem 0.625rem;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
   }
 
   .text-library-table td {
-    padding: 0;
+    @apply p-0;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 40%, transparent);
     vertical-align: top;
   }
 
-  .text-library-table tbody tr:hover td {
-    background: color-mix(in srgb, var(--bg-active) 45%, transparent);
-  }
-
-  .text-library-table tbody tr.is-selected td {
-    background: var(--accent-soft);
-  }
-
   .text-library-row {
-    display: block;
-    width: 100%;
+    @apply text-text-secondary block w-full cursor-pointer text-left;
     background: none;
     border: none;
-    color: var(--text-secondary);
     font: inherit;
-    text-align: left;
     padding: 0.4375rem 0.625rem;
-    cursor: pointer;
     overflow-wrap: anywhere;
   }
 
-  .text-library-row:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
-    outline-offset: -0.125rem;
-  }
-
   .text-library-row.is-key {
+    @apply text-text-tertiary;
     font-family: var(--font-mono, monospace);
     font-size: 0.625rem;
-    color: var(--text-tertiary);
   }
 
   .text-library-token {
+    @apply text-text-tertiary;
     font-family: var(--font-mono, monospace);
     font-size: 0.625rem;
-    color: var(--text-tertiary);
     overflow-wrap: anywhere;
   }
 
   .text-library-actions {
-    display: inline-flex;
-    align-items: center;
+    @apply inline-flex items-center;
     gap: 0.375rem;
     flex: 0 0 auto;
   }

@@ -116,10 +116,10 @@ function statusClass(status: TranslationEntry['status']) {
 }
 
 function statusFilterBackgroundClass(status: TranslationStatusFilter) {
-  if (status === 'translated') return 'bg-(--success-soft) text-(--success)'
-  if (status === 'missing') return 'bg-(--warning-soft) text-(--warning)'
-  if (status === 'error') return 'bg-(--danger-soft) text-(--danger)'
-  return 'text-(--text-tertiary) hover:bg-(--bg-hover) hover:text-(--text-secondary)'
+  if (status === 'translated') return 'bg-success-soft text-success'
+  if (status === 'missing') return 'bg-warning-soft text-warning'
+  if (status === 'error') return 'bg-danger-soft text-danger'
+  return 'text-text-tertiary hover:bg-surface-hover hover:text-text-secondary'
 }
 
 function isStatusHighlighted(status: TranslationStatusFilter, statusCounts: ReturnType<typeof getStatusCounts>, totalEntries: number) {
@@ -134,12 +134,12 @@ function isStatusHighlighted(status: TranslationStatusFilter, statusCounts: Retu
 
 function statusFilterClass(status: TranslationStatusFilter, isActive: boolean, highlighted: boolean) {
   return cx(
-    'inline-flex h-6 items-center rounded-md px-2 text-[11px] font-medium transition-colors',
+    'inline-flex h-6 items-center rounded-md px-2 text-meta-px font-medium transition-colors',
     isActive
-      ? 'bg-(--accent-soft) text-(--accent)'
+      ? 'bg-accent-soft text-accent'
       : highlighted
         ? statusFilterBackgroundClass(status)
-        : 'text-(--text-tertiary) hover:bg-(--bg-hover) hover:text-(--text-secondary)',
+        : 'text-text-tertiary hover:bg-surface-hover hover:text-text-secondary',
   )
 }
 
@@ -299,26 +299,26 @@ const DROPDOWN_VIEWPORT_PADDING = 10
 function localeStatusDotClass(status: LocaleStatus) {
   switch (status) {
     case 'translated':
-      return 'bg-(--success)'
+      return 'bg-success'
     case 'partial':
-      return 'bg-(--warning)'
+      return 'bg-warning'
     case 'missing':
-      return 'bg-(--text-tertiary)'
+      return 'bg-text-tertiary'
     case 'source':
-      return 'bg-(--accent)'
+      return 'bg-accent'
   }
 }
 
 function targetTriggerClass(status: LocaleStatus) {
   switch (status) {
     case 'translated':
-      return 'border-(--success)/30 bg-(--success-soft) text-(--success)'
+      return 'border-success/30 bg-success-soft text-success'
     case 'partial':
-      return 'border-(--warning)/30 bg-(--warning-soft) text-(--warning)'
+      return 'border-warning/30 bg-warning-soft text-warning'
     case 'missing':
-      return 'border-(--border-color) bg-(--bg-hover) text-(--text-secondary)'
+      return 'border-border-subtle bg-surface-hover text-text-secondary'
     case 'source':
-      return 'border-(--border-color) bg-(--bg-panel-muted) text-(--text-primary)'
+      return 'border-border-subtle bg-surface-panel-muted text-text-primary'
   }
 }
 
@@ -404,7 +404,7 @@ function LocaleDropdown({
   }
 
   const triggerBaseClass = cx(
-    'inline-flex h-7 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-(--accent)/30',
+    'inline-flex h-7 items-center gap-1.5 rounded-lg border px-2 text-meta-px font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent/30',
     mode === 'target' ? targetTriggerClass(selectedOption?.status ?? 'missing') : targetTriggerClass('source'),
     !enabled && 'opacity-60',
   )
@@ -436,9 +436,9 @@ function LocaleDropdown({
               <span>{selectedOption.label}</span>
               {selectedOption.status === 'partial' ? (
                 <>
-                  <span className="text-[10px] opacity-80">{selectedOption.progress}%</span>
-                  <span className="inline-flex h-1 w-10 overflow-hidden rounded-full bg-(--warning)/20">
-                    <span className="h-full rounded-full bg-(--warning)" style={{ width: `${selectedOption.progress}%` }} />
+                  <span className="text-caption-px opacity-80">{selectedOption.progress}%</span>
+                  <span className="bg-warning/20 inline-flex h-1 w-10 overflow-hidden rounded-full">
+                    <span className="bg-warning h-full rounded-full" style={{ width: `${selectedOption.progress}%` }} />
                   </span>
                 </>
               ) : null}
@@ -447,7 +447,7 @@ function LocaleDropdown({
             </>
           )
         ) : (
-          <span className="text-(--text-tertiary)">—</span>
+          <span className="text-text-tertiary">—</span>
         )}
         <ChevronDown className="h-3.5 w-3.5 opacity-60" />
       </button>
@@ -459,7 +459,7 @@ function LocaleDropdown({
             id={listboxId}
             role="listbox"
             aria-label={ariaLabel}
-            className="custom-scrollbar max-h-64 min-w-52 overflow-auto rounded-xl border border-(--border-color) bg-(--bg-panel) p-1 shadow-lg"
+            className="custom-scrollbar border-border-subtle bg-surface-panel max-h-64 min-w-52 overflow-auto rounded-xl border p-1 shadow-lg"
             style={{
               ...floatingStyles,
               opacity: isPositioned ? 1 : 0,
@@ -479,7 +479,7 @@ function LocaleDropdown({
                   aria-selected={selected}
                   className={cx(
                     'flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left transition-colors',
-                    selected ? 'bg-(--accent-soft)' : 'hover:bg-(--bg-hover)',
+                    selected ? 'bg-accent-soft' : 'hover:bg-surface-hover',
                   )}
                   disabled={option.disabled}
                   onPointerDown={stopPropagation}
@@ -489,22 +489,22 @@ function LocaleDropdown({
                   <span className={cx('mt-0.5 h-2 w-2 shrink-0 rounded-full', localeStatusDotClass(option.status))} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-medium text-(--text-primary)">{option.label}</span>
-                      <span className="text-[10px] text-(--text-tertiary)">{option.codeLabel}</span>
+                      <span className="text-text-primary text-meta-px font-medium">{option.label}</span>
+                      <span className="text-text-tertiary text-caption-px">{option.codeLabel}</span>
                     </div>
                     {option.status === 'partial' ? (
                       <div className="mt-1 flex items-center gap-1.5">
-                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-(--border-color)/60">
-                          <div className="h-full rounded-full bg-(--warning)" style={{ width: `${option.progress}%` }} />
+                        <div className="bg-border-subtle/60 h-1 flex-1 overflow-hidden rounded-full">
+                          <div className="bg-warning h-full rounded-full" style={{ width: `${option.progress}%` }} />
                         </div>
-                        <span className="text-[10px] font-medium text-(--warning)">{option.progress}%</span>
+                        <span className="text-warning text-caption-px font-medium">{option.progress}%</span>
                       </div>
                     ) : null}
                   </div>
                   {option.status === 'missing' ? (
-                    <Plus className="mt-0.5 h-3.5 w-3.5 shrink-0 text-(--text-tertiary)" />
+                    <Plus className="text-text-tertiary mt-0.5 h-3.5 w-3.5 shrink-0" />
                   ) : option.status === 'translated' ? (
-                    <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-(--success)" />
+                    <Check className="text-success mt-0.5 h-3.5 w-3.5 shrink-0" />
                   ) : null}
                 </button>
               )
@@ -931,12 +931,12 @@ export function TranslationEditor({
 
   if (!project) {
     return (
-      <div className="translation-editor-workspace flex h-full min-h-0 flex-col overflow-hidden bg-(--bg-app)">
+      <div className="translation-editor-workspace bg-surface-app flex h-full min-h-0 flex-col overflow-hidden">
         <div className="min-h-0 flex-1 overflow-auto px-4 py-4 xl:px-5 xl:py-5">
           <div className="mx-auto grid max-w-6xl">
             <section className="item-workspace-pane h-full">
               <div className="panel-body flex h-full min-h-0 items-center justify-center p-6 text-center">
-                <p className="max-w-md text-sm text-(--text-secondary)">{copy.noProject}</p>
+                <p className="text-text-secondary max-w-md text-sm">{copy.noProject}</p>
               </div>
             </section>
           </div>
@@ -946,23 +946,23 @@ export function TranslationEditor({
   }
 
   return (
-    <div className="translation-editor-workspace flex h-full min-h-0 flex-col overflow-hidden bg-(--bg-app)">
+    <div className="translation-editor-workspace bg-surface-app flex h-full min-h-0 flex-col overflow-hidden">
       <section className="item-workspace-pane h-full">
         {/* Header */}
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-(--border-color)/60 px-5 py-3">
+        <header className="border-border-subtle/60 flex flex-wrap items-center justify-between gap-4 border-b px-5 py-3">
           <div className="flex min-w-0 items-center gap-4">
             <div className="min-w-0">
-              <p className="text-[0.625rem] font-bold tracking-[0.16em] text-(--text-tertiary) uppercase">{project.name}</p>
-              <div className="mt-0.5 flex items-center gap-2 text-[11px] text-(--text-secondary)">
+              <p className="text-text-tertiary text-caption tracking-ui-wider font-bold uppercase">{project.name}</p>
+              <div className="text-text-secondary text-meta-px mt-0.5 flex items-center gap-2">
                 <span>{copy.progressLabel}</span>
-                <span className="font-mono font-semibold text-(--text-primary)">{progress}%</span>
+                <span className="text-text-primary font-mono font-semibold">{progress}%</span>
               </div>
             </div>
-            <div className="hidden h-8 w-px bg-(--border-color) sm:block" />
+            <div className="bg-border-subtle hidden h-8 w-px sm:block" />
             <div className="hidden min-w-40 sm:block">
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-(--border-color)/60">
+              <div className="bg-border-subtle/60 h-1.5 w-full overflow-hidden rounded-full">
                 <div
-                  className={cx('h-full rounded-full transition-all', progress === 100 ? 'bg-(--success)' : 'bg-(--warning)')}
+                  className={cx('h-full rounded-full transition-all', progress === 100 ? 'bg-success' : 'bg-warning')}
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -970,7 +970,7 @@ export function TranslationEditor({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] text-(--text-secondary)">{copy.sourceLocaleLabel}</span>
+            <span className="text-text-secondary text-meta-px">{copy.sourceLocaleLabel}</span>
             <LocaleDropdown
               mode="source"
               value={sourceLocale}
@@ -978,8 +978,8 @@ export function TranslationEditor({
               onChange={onSourceLocaleChange}
               ariaLabel={copy.sourceLocaleLabel}
             />
-            <ArrowRight className="h-3 w-3 text-(--text-tertiary)" aria-hidden="true" />
-            <span className="text-[11px] text-(--text-secondary)">{copy.targetLocaleLabel}</span>
+            <ArrowRight className="text-text-tertiary h-3 w-3" aria-hidden="true" />
+            <span className="text-text-secondary text-meta-px">{copy.targetLocaleLabel}</span>
             <LocaleDropdown
               mode="target"
               value={targetLocale}
@@ -987,7 +987,7 @@ export function TranslationEditor({
               onChange={handleTargetLocaleChange}
               ariaLabel={copy.targetLocaleLabel}
             />
-            <div className="hidden h-5 w-px bg-(--border-color) sm:block" />
+            <div className="bg-border-subtle hidden h-5 w-px sm:block" />
             <SplitActionButton
               mainClassName="control-button-primary"
               mainDisabled={aiProgress.running}
@@ -1310,7 +1310,7 @@ export function TranslationEditor({
           )}
         >
           {/* Key catalog */}
-          <aside className="translation-editor-catalog flex min-h-0 flex-col border-r border-(--border-color)/60 bg-(--bg-panel-muted)/30 p-3">
+          <aside className="translation-editor-catalog border-border-subtle/60 bg-surface-panel-muted/30 flex min-h-0 flex-col border-r p-3">
             <div className="mb-2 flex flex-wrap gap-1">
               {statusFilters.map((status) => (
                 <button
@@ -1328,9 +1328,9 @@ export function TranslationEditor({
               ))}
             </div>
             <div className="relative mb-2">
-              <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-(--text-tertiary)" />
+              <Search className="text-text-tertiary pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
               <input
-                className="control-input h-7 pl-8 text-[11px]"
+                className="control-input text-meta-px h-7 pl-8"
                 value={query}
                 onChange={(event) => onQueryChange(event.target.value)}
                 placeholder={copy.searchPlaceholder}
@@ -1345,25 +1345,23 @@ export function TranslationEditor({
                     type="button"
                     className={cx(
                       'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors',
-                      selectedKey === entry.key ? 'bg-(--accent-soft)' : 'hover:bg-(--bg-hover)',
+                      selectedKey === entry.key ? 'bg-accent-soft' : 'hover:bg-surface-hover',
                       streamingValues?.has(entry.key) && 'is-ai-streaming',
                     )}
                     onClick={() => setSelectedKey(entry.key)}
                   >
-                    <span
-                      className={cx('h-2 w-2 shrink-0 rounded-full', entry.status === 'translated' ? 'bg-(--success)' : 'bg-(--danger)')}
-                    />
+                    <span className={cx('h-2 w-2 shrink-0 rounded-full', entry.status === 'translated' ? 'bg-success' : 'bg-danger')} />
                     <div className="min-w-0 flex-1">
-                      <code className="block truncate text-[11px] text-(--text-primary)" style={{ fontFamily: 'var(--font-mono)' }}>
+                      <code className="text-text-primary text-meta-px block truncate" style={{ fontFamily: 'var(--font-mono)' }}>
                         {entry.key}
                       </code>
-                      <p className="truncate text-[10px] text-(--text-tertiary)">{entry.sourceText || entry.targetText}</p>
+                      <p className="text-text-tertiary text-caption-px truncate">{entry.sourceText || entry.targetText}</p>
                     </div>
                     {streamingValues?.has(entry.key) ? <span className="translation-entry-stream-dot" aria-hidden="true" /> : null}
                   </button>
                 ))
               ) : (
-                <div className="flex h-32 items-center justify-center text-center text-xs text-(--text-secondary)">
+                <div className="text-text-secondary flex h-32 items-center justify-center text-center text-xs">
                   {allEntries.length > 0 ? copy.noMatchingEntries : copy.noI18n}
                 </div>
               )}
@@ -1376,7 +1374,7 @@ export function TranslationEditor({
               <div className="mx-auto max-w-3xl">
                 <div className="mb-5 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <code className="text-sm font-semibold text-(--text-secondary)" style={{ fontFamily: 'var(--font-mono)' }}>
+                    <code className="text-text-secondary text-sm font-semibold" style={{ fontFamily: 'var(--font-mono)' }}>
                       {activeEntry.key}
                     </code>
                     <span className={cx('status-pill', statusClass(activeEntry.status))}>{statusLabel(copy, activeEntry.status)}</span>
@@ -1402,8 +1400,8 @@ export function TranslationEditor({
                 </div>
 
                 <div className="mb-5">
-                  <div className="mb-2 flex items-center gap-2 text-[0.625rem] font-bold tracking-[0.14em] text-(--text-tertiary) uppercase">
-                    <span className="inline-flex items-center rounded bg-(--bg-panel-muted) px-1.5 py-0.5 text-[0.625rem] font-bold tracking-wide text-(--text-secondary) uppercase">
+                  <div className="text-text-tertiary text-caption tracking-ui-wider mb-2 flex items-center gap-2 font-bold uppercase">
+                    <span className="bg-surface-panel-muted text-text-secondary text-caption inline-flex items-center rounded px-1.5 py-0.5 font-bold tracking-wide uppercase">
                       {sourceLocale}
                     </span>
                     {copy.sourceLabel}
@@ -1419,8 +1417,8 @@ export function TranslationEditor({
                 </div>
 
                 <div className="mb-5">
-                  <div className="mb-2 flex items-center gap-2 text-[0.625rem] font-bold tracking-[0.14em] text-(--text-tertiary) uppercase">
-                    <span className="inline-flex items-center rounded bg-(--accent-soft) px-1.5 py-0.5 text-[0.625rem] font-bold tracking-wide text-(--accent) uppercase">
+                  <div className="text-text-tertiary text-caption tracking-ui-wider mb-2 flex items-center gap-2 font-bold uppercase">
+                    <span className="bg-accent-soft text-accent text-caption inline-flex items-center rounded px-1.5 py-0.5 font-bold tracking-wide uppercase">
                       {targetLocale}
                     </span>
                     {copy.targetLabel}
@@ -1442,12 +1440,12 @@ export function TranslationEditor({
                     readOnly={streamingEntryValue !== null}
                     aria-readonly={streamingEntryValue !== null ? true : undefined}
                   />
-                  <p className="mt-2 text-[11px] text-(--text-tertiary)">{copy.shortcutHint}</p>
+                  <p className="text-text-tertiary text-meta-px mt-2">{copy.shortcutHint}</p>
                 </div>
 
                 {activeEntry.missingTokens.length ? (
-                  <div className="rounded-xl border-l-4 border-(--danger) bg-(--danger-soft) px-4 py-3">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-(--danger)">
+                  <div className="border-danger bg-danger-soft rounded-xl border-l-4 px-4 py-3">
+                    <div className="text-danger flex items-center gap-2 text-xs font-semibold">
                       <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
                         <circle cx="12" cy="12" r="10" />
                         <line x1="12" y1="8" x2="12" y2="12" />
@@ -1459,7 +1457,7 @@ export function TranslationEditor({
                 ) : null}
               </div>
             ) : (
-              <div className="flex h-full items-center justify-center text-center text-sm text-(--text-secondary)">
+              <div className="text-text-secondary flex h-full items-center justify-center text-center text-sm">
                 {allEntries.length > 0 ? copy.noMatchingEntries : copy.noI18n}
               </div>
             )}

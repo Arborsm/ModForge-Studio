@@ -299,21 +299,21 @@ export default function EventStageWorkspace({
       <div className="absolute inset-0 flex flex-col justify-between p-4">
         {!hideViewportStatus ? (
           <div className="flex justify-between gap-3">
-            <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-(--text-primary) uppercase shadow-(--shadow-panel)">
+            <div className="text-text-primary shadow-panel text-meta-px tracking-ui-wider pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-1 font-semibold uppercase">
               {selectedEvent?.eventId ?? labels.scene}
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               {playbackStatusChips.map((chip) => (
                 <div
                   key={chip.id}
-                  className="pointer-events-none rounded-full border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_84%,transparent)] px-3 py-1 text-[11px] text-(--text-primary) shadow-(--shadow-panel)"
+                  className="border-border-subtle text-text-primary shadow-panel text-meta-px pointer-events-none rounded-full border bg-[color-mix(in_srgb,var(--bg-panel)_84%,transparent)] px-3 py-1"
                 >
-                  <span className="font-semibold tracking-[0.14em] text-(--text-secondary) uppercase">{chip.label}</span>{' '}
+                  <span className="text-text-secondary tracking-ui-wider font-semibold uppercase">{chip.label}</span>{' '}
                   <span>{chip.value}</span>
                 </div>
               ))}
               {playbackState.activeEventKey && selectedEvent && playbackState.activeEventKey !== selectedEvent.key ? (
-                <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--warning)_35%,transparent)] bg-[color-mix(in_srgb,var(--warning)_12%,var(--bg-panel))] px-3 py-1 text-[11px] text-(--text-primary) shadow-(--shadow-panel)">
+                <div className="text-text-primary shadow-panel text-meta-px pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--warning)_35%,transparent)] bg-[color-mix(in_srgb,var(--warning)_12%,var(--bg-panel))] px-3 py-1">
                   {labels.branch}
                 </div>
               ) : null}
@@ -339,14 +339,14 @@ export default function EventStageWorkspace({
                         ? 'border-[color-mix(in_srgb,var(--danger)_36%,transparent)] bg-[color-mix(in_srgb,var(--danger)_10%,var(--bg-panel))]'
                         : notice.tone === 'visual'
                           ? 'border-[color-mix(in_srgb,var(--warning)_34%,transparent)] bg-[color-mix(in_srgb,var(--warning)_10%,var(--bg-panel))]'
-                          : 'border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_92%,transparent)]'
+                          : 'border-border-subtle bg-[color-mix(in_srgb,var(--bg-panel)_92%,transparent)]'
 
                   return (
                     <div
                       key={notice.id}
-                      className={`panel-list-card flex items-center gap-3 px-3 py-2 shadow-(--shadow-panel) backdrop-blur ${toneClassName}`}
+                      className={`panel-list-card shadow-panel flex items-center gap-3 px-3 py-2 backdrop-blur ${toneClassName}`}
                     >
-                      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-elevated)">
+                      <div className="border-border-subtle bg-surface-elevated relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border">
                         {notice.icon && iconAsset?.loading ? (
                           <ImageSkeleton overlay rounded={false} />
                         ) : notice.icon && iconAsset?.url ? (
@@ -364,18 +364,18 @@ export default function EventStageWorkspace({
                             }}
                           />
                         ) : NoticeSymbolIcon ? (
-                          <span className="flex h-full items-center justify-center text-(--text-secondary)">
+                          <span className="text-text-secondary flex h-full items-center justify-center">
                             <NoticeSymbolIcon className="h-5 w-5" />
                           </span>
                         ) : (
-                          <span className="flex h-full items-center justify-center text-[10px] font-semibold tracking-[0.16em] text-(--text-secondary) uppercase">
+                          <span className="text-text-secondary text-caption-px tracking-ui-wider flex h-full items-center justify-center font-semibold uppercase">
                             HUD
                           </span>
                         )}
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-xs font-semibold tracking-[0.16em] text-(--text-secondary) uppercase">{notice.title}</p>
-                        <p className="truncate text-sm text-(--text-primary)">{notice.detail}</p>
+                        <p className="text-text-secondary tracking-ui-wider truncate text-xs font-semibold uppercase">{notice.title}</p>
+                        <p className="text-text-primary truncate text-sm">{notice.detail}</p>
                       </div>
                     </div>
                   )
@@ -390,13 +390,13 @@ export default function EventStageWorkspace({
         {playbackState.pendingChoice ? (
           <div className="panel-overlay-card pointer-events-auto w-full max-w-3xl">
             <p className="panel-section-title">{labels.choose}</p>
-            <p className="mt-2 text-base font-semibold text-(--text-primary)">{playbackState.pendingChoice.question}</p>
+            <p className="text-text-primary mt-2 text-base font-semibold">{playbackState.pendingChoice.question}</p>
             <div className="mt-4 grid gap-2 md:grid-cols-2">
               {playbackState.pendingChoice.choices.map((choice, index) => (
                 <button
                   key={`${choice.id}:${index}`}
                   type="button"
-                  className="event-stage-choice-button panel-list-card panel-list-card-interactive px-4 py-3 text-left text-sm text-(--text-primary)"
+                  className="event-stage-choice-button panel-list-card panel-list-card-interactive text-text-primary px-4 py-3 text-left text-sm"
                   onClick={() => handleSelectChoice(index)}
                 >
                   {choice.label}
@@ -407,7 +407,7 @@ export default function EventStageWorkspace({
         ) : playbackState.currentEntry &&
           (playbackState.currentEntry.tone === 'dialogue' || playbackState.currentEntry.tone === 'message') ? (
           <div className="panel-overlay-card pointer-events-none flex w-full max-w-4xl items-end gap-4">
-            <div className="relative hidden h-64 w-64 shrink-0 overflow-hidden rounded-2xl border border-(--border-color) bg-(--bg-panel) sm:block">
+            <div className="border-border-subtle bg-surface-panel relative hidden h-64 w-64 shrink-0 overflow-hidden rounded-2xl border sm:block">
               {currentDialogueActorAsset?.loading ? (
                 <ImageSkeleton overlay rounded={false} />
               ) : currentDialogueActorAsset?.portraitUrl ? (
@@ -432,18 +432,18 @@ export default function EventStageWorkspace({
                   />
                 </div>
               ) : (
-                <div className="flex h-full items-center justify-center text-center text-[11px] font-semibold tracking-[0.16em] text-(--text-secondary) uppercase">
+                <div className="text-text-secondary text-meta-px tracking-ui-wider flex h-full items-center justify-center text-center font-semibold uppercase">
                   {playbackState.currentEntry.title}
                 </div>
               )}
             </div>
             <div className="min-w-0 flex-1">
               <p className="panel-section-title">{playbackState.currentEntry.title}</p>
-              <p className="mt-2 text-base leading-7 text-(--text-primary)">{playbackState.currentEntry.detail}</p>
+              <p className="text-text-primary mt-2 text-base leading-7">{playbackState.currentEntry.detail}</p>
             </div>
           </div>
         ) : consoleChrome ? null : (
-          <div className="pointer-events-none rounded-full border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_84%,transparent)] px-4 py-2 text-sm text-(--text-secondary) shadow-(--shadow-panel)">
+          <div className="border-border-subtle text-text-secondary shadow-panel pointer-events-none rounded-full border bg-[color-mix(in_srgb,var(--bg-panel)_84%,transparent)] px-4 py-2 text-sm">
             {labels.sceneIdle}
           </div>
         )}
@@ -454,10 +454,10 @@ export default function EventStageWorkspace({
 
   if (!parsedEventAsset) {
     return (
-      <div className={cx('bg-(--bg-panel) rounded-[1.125rem] h-full', className)}>
-        <div className="flex h-full items-center justify-center p-8 text-center text-sm text-(--text-secondary)">
+      <div className={cx('bg-surface-panel rounded-panel h-full', className)}>
+        <div className="text-text-secondary flex h-full items-center justify-center p-8 text-center text-sm">
           <div className="space-y-3">
-            <p className="text-base font-semibold text-(--text-primary)">{labels.empty}</p>
+            <p className="text-text-primary text-base font-semibold">{labels.empty}</p>
             <p>{eventStatusMessage}</p>
           </div>
         </div>
@@ -466,7 +466,7 @@ export default function EventStageWorkspace({
   }
 
   return (
-    <div className={cx('bg-(--bg-panel) rounded-[1.125rem] h-full', consoleChrome && 'event-stage-console-surface', className)}>
+    <div className={cx('bg-surface-panel rounded-panel h-full', consoleChrome && 'event-stage-console-surface', className)}>
       <div className={cx('event-stage-body min-h-0 h-full overflow-hidden', !consoleChrome && 'p-3')}>
         <div className="event-stage-viewport-shell relative h-full">
           <MapViewport

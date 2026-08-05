@@ -19,10 +19,10 @@ export function DetailSectionCard({ title, rows, children }: { title: string; ro
           {rows.map((row) => (
             <div
               key={`${title}:${row.label}`}
-              className="flex items-center justify-between gap-3 border-b border-(--border-color)/50 py-2.5 last:border-b-0"
+              className="border-border-subtle/50 flex items-center justify-between gap-3 border-b py-2.5 last:border-b-0"
             >
-              <span className="text-xs text-(--text-secondary)">{row.label}</span>
-              <span className="truncate text-xs font-semibold text-(--text-primary)">{row.value}</span>
+              <span className="text-text-secondary text-xs">{row.label}</span>
+              <span className="text-text-primary truncate text-xs font-semibold">{row.value}</span>
             </div>
           ))}
         </div>
@@ -52,15 +52,15 @@ export function GiftTasteList({
       <div className="space-y-3">
         {lovedBy.length > 0 ? (
           <div>
-            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-extrabold tracking-widest text-(--text-tertiary) uppercase">
-              <Heart className="h-3.5 w-3.5 fill-current text-(--danger)" aria-hidden="true" />
+            <div className="text-text-tertiary text-meta-px mb-2 flex items-center gap-1.5 font-extrabold tracking-widest uppercase">
+              <Heart className="text-danger h-3.5 w-3.5 fill-current" aria-hidden="true" />
               {loveTitle}
             </div>
             <div className="flex flex-wrap gap-2">
               {lovedBy.map((npc) => (
                 <span
                   key={`love:${npc.internalName}`}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-(--danger-soft) px-2.5 py-1.5 text-xs font-bold text-(--danger)"
+                  className="bg-danger-soft text-danger inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-bold"
                 >
                   <Heart className="h-3 w-3 fill-current" aria-hidden="true" />
                   {npc.displayName}
@@ -71,15 +71,15 @@ export function GiftTasteList({
         ) : null}
         {likedBy.length > 0 ? (
           <div>
-            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-extrabold tracking-widest text-(--text-tertiary) uppercase">
-              <Heart className="h-3.5 w-3.5 text-(--success)" aria-hidden="true" />
+            <div className="text-text-tertiary text-meta-px mb-2 flex items-center gap-1.5 font-extrabold tracking-widest uppercase">
+              <Heart className="text-success h-3.5 w-3.5" aria-hidden="true" />
               {likeTitle}
             </div>
             <div className="flex flex-wrap gap-2">
               {likedBy.map((npc) => (
                 <span
                   key={`like:${npc.internalName}`}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-(--success-soft) px-2.5 py-1.5 text-xs font-bold text-(--success)"
+                  className="bg-success-soft text-success inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-bold"
                 >
                   <Heart className="h-3 w-3" aria-hidden="true" />
                   {npc.displayName}
@@ -115,7 +115,7 @@ function RelatedVisual({
       className="h-10 w-10 shrink-0"
     />
   ) : (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.625rem] text-xs font-semibold text-(--text-secondary)">
+    <div className="text-text-secondary rounded-field flex h-10 w-10 shrink-0 items-center justify-center text-xs font-semibold">
       {fallback.slice(0, 1)}
     </div>
   )
@@ -144,7 +144,7 @@ export function SourceGrid({
           {cards.map((card) => (
             <article
               key={card.key}
-              className="grid grid-cols-[2.75rem_2fr_auto_1fr] items-center gap-3 border-b border-(--border-color)/50 py-2.5 transition-colors last:border-b-0 hover:bg-(--bg-hover)"
+              className="border-border-subtle/50 hover:bg-surface-hover grid grid-cols-[2.75rem_2fr_auto_1fr] items-center gap-3 border-b py-2.5 transition-colors last:border-b-0"
             >
               <div className="flex h-full items-center justify-center">
                 <RelatedVisual
@@ -155,8 +155,8 @@ export function SourceGrid({
                 />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-(--text-primary)">{card.title}</p>
-                <p className="truncate text-xs text-(--text-secondary)">{card.detail}</p>
+                <p className="text-text-primary truncate text-sm font-bold">{card.title}</p>
+                <p className="text-text-secondary truncate text-xs">{card.detail}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="dock-chip">{card.badge}</span>
@@ -167,13 +167,13 @@ export function SourceGrid({
                   card.meta.map((meta) => (
                     <span
                       key={meta}
-                      className="rounded-full border border-(--border-color) bg-(--bg-panel-muted) px-2 py-0.5 text-[11px] text-(--text-secondary)"
+                      className="border-border-subtle bg-surface-panel-muted text-text-secondary text-meta-px rounded-full border px-2 py-0.5"
                     >
                       {meta}
                     </span>
                   ))
                 ) : (
-                  <span className="text-xs text-(--text-tertiary)">—</span>
+                  <span className="text-text-tertiary text-xs">—</span>
                 )}
               </div>
             </article>
@@ -198,10 +198,10 @@ function IngredientPill({
   return (
     <span
       className={cx(
-        'inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-semibold',
+        'inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-meta-px font-semibold',
         ingredient.isCurrent
-          ? 'border-[color-mix(in_srgb,var(--accent)_40%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg-panel-muted))] text-(--text-primary)'
-          : 'border-(--border-color) bg-(--bg-panel-muted) text-(--text-secondary)',
+          ? 'border-[color-mix(in_srgb,var(--accent)_40%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg-panel-muted))] text-text-primary'
+          : 'border-border-subtle bg-surface-panel-muted text-text-secondary',
       )}
     >
       {relatedItem ? (
@@ -247,7 +247,7 @@ export function UseGrid({
             return (
               <article
                 key={card.key}
-                className="grid grid-cols-[2.75rem_2fr_1fr_auto] items-center gap-3 border-b border-(--border-color)/50 py-2.5 transition-colors last:border-b-0 hover:bg-(--bg-hover)"
+                className="border-border-subtle/50 hover:bg-surface-hover grid grid-cols-[2.75rem_2fr_1fr_auto] items-center gap-3 border-b py-2.5 transition-colors last:border-b-0"
               >
                 <div className="flex h-full items-center justify-center">
                   {outputItem ? (
@@ -258,17 +258,17 @@ export function UseGrid({
                       className="h-10 w-10 shrink-0"
                     />
                   ) : (
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.625rem] text-xs font-semibold text-(--text-secondary)">
+                    <div className="text-text-secondary rounded-field flex h-10 w-10 shrink-0 items-center justify-center text-xs font-semibold">
                       {card.title.slice(0, 1)}
                     </div>
                   )}
                 </div>
                 <div className="min-w-0">
                   <span className="dock-chip">{card.badge}</span>
-                  <p className="mt-0.5 truncate text-sm font-bold text-(--text-primary)">{card.title}</p>
+                  <p className="text-text-primary mt-0.5 truncate text-sm font-bold">{card.title}</p>
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-xs text-(--text-secondary)">{card.subtitle}</p>
+                  <p className="text-text-secondary truncate text-xs">{card.subtitle}</p>
                 </div>
                 <div className="min-w-0">
                   {card.ingredients.length ? (
@@ -289,7 +289,7 @@ export function UseGrid({
                       })}
                     </div>
                   ) : (
-                    <span className="text-xs text-(--text-tertiary)">—</span>
+                    <span className="text-text-tertiary text-xs">—</span>
                   )}
                 </div>
               </article>

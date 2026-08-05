@@ -1,69 +1,31 @@
 @layer components {
   .workspace-root {
-    position: relative;
-    height: 100%;
-    width: 100%;
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-    background: var(--bg-panel);
+    @apply bg-surface-panel relative h-full min-h-0 w-full min-w-0 overflow-hidden;
   }
 
   .workspace-panel-shell {
-    position: absolute;
-    display: flex;
-    min-width: 0;
-    min-height: 0;
-    flex-direction: column;
-    overflow: hidden;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
+    @apply absolute flex min-h-0 min-w-0 flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none;
   }
 
   .workspace-panel-shell-flat {
-    border-radius: 0;
+    @apply rounded-none;
   }
 
   .workspace-panel-header {
-    display: flex;
-    min-height: 2.25rem;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
+    @apply flex min-h-9 items-center justify-between gap-3 px-3 select-none;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
-    padding: 0 0.75rem;
-    user-select: none;
   }
 
   .workspace-panel-title {
-    margin: 0;
-    color: var(--text-tertiary);
-    font-size: 0.71875rem;
-    font-weight: 550;
-    letter-spacing: 0.02em;
-    line-height: 1.2;
+    @apply text-text-tertiary text-body leading-ui-tight font-ui tracking-ui m-0;
   }
 
   .workspace-panel-subtitle {
-    margin: 0.125rem 0 0;
-    color: var(--text-primary);
-    font-size: 0.75rem;
-    font-weight: 500;
-    line-height: 1.25;
+    @apply text-text-primary mt-0.5 text-xs leading-tight font-medium;
   }
 
   .workspace-panel-action {
-    display: inline-flex;
-    height: 1.75rem;
-    width: 1.75rem;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid transparent;
-    border-radius: 0.5625rem;
-    background: transparent;
-    color: var(--text-secondary);
+    @apply text-text-secondary rounded-field inline-flex h-7 w-7 items-center justify-center border border-transparent bg-transparent;
     transition:
       background-color 160ms ease,
       border-color 160ms ease,
@@ -73,21 +35,19 @@
   .workspace-panel-action:hover {
     border-color: color-mix(in srgb, var(--border-color) 94%, transparent);
     background: color-mix(in srgb, var(--bg-active) 76%, transparent);
-    color: var(--text-primary);
+    @apply text-text-primary;
   }
 
   .workspace-panel-action-active {
     border-color: color-mix(in srgb, var(--accent) 42%, transparent);
     background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
-    color: var(--text-primary);
+    @apply text-text-primary;
   }
 
   .workspace-edge-resizer,
   .workspace-split-resizer {
-    position: absolute;
+    @apply absolute touch-none bg-transparent;
     z-index: 20;
-    touch-action: none;
-    background: transparent;
   }
 
   .workspace-edge-resizer::before,
@@ -110,7 +70,7 @@
 
   .workspace-edge-resizer-left,
   .workspace-edge-resizer-right {
-    cursor: col-resize;
+    @apply cursor-col-resize;
   }
 
   .workspace-edge-resizer-left::before,
@@ -123,7 +83,7 @@
   }
 
   .workspace-edge-resizer-bottom {
-    cursor: row-resize;
+    @apply cursor-row-resize;
   }
 
   .workspace-edge-resizer-bottom::before {
@@ -136,7 +96,7 @@
 
   .workspace-split-resizer-left,
   .workspace-split-resizer-right {
-    cursor: row-resize;
+    @apply cursor-row-resize;
   }
 
   .workspace-split-resizer-left::before,
@@ -149,7 +109,7 @@
   }
 
   .workspace-split-resizer-bottom {
-    cursor: col-resize;
+    @apply cursor-col-resize;
   }
 
   .workspace-split-resizer-bottom::before {

@@ -7,7 +7,7 @@ import type { LauncherSettingsDraft, QueueLauncherDownloadInput } from '@feature
 import { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
 import { LauncherEmptyState } from '@features/launcher/ui/shared/LauncherEmptyState'
 import { LauncherModDetailPanel } from '@features/launcher/ui/cards/LauncherModDetailPanel'
-import { LauncherLibraryArchiveDropZone } from './ui/LauncherLibraryArchiveDropZone'
+import { LauncherLibraryArchiveDropOverlay } from './ui/LauncherLibraryArchiveDropOverlay'
 import { LauncherLibraryDndScope, VirtualizedLauncherGrid } from './ui/LauncherLibraryGrid'
 import { LauncherLibraryHeader } from './ui/LauncherLibraryHeader'
 import { LauncherLibraryPackSidebar } from './ui/LauncherLibraryPackSidebar'
@@ -305,11 +305,7 @@ export function LauncherLibraryPageContent({
             />{' '}
             <div className="launcher-library-content">
               <div className="launcher-library-browser">
-                <LauncherLibraryArchiveDropZone
-                  active={archiveDropActive}
-                  formatsLabel={supportedArchiveFormatsLabel}
-                  onChooseArchives={() => void inspectArchive()}
-                />
+                {archiveDropActive ? <LauncherLibraryArchiveDropOverlay formatsLabel={supportedArchiveFormatsLabel} /> : null}
                 {library.state !== 'error' && !visibleDisplayItems.length ? (
                   <div className="launcher-library-empty-host">
                     {!settings.modsPath ? (

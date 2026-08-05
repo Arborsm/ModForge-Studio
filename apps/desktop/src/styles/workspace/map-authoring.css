@@ -1,38 +1,25 @@
 @layer components {
   .map-authoring-editor {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
-    background: var(--bg-panel);
+    @apply bg-surface-panel flex h-full min-h-0 flex-col overflow-hidden;
   }
 
   .map-authoring-editor-main {
-    min-width: 0;
-    min-height: 0;
+    @apply min-h-0 min-w-0;
   }
 
   .map-authoring-editor-main {
-    display: grid;
-    min-height: 0;
-    flex: 1 1 auto;
+    @apply grid min-h-0 flex-auto;
     grid-template-rows: auto minmax(0, 1fr);
   }
 
   .map-authoring-editor-body {
-    display: grid;
-    min-width: 0;
-    min-height: 0;
+    @apply grid min-h-0 min-w-0;
     grid-template-columns: minmax(28rem, 1fr) minmax(20rem, 25rem);
   }
 
   .map-authoring-primary-canvas {
-    display: grid;
-    min-height: 0;
+    @apply bg-surface-viewport grid min-h-0 overflow-hidden;
     grid-template-rows: auto minmax(0, 1fr);
-    overflow: hidden;
-    background: var(--bg-viewport);
   }
 
   .map-authoring-primary-canvas.has-toolbar {
@@ -40,365 +27,233 @@
   }
 
   .map-authoring-tabs {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    gap: 0.125rem;
-    border-bottom: 1px solid var(--border-color);
-    padding: 0.25rem 0.5rem;
+    @apply border-border-subtle flex flex-none items-center gap-0.5 border-b px-2 py-1;
   }
 
   .map-authoring-return,
   .map-authoring-tab {
-    display: inline-flex;
-    height: 1.875rem;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.25rem;
-    color: var(--text-secondary);
+    @apply text-text-secondary inline-flex h-7.5 items-center justify-center rounded;
   }
 
   .map-authoring-return {
-    width: 1.875rem;
-    margin-right: 0.25rem;
+    @apply mr-1 w-7.5;
   }
 
   .map-authoring-return:hover,
   .map-authoring-tab:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
+    @apply bg-surface-hover text-text-primary;
   }
 
   .map-authoring-tab {
-    position: relative;
-    overflow: hidden;
-    gap: 0.375rem;
-    padding: 0 0.625rem;
-    font-size: 0.6875rem;
-    font-weight: 650;
-    white-space: nowrap;
+    @apply text-meta font-ui-semibold relative gap-1.5 overflow-hidden px-2.5 py-0 whitespace-nowrap;
   }
 
   .map-authoring-tab.is-active {
-    background: var(--bg-active);
+    @apply bg-surface-active text-text-primary;
     box-shadow: inset 0 -2px 0 var(--accent);
-    color: var(--text-primary);
   }
 
   .map-authoring-tab.is-complete > svg {
-    color: var(--success);
+    @apply text-success;
   }
 
   .map-authoring-tab.is-attention > svg {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .map-authoring-tab.is-optional > svg {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
   }
 
   .map-authoring-tab-content {
-    min-height: 0;
+    @apply min-h-0 overflow-y-auto bg-transparent;
     max-height: none;
-    overflow-y: auto;
-    background: transparent;
   }
 
   .map-authoring-inspector {
-    display: grid;
-    min-width: 0;
-    min-height: 0;
+    @apply border-border-subtle bg-surface-panel grid min-h-0 min-w-0 overflow-hidden border-l;
     container-name: map-inspector;
     container-type: inline-size;
     grid-template-rows: auto minmax(0, 1fr);
-    overflow: hidden;
-    border-left: 1px solid var(--border-color);
-    background: var(--bg-panel);
   }
 
   .map-authoring-form-section {
-    width: 100%;
-    padding: 0.875rem 1rem 1.25rem;
+    @apply w-full px-4 pt-3.5 pb-5;
   }
 
   .map-property-quick-add {
-    display: grid;
+    @apply border-border-subtle grid gap-2 border-b pb-3;
     align-items: end;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.5rem;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 0.75rem;
   }
 
   .map-property-quick-add label {
-    display: grid;
-    min-width: 0;
-    gap: 0.25rem;
-    color: var(--text-secondary);
-    font-size: 0.625rem;
+    @apply text-text-secondary text-caption grid min-w-0 gap-1;
   }
 
   .map-property-quick-add select {
-    width: 100%;
-    min-width: 0;
-    min-height: 2rem;
-    border: 1px solid var(--border-color);
+    @apply border-border-subtle bg-surface-app text-text-primary text-meta min-h-8 w-full min-w-0 border px-2 py-0;
     border-radius: var(--radius-sm);
-    background: var(--bg-app);
-    padding: 0 0.5rem;
-    color: var(--text-primary);
-    font-size: 0.6875rem;
   }
 
   .map-property-group {
-    display: grid;
-    gap: 0.5rem;
-    padding-top: 0.375rem;
+    @apply grid gap-2 pt-1.5;
   }
 
   .map-property-group + .map-property-group {
-    border-top: 1px solid var(--border-color);
-    padding-top: 0.75rem;
+    @apply border-border-subtle border-t pt-3;
   }
 
   .map-property-group > strong {
-    color: var(--text-secondary);
-    font-size: 0.625rem;
-    font-weight: 650;
-    text-transform: uppercase;
+    @apply text-text-secondary text-caption font-ui-semibold uppercase;
   }
 
   .map-property-name {
+    @apply text-text-primary text-meta min-w-0 overflow-hidden font-semibold whitespace-nowrap;
     flex: 1 1 0;
-    min-width: 0;
-    overflow: hidden;
-    color: var(--text-primary);
-    font-size: 0.6875rem;
-    font-weight: 600;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .map-text-operations {
-    display: grid;
-    gap: 0.75rem;
-    padding: 0.875rem 1rem 1.25rem;
+    @apply grid gap-3 px-4 pt-3.5 pb-5;
   }
 
   .map-text-operations > header {
-    display: grid;
-    gap: 0.25rem;
+    @apply grid gap-1;
   }
 
   .map-text-operations > header > span {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--text-primary);
+    @apply text-text-primary flex items-center gap-2;
   }
 
   .map-text-operations > header p,
   .map-text-operations-empty,
   .map-text-operation-row > p {
-    color: var(--text-secondary);
-    font-size: 0.6875rem;
+    @apply text-text-secondary text-meta;
   }
 
   .map-text-operation-row {
-    position: relative;
-    display: grid;
-    gap: 0.5rem;
-    border-top: 1px solid var(--border-color);
-    padding: 0.75rem 2.25rem 0 0;
+    @apply border-border-subtle relative grid gap-2 border-t pt-3 pr-9 pb-0 pl-0;
   }
 
   .map-text-operation-row > div {
-    display: grid;
+    @apply grid gap-2;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
   }
 
   .map-text-operation-row label {
-    display: grid;
-    min-width: 0;
-    gap: 0.25rem;
-    color: var(--text-secondary);
-    font-size: 0.625rem;
+    @apply text-text-secondary text-caption grid min-w-0 gap-1;
   }
 
   .map-text-operation-row input,
   .map-text-operation-row select {
-    width: 100%;
-    min-width: 0;
-    min-height: 1.875rem;
-    border: 1px solid var(--border-color);
+    @apply border-border-subtle bg-surface-app text-text-primary text-meta min-h-7.5 w-full min-w-0 border px-2 py-0;
     border-radius: var(--radius-sm);
-    background: var(--bg-app);
-    padding: 0 0.5rem;
-    color: var(--text-primary);
-    font-size: 0.6875rem;
   }
 
   .map-text-operation-row > .icon-button {
-    position: absolute;
+    @apply absolute;
     top: 0.75rem;
     right: 0;
   }
 
   .map-authoring-advanced-fields {
-    display: grid;
-    gap: 1rem;
-    border-top: 1px solid var(--border-color);
-    padding-top: 1rem;
+    @apply border-border-subtle grid gap-4 border-t pt-4;
   }
 
   .map-build-asset-form {
-    display: grid;
-    gap: 1rem;
+    @apply grid gap-4;
   }
 
   .map-build-asset-form fieldset {
-    display: grid;
+    @apply grid gap-1.5;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.375rem;
   }
 
   .map-build-asset-form legend,
   .map-build-asset-form label > span {
-    margin-bottom: 0.375rem;
-    color: var(--text-secondary);
-    font-size: 0.6875rem;
-    font-weight: 650;
+    @apply text-text-secondary text-meta font-ui-semibold mb-1.5;
   }
 
   .map-build-asset-form fieldset button {
-    min-height: 2rem;
-    border: 1px solid var(--border-color);
+    @apply border-border-subtle text-text-secondary text-meta min-h-8 border;
     border-radius: var(--radius-sm);
-    color: var(--text-secondary);
-    font-size: 0.6875rem;
   }
 
   .map-build-asset-form fieldset button.is-active {
+    @apply bg-surface-active text-text-primary;
     border-color: var(--accent);
-    background: var(--bg-active);
-    color: var(--text-primary);
   }
 
   .map-build-asset-form label {
-    display: grid;
+    @apply grid;
   }
 
   .map-build-asset-form input {
-    min-height: 2rem;
-    border: 1px solid var(--border-color);
+    @apply border-border-subtle bg-surface-app text-text-primary min-h-8 border px-2.5 py-0 text-xs;
     border-radius: var(--radius-sm);
-    background: var(--bg-app);
-    padding: 0 0.625rem;
-    color: var(--text-primary);
-    font-size: 0.75rem;
   }
 
   .map-build-asset-form small {
-    margin-top: 0.375rem;
-    color: var(--text-tertiary);
-    font-size: 0.625rem;
+    @apply text-text-tertiary text-caption mt-1.5;
   }
 
   .map-authoring-primary-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    border-bottom: 1px solid var(--border-color);
-    padding: 0.625rem 0.75rem;
+    @apply border-border-subtle flex items-center justify-between gap-3 border-b px-3 py-2.5;
   }
 
   .map-authoring-primary-heading > div {
-    display: grid;
-    min-width: 0;
-    gap: 0.125rem;
+    @apply grid min-w-0 gap-0.5;
   }
 
   .map-authoring-primary-heading strong,
   .map-authoring-summary > strong {
-    color: var(--text-primary);
-    font-size: 0.75rem;
+    @apply text-text-primary text-xs;
   }
 
   .map-authoring-primary-heading span {
-    overflow: hidden;
-    color: var(--text-tertiary);
-    font-family: var(--font-mono);
-    font-size: 0.625rem;
+    @apply text-text-tertiary text-caption overflow-hidden font-mono whitespace-nowrap;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .map-authoring-primary-heading span.map-authoring-target-chips {
-    display: flex;
+    @apply flex gap-1 overflow-x-auto;
     max-width: min(48rem, 58vw);
-    gap: 0.25rem;
-    overflow-x: auto;
     text-overflow: clip;
   }
 
   .map-authoring-target-chips button {
-    flex: 0 0 auto;
-    min-height: 1.5rem;
-    border: 1px solid var(--border-color);
+    @apply border-border-subtle bg-surface-panel-muted text-text-secondary min-h-6 flex-none border px-2 py-0;
     border-radius: var(--radius-sm);
-    background: var(--bg-panel-muted);
-    padding: 0 0.5rem;
-    color: var(--text-secondary);
     font: inherit;
   }
 
   .map-authoring-target-chips button.is-active {
+    @apply bg-surface-active text-text-primary;
     border-color: var(--accent);
-    background: var(--bg-active);
-    color: var(--text-primary);
   }
 
   .map-authoring-primary-heading > .map-authoring-preview-switch {
-    display: flex;
-    min-width: 0;
+    @apply border-border-subtle bg-surface-panel-muted flex min-w-0 gap-0.5 border p-0.5;
     grid-auto-flow: column;
-    gap: 0.125rem;
-    border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
-    background: var(--bg-panel-muted);
-    padding: 0.125rem;
   }
 
   .map-authoring-preview-switch button {
-    min-height: 1.75rem;
+    @apply text-text-secondary text-caption min-h-7 px-2 py-0 whitespace-nowrap;
     border-radius: calc(var(--radius-sm) - 0.125rem);
-    padding: 0 0.5rem;
-    color: var(--text-secondary);
-    font-size: 0.625rem;
-    white-space: nowrap;
   }
 
   .map-authoring-preview-switch button.is-active {
-    background: var(--bg-active);
-    color: var(--text-primary);
+    @apply bg-surface-active text-text-primary;
   }
 
   .map-authoring-primary-viewport {
-    min-height: 0;
-    background: var(--bg-viewport);
+    @apply bg-surface-viewport min-h-0;
   }
 
   .map-authoring-canvas-toolbar {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    gap: 0.25rem;
-    overflow-x: auto;
-    border-bottom: 1px solid var(--border-color);
-    background: var(--bg-panel-muted);
-    padding: 0.375rem 0.5rem;
+    @apply border-border-subtle bg-surface-panel-muted flex min-w-0 items-center gap-1 overflow-x-auto border-b px-2 py-1.5;
   }
 
   .map-authoring-canvas-toolbar label {
@@ -407,62 +262,44 @@
   }
 
   .map-authoring-canvas-toolbar select {
-    width: 100%;
-    min-height: 2rem;
-    border: 1px solid var(--border-color);
+    @apply border-border-subtle bg-surface-panel text-text-primary text-meta min-h-8 w-full border pt-0 pr-7 pb-0 pl-2;
     border-radius: var(--radius-sm);
-    background: var(--bg-panel);
-    color: var(--text-primary);
-    padding: 0 1.75rem 0 0.5rem;
-    font-size: 0.6875rem;
   }
 
   .map-authoring-canvas-toolbar .icon-button {
-    width: 2rem;
-    height: 2rem;
+    @apply h-8 w-8;
     flex: 0 0 2rem;
   }
 
   .map-authoring-primary-viewport > .map-viewport-root {
-    width: 100%;
-    height: 100%;
+    @apply h-full w-full;
   }
 
   .map-authoring-dual-viewport {
-    display: grid;
-    height: 100%;
-    min-height: 0;
+    @apply grid h-full min-h-0;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .map-authoring-dual-viewport > section {
-    display: grid;
-    min-width: 0;
-    min-height: 0;
+    @apply grid min-h-0 min-w-0;
     grid-template-rows: auto minmax(0, 1fr);
   }
 
   .map-authoring-dual-viewport > section + section {
-    border-left: 1px solid var(--border-color);
+    @apply border-border-subtle border-l;
   }
 
   .map-authoring-dual-viewport > section > strong {
-    border-bottom: 1px solid var(--border-color);
-    background: var(--bg-panel-muted);
-    padding: 0.375rem 0.5rem;
-    color: var(--text-secondary);
-    font-size: 0.625rem;
+    @apply border-border-subtle bg-surface-panel-muted text-text-secondary text-caption border-b px-2 py-1.5;
   }
 
   .map-authoring-dual-viewport > section > div,
   .map-authoring-dual-viewport .map-viewport-root {
-    width: 100%;
-    height: 100%;
-    min-height: 0;
+    @apply h-full min-h-0 w-full;
   }
 
   .map-patch-diff-cell {
-    position: absolute;
+    @apply absolute;
     border: max(1px, 0.0625rem) solid var(--accent);
     background: color-mix(in srgb, var(--accent) 34%, transparent);
   }
@@ -473,14 +310,9 @@
   }
 
   .map-warp-connection {
-    position: absolute;
-    display: flex;
-    align-items: center;
-    gap: 0.2rem;
+    @apply text-accent pointer-events-none absolute flex items-center gap-[0.2rem];
     transform: translate(-0.25rem, -50%);
-    color: var(--accent);
     filter: drop-shadow(0 1px 1px var(--bg-app));
-    pointer-events: none;
   }
 
   .map-warp-connection::before {
@@ -491,108 +323,68 @@
   }
 
   .map-warp-connection > svg {
-    width: 0.5rem;
-    height: 0.5rem;
+    @apply h-2 w-2;
     stroke-width: 2.5;
   }
 
   .map-warp-connection > span {
+    @apply text-text-primary overflow-hidden font-bold whitespace-nowrap;
     max-width: 3.5rem;
-    overflow: hidden;
-    color: var(--text-primary);
     font-size: 0.4rem;
-    font-weight: 700;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .map-authoring-primary-state {
-    display: grid;
-    height: 100%;
-    place-items: center;
-    align-content: center;
-    gap: 0.5rem;
-    padding: 1rem;
-    color: var(--text-tertiary);
-    font-size: 0.6875rem;
-    text-align: center;
+    @apply text-text-tertiary text-meta grid h-full place-items-center content-center gap-2 p-4 text-center;
   }
 
   .map-authoring-primary-state.is-error {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .map-authoring-summary {
-    display: grid;
-    min-width: 0;
-    gap: 0.5rem;
-    border-bottom: 1px solid var(--border-color);
-    padding: 0.625rem 0.75rem 0.75rem;
-    background: var(--bg-panel);
+    @apply border-border-subtle bg-surface-panel grid min-w-0 gap-2 border-b px-3 pt-2.5 pb-3;
   }
 
   .map-authoring-summary dl {
-    display: grid;
+    @apply m-0 grid gap-x-3 gap-y-2;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem 0.75rem;
-    margin: 0;
   }
 
   .map-authoring-summary dl > div {
-    display: grid;
-    min-width: 0;
-    gap: 0.125rem;
+    @apply grid min-w-0 gap-0.5;
   }
 
   .map-authoring-summary dt {
-    color: var(--text-tertiary);
-    font-size: 0.625rem;
+    @apply text-text-tertiary text-caption;
   }
 
   .map-authoring-summary dd {
-    overflow: hidden;
-    margin: 0;
-    color: var(--text-primary);
-    font-size: 0.6875rem;
+    @apply text-text-primary text-meta m-0 overflow-hidden whitespace-nowrap;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .map-tiles-toolbar {
-    display: flex;
-    min-height: 2rem;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 0.75rem;
+    @apply border-border-subtle flex min-h-8 items-center justify-between gap-3 border-b pb-3;
   }
 
   .map-tile-edits {
-    min-width: 0;
+    @apply min-w-0;
   }
 
   .map-tile-selection-tools {
-    display: grid;
+    @apply border-border-subtle grid gap-4 border-b pb-3;
     grid-template-columns: minmax(8rem, 0.7fr) minmax(12rem, 1.3fr);
-    gap: 1rem;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 0.75rem;
   }
 
   .map-tile-selection-tools fieldset,
   .map-tile-selection-tools section {
-    display: grid;
-    min-width: 0;
-    align-content: start;
-    gap: 0.5rem;
+    @apply grid min-w-0 content-start gap-2;
   }
 
   .map-tile-selection-tools legend,
   .map-tile-selection-tools section > strong {
-    color: var(--text-primary);
-    font-size: 0.6875rem;
-    font-weight: 600;
+    @apply text-text-primary text-meta font-semibold;
   }
 
   .map-tile-selection-tools fieldset {
@@ -600,53 +392,31 @@
   }
 
   .map-tile-selection-tools legend {
-    grid-column: 1 / -1;
+    @apply col-span-full;
   }
 
   .map-tile-selection-tools label {
-    display: grid;
-    gap: 0.25rem;
-    color: var(--text-secondary);
-    font-size: 0.625rem;
+    @apply text-text-secondary text-caption grid gap-1;
   }
 
   .map-tile-selection-tools input[type='number'] {
-    width: 100%;
-    min-width: 0;
-    min-height: 1.75rem;
-    border: 1px solid var(--border-color);
+    @apply border-border-subtle bg-surface-app text-text-primary min-h-7 w-full min-w-0 border px-2 py-0;
     border-radius: var(--radius-sm);
-    background: var(--bg-app);
-    padding: 0 0.5rem;
-    color: var(--text-primary);
   }
 
   .map-tile-selection-tools section > p {
-    color: var(--text-tertiary);
-    font-size: 0.6875rem;
+    @apply text-text-tertiary text-meta;
   }
 
   .map-tile-edit-row {
-    display: grid;
-    min-width: 0;
-    align-items: center;
+    @apply grid min-w-0 items-center gap-1.5 px-0 py-2;
     grid-template-columns: 1.1fr 0.65fr 0.65fr 1.1fr 0.75fr auto minmax(3rem, 1.4fr) auto;
-    gap: 0.375rem;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
-    padding: 0.5rem 0;
   }
 
   .map-tile-edit-row > input {
-    width: 100%;
-    min-width: 0;
-    min-height: 1.5rem;
-    border: 1px solid var(--border-color);
+    @apply border-border-subtle bg-surface-app text-text-primary text-caption min-h-6 w-full min-w-0 border px-1.5 py-0 outline-none;
     border-radius: var(--radius-sm);
-    background: var(--bg-app);
-    padding: 0 0.375rem;
-    color: var(--text-primary);
-    font-size: 0.625rem;
-    outline: none;
   }
 
   .map-tile-edit-row > input:focus {
@@ -654,7 +424,7 @@
   }
 
   .map-tile-edit-row > label {
-    white-space: nowrap;
+    @apply whitespace-nowrap;
   }
 
   .map-asset-tileset-details,
@@ -663,57 +433,41 @@
   .map-asset-object-group-details,
   .map-asset-layer-details,
   .map-asset-map-properties {
-    display: grid;
-    gap: 0.625rem;
+    @apply grid gap-2.5;
   }
 
   .map-asset-tileset-details,
   .map-asset-map-properties {
-    border-top: 1px solid var(--border-color);
-    padding-top: 0.75rem;
+    @apply border-border-subtle border-t pt-3;
   }
 
   .map-asset-field-grid {
-    display: grid;
+    @apply grid gap-2;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
   }
 
   .map-asset-field-grid label,
   .map-asset-object-group-details > label,
   .map-asset-layer-details > label {
-    display: grid;
-    min-width: 0;
-    gap: 0.25rem;
-    color: var(--text-secondary);
-    font-size: 0.625rem;
+    @apply text-text-secondary text-caption grid min-w-0 gap-1;
   }
 
   .map-asset-field-grid .map-asset-checkbox {
-    display: flex;
-    align-items: center;
-    align-self: end;
-    gap: 0.375rem;
-    min-height: 1.75rem;
+    @apply flex min-h-7 items-center gap-1.5 self-end;
   }
 
   .map-asset-checkbox input {
-    width: auto;
-    min-height: 0;
+    @apply min-h-0 w-auto;
   }
 
   .map-asset-animation > div {
-    display: grid;
+    @apply grid gap-1.5;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
     align-items: end;
-    gap: 0.375rem;
   }
 
   .map-asset-animation label {
-    display: grid;
-    gap: 0.25rem;
-    color: var(--text-secondary);
-    font-size: 0.625rem;
+    @apply text-text-secondary text-caption grid gap-1;
   }
 
   @container map-inspector (max-width: 32rem) {
@@ -748,39 +502,35 @@
     }
 
     .map-authoring-inspector {
-      border-top: 1px solid var(--border-color);
-      border-left: 0;
+      @apply border-border-subtle border-t border-l-0;
     }
   }
 
   @media (max-width: 48rem) {
     .map-authoring-dual-viewport {
+      @apply overflow-auto;
       grid-template-columns: minmax(0, 1fr);
       grid-template-rows: repeat(2, minmax(18rem, 1fr));
-      overflow: auto;
     }
 
     .map-authoring-dual-viewport > section + section {
-      border-top: 1px solid var(--border-color);
-      border-left: 0;
+      @apply border-border-subtle border-t border-l-0;
     }
 
     .map-authoring-editor {
-      height: 100%;
-      overflow-x: hidden;
-      overflow-y: auto;
+      @apply h-full overflow-x-hidden overflow-y-auto;
     }
 
     .map-authoring-tab-content {
-      overflow: visible;
+      @apply overflow-visible;
     }
 
     .map-authoring-primary-canvas {
-      min-height: 30rem;
+      @apply min-h-120;
     }
 
     .map-authoring-tabs {
-      overflow-x: auto;
+      @apply overflow-x-auto;
     }
 
     .map-authoring-summary dl {
@@ -788,9 +538,7 @@
     }
 
     .map-asset-editor {
-      height: auto;
-      min-height: 100%;
-      overflow: visible;
+      @apply h-auto min-h-full overflow-visible;
     }
 
     .map-asset-editor-header {
@@ -799,43 +547,33 @@
 
     .map-asset-path,
     .map-asset-save-status {
-      grid-column: 1 / -1;
+      @apply col-span-full;
     }
 
     .map-asset-tbin-diagnostics {
-      display: grid;
-      gap: 0.375rem;
+      @apply grid gap-1.5;
     }
 
     .map-asset-editor-body {
-      display: flex;
-      overflow: visible;
-      flex-direction: column;
+      @apply flex flex-col overflow-visible;
     }
 
     .map-asset-layers {
+      @apply border-border-subtle border-r-0 border-b;
       max-height: 13rem;
-      border-right: 0;
-      border-bottom: 1px solid var(--border-color);
     }
 
     .map-asset-canvas {
-      min-height: 38rem;
+      @apply min-h-152;
       grid-template-rows: auto minmax(22rem, 1fr) auto;
     }
 
     .map-asset-inspector {
-      min-height: 20rem;
+      @apply min-h-80;
     }
   }
 
   .map-asset-history-info {
-    display: flex;
-    gap: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 0.5rem;
-    color: var(--text-secondary);
-    font-size: 0.6875rem;
+    @apply border-border-subtle text-text-secondary text-meta mb-2 flex gap-4 border-b pb-2;
   }
 }

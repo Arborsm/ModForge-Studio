@@ -1,25 +1,16 @@
 @layer components {
   .item-workspace-pane {
-    display: flex;
-    min-height: 0;
-    flex-direction: column;
-    overflow: hidden;
-    border-radius: 0;
-    background: var(--bg-panel);
+    @apply bg-surface-panel flex min-h-0 flex-col overflow-hidden rounded-none;
   }
 
   .item-workspace-panel-shell.workspace-panel-shell {
     border: none;
-    background: transparent;
-    box-shadow: none;
+    @apply rounded-none bg-transparent shadow-none;
     backdrop-filter: none;
-    border-radius: 0;
   }
 
   .item-workspace-divider {
-    position: relative;
-    width: 100%;
-    height: 100%;
+    @apply relative h-full w-full;
   }
 
   .item-workspace-divider::before {
@@ -36,13 +27,11 @@
   }
 
   .detail-sections-stack {
-    display: flex;
-    flex-direction: column;
+    @apply flex flex-col;
   }
 
   .detail-sections-stack > * + * {
-    position: relative;
-    padding-top: 1.25rem;
+    @apply relative pt-5;
   }
 
   .detail-sections-stack > * + *::before {
@@ -80,19 +69,12 @@
   }
 
   .mod-translation-browser-pane {
-    display: flex;
-    min-height: 0;
-    flex-direction: column;
-    overflow: hidden;
-    border-radius: 0;
-    background: var(--bg-panel);
+    @apply bg-surface-panel flex min-h-0 flex-col overflow-hidden rounded-none;
   }
 
   .map-viewport-panel-shell.workspace-panel-shell {
     border: none;
-    background: transparent;
-    box-shadow: none;
+    @apply rounded-none bg-transparent shadow-none;
     backdrop-filter: none;
-    border-radius: 0;
   }
 }

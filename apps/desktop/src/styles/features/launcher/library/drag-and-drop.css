@@ -17,105 +17,77 @@
     overflow: auto;
   }
 
-  .launcher-library-drop-zone {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    width: 100%;
-    padding: 0.625rem 0.875rem;
-    border: 1px dashed var(--launcher-border-accent);
-    border-radius: 0.75rem;
-    background: color-mix(in srgb, var(--launcher-surface-subtle) 88%, var(--launcher-surface-base));
+  .launcher-library-archive-drop-overlay {
+    position: absolute;
+    inset: 0.75rem;
+    z-index: 30;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+    border: 2px dashed var(--launcher-border-accent-strong);
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--launcher-surface-accent) 86%, var(--accent-soft));
     color: var(--launcher-text-primary);
-    cursor: pointer;
-    text-align: left;
-    transition:
-      border-color 160ms ease,
-      background-color 160ms ease,
-      box-shadow 160ms ease;
-  }
-
-  .launcher-library-drop-zone:hover,
-  .launcher-library-drop-zone:focus-visible {
-    border-color: var(--launcher-border-accent-strong);
-    background: var(--launcher-surface-accent);
-  }
-
-  .launcher-library-drop-zone-active,
-  .launcher-library-drop-zone-active:hover,
-  .launcher-library-drop-zone-active:focus-visible {
-    border-style: solid;
-    border-width: 2px;
-    border-color: var(--launcher-border-accent-strong);
-    background: color-mix(in srgb, var(--launcher-surface-accent) 78%, var(--accent-soft));
     box-shadow:
       0 0 0 0.25rem color-mix(in srgb, var(--accent) 16%, transparent),
       0 0.625rem 1.75rem color-mix(in srgb, var(--accent) 16%, transparent);
-    animation: launcher-library-drop-zone-pulse 900ms ease-in-out infinite alternate;
+    pointer-events: none;
+    animation: launcher-library-archive-drop-overlay-pulse 900ms ease-in-out infinite alternate;
   }
 
-  .launcher-library-drop-zone-active .launcher-library-drop-zone-copy strong {
-    color: var(--launcher-text-accent);
+  .launcher-library-archive-drop-overlay-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.875rem;
+    text-align: center;
+    max-width: 24rem;
   }
 
-  .launcher-library-drop-zone-active .launcher-library-drop-zone-browse {
-    display: none;
-  }
-
-  .launcher-library-drop-zone-icon {
+  .launcher-library-archive-drop-overlay-icon {
     display: grid;
     place-items: center;
-    width: 2rem;
-    height: 2rem;
-    flex: 0 0 auto;
-    border-radius: 0.625rem;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 0.875rem;
     background: color-mix(in srgb, var(--launcher-surface-base) 84%, var(--launcher-border-soft));
     color: var(--launcher-text-accent);
   }
 
-  .launcher-library-drop-zone-copy {
+  .launcher-library-archive-drop-overlay-copy {
     display: grid;
-    gap: 0.125rem;
+    gap: 0.25rem;
     min-width: 0;
   }
 
-  .launcher-library-drop-zone-copy strong {
-    color: var(--launcher-text-primary);
-    font-size: 0.875rem;
+  .launcher-library-archive-drop-overlay-copy strong {
+    color: var(--launcher-text-accent);
+    font-size: 1rem;
     font-weight: 800;
     line-height: 1.3;
   }
 
-  .launcher-library-drop-zone-copy span {
+  .launcher-library-archive-drop-overlay-copy span {
     color: var(--launcher-text-secondary);
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     line-height: 1.45;
   }
 
-  .launcher-library-drop-zone-browse {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3125rem;
-    flex: 0 0 auto;
-    margin-left: auto;
-    padding: 0.3125rem 0.6875rem;
-    border: 1px solid var(--launcher-border-soft);
-    border-radius: 62.4375rem;
-    background: var(--launcher-surface-base);
-    color: var(--launcher-text-secondary);
-    font-size: 0.6875rem;
-    font-weight: 700;
-    white-space: nowrap;
+  @keyframes launcher-library-archive-drop-overlay-pulse {
+    from {
+      opacity: 0.84;
+      transform: scale(0.998);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1.002);
+    }
   }
 
   @media (max-width: 640px) {
-    .launcher-library-drop-zone {
-      flex-wrap: wrap;
-    }
-
-    .launcher-library-drop-zone-browse {
-      margin-left: 0;
+    .launcher-library-archive-drop-overlay {
+      inset: 0.5rem;
     }
   }
 
@@ -331,18 +303,6 @@
     opacity: 0.6;
   }
 
-  @keyframes launcher-library-drop-zone-pulse {
-    from {
-      opacity: 0.84;
-      transform: scale(0.998);
-    }
-
-    to {
-      opacity: 1;
-      transform: scale(1.002);
-    }
-  }
-
   @keyframes launcher-library-drop-target-pulse {
     from {
       opacity: 0.72;
@@ -373,7 +333,7 @@
       outline-offset: 2px;
     }
 
-    .launcher-library-drop-zone-active {
+    .launcher-library-archive-drop-overlay {
       animation: none;
     }
   }

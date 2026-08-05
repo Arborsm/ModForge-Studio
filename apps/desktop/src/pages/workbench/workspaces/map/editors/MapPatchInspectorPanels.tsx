@@ -98,7 +98,7 @@ export function MapPropertiesEditor({
 
   return (
     <div className="space-y-2">
-      <p className="text-[10px] text-(--text-secondary)">{description ?? copy.propertiesDescription}</p>
+      <p className="text-text-secondary text-caption-px">{description ?? copy.propertiesDescription}</p>
       {categorized ? (
         <div className="map-property-quick-add">
           <label>
@@ -146,7 +146,7 @@ export function MapPropertiesEditor({
                 <input
                   type="text"
                   placeholder={copy.propertyPlaceholder}
-                  className="flex-1 rounded-md border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
+                  className="border-border-subtle bg-surface-app text-text-primary focus:border-accent flex-1 rounded-md border px-2 py-1.5 text-xs outline-none"
                   value={entry.key}
                   onChange={(event) => {
                     const next = [...entries]
@@ -159,7 +159,7 @@ export function MapPropertiesEditor({
               <input
                 type="text"
                 placeholder={copy.valuePlaceholder}
-                className="flex-1 rounded-md border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
+                className="border-border-subtle bg-surface-app text-text-primary focus:border-accent flex-1 rounded-md border px-2 py-1.5 text-xs outline-none"
                 value={entry.value}
                 onChange={(event) => {
                   const next = [...entries]
@@ -170,7 +170,7 @@ export function MapPropertiesEditor({
               />
               <button
                 type="button"
-                className="icon-button h-7 w-7 shrink-0 text-(--danger)"
+                className="icon-button text-danger h-7 w-7 shrink-0"
                 aria-label={copy.removeProperty}
                 title={copy.removeProperty}
                 onClick={() => {
@@ -188,7 +188,7 @@ export function MapPropertiesEditor({
       {!categorized || expertMode ? (
         <button
           type="button"
-          className="flex items-center gap-1 text-xs text-(--accent) hover:underline"
+          className="text-accent flex items-center gap-1 text-xs hover:underline"
           onClick={() => setEntries([...entries, { key: '', value: '', typed: null }])}
         >
           <Plus className="h-3 w-3" aria-hidden="true" /> {copy.addProperty}
@@ -372,7 +372,7 @@ export function TextOperationsEditor({
             ) : null}
             <button
               type="button"
-              className="icon-button h-7 w-7 text-(--danger)"
+              className="icon-button text-danger h-7 w-7"
               aria-label={copy.removeTextOperation}
               title={copy.removeTextOperation}
               onClick={() => onChange(operations.filter((_, operationIndex) => operationIndex !== index))}
@@ -515,7 +515,7 @@ export function MapWarpsEditor({
             </button>
             <button
               type="button"
-              className="icon-button text-(--danger)"
+              className="icon-button text-danger"
               aria-label={copy.removeWarp}
               title={copy.removeWarp}
               onClick={() => onChange(warps.filter((_, warpIndex) => warpIndex !== selectedIndex))}

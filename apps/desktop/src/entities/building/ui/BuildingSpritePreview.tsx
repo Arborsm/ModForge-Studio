@@ -149,7 +149,7 @@ export function BuildingSpritePreview({
           {renderOverlay?.({ sourceWidth: fallbackSource.width, sourceHeight: fallbackSource.height, scale })}
         </div>
       ) : (
-        <p className="text-sm text-(--text-secondary)">{copy.noTexture}</p>
+        <p className="text-text-secondary text-sm">{copy.noTexture}</p>
       )}
       {textureState?.loading ? <ImageSkeleton overlay className="building-primary-skeleton" rounded={false} /> : null}
     </div>

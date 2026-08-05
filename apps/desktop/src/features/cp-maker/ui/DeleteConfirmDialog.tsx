@@ -26,7 +26,7 @@ export function DeleteConfirmDialog({ open, title, message, cancelLabel, confirm
         id={titleId}
       />
       <DialogBody>
-        <p className="text-xs text-(--text-secondary)">{message}</p>
+        <p className="text-text-secondary text-xs">{message}</p>
       </DialogBody>
       <DialogFooter>
         <DialogAction onClick={onClose}>{cancelLabel}</DialogAction>

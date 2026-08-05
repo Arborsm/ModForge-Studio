@@ -1,156 +1,131 @@
 @layer components {
   /* Shell: chrome (title + subnav + strip) / scroll / dock */
   .settings-ai-section {
-    display: flex;
+    @apply flex min-h-0 overflow-hidden;
     height: 100%;
-    min-height: 0;
     flex: 1;
     flex-direction: column;
     gap: 0;
-    overflow: hidden;
   }
 
   .settings-ai-shell {
-    display: flex;
+    @apply flex min-h-0 overflow-hidden;
     flex: 1;
-    min-height: 0;
     flex-direction: column;
-    overflow: hidden;
   }
 
   .settings-ai-chrome {
+    @apply m-0 w-full;
     flex-shrink: 0;
-    width: 100%;
-    margin: 0;
     padding: 0 1.25rem 0.25rem;
     box-sizing: border-box;
   }
 
   .settings-ai-page-head {
-    margin-bottom: 0.75rem;
+    @apply mb-3;
   }
 
   .settings-ai-tabs,
   .settings-ai-segments {
-    display: flex;
+    @apply flex flex-wrap overflow-hidden;
     width: fit-content;
     max-width: 100%;
-    flex-wrap: wrap;
     gap: 0.25rem;
     margin: 0 0 0.85rem;
     padding: 0.2rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
     border-radius: 0.7rem;
     background: color-mix(in srgb, var(--bg-panel-muted) 75%, transparent);
-    overflow: hidden;
   }
 
   .settings-ai-tabs {
-    flex-shrink: 0;
+    @apply shrink-0;
   }
 
   .settings-ai-tabs button,
   .settings-ai-segments button {
-    display: inline-flex;
-    align-items: center;
+    @apply text-text-secondary inline-flex items-center whitespace-nowrap;
     gap: 0.35rem;
     min-height: 0;
     border: 0;
     border-right: 0;
     border-radius: 0.5rem;
     padding: 0.5rem 0.8rem;
-    color: var(--text-secondary);
     background: transparent;
     font-size: 0.8125rem;
     font-weight: 650;
-    white-space: nowrap;
   }
 
   .settings-ai-tabs button:hover,
   .settings-ai-segments button:hover {
-    color: var(--text-primary);
+    @apply text-text-primary;
   }
 
   .settings-ai-tabs button.is-active,
   .settings-ai-segments button.is-active {
-    color: var(--text-primary);
+    @apply text-text-primary;
     background: var(--bg-panel);
     box-shadow: 0 0.0625rem 0.125rem color-mix(in srgb, var(--text-primary) 8%, transparent);
   }
 
   .settings-ai-scroll {
-    display: flex;
+    @apply flex min-h-0 overflow-hidden;
     flex: 1;
     flex-direction: column;
-    min-height: 0;
     width: 100%;
     margin: 0;
-    overflow: hidden;
     padding: 0;
     box-sizing: border-box;
   }
 
   .settings-ai-scroll[hidden] {
-    display: none !important;
+    @apply hidden;
   }
 
   .settings-ai-scroll > [role='tabpanel'] {
-    display: none;
+    @apply hidden min-h-0 overflow-hidden;
     flex: 1;
     flex-direction: column;
-    min-height: 0;
-    overflow: hidden;
   }
 
   .settings-ai-scroll > [role='tabpanel']:not([hidden]) {
-    display: flex;
+    @apply flex;
   }
 
   .settings-ai-tab-body {
+    @apply m-0 w-full overflow-auto;
     flex: 1;
     min-height: 0;
-    width: 100%;
-    margin: 0;
-    overflow: auto;
     padding: 0 1.25rem 1.15rem;
     box-sizing: border-box;
     scrollbar-gutter: stable;
   }
 
   .settings-ai-engine-scroll {
+    @apply m-0 w-full overflow-auto;
     flex: 1;
     min-height: 0;
-    width: 100%;
-    margin: 0;
-    overflow: auto;
     padding: 0 1.25rem 1.15rem;
     box-sizing: border-box;
     scrollbar-gutter: stable;
   }
 
   .settings-ai-engine-panel {
-    display: flex;
+    @apply flex min-h-0 overflow-hidden;
     flex: 1;
-    min-height: 0;
     flex-direction: column;
-    overflow: hidden;
   }
 
   .settings-ai-engine-shell {
-    display: flex;
+    @apply flex min-h-0 overflow-hidden;
     flex: 1;
-    min-height: 0;
     flex-direction: column;
-    overflow: hidden;
   }
 
   .settings-ai-dock {
     --dock-inline: 1.25rem;
-    display: flex;
+    @apply flex flex-wrap items-center justify-between;
     flex-shrink: 0;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
     gap: 0.75rem 1rem;
     width: 100%;
     min-height: 3.75rem;
@@ -164,67 +139,59 @@
   }
 
   .settings-ai-dock-meta {
-    display: flex;
+    @apply text-text-tertiary flex flex-wrap items-center;
     min-width: 0;
     flex: 1 1 14rem;
-    flex-wrap: wrap;
-    align-items: center;
     gap: 0.35rem 0.45rem;
-    color: var(--text-tertiary);
     font-size: 0.75rem;
     line-height: 1.4;
   }
 
   .settings-ai-dock-meta strong {
-    color: var(--text-secondary);
-    font-weight: 700;
+    @apply text-text-secondary font-bold;
   }
 
   .settings-ai-dock .settings-window-actions {
-    flex-shrink: 0;
+    @apply shrink-0;
   }
 
   .settings-ai-result-grid {
-    display: grid;
+    @apply grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.65rem 0.85rem;
   }
 
   .settings-ai-result-grid > div {
-    display: grid;
+    @apply grid min-w-0;
     gap: 0.2rem;
-    min-width: 0;
   }
 
   .settings-ai-result-grid dt {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
     font-size: 0.6875rem;
     font-weight: 650;
   }
 
   .settings-ai-result-grid dd {
-    margin: 0;
-    color: var(--text-primary);
+    @apply text-text-primary m-0;
     font-size: 0.8125rem;
     overflow-wrap: anywhere;
   }
 
   .settings-ai-result-grid dd.is-ok {
-    color: var(--success);
-    font-weight: 700;
+    @apply text-success font-bold;
   }
 
   .settings-ai-result-files {
-    display: grid;
+    @apply grid;
     gap: 0.4rem;
     margin-top: 0.85rem;
   }
 
   .settings-ai-result-files > div {
-    display: grid;
+    @apply grid items-center;
     grid-template-columns: minmax(0, 1fr) auto auto;
     gap: 0.5rem 0.75rem;
-    align-items: center;
     padding: 0.45rem 0.55rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
     border-radius: 0.55rem;
@@ -232,16 +199,14 @@
   }
 
   .settings-ai-result-files strong {
-    min-width: 0;
-    overflow: hidden;
+    @apply min-w-0 overflow-hidden whitespace-nowrap;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .settings-ai-link-btn {
+    @apply text-accent;
     border: 0 !important;
     background: transparent !important;
-    color: var(--accent) !important;
     font-size: 0.75rem !important;
     font-weight: 700 !important;
     min-height: 0 !important;
@@ -251,9 +216,7 @@
   /* Icon alignment: every icon-button pair in AI settings */
   .settings-ai-section .control-button,
   .settings-ai-section .settings-window-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    @apply inline-flex items-center justify-center;
     gap: 0.35rem;
     line-height: 1.15;
     vertical-align: middle;
@@ -261,11 +224,10 @@
 
   .settings-ai-section .control-button > svg,
   .settings-ai-section .settings-window-btn > svg {
+    @apply m-0 block;
     width: 0.875rem;
     height: 0.875rem;
     flex: 0 0 auto;
-    display: block;
-    margin: 0;
   }
 
   .settings-ai-section .control-button > span,
@@ -274,79 +236,68 @@
   }
 
   .settings-window-btn-ghost {
+    @apply text-text-secondary;
     border-color: transparent;
     background: transparent;
-    color: var(--text-secondary);
   }
 
   .settings-window-btn-ghost:hover {
+    @apply text-text-primary;
     background: var(--bg-hover);
-    color: var(--text-primary);
   }
 
   .settings-window-btn-danger {
+    @apply text-danger;
     border-color: color-mix(in srgb, var(--danger) 35%, transparent);
-    color: var(--danger);
     background: transparent;
   }
 
   .settings-window-btn-danger:hover {
+    @apply text-danger;
     background: var(--danger-soft);
-    color: var(--danger);
   }
 
   .settings-ai-semantic-strip {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
+    @apply text-text-secondary flex flex-wrap items-center justify-between;
     gap: 0.75rem;
     margin: 0 0 0.85rem;
     padding: 0.55rem 0.75rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
     border-radius: 0.65rem;
     background: color-mix(in srgb, var(--bg-panel) 94%, transparent);
-    color: var(--text-secondary);
     font-size: 0.75rem;
   }
 
   .settings-ai-semantic-strip > div {
-    display: flex;
-    min-width: 0;
-    align-items: center;
+    @apply flex min-w-0 items-center;
     gap: 0.5rem;
   }
 
   .settings-ai-semantic-strip > div:first-child svg {
-    color: var(--accent);
+    @apply text-accent;
   }
 
   .settings-ai-semantic-strip-actions {
-    display: flex;
-    align-items: center;
+    @apply flex items-center;
     gap: 0.75rem;
   }
 
   .settings-ai-semantic-strip span {
-    overflow: hidden;
-    color: var(--text-tertiary);
+    @apply text-text-tertiary overflow-hidden whitespace-nowrap;
     font-size: 0.75rem;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .settings-ai-semantic-strip strong {
-    color: var(--text-primary);
+    @apply text-text-primary font-bold whitespace-nowrap;
     font-size: 0.75rem;
-    font-weight: 700;
-    white-space: nowrap;
   }
 
   .settings-ai-semantic-strip .control-button,
   .settings-ai-semantic-strip .settings-window-btn {
+    @apply text-accent;
     border: 0;
     background: transparent;
-    color: var(--accent);
     font-size: 0.75rem;
     font-weight: 700;
     padding: 0;
@@ -357,33 +308,28 @@
   .settings-ai-footer,
   .settings-ai-profile-head,
   .settings-ai-profile-actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    @apply flex items-center justify-between;
     gap: 0.75rem;
   }
 
   .settings-ai-footer {
-    flex-shrink: 0;
+    @apply shrink-0;
     border-top: 1px solid var(--border-subtle);
     padding-top: 0.75rem;
   }
 
   .settings-ai-heading-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
+    @apply flex flex-wrap items-center justify-end;
     gap: 0.5rem;
-    flex-wrap: wrap;
   }
 
   .settings-ai-exchange-status {
-    color: var(--text-secondary);
+    @apply text-text-secondary;
     font-size: 0.75rem;
   }
 
   .settings-ai-import-preview {
-    display: grid;
+    @apply grid;
     gap: 0.75rem;
     border-block: 1px solid var(--border-subtle);
     padding-block: 0.75rem;
@@ -391,107 +337,92 @@
 
   .settings-ai-import-preview > header,
   .settings-ai-import-preview > footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    @apply flex items-center justify-between;
     gap: 0.75rem;
   }
 
   .settings-ai-import-preview > header > div,
   .settings-ai-import-preview > footer label {
-    display: grid;
+    @apply grid;
     gap: 0.25rem;
   }
 
   .settings-ai-import-preview > header span,
   .settings-ai-import-preview > footer label > span,
   .settings-ai-import-entries span {
-    color: var(--text-secondary);
+    @apply text-text-secondary;
     font-size: 0.6875rem;
   }
 
   .settings-ai-import-entries {
-    display: grid;
+    @apply grid overflow-auto;
     max-height: 12rem;
-    overflow: auto;
   }
 
   .settings-ai-import-entries > div {
-    display: grid;
+    @apply grid items-center;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) auto;
-    align-items: center;
     gap: 0.75rem;
     border-bottom: 1px solid var(--border-subtle);
     padding-block: 0.5rem;
   }
 
   .settings-ai-import-entries em {
-    color: var(--accent);
+    @apply text-accent;
     font-size: 0.6875rem;
     font-style: normal;
   }
 
   .settings-ai-test-details {
-    display: grid;
+    @apply grid;
     gap: 0.5rem;
     margin-top: 0.75rem;
     border-top: 1px solid var(--border-subtle);
     padding-top: 0.75rem;
   }
 
-  .settings-ai-test-details > strong {
-    font-size: 0.75rem;
-  }
-
   .settings-ai-test-details dl {
-    display: grid;
+    @apply grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.5rem;
   }
 
   .settings-ai-test-details dl > div {
-    display: grid;
-    min-width: 0;
+    @apply grid min-w-0;
     gap: 0.2rem;
   }
 
   .settings-ai-test-details dt {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
     font-size: 0.625rem;
   }
 
   .settings-ai-test-details dd {
-    overflow: hidden;
-    color: var(--text-secondary);
+    @apply text-text-secondary overflow-hidden whitespace-nowrap;
     font-size: 0.6875rem;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .settings-ai-profiles {
-    display: grid;
+    @apply grid;
     gap: 0.75rem;
   }
 
   .settings-ai-profile-workspace {
-    display: grid;
+    @apply grid items-stretch overflow-hidden;
     min-height: min(22rem, calc(100vh - 24rem));
     flex: 1;
     grid-template-columns: 16.5rem minmax(0, 1fr);
     gap: 0.9rem;
-    align-items: stretch;
-    overflow: hidden;
     border: 0;
     border-radius: 0;
     background: transparent;
   }
 
   .settings-ai-profile-list {
-    display: flex;
-    min-width: 0;
+    @apply flex min-w-0 overflow-hidden;
     min-height: 18rem;
     flex-direction: column;
-    overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
     border-radius: 0.85rem;
     background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
@@ -499,10 +430,7 @@
 
   .settings-ai-profile-list > header,
   .settings-ai-profile-list > footer {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
+    @apply flex flex-wrap items-center justify-between;
     gap: 0.5rem;
     padding: 0.65rem 0.7rem;
   }
@@ -511,21 +439,9 @@
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
   }
 
-  .settings-ai-profile-list > header strong {
-    font-size: 0.75rem;
-    font-weight: 750;
-  }
-
   .settings-ai-profile-list > header > div {
-    display: flex;
+    @apply flex;
     gap: 0.35rem;
-  }
-
-  .settings-ai-profile-list > header .control-button {
-    min-width: 0;
-    min-height: 1.85rem;
-    padding-inline: 0.55rem;
-    font-size: 0.75rem;
   }
 
   .settings-ai-profile-list > footer {
@@ -533,87 +449,70 @@
   }
 
   .settings-ai-profile-list > footer .control-button {
-    width: 100%;
+    @apply w-full;
   }
 
   .settings-ai-profile-list-body {
-    display: grid;
+    @apply grid overflow-auto;
     flex: 1;
     align-content: start;
     gap: 0.15rem;
-    overflow: auto;
     padding: 0.35rem;
   }
 
   .settings-ai-profile-list-item {
-    display: grid;
-    width: 100%;
-    min-width: 0;
+    @apply text-text-secondary grid w-full min-w-0 text-left;
     gap: 0.25rem;
     border: 0;
     border-radius: 0.6rem;
     padding: 0.6rem 0.65rem;
     background: transparent;
-    color: var(--text-secondary);
-    text-align: left;
   }
 
   .settings-ai-profile-list-item:hover,
   .settings-ai-profile-list-item:focus-visible {
+    @apply text-text-primary;
     background: var(--bg-hover);
-    color: var(--text-primary);
   }
 
   .settings-ai-profile-list-item.is-active {
+    @apply text-text-primary;
     background: color-mix(in srgb, var(--accent-soft) 90%, transparent);
-    color: var(--text-primary);
   }
 
   .settings-ai-pitem-name {
-    display: flex;
-    min-width: 0;
-    align-items: center;
+    @apply flex min-w-0 items-center;
     gap: 0.35rem;
     font-size: 0.8125rem;
     font-weight: 750;
   }
 
   .settings-ai-pitem-name strong {
-    min-width: 0;
-    overflow: hidden;
+    @apply min-w-0 overflow-hidden whitespace-nowrap;
     text-overflow: ellipsis;
-    white-space: nowrap;
     font-weight: 750;
   }
 
   .settings-ai-pitem-meta {
-    display: flex;
-    flex-wrap: wrap;
+    @apply flex flex-wrap;
     gap: 0.25rem;
   }
 
   .settings-ai-pitem-sub {
+    @apply text-text-tertiary overflow-hidden whitespace-nowrap;
     font-size: 0.6875rem;
-    color: var(--text-tertiary);
-    overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .settings-ai-profile-list-item > span {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    justify-content: space-between;
+    @apply flex min-w-0 items-center justify-between;
     gap: 0.35rem;
   }
 
   .settings-ai-profile-list-item strong,
   .settings-ai-profile-list-item small {
-    min-width: 0;
-    overflow: hidden;
+    @apply min-w-0 overflow-hidden whitespace-nowrap;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .settings-ai-profile-list-item strong {
@@ -622,41 +521,30 @@
   }
 
   .settings-ai-profile-list-item small {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
     font-size: 0.6875rem;
   }
 
   .settings-ai-profile-list-item em {
-    flex-shrink: 0;
+    @apply text-accent shrink-0;
     border-radius: 0.25rem;
     padding: 0.05rem 0.35rem;
     background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
-    color: var(--accent);
     font-size: 0.625rem;
     font-style: normal;
     font-weight: 750;
   }
 
   .settings-ai-profile-detail {
-    min-width: 0;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: auto;
+    @apply flex min-h-0 min-w-0 flex-col overflow-auto;
     border: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
     border-radius: 0.85rem;
     background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
     padding: 0.95rem 1rem 1rem;
   }
 
-  .settings-ai-profile-detail.is-dirty {
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 35%, transparent);
-  }
-
   .settings-ai-profile-detail-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+    @apply flex items-start justify-between;
     gap: 0.75rem;
     margin-bottom: 0.85rem;
     border-bottom: 0;
@@ -664,7 +552,7 @@
   }
 
   .settings-ai-profile-detail-head h3 {
-    margin: 0;
+    @apply m-0;
     font-size: 1rem;
     font-weight: 750;
     letter-spacing: -0.015em;
@@ -672,59 +560,50 @@
 
   .settings-ai-profile-detail-head .saved-at,
   .settings-ai-profile-detail-head > div:first-child > span {
-    display: block;
+    @apply text-text-tertiary block;
     margin-top: 0.2rem;
-    color: var(--text-tertiary);
     font-size: 0.6875rem;
   }
 
   .settings-ai-profile-detail-head > div:last-child {
-    display: flex;
-    flex-wrap: wrap;
+    @apply flex flex-wrap;
     gap: 0.35rem;
   }
 
   .settings-ai-inline-field {
-    display: grid;
+    @apply grid items-center;
     grid-template-columns: minmax(0, 1fr) auto auto;
     gap: 0.4rem;
-    align-items: center;
   }
 
   /* Icon-only actions (refresh models, models.dev import, clear key, delete profile). */
   .settings-ai-icon-btn {
-    display: inline-flex;
+    @apply text-text-secondary inline-flex items-center justify-center;
     width: 2.25rem;
     height: 2.25rem;
     min-height: 0;
     flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
     border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
     border-radius: 0.5rem;
     padding: 0;
     background: color-mix(in srgb, var(--bg-panel-muted) 40%, var(--bg-panel));
-    color: var(--text-secondary);
   }
 
   .settings-ai-icon-btn:hover:not(:disabled),
   .settings-ai-icon-btn:focus-visible {
+    @apply text-text-primary;
     background: var(--bg-hover);
-    color: var(--text-primary);
-  }
-
-  .settings-ai-icon-btn:disabled {
-    opacity: 0.45;
   }
 
   .settings-ai-icon-btn > svg {
-    display: block;
+    @apply block;
     width: 0.9rem;
     height: 0.9rem;
     flex: 0 0 auto;
   }
 
   .settings-ai-icon-btn.is-sm {
+    @apply text-text-secondary;
     width: 1.5rem;
     height: 1.5rem;
     border-radius: 0.4rem;
@@ -738,47 +617,33 @@
   }
 
   .settings-ai-icon-btn.is-danger {
+    @apply text-danger;
     border-color: color-mix(in srgb, var(--danger) 35%, transparent);
     background: transparent;
-    color: var(--danger);
   }
 
   .settings-ai-icon-btn.is-danger:hover:not(:disabled),
   .settings-ai-icon-btn.is-danger:focus-visible {
+    @apply text-danger;
     background: var(--danger-soft);
-    color: var(--danger);
-  }
-
-  .settings-ai-icon-btn > svg.is-spinning {
-    animation: settings-ai-spin 0.8s linear infinite;
-  }
-
-  @keyframes settings-ai-spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
 
   .settings-ai-secret-field {
-    display: grid;
+    @apply grid;
     gap: 0.35rem;
   }
 
   .settings-ai-secret-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    @apply text-text-tertiary flex flex-wrap items-center;
     gap: 0.4rem;
     min-height: 1.35rem;
     font-size: 0.6875rem;
-    color: var(--text-tertiary);
     line-height: 1.3;
   }
 
   .settings-ai-cache-row {
-    display: grid;
+    @apply grid items-center;
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
     gap: 1rem;
     margin-top: 1rem;
     padding: 0.65rem 0.85rem;
@@ -788,26 +653,24 @@
   }
 
   .settings-ai-cache-row .row-title {
-    margin: 0;
+    @apply m-0;
     font-size: 0.875rem;
     font-weight: 650;
   }
 
   .settings-ai-cache-row .row-desc {
+    @apply text-text-tertiary;
     margin: 0.2rem 0 0;
-    color: var(--text-tertiary);
     font-size: 0.75rem;
   }
 
   .settings-ai-profile-empty {
-    display: grid;
+    @apply text-text-secondary grid text-center;
     min-height: 20rem;
     place-content: center;
     justify-items: center;
     gap: 0.75rem;
     padding: 1.5rem;
-    color: var(--text-secondary);
-    text-align: center;
   }
 
   .settings-ai-profile-empty p {
@@ -817,46 +680,29 @@
     text-wrap: pretty;
   }
 
-  .settings-ai-profile-detail-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.75rem;
-    border-bottom: 1px solid var(--border-subtle);
-    padding-bottom: 0.75rem;
-  }
-
   .settings-ai-profile-detail-head > div {
-    display: flex;
-    align-items: center;
+    @apply flex items-center;
     gap: 0.5rem;
   }
 
   .settings-ai-profile-detail-head > div:first-child {
-    display: grid;
-    min-width: 0;
+    @apply grid min-w-0;
     gap: 0.2rem;
   }
 
   .settings-ai-profile-detail-head h3 {
-    overflow: hidden;
-    color: var(--text-primary);
+    @apply text-text-primary overflow-hidden whitespace-nowrap;
     font-size: 0.875rem;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .settings-ai-profile-detail-head span {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
     font-size: 0.6875rem;
   }
 
   .settings-ai-profile-detail .control-button-danger {
-    color: var(--danger);
-  }
-
-  .settings-ai-profile-detail .control-button-danger:hover {
-    background: var(--danger-soft);
+    @apply text-danger;
   }
 
   .settings-ai-profile {
@@ -867,37 +713,32 @@
   }
 
   .settings-ai-profile.is-default {
+    @apply text-accent;
     border-color: var(--accent);
   }
 
   .settings-ai-default {
-    display: inline-flex;
+    @apply text-text-secondary inline-flex items-center;
     min-height: 1.75rem;
-    align-items: center;
     gap: 0.35rem;
-    color: var(--text-secondary);
     font-size: 0.75rem;
   }
 
   .settings-ai-default.is-active {
-    color: var(--accent);
-    font-weight: 600;
+    @apply text-accent font-semibold;
   }
 
   .settings-ai-grid {
-    display: grid;
+    @apply grid items-end;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.7rem 0.85rem;
     margin-top: 0.35rem;
-    align-items: end;
   }
 
   .settings-ai-grid label {
-    display: grid;
-    min-width: 0;
+    @apply text-text-tertiary grid min-w-0;
     gap: 0.3rem;
     align-content: normal;
-    color: var(--text-tertiary);
     font-size: 0.6875rem;
     font-weight: 700;
   }
@@ -905,20 +746,18 @@
   /* Generative identity row: name / provider preset / protocol share one line
      so the fill-in flow reads top-down from the profile basics. */
   .settings-ai-grid-identity {
+    @apply grid items-end;
     grid-column: 1 / -1;
-    display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.7rem 0.85rem;
-    align-items: end;
   }
 
   .settings-ai-grid .control-input {
-    width: 100%;
+    @apply text-text-primary w-full;
     min-height: 2.25rem;
     border-radius: 0.5rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
     background: color-mix(in srgb, var(--bg-panel-muted) 40%, var(--bg-panel));
-    color: var(--text-primary);
     font-size: 0.8125rem;
   }
 
@@ -927,40 +766,35 @@
   }
 
   .settings-ai-insecure-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
+    @apply flex flex-wrap items-center justify-between;
     gap: 0.5rem 1rem;
   }
 
   .settings-ai-insecure-row p {
-    margin: 0;
-    color: var(--text-tertiary);
+    @apply text-text-tertiary m-0;
     font-size: 0.6875rem;
     font-weight: 700;
   }
 
   .settings-ai-insecure-row small {
-    display: block;
+    @apply text-text-tertiary block;
     margin-top: 0.15rem;
-    color: var(--text-tertiary);
     font-size: 0.75rem;
     font-weight: 500;
     line-height: 1.45;
   }
 
   .settings-ai-insecure-row small.settings-ai-insecure-warning {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .settings-ai-secret {
-    display: grid;
+    @apply grid;
     gap: 0.35rem;
   }
 
   .settings-ai-secret > svg {
-    display: none;
+    @apply hidden;
   }
 
   .settings-ai-secret .control-input {
@@ -968,51 +802,49 @@
   }
 
   .settings-ai-profile-actions {
-    display: none;
+    @apply hidden;
   }
 
   .settings-ai-profile-actions > span {
+    @apply text-text-secondary;
     min-width: 0;
     flex: 1;
-    color: var(--text-secondary);
     font-size: 0.6875rem;
     overflow-wrap: anywhere;
   }
 
   .settings-ai-cache {
-    display: flex;
+    @apply text-text-secondary flex items-center;
     min-width: 0;
     flex: 1;
-    align-items: center;
     gap: 0.6rem;
-    color: var(--text-secondary);
   }
 
   .settings-ai-cache div {
-    display: grid;
+    @apply grid;
     gap: 0.15rem;
   }
 
   .settings-ai-cache strong {
-    color: var(--text-primary);
+    @apply text-text-primary;
     font-size: 0.75rem;
   }
 
   .settings-ai-cache span,
   .settings-ai-error {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
     font-size: 0.6875rem;
   }
 
   .settings-ai-empty {
+    @apply text-text-tertiary;
     margin: 0.35rem 0;
-    color: var(--text-tertiary);
     font-size: 0.8125rem;
     line-height: 1.5;
   }
 
   .settings-ai-error {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   /* Generation parameters: context window, advanced params, models.dev dialog */
@@ -1031,61 +863,45 @@
   /* Field label row: label on the left, auxiliary hint/meta on the right. */
   .settings-ai-grid label > .settings-ai-field-head,
   .settings-ai-advanced-grid label > .settings-ai-field-head {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    justify-content: space-between;
+    @apply flex min-w-0 items-center justify-between;
     gap: 0.5rem;
   }
 
   .settings-ai-field-meta {
-    display: flex;
-    min-width: 0;
+    @apply flex min-w-0 items-center justify-end;
     flex: 0 1 auto;
-    align-items: center;
-    justify-content: flex-end;
     gap: 0.35rem;
   }
 
   .settings-ai-field-hint {
-    min-width: 0;
-    overflow: hidden;
-    color: var(--text-tertiary);
+    @apply text-text-tertiary min-w-0 overflow-hidden text-right whitespace-nowrap;
     font-weight: 500;
-    text-align: right;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .settings-ai-field-hint.is-accent {
-    flex-shrink: 0;
-    color: var(--accent);
+    @apply text-accent shrink-0;
   }
 
   .settings-ai-field-error {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .settings-ai-advanced {
-    margin-top: 0.85rem;
+    @apply mt-[0.85rem];
     border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
     border-radius: 0.7rem;
     background: color-mix(in srgb, var(--bg-panel-muted) 45%, var(--bg-panel));
   }
 
   .settings-ai-advanced-toggle {
-    display: flex;
-    width: 100%;
+    @apply text-text-primary flex w-full items-center justify-between text-left;
     min-height: 2.6rem;
-    align-items: center;
-    justify-content: space-between;
     gap: 0.75rem;
     border: 0;
     border-radius: 0.7rem;
     padding: 0.55rem 0.8rem;
     background: transparent;
-    color: var(--text-primary);
-    text-align: left;
   }
 
   .settings-ai-advanced-toggle:hover,
@@ -1099,13 +915,13 @@
   }
 
   .settings-ai-advanced-toggle > small {
-    color: var(--accent);
+    @apply text-accent;
     font-size: 0.6875rem;
     font-weight: 700;
   }
 
   .settings-ai-advanced-grid {
-    display: grid;
+    @apply grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.7rem 0.85rem;
     border-top: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
@@ -1113,22 +929,19 @@
   }
 
   .settings-ai-advanced-grid label {
-    display: grid;
-    min-width: 0;
+    @apply text-text-tertiary grid min-w-0;
     gap: 0.3rem;
     align-content: start;
-    color: var(--text-tertiary);
     font-size: 0.6875rem;
     font-weight: 700;
   }
 
   .settings-ai-advanced-grid .control-input {
-    width: 100%;
+    @apply text-text-primary w-full;
     min-height: 2.25rem;
     border-radius: 0.5rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
     background: color-mix(in srgb, var(--bg-panel-muted) 40%, var(--bg-panel));
-    color: var(--text-primary);
     font-size: 0.8125rem;
   }
 
@@ -1137,81 +950,66 @@
   .settings-ai-grid .compact-select,
   .settings-ai-advanced-grid .compact-select,
   .settings-ai-import-policy-select {
-    width: 100%;
+    @apply w-full;
   }
 
   .settings-ai-grid .compact-select__trigger,
   .settings-ai-advanced-grid .compact-select__trigger,
   .settings-ai-import-policy-select-trigger {
-    width: 100%;
+    @apply text-text-primary w-full;
     height: 2.25rem;
     border-radius: 0.5rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
     background: color-mix(in srgb, var(--bg-panel-muted) 40%, var(--bg-panel));
-    color: var(--text-primary);
     font-size: 0.8125rem;
     justify-content: space-between;
     padding-inline: 0.65rem;
   }
 
-  .settings-ai-grid .compact-select__menu,
-  .settings-ai-advanced-grid .compact-select__menu,
-  .settings-ai-import-policy-select-menu {
-    min-width: 9.25rem;
-  }
-
   .settings-ai-advanced-desc {
+    @apply text-text-tertiary m-0;
     grid-column: 1 / -1;
-    margin: 0;
-    color: var(--text-tertiary);
     font-size: 0.75rem;
     line-height: 1.5;
   }
 
   /* Reasoning (chain-of-thought) controls: advanced-params switch and effort dial. */
   .settings-ai-reasoning-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
+    @apply flex flex-wrap items-center justify-between;
     gap: 0.5rem 1rem;
   }
 
   .settings-ai-reasoning-row p {
-    margin: 0;
-    color: var(--text-tertiary);
+    @apply text-text-tertiary m-0;
     font-size: 0.6875rem;
     font-weight: 700;
   }
 
   .settings-ai-reasoning-row small {
-    display: block;
+    @apply text-text-tertiary block;
     margin-top: 0.15rem;
-    color: var(--text-tertiary);
     font-size: 0.75rem;
     font-weight: 500;
     line-height: 1.45;
   }
 
   .settings-ai-reasoning-row small.settings-ai-reasoning-unsupported {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   /* Collapsible chain-of-thought block inside the connection-test dialog. */
   .settings-ai-reasoning-result {
-    margin-top: 0.85rem;
+    @apply mt-[0.85rem];
     border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
     border-radius: 0.7rem;
     background: color-mix(in srgb, var(--bg-panel-muted) 45%, var(--bg-panel));
   }
 
   .settings-ai-reasoning-text {
+    @apply text-text-secondary m-0 overflow-auto;
     max-height: 14rem;
-    overflow: auto;
-    margin: 0;
     border-top: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
     padding: 0.75rem 0.8rem;
-    color: var(--text-secondary);
     font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
     font-size: 0.75rem;
     line-height: 1.55;
@@ -1220,67 +1018,51 @@
   }
 
   .settings-ai-modelsdev {
-    display: grid;
+    @apply grid;
     gap: 0.6rem;
   }
 
   .settings-ai-modelsdev-status {
-    display: flex;
+    @apply text-text-secondary flex flex-col items-center justify-center text-center;
     min-height: 8rem;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
     gap: 0.6rem;
-    color: var(--text-secondary);
     font-size: 0.8125rem;
-    text-align: center;
   }
 
   .settings-ai-modelsdev-status.is-error {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .settings-ai-modelsdev-search {
-    display: grid;
+    @apply grid;
     gap: 0.3rem;
   }
 
   .settings-ai-modelsdev-search .control-input {
-    width: 100%;
+    @apply w-full;
     min-height: 2.25rem;
   }
 
   .settings-ai-modelsdev-empty {
-    margin: 0;
+    @apply text-text-tertiary m-0 text-center;
     padding: 1.5rem 0.5rem;
-    color: var(--text-tertiary);
     font-size: 0.8125rem;
-    text-align: center;
   }
 
   .settings-ai-modelsdev-list {
-    display: grid;
+    @apply m-0 grid overflow-auto p-0;
     max-height: 22rem;
     gap: 0.25rem;
-    margin: 0;
-    padding: 0;
     list-style: none;
-    overflow: auto;
   }
 
   .settings-ai-modelsdev-item {
-    display: flex;
-    width: 100%;
-    min-width: 0;
-    align-items: center;
-    justify-content: space-between;
+    @apply text-text-primary flex w-full min-w-0 items-center justify-between text-left;
     gap: 0.75rem;
     border: 1px solid transparent;
     border-radius: 0.55rem;
     padding: 0.5rem 0.6rem;
     background: transparent;
-    color: var(--text-primary);
-    text-align: left;
   }
 
   .settings-ai-modelsdev-item:hover,
@@ -1289,101 +1071,74 @@
   }
 
   .settings-ai-modelsdev-item.is-selected {
+    @apply text-accent;
     border-color: color-mix(in srgb, var(--accent) 55%, transparent);
     background: color-mix(in srgb, var(--accent-soft) 85%, transparent);
   }
 
   .settings-ai-modelsdev-model {
-    display: grid;
-    min-width: 0;
+    @apply grid min-w-0;
     gap: 0.15rem;
   }
 
   .settings-ai-modelsdev-model strong {
-    overflow: hidden;
+    @apply overflow-hidden whitespace-nowrap;
     font-size: 0.8125rem;
     font-weight: 750;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .settings-ai-modelsdev-model code {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
     font-size: 0.6875rem;
     overflow-wrap: anywhere;
   }
 
   .settings-ai-modelsdev-meta {
-    display: grid;
+    @apply grid justify-items-end;
     flex-shrink: 0;
-    justify-items: end;
     gap: 0.15rem;
   }
 
   .settings-ai-modelsdev-meta em {
-    color: var(--accent);
+    @apply text-accent;
     font-size: 0.6875rem;
     font-style: normal;
     font-weight: 700;
   }
 
   .settings-ai-modelsdev-meta small {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
     font-size: 0.6875rem;
   }
 
   .settings-mt-section {
-    display: flex;
+    @apply flex min-h-0 overflow-hidden;
     height: 100%;
-    min-height: 0;
     flex-direction: column;
     gap: 0.875rem;
-    overflow: hidden;
   }
 
   .settings-mt-workspace {
-    display: grid;
+    @apply grid overflow-hidden;
     min-height: min(22rem, calc(100vh - 24rem));
     flex: 1;
     grid-template-columns: 16.5rem minmax(0, 1fr);
     gap: 0.9rem;
-    overflow: hidden;
     border: 0;
     border-radius: 0;
     background: transparent;
   }
 
-  .settings-mt-workspace > .settings-ai-profile-list,
-  .settings-mt-workspace > .settings-ai-profiles,
-  .settings-mt-workspace .settings-ai-profile-detail {
-    border: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
-    border-radius: 0.85rem;
-    background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
-  }
-  .settings-mt-profile-list {
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-  .settings-mt-workspace > .settings-ai-profiles {
-    min-width: 0;
-    overflow: hidden;
-  }
-  .settings-mt-workspace .settings-ai-profile-detail {
-    height: 100%;
-  }
-
   .settings-mt-enabled {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    justify-content: space-between;
+    @apply text-text-secondary flex min-w-0 items-center justify-between;
     gap: 0.75rem;
-    color: var(--text-secondary);
     font-size: 0.6875rem;
   }
 
   .settings-mt-credentials,
   .settings-mt-capabilities {
-    display: grid;
+    @apply grid;
     gap: 0.625rem;
     margin-top: 0.75rem;
     border-top: 1px solid var(--border-color);
@@ -1392,54 +1147,45 @@
 
   .settings-mt-credentials > strong,
   .settings-mt-capabilities > strong {
-    color: var(--text-primary);
+    @apply text-text-primary;
     font-size: 0.75rem;
   }
 
   .settings-mt-credential {
-    display: grid;
+    @apply grid;
     grid-template-columns: minmax(0, 1.4fr) minmax(12rem, 0.6fr);
     gap: 0.75rem;
   }
 
   .settings-mt-credential label {
-    display: grid;
-    min-width: 0;
+    @apply text-text-secondary grid min-w-0;
     gap: 0.35rem;
-    color: var(--text-secondary);
     font-size: 0.6875rem;
   }
 
   .settings-mt-capabilities {
+    @apply text-text-secondary;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    color: var(--text-secondary);
     font-size: 0.6875rem;
   }
 
-  .settings-mt-capabilities > strong,
   .settings-mt-capabilities > p {
-    grid-column: 1 / -1;
-  }
-
-  .settings-mt-capabilities > p {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
     line-height: 1.5;
   }
 
   .settings-mt-languages {
-    display: flex;
+    @apply flex flex-wrap overflow-auto;
     max-height: 6rem;
-    flex-wrap: wrap;
     gap: 0.3rem;
     margin-top: 0.75rem;
-    overflow: auto;
   }
 
   .settings-mt-languages span {
+    @apply text-text-secondary;
     border: 1px solid var(--border-color);
     border-radius: 0.25rem;
     padding: 0.15rem 0.35rem;
-    color: var(--text-secondary);
     font-size: 0.625rem;
   }
 

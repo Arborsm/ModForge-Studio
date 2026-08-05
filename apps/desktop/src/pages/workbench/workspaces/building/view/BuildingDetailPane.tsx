@@ -54,7 +54,7 @@ function BuildingHeroPreview({
   if (!sourceRect || !textureState?.url || !textureState.width || !textureState.height) {
     return (
       <div className="building-workspace-hero-preview">
-        <span className="text-2xl font-bold text-(--text-tertiary)">{building.displayName.slice(0, 1)}</span>
+        <span className="text-text-tertiary text-2xl font-bold">{building.displayName.slice(0, 1)}</span>
       </div>
     )
   }
@@ -122,12 +122,12 @@ export function BuildingDetailPane({
 
   return (
     <section className="building-workspace-pane h-full">
-      <div className="border-b border-(--border-color)/65 px-5 py-6">
+      <div className="border-border-subtle/65 border-b px-5 py-6">
         <div className="flex items-start gap-4">
           <BuildingHeroPreview building={building} textureState={textureState} />
           <div className="min-w-0 flex-1">
-            <h2 className="text-[1.5rem] font-extrabold tracking-tight text-(--text-primary)">{building.displayName}</h2>
-            <p className="mt-1 truncate font-mono text-xs text-(--text-tertiary)">
+            <h2 className="text-text-primary text-[1.5rem] font-extrabold tracking-tight">{building.displayName}</h2>
+            <p className="text-text-tertiary mt-1 truncate font-mono text-xs">
               {building.internalName}
               {building.texturePathLabel ? ` · ${building.texturePathLabel}` : ''}
             </p>
@@ -156,9 +156,7 @@ export function BuildingDetailPane({
               type="button"
               className={cx(
                 'rounded-lg px-3 py-1.5 text-xs font-bold transition-colors',
-                tab.id === activeTab
-                  ? 'bg-(--accent-soft) text-(--accent)'
-                  : 'text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
+                tab.id === activeTab ? 'bg-accent-soft text-accent' : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',
               )}
               onClick={() => setActiveTab(tab.id)}
             >
@@ -192,9 +190,9 @@ export function BuildingDetailPane({
                 {building.worldEntrances.length > 0 ? (
                   <DetailSection title={copy.worldEntrancesTitle}>
                     {building.worldEntrances.map((entrance, index) => (
-                      <div key={`${building.key}:entrance:${index}`} className="border-b border-(--border-color)/65 py-2 last:border-b-0">
-                        <p className="text-sm font-semibold text-(--text-primary)">{entrance.sourceMapName}</p>
-                        <div className="mt-1 space-y-0.5 text-xs text-(--text-secondary)">
+                      <div key={`${building.key}:entrance:${index}`} className="border-border-subtle/65 border-b py-2 last:border-b-0">
+                        <p className="text-text-primary text-sm font-semibold">{entrance.sourceMapName}</p>
+                        <div className="text-text-secondary mt-1 space-y-0.5 text-xs">
                           <p>
                             {copy.triggerLabel}: {entrance.trigger}
                           </p>

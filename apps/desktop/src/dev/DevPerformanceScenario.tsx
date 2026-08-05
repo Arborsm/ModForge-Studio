@@ -527,8 +527,8 @@ function ScenarioFrame({ id, children }: { id: ScenarioId; children: ReactNode }
   return (
     <div className="dev-performance-scenario" data-mf-perf-scenario={id}>
       <header className="panel-surface p-3">
-        <p className="text-xs font-semibold text-(--text-secondary) uppercase">Compiler cleanup performance scenario</p>
-        <h1 className="text-lg font-semibold text-(--text-primary)">{id}</h1>
+        <p className="text-text-secondary text-xs font-semibold uppercase">Compiler cleanup performance scenario</p>
+        <h1 className="text-text-primary text-lg font-semibold">{id}</h1>
       </header>
       <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
     </div>

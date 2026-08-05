@@ -1,5 +1,6 @@
 @layer theme, base, components, utilities;
 @import 'tailwindcss' source(none);
+@import './theme-bridge.css';
 @import '@xyflow/react/dist/style.css';
 @import './workspace/layout.css';
 @import './workspace/workbench-shell.css';

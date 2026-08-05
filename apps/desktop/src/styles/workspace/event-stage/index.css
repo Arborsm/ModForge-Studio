@@ -1,10 +1,8 @@
 @layer components {
   .event-stage-panel-shell.workspace-panel-shell {
     border: none;
-    background: transparent;
-    box-shadow: none;
+    @apply rounded-none bg-transparent shadow-none;
     backdrop-filter: none;
-    border-radius: 0;
   }
 
   /*
@@ -22,7 +20,7 @@
 
   /* quickQuestion choice buttons: hover / keyboard focus / pressed feedback. */
   .event-stage-choice-button {
-    cursor: pointer;
+    @apply cursor-pointer;
     transition:
       background-color 160ms ease,
       border-color 160ms ease,

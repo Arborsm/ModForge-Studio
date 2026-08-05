@@ -57,7 +57,7 @@ export function AssetBrowserPanel({
     >
       <div className="flex h-full flex-col gap-3 p-3">
         <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-(--text-tertiary)" />
+          <Search className="text-text-tertiary pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <input
             className="control-input pl-9"
             value={assetFilter}
@@ -77,12 +77,12 @@ export function AssetBrowserPanel({
                   key={group.modPath}
                   {...getLoadingMotionChildRevealProps({
                     index: groupIndex,
-                    className: 'overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-panel-muted)',
+                    className: 'overflow-hidden rounded-xl border border-border-subtle bg-surface-panel-muted',
                   })}
                 >
-                  <div className="border-b border-(--border-color) px-3 py-2">
-                    <p className="truncate text-xs font-semibold tracking-[0.16em] text-(--text-primary) uppercase">{group.modName}</p>
-                    <p className="truncate text-[11px] text-(--text-secondary)">{group.items.length}</p>
+                  <div className="border-border-subtle border-b px-3 py-2">
+                    <p className="text-text-primary tracking-ui-wider truncate text-xs font-semibold uppercase">{group.modName}</p>
+                    <p className="text-text-secondary text-meta-px truncate">{group.items.length}</p>
                   </div>
                   <div className="space-y-2 p-2">
                     {group.items.map((entry, itemIndex) => {
@@ -96,10 +96,10 @@ export function AssetBrowserPanel({
                         <button key={`${group.modId}:${asset.id}`} type="button" {...revealProps} onClick={() => onOpenModAsset(entry)}>
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-(--text-primary)">{asset.name}</p>
-                              <p className="truncate text-xs text-(--text-secondary)">{targets[0] ?? asset.relativePath}</p>
+                              <p className="text-text-primary truncate text-sm font-semibold">{asset.name}</p>
+                              <p className="text-text-secondary truncate text-xs">{targets[0] ?? asset.relativePath}</p>
                             </div>
-                            <div className="shrink-0 text-right text-[11px] text-(--text-secondary)">
+                            <div className="text-text-secondary text-meta-px shrink-0 text-right">
                               <p>{asset.format.toUpperCase()}</p>
                               <p>{formatBytes(asset.sizeBytes)}</p>
                             </div>
@@ -111,7 +111,7 @@ export function AssetBrowserPanel({
                 </section>
               ))
             ) : (
-              <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
+              <div className="border-border-subtle text-text-secondary rounded-xl border border-dashed px-4 py-5 text-sm">
                 No modded maps match the current filter.
               </div>
             )
@@ -132,11 +132,11 @@ export function AssetBrowserPanel({
                   <button key={asset.id} type="button" {...revealProps} onClick={() => onOpenAsset(asset)}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-(--text-primary)">{asset.name}</p>
-                        <p className="truncate text-xs text-(--text-secondary)">{asset.relativePath}</p>
+                        <p className="text-text-primary truncate text-sm font-semibold">{asset.name}</p>
+                        <p className="text-text-secondary truncate text-xs">{asset.relativePath}</p>
                       </div>
-                      <div className="shrink-0 text-right text-[11px] text-(--text-secondary)">
-                        {isPinned ? <p className="font-semibold text-(--accent)">{copy.leftDock.pinned}</p> : null}
+                      <div className="text-text-secondary text-meta-px shrink-0 text-right">
+                        {isPinned ? <p className="text-accent font-semibold">{copy.leftDock.pinned}</p> : null}
                         <p>{asset.format.toUpperCase()}</p>
                         <p>{formatBytes(asset.sizeBytes)}</p>
                       </div>
@@ -150,12 +150,12 @@ export function AssetBrowserPanel({
                   key={group.label}
                   {...getLoadingMotionChildRevealProps({
                     index: groupIndex,
-                    className: 'overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-panel-muted)',
+                    className: 'overflow-hidden rounded-xl border border-border-subtle bg-surface-panel-muted',
                   })}
                 >
                   <button
                     type="button"
-                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-(--bg-active)"
+                    className="hover:bg-surface-active flex w-full items-center justify-between gap-3 px-3 py-2 text-left"
                     onClick={() =>
                       setCollapsedGroups((current) => ({
                         ...current,
@@ -164,14 +164,14 @@ export function AssetBrowserPanel({
                     }
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-xs font-semibold tracking-[0.16em] text-(--text-primary) uppercase">{group.label}</p>
-                      <p className="text-[11px] text-(--text-secondary)">{group.items.length}</p>
+                      <p className="text-text-primary tracking-ui-wider truncate text-xs font-semibold uppercase">{group.label}</p>
+                      <p className="text-text-secondary text-meta-px">{group.items.length}</p>
                     </div>
-                    <ChevronDown className={cx('h-4 w-4 text-(--text-secondary) transition-transform', !isCollapsed && 'rotate-180')} />
+                    <ChevronDown className={cx('h-4 w-4 text-text-secondary transition-transform', !isCollapsed && 'rotate-180')} />
                   </button>
 
                   {!isCollapsed ? (
-                    <div className="space-y-2 border-t border-(--border-color) p-2">
+                    <div className="border-border-subtle space-y-2 border-t p-2">
                       {group.items.map((asset, itemIndex) => {
                         const isActive = asset.id === activeMapId
                         const isPinned = /^town$/i.test(asset.name)
@@ -184,11 +184,11 @@ export function AssetBrowserPanel({
                           <button key={asset.id} type="button" {...revealProps} onClick={() => onOpenAsset(asset)}>
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-(--text-primary)">{asset.name}</p>
-                                <p className="truncate text-xs text-(--text-secondary)">{asset.relativePath}</p>
+                                <p className="text-text-primary truncate text-sm font-semibold">{asset.name}</p>
+                                <p className="text-text-secondary truncate text-xs">{asset.relativePath}</p>
                               </div>
-                              <div className="shrink-0 text-right text-[11px] text-(--text-secondary)">
-                                {isPinned ? <p className="font-semibold text-(--accent)">{copy.leftDock.pinned}</p> : null}
+                              <div className="text-text-secondary text-meta-px shrink-0 text-right">
+                                {isPinned ? <p className="text-accent font-semibold">{copy.leftDock.pinned}</p> : null}
                                 <p>{asset.format.toUpperCase()}</p>
                                 <p>{formatBytes(asset.sizeBytes)}</p>
                               </div>
@@ -202,7 +202,7 @@ export function AssetBrowserPanel({
               )
             })
           ) : (
-            <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
+            <div className="border-border-subtle text-text-secondary rounded-xl border border-dashed px-4 py-5 text-sm">
               {mapAssets.length ? copy.leftDock.noFilteredMaps : copy.leftDock.noMapsFound}
             </div>
           )}

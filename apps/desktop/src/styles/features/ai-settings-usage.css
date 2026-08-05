@@ -1,72 +1,45 @@
 @layer components {
   .settings-ai-usage {
-    display: flex;
+    @apply flex min-h-0 min-w-0 overflow-hidden;
     flex: 1;
-    min-height: 0;
     flex-direction: column;
-    min-width: 0;
-    overflow: hidden;
   }
 
   .settings-ai-usage > .settings-ai-tab-body {
-    display: grid;
+    @apply grid;
     gap: 0.85rem;
     align-content: start;
   }
 
   .settings-ai-usage-body {
-    display: grid;
+    @apply grid min-w-0;
     gap: 0.85rem;
     align-content: start;
-    min-width: 0;
     transition: opacity 0.14s ease;
   }
 
   .settings-ai-usage.is-refreshing .settings-ai-usage-body {
+    @apply pointer-events-none;
     opacity: 0.72;
-    pointer-events: none;
   }
 
   .settings-window-btn.is-placeholder {
+    @apply pointer-events-none;
     visibility: hidden;
-    pointer-events: none;
   }
 
   .settings-ai-usage-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
+    @apply flex flex-wrap items-center justify-between;
     gap: 0.55rem 0.75rem;
   }
 
   .settings-ai-usage-toolbar-filters {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    @apply flex flex-wrap items-center;
     gap: 0.4rem;
   }
 
-  .settings-ai-usage-compact-select {
-    min-width: 8.25rem;
-  }
-
-  .settings-ai-usage-compact-select-trigger {
-    width: 100%;
-    min-width: 8.25rem;
-    height: 2rem;
-    justify-content: space-between;
-    padding-inline: 0.65rem;
-    font-size: 0.78125rem;
-    font-weight: 650;
-  }
-
-  .settings-ai-usage-compact-select-menu {
-    min-width: 9.25rem;
-  }
-
   .settings-ai-usage-seg {
-    display: inline-flex;
+    @apply inline-flex;
     gap: 0.125rem;
     padding: 0.15rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
@@ -75,69 +48,50 @@
   }
 
   .settings-ai-usage-seg button {
+    @apply text-text-secondary;
     border: 0;
     border-radius: 0.4rem;
     min-height: 1.7rem;
     padding: 0 0.65rem;
     background: transparent;
-    color: var(--text-secondary);
     font-size: 0.75rem;
     font-weight: 650;
   }
 
   .settings-ai-usage-seg button.is-active {
+    @apply text-text-primary;
     background: var(--bg-panel);
-    color: var(--text-primary);
     box-shadow: 0 0.0625rem 0.1rem color-mix(in srgb, var(--text-primary) 8%, transparent);
   }
 
   .settings-ai-usage-coverage {
-    margin: 0;
+    @apply text-text-secondary m-0;
     padding: 0.5rem 0.7rem;
     border: 1px solid color-mix(in srgb, var(--warning) 28%, var(--border-color));
     border-radius: 0.55rem;
     background: color-mix(in srgb, var(--warning-soft) 70%, transparent);
-    color: var(--text-secondary);
     font-size: 0.75rem;
     line-height: 1.45;
   }
 
   .settings-ai-usage-loading-banner {
-    display: inline-flex;
-    align-items: center;
+    @apply text-text-secondary inline-flex items-center;
     gap: 0.5rem;
     min-height: 1.25rem;
-    color: var(--text-secondary);
     font-size: 0.8125rem;
     font-weight: 650;
-  }
-
-  .settings-ai-usage-loading-spinner {
-    width: 0.95rem;
-    height: 0.95rem;
-    flex: 0 0 auto;
-    border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
-    border-top-color: var(--accent);
-    border-radius: 999px;
-    animation: settings-ai-usage-spin 0.8s linear infinite;
-  }
-
-  @keyframes settings-ai-usage-spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
 
   .settings-ai-usage-kpi-skeleton,
   .settings-ai-usage-skeleton-block,
   .settings-ai-usage-skeleton-detail {
-    pointer-events: none;
+    @apply pointer-events-none;
   }
 
   .settings-ai-usage-kpi-skeleton > i,
   .settings-ai-usage-skeleton-block > i,
   .settings-ai-usage-skeleton-detail > i {
-    display: block;
+    @apply block;
     border-radius: 0.4rem;
     background: linear-gradient(
       90deg,
@@ -150,56 +104,28 @@
   }
 
   .settings-ai-usage-kpi-skeleton {
-    display: grid;
+    @apply grid;
     gap: 0.35rem;
     align-content: center;
   }
 
-  .settings-ai-usage-kpi-skeleton > i:first-child {
-    width: 52%;
-    height: 0.5rem;
-  }
-
-  .settings-ai-usage-kpi-skeleton > i:last-child {
-    width: 68%;
-    height: 0.85rem;
-  }
-
   .settings-ai-usage-skeleton-block {
-    display: grid;
+    @apply grid;
     gap: 0.55rem;
     min-height: 8rem;
     padding: 0.85rem 0.95rem;
   }
 
-  .settings-ai-usage-skeleton-block > i:first-child {
-    width: 42%;
-    height: 0.65rem;
-  }
-
-  .settings-ai-usage-skeleton-block > i:not(:first-child) {
-    height: 0.8rem;
-  }
-
   .settings-ai-usage-skeleton-detail {
-    display: grid;
+    @apply grid;
     gap: 0.55rem;
     min-height: 10rem;
     padding: 0.85rem;
   }
 
-  .settings-ai-usage-skeleton-detail > i {
-    height: 0.85rem;
-  }
-
-  .settings-ai-usage-skeleton-detail > i:first-child {
-    width: 55%;
-  }
-
   .settings-ai-usage-empty-inline,
   .settings-ai-usage-empty {
-    margin: 0;
-    color: var(--text-tertiary);
+    @apply text-text-tertiary m-0;
     font-size: 0.75rem;
     line-height: 1.45;
   }
@@ -208,54 +134,31 @@
     padding: 1.25rem 0.95rem;
   }
 
-  @keyframes settings-ai-usage-shimmer {
-    0% {
-      background-position: 100% 0;
-    }
-    100% {
-      background-position: -100% 0;
-    }
-  }
-
   .settings-ai-usage-kpis {
-    display: grid;
+    @apply grid w-full overflow-hidden;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 1px;
-    width: 100%;
-    overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
     border-radius: 0.75rem;
     background: color-mix(in srgb, var(--border-color) 55%, transparent);
   }
 
   .settings-ai-usage-kpi {
-    display: grid;
+    @apply grid min-w-0 text-left;
     gap: 0.28rem;
     align-content: center;
-    min-width: 0;
     min-height: 3.65rem;
     padding: 0.7rem 0.85rem;
     border: 0;
     border-radius: 0;
     background: color-mix(in srgb, var(--bg-panel) 98%, transparent);
-    text-align: left;
     transition:
       background 0.12s ease,
       color 0.12s ease;
   }
 
-  .settings-ai-usage-kpi:hover,
-  .settings-ai-usage-kpi:focus-visible {
-    background: color-mix(in srgb, var(--bg-hover) 88%, var(--bg-panel));
-  }
-
-  .settings-ai-usage-kpi.is-active {
-    background: color-mix(in srgb, var(--accent-soft) 78%, var(--bg-panel));
-  }
-
   .settings-ai-usage-kpi > span {
-    min-width: 0;
-    color: var(--text-tertiary);
+    @apply text-text-tertiary min-w-0;
     font-size: 0.6875rem;
     font-weight: 700;
     line-height: 1.2;
@@ -263,8 +166,7 @@
   }
 
   .settings-ai-usage-kpi > strong {
-    min-width: 0;
-    color: var(--text-primary);
+    @apply text-text-primary min-w-0;
     font-size: 0.9375rem;
     font-weight: 760;
     letter-spacing: -0.02em;
@@ -273,31 +175,23 @@
     overflow-wrap: anywhere;
   }
 
-  .settings-ai-usage-kpi.is-active > span {
-    color: color-mix(in srgb, var(--text-secondary) 80%, var(--accent));
-  }
-
   .settings-ai-usage-breakdowns {
-    display: grid;
+    @apply grid w-full;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.75rem;
-    width: 100%;
   }
 
   .settings-ai-usage-breakdowns > section {
-    display: grid;
+    @apply grid min-w-0 overflow-hidden;
     grid-template-rows: auto minmax(0, 1fr);
     min-height: 9rem;
-    min-width: 0;
-    overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
     border-radius: 0.75rem;
     background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
   }
 
   .settings-ai-usage-panel-head {
-    display: flex;
-    align-items: center;
+    @apply flex items-center;
     min-height: 2.25rem;
     padding: 0.55rem 0.85rem;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
@@ -305,116 +199,93 @@
   }
 
   .settings-ai-usage-panel-head h3 {
-    margin: 0;
-    color: var(--text-secondary);
+    @apply text-text-secondary m-0;
     font-size: 0.71875rem;
     font-weight: 750;
     letter-spacing: 0.01em;
   }
 
   .settings-ai-usage-panel-body {
-    display: grid;
+    @apply grid;
     gap: 0.55rem;
     align-content: start;
     padding: 0.7rem 0.85rem 0.85rem;
   }
 
   .settings-ai-usage-bar {
-    display: grid;
-    min-width: 0;
+    @apply m-0 grid min-w-0 cursor-pointer p-0 text-left;
     gap: 0.28rem;
-    margin: 0;
-    padding: 0;
     border: 0;
     background: transparent;
-    text-align: left;
-    cursor: pointer;
   }
 
   .settings-ai-usage-bar > span {
-    display: flex;
-    min-width: 0;
-    justify-content: space-between;
+    @apply text-text-primary flex min-w-0 justify-between;
     gap: 0.75rem;
-    color: var(--text-primary);
     font-size: 0.75rem;
     font-weight: 650;
   }
 
   .settings-ai-usage-bar strong {
-    min-width: 0;
-    overflow: hidden;
+    @apply min-w-0 overflow-hidden whitespace-nowrap;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .settings-ai-usage-bar em {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
     font-style: normal;
     font-variant-numeric: tabular-nums;
   }
 
   .settings-ai-usage-bar > i {
-    display: block;
+    @apply block overflow-hidden;
     height: 0.28rem;
-    overflow: hidden;
     border-radius: 999px;
     background: color-mix(in srgb, var(--bg-panel-muted) 88%, transparent);
   }
 
   .settings-ai-usage-bar b {
-    display: block;
+    @apply block;
     height: 100%;
     border-radius: inherit;
     background: color-mix(in srgb, var(--accent) 78%, var(--text-primary));
   }
 
-  .settings-ai-usage-bar.is-failure b {
-    background: color-mix(in srgb, var(--danger) 82%, var(--text-primary));
-  }
-
   .settings-ai-usage-detail {
-    display: grid;
+    @apply grid w-full overflow-hidden;
     grid-template-rows: auto minmax(0, 1fr) auto;
-    width: 100%;
     min-height: 14rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
     border-radius: 0.75rem;
-    overflow: hidden;
     background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
   }
 
   .settings-ai-usage-detail-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
+    @apply text-text-secondary flex flex-wrap items-center justify-between;
     gap: 0.35rem 0.85rem;
     min-height: 2.35rem;
     padding: 0.55rem 0.85rem;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 66%, transparent);
     background: color-mix(in srgb, var(--bg-panel-muted) 36%, transparent);
-    color: var(--text-secondary);
     font-size: 0.75rem;
   }
 
   .settings-ai-usage-detail-meta strong {
-    color: var(--text-primary);
+    @apply text-text-primary;
     font-weight: 700;
   }
 
   .settings-ai-usage-detail-count {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
     font-variant-numeric: tabular-nums;
   }
 
   .settings-ai-usage-table {
-    min-width: 0;
-    overflow: auto;
+    @apply min-w-0 overflow-auto;
   }
 
   .settings-ai-usage-table table {
-    width: 100%;
+    @apply w-full;
     min-width: 42rem;
     border-collapse: collapse;
     font-size: 0.75rem;
@@ -422,42 +293,33 @@
 
   .settings-ai-usage-table th,
   .settings-ai-usage-table td {
+    @apply text-left whitespace-nowrap;
     padding: 0.55rem 0.65rem;
-    text-align: left;
-    white-space: nowrap;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 52%, transparent);
   }
 
   .settings-ai-usage-table th {
+    @apply text-text-tertiary uppercase;
     position: sticky;
     top: 0;
     z-index: 1;
-    color: var(--text-tertiary);
     font-size: 0.625rem;
     font-weight: 750;
     letter-spacing: 0.03em;
-    text-transform: uppercase;
     background: color-mix(in srgb, var(--bg-panel-muted) 55%, var(--bg-panel));
     border-bottom-color: color-mix(in srgb, var(--border-color) 70%, transparent);
   }
 
   .settings-ai-usage-table td {
-    color: var(--text-secondary);
+    @apply text-text-secondary;
     font-variant-numeric: tabular-nums;
   }
 
-  .settings-ai-usage-table tr:last-child td {
-    border-bottom: 0;
-  }
-
   .settings-ai-usage-pagination {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
+    @apply text-text-tertiary flex items-center justify-end;
     gap: 0.5rem;
     padding: 0.5rem 0.75rem;
     border-top: 1px solid color-mix(in srgb, var(--border-color) 66%, transparent);
-    color: var(--text-tertiary);
     font-size: 0.75rem;
   }
 

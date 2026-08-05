@@ -52,7 +52,7 @@ export function CreateDraftDialog({ open, onClose, onCreate }: CreateDraftDialog
       <DialogBody>
         <form id="create-draft-form" onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <span className="mb-2 block text-xs text-(--text-secondary)">{copy.templateLabel}</span>
+            <span className="text-text-secondary mb-2 block text-xs">{copy.templateLabel}</span>
             <div className="grid grid-cols-2 gap-2">
               {PACK_TEMPLATES.map((template) => {
                 const templateCopy = copy.templates[template.id]
@@ -65,11 +65,11 @@ export function CreateDraftDialog({ open, onClose, onCreate }: CreateDraftDialog
                     onClick={() => setTemplateId(template.id)}
                     className={cx(
                       'rounded-md border px-3 py-2 text-left transition-colors',
-                      selected ? 'border-(--accent) bg-(--accent-soft)' : 'border-(--border-color) hover:bg-(--bg-hover)',
+                      selected ? 'border-accent bg-accent-soft' : 'border-border-subtle hover:bg-surface-hover',
                     )}
                   >
-                    <span className="block text-sm font-medium text-(--text-primary)">{templateCopy.label}</span>
-                    <span className="mt-0.5 block text-xs text-(--text-secondary)">{templateCopy.description}</span>
+                    <span className="text-text-primary block text-sm font-medium">{templateCopy.label}</span>
+                    <span className="text-text-secondary mt-0.5 block text-xs">{templateCopy.description}</span>
                   </button>
                 )
               })}

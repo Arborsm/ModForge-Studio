@@ -33,7 +33,7 @@ function SourceSwitch({
   modLabel: string
 }) {
   return (
-    <div className="flex gap-px rounded-lg border border-(--border-color) bg-(--bg-panel-muted) p-px">
+    <div className="border-border-subtle bg-surface-panel-muted flex gap-px rounded-lg border p-px">
       {(
         [
           ['original', originalLabel],
@@ -46,10 +46,10 @@ function SourceSwitch({
             key={mode}
             type="button"
             className={cx(
-              'flex-1 rounded-[0.4375rem] py-1.5 text-xs font-semibold transition-colors',
+              'flex-1 rounded-button py-1.5 text-xs font-semibold transition-colors',
               isActive
-                ? 'bg-(--bg-panel) text-(--text-primary) shadow-[inset_0_-1.5px_0_0_var(--accent)]'
-                : 'text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
+                ? 'bg-surface-panel text-text-primary shadow-[inset_0_-1.5px_0_0_var(--accent)]'
+                : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',
             )}
             onClick={() => onChange(mode)}
           >
@@ -65,7 +65,7 @@ function CharacterGlyph({ character }: { character: CharacterWorkspaceEntry }) {
   const initial = character.displayName.trim().slice(0, 1) || character.internalName.slice(0, 1) || '?'
   return (
     <span
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.625rem] bg-(--bg-panel-muted) text-sm font-bold text-(--text-secondary) shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--border-color)_70%,transparent)]"
+      className="bg-surface-panel-muted text-text-secondary rounded-field flex h-10 w-10 shrink-0 items-center justify-center text-sm font-bold shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--border-color)_70%,transparent)]"
       aria-hidden="true"
     >
       {initial}
@@ -96,8 +96,8 @@ function CharacterRow({
     className: cx(
       'group relative flex items-center rounded-xl border border-transparent transition-colors',
       isActive
-        ? 'border-[color-mix(in_srgb,var(--accent)_16%,transparent)] bg-(--accent-soft) shadow-[inset_2px_0_0_0_var(--accent)]'
-        : 'hover:bg-(--bg-hover)',
+        ? 'border-[color-mix(in_srgb,var(--accent)_16%,transparent)] bg-accent-soft shadow-[inset_2px_0_0_0_var(--accent)]'
+        : 'hover:bg-surface-hover',
     ),
   })
 
@@ -113,18 +113,16 @@ function CharacterRow({
         <span className="min-w-0">
           <span
             className={cx(
-              'block truncate text-[13px] font-semibold tracking-tight',
-              isActive ? 'text-[color-mix(in_srgb,var(--accent)_72%,var(--text-primary))]' : 'text-(--text-primary)',
+              'block truncate text-body-px font-semibold tracking-tight',
+              isActive ? 'text-[color-mix(in_srgb,var(--accent)_72%,var(--text-primary))]' : 'text-text-primary',
             )}
           >
             {character.displayName}
           </span>
-          <span className="mt-0.5 block truncate font-mono text-[11px] text-(--text-tertiary)">{metaPrimary}</span>
+          <span className="text-text-tertiary text-meta-px mt-0.5 block truncate font-mono">{metaPrimary}</span>
         </span>
-        <span className="shrink-0 text-right text-[11px] leading-tight text-(--text-tertiary)">
-          <span className="block font-mono text-[11px] font-semibold text-(--text-secondary) tabular-nums">
-            {character.variants.length}
-          </span>
+        <span className="text-text-tertiary text-meta-px shrink-0 text-right leading-tight">
+          <span className="text-text-secondary text-meta-px block font-mono font-semibold tabular-nums">{character.variants.length}</span>
           <span className="mt-0.5 block max-w-20 truncate">{metaSecondary}</span>
         </span>
       </button>
@@ -171,9 +169,9 @@ export function CharacterBrowserPanel({
     <aside className="item-workspace-pane h-full">
       <div className="custom-scrollbar flex h-full min-h-0 flex-col overflow-auto p-4">
         <div className="relative mb-3">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-(--text-tertiary)" />
+          <Search className="text-text-tertiary pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <input
-            className="control-input bg-(--bg-panel-muted) pl-9"
+            className="control-input bg-surface-panel-muted pl-9"
             value={characterFilter}
             onChange={(event) => onCharacterFilterChange(event.target.value)}
             placeholder={copy.browserFilterPlaceholder}
@@ -196,8 +194,8 @@ export function CharacterBrowserPanel({
               modCharacterGroups.map((group, groupIndex) => (
                 <section key={group.modPath} className="mb-3">
                   <div className="mb-1.5 flex items-center justify-between gap-2 px-2">
-                    <p className="truncate text-xs font-semibold text-(--text-secondary)">{group.modName}</p>
-                    <span className="font-mono text-[11px] text-(--text-tertiary) tabular-nums">{group.items.length}</span>
+                    <p className="text-text-secondary truncate text-xs font-semibold">{group.modName}</p>
+                    <span className="text-text-tertiary text-meta-px font-mono tabular-nums">{group.items.length}</span>
                   </div>
                   <div className="flex flex-col gap-0.5">
                     {group.items.map((entry, itemIndex) => {
@@ -219,7 +217,7 @@ export function CharacterBrowserPanel({
                 </section>
               ))
             ) : (
-              <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
+              <div className="border-border-subtle text-text-secondary rounded-xl border border-dashed px-4 py-5 text-sm">
                 {copy.browserModEmpty}
               </div>
             )
@@ -237,7 +235,7 @@ export function CharacterBrowserPanel({
               />
             ))
           ) : (
-            <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
+            <div className="border-border-subtle text-text-secondary rounded-xl border border-dashed px-4 py-5 text-sm">
               {characters.length ? copy.browserFilteredEmpty : copy.browserUnloadedEmpty}
             </div>
           )}

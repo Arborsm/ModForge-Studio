@@ -28,13 +28,13 @@ function getPluginKindBadge(project: ModProjectSummary, copy: ReturnType<typeof 
   if (project.pluginKind === 'content-patcher') {
     return {
       label: 'Content Patcher',
-      className: 'border-(--success) bg-(--success-soft) text-(--success)',
+      className: 'border-success bg-success-soft text-success',
     }
   }
 
   return {
     label: copy.unknownLabel,
-    className: 'border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel-muted)_88%,transparent)] text-(--text-primary)',
+    className: 'border-border-subtle bg-[color-mix(in_srgb,var(--bg-panel-muted)_88%,transparent)] text-text-primary',
   }
 }
 
@@ -42,7 +42,7 @@ function getProjectStatusBadge(project: ModProjectSummary, copy: ReturnType<type
   if (project.status === 'incompatible') {
     return {
       label: copy.incompatibleProject,
-      className: 'border-(--warning) bg-(--warning-soft) text-(--warning)',
+      className: 'border-warning bg-warning-soft text-warning',
     }
   }
 
@@ -70,12 +70,12 @@ function ProjectRow({
   const revealProps = getLoadingMotionChildRevealProps({
     index,
     className: cx(
-      'w-full border-b border-(--border-color)/55 px-3 py-2.5 text-left transition-[background-color,color]',
+      'w-full border-b border-border-subtle/55 px-3 py-2.5 text-left transition-[background-color,color]',
       isIncompatible
-        ? 'cursor-not-allowed bg-(--warning-soft) opacity-80'
+        ? 'cursor-not-allowed bg-warning-soft opacity-80'
         : active
-          ? 'bg-(--accent-soft) shadow-[inset_2px_0_0_var(--accent)]'
-          : 'bg-(--bg-panel) hover:bg-(--bg-panel-muted)',
+          ? 'bg-accent-soft shadow-[inset_2px_0_0_var(--accent)]'
+          : 'bg-surface-panel hover:bg-surface-panel-muted',
     ),
   })
 
@@ -83,13 +83,13 @@ function ProjectRow({
     <button type="button" disabled={isIncompatible} aria-pressed={active} {...revealProps} onClick={onSelect}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-(--text-primary)">{project.name}</p>
-          <p className="mt-0.5 truncate text-[11px] text-(--text-tertiary)">{project.uniqueId ?? project.folderName}</p>
+          <p className="text-text-primary truncate text-sm font-semibold">{project.name}</p>
+          <p className="text-text-tertiary text-meta-px mt-0.5 truncate">{project.uniqueId ?? project.folderName}</p>
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-2">
           <span
             className={cx(
-              'inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[9px] leading-none font-semibold whitespace-nowrap',
+              'inline-flex items-center rounded-sm border px-1.5 py-0.5 text-caption-px leading-none font-semibold whitespace-nowrap',
               pluginKindBadge.className,
             )}
           >
@@ -98,7 +98,7 @@ function ProjectRow({
           {statusBadge ? (
             <span
               className={cx(
-                'inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[9px] leading-none font-semibold whitespace-nowrap',
+                'inline-flex items-center rounded-sm border px-1.5 py-0.5 text-caption-px leading-none font-semibold whitespace-nowrap',
                 statusBadge.className,
               )}
             >
@@ -108,14 +108,14 @@ function ProjectRow({
         </div>
       </div>
 
-      <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[11px] text-(--text-secondary)">
+      <div className="text-text-secondary text-meta-px mt-1.5 flex min-w-0 items-center gap-1.5">
         <span className="truncate">{project.author ?? copy.unknownLabel}</span>
         <span aria-hidden="true">·</span>
         <span>{project.version ?? copy.noVersionLabel}</span>
       </div>
 
       {isIncompatible ? (
-        <p className="mt-3 text-xs leading-5 text-(--warning)">
+        <p className="text-warning mt-3 text-xs leading-5">
           {copy.missingRequiredDependencies(project.missingRequiredDependencies.join(', '))}
         </p>
       ) : null}
@@ -154,8 +154,8 @@ export function ModBrowserPanel({
       <div className="mod-translation-browser-pane flex h-full flex-col overflow-hidden p-4">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold text-(--text-primary)">{i18nCopy.browserTitle}</h1>
-            <p className="mt-1 truncate text-xs text-(--text-secondary)">{i18nCopy.browserProjectsCount(projects.length)}</p>
+            <h1 className="text-text-primary truncate text-base font-semibold">{i18nCopy.browserTitle}</h1>
+            <p className="text-text-secondary mt-1 truncate text-xs">{i18nCopy.browserProjectsCount(projects.length)}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {managementActions.map(({ label, icon: Icon, action }) => (
@@ -177,16 +177,16 @@ export function ModBrowserPanel({
 
         <div className="mb-3 flex flex-wrap items-center gap-3">
           <div className="relative min-w-60 flex-1">
-            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-(--text-tertiary)" />
+            <Search className="text-text-tertiary pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
             <input
-              className="control-input bg-(--bg-panel-muted) pl-9"
+              className="control-input bg-surface-panel-muted pl-9"
               value={modFilter}
               onChange={(event) => onFilterChange(event.target.value)}
               placeholder={i18nCopy.browserSearchPlaceholder}
               spellCheck={false}
             />
           </div>
-          <label className="flex h-9 cursor-pointer items-center gap-2 text-xs text-(--text-secondary)">
+          <label className="text-text-secondary flex h-9 cursor-pointer items-center gap-2 text-xs">
             <input type="checkbox" checked={i18nOnly} onChange={(event) => onI18nOnlyChange?.(event.target.checked)} />
             <span>{i18nCopy.browserI18nOnly}</span>
           </label>
@@ -194,7 +194,7 @@ export function ModBrowserPanel({
 
         <div className="custom-scrollbar min-h-0 flex-1 overflow-auto pr-1">
           {filteredProjects.length ? (
-            <div className="flex flex-col divide-y divide-(--border-color)/40">
+            <div className="divide-border-subtle/40 flex flex-col divide-y">
               {filteredProjects.map((project, index) => {
                 const active = activeProjectPath === project.absolutePath
                 return (
@@ -205,23 +205,21 @@ export function ModBrowserPanel({
                       index,
                       className: cx(
                         'flex w-full items-center justify-between gap-3 px-2 py-1.5 text-left transition-colors',
-                        active
-                          ? 'bg-(--accent-soft) text-(--accent)'
-                          : 'text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
+                        active ? 'bg-accent-soft text-accent' : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',
                       ),
                     })}
                     aria-pressed={active}
                     onClick={() => onSelectProject(project.absolutePath)}
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-[13px] leading-tight font-medium">{project.name}</p>
-                      <p className="truncate text-[11px] text-(--text-tertiary)">
+                      <p className="text-body-px truncate leading-tight font-medium">{project.name}</p>
+                      <p className="text-text-tertiary text-meta-px truncate">
                         {i18nCopy.browserProjectMeta(project.author, project.version, project.uniqueId)}
                       </p>
                     </div>
-                    <span className="flex shrink-0 items-center gap-2 text-[11px] text-(--text-tertiary)">
+                    <span className="text-text-tertiary text-meta-px flex shrink-0 items-center gap-2">
                       {i18nCopy.browserI18nEntries(project.i18nEntryCount)}
-                      {active ? <Check className="h-3.5 w-3.5 text-(--accent)" aria-label={i18nCopy.browserSelectedLabel} /> : null}
+                      {active ? <Check className="text-accent h-3.5 w-3.5" aria-label={i18nCopy.browserSelectedLabel} /> : null}
                     </span>
                   </button>
                 )
@@ -230,10 +228,10 @@ export function ModBrowserPanel({
           ) : (
             <div className="panel-empty-state flex min-h-48 items-center justify-center text-center">
               <div>
-                <p className="text-base font-semibold text-(--text-primary)">
+                <p className="text-text-primary text-base font-semibold">
                   {projects.length ? i18nCopy.browserNoMatchesTitle : i18nCopy.browserEmptyTitle}
                 </p>
-                <p className="mt-2 text-sm leading-6 text-(--text-secondary)">
+                <p className="text-text-secondary mt-2 text-sm leading-6">
                   {projects.length ? i18nCopy.browserNoMatchesDescription : i18nCopy.browserEmptyDescription}
                 </p>
               </div>
@@ -245,11 +243,11 @@ export function ModBrowserPanel({
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-(--bg-panel)">
-      <section className="shrink-0 border-b border-(--border-color)/70 p-3">
+    <div className="bg-surface-panel flex h-full flex-col overflow-hidden">
+      <section className="border-border-subtle/70 shrink-0 border-b p-3">
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-(--text-tertiary)" />
+            <Search className="text-text-tertiary pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
             <input
               className="control-input pl-9"
               value={modFilter}
@@ -269,9 +267,9 @@ export function ModBrowserPanel({
               <button
                 type="button"
                 className={cx(
-                  'control-button h-7 gap-1.5 rounded-sm px-2 text-[11px]',
+                  'control-button h-7 gap-1.5 rounded-sm px-2 text-meta-px',
                   contentPatcherOnly
-                    ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-(--text-primary)'
+                    ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-text-primary'
                     : undefined,
                 )}
                 aria-pressed={contentPatcherOnly}
@@ -283,9 +281,9 @@ export function ModBrowserPanel({
               <button
                 type="button"
                 className={cx(
-                  'control-button h-7 gap-1.5 rounded-sm px-2 text-[11px]',
+                  'control-button h-7 gap-1.5 rounded-sm px-2 text-meta-px',
                   compatibleOnly
-                    ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-(--text-primary)'
+                    ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-text-primary'
                     : undefined,
                 )}
                 aria-pressed={compatibleOnly}
@@ -300,9 +298,9 @@ export function ModBrowserPanel({
             <button
               type="button"
               className={cx(
-                'control-button h-7 gap-1.5 rounded-sm px-2 text-[11px]',
+                'control-button h-7 gap-1.5 rounded-sm px-2 text-meta-px',
                 i18nOnly
-                  ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-(--text-primary)'
+                  ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-text-primary'
                   : undefined,
               )}
               aria-pressed={i18nOnly}
@@ -313,7 +311,7 @@ export function ModBrowserPanel({
             </button>
           ) : null}
         </div>
-        <div className="mt-2 flex items-center gap-2 border-t border-(--border-color)/45 pt-2">
+        <div className="border-border-subtle/45 mt-2 flex items-center gap-2 border-t pt-2">
           <button type="button" className="control-button h-8 flex-1 rounded-sm px-2 text-xs" onClick={onOpenFolder ?? onImportProject}>
             <FolderOpen className="h-3.5 w-3.5" />
             <span>{copy.openExternalFolder}</span>
@@ -324,12 +322,12 @@ export function ModBrowserPanel({
           </button>
         </div>
       </section>
-      <div className="flex h-8 shrink-0 items-center justify-between border-b border-(--border-color)/55 px-3 text-[11px] text-(--text-tertiary)">
+      <div className="border-border-subtle/55 text-text-tertiary text-meta-px flex h-8 shrink-0 items-center justify-between border-b px-3">
         <span>
-          {copy.filteredLabel} <strong className="text-(--text-primary)">{filteredProjects.length}</strong>
+          {copy.filteredLabel} <strong className="text-text-primary">{filteredProjects.length}</strong>
         </span>
         <span>
-          {copy.projectsLabel} <strong className="text-(--text-primary)">{projects.length}</strong>
+          {copy.projectsLabel} <strong className="text-text-primary">{projects.length}</strong>
         </span>
       </div>
       <section className="custom-scrollbar min-h-0 flex-1 overflow-auto">
@@ -348,8 +346,8 @@ export function ModBrowserPanel({
           ) : (
             <div className="panel-empty-state flex min-h-48 items-center justify-center px-4 text-center">
               <div>
-                <p className="text-sm font-semibold text-(--text-primary)">{copy.browserLibraryEmptyTitle}</p>
-                <p className="mt-2 text-xs leading-5 text-(--text-secondary)">{copy.browserLibraryEmptyDescription}</p>
+                <p className="text-text-primary text-sm font-semibold">{copy.browserLibraryEmptyTitle}</p>
+                <p className="text-text-secondary mt-2 text-xs leading-5">{copy.browserLibraryEmptyDescription}</p>
               </div>
             </div>
           )}

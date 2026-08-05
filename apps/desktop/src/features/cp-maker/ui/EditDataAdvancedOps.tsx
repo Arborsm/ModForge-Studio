@@ -25,7 +25,7 @@ type MoveRow = { id: string; mode: 'before' | 'after' | 'position'; target: stri
 type FieldRow = { entryKey: string; fieldName: string; valueText: string }
 
 const inputClass =
-  'w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1 text-xs text-(--text-primary) outline-none focus:border-(--accent)'
+  'w-full rounded border border-border-subtle bg-surface-app px-2 py-1 text-xs text-text-primary outline-none focus:border-accent'
 
 /**
  * GUI for the EditData advanced operations (`Fields`, `MoveEntries`,
@@ -118,8 +118,8 @@ function EditDataAdvancedOpsInner({ patch, onEditorStateChange }: EditDataAdvanc
       <div className="custom-scrollbar max-h-72 space-y-4 overflow-y-auto">
         {/* Fields */}
         <section>
-          <h4 className="text-xs font-medium text-(--text-primary)">{copy.fieldsTitle}</h4>
-          <p className="mt-0.5 mb-2 text-[11px] text-(--text-secondary)">{copy.fieldsHint}</p>
+          <h4 className="text-text-primary text-xs font-medium">{copy.fieldsTitle}</h4>
+          <p className="text-text-secondary text-meta-px mt-0.5 mb-2">{copy.fieldsHint}</p>
           {fields.map((row, index) => {
             const patchRow = (updates: Partial<FieldRow>) =>
               commit({ fields: fields.map((entry, i) => (i === index ? { ...entry, ...updates } : entry)) })
@@ -158,8 +158,8 @@ function EditDataAdvancedOpsInner({ patch, onEditorStateChange }: EditDataAdvanc
 
         {/* MoveEntries */}
         <section>
-          <h4 className="text-xs font-medium text-(--text-primary)">{copy.moveTitle}</h4>
-          <p className="mt-0.5 mb-2 text-[11px] text-(--text-secondary)">{copy.moveHint}</p>
+          <h4 className="text-text-primary text-xs font-medium">{copy.moveTitle}</h4>
+          <p className="text-text-secondary text-meta-px mt-0.5 mb-2">{copy.moveHint}</p>
           {moves.map((row, index) => {
             const patchRow = (updates: Partial<MoveRow>) =>
               commit({ moves: moves.map((entry, i) => (i === index ? { ...entry, ...updates } : entry)) })
@@ -197,13 +197,13 @@ function EditDataAdvancedOpsInner({ patch, onEditorStateChange }: EditDataAdvanc
 
         {/* TextOperations */}
         <section>
-          <h4 className="text-xs font-medium text-(--text-primary)">{copy.textOpsTitle}</h4>
-          <p className="mt-0.5 mb-2 text-[11px] text-(--text-secondary)">{copy.textOpsHint}</p>
+          <h4 className="text-text-primary text-xs font-medium">{copy.textOpsTitle}</h4>
+          <p className="text-text-secondary text-meta-px mt-0.5 mb-2">{copy.textOpsHint}</p>
           {textOps.map((row, index) => {
             const patchRow = (updates: Partial<TextOpRow>) =>
               commit({ textOps: textOps.map((entry, i) => (i === index ? { ...entry, ...updates } : entry)) })
             return (
-              <div key={index} className="mb-1.5 space-y-1.5 rounded-md border border-(--border-color) p-2">
+              <div key={index} className="border-border-subtle mb-1.5 space-y-1.5 rounded-md border p-2">
                 <div className="flex items-center gap-2">
                   <select className={`w-36 ${inputClass}`} value={row.operation} onChange={(e) => patchRow({ operation: e.target.value })}>
                     {TEXT_OPERATION_KINDS.map((kind) => (
@@ -278,7 +278,7 @@ function EditDataAdvancedOpsInner({ patch, onEditorStateChange }: EditDataAdvanc
 
 function AddRowButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button type="button" className="flex items-center gap-1 text-xs text-(--accent) hover:underline" onClick={onClick}>
+    <button type="button" className="text-accent flex items-center gap-1 text-xs hover:underline" onClick={onClick}>
       <Plus className="h-3 w-3" /> {label}
     </button>
   )
@@ -286,7 +286,7 @@ function AddRowButton({ label, onClick }: { label: string; onClick: () => void }
 
 function RemoveRowButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button type="button" aria-label={label} className="icon-button h-6 w-6 shrink-0 text-(--danger)" onClick={onClick}>
+    <button type="button" aria-label={label} className="icon-button text-danger h-6 w-6 shrink-0" onClick={onClick}>
       <Trash2 className="h-3 w-3" />
     </button>
   )

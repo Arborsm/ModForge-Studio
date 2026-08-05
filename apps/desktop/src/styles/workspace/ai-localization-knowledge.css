@@ -1,22 +1,16 @@
 @layer components {
   .ai-localization-table {
-    display: flex;
-    flex: 1;
-    min-height: 0;
-    flex-direction: column;
-    overflow: auto;
-    background: var(--bg-panel);
+    @apply bg-surface-panel flex min-h-0 flex-1 flex-col overflow-auto;
   }
   .ai-localization-table table {
-    flex: 0 0 auto;
+    @apply flex-none text-xs;
     width: max-content;
     min-width: 100%;
     table-layout: fixed;
     border-collapse: collapse;
-    font-size: 0.75rem;
   }
   .ai-localization-table--official table {
-    width: 100%;
+    @apply w-full;
     min-width: 960px;
   }
   .ai-localization-official-source-column,
@@ -31,28 +25,20 @@
   }
   .ai-localization-table th,
   .ai-localization-table td {
-    padding: 0.625rem 0.75rem;
+    @apply px-3 py-2.5 text-left;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
-    text-align: left;
     vertical-align: middle;
   }
   .ai-localization-table th {
-    position: sticky;
+    @apply bg-surface-panel text-text-tertiary sticky text-xs font-semibold;
     top: 0;
-    background: var(--bg-panel);
-    color: var(--text-tertiary);
-    font-size: 0.75rem;
-    font-weight: 600;
     z-index: 1;
   }
   .ai-localization-column-resizer {
-    position: absolute;
+    @apply absolute w-2 cursor-col-resize touch-none;
     inset-block: 0;
     inset-inline-end: -0.25rem;
     z-index: 2;
-    width: 0.5rem;
-    cursor: col-resize;
-    touch-action: none;
   }
   .ai-localization-table th:last-child .ai-localization-column-resizer {
     inset-inline-end: 0;
@@ -71,7 +57,7 @@
     opacity: 1;
   }
   .ai-localization-table td {
-    overflow: hidden;
+    @apply overflow-hidden;
     text-overflow: ellipsis;
     display: table-cell;
   }
@@ -82,129 +68,87 @@
   }
   .ai-localization-table td small,
   .ai-localization-table td .muted {
-    display: block;
-    color: var(--text-tertiary);
-    overflow: hidden;
+    @apply text-text-tertiary text-meta mt-px block overflow-hidden;
     text-overflow: ellipsis;
-    font-size: 0.6875rem;
-    margin-top: 1px;
   }
   .ai-localization-table tr.is-selected {
-    background: var(--accent-soft);
+    @apply bg-accent-soft;
   }
   .ai-localization-table tbody tr:hover {
-    background: var(--bg-hover);
+    @apply bg-surface-hover;
   }
   .ai-localization-table th.num,
   .ai-localization-table td.num {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
+    @apply text-right tabular-nums;
   }
   .ai-localization-table td.num {
-    color: var(--text-primary);
+    @apply text-text-primary;
   }
   .ai-localization-table td.num.warn {
-    color: var(--warning);
-    font-weight: 650;
+    @apply text-warning font-ui-semibold;
   }
   .ai-localization-table td.num.crit {
-    color: var(--danger);
-    font-weight: 700;
+    @apply text-danger font-bold;
   }
   .ai-localization-table td.num.muted {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
   }
   .ai-localization-chip {
-    display: inline-flex;
-    align-items: center;
+    @apply text-meta inline-flex items-center rounded-full py-0 font-semibold whitespace-nowrap;
     gap: 6px;
     height: 22px;
-    padding: 0 9px;
-    border-radius: 999px;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    white-space: nowrap;
   }
   .ai-localization-chip.is-neutral {
-    background: var(--bg-panel-muted);
-    color: var(--text-secondary);
+    @apply bg-surface-panel-muted text-text-secondary;
   }
   .ai-localization-chip.is-accent {
-    background: var(--accent-soft);
-    color: var(--accent);
+    @apply bg-accent-soft text-accent;
   }
   .ai-localization-chip.is-success {
-    background: var(--success-soft);
-    color: var(--success);
+    @apply bg-success-soft text-success;
   }
   .ai-localization-chip.is-warning {
-    background: var(--warning-soft);
-    color: var(--warning);
+    @apply bg-warning-soft text-warning;
   }
   .ai-localization-chip.is-danger {
-    background: var(--danger-soft);
-    color: var(--danger);
+    @apply bg-danger-soft text-danger;
   }
   .ai-localization-code-box {
-    background: var(--bg-panel-muted);
+    @apply bg-surface-panel-muted text-text-primary text-meta rounded-lg font-mono whitespace-pre-wrap;
     padding: 8px 10px;
-    border-radius: 0.5rem;
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    color: var(--text-primary);
     word-break: break-all;
-    white-space: pre-wrap;
   }
   .ai-localization-kv {
-    margin: 0 0 14px;
-    display: grid;
+    @apply mx-0 mt-0 grid;
     gap: 0;
   }
   .ai-localization-kv > div {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 7px 0;
+    @apply flex items-center justify-between px-0;
   }
   .ai-localization-kv > div + div {
     border-top: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
   }
   .ai-localization-kv dt {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
+    @apply text-text-secondary text-xs;
   }
   .ai-localization-kv dd {
-    margin: 0;
-    font-size: 0.8125rem;
-    color: var(--text-primary);
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    @apply text-text-primary text-body m-0 font-semibold tabular-nums;
   }
   .ai-localization-empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    @apply text-text-tertiary text-body flex h-auto flex-col items-center justify-center text-center;
     gap: 10px;
-    height: auto;
     flex: 1 0 auto;
     min-height: 220px;
-    color: var(--text-tertiary);
-    font-size: 0.8125rem;
-    text-align: center;
     padding: 48px;
   }
   .ai-localization-main > .ai-localization-empty-state,
   .ai-localization-main > .ai-localization-status-loading {
-    flex: 1 1 auto;
-    min-height: 0;
-    background: var(--bg-panel);
+    @apply bg-surface-panel min-h-0 flex-auto;
   }
   .ai-localization-empty-icon {
+    @apply grid place-items-center;
     width: 36px;
     height: 36px;
-    display: grid;
-    place-items: center;
   }
   .ai-localization-empty-state .ai-localization-empty-icon svg {
     width: 30px !important;
@@ -212,278 +156,175 @@
     opacity: 0.45;
   }
   .ai-localization-inspector {
-    min-width: 0;
+    @apply bg-surface-panel min-w-0 overflow-auto;
     padding: 14px;
-    background: var(--bg-panel);
-    overflow: auto;
     border-left: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
   }
   .ai-localization-inspector header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.5rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--border-color);
+    @apply border-border-subtle flex items-center justify-between gap-2 border-b pb-3;
   }
   .ai-localization-inspector section {
-    padding: 1rem 0;
-    border-bottom: 1px solid var(--border-color);
+    @apply border-border-subtle border-b px-0 py-4;
   }
   .ai-localization-inspector h3 {
-    margin-bottom: 0.5rem;
-    color: var(--text-tertiary);
-    font-size: 0.8125rem;
+    @apply text-text-tertiary text-body mb-2;
   }
   .ai-localization-inspector p {
-    white-space: pre-wrap;
+    @apply whitespace-pre-wrap;
     overflow-wrap: anywhere;
   }
   .ai-localization-inspector dl {
-    display: grid;
-    gap: 0.75rem;
-    padding-top: 1rem;
+    @apply grid gap-3 pt-4;
   }
   .ai-localization-inspector dd {
-    margin-top: 0.25rem;
+    @apply text-body mt-1;
     overflow-wrap: anywhere;
-    font-size: 0.8125rem;
   }
   .ai-localization-eligibility {
-    display: flex;
-    width: 100%;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 0.375rem;
+    @apply flex w-full flex-wrap justify-start gap-1.5;
   }
   .ai-localization-official-inspector-header {
-    flex-wrap: wrap;
-    align-items: flex-start;
+    @apply flex-wrap items-start;
   }
   .ai-localization-form {
-    display: grid;
-    gap: 0.875rem;
-    overflow: auto;
+    @apply grid gap-3.5 overflow-auto;
   }
   .ai-localization-inspector-header {
-    display: flex;
+    @apply border-border-subtle flex items-center justify-between border-b;
     min-height: 28px;
-    align-items: center;
-    justify-content: space-between;
     gap: 8px;
     padding-bottom: 10px;
-    border-bottom: 1px solid var(--border-color);
   }
   .ai-localization-inspector-header strong {
-    font-size: 0.8125rem;
-    font-weight: 600;
+    @apply text-body font-semibold;
   }
   .ai-localization-form label {
-    display: grid;
-    gap: 0.5rem;
-    color: var(--text-tertiary);
-    font-size: 0.8125rem;
-    margin: 0;
+    @apply text-text-tertiary text-body m-0 grid gap-2;
   }
   .ai-localization-form textarea {
-    min-height: 5rem;
-    resize: vertical;
+    @apply min-h-20 resize-y;
   }
   .ai-localization-form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
+    @apply flex justify-end gap-2;
     margin-top: 8px;
     padding-top: 14px;
     border-top: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
   }
   .ai-localization-danger-button {
-    color: var(--danger);
+    @apply text-danger;
   }
   .ai-localization-danger-button:hover {
-    background: var(--danger-soft);
+    @apply bg-danger-soft text-danger;
     border-color: color-mix(in srgb, var(--danger) 35%, transparent);
-    color: var(--danger);
   }
   .ai-localization-style {
-    display: grid;
-    width: 100%;
-    flex: 1 1 auto;
-    min-height: 0;
+    @apply bg-surface-panel grid min-h-0 w-full flex-auto content-start overflow-auto;
     gap: 14px 16px;
     padding: 20px 24px 40px;
-    overflow: auto;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    align-content: start;
     max-width: none;
-    background: var(--bg-panel);
   }
   .ai-localization-style label {
-    display: grid;
-    gap: 0.5rem;
-    color: var(--text-tertiary);
-    font-size: 0.8125rem;
-    margin: 0;
+    @apply text-text-tertiary text-body m-0 grid gap-2;
   }
   .ai-localization-style label.full {
-    grid-column: 1 / -1;
+    @apply col-span-full;
   }
   .ai-localization-style textarea {
-    min-height: 5rem;
-    resize: vertical;
+    @apply min-h-20 resize-y;
   }
   .ai-localization-style-actions {
-    grid-column: 1 / -1;
-    display: flex;
-    justify-content: flex-end;
+    @apply col-span-full flex justify-end;
   }
   .ai-localization-inheritance-actions {
-    grid-column: 1 / -1;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    @apply col-span-full flex flex-wrap gap-2;
   }
   .preview-box {
-    grid-column: 1 / -1;
-    background: var(--bg-panel-muted);
-    border-radius: 0.5rem;
+    @apply bg-surface-panel-muted col-span-full rounded-lg;
     padding: 14px 16px;
   }
   .preview-box h4 {
-    margin: 0 0 8px;
-    font-size: 0.6875rem;
-    color: var(--text-tertiary);
-    font-weight: 600;
+    @apply text-text-tertiary text-meta mx-0 mt-0 font-semibold;
   }
   .preview-box pre {
-    margin: 0;
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
+    @apply text-text-secondary m-0 font-mono text-xs whitespace-pre-wrap;
     line-height: 1.6;
-    color: var(--text-secondary);
-    white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
   .ai-localization-history-issues {
-    display: grid;
-    margin-top: 1rem;
-    border-top: 1px solid var(--border-color);
+    @apply border-border-subtle mt-4 grid border-t;
   }
   .ai-localization-history-issues article {
-    display: grid;
-    gap: 0.375rem;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid var(--border-color);
+    @apply border-border-subtle grid gap-1.5 border-b px-0 py-3;
   }
   .ai-localization-history-issues header {
-    padding: 0;
-    border: 0;
+    @apply border-0 p-0;
   }
   .ai-localization-history-issues header span {
-    color: var(--text-tertiary);
-    font-size: 0.6875rem;
+    @apply text-text-tertiary text-meta;
   }
   .ai-localization-history-issues pre {
+    @apply bg-surface-panel-muted text-meta overflow-auto p-2 whitespace-pre-wrap;
     max-height: 10rem;
-    overflow: auto;
-    padding: 0.5rem;
-    background: var(--bg-panel-muted);
-    white-space: pre-wrap;
     overflow-wrap: anywhere;
-    font-size: 0.6875rem;
   }
   .ai-localization-qa-groups {
-    display: grid;
-    flex: 1 1 auto;
-    min-height: 0;
-    align-content: start;
+    @apply bg-surface-panel grid min-h-0 flex-auto content-start overflow-auto pt-0;
     gap: 0;
-    padding: 0 24px 30px;
-    overflow: auto;
-    background: var(--bg-panel);
   }
   .ai-localization-qa-group {
-    overflow: visible;
-    border: 0;
+    @apply bg-surface-panel overflow-visible rounded-none border-0 px-0;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-    border-radius: 0;
-    background: var(--bg-panel);
-    padding: 16px 0;
   }
   .ai-localization-qa-group-head {
-    display: flex;
+    @apply flex items-center justify-between border-b-0 bg-transparent p-0;
     min-height: 30px;
-    align-items: center;
-    justify-content: space-between;
     gap: 8px;
-    padding: 0;
-    border-bottom: 0;
-    background: transparent;
   }
   .ai-localization-qa-group-head strong {
-    font-size: 0.8125rem;
-    font-weight: 650;
+    @apply text-body font-ui-semibold;
   }
   .ai-localization-qa-group-head span {
-    color: var(--text-tertiary);
-    font-size: 0.75rem;
-    font-weight: 600;
+    @apply text-text-tertiary text-xs font-semibold;
   }
   .ai-localization-qa-rule {
-    display: flex;
+    @apply my-0 flex cursor-pointer items-center rounded-lg;
     min-height: 44px;
-    align-items: center;
     gap: 12px;
     padding: 8px;
-    margin: 0 -8px;
-    border-radius: 0.5rem;
-    cursor: pointer;
     transition: background-color 100ms ease;
   }
   .ai-localization-qa-rule input {
-    flex: 0 0 auto;
-    margin-left: auto;
+    @apply ml-auto flex-none;
   }
   .ai-localization-qa-rule + .ai-localization-qa-rule {
     border-top: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
   }
   .ai-localization-qa-rule:hover {
-    background: var(--bg-hover);
+    @apply bg-surface-hover;
   }
   .ai-localization-qa-rule.is-locked {
-    cursor: default;
-    color: var(--text-tertiary);
-    background: transparent;
+    @apply text-text-tertiary cursor-default bg-transparent;
   }
   .ai-localization-qa-rule.is-locked .ai-localization-switch {
     opacity: 0.58;
   }
   .ai-localization-qa-rule.is-locked svg {
+    @apply text-text-tertiary;
     width: 13px;
     height: 13px;
-    color: var(--text-tertiary);
   }
   .ai-localization-qa-rule strong {
-    flex: 1;
-    min-width: 0;
-    color: var(--text-primary);
-    font-size: 0.8125rem;
-    font-weight: 500;
-    line-height: 1.25;
+    @apply text-text-primary text-body min-w-0 flex-1 leading-tight font-medium;
   }
   .ai-localization-qa-rule.is-locked strong {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
   }
   .ai-localization-qa-rule-lock {
-    flex: 0 0 auto;
-    color: var(--text-tertiary);
-    font-size: 0.6875rem;
-    font-weight: 600;
+    @apply text-text-tertiary text-meta flex-none font-semibold;
   }
   .ai-localization-qa-footer {
-    display: flex;
-    justify-content: flex-end;
-    padding: 18px 0 4px;
+    @apply flex justify-end px-0;
   }
 
   .ai-localization-official-layout {
@@ -491,84 +332,73 @@
   }
 
   .ai-localization-official-toolbar {
-    display: flex;
+    @apply flex items-center py-0;
     min-height: 56px;
-    align-items: center;
     gap: 16px;
-    padding: 0 16px;
   }
 
   .ai-localization-official-status {
+    @apply flex-none;
     min-width: max-content;
-    flex: 0 0 auto;
   }
 
   .ai-localization-official-status > span:last-child {
-    display: inline-flex;
-    align-items: center;
+    @apply inline-flex items-center;
     gap: 6px;
   }
 
   .ai-localization-official-status.is-ready strong {
-    color: var(--success);
+    @apply text-success;
   }
 
   .ai-localization-official-status.is-warn strong {
-    color: var(--warning);
+    @apply text-warning;
   }
 
   .ai-localization-official-stats {
-    align-self: stretch;
+    @apply self-stretch;
     gap: 0;
   }
 
   .ai-localization-official-stats div {
+    @apply content-center py-0;
     min-width: 68px;
-    align-content: center;
-    padding: 0 12px;
     border-right: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
   }
 
   .ai-localization-official-stats div:last-child {
-    border-right: 0;
-    padding-right: 0;
+    @apply border-r-0 pr-0;
   }
 
   .ai-localization-official-stats dt,
   .ai-localization-official-stats dd {
-    white-space: nowrap;
+    @apply whitespace-nowrap;
   }
 
   .ai-localization-official-stats dd {
-    color: var(--text-primary);
-    font-weight: 600;
+    @apply text-text-primary font-semibold;
   }
 
   .ai-localization-official-filters {
-    display: grid;
+    @apply grid items-baseline;
     grid-template-columns: minmax(180px, 1fr) minmax(112px, 128px) minmax(112px, 128px) max-content 78px;
-    align-items: baseline;
     gap: 8px;
     padding: 10px 16px;
   }
 
   .ai-localization-official-filters > label,
   .ai-localization-official-filters > label:first-child {
-    min-width: 0;
+    @apply min-w-0;
     max-width: none;
   }
 
   .ai-localization-official-filters > .ai-localization-check {
-    display: inline-flex;
-    align-items: center;
+    @apply inline-flex items-center py-0 whitespace-nowrap;
     gap: 8px;
-    padding: 0 4px;
-    white-space: nowrap;
   }
 
   .ai-localization-official-filters > .control-button {
-    width: 100%;
-    justify-content: center;
+    @apply w-full justify-center;
   }
 
   .ai-localization-official-table table {
@@ -576,24 +406,23 @@
   }
 
   .ai-localization-official-table th {
+    @apply bg-surface-panel-muted py-0;
     height: 34px;
-    padding: 0 12px;
-    background: var(--bg-panel-muted);
     vertical-align: middle;
   }
 
   .ai-localization-official-table td {
+    @apply leading-ui;
     padding: 10px 12px;
-    line-height: 1.45;
   }
 
   .ai-localization-official-table tbody tr {
-    cursor: pointer;
+    @apply cursor-pointer;
     transition: background-color 100ms ease;
   }
 
   .ai-localization-official-table tbody tr.is-selected:hover {
-    background: var(--accent-soft);
+    @apply bg-accent-soft;
   }
 
   .ai-localization-official-table tbody tr.is-selected td:first-child {
@@ -605,21 +434,16 @@
   }
 
   .ai-localization-official-inspector {
-    padding: 0 16px 16px;
+    @apply pt-0;
   }
 
   .ai-localization-official-inspector > header {
-    align-items: flex-start;
+    @apply items-start px-0;
     gap: 10px;
-    padding: 16px 0 12px;
   }
 
   .ai-localization-official-inspector > header > strong {
-    width: 100%;
-    color: var(--text-primary);
-    font-size: 0.875rem;
-    font-weight: 650;
-    line-height: 1.4;
+    @apply text-text-primary leading-ui font-ui-semibold w-full text-sm;
     overflow-wrap: anywhere;
   }
 
@@ -628,93 +452,74 @@
   }
 
   .ai-localization-official-inspector .ai-localization-chip {
+    @apply text-caption py-0;
     height: 20px;
-    padding: 0 7px;
-    font-size: 0.625rem;
   }
 
   .ai-localization-official-copy {
-    padding: 14px 0 !important;
+    @apply px-0;
   }
 
   .ai-localization-official-copy h3 {
-    margin: 0 0 8px;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0;
+    @apply text-meta mx-0 mt-0 font-semibold tracking-normal;
   }
 
   .ai-localization-official-copy p {
-    margin: 0;
-    color: var(--text-primary);
-    font-size: 0.8125rem;
+    @apply text-text-primary text-body m-0;
     line-height: 1.6;
   }
 
   .ai-localization-official-kv {
+    @apply border-border-subtle my-0 border-b pr-0;
     gap: 0 !important;
-    margin: 0 !important;
-    padding: 4px 0 12px !important;
-    border-bottom: 1px solid var(--border-color);
   }
 
   .ai-localization-official-kv > div {
-    display: grid;
+    @apply grid px-0;
     grid-template-columns: 72px minmax(0, 1fr);
     align-items: start;
     gap: 12px;
-    padding: 10px 0;
   }
 
   .ai-localization-official-kv dt,
   .ai-localization-official-kv dd {
-    min-width: 0;
-    margin: 0;
-    line-height: 1.5;
+    @apply m-0 min-w-0 leading-normal;
   }
 
   .ai-localization-official-kv dt {
-    color: var(--text-tertiary);
-    font-size: 0.6875rem;
+    @apply text-text-tertiary text-meta;
   }
 
   .ai-localization-official-kv dd {
-    color: var(--text-primary);
-    font-size: 0.75rem;
-    font-weight: 500;
+    @apply text-text-primary text-xs font-medium;
     overflow-wrap: anywhere;
   }
 
   .ai-localization-official-kv > div:nth-child(2) dd {
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
+    @apply text-meta font-mono;
     word-break: break-all;
   }
 
   .ai-localization-official-actions {
-    display: grid;
+    @apply grid pr-0 pb-0;
     gap: 8px;
-    padding: 14px 0 0 !important;
     border-bottom: 0 !important;
   }
 
   .ai-localization-official-actions label {
-    display: grid;
+    @apply text-text-tertiary text-meta grid;
     gap: 6px;
-    color: var(--text-tertiary);
-    font-size: 0.6875rem;
   }
 
   .ai-localization-official-actions .compact-select {
-    width: 100%;
+    @apply w-full;
   }
 
   .ai-localization-official-actions .compact-select__trigger {
-    width: 100%;
-    justify-content: space-between;
+    @apply w-full justify-between;
   }
 
   .ai-localization-official-actions .control-button {
-    justify-self: start;
+    @apply justify-self-start;
   }
 }

@@ -58,7 +58,7 @@ export function MailAttachmentSprite({ attachment, scale = 2 }: MailAttachmentSp
               return (
                 <div
                   key={index}
-                  className="flex items-center gap-1.5 rounded-lg border border-(--border-color) bg-(--bg-panel) px-2.5 py-2 text-xs font-semibold text-(--text-primary) shadow-sm"
+                  className="border-border-subtle bg-surface-panel text-text-primary flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold shadow-sm"
                   style={{ minHeight: `${16 * scale}px` }}
                 >
                   <span>{item.itemId}</span>
@@ -81,12 +81,12 @@ export function MailAttachmentSprite({ attachment, scale = 2 }: MailAttachmentSp
                   }}
                   textureState={springobjects}
                   scale={scale}
-                  className="rounded border border-(--border-color) shadow-sm"
+                  className="border-border-subtle rounded border shadow-sm"
                   fallbackClassName="text-xs"
                 />
                 {item.count !== null && item.count !== 1 ? (
                   <div
-                    className="text-2xs absolute right-0 bottom-0 flex items-center justify-center rounded-tl rounded-br border-t border-l border-(--border-color) bg-(--bg-panel) px-1 py-0.5 font-bold text-(--text-primary) shadow-sm"
+                    className="text-2xs border-border-subtle bg-surface-panel text-text-primary absolute right-0 bottom-0 flex items-center justify-center rounded-tl rounded-br border-t border-l px-1 py-0.5 font-bold shadow-sm"
                     style={{ minWidth: '1.25rem' }}
                   >
                     {item.count}
@@ -104,10 +104,10 @@ export function MailAttachmentSprite({ attachment, scale = 2 }: MailAttachmentSp
   if (attachment.kind === 'money') {
     return (
       <div
-        className="flex items-center gap-1.5 rounded-lg border border-(--border-color) bg-(--bg-panel) px-2.5 py-2 text-xs font-semibold text-(--text-primary) shadow-sm"
+        className="border-border-subtle bg-surface-panel text-text-primary flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold shadow-sm"
         style={{ minHeight: `${16 * scale}px` }}
       >
-        <Coins className="h-3.5 w-3.5 text-(--accent)" aria-hidden="true" />
+        <Coins className="text-accent h-3.5 w-3.5" aria-hidden="true" />
         <span>{label}</span>
       </div>
     )
@@ -116,7 +116,7 @@ export function MailAttachmentSprite({ attachment, scale = 2 }: MailAttachmentSp
   // Fallback chip for all other attachment types
   return (
     <div
-      className="flex items-center gap-1.5 rounded-lg border border-(--border-color) bg-(--bg-panel) px-2.5 py-2 text-xs font-semibold text-(--text-primary) shadow-sm"
+      className="border-border-subtle bg-surface-panel text-text-primary flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold shadow-sm"
       style={{ minHeight: `${16 * scale}px` }}
     >
       <span>{label}</span>

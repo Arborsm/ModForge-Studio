@@ -28,8 +28,8 @@ export function MapViewportEmptyState({ theme, accentColor, viewportBackdropStyl
       />
       <div className="relative flex h-full items-center justify-center p-10">
         <div className="panel-overlay-card max-w-md px-6 py-5 text-center">
-          <p className="text-xs font-semibold tracking-[0.24em] text-(--text-tertiary) uppercase">{labels.fitMap}</p>
-          <p className="mt-3 text-base font-semibold text-(--text-primary)">{labels.loadPrompt}</p>
+          <p className="text-text-tertiary tracking-ui-wider text-xs font-semibold uppercase">{labels.fitMap}</p>
+          <p className="text-text-primary mt-3 text-base font-semibold">{labels.loadPrompt}</p>
         </div>
       </div>
     </div>
@@ -68,7 +68,7 @@ export function MapViewportStatsChips({
 
 export function MapViewportImageError({ error }: { error: string }) {
   return (
-    <div className="pointer-events-none absolute bottom-4 left-4 z-10 rounded-lg border border-[color-mix(in_srgb,var(--danger)_32%,transparent)] bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] px-3 py-2 text-xs text-(--danger)">
+    <div className="text-danger pointer-events-none absolute bottom-4 left-4 z-10 rounded-lg border border-[color-mix(in_srgb,var(--danger)_32%,transparent)] bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] px-3 py-2 text-xs">
       {error}
     </div>
   )

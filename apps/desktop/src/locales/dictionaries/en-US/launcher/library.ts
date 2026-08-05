@@ -221,8 +221,6 @@ const library: LauncherLibraryCopy = {
   diffUnavailable: 'No diff info available',
   dragDropInstallTitle: 'Release to Preview Archives',
   dragDropInstallSubtitle: (formats) => `Drop one or more archives to install. Supported formats: ${formats}`,
-  dragDropZoneTitle: 'Install Mods from Archives',
-  dragDropZoneBrowseHint: 'or click to choose files',
   dragDropMultipleFiles: 'Drop exactly one archive at a time.',
   dragDropUnsupportedArchive: (formats) => `Only these archive formats are supported: ${formats}`,
   dragDropMissingPath: 'The dropped archive path could not be resolved.',

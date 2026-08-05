@@ -1,176 +1,109 @@
 @layer components {
   .map-tileset-palette {
-    display: grid;
-    min-width: 0;
+    @apply border-border-subtle bg-surface-panel grid min-w-0 border-t;
     max-height: 11rem;
     grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr);
-    border-top: 1px solid var(--border-color);
-    background: var(--bg-panel);
   }
 
   .map-tileset-palette-heading {
-    display: grid;
-    min-width: 0;
-    align-content: start;
-    gap: 0.5rem;
-    border-right: 1px solid var(--border-color);
-    padding: 0.75rem;
+    @apply border-border-subtle grid min-w-0 content-start gap-2 border-r p-3;
   }
 
   .map-tileset-palette-heading strong {
-    color: var(--text-primary);
-    font-size: 0.6875rem;
-    font-weight: 650;
+    @apply text-text-primary text-meta font-ui-semibold;
   }
 
   .map-tileset-palette-switcher {
-    display: flex;
-    min-width: 0;
-    flex: 1 1 auto;
-    align-items: stretch;
-    gap: 0.375rem;
-    overflow-x: auto;
-    padding: 0.125rem;
+    @apply flex min-w-0 flex-auto items-stretch gap-1.5 overflow-x-auto p-0.5;
   }
 
   .map-tileset-palette-thumb {
-    display: grid;
-    flex: 0 0 auto;
-    min-width: 0;
-    gap: 0.25rem;
-    justify-items: center;
-    border: 1px solid var(--border-color);
+    @apply border-border-subtle bg-surface-panel text-text-secondary text-meta grid min-w-0 flex-none cursor-pointer justify-items-center gap-1 border p-1;
     border-radius: var(--radius-sm);
-    background: var(--bg-panel);
-    padding: 0.25rem;
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-size: 0.6875rem;
   }
 
   .map-tileset-palette-thumb:hover {
+    @apply bg-surface-hover;
     border-color: var(--accent);
-    background: var(--bg-hover);
   }
 
   .map-tileset-palette-thumb.is-active {
+    @apply bg-surface-active text-text-primary;
     border-color: var(--accent);
-    background: var(--bg-active);
-    color: var(--text-primary);
   }
 
   .map-tileset-palette-thumb-image {
-    display: grid;
-    width: 2.5rem;
-    height: 2.5rem;
-    place-items: center;
-    overflow: hidden;
+    @apply bg-surface-viewport grid h-10 w-10 place-items-center overflow-hidden;
     border-radius: calc(var(--radius-sm) - 0.125rem);
-    background: var(--bg-viewport);
   }
 
   .map-tileset-palette-thumb-image > img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
+    @apply pointer-events-none block h-full w-full object-contain;
     image-rendering: pixelated;
-    pointer-events: none;
   }
 
   .map-tileset-palette-thumb-fallback {
-    display: grid;
-    width: 100%;
-    height: 100%;
-    place-items: center;
-    overflow: hidden;
-    padding: 0 0.125rem;
-    color: var(--text-tertiary);
-    font-size: 0.625rem;
+    @apply text-text-tertiary text-caption grid h-full w-full place-items-center overflow-hidden px-0.5 py-0 whitespace-nowrap;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .map-tileset-palette-thumb-name {
+    @apply overflow-hidden text-center whitespace-nowrap;
     max-width: 3.5rem;
-    overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    text-align: center;
   }
 
   .map-tileset-palette-switcher.is-compact .map-tileset-palette-thumb {
+    @apply p-0.5;
     gap: 0;
-    padding: 0.1875rem;
   }
 
   .map-tileset-palette-switcher.is-compact .map-tileset-palette-thumb-image {
-    width: 2rem;
-    height: 2rem;
+    @apply h-8 w-8;
   }
 
   .map-tileset-palette-switcher.is-compact .map-tileset-palette-thumb-name {
-    display: none;
+    @apply hidden;
   }
 
   .map-tileset-palette-heading > span {
-    overflow: hidden;
-    color: var(--text-secondary);
-    font-size: 0.6875rem;
+    @apply text-text-secondary text-meta overflow-hidden whitespace-nowrap;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .map-tileset-palette-scroll {
-    min-width: 0;
-    min-height: 5rem;
-    overflow: auto;
-    padding: 0.5rem;
-    background: var(--bg-viewport);
+    @apply bg-surface-viewport min-h-20 min-w-0 overflow-auto p-2;
   }
 
   .map-tileset-palette-scroll.is-state,
   .map-tileset-palette-empty,
   .map-tileset-palette-error {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    color: var(--text-secondary);
-    font-size: 0.6875rem;
+    @apply text-text-secondary text-meta flex items-center justify-center gap-2;
   }
 
   .map-tileset-palette-empty {
-    min-height: 4rem;
-    border-top: 1px solid var(--border-color);
-    background: var(--bg-panel);
+    @apply border-border-subtle bg-surface-panel min-h-16 border-t;
   }
 
   .map-tileset-palette-image {
-    position: relative;
+    @apply relative touch-none select-none;
     width: max-content;
     max-width: none;
     height: calc(10rem - 1px);
-    touch-action: none;
-    user-select: none;
   }
 
   .map-tileset-palette-image > img {
-    display: block;
-    width: 100%;
-    height: 100%;
+    @apply pointer-events-none block h-full w-full;
     image-rendering: pixelated;
-    pointer-events: none;
   }
 
   .map-tileset-palette-grid,
   .map-tileset-palette-selection {
-    position: absolute;
-    pointer-events: none;
+    @apply pointer-events-none absolute;
   }
 
   .map-tileset-palette-grid {
-    inset: 0;
+    @apply inset-0;
     background-image:
       linear-gradient(to right, var(--border-color) 1px, transparent 1px),
       linear-gradient(to bottom, var(--border-color) 1px, transparent 1px);
@@ -185,51 +118,40 @@
 
   /* ===== Grid view (virtualized per-tile cells) ===== */
   .map-tileset-palette-virtual {
-    position: relative;
-    min-width: 0;
+    @apply relative min-w-0;
   }
 
   .map-tileset-palette-virtual-row {
-    position: absolute;
+    @apply absolute grid gap-1;
     top: 0;
     left: 0;
-    display: grid;
-    gap: 0.25rem;
     width: max-content;
   }
 
   .map-tileset-palette-cell {
-    display: grid;
-    gap: 0.125rem;
-    justify-items: center;
-    border: 1px solid transparent;
+    @apply text-text-tertiary grid cursor-pointer justify-items-center gap-0.5 border border-transparent bg-transparent p-0.5;
     border-radius: var(--radius-sm);
-    background: transparent;
-    padding: 0.125rem;
-    color: var(--text-tertiary);
-    cursor: pointer;
   }
 
   .map-tileset-palette-cell:hover {
+    @apply bg-surface-hover;
     border-color: color-mix(in srgb, var(--accent) 45%, var(--border-color));
-    background: var(--bg-hover);
   }
 
   .map-tileset-palette-cell.is-selected {
+    @apply bg-accent-soft;
     border-color: var(--accent);
-    background: var(--accent-soft);
   }
 
   .map-tileset-palette-cell > span {
-    display: block;
+    @apply block;
     background-image: var(--map-tileset-image);
     background-size: var(--map-tileset-image-size);
     image-rendering: pixelated;
   }
 
   .map-tileset-palette-cell > small {
-    font-size: 0.625rem;
-    line-height: 1;
+    @apply text-caption leading-none;
   }
 
   @media (max-width: 48rem) {
@@ -239,9 +161,8 @@
     }
 
     .map-tileset-palette-heading {
+      @apply border-border-subtle border-r-0 border-b;
       grid-template-columns: minmax(0, 1fr);
-      border-right: 0;
-      border-bottom: 1px solid var(--border-color);
     }
   }
 }

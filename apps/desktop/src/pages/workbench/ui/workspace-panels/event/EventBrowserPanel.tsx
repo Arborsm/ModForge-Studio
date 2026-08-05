@@ -35,7 +35,7 @@ function SourceSwitch({
   modLabel: string
 }) {
   return (
-    <div className="flex gap-px rounded-[0.625rem] border border-(--border-color) bg-(--bg-panel-muted) p-px">
+    <div className="border-border-subtle bg-surface-panel-muted rounded-field flex gap-px border p-px">
       {(
         [
           ['original', originalLabel],
@@ -48,10 +48,10 @@ function SourceSwitch({
             key={mode}
             type="button"
             className={cx(
-              'flex-1 rounded-[0.5rem] py-1.5 text-xs font-semibold transition-colors',
+              'flex-1 rounded-lg py-1.5 text-xs font-semibold transition-colors',
               isActive
-                ? 'bg-(--bg-panel) text-(--text-primary) shadow-[inset_0_-1.5px_0_0_var(--accent)]'
-                : 'text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
+                ? 'bg-surface-panel text-text-primary shadow-[inset_0_-1.5px_0_0_var(--accent)]'
+                : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',
             )}
             onClick={() => onChange(mode)}
           >
@@ -69,15 +69,15 @@ function locationDotClass(name: string) {
     return 'bg-[#c47a3a]'
   }
   if (key.includes('beach')) {
-    return 'bg-(--info)'
+    return 'bg-info'
   }
   if (key.includes('farm')) {
-    return 'bg-(--success)'
+    return 'bg-success'
   }
   if (key.includes('mountain') || key.includes('mine')) {
     return 'bg-[#a78bfa]'
   }
-  return 'bg-(--accent)'
+  return 'bg-accent'
 }
 
 function LocationDot({ name }: { name: string }) {
@@ -136,9 +136,9 @@ export function EventBrowserPanel({
     <aside className="item-workspace-pane h-full">
       <div className="custom-scrollbar flex h-full min-h-0 flex-col overflow-auto p-4">
         <div className="relative mb-3">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-(--text-tertiary)" />
+          <Search className="text-text-tertiary pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2" />
           <input
-            className="control-input bg-(--bg-panel-muted) pl-9"
+            className="control-input bg-surface-panel-muted pl-9"
             value={assetFilter}
             onChange={(event) => onAssetFilterChange(event.target.value)}
             placeholder={labels.browserPlaceholder}
@@ -162,8 +162,8 @@ export function EventBrowserPanel({
                 {modEventGroups.map((group, groupIndex) => (
                   <section key={group.modPath}>
                     <div className="mb-1.5 flex items-center justify-between gap-2 px-2">
-                      <p className="truncate text-xs font-semibold text-(--text-secondary)">{group.modName}</p>
-                      <span className="font-mono text-[11px] text-(--text-tertiary) tabular-nums">{group.items.length}</span>
+                      <p className="text-text-secondary truncate text-xs font-semibold">{group.modName}</p>
+                      <span className="text-text-tertiary text-meta-px font-mono tabular-nums">{group.items.length}</span>
                     </div>
                     <div className="flex flex-col gap-0.5">
                       {group.items.map((entry, itemIndex) => {
@@ -188,7 +188,7 @@ export function EventBrowserPanel({
                 ))}
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
+              <div className="border-border-subtle text-text-secondary rounded-xl border border-dashed px-4 py-5 text-sm">
                 {labels.browserModEmpty}
               </div>
             )
@@ -212,9 +212,7 @@ export function EventBrowserPanel({
               })}
             </div>
           ) : (
-            <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
-              {emptyLabel}
-            </div>
+            <div className="border-border-subtle text-text-secondary rounded-xl border border-dashed px-4 py-5 text-sm">{emptyLabel}</div>
           )}
         </div>
       </div>
@@ -251,18 +249,15 @@ function FileEventGroup({
       <button
         type="button"
         className={cx(
-          'grid w-full grid-cols-[1rem_0.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-[0.625rem] border border-transparent px-2 py-1.5 text-left transition-colors',
-          isActive ? 'bg-(--bg-panel-muted)' : 'hover:bg-(--bg-hover)',
+          'grid w-full grid-cols-[1rem_0.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-field border border-transparent px-2 py-1.5 text-left transition-colors',
+          isActive ? 'bg-surface-panel-muted' : 'hover:bg-surface-hover',
         )}
         onClick={onOpenFile}
       >
-        <ChevronRight
-          className={cx('h-3.5 w-3.5 text-(--text-tertiary) transition-transform', isActive && 'rotate-90')}
-          aria-hidden="true"
-        />
+        <ChevronRight className={cx('h-3.5 w-3.5 text-text-tertiary transition-transform', isActive && 'rotate-90')} aria-hidden="true" />
         <LocationDot name={asset.name} />
-        <span className="truncate text-[13px] font-semibold tracking-tight text-(--text-primary)">{asset.name}</span>
-        <span className="font-mono text-[11px] font-semibold text-(--text-tertiary) tabular-nums">
+        <span className="text-text-primary text-body-px truncate font-semibold tracking-tight">{asset.name}</span>
+        <span className="text-text-tertiary text-meta-px font-mono font-semibold tabular-nums">
           {eventCount != null ? eventCount : '·'}
         </span>
       </button>
@@ -277,10 +272,10 @@ function FileEventGroup({
                 type="button"
                 aria-pressed={selected}
                 className={cx(
-                  'grid w-full grid-cols-[0.5rem_minmax(0,1fr)_auto] items-center gap-2.5 rounded-[0.625rem] border border-transparent py-1.5 pr-2 pl-3 text-left transition-colors',
+                  'grid w-full grid-cols-[0.5rem_minmax(0,1fr)_auto] items-center gap-2.5 rounded-field border border-transparent py-1.5 pr-2 pl-3 text-left transition-colors',
                   selected
-                    ? 'border-[color-mix(in_srgb,var(--accent)_16%,transparent)] bg-(--accent-soft) shadow-[inset_2px_0_0_0_var(--accent)]'
-                    : 'hover:bg-(--bg-hover)',
+                    ? 'border-[color-mix(in_srgb,var(--accent)_16%,transparent)] bg-accent-soft shadow-[inset_2px_0_0_0_var(--accent)]'
+                    : 'hover:bg-surface-hover',
                 )}
                 onClick={() => onSelectEvent(event.key)}
               >
@@ -288,17 +283,15 @@ function FileEventGroup({
                 <span className="min-w-0">
                   <span
                     className={cx(
-                      'block truncate text-[12.5px] font-semibold leading-tight',
-                      selected ? 'text-[color-mix(in_srgb,var(--accent)_72%,var(--text-primary))]' : 'text-(--text-primary)',
+                      'block truncate text-body-px font-semibold leading-tight',
+                      selected ? 'text-[color-mix(in_srgb,var(--accent)_72%,var(--text-primary))]' : 'text-text-primary',
                     )}
                   >
                     {event.eventId}
                   </span>
-                  <span className="mt-px block truncate font-mono text-[11px] leading-tight text-(--text-tertiary)">
-                    {eventHint(event)}
-                  </span>
+                  <span className="text-text-tertiary text-meta-px mt-px block truncate font-mono leading-tight">{eventHint(event)}</span>
                 </span>
-                <span className="font-mono text-[11px] text-(--text-tertiary) tabular-nums">{event.commands.length}</span>
+                <span className="text-text-tertiary text-meta-px font-mono tabular-nums">{event.commands.length}</span>
               </button>
             )
           })}

@@ -69,17 +69,17 @@ export function ItemBrowserPanel({
               {...getLoadingMotionChildRevealProps({
                 index,
                 className:
-                  'rounded-[20px] border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_95%,white_5%)] px-3 py-3 text-left',
+                  'rounded-[20px] border border-border-subtle bg-[color-mix(in_srgb,var(--bg-panel)_95%,white_5%)] px-3 py-3 text-left',
               })}
             >
-              <p className="text-[10px] tracking-[0.14em] text-(--text-secondary) uppercase">{stat.label}</p>
-              <p className="mt-2 text-lg font-semibold tracking-tight text-(--text-primary)">{stat.value}</p>
+              <p className="text-text-secondary text-caption-px tracking-ui-wider uppercase">{stat.label}</p>
+              <p className="text-text-primary mt-2 text-lg font-semibold tracking-tight">{stat.value}</p>
             </div>
           ))}
         </div>
 
         <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-(--text-tertiary)" />
+          <Search className="text-text-tertiary pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <input
             className="control-input pl-9"
             value={itemFilter}
@@ -96,8 +96,8 @@ export function ItemBrowserPanel({
                 <section key={group.kind} {...getLoadingMotionChildRevealProps({ index: groupIndex + stats.length })}>
                   <div className="mb-2 flex items-center justify-between gap-3 px-1">
                     <div>
-                      <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">{group.label}</p>
-                      <p className="text-[11px] text-(--text-tertiary)">
+                      <p className="text-text-secondary text-meta-px tracking-ui-wider font-semibold uppercase">{group.label}</p>
+                      <p className="text-text-tertiary text-meta-px">
                         {group.items.length} / {getCountByKind(items, group.kind)}
                       </p>
                     </div>
@@ -113,7 +113,7 @@ export function ItemBrowserPanel({
                           'flex aspect-square flex-col items-center justify-center rounded-[20px] border p-2 text-center transition-all',
                           isActive
                             ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent)_22%,transparent)] shadow-[0_16px_30px_rgba(79,70,229,0.12)]'
-                            : 'border-(--border-color) bg-(--bg-panel) hover:bg-(--bg-panel-muted) hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]',
+                            : 'border-border-subtle bg-surface-panel hover:bg-surface-panel-muted hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]',
                         ),
                       })
 
@@ -125,7 +125,7 @@ export function ItemBrowserPanel({
                             scale={getContainedItemSpriteScale(item, 40, 1.55)}
                             className="h-10 w-10 rounded-2xl"
                           />
-                          <p className="mt-2 line-clamp-2 text-[10px] leading-4 text-(--text-secondary)">{item.displayName}</p>
+                          <p className="text-text-secondary text-caption-px mt-2 line-clamp-2 leading-4">{item.displayName}</p>
                         </button>
                       )
                     })}
@@ -133,12 +133,12 @@ export function ItemBrowserPanel({
                 </section>
               ))
             ) : (
-              <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
+              <div className="border-border-subtle text-text-secondary rounded-xl border border-dashed px-4 py-5 text-sm">
                 {copy.browserFilteredEmpty}
               </div>
             )
           ) : (
-            <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
+            <div className="border-border-subtle text-text-secondary rounded-xl border border-dashed px-4 py-5 text-sm">
               {copy.browserUnloadedEmpty}
             </div>
           )}

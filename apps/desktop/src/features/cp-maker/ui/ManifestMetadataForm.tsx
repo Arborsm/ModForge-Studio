@@ -5,7 +5,7 @@ import { Disclosure } from '@shared/ui/Disclosure'
 import type { ManifestMetadataFormValue } from '../model/manifestFormState'
 
 const fieldInputClass =
-  'w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-(--accent)'
+  'w-full rounded-md border border-border-subtle bg-surface-app px-3 py-2 text-sm text-text-primary outline-none focus:border-accent'
 
 type ManifestMetadataFormProps = {
   value: ManifestMetadataFormValue
@@ -16,9 +16,9 @@ type ManifestMetadataFormProps = {
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs text-(--text-secondary)">{label}</span>
+      <span className="text-text-secondary mb-1 block text-xs">{label}</span>
       {children}
-      {hint ? <span className="mt-1 block text-xs text-(--text-secondary)">{hint}</span> : null}
+      {hint ? <span className="text-text-secondary mt-1 block text-xs">{hint}</span> : null}
     </label>
   )
 }
@@ -121,7 +121,7 @@ export function ManifestMetadataForm({ value, onChange, autoFocusName = false }:
           </Field>
 
           <div>
-            <span className="mb-1 block text-xs text-(--text-secondary)">{copy.dependencies}</span>
+            <span className="text-text-secondary mb-1 block text-xs">{copy.dependencies}</span>
             <div className="space-y-2">
               {value.dependencies.map((dependency, index) => (
                 <div key={index} className="flex items-center gap-2">
@@ -139,10 +139,10 @@ export function ManifestMetadataForm({ value, onChange, autoFocusName = false }:
                     value={dependency.minimumVersion}
                     onChange={(event) => patchDependency(index, { minimumVersion: event.target.value })}
                   />
-                  <label className="flex shrink-0 items-center gap-1 text-xs text-(--text-secondary)">
+                  <label className="text-text-secondary flex shrink-0 items-center gap-1 text-xs">
                     <input
                       type="checkbox"
-                      className="accent-(--accent)"
+                      className="accent-accent"
                       checked={dependency.isRequired}
                       onChange={(event) => patchDependency(index, { isRequired: event.target.checked })}
                     />
@@ -152,7 +152,7 @@ export function ManifestMetadataForm({ value, onChange, autoFocusName = false }:
                     type="button"
                     aria-label={copy.removeDependency}
                     title={copy.removeDependency}
-                    className="shrink-0 rounded-md p-1.5 text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)"
+                    className="text-text-secondary hover:bg-surface-hover hover:text-text-primary shrink-0 rounded-md p-1.5"
                     onClick={() => patch({ dependencies: value.dependencies.filter((_, i) => i !== index) })}
                   >
                     <X size={14} />
@@ -162,13 +162,13 @@ export function ManifestMetadataForm({ value, onChange, autoFocusName = false }:
             </div>
             <button
               type="button"
-              className="mt-2 inline-flex items-center gap-1 rounded-md border border-(--border-color) px-2 py-1 text-xs text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)"
+              className="border-border-subtle text-text-secondary hover:bg-surface-hover hover:text-text-primary mt-2 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs"
               onClick={() => patch({ dependencies: [...value.dependencies, { uniqueId: '', minimumVersion: '', isRequired: true }] })}
             >
               <Plus size={12} />
               {copy.addDependency}
             </button>
-            <p className="mt-1 text-xs text-(--text-secondary)">{copy.dependenciesHint}</p>
+            <p className="text-text-secondary mt-1 text-xs">{copy.dependenciesHint}</p>
           </div>
         </div>
       </Disclosure>

@@ -28,12 +28,12 @@ type CharacterDetailPanelProps = {
 
 function KvRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-(--border-color)/50 py-2.5 last:border-b-0">
-      <span className="shrink-0 text-xs text-(--text-secondary)">{label}</span>
+    <div className="border-border-subtle/50 flex items-center justify-between gap-3 border-b py-2.5 last:border-b-0">
+      <span className="text-text-secondary shrink-0 text-xs">{label}</span>
       <span
         className={cx(
-          'max-w-[58%] truncate text-right text-xs font-semibold text-(--text-primary)',
-          mono && 'font-mono font-medium text-(--text-secondary)',
+          'max-w-[58%] truncate text-right text-xs font-semibold text-text-primary',
+          mono && 'font-mono font-medium text-text-secondary',
         )}
       >
         {value}
@@ -78,7 +78,7 @@ function PortraitHeroArt({ character, assetState }: { character: CharacterWorksp
   const initial = character.displayName.trim().slice(0, 1) || character.internalName.slice(0, 1) || '?'
   return (
     <div
-      className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-(--bg-panel-muted) text-3xl font-bold text-(--text-secondary)"
+      className="bg-surface-panel-muted text-text-secondary flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl text-3xl font-bold"
       aria-hidden="true"
     >
       {initial}
@@ -111,7 +111,7 @@ export function CharacterDetailPanel({
     return (
       <section className="item-workspace-pane h-full">
         <div className="panel-body flex h-full min-h-0 items-center justify-center p-6 text-center">
-          <p className="max-w-md text-sm text-(--text-secondary)">{copy.inspectorEmpty}</p>
+          <p className="text-text-secondary max-w-md text-sm">{copy.inspectorEmpty}</p>
         </div>
       </section>
     )
@@ -138,42 +138,42 @@ export function CharacterDetailPanel({
 
   return (
     <section className="item-workspace-pane h-full">
-      <div className="flex gap-4 border-b border-(--border-color)/65 px-4 py-4">
+      <div className="border-border-subtle/65 flex gap-4 border-b px-4 py-4">
         <PortraitHeroArt character={character} assetState={assetState} />
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
-          <h2 className="text-[1.5rem] font-extrabold tracking-tight text-(--text-primary)">{character.displayName}</h2>
-          <p className="truncate font-mono text-xs text-(--text-tertiary)">
+          <h2 className="text-text-primary text-[1.5rem] font-extrabold tracking-tight">{character.displayName}</h2>
+          <p className="text-text-tertiary truncate font-mono text-xs">
             {character.internalName}
             {character.textureName ? ` · ${character.textureName}` : ''}
           </p>
           <div className="flex flex-wrap items-center gap-1.5">
             {character.canBeRomanced ? (
-              <span className="inline-flex items-center rounded-full bg-(--accent-soft) px-2.5 py-1 text-xs font-bold text-(--accent)">
+              <span className="bg-accent-soft text-accent inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold">
                 {copy.romanceLabel}
               </span>
             ) : null}
             {character.canReceiveGifts ? (
-              <span className="inline-flex items-center rounded-full bg-(--success-soft) px-2.5 py-1 text-xs font-bold text-(--success)">
+              <span className="bg-success-soft text-success inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold">
                 {copy.receivesGiftsLabel}
               </span>
             ) : null}
-            <span className="inline-flex items-center rounded-full bg-(--bg-panel-muted) px-2.5 py-1 text-xs font-bold text-(--text-secondary)">
+            <span className="bg-surface-panel-muted text-text-secondary inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold">
               {birthday}
             </span>
             {character.homeRegion ? (
-              <span className="inline-flex items-center rounded-full bg-(--bg-panel-muted) px-2.5 py-1 text-xs font-bold text-(--text-secondary)">
+              <span className="bg-surface-panel-muted text-text-secondary inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold">
                 {character.homeRegion}
               </span>
             ) : null}
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 pt-0.5">
             <span className="flex items-baseline gap-1.5 text-sm">
-              <em className="text-[11px] text-(--text-tertiary) not-italic">{copy.variantsPanelTitle}</em>
-              <strong className="font-bold text-(--text-primary)">{character.variants.length}</strong>
+              <em className="text-text-tertiary text-meta-px not-italic">{copy.variantsPanelTitle}</em>
+              <strong className="text-text-primary font-bold">{character.variants.length}</strong>
             </span>
             <span className="flex items-baseline gap-1.5 text-sm">
-              <em className="text-[11px] text-(--text-tertiary) not-italic">{copy.expressions}</em>
-              <strong className="font-bold text-(--text-primary)">{portraitCount || 0}</strong>
+              <em className="text-text-tertiary text-meta-px not-italic">{copy.expressions}</em>
+              <strong className="text-text-primary font-bold">{portraitCount || 0}</strong>
             </span>
           </div>
           {onOpenInAuthoring ? (
@@ -197,9 +197,7 @@ export function CharacterDetailPanel({
             type="button"
             className={cx(
               'rounded-lg px-3 py-1.5 text-xs font-bold transition-colors',
-              tab.id === activeTab
-                ? 'bg-(--accent-soft) text-(--accent)'
-                : 'text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
+              tab.id === activeTab ? 'bg-accent-soft text-accent' : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',
             )}
             onClick={() => setActiveTab(tab.id)}
           >
@@ -231,29 +229,28 @@ export function CharacterDetailPanel({
                     type="button"
                     aria-pressed={isActive}
                     className={cx(
-                      'grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 border-b border-(--border-color)/50 px-2.5 py-3 text-left transition-colors last:border-b-0',
-                      isActive ? 'rounded-lg bg-(--accent-soft)' : 'hover:bg-(--bg-hover)',
+                      'grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 border-b border-border-subtle/50 px-2.5 py-3 text-left transition-colors last:border-b-0',
+                      isActive ? 'rounded-lg bg-accent-soft' : 'hover:bg-surface-hover',
                     )}
                     onClick={() => onSelectVariant(variant)}
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-(--text-primary)">{variant.label}</p>
-                      <p className="mt-1 truncate font-mono text-[11px] text-(--text-tertiary)">{variant.id}</p>
+                      <p className="text-text-primary truncate text-sm font-bold">{variant.label}</p>
+                      <p className="text-text-tertiary text-meta-px mt-1 truncate font-mono">{variant.id}</p>
                     </div>
                     <span className="dock-chip shrink-0 self-start">
                       {variant.kind === 'default' ? copy.defaultBadgeShort : copy.alternateBadgeShort}
                     </span>
-                    <div className="col-span-2 flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-(--text-secondary)">
+                    <div className="text-text-secondary text-meta-px col-span-2 flex flex-wrap gap-x-3 gap-y-1">
                       <span>
-                        {copy.conditionLabel}:{' '}
-                        <strong className="font-semibold text-(--text-primary)">{variant.condition ?? noneLabel}</strong>
+                        {copy.conditionLabel}: <strong className="text-text-primary font-semibold">{variant.condition ?? noneLabel}</strong>
                       </span>
                       <span>
-                        {copy.seasonLabel}: <strong className="font-semibold text-(--text-primary)">{variant.season ?? noneLabel}</strong>
+                        {copy.seasonLabel}: <strong className="text-text-primary font-semibold">{variant.season ?? noneLabel}</strong>
                       </span>
                       <span>
                         {copy.islandAttireLabel}:{' '}
-                        <strong className="font-semibold text-(--text-primary)">{variant.isIslandAttire ? yesLabel : noLabel}</strong>
+                        <strong className="text-text-primary font-semibold">{variant.isIslandAttire ? yesLabel : noLabel}</strong>
                       </span>
                     </div>
                   </button>
@@ -261,7 +258,7 @@ export function CharacterDetailPanel({
               })}
             </div>
           ) : (
-            <p className="text-sm text-(--text-secondary)">{copy.variantsPanelEmpty}</p>
+            <p className="text-text-secondary text-sm">{copy.variantsPanelEmpty}</p>
           )
         ) : null}
 

@@ -2,33 +2,26 @@
   /* When-condition editor: quick-add presets */
 
   .when-preset-bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    @apply flex flex-wrap items-center;
     gap: 0.3125rem;
   }
 
   .when-preset-label {
-    color: var(--text-tertiary);
-    font-size: 0.625rem;
-    font-weight: 700;
+    @apply text-text-tertiary text-caption font-bold;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
   .when-preset-button {
-    display: inline-flex;
-    align-items: center;
+    @apply text-text-secondary inline-flex cursor-pointer items-center;
     gap: 0.25rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
     border-radius: 0.5rem;
     background: color-mix(in srgb, var(--bg-panel-muted) 72%, transparent);
-    color: var(--text-secondary);
     padding: 0.25rem 0.5rem;
     font-size: 0.6875rem;
     font-weight: 600;
     line-height: 1.2;
-    cursor: pointer;
     transition:
       background-color 120ms ease,
       border-color 120ms ease,
@@ -36,9 +29,9 @@
   }
 
   .when-preset-button:hover {
+    @apply text-text-primary;
     border-color: color-mix(in srgb, var(--accent) 40%, var(--border-color));
     background: color-mix(in srgb, var(--bg-active) 66%, transparent);
-    color: var(--text-primary);
   }
 
   .when-preset-button:focus-visible,
@@ -48,9 +41,9 @@
   }
 
   .when-preset-button.is-open {
+    @apply text-text-primary;
     border-color: color-mix(in srgb, var(--accent) 46%, transparent);
     background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
-    color: var(--text-primary);
   }
 
   .when-preset-menu {
@@ -58,51 +51,43 @@
   }
 
   .when-preset-catalog {
-    display: grid;
+    @apply bg-surface-panel grid overflow-auto;
     flex: 1 1 100%;
     width: 100%;
     max-height: 20rem;
     align-content: start;
     gap: 0.625rem;
-    overflow: auto;
     border: 1px solid var(--border-color);
     border-radius: 0.75rem;
-    background: var(--bg-panel);
     padding: 0.625rem;
   }
 
   .when-preset-group {
-    display: grid;
+    @apply grid;
     gap: 0.3125rem;
   }
 
   .when-preset-group-title {
-    color: var(--text-tertiary);
-    font-size: 0.625rem;
-    font-weight: 700;
+    @apply text-text-tertiary text-caption font-bold;
     letter-spacing: 0.14em;
     text-transform: uppercase;
   }
 
   .when-preset-token-grid {
-    display: grid;
+    @apply grid;
     grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
     gap: 0.25rem;
   }
 
   .when-preset-token {
-    overflow: hidden;
+    @apply text-text-primary text-meta cursor-pointer overflow-hidden font-mono;
     border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
     border-radius: 0.4375rem;
     background: transparent;
-    color: var(--text-primary);
     padding: 0.3125rem 0.5rem;
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
     text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;
-    cursor: pointer;
   }
 
   .when-preset-token:hover {
@@ -113,25 +98,20 @@
   /* When-condition editor: value chip group */
 
   .when-value-chips {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    @apply flex flex-wrap items-center;
     gap: 0.3125rem;
     padding: 0.125rem 0 0 0.125rem;
   }
 
   .when-value-chip {
-    display: inline-flex;
-    align-items: center;
+    @apply text-text-secondary inline-flex cursor-pointer items-center;
     gap: 0.25rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
     border-radius: 9999px;
     background: color-mix(in srgb, var(--bg-panel-muted) 60%, transparent);
-    color: var(--text-secondary);
     padding: 0.25rem 0.625rem;
     font-size: 0.6875rem;
     font-weight: 600;
-    cursor: pointer;
     transition:
       background-color 120ms ease,
       border-color 120ms ease,
@@ -139,8 +119,8 @@
   }
 
   .when-value-chip:hover {
+    @apply text-text-primary;
     border-color: color-mix(in srgb, var(--accent) 40%, var(--border-color));
-    color: var(--text-primary);
   }
 
   .when-value-chip:focus-visible {
@@ -149,9 +129,8 @@
   }
 
   .when-value-chip.is-selected {
+    @apply bg-accent-soft text-accent;
     border-color: color-mix(in srgb, var(--accent) 60%, transparent);
-    background: var(--accent-soft);
-    color: var(--accent);
   }
 
   .when-value-chip.is-custom {
@@ -160,12 +139,11 @@
   }
 
   .when-value-custom-input {
+    @apply text-text-primary w-full min-w-0;
     width: 10.5rem;
-    min-width: 0;
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
     border-radius: 0.5rem;
     background: color-mix(in srgb, var(--bg-app) 86%, transparent);
-    color: var(--text-primary);
     padding: 0.25rem 0.5rem;
     font-size: 0.6875rem;
     outline: none;
@@ -173,7 +151,7 @@
   }
 
   .when-value-custom-input::placeholder {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
   }
 
   .when-value-custom-input:focus {

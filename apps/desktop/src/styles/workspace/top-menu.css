@@ -1,9 +1,7 @@
 @layer components {
   .top-menu-bar {
-    position: relative;
+    @apply relative overflow-visible border-b-0;
     z-index: 260;
-    overflow: visible;
-    border-bottom: 0;
     background: color-mix(in srgb, var(--bg-panel) 94%, transparent);
     backdrop-filter: blur(1.5rem);
     -webkit-app-region: drag;
@@ -31,105 +29,61 @@
   }
 
   .top-menu-cluster {
-    align-items: center;
-    gap: 0.875rem;
+    @apply items-center gap-3.5;
   }
 
   .top-menu-center {
-    min-width: 0;
-    position: relative;
+    @apply relative min-w-0 overflow-visible;
     z-index: 2;
-    overflow: visible;
   }
 
   .top-menu-drag-spacer {
-    min-width: 1.5rem;
+    @apply min-w-6;
   }
 
   .top-menu-workspace {
-    align-items: center;
-    border: 0;
-    background: transparent;
-    overflow: visible;
-    padding: 0;
+    @apply items-center overflow-visible border-0 bg-transparent p-0;
   }
 
   /* GooeyNav integration inside the top-menu workspace */
   .top-menu-gooey-nav.gooey-nav-container {
     --gooey-focus-ring: var(--accent);
 
-    flex-shrink: 0;
-    margin: -1.125rem -1.5rem;
-    padding: 1.125rem 1.5rem;
+    @apply -mx-6 -my-4.5 shrink-0 px-6 py-4.5;
     z-index: 3;
   }
 
   .top-menu-gooey-nav .gooey-nav-container nav ul,
   .top-menu-gooey-nav nav ul {
-    gap: 2em;
-    padding: 0 1em;
-    font-size: 0.75rem;
-    line-height: 1rem;
-    font-weight: 500;
+    @apply gap-[2em] px-[1em] text-xs leading-4 font-medium;
   }
 
   .top-menu-gooey-nav nav ul li a {
-    padding: 0.6em 1em;
+    @apply px-[1em] py-[0.6em];
   }
 
   .top-menu-gooey-nav nav ul li a:focus-visible,
   .top-menu-gooey-nav nav ul li button:focus-visible {
-    outline: none;
+    @apply outline-none;
   }
 
   .top-menu-workspace-label {
-    color: var(--text-secondary);
-    font-size: 0.625rem;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    white-space: nowrap;
+    @apply text-text-secondary text-caption tracking-ui-wider font-bold whitespace-nowrap uppercase;
   }
 
   .top-menu-brand-icon {
-    width: 2rem;
-    height: 2rem;
-    flex: 0 0 auto;
-    border-radius: 0.625rem;
+    @apply rounded-field h-8 w-8 flex-none object-contain;
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-color) 70%, transparent);
-    object-fit: contain;
   }
 
   .top-menu-mode-segment {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: center;
-    gap: 0.1875rem;
-    height: 2.25rem;
-    padding: 0.1875rem;
+    @apply bg-surface-panel-muted grid h-9 shrink-0 grid-cols-2 items-center gap-0.75 rounded-lg p-0.75;
     border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
-    border-radius: 0.5rem;
-    background: var(--bg-panel-muted);
-    flex-shrink: 0;
   }
 
   .top-menu-mode-option {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.375rem;
-    min-width: 5.5rem;
-    height: 1.75rem;
-    padding: 0 0.625rem;
-    border: 1px solid transparent;
-    border-radius: 0.3125rem;
-    background: transparent;
-    color: var(--text-tertiary);
     font: inherit;
-    font-size: 0.75rem;
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
+    @apply text-text-tertiary rounded-control inline-flex h-7 min-w-22 cursor-pointer items-center justify-center gap-1.5 border border-transparent bg-transparent px-2.5 text-xs font-medium whitespace-nowrap;
     transition:
       background-color 140ms ease,
       border-color 140ms ease,
@@ -138,15 +92,12 @@
   }
 
   .top-menu-mode-option:hover:not([data-active='true']) {
-    background: var(--bg-hover);
-    color: var(--text-primary);
+    @apply bg-surface-hover text-text-primary;
   }
 
   .top-menu-mode-option[data-active='true'] {
+    @apply bg-surface-panel text-accent font-semibold;
     border-color: color-mix(in srgb, var(--accent) 34%, var(--border-color));
-    background: var(--bg-panel);
-    color: var(--accent);
-    font-weight: 600;
     box-shadow: var(--shadow-control);
   }
 
@@ -156,16 +107,11 @@
   }
 
   .top-menu-workspace-list {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-width: 0;
-    overflow: visible;
-    padding: 0;
+    @apply flex min-w-0 items-center gap-2 overflow-visible p-0;
   }
 
   .top-menu-module-button {
-    border: 1px solid transparent;
+    @apply border border-transparent;
     transition:
       background-color 160ms ease,
       border-color 160ms ease,
@@ -190,35 +136,22 @@
   }
 
   .top-menu-launcher-nav-button {
-    position: relative;
+    @apply relative;
   }
 
   .top-menu-launcher-nav-badge {
-    display: inline-flex;
-    min-width: 1.125rem;
-    height: 1.125rem;
-    align-items: center;
-    justify-content: center;
-    border-radius: 62.4375rem;
-    padding: 0 0.375rem;
+    @apply text-caption inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1.5 leading-none font-extrabold;
     background: color-mix(in srgb, var(--accent) 82%, white 18%);
     color: var(--accent-contrast);
-    font-size: 0.625rem;
-    font-weight: 800;
-    line-height: 1;
     box-shadow: inset 0 0 0 1px color-mix(in srgb, white 18%, transparent);
   }
 
   .top-menu-launcher-tools {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    @apply relative flex items-center gap-2;
   }
 
   .top-menu-icon-action {
-    position: relative;
-    flex-shrink: 0;
+    @apply relative shrink-0;
     transition:
       box-shadow 160ms ease,
       transform 160ms ease;
@@ -238,25 +171,13 @@
   }
 
   .top-menu-icon-progress-ring {
-    color: var(--text-primary);
+    @apply text-text-primary;
   }
 
   .top-menu-icon-badge {
-    position: absolute;
-    top: -0.3125rem;
-    right: -0.3125rem;
-    min-width: 1.125rem;
-    height: 1.125rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 62.4375rem;
-    padding: 0 0.3125rem;
+    @apply text-caption absolute -top-1.25 -right-1.25 inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1.25 leading-none font-extrabold;
     background: color-mix(in srgb, var(--accent) 82%, white 18%);
     color: var(--accent-contrast);
-    font-size: 0.625rem;
-    font-weight: 800;
-    line-height: 1;
     box-shadow: 0 0 0 0.125rem var(--bg-panel);
   }
 
@@ -266,70 +187,57 @@
   }
 
   .top-menu-float-backdrop {
-    position: fixed;
-    inset: 0;
+    @apply fixed inset-0 flex items-start justify-end px-6 pt-18 pb-6;
     z-index: 185;
-    display: flex;
-    align-items: flex-start;
-    justify-content: flex-end;
-    padding: 4.5rem 1.5rem 1.5rem;
     background: var(--scrim);
     backdrop-filter: blur(0.375rem);
   }
 
   .top-menu-float-panel {
-    position: relative;
+    @apply rounded-panel relative overflow-hidden;
     border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--border-color));
-    border-radius: 1.25rem;
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--bg-panel-muted) 96%, white 4%),
       color-mix(in srgb, var(--bg-panel) 98%, transparent)
     );
     box-shadow: 0 1.75rem 3.75rem rgba(15, 23, 42, 0.24);
-    overflow: hidden;
     animation: top-menu-dropdown-in 160ms ease;
   }
 
   .top-menu-float-close {
-    position: absolute;
-    top: 0.875rem;
-    right: 0.875rem;
+    @apply absolute top-3.5 right-3.5;
     z-index: 2;
   }
 
   .top-menu-warning-dot {
-    width: 0.5rem;
-    height: 0.5rem;
-    border-radius: 62.4375rem;
-    background: var(--warning);
+    @apply bg-warning h-2 w-2 rounded-full;
     box-shadow: 0 0 0 0.1875rem color-mix(in srgb, var(--warning) 18%, transparent);
   }
 
   @media (max-width: 900px) {
     .top-menu-primary {
-      gap: 10px;
+      @apply gap-[10px];
     }
 
     .top-menu-center {
-      justify-content: flex-start;
+      @apply justify-start;
     }
 
     .top-menu-workspace {
-      max-width: 100%;
+      @apply max-w-full;
     }
 
     .top-menu-mode-option {
-      min-width: 2rem;
-      padding: 0;
+      @apply min-w-8 p-0;
     }
 
     .top-menu-mode-option span {
-      display: none;
+      @apply hidden;
     }
 
     .top-menu-float-backdrop {
-      padding: 64px 12px 12px;
+      @apply px-3 pt-16 pb-3;
     }
   }
 }

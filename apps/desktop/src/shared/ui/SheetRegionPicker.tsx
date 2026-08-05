@@ -197,7 +197,7 @@ export function SheetRegionPicker({
   return (
     <div
       ref={containerRef}
-      className={cx('relative w-full touch-none overflow-hidden rounded-md border border-(--border-color) bg-(--bg-app)', className)}
+      className={cx('relative w-full touch-none overflow-hidden rounded-md border border-border-subtle bg-surface-app', className)}
       style={{ cursor: cellPick ? 'pointer' : 'crosshair' }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -216,7 +216,7 @@ export function SheetRegionPicker({
       ) : null}
       {shown !== null ? (
         <div
-          className="pointer-events-none absolute border-2 border-(--accent) bg-[color-mix(in_srgb,var(--accent)_20%,transparent)]"
+          className="border-accent pointer-events-none absolute border-2 bg-[color-mix(in_srgb,var(--accent)_20%,transparent)]"
           style={rectStyle(shown)}
         />
       ) : null}

@@ -121,7 +121,7 @@ function WalkCycleTile({
         {frames.map((frame, index) => (
           <span
             key={`${frame}:${index}`}
-            className={cx('h-1.5 w-5 rounded-full transition-colors', index === frameIndex ? 'bg-(--accent)' : 'bg-(--border-color)')}
+            className={cx('h-1.5 w-5 rounded-full transition-colors', index === frameIndex ? 'bg-accent' : 'bg-border-subtle')}
           />
         ))}
       </div>
@@ -337,7 +337,7 @@ export function CharacterSpriteThumbnail({
   if (!spriteUrl || !spriteSheetWidth || !spriteSheetHeight) {
     return (
       <span
-        className="flex shrink-0 items-center justify-center rounded-lg bg-(--bg-panel-muted) text-xs font-bold text-(--text-tertiary)"
+        className="bg-surface-panel-muted text-text-tertiary flex shrink-0 items-center justify-center rounded-lg text-xs font-bold"
         style={{ width: `${metrics.frameWidth * scale}px`, height: `${metrics.frameHeight * scale}px` }}
         aria-hidden="true"
       >

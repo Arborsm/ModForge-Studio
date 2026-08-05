@@ -463,7 +463,7 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
                   <article key={resource.kind} className="dev-resource-browser__kind-card">
                     <div className="dev-resource-browser__kind-head">
                       <span className="dev-resource-browser__kind-icon" style={{ color: resource.tone }} aria-hidden="true">
-                        <Icon className="h-[1.125rem] w-[1.125rem]" />
+                        <Icon className="h-4.5 w-4.5" />
                       </span>
                       <span className="dev-resource-browser__kind-count">{registry[resource.kind].length}</span>
                     </div>

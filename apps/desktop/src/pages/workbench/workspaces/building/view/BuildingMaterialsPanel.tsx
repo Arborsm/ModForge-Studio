@@ -52,11 +52,11 @@ function MaterialChip({
             }}
           />
         ) : (
-          <span className="text-[0.625rem] font-semibold text-(--text-secondary) uppercase">{label.slice(0, 1)}</span>
+          <span className="text-text-secondary text-caption font-semibold uppercase">{label.slice(0, 1)}</span>
         )}
       </div>
-      <span className="max-w-24 truncate text-xs font-semibold text-(--text-primary)">{label}</span>
-      <span className="font-mono text-xs font-bold text-(--text-primary)">×{amount}</span>
+      <span className="text-text-primary max-w-24 truncate text-xs font-semibold">{label}</span>
+      <span className="text-text-primary font-mono text-xs font-bold">×{amount}</span>
     </div>
   )
 }
@@ -67,10 +67,10 @@ function WorldEntranceRow({ entrance }: { entrance: WorldBuildingEntrance }) {
     <div className="building-workspace-material-row items-start">
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <p className="truncate text-sm font-semibold text-(--text-primary)">{entrance.sourceMapName}</p>
+          <p className="text-text-primary truncate text-sm font-semibold">{entrance.sourceMapName}</p>
           <span className="dock-chip shrink-0">{entrance.trigger}</span>
         </div>
-        <p className="mt-0.5 text-xs text-(--text-secondary)">
+        <p className="text-text-secondary mt-0.5 text-xs">
           {copy.sourceTileLabel} {formatPoint(entrance.sourceTile, copy.noneLabel)} → {copy.targetTileLabel}{' '}
           {formatPoint(entrance.targetTile, copy.noneLabel)}
         </p>
