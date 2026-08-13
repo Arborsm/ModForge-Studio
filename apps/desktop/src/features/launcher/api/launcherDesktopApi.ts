@@ -56,6 +56,11 @@ import type {
   SsoConnectionStatus,
   SsoSnapshot,
   ValidateApiKeyResult,
+  SmapiUpdateCheckResult,
+  InstallSmapiUpdateRequest,
+  InstallSmapiUpdateResult,
+  SmapiUpdateProgressPayload,
+  FindSmapiInstallerDownloadsResult,
 } from './types'
 const loadLauncherSettingsCache = createPromiseCache<LauncherSettings>()
 const loadLauncherLibraryStateCache = createPromiseCache<LauncherLibraryState>()
@@ -68,6 +73,7 @@ const loadLauncherUpdateChangelogCache = createPromiseCache<LauncherUpdateChange
 const loadLauncherModConfigCache = createPromiseCache<LauncherModConfigResult>()
 const LAUNCHER_UPDATE_PROGRESS_EVENT = 'launcher://update-check-progress'
 const LAUNCHER_DOWNLOAD_PROGRESS_EVENT = 'launcher://download-progress'
+const LAUNCHER_SMAPI_UPDATE_PROGRESS_EVENT = 'launcher://smapi-update-progress'
 const LAUNCHER_UPDATES_CACHE_TTL_MS = 30 * 60 * 1000
 const launcherUpdatesPendingRequests = new Map<string, Promise<LauncherUpdatesResult>>()
 const launcherUpdatesSnapshots = new Map<string, { result: LauncherUpdatesResult; isFinal: boolean; sessionId: string | null }>()
@@ -84,6 +90,8 @@ const launcherLibraryMutationPolicy = { kind: 'exclusiveMutation', resource: 'La
 const launcherCoversMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherLibraryCovers' } satisfies HostCommandPolicy
 const launcherDownloadQueueMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherDownloadQueue' } satisfies HostCommandPolicy
 const launcherInstallMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherInstallTree' } satisfies HostCommandPolicy
+const launcherSmapiUpdateMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherSmapiUpdate' } satisfies HostCommandPolicy
+const launcherSmapiUpdateCheckPolicy = { kind: 'keyedLatest', key: 'launcher-smapi-update-check' } satisfies HostCommandPolicy
 const launcherModConfigMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherModConfig' } satisfies HostCommandPolicy
 const launcherImageCacheMutationPolicy = { kind: 'exclusiveMutation', resource: 'LauncherImageCache' } satisfies HostCommandPolicy
 const launcherIoPoolPolicy = { kind: 'parallelPool', pool: 'launcher-io', limit: 2 } satisfies HostCommandPolicy
@@ -413,6 +421,34 @@ export function scanLauncherLibrary(request: ScanLauncherLibraryRequest) {
 /** Loads detected Stardew Valley and SMAPI runtime versions for the launcher header. */
 export function loadLauncherRuntimeInfo() {
   return invokeDesktop<LauncherRuntimeInfo>(HOST_COMMANDS.loadLauncherRuntimeInfo, undefined, launcherIoPoolPolicy)
+}
+
+/**
+ * Checks the installed SMAPI version against the game requirement.
+ * The backend disk-caches the result for 30 minutes; repeated calls reuse it.
+ */
+export function checkLauncherSmapiUpdate() {
+  return invokeDesktop<SmapiUpdateCheckResult>(HOST_COMMANDS.checkSmapiUpdate, undefined, launcherSmapiUpdateCheckPolicy)
+}
+
+/**
+ * Installs a SMAPI update prepared by checkLauncherSmapiUpdate.
+ * The install runs as an exclusive mutation; progress is emitted on
+ * launcher://smapi-update-progress and the download phase can be cancelled
+ * through cancelLauncherDownload with the same jobId.
+ */
+export function installLauncherSmapiUpdate(request: InstallSmapiUpdateRequest) {
+  return invokeDesktop<InstallSmapiUpdateResult>(HOST_COMMANDS.installSmapiUpdate, { request }, launcherSmapiUpdateMutationPolicy)
+}
+
+/** Listens to progress events emitted while a SMAPI update is being installed. */
+export function listenToLauncherSmapiUpdateProgress(listener: (payload: SmapiUpdateProgressPayload) => void): Promise<UnlistenFn> {
+  return getPlatformPorts().hostEvents.listen<SmapiUpdateProgressPayload>(LAUNCHER_SMAPI_UPDATE_PROGRESS_EVENT, listener)
+}
+
+/** Scans the user's download directories for already-downloaded SMAPI installer archives. */
+export function findLauncherSmapiInstallerDownloads() {
+  return invokeDesktop<FindSmapiInstallerDownloadsResult>(HOST_COMMANDS.findSmapiInstallerDownloads, undefined, launcherIoPoolPolicy)
 }
 
 /** Checks whether the bundled GMCM probe can run through the local .NET runtime host. */

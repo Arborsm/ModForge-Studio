@@ -1,6 +1,9 @@
 use super::super::super::assets::LoadedMapAsset;
 use super::super::super::types::{ContentPatcherMapDebugSummary, ContentPatcherProjectSnapshot};
-use super::apply_edit_map_patch;
+use super::{apply_edit_map_patch, apply_map_patch};
+use crate::infrastructure::game_formats::map::{
+    MapFormat, MapLayerDataEncoding, TMX_FLIPPED_HORIZONTALLY_FLAG,
+};
 use crate::infrastructure::game_formats::tbin::{
     MapDocument, MapLayer, MapPropertyValue, serialize_tbin_map,
 };
@@ -10,7 +13,7 @@ use std::collections::HashMap;
 fn empty_map_document() -> MapDocument {
     MapDocument {
         name: "Test".to_string(),
-        format: "xnb".to_string(),
+        format: MapFormat::Xnb,
         source_path: "Content/Maps/Test.xnb".to_string(),
         relative_path: "Content/Maps/Test.xnb".to_string(),
         width: 4,
@@ -19,6 +22,11 @@ fn empty_map_document() -> MapDocument {
         tile_height: 16,
         orientation: "orthogonal".to_string(),
         render_order: "right-down".to_string(),
+        tmx_version: None,
+        tiled_version: None,
+        next_layer_id: Some(2),
+        next_object_id: Some(1),
+        infinite: false,
         properties: HashMap::new(),
         tilesets: vec![crate::infrastructure::game_formats::tbin::MapTileset {
             first_gid: 1,
@@ -27,13 +35,23 @@ fn empty_map_document() -> MapDocument {
             tile_height: 16,
             tile_count: 100,
             columns: 10,
+            source: None,
+            margin: 0,
+            spacing: 0,
+            tile_offset_x: 0,
+            tile_offset_y: 0,
             image_source: None,
             image_path: None,
             image_width: None,
             image_height: None,
+            image_trans: None,
             properties: HashMap::new(),
             tile_properties: HashMap::new(),
             animations: HashMap::new(),
+            preserved_attributes: HashMap::new(),
+            tile_preserved_attributes: HashMap::new(),
+            tile_preserved_xml: HashMap::new(),
+            preserved_xml: Vec::new(),
         }],
         layers: vec![MapLayer {
             id: 1,
@@ -48,8 +66,15 @@ fn empty_map_document() -> MapDocument {
             properties: HashMap::new(),
             gids: vec![0; 16],
             non_empty_tiles: 0,
+            data_encoding: MapLayerDataEncoding::Csv,
+            data_compression: None,
+            cell_properties: HashMap::new(),
+            cell_animations: HashMap::new(),
+            preserved_xml: Vec::new(),
         }],
         object_groups: Vec::new(),
+        layer_order: Vec::new(),
+        preserved_xml: Vec::new(),
     }
 }
 
@@ -112,14 +137,7 @@ fn apply_warps_adds_warp_entries() {
         MapPropertyValue::String(s) => s.as_str(),
         other => panic!("Expected string warp property, got {:?}", other),
     };
-    assert!(
-        warp_str.contains("5 10 Farm 20 25"),
-        "first warp missing: {warp_str}"
-    );
-    assert!(
-        warp_str.contains("6 11 Town 30 35"),
-        "second warp missing: {warp_str}"
-    );
+    assert_eq!(warp_str, "6 11 Town 30 35 5 10 Farm 20 25");
 }
 
 #[test]
@@ -148,6 +166,42 @@ fn apply_map_tiles_sets_tile_index() {
     // width=4, so (1,2) is index 1 + 2*4 = 9
     // tileset first_gid=1 + SetIndex 42 = 43
     assert_eq!(layer.gids[9], 43);
+}
+
+#[test]
+fn apply_map_tiles_accepts_numeric_index_and_boolean_remove_then_replace() {
+    let snapshot = empty_snapshot();
+    let mut map = loaded_map();
+    map.document.layers[0].gids[0] = 8;
+    map.document.layers[0].cell_properties.insert(
+        0,
+        HashMap::from([(
+            "Old".to_string(),
+            MapPropertyValue::String("value".to_string()),
+        )]),
+    );
+    let patch = patch_from(json!({
+        "MapTiles": [{
+            "Layer": "Back",
+            "Position": { "X": 0, "Y": 0 },
+            "Remove": true,
+            "SetTilesheet": "spring_outdoorsTileSheet",
+            "SetIndex": 12,
+            "SetProperties": { "TouchAction": "MagicWarp Test 1 2" }
+        }]
+    }));
+
+    apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json")
+        .expect("apply remove and replacement");
+
+    let layer = &map.document.layers[0];
+    assert_eq!(layer.gids[0], 13);
+    assert_eq!(
+        layer.cell_properties[&0].get("TouchAction"),
+        Some(&MapPropertyValue::String("MagicWarp Test 1 2".to_string()))
+    );
+    assert!(!layer.cell_properties[&0].contains_key("Old"));
+    assert!(map.document.tilesets[0].tile_properties.is_empty());
 }
 
 #[test]
@@ -236,6 +290,11 @@ fn apply_remove_layer_removes_existing_layer() {
         properties: HashMap::new(),
         gids: vec![0; 16],
         non_empty_tiles: 0,
+        data_encoding: MapLayerDataEncoding::Csv,
+        data_compression: None,
+        cell_properties: HashMap::new(),
+        cell_animations: HashMap::new(),
+        preserved_xml: Vec::new(),
     });
     let patch = patch_from(json!({
         "RemoveLayer": "Back"
@@ -318,6 +377,11 @@ fn apply_replace_by_layer_adds_source_only_layer() {
         properties: HashMap::new(),
         gids: vec![7; 16],
         non_empty_tiles: 16,
+        data_encoding: MapLayerDataEncoding::Csv,
+        data_compression: None,
+        cell_properties: HashMap::new(),
+        cell_animations: HashMap::new(),
+        preserved_xml: Vec::new(),
     }];
     let source_bytes = serialize_tbin_map(&source_document).expect("serialize source map");
     std::fs::write(temp_dir.join("assets").join("source.tbin"), source_bytes)
@@ -348,4 +412,58 @@ fn apply_replace_by_layer_adds_source_only_layer() {
     assert_eq!(buildings.gids[0], 7);
 
     std::fs::remove_dir_all(temp_dir).expect("cleanup");
+}
+
+#[test]
+fn overlay_copies_source_only_layers_metadata_cells_and_renames_tileset_conflicts() {
+    let mut target = empty_map_document();
+    target.tilesets[0].name = "shared".to_string();
+    target.tilesets[0].image_source = Some("tiles/old.png".to_string());
+    let mut source = empty_map_document();
+    source.tilesets[0].name = "shared".to_string();
+    source.tilesets[0].image_source = Some("tiles/new.png".to_string());
+    source.layers[0].properties.insert(
+        "LayerFlag".to_string(),
+        MapPropertyValue::String("source".to_string()),
+    );
+    source.layers[0].gids[0] = TMX_FLIPPED_HORIZONTALLY_FLAG | 1;
+    source.layers[0].cell_properties.insert(
+        0,
+        HashMap::from([(
+            "TouchAction".to_string(),
+            MapPropertyValue::String("Warp 1 2".to_string()),
+        )]),
+    );
+    let mut source_only = source.layers[0].clone();
+    source_only.id = 2;
+    source_only.name = "Buildings".to_string();
+    source_only.gids[1] = 1;
+    source.layers.push(source_only);
+
+    let mut debug = ContentPatcherMapDebugSummary::default();
+    apply_map_patch(&mut target, &mut debug, &source, None, None, "Overlay")
+        .expect("apply overlay");
+
+    assert_eq!(target.tilesets.len(), 2);
+    assert_eq!(target.tilesets[1].name, "z_shared");
+    let back = target
+        .layers
+        .iter()
+        .find(|layer| layer.name == "Back")
+        .unwrap();
+    assert_eq!(
+        back.properties.get("LayerFlag"),
+        Some(&MapPropertyValue::String("source".to_string()))
+    );
+    assert_eq!(back.gids[0], TMX_FLIPPED_HORIZONTALLY_FLAG | 101);
+    assert!(back.cell_properties.contains_key(&0));
+    let buildings = target
+        .layers
+        .iter()
+        .find(|layer| layer.name == "Buildings")
+        .expect("overlay source-only layer");
+    assert_eq!(buildings.gids[1], 101);
+    assert!(target.layer_order.iter().any(|entry| {
+        matches!(entry, crate::infrastructure::game_formats::map::MapLayerOrderEntry::TileLayer(id) if *id == buildings.id)
+    }));
 }

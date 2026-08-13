@@ -72,6 +72,24 @@ export type AudioAssetSummary = {
   relativePath: string
 }
 
+/** Game image texture summary (XNB or loose image) used by import pickers. */
+export type GameImageAssetSummary = {
+  /** Content Patcher asset key (forward slashes, no extension), e.g. `Characters/Abigail`. */
+  name: string
+  relativePath: string
+  absolutePath: string
+  sizeBytes: number
+}
+
+/** Game data file summary (XNB/JSON under Content/Data) used by import pickers. */
+export type GameDataAssetSummary = {
+  /** Content Patcher asset key (forward slashes, no extension), e.g. `Data/ObjectInformation`. */
+  name: string
+  relativePath: string
+  absolutePath: string
+  sizeBytes: number
+}
+
 /** Single normalized resource entry from the global desktop resource registry. */
 type ResourceRegistrySourceKind = 'game' | 'mod' | 'project' | 'fallback' | (string & {})
 

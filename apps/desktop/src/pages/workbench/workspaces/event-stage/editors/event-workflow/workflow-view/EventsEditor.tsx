@@ -18,28 +18,29 @@ import {
   parseEventCommand,
   parseEventCommands,
   parseEventSceneSetup,
+  splitEventPreconditions,
   type EventSceneActor,
   type EventSceneSetup,
   type EventScript,
   type PlayerAppearanceProfile,
 } from '@entities/event'
 import { loadResourceRegistry, type GameDirectoryInfo } from '@entities/game/api'
-import { loadItemTextureAssetState, loadItemWorkspaceEntries } from '@pages/workbench/workspaces/item/entities/item'
+import { loadItemTextureAssetState, loadItemWorkspaceEntries } from '@entities/item'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
 import { useEditorCopy, useEventStageCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { scheduleDeferred } from '@shared/lib/react'
 import { globalResourceRegistryReducer, itemCatalogReducer } from '../workflow-model/editorReducers'
 import type { EventScenarioPreset } from '../workflow-model/eventScenarioPresets'
-import { getEventComposerCopy } from '../workflow-model/eventComposerCopy'
 import { getSchema } from '../workflow-model/commandSchemaRegistry'
 import { serializeRaw } from '../workflow-model/rawSerializer'
 import { eventLocationDotClass, getEventIdFromKey } from '../workflow-model/eventEditorHelpers'
 import { useEditorStore } from '../workflow-model/editorStore'
 import { EventStagePreview, type EventStagePreviewAssetLoader } from './EventStagePreview'
 import { PickModeOverlay } from './PickModeOverlay'
+import { DraftUndoButtons } from '@features/cp-maker'
 import { ScriptEditor } from './ScriptEditor'
-import { EventResourcePicker } from './EventResourcePicker'
+import { ResourcePicker } from '@features/resource-browser'
 import { buildEventResourceRegistry, type EventActorAssetPreview, type EventResourceRegistry } from './eventResourceRegistry'
 
 type DraftPathPoint = { tileX: number; tileY: number }
@@ -72,6 +73,8 @@ export default function EventsEditor({
   onOpenConfig,
   onSaveDraft,
   onReloadDraft,
+  onUndo,
+  onRedo,
   isDirty,
 }: {
   entries: Record<string, unknown>
@@ -98,20 +101,21 @@ export default function EventsEditor({
   onOpenPlayerAppearanceWindow?: () => void
   conditionBuilderLabel: string
   onOpenConditionBuilder: () => void
-  onOpenConfig?: () => void
+  onOpenConfig?: (() => void) | null
   onSaveDraft?: () => void
   onReloadDraft?: () => void
+  onUndo: () => void
+  onRedo: () => void
   isDirty: boolean
 }) {
   const workflowCopy = useEventStageCopy().workflow
   const reloadLabel = useEditorCopy().studioDesk.toolbar.reload
-  const copy = getEventComposerCopy(locale, workflowCopy)
+  const copy = workflowCopy.composer
   const selectedEntry = selectedKey ? (entries[selectedKey] ?? null) : null
   const selectedEntryString = typeof selectedEntry === 'string' ? selectedEntry : null
   const [pickingActorIndex, setPickingActorIndex] = useState<number | null>(null)
   const [cameraPickMode, setCameraPickMode] = useState(false)
   const [actorAssetPreviews, setActorAssetPreviews] = useState<Record<string, EventActorAssetPreview>>({})
-  const [currentPlaybackCommandId, setCurrentPlaybackCommandId] = useState<string | null>(null)
   const [globalResourceRegistry, dispatchGlobalResourceRegistry] = useReducer(globalResourceRegistryReducer, null)
   const [itemCatalogState, dispatchItemCatalog] = useReducer(itemCatalogReducer, { entries: [], texturesByAssetName: {} })
   const [draftPathPoints, setDraftPathPoints] = useState<DraftPathPoint[]>([])
@@ -140,7 +144,7 @@ export default function EventsEditor({
     return {
       key: selectedKey,
       eventId: selectedKey,
-      preconditions: [],
+      preconditions: splitEventPreconditions(selectedKey),
       rawScript: selectedEntryString,
       rawSegments: parsedEvent.segments,
       scene: parsedEvent.scene,
@@ -530,7 +534,6 @@ export default function EventsEditor({
             {parsedEvent ? (
               <ComposerSceneStrip
                 scene={parsedEvent.scene}
-                locale={locale}
                 pickMode={pickingActorIndex !== null || cameraPickMode || isPickMode}
                 cameraPickMode={cameraPickMode}
                 pickingActorIndex={pickingActorIndex}
@@ -583,7 +586,7 @@ export default function EventsEditor({
                   onContextMenuAction={handleContextMenuAction}
                   conditionBuilderLabel={conditionBuilderLabel}
                   onActorAssetsChange={setActorAssetPreviews}
-                  onPlaybackCommandChange={setCurrentPlaybackCommandId}
+                  onPlaybackCommandChange={(commandId) => useEditorStore.getState().setPlaybackCommandId(commandId)}
                 />
               ) : (
                 <div className="stage-empty">
@@ -630,6 +633,7 @@ export default function EventsEditor({
               <ChevronRight className="ep-caret h-3.5 w-3.5" />
             </button>
             <div className="header-actions">
+              <DraftUndoButtons onUndo={onUndo} onRedo={onRedo} compact />
               {onReloadDraft ? (
                 <button type="button" className="icon-btn" title={reloadLabel} aria-label={reloadLabel} onClick={onReloadDraft}>
                   <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
@@ -638,9 +642,11 @@ export default function EventsEditor({
               <button type="button" className="icon-btn" title={copy.searchEvent} onClick={() => setEventPickerOpen(true)}>
                 <Search className="h-3.5 w-3.5" />
               </button>
-              <button type="button" className="icon-btn" title={copy.configure} onClick={onOpenConfig}>
-                <Settings className="h-3.5 w-3.5" />
-              </button>
+              {onOpenConfig ? (
+                <button type="button" className="icon-btn" title={copy.configure} onClick={onOpenConfig}>
+                  <Settings className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
               <button
                 type="button"
                 className={cx('save-state', isDirty && 'dirty')}
@@ -677,7 +683,7 @@ export default function EventsEditor({
                           <span className="script-event-option-main">
                             <b>{event.label}</b>
                             <small>
-                              {event.key.split('/')[0] ?? event.key} · {copy.commandCountShort(event.commandCount)}
+                              {event.key.split('/')[0] ?? event.key} · {workflowCopy.workspacePanels.detailCommandCount(event.commandCount)}
                             </small>
                           </span>
                         </button>
@@ -714,9 +720,9 @@ export default function EventsEditor({
                     >
                       <Sparkles className="ic" />
                       <span>
-                        <b>{copy.presetLabel(preset)}</b>
+                        <b>{workflowCopy.presets[preset.id].label}</b>
                         <small>
-                          {preset.location} · {copy.presetDescription(preset)}
+                          {preset.location} · {workflowCopy.presets[preset.id].description}
                         </small>
                       </span>
                     </button>
@@ -729,7 +735,6 @@ export default function EventsEditor({
             script={eventScript}
             locale={locale}
             resourceRegistry={resourceRegistry}
-            currentPlaybackCommandId={currentPlaybackCommandId}
             eventId={selectedKey ? getEventIdFromKey(selectedKey) : null}
             onScriptChange={handleScriptChange}
             className="h-full"
@@ -742,7 +747,6 @@ export default function EventsEditor({
 
 function ComposerSceneStrip({
   scene,
-  locale = 'zh-CN',
   pickMode,
   cameraPickMode,
   pickingActorIndex,
@@ -753,7 +757,6 @@ function ComposerSceneStrip({
   resourceRegistry,
 }: {
   scene: EventSceneSetup
-  locale?: LocaleCode
   pickMode: boolean
   cameraPickMode: boolean
   pickingActorIndex: number | null
@@ -764,11 +767,11 @@ function ComposerSceneStrip({
   resourceRegistry: EventResourceRegistry
 }) {
   const workflowCopy = useEventStageCopy().workflow
-  const copy = getEventComposerCopy(locale, workflowCopy)
-  const musicLabel = copy.music
+  const copy = workflowCopy.composer
+  const musicLabel = workflowCopy.sceneSetup.music
   const actorLabel = copy.actor
-  const pickLabel = copy.pick
-  const addActorLabel = copy.addActor
+  const pickLabel = workflowCopy.sceneSetup.pick
+  const addActorLabel = workflowCopy.sceneSetup.addActor
   const cameraTarget = parseSceneCameraTarget(scene.cameraInstruction)
 
   function commitActors(nextActors: EventSceneActor[]) {
@@ -792,7 +795,7 @@ function ComposerSceneStrip({
     <div className="scene-bar" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
       <span className="scene-chip">
         <Music className="h-3.5 w-3.5" />
-        <EventResourcePicker
+        <ResourcePicker
           value={scene.musicCue ?? ''}
           label={musicLabel}
           placeholder={musicLabel}
@@ -813,17 +816,17 @@ function ComposerSceneStrip({
           onPickCamera()
         }}
       >
-        <Camera className="h-3.5 w-3.5 text-(--text-tertiary)" />
+        <Camera className="text-text-tertiary h-3.5 w-3.5" />
         <span className="mono">{cameraTarget ? `${cameraTarget.x},${cameraTarget.y}` : (scene.cameraInstruction ?? 'follow')}</span>
-        <MapPin className="h-3.5 w-3.5 text-(--accent)" />
+        <MapPin className="text-accent h-3.5 w-3.5" />
       </button>
 
-      <span className="scene-label">{copy.actors.replace(/:$/u, '')}</span>
+      <span className="scene-label">{workflowCopy.sceneSetup.actors}</span>
       {scene.actors.map((actor, index) => {
         const isPicking = pickingActorIndex === index
         return (
           <span key={actor.id} className={cx('scene-chip scene-chip-actor', isPicking && 'scene-chip-active')}>
-            <EventResourcePicker
+            <ResourcePicker
               value={actor.actorName}
               label={actorLabel}
               placeholder={actorLabel}

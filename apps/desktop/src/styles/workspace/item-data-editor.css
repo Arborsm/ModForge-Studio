@@ -1,0 +1,334 @@
+/* Item library, focused editor frame, and live player-facing preview. */
+
+@layer components {
+  .item-editor-center {
+    @apply bg-surface-panel overflow-hidden p-0;
+  }
+
+  .item-editor-main {
+    @apply m-0 h-full;
+    max-width: none;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .item-editor-entry-toolbar {
+    @apply border-border-subtle flex min-h-10 min-w-0 items-center justify-between gap-3 border-b px-3.5 py-2;
+  }
+
+  .item-editor-entry-identity {
+    @apply flex min-w-0 items-baseline gap-2.5;
+  }
+
+  .item-editor-entry-name {
+    @apply text-text-primary text-body overflow-hidden whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .item-editor-main > .asset-entry-canvas {
+    @apply min-h-0 w-full self-start overflow-y-auto;
+    max-height: 100%;
+    scrollbar-width: thin;
+  }
+
+  .item-editor-main .asset-entry-tabs {
+    @apply rounded-none border-0 bg-transparent;
+  }
+
+  .item-editor-main .asset-entry-tab-list {
+    @apply bg-surface-panel sticky;
+    top: 0;
+    z-index: 2;
+  }
+
+  .item-editor-main .asset-entry-tab {
+    @apply inline-flex items-center gap-1.5;
+  }
+
+  .item-editor-main .asset-entry-tab-panel {
+    @apply px-4 pt-3.5 pb-5;
+  }
+
+  .item-editor-detail {
+    @apply grid min-h-0 flex-auto overflow-hidden;
+    grid-template-columns: minmax(0, 1fr) 20rem;
+  }
+
+  .item-tab-readiness {
+    @apply inline-flex flex-none;
+  }
+
+  .item-tab-readiness.is-complete {
+    @apply text-success;
+  }
+
+  .item-tab-readiness.is-needs-attention {
+    @apply text-warning;
+  }
+
+  .item-tab-readiness.is-optional {
+    @apply text-text-tertiary;
+  }
+
+  /* First-level item library. */
+
+  .item-catalog {
+    @apply bg-surface-panel min-h-0 flex-auto overflow-y-auto;
+  }
+
+  .item-catalog-toolbar {
+    @apply border-border-subtle sticky grid items-center gap-2.5 border-b px-4 py-3;
+    top: 0;
+    z-index: 3;
+    grid-template-columns: minmax(12rem, 1fr) minmax(13rem, 20rem) auto auto;
+    background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
+  }
+
+  .item-catalog-intro {
+    @apply min-w-0;
+  }
+
+  .item-catalog-intro h2,
+  .item-catalog-intro p,
+  .item-catalog-section-head h3 {
+    @apply m-0;
+  }
+
+  .item-catalog-intro h2 {
+    @apply text-text-primary text-sm font-bold;
+  }
+
+  .item-catalog-intro p {
+    @apply text-text-secondary text-meta overflow-hidden whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .item-catalog-search {
+    @apply text-text-tertiary relative flex items-center;
+  }
+
+  .item-catalog-search > svg {
+    @apply absolute;
+    left: 0.625rem;
+    z-index: 1;
+  }
+
+  .item-catalog-search .control-input {
+    @apply w-full pl-7.5;
+  }
+
+  .item-family-strip {
+    @apply border-border-subtle bg-surface-panel sticky grid border-b px-4 py-2;
+    top: 0;
+    z-index: 2;
+    grid-template-columns: repeat(10, minmax(6.5rem, 1fr));
+  }
+
+  .item-family-button {
+    @apply text-text-secondary text-caption flex min-h-9 min-w-0 items-center justify-center gap-1 border-b-2 border-b-transparent px-1.5 py-1;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .item-family-button > span:first-child {
+    @apply overflow-hidden whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .item-family-button .asset-editor-badge {
+    @apply hidden;
+  }
+
+  .item-family-button:hover {
+    @apply bg-surface-hover text-text-primary;
+  }
+
+  .item-family-button.is-active {
+    @apply text-accent font-bold;
+    border-bottom-color: var(--accent);
+  }
+
+  .item-catalog-content {
+    @apply grid gap-5 p-4;
+  }
+
+  .item-catalog-section {
+    @apply grid gap-2.5;
+  }
+
+  .item-catalog-section-head {
+    @apply flex items-baseline justify-between gap-3 pb-1.5;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+    list-style: none;
+  }
+
+  .item-catalog-section-head h3 {
+    @apply text-text-primary text-xs font-bold;
+  }
+
+  .item-catalog-section-head span {
+    @apply text-text-tertiary text-caption;
+  }
+
+  .item-catalog-grid {
+    @apply grid gap-2.5;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  }
+
+  .item-catalog-card {
+    @apply border-border-subtle bg-surface-panel grid min-w-0 gap-x-2.5 gap-y-1.5 rounded-lg border p-2 text-left;
+    grid-template-columns: 3.75rem minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    transition:
+      border-color 0.15s ease,
+      background-color 0.15s ease;
+  }
+
+  .item-catalog-card:hover {
+    @apply bg-surface-hover;
+    border-color: color-mix(in srgb, var(--accent) 54%, var(--border-color));
+  }
+
+  .item-catalog-card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .item-catalog-preview {
+    @apply text-text-tertiary relative flex h-15 w-15 items-center justify-center overflow-hidden rounded-md bg-transparent;
+    grid-row: 1 / 3;
+  }
+
+  .item-catalog-card-body {
+    @apply grid min-w-0 content-center gap-0.5;
+  }
+
+  .item-catalog-card-body strong,
+  .item-catalog-card-body span {
+    @apply overflow-hidden whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .item-catalog-card-body strong {
+    @apply text-text-primary text-xs;
+  }
+
+  .item-catalog-card-body span {
+    @apply text-text-tertiary text-caption font-mono;
+  }
+
+  .item-catalog-card > .asset-editor-badge {
+    @apply justify-self-start;
+  }
+
+  .item-catalog-empty {
+    @apply text-text-tertiary grid min-h-60 place-items-center content-center gap-2 text-center;
+  }
+
+  .item-catalog-empty p,
+  .item-catalog-truncated {
+    @apply text-text-tertiary text-meta m-0;
+  }
+
+  /* Tab-owned tools. */
+
+  .item-tab-tools {
+    @apply mb-3.5 flex min-w-0 flex-wrap items-center gap-2 pb-3;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+  }
+
+  .item-tab-tool-status {
+    @apply text-text-secondary text-meta inline-flex min-w-0 items-center gap-1.5;
+    max-width: min(32rem, 100%);
+  }
+
+  .item-tab-tool-status > span:not(.asset-editor-badge) {
+    @apply overflow-hidden whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* Right pane contains result preview only. */
+
+  .item-preview-pane {
+    @apply overflow-hidden p-0;
+    gap: 0;
+  }
+
+  .item-preview-content {
+    @apply grid h-full min-h-0 content-start gap-2.5 p-3.5;
+    grid-template-rows: auto minmax(10rem, 1fr) auto auto auto auto;
+  }
+
+  .item-preview-stage {
+    @apply bg-surface-viewport flex min-h-40 items-center justify-center overflow-hidden rounded-lg;
+    border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  }
+
+  .item-preview-sprite {
+    @apply max-w-full;
+  }
+
+  .item-preview-name {
+    @apply text-text-primary text-sm font-bold;
+  }
+
+  .item-preview-description {
+    @apply text-text-secondary text-meta m-0 overflow-hidden;
+    display: -webkit-box;
+    line-height: 1.6;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .item-preview-summary {
+    @apply gap-1.5 pt-2.5;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+  }
+
+  @media (max-width: 68rem) {
+    .item-editor-center {
+      @apply overflow-visible;
+    }
+
+    .item-editor-main {
+      @apply h-auto;
+    }
+
+    .item-editor-main > .asset-entry-canvas {
+      @apply overflow-visible;
+    }
+
+    .item-editor-detail {
+      @apply overflow-y-auto;
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .item-preview-pane {
+      @apply border-border-subtle overflow-visible border-t;
+      max-height: none;
+    }
+
+    .item-catalog-toolbar {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .item-catalog-intro,
+    .item-catalog-search {
+      @apply col-span-full;
+    }
+
+    .item-family-strip {
+      position: static;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 48rem) {
+    .item-family-strip {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+}

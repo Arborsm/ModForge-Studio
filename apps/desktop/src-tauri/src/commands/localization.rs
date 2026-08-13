@@ -25,6 +25,14 @@ pub async fn load_localization_default_engine(
 }
 
 #[tauri::command]
+pub async fn prewarm_localization_corpus(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+) -> Result<LocalizationCorpusWarmupStatus, String> {
+    execute!(app, debug, prewarm_localization_corpus, json!({}))
+}
+
+#[tauri::command]
 pub async fn save_localization_default_engine(
     app: tauri::AppHandle<AppRuntime>,
     debug: State<'_, DebugLoggingState>,

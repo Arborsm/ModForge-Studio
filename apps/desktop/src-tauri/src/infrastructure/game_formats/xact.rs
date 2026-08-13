@@ -25,6 +25,19 @@ pub fn load_xact_audio_data_url(root_path: String, cue: String) -> anyhow::Resul
     load_xact_audio_data_url_for_paths(&root_path, &cue)
 }
 
+pub fn scan_xact_cues(root_path: &str) -> anyhow::Result<Vec<String>> {
+    let root = clean_input_path(root_path);
+    let xsb_path = root.join("Content").join("XACT").join("Sound Bank.xsb");
+    if !xsb_path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let xsb = fs::read(&xsb_path)
+        .with_context(|| format!("Failed to read sound bank {}", normalize_path(&xsb_path)))?;
+    let header = parse_xsb_header(&xsb)?;
+    read_xsb_cue_names(&xsb, &header)
+}
+
 pub fn load_xact_audio_data_url_for_paths(root_path: &str, cue: &str) -> anyhow::Result<String> {
     let root = clean_input_path(root_path);
     let cue_name = cue.trim();

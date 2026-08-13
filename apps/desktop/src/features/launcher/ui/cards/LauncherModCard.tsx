@@ -4,6 +4,7 @@ import * as ContextMenu from '@radix-ui/react-context-menu'
 import { AlertTriangle, ArrowUp, Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
+import { getSmapiRequirementBadgeVersion } from '@features/launcher/model/smapiUpdateModel'
 import { LauncherArtworkCover } from './LauncherArtworkCover'
 import { getLauncherCardCoverWord, getLauncherCardFallbackPalette } from './launcherCardPresentation'
 
@@ -38,6 +39,10 @@ type LauncherModCardProps = {
   selected?: boolean
   missingDependencies?: string[]
   missingDependenciesLabel?: string
+  /** True when the mod manifest requires a newer SMAPI than the one installed. */
+  requiresNewerSmapi?: boolean
+  /** Minimum SMAPI version declared by the mod manifest, used for the requirement badge. */
+  minimumApiVersion?: string | null
 }
 
 function LauncherModCardContent({
@@ -65,6 +70,8 @@ function LauncherModCardContent({
   selected = false,
   missingDependencies = [],
   missingDependenciesLabel,
+  requiresNewerSmapi = false,
+  minimumApiVersion = null,
 }: LauncherModCardProps) {
   const copy = useEditorCopy()
   const fallbackPalette = getLauncherCardFallbackPalette(title)
@@ -74,6 +81,7 @@ function LauncherModCardContent({
   const normalizedLatestVersion = latestVersion?.trim() ?? ''
   const visibleMissingDependencies = missingDependencies.map((dependency) => dependency.trim()).filter(Boolean)
   const missingDependencyTitle = visibleMissingDependencies.join(', ')
+  const smapiRequirementVersion = getSmapiRequirementBadgeVersion({ requiresNewerSmapi, minimumApiVersion })
   const versionLabel = normalizedVersion ? (normalizedVersion.startsWith('v') ? normalizedVersion : `v${normalizedVersion}`) : ''
   const latestVersionLabel = normalizedLatestVersion
     ? normalizedLatestVersion.startsWith('v')
@@ -148,15 +156,29 @@ function LauncherModCardContent({
           </span>
         ) : null}
 
-        {visibleMissingDependencies.length ? (
-          <span
-            className="launcher-mod-card-missing-dependencies"
-            aria-label={missingDependenciesLabel}
-            data-tooltip={missingDependencyTitle}
-          >
-            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{copy.launcher.library.modDetail.missing}</span>
-          </span>
+        {visibleMissingDependencies.length || smapiRequirementVersion ? (
+          <div className="launcher-mod-card-status-badges">
+            {visibleMissingDependencies.length ? (
+              <span
+                className="launcher-mod-card-missing-dependencies"
+                aria-label={missingDependenciesLabel}
+                data-tooltip={missingDependencyTitle}
+              >
+                <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>{copy.launcher.library.modDetail.missing}</span>
+              </span>
+            ) : null}
+            {smapiRequirementVersion ? (
+              <span
+                className="launcher-mod-card-requires-smapi"
+                aria-label={copy.launcher.library.modDetail.requiresSmapiTooltip(smapiRequirementVersion)}
+                data-tooltip={copy.launcher.library.modDetail.requiresSmapiTooltip(smapiRequirementVersion)}
+              >
+                <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>{copy.launcher.library.modDetail.requiresSmapiBadge(smapiRequirementVersion)}</span>
+              </span>
+            ) : null}
+          </div>
         ) : null}
 
         {childCount > 0 ? (

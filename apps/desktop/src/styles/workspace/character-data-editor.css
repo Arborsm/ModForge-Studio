@@ -1,0 +1,338 @@
+/* Character library, focused editor frame, and live preview. */
+
+@layer components {
+  .character-editor-center {
+    @apply bg-surface-panel overflow-hidden p-0;
+  }
+
+  .character-editor-main {
+    @apply m-0 h-full;
+    max-width: none;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .character-editor-entry-toolbar {
+    @apply border-border-subtle flex min-h-10 min-w-0 items-center justify-between gap-3 border-b px-3.5 py-2;
+  }
+
+  .character-editor-entry-identity {
+    @apply flex min-w-0 items-baseline gap-2.5;
+  }
+
+  .character-editor-entry-name {
+    @apply text-text-primary text-body overflow-hidden whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .character-editor-main > .asset-entry-canvas {
+    @apply min-h-0 w-full self-start overflow-y-auto;
+    max-height: 100%;
+    scrollbar-width: thin;
+  }
+
+  .character-editor-main .asset-entry-tabs {
+    @apply rounded-none border-0 bg-transparent;
+  }
+
+  .character-editor-main .asset-entry-tab-list {
+    @apply bg-surface-panel sticky;
+    top: 0;
+    z-index: 2;
+  }
+
+  .character-editor-main .asset-entry-tab {
+    @apply inline-flex items-center gap-1.5;
+  }
+
+  .character-editor-main .asset-entry-tab-panel {
+    @apply px-4 pt-3.5 pb-5;
+  }
+
+  .character-editor-detail {
+    @apply grid min-h-0 flex-auto overflow-hidden;
+    grid-template-columns: minmax(0, 1fr) 20rem;
+  }
+
+  .character-tab-readiness {
+    @apply inline-flex flex-none;
+  }
+
+  .character-tab-readiness.is-complete {
+    @apply text-success;
+  }
+
+  .character-tab-readiness.is-needs-attention {
+    @apply text-warning;
+  }
+
+  .character-tab-readiness.is-optional {
+    @apply text-text-tertiary;
+  }
+
+  /* First-level visual library. */
+
+  .character-catalog {
+    @apply min-h-0 flex-auto overflow-y-auto;
+  }
+
+  .character-catalog-content {
+    @apply grid gap-5 p-4;
+  }
+
+  .character-catalog-section {
+    @apply grid gap-2.5;
+  }
+
+  .character-catalog-section-head {
+    @apply flex items-baseline justify-between gap-3 pb-1.5;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+  }
+
+  .character-catalog-section-head h3 {
+    @apply text-text-primary text-xs font-bold;
+  }
+
+  .character-catalog-section-head span {
+    @apply text-text-tertiary text-caption;
+  }
+
+  .character-catalog-grid {
+    @apply grid gap-2.5;
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  }
+
+  .character-catalog-card {
+    @apply bg-surface-panel grid min-w-0 gap-x-2.5 gap-y-2 rounded-md p-2 text-left;
+    grid-template-columns: 4.5rem minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    border: 1px solid var(--border-color);
+    transition:
+      border-color 0.15s ease,
+      background-color 0.15s ease;
+  }
+
+  .character-catalog-card:hover {
+    @apply bg-surface-hover;
+    border-color: color-mix(in srgb, var(--accent) 54%, var(--border-color));
+  }
+
+  .character-catalog-card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .character-catalog-preview {
+    @apply text-text-tertiary flex h-20 w-18 items-center justify-center overflow-hidden rounded;
+    grid-row: 1 / 3;
+  }
+
+  .character-catalog-card-body {
+    @apply grid min-w-0 content-center gap-0.5;
+  }
+
+  .character-catalog-card-body strong,
+  .character-catalog-card-body span {
+    @apply overflow-hidden whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .character-catalog-card-body strong {
+    @apply text-text-primary text-xs;
+  }
+
+  .character-catalog-card-body span {
+    @apply text-text-tertiary text-caption font-mono;
+  }
+
+  .character-catalog-card > .asset-editor-badge {
+    @apply justify-self-start;
+  }
+
+  .character-catalog-empty {
+    @apply text-text-tertiary grid min-h-64 place-items-center content-center gap-2 text-center;
+  }
+
+  .character-catalog-empty p {
+    @apply m-0 text-xs;
+  }
+
+  /* Tab-owned operations. */
+
+  .character-tab-tools {
+    @apply mb-3.5 grid gap-3 pb-3;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+  }
+
+  .character-tab-tools-title {
+    @apply text-text-primary text-xs font-bold;
+  }
+
+  .character-variant-tools,
+  .character-asset-tools {
+    @apply grid gap-2;
+  }
+
+  .character-asset-tools {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .character-asset-tool {
+    @apply flex min-w-0 items-center justify-between gap-2.5 pl-2.5;
+    border-left: 2px solid var(--border-color);
+  }
+
+  .character-tab-tool-status {
+    @apply text-text-secondary text-meta grid min-w-0 items-center gap-x-1.5 gap-y-1;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .character-tab-tool-status strong {
+    @apply text-text-primary;
+  }
+
+  .character-tab-tool-status > span:not(.asset-editor-badge) {
+    @apply text-caption col-span-full overflow-hidden font-mono whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .character-preview-variants {
+    @apply flex flex-wrap gap-1.5;
+  }
+
+  /* Gift tastes stay continuous with the active tab. */
+
+  .character-gift-taste-editor {
+    @apply mb-3.5 grid gap-2.5 pb-3.5;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+  }
+
+  .character-gift-taste-cta {
+    @apply grid gap-2;
+    justify-items: start;
+  }
+
+  .character-gift-taste-actions,
+  .character-gift-item-toolbar {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .character-gift-taste-grid {
+    @apply border-border-subtle border-border-subtle grid border-t border-l;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .character-gift-taste-section {
+    @apply border-border-subtle border-border-subtle grid gap-2 border-r border-b p-3;
+  }
+
+  .character-gift-taste-head {
+    @apply flex items-center justify-between gap-2;
+  }
+
+  .character-gift-taste-kind {
+    @apply text-text-primary text-body font-bold;
+  }
+
+  .character-gift-taste-count {
+    @apply text-text-tertiary text-meta tabular-nums;
+  }
+
+  .character-gift-item-list {
+    @apply flex flex-wrap gap-1.5;
+  }
+
+  .character-gift-item-chip {
+    @apply border-border-subtle text-text-secondary text-meta inline-flex min-w-0 items-center gap-1 rounded-md border pt-1 pr-1 pb-1 pl-2;
+  }
+
+  .character-gift-item-chip > span {
+    @apply overflow-hidden whitespace-nowrap;
+    max-width: 12rem;
+    text-overflow: ellipsis;
+  }
+
+  .character-gift-item-chip > button {
+    @apply inline-flex h-5 w-5 items-center justify-center rounded;
+  }
+
+  .character-gift-item-chip > button:hover {
+    @apply bg-surface-hover text-danger;
+  }
+
+  /* Right side is result preview only. */
+
+  .character-preview-pane {
+    @apply overflow-hidden p-0;
+    gap: 0;
+  }
+
+  .character-preview-content {
+    @apply grid h-full min-h-0 content-start gap-2.5 p-3.5;
+    grid-template-rows: auto minmax(11rem, 1fr) auto auto auto;
+  }
+
+  .character-preview-stage {
+    @apply bg-surface-viewport min-h-44 overflow-hidden rounded-lg;
+    border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  }
+
+  .character-preview-secondary {
+    @apply grid gap-2.5;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+  }
+
+  .character-preview-portrait,
+  .character-preview-walk-wrap {
+    @apply grid min-w-0 content-start gap-1.5;
+  }
+
+  .character-preview-section-title {
+    @apply text-text-secondary text-meta font-bold;
+  }
+
+  .character-preview-portrait-frame {
+    @apply border-border-subtle bg-surface-viewport block rounded-md border;
+  }
+
+  .character-preview-walk {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .character-preview-summary {
+    @apply gap-1.5 pt-2.5;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+  }
+
+  @media (max-width: 68rem) {
+    .character-editor-center {
+      @apply overflow-visible;
+    }
+
+    .character-editor-main {
+      @apply h-auto;
+    }
+
+    .character-editor-main > .asset-entry-canvas {
+      @apply overflow-visible;
+    }
+
+    .character-editor-detail {
+      @apply overflow-y-auto;
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .character-preview-pane {
+      @apply border-border-subtle overflow-visible border-t;
+      max-height: none;
+    }
+  }
+
+  @media (max-width: 48rem) {
+    .character-asset-tools,
+    .character-gift-taste-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+}

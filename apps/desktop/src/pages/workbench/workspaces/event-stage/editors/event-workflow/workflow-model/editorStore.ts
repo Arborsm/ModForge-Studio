@@ -1,6 +1,7 @@
 // Zustand 状态管理 — 事件编辑器全局状态
 
 import { create } from 'zustand'
+import { nextDraftEditMergeKey, tagNextDraftEdit } from '@features/cp-maker'
 import type { EventScript, EventCommand } from '@entities/event'
 import { parseRawArgs } from './rawSerializer'
 
@@ -20,6 +21,12 @@ interface EditorState {
   // ── 命令选择 ──
   selectedCommandIndex: number | null
   setSelectedCommandIndex: (index: number | null) => void
+
+  // ── 播放位置（预览播放推进到的命令 id）──
+  // 走 store 而非编辑器根 state：播放推进时只有订阅的卡片重渲染，
+  // 避免每次命令跃迁都重渲染整个编辑器（含全部 dnd 卡片）。
+  playbackCommandId: string | null
+  setPlaybackCommandId: (id: string | null) => void
 
   // ── 当前解析后的事件脚本（由上层注入）──
   currentScript: EventScript | null
@@ -56,6 +63,20 @@ interface EditorState {
   reset: () => void
 }
 
+/**
+ * Announces the pipeline operation the resulting draft write belongs to.
+ *
+ * A command edit reaches the draft indirectly: the store rebuilds the raw
+ * script and the editor stages it as one entry write. Tagging the write keeps
+ * each pipeline operation its own undo step — structural ones (insert, remove,
+ * move) never merge, while retyping the same command's arguments does.
+ */
+function tagPipelineEdit(operation: 'insert' | 'remove' | 'move'): void
+function tagPipelineEdit(operation: 'update', index: number): void
+function tagPipelineEdit(operation: 'insert' | 'update' | 'remove' | 'move', index?: number): void {
+  tagNextDraftEdit(operation === 'update' ? `event:update:${index}` : nextDraftEditMergeKey(`event:${operation}`))
+}
+
 function rebuildScriptRaw(script: EventScript): EventScript {
   const rawSegments = [
     script.scene.musicCue ?? '',
@@ -78,6 +99,10 @@ export const useEditorStore = create<EditorState>((set) => ({
   // 命令选择
   selectedCommandIndex: null,
   setSelectedCommandIndex: (index) => set({ selectedCommandIndex: index }),
+
+  // 播放位置
+  playbackCommandId: null,
+  setPlaybackCommandId: (id) => set({ playbackCommandId: id }),
 
   // 当前脚本
   currentScript: null,
@@ -114,6 +139,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   insertCommandAt: (index, raw) =>
     set((state) => {
       if (!state.currentScript) return state
+      tagPipelineEdit('insert')
       const cmds = [...state.currentScript.commands]
       const parsed = parseRawArgs(raw)
       const newCmd: EventCommand = {
@@ -138,6 +164,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   updateCommandAt: (index, raw) =>
     set((state) => {
       if (!state.currentScript) return state
+      tagPipelineEdit('update', index)
       const parsed = parseRawArgs(raw)
       const cmds = state.currentScript.commands.map((c, i) => (i === index ? { ...c, raw, command: parsed[0] ?? '', args: parsed } : c))
       const nextScript = rebuildScriptRaw({
@@ -150,6 +177,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   removeCommandAt: (index) =>
     set((state) => {
       if (!state.currentScript) return state
+      tagPipelineEdit('remove')
       const removedId = state.currentScript.commands[index]?.id
       const cmds = state.currentScript.commands.filter((_, i) => i !== index)
       const reindexed = cmds.map((c, i) => ({ ...c, index: i }))
@@ -174,6 +202,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   moveCommand: (fromIndex, toIndex) =>
     set((state) => {
       if (!state.currentScript) return state
+      tagPipelineEdit('move')
       const cmds = [...state.currentScript.commands]
       const [moved] = cmds.splice(fromIndex, 1)
       cmds.splice(toIndex, 0, moved)
@@ -201,6 +230,7 @@ export const useEditorStore = create<EditorState>((set) => ({
     set({
       currentScript: null,
       selectedCommandIndex: null,
+      playbackCommandId: null,
       pickModeTarget: null,
       isPickMode: false,
       commandPaletteOpen: false,

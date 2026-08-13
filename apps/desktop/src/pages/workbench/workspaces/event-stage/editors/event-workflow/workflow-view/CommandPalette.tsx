@@ -150,16 +150,16 @@ export function CommandPalette({ open, onClose, onSelect, copy }: CommandPalette
     <div className="fixed inset-0 z-100 flex items-start justify-center bg-black/20 pt-[15vh]">
       <div
         ref={containerRef}
-        className="flex w-160 max-w-[90vw] flex-col overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-panel) shadow-(--shadow-float)"
+        className="border-border-subtle bg-surface-panel shadow-float flex w-160 max-w-[90vw] flex-col overflow-hidden rounded-xl border"
       >
         {/* Search */}
-        <div className="flex items-center gap-2 border-b border-(--border-color) px-3 py-2">
-          <Search className="h-4 w-4 text-(--text-tertiary)" />
+        <div className="border-border-subtle flex items-center gap-2 border-b px-3 py-2">
+          <Search className="text-text-tertiary h-4 w-4" />
           <input
             ref={inputRef}
             type="text"
             placeholder={copy.commandPalette.searchPlaceholder}
-            className="min-w-0 flex-1 bg-transparent text-sm text-(--text-primary) outline-none placeholder:text-(--text-tertiary)"
+            className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-sm outline-none"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value)
@@ -169,7 +169,7 @@ export function CommandPalette({ open, onClose, onSelect, copy }: CommandPalette
           {search && (
             <button
               type="button"
-              className="rounded p-0.5 text-(--text-tertiary) hover:bg-(--bg-panel-muted) hover:text-(--text-primary)"
+              className="text-text-tertiary hover:bg-surface-panel-muted hover:text-text-primary rounded p-0.5"
               onClick={() => {
                 setSearch('')
                 setHighlightedIndex(0)
@@ -181,7 +181,7 @@ export function CommandPalette({ open, onClose, onSelect, copy }: CommandPalette
           )}
           <button
             type="button"
-            className="rounded p-1 text-(--text-tertiary) hover:bg-(--bg-panel-muted) hover:text-(--text-primary)"
+            className="text-text-tertiary hover:bg-surface-panel-muted hover:text-text-primary rounded p-1"
             onClick={onClose}
           >
             <X className="h-4 w-4" />
@@ -189,14 +189,14 @@ export function CommandPalette({ open, onClose, onSelect, copy }: CommandPalette
         </div>
 
         {/* Category filters */}
-        <div className="flex gap-1 overflow-x-auto border-b border-(--border-color) px-3 py-1.5">
+        <div className="border-border-subtle flex gap-1 overflow-x-auto border-b px-3 py-1.5">
           <button
             type="button"
             className={cx(
-              'shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors',
+              'shrink-0 rounded-full px-2.5 py-0.5 text-meta-px font-medium transition-colors',
               activeCategory === null
-                ? 'bg-(--accent) text-(--text-inverse)'
-                : 'bg-(--bg-panel-muted) text-(--text-secondary) hover:text-(--text-primary)',
+                ? 'bg-accent text-text-inverse'
+                : 'bg-surface-panel-muted text-text-secondary hover:text-text-primary',
             )}
             onClick={() => {
               setActiveCategory(null)
@@ -213,10 +213,10 @@ export function CommandPalette({ open, onClose, onSelect, copy }: CommandPalette
                 key={cat}
                 type="button"
                 className={cx(
-                  'shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors',
+                  'shrink-0 rounded-full px-2.5 py-0.5 text-meta-px font-medium transition-colors',
                   activeCategory === cat
-                    ? 'bg-(--accent) text-(--text-inverse)'
-                    : 'bg-(--bg-panel-muted) text-(--text-secondary) hover:text-(--text-primary)',
+                    ? 'bg-accent text-text-inverse'
+                    : 'bg-surface-panel-muted text-text-secondary hover:text-text-primary',
                 )}
                 onClick={() => {
                   setActiveCategory(activeCategory === cat ? null : cat)
@@ -232,14 +232,14 @@ export function CommandPalette({ open, onClose, onSelect, copy }: CommandPalette
         {/* Results */}
         <div ref={resultsRef} className="max-h-[50vh] overflow-y-auto p-2">
           {Array.from(filtered).length === 0 && (
-            <div className="flex flex-col items-center justify-center py-8 text-(--text-tertiary)">
+            <div className="text-text-tertiary flex flex-col items-center justify-center py-8">
               <Command className="h-8 w-8 opacity-40" />
               <p className="mt-2 text-sm">{copy.commandPalette.empty}</p>
             </div>
           )}
           {Array.from(filtered).map(([cat, list]) => (
             <div key={cat} className="mb-2">
-              <div className="sticky top-0 mb-1 bg-(--bg-panel) px-2 py-1 text-[10px] font-semibold tracking-wider text-(--text-tertiary) uppercase">
+              <div className="bg-surface-panel text-text-tertiary text-caption-px sticky top-0 mb-1 px-2 py-1 font-semibold tracking-wider uppercase">
                 {copy.categoryLabels[cat]} ({list.length})
               </div>
               <div className="grid grid-cols-2 gap-1">
@@ -256,7 +256,7 @@ export function CommandPalette({ open, onClose, onSelect, copy }: CommandPalette
                         'flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-all',
                         isHighlighted
                           ? 'border-[color-mix(in_srgb,var(--accent)_60%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_50%,transparent)]'
-                          : 'border-(--border-color) bg-(--bg-panel-muted) hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border-color))] hover:bg-[color-mix(in_srgb,var(--accent-soft)_40%,transparent)]',
+                          : 'border-border-subtle bg-surface-panel-muted hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border-color))] hover:bg-[color-mix(in_srgb,var(--accent-soft)_40%,transparent)]',
                       )}
                       onClick={() => {
                         onSelect(schema.key)
@@ -265,7 +265,7 @@ export function CommandPalette({ open, onClose, onSelect, copy }: CommandPalette
                       onMouseEnter={() => setHighlightedIndex(itemIndex)}
                     >
                       <div
-                        className={cx('flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold')}
+                        className={cx('flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-caption-px font-bold')}
                         style={{
                           backgroundColor: `${SEMANTIC_COLORS[schema.color] ?? '#6b7280'}26`,
                           color: SEMANTIC_COLORS[schema.color] ?? '#6b7280',
@@ -274,8 +274,8 @@ export function CommandPalette({ open, onClose, onSelect, copy }: CommandPalette
                         {commandLabel(schema.key).slice(0, 2).toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <div className="text-xs font-medium text-(--text-primary)">{commandLabel(schema.key)}</div>
-                        <div className="truncate text-[10px] text-(--text-tertiary)">{schema.key}</div>
+                        <div className="text-text-primary text-xs font-medium">{commandLabel(schema.key)}</div>
+                        <div className="text-text-tertiary text-caption-px truncate">{schema.key}</div>
                       </div>
                     </button>
                   )

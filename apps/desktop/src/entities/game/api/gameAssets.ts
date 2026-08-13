@@ -6,6 +6,7 @@ import type { HostCommandPolicy } from '@platform/host-command-client'
 import {
   loadEventAssetFromDevBridge,
   loadImageDataUrlFromDevBridge,
+  loadMapAssetFromDevBridge,
   loadResourceRegistryFromDevBridge,
   loadTextAssetFromDevBridge,
 } from './devAssetBridge'
@@ -13,7 +14,9 @@ import type {
   AudioAssetSummary,
   DefaultSaveSlotSummary,
   EventAssetSummary,
+  GameDataAssetSummary,
   GameDirectoryInfo,
+  GameImageAssetSummary,
   LocalTextFileContent,
   MapAssetContent,
   MapAssetSummary,
@@ -33,6 +36,8 @@ const loadImageDataUrlCache = createPromiseCache<string>()
 const scanAudioAssetsCache = createPromiseCache<AudioAssetSummary[]>()
 const loadAudioDataUrlCache = createPromiseCache<string>()
 const loadXactAudioDataUrlCache = createPromiseCache<string>()
+const scanImageAssetsCache = createPromiseCache<GameImageAssetSummary[]>()
+const scanDataAssetsCache = createPromiseCache<GameDataAssetSummary[]>()
 const scanDefaultSaveSlotsCache = createPromiseCache<DefaultSaveSlotSummary[]>()
 const loadResourceRegistryCache = createPromiseCache<ResourceRegistry>()
 
@@ -72,6 +77,8 @@ export function getGameAssetCacheStats() {
     audioScan: scanAudioAssetsCache.size(),
     audioDataUrl: loadAudioDataUrlCache.size(),
     xactAudioDataUrl: loadXactAudioDataUrlCache.size(),
+    imageScan: scanImageAssetsCache.size(),
+    dataScan: scanDataAssetsCache.size(),
     saveSlots: scanDefaultSaveSlotsCache.size(),
     resourceRegistry: loadResourceRegistryCache.size(),
   }
@@ -115,9 +122,10 @@ export function scanEvents(path: string) {
 /** Loads a map asset body from the game root for editor preview and patching. */
 export function loadMapAsset(rootPath: string, mapPath: string, locale?: string) {
   const cacheKey = getLocalizedRootedAssetCacheKey(rootPath, mapPath, locale)
-  return readPending(loadMapAssetCache, cacheKey, () =>
-    invokeDesktop<MapAssetContent>(HOST_COMMANDS.loadMapAsset, { rootPath, mapPath, locale }, gameAssetPoolPolicy),
-  )
+  return readPending(loadMapAssetCache, cacheKey, async () => {
+    const bridged = await loadMapAssetFromDevBridge(rootPath, mapPath, locale)
+    return bridged ?? invokeDesktop<MapAssetContent>(HOST_COMMANDS.loadMapAsset, { rootPath, mapPath, locale }, gameAssetPoolPolicy)
+  })
 }
 
 /** Persists an already encoded map PNG through the desktop Host Runtime. */
@@ -175,6 +183,22 @@ export function loadAudioDataUrl(path: string) {
   const cacheKey = normalizeCachePathSegment(path)
   return readPending(loadAudioDataUrlCache, cacheKey, () =>
     invokeDesktop<string>(HOST_COMMANDS.loadAudioDataUrl, { path }, audioResolvePoolPolicy),
+  )
+}
+
+/** Scans the game Content tree for XNB texture assets (maps and data excluded). */
+export function scanImageAssets(path: string) {
+  const cacheKey = normalizeCachePathSegment(path)
+  return readCached(scanImageAssetsCache, cacheKey, () =>
+    invokeDesktop<GameImageAssetSummary[]>(HOST_COMMANDS.scanImageAssets, { path }, gameAssetPoolPolicy),
+  )
+}
+
+/** Scans `Content/Data` for XNB and JSON data assets. */
+export function scanDataAssets(path: string) {
+  const cacheKey = normalizeCachePathSegment(path)
+  return readCached(scanDataAssetsCache, cacheKey, () =>
+    invokeDesktop<GameDataAssetSummary[]>(HOST_COMMANDS.scanDataAssets, { path }, gameAssetPoolPolicy),
   )
 }
 

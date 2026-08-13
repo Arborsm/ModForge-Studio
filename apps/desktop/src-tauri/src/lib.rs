@@ -25,11 +25,75 @@ pub mod diagnostics {
     pub use crate::domain::localization::semantic::{SemanticBenchmarkSample, benchmark_query};
 }
 
+/// Read-only helpers for maintainer-owned, local map-pack acceptance reports.
+#[cfg(feature = "installed-game-validation")]
+pub mod map_validation {
+    use anyhow::Context;
+    use serde_json::Value;
+    use std::path::Path;
+
+    pub use crate::infrastructure::game_formats::map::MapDocument;
+
+    pub fn read_relaxed_json(path: &Path) -> anyhow::Result<Value> {
+        crate::infrastructure::game_formats::json_relaxed::read_json_file(
+            path,
+            &format!("map-pack audit JSON `{}`", path.display()),
+        )
+        .map(|(_, value)| value)
+    }
+
+    pub fn import_content_pack(path: &Path) -> anyhow::Result<Value> {
+        let draft = crate::domain::cp_maker::builder::import_cp_maker_pack(
+            path.to_string_lossy().as_ref(),
+        )?;
+        serde_json::to_value(draft).context("Failed to serialize imported content pack draft")
+    }
+
+    pub fn parse_map(path: &Path, relative_path: &str) -> anyhow::Result<MapDocument> {
+        let bytes = std::fs::read(path)
+            .with_context(|| format!("Failed to read map asset `{}`", path.display()))?;
+        crate::infrastructure::game_formats::parse_map_asset(&bytes, path, relative_path)
+    }
+
+    pub fn is_tbin_xnb(path: &Path) -> anyhow::Result<bool> {
+        let xnb = crate::infrastructure::game_formats::xnb::read_xnb_from_path(path)?;
+        let has_tbin_reader = xnb.readers.iter().any(|reader| {
+            matches!(
+                reader.name.split(',').next().unwrap_or_default().trim(),
+                "xTile.Pipeline.TideReader"
+                    | "xTile.Pipeline.TbinReader"
+                    | "xTile.Pipeline.TBinReader"
+            )
+        });
+        Ok(has_tbin_reader && xnb.content.as_bytes().is_some())
+    }
+
+    pub fn serialize_map(document: &MapDocument) -> anyhow::Result<Option<Vec<u8>>> {
+        match document.format {
+            crate::infrastructure::game_formats::map::MapFormat::Tmx => {
+                crate::infrastructure::game_formats::tmx::serialize_tmx_map(document).map(Some)
+            }
+            crate::infrastructure::game_formats::map::MapFormat::Tbin => {
+                crate::infrastructure::game_formats::tbin::serialize_tbin_map(document).map(Some)
+            }
+            crate::infrastructure::game_formats::map::MapFormat::Xnb => Ok(None),
+        }
+    }
+
+    pub fn parse_map_bytes(
+        bytes: &[u8],
+        source_path: &Path,
+        relative_path: &str,
+    ) -> anyhow::Result<MapDocument> {
+        crate::infrastructure::game_formats::parse_map_asset(bytes, source_path, relative_path)
+    }
+}
+
 use commands::ai::{
     apply_ai_profiles_import, cancel_ai_job, clear_ai_translation_cache, export_ai_profiles,
-    get_ai_translation_cache_stats, list_ai_models, load_ai_settings, preview_ai_profiles_import,
-    read_ai_translation_cache, save_ai_settings, test_ai_profile, translate_ai_batch,
-    write_ai_translation_cache,
+    fetch_ai_models_dev_catalog, get_ai_translation_cache_stats, list_ai_models, load_ai_settings,
+    preview_ai_profiles_import, read_ai_translation_cache, save_ai_settings, test_ai_profile,
+    translate_ai_batch, write_ai_translation_cache,
 };
 use commands::ai_usage::{
     clear_ai_usage, export_ai_usage, query_ai_usage_records, query_ai_usage_summary,
@@ -39,19 +103,27 @@ use commands::assets::{
     clear_file_cache, detect_default_game_directory, export_file, export_map_png,
     get_file_cache_stats, list_known_game_directories, load_audio_data_url, load_event_asset,
     load_image_data_url, load_map_asset, load_text_asset, load_text_file, scan_audio_assets,
-    scan_events, scan_maps, validate_game_directory,
+    scan_data_assets, scan_events, scan_image_assets, scan_maps, validate_game_directory,
 };
 use commands::audio::load_xact_audio_data_url;
 use commands::content_patcher::load_content_patcher_result_asset;
 use commands::cp_maker::{
-    build_cp_maker_map_asset, copy_cp_maker_draft, delete_cp_maker_draft, export_cp_maker_pack,
-    import_cp_maker_pack, list_cp_maker_drafts, load_cp_maker_draft, load_cp_maker_session,
-    save_cp_maker_draft, save_cp_maker_session,
+    build_cp_maker_map_asset, copy_cp_maker_draft, delete_cp_maker_draft,
+    delete_cp_maker_project_asset, export_cp_maker_pack, import_cp_maker_pack,
+    import_cp_maker_project_assets, list_cp_maker_drafts, load_cp_maker_draft,
+    load_cp_maker_project_map_asset, load_cp_maker_session, read_cp_maker_project_asset,
+    rename_cp_maker_project_asset, save_cp_maker_draft, save_cp_maker_session,
+    write_cp_maker_project_asset, write_cp_maker_project_assets,
+};
+use commands::debug_bridge::{
+    get_debug_bridge_mod_state, get_debug_bridge_status, install_debug_bridge_mod,
+    send_debug_bridge_command,
 };
 use commands::launcher::{
-    cancel_launcher_download, cancel_nexus_sso, check_launcher_updates, clear_launcher_image_cache,
-    download_launcher_mod, get_launcher_backup_directory, get_nexus_sso_status,
-    inspect_launcher_archive, install_launcher_archive, launch_launcher_game,
+    cancel_launcher_download, cancel_nexus_sso, check_launcher_updates, check_smapi_update,
+    clear_launcher_image_cache, download_launcher_mod, find_smapi_installer_downloads,
+    get_launcher_backup_directory, get_nexus_sso_status, inspect_launcher_archive,
+    install_launcher_archive, install_smapi_update, launch_launcher_game,
     list_launcher_install_backups, load_cached_launcher_updates, load_launcher_download_queue,
     load_launcher_gmcm_probe_diagnostics, load_launcher_image_failures,
     load_launcher_library_covers, load_launcher_library_state, load_launcher_mod_config,
@@ -78,11 +150,11 @@ use commands::localization::{
     list_localization_review_runs, list_localization_scopes, load_localization_default_engine,
     load_localization_review_run, load_localization_scope, load_localization_semantic_settings,
     load_localization_style_guide, open_localization_semantic_model_directory,
-    probe_localization_semantic_search, rebuild_localization_semantic_index,
-    rebuild_official_localization_index, record_confirmed_translations,
-    release_localization_semantic_runtime, remove_localization_profile_binding,
-    rename_localization_profile, resolve_localization_scope, review_localization_batch,
-    save_localization_default_engine, save_localization_scope_settings,
+    prewarm_localization_corpus, probe_localization_semantic_search,
+    rebuild_localization_semantic_index, rebuild_official_localization_index,
+    record_confirmed_translations, release_localization_semantic_runtime,
+    remove_localization_profile_binding, rename_localization_profile, resolve_localization_scope,
+    review_localization_batch, save_localization_default_engine, save_localization_scope_settings,
     save_localization_semantic_settings, save_localization_style_guide,
     search_official_localization, search_translation_memory, set_localization_profile_binding,
     sync_localization_semantic_index, test_localization_semantic_remote_profile,
@@ -198,6 +270,10 @@ pub fn run() {
             get_file_cache_stats,
             clear_file_cache,
             validate_game_directory,
+            get_debug_bridge_status,
+            send_debug_bridge_command,
+            get_debug_bridge_mod_state,
+            install_debug_bridge_mod,
             scan_maps,
             scan_events,
             scan_mod_projects,
@@ -215,6 +291,13 @@ pub fn run() {
             build_cp_maker_map_asset,
             export_cp_maker_pack,
             import_cp_maker_pack,
+            read_cp_maker_project_asset,
+            load_cp_maker_project_map_asset,
+            write_cp_maker_project_asset,
+            write_cp_maker_project_assets,
+            import_cp_maker_project_assets,
+            rename_cp_maker_project_asset,
+            delete_cp_maker_project_asset,
             load_content_patcher_result_asset,
             load_map_asset,
             export_map_png,
@@ -224,6 +307,8 @@ pub fn run() {
             load_text_file,
             load_image_data_url,
             scan_audio_assets,
+            scan_image_assets,
+            scan_data_assets,
             load_audio_data_url,
             load_xact_audio_data_url,
             load_resource_registry,
@@ -262,6 +347,9 @@ pub fn run() {
             load_cached_launcher_updates,
             load_suppressed_launcher_update_mod_ids,
             check_launcher_updates,
+            check_smapi_update,
+            install_smapi_update,
+            find_smapi_installer_downloads,
             download_launcher_mod,
             cancel_launcher_download,
             inspect_launcher_archive,
@@ -286,6 +374,7 @@ pub fn run() {
             test_ai_profile,
             translate_ai_batch,
             cancel_ai_job,
+            fetch_ai_models_dev_catalog,
             read_ai_translation_cache,
             write_ai_translation_cache,
             get_ai_translation_cache_stats,
@@ -296,6 +385,7 @@ pub fn run() {
             clear_ai_usage,
             load_localization_default_engine,
             save_localization_default_engine,
+            prewarm_localization_corpus,
             load_machine_translation_settings,
             save_machine_translation_settings,
             list_machine_translation_languages,

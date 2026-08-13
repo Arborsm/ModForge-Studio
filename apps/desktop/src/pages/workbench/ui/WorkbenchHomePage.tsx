@@ -1,14 +1,18 @@
 import {
   ArrowRight,
   Building2,
+  CalendarClock,
   FileText,
   FolderOpen,
   GitMerge,
   Languages,
+  Mail,
   Map,
+  MessagesSquare,
   Package,
   Plus,
   Save,
+  Settings,
   TriangleAlert,
   Upload,
   Users,
@@ -21,7 +25,8 @@ import type { WorkspaceStatus } from '@entities/map'
 
 type WorkbenchHomeTaskSummary = {
   exportCount: number
-  conflictCount: number
+  errorCount: number
+  warningCount: number
   directoryStatus: WorkspaceStatus
 }
 
@@ -44,7 +49,7 @@ type WorkbenchHomePageProps = {
   onCloseProject?: () => void
 }
 
-type ContentCountMode = Exclude<WorkspaceId, 'mods'>
+type ContentCountMode = 'map' | 'events' | 'characters' | 'buildings' | 'items'
 
 function isContentWorkspaceId(value: string): value is ContentCountMode {
   return value === 'map' || value === 'events' || value === 'characters' || value === 'buildings' || value === 'items'
@@ -58,6 +63,9 @@ const AUTHORING_MODULE_BY_WORKSPACE: Record<WorkspaceId, string> = {
   characters: 'character-authoring',
   buildings: 'building-authoring',
   items: 'item-authoring',
+  dialogue: 'dialogue-editor',
+  schedules: 'schedule-editor',
+  mail: 'mail-editor',
 }
 
 const PROJECT_MODULES = [
@@ -65,9 +73,13 @@ const PROJECT_MODULES = [
   { id: 'map-authoring', icon: Map },
   { id: 'event-authoring', icon: GitMerge },
   { id: 'character-authoring', icon: Users },
+  { id: 'dialogue-editor', icon: MessagesSquare },
+  { id: 'schedule-editor', icon: CalendarClock },
+  { id: 'mail-editor', icon: Mail },
   { id: 'building-authoring', icon: Building2 },
   { id: 'item-authoring', icon: Package },
   { id: 'project-translation', icon: Languages },
+  { id: 'project-settings', icon: Settings },
 ] as const
 
 function getCurrentProject(model: StudioDeskModel) {
@@ -80,7 +92,7 @@ function isProjectEmpty(model: StudioDeskModel) {
   }
 
   const patchTotal = model.workspaceEntrypoints.reduce((sum, entry) => sum + entry.patchCount, 0)
-  const statsTotal = model.stats.mapCount + model.stats.eventCount + model.stats.assetCount + model.stats.festivalCount
+  const statsTotal = model.stats.mapCount + model.stats.eventCount + model.stats.assetCount
   return patchTotal === 0 && statsTotal === 0 && model.recentInspirations.length === 0
 }
 
@@ -337,9 +349,13 @@ export function WorkbenchHomePage({
                       <span className="t">{navCopy.pendingExportMetric}</span>
                       <span className="n">{taskSummary.exportCount}</span>
                     </button>
-                    <div className={cx('workbench-shell-home-attn-row', taskSummary.conflictCount > 0 && 'is-warn')} role="status">
-                      <span className="t">{navCopy.conflictMetric}</span>
-                      <span className="n">{taskSummary.conflictCount}</span>
+                    <div className={cx('workbench-shell-home-attn-row', taskSummary.errorCount > 0 && 'is-warn')} role="status">
+                      <span className="t">{navCopy.errorMetric}</span>
+                      <span className="n">{taskSummary.errorCount}</span>
+                    </div>
+                    <div className="workbench-shell-home-attn-row" role="status">
+                      <span className="t">{navCopy.warningMetric}</span>
+                      <span className="n">{taskSummary.warningCount}</span>
                     </div>
                     <button
                       type="button"
@@ -475,8 +491,8 @@ export function WorkbenchHomePage({
                       <span>
                         <span className="name">
                           {project.title}
-                          {project.statuses.includes('conflict') || project.conflictCount > 0 ? (
-                            <span className="badge warn">{navCopy.conflictMetric}</span>
+                          {project.statuses.includes('error') || project.errorCount > 0 ? (
+                            <span className="badge warn">{navCopy.errorMetric}</span>
                           ) : null}
                         </span>
                         <span className="meta">

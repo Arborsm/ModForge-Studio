@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { useItemsCopy } from '@locales/provider'
 import type { ModBrowserEntry } from '@pages/workbench/workspaces/mod'
-import type { ItemWorkspaceEntry } from '../entities/item'
+import type { ItemWorkspaceEntry } from '@entities/item'
 import { paginateItems, sortItemsBySearchPriority } from './itemCatalogPagination'
 import { CatalogPane } from './ItemCatalogPane'
 import { DetailPane } from './ItemDetailPane'
@@ -39,6 +39,7 @@ function useItemWorkspaceViewModel({
   onItemFilterChange,
   onSelectItem,
   onSelectModItem,
+  onOpenItemInAuthoring,
 }: ItemWorkspaceProps) {
   const copy = useItemsCopy()
   const ui = useItemWorkspaceUi()
@@ -162,6 +163,7 @@ function useItemWorkspaceViewModel({
     setCatalogViewMode: ui.setCatalogViewMode,
     handleSelectItem,
     handleSelectModItem,
+    onOpenItemInAuthoring,
   }
 }
 
@@ -235,6 +237,7 @@ export function ItemDetailPanel(props: ItemWorkspaceProps) {
       onDetailTabChange={view.setActiveDetailTab}
       itemLookup={view.itemLookup}
       textureStatesByAssetName={view.textureStatesByAssetName}
+      onOpenItemInAuthoring={view.onOpenItemInAuthoring}
     />
   )
 }
@@ -244,7 +247,7 @@ export default function ItemWorkspace({ ...props }: ItemWorkspaceProps) {
 
   return (
     <div
-      className="flex h-full flex-col overflow-hidden bg-(--bg-app)"
+      className="bg-surface-app flex h-full flex-col overflow-hidden"
       style={{
         background:
           'radial-gradient(circle 32.5rem at 14% -6%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 68%), radial-gradient(circle 28.75rem at 98% -2%, color-mix(in srgb, var(--info) 6%, transparent), transparent 70%), linear-gradient(color-mix(in srgb, var(--border-color) 22%, transparent) 1px, transparent 1px) 0 0 / 2.5rem 2.5rem, linear-gradient(90deg, color-mix(in srgb, var(--border-color) 22%, transparent) 1px, transparent 1px) 0 0 / 2.5rem 2.5rem, var(--bg-app)',
@@ -310,6 +313,7 @@ export default function ItemWorkspace({ ...props }: ItemWorkspaceProps) {
             onDetailTabChange={view.setActiveDetailTab}
             itemLookup={view.itemLookup}
             textureStatesByAssetName={view.textureStatesByAssetName}
+            onOpenItemInAuthoring={view.onOpenItemInAuthoring}
           />
         </div>
       </div>

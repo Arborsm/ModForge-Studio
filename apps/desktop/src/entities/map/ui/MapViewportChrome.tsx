@@ -1,5 +1,5 @@
 import * as ContextMenu from '@radix-ui/react-context-menu'
-import type { CSSProperties, ReactNode, RefObject } from 'react'
+import { useLayoutEffect, useRef, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { useEditorCopy } from '@locales/provider'
 import type { ThemeMode } from '@locales/api'
 import type { TileHoverInfo } from '@entities/map'
@@ -28,8 +28,8 @@ export function MapViewportEmptyState({ theme, accentColor, viewportBackdropStyl
       />
       <div className="relative flex h-full items-center justify-center p-10">
         <div className="panel-overlay-card max-w-md px-6 py-5 text-center">
-          <p className="text-xs font-semibold tracking-[0.24em] text-(--text-tertiary) uppercase">{labels.fitMap}</p>
-          <p className="mt-3 text-base font-semibold text-(--text-primary)">{labels.loadPrompt}</p>
+          <p className="text-text-tertiary tracking-ui-wider text-xs font-semibold uppercase">{labels.fitMap}</p>
+          <p className="text-text-primary mt-3 text-base font-semibold">{labels.loadPrompt}</p>
         </div>
       </div>
     </div>
@@ -68,7 +68,7 @@ export function MapViewportStatsChips({
 
 export function MapViewportImageError({ error }: { error: string }) {
   return (
-    <div className="pointer-events-none absolute bottom-4 left-4 z-10 rounded-lg border border-[color-mix(in_srgb,var(--danger)_32%,transparent)] bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] px-3 py-2 text-xs text-(--danger)">
+    <div className="text-danger pointer-events-none absolute bottom-4 left-4 z-10 rounded-lg border border-[color-mix(in_srgb,var(--danger)_32%,transparent)] bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] px-3 py-2 text-xs">
       {error}
     </div>
   )
@@ -114,10 +114,45 @@ export function MapViewportCanvasLayers({
   )
 }
 
+type MapViewportLightingOverlayProps = {
+  bakedCanvas: HTMLCanvasElement
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+/**
+ * Multiply-blended world-lighting layer. The baked canvas is already in
+ * overlay space (`255 - stored^2 / 255`); it is drawn once per bake and then
+ * only repositioned/resized with the map, so panning/zooming costs no rebake.
+ */
+export function MapViewportLightingOverlay({ bakedCanvas, left, top, width, height }: MapViewportLightingOverlayProps) {
+  const ref = useRef<HTMLCanvasElement>(null)
+
+  useLayoutEffect(() => {
+    const canvas = ref.current
+    if (!canvas) {
+      return
+    }
+    canvas.width = bakedCanvas.width
+    canvas.height = bakedCanvas.height
+    canvas.getContext('2d')?.drawImage(bakedCanvas, 0, 0)
+  }, [bakedCanvas])
+
+  return (
+    <canvas
+      ref={ref}
+      className="pointer-events-none absolute z-3"
+      style={{ left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px`, mixBlendMode: 'multiply' }}
+    />
+  )
+}
+
 type MapViewportContextMenuProps = {
   viewportContent: ReactNode
   contextMenuHover: TileHoverInfo | null
-  contextMenuExtraItems?: ReactNode
+  contextMenuExtraItems?: ReactNode | ((hover: TileHoverInfo | null) => ReactNode)
   onOpen: () => void
   onFitZoom: () => void
   onOneToOneZoom: () => void
@@ -181,27 +216,25 @@ export function MapViewportContextMenu({
               {labels.exportPng}
             </ContextMenu.Item>
           ) : null}
-          <ContextMenu.Separator className="context-menu-separator" />
           {onAddObjectHere ? (
-            <ContextMenu.Item
-              className="context-menu-item"
-              disabled={!contextMenuHover}
-              onSelect={() => {
-                const hover = contextMenuHover
-                if (hover) {
-                  onAddObjectHere(hover.tileX, hover.tileY)
-                }
-              }}
-            >
-              {labels.addObjectHere}
-              {contextMenuHover ? ` (${contextMenuHover.tileX}, ${contextMenuHover.tileY})` : ''}
-            </ContextMenu.Item>
-          ) : (
-            <ContextMenu.Item className="context-menu-item" disabled>
-              {labels.addObjectHere} · {labels.unavailable}
-            </ContextMenu.Item>
-          )}
-          {contextMenuExtraItems}
+            <>
+              <ContextMenu.Separator className="context-menu-separator" />
+              <ContextMenu.Item
+                className="context-menu-item"
+                disabled={!contextMenuHover}
+                onSelect={() => {
+                  const hover = contextMenuHover
+                  if (hover) {
+                    onAddObjectHere(hover.tileX, hover.tileY)
+                  }
+                }}
+              >
+                {labels.addObjectHere}
+                {contextMenuHover ? ` (${contextMenuHover.tileX}, ${contextMenuHover.tileY})` : ''}
+              </ContextMenu.Item>
+            </>
+          ) : null}
+          {typeof contextMenuExtraItems === 'function' ? contextMenuExtraItems(contextMenuHover) : contextMenuExtraItems}
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>

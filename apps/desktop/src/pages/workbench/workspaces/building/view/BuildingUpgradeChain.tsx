@@ -1,9 +1,14 @@
 import { useBuildingsCopy } from '@locales/provider'
-import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../entities/building'
+import {
+  buildAbsoluteSpriteLayerStyle,
+  getResolvedSourceRect,
+  type BuildingTextureAssetState,
+  type BuildingWorkspaceEntry,
+} from '@entities/building'
 import type { BuildingsPanelCopy } from '@locales/api'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { cx } from '@shared/lib/helper'
-import { buildAbsoluteSpriteLayerStyle, getResolvedSourceRect, getStageBadge } from './buildingViewHelpers'
+import { getStageBadge } from './buildingViewHelpers'
 
 export type BuildingUpgradeChainProps = {
   upgradeChain: BuildingWorkspaceEntry[]
@@ -76,7 +81,7 @@ function StageCard({
             />
           </div>
         ) : (
-          <p className="px-1 text-center text-[0.65rem] text-(--text-secondary)">{copy.noTexture}</p>
+          <p className="text-text-secondary text-meta px-1 text-center">{copy.noTexture}</p>
         )}
         {textureState?.loading ? <ImageSkeleton overlay className="building-stage-skeleton" rounded={false} /> : null}
       </div>
@@ -98,7 +103,7 @@ export function BuildingUpgradeChain(props: BuildingUpgradeChainProps) {
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <p className="building-workspace-section-title">{props.copy.upgradeTitle}</p>
-        <p className="truncate font-mono text-[0.65rem] text-(--text-tertiary)">
+        <p className="text-text-tertiary text-meta truncate font-mono">
           {props.upgradeChain[0]?.rootKey ?? ''} → {props.upgradeChain[props.upgradeChain.length - 1]?.leafKey ?? ''}
         </p>
       </div>

@@ -53,6 +53,10 @@ pub(crate) struct InstallManagerSessionResult {
     pub installed_mods: Vec<InstallManagerInstalledMod>,
     pub backup_id: String,
     pub backup_path: String,
+    /// Version of the primary target before it was replaced by this install.
+    pub previous_version: Option<String>,
+    /// True when the primary target already existed and was replaced in place.
+    pub upgraded: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -61,6 +65,10 @@ pub(crate) struct InstallManagerBackupSummary {
     pub backup_path: String,
     pub delete_count: usize,
     pub overwrite_count: usize,
+    pub created_at_ms: u128,
+    pub primary_mod_name: Option<String>,
+    pub primary_version: Option<String>,
+    pub mod_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -77,6 +85,8 @@ struct PlannedTarget {
     version: Option<String>,
     folder_name: String,
     target_path: PathBuf,
+    /// Version of the already-installed target this plan replaces, if any.
+    previous_version: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -117,7 +127,22 @@ struct BackupSessionMetadata {
     backup_path: String,
     created_at_ms: u128,
     mods_path: String,
+    #[serde(default)]
+    primary_mod_name: Option<String>,
+    #[serde(default)]
+    primary_version: Option<String>,
+    #[serde(default)]
+    installed_mods: Vec<BackupInstalledModMetadata>,
     entries: Vec<BackupEntryMetadata>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BackupInstalledModMetadata {
+    mod_name: String,
+    version: Option<String>,
+    operation: String,
+    target_path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -155,6 +180,8 @@ enum PrimaryInstallPriority {
 #[derive(Debug, Clone)]
 struct ExecutedInstall {
     priority: PrimaryInstallPriority,
+    upgraded: bool,
+    previous_version: Option<String>,
     result: InstallManagerInstalledMod,
 }
 
@@ -223,6 +250,7 @@ pub(crate) fn install_staged_bundle_at_path(
     let mut entries = Vec::new();
     let mut executed_installs = Vec::new();
     let mut installed_mods = Vec::new();
+    let mut installed_mod_metadata = Vec::new();
 
     for (index, operation) in operations.iter().enumerate() {
         let entry_id = format!("entry-{:02}", index + 1);
@@ -248,13 +276,27 @@ pub(crate) fn install_staged_bundle_at_path(
         )?;
         executed_installs.push(ExecutedInstall {
             priority: primary_install_priority(operation),
+            upgraded: matches!(operation, InstallOperation::UpgradeReplace { .. }),
+            previous_version: operation.previous_version(),
             result: result.clone(),
+        });
+        installed_mod_metadata.push(BackupInstalledModMetadata {
+            mod_name: result.mod_name.clone(),
+            version: result.version.clone(),
+            operation: install_operation_label(operation).to_string(),
+            target_path: result.target_path.clone(),
         });
         installed_mods.push(result);
         entries.push(recorder.finish());
     }
 
     let _ = fs::remove_dir_all(&work_root);
+
+    installed_mod_metadata.sort_by(|left, right| {
+        normalize_unique_id(&left.mod_name)
+            .cmp(&normalize_unique_id(&right.mod_name))
+            .then_with(|| left.target_path.cmp(&right.target_path))
+    });
 
     installed_mods.sort_by(|left, right| {
         normalize_unique_id(&left.mod_name)
@@ -273,14 +315,19 @@ pub(crate) fn install_staged_bundle_at_path(
                 })
                 .then_with(|| left.result.target_path.cmp(&right.result.target_path))
         })
-        .map(|item| item.result)
         .context("The install manager did not produce any installed targets.")?;
+    let primary_upgraded = primary.upgraded;
+    let primary_previous_version = primary.previous_version;
+    let primary = primary.result;
 
     let metadata = BackupSessionMetadata {
         backup_id: backup_id.clone(),
         backup_path: normalize_path(&backup_path),
         created_at_ms: current_timestamp_ms(),
         mods_path: normalize_path(mods_path),
+        primary_mod_name: Some(primary.mod_name.clone()),
+        primary_version: primary.version.clone(),
+        installed_mods: installed_mod_metadata,
         entries,
     };
     save_backup_metadata(&backup_path.join("metadata.json"), &metadata)?;
@@ -295,6 +342,8 @@ pub(crate) fn install_staged_bundle_at_path(
         installed_mods,
         backup_id,
         backup_path: normalize_path(&backup_path),
+        previous_version: primary_previous_version,
+        upgraded: primary_upgraded,
     })
 }
 
@@ -337,6 +386,14 @@ pub(crate) fn list_backup_sessions_at_root(
                 .iter()
                 .map(|entry| entry.saved_paths.len())
                 .sum(),
+            created_at_ms: metadata.created_at_ms,
+            primary_mod_name: metadata.primary_mod_name,
+            primary_version: metadata.primary_version,
+            mod_count: if metadata.installed_mods.is_empty() {
+                metadata.entries.len()
+            } else {
+                metadata.installed_mods.len()
+            },
         });
     }
 
@@ -508,6 +565,7 @@ fn plan_install_operations(
                     version: bundle.version.clone(),
                     folder_name: existing.folder_name.clone(),
                     target_path: existing.target_path.clone(),
+                    previous_version: existing.version.clone(),
                 }
             } else {
                 let target_path = resolve_new_target_path(mods_path, &bundle.folder_name);
@@ -521,6 +579,7 @@ fn plan_install_operations(
                         .unwrap_or(&bundle.folder_name)
                         .to_string(),
                     target_path,
+                    previous_version: None,
                 }
             }
         } else {
@@ -535,6 +594,7 @@ fn plan_install_operations(
                     .unwrap_or(&bundle.folder_name)
                     .to_string(),
                 target_path,
+                previous_version: None,
             }
         };
 
@@ -874,9 +934,10 @@ fn load_existing_targets(mods_path: &Path) -> anyhow::Result<BTreeMap<String, Pl
             PlannedTarget {
                 mod_name: item.name,
                 unique_id: item.unique_id,
-                version: item.version,
+                version: item.version.clone(),
                 folder_name: item.folder_name.trim_start_matches('.').to_string(),
                 target_path: clean_input_path(&item.absolute_path),
+                previous_version: item.version,
             },
         );
     }
@@ -909,6 +970,14 @@ fn install_folder_name_for_root(bundle_root: &Path, root: &Path, mod_name: &str)
             .and_then(|value| value.to_str())
             .unwrap_or("InstalledMod")
             .to_string()
+    }
+}
+
+fn install_operation_label(operation: &InstallOperation) -> &'static str {
+    match operation {
+        InstallOperation::FreshInstall { .. } => "freshInstall",
+        InstallOperation::UpgradeReplace { .. } => "upgradeReplace",
+        InstallOperation::OverlayMerge { .. } => "overlayMerge",
     }
 }
 
@@ -1061,7 +1130,7 @@ fn copy_file(source_path: &Path, target_path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn files_differ(left_path: &Path, right_path: &Path) -> anyhow::Result<bool> {
+pub(crate) fn files_differ(left_path: &Path, right_path: &Path) -> anyhow::Result<bool> {
     let left_bytes = fs::read(left_path)
         .with_context(|| format!("Failed to read file {}", normalize_path(left_path)))?;
     let right_bytes = fs::read(right_path)
@@ -1069,7 +1138,7 @@ fn files_differ(left_path: &Path, right_path: &Path) -> anyhow::Result<bool> {
     Ok(left_bytes != right_bytes)
 }
 
-fn collect_relative_files(root: &Path) -> anyhow::Result<Vec<PathBuf>> {
+pub(crate) fn collect_relative_files(root: &Path) -> anyhow::Result<Vec<PathBuf>> {
     if !root.exists() {
         return Ok(Vec::new());
     }
@@ -1194,7 +1263,7 @@ fn is_i18n_path(relative_path: &Path) -> bool {
         .is_some_and(|value| value.eq_ignore_ascii_case("i18n"))
 }
 
-fn normalize_relative_path(path: &Path) -> String {
+pub(crate) fn normalize_relative_path(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
@@ -1238,6 +1307,16 @@ impl InstallOperation {
             InstallOperation::FreshInstall { .. } => "fresh",
             InstallOperation::UpgradeReplace { .. } => "upgrade",
             InstallOperation::OverlayMerge { .. } => "overlay",
+        }
+    }
+
+    /// Version of the target folder before this operation runs; `None` for
+    /// fresh installs and overlays.
+    fn previous_version(&self) -> Option<String> {
+        match self {
+            InstallOperation::FreshInstall { target, .. }
+            | InstallOperation::UpgradeReplace { target, .. } => target.previous_version.clone(),
+            InstallOperation::OverlayMerge { .. } => None,
         }
     }
 }

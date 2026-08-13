@@ -49,6 +49,7 @@ export type AppUiWorkspaceState = {
     collapsed: boolean
     expandedSections: WorkbenchNavigationSection[]
   }
+  expertMode: boolean
   modules: Record<string, Record<string, unknown>>
 }
 
@@ -81,6 +82,7 @@ export type PatchAppUiStateRequest = {
   workspace?: {
     location?: WorkbenchLocation
     navigation?: Partial<AppUiWorkspaceState['navigation']>
+    expertMode?: boolean
     modules?: Record<string, Record<string, unknown> | null>
   }
   launcher?: Partial<AppUiLauncherState> & {

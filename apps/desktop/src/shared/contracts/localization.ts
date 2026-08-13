@@ -92,8 +92,18 @@ export type AiUsageSummary = { totals: AiUsageTotals; daily: AiUsageDailySummary
 export type AiUsageRecordPage = { records: AiUsageRecord[]; total: number }
 export type AiUsageClearResult = { removedEvents: number; removedDailyRows: number }
 
+/** Component-level readiness of the localization corpus that AI translation depends on. */
+export type LocalizationCorpusWarmupStatus = {
+  knowledge: 'ready' | 'skipped' | 'failed'
+  semantic: 'ready' | 'skipped' | 'failed'
+  official: 'ready' | 'skipped' | 'failed'
+  ready: boolean
+  error: string | null
+}
+
 /** Host-agnostic localization capability shared by settings and workbench workflows. */
 export interface LocalizationPort {
+  prewarmCorpus(): Promise<LocalizationCorpusWarmupStatus>
   loadSemanticSettings(): Promise<AiSemanticSettingsSnapshot>
   saveSemanticSettings(request: SaveAiSemanticSettingsRequest): Promise<AiSemanticSettingsSnapshot>
   inspectSemanticModel(): Promise<AiSemanticModelStatus>
@@ -559,6 +569,8 @@ export type LocalizationTranslateBatchRequest = {
   items: AiTranslationItem[]
   usageContext: { pageSource: string; operation: string; scopeId?: string } | null
   knowledgePolicy: KnowledgePolicy
+  /** Per-batch input byte cap override forwarded to the AI provider; null derives the budget from the context window. */
+  maxBatchBytes: number | null
 }
 export type LocalizationTranslationResultItem = {
   id: string

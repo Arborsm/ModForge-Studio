@@ -21,7 +21,7 @@ const guides: GuidesCopy = {
         },
         'nav-tabs': {
           title: '页面导航',
-          description: '在模组库、发现、更新和配置之间切换。徽章会提示可用更新和下载进度。',
+          description: '在模组库、发现、更新和诊断之间切换。徽章会提示可用更新和下载进度。',
         },
         'library-toolbar': {
           title: '搜索与视图',
@@ -80,10 +80,10 @@ const guides: GuidesCopy = {
       },
     },
     'launcher-configuration': {
-      title: '启动器配置',
+      title: '启动器诊断',
       steps: {
         welcome: {
-          title: '配置启动器',
+          title: '诊断启动器',
           description: '游戏路径、Nexus 账号和诊断选项都在这里维护。',
         },
         'config-game': {

@@ -1,46 +1,24 @@
 @layer components {
   .i18n-gen {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-    background: var(--bg-app);
+    @apply bg-surface-app flex h-full min-h-0 flex-col;
   }
 
   .i18n-gen-session {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-height: 2.5rem;
-    padding: 0.375rem 0.875rem;
+    @apply bg-surface-panel flex min-h-10 shrink-0 items-center gap-2 px-3.5 py-1.5;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-    background: var(--bg-panel);
-    flex-shrink: 0;
   }
 
   .i18n-gen-session-id {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-width: 0;
-    flex: 1;
+    @apply flex min-w-0 flex-1 items-center gap-2;
   }
 
   .i18n-gen-session-name {
-    min-width: 0;
-    overflow: hidden;
+    @apply text-text-primary text-body font-ui-semibold min-w-0 overflow-hidden whitespace-nowrap;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.8125rem;
-    font-weight: 650;
-    color: var(--text-primary);
   }
 
   .i18n-gen-session-meta {
-    flex-shrink: 0;
-    color: var(--text-tertiary);
-    font-size: 0.75rem;
-    font-variant-numeric: tabular-nums;
+    @apply text-text-tertiary shrink-0 text-xs tabular-nums;
   }
 
   .i18n-gen-session-meta::before {
@@ -50,41 +28,27 @@
   }
 
   .i18n-gen-session-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    flex-shrink: 0;
+    @apply inline-flex shrink-0 items-center gap-1.5;
   }
 
   .i18n-gen-session-sep {
+    @apply h-4;
     width: 1px;
-    height: 1rem;
     margin-inline: 0.125rem;
     background: color-mix(in srgb, var(--border-color) 80%, transparent);
   }
 
   .i18n-gen-session-actions .control-button {
-    height: 1.75rem;
-    border-radius: 0.4375rem;
-    padding-inline: 0.625rem;
-    font-size: 0.75rem;
+    @apply rounded-button h-7 px-2.5 text-xs;
   }
 
   .i18n-gen-body {
-    flex: 1;
-    min-height: 0;
-    display: grid;
+    @apply bg-surface-app grid min-h-0 flex-1;
     grid-template-columns: minmax(18.5rem, 23.5rem) 5px minmax(0, 1fr);
-    background: var(--bg-app);
   }
 
   .i18n-gen-pane {
-    display: flex;
-    min-width: 0;
-    min-height: 0;
-    flex-direction: column;
-    overflow: hidden;
-    background: var(--bg-panel);
+    @apply bg-surface-panel flex min-h-0 min-w-0 flex-col overflow-hidden;
   }
 
   .i18n-gen-pane-prefix {
@@ -92,7 +56,7 @@
   }
 
   .i18n-gen-divider {
-    position: relative;
+    @apply relative;
   }
 
   .i18n-gen-divider::before {
@@ -105,34 +69,20 @@
   }
 
   .i18n-gen-prefix-head {
-    padding: 0.75rem 0.875rem 0.5rem;
-    flex-shrink: 0;
+    @apply shrink-0 px-3.5 pt-3 pb-2;
   }
 
   .i18n-gen-root-field {
-    display: block;
+    @apply block;
   }
 
   .i18n-gen-root-field > span {
-    display: block;
-    margin-bottom: 0.3125rem;
-    color: var(--text-tertiary);
-    font-size: 0.6875rem;
-    font-weight: 650;
+    @apply text-text-tertiary text-meta font-ui-semibold mb-1.5 block;
   }
 
   .i18n-gen-root-input {
-    width: 100%;
-    height: 2rem;
-    padding: 0 0.625rem;
+    @apply bg-surface-panel text-text-primary rounded-button text-body font-ui h-8 w-full px-2.5 py-0 font-mono outline-none;
     border: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
-    border-radius: 0.4375rem;
-    background: var(--bg-panel);
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: 0.8125rem;
-    font-weight: 550;
-    color: var(--text-primary);
-    outline: none;
   }
 
   .i18n-gen-root-input:focus {
@@ -141,58 +91,43 @@
   }
 
   .i18n-gen-key-recipe {
-    margin-top: 0.5rem;
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: 0.6875rem;
-    line-height: 1.5;
+    @apply text-text-tertiary text-meta mt-2 font-mono leading-normal;
     word-break: break-all;
-    color: var(--text-tertiary);
   }
 
   .i18n-gen-key-recipe .kr-root {
-    color: var(--text-secondary);
+    @apply text-text-secondary;
   }
 
   .i18n-gen-key-recipe .kr-group {
-    color: var(--accent);
-    font-weight: 600;
+    @apply text-accent font-semibold;
   }
 
   .i18n-gen-key-recipe .kr-entry {
-    color: var(--text-primary);
+    @apply text-text-primary;
   }
 
   .i18n-gen-key-recipe .kr-dot {
-    opacity: 0.5;
+    @apply opacity-50;
   }
 
   .i18n-gen-tree-scroll {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    padding: 0.25rem 0.5rem 1rem 0.625rem;
+    @apply min-h-0 flex-1 overflow-auto pt-1 pr-2 pb-4 pl-2.5;
   }
 
   .i18n-gen-tree {
+    @apply m-0 p-0;
     list-style: none;
-    margin: 0;
-    padding: 0;
   }
 
   .i18n-gen-tree .i18n-gen-tree {
-    margin: 0 0 0 0.6875rem;
-    padding: 0 0 0 0.4375rem;
+    @apply mt-0 mr-0 mb-0 ml-3 pt-0 pr-0 pb-0 pl-2;
     border-left: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
   }
 
   .i18n-gen-rule {
-    display: grid;
+    @apply grid min-h-7.5 items-center gap-x-1.5 gap-y-1 rounded-md pt-px pr-1 pb-px pl-0.5;
     grid-template-columns: minmax(0, 1fr) minmax(4.75rem, 6.25rem) 1.625rem;
-    gap: 0.25rem 0.375rem;
-    align-items: center;
-    min-height: 1.875rem;
-    padding: 0.0625rem 0.25rem 0.0625rem 0.125rem;
-    border-radius: 0.375rem;
   }
 
   .i18n-gen-rule:hover {
@@ -200,12 +135,11 @@
   }
 
   .i18n-gen-rule[data-enabled='true'] .i18n-gen-rule-name {
-    color: var(--text-primary);
-    font-weight: 600;
+    @apply text-text-primary font-semibold;
   }
 
   .i18n-gen-rule[data-enabled='false'] .i18n-gen-rule-name {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
   }
 
   .i18n-gen-rule[data-enabled='false'] .i18n-gen-prefix-input {
@@ -213,34 +147,20 @@
   }
 
   .i18n-gen-rule-path {
-    display: flex;
-    align-items: center;
-    gap: 0.0625rem;
-    min-width: 0;
+    @apply flex min-w-0 items-center gap-px;
   }
 
   .i18n-gen-tree-expand,
   .i18n-gen-tree-spacer {
-    width: 1.125rem;
-    height: 1.125rem;
-    flex-shrink: 0;
-    display: grid;
-    place-items: center;
-    border: 0;
-    background: transparent;
-    color: var(--text-tertiary);
-    padding: 0;
-    border-radius: 0.25rem;
+    @apply text-text-tertiary grid h-4.5 w-4.5 shrink-0 place-items-center rounded border-0 bg-transparent p-0;
   }
 
   .i18n-gen-tree-expand:hover {
-    background: var(--bg-hover);
-    color: var(--text-secondary);
+    @apply bg-surface-hover text-text-secondary;
   }
 
   .i18n-gen-tree-expand svg {
-    width: 0.75rem;
-    height: 0.75rem;
+    @apply h-3 w-3;
     transition: transform 120ms ease;
   }
 
@@ -249,64 +169,38 @@
   }
 
   .i18n-gen-rule-name {
-    min-width: 0;
-    overflow: hidden;
+    @apply text-text-secondary text-body min-w-0 overflow-hidden whitespace-nowrap;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.8125rem;
-    color: var(--text-secondary);
   }
 
   .i18n-gen-prefix-input {
-    width: 100%;
-    height: 1.5rem;
-    padding: 0 0.3125rem;
-    border: 1px solid transparent;
-    border-radius: 0.3125rem;
-    background: transparent;
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: 0.75rem;
-    color: var(--accent);
-    outline: none;
-    min-width: 0;
-    text-align: right;
+    @apply text-accent rounded-control h-6 w-full min-w-0 border border-transparent bg-transparent px-1.5 py-0 text-right font-mono text-xs outline-none;
   }
 
   .i18n-gen-rule:hover .i18n-gen-prefix-input:not(:disabled),
   .i18n-gen-prefix-input:focus {
+    @apply bg-surface-panel text-left;
     border-color: color-mix(in srgb, var(--border-color) 70%, transparent);
-    background: var(--bg-panel);
-    text-align: left;
   }
 
   .i18n-gen-prefix-input:focus {
+    @apply text-text-primary;
     border-color: color-mix(in srgb, var(--accent) 42%, var(--border-color));
-    color: var(--text-primary);
   }
 
   .i18n-gen-sw {
-    position: relative;
-    width: 1.5rem;
-    height: 0.875rem;
-    justify-self: end;
-    cursor: pointer;
-    display: block;
+    @apply relative block h-3.5 w-6 cursor-pointer justify-self-end;
   }
 
   .i18n-gen-sw input {
-    position: absolute;
-    opacity: 0;
+    @apply absolute opacity-0;
     width: 1px;
     height: 1px;
   }
 
   .i18n-gen-sw i {
-    display: block;
-    width: 100%;
-    height: 100%;
-    border-radius: 999px;
+    @apply relative block h-full w-full rounded-full;
     background: color-mix(in srgb, var(--border-color) 75%, transparent);
-    position: relative;
   }
 
   .i18n-gen-sw i::after {
@@ -322,7 +216,7 @@
   }
 
   .i18n-gen-sw input:checked + i {
-    background: var(--accent);
+    @apply bg-accent;
   }
 
   .i18n-gen-sw input:checked + i::after {
@@ -335,28 +229,20 @@
   }
 
   .i18n-gen-review {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
+    @apply min-h-0 flex-1 overflow-auto;
   }
 
   .i18n-gen-col-head,
   .i18n-gen-row {
-    display: grid;
+    @apply grid items-center gap-3.5 px-4 py-2;
     grid-template-columns: minmax(13rem, 1.25fr) minmax(10rem, 1.35fr) minmax(8rem, 0.85fr);
-    gap: 0.875rem;
     min-width: 36rem;
-    align-items: center;
-    padding: 0.5rem 1rem;
   }
 
   .i18n-gen-col-head {
-    position: sticky;
+    @apply bg-surface-panel-muted text-text-tertiary sticky text-xs;
     top: 0;
     z-index: 3;
-    background: var(--bg-panel-muted);
-    color: var(--text-tertiary);
-    font-size: 0.75rem;
     font-weight: 720;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
   }
@@ -366,48 +252,36 @@
   }
 
   .i18n-gen-row:hover {
-    background: var(--bg-hover);
+    @apply bg-surface-hover;
   }
 
   .i18n-gen-row > span {
-    overflow: hidden;
+    @apply text-text-secondary text-body min-w-0 overflow-hidden whitespace-nowrap;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-    color: var(--text-secondary);
-    font-size: 0.8125rem;
   }
 
   .i18n-gen-row .i18n-gen-target {
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: 0.75rem;
-    color: var(--text-tertiary);
+    @apply text-text-tertiary font-mono text-xs;
   }
 
   .i18n-gen-key-parts {
-    display: flex;
-    flex-wrap: nowrap;
-    min-width: 0;
-    overflow: hidden;
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: 0.75rem;
+    @apply flex min-w-0 flex-nowrap overflow-hidden font-mono text-xs;
   }
 
   .i18n-gen-key-parts .kp-root {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
   }
 
   .i18n-gen-key-parts .kp-group {
-    color: var(--accent);
-    font-weight: 600;
+    @apply text-accent font-semibold;
   }
 
   .i18n-gen-key-parts .kp-entry {
-    color: var(--text-primary);
+    @apply text-text-primary;
   }
 
   .i18n-gen-key-parts .kp-dot {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
     opacity: 0.65;
   }
 
@@ -416,21 +290,12 @@
   }
 
   .i18n-gen-file-hd {
-    position: sticky;
+    @apply sticky flex min-h-8 w-full cursor-pointer items-center gap-2 border-0 px-4 py-1.5 text-left;
     top: 2.125rem;
     z-index: 2;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    width: 100%;
-    min-height: 2rem;
-    padding: 0.3125rem 1rem;
-    border: 0;
     background: color-mix(in srgb, var(--bg-panel-muted) 70%, var(--bg-panel));
-    text-align: left;
     color: inherit;
     font: inherit;
-    cursor: pointer;
   }
 
   .i18n-gen-file-hd:hover {
@@ -438,14 +303,11 @@
   }
 
   .i18n-gen-file-group[data-open='false'] .i18n-gen-file-body {
-    display: none;
+    @apply hidden;
   }
 
   .i18n-gen-file-hd .chev {
-    width: 0.8125rem;
-    height: 0.8125rem;
-    color: var(--text-tertiary);
-    flex-shrink: 0;
+    @apply text-text-tertiary h-3.25 w-3.25 shrink-0;
     transition: transform 120ms ease;
   }
 
@@ -454,91 +316,59 @@
   }
 
   .i18n-gen-file-hd .path {
-    min-width: 0;
-    overflow: hidden;
+    @apply text-text-primary min-w-0 overflow-hidden font-mono text-xs font-semibold whitespace-nowrap;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-primary);
   }
 
   .i18n-gen-file-hd .meta {
-    margin-left: auto;
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.75rem;
-    color: var(--text-tertiary);
-    font-variant-numeric: tabular-nums;
+    @apply text-text-tertiary ml-auto inline-flex shrink-0 items-center gap-2 text-xs tabular-nums;
   }
 
   .i18n-gen-file-hd .status {
-    font-size: 0.6875rem;
-    font-weight: 650;
+    @apply text-meta font-ui-semibold;
   }
 
   .i18n-gen-file-hd .status.is-ok {
-    color: var(--success);
+    @apply text-success;
   }
 
   .i18n-gen-file-hd .status.is-warn {
-    color: var(--warning);
+    @apply text-warning;
   }
 
   .i18n-gen-file-hd .status.is-mute {
-    color: var(--text-tertiary);
+    @apply text-text-tertiary;
   }
 
   .i18n-gen-merge-hint {
-    grid-column: 1 / -1;
-    color: var(--text-tertiary);
-    font-size: 0.8125rem;
+    @apply text-text-tertiary text-body col-span-full;
   }
 
   .i18n-gen-state {
-    display: grid;
-    place-items: center;
-    align-content: center;
-    gap: 0.5rem;
-    height: 100%;
-    padding: 2rem;
-    text-align: center;
-    background: var(--bg-panel);
+    @apply bg-surface-panel grid h-full place-items-center content-center gap-2 p-8 text-center;
   }
 
   .i18n-gen-state strong {
+    @apply text-text-primary font-bold;
     font-size: 0.9375rem;
-    font-weight: 700;
-    color: var(--text-primary);
   }
 
   .i18n-gen-state p,
   .i18n-gen-state span {
-    margin: 0;
+    @apply text-text-secondary text-body m-0 leading-normal;
     max-width: 24rem;
-    color: var(--text-secondary);
-    font-size: 0.8125rem;
-    line-height: 1.5;
   }
 
   .i18n-gen-state.is-error strong {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .i18n-gen-state-ops {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 0.375rem;
+    @apply mt-1.5 flex gap-2;
   }
 
   .i18n-gen-state-ops .control-button {
-    height: 1.75rem;
-    border-radius: 0.4375rem;
-    padding-inline: 0.75rem;
-    font-size: 0.75rem;
+    @apply rounded-button h-7 px-3 text-xs;
   }
 
   @media (max-width: 1100px) {

@@ -8,6 +8,7 @@ import {
   type FarmerHairMetadataEntry,
   type FarmerRenderState,
 } from './farmerAppearanceRenderer'
+import { getDialoguePortraitFrame } from '@entities/dialogue/model/portrait'
 import type { LocaleCode } from '@locales/api'
 import { loadImageResourceFromPath, type LoadedImageResource } from '@shared/lib/assets'
 import type { PlayerAppearanceProfile } from '@entities/event'
@@ -51,6 +52,7 @@ function buildCharacterTextureIndex(content: string) {
       breathChestPosition: entry.BreathChestPosition ?? null,
       age: entry.Age?.trim() || null,
       gender: entry.Gender?.trim() || null,
+      size: { x: entry.Size?.X ?? 16, y: entry.Size?.Y ?? 32 },
     }
     for (const token of toLookupTokens(characterName)) {
       index[token] = metadata
@@ -95,6 +97,7 @@ function getTextureCandidates(actorName: string, textureIndex: CharacterTextureI
   return Array.from(new Set(candidates.map((candidate) => candidate.trim()).filter(Boolean)))
 }
 
+/** Returns the fallback frame height for actors not in `Data/Characters` (e.g. Junimo). */
 function getActorSpriteFrameHeight(actorName: string) {
   const normalized = normalizeActorName(actorName)
 
@@ -149,27 +152,13 @@ function buildSpriteLayerDescriptors(
   ]
 }
 
-function getPortraitFrameBounds(asset: ActorAssetState | null, portraitIndex: number) {
-  const frameWidth = 64
-  const frameHeight = 64
-  const sheetWidth = asset?.portraitSheetWidth ?? 0
-  const sheetHeight = asset?.portraitSheetHeight ?? 0
-
-  if (sheetWidth < frameWidth || sheetHeight < frameHeight) {
-    return { frameWidth: Math.max(sheetWidth, frameWidth), frameHeight: Math.max(sheetHeight, frameHeight), frameX: 0, frameY: 0 }
-  }
-
-  const columns = Math.max(1, Math.floor(sheetWidth / frameWidth))
-  const rows = Math.max(1, Math.floor(sheetHeight / frameHeight))
-  const frameCount = Math.max(1, columns * rows)
-  const clampedPortraitIndex = Math.max(0, Math.min(frameCount - 1, portraitIndex))
-
-  return {
-    frameWidth,
-    frameHeight,
-    frameX: (clampedPortraitIndex % columns) * frameWidth,
-    frameY: Math.floor(clampedPortraitIndex / columns) * frameHeight,
-  }
+/** Portrait crop for the stage renderer; the grid math lives in `@entities/dialogue`. */
+function getPortraitFrameBounds(
+  asset: { portraitSheetWidth: number | null; portraitSheetHeight: number | null } | null,
+  portraitIndex: number,
+) {
+  const frame = getDialoguePortraitFrame(asset?.portraitSheetWidth ?? 0, asset?.portraitSheetHeight ?? 0, portraitIndex)
+  return { frameWidth: frame.frameSize, frameHeight: frame.frameSize, frameX: frame.frameX, frameY: frame.frameY }
 }
 
 function getActorBreathSeed(actorName: string) {
@@ -857,6 +846,7 @@ async function resolveActorAssets(
     spriteUrl: spriteAsset?.url ?? null,
     spriteSheetWidth: spriteAsset?.width ?? null,
     spriteSheetHeight: spriteAsset?.height ?? null,
+    spriteImage: spriteAsset?.image ?? null,
     portraitPath: portraitAsset?.path ?? null,
     portraitUrl: portraitAsset?.url ?? null,
     portraitSheetWidth: portraitAsset?.width ?? null,

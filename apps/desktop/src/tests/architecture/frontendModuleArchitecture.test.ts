@@ -113,7 +113,8 @@ const DEV_SOURCE_SEGMENT = /(?:^|\/)src\/dev\//
 const REMOVED_DESKTOP_FACADE_SPECIFIER = '@platform/' + 'desktop'
 const NON_DIALOG_PRIMITIVE_MODAL_ALLOWLIST = new Set([
   'src/features/launcher/ui/cards/LauncherModDetailPanel.tsx',
-  'src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventResourcePicker.tsx',
+  'src/features/resource-browser/ui/ResourcePicker.tsx',
+  'src/widgets/guide-tour/GuideTourOverlay.tsx',
 ])
 // `fixed inset-0 z-[200|220]` was the workbench/cp-maker dialog backdrop pattern.
 const HAND_ROLLED_DIALOG_BACKDROP = /fixed\s+inset-0\s+z-\[2\d\d\]/
@@ -363,7 +364,7 @@ describe('frontend module architecture', () => {
     expect(electronMain).toContain("child.kill('SIGKILL')")
     expect(electronMain).toContain('sidecarStdout?.close()')
     expect(electronMain).toContain('LD_LIBRARY_PATH')
-    expect(electronMain).toContain('sidecarDirectory')
+    expect(electronMain).toContain('sidecarRuntime.libraryDirectories')
     expect(electronMain).toContain("'modforge:window-close-request-result'")
     expect(electronPreload).toContain('onWindowCloseRequest')
     expect(electronMain).toContain('app.setName(appDisplayName)')
@@ -1118,7 +1119,7 @@ describe('frontend module architecture', () => {
 
   it('rejects page-specific workbench panel source files under dock-side folder names', async () => {
     const panelsRoot = sourcePath('src/pages/workbench/ui/workspace-panels')
-    const allowedDomainFolders = new Set(['event', 'building', 'character', 'map', 'item', 'mod', 'common'])
+    const allowedDomainFolders = new Set(['event', 'building', 'character', 'map', 'item', 'mod', 'audio', 'common'])
 
     const panelsDir = await readdir(panelsRoot, { withFileTypes: true })
     expect(panelsDir.some((entry) => entry.isDirectory())).toBe(true)
@@ -1141,4 +1142,25 @@ describe('frontend module architecture', () => {
 
     expect(violations).toEqual([])
   }, 10000)
+
+  it('keeps resource browsing in one feature and injects it into schema entities', async () => {
+    const sourceFiles = await collectSourceFiles(sourcePath('src'))
+    const dialogOwners: string[] = []
+
+    for (const filePath of sourceFiles) {
+      const source = await readFile(filePath, 'utf8')
+      if (source.includes('resource-picker__dialog')) {
+        dialogOwners.push(relative(sourcePath('src'), filePath).replace(/\\/g, '/'))
+      }
+      if (filePath.includes(`${resolve(sourcePath('src/entities/asset-schema'))}`)) {
+        expect(source).not.toContain('@features/resource-browser')
+      }
+    }
+
+    expect(dialogOwners).toEqual(['features/resource-browser/ui/ResourcePicker.tsx'])
+    await expect(access(sourcePath('src/entities/asset-schema/ui/ResourcePickerDialog.tsx'))).rejects.toThrow()
+    await expect(
+      access(sourcePath('src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventResourcePicker.tsx')),
+    ).rejects.toThrow()
+  }, 30000)
 })

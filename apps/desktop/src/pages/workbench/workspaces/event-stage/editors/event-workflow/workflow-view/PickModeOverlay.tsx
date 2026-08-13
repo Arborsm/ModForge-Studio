@@ -31,14 +31,14 @@ export function PickModeOverlay({
   return (
     <div className={cx('pointer-events-none absolute inset-x-0 top-3 z-50 flex justify-center px-3', className)} data-pick-mode-overlay>
       <div
-        className="pointer-events-auto flex max-w-[min(560px,calc(100%-1rem))] flex-wrap items-center justify-center gap-1.5 rounded-md border border-[color-mix(in_srgb,var(--accent)_42%,var(--border-color))] bg-[color-mix(in_srgb,var(--bg-elevated)_94%,transparent)] px-2 py-1.5 shadow-(--shadow-panel)"
+        className="shadow-panel pointer-events-auto flex max-w-[min(560px,calc(100%-1rem))] flex-wrap items-center justify-center gap-1.5 rounded-md border border-[color-mix(in_srgb,var(--accent)_42%,var(--border-color))] bg-[color-mix(in_srgb,var(--bg-elevated)_94%,transparent)] px-2 py-1.5"
         onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex h-6 w-6 items-center justify-center rounded border border-[color-mix(in_srgb,var(--accent)_38%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_70%,transparent)]">
-          <MousePointerClick className="h-3.5 w-3.5 text-(--accent)" />
+          <MousePointerClick className="text-accent h-3.5 w-3.5" />
         </div>
-        <p className="max-w-72 truncate text-xs font-semibold text-(--text-primary)">{label ?? '点击地图选择位置'}</p>
+        <p className="text-text-primary max-w-72 truncate text-xs font-semibold">{label ?? '点击地图选择位置'}</p>
         {onComplete || onClear || onCancel ? (
           <div className="flex flex-wrap items-center justify-center gap-1.5">
             {onComplete ? (
@@ -61,7 +61,7 @@ export function PickModeOverlay({
             ) : null}
           </div>
         ) : null}
-        <p className="text-[11px] text-(--text-secondary)">Esc</p>
+        <p className="text-text-secondary text-meta-px">Esc</p>
       </div>
     </div>
   )

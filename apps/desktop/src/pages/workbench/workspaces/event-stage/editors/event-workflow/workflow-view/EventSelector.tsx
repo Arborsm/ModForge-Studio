@@ -44,31 +44,29 @@ export function EventSelector({ events, selectedKey, onSelect, className }: Even
         className={cx(
           'flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left transition-all',
           open
-            ? 'border-(--accent) bg-(--bg-active) shadow-sm'
-            : 'border-(--border-color) bg-(--bg-panel) hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border-color))]',
+            ? 'border-accent bg-surface-active shadow-sm'
+            : 'border-border-subtle bg-surface-panel hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border-color))]',
         )}
         onClick={() => setOpen(!open)}
       >
-        <FileText className="h-3.5 w-3.5 shrink-0 text-(--text-tertiary)" />
-        <span
-          className={cx('min-w-0 flex-1 truncate text-xs', selectedKey ? 'font-medium text-(--text-primary)' : 'text-(--text-tertiary)')}
-        >
+        <FileText className="text-text-tertiary h-3.5 w-3.5 shrink-0" />
+        <span className={cx('min-w-0 flex-1 truncate text-xs', selectedKey ? 'font-medium text-text-primary' : 'text-text-tertiary')}>
           {selectedLabel}
         </span>
-        {events.find((e) => e.key === selectedKey)?.isModified && <Sparkles className="h-3 w-3 shrink-0 text-(--accent)" />}
-        <ChevronDown className={cx('h-3.5 w-3.5 shrink-0 text-(--text-tertiary) transition-transform', open && 'rotate-180')} />
+        {events.find((e) => e.key === selectedKey)?.isModified && <Sparkles className="text-accent h-3 w-3 shrink-0" />}
+        <ChevronDown className={cx('h-3.5 w-3.5 shrink-0 text-text-tertiary transition-transform', open && 'rotate-180')} />
       </button>
 
       {open && (
-        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-lg border border-(--border-color) bg-(--bg-panel) shadow-(--shadow-float)">
-          <div className="border-b border-(--border-color) p-2">
-            <div className="flex items-center gap-1.5 rounded-md border border-(--border-color) bg-(--bg-app) px-2 py-1">
-              <Search className="h-3 w-3 text-(--text-tertiary)" />
+        <div className="border-border-subtle bg-surface-panel shadow-float absolute z-50 mt-1 w-full overflow-hidden rounded-lg border">
+          <div className="border-border-subtle border-b p-2">
+            <div className="border-border-subtle bg-surface-app flex items-center gap-1.5 rounded-md border px-2 py-1">
+              <Search className="text-text-tertiary h-3 w-3" />
               <input
                 type="text"
                 autoFocus
                 placeholder={copy.searchPlaceholder}
-                className="min-w-0 flex-1 bg-transparent text-[11px] text-(--text-primary) outline-none placeholder:text-(--text-tertiary)"
+                className="text-text-primary placeholder:text-text-tertiary text-meta-px min-w-0 flex-1 bg-transparent outline-none"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -81,7 +79,7 @@ export function EventSelector({ events, selectedKey, onSelect, className }: Even
                 type="button"
                 className={cx(
                   'flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors',
-                  selectedKey === event.key ? 'bg-(--bg-active) text-(--accent)' : 'text-(--text-secondary) hover:bg-(--bg-panel-muted)',
+                  selectedKey === event.key ? 'bg-surface-active text-accent' : 'text-text-secondary hover:bg-surface-panel-muted',
                 )}
                 onClick={() => {
                   onSelect(event.key)
@@ -91,10 +89,10 @@ export function EventSelector({ events, selectedKey, onSelect, className }: Even
               >
                 <FileText className="h-3 w-3 shrink-0" />
                 <span className="min-w-0 flex-1 truncate">{event.key}</span>
-                {event.isModified && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-(--accent)" />}
+                {event.isModified && <span className="bg-accent h-1.5 w-1.5 shrink-0 rounded-full" />}
               </button>
             ))}
-            {filtered.length === 0 && <div className="px-3 py-4 text-center text-[11px] text-(--text-tertiary)">{copy.empty}</div>}
+            {filtered.length === 0 && <div className="text-text-tertiary text-meta-px px-3 py-4 text-center">{copy.empty}</div>}
           </div>
         </div>
       )}

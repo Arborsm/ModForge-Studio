@@ -1,5 +1,7 @@
 // 命令参数选项列表 — 为选择器提供可枚举值
 
+import { GAME_MUSIC_COMMON_CUES } from '@entities/map/lib/musicCues'
+
 // ─── NPC / 角色 ─────────────────────────────────────────────────────────
 
 export const NPC_OPTIONS = [
@@ -114,57 +116,10 @@ export const MAP_OPTIONS = [
 ]
 
 // ─── 音乐 ────────────────────────────────────────────────────────────────
+// 真实游戏 cue 名清单在 entities/map/lib/musicCues.ts，这里仅做兼容再导出，
+// 避免事件编排与音频工作区各持一份副本。
 
-export const MUSIC_OPTIONS = [
-  'wavy',
-  'woodsTheme',
-  'saloon1',
-  'spring1',
-  'spring2',
-  'spring3',
-  'summer1',
-  'summer2',
-  'summer3',
-  'fall1',
-  'fall2',
-  'fall3',
-  'winter1',
-  'winter2',
-  'winter3',
-  'libraryTheme',
-  'marnieShop',
-  'Submarine_Song',
-  'night_market',
-  'caldera',
-  'IslandMusic',
-  'fieldoffice',
-  '50s',
-  'christmas_theme',
-  'movieTheater',
-  'movie_wedding',
-  'ragtime',
-  'wizardSong',
-  'tribal',
-  'spaceMusic',
-  'moonlightJellies',
-  'starshoot',
-  'tickTock',
-  'showrunner_sound',
-  '-desert',
-  'elliotsPiano',
-  'sampractice',
-  'shaneTheme',
-  'MarlonsTheme',
-  'AbigailFlute',
-  'heavy',
-  'Cavern',
-  'Crystal Bells',
-  'Cloth',
-  'XOR',
-  'sappypiano',
-  'Kindling in the Snow…',
-  'jaunty',
-]
+export const MUSIC_OPTIONS = GAME_MUSIC_COMMON_CUES
 
 // ─── 音效 ────────────────────────────────────────────────────────────────
 

@@ -35,7 +35,7 @@ function getEntryAppearance(entry: EventTimelineEntry) {
   if (entry.id === EVENT_SETUP_ENTRY_ID) {
     return {
       icon: Settings2,
-      iconClassName: 'text-(--accent)',
+      iconClassName: 'text-accent',
       accentClassName: 'bg-[color-mix(in_srgb,var(--accent)_75%,white_25%)]',
       tone: 'setup' as const,
     }
@@ -48,14 +48,14 @@ function getEntryAppearance(entry: EventTimelineEntry) {
     case 'warp':
       return {
         icon: ArrowRightLeft,
-        iconClassName: 'text-(--warning)',
+        iconClassName: 'text-warning',
         accentClassName: 'bg-[color-mix(in_srgb,var(--warning)_72%,white_28%)]',
         tone: 'move' as const,
       }
     case 'faceDirection':
       return {
         icon: Compass,
-        iconClassName: 'text-(--warning)',
+        iconClassName: 'text-warning',
         accentClassName: 'bg-[color-mix(in_srgb,var(--warning)_60%,white_40%)]',
         tone: 'move' as const,
       }
@@ -65,7 +65,7 @@ function getEntryAppearance(entry: EventTimelineEntry) {
     case 'stopMusic':
       return {
         icon: AudioLines,
-        iconClassName: 'text-(--success)',
+        iconClassName: 'text-success',
         accentClassName: 'bg-[color-mix(in_srgb,var(--success)_72%,white_28%)]',
         tone: 'audio' as const,
       }
@@ -74,7 +74,7 @@ function getEntryAppearance(entry: EventTimelineEntry) {
     case 'changeToTemporaryMap':
       return {
         icon: Map,
-        iconClassName: 'text-(--accent)',
+        iconClassName: 'text-accent',
         accentClassName: 'bg-[color-mix(in_srgb,var(--accent)_68%,white_32%)]',
         tone: 'action' as const,
       }
@@ -83,7 +83,7 @@ function getEntryAppearance(entry: EventTimelineEntry) {
     case 'showFrame':
       return {
         icon: PlayCircle,
-        iconClassName: 'text-(--accent)',
+        iconClassName: 'text-accent',
         accentClassName: 'bg-[color-mix(in_srgb,var(--accent)_58%,white_42%)]',
         tone: 'action' as const,
       }
@@ -91,7 +91,7 @@ function getEntryAppearance(entry: EventTimelineEntry) {
     case 'quickQuestion':
       return {
         icon: ListChecks,
-        iconClassName: 'text-(--accent)',
+        iconClassName: 'text-accent',
         accentClassName: 'bg-[color-mix(in_srgb,var(--accent)_68%,white_32%)]',
         tone: 'dialogue' as const,
       }
@@ -99,14 +99,14 @@ function getEntryAppearance(entry: EventTimelineEntry) {
     case 'switchEvent':
       return {
         icon: GitBranch,
-        iconClassName: 'text-(--danger)',
+        iconClassName: 'text-danger',
         accentClassName: 'bg-[color-mix(in_srgb,var(--danger)_60%,white_40%)]',
         tone: 'logic' as const,
       }
     case 'pause':
       return {
         icon: TimerReset,
-        iconClassName: 'text-(--text-secondary)',
+        iconClassName: 'text-text-secondary',
         accentClassName: 'bg-[color-mix(in_srgb,var(--text-secondary)_55%,white_45%)]',
         tone: 'timing' as const,
       }
@@ -114,7 +114,7 @@ function getEntryAppearance(entry: EventTimelineEntry) {
       if (entry.kind === 'dialogue' || entry.kind === 'message') {
         return {
           icon: MessageSquareText,
-          iconClassName: 'text-(--warning)',
+          iconClassName: 'text-warning',
           accentClassName: 'bg-[color-mix(in_srgb,var(--warning)_74%,white_26%)]',
           tone: 'dialogue' as const,
         }
@@ -122,7 +122,7 @@ function getEntryAppearance(entry: EventTimelineEntry) {
       if (entry.kind === 'choice') {
         return {
           icon: ListChecks,
-          iconClassName: 'text-(--accent)',
+          iconClassName: 'text-accent',
           accentClassName: 'bg-[color-mix(in_srgb,var(--accent)_68%,white_32%)]',
           tone: 'dialogue' as const,
         }
@@ -130,7 +130,7 @@ function getEntryAppearance(entry: EventTimelineEntry) {
       if (entry.kind === 'branch') {
         return {
           icon: GitBranch,
-          iconClassName: 'text-(--danger)',
+          iconClassName: 'text-danger',
           accentClassName: 'bg-[color-mix(in_srgb,var(--danger)_60%,white_40%)]',
           tone: 'logic' as const,
         }
@@ -138,14 +138,14 @@ function getEntryAppearance(entry: EventTimelineEntry) {
       if (entry.kind === 'timing') {
         return {
           icon: TimerReset,
-          iconClassName: 'text-(--text-secondary)',
+          iconClassName: 'text-text-secondary',
           accentClassName: 'bg-[color-mix(in_srgb,var(--text-secondary)_55%,white_45%)]',
           tone: 'timing' as const,
         }
       }
       return {
         icon: CircleDot,
-        iconClassName: 'text-(--text-secondary)',
+        iconClassName: 'text-text-secondary',
         accentClassName: 'bg-[color-mix(in_srgb,var(--text-secondary)_42%,white_58%)]',
         tone: 'action' as const,
       }
@@ -191,20 +191,20 @@ function DetailSection({ title, children }: { title: string; children: ReactNode
 function KvRow({ label, value, mono = false, block = false }: { label: string; value: string; mono?: boolean; block?: boolean }) {
   if (block) {
     return (
-      <div className="flex flex-col gap-1.5 border-b border-(--border-color)/50 py-2.5 last:border-b-0">
-        <span className="text-[11px] font-semibold tracking-wide text-(--text-secondary) uppercase">{label}</span>
-        <span className="text-sm leading-6 whitespace-pre-wrap text-(--text-primary)">{value}</span>
+      <div className="border-border-subtle/50 flex flex-col gap-1.5 border-b py-2.5 last:border-b-0">
+        <span className="text-text-secondary text-meta-px font-semibold tracking-wide uppercase">{label}</span>
+        <span className="text-text-primary text-sm leading-6 whitespace-pre-wrap">{value}</span>
       </div>
     )
   }
 
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-(--border-color)/50 py-2.5 last:border-b-0">
-      <span className="shrink-0 text-[11px] font-semibold tracking-wide text-(--text-secondary) uppercase">{label}</span>
+    <div className="border-border-subtle/50 flex items-start justify-between gap-3 border-b py-2.5 last:border-b-0">
+      <span className="text-text-secondary text-meta-px shrink-0 font-semibold tracking-wide uppercase">{label}</span>
       <span
         className={cx(
-          'max-w-[68%] text-right text-xs font-semibold break-words text-(--text-primary)',
-          mono && 'font-mono font-medium text-(--text-secondary)',
+          'max-w-[68%] text-right text-xs font-semibold wrap-break-word text-text-primary',
+          mono && 'font-mono font-medium text-text-secondary',
         )}
       >
         {value}
@@ -259,7 +259,7 @@ export function EventDetailPanel({
     return (
       <section className="item-workspace-pane h-full">
         <div className="panel-body flex h-full min-h-0 items-center justify-center p-6 text-center">
-          <p className="max-w-md text-sm text-(--text-secondary)">{labels.detailEmpty}</p>
+          <p className="text-text-secondary max-w-md text-sm">{labels.detailEmpty}</p>
         </div>
       </section>
     )
@@ -274,28 +274,28 @@ export function EventDetailPanel({
 
   return (
     <section className="item-workspace-pane h-full">
-      <div className="shrink-0 border-b border-(--border-color)/65 px-3.5 py-3.5">
-        <h2 className="text-[1.35rem] leading-tight font-extrabold tracking-tight text-balance text-(--text-primary)">
+      <div className="border-border-subtle/65 shrink-0 border-b px-3.5 py-3.5">
+        <h2 className="text-text-primary text-[1.35rem] leading-tight font-extrabold tracking-tight text-balance">
           {selectedEvent.eventId}
         </h2>
-        <p className="mt-1.5 truncate font-mono text-xs text-(--text-tertiary)">
+        <p className="text-text-tertiary mt-1.5 truncate font-mono text-xs">
           {selectedEvent.key}
           {assetName ? ` · ${assetName}` : ''}
         </p>
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           {assetName ? (
-            <span className="inline-flex items-center rounded-full bg-(--accent-soft) px-2.5 py-1 text-xs font-bold text-(--accent)">
+            <span className="bg-accent-soft text-accent inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold">
               {assetName}
             </span>
           ) : null}
-          <span className="inline-flex items-center rounded-full bg-(--bg-panel-muted) px-2.5 py-1 text-xs font-bold text-(--text-secondary)">
+          <span className="bg-surface-panel-muted text-text-secondary inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold">
             {labels.detailCommandCount(selectedEvent.commands.length)}
           </span>
         </div>
         {preconditions ? (
-          <p className="mt-2.5 text-xs leading-relaxed text-(--text-secondary)">
-            <span className="mr-1.5 text-(--text-tertiary)">{labels.detailPreconditions}</span>
-            <span className="font-mono text-[11px] text-(--text-tertiary)">{preconditions}</span>
+          <p className="text-text-secondary mt-2.5 text-xs leading-relaxed">
+            <span className="text-text-tertiary mr-1.5">{labels.detailPreconditions}</span>
+            <span className="text-text-tertiary text-meta-px font-mono">{preconditions}</span>
           </p>
         ) : null}
       </div>
@@ -309,9 +309,7 @@ export function EventDetailPanel({
             aria-selected={tab.id === activeTab}
             className={cx(
               'rounded-lg px-3 py-1.5 text-xs font-bold transition-colors',
-              tab.id === activeTab
-                ? 'bg-(--accent-soft) text-(--accent)'
-                : 'text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
+              tab.id === activeTab ? 'bg-accent-soft text-accent' : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',
             )}
             onClick={() => setActiveTab(tab.id)}
           >
@@ -338,10 +336,10 @@ export function EventDetailPanel({
                     }}
                     aria-pressed={isSelected}
                     className={cx(
-                      'grid w-full grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-(--border-color)/50 px-3 py-2.5 text-left transition-colors last:border-b-0',
+                      'grid w-full grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-border-subtle/50 px-3 py-2.5 text-left transition-colors last:border-b-0',
                       isSelected && 'bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg-panel))]',
                       isCurrent && 'bg-[color-mix(in_srgb,var(--accent)_14%,var(--bg-panel))] shadow-[inset_2px_0_0_0_var(--accent)]',
-                      !isSelected && !isCurrent && 'hover:bg-(--bg-hover)',
+                      !isSelected && !isCurrent && 'hover:bg-surface-hover',
                     )}
                     onClick={() => {
                       onSelectTimelineEntry(entry.id)
@@ -350,19 +348,19 @@ export function EventDetailPanel({
                   >
                     <span
                       className={cx(
-                        'inline-flex h-[26px] min-w-[26px] items-center justify-center rounded-full text-[10px] font-bold text-white tabular-nums',
+                        'inline-flex h-[26px] min-w-[26px] items-center justify-center rounded-full text-caption-px font-bold text-white tabular-nums',
                         appearance.accentClassName,
                       )}
                     >
                       {entry.id === EVENT_SETUP_ENTRY_ID ? 'S' : index}
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate text-[13px] font-semibold text-(--text-primary)">{getEntryPrimaryText(entry)}</span>
-                      <span className="mt-0.5 block truncate text-[11px] text-(--text-secondary)">
+                      <span className="text-text-primary text-body-px block truncate font-semibold">{getEntryPrimaryText(entry)}</span>
+                      <span className="text-text-secondary text-meta-px mt-0.5 block truncate">
                         {getEntrySecondaryText(entry, timelineLabels.noDetail)}
                       </span>
                     </span>
-                    <span className="text-[10px] font-bold tracking-wider text-(--text-tertiary) uppercase">
+                    <span className="text-text-tertiary text-caption-px font-bold tracking-wider uppercase">
                       {entry.id === EVENT_SETUP_ENTRY_ID ? timelineLabels.setupBadge : entry.kind}
                     </span>
                   </button>
@@ -370,17 +368,15 @@ export function EventDetailPanel({
               })}
             </div>
           ) : (
-            <div className="flex min-h-32 items-center justify-center px-4 py-5 text-sm text-(--text-secondary)">
-              {timelineLabels.empty}
-            </div>
+            <div className="text-text-secondary flex min-h-32 items-center justify-center px-4 py-5 text-sm">{timelineLabels.empty}</div>
           )
         ) : null}
 
         {activeTab === 'command' ? (
           <div className="detail-sections-stack px-3.5 py-3">
             <DetailSection title={labels.inspectorSummary}>
-              <p className="mt-1 text-sm font-semibold text-(--text-primary)">{selectedEntry?.title ?? labels.inspectorEmpty}</p>
-              <p className="mt-1.5 text-xs leading-5 text-(--text-secondary)">{selectedEntry?.detail ?? labels.inspectorEmpty}</p>
+              <p className="text-text-primary mt-1 text-sm font-semibold">{selectedEntry?.title ?? labels.inspectorEmpty}</p>
+              <p className="text-text-secondary mt-1.5 text-xs leading-5">{selectedEntry?.detail ?? labels.inspectorEmpty}</p>
             </DetailSection>
 
             {isSetupEntry ? (
@@ -409,15 +405,15 @@ export function EventDetailPanel({
                 </div>
                 {command.choices?.length ? (
                   <div className="mt-3">
-                    <p className="text-[11px] font-semibold tracking-wide text-(--text-secondary) uppercase">{labels.inspectorChoices}</p>
+                    <p className="text-text-secondary text-meta-px font-semibold tracking-wide uppercase">{labels.inspectorChoices}</p>
                     <div className="mt-1 flex flex-col">
                       {command.choices.map((choice, index) => (
                         <div
                           key={choice.id}
-                          className="flex items-start justify-between gap-3 border-b border-(--border-color)/50 py-2.5 last:border-b-0"
+                          className="border-border-subtle/50 flex items-start justify-between gap-3 border-b py-2.5 last:border-b-0"
                         >
-                          <span className="text-xs text-(--text-secondary)">{index + 1}</span>
-                          <span className="min-w-0 flex-1 text-sm text-(--text-primary)">{choice.label}</span>
+                          <span className="text-text-secondary text-xs">{index + 1}</span>
+                          <span className="text-text-primary min-w-0 flex-1 text-sm">{choice.label}</span>
                         </div>
                       ))}
                     </div>
@@ -438,7 +434,7 @@ export function EventDetailPanel({
 
             {!isSetupEntry && selectedEntry?.command?.raw ? (
               <DetailSection title={labels.inspectorRaw}>
-                <pre className="mt-1 overflow-auto rounded-[0.625rem] bg-(--bg-panel-muted) px-3 py-2.5 font-mono text-[11.5px] leading-5 break-all whitespace-pre-wrap text-(--text-secondary)">
+                <pre className="bg-surface-panel-muted text-text-secondary rounded-field text-meta-px mt-1 overflow-auto px-3 py-2.5 font-mono leading-5 break-all whitespace-pre-wrap">
                   {selectedEntry.command.raw}
                 </pre>
               </DetailSection>

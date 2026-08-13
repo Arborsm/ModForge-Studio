@@ -1,115 +1,86 @@
 @layer components {
   .ai-localization-scope-section-label {
+    @apply text-text-tertiary text-caption font-bold uppercase;
     padding: 10px 8px 4px;
-    color: var(--text-tertiary);
-    font-size: 0.625rem;
-    font-weight: 700;
     letter-spacing: 0.12em;
-    text-transform: uppercase;
   }
 
   .ai-localization-profile-bindings {
-    display: grid;
+    @apply grid pb-0;
     gap: 8px;
-    padding: 12px 2px 0;
   }
 
   .ai-localization-profile-bindings ul {
-    display: grid;
+    @apply grid;
     gap: 2px;
   }
 
   .ai-localization-profile-bindings li {
-    display: flex;
+    @apply flex items-center rounded-lg;
     min-height: 34px;
-    align-items: center;
     gap: 8px;
     padding: 3px 6px 3px 8px;
-    border-radius: 0.5rem;
   }
 
   .ai-localization-profile-bindings li:hover {
-    background: var(--bg-hover);
+    @apply bg-surface-hover;
   }
 
   .ai-localization-binding-kind {
-    flex: 0 0 auto;
-    color: var(--text-secondary);
-    font-size: 0.6875rem;
-    font-weight: 600;
+    @apply text-text-secondary text-meta flex-none font-semibold;
   }
 
   .ai-localization-binding-value {
-    min-width: 0;
-    flex: 1;
-    overflow: hidden;
-    color: var(--text-primary);
-    font-size: 0.75rem;
+    @apply text-text-primary min-w-0 flex-1 overflow-hidden text-xs whitespace-nowrap;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .ai-localization-profile-bindings .icon-button {
+    @apply text-text-tertiary flex-none;
     width: 26px;
     height: 26px;
-    flex: 0 0 auto;
     border-radius: 6px;
-    color: var(--text-tertiary);
   }
 
   .ai-localization-profile-bindings .icon-button:hover {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .ai-localization-profile-bindings > p {
-    margin: 0;
-    color: var(--text-tertiary);
-    font-size: 0.75rem;
+    @apply text-text-tertiary m-0 text-xs;
   }
 
   .ai-localization-overview {
-    display: flex;
-    min-height: 100%;
-    flex-direction: column;
-    overflow: auto;
-    background: var(--bg-panel);
+    @apply bg-surface-panel flex min-h-full flex-col overflow-auto;
   }
 
   .ai-localization-overview-section {
-    flex: 0 0 auto;
+    @apply bg-surface-panel flex-none;
     padding: 24px 28px;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-    background: var(--bg-panel);
   }
 
   .ai-localization-overview-section:first-of-type {
-    padding: 0;
+    @apply p-0;
   }
 
   .ai-localization-overview-section:last-child {
+    @apply border-b-0;
     min-height: 112px;
     flex: 1 0 auto;
-    border-bottom: 0;
   }
 
   .ai-localization-metric-row {
-    display: grid;
+    @apply grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .ai-localization-metric {
-    display: flex;
-    min-width: 0;
+    @apply text-text-primary flex min-w-0 flex-col justify-center border-0 bg-transparent text-left;
     min-height: 92px;
-    flex-direction: column;
-    justify-content: center;
     gap: 6px;
     padding: 16px 20px;
-    border: 0;
     border-right: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-    background: transparent;
-    color: var(--text-primary);
-    text-align: left;
     transition: background-color 150ms ease;
   }
 
@@ -118,80 +89,55 @@
   }
 
   .ai-localization-metric:last-child {
-    border-right: 0;
+    @apply border-r-0;
   }
 
   .ai-localization-metric:hover {
-    background: var(--bg-hover);
+    @apply bg-surface-hover;
   }
 
   .ai-localization-metric-value {
-    display: flex;
+    @apply flex items-center overflow-hidden text-3xl leading-none font-bold whitespace-nowrap tabular-nums;
     min-height: 36px;
-    align-items: center;
-    overflow: hidden;
-    font-size: 1.75rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .ai-localization-metric[data-tone='warn'] .ai-localization-metric-value {
-    color: var(--warning);
+    @apply text-warning;
   }
 
   .ai-localization-metric[data-tone='danger'] .ai-localization-metric-value {
-    color: var(--danger);
-    font-size: 1.25rem;
+    @apply text-danger text-xl;
   }
 
   .ai-localization-metric-label {
-    overflow: hidden;
-    color: var(--text-tertiary);
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
+    @apply text-text-tertiary text-meta tracking-ui overflow-hidden font-semibold whitespace-nowrap uppercase;
     text-overflow: ellipsis;
-    text-transform: uppercase;
-    white-space: nowrap;
   }
 
   .ai-localization-section-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    @apply flex items-center justify-between;
     gap: 12px;
     margin-bottom: 12px;
   }
 
   .ai-localization-section-head h3 {
-    margin: 0;
-    color: var(--text-secondary);
-    font-size: 0.6875rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    @apply text-text-secondary text-meta tracking-ui m-0 font-bold uppercase;
   }
 
   .ai-localization-section-head > span {
-    color: var(--text-tertiary);
-    font-size: 0.75rem;
-    font-weight: 500;
+    @apply text-text-tertiary text-xs font-medium;
   }
 
   .ai-localization-readiness-list {
-    display: grid;
+    @apply grid;
   }
 
   .ai-localization-readiness-row {
-    display: grid;
+    @apply grid items-center px-0;
     grid-template-columns: 20px minmax(0, 1fr) auto auto;
     min-height: 56px;
-    align-items: center;
     gap: 12px;
-    padding: 12px 0;
   }
 
   .ai-localization-readiness-row + .ai-localization-readiness-row {
@@ -206,110 +152,83 @@
   }
 
   .ai-localization-readiness-row.is-ready .ai-localization-readiness-dot {
-    background: var(--success);
+    @apply bg-success;
   }
 
   .ai-localization-readiness-row.is-warn .ai-localization-readiness-dot,
   .ai-localization-readiness-row.is-loading .ai-localization-readiness-dot {
-    background: var(--warning);
+    @apply bg-warning;
   }
 
   .ai-localization-readiness-row.is-danger .ai-localization-readiness-dot {
-    background: var(--danger);
+    @apply bg-danger;
   }
 
   .ai-localization-readiness-main {
-    min-width: 0;
+    @apply min-w-0;
   }
 
   .ai-localization-readiness-main strong {
-    display: block;
-    overflow: hidden;
-    font-size: 0.875rem;
-    font-weight: 500;
+    @apply block overflow-hidden text-sm font-medium whitespace-nowrap;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .ai-localization-readiness-main p {
-    margin: 3px 0 0;
-    overflow: hidden;
-    color: var(--text-secondary);
-    font-size: 0.8125rem;
+    @apply text-text-secondary text-body mx-0 mb-0 overflow-hidden whitespace-nowrap;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .ai-localization-readiness-chip {
-    color: var(--text-tertiary);
-    font-size: 0.75rem;
-    font-weight: 500;
-    white-space: nowrap;
+    @apply text-text-tertiary text-xs font-medium whitespace-nowrap;
   }
 
   .ai-localization-readiness-chip.is-warn,
   .ai-localization-readiness-chip.is-loading {
-    color: var(--warning);
+    @apply text-warning;
   }
 
   .ai-localization-readiness-chip.is-danger {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .ai-localization-plain-text {
-    margin: 0;
-    padding: 4px 0;
-    color: var(--text-secondary);
-    font-size: 0.8125rem;
+    @apply text-text-secondary text-body m-0 px-0;
   }
 
   .ai-localization-defaults-row {
-    display: flex;
-    flex-wrap: wrap;
+    @apply flex flex-wrap;
     align-items: end;
     gap: 14px;
   }
 
   .ai-localization-defaults-row > label {
-    display: inline-grid;
+    @apply inline-grid;
     min-width: 148px;
     gap: 6px;
   }
 
   .ai-localization-defaults-row > label > span {
-    color: var(--text-tertiary);
-    font-size: 0.75rem;
-    font-weight: 500;
-    line-height: 1;
+    @apply text-text-tertiary text-xs leading-none font-medium;
   }
 
   .ai-localization-switch-wrapper {
-    display: inline-flex;
+    @apply inline-flex items-center;
     min-height: 32px;
-    align-items: center;
   }
 
   .ai-localization-scope-error {
-    display: grid;
+    @apply text-text-secondary grid text-xs;
     justify-items: start;
     gap: 8px;
     padding: 8px 4px;
-    color: var(--text-secondary);
-    font-size: 0.75rem;
   }
 
   .ai-localization-scope-error p {
-    margin: 0;
+    @apply m-0;
   }
 
   .ai-localization-semantic-status {
-    display: inline-flex;
-    min-width: 0;
-    align-items: center;
+    @apply text-text-tertiary text-meta inline-flex min-w-0 items-center overflow-hidden whitespace-nowrap;
     gap: 6px;
-    overflow: hidden;
-    color: var(--text-tertiary);
-    font-size: 0.6875rem;
-    white-space: nowrap;
   }
 }

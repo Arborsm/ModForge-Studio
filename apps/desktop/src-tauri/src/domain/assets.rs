@@ -4,8 +4,9 @@ mod mime;
 pub mod types;
 
 pub use types::{
-    AudioAssetSummary, EventAssetSummary, FileCacheStats, GameDirectoryInfo, LocalTextFileContent,
-    MapAssetContent, MapAssetSummary, ParsedEventAssetContent, TextAssetContent,
+    AudioAssetSummary, DataAssetSummary, EventAssetSummary, FileCacheStats, GameDirectoryInfo,
+    ImageAssetSummary, LocalTextFileContent, MapAssetContent, MapAssetSummary,
+    ParsedEventAssetContent, TextAssetContent,
 };
 
 use base64::Engine;
@@ -26,12 +27,16 @@ use crate::infrastructure::fs::pathing::{
     audio_source_roots, clean_input_path, collect_known_game_paths, event_source_path,
     map_source_path, normalize_path, stardew_game_validation_candidates,
 };
-use crate::infrastructure::game_formats::tbin::parse_tbin_map;
+use crate::infrastructure::game_formats::parse_map_asset;
 use crate::infrastructure::game_formats::xnb::{self, read_xnb_from_path};
 use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 
-const FILE_CACHE_VERSION: u32 = 1;
+// Bump when any cached asset's parsed representation changes (e.g. tbin now
+// decodes `@TileIndex@` tilesheet properties into `tile_properties`), so stale
+// parses from older app versions are abandoned in their `assets-v<N>` dir.
+const FILE_CACHE_VERSION: u32 = 2;
+const MAP_CLASSIFICATION_CACHE_VERSION: u32 = 1;
 const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
 const MAX_EXPORTED_MAP_PNG_BYTES: usize = 256 * 1024 * 1024;
 const MAX_EXPORTED_FILE_BYTES: usize = 256 * 1024 * 1024;
@@ -44,6 +49,15 @@ struct CachedStringAsset {
     source_modified_time_ms: u128,
     locale: String,
     payload: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CachedMapClassification {
+    version: u32,
+    source_path: String,
+    source_size_bytes: u64,
+    source_modified_time_ns: u128,
+    is_map: bool,
 }
 
 #[derive(Debug, Default)]
@@ -219,11 +233,82 @@ pub(crate) fn preferred_existing_xnb_path(path: &Path, locale: Option<&str>) -> 
     path.to_path_buf()
 }
 
-fn is_map_xnb(path: &Path) -> bool {
+fn parse_map_xnb_classification(path: &Path) -> bool {
     read_xnb_from_path(path)
         .ok()
         .and_then(|xnb| xnb.content.as_bytes().map(|_| ()))
         .is_some()
+}
+
+fn map_classification_cache_path(cache_root: &Path, source_path: &Path) -> PathBuf {
+    let normalized_source_path = normalize_path(source_path);
+    let mut digest = Sha256::new();
+    digest.update(b"map-classification\0");
+    digest.update(normalized_source_path.as_bytes());
+    cache_root.join(format!("{}.json", encode_hex(&digest.finalize())))
+}
+
+fn classify_map_xnb_with_cache(
+    cache_root: &Path,
+    path: &Path,
+    classifier: impl FnOnce(&Path) -> bool,
+) -> anyhow::Result<bool> {
+    let metadata = path
+        .metadata()
+        .with_context(|| format!("Failed to read file metadata"))?;
+    let source_path = normalize_path(path);
+    let source_modified_time_ns = metadata
+        .modified()
+        .with_context(|| format!("Failed to read file modified time"))?
+        .duration_since(UNIX_EPOCH)
+        .with_context(|| format!("Invalid file modified time"))?
+        .as_nanos();
+    let cache_path = map_classification_cache_path(cache_root, path);
+
+    if let Ok(bytes) = fs::read(&cache_path)
+        && let Ok(cached) = serde_json::from_slice::<CachedMapClassification>(&bytes)
+        && cached.version == MAP_CLASSIFICATION_CACHE_VERSION
+        && cached.source_path == source_path
+        && cached.source_size_bytes == metadata.len()
+        && cached.source_modified_time_ns == source_modified_time_ns
+    {
+        return Ok(cached.is_map);
+    }
+
+    let is_map = classifier(path);
+    fs::create_dir_all(cache_root)
+        .with_context(|| format!("Failed to create {}", normalize_path(cache_root)))?;
+    let cached = CachedMapClassification {
+        version: MAP_CLASSIFICATION_CACHE_VERSION,
+        source_path,
+        source_size_bytes: metadata.len(),
+        source_modified_time_ns,
+        is_map,
+    };
+    let bytes =
+        serde_json::to_vec(&cached).context("Failed to serialize map classification cache")?;
+    let temporary_path = cache_path.with_extension(format!("{}.tmp", uuid::Uuid::new_v4()));
+    fs::write(&temporary_path, bytes)
+        .with_context(|| format!("Failed to write {}", normalize_path(&temporary_path)))?;
+    if cache_path.exists() {
+        fs::remove_file(&cache_path)
+            .with_context(|| format!("Failed to replace {}", normalize_path(&cache_path)))?;
+    }
+    if let Err(error) = fs::rename(&temporary_path, &cache_path) {
+        let _ = fs::remove_file(&temporary_path);
+        return Err(error)
+            .with_context(|| format!("Failed to save {}", normalize_path(&cache_path)));
+    }
+    Ok(is_map)
+}
+
+fn is_map_xnb(path: &Path) -> bool {
+    let cache_root = match active_file_cache_dir() {
+        Ok(root) => root.join("map-classification"),
+        Err(_) => return parse_map_xnb_classification(path),
+    };
+    classify_map_xnb_with_cache(&cache_root, path, parse_map_xnb_classification)
+        .unwrap_or_else(|_| parse_map_xnb_classification(path))
 }
 
 fn build_map_summary(
@@ -840,19 +925,17 @@ pub(crate) fn load_map_asset(
         .to_ascii_lowercase();
 
     let content = match format.as_str() {
-        "xnb" => {
+        "xnb" | "tmx" | "tbin" => {
             if let Some(content) =
                 read_cached_string_asset("map", &absolute_path, requested_locale)?
             {
                 content
             } else {
-                let xnb = read_xnb_from_path(&absolute_path)?;
-                let bytes = xnb
-                    .content
-                    .as_bytes()
-                    .context("Map XNB did not contain TBin data.")?;
-                let map = parse_tbin_map(
-                    bytes,
+                let bytes = std::fs::read(&absolute_path).with_context(|| {
+                    format!("Failed to read map {}", normalize_path(&absolute_path))
+                })?;
+                let map = parse_map_asset(
+                    &bytes,
                     &absolute_path,
                     &normalize_path(&logical_relative_path),
                 )?;
@@ -869,9 +952,6 @@ pub(crate) fn load_map_asset(
                 }
                 content
             }
-        }
-        "tmx" => {
-            bail!("TMX loading is no longer supported. Load XNB maps instead.");
         }
         _ => {
             bail!(
@@ -1127,6 +1207,19 @@ pub(crate) fn scan_audio_assets(path: String) -> anyhow::Result<Vec<AudioAssetSu
         collect_audio_assets(&root, &candidate, &mut assets)?;
     }
 
+    let xact_root = root.join("Content").join("XACT");
+    if xact_root.is_dir() {
+        for cue in crate::infrastructure::game_formats::xact::scan_xact_cues(&path)? {
+            let xsb_absolute = normalize_path(&xact_root.join("Sound Bank.xsb"));
+            assets.push(types::AudioAssetSummary {
+                cue,
+                kind: "sound".to_string(),
+                absolute_path: xsb_absolute.clone(),
+                relative_path: "Content/XACT/Sound Bank.xsb".to_string(),
+            });
+        }
+    }
+
     assets.sort_by(|left, right| {
         left.cue
             .cmp(&right.cue)
@@ -1154,6 +1247,183 @@ pub(crate) fn load_audio_data_url(path: String) -> anyhow::Result<String> {
     let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
     let mime = infer_audio_mime(&absolute_path);
     Ok(format!("data:{mime};base64,{encoded}"))
+}
+
+fn is_xnb_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|value| value.eq_ignore_ascii_case("xnb"))
+}
+
+fn is_data_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|value| {
+            value.eq_ignore_ascii_case("xnb") || value.eq_ignore_ascii_case("json")
+        })
+}
+
+/// Turns a game-root-relative path into the Content Patcher asset key the game
+/// uses to load the file: `Content/Characters/Abigail.xnb` → `Characters/Abigail`.
+pub(crate) fn cp_asset_key(relative_path: &str) -> String {
+    let without_content = relative_path
+        .strip_prefix("Content/")
+        .unwrap_or(relative_path);
+    let key = without_content
+        .rsplit_once('.')
+        .map(|(stem, _)| stem)
+        .unwrap_or(without_content);
+    key.to_string()
+}
+
+fn collect_image_assets(
+    base_root: &Path,
+    root: &Path,
+    results: &mut Vec<ImageAssetSummary>,
+) -> anyhow::Result<()> {
+    if !root.exists() {
+        return Ok(());
+    }
+
+    let entries =
+        fs::read_dir(root).with_context(|| format!("Failed to read {}", normalize_path(root)))?;
+
+    for entry in entries {
+        let entry = entry.with_context(|| format!("Failed to inspect image asset entry"))?;
+        let path = entry.path();
+        if path.is_dir() {
+            let relative = path.strip_prefix(base_root).unwrap_or(&path);
+            let normalized = normalize_path(relative).replace('\\', "/");
+            if normalized.eq_ignore_ascii_case("Content/Maps")
+                || normalized.eq_ignore_ascii_case("Content/Data")
+            {
+                continue;
+            }
+            collect_image_assets(base_root, &path, results)?;
+            continue;
+        }
+
+        if !path.is_file() || !is_xnb_file(&path) {
+            continue;
+        }
+
+        let relative_path = path
+            .strip_prefix(base_root)
+            .map(normalize_path)
+            .unwrap_or_else(|_| normalize_path(&path))
+            .replace('\\', "/");
+        if relative_path.starts_with("Content/Maps/") || relative_path.starts_with("Content/Data/")
+        {
+            continue;
+        }
+
+        let stem = path
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+        // Localized variants are resolved by the loaders from the base asset,
+        // so the picker lists each logical asset exactly once.
+        if split_localized_stem(stem).1.is_some() {
+            continue;
+        }
+
+        let name = cp_asset_key(&relative_path);
+        if name.is_empty() {
+            continue;
+        }
+
+        let metadata = path
+            .metadata()
+            .with_context(|| format!("Failed to read file metadata"))?;
+        results.push(ImageAssetSummary {
+            name,
+            absolute_path: normalize_path(&path),
+            relative_path,
+            size_bytes: metadata.len(),
+        });
+    }
+
+    Ok(())
+}
+
+fn collect_data_assets(
+    base_root: &Path,
+    root: &Path,
+    results: &mut Vec<DataAssetSummary>,
+) -> anyhow::Result<()> {
+    if !root.exists() {
+        return Ok(());
+    }
+
+    let entries =
+        fs::read_dir(root).with_context(|| format!("Failed to read {}", normalize_path(root)))?;
+
+    for entry in entries {
+        let entry = entry.with_context(|| format!("Failed to inspect data asset entry"))?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_data_assets(base_root, &path, results)?;
+            continue;
+        }
+
+        if !path.is_file() || !is_data_file(&path) {
+            continue;
+        }
+
+        let stem = path
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+        if split_localized_stem(stem).1.is_some() {
+            continue;
+        }
+
+        let relative_path = path
+            .strip_prefix(base_root)
+            .map(normalize_path)
+            .unwrap_or_else(|_| normalize_path(&path))
+            .replace('\\', "/");
+        let name = cp_asset_key(&relative_path);
+        if name.is_empty() {
+            continue;
+        }
+
+        let metadata = path
+            .metadata()
+            .with_context(|| format!("Failed to read file metadata"))?;
+        results.push(DataAssetSummary {
+            name,
+            absolute_path: normalize_path(&path),
+            relative_path,
+            size_bytes: metadata.len(),
+        });
+    }
+
+    Ok(())
+}
+
+/// Scans the game Content tree for XNB textures, excluding map and data assets.
+pub(crate) fn scan_image_assets(path: String) -> anyhow::Result<Vec<ImageAssetSummary>> {
+    let root = clean_input_path(&path);
+    read_directory_info(&root)?;
+
+    let mut assets = Vec::new();
+    collect_image_assets(&root, &root.join("Content"), &mut assets)?;
+
+    assets.sort_by(|left, right| left.name.cmp(&right.name));
+    Ok(assets)
+}
+
+/// Scans `Content/Data` for XNB and JSON data assets.
+pub(crate) fn scan_data_assets(path: String) -> anyhow::Result<Vec<DataAssetSummary>> {
+    let root = clean_input_path(&path);
+    read_directory_info(&root)?;
+
+    let mut assets = Vec::new();
+    collect_data_assets(&root, &root.join("Content").join("Data"), &mut assets)?;
+
+    assets.sort_by(|left, right| left.name.cmp(&right.name));
+    Ok(assets)
 }
 
 #[cfg(test)]

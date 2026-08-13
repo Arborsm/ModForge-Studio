@@ -1,13 +1,14 @@
 import type { EventAssetSummary, GameDirectoryInfo, MapAssetSummary } from '@entities/game/api'
 import type { FocusedMapObjectTarget, TileHoverInfo, ViewportWorldPoint } from '@entities/map'
-import type { BuildingTextureAssetState, BuildingWorkspaceEntry, ConstructibleBuildingGroup } from '../../workspaces/building'
-import type { CharacterAppearanceVariant, CharacterVisualAssetState, CharacterWorkspaceEntry } from '../../workspaces/character'
-import type { ItemTextureAssetState, ItemWorkspaceEntry } from '../../workspaces/item'
+import type { BuildingTextureAssetState, BuildingWorkspaceEntry, ConstructibleBuildingGroup } from '@entities/building'
+import type { CharacterAppearanceVariant, CharacterVisualAssetState, CharacterWorkspaceEntry } from '@entities/character'
+import type { ItemTextureAssetState, ItemWorkspaceEntry } from '@entities/item'
 import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup, ModSourceEntry } from '@pages/workbench/workspaces/mod/state/browser'
 import type { EditorCopy, LocaleCode, ThemeMode } from '@locales'
 import type { EventScript, ParsedEventAsset } from '@entities/event'
 import type { EffectAssetState, PlayerAppearanceProfile } from '@entities/event'
 import type { MapDocument } from '@entities/map'
+import type { ObjectLightItemIndex } from '@entities/map'
 import type { StageWorldOverlaySprite } from '@entities/map'
 import type { WorldAtlasView } from '@entities/map'
 
@@ -60,6 +61,8 @@ export type BuildWorkspacePanelsOptions = {
   onToggleGameWorldAdditions: () => void
   worldOverlaySprites: StageWorldOverlaySprite[]
   worldOverlayTextureAssets: Record<string, EffectAssetState>
+  /** Data/BigCraftables + Data/Furniture lookup for object-layer lamp markers in the lighting preview. */
+  objectLightIndex: ObjectLightItemIndex | null
   onFocusObject: (groupId: number, objectId: number) => void
   onHoverChange: (hoverInfo: TileHoverInfo | null) => void
   workspaceStatus: {
@@ -109,6 +112,8 @@ export type BuildWorkspacePanelsOptions = {
   onSelectCharacter: (characterKey: string) => void
   onSelectModCharacter: (entry: ModBrowserEntry<CharacterWorkspaceEntry>) => void
   onSelectCharacterVariant: (variant: CharacterAppearanceVariant) => void
+  /** Hands an NPC key to the character authoring module and navigates there. */
+  onOpenCharacterInAuthoring: (characterKey: string) => void
   constructibleGroups: ConstructibleBuildingGroup[]
   filteredConstructibleGroups: ConstructibleBuildingGroup[]
   worldBuildings: BuildingWorkspaceEntry[]
@@ -136,6 +141,8 @@ export type BuildWorkspacePanelsOptions = {
   onBuildingFilterChange: (value: string) => void
   onSelectBuilding: (buildingKey: string) => void
   onSelectModBuilding: (entry: ModBrowserEntry<BuildingWorkspaceEntry>) => void
+  /** Hands a building key to the building authoring module and navigates there. */
+  onOpenBuildingInAuthoring: (buildingKey: string) => void
   items: ItemWorkspaceEntry[]
   filteredItems: ItemWorkspaceEntry[]
   itemBrowserSourceMode: BrowserSourceMode
@@ -153,6 +160,7 @@ export type BuildWorkspacePanelsOptions = {
   onItemFilterChange: (value: string) => void
   onSelectItem: (itemKey: string) => void
   onSelectModItem: (entry: ModBrowserEntry<ItemWorkspaceEntry>) => void
+  onOpenItemInAuthoring: (item: ItemWorkspaceEntry) => void
   heavyWorkspaceReady: boolean
 }
 
@@ -196,6 +204,7 @@ export type BuildMapPanelsOptions = Pick<
   | 'onToggleGameWorldAdditions'
   | 'worldOverlaySprites'
   | 'worldOverlayTextureAssets'
+  | 'objectLightIndex'
   | 'onFocusObject'
   | 'onHoverChange'
   | 'heavyWorkspaceReady'
@@ -256,6 +265,7 @@ export type BuildCharacterPanelsOptions = Pick<
   | 'onSelectCharacter'
   | 'onSelectModCharacter'
   | 'onSelectCharacterVariant'
+  | 'onOpenCharacterInAuthoring'
   | 'heavyWorkspaceReady'
 >
 
@@ -292,6 +302,7 @@ export type BuildBuildingPanelsOptions = Pick<
   | 'onBuildingFilterChange'
   | 'onSelectBuilding'
   | 'onSelectModBuilding'
+  | 'onOpenBuildingInAuthoring'
 >
 
 export type BuildItemPanelsOptions = Pick<
@@ -314,4 +325,5 @@ export type BuildItemPanelsOptions = Pick<
   | 'onItemFilterChange'
   | 'onSelectItem'
   | 'onSelectModItem'
+  | 'onOpenItemInAuthoring'
 >

@@ -12,6 +12,7 @@ pub mod targets {
     pub const BACKEND_LOG: &str = "BackendLog";
     pub const CLEANUP: &str = "Cleanup";
     pub const SIDECAR: &str = "Sidecar";
+    pub const DEBUG_BRIDGE: &str = "DebugBridge";
     pub const DEV_ASSET_BRIDGE: &str = "DevAssetBridge";
     pub const HOST_RUNTIME: &str = "HostRuntime";
     pub const LAUNCHER: &str = "Launcher";
@@ -21,6 +22,7 @@ pub mod targets {
     pub const LAUNCHER_SETTINGS: &str = "Launcher.Settings";
     pub const LAUNCHER_TRACE: &str = "Launcher.Trace";
     pub const LOCALIZATION_KNOWLEDGE: &str = "Localization.Knowledge";
+    pub const LOCALIZATION_CORPUS: &str = "Localization.Corpus";
     pub const LOCALIZATION_MACHINE_TRANSLATION: &str = "Localization.MachineTranslation";
     pub const LOCALIZATION_REVIEW: &str = "Localization.Review";
     pub const LOCALIZATION_SEMANTIC: &str = "Localization.Semantic";

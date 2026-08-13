@@ -1,15 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Upload, Trash2, ImageIcon } from 'lucide-react'
-import type { DraftPatch, CpMakerDraft, VirtualPreviewAsset } from '@features/cp-maker'
+import type { EditorComponent } from '@features/cp-maker'
+import { loadImageResourceFromPath } from '@shared/lib/assets'
+import { buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
+import { Disclosure } from '@shared/ui/Disclosure'
+import { SheetRegionPicker, type SheetRegion } from '@shared/ui/SheetRegionPicker'
 import { useEditorCopy } from '@locales/provider'
-
-interface ImagePatchEditorProps {
-  patch: DraftPatch
-  draft: CpMakerDraft
-  onPatchChange: (patchId: string, patch: Partial<DraftPatch>) => void
-  onAddVirtualAsset: (asset: VirtualPreviewAsset) => void
-  onRemoveVirtualAsset?: (relativePath: string) => void
-}
 
 type Area = {
   x: number | string
@@ -18,15 +14,69 @@ type Area = {
   height: number | string
 }
 
-export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsset, onRemoveVirtualAsset }: ImagePatchEditorProps) {
+type ImageState = {
+  url: string
+  width: number
+  height: number
+}
+
+/** Decodes a data/blob URL into its natural pixel size. */
+function useDataUrlImageSize(url: string | null): { width: number; height: number } | null {
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null)
+  useEffect(() => {
+    if (url === null) {
+      setSize(null)
+      return
+    }
+    let cancelled = false
+    const image = new Image()
+    image.onload = () => {
+      if (!cancelled) {
+        setSize({ width: image.naturalWidth, height: image.naturalHeight })
+      }
+    }
+    image.onerror = () => {
+      if (!cancelled) {
+        setSize(null)
+      }
+    }
+    image.src = url
+    return () => {
+      cancelled = true
+    }
+  }, [url])
+  return size
+}
+
+function areaToRegion(area: Area | null): SheetRegion | null {
+  if (area === null) return null
+  const numeric = [area.x, area.y, area.width, area.height].every((value) => typeof value === 'number')
+  if (!numeric) return null
+  return { x: area.x as number, y: area.y as number, width: area.width as number, height: area.height as number }
+}
+
+function regionToArea(region: SheetRegion): Area {
+  return { x: region.x, y: region.y, width: region.width, height: region.height }
+}
+
+/**
+ * EditImage editor. Authors pick regions directly on the sheets: the left
+ * stage is the uploaded replacement (FromArea), the right stage is the vanilla
+ * target loaded from the game directory (ToArea). The numeric inputs remain as
+ * the advanced escape for tokenized values. Load patches are edited in the
+ * asset library and never route here.
+ */
+export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources }) => {
+  const { draft, updatePatch: onPatchChange, addVirtualAsset: onAddVirtualAsset, removeVirtualAsset: onRemoveVirtualAsset } = draftPort
   const copy = useEditorCopy().studioDesk.imagePatchEditor
-  const isLoad = patch.action === 'Load'
   const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
   const fromArea = (editorState['fromArea'] as Area | undefined) ?? null
   const toArea = (editorState['toArea'] as Area | undefined) ?? null
   const patchMode = (editorState['patchMode'] as string | undefined) ?? 'Replace'
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [targetImage, setTargetImage] = useState<ImageState | null>(null)
+  const [targetFailed, setTargetFailed] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -37,6 +87,37 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
       }
     }
   }, [previewUrl])
+
+  // Load the vanilla target sheet so ToArea can be picked visually.
+  useEffect(() => {
+    const targetPath = resources.gameRootPath !== null ? buildGameContentPath(resources.gameRootPath, patch.target) : null
+    if (targetPath === null || patch.target.trim() === '') {
+      setTargetImage(null)
+      setTargetFailed(false)
+      return
+    }
+    let cancelled = false
+    setTargetFailed(false)
+    loadImageResourceFromPath(targetPath, resources.locale)
+      .then((result) => {
+        if (cancelled) return
+        if (result === null) {
+          setTargetImage(null)
+          setTargetFailed(true)
+          return
+        }
+        setTargetImage({ url: result.url, width: result.width, height: result.height })
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTargetImage(null)
+          setTargetFailed(true)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [patch.target, resources.gameRootPath, resources.locale])
 
   function updateEditorState(updates: Record<string, unknown>) {
     onPatchChange(patch.id, {
@@ -101,35 +182,48 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
 
   const existingAsset = draft.virtualAssets.find((a) => a.relativePath === patch.fromFile)
   const displayUrl = previewUrl ?? (existingAsset ? `data:${existingAsset.mediaType};base64,${existingAsset.bytesBase64}` : null)
+  const replacementSize = useDataUrlImageSize(displayUrl)
 
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center border-b border-(--border-color) px-3 py-2">
-        <span className="text-xs font-medium text-(--text-primary)">{patch.target}</span>
-        <span className="ml-2 text-[10px] text-(--text-secondary)">({patch.action})</span>
+      <div className="border-border-subtle flex items-center border-b px-3 py-2">
+        <span className="text-text-primary text-xs font-medium">{patch.target}</span>
       </div>
 
       <div className="flex min-h-0 flex-1">
-        {/* Left: Image Upload / Preview */}
-        <div className="flex w-1/2 shrink-0 flex-col border-r border-(--border-color) p-3">
-          <span className="mb-2 text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">{copy.replacementImage}</span>
+        {/* Left: replacement image + FromArea picking */}
+        <div className="border-border-subtle flex w-1/2 shrink-0 flex-col border-r p-3">
+          <span className="text-text-secondary text-caption-px mb-2 font-semibold tracking-wider uppercase">{copy.replacementImage}</span>
 
           {displayUrl ? (
             <div className="flex min-h-0 flex-1 flex-col gap-2">
-              <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-lg border border-(--border-color) bg-(--bg-app) p-2">
-                <img
-                  src={displayUrl}
-                  alt={copy.previewAlt}
-                  className="max-h-full max-w-full object-contain"
-                  style={{ imageRendering: 'pixelated' }}
-                />
+              <div className="min-h-0 flex-1 overflow-auto">
+                {replacementSize !== null ? (
+                  <SheetRegionPicker
+                    imageUrl={displayUrl}
+                    imageWidth={replacementSize.width}
+                    imageHeight={replacementSize.height}
+                    value={areaToRegion(fromArea)}
+                    onChange={(region) => updateEditorState({ fromArea: regionToArea(region) })}
+                    className="max-h-full"
+                  />
+                ) : (
+                  <div className="border-border-subtle bg-surface-app flex items-center justify-center overflow-auto rounded-lg border p-2">
+                    <img
+                      src={displayUrl}
+                      alt={copy.previewAlt}
+                      className="max-h-full max-w-full object-contain"
+                      style={{ imageRendering: 'pixelated' }}
+                    />
+                  </div>
+                )}
               </div>
               <div className="flex items-center justify-between">
-                <span className="truncate text-[10px] text-(--text-secondary)">{patch.fromFile ?? copy.unsaved}</span>
+                <span className="text-text-secondary text-caption-px truncate">{patch.fromFile ?? copy.unsaved}</span>
                 <button
                   type="button"
-                  className="icon-button h-6 w-6 text-(--danger)"
+                  className="icon-button text-danger h-6 w-6"
                   aria-label={copy.removeImage}
                   title={copy.removeImage}
                   onClick={() => {
@@ -137,7 +231,7 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
                       if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev)
                       return null
                     })
-                    if (patch.fromFile && onRemoveVirtualAsset) {
+                    if (patch.fromFile) {
                       onRemoveVirtualAsset(patch.fromFile)
                     }
                     onPatchChange(patch.id, { fromFile: undefined })
@@ -149,15 +243,15 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
             </div>
           ) : (
             <div
-              className="flex min-h-0 flex-1 cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-(--border-color) bg-(--bg-panel-muted) transition-colors hover:border-(--accent) hover:bg-[color-mix(in_srgb,var(--accent)_3%,var(--bg-panel-muted))]"
+              className="border-border-subtle bg-surface-panel-muted hover:border-accent flex min-h-0 flex-1 cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed transition-colors hover:bg-[color-mix(in_srgb,var(--accent)_3%,var(--bg-panel-muted))]"
               onClick={() => fileInputRef.current?.click()}
               onDrop={handleDrop}
               onDragOver={(e) => e.preventDefault()}
             >
-              <ImageIcon className="h-10 w-10 text-(--text-secondary) opacity-40" />
+              <ImageIcon className="text-text-secondary h-10 w-10 opacity-40" />
               <div className="text-center">
-                <p className="text-xs text-(--text-primary)">{copy.dropTitle}</p>
-                <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.dropHint}</p>
+                <p className="text-text-primary text-xs">{copy.dropTitle}</p>
+                <p className="text-text-secondary text-caption-px mt-1">{copy.dropHint}</p>
               </div>
             </div>
           )}
@@ -177,45 +271,60 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
           />
         </div>
 
-        {/* Right: Settings */}
+        {/* Right: vanilla target + ToArea picking */}
         <div className="min-w-0 flex-1 overflow-auto p-3">
           <div className="space-y-4">
-            {isLoad ? (
-              <div className="rounded-lg border border-(--border-color) bg-(--bg-panel-muted) p-3">
-                <p className="text-xs font-medium text-(--text-primary)">{copy.loadAction}</p>
-                <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.loadDescription}</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Patch Mode */}
-                <div>
-                  <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
-                    {copy.patchMode}
-                  </label>
-                  <select
-                    className="w-full rounded-md border border-(--border-color) bg-(--bg-app) px-3 py-2 text-xs text-(--text-primary) outline-none focus:border-(--accent)"
-                    value={patchMode}
-                    onChange={(e) => updateEditorState({ patchMode: e.target.value })}
-                  >
-                    <option value="Replace">{copy.modeLabels.Replace}</option>
-                    <option value="Overlay">{copy.modeLabels.Overlay}</option>
-                    <option value="Mask">{copy.modeLabels.Mask}</option>
-                  </select>
-                  <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.modeDescription}</p>
-                </div>
+            {/* Patch Mode */}
+            <div>
+              <label className="text-text-secondary text-caption-px mb-1.5 block font-semibold tracking-wider uppercase">
+                {copy.patchMode}
+              </label>
+              <select
+                className="border-border-subtle bg-surface-app text-text-primary focus:border-accent w-full rounded-md border px-3 py-2 text-xs outline-none"
+                value={patchMode}
+                onChange={(e) => updateEditorState({ patchMode: e.target.value })}
+              >
+                <option value="Replace">{copy.modeLabels.Replace}</option>
+                <option value="Overlay">{copy.modeLabels.Overlay}</option>
+                <option value="Mask">{copy.modeLabels.Mask}</option>
+              </select>
+              <p className="text-text-secondary text-caption-px mt-1">{copy.modeDescription}</p>
+            </div>
 
-                {/* From Area */}
+            {/* Vanilla target with ToArea picking */}
+            <div>
+              <label className="text-text-secondary text-caption-px mb-1.5 block font-semibold tracking-wider uppercase">
+                {copy.toArea}
+              </label>
+              {targetImage !== null ? (
+                <SheetRegionPicker
+                  imageUrl={targetImage.url}
+                  imageWidth={targetImage.width}
+                  imageHeight={targetImage.height}
+                  value={areaToRegion(toArea)}
+                  onChange={(region) => updateEditorState({ toArea: regionToArea(region) })}
+                />
+              ) : (
+                <p className="border-border-subtle bg-surface-panel-muted text-text-secondary text-meta-px rounded-md border px-3 py-2">
+                  {targetFailed ? copy.targetLoadFailed : copy.targetLoading}
+                </p>
+              )}
+            </div>
+
+            {/* Manual coordinates stay available for tokenized values */}
+            <Disclosure title={copy.manualAreasTitle} subtitle={copy.manualAreasSubtitle}>
+              <div className="space-y-4">
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
+                  <label className="text-text-secondary text-caption-px mb-1.5 block font-semibold tracking-wider uppercase">
                     {copy.fromArea}
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {(['x', 'y', 'width', 'height'] as const).map((field) => (
                       <div key={field}>
-                        <span className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{field}</span>
+                        <span className="text-text-secondary text-caption-px mb-0.5 block uppercase">{field}</span>
                         <input
                           type="text"
-                          className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
+                          className="border-border-subtle bg-surface-app text-text-primary focus:border-accent text-meta-px w-full rounded border px-2 py-1.5 outline-none"
                           value={fromArea?.[field] ?? ''}
                           placeholder="0"
                           onChange={(e) => updateArea('fromArea', field, e.target.value)}
@@ -223,21 +332,20 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
                       </div>
                     ))}
                   </div>
-                  <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.fromAreaDescription}</p>
+                  <p className="text-text-secondary text-caption-px mt-1">{copy.fromAreaDescription}</p>
                 </div>
 
-                {/* To Area */}
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-(--text-secondary) uppercase">
+                  <label className="text-text-secondary text-caption-px mb-1.5 block font-semibold tracking-wider uppercase">
                     {copy.toArea}
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {(['x', 'y', 'width', 'height'] as const).map((field) => (
                       <div key={field}>
-                        <span className="mb-0.5 block text-[9px] text-(--text-secondary) uppercase">{field}</span>
+                        <span className="text-text-secondary text-caption-px mb-0.5 block uppercase">{field}</span>
                         <input
                           type="text"
-                          className="w-full rounded border border-(--border-color) bg-(--bg-app) px-2 py-1.5 text-[11px] text-(--text-primary) outline-none focus:border-(--accent)"
+                          className="border-border-subtle bg-surface-app text-text-primary focus:border-accent text-meta-px w-full rounded border px-2 py-1.5 outline-none"
                           value={toArea?.[field] ?? ''}
                           placeholder="0"
                           onChange={(e) => updateArea('toArea', field, e.target.value)}
@@ -245,21 +353,21 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
                       </div>
                     ))}
                   </div>
-                  <p className="mt-1 text-[10px] text-(--text-secondary)">{copy.toAreaDescription}</p>
+                  <p className="text-text-secondary text-caption-px mt-1">{copy.toAreaDescription}</p>
                 </div>
               </div>
-            )}
-
-            {/* Quick Upload Button */}
-            <button
-              type="button"
-              className="control-button control-button-primary flex w-full items-center justify-center gap-1.5 text-xs"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="h-3.5 w-3.5" />
-              {displayUrl ? copy.replaceFile : copy.uploadFile}
-            </button>
+            </Disclosure>
           </div>
+
+          {/* Quick Upload Button */}
+          <button
+            type="button"
+            className="control-button control-button-primary flex w-full items-center justify-center gap-1.5 text-xs"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="h-3.5 w-3.5" />
+            {displayUrl ? copy.replaceFile : copy.uploadFile}
+          </button>
         </div>
       </div>
     </div>

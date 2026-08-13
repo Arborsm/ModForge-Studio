@@ -156,11 +156,9 @@ const namedChunkGroups: NamedChunkGroup[] = [
     test: (id) => id.includes('/src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-model/'),
   },
   {
-    name: 'event-stage-resource-picker',
+    name: 'resource-browser',
     priority: 69,
-    test: (id) =>
-      id.includes('/src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventResourcePicker') ||
-      id.includes('/src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/eventResourceRegistry'),
+    test: (id) => id.includes('/src/features/resource-browser/'),
   },
   {
     name: 'event-stage-script-editor',
@@ -240,6 +238,31 @@ const namedChunkGroups: NamedChunkGroup[] = [
     test: (id) => id.includes('/src/pages/workbench/workspaces/mod/'),
   },
   {
+    name: 'character-data-workspace',
+    priority: 40,
+    test: (id) => id.includes('/src/pages/workbench/workspaces/character-data/'),
+  },
+  {
+    name: 'dialogue-workspace',
+    priority: 40,
+    test: (id) => id.includes('/src/pages/workbench/workspaces/dialogue/'),
+  },
+  {
+    name: 'schedule-workspace',
+    priority: 40,
+    test: (id) => id.includes('/src/pages/workbench/workspaces/schedule/'),
+  },
+  {
+    name: 'mail-workspace',
+    priority: 40,
+    test: (id) => id.includes('/src/pages/workbench/workspaces/mail/'),
+  },
+  {
+    name: 'debugger-workspace',
+    priority: 40,
+    test: (id) => id.includes('/src/pages/workbench/workspaces/debugger/'),
+  },
+  {
     name: 'map-workspace',
     priority: 40,
     test: (id) =>
@@ -293,6 +316,7 @@ export default defineConfig({
     exclude: ['**/node_modules/**', '**/dist/**', 'src/dev/**'],
   },
   build: {
+    manifest: true,
     rolldownOptions: {
       checks: {
         pluginTimings: false,

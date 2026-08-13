@@ -107,6 +107,8 @@ pub(crate) struct AppUiWorkspaceState {
     #[serde(default)]
     pub(crate) navigation: AppUiWorkspaceNavigationState,
     #[serde(default)]
+    pub(crate) expert_mode: bool,
+    #[serde(default)]
     pub(crate) modules: BTreeMap<String, Value>,
 }
 
@@ -193,6 +195,8 @@ pub(crate) struct AppUiWorkspaceStatePatch {
     pub(crate) location: Option<AppUiWorkbenchLocation>,
     #[serde(default)]
     pub(crate) navigation: Option<AppUiWorkspaceNavigationStatePatch>,
+    #[serde(default)]
+    pub(crate) expert_mode: Option<bool>,
     #[serde(default)]
     pub(crate) modules: Option<BTreeMap<String, Option<Value>>>,
 }
@@ -352,6 +356,7 @@ impl Default for AppUiWorkspaceState {
                 module_id: None,
             },
             navigation: AppUiWorkspaceNavigationState::default(),
+            expert_mode: false,
             modules: BTreeMap::new(),
         }
     }
@@ -566,6 +571,7 @@ fn normalize_workspace(state: AppUiWorkspaceState) -> AppUiWorkspaceState {
             collapsed: state.navigation.collapsed,
             expanded_sections,
         },
+        expert_mode: state.expert_mode,
         modules: normalize_workspace_modules(state.modules),
     }
 }
@@ -699,6 +705,9 @@ pub(crate) fn patch_app_ui_state_at_path(
             if let Some(expanded_sections) = navigation.expanded_sections {
                 state.workspace.navigation.expanded_sections = expanded_sections;
             }
+        }
+        if let Some(expert_mode) = workspace.expert_mode {
+            state.workspace.expert_mode = expert_mode;
         }
         if let Some(modules) = workspace.modules {
             for (key, value) in modules {

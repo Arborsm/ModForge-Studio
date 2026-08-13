@@ -167,7 +167,7 @@ export function StudioDeskProjectGallery({
             const rowClassName = cx(
               'studio-project-gallery-row',
               project.isCurrent && 'is-current',
-              project.statuses.includes('conflict') && 'is-conflict',
+              project.statuses.includes('error') && 'is-error',
               project.needsMetadata && 'is-incomplete',
               variant === 'cards' && 'studio-project-gallery-row-card',
             )

@@ -9,7 +9,6 @@ import {
   compactNumber,
   formatDate,
   formatSize,
-  hasUpdate,
   normalizeVersion,
   resolveFileGroup,
   truncatePath,
@@ -18,6 +17,7 @@ import {
   type FileListItem,
   type LauncherDetailTab,
 } from './launcherModDetailData'
+import { isUpdateAvailable } from '../../model/versionCompare'
 
 type EditorCopy = ReturnType<typeof useEditorCopy>
 
@@ -159,7 +159,7 @@ export function useLauncherModDetailViewModel({
   const isNexus = Boolean(remote)
   const isCombined = isLocal && isNexus
   const latestVersion = remote?.primaryFileVersion ?? remote?.version ?? null
-  const updateAvailable = isCombined && hasUpdate(mod?.version, latestVersion)
+  const updateAvailable = isCombined && isUpdateAvailable(mod?.version, latestVersion)
   const displayName = mod?.name ?? remote?.title ?? launcherCopy.library.detailsTitle
   const displayAuthor = mod?.author ?? remote?.author ?? launcherCopy.library.detailsSubtitle
   const displayVersion = isCombined

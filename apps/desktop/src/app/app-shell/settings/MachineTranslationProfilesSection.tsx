@@ -10,6 +10,7 @@ import type {
   SaveMachineTranslationProfile,
 } from '@shared/contracts'
 import { cx } from '@shared/lib/helper'
+import { CompactSelect } from '@shared/ui/CompactSelect'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
 
@@ -379,20 +380,19 @@ export function MachineTranslationProfilesSection({
                       </label>
                       <label>
                         <span>{rootCopy.provider}</span>
-                        <select
-                          className="control-input"
+                        <CompactSelect
                           value={profile.presetId}
-                          onChange={(event) => {
-                            const value = presets.find((preset) => preset.id === event.target.value)
-                            if (value) selectPreset(profile, value)
+                          options={presets.map((value) => ({ value: value.id, label: value.name }))}
+                          onChange={(next) => {
+                            const preset = presets.find((item) => item.id === next)
+                            if (preset) selectPreset(profile, preset)
                           }}
-                        >
-                          {presets.map((value) => (
-                            <option key={value.id} value={value.id}>
-                              {value.name}
-                            </option>
-                          ))}
-                        </select>
+                          ariaLabel={rootCopy.provider}
+                          placement="bottom-start"
+                          className="settings-ai-grid-select"
+                          triggerClassName="settings-ai-grid-select-trigger"
+                          menuClassName="settings-ai-grid-select-menu"
+                        />
                       </label>
                       <label className="settings-ai-wide">
                         <span>{rootCopy.baseUrl}</span>

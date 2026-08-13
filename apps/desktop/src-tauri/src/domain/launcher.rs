@@ -9,10 +9,12 @@ pub mod mod_config;
 pub mod paths;
 pub mod runtime;
 pub mod settings;
+pub mod smapi_update;
 pub mod trace;
 pub mod types;
 pub mod update_cache;
 pub mod updates;
+pub mod versions;
 
 #[cfg(test)]
 #[path = "../tests/integration/launcher_tests.rs"]

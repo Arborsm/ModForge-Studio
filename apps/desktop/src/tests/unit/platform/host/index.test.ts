@@ -224,6 +224,7 @@ describe('desktop facade', () => {
       workspace: {
         location: { kind: 'home' },
         navigation: { collapsed: true, expandedSections: ['browse'] },
+        expertMode: false,
         modules: {},
       },
       launcher: {

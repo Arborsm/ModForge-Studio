@@ -17,21 +17,12 @@ export type ScriptEditorProps = {
   script: EventScript | null
   locale?: 'zh-CN' | 'en-US'
   resourceRegistry?: EventResourceRegistry
-  currentPlaybackCommandId?: string | null
   eventId?: string | null
   onScriptChange?: (script: EventScript) => void
   className?: string
 }
 
-export function ScriptEditor({
-  script,
-  locale = 'zh-CN',
-  resourceRegistry,
-  currentPlaybackCommandId = null,
-  eventId,
-  onScriptChange,
-  className,
-}: ScriptEditorProps) {
+export function ScriptEditor({ script, locale = 'zh-CN', resourceRegistry, eventId, onScriptChange, className }: ScriptEditorProps) {
   // Subscribe only to needed state slices to avoid re-renders on unrelated store changes
   const currentScript = useEditorStore((s) => s.currentScript)
   const showLineNumbers = useEditorStore((s) => s.showLineNumbers)
@@ -231,7 +222,6 @@ export function ScriptEditor({
           copy={copy}
           workflowCopy={workflowCopy}
           resourceRegistry={resourceRegistry}
-          currentPlaybackCommandId={currentPlaybackCommandId}
           onUpdateArg={handleUpdateArg}
           onUpdateArgs={handleUpdateArgs}
           onSetInlineDelay={handleSetInlineDelay}

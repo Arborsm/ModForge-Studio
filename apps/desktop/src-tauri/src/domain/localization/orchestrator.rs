@@ -87,6 +87,8 @@ pub fn translate_localization_batch(
                     items: request.items,
                     usage_context: request.usage_context,
                     knowledge_policy: request.knowledge_policy,
+                    skip_format_validation: false,
+                    max_batch_bytes: request.max_batch_bytes,
                 },
             )?;
             Ok(LocalizationTranslateBatchResult {
@@ -175,7 +177,8 @@ pub fn test_ai_profile(request: AiProfileRequest) -> anyhow::Result<AiProfileTes
             .optional(
                 "failureCategory",
                 stable_failure_category(attempt.failure_category.as_deref()),
-            );
+            )
+            .optional("structuredOutput", attempt.structured_output.as_deref());
         emit_attempt(attempt_log, attempt.succeeded, TRANSLATION);
         ledger_failed |= record_usage(AiUsageEvent {
             occurred_at_ms: now_ms(),
@@ -358,6 +361,7 @@ pub fn translate_ai_batch(
             usage_record_state: "unavailable".into(),
             knowledge_trace,
             knowledge_revision,
+            reasoning: None,
         });
     }
     let (profile_id, provider, model) = ai::usage_identity(request.profile_id.as_deref())?;
@@ -393,6 +397,7 @@ pub fn translate_ai_batch(
                 "failureCategory",
                 stable_failure_category(attempt.failure_category.as_deref()),
             )
+            .optional("structuredOutput", attempt.structured_output.as_deref())
             .optional("inputTokens", attempt.usage.input_tokens)
             .optional("outputTokens", attempt.usage.output_tokens);
         emit_attempt(attempt_log, attempt.succeeded, TRANSLATION);
@@ -870,7 +875,8 @@ pub fn review_batch(request: AiReviewRequest) -> anyhow::Result<AiReviewResult> 
             .optional(
                 "failureCategory",
                 stable_failure_category(attempt.failure_category.as_deref()),
-            );
+            )
+            .optional("structuredOutput", attempt.structured_output.as_deref());
         emit_attempt(attempt_log, attempt.succeeded, REVIEW);
         ledger_failed |= record_usage(AiUsageEvent {
             occurred_at_ms: now_ms(),

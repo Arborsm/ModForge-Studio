@@ -20,6 +20,12 @@ const MAX_BASE_URL_BYTES: usize = 2_048;
 const MAX_MODEL_ID_BYTES: usize = 256;
 const MAX_ENVIRONMENT_NAME_BYTES: usize = 128;
 const MAX_API_KEY_BYTES: usize = 16 * 1024;
+const MAX_CONTEXT_WINDOW_TOKENS: u64 = 10_000_000;
+const MAX_OUTPUT_TOKENS: u64 = 10_000_000;
+const MAX_BATCH_BYTES: u64 = 256 * 1024;
+const TEMPERATURE_LIMITS: (f64, f64) = (0.0, 2.0);
+const TOP_P_LIMITS: (f64, f64) = (0.0, 1.0);
+const PENALTY_LIMITS: (f64, f64) = (-2.0, 2.0);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -31,6 +37,28 @@ struct StoredAiProfile {
     base_url: String,
     model: String,
     credential_environment: Option<String>,
+    #[serde(default)]
+    allow_insecure_http: bool,
+    #[serde(default)]
+    context_window_tokens: Option<u64>,
+    #[serde(default)]
+    max_output_tokens: Option<u64>,
+    #[serde(default)]
+    temperature: Option<f64>,
+    #[serde(default)]
+    top_p: Option<f64>,
+    #[serde(default)]
+    frequency_penalty: Option<f64>,
+    #[serde(default)]
+    presence_penalty: Option<f64>,
+    #[serde(default)]
+    max_batch_bytes: Option<u64>,
+    #[serde(default)]
+    enable_reasoning: bool,
+    #[serde(default)]
+    reasoning_effort: Option<super::types::ReasoningEffort>,
+    #[serde(default)]
+    stream_translation: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,19 +94,54 @@ fn bounded(value: String, field: &str, max_bytes: usize) -> anyhow::Result<Strin
     Ok(value)
 }
 
-pub(crate) fn validate_base_url(value: &str) -> anyhow::Result<String> {
+fn validate_optional_token_count(
+    value: Option<u64>,
+    field: &str,
+    max: u64,
+) -> anyhow::Result<Option<u64>> {
+    if let Some(value) = value {
+        if value == 0 || value > max {
+            bail!("AI profile {field} must be a positive integer no larger than {max}.");
+        }
+    }
+    Ok(value)
+}
+
+fn validate_optional_float(
+    value: Option<f64>,
+    field: &str,
+    (min, max): (f64, f64),
+) -> anyhow::Result<Option<f64>> {
+    if let Some(value) = value {
+        if !value.is_finite() || !(min..=max).contains(&value) {
+            bail!("AI profile {field} must be a number between {min} and {max}.");
+        }
+    }
+    Ok(value)
+}
+
+pub(crate) fn validate_base_url(value: &str, allow_insecure_http: bool) -> anyhow::Result<String> {
     let value = bounded(required(value, "base URL")?, "base URL", MAX_BASE_URL_BYTES)?
         .trim_end_matches('/')
         .to_string();
     let url = Url::parse(&value).context("AI profile base URL is invalid.")?;
-    let loopback = match url.host() {
-        Some(Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
-        Some(Host::Ipv4(host)) => host.is_loopback(),
-        Some(Host::Ipv6(host)) => host.is_loopback(),
-        None => false,
-    };
-    if url.scheme() != "https" && !(url.scheme() == "http" && loopback) {
-        bail!("AI profile endpoints must use HTTPS; HTTP is allowed only for loopback hosts.");
+    if url.host().is_none() {
+        bail!("AI profile base URL must include a host.");
+    }
+    if allow_insecure_http {
+        if url.scheme() != "https" && url.scheme() != "http" {
+            bail!("AI profile endpoints must use HTTP or HTTPS.");
+        }
+    } else {
+        let loopback = match url.host() {
+            Some(Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
+            Some(Host::Ipv4(host)) => host.is_loopback(),
+            Some(Host::Ipv6(host)) => host.is_loopback(),
+            None => false,
+        };
+        if url.scheme() != "https" && !(url.scheme() == "http" && loopback) {
+            bail!("AI profile endpoints must use HTTPS; HTTP is allowed only for loopback hosts.");
+        }
     }
     if !url.username().is_empty()
         || url.password().is_some()
@@ -176,6 +239,17 @@ fn snapshot(profile: StoredAiProfile) -> anyhow::Result<AiProviderProfile> {
         base_url: profile.base_url,
         model: profile.model,
         credential_environment: profile.credential_environment,
+        allow_insecure_http: profile.allow_insecure_http,
+        context_window_tokens: profile.context_window_tokens,
+        max_output_tokens: profile.max_output_tokens,
+        temperature: profile.temperature,
+        top_p: profile.top_p,
+        frequency_penalty: profile.frequency_penalty,
+        presence_penalty: profile.presence_penalty,
+        max_batch_bytes: profile.max_batch_bytes,
+        enable_reasoning: profile.enable_reasoning,
+        reasoning_effort: profile.reasoning_effort,
+        stream_translation: profile.stream_translation,
         key_configured: keychain || environment,
         resolved_credential_source: if keychain {
             Some("keychain".into())
@@ -215,7 +289,7 @@ fn normalize(profile: &SaveAiProviderProfile) -> anyhow::Result<StoredAiProfile>
             MAX_PRESET_ID_BYTES,
         )?,
         protocol: profile.protocol,
-        base_url: validate_base_url(&profile.base_url)?,
+        base_url: validate_base_url(&profile.base_url, profile.allow_insecure_http)?,
         model: bounded(
             required(&profile.model, "model")?,
             "model",
@@ -229,6 +303,41 @@ fn normalize(profile: &SaveAiProviderProfile) -> anyhow::Result<StoredAiProfile>
             .map(str::to_string)
             .map(|value| bounded(value, "credential environment", MAX_ENVIRONMENT_NAME_BYTES))
             .transpose()?,
+        allow_insecure_http: profile.allow_insecure_http,
+        context_window_tokens: validate_optional_token_count(
+            profile.context_window_tokens,
+            "context window",
+            MAX_CONTEXT_WINDOW_TOKENS,
+        )?,
+        max_output_tokens: validate_optional_token_count(
+            profile.max_output_tokens,
+            "max output tokens",
+            MAX_OUTPUT_TOKENS,
+        )?,
+        temperature: validate_optional_float(
+            profile.temperature,
+            "temperature",
+            TEMPERATURE_LIMITS,
+        )?,
+        top_p: validate_optional_float(profile.top_p, "top_p", TOP_P_LIMITS)?,
+        frequency_penalty: validate_optional_float(
+            profile.frequency_penalty,
+            "frequency_penalty",
+            PENALTY_LIMITS,
+        )?,
+        presence_penalty: validate_optional_float(
+            profile.presence_penalty,
+            "presence_penalty",
+            PENALTY_LIMITS,
+        )?,
+        max_batch_bytes: validate_optional_token_count(
+            profile.max_batch_bytes,
+            "max batch bytes",
+            MAX_BATCH_BYTES,
+        )?,
+        enable_reasoning: profile.enable_reasoning,
+        reasoning_effort: profile.reasoning_effort,
+        stream_translation: profile.stream_translation,
     })
 }
 

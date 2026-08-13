@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   canUseDesktopHost,
   forceCloseCurrentWindow,
@@ -35,6 +36,7 @@ import {
   configurePreferencesHostAdapter,
   usePreferencesStore,
 } from '@shared/lib/app-state/preferencesStore'
+import { syncEditorModeStoreFromAppUiState } from '@shared/lib/app-state/editorModeStore'
 import { clearImageMetricsLocaleCache, configureImageDataUrlLoader } from '@shared/lib/assets'
 import type { LauncherNexusDiagnosticsResult } from '@features/launcher/model/launcherContracts'
 import {
@@ -57,15 +59,35 @@ import { GuideTourOverlay } from '@widgets/guide-tour'
 import { useGuideEngineStore } from '@features/guide'
 import { appGuideDefinitions, resolveGuideSurfaceNavigation } from '../guide-setup'
 import { WorkbenchShellSkeleton } from '@shared/ui/WorkbenchShellSkeleton'
+import { deferToTimeout } from '@shared/lib/react'
 
-const SettingsWindow = lazy(() => import('./SettingsWindow'))
-const WorkbenchPage = lazy(async () => {
+let settingsWindowPromise: ReturnType<typeof importSettingsWindow> | null = null
+let workbenchPagePromise: ReturnType<typeof importWorkbenchPage> | null = null
+let workbenchStylesPromise: Promise<unknown> | null = null
+
+function importSettingsWindow() {
+  return import('./SettingsWindow')
+}
+
+function preloadSettingsWindow() {
+  settingsWindowPromise ??= importSettingsWindow()
+  return settingsWindowPromise
+}
+
+function preloadWorkbenchStyles() {
+  workbenchStylesPromise ??= import('../../styles/workbench.css')
+  return workbenchStylesPromise
+}
+
+async function importWorkbenchPage() {
   const [workbenchModule, registrySetupModule, registryModule, cpMakerProviderModule] = await Promise.all([
     import('@pages/workbench'),
     import('@app/registry-setup'),
     import('@app/registry'),
     import('../providers/CpMakerPlatformProvider'),
+    preloadWorkbenchStyles(),
   ])
+  await workbenchModule.preloadWorkbenchExperience()
 
   return {
     default: function WorkbenchPageWithRegistry(
@@ -86,9 +108,15 @@ const WorkbenchPage = lazy(async () => {
       )
     },
   }
-})
+}
 
-let workbenchStylesPromise: Promise<unknown> | null = null
+function preloadWorkbenchPage() {
+  workbenchPagePromise ??= importWorkbenchPage()
+  return workbenchPagePromise
+}
+
+const SettingsWindow = lazy(preloadSettingsWindow)
+const WorkbenchPage = lazy(preloadWorkbenchPage)
 
 configureImageDataUrlLoader(loadImageDataUrl)
 configureAppUiStatePersistence({
@@ -129,6 +157,7 @@ export default function App() {
   const [workbenchHomeActive, setWorkbenchHomeActive] = useState(initialShellState.appMode === 'workbench')
   const [appUiStateReady, setAppUiStateReady] = useState(!canUseDesktopHost())
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
+  const [settingsShellPrepared, setSettingsShellPrepared] = useState(false)
   const [settingsWindowCategory, setSettingsWindowCategory] = useState<SettingsWindowCategory>('appearance')
   const [settingsWindowAiTab, setSettingsWindowAiTab] = useState<AiSettingsTab | null>(null)
   const [quitDialogOpen, setQuitDialogOpen] = useState(false)
@@ -245,6 +274,7 @@ export default function App() {
 
         const nextShellState = normalizeAppShellState(state.shell)
         syncPreferencesStoreFromAppUiState(state, canUseDesktopHost())
+        syncEditorModeStoreFromAppUiState(state.workspace.expertMode)
         if (nextShellState.appMode === 'workbench') {
           setWorkbenchHasOpened(true)
           setWorkbenchActivationKey((current) => current + 1)
@@ -361,9 +391,28 @@ export default function App() {
       return
     }
 
-    workbenchStylesPromise ??= import('../../styles/workbench.css')
-    void workbenchStylesPromise
+    void preloadWorkbenchStyles()
   }, [appMode])
+
+  useEffect(() => {
+    if (!appUiStateReady || appMode !== 'launcher') return
+    let cancelled = false
+    let cancelWorkbenchPreload: (() => void) | null = null
+    const cancelSettingsPreload = deferToTimeout(() => {
+      void preloadSettingsWindow().then(() => {
+        if (cancelled) return
+        setSettingsShellPrepared(true)
+        cancelWorkbenchPreload = deferToTimeout(() => {
+          void preloadWorkbenchPage()
+        }, 0)
+      })
+    }, 0)
+    return () => {
+      cancelled = true
+      cancelSettingsPreload()
+      cancelWorkbenchPreload?.()
+    }
+  }, [appMode, appUiStateReady])
 
   useEffect(() => {
     if (!appUiStateReady) {
@@ -673,17 +722,20 @@ export default function App() {
               />
             ) : null}
 
-            {settingsWindowOpen ? (
-              <Suspense fallback={<LoadingMotionFallback />}>
-                <SettingsWindow
-                  open={settingsWindowOpen}
-                  activeCategory={settingsWindowCategory}
-                  initialAiTab={settingsWindowAiTab ?? undefined}
-                  onActiveCategoryChange={setSettingsWindowCategory}
-                  onClose={() => setSettingsWindowOpen(false)}
-                />
-              </Suspense>
-            ) : null}
+            {settingsWindowOpen || settingsShellPrepared
+              ? createPortal(
+                  <Suspense fallback={<LoadingMotionFallback />}>
+                    <SettingsWindow
+                      open={settingsWindowOpen}
+                      activeCategory={settingsWindowCategory}
+                      initialAiTab={settingsWindowAiTab ?? undefined}
+                      onActiveCategoryChange={setSettingsWindowCategory}
+                      onClose={() => setSettingsWindowOpen(false)}
+                    />
+                  </Suspense>,
+                  document.body,
+                )
+              : null}
 
             <QuitDialog
               open={quitDialogOpen}
@@ -693,9 +745,10 @@ export default function App() {
               rememberChoice={quitDialogRemember}
               onRememberChoiceChange={setQuitDialogRemember}
             />
-            {/* The settings window renders inside the window frame, so the
-                body-level guide overlay would cover it; suspend the guide
-                (engine keeps the run) until settings closes. */}
+            {/* The settings window portals to document.body above the guide
+                overlay (dialog layer outranks the guide), so it can no longer
+                be covered; keep the guide suspended while settings is open so
+                the tour does not fight the modal (engine keeps the run). */}
             {settingsWindowOpen ? null : <GuideTourOverlay />}
             <div className="app-window-titlebar-divider" aria-hidden="true" />
           </div>

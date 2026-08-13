@@ -141,12 +141,6 @@ export function truncatePath(value: string | null | undefined, noneLabel: string
   return `${root}\\...\\${parts.slice(-2).join('\\')}`
 }
 
-export function hasUpdate(localVersion: string | null | undefined, remoteVersion: string | null | undefined) {
-  const local = localVersion?.trim()
-  const remote = remoteVersion?.trim()
-  return Boolean(local && remote && local !== remote)
-}
-
 function normalizeFileCategory(value: string | null | undefined) {
   return value?.trim().toUpperCase() ?? ''
 }

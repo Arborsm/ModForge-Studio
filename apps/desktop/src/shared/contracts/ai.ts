@@ -11,7 +11,7 @@ export type AiErrorCode =
   | 'placeholder-mismatch'
   | 'cancelled'
   | 'unknown'
-export type AiStructuredOutputCapability = 'json-schema' | 'json-object' | 'strict-json-prompt' | 'anthropic-tool'
+export type AiStructuredOutputCapability = 'json-schema' | 'json-object' | 'tool-use' | 'none'
 export type AiAuthentication = 'bearer' | 'anthropic-api-key' | 'none'
 
 export type AiProviderPreset = {
@@ -34,6 +34,21 @@ export type AiProviderProfile = {
   baseUrl: string
   model: string
   credentialEnvironment: string | null
+  allowInsecureHttp: boolean
+  contextWindowTokens: number | null
+  maxOutputTokens: number | null
+  temperature: number | null
+  topP: number | null
+  frequencyPenalty: number | null
+  presencePenalty: number | null
+  /** Per-batch input byte cap override for translation batching; blank derives the budget from the context window. Bounded by the 256 KB backend cap. */
+  maxBatchBytes: number | null
+  /** Requests provider chain-of-thought when the protocol supports it (not Anthropic in the first version). */
+  enableReasoning: boolean
+  /** Reasoning effort dial; null uses the provider default. Wire values map 1:1 for OpenAI (xhigh/max are model-dependent); hidden for DeepSeek (boolean thinking toggle) and Anthropic (unsupported). */
+  reasoningEffort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | null
+  /** Streams translation deltas over the host event channel while batches generate; final results are still validated in full. */
+  streamTranslation: boolean
   keyConfigured: boolean
   resolvedCredentialSource: 'keychain' | 'environment' | null
 }
@@ -51,7 +66,21 @@ export type SaveAiProviderProfile = Omit<AiProviderProfile, 'keyConfigured' | 'r
 }
 
 export type SaveAiSettingsRequest = { defaultProfileId: string | null; profiles: SaveAiProviderProfile[] }
-export type AiModelInfo = { id: string; displayName: string | null }
+export type AiModelInfo = { id: string; displayName: string | null; contextWindowTokens: number | null }
+
+/** One model inside the models.dev catalog with its limit metadata. */
+export type ModelsDevModelEntry = {
+  id: string
+  name: string | null
+  contextWindowTokens: number | null
+  maxOutputTokens: number | null
+}
+
+/** One provider inside the models.dev catalog (e.g. `openai`, `anthropic`). */
+export type ModelsDevProviderEntry = { id: string; name: string; models: ModelsDevModelEntry[] }
+
+/** Parsed models.dev catalog plus the backend fetch timestamp for cache display. */
+export type ModelsDevCatalog = { fetchedAtMs: number; providers: ModelsDevProviderEntry[] }
 export type AiTranslationFormat = 'plainText' | 'nexusBbcodeText' | 'stardewI18n'
 export type AiTranslationItem = { id: string; text: string; format: AiTranslationFormat; context?: string }
 
@@ -63,6 +92,10 @@ export type AiTranslateBatchRequest = {
   items: AiTranslationItem[]
   usageContext?: { pageSource: 'launcher' | 'workbench-translation' | 'localization-review'; operation: string; scopeId?: string }
   knowledgePolicy?: KnowledgePolicy
+  /** Skips the placeholder multiset comparison; id uniqueness/count checks always stay on. */
+  skipFormatValidation?: boolean
+  /** Per-batch input byte cap override (bounded by the 256 KB backend cap). */
+  maxBatchBytes?: number | null
 }
 export type KnowledgePolicy = { enabled: boolean; useOfficialCorpus: boolean; useGlobalKnowledge: boolean; useProfileKnowledge: boolean }
 export type KnowledgeTrace = {
@@ -87,12 +120,21 @@ export type AiTranslateBatchResult = {
   usageRecordState: 'recorded' | 'failed' | 'unavailable'
   knowledgeTrace: KnowledgeTrace
   knowledgeRevision: string
+  /** Provider chain-of-thought text for this batch when reasoning was enabled and returned; null/absent otherwise. */
+  reasoning?: string | null
 }
 export type AiTranslationProgressPayload = {
   jobId: string
   completed: number
   total: number
   state: 'running' | 'completed' | 'cancelled' | 'error'
+}
+
+/** One incremental translation delta emitted over the stream channel while a streaming batch generates. */
+export type AiTranslationStreamPayload = {
+  jobId: string
+  kind: 'content' | 'reasoning'
+  delta: string
 }
 
 export type AiTranslationCacheEntry = {
@@ -113,6 +155,8 @@ export type AiProfileTestResult = {
   model: string
   latencyMs: number
   credentialSource: 'keychain' | 'environment' | null
+  /** Provider chain-of-thought text from the probe when reasoning is enabled; null/absent otherwise. */
+  reasoning?: string | null
 }
 export type AiProfileImportConflictPolicy = 'overwrite' | 'copy' | 'skip'
 export type ExportAiProfilesRequest = { destinationPath: string; profileIds: string[] }
@@ -137,6 +181,7 @@ export interface AiPort {
   loadSettings: () => Promise<AiSettingsSnapshot>
   saveSettings: (request: SaveAiSettingsRequest) => Promise<AiSettingsSnapshot>
   listModels: (profileId: string) => Promise<AiModelInfo[]>
+  fetchModelsDevCatalog: () => Promise<ModelsDevCatalog>
   testProfile: (profileId: string) => Promise<AiProfileTestResult>
   exportProfiles: (request: ExportAiProfilesRequest) => Promise<number>
   previewProfilesImport: (sourcePath: string) => Promise<AiProfileImportPreview>
@@ -144,6 +189,7 @@ export interface AiPort {
   translateBatch: (request: AiTranslateBatchRequest) => Promise<AiTranslateBatchResult>
   cancelJob: (jobId: string) => Promise<void>
   listenToProgress: (listener: (payload: AiTranslationProgressPayload) => void) => Promise<() => void>
+  listenToStream: (listener: (payload: AiTranslationStreamPayload) => void) => Promise<() => void>
   readCache: (request: Pick<AiTranslationCacheEntry, 'scopeKey' | 'targetLocale' | 'sourceHash'>) => Promise<AiTranslationCacheEntry | null>
   writeCache: (entry: AiTranslationCacheEntry) => Promise<AiTranslationCacheEntry>
   getCacheStats: () => Promise<AiTranslationCacheStats>

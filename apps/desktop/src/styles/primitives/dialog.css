@@ -5,12 +5,10 @@
    * is always left visible and interactive. The z-index sits above the titlebar
    * so no popover or float can ever pierce a dialog. */
   .app-dialog-overlay {
-    position: fixed;
+    @apply fixed grid p-6;
     inset: var(--app-titlebar-height) 0 0;
     z-index: var(--z-dialog);
-    display: grid;
     place-items: center;
-    padding: 1.5rem;
     background: var(--scrim);
     backdrop-filter: blur(0.5rem);
     -webkit-backdrop-filter: blur(0.5rem);
@@ -24,16 +22,12 @@
    * chrome. Width is controlled by the size modifier; height is capped so the
    * overlay never overflows the below-titlebar region. */
   .app-dialog {
-    display: grid;
+    @apply border-border-subtle text-text-primary rounded-card grid overflow-hidden border;
     grid-template-rows: auto minmax(0, 1fr) auto;
     width: min(var(--app-dialog-width), calc(100vw - 3rem));
     max-height: calc(100vh - var(--app-titlebar-height) - 3rem);
-    overflow: hidden;
-    border: 1px solid var(--border-color);
-    border-radius: 0.875rem;
     background: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 96%, transparent), var(--bg-panel));
     box-shadow: var(--shadow-float);
-    color: var(--text-primary);
   }
 
   .app-dialog-size-sm {
@@ -67,71 +61,52 @@
    * clip the lower docks. */
   .app-dialog-overlay[data-dialog-bare='true'] {
     place-items: start center;
-    overflow: auto;
+    @apply overflow-auto;
   }
 
   .app-dialog-bare {
-    display: block;
+    @apply block overflow-visible rounded-none border-0 bg-transparent;
     grid-template-rows: none;
     width: auto;
     max-width: none;
     max-height: none;
-    overflow: visible;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
     box-shadow: none;
   }
 
   .app-dialog-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 1rem 1.25rem;
+    @apply flex items-center justify-between gap-3 px-5 py-4;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
   }
 
   .app-dialog-heading {
-    display: grid;
-    gap: 0.25rem;
-    min-width: 0;
+    @apply grid min-w-0 gap-1;
   }
 
   .app-dialog-title-row {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-width: 0;
+    @apply inline-flex min-w-0 items-center gap-2;
   }
 
   .app-dialog-icon {
+    @apply text-text-secondary;
     flex: 0 0 auto;
-    color: var(--text-secondary);
   }
 
   .app-dialog-icon[data-tone='danger'] {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .app-dialog-icon[data-tone='warning'] {
-    color: var(--warning);
+    @apply text-warning;
   }
 
   .app-dialog-title {
-    margin: 0;
-    color: var(--text-primary);
-    font-size: 0.875rem;
-    font-weight: 600;
+    @apply text-text-primary m-0 overflow-hidden text-sm font-semibold;
     line-height: 1.4;
-    overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .app-dialog-subtitle {
-    margin: 0;
-    color: var(--text-secondary);
-    font-size: 0.75rem;
+    @apply text-text-secondary m-0 text-xs;
     line-height: 1.5;
   }
 
@@ -140,11 +115,9 @@
   }
 
   .app-dialog-body {
-    min-height: 0;
-    overflow: auto;
+    @apply min-h-0 overflow-auto p-5;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
-    padding: 1.25rem;
   }
 
   /* When a dialog has no footer, drop the body's bottom padding so the card
@@ -154,35 +127,29 @@
   }
 
   .app-dialog-footer {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.5rem;
+    @apply flex items-center gap-2;
     padding: 0.875rem 1.25rem;
     border-top: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    justify-content: flex-end;
   }
 
   .app-dialog-footer[data-align='between'] {
-    justify-content: space-between;
+    @apply justify-between;
   }
 
   .app-dialog-action-danger {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .app-dialog-action-warning {
-    color: var(--warning);
+    @apply text-warning;
   }
 
   /* Inline error/alert block rendered inside a dialog body. */
   .app-dialog-error {
-    margin: 0;
+    @apply bg-danger-soft text-danger rounded-field m-0 text-xs;
     border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
-    border-radius: 0.625rem;
-    background: var(--danger-soft);
     padding: 0.5rem 0.75rem;
-    color: var(--danger);
-    font-size: 0.75rem;
     line-height: 1.5;
   }
 }

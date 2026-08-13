@@ -8,7 +8,7 @@ import {
   loadItemWorkspaceEntries,
   type ItemTextureAssetState,
   type ItemWorkspaceEntry,
-} from '../entities/item'
+} from '@entities/item'
 import {
   type BrowserSourceMode,
   buildModBrowserGroups,

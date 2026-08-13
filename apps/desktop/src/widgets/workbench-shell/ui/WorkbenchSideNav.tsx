@@ -2,6 +2,8 @@ import {
   Beaker,
   BookOpen,
   BookOpenCheck,
+  Bug,
+  CalendarClock,
   Castle,
   ChevronDown,
   ChevronLeft,
@@ -10,14 +12,20 @@ import {
   GitMerge,
   Home,
   Languages,
+  Images,
   LockKeyhole,
+  Mail,
   Map,
+  MessagesSquare,
+  Music,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
   RotateCcw,
+  Settings,
   Users,
 } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { useEditorCopy, useViewMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import type { WorkbenchLocation, WorkbenchModuleRegistration, WorkbenchNavigationSection } from '@shared/contracts'
@@ -28,12 +36,19 @@ const ICONS = {
   characters: Users,
   buildings: Castle,
   items: Package,
+  audio: Music,
   package: Package,
   languages: Languages,
   files: FileText,
   beaker: Beaker,
   'book-open-check': BookOpenCheck,
   'book-open': BookOpen,
+  dialogue: MessagesSquare,
+  schedule: CalendarClock,
+  mail: Mail,
+  bug: Bug,
+  settings: Settings,
+  images: Images,
 } as const
 
 export type WorkbenchSideNavSectionState = {
@@ -59,6 +74,8 @@ export type WorkbenchSideNavProps = {
   onModuleOpen: (moduleId: string) => void
   sectionState: WorkbenchSideNavSectionState
   onSectionStateChange: (state: WorkbenchSideNavSectionState) => void
+  /** Extra head tools (e.g. the global expert-mode toggle) rendered beside history. */
+  headTools?: ReactNode
 }
 
 const SECTIONS: readonly WorkbenchNavigationSection[] = ['authoring', 'browse', 'translation', 'tools', 'development']
@@ -79,6 +96,7 @@ export default function WorkbenchSideNav({
   onModuleOpen,
   sectionState,
   onSectionStateChange,
+  headTools,
 }: WorkbenchSideNavProps) {
   const navCopy = useEditorCopy().workbenchNavigation
   const viewMenuCopy = useViewMenuCopy()
@@ -131,6 +149,7 @@ export default function WorkbenchSideNav({
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
+            {headTools}
           </div>
         ) : null}
         <button

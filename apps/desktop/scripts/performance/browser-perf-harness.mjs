@@ -110,8 +110,8 @@ export async function measureInteraction(page, name, action) {
   await page.waitForTimeout(50)
   const startedAt = await page.evaluate(() => performance.now())
   await action()
-  await page.waitForTimeout(180)
   const duration = await page.evaluate((start) => performance.now() - start, startedAt)
+  await page.waitForTimeout(180)
   await page.evaluate(({ measureName, measureDuration }) => window.__modforgePerf?.measure?.(measureName, measureDuration), {
     measureName: name,
     measureDuration: duration,

@@ -29,7 +29,7 @@ use std::fs;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
-const NEXUS_STARDEW_VALLEY_GAME_ID: i64 = 1303;
+pub(crate) const NEXUS_STARDEW_VALLEY_GAME_ID: i64 = 1303;
 const LAUNCHER_DOWNLOAD_PROGRESS_EVENT: &str = "launcher://download-progress";
 static LAUNCHER_DOWNLOAD_QUEUE_FILE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
@@ -66,21 +66,23 @@ pub fn cancel_launcher_download(download_id: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn take_cancelled_launcher_download(download_id: &str) -> anyhow::Result<bool> {
+pub(crate) fn take_cancelled_launcher_download(download_id: &str) -> anyhow::Result<bool> {
     Ok(cancelled_launcher_downloads()
         .lock()
         .map_err(|_| anyhow::anyhow!("Launcher download cancellation mutex was poisoned."))?
         .remove(download_id))
 }
 
-fn is_launcher_download_cancelled(download_id: &str) -> anyhow::Result<bool> {
+pub(crate) fn is_launcher_download_cancelled(download_id: &str) -> anyhow::Result<bool> {
     Ok(cancelled_launcher_downloads()
         .lock()
         .map_err(|_| anyhow::anyhow!("Launcher download cancellation mutex was poisoned."))?
         .contains(download_id))
 }
 
-fn ensure_launcher_download_not_cancelled(download_id: Option<&str>) -> anyhow::Result<()> {
+pub(crate) fn ensure_launcher_download_not_cancelled(
+    download_id: Option<&str>,
+) -> anyhow::Result<()> {
     if let Some(download_id) = download_id {
         if is_launcher_download_cancelled(download_id)? {
             let _ = take_cancelled_launcher_download(download_id)?;
@@ -110,7 +112,7 @@ fn emit_download_progress(
     .map_err(anyhow::Error::msg)
 }
 
-fn nexus_manual_download_url(file_id: i64, game_id: i64) -> String {
+pub(crate) fn nexus_manual_download_url(file_id: i64, game_id: i64) -> String {
     format!(
         "https://www.nexusmods.com/Core/Libs/Common/Widgets/DownloadPopUp?id={file_id}&game_id={game_id}"
     )

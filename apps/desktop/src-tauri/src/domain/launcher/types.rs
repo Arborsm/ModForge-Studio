@@ -26,6 +26,7 @@ pub struct LauncherSettings {
     pub auto_check_mod_updates: bool,
     #[serde(default = "default_gmcm_parsing_enabled")]
     pub gmcm_parsing_enabled: bool,
+    pub show_console_window: bool,
 }
 
 impl Default for LauncherSettings {
@@ -39,6 +40,7 @@ impl Default for LauncherSettings {
             keep_downloaded_archives: false,
             auto_check_mod_updates: default_auto_check_mod_updates(),
             gmcm_parsing_enabled: default_gmcm_parsing_enabled(),
+            show_console_window: false,
         }
     }
 }
@@ -112,6 +114,7 @@ pub struct SaveLauncherSettingsRequest {
     pub keep_downloaded_archives: Option<bool>,
     pub auto_check_mod_updates: Option<bool>,
     pub gmcm_parsing_enabled: Option<bool>,
+    pub show_console_window: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -150,6 +153,13 @@ pub struct LauncherLibraryModSummary {
     #[serde(default)]
     pub required_dependencies: Vec<String>,
     pub missing_required_dependencies: Vec<String>,
+    /// The mod's `MinimumApiVersion` manifest field, when declared.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub minimum_api_version: Option<String>,
+    /// True when `minimum_api_version` is declared and newer than the detected
+    /// installed SMAPI version (set by the library scan, not the raw file scan).
+    #[serde(default)]
+    pub requires_newer_smapi: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -790,6 +800,158 @@ fn default_launcher_updates_result_is_complete() -> bool {
     true
 }
 
+/// One installed mod whose declared `MinimumApiVersion` is newer than the detected
+/// installed SMAPI version.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SmapiUpdateRequiredByMod {
+    /// The mod's manifest `UniqueID` (falls back to the scan id).
+    pub mod_id: String,
+    pub mod_name: String,
+    pub minimum_api_version: String,
+}
+
+/// Which source produced the SMAPI latest-version lookup.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum SmapiVersionSource {
+    /// GitHub releases (primary; assets carry sha256 digests and direct URLs).
+    #[default]
+    Github,
+    /// Nexus Mods public GraphQL fallback (mod 2400; no sha256, free users must
+    /// use the manual download popup).
+    Nexus,
+}
+
+/// Which file naming a locally downloaded SMAPI installer archive uses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum SmapiInstallerNaming {
+    /// `SMAPI-{version}-installer.zip` / `SMAPI-{version}-installer-double-zipped.zip`.
+    #[default]
+    Github,
+    /// `SMAPI {version}-2400-{version}-{timestamp}.zip`.
+    Nexus,
+}
+
+/// Download info for the target SMAPI installer, source-aware: GitHub assets carry
+/// a direct URL plus sha256 digest; Nexus provides no sha256 and no free direct
+/// download, so the UI gets the manual-download popup instead.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SmapiUpdateDownloadInfo {
+    pub source: SmapiVersionSource,
+    /// Direct download URL (GitHub only). Absent for Nexus-sourced downloads.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    /// Hex SHA-256 digest (without the `sha256:` prefix) when the source provides
+    /// one (GitHub asset digest). Absent for Nexus.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sha256: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size_bytes: Option<u64>,
+    pub asset_name: String,
+    /// Nexus mod page URL (Nexus-sourced downloads only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nexus_mod_page_url: Option<String>,
+    /// Nexus manual-download popup URL for free users (Nexus-sourced downloads
+    /// with a known file id only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nexus_download_popup_url: Option<String>,
+    /// Nexus file id the popup targets (Nexus-sourced downloads only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nexus_file_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckSmapiUpdateResult {
+    pub installed_version: String,
+    pub game_version: String,
+    pub latest_stable_version: String,
+    pub target_version: String,
+    pub update_available: bool,
+    /// Which source produced the latest-version lookup (`github` or `nexus`).
+    pub version_source: SmapiVersionSource,
+    #[serde(default)]
+    pub required_by_mods: Vec<SmapiUpdateRequiredByMod>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub download: Option<SmapiUpdateDownloadInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallSmapiUpdateRequest {
+    /// Optional cancellation id checked during the download phase; the frontend
+    /// cancels through the existing `cancel_launcher_download` command.
+    #[serde(default)]
+    pub job_id: Option<String>,
+    /// Direct GitHub asset URL for the download branch. Mutually exclusive with
+    /// `local_file_path`; required when no local file is provided.
+    #[serde(default)]
+    pub download_url: Option<String>,
+    /// Hex SHA-256 digest of the installer zip (optionally `sha256:`-prefixed).
+    /// Required for the download branch; optional for the local-file branch —
+    /// when absent, the local file is validated structurally instead.
+    #[serde(default)]
+    pub expected_sha256: Option<String>,
+    pub target_version: String,
+    /// Local SMAPI installer archive to install from instead of downloading.
+    /// The file name must match a recognized SMAPI installer naming and the
+    /// payload is validated structurally (never trusts the path blindly).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_file_path: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallSmapiUpdateResult {
+    pub success: bool,
+    /// Re-read installed SMAPI version after the installer finished.
+    pub installed_version: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SmapiUpdateProgressPayload {
+    /// One of `downloading`, `verifying`, `extracting`, `installing`.
+    pub phase: String,
+    /// Completion percent for the download phase; `None` when unknown or
+    /// indeterminate (verifying/extracting/installing).
+    pub percent: Option<f64>,
+    pub message: String,
+}
+
+/// A recognized SMAPI installer archive found in the user's download directories.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SmapiInstallerDownloadCandidate {
+    pub path: String,
+    pub file_name: String,
+    pub version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size_bytes: Option<u64>,
+    /// True for GitHub `-double-zipped` archives (the payload is an inner zip).
+    pub double_zipped: bool,
+    pub naming: SmapiInstallerNaming,
+    /// `true` when the version is within the game-compatible maximum; `None`
+    /// when no game version / latest reference could be resolved (e.g. game path
+    /// unconfigured or no cached latest release to compare against).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compatible: Option<bool>,
+    /// `true` when the version is at or above the current target version; `None`
+    /// when the installed SMAPI / target could not be resolved.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub satisfies_target: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FindSmapiInstallerDownloadsResult {
+    /// Newest version first.
+    pub candidates: Vec<SmapiInstallerDownloadCandidate>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DownloadLauncherModRequest {
@@ -843,6 +1005,14 @@ pub struct InstallLauncherArchiveResult {
     pub installed_mods: Vec<InstallLauncherArchiveInstalledMod>,
     pub backup_id: String,
     pub backup_path: String,
+    /// Version of the primary mod target before this install replaced it.
+    /// `None` when the primary target was a fresh install (no previous folder).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_version: Option<String>,
+    /// True when the primary target already existed and was replaced in place
+    /// (UpgradeReplace path, with config/i18n preservation and backup).
+    #[serde(default)]
+    pub upgraded: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -852,6 +1022,10 @@ pub struct LauncherInstallBackupSummary {
     pub backup_path: String,
     pub delete_count: usize,
     pub overwrite_count: usize,
+    pub created_at_ms: u128,
+    pub primary_mod_name: Option<String>,
+    pub primary_version: Option<String>,
+    pub mod_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -879,6 +1053,11 @@ pub struct RestoreLauncherInstallBackupResult {
 #[serde(rename_all = "camelCase")]
 pub struct InspectLauncherArchiveRequest {
     pub archive_path: String,
+    /// Mods folder used to detect already-installed mods for the same unique ID
+    /// and produce per-root install diff summaries. Optional; when absent the
+    /// inspection only reports archive contents.
+    #[serde(default)]
+    pub mods_path: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -891,6 +1070,93 @@ pub struct LauncherArchiveTreeNode {
     pub children: Vec<LauncherArchiveTreeNode>,
 }
 
+/// How one file differs between the archive mod root (incoming) and the
+/// installed folder it would replace (existing).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LauncherArchiveFileChangeKind {
+    /// Present in the archive root only.
+    Added,
+    /// Present in the installed folder only.
+    Removed,
+    /// Present in both trees with different bytes.
+    Changed,
+}
+
+/// Per-file change detail inside a mod-root diff summary. Sizes and modified
+/// times are byte counts / unix epoch milliseconds on each side; the archive
+/// side comes from archive entry metadata when the format exposes it, otherwise
+/// `None`. `text_diff` holds a unified diff only for text files small enough to
+/// diff (both sides <= 256 KiB), truncated to `MAX_TEXT_DIFF_LINES` lines.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherArchiveFileDiff {
+    /// File path relative to the mod root, forward slashes.
+    pub path: String,
+    pub change_kind: LauncherArchiveFileChangeKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub old_size: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub new_size: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub old_modified_ms: Option<u128>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub new_modified_ms: Option<u128>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_diff: Option<String>,
+    /// True when `text_diff` was truncated to the line budget.
+    #[serde(default)]
+    pub text_diff_truncated: bool,
+}
+
+/// File-level difference summary between an archive mod root (incoming) and the
+/// already-installed folder it would replace (existing). Counts cover every
+/// differing file; `files` is capped per root (`truncated_file_count` reports
+/// how many files were omitted beyond the cap).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherArchiveDiffSummary {
+    /// Files present in the archive root but not in the installed folder.
+    pub added: usize,
+    /// Files present in both trees with different bytes.
+    pub changed: usize,
+    /// Files present in the installed folder but not in the archive root
+    /// (they would be removed by the replace install).
+    pub removed: usize,
+    #[serde(default)]
+    pub files: Vec<LauncherArchiveFileDiff>,
+    /// Number of differing files omitted because the per-root detail cap was
+    /// reached; absent when nothing was omitted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub truncated_file_count: Option<usize>,
+}
+
+/// One detected mod root inside an inspected archive, enriched with manifest
+/// metadata and — when a Mods folder was provided and the unique ID matches an
+/// installed mod — the existing install info and a file diff summary.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherArchiveModRootInfo {
+    /// Archive-relative root path; `"."` when the manifest sits at the archive root.
+    pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_unique_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_version: Option<String>,
+    /// Unique ID of the installed mod matched by manifest unique ID. Absent when
+    /// no Mods folder was provided or no installed mod matches.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub existing_unique_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub existing_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub existing_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diff_summary: Option<LauncherArchiveDiffSummary>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InspectLauncherArchiveResult {
@@ -898,7 +1164,7 @@ pub struct InspectLauncherArchiveResult {
     pub archive_file_name: String,
     pub total_entries: usize,
     pub total_files: usize,
-    pub mod_roots: Vec<String>,
+    pub mod_roots: Vec<LauncherArchiveModRootInfo>,
     pub tree: Vec<LauncherArchiveTreeNode>,
 }
 

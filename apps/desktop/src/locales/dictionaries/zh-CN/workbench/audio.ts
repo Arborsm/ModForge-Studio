@@ -1,0 +1,38 @@
+import type { AudioPanelCopy } from '../../../model/workbench'
+
+const audioPanel: AudioPanelCopy = {
+  browserTitle: '音频浏览',
+  browserSubtitle: '音乐与音效 cue',
+  browserPlaceholder: '搜索 cue',
+  browserEmptyFiltered: '没有符合当前筛选的 cue',
+  browserEmptyMissing: '未找到音频资源。请打开游戏目录以加载 cue。',
+  groupMusic: '音乐',
+  groupSound: '音效',
+  statsAll: '总数',
+  statsMusic: '音乐',
+  statsSound: '音效',
+  previewTitle: '预览',
+  previewEmpty: '选择一个 cue 进行预览',
+  previewLoading: '音频加载中…',
+  previewError: (message) => `音频加载失败：${message}`,
+  play: '播放',
+  pause: '暂停',
+  loop: '循环',
+  loopEnabled: '已开启循环',
+  volume: '音量',
+  cueLabel: 'Cue',
+  kindLabel: '类型',
+  sourceLabel: '来源',
+  pathLabel: '路径',
+  formatLabel: '格式',
+  formatXact: 'XACT',
+  formatOgg: 'OGG',
+  formatWav: 'WAV',
+  formatMp3: 'MP3',
+  formatUnknown: '未知',
+  copyCue: '复制 cue 名',
+  copyCueDone: '已复制',
+  seekLabel: '调整播放位置',
+}
+
+export default audioPanel

@@ -26,7 +26,11 @@ vp run --filter @modforge/desktop gen:host-commands
 ```
 
 `vp run dev` is the default full desktop path and uses the root desktop host
-dispatcher directly. `vp run web:dev` starts the Vite+ frontend-only path.
+dispatcher directly: it is provided by the `run.tasks.dev` task in the root
+`vite.config.ts` (`command: node ./scripts/desktop-host-dispatch.cjs dev`), not
+by a package script — the root `package.json` has no `dev` script, so
+`pnpm run dev` at the repository root fails with "Missing script". `vp run
+web:dev` starts the Vite+ frontend-only path.
 Linux starts Electron, while macOS and Windows start Tauri. `vp run
 desktop:build` uses the same platform split for build mode.
 
@@ -155,7 +159,15 @@ Frontend tests live under `apps/desktop/src/tests/`:
 
 - `src/tests/unit/` — pure-logic `.ts` tests only (no `.tsx`/`.spec.tsx`, no component or `renderHook` rendering, no CSS-class/inline-style/DOM-structure assertions). They mirror the source path they exercise and cover parsers, data transformation, reducers, command routing, and headless state logic.
 - `src/tests/architecture/` — architecture and repository-shape assertions (dependency direction, style ownership, code-splitting).
-- `src/tests/support/` — shared test infrastructure: `setup.ts` (jsdom + matchers), `sourceScan.ts` (architecture scanners), and type declarations. Imported via the `@test/*` alias.
+- `src/tests/support/` — shared test infrastructure: `setup.ts` (jsdom + matchers), `sourceScan.ts` (architecture scanners), `draftPortHost.ts` (in-memory host for `AssetDraftPort` unit tests), and type declarations. Imported via the `@test/*` alias.
+
+`vp run --filter @modforge/desktop test` runs `test:frontend` and then
+`test:node`. `test:frontend` drives Vitest through
+`scripts/run-frontend-tests.mjs`, which gates on React `act(...)` warnings: any
+warning in the test output fails the run even when Vitest itself passes.
+`test:node` runs four standalone scripts under `node --test`
+(`frontend-test-warning-gate.test.mjs`, `linux-cuda-runtime.test.mjs`,
+`scan-gmcm-probe.test.mjs`, and `../../docs/nexusmods-graphql/convert-to-markdown.test.mjs`).
 
 The frontend intentionally keeps no UI/render tests; UI and layout behavior is verified by screenshot, Playwright, or a manual path rather than jsdom render assertions.
 
@@ -262,8 +274,9 @@ whole: guessing narrower than the real terminal wraps lines that would have fit,
 which reads worse than the terminal's own soft wrap. Override with
 `MODFORGE_LOG_WIDTH=<columns>`, or `MODFORGE_LOG_WIDTH=off` to disable wrapping.
 
-`cargo run --example log_format_sample` renders the whole sample set through both
-sinks, which is the fastest way to check a layout change.
+`cargo run --manifest-path apps/desktop/src-tauri/Cargo.toml --example
+log_format_sample` renders the whole sample set through both sinks, which is the
+fastest way to check a layout change.
 
 Force or suppress terminal color with `MODFORGE_LOG_COLOR=always|never`
 (`NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` and `CLICOLOR` are also honored).
@@ -309,6 +322,36 @@ UI and layout changes should be verified with a screenshot, Playwright-backed
 interaction script, or a clear manual path. Architecture changes should update
 or add tests under `apps/desktop/src/tests/architecture`.
 
+### Verification Scripts
+
+`apps/desktop/scripts/` contains 15 `verify-*.mjs` scripts. Seven are wired
+into `apps/desktop/package.json` and run via `vp run --filter @modforge/desktop <script>`:
+
+- `test:launcher-custom-sort` → `verify-launcher-custom-sort.mjs` — custom launcher mod ordering (Playwright against the launcher mock scenario).
+- `test:launcher-drag` → `verify-launcher-drag.mjs` — launcher drag-and-drop frame-budget metrics.
+- `test:launcher-fast-scroll` → `verify-launcher-fast-scroll.mjs` — fast-scroll frame timings against the 360-mod launcher mock.
+- `test:launcher-performance` → `verify-launcher-performance.mjs` — general launcher interaction performance.
+- `test:performance:pages` → `verify-page-performance.mjs` — per-page interaction budgets across the workbench scenarios.
+- `test:performance:chunks` → `verify-chunk-budgets.mjs` — built-chunk size budgets read from the Vite manifest (requires a prior `vp run build`; no browser or dev server).
+- `test:performance:compiler-cleanup` → `verify-compiler-cleanup-performance.mjs` — interaction timings on React Compiler cleanup surfaces.
+
+The remaining eight are manual/on-demand Playwright verification scripts with
+no package script; run them directly with `node apps/desktop/scripts/<name>.mjs`.
+They expect a running dev server (probing `http://127.0.0.1:5175`,
+`http://127.0.0.1:5176`, then `http://localhost:5173` — start one with
+`vp run web:dev -- --host 127.0.0.1 --port 5175`) and open it with the
+`?mfLauncherMock=1&mfSettingsMock=1` mock query; most write screenshots to the
+system temp dir (overridable per script via `MODFORGE_*_SCREENSHOT_DIR`):
+
+- `verify-dialogue-bulk.mjs` — dialogue bulk-table inline editing and override staging.
+- `verify-gsq-mount.mjs` — GameStateQuery builder standalone mount rendering.
+- `verify-guide-tour.mjs` — guide tour layer auto-start, step, skip, and settings replay.
+- `verify-i18n-bootstrap.mjs` — project-translation bootstrap card on a fresh draft.
+- `verify-workbench-authoring.mjs` — content authoring workspaces (three-pane editor, appearance variants, gift tastes, building footprint).
+- `verify-workbench-project-flow.mjs` — project creation flow and pack-structure surfaces.
+- `verify-workbench-schedule-mail.mjs` — schedule and mail workspaces on the shared `AssetDraftPort`.
+- `verify-workbench-undo.mjs` — shared draft undo/redo stack and the add-patch target picker.
+
 ## Implementation Completeness
 
 Do not treat a minimal visible path as complete. New functionality should land
@@ -329,10 +372,18 @@ The release workflow should build each supported host on its matching runner:
 - macOS: app bundle and distributable archive or disk image.
 - Windows: NSIS installer.
 
-CI should run Vite+ package-management commands such as `vp install` and cache
-pnpm store data, Rust registry data, Rust git dependencies, and
-`apps/desktop/src-tauri/target` where practical. Cache keys should include the
-OS, architecture, lockfiles, and Rust manifest files.
+Both workflows (`.github/workflows/checks.yml` and
+`.github/workflows/release.yml`) install JavaScript dependencies with
+`pnpm install --frozen-lockfile` rather than `vp install`, and cache the pnpm
+store through `actions/setup-node` (`cache: pnpm`). Rust registry data, Rust git
+dependencies, and `apps/desktop/src-tauri/target` are cached by
+`Swatinem/rust-cache@v2` scoped to `apps/desktop/src-tauri -> target`. The
+release workflow additionally caches desktop packaging tooling (Tauri CLI cache
+and `.tmp/electron-builder-cache`) with the key
+`desktop-packaging-${{ matrix.platform }}-${{ runner.os }}-${{ hashFiles('apps/desktop/src-tauri/Cargo.lock', 'pnpm-lock.yaml') }}` —
+platform and OS plus the two lockfiles, with no architecture component and no
+Cargo manifest hash; the Rust side is implicitly covered by
+`Swatinem/rust-cache`'s own key.
 
 ## macOS Signing
 

@@ -1,5 +1,5 @@
 import { Armchair, ChefHat, Fish as FishIcon, Gem, Grid2x2, Shirt, Sprout, Sword, Wrench } from 'lucide-react'
-import type { ItemBrowseCategory, ItemMachineLink, ItemRecipeEntry, ItemTextureAssetState, ItemWorkspaceEntry } from '../entities/item'
+import type { ItemBrowseCategory, ItemMachineLink, ItemRecipeEntry, ItemTextureAssetState, ItemWorkspaceEntry } from '@entities/item'
 import type {
   AsideRow,
   AsideSection,

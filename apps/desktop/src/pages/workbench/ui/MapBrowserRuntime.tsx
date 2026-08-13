@@ -92,6 +92,7 @@ export function MapBrowserRuntime({
       onToggleGameWorldAdditions: () => mapWorkspace.setShowGameWorldAdditions((current) => !current),
       worldOverlaySprites: mapWorkspace.worldOverlaySprites,
       worldOverlayTextureAssets: mapWorkspace.worldOverlayTextureAssets,
+      objectLightIndex: mapWorkspace.objectLightIndex,
       onFocusObject: mapWorkspace.focusObject,
       onHoverChange: mapWorkspace.setHoverInfo,
     } satisfies Parameters<typeof buildMapsWorkspacePanels>[0])

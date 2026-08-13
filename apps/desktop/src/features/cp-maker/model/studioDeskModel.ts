@@ -1,9 +1,11 @@
+import { countAssetIssues } from '@entities/asset-schema'
+import { collectDraftIssues } from './projectValidation'
 import type { CpMakerDraftSummary } from '../model/cpMakerPort'
 import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@features/cp-maker'
 
 export type StudioDeskInspirationStatus = 'modified' | 'synced'
 export type StudioDeskInspirationKind = 'event' | 'map' | 'asset' | 'project'
-export type StudioDeskProjectStatus = 'export' | 'conflict' | 'archive' | 'incomplete' | 'neverExported'
+export type StudioDeskProjectStatus = 'export' | 'error' | 'archive' | 'incomplete' | 'neverExported'
 export type StudioDeskProjectCoverTone = 'festival' | 'harbor' | 'market' | 'forest' | 'greenhouse' | 'archive'
 
 export type StudioDeskInspiration = {
@@ -36,7 +38,7 @@ export type StudioDeskWorldBible = {
   story: StudioDeskWorldBibleEntry[]
   items: StudioDeskWorldBibleEntry[]
   scenes: StudioDeskWorldBibleEntry[]
-  conflictCount: number
+  errorCount: number
 }
 
 export type StudioDeskGalleryProject = {
@@ -49,7 +51,7 @@ export type StudioDeskGalleryProject = {
   statuses: StudioDeskProjectStatus[]
   searchText: string
   coverTone: StudioDeskProjectCoverTone
-  conflictCount: number
+  errorCount: number
   needsMetadata: boolean
 }
 
@@ -74,9 +76,11 @@ export type StudioDeskModel = {
   stats: {
     eventCount: number
     mapCount: number
-    festivalCount: number
     assetCount: number
-    conflictCount: number
+    /** Validation errors across the project's enabled patches. */
+    errorCount: number
+    /** Validation warnings across the project's enabled patches. */
+    warningCount: number
   }
   worldBible: StudioDeskWorldBible
   exportSummary: {
@@ -93,7 +97,7 @@ type BuildStudioDeskModelInput = {
   isDirty: boolean
 }
 
-const workspaceOrder: WorkspaceId[] = ['events', 'map', 'characters', 'buildings', 'items', 'mods']
+const workspaceOrder: WorkspaceId[] = ['events', 'map', 'characters', 'dialogue', 'schedules', 'mail', 'buildings', 'items', 'mods']
 const coverTones: StudioDeskProjectCoverTone[] = ['festival', 'harbor', 'market', 'forest', 'greenhouse']
 
 function getPatchKind(patch: DraftPatch): StudioDeskInspirationKind {
@@ -125,15 +129,6 @@ function getPatchEntry(patch: DraftPatch): StudioDeskWorldBibleEntry {
   }
 }
 
-function countFestivalSignals(activeDraft: CpMakerDraft | null): number {
-  if (!activeDraft) return 0
-  const values = [
-    ...activeDraft.patches.flatMap((patch) => [patch.logName, patch.target]),
-    ...activeDraft.customLocations.map((location) => location.name),
-  ]
-  return values.filter((value) => /festival|节日|祭/i.test(value)).length
-}
-
 function buildExportFileList(activeDraft: CpMakerDraft | null): string[] {
   if (!activeDraft) return []
   const workspaceFiles = new Set<string>()
@@ -161,7 +156,7 @@ function isProjectMetadataIncomplete(summary: CpMakerDraftSummary): boolean {
   return !summary.projectName.trim() || !summary.projectUniqueId.trim()
 }
 
-function buildGalleryProjects(input: BuildStudioDeskModelInput, conflictCount: number): StudioDeskGallery {
+function buildGalleryProjects(input: BuildStudioDeskModelInput, errorCount: number): StudioDeskGallery {
   const activeDraftKey = input.activeDraft?.draftStorageKey ?? null
   const summaries =
     input.activeDraft && !input.drafts.some((summary) => summary.draftStorageKey === input.activeDraft?.draftStorageKey)
@@ -179,13 +174,13 @@ function buildGalleryProjects(input: BuildStudioDeskModelInput, conflictCount: n
   const projects = summaries.map((summary, index): StudioDeskGalleryProject => {
     const isCurrent = summary.draftStorageKey === activeDraftKey
     const statuses: StudioDeskProjectStatus[] = []
-    const projectConflictCount = isCurrent ? conflictCount : 0
+    const projectErrorCount = isCurrent ? errorCount : 0
     const needsMetadata = isProjectMetadataIncomplete(summary)
     if (isDraftWaitingForExport(summary, isCurrent, input.isDirty)) {
       statuses.push('export')
     }
-    if (projectConflictCount > 0) {
-      statuses.push('conflict')
+    if (projectErrorCount > 0) {
+      statuses.push('error')
     }
     if (needsMetadata) {
       statuses.push('incomplete')
@@ -209,7 +204,7 @@ function buildGalleryProjects(input: BuildStudioDeskModelInput, conflictCount: n
         isCurrent ? (input.activeDraft?.projectMetadata.projectDescription ?? '') : '',
       ].join(' '),
       coverTone: coverTones[index % coverTones.length] ?? 'festival',
-      conflictCount: projectConflictCount,
+      errorCount: projectErrorCount,
       needsMetadata,
     }
   })
@@ -224,7 +219,10 @@ function buildGalleryProjects(input: BuildStudioDeskModelInput, conflictCount: n
 export function buildStudioDeskModel(input: BuildStudioDeskModelInput): StudioDeskModel {
   const activeDraft = input.activeDraft
   const patches = activeDraft?.patches ?? []
-  const conflictCount = patches.filter((patch) => patch.enabled === false).length
+  // Dashboard health counts the whole draft: manifest, top-level structures
+  // and every enabled patch, so the badge agrees with the export preflight.
+  const issueCounts = activeDraft ? countAssetIssues(collectDraftIssues(activeDraft)) : { errors: 0, warnings: 0 }
+  const errorCount = issueCounts.errors
   const activeSummary = input.drafts.find((summary) => summary.draftStorageKey === activeDraft?.draftStorageKey)
   const assetCount =
     (input.patchCountByWorkspace.characters ?? 0) +
@@ -240,7 +238,7 @@ export function buildStudioDeskModel(input: BuildStudioDeskModelInput): StudioDe
     projectUniqueId: activeDraft?.projectMetadata.projectUniqueId ?? '',
     hasActiveDraft: Boolean(activeDraft),
     draftSummaries: input.drafts,
-    gallery: buildGalleryProjects(input, conflictCount),
+    gallery: buildGalleryProjects(input, errorCount),
     recentInspirations: patches
       .slice()
       .sort((left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0))
@@ -263,9 +261,9 @@ export function buildStudioDeskModel(input: BuildStudioDeskModelInput): StudioDe
     stats: {
       eventCount: input.patchCountByWorkspace.events ?? 0,
       mapCount: input.patchCountByWorkspace.map ?? 0,
-      festivalCount: countFestivalSignals(activeDraft),
       assetCount,
-      conflictCount,
+      errorCount,
+      warningCount: issueCounts.warnings,
     },
     worldBible: {
       configSchema: (activeDraft?.configSchema ?? []).map((entry) => ({
@@ -290,7 +288,7 @@ export function buildStudioDeskModel(input: BuildStudioDeskModelInput): StudioDe
         })),
         ...patches.filter((patch) => patch.workspace === 'map' || patch.workspace === 'buildings').map(getPatchEntry),
       ],
-      conflictCount,
+      errorCount,
     },
     exportSummary: {
       lastExportedAt: activeSummary?.lastExportedAt ?? null,

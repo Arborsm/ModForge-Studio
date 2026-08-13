@@ -1,13 +1,11 @@
 @layer components {
   .panel-surface {
     background: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 96%, white 4%), var(--bg-panel));
-    border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-panel);
-    @apply flex min-h-0 flex-col overflow-hidden rounded-xl;
+    @apply border-border-subtle shadow-panel flex min-h-0 flex-col overflow-hidden rounded-xl border;
   }
 
   .panel-surface-flat {
-    background: var(--bg-panel);
+    @apply bg-surface-panel;
   }
 
   .panel-surface-muted {
@@ -20,13 +18,11 @@
   }
 
   .panel-title {
-    color: var(--text-secondary);
-    @apply text-[0.6875rem] font-semibold tracking-[0.18em] uppercase;
+    @apply text-text-secondary text-meta tracking-ui-wider font-semibold uppercase;
   }
 
   .panel-subtitle {
-    color: var(--text-primary);
-    @apply text-xs font-medium;
+    @apply text-text-primary text-xs font-medium;
   }
 
   .panel-body {
@@ -34,9 +30,7 @@
   }
 
   .panel-section {
-    border: 1px solid var(--border-color);
-    background: var(--bg-panel);
-    @apply overflow-hidden rounded-2xl;
+    @apply border-border-subtle bg-surface-panel overflow-hidden rounded-2xl border;
   }
 
   .panel-section-muted {
@@ -58,13 +52,11 @@
   }
 
   .panel-section-title {
-    color: var(--text-secondary);
-    @apply text-[0.6875rem] font-semibold tracking-[0.18em] uppercase;
+    @apply text-text-secondary text-meta tracking-ui-wider font-semibold uppercase;
   }
 
   .panel-section-subtitle {
-    color: var(--text-tertiary);
-    @apply mt-1 text-[0.6875rem] leading-4;
+    @apply text-text-tertiary text-meta mt-1 leading-4;
   }
 
   .panel-section-body {
@@ -81,13 +73,12 @@
   .appearance-window-placeholder,
   .top-menu-empty {
     border: 1px dashed var(--panel-empty-border, color-mix(in srgb, var(--border-color) 92%, transparent));
-    color: var(--text-secondary);
+    @apply text-text-secondary;
   }
 
   .panel-list-card {
-    border: 1px solid var(--border-color);
+    @apply border-border-subtle rounded-2xl border px-3 py-3 transition-colors;
     background: color-mix(in srgb, var(--bg-panel-muted) 90%, white 10%);
-    @apply rounded-2xl px-3 py-3 transition-colors;
   }
 
   .panel-list-card-interactive:hover {
@@ -100,9 +91,8 @@
   }
 
   .asset-row {
-    border: 1px solid transparent;
+    @apply w-full rounded-lg border border-transparent px-3 py-2 text-left transition-colors;
     background: color-mix(in srgb, var(--bg-panel-muted) 84%, transparent);
-    @apply w-full rounded-lg px-3 py-2 text-left transition-colors;
   }
 
   .asset-row:hover {
@@ -116,9 +106,8 @@
   }
 
   .metric-card {
-    border: 1px solid var(--border-color);
+    @apply border-border-subtle rounded-lg border px-3 py-2;
     background: color-mix(in srgb, var(--bg-panel-muted) 92%, transparent);
-    @apply rounded-lg px-3 py-2;
   }
 
   .compact-metric-card {
@@ -126,13 +115,11 @@
   }
 
   .metric-label {
-    color: var(--text-secondary);
-    @apply text-[0.6875rem] tracking-[0.16em] uppercase;
+    @apply text-text-secondary text-meta tracking-ui-wider uppercase;
   }
 
   .metric-value {
-    color: var(--text-primary);
-    @apply mt-1 block text-sm font-semibold;
+    @apply text-text-primary mt-1 block text-sm font-semibold;
   }
 
   .compact-metric-card .metric-label {
@@ -158,13 +145,11 @@
   }
 
   .kv-row span:first-child {
-    color: var(--text-secondary);
+    @apply text-text-secondary;
   }
 
   .kv-row span:last-child {
-    color: var(--text-primary);
-    font-family: var(--font-mono);
-    @apply text-right;
+    @apply text-text-primary text-right font-mono;
   }
 
   .compact-kv-row span:first-child {

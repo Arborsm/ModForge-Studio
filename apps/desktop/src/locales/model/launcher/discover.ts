@@ -25,6 +25,8 @@ export type LauncherDiscoverCopy = {
   resultRange: (start: number, end: number, total: string) => string
   searchPlaceholder: string
   searchAction: string
+  modIdNotFoundTitle: string
+  modIdNotFoundDetail: (modId: number) => string
   showFilters: string
   hideFilters: string
   timeRangeLabel: string

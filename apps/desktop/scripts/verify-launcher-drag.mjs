@@ -220,6 +220,148 @@ async function verifyChildReleasePriority(page) {
   return evidence
 }
 
+async function verifyArchiveDropZone(page) {
+  const zone = await getVisibleBox(page, '.launcher-library-drop-zone')
+  if (!zone) {
+    throw new Error('Missing persistent archive drop zone.')
+  }
+  const browser = await getVisibleBox(page, '.launcher-library-browser')
+  const viewport = await getVisibleBox(page, '.launcher-library-grid-viewport')
+  if (!browser || !viewport) {
+    throw new Error('Missing library browser or grid viewport for drop zone geometry check.')
+  }
+  if (Math.abs(zone.x - browser.x) > 1 || Math.abs(zone.width - browser.width) > 2) {
+    throw new Error(`Drop zone is not full-width inside the browser: ${JSON.stringify({ zone, browser })}`)
+  }
+  if (zone.y + zone.height > viewport.y + 1) {
+    throw new Error(`Drop zone overlaps the grid viewport: ${JSON.stringify({ zone, viewport })}`)
+  }
+
+  const idle = await page.evaluate(() => {
+    const zoneEl = document.querySelector('.launcher-library-drop-zone')
+    const title = zoneEl?.querySelector('strong')?.textContent ?? ''
+    const body = zoneEl?.textContent ?? ''
+    return {
+      title,
+      isButton: zoneEl?.tagName === 'BUTTON',
+      active: zoneEl?.classList.contains('launcher-library-drop-zone-active') ?? false,
+      statusRole: zoneEl?.querySelector('strong')?.getAttribute('role') === 'status',
+      hasZip: body.includes('.zip'),
+      has7z: body.includes('.7z'),
+      hasRar: body.includes('.rar'),
+      hasTarGz: body.includes('.tar.gz'),
+      hasTgz: body.includes('.tgz'),
+      hasTar: body.includes('.tar'),
+    }
+  })
+  if (!idle.isButton || !idle.statusRole || idle.active || !idle.title) {
+    throw new Error(`Drop zone is not an idle status button: ${JSON.stringify(idle)}`)
+  }
+  for (const key of ['hasZip', 'has7z', 'hasRar', 'hasTarGz', 'hasTgz', 'hasTar']) {
+    if (!idle[key]) {
+      throw new Error(`Drop zone copy is missing ${key}: ${JSON.stringify(idle)}`)
+    }
+  }
+
+  // Supported drag-enter activates the zone and swaps the release title.
+  await page.evaluate(() =>
+    window.__TAURI_INTERNALS__.invoke('plugin:event|emit', {
+      event: 'tauri://drag-enter',
+      payload: { paths: ['E:\\Mods\\Test Mod.zip'], position: { x: 12, y: 12 } },
+    }),
+  )
+  await page.waitForFunction(
+    () => document.querySelector('.launcher-library-drop-zone')?.classList.contains('launcher-library-drop-zone-active') ?? false,
+    { timeout: 2_000 },
+  )
+  const active = await page.evaluate(() => {
+    const zoneEl = document.querySelector('.launcher-library-drop-zone')
+    return {
+      title: zoneEl?.querySelector('strong')?.textContent ?? '',
+      active: zoneEl?.classList.contains('launcher-library-drop-zone-active') ?? false,
+    }
+  })
+  if (!active.active || !active.title || active.title === idle.title) {
+    throw new Error(`Drop zone did not activate on supported drag-enter: ${JSON.stringify({ idle, active })}`)
+  }
+
+  // Leave resets the zone to idle.
+  await page.evaluate(() =>
+    window.__TAURI_INTERNALS__.invoke('plugin:event|emit', {
+      event: 'tauri://drag-leave',
+      payload: { position: { x: 12, y: 12 } },
+    }),
+  )
+  await page.waitForFunction(
+    () => !(document.querySelector('.launcher-library-drop-zone')?.classList.contains('launcher-library-drop-zone-active') ?? true),
+    { timeout: 2_000 },
+  )
+
+  // Unsupported drag-enter must not highlight the zone.
+  await page.evaluate(() =>
+    window.__TAURI_INTERNALS__.invoke('plugin:event|emit', {
+      event: 'tauri://drag-enter',
+      payload: { paths: ['E:\\Mods\\Setup.exe'], position: { x: 12, y: 12 } },
+    }),
+  )
+  await page.waitForTimeout(150)
+  const unsupportedActive = await page.evaluate(
+    () => document.querySelector('.launcher-library-drop-zone')?.classList.contains('launcher-library-drop-zone-active') ?? false,
+  )
+  if (unsupportedActive) {
+    throw new Error('Drop zone activated for an unsupported archive path.')
+  }
+  await page.evaluate(() =>
+    window.__TAURI_INTERNALS__.invoke('plugin:event|emit', {
+      event: 'tauri://drag-leave',
+      payload: { position: { x: 12, y: 12 } },
+    }),
+  )
+  await page.waitForTimeout(100)
+
+  // Dropping supported paths routes into the archive inspect command.
+  const commandsBeforeDrop = await page.evaluate(() => window.__modforgeDevHostCommands?.length ?? 0)
+  await page.evaluate(() =>
+    window.__TAURI_INTERNALS__.invoke('plugin:event|emit', {
+      event: 'tauri://drag-drop',
+      payload: { paths: ['E:\\Mods\\Test Mod.zip'], position: { x: 12, y: 12 } },
+    }),
+  )
+  await page.waitForFunction((before) => (window.__modforgeDevHostCommands?.length ?? 0) > before, commandsBeforeDrop, { timeout: 2_000 })
+  const dropCommands = await page.evaluate(() => window.__modforgeDevHostCommands ?? [])
+  if (!dropCommands.includes('inspect_launcher_archive')) {
+    throw new Error(`Archive drop did not reach the inspect command: ${JSON.stringify(dropCommands)}`)
+  }
+
+  // Clicking the zone opens the same archive file picker as the header action.
+  const commandsBeforeClick = await page.evaluate(() => window.__modforgeDevHostCommands?.length ?? 0)
+  await page.click('[data-testid="launcher-library-archive-drop-zone"]')
+  await page.waitForFunction((before) => (window.__modforgeDevHostCommands?.length ?? 0) > before, commandsBeforeClick, { timeout: 2_000 })
+  const clickCommands = await page.evaluate(() => window.__modforgeDevHostCommands ?? [])
+  if (!clickCommands.includes('plugin:dialog|open')) {
+    throw new Error(`Drop zone click did not open the archive file picker: ${JSON.stringify(clickCommands)}`)
+  }
+
+  // The zone persists above the grid when visible content collapses (a filter
+  // matching no mods leaves only folder cards; the mock cannot produce the
+  // truly empty library because it clamps the seeded mod count to >= 8).
+  await page.click('.launcher-library-search-trigger')
+  await page.fill('.launcher-library-search input', 'zzzz-no-match')
+  await page.waitForFunction(() => document.querySelectorAll('.launcher-mod-card').length === 0, { timeout: 3_000 })
+  const collapsedZone = await getVisibleBox(page, '.launcher-library-drop-zone')
+  const collapsedViewport = await getVisibleBox(page, '.launcher-library-grid-viewport')
+  if (!collapsedZone || !collapsedViewport) {
+    throw new Error('Drop zone or grid viewport missing after collapsing the visible content.')
+  }
+  if (collapsedZone.y + collapsedZone.height > collapsedViewport.y + 1) {
+    throw new Error(`Drop zone overlaps the collapsed grid: ${JSON.stringify({ collapsedZone, collapsedViewport })}`)
+  }
+  await page.fill('.launcher-library-search input', '')
+  await page.waitForFunction(() => document.querySelectorAll('.launcher-mod-card').length > 0, { timeout: 3_000 })
+
+  return { idleTitle: idle.title, activeTitle: active.title }
+}
+
 const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
   headless: true,
@@ -231,6 +373,20 @@ try {
   await page.waitForSelector('.launcher-library-folder-card', { state: 'visible', timeout: 30_000 })
   await page.waitForSelector('.launcher-mod-card', { state: 'visible', timeout: 30_000 })
   await page.waitForTimeout(600)
+
+  // A fresh launcher mock auto-starts the first-run guide tour; its scrim
+  // swallows every pointer event below it, so dismiss the tour before
+  // interacting with the library.
+  const guideCard = await page.$('.guide-tour-card')
+  if (guideCard) {
+    const skipButton = await page.$('.guide-tour-btn-ghost')
+    if (!skipButton) {
+      throw new Error('Guide tour overlay is blocking the page but has no skip button.')
+    }
+    await skipButton.click()
+    await page.waitForFunction(() => !document.querySelector('.guide-tour-card'), { timeout: 3_000 })
+    await page.waitForTimeout(150)
+  }
 
   const initial = await page.evaluate(() => ({
     folders: document.querySelectorAll('.launcher-library-folder-card').length,
@@ -423,6 +579,8 @@ try {
   const longTaskCount = longTasksDuringDrag.length
   const postDropLongTaskCount = allLongTasks.length - longTaskCount
 
+  const archiveDropZone = await verifyArchiveDropZone(page)
+
   const summary = {
     url: targetUrl,
     initial,
@@ -450,6 +608,7 @@ try {
     })),
     expandedFolderPriority,
     childReleasePriority,
+    archiveDropZone,
     immediateFeedback,
     previewVisibleAfterDrop: result.previewVisible,
     folderText: result.folderText,

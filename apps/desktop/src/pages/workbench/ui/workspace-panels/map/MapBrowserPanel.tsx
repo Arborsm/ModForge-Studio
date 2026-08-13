@@ -33,7 +33,7 @@ function SourceSwitch({
   modLabel: string
 }) {
   return (
-    <div className="flex gap-px rounded-[0.625rem] border border-(--border-color) bg-(--bg-panel-muted) p-px">
+    <div className="border-border-subtle bg-surface-panel-muted rounded-field flex gap-px border p-px">
       {(
         [
           ['original', originalLabel],
@@ -46,10 +46,10 @@ function SourceSwitch({
             key={mode}
             type="button"
             className={cx(
-              'flex-1 rounded-[0.5rem] py-1.5 text-xs font-semibold transition-colors',
+              'flex-1 rounded-lg py-1.5 text-xs font-semibold transition-colors',
               isActive
-                ? 'bg-(--bg-panel) text-(--text-primary) shadow-[inset_0_-1.5px_0_0_var(--accent)]'
-                : 'text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
+                ? 'bg-surface-panel text-text-primary shadow-[inset_0_-1.5px_0_0_var(--accent)]'
+                : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',
             )}
             onClick={() => onChange(mode)}
           >
@@ -67,18 +67,18 @@ function locationDotClass(name: string) {
     return 'bg-[#c47a3a]'
   }
   if (key.includes('beach') || key.includes('island')) {
-    return 'bg-(--info)'
+    return 'bg-info'
   }
   if (key.includes('farm') || key.includes('forest')) {
-    return 'bg-(--success)'
+    return 'bg-success'
   }
   if (key.includes('mountain') || key.includes('mine') || key.includes('volcano')) {
     return 'bg-[#a78bfa]'
   }
   if (key.includes('town') || key.includes('seed') || key.includes('archaeology')) {
-    return 'bg-(--accent)'
+    return 'bg-accent'
   }
-  return 'bg-(--text-tertiary)'
+  return 'bg-text-tertiary'
 }
 
 function LocationDot({ name }: { name: string }) {
@@ -107,10 +107,10 @@ function MapRow({
   const revealProps = getLoadingMotionChildRevealProps({
     index: revealIndex,
     className: cx(
-      'ml-2 grid w-full grid-cols-[0.5rem_minmax(0,1fr)_auto] items-center gap-2.5 rounded-[0.625rem] border border-transparent px-2 py-1.5 text-left transition-colors',
+      'ml-2 grid w-full grid-cols-[0.5rem_minmax(0,1fr)_auto] items-center gap-2.5 rounded-field border border-transparent px-2 py-1.5 text-left transition-colors',
       isActive
-        ? 'border-[color-mix(in_srgb,var(--accent)_16%,transparent)] bg-(--accent-soft) shadow-[inset_2px_0_0_0_var(--accent)]'
-        : 'hover:bg-(--bg-hover)',
+        ? 'border-[color-mix(in_srgb,var(--accent)_16%,transparent)] bg-accent-soft shadow-[inset_2px_0_0_0_var(--accent)]'
+        : 'hover:bg-surface-hover',
     ),
   })
 
@@ -120,16 +120,16 @@ function MapRow({
       <span className="min-w-0">
         <span
           className={cx(
-            'block truncate text-[12.5px] font-semibold leading-tight',
-            isActive ? 'text-[color-mix(in_srgb,var(--accent)_72%,var(--text-primary))]' : 'text-(--text-primary)',
+            'block truncate text-body-px font-semibold leading-tight',
+            isActive ? 'text-[color-mix(in_srgb,var(--accent)_72%,var(--text-primary))]' : 'text-text-primary',
           )}
         >
           {asset.name}
         </span>
-        <span className="mt-0.5 block truncate font-mono text-[11px] text-(--text-tertiary)">{asset.relativePath}</span>
+        <span className="text-text-tertiary text-meta-px mt-0.5 block truncate font-mono">{asset.relativePath}</span>
       </span>
-      <span className="shrink-0 text-right font-mono text-[11px] leading-tight text-(--text-tertiary) tabular-nums">
-        <span className="block font-semibold text-(--text-secondary)">{asset.format.toUpperCase()}</span>
+      <span className="text-text-tertiary text-meta-px shrink-0 text-right font-mono leading-tight tabular-nums">
+        <span className="text-text-secondary block font-semibold">{asset.format.toUpperCase()}</span>
         <span className="mt-0.5 block">{formatBytes(asset.sizeBytes)}</span>
       </span>
     </button>
@@ -180,9 +180,9 @@ export function MapBrowserPanel({
     <aside className="item-workspace-pane h-full">
       <div className="custom-scrollbar flex h-full min-h-0 flex-col overflow-auto p-4">
         <div className="relative mb-3">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-(--text-tertiary)" />
+          <Search className="text-text-tertiary pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2" />
           <input
-            className="control-input bg-(--bg-panel-muted) pl-9"
+            className="control-input bg-surface-panel-muted pl-9"
             value={assetFilter}
             onChange={(event) => onAssetFilterChange(event.target.value)}
             placeholder={labels.browserPlaceholder}
@@ -210,8 +210,8 @@ export function MapBrowserPanel({
                       <button
                         type="button"
                         className={cx(
-                          'grid w-full grid-cols-[1rem_0.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-[0.625rem] px-2 py-1.5 text-left transition-colors',
-                          'hover:bg-(--bg-hover)',
+                          'grid w-full grid-cols-[1rem_0.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-field px-2 py-1.5 text-left transition-colors',
+                          'hover:bg-surface-hover',
                           !isCollapsed && 'bg-[color-mix(in_srgb,var(--bg-panel-muted)_80%,transparent)]',
                         )}
                         aria-expanded={!isCollapsed}
@@ -223,14 +223,12 @@ export function MapBrowserPanel({
                         }
                       >
                         <ChevronRight
-                          className={cx('h-3.5 w-3.5 text-(--text-tertiary) transition-transform', !isCollapsed && 'rotate-90')}
+                          className={cx('h-3.5 w-3.5 text-text-tertiary transition-transform', !isCollapsed && 'rotate-90')}
                           aria-hidden="true"
                         />
                         <LocationDot name={group.modName} />
-                        <span className="truncate text-[13px] font-semibold tracking-tight text-(--text-primary)">{group.modName}</span>
-                        <span className="font-mono text-[11px] font-semibold text-(--text-tertiary) tabular-nums">
-                          {group.items.length}
-                        </span>
+                        <span className="text-text-primary text-body-px truncate font-semibold tracking-tight">{group.modName}</span>
+                        <span className="text-text-tertiary text-meta-px font-mono font-semibold tabular-nums">{group.items.length}</span>
                       </button>
                       {!isCollapsed ? (
                         <div className="flex flex-col gap-0.5 pl-1" role="group">
@@ -250,7 +248,7 @@ export function MapBrowserPanel({
                 })}
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
+              <div className="border-border-subtle text-text-secondary rounded-xl border border-dashed px-4 py-5 text-sm">
                 {labels.browserModEmpty}
               </div>
             )
@@ -264,8 +262,8 @@ export function MapBrowserPanel({
                     <button
                       type="button"
                       className={cx(
-                        'grid w-full grid-cols-[1rem_0.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-[0.625rem] px-2 py-1.5 text-left transition-colors',
-                        'hover:bg-(--bg-hover)',
+                        'grid w-full grid-cols-[1rem_0.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-field px-2 py-1.5 text-left transition-colors',
+                        'hover:bg-surface-hover',
                         !isCollapsed && 'bg-[color-mix(in_srgb,var(--bg-panel-muted)_80%,transparent)]',
                       )}
                       aria-expanded={!isCollapsed}
@@ -277,12 +275,12 @@ export function MapBrowserPanel({
                       }
                     >
                       <ChevronRight
-                        className={cx('h-3.5 w-3.5 text-(--text-tertiary) transition-transform', !isCollapsed && 'rotate-90')}
+                        className={cx('h-3.5 w-3.5 text-text-tertiary transition-transform', !isCollapsed && 'rotate-90')}
                         aria-hidden="true"
                       />
                       <LocationDot name={group.label} />
-                      <span className="truncate text-[13px] font-semibold tracking-tight text-(--text-primary)">{group.label}</span>
-                      <span className="font-mono text-[11px] font-semibold text-(--text-tertiary) tabular-nums">{group.items.length}</span>
+                      <span className="text-text-primary text-body-px truncate font-semibold tracking-tight">{group.label}</span>
+                      <span className="text-text-tertiary text-meta-px font-mono font-semibold tabular-nums">{group.items.length}</span>
                     </button>
                     {!isCollapsed ? (
                       <div className="flex flex-col gap-0.5 pl-1" role="group">
@@ -302,7 +300,7 @@ export function MapBrowserPanel({
               })}
             </div>
           ) : (
-            <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
+            <div className="border-border-subtle text-text-secondary rounded-xl border border-dashed px-4 py-5 text-sm">
               {mapAssets.length ? labels.browserEmptyFiltered : labels.browserEmptyMissing}
             </div>
           )}

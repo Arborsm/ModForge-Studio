@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vite-plus/test'
 import type { EditorCopy } from '@locales/api'
-import type { MapObject, MapObjectGroup } from '@entities/map'
+import type { MapObject, MapObjectGroup, MapPropertyValue } from '@entities/map'
 import {
   formatObjectPreviewMeta,
   getObjectDisplayName,
   getObjectInteractionTag,
   getObjectPropertyKeys,
+  isLightMarkerObject,
   rankObjectForPreview,
 } from '@entities/map'
 
@@ -213,5 +214,48 @@ describe('formatObjectPreviewMeta', () => {
     expect(result).not.toContain('Action')
     expect(result).toContain('Type: Chest')
     expect(result).toContain('Bounds: 11, 20 / 16 x 16')
+  })
+})
+
+describe('isLightMarkerObject', () => {
+  it('matches TileData objects carrying the MFMarker light flag', () => {
+    const object = createObject({ name: 'TileData', properties: { MFMarker: 'light' } })
+    expect(isLightMarkerObject(object)).toBe(true)
+  })
+
+  it('matches TileData objects with light-item properties in either casing', () => {
+    const cases: Array<Record<string, MapPropertyValue>> = [
+      { QualifiedItemId: '(BC)1' },
+      { qualifiedItemId: '(BC)1' },
+      { ItemId: '(F)torch' },
+      { itemId: '(F)torch' },
+      { IsOn: 'false' },
+      { isOn: 'true' },
+    ]
+    for (const properties of cases) {
+      expect(isLightMarkerObject(createObject({ name: 'TileData', properties }))).toBe(true)
+    }
+  })
+
+  it('matches legacy TileData objects with no properties and a real footprint', () => {
+    const object = createObject({ name: 'TileData', width: 16, height: 16, properties: {} })
+    expect(isLightMarkerObject(object)).toBe(true)
+  })
+
+  it('does not match 0×0 point objects without properties', () => {
+    const object = createObject({ name: 'TileData', width: 0, height: 0, properties: {} })
+    expect(isLightMarkerObject(object)).toBe(false)
+  })
+
+  it('does not match TileData rule objects carrying community property keys', () => {
+    const cases: Array<Record<string, MapPropertyValue>> = [{ Action: 'Warp 10 11 Farm' }, { NoSpawn: 'Farm' }, { NPCBarrier: '4 6 8 9' }]
+    for (const properties of cases) {
+      expect(isLightMarkerObject(createObject({ name: 'TileData', properties }))).toBe(false)
+    }
+  })
+
+  it('does not match objects not named TileData even with empty properties', () => {
+    const object = createObject({ name: 'Light', width: 16, height: 16, properties: {} })
+    expect(isLightMarkerObject(object)).toBe(false)
   })
 })

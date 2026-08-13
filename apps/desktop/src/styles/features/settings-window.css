@@ -2,13 +2,13 @@
   /* —— Shell (prototype: overlay / panel / header / body) —— */
   .settings-window-backdrop {
     z-index: var(--z-dialog);
-    padding: 1.5rem;
+    @apply p-6;
     background: var(--scrim);
     backdrop-filter: blur(0.5rem);
   }
 
   .settings-window-panel {
-    position: relative;
+    @apply relative overflow-hidden;
     width: min(105rem, calc(100vw - 3rem));
     height: min(68.75rem, calc(100vh - 6.5rem));
     max-width: calc(100vw - 3rem);
@@ -17,13 +17,11 @@
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
     border-radius: 1.25rem;
     background: var(--bg-panel);
-    overflow: hidden;
   }
 
   .settings-window-header {
-    display: grid;
+    @apply grid items-center;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
     gap: 1rem;
     min-height: 3.25rem;
     flex-shrink: 0;
@@ -33,21 +31,18 @@
   }
 
   .settings-window-header-brand {
-    min-width: 0;
-    display: flex;
-    align-items: center;
+    @apply flex min-w-0 items-center;
     gap: 0.55rem;
   }
 
   .settings-window-header-icon {
-    display: grid;
+    @apply text-accent grid;
     width: 1.75rem;
     height: 1.75rem;
     flex: 0 0 1.75rem;
     place-items: center;
     border-radius: 0.45rem;
     background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
-    color: var(--accent);
   }
 
   .settings-window-header-icon svg {
@@ -56,19 +51,16 @@
   }
 
   .settings-window-title {
-    margin: 0;
+    @apply text-text-primary m-0 font-bold;
     font-size: 0.9375rem;
-    font-weight: 700;
     letter-spacing: -0.01em;
-    color: var(--text-primary);
   }
 
   .settings-window-category-tabs {
-    display: inline-flex;
+    @apply inline-flex overflow-x-auto;
     max-width: 100%;
     justify-self: start;
     gap: 0.125rem;
-    overflow-x: auto;
     padding: 0.1875rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
     border-radius: 0.625rem;
@@ -76,24 +68,23 @@
   }
 
   .settings-window-category-tab {
+    @apply text-text-secondary whitespace-nowrap;
     flex: 0 0 auto;
     border: 0;
     border-radius: 0.475rem;
     padding: 0.4rem 0.8rem;
     background: transparent;
-    color: var(--text-secondary);
     font-size: 0.78125rem;
     font-weight: 650;
-    white-space: nowrap;
   }
 
   .settings-window-category-tab:hover {
-    color: var(--text-primary);
+    @apply text-text-primary;
   }
 
   .settings-window-category-tab.is-active {
+    @apply text-text-primary;
     background: var(--bg-panel);
-    color: var(--text-primary);
     box-shadow: 0 0.0625rem 0.125rem color-mix(in srgb, var(--text-primary) 8%, transparent);
   }
 
@@ -103,7 +94,7 @@
   }
 
   .settings-window-close {
-    display: grid;
+    @apply text-text-tertiary grid;
     width: 1.875rem;
     height: 1.875rem;
     flex: 0 0 auto;
@@ -111,41 +102,32 @@
     border: 0;
     border-radius: 0.5rem;
     background: transparent;
-    color: var(--text-tertiary);
   }
 
   .settings-window-close:hover {
+    @apply text-text-primary;
     background: var(--bg-hover);
-    color: var(--text-primary);
   }
 
   .settings-window-body {
-    display: flex;
+    @apply flex min-h-0 overflow-hidden;
     flex: 1;
-    min-height: 0;
     flex-direction: column;
-    overflow: hidden;
     padding: 0;
     background: color-mix(in srgb, var(--bg-panel-muted) 35%, var(--bg-panel));
   }
 
   .settings-window-body-inner {
-    display: flex;
+    @apply m-0 flex min-h-0 w-full overflow-hidden;
     flex: 1;
-    min-height: 0;
-    width: 100%;
-    margin: 0;
     flex-direction: column;
-    overflow: hidden;
     padding: 1.15rem 0 0;
   }
 
   .settings-window-pane {
-    display: flex;
+    @apply flex min-h-0 overflow-hidden;
     flex: 1;
-    min-height: 0;
     flex-direction: column;
-    overflow: hidden;
     width: min(72rem, 100%);
     margin-left: auto;
     margin-right: auto;
@@ -155,44 +137,36 @@
   }
 
   .settings-window-pane-scroll {
+    @apply min-h-0 overflow-auto;
     flex: 1;
-    min-height: 0;
-    overflow: auto;
     padding-bottom: 1.25rem;
   }
 
   .settings-window-content {
-    display: flex;
+    @apply flex min-h-0 w-full overflow-hidden;
     flex: 1;
-    min-height: 0;
-    width: 100%;
     flex-direction: column;
-    overflow: hidden;
     gap: 0;
     height: auto;
   }
 
   /* —— Page chrome —— */
   .settings-window-page-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+    @apply flex items-start justify-between;
     gap: 1rem;
     margin-bottom: 1.15rem;
   }
 
   .settings-window-page-head h2 {
-    margin: 0;
-    color: var(--text-primary);
+    @apply text-text-primary m-0;
     font-size: 1.25rem;
     font-weight: 750;
     letter-spacing: -0.025em;
   }
 
   .settings-window-page-head p {
-    margin: 0.3rem 0 0;
+    @apply text-text-tertiary m-0;
     max-width: 40rem;
-    color: var(--text-tertiary);
     font-size: 0.8125rem;
     line-height: 1.5;
   }
@@ -206,13 +180,11 @@
   }
 
   .settings-window-group-label {
+    @apply text-text-tertiary overflow-hidden uppercase;
     margin: 0 0 0.55rem;
-    overflow: hidden;
-    color: var(--text-tertiary);
     font-size: 0.6875rem;
     font-weight: 750;
     letter-spacing: 0.04em;
-    text-transform: uppercase;
     line-height: 1.4;
   }
 
@@ -225,46 +197,40 @@
 
   /* —— Buttons (settings-local, prototype .btn) —— */
   .settings-window-btn {
-    display: inline-flex;
+    @apply text-text-secondary inline-flex items-center justify-center whitespace-nowrap;
     min-height: 2rem;
-    align-items: center;
-    justify-content: center;
     gap: 0.35rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
     border-radius: 0.5rem;
     padding: 0 0.75rem;
     background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
-    color: var(--text-secondary);
     font-size: 0.75rem;
     font-weight: 650;
-    white-space: nowrap;
   }
 
   .settings-window-btn:hover {
+    @apply text-text-primary;
     background: var(--bg-hover);
-    color: var(--text-primary);
   }
 
   .settings-window-btn:disabled {
+    @apply pointer-events-none;
     opacity: 0.45;
-    pointer-events: none;
   }
 
   .settings-window-btn-primary {
+    @apply text-text-inverse;
     border-color: color-mix(in srgb, var(--accent) 45%, transparent);
     background: var(--accent);
-    color: var(--text-inverse);
   }
 
   .settings-window-btn-primary:hover {
+    @apply text-text-inverse;
     background: var(--accent-strong, color-mix(in srgb, var(--accent) 82%, var(--text-primary)));
-    color: var(--text-inverse);
   }
 
   .settings-window-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    @apply flex flex-wrap items-center;
     gap: 0.35rem;
   }
 
@@ -274,9 +240,8 @@
   }
 
   .settings-window-row {
-    display: grid;
+    @apply grid items-center;
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
     gap: 1.25rem;
     min-height: 3.35rem;
     padding: 0.8rem 0;
@@ -284,34 +249,32 @@
   }
 
   .settings-window-row.is-stack {
-    align-items: start;
+    @apply items-start;
     padding-top: 0.95rem;
     padding-bottom: 0.95rem;
   }
 
   .settings-window-row-meta {
-    min-width: 0;
+    @apply min-w-0;
   }
 
   .settings-window-row-title {
-    margin: 0;
+    @apply text-text-primary m-0;
     font-size: 0.875rem;
     font-weight: 650;
-    color: var(--text-primary);
   }
 
   .settings-window-row-desc {
+    @apply text-text-tertiary;
     margin: 0.2rem 0 0;
-    color: var(--text-tertiary);
     font-size: 0.75rem;
     line-height: 1.45;
   }
 
   .settings-window-row-value {
+    @apply text-text-secondary font-semibold;
     margin: 0.15rem 0 0;
-    color: var(--text-secondary);
     font-size: 0.75rem;
-    font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
 
@@ -328,14 +291,13 @@
   }
 
   .settings-window-row-group.is-custom .settings-window-seg {
+    @apply pointer-events-none;
     opacity: 0.42;
-    pointer-events: none;
   }
 
   .settings-window-row-sub {
-    display: grid;
+    @apply grid items-center;
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
     gap: 1rem;
     margin: 0 0 0.75rem 0.15rem;
     padding: 0.65rem 0 0.75rem 0.95rem;
@@ -343,24 +305,22 @@
   }
 
   .settings-window-row-sub-title {
-    margin: 0;
-    color: var(--text-secondary);
+    @apply text-text-secondary m-0;
     font-size: 0.8125rem;
     font-weight: 650;
     letter-spacing: -0.01em;
   }
 
   .settings-window-row-sub-desc {
+    @apply text-text-tertiary;
     margin: 0.15rem 0 0;
-    color: var(--text-tertiary);
     font-size: 0.6875rem;
     line-height: 1.4;
   }
 
   /* —— Segmented options —— */
   .settings-window-seg {
-    display: inline-flex;
-    align-items: center;
+    @apply inline-flex items-center;
     gap: 0.125rem;
     padding: 0.15rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
@@ -369,44 +329,41 @@
   }
 
   .settings-window-seg-opt {
+    @apply text-text-secondary whitespace-nowrap;
     border: 0;
     border-radius: 0.4rem;
     min-height: 1.75rem;
     padding: 0 0.7rem;
     background: transparent;
-    color: var(--text-secondary);
     font-size: 0.75rem;
     font-weight: 650;
-    white-space: nowrap;
   }
 
   .settings-window-seg-opt:hover {
-    color: var(--text-primary);
+    @apply text-text-primary;
   }
 
   .settings-window-seg-opt.is-active {
+    @apply text-text-primary;
     background: var(--bg-panel);
-    color: var(--text-primary);
     box-shadow: 0 0.0625rem 0.1rem color-mix(in srgb, var(--text-primary) 8%, transparent);
   }
 
   /* —— Theme tiles —— */
   .settings-window-theme-grid {
-    display: grid;
+    @apply grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.5rem;
     padding-top: 0.15rem;
   }
 
   .settings-window-theme-tile {
-    display: grid;
+    @apply text-text-secondary grid text-left;
     gap: 0.45rem;
     padding: 0.55rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
     border-radius: 0.65rem;
     background: transparent;
-    color: var(--text-secondary);
-    text-align: left;
     transition:
       border-color 140ms ease,
       background-color 140ms ease,
@@ -414,21 +371,20 @@
   }
 
   .settings-window-theme-tile:hover {
+    @apply text-text-primary;
     background: color-mix(in srgb, var(--bg-hover) 80%, transparent);
-    color: var(--text-primary);
   }
 
   .settings-window-theme-tile.is-active {
+    @apply text-text-primary;
     border-color: color-mix(in srgb, var(--accent) 65%, var(--border-color));
     background: color-mix(in srgb, var(--accent-soft) 70%, transparent);
-    color: var(--text-primary);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
   }
 
   .settings-window-theme-preview {
-    position: relative;
+    @apply relative overflow-hidden;
     height: 3.25rem;
-    overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
     border-radius: 0.4rem;
   }
@@ -456,41 +412,39 @@
   }
 
   .settings-window-theme-name {
+    @apply font-ui-semibold;
     padding: 0 0.1rem;
     font-size: 0.75rem;
-    font-weight: 650;
     letter-spacing: -0.01em;
   }
 
   /* —— Locale chips —— */
   .settings-window-locale-row {
-    display: flex;
-    flex-wrap: wrap;
+    @apply flex flex-wrap;
     gap: 0.4rem;
   }
 
   .settings-window-locale-chip {
+    @apply text-text-secondary text-left;
     min-width: 7.5rem;
     min-height: 2.25rem;
     padding: 0 0.9rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
     border-radius: 0.55rem;
     background: transparent;
-    color: var(--text-secondary);
     font-size: 0.8125rem;
     font-weight: 650;
-    text-align: left;
   }
 
   .settings-window-locale-chip:hover {
+    @apply text-text-primary;
     background: var(--bg-hover);
-    color: var(--text-primary);
   }
 
   .settings-window-locale-chip.is-active {
+    @apply text-text-primary;
     border-color: color-mix(in srgb, var(--accent) 55%, var(--border-color));
     background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
-    color: var(--text-primary);
   }
 
   .settings-window-locale-chip:focus-visible {
@@ -501,50 +455,45 @@
 
   /* —— Pills (loading style options) —— */
   .settings-window-pill-wrap {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    @apply flex flex-wrap justify-end;
     gap: 0.35rem;
   }
 
   .settings-window-pill {
+    @apply text-text-secondary;
     min-height: 1.875rem;
     padding: 0 0.7rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
     border-radius: 999px;
     background: transparent;
-    color: var(--text-secondary);
     font-size: 0.75rem;
     font-weight: 650;
   }
 
   .settings-window-pill:hover {
+    @apply text-text-primary;
     background: var(--bg-hover);
-    color: var(--text-primary);
   }
 
   .settings-window-pill.is-active {
+    @apply text-text-primary;
     border-color: color-mix(in srgb, var(--accent) 48%, var(--border-color));
     background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
-    color: var(--text-primary);
   }
 
   /* —— Loading preview stage —— */
   .settings-window-preview-stage {
-    position: relative;
-    display: grid;
+    @apply text-text-tertiary relative grid overflow-hidden;
     height: 8.5rem;
     min-height: 8.5rem;
     max-height: 8.5rem;
     place-items: center;
     margin-bottom: 0.25rem;
-    overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
     border-radius: 0.65rem;
     background:
       radial-gradient(circle at 30% 40%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 50%),
       color-mix(in srgb, var(--bg-panel-muted) 70%, var(--bg-panel));
-    color: var(--text-tertiary);
     font-size: 0.75rem;
     font-weight: 650;
   }
@@ -559,58 +508,53 @@
 
   /* —— Slider —— */
   .settings-window-slider {
-    display: flex;
+    @apply flex items-center;
     min-width: 14rem;
     width: min(18rem, 100%);
-    align-items: center;
     gap: 0.65rem;
   }
 
   .settings-window-slider input[type='range'] {
-    flex: 1;
+    @apply flex-1;
     accent-color: var(--accent);
   }
 
   .settings-window-slider output {
+    @apply text-text-secondary text-right;
     min-width: 2.75rem;
-    color: var(--text-secondary);
     font-family: var(--font-mono, ui-monospace, monospace);
     font-size: 0.75rem;
     font-weight: 650;
-    text-align: right;
   }
 
   /* —— Compact switch (prototype .switch) —— */
   .settings-switch {
-    display: inline-flex;
-    align-items: center;
+    @apply text-text-secondary inline-flex items-center;
     gap: 0.5rem;
     border: 0;
     padding: 0;
     background: transparent;
-    color: var(--text-secondary);
     font-size: 0.75rem;
     font-weight: 650;
   }
 
   .settings-switch.is-on,
   .settings-switch-active {
-    color: var(--text-primary);
+    @apply text-text-primary;
   }
 
   .settings-switch-copy {
-    min-width: 0;
+    @apply min-w-0;
     font-size: 0.75rem;
     font-weight: 650;
     line-height: 1.2;
   }
 
   .settings-switch-track {
-    display: flex;
+    @apply flex items-center;
     width: 2.35rem;
     height: 1.35rem;
     flex: 0 0 auto;
-    align-items: center;
     border-radius: 999px;
     padding: 0.15rem;
     background: color-mix(in srgb, var(--border-color) 85%, var(--bg-panel-muted));
@@ -624,9 +568,9 @@
   }
 
   .settings-switch-thumb {
+    @apply rounded-full;
     width: 1.05rem;
     height: 1.05rem;
-    border-radius: 999px;
     background: #fff;
     box-shadow: 0 1px 2px color-mix(in srgb, var(--text-primary) 16%, transparent);
   }
@@ -641,38 +585,33 @@
 
   /* —— Legacy / launcher shared surfaces (kept functional) —— */
   .settings-window-section {
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    padding: 0;
+    @apply rounded-none border-0 bg-transparent p-0;
   }
 
   .settings-window-section-plain {
-    background: transparent;
-    padding: 0;
+    @apply bg-transparent p-0;
   }
 
   .settings-window-section-title {
-    margin: 0;
-    color: var(--text-primary);
+    @apply text-text-primary m-0;
     font-size: 0.875rem;
     font-weight: 650;
   }
 
   .settings-window-section-copy {
+    @apply text-text-tertiary;
     margin: 0.2rem 0 0;
-    color: var(--text-tertiary);
     font-size: 0.75rem;
     line-height: 1.45;
   }
 
   .launcher-settings-stack {
-    display: grid;
+    @apply grid;
     gap: 1.125rem;
   }
 
   .launcher-settings-subsection {
-    display: grid;
+    @apply grid;
     gap: 0.75rem;
   }
 
@@ -682,10 +621,8 @@
   }
 
   .settings-window-control-card {
+    @apply flex items-center justify-between;
     margin-top: 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     gap: 1rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
     border-radius: 0.85rem;
@@ -694,9 +631,8 @@
   }
 
   .launcher-settings-control-card {
+    @apply flex-col items-stretch;
     margin-top: 0;
-    flex-direction: column;
-    align-items: stretch;
   }
 
   .launcher-settings-control-card-wide {
@@ -704,21 +640,18 @@
   }
 
   .launcher-settings-control-meta {
-    display: grid;
+    @apply grid min-w-0;
     gap: 0.375rem;
-    min-width: 0;
   }
 
   .launcher-settings-inline-actions {
-    display: flex;
-    width: 100%;
-    align-items: stretch;
+    @apply flex w-full items-stretch;
     gap: 0.5rem;
     flex-wrap: nowrap;
   }
 
   .launcher-settings-inline-actions .control-input {
-    min-width: 0;
+    @apply min-w-0;
     flex: 1 1 auto;
   }
 
@@ -727,27 +660,22 @@
   }
 
   .launcher-settings-toggle-list {
-    display: grid;
+    @apply grid;
     gap: 0.75rem;
   }
 
   .settings-window-control-meta {
-    display: flex;
-    min-width: 0;
-    align-items: flex-start;
+    @apply flex min-w-0 items-start;
     gap: 0.75rem;
   }
 
   .settings-window-control-icon {
-    display: inline-flex;
+    @apply text-accent inline-flex items-center justify-center;
     height: 2.25rem;
     width: 2.25rem;
     flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
     border-radius: 0.75rem;
     background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
-    color: var(--accent);
   }
 
   /* Launcher uses card-style switches with borders; scope larger chrome there */
@@ -768,42 +696,38 @@
   }
 
   .settings-window-option-grid {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    @apply flex flex-wrap justify-end;
     gap: 0.5rem;
   }
 
   .settings-window-option-button {
+    @apply text-text-secondary text-center;
     min-width: 4.75rem;
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
     border-radius: 999px;
     background: color-mix(in srgb, var(--bg-panel-muted) 84%, transparent);
-    color: var(--text-secondary);
     padding: 0.5rem 0.75rem;
     font-size: 0.75rem;
     font-weight: 650;
-    text-align: center;
   }
 
   .settings-window-option-button:hover,
   .settings-window-option-button:focus-visible {
+    @apply text-text-primary;
     border-color: color-mix(in srgb, var(--accent) 28%, var(--border-color));
     background: color-mix(in srgb, var(--bg-active) 80%, transparent);
-    color: var(--text-primary);
     outline: 0;
   }
 
   .settings-window-option-button-active {
+    @apply text-text-primary;
     border-color: color-mix(in srgb, var(--accent) 54%, var(--border-color));
     background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
-    color: var(--text-primary);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
   }
 
   .settings-window-unsaved-detail {
-    margin: 0;
-    color: var(--text-secondary);
+    @apply text-text-secondary m-0;
     font-size: 0.8125rem;
     line-height: 1.5;
   }

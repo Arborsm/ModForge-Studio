@@ -7,6 +7,7 @@ export type LauncherSettings = {
   keepDownloadedArchives: boolean
   autoCheckModUpdates: boolean
   gmcmParsingEnabled?: boolean
+  showConsoleWindow?: boolean
 }
 
 export type SaveLauncherSettingsRequest = {
@@ -18,6 +19,7 @@ export type SaveLauncherSettingsRequest = {
   keepDownloadedArchives?: boolean
   autoCheckModUpdates?: boolean
   gmcmParsingEnabled?: boolean
+  showConsoleWindow?: boolean
 }
 
 export type ScanLauncherLibraryRequest = {
@@ -43,6 +45,10 @@ export type LauncherLibraryModSummary = {
   dependencies: LauncherLibraryDependency[]
   requiredDependencies: string[]
   missingRequiredDependencies: string[]
+  /** Minimum SMAPI version declared by the mod manifest, when it declares one. */
+  minimumApiVersion: string | null
+  /** True when the installed SMAPI version is older than this mod's minimum API version. */
+  requiresNewerSmapi: boolean
 }
 
 export type LauncherLibraryDependency = {
@@ -58,6 +64,101 @@ export type LauncherLibraryScanResult = {
 export type LauncherRuntimeInfo = {
   gameVersion: string | null
   smapiVersion: string | null
+}
+
+export type SmapiUpdatePhase = 'downloading' | 'verifying' | 'extracting' | 'installing'
+
+/** Which source produced the SMAPI latest-version lookup. */
+export type SmapiVersionSource = 'github' | 'nexus'
+
+/** Which file naming a locally downloaded SMAPI installer archive uses. */
+export type SmapiInstallerNaming = 'github' | 'nexus'
+
+/** One installed mod that requires a newer SMAPI version than the one detected. */
+export type SmapiUpdateRequiredByMod = {
+  modId: string
+  modName: string
+  minimumApiVersion: string
+}
+
+/**
+ * Download payload the backend prepared for installing a SMAPI update, source-aware.
+ * GitHub assets carry a direct URL plus sha256 digest; Nexus provides neither (free
+ * users must use the manual-download popup), so the UI gets the popup URL instead.
+ */
+export type SmapiUpdateDownloadInfo = {
+  source: SmapiVersionSource
+  /** Direct download URL (GitHub only). Absent for Nexus-sourced downloads. */
+  url?: string | null
+  /** Hex SHA-256 digest (without the `sha256:` prefix) when the source provides one. */
+  sha256?: string | null
+  sizeBytes?: number | null
+  assetName: string
+  /** Nexus mod page URL (Nexus-sourced downloads only). */
+  nexusModPageUrl?: string | null
+  /** Nexus manual-download popup URL for free users (Nexus-sourced downloads with a known file id only). */
+  nexusDownloadPopupUrl?: string | null
+  nexusFileId?: number | null
+}
+
+/** Result of checking the installed SMAPI version against the game's requirements. */
+export type SmapiUpdateCheckResult = {
+  installedVersion: string
+  gameVersion: string
+  latestStableVersion: string
+  /** SMAPI version that should be installed when an update is available. */
+  targetVersion: string
+  updateAvailable: boolean
+  /** Which source produced the latest-version lookup (`github` or `nexus`). */
+  versionSource: SmapiVersionSource
+  requiredByMods: SmapiUpdateRequiredByMod[]
+  download?: SmapiUpdateDownloadInfo | null
+}
+
+/** Request to install a SMAPI update; either a direct download or a local file. */
+export type InstallSmapiUpdateRequest = {
+  /** Client-generated id shared with cancel_launcher_download for download-phase cancellation. */
+  jobId?: string | null
+  /** Direct GitHub asset URL for the download branch. Mutually exclusive with localFilePath. */
+  downloadUrl?: string | null
+  /** Hex SHA-256 digest of the installer zip. Required for downloads; optional for local files. */
+  expectedSha256?: string | null
+  targetVersion: string
+  /** Local SMAPI installer archive to install from instead of downloading. */
+  localFilePath?: string | null
+}
+
+export type InstallSmapiUpdateResult = {
+  success: boolean
+  installedVersion: string
+}
+
+/** Progress event emitted while a SMAPI update is downloaded, verified, and installed. */
+export type SmapiUpdateProgressPayload = {
+  phase: SmapiUpdatePhase
+  percent?: number | null
+  message: string
+}
+
+/** A recognized SMAPI installer archive found in the user's download directories. */
+export type SmapiInstallerDownloadCandidate = {
+  path: string
+  fileName: string
+  version: string
+  sizeBytes?: number | null
+  /** True for GitHub `-double-zipped` archives (the payload is an inner zip). */
+  doubleZipped: boolean
+  naming: SmapiInstallerNaming
+  /** True when within the game-compatible maximum; null when unresolved. */
+  compatible?: boolean | null
+  /** True when at or above the current target version; null when unresolved. */
+  satisfiesTarget?: boolean | null
+}
+
+/** Result of scanning the user's download directories for SMAPI installer archives. */
+export type FindSmapiInstallerDownloadsResult = {
+  /** Newest version first. */
+  candidates: SmapiInstallerDownloadCandidate[]
 }
 
 export type LauncherLibraryStorageFolder = {
@@ -547,6 +648,10 @@ export type InstallLauncherArchiveResult = {
   installedMods: InstallLauncherArchiveInstalledMod[]
   backupId: string
   backupPath: string
+  /** Version of the primary mod target before this install replaced it. */
+  previousVersion?: string | null
+  /** True when the primary target already existed and was replaced in place. */
+  upgraded?: boolean
 }
 
 export type LauncherInstallBackupSummary = {
@@ -554,6 +659,10 @@ export type LauncherInstallBackupSummary = {
   backupPath: string
   deleteCount: number
   overwriteCount: number
+  createdAtMs: number
+  primaryModName: string | null
+  primaryVersion: string | null
+  modCount: number
 }
 
 export type ListLauncherInstallBackupsRequest = {
@@ -581,6 +690,8 @@ export type OpenLauncherUrlRequest = {
 
 export type InspectLauncherArchiveRequest = {
   archivePath: string
+  /** Mods folder used to detect already-installed mods and diff against them. */
+  modsPath?: string | null
 }
 
 export type LauncherArchiveTreeNode = {
@@ -591,11 +702,53 @@ export type LauncherArchiveTreeNode = {
   children: LauncherArchiveTreeNode[]
 }
 
+/** How one file differs between the archive mod root and the installed folder it would replace. */
+export type LauncherArchiveFileChangeKind = 'added' | 'removed' | 'changed'
+
+/** Per-file change detail inside a mod-root diff summary. */
+export type LauncherArchiveFileDiff = {
+  /** File path relative to the mod root, forward slashes. */
+  path: string
+  changeKind: LauncherArchiveFileChangeKind
+  oldSize?: number | null
+  newSize?: number | null
+  /** Unix epoch milliseconds on each side; archive side from entry metadata when available. */
+  oldModifiedMs?: number | null
+  newModifiedMs?: number | null
+  /** Unified diff for text changes within the size/line budgets. */
+  textDiff?: string | null
+  /** True when textDiff was truncated to the line budget. */
+  textDiffTruncated?: boolean
+}
+
+/** File difference counts and per-file details between an archive mod root and the installed folder it would replace. */
+export type LauncherArchiveDiffSummary = {
+  added: number
+  changed: number
+  removed: number
+  /** Per-file details; capped per root (see truncatedFileCount). */
+  files: LauncherArchiveFileDiff[]
+  /** Files omitted beyond the per-root detail cap; absent when nothing was omitted. */
+  truncatedFileCount?: number | null
+}
+
+/** One detected mod root inside an inspected archive, with manifest metadata and existing-install diff info. */
+export type LauncherArchiveModRootInfo = {
+  path: string
+  manifestUniqueId?: string | null
+  manifestName?: string | null
+  manifestVersion?: string | null
+  existingUniqueId?: string | null
+  existingVersion?: string | null
+  existingPath?: string | null
+  diffSummary?: LauncherArchiveDiffSummary | null
+}
+
 export type InspectLauncherArchiveResult = {
   archivePath: string
   archiveFileName: string
   totalEntries: number
   totalFiles: number
-  modRoots: string[]
+  modRoots: LauncherArchiveModRootInfo[]
   tree: LauncherArchiveTreeNode[]
 }

@@ -1,0 +1,9 @@
+{
+  "Name": "ModForge Debug Bridge",
+  "Author": "ModForge Studio",
+  "Version": "0.1.0",
+  "Description": "Connects ModForge Studio to a running game for live mod debugging (localhost only).",
+  "UniqueID": "ModForge.DebugBridge",
+  "EntryDll": "ModForge.DebugBridge.dll",
+  "MinimumApiVersion": "4.0.0"
+}

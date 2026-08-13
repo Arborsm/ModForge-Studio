@@ -21,6 +21,10 @@ pub(crate) fn cp_maker_drafts_dir() -> anyhow::Result<PathBuf> {
     Ok(modforge_data_dir()?.join("cp-maker").join("drafts"))
 }
 
+pub(crate) fn cp_maker_projects_dir() -> anyhow::Result<PathBuf> {
+    Ok(modforge_data_dir()?.join("cp-maker").join("projects"))
+}
+
 pub(crate) fn cp_maker_session_path() -> anyhow::Result<PathBuf> {
     Ok(modforge_data_dir()?.join("cp-maker").join("session.json"))
 }
@@ -51,6 +55,12 @@ pub(crate) fn launcher_updates_cache_path() -> anyhow::Result<PathBuf> {
     Ok(modforge_data_dir()?
         .join("launcher")
         .join("updates-cache.json"))
+}
+
+pub(crate) fn launcher_smapi_update_cache_path() -> anyhow::Result<PathBuf> {
+    Ok(modforge_data_dir()?
+        .join("launcher")
+        .join("smapi-update-cache.json"))
 }
 
 pub(crate) fn launcher_backup_dir() -> anyhow::Result<PathBuf> {

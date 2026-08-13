@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>ModForge.DebugBridge</AssemblyName>
+    <RootNamespace>ModForge.DebugBridge</RootNamespace>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <DebugType>none</DebugType>
+    <!-- Resolution order: explicit property, environment variable, local default install. -->
+    <GamePath Condition="'$(GamePath)' == '' And '$(STARDEW_GAME_PATH)' != ''">$(STARDEW_GAME_PATH)</GamePath>
+    <GamePath Condition="'$(GamePath)' == '' And Exists('E:\SteamLibrary\steamapps\common\Stardew Valley\Stardew Valley.dll')">E:\SteamLibrary\steamapps\common\Stardew Valley</GamePath>
+    <GamePath Condition="'$(GamePath)' == '' And Exists('C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll')">C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley</GamePath>
+  </PropertyGroup>
+
+  <Target Name="EnsureGamePath" BeforeTargets="BeforeBuild">
+    <Error Condition="'$(GamePath)' == '' Or !Exists('$(GamePath)\Stardew Valley.dll')"
+           Text="Stardew Valley install not found. Set the STARDEW_GAME_PATH environment variable or pass -p:GamePath=&lt;dir&gt;." />
+  </Target>
+
+  <ItemGroup>
+    <Reference Include="StardewModdingAPI">
+      <HintPath>$(GamePath)\StardewModdingAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="SMAPI.Toolkit.CoreInterfaces">
+      <HintPath>$(GamePath)\smapi-internal\SMAPI.Toolkit.CoreInterfaces.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Stardew Valley">
+      <HintPath>$(GamePath)\Stardew Valley.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="MonoGame.Framework">
+      <HintPath>$(GamePath)\MonoGame.Framework.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Netcode" Condition="Exists('$(GamePath)\Netcode.dll')">
+      <HintPath>$(GamePath)\Netcode.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="xTile" Condition="Exists('$(GamePath)\xTile.dll')">
+      <HintPath>$(GamePath)\xTile.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

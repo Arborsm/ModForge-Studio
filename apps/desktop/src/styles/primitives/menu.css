@@ -1,14 +1,10 @@
 @layer components {
   .context-menu-content {
-    border: 1px solid var(--border-color);
-    background: var(--bg-overlay);
-    box-shadow: var(--shadow-float);
-    @apply z-50 w-max max-w-[15rem] min-w-[8.5rem] rounded-xl p-1 backdrop-blur-xl;
+    @apply border-border-subtle bg-surface-overlay shadow-float z-50 w-max max-w-60 min-w-34 rounded-xl border p-1 backdrop-blur-xl;
   }
 
   .context-menu-item {
-    color: var(--text-primary);
-    @apply flex h-8 w-full items-center rounded-lg px-3 text-left text-xs whitespace-nowrap transition-colors outline-none;
+    @apply text-text-primary flex h-8 w-full items-center rounded-lg px-3 text-left text-xs whitespace-nowrap transition-colors outline-none;
   }
 
   .context-menu-item[data-highlighted] {
@@ -16,8 +12,7 @@
   }
 
   .context-menu-item[data-disabled] {
-    color: var(--text-tertiary);
-    @apply cursor-not-allowed;
+    @apply text-text-tertiary cursor-not-allowed;
   }
 
   .context-menu-separator {
@@ -30,11 +25,10 @@
   }
 
   .context-menu-subcontent {
-    @apply min-w-[10.625rem];
+    @apply min-w-42.5;
   }
 
   .context-menu-subhint {
-    color: var(--text-tertiary);
-    @apply text-[0.6875rem];
+    @apply text-text-tertiary text-meta;
   }
 }

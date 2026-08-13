@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../entities/building'
+import type { BuildingWorkspaceEntry } from '@entities/building'
 import type { BuildingsPanelCopy, ThemeMode } from '@locales/api'
 import type { MapDocument } from '@entities/map'
 import { rgbaFromHex } from '@shared/lib/color/rgbaFromHex'
@@ -33,51 +33,6 @@ export function buildBuildingCanvasBackdropStyle(theme: ThemeMode, accentColor: 
     backgroundSize: ['6.25rem 6.25rem', '6.25rem 6.25rem', '1.25rem 1.25rem', '1.25rem 1.25rem'].join(', '),
     backgroundPosition: ['-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem', '-0.0625rem -0.0625rem'].join(', '),
   }
-}
-
-export function buildAbsoluteSpriteLayerStyle({
-  url,
-  sheetWidth,
-  sheetHeight,
-  sourceX,
-  sourceY,
-  width,
-  height,
-}: {
-  url: string
-  sheetWidth: number
-  sheetHeight: number
-  sourceX: number
-  sourceY: number
-  width: number
-  height: number
-}): CSSProperties {
-  return {
-    width: `${width}px`,
-    height: `${height}px`,
-    backgroundImage: `url("${url}")`,
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: `-${sourceX}px -${sourceY}px`,
-    backgroundSize: `${sheetWidth}px ${sheetHeight}px`,
-    imageRendering: 'pixelated',
-  }
-}
-
-export function getResolvedSourceRect(entry: BuildingWorkspaceEntry, textureState: BuildingTextureAssetState | null) {
-  if (entry.sourceRect) {
-    return entry.sourceRect
-  }
-
-  if (textureState?.width && textureState?.height) {
-    return {
-      X: 0,
-      Y: 0,
-      Width: textureState.width,
-      Height: textureState.height,
-    }
-  }
-
-  return null
 }
 
 export function getStageBadge(copy: BuildingsPanelCopy, stage: BuildingWorkspaceEntry, currentKey: string | null) {

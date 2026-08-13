@@ -20,6 +20,28 @@ struct PortableAiProfile {
     base_url: String,
     model: String,
     credential_environment: Option<String>,
+    #[serde(default)]
+    allow_insecure_http: bool,
+    #[serde(default)]
+    context_window_tokens: Option<u64>,
+    #[serde(default)]
+    max_output_tokens: Option<u64>,
+    #[serde(default)]
+    temperature: Option<f64>,
+    #[serde(default)]
+    top_p: Option<f64>,
+    #[serde(default)]
+    frequency_penalty: Option<f64>,
+    #[serde(default)]
+    presence_penalty: Option<f64>,
+    #[serde(default)]
+    max_batch_bytes: Option<u64>,
+    #[serde(default)]
+    enable_reasoning: bool,
+    #[serde(default)]
+    reasoning_effort: Option<ReasoningEffort>,
+    #[serde(default)]
+    stream_translation: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,6 +61,17 @@ fn portable(profile: &AiProviderProfile) -> PortableAiProfile {
         base_url: profile.base_url.clone(),
         model: profile.model.clone(),
         credential_environment: profile.credential_environment.clone(),
+        allow_insecure_http: profile.allow_insecure_http,
+        context_window_tokens: profile.context_window_tokens,
+        max_output_tokens: profile.max_output_tokens,
+        temperature: profile.temperature,
+        top_p: profile.top_p,
+        frequency_penalty: profile.frequency_penalty,
+        presence_penalty: profile.presence_penalty,
+        max_batch_bytes: profile.max_batch_bytes,
+        enable_reasoning: profile.enable_reasoning,
+        reasoning_effort: profile.reasoning_effort,
+        stream_translation: profile.stream_translation,
     }
 }
 
@@ -51,6 +84,17 @@ fn save_profile(profile: PortableAiProfile) -> SaveAiProviderProfile {
         base_url: profile.base_url,
         model: profile.model,
         credential_environment: profile.credential_environment,
+        allow_insecure_http: profile.allow_insecure_http,
+        context_window_tokens: profile.context_window_tokens,
+        max_output_tokens: profile.max_output_tokens,
+        temperature: profile.temperature,
+        top_p: profile.top_p,
+        frequency_penalty: profile.frequency_penalty,
+        presence_penalty: profile.presence_penalty,
+        max_batch_bytes: profile.max_batch_bytes,
+        enable_reasoning: profile.enable_reasoning,
+        reasoning_effort: profile.reasoning_effort,
+        stream_translation: profile.stream_translation,
         api_key: None,
         clear_api_key: false,
     }

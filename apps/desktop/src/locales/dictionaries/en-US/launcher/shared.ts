@@ -8,7 +8,7 @@ const shared: LauncherSharedCopy = {
     library: 'Library',
     discover: 'Discover',
     updates: 'Updates',
-    configuration: 'Configuration',
+    configuration: 'Diagnostics',
   },
   descriptions: {
     library: 'Your installed and pinned mods will appear here.',
@@ -98,6 +98,8 @@ const shared: LauncherSharedCopy = {
     autoInstallDownloads: 'Auto-install completed downloads',
     keepDownloadedArchives: 'Keep downloaded archives',
     gmcmParsingEnabled: 'Parse dynamic GMCM settings',
+    showConsoleWindow: 'Show SMAPI console window',
+    showConsoleWindowDescription: 'Show the SMAPI console window when launching the game to view mod loading logs.',
   },
   sortOptions: {
     newest: 'Newest',

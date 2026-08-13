@@ -2,6 +2,7 @@ use crate::support::logging::{LogEvent, targets};
 
 pub const TRANSLATION: &str = targets::LOCALIZATION_TRANSLATION;
 pub const KNOWLEDGE: &str = targets::LOCALIZATION_KNOWLEDGE;
+pub const CORPUS: &str = targets::LOCALIZATION_CORPUS;
 pub const SEMANTIC: &str = targets::LOCALIZATION_SEMANTIC;
 pub const REVIEW: &str = targets::LOCALIZATION_REVIEW;
 pub const MACHINE_TRANSLATION: &str = targets::LOCALIZATION_MACHINE_TRANSLATION;

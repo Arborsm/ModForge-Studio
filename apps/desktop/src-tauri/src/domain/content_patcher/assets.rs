@@ -5,7 +5,9 @@ use super::types::{
 };
 use crate::domain::modding::attached_api::AttachedApiRegistry;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
-use crate::infrastructure::game_formats::tbin::{MapDocument, parse_tbin_map};
+use crate::infrastructure::game_formats::map::MapDocument;
+use crate::infrastructure::game_formats::parse_map_asset;
+use crate::infrastructure::game_formats::tbin::parse_tbin_map;
 use crate::infrastructure::game_formats::xnb::read_xnb_from_path;
 use anyhow::{Context, bail};
 use base64::Engine;
@@ -357,7 +359,7 @@ fn create_empty_map_document(target: &str) -> MapDocument {
             .filter(|value| !value.is_empty())
             .unwrap_or(target)
             .to_string(),
-        format: "xnb".to_string(),
+        format: crate::infrastructure::game_formats::map::MapFormat::Xnb,
         source_path: format!("Content/{target}.xnb"),
         relative_path: format!("Content/{target}.xnb"),
         width: 0,
@@ -366,10 +368,17 @@ fn create_empty_map_document(target: &str) -> MapDocument {
         tile_height: 16,
         orientation: "orthogonal".to_string(),
         render_order: "right-down".to_string(),
+        tmx_version: None,
+        tiled_version: None,
+        next_layer_id: Some(1),
+        next_object_id: Some(1),
+        infinite: false,
         properties: std::collections::HashMap::new(),
         tilesets: Vec::new(),
         layers: Vec::new(),
         object_groups: Vec::new(),
+        layer_order: Vec::new(),
+        preserved_xml: Vec::new(),
     }
 }
 
@@ -473,7 +482,7 @@ pub fn load_map_patch_asset(
 
     if let Some(bytes) = decode_virtual_preview_asset_bytes(&normalized_from)? {
         let virtual_path = PathBuf::from(&normalized_from);
-        let document = parse_tbin_map(&bytes, &virtual_path, &normalized_from)?;
+        let document = parse_map_asset(&bytes, &virtual_path, &normalized_from)?;
         let debug = build_map_debug_summary(&document);
         return Ok(LoadedMapAsset { document, debug });
     }
@@ -481,7 +490,7 @@ pub fn load_map_patch_asset(
     let absolute_from = resolve_from_file_path(snapshot, &relative_from, from_file)?;
     let bytes = std::fs::read(&absolute_from)
         .with_context(|| format!("Failed to read map patch asset {}", absolute_from.display()))?;
-    let document = parse_tbin_map(&bytes, &absolute_from, from_file)?;
+    let document = parse_map_asset(&bytes, &absolute_from, from_file)?;
     let debug = build_map_debug_summary(&document);
 
     Ok(LoadedMapAsset { document, debug })

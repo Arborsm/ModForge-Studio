@@ -1,8 +1,10 @@
 use super::fs::{discover_project_roots, read_json_file};
 use super::image_cache::resolve_launcher_image_blocking;
 use super::paths::{
-    launcher_library_covers_path, launcher_library_path, launcher_updates_cache_path,
+    launcher_library_covers_path, launcher_library_path, launcher_settings_path,
+    launcher_updates_cache_path,
 };
+use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
 use super::types::{
     LauncherLibraryChildModGroup, LauncherLibraryCover, LauncherLibraryCoversState,
@@ -14,6 +16,8 @@ use super::types::{
     UNSORTED_STORAGE_FOLDER_NAME,
 };
 use super::update_cache::invalidate_launcher_updates_cache_at_path;
+use super::updates::resolve_smapi_runtime_versions;
+use super::versions::version_is_newer;
 use crate::AppHandle;
 use crate::domain::manifest::{
     manifest_dependencies, normalize_unique_id, project_name_from_manifest,
@@ -915,6 +919,27 @@ fn build_mod_summary(
         dependencies,
         required_dependencies,
         missing_required_dependencies,
+        minimum_api_version: string_field(&project.manifest, "MinimumApiVersion"),
+        requires_newer_smapi: false,
+    }
+}
+
+/// Sets `requires_newer_smapi` on each summary by comparing the mod's parsed
+/// `MinimumApiVersion` against the detected installed SMAPI version. Mods without
+/// a `MinimumApiVersion` — or when no installed version was detected — keep `false`.
+pub(crate) fn apply_smapi_requirement_flags(
+    summaries: &mut [LauncherLibraryModSummary],
+    installed_smapi_version: Option<&str>,
+) {
+    let Some(installed_smapi_version) = installed_smapi_version else {
+        return;
+    };
+    for summary in summaries {
+        let Some(minimum_api_version) = summary.minimum_api_version.as_deref() else {
+            continue;
+        };
+        summary.requires_newer_smapi =
+            version_is_newer(installed_smapi_version, minimum_api_version);
     }
 }
 
@@ -1170,6 +1195,24 @@ pub fn scan_launcher_library(
                     .into_iter()
                     .find_map(|key| cover_map.get(&normalize_unique_id(&key)).cloned());
             }
+
+            // Enrich summaries with the SMAPI requirement flag. Settings read is
+            // best-effort: the scan itself must not fail when the launcher settings
+            // file is temporarily unreadable, so an unresolved installed version
+            // leaves every `requiresNewerSmapi` flag at its default `false`.
+            let installed_smapi_version =
+                match load_or_create_settings_at_path(&launcher_settings_path()?) {
+                    Ok(settings) => {
+                        Some(resolve_smapi_runtime_versions(&settings, mods_path).api_version)
+                    }
+                    Err(error) => {
+                        log_launcher_trace("library.scan.smapiRequirementSkipped", |event| {
+                            event.error(&error.to_string())
+                        });
+                        None
+                    }
+                };
+            apply_smapi_requirement_flags(&mut scan.mods, installed_smapi_version.as_deref());
 
             Ok(scan)
         })(),

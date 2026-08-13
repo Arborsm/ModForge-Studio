@@ -1,9 +1,10 @@
+import { PenLine } from 'lucide-react'
 import { useItemsCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { ModSourceList } from '@shared/ui/ModSourceList'
 import type { ModSourceEntry } from '@pages/workbench/workspaces/mod'
-import { getContainedItemSpriteFrame, type ItemTextureAssetState, type ItemWorkspaceEntry } from '../entities/item'
-import { ItemSprite } from '../entities/item'
+import { findItemAssetFamily, getContainedItemSpriteFrame, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
+import { ItemSprite } from '@entities/item'
 import { getWorkspaceText } from './itemWorkspaceRows'
 import { DetailSectionCard, EmptyNotice, GiftTasteList, SourceGrid, UseGrid } from './itemWorkspaceSharedUi'
 import type { AsideRow, AsideSection, DetailTab, HeroChip, ObjectDataCard, SignalCard, SourceCard, UseCard } from './itemWorkspaceTypes'
@@ -27,6 +28,7 @@ export function DetailPane({
   onDetailTabChange,
   itemLookup,
   textureStatesByAssetName,
+  onOpenItemInAuthoring,
 }: {
   text: ReturnType<typeof getWorkspaceText>
   item: ItemWorkspaceEntry | null
@@ -46,6 +48,7 @@ export function DetailPane({
   onDetailTabChange: (tab: DetailTab) => void
   itemLookup: Map<string, ItemWorkspaceEntry>
   textureStatesByAssetName: Record<string, ItemTextureAssetState>
+  onOpenItemInAuthoring?: (item: ItemWorkspaceEntry) => void
 }) {
   const copy = useItemsCopy()
   const detailTabs: Array<{ id: DetailTab; label: string }> = [
@@ -64,7 +67,7 @@ export function DetailPane({
           </div>
         </div>
         <div className="panel-body flex h-full min-h-0 items-center justify-center p-6 text-center">
-          <p className="max-w-md text-sm text-(--text-secondary)">{copy.workspaceEmpty}</p>
+          <p className="text-text-secondary max-w-md text-sm">{copy.workspaceEmpty}</p>
         </div>
       </section>
     )
@@ -78,7 +81,7 @@ export function DetailPane({
 
   return (
     <section className="item-workspace-pane h-full">
-      <div className="flex gap-6 border-b border-(--border-color)/65 px-6 py-7">
+      <div className="border-border-subtle/65 flex gap-6 border-b px-6 py-7">
         <div className="flex h-36 w-36 shrink-0 items-center justify-center rounded-2xl">
           <ItemSprite
             item={item}
@@ -91,31 +94,31 @@ export function DetailPane({
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
-          <h2 className="text-[1.75rem] font-extrabold tracking-tight text-(--text-primary)">{item.displayName}</h2>
-          <p className="truncate font-mono text-xs text-(--text-tertiary)">{item.qualifiedItemId}</p>
+          <h2 className="text-text-primary text-[1.75rem] font-extrabold tracking-tight">{item.displayName}</h2>
+          <p className="text-text-tertiary truncate font-mono text-xs">{item.qualifiedItemId}</p>
 
           <div className="flex flex-wrap items-center gap-2">
             {item.kindMetaLabel ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-(--accent-soft) px-3 py-1 text-xs font-bold text-(--accent)">
+              <span className="bg-accent-soft text-accent inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold">
                 {item.kindMetaLabel}
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-(--bg-panel-muted) px-3 py-1 text-xs font-bold text-(--text-secondary)">
+              <span className="bg-surface-panel-muted text-text-secondary inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold">
                 {copy.kindLabels[item.kind]}
               </span>
             )}
             {giftCount ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-(--success-soft) px-3 py-1 text-xs font-bold text-(--success)">
+              <span className="bg-success-soft text-success inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold">
                 {copy.giftSectionTitle}
               </span>
             ) : null}
             {heroChips.map((chip) => (
               <span
                 key={chip.key}
-                className="inline-flex items-center gap-1.5 rounded-full bg-(--bg-panel-muted) px-3 py-1 text-xs font-bold text-(--text-secondary)"
+                className="bg-surface-panel-muted text-text-secondary inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold"
               >
                 {chip.label}
-                <span className="text-(--text-primary)">{chip.value}</span>
+                <span className="text-text-primary">{chip.value}</span>
               </span>
             ))}
           </div>
@@ -124,11 +127,25 @@ export function DetailPane({
             <div className="flex flex-wrap gap-x-6 gap-y-2 pt-1">
               {signalCards.map((card) => (
                 <span key={card.key} className="flex items-baseline gap-1.5 text-sm">
-                  <em className="text-[11px] text-(--text-tertiary) not-italic">{card.label}</em>
-                  <strong className="font-bold text-(--text-primary)">{card.value}</strong>
+                  <em className="text-text-tertiary text-meta-px not-italic">{card.label}</em>
+                  <strong className="text-text-primary font-bold">{card.value}</strong>
                 </span>
               ))}
             </div>
+          ) : null}
+
+          {onOpenItemInAuthoring ? (
+            <button
+              type="button"
+              className="control-button control-button-primary mt-1 self-start"
+              // Families with no structured editor still jump — into the raw JSON
+              // escape hatch — so the hint says which one the author will land in.
+              title={findItemAssetFamily(item.kind).editor === 'structured' ? copy.openInAuthoringHint : copy.openInAuthoringRawHint}
+              onClick={() => onOpenItemInAuthoring(item)}
+            >
+              <PenLine className="h-3.5 w-3.5" />
+              <span>{copy.openInAuthoringAction}</span>
+            </button>
           ) : null}
         </div>
       </div>
@@ -142,8 +159,8 @@ export function DetailPane({
               className={cx(
                 'rounded-lg px-3 py-1.5 text-xs font-bold transition-colors',
                 tab.id === activeDetailTab
-                  ? 'bg-(--accent-soft) text-(--accent)'
-                  : 'text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
+                  ? 'bg-accent-soft text-accent'
+                  : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',
               )}
               onClick={() => onDetailTabChange(tab.id)}
             >
@@ -158,7 +175,7 @@ export function DetailPane({
               <DetailSectionCard title={copy.basicsTitle} rows={infoRows} />
 
               <DetailSectionCard title={text.descriptionTitle}>
-                <p className="mt-2 text-sm leading-7 text-(--text-secondary)">{item.description ?? copy.noDescription}</p>
+                <p className="text-text-secondary mt-2 text-sm leading-7">{item.description ?? copy.noDescription}</p>
               </DetailSectionCard>
 
               {specificSections.map((section) => (

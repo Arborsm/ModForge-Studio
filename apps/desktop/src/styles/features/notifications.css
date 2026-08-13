@@ -1,15 +1,14 @@
 .notification-viewport {
-  position: fixed;
+  @apply pointer-events-none fixed;
   right: clamp(0.75rem, 2vw, 1.5rem);
   bottom: clamp(0.75rem, 2.4vh, 1.6rem);
   z-index: var(--z-toast);
   height: 0;
   width: min(max(23rem, 50vw), calc(100vw - 1.5rem));
-  pointer-events: none;
 }
 
 .notification-hover-region {
-  position: absolute;
+  @apply absolute;
   right: 0;
   left: 0;
   bottom: 0;
@@ -17,7 +16,7 @@
 }
 
 .notification-stack-item {
-  position: absolute;
+  @apply pointer-events-auto absolute;
   right: 0;
   left: auto;
   width: auto;
@@ -29,7 +28,6 @@
     width 260ms cubic-bezier(0.22, 1, 0.36, 1),
     opacity 220ms ease;
   will-change: bottom, height, width, opacity;
-  pointer-events: auto;
 }
 
 .notification-stack-item[data-front='false'] .notification-toast {
@@ -43,7 +41,7 @@
 }
 
 .notification-stack-item[data-height-clipped='true'] {
-  overflow: hidden;
+  @apply overflow-hidden;
 }
 
 .notification-stack-item[data-height-clipped='true'] .notification-toast {
@@ -51,19 +49,15 @@
 }
 
 .notification-stack-item[data-width-controlled='true'] .notification-toast {
-  width: 100%;
-  min-width: 0;
+  @apply w-full min-w-0;
   max-width: 100%;
 }
 
 .notification-toast {
+  @apply pointer-events-auto relative grid overflow-hidden;
   --notification-accent: #2a8fff;
-  pointer-events: auto;
-  position: relative;
-  display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 0.75rem;
-  overflow: hidden;
   border-radius: 0.875rem;
   border: 1px solid color-mix(in srgb, var(--notification-accent) 16%, var(--border-color));
   background: linear-gradient(
@@ -143,9 +137,7 @@
 }
 
 .notification-toast-structured .notification-toast-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  @apply inline-flex items-center justify-center;
   width: 2rem;
   height: 2rem;
   margin-top: 0;
@@ -154,26 +146,24 @@
 }
 
 .notification-toast-body {
-  min-width: 0;
+  @apply min-w-0;
 }
 
 .notification-toast-structured .notification-toast-body {
-  display: grid;
+  @apply grid;
   gap: 0.55rem;
 }
 
 .notification-toast-eyebrow {
-  margin: 0;
+  @apply m-0 font-bold;
   color: var(--notification-accent);
   font-size: 0.65rem;
-  font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .notification-toast-title {
-  margin: 0;
-  color: var(--text-primary);
+  @apply text-text-primary m-0;
   font-size: 0.9rem;
   font-weight: 650;
   line-height: 1.3;
@@ -186,30 +176,29 @@
 }
 
 .notification-toast-variant-diagnostic .notification-toast-title {
-  padding-right: 0.5rem;
+  @apply pr-2;
 }
 
 .notification-toast-subtitle {
+  @apply text-text-secondary;
   margin: -0.18rem 0 0;
-  color: var(--text-secondary);
   font-size: 0.76rem;
   line-height: 1.5;
 }
 
 .notification-toast-summary {
-  margin: 0;
+  @apply m-0 font-bold;
   padding: 0.66rem 0.78rem;
   border-radius: 0.9rem;
   background: color-mix(in srgb, var(--notification-accent) 10%, rgba(255, 255, 255, 0.94));
   color: color-mix(in srgb, var(--notification-accent) 60%, var(--text-primary));
   font-size: 0.78rem;
-  font-weight: 700;
   line-height: 1.45;
 }
 
 .notification-toast-description {
+  @apply text-text-secondary;
   margin: 0.28rem 0 0;
-  color: var(--text-secondary);
   font-size: 0.78rem;
   line-height: 1.38;
   white-space: pre-line;
@@ -217,33 +206,28 @@
 }
 
 .notification-toast-structured .notification-toast-description {
+  @apply text-text-primary;
   margin-top: 0;
-  color: var(--text-primary);
   font-size: 0.82rem;
   line-height: 1.55;
 }
 
 .notification-toast-chip-list {
-  display: flex;
-  flex-wrap: wrap;
+  @apply flex flex-wrap;
   gap: 0.45rem;
 }
 
 .notification-toast-chip {
-  display: inline-flex;
-  align-items: center;
+  @apply text-text-secondary inline-flex items-center overflow-hidden rounded-full;
   gap: 0.45rem;
   min-height: 1.9rem;
   max-width: 100%;
   padding: 0 0.72rem;
-  border-radius: 62.4375rem;
   border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
   background: rgba(255, 255, 255, 0.74);
-  color: var(--text-secondary);
   font-size: 0.74rem;
   line-height: 1.2;
   white-space: nowrap;
-  overflow: hidden;
 }
 
 .notification-toast-variant-diagnostic .notification-toast-chip {
@@ -253,16 +237,15 @@
 }
 
 .notification-toast-chip span:last-child {
-  min-width: 0;
-  overflow: hidden;
+  @apply min-w-0 overflow-hidden;
   text-overflow: ellipsis;
 }
 
 .notification-toast-chip-dot {
+  @apply rounded-full;
   width: 0.48rem;
   height: 0.48rem;
   flex: 0 0 auto;
-  border-radius: 62.4375rem;
   background: color-mix(in srgb, var(--text-secondary) 72%, white);
   box-shadow: 0 0 0 0.24rem rgba(83, 98, 118, 0.08);
 }
@@ -293,18 +276,17 @@
 }
 
 .notification-toast-note {
-  margin: 0;
+  @apply text-text-secondary m-0;
   padding: 0.2rem 0 0;
-  color: var(--text-secondary);
   font-size: 0.74rem;
   line-height: 1.55;
 }
 
 .notification-toast-action {
+  @apply p-0;
   margin-top: 0.58rem;
   border: none;
   background: transparent;
-  padding: 0;
   color: var(--notification-accent);
   font-size: 0.76rem;
   font-weight: 650;
@@ -317,24 +299,18 @@
 }
 
 .notification-toast-action-row {
-  display: flex;
-  flex-wrap: wrap;
+  @apply flex flex-wrap;
   gap: 0.55rem;
   padding-top: 0.1rem;
 }
 
 .notification-toast-action-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  @apply text-text-secondary inline-flex items-center justify-center rounded-full font-bold;
   min-height: 2rem;
   padding: 0 0.82rem;
-  border-radius: 62.4375rem;
   border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
   background: color-mix(in srgb, var(--bg-panel) 88%, white);
-  color: var(--text-secondary);
   font-size: 0.75rem;
-  font-weight: 700;
   transition:
     background-color 120ms ease,
     border-color 120ms ease,
@@ -353,9 +329,7 @@
 }
 
 .notification-toast-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  @apply pointer-events-none inline-flex items-center justify-center;
   width: 1.65rem;
   height: 1.65rem;
   border: none;
@@ -363,7 +337,6 @@
   background: color-mix(in srgb, var(--bg-panel-muted) 80%, transparent);
   color: var(--text-secondary);
   opacity: 0;
-  pointer-events: none;
   transform: translateY(-0.125rem);
   transition:
     opacity 120ms ease,
@@ -379,24 +352,21 @@
 }
 
 .notification-toast-close:hover {
+  @apply text-text-primary;
   background: color-mix(in srgb, var(--bg-active) 72%, var(--bg-panel));
-  color: var(--text-primary);
 }
 
 .notification-toast-progress-track {
-  position: absolute;
+  @apply absolute overflow-hidden rounded-full;
   left: 0.65rem;
   right: 0.65rem;
   bottom: 0.42rem;
   height: 0.1875rem;
-  overflow: hidden;
-  border-radius: 62.4375rem;
   background: color-mix(in srgb, var(--border-color) 72%, transparent);
 }
 
 .notification-toast-progress {
-  width: 100%;
-  height: 100%;
+  @apply h-full w-full;
   transform-origin: left center;
   background: linear-gradient(90deg, color-mix(in srgb, var(--notification-accent) 72%, var(--bg-panel)), var(--notification-accent));
   animation-name: notification-toast-progress;

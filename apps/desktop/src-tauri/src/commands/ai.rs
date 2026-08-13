@@ -2,7 +2,7 @@ use crate::domain::ai::types::{
     AiModelInfo, AiProfileImportPreview, AiProfileImportResult, AiProfileRequest,
     AiProfileTestResult, AiSettingsSnapshot, AiTranslateBatchRequest, AiTranslateBatchResult,
     AiTranslationCacheEntry, AiTranslationCacheStats, ApplyAiProfilesImportRequest,
-    CancelAiJobRequest, ExportAiProfilesRequest, PreviewAiProfilesImportRequest,
+    CancelAiJobRequest, ExportAiProfilesRequest, ModelsDevCatalog, PreviewAiProfilesImportRequest,
     ReadAiTranslationCacheRequest, SaveAiSettingsRequest,
 };
 use crate::support::logging::DebugLoggingState;
@@ -88,6 +88,14 @@ pub async fn list_ai_models(
     request: AiProfileRequest,
 ) -> Result<Vec<AiModelInfo>, String> {
     execute!(app, debug, list_ai_models, json!({ "request": request }))
+}
+
+#[tauri::command]
+pub async fn fetch_ai_models_dev_catalog(
+    app: tauri::AppHandle<AppRuntime>,
+    debug: State<'_, DebugLoggingState>,
+) -> Result<ModelsDevCatalog, String> {
+    execute!(app, debug, fetch_ai_models_dev_catalog, json!({}))
 }
 
 #[tauri::command]

@@ -32,8 +32,8 @@ export function EventCommandInspectorPanel({ selectedEvent, selectedTimelineEntr
       <div className="detail-sections-stack">
         <section>
           <p className="panel-section-title">{labels.inspectorSummary}</p>
-          <p className="mt-2 text-sm font-semibold text-(--text-primary)">{selectedEntry?.title ?? labels.inspectorEmpty}</p>
-          <p className="mt-2 text-xs leading-5 text-(--text-secondary)">{selectedEntry?.detail ?? labels.inspectorEmpty}</p>
+          <p className="text-text-primary mt-2 text-sm font-semibold">{selectedEntry?.title ?? labels.inspectorEmpty}</p>
+          <p className="text-text-secondary mt-2 text-xs leading-5">{selectedEntry?.detail ?? labels.inspectorEmpty}</p>
         </section>
 
         {selectedEvent && isSetupEntry ? (
@@ -41,18 +41,16 @@ export function EventCommandInspectorPanel({ selectedEvent, selectedTimelineEntr
             <p className="panel-section-title">{labels.inspectorParameters}</p>
             <div className="mt-2 grid gap-3 md:grid-cols-2">
               <div>
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">{labels.inspectorMusic}</p>
-                <p className="mt-1 text-sm text-(--text-primary)">{renderValue(selectedEvent.scene.musicCue, labels.inspectorNone)}</p>
+                <p className="text-text-secondary text-meta-px tracking-ui-wider font-semibold uppercase">{labels.inspectorMusic}</p>
+                <p className="text-text-primary mt-1 text-sm">{renderValue(selectedEvent.scene.musicCue, labels.inspectorNone)}</p>
               </div>
               <div>
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">{labels.inspectorCamera}</p>
-                <p className="mt-1 text-sm text-(--text-primary)">
-                  {renderValue(selectedEvent.scene.cameraInstruction, labels.inspectorNone)}
-                </p>
+                <p className="text-text-secondary text-meta-px tracking-ui-wider font-semibold uppercase">{labels.inspectorCamera}</p>
+                <p className="text-text-primary mt-1 text-sm">{renderValue(selectedEvent.scene.cameraInstruction, labels.inspectorNone)}</p>
               </div>
               <div>
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">{labels.inspectorActors}</p>
-                <p className="mt-1 text-sm text-(--text-primary)">{selectedEvent.scene.actors.length}</p>
+                <p className="text-text-secondary text-meta-px tracking-ui-wider font-semibold uppercase">{labels.inspectorActors}</p>
+                <p className="text-text-primary mt-1 text-sm">{selectedEvent.scene.actors.length}</p>
               </div>
             </div>
           </section>
@@ -63,54 +61,54 @@ export function EventCommandInspectorPanel({ selectedEvent, selectedTimelineEntr
             <p className="panel-section-title">{labels.inspectorParameters}</p>
             <div className="mt-2 grid gap-3 md:grid-cols-2">
               <div>
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">{labels.inspectorCommand}</p>
-                <p className="mt-1 text-sm text-(--text-primary)">{command.command}</p>
+                <p className="text-text-secondary text-meta-px tracking-ui-wider font-semibold uppercase">{labels.inspectorCommand}</p>
+                <p className="text-text-primary mt-1 text-sm">{command.command}</p>
               </div>
               <div>
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">{labels.inspectorKind}</p>
-                <p className="mt-1 text-sm text-(--text-primary)">{command.kind}</p>
+                <p className="text-text-secondary text-meta-px tracking-ui-wider font-semibold uppercase">{labels.inspectorKind}</p>
+                <p className="text-text-primary mt-1 text-sm">{command.kind}</p>
               </div>
 
               {command.actorName ? (
                 <div>
-                  <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">{labels.inspectorActor}</p>
-                  <p className="mt-1 text-sm text-(--text-primary)">{command.actorName}</p>
+                  <p className="text-text-secondary text-meta-px tracking-ui-wider font-semibold uppercase">{labels.inspectorActor}</p>
+                  <p className="text-text-primary mt-1 text-sm">{command.actorName}</p>
                 </div>
               ) : null}
 
               {command.targetEventKey ? (
                 <div>
-                  <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">{labels.inspectorTarget}</p>
-                  <p className="mt-1 text-sm text-(--text-primary)">{command.targetEventKey}</p>
+                  <p className="text-text-secondary text-meta-px tracking-ui-wider font-semibold uppercase">{labels.inspectorTarget}</p>
+                  <p className="text-text-primary mt-1 text-sm">{command.targetEventKey}</p>
                 </div>
               ) : null}
             </div>
 
             {command.text ? (
               <div className="mt-3">
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">{labels.inspectorText}</p>
-                <p className="mt-1 text-sm leading-6 whitespace-pre-wrap text-(--text-primary)">{command.text}</p>
+                <p className="text-text-secondary text-meta-px tracking-ui-wider font-semibold uppercase">{labels.inspectorText}</p>
+                <p className="text-text-primary mt-1 text-sm leading-6 whitespace-pre-wrap">{command.text}</p>
               </div>
             ) : null}
 
             {command.prompt ? (
               <div className="mt-3">
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">{labels.inspectorQuestion}</p>
-                <p className="mt-1 text-sm leading-6 whitespace-pre-wrap text-(--text-primary)">{command.prompt}</p>
+                <p className="text-text-secondary text-meta-px tracking-ui-wider font-semibold uppercase">{labels.inspectorQuestion}</p>
+                <p className="text-text-primary mt-1 text-sm leading-6 whitespace-pre-wrap">{command.prompt}</p>
               </div>
             ) : null}
 
             {command.choices?.length ? (
               <div className="mt-3">
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-(--text-secondary) uppercase">{labels.inspectorChoices}</p>
+                <p className="text-text-secondary text-meta-px tracking-ui-wider font-semibold uppercase">{labels.inspectorChoices}</p>
                 <div className="mt-2 flex flex-col">
                   {command.choices.map((choice, index) => (
                     <div
                       key={choice.id}
-                      className="flex items-start justify-between gap-3 border-b border-(--border-color)/50 py-2.5 last:border-b-0"
+                      className="border-border-subtle/50 flex items-start justify-between gap-3 border-b py-2.5 last:border-b-0"
                     >
-                      <span className="text-xs text-(--text-secondary)">{index + 1}</span>
-                      <span className="min-w-0 flex-1 text-sm text-(--text-primary)">{choice.label}</span>
+                      <span className="text-text-secondary text-xs">{index + 1}</span>
+                      <span className="text-text-primary min-w-0 flex-1 text-sm">{choice.label}</span>
                     </div>
                   ))}
                 </div>
@@ -126,10 +124,10 @@ export function EventCommandInspectorPanel({ selectedEvent, selectedTimelineEntr
               {command.args.map((arg, index) => (
                 <div
                   key={`${command.id}:arg:${index}`}
-                  className="flex items-start justify-between gap-3 border-b border-(--border-color)/50 py-2.5 last:border-b-0"
+                  className="border-border-subtle/50 flex items-start justify-between gap-3 border-b py-2.5 last:border-b-0"
                 >
-                  <span className="text-[11px] font-semibold tracking-[0.14em] text-(--text-secondary) uppercase">arg {index}</span>
-                  <span className="min-w-0 flex-1 text-sm break-all text-(--text-primary)">{arg || labels.inspectorNone}</span>
+                  <span className="text-text-secondary text-meta-px tracking-ui-wider font-semibold uppercase">arg {index}</span>
+                  <span className="text-text-primary min-w-0 flex-1 text-sm break-all">{arg || labels.inspectorNone}</span>
                 </div>
               ))}
             </div>
@@ -139,7 +137,7 @@ export function EventCommandInspectorPanel({ selectedEvent, selectedTimelineEntr
         {!isSetupEntry && selectedEntry?.command?.raw ? (
           <section>
             <p className="panel-section-title">{labels.inspectorRaw}</p>
-            <pre className="mt-2 overflow-auto text-xs leading-5 break-all whitespace-pre-wrap text-(--text-primary)">
+            <pre className="text-text-primary mt-2 overflow-auto text-xs leading-5 break-all whitespace-pre-wrap">
               {selectedEntry.command.raw}
             </pre>
           </section>

@@ -1,7 +1,8 @@
 import { CheckSquare, Download, ExternalLink, RefreshCw, Square } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
+import { listenForLauncherModDetailDismiss } from '@shared/lib/launcher-overlay-events'
 import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { openLauncherPath } from '@features/launcher/api'
@@ -19,6 +20,8 @@ type LauncherUpdatesPageProps = {
   onNavigateToSettings?: () => void
   onNavigateToDiagnostics?: () => void
   onRetryDiagnostics?: (() => Promise<void> | void) | null
+  /** False while the updates route is hidden (cached pages stay mounted). */
+  routeActive?: boolean
 }
 
 function getUpdateKey(modId: number, absolutePath: string) {
@@ -61,6 +64,7 @@ export function LauncherUpdatesPage({
   onNavigateToSettings,
   onNavigateToDiagnostics,
   onRetryDiagnostics,
+  routeActive = true,
 }: LauncherUpdatesPageProps) {
   const copy = useEditorCopy().launcher
   const settingsMenuCopy = useSettingsMenuCopy()
@@ -68,6 +72,18 @@ export function LauncherUpdatesPage({
   const [detailMod, setDetailMod] = useState<LauncherDetailMod | null>(null)
   const [statusDetailsExpanded, setStatusDetailsExpanded] = useState(false)
   const [statusRetryPending, setStatusRetryPending] = useState(false)
+
+  // The downloads manager floats inside the window frame, so it cannot stack
+  // above the body-portal detail drawer; pages close their drawer on request.
+  useEffect(() => listenForLauncherModDetailDismiss(() => setDetailMod(null)), [])
+
+  // Cached launcher routes stay mounted while hidden; close the body-portal
+  // detail drawer as soon as the updates route leaves the active page.
+  useEffect(() => {
+    if (routeActive === false) {
+      setDetailMod(null)
+    }
+  }, [routeActive])
 
   const queueItem = (item: (typeof updates.items)[number]) =>
     onQueueDownload({

@@ -16,12 +16,14 @@ import { createPortal, flushSync } from 'react-dom'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { useSelectionContainer, type Box } from '@air/react-drag-to-select'
 import { observeElementRect, useVirtualizer } from '@tanstack/react-virtual'
-import { AlertTriangle, ExternalLink, Folder, Info, X } from 'lucide-react'
+import { AlertTriangle, ArrowUp, ExternalLink, Folder, Info, X } from 'lucide-react'
 import { cx } from '@shared/lib/helper'
+import { useEditorCopy } from '@locales/provider'
 import { LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import { getLauncherCoverKey } from '@features/launcher/model/coverKey'
 import { useLauncherImage } from '@features/launcher/model/imageLoader'
 import { getModKey, normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
+import { getSmapiRequirementBadgeVersion } from '@features/launcher/model/smapiUpdateModel'
 import type { LauncherLibraryItem, LauncherVirtualFolder } from '@features/launcher/model/types'
 import { LauncherArtworkCover } from '@features/launcher/ui/cards/LauncherArtworkCover'
 import { LauncherModCard } from '@features/launcher/ui/cards/LauncherModCard'
@@ -88,6 +90,8 @@ export type VirtualizedLauncherGridProps = {
   enableBoxSelection?: boolean
   enableRevealMotion?: boolean
   routeEnterSequence?: number
+  /** False while the library route is hidden (cached pages stay mounted). */
+  routeActive?: boolean
   editMode: boolean
   sortingActive?: boolean
   rootOrderContainerKey?: string
@@ -130,6 +134,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   enableBoxSelection = true,
   enableRevealMotion = true,
   routeEnterSequence = 0,
+  routeActive = true,
   editMode,
   sortingActive = false,
   rootOrderContainerKey = 'view:all',
@@ -455,6 +460,18 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
     window.addEventListener('pointerdown', close, { capture: true })
     return () => window.removeEventListener('pointerdown', close, { capture: true })
   }, [activeModulesPanel, onToggleParentExpanded])
+
+  useEffect(() => {
+    if (routeActive || !activeModulesPanel) {
+      return
+    }
+    // The floating modules panel portals to body, so it would stay visible
+    // over the next route; close it like the pointer-down handler does.
+    setActiveModulesPanel(null)
+    if (isParentExpanded(activeModulesPanel.parentMod.id)) {
+      onToggleParentExpanded(activeModulesPanel.parentMod.id)
+    }
+  }, [activeModulesPanel, isParentExpanded, onToggleParentExpanded, routeActive])
 
   useEffect(() => {
     const viewport = viewportRef.current
@@ -1069,6 +1086,8 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
         collapseLabel={collapseLabel}
         missingDependencies={item.missingRequiredDependencies}
         missingDependenciesLabel={missingDependenciesLabel}
+        requiresNewerSmapi={item.requiresNewerSmapi}
+        minimumApiVersion={item.minimumApiVersion}
         onToggleExpanded={onToggleParentExpanded ? handleToggleExpanded : undefined}
         onSelect={!selectionDisabled && onToggleSelection ? handleSelect : undefined}
         onOpenDetails={onOpenModDetails ? handleOpenDetails : undefined}
@@ -1421,6 +1440,8 @@ const DraggableLauncherModuleTile = memo(function DraggableLauncherModuleTile({
   }
   const menuActions = getContextActions?.(item) ?? []
   const removeAction = menuActions.find((action) => /remove|移出/i.test(action.label))
+  const launcherCopy = useEditorCopy().launcher
+  const smapiRequirementVersion = getSmapiRequirementBadgeVersion(item)
   const tile = (
     <article
       className={cx(
@@ -1443,15 +1464,29 @@ const DraggableLauncherModuleTile = memo(function DraggableLauncherModuleTile({
       onClick={selectionMode ? handleSelect : handleOpenDetails}
       onDoubleClick={selectionMode ? undefined : handleOpenDirectTarget}
     >
-      {item.missingRequiredDependencies.length ? (
-        <span
-          className="launcher-mod-card-missing-dependencies launcher-library-module-missing-dependencies"
-          aria-label={missingDependenciesLabel}
-          data-tooltip={item.missingRequiredDependencies.join(', ')}
-        >
-          <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>{missingDependenciesBadgeLabel}</span>
-        </span>
+      {item.missingRequiredDependencies.length || smapiRequirementVersion ? (
+        <div className="launcher-library-module-status-badges">
+          {item.missingRequiredDependencies.length ? (
+            <span
+              className="launcher-mod-card-missing-dependencies launcher-library-module-missing-dependencies"
+              aria-label={missingDependenciesLabel}
+              data-tooltip={item.missingRequiredDependencies.join(', ')}
+            >
+              <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{missingDependenciesBadgeLabel}</span>
+            </span>
+          ) : null}
+          {smapiRequirementVersion ? (
+            <span
+              className="launcher-mod-card-requires-smapi launcher-library-module-requires-smapi"
+              aria-label={launcherCopy.library.modDetail.requiresSmapiTooltip(smapiRequirementVersion)}
+              data-tooltip={launcherCopy.library.modDetail.requiresSmapiTooltip(smapiRequirementVersion)}
+            >
+              <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{launcherCopy.library.modDetail.requiresSmapiBadge(smapiRequirementVersion)}</span>
+            </span>
+          ) : null}
+        </div>
       ) : null}
       <LauncherArtworkCover
         title={item.name}

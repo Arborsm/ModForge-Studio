@@ -34,6 +34,7 @@ fn launcher_settings(api_key: Option<&str>) -> LauncherSettings {
         keep_downloaded_archives: false,
         auto_check_mod_updates: true,
         gmcm_parsing_enabled: true,
+        show_console_window: false,
     }
 }
 

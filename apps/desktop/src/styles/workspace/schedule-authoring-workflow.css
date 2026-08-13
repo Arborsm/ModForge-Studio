@@ -1,0 +1,367 @@
+@layer components {
+  .schedule-editor-library {
+    @apply bg-surface-panel flex min-h-0 flex-auto flex-col overflow-hidden;
+  }
+
+  .schedule-editor-library-toolbar {
+    @apply border-border-subtle flex flex-none items-center justify-between gap-3 border-b px-3.5 py-2.5;
+  }
+
+  .schedule-editor-library-toolbar > div:first-child {
+    @apply grid min-w-0 gap-0.5;
+  }
+
+  .schedule-editor-library-toolbar strong {
+    @apply text-text-primary text-body;
+  }
+
+  .schedule-editor-library-toolbar > div:first-child span {
+    @apply text-text-secondary text-meta overflow-hidden whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .schedule-editor-library-toolbar > div:last-child {
+    @apply inline-flex flex-none items-center gap-2;
+  }
+
+  .schedule-editor-library-body {
+    @apply min-h-0 flex-auto;
+  }
+
+  .schedule-editor-library .schedule-editor-rail {
+    @apply h-full w-full min-w-0 border-r-0;
+  }
+
+  .schedule-editor-library .schedule-editor-rail-head {
+    @apply grid px-4 pt-3 pb-2;
+    grid-template-columns: minmax(14rem, 22rem) minmax(0, 1fr);
+    align-items: end;
+  }
+
+  .schedule-editor-library .schedule-editor-entry-list-meta,
+  .schedule-editor-library .schedule-editor-priority-hint {
+    @apply pr-4 pl-4;
+  }
+
+  .schedule-editor-library .schedule-editor-entry-list {
+    @apply gap-3.5 px-4 pt-2 pb-4;
+  }
+
+  .schedule-editor-library .schedule-editor-family-group {
+    @apply grid gap-2;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  }
+
+  .schedule-editor-library .schedule-editor-family-group + .schedule-editor-family-group {
+    @apply mt-0;
+  }
+
+  .schedule-editor-library .schedule-editor-family-head {
+    @apply border-border-subtle col-span-full border-b pb-1;
+  }
+
+  .schedule-editor-library .schedule-editor-entry-item {
+    @apply border-border-subtle bg-surface-panel min-h-17 rounded-lg border p-2.5;
+  }
+
+  .schedule-editor-library .schedule-editor-rail-footer {
+    @apply px-4 pt-2 pb-3;
+  }
+
+  .schedule-editor-content {
+    @apply bg-surface-panel grid h-full min-h-0 overflow-hidden;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .schedule-editor-form-column {
+    @apply flex min-h-0 flex-col;
+    gap: 0;
+  }
+
+  .schedule-editor-tabs {
+    @apply border-border-subtle flex flex-none items-center gap-0.5 border-b px-2 py-1;
+  }
+
+  .schedule-editor-tab-back,
+  .schedule-editor-tab {
+    @apply text-text-secondary inline-flex h-7.5 items-center justify-center rounded;
+  }
+
+  .schedule-editor-tab-back {
+    @apply mr-1 w-7.5;
+  }
+
+  .schedule-editor-tab-back:hover,
+  .schedule-editor-tab:hover {
+    @apply bg-surface-hover text-text-primary;
+  }
+
+  .schedule-editor-tab {
+    @apply text-meta font-ui-semibold gap-1.5 px-2.5 py-0 whitespace-nowrap;
+  }
+
+  .schedule-editor-tab.is-active {
+    @apply bg-surface-active text-text-primary;
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
+
+  .schedule-editor-tab.is-complete > svg {
+    @apply text-success;
+  }
+
+  .schedule-editor-tab.is-attention > svg {
+    @apply text-danger;
+  }
+
+  .schedule-editor-tab.is-optional > svg {
+    @apply text-text-tertiary;
+  }
+
+  .schedule-editor-workbar {
+    @apply border-border-subtle flex min-h-11.5 flex-none items-center justify-between gap-3 border-b px-3 py-1.5;
+  }
+
+  .schedule-editor-workbar > div:first-child {
+    @apply grid min-w-0 gap-0.5;
+  }
+
+  .schedule-editor-workbar strong {
+    @apply text-text-primary overflow-hidden text-xs whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .schedule-editor-workbar > div:first-child span {
+    @apply text-text-tertiary text-caption overflow-hidden font-mono whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .schedule-editor-workbar > div:last-child {
+    @apply inline-flex flex-none items-center gap-2;
+  }
+
+  .schedule-editor-tab-content {
+    @apply min-h-0 flex-auto overflow-y-auto;
+  }
+
+  .schedule-editor-tab-content.is-route {
+    @apply overflow-hidden;
+  }
+
+  .schedule-editor-tab-pane,
+  .schedule-editor-tab-content > .schedule-editor-section {
+    @apply px-4.5 pt-4 pb-6;
+    width: min(100%, 58rem);
+  }
+
+  .schedule-editor-tab-pane > .schedule-editor-section,
+  .schedule-editor-tab-content > .schedule-editor-section {
+    @apply rounded-none border-0 bg-transparent p-0;
+  }
+
+  .schedule-route-workspace {
+    @apply grid h-full min-h-0 w-full overflow-hidden;
+    grid-template-areas: 'map inspector' 'graph inspector' 'toolbar toolbar';
+    grid-template-columns: minmax(0, 1fr) minmax(19rem, 22rem);
+    grid-template-rows: minmax(18rem, 1fr) 13rem auto;
+  }
+
+  .schedule-route-map {
+    @apply border-border-subtle min-h-0 min-w-0 border-r;
+    grid-area: map;
+  }
+
+  .schedule-route-map .schedule-map-panel {
+    @apply rounded-none border-0;
+  }
+
+  .schedule-route-graph-pane {
+    @apply border-border-subtle border-border-subtle bg-surface-panel grid min-h-0 min-w-0 border-t border-r;
+    grid-area: graph;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .schedule-route-graph-pane > header {
+    @apply border-border-subtle flex min-w-0 items-center justify-between gap-2 border-b px-2.5 py-1.5;
+  }
+
+  .schedule-route-graph-pane > header > strong {
+    @apply text-text-primary text-meta;
+  }
+
+  .schedule-route-metrics {
+    @apply text-text-tertiary text-caption inline-flex items-center gap-2.5;
+  }
+
+  .schedule-route-graph {
+    @apply bg-surface-app relative min-h-0 min-w-0;
+  }
+
+  .schedule-route-graph-empty {
+    @apply text-text-tertiary text-meta m-0 grid h-full place-items-center;
+  }
+
+  .schedule-route-node {
+    @apply border-border-subtle bg-surface-panel shadow-panel grid min-h-13 w-48 items-center gap-2 rounded-md border px-2.5 py-2;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .schedule-route-node.is-selected {
+    border-color: var(--accent);
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+
+  .schedule-route-node.is-command {
+    border-style: dashed;
+  }
+
+  .schedule-route-node-icon {
+    @apply bg-surface-panel-muted text-accent grid h-7 w-7 place-items-center rounded;
+  }
+
+  .schedule-route-node-copy {
+    @apply grid min-w-0 gap-0.5;
+  }
+
+  .schedule-route-node-copy strong,
+  .schedule-route-node-copy span {
+    @apply overflow-hidden whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .schedule-route-node-copy strong {
+    @apply text-text-primary text-meta;
+  }
+
+  .schedule-route-node-copy span {
+    @apply text-text-tertiary text-caption;
+  }
+
+  .schedule-route-node-handle {
+    @apply bg-accent h-2 w-2;
+    border-color: var(--bg-panel);
+  }
+
+  .schedule-route-graph .react-flow__edge-path {
+    stroke: var(--accent);
+    stroke-width: 1.5;
+  }
+
+  .schedule-route-graph .react-flow__controls {
+    @apply border-border-subtle overflow-hidden rounded border shadow-none;
+  }
+
+  .schedule-route-graph .react-flow__controls-button {
+    @apply bg-surface-panel text-text-primary;
+    border-bottom-color: var(--border-color);
+  }
+
+  .schedule-node-inspector {
+    @apply bg-surface-panel min-h-0 min-w-0 overflow-y-auto;
+    grid-area: inspector;
+  }
+
+  .schedule-node-inspector.is-empty {
+    @apply text-text-tertiary text-meta grid place-items-center p-4 text-center;
+  }
+
+  .schedule-node-inspector > header {
+    @apply border-border-subtle bg-surface-panel sticky flex items-center justify-between gap-2 border-b px-2.5 py-2;
+    z-index: 1;
+    top: 0;
+  }
+
+  .schedule-node-inspector > header > div {
+    @apply grid min-w-0 gap-0.5;
+  }
+
+  .schedule-node-inspector > header strong {
+    @apply text-text-primary text-meta;
+  }
+
+  .schedule-node-inspector > header span {
+    @apply text-text-tertiary text-caption;
+  }
+
+  .schedule-node-inspector-actions {
+    @apply inline-flex items-center gap-1;
+  }
+
+  .schedule-node-inspector-actions .icon-button {
+    @apply h-7 w-7;
+  }
+
+  .schedule-node-inspector-actions .is-danger {
+    @apply text-danger;
+  }
+
+  .schedule-node-inspector-fields,
+  .schedule-node-command-field {
+    @apply grid gap-2.5 p-3;
+  }
+
+  .schedule-node-inspector-fields > label,
+  .schedule-node-command-field,
+  .schedule-node-coordinate-field label,
+  .schedule-node-friendship-field label {
+    @apply text-text-secondary text-caption grid gap-1;
+  }
+
+  .schedule-node-inspector-fields small {
+    @apply text-text-tertiary text-caption;
+  }
+
+  .schedule-node-time-field,
+  .schedule-node-coordinate-field {
+    @apply grid gap-1.5 border-0 p-0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .schedule-node-time-field legend,
+  .schedule-node-coordinate-field legend {
+    @apply text-text-secondary text-caption col-span-full;
+  }
+
+  .schedule-node-friendship-field {
+    @apply grid gap-1.5;
+    grid-template-columns: minmax(0, 1fr) 5rem auto;
+    align-items: end;
+  }
+
+  .schedule-route-toolbar {
+    @apply border-border-subtle m-0 border-t px-2 py-1.5;
+    grid-area: toolbar;
+  }
+
+  @media (max-width: 48rem) {
+    .schedule-editor-content {
+      @apply h-auto overflow-visible;
+    }
+
+    .schedule-editor-tab-content {
+      @apply overflow-visible;
+    }
+
+    .schedule-route-workspace {
+      @apply h-auto min-h-224 overflow-visible;
+      grid-template-areas: 'map' 'graph' 'inspector' 'toolbar';
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: 28rem 14rem auto auto;
+    }
+
+    .schedule-route-map,
+    .schedule-route-graph-pane {
+      @apply border-r-0;
+    }
+
+    .schedule-node-inspector {
+      @apply overflow-visible;
+      max-height: none;
+    }
+
+    .schedule-editor-tabs,
+    .schedule-editor-library-toolbar {
+      @apply overflow-x-auto;
+    }
+  }
+}

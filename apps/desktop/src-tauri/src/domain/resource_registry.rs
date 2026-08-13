@@ -152,6 +152,33 @@ pub(crate) fn load_resource_registry(
         Err(error) => warnings.push(error.to_string()),
     }
 
+    match assets::scan_image_assets(root_path.clone()) {
+        Ok(images) => {
+            for image in images {
+                let category = image
+                    .name
+                    .split_once('/')
+                    .map(|(prefix, _)| prefix.to_string())
+                    .unwrap_or_else(|| "Images".to_string());
+                let mut metadata = BTreeMap::new();
+                metadata.insert("sizeBytes".to_string(), image.size_bytes.to_string());
+                push_entry(
+                    &mut entries,
+                    "texture",
+                    image.name.clone(),
+                    image.name,
+                    source,
+                    "game",
+                    Some(category),
+                    metadata,
+                    Some(image.relative_path),
+                    Some(image.absolute_path),
+                );
+            }
+        }
+        Err(error) => warnings.push(error.to_string()),
+    }
+
     match assets::scan_audio_assets(root_path.clone()) {
         Ok(audio_assets) => {
             for asset in audio_assets {

@@ -4,13 +4,22 @@ import { invokeDesktop } from '@platform/host/runtime'
 import type { HostCommandPolicy } from '@platform/host-command-client'
 import type {
   BuildCpMakerMapAssetRequest,
+  BuildCpMakerMapAssetResult,
   CopyCpMakerDraftRequest,
   CpMakerDraftRecord,
   CpMakerDraftSummary,
   CpMakerExportRequest,
   CpMakerExportResult,
   CpMakerSession,
-  VirtualPreviewAsset,
+  DeleteProjectAssetRequest,
+  ImportProjectAssetsRequest,
+  ProjectAssetPayload,
+  ProjectAssetRef,
+  ProjectMapAssetContent,
+  ReadProjectAssetRequest,
+  RenameProjectAssetRequest,
+  WriteProjectAssetRequest,
+  WriteProjectAssetsRequest,
 } from './types'
 const cpMakerDraftsCache = createPromiseCache<CpMakerDraftSummary[]>()
 const cpMakerDraftCache = createPromiseCache<CpMakerDraftRecord>()
@@ -72,10 +81,58 @@ export function exportCpMakerPack(request: CpMakerExportRequest) {
 
 /** Builds a virtual map asset preview from the current map document. */
 export function buildCpMakerMapAsset(request: BuildCpMakerMapAssetRequest) {
-  return invokeDesktop<VirtualPreviewAsset>(HOST_COMMANDS.buildCpMakerMapAsset, { request }, cpMakerPreviewPoolPolicy)
+  return invokeDesktop<BuildCpMakerMapAssetResult>(HOST_COMMANDS.buildCpMakerMapAsset, { request }, cpMakerPreviewPoolPolicy)
 }
 
 /** Imports an existing Content Patcher pack directory into a CP Maker draft. */
 export function importCpMakerPack(modDirectoryPath: string) {
   return invokeDesktop<CpMakerDraftRecord>(HOST_COMMANDS.importCpMakerPack, { modDirectoryPath }, cpMakerDraftExclusivePolicy)
+}
+
+/** Reads one persisted project asset only when a preview or editor requests its bytes. */
+export function readCpMakerProjectAsset(request: ReadProjectAssetRequest) {
+  return invokeDesktop<ProjectAssetPayload>(
+    HOST_COMMANDS.readCpMakerProjectAsset,
+    { request },
+    { kind: 'keyedLatest', key: `cp-maker-project-asset:${request.draftStorageKey}:${request.relativePath.toLowerCase()}` },
+  )
+}
+
+/** Parses one persisted TMX, TBin, or XNB map with dependencies resolved inside the project store. */
+export function loadCpMakerProjectMapAsset(request: ReadProjectAssetRequest) {
+  return invokeDesktop<ProjectMapAssetContent>(
+    HOST_COMMANDS.loadCpMakerProjectMapAsset,
+    { request },
+    { kind: 'keyedLatest', key: `cp-maker-project-map:${request.draftStorageKey}:${request.relativePath.toLowerCase()}` },
+  )
+}
+
+/** Atomically writes one project asset and updates its persisted lightweight ref. */
+export function writeCpMakerProjectAsset(request: WriteProjectAssetRequest) {
+  cpMakerDraftCache.delete(request.draftStorageKey)
+  return invokeDesktop<ProjectAssetRef>(HOST_COMMANDS.writeCpMakerProjectAsset, { request }, cpMakerDraftQueuePolicy)
+}
+
+/** Atomically writes a related set of project assets and persists all refs together. */
+export function writeCpMakerProjectAssets(request: WriteProjectAssetsRequest) {
+  cpMakerDraftCache.delete(request.draftStorageKey)
+  return invokeDesktop<ProjectAssetRef[]>(HOST_COMMANDS.writeCpMakerProjectAssets, { request }, cpMakerDraftQueuePolicy)
+}
+
+/** Streams selected host files or directories into persistent project storage. */
+export function importCpMakerProjectAssets(request: ImportProjectAssetsRequest) {
+  cpMakerDraftCache.delete(request.draftStorageKey)
+  return invokeDesktop<CpMakerDraftRecord>(HOST_COMMANDS.importCpMakerProjectAssets, { request }, cpMakerDraftQueuePolicy)
+}
+
+/** Atomically renames a project asset and updates persisted project references. */
+export function renameCpMakerProjectAsset(request: RenameProjectAssetRequest) {
+  cpMakerDraftCache.delete(request.draftStorageKey)
+  return invokeDesktop<CpMakerDraftRecord>(HOST_COMMANDS.renameCpMakerProjectAsset, { request }, cpMakerDraftQueuePolicy)
+}
+
+/** Deletes a project asset and clears persisted references after the user confirms the operation. */
+export function deleteCpMakerProjectAsset(request: DeleteProjectAssetRequest) {
+  cpMakerDraftCache.delete(request.draftStorageKey)
+  return invokeDesktop<CpMakerDraftRecord>(HOST_COMMANDS.deleteCpMakerProjectAsset, { request }, cpMakerDraftQueuePolicy)
 }

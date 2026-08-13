@@ -1,5 +1,28 @@
 use super::types::{AiAuthentication, AiProtocol, AiProviderPreset, AiStructuredOutputCapability};
 
+/// Data-driven provider capability table.
+///
+/// `structured_output` declares how each preset forces structured output at the
+/// decode layer. Sources (checked against the live endpoints where noted):
+///
+/// - `openai` (Responses API): `text.format` JSON Schema, strict subset
+///   documented at platform.openai.com/docs/guides/structured-outputs.
+/// - `anthropic`: `tool_use` + `tool_choice`, forced tool input JSON
+///   (docs.anthropic.com; Moonshot's Anthropic-compatible endpoint drops
+///   `tool_choice`, see `providers.rs`).
+/// - `gemini` / `openrouter` / `xai` / `mistral`: OpenAI-compatible
+///   `response_format.type = "json_schema"` documented by each provider.
+/// - `deepseek`: official API rejects `json_schema` (400) and only accepts
+///   `response_format.type = "json_object"` (api-docs.deepseek.com); the prompt
+///   must contain the word "json".
+/// - `groq` / `moonshot` / `qwen-*` / `zhipu` / `siliconflow-*`:
+///   OpenAI-compatible but `json_schema` is not universally documented for the
+///   compatible-mode endpoints, so `json_object` is the conservative forcing
+///   level (valid JSON, shape enforced by our own validation).
+/// - `ollama` / `lm-studio` / `custom`: local/unknown endpoints reject
+///   `response_format` unpredictably; start at `none` (prompt-only) and let the
+///   endpoint-specific 400 degradation chain promote nothing — these probe
+///   without a forcing parameter first.
 fn preset(
     id: &str,
     name: &str,
@@ -32,7 +55,9 @@ fn preset(
 
 pub(crate) fn provider_presets() -> Vec<AiProviderPreset> {
     use AiProtocol::{AnthropicMessages, OpenaiChatCompletions, OpenaiResponses};
-    use AiStructuredOutputCapability::{AnthropicTool, JsonObject, JsonSchema, StrictJsonPrompt};
+    use AiStructuredOutputCapability::{
+        JsonObject, JsonSchema, None as NoStructuredOutput, ToolUse,
+    };
     vec![
         preset(
             "openai",
@@ -52,7 +77,7 @@ pub(crate) fn provider_presets() -> Vec<AiProviderPreset> {
             Some("ANTHROPIC_API_KEY"),
             true,
             true,
-            AnthropicTool,
+            ToolUse,
         ),
         preset(
             "gemini",
@@ -182,7 +207,7 @@ pub(crate) fn provider_presets() -> Vec<AiProviderPreset> {
             None,
             false,
             true,
-            JsonObject,
+            NoStructuredOutput,
         ),
         preset(
             "lm-studio",
@@ -192,7 +217,7 @@ pub(crate) fn provider_presets() -> Vec<AiProviderPreset> {
             None,
             false,
             true,
-            JsonSchema,
+            NoStructuredOutput,
         ),
         preset(
             "custom",
@@ -202,7 +227,7 @@ pub(crate) fn provider_presets() -> Vec<AiProviderPreset> {
             None,
             true,
             false,
-            StrictJsonPrompt,
+            NoStructuredOutput,
         ),
     ]
 }

@@ -236,6 +236,10 @@ export type SettingsMenuCopy = {
       loading: string
       loadingHint: string
       loadError: string
+      loadTimeout: string
+      loadTimeoutHint: string
+      statusUnknown: string
+      indexLoadError: string
       actionError: string
       actionSuccess: string
       lexicalReady: string
@@ -314,6 +318,11 @@ export type SettingsMenuCopy = {
     provider: string
     protocol: string
     baseUrl: string
+    allowInsecureHttp: string
+    allowInsecureHttpHint: string
+    allowInsecureHttpWarning: string
+    allowInsecureHttpOn: string
+    allowInsecureHttpOff: string
     model: string
     apiKey: string
     apiKeyPlaceholder: string
@@ -322,6 +331,56 @@ export type SettingsMenuCopy = {
     credentialKeychain: string
     credentialEnvironment: string
     credentialMissing: string
+    requiresNoKey: string
+    contextWindow: string
+    contextWindowHint: string
+    contextWindowEffective: (value: number) => string
+    advancedParams: string
+    advancedParamsDescription: string
+    advancedParamsShow: string
+    advancedParamsHide: string
+    advancedParamsProviderDefault: string
+    advancedParamsInvalidNumber: string
+    advancedParamsPositiveInt: (max: number) => string
+    advancedParamsRange: (min: number, max: number) => string
+    maxOutputTokens: string
+    maxBatchBytes: string
+    maxBatchBytesHint: string
+    enableReasoning: string
+    enableReasoningHint: string
+    enableReasoningOn: string
+    enableReasoningOff: string
+    reasoningUnsupportedHint: string
+    reasoningEffort: string
+    reasoningEffortLow: string
+    reasoningEffortMedium: string
+    reasoningEffortHigh: string
+    reasoningEffortXhigh: string
+    reasoningEffortMax: string
+    streamTranslation: string
+    streamTranslationHint: string
+    streamTranslationOn: string
+    streamTranslationOff: string
+    reasoningChain: string
+    reasoningChainShow: string
+    reasoningChainHide: string
+    temperature: string
+    topP: string
+    frequencyPenalty: string
+    presencePenalty: string
+    importFromModelsDev: string
+    modelsDevDialogTitle: string
+    modelsDevDialogDescription: string
+    modelsDevSearchPlaceholder: string
+    modelsDevLoading: string
+    modelsDevLoadError: string
+    modelsDevEmpty: string
+    modelsDevNoMatch: string
+    modelsDevApply: string
+    modelsDevCancel: string
+    modelsDevContext: (value: number) => string
+    modelsDevMatchedProvider: (name: string) => string
+    modelsDevRetry: string
     save: string
     saving: string
     delete: string

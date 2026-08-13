@@ -11,6 +11,6 @@ export function getPatchActionColor(action: DraftPatch['action']): string {
     case 'Load':
       return 'text-orange-400'
     default:
-      return 'text-(--text-secondary)'
+      return 'text-text-secondary'
   }
 }

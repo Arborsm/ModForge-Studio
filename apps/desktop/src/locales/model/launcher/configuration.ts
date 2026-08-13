@@ -251,5 +251,61 @@ export type LauncherConfigurationCopy = {
     simulationButtonRunning: string
     notificationButtons: Record<'debug' | 'info' | 'success' | 'warning' | 'error', string>
     logButtons: Record<'debug' | 'info' | 'warning' | 'error', string>
+    smapiUpdate: {
+      title: string
+      subtitle: string
+      statusNotConfigured: string
+      statusChecking: string
+      statusUpToDate: string
+      statusUpdateAvailable: string
+      statusInstalling: string
+      statusInstalled: string
+      statusCheckFailed: string
+      statusInstallFailed: string
+      notConfiguredDetail: string
+      checkingDetail: string
+      upToDateDetail: (installedVersion: string, gameVersion: string) => string
+      updateAvailableDetail: (installedVersion: string, targetVersion: string) => string
+      latestStableHint: (latestStableVersion: string) => string
+      requiredByModsSummary: (count: number) => string
+      requiredByModsTooltip: (modName: string, minimumApiVersion: string) => string
+      updateAction: string
+      retryAction: string
+      cancelAction: string
+      checkFailedFallback: string
+      installFailedFallback: string
+      installPhaseLabels: Record<'downloading' | 'verifying' | 'extracting' | 'installing', string>
+      installingDetail: (phaseLabel: string, message: string) => string
+      installPercent: (percent: number) => string
+      installedDetail: (installedVersion: string) => string
+      /** Small hint near the version line when the lookup fell back to Nexus. */
+      nexusSourceHint: string
+      /** Section title shown when a usable installer archive was found in the download folders. */
+      localSectionTitle: string
+      /** Shown while the download-folder scan is in flight. */
+      installerScanningDetail: string
+      /** Fallback when the download-folder scan error carries no message. */
+      installerScanFallback: string
+      /** Version label inside a local candidate row. */
+      localCandidateVersionLabel: (version: string) => string
+      /** Source/naming hint for a GitHub-named local candidate. */
+      candidateNamingGithub: string
+      /** Source/naming hint for a Nexus-named local candidate. */
+      candidateNamingNexus: string
+      /** Primary action to install from a locally downloaded installer archive. */
+      installLocalAction: string
+      /** Primary action in the Nexus manual flow: open the Nexus download popup/page. */
+      openNexusAction: string
+      /** Guidance shown in the Nexus manual flow after the popup is opened. */
+      nexusManualGuidance: string
+      /** Re-runs the download-folder scan and the version check. */
+      rescanAction: string
+      /** Secondary action to pick any SMAPI installer archive from disk. */
+      pickLocalAction: string
+      /** File-picker dialog title for choosing a SMAPI installer archive. */
+      localInstallerPickerTitle: string
+      /** Fallback when a local-file install error carries no message. */
+      localInstallFailedFallback: string
+    }
   }
 }

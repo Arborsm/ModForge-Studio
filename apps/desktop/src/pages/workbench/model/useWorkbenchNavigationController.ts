@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import type { WorkbenchLocation, WorkbenchModuleRegistration } from '@shared/contracts'
 import { resolveWorkbenchLocation, type useWorkbenchNavigation } from './useWorkbenchNavigation'
 import { useWorkbenchShellHistory } from './useWorkbenchShellHistory'
+import { toShellLocation, type WorkbenchShellLocation } from './workbenchShellHistory'
+import { useEditModeStore } from './editModeStore'
 
 type NavigationState = ReturnType<typeof useWorkbenchNavigation>
 type Guard = (action: () => void | Promise<void>) => Promise<boolean>
@@ -19,7 +21,6 @@ type WorkbenchNavigationControllerOptions = {
   navigation: NavigationState
   hasActiveProject: boolean
   getRegistration: (moduleId: string) => WorkbenchModuleRegistration | null
-  resetAuthoringNavigation: () => void
   ensureSectionOpen: (section: 'browseOpen' | 'authoringOpen' | 'translationOpen' | 'toolsOpen' | 'devOpen') => void
   runWithModuleGuard: Guard
 }
@@ -35,7 +36,6 @@ export function useWorkbenchNavigationController({
   navigation,
   hasActiveProject,
   getRegistration,
-  resetAuthoringNavigation,
   ensureSectionOpen,
   runWithModuleGuard,
 }: WorkbenchNavigationControllerOptions) {
@@ -47,21 +47,30 @@ export function useWorkbenchNavigationController({
   hasActiveProjectRef.current = hasActiveProject
 
   const applyLocation = useCallback(
-    (location: WorkbenchLocation) => {
+    (location: WorkbenchShellLocation) => {
       navigationInteractedRef.current = true
-      const resolved = resolveWorkbenchLocation(location, getRegistrationRef.current, hasActiveProjectRef.current)
+      const baseLocation: WorkbenchLocation =
+        location.kind === 'module' ? { kind: 'module', moduleId: location.moduleId } : { kind: 'home' }
+      const resolved = resolveWorkbenchLocation(baseLocation, getRegistrationRef.current, hasActiveProjectRef.current)
       const registration = resolved.kind === 'module' ? getRegistrationRef.current(resolved.moduleId) : null
       navigation.navigate(resolved)
       if (registration) {
         const sectionKey = registration.navigation.section === 'development' ? 'devOpen' : `${registration.navigation.section}Open`
         ensureSectionOpen(sectionKey as 'browseOpen' | 'authoringOpen' | 'translationOpen' | 'toolsOpen' | 'devOpen')
-        if (registration.presentation === 'authoring') resetAuthoringNavigation()
+        if (registration.presentation === 'authoring') {
+          // Restore the patch from the shell location, or default to list view.
+          useEditModeStore.getState().setPatch(location.kind === 'module' ? (location.patchId ?? null) : null)
+        } else {
+          useEditModeStore.getState().reset()
+        }
+      } else {
+        useEditModeStore.getState().reset()
       }
     },
-    [ensureSectionOpen, navigation.navigate, resetAuthoringNavigation],
+    [ensureSectionOpen, navigation.navigate],
   )
   const restoreHistoryLocation = useCallback(
-    (location: WorkbenchLocation, commit: () => void) => {
+    (location: WorkbenchShellLocation, commit: () => void) => {
       void runWithModuleGuard(() => {
         commit()
         applyLocation(location)
@@ -72,7 +81,7 @@ export function useWorkbenchNavigationController({
   const history = useWorkbenchShellHistory({
     rootRef,
     enabled: active,
-    location: navigation.location,
+    location: toShellLocation(navigation.location),
     onRestoreLocation: restoreHistoryLocation,
   })
   const pushHistory = history.push
@@ -81,7 +90,7 @@ export function useWorkbenchNavigationController({
   const openHome = useCallback(() => {
     if (navigation.location.kind === 'home') return Promise.resolve(true)
     return runWithModuleGuard(() => {
-      const location = { kind: 'home' as const }
+      const location: WorkbenchShellLocation = { kind: 'home' }
       applyLocation(location)
       pushHistory(location)
     })
@@ -95,9 +104,9 @@ export function useWorkbenchNavigationController({
         return openHome()
       }
       return runWithModuleGuard(() => {
-        const location = { kind: 'module' as const, moduleId: registration.id }
+        const location: WorkbenchShellLocation = { kind: 'module', moduleId: registration.id }
         applyLocation(location)
-        if (options?.resetHistoryTo) resetHistoryAndPush(options.resetHistoryTo, location)
+        if (options?.resetHistoryTo) resetHistoryAndPush(toShellLocation(options.resetHistoryTo), location)
         else pushHistory(location)
       })
     },

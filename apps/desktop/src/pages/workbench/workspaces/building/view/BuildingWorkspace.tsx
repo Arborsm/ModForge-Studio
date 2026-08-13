@@ -1,18 +1,13 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { Grid2x2 } from 'lucide-react'
-import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../entities/building'
+import { getResolvedSourceRect, type BuildingTextureAssetState, type BuildingWorkspaceEntry } from '@entities/building'
 import type { LocaleCode, ViewportLabels, ThemeMode } from '@locales/api'
 import type { MapDocument, ViewportWorldPoint } from '@entities/map'
 import type { MapViewportHandle } from '@entities/map'
 import { useBuildingsCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { formatRect } from '@shared/infra/game-formats/geometryFormatting'
-import {
-  buildBuildingCanvasBackdropStyle,
-  getVisibleLayerIds,
-  getVisibleObjectGroupIds,
-  getResolvedSourceRect,
-} from './buildingViewHelpers'
+import { buildBuildingCanvasBackdropStyle, getVisibleLayerIds, getVisibleObjectGroupIds } from './buildingViewHelpers'
 import { BuildingPrimaryPreview } from './BuildingPrimaryPreview'
 import { BuildingMaterialsPanel } from './BuildingMaterialsPanel'
 import { BuildingSkinsPanel } from './BuildingSkinsPanel'
@@ -51,7 +46,7 @@ export default function BuildingWorkspace(props: BuildingWorkspaceProps) {
   if (!props.building) {
     return (
       <div className="building-workspace-pane h-full">
-        <div className="flex h-full min-h-0 items-center justify-center px-6 text-sm text-(--text-secondary)">{copy.inspectorEmpty}</div>
+        <div className="text-text-secondary flex h-full min-h-0 items-center justify-center px-6 text-sm">{copy.inspectorEmpty}</div>
       </div>
     )
   }

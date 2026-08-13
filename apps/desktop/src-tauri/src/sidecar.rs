@@ -382,6 +382,39 @@ pub(crate) fn resolve_command(
                 ok(domain::assets::validate_game_directory(arg(&args, "path")?))
             })
         }
+        crate::host_command_wire!(get_debug_bridge_status) => {
+            network(id, &command_name, move || {
+                ok(domain::debug_bridge::get_debug_bridge_status(optional_arg(
+                    &args, "port",
+                )?))
+            })
+        }
+        crate::host_command_wire!(send_debug_bridge_command) => {
+            network(id, &command_name, move || {
+                ok(domain::debug_bridge::send_debug_bridge_command(
+                    arg_or_whole(&args, "request")?,
+                ))
+            })
+        }
+        crate::host_command_wire!(get_debug_bridge_mod_state) => {
+            io_lane(id, &command_name, move || {
+                ok(domain::debug_bridge::get_debug_bridge_mod_state(arg(
+                    &args,
+                    "gameRootPath",
+                )?))
+            })
+        }
+        crate::host_command_wire!(install_debug_bridge_mod) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::DebugBridgeInstall],
+            move || {
+                ok(domain::debug_bridge::install_debug_bridge_mod(arg(
+                    &args,
+                    "gameRootPath",
+                )?))
+            },
+        ),
         crate::host_command_wire!(scan_maps) => io_lane(id, &command_name, move || {
             ok(domain::assets::scan_maps(
                 arg(&args, "path")?,
@@ -445,6 +478,12 @@ pub(crate) fn resolve_command(
         }),
         crate::host_command_wire!(scan_audio_assets) => io_lane(id, &command_name, move || {
             ok(domain::assets::scan_audio_assets(arg(&args, "path")?))
+        }),
+        crate::host_command_wire!(scan_image_assets) => io_lane(id, &command_name, move || {
+            ok(domain::assets::scan_image_assets(arg(&args, "path")?))
+        }),
+        crate::host_command_wire!(scan_data_assets) => io_lane(id, &command_name, move || {
+            ok(domain::assets::scan_data_assets(arg(&args, "path")?))
         }),
         crate::host_command_wire!(load_audio_data_url) => io_lane(id, &command_name, move || {
             ok(domain::assets::load_audio_data_url(arg(&args, "path")?))
@@ -564,7 +603,7 @@ pub(crate) fn resolve_command(
         crate::host_command_wire!(export_cp_maker_pack) => mutation_with_resources(
             id,
             &command_name,
-            &[SidecarResource::ModProject],
+            &[SidecarResource::ModProject, SidecarResource::CpMakerDrafts],
             move || {
                 ok(domain::cp_maker::export_cp_maker_pack(arg(
                     &args, "request",
@@ -578,12 +617,85 @@ pub(crate) fn resolve_command(
                 )?))
             })
         }
-        crate::host_command_wire!(import_cp_maker_pack) => mutation(id, &command_name, move || {
-            // Import reads a caller-selected content pack and returns an in-memory draft record;
-            // it does not write draft storage or the source mod directory.
-            let mod_directory_path: String = arg(&args, "modDirectoryPath")?;
-            ok(domain::cp_maker::import_cp_maker_pack(&mod_directory_path))
-        }),
+        crate::host_command_wire!(import_cp_maker_pack) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                let mod_directory_path: String = arg(&args, "modDirectoryPath")?;
+                ok(domain::cp_maker::import_cp_maker_pack(&mod_directory_path))
+            },
+        ),
+        crate::host_command_wire!(read_cp_maker_project_asset) => io_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                ok(domain::cp_maker::read_cp_maker_project_asset(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
+        crate::host_command_wire!(load_cp_maker_project_map_asset) => io_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                ok(domain::cp_maker::load_cp_maker_project_map_asset(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
+        crate::host_command_wire!(write_cp_maker_project_asset) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                ok(domain::cp_maker::write_cp_maker_project_asset(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
+        crate::host_command_wire!(write_cp_maker_project_assets) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                ok(domain::cp_maker::write_cp_maker_project_assets(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
+        crate::host_command_wire!(import_cp_maker_project_assets) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                ok(domain::cp_maker::import_cp_maker_project_assets(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
+        crate::host_command_wire!(rename_cp_maker_project_asset) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                ok(domain::cp_maker::rename_cp_maker_project_asset(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
+        crate::host_command_wire!(delete_cp_maker_project_asset) => mutation_with_resources(
+            id,
+            &command_name,
+            &[SidecarResource::CpMakerDrafts],
+            move || {
+                ok(domain::cp_maker::delete_cp_maker_project_asset(arg(
+                    &args, "request",
+                )?))
+            },
+        ),
 
         crate::host_command_wire!(load_launcher_settings) => {
             let app = ctx.app.clone();
@@ -978,6 +1090,33 @@ pub(crate) fn resolve_command(
                 ))
             })
         }
+        crate::host_command_wire!(check_smapi_update) => network(id, &command_name, || {
+            ok(domain::launcher::smapi_update::check_smapi_update_blocking())
+        }),
+        crate::host_command_wire!(install_smapi_update) => {
+            let app = ctx.app.clone();
+            mutation_with_resources(
+                id,
+                &command_name,
+                &[
+                    SidecarResource::LauncherSettings,
+                    SidecarResource::LauncherInstallTree,
+                ],
+                move || {
+                    ok(
+                        domain::launcher::smapi_update::install_smapi_update_blocking(
+                            &app,
+                            arg(&args, "request")?,
+                        ),
+                    )
+                },
+            )
+        }
+        crate::host_command_wire!(find_smapi_installer_downloads) => {
+            io_lane(id, &command_name, || {
+                ok(domain::launcher::smapi_update::find_smapi_installer_downloads_blocking())
+            })
+        }
         crate::host_command_wire!(inspect_launcher_archive) => {
             io_lane(id, &command_name, move || {
                 ok(domain::launcher::archive::inspect_launcher_archive(arg(
@@ -1095,6 +1234,11 @@ pub(crate) fn resolve_command(
         crate::host_command_wire!(list_ai_models) => ai_network(id, &command_name, move || {
             ok_ai(domain::ai::list_ai_models(arg(&args, "request")?))
         }),
+        crate::host_command_wire!(fetch_ai_models_dev_catalog) => {
+            network(id, &command_name, || {
+                ok_ai(domain::ai::fetch_models_dev_catalog_for_command())
+            })
+        }
         crate::host_command_wire!(test_ai_profile) => ai_network(id, &command_name, move || {
             ok_ai(domain::localization::orchestrator::test_ai_profile(arg(
                 &args, "request",
@@ -1512,15 +1656,17 @@ pub(crate) fn resolve_command(
             },
         ),
         crate::host_command_wire!(acquire_localization_semantic_runtime) => {
+            // No resource locks: lease bookkeeping has its own mutex and the
+            // warm below only populates internal caches (embedding session,
+            // vector generation) that carry their own synchronization. Taking
+            // the semantic settings/model/index locks here would stall the
+            // fast status queries (settings tab, readiness banners) behind a
+            // multi-second ONNX runtime load.
             io_on_pool_with_resources(
                 id,
                 &command_name,
                 HostCommandExecutionPool::AiSemanticSearch,
-                &[
-                    SidecarResource::AiSemanticSettings,
-                    SidecarResource::AiSemanticModel,
-                    SidecarResource::AiSemanticIndex,
-                ],
+                NO_RESOURCES,
                 move || {
                     ok_ai(crate::domain::localization::semantic::acquire_runtime(arg(
                         &args, "leaseId",
@@ -1528,6 +1674,22 @@ pub(crate) fn resolve_command(
                 },
             )
         }
+        crate::host_command_wire!(prewarm_localization_corpus) => io_on_pool_with_resources(
+            id,
+            &command_name,
+            HostCommandExecutionPool::AiSemanticSearch,
+            // Only the resources the warmup mutates or must serialize against:
+            // knowledge DB migrations and the official index. The semantic
+            // warm phase reads settings/model state atomically and warms
+            // caches with their own internal locks, so it must not hold the
+            // semantic status locks while the (potentially slow) local model
+            // loads — otherwise every status query queues behind the warmup.
+            &[
+                SidecarResource::AiLocalizationKnowledge,
+                SidecarResource::AiOfficialLocalizationIndex,
+            ],
+            move || ok_ai(crate::domain::localization::corpus::prewarm_corpus()),
+        ),
         crate::host_command_wire!(release_localization_semantic_runtime) => {
             io_with_resources(id, &command_name, &[], move || {
                 ok_ai(

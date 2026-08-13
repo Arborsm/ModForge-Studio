@@ -1,0 +1,228 @@
+@layer components {
+  .dialogue-editor-bulk-text {
+    @apply text-body min-h-9 w-full resize-y leading-normal;
+  }
+
+  .dialogue-editor-entry-bulk-actions {
+    @apply inline-flex items-center gap-2;
+  }
+
+  .dialogue-editor-focused-layout {
+    @apply bg-surface-panel grid min-h-0 flex-auto overflow-hidden;
+    grid-template-columns: minmax(0, 1fr) minmax(19rem, 23rem);
+  }
+
+  .dialogue-editor-focused-main,
+  .dialogue-editor-live-preview {
+    @apply min-h-0 min-w-0;
+  }
+
+  .dialogue-editor-focused-main {
+    @apply flex flex-col;
+  }
+
+  .dialogue-editor-tabs {
+    @apply border-border-subtle flex flex-none items-center gap-0.5 border-b px-2 py-1;
+  }
+
+  .dialogue-editor-tab-back,
+  .dialogue-editor-tab {
+    @apply text-text-secondary inline-flex h-7.5 items-center justify-center rounded;
+  }
+
+  .dialogue-editor-tab-back {
+    @apply mr-1 w-7.5;
+  }
+
+  .dialogue-editor-tab-back:hover,
+  .dialogue-editor-tab:hover {
+    @apply bg-surface-hover text-text-primary;
+  }
+
+  .dialogue-editor-tab-back.is-danger {
+    @apply text-danger;
+  }
+
+  .dialogue-editor-tab {
+    @apply text-meta font-ui-semibold gap-1.5 px-2.5 whitespace-nowrap;
+  }
+
+  .dialogue-editor-tab.is-active {
+    @apply bg-surface-active text-text-primary;
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
+
+  .dialogue-editor-tab.is-complete > svg {
+    @apply text-success;
+  }
+
+  .dialogue-editor-tab.is-attention > svg {
+    @apply text-danger;
+  }
+
+  .dialogue-editor-tab.is-optional > svg {
+    @apply text-text-tertiary;
+  }
+
+  .dialogue-editor-workbar {
+    @apply border-border-subtle flex min-h-11.5 flex-none items-center justify-between gap-3 border-b px-3 py-1.5;
+  }
+
+  .dialogue-editor-workbar-title {
+    @apply grid min-w-0 gap-0.5;
+  }
+
+  .dialogue-editor-workbar-title strong {
+    @apply text-text-primary truncate text-xs;
+  }
+
+  .dialogue-editor-workbar-title span {
+    @apply text-text-tertiary text-caption truncate font-mono;
+  }
+
+  .dialogue-editor-workbar-actions {
+    @apply inline-flex flex-none items-center gap-2;
+  }
+
+  .dialogue-editor-tab-content {
+    @apply min-h-0 flex-auto overflow-hidden;
+  }
+
+  .dialogue-editor-focused-main .dialogue-editor-canvas {
+    @apply bg-surface-panel h-full px-5 pt-4 pb-8;
+  }
+
+  .dialogue-editor-focused-main .dialogue-editor-flow {
+    @apply items-stretch;
+    width: min(44rem, 100%);
+  }
+
+  .dialogue-editor-focused-main .dialogue-editor-start-card,
+  .dialogue-editor-focused-main .dialogue-editor-page-card {
+    @apply border-border-subtle rounded-none border-0 border-b bg-transparent px-1 py-3 shadow-none;
+  }
+
+  .dialogue-editor-focused-main .dialogue-editor-start-card:hover,
+  .dialogue-editor-focused-main .dialogue-editor-page-card:hover,
+  .dialogue-editor-focused-main .dialogue-editor-page-card-selected {
+    @apply bg-surface-hover;
+  }
+
+  .dialogue-editor-focused-main .dialogue-editor-page-card-selected {
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+
+  .dialogue-editor-properties-pane,
+  .dialogue-editor-script-pane {
+    @apply h-full overflow-y-auto px-4 pb-6;
+  }
+
+  .dialogue-editor-properties-pane .dialogue-editor-sidebar {
+    @apply overflow-visible border-l-0 bg-transparent py-4;
+    width: min(100%, 52rem);
+  }
+
+  .dialogue-editor-script-pane {
+    @apply grid content-start gap-3 pt-4;
+    width: min(100%, 52rem);
+  }
+
+  .dialogue-editor-script-pane > p {
+    @apply text-text-secondary text-meta m-0;
+  }
+
+  .dialogue-editor-script-textarea {
+    @apply leading-ui-relaxed min-h-72 resize-y font-mono text-xs;
+  }
+
+  .dialogue-editor-script-pane > .control-button {
+    @apply justify-self-start;
+  }
+
+  .dialogue-editor-live-preview {
+    @apply border-border-subtle grid overflow-hidden border-l;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .dialogue-editor-live-preview > header {
+    @apply border-border-subtle flex min-w-0 items-center justify-between gap-2 border-b px-3 py-2.5;
+  }
+
+  .dialogue-editor-live-preview > header > div {
+    @apply grid min-w-0 gap-0.5;
+  }
+
+  .dialogue-editor-live-preview > header strong,
+  .dialogue-editor-live-data > strong {
+    @apply text-text-primary text-xs;
+  }
+
+  .dialogue-editor-live-preview > header span {
+    @apply text-text-tertiary text-caption truncate;
+  }
+
+  .dialogue-editor-live-preview-body {
+    @apply bg-surface-app grid min-h-0 place-items-center content-center overflow-y-auto p-4;
+  }
+
+  .dialogue-editor-live-bubble {
+    @apply grid justify-items-center gap-2.5;
+    width: min(100%, 20rem);
+  }
+
+  .dialogue-editor-live-bubble > strong {
+    @apply text-text-primary text-xs;
+  }
+
+  .dialogue-editor-live-bubble > p {
+    @apply border-border-subtle bg-surface-panel text-text-primary text-body leading-ui-relaxed m-0 w-full rounded-md border p-3;
+  }
+
+  .dialogue-editor-live-portrait {
+    @apply h-32 w-32;
+  }
+
+  .dialogue-editor-live-empty {
+    @apply text-text-tertiary text-meta grid justify-items-center gap-2 text-center;
+  }
+
+  .dialogue-editor-live-data {
+    @apply border-border-subtle grid gap-2 border-t px-3 pt-2.5 pb-3;
+  }
+
+  .dialogue-editor-live-data dl {
+    @apply m-0 grid grid-cols-2 gap-x-3 gap-y-2;
+  }
+
+  .dialogue-editor-live-data dl > div {
+    @apply grid min-w-0 gap-0.5;
+  }
+
+  .dialogue-editor-live-data dt {
+    @apply text-text-tertiary text-caption;
+  }
+
+  .dialogue-editor-live-data dd {
+    @apply text-text-primary text-meta m-0 truncate;
+  }
+
+  @media (max-width: 48rem) {
+    .dialogue-editor-focused-layout {
+      grid-template-columns: minmax(0, 1fr);
+      @apply overflow-visible;
+    }
+
+    .dialogue-editor-tab-content,
+    .dialogue-editor-focused-main .dialogue-editor-canvas {
+      @apply overflow-visible;
+    }
+
+    .dialogue-editor-live-preview {
+      @apply border-border-subtle min-h-96 border-t border-l-0;
+    }
+
+    .dialogue-editor-tabs {
+      @apply overflow-x-auto;
+    }
+  }
+}

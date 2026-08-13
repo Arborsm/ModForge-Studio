@@ -1,6 +1,9 @@
 import { parseEventCommand, parseEventCommands, parseEventSceneSetup, splitEventPreconditions } from './parser'
+import { findDuplicateEventKeys, validateEventScript } from './eventValidation'
 import type { EventCommand, EventSceneActor } from './types'
+import type { WorkspaceId } from '@shared/contracts/types/cpMaker'
 import { EventPreconditionParser, type EventPreconditionGroups } from '@entities/event'
+import { countAssetIssues, type AssetIssue } from '@entities/asset-schema'
 
 export type EventHubStatus = 'done' | 'draft' | 'error' | 'disabled'
 export type EventHubSeverity = 'ok' | 'warn' | 'error'
@@ -28,6 +31,8 @@ export interface EventPatchHubEvent {
   actors: EventPatchHubActor[]
   commandCount: number
   dialogueCount: number
+  /** Findings of `validateEventScript`, in reading order. */
+  issues: AssetIssue[]
   issueCount: number
   scriptSteps: EventPatchHubScriptStep[]
   preconditionGroups: EventPreconditionGroups
@@ -38,11 +43,15 @@ export interface EventPatchHubStats {
   commands: number
   actors: number
   triggers: number
+  /** Error-severity findings across the patch's events. */
+  errors: number
+  /** Warning-severity findings across the patch's events. */
+  warnings: number
 }
 
 export interface EventPatchHubSourcePatch {
   id: string
-  workspace: 'mods' | 'map' | 'events' | 'characters' | 'buildings' | 'items'
+  workspace: WorkspaceId
   action: 'EditData' | 'EditImage' | 'EditMap' | 'Load' | 'Include'
   target: string
   logName: string
@@ -68,7 +77,6 @@ export interface EventPatchHubPatch {
   targetFieldSummary: string
   events: EventPatchHubEvent[]
   stats: EventPatchHubStats
-  exportReady: boolean
   sourcePatch: EventPatchHubSourcePatch
   searchText: string
 }
@@ -163,41 +171,128 @@ function getEventAliases(patch: EventPatchHubSourcePatch): Record<string, string
   return Object.fromEntries(Object.entries(aliases).filter((entry): entry is [string, string] => typeof entry[1] === 'string'))
 }
 
+function hubSeverity(issues: readonly AssetIssue[]): EventHubSeverity {
+  if (issues.some((issue) => issue.severity === 'error')) return 'error'
+  if (issues.some((issue) => issue.severity === 'warning')) return 'warn'
+  return 'ok'
+}
+
+function hubStatus(enabled: boolean, severity: EventHubSeverity, issueCount: number): EventHubStatus {
+  if (!enabled) return 'disabled'
+  if (severity === 'error') return 'error'
+  // "Done" means the script survives validation as written, so the author knows
+  // which events still need a pass and which are ready to ship.
+  return issueCount === 0 ? 'done' : 'draft'
+}
+
+/** Pure parse+validate outcome of one event script; shared from the analysis cache, never mutate. */
+type EventScriptAnalysis = {
+  eventId: string
+  triggers: string[]
+  preconditionGroups: EventPreconditionGroups
+  actors: EventPatchHubActor[]
+  cameraTile: { x: number; y: number } | null
+  commandCount: number
+  dialogueCount: number
+  scriptSteps: EventPatchHubScriptStep[]
+  issues: AssetIssue[]
+}
+
+const EVENT_SCRIPT_ANALYSIS_CACHE_LIMIT = 1000
+const eventScriptAnalysisCache = new Map<string, EventScriptAnalysis>()
+
+/**
+ * Parses and validates one event script. Cached by key + raw script: the hub
+ * analyzes every patch on mount and the editor re-analyzes on entry, while the
+ * same vanilla scripts repeat across patches, so the cache turns editor entry
+ * after a hub visit into a lookup.
+ */
+function analyzeEventScript(key: string, rawScript: string): EventScriptAnalysis {
+  const cacheKey = `${key}\n${rawScript}`
+  const cached = eventScriptAnalysisCache.get(cacheKey)
+  if (cached) {
+    return cached
+  }
+
+  const parser = new EventPreconditionParser()
+  const keyParts = splitEventPreconditions(key)
+  const preconditionGroups = parser.parse(keyParts.slice(1))
+  const segments = parseEventCommands(rawScript)
+  const scene = parseEventSceneSetup(segments)
+  const commands = segments.slice(3).map((raw, index) => parseEventCommand(raw, index))
+  const firstActor = scene.actors[0] ?? null
+  const analysis: EventScriptAnalysis = {
+    eventId: keyParts[0] ?? key,
+    triggers: keyParts.slice(1).filter(Boolean),
+    preconditionGroups,
+    actors: scene.actors.map(actorToHubActor),
+    cameraTile: firstCoordinatePair(scene.cameraInstruction) ?? (firstActor ? { x: firstActor.tileX, y: firstActor.tileY } : null),
+    commandCount: commands.length,
+    dialogueCount: countDialogueCommands(commands),
+    scriptSteps: buildScriptSteps(commands),
+    issues: validateEventScript({
+      key,
+      rawScript,
+      scene,
+      commands,
+      preconditionGroups,
+      segmentCount: segments.length,
+    }),
+  }
+
+  if (eventScriptAnalysisCache.size >= EVENT_SCRIPT_ANALYSIS_CACHE_LIMIT) {
+    const oldest = eventScriptAnalysisCache.keys().next().value
+    if (oldest !== undefined) {
+      eventScriptAnalysisCache.delete(oldest)
+    }
+  }
+  eventScriptAnalysisCache.set(cacheKey, analysis)
+  return analysis
+}
+
 function buildHubEvent(
   patch: EventPatchHubSourcePatch,
   key: string,
   rawScript: string,
   disabledEventKeys: Set<string>,
   eventAliases: Record<string, string>,
+  duplicateKeys: Set<string>,
 ): EventPatchHubEvent {
-  const parser = new EventPreconditionParser()
-  const keyParts = splitEventPreconditions(key)
-  const eventId = keyParts[0] ?? key
+  const analysis = analyzeEventScript(key, rawScript)
   const alias = eventAliases[key]?.trim() ?? ''
-  const triggers = keyParts.slice(1).filter(Boolean)
-  const preconditionGroups = parser.parse(keyParts.slice(1))
-  const segments = parseEventCommands(rawScript)
-  const scene = parseEventSceneSetup(segments)
-  const commands = segments.slice(3).map((raw, index) => parseEventCommand(raw, index))
-  const cameraCoordinates = firstCoordinatePair(scene.cameraInstruction)
-  const firstActor = scene.actors[0] ?? null
-  const tile = cameraCoordinates ?? (firstActor ? { x: firstActor.tileX, y: firstActor.tileY } : null)
   const targetName = getTargetName(patch.target)
+  const enabled = Boolean(patch.enabled) && !disabledEventKeys.has(key)
+  // Duplicate flags are draft-session state, not script content, so they layer
+  // over the cached analysis (copy — the cached issues array is shared).
+  const issues: AssetIssue[] = duplicateKeys.has(key)
+    ? [
+        {
+          severity: 'error',
+          code: 'duplicateEntryKey',
+          messageKey: 'duplicateEntryKey',
+          path: [key],
+          params: { entryKey: key },
+        },
+        ...analysis.issues,
+      ]
+    : analysis.issues
+  const severity = hubSeverity(issues)
 
   return {
     key,
-    eventId,
-    title: alias || eventId || key,
-    status: patch.enabled && !disabledEventKeys.has(key) ? 'draft' : 'disabled',
-    severity: 'ok',
-    triggers,
-    location: tile ? `${targetName} (${tile.x}, ${tile.y})` : targetName,
-    actors: scene.actors.map(actorToHubActor),
-    commandCount: commands.length,
-    dialogueCount: countDialogueCommands(commands),
-    issueCount: 0,
-    scriptSteps: buildScriptSteps(commands),
-    preconditionGroups,
+    eventId: analysis.eventId,
+    title: alias || analysis.eventId || key,
+    status: hubStatus(enabled, severity, issues.length),
+    severity,
+    triggers: analysis.triggers,
+    location: analysis.cameraTile ? `${targetName} (${analysis.cameraTile.x}, ${analysis.cameraTile.y})` : targetName,
+    actors: analysis.actors,
+    commandCount: analysis.commandCount,
+    dialogueCount: analysis.dialogueCount,
+    issues,
+    issueCount: issues.length,
+    scriptSteps: analysis.scriptSteps,
+    preconditionGroups: analysis.preconditionGroups,
   }
 }
 
@@ -224,18 +319,30 @@ function buildPatchSearchText(patch: EventPatchHubSourcePatch, events: EventPatc
 }
 
 export function buildEventPatchHubPatches(patches: EventPatchHubSourcePatch[]): EventPatchHubPatch[] {
+  const duplicatesByPatch = findDuplicateEventKeys(
+    patches.map((patch) => ({
+      id: patch.id,
+      target: patch.target,
+      keys: eventEntriesFromPatch(patch).map(([key]) => key),
+    })),
+  )
+
   return patches.map((patch) => {
     const disabledEventKeys = getDisabledEventKeys(patch)
     const eventAliases = getEventAliases(patch)
+    const duplicateKeys = duplicatesByPatch.get(patch.id) ?? new Set<string>()
     const events = eventEntriesFromPatch(patch).map(([key, rawScript]) =>
-      buildHubEvent(patch, key, rawScript, disabledEventKeys, eventAliases),
+      buildHubEvent(patch, key, rawScript, disabledEventKeys, eventAliases, duplicateKeys),
     )
     const conditionSummary = summarizePatchWhen(patch.when)
+    const counts = countAssetIssues(events.flatMap((event) => event.issues))
     const stats: EventPatchHubStats = {
       events: events.length,
       commands: events.reduce((total, event) => total + event.commandCount, 0),
       actors: uniqueActorCount(events),
       triggers: events.reduce((total, event) => total + event.triggers.length, 0),
+      errors: counts.errors,
+      warnings: counts.warnings,
     }
 
     return {
@@ -248,7 +355,6 @@ export function buildEventPatchHubPatches(patches: EventPatchHubSourcePatch[]): 
       targetFieldSummary: patch.targetField?.join(' / ') ?? '',
       events,
       stats,
-      exportReady: patch.enabled !== false,
       sourcePatch: patch,
       searchText: buildPatchSearchText(patch, events),
     }

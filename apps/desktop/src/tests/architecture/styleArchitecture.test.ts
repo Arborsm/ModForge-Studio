@@ -41,16 +41,20 @@ const TS_COLOR_LITERAL_ALLOWLIST = new Set([
   // Map viewport canvas rendering.
   'entities/map/ui/MapViewport.tsx',
   'entities/map/ui/mapViewportHelpers.ts',
+  // Cell-rule overlay canvas fills: fixed semantic hues that cannot read CSS
+  // custom properties; mirrored by tokens.css --cell-overlay-* (documented
+  // non-theme exception, see the module header).
+  'entities/map/lib/cellProperties.ts',
   // Item/appearance sprite rendering.
   'pages/workbench/ui/PlayerAppearanceWindow.tsx',
-  'pages/workbench/workspaces/item/entities/item/view/ItemSprite.tsx',
+  'entities/item/ui/ItemSprite.tsx',
   // Event stage preview overlays render to canvas.
   'pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventStagePreview.tsx',
   'pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/StagePathOverlay.tsx',
   // TODO: migrate the following UI files to CSS theme tokens instead of hard-coded literals.
   'pages/workbench/workspaces/character/view/CharacterGiftTasteSection.tsx',
   'pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/CommandPalette.tsx',
-  'pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventResourcePicker.tsx',
+  'features/resource-browser/ui/ResourcePicker.tsx',
   'pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/ParamPill.tsx',
   'pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/eventResourceRegistry.ts',
   'pages/workbench/workspaces/item/view/ItemDetailPane.tsx',

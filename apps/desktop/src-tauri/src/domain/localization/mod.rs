@@ -1,3 +1,4 @@
+pub mod corpus;
 pub mod jobs;
 pub mod knowledge;
 pub(crate) mod lexical;

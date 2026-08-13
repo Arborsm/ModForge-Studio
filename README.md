@@ -7,14 +7,14 @@ Stardew Valley mods.
 
 It combines mod library management, game asset inspection, Content Patcher
 authoring, and desktop launch workflows in one desktop application. The active
-product workspace is `apps/desktop`.
+product workspaces are `apps/desktop` and `apps/installer`.
 
 ## Quick Map
 
 - `apps/desktop/src` - React application code organized by app, pages, widgets,
   features, entities, shared contracts, platform adapters, locales, and styles.
 - `apps/desktop/src/tests` - centralized frontend tests: unit, architecture,
-  integration, and shared test support under `support/`.
+  and shared test support under `support/`.
 - `apps/desktop/src-tauri` - Rust backend, Tauri commands, domain logic,
   infrastructure, and tests under `src/tests/unit/`, `src/tests/integration/`,
   and top-level `tests/`.
@@ -35,17 +35,32 @@ product workspace is `apps/desktop`.
   mod project data.
 - Build Content Patcher drafts and event/workbench projects with structured
   editors.
+- Compose workbench modules through the static registry, with a product guide
+  tour for first-run onboarding.
+- Pick shared resources with the resource picker and manage project materials
+  in the asset library.
+- Author dialogue, mail, and schedule content in structured asset editor
+  workspaces.
+- Translate mods in the localization center with configurable AI providers,
+  usage tracking, and review flows.
 - Diagnose Nexus Mods connectivity and support download-oriented mod management
   flows.
-- Produce desktop release packages for Linux, macOS, and Windows.
+- Inspect mod archives without installing them.
+- Produce desktop release packages for Linux, macOS, and Windows, plus a
+  Windows installer with preferences, autostart, and theme options.
 
 ## Feature Index
 
 - Launcher and mod library management: `apps/desktop/src/features`,
   `apps/desktop/src/widgets`, and `apps/desktop/src-tauri/src/domain/launcher`.
 - Workbench pages and project flows: `apps/desktop/src/pages`,
-  `apps/desktop/src/widgets`, and
-  `apps/desktop/src-tauri/src/domain/workbench_project`.
+  `apps/desktop/src/widgets`, and the `modding`, `ai`, and `localization`
+  domains under `apps/desktop/src-tauri/src/domain`.
+- Guide, resource browser, and translation features:
+  `apps/desktop/src/features/guide`,
+  `apps/desktop/src/features/resource-browser`, and
+  `apps/desktop/src/features/translation-editor`, with workbench workspaces
+  under `apps/desktop/src/pages/workbench/workspaces`.
 - Content Patcher and CP maker flows: frontend slices under
   `apps/desktop/src/features` and Rust domains under
   `apps/desktop/src-tauri/src/domain/content_patcher` and
@@ -61,7 +76,7 @@ product workspace is `apps/desktop`.
 
 - Desktop shell: Electron on Linux; Tauri v2 on macOS and Windows; Rust remains
   the backend for desktop capabilities.
-- Frontend: React 19 with React Compiler, TypeScript 6, Vite 8 on Rolldown,
+- Frontend: React 19 with React Compiler, TypeScript 7, Vite 8 on Rolldown,
   Tailwind CSS 4.
 - UI/runtime libraries: Radix UI, Floating UI, lucide-react, React Resizable
   Panels, TanStack Virtual, XYFlow, Zustand.
@@ -104,7 +119,7 @@ cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 
 ModForge Studio is in early active development. The repository uses Vite+ as the
 primary developer entry point over a pnpm-backed workspace, and `apps/desktop`
-is currently the only active product workspace.
+and `apps/installer` are the active product workspaces.
 
 Linux builds use Electron packages. Release automation is available, but
 platform signing and distribution credentials are expected to be provided by CI
@@ -134,11 +149,14 @@ or the local release environment.
 - [Chinese README](docs/README.zh-CN.md) - project overview in Chinese.
 - [Frontend architecture](docs/frontend-architecture.md) - layer boundaries and
   dependency rules.
-- [Product design](docs/DESIGN.md) - product shape, visual language, design goals.
+- [Product design](DESIGN.md) - product shape, visual language, design goals.
+- [Design system](docs/design-system.md) - visual design tokens and rules for
+  AI-assisted implementation.
 - [Page design spec](docs/design/page-design-spec.md) - workspace visual rules and
   workbench shell / home IA.
-- [Workbench shell migration](docs/design/workbench-shell-migration.md) - phased plan
-  to land the shell mock on the current product.
+- [Workbench authoring rework](docs/design/workbench-authoring-rework.md) - plan
+  to reorganize the project-building workbench pages around the event-authoring
+  quality baseline.
 - [Maintenance guide](docs/maintenance.md) - commands, release notes, CI, signing,
   and repository hygiene.
 - [Nexus Mods GraphQL snapshot](docs/nexusmods-graphql/SUMMARY.md) - generated API

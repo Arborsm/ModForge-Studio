@@ -215,6 +215,20 @@ pub struct AiOfficialCorpusStatus {
     pub error_count: u64,
 }
 
+/// Component-level readiness of the localization corpus that AI translation
+/// depends on. Each component is one of `ready` (initialized and usable),
+/// `skipped` (not applicable for the current configuration), or `failed`
+/// (initialization attempted but errored; the frontend should surface retry).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalizationCorpusWarmupStatus {
+    pub knowledge: String,
+    pub semantic: String,
+    pub official: String,
+    pub ready: bool,
+    pub error: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AiOfficialUnit {
@@ -732,6 +746,10 @@ pub struct LocalizationTranslateBatchRequest {
     pub usage_context: Option<crate::domain::ai::types::AiUsageContext>,
     #[serde(default)]
     pub knowledge_policy: crate::domain::ai::types::KnowledgePolicy,
+    /// Per-batch input byte cap override forwarded to the AI provider request;
+    /// `None` derives the budget from the context window.
+    #[serde(default)]
+    pub max_batch_bytes: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

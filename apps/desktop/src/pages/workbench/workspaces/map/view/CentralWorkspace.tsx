@@ -11,6 +11,15 @@ import { cx } from '@shared/lib/helper'
 import { useNotificationPublisher } from '@shared/ui/notifications'
 import { chooseSaveFile } from '@platform/host'
 import { MapViewport, MapWorldStatePreviewOverlay, type MapViewportHandle } from '@entities/map'
+import {
+  deriveMapDocumentLighting,
+  getLightingPreviewTimeOfDay,
+  isIndoorMapDocument,
+  type GameSeason,
+  type MapLightingPreviewMode,
+  type ObjectLightItemIndex,
+} from '@entities/map'
+import { MapLightingPreviewControls } from '../ui/MapLightingPreviewControls'
 
 type CentralWorkspaceProps = {
   tabs: Array<{
@@ -38,6 +47,8 @@ type CentralWorkspaceProps = {
   onToggleGameWorldAdditions: () => void
   worldOverlaySprites: StageWorldOverlaySprite[]
   worldOverlayTextureAssets: Record<string, EffectAssetState>
+  /** Item-data lookup enabling object-layer lamp/torch markers in the lighting preview. */
+  objectLightIndex: ObjectLightItemIndex | null
   onHoverChange: (info: TileHoverInfo | null) => void
 }
 
@@ -63,6 +74,7 @@ export default function CentralWorkspace({
   onToggleGameWorldAdditions,
   worldOverlaySprites,
   worldOverlayTextureAssets,
+  objectLightIndex,
   onHoverChange,
 }: CentralWorkspaceProps) {
   const locale = useLocale()
@@ -70,6 +82,8 @@ export default function CentralWorkspace({
   const publishNotification = useNotificationPublisher()
   const [toolMode, setToolMode] = useState<ToolMode>('select')
   const [showGrid, setShowGrid] = useState(true)
+  const [lightingMode, setLightingMode] = useState<MapLightingPreviewMode>('day')
+  const [lightingSeason, setLightingSeason] = useState<GameSeason>('spring')
   const [zoomLabel, setZoomLabel] = useState('100%')
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null)
   const [dropTargetTabId, setDropTargetTabId] = useState<string | null>(null)
@@ -97,6 +111,15 @@ export default function CentralWorkspace({
       />
     )
   }, [mapDocument, showGameWorldAdditions, worldOverlaySprites, worldOverlayTextureAssets])
+  const worldLighting = useMemo(
+    () =>
+      mapDocument
+        ? deriveMapDocumentLighting(mapDocument, getLightingPreviewTimeOfDay(lightingMode, lightingSeason), lightingSeason, {
+            objectLightIndex,
+          })
+        : null,
+    [lightingMode, lightingSeason, mapDocument, objectLightIndex],
+  )
   const previewGameWorldAdditionsLabel = copy.center.previewGameWorldAdditions
   const hideGameWorldAdditionsLabel = copy.center.hideGameWorldAdditions
   const gridToggleLabel = showGrid ? copy.center.hideGrid : copy.center.showGrid
@@ -138,8 +161,8 @@ export default function CentralWorkspace({
   }, [copy.viewportLabels, mapDocument, publishNotification])
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-[1.125rem] bg-(--bg-canvas)">
-      <div className="flex h-10 items-end gap-1 overflow-x-auto border-b border-(--border-color)/55 bg-[color-mix(in_srgb,var(--bg-panel)_88%,var(--bg-canvas))] px-2">
+    <div className="bg-surface-viewport rounded-panel flex h-full flex-col overflow-hidden">
+      <div className="border-border-subtle/55 flex h-10 items-end gap-1 overflow-x-auto border-b bg-[color-mix(in_srgb,var(--bg-panel)_88%,var(--bg-viewport))] px-2">
         <div className="flex min-w-0 flex-1 items-end gap-1">
           {tabs.map((tab) => {
             const isActive = activeTabId === tab.id
@@ -153,10 +176,10 @@ export default function CentralWorkspace({
                 className={cx(
                   'group flex h-9 shrink-0 items-center gap-2 rounded-t-lg border-x border-t px-3 text-xs transition-colors',
                   isActive
-                    ? 'border-(--border-color) bg-(--bg-panel) text-(--text-primary) shadow-[inset_0_-2px_0_0_var(--accent)]'
-                    : 'border-transparent bg-transparent text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
+                    ? 'border-border-subtle bg-surface-panel text-text-primary shadow-[inset_0_-2px_0_0_var(--accent)]'
+                    : 'border-transparent bg-transparent text-text-secondary hover:bg-surface-hover hover:text-text-primary',
                   isDragged && 'opacity-50',
-                  isDropTarget && 'border-(--accent)',
+                  isDropTarget && 'border-accent',
                 )}
                 onDragStart={(event) => {
                   if (!tab.closable) {
@@ -193,13 +216,13 @@ export default function CentralWorkspace({
                 }}
               >
                 <button type="button" className="flex min-w-0 flex-1 items-center gap-2" onClick={() => onSelectTab(tab.id)}>
-                  {tab.pinned ? <Pin className="h-3.5 w-3.5 text-(--accent)" /> : <MapIcon className="h-3.5 w-3.5" />}
+                  {tab.pinned ? <Pin className="text-accent h-3.5 w-3.5" /> : <MapIcon className="h-3.5 w-3.5" />}
                   <span className="max-w-44 truncate font-semibold">{tab.title}</span>
                 </button>
                 {tab.closable ? (
                   <button
                     type="button"
-                    className="rounded p-0.5 text-(--text-tertiary) opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-(--bg-panel) hover:text-(--text-primary)"
+                    className="text-text-tertiary hover:bg-surface-panel hover:text-text-primary rounded p-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
                     onClick={() => onCloseTab(tab.id)}
                   >
                     <X className="h-3.5 w-3.5" />
@@ -228,6 +251,7 @@ export default function CentralWorkspace({
               showGrid={showGrid}
               mapOverlay={mapOverlay}
               scaleMapOverlayWithViewport
+              worldLighting={worldLighting}
               onZoomChange={(nextZoom) => setZoomLabel(copy.viewportLabels.zoomLabel(nextZoom))}
               onExportPng={() => {
                 void exportMapPngAtFullSize()
@@ -376,6 +400,14 @@ export default function CentralWorkspace({
                 </button>
               </div>
             </div>
+            <MapLightingPreviewControls
+              mode={lightingMode}
+              season={lightingSeason}
+              outdoors={mapDocument ? !isIndoorMapDocument(mapDocument) : true}
+              disabled={!mapDocument}
+              onModeChange={setLightingMode}
+              onSeasonChange={setLightingSeason}
+            />
           </div>
         }
       </div>

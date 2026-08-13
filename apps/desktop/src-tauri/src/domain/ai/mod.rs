@@ -1,6 +1,7 @@
 mod cache;
 mod exchange;
 mod jobs;
+mod models_dev;
 mod presets;
 pub(crate) mod providers;
 mod settings;
@@ -9,13 +10,14 @@ pub mod types;
 pub(crate) use settings::validate_base_url;
 
 use crate::AppHandle;
+use crate::support::logging::{LogEvent, targets};
 use anyhow::Context;
 use std::fmt::Display;
 use std::time::Instant;
 use types::{
     AiModelInfo, AiProfileRequest, AiProfileTestResult, AiSettingsSnapshot,
     AiTranslateBatchRequest, AiTranslateBatchResult, AiTranslationProgressPayload,
-    CancelAiJobRequest, SaveAiSettingsRequest,
+    AiTranslationStreamPayload, CancelAiJobRequest, ModelsDevCatalog, SaveAiSettingsRequest,
 };
 
 pub use cache::{
@@ -23,6 +25,7 @@ pub use cache::{
     write_ai_translation_cache,
 };
 pub use exchange::{apply_profiles_import, export_profiles, preview_profiles_import};
+pub(crate) use models_dev::fetch_models_dev_catalog;
 pub use settings::{load_ai_settings, save_ai_settings};
 
 pub(crate) fn usage_identity(profile_id: Option<&str>) -> anyhow::Result<(String, String, String)> {
@@ -91,7 +94,22 @@ pub(crate) fn format_command_error(error: impl Display) -> String {
 }
 
 pub fn list_ai_models(request: AiProfileRequest) -> anyhow::Result<Vec<AiModelInfo>> {
-    providers::list_models(&settings::resolve_profile(Some(&request.profile_id))?)
+    let profile = settings::resolve_profile(Some(&request.profile_id))?;
+    let mut models = providers::list_models(&profile)?;
+    // Enrich with context-window metadata from the cached models.dev catalog
+    // when the provider's own /models payload does not carry it. This is a
+    // cache read only; it never triggers a network fetch.
+    for model in &mut models {
+        if model.context_window_tokens.is_none() {
+            model.context_window_tokens =
+                models_dev::cached_context_window(&profile.preset_id, &model.id);
+        }
+    }
+    Ok(models)
+}
+
+pub fn fetch_models_dev_catalog_for_command() -> anyhow::Result<ModelsDevCatalog> {
+    fetch_models_dev_catalog()
 }
 
 #[cfg(test)]
@@ -107,7 +125,7 @@ pub(crate) fn test_ai_profile_observed(
     let started = Instant::now();
     let job_id = format!("profile-test:{}", profile.id);
     let job = jobs::AiJobGuard::register(&job_id)?;
-    providers::translate_observed(
+    let (_items, reasoning) = providers::translate_observed(
         &profile,
         &AiTranslateBatchRequest {
             job_id,
@@ -122,9 +140,12 @@ pub(crate) fn test_ai_profile_observed(
             }],
             usage_context: None,
             knowledge_policy: types::KnowledgePolicy::default(),
+            skip_format_validation: false,
+            max_batch_bytes: None,
         },
         &job,
         observer,
+        &mut |_| {},
     )?;
     Ok(AiProfileTestResult {
         provider: profile.preset_id,
@@ -133,6 +154,7 @@ pub(crate) fn test_ai_profile_observed(
         model: profile.model,
         latency_ms: started.elapsed().as_millis(),
         credential_source: profile.resolved_credential_source,
+        reasoning,
     })
 }
 
@@ -172,26 +194,43 @@ pub(crate) fn translate_ai_batch_observed(
         },
     )
     .map_err(anyhow::Error::msg)?;
-    let items = match providers::translate_observed(&profile, &request, &job, observer) {
-        Ok(items) => items,
-        Err(error) => {
-            let state = if classify_error_message(&error.to_string()) == "cancelled" {
-                "cancelled"
-            } else {
-                "error"
-            };
-            let _ = app.emit(
-                "ai://translation-progress",
-                AiTranslationProgressPayload {
-                    job_id: request.job_id.clone(),
-                    completed: 0,
-                    total,
-                    state: state.into(),
-                },
-            );
-            return Err(error);
+    let mut emit_stream = |delta: providers::AiStreamDelta| {
+        let payload = AiTranslationStreamPayload {
+            job_id: request.job_id.clone(),
+            kind: match delta.kind {
+                providers::StreamDeltaKind::Content => "content".into(),
+                providers::StreamDeltaKind::Reasoning => "reasoning".into(),
+            },
+            delta: delta.text,
+        };
+        if let Err(error) = app.emit("ai://translation-stream", payload) {
+            LogEvent::new("ai.translate.streamEmitFailed")
+                .field("job", &request.job_id)
+                .error(format!("{error}"))
+                .emit_warn(targets::LOCALIZATION_TRANSLATION);
         }
     };
+    let (items, reasoning) =
+        match providers::translate_observed(&profile, &request, &job, observer, &mut emit_stream) {
+            Ok(result) => result,
+            Err(error) => {
+                let state = if classify_error_message(&error.to_string()) == "cancelled" {
+                    "cancelled"
+                } else {
+                    "error"
+                };
+                let _ = app.emit(
+                    "ai://translation-progress",
+                    AiTranslationProgressPayload {
+                        job_id: request.job_id.clone(),
+                        completed: 0,
+                        total,
+                        state: state.into(),
+                    },
+                );
+                return Err(error);
+            }
+        };
     app.emit(
         "ai://translation-progress",
         AiTranslationProgressPayload {
@@ -210,6 +249,7 @@ pub(crate) fn translate_ai_batch_observed(
         usage_record_state: usage_record_state.into(),
         knowledge_trace,
         knowledge_revision,
+        reasoning,
     })
 }
 

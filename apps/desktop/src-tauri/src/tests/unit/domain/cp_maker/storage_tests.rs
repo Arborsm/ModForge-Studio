@@ -4,7 +4,7 @@ use crate::domain::cp_maker::storage::{
 };
 use crate::domain::cp_maker::types::{
     CopyCpMakerDraftRequest, CpMakerDraftRecord, CpMakerEventSourceSnapshot,
-    CpMakerExportFingerprint, CpMakerMetadata, CpMakerOverlayTarget, CpMakerOverlayTargetSource,
+    CpMakerExportFingerprint, CpMakerMetadata,
 };
 use crate::test_support::create_temp_dir;
 use serde_json::json;
@@ -22,15 +22,11 @@ fn sample_draft(draft_storage_key: &str) -> CpMakerDraftRecord {
             project_unique_id: "ModForge.BuilderDraft".to_string(),
             game_root_path: Some("E:\\Games\\Stardew Valley".to_string()),
             content_pack_for_unique_id: "Pathoschild.ContentPatcher".to_string(),
+            content_pack_for_minimum_version: None,
             minimum_api_version: None,
             update_keys: Vec::new(),
+            dependencies: Vec::new(),
         },
-        overlay_targets: vec![CpMakerOverlayTarget {
-            unique_id: "Pathoschild.ContentPatcher".to_string(),
-            display_name: Some("Content Patcher".to_string()),
-            required: false,
-            source: CpMakerOverlayTargetSource::ScannedMod,
-        }],
         config_schema_draft: json!({
             "Season": {
                 "AllowValues": "spring, summer, fall, winter"
@@ -59,6 +55,7 @@ fn sample_draft(draft_storage_key: &str) -> CpMakerDraftRecord {
             },
         )]),
         i18n_files: Vec::new(),
+        project_assets: Vec::new(),
         last_draft_saved_at: None,
         last_exported_at: Some(1_710_000_000_000),
         last_export_path: Some("E:\\Exports\\Builder Draft".to_string()),
@@ -139,7 +136,6 @@ fn copies_cp_maker_drafts_with_a_new_storage_key() {
 
     assert_ne!(copied.draft_storage_key, source.draft_storage_key);
     assert_eq!(copied.project_metadata, source.project_metadata);
-    assert_eq!(copied.overlay_targets, source.overlay_targets);
     assert_eq!(copied.config_schema_draft, source.config_schema_draft);
     assert_eq!(
         copied.serialized_change_registry,

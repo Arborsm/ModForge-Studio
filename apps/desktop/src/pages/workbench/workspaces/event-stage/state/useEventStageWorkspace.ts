@@ -31,7 +31,7 @@ import {
   type PlaybackState,
 } from '@entities/event'
 import { deriveMapDrivenFarmerBedState } from '@entities/event'
-import { continuePlayback, resolveChoice, seekPlaybackToEntry } from '@entities/event'
+import { continuePlayback, deriveEventStageLighting, resolveChoice, seekPlaybackToEntry } from '@entities/event'
 import {
   buildCharacterTextureIndex,
   getAnimatedFrame,
@@ -44,6 +44,7 @@ import {
 import { buildBuildingDataIndex, buildStageWorldOverlaySprites, type StageWorldOverlaySprite } from '@entities/map'
 import type { PlayerAppearanceProfile } from '@entities/event'
 import { playMusicCue, playSoundCue, resetAudioPreview, stopMusicPreview, stopSoundPreview } from './audioPreview'
+import { publishEventStageAnimationNow } from './eventStageAnimationClock'
 
 type UseEventStageWorkspaceOptions = {
   copy: EventStageCopy
@@ -129,6 +130,15 @@ function advancePlaybackTimeState(
 ) {
   let changed = false
   let nextState = state
+
+  if (nextState.cameraPan && nowMs - nextState.cameraPan.startedAtMs >= nextState.cameraPan.durationMs) {
+    nextState = {
+      ...nextState,
+      focusTile: nextState.cameraPan.toTile,
+      cameraPan: null,
+    }
+    changed = true
+  }
 
   if (nextState.notices.length > 0 || nextState.flashOverlay != null || nextState.fadeOverlay != null) {
     const notices = prunePlaybackNotices(nextState.notices, nowMs)
@@ -238,7 +248,6 @@ export function useEventStageWorkspace({
   const [zoomLabel, setZoomLabel] = useState(() => viewportLabels.zoomLabel(EVENT_STAGE_INITIAL_ZOOM))
   const [musicSyncEnabled, setMusicSyncEnabled] = useState(false)
   const [playbackState, setPlaybackState] = useState<PlaybackState>(() => createInitialPlaybackState(selectedEvent, initialMapName))
-  const [animationNowMs, setAnimationNowMs] = useState(() => performance.now())
   const [mapLoadState, setMapLoadState] = useState<StageMapLoadState>({
     document: null,
     message: '',
@@ -261,7 +270,6 @@ export function useEventStageWorkspace({
   const [effectAssets, setEffectAssets] = useState<Record<string, EffectAssetState>>({})
   const lastAudioCommandIdRef = useRef<string | null>(null)
   const lastSyncedMusicCueKeyRef = useRef<string | null>(null)
-  const lastAnimationNowMsRef = useRef(animationNowMs)
   const onSelectTimelineEntryRef = useRef(onSelectTimelineEntry)
   const onPlaybackCommandChangeRef = useRef(onPlaybackCommandChange)
   const mountedRef = useRef(true)
@@ -588,7 +596,7 @@ export function useEventStageWorkspace({
     }
   }, [directoryInfo?.rootPath, playbackState.commands, playbackState.currentCommandId])
 
-  const actorAssetRequests = useMemo<ActorAssetRequest[]>(
+  const actorAssetRequestsRaw = useMemo<ActorAssetRequest[]>(
     () =>
       Object.values(renderedPlaybackState.actors).map((actor) => {
         const actorMetadata = characterTextureIndex[toActorKey(actor.actorName)] ?? null
@@ -618,6 +626,18 @@ export function useEventStageWorkspace({
         }
       }),
     [characterTextureIndex, directoryInfo?.rootPath, playerAppearanceProfile, renderedPlaybackState.actors],
+  )
+
+  // The actors record gets a fresh identity on every actor-touching playback
+  // transition (move/animate/faceDirection...). Without stabilization the
+  // request array would look "new" each transition and re-fire the asset-change
+  // effect upstream, re-rendering the whole editor per command. The requestKey
+  // fully encodes what a request needs, so identical signatures keep the old array.
+  const actorAssetRequestSignature = actorAssetRequestsRaw.map((request) => `${request.actorKey}=${request.requestKey}`).join('||')
+  const actorAssetRequests = useMemo(
+    () => actorAssetRequestsRaw,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- signature captures raw contents
+    [actorAssetRequestSignature],
   )
 
   const currentActorAssets = useMemo(
@@ -743,6 +763,7 @@ export function useEventStageWorkspace({
     const hasAnimatedHud =
       renderedPlaybackState.notices.length > 0 ||
       renderedPlaybackState.flashOverlay != null ||
+      renderedPlaybackState.cameraPan != null ||
       isFadeOverlayAnimating(renderedPlaybackState.fadeOverlay, performance.now())
     if (!hasAnimatedActors && !hasAnimatedEffects && !hasAnimatedHud) {
       return
@@ -750,13 +771,10 @@ export function useEventStageWorkspace({
 
     let frameId = 0
     const tick = () => {
-      const nowMs = performance.now()
-      if (nowMs - lastAnimationNowMsRef.current >= 16) {
-        lastAnimationNowMsRef.current = nowMs
-        setAnimationNowMs(nowMs)
-      }
+      const tickNowMs = performance.now()
+      publishEventStageAnimationNow(tickNowMs)
       setPlaybackState((current) =>
-        advancePlaybackTimeState(current, nowMs, {
+        advancePlaybackTimeState(current, tickNowMs, {
           autoPlay,
           copy,
           eventIndex: parsedEventAsset?.eventIndex ?? {},
@@ -766,6 +784,7 @@ export function useEventStageWorkspace({
       frameId = window.requestAnimationFrame(tick)
     }
 
+    publishEventStageAnimationNow(nowMs)
     frameId = window.requestAnimationFrame(tick)
     return () => window.cancelAnimationFrame(frameId)
   }, [
@@ -775,6 +794,7 @@ export function useEventStageWorkspace({
     eventObjectDrinkIndex,
     parsedEventAsset?.eventIndex,
     renderedPlaybackState.actors,
+    renderedPlaybackState.cameraPan,
     renderedPlaybackState.fadeOverlay,
     renderedPlaybackState.flashOverlay,
     renderedPlaybackState.notices.length,
@@ -908,6 +928,27 @@ export function useEventStageWorkspace({
     }
   }, [mapDocument, renderedPlaybackState.focusTile])
 
+  // Static lightmap for the multiply overlay; re-derives when the active event
+  // (fork branches re-read their own preconditions), the map, or the playback
+  // lights change — never per animation frame.
+  const worldLighting = useMemo(() => {
+    const activeEvent =
+      (renderedPlaybackState.activeEventKey ? parsedEventAsset?.eventIndex[renderedPlaybackState.activeEventKey] : null) ?? selectedEvent
+    return deriveEventStageLighting({
+      event: activeEvent ?? null,
+      mapDocument,
+      lanterns: renderedPlaybackState.lanternLights,
+      ambientLightColor: renderedPlaybackState.ambientOverlayColor,
+    })
+  }, [
+    mapDocument,
+    parsedEventAsset?.eventIndex,
+    renderedPlaybackState.activeEventKey,
+    renderedPlaybackState.ambientOverlayColor,
+    renderedPlaybackState.lanternLights,
+    selectedEvent,
+  ])
+
   const currentDialogueActor =
     renderedPlaybackState.currentEntry?.tone === 'dialogue' && renderedPlaybackState.currentEntry.actorName
       ? getActorByName(renderedPlaybackState.actors, renderedPlaybackState.currentEntry.actorName)
@@ -917,19 +958,13 @@ export function useEventStageWorkspace({
     () => getPortraitFrameBounds(currentDialogueActorAsset, renderedPlaybackState.currentEntry?.portraitIndex ?? 0),
     [currentDialogueActorAsset, renderedPlaybackState.currentEntry?.portraitIndex],
   )
-  const flashOverlayOpacity = useMemo(() => {
-    if (!renderedPlaybackState.flashOverlay) {
+  const fadeOverlayOpacity = useMemo(() => {
+    const fadeOverlay = renderedPlaybackState.fadeOverlay
+    if (!fadeOverlay) {
       return 0
     }
-
-    const elapsedMs = Math.max(0, animationNowMs - renderedPlaybackState.flashOverlay.startedAtMs)
-    const progress = Math.max(0, Math.min(1, elapsedMs / Math.max(1, renderedPlaybackState.flashOverlay.durationMs)))
-    return renderedPlaybackState.flashOverlay.alpha * (1 - progress)
-  }, [animationNowMs, renderedPlaybackState.flashOverlay])
-  const fadeOverlayOpacity = useMemo(
-    () => resolveFadeOverlayAlpha(renderedPlaybackState.fadeOverlay, animationNowMs),
-    [animationNowMs, renderedPlaybackState.fadeOverlay],
-  )
+    return resolveFadeOverlayAlpha(fadeOverlay, fadeOverlay.startedAtMs + Math.max(0, fadeOverlay.durationMs))
+  }, [renderedPlaybackState.fadeOverlay])
   const playbackStatusChips = useMemo(() => {
     const chips: Array<{ id: string; label: string; value: string }> = []
 
@@ -940,7 +975,8 @@ export function useEventStageWorkspace({
       chips.push({ id: 'sound', label: copy.statusSound, value: renderedPlaybackState.activeSoundCue })
     }
     if (renderedPlaybackState.ambientOverlayColor) {
-      chips.push({ id: 'ambient', label: copy.statusAmbient, value: renderedPlaybackState.ambientOverlayColor })
+      const ambient = renderedPlaybackState.ambientOverlayColor
+      chips.push({ id: 'ambient', label: copy.statusAmbient, value: `${ambient.r} ${ambient.g} ${ambient.b}` })
     }
     if (renderedPlaybackState.fadeOverlay) {
       chips.push({
@@ -1031,14 +1067,12 @@ export function useEventStageWorkspace({
 
   return {
     actorAssets: currentActorAssets,
-    animationNowMs,
     autoPlay,
     currentDialogueActor,
     currentDialogueActorAsset,
     currentDialoguePortrait,
     effectAssets: currentEffectAssets,
     fadeOverlayOpacity,
-    flashOverlayOpacity,
     focusWorldPoint,
     handleSelectChoice,
     handleZoomChange,
@@ -1058,6 +1092,7 @@ export function useEventStageWorkspace({
     visibleLayerIds,
     visibleObjectGroupIds,
     viewportZoom,
+    worldLighting,
     worldOverlaySprites,
     zoomLabel,
   }

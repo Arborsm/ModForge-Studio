@@ -77,6 +77,7 @@ pub enum HostCommandResource {
     CpMakerDrafts,
     MapPngExport,
     FileExport,
+    DebugBridgeInstall,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -692,6 +693,7 @@ pub struct HostCommandResourceLocks {
     cp_maker_drafts: Mutex<()>,
     map_png_export: Mutex<()>,
     file_export: Mutex<()>,
+    debug_bridge_install: Mutex<()>,
     dynamic: Mutex<BTreeMap<HostCommandResource, &'static Mutex<()>>>,
 }
 
@@ -722,6 +724,7 @@ impl HostCommandResourceLocks {
             cp_maker_drafts: Mutex::new(()),
             map_png_export: Mutex::new(()),
             file_export: Mutex::new(()),
+            debug_bridge_install: Mutex::new(()),
             dynamic: Mutex::new(BTreeMap::new()),
         }
     }
@@ -780,6 +783,7 @@ impl HostCommandResourceLocks {
             HostCommandResource::CpMakerDrafts => &self.cp_maker_drafts,
             HostCommandResource::MapPngExport => &self.map_png_export,
             HostCommandResource::FileExport => &self.file_export,
+            HostCommandResource::DebugBridgeInstall => &self.debug_bridge_install,
         };
         match lock.lock() {
             Ok(guard) => guard,

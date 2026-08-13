@@ -156,7 +156,7 @@ fn normalize(profile: &SaveAiSemanticRemoteProfile) -> anyhow::Result<StoredRemo
     Ok(StoredRemoteProfile {
         id: bounded(&profile.id, "id", MAX_ID_BYTES)?,
         name: bounded(&profile.name, "name", MAX_NAME_BYTES)?,
-        base_url: validate_base_url(&profile.base_url)?,
+        base_url: validate_base_url(&profile.base_url, false)?,
         model: bounded(&profile.model, "model", MAX_MODEL_BYTES)?,
         dimensions: profile.dimensions,
         credential_environment: optional_bounded(
