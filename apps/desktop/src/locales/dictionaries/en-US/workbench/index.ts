@@ -21,6 +21,7 @@ import gameDebugger from './debugger'
 import { authoringShell } from './authoring-shell'
 import assetLibrary from './asset-library'
 import resourceBrowser from './resource-browser'
+import audioPanel from './audio'
 
 const editor: EditorCopy = {
   ...shell,
@@ -48,6 +49,7 @@ const editor: EditorCopy = {
   authoringShell,
   assetLibrary,
   resourceBrowser,
+  audioPanel,
 }
 
 export default editor

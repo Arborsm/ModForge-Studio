@@ -16,6 +16,19 @@
     --cp-file-dark: #1d4ed8;
     --cp-data-dark: #c2410c;
 
+    /* Cell-overlay semantic palette for the map editor's grid-rule paint mode.
+     * Documented non-theme exception: these fixed hues stay readable over any
+     * map tile in both themes. Canvas drawing mirrors them (with alpha and a
+     * per-cell rule-colored stroke) in `entities/map/lib/cellProperties.ts`;
+     * the DOM rule bar consumes these tokens directly. Hue separation is
+     * deliberate so the four rules read apart at a glance:
+     * block = 阻挡角色 (red), npc = 阻挡 NPC (orange), water = 水域 (blue),
+     * dig = 可种植 (green). */
+    --cell-overlay-block: #cf3f4d;
+    --cell-overlay-npc: #e07a0e;
+    --cell-overlay-water: #3f6fe0;
+    --cell-overlay-dig: #3ea44c;
+
     /* Window border / divider derive from accent + border-color; theme-agnostic formulas. */
     --app-window-border-standard: color-mix(in srgb, var(--accent) 68%, transparent);
     --app-window-border-thin: color-mix(in srgb, var(--accent) 32%, transparent);
@@ -53,6 +66,7 @@
     --scrim: rgba(15, 23, 42, 0.32); /* 模态/弹层背后的遮罩 */
     --bevel-highlight: rgba(255, 255, 255, 0.5); /* 卡片/面板顶部 inset 高光斜面 */
     --bg-overlay: var(--bg-elevated); /* 浮层/下拉/tooltip 面板底(可叠 backdrop-blur) */
+    --shadow-base: #000; /* 浮层投影基色；与 alpha 一起经 color-mix 调出投影色 */
 
     /* Titlebar height — the titlebar (h-14 = 3.5rem) plus its 1px divider.
      * Dialog overlays are clipped to below this line via `inset` so the titlebar

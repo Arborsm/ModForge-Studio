@@ -52,6 +52,7 @@ function buildCharacterTextureIndex(content: string) {
       breathChestPosition: entry.BreathChestPosition ?? null,
       age: entry.Age?.trim() || null,
       gender: entry.Gender?.trim() || null,
+      size: { x: entry.Size?.X ?? 16, y: entry.Size?.Y ?? 32 },
     }
     for (const token of toLookupTokens(characterName)) {
       index[token] = metadata
@@ -96,6 +97,7 @@ function getTextureCandidates(actorName: string, textureIndex: CharacterTextureI
   return Array.from(new Set(candidates.map((candidate) => candidate.trim()).filter(Boolean)))
 }
 
+/** Returns the fallback frame height for actors not in `Data/Characters` (e.g. Junimo). */
 function getActorSpriteFrameHeight(actorName: string) {
   const normalized = normalizeActorName(actorName)
 
@@ -844,6 +846,7 @@ async function resolveActorAssets(
     spriteUrl: spriteAsset?.url ?? null,
     spriteSheetWidth: spriteAsset?.width ?? null,
     spriteSheetHeight: spriteAsset?.height ?? null,
+    spriteImage: spriteAsset?.image ?? null,
     portraitPath: portraitAsset?.path ?? null,
     portraitUrl: portraitAsset?.url ?? null,
     portraitSheetWidth: portraitAsset?.width ?? null,

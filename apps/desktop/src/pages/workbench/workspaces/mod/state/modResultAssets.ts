@@ -17,6 +17,7 @@ export type ModResultImageState = {
   originalWidth: number | null
   originalHeight: number | null
   target: string
+  image?: HTMLImageElement | null
 }
 
 type LoadModResultImageStateRequest<T> = LoadModResultRequest<T> & {
@@ -125,6 +126,7 @@ export async function loadModResultImageState<T>({
     originalWidth: originalResource?.width ?? null,
     originalHeight: originalResource?.height ?? null,
     target,
+    image: resource.image,
   }
 }
 

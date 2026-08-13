@@ -14,6 +14,7 @@ import { MapViewport, MapWorldStatePreviewOverlay, type MapViewportHandle } from
 import {
   deriveMapDocumentLighting,
   getLightingPreviewTimeOfDay,
+  isIndoorMapDocument,
   type GameSeason,
   type MapLightingPreviewMode,
   type ObjectLightItemIndex,
@@ -345,14 +346,6 @@ export default function CentralWorkspace({
                 </button>
               </div>
 
-              <MapLightingPreviewControls
-                mode={lightingMode}
-                season={lightingSeason}
-                disabled={!mapDocument}
-                onModeChange={setLightingMode}
-                onSeasonChange={setLightingSeason}
-              />
-
               <div className="workspace-viewport-toolbar-group workspace-viewport-toolbar-group-push">
                 <button
                   type="button"
@@ -407,6 +400,14 @@ export default function CentralWorkspace({
                 </button>
               </div>
             </div>
+            <MapLightingPreviewControls
+              mode={lightingMode}
+              season={lightingSeason}
+              outdoors={mapDocument ? !isIndoorMapDocument(mapDocument) : true}
+              disabled={!mapDocument}
+              onModeChange={setLightingMode}
+              onSeasonChange={setLightingSeason}
+            />
           </div>
         }
       </div>

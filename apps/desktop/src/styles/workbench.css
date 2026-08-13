@@ -6,6 +6,7 @@
 @import './workspace/workbench-shell.css';
 @import './workspace/workbench-shell-home.css';
 @import './features/resource-browser.css';
+@import './features/audio-browser.css';
 @import './workspace/dev-resource-browser.css';
 @import './workspace/i18n-generator.css';
 @import './features/asset-authoring.css';
@@ -14,6 +15,8 @@
 @import './features/workspace-patch-list.css';
 @import './features/map-warp-editor.css';
 @import './features/map-asset-shell.css';
+@import './features/map-asset-cards.css';
+@import './features/map-asset-topbar.css';
 @import './features/map-authoring-compare.css';
 @import './features/dialogue-script-field.css';
 @import './workspace/dialogue-editor.css';

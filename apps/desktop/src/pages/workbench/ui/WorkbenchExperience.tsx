@@ -17,7 +17,7 @@ import type { SettingsWindowCategory } from '@shared/contracts'
 import type { AppEvent, PendingWorkbenchCommandIntent, WorkbenchModuleRegistration } from '@shared/contracts'
 import InitializationOverlay from './InitializationOverlay'
 import { WorkbenchShell } from './WorkbenchShell'
-import { useEditModeNavigation } from '../model/useEditModeNavigation'
+import { useEditModeStore, registerPatchNavigateFn } from '../model/editModeStore'
 import { usePlayerAppearanceState } from '../model/usePlayerAppearanceState'
 import { useWorkspaceLayoutPersistence } from '../model/useWorkspaceLayoutPersistence'
 import { useWorkbenchNavigation } from '../model/useWorkbenchNavigation'
@@ -129,14 +129,18 @@ export default function WorkbenchExperience({
   const deferredHeavyModuleId = useDeferredWorkbenchModule(activeModuleId)
   const sideNavigation = useWorkbenchSideNavigation()
   const shellRootRef = useRef<HTMLDivElement | null>(null)
-  const { navigateToPatch, resetNavigation } = useEditModeNavigation(activeModuleRegistration?.presentation === 'authoring')
+  const navigateToPatch = useCallback((patchId: string | null) => {
+    useEditModeStore.getState().navigateToPatch(patchId)
+  }, [])
+  const resetNavigation = useCallback(() => {
+    useEditModeStore.getState().reset()
+  }, [])
   const navigationController = useWorkbenchNavigationController({
     active,
     rootRef: shellRootRef,
     navigation,
     hasActiveProject: Boolean(cpMaker.activeDraft),
     getRegistration: getWorkbenchModuleRegistration,
-    resetAuthoringNavigation: resetNavigation,
     ensureSectionOpen: sideNavigation.ensureSectionOpen,
     runWithModuleGuard: runWithModUnsavedGuard,
   })
@@ -144,6 +148,7 @@ export default function WorkbenchExperience({
     navigationInteractedRef,
     applyLocation: applyWorkbenchLocation,
     resetHistory: resetWorkbenchHistory,
+    pushLocation,
     goBack: goShellBack,
     goForward: goShellForward,
     canGoBack: canGoShellBack,
@@ -151,6 +156,19 @@ export default function WorkbenchExperience({
     openHome: handleOpenHome,
     openModule: handleOpenRegisteredWorkbenchView,
   } = navigationController
+
+  // Register the shell history push callback so that entering/exiting a patch
+  // editor from anywhere (AuthoringRuntime, command intent, etc.) pushes a
+  // first-class shell history entry.
+  useEffect(() => {
+    if (!activeModuleId) {
+      registerPatchNavigateFn(() => {})
+      return
+    }
+    registerPatchNavigateFn((patchId) => {
+      pushLocation({ kind: 'module', moduleId: activeModuleId, patchId })
+    })
+  }, [activeModuleId, pushLocation])
 
   const [playerAppearanceWindowOpen, setPlayerAppearanceWindowOpen] = useState(false)
   const [playerAppearanceWindowNonce, setPlayerAppearanceWindowNonce] = useState(0)
@@ -251,10 +269,6 @@ export default function WorkbenchExperience({
     [cpMaker.activeDraft, cpMaker.drafts, cpMaker.patchCountByWorkspace, cpMaker.dirtyPatchIds, cpMaker.isDirty],
   )
   const editModeView = activeModuleRegistration
-
-  useEffect(() => {
-    resetNavigation()
-  }, [activeModuleId, resetNavigation])
 
   const openAppearanceWindow = useCallback(() => {
     setPlayerAppearanceWindowNonce((current) => current + 1)

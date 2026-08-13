@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
+  ArrowLeft,
   Check,
   ChevronDown,
   FileInput,
@@ -21,6 +22,7 @@ import { MapViewport } from '@entities/map'
 import { useEditorCopy, useMapAuthoringCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { useEditModeStore } from '../../../model/editModeStore'
 import { useAssetLibraryFocusStore } from '@shared/lib/app-state/assetLibraryFocusStore'
 import { useNotificationPublisher } from '@shared/ui/notifications'
 import { mapCatalogCategory } from '../state/mapAuthoringCatalog'
@@ -240,6 +242,7 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
   const patchCopy = useEditorCopy().studioDesk.configSchemaDialog
   const authoringCopy = useMapAuthoringCopy()
   const expertMode = useEditorModeStore((state) => state.expertMode)
+  const navigateToPatch = useEditModeStore((state) => state.navigateToPatch)
   const project = useWorkbenchProject()
   const environment = useWorkbenchEnvironment()
   const copyRef = useRef(copy)
@@ -562,6 +565,15 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
     <div className="map-patch-page">
       <div className="map-patch-canvas-area">
         <nav className="map-patch-canvas-toolbar">
+          <button
+            type="button"
+            className="icon-button h-8 w-8"
+            title={copy.returnToLibrary}
+            aria-label={copy.returnToLibrary}
+            onClick={() => navigateToPatch(null)}
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          </button>
           <span className="map-patch-target-name">{target.replace(/^Maps\//iu, '')}</span>
           <span className="spacer" />
           <div className="map-patch-preview-switch" role="group" aria-label={copy.previewTitle}>

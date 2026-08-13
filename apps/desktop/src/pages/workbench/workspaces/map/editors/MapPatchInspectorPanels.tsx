@@ -1,36 +1,21 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, ArrowRight, Code2, Crosshair, Loader2, Map as MapIcon, MapPin, Plus, Trash2 } from 'lucide-react'
-import type { MapDocument } from '@entities/map'
-import { MapViewport } from '@entities/map'
+import { ArrowRight, Code2, Crosshair, Map as MapIcon, MapPin, Plus, Trash2 } from 'lucide-react'
+import {
+  MAP_PROPERTY_CATEGORY_KEYS,
+  MAP_PROPERTY_CATEGORY_ORDER,
+  mapPropertyCategory,
+  type MapDocument,
+  type MapPropertyCategory,
+} from '@entities/map'
 import { ResourcePicker, type ResourceBrowserOption } from '@features/resource-browser'
 import type { LocaleCode, ThemeMode } from '@locales/api'
 import { useEditorCopy } from '@locales/provider'
 import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
 import { cx } from '@shared/lib/helper'
 import { TEXT_OPERATION_PRESETS } from '../model/mapPresets'
+import { WarpDestinationPointPicker } from '../ui/WarpDestinationPointPicker'
 
 export type MapWarpValue = { fromX: number; fromY: number; toMap: string; toX: number; toY: number }
-
-type MapPropertyCategory = 'map' | 'warps' | 'lighting' | 'music' | 'spawning' | 'buildings' | 'other'
-
-const MAP_PROPERTY_KEYS: Record<Exclude<MapPropertyCategory, 'other'>, readonly string[]> = {
-  map: ['Outdoors', 'LocationContext', 'IsFarm', 'FarmType', 'TreatAsOutdoors', 'CanPlantTrees', 'CanPlaceFurniture'],
-  warps: ['Warp', 'NPCWarp', 'Doors', 'EntryAction', 'TouchAction'],
-  lighting: ['AmbientLight', 'Light', 'WindowLight', 'DayTiles', 'NightTiles'],
-  music: ['Music', 'MusicContext', 'AmbientSound'],
-  spawning: ['NoSpawn', 'Spawnable', 'SpawnTreasure', 'ForageSpawn', 'Diggable'],
-  buildings: ['Buildings', 'FarmHouse', 'Greenhouse', 'Cellar', 'SpouseRooms'],
-}
-
-const MAP_PROPERTY_CATEGORY_ORDER: readonly MapPropertyCategory[] = ['map', 'warps', 'lighting', 'music', 'spawning', 'buildings', 'other']
-
-function mapPropertyCategory(key: string): MapPropertyCategory {
-  const normalized = key.trim().toLowerCase()
-  for (const [category, keys] of Object.entries(MAP_PROPERTY_KEYS) as Array<[Exclude<MapPropertyCategory, 'other'>, readonly string[]]>) {
-    if (keys.some((candidate) => candidate.toLowerCase() === normalized)) return category
-  }
-  return 'other'
-}
 
 type PropertyEntry = {
   key: string
@@ -107,7 +92,7 @@ export function MapPropertiesEditor({
               <option value="">{copy.chooseQuickProperty}</option>
               {MAP_PROPERTY_CATEGORY_ORDER.filter((category) => category !== 'other').map((category) => (
                 <optgroup key={category} label={copy.mapPropertyCategories[category]}>
-                  {MAP_PROPERTY_KEYS[category as Exclude<MapPropertyCategory, 'other'>].map((key) => (
+                  {MAP_PROPERTY_CATEGORY_KEYS[category as Exclude<MapPropertyCategory, 'other'>].map((key) => (
                     <option key={key} value={key} disabled={entries.some((entry) => entry.key.trim() === key)}>
                       {copy.mapPropertyLabel(key)}
                     </option>
@@ -583,74 +568,5 @@ export function MapWarpsEditor({
         </div>
       ) : null}
     </div>
-  )
-}
-
-type WarpDestinationLoadState =
-  | { status: 'loading'; document: null; error: null }
-  | { status: 'ready'; document: MapDocument; error: null }
-  | { status: 'error'; document: null; error: string }
-
-function WarpDestinationPointPicker({
-  target,
-  locale,
-  theme,
-  accentColor,
-  loadTargetDocument,
-  onPick,
-}: {
-  target: string
-  locale: LocaleCode
-  theme: ThemeMode
-  accentColor: string
-  loadTargetDocument: (target: string) => Promise<MapDocument>
-  onPick: (x: number, y: number) => void
-}) {
-  const copy = useEditorCopy().studioDesk.mapPatchEditor
-  const [state, setState] = useState<WarpDestinationLoadState>({ status: 'loading', document: null, error: null })
-
-  useEffect(() => {
-    let current = true
-    setState({ status: 'loading', document: null, error: null })
-    void loadTargetDocument(target)
-      .then((document) => {
-        if (current) setState({ status: 'ready', document, error: null })
-      })
-      .catch((error: unknown) => {
-        if (current) setState({ status: 'error', document: null, error: error instanceof Error ? error.message : String(error) })
-      })
-    return () => {
-      current = false
-    }
-  }, [loadTargetDocument, target])
-
-  return (
-    <section className="map-warp-destination-picker">
-      <header>
-        <strong>{copy.destinationPreview(target)}</strong>
-        <span>{copy.pickWarpDestinationHint}</span>
-      </header>
-      {state.status === 'ready' ? (
-        <MapViewport
-          locale={locale}
-          mapDocument={state.document}
-          visibleLayerIds={state.document.layers.map((layer) => layer.id)}
-          visibleObjectGroupIds={state.document.objectGroups.map((group) => group.id)}
-          includeHiddenLayers={state.document.layers.every((layer) => !layer.visible)}
-          theme={theme}
-          accentColor={accentColor}
-          showGrid
-          showStatsChips={false}
-          contextMenuEnabled={false}
-          onTileClick={onPick}
-          selectedTileRect={null}
-        />
-      ) : (
-        <div className={cx('map-warp-destination-state', state.status === 'error' && 'is-error')}>
-          {state.status === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertCircle className="h-4 w-4" />}
-          <span>{state.status === 'loading' ? copy.loadingMap : state.error}</span>
-        </div>
-      )}
-    </section>
   )
 }

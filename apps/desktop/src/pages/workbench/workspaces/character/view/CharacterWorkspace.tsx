@@ -1,4 +1,3 @@
-import { getActorSpriteFrameHeight } from '@entities/event'
 import {
   CharacterBreathingCanvas,
   CharacterWalkCycleGrid,
@@ -9,6 +8,7 @@ import {
   type CharacterVisualAssetState,
   type CharacterWorkspaceEntry,
 } from '@entities/character'
+import { getActorSpriteFrameHeight } from '@entities/event'
 import { useCharactersCopy } from '@locales/provider'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { getScaleUpFrameCount, getScaleUpFramePreviewMetrics } from '@pages/workbench/workspaces/mod'

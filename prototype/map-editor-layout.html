@@ -1,0 +1,1603 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>地图编辑器布局提案 v6</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --divider: #e6e6eb;
+        --text: #2c2c30;
+        --text-dim: #8a8a92;
+        --accent: #5b6cff;
+        --accent-soft: #eef0ff;
+        --hover: #f4f4f7;
+        --danger: #d64545;
+        --warn: #b97a1a;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        font:
+          13px/1.5 -apple-system,
+          'Segoe UI',
+          'Microsoft YaHei',
+          sans-serif;
+        color: var(--text);
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .proto-note {
+        padding: 6px 14px;
+        border-bottom: 1px solid var(--divider);
+        background: #fafafa;
+        font-size: 12px;
+        color: var(--text-dim);
+        flex: none;
+      }
+
+      .app {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .body {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 216px minmax(0, 1fr) 280px;
+        min-height: 0;
+      }
+
+      .icon-btn {
+        width: 28px;
+        height: 28px;
+        border: none;
+        background: transparent;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: var(--text);
+        font-size: 15px;
+      }
+      .icon-btn:hover {
+        background: var(--hover);
+      }
+      .icon-btn:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .btn {
+        height: 28px;
+        padding: 0 12px;
+        border-radius: 8px;
+        border: 1px solid var(--divider);
+        background: #fff;
+        cursor: pointer;
+        font-size: 12px;
+        color: var(--text);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .btn:hover {
+        background: var(--hover);
+      }
+      .btn-primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+
+      /* ---------- 顶栏 ---------- */
+      .hdr {
+        height: 46px;
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--divider);
+        background: var(--bg);
+      }
+      .hdr .title {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.25;
+        min-width: 0;
+      }
+      .hdr .title strong {
+        font-size: 13px;
+      }
+      .hdr .title span {
+        font-size: 11px;
+        color: var(--text-dim);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .hdr .save-status {
+        font-size: 12px;
+        color: var(--text-dim);
+        margin-left: 8px;
+      }
+      .hdr .spacer {
+        flex: 1;
+      }
+
+      /* ---------- 左栏：图层 + 历史 ---------- */
+      .panel {
+        background: var(--bg);
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .layers {
+        border-right: 1px solid var(--divider);
+      }
+      .inspector {
+        border-left: 1px solid var(--divider);
+      }
+
+      .panel-toolbar {
+        height: 36px;
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        padding: 0 8px;
+        border-bottom: 1px solid var(--divider);
+      }
+      .panel-toolbar .lbl {
+        font-size: 12px;
+        color: var(--text-dim);
+        padding: 0 4px;
+      }
+      .panel-toolbar .spacer {
+        flex: 1;
+      }
+      .panel-toolbar .icon-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 13px;
+      }
+
+      .layers-pane {
+        flex: 1.3;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .layer-list {
+        flex: 1;
+        overflow: auto;
+        padding: 4px;
+      }
+      .layer-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 8px;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .layer-row:hover {
+        background: var(--hover);
+      }
+      .layer-row.is-active {
+        background: var(--accent-soft);
+      }
+      .layer-row .thumb {
+        width: 28px;
+        height: 28px;
+        flex: none;
+        border-radius: 6px;
+        border: 1px solid var(--divider);
+        background:
+          linear-gradient(45deg, #f0f0f3 25%, transparent 25%, transparent 75%, #f0f0f3 75%),
+          linear-gradient(45deg, #f0f0f3 25%, transparent 25%, transparent 75%, #f0f0f3 75%) 6px 6px / 12px 12px,
+          #fff;
+      }
+      .layer-row .meta {
+        min-width: 0;
+        flex: 1;
+      }
+      .layer-row .meta b {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .layer-row .meta small {
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+      .layer-row .row-actions {
+        display: none;
+        gap: 2px;
+        flex: none;
+      }
+      .layer-row:hover .row-actions {
+        display: inline-flex;
+      }
+      .layer-row .row-actions .icon-btn {
+        width: 22px;
+        height: 22px;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .layer-row .vis {
+        flex: none;
+        color: var(--text-dim);
+        font-size: 12px;
+      }
+      .layer-row.is-hidden .vis,
+      .layer-row.is-hidden .meta {
+        opacity: 0.35;
+      }
+
+      /* 历史：左栏下半 */
+      .history {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        border-top: 1px solid var(--divider);
+        position: relative;
+      }
+      .history-split {
+        position: absolute;
+        top: -3px;
+        left: 0;
+        right: 0;
+        height: 6px;
+        cursor: row-resize;
+        z-index: 6;
+      }
+      .history-split:hover {
+        background: rgb(91 108 255 / 0.18);
+      }
+      .history-list {
+        flex: 1;
+        overflow: auto;
+        padding: 4px;
+      }
+      .hist-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 8px;
+        border-radius: 7px;
+        cursor: pointer;
+        font-size: 11.5px;
+      }
+      .hist-row:hover {
+        background: var(--hover);
+      }
+      .hist-row .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--divider);
+        flex: none;
+      }
+      .hist-row.is-current .dot {
+        background: var(--accent);
+      }
+      .hist-row .txt {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .hist-row.is-future {
+        opacity: 0.4;
+      }
+      .hist-row .undo-to {
+        display: none;
+        color: var(--accent);
+        font-size: 11px;
+        flex: none;
+      }
+      .hist-row:hover .undo-to {
+        display: inline;
+      }
+
+      /* ---------- 画布区 ---------- */
+      .stage {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        background: #f7f7f9;
+      }
+      .canvas {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-image: linear-gradient(#eeeef2 1px, transparent 1px), linear-gradient(90deg, #eeeef2 1px, transparent 1px);
+        background-size: 48px 48px;
+      }
+      .mock-map {
+        width: 340px;
+        height: 500px;
+        border-radius: 6px;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(180deg, #6b4a2f 0 22%, #8a5f3c 22% 24%, #a9743f 24% 100%);
+        box-shadow: 0 8px 30px rgb(0 0 0 / 0.18);
+        outline: 1px solid rgb(0 0 0 / 0.25);
+      }
+      .mock-map .room {
+        position: absolute;
+        border-radius: 4px;
+      }
+      .mock-map .r1 {
+        inset: 10% 8% 66% 8%;
+        background: #5d4030;
+      }
+      .mock-map .r2 {
+        inset: 38% 14% 34% 14%;
+        background: #7d5535;
+      }
+      .mock-map .r3 {
+        inset: 70% 20% 8% 20%;
+        background: #96683d;
+      }
+      .mock-map .warp-marker {
+        position: absolute;
+        left: 46%;
+        bottom: 2%;
+        width: 34px;
+        height: 22px;
+        border: 2px dashed var(--accent);
+        border-radius: 4px;
+        background: rgb(91 108 255 / 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        color: var(--accent);
+        font-weight: 700;
+      }
+
+      .float-chip {
+        position: absolute;
+        background: #fff;
+        border: 1px solid var(--divider);
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgb(0 0 0 / 0.06);
+        display: flex;
+        align-items: center;
+        z-index: 5;
+      }
+      .tools {
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        flex-direction: column;
+        gap: 2px;
+        padding: 4px;
+      }
+      .tools .icon-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 15px;
+      }
+      .tools .icon-btn.is-active {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .tools .sep {
+        width: 18px;
+        height: 1px;
+        background: var(--divider);
+        margin: 3px auto;
+      }
+      .season-pill {
+        left: 50%;
+        top: 12px;
+        transform: translateX(-50%);
+        padding: 3px;
+        gap: 2px;
+      }
+      .season-pill .icon-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+      }
+      .season-pill .sep-v {
+        width: 1px;
+        height: 18px;
+        background: var(--divider);
+        margin: 0 3px;
+      }
+      .season-pill .seg {
+        display: flex;
+        gap: 2px;
+      }
+      .season-pill .seg button {
+        border: none;
+        background: transparent;
+        border-radius: 7px;
+        padding: 4px 9px;
+        font-size: 12px;
+        cursor: pointer;
+        color: var(--text);
+      }
+      .season-pill .seg button.is-active {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .zoom-chip {
+        right: 14px;
+        bottom: 14px;
+        padding: 3px 6px;
+        gap: 4px;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .zoom-chip .icon-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 13px;
+      }
+
+      /* ---------- 物件选择：悬浮面板 ---------- */
+      .stamp-float {
+        position: absolute;
+        right: 14px;
+        top: 56px;
+        width: 252px;
+        z-index: 7;
+        background: #fff;
+        border: 1px solid var(--divider);
+        border-radius: 12px;
+        box-shadow: 0 8px 28px rgb(0 0 0 / 0.12);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        max-height: calc(100% - 120px);
+      }
+      /* tab 互斥：hidden 必须压过任何 display 规则，防止两个面板同时显示 */
+      .sf-body[hidden] {
+        display: none !important;
+      }
+      .stamp-float .sf-head {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 10px;
+        border-bottom: 1px solid var(--divider);
+        cursor: grab;
+        user-select: none;
+        background: #fafafa;
+        flex: none;
+      }
+      .stamp-float .sf-head:active {
+        cursor: grabbing;
+      }
+      .stamp-float .sf-head .grip {
+        color: var(--text-dim);
+        font-size: 11px;
+        letter-spacing: 1px;
+      }
+      .stamp-float .sf-head .spacer {
+        flex: 1;
+      }
+      .stamp-float .sf-head .icon-btn {
+        width: 22px;
+        height: 22px;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .sf-mode {
+        display: flex;
+        gap: 2px;
+        background: var(--hover);
+        border-radius: 8px;
+        padding: 2px;
+        flex: 1;
+      }
+      .sf-mode button {
+        flex: 1;
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        padding: 3px 0;
+        font-size: 12px;
+        cursor: pointer;
+        color: var(--text-dim);
+        white-space: nowrap;
+      }
+      .sf-mode button.is-active {
+        background: #fff;
+        color: var(--text);
+        font-weight: 600;
+        box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+      }
+      /* min-height 兜底：任何情况下 body 都不能塌成只剩标题栏的空 pill */
+      .sf-body {
+        flex: 1;
+        overflow: auto;
+        padding: 8px 10px 10px;
+        min-height: 300px;
+      }
+
+      .recent-strip {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-bottom: 8px;
+        overflow-x: auto;
+        padding-bottom: 2px;
+      }
+      .recent-strip > .lbl {
+        font-size: 11px;
+        color: var(--text-dim);
+        flex: none;
+      }
+      .recent-strip .obj-card {
+        flex: none;
+        width: 48px;
+        padding: 4px 2px 2px;
+      }
+      .recent-strip .obj-card .name {
+        display: none;
+      }
+      .recent-strip .obj-card .preview {
+        width: 36px;
+        height: 30px;
+      }
+      .obj-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 6px;
+      }
+      .obj-card {
+        border: 1px solid var(--divider);
+        border-radius: 9px;
+        background: #fff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 5px 4px 3px;
+        cursor: pointer;
+        position: relative;
+        gap: 2px;
+      }
+      .obj-card:hover {
+        border-color: var(--accent);
+      }
+      .obj-card.is-sel {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .obj-card .preview {
+        width: 100%;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .obj-card .preview .px {
+        border-radius: 2px;
+        box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15);
+      }
+      .obj-card .name {
+        font-size: 10.5px;
+        color: var(--text-dim);
+        max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .obj-card.is-sel .name {
+        color: var(--accent);
+      }
+      .obj-card .fp {
+        position: absolute;
+        top: 3px;
+        right: 3px;
+        font-size: 9.5px;
+        line-height: 1;
+        background: rgb(0 0 0 / 0.55);
+        color: #fff;
+        border-radius: 4px;
+        padding: 2px 4px;
+      }
+      .group-label {
+        font-size: 11px;
+        color: var(--text-dim);
+        margin: 6px 0 4px;
+      }
+
+      /* 自由框选（悬浮面板内） */
+      .sf-sheet-bar {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: 6px;
+      }
+      .ts-thumb {
+        height: 22px;
+        padding: 0 8px;
+        border-radius: 6px;
+        border: 1px solid var(--divider);
+        background: #fff;
+        font-size: 11px;
+        color: var(--text-dim);
+        cursor: pointer;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 96px;
+      }
+      .ts-thumb.is-active {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .sf-sheet-bar .zoom-inline {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+      .sf-sheet-bar .zoom-inline .icon-btn {
+        width: 20px;
+        height: 20px;
+        font-size: 12px;
+      }
+      .sf-sheet-scroll {
+        height: 208px;
+        overflow: auto;
+        border: 1px solid var(--divider);
+        border-radius: 8px;
+        background:
+          linear-gradient(45deg, #f2f2f5 25%, transparent 25%, transparent 75%, #f2f2f5 75%) 0 0 / 12px 12px,
+          linear-gradient(45deg, #f2f2f5 25%, transparent 25%, transparent 75%, #f2f2f5 75%) 6px 6px / 12px 12px,
+          #fff;
+      }
+      .sf-sheet-mock {
+        width: 320px;
+        height: 460px;
+        position: relative;
+        background-image:
+          linear-gradient(rgb(0 0 0 / 0.06) 1px, transparent 1px), linear-gradient(90deg, rgb(0 0 0 / 0.06) 1px, transparent 1px);
+        background-size: 20px 20px;
+      }
+      .sf-sheet-mock .blob {
+        position: absolute;
+        border-radius: 2px;
+        box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.2);
+      }
+      .sf-sheet-mock .sel-rect {
+        position: absolute;
+        border: 2px solid var(--accent);
+        background: rgb(91 108 255 / 0.12);
+        border-radius: 2px;
+      }
+      .sf-sheet-mock .sel-rect .fp-tag {
+        position: absolute;
+        right: -2px;
+        bottom: -18px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 10px;
+        border-radius: 4px;
+        padding: 1px 5px;
+        white-space: nowrap;
+      }
+      .sf-sheet-actions {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-top: 6px;
+      }
+      .sf-sheet-actions .cur {
+        font-size: 12px;
+        flex: 1;
+        white-space: nowrap;
+      }
+      .sf-sheet-actions .btn {
+        height: 26px;
+        padding: 0 8px;
+        font-size: 11.5px;
+        white-space: nowrap;
+      }
+
+      /* ---------- 检查器 ---------- */
+      .subtabs {
+        display: flex;
+        gap: 2px;
+        flex: none;
+        padding: 8px;
+        border-bottom: 1px solid var(--divider);
+      }
+      .subtabs button {
+        border: none;
+        background: none;
+        border-radius: 7px;
+        padding: 4px 12px;
+        font-size: 12px;
+        cursor: pointer;
+        color: var(--text-dim);
+      }
+      .subtabs button.is-active {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .inspector-body {
+        flex: 1;
+        overflow: auto;
+        padding: 10px 12px 14px;
+        min-height: 0;
+        display: none;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .inspector-body.is-active {
+        display: flex;
+      }
+
+      .insp-section {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .insp-section > .sec-head {
+        display: flex;
+        align-items: center;
+      }
+      .insp-section > .sec-head > span {
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+      .sec-tip {
+        font-size: 11px;
+        color: var(--text-dim);
+        line-height: 1.45;
+      }
+
+      .entry-card {
+        border: 1px solid var(--divider);
+        border-radius: 9px;
+        padding: 7px 9px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        position: relative;
+      }
+      .entry-card:hover {
+        border-color: #cfcfd8;
+      }
+      .entry-card .ic {
+        flex: none;
+        font-size: 14px;
+      }
+      .entry-card .txt {
+        min-width: 0;
+        flex: 1;
+        line-height: 1.35;
+      }
+      .entry-card .txt b {
+        font-size: 12px;
+        font-weight: 600;
+        display: block;
+      }
+      .entry-card .txt small {
+        font-size: 11px;
+        color: var(--text-dim);
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .entry-card .del {
+        display: none;
+        width: 22px;
+        height: 22px;
+        font-size: 12px;
+        color: var(--text-dim);
+        flex: none;
+      }
+      .entry-card:hover .del {
+        display: inline-flex;
+      }
+      .entry-card .del:hover {
+        color: var(--danger);
+      }
+      .add-ghost {
+        height: 28px;
+        border: 1px dashed var(--divider);
+        border-radius: 8px;
+        background: none;
+        color: var(--text-dim);
+        font-size: 11.5px;
+        cursor: pointer;
+      }
+      .add-ghost:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .swap-pair {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex: none;
+      }
+      .swap-tile {
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        border: 1px solid var(--divider);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 9px;
+        color: #fff;
+      }
+      .swap-arrow {
+        color: var(--text-dim);
+        font-size: 12px;
+      }
+      .light-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .light-swatch {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        border: 1px solid var(--divider);
+        cursor: pointer;
+        background: rgb(95 95 95);
+      }
+      .light-presets {
+        display: flex;
+        gap: 4px;
+      }
+      .light-presets button {
+        border: 1px solid var(--divider);
+        background: #fff;
+        border-radius: 6px;
+        padding: 3px 8px;
+        font-size: 11px;
+        cursor: pointer;
+        color: var(--text-dim);
+      }
+      .light-presets button.is-active {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-soft);
+      }
+
+      .cell-loc {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--divider);
+        border-radius: 9px;
+        padding: 7px 9px;
+      }
+      .cell-loc .mini-map {
+        width: 34px;
+        height: 34px;
+        border-radius: 6px;
+        border: 1px solid var(--divider);
+        position: relative;
+        background: linear-gradient(180deg, #6b4a2f 0 30%, #a9743f 30% 100%);
+      }
+      .cell-loc .mini-map::after {
+        content: '';
+        position: absolute;
+        left: 60%;
+        top: 45%;
+        width: 6px;
+        height: 6px;
+        border-radius: 2px;
+        background: var(--accent);
+        box-shadow: 0 0 0 2px #fff;
+      }
+      .cell-loc .txt {
+        flex: 1;
+      }
+      .cell-loc .txt b {
+        font-size: 12px;
+        display: block;
+      }
+      .cell-loc .txt small {
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+      .chip-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+      .chip {
+        border: 1px solid var(--divider);
+        background: #fff;
+        border-radius: 999px;
+        padding: 4px 11px;
+        font-size: 11.5px;
+        cursor: pointer;
+        color: var(--text-dim);
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .chip.is-on {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .chip.is-on::before {
+        content: '✓';
+        font-size: 10px;
+      }
+
+      /* 对象列表（回到检查器） */
+      .obj-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border: 1px solid var(--divider);
+        border-radius: 9px;
+        cursor: pointer;
+      }
+      .obj-row:hover {
+        border-color: #cfcfd8;
+      }
+      .obj-row .ic {
+        font-size: 14px;
+        flex: none;
+      }
+      .obj-row .txt {
+        flex: 1;
+        min-width: 0;
+        line-height: 1.3;
+      }
+      .obj-row .txt b {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .obj-row .txt small {
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+      .obj-row .row-actions {
+        display: none;
+        gap: 2px;
+        flex: none;
+      }
+      .obj-row:hover .row-actions {
+        display: inline-flex;
+      }
+      .obj-row .row-actions .icon-btn {
+        width: 22px;
+        height: 22px;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+
+      /* 检查区：属性面板下半 */
+      .diagnostics {
+        flex: none;
+        border-top: 1px solid var(--divider);
+        display: flex;
+        flex-direction: column;
+        max-height: 40%;
+      }
+      .diag-head {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 12px;
+        cursor: pointer;
+        user-select: none;
+        flex: none;
+      }
+      .diag-head .lbl {
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+      .diag-badge {
+        font-size: 10px;
+        border-radius: 999px;
+        padding: 1px 7px;
+        background: #fdf3e3;
+        color: var(--warn);
+        font-weight: 600;
+      }
+      .diag-badge.err {
+        background: #fbe9e9;
+        color: var(--danger);
+      }
+      .diag-head .diag-rerun {
+        width: 22px;
+        height: 22px;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .diag-foot {
+        padding: 0 12px 8px;
+        font-size: 10.5px;
+        color: var(--text-dim);
+        flex: none;
+      }
+      .diag-empty {
+        padding: 10px 12px 12px;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .diagnostics.flash {
+        animation: diagFlash 1s ease-out;
+      }
+      @keyframes diagFlash {
+        0% {
+          box-shadow: inset 0 0 0 2px var(--accent);
+        }
+        100% {
+          box-shadow: inset 0 0 0 2px transparent;
+        }
+      }
+      .diag-head .caret {
+        margin-left: auto;
+        font-size: 10px;
+        color: var(--text-dim);
+      }
+      .diag-list {
+        overflow: auto;
+        padding: 0 8px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .diag-list[hidden] {
+        display: none !important;
+      }
+      .diag-row {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 5px 7px;
+        border-radius: 7px;
+        font-size: 11.5px;
+        cursor: pointer;
+      }
+      .diag-row:hover {
+        background: var(--hover);
+      }
+      .diag-row .ic {
+        flex: none;
+        font-size: 12px;
+      }
+      .diag-row .txt {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .diag-row .go {
+        color: var(--accent);
+        font-size: 11px;
+        flex: none;
+      }
+
+      .raw-toggle {
+        margin-top: auto;
+        border: none;
+        background: none;
+        text-align: left;
+        font-size: 11px;
+        color: var(--text-dim);
+        cursor: pointer;
+        padding: 6px 2px 0;
+      }
+      .raw-toggle:hover {
+        color: var(--text);
+      }
+
+      /* ---------- 状态栏 ---------- */
+      .statusbar {
+        height: 26px;
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 0 12px;
+        border-top: 1px solid var(--divider);
+        font-size: 11.5px;
+        color: var(--text-dim);
+        background: var(--bg);
+      }
+      .statusbar .spacer {
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="proto-note">
+      v6.4：检查区重做——错误/警告/提示三级分级（badge
+      分红黄计数）、条目可定位、头部加「重新检查」、底部标注「保存时自动重新检查」；顶栏「检查格式」点击后展开检查区并闪烁定位。空态为「✓
+      没有发现问题」。
+    </div>
+
+    <div class="app">
+      <header class="hdr">
+        <button class="icon-btn" title="返回素材库">←</button>
+        <div class="title">
+          <strong>AdventureGuild</strong>
+          <span>assets/maps/AdventureGuild.tmx</span>
+        </div>
+        <span class="save-status">已保存</span>
+        <div class="spacer"></div>
+        <button class="btn" onclick="openDiag()">✓ 检查格式</button>
+        <button class="btn btn-primary">保存地图</button>
+      </header>
+
+      <div class="body">
+        <!-- 左栏：图层 + 历史 -->
+        <aside class="panel layers">
+          <div class="layers-pane">
+            <div class="panel-toolbar">
+              <span class="lbl">图层 · 5</span>
+              <div class="spacer"></div>
+              <button class="icon-btn" title="新增图层">＋</button>
+            </div>
+            <div class="layer-list">
+              <div class="layer-row">
+                <div class="thumb"></div>
+                <div class="meta"><b>Front2</b><small>17 格</small></div>
+                <span class="row-actions"
+                  ><button class="icon-btn">▲</button><button class="icon-btn">▼</button><button class="icon-btn">🔓</button
+                  ><button class="icon-btn">⋯</button></span
+                ><span class="vis">👁</span>
+              </div>
+              <div class="layer-row">
+                <div class="thumb"></div>
+                <div class="meta"><b>Front</b><small>90 格</small></div>
+                <span class="row-actions"
+                  ><button class="icon-btn">▲</button><button class="icon-btn">▼</button><button class="icon-btn">🔓</button
+                  ><button class="icon-btn">⋯</button></span
+                ><span class="vis">👁</span>
+              </div>
+              <div class="layer-row is-hidden">
+                <div class="thumb"></div>
+                <div class="meta"><b>Buildings2</b><small>1 格</small></div>
+                <span class="row-actions"
+                  ><button class="icon-btn">▲</button><button class="icon-btn">▼</button><button class="icon-btn">🔓</button
+                  ><button class="icon-btn">⋯</button></span
+                ><span class="vis">👁</span>
+              </div>
+              <div class="layer-row">
+                <div class="thumb"></div>
+                <div class="meta"><b>Buildings</b><small>178 格</small></div>
+                <span class="row-actions"
+                  ><button class="icon-btn">▲</button><button class="icon-btn">▼</button><button class="icon-btn">🔓</button
+                  ><button class="icon-btn">⋯</button></span
+                ><span class="vis">👁</span>
+              </div>
+              <div class="layer-row is-active">
+                <div class="thumb"></div>
+                <div class="meta"><b>Back</b><small>280 格</small></div>
+                <span class="row-actions"
+                  ><button class="icon-btn">▲</button><button class="icon-btn">▼</button><button class="icon-btn">🔓</button
+                  ><button class="icon-btn">⋯</button></span
+                ><span class="vis">👁</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="history">
+            <div class="history-split" title="拖拽调整比例"></div>
+            <div class="panel-toolbar">
+              <span class="lbl">历史</span>
+              <div class="spacer"></div>
+              <button class="icon-btn" title="撤销">↩</button>
+              <button class="icon-btn" title="重做">↪</button>
+            </div>
+            <div class="history-list">
+              <div class="hist-row"><span class="dot"></span><span class="txt">打开地图</span></div>
+              <div class="hist-row"><span class="dot"></span><span class="txt">画笔 · Back (12, 9)</span></div>
+              <div class="hist-row"><span class="dot"></span><span class="txt">放置物件 柜台 4×2</span></div>
+              <div class="hist-row"><span class="dot"></span><span class="txt">橡皮 · Front (3, 1)</span></div>
+              <div class="hist-row is-current"><span class="dot"></span><span class="txt">填充 · Back 区域</span></div>
+              <div class="hist-row is-future">
+                <span class="dot"></span><span class="txt">画笔 · Buildings (7, 2)</span><span class="undo-to">回到这步</span>
+              </div>
+              <div class="hist-row is-future">
+                <span class="dot"></span><span class="txt">修改环境光</span><span class="undo-to">回到这步</span>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- 中：画布 -->
+        <section class="stage">
+          <div class="canvas">
+            <div class="mock-map">
+              <div class="room r1"></div>
+              <div class="room r2"></div>
+              <div class="room r3"></div>
+              <div class="warp-marker" title="走出 (6, 20) → Mountain (76, 9)">⇥</div>
+            </div>
+          </div>
+
+          <div class="tools float-chip">
+            <button class="icon-btn is-active" title="选择 (I)">➤</button>
+            <button class="icon-btn" title="画笔 (B)">🖌</button>
+            <button class="icon-btn" title="橡皮 (E)">⌫</button>
+            <button class="icon-btn" title="填充 (F)">🪣</button>
+            <button class="icon-btn" title="矩形 (R)">▭</button>
+            <button class="icon-btn" title="取色 (D)">💧</button>
+            <div class="sep"></div>
+            <button class="icon-btn" title="平移 (H)">✋</button>
+            <button class="icon-btn" title="网格">⊞</button>
+            <div class="sep"></div>
+            <button class="icon-btn is-active" id="stampToggle" title="物件选择" onclick="toggleStamp()">▦</button>
+          </div>
+
+          <div class="season-pill float-chip">
+            <button class="icon-btn" title="白天">☀</button>
+            <button class="icon-btn" title="黄昏">🌇</button>
+            <button class="icon-btn" title="夜晚">🌙</button>
+            <span class="sep-v"></span>
+            <span class="seg"><button class="is-active">春</button><button>夏</button><button>秋</button><button>冬</button></span>
+          </div>
+
+          <div class="zoom-chip float-chip">
+            <button class="icon-btn">−</button><span>100%</span><button class="icon-btn">＋</button>
+            <button class="icon-btn" title="适配窗口">⛶</button>
+          </div>
+
+          <!-- 物件选择：悬浮面板 -->
+          <div class="stamp-float" id="stampFloat">
+            <div class="sf-head" id="stampDragHandle">
+              <span class="grip">⠿</span>
+              <div class="sf-mode">
+                <button id="modeObj" class="is-active" onclick="setMode('obj')">物件</button>
+                <button id="modeSheet" onclick="setMode('sheet')">自由框选</button>
+              </div>
+              <div class="spacer"></div>
+              <button class="icon-btn" title="关闭" onclick="toggleStamp()">✕</button>
+            </div>
+            <div class="sf-body" id="paneObj">
+              <div class="recent-strip">
+                <span class="lbl">最近</span>
+                <div class="obj-card">
+                  <span class="fp">2×3</span>
+                  <div class="preview"><div class="px" style="width: 20px; height: 26px; background: #8a5a3b"></div></div>
+                </div>
+                <div class="obj-card">
+                  <span class="fp">1×1</span>
+                  <div class="preview"><div class="px" style="width: 16px; height: 16px; background: #4d7c4e"></div></div>
+                </div>
+                <div class="obj-card">
+                  <span class="fp">3×4</span>
+                  <div class="preview"><div class="px" style="width: 24px; height: 28px; background: #7a4f68"></div></div>
+                </div>
+              </div>
+              <div class="group-label">家具 · townInterior</div>
+              <div class="obj-grid" id="objGrid"></div>
+            </div>
+            <div class="sf-body" id="paneSheet" hidden>
+              <div class="sf-sheet-bar">
+                <button class="ts-thumb is-active">townInterior</button>
+                <button class="ts-thumb">farmhouse_tiles</button>
+                <div class="zoom-inline"><button class="icon-btn">−</button><span>100%</span><button class="icon-btn">＋</button></div>
+              </div>
+              <div class="sf-sheet-scroll">
+                <div class="sf-sheet-mock" id="sfSheetMock">
+                  <div class="sel-rect" style="left: 80px; top: 60px; width: 40px; height: 60px">
+                    <span class="fp-tag">2×3</span>
+                  </div>
+                </div>
+              </div>
+              <div class="sf-sheet-actions">
+                <span class="cur">已框选 <b>2×3</b></span>
+                <button class="btn">套用为笔刷</button>
+                <button class="btn btn-primary">＋ 存为物件</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 右：检查器 -->
+        <aside class="panel inspector">
+          <nav class="subtabs">
+            <button id="subCell" onclick="setSub('cell')">单元格</button>
+            <button id="subObj" onclick="setSub('obj')">标记</button>
+            <button id="subMap" class="is-active" onclick="setSub('map')">地图</button>
+          </nav>
+
+          <div class="inspector-body is-active" id="paneMap">
+            <div class="insp-section">
+              <div class="sec-head"><span>传送入口 · 1</span></div>
+              <div class="entry-card">
+                <span class="ic">⇥</span>
+                <div class="txt"><b>Mountain</b><small>走出 (6, 20) 图底 → 落在 (76, 9)</small></div>
+                <button class="icon-btn del" title="删除">🗑</button>
+              </div>
+              <button class="add-ghost">＋ 添加入口（在画布上点选位置）</button>
+            </div>
+
+            <div class="insp-section">
+              <div class="sec-head"><span>门 · 1</span></div>
+              <div class="entry-card">
+                <span class="ic">🚪</span>
+                <div class="txt"><b>门 · (1, 9)</b><small>可开合门格；传送由 Warp 单独定义</small></div>
+                <button class="icon-btn del" title="删除">🗑</button>
+              </div>
+            </div>
+
+            <div class="insp-section">
+              <div class="sec-head"><span>光照与昼夜</span></div>
+              <div class="entry-card">
+                <span class="ic">💡</span>
+                <div class="txt"><b>局部光源 · 9 处</b><small>样式 4 ×3 · 样式 5 ×6</small></div>
+                <button class="icon-btn del" title="管理">›</button>
+              </div>
+              <div class="entry-card">
+                <div class="swap-pair">
+                  <span class="swap-tile" style="background: #8a5a3b">日</span>
+                  <span class="swap-arrow">⇄</span>
+                  <span class="swap-tile" style="background: #3a3a55">夜</span>
+                </div>
+                <div class="txt"><b>昼夜替换 · 8 组</b><small>如 Front (3, 1)：日 #256 ⇄ 夜 #1253</small></div>
+                <button class="icon-btn del" title="管理">›</button>
+              </div>
+              <div class="light-row">
+                <span class="light-swatch" title="环境光"></span>
+                <span style="font-size: 12px">环境光</span>
+                <div class="light-presets"><button>白天</button><button class="is-active">昏暗</button><button>夜晚</button></div>
+              </div>
+            </div>
+
+            <div class="insp-section">
+              <div class="sec-head"><span>音乐与环境</span></div>
+              <div class="entry-card">
+                <span class="ic">🎵</span>
+                <div class="txt"><b>室内 · 音乐默认</b><small>无 Outdoors / Music 属性</small></div>
+              </div>
+            </div>
+
+            <button class="raw-toggle">▸ 高级：查看原始属性值</button>
+          </div>
+
+          <div class="inspector-body" id="paneCell">
+            <div class="cell-loc">
+              <div class="mini-map"></div>
+              <div class="txt"><b>格子 (12, 9)</b><small>图层 Back · 图块 #288</small></div>
+            </div>
+            <span class="sec-tip">通行规则三选一；水域、钓鱼、种植是独立开关，改完立即生效。</span>
+            <div class="chip-grid" id="passGroup">
+              <button class="chip">可通行</button>
+              <button class="chip is-on">阻挡角色</button>
+              <button class="chip">阻挡 NPC</button>
+            </div>
+            <div class="chip-grid" id="flagChips">
+              <button class="chip">水域</button>
+              <button class="chip">可钓鱼</button>
+              <button class="chip">可种植</button>
+            </div>
+            <button class="raw-toggle">▸ 高级：查看原始属性值</button>
+          </div>
+
+          <div class="inspector-body" id="paneObjTab">
+            <div class="obj-row">
+              <span class="ic">📦</span>
+              <div class="txt"><b>宝箱</b><small>(8, 4) · Buildings</small></div>
+              <span class="row-actions"
+                ><button class="icon-btn" title="定位">◎</button><button class="icon-btn" title="删除">🗑</button></span
+              >
+            </div>
+            <div class="obj-row">
+              <span class="ic">📖</span>
+              <div class="txt"><b>书桌交互点</b><small>(11, 7) · Buildings</small></div>
+              <span class="row-actions"><button class="icon-btn">◎</button><button class="icon-btn">🗑</button></span>
+            </div>
+            <div class="obj-row">
+              <span class="ic">🛏</span>
+              <div class="txt"><b>床铺</b><small>(3, 14) · Back</small></div>
+              <span class="row-actions"><button class="icon-btn">◎</button><button class="icon-btn">🗑</button></span>
+            </div>
+            <button class="add-ghost">＋ 添加标记（右键画布格子）</button>
+          </div>
+
+          <!-- 检查区：下半截 -->
+          <div class="diagnostics">
+            <div class="diag-head" onclick="toggleDiag()">
+              <span class="lbl">检查</span>
+              <span class="diag-badge err">1 错误</span>
+              <span class="diag-badge">2 警告</span>
+              <span class="caret" id="diagCaret">▾</span>
+              <button class="icon-btn diag-rerun" title="重新检查" onclick="event.stopPropagation()">↻</button>
+            </div>
+            <div class="diag-list" id="diagList">
+              <div class="diag-row">
+                <span class="ic">⛔</span><span class="txt">传送落在 Mountain 地图外 (76, 9)，走过去会卡住</span
+                ><span class="go">定位 ›</span>
+              </div>
+              <div class="diag-row">
+                <span class="ic">⚠️</span><span class="txt">图层 Buildings2 只剩 1 格，建议合并进 Buildings</span
+                ><span class="go">定位 ›</span>
+              </div>
+              <div class="diag-row">
+                <span class="ic">⚠️</span><span class="txt">图块 #1253 没有夜间替换，天黑后会显示异常</span><span class="go">定位 ›</span>
+              </div>
+              <div class="diag-row"><span class="ic">💡</span><span class="txt">没有设置音乐，进入这张地图会延续上一首</span></div>
+            </div>
+            <!-- 空态：没有问题时显示「✓ 没有发现问题」替换上面的列表 -->
+            <div class="diag-foot">保存时自动重新检查</div>
+          </div>
+        </aside>
+      </div>
+
+      <footer class="statusbar">
+        <span>14 × 20 格 · 16px</span><span>Back</span>
+        <div class="spacer"></div>
+        <span>当前笔刷：柜台 4×2</span>
+        <span>12, 9</span>
+      </footer>
+    </div>
+
+    <script>
+      const objects = [
+        ['壁炉', 2, 3, '#8a5a3b'],
+        ['柜台', 4, 2, '#9c6b43'],
+        ['圆桌', 2, 2, '#7d5535'],
+        ['地毯', 3, 4, '#7a4f68'],
+        ['书架', 2, 3, '#5d4030'],
+        ['盆栽', 1, 1, '#4d7c4e'],
+        ['窗户', 1, 2, '#5d6e9e'],
+        ['挂画', 2, 1, '#8c6d4f'],
+        ['木桶', 1, 2, '#6e4f2f'],
+        ['长桌', 4, 2, '#8a6a45'],
+        ['烛台', 1, 1, '#a08c4d'],
+        ['沙发', 3, 2, '#6b4a5e'],
+      ]
+      const grid = document.getElementById('objGrid')
+      for (const [name, w, h, color] of objects) {
+        const scale = Math.min(52 / w, 38 / h)
+        const pw = Math.round(w * scale),
+          ph = Math.round(h * scale)
+        const card = document.createElement('div')
+        card.className = 'obj-card' + (name === '柜台' ? ' is-sel' : '')
+        card.innerHTML = `<span class="fp">${w}×${h}</span>
+      <div class="preview"><div class="px" style="width:${pw}px;height:${ph}px;background:${color}"></div></div>
+      <span class="name">${name}</span>`
+        grid.appendChild(card)
+      }
+
+      // 自由框选 sheet mock：混合尺寸"物件块"示意
+      const sfSheet = document.getElementById('sfSheetMock')
+      const blobs = [
+        [0, 0, 3, 2, '#8a5a3b'],
+        [4, 0, 1, 1, '#4d7c4e'],
+        [6, 0, 2, 3, '#7a4f68'],
+        [9, 0, 4, 2, '#5d6e9e'],
+        [14, 0, 2, 2, '#8c6d4f'],
+        [0, 3, 2, 2, '#7d5535'],
+        [3, 3, 1, 2, '#a08c4d'],
+        [9, 3, 3, 4, '#6b4a5e'],
+        [13, 3, 2, 1, '#77603a'],
+        [0, 6, 4, 4, '#96683d'],
+        [5, 7, 2, 2, '#5c5248'],
+        [8, 8, 2, 4, '#74455c'],
+        [11, 8, 3, 2, '#9c6b43'],
+        [0, 11, 2, 3, '#6e4f2f'],
+        [3, 12, 4, 2, '#8a6a45'],
+      ]
+      for (const [cx, cy, w, h, color] of blobs) {
+        const b = document.createElement('div')
+        b.className = 'blob'
+        b.style.cssText = `left:${cx * 20}px;top:${cy * 20}px;width:${w * 20 - 2}px;height:${h * 20 - 2}px;background:${color}`
+        sfSheet.appendChild(b)
+      }
+
+      function setMode(m) {
+        document.getElementById('modeObj').classList.toggle('is-active', m === 'obj')
+        document.getElementById('modeSheet').classList.toggle('is-active', m === 'sheet')
+        document.getElementById('paneObj').hidden = m !== 'obj'
+        document.getElementById('paneSheet').hidden = m !== 'sheet'
+      }
+
+      function setSub(s) {
+        document.getElementById('paneCell').classList.toggle('is-active', s === 'cell')
+        document.getElementById('paneMap').classList.toggle('is-active', s === 'map')
+        document.getElementById('paneObjTab').classList.toggle('is-active', s === 'obj')
+        document.getElementById('subCell').classList.toggle('is-active', s === 'cell')
+        document.getElementById('subMap').classList.toggle('is-active', s === 'map')
+        document.getElementById('subObj').classList.toggle('is-active', s === 'obj')
+      }
+
+      function toggleDiag() {
+        const list = document.getElementById('diagList')
+        const caret = document.getElementById('diagCaret')
+        const open = !list.hidden
+        list.hidden = open
+        caret.textContent = open ? '▸' : '▾'
+      }
+
+      // 顶栏「检查格式」：展开检查区并闪烁定位
+      function openDiag() {
+        document.getElementById('diagList').hidden = false
+        document.getElementById('diagCaret').textContent = '▾'
+        const panel = document.querySelector('.diagnostics')
+        panel.classList.remove('flash')
+        void panel.offsetWidth
+        panel.classList.add('flash')
+      }
+
+      // 单元格：通行规则单选，其余属性独立开关
+      document.getElementById('passGroup').addEventListener('click', (e) => {
+        const chip = e.target.closest('.chip')
+        if (!chip) return
+        for (const c of e.currentTarget.children) c.classList.toggle('is-on', c === chip)
+      })
+      document.getElementById('flagChips').addEventListener('click', (e) => {
+        const chip = e.target.closest('.chip')
+        if (chip) chip.classList.toggle('is-on')
+      })
+
+      // 物件选择悬浮面板：开关 + 拖动
+      function toggleStamp() {
+        const f = document.getElementById('stampFloat')
+        const toggle = document.getElementById('stampToggle')
+        const show = f.style.display === 'none'
+        f.style.display = show ? 'flex' : 'none'
+        toggle.classList.toggle('is-active', show)
+      }
+      ;(function () {
+        const panel = document.getElementById('stampFloat')
+        const handle = document.getElementById('stampDragHandle')
+        let start = null
+        handle.addEventListener('pointerdown', (e) => {
+          if (e.target.closest('.icon-btn') || e.target.closest('.sf-mode')) return
+          start = { x: e.clientX, y: e.clientY, left: panel.offsetLeft, top: panel.offsetTop }
+          handle.setPointerCapture(e.pointerId)
+        })
+        handle.addEventListener('pointermove', (e) => {
+          if (!start) return
+          const stage = panel.parentElement
+          const left = Math.min(Math.max(0, start.left + e.clientX - start.x), stage.clientWidth - panel.offsetWidth)
+          const top = Math.min(Math.max(0, start.top + e.clientY - start.y), stage.clientHeight - 80)
+          panel.style.left = left + 'px'
+          panel.style.top = top + 'px'
+          panel.style.right = 'auto'
+        })
+        handle.addEventListener('pointerup', () => {
+          start = null
+        })
+      })()
+    </script>
+  </body>
+</html>

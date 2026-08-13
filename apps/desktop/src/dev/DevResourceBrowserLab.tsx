@@ -3,8 +3,8 @@ import { Building2, Image as ImageIcon, Map, Music, Package, UserRound, Volume2,
 import type { LocaleCode } from '@locales'
 import type { EventWorkflowCopy } from '@locales/api'
 import { useEventStageCopy, useResourceBrowserCopy } from '@locales/provider'
-import { VANILLA_IMAGE_TARGETS, VANILLA_MAP_TARGETS } from '@entities/asset-schema'
-import { loadBuildingImageState, loadBuildingWorkspaceEntries } from '@entities/building'
+import { buildDefaultEventResourceRegistry } from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/eventResourceRegistry'
+import { loadBuildingWorkspaceEntries } from '@entities/building'
 import type { GameDirectoryInfo } from '@entities/game/api'
 import { loadImageDataUrl, loadResourceRegistry, scanMaps } from '@entities/game/api'
 import type { ResourceRegistry, ResourceRegistryEntry } from '@entities/game/api'
@@ -18,12 +18,11 @@ import {
 } from '@entities/item'
 import { cx } from '@shared/lib/helper'
 import { configureImageDataUrlLoader } from '@shared/lib/assets'
-import { buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
+
 import { configureDesktopPlatformPorts } from '@platform/host'
 import { createElectronPlatformPorts, isElectronHost } from '@platform/electron'
 import { createTauriPlatformPorts } from '@platform/tauri'
 import { ResourcePicker, type ResourceBrowserKind, type ResourceBrowserOption } from '@features/resource-browser'
-import { buildDefaultEventResourceRegistry } from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/eventResourceRegistry'
 
 type DevResourceBrowserLabProps = {
   locale?: LocaleCode
@@ -139,10 +138,10 @@ function sourceLabelForEntry(entry: ResourceRegistryEntry, locale: LocaleCode) {
 }
 
 function makeRegistryOption(entry: ResourceRegistryEntry, locale: LocaleCode): ResourceBrowserOption | null {
-  if (!['actor', 'item', 'location', 'music', 'sound'].includes(entry.kind)) {
+  if (!['actor', 'item', 'location', 'music', 'sound', 'texture'].includes(entry.kind)) {
     return null
   }
-  const kind = entry.kind as ResourceBrowserKind
+  const kind = (entry.kind === 'location' ? 'map' : entry.kind) as ResourceBrowserKind
   const source = sourceLabelForEntry(entry, locale)
   return {
     id: entry.id,
@@ -155,6 +154,7 @@ function makeRegistryOption(entry: ResourceRegistryEntry, locale: LocaleCode): R
     meta: entry.metadata?.qualifiedId ?? entry.metadata?.id ?? entry.value,
     sourcePath: entry.relativePath ?? undefined,
     sourceKind: entry.sourceKind === 'project' || entry.sourceKind === 'mod' ? 'project' : 'game',
+    audio: (kind === 'music' || kind === 'sound') && entry.absolutePath ? { absolutePath: entry.absolutePath, kind } : undefined,
   }
 }
 
@@ -169,22 +169,8 @@ function pushUniqueResource(registry: BrowserResourceRegistry, option: ResourceB
 function buildDefaultBrowserRegistry(sourceLabels: EventWorkflowCopy['resourceSources']): BrowserResourceRegistry {
   return {
     ...buildDefaultEventResourceRegistry(sourceLabels),
-    texture: VANILLA_IMAGE_TARGETS.map((value) => ({
-      id: `texture:${value}`,
-      value,
-      label: value.split('/').at(-1) ?? value,
-      kind: 'texture',
-      category: value.includes('/') ? value.slice(0, value.lastIndexOf('/')) : sourceLabels.vanilla,
-      sourceKind: 'game',
-    })),
-    map: VANILLA_MAP_TARGETS.map((value) => ({
-      id: `map:${value}`,
-      value,
-      label: value.split('/').at(-1) ?? value,
-      kind: 'map',
-      category: 'Maps',
-      sourceKind: 'game',
-    })),
+    texture: [],
+    map: [],
     building: [],
   }
 }
@@ -260,24 +246,6 @@ async function loadItemResourceOptions(rootPath: string, locale: LocaleCode) {
   )
 }
 
-async function loadTextureResourceOptions(rootPath: string, locale: LocaleCode): Promise<ResourceBrowserOption[]> {
-  return Promise.all(
-    VANILLA_IMAGE_TARGETS.map(async (value) => {
-      const image = await loadBuildingImageState(buildGameContentPath(rootPath, value), locale).catch(() => null)
-      return {
-        id: `texture:${value}`,
-        value,
-        label: value.split('/').at(-1) ?? value,
-        kind: 'texture' as const,
-        category: value.includes('/') ? value.slice(0, value.lastIndexOf('/')) : 'Content',
-        preview: image?.url ?? undefined,
-        sourcePath: image?.path ?? undefined,
-        sourceKind: 'game' as const,
-      }
-    }),
-  )
-}
-
 async function loadMapResourceOptions(rootPath: string, locale: LocaleCode): Promise<ResourceBrowserOption[]> {
   const maps = await scanMaps(rootPath, locale)
   return maps.map((map) => {
@@ -325,6 +293,8 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
   })
   const registry = useMemo(() => collectedRegistry ?? buildDefaultBrowserRegistry(sourceLabels), [collectedRegistry, sourceLabels])
   const [selections, setSelections] = useState<Record<ResourceBrowserKind, string>>(DEFAULT_SELECTIONS)
+  const [audioSelection, setAudioSelection] = useState('')
+  const audioOptions = useMemo(() => [...registry.music, ...registry.sound], [registry.music, registry.sound])
   const effectiveRootPath = directoryInfo?.rootPath ?? detectedDevRootPath
 
   useEffect(() => {
@@ -358,13 +328,9 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
     dispatchBrowserRegistry({ type: 'loading' })
 
     async function collectResources() {
-      const [desktopRegistry, itemOptionsResult, textureOptionsResult, mapOptionsResult, buildingOptionsResult] = await Promise.all([
+      const [desktopRegistry, itemOptionsResult, mapOptionsResult, buildingOptionsResult] = await Promise.all([
         loadDesktopResourceRegistry(gameRootPath, locale),
         loadItemResourceOptions(gameRootPath, locale).then(
-          (options) => ({ options, error: null }),
-          (error: unknown) => ({ options: [] as ResourceBrowserOption[], error }),
-        ),
-        loadTextureResourceOptions(gameRootPath, locale).then(
           (options) => ({ options, error: null }),
           (error: unknown) => ({ options: [] as ResourceBrowserOption[], error }),
         ),
@@ -392,16 +358,11 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
         // to look successfully loaded while silently showing partial data.
         nextRegistry.item = []
       }
-      if (textureOptionsResult.options.length > 0) nextRegistry.texture = textureOptionsResult.options
       if (mapOptionsResult.options.length > 0) nextRegistry.map = mapOptionsResult.options
       if (buildingOptionsResult.options.length > 0) nextRegistry.building = buildingOptionsResult.options
 
       const nextResourceCount =
-        backendResourceCount +
-        itemOptionsResult.options.length +
-        textureOptionsResult.options.length +
-        mapOptionsResult.options.length +
-        buildingOptionsResult.options.length
+        backendResourceCount + itemOptionsResult.options.length + mapOptionsResult.options.length + buildingOptionsResult.options.length
       if (nextResourceCount === 0) {
         dispatchBrowserRegistry({ type: 'fallback' })
         return
@@ -410,7 +371,6 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
       const hasWarnings =
         desktopRegistry.warnings.length > 0 ||
         itemOptionsResult.error != null ||
-        textureOptionsResult.error != null ||
         mapOptionsResult.error != null ||
         buildingOptionsResult.error != null
       dispatchBrowserRegistry({
@@ -492,6 +452,31 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
                   </article>
                 )
               })}
+              <article className="dev-resource-browser__kind-card">
+                <div className="dev-resource-browser__kind-head">
+                  <span className="dev-resource-browser__kind-icon" style={{ color: 'var(--accent)' }} aria-hidden="true">
+                    <Volume2 className="h-4.5 w-4.5" />
+                  </span>
+                  <span className="dev-resource-browser__kind-count">{audioOptions.length}</span>
+                </div>
+                <div>
+                  <h2 className="dev-resource-browser__kind-title">{copy.audioCombined.title}</h2>
+                  <p className="dev-resource-browser__kind-desc">{copy.audioCombined.description}</p>
+                </div>
+                <div className={cx('dev-resource-browser__selection-box', audioSelection && 'has-value')}>
+                  <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{audioOptions.find((option) => option.value === audioSelection)?.label ?? audioSelection}</span>
+                </div>
+                <ResourcePicker
+                  value={audioSelection}
+                  label={copy.audioCombined.title}
+                  placeholder={copy.audioCombined.placeholder}
+                  options={audioOptions}
+                  selectionMode="confirm"
+                  onSelect={setAudioSelection}
+                  triggerClassName="dev-resource-browser__picker-trigger"
+                />
+              </article>
             </div>
           </div>
         </section>

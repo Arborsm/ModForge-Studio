@@ -430,30 +430,21 @@
   .map-asset-tileset-details,
   .map-asset-animation,
   .map-asset-object-details,
-  .map-asset-object-group-details,
-  .map-asset-layer-details,
-  .map-asset-map-properties {
+  .map-asset-layer-details {
     @apply grid gap-2.5;
   }
 
-  .map-asset-tileset-details,
-  .map-asset-map-properties {
+  .map-asset-tileset-details {
     @apply border-border-subtle border-t pt-3;
   }
 
-  .map-asset-field-grid {
-    @apply grid gap-2;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .map-asset-field-grid label,
-  .map-asset-object-group-details > label,
+  .map-asset-object-details > label,
   .map-asset-layer-details > label {
     @apply text-text-secondary text-caption grid min-w-0 gap-1;
   }
 
-  .map-asset-field-grid .map-asset-checkbox {
-    @apply flex min-h-7 items-center gap-1.5 self-end;
+  .map-asset-object-details > .map-asset-checkbox {
+    @apply flex min-h-7 items-center gap-1.5;
   }
 
   .map-asset-checkbox input {
@@ -565,15 +556,11 @@
 
     .map-asset-canvas {
       @apply min-h-152;
-      grid-template-rows: auto minmax(22rem, 1fr) auto;
+      grid-template-rows: minmax(22rem, 1fr);
     }
 
     .map-asset-inspector {
       @apply min-h-80;
     }
-  }
-
-  .map-asset-history-info {
-    @apply border-border-subtle text-text-secondary text-meta mb-2 flex gap-4 border-b pb-2;
   }
 }

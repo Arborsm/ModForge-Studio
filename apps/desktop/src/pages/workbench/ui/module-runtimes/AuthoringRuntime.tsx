@@ -2,15 +2,19 @@ import { EditorPage, ExpertPanel, PatchListPage, resolveWorkspaceLanding, Worksp
 import { useAuthoringShellCopy, useEditorCopy, useMapAuthoringCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { usePendingMapAssetEditStore } from '@shared/lib/app-state/pendingMapAssetEditStore'
+import { useAssetLibraryFocusStore } from '@shared/lib/app-state/assetLibraryFocusStore'
 import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
 import { WorkspaceSplitView } from '@shared/ui/WorkspaceSplitView'
 import { useWorkbenchAssetDraftPort } from '../../model/useWorkbenchAssetDraftPort'
-import { useEditModeNavigation } from '../../model/useEditModeNavigation'
+import { useEditModeStore } from '../../model/editModeStore'
 import { useWorkbenchEnvironment, useWorkbenchProject } from '../../model/workbenchModuleContexts'
 import { useWorkbenchRuntimeInputs } from './runtimeInputs'
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { MapDocument } from '@entities/map'
 import { MapAssetEditorSession, MapCatalog, MapTilesSessionEditor } from '../../workspaces/map'
+import { CharacterCatalogPage } from '../../workspaces/character-data'
+import { BuildingCatalogPage } from '../../workspaces/building-data'
+import { ItemCatalogPage } from '../../workspaces/item-data'
 import { loadGameMapDocument } from '../../workspaces/map/model/gameMapLoad'
 import type { MapTileEditDraft } from '../../workspaces/map/model/mapPatchReducer'
 import { readCardMapTiles, withCardMapTiles } from '../../workspaces/map/model/mapTilesSession'
@@ -39,8 +43,8 @@ export type AuthoringRuntimeProps = {
  * side navigation.
  *
  * There is no shared shell skeleton: each workspace page keeps its own layout,
- * patch-level history lives in `useEditModeNavigation`, and undo/redo belong to
- * the pages themselves (the map asset editor carries its own stack).
+ * patch-level edit state lives in the shared `useEditModeStore`, and undo/redo
+ * belong to the pages themselves (the map asset editor carries its own stack).
  */
 export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPendingAssetTargetOpened }: AuthoringRuntimeProps) {
   const { locale, theme } = useWorkbenchRuntimeInputs()
@@ -49,23 +53,45 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
   const mapAuthoringCopy = useMapAuthoringCopy()
   const environment = useWorkbenchEnvironment()
   const project = useWorkbenchProject()
-  const navigation = useEditModeNavigation(true)
+  const activeEditPatchId = useEditModeStore((state) => state.activeEditPatchId)
+  const navigateToPatch = useEditModeStore((state) => state.navigateToPatch)
   const publishNotification = useNotificationPublisher()
   const patches = project.getPatchesForWorkspace(workspaceId)
-  const [mapAssetSession, setMapAssetSession] = useState<{ relativePath: string; document: MapDocument } | null>(null)
-  const [mapTilesSession, setMapTilesSession] = useState<{ patchId: string; cardId: string; target: string } | null>(null)
+  // Load patches are managed in the asset library; opening one from the change
+  // list jumps straight to the corresponding load-binding instead of showing
+  // the read-only summary editor.
+  const openPatchOrJumpToAssetLibrary = useCallback(
+    (patchId: string) => {
+      const patch = patches.find((p) => p.id === patchId)
+      if (patch?.action === 'Load') {
+        useAssetLibraryFocusStore.getState().setFocus({ kind: 'load-binding', key: patch.id })
+        environment.onOpenModule('asset-library')
+        return
+      }
+      navigateToPatch(patchId)
+    },
+    [environment, navigateToPatch, patches],
+  )
+  const [mapAssetSession, setMapAssetSession] = useState<{
+    relativePath: string
+    document: MapDocument
+  } | null>(null)
+  const [mapTilesSession, setMapTilesSession] = useState<{
+    patchId: string
+    cardId: string
+    target: string
+  } | null>(null)
   const [mapTilesSessionDocument, setMapTilesSessionDocument] = useState<MapDocument | null>(null)
   const [mapTilesSessionLoadError, setMapTilesSessionLoadError] = useState<string | null>(null)
   const previousPatchRef = useRef<string | null>(null)
   const { port, saveState } = useWorkbenchAssetDraftPort(workspaceId, {
-    onOpenPatch: navigation.navigateToPatch,
+    onOpenPatch: navigateToPatch,
     // The patch-tiles session owns its own document undo/redo, so keep the
     // draft undo shortcut from stepping a pre-session patch operation
     // underneath it while the session is open.
     shortcutsEnabled: mapTilesSession === null,
   })
 
-  const { navigateToPatch } = navigation
   const { addPatch, activeDraft } = project
   useEffect(() => {
     if (pendingAssetTarget === null || activeDraft === null) {
@@ -101,7 +127,11 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
   // the notification is dismissed as soon as the auto-save pipeline recovers.
   useEffect(() => {
     if (saveState === 'error') {
-      publishNotification({ id: 'authoring-save-error', level: 'error', title: shellCopy.saveFailed })
+      publishNotification({
+        id: 'authoring-save-error',
+        level: 'error',
+        title: shellCopy.saveFailed,
+      })
     } else {
       dismissNotification('authoring-save-error')
     }
@@ -121,21 +151,21 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
   // playerAppearanceProfile, appearance window callback, locale, theme, accent.
   function returnToLibrary() {
     setMapAssetSession(null)
-    navigation.navigateToPatch(previousPatchRef.current)
+    navigateToPatch(previousPatchRef.current)
   }
 
   async function openMapAsset(relativePath: string, suppliedDocument?: MapDocument) {
     const document = suppliedDocument ?? (JSON.parse((await project.loadProjectMapAsset(relativePath)).content) as MapDocument)
-    previousPatchRef.current = navigation.activeEditPatchId
+    previousPatchRef.current = activeEditPatchId
     setMapAssetSession({ relativePath, document })
-    navigation.navigateToPatch(null)
+    navigateToPatch(null)
   }
 
   function closeMapTilesSession() {
     setMapTilesSession(null)
     setMapTilesSessionDocument(null)
     setMapTilesSessionLoadError(null)
-    navigation.navigateToPatch(previousPatchRef.current)
+    navigateToPatch(previousPatchRef.current)
   }
 
   function completeMapTilesSession(edits: MapTileEditDraft[]) {
@@ -157,11 +187,11 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
     // The entry point is disabled for token targets and missing game roots, but
     // the runtime still guards in case a host triggers it programmatically.
     if (!gameRootPath || args.target.includes('{{')) return
-    previousPatchRef.current = navigation.activeEditPatchId
+    previousPatchRef.current = activeEditPatchId
     setMapTilesSession(args)
     setMapTilesSessionDocument(null)
     setMapTilesSessionLoadError(null)
-    navigation.navigateToPatch(null)
+    navigateToPatch(null)
     try {
       const document = await loadGameMapDocument(gameRootPath, args.target, locale)
       setMapTilesSessionDocument(document)
@@ -234,16 +264,51 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
   }
 
   let mainContent: ReactElement | null = null
-  const activePatch = patches.find((p) => p.id === navigation.activeEditPatchId) ?? null
-  if (navigation.activeEditPatchId && activePatch && port) {
+  const activePatch = patches.find((p) => p.id === activeEditPatchId) ?? null
+  if (activeEditPatchId && activePatch && port) {
     mainContent = <EditorPage workspaceId={workspaceId} patch={activePatch} draftPort={port} resources={resources} />
   } else if (landing.kind === 'asset' && port) {
-    // Asset landing: find or create the singleton patch and show its editor.
-    const singletonPatch = port.draft.patches.find((p) => p.action === landing.action && p.target === landing.target) ?? null
-    mainContent = <EditorPage workspaceId={workspaceId} patch={singletonPatch} draftPort={port} resources={resources} />
+    if (workspaceId === 'characters') {
+      // Characters: land on the catalog page (library + change manager).
+      // Selecting a character opens the singleton patch's editor.
+      const singletonPatch = port.draft.patches.find((p) => p.action === landing.action && p.target === landing.target) ?? null
+      if (singletonPatch !== null) {
+        mainContent = (
+          <CharacterCatalogPage patch={singletonPatch} draftPort={port} resources={resources} onOpenPatch={openPatchOrJumpToAssetLibrary} />
+        )
+      } else {
+        mainContent = <EditorPage workspaceId={workspaceId} patch={null} draftPort={port} resources={resources} />
+      }
+    } else if (workspaceId === 'buildings') {
+      // Buildings: land on the catalog page (library + entry manager).
+      // Selecting a building opens the singleton patch's editor.
+      const singletonPatch = port.draft.patches.find((p) => p.action === landing.action && p.target === landing.target) ?? null
+      if (singletonPatch !== null) {
+        mainContent = (
+          <BuildingCatalogPage patch={singletonPatch} draftPort={port} resources={resources} onOpenPatch={openPatchOrJumpToAssetLibrary} />
+        )
+      } else {
+        mainContent = <EditorPage workspaceId={workspaceId} patch={null} draftPort={port} resources={resources} />
+      }
+    } else if (workspaceId === 'items') {
+      // Items: land on the catalog page (library + entry manager).
+      // Selecting an item opens the singleton patch's editor.
+      const singletonPatch = port.draft.patches.find((p) => p.action === landing.action && p.target === landing.target) ?? null
+      if (singletonPatch !== null) {
+        mainContent = (
+          <ItemCatalogPage patch={singletonPatch} draftPort={port} resources={resources} onOpenPatch={openPatchOrJumpToAssetLibrary} />
+        )
+      } else {
+        mainContent = <EditorPage workspaceId={workspaceId} patch={null} draftPort={port} resources={resources} />
+      }
+    } else {
+      // Other asset landings: find or create the singleton patch and show its editor.
+      const singletonPatch = port.draft.patches.find((p) => p.action === landing.action && p.target === landing.target) ?? null
+      mainContent = <EditorPage workspaceId={workspaceId} patch={singletonPatch} draftPort={port} resources={resources} />
+    }
   } else if (landing.kind === 'assetGroup' && port) {
     // Map: page-owned first-level gallery (game maps + patch manager).
-    mainContent = <MapCatalog draftPort={port} resources={resources} onOpenPatch={navigation.navigateToPatch} />
+    mainContent = <MapCatalog draftPort={port} resources={resources} onOpenPatch={openPatchOrJumpToAssetLibrary} />
   } else if (landing.kind === 'module' && workspaceId === 'events' && port) {
     // Events hub: list-based entry into the per-patch event editors.
     mainContent = (
@@ -268,19 +333,27 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
     )
   }
 
-  // Asset landings (characters / buildings / items) share the two-pane layout:
-  // a patch list sidebar next to the singleton patch editor, regardless of
-  // whether the editor came from an active patch or the singleton fallback.
-  if (landing.kind === 'asset' && port && mainContent !== null) {
+  // Characters, buildings and items each own their layout inside their
+  // respective catalog pages (library + entry manager split view). Other asset
+  // landings, if any, would still need the outer patch-list sidebar.
+  if (
+    landing.kind === 'asset' &&
+    workspaceId !== 'characters' &&
+    workspaceId !== 'buildings' &&
+    workspaceId !== 'items' &&
+    port &&
+    mainContent !== null
+  ) {
     mainContent = (
       <WorkspaceSplitView
+        canvas
         sidebarLabel={editorCopy.studioDesk.patchList.regionLabel}
         sidebar={
           <WorkspacePatchList
             patches={patches}
             draftPort={port}
             reorderWithin={(candidate) => candidate.workspace === workspaceId}
-            onOpenPatch={navigation.navigateToPatch}
+            onOpenPatch={openPatchOrJumpToAssetLibrary}
           />
         }
       >

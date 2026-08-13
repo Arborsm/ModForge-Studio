@@ -119,7 +119,7 @@
 
   .item-family-strip {
     @apply border-border-subtle bg-surface-panel sticky grid border-b px-4 py-2;
-    top: 3.875rem;
+    top: 0;
     z-index: 2;
     grid-template-columns: repeat(10, minmax(6.5rem, 1fr));
   }
@@ -197,9 +197,8 @@
   }
 
   .item-catalog-preview {
-    @apply bg-surface-viewport text-text-tertiary flex h-15 w-15 items-center justify-center overflow-hidden rounded-md;
+    @apply text-text-tertiary relative flex h-15 w-15 items-center justify-center overflow-hidden rounded-md bg-transparent;
     grid-row: 1 / 3;
-    border: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
   }
 
   .item-catalog-card-body {

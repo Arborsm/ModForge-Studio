@@ -19,6 +19,7 @@
 - Linux Electron 宿主在 `apps/desktop/electron`。
 - 产品引导在 `apps/desktop/src/features/guide` 和 `apps/desktop/src/widgets/guide-tour`；工作台壳在 `apps/desktop/src/widgets/workbench-shell`。
 - 资源选取与素材浏览在 `apps/desktop/src/features/resource-browser`；AI 翻译编辑在 `apps/desktop/src/features/translation-editor`。
+- 地图编辑器（素材编辑/图块会话/改动卡片）在 `apps/desktop/src/pages/workbench/workspaces/map/editors/`，编辑器核心 hook 在 `editors/core/useMapDocumentEditor.ts`，画布与调色板在 `entities/map/ui/`；地图工作区浏览器在 `pages/workbench/ui/workspace-panels/map/`。
 - 工作台各工作区（对话、邮件、素材库等）在 `apps/desktop/src/pages/workbench/workspaces/`；本地化中心在 `apps/desktop/src/pages/workbench/translation/localization-center`。
 - 结构性问题优先用 CodeGraph：理解功能/bug 用 `codegraph_context`，查文件用 `codegraph_files`，找 symbol 用 `codegraph_search`，看影响面用 `codegraph_impact`。
 - 原生搜索只用于字面量：文案、日志、注释、配置 key、错误字符串等。

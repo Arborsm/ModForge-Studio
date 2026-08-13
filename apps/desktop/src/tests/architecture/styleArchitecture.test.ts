@@ -41,6 +41,10 @@ const TS_COLOR_LITERAL_ALLOWLIST = new Set([
   // Map viewport canvas rendering.
   'entities/map/ui/MapViewport.tsx',
   'entities/map/ui/mapViewportHelpers.ts',
+  // Cell-rule overlay canvas fills: fixed semantic hues that cannot read CSS
+  // custom properties; mirrored by tokens.css --cell-overlay-* (documented
+  // non-theme exception, see the module header).
+  'entities/map/lib/cellProperties.ts',
   // Item/appearance sprite rendering.
   'pages/workbench/ui/PlayerAppearanceWindow.tsx',
   'entities/item/ui/ItemSprite.tsx',

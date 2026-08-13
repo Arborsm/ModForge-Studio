@@ -8,6 +8,7 @@ import {
   type MapLayer,
   type MapPropertyValue,
 } from '@entities/map'
+import { paintCellOverlayCells, paintCellOverlayObjects, type CellOverlayRule } from '@entities/map'
 
 export type MapAssetPoint = { x: number; y: number }
 export type MapAssetTbinIssue =
@@ -24,17 +25,26 @@ export type MapAssetLayerNameIssue = { kind: 'empty'; id: number } | { kind: 'du
 
 /** Finds empty and case-insensitive duplicate layer names before Stardew/CP lookup becomes ambiguous. */
 export function collectMapAssetLayerNameIssues(document: MapDocument): MapAssetLayerNameIssue[] {
-  const names = [...document.layers, ...document.objectGroups].map((layer) => ({ id: layer.id, name: layer.name.trim() }))
-  const issues: MapAssetLayerNameIssue[] = names.filter((entry) => entry.name === '').map((entry) => ({ kind: 'empty', id: entry.id }))
-  const counts = new Map<string, { name: string; count: number }>()
-  for (const entry of names) {
-    if (!entry.name) continue
-    const key = entry.name.toLowerCase()
-    const current = counts.get(key)
-    counts.set(key, { name: current?.name ?? entry.name, count: (current?.count ?? 0) + 1 })
-  }
-  for (const value of counts.values()) {
-    if (value.count > 1) issues.push({ kind: 'duplicate', name: value.name })
+  const named = (entries: Array<{ id: number; name: string }>) => entries.map((entry) => ({ id: entry.id, name: entry.name.trim() }))
+  const layers = named(document.layers)
+  const groups = named(document.objectGroups)
+  const issues: MapAssetLayerNameIssue[] = [...layers, ...groups]
+    .filter((entry) => entry.name === '')
+    .map((entry) => ({ kind: 'empty', id: entry.id }))
+  // Duplicates count per kind: a tile layer and the object group sharing its
+  // name is the xTile TileData convention (per-cell instance properties), not
+  // an ambiguity — Stardew community maps are written that way on purpose.
+  for (const entries of [layers, groups]) {
+    const counts = new Map<string, { name: string; count: number }>()
+    for (const entry of entries) {
+      if (!entry.name) continue
+      const key = entry.name.toLowerCase()
+      const current = counts.get(key)
+      counts.set(key, { name: current?.name ?? entry.name, count: (current?.count ?? 0) + 1 })
+    }
+    for (const value of counts.values()) {
+      if (value.count > 1) issues.push({ kind: 'duplicate', name: value.name })
+    }
   }
   return issues
 }
@@ -185,6 +195,30 @@ export function setMapAssetCellProperties(
     layer.cellProperties = next
     return layer
   })
+}
+
+/**
+ * Paints one grid-rule onto a batch of cells of one layer; one stroke = one
+ * call. TMX maps store per-cell instance rules as `TileData` objects on the
+ * layer-named object group (the game's native per-cell carrier), while other
+ * formats keep the tbin `cellProperties` backing store; the returned
+ * `skippedTilesetDerived` counts cells a `walkable` erase could not clear
+ * because their rule comes from the tileset definition level.
+ */
+export function setMapAssetCellOverlay(
+  document: MapDocument,
+  layerId: number,
+  points: readonly MapAssetPoint[],
+  rule: CellOverlayRule,
+): { document: MapDocument; skippedTilesetDerived: number } {
+  if (document.format === 'tmx') return paintCellOverlayObjects(document, layerId, points, rule)
+  return {
+    document: updateLayer(document, layerId, (layer) => {
+      layer.cellProperties = paintCellOverlayCells(layer.cellProperties ?? {}, layer.width, layer.height, points, rule)
+      return layer
+    }),
+    skippedTilesetDerived: 0,
+  }
 }
 
 export function toggleMapAssetTileFlag(document: MapDocument, layerId: number, point: MapAssetPoint, flag: number): MapDocument {

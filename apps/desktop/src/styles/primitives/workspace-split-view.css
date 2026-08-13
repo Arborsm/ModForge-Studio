@@ -5,15 +5,24 @@
     grid-template-rows: minmax(0, 1fr);
   }
 
+  .workspace-split-view.has-right-panel {
+    grid-template-columns: var(--workspace-split-sidebar-width, 20rem) minmax(0, 1fr) var(--workspace-split-right-panel-width, 18rem);
+  }
+
   .workspace-split-view-sidebar {
     @apply border-border-subtle bg-surface-panel min-h-0 min-w-0 overflow-y-auto border-r;
   }
 
   .workspace-split-view-main {
     @apply grid min-h-0 min-w-0 overflow-hidden;
+    grid-template-rows: auto minmax(0, 1fr);
+    background: var(--bg-panel);
+  }
+
+  .workspace-split-view-main.is-canvas {
     background:
-      linear-gradient(90deg, color-mix(in srgb, var(--border-color) 42%, transparent) 0 1px, transparent 1px 4rem),
-      linear-gradient(180deg, color-mix(in srgb, var(--border-color) 32%, transparent) 0 1px, transparent 1px 4rem), var(--bg-panel);
+      linear-gradient(90deg, var(--grid-major) 0 1px, transparent 1px 4rem),
+      linear-gradient(180deg, var(--grid-minor) 0 1px, transparent 1px 4rem), var(--bg-panel);
     background-size:
       4rem 4rem,
       4rem 4rem,
@@ -22,6 +31,31 @@
 
   .workspace-split-view-main > * {
     @apply min-h-0 min-w-0;
+  }
+
+  .workspace-split-view-right-panel {
+    @apply border-border-subtle bg-surface-panel min-h-0 min-w-0 overflow-y-auto border-l;
+  }
+
+  .workspace-split-view-toolbar {
+    @apply border-border-subtle bg-surface-panel flex flex-none items-center gap-2.5 border-b px-4 py-2.5;
+  }
+
+  .workspace-split-view-toolbar-search {
+    @apply text-text-tertiary relative flex items-center;
+    min-width: 12rem;
+    flex: 1 1 18rem;
+  }
+
+  .workspace-split-view-toolbar-search > svg {
+    @apply absolute;
+    left: 0.625rem;
+    z-index: 1;
+  }
+
+  .workspace-split-view-toolbar-search .control-input {
+    @apply w-full;
+    padding-left: 1.875rem;
   }
 
   .workspace-split-view-empty {
@@ -47,12 +81,14 @@
   }
 
   @media (max-width: 60rem) {
-    .workspace-split-view {
+    .workspace-split-view,
+    .workspace-split-view.has-right-panel {
       grid-template-columns: minmax(0, 1fr);
       grid-template-rows: auto minmax(0, 1fr);
     }
 
-    .workspace-split-view-sidebar {
+    .workspace-split-view-sidebar,
+    .workspace-split-view-right-panel {
       max-height: 16rem;
       @apply border-border-subtle border-r-0 border-b;
     }

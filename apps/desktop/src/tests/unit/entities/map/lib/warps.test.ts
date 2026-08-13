@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { isExteriorWarp, parseWarpEntries, parseWarpProperty } from '@entities/map/lib/warps'
+import {
+  isExteriorWarp,
+  parseDoorGroups,
+  parseWarpEntries,
+  parseWarpGroups,
+  parseWarpProperty,
+  serializeDoorGroups,
+  serializeWarpGroups,
+} from '@entities/map/lib/warps'
 import type { MapDocument } from '@entities/map'
 
 function createMapDocument(overrides: Partial<MapDocument> = {}): MapDocument {
@@ -87,6 +95,33 @@ describe('parseWarpEntries', () => {
       properties: { Warp: '', NPCWarp: '' },
     })
     expect(parseWarpEntries(mapDocument)).toEqual([])
+  })
+})
+
+describe('warp and door group parsing', () => {
+  it('parses and re-serializes warp property groups losslessly', () => {
+    const parsed = parseWarpGroups('1 2 Farm 10 11  3 4 Town 5 6')
+    expect(parsed.groups).toEqual([
+      { fromX: 1, fromY: 2, toMap: 'Farm', toX: 10, toY: 11 },
+      { fromX: 3, fromY: 4, toMap: 'Town', toX: 5, toY: 6 },
+    ])
+    expect(serializeWarpGroups(parsed.groups, parsed.leftover)).toBe('1 2 Farm 10 11 3 4 Town 5 6')
+  })
+
+  it('preserves malformed warp tokens in the leftover', () => {
+    const parsed = parseWarpGroups('1 2 Farm 10 11  x y')
+    expect(parsed.groups).toEqual([{ fromX: 1, fromY: 2, toMap: 'Farm', toX: 10, toY: 11 }])
+    expect(parsed.leftover).toEqual(['x', 'y'])
+    expect(serializeWarpGroups(parsed.groups, parsed.leftover)).toBe('1 2 Farm 10 11 x y')
+  })
+
+  it('parses and re-serializes door property groups losslessly', () => {
+    const parsed = parseDoorGroups('5 6 2 17  8 9 2 18')
+    expect(parsed.groups).toEqual([
+      { x: 5, y: 6, sheet: 2, tileIndex: 17 },
+      { x: 8, y: 9, sheet: 2, tileIndex: 18 },
+    ])
+    expect(serializeDoorGroups(parsed.groups, parsed.leftover)).toBe('5 6 2 17 8 9 2 18')
   })
 })
 

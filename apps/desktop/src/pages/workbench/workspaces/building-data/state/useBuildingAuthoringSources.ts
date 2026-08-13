@@ -22,7 +22,7 @@ import {
   loadVanillaBuildingRecords,
 } from '@entities/building'
 import type { GameDirectoryInfo } from '@entities/game/api'
-import { tryParseStringAssetReference } from '@entities/game/api'
+import { resolveLocalizedText, tryParseStringAssetReference } from '@entities/game/api'
 import type { LocaleCode } from '@locales'
 
 /** One row of the source list. */
@@ -59,6 +59,8 @@ export type BuildingChainStage = {
 export type BuildingSourceGroups = {
   project: BuildingSourceRow[]
   vanillaGroups: BuildingSourceGroup[]
+  /** Resolved project entry display names, keyed by entry key. */
+  resolvedNames: Map<string, string>
 }
 
 export type VanillaBuildingIndexState = {
@@ -240,7 +242,9 @@ function draftDisplayName(raw: unknown, key: string): string {
  * by the patch disappears from the vanilla side rather than rendering an empty
  * group header.
  */
-export function buildBuildingSourceGroups({
+export async function buildBuildingSourceGroups({
+  rootPath,
+  locale,
   projectKeys,
   projectEntries,
   vanilla,
@@ -248,6 +252,8 @@ export function buildBuildingSourceGroups({
   search,
   ungroupedLabel,
 }: {
+  rootPath: string | null
+  locale: LocaleCode
   projectKeys: readonly string[]
   projectEntries: Readonly<Record<string, unknown>>
   vanilla: VanillaBuildingIndexState
@@ -255,9 +261,26 @@ export function buildBuildingSourceGroups({
   search: string
   /** Group title for vanilla buildings that are not part of any upgrade chain. */
   ungroupedLabel: string
-}): BuildingSourceGroups {
+}): Promise<BuildingSourceGroups> {
   const needle = search.trim().toLowerCase()
   const projectKeySet = new Set(projectKeys.map((key) => key.toLowerCase()))
+
+  const rawProjectNames = projectKeys.map((key) => ({
+    key,
+    raw: draftDisplayName(projectEntries[key], key),
+  }))
+
+  const resolvedProjectNames =
+    rootPath === null
+      ? rawProjectNames.map(({ key, raw }) => ({ key, name: raw }))
+      : await Promise.all(
+          rawProjectNames.map(async ({ key, raw }) => ({
+            key,
+            name: (await resolveLocalizedText(rootPath, locale, raw)) ?? raw,
+          })),
+        )
+
+  const nameByKey = new Map(resolvedProjectNames.map(({ key, name }) => [key, name]))
 
   const project =
     mode === 'vanilla'
@@ -265,14 +288,14 @@ export function buildBuildingSourceGroups({
       : projectKeys
           .map((key) => ({
             key,
-            displayName: draftDisplayName(projectEntries[key], key),
+            displayName: nameByKey.get(key) ?? key,
             vanilla: vanilla.entries.get(key.toLowerCase()) ?? null,
             inProject: true,
           }))
           .filter((row) => matchesSearch(row, needle))
 
   if (mode === 'project') {
-    return { project, vanillaGroups: [] }
+    return { project, vanillaGroups: [], resolvedNames: nameByKey }
   }
 
   const standalone: BuildingSourceRow[] = []
@@ -305,7 +328,7 @@ export function buildBuildingSourceGroups({
     })
   }
 
-  return { project, vanillaGroups }
+  return { project, vanillaGroups, resolvedNames: nameByKey }
 }
 
 /**

@@ -324,7 +324,7 @@ export function DevDebugOverlay({
   return (
     <div
       data-testid="app-debug-overlay"
-      className="shadow-float fixed z-260 w-75 overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--accent)_24%,var(--border-color))] bg-[color-mix(in_srgb,var(--bg-elevated)_92%,transparent)] backdrop-blur"
+      className="shadow-float fixed z-260 w-75 overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--accent)_24%,var(--border-color))] bg-[color-mix(in_srgb,var(--bg-elevated)_96%,transparent)]"
       style={{ left: `${position.x}px`, top: `${position.y}px` }}
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}

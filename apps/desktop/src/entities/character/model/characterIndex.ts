@@ -189,6 +189,8 @@ export type CharacterVisualAssetState = {
   portraitOriginalHeight?: number | null
   springObjectsSheetWidth: number | null
   springObjectsSheetHeight: number | null
+  /** Decoded sprite sheet image, used for pixel-based frame-grid inference (e.g. Bear). */
+  spriteImage?: HTMLImageElement | null
 }
 
 /** Empty visual state, used before assets resolve and when no NPC is selected. */
@@ -207,6 +209,7 @@ export const EMPTY_CHARACTER_VISUAL_ASSET_STATE: CharacterVisualAssetState = {
   portraitOriginalHeight: null,
   springObjectsSheetWidth: null,
   springObjectsSheetHeight: null,
+  spriteImage: null,
 }
 
 export function normalizeCharacterAssetName(assetName: string | null | undefined, folderName: 'Characters' | 'Portraits') {

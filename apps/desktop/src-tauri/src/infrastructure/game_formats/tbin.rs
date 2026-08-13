@@ -319,6 +319,70 @@ fn convert_properties(
         .collect()
 }
 
+/// Splits a tilesheet's raw TBin properties into plain tilesheet properties and
+/// definition-level tile properties.
+///
+/// xTile stores a tilesheet's per-tile properties inside the tilesheet property
+/// dictionary under keys shaped like `@TileIndex@<tileIndex>@<propertyKey>`
+/// (see `TileIndexPropertyCollection.IndexKey`); there is no dedicated binary
+/// block for them. This mirrors xTile's `ParseIndexedKey` acceptance rules: the
+/// key must split on `@` into exactly four segments, the first must be empty,
+/// the second must be `"TileIndex"`, and the third must be the tile index's
+/// canonical non-negative decimal form. Keys that match are removed from
+/// `plain` and grouped under their tile index in `tile_indexed`; every other
+/// key (including lookalikes with extra `@` segments, negative indices, or
+/// leading zeros) stays in `plain` so round-trips preserve it verbatim.
+fn split_tilesheet_properties(
+    properties: &HashMap<String, PropertyValue>,
+) -> (
+    HashMap<String, PropertyValue>,
+    HashMap<u32, HashMap<String, PropertyValue>>,
+) {
+    let mut plain = HashMap::with_capacity(properties.len());
+    let mut tile_indexed = HashMap::<u32, HashMap<String, PropertyValue>>::new();
+
+    for (key, value) in properties {
+        let tokens = key.split('@').collect::<Vec<_>>();
+        match tokens.as_slice() {
+            ["", "TileIndex", index, property_key] => {
+                if let Ok(tile_index) = index.parse::<u32>() {
+                    if tile_index.to_string() == *index {
+                        tile_indexed
+                            .entry(tile_index)
+                            .or_default()
+                            .insert(property_key.to_string(), value.clone());
+                        continue;
+                    }
+                }
+                plain.insert(key.clone(), value.clone());
+            }
+            _ => {
+                plain.insert(key.clone(), value.clone());
+            }
+        }
+    }
+
+    (plain, tile_indexed)
+}
+
+/// Merges definition-level tile properties back into a tilesheet's property
+/// dictionary using xTile's `@TileIndex@<tileIndex>@<propertyKey>` key layout,
+/// which is the only way TBin can carry them. Plain properties are kept as-is;
+/// if a plain key collides with an encoded tile-property key, the tile
+/// property wins.
+fn merge_tile_properties(
+    plain: &HashMap<String, MapPropertyValue>,
+    tile_indexed: &HashMap<u32, HashMap<String, MapPropertyValue>>,
+) -> HashMap<String, MapPropertyValue> {
+    let mut merged = plain.clone();
+    for (tile_index, properties) in tile_indexed {
+        for (key, value) in properties {
+            merged.insert(format!("@TileIndex@{tile_index}@{key}"), value.clone());
+        }
+    }
+    merged
+}
+
 fn push_u8(bytes: &mut Vec<u8>, value: u8) {
     bytes.push(value);
 }
@@ -625,6 +689,13 @@ pub fn parse_tbin_map(
 
         tilesheet_gid.insert(sheet.id.clone(), next_gid);
 
+        let (sheet_properties, sheet_tile_properties) =
+            split_tilesheet_properties(&sheet.properties);
+        let tile_properties = sheet_tile_properties
+            .iter()
+            .map(|(index, properties)| (*index, convert_properties(properties)))
+            .collect();
+
         tilesets.push(MapTileset {
             first_gid: next_gid,
             name: sheet.id.clone(),
@@ -642,8 +713,8 @@ pub fn parse_tbin_map(
             image_width,
             image_height,
             image_trans: None,
-            properties: convert_properties(&sheet.properties),
-            tile_properties: HashMap::new(),
+            properties: convert_properties(&sheet_properties),
+            tile_properties,
             animations: HashMap::new(),
             preserved_attributes: HashMap::new(),
             tile_preserved_attributes: HashMap::new(),
@@ -809,10 +880,10 @@ pub fn serialize_tbin_map(document: &MapDocument) -> anyhow::Result<Vec<u8>> {
     if document
         .tilesets
         .iter()
-        .any(|tileset| !tileset.tile_properties.is_empty() || !tileset.animations.is_empty())
+        .any(|tileset| !tileset.animations.is_empty())
     {
         bail!(
-            "tBIN cannot preserve definition-level tile properties or animations. Convert them to map-cell instances or save as TMX instead."
+            "tBIN cannot preserve definition-level tile animations. Convert them to map-cell animations or save as TMX instead."
         );
     }
 
@@ -856,7 +927,8 @@ pub fn serialize_tbin_map(document: &MapDocument) -> anyhow::Result<Vec<u8>> {
         );
         push_vector(&mut bytes, 0, 0);
         push_vector(&mut bytes, 0, 0);
-        write_properties(&mut bytes, &tileset.properties)?;
+        let properties = merge_tile_properties(&tileset.properties, &tileset.tile_properties);
+        write_properties(&mut bytes, &properties)?;
     }
 
     push_i32(
@@ -922,10 +994,10 @@ pub fn serialize_tbin_map(document: &MapDocument) -> anyhow::Result<Vec<u8>> {
 
                 let (tileset, local_tile_id) = resolve_tileset_for_gid(gid, &sorted_tilesets)?;
                 let cell_index = (row_start + column_index) as u32;
-                let properties = layer
-                    .cell_properties
-                    .get(&cell_index)
-                    .or_else(|| tileset.tile_properties.get(&local_tile_id));
+                // Definition-level tile properties are already encoded into the
+                // tilesheet property block above; writing them onto each cell as
+                // well would re-parse as spurious per-cell properties.
+                let properties = layer.cell_properties.get(&cell_index);
                 if current_tileset_name != Some(tileset.name.as_str()) {
                     push_u8(&mut bytes, b'T');
                     push_string(&mut bytes, &tileset.name)?;

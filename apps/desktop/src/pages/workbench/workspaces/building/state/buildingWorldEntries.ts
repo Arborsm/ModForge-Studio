@@ -6,6 +6,8 @@ import {
   isExteriorWarp,
   parseWarpEntries,
   getActionTargetMap,
+  collectCellActions,
+  parsePortalTargetMapFromAction,
 } from '@entities/map'
 import { BUILDING_LOCATION_SEED_GROUP_ORDER, BUILDING_LOCATION_SEEDS, type BuildingLocationSeedGroup } from './buildingLocationSeeds'
 import { type BuildingWorkspaceEntry, type WorldBuildingEntrance, buildMapPathLabel } from '@entities/building'
@@ -485,6 +487,22 @@ export function buildWorldBuildingEntries(loadedMapDocuments: MapDocument[], loc
         const tileX = index % layer.width
         const tileY = Math.floor(index / layer.width)
         addWorldEntrance(sourceDocument, targetMap, tileX, tileY, 0, 0, 'tile-action')
+      }
+
+      // Per-cell tbin action properties (TouchAction/Action) name their target
+      // map too. TileData-object rules are already sampled from the object
+      // scan above, so only the cellProperties carrier is read here.
+      if (layer.cellProperties) {
+        for (const action of collectCellActions(sourceDocument, layer.name, ['TouchAction', 'Action'])) {
+          if (action.source === 'tileDataObject') {
+            continue
+          }
+          const targetMap = parsePortalTargetMapFromAction(action.value)
+          if (!targetMap) {
+            continue
+          }
+          addWorldEntrance(sourceDocument, targetMap, action.x, action.y, 0, 0, 'tile-action')
+        }
       }
     }
   }

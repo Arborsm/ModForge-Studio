@@ -307,7 +307,15 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
                   fallbackPathLabel: activeVariant?.spritePathLabel ?? activeCharacter?.internalName ?? 'Characters\\Unknown',
                 })
                   .then((result) => result ?? loadCharacterImageState(spritePath, locale))
-                  .catch(() => ({ path: spritePath, url: null, width: null, height: null, originalWidth: null, originalHeight: null }))
+                  .catch(() => ({
+                    path: spritePath,
+                    url: null,
+                    width: null,
+                    height: null,
+                    originalWidth: null,
+                    originalHeight: null,
+                    image: null,
+                  }))
               : loadCharacterImageState(spritePath, locale).catch(() => ({
                   path: spritePath,
                   url: null,
@@ -315,6 +323,7 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
                   height: null,
                   originalWidth: null,
                   originalHeight: null,
+                  image: null,
                 })),
             browserSourceMode === 'mod' && directoryInfo?.rootPath && activeModCharacterEntry
               ? loadModResultImageState({
@@ -324,7 +333,15 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
                   fallbackPathLabel: activeVariant?.portraitPathLabel ?? activeCharacter?.internalName ?? 'Portraits\\Unknown',
                 })
                   .then((result) => result ?? loadCharacterImageState(portraitPath, locale))
-                  .catch(() => ({ path: portraitPath, url: null, width: null, height: null, originalWidth: null, originalHeight: null }))
+                  .catch(() => ({
+                    path: portraitPath,
+                    url: null,
+                    width: null,
+                    height: null,
+                    originalWidth: null,
+                    originalHeight: null,
+                    image: null,
+                  }))
               : loadCharacterImageState(portraitPath, locale).catch(() => ({
                   path: portraitPath,
                   url: null,
@@ -332,6 +349,7 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
                   height: null,
                   originalWidth: null,
                   originalHeight: null,
+                  image: null,
                 })),
             loadCharacterImageState(springObjectsPath, locale).catch(() => ({
               path: springObjectsPath,
@@ -340,6 +358,7 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
               height: null,
               originalWidth: null,
               originalHeight: null,
+              image: null,
             })),
           ])
 
@@ -356,6 +375,7 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
             springObjectsUrl: springObjects.url,
             spriteSheetWidth: sprite.width,
             spriteSheetHeight: sprite.height,
+            spriteImage: sprite.image ?? null,
             portraitSheetWidth: portrait.width,
             portraitSheetHeight: portrait.height,
             portraitOriginalWidth: portrait.originalWidth ?? null,
@@ -375,6 +395,7 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
               springObjectsUrl: null,
               spriteSheetWidth: null,
               spriteSheetHeight: null,
+              spriteImage: null,
               portraitSheetWidth: null,
               portraitSheetHeight: null,
               portraitOriginalWidth: null,

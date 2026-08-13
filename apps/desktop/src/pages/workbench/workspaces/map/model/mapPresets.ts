@@ -72,31 +72,3 @@ export const TEXT_OPERATION_PRESETS: readonly TextOperationPreset[] = [
     ],
   },
 ]
-
-export type PropertySettingPreset = {
-  id: string
-  labelKey: string
-  key: string
-  values: Array<{ value: string; labelKey: string }>
-}
-
-export const PROPERTY_SETTING_PRESETS: readonly PropertySettingPreset[] = [
-  {
-    id: 'outdoors',
-    labelKey: 'outdoors',
-    key: 'Outdoors',
-    values: [
-      { value: 'T', labelKey: 'outdoorsTrue' },
-      { value: 'F', labelKey: 'outdoorsFalse' },
-    ],
-  },
-  {
-    id: 'music',
-    labelKey: 'music',
-    key: 'Music',
-    values: [
-      { value: 'spring_day_ambient', labelKey: 'musicSpring' },
-      { value: 'none', labelKey: 'musicNone' },
-    ],
-  },
-]

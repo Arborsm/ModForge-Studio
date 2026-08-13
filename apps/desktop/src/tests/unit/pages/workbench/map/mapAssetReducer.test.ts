@@ -112,6 +112,26 @@ describe('map asset reducer', () => {
     ])
   })
 
+  it('allows a tile layer and object group to share a name (xTile TileData convention)', () => {
+    const source = document()
+    source.objectGroups = [
+      { id: 2, name: 'Back', kind: 'object', visible: true, opacity: 1, drawOrder: 'topdown', properties: {}, objects: [] },
+    ]
+    expect(collectMapAssetLayerNameIssues(source)).toEqual([])
+
+    source.objectGroups.push({
+      id: 3,
+      name: 'back',
+      kind: 'object',
+      visible: true,
+      opacity: 1,
+      drawOrder: 'topdown',
+      properties: {},
+      objects: [],
+    })
+    expect(collectMapAssetLayerNameIssues(source)).toEqual([{ kind: 'duplicate', name: 'Back' }])
+  })
+
   it('reports every lossy TBin capability before serialization', () => {
     const source = document()
     source.properties.Typed = { value: 1, tmxType: 'int' } as unknown as string

@@ -1,7 +1,36 @@
 import type { EditorCopy } from '@locales/api'
 import type { MapObject, MapObjectGroup } from '@entities/map'
+import { asMapPropertyString } from './properties'
 
 const INTERACTIVE_OBJECT_PROPERTY_KEYS = ['Action', 'TouchAction', 'Warp', 'NPCWarp', 'LockedDoorWarp', 'MagicWarp']
+const LIGHT_MARKER_PROPERTY_KEYS = ['QualifiedItemId', 'qualifiedItemId', 'ItemId', 'itemId', 'IsOn', 'isOn']
+const LIGHT_MARKER_FLAG_KEY = 'MFMarker'
+const LIGHT_MARKER_FLAG_VALUE = 'light'
+
+/**
+ * Whether a `TileData` object is one of this editor's light markers rather
+ * than a community/rule object. Matches objects carrying the editor's private
+ * `MFMarker: 'light'` flag, objects holding a light-item property
+ * (`QualifiedItemId`/`ItemId`/`IsOn` or their lower-case spellings), and —
+ * as a migration heuristic for legacy plain markers — objects with no
+ * properties at all but a real footprint (0×0 point objects never match).
+ * Objects named other than `TileData` never match, and rule objects
+ * (Action/NoSpawn/NPCBarrier/…) always carry properties so they never match.
+ */
+export function isLightMarkerObject(object: MapObject): boolean {
+  if (object.name !== 'TileData') {
+    return false
+  }
+
+  const { properties } = object
+  if (asMapPropertyString(properties[LIGHT_MARKER_FLAG_KEY]) === LIGHT_MARKER_FLAG_VALUE) {
+    return true
+  }
+  if (LIGHT_MARKER_PROPERTY_KEYS.some((key) => key in properties)) {
+    return true
+  }
+  return Object.keys(properties).length === 0 && object.width > 0 && object.height > 0
+}
 
 export function getObjectDisplayName(object: MapObject, copy: EditorCopy) {
   return object.name || object.type || copy.common.objectLabel(object.id)

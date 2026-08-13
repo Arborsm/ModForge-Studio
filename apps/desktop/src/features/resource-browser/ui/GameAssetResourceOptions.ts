@@ -37,6 +37,7 @@ export function toGameAudioResourceBrowserOptions(assets: readonly AudioAssetSum
     subtitle: asset.kind,
     sourcePath: asset.relativePath,
     sourceKind: 'game',
+    audio: { absolutePath: asset.absolutePath, kind: asset.kind },
   }))
 }
 

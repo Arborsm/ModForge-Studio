@@ -272,6 +272,7 @@
   }
 
   .building-catalog-preview {
+    position: relative;
     display: flex;
     width: 5rem;
     height: 5rem;
@@ -279,9 +280,8 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
     border-radius: 0.375rem;
-    background: var(--bg-viewport);
+    background: transparent;
     color: var(--text-tertiary);
   }
 

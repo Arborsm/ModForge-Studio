@@ -5,6 +5,7 @@ import { EVENT_STAGE_INITIAL_ZOOM, resolveFadeOverlayAlpha, toActorKey } from '@
 import type { FadeOverlayState, ScreenFlashState } from '@entities/event'
 import type { EventScript, ParsedEventAsset } from '@entities/event'
 import { getActorSpriteFrameHeight } from '@entities/event'
+import { resolveSpriteFrameGeometry } from '@entities/character'
 import { MapWorldStatePreviewOverlay } from '@entities/map'
 import type { PlayerAppearanceProfile } from '@entities/event'
 import { useEventStageCopy } from '@locales/provider'
@@ -219,10 +220,15 @@ export default function EventStageWorkspace({
     () =>
       visibleSortedActors.map((actor) => {
         const asset = actorAssets[toActorKey(actor.actorName)]
-        const frameWidth = 16
-        const frameHeight = getActorSpriteFrameHeight(actor.actorName)
-        const spriteColumns =
-          asset?.spriteSheetWidth && asset.spriteSheetWidth >= frameWidth ? Math.max(1, Math.floor(asset.spriteSheetWidth / frameWidth)) : 4
+        const baseWidth = asset?.characterMetadata?.size.x ?? 16
+        const baseHeight = asset?.characterMetadata?.size.y ?? getActorSpriteFrameHeight(actor.actorName)
+        const { frameWidth, frameHeight, spriteColumns } = resolveSpriteFrameGeometry(
+          baseWidth,
+          baseHeight,
+          asset?.spriteSheetWidth ?? null,
+          asset?.spriteSheetHeight ?? null,
+          asset?.spriteImage ?? null,
+        )
 
         return {
           actor,

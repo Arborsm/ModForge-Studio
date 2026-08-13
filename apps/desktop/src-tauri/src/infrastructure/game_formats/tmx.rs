@@ -13,6 +13,7 @@ use crate::infrastructure::fs::pathing::normalize_path;
 use crate::infrastructure::game_formats::map::{
     MapDocument, MapFormat, MapLayer, MapLayerDataEncoding, MapLayerOrderEntry, MapObject,
     MapObjectGroup, MapPreservedXml, MapPropertyValue, MapTileset, MapTilesetAnimationFrame,
+    base_gid,
 };
 
 #[derive(Debug, Deserialize)]
@@ -1233,6 +1234,171 @@ fn is_known_tile_child(name: &[u8]) -> bool {
     matches!(name, b"properties" | b"animation")
 }
 
+/// Object groups written by [`serialize_tmx_map`] after baking per-cell properties.
+struct BakedObjectGroups {
+    groups: Vec<MapObjectGroup>,
+    /// Maps a tile layer id to the id of the object group created for that layer.
+    new_group_after_layer: HashMap<u32, u32>,
+}
+
+/// Materializes per-cell tile properties as `TileData` objects for TMX output.
+///
+/// xTile and Tiled attach per-tile instance properties to the `TileData`
+/// rectangle objects of an object group named after the tile layer; the
+/// in-memory [`MapLayer::cell_properties`] form has no native TMX carrier, so
+/// it is baked into such objects at serialize time. Cells whose gid is empty
+/// after masking flip/rotation flags produce no objects, and existing
+/// `TileData` objects already covering a cell win over the baked values so
+/// previously-baked documents do not get duplicates. The returned view is
+/// transient and never mutates the input document.
+fn bake_cell_properties(document: &MapDocument) -> BakedObjectGroups {
+    let mut groups = document.object_groups.clone();
+    let mut next_group_id = document
+        .next_layer_id
+        .unwrap_or(0)
+        .max(
+            document
+                .layers
+                .iter()
+                .map(|layer| layer.id)
+                .max()
+                .unwrap_or(0),
+        )
+        .max(groups.iter().map(|group| group.id).max().unwrap_or(0));
+    let mut next_object_id = document.next_object_id.unwrap_or(0).max(
+        groups
+            .iter()
+            .flat_map(|group| group.objects.iter())
+            .map(|object| object.id)
+            .max()
+            .unwrap_or(0),
+    );
+    let mut new_group_after_layer = HashMap::new();
+    let tile_width = document.tile_width as f32;
+    let tile_height = document.tile_height as f32;
+
+    for layer in &document.layers {
+        if layer.kind != "tile" || layer.cell_properties.is_empty() {
+            continue;
+        }
+        let group_index = match groups.iter().position(|group| group.name == layer.name) {
+            Some(index) => index,
+            None => {
+                next_group_id += 1;
+                let group_id = next_group_id;
+                groups.push(MapObjectGroup {
+                    id: group_id,
+                    name: layer.name.clone(),
+                    kind: "object".to_string(),
+                    visible: true,
+                    opacity: 1.0,
+                    draw_order: "topdown".to_string(),
+                    properties: HashMap::new(),
+                    objects: Vec::new(),
+                    preserved_xml: Vec::new(),
+                });
+                new_group_after_layer.insert(layer.id, group_id);
+                groups.len() - 1
+            }
+        };
+        let width = layer.width.max(1);
+        let mut cell_indices = layer.cell_properties.keys().copied().collect::<Vec<_>>();
+        cell_indices.sort_unstable();
+        for cell_index in cell_indices {
+            let gid = layer.gids.get(cell_index as usize).copied().unwrap_or(0);
+            if base_gid(gid) == 0 {
+                continue;
+            }
+            let pixel_x = (cell_index % width) as f32 * tile_width;
+            let pixel_y = (cell_index / width) as f32 * tile_height;
+            let already_covered = groups[group_index].objects.iter().any(|object| {
+                object.name == "TileData"
+                    && object.x <= pixel_x
+                    && pixel_x + tile_width <= object.x + object.width
+                    && object.y <= pixel_y
+                    && pixel_y + tile_height <= object.y + object.height
+            });
+            if already_covered {
+                continue;
+            }
+            next_object_id += 1;
+            groups[group_index].objects.push(MapObject {
+                id: next_object_id,
+                name: "TileData".to_string(),
+                r#type: "TileData".to_string(),
+                x: pixel_x,
+                y: pixel_y,
+                width: tile_width,
+                height: tile_height,
+                rotation: 0.0,
+                visible: true,
+                gid: None,
+                template: None,
+                class: None,
+                shape: "rectangle".to_string(),
+                properties: layer.cell_properties[&cell_index].clone(),
+                preserved_xml: Vec::new(),
+            });
+        }
+    }
+
+    BakedObjectGroups {
+        groups,
+        new_group_after_layer,
+    }
+}
+
+/// Hoists per-cell tile animations into the definition-level `animations` of
+/// their owning tilesets for TMX output.
+///
+/// TMX has no per-cell animation carrier: the game reads `<tile><animation>`
+/// from the tileset definition only, so each animated cell's frame list is
+/// promoted to the definition of its base tile id, mirroring the official
+/// TMXTile save behavior. Cells sharing a base id are first-writer-wins — a
+/// definition-level animation already present (either original or hoisted
+/// earlier in the sorted pass) silently wins and later cells are skipped — and
+/// the cell gid itself is never remapped, so static instances of the base tile
+/// start animating too. Cells whose base gid is empty or falls outside every
+/// tileset range are skipped. The returned view is transient and never mutates
+/// the input document.
+fn hoist_cell_animations(document: &MapDocument) -> Vec<MapTileset> {
+    let mut tilesets = document.tilesets.clone();
+    for layer in &document.layers {
+        if layer.kind != "tile" || layer.cell_animations.is_empty() {
+            continue;
+        }
+        let mut cell_indices = layer.cell_animations.keys().copied().collect::<Vec<_>>();
+        cell_indices.sort_unstable();
+        for cell_index in cell_indices {
+            let gid = layer.gids.get(cell_index as usize).copied().unwrap_or(0);
+            let base = base_gid(gid);
+            if base == 0 {
+                continue;
+            }
+            let Some((tileset_index, local_tile_id)) =
+                tilesets
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .find_map(|(index, tileset)| {
+                        let local = base.checked_sub(tileset.first_gid)?;
+                        (local < tileset.tile_count).then_some((index, local))
+                    })
+            else {
+                continue;
+            };
+            let tileset = &mut tilesets[tileset_index];
+            if tileset.animations.contains_key(&local_tile_id) {
+                continue;
+            }
+            tileset
+                .animations
+                .insert(local_tile_id, layer.cell_animations[&cell_index].clone());
+        }
+    }
+    tilesets
+}
+
 /// Serializes a map document to a Stardew-compatible TMX file while retaining layer encodings.
 pub fn serialize_tmx_map(document: &MapDocument) -> anyhow::Result<Vec<u8>> {
     if document.infinite
@@ -1275,10 +1441,11 @@ pub fn serialize_tmx_map(document: &MapDocument) -> anyhow::Result<Vec<u8>> {
     }
     write_start(&mut writer, "map", &attributes)?;
     write_properties(&mut writer, &document.properties)?;
-    for tileset in &document.tilesets {
+    let baked = bake_cell_properties(document);
+    let hoisted_tilesets = hoist_cell_animations(document);
+    for tileset in &hoisted_tilesets {
         write_tileset(&mut writer, tileset)?;
     }
-
     let mut written_layers = std::collections::HashSet::new();
     let mut written_groups = std::collections::HashSet::new();
     let mut written_preserved = std::collections::HashSet::new();
@@ -1288,10 +1455,17 @@ pub fn serialize_tmx_map(document: &MapDocument) -> anyhow::Result<Vec<u8>> {
                 if let Some(layer) = document.layers.iter().find(|layer| layer.id == *id) {
                     write_layer(&mut writer, layer)?;
                     written_layers.insert(*id);
+                    if let Some(group_id) = baked.new_group_after_layer.get(id) {
+                        if let Some(group) = baked.groups.iter().find(|group| group.id == *group_id)
+                        {
+                            write_object_group(&mut writer, group)?;
+                            written_groups.insert(*group_id);
+                        }
+                    }
                 }
             }
             MapLayerOrderEntry::ObjectGroup(id) => {
-                if let Some(group) = document.object_groups.iter().find(|group| group.id == *id) {
+                if let Some(group) = baked.groups.iter().find(|group| group.id == *id) {
                     write_object_group(&mut writer, group)?;
                     written_groups.insert(*id);
                 }
@@ -1310,9 +1484,15 @@ pub fn serialize_tmx_map(document: &MapDocument) -> anyhow::Result<Vec<u8>> {
         .filter(|layer| !written_layers.contains(&layer.id))
     {
         write_layer(&mut writer, layer)?;
+        if let Some(group_id) = baked.new_group_after_layer.get(&layer.id) {
+            if let Some(group) = baked.groups.iter().find(|group| group.id == *group_id) {
+                write_object_group(&mut writer, group)?;
+                written_groups.insert(*group_id);
+            }
+        }
     }
-    for group in document
-        .object_groups
+    for group in baked
+        .groups
         .iter()
         .filter(|group| !written_groups.contains(&group.id))
     {

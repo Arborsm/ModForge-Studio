@@ -3,7 +3,7 @@ import type { ResourceRegistry } from '@entities/game/api'
 import { getItemKindLabel, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
 import type { DraftPatch } from '@features/cp-maker'
 import type { ResourceBrowserOption } from '@features/resource-browser'
-import { ACTOR_OPTIONS, ITEM_OPTIONS, MAP_OPTIONS, MUSIC_OPTIONS, SOUND_OPTIONS } from '../workflow-model/commandOptions'
+
 import type { EventWorkflowCopy } from '@locales/api'
 
 export type EventActorAssetPreview = {
@@ -37,14 +37,6 @@ function resourceTone(seed: string) {
     hash = (hash * 31 + char.charCodeAt(0)) % RESOURCE_TONES.length
   }
   return RESOURCE_TONES[hash] ?? RESOURCE_TONES[0]
-}
-
-function optionValue(option: string | { value: string; label: string }) {
-  return typeof option === 'string' ? option : option.value
-}
-
-function optionLabel(option: string | { value: string; label: string }) {
-  return typeof option === 'string' ? option : option.label
 }
 
 function makeOption(kind: EventResourceKind, value: string, label: string, source: string, preview?: string | null): EventResourceOption {
@@ -224,14 +216,13 @@ function collectResourcesFromRawScript(
   }
 }
 
-export function buildDefaultEventResourceRegistry(sourceLabels: EventWorkflowCopy['resourceSources']): EventResourceRegistry {
-  const source = sourceLabels.vanilla
+export function buildDefaultEventResourceRegistry(_sourceLabels: EventWorkflowCopy['resourceSources']): EventResourceRegistry {
   return {
-    actor: ACTOR_OPTIONS.map((value) => makeOption('actor', value, value, source)),
-    item: ITEM_OPTIONS.map((option) => makeOption('item', optionValue(option), optionLabel(option), source)),
-    location: MAP_OPTIONS.map((value) => makeOption('location', value, value, source)),
-    music: MUSIC_OPTIONS.map((value) => makeOption('music', value, value, source)),
-    sound: SOUND_OPTIONS.map((value) => makeOption('sound', value, value, source)),
+    actor: [],
+    item: [],
+    location: [],
+    music: [],
+    sound: [],
   }
 }
 

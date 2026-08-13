@@ -32,7 +32,10 @@ use crate::infrastructure::game_formats::xnb::{self, read_xnb_from_path};
 use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 
-const FILE_CACHE_VERSION: u32 = 1;
+// Bump when any cached asset's parsed representation changes (e.g. tbin now
+// decodes `@TileIndex@` tilesheet properties into `tile_properties`), so stale
+// parses from older app versions are abandoned in their `assets-v<N>` dir.
+const FILE_CACHE_VERSION: u32 = 2;
 const MAP_CLASSIFICATION_CACHE_VERSION: u32 = 1;
 const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
 const MAX_EXPORTED_MAP_PNG_BYTES: usize = 256 * 1024 * 1024;
@@ -1204,6 +1207,19 @@ pub(crate) fn scan_audio_assets(path: String) -> anyhow::Result<Vec<AudioAssetSu
         collect_audio_assets(&root, &candidate, &mut assets)?;
     }
 
+    let xact_root = root.join("Content").join("XACT");
+    if xact_root.is_dir() {
+        for cue in crate::infrastructure::game_formats::xact::scan_xact_cues(&path)? {
+            let xsb_absolute = normalize_path(&xact_root.join("Sound Bank.xsb"));
+            assets.push(types::AudioAssetSummary {
+                cue,
+                kind: "sound".to_string(),
+                absolute_path: xsb_absolute.clone(),
+                relative_path: "Content/XACT/Sound Bank.xsb".to_string(),
+            });
+        }
+    }
+
     assets.sort_by(|left, right| {
         left.cue
             .cmp(&right.cue)
@@ -1249,7 +1265,7 @@ fn is_data_file(path: &Path) -> bool {
 
 /// Turns a game-root-relative path into the Content Patcher asset key the game
 /// uses to load the file: `Content/Characters/Abigail.xnb` → `Characters/Abigail`.
-fn cp_asset_key(relative_path: &str) -> String {
+pub(crate) fn cp_asset_key(relative_path: &str) -> String {
     let without_content = relative_path
         .strip_prefix("Content/")
         .unwrap_or(relative_path);

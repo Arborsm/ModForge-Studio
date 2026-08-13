@@ -47,6 +47,7 @@ export type {
   ThemeMode,
   ViewMenuCopy,
   MapPanelCopy,
+  AudioPanelCopy,
   ViewportLabels,
   ScriptEditorCopy,
   WorkspaceTone,

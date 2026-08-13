@@ -47,6 +47,8 @@ export type CharacterImageState = {
   height: number | null
   originalWidth: number | null
   originalHeight: number | null
+  /** Decoded image element, available so callers can sample pixels for frame-grid inference. */
+  image?: HTMLImageElement | null
 }
 
 const characterEntriesCache = new Map<string, Promise<CharacterWorkspaceEntry[]>>()
@@ -140,7 +142,7 @@ function getImagePathCandidates(path: string, locale: LocaleCode) {
 /** Loads one character-related image sheet, trying every localized spelling. */
 export async function loadCharacterImageState(path: string | null, locale: LocaleCode): Promise<CharacterImageState> {
   if (!path) {
-    return { path: null, url: null, width: null, height: null, originalWidth: null, originalHeight: null }
+    return { path: null, url: null, width: null, height: null, originalWidth: null, originalHeight: null, image: null }
   }
 
   const cacheKey = getLocalizedPathCacheKey(path, locale)
@@ -160,6 +162,7 @@ export async function loadCharacterImageState(path: string | null, locale: Local
           height: resource.height,
           originalWidth: null,
           originalHeight: null,
+          image: resource.image,
         }
       } catch (error) {
         lastError = error

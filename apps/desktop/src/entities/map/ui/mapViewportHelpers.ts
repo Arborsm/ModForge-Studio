@@ -508,6 +508,46 @@ export function getObjectBounds(object: MapObject, minimumWorldSize: number) {
   return { x, y, width, height, isPoint }
 }
 
+/**
+ * Returns the topmost visible object hit at a world point, or null.
+ * Hit order matches painting order: later groups and later objects within a
+ * group take precedence over earlier ones. An optional `skipObject` predicate
+ * rejects objects from hit-testing (e.g. canvas-hidden TileData rule objects).
+ */
+export function hitTestMapObject(
+  mapDocument: MapDocument,
+  visibleObjectGroupIds: ReadonlySet<number>,
+  worldX: number,
+  worldY: number,
+  options?: { skipObject?: (object: MapObject) => boolean },
+): MapObject | null {
+  const minimumWorldSize = 12
+  let hit: MapObject | null = null
+
+  for (const group of mapDocument.objectGroups) {
+    if (!group.visible || !visibleObjectGroupIds.has(group.id)) {
+      continue
+    }
+
+    for (const object of group.objects) {
+      if (options?.skipObject?.(object)) {
+        continue
+      }
+
+      const bounds = getObjectBounds(object, minimumWorldSize)
+      const withinX = worldX >= bounds.x && worldX <= bounds.x + bounds.width
+      const withinY = worldY >= bounds.y && worldY <= bounds.y + bounds.height
+      if (!withinX || !withinY) {
+        continue
+      }
+
+      hit = object
+    }
+  }
+
+  return hit
+}
+
 function collectHoveredObjects(mapDocument: MapDocument, visibleObjectGroupIds: ReadonlySet<number>, pixelX: number, pixelY: number) {
   const minimumWorldSize = 12
   const hits: HoverObjectInfo[] = []

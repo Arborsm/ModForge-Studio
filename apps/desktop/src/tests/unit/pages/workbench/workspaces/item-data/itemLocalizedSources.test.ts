@@ -29,8 +29,10 @@ function vanilla(entries: ItemWorkspaceEntry[], records: Record<string, unknown>
 }
 
 describe('buildItemSourceGroups placeholder folding', () => {
-  test('literal ??? placeholders leave the normal groups and land in placeholderRows', () => {
-    const groups = buildItemSourceGroups({
+  test('literal ??? placeholders leave the normal groups and land in placeholderRows', async () => {
+    const groups = await buildItemSourceGroups({
+      rootPath: null,
+      locale: 'en-US',
       projectKeys: [],
       projectEntries: {},
       vanilla: vanilla([vanillaEntry('128', 'Blue Jazz'), vanillaEntry('930', '???'), vanillaEntry('931', '???')]),
@@ -42,8 +44,10 @@ describe('buildItemSourceGroups placeholder folding', () => {
     expect(groups.placeholderRows.map((row) => row.key)).toEqual(['930', '931'])
   })
 
-  test('placeholders stay searchable', () => {
-    const groups = buildItemSourceGroups({
+  test('placeholders stay searchable', async () => {
+    const groups = await buildItemSourceGroups({
+      rootPath: null,
+      locale: 'en-US',
       projectKeys: [],
       projectEntries: {},
       vanilla: vanilla([vanillaEntry('930', '???')]),

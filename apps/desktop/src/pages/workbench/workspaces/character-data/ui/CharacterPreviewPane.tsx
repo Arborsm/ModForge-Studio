@@ -1,6 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { enumLabelKey, matchEnumValue, type AssetEntryDraft } from '@entities/asset-schema'
-import { getActorSpriteFrameHeight } from '@entities/event'
 import {
   AGE_VALUES,
   CharacterBreathingCanvas,
@@ -15,6 +14,7 @@ import {
   type CharacterVisualAssetState,
   type CharacterWorkspaceEntry,
 } from '@entities/character'
+import { getActorSpriteFrameHeight } from '@entities/event'
 import type { LocaleCode } from '@locales'
 import { useAssetAuthoringCopy, useCharacterDataEditorCopy } from '@locales/provider'
 
@@ -46,6 +46,7 @@ function useVariantAssets(
             spriteUrl: sprite.url,
             spriteSheetWidth: sprite.width,
             spriteSheetHeight: sprite.height,
+            spriteImage: sprite.image ?? null,
             portraitPath: portrait.path,
             portraitUrl: portrait.url,
             portraitSheetWidth: portrait.width,

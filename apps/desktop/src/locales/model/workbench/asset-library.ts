@@ -1,10 +1,10 @@
 /** Map target region used by map pickers inside the asset library. */
 export type AssetLibraryMapCategory = 'farm' | 'town' | 'interior' | 'wild' | 'mine' | 'island' | 'festival' | 'other'
 
-/** Asset families a CP Load patch can replace, mirrored from the binding model. */
+/** Asset families a replacement can swap, mirrored from the replacement model. */
 export type LoadAssetFamilyNameKey = 'maps' | 'images' | 'audio' | 'fonts' | 'data' | 'other'
 
-/** Copy for the structured Load binding editor (one Load patch → many targets). */
+/** Copy for the structured replacement editor (one replacement → many game resources). */
 export type MapLoadBindingCopy = {
   introHint: string
   targetsSection: string
@@ -30,15 +30,15 @@ export type MapLoadBindingCopy = {
   statusExists: string
   statusMissing: string
   emptyResolved: string
-  /** Shown when expert mode is off to explain why custom input is hidden. */
+  /** Shown when advanced mode is off to explain why custom input is hidden. */
   expertOnlyHint: string
-  /** Grid hint for image-family target pickers. */
+  /** Grid hint for image-family resource pickers. */
   imageTargetsHint: string
-  /** Icon-list hint for audio/fonts/data/other target pickers. */
+  /** Icon-list hint for audio/fonts/data/other resource pickers. */
   iconTargetsHint: string
-  /** Placeholder for the expert-mode custom target input outside the maps family. */
+  /** Placeholder for the advanced-mode custom resource input outside the maps family. */
   customTargetPlaceholder: string
-  /** Thumbnail alt text for a game image target. */
+  /** Thumbnail alt text for a game image resource. */
   thumbnailAlt: (target: string) => string
 }
 
@@ -92,6 +92,20 @@ export type AssetLibraryCopy = {
   /** Primary action for a map asset: open it in the map workspace editor. */
   editInMapEditorAction: string
   replaceAction: string
+  /** Replacing a file: staging state heading. */
+  replaceStagingTitle: string
+  /** Replacing a file: label for the original file. */
+  replaceOriginalLabel: string
+  /** Replacing a file: label for the new file. */
+  replaceNewLabel: string
+  /** Replacing a file: confirm button. */
+  replaceConfirmAction: string
+  /** Replacing a file: drop zone hint when no file is staged yet. */
+  replaceDropHint: string
+  /** Replacing a file: drag-over hint. */
+  replaceDragOverHint: string
+  /** Create a new replacement binding using this asset as the source file. */
+  replaceGameResourceAction: string
   renameAction: string
   deleteAction: string
   renameTitle: string
@@ -153,7 +167,7 @@ export type AssetLibraryCopy = {
     loading: string
     decodeFailed: string
   }
-  // Map asset creation and Load binding management, owned by the asset library.
+  // Map asset creation and replacement management, owned by the asset library.
   viewLoadBindings: string
   loadBindingsTitle: string
   loadBindingsHint: string
@@ -172,6 +186,8 @@ export type AssetLibraryCopy = {
   newLoadBindingFamilyTitle: string
   newLoadBindingFamilyHint: string
   newLoadBindingFamilyCancel: string
+  /** Short description for each family card in the picker. */
+  loadFamilyDescriptions: Record<LoadAssetFamilyNameKey, string>
   genericLoadSummary: {
     hint: string
     targetLabel: string

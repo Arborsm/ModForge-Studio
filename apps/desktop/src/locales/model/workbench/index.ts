@@ -20,6 +20,7 @@ import type { GameDebuggerCopy } from './debugger'
 import type { AuthoringShellCopy } from './authoring-shell'
 import type { AssetLibraryCopy } from './asset-library'
 import type { ResourceBrowserCopy } from './resource-browser'
+import type { AudioPanelCopy } from './audio'
 
 export type { ModWorkspaceCopy } from './mods'
 export type { TranslationEditorCopy } from './translation-editor'
@@ -51,11 +52,19 @@ export type EditorCopy = WorkbenchShellCopy & {
   authoringShell: AuthoringShellCopy
   assetLibrary: AssetLibraryCopy
   resourceBrowser: ResourceBrowserCopy
+  audioPanel: AudioPanelCopy
 }
 
 // Re-export all sub-types for consumer convenience
 export type { WorkbenchShellCopy } from './shell'
-export type { ViewportLabels, BuildAssetDialogCopy, MapAuthoringCopy, MapPanelCopy } from './map'
+export type {
+  ViewportLabels,
+  BuildAssetDialogCopy,
+  MapAuthoringCopy,
+  MapPanelCopy,
+  MapAssetMapCardsCopy,
+  MapAssetEditorTopBarCopy,
+} from './map'
 export type { StudioDeskCopy } from './studio-desk'
 export type { EventStageCopy, EventWorkflowCopy, EventWorkflowCommandKey, EventScenarioPresetId, ScriptEditorCopy } from './event-stage'
 export type { CharactersPanelCopy } from './characters'
@@ -85,3 +94,4 @@ export type { GameDebuggerCopy } from './debugger'
 export type { AuthoringShellCopy } from './authoring-shell'
 export type { AssetLibraryCopy, MapLoadBindingCopy, AssetLibraryCreateMapCopy, AssetLibraryMapCategory } from './asset-library'
 export type { ResourceBrowserCopy, ResourceBrowserKindKey } from './resource-browser'
+export type { AudioPanelCopy } from './audio'

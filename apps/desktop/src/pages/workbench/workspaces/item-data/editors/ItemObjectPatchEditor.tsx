@@ -1,5 +1,5 @@
-import { useDeferredValue, useEffect, useId, useMemo, useState } from 'react'
-import { AlertCircle, AlertTriangle, ArrowLeft, CheckCircle2, CircleDashed, Trash2 } from 'lucide-react'
+import { useEffect, useId, useMemo, useState } from 'react'
+import { AlertCircle, AlertTriangle, ArrowLeft, CheckCircle2, CircleDashed, Package, Trash2 } from 'lucide-react'
 import type { EditorComponent } from '@features/cp-maker'
 import { renderAssetResourcePicker, toItemResourceBrowserOptions } from '@features/resource-browser'
 import {
@@ -13,32 +13,16 @@ import {
   type GsqBuilderRequest,
 } from '@entities/asset-schema'
 import { EventGameStateQueryBuilderModal } from '@entities/event/ui/EventGameStateQueryBuilderModal'
-import {
-  addObjectEntry,
-  OBJECT_DATA_ASSET_ID,
-  OBJECT_DATA_SCHEMA,
-  resolveItemFamilyTarget,
-  useItemAuthoringHandoff,
-  validateObjectEntries,
-  type ItemAssetFamily,
-  type ObjectEntrySeed,
-} from '@entities/item'
+import { OBJECT_DATA_ASSET_ID, OBJECT_DATA_SCHEMA, useItemAuthoringHandoff, validateObjectEntries } from '@entities/item'
 import { useEditorCopy, useItemDataEditorCopy } from '@locales/provider'
 import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { useEditModeStore } from '../../../model/editModeStore'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { useItemAuthoringResources } from '../state/useItemAuthoringResources'
-import {
-  buildItemSourceGroups,
-  buildPreviewItem,
-  useVanillaObjectIndex,
-  type ItemSourceMode,
-  type ItemSourceRow,
-} from '../state/useItemAuthoringSources'
+import { buildPreviewItem, useVanillaObjectIndex } from '../state/useItemAuthoringSources'
 import { evaluateItemReadiness, type ItemReadiness, type ItemReadinessStatus } from '../state/itemReadiness'
 import { buildItemTextureTarget, needsProjectItemTexture } from '../state/itemTextureTarget'
 import { useItemTexture } from '../state/useItemTexture'
-import { AddObjectDialog } from '../ui/AddObjectDialog'
-import { ItemCatalog } from '../ui/ItemCatalog'
 import { ItemGroupTools } from '../ui/ItemGroupTools'
 import { ItemPreviewPane } from '../ui/ItemPreviewPane'
 
@@ -93,21 +77,22 @@ export const ItemObjectPatchEditor: EditorComponent = ({ patch, draftPort, resou
   const { draft } = draftPort
   const { gameRootPath, directoryInfo, locale } = environment
   const expertMode = useEditorModeStore((state) => state.expertMode)
+  const navigateToPatch = useEditModeStore((state) => state.navigateToPatch)
   const copy = useItemDataEditorCopy()
   const hubCopy = useEditorCopy().studioDesk.eventPatchHub
   const pendingEntry = useItemAuthoringHandoff((state) => state.pendingEntry)
   const consumePendingEntry = useItemAuthoringHandoff((state) => state.consumePendingEntry)
-  const requestOpenFamily = useItemAuthoringHandoff((state) => state.requestOpen)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [sourceMode, setSourceMode] = useState<ItemSourceMode>('all')
-  const [search, setSearch] = useState('')
-  const [addOpen, setAddOpen] = useState(false)
   const [removeCandidate, setRemoveCandidate] = useState<string | null>(null)
   const [gsqRequest, setGsqRequest] = useState<GsqBuilderRequest | null>(null)
   const [activeGroupId, setActiveGroupId] = useState('basics')
-  const deferredSearch = useDeferredValue(search)
   const vanilla = useVanillaObjectIndex(gameRootPath, directoryInfo, locale)
-  const referenceData = useItemAuthoringResources({ gameRootPath, directoryInfo, locale, patches: draft.patches })
+  const referenceData = useItemAuthoringResources({
+    gameRootPath,
+    directoryInfo,
+    locale,
+    patches: draft.patches,
+  })
   const itemOptions = useMemo(
     () => toItemResourceBrowserOptions(referenceData.items, referenceData.itemTextureStates, 'item-authoring'),
     [referenceData.itemTextureStates, referenceData.items],
@@ -115,11 +100,18 @@ export const ItemObjectPatchEditor: EditorComponent = ({ patch, draftPort, resou
 
   useEffect(() => {
     setSelectedId(null)
-    setAddOpen(false)
     setRemoveCandidate(null)
     setGsqRequest(null)
     setActiveGroupId('basics')
   }, [patch.id])
+
+  // The catalog page sets `selectedEntryKey` before opening this patch; adopt
+  // it as the initial selection so the editor lands on the picked entry.
+  useEffect(() => {
+    if (draftPort.selectedEntryKey !== null) {
+      setSelectedId(draftPort.selectedEntryKey)
+    }
+  }, [draftPort.selectedEntryKey])
 
   const entries = parseAssetEditorState(patch.editorState).entries
   const entryIds = draftPort.listEntries(OBJECT_DATA_ASSET_ID)
@@ -134,13 +126,14 @@ export const ItemObjectPatchEditor: EditorComponent = ({ patch, draftPort, resou
       draftPort.stage(OBJECT_DATA_ASSET_ID, itemId, parseAssetEntry(OBJECT_DATA_SCHEMA, vanilla.records[itemId] ?? {}))
     }
     setSelectedId(known ?? itemId)
-    setSourceMode('all')
     setActiveGroupId('basics')
   }, [consumePendingEntry, draftPort, entryIds, pendingEntry, vanilla.records])
 
   const activeId = selectedId !== null && entryIds.includes(selectedId) ? selectedId : null
   const activeDraft = activeId !== null ? draftPort.read(OBJECT_DATA_ASSET_ID, activeId) : null
-  const issues = validateObjectEntries(entries, { knownTextureAssets: referenceData.textureAssetNames })
+  const issues = validateObjectEntries(entries, {
+    knownTextureAssets: referenceData.textureAssetNames,
+  })
   const activeIssues = activeId === null ? [] : issues.filter((issue) => issue.path[0] === activeId)
   const resources: AssetResources = {
     npcs: [],
@@ -153,14 +146,6 @@ export const ItemObjectPatchEditor: EditorComponent = ({ patch, draftPort, resou
     gameRootPath,
     locale,
   }
-  const groups = buildItemSourceGroups({
-    projectKeys: entryIds,
-    projectEntries: entries,
-    vanilla,
-    mode: sourceMode,
-    search: deferredSearch,
-    ungroupedLabel: copy.sources.ungroupedLabel,
-  })
   const previewItem = buildPreviewItem(activeId, activeId === null ? null : entries[activeId], vanilla)
   const texturePatchState =
     previewItem === null ? null : findTexturePatchState(draft.patches, previewItem.textureAssetName ?? '', draft.virtualAssets)
@@ -210,27 +195,6 @@ export const ItemObjectPatchEditor: EditorComponent = ({ patch, draftPort, resou
     if (activeId !== null) draftPort.stage(OBJECT_DATA_ASSET_ID, activeId, next)
   }
 
-  function handleCreate(objectId: string, seed: ObjectEntrySeed) {
-    const result = addObjectEntry(entries, objectId, seed)
-    if (!result.ok) return
-    draftPort.stage(OBJECT_DATA_ASSET_ID, result.objectId, parseAssetEntry(OBJECT_DATA_SCHEMA, result.entries[result.objectId]))
-    setSelectedId(result.objectId)
-    setActiveGroupId('basics')
-    setAddOpen(false)
-  }
-
-  function handleSelectSource(row: ItemSourceRow) {
-    if (!row.inProject) {
-      draftPort.stage(OBJECT_DATA_ASSET_ID, row.key, parseAssetEntry(OBJECT_DATA_SCHEMA, vanilla.records[row.key] ?? {}))
-    }
-    setSelectedId(row.key)
-    setActiveGroupId('basics')
-  }
-
-  function handleSelectFamily(family: ItemAssetFamily) {
-    requestOpenFamily(resolveItemFamilyTarget(family.kind))
-  }
-
   function handleRemoveConfirmed() {
     if (removeCandidate === null) return
     draftPort.stage(OBJECT_DATA_ASSET_ID, removeCandidate, null)
@@ -247,21 +211,10 @@ export const ItemObjectPatchEditor: EditorComponent = ({ patch, draftPort, resou
   return (
     <div className="asset-editor item-data-editor">
       {activeId === null ? (
-        <ItemCatalog
-          groups={groups}
-          activeAssetId={patch.target}
-          mode={sourceMode}
-          search={search}
-          vanillaLoading={vanilla.loading}
-          vanillaAvailable={vanilla.available}
-          textureStates={referenceData.itemTextureStates}
-          resolveItem={(row) => buildPreviewItem(row.key, row.inProject ? entries[row.key] : null, vanilla)}
-          onSelectFamily={handleSelectFamily}
-          onModeChange={setSourceMode}
-          onSearchChange={setSearch}
-          onSelect={handleSelectSource}
-          onAddEntry={() => setAddOpen(true)}
-        />
+        <div className="item-editor-empty">
+          <Package className="h-8 w-8" aria-hidden="true" />
+          <p>{copy.sources.projectEmpty}</p>
+        </div>
       ) : (
         <div className="item-editor-detail">
           <div className="asset-editor-scroll item-editor-center">
@@ -273,7 +226,7 @@ export const ItemObjectPatchEditor: EditorComponent = ({ patch, draftPort, resou
                     className="icon-button h-8 w-8"
                     title={copy.sources.backToLibrary}
                     aria-label={copy.sources.backToLibrary}
-                    onClick={() => setSelectedId(null)}
+                    onClick={() => navigateToPatch(null)}
                   >
                     <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                   </button>
@@ -319,16 +272,6 @@ export const ItemObjectPatchEditor: EditorComponent = ({ patch, draftPort, resou
         </div>
       )}
 
-      <AddObjectDialog
-        open={addOpen}
-        existingIds={entryIds}
-        textureSuggestions={referenceData.textureAssetNames}
-        projectUniqueId={draft.projectMetadata.projectUniqueId}
-        gameRootPath={gameRootPath}
-        locale={locale}
-        onClose={() => setAddOpen(false)}
-        onCreate={handleCreate}
-      />
       <RemoveEntryDialog objectId={removeCandidate} onClose={() => setRemoveCandidate(null)} onConfirm={handleRemoveConfirmed} />
       {gsqRequest !== null ? (
         <EventGameStateQueryBuilderModal

@@ -91,8 +91,13 @@ export type AssetDraftPort = {
   redo: () => boolean
   /** Whether the draft holds staged changes that `commit` would persist. */
   isDirty: () => boolean
-  /** Stages a change to patch metadata (target, action, logName, enabled, …). */
-  updatePatch: (patchId: string, changes: Partial<DraftPatch>) => void
+  /**
+   * Stages a change to patch metadata (target, action, logName, enabled, …).
+   * Pass `{ record: false }` to skip the draft undo stack — reserved for
+   * editors that own their own document history (the map asset editor), so one
+   * operation never lands on two stacks. All other editors record as before.
+   */
+  updatePatch: (patchId: string, changes: Partial<DraftPatch>, options?: UpdatePatchOptions) => void
   /**
    * Moves one patch one position in the draft's export order; a boundary move
    * is a no-op. `within` skips patches the predicate rejects, so a filtered
@@ -119,6 +124,12 @@ export type AssetDraftPort = {
   selectedEntryKey: string | null
   /** Moves the shell selection, so toolbar and editor stay in sync. */
   selectEntry: (entryKey: string | null) => void
+}
+
+/** Optional per-write behavior for patch metadata changes. */
+export type UpdatePatchOptions = {
+  /** False skips the draft undo stack; see `updatePatch` for when that is appropriate. */
+  record?: boolean
 }
 
 export type AssetDraftPortOptions = {
@@ -430,7 +441,14 @@ export function createAssetDraftPort(options: AssetDraftPortOptions): AssetDraft
     undo: () => useDraftUndoStore.getState().undo(options.onPatchChange),
     redo: () => useDraftUndoStore.getState().redo(options.onPatchChange),
     isDirty: () => options.isDirty,
-    updatePatch: (patchId, changes) => {
+    updatePatch: (patchId, changes, writeOptions) => {
+      if (writeOptions?.record === false) {
+        // Editors with their own document history write through without
+        // touching the draft undo stack; the host updater still runs so the
+        // patch state and save pipeline behave exactly like a recorded write.
+        options.onPatchChange(patchId, changes)
+        return
+      }
       onPatchChange(patchId, changes, `${patchId}:patch:${Object.keys(changes).sort().join(',')}`)
     },
     reorderPatch: options.onPatchReorder,

@@ -1,8 +1,27 @@
 @layer components {
   /* —— Shared workspace patch list: rows in export order with reorder/duplicate/toggle/delete —— */
 
+  .workspace-patch-list-frame {
+    @apply grid min-h-0;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .workspace-patch-list-header {
+    @apply border-border-subtle flex items-center px-3 pt-3 pb-2;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  }
+
   .workspace-patch-list {
-    @apply grid min-w-0;
+    @apply grid min-h-0 overflow-y-auto p-2;
+  }
+
+  .workspace-patch-list-empty {
+    @apply text-text-tertiary grid gap-1.5 p-6 text-center;
+    align-content: center;
+  }
+
+  .workspace-patch-list-empty p {
+    @apply m-0 text-xs;
   }
 
   .workspace-patch-rows {
@@ -14,29 +33,45 @@
   .workspace-patch-row {
     @apply bg-surface-panel relative flex min-w-0 items-center;
     gap: 0.5rem;
-    border: 1px solid var(--border-color);
     border-radius: 0.375rem;
     padding: 0.375rem 0.5rem;
+    transition:
+      background-color 120ms ease,
+      transform 180ms ease,
+      box-shadow 120ms ease;
+    touch-action: none;
   }
 
-  .workspace-patch-row.is-disabled {
-    opacity: 0.6;
+  .workspace-patch-row:hover {
+    @apply bg-surface-hover;
   }
 
-  .workspace-patch-thumb {
-    @apply text-text-tertiary grid overflow-hidden;
-    width: 2.5rem;
-    height: 2.5rem;
+  .workspace-patch-row.is-dragging {
+    @apply bg-surface-elevated shadow-float;
+    z-index: 20;
+    cursor: grabbing;
+  }
+
+  .workspace-patch-drag {
+    @apply text-text-tertiary grid cursor-grab;
     flex: 0 0 auto;
+    width: 1.25rem;
+    height: 1.25rem;
     place-items: center;
-    border: 1px solid var(--border-color);
-    border-radius: 0.375rem;
+    border-radius: 0.25rem;
+    padding: 0;
+    background: transparent;
+    border: 0;
   }
 
-  .workspace-patch-thumb img {
-    @apply block h-full w-full;
-    object-fit: contain;
-    image-rendering: pixelated;
+  .workspace-patch-drag:hover,
+  .workspace-patch-row:hover .workspace-patch-drag {
+    @apply text-text-primary bg-surface-hover;
+  }
+
+  .workspace-patch-drag:active,
+  .workspace-patch-row.is-dragging .workspace-patch-drag {
+    cursor: grabbing;
   }
 
   .workspace-patch-order {

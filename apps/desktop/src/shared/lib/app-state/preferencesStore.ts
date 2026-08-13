@@ -4,6 +4,7 @@ import type { LoadingMotionPreference } from '@shared/lib/loading-motion'
 import { normalizeLoadingMotionPreference } from '@shared/lib/loading-motion'
 import type { LocaleCode, ThemeMode } from '@locales/model'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from './appUiState'
+import { normalizeMapEditorPalettePreferences, type MapEditorPalettePreferences } from './mapEditorPalettePreferences'
 import { DEFAULT_THEME_ID, normalizeThemeId } from './theme'
 
 type PreferencesStateValues = {
@@ -22,6 +23,8 @@ type PreferencesStateValues = {
 }
 
 export type PreferencesState = PreferencesStateValues & {
+  mapEditorPalette: MapEditorPalettePreferences
+  setMapEditorPalette: (patch: Partial<MapEditorPalettePreferences>) => void
   setTheme: (theme: ThemeMode) => void
   setThemeId: (themeId: string) => void
   setLocale: (locale: LocaleCode) => void
@@ -136,10 +139,32 @@ function persistAppUiStatePatch(patch: Parameters<typeof applyAppUiStatePatch>[0
   })
 }
 
+/** Storage key of the map-editor palette preference slice under `workspace.modules`. */
+export const MAP_EDITOR_PALETTE_PREFERENCES_KEY = 'map-editor/palette'
+
+function readMapEditorPalettePreferences(): MapEditorPalettePreferences {
+  const stored = getAppUiStateSnapshot().workspace.modules[MAP_EDITOR_PALETTE_PREFERENCES_KEY]
+  return normalizeMapEditorPalettePreferences(isRecord(stored) ? stored.value : undefined)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function persistMapEditorPalettePreferences(preferences: MapEditorPalettePreferences) {
+  persistAppUiStatePatch({ workspace: { modules: { [MAP_EDITOR_PALETTE_PREFERENCES_KEY]: { value: preferences } } } })
+}
+
 const initialPreferencesState = readPreferencesFromAppUiState(getAppUiStateSnapshot())
 
 export const usePreferencesStore = create<PreferencesState>((set, get) => ({
   ...initialPreferencesState,
+  mapEditorPalette: readMapEditorPalettePreferences(),
+  setMapEditorPalette: (patch) => {
+    const next = normalizeMapEditorPalettePreferences({ ...get().mapEditorPalette, ...patch })
+    set({ mapEditorPalette: next })
+    persistMapEditorPalettePreferences(next)
+  },
   setTheme: (theme) => {
     set({ theme })
     syncDocumentPreferences({ ...get(), theme })
@@ -269,7 +294,7 @@ export function syncPreferencesStoreFromAppUiState(
     desktopHost,
   }
 
-  usePreferencesStore.setState(next)
+  usePreferencesStore.setState({ ...next, mapEditorPalette: readMapEditorPalettePreferences() })
   syncDocumentPreferences(next)
 }
 
@@ -280,6 +305,6 @@ export function resetPreferencesStoreForTest(seed: PreferencesStoreSeed = {}) {
     ...readPreferencesFromAppUiState(getAppUiStateSnapshot()),
     ...seed,
   }
-  usePreferencesStore.setState(next)
+  usePreferencesStore.setState({ ...next, mapEditorPalette: readMapEditorPalettePreferences() })
   syncDocumentPreferences(next)
 }

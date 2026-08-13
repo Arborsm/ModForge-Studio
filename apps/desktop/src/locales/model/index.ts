@@ -7,6 +7,7 @@ export type {
   ViewportLabels,
   MapAuthoringCopy,
   MapPanelCopy,
+  AudioPanelCopy,
   EventStageCopy,
   EventWorkflowCopy,
   EventWorkflowCommandKey,

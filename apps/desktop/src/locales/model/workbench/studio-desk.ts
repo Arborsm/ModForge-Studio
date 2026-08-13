@@ -291,6 +291,10 @@ export type StudioDeskCopy = {
     tilesetSelection: (index: number, width: number, height: number) => string
     tileTileset: (tileset: string) => string
     tileId: (id: number) => string
+    searchTilesets: string
+    recentTilesets: string
+    noTileSelection: string
+    tileTooltip: (index: number, tileset: string) => string
     quickProperty: string
     chooseQuickProperty: string
     mapPropertyCategories: Record<'map' | 'warps' | 'lighting' | 'music' | 'spawning' | 'buildings' | 'other', string>
@@ -551,6 +555,7 @@ export type StudioDeskCopy = {
   patchList: {
     regionLabel: string
     openPatch: (name: string) => string
+    movePatch: (name: string) => string
     moveUp: string
     moveDown: string
     duplicate: string
@@ -567,6 +572,22 @@ export type StudioDeskCopy = {
     when: string
     priority: string
     fromFile: string
+    emptyTitle: string
+    emptyHint: string
+    noMatches: string
+  }
+  entryList: {
+    regionLabel: string
+    openEntry: (name: string) => string
+    delete: string
+    deleteTitle: string
+    deleteMessage: (name: string) => string
+    cancel: string
+    confirmDelete: string
+    toggleEnable: (name: string) => string
+    toggleDisable: (name: string) => string
+    emptyTitle: string
+    emptyHint: string
   }
   eventPatchHub: {
     navigationLabel: string

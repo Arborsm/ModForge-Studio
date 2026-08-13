@@ -1,4 +1,12 @@
 @layer components {
+  /* =====================================================================
+   * Map editor shell + floating canvas chrome in one layout. The canvas is
+   * always a single row: the tool rail, lighting preview pill, zoom chip and
+   * tileset palette float over the viewport, so no docked grid or :has()
+   * state switch is needed for either the asset editor or patch-tiles
+   * sessions. Card/inspector detail rules live in map-asset-cards.css.
+   * ===================================================================== */
+
   .map-asset-editor,
   .map-asset-editor-body,
   .map-asset-canvas,
@@ -36,8 +44,7 @@
     padding: 0 0.75rem;
   }
 
-  .map-asset-editor-header > div,
-  .map-asset-path {
+  .map-asset-editor-header > div {
     min-width: 0;
   }
 
@@ -51,15 +58,10 @@
   }
 
   .map-asset-editor-header > div > span,
-  .map-asset-path,
   .map-asset-save-status {
     @apply text-text-tertiary overflow-hidden whitespace-nowrap;
     font-size: 0.6875rem;
     text-overflow: ellipsis;
-  }
-
-  .map-asset-path {
-    text-align: right;
   }
 
   .map-asset-inspector input,
@@ -85,10 +87,6 @@
     @apply grid overflow-hidden;
     flex: 1 1 auto;
     grid-template-columns: 15.25rem minmax(28.75rem, 1fr) 18.375rem;
-  }
-
-  .map-asset-editor-body.has-collapsed-inspector {
-    grid-template-columns: 15.25rem minmax(28.75rem, 1fr) 3rem;
   }
 
   .map-asset-tbin-diagnostics {
@@ -132,21 +130,56 @@
     background: var(--bg-panel);
   }
 
-  .map-asset-layers {
+  /* ===== Left column: layers (top) + history (bottom) ===== */
+  .map-asset-leftcol {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
     border-right: 1px solid var(--border-color);
   }
 
-  .map-asset-layers > header {
-    @apply flex items-center justify-between;
-    min-height: 2.5rem;
-    border-bottom: 1px solid var(--border-color);
-    padding: 0.375rem 0.5rem 0.375rem 0.75rem;
-    font-size: 0.6875rem;
+  .map-asset-leftcol > .map-asset-layers {
+    flex: 0 0 var(--map-leftcol-split, 57%);
+    min-height: 0;
+    border-right: 0;
   }
 
-  .map-asset-layers > div {
-    @apply overflow-auto;
-    padding: 0.375rem;
+  /* Drag handle between layers and history: a 6px hot zone straddling the
+     panel seam that reveals an accent line on hover/drag. */
+  .map-asset-leftcol-divider {
+    flex: 0 0 0.375rem;
+    position: relative;
+    z-index: 1;
+    margin: -0.1875rem 0;
+    cursor: row-resize;
+    touch-action: none;
+  }
+
+  .map-asset-leftcol-divider::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0.125rem;
+    height: 0.125rem;
+    background: transparent;
+  }
+
+  .map-asset-leftcol-divider:hover::after,
+  .map-asset-leftcol-divider.is-active::after {
+    background: var(--accent);
+  }
+
+  .map-asset-leftcol > .map-asset-history-panel {
+    flex: 1;
+    min-height: 0;
+    border-top: 1px solid var(--border-color);
+  }
+
+  /* ===== Layers panel ===== */
+  .map-asset-layers {
+    border-right: 1px solid var(--border-color);
   }
 
   .map-asset-layer-row {
@@ -156,12 +189,6 @@
     border-radius: var(--radius-sm);
   }
 
-  .map-asset-object-group-row {
-    grid-template-columns: 1.75rem minmax(0, 1fr) 2.5rem 1.75rem;
-    margin-top: 0.125rem;
-    border-top: 1px solid var(--border-color);
-  }
-
   .map-asset-layer-row:hover,
   .map-asset-layer-row.is-active {
     background: var(--bg-hover);
@@ -169,6 +196,24 @@
 
   .map-asset-layer-row.is-active {
     box-shadow: inset 2px 0 0 var(--accent);
+  }
+
+  /* Inline row actions (visibility toggle, lock) and the opacity readout
+     reveal on hover; the eye stays visible while its layer is hidden, the
+     lock while locked, and the opacity while it is not 100%, so state is
+     never hidden from the user. */
+  .map-asset-layer-row > .icon-button,
+  .map-asset-layer-row > .map-asset-layer-opacity {
+    visibility: hidden;
+  }
+
+  .map-asset-layer-row:hover > .icon-button,
+  .map-asset-layer-row.is-active > .icon-button,
+  .map-asset-layer-row > .icon-button.is-always-visible,
+  .map-asset-layer-row:hover > .map-asset-layer-opacity,
+  .map-asset-layer-row.is-active > .map-asset-layer-opacity,
+  .map-asset-layer-row > .map-asset-layer-opacity.is-always-visible {
+    visibility: visible;
   }
 
   .map-asset-layer-name {
@@ -195,6 +240,13 @@
     background-size: 0.5rem 0.5rem;
   }
 
+  .map-asset-layer-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: pixelated;
+  }
+
   .map-asset-layer-meta {
     @apply grid min-w-0;
     gap: 0.125rem;
@@ -216,119 +268,316 @@
     font-size: 0.6875rem;
   }
 
+  .map-asset-layer-toolbar {
+    @apply grid items-center;
+    min-height: 2.5rem;
+    grid-template-columns: repeat(2, 1.75rem) 1fr repeat(2, 1.75rem);
+    gap: 0.125rem;
+    border-top: 1px solid var(--border-color);
+    padding: 0.375rem;
+  }
+
+  /* ===== Canvas: single-row float chrome ===== */
   .map-asset-canvas {
     @apply relative grid overflow-hidden;
-    grid-template-rows: 2.625rem minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     background: var(--bg-viewport);
   }
 
-  .map-asset-canvas.has-palette {
-    grid-template-rows: 2.625rem minmax(18rem, 1fr) 13.625rem;
-  }
-
-  .map-asset-tools,
-  .map-asset-transform-tools {
-    @apply flex items-center;
-    gap: 0.25rem;
-  }
-
-  .map-asset-tools {
-    @apply min-h-10.5;
-    border-bottom: 1px solid var(--border-color);
-    background: var(--bg-panel);
-    padding: 0.375rem 0.5rem;
-  }
-
-  .map-asset-tools .is-active,
-  .map-asset-inspector nav button.is-active,
-  .map-asset-object-list button.is-active {
-    @apply text-text-primary;
-    background: var(--bg-active);
-    box-shadow: inset 0 -2px 0 var(--accent);
-  }
-
+  /* The canvas viewport is the positioning context for every floating
+     element (tool rail, lighting pill, zoom chip, palette panel). */
   .map-asset-viewport {
     @apply relative overflow-hidden;
   }
 
-  /* The lighting preview toolbar floats bottom-center so it never covers the palette toggle in the bottom-right corner. */
-  .map-asset-viewport > .workspace-viewport-toolbar {
-    right: auto;
-    left: 50%;
-    transform: translateX(-50%);
+  /* The map canvas fills the viewport edge-to-edge: drop the shared
+     panel-canvas corner rounding inside this shell only. */
+  .map-asset-viewport .panel-canvas {
+    border-radius: 0;
   }
 
-  .map-asset-canvas > .map-tileset-palette {
-    display: grid;
-    max-height: none;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-
-  .map-asset-canvas > .map-tileset-palette .map-tileset-palette-heading {
+  /* Vertical tool rail, centered on the canvas left edge. */
+  .map-asset-tools {
     @apply flex items-center;
-    gap: 0.625rem;
-    border-right: 0;
-    border-bottom: 1px solid var(--border-color);
-    padding: 0 0.625rem;
+    position: absolute;
+    top: 50%;
+    left: 0.75rem;
+    transform: translateY(-50%);
+    z-index: var(--z-popover);
+    flex-direction: column;
+    gap: 0.25rem;
+    min-height: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-field);
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow-panel);
+    padding: 0.25rem;
   }
 
-  .map-asset-canvas > .map-tileset-palette .map-tileset-palette-title {
-    @apply min-w-32;
-  }
-  .map-asset-canvas > .map-tileset-palette .map-tileset-palette-switcher {
-    flex: 1 1 auto;
-  }
-  .map-asset-canvas > .map-tileset-palette .map-tileset-palette-controls {
-    @apply ml-auto;
+  .map-asset-tools .is-active {
+    @apply text-text-primary;
+    background: var(--accent-soft);
+    box-shadow: none;
   }
 
-  .map-editor-palette-toggle {
-    @apply text-text-secondary absolute inline-flex items-center;
-    right: 0.5rem;
-    bottom: 0.5rem;
-    z-index: 2;
-    min-height: 1.75rem;
+  .map-asset-tools-sep {
+    width: 1.25rem;
+    height: 1px;
+    margin: 0.1875rem auto;
+    background: var(--border-color);
+    flex: none;
+  }
+
+  /* Cell-rule overlay paint bar: floats bottom-left over the canvas while the
+     overlay mode is on. Rule buttons carry color swatches matching the canvas
+     overlay hues (tokens.css --cell-overlay-*), so the bar doubles as a legend. */
+  .map-asset-paint-rules {
+    position: absolute;
+    left: 0.75rem;
+    bottom: 0.75rem;
+    z-index: var(--z-popover);
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-height: 2rem;
+    max-width: calc(100% - 1.5rem);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-field);
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow-panel);
+    padding: 0.1875rem 0.375rem;
+  }
+
+  .map-asset-paint-rules-label {
+    @apply text-text-tertiary;
+    padding: 0 0.25rem;
+    font-size: 0.6875rem;
+    white-space: nowrap;
+  }
+
+  .map-asset-paint-rule {
+    @apply text-text-secondary inline-flex items-center;
     gap: 0.375rem;
+    min-height: 1.625rem;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--bg-panel);
+    padding: 0 0.625rem;
+    font-size: 0.6875rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .map-asset-paint-rule:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
+  }
+
+  .map-asset-paint-rule.is-active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .map-asset-paint-rule-swatch {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 2px;
+    flex: none;
+  }
+
+  .map-asset-paint-rule[data-rule='block'] .map-asset-paint-rule-swatch {
+    background: var(--cell-overlay-block);
+  }
+
+  .map-asset-paint-rule[data-rule='npc'] .map-asset-paint-rule-swatch {
+    background: var(--cell-overlay-npc);
+  }
+
+  .map-asset-paint-rule[data-rule='water'] .map-asset-paint-rule-swatch {
+    background: var(--cell-overlay-water);
+  }
+
+  .map-asset-paint-rule[data-rule='dig'] .map-asset-paint-rule-swatch {
+    background: var(--cell-overlay-dig);
+  }
+
+  .map-asset-paint-rule[data-rule='walkable'] .map-asset-paint-rule-swatch {
+    background: transparent;
+    border: 1px dashed var(--border-color);
+  }
+
+  /* Zoom chip: bottom-right pill with the percentage as pure readout; the
+     leading transform group (flip/rotate for the selected cell) is separated
+     from the zoom controls. */
+  .map-canvas-zoom-chip {
+    position: absolute;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    z-index: var(--z-popover);
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-height: 2rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-field);
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow-panel);
+    padding: 0.125rem 0.375rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--text-tertiary);
+  }
+
+  .map-canvas-zoom-chip-value {
+    min-width: 2.75rem;
+    text-align: center;
+  }
+
+  .map-canvas-zoom-chip .icon-button.is-active {
+    background: var(--accent-soft);
+  }
+
+  .map-canvas-zoom-chip .sep-v {
+    width: 1px;
+    height: 1rem;
+    margin: 0 0.125rem;
+    background: var(--border-color);
+    flex: none;
+  }
+
+  /* Lighting preview pill: floats top-right over the canvas. It must sit
+     above the tileset palette (--z-popover = 180) so its dusk mini menu is
+     never covered, so it reuses the titlebar token's value (260) — the next
+     stacking level — matching the confirmed v2.8 prototype. */
+  .map-lighting-preview-pill {
+    position: absolute;
+    right: 0.75rem;
+    top: 0.75rem;
+    z-index: var(--z-titlebar);
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    min-height: 2rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-field);
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow-panel);
+    padding: 0.1875rem;
+  }
+
+  .map-lighting-preview-pill .seg-btn {
+    @apply text-text-secondary inline-flex items-center gap-1;
+    min-height: 1.625rem;
+    border: none;
+    background: transparent;
     border-radius: var(--radius-sm);
     padding: 0 0.5rem;
-    background: var(--bg-panel);
     font-size: 0.6875rem;
+    cursor: pointer;
+    white-space: nowrap;
   }
 
-  .map-editor-palette-toggle.is-open {
-    bottom: 14.125rem;
+  .map-lighting-preview-pill .seg-btn:hover:not(:disabled) {
+    @apply text-text-primary;
+    background: var(--bg-hover);
   }
 
+  .map-lighting-preview-pill .seg-btn.is-on {
+    @apply text-text-primary;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  /* Dusk sky tint only matters outdoors; indoor previews use the ambient
+     light day→night interpolation, so the dusk segment is disabled indoors. */
+  .map-lighting-preview-pill .seg-btn:disabled {
+    opacity: 0.38;
+    pointer-events: none;
+  }
+
+  .map-lighting-preview-pill .seg-btn .caret {
+    font-size: 0.5625rem;
+    opacity: 0.6;
+  }
+
+  .map-lighting-preview-pill .seg-wrap {
+    position: relative;
+  }
+
+  .map-lighting-preview-pill .dusk-mini {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1; /* inside the pill's own stacking context, which sits above the palette */
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 9.875rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-field);
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow-float);
+    padding: 0.25rem;
+  }
+
+  .map-lighting-preview-pill .dusk-mini[hidden] {
+    display: none;
+  }
+
+  .map-lighting-preview-pill .dusk-opt {
+    @apply text-text-secondary grid text-left;
+    gap: 0.0625rem;
+    min-height: 2rem;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.6875rem;
+    cursor: pointer;
+  }
+
+  .map-lighting-preview-pill .dusk-opt > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .map-lighting-preview-pill .dusk-opt:hover {
+    @apply text-text-primary;
+    background: var(--bg-hover);
+  }
+
+  .map-lighting-preview-pill .dusk-opt.is-on {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .map-lighting-preview-pill .dusk-opt small {
+    font-size: 0.5625rem;
+    opacity: 0.55;
+  }
+
+  /* Tileset palette as a floating panel anchored to the viewport's right
+     edge, below the lighting pill (top 3.5rem) and above the zoom chip.
+     Panel chrome (width, border, shadow, background) lives in the palette's
+     own stylesheet; this only overrides the viewport-relative placement. */
+  .map-asset-viewport > .map-tileset-palette {
+    top: 3.5rem;
+    right: 0.75rem;
+    max-height: calc(100% - 4.25rem);
+  }
+
+  /* ===== Inspector: single scrolling panel (no tabs) ===== */
   .map-asset-inspector {
     border-left: 1px solid var(--border-color);
   }
 
-  .map-asset-inspector > nav {
-    display: grid;
-    min-height: 2.5rem;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .map-asset-inspector.is-collapsed > nav {
-    grid-template-columns: 1fr;
-    align-content: start;
-  }
-
-  .map-asset-inspector.is-collapsed > nav button {
-    min-height: 2.5rem;
-  }
-
-  .map-asset-inspector > nav button {
-    @apply text-text-secondary overflow-hidden whitespace-nowrap;
-    padding: 0.5rem 0.25rem;
-    font-size: 0.6875rem;
-    text-overflow: ellipsis;
-  }
-
   .map-asset-inspector-content {
     @apply grid overflow-auto;
+    flex: 1 1 auto;
+    min-height: 0;
     align-content: start;
     gap: 0.75rem;
     padding: 0.75rem;
@@ -337,8 +586,17 @@
 
   .map-asset-inspector-content > header,
   .map-asset-animation > header {
-    @apply flex items-baseline justify-between;
+    @apply flex items-center justify-between;
     gap: 0.5rem;
+  }
+
+  .map-asset-inspector-content > header .icon-button {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .map-asset-inspector-content > header .icon-button:disabled {
+    @apply opacity-40;
   }
 
   .map-asset-inspector-content p,
@@ -374,34 +632,30 @@
     text-overflow: ellipsis;
   }
 
-  .map-asset-document-summary,
+  .map-asset-object-list button.is-active {
+    @apply text-text-primary;
+    background: var(--bg-active);
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
+
+  /* Single grid: the header keeps its content height and the scrollable list
+     takes the leftover panel height, so a tall panel never stretches the
+     header into dead space above the section title. */
   .map-asset-layer-section {
-    @apply grid min-w-0;
+    @apply grid min-h-0 min-w-0;
+    flex: 1 1 auto;
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
-  .map-asset-document-summary {
-    @apply border-b;
-    gap: 0.25rem;
-    border-bottom: 1px solid var(--border-color);
-    padding: 0.625rem 0.75rem;
-  }
-
-  .map-asset-document-summary > header,
   .map-asset-layer-section > header {
-    @apply flex items-center justify-between;
-    min-height: 1.5rem;
+    @apply flex items-center;
+    min-height: 2.125rem;
     gap: 0.5rem;
-    padding: 0;
-  }
-
-  .map-asset-document-summary > strong {
-    @apply text-text-primary overflow-hidden whitespace-nowrap;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 0.625rem 0 0.75rem;
     font-size: 0.6875rem;
-    text-overflow: ellipsis;
   }
 
-  .map-asset-document-summary > span,
-  .map-asset-document-summary > small,
   .map-asset-layer-section > header > span {
     @apply text-text-tertiary overflow-hidden whitespace-nowrap;
     font-family: var(--font-mono);
@@ -409,16 +663,8 @@
     text-overflow: ellipsis;
   }
 
-  .map-asset-layer-section {
-    @apply min-h-0;
-    flex: 1 1 auto;
-  }
-
-  .map-asset-layer-section > header {
-    min-height: 2.125rem;
-    border-bottom: 1px solid var(--border-color);
-    padding: 0 0.625rem 0 0.75rem;
-    font-size: 0.6875rem;
+  .map-asset-layer-section > header > .icon-button {
+    margin-left: auto;
   }
 
   .map-asset-layer-section > div {
@@ -426,25 +672,177 @@
     padding: 0.375rem;
   }
 
-  .map-asset-layer-toolbar {
-    @apply grid items-center;
-    min-height: 2.5rem;
-    grid-template-columns: repeat(3, 1.75rem) 1fr repeat(2, 1.75rem);
-    gap: 0.125rem;
+  /* ===== Inspector diagnostics: pinned footer below the property content ===== */
+  .map-asset-diagnostics {
+    @apply flex flex-col;
+    flex: 0 0 auto;
+    max-height: 40%;
+    overflow: auto;
+    gap: 0.375rem;
     border-top: 1px solid var(--border-color);
-    padding: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.6875rem;
   }
 
-  .map-asset-inspector > .map-asset-inspector-views button.is-active,
-  .map-asset-inspector > .map-asset-inspector-tabs button.is-active {
-    @apply text-text-primary;
+  .map-asset-diagnostics > header {
+    @apply flex items-center;
+    flex: 0 0 auto;
+    gap: 0.5rem;
+  }
+
+  .map-asset-diagnostics .lbl {
+    @apply text-text-tertiary;
+    font-size: 0.6875rem;
+  }
+
+  .map-asset-diagnostics-badge.is-error {
+    color: var(--danger);
+    background: var(--danger-soft);
+    border-radius: 999px;
+    padding: 0.0625rem 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+  }
+
+  .map-asset-diagnostics-row,
+  .map-asset-diagnostics-convert-hint {
+    @apply text-text-secondary m-0;
+    font-size: 0.71875rem;
+    line-height: 1.45;
+  }
+
+  .map-asset-diagnostics-clear {
+    @apply text-text-tertiary m-0;
+    font-size: 0.71875rem;
+  }
+
+  .map-asset-diagnostics-convert-action {
+    align-self: flex-start;
+  }
+
+  .map-asset-diagnostics > footer {
+    @apply text-text-tertiary m-0;
+    flex: 0 0 auto;
+    font-size: 0.65625rem;
+    line-height: 1.4;
+  }
+
+  .map-asset-diagnostics.is-flash {
+    animation: map-asset-diagnostics-flash 1s ease-out;
+  }
+
+  @keyframes map-asset-diagnostics-flash {
+    0% {
+      box-shadow: inset 0 0 0 2px var(--accent);
+    }
+    100% {
+      box-shadow: inset 0 0 0 2px transparent;
+    }
+  }
+
+  /* ===== Undo-history panel (editor left column) ===== */
+  .map-asset-history-panel {
+    @apply flex flex-col;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .map-asset-history-toolbar {
+    @apply flex items-center;
+    min-height: 2.25rem;
+    flex: 0 0 auto;
+    gap: 0.125rem;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 0.5rem;
+  }
+
+  .map-asset-history-toolbar .lbl {
+    @apply text-text-tertiary;
+    font-size: 0.6875rem;
+    padding: 0 0.25rem;
+  }
+
+  .map-asset-history-toolbar .spacer {
+    flex: 1;
+  }
+
+  .map-asset-history-toolbar .icon-button {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .map-asset-history-toolbar .icon-button:disabled {
+    @apply cursor-default;
+    background: transparent;
+    opacity: 0.35;
+  }
+
+  .map-asset-history-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: 0.25rem;
+  }
+
+  .map-asset-history-empty {
+    @apply text-text-tertiary m-0;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.6875rem;
+  }
+
+  .map-asset-history-row {
+    @apply flex w-full items-center text-left;
+    gap: 0.5rem;
+    border: none;
+    background: transparent;
+    border-radius: 0.4375rem;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    font-size: 0.71875rem;
+    color: var(--text-secondary);
+  }
+
+  .map-asset-history-row:hover:not(:disabled) {
     background: var(--bg-hover);
-    box-shadow: inset 0 -2px 0 var(--accent);
   }
 
-  .map-asset-inspector.is-collapsed > .map-asset-inspector-tabs,
-  .map-asset-inspector.is-collapsed > .map-asset-inspector-content {
-    @apply hidden;
+  .map-asset-history-row:disabled {
+    cursor: default;
+  }
+
+  .map-asset-history-dot {
+    width: 0.375rem;
+    height: 0.375rem;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--border-color);
+  }
+
+  .map-asset-history-row[data-state='current'] .map-asset-history-dot {
+    background: var(--accent);
+  }
+
+  .map-asset-history-row[data-state='future'] {
+    opacity: 0.4;
+  }
+
+  .map-asset-history-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .map-asset-history-jump {
+    display: none;
+    flex: 0 0 auto;
+    color: var(--accent);
+    font-size: 0.6875rem;
+  }
+
+  .map-asset-history-row:hover:not(:disabled) .map-asset-history-jump {
+    display: inline;
   }
 
   .map-asset-statusbar {

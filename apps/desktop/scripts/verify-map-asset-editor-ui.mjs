@@ -229,10 +229,10 @@ async function main() {
     // 3. Open the project map through the current product path: the asset
     //    library inspector's "edit in map editor" action starts a real session.
     await page.locator('.workbench-side-nav-item[data-tip="素材库"]').first().click()
-    await page.waitForSelector('.asset-library-workspace', { state: 'visible', timeout: 20_000 })
+    await page.waitForSelector('.asset-library-toolbar', { state: 'visible', timeout: 20_000 })
     await skipGuides()
     await page.locator('[data-asset-path="assets/maps/Untitled.tmx"] .asset-library-asset-main').first().click()
-    await page.getByRole('button', { name: '在地图编辑器中编辑' }).first().click()
+    await page.getByRole('button', { name: '地图编辑器', exact: true }).first().click()
     await page.waitForSelector('.map-asset-editor', { state: 'visible', timeout: 20_000 })
     await skipGuides()
 
@@ -244,49 +244,54 @@ async function main() {
       .evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize))
     if (layerFont < 11) failures.push(`layer name font too small (${layerFont}px)`)
 
-    // 5. The tileset palette renders both tilesets and stays confined to the canvas column.
+    // 5. The tileset palette floats as a draggable panel inside the viewport.
+    //    Stage 2: the default view is the grid (tileset-columns layout).
     await page.waitForSelector('.map-tileset-palette', { state: 'visible', timeout: 15_000 })
-    await page.waitForSelector('.map-tileset-palette-image img', { state: 'visible', timeout: 15_000 })
-    const thumbs = await page.locator('.map-tileset-palette-thumb').count()
-    if (thumbs !== 2) failures.push(`expected 2 tileset thumbs, found ${thumbs}`)
+    await page.waitForSelector('.map-tileset-palette-virtual', { state: 'visible', timeout: 15_000 })
+    if ((await page.locator('.map-tileset-palette-head').count()) !== 1) failures.push('palette panel is missing its drag header')
+    const chips = await page.locator('.map-tileset-palette-chip').count()
+    if (chips !== 2) failures.push(`expected 2 tileset chips, found ${chips}`)
     const paletteGeometry = await page.evaluate(() => {
-      const canvas = document.querySelector('.map-asset-canvas')?.getBoundingClientRect()
+      const viewport = document.querySelector('.map-asset-viewport')?.getBoundingClientRect()
       const palette = document.querySelector('.map-tileset-palette')?.getBoundingClientRect()
       const scroll = document.querySelector('.map-tileset-palette-scroll')?.getBoundingClientRect()
-      const image = document.querySelector('.map-tileset-palette-image')?.getBoundingClientRect()
+      const grid = document.querySelector('.map-tileset-palette-virtual')?.getBoundingClientRect()
       const layers = document.querySelector('.map-asset-layers')?.getBoundingClientRect()
       return {
-        canvas: canvas ? { left: canvas.left, right: canvas.right } : null,
+        viewport: viewport ? { left: viewport.left, right: viewport.right, top: viewport.top } : null,
         palette: palette ? { left: palette.left, right: palette.right, top: palette.top } : null,
         scroll: scroll ? { left: scroll.left, right: scroll.right } : null,
-        image: image ? { left: image.left, right: image.right } : null,
+        grid: grid ? { left: grid.left, right: grid.right } : null,
         layersRight: layers?.right ?? 0,
       }
     })
-    if (!paletteGeometry.canvas || !paletteGeometry.palette) {
-      failures.push('canvas or palette missing from the layout')
+    if (!paletteGeometry.viewport || !paletteGeometry.palette) {
+      failures.push('viewport or palette missing from the layout')
     } else {
-      if (paletteGeometry.palette.left < paletteGeometry.canvas.left - 1) {
+      if (paletteGeometry.palette.left < paletteGeometry.viewport.left - 1) {
         failures.push(
-          `palette bleeds left of the canvas column (${Math.round(paletteGeometry.palette.left)} < ${Math.round(paletteGeometry.canvas.left)})`,
+          `palette bleeds left of the viewport (${Math.round(paletteGeometry.palette.left)} < ${Math.round(paletteGeometry.viewport.left)})`,
         )
       }
-      if (paletteGeometry.palette.right > paletteGeometry.canvas.right + 1) {
+      if (paletteGeometry.palette.right > paletteGeometry.viewport.right + 1) {
         failures.push(
-          `palette bleeds right of the canvas column (${Math.round(paletteGeometry.palette.right)} > ${Math.round(paletteGeometry.canvas.right)})`,
+          `palette bleeds right of the viewport (${Math.round(paletteGeometry.palette.right)} > ${Math.round(paletteGeometry.viewport.right)})`,
         )
       }
       if (paletteGeometry.palette.left < paletteGeometry.layersRight - 1) {
         failures.push('palette overlaps the layers panel')
       }
-      if (paletteGeometry.scroll && paletteGeometry.image && paletteGeometry.image.left < paletteGeometry.scroll.left - 1) {
-        failures.push('palette sheet image escapes its scroll container')
+      if (paletteGeometry.scroll && paletteGeometry.grid && paletteGeometry.grid.left < paletteGeometry.scroll.left - 1) {
+        failures.push('palette grid escapes its scroll container')
       }
     }
     await page.screenshot({ path: `${screenshotDir}/01-editor-1680.png` })
 
-    // 6. Grid view swaps the sheet for virtualized cells without overflow;
-    //    every cell paints its tile from the shared sheet background.
+    // 6. Grid cells render and paint their tile from the shared sheet
+    //    background; the sheet toggle still swaps to the whole image.
+    await page.locator('.map-tileset-palette-view button').nth(1).click()
+    await page.waitForTimeout(600)
+    if ((await page.locator('.map-tileset-palette-image img').count()) !== 1) failures.push('sheet view image missing')
     await page.locator('.map-tileset-palette-view button').first().click()
     await page.waitForTimeout(600)
     if ((await page.locator('.map-tileset-palette-cell').count()) === 0) failures.push('palette grid view rendered no cells')
@@ -301,18 +306,19 @@ async function main() {
     await page.locator('.map-tileset-palette-view button').nth(1).click()
     await page.waitForTimeout(400)
 
-    // 6b. Collapsing the palette hands the space back to the viewport instead
-    //     of leaving a dead grid row.
+    // 6b. Closing the floating palette unmounts it; the viewport keeps its
+    //     size because the panel only overlays the canvas. Reopen from the
+    //     tool rail's palette toggle.
     const viewportBefore = await page.locator('.map-asset-viewport').evaluate((node) => node.getBoundingClientRect().height)
-    await page.locator('.map-editor-palette-toggle').click()
+    await page.getByRole('button', { name: '收起素材托盘' }).click()
     await page.waitForTimeout(400)
     const viewportAfter = await page.locator('.map-asset-viewport').evaluate((node) => node.getBoundingClientRect().height)
-    if (viewportAfter <= viewportBefore + 100) {
-      failures.push(`collapsing the palette barely grew the viewport (${Math.round(viewportBefore)} → ${Math.round(viewportAfter)})`)
+    if (Math.abs(viewportAfter - viewportBefore) > 2) {
+      failures.push(`closing the floating palette changed the viewport size (${Math.round(viewportBefore)} → ${Math.round(viewportAfter)})`)
     }
-    if ((await page.locator('.map-tileset-palette').count()) !== 0) failures.push('palette stayed mounted after collapsing')
+    if ((await page.locator('.map-tileset-palette').count()) !== 0) failures.push('palette stayed mounted after closing')
     await page.screenshot({ path: `${screenshotDir}/02b-palette-collapsed.png` })
-    await page.locator('.map-editor-palette-toggle').click()
+    await page.getByRole('button', { name: '展开素材托盘' }).click()
     await page.waitForSelector('.map-tileset-palette', { state: 'visible', timeout: 10_000 })
 
     // 7. Statusbar typography and content.

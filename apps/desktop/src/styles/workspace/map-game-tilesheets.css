@@ -6,6 +6,22 @@
     border-top: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
   }
 
+  /* In the float layout the hint rides inside the viewport as a bottom-left
+     note, clear of the floating tool rail and the palette panel. */
+  .map-asset-viewport > .map-tiles-session-tileset-hint {
+    position: absolute;
+    left: 0.75rem;
+    bottom: 0.75rem;
+    z-index: var(--z-popover);
+    max-width: 20rem;
+    margin: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-field);
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow-panel);
+    padding: 0.375rem 0.625rem;
+  }
+
   /* Vanilla tilesheet picker: thumbnail grid with name-block fallbacks. */
   .game-tilesheet-picker {
     @apply grid min-w-0 gap-3;

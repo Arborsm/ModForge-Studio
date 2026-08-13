@@ -137,9 +137,16 @@
   }
 
   .compact-select__menu {
-    z-index: 180;
+    z-index: var(--z-popover);
     @apply bg-surface-panel shadow-float rounded-field grid min-w-24 gap-0.75 p-1;
     border: 1px solid color-mix(in srgb, var(--border-color) 86%, transparent);
+  }
+
+  /* Menus hosted by a modal (a select inside a Dialog): the dialog overlay sits
+   * at --z-dialog, so the floating menu must render one step above it. The
+   * owning dialog is still modal; the menu closes on any outside pointerdown. */
+  .compact-select__menu--in-dialog {
+    z-index: var(--z-dialog-stack);
   }
 
   .compact-select__option {

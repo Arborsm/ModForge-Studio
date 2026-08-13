@@ -5,6 +5,10 @@
  * walk the same history with the same keys. Text fields keep their own native
  * undo: while the author is inside an input the browser's edit history is the
  * useful one, and stealing the shortcut there would drop a half-typed value.
+ *
+ * Editors that own their own undo stack register through
+ * {@link useLocalUndoShortcutOwner} while mounted; the shared binding then
+ * stands down so one keystroke pops exactly one stack.
  */
 
 import { useEffect, useRef } from 'react'
@@ -19,6 +23,15 @@ type PortRef = { current: AssetDraftPort | null }
  * drives exactly one of them and a keystroke stays one operation.
  */
 const mountedPorts: PortRef[] = []
+
+/**
+ * Editors with their own undo history (the map asset editor) announce
+ * themselves here while mounted. While any of them is active the shared draft
+ * shortcut stands down: the draft history may hold unrelated operations, and
+ * popping one underneath a local-history editor would double-pop the keystroke.
+ * Entries are refs so a re-render can flip `active` without re-registering.
+ */
+const localUndoOwners: Array<{ current: boolean }> = []
 let boundListener: ((event: KeyboardEvent) => void) | null = null
 
 /** True while the event target owns a text caret the browser can undo itself. */
@@ -49,6 +62,11 @@ function handleKeyDown(event: KeyboardEvent): void {
     return
   }
   if (isTextEditingTarget(event.target)) {
+    return
+  }
+  if (localUndoOwners.some((owner) => owner.current)) {
+    // A local-history editor owns the keystroke; do not pop the draft history
+    // underneath it.
     return
   }
   const port = activePort()
@@ -92,6 +110,31 @@ export function useDraftUndoShortcuts(port: AssetDraftPort | null): void {
   }, [port])
 
   useEffect(() => registerPort(portRef), [])
+}
+
+/**
+ * Announces that the calling editor maintains its own undo history while it is
+ * mounted, so the shared draft undo shortcut stands down and a keystroke never
+ * pops two stacks. The map asset editor and patch-tiles session call this from
+ * their document core; pass `false` to pause the announcement without
+ * unmounting.
+ */
+export function useLocalUndoShortcutOwner(active = true): void {
+  const activeRef = useRef(active)
+
+  useEffect(() => {
+    activeRef.current = active
+  }, [active])
+
+  useEffect(() => {
+    localUndoOwners.push(activeRef)
+    return () => {
+      const index = localUndoOwners.indexOf(activeRef)
+      if (index >= 0) {
+        localUndoOwners.splice(index, 1)
+      }
+    }
+  }, [])
 }
 
 /** Whether the shared history currently has something to undo or redo. */

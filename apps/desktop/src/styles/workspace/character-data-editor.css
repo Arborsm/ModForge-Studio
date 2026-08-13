@@ -73,48 +73,7 @@
   /* First-level visual library. */
 
   .character-catalog {
-    @apply bg-surface-panel min-h-0 flex-auto overflow-y-auto;
-  }
-
-  .character-catalog-toolbar {
-    @apply border-border-subtle sticky grid items-center gap-2.5 border-b px-4 py-3;
-    top: 0;
-    z-index: 3;
-    grid-template-columns: minmax(12rem, 1fr) minmax(13rem, 20rem) auto auto;
-    background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
-  }
-
-  .character-catalog-intro {
-    @apply min-w-0;
-  }
-
-  .character-catalog-intro h2,
-  .character-catalog-intro p,
-  .character-catalog-section-head h3 {
-    @apply m-0;
-  }
-
-  .character-catalog-intro h2 {
-    @apply text-text-primary text-sm font-bold;
-  }
-
-  .character-catalog-intro p {
-    @apply text-text-secondary text-meta overflow-hidden whitespace-nowrap;
-    text-overflow: ellipsis;
-  }
-
-  .character-catalog-search {
-    @apply text-text-tertiary relative flex items-center;
-  }
-
-  .character-catalog-search > svg {
-    @apply absolute;
-    left: 0.625rem;
-    z-index: 1;
-  }
-
-  .character-catalog-search .control-input {
-    @apply w-full pl-7.5;
+    @apply min-h-0 flex-auto overflow-y-auto;
   }
 
   .character-catalog-content {
@@ -144,9 +103,10 @@
   }
 
   .character-catalog-card {
-    @apply border-border-subtle bg-surface-panel grid min-w-0 gap-x-2.5 gap-y-2 rounded-lg border p-2 text-left;
+    @apply bg-surface-panel grid min-w-0 gap-x-2.5 gap-y-2 rounded-md p-2 text-left;
     grid-template-columns: 4.5rem minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) auto;
+    border: 1px solid var(--border-color);
     transition:
       border-color 0.15s ease,
       background-color 0.15s ease;
@@ -163,10 +123,8 @@
   }
 
   .character-catalog-preview {
-    @apply bg-surface-viewport text-text-tertiary flex h-20 w-18 justify-center overflow-hidden rounded-md;
+    @apply text-text-tertiary flex h-20 w-18 items-center justify-center overflow-hidden rounded;
     grid-row: 1 / 3;
-    align-items: end;
-    border: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
   }
 
   .character-catalog-card-body {
@@ -368,15 +326,6 @@
     .character-preview-pane {
       @apply border-border-subtle overflow-visible border-t;
       max-height: none;
-    }
-
-    .character-catalog-toolbar {
-      grid-template-columns: minmax(0, 1fr) auto;
-    }
-
-    .character-catalog-intro,
-    .character-catalog-search {
-      @apply col-span-full;
     }
   }
 

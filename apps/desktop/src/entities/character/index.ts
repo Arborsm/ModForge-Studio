@@ -93,6 +93,9 @@ export {
   CharacterSpriteThumbnail,
   CharacterWalkCycleGrid,
   CharacterWalkCycleTile,
+  inferSpriteFrameGrid,
   resolveCharacterSpriteMetrics,
+  resolveSpriteFrameGeometry,
   type CharacterSpriteMetrics,
+  type SpriteFrameInferenceBounds,
 } from './ui/CharacterSpritePreview'

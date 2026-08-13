@@ -16,6 +16,7 @@ import {
   loadVanillaCharacterRecords,
 } from '@entities/character'
 import type { GameDirectoryInfo } from '@entities/game/api'
+import { resolveLocalizedText } from '@entities/game/api'
 import type { LocaleCode } from '@locales'
 
 /** One row of the source list. */
@@ -34,6 +35,8 @@ export type CharacterSourceMode = 'all' | 'project' | 'vanilla'
 export type CharacterSourceGroups = {
   project: CharacterSourceRow[]
   vanillaOnly: CharacterSourceRow[]
+  /** Resolved project entry display names, keyed by entry key. */
+  resolvedNames: Map<string, string>
 }
 
 export type VanillaIndexState = {
@@ -95,41 +98,74 @@ function matchesSearch(row: CharacterSourceRow, needle: string): boolean {
   return row.key.toLowerCase().includes(needle) || row.displayName.toLowerCase().includes(needle)
 }
 
+function draftDisplayName(raw: unknown, key: string): string {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return key
+  }
+  const value = (raw as Record<string, unknown>)['DisplayName']
+  return typeof value === 'string' && value.trim() ? value.trim() : key
+}
+
 /**
  * Splits every known NPC into the two groups the pane renders. Project entries
  * keep the patch's authoring order; vanilla-only entries stay alphabetical.
+ * Project DisplayName values are resolved against the game's string tables.
  */
-export function buildCharacterSourceGroups({
+export async function buildCharacterSourceGroups({
+  rootPath,
+  locale,
   projectKeys,
   projectEntries,
   vanilla,
   mode,
   search,
 }: {
+  rootPath: string | null
+  locale: LocaleCode
   projectKeys: readonly string[]
   projectEntries: Readonly<Record<string, unknown>>
   vanilla: VanillaIndexState
   mode: CharacterSourceMode
   search: string
-}): CharacterSourceGroups {
+}): Promise<CharacterSourceGroups> {
   const needle = search.trim().toLowerCase()
   const projectKeySet = new Set(projectKeys.map((key) => key.toLowerCase()))
 
+  const rawProjectNames = projectKeys.map((key) => ({
+    key,
+    raw: draftDisplayName(projectEntries[key], key),
+  }))
+
+  const resolvedProjectNames =
+    rootPath === null
+      ? rawProjectNames.map(({ key, raw }) => ({ key, name: raw }))
+      : await Promise.all(
+          rawProjectNames.map(async ({ key, raw }) => ({
+            key,
+            name: (await resolveLocalizedText(rootPath, locale, raw)) ?? raw,
+          })),
+        )
+
+  const nameByKey = new Map(resolvedProjectNames.map(({ key, name }) => [key, name]))
+
   const project = projectKeys.map((key) => {
     const vanillaEntry = vanilla.entries.get(key.toLowerCase()) ?? null
-    const raw = projectEntries[key]
-    const draftEntry = typeof raw === 'object' && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
-    const displayName = typeof draftEntry['DisplayName'] === 'string' && draftEntry['DisplayName'].trim() ? draftEntry['DisplayName'] : key
-    return { key, displayName, vanilla: vanillaEntry, inProject: true }
+    return { key, displayName: nameByKey.get(key) ?? key, vanilla: vanillaEntry, inProject: true }
   })
 
   const vanillaOnly = Array.from(vanilla.entries.values())
     .filter((entry) => !projectKeySet.has(entry.key.toLowerCase()))
     .map((entry) => ({ key: entry.key, displayName: entry.displayName, vanilla: entry, inProject: false }))
 
+  const resolvedNames = new Map<string, string>()
+  for (const { key, name } of resolvedProjectNames) {
+    resolvedNames.set(key, name)
+  }
+
   return {
     project: mode === 'vanilla' ? [] : project.filter((row) => matchesSearch(row, needle)),
     vanillaOnly: mode === 'project' ? [] : vanillaOnly.filter((row) => matchesSearch(row, needle)),
+    resolvedNames,
   }
 }
 

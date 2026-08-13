@@ -150,6 +150,8 @@ export function AssetLibraryWorkspace() {
   const [renamePath, setRenamePath] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [deletePath, setDeletePath] = useState<string | null>(null)
+  const [replaceStaging, setReplaceStaging] = useState<VirtualPreviewAsset | null>(null)
+  const [replaceDragOver, setReplaceDragOver] = useState(false)
   const [pixelAsset, setPixelAsset] = useState<VirtualPreviewAsset | null>(null)
   const [loadedAsset, setLoadedAsset] = useState<VirtualPreviewAsset | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
@@ -445,6 +447,19 @@ export function AssetLibraryWorkspace() {
     setSelectedLoadBindingId(patchId)
   }
 
+  function createLoadBindingForAsset(assetPath: string) {
+    if (!port || !selected) return
+    const family = loadAssetFamily(selected.relativePath)
+    const patchId = port.addPatch('Load', placeholderLoadTarget(family))
+    if (!patchId) return
+    port.updatePatch(patchId, {
+      workspace: loadFamilyWorkspace(family),
+      fromFile: assetPath,
+      enabled: true,
+    })
+    setSelectedLoadBindingId(patchId)
+  }
+
   function deleteLoadBinding(patchId: string) {
     if (!port) return
     port.removePatch(patchId)
@@ -567,13 +582,12 @@ export function AssetLibraryWorkspace() {
     }
   }
 
-  async function replaceSelected(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file || !selected) return
+  async function stageReplaceFile(file: File) {
+    if (!selected) return
     dismissNotification('asset-library-replace')
     try {
-      await project.writeProjectAsset(await fileToAsset(file, selected.relativePath), 'edited')
+      const staged = await fileToAsset(file, selected.relativePath)
+      setReplaceStaging(staged)
     } catch {
       publishNotification({
         id: 'asset-library-replace',
@@ -581,6 +595,35 @@ export function AssetLibraryWorkspace() {
         title: copy.replaceFailed,
       })
     }
+  }
+
+  function replaceSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file || !selected) return
+    void stageReplaceFile(file)
+  }
+
+  async function confirmReplace() {
+    if (!replaceStaging || !selected) return
+    try {
+      await project.writeProjectAsset(replaceStaging, 'edited')
+      setReplaceStaging(null)
+    } catch {
+      publishNotification({
+        id: 'asset-library-replace',
+        level: 'error',
+        title: copy.replaceFailed,
+      })
+    }
+  }
+
+  function handleReplaceDrop(event: React.DragEvent) {
+    event.preventDefault()
+    setReplaceDragOver(false)
+    const file = event.dataTransfer.files?.[0]
+    if (!file || !selected) return
+    void stageReplaceFile(file)
   }
 
   async function confirmRename() {
@@ -729,8 +772,8 @@ export function AssetLibraryWorkspace() {
               <AssetMapThumbnail
                 assetPath={asset.relativePath}
                 sha256={asset.sha256}
-                width={240}
-                height={176}
+                width={480}
+                height={352}
                 fallback={<AssetGlyph kind={kind} />}
               />
             ) : kind === 'image' ? (
@@ -776,193 +819,355 @@ export function AssetLibraryWorkspace() {
   }
 
   return (
-    <div className="asset-library-workspace">
-      <div className="asset-library-toolbar">
-        <span className="asset-library-save-state" aria-live="polite">
-          {saveStateLabel}
-        </span>
-        <label className="asset-library-search">
-          <Search className="h-4 w-4" />
-          <span className="sr-only">{copy.searchPlaceholder}</span>
-          <input
-            className="control-input"
-            type="search"
-            value={query}
-            placeholder={copy.searchPlaceholder}
-            onChange={(event) => {
-              setQuery(event.target.value)
-              setSelectedAssetPaths(new Set())
-            }}
-          />
-        </label>
-        <label className="asset-library-filter">
-          <span className="sr-only">{copy.filterLabel}</span>
-          <select
-            className="control-input"
-            value={filter}
-            onChange={(event) => {
-              setFilter(event.target.value as AssetFilter)
-              setSelectedAssetPaths(new Set())
-            }}
-          >
-            {Object.entries(copy.filters).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span className="asset-library-count">{copy.assetCount(visibleAssets.length, assets.length)}</span>
-        <div className="asset-library-view-switch" role="group">
-          <button
-            type="button"
-            className={cx('icon-button', view === 'grid' && 'is-active')}
-            aria-label={copy.gridView}
-            title={copy.gridView}
-            aria-pressed={view === 'grid'}
-            onClick={() => setView('grid')}
-          >
-            <Grid2X2 className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className={cx('icon-button', view === 'list' && 'is-active')}
-            aria-label={copy.listView}
-            title={copy.listView}
-            aria-pressed={view === 'list'}
-            onClick={() => {
-              setView('list')
-              setSelectedAssetPaths(new Set())
-            }}
-          >
-            <List className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="asset-library-toolbar-actions">
-          <div className="asset-library-import-game">
-            <button
-              type="button"
-              className="control-button"
-              aria-expanded={showGameImportPicker}
-              aria-haspopup="menu"
-              onClick={() => setShowGameImportPicker((value) => !value)}
-            >
-              <FolderInput className="h-4 w-4" aria-hidden="true" />
-              {copy.importFromGame}
-            </button>
-            {showGameImportPicker ? (
-              <div className="asset-library-import-kind-picker" role="menu" aria-label={copy.importFromGame}>
-                {GAME_IMPORT_KINDS.map(({ kind, icon: KindIcon }) => (
-                  <button key={kind} type="button" role="menuitem" onClick={() => openGameImportPicker(kind)}>
-                    <KindIcon className="h-4 w-4" aria-hidden="true" />
-                    {copy.importGameKinds[kind]}
-                  </button>
+    <>
+      <WorkspaceSplitView
+        mainToolbar={
+          <div className="asset-library-toolbar">
+            <span className="asset-library-save-state" aria-live="polite">
+              {saveStateLabel}
+            </span>
+            <label className="asset-library-search">
+              <Search className="h-4 w-4" />
+              <span className="sr-only">{copy.searchPlaceholder}</span>
+              <input
+                className="control-input"
+                type="search"
+                value={query}
+                placeholder={copy.searchPlaceholder}
+                onChange={(event) => {
+                  setQuery(event.target.value)
+                  setSelectedAssetPaths(new Set())
+                }}
+              />
+            </label>
+            <label className="asset-library-filter">
+              <span className="sr-only">{copy.filterLabel}</span>
+              <select
+                className="control-input"
+                value={filter}
+                onChange={(event) => {
+                  setFilter(event.target.value as AssetFilter)
+                  setSelectedAssetPaths(new Set())
+                }}
+              >
+                {Object.entries(copy.filters).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
                 ))}
-              </div>
-            ) : null}
-          </div>
-          {gameImportPicker ? (
-            <ResourcePicker
-              key={gameImportPicker.kind}
-              value=""
-              label={copy.importGamePickerLabel[gameImportPicker.kind]}
-              placeholder={copy.importGamePickerLabel[gameImportPicker.kind]}
-              options={
-                gameImportPicker.kind === 'map'
-                  ? toMapResourceBrowserOptions(
-                      mapCatalog.assets,
-                      (asset) => copy.mapCategories[mapCatalogCategory(mapTargetFromAsset(asset))],
-                      'map-import',
-                    )
-                  : gameImportOptions[gameImportPicker.kind]
-              }
-              selectionMode="confirm"
-              triggerClassName="sr-only"
-              openRequest={gameImportPicker.request}
-              onSelect={(value) => void importGameSelection(gameImportPicker.kind, value)}
-            />
-          ) : null}
-          <button type="button" className="control-button" onClick={() => setCreateMapOpen(true)}>
-            <FilePlus2 className="h-4 w-4" aria-hidden="true" />
-            {copy.newMapAction}
-          </button>
-          <button type="button" className="control-button" disabled={importing} onClick={() => void chooseImportFolder()}>
-            <FolderInput className="h-4 w-4" aria-hidden="true" />
-            <span>{copy.importFolderAction}</span>
-          </button>
-          <button
-            type="button"
-            className="control-button control-button-primary"
-            disabled={importing}
-            onClick={() => void chooseImportFiles()}
-          >
-            <Upload className="h-4 w-4" aria-hidden="true" />
-            <span>{importing ? copy.importing : copy.importAction}</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="asset-library-status-rows">
-        {mapCatalog.loading ? (
-          <div className="asset-library-missing-banner" role="status">
-            <header className="asset-library-missing-header">
-              <MapIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <strong>{copy.mapScanLoading}</strong>
-            </header>
-          </div>
-        ) : null}
-
-        {imageScan.loading || audioScan.loading || dataScan.loading ? (
-          <div className="asset-library-missing-banner" role="status">
-            <header className="asset-library-missing-header">
-              <RefreshCw className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <strong>{copy.gameAssetScanLoading}</strong>
-            </header>
-          </div>
-        ) : null}
-
-        {missingDependencies.length > 0 && missingSignature !== dismissedMissingSignature ? (
-          <div className="asset-library-missing-banner" role="alert">
-            <header className="asset-library-missing-header">
-              <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <strong>{copy.missingDependenciesTitle}</strong>
-              <span className="asset-library-missing-hint">{copy.missingDependenciesHint}</span>
+              </select>
+            </label>
+            <span className="asset-library-count">{copy.assetCount(visibleAssets.length, assets.length)}</span>
+            <div className="asset-library-view-switch" role="group">
               <button
                 type="button"
-                className="icon-button asset-library-missing-dismiss"
-                aria-label={copy.dismissAction}
-                title={copy.dismissAction}
-                onClick={() => setDismissedMissingSignature(missingSignature)}
+                className={cx('icon-button', view === 'grid' && 'is-active')}
+                aria-label={copy.gridView}
+                title={copy.gridView}
+                aria-pressed={view === 'grid'}
+                onClick={() => setView('grid')}
               >
-                <X className="h-4 w-4" aria-hidden="true" />
+                <Grid2X2 className="h-4 w-4" />
               </button>
-            </header>
-            <ul className="asset-library-missing-list">
-              {missingDependencies.map((missing) => {
-                const repairKey = `${missing.assetPath}\u0000${missing.missingPath}`
-                return (
-                  <li key={repairKey} className="asset-library-missing-row">
-                    <span className="asset-library-missing-copy">
-                      <strong>{missing.assetPath}</strong>
-                      <span>{copy.missingDependencyTarget(missing.missingPath, missing.kind)}</span>
-                    </span>
-                    <button
-                      type="button"
-                      className="control-button"
-                      disabled={repairingKey !== null}
-                      onClick={() => void repairMissingDependency(missing)}
-                    >
-                      {repairingKey === repairKey ? copy.importing : copy.missingDependencyPickAction}
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
+              <button
+                type="button"
+                className={cx('icon-button', view === 'list' && 'is-active')}
+                aria-label={copy.listView}
+                title={copy.listView}
+                aria-pressed={view === 'list'}
+                onClick={() => {
+                  setView('list')
+                  setSelectedAssetPaths(new Set())
+                }}
+              >
+                <List className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="asset-library-toolbar-actions">
+              <div className="asset-library-import-game">
+                <button
+                  type="button"
+                  className="control-button"
+                  aria-expanded={showGameImportPicker}
+                  aria-haspopup="menu"
+                  onClick={() => setShowGameImportPicker((value) => !value)}
+                >
+                  <FolderInput className="h-4 w-4" aria-hidden="true" />
+                  {copy.importFromGame}
+                </button>
+                {showGameImportPicker ? (
+                  <div className="asset-library-import-kind-picker" role="menu" aria-label={copy.importFromGame}>
+                    {GAME_IMPORT_KINDS.map(({ kind, icon: KindIcon }) => (
+                      <button key={kind} type="button" role="menuitem" onClick={() => openGameImportPicker(kind)}>
+                        <KindIcon className="h-4 w-4" aria-hidden="true" />
+                        {copy.importGameKinds[kind]}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              {gameImportPicker ? (
+                <ResourcePicker
+                  key={gameImportPicker.kind}
+                  value=""
+                  label={copy.importGamePickerLabel[gameImportPicker.kind]}
+                  placeholder={copy.importGamePickerLabel[gameImportPicker.kind]}
+                  options={
+                    gameImportPicker.kind === 'map'
+                      ? toMapResourceBrowserOptions(
+                          mapCatalog.assets,
+                          (asset) => copy.mapCategories[mapCatalogCategory(mapTargetFromAsset(asset))],
+                          'map-import',
+                        )
+                      : gameImportOptions[gameImportPicker.kind]
+                  }
+                  selectionMode="confirm"
+                  triggerClassName="sr-only"
+                  openRequest={gameImportPicker.request}
+                  onSelect={(value) => void importGameSelection(gameImportPicker.kind, value)}
+                />
+              ) : null}
+              <button type="button" className="control-button" onClick={() => setCreateMapOpen(true)}>
+                <FilePlus2 className="h-4 w-4" aria-hidden="true" />
+                {copy.newMapAction}
+              </button>
+              <button type="button" className="control-button" disabled={importing} onClick={() => void chooseImportFolder()}>
+                <FolderInput className="h-4 w-4" aria-hidden="true" />
+                <span>{copy.importFolderAction}</span>
+              </button>
+              <button
+                type="button"
+                className="control-button control-button-primary"
+                disabled={importing}
+                onClick={() => void chooseImportFiles()}
+              >
+                <Upload className="h-4 w-4" aria-hidden="true" />
+                <span>{importing ? copy.importing : copy.importAction}</span>
+              </button>
+            </div>
           </div>
-        ) : null}
-      </div>
-
-      <WorkspaceSplitView
+        }
+        rightPanel={
+          selected ? (
+            <aside className="asset-library-inspector">
+              {selected ? (
+                <>
+                  {replaceStaging ? (
+                    <div className="asset-library-replace-staging">
+                      <div className="asset-library-replace-compare">
+                        <div className="asset-library-replace-pane">
+                          <span className="asset-library-replace-label">{copy.replaceOriginalLabel}</span>
+                          <div className="asset-library-preview">
+                            {isProjectMapAssetPath(selected.relativePath) ? (
+                              <AssetMapThumbnail
+                                assetPath={selected.relativePath}
+                                sha256={selected.sha256}
+                                width={480}
+                                height={352}
+                                fallback={<AssetGlyph kind={selectedKind ?? 'other'} />}
+                              />
+                            ) : selectedKind === 'image' && selectedPayload ? (
+                              <img src={assetDataUrl(selectedPayload)} alt={copy.previewAlt(selected.relativePath)} />
+                            ) : selectedKind === 'audio' && selectedPayload ? (
+                              <audio controls src={assetDataUrl(selectedPayload)} />
+                            ) : (
+                              <AssetGlyph kind={selectedKind ?? 'other'} />
+                            )}
+                          </div>
+                        </div>
+                        <div className="asset-library-replace-pane">
+                          <span className="asset-library-replace-label">{copy.replaceNewLabel}</span>
+                          <div className="asset-library-preview">
+                            {replaceStaging.mediaType.startsWith('image/') ? (
+                              <img src={assetDataUrl(replaceStaging)} alt={copy.previewAlt(replaceStaging.relativePath)} />
+                            ) : replaceStaging.mediaType.startsWith('audio/') ? (
+                              <audio controls src={assetDataUrl(replaceStaging)} />
+                            ) : (
+                              <AssetGlyph kind={selectedKind ?? 'other'} />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <dl className="asset-library-facts">
+                        <div>
+                          <dt>{copy.typeLabel}</dt>
+                          <dd>{replaceStaging.mediaType}</dd>
+                        </div>
+                        <div>
+                          <dt>{copy.sizeLabel}</dt>
+                          <dd>{formatBytes((replaceStaging.bytesBase64.length * 3) / 4)}</dd>
+                        </div>
+                      </dl>
+                      <div className="asset-library-replace-actions">
+                        <button type="button" className="control-button control-button-primary" onClick={() => void confirmReplace()}>
+                          <Check className="h-4 w-4" aria-hidden="true" />
+                          {copy.replaceConfirmAction}
+                        </button>
+                        <button type="button" className="control-button" onClick={() => setReplaceStaging(null)}>
+                          <X className="h-4 w-4" aria-hidden="true" />
+                          {copy.cancelAction}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className={cx('asset-library-preview', replaceDragOver && 'is-drag-over')}
+                      onDragOver={(event) => {
+                        event.preventDefault()
+                        setReplaceDragOver(true)
+                      }}
+                      onDragLeave={() => setReplaceDragOver(false)}
+                      onDrop={handleReplaceDrop}
+                      onClick={() => replaceRef.current?.click()}
+                    >
+                      {isProjectMapAssetPath(selected.relativePath) ? (
+                        <AssetMapThumbnail
+                          assetPath={selected.relativePath}
+                          sha256={selected.sha256}
+                          width={480}
+                          height={352}
+                          fallback={<AssetGlyph kind={selectedKind ?? 'other'} />}
+                        />
+                      ) : selectedKind === 'image' && selectedPayload ? (
+                        <img src={assetDataUrl(selectedPayload)} alt={copy.previewAlt(selected.relativePath)} />
+                      ) : selectedKind === 'audio' && selectedPayload ? (
+                        <audio controls src={assetDataUrl(selectedPayload)} />
+                      ) : (
+                        <AssetGlyph kind={selectedKind ?? 'other'} />
+                      )}
+                      <span className="asset-library-preview-drop-hint">
+                        {replaceDragOver ? copy.replaceDragOverHint : copy.replaceDropHint}
+                      </span>
+                    </div>
+                  )}
+                  <div className="asset-library-inspector-title">
+                    <strong>{selected.relativePath.split('/').at(-1)}</strong>
+                    <span>{selected.relativePath}</span>
+                    <span className="asset-library-kind-chip">{copy.filters[selectedKind ?? 'other']}</span>
+                  </div>
+                  <dl className="asset-library-facts">
+                    <div>
+                      <dt>{copy.typeLabel}</dt>
+                      <dd>{selected.mediaType}</dd>
+                    </div>
+                    <div>
+                      <dt>{copy.sizeLabel}</dt>
+                      <dd>{formatBytes(selected.sizeBytes)}</dd>
+                    </div>
+                    <div>
+                      <dt>{copy.referencesLabel}</dt>
+                      <dd>{copy.referenceCount(selectedReferences.length)}</dd>
+                    </div>
+                  </dl>
+                  {dependencyView.dependencies.length > 0 || dependencyView.dependents.length > 0 ? (
+                    <section className="asset-library-dependencies">
+                      {dependencyView.dependencies.length > 0 ? (
+                        <>
+                          <h3>{copy.dependenciesLabel}</h3>
+                          <ul className="asset-library-dependency-list">
+                            {dependencyView.dependencies.map((dependency) => (
+                              <li key={dependency.path}>
+                                <button
+                                  type="button"
+                                  className="asset-library-dependency-link"
+                                  disabled={!dependency.exists}
+                                  title={dependency.exists ? copy.openDependencyAction(dependency.path) : undefined}
+                                  onClick={() => {
+                                    if (dependency.exists) setSelectedPath(dependency.path)
+                                  }}
+                                >
+                                  <span className="asset-library-dependency-path">{dependency.path}</span>
+                                  <span className="asset-library-dependency-kind">{dependency.kind}</span>
+                                </button>
+                                <span className={cx('asset-editor-badge', dependency.exists ? 'is-ok' : 'is-missing')}>
+                                  {dependency.exists ? copy.dependencyExistsLabel : copy.dependencyMissingLabel}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      ) : null}
+                      {dependencyView.dependents.length > 0 ? (
+                        <>
+                          <h3>{copy.dependentsLabel}</h3>
+                          <ul className="asset-library-dependency-list">
+                            {dependencyView.dependents.map((path) => (
+                              <li key={path}>
+                                <button
+                                  type="button"
+                                  className="asset-library-dependency-link"
+                                  title={copy.openDependencyAction(path)}
+                                  onClick={() => setSelectedPath(path)}
+                                >
+                                  {path}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      ) : null}
+                    </section>
+                  ) : null}
+                  <div className="asset-library-actions">
+                    <div className="asset-library-actions-primary">
+                      {isProjectMapAssetPath(selected.relativePath) ? (
+                        <button
+                          type="button"
+                          className="control-button control-button-primary"
+                          onClick={() => {
+                            usePendingMapAssetEditStore.getState().requestEdit(selected.relativePath)
+                            environment.onOpenModule('map-authoring')
+                          }}
+                        >
+                          <MapIcon className="h-4 w-4" aria-hidden="true" />
+                          {copy.editInMapEditorAction}
+                        </button>
+                      ) : null}
+                      {selected.mediaType.startsWith('image/') ? (
+                        <button
+                          type="button"
+                          className="control-button"
+                          disabled={previewLoading || !selectedPayload}
+                          onClick={() => setPixelAsset(selectedPayload)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                          {copy.editPixelsAction}
+                        </button>
+                      ) : null}
+                      <button type="button" className="control-button" onClick={() => replaceRef.current?.click()}>
+                        <RefreshCw className="h-4 w-4" />
+                        {copy.replaceAction}
+                      </button>
+                      <button type="button" className="control-button" onClick={() => createLoadBindingForAsset(selected.relativePath)}>
+                        <Link2 className="h-4 w-4" />
+                        {copy.replaceGameResourceAction}
+                      </button>
+                    </div>
+                    <div className="asset-library-actions-secondary">
+                      <button
+                        type="button"
+                        className="control-button"
+                        onClick={() => {
+                          setRenamePath(selected.relativePath)
+                          setRenameDraft(selected.relativePath)
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                        {copy.renameAction}
+                      </button>
+                      <button type="button" className="control-button is-danger" onClick={() => setDeletePath(selected.relativePath)}>
+                        <Trash2 className="h-4 w-4" />
+                        {copy.deleteAction}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : null}
+            </aside>
+          ) : null
+        }
+        rightPanelClassName="asset-library-inspector"
+        rightPanelWidth="16rem"
         sidebarClassName="custom-scrollbar"
         sidebar={
           <div className="asset-library-bindings">
@@ -1000,8 +1205,12 @@ export function AssetLibraryWorkspace() {
                       </header>
                       {familyPatches.map((patch) => {
                         const active = patch.id === selectedLoadBindingId
+                        const isEnabled = typeof patch.enabled === 'string' || patch.enabled !== false
                         return (
-                          <div key={patch.id} className={cx('asset-library-load-binding-row', active && 'is-selected')}>
+                          <div
+                            key={patch.id}
+                            className={cx('asset-library-load-binding-row', active && 'is-selected', !isEnabled && 'is-disabled')}
+                          >
                             <button
                               type="button"
                               className="asset-library-load-binding-main"
@@ -1009,16 +1218,14 @@ export function AssetLibraryWorkspace() {
                               aria-label={copy.openLoadBinding(patch.target)}
                               onClick={() => setSelectedLoadBindingId(active ? null : patch.id)}
                             >
-                              <span className="asset-library-load-binding-target">{patch.target}</span>
+                              <span className="asset-library-load-binding-target-row">
+                                <LoadFamilyIcon family={loadAssetFamily(patch.target)} className="h-3 w-3 shrink-0" />
+                                <span className="asset-library-load-binding-target">{patch.target}</span>
+                              </span>
                               <span className={cx('asset-library-load-binding-file', !patch.fromFile && 'is-empty')}>
                                 {patch.fromFile ?? copy.mapLoadBinding.emptyResolved}
                               </span>
-                              <span
-                                className={cx(
-                                  'asset-editor-badge',
-                                  typeof patch.enabled === 'string' || patch.enabled !== false ? 'is-ok' : 'is-missing',
-                                )}
-                              >
+                              <span className={cx('asset-editor-badge', isEnabled ? 'is-ok' : 'is-missing')}>
                                 {typeof patch.enabled === 'string'
                                   ? copy.loadBindingEnabledExpression(patch.enabled)
                                   : patch.enabled !== false
@@ -1046,262 +1253,187 @@ export function AssetLibraryWorkspace() {
           </div>
         }
       >
-        <div className="asset-library-main">
-          {showLoadFamilyPicker ? (
-            <div className="load-family-picker">
-              <header className="load-family-picker-header">
-                <strong>{copy.newLoadBindingFamilyTitle}</strong>
-                <span className="map-load-section-hint">{copy.newLoadBindingFamilyHint}</span>
-              </header>
-              <div className="load-family-picker-grid">
-                {LOAD_FAMILY_ORDER.map((family) => (
-                  <button
-                    key={family}
-                    type="button"
-                    className="load-family-picker-card"
-                    aria-label={copy.loadFamilyNames[family]}
-                    onClick={() => createLoadBindingForFamily(family)}
-                  >
-                    <LoadFamilyIcon family={family} className="h-5 w-5" />
-                    <span>{copy.loadFamilyNames[family]}</span>
-                  </button>
-                ))}
+        <div className="asset-library-content">
+          <div className="asset-library-status-rows">
+            {mapCatalog.loading ? (
+              <div className="asset-library-missing-banner" role="status">
+                <header className="asset-library-missing-header">
+                  <MapIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <strong>{copy.mapScanLoading}</strong>
+                </header>
               </div>
-              <button type="button" className="control-button" onClick={() => setShowLoadFamilyPicker(false)}>
-                {copy.newLoadBindingFamilyCancel}
-              </button>
-            </div>
-          ) : null}
-          {selectedBinding && port ? (
-            <div className="asset-library-load-binding-editor custom-scrollbar">
-              <header className="asset-library-binding-editor-header">
-                <LoadFamilyIcon family={loadAssetFamily(selectedBinding.target)} className="h-4 w-4" />
-                <strong>{selectedBinding.target}</strong>
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label={copy.closeAction}
-                  title={copy.closeAction}
-                  onClick={() => setSelectedLoadBindingId(null)}
-                >
-                  <X className="h-4 w-4" aria-hidden="true" />
-                </button>
-              </header>
-              <LoadBindingEditor patch={selectedBinding} schema={null} draftPort={port} resources={resources} />
-            </div>
-          ) : (
-            <div className="asset-library-assets-pane">
-              <main
-                ref={setBrowserNode}
-                className={cx(
-                  'asset-library-browser custom-scrollbar',
-                  isBoxSelecting && 'is-box-selecting',
-                  selectedAssetPaths.size > 0 && 'has-batch-selection',
-                )}
-              >
-                <div className="asset-library-box-select-layer" data-asset-library-box-select-layer="browser">
-                  <DragSelection />
-                </div>
-                {assets.length === 0 ? (
-                  <div className="asset-library-empty">
-                    <ImageIcon className="h-10 w-10" />
-                    <h2>{copy.emptyTitle}</h2>
-                    <p>{copy.emptyHint}</p>
-                    <button type="button" className="control-button control-button-primary" onClick={() => void chooseImportFiles()}>
-                      <Upload className="h-4 w-4" />
-                      {copy.importAction}
-                    </button>
-                    <button type="button" className="control-button" onClick={() => void chooseImportFolder()}>
-                      <FolderInput className="h-4 w-4" />
-                      {copy.importFolderAction}
-                    </button>
-                  </div>
-                ) : visibleAssets.length === 0 ? (
-                  <div className="asset-library-empty">
-                    <Search className="h-8 w-8" />
-                    <p>{copy.noResults}</p>
-                  </div>
-                ) : (
-                  <div className={cx('asset-library-assets', view === 'list' && 'is-list')}>
-                    {kindGroups
-                      ? kindGroups.map((group) => (
-                          <Fragment key={group.kind}>
-                            <header className="asset-library-kind-header" data-kind={group.kind}>
-                              <strong>{copy.filters[group.kind]}</strong>
-                              <span>{copy.assetKindCount(group.assets.length)}</span>
-                            </header>
-                            {group.assets.map((asset) => renderAssetCard(asset))}
-                          </Fragment>
-                        ))
-                      : visibleAssets.map((asset) => renderAssetCard(asset))}
-                  </div>
-                )}
-                {selectedAssetPaths.size > 0 ? (
-                  <div className="asset-library-selection-pill" role="toolbar" aria-label={copy.selectionCount(selectedAssetPaths.size)}>
-                    <span className="asset-library-selection-count">{copy.selectionCount(selectedAssetPaths.size)}</span>
-                    <span className="asset-library-selection-divider" aria-hidden="true" />
-                    <button
-                      type="button"
-                      className="control-button"
-                      disabled={selectedAssetPaths.size >= visibleAssets.length}
-                      onClick={() => setSelectedAssetPaths(new Set(visibleAssets.map((asset) => asset.relativePath)))}
-                    >
-                      {copy.selectAll}
-                    </button>
-                    <button type="button" className="control-button" onClick={() => setSelectedAssetPaths(new Set())}>
-                      {copy.clearSelection}
-                    </button>
-                    <span className="asset-library-selection-divider" aria-hidden="true" />
-                    <button type="button" className="control-button is-danger" onClick={() => setDeleteSelectedOpen(true)}>
-                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                      {copy.deleteSelectedAction}
-                    </button>
-                  </div>
-                ) : null}
-              </main>
+            ) : null}
 
-              <aside className="asset-library-inspector">
-                {selected ? (
-                  <>
-                    <div className="asset-library-preview">
-                      {isProjectMapAssetPath(selected.relativePath) ? (
-                        <AssetMapThumbnail
-                          assetPath={selected.relativePath}
-                          sha256={selected.sha256}
-                          width={480}
-                          height={352}
-                          fallback={<AssetGlyph kind={selectedKind ?? 'other'} />}
-                        />
-                      ) : selectedKind === 'image' && selectedPayload ? (
-                        <img src={assetDataUrl(selectedPayload)} alt={copy.previewAlt(selected.relativePath)} />
-                      ) : selectedKind === 'audio' && selectedPayload ? (
-                        <audio controls src={assetDataUrl(selectedPayload)} />
-                      ) : (
-                        <AssetGlyph kind={selectedKind ?? 'other'} />
-                      )}
-                    </div>
-                    <div className="asset-library-inspector-title">
-                      <strong>{selected.relativePath.split('/').at(-1)}</strong>
-                      <span>{selected.relativePath}</span>
-                      <span className="asset-library-kind-chip">{copy.filters[selectedKind ?? 'other']}</span>
-                    </div>
-                    <dl className="asset-library-facts">
-                      <div>
-                        <dt>{copy.typeLabel}</dt>
-                        <dd>{selected.mediaType}</dd>
-                      </div>
-                      <div>
-                        <dt>{copy.sizeLabel}</dt>
-                        <dd>{formatBytes(selected.sizeBytes)}</dd>
-                      </div>
-                      <div>
-                        <dt>{copy.referencesLabel}</dt>
-                        <dd>{copy.referenceCount(selectedReferences.length)}</dd>
-                      </div>
-                    </dl>
-                    {dependencyView.dependencies.length > 0 || dependencyView.dependents.length > 0 ? (
-                      <section className="asset-library-dependencies">
-                        {dependencyView.dependencies.length > 0 ? (
-                          <>
-                            <h3>{copy.dependenciesLabel}</h3>
-                            <ul className="asset-library-dependency-list">
-                              {dependencyView.dependencies.map((dependency) => (
-                                <li key={dependency.path}>
-                                  <button
-                                    type="button"
-                                    className="asset-library-dependency-link"
-                                    disabled={!dependency.exists}
-                                    title={dependency.exists ? copy.openDependencyAction(dependency.path) : undefined}
-                                    onClick={() => {
-                                      if (dependency.exists) setSelectedPath(dependency.path)
-                                    }}
-                                  >
-                                    <span className="asset-library-dependency-path">{dependency.path}</span>
-                                    <span className="asset-library-dependency-kind">{dependency.kind}</span>
-                                  </button>
-                                  <span className={cx('asset-editor-badge', dependency.exists ? 'is-ok' : 'is-missing')}>
-                                    {dependency.exists ? copy.dependencyExistsLabel : copy.dependencyMissingLabel}
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          </>
-                        ) : null}
-                        {dependencyView.dependents.length > 0 ? (
-                          <>
-                            <h3>{copy.dependentsLabel}</h3>
-                            <ul className="asset-library-dependency-list">
-                              {dependencyView.dependents.map((path) => (
-                                <li key={path}>
-                                  <button
-                                    type="button"
-                                    className="asset-library-dependency-link"
-                                    title={copy.openDependencyAction(path)}
-                                    onClick={() => setSelectedPath(path)}
-                                  >
-                                    {path}
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                          </>
-                        ) : null}
-                      </section>
-                    ) : null}
-                    <div className="asset-library-actions">
-                      {isProjectMapAssetPath(selected.relativePath) ? (
-                        <button
-                          type="button"
-                          className="control-button control-button-primary"
-                          onClick={() => {
-                            usePendingMapAssetEditStore.getState().requestEdit(selected.relativePath)
-                            environment.onOpenModule('map-authoring')
-                          }}
-                        >
-                          <MapIcon className="h-4 w-4" aria-hidden="true" />
-                          {copy.editInMapEditorAction}
-                        </button>
-                      ) : null}
-                      {selected.mediaType.startsWith('image/') ? (
+            {imageScan.loading || audioScan.loading || dataScan.loading ? (
+              <div className="asset-library-missing-banner" role="status">
+                <header className="asset-library-missing-header">
+                  <RefreshCw className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <strong>{copy.gameAssetScanLoading}</strong>
+                </header>
+              </div>
+            ) : null}
+
+            {missingDependencies.length > 0 && missingSignature !== dismissedMissingSignature ? (
+              <div className="asset-library-missing-banner" role="alert">
+                <header className="asset-library-missing-header">
+                  <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <strong>{copy.missingDependenciesTitle}</strong>
+                  <span className="asset-library-missing-hint">{copy.missingDependenciesHint}</span>
+                  <button
+                    type="button"
+                    className="icon-button asset-library-missing-dismiss"
+                    aria-label={copy.dismissAction}
+                    title={copy.dismissAction}
+                    onClick={() => setDismissedMissingSignature(missingSignature)}
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </header>
+                <ul className="asset-library-missing-list">
+                  {missingDependencies.map((missing) => {
+                    const repairKey = `${missing.assetPath}\u0000${missing.missingPath}`
+                    return (
+                      <li key={repairKey} className="asset-library-missing-row">
+                        <span className="asset-library-missing-copy">
+                          <strong>{missing.assetPath}</strong>
+                          <span>{copy.missingDependencyTarget(missing.missingPath, missing.kind)}</span>
+                        </span>
                         <button
                           type="button"
                           className="control-button"
-                          disabled={previewLoading || !selectedPayload}
-                          onClick={() => setPixelAsset(selectedPayload)}
+                          disabled={repairingKey !== null}
+                          onClick={() => void repairMissingDependency(missing)}
                         >
-                          <Pencil className="h-4 w-4" />
-                          {copy.editPixelsAction}
+                          {repairingKey === repairKey ? copy.importing : copy.missingDependencyPickAction}
                         </button>
-                      ) : null}
-                      <button type="button" className="control-button" onClick={() => replaceRef.current?.click()}>
-                        <RefreshCw className="h-4 w-4" />
-                        {copy.replaceAction}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+          <div className="asset-library-main">
+            {showLoadFamilyPicker ? (
+              <div className="load-family-picker">
+                <header className="load-family-picker-header">
+                  <strong>{copy.newLoadBindingFamilyTitle}</strong>
+                  <span className="map-load-section-hint">{copy.newLoadBindingFamilyHint}</span>
+                </header>
+                <div className="load-family-picker-grid">
+                  {LOAD_FAMILY_ORDER.map((family) => (
+                    <button
+                      key={family}
+                      type="button"
+                      className="load-family-picker-card"
+                      aria-label={copy.loadFamilyNames[family]}
+                      onClick={() => createLoadBindingForFamily(family)}
+                    >
+                      <LoadFamilyIcon family={family} className="h-5 w-5" />
+                      <span>{copy.loadFamilyNames[family]}</span>
+                      <span className="load-family-picker-card-desc">{copy.loadFamilyDescriptions[family]}</span>
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="control-button" onClick={() => setShowLoadFamilyPicker(false)}>
+                  {copy.newLoadBindingFamilyCancel}
+                </button>
+              </div>
+            ) : null}
+            {selectedBinding && port ? (
+              <div className="asset-library-load-binding-editor custom-scrollbar">
+                <header className="asset-library-binding-editor-header">
+                  <LoadFamilyIcon family={loadAssetFamily(selectedBinding.target)} className="h-4 w-4" />
+                  <strong>{selectedBinding.target}</strong>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={copy.closeAction}
+                    title={copy.closeAction}
+                    onClick={() => setSelectedLoadBindingId(null)}
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </header>
+                <LoadBindingEditor patch={selectedBinding} schema={null} draftPort={port} resources={resources} />
+              </div>
+            ) : (
+              <div className="asset-library-assets-pane">
+                <main
+                  ref={setBrowserNode}
+                  className={cx(
+                    'asset-library-browser custom-scrollbar',
+                    isBoxSelecting && 'is-box-selecting',
+                    selectedAssetPaths.size > 0 && 'has-batch-selection',
+                  )}
+                >
+                  <div className="asset-library-box-select-layer" data-asset-library-box-select-layer="browser">
+                    <DragSelection />
+                  </div>
+                  {assets.length === 0 ? (
+                    <div className="asset-library-empty">
+                      <ImageIcon className="h-10 w-10" />
+                      <h2>{copy.emptyTitle}</h2>
+                      <p>{copy.emptyHint}</p>
+                      <button type="button" className="control-button control-button-primary" onClick={() => void chooseImportFiles()}>
+                        <Upload className="h-4 w-4" />
+                        {copy.importAction}
                       </button>
+                      <button type="button" className="control-button" onClick={() => void chooseImportFolder()}>
+                        <FolderInput className="h-4 w-4" />
+                        {copy.importFolderAction}
+                      </button>
+                    </div>
+                  ) : visibleAssets.length === 0 ? (
+                    <div className="asset-library-empty">
+                      <Search className="h-8 w-8" />
+                      <p>{copy.noResults}</p>
+                    </div>
+                  ) : (
+                    <div className={cx('asset-library-assets', view === 'list' && 'is-list')}>
+                      {kindGroups
+                        ? kindGroups.map((group) => (
+                            <Fragment key={group.kind}>
+                              <header className="asset-library-kind-header" data-kind={group.kind}>
+                                <strong>{copy.filters[group.kind]}</strong>
+                                <span>{copy.assetKindCount(group.assets.length)}</span>
+                              </header>
+                              {group.assets.map((asset) => renderAssetCard(asset))}
+                            </Fragment>
+                          ))
+                        : visibleAssets.map((asset) => renderAssetCard(asset))}
+                    </div>
+                  )}
+                  {selectedAssetPaths.size > 0 ? (
+                    <div className="asset-library-selection-pill" role="toolbar" aria-label={copy.selectionCount(selectedAssetPaths.size)}>
+                      <span className="asset-library-selection-count">{copy.selectionCount(selectedAssetPaths.size)}</span>
+                      <span className="asset-library-selection-divider" aria-hidden="true" />
                       <button
                         type="button"
                         className="control-button"
-                        onClick={() => {
-                          setRenamePath(selected.relativePath)
-                          setRenameDraft(selected.relativePath)
-                        }}
+                        disabled={selectedAssetPaths.size >= visibleAssets.length}
+                        onClick={() => setSelectedAssetPaths(new Set(visibleAssets.map((asset) => asset.relativePath)))}
                       >
-                        <Pencil className="h-4 w-4" />
-                        {copy.renameAction}
+                        {copy.selectAll}
                       </button>
-                      <button type="button" className="control-button is-danger" onClick={() => setDeletePath(selected.relativePath)}>
-                        <Trash2 className="h-4 w-4" />
-                        {copy.deleteAction}
+                      <button type="button" className="control-button" onClick={() => setSelectedAssetPaths(new Set())}>
+                        {copy.clearSelection}
+                      </button>
+                      <span className="asset-library-selection-divider" aria-hidden="true" />
+                      <button type="button" className="control-button is-danger" onClick={() => setDeleteSelectedOpen(true)}>
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                        {copy.deleteSelectedAction}
                       </button>
                     </div>
-                  </>
-                ) : null}
-              </aside>
-            </div>
-          )}
+                  ) : null}
+                </main>
+              </div>
+            )}
+          </div>
         </div>
       </WorkspaceSplitView>
 
-      <input ref={replaceRef} className="sr-only" type="file" onChange={(event) => void replaceSelected(event)} />
+      <input ref={replaceRef} className="sr-only" type="file" onChange={replaceSelected} />
 
       <Dialog open={renamePath !== null} onClose={() => setRenamePath(null)} labelledBy={renameTitleId} size="sm">
         <DialogHeader
@@ -1380,6 +1512,6 @@ export function AssetLibraryWorkspace() {
           setSelectedLoadBindingId(null)
         }}
       />
-    </div>
+    </>
   )
 }

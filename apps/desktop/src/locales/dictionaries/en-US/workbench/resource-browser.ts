@@ -43,6 +43,9 @@ const resourceBrowser: ResourceBrowserCopy = {
     fieldMeta: 'Metadata',
     fieldSubtitle: 'Subtitle',
     none: 'None',
+    audioPlay: 'Play',
+    audioPause: 'Pause',
+    audioLoading: 'Loading',
   },
   lab: {
     introTitle: 'Resource selection controls',
@@ -72,6 +75,11 @@ const resourceBrowser: ResourceBrowserCopy = {
         description: 'Vanilla buildings, upgrade stages, and project building keys.',
         placeholder: 'Search building name or key',
       },
+    },
+    audioCombined: {
+      title: 'Audio',
+      description: 'Combined music and sound cue browser.',
+      placeholder: 'Search audio cues',
     },
   },
 }

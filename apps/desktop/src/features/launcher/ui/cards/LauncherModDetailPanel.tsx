@@ -86,8 +86,7 @@ export function LauncherModDetailPanel({
   })
   const deferredFilesLoading = Boolean(shouldFetchDeferredFiles && fetchedRemoteWithFiles.state === 'loading')
   const remote = fetchedRemoteWithFiles.detail ?? remoteDetail ?? fetchedRemote.detail
-  const showRemoteLoading =
-    remoteLoading || Boolean(open && !remoteDetail && mod?.nexusModId && fetchedRemote.state === 'loading') || deferredFilesLoading
+  const showRemoteLoading = remoteLoading || Boolean(open && !remoteDetail && mod?.nexusModId && fetchedRemote.state === 'loading')
   const { remoteDependencyDetails, loadRemoteDependencyDetail } = useLauncherDependencyDetails({
     detailContentKey,
     launcherPort,

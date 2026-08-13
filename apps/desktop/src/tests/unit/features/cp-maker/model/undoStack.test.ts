@@ -181,4 +181,18 @@ describe('draft undo stack', () => {
     host.port().undo()
     expect(host.patches()[0]?.logName).toBe('Barn pack')
   })
+
+  it('applies an unrecorded patch write without touching the history', () => {
+    const host = mountDraftPort([makeTestPatch('p1', 'Data/Buildings', { entries: {} }, { logName: 'Barn pack' })])
+
+    host.port().updatePatch('p1', { logName: 'Barn pack v2' })
+    expect(history()).toEqual({ past: 1, future: 0 })
+
+    host.port().updatePatch('p1', { logName: 'Barn pack v3' }, { record: false })
+    expect(host.patches()[0]?.logName).toBe('Barn pack v3')
+    expect(history()).toEqual({ past: 1, future: 0 })
+
+    host.port().undo()
+    expect(host.patches()[0]?.logName).toBe('Barn pack')
+  })
 })

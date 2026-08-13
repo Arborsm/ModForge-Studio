@@ -6,6 +6,17 @@ export type MapTileRect = {
   height: number
 }
 
+/**
+ * Inspector hover highlight: tile rectangles (drawn directly at their grid
+ * coords, independent of the active layer) plus object-group markers to
+ * emphasize on the canvas. `tileRects` and `objectIds` are mutually
+ * exclusive in practice — an entry is either a grid cell or an object carrier.
+ */
+export type MapInspectorHighlight = {
+  tileRects: MapTileRect[]
+  objectIds: number[]
+}
+
 type MapTilePoint = {
   x: number
   y: number

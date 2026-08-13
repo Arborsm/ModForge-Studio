@@ -46,6 +46,13 @@ export const itemBrowserRegistration = registration(
   'none',
   () => import('./ui/module-runtimes/ItemBrowserModuleRuntime'),
 )
+export const audioBrowserRegistration = registration(
+  'audio-browser',
+  { section: 'browse', order: 60, icon: 'audio', labelKey: 'audio-browser' },
+  'browser',
+  'none',
+  () => import('./ui/module-runtimes/AudioBrowserModuleRuntime'),
+)
 export const modBrowserRegistration = registration(
   'mod-browser',
   { section: 'tools', order: 100, icon: 'package', labelKey: 'mod-browser' },

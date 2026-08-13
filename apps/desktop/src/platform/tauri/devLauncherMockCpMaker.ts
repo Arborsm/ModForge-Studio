@@ -1,3 +1,5 @@
+import { readMockSessionState, writeMockSessionState } from './devLauncherMockSessionState'
+
 type MockCommandResult = { handled: true; result: unknown } | { handled: false }
 
 /**
@@ -32,6 +34,17 @@ type MockProjectAssetWriteRequest = {
   mediaType: string
   bytesBase64: string
   sourceType?: string
+}
+
+type MockProjectAssetEntry = { ref: MockProjectAssetRef; bytesBase64: string }
+
+/** sessionStorage snapshot shape; Maps are serialized as entry arrays so JSON can round-trip them. */
+type MockCpMakerStateSnapshot = {
+  drafts: Array<[string, MockDraftRecord]>
+  projectAssets: Array<[string, Array<[string, MockProjectAssetEntry]>]>
+  session: MockSession
+  copyCounter: number
+  assetCounter: number
 }
 
 /** Browser-safe deterministic digest: real hosts store a SHA-256, the mock only needs stable uniqueness. */
@@ -150,21 +163,36 @@ function createMockMapDocument(name: string) {
 }
 
 /**
- * In-memory CP Maker draft storage for the browser dev mock.
+ * CP Maker draft storage for the browser dev mock.
  *
  * Draft records round-trip unchanged: the mock stores exactly what the frontend
- * sends and hands it back, only stamping the fields the host owns. State lives
- * for the lifetime of the page, so a reload starts from a clean workbench.
+ * sends and hands it back, only stamping the fields the host owns. State is
+ * mirrored to sessionStorage on every write so a same-tab reload resumes the
+ * workbench where the user left off; a fresh tab starts from a clean mock.
  */
 export function createCpMakerMockHandler(gameRootPath: string) {
-  const drafts = new Map<string, MockDraftRecord>()
-  // In-memory project asset bytes, keyed by draft then lowercase relative path.
-  // Mirrors the host's per-draft asset store so browser-only verification can
-  // exercise the asset library (thumbnails, previews) without native dialogs.
-  const projectAssets = new Map<string, Map<string, { ref: MockProjectAssetRef; bytesBase64: string }>>()
-  let session: MockSession = { activeDraftKey: null, activeGeneratedDraftKey: null }
-  let copyCounter = 0
-  let assetCounter = 0
+  const restored = readMockSessionState<MockCpMakerStateSnapshot>('cpMakerState')
+  const drafts = new Map<string, MockDraftRecord>(restored?.drafts ?? [])
+  // Project asset bytes, keyed by draft then lowercase relative path. Mirrors
+  // the host's per-draft asset store so browser-only verification can exercise
+  // the asset library (thumbnails, previews) without native dialogs.
+  const projectAssets = new Map<string, Map<string, MockProjectAssetEntry>>(
+    (restored?.projectAssets ?? []).map(([draftKey, entries]) => [draftKey, new Map(entries)]),
+  )
+  let session: MockSession = restored?.session ?? { activeDraftKey: null, activeGeneratedDraftKey: null }
+  let copyCounter = restored?.copyCounter ?? 0
+  let assetCounter = restored?.assetCounter ?? 0
+
+  /** Mirrors the current state to sessionStorage so a same-tab reload resumes it. */
+  function persist() {
+    writeMockSessionState('cpMakerState', {
+      drafts: [...drafts.entries()],
+      projectAssets: [...projectAssets.entries()].map(([draftKey, store]) => [draftKey, [...store.entries()]]),
+      session,
+      copyCounter,
+      assetCounter,
+    } satisfies MockCpMakerStateSnapshot)
+  }
 
   function toSummary(record: MockDraftRecord) {
     return {
@@ -244,6 +272,7 @@ export function createCpMakerMockHandler(gameRootPath: string) {
         }
         const stored: MockDraftRecord = { ...draft, lastDraftSavedAt: Date.now() }
         drafts.set(stored.draftStorageKey, stored)
+        persist()
         return { handled: true, result: stored }
       }
 
@@ -254,6 +283,7 @@ export function createCpMakerMockHandler(gameRootPath: string) {
         if (session.activeDraftKey === storageKey) {
           session = { ...session, activeDraftKey: null }
         }
+        persist()
         return { handled: true, result: null }
       }
 
@@ -275,6 +305,7 @@ export function createCpMakerMockHandler(gameRootPath: string) {
           lastExportFingerprint: null,
         }
         drafts.set(copy.draftStorageKey, copy)
+        persist()
         return { handled: true, result: copy }
       }
 
@@ -283,6 +314,7 @@ export function createCpMakerMockHandler(gameRootPath: string) {
 
       case 'save_cp_maker_session': {
         session = readPayload<MockSession>(payload, 'session') ?? session
+        persist()
         return { handled: true, result: session }
       }
 
@@ -340,6 +372,7 @@ export function createCpMakerMockHandler(gameRootPath: string) {
         if (!request) throw new Error('write_cp_maker_project_asset called without a request payload')
         const ref = writeMockAsset(request.draftStorageKey, request)
         syncDraftAssets(request.draftStorageKey)
+        persist()
         return { handled: true, result: ref }
       }
 
@@ -348,6 +381,7 @@ export function createCpMakerMockHandler(gameRootPath: string) {
         if (!request) throw new Error('write_cp_maker_project_assets called without a request payload')
         const refs = request.assets.map((asset) => writeMockAsset(request.draftStorageKey, asset))
         syncDraftAssets(request.draftStorageKey)
+        persist()
         return { handled: true, result: refs }
       }
 
@@ -362,14 +396,18 @@ export function createCpMakerMockHandler(gameRootPath: string) {
         store.delete(request.relativePath.toLowerCase())
         entry.ref = { ...entry.ref, relativePath: request.newRelativePath }
         store.set(request.newRelativePath.toLowerCase(), entry)
-        return { handled: true, result: syncDraftAssets(request.draftStorageKey) }
+        const renamed = syncDraftAssets(request.draftStorageKey)
+        persist()
+        return { handled: true, result: renamed }
       }
 
       case 'delete_cp_maker_project_asset': {
         const request = readPayload<{ draftStorageKey: string; relativePath: string }>(payload, 'request')
         if (!request) throw new Error('delete_cp_maker_project_asset called without a request payload')
         assetStoreFor(request.draftStorageKey).delete(request.relativePath.toLowerCase())
-        return { handled: true, result: syncDraftAssets(request.draftStorageKey) }
+        const deleted = syncDraftAssets(request.draftStorageKey)
+        persist()
+        return { handled: true, result: deleted }
       }
 
       case 'scan_maps':

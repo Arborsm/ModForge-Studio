@@ -24,6 +24,7 @@ import {
   deriveOutdoorLightFactor,
   deriveOutdoorLightmapColor,
   getEveningColor,
+  getLightingPreviewDuskVariant,
   getLightingPreviewTimeOfDay,
   getStartingToGetDarkTime,
   getTrulyDarkTime,
@@ -31,10 +32,14 @@ import {
   isIndoorMapDocument,
   isMineLikeMapName,
   isObjectLightItemIndexEmpty,
+  listPlacedLightItemOptions,
+  parseLightingColorTriplet,
   parseMapAmbientLightProperty,
   resolveMapObjectItemReference,
   resolvePlacedItemQualifiedId,
   resolvePlacedObjectLightMarkers,
+  resolvePlacedObjectDisplayName,
+  serializeLightingColorTriplet,
   toGameClockUnits,
 } from '@entities/map/model/lighting'
 
@@ -205,6 +210,19 @@ describe('placed-object lights (Object.initializeLightSource)', () => {
     BedFurniture: { Name: 'Double Bed', Type: 'bed' },
   })
   const index = buildObjectLightItemIndex(bigCraftablesContent, furnitureContent)
+  const makeObject = (overrides: Record<string, unknown>) => ({
+    id: 1,
+    name: '',
+    type: '',
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+    rotation: 0,
+    visible: true,
+    properties: {},
+    ...overrides,
+  })
 
   describe('buildObjectLightItemIndex', () => {
     test('parses big-craftable lamp and torch facts', () => {
@@ -221,9 +239,117 @@ describe('placed-object lights (Object.initializeLightSource)', () => {
       expect(index.furnitureTypes.BedFurniture).toBe(15)
     })
 
+    test('indexes furniture internal names by id for picker disambiguation', () => {
+      expect(index.furnitureNames['1792']).toBe('Brick Fireplace')
+      expect(index.furnitureNames['2397']).toBe('Plain Torch')
+      expect(index.furnitureNames['0']).toBe('Oak Chair')
+    })
+
     test('malformed or missing content yields an empty index', () => {
       expect(isObjectLightItemIndexEmpty(buildObjectLightItemIndex(null, null))).toBe(true)
       expect(isObjectLightItemIndexEmpty(buildObjectLightItemIndex('{nope', 'also not json'))).toBe(true)
+    })
+
+    describe('displayNames', () => {
+      test('modern big-craftable entries prefer DisplayName over the internal Name, skipping blank DisplayNames', () => {
+        const localIndex = buildObjectLightItemIndex(
+          JSON.stringify({
+            '143': { Name: 'Wooden Brazier', DisplayName: 'Brazier Torch', IsLamp: false, ContextTags: ['torch_item'] },
+            '152': { Name: 'Wood Lamp-post', IsLamp: true },
+            '74': { Name: 'Bonfire', DisplayName: '   ', IsLamp: false },
+          }),
+          null,
+        )
+        expect(localIndex.displayNames['(BC)143']).toBe('Brazier Torch')
+        expect(localIndex.displayNames['(BC)152']).toBe('Wood Lamp-post')
+        expect(localIndex.displayNames['(BC)74']).toBe('Bonfire')
+      })
+
+      test('furniture display names come from DisplayName for modern entries and the 8th slash field for legacy strings', () => {
+        const localIndex = buildObjectLightItemIndex(
+          null,
+          JSON.stringify({
+            '1792': 'Brick Fireplace/fireplace/-1/-1/1/1000/-1/[LocalizedText Strings\\Furniture:BrickFireplace]',
+            // Without a strings table a token falls back to the parsed name; a
+            // non-empty non-token 8th field (here "x") is used as-is.
+            '0': 'Oak Chair/chair/-1/-1/1/250/-1/x',
+            BedFurniture: { Name: 'Double Bed', DisplayName: 'Deluxe Bed', Type: 'bed' },
+            Sconce: { Name: 'Wall Sconce', Type: 'sconce' },
+          }),
+        )
+        expect(localIndex.displayNames['(F)1792']).toBe('Brick Fireplace')
+        expect(localIndex.displayNames['(F)0']).toBe('x')
+        expect(localIndex.displayNames['(F)BedFurniture']).toBe('Deluxe Bed')
+        expect(localIndex.displayNames['(F)Sconce']).toBe('Wall Sconce')
+      })
+
+      test('every indexed item id has a display-name entry', () => {
+        for (const id of Object.keys(index.bigCraftables)) {
+          expect(index.displayNames[`(BC)${id}`]).toBeTruthy()
+        }
+        for (const id of Object.keys(index.furnitureTypes)) {
+          expect(index.displayNames[`(F)${id}`]).toBeTruthy()
+        }
+      })
+
+      test('resolves big-craftable DisplayName tokens against Strings\\BigCraftables, falling back to the internal Name', () => {
+        const content = JSON.stringify({
+          '143': {
+            Name: 'Wooden Brazier',
+            DisplayName: '[LocalizedText Strings\\BigCraftables:BarrelBrazier_Name]',
+            IsLamp: false,
+            ContextTags: ['torch_item'],
+          },
+        })
+        const hit = buildObjectLightItemIndex(content, null, { bigCraftables: JSON.stringify({ BarrelBrazier_Name: '木桶火盆' }) })
+        expect(hit.displayNames['(BC)143']).toBe('木桶火盆')
+        // Missing strings (or a miss in the table) fall back to the internal Name.
+        expect(buildObjectLightItemIndex(content, null).displayNames['(BC)143']).toBe('Wooden Brazier')
+        const miss = buildObjectLightItemIndex(content, null, { bigCraftables: JSON.stringify({ OtherKey: 'x' }) })
+        expect(miss.displayNames['(BC)143']).toBe('Wooden Brazier')
+      })
+
+      test('resolves legacy furniture 8th-field tokens against Strings\\Furniture', () => {
+        const content = JSON.stringify({
+          '1792': 'Brick Fireplace/fireplace/-1/-1/1/1000/-1/[LocalizedText Strings\\Furniture:BrickFireplace]',
+        })
+        const hit = buildObjectLightItemIndex(null, content, { furniture: JSON.stringify({ BrickFireplace: '砖壁炉' }) })
+        expect(hit.displayNames['(F)1792']).toBe('砖壁炉')
+        expect(buildObjectLightItemIndex(null, content).displayNames['(F)1792']).toBe('Brick Fireplace')
+      })
+
+      test('legacy furniture without an 8th field falls back to the parsed name', () => {
+        const localIndex = buildObjectLightItemIndex(null, JSON.stringify({ '0': 'Oak Chair/chair/-1/-1/1/250/-1' }))
+        expect(localIndex.displayNames['(F)0']).toBe('Oak Chair')
+      })
+
+      test('resolves modern furniture DisplayName tokens against Strings\\Furniture', () => {
+        const content = JSON.stringify({
+          BedFurniture: {
+            Name: 'Double Bed',
+            DisplayName: '[LocalizedText Strings\\Furniture:DoubleBed]',
+            Type: 'bed',
+          },
+        })
+        const hit = buildObjectLightItemIndex(null, content, { furniture: JSON.stringify({ DoubleBed: '双人床' }) })
+        expect(hit.displayNames['(F)BedFurniture']).toBe('双人床')
+      })
+
+      test('malformed strings JSON disables token resolution without throwing', () => {
+        const localIndex = buildObjectLightItemIndex(
+          JSON.stringify({
+            '143': {
+              Name: 'Wooden Brazier',
+              DisplayName: '[LocalizedText Strings\\BigCraftables:BarrelBrazier_Name]',
+              IsLamp: false,
+              ContextTags: ['torch_item'],
+            },
+          }),
+          null,
+          { bigCraftables: '{nope' },
+        )
+        expect(localIndex.displayNames['(BC)143']).toBe('Wooden Brazier')
+      })
     })
   })
 
@@ -248,20 +374,6 @@ describe('placed-object lights (Object.initializeLightSource)', () => {
   })
 
   describe('resolvePlacedObjectLightMarkers', () => {
-    const makeObject = (overrides: Record<string, unknown>) => ({
-      id: 1,
-      name: '',
-      type: '',
-      x: 0,
-      y: 0,
-      width: 0,
-      height: 0,
-      rotation: 0,
-      visible: true,
-      properties: {},
-      ...overrides,
-    })
-
     test('reference precedence: QualifiedItemId property, then type, then name', () => {
       const fromProperty = makeObject({ properties: { QualifiedItemId: '(BC)152' }, type: '(BC)143', name: 'Campfire' })
       const fromType = makeObject({ type: '(BC)143', name: 'Campfire' })
@@ -292,6 +404,116 @@ describe('placed-object lights (Object.initializeLightSource)', () => {
       expect(resolvePlacedObjectLightMarkers(groups, { tileWidth: 16, tileHeight: 16 }, index)[0]?.isOn).toBe(false)
       const truthy = [{ objects: [makeObject({ type: '(BC)143', properties: { IsOn: 'T' } })] }]
       expect(resolvePlacedObjectLightMarkers(truthy, { tileWidth: 16, tileHeight: 16 }, index)[0]?.isOn).toBe(true)
+    })
+  })
+
+  describe('listPlacedLightItemOptions', () => {
+    test('lists only light-emitting items with index display-name labels, sorted by label', () => {
+      expect(listPlacedLightItemOptions(index)).toEqual([
+        { qualifiedItemId: '(BC)74', label: 'Bonfire' },
+        { qualifiedItemId: '(F)1792', label: 'Brick Fireplace' },
+        { qualifiedItemId: '(BC)146', label: 'Campfire' },
+        { qualifiedItemId: '(F)2397', label: 'Plain Torch' },
+        { qualifiedItemId: '(BC)96', label: 'Strange Capsule' },
+        { qualifiedItemId: '(BC)152', label: 'Wood Lamp-post' },
+        { qualifiedItemId: '(BC)143', label: 'Wooden Brazier' },
+      ])
+    })
+
+    test('returns [] for null, undefined and empty indexes', () => {
+      expect(listPlacedLightItemOptions(null)).toEqual([])
+      expect(listPlacedLightItemOptions(undefined)).toEqual([])
+      expect(listPlacedLightItemOptions(buildObjectLightItemIndex(null, null))).toEqual([])
+    })
+
+    test('dedupes entries sharing display name and light behavior, keeping the lowest id', () => {
+      const localIndex = buildObjectLightItemIndex(
+        JSON.stringify({
+          '999': { Name: 'Wooden Brazier', IsLamp: false, ContextTags: ['torch_item'] },
+          '143': { Name: 'Wooden Brazier', IsLamp: false, ContextTags: ['torch_item'] },
+        }),
+        null,
+      )
+      expect(listPlacedLightItemOptions(localIndex)).toEqual([{ qualifiedItemId: '(BC)143', label: 'Wooden Brazier' }])
+    })
+
+    test('keeps same-labeled entries with different light behaviors, disambiguating with internal names', () => {
+      const localIndex = buildObjectLightItemIndex(
+        JSON.stringify({
+          '74': { Name: 'Bonfire', DisplayName: '篝火', IsLamp: false },
+          '146': { Name: 'Campfire', DisplayName: '篝火', IsLamp: false, ContextTags: ['campfire_item', 'torch_item'] },
+        }),
+        null,
+      )
+      expect(listPlacedLightItemOptions(localIndex)).toEqual([
+        { qualifiedItemId: '(BC)74', label: '篝火', description: 'Bonfire' },
+        { qualifiedItemId: '(BC)146', label: '篝火', description: 'Campfire' },
+      ])
+    })
+
+    test('the 篝火 collision across big craftables and fireplace furniture keeps all three behaviors', () => {
+      const localIndex = buildObjectLightItemIndex(
+        JSON.stringify({
+          '74': { Name: 'Bonfire', DisplayName: '篝火', IsLamp: false },
+          '146': { Name: 'Campfire', DisplayName: '篝火', IsLamp: false, ContextTags: ['campfire_item', 'torch_item'] },
+        }),
+        JSON.stringify({
+          '2455': 'Campfire/fireplace/-1/-1/1/1000/-1/[LocalizedText Strings\\Furniture:Campfire]',
+        }),
+        { furniture: JSON.stringify({ Campfire: '篝火' }) },
+      )
+      expect(listPlacedLightItemOptions(localIndex)).toEqual([
+        { qualifiedItemId: '(BC)74', label: '篝火', description: 'Bonfire' },
+        { qualifiedItemId: '(BC)146', label: '篝火', description: 'Campfire' },
+        { qualifiedItemId: '(F)2455', label: '篝火', description: 'Campfire' },
+      ])
+    })
+
+    test('compares non-numeric ids as strings when deduping', () => {
+      const localIndex = buildObjectLightItemIndex(
+        JSON.stringify({
+          TorchB: { Name: 'Plain Torch', IsLamp: false, ContextTags: ['torch_item'] },
+          TorchA: { Name: 'Plain Torch', IsLamp: false, ContextTags: ['torch_item'] },
+        }),
+        null,
+      )
+      expect(listPlacedLightItemOptions(localIndex)).toEqual([{ qualifiedItemId: '(BC)TorchA', label: 'Plain Torch' }])
+    })
+
+    test('unique labels keep no description even when other labels collide', () => {
+      const localIndex = buildObjectLightItemIndex(
+        JSON.stringify({
+          '74': { Name: 'Bonfire', DisplayName: '篝火', IsLamp: false },
+          '146': { Name: 'Campfire', DisplayName: '篝火', IsLamp: false, ContextTags: ['campfire_item', 'torch_item'] },
+          '143': { Name: 'Wooden Brazier', IsLamp: false, ContextTags: ['torch_item'] },
+        }),
+        null,
+      )
+      const options = listPlacedLightItemOptions(localIndex)
+      expect(options.find((option) => option.label === 'Wooden Brazier')).toEqual({ qualifiedItemId: '(BC)143', label: 'Wooden Brazier' })
+      expect(options.filter((option) => option.label === '篝火')).toHaveLength(2)
+    })
+  })
+
+  describe('resolvePlacedObjectDisplayName', () => {
+    test('QualifiedItemId property wins over type, then name', () => {
+      const fromProperty = makeObject({ properties: { QualifiedItemId: '(BC)152' }, type: '(BC)143', name: 'Campfire' })
+      const fromType = makeObject({ type: '(BC)143', name: 'Campfire' })
+      const fromName = makeObject({ name: 'Campfire' })
+      expect(resolvePlacedObjectDisplayName(fromProperty, index)).toBe('Wood Lamp-post')
+      expect(resolvePlacedObjectDisplayName(fromType, index)).toBe('Wooden Brazier')
+      expect(resolvePlacedObjectDisplayName(fromName, index)).toBe('Campfire')
+    })
+
+    test('plain TileData markers and unknown items resolve to null', () => {
+      expect(resolvePlacedObjectDisplayName(makeObject({ name: 'TileData' }), index)).toBeNull()
+      expect(resolvePlacedObjectDisplayName(makeObject({ name: 'Not An Item' }), index)).toBeNull()
+      expect(resolvePlacedObjectDisplayName(makeObject({}), index)).toBeNull()
+    })
+
+    test('missing indexes resolve to null', () => {
+      expect(resolvePlacedObjectDisplayName(makeObject({ name: 'Campfire' }), null)).toBeNull()
+      expect(resolvePlacedObjectDisplayName(makeObject({ name: 'Campfire' }), undefined)).toBeNull()
     })
   })
 
@@ -536,5 +758,27 @@ describe('map document lighting', () => {
     expect(getLightingPreviewTimeOfDay('dusk', 'spring')).toBe(1850)
     expect(getLightingPreviewTimeOfDay('night', 'spring')).toBe(2200)
     expect(getLightingPreviewTimeOfDay('night', 'winter')).toBe(1900)
+  })
+
+  test('resolves the dusk variant for the lighting pill', () => {
+    expect(getLightingPreviewDuskVariant('day', 'spring')).toBeNull()
+    expect(getLightingPreviewDuskVariant('night', 'winter')).toBeNull()
+    expect(getLightingPreviewDuskVariant('dusk', 'spring')).toBe('dusk')
+    expect(getLightingPreviewDuskVariant('dusk', 'summer')).toBe('dusk')
+    expect(getLightingPreviewDuskVariant('dusk', 'fall')).toBe('dusk')
+    expect(getLightingPreviewDuskVariant('dusk', 'winter')).toBe('duskWinter')
+  })
+})
+
+describe('ambient light serialization', () => {
+  test('serializes a color as space-separated decimal like the game expects', () => {
+    expect(serializeLightingColorTriplet({ r: 95, g: 95, b: 95 })).toBe('95 95 95')
+    expect(serializeLightingColorTriplet({ r: 100, g: 120, b: 30 })).toBe('100 120 30')
+    expect(serializeLightingColorTriplet({ r: 150, g: 150, b: 30 })).toBe('150 150 30')
+  })
+
+  test('serialization round-trips through the triplet parser', () => {
+    const color = { r: 255, g: 128, b: 0 }
+    expect(parseLightingColorTriplet(serializeLightingColorTriplet(color))).toEqual(color)
   })
 })

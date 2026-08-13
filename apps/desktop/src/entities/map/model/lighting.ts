@@ -213,6 +213,11 @@ export function parseLightingColorTriplet(raw: string): LightingColor | null {
   return { r: clamp(channels[0] ?? 0), g: clamp(channels[1] ?? 0), b: clamp(channels[2] ?? 0) }
 }
 
+/** Serializes a lightmap color as the space-separated decimal the game expects (e.g. "95 95 95"). */
+export function serializeLightingColorTriplet(color: LightingColor): string {
+  return `${color.r} ${color.g} ${color.b}`
+}
+
 /**
  * Reads a map's `AmbientLight` property the way GameLocation does: absent
  * keeps the caller's default, a white value means "fully bright" (the game
@@ -286,6 +291,99 @@ export function buildMapPropertyLightGlows(
     append(asMapPropertyString(properties?.WindowLight))
   }
   return glows
+}
+
+/** Valid `Light` property texture indexes (1 lantern, 2 windowLight, 4 sconce, 5 green, 6 indoorWindow, 7-10 projector/fishTank/tree/pinpoint); 3 is invalid. */
+const VALID_LIGHT_TEXTURE_INDEXES = new Set([1, 2, 4, 5, 6, 7, 8, 9, 10])
+
+/**
+ * Conservative default `Light` texture index for a marker's item reference:
+ * lantern-named items use the lantern texture, window-named items the window
+ * light, everything else the sconce (the most common wall-lamp/torch shape —
+ * plain numeric ids like `(O)146` land here). The inspector can override this
+ * per marker via `MFLightTexture`.
+ */
+export function lightTextureIndexForItem(itemReference: string | null): number {
+  const normalized = itemReference?.trim().toLowerCase() ?? ''
+  if (normalized.includes('lantern')) {
+    return 1
+  }
+  if (normalized.includes('window')) {
+    return 2
+  }
+  return 4
+}
+
+/** Reads a marker's explicit `MFLightTexture` override; invalid indexes fall back to the item mapping. */
+function markerLightTextureIndex(object: MapObject): number {
+  const explicit = Number.parseInt(asMapPropertyString(object.properties.MFLightTexture), 10)
+  return VALID_LIGHT_TEXTURE_INDEXES.has(explicit) ? explicit : lightTextureIndexForItem(resolveMapObjectItemReference(object))
+}
+
+/**
+ * Rebuilds a map's `Light` property from its explicit light markers
+ * (`MFMarker: 'light'` objects that resolve as lit), returning the document
+ * unchanged when the value already matches. Only explicit markers participate:
+ * heuristic objects (empty properties or a bare `QualifiedItemId`) are never
+ * promoted, so community-authored maps are not polluted. Hand-written triples
+ * in the existing value that do not land on a marker tile are preserved
+ * verbatim before the marker triples; a hand-written triple on a marker tile
+ * is replaced by that marker (one marker per tile wins, matching the preview).
+ * The value is space-joined `x y textureIndex` triples, markers sorted by
+ * (y, x); trailing partial tokens are kept as-is. `WindowLight` is untouched.
+ */
+export function syncLightMapProperty(document: MapDocument): MapDocument {
+  const tileWidth = document.tileWidth > 0 ? document.tileWidth : 16
+  const tileHeight = document.tileHeight > 0 ? document.tileHeight : 16
+  const markers: Array<{ tileX: number; tileY: number; textureIndex: number }> = []
+  const markerTiles = new Set<string>()
+  for (const group of document.objectGroups) {
+    for (const object of group.objects) {
+      if (asMapPropertyString(object.properties.MFMarker) !== 'light' || !resolveMapObjectLightIsOn(object)) {
+        continue
+      }
+      const tileX = Math.round(object.x / tileWidth)
+      const tileY = Math.round(object.y / tileHeight)
+      const tileKey = `${tileX},${tileY}`
+      if (markerTiles.has(tileKey)) {
+        continue
+      }
+      markerTiles.add(tileKey)
+      markers.push({ tileX, tileY, textureIndex: markerLightTextureIndex(object) })
+    }
+  }
+
+  const raw = asMapPropertyString(document.properties.Light).trim()
+  const tokens = raw ? raw.split(/\s+/u) : []
+  const handWritten: string[] = []
+  let offset = 0
+  for (; offset + 2 < tokens.length; offset += 3) {
+    const tileX = Number.parseInt(tokens[offset] ?? '', 10)
+    const tileY = Number.parseInt(tokens[offset + 1] ?? '', 10)
+    const onMarkerTile = Number.isFinite(tileX) && Number.isFinite(tileY) && markerTiles.has(`${tileX},${tileY}`)
+    if (!onMarkerTile) {
+      handWritten.push(tokens[offset]!, tokens[offset + 1]!, tokens[offset + 2]!)
+    }
+  }
+  const residual = tokens.slice(offset)
+
+  const rebuilt = [...handWritten]
+  markers.sort((a, b) => a.tileY - b.tileY || a.tileX - b.tileX)
+  for (const marker of markers) {
+    rebuilt.push(String(marker.tileX), String(marker.tileY), String(marker.textureIndex))
+  }
+  rebuilt.push(...residual)
+  const rebuiltValue = rebuilt.join(' ')
+  if (rebuiltValue === raw) {
+    return document
+  }
+  const properties = { ...document.properties }
+  if (rebuilt.length === 0) {
+    delete properties.Light
+  } else {
+    properties.Light = rebuiltValue
+  }
+  return { ...document, properties }
 }
 
 /** Paths-layer tile index (any tilesheet) that spawns a `Light x y 4` sconce. */
@@ -430,16 +528,25 @@ export type ObjectLightBigCraftableFacts = {
 }
 
 /**
- * Item-data lookup for placed-object lights: big-craftable facts and furniture
- * type numbers by unqualified item id, plus case-insensitive name lookups for
- * marker resolution. Built from raw Data/BigCraftables and Data/Furniture
- * asset JSON via `buildObjectLightItemIndex`.
+ * Item-data lookup for placed-object lights: big-craftable facts, furniture
+ * type numbers and internal furniture names by unqualified item id, plus
+ * case-insensitive name lookups for marker resolution. Built from raw
+ * Data/BigCraftables and Data/Furniture asset JSON via
+ * `buildObjectLightItemIndex`.
  */
 export type ObjectLightItemIndex = {
   bigCraftables: Record<string, ObjectLightBigCraftableFacts>
   furnitureTypes: Record<string, number>
   bigCraftableIdsByName: Record<string, string>
   furnitureIdsByName: Record<string, string>
+  /** Internal (English) furniture name by unqualified item id, for picker disambiguation. */
+  furnitureNames: Record<string, string>
+  /**
+   * Qualified item id (`(BC)<id>` / `(F)<id>`) to display name for the marker
+   * picker; `[LocalizedText ...]` tokens are resolved via the strings tables
+   * when provided.
+   */
+  displayNames: Record<string, string>
 }
 
 /** One placed-object light marker resolved from a map object-group entry. */
@@ -472,6 +579,42 @@ const FURNITURE_TYPE_NUMBERS: Record<string, number> = {
 
 function normalizeItemLookupName(name: string) {
   return name.trim().toLowerCase()
+}
+
+/**
+ * Reads an item entry's display name: modern object entries prefer a non-empty
+ * `DisplayName` field, falling back to the parsed internal name; legacy slash
+ * strings always use the parsed name.
+ */
+function readItemDisplayName(rawEntry: unknown, parsedName: string) {
+  if (rawEntry && typeof rawEntry === 'object') {
+    const displayName = (rawEntry as { DisplayName?: unknown }).DisplayName
+    if (typeof displayName === 'string' && displayName.trim()) {
+      return displayName.trim()
+    }
+  }
+  return parsedName
+}
+
+/** Matches a `[LocalizedText Strings\Family:key]` display-name token. */
+const LOCALIZED_TEXT_TOKEN_PATTERN = /^\[LocalizedText\s+[^:\]]+:(?<key>[^\]]+)\]$/u
+
+/**
+ * Resolves a display-name candidate for the marker picker. A
+ * `[LocalizedText ...]` token is looked up by key in its family's strings
+ * table: a hit wins, a miss falls back to the item's internal name (never the
+ * raw token). Any non-token candidate is used as-is.
+ */
+function resolveItemDisplayName(candidate: string, internalName: string, stringsMap: Record<string, string>): string {
+  const tokenMatch = LOCALIZED_TEXT_TOKEN_PATTERN.exec(candidate)
+  if (!tokenMatch) {
+    return candidate
+  }
+  const key = tokenMatch.groups?.key?.trim() ?? ''
+  if (!key) {
+    return internalName
+  }
+  return stringsMap[key] ?? internalName
 }
 
 /** Parses a Data/Furniture entry (legacy slash string or modern object) into a type number. */
@@ -511,19 +654,52 @@ function parseFurnitureTypeNumber(rawEntry: unknown): { name: string; type: numb
 /**
  * Builds the placed-object light lookup from raw Data/BigCraftables and
  * Data/Furniture asset content (JSON strings as returned by loadTextAsset).
- * Missing or malformed assets yield an empty index, which disables
- * placed-object lights without failing the rest of the lighting preview.
+ * `strings` carries the matching Strings\BigCraftables / Strings\Furniture
+ * tables (JSON text), used to resolve `[LocalizedText ...]` display-name
+ * tokens into readable names. Missing or malformed assets yield an empty
+ * index, which disables placed-object lights without failing the rest of the
+ * lighting preview.
+ *
+ * Display-name resolution: a candidate (modern DisplayName, or a legacy
+ * furniture string's 8th slash field) that is a `[LocalizedText ...]` token
+ * is looked up by key in its family's strings table; a hit wins, a miss (or a
+ * missing/malformed strings table) falls back to the item's internal name,
+ * never the raw token. Non-token candidates are used as-is.
  */
 export function buildObjectLightItemIndex(
   bigCraftablesContent: string | null | undefined,
   furnitureContent: string | null | undefined,
+  strings?: { bigCraftables?: string | null; furniture?: string | null },
 ): ObjectLightItemIndex {
   const index: ObjectLightItemIndex = {
     bigCraftables: {},
     furnitureTypes: {},
     bigCraftableIdsByName: {},
     furnitureIdsByName: {},
+    furnitureNames: {},
+    displayNames: {},
   }
+
+  const readStringsTable = (content: string | null | undefined): Record<string, string> => {
+    if (!content) {
+      return {}
+    }
+    try {
+      const raw = JSON.parse(content) as Record<string, unknown>
+      const table: Record<string, string> = {}
+      for (const [key, value] of Object.entries(raw)) {
+        if (typeof value === 'string') {
+          table[key] = value
+        }
+      }
+      return table
+    } catch {
+      // A malformed strings table simply disables token resolution.
+      return {}
+    }
+  }
+  const bigCraftablesStrings = readStringsTable(strings?.bigCraftables)
+  const furnitureStrings = readStringsTable(strings?.furniture)
 
   if (bigCraftablesContent) {
     try {
@@ -532,7 +708,7 @@ export function buildObjectLightItemIndex(
         if (!rawEntry || typeof rawEntry !== 'object') {
           continue
         }
-        const entry = rawEntry as { Name?: unknown; IsLamp?: unknown; ContextTags?: unknown }
+        const entry = rawEntry as { Name?: unknown; DisplayName?: unknown; IsLamp?: unknown; ContextTags?: unknown }
         const name = typeof entry.Name === 'string' ? entry.Name.trim() : ''
         if (!name) {
           continue
@@ -544,6 +720,7 @@ export function buildObjectLightItemIndex(
           isCampfire: tags.includes('campfire_item'),
           isLamp: entry.IsLamp === true,
         }
+        index.displayNames[`(BC)${id}`] = resolveItemDisplayName(readItemDisplayName(rawEntry, name), name, bigCraftablesStrings) || id
         const lookupName = normalizeItemLookupName(name)
         if (!(lookupName in index.bigCraftableIdsByName)) {
           index.bigCraftableIdsByName[lookupName] = id
@@ -563,6 +740,18 @@ export function buildObjectLightItemIndex(
           continue
         }
         index.furnitureTypes[id] = parsed.type
+        index.furnitureNames[id] = parsed.name
+        // Legacy slash strings carry their display name (typically a
+        // `[LocalizedText ...]` token) in the 8th slash field; modern entries
+        // use DisplayName.
+        let displayNameCandidate = readItemDisplayName(rawEntry, parsed.name)
+        if (typeof rawEntry === 'string') {
+          const legacyDisplayName = (rawEntry.split('/')[7] ?? '').trim()
+          if (legacyDisplayName) {
+            displayNameCandidate = legacyDisplayName
+          }
+        }
+        index.displayNames[`(F)${id}`] = resolveItemDisplayName(displayNameCandidate, parsed.name, furnitureStrings) || id
         const lookupName = normalizeItemLookupName(parsed.name)
         if (!(lookupName in index.furnitureIdsByName)) {
           index.furnitureIdsByName[lookupName] = id
@@ -728,6 +917,195 @@ export function resolvePlacedObjectLightMarkers(
   return markers
 }
 
+/**
+ * Light behavior of one placed item, mirroring the branch order of
+ * `Object.initializeLightSource` as implemented in `buildPlacedObjectLightGlow`:
+ * fireplace/torch furniture first, then big craftables as campfire-torch,
+ * plain torch, lamp, Bonfire (74) or Strange Capsule (96).
+ */
+type PlacedLightBehavior =
+  | { family: 'furniture'; type: typeof FIREPLACE_FURNITURE_TYPE | typeof TORCH_FURNITURE_TYPE }
+  | { family: 'bigCraftable'; glowKey: 'campfire' | 'torch' | 'lamp' | 'bonfire' | 'capsule' }
+
+/**
+ * Classifies a placed item's light behavior from its qualified id, mirroring
+ * `buildPlacedObjectLightGlow`'s branch priority so picker dedup always
+ * matches what the preview actually renders. Returns null for items without
+ * a light behavior.
+ */
+function resolvePlacedLightBehavior(qualifiedItemId: string, index: ObjectLightItemIndex): PlacedLightBehavior | null {
+  const furnitureMatch = /^\(F\)(?<id>.+)$/u.exec(qualifiedItemId)
+  if (furnitureMatch?.groups) {
+    const type = index.furnitureTypes[furnitureMatch.groups.id ?? '']
+    if (type === FIREPLACE_FURNITURE_TYPE || type === TORCH_FURNITURE_TYPE) {
+      return { family: 'furniture', type }
+    }
+    return null
+  }
+  const bigCraftableMatch = /^\(BC\)(?<id>.+)$/u.exec(qualifiedItemId)
+  if (bigCraftableMatch?.groups) {
+    const id = bigCraftableMatch.groups.id ?? ''
+    const facts = index.bigCraftables[id]
+    if (facts?.isTorch) {
+      return { family: 'bigCraftable', glowKey: facts.isCampfire ? 'campfire' : 'torch' }
+    }
+    if (facts?.isLamp) {
+      return { family: 'bigCraftable', glowKey: 'lamp' }
+    }
+    if (id === BONFIRE_ITEM_ID) {
+      return { family: 'bigCraftable', glowKey: 'bonfire' }
+    }
+    if (id === STRANGE_CAPSULE_ITEM_ID) {
+      return { family: 'bigCraftable', glowKey: 'capsule' }
+    }
+  }
+  return null
+}
+
+/**
+ * Computes the picker dedup signature for one light-relevant item: furniture
+ * as `f:<type>`, big craftables as `bc:campfire|torch|lamp|bonfire|capsule`.
+ * Null when the item has no light behavior.
+ */
+function computePlacedLightGlowKey(qualifiedItemId: string, index: ObjectLightItemIndex): string | null {
+  const behavior = resolvePlacedLightBehavior(qualifiedItemId, index)
+  if (!behavior) {
+    return null
+  }
+  return behavior.family === 'furniture' ? `f:${behavior.type}` : `bc:${behavior.glowKey}`
+}
+
+/** Extracts the bare id from a qualified item id (`(BC)146` -> `146`). */
+function extractPlacedItemId(qualifiedItemId: string): string {
+  const match = /^\([A-Za-z]+\)(?<id>.+)$/u.exec(qualifiedItemId)
+  return match?.groups?.id ?? qualifiedItemId
+}
+
+/**
+ * Orders two qualified item ids by their bare id for picker dedup: numeric
+ * ids compare numerically (the lowest wins), non-numeric ids as strings.
+ */
+function comparePlacedItemIds(a: string, b: string): number {
+  const idA = extractPlacedItemId(a)
+  const idB = extractPlacedItemId(b)
+  const numericA = /^\d+$/u.test(idA)
+  const numericB = /^\d+$/u.test(idB)
+  if (numericA && numericB) {
+    if (idA.length !== idB.length) {
+      return idA.length - idB.length
+    }
+    return idA === idB ? 0 : idA < idB ? -1 : 1
+  }
+  return idA.localeCompare(idB, 'en')
+}
+
+/** One light-emitting picker candidate before label/behavior dedup. */
+type PlacedLightItemCandidate = {
+  qualifiedItemId: string
+  label: string
+  internalName: string
+  glowKey: string
+}
+
+/**
+ * One selectable light-emitting item in the marker item picker. `description`
+ * carries the internal (English) item name only when several options share
+ * the same display label but differ in light behavior, so the picker can
+ * tell them apart.
+ */
+export type PlacedLightItemOption = {
+  qualifiedItemId: string
+  label: string
+  description?: string
+}
+
+/**
+ * Lists the items that actually emit light in the preview, for the marker
+ * item picker: torch/fireplace furniture and torch/lamp/bonfire/strange-
+ * capsule big craftables present in the game data. Labels come from the
+ * index display names. Entries sharing a display name and light behavior are
+ * deduped keeping the lowest item id (real game data carries several ids per
+ * name, e.g. multiple campfire/torch variants); when the same label still
+ * spans several behaviors each row carries its internal (English) name as
+ * `description` so the picker can tell them apart. Rows are sorted by label.
+ */
+export function listPlacedLightItemOptions(index: ObjectLightItemIndex | null | undefined): PlacedLightItemOption[] {
+  if (!index || isObjectLightItemIndexEmpty(index)) {
+    return []
+  }
+  const candidates: PlacedLightItemCandidate[] = []
+  for (const [id, facts] of Object.entries(index.bigCraftables)) {
+    if (!isLightRelevantBigCraftable(facts, id)) {
+      continue
+    }
+    const qualifiedItemId = `(BC)${id}`
+    candidates.push({
+      qualifiedItemId,
+      label: index.displayNames[qualifiedItemId] ?? id,
+      internalName: facts.name,
+      glowKey: computePlacedLightGlowKey(qualifiedItemId, index) ?? '',
+    })
+  }
+  for (const [id, type] of Object.entries(index.furnitureTypes)) {
+    if (type !== FIREPLACE_FURNITURE_TYPE && type !== TORCH_FURNITURE_TYPE) {
+      continue
+    }
+    const qualifiedItemId = `(F)${id}`
+    candidates.push({
+      qualifiedItemId,
+      label: index.displayNames[qualifiedItemId] ?? id,
+      internalName: index.furnitureNames[id] ?? id,
+      glowKey: computePlacedLightGlowKey(qualifiedItemId, index) ?? '',
+    })
+  }
+
+  // Keep the lowest item id per (display label, light behavior).
+  const deduped = new Map<string, PlacedLightItemCandidate>()
+  for (const candidate of candidates) {
+    const key = `${candidate.label}\u0000${candidate.glowKey}`
+    const existing = deduped.get(key)
+    if (!existing || comparePlacedItemIds(candidate.qualifiedItemId, existing.qualifiedItemId) < 0) {
+      deduped.set(key, candidate)
+    }
+  }
+  const options = [...deduped.values()].sort((a, b) => a.label.localeCompare(b.label, 'en'))
+
+  // Same label spanning several behaviors: disambiguate with internal names.
+  const labelCounts = new Map<string, number>()
+  for (const option of options) {
+    labelCounts.set(option.label, (labelCounts.get(option.label) ?? 0) + 1)
+  }
+  return options.map(({ qualifiedItemId, label, internalName }) => {
+    const option: PlacedLightItemOption = { qualifiedItemId, label }
+    if ((labelCounts.get(label) ?? 0) > 1 && internalName) {
+      option.description = internalName
+    }
+    return option
+  })
+}
+
+/**
+ * Resolves a map object's light-item display name for marker list rows, or
+ * null when the object is a plain marker or names an unknown item.
+ */
+export function resolvePlacedObjectDisplayName(
+  object: Pick<MapObject, 'name' | 'type' | 'properties'>,
+  index: ObjectLightItemIndex | null | undefined,
+): string | null {
+  if (!index) {
+    return null
+  }
+  const reference = resolveMapObjectItemReference(object)
+  if (!reference) {
+    return null
+  }
+  const qualifiedItemId = resolvePlacedItemQualifiedId(reference, index)
+  if (!qualifiedItemId) {
+    return null
+  }
+  return index.displayNames[qualifiedItemId] ?? null
+}
+
 /** Creates one placed-object glow on the sconce texture scaled by the game's radius. */
 function createPlacedObjectGlow(worldX: number, worldY: number, radius: number, color: LightingColor): LightingGlow {
   return {
@@ -746,55 +1124,36 @@ function createPlacedObjectGlow(worldX: number, worldY: number, radius: number, 
  * hang lower), IsLamp big craftables at radius 3 with the dimmer tint,
  * (BC)74 Bonfire at 1.5 DarkCyan and (BC)96 Strange Capsule at radius 1
  * HotPink. Returns null for items without a light (including Error Items).
+ * The behavior classification is shared with `listPlacedLightItemOptions` so
+ * picker dedup stays aligned with what the preview renders.
  */
 export function buildPlacedObjectLightGlow(marker: PlacedObjectLightMarker, index: ObjectLightItemIndex): LightingGlow | null {
-  const furnitureMatch = /^\(F\)(?<id>.+)$/u.exec(marker.qualifiedItemId)
-  if (furnitureMatch?.groups) {
-    const type = index.furnitureTypes[furnitureMatch.groups.id ?? '']
+  const behavior = resolvePlacedLightBehavior(marker.qualifiedItemId, index)
+  if (!behavior) {
+    return null
+  }
+  if (behavior.family === 'furniture') {
     if (!marker.isOn) {
       return null
     }
-    if (type === FIREPLACE_FURNITURE_TYPE) {
-      return createPlacedObjectGlow(marker.tileX * GAME_TILE_SIZE + 32, marker.tileY * GAME_TILE_SIZE - 64, 2.5, OBJECT_FIRE_LIGHT_COLOR)
-    }
-    if (type === TORCH_FURNITURE_TYPE) {
-      return createPlacedObjectGlow(marker.tileX * GAME_TILE_SIZE + 32, marker.tileY * GAME_TILE_SIZE - 64, 1.5, OBJECT_FIRE_LIGHT_COLOR)
-    }
-    return null
+    return behavior.type === FIREPLACE_FURNITURE_TYPE
+      ? createPlacedObjectGlow(marker.tileX * GAME_TILE_SIZE + 32, marker.tileY * GAME_TILE_SIZE - 64, 2.5, OBJECT_FIRE_LIGHT_COLOR)
+      : createPlacedObjectGlow(marker.tileX * GAME_TILE_SIZE + 32, marker.tileY * GAME_TILE_SIZE - 64, 1.5, OBJECT_FIRE_LIGHT_COLOR)
   }
-
-  const bigCraftableMatch = /^\(BC\)(?<id>.+)$/u.exec(marker.qualifiedItemId)
-  if (bigCraftableMatch?.groups) {
-    const id = bigCraftableMatch.groups.id ?? ''
-    const facts = index.bigCraftables[id]
-    if (facts?.isTorch) {
-      if (!marker.isOn) {
-        return null
-      }
-      const yOffset = facts.isCampfire ? 32 : -64
-      return createPlacedObjectGlow(
-        marker.tileX * GAME_TILE_SIZE + 32,
-        marker.tileY * GAME_TILE_SIZE + yOffset,
-        2.5,
-        OBJECT_FIRE_LIGHT_COLOR,
-      )
+  if (behavior.glowKey === 'campfire' || behavior.glowKey === 'torch') {
+    if (!marker.isOn) {
+      return null
     }
-    if (facts?.isLamp) {
-      return createPlacedObjectGlow(
-        marker.tileX * GAME_TILE_SIZE + 32,
-        marker.tileY * GAME_TILE_SIZE - 64,
-        3,
-        BIG_CRAFTABLE_LAMP_LIGHT_COLOR,
-      )
-    }
-    if (id === BONFIRE_ITEM_ID) {
-      return createPlacedObjectGlow(marker.tileX * GAME_TILE_SIZE + 32, marker.tileY * GAME_TILE_SIZE, 1.5, BONFIRE_LIGHT_COLOR)
-    }
-    if (id === STRANGE_CAPSULE_ITEM_ID) {
-      return createPlacedObjectGlow(marker.tileX * GAME_TILE_SIZE + 32, marker.tileY * GAME_TILE_SIZE, 1, STRANGE_CAPSULE_LIGHT_COLOR)
-    }
+    const yOffset = behavior.glowKey === 'campfire' ? 32 : -64
+    return createPlacedObjectGlow(marker.tileX * GAME_TILE_SIZE + 32, marker.tileY * GAME_TILE_SIZE + yOffset, 2.5, OBJECT_FIRE_LIGHT_COLOR)
   }
-  return null
+  if (behavior.glowKey === 'lamp') {
+    return createPlacedObjectGlow(marker.tileX * GAME_TILE_SIZE + 32, marker.tileY * GAME_TILE_SIZE - 64, 3, BIG_CRAFTABLE_LAMP_LIGHT_COLOR)
+  }
+  if (behavior.glowKey === 'bonfire') {
+    return createPlacedObjectGlow(marker.tileX * GAME_TILE_SIZE + 32, marker.tileY * GAME_TILE_SIZE, 1.5, BONFIRE_LIGHT_COLOR)
+  }
+  return createPlacedObjectGlow(marker.tileX * GAME_TILE_SIZE + 32, marker.tileY * GAME_TILE_SIZE, 1, STRANGE_CAPSULE_LIGHT_COLOR)
 }
 
 /**
@@ -832,6 +1191,23 @@ export function isIndoorMapDocument(mapDocument: Pick<MapDocument, 'properties'>
 
 /** Time-of-day presets offered by the map workspace lighting preview. */
 export type MapLightingPreviewMode = 'day' | 'dusk' | 'night'
+
+/** Dusk variants in the lighting pill: the plain evening tint or the winter one. */
+export type MapLightingPreviewDuskVariant = 'dusk' | 'duskWinter'
+
+/**
+ * Resolves the dusk variant for a preview selection: `null` when the preview
+ * is not showing dusk, `duskWinter` when the winter evening tint (245,225,170)
+ * is active and `dusk` for the other seasons' yellow tint (255,255,0). Drives
+ * both the pill's dusk button label and its mini-menu active state, so the two
+ * can never disagree about which variant is selected.
+ */
+export function getLightingPreviewDuskVariant(mode: MapLightingPreviewMode, season: GameSeason): MapLightingPreviewDuskVariant | null {
+  if (mode !== 'dusk') {
+    return null
+  }
+  return season === 'winter' ? 'duskWinter' : 'dusk'
+}
 
 /**
  * Maps a lighting preview mode to a representative clock time: noon for day,

@@ -535,6 +535,7 @@ export function PatchListPage({
   return (
     <>
       <WorkspaceSplitView
+        canvas
         className="event-patch-hub"
         data-workspace={workspaceId}
         onClick={() => setContextMenu(null)}

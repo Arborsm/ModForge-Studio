@@ -30,6 +30,11 @@ export type CharacterSpriteMetrics = {
   frameWidth: number
   frameHeight: number
   spriteColumns: number
+  /** Source rectangle to show as the thumbnail; falls back to the first sprite. */
+  sourceX: number
+  sourceY: number
+  width: number
+  height: number
 }
 
 function createPreviewActor(character: CharacterWorkspaceEntry): EventActorState {
@@ -60,6 +65,8 @@ function WalkCycleTile({
   frameWidth,
   frameHeight,
   spriteColumns,
+  sourceX,
+  sourceY,
   spriteUrl,
   spriteSheetWidth,
   spriteSheetHeight,
@@ -98,8 +105,8 @@ function WalkCycleTile({
   }, [frameSequenceKey, frames.length])
 
   const currentFrame = frames[frameIndex] ?? frames[0] ?? 0
-  const sourceX = (currentFrame % spriteColumns) * frameWidth
-  const sourceY = Math.floor(currentFrame / spriteColumns) * frameHeight
+  const frameX = (currentFrame % spriteColumns) * frameWidth
+  const frameY = Math.floor(currentFrame / spriteColumns) * frameHeight
 
   return (
     <div className="rounded-3xl bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] p-3 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--border-color)_72%,transparent)]">
@@ -109,8 +116,8 @@ function WalkCycleTile({
             url: spriteUrl,
             sheetWidth: spriteSheetWidth,
             sheetHeight: spriteSheetHeight,
-            sourceX,
-            sourceY,
+            sourceX: sourceX + frameX,
+            sourceY: sourceY + frameY,
             width: frameWidth,
             height: frameHeight,
           })}
@@ -162,6 +169,10 @@ export function CharacterWalkCycleGrid({
           frameWidth={metrics.frameWidth}
           frameHeight={metrics.frameHeight}
           spriteColumns={metrics.spriteColumns}
+          sourceX={metrics.sourceX}
+          sourceY={metrics.sourceY}
+          width={metrics.width}
+          height={metrics.height}
           spriteUrl={spriteUrl}
           spriteSheetWidth={spriteSheetWidth}
           spriteSheetHeight={spriteSheetHeight}
@@ -242,6 +253,7 @@ export const CharacterBreathingCanvas = memo(function CharacterBreathingCanvas({
         breathChestPosition: character.breathChestPosition,
         age: character.age,
         gender: character.gender,
+        size: { x: character.spriteWidth, y: character.spriteHeight },
       },
     },
     createPreviewActor(character),
@@ -353,10 +365,10 @@ export function CharacterSpriteThumbnail({
         url: spriteUrl,
         sheetWidth: spriteSheetWidth,
         sheetHeight: spriteSheetHeight,
-        sourceX: 0,
-        sourceY: 0,
-        width: metrics.frameWidth,
-        height: metrics.frameHeight,
+        sourceX: metrics.sourceX,
+        sourceY: metrics.sourceY,
+        width: metrics.width,
+        height: metrics.height,
         scale,
       })}
       aria-hidden="true"
@@ -364,17 +376,164 @@ export function CharacterSpriteThumbnail({
   )
 }
 
+/** Alpha bounding box of a single frame region, relative to that frame's top-left. */
+type AlphaBounds = { left: number; right: number; top: number; bottom: number } | null
+
+/** Pre-sampled alpha bounds for the frames the width inference algorithm needs. */
+export type SpriteFrameInferenceBounds = {
+  frame0: AlphaBounds
+  frame1: AlphaBounds
+}
+
+/**
+ * Infers the real frame width by detecting "complementary" frames — sprite art
+ * that spans two nominal cells (e.g. Bear, whose `Size.X` is 16 but whose art
+ * is 32px wide). When frame0's right edge touches the cell boundary, frame1's
+ * left edge starts at 0, and the cells are halves rather than full frames, the
+ * art is split across two cells and the frame width is doubled. Pure: callers
+ * supply pre-sampled alpha bounds so this is fully testable without a DOM.
+ */
+export function inferSpriteFrameGrid(
+  sheetWidth: number,
+  baseWidth: number,
+  baseHeight: number,
+  bounds: SpriteFrameInferenceBounds,
+): { frameWidth: number; frameHeight: number } {
+  let frameWidth = baseWidth
+  let frameHeight = baseHeight
+
+  // Width: try doubling up to 2 times (covers 16→32, and theoretically 16→48).
+  // Stricter than a pure edge touch: the first cell must be the right half
+  // (doesn't fill from the left) and the second cell must be the left half
+  // (doesn't fill to the right). This avoids treating normal 16px frames as
+  // a Bear-style split sprite.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (sheetWidth % (frameWidth * 2) !== 0) break
+    const f0 = bounds.frame0
+    const f1 = bounds.frame1
+    if (!f0 || !f1) break
+    const isRightHalf = f0.right === frameWidth - 1 && f0.left >= 1
+    const isLeftHalf = f1.left === 0 && f1.right <= frameWidth - 2
+    if (!isRightHalf || !isLeftHalf) break
+    frameWidth *= 2
+  }
+
+  return { frameWidth, frameHeight }
+}
+
+/**
+ * Samples alpha-channel bounding boxes for the frames the inference algorithm
+ * needs. Uses an offscreen canvas; safe because character images load as data
+ * URLs which do not taint the canvas. Results are cached per URL+dimensions so
+ * the render path only samples once per unique sprite sheet.
+ */
+const frameInferenceCache = new Map<string, SpriteFrameInferenceBounds>()
+
+function sampleAlphaBounds(image: HTMLImageElement, originX: number, originY: number, w: number, h: number): AlphaBounds {
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  ctx.drawImage(image, originX, originY, w, h, 0, 0, w, h)
+  const data = ctx.getImageData(0, 0, w, h).data
+  let left = w
+  let right = -1
+  let top = h
+  let bottom = -1
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3] > 0) {
+        if (x < left) left = x
+        if (x > right) right = x
+        if (y < top) top = y
+        if (y > bottom) bottom = y
+      }
+    }
+  }
+  if (right < 0) return null
+  return { left, right, top, bottom }
+}
+
+function sampleSpriteFrameInferenceBounds(
+  image: HTMLImageElement,
+  sheetWidth: number,
+  sheetHeight: number,
+  baseWidth: number,
+  baseHeight: number,
+): SpriteFrameInferenceBounds {
+  const cacheKey = `${image.src}::${sheetWidth}x${sheetHeight}::${baseWidth}x${baseHeight}`
+  const cached = frameInferenceCache.get(cacheKey)
+  if (cached) return cached
+
+  const frame0 = sampleAlphaBounds(image, 0, 0, baseWidth, baseHeight)
+  const frame1 = sampleAlphaBounds(image, baseWidth, 0, baseWidth, baseHeight)
+  const result: SpriteFrameInferenceBounds = { frame0, frame1 }
+  frameInferenceCache.set(cacheKey, result)
+  return result
+}
+
+/**
+ * Resolves frame width, height and column count from a sprite sheet, using
+ * pixel-based inference when an image is available to detect sprites that span
+ * multiple nominal cells (e.g. Bear). Falls back to `Size` when no image is
+ * available. Exported so the event stage can share the same inference logic.
+ */
+export function resolveSpriteFrameGeometry(
+  baseWidth: number,
+  baseHeight: number,
+  sheetWidth: number | null,
+  sheetHeight: number | null,
+  spriteImage: HTMLImageElement | null | undefined,
+): { frameWidth: number; frameHeight: number; spriteColumns: number } {
+  let frameWidth = baseWidth
+  let frameHeight = baseHeight
+
+  if (spriteImage && sheetWidth && sheetHeight && sheetWidth >= baseWidth && sheetHeight >= baseHeight) {
+    const bounds = sampleSpriteFrameInferenceBounds(spriteImage, sheetWidth, sheetHeight, baseWidth, baseHeight)
+    const inferred = inferSpriteFrameGrid(sheetWidth, baseWidth, baseHeight, bounds)
+    frameWidth = inferred.frameWidth
+    frameHeight = inferred.frameHeight
+  }
+
+  // If the sheet doesn't divide evenly, pick the smallest standard size that does.
+  if (sheetWidth && sheetWidth % frameWidth !== 0) {
+    for (const candidate of [16, 24, 32] as const) {
+      if (sheetWidth % candidate === 0) {
+        frameWidth = candidate
+        break
+      }
+    }
+  }
+
+  const spriteColumns = sheetWidth && sheetWidth >= frameWidth ? Math.max(1, Math.floor(sheetWidth / frameWidth)) : 4
+
+  return { frameWidth, frameHeight, spriteColumns }
+}
+
 /** Derives frame geometry from an entry and the sheet that actually loaded. */
 export function resolveCharacterSpriteMetrics(
   character: Pick<CharacterWorkspaceEntry, 'spriteWidth' | 'spriteHeight'> | null,
   assetState: CharacterVisualAssetState,
-  minFrameHeight = 32,
+  defaultFrameHeight = 32,
 ): CharacterSpriteMetrics {
-  const frameWidth = character?.spriteWidth ?? 16
-  const frameHeight = character ? Math.max(character.spriteHeight, minFrameHeight) : minFrameHeight
-  const spriteColumns =
-    assetState.spriteSheetWidth && assetState.spriteSheetWidth >= frameWidth
-      ? Math.max(1, Math.floor(assetState.spriteSheetWidth / frameWidth))
-      : 4
-  return { frameWidth, frameHeight, spriteColumns }
+  const baseWidth = character?.spriteWidth ?? 16
+  const baseHeight = character?.spriteHeight ?? defaultFrameHeight
+  const { frameWidth, frameHeight, spriteColumns } = resolveSpriteFrameGeometry(
+    baseWidth,
+    baseHeight,
+    assetState.spriteSheetWidth,
+    assetState.spriteSheetHeight,
+    assetState.spriteImage,
+  )
+
+  return {
+    frameWidth,
+    frameHeight,
+    spriteColumns,
+    sourceX: 0,
+    sourceY: 0,
+    width: frameWidth,
+    height: frameHeight,
+  }
 }

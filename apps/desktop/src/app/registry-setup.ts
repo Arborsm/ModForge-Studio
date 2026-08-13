@@ -1,5 +1,6 @@
 import {
   assetLibraryRegistration,
+  audioBrowserRegistration,
   buildingAuthoringRegistration,
   buildingBrowserRegistration,
   characterAuthoringRegistration,
@@ -33,6 +34,7 @@ export const appRegistry = createAppRegistry({
     characterBrowserRegistration,
     buildingBrowserRegistration,
     itemBrowserRegistration,
+    audioBrowserRegistration,
     modBrowserRegistration,
     modTranslationRegistration,
     i18nGeneratorRegistration,

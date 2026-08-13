@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { AlertCircle, AlertTriangle, ArrowLeft, CheckCircle2, CircleDashed, Trash2 } from 'lucide-react'
 import type { EditorComponent } from '@features/cp-maker'
 import { renderAssetResourcePicker, toItemResourceBrowserOptions } from '@features/resource-browser'
@@ -13,7 +13,6 @@ import {
 } from '@entities/asset-schema'
 import { EventGameStateQueryBuilderModal } from '@entities/event/ui/EventGameStateQueryBuilderModal'
 import {
-  addCharacterEntry,
   CHARACTER_DATA_ASSET_ID,
   CHARACTER_DATA_SCHEMA,
   findCharacterAssetPatchState,
@@ -23,22 +22,14 @@ import {
   validateCharacterEntries,
   validateGiftTasteEntries,
   type CharacterAssetPatchState,
-  type CharacterHomePlacement,
 } from '@entities/character'
 import { useCharacterDataEditorCopy, useEditorCopy } from '@locales/provider'
 import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { useEditModeStore } from '../../../model/editModeStore'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
-import {
-  buildCharacterSourceGroups,
-  buildPreviewEntry,
-  useVanillaCharacterIndex,
-  type CharacterSourceMode,
-  type CharacterSourceRow,
-} from '../state/useCharacterAuthoringSources'
+import { buildPreviewEntry, useVanillaCharacterIndex } from '../state/useCharacterAuthoringSources'
 import { useCharacterAuthoringResources } from '../state/useCharacterAuthoringResources'
 import { evaluateCharacterReadiness, type CharacterReadiness, type CharacterReadinessStatus } from '../state/characterReadiness'
-import { AddCharacterDialog } from '../ui/AddCharacterDialog'
-import { CharacterCatalog } from '../ui/CharacterCatalog'
 import { CharacterGiftTasteEditor } from '../ui/CharacterGiftTasteEditor'
 import { CharacterGroupTools } from '../ui/CharacterGroupTools'
 import { CharacterPreviewPane } from '../ui/CharacterPreviewPane'
@@ -127,25 +118,22 @@ function RemoveEntryDialog({ npcId, onClose, onConfirm }: { npcId: string | null
   )
 }
 
-/** Two-level visual library and focused editor for `Data/Characters`. */
+/** Focused editor for a single `Data/Characters` entry, with live preview. */
 export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, resources: environment }) => {
   const { draft } = draftPort
   const { gameRootPath, directoryInfo, locale } = environment
   const expertMode = useEditorModeStore((state) => state.expertMode)
+  const navigateToPatch = useEditModeStore((state) => state.navigateToPatch)
   const copy = useCharacterDataEditorCopy()
   const hubCopy = useEditorCopy().studioDesk.eventPatchHub
   const requestedNpcKey = useCharacterAuthoringHandoff((state) => state.pendingNpcKey)
   const consumePendingNpcKey = useCharacterAuthoringHandoff((state) => state.consumePending)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [sourceMode, setSourceMode] = useState<CharacterSourceMode>('all')
-  const [search, setSearch] = useState('')
-  const [addOpen, setAddOpen] = useState(false)
   const [removeCandidate, setRemoveCandidate] = useState<string | null>(null)
   const [gsqRequest, setGsqRequest] = useState<GsqBuilderRequest | null>(null)
   const [vanillaGiftTastes, setVanillaGiftTastes] = useState<Record<string, string>>({})
   const [activeGroupId, setActiveGroupId] = useState('core')
   const [activeVariantKey, setActiveVariantKey] = useState<string | null>(null)
-  const deferredSearch = useDeferredValue(search)
   const vanilla = useVanillaCharacterIndex(gameRootPath, directoryInfo, locale)
   const vanillaTextureNames = useMemo(() => {
     const names: string[] = []
@@ -168,12 +156,19 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
 
   useEffect(() => {
     setSelectedId(null)
-    setAddOpen(false)
     setRemoveCandidate(null)
     setGsqRequest(null)
     setActiveGroupId('core')
     setActiveVariantKey(null)
   }, [patch.id])
+
+  // The catalog page sets `selectedEntryKey` before opening this patch; adopt
+  // it as the initial selection so the editor lands on the picked entry.
+  useEffect(() => {
+    if (draftPort.selectedEntryKey !== null) {
+      setSelectedId(draftPort.selectedEntryKey)
+    }
+  }, [draftPort.selectedEntryKey])
 
   useEffect(() => {
     if (requestedNpcKey === null || vanilla.loading) return
@@ -187,7 +182,6 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
       draftPort.stage(CHARACTER_DATA_ASSET_ID, resolvedKey, parseAssetEntry(CHARACTER_DATA_SCHEMA, vanilla.records[resolvedKey] ?? {}))
     }
     setSelectedId(resolvedKey)
-    setSourceMode('all')
     setActiveGroupId('core')
   }, [consumePendingNpcKey, draftPort, requestedNpcKey, vanilla.entries, vanilla.loading, vanilla.records])
 
@@ -230,13 +224,6 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
     gameRootPath,
     locale,
   }
-  const groups = buildCharacterSourceGroups({
-    projectKeys: entryIds,
-    projectEntries: entries,
-    vanilla,
-    mode: sourceMode,
-    search: deferredSearch,
-  })
   const previewCharacter = buildPreviewEntry(activeId, activeId === null ? null : entries[activeId], vanilla)
   const portraitState = activeId !== null ? findCharacterAssetPatchState(draft.patches, 'Portraits', activeId, draft.virtualAssets) : null
   const spriteState = activeId !== null ? findCharacterAssetPatchState(draft.patches, 'Characters', activeId, draft.virtualAssets) : null
@@ -252,25 +239,6 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
 
   function handleDraftChange(next: AssetEntryDraft) {
     if (activeId !== null) draftPort.stage(CHARACTER_DATA_ASSET_ID, activeId, next)
-  }
-
-  function handleCreate(npcId: string, home: CharacterHomePlacement) {
-    const result = addCharacterEntry(entries, npcId, home)
-    if (!result.ok) return
-    draftPort.stage(CHARACTER_DATA_ASSET_ID, result.npcId, parseAssetEntry(CHARACTER_DATA_SCHEMA, result.entries[result.npcId]))
-    setSelectedId(result.npcId)
-    setActiveGroupId('core')
-    setActiveVariantKey(null)
-    setAddOpen(false)
-  }
-
-  function handleSelectSource(row: CharacterSourceRow) {
-    if (!row.inProject) {
-      draftPort.stage(CHARACTER_DATA_ASSET_ID, row.key, parseAssetEntry(CHARACTER_DATA_SCHEMA, vanilla.records[row.key] ?? {}))
-    }
-    setSelectedId(row.key)
-    setActiveGroupId('core')
-    setActiveVariantKey(null)
   }
 
   function handleRemoveConfirmed() {
@@ -303,20 +271,10 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
   return (
     <div className="asset-editor character-data-editor">
       {activeId === null ? (
-        <CharacterCatalog
-          groups={groups}
-          mode={sourceMode}
-          search={search}
-          vanillaLoading={vanilla.loading}
-          vanillaAvailable={vanilla.available}
-          gameRootPath={gameRootPath}
-          locale={locale}
-          resolveCharacter={(row) => buildPreviewEntry(row.key, row.inProject ? entries[row.key] : null, vanilla)}
-          onModeChange={setSourceMode}
-          onSearchChange={setSearch}
-          onSelect={handleSelectSource}
-          onAddEntry={() => setAddOpen(true)}
-        />
+        <div className="character-editor-empty">
+          <p>{copy.emptyTitle}</p>
+          <p>{copy.emptyHint}</p>
+        </div>
       ) : (
         <div className="character-editor-detail">
           <div className="asset-editor-scroll character-editor-center">
@@ -328,7 +286,7 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
                     className="icon-button h-8 w-8"
                     title={copy.sources.backToLibrary}
                     aria-label={copy.sources.backToLibrary}
-                    onClick={() => setSelectedId(null)}
+                    onClick={() => navigateToPatch(null)}
                   >
                     <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                   </button>
@@ -402,14 +360,6 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
         </div>
       )}
 
-      <AddCharacterDialog
-        open={addOpen}
-        existingIds={entryIds}
-        projectUniqueId={draft.projectMetadata.projectUniqueId}
-        locationNames={referenceData.locationNames}
-        onClose={() => setAddOpen(false)}
-        onCreate={handleCreate}
-      />
       <RemoveEntryDialog npcId={removeCandidate} onClose={() => setRemoveCandidate(null)} onConfirm={handleRemoveConfirmed} />
       {gsqRequest !== null ? (
         <EventGameStateQueryBuilderModal

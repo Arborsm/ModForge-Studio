@@ -34,6 +34,7 @@ export function useCharacterThumbnail(
             spriteUrl: image.url,
             spriteSheetWidth: image.width,
             spriteSheetHeight: image.height,
+            spriteImage: image.image ?? null,
           })
         }
       })

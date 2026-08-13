@@ -44,6 +44,9 @@ export type ResourceBrowserCopy = {
     fieldMeta: string
     fieldSubtitle: string
     none: string
+    audioPlay: string
+    audioPause: string
+    audioLoading: string
   }
   lab: {
     introTitle: string
@@ -53,5 +56,6 @@ export type ResourceBrowserCopy = {
     statusFallback: string
     statusPartial: string
     kinds: Record<ResourceBrowserKindKey, { title: string; description: string; placeholder: string }>
+    audioCombined: { title: string; description: string; placeholder: string }
   }
 }

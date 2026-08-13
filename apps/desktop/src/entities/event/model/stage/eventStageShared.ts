@@ -259,6 +259,7 @@ type CharacterDataEntry = {
   BreathChestPosition?: StagePoint | null
   Age?: string | null
   Gender?: string | null
+  Size?: StagePoint | null
 }
 
 type ObjectDataEntry = {
@@ -272,6 +273,7 @@ type CharacterVisualMetadata = {
   breathChestPosition: StagePoint | null
   age: string | null
   gender: string | null
+  size: { x: number; y: number }
 }
 
 type CharacterTextureIndex = Record<string, CharacterVisualMetadata>
@@ -296,6 +298,7 @@ type ActorAssetState = {
   spriteUrl: string | null
   spriteSheetWidth: number | null
   spriteSheetHeight: number | null
+  spriteImage?: HTMLImageElement | null
   portraitPath: string | null
   portraitUrl: string | null
   portraitSheetWidth: number | null

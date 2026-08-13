@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { AlertCircle, Copy, Loader2, Map as MapIcon, Search } from 'lucide-react'
+import { AlertCircle, Copy, Loader2, Map as MapIcon, Plus, Search } from 'lucide-react'
 import { loadMapAsset } from '@entities/game/api'
 import { loadMapThumbnail, type MapDocument } from '@entities/map'
 import { WorkspacePatchList, type AssetDraftPort, type DraftPatch, type EditorResources } from '@features/cp-maker'
-import { useMapAuthoringCopy } from '@locales/provider'
+import { useEditorCopy, useMapAuthoringCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { WorkspaceSplitView } from '@shared/ui/WorkspaceSplitView'
 import {
@@ -16,13 +16,11 @@ import {
 import { useMapAuthoringCatalog } from '../state/useMapAuthoringCatalog'
 import { parseMapDocument } from '../../asset-library/model/importGameMap'
 import { useWorkbenchEnvironment, useWorkbenchProject } from '../../../model/workbenchModuleContexts'
-import { MapPatchRowThumbnail } from './MapPatchRowThumbnail'
 
 type CatalogRow =
   | { kind: 'header'; id: string; category: MapCatalogCategory; count: number }
   | { kind: 'cards'; id: string; entries: MapCatalogEntry[] }
 
-const CATEGORY_ORDER: readonly MapCatalogCategory[] = ['farm', 'town', 'interior', 'wild', 'mine', 'island', 'festival', 'other']
 const CATALOG_HEADER_ROW_HEIGHT_REM = 2.5
 const CATALOG_CARD_ROW_HEIGHT_REM = 7.25
 const CATALOG_CARD_MIN_WIDTH_REM = 16
@@ -192,41 +190,44 @@ export function MapCatalog({
   onOpenPatch: (patchId: string) => void
 }) {
   const copy = useMapAuthoringCopy()
+  const editorCopy = useEditorCopy()
   const project = useWorkbenchProject()
   const environment = useWorkbenchEnvironment()
   const catalog = useMapAuthoringCatalog(resources.gameRootPath, resources.directoryInfo, resources.locale)
   const [query, setQuery] = useState('')
+  const [sourceMode, setSourceMode] = useState<'all' | 'project' | 'vanilla'>('all')
   const [gridElement, setGridElement] = useState<HTMLDivElement | null>(null)
   const [columnCount, setColumnCount] = useState(1)
   const [rootFontSize, setRootFontSize] = useState(readRootFontSize)
   const mapWorkspacePatches = draftPort.draft.patches.filter((patch) => patch.workspace === 'map')
   const isMapChange = (patch: DraftPatch) => patch.workspace === 'map' && (patch.action === 'EditMap' || patch.action === 'Load')
-  const hasManageablePatches = mapWorkspacePatches.some(isMapChange)
   const entries = buildMapCatalogEntries(catalog.assets)
   const needle = query.trim().toLowerCase()
   const filteredWorkspacePatches = mapWorkspacePatches.filter(
     (patch) => needle === '' || `${patch.target} ${patch.logName}`.toLowerCase().includes(needle),
   )
-  const hasMatchingManagerPatches = filteredWorkspacePatches.some(isMapChange)
   const visibleEntries = entries.filter(
     (entry) => needle === '' || `${entry.name} ${entry.target} ${entry.asset.relativePath}`.toLowerCase().includes(needle),
   )
+  const projectTargets = new Set(
+    mapWorkspacePatches
+      .filter(isMapChange)
+      .map((patch) => resolveGameMapPatchTarget({ target: patch.target }).toLowerCase())
+      .filter((target) => target.startsWith('maps/')),
+  )
+  const projectEntries = visibleEntries.filter((entry) => projectTargets.has(resolveGameMapPatchTarget(entry).toLowerCase()))
+  const vanillaEntries = visibleEntries.filter((entry) => !projectTargets.has(resolveGameMapPatchTarget(entry).toLowerCase()))
   const rows: CatalogRow[] = []
-  for (const category of CATEGORY_ORDER) {
-    const categoryEntries = visibleEntries.filter((entry) => entry.category === category)
-    if (categoryEntries.length === 0) continue
-    rows.push({
-      kind: 'header',
-      id: `header:${category}`,
-      category,
-      count: categoryEntries.length,
-    })
-    for (let index = 0; index < categoryEntries.length; index += columnCount) {
-      rows.push({
-        kind: 'cards',
-        id: `cards:${category}:${index}`,
-        entries: categoryEntries.slice(index, index + columnCount),
-      })
+  const groupOrder: Array<{ id: 'project' | 'vanilla'; label: string; items: typeof visibleEntries }> = [
+    { id: 'project', label: copy.projectGroup, items: projectEntries },
+    { id: 'vanilla', label: copy.vanillaGroup, items: vanillaEntries },
+  ]
+  for (const group of groupOrder) {
+    if (sourceMode !== 'all' && sourceMode !== group.id) continue
+    if (group.items.length === 0) continue
+    rows.push({ kind: 'header', id: `header:${group.id}`, category: 'other', count: group.items.length })
+    for (let index = 0; index < group.items.length; index += columnCount) {
+      rows.push({ kind: 'cards', id: `cards:${group.id}:${index}`, entries: group.items.slice(index, index + columnCount) })
     }
   }
   const rowVirtualizer = useVirtualizer({
@@ -265,113 +266,121 @@ export function MapCatalog({
   }
 
   return (
-    <div className="map-catalog">
-      <div className="map-catalog-toolbar">
-        <label className="map-catalog-search">
-          <Search className="h-3.5 w-3.5" aria-hidden="true" />
-          <span className="sr-only">{copy.searchPlaceholder}</span>
-          <input
-            className="control-input"
-            type="search"
-            value={query}
-            placeholder={copy.searchPlaceholder}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
-      </div>
-
-      <WorkspaceSplitView
-        className="map-catalog-body"
-        sidebarClassName="map-catalog-patches"
-        sidebarLabel={copy.patchManager.viewPatches}
-        sidebar={
-          hasManageablePatches ? (
-            hasMatchingManagerPatches ? (
-              <WorkspacePatchList
-                patches={filteredWorkspacePatches.filter(isMapChange)}
-                draftPort={draftPort}
-                reorderWithin={isMapChange}
-                onOpenPatch={onOpenPatch}
-                renderThumbnail={(patch) => <MapPatchRowThumbnail patch={patch} />}
-              />
-            ) : (
-              <div className="map-catalog-state is-compact">
-                <p>{copy.patchManager.noMatches}</p>
-              </div>
-            )
-          ) : (
-            <div className="map-catalog-state map-catalog-empty-guide">
-              <MapIcon className="h-8 w-8" aria-hidden="true" />
-              <h3>{copy.patchManager.noPatchesTitle}</h3>
-              <p>{copy.patchManager.noPatchesHint}</p>
-            </div>
-          )
-        }
-      >
-        <section className="map-catalog-library" aria-label={copy.libraryTitle}>
-          <div ref={setGridElement} className="map-catalog-library-content custom-scrollbar">
-            {catalog.loading ? (
-              <div className="map-catalog-state is-compact">
-                <Loader2 className="h-6 w-6 animate-spin" />
-                <p>{copy.loading}</p>
-              </div>
-            ) : null}
-            {catalog.error ? (
-              <div className="map-catalog-state is-compact is-error">
-                <AlertCircle className="h-6 w-6" />
-                <p>{copy.loadFailed}</p>
-                <span>{catalog.error}</span>
-              </div>
-            ) : null}
-            {!catalog.loading && visibleEntries.length === 0 ? (
-              <div className="map-catalog-state is-compact">
-                <MapIcon className="h-8 w-8" />
-                <h3>{copy.emptyTitle}</h3>
-                <p>{copy.emptyHint}</p>
-              </div>
-            ) : null}
-            {rows.length > 0 ? (
-              <div className="map-catalog-virtual-space" style={{ height: rowVirtualizer.getTotalSize() }}>
-                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                  const row = rows[virtualRow.index]
-                  if (!row) return null
-                  return (
-                    <div
-                      key={row.id}
-                      className={cx('map-catalog-virtual-row', row.kind === 'header' ? 'is-header' : 'is-cards')}
-                      style={{ transform: `translateY(${virtualRow.start}px)` }}
-                    >
-                      {row.kind === 'header' ? (
-                        <header className="map-catalog-virtual-header">
-                          <h3>{copy.categories[row.category]}</h3>
-                          <span>{row.count}</span>
-                        </header>
-                      ) : (
-                        <div
-                          className="map-catalog-virtual-grid"
-                          style={{
-                            gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
-                          }}
-                        >
-                          {row.entries.map((entry) => (
-                            <MapCatalogCard
-                              key={entry.id}
-                              entry={entry}
-                              resources={resources}
-                              onOpen={() => openEntry(entry)}
-                              onImportToLibrary={() => environment.onOpenModule('asset-library')}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            ) : null}
+    <WorkspaceSplitView
+      sidebarLabel={editorCopy.studioDesk.patchList.regionLabel}
+      mainToolbar={
+        <>
+          <label className="workspace-split-view-toolbar-search">
+            <Search className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="sr-only">{copy.searchPlaceholder}</span>
+            <input
+              className="control-input"
+              type="search"
+              value={query}
+              placeholder={copy.searchPlaceholder}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+          <div className="asset-source-modes" role="group">
+            {(
+              [
+                { id: 'all', label: copy.modeAll },
+                { id: 'project', label: copy.modeProject },
+                { id: 'vanilla', label: copy.modeVanilla },
+              ] as const
+            ).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                aria-pressed={option.id === sourceMode}
+                className={cx('asset-source-mode', option.id === sourceMode && 'is-active')}
+                onClick={() => setSourceMode(option.id)}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
-        </section>
-      </WorkspaceSplitView>
-    </div>
+          <button
+            type="button"
+            className="control-button control-button-primary ml-auto"
+            onClick={() => environment.onOpenModule('asset-library')}
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>{copy.addMapAction}</span>
+          </button>
+        </>
+      }
+      sidebar={
+        <WorkspacePatchList
+          patches={filteredWorkspacePatches.filter(isMapChange)}
+          draftPort={draftPort}
+          reorderWithin={isMapChange}
+          onOpenPatch={onOpenPatch}
+          title={editorCopy.studioDesk.patchList.regionLabel}
+        />
+      }
+    >
+      <div ref={setGridElement} className="map-catalog-library-content custom-scrollbar">
+        {catalog.loading ? (
+          <div className="map-catalog-state is-compact">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <p>{copy.loading}</p>
+          </div>
+        ) : null}
+        {catalog.error ? (
+          <div className="map-catalog-state is-compact is-error">
+            <AlertCircle className="h-6 w-6" />
+            <p>{copy.loadFailed}</p>
+            <span>{catalog.error}</span>
+          </div>
+        ) : null}
+        {!catalog.loading && visibleEntries.length === 0 ? (
+          <div className="map-catalog-state is-compact">
+            <MapIcon className="h-8 w-8" />
+            <h3>{copy.emptyTitle}</h3>
+            <p>{copy.emptyHint}</p>
+          </div>
+        ) : null}
+        {rows.length > 0 ? (
+          <div className="map-catalog-virtual-space" style={{ height: rowVirtualizer.getTotalSize() }}>
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const row = rows[virtualRow.index]
+              if (!row) return null
+              return (
+                <div
+                  key={row.id}
+                  className={cx('map-catalog-virtual-row', row.kind === 'header' ? 'is-header' : 'is-cards')}
+                  style={{ transform: `translateY(${virtualRow.start}px)` }}
+                >
+                  {row.kind === 'header' ? (
+                    <header className="map-catalog-virtual-header">
+                      <h3>{row.id === 'header:project' ? copy.projectGroup : copy.vanillaGroup}</h3>
+                      <span>{row.count}</span>
+                    </header>
+                  ) : (
+                    <div
+                      className="map-catalog-virtual-grid"
+                      style={{
+                        gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
+                      }}
+                    >
+                      {row.entries.map((entry) => (
+                        <MapCatalogCard
+                          key={entry.id}
+                          entry={entry}
+                          resources={resources}
+                          onOpen={() => openEntry(entry)}
+                          onImportToLibrary={() => environment.onOpenModule('asset-library')}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        ) : null}
+      </div>
+    </WorkspaceSplitView>
   )
 }

@@ -29,7 +29,6 @@ import { LoadFamilyIcon } from '../ui/LoadFamilyIcon'
 
 const TEMPLATE_TOKENS = ['{{Target}}', '{{TargetWithoutPath}}', '{{TargetWithoutExtension}}'] as const
 
-/** Resource browser kind used for fromFile options per family. */
 const PICKER_KIND_BY_FAMILY: Record<LoadAssetFamily, ResourceBrowserKind> = {
   maps: 'map',
   images: 'texture',
@@ -39,13 +38,11 @@ const PICKER_KIND_BY_FAMILY: Record<LoadAssetFamily, ResourceBrowserKind> = {
   other: 'texture',
 }
 
-/** Normalizes an expert-typed target for any family: slashes and trim only, no prefix forcing. */
 function normalizeExpertTarget(raw: string): string | null {
   const value = raw.trim().replaceAll('\\', '/')
   return value === '' ? null : value
 }
 
-/** Loads a vanilla game image target as a grid thumbnail, falling back to an icon. */
 function GameImageThumbnail({
   gameRootPath,
   target,
@@ -89,7 +86,6 @@ function GameImageThumbnail({
   return <LoadFamilyIcon family="images" className={cx('load-binding-thumb-fallback', failed && 'is-missing')} />
 }
 
-/** Loads a project asset's persisted bytes for a replacement comparison preview. */
 function ProjectAssetImage({
   relativePath,
   mediaType,
@@ -127,7 +123,6 @@ function ProjectAssetImage({
   return <LoadFamilyIcon family={failed ? 'other' : 'images'} className={cx('load-binding-thumb-fallback', failed && 'is-missing')} />
 }
 
-/** Groups curated image targets by their first path segment for grid sections. */
 function groupImageTargets(targets: readonly string[]): Array<{ prefix: string; targets: string[] }> {
   const groups: Array<{ prefix: string; targets: string[] }> = []
   for (const target of targets) {
@@ -140,15 +135,10 @@ function groupImageTargets(targets: readonly string[]): Array<{ prefix: string; 
 }
 
 /**
- * Structured editor for every `Load` patch. One patch binds many targets to a
- * single `fromFile`; target tokens make the template resolve differently per
- * target, which the preview table shows.
- *
- * Target selection is graphical: maps use the game map catalog, images use a
- * vanilla thumbnail grid, and audio/fonts/data/other use icon lists. Custom
- * target text and template tokens are expert-mode only. The asset library owns
- * all Load bindings, so this editor renders inside the asset library
- * workspace; other workspaces show read-only summaries instead.
+ * Single-page card-flow editor for replacements. Each card is a full-width
+ * step: pick game resources → pick your file → see what will happen → optional
+ * advanced settings. Point-and-click throughout; custom paths and smart
+ * placeholders are advanced-mode only.
  */
 export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources }) => {
   const copy = useMapAuthoringCopy()
@@ -156,7 +146,7 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
   const loadCopy = libraryCopy.mapLoadBinding
   const advancedCopy = useEditorCopy().studioDesk.mapPatchEditor.advancedSettings
   const configCopy = useEditorCopy().studioDesk.configSchemaDialog
-  const expertMode = useEditorModeStore((state) => state.expertMode)
+  const advancedMode = useEditorModeStore((state) => state.expertMode)
   const { draft, updatePatch } = draftPort
 
   const [customTarget, setCustomTarget] = useState('')
@@ -168,6 +158,13 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
 
   const targets = splitMapTargets(patch.target).filter((target) => target.trim() !== '')
   const fromFile = patch.fromFile ?? ''
+
+  useEffect(() => {
+    if (fromFile === '' && patch.enabled !== false) {
+      updatePatch(patch.id, { enabled: false })
+    }
+  }, [fromFile, patch.enabled, patch.id, updatePatch])
+
   const previewRows = analyzeLoadBindings(
     patch.target,
     fromFile,
@@ -227,13 +224,21 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
   }
 
   return (
-    <div className="map-load-editor">
+    <div className="map-load-editor map-load-editor-cardflow">
       <p className="map-load-intro">{loadCopy.introHint}</p>
 
-      <div className="map-load-grid">
-        <section className="map-load-section">
-          <h3 className="map-load-section-title">{loadCopy.targetsSection}</h3>
-          <span className="map-load-section-hint">{loadCopy.targetsHint}</span>
+      {/* Card 1: What to replace */}
+      <section className="map-load-card">
+        <header className="map-load-card-header">
+          <span className="map-load-card-number">1</span>
+          <div className="map-load-card-titles">
+            <h3 className="map-load-card-title">{loadCopy.targetsSection}</h3>
+            <span className="map-load-card-hint">{loadCopy.targetsHint}</span>
+          </div>
+          {targets.length > 0 ? <span className="map-load-card-count">{targets.length}</span> : null}
+        </header>
+
+        <div className="map-load-card-body">
           {targets.length > 0 ? (
             <ul className="map-load-target-chips">
               {targets.map((target, index) => (
@@ -252,7 +257,7 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
               ))}
             </ul>
           ) : (
-            <p className="map-load-empty">{loadCopy.noTargets}</p>
+            <p className="map-load-empty map-load-step-guide">{loadCopy.noTargets}</p>
           )}
 
           {family === 'maps' ? (
@@ -331,7 +336,7 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
             </div>
           )}
 
-          {expertMode ? (
+          {advancedMode ? (
             <div className="map-load-custom-add">
               <input
                 className="map-load-input"
@@ -358,11 +363,25 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
             <p className="map-load-inline-loading">{loadCopy.expertOnlyHint}</p>
           )}
           {customTargetError ? <p className="map-load-inline-error">{customTargetError}</p> : null}
-        </section>
+        </div>
+      </section>
 
-        <section className="map-load-section">
-          <h3 className="map-load-section-title">{loadCopy.fromFileSection}</h3>
-          <span className="map-load-section-hint">{loadCopy.fromFileHint}</span>
+      {/* Card 2: Your file */}
+      <section className="map-load-card">
+        <header className="map-load-card-header">
+          <span className="map-load-card-number">2</span>
+          <div className="map-load-card-titles">
+            <h3 className="map-load-card-title">{loadCopy.fromFileSection}</h3>
+            <span className="map-load-card-hint">{loadCopy.fromFileHint}</span>
+          </div>
+          {fromFile !== '' ? (
+            <span className="map-load-card-check" aria-hidden="true">
+              ✓
+            </span>
+          ) : null}
+        </header>
+
+        <div className="map-load-card-body">
           <div className="map-load-asset-pick">
             <ResourcePicker
               value={fromFile}
@@ -375,6 +394,7 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
               onSelect={(value) => updatePatch(patch.id, { fromFile: value })}
             />
           </div>
+
           {family === 'images' && selectedFromFileAsset ? (
             <div className="load-binding-compare">
               <div className="load-binding-compare-cell">
@@ -402,7 +422,7 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
             </div>
           ) : null}
 
-          {expertMode ? (
+          {advancedMode ? (
             <div className="map-load-token-row">
               <input
                 className="map-load-input"
@@ -427,11 +447,20 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
           ) : (
             <p className="map-load-inline-loading">{loadCopy.expertOnlyHint}</p>
           )}
-        </section>
+        </div>
+      </section>
 
-        <section className="map-load-section">
-          <h3 className="map-load-section-title">{loadCopy.previewSection}</h3>
-          <span className="map-load-section-hint">{loadCopy.previewHint}</span>
+      {/* Card 3: What will happen */}
+      <section className="map-load-card">
+        <header className="map-load-card-header">
+          <span className="map-load-card-number">3</span>
+          <div className="map-load-card-titles">
+            <h3 className="map-load-card-title">{loadCopy.previewSection}</h3>
+            <span className="map-load-card-hint">{loadCopy.previewHint}</span>
+          </div>
+        </header>
+
+        <div className="map-load-card-body">
           {targets.length > 0 ? (
             <div className="map-load-preview-scroll">
               <table className="map-load-preview-table">
@@ -462,72 +491,74 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
           ) : (
             <p className="map-load-empty">{loadCopy.noTargets}</p>
           )}
-        </section>
+        </div>
+      </section>
 
-        <section className="map-load-section">
-          <button type="button" className="map-load-advanced-toggle" onClick={() => setShowAdvanced((value) => !value)}>
-            <ChevronDown className="h-3 w-3" style={{ transform: showAdvanced ? '' : 'rotate(-90deg)' }} aria-hidden="true" />
-            {advancedCopy.title}
-          </button>
-          {showAdvanced && (
-            <div className="map-load-advanced">
-              <div className="map-load-field">
-                <span className="map-load-field-label">{advancedCopy.whenCondition}</span>
-                <span className="map-load-field-hint">{advancedCopy.whenConditionHint}</span>
-                <WhenConditionEditor
-                  rows={parseWhenConditions(patch.when)}
-                  onChange={(rows) => updatePatch(patch.id, { when: serializeWhenConditions(rows) })}
-                  extraTokenNames={[...draft.configSchema.map((entry) => entry.key), ...draft.dynamicTokens.map((token) => token.name)]}
-                />
-              </div>
-              {expertMode ? (
-                <div className="map-load-field">
-                  <span className="map-load-field-label">{advancedCopy.priority}</span>
-                  <input
-                    className="map-load-input"
-                    list="map-load-priority-options"
-                    value={patch.priority ?? ''}
-                    placeholder={configCopy.priorityPatchPlaceholder}
-                    onChange={(event) => {
-                      const value = event.target.value.trim()
-                      const numeric = Number(value)
-                      updatePatch(patch.id, { priority: value === '' ? undefined : Number.isNaN(numeric) ? value : numeric })
-                    }}
-                  />
-                  <datalist id="map-load-priority-options">
-                    <option value="Early" />
-                    <option value="Default" />
-                    <option value="Late" />
-                  </datalist>
-                </div>
-              ) : null}
-              {typeof patch.enabled === 'string' ? (
-                <div className="map-load-enabled map-load-enabled-expression">
-                  <code className="map-enabled-token-chip">{patch.enabled}</code>
-                  <span>{advancedCopy.enabledByExpressionHint(patch.enabled)}</span>
-                  <div className="map-load-enabled-actions">
-                    <button type="button" className="control-button" onClick={() => updatePatch(patch.id, { enabled: true })}>
-                      {advancedCopy.setAlwaysEnabled}
-                    </button>
-                    <button type="button" className="control-button" onClick={() => updatePatch(patch.id, { enabled: false })}>
-                      {advancedCopy.setAlwaysDisabled}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <label className="map-load-enabled">
-                  <input
-                    type="checkbox"
-                    checked={patch.enabled !== false}
-                    onChange={(event) => updatePatch(patch.id, { enabled: event.target.checked })}
-                  />
-                  <span>{patch.enabled !== false ? advancedCopy.enabled : advancedCopy.disabled}</span>
-                </label>
-              )}
+      {/* Card 4: Advanced settings (collapsible) */}
+      <section className="map-load-card map-load-card-advanced">
+        <button type="button" className="map-load-advanced-toggle" onClick={() => setShowAdvanced((value) => !value)}>
+          <ChevronDown className="h-3 w-3" style={{ transform: showAdvanced ? '' : 'rotate(-90deg)' }} aria-hidden="true" />
+          {advancedCopy.title}
+        </button>
+        {showAdvanced && (
+          <div className="map-load-advanced">
+            <div className="map-load-field">
+              <span className="map-load-field-label">{advancedCopy.whenCondition}</span>
+              <span className="map-load-field-hint">{advancedCopy.whenConditionHint}</span>
+              <WhenConditionEditor
+                rows={parseWhenConditions(patch.when)}
+                onChange={(rows) => updatePatch(patch.id, { when: serializeWhenConditions(rows) })}
+                extraTokenNames={[...draft.configSchema.map((entry) => entry.key), ...draft.dynamicTokens.map((token) => token.name)]}
+              />
             </div>
-          )}
-        </section>
-      </div>
+            {advancedMode ? (
+              <div className="map-load-field">
+                <span className="map-load-field-label">{advancedCopy.priority}</span>
+                <input
+                  className="map-load-input"
+                  list="map-load-priority-options"
+                  value={patch.priority ?? ''}
+                  placeholder={configCopy.priorityPatchPlaceholder}
+                  onChange={(event) => {
+                    const value = event.target.value.trim()
+                    const numeric = Number(value)
+                    updatePatch(patch.id, { priority: value === '' ? undefined : Number.isNaN(numeric) ? value : numeric })
+                  }}
+                />
+                <datalist id="map-load-priority-options">
+                  <option value="Early" />
+                  <option value="Default" />
+                  <option value="Late" />
+                </datalist>
+              </div>
+            ) : null}
+            {typeof patch.enabled === 'string' ? (
+              <div className="map-load-enabled map-load-enabled-expression">
+                <code className="map-enabled-token-chip">{patch.enabled}</code>
+                <span>{advancedCopy.enabledByExpressionHint(patch.enabled)}</span>
+                <div className="map-load-enabled-actions">
+                  <button type="button" className="control-button" onClick={() => updatePatch(patch.id, { enabled: true })}>
+                    {advancedCopy.setAlwaysEnabled}
+                  </button>
+                  <button type="button" className="control-button" onClick={() => updatePatch(patch.id, { enabled: false })}>
+                    {advancedCopy.setAlwaysDisabled}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <label className={cx('map-load-enabled', fromFile === '' && 'is-disabled')}>
+                <input
+                  type="checkbox"
+                  disabled={fromFile === ''}
+                  checked={patch.enabled !== false}
+                  onChange={(event) => updatePatch(patch.id, { enabled: event.target.checked })}
+                />
+                <span>{patch.enabled !== false ? advancedCopy.enabled : advancedCopy.disabled}</span>
+              </label>
+            )}
+          </div>
+        )}
+      </section>
     </div>
   )
 }

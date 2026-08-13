@@ -19,7 +19,7 @@ import {
   type ItemWorkspaceEntry,
   type ObjectDataFields,
 } from '@entities/item'
-import { tryParseStringAssetReference } from '@entities/game/api'
+import { resolveLocalizedText, tryParseStringAssetReference } from '@entities/game/api'
 import type { GameDirectoryInfo } from '@entities/game/api'
 import type { LocaleCode } from '@locales'
 
@@ -54,6 +54,8 @@ export type ItemSourceGroups = {
   vanillaGroups: ItemSourceGroup[]
   /** Vanilla placeholder objects literally named `???`; kept out of the normal groups. */
   placeholderRows: ItemSourceRow[]
+  /** Resolved project entry display names, keyed by entry key. */
+  resolvedNames: Map<string, string>
 }
 
 export type VanillaObjectIndexState = {
@@ -138,7 +140,9 @@ function draftDisplayName(raw: unknown, key: string): string {
  * reach one of ~800 objects and rendering them all would stall the pane. The cap
  * is reported through `totalRows` rather than applied silently.
  */
-export function buildItemSourceGroups({
+export async function buildItemSourceGroups({
+  rootPath,
+  locale,
   projectKeys,
   projectEntries,
   vanilla,
@@ -146,6 +150,8 @@ export function buildItemSourceGroups({
   search,
   ungroupedLabel,
 }: {
+  rootPath: string | null
+  locale: LocaleCode
   projectKeys: readonly string[]
   projectEntries: Readonly<Record<string, unknown>>
   vanilla: VanillaObjectIndexState
@@ -153,9 +159,26 @@ export function buildItemSourceGroups({
   search: string
   /** Group title for vanilla objects with no `Type`. */
   ungroupedLabel: string
-}): ItemSourceGroups {
+}): Promise<ItemSourceGroups> {
   const needle = search.trim().toLowerCase()
   const projectKeySet = new Set(projectKeys.map((key) => key.toLowerCase()))
+
+  const rawProjectNames = projectKeys.map((key) => ({
+    key,
+    raw: draftDisplayName(projectEntries[key], key),
+  }))
+
+  const resolvedProjectNames =
+    rootPath === null
+      ? rawProjectNames.map(({ key, raw }) => ({ key, name: raw }))
+      : await Promise.all(
+          rawProjectNames.map(async ({ key, raw }) => ({
+            key,
+            name: (await resolveLocalizedText(rootPath, locale, raw)) ?? raw,
+          })),
+        )
+
+  const nameByKey = new Map(resolvedProjectNames.map(({ key, name }) => [key, name]))
 
   const project =
     mode === 'vanilla'
@@ -163,14 +186,14 @@ export function buildItemSourceGroups({
       : projectKeys
           .map((key) => ({
             key,
-            displayName: draftDisplayName(projectEntries[key], key),
+            displayName: nameByKey.get(key) ?? key,
             vanilla: vanilla.entries.get(key.toLowerCase()) ?? null,
             inProject: true,
           }))
           .filter((row) => matchesSearch(row, needle))
 
   if (mode === 'project') {
-    return { project, vanillaGroups: [], placeholderRows: [] }
+    return { project, vanillaGroups: [], placeholderRows: [], resolvedNames: nameByKey }
   }
 
   const byType = new Map<string, ItemSourceRow[]>()
@@ -206,7 +229,7 @@ export function buildItemSourceGroups({
     rows: rows.sort((left, right) => left.displayName.localeCompare(right.displayName)).slice(0, MAX_ROWS_PER_GROUP),
   })).sort((left, right) => right.totalRows - left.totalRows || left.label.localeCompare(right.label))
 
-  return { project, vanillaGroups, placeholderRows }
+  return { project, vanillaGroups, placeholderRows, resolvedNames: nameByKey }
 }
 
 /**

@@ -24,16 +24,29 @@ type ItemSpriteProps = {
     'displayName' | 'kind' | 'textureAssetName' | 'spriteIndex' | 'menuSpriteIndex' | 'spriteWidth' | 'spriteHeight' | 'apparelStats'
   >
   textureState: ItemTextureAssetState | null
+  /** Sprite scale in source pixels. Ignored when `fitSize` is provided. */
   scale?: number
+  /** Fit the sprite inside a square of this many CSS pixels (with a small breathing margin). */
+  fitSize?: number
   className?: string
   fallbackClassName?: string
   style?: CSSProperties
 }
 
-export function ItemSprite({ item, textureState, scale = 2, className = '', fallbackClassName = 'text-xs', style }: ItemSpriteProps) {
+export function ItemSprite({
+  item,
+  textureState,
+  scale = 2,
+  fitSize,
+  className = '',
+  fallbackClassName = 'text-xs',
+  style,
+}: ItemSpriteProps) {
   const sourceRect = getItemSpriteSourceRect(item, textureState)
   const tintMaskRect = getItemSpriteTintMaskSourceRect(item, textureState)
   const tintColor = item.kind === 'shirt' || item.kind === 'pants' ? parseTintColor(item.apparelStats?.defaultColor) : null
+
+  const spriteScale = fitSize && sourceRect ? Math.max(1, fitSize / Math.max(sourceRect.width, sourceRect.height)) : scale
 
   return (
     <AtlasSprite
@@ -42,7 +55,7 @@ export function ItemSprite({ item, textureState, scale = 2, className = '', fall
       maskRect={tintMaskRect}
       maskColor={tintColor}
       maskBlendMode={item.kind === 'pants' ? 'multiply' : 'normal'}
-      scale={scale}
+      scale={spriteScale}
       className={className}
       style={style}
       fallback={

@@ -10,8 +10,13 @@
   }
 
   .asset-library-toolbar-actions {
-    @apply ml-auto pl-3;
-    border-left: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
+    @apply flex items-center gap-1.5;
+    margin-left: auto;
+  }
+
+  .asset-library-toolbar-actions .control-button {
+    @apply px-2.5;
+    gap: 0.25rem;
   }
 
   /* Copy-from-game segmented entry and its kind picker popover. */
@@ -44,14 +49,15 @@
   }
 
   .asset-library-toolbar {
-    @apply bg-surface-panel flex flex-wrap items-center gap-2 px-4 py-2;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
+    @apply flex flex-none items-center gap-2.5;
+    min-width: 0;
   }
 
   .asset-library-search {
     @apply relative flex items-center;
-    flex: 1 1 16rem;
+    flex: 1 1 auto;
     min-width: 8rem;
+    max-width: 20rem;
   }
 
   .asset-library-search > svg {
@@ -63,14 +69,20 @@
     @apply pl-7.5;
   }
   .asset-library-filter {
-    flex: 0 0 9rem;
+    @apply min-w-0;
+    flex: 0 0 auto;
+    width: 9rem;
   }
   .asset-library-view-switch .icon-button.is-active {
     @apply bg-accent-soft text-accent;
   }
 
+  .asset-library-content {
+    @apply flex min-h-0 flex-col;
+  }
+
   .asset-library-status-rows {
-    @apply grid;
+    @apply flex flex-none flex-col;
   }
 
   /* Floating multi-select pill: anchored to the bottom center of the browser
@@ -108,15 +120,13 @@
      pane or the binding editor; the family picker overlays the same cell.
      The two-column split itself comes from WorkspaceSplitView. */
   .asset-library-main {
-    @apply grid min-h-0;
+    @apply grid min-h-0 flex-1;
     grid-template-rows: minmax(0, 1fr);
   }
 
   .asset-library-assets-pane {
     @apply grid min-h-0;
-    grid-column: 1;
-    grid-row: 1;
-    grid-template-columns: minmax(0, 1fr) 18rem;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .asset-library-browser {
@@ -282,13 +292,13 @@
   }
 
   .asset-library-inspector {
-    @apply border-border-subtle bg-surface-panel grid min-w-0 content-start gap-3 overflow-auto border-l p-3;
+    @apply grid min-h-0 min-w-0 content-start gap-3 p-3;
   }
 
   /* Detail hero preview: chrome-free per page-design-spec §6.2 — the container
      only centers and clips, no border/background decoration. */
   .asset-library-preview {
-    @apply text-text-tertiary grid min-h-36 place-items-center overflow-auto;
+    @apply text-text-tertiary relative grid min-h-36 place-items-center overflow-auto;
     max-height: 18rem;
   }
 
@@ -338,10 +348,20 @@
   }
   .asset-library-actions {
     @apply grid gap-1.5;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .asset-library-actions-primary,
+  .asset-library-actions-secondary {
+    @apply grid gap-1.5;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  }
+  .asset-library-actions-secondary {
+    grid-template-columns: 1fr 1fr;
   }
   .asset-library-actions .control-button {
-    @apply min-w-0 justify-center;
+    @apply min-w-0 items-center justify-center gap-1.5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   /* Destructive action stays available but visually demoted: ghost chrome,
      danger color only. */
@@ -351,6 +371,53 @@
   }
   .asset-library-actions .control-button.is-danger:hover {
     background: color-mix(in srgb, var(--danger) 10%, transparent);
+  }
+
+  /* --- Replace staging state --- */
+  .asset-library-replace-staging {
+    @apply grid gap-3;
+  }
+  .asset-library-replace-compare {
+    @apply grid gap-2;
+    grid-template-columns: 1fr 1fr;
+  }
+  .asset-library-replace-pane {
+    @apply grid min-w-0 gap-1;
+  }
+  .asset-library-replace-label {
+    @apply text-text-tertiary text-meta font-bold;
+  }
+  .asset-library-replace-pane .asset-library-preview {
+    @apply min-h-20;
+    max-height: 10rem;
+  }
+  .asset-library-replace-pane .asset-library-preview img {
+    max-height: 9rem;
+  }
+  .asset-library-replace-actions {
+    @apply grid gap-1.5;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* --- Drop zone on preview --- */
+  .asset-library-preview {
+    @apply cursor-pointer transition-colors;
+  }
+  .asset-library-preview.is-drag-over {
+    @apply border-accent bg-accent-soft;
+    border: 2px dashed var(--accent);
+  }
+  .asset-library-preview-drop-hint {
+    @apply text-text-tertiary text-meta absolute bottom-1 left-1/2 -translate-x-1/2 rounded-full px-2 py-0.5 opacity-0 transition-opacity;
+    background: color-mix(in srgb, var(--bg-panel) 80%, transparent);
+    pointer-events: none;
+  }
+  .asset-library-preview:hover .asset-library-preview-drop-hint,
+  .asset-library-preview.is-drag-over .asset-library-preview-drop-hint {
+    @apply opacity-100;
+  }
+  .asset-library-preview.is-drag-over .asset-library-preview-drop-hint {
+    @apply text-accent font-bold;
   }
 
   .asset-library-empty {
@@ -416,17 +483,6 @@
   }
   .pixel-editor-stage {
     @apply bg-surface-app min-h-0 min-w-0 overflow-auto p-6;
-    background-image:
-      linear-gradient(45deg, var(--bg-panel-muted) 25%, transparent 25%),
-      linear-gradient(-45deg, var(--bg-panel-muted) 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, var(--bg-panel-muted) 75%),
-      linear-gradient(-45deg, transparent 75%, var(--bg-panel-muted) 75%);
-    background-position:
-      0 0,
-      0 8px,
-      8px -8px,
-      -8px 0;
-    background-size: 16px 16px;
   }
   .pixel-editor-canvas {
     @apply block touch-none;
@@ -575,7 +631,12 @@
     .asset-library-assets {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-    .asset-library-actions {
+    .asset-library-actions-primary,
+    .asset-library-actions-secondary,
+    .asset-library-replace-actions {
+      grid-template-columns: 1fr;
+    }
+    .asset-library-replace-compare {
       grid-template-columns: 1fr;
     }
     .pixel-editor-dimensions {

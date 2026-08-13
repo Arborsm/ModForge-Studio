@@ -74,12 +74,17 @@ export type WorkbenchShellCopy = {
     lightingPreview: string
     lightingDay: string
     lightingDusk: string
+    /** Winter dusk variant in the lighting pill's mini menu. */
+    lightingDuskWinter: string
+    /** Non-winter dusk RGB disambiguation subtitle (255,255,0). */
+    lightingDuskSub: string
+    /** Winter dusk RGB disambiguation subtitle (warm 245,225,170). */
+    lightingDuskWinterSub: string
+    /** Disabled-state title for the dusk segment indoors. */
+    lightingDuskIndoorHint: string
     lightingNight: string
-    lightingSeason: string
-    seasonSpring: string
-    seasonSummer: string
-    seasonFall: string
-    seasonWinter: string
+    /** Pill title: what the preview shows for outdoor vs indoor maps. */
+    lightingPreviewHint: string
     moduleWorkspace: string
     moduleWorkspaceDisabled: string
     moduleCanvas: string

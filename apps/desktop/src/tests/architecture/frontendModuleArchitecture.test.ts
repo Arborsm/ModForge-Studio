@@ -1119,7 +1119,7 @@ describe('frontend module architecture', () => {
 
   it('rejects page-specific workbench panel source files under dock-side folder names', async () => {
     const panelsRoot = sourcePath('src/pages/workbench/ui/workspace-panels')
-    const allowedDomainFolders = new Set(['event', 'building', 'character', 'map', 'item', 'mod', 'common'])
+    const allowedDomainFolders = new Set(['event', 'building', 'character', 'map', 'item', 'mod', 'audio', 'common'])
 
     const panelsDir = await readdir(panelsRoot, { withFileTypes: true })
     expect(panelsDir.some((entry) => entry.isDirectory())).toBe(true)

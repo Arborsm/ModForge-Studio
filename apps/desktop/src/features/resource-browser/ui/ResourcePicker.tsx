@@ -10,11 +10,14 @@ import {
   Info,
   List,
   Package,
+  Pause,
+  Play,
   Search,
   Tag,
   X,
 } from 'lucide-react'
 import { resourceSpriteStyle, type ResourceSprite } from '@entities/asset-schema'
+import { loadAudioDataUrl, loadXactAudioDataUrl } from '@entities/game/api'
 import { ItemSprite, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
 import { useResourceBrowserCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
@@ -38,6 +41,10 @@ export type ResourceBrowserOption = {
   meta?: string
   sourcePath?: string
   sourceKind?: ResourceSourceKind
+  /** Optional audio file used to draw waveforms and play music/sound cues. */
+  audio?: { absolutePath: string; kind: 'music' | 'sound'; cue?: string; rootPath?: string }
+  /** Optional kind-specific fields shown in the detail panel. */
+  fields?: readonly { label: string; value: string; wide?: boolean }[]
   item?: Pick<
     ItemWorkspaceEntry,
     | 'displayName'
@@ -399,6 +406,238 @@ function ResourceDetailDialog({
   )
 }
 
+function formatAudioWaveformBars(seed: string) {
+  const values: number[] = []
+  let hash = 0
+  for (let i = 0; i < 32; i++) {
+    const code = seed.codePointAt(i % seed.length) ?? 0
+    hash = (hash * 31 + code) % 100
+    values.push(12 + (hash % 84))
+  }
+  return values
+}
+
+export function AudioCard({
+  option,
+  selected,
+  onSelect,
+  onDetail,
+  copy,
+}: {
+  option: ResourceBrowserOption
+  selected: boolean
+  onSelect: () => void
+  onDetail: () => void
+  copy: ReturnType<typeof useResourceBrowserCopy>['picker']
+}) {
+  const [playing, setPlaying] = useState(false)
+  const [url, setUrl] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const bars = useMemo(() => formatAudioWaveformBars(option.value), [option.value])
+
+  useEffect(() => {
+    if (!option.audio) {
+      return
+    }
+    let cancelled = false
+    const { rootPath, cue } = option.audio
+    if (rootPath && cue) {
+      loadXactAudioDataUrl(rootPath, cue)
+        .then((dataUrl) => {
+          if (!cancelled) {
+            setUrl(dataUrl)
+          }
+        })
+        .catch(() => {})
+    } else {
+      loadAudioDataUrl(option.audio.absolutePath)
+        .then((dataUrl) => {
+          if (!cancelled) {
+            setUrl(dataUrl)
+          }
+        })
+        .catch(() => {})
+    }
+    return () => {
+      cancelled = true
+    }
+  }, [option.audio])
+
+  useEffect(() => {
+    if (!url || !playing) {
+      audioRef.current?.pause()
+      return
+    }
+    const audio = new Audio(url)
+    audio.loop = option.audio?.kind === 'music'
+    audio.volume = option.audio?.kind === 'music' ? 0.6 : 0.7
+    audio.addEventListener('ended', () => setPlaying(false))
+    audio.addEventListener('error', () => setPlaying(false))
+    void audio.play().catch(() => setPlaying(false))
+    audioRef.current = audio
+    return () => {
+      audio.pause()
+      audioRef.current = null
+    }
+  }, [url, playing, option.audio?.kind])
+
+  function togglePlay(event: React.MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation()
+    setPlaying((p) => !p)
+  }
+
+  return (
+    <article className={cx('resource-picker__item-card', 'resource-picker__item-card--audio', selected && 'is-selected')}>
+      <button type="button" className="resource-picker__item-card-main" onClick={onSelect}>
+        <span className="resource-picker__audio-waveform" aria-hidden="true">
+          {bars.map((height, index) => (
+            <span key={index} className="resource-picker__audio-bar" style={{ '--audio-bar-height': `${height}%` } as CSSProperties} />
+          ))}
+        </span>
+        <span className="resource-picker__audio-info">
+          <span className="resource-picker__item-name">{option.label}</span>
+          <span className="resource-picker__item-id">{option.value}</span>
+          <span className="resource-picker__item-type">{formatOptionType(option)}</span>
+        </span>
+      </button>
+      <button
+        type="button"
+        className={cx('resource-picker__audio-play', playing && 'is-playing')}
+        title={playing ? copy.audioPause : copy.audioPlay}
+        aria-label={playing ? copy.audioPause : copy.audioPlay}
+        onClick={togglePlay}
+      >
+        {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+      </button>
+      <button
+        type="button"
+        className="resource-picker__detail-button"
+        title={copy.detailAction}
+        aria-label={`${copy.detailAction}: ${option.label}`}
+        onClick={onDetail}
+      >
+        <Info className="h-3.5 w-3.5" />
+      </button>
+    </article>
+  )
+}
+
+function ImageCard({
+  option,
+  selected,
+  onSelect,
+  onDetail,
+  copy,
+}: {
+  option: ResourceBrowserOption
+  selected: boolean
+  onSelect: () => void
+  onDetail: () => void
+  copy: ReturnType<typeof useResourceBrowserCopy>['picker']
+}) {
+  return (
+    <article className={cx('resource-picker__item-card', 'resource-picker__item-card--image', selected && 'is-selected')}>
+      <button type="button" className="resource-picker__item-card-main" onClick={onSelect}>
+        <span className="resource-picker__image-preview" aria-hidden="true">
+          {option.preview ? (
+            <img src={option.preview} alt="" className="resource-picker__image-preview-image" />
+          ) : (
+            <ResourcePreview option={option} />
+          )}
+        </span>
+        <span className="resource-picker__image-info">
+          <span className="resource-picker__item-name">{option.label}</span>
+          <span className="resource-picker__item-id">{option.value}</span>
+          <span className="resource-picker__item-type">{formatOptionType(option)}</span>
+        </span>
+        {formatOptionPath(option) ? (
+          <span className="resource-picker__item-path">
+            <Folder className="h-3 w-3" aria-hidden />
+            {formatOptionPath(option)}
+          </span>
+        ) : null}
+      </button>
+      <button
+        type="button"
+        className="resource-picker__detail-button"
+        title={copy.detailAction}
+        aria-label={`${copy.detailAction}: ${option.label}`}
+        onClick={onDetail}
+      >
+        <Info className="h-3.5 w-3.5" />
+      </button>
+    </article>
+  )
+}
+
+function EntityCard({
+  option,
+  selected,
+  onSelect,
+  onDetail,
+  copy,
+}: {
+  option: ResourceBrowserOption
+  selected: boolean
+  onSelect: () => void
+  onDetail: () => void
+  copy: ReturnType<typeof useResourceBrowserCopy>['picker']
+}) {
+  return (
+    <article className={cx('resource-picker__item-card', 'resource-picker__item-card--entity', selected && 'is-selected')}>
+      <button type="button" className="resource-picker__item-card-main" onClick={onSelect}>
+        <div className="resource-picker__entity-header">
+          <ResourcePreview option={option} size="large" />
+          <span className="resource-picker__item-title-group">
+            <span className="resource-picker__item-name">{option.label}</span>
+            <span className="resource-picker__item-id">
+              {formatOptionId(option)} · {formatOptionType(option)}
+            </span>
+          </span>
+        </div>
+        <span className="resource-picker__item-meta">
+          {option.subtitle ? (
+            <span className="resource-picker__meta-row">
+              <span className="resource-picker__meta-label">
+                <ClipboardList className="h-3 w-3" aria-hidden />
+                {copy.fieldSubtitle}
+              </span>
+              <span className="resource-picker__meta-value">{option.subtitle}</span>
+            </span>
+          ) : null}
+          {option.meta ? (
+            <span className="resource-picker__meta-row">
+              <span className="resource-picker__meta-label">
+                <Database className="h-3 w-3" aria-hidden />
+                {copy.fieldMeta}
+              </span>
+              <span className="resource-picker__meta-value">{option.meta}</span>
+            </span>
+          ) : null}
+          {formatOptionPath(option) ? (
+            <span className="resource-picker__meta-row">
+              <span className="resource-picker__meta-label">
+                <Folder className="h-3 w-3" aria-hidden />
+                {copy.fieldSourcePath}
+              </span>
+              <span className="resource-picker__meta-value">{formatOptionPath(option)}</span>
+            </span>
+          ) : null}
+        </span>
+      </button>
+      <button
+        type="button"
+        className="resource-picker__detail-button"
+        title={copy.detailAction}
+        aria-label={`${copy.detailAction}: ${option.label}`}
+        onClick={onDetail}
+      >
+        <Info className="h-3.5 w-3.5" />
+      </button>
+    </article>
+  )
+}
+
 export function ResourcePicker({
   value,
   label,
@@ -584,59 +823,78 @@ export function ResourcePicker({
 
   function renderResourceCard(option: ResourceBrowserOption) {
     const selectedOption = option.value === draftValue
-    return (
-      <article key={option.id} className={cx('resource-picker__item-card', selectedOption && 'is-selected')}>
-        <button type="button" className="resource-picker__item-card-main" onClick={() => chooseValue(option.value)}>
-          <div className="resource-picker__item-header">
-            <ResourcePreview option={option} />
-            <span className="resource-picker__item-title-group">
-              <span className="resource-picker__item-name">{option.label}</span>
-              <span className="resource-picker__item-id">
-                {formatOptionId(option)} · {formatOptionType(option)}
+    const onSelect = () => chooseValue(option.value)
+    const onDetail = () => setDetailOption(option)
+    switch (option.kind) {
+      case 'music':
+      case 'sound':
+        return <AudioCard key={option.id} option={option} selected={selectedOption} onSelect={onSelect} onDetail={onDetail} copy={copy} />
+      case 'texture':
+      case 'map':
+        return <ImageCard key={option.id} option={option} selected={selectedOption} onSelect={onSelect} onDetail={onDetail} copy={copy} />
+      case 'building':
+      case 'actor':
+      case 'location':
+        return <EntityCard key={option.id} option={option} selected={selectedOption} onSelect={onSelect} onDetail={onDetail} copy={copy} />
+      case 'item':
+      default:
+        return (
+          <article
+            key={option.id}
+            className={cx('resource-picker__item-card', `resource-picker__item-card--${option.kind}`, selectedOption && 'is-selected')}
+          >
+            <button type="button" className="resource-picker__item-card-main" onClick={onSelect}>
+              <div className="resource-picker__item-header">
+                <ResourcePreview option={option} />
+                <span className="resource-picker__item-title-group">
+                  <span className="resource-picker__item-name">{option.label}</span>
+                  <span className="resource-picker__item-id">
+                    {formatOptionId(option)} · {formatOptionType(option)}
+                  </span>
+                </span>
+              </div>
+              <span className="resource-picker__item-meta">
+                <span className="resource-picker__meta-row">
+                  <span className="resource-picker__meta-label">
+                    <Tag className="h-3 w-3" aria-hidden />
+                    {copy.fieldType}
+                  </span>
+                  <span className="resource-picker__item-type">{formatOptionType(option)}</span>
+                </span>
+                <span className="resource-picker__meta-row">
+                  <span className="resource-picker__meta-label">
+                    <Database className="h-3 w-3" aria-hidden />
+                    {copy.fieldPrice}
+                  </span>
+                  <span className="resource-picker__meta-value">{formatOptionPrice(option, option.meta ?? copy.none)}</span>
+                </span>
+                <span className="resource-picker__meta-row">
+                  <span className="resource-picker__meta-label">
+                    <ClipboardList className="h-3 w-3" aria-hidden />
+                    {copy.fieldInternalName}
+                  </span>
+                  <span className="resource-picker__meta-value">{formatOptionSubtitle(option)}</span>
+                </span>
               </span>
-            </span>
-          </div>
-          <span className="resource-picker__item-meta">
-            <span className="resource-picker__meta-row">
-              <span className="resource-picker__meta-label">
-                <Tag className="h-3 w-3" aria-hidden />
-                {copy.fieldType}
-              </span>
-              <span className="resource-picker__item-type">{formatOptionType(option)}</span>
-            </span>
-            <span className="resource-picker__meta-row">
-              <span className="resource-picker__meta-label">
-                <Database className="h-3 w-3" aria-hidden />
-                {copy.fieldPrice}
-              </span>
-              <span className="resource-picker__meta-value">{formatOptionPrice(option, option.meta ?? copy.none)}</span>
-            </span>
-            <span className="resource-picker__meta-row">
-              <span className="resource-picker__meta-label">
-                <ClipboardList className="h-3 w-3" aria-hidden />
-                {copy.fieldInternalName}
-              </span>
-              <span className="resource-picker__meta-value">{formatOptionSubtitle(option)}</span>
-            </span>
-          </span>
-          {formatOptionPath(option) ? (
-            <span className="resource-picker__item-path">
-              <Folder className="h-3 w-3" aria-hidden />
-              {formatOptionPath(option)}
-            </span>
-          ) : null}
-        </button>
-        <button
-          type="button"
-          className="resource-picker__detail-button"
-          title={copy.detailAction}
-          aria-label={`${copy.detailAction}: ${option.label}`}
-          onClick={() => setDetailOption(option)}
-        >
-          <Info className="h-3.5 w-3.5" />
-        </button>
-      </article>
-    )
+              {formatOptionPath(option) ? (
+                <span className="resource-picker__item-path">
+                  <Folder className="h-3 w-3" aria-hidden />
+                  {formatOptionPath(option)}
+                </span>
+              ) : null}
+            </button>
+            <button
+              type="button"
+              className="resource-picker__detail-button"
+              title={copy.detailAction}
+              aria-label={`${copy.detailAction}: ${option.label}`}
+              onClick={onDetail}
+            >
+              <Info className="h-3.5 w-3.5" />
+            </button>
+          </article>
+        )
+    }
   }
 
   function renderResourceListRow(option: ResourceBrowserOption) {

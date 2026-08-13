@@ -40,6 +40,7 @@ import type {
 } from '@shared/contracts'
 import { createCpMakerMockHandler } from './devLauncherMockCpMaker'
 import { createLocalizationKnowledgeMockHandler } from './devLauncherMockLocalization'
+import { readMockSessionState, writeMockSessionState } from './devLauncherMockSessionState'
 import { createModTranslationMockHandler } from './devLauncherMockModTranslation'
 import { DEFAULT_LOADING_MOTION_PREFERENCE } from '@shared/lib/loading-motion'
 
@@ -702,7 +703,7 @@ export function installDevLauncherMock() {
   }
 
   const mods = createMockMods()
-  let appUiState = createInitialAppUiState()
+  let appUiState = readMockSessionState<AppUiState>('appUiState') ?? createInitialAppUiState()
   const mockGameDirectory = resolveDevMockGameDirectory()
   let settings: LauncherSettings = {
     gamePath: mockGameDirectory,
@@ -770,9 +771,11 @@ export function installDevLauncherMock() {
           return [mockGameDirectory]
         case 'load_app_ui_state':
           return appUiState
-        case 'patch_app_ui_state':
+        case 'patch_app_ui_state': {
           appUiState = applyMockAppUiStatePatch(appUiState, getMockRequest<PatchAppUiStateRequest>(payload) ?? {})
+          writeMockSessionState('appUiState', appUiState)
           return appUiState
+        }
         case 'load_ai_settings':
           return aiSettings
         case 'save_ai_settings': {
@@ -1441,7 +1444,6 @@ export function installDevLauncherMock() {
           }
         }
         case 'open_launcher_path':
-        case 'open_launcher_url':
         case 'record_launcher_image_failure':
         case 'write_frontend_log':
         case 'print_host_runtime_diagnostics':

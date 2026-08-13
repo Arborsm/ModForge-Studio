@@ -13,7 +13,7 @@ import type {
 } from './types'
 import { asMapPropertyString } from './properties'
 import { normalizeMapName } from './mapNames'
-import { getActionTargetMap, getPortalTargetMapFromProperties } from '@entities/map'
+import { getActionTargetMap, getPortalTargetMapFromProperties, collectCellActions, parsePortalTargetMapFromAction } from '@entities/map'
 import { extractTileFlags, stripTileGidFlags } from './tileFlags'
 import { findTilesetForGid } from './tilesets'
 import { isExteriorWarp, parseWarpEntries } from './warps'
@@ -1153,6 +1153,22 @@ function buildAtlasPortals(placements: MapPlacement[]) {
         const tileX = index % layer.width
         const tileY = Math.floor(index / layer.width)
         addPortalSample(sourceDocument, targetMap, tileX, tileY, targetMap)
+      }
+
+      // Per-cell tbin action properties (TouchAction/Action) name their target
+      // map too. TileData-object rules are already sampled from the object
+      // scan above, so only the cellProperties carrier is read here.
+      if (layer.cellProperties) {
+        for (const action of collectCellActions(sourceDocument, layer.name, ['TouchAction', 'Action'])) {
+          if (action.source === 'tileDataObject') {
+            continue
+          }
+          const targetMap = parsePortalTargetMapFromAction(action.value)
+          if (!targetMap) {
+            continue
+          }
+          addPortalSample(sourceDocument, targetMap, action.x, action.y, targetMap)
+        }
       }
     }
   }

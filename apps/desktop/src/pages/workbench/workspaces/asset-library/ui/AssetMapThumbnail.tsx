@@ -6,6 +6,29 @@ import { useWorkbenchProject } from '../../../model/workbenchModuleContexts'
 import { parseProjectMapDocument } from '../model/projectMapPreview'
 
 /**
+ * Deduplicates in-flight project map asset loads per draft + path.
+ *
+ * `loadCpMakerProjectMapAsset` is dispatched with a `keyedLatest` host command
+ * policy, so concurrent calls for the same asset path supersede each other and
+ * the earlier caller receives a `TaskCancelledError`. Multiple thumbnail
+ * instances (card grid + inspector, or repeated cards) can request the same
+ * map within the same tick; this cache ensures only one host command is
+ * in-flight at a time and every caller awaits the same promise. The entry is
+ * cleared on settle so subsequent loads (e.g. after asset edits) re-fetch.
+ */
+const projectMapAssetLoadCache = new Map<string, Promise<unknown>>()
+
+function dedupedLoad<T>(key: string, loader: () => Promise<T>): Promise<T> {
+  const existing = projectMapAssetLoadCache.get(key)
+  if (existing) return existing as Promise<T>
+  const promise = loader().finally(() => {
+    projectMapAssetLoadCache.delete(key)
+  })
+  projectMapAssetLoadCache.set(key, promise)
+  return promise
+}
+
+/**
  * Lazily renders a cached thumbnail for a project TMX/TBIN asset through the
  * shared map thumbnail pipeline (`loadCpMakerProjectMapAsset` → MapDocument →
  * `loadMapThumbnail`). Loading starts when the host enters the viewport;
@@ -32,6 +55,7 @@ export function AssetMapThumbnail({
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
   const loadProjectMapAsset = project.loadProjectMapAsset
+  const draftStorageKey = project.activeDraft?.draftStorageKey ?? ''
 
   useEffect(() => {
     const host = hostRef.current
@@ -54,7 +78,7 @@ export function AssetMapThumbnail({
     let cancelled = false
     setThumbnailUrl(null)
     setFailed(false)
-    void loadProjectMapAsset(assetPath)
+    void dedupedLoad(`${draftStorageKey}::${assetPath}`, () => loadProjectMapAsset(assetPath))
       .then((loaded) => parseProjectMapDocument(loaded.content))
       .then((document) => {
         if (cancelled) return undefined
@@ -74,7 +98,7 @@ export function AssetMapThumbnail({
     return () => {
       cancelled = true
     }
-  }, [assetPath, height, locale, loadProjectMapAsset, sha256, visible, width])
+  }, [assetPath, draftStorageKey, height, locale, loadProjectMapAsset, sha256, visible, width])
 
   return (
     <span ref={hostRef} className="asset-map-thumbnail" aria-hidden="true">

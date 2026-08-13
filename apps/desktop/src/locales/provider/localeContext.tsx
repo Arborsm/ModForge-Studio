@@ -134,3 +134,7 @@ export function useAssetLibraryCopy() {
 export function useResourceBrowserCopy() {
   return useEditorCopy().resourceBrowser
 }
+
+export function useAudioPanelCopy() {
+  return useEditorCopy().audioPanel
+}

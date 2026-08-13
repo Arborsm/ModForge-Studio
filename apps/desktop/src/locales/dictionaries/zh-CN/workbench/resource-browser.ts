@@ -43,6 +43,9 @@ const resourceBrowser: ResourceBrowserCopy = {
     fieldMeta: '元数据',
     fieldSubtitle: '副标题',
     none: '无',
+    audioPlay: '播放',
+    audioPause: '暂停',
+    audioLoading: '加载中',
   },
   lab: {
     introTitle: '资源选择控件',
@@ -60,6 +63,11 @@ const resourceBrowser: ResourceBrowserCopy = {
       texture: { title: '贴图', description: '游戏贴图与项目导入的图像资源。', placeholder: '搜索贴图名称或路径' },
       map: { title: '地图', description: '可用于室内、场景和地图补丁的地图资源。', placeholder: '搜索地图名称或路径' },
       building: { title: '建筑', description: '原版建筑、升级阶段与项目建筑键。', placeholder: '搜索建筑名称或键' },
+    },
+    audioCombined: {
+      title: '音频',
+      description: '音乐与音效 cue 合并浏览。',
+      placeholder: '搜索音频 cue',
     },
   },
 }
