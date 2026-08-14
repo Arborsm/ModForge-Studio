@@ -1,3 +1,5 @@
+#[path = "xact/commands.rs"]
+pub(crate) mod commands;
 #[path = "xact/io.rs"]
 mod io;
 #[path = "xact/wav.rs"]
@@ -20,11 +22,6 @@ use xsb::{
 };
 use xwb::{parse_wave_bank_header, read_wave_bank_entries, read_wave_bank_entry_count};
 
-#[allow(dead_code)]
-pub fn load_xact_audio_data_url(root_path: String, cue: String) -> anyhow::Result<String> {
-    load_xact_audio_data_url_for_paths(&root_path, &cue)
-}
-
 pub fn scan_xact_cues(root_path: &str) -> anyhow::Result<Vec<String>> {
     let root = clean_input_path(root_path);
     let xsb_path = root.join("Content").join("XACT").join("Sound Bank.xsb");
@@ -38,7 +35,7 @@ pub fn scan_xact_cues(root_path: &str) -> anyhow::Result<Vec<String>> {
     read_xsb_cue_names(&xsb, &header)
 }
 
-pub fn load_xact_audio_data_url_for_paths(root_path: &str, cue: &str) -> anyhow::Result<String> {
+pub fn load_xact_audio_data_url(root_path: &str, cue: &str) -> anyhow::Result<String> {
     let root = clean_input_path(root_path);
     let cue_name = cue.trim();
     if cue_name.is_empty() {

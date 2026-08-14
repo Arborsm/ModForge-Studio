@@ -7,7 +7,8 @@ use tungstenite::{Message, WebSocket, connect};
 
 use super::rest_api;
 use crate::AppHandle;
-use crate::domain::launcher::{paths, settings as launcher_settings};
+use crate::domain::app_paths as paths;
+use crate::domain::launcher::settings as launcher_settings;
 use crate::support::logging::{LogEvent, targets};
 use anyhow::bail;
 

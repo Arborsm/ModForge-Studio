@@ -1,13 +1,18 @@
-use crate::host_commands::HostCommandName;
+use crate::AppHandle;
 use crate::support::logging::{DebugLoggingState, LogEvent, targets};
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fmt::Write as _;
 use std::panic::{self, AssertUnwindSafe};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::Instant;
+use tauri::Manager;
+use tauri::async_runtime::{
+    Receiver as AsyncReceiver, Sender as AsyncSender, channel as async_channel,
+};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, mpsc};
 
 const HOST_RUNTIME_STATS_ENV: &str = "MODFORGE_HOST_RUNTIME_STATS";
@@ -81,24 +86,10 @@ pub enum HostCommandResource {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum HostCommandCancelPolicy {
-    NotCancellable,
-    Cooperative,
-    SupersedeByKey,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HostCommandMutationPolicy {
     Concurrent,
     ExclusiveResources,
     SerialLane,
-}
-
-#[derive(Debug)]
-pub struct HostCommandEnvelope {
-    pub id: Value,
-    pub name: HostCommandName,
-    pub args: Value,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -156,11 +147,337 @@ pub struct ResolvedHostCommand {
     pub execution_pool: HostCommandExecutionPool,
     pub resources: Vec<HostCommandResource>,
     pub resource_resolver: Option<HostCommandResourceResolver>,
-    pub cancel_policy: HostCommandCancelPolicy,
     pub mutation_policy: HostCommandMutationPolicy,
     pub submitted_at: Instant,
     pub(crate) record_telemetry: bool,
     pub run: HostCommandRunner,
+}
+
+// --- typed command binding -------------------------------------------------
+//
+// The single place where a command's lane, execution pool, resource locks,
+// cancel/mutation policy, wire parameters and execution closure are declared.
+// Both host entries resolve through HostCommand::resolve: the Tauri wrapper
+// calls it in-process via host_runtime::execute, the Electron sidecar
+// via sidecar::resolve_typed. The sidecar match arm is a policy-free type
+// pointer verified by the host command generator, so policy is declared
+// exactly once per command, here.
+
+pub(crate) const NO_RESOURCES: &[HostCommandResource] = &[];
+
+/// In-process context handed to every binding resolution. Both the Tauri
+/// runtime and the sidecar build one before calling HostCommand::resolve.
+#[derive(Clone)]
+pub(crate) struct DispatchContext {
+    pub(crate) app: AppHandle,
+    pub(crate) debug_logging_state: DebugLoggingState,
+}
+
+impl DispatchContext {
+    pub(crate) fn new(app: AppHandle, debug_logging_state: DebugLoggingState) -> Self {
+        Self {
+            app,
+            debug_logging_state,
+        }
+    }
+}
+
+/// The product of resolving a command: either a scheduler-ready command or an
+/// immediate wire response (e.g. an argument deserialization failure).
+pub(crate) enum ResolvedCommandOrResponse {
+    Command(ResolvedHostCommand),
+    Response(HostCommandResponse),
+}
+
+/// The single binding of one host command.
+///
+/// NAME is the protocol name and must equal the Tauri wrapper function
+/// name (enforced by the host command generator). resolve builds the
+/// ResolvedHostCommand (lane, pool, resources, cancel/mutation policy,
+/// execution closure) that the shared scheduler runs.
+pub(crate) trait HostCommand: DeserializeOwned + Send + 'static {
+    const NAME: &'static str;
+
+    fn resolve(ctx: &DispatchContext, id: Value, params: Self) -> ResolvedCommandOrResponse;
+
+    fn io(
+        id: Value,
+        run: impl FnOnce() -> HostCommandResult + Send + 'static,
+    ) -> ResolvedCommandOrResponse {
+        resolved(command(
+            id,
+            Self::NAME,
+            HostCommandLane::Io,
+            NO_RESOURCES,
+            move |_| run(),
+        ))
+    }
+
+    fn network(
+        id: Value,
+        run: impl FnOnce() -> HostCommandResult + Send + 'static,
+    ) -> ResolvedCommandOrResponse {
+        resolved(command(
+            id,
+            Self::NAME,
+            HostCommandLane::Network,
+            NO_RESOURCES,
+            move |_| run(),
+        ))
+    }
+
+    fn control(
+        id: Value,
+        run: impl FnOnce() -> HostCommandResult + Send + 'static,
+    ) -> ResolvedCommandOrResponse {
+        resolved(command(
+            id,
+            Self::NAME,
+            HostCommandLane::Control,
+            NO_RESOURCES,
+            move |_| run(),
+        ))
+    }
+
+    fn control_with_context(
+        id: Value,
+        run: impl FnOnce(HostCommandContext) -> HostCommandResult + Send + 'static,
+    ) -> ResolvedCommandOrResponse {
+        resolved(command(
+            id,
+            Self::NAME,
+            HostCommandLane::Control,
+            NO_RESOURCES,
+            run,
+        ))
+    }
+
+    /// Plain mutation builder. The `#[host_command]` macro rejects mutation
+    /// commands without `resources(...)`, so no live binding calls this; it is
+    /// kept so the macro's error-resilient fallback expansion stays
+    /// structurally valid while the spanned diagnostic is reported.
+    #[allow(dead_code)]
+    fn mutation(
+        id: Value,
+        run: impl FnOnce() -> HostCommandResult + Send + 'static,
+    ) -> ResolvedCommandOrResponse {
+        resolved(command(
+            id,
+            Self::NAME,
+            HostCommandLane::Mutation,
+            NO_RESOURCES,
+            move |_| run(),
+        ))
+    }
+
+    fn mutation_with_resources(
+        id: Value,
+        resources: &'static [HostCommandResource],
+        run: impl FnOnce() -> HostCommandResult + Send + 'static,
+    ) -> ResolvedCommandOrResponse {
+        resolved(command(
+            id,
+            Self::NAME,
+            HostCommandLane::Mutation,
+            resources,
+            move |_| run(),
+        ))
+    }
+
+    fn mutation_with_resource_resolver<R>(
+        id: Value,
+        resolve_resources: R,
+        run: impl FnOnce() -> HostCommandResult + Send + 'static,
+    ) -> ResolvedCommandOrResponse
+    where
+        R: FnOnce() -> Result<Vec<HostCommandResource>, Value> + Send + 'static,
+    {
+        let mut resolved = command(
+            id,
+            Self::NAME,
+            HostCommandLane::Mutation,
+            NO_RESOURCES,
+            move |_| run(),
+        );
+        resolved.resource_resolver =
+            Some(Box::new(resolve_resources) as HostCommandResourceResolver);
+        resolved.mutation_policy = HostCommandMutationPolicy::ExclusiveResources;
+        ResolvedCommandOrResponse::Command(resolved)
+    }
+
+    fn io_with_resources(
+        id: Value,
+        resources: &'static [HostCommandResource],
+        run: impl FnOnce() -> HostCommandResult + Send + 'static,
+    ) -> ResolvedCommandOrResponse {
+        resolved(command(
+            id,
+            Self::NAME,
+            HostCommandLane::Io,
+            resources,
+            move |_| run(),
+        ))
+    }
+
+    fn io_on_semantic_search_pool(
+        id: Value,
+        resources: &'static [HostCommandResource],
+        run: impl FnOnce() -> HostCommandResult + Send + 'static,
+    ) -> ResolvedCommandOrResponse {
+        let mut resolved = command(id, Self::NAME, HostCommandLane::Io, resources, move |_| {
+            run()
+        });
+        resolved.execution_pool = HostCommandExecutionPool::AiSemanticSearch;
+        ResolvedCommandOrResponse::Command(resolved)
+    }
+
+    fn network_on_semantic_search_pool(
+        id: Value,
+        resources: &'static [HostCommandResource],
+        run: impl FnOnce() -> HostCommandResult + Send + 'static,
+    ) -> ResolvedCommandOrResponse {
+        let mut resolved = command(
+            id,
+            Self::NAME,
+            HostCommandLane::Network,
+            resources,
+            move |_| run(),
+        );
+        resolved.execution_pool = HostCommandExecutionPool::AiSemanticSearch;
+        ResolvedCommandOrResponse::Command(resolved)
+    }
+
+    fn mutation_on_semantic_indexing_pool(
+        id: Value,
+        resources: &'static [HostCommandResource],
+        run: impl FnOnce() -> HostCommandResult + Send + 'static,
+    ) -> ResolvedCommandOrResponse {
+        let mut resolved = command(
+            id,
+            Self::NAME,
+            HostCommandLane::Mutation,
+            resources,
+            move |_| run(),
+        );
+        resolved.execution_pool = HostCommandExecutionPool::AiSemanticIndexing;
+        ResolvedCommandOrResponse::Command(resolved)
+    }
+
+    fn mutation_on_official_indexing_pool(
+        id: Value,
+        resources: &'static [HostCommandResource],
+        run: impl FnOnce() -> HostCommandResult + Send + 'static,
+    ) -> ResolvedCommandOrResponse {
+        let mut resolved = command(
+            id,
+            Self::NAME,
+            HostCommandLane::Mutation,
+            resources,
+            move |_| run(),
+        );
+        resolved.execution_pool = HostCommandExecutionPool::AiOfficialIndexing;
+        ResolvedCommandOrResponse::Command(resolved)
+    }
+
+    fn network_on_image_cdn_pool(
+        id: Value,
+        run: impl FnOnce() -> HostCommandResult + Send + 'static,
+    ) -> ResolvedCommandOrResponse {
+        let mut resolved = command(
+            id,
+            Self::NAME,
+            HostCommandLane::Network,
+            NO_RESOURCES,
+            move |_| run(),
+        );
+        resolved.execution_pool = HostCommandExecutionPool::LauncherImageCdn;
+        ResolvedCommandOrResponse::Command(resolved)
+    }
+
+    fn network_with_resources(
+        id: Value,
+        resources: &'static [HostCommandResource],
+        run: impl FnOnce() -> HostCommandResult + Send + 'static,
+    ) -> ResolvedCommandOrResponse {
+        resolved(command(
+            id,
+            Self::NAME,
+            HostCommandLane::Network,
+            resources,
+            move |_| run(),
+        ))
+    }
+
+    fn ai_network(
+        id: Value,
+        run: impl FnOnce() -> HostCommandResult + Send + 'static,
+    ) -> ResolvedCommandOrResponse {
+        let mut resolved = command(
+            id,
+            Self::NAME,
+            HostCommandLane::Network,
+            NO_RESOURCES,
+            move |_| run(),
+        );
+        resolved.execution_pool = HostCommandExecutionPool::Ai;
+        ResolvedCommandOrResponse::Command(resolved)
+    }
+
+    fn control_with_resources(
+        id: Value,
+        resources: &'static [HostCommandResource],
+        run: impl FnOnce() -> HostCommandResult + Send + 'static,
+    ) -> ResolvedCommandOrResponse {
+        resolved(command(
+            id,
+            Self::NAME,
+            HostCommandLane::Control,
+            resources,
+            move |_| run(),
+        ))
+    }
+}
+
+fn command<F>(
+    id: Value,
+    name: &str,
+    lane: HostCommandLane,
+    resources: &'static [HostCommandResource],
+    run: F,
+) -> ResolvedHostCommand
+where
+    F: FnOnce(HostCommandContext) -> HostCommandResult + Send + 'static,
+{
+    ResolvedHostCommand {
+        id,
+        name: name.to_string(),
+        lane,
+        execution_pool: HostCommandExecutionPool::Lane,
+        resources: resources.to_vec(),
+        resource_resolver: None,
+        mutation_policy: if resources.is_empty() {
+            HostCommandMutationPolicy::Concurrent
+        } else {
+            HostCommandMutationPolicy::ExclusiveResources
+        },
+        submitted_at: Instant::now(),
+        record_telemetry: false,
+        run: Box::new(run),
+    }
+}
+
+fn resolved(command: ResolvedHostCommand) -> ResolvedCommandOrResponse {
+    ResolvedCommandOrResponse::Command(command)
+}
+
+pub(crate) fn ok<T, E>(result: Result<T, E>) -> HostCommandResult
+where
+    T: Serialize,
+    E: ToString,
+{
+    result
+        .map(|value| serde_json::to_value(value).unwrap_or(Value::Null))
+        .map_err(|error| json!(error.to_string()))
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -445,12 +762,12 @@ impl HostRuntimeTelemetry {
     }
 
     fn should_record(&self) -> bool {
-        self.debug_logging_state.is_enabled() || env_flag_is_enabled(HOST_RUNTIME_STATS_ENV)
+        self.debug_logging_state.is_enabled() || env_flag_is_truthy(HOST_RUNTIME_STATS_ENV)
     }
 
     fn should_print_summary(&self) -> bool {
         match std::env::var(HOST_RUNTIME_STATS_ENV) {
-            Ok(value) => env_flag_is_enabled_value(&value),
+            Ok(value) => env_flag_value_is_truthy(&value),
             Err(_) => self.debug_logging_state.is_enabled(),
         }
     }
@@ -1180,7 +1497,6 @@ fn run_resolved_command(
         None => Ok(command.resources),
     };
     let command_resources = resource_resolution.as_deref().unwrap_or_default();
-    let cancel_policy = command.cancel_policy;
     let mutation_policy = command.mutation_policy;
     let record_telemetry = command.record_telemetry;
     let queued_ms = command.submitted_at.elapsed().as_millis();
@@ -1194,7 +1510,6 @@ fn run_resolved_command(
         .count("active", active)
         .count("maxConcurrency", descriptor.max_concurrency)
         .debug("resources", command_resources)
-        .debug("cancelPolicy", cancel_policy)
         .debug("mutationPolicy", mutation_policy)
         .field("queuedMs", queued_ms)
         .emit_debug(targets::HOST_RUNTIME);
@@ -1356,11 +1671,14 @@ fn log_host_command_finished(
     }
 }
 
-fn env_flag_is_enabled(name: &str) -> bool {
-    std::env::var(name).is_ok_and(|value| env_flag_is_enabled_value(&value))
+/// Whitelist-style env flag: only an explicit truthy value enables the flag.
+/// Intentionally stricter than `support::logging::env_flag_is_enabled`, which
+/// is a blacklist-style check for log-filter env vars.
+fn env_flag_is_truthy(name: &str) -> bool {
+    std::env::var(name).is_ok_and(|value| env_flag_value_is_truthy(&value))
 }
 
-fn env_flag_is_enabled_value(value: &str) -> bool {
+fn env_flag_value_is_truthy(value: &str) -> bool {
     matches!(
         value.trim().to_ascii_lowercase().as_str(),
         "1" | "true" | "yes" | "on"
@@ -1406,5 +1724,145 @@ fn format_duration_ms(value: u128) -> String {
         format!("{:.1}s", value as f64 / 1_000.0)
     } else {
         format!("{value}ms")
+    }
+}
+
+// --- Tauri in-process entry ------------------------------------------------
+//
+// The Tauri-side counterpart of sidecar::run_stdio: resolves a typed binding
+// in-process and submits it to the same HostCommandScheduler the sidecar
+// uses. No JSON round trip happens on this path.
+
+struct TauriCommandResponseWriter {
+    pending: Mutex<HashMap<String, AsyncSender<HostCommandResponse>>>,
+}
+
+impl TauriCommandResponseWriter {
+    fn new() -> Self {
+        Self {
+            pending: Mutex::new(HashMap::new()),
+        }
+    }
+
+    fn register(&self, id: String) -> Result<AsyncReceiver<HostCommandResponse>, String> {
+        let (sender, receiver) = async_channel(1);
+        let mut pending = self
+            .pending
+            .lock()
+            .map_err(|_| "Tauri host command pending map lock was poisoned.".to_string())?;
+        pending.insert(id, sender);
+        Ok(receiver)
+    }
+}
+
+impl HostCommandResponseWriter for TauriCommandResponseWriter {
+    fn write_response(&self, response: &HostCommandResponse) -> Result<(), String> {
+        let Some(id) = response.id.as_str() else {
+            return Err(format!(
+                "Tauri host command response id must be a string: {}",
+                response.id
+            ));
+        };
+        let sender = self
+            .pending
+            .lock()
+            .map_err(|_| "Tauri host command pending map lock was poisoned.".to_string())?
+            .remove(id)
+            .ok_or_else(|| format!("No pending Tauri host command for response id {id}."))?;
+        sender
+            .try_send(response.clone())
+            .map_err(|error| format!("Failed to deliver Tauri host command response: {error}"))
+    }
+}
+
+struct TauriCommandRuntime {
+    scheduler: HostCommandScheduler,
+    writer: Arc<TauriCommandResponseWriter>,
+    next_id: AtomicU64,
+}
+
+impl TauriCommandRuntime {
+    fn new(debug_logging_state: DebugLoggingState) -> Self {
+        let writer = Arc::new(TauriCommandResponseWriter::new());
+        let scheduler = HostCommandScheduler::new(
+            writer.clone(),
+            Arc::new(HostCommandResourceLocks::new()),
+            HostCommandSchedulerConfig::default(),
+            debug_logging_state,
+        );
+        Self {
+            scheduler,
+            writer,
+            next_id: AtomicU64::new(1),
+        }
+    }
+
+    fn next_request_id(&self) -> String {
+        format!("tauri:{}", self.next_id.fetch_add(1, Ordering::Relaxed))
+    }
+}
+
+static TAURI_COMMAND_RUNTIME: OnceLock<TauriCommandRuntime> = OnceLock::new();
+
+fn tauri_runtime(debug_logging_state: DebugLoggingState) -> &'static TauriCommandRuntime {
+    TAURI_COMMAND_RUNTIME.get_or_init(|| TauriCommandRuntime::new(debug_logging_state))
+}
+
+pub(crate) fn print_host_runtime_diagnostics_summary(reason: &str) {
+    if let Some(runtime) = TAURI_COMMAND_RUNTIME.get() {
+        runtime.scheduler.print_diagnostics_summary(reason);
+    }
+}
+
+fn response_to_result<T>(command: &str, response: HostCommandResponse) -> Result<T, String>
+where
+    T: DeserializeOwned,
+{
+    if !response.ok {
+        return Err(response
+            .error
+            .map(|error| match error {
+                Value::String(message) => message,
+                other => other.to_string(),
+            })
+            .unwrap_or_else(|| format!("Host command {command} failed.")));
+    }
+
+    serde_json::from_value(response.result.unwrap_or(Value::Null))
+        .map_err(|error| format!("Host command {command} returned an invalid result: {error}"))
+}
+
+/// Executes a typed host command through the shared runtime scheduler.
+///
+/// The wrapper's already-deserialized arguments are moved into the command's
+/// wire envelope `P`; `HostCommand::resolve` declares lane/resources/
+/// cancel/mutation policy and the execution closure, so both the Tauri and
+/// Electron entries run the exact same binding without a JSON round trip.
+pub(crate) async fn execute<P, T>(app: AppHandle, params: P) -> Result<T, String>
+where
+    P: HostCommand,
+    T: DeserializeOwned,
+{
+    let debug_logging_state = app
+        .as_tauri()
+        .ok_or_else(|| "Host command executed without a Tauri app handle.".to_string())?
+        .state::<DebugLoggingState>()
+        .inner()
+        .clone();
+    let runtime = tauri_runtime(debug_logging_state.clone());
+    let ctx = DispatchContext::new(app.clone(), debug_logging_state);
+    let request_id = runtime.next_request_id();
+    match P::resolve(&ctx, json!(request_id.clone()), params) {
+        ResolvedCommandOrResponse::Command(command) => {
+            let resolved_name = command.name.clone();
+            let mut receiver = runtime.writer.register(request_id)?;
+            runtime.scheduler.submit(command);
+            let response = receiver
+                .recv()
+                .await
+                .ok_or_else(|| format!("Host command {resolved_name} response channel closed."))?;
+            response_to_result(P::NAME, response)
+        }
+        ResolvedCommandOrResponse::Response(response) => response_to_result(P::NAME, response),
     }
 }

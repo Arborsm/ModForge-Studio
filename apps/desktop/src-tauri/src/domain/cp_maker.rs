@@ -1,4 +1,5 @@
 pub(crate) mod builder;
+pub(crate) mod commands;
 mod export;
 mod map_asset;
 mod project_assets;

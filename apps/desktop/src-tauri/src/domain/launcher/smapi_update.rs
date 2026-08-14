@@ -13,9 +13,6 @@ use super::downloads::{
     is_launcher_download_cancelled, nexus_manual_download_url, take_cancelled_launcher_download,
 };
 use super::library::scan_library_at_path;
-use super::paths::{
-    current_timestamp_ms, launcher_settings_path, launcher_smapi_update_cache_path,
-};
 use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
 use super::types::{
@@ -29,6 +26,9 @@ use super::versions::{
     compare_parsed_versions, parse_mod_version, version_is_newer, version_is_prerelease,
 };
 use crate::AppHandle;
+use crate::domain::app_paths::{
+    current_timestamp_ms, launcher_settings_path, launcher_smapi_update_cache_path,
+};
 use crate::domain::nexusmods::downloads::download_file_response;
 use crate::domain::nexusmods::http::launcher_http_client;
 use crate::domain::nexusmods::mod_detail::{

@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { OpenDialogOptions, PlatformDragDropPayload, SaveDialogOptions } from '../src/shared/contracts/platform'
 
-export function toElectronLocalFileUrl(filePath: string) {
+function toElectronLocalFileUrl(filePath: string) {
   return `modforge-asset://local/${encodeURIComponent(filePath)}`
 }
 

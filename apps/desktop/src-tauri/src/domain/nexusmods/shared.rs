@@ -30,11 +30,5 @@ pub(crate) fn normalize_nexus_url(value: &str) -> String {
 }
 
 pub(crate) fn decode_html(value: &str) -> String {
-    value
-        .replace("&amp;", "&")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&nbsp;", " ")
+    html_escape::decode_html_entities(value).into_owned()
 }

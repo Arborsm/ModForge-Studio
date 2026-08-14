@@ -1,3 +1,4 @@
+pub(crate) mod commands;
 pub mod event;
 pub mod terminal;
 
@@ -125,10 +126,6 @@ impl DebugLoggingState {
             _ => true,
         }
     }
-
-    fn should_log_metadata(&self, metadata: &Metadata<'_>) -> bool {
-        self.level_enabled(metadata)
-    }
 }
 
 struct SidecarStderrLogger {
@@ -178,7 +175,7 @@ impl TerminalNoiseState {
     }
 }
 
-fn env_flag_is_enabled(value: &str) -> bool {
+pub(crate) fn env_flag_is_enabled(value: &str) -> bool {
     let normalized = value.trim().to_ascii_lowercase();
     !normalized.is_empty() && !matches!(normalized.as_str(), "0" | "false" | "no" | "off")
 }
@@ -337,7 +334,7 @@ impl HostLogFile {
 
 impl log::Log for HostLogger {
     fn enabled(&self, metadata: &Metadata<'_>) -> bool {
-        self.state.should_log_metadata(metadata)
+        self.state.level_enabled(metadata)
     }
 
     fn log(&self, record: &Record<'_>) {

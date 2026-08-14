@@ -1,5 +1,5 @@
 use crate::AppHandle;
-use crate::domain::launcher::paths::launcher_settings_path;
+use crate::domain::app_paths::launcher_settings_path;
 use crate::domain::launcher::settings::{load_or_create_settings_at_path, normalize_optional_text};
 use crate::domain::launcher::trace::log_launcher_trace;
 use crate::domain::launcher::types::{

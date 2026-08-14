@@ -1,5 +1,6 @@
 use anyhow::Context;
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const APP_DATA_DIR_NAME: &str = "ModForge Studio";
 
@@ -131,4 +132,11 @@ pub(crate) fn localization_semantic_index_path() -> anyhow::Result<PathBuf> {
     Ok(modforge_data_dir()?
         .join("ai")
         .join("localization-semantic.sqlite3"))
+}
+
+pub(crate) fn current_timestamp_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
 }

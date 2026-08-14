@@ -34,6 +34,15 @@ impl HostHandle {
         }
     }
 
+    /// Returns the Tauri app handle when this handle was created by Tauri command
+    /// injection; the sidecar variant has no app handle.
+    pub fn as_tauri(&self) -> Option<&tauri::AppHandle<AppRuntime>> {
+        match &self.inner {
+            HostHandleInner::Tauri(app) => Some(app),
+            HostHandleInner::Sidecar(_) => None,
+        }
+    }
+
     pub fn emit<T>(&self, event: &str, payload: T) -> Result<(), String>
     where
         T: Serialize + Clone,

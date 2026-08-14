@@ -4,7 +4,6 @@ use super::install_manager::{
     list_backup_sessions_at_root, normalize_relative_path, restore_backup_session_at_path,
 };
 use super::library::scan_library_at_path;
-use super::paths::{launcher_backup_dir, launcher_settings_path, launcher_updates_cache_path};
 use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
 use super::types::{
@@ -17,6 +16,9 @@ use super::types::{
 };
 use super::update_cache::invalidate_launcher_updates_cache_at_path;
 use crate::AppHandle;
+use crate::domain::app_paths::{
+    launcher_backup_dir, launcher_settings_path, launcher_updates_cache_path,
+};
 use crate::domain::manifest::{normalize_unique_id, string_field};
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use crate::infrastructure::text_encoding::decode_text_bytes;

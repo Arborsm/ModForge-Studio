@@ -1,3 +1,4 @@
+pub(crate) mod commands;
 pub mod types;
 
 pub use types::DefaultSaveSlotSummary;

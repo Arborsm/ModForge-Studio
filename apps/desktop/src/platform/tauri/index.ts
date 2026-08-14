@@ -4,6 +4,7 @@ import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import type { OpenDialogOptions, PlatformPorts, SaveDialogOptions } from '@shared/contracts'
+import { createBrowserStorage, createDialogChoosers } from '../adapter-shared'
 
 function canUseTauriHost() {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
@@ -12,24 +13,6 @@ function canUseTauriHost() {
 function assertTauriHost() {
   if (!canUseTauriHost()) {
     throw new Error('This feature is only available in the Tauri desktop host.')
-  }
-}
-
-function createBrowserStorage() {
-  return {
-    getItem(key: string) {
-      return typeof window === 'undefined' ? null : window.localStorage.getItem(key)
-    },
-    setItem(key: string, value: string) {
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, value)
-      }
-    },
-    removeItem(key: string) {
-      if (typeof window !== 'undefined') {
-        window.localStorage.removeItem(key)
-      }
-    },
   }
 }
 
@@ -131,14 +114,7 @@ export function createTauriPlatformPorts(): PlatformPorts {
     dialog: {
       open: openDialog,
       saveFile: saveFileDialog,
-      async chooseDirectory(title?: string) {
-        const selected = await openDialog({ title, directory: true, multiple: false })
-        return typeof selected === 'string' ? selected : null
-      },
-      async chooseFile(options?: OpenDialogOptions) {
-        const selected = await openDialog({ ...options, directory: false, multiple: false })
-        return typeof selected === 'string' ? selected : null
-      },
+      ...createDialogChoosers(openDialog),
     },
     hostEvents: {
       canUseHost: canUseTauriHost,

@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { GameDirectoryInfo } from '@entities/game/api'
 import { inspectModArchive, loadModProject, scanModProjects, type ModProjectDetail, type ModProjectSummary } from '@entities/mod/api'
-import { chooseDirectory, chooseModArchiveFile } from '@platform/host'
+import { chooseArchiveFile, chooseDirectory } from '@platform/host'
 import { useModCopy } from '@locales/provider'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 
@@ -149,7 +149,7 @@ export function useModCatalog({ directoryInfo, mode }: UseModCatalogOptions) {
   }
 
   const openProjectArchive = async () => {
-    const selected = await chooseModArchiveFile(copy.selectModArchive)
+    const selected = await chooseArchiveFile(copy.selectModArchive)
     if (!selected) return null
     setLoading(true)
     try {

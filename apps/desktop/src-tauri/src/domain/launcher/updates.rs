@@ -1,5 +1,4 @@
 use super::library::scan_library_at_path;
-use super::paths::{current_timestamp_ms, launcher_settings_path, launcher_updates_cache_path};
 use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
 use super::types::{
@@ -16,6 +15,9 @@ use super::update_cache::{
 };
 pub(crate) use super::versions::version_is_newer;
 use crate::AppHandle;
+use crate::domain::app_paths::{
+    current_timestamp_ms, launcher_settings_path, launcher_updates_cache_path,
+};
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::http::launcher_http_client;
 use crate::domain::nexusmods::mod_detail::{
@@ -349,7 +351,6 @@ pub(crate) fn build_smapi_update_payload_with_versions(
 }
 
 #[cfg(test)]
-#[allow(dead_code)]
 pub(crate) fn build_smapi_update_payload(candidates: &[UpdateCheckCandidate]) -> Value {
     build_smapi_update_payload_with_versions(candidates, &default_smapi_runtime_versions())
 }

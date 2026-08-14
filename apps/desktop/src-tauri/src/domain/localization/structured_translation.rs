@@ -1,6 +1,8 @@
 use anyhow::Context;
 use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
+#[cfg(test)]
+use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum TemplatePart {
@@ -19,6 +21,7 @@ struct RecordTemplate {
 }
 
 impl RecordTemplate {
+    #[cfg(test)]
     fn render(&self, translations: &HashMap<String, String>) -> String {
         self.parts
             .iter()
@@ -61,15 +64,17 @@ pub(crate) struct StructuredTranslationUnit {
 
 #[derive(Clone, Debug)]
 pub(crate) struct StructuredTranslationDocument {
+    #[cfg(test)]
     original: Value,
+    #[cfg(test)]
     records: BTreeMap<String, RecordTemplate>,
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg(test)]
     units: Vec<StructuredTranslationUnit>,
     corpus_units: Vec<StructuredTranslationUnit>,
 }
 
 impl StructuredTranslationDocument {
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg(test)]
     pub(crate) fn units(&self) -> &[StructuredTranslationUnit] {
         &self.units
     }
@@ -79,7 +84,7 @@ impl StructuredTranslationDocument {
     }
 
     /// Rebuilds the original records while replacing only typed text nodes.
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg(test)]
     pub(crate) fn apply_translations(
         &self,
         translations: &HashMap<String, String>,
@@ -864,6 +869,7 @@ pub(crate) fn parse(
         .as_object()
         .context("Structured translation asset root must be an object.")?;
     let mut records = BTreeMap::new();
+    #[cfg(test)]
     let mut units = Vec::new();
     let mut corpus_units = Vec::new();
     for (key, value) in source {
@@ -880,6 +886,7 @@ pub(crate) fn parse(
         let Some(template) = record_template(&normalized, key, raw) else {
             continue;
         };
+        #[cfg(test)]
         template.units(&mut units);
         if normalized == "data/mail.xnb" {
             corpus_units.extend(mail_corpus_units(key, raw));
@@ -889,8 +896,11 @@ pub(crate) fn parse(
         records.insert(key.clone(), template);
     }
     Ok(Some(StructuredTranslationDocument {
+        #[cfg(test)]
         original: value.clone(),
+        #[cfg(test)]
         records,
+        #[cfg(test)]
         units,
         corpus_units,
     }))

@@ -133,7 +133,8 @@ or the local release environment.
 - Desktop capability changes: update `shared/contracts/platform.ts`, implement
   adapters in `platform/electron` and `platform/tauri`, then wire providers from
   `app/providers`.
-- Rust command changes: keep command wrappers thin in `src-tauri/src/commands`
+- Rust command changes: declare thin `#[host_command(...)]` bindings in the
+  domain-adjacent `commands.rs` (e.g. `src-tauri/src/domain/launcher/commands.rs`)
   and put business behavior in the relevant `src-tauri/src/domain` module.
 - Styling changes: use `apps/desktop/src/styles/index.css` as the global entry,
   keep primitives/workspace/features separated, and split large CSS files before

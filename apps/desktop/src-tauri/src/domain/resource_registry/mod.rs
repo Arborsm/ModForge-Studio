@@ -1,3 +1,5 @@
+pub(crate) mod commands;
+
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -318,5 +320,5 @@ fn item_asset_specs() -> &'static [ItemAssetSpec] {
 }
 
 #[cfg(test)]
-#[path = "../tests/integration/resource_registry_tests.rs"]
+#[path = "../../tests/integration/resource_registry_tests.rs"]
 mod tests;

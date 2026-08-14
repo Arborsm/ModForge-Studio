@@ -1,4 +1,5 @@
 import type { OpenDialogOptions, PlatformPorts, SaveDialogOptions } from '@shared/contracts'
+import { createBrowserStorage, createDialogChoosers } from '../adapter-shared'
 
 export function isElectronHost() {
   return typeof window !== 'undefined' && Boolean(window.modforgeElectron)
@@ -10,24 +11,6 @@ function getElectronApi() {
     throw new Error('This feature is only available in the Electron desktop host.')
   }
   return api
-}
-
-function createBrowserStorage() {
-  return {
-    getItem(key: string) {
-      return typeof window === 'undefined' ? null : window.localStorage.getItem(key)
-    },
-    setItem(key: string, value: string) {
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, value)
-      }
-    },
-    removeItem(key: string) {
-      if (typeof window !== 'undefined') {
-        window.localStorage.removeItem(key)
-      }
-    },
-  }
 }
 
 async function openDialog(options?: OpenDialogOptions) {
@@ -62,14 +45,7 @@ export function createElectronPlatformPorts(): PlatformPorts {
       saveFile(options?: SaveDialogOptions) {
         return getElectronApi().saveFileDialog(options)
       },
-      async chooseDirectory(title?: string) {
-        const selected = await openDialog({ title, directory: true, multiple: false })
-        return typeof selected === 'string' ? selected : null
-      },
-      async chooseFile(options?: OpenDialogOptions) {
-        const selected = await openDialog({ ...options, directory: false, multiple: false })
-        return typeof selected === 'string' ? selected : null
-      },
+      ...createDialogChoosers(openDialog),
     },
     hostEvents: {
       canUseHost: isElectronHost,

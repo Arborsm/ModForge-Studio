@@ -1,4 +1,5 @@
 pub mod archive;
+pub(crate) mod commands;
 pub mod downloads;
 pub mod fs;
 pub mod image_cache;
@@ -6,7 +7,6 @@ pub mod image_failures;
 pub mod install_manager;
 pub mod library;
 pub mod mod_config;
-pub mod paths;
 pub mod runtime;
 pub mod settings;
 pub mod smapi_update;

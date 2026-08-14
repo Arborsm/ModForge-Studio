@@ -35,7 +35,7 @@
   },
   "lint-staged": {
     "*.{css,html,js,json,jsonc,jsx,md,mdx,ts,tsx,yaml,yml}": "vp fmt .",
-    "*.rs": "sh -c 'cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml'"
+    "*.rs": "node apps/desktop/scripts/fmt-rust-staged.cjs"
   },
   "devDependencies": {
     "husky": "9.1.7",

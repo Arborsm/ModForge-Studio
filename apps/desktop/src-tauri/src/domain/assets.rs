@@ -1,3 +1,5 @@
+#[path = "assets/commands.rs"]
+pub(crate) mod commands;
 #[path = "assets/mime.rs"]
 mod mime;
 #[path = "assets/types.rs"]
@@ -29,6 +31,7 @@ use crate::infrastructure::fs::pathing::{
 };
 use crate::infrastructure::game_formats::parse_map_asset;
 use crate::infrastructure::game_formats::xnb::{self, read_xnb_from_path};
+use crate::infrastructure::text_encoding::read_text_file;
 use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 
@@ -585,12 +588,7 @@ fn read_unpacked_text_asset(
         return Ok(None);
     }
 
-    let content = fs::read_to_string(&unpacked_path).with_context(|| {
-        format!(
-            "Failed to read unpacked text asset {}",
-            normalize_path(&unpacked_path)
-        )
-    })?;
+    let content = read_text_file(&unpacked_path)?;
 
     Ok(Some(content))
 }
@@ -1068,12 +1066,7 @@ pub(crate) fn load_text_asset(
             {
                 content
             } else {
-                let content = fs::read_to_string(&absolute_path).with_context(|| {
-                    format!(
-                        "Failed to read text asset {}",
-                        normalize_path(&absolute_path)
-                    )
-                })?;
+                let content = read_text_file(&absolute_path)?;
                 if let Err(error) = write_cached_string_asset(
                     "text-file",
                     &absolute_path,
@@ -1123,12 +1116,7 @@ pub(crate) fn load_text_file(path: String) -> anyhow::Result<LocalTextFileConten
         );
     }
 
-    let content = fs::read_to_string(&absolute_path).with_context(|| {
-        format!(
-            "Failed to read text file {}",
-            normalize_path(&absolute_path)
-        )
-    })?;
+    let content = read_text_file(&absolute_path)?;
 
     Ok(LocalTextFileContent {
         absolute_path: normalize_path(&absolute_path),

@@ -21,16 +21,6 @@ use buffer::CursorReader;
 const XNB_MAGIC: &str = "XNB";
 const XNB_COMPRESSED_PROLOGUE_SIZE: usize = 14;
 
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub struct XnbHeader {
-    pub target: char,
-    pub format_version: u8,
-    pub hidef: bool,
-    pub compressed: bool,
-    pub compression: CompressionKind,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompressionKind {
     None,
@@ -46,9 +36,10 @@ pub struct TypeReaderInfo {
 }
 
 #[derive(Debug, Clone)]
+// `readers` is consumed by the installed-game-validation map_validation API,
+// which is feature-gated, so the struct keeps the allow for default builds.
 #[allow(dead_code)]
 pub struct XnbFile {
-    pub header: XnbHeader,
     pub readers: Vec<TypeReaderInfo>,
     pub content: XnbValue,
 }
@@ -71,12 +62,10 @@ pub fn read_xnb_from_bytes(bytes: Vec<u8>) -> anyhow::Result<XnbFile> {
         bail!("Invalid XNB header.");
     }
 
-    let target = reader.read_string_exact(1)?;
-    let target_char = target.chars().next().unwrap_or('w');
-    let format_version = reader.read_u8()?;
+    reader.read_string_exact(1)?;
+    reader.read_u8()?;
     let flags = reader.read_u8()?;
 
-    let hidef = (flags & 0x01) != 0;
     let compressed = (flags & 0x80) != 0 || (flags & 0x40) != 0;
     let compression = if (flags & 0x80) != 0 {
         CompressionKind::Lzx
@@ -86,10 +75,7 @@ pub fn read_xnb_from_bytes(bytes: Vec<u8>) -> anyhow::Result<XnbFile> {
         CompressionKind::None
     };
 
-    let file_size = reader.read_u32_le()? as usize;
-    if file_size != bytes.len() {
-        // continue but note mismatch
-    }
+    reader.read_u32_le()?;
 
     let mut payload = bytes;
     let mut content_offset = 10usize;
@@ -167,13 +153,6 @@ pub fn read_xnb_from_bytes(bytes: Vec<u8>) -> anyhow::Result<XnbFile> {
     let content = resolver.read(&mut reader)?;
 
     Ok(XnbFile {
-        header: XnbHeader {
-            target: target_char,
-            format_version,
-            hidef,
-            compressed,
-            compression,
-        },
         readers: reader_infos,
         content,
     })

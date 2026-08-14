@@ -250,7 +250,7 @@ class SidecarTransport {
       return
     }
 
-    if (typeof frame.id !== 'number') {
+    if (typeof frame.id !== 'number' && typeof frame.id !== 'string') {
       return
     }
 

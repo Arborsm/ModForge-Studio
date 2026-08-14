@@ -1,3 +1,5 @@
+pub(crate) mod commands;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -260,7 +262,7 @@ fn discover_project_roots(path: &Path) -> anyhow::Result<Vec<PathBuf>> {
 }
 
 fn read_json_file(path: &Path) -> anyhow::Result<(String, Value)> {
-    json_relaxed::read_json_file(path, &format!("JSON file {}", normalize_path(path)))
+    json_relaxed::read_json_file_labeled(path)
 }
 
 fn i18n_entry_count(value: &Value) -> usize {
@@ -1551,5 +1553,5 @@ pub(crate) fn save_mod_i18n_files(
 }
 
 #[cfg(test)]
-#[path = "../tests/integration/mods_tests.rs"]
+#[path = "../../tests/integration/mods_tests.rs"]
 mod tests;

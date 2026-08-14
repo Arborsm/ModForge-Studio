@@ -61,6 +61,7 @@ import {
   releaseLocalizationSemanticRuntime,
   unloadLocalizationSemanticRuntime,
   inspectLocalizationContext,
+  GAME_DIRECTORY_PICKER_TITLE,
 } from '@platform/host'
 import type { LocalizationPort } from '@shared/contracts'
 import { usePlatformPorts } from './usePlatformPorts'
@@ -101,7 +102,7 @@ export function LocalizationPlatformProvider({ children }: { children: ReactNode
       exportUsage: exportAiUsage,
       clearUsage: clearAiUsage,
       inspectOfficialIndex: inspectOfficialLocalizationIndex,
-      chooseGameDirectory: () => dialog.chooseDirectory('Select the Stardew Valley game folder'),
+      chooseGameDirectory: () => dialog.chooseDirectory(GAME_DIRECTORY_PICKER_TITLE),
       rebuildOfficialIndex: rebuildOfficialLocalizationIndex,
       searchOfficial: searchOfficialLocalization,
       cancelJob: async (jobId) => {

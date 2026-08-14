@@ -1,3 +1,5 @@
+pub(crate) mod commands;
+
 use std::io::{BufRead, BufReader, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
@@ -218,7 +220,8 @@ pub(crate) fn resolve_payload_dir() -> Option<PathBuf> {
 
 /// Reads the SMAPI manifest Version from a mod folder, or None when the folder is not a valid mod.
 pub(crate) fn read_manifest_version(mod_dir: &Path) -> Option<String> {
-    let raw = std::fs::read_to_string(mod_dir.join("manifest.json")).ok()?;
+    let raw = crate::infrastructure::text_encoding::read_text_file(&mod_dir.join("manifest.json"))
+        .ok()?;
     let manifest: Value = crate::infrastructure::game_formats::json_relaxed::parse_json_str(
         &raw,
         "debug bridge manifest",
@@ -258,5 +261,5 @@ fn copy_dir_replacing(source: &Path, target: &Path) -> Result<()> {
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/domain/debug_bridge_tests.rs"]
+#[path = "../../tests/unit/domain/debug_bridge_tests.rs"]
 mod tests;

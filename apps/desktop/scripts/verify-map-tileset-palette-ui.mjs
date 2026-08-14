@@ -1,11 +1,8 @@
-import { createRequire } from 'node:module'
 import { existsSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { deflateSync } from 'node:zlib'
-
-// Playwright must be loaded from its exact pnpm store location.
-const require = createRequire(import.meta.url)
-const { chromium } = require('E:/Arbor/ModForge Studio/node_modules/.pnpm/playwright@1.61.1/node_modules/playwright')
+import { chromium } from 'playwright'
 
 /**
  * Stage 2 palette verification (mechanical): drives the real product path in
@@ -21,7 +18,7 @@ const { chromium } = require('E:/Arbor/ModForge Studio/node_modules/.pnpm/playwr
 
 const fallbackUrls = ['http://127.0.0.1:5181', 'http://127.0.0.1:5175', 'http://127.0.0.1:5176', 'http://localhost:5173']
 const mockQuery = '/?mfLauncherMock=1&mfSettingsMock=1'
-const screenshotDir = path.resolve('E:/Arbor/ModForge Studio/.tmp')
+const screenshotDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..', '.tmp')
 const executablePath = [
   process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
   'C:/Program Files/Google/Chrome/Application/chrome.exe',

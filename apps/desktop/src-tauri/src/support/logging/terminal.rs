@@ -2,6 +2,7 @@ use std::io::IsTerminal;
 
 use owo_colors::OwoColorize;
 
+use super::env_flag_is_enabled;
 use super::event::{is_event_name, is_field_key};
 
 const LOG_COLOR_ENV: &str = "MODFORGE_LOG_COLOR";
@@ -532,11 +533,6 @@ fn terminal_wrap_width() -> Option<usize> {
 pub fn current_log_timestamp() -> String {
     let now = time::OffsetDateTime::now_local().unwrap_or_else(|_| time::OffsetDateTime::now_utc());
     format!("{:02}:{:02}:{:02}", now.hour(), now.minute(), now.second())
-}
-
-fn env_flag_is_enabled(value: &str) -> bool {
-    let normalized = value.trim().to_ascii_lowercase();
-    !normalized.is_empty() && !matches!(normalized.as_str(), "0" | "false" | "no" | "off")
 }
 
 fn env_flag_is_disabled(value: &str) -> bool {

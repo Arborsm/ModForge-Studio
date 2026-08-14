@@ -1,3 +1,5 @@
+pub(crate) mod commands;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -767,5 +769,5 @@ pub(crate) fn patch_app_ui_state(request: AppUiStatePatch) -> anyhow::Result<App
 }
 
 #[cfg(test)]
-#[path = "../tests/integration/ui_state_tests.rs"]
+#[path = "../../tests/integration/ui_state_tests.rs"]
 mod tests;

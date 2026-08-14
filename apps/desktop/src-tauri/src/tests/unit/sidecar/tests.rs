@@ -1,17 +1,92 @@
 use super::*;
+use crate::domain::ai::commands::{
+    ApplyAiProfilesImportParams, CancelAiJobParams, ClearAiTranslationCacheParams,
+    ExportAiProfilesParams, FetchAiModelsDevCatalogParams, ListAiModelsParams,
+    PreviewAiProfilesImportParams, SaveAiSettingsParams, TranslateAiBatchParams,
+};
+use crate::domain::ai::types::{
+    AiProfileImportConflictPolicy, AiProfileRequest, AiTranslateBatchRequest,
+    ApplyAiProfilesImportRequest, CancelAiJobRequest, ExportAiProfilesRequest, KnowledgePolicy,
+    PreviewAiProfilesImportRequest, SaveAiSettingsRequest,
+};
+use crate::domain::app_ui::AppUiStatePatch;
+use crate::domain::app_ui::commands::{LoadAppUiStateParams, PatchAppUiStateParams};
+use crate::domain::assets::commands::{ClearFileCacheParams, ExportFileParams, ExportMapPngParams};
+use crate::domain::cp_maker::commands::{
+    BuildCpMakerMapAssetParams, CopyCpMakerDraftParams, DeleteCpMakerDraftParams,
+    DeleteCpMakerProjectAssetParams, ExportCpMakerPackParams, ImportCpMakerPackParams,
+    LoadCpMakerProjectMapAssetParams, LoadCpMakerSessionParams, ReadCpMakerProjectAssetParams,
+    RenameCpMakerProjectAssetParams, SaveCpMakerDraftParams, SaveCpMakerSessionParams,
+    WriteCpMakerProjectAssetParams,
+};
+use crate::domain::cp_maker::types::{
+    BuildCpMakerMapAssetRequest, CopyCpMakerDraftRequest, CpMakerDraftRecord, CpMakerExportRequest,
+    CpMakerMetadata, CpMakerSession, DeleteProjectAssetRequest, ProjectAssetSource,
+    ReadProjectAssetRequest, RenameProjectAssetRequest, WriteProjectAssetRequest,
+};
+use crate::domain::launcher::commands::{
+    CancelLauncherDownloadParams, CheckLauncherUpdatesParams, ClearLauncherImageCacheParams,
+    DownloadLauncherModParams, LoadLauncherModConfigParams, LoadLauncherRemoteModDetailParams,
+    LoadLauncherSettingsParams, PersistLauncherLibraryRemoteCoverParams,
+    RecordLauncherImageFailureParams, ResolveLauncherImageParams, SaveLauncherLibraryStateParams,
+    SaveLauncherModConfigParams, ScanLauncherLibraryParams,
+};
+use crate::domain::launcher::types::{
+    CheckLauncherUpdatesRequest, DownloadLauncherModRequest, LauncherLibraryScopeMode,
+    LauncherLibraryState, LoadLauncherModConfigRequest, LoadLauncherRemoteModDetailRequest,
+    PersistLauncherLibraryRemoteCoverRequest, RecordLauncherImageFailureRequest,
+    ResolveLauncherImageRequest, SaveLauncherModConfigRequest, ScanLauncherLibraryRequest,
+};
+use crate::domain::localization::commands::{
+    AcquireLocalizationSemanticRuntimeParams, CancelLocalizationJobParams,
+    DownloadLocalizationSemanticModelParams, ListLocalizationReviewRunsParams,
+    LoadLocalizationReviewRunParams, PrewarmLocalizationCorpusParams,
+    ProbeLocalizationSemanticSearchParams, RebuildLocalizationSemanticIndexParams,
+    RebuildOfficialLocalizationIndexParams, ReleaseLocalizationSemanticRuntimeParams,
+    ReviewLocalizationBatchParams, SearchOfficialLocalizationParams,
+    SyncLocalizationSemanticIndexParams, TranslateLocalizationBatchParams,
+    UnloadLocalizationSemanticRuntimeParams, UpdateLocalizationReviewIssuesParams,
+    VerifyLocalizationSemanticModelParams,
+};
+use crate::domain::localization::machine_translation::commands::{
+    ListMachineTranslationLanguagesParams, LoadMachineTranslationSettingsParams,
+    SaveMachineTranslationSettingsParams, TestMachineTranslationProfileParams,
+    TranslateMachineTranslationBatchParams,
+};
+use crate::domain::localization::types::{
+    AiReviewRequest, AiSemanticSearchMode, DownloadAiSemanticModelRequest, ListReviewRunsRequest,
+    LoadReviewRunRequest, LocalizationEngineRef, LocalizationTranslateBatchRequest,
+    MachineTranslateBatchRequest, MachineTranslationProfileRequest, ProbeAiSemanticSearchRequest,
+    RebuildAiSemanticIndexRequest, RebuildOfficialLocalizationIndexRequest,
+    SaveMachineTranslationSettingsRequest, SearchOfficialLocalizationRequest,
+    UpdateReviewIssuesRequest, VerifyAiSemanticModelRequest,
+};
+use crate::domain::mods::SaveModI18nFilesRequest;
+use crate::domain::mods::commands::SaveModI18nFilesParams;
+use crate::host_runtime::{DispatchContext, HostCommand};
+use crate::host_runtime::{
+    HostCommandExecutionPool, HostCommandLane, HostCommandMutationPolicy, HostCommandResource,
+    HostCommandResult, ResolvedHostCommand,
+};
+use crate::infrastructure::game_formats::map::{MapDocument, MapFormat};
+use crate::support::logging::commands::PrintHostRuntimeDiagnosticsParams;
 use crate::test_support::create_temp_dir;
-use std::collections::BTreeSet;
+use serde_json::json;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
 use std::panic;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use syn::visit::{self, Visit};
 use syn::{
     ExprAwait, ExprCall, ExprMethodCall, File, Item, ItemFn, ItemUse, Macro, Path as SynPath,
     UseTree,
 };
+
+type SidecarResource = HostCommandResource;
+const NO_RESOURCES: &[HostCommandResource] = &[];
 
 fn parse_source(relative_path: &str) -> File {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -39,6 +114,31 @@ fn path_name(path: &SynPath) -> String {
         .map(|segment| segment.ident.to_string())
         .collect::<Vec<_>>()
         .join("::")
+}
+
+/// Every `commands.rs` binding file under src/, as a src/-relative path.
+fn command_source_files() -> Vec<String> {
+    fn collect(root: &Path, dir: &Path, out: &mut Vec<String>) {
+        for entry in fs::read_dir(dir).expect("read src directory") {
+            let entry = entry.expect("directory entry");
+            let path = entry.path();
+            if path.is_dir() {
+                collect(root, &path, out);
+            } else if entry.file_name() == "commands.rs" {
+                out.push(
+                    path.strip_prefix(root)
+                        .expect("src-relative path")
+                        .to_string_lossy()
+                        .replace('\\', "/"),
+                );
+            }
+        }
+    }
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut out = Vec::new();
+    collect(&root, &root, &mut out);
+    out.sort();
+    out
 }
 
 #[derive(Default)]
@@ -127,73 +227,87 @@ fn function_structure(function: &ItemFn) -> RustStructure {
     structure
 }
 
-fn command_lane(command: &str) -> Option<SidecarLane> {
-    let ctx = SidecarContext {
-        app: AppHandle::sidecar(|_, _| Ok(())),
-        debug_logging_state: DebugLoggingState::new(),
-    };
-    match resolve_command(
-        &ctx,
-        RpcRequest {
-            id: json!(1),
-            command: command.to_string(),
-            args: Value::Null,
-        },
-    ) {
-        ResolvedSidecarCommandOrResponse::Command(command) => Some(command.lane),
-        ResolvedSidecarCommandOrResponse::Response(_) => None,
+fn file_structure(file: &File) -> RustStructure {
+    let mut structure = RustStructure::default();
+    structure.visit_file(file);
+    structure
+}
+
+fn launcher_library_state() -> LauncherLibraryState {
+    LauncherLibraryState {
+        storage_folders: vec![],
+        hidden_mod_keys: vec![],
+        pack_presets: vec![],
+        child_mod_groups: vec![],
+        library_folders: vec![],
+        custom_orders: BTreeMap::new(),
+        current_pack_id: None,
+        scope_mode: LauncherLibraryScopeMode::All,
     }
 }
 
-fn command_resources(command: &str) -> Option<Vec<SidecarResource>> {
-    let ctx = SidecarContext {
+/// Resolves a typed binding directly (no wire frame) for policy inspection.
+fn typed_command_binding<P: HostCommand>(
+    params: P,
+) -> Option<(
+    HostCommandLane,
+    HostCommandExecutionPool,
+    Vec<SidecarResource>,
+)> {
+    let ctx = DispatchContext {
         app: AppHandle::sidecar(|_, _| Ok(())),
         debug_logging_state: DebugLoggingState::new(),
     };
-    match resolve_command(
-        &ctx,
-        RpcRequest {
-            id: json!(1),
-            command: command.to_string(),
-            args: Value::Null,
-        },
-    ) {
-        ResolvedSidecarCommandOrResponse::Command(command) => Some(command.resources),
-        ResolvedSidecarCommandOrResponse::Response(_) => None,
+    match P::resolve(&ctx, json!(1), params) {
+        ResolvedCommandOrResponse::Command(command) => {
+            Some((command.lane, command.execution_pool, command.resources))
+        }
+        ResolvedCommandOrResponse::Response(_) => None,
     }
 }
 
-fn command_has_dynamic_resources(command: &str) -> bool {
-    let ctx = SidecarContext {
+fn typed_command_has_dynamic_resources<P: HostCommand>(params: P) -> bool {
+    let ctx = DispatchContext {
         app: AppHandle::sidecar(|_, _| Ok(())),
         debug_logging_state: DebugLoggingState::new(),
     };
-    match resolve_command(
-        &ctx,
-        RpcRequest {
-            id: json!(1),
-            command: command.to_string(),
-            args: Value::Null,
-        },
-    ) {
-        ResolvedSidecarCommandOrResponse::Command(command) => command.resource_resolver.is_some(),
-        ResolvedSidecarCommandOrResponse::Response(_) => false,
+    match P::resolve(&ctx, json!(1), params) {
+        ResolvedCommandOrResponse::Command(command) => command.resource_resolver.is_some(),
+        ResolvedCommandOrResponse::Response(_) => false,
     }
 }
 
-fn resolved_dynamic_resources(command: &str, args: Value) -> Vec<SidecarResource> {
-    let ctx = SidecarContext {
+/// Asserts a typed binding resolves to the mutation lane with the declared
+/// resource locks (used for homogenous assertions across distinct params types).
+fn assert_binding_is_mutation_with_resources<P: HostCommand>(
+    params: P,
+    expected_resources: Vec<SidecarResource>,
+) {
+    assert_eq!(
+        typed_command_binding(params).map(|(lane, _, resources)| (lane, resources)),
+        Some((HostCommandLane::Mutation, expected_resources))
+    );
+}
+
+/// Asserts a typed binding resolves to the mutation lane on a dedicated pool
+/// with the declared resource locks.
+fn assert_binding_is_mutation_on_pool<P: HostCommand>(
+    params: P,
+    expected_pool: HostCommandExecutionPool,
+    expected_resources: Vec<SidecarResource>,
+) {
+    assert_eq!(
+        typed_command_binding(params).map(|(lane, pool, resources)| (lane, pool, resources)),
+        Some((HostCommandLane::Mutation, expected_pool, expected_resources))
+    );
+}
+
+fn typed_resolved_dynamic_resources<P: HostCommand>(params: P) -> Vec<SidecarResource> {
+    let ctx = DispatchContext {
         app: AppHandle::sidecar(|_, _| Ok(())),
         debug_logging_state: DebugLoggingState::new(),
     };
-    let ResolvedSidecarCommandOrResponse::Command(command) = resolve_command(
-        &ctx,
-        RpcRequest {
-            id: json!(1),
-            command: command.to_string(),
-            args,
-        },
-    ) else {
+    let ResolvedCommandOrResponse::Command(command) = P::resolve(&ctx, json!(1), params) else {
         panic!("command should resolve")
     };
     command
@@ -216,29 +330,49 @@ fn resolve_command_declares_lane_at_binding_site() {
             .any(|(name, _)| name == "host_command_wire")
     );
     assert_eq!(
-        command_lane("load_launcher_remote_mod_detail"),
-        Some(SidecarLane::Network)
+        typed_command_binding(LoadLauncherRemoteModDetailParams {
+            request: LoadLauncherRemoteModDetailRequest {
+                mod_id: 0,
+                include_files: false,
+            },
+        })
+        .map(|(lane, _, _)| lane),
+        Some(HostCommandLane::Network)
     );
     assert_eq!(
-        command_lane("save_launcher_library_state"),
-        Some(SidecarLane::Mutation)
-    );
-    assert_eq!(command_lane("scan_launcher_library"), Some(SidecarLane::Io));
-    assert_eq!(
-        command_lane("cancel_launcher_download"),
-        Some(SidecarLane::Control)
+        typed_command_binding(SaveLauncherLibraryStateParams {
+            request: launcher_library_state(),
+        })
+        .map(|(lane, _, _)| lane),
+        Some(HostCommandLane::Mutation)
     );
     assert_eq!(
-        command_lane("print_host_runtime_diagnostics"),
-        Some(SidecarLane::Control)
+        typed_command_binding(ScanLauncherLibraryParams {
+            request: ScanLauncherLibraryRequest {
+                mods_path: String::new(),
+            },
+        })
+        .map(|(lane, _, _)| lane),
+        Some(HostCommandLane::Io)
     );
     assert_eq!(
-        command_lane("load_launcher_settings"),
-        Some(SidecarLane::Mutation)
+        typed_command_binding(CancelLauncherDownloadParams {
+            download_id: String::new(),
+        })
+        .map(|(lane, _, _)| lane),
+        Some(HostCommandLane::Control)
     );
     assert_eq!(
-        command_lane("load_app_ui_state"),
-        Some(SidecarLane::Mutation)
+        typed_command_binding(PrintHostRuntimeDiagnosticsParams {}).map(|(lane, _, _)| lane),
+        Some(HostCommandLane::Control)
+    );
+    assert_eq!(
+        typed_command_binding(LoadLauncherSettingsParams {}).map(|(lane, _, _)| lane),
+        Some(HostCommandLane::Mutation)
+    );
+    assert_eq!(
+        typed_command_binding(LoadAppUiStateParams {}).map(|(lane, _, _)| lane),
+        Some(HostCommandLane::Mutation)
     );
 }
 
@@ -246,140 +380,31 @@ fn resolve_command_declares_lane_at_binding_site() {
 fn sidecar_uses_shared_host_runtime_scheduler() {
     let sidecar = parse_source("sidecar.rs");
     let host_runtime = parse_source("host_runtime.rs");
-    let tauri_runtime = parse_source("commands/runtime.rs");
-    assert!(sidecar.items.iter().any(|item| matches!(
-        item,
-        Item::Type(alias)
-            if alias.ident == "SidecarScheduler"
-                && matches!(alias.ty.as_ref(), syn::Type::Path(path) if path.path.segments.last().is_some_and(|segment| segment.ident == "HostCommandScheduler"))
-    )));
     assert!(host_runtime.items.iter().any(|item| matches!(
         item,
         Item::Struct(item) if item.ident == "HostCommandScheduler"
     )));
-    assert!(tauri_runtime.items.iter().any(|item| matches!(
+    assert!(host_runtime.items.iter().any(|item| matches!(
         item,
         Item::Struct(item) if item.ident == "TauriCommandRuntime"
     )));
     let run_stdio = function_structure(find_function(&sidecar, "run_stdio"));
     assert!(run_stdio.calls.contains("new"));
     assert!(run_stdio.calls.contains("submit"));
-}
-
-#[test]
-fn tauri_command_wrappers_route_through_host_runtime() {
-    for name in [
-        "ai",
-        "ai_usage",
-        "app_ui",
-        "assets",
-        "audio",
-        "content_patcher",
-        "cp_maker",
-        "launcher",
-        "localization",
-        "logging",
-        "machine_translation",
-        "mods",
-        "resource_registry",
-        "saves",
-    ] {
-        let source_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("src")
-            .join(format!("commands/{name}.rs"));
-        let source = fs::read_to_string(&source_path).unwrap();
-        let file = parse_source(&format!("commands/{name}.rs"));
-        let wrappers = file.items.iter().filter_map(|item| match item {
-            Item::Fn(function)
-                if function
-                    .attrs
-                    .iter()
-                    .any(|attribute| path_name(attribute.path()) == "tauri::command") =>
-            {
-                Some(function)
-            }
-            _ => None,
-        });
-        let mut wrapper_count = 0;
-        for wrapper in wrappers {
-            wrapper_count += 1;
-            assert!(
-                wrapper.sig.asyncness.is_some(),
-                "{name}::{} must be async",
-                wrapper.sig.ident
-            );
-            assert!(matches!(wrapper.vis, syn::Visibility::Public(_)));
-            let structure = function_structure(wrapper);
-            let uses_execute_macro = structure
-                .macros
-                .iter()
-                .any(|(macro_name, _)| macro_name == "execute");
-            assert!(
-                structure.calls.contains("execute_tauri_command") || uses_execute_macro,
-                "{name}::{} must route through execute_tauri_command",
-                wrapper.sig.ident
-            );
-            if uses_execute_macro {
-                assert!(source.contains("execute_tauri_command"));
-                assert!(source.contains("host_command_name!($name)"));
-            }
-            assert!(!structure.calls.contains("log_tauri_command_error"));
-            assert!(
-                uses_execute_macro
-                    || structure.macros.iter().any(|(macro_name, tokens)| {
-                        macro_name == "host_command_name"
-                            && tokens == &wrapper.sig.ident.to_string()
-                    })
-            );
-        }
-        assert!(wrapper_count > 0, "{name} has no Tauri command wrappers");
-    }
-}
-
-fn command_execution_pool(command: &str) -> Option<HostCommandExecutionPool> {
-    let ctx = SidecarContext {
-        app: AppHandle::sidecar(|_, _| Ok(())),
-        debug_logging_state: DebugLoggingState::new(),
-    };
-    match resolve_command(
-        &ctx,
-        RpcRequest {
-            id: json!(1),
-            command: command.to_string(),
-            args: Value::Null,
-        },
-    ) {
-        ResolvedSidecarCommandOrResponse::Command(command) => Some(command.execution_pool),
-        ResolvedSidecarCommandOrResponse::Response(_) => None,
-    }
-}
-
-fn command_binding(
-    command: &str,
-) -> Option<(SidecarLane, HostCommandExecutionPool, Vec<SidecarResource>)> {
-    let ctx = SidecarContext {
-        app: AppHandle::sidecar(|_, _| Ok(())),
-        debug_logging_state: DebugLoggingState::new(),
-    };
-    match resolve_command(
-        &ctx,
-        RpcRequest {
-            id: json!(1),
-            command: command.to_string(),
-            args: Value::Null,
-        },
-    ) {
-        ResolvedSidecarCommandOrResponse::Command(command) => {
-            Some((command.lane, command.execution_pool, command.resources))
-        }
-        ResolvedSidecarCommandOrResponse::Response(_) => None,
-    }
+    assert!(
+        run_stdio
+            .paths
+            .iter()
+            .any(|path| path.contains("Scheduler"))
+    );
+    let execute = function_structure(find_function(&host_runtime, "execute"));
+    assert!(execute.calls.contains("submit"));
 }
 
 #[test]
 fn tauri_host_runtime_waits_on_async_response_channel() {
-    let runtime = parse_source("commands/runtime.rs");
-    let execute = function_structure(find_function(&runtime, "execute_tauri_command"));
+    let runtime = parse_source("host_runtime.rs");
+    let execute = function_structure(find_function(&runtime, "execute"));
     assert!(execute.calls.contains("recv"));
     assert!(execute.calls.contains("submit"));
     assert!(execute.await_count > 0);
@@ -396,7 +421,7 @@ fn tauri_host_runtime_waits_on_async_response_channel() {
 
 #[test]
 fn launcher_image_cdn_has_dedicated_host_pool() {
-    let config = SidecarSchedulerConfig::default();
+    let config = HostCommandSchedulerConfig::default();
     assert_eq!(config.control_max_concurrency, 16);
     assert_eq!(config.network_max_concurrency, 32);
     assert_eq!(
@@ -404,74 +429,151 @@ fn launcher_image_cdn_has_dedicated_host_pool() {
         crate::domain::nexusmods::endpoints::IMAGE_CDN_DEFAULT_CONCURRENCY
     );
     assert_eq!(
-        command_execution_pool("resolve_launcher_image"),
+        typed_command_binding(ResolveLauncherImageParams {
+            request: ResolveLauncherImageRequest {
+                url: String::new(),
+                refresh: None,
+                mod_key: None,
+            },
+        })
+        .map(|(_, pool, _)| pool),
         Some(HostCommandExecutionPool::LauncherImageCdn)
     );
     assert_eq!(
-        command_execution_pool("load_launcher_remote_mod_detail"),
+        typed_command_binding(LoadLauncherRemoteModDetailParams {
+            request: LoadLauncherRemoteModDetailRequest {
+                mod_id: 0,
+                include_files: false,
+            },
+        })
+        .map(|(_, pool, _)| pool),
         Some(HostCommandExecutionPool::Lane)
     );
 }
 
 #[test]
 fn ai_commands_use_the_dedicated_pool_and_declared_resources() {
-    let config = SidecarSchedulerConfig::default();
+    let config = HostCommandSchedulerConfig::default();
     assert_eq!(config.ai_max_concurrency, 2);
     assert_eq!(config.ai_queue_capacity, 64);
     assert_eq!(
-        command_binding("translate_ai_batch"),
-        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
+        typed_command_binding(TranslateAiBatchParams {
+            request: AiTranslateBatchRequest {
+                job_id: String::new(),
+                profile_id: None,
+                source_locale: None,
+                target_locale: String::new(),
+                items: vec![],
+                usage_context: None,
+                knowledge_policy: KnowledgePolicy::default(),
+                skip_format_validation: false,
+                max_batch_bytes: None,
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
+        Some((
+            HostCommandLane::Network,
+            HostCommandExecutionPool::Ai,
+            vec![]
+        ))
     );
     assert_eq!(
-        command_binding("list_ai_models"),
-        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
+        typed_command_binding(ListAiModelsParams {
+            request: AiProfileRequest {
+                profile_id: String::new(),
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
+        Some((
+            HostCommandLane::Network,
+            HostCommandExecutionPool::Ai,
+            vec![]
+        ))
     );
     // models.dev is a public CDN catalog fetch; it uses the general network
     // pool so it never competes with bounded AI translation work.
     assert_eq!(
-        command_binding("fetch_ai_models_dev_catalog"),
-        Some((SidecarLane::Network, HostCommandExecutionPool::Lane, vec![]))
-    );
-    assert_eq!(
-        command_binding("cancel_ai_job"),
-        Some((SidecarLane::Control, HostCommandExecutionPool::Lane, vec![]))
-    );
-    assert_eq!(
-        command_binding("save_ai_settings"),
+        typed_command_binding(FetchAiModelsDevCatalogParams {})
+            .map(|(lane, pool, resources)| (lane, pool, resources)),
         Some((
-            SidecarLane::Mutation,
+            HostCommandLane::Network,
+            HostCommandExecutionPool::Lane,
+            vec![]
+        ))
+    );
+    assert_eq!(
+        typed_command_binding(CancelAiJobParams {
+            request: CancelAiJobRequest {
+                job_id: String::new(),
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
+        Some((
+            HostCommandLane::Control,
+            HostCommandExecutionPool::Lane,
+            vec![]
+        ))
+    );
+    assert_eq!(
+        typed_command_binding(SaveAiSettingsParams {
+            request: SaveAiSettingsRequest {
+                default_profile_id: None,
+                profiles: vec![],
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
+        Some((
+            HostCommandLane::Mutation,
             HostCommandExecutionPool::Lane,
             vec![SidecarResource::AiSettings]
         ))
     );
     assert_eq!(
-        command_binding("preview_ai_profiles_import"),
+        typed_command_binding(PreviewAiProfilesImportParams {
+            request: PreviewAiProfilesImportRequest {
+                source_path: String::new(),
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
         Some((
-            SidecarLane::Io,
+            HostCommandLane::Io,
             HostCommandExecutionPool::Lane,
             vec![SidecarResource::AiSettings]
         ))
     );
     assert_eq!(
-        command_binding("apply_ai_profiles_import"),
+        typed_command_binding(ApplyAiProfilesImportParams {
+            request: ApplyAiProfilesImportRequest {
+                source_path: String::new(),
+                conflict_policy: AiProfileImportConflictPolicy::Overwrite,
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
         Some((
-            SidecarLane::Mutation,
+            HostCommandLane::Mutation,
             HostCommandExecutionPool::Lane,
             vec![SidecarResource::AiSettings]
         ))
     );
     assert_eq!(
-        command_binding("export_ai_profiles"),
+        typed_command_binding(ExportAiProfilesParams {
+            request: ExportAiProfilesRequest {
+                destination_path: String::new(),
+                profile_ids: vec![],
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
         Some((
-            SidecarLane::Io,
+            HostCommandLane::Io,
             HostCommandExecutionPool::Lane,
             vec![SidecarResource::AiSettings, SidecarResource::FileExport]
         ))
     );
     assert_eq!(
-        command_binding("clear_ai_translation_cache"),
+        typed_command_binding(ClearAiTranslationCacheParams {})
+            .map(|(lane, pool, resources)| (lane, pool, resources)),
         Some((
-            SidecarLane::Mutation,
+            HostCommandLane::Mutation,
             HostCommandExecutionPool::Lane,
             vec![SidecarResource::AiTranslationCache]
         ))
@@ -480,92 +582,212 @@ fn ai_commands_use_the_dedicated_pool_and_declared_resources() {
 
 #[test]
 fn official_localization_index_has_an_isolated_mutation_pool() {
-    let config = SidecarSchedulerConfig::default();
+    let config = HostCommandSchedulerConfig::default();
     assert_eq!(config.ai_official_indexing_queue_capacity, 8);
     assert_eq!(
-        command_binding("rebuild_official_localization_index"),
+        typed_command_binding(RebuildOfficialLocalizationIndexParams {
+            request: RebuildOfficialLocalizationIndexRequest {
+                job_id: String::new(),
+                game_directory: String::new(),
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
         Some((
-            SidecarLane::Mutation,
+            HostCommandLane::Mutation,
             HostCommandExecutionPool::AiOfficialIndexing,
             vec![SidecarResource::AiOfficialLocalizationIndex],
         ))
     );
     assert_eq!(
-        command_binding("search_official_localization"),
+        typed_command_binding(SearchOfficialLocalizationParams {
+            request: SearchOfficialLocalizationRequest {
+                source_locale: String::new(),
+                target_locale: String::new(),
+                query: String::new(),
+                asset_category: None,
+                unit_kind: None,
+                prompt_eligible_only: false,
+                allow_literal_scan: false,
+                offset: 0,
+                limit: 0,
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
         Some((
-            SidecarLane::Io,
+            HostCommandLane::Io,
             HostCommandExecutionPool::Lane,
             vec![SidecarResource::AiOfficialLocalizationIndex],
         ))
     );
     assert_eq!(
-        command_binding("cancel_localization_job"),
-        Some((SidecarLane::Control, HostCommandExecutionPool::Lane, vec![]))
+        typed_command_binding(CancelLocalizationJobParams {
+            job_id: String::new(),
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
+        Some((
+            HostCommandLane::Control,
+            HostCommandExecutionPool::Lane,
+            vec![]
+        ))
     );
 }
 
 #[test]
 fn machine_translation_commands_use_host_runtime_policies() {
     assert_eq!(
-        command_binding("load_machine_translation_settings"),
+        typed_command_binding(LoadMachineTranslationSettingsParams {})
+            .map(|(lane, pool, resources)| (lane, pool, resources)),
         Some((
-            SidecarLane::Io,
+            HostCommandLane::Io,
             HostCommandExecutionPool::Lane,
             vec![SidecarResource::MachineTranslationSettings]
         ))
     );
     assert_eq!(
-        command_binding("save_machine_translation_settings"),
+        typed_command_binding(SaveMachineTranslationSettingsParams {
+            request: SaveMachineTranslationSettingsRequest {
+                default_profile_id: None,
+                profiles: vec![],
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
         Some((
-            SidecarLane::Mutation,
+            HostCommandLane::Mutation,
             HostCommandExecutionPool::Lane,
             vec![SidecarResource::MachineTranslationSettings]
         ))
     );
     assert_eq!(
-        command_binding("list_machine_translation_languages"),
-        Some((SidecarLane::Network, HostCommandExecutionPool::Lane, vec![]))
+        typed_command_binding(ListMachineTranslationLanguagesParams {
+            request: MachineTranslationProfileRequest {
+                profile_id: String::new(),
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
+        Some((
+            HostCommandLane::Network,
+            HostCommandExecutionPool::Lane,
+            vec![]
+        ))
     );
     assert_eq!(
-        command_binding("test_machine_translation_profile"),
-        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
+        typed_command_binding(TestMachineTranslationProfileParams {
+            request: MachineTranslationProfileRequest {
+                profile_id: String::new(),
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
+        Some((
+            HostCommandLane::Network,
+            HostCommandExecutionPool::Ai,
+            vec![]
+        ))
     );
     assert_eq!(
-        command_binding("translate_machine_translation_batch"),
-        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
+        typed_command_binding(TranslateMachineTranslationBatchParams {
+            request: MachineTranslateBatchRequest {
+                job_id: String::new(),
+                profile_id: None,
+                source_locale: None,
+                target_locale: String::new(),
+                items: vec![],
+                usage_context: None,
+                knowledge_policy: KnowledgePolicy::default(),
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
+        Some((
+            HostCommandLane::Network,
+            HostCommandExecutionPool::Ai,
+            vec![]
+        ))
     );
 }
 
 #[test]
 fn localization_review_releases_knowledge_lock_before_ai_network_work() {
     assert_eq!(
-        command_binding("translate_localization_batch"),
-        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
-    );
-    assert_eq!(
-        command_binding("review_localization_batch"),
-        Some((SidecarLane::Network, HostCommandExecutionPool::Ai, vec![]))
-    );
-    assert_eq!(
-        command_binding("list_localization_review_runs"),
+        typed_command_binding(TranslateLocalizationBatchParams {
+            request: LocalizationTranslateBatchRequest {
+                job_id: String::new(),
+                engine: LocalizationEngineRef {
+                    kind: String::new(),
+                    profile_id: String::new(),
+                },
+                source_locale: None,
+                target_locale: String::new(),
+                items: vec![],
+                usage_context: None,
+                knowledge_policy: KnowledgePolicy::default(),
+                max_batch_bytes: None,
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
         Some((
-            SidecarLane::Io,
+            HostCommandLane::Network,
+            HostCommandExecutionPool::Ai,
+            vec![]
+        ))
+    );
+    assert_eq!(
+        typed_command_binding(ReviewLocalizationBatchParams {
+            request: AiReviewRequest {
+                job_id: String::new(),
+                scope_id: String::new(),
+                source_locale: String::new(),
+                target_locale: String::new(),
+                mode: String::new(),
+                profile_id: None,
+                run_ai: false,
+                engine: String::new(),
+                items: vec![],
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
+        Some((
+            HostCommandLane::Network,
+            HostCommandExecutionPool::Ai,
+            vec![]
+        ))
+    );
+    assert_eq!(
+        typed_command_binding(ListLocalizationReviewRunsParams {
+            request: ListReviewRunsRequest {
+                scope_id: String::new(),
+                offset: 0,
+                limit: 0,
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
+        Some((
+            HostCommandLane::Io,
             HostCommandExecutionPool::Lane,
             vec![SidecarResource::AiLocalizationKnowledge]
         ))
     );
     assert_eq!(
-        command_binding("load_localization_review_run"),
+        typed_command_binding(LoadLocalizationReviewRunParams {
+            request: LoadReviewRunRequest {
+                run_id: String::new(),
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
         Some((
-            SidecarLane::Io,
+            HostCommandLane::Io,
             HostCommandExecutionPool::Lane,
             vec![SidecarResource::AiLocalizationKnowledge]
         ))
     );
     assert_eq!(
-        command_binding("update_localization_review_issues"),
+        typed_command_binding(UpdateLocalizationReviewIssuesParams {
+            request: UpdateReviewIssuesRequest {
+                run_id: String::new(),
+                issues: vec![],
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
         Some((
-            SidecarLane::Mutation,
+            HostCommandLane::Mutation,
             HostCommandExecutionPool::Lane,
             vec![SidecarResource::AiLocalizationKnowledge]
         ))
@@ -584,30 +806,14 @@ fn sidecar_protocol_names_are_derived_from_command_functions() {
     assert!(!wire_names.is_empty());
 
     let mut wrapper_names = BTreeSet::new();
-    for name in [
-        "ai",
-        "ai_usage",
-        "app_ui",
-        "assets",
-        "audio",
-        "content_patcher",
-        "cp_maker",
-        "debug_bridge",
-        "launcher",
-        "localization",
-        "logging",
-        "machine_translation",
-        "mods",
-        "resource_registry",
-        "saves",
-    ] {
-        let file = parse_source(&format!("commands/{name}.rs"));
+    for relative_path in command_source_files() {
+        let file = parse_source(&relative_path);
         for item in file.items {
             if let Item::Fn(function) = item
-                && function
-                    .attrs
-                    .iter()
-                    .any(|attribute| path_name(attribute.path()) == "tauri::command")
+                && function.attrs.iter().any(|attribute| {
+                    let attribute = path_name(attribute.path());
+                    attribute == "tauri::command" || attribute == "host_command"
+                })
             {
                 wrapper_names.insert(function.sig.ident.to_string());
             }
@@ -621,12 +827,74 @@ fn sidecar_protocol_names_are_derived_from_command_functions() {
 fn sidecar_resolver_does_not_call_tauri_command_wrappers() {
     let sidecar = parse_source("sidecar.rs");
     let resolver = function_structure(find_function(&sidecar, "resolve_command"));
-    assert!(
-        resolver
-            .paths
-            .iter()
-            .all(|path| !path.starts_with("crate::commands"))
-    );
+    assert_eq!(resolver.await_count, 0);
+    assert!(!resolver.calls.contains("block_on"));
+    let mut wrapper_names = BTreeSet::new();
+    for relative_path in command_source_files() {
+        let file = parse_source(&relative_path);
+        for item in file.items {
+            if let Item::Fn(function) = item
+                && function.attrs.iter().any(|attribute| {
+                    let attribute = path_name(attribute.path());
+                    attribute == "tauri::command" || attribute == "host_command"
+                })
+            {
+                wrapper_names.insert(function.sig.ident.to_string());
+            }
+        }
+    }
+    // The resolver may only reference command modules through wire envelope
+    // type paths (…Params); a call to a wrapper function would appear as a
+    // crate::<domain|infrastructure|support> path that does not end in Params.
+    for path in &resolver.paths {
+        if path.starts_with("crate::domain")
+            || path.starts_with("crate::infrastructure")
+            || path.starts_with("crate::support")
+        {
+            assert!(
+                path.ends_with("Params"),
+                "sidecar resolver must only reference command params types, found {path}"
+            );
+        }
+    }
+    assert!(!wrapper_names.is_empty());
+}
+
+#[test]
+fn typed_sidecar_arms_are_canonical_policy_free_pointers() {
+    let source =
+        fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/sidecar.rs")).unwrap();
+    let arm_start = "crate::host_command_wire!(";
+    let mut typed_arms = 0;
+    let mut cursor = 0;
+    while let Some(relative) = source[cursor..].find("resolve_typed::<") {
+        let absolute = cursor + relative;
+        let arm_index = source[..absolute]
+            .rfind(arm_start)
+            .expect("typed arm without wire name");
+        let name_end = source[arm_index..]
+            .find(')')
+            .map(|index| index + arm_index)
+            .expect("unterminated wire name");
+        let name = &source[arm_index + arm_start.len()..name_end];
+        let body = &source[name_end + source[name_end..].find("=>").expect("arm without body")..];
+        let stripped: String = body
+            .chars()
+            .filter(|character| !character.is_whitespace())
+            .collect();
+        assert!(
+            stripped.starts_with("=>{resolve_typed::<crate::")
+                || stripped.starts_with("=>resolve_typed::<crate::"),
+            "typed arm {name} must be exactly a resolve_typed type pointer"
+        );
+        assert!(
+            stripped.contains(">(ctx,id,args)"),
+            "typed arm {name} must call resolve_typed(ctx, id, args)"
+        );
+        typed_arms += 1;
+        cursor = absolute + 1;
+    }
+    assert!(typed_arms > 0, "expected typed sidecar arms");
 }
 
 #[test]
@@ -634,6 +902,11 @@ fn sidecar_resolver_avoids_async_domain_wrappers_that_spawn_blocking() {
     let sidecar = parse_source("sidecar.rs");
     let resolver = function_structure(find_function(&sidecar, "resolve_command"));
     assert!(!resolver.calls.contains("block_on"));
+    // The blocking domain calls live inside the typed bindings' execution
+    // closures now; they must still be invoked directly (never wrapped in a
+    // spawn_blocking/block_on helper) inside the launcher command module.
+    let launcher = parse_source("domain/launcher/commands.rs");
+    let launcher_structure = file_structure(&launcher);
     for expected in [
         "persist_launcher_library_remote_cover_blocking",
         "search_launcher_catalog_blocking",
@@ -643,8 +916,8 @@ fn sidecar_resolver_avoids_async_domain_wrappers_that_spawn_blocking() {
         "check_launcher_updates_blocking",
     ] {
         assert!(
-            resolver.calls.contains(expected),
-            "sidecar should call {expected} directly"
+            launcher_structure.calls.contains(expected),
+            "launcher bindings should call {expected} directly"
         );
     }
 }
@@ -652,43 +925,92 @@ fn sidecar_resolver_avoids_async_domain_wrappers_that_spawn_blocking() {
 #[test]
 fn download_cancel_is_control() {
     assert_eq!(
-        command_lane("download_launcher_mod"),
-        Some(SidecarLane::Network)
+        typed_command_binding(DownloadLauncherModParams {
+            request: DownloadLauncherModRequest {
+                download_id: None,
+                mod_id: 0,
+                file_id: None,
+                version: None,
+                title: None,
+            },
+        })
+        .map(|(lane, _, resources)| (lane, resources)),
+        Some((HostCommandLane::Network, vec![]))
     );
     assert_eq!(
-        command_lane("cancel_launcher_download"),
-        Some(SidecarLane::Control)
+        typed_command_binding(CancelLauncherDownloadParams {
+            download_id: String::new(),
+        })
+        .map(|(lane, _, resources)| (lane, resources)),
+        Some((HostCommandLane::Control, vec![]))
     );
-    assert_eq!(command_resources("download_launcher_mod"), Some(vec![]));
-    assert_eq!(command_resources("cancel_launcher_download"), Some(vec![]));
 }
 
 #[test]
 fn mutable_cache_commands_declare_resource_locks_at_binding_site() {
-    assert_eq!(command_resources("check_launcher_updates"), Some(vec![]));
-    assert_eq!(command_resources("resolve_launcher_image"), Some(vec![]));
     assert_eq!(
-        command_resources("clear_launcher_image_cache"),
-        Some(vec![SidecarResource::LauncherImageCache])
-    );
-    assert_eq!(
-        command_resources("record_launcher_image_failure"),
-        Some(vec![SidecarResource::LauncherImageCache])
-    );
-    assert_eq!(
-        command_lane("persist_launcher_library_remote_cover"),
-        Some(SidecarLane::Network)
-    );
-    assert_eq!(
-        command_resources("persist_launcher_library_remote_cover"),
+        typed_command_binding(CheckLauncherUpdatesParams {
+            request: CheckLauncherUpdatesRequest {
+                mods_path: String::new(),
+                force_refresh: None,
+                session_id: None,
+            },
+        })
+        .map(|(_, _, resources)| resources),
         Some(vec![])
     );
     assert_eq!(
-        command_resources("load_app_ui_state"),
+        typed_command_binding(ResolveLauncherImageParams {
+            request: ResolveLauncherImageRequest {
+                url: String::new(),
+                refresh: None,
+                mod_key: None,
+            },
+        })
+        .map(|(_, _, resources)| resources),
+        Some(vec![])
+    );
+    assert_eq!(
+        typed_command_binding(ClearLauncherImageCacheParams {}).map(|(_, _, resources)| resources),
+        Some(vec![SidecarResource::LauncherImageCache])
+    );
+    assert_eq!(
+        typed_command_binding(ClearFileCacheParams {})
+            .map(|(lane, _, resources)| (lane, resources)),
+        Some((
+            HostCommandLane::Mutation,
+            vec![SidecarResource::GameAssetCache]
+        ))
+    );
+    assert_eq!(
+        typed_command_binding(RecordLauncherImageFailureParams {
+            request: RecordLauncherImageFailureRequest {
+                mod_key: String::new(),
+                error: String::new(),
+            },
+        })
+        .map(|(_, _, resources)| resources),
+        Some(vec![SidecarResource::LauncherImageCache])
+    );
+    assert_eq!(
+        typed_command_binding(PersistLauncherLibraryRemoteCoverParams {
+            request: PersistLauncherLibraryRemoteCoverRequest {
+                label_key: String::new(),
+                image_url: String::new(),
+            },
+        })
+        .map(|(lane, _, resources)| (lane, resources)),
+        Some((HostCommandLane::Network, vec![]))
+    );
+    assert_eq!(
+        typed_command_binding(LoadAppUiStateParams {}).map(|(_, _, resources)| resources),
         Some(vec![SidecarResource::AppUiState])
     );
     assert_eq!(
-        command_resources("patch_app_ui_state"),
+        typed_command_binding(PatchAppUiStateParams {
+            request: AppUiStatePatch::default(),
+        })
+        .map(|(_, _, resources)| resources),
         Some(vec![SidecarResource::AppUiState])
     );
 }
@@ -696,91 +1018,250 @@ fn mutable_cache_commands_declare_resource_locks_at_binding_site() {
 #[test]
 fn launcher_mod_config_commands_declare_lane_and_resource_locks_at_binding_site() {
     assert_eq!(
-        command_lane("load_launcher_mod_config"),
-        Some(SidecarLane::Io)
+        typed_command_binding(LoadLauncherModConfigParams {
+            request: LoadLauncherModConfigRequest {
+                mod_path: String::new(),
+                locale: None,
+            },
+        })
+        .map(|(lane, _, resources)| (lane, resources)),
+        Some((HostCommandLane::Io, vec![]))
     );
-    assert_eq!(command_resources("load_launcher_mod_config"), Some(vec![]));
     assert_eq!(
-        command_lane("save_launcher_mod_config"),
-        Some(SidecarLane::Mutation)
-    );
-    assert_eq!(
-        command_resources("save_launcher_mod_config"),
-        Some(vec![SidecarResource::LauncherModConfig])
+        typed_command_binding(SaveLauncherModConfigParams {
+            request: SaveLauncherModConfigRequest {
+                mod_path: String::new(),
+                locale: None,
+                values: BTreeMap::new(),
+            },
+        })
+        .map(|(lane, _, resources)| (lane, resources)),
+        Some((
+            HostCommandLane::Mutation,
+            vec![SidecarResource::LauncherModConfig]
+        ))
     );
 }
 
 #[test]
 fn project_and_cp_maker_mutations_declare_resource_locks_at_binding_site() {
+    fn minimal_map_document() -> MapDocument {
+        MapDocument {
+            name: String::new(),
+            format: MapFormat::Tbin,
+            source_path: String::new(),
+            relative_path: String::new(),
+            width: 1,
+            height: 1,
+            tile_width: 16,
+            tile_height: 16,
+            orientation: String::new(),
+            render_order: String::new(),
+            tmx_version: None,
+            tiled_version: None,
+            next_layer_id: None,
+            next_object_id: None,
+            infinite: false,
+            properties: HashMap::new(),
+            tilesets: vec![],
+            layers: vec![],
+            object_groups: vec![],
+            layer_order: vec![],
+            preserved_xml: vec![],
+        }
+    }
     assert_eq!(
-        command_lane("save_mod_i18n_files"),
-        Some(SidecarLane::Mutation)
+        typed_command_binding(DeleteCpMakerDraftParams {
+            draft_storage_key: String::new(),
+        })
+        .map(|(lane, _, resources)| (lane, resources)),
+        Some((
+            HostCommandLane::Mutation,
+            vec![SidecarResource::CpMakerDrafts]
+        ))
     );
-    assert_eq!(command_resources("save_mod_i18n_files"), Some(vec![]));
-    assert!(command_has_dynamic_resources("save_mod_i18n_files"));
+    // Pure serialization of an in-memory document: no persistent state, so it
+    // runs on the io lane without resource locks.
     assert_eq!(
-        command_resources("save_cp_maker_draft"),
+        typed_command_binding(BuildCpMakerMapAssetParams {
+            request: BuildCpMakerMapAssetRequest {
+                relative_path: String::new(),
+                map_document: minimal_map_document(),
+            },
+        })
+        .map(|(lane, _, resources)| (lane, resources)),
+        Some((HostCommandLane::Io, vec![]))
+    );
+    let save_mod_i18n_params = || SaveModI18nFilesParams {
+        request: SaveModI18nFilesRequest {
+            source_path: String::new(),
+            i18n_files: vec![],
+        },
+    };
+    assert_eq!(
+        typed_command_binding(save_mod_i18n_params()).map(|(lane, _, _)| lane),
+        Some(HostCommandLane::Mutation)
+    );
+    assert_eq!(
+        typed_command_binding(save_mod_i18n_params()).map(|(_, _, resources)| resources),
+        Some(vec![])
+    );
+    assert!(typed_command_has_dynamic_resources(save_mod_i18n_params()));
+    let save_draft_params = || SaveCpMakerDraftParams {
+        draft: CpMakerDraftRecord {
+            draft_storage_key: String::new(),
+            project_metadata: CpMakerMetadata {
+                project_name: String::new(),
+                project_description: String::new(),
+                project_author: String::new(),
+                project_version: String::new(),
+                project_unique_id: String::new(),
+                game_root_path: None,
+                content_pack_for_unique_id: String::new(),
+                content_pack_for_minimum_version: None,
+                minimum_api_version: None,
+                update_keys: vec![],
+                dependencies: vec![],
+            },
+            config_schema_draft: json!({}),
+            serialized_change_registry: json!({}),
+            dynamic_tokens: vec![],
+            custom_locations: vec![],
+            alias_token_names: BTreeMap::new(),
+            event_source_snapshots_by_target: BTreeMap::new(),
+            i18n_files: vec![],
+            project_assets: vec![],
+            last_draft_saved_at: None,
+            last_exported_at: None,
+            last_export_path: None,
+            last_export_fingerprint: None,
+        },
+    };
+    assert_eq!(
+        typed_command_binding(save_draft_params()).map(|(_, _, resources)| resources),
         Some(vec![SidecarResource::CpMakerDrafts])
     );
-    assert_eq!(command_lane("load_cp_maker_session"), Some(SidecarLane::Io));
     assert_eq!(
-        command_resources("load_cp_maker_session"),
+        typed_command_binding(LoadCpMakerSessionParams {})
+            .map(|(lane, _, resources)| (lane, resources)),
+        Some((HostCommandLane::Io, vec![SidecarResource::CpMakerDrafts]))
+    );
+    assert_eq!(
+        typed_command_binding(SaveCpMakerSessionParams {
+            session: CpMakerSession::default(),
+        })
+        .map(|(lane, _, resources)| (lane, resources)),
+        Some((
+            HostCommandLane::Mutation,
+            vec![SidecarResource::CpMakerDrafts]
+        ))
+    );
+    assert_eq!(
+        typed_command_binding(CopyCpMakerDraftParams {
+            request: CopyCpMakerDraftRequest {
+                source_draft_storage_key: String::new(),
+            },
+        })
+        .map(|(_, _, resources)| resources),
         Some(vec![SidecarResource::CpMakerDrafts])
     );
     assert_eq!(
-        command_lane("save_cp_maker_session"),
-        Some(SidecarLane::Mutation)
-    );
-    assert_eq!(
-        command_resources("save_cp_maker_session"),
-        Some(vec![SidecarResource::CpMakerDrafts])
-    );
-    assert_eq!(
-        command_resources("copy_cp_maker_draft"),
-        Some(vec![SidecarResource::CpMakerDrafts])
-    );
-    assert_eq!(
-        command_resources("export_cp_maker_pack"),
+        typed_command_binding(ExportCpMakerPackParams {
+            request: CpMakerExportRequest {
+                draft_storage_key: String::new(),
+                output_path: String::new(),
+                manifest_json: String::new(),
+                content_json: String::new(),
+                virtual_assets: vec![],
+                i18n_files: vec![],
+            },
+        })
+        .map(|(_, _, resources)| resources),
         Some(vec![
             SidecarResource::ModProject,
             SidecarResource::CpMakerDrafts
         ])
     );
     assert_eq!(
-        command_resources("import_cp_maker_pack"),
+        typed_command_binding(ImportCpMakerPackParams {
+            mod_directory_path: String::new(),
+        })
+        .map(|(_, _, resources)| resources),
+        Some(vec![SidecarResource::CpMakerDrafts])
+    );
+    let read_asset_params = || ReadCpMakerProjectAssetParams {
+        request: ReadProjectAssetRequest {
+            draft_storage_key: String::new(),
+            relative_path: String::new(),
+        },
+    };
+    assert_eq!(
+        typed_command_binding(read_asset_params()).map(|(_, _, resources)| resources),
         Some(vec![SidecarResource::CpMakerDrafts])
     );
     assert_eq!(
-        command_resources("read_cp_maker_project_asset"),
-        Some(vec![SidecarResource::CpMakerDrafts])
+        typed_command_binding(LoadCpMakerProjectMapAssetParams {
+            request: ReadProjectAssetRequest {
+                draft_storage_key: String::new(),
+                relative_path: String::new(),
+            },
+        })
+        .map(|(lane, _, resources)| (lane, resources)),
+        Some((HostCommandLane::Io, vec![SidecarResource::CpMakerDrafts]))
+    );
+    let write_params = || WriteCpMakerProjectAssetParams {
+        request: WriteProjectAssetRequest {
+            draft_storage_key: String::new(),
+            relative_path: String::new(),
+            media_type: String::new(),
+            bytes_base64: String::new(),
+            source_type: ProjectAssetSource::Imported,
+        },
+    };
+    let rename_params = || RenameCpMakerProjectAssetParams {
+        request: RenameProjectAssetRequest {
+            draft_storage_key: String::new(),
+            relative_path: String::new(),
+            new_relative_path: String::new(),
+        },
+    };
+    let delete_params = || DeleteCpMakerProjectAssetParams {
+        request: DeleteProjectAssetRequest {
+            draft_storage_key: String::new(),
+            relative_path: String::new(),
+        },
+    };
+    assert_binding_is_mutation_with_resources(write_params(), vec![SidecarResource::CpMakerDrafts]);
+    assert_binding_is_mutation_with_resources(
+        rename_params(),
+        vec![SidecarResource::CpMakerDrafts],
+    );
+    assert_binding_is_mutation_with_resources(
+        delete_params(),
+        vec![SidecarResource::CpMakerDrafts],
+    );
+    let export_map_png_params = || ExportMapPngParams {
+        output_path: String::new(),
+        png_base64: String::new(),
+    };
+    assert_eq!(
+        typed_command_binding(export_map_png_params()).map(|(lane, _, _)| lane),
+        Some(HostCommandLane::Mutation)
     );
     assert_eq!(
-        command_resources("load_cp_maker_project_map_asset"),
-        Some(vec![SidecarResource::CpMakerDrafts])
-    );
-    for command in [
-        "write_cp_maker_project_asset",
-        "rename_cp_maker_project_asset",
-        "delete_cp_maker_project_asset",
-    ] {
-        assert_eq!(command_lane(command), Some(SidecarLane::Mutation));
-        assert_eq!(
-            command_resources(command),
-            Some(vec![SidecarResource::CpMakerDrafts])
-        );
-    }
-    assert_eq!(
-        command_lane("load_cp_maker_project_map_asset"),
-        Some(SidecarLane::Io)
-    );
-    assert_eq!(command_lane("export_map_png"), Some(SidecarLane::Mutation));
-    assert_eq!(
-        command_resources("export_map_png"),
+        typed_command_binding(export_map_png_params()).map(|(_, _, resources)| resources),
         Some(vec![SidecarResource::MapPngExport])
     );
-    assert_eq!(command_lane("export_file"), Some(SidecarLane::Mutation));
+    let export_file_params = || ExportFileParams {
+        output_path: String::new(),
+        content_base64: String::new(),
+    };
     assert_eq!(
-        command_resources("export_file"),
+        typed_command_binding(export_file_params()).map(|(lane, _, _)| lane),
+        Some(HostCommandLane::Mutation)
+    );
+    assert_eq!(
+        typed_command_binding(export_file_params()).map(|(_, _, resources)| resources),
         Some(vec![SidecarResource::FileExport])
     );
 }
@@ -788,85 +1269,125 @@ fn project_and_cp_maker_mutations_declare_resource_locks_at_binding_site() {
 #[test]
 fn semantic_download_and_indexing_declare_exclusive_resources_at_binding_site() {
     assert_eq!(
-        command_lane("download_localization_semantic_model"),
-        Some(SidecarLane::Network)
+        typed_command_binding(DownloadLocalizationSemanticModelParams {
+            request: DownloadAiSemanticModelRequest {
+                job_id: String::new(),
+                model_id: String::new(),
+            },
+        })
+        .map(|(lane, _, resources)| (lane, resources)),
+        Some((
+            HostCommandLane::Network,
+            vec![SidecarResource::AiSemanticModel]
+        ))
     );
-    assert_eq!(
-        command_resources("download_localization_semantic_model"),
-        Some(vec![SidecarResource::AiSemanticModel])
-    );
-    for command in [
-        "rebuild_localization_semantic_index",
-        "sync_localization_semantic_index",
-    ] {
-        assert_eq!(command_lane(command), Some(SidecarLane::Mutation));
-        assert_eq!(
-            command_execution_pool(command),
-            Some(HostCommandExecutionPool::AiSemanticIndexing)
-        );
-        assert_eq!(
-            command_resources(command),
-            Some(vec![
-                SidecarResource::AiSemanticModel,
-                SidecarResource::AiSemanticIndex,
-                SidecarResource::AiLocalizationKnowledge,
-                SidecarResource::AiOfficialLocalizationIndex,
-            ])
-        );
-    }
-    assert_eq!(
-        command_execution_pool("probe_localization_semantic_search"),
-        Some(HostCommandExecutionPool::AiSemanticSearch)
-    );
-    assert_eq!(
-        command_lane("probe_localization_semantic_search"),
-        Some(SidecarLane::Network)
-    );
-    assert_eq!(
-        command_resources("probe_localization_semantic_search"),
-        Some(vec![
-            SidecarResource::AiSemanticSettings,
+    assert_binding_is_mutation_on_pool(
+        RebuildLocalizationSemanticIndexParams {
+            request: RebuildAiSemanticIndexRequest {
+                job_id: String::new(),
+                scope_ids: vec![],
+                confirm_remote_upload: false,
+            },
+        },
+        HostCommandExecutionPool::AiSemanticIndexing,
+        vec![
             SidecarResource::AiSemanticModel,
             SidecarResource::AiSemanticIndex,
-            SidecarResource::AiOfficialLocalizationIndex,
             SidecarResource::AiLocalizationKnowledge,
-        ])
+            SidecarResource::AiOfficialLocalizationIndex,
+        ],
+    );
+    assert_binding_is_mutation_on_pool(
+        SyncLocalizationSemanticIndexParams {
+            request: RebuildAiSemanticIndexRequest {
+                job_id: String::new(),
+                scope_ids: vec![],
+                confirm_remote_upload: false,
+            },
+        },
+        HostCommandExecutionPool::AiSemanticIndexing,
+        vec![
+            SidecarResource::AiSemanticModel,
+            SidecarResource::AiSemanticIndex,
+            SidecarResource::AiLocalizationKnowledge,
+            SidecarResource::AiOfficialLocalizationIndex,
+        ],
     );
     assert_eq!(
-        command_resources("verify_localization_semantic_model"),
+        typed_command_binding(ProbeLocalizationSemanticSearchParams {
+            request: ProbeAiSemanticSearchRequest {
+                query: String::new(),
+                source_locale: String::new(),
+                target_locale: String::new(),
+                limit: 0,
+            },
+        })
+        .map(|(lane, pool, resources)| (lane, pool, resources)),
+        Some((
+            HostCommandLane::Network,
+            HostCommandExecutionPool::AiSemanticSearch,
+            vec![
+                SidecarResource::AiSemanticSettings,
+                SidecarResource::AiSemanticModel,
+                SidecarResource::AiSemanticIndex,
+                SidecarResource::AiOfficialLocalizationIndex,
+                SidecarResource::AiLocalizationKnowledge,
+            ]
+        ))
+    );
+    assert_eq!(
+        typed_command_binding(VerifyLocalizationSemanticModelParams {
+            request: VerifyAiSemanticModelRequest {
+                mode: AiSemanticSearchMode::Lexical,
+                model_id: None,
+                local_model_directory: None,
+            },
+        })
+        .map(|(_, _, resources)| resources),
         Some(vec![
             SidecarResource::AiSemanticSettings,
             SidecarResource::AiSemanticModel,
         ])
     );
     assert_eq!(
-        command_execution_pool("acquire_localization_semantic_runtime"),
+        typed_command_binding(AcquireLocalizationSemanticRuntimeParams {
+            lease_id: String::new(),
+        })
+        .map(|(_, pool, _)| pool),
         Some(HostCommandExecutionPool::AiSemanticSearch)
     );
     // Warmup commands must stay off the semantic status locks: they warm
     // internally synchronized caches and would otherwise stall the fast
     // status queries behind a multi-second local model load.
     assert_eq!(
-        command_resources("acquire_localization_semantic_runtime"),
+        typed_command_binding(AcquireLocalizationSemanticRuntimeParams {
+            lease_id: String::new(),
+        })
+        .map(|(_, _, resources)| resources),
         Some(vec![])
     );
     assert_eq!(
-        command_execution_pool("prewarm_localization_corpus"),
+        typed_command_binding(PrewarmLocalizationCorpusParams {}).map(|(_, pool, _)| pool),
         Some(HostCommandExecutionPool::AiSemanticSearch)
     );
     assert_eq!(
-        command_resources("prewarm_localization_corpus"),
+        typed_command_binding(PrewarmLocalizationCorpusParams {})
+            .map(|(_, _, resources)| resources),
         Some(vec![
             SidecarResource::AiLocalizationKnowledge,
             SidecarResource::AiOfficialLocalizationIndex,
         ])
     );
     assert_eq!(
-        command_lane("release_localization_semantic_runtime"),
-        Some(SidecarLane::Io)
+        typed_command_binding(ReleaseLocalizationSemanticRuntimeParams {
+            lease_id: String::new(),
+        })
+        .map(|(lane, _, _)| lane),
+        Some(HostCommandLane::Io)
     );
     assert_eq!(
-        command_resources("unload_localization_semantic_runtime"),
+        typed_command_binding(UnloadLocalizationSemanticRuntimeParams {})
+            .map(|(_, _, resources)| resources),
         Some(vec![
             SidecarResource::AiSemanticModel,
             SidecarResource::AiSemanticIndex,
@@ -885,15 +1406,12 @@ fn mod_i18n_save_resources_are_keyed_by_canonical_project_root() {
     std::fs::write(second.join("manifest.json"), "{}").expect("second manifest should be written");
 
     let resources_for = |path: &std::path::Path| {
-        resolved_dynamic_resources(
-            "save_mod_i18n_files",
-            json!({
-                "request": {
-                    "sourcePath": path.to_string_lossy(),
-                    "i18nFiles": [],
-                }
-            }),
-        )
+        typed_resolved_dynamic_resources(SaveModI18nFilesParams {
+            request: SaveModI18nFilesRequest {
+                source_path: path.to_string_lossy().into_owned(),
+                i18n_files: vec![],
+            },
+        })
     };
 
     let canonical = resources_for(&first);
@@ -907,11 +1425,11 @@ fn mod_i18n_save_resources_are_keyed_by_canonical_project_root() {
 }
 
 struct TestResponseWriter {
-    completed: Mutex<mpsc::SyncSender<RpcResponse>>,
+    completed: Mutex<mpsc::SyncSender<HostCommandResponse>>,
 }
 
 impl HostCommandResponseWriter for TestResponseWriter {
-    fn write_response(&self, response: &RpcResponse) -> Result<(), String> {
+    fn write_response(&self, response: &HostCommandResponse) -> Result<(), String> {
         self.completed
             .lock()
             .map_err(|_| "test response writer lock poisoned".to_string())?
@@ -921,14 +1439,14 @@ impl HostCommandResponseWriter for TestResponseWriter {
 }
 
 struct TestSchedulerHarness {
-    scheduler: SidecarScheduler,
-    completed: mpsc::Receiver<RpcResponse>,
+    scheduler: HostCommandScheduler,
+    completed: mpsc::Receiver<HostCommandResponse>,
 }
 
 struct FailingResponseWriter;
 
 impl HostCommandResponseWriter for FailingResponseWriter {
-    fn write_response(&self, _response: &RpcResponse) -> Result<(), String> {
+    fn write_response(&self, _response: &HostCommandResponse) -> Result<(), String> {
         Err("simulated writer failure".to_string())
     }
 }
@@ -939,43 +1457,43 @@ fn test_config(
     io_max_concurrency: usize,
     mutation_max_concurrency: usize,
     pool_queue_capacity: usize,
-) -> SidecarSchedulerConfig {
-    SidecarSchedulerConfig {
+) -> HostCommandSchedulerConfig {
+    HostCommandSchedulerConfig {
         control_max_concurrency,
         network_max_concurrency,
         io_max_concurrency,
         mutation_max_concurrency,
-        launcher_image_cdn_max_concurrency: SidecarSchedulerConfig::default()
+        launcher_image_cdn_max_concurrency: HostCommandSchedulerConfig::default()
             .launcher_image_cdn_max_concurrency,
-        ai_max_concurrency: SidecarSchedulerConfig::default().ai_max_concurrency,
-        ai_queue_capacity: SidecarSchedulerConfig::default().ai_queue_capacity,
-        ai_official_indexing_queue_capacity: SidecarSchedulerConfig::default()
+        ai_max_concurrency: HostCommandSchedulerConfig::default().ai_max_concurrency,
+        ai_queue_capacity: HostCommandSchedulerConfig::default().ai_queue_capacity,
+        ai_official_indexing_queue_capacity: HostCommandSchedulerConfig::default()
             .ai_official_indexing_queue_capacity,
         pool_queue_capacity,
     }
 }
 
 impl TestSchedulerHarness {
-    fn new(config: SidecarSchedulerConfig) -> Self {
+    fn new(config: HostCommandSchedulerConfig) -> Self {
         let (completed_tx, completed_rx) = mpsc::sync_channel(128);
         let writer = Arc::new(TestResponseWriter {
             completed: Mutex::new(completed_tx),
         });
-        let resources = Arc::new(SidecarResourceLocks::new());
+        let resources = Arc::new(HostCommandResourceLocks::new());
         let debug_logging_state = DebugLoggingState::new();
         debug_logging_state.set_enabled(true);
-        let scheduler = SidecarScheduler::new(writer, resources, config, debug_logging_state);
+        let scheduler = HostCommandScheduler::new(writer, resources, config, debug_logging_state);
         Self {
             scheduler,
             completed: completed_rx,
         }
     }
 
-    fn submit(&self, command: ResolvedSidecarCommand) {
+    fn submit(&self, command: ResolvedHostCommand) {
         self.scheduler.submit(command);
     }
 
-    fn recv(&self) -> RpcResponse {
+    fn recv(&self) -> HostCommandResponse {
         self.completed
             .recv_timeout(Duration::from_secs(1))
             .expect("test command should complete")
@@ -1012,29 +1530,28 @@ fn pool_counters_are(summary: &str, submitted: u64, succeeded: u64) -> bool {
 }
 
 fn create_test_command(
-    lane: SidecarLane,
+    lane: HostCommandLane,
     name: &str,
     resources: &'static [SidecarResource],
-    run: impl FnOnce() -> DispatchResult + Send + 'static,
-) -> ResolvedSidecarCommand {
+    run: impl FnOnce() -> HostCommandResult + Send + 'static,
+) -> ResolvedHostCommand {
     create_test_command_on_pool(HostCommandExecutionPool::Lane, lane, name, resources, run)
 }
 
 fn create_test_command_on_pool(
     execution_pool: HostCommandExecutionPool,
-    lane: SidecarLane,
+    lane: HostCommandLane,
     name: &str,
     resources: &'static [SidecarResource],
-    run: impl FnOnce() -> DispatchResult + Send + 'static,
-) -> ResolvedSidecarCommand {
-    ResolvedSidecarCommand {
+    run: impl FnOnce() -> HostCommandResult + Send + 'static,
+) -> ResolvedHostCommand {
+    ResolvedHostCommand {
         id: json!(name),
         name: name.to_string(),
         lane,
         execution_pool,
         resources: resources.to_vec(),
         resource_resolver: None,
-        cancel_policy: HostCommandCancelPolicy::NotCancellable,
         mutation_policy: if resources.is_empty() {
             HostCommandMutationPolicy::Concurrent
         } else {
@@ -1072,7 +1589,7 @@ fn network_flood_does_not_delay_control() {
     let (network_started_tx, network_started_rx) = mpsc::channel();
     let (release_network_tx, release_network_rx) = mpsc::channel();
     scheduler.submit(create_test_command(
-        SidecarLane::Network,
+        HostCommandLane::Network,
         "network",
         NO_RESOURCES,
         move || {
@@ -1089,7 +1606,7 @@ fn network_flood_does_not_delay_control() {
         .recv_timeout(Duration::from_secs(1))
         .expect("network command should start");
     scheduler.submit(create_test_command(
-        SidecarLane::Control,
+        HostCommandLane::Control,
         "control",
         NO_RESOURCES,
         || Ok(Value::Null),
@@ -1119,7 +1636,7 @@ fn network_pool_dispatcher_preserves_configured_concurrency() {
         let max_active = Arc::clone(&max_active);
         let started_tx = started_tx.clone();
         scheduler.submit(create_test_command(
-            SidecarLane::Network,
+            HostCommandLane::Network,
             name,
             NO_RESOURCES,
             move || {
@@ -1152,14 +1669,14 @@ fn network_pool_dispatcher_preserves_configured_concurrency() {
 
 #[test]
 fn launcher_image_cdn_pool_does_not_share_network_lane_workers() {
-    let scheduler = TestSchedulerHarness::new(SidecarSchedulerConfig {
+    let scheduler = TestSchedulerHarness::new(HostCommandSchedulerConfig {
         launcher_image_cdn_max_concurrency: 1,
         ..test_config(1, 1, 1, 1, 8)
     });
     let (network_started_tx, network_started_rx) = mpsc::channel();
     let (release_network_tx, release_network_rx) = mpsc::channel();
     scheduler.submit(create_test_command(
-        SidecarLane::Network,
+        HostCommandLane::Network,
         "blocked-network",
         NO_RESOURCES,
         move || {
@@ -1179,7 +1696,7 @@ fn launcher_image_cdn_pool_does_not_share_network_lane_workers() {
     let (cover_started_tx, cover_started_rx) = mpsc::channel();
     scheduler.submit(create_test_command_on_pool(
         HostCommandExecutionPool::LauncherImageCdn,
-        SidecarLane::Network,
+        HostCommandLane::Network,
         "cover",
         NO_RESOURCES,
         move || {
@@ -1206,14 +1723,14 @@ fn launcher_image_cdn_pool_does_not_share_network_lane_workers() {
 
 #[test]
 fn ai_pool_does_not_share_network_lane_workers() {
-    let scheduler = TestSchedulerHarness::new(SidecarSchedulerConfig {
+    let scheduler = TestSchedulerHarness::new(HostCommandSchedulerConfig {
         ai_max_concurrency: 1,
         ..test_config(1, 1, 1, 1, 8)
     });
     let (network_started_tx, network_started_rx) = mpsc::channel();
     let (release_network_tx, release_network_rx) = mpsc::channel();
     scheduler.submit(create_test_command(
-        SidecarLane::Network,
+        HostCommandLane::Network,
         "blocked-network",
         NO_RESOURCES,
         move || {
@@ -1233,7 +1750,7 @@ fn ai_pool_does_not_share_network_lane_workers() {
     let (ai_started_tx, ai_started_rx) = mpsc::channel();
     scheduler.submit(create_test_command_on_pool(
         HostCommandExecutionPool::Ai,
-        SidecarLane::Network,
+        HostCommandLane::Network,
         "ai",
         NO_RESOURCES,
         move || {
@@ -1264,7 +1781,7 @@ fn network_flood_does_not_delay_io() {
     let (network_started_tx, network_started_rx) = mpsc::channel();
     let (release_network_tx, release_network_rx) = mpsc::channel();
     scheduler.submit(create_test_command(
-        SidecarLane::Network,
+        HostCommandLane::Network,
         "network",
         NO_RESOURCES,
         move || {
@@ -1281,7 +1798,7 @@ fn network_flood_does_not_delay_io() {
         .recv_timeout(Duration::from_secs(1))
         .expect("network command should start");
     scheduler.submit(create_test_command(
-        SidecarLane::Io,
+        HostCommandLane::Io,
         "io",
         NO_RESOURCES,
         || Ok(Value::Null),
@@ -1307,7 +1824,7 @@ fn same_resource_commands_do_not_overlap_across_lanes() {
     let network_active = Arc::clone(&active);
     let network_max_active = Arc::clone(&max_active);
     scheduler.submit(create_test_command(
-        SidecarLane::Network,
+        HostCommandLane::Network,
         "network-cache-write",
         &[SidecarResource::LauncherImageCache],
         move || {
@@ -1330,7 +1847,7 @@ fn same_resource_commands_do_not_overlap_across_lanes() {
     let mutation_active = Arc::clone(&active);
     let mutation_max_active = Arc::clone(&max_active);
     scheduler.submit(create_test_command(
-        SidecarLane::Mutation,
+        HostCommandLane::Mutation,
         "mutation-cache-clear",
         &[SidecarResource::LauncherImageCache],
         move || {
@@ -1355,7 +1872,7 @@ fn remote_cover_network_work_does_not_delay_library_state_mutation() {
     let (cover_started_tx, cover_started_rx) = mpsc::channel();
     let (release_cover_tx, release_cover_rx) = mpsc::channel();
     scheduler.submit(create_test_command(
-        SidecarLane::Network,
+        HostCommandLane::Network,
         "persist-cover",
         NO_RESOURCES,
         move || {
@@ -1373,7 +1890,7 @@ fn remote_cover_network_work_does_not_delay_library_state_mutation() {
         .expect("cover command should start");
 
     scheduler.submit(create_test_command(
-        SidecarLane::Mutation,
+        HostCommandLane::Mutation,
         "save-library-state",
         &[SidecarResource::LauncherLibraryState],
         || Ok(Value::Null),
@@ -1394,7 +1911,7 @@ fn long_network_launcher_commands_do_not_hold_sidecar_resource_locks() {
     let (download_started_tx, download_started_rx) = mpsc::channel();
     let (release_download_tx, release_download_rx) = mpsc::channel();
     scheduler.submit(create_test_command(
-        SidecarLane::Network,
+        HostCommandLane::Network,
         "download",
         NO_RESOURCES,
         move || {
@@ -1410,7 +1927,7 @@ fn long_network_launcher_commands_do_not_hold_sidecar_resource_locks() {
         .expect("download should start");
 
     scheduler.submit(create_test_command(
-        SidecarLane::Mutation,
+        HostCommandLane::Mutation,
         "save-settings",
         &[SidecarResource::LauncherSettings],
         || Ok(Value::Null),
@@ -1422,7 +1939,7 @@ fn long_network_launcher_commands_do_not_hold_sidecar_resource_locks() {
     let (updates_started_tx, updates_started_rx) = mpsc::channel();
     let (release_updates_tx, release_updates_rx) = mpsc::channel();
     scheduler.submit(create_test_command(
-        SidecarLane::Network,
+        HostCommandLane::Network,
         "check-updates",
         NO_RESOURCES,
         move || {
@@ -1438,7 +1955,7 @@ fn long_network_launcher_commands_do_not_hold_sidecar_resource_locks() {
         .expect("updates should start");
 
     scheduler.submit(create_test_command(
-        SidecarLane::Mutation,
+        HostCommandLane::Mutation,
         "load-updates-cache",
         &[SidecarResource::LauncherUpdatesCache],
         || Ok(Value::Null),
@@ -1464,7 +1981,7 @@ fn resource_locked_network_command_does_not_delay_control_without_same_resource(
     let (network_started_tx, network_started_rx) = mpsc::channel();
     let (release_network_tx, release_network_rx) = mpsc::channel();
     scheduler.submit(create_test_command(
-        SidecarLane::Network,
+        HostCommandLane::Network,
         "download",
         &[SidecarResource::LauncherInstallTree],
         move || {
@@ -1479,7 +1996,7 @@ fn resource_locked_network_command_does_not_delay_control_without_same_resource(
         .recv_timeout(Duration::from_secs(1))
         .expect("download should start");
     scheduler.submit(create_test_command(
-        SidecarLane::Control,
+        HostCommandLane::Control,
         "cancel",
         NO_RESOURCES,
         || Ok(Value::Null),
@@ -1499,7 +2016,7 @@ fn mutation_is_serial() {
         2,
         1,
         1,
-        SidecarSchedulerConfig::default().mutation_max_concurrency,
+        HostCommandSchedulerConfig::default().mutation_max_concurrency,
         8,
     ));
     let active = Arc::new(AtomicUsize::new(0));
@@ -1509,7 +2026,7 @@ fn mutation_is_serial() {
     let first_active = Arc::clone(&active);
     let first_max_active = Arc::clone(&max_active);
     scheduler.submit(create_test_command(
-        SidecarLane::Mutation,
+        HostCommandLane::Mutation,
         "first",
         NO_RESOURCES,
         move || {
@@ -1532,7 +2049,7 @@ fn mutation_is_serial() {
     let second_active = Arc::clone(&active);
     let second_max_active = Arc::clone(&max_active);
     scheduler.submit(create_test_command(
-        SidecarLane::Mutation,
+        HostCommandLane::Mutation,
         "second",
         NO_RESOURCES,
         move || {
@@ -1557,7 +2074,7 @@ fn enqueue_failure_returns_error_response_for_request_id() {
     let (first_started_tx, first_started_rx) = mpsc::channel();
     let (release_first_tx, release_first_rx) = mpsc::channel();
     scheduler.submit(create_test_command(
-        SidecarLane::Network,
+        HostCommandLane::Network,
         "first",
         NO_RESOURCES,
         move || {
@@ -1570,13 +2087,13 @@ fn enqueue_failure_returns_error_response_for_request_id() {
         .recv_timeout(Duration::from_secs(1))
         .expect("first command should start");
     scheduler.submit(create_test_command(
-        SidecarLane::Network,
+        HostCommandLane::Network,
         "queued",
         NO_RESOURCES,
         || Ok(Value::Null),
     ));
     scheduler.submit(create_test_command(
-        SidecarLane::Network,
+        HostCommandLane::Network,
         "rejected",
         NO_RESOURCES,
         || Ok(Value::Null),
@@ -1603,14 +2120,14 @@ fn enqueue_failure_returns_error_response_for_request_id() {
 fn writer_failure_records_diagnostics_and_releases_active_slot() {
     let debug_logging_state = DebugLoggingState::new();
     debug_logging_state.set_enabled(true);
-    let scheduler = SidecarScheduler::new(
+    let scheduler = HostCommandScheduler::new(
         Arc::new(FailingResponseWriter),
-        Arc::new(SidecarResourceLocks::new()),
+        Arc::new(HostCommandResourceLocks::new()),
         test_config(1, 1, 1, 1, 8),
         debug_logging_state,
     );
     scheduler.submit(create_test_command(
-        SidecarLane::Io,
+        HostCommandLane::Io,
         "writer-fails",
         NO_RESOURCES,
         || Ok(Value::Null),
@@ -1644,7 +2161,7 @@ fn panic_returns_error_and_worker_survives() {
     let _panic_hook_guard = PanicHookGuard::silence();
     let scheduler = TestSchedulerHarness::new(test_config(1, 1, 1, 1, 8));
     scheduler.submit(create_test_command(
-        SidecarLane::Io,
+        HostCommandLane::Io,
         "panic",
         NO_RESOURCES,
         || {
@@ -1652,7 +2169,7 @@ fn panic_returns_error_and_worker_survives() {
         },
     ));
     scheduler.submit(create_test_command(
-        SidecarLane::Io,
+        HostCommandLane::Io,
         "after",
         NO_RESOURCES,
         || Ok(Value::Null),
@@ -1679,14 +2196,14 @@ fn telemetry_uses_per_command_sampling_when_debug_changes_mid_run() {
     let writer = Arc::new(TestResponseWriter {
         completed: Mutex::new(completed_tx),
     });
-    let scheduler = SidecarScheduler::new(
+    let scheduler = HostCommandScheduler::new(
         writer,
-        Arc::new(SidecarResourceLocks::new()),
+        Arc::new(HostCommandResourceLocks::new()),
         test_config(1, 1, 1, 1, 8),
         debug_logging_state.clone(),
     );
     scheduler.submit(create_test_command(
-        SidecarLane::Network,
+        HostCommandLane::Network,
         "before-debug",
         NO_RESOURCES,
         || Ok(Value::Null),
@@ -1698,7 +2215,7 @@ fn telemetry_uses_per_command_sampling_when_debug_changes_mid_run() {
 
     debug_logging_state.set_enabled(true);
     scheduler.submit(create_test_command(
-        SidecarLane::Network,
+        HostCommandLane::Network,
         "after-debug",
         NO_RESOURCES,
         || Ok(Value::Null),

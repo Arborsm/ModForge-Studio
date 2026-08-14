@@ -1,30 +1,15 @@
 use crate::AppHandle;
 use crate::domain;
-use crate::host_commands::HostCommandName;
+use crate::host_runtime::{DispatchContext, HostCommand};
 use crate::host_runtime::{
-    HostCommandCancelPolicy, HostCommandContext, HostCommandExecutionPool, HostCommandLane,
-    HostCommandMutationPolicy, HostCommandResource, HostCommandResourceLocks,
-    HostCommandResourceResolver, HostCommandResponse, HostCommandResponseWriter, HostCommandResult,
-    HostCommandScheduler, HostCommandSchedulerConfig, ResolvedHostCommand,
+    HostCommandResourceLocks, HostCommandResponse, HostCommandResponseWriter, HostCommandScheduler,
+    HostCommandSchedulerConfig, ResolvedCommandOrResponse,
 };
 use crate::support::logging::{self, DebugLoggingState, LogEvent, targets};
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::io::{self, BufRead, Write};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
-
-type DispatchResult = HostCommandResult;
-type SidecarLane = HostCommandLane;
-type SidecarResource = HostCommandResource;
-type SidecarResponse = HostCommandResponse;
-type SidecarSchedulerConfig = HostCommandSchedulerConfig;
-type SidecarScheduler = HostCommandScheduler;
-type SidecarResourceLocks = HostCommandResourceLocks;
-type ResolvedSidecarCommand = ResolvedHostCommand;
-type SidecarCommandName = HostCommandName;
-const NO_RESOURCES: &[HostCommandResource] = &[];
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct RpcRequest {
@@ -33,8 +18,6 @@ pub(crate) struct RpcRequest {
     #[serde(default)]
     pub(crate) args: Value,
 }
-
-type RpcResponse = SidecarResponse;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -49,2004 +32,570 @@ struct RpcEventFrame<'a> {
     event: HostEventFrame<'a>,
 }
 
-pub(crate) struct SidecarContext {
-    app: AppHandle,
-    debug_logging_state: DebugLoggingState,
-}
-
-impl Clone for SidecarContext {
-    fn clone(&self) -> Self {
-        Self {
-            app: self.app.clone(),
-            debug_logging_state: self.debug_logging_state.clone(),
+/// Resolves a typed command binding from a wire frame: deserializes the
+/// args into the command's wire envelope `P` exactly once and delegates to
+/// `HostCommand::resolve`, the same builder the Tauri path runs in-process.
+pub(crate) fn resolve_typed<P: HostCommand>(
+    ctx: &DispatchContext,
+    id: Value,
+    args: Value,
+) -> ResolvedCommandOrResponse {
+    let params = match serde_json::from_value::<P>(if args.is_null() { json!({}) } else { args }) {
+        Ok(params) => params,
+        Err(error) => {
+            return ResolvedCommandOrResponse::Response(HostCommandResponse {
+                id,
+                ok: false,
+                result: None,
+                error: Some(json!(format!(
+                    "Invalid command arguments for {}: {error}",
+                    P::NAME
+                ))),
+            });
         }
-    }
-}
-
-impl SidecarContext {
-    pub(crate) fn new(app: AppHandle, debug_logging_state: DebugLoggingState) -> Self {
-        Self {
-            app,
-            debug_logging_state,
-        }
-    }
-}
-
-pub(crate) enum ResolvedSidecarCommandOrResponse {
-    Command(ResolvedSidecarCommand),
-    Response(RpcResponse),
-}
-
-fn sidecar_command<F>(
-    id: Value,
-    name: &SidecarCommandName,
-    lane: SidecarLane,
-    resources: &'static [SidecarResource],
-    run: F,
-) -> ResolvedSidecarCommandOrResponse
-where
-    F: FnOnce(HostCommandContext) -> DispatchResult + Send + 'static,
-{
-    ResolvedSidecarCommandOrResponse::Command(ResolvedSidecarCommand {
-        id,
-        name: name.as_str().to_string(),
-        lane,
-        execution_pool: HostCommandExecutionPool::Lane,
-        resources: resources.to_vec(),
-        resource_resolver: None,
-        cancel_policy: HostCommandCancelPolicy::NotCancellable,
-        mutation_policy: if resources.is_empty() {
-            HostCommandMutationPolicy::Concurrent
-        } else {
-            HostCommandMutationPolicy::ExclusiveResources
-        },
-        submitted_at: Instant::now(),
-        record_telemetry: false,
-        run: Box::new(run),
-    })
-}
-
-fn network_on_pool<F>(
-    id: Value,
-    name: &SidecarCommandName,
-    execution_pool: HostCommandExecutionPool,
-    run: F,
-) -> ResolvedSidecarCommandOrResponse
-where
-    F: FnOnce() -> DispatchResult + Send + 'static,
-{
-    match sidecar_command(id, name, SidecarLane::Network, NO_RESOURCES, move |_| run()) {
-        ResolvedSidecarCommandOrResponse::Command(mut command) => {
-            command.execution_pool = execution_pool;
-            ResolvedSidecarCommandOrResponse::Command(command)
-        }
-        response => response,
-    }
-}
-
-fn network_on_pool_with_resources<F>(
-    id: Value,
-    name: &SidecarCommandName,
-    execution_pool: HostCommandExecutionPool,
-    resources: &'static [SidecarResource],
-    run: F,
-) -> ResolvedSidecarCommandOrResponse
-where
-    F: FnOnce() -> DispatchResult + Send + 'static,
-{
-    match network_with_resources(id, name, resources, run) {
-        ResolvedSidecarCommandOrResponse::Command(mut command) => {
-            command.execution_pool = execution_pool;
-            ResolvedSidecarCommandOrResponse::Command(command)
-        }
-        response => response,
-    }
-}
-
-fn ai_network<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
-where
-    F: FnOnce() -> DispatchResult + Send + 'static,
-{
-    network_on_pool(id, name, HostCommandExecutionPool::Ai, run)
-}
-
-fn control<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
-where
-    F: FnOnce() -> DispatchResult + Send + 'static,
-{
-    sidecar_command(id, name, SidecarLane::Control, NO_RESOURCES, move |_| run())
-}
-
-fn control_with_context<F>(
-    id: Value,
-    name: &SidecarCommandName,
-    run: F,
-) -> ResolvedSidecarCommandOrResponse
-where
-    F: FnOnce(HostCommandContext) -> DispatchResult + Send + 'static,
-{
-    sidecar_command(id, name, SidecarLane::Control, NO_RESOURCES, run)
-}
-
-fn network<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
-where
-    F: FnOnce() -> DispatchResult + Send + 'static,
-{
-    sidecar_command(id, name, SidecarLane::Network, NO_RESOURCES, move |_| run())
-}
-
-fn network_with_resources<F>(
-    id: Value,
-    name: &SidecarCommandName,
-    resources: &'static [SidecarResource],
-    run: F,
-) -> ResolvedSidecarCommandOrResponse
-where
-    F: FnOnce() -> DispatchResult + Send + 'static,
-{
-    sidecar_command(id, name, SidecarLane::Network, resources, move |_| run())
-}
-
-fn io_lane<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
-where
-    F: FnOnce() -> DispatchResult + Send + 'static,
-{
-    sidecar_command(id, name, SidecarLane::Io, NO_RESOURCES, move |_| run())
-}
-
-fn mutation<F>(id: Value, name: &SidecarCommandName, run: F) -> ResolvedSidecarCommandOrResponse
-where
-    F: FnOnce() -> DispatchResult + Send + 'static,
-{
-    sidecar_command(id, name, SidecarLane::Mutation, NO_RESOURCES, move |_| {
-        run()
-    })
-}
-
-fn control_with_resources<F>(
-    id: Value,
-    name: &SidecarCommandName,
-    resources: &'static [SidecarResource],
-    run: F,
-) -> ResolvedSidecarCommandOrResponse
-where
-    F: FnOnce() -> DispatchResult + Send + 'static,
-{
-    sidecar_command(id, name, SidecarLane::Control, resources, move |_| run())
-}
-
-fn io_with_resources<F>(
-    id: Value,
-    name: &SidecarCommandName,
-    resources: &'static [SidecarResource],
-    run: F,
-) -> ResolvedSidecarCommandOrResponse
-where
-    F: FnOnce() -> DispatchResult + Send + 'static,
-{
-    sidecar_command(id, name, SidecarLane::Io, resources, move |_| run())
-}
-
-fn io_on_pool_with_resources<F>(
-    id: Value,
-    name: &SidecarCommandName,
-    execution_pool: HostCommandExecutionPool,
-    resources: &'static [SidecarResource],
-    run: F,
-) -> ResolvedSidecarCommandOrResponse
-where
-    F: FnOnce() -> DispatchResult + Send + 'static,
-{
-    match io_with_resources(id, name, resources, run) {
-        ResolvedSidecarCommandOrResponse::Command(mut command) => {
-            command.execution_pool = execution_pool;
-            ResolvedSidecarCommandOrResponse::Command(command)
-        }
-        response => response,
-    }
-}
-
-fn mutation_with_resources<F>(
-    id: Value,
-    name: &SidecarCommandName,
-    resources: &'static [SidecarResource],
-    run: F,
-) -> ResolvedSidecarCommandOrResponse
-where
-    F: FnOnce() -> DispatchResult + Send + 'static,
-{
-    sidecar_command(id, name, SidecarLane::Mutation, resources, move |_| run())
-}
-
-fn mutation_on_pool<F>(
-    id: Value,
-    name: &SidecarCommandName,
-    execution_pool: HostCommandExecutionPool,
-    resources: &'static [SidecarResource],
-    run: F,
-) -> ResolvedSidecarCommandOrResponse
-where
-    F: FnOnce() -> DispatchResult + Send + 'static,
-{
-    match mutation_with_resources(id, name, resources, run) {
-        ResolvedSidecarCommandOrResponse::Command(mut command) => {
-            command.execution_pool = execution_pool;
-            ResolvedSidecarCommandOrResponse::Command(command)
-        }
-        response => response,
-    }
-}
-
-fn mutation_with_resource_resolver<F, R>(
-    id: Value,
-    name: &SidecarCommandName,
-    resolve_resources: R,
-    run: F,
-) -> ResolvedSidecarCommandOrResponse
-where
-    F: FnOnce() -> DispatchResult + Send + 'static,
-    R: FnOnce() -> Result<Vec<SidecarResource>, Value> + Send + 'static,
-{
-    match sidecar_command(id, name, SidecarLane::Mutation, NO_RESOURCES, move |_| {
-        run()
-    }) {
-        ResolvedSidecarCommandOrResponse::Command(mut command) => {
-            command.resource_resolver =
-                Some(Box::new(resolve_resources) as HostCommandResourceResolver);
-            command.mutation_policy = HostCommandMutationPolicy::ExclusiveResources;
-            ResolvedSidecarCommandOrResponse::Command(command)
-        }
-        response => response,
-    }
-}
-
-fn arg<T>(args: &Value, key: &str) -> Result<T, Value>
-where
-    T: DeserializeOwned,
-{
-    let value = args
-        .get(key)
-        .ok_or_else(|| json!(format!("Missing required command argument: {key}")))?;
-    serde_json::from_value(value.clone())
-        .map_err(|error| json!(format!("Invalid command argument {key}: {error}")))
-}
-
-fn arg_or_whole<T>(args: &Value, key: &str) -> Result<T, Value>
-where
-    T: DeserializeOwned,
-{
-    let value = args.get(key).unwrap_or(args);
-    serde_json::from_value(value.clone())
-        .map_err(|error| json!(format!("Invalid command arguments for {key}: {error}")))
-}
-
-fn optional_arg<T>(args: &Value, key: &str) -> Result<Option<T>, Value>
-where
-    T: DeserializeOwned,
-{
-    match args.get(key) {
-        Some(Value::Null) | None => Ok(None),
-        Some(value) => serde_json::from_value(value.clone())
-            .map(Some)
-            .map_err(|error| json!(format!("Invalid command argument {key}: {error}"))),
-    }
-}
-
-fn ok<T, E>(result: Result<T, E>) -> DispatchResult
-where
-    T: Serialize,
-    E: ToString,
-{
-    result
-        .map(|value| serde_json::to_value(value).unwrap_or(Value::Null))
-        .map_err(|error| json!(error.to_string()))
-}
-
-fn ok_ai<T>(result: anyhow::Result<T>) -> DispatchResult
-where
-    T: Serialize,
-{
-    ok(result.map_err(domain::ai::format_command_error))
+    };
+    P::resolve(ctx, id, params)
 }
 
 pub(crate) fn resolve_command(
-    ctx: &SidecarContext,
+    ctx: &DispatchContext,
     request: RpcRequest,
-) -> ResolvedSidecarCommandOrResponse {
+) -> ResolvedCommandOrResponse {
     let RpcRequest { id, command, args } = request;
-    let command_name = SidecarCommandName::from_protocol(command.clone());
 
     match command.as_str() {
-        crate::host_command_wire!(detect_default_game_directory) => {
-            io_lane(id, &command_name, || {
-                ok(Ok::<_, String>(
-                    domain::assets::detect_default_game_directory(),
-                ))
-            })
-        }
-        crate::host_command_wire!(list_known_game_directories) => {
-            io_lane(id, &command_name, || {
-                ok(Ok::<_, String>(
-                    domain::assets::list_known_game_directories(),
-                ))
-            })
-        }
-        crate::host_command_wire!(get_file_cache_stats) => io_lane(id, &command_name, || {
-            ok(domain::assets::get_file_cache_stats())
-        }),
-        crate::host_command_wire!(clear_file_cache) => {
-            mutation(id, &command_name, || ok(domain::assets::clear_file_cache()))
-        }
-        crate::host_command_wire!(validate_game_directory) => {
-            io_lane(id, &command_name, move || {
-                ok(domain::assets::validate_game_directory(arg(&args, "path")?))
-            })
-        }
-        crate::host_command_wire!(get_debug_bridge_status) => {
-            network(id, &command_name, move || {
-                ok(domain::debug_bridge::get_debug_bridge_status(optional_arg(
-                    &args, "port",
-                )?))
-            })
-        }
-        crate::host_command_wire!(send_debug_bridge_command) => {
-            network(id, &command_name, move || {
-                ok(domain::debug_bridge::send_debug_bridge_command(
-                    arg_or_whole(&args, "request")?,
-                ))
-            })
-        }
-        crate::host_command_wire!(get_debug_bridge_mod_state) => {
-            io_lane(id, &command_name, move || {
-                ok(domain::debug_bridge::get_debug_bridge_mod_state(arg(
-                    &args,
-                    "gameRootPath",
-                )?))
-            })
-        }
-        crate::host_command_wire!(install_debug_bridge_mod) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::DebugBridgeInstall],
-            move || {
-                ok(domain::debug_bridge::install_debug_bridge_mod(arg(
-                    &args,
-                    "gameRootPath",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(scan_maps) => io_lane(id, &command_name, move || {
-            ok(domain::assets::scan_maps(
-                arg(&args, "path")?,
-                optional_arg(&args, "locale")?,
-            ))
-        }),
-        crate::host_command_wire!(scan_events) => io_lane(id, &command_name, move || {
-            ok(domain::assets::scan_events(arg(&args, "path")?))
-        }),
-        crate::host_command_wire!(load_map_asset) => io_lane(id, &command_name, move || {
-            ok(domain::assets::load_map_asset(
-                arg(&args, "rootPath")?,
-                arg(&args, "mapPath")?,
-                optional_arg(&args, "locale")?,
-            ))
-        }),
-        crate::host_command_wire!(export_map_png) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::MapPngExport],
-            move || {
-                ok(domain::assets::export_map_png(
-                    arg(&args, "outputPath")?,
-                    arg(&args, "pngBase64")?,
-                ))
-            },
-        ),
-        crate::host_command_wire!(export_file) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::FileExport],
-            move || {
-                ok(domain::assets::export_file(
-                    arg(&args, "outputPath")?,
-                    arg(&args, "contentBase64")?,
-                ))
-            },
-        ),
-        crate::host_command_wire!(load_text_asset) => io_lane(id, &command_name, move || {
-            ok(domain::assets::load_text_asset(
-                arg(&args, "rootPath")?,
-                arg(&args, "assetPath")?,
-                optional_arg(&args, "locale")?,
-            ))
-        }),
-        crate::host_command_wire!(load_event_asset) => io_lane(id, &command_name, move || {
-            ok(domain::assets::load_event_asset(
-                arg(&args, "rootPath")?,
-                arg(&args, "assetPath")?,
-                optional_arg(&args, "locale")?,
-            ))
-        }),
-        crate::host_command_wire!(load_text_file) => io_lane(id, &command_name, move || {
-            ok(domain::assets::load_text_file(arg(&args, "path")?))
-        }),
-        crate::host_command_wire!(load_image_data_url) => io_lane(id, &command_name, move || {
-            ok(domain::assets::load_image_data_url(
-                arg(&args, "path")?,
-                optional_arg(&args, "locale")?,
-            ))
-        }),
-        crate::host_command_wire!(scan_audio_assets) => io_lane(id, &command_name, move || {
-            ok(domain::assets::scan_audio_assets(arg(&args, "path")?))
-        }),
-        crate::host_command_wire!(scan_image_assets) => io_lane(id, &command_name, move || {
-            ok(domain::assets::scan_image_assets(arg(&args, "path")?))
-        }),
-        crate::host_command_wire!(scan_data_assets) => io_lane(id, &command_name, move || {
-            ok(domain::assets::scan_data_assets(arg(&args, "path")?))
-        }),
-        crate::host_command_wire!(load_audio_data_url) => io_lane(id, &command_name, move || {
-            ok(domain::assets::load_audio_data_url(arg(&args, "path")?))
-        }),
-        crate::host_command_wire!(load_xact_audio_data_url) => {
-            io_lane(id, &command_name, move || {
-                let root_path: String = arg(&args, "rootPath")?;
-                let cue: String = arg(&args, "cue")?;
-                ok(
-                    crate::infrastructure::game_formats::xact::load_xact_audio_data_url_for_paths(
-                        &root_path, &cue,
-                    ),
-                )
-            })
-        }
-        crate::host_command_wire!(load_resource_registry) => {
-            io_lane(id, &command_name, move || {
-                ok(domain::resource_registry::load_resource_registry(
-                    arg(&args, "rootPath")?,
-                    optional_arg(&args, "locale")?,
-                ))
-            })
-        }
-        crate::host_command_wire!(scan_default_save_slots) => io_lane(id, &command_name, || {
-            ok(domain::saves::scan_default_save_slots())
-        }),
-
-        crate::host_command_wire!(scan_mod_projects) => io_lane(id, &command_name, move || {
-            ok(domain::mods::scan_mod_projects(arg(&args, "rootPath")?))
-        }),
-        crate::host_command_wire!(scan_mod_asset_index) => io_lane(id, &command_name, move || {
-            ok(domain::mods::scan_mod_asset_index(arg(&args, "rootPath")?))
-        }),
-        crate::host_command_wire!(load_mod_project) => io_lane(id, &command_name, move || {
-            ok(domain::mods::load_mod_project(arg(&args, "path")?))
-        }),
-        crate::host_command_wire!(save_mod_i18n_files) => {
-            let resource_args = args.clone();
-            mutation_with_resource_resolver(
-                id,
-                &command_name,
-                move || {
-                    let request: domain::mods::SaveModI18nFilesRequest =
-                        arg_or_whole(&resource_args, "request")?;
-                    let canonical_root =
-                        domain::mods::canonical_mod_project_root(&request.source_path)
-                            .map_err(|error| json!(error.to_string()))?;
-                    Ok(vec![SidecarResource::ModProjectRoot(Arc::from(
-                        canonical_root.to_string_lossy().as_ref(),
-                    ))])
-                },
-                move || {
-                    ok(domain::mods::save_mod_i18n_files(arg_or_whole(
-                        &args, "request",
-                    )?))
-                },
-            )
-        }
-
-        crate::host_command_wire!(load_content_patcher_result_asset) => {
-            io_lane(id, &command_name, move || {
-                ok(domain::content_patcher::load_content_patcher_result_asset(
-                    arg(&args, "request")?,
-                ))
-            })
-        }
-
-        crate::host_command_wire!(list_cp_maker_drafts) => io_lane(id, &command_name, || {
-            ok(domain::cp_maker::list_cp_maker_drafts())
-        }),
-        crate::host_command_wire!(load_cp_maker_draft) => io_lane(id, &command_name, move || {
-            ok(domain::cp_maker::load_cp_maker_draft(arg(
-                &args,
-                "draftStorageKey",
-            )?))
-        }),
-        crate::host_command_wire!(load_cp_maker_session) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::CpMakerDrafts],
-            move || ok(domain::cp_maker::load_cp_maker_session()),
-        ),
-        crate::host_command_wire!(save_cp_maker_session) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::CpMakerDrafts],
-            move || {
-                ok(domain::cp_maker::save_cp_maker_session(arg(
-                    &args, "session",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(save_cp_maker_draft) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::CpMakerDrafts],
-            move || ok(domain::cp_maker::save_cp_maker_draft(arg(&args, "draft")?)),
-        ),
-        crate::host_command_wire!(delete_cp_maker_draft) => {
-            mutation(id, &command_name, move || {
-                ok(domain::cp_maker::delete_cp_maker_draft(arg(
-                    &args,
-                    "draftStorageKey",
-                )?))
-            })
-        }
-        crate::host_command_wire!(copy_cp_maker_draft) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::CpMakerDrafts],
-            move || {
-                ok(domain::cp_maker::copy_cp_maker_draft(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(export_cp_maker_pack) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::ModProject, SidecarResource::CpMakerDrafts],
-            move || {
-                ok(domain::cp_maker::export_cp_maker_pack(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(build_cp_maker_map_asset) => {
-            mutation(id, &command_name, move || {
-                ok(domain::cp_maker::build_cp_maker_map_asset(arg(
-                    &args, "request",
-                )?))
-            })
-        }
-        crate::host_command_wire!(import_cp_maker_pack) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::CpMakerDrafts],
-            move || {
-                let mod_directory_path: String = arg(&args, "modDirectoryPath")?;
-                ok(domain::cp_maker::import_cp_maker_pack(&mod_directory_path))
-            },
-        ),
-        crate::host_command_wire!(read_cp_maker_project_asset) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::CpMakerDrafts],
-            move || {
-                ok(domain::cp_maker::read_cp_maker_project_asset(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(load_cp_maker_project_map_asset) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::CpMakerDrafts],
-            move || {
-                ok(domain::cp_maker::load_cp_maker_project_map_asset(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(write_cp_maker_project_asset) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::CpMakerDrafts],
-            move || {
-                ok(domain::cp_maker::write_cp_maker_project_asset(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(write_cp_maker_project_assets) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::CpMakerDrafts],
-            move || {
-                ok(domain::cp_maker::write_cp_maker_project_assets(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(import_cp_maker_project_assets) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::CpMakerDrafts],
-            move || {
-                ok(domain::cp_maker::import_cp_maker_project_assets(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(rename_cp_maker_project_asset) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::CpMakerDrafts],
-            move || {
-                ok(domain::cp_maker::rename_cp_maker_project_asset(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(delete_cp_maker_project_asset) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::CpMakerDrafts],
-            move || {
-                ok(domain::cp_maker::delete_cp_maker_project_asset(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-
-        crate::host_command_wire!(load_launcher_settings) => {
-            let app = ctx.app.clone();
-            mutation_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherSettings],
-                move || ok(domain::launcher::settings::load_launcher_settings(app)),
-            )
-        }
-        crate::host_command_wire!(save_launcher_settings) => {
-            let app = ctx.app.clone();
-            mutation_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherSettings],
-                move || {
-                    ok(domain::launcher::settings::save_launcher_settings(
-                        app,
-                        arg(&args, "request")?,
-                    ))
-                },
-            )
-        }
-        crate::host_command_wire!(launch_launcher_game) => {
-            let app = ctx.app.clone();
-            control_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherSettings],
-                move || ok(domain::launcher::runtime::launch_launcher_game(app)),
-            )
-        }
-        crate::host_command_wire!(get_launcher_backup_directory) => {
-            let app = ctx.app.clone();
-            mutation_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherInstallTree],
-                move || {
-                    ok(domain::launcher::runtime::get_launcher_backup_directory(
-                        app,
-                    ))
-                },
-            )
-        }
-        crate::host_command_wire!(open_launcher_path) => control(id, &command_name, move || {
-            ok(domain::launcher::runtime::open_launcher_path(arg(
-                &args, "request",
-            )?))
-        }),
-        crate::host_command_wire!(open_launcher_url) => control(id, &command_name, move || {
-            ok(domain::launcher::runtime::open_launcher_url(arg(
-                &args, "request",
-            )?))
-        }),
-        crate::host_command_wire!(load_launcher_library_state) => {
-            let app = ctx.app.clone();
-            mutation_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherLibraryState],
-                move || ok(domain::launcher::library::load_launcher_library_state(app)),
-            )
-        }
-        crate::host_command_wire!(save_launcher_library_state) => {
-            let app = ctx.app.clone();
-            mutation_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherLibraryState],
-                move || {
-                    ok(domain::launcher::library::save_launcher_library_state(
-                        app,
-                        arg(&args, "request")?,
-                    ))
-                },
-            )
-        }
-        crate::host_command_wire!(load_launcher_library_covers) => {
-            let app = ctx.app.clone();
-            mutation_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherLibraryCovers],
-                move || ok(domain::launcher::library::load_launcher_library_covers(app)),
-            )
-        }
-        crate::host_command_wire!(load_launcher_image_failures) => {
-            let app = ctx.app.clone();
-            io_lane(id, &command_name, move || {
-                ok(domain::launcher::image_failures::load_launcher_image_failures(app))
-            })
-        }
-        crate::host_command_wire!(record_launcher_image_failure) => {
-            let app = ctx.app.clone();
-            mutation_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherImageCache],
-                move || {
-                    ok(
-                        domain::launcher::image_failures::record_launcher_image_failure_command(
-                            app,
-                            arg(&args, "request")?,
-                        ),
-                    )
-                },
-            )
-        }
-        crate::host_command_wire!(set_launcher_library_cover) => {
-            let app = ctx.app.clone();
-            mutation_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherLibraryCovers],
-                move || {
-                    ok(domain::launcher::library::set_launcher_library_cover(
-                        app,
-                        arg(&args, "request")?,
-                    ))
-                },
-            )
-        }
-        crate::host_command_wire!(persist_launcher_library_remote_cover) => {
-            let app = ctx.app.clone();
-            network(id, &command_name, move || {
-                let request = arg(&args, "request")?;
-                ok(
-                    domain::launcher::library::persist_launcher_library_remote_cover_blocking(
-                        &app, &request,
-                    ),
-                )
-            })
-        }
-        crate::host_command_wire!(scan_launcher_library) => {
-            let app = ctx.app.clone();
-            io_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherLibraryCovers],
-                move || {
-                    ok(domain::launcher::library::scan_launcher_library(
-                        app,
-                        arg(&args, "request")?,
-                    ))
-                },
-            )
-        }
-        crate::host_command_wire!(load_launcher_runtime_info) => {
-            let app = ctx.app.clone();
-            io_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherSettings],
-                move || ok(domain::launcher::runtime::load_launcher_runtime_info(app)),
-            )
-        }
-        crate::host_command_wire!(set_launcher_mod_enabled) => {
-            let app = ctx.app.clone();
-            mutation_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherInstallTree],
-                move || {
-                    ok(domain::launcher::library::set_launcher_mod_enabled(
-                        app,
-                        arg(&args, "request")?,
-                    ))
-                },
-            )
-        }
-        crate::host_command_wire!(load_launcher_mod_config) => {
-            io_lane(id, &command_name, move || {
-                ok(domain::launcher::mod_config::load_launcher_mod_config(arg(
-                    &args, "request",
-                )?))
-            })
-        }
-        crate::host_command_wire!(load_launcher_gmcm_probe_diagnostics) => {
-            io_lane(id, &command_name, || {
-                ok(Ok::<_, String>(
-                    domain::launcher::mod_config::load_launcher_gmcm_probe_diagnostics(),
-                ))
-            })
-        }
-        crate::host_command_wire!(save_launcher_mod_config) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::LauncherModConfig],
-            move || {
-                ok(domain::launcher::mod_config::save_launcher_mod_config(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(load_launcher_download_queue) => {
-            let app = ctx.app.clone();
-            mutation_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherDownloadQueue],
-                move || {
-                    ok(domain::launcher::downloads::load_launcher_download_queue(
-                        app,
-                    ))
-                },
-            )
-        }
-        crate::host_command_wire!(save_launcher_download_queue) => {
-            let app = ctx.app.clone();
-            mutation_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherDownloadQueue],
-                move || {
-                    ok(domain::launcher::downloads::save_launcher_download_queue(
-                        app,
-                        arg(&args, "request")?,
-                    ))
-                },
-            )
-        }
-        crate::host_command_wire!(download_launcher_mod) => {
-            let app = ctx.app.clone();
-            network(id, &command_name, move || {
-                ok(domain::launcher::downloads::download_launcher_mod(
-                    app,
-                    arg(&args, "request")?,
-                ))
-            })
-        }
-        crate::host_command_wire!(cancel_launcher_download) => {
-            control(id, &command_name, move || {
-                ok(domain::launcher::downloads::cancel_launcher_download(arg(
-                    &args,
-                    "downloadId",
-                )?))
-            })
-        }
-        crate::host_command_wire!(search_launcher_catalog) => {
-            let app = ctx.app.clone();
-            network(id, &command_name, move || {
-                let request = arg(&args, "request")?;
-                ok(domain::nexusmods::catalog::search_launcher_catalog_blocking(&app, &request))
-            })
-        }
-        crate::host_command_wire!(load_launcher_remote_mod_detail) => {
-            let app = ctx.app.clone();
-            network(id, &command_name, move || {
-                let request = arg(&args, "request")?;
-                ok(
-                    domain::nexusmods::mod_detail::load_launcher_remote_mod_detail_blocking(
-                        &app, &request,
-                    ),
-                )
-            })
-        }
-        crate::host_command_wire!(load_launcher_update_changelog) => {
-            let app = ctx.app.clone();
-            network(id, &command_name, move || {
-                let request = arg(&args, "request")?;
-                ok(
-                    domain::nexusmods::mod_detail::load_launcher_update_changelog_blocking(
-                        &app, &request,
-                    ),
-                )
-            })
-        }
-        crate::host_command_wire!(resolve_launcher_image) => {
-            let app = ctx.app.clone();
-            network_on_pool(
-                id,
-                &command_name,
-                HostCommandExecutionPool::LauncherImageCdn,
-                move || {
-                    let request = arg(&args, "request")?;
-                    ok(
-                        modforge_studio_desktop_lib::logging::log_tauri_command_error(
-                            "resolve_launcher_image",
-                            domain::launcher::image_cache::resolve_launcher_image_blocking(
-                                &app, &request,
-                            ),
-                        ),
-                    )
-                },
-            )
-        }
-        crate::host_command_wire!(resolve_cached_launcher_image) => {
-            let app = ctx.app.clone();
-            io_lane(id, &command_name, move || {
-                let request = arg(&args, "request")?;
-                ok(
-                    domain::launcher::image_cache::resolve_cached_launcher_image_blocking(
-                        &app, &request,
-                    ),
-                )
-            })
-        }
-        crate::host_command_wire!(clear_launcher_image_cache) => {
-            let app = ctx.app.clone();
-            mutation_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherImageCache],
-                move || {
-                    ok(domain::launcher::image_cache::clear_launcher_image_cache(
-                        app,
-                    ))
-                },
-            )
-        }
-        crate::host_command_wire!(load_launcher_nexus_diagnostics) => {
-            let app = ctx.app.clone();
-            network(id, &command_name, move || {
-                ok(domain::nexusmods::diagnostics::load_launcher_nexus_diagnostics(&app))
-            })
-        }
-        crate::host_command_wire!(restart_launcher_nexus_diagnostics) => {
-            let app = ctx.app.clone();
-            network(id, &command_name, move || {
-                ok(
-                    domain::nexusmods::diagnostics::restart_launcher_nexus_diagnostics_with_app(
-                        &app,
-                    ),
-                )
-            })
-        }
-        crate::host_command_wire!(retry_launcher_nexus_diagnostics_route) => {
-            let app = ctx.app.clone();
-            network(id, &command_name, move || {
-                ok(
-                    domain::nexusmods::diagnostics::retry_launcher_nexus_diagnostics_route(
-                        &app,
-                        arg(&args, "routeId")?,
-                    ),
-                )
-            })
-        }
-        crate::host_command_wire!(set_launcher_nexus_force_offline) => {
-            let app = ctx.app.clone();
-            mutation_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::AppUiState],
-                move || {
-                    ok(
-                        domain::nexusmods::diagnostics::set_launcher_nexus_force_offline(
-                            &app,
-                            arg(&args, "forceOffline")?,
-                        ),
-                    )
-                },
-            )
-        }
-        crate::host_command_wire!(load_cached_launcher_updates) => {
-            let app = ctx.app.clone();
-            mutation_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherUpdatesCache],
-                move || {
-                    ok(domain::launcher::updates::load_cached_launcher_updates(
-                        app,
-                        arg(&args, "request")?,
-                    ))
-                },
-            )
-        }
-        crate::host_command_wire!(load_suppressed_launcher_update_mod_ids) => {
-            let app = ctx.app.clone();
-            io_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherUpdatesCache],
-                move || {
-                    ok(
-                        domain::launcher::updates::load_suppressed_launcher_update_mod_ids(
-                            app,
-                            arg(&args, "request")?,
-                        ),
-                    )
-                },
-            )
-        }
-        crate::host_command_wire!(check_launcher_updates) => {
-            let app = ctx.app.clone();
-            network(id, &command_name, move || {
-                let request = arg(&args, "request")?;
-                ok(domain::launcher::updates::check_launcher_updates_blocking(
-                    &app, &request,
-                ))
-            })
-        }
-        crate::host_command_wire!(check_smapi_update) => network(id, &command_name, || {
-            ok(domain::launcher::smapi_update::check_smapi_update_blocking())
-        }),
-        crate::host_command_wire!(install_smapi_update) => {
-            let app = ctx.app.clone();
-            mutation_with_resources(
-                id,
-                &command_name,
-                &[
-                    SidecarResource::LauncherSettings,
-                    SidecarResource::LauncherInstallTree,
-                ],
-                move || {
-                    ok(
-                        domain::launcher::smapi_update::install_smapi_update_blocking(
-                            &app,
-                            arg(&args, "request")?,
-                        ),
-                    )
-                },
-            )
-        }
-        crate::host_command_wire!(find_smapi_installer_downloads) => {
-            io_lane(id, &command_name, || {
-                ok(domain::launcher::smapi_update::find_smapi_installer_downloads_blocking())
-            })
-        }
-        crate::host_command_wire!(inspect_launcher_archive) => {
-            io_lane(id, &command_name, move || {
-                ok(domain::launcher::archive::inspect_launcher_archive(arg(
-                    &args, "request",
-                )?))
-            })
-        }
-        crate::host_command_wire!(inspect_mod_archive) => io_lane(id, &command_name, move || {
-            ok(domain::mods::inspect_mod_archive(arg(&args, "path")?))
-        }),
-        crate::host_command_wire!(install_launcher_archive) => {
-            let app = ctx.app.clone();
-            mutation_with_resources(
-                id,
-                &command_name,
-                &[
-                    SidecarResource::LauncherSettings,
-                    SidecarResource::LauncherInstallTree,
-                ],
-                move || {
-                    ok(domain::launcher::archive::install_launcher_archive(
-                        app,
-                        arg(&args, "request")?,
-                    ))
-                },
-            )
-        }
-        crate::host_command_wire!(list_launcher_install_backups) => {
-            let app = ctx.app.clone();
-            io_lane(id, &command_name, move || {
-                ok(domain::launcher::archive::list_launcher_install_backups(
-                    app,
-                    arg(&args, "request")?,
-                ))
-            })
-        }
-        crate::host_command_wire!(restore_launcher_install_backup) => {
-            let app = ctx.app.clone();
-            mutation_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::LauncherInstallTree],
-                move || {
-                    ok(domain::launcher::archive::restore_launcher_install_backup(
-                        app,
-                        arg(&args, "request")?,
-                    ))
-                },
-            )
-        }
-        crate::host_command_wire!(validate_nexus_api_key) => {
-            let app = ctx.app.clone();
-            network(id, &command_name, move || {
-                ok(domain::nexusmods::validate_nexus_api_key(app))
-            })
-        }
-        crate::host_command_wire!(start_nexus_sso) => {
-            let app = ctx.app.clone();
-            network(id, &command_name, move || {
-                ok(domain::nexusmods::sso::start_sso_with_status(&app))
-            })
-        }
-        crate::host_command_wire!(get_nexus_sso_status) => control(id, &command_name, || {
-            ok(Ok::<_, String>(domain::nexusmods::sso::get_sso_status()))
-        }),
-        crate::host_command_wire!(cancel_nexus_sso) => control(id, &command_name, || {
-            domain::nexusmods::sso::cancel_sso();
-            Ok(Value::Null)
-        }),
-
-        crate::host_command_wire!(load_app_ui_state) => {
-            mutation_with_resources(id, &command_name, &[SidecarResource::AppUiState], || {
-                ok(domain::app_ui::load_app_ui_state())
-            })
-        }
-        crate::host_command_wire!(patch_app_ui_state) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AppUiState],
-            move || ok(domain::app_ui::patch_app_ui_state(arg(&args, "request")?)),
-        ),
-        crate::host_command_wire!(load_ai_settings) => {
-            io_with_resources(id, &command_name, &[SidecarResource::AiSettings], || {
-                ok_ai(domain::ai::load_settings_for_command())
-            })
-        }
-        crate::host_command_wire!(save_ai_settings) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiSettings],
-            move || {
-                ok_ai(domain::ai::save_settings_for_command(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(export_ai_profiles) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiSettings, SidecarResource::FileExport],
-            move || ok_ai(domain::ai::export_profiles(arg(&args, "request")?)),
-        ),
-        crate::host_command_wire!(preview_ai_profiles_import) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiSettings],
-            move || ok_ai(domain::ai::preview_profiles_import(arg(&args, "request")?)),
-        ),
-        crate::host_command_wire!(apply_ai_profiles_import) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiSettings],
-            move || ok_ai(domain::ai::apply_profiles_import(arg(&args, "request")?)),
-        ),
-        crate::host_command_wire!(list_ai_models) => ai_network(id, &command_name, move || {
-            ok_ai(domain::ai::list_ai_models(arg(&args, "request")?))
-        }),
-        crate::host_command_wire!(fetch_ai_models_dev_catalog) => {
-            network(id, &command_name, || {
-                ok_ai(domain::ai::fetch_models_dev_catalog_for_command())
-            })
-        }
-        crate::host_command_wire!(test_ai_profile) => ai_network(id, &command_name, move || {
-            ok_ai(domain::localization::orchestrator::test_ai_profile(arg(
-                &args, "request",
-            )?))
-        }),
-        crate::host_command_wire!(translate_ai_batch) => {
-            let app = ctx.app.clone();
-            ai_network(id, &command_name, move || {
-                ok_ai(domain::localization::orchestrator::translate_ai_batch(
-                    app,
-                    arg(&args, "request")?,
-                ))
-            })
-        }
-        crate::host_command_wire!(cancel_ai_job) => control(id, &command_name, move || {
-            ok_ai(domain::ai::cancel_ai_job(arg(&args, "request")?))
-        }),
-        crate::host_command_wire!(read_ai_translation_cache) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiTranslationCache],
-            move || {
-                ok_ai(domain::ai::read_ai_translation_cache(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(write_ai_translation_cache) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiTranslationCache],
-            move || ok_ai(domain::ai::write_ai_translation_cache(arg(&args, "entry")?)),
-        ),
-        crate::host_command_wire!(get_ai_translation_cache_stats) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiTranslationCache],
-            || ok_ai(domain::ai::get_ai_translation_cache_stats()),
-        ),
-        crate::host_command_wire!(clear_ai_translation_cache) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiTranslationCache],
-            || ok_ai(domain::ai::clear_ai_translation_cache()),
-        ),
-        crate::host_command_wire!(query_ai_usage_summary) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiUsageLedger],
-            move || {
-                ok_ai(crate::domain::localization::usage::query_summary(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(query_ai_usage_records) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiUsageLedger],
-            move || {
-                ok_ai(crate::domain::localization::usage::query_records(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(export_ai_usage) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiUsageLedger],
-            move || {
-                ok_ai(crate::domain::localization::usage::export_usage(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(clear_ai_usage) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiUsageLedger],
-            move || {
-                ok_ai(crate::domain::localization::usage::clear_usage(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(load_localization_default_engine) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::LocalizationSettings],
-            || ok_ai(crate::domain::localization::settings::load_default_engine()),
-        ),
-        crate::host_command_wire!(save_localization_default_engine) => mutation_with_resources(
-            id,
-            &command_name,
-            &[
-                SidecarResource::LocalizationSettings,
-                SidecarResource::AiSettings,
-                SidecarResource::MachineTranslationSettings,
-            ],
-            move || {
-                ok_ai(crate::domain::localization::settings::save_default_engine(
-                    arg(&args, "engine")?,
-                ))
-            },
-        ),
-        crate::host_command_wire!(load_machine_translation_settings) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::MachineTranslationSettings],
-            || ok_ai(crate::domain::localization::machine_translation::load()),
-        ),
-        crate::host_command_wire!(save_machine_translation_settings) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::MachineTranslationSettings],
-            move || {
-                ok_ai(crate::domain::localization::machine_translation::save(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(list_machine_translation_languages) => {
-            network(id, &command_name, move || {
-                ok_ai(
-                    crate::domain::localization::machine_translation::list_languages(arg(
-                        &args, "request",
-                    )?),
-                )
-            })
-        }
-        crate::host_command_wire!(test_machine_translation_profile) => {
-            ai_network(id, &command_name, move || {
-                ok_ai(
-                    crate::domain::localization::orchestrator::test_machine_translation_profile(
-                        arg(&args, "request")?,
-                    ),
-                )
-            })
-        }
-        crate::host_command_wire!(translate_machine_translation_batch) => {
-            ai_network(id, &command_name, move || {
-                ok_ai(
-                    crate::domain::localization::orchestrator::translate_machine_batch(arg(
-                        &args, "request",
-                    )?),
-                )
-            })
-        }
-        crate::host_command_wire!(translate_localization_batch) => {
-            let app = ctx.app.clone();
-            ai_network(id, &command_name, move || {
-                ok_ai(
-                    crate::domain::localization::orchestrator::translate_localization_batch(
-                        app,
-                        arg(&args, "request")?,
-                    ),
-                )
-            })
-        }
-        crate::host_command_wire!(load_localization_semantic_settings) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiSemanticSettings],
-            move || ok_ai(crate::domain::localization::semantic::load_settings()),
-        ),
-        crate::host_command_wire!(save_localization_semantic_settings) => mutation_with_resources(
-            id,
-            &command_name,
-            &[
-                SidecarResource::AiSemanticSettings,
-                SidecarResource::AiSemanticModel,
-                SidecarResource::AiSemanticIndex,
-            ],
-            move || {
-                ok_ai(crate::domain::localization::semantic::save_settings(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(inspect_localization_semantic_model) => io_with_resources(
-            id,
-            &command_name,
-            &[
-                SidecarResource::AiSemanticSettings,
-                SidecarResource::AiSemanticModel,
-            ],
-            move || ok_ai(crate::domain::localization::semantic::inspect_model()),
-        ),
-        crate::host_command_wire!(verify_localization_semantic_model) => io_with_resources(
-            id,
-            &command_name,
-            &[
-                SidecarResource::AiSemanticSettings,
-                SidecarResource::AiSemanticModel,
-            ],
-            move || {
-                ok_ai(crate::domain::localization::semantic::verify_model(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(probe_localization_semantic_search) => {
-            network_on_pool_with_resources(
-                id,
-                &command_name,
-                HostCommandExecutionPool::AiSemanticSearch,
-                &[
-                    SidecarResource::AiSemanticSettings,
-                    SidecarResource::AiSemanticModel,
-                    SidecarResource::AiSemanticIndex,
-                    SidecarResource::AiOfficialLocalizationIndex,
-                    SidecarResource::AiLocalizationKnowledge,
-                ],
-                move || {
-                    ok_ai(crate::domain::localization::semantic::run_probe(arg(
-                        &args, "request",
-                    )?))
-                },
-            )
-        }
-        crate::host_command_wire!(download_localization_semantic_model) => {
-            let app = ctx.app.clone();
-            network_with_resources(
-                id,
-                &command_name,
-                &[SidecarResource::AiSemanticModel],
-                move || {
-                    ok_ai(
-                        crate::domain::localization::semantic::download_builtin_model(
-                            app,
-                            arg(&args, "request")?,
-                        ),
-                    )
-                },
-            )
-        }
-        crate::host_command_wire!(delete_localization_semantic_model) => mutation_with_resources(
-            id,
-            &command_name,
-            &[
-                SidecarResource::AiSemanticModel,
-                SidecarResource::AiSemanticIndex,
-            ],
-            move || {
-                ok_ai(crate::domain::localization::semantic::delete_builtin_model(
-                    arg(&args, "request")?,
-                ))
-            },
-        ),
-        crate::host_command_wire!(open_localization_semantic_model_directory) => {
-            control(id, &command_name, move || {
-                ok_ai(
-                    crate::domain::localization::semantic::open_builtin_model_directory(arg(
-                        &args, "request",
-                    )?),
-                )
-            })
-        }
-        crate::host_command_wire!(inspect_localization_semantic_index) => {
-            io_with_resources(id, &command_name, &[], move || {
-                let scope_ids: Vec<String> = arg(&args, "scopeIds")?;
-                ok_ai(crate::domain::localization::semantic::inspect_index(
-                    &scope_ids,
-                ))
-            })
-        }
-        crate::host_command_wire!(rebuild_localization_semantic_index) => {
-            let app = ctx.app.clone();
-            mutation_on_pool(
-                id,
-                &command_name,
-                HostCommandExecutionPool::AiSemanticIndexing,
-                &[
-                    SidecarResource::AiSemanticModel,
-                    SidecarResource::AiSemanticIndex,
-                    SidecarResource::AiLocalizationKnowledge,
-                    SidecarResource::AiOfficialLocalizationIndex,
-                ],
-                move || {
-                    ok_ai(crate::domain::localization::semantic::rebuild_index(
-                        app,
-                        arg(&args, "request")?,
-                    ))
-                },
-            )
-        }
-        crate::host_command_wire!(sync_localization_semantic_index) => {
-            let app = ctx.app.clone();
-            mutation_on_pool(
-                id,
-                &command_name,
-                HostCommandExecutionPool::AiSemanticIndexing,
-                &[
-                    SidecarResource::AiSemanticModel,
-                    SidecarResource::AiSemanticIndex,
-                    SidecarResource::AiLocalizationKnowledge,
-                    SidecarResource::AiOfficialLocalizationIndex,
-                ],
-                move || {
-                    ok_ai(crate::domain::localization::semantic::synchronize_index(
-                        app,
-                        arg(&args, "request")?,
-                    ))
-                },
-            )
-        }
-        crate::host_command_wire!(test_localization_semantic_remote_profile) => {
-            network_with_resources(
-                id,
-                &command_name,
-                &[
-                    SidecarResource::AiSemanticSettings,
-                    SidecarResource::AiSemanticModel,
-                ],
-                move || {
-                    ok_ai(crate::domain::localization::semantic::test_remote_profile(
-                        arg(&args, "request")?,
-                    ))
-                },
-            )
-        }
-        crate::host_command_wire!(inspect_official_localization_index) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiOfficialLocalizationIndex],
-            move || {
-                ok_ai(crate::domain::localization::official::inspect(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(rebuild_official_localization_index) => {
-            let app = ctx.app.clone();
-            mutation_on_pool(
-                id,
-                &command_name,
-                HostCommandExecutionPool::AiOfficialIndexing,
-                &[SidecarResource::AiOfficialLocalizationIndex],
-                move || {
-                    ok_ai(crate::domain::localization::official::rebuild_with_events(
-                        app,
-                        arg(&args, "request")?,
-                    ))
-                },
-            )
-        }
-        crate::host_command_wire!(search_official_localization) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiOfficialLocalizationIndex],
-            move || {
-                ok_ai(crate::domain::localization::official::search(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(cancel_localization_job) => {
-            control(id, &command_name, move || {
-                ok_ai(crate::domain::localization::jobs::cancel(&arg::<String>(
-                    &args, "jobId",
-                )?))
-            })
-        }
-        crate::host_command_wire!(initialize_localization_plan) => {
-            let app = ctx.app.clone();
-            mutation_on_pool(
-                id,
-                &command_name,
-                HostCommandExecutionPool::AiSemanticIndexing,
-                &[
-                    SidecarResource::AiLocalizationKnowledge,
-                    SidecarResource::AiSemanticModel,
-                    SidecarResource::AiSemanticIndex,
-                    SidecarResource::AiOfficialLocalizationIndex,
-                ],
-                move || {
-                    let request: crate::domain::localization::types::InitializeLocalizationPlanRequest =
-                        arg(&args, "request")?;
-                    ok_ai((|| {
-                        let app = app.clone();
-                        let job_id = request.job_id.clone();
-                        let mut result =
-                            crate::domain::localization::knowledge::initialize_plan(request)?;
-                        match crate::domain::localization::semantic::synchronize_after_local_mutation(
-                            app,
-                            job_id,
-                            vec![result.snapshot.scope.id.clone()],
-                        ) {
-                            Ok(true) => result.semantic_index_state = "synced".into(),
-                            Ok(false) => result.semantic_index_state = "skipped".into(),
-                            Err(error) => {
-                                result.semantic_index_state = "failed".into();
-                                result.semantic_index_error = Some(error.to_string());
-                            }
-                        }
-                        Ok(result)
-                    })())
-                },
-            )
-        }
-        crate::host_command_wire!(inspect_localization_context) => io_with_resources(
-            id,
-            &command_name,
-            &[
-                SidecarResource::AiLocalizationKnowledge,
-                SidecarResource::AiSemanticSettings,
-                SidecarResource::AiSemanticModel,
-                SidecarResource::AiSemanticIndex,
-                SidecarResource::AiOfficialLocalizationIndex,
-            ],
-            move || {
-                ok_ai(crate::domain::localization::knowledge::inspect_context(
-                    arg(&args, "request")?,
-                ))
-            },
-        ),
-        crate::host_command_wire!(acquire_localization_semantic_runtime) => {
-            // No resource locks: lease bookkeeping has its own mutex and the
-            // warm below only populates internal caches (embedding session,
-            // vector generation) that carry their own synchronization. Taking
-            // the semantic settings/model/index locks here would stall the
-            // fast status queries (settings tab, readiness banners) behind a
-            // multi-second ONNX runtime load.
-            io_on_pool_with_resources(
-                id,
-                &command_name,
-                HostCommandExecutionPool::AiSemanticSearch,
-                NO_RESOURCES,
-                move || {
-                    ok_ai(crate::domain::localization::semantic::acquire_runtime(arg(
-                        &args, "leaseId",
-                    )?))
-                },
-            )
-        }
-        crate::host_command_wire!(prewarm_localization_corpus) => io_on_pool_with_resources(
-            id,
-            &command_name,
-            HostCommandExecutionPool::AiSemanticSearch,
-            // Only the resources the warmup mutates or must serialize against:
-            // knowledge DB migrations and the official index. The semantic
-            // warm phase reads settings/model state atomically and warms
-            // caches with their own internal locks, so it must not hold the
-            // semantic status locks while the (potentially slow) local model
-            // loads — otherwise every status query queues behind the warmup.
-            &[
-                SidecarResource::AiLocalizationKnowledge,
-                SidecarResource::AiOfficialLocalizationIndex,
-            ],
-            move || ok_ai(crate::domain::localization::corpus::prewarm_corpus()),
-        ),
-        crate::host_command_wire!(release_localization_semantic_runtime) => {
-            io_with_resources(id, &command_name, &[], move || {
-                ok_ai(
-                    crate::domain::localization::semantic::release_runtime_lease(arg(
-                        &args, "leaseId",
-                    )?),
-                )
-            })
-        }
-        crate::host_command_wire!(unload_localization_semantic_runtime) => mutation_with_resources(
-            id,
-            &command_name,
-            &[
-                SidecarResource::AiSemanticModel,
-                SidecarResource::AiSemanticIndex,
-            ],
-            move || ok_ai(crate::domain::localization::semantic::release_runtime()),
-        ),
-        crate::host_command_wire!(resolve_localization_scope) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::knowledge::resolve_scope(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(create_localization_profile) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::knowledge::create_profile(arg(
-                    &args, "name",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(rename_localization_profile) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::knowledge::rename_profile(
-                    arg(&args, "scopeId")?,
-                    arg(&args, "name")?,
-                ))
-            },
-        ),
-        crate::host_command_wire!(delete_localization_profile) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::knowledge::delete_profile(arg(
-                    &args, "scopeId",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(set_localization_profile_binding) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::knowledge::set_profile_binding(
-                    arg(&args, "scopeId")?,
-                    arg(&args, "bindingKind")?,
-                    arg(&args, "bindingValue")?,
-                ))
-            },
-        ),
-        crate::host_command_wire!(remove_localization_profile_binding) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(
-                    crate::domain::localization::knowledge::remove_profile_binding(
-                        arg(&args, "bindingKind")?,
-                        arg(&args, "bindingValue")?,
-                    ),
-                )
-            },
-        ),
-        crate::host_command_wire!(list_localization_scopes) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::knowledge::list_scopes(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(load_localization_scope) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::knowledge::load_scope(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(save_localization_scope_settings) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::knowledge::save_scope_settings(
-                    arg(&args, "request")?,
-                ))
-            },
-        ),
-        crate::host_command_wire!(list_localization_glossary_entries) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::knowledge::list_glossary(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(upsert_localization_glossary_entries) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::knowledge::upsert_glossary(
-                    arg(&args, "request")?,
-                ))
-            },
-        ),
-        crate::host_command_wire!(delete_localization_glossary_entries) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::knowledge::delete_glossary(
-                    arg(&args, "request")?,
-                ))
-            },
-        ),
-        crate::host_command_wire!(load_localization_style_guide) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::knowledge::load_style(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(save_localization_style_guide) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::knowledge::save_style(arg(
-                    &args, "guide",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(search_translation_memory) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::knowledge::search_memory(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(record_confirmed_translations) => {
-            let app = ctx.app.clone();
-            mutation_on_pool(
-                id,
-                &command_name,
-                HostCommandExecutionPool::AiSemanticIndexing,
-                &[
-                    SidecarResource::AiLocalizationKnowledge,
-                    SidecarResource::AiSemanticModel,
-                    SidecarResource::AiSemanticIndex,
-                    SidecarResource::AiOfficialLocalizationIndex,
-                ],
-                move || {
-                    let request: crate::domain::localization::types::RecordConfirmedTranslationsRequest =
-                        arg(&args, "request")?;
-                    ok_ai((|| {
-                        let job_id = request.job_id.clone();
-                        let scope_id = request.scope_id.clone();
-                        let count =
-                            crate::domain::localization::knowledge::record_confirmed(request)?;
-                        crate::domain::localization::semantic::synchronize_after_local_mutation(
-                            app,
-                            job_id,
-                            vec![scope_id],
-                        )?;
-                        Ok(count)
-                    })())
-                },
-            )
-        }
-        crate::host_command_wire!(delete_translation_memory_entries) => {
-            let app = ctx.app.clone();
-            mutation_on_pool(
-                id,
-                &command_name,
-                HostCommandExecutionPool::AiSemanticIndexing,
-                &[
-                    SidecarResource::AiLocalizationKnowledge,
-                    SidecarResource::AiSemanticModel,
-                    SidecarResource::AiSemanticIndex,
-                    SidecarResource::AiOfficialLocalizationIndex,
-                ],
-                move || {
-                    let request: crate::domain::localization::types::DeleteLocalizationEntriesRequest =
-                        arg(&args, "request")?;
-                    ok_ai((|| {
-                        let scope_id = request.scope_id.clone();
-                        let count = crate::domain::localization::knowledge::delete_memory(request)?;
-                        if count > 0 {
-                            crate::domain::localization::semantic::synchronize_after_local_mutation(
-                                app,
-                                uuid::Uuid::new_v4().to_string(),
-                                vec![scope_id],
-                            )?;
-                        }
-                        Ok(count)
-                    })())
-                },
-            )
-        }
-        crate::host_command_wire!(copy_translation_memory_entries) => {
-            let app = ctx.app.clone();
-            mutation_on_pool(
-                id,
-                &command_name,
-                HostCommandExecutionPool::AiSemanticIndexing,
-                &[
-                    SidecarResource::AiLocalizationKnowledge,
-                    SidecarResource::AiSemanticModel,
-                    SidecarResource::AiSemanticIndex,
-                    SidecarResource::AiOfficialLocalizationIndex,
-                ],
-                move || {
-                    let request: crate::domain::localization::types::CopyTranslationMemoryEntriesRequest =
-                        arg(&args, "request")?;
-                    ok_ai((|| {
-                        let scope_id = request.target_scope_id.clone();
-                        let count = crate::domain::localization::knowledge::copy_memory(request)?;
-                        crate::domain::localization::semantic::synchronize_after_local_mutation(
-                            app,
-                            uuid::Uuid::new_v4().to_string(),
-                            vec![scope_id],
-                        )?;
-                        Ok(count)
-                    })())
-                },
-            )
-        }
-        crate::host_command_wire!(import_localization_knowledge) => {
-            let app = ctx.app.clone();
-            mutation_on_pool(
-                id,
-                &command_name,
-                HostCommandExecutionPool::AiSemanticIndexing,
-                &[
-                    SidecarResource::AiLocalizationKnowledge,
-                    SidecarResource::AiSemanticModel,
-                    SidecarResource::AiSemanticIndex,
-                    SidecarResource::AiOfficialLocalizationIndex,
-                ],
-                move || {
-                    let request: crate::domain::localization::types::ImportLocalizationKnowledgeRequest =
-                        arg(&args, "request")?;
-                    ok_ai((|| {
-                        let job_id = request.job_id.clone();
-                        let scope_id = request.scope_id.clone();
-                        let result =
-                            crate::domain::localization::knowledge::import_knowledge(request)?;
-                        crate::domain::localization::semantic::synchronize_after_local_mutation(
-                            app,
-                            job_id,
-                            vec![scope_id],
-                        )?;
-                        Ok(result)
-                    })())
-                },
-            )
-        }
-        crate::host_command_wire!(export_localization_knowledge) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::knowledge::export_knowledge(
-                    arg(&args, "request")?,
-                ))
-            },
-        ),
-        crate::host_command_wire!(review_localization_batch) => {
-            ai_network(id, &command_name, move || {
-                ok_ai(crate::domain::localization::orchestrator::review_batch(
-                    arg(&args, "request")?,
-                ))
-            })
-        }
-        crate::host_command_wire!(list_localization_review_runs) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::review::list_runs(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(load_localization_review_run) => io_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::review::load_run(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(update_localization_review_issues) => mutation_with_resources(
-            id,
-            &command_name,
-            &[SidecarResource::AiLocalizationKnowledge],
-            move || {
-                ok_ai(crate::domain::localization::review::update_issues(arg(
-                    &args, "request",
-                )?))
-            },
-        ),
-        crate::host_command_wire!(write_frontend_log) => control(id, &command_name, move || {
-            logging::write_frontend_log(arg(&args, "request")?);
-            Ok(Value::Null)
-        }),
-        crate::host_command_wire!(set_debug_logging_enabled) => {
-            let debug_logging_state = ctx.debug_logging_state.clone();
-            control(id, &command_name, move || {
-                logging::set_debug_logging_enabled(&debug_logging_state, arg(&args, "enabled")?);
-                Ok(Value::Null)
-            })
-        }
-        crate::host_command_wire!(print_host_runtime_diagnostics) => {
-            control_with_context(id, &command_name, move |command_context| {
-                command_context.print_diagnostics_summary("manual snapshot");
-                Ok(Value::Null)
-            })
-        }
-        _ => ResolvedSidecarCommandOrResponse::Response(RpcResponse {
+        // Generated by apps/desktop/scripts/generate-host-commands.mjs. Do not edit by hand.
+        // domain::ai::commands
+        crate::host_command_wire!(apply_ai_profiles_import) => resolve_typed::<
+            crate::domain::ai::commands::ApplyAiProfilesImportParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(cancel_ai_job) => resolve_typed::<
+            crate::domain::ai::commands::CancelAiJobParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(clear_ai_translation_cache) => resolve_typed::<
+            crate::domain::ai::commands::ClearAiTranslationCacheParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(export_ai_profiles) => resolve_typed::<
+            crate::domain::ai::commands::ExportAiProfilesParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(fetch_ai_models_dev_catalog) => resolve_typed::<
+            crate::domain::ai::commands::FetchAiModelsDevCatalogParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(get_ai_translation_cache_stats) => resolve_typed::<
+            crate::domain::ai::commands::GetAiTranslationCacheStatsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(list_ai_models) => resolve_typed::<
+            crate::domain::ai::commands::ListAiModelsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_ai_settings) => resolve_typed::<
+            crate::domain::ai::commands::LoadAiSettingsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(preview_ai_profiles_import) => resolve_typed::<
+            crate::domain::ai::commands::PreviewAiProfilesImportParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(read_ai_translation_cache) => resolve_typed::<
+            crate::domain::ai::commands::ReadAiTranslationCacheParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(save_ai_settings) => resolve_typed::<
+            crate::domain::ai::commands::SaveAiSettingsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(test_ai_profile) => resolve_typed::<
+            crate::domain::ai::commands::TestAiProfileParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(translate_ai_batch) => resolve_typed::<
+            crate::domain::ai::commands::TranslateAiBatchParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(write_ai_translation_cache) => resolve_typed::<
+            crate::domain::ai::commands::WriteAiTranslationCacheParams,
+        >(ctx, id, args),
+        // domain::app_ui::commands
+        crate::host_command_wire!(load_app_ui_state) => resolve_typed::<
+            crate::domain::app_ui::commands::LoadAppUiStateParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(patch_app_ui_state) => resolve_typed::<
+            crate::domain::app_ui::commands::PatchAppUiStateParams,
+        >(ctx, id, args),
+        // domain::assets::commands
+        crate::host_command_wire!(clear_file_cache) => resolve_typed::<
+            crate::domain::assets::commands::ClearFileCacheParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(detect_default_game_directory) => resolve_typed::<
+            crate::domain::assets::commands::DetectDefaultGameDirectoryParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(export_file) => resolve_typed::<
+            crate::domain::assets::commands::ExportFileParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(export_map_png) => resolve_typed::<
+            crate::domain::assets::commands::ExportMapPngParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(get_file_cache_stats) => resolve_typed::<
+            crate::domain::assets::commands::GetFileCacheStatsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(list_known_game_directories) => resolve_typed::<
+            crate::domain::assets::commands::ListKnownGameDirectoriesParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_audio_data_url) => resolve_typed::<
+            crate::domain::assets::commands::LoadAudioDataUrlParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_event_asset) => resolve_typed::<
+            crate::domain::assets::commands::LoadEventAssetParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_image_data_url) => resolve_typed::<
+            crate::domain::assets::commands::LoadImageDataUrlParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_map_asset) => resolve_typed::<
+            crate::domain::assets::commands::LoadMapAssetParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_text_asset) => resolve_typed::<
+            crate::domain::assets::commands::LoadTextAssetParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_text_file) => resolve_typed::<
+            crate::domain::assets::commands::LoadTextFileParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(scan_audio_assets) => resolve_typed::<
+            crate::domain::assets::commands::ScanAudioAssetsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(scan_data_assets) => resolve_typed::<
+            crate::domain::assets::commands::ScanDataAssetsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(scan_events) => resolve_typed::<
+            crate::domain::assets::commands::ScanEventsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(scan_image_assets) => resolve_typed::<
+            crate::domain::assets::commands::ScanImageAssetsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(scan_maps) => resolve_typed::<
+            crate::domain::assets::commands::ScanMapsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(validate_game_directory) => resolve_typed::<
+            crate::domain::assets::commands::ValidateGameDirectoryParams,
+        >(ctx, id, args),
+        // domain::content_patcher::commands
+        crate::host_command_wire!(load_content_patcher_result_asset) => resolve_typed::<
+            crate::domain::content_patcher::commands::LoadContentPatcherResultAssetParams,
+        >(ctx, id, args),
+        // domain::cp_maker::commands
+        crate::host_command_wire!(build_cp_maker_map_asset) => resolve_typed::<
+            crate::domain::cp_maker::commands::BuildCpMakerMapAssetParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(copy_cp_maker_draft) => resolve_typed::<
+            crate::domain::cp_maker::commands::CopyCpMakerDraftParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(delete_cp_maker_draft) => resolve_typed::<
+            crate::domain::cp_maker::commands::DeleteCpMakerDraftParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(delete_cp_maker_project_asset) => resolve_typed::<
+            crate::domain::cp_maker::commands::DeleteCpMakerProjectAssetParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(export_cp_maker_pack) => resolve_typed::<
+            crate::domain::cp_maker::commands::ExportCpMakerPackParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(import_cp_maker_pack) => resolve_typed::<
+            crate::domain::cp_maker::commands::ImportCpMakerPackParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(import_cp_maker_project_assets) => resolve_typed::<
+            crate::domain::cp_maker::commands::ImportCpMakerProjectAssetsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(list_cp_maker_drafts) => resolve_typed::<
+            crate::domain::cp_maker::commands::ListCpMakerDraftsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_cp_maker_draft) => resolve_typed::<
+            crate::domain::cp_maker::commands::LoadCpMakerDraftParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_cp_maker_project_map_asset) => resolve_typed::<
+            crate::domain::cp_maker::commands::LoadCpMakerProjectMapAssetParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_cp_maker_session) => resolve_typed::<
+            crate::domain::cp_maker::commands::LoadCpMakerSessionParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(read_cp_maker_project_asset) => resolve_typed::<
+            crate::domain::cp_maker::commands::ReadCpMakerProjectAssetParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(rename_cp_maker_project_asset) => resolve_typed::<
+            crate::domain::cp_maker::commands::RenameCpMakerProjectAssetParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(save_cp_maker_draft) => resolve_typed::<
+            crate::domain::cp_maker::commands::SaveCpMakerDraftParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(save_cp_maker_session) => resolve_typed::<
+            crate::domain::cp_maker::commands::SaveCpMakerSessionParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(write_cp_maker_project_asset) => resolve_typed::<
+            crate::domain::cp_maker::commands::WriteCpMakerProjectAssetParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(write_cp_maker_project_assets) => resolve_typed::<
+            crate::domain::cp_maker::commands::WriteCpMakerProjectAssetsParams,
+        >(ctx, id, args),
+        // domain::debug_bridge::commands
+        crate::host_command_wire!(get_debug_bridge_mod_state) => resolve_typed::<
+            crate::domain::debug_bridge::commands::GetDebugBridgeModStateParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(get_debug_bridge_status) => resolve_typed::<
+            crate::domain::debug_bridge::commands::GetDebugBridgeStatusParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(install_debug_bridge_mod) => resolve_typed::<
+            crate::domain::debug_bridge::commands::InstallDebugBridgeModParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(send_debug_bridge_command) => resolve_typed::<
+            crate::domain::debug_bridge::commands::SendDebugBridgeCommandParams,
+        >(ctx, id, args),
+        // domain::launcher::commands
+        crate::host_command_wire!(cancel_launcher_download) => resolve_typed::<
+            crate::domain::launcher::commands::CancelLauncherDownloadParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(cancel_nexus_sso) => resolve_typed::<
+            crate::domain::launcher::commands::CancelNexusSsoParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(check_launcher_updates) => resolve_typed::<
+            crate::domain::launcher::commands::CheckLauncherUpdatesParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(check_smapi_update) => resolve_typed::<
+            crate::domain::launcher::commands::CheckSmapiUpdateParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(clear_launcher_image_cache) => resolve_typed::<
+            crate::domain::launcher::commands::ClearLauncherImageCacheParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(download_launcher_mod) => resolve_typed::<
+            crate::domain::launcher::commands::DownloadLauncherModParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(find_smapi_installer_downloads) => resolve_typed::<
+            crate::domain::launcher::commands::FindSmapiInstallerDownloadsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(get_launcher_backup_directory) => resolve_typed::<
+            crate::domain::launcher::commands::GetLauncherBackupDirectoryParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(get_nexus_sso_status) => resolve_typed::<
+            crate::domain::launcher::commands::GetNexusSsoStatusParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(inspect_launcher_archive) => resolve_typed::<
+            crate::domain::launcher::commands::InspectLauncherArchiveParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(install_launcher_archive) => resolve_typed::<
+            crate::domain::launcher::commands::InstallLauncherArchiveParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(install_smapi_update) => resolve_typed::<
+            crate::domain::launcher::commands::InstallSmapiUpdateParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(launch_launcher_game) => resolve_typed::<
+            crate::domain::launcher::commands::LaunchLauncherGameParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(list_launcher_install_backups) => resolve_typed::<
+            crate::domain::launcher::commands::ListLauncherInstallBackupsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_cached_launcher_updates) => resolve_typed::<
+            crate::domain::launcher::commands::LoadCachedLauncherUpdatesParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_launcher_download_queue) => resolve_typed::<
+            crate::domain::launcher::commands::LoadLauncherDownloadQueueParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_launcher_gmcm_probe_diagnostics) => resolve_typed::<
+            crate::domain::launcher::commands::LoadLauncherGmcmProbeDiagnosticsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_launcher_image_failures) => resolve_typed::<
+            crate::domain::launcher::commands::LoadLauncherImageFailuresParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_launcher_library_covers) => resolve_typed::<
+            crate::domain::launcher::commands::LoadLauncherLibraryCoversParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_launcher_library_state) => resolve_typed::<
+            crate::domain::launcher::commands::LoadLauncherLibraryStateParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_launcher_mod_config) => resolve_typed::<
+            crate::domain::launcher::commands::LoadLauncherModConfigParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_launcher_nexus_diagnostics) => resolve_typed::<
+            crate::domain::launcher::commands::LoadLauncherNexusDiagnosticsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_launcher_remote_mod_detail) => resolve_typed::<
+            crate::domain::launcher::commands::LoadLauncherRemoteModDetailParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_launcher_runtime_info) => resolve_typed::<
+            crate::domain::launcher::commands::LoadLauncherRuntimeInfoParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_launcher_settings) => resolve_typed::<
+            crate::domain::launcher::commands::LoadLauncherSettingsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_launcher_update_changelog) => resolve_typed::<
+            crate::domain::launcher::commands::LoadLauncherUpdateChangelogParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_suppressed_launcher_update_mod_ids) => resolve_typed::<
+            crate::domain::launcher::commands::LoadSuppressedLauncherUpdateModIdsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(open_launcher_path) => resolve_typed::<
+            crate::domain::launcher::commands::OpenLauncherPathParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(open_launcher_url) => resolve_typed::<
+            crate::domain::launcher::commands::OpenLauncherUrlParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(persist_launcher_library_remote_cover) => resolve_typed::<
+            crate::domain::launcher::commands::PersistLauncherLibraryRemoteCoverParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(record_launcher_image_failure) => resolve_typed::<
+            crate::domain::launcher::commands::RecordLauncherImageFailureParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(resolve_cached_launcher_image) => resolve_typed::<
+            crate::domain::launcher::commands::ResolveCachedLauncherImageParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(resolve_launcher_image) => resolve_typed::<
+            crate::domain::launcher::commands::ResolveLauncherImageParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(restart_launcher_nexus_diagnostics) => resolve_typed::<
+            crate::domain::launcher::commands::RestartLauncherNexusDiagnosticsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(restore_launcher_install_backup) => resolve_typed::<
+            crate::domain::launcher::commands::RestoreLauncherInstallBackupParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(retry_launcher_nexus_diagnostics_route) => resolve_typed::<
+            crate::domain::launcher::commands::RetryLauncherNexusDiagnosticsRouteParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(save_launcher_download_queue) => resolve_typed::<
+            crate::domain::launcher::commands::SaveLauncherDownloadQueueParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(save_launcher_library_state) => resolve_typed::<
+            crate::domain::launcher::commands::SaveLauncherLibraryStateParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(save_launcher_mod_config) => resolve_typed::<
+            crate::domain::launcher::commands::SaveLauncherModConfigParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(save_launcher_settings) => resolve_typed::<
+            crate::domain::launcher::commands::SaveLauncherSettingsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(scan_launcher_library) => resolve_typed::<
+            crate::domain::launcher::commands::ScanLauncherLibraryParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(search_launcher_catalog) => resolve_typed::<
+            crate::domain::launcher::commands::SearchLauncherCatalogParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(set_launcher_library_cover) => resolve_typed::<
+            crate::domain::launcher::commands::SetLauncherLibraryCoverParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(set_launcher_mod_enabled) => resolve_typed::<
+            crate::domain::launcher::commands::SetLauncherModEnabledParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(set_launcher_nexus_force_offline) => resolve_typed::<
+            crate::domain::launcher::commands::SetLauncherNexusForceOfflineParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(start_nexus_sso) => resolve_typed::<
+            crate::domain::launcher::commands::StartNexusSsoParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(validate_nexus_api_key) => resolve_typed::<
+            crate::domain::launcher::commands::ValidateNexusApiKeyParams,
+        >(ctx, id, args),
+        // domain::localization::commands
+        crate::host_command_wire!(acquire_localization_semantic_runtime) => resolve_typed::<
+            crate::domain::localization::commands::AcquireLocalizationSemanticRuntimeParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(cancel_localization_job) => resolve_typed::<
+            crate::domain::localization::commands::CancelLocalizationJobParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(clear_ai_usage) => resolve_typed::<
+            crate::domain::localization::commands::ClearAiUsageParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(copy_translation_memory_entries) => resolve_typed::<
+            crate::domain::localization::commands::CopyTranslationMemoryEntriesParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(create_localization_profile) => resolve_typed::<
+            crate::domain::localization::commands::CreateLocalizationProfileParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(delete_localization_glossary_entries) => resolve_typed::<
+            crate::domain::localization::commands::DeleteLocalizationGlossaryEntriesParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(delete_localization_profile) => resolve_typed::<
+            crate::domain::localization::commands::DeleteLocalizationProfileParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(delete_localization_semantic_model) => resolve_typed::<
+            crate::domain::localization::commands::DeleteLocalizationSemanticModelParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(delete_translation_memory_entries) => resolve_typed::<
+            crate::domain::localization::commands::DeleteTranslationMemoryEntriesParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(download_localization_semantic_model) => resolve_typed::<
+            crate::domain::localization::commands::DownloadLocalizationSemanticModelParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(export_ai_usage) => resolve_typed::<
+            crate::domain::localization::commands::ExportAiUsageParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(export_localization_knowledge) => resolve_typed::<
+            crate::domain::localization::commands::ExportLocalizationKnowledgeParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(import_localization_knowledge) => resolve_typed::<
+            crate::domain::localization::commands::ImportLocalizationKnowledgeParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(initialize_localization_plan) => resolve_typed::<
+            crate::domain::localization::commands::InitializeLocalizationPlanParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(inspect_localization_context) => resolve_typed::<
+            crate::domain::localization::commands::InspectLocalizationContextParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(inspect_localization_semantic_index) => resolve_typed::<
+            crate::domain::localization::commands::InspectLocalizationSemanticIndexParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(inspect_localization_semantic_model) => resolve_typed::<
+            crate::domain::localization::commands::InspectLocalizationSemanticModelParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(inspect_official_localization_index) => resolve_typed::<
+            crate::domain::localization::commands::InspectOfficialLocalizationIndexParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(list_localization_glossary_entries) => resolve_typed::<
+            crate::domain::localization::commands::ListLocalizationGlossaryEntriesParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(list_localization_review_runs) => resolve_typed::<
+            crate::domain::localization::commands::ListLocalizationReviewRunsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(list_localization_scopes) => resolve_typed::<
+            crate::domain::localization::commands::ListLocalizationScopesParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_localization_default_engine) => resolve_typed::<
+            crate::domain::localization::commands::LoadLocalizationDefaultEngineParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_localization_review_run) => resolve_typed::<
+            crate::domain::localization::commands::LoadLocalizationReviewRunParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_localization_scope) => resolve_typed::<
+            crate::domain::localization::commands::LoadLocalizationScopeParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_localization_semantic_settings) => resolve_typed::<
+            crate::domain::localization::commands::LoadLocalizationSemanticSettingsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_localization_style_guide) => resolve_typed::<
+            crate::domain::localization::commands::LoadLocalizationStyleGuideParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(open_localization_semantic_model_directory) => resolve_typed::<
+            crate::domain::localization::commands::OpenLocalizationSemanticModelDirectoryParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(prewarm_localization_corpus) => resolve_typed::<
+            crate::domain::localization::commands::PrewarmLocalizationCorpusParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(probe_localization_semantic_search) => resolve_typed::<
+            crate::domain::localization::commands::ProbeLocalizationSemanticSearchParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(query_ai_usage_records) => resolve_typed::<
+            crate::domain::localization::commands::QueryAiUsageRecordsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(query_ai_usage_summary) => resolve_typed::<
+            crate::domain::localization::commands::QueryAiUsageSummaryParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(rebuild_localization_semantic_index) => resolve_typed::<
+            crate::domain::localization::commands::RebuildLocalizationSemanticIndexParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(rebuild_official_localization_index) => resolve_typed::<
+            crate::domain::localization::commands::RebuildOfficialLocalizationIndexParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(record_confirmed_translations) => resolve_typed::<
+            crate::domain::localization::commands::RecordConfirmedTranslationsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(release_localization_semantic_runtime) => resolve_typed::<
+            crate::domain::localization::commands::ReleaseLocalizationSemanticRuntimeParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(remove_localization_profile_binding) => resolve_typed::<
+            crate::domain::localization::commands::RemoveLocalizationProfileBindingParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(rename_localization_profile) => resolve_typed::<
+            crate::domain::localization::commands::RenameLocalizationProfileParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(resolve_localization_scope) => resolve_typed::<
+            crate::domain::localization::commands::ResolveLocalizationScopeParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(review_localization_batch) => resolve_typed::<
+            crate::domain::localization::commands::ReviewLocalizationBatchParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(save_localization_default_engine) => resolve_typed::<
+            crate::domain::localization::commands::SaveLocalizationDefaultEngineParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(save_localization_scope_settings) => resolve_typed::<
+            crate::domain::localization::commands::SaveLocalizationScopeSettingsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(save_localization_semantic_settings) => resolve_typed::<
+            crate::domain::localization::commands::SaveLocalizationSemanticSettingsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(save_localization_style_guide) => resolve_typed::<
+            crate::domain::localization::commands::SaveLocalizationStyleGuideParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(search_official_localization) => resolve_typed::<
+            crate::domain::localization::commands::SearchOfficialLocalizationParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(search_translation_memory) => resolve_typed::<
+            crate::domain::localization::commands::SearchTranslationMemoryParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(set_localization_profile_binding) => resolve_typed::<
+            crate::domain::localization::commands::SetLocalizationProfileBindingParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(sync_localization_semantic_index) => resolve_typed::<
+            crate::domain::localization::commands::SyncLocalizationSemanticIndexParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(test_localization_semantic_remote_profile) => resolve_typed::<
+            crate::domain::localization::commands::TestLocalizationSemanticRemoteProfileParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(translate_localization_batch) => resolve_typed::<
+            crate::domain::localization::commands::TranslateLocalizationBatchParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(unload_localization_semantic_runtime) => resolve_typed::<
+            crate::domain::localization::commands::UnloadLocalizationSemanticRuntimeParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(update_localization_review_issues) => resolve_typed::<
+            crate::domain::localization::commands::UpdateLocalizationReviewIssuesParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(upsert_localization_glossary_entries) => resolve_typed::<
+            crate::domain::localization::commands::UpsertLocalizationGlossaryEntriesParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(verify_localization_semantic_model) => resolve_typed::<
+            crate::domain::localization::commands::VerifyLocalizationSemanticModelParams,
+        >(ctx, id, args),
+        // domain::localization::machine_translation::commands
+        crate::host_command_wire!(list_machine_translation_languages) => resolve_typed::<
+            crate::domain::localization::machine_translation::commands::ListMachineTranslationLanguagesParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_machine_translation_settings) => resolve_typed::<
+            crate::domain::localization::machine_translation::commands::LoadMachineTranslationSettingsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(save_machine_translation_settings) => resolve_typed::<
+            crate::domain::localization::machine_translation::commands::SaveMachineTranslationSettingsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(test_machine_translation_profile) => resolve_typed::<
+            crate::domain::localization::machine_translation::commands::TestMachineTranslationProfileParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(translate_machine_translation_batch) => resolve_typed::<
+            crate::domain::localization::machine_translation::commands::TranslateMachineTranslationBatchParams,
+        >(ctx, id, args),
+        // domain::mods::commands
+        crate::host_command_wire!(inspect_mod_archive) => resolve_typed::<
+            crate::domain::mods::commands::InspectModArchiveParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(load_mod_project) => resolve_typed::<
+            crate::domain::mods::commands::LoadModProjectParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(save_mod_i18n_files) => resolve_typed::<
+            crate::domain::mods::commands::SaveModI18nFilesParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(scan_mod_asset_index) => resolve_typed::<
+            crate::domain::mods::commands::ScanModAssetIndexParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(scan_mod_projects) => resolve_typed::<
+            crate::domain::mods::commands::ScanModProjectsParams,
+        >(ctx, id, args),
+        // domain::resource_registry::commands
+        crate::host_command_wire!(load_resource_registry) => resolve_typed::<
+            crate::domain::resource_registry::commands::LoadResourceRegistryParams,
+        >(ctx, id, args),
+        // domain::saves::commands
+        crate::host_command_wire!(scan_default_save_slots) => resolve_typed::<
+            crate::domain::saves::commands::ScanDefaultSaveSlotsParams,
+        >(ctx, id, args),
+        // infrastructure::game_formats::xact::commands
+        crate::host_command_wire!(load_xact_audio_data_url) => resolve_typed::<
+            crate::infrastructure::game_formats::xact::commands::LoadXactAudioDataUrlParams,
+        >(ctx, id, args),
+        // support::logging::commands
+        crate::host_command_wire!(print_host_runtime_diagnostics) => resolve_typed::<
+            crate::support::logging::commands::PrintHostRuntimeDiagnosticsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(set_debug_logging_enabled) => resolve_typed::<
+            crate::support::logging::commands::SetDebugLoggingEnabledParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(write_frontend_log) => resolve_typed::<
+            crate::support::logging::commands::WriteFrontendLogParams,
+        >(ctx, id, args),
+        _ => ResolvedCommandOrResponse::Response(HostCommandResponse {
             id,
             ok: false,
             result: None,
@@ -2074,7 +623,7 @@ struct StdoutResponseWriter {
 }
 
 impl HostCommandResponseWriter for StdoutResponseWriter {
-    fn write_response(&self, response: &RpcResponse) -> Result<(), String> {
+    fn write_response(&self, response: &HostCommandResponse) -> Result<(), String> {
         write_json_line(&self.stdout, response)
     }
 }
@@ -2100,32 +649,18 @@ pub fn run_stdio() -> Result<(), String> {
                 .render(),
         );
     }
-    let diagnostics_start_result = domain::app_ui::load_app_ui_state()
-        .map(|state| state.launcher.force_offline)
-        .and_then(|force_offline| {
-            if force_offline {
-                domain::nexusmods::diagnostics::set_launcher_nexus_force_offline(&app, true)
-                    .map(|_| ())
-            } else {
-                domain::nexusmods::diagnostics::prime_launcher_nexus_diagnostics(&app)
-            }
-        });
-    if let Err(error) = diagnostics_start_result {
-        LogEvent::new("nexus.diagnostics.startupProbeFailed")
-            .error(format!("{error}"))
-            .emit_warn(targets::NEXUS);
-    }
+    domain::nexusmods::diagnostics::prime_nexus_diagnostics_at_startup(&app);
 
-    let ctx = SidecarContext {
+    let ctx = DispatchContext {
         app,
         debug_logging_state: debug_logging_state.clone(),
     };
-    let scheduler = SidecarScheduler::new(
+    let scheduler = HostCommandScheduler::new(
         Arc::new(StdoutResponseWriter {
             stdout: Arc::clone(&stdout),
         }),
-        Arc::new(SidecarResourceLocks::new()),
-        SidecarSchedulerConfig::default(),
+        Arc::new(HostCommandResourceLocks::new()),
+        HostCommandSchedulerConfig::default(),
         debug_logging_state,
     );
 
@@ -2137,13 +672,13 @@ pub fn run_stdio() -> Result<(), String> {
 
         let response = match serde_json::from_str::<RpcRequest>(&line) {
             Ok(request) => match resolve_command(&ctx, request) {
-                ResolvedSidecarCommandOrResponse::Command(command) => {
+                ResolvedCommandOrResponse::Command(command) => {
                     scheduler.submit(command);
                     continue;
                 }
-                ResolvedSidecarCommandOrResponse::Response(response) => response,
+                ResolvedCommandOrResponse::Response(response) => response,
             },
-            Err(error) => RpcResponse {
+            Err(error) => HostCommandResponse {
                 id: Value::Null,
                 ok: false,
                 result: None,

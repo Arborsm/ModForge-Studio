@@ -38,7 +38,7 @@ async function gotoLauncherMock(page, extraParams = '') {
       lastError = error
     }
   }
-  throw new Error(`No launcher mock URL responded. Last error: ${lastError instanceof Error ? lastError.message : lastError}`)
+  throw new Error(`No launcher mock URL responded. Last error: ${lastError instanceof Error ? lastError.message : String(lastError)}`)
 }
 
 async function main() {

@@ -1,6 +1,5 @@
 use crate::support::logging::{LogEvent, targets};
 use std::fs;
-use std::path::PathBuf;
 
 const SHMEM_DIR_NAME: &str = "shared_memory-rs";
 const SHMEM_FILE_PREFIX: &str = "shmem_";
@@ -117,7 +116,3 @@ fn cleanup_tauri_shared_memory_leaks_inner() -> Result<(), std::io::Error> {
 
     Ok(())
 }
-
-#[cfg(test)]
-#[path = "../tests/unit/support/cleanup_tests.rs"]
-mod tests;

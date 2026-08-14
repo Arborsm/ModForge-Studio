@@ -3,7 +3,7 @@ use super::probes::probe_launcher_nexus_route_once;
 use super::routes::LauncherNexusRoute;
 use super::types::{NexusDiagnosticsResult, NexusRouteSnapshot, NexusRouteStatus};
 use crate::AppHandle;
-use crate::domain::launcher::paths::launcher_settings_path;
+use crate::domain::app_paths::launcher_settings_path;
 use crate::domain::launcher::settings::load_or_create_settings_at_path;
 use crate::domain::launcher::types::LauncherSettings;
 use crate::support::logging::{LogEvent, targets};
@@ -532,6 +532,26 @@ pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
     let settings = load_or_create_settings_at_path(&settings_path)?;
     restart_launcher_nexus_diagnostics_with_handle(Some(_app), &settings);
     Ok(snapshot_launcher_nexus_diagnostics())
+}
+
+/// Runs the shared startup probe once per host process: applies the persisted
+/// force-offline choice or primes the Nexus diagnostics route probe. Both the
+/// Tauri process and the Electron sidecar call this at startup.
+pub(crate) fn prime_nexus_diagnostics_at_startup(host: &AppHandle) {
+    let result = crate::domain::app_ui::load_app_ui_state()
+        .map(|state| state.launcher.force_offline)
+        .and_then(|force_offline| {
+            if force_offline {
+                set_launcher_nexus_force_offline(host, true).map(|_| ())
+            } else {
+                prime_launcher_nexus_diagnostics(host)
+            }
+        });
+    if let Err(error) = result {
+        LogEvent::new("nexus.diagnostics.startupProbeFailed")
+            .error(format!("{error}"))
+            .emit_warn(targets::NEXUS);
+    }
 }
 
 #[cfg(test)]

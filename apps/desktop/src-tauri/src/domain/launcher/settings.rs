@@ -1,6 +1,6 @@
-use super::paths::launcher_settings_path;
 use super::types::{LauncherSettings, NullablePatch, SaveLauncherSettingsRequest};
 use crate::AppHandle;
+use crate::domain::app_paths::launcher_settings_path;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use crate::infrastructure::text_encoding::read_text_file;
 use crate::support::logging::{LogEvent, targets};

@@ -1,6 +1,5 @@
 use super::archive::install_archive_at_path;
 use super::fs::{sanitize_file_name, unique_path};
-use super::paths::{launcher_backup_dir, launcher_download_queue_path, launcher_settings_path};
 use super::runtime::open_launcher_url_in_browser;
 use super::settings::{load_or_create_settings_at_path, resolve_download_dir};
 use super::trace::log_launcher_trace;
@@ -9,6 +8,9 @@ use super::types::{
     LauncherDownloadQueueItem, LauncherDownloadQueueState,
 };
 use crate::AppHandle;
+use crate::domain::app_paths::{
+    launcher_backup_dir, launcher_download_queue_path, launcher_settings_path,
+};
 use crate::domain::app_ui::load_app_ui_state;
 use crate::domain::nexusmods::downloads::{
     ResolveDownloadUrlError, download_file_response, fetch_mod_files_payload, resolve_download_url,

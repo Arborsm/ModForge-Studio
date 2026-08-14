@@ -1,0 +1,15 @@
+[package]
+name = "host-command-macros"
+version = "0.1.0"
+description = "Proc-macro backing the ModForge Studio typed host command bindings"
+authors = ["ModForge Studio"]
+license = "GPL-3.0-or-later"
+edition = "2024"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full", "visit"] }

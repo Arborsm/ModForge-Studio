@@ -1,5 +1,4 @@
 use super::fs::read_json_file;
-use super::paths::launcher_settings_path;
 use super::settings::load_or_create_settings_at_path;
 use super::types::{
     LauncherGmcmProbeDiagnosticStatus, LauncherGmcmProbeDiagnosticsResult, LauncherModConfigField,
@@ -7,6 +6,7 @@ use super::types::{
     LauncherModConfigSource, LauncherModConfigUiHint, LoadLauncherModConfigRequest,
     SaveLauncherModConfigRequest,
 };
+use crate::domain::app_paths::launcher_settings_path;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};

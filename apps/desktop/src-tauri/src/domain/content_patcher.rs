@@ -3,18 +3,19 @@ use self::assets::with_virtual_preview_assets;
 use self::common::{as_non_empty_string, build_snapshot_diagnostics, content_pack_for_unique_id};
 use self::plan::{build_effective_context, build_patch_plan_with_context};
 use self::project::load_content_patcher_project;
-use self::schema::parse_json_str;
 use self::types::{
     ContentPatcherProjectSnapshot, ContentPatcherProjectSummary, ContentPatcherSnapshotInput,
     ContentPatcherSourceFile, LoadContentPatcherResultAssetRequest,
     LoadContentPatcherResultAssetResult,
 };
+use crate::infrastructure::game_formats::json_relaxed::parse_json_str;
 use anyhow::Context;
 use serde_json::Value;
 
 pub mod apply;
 pub mod assets;
 pub(crate) mod attached;
+pub(crate) mod commands;
 pub(crate) mod common;
 pub mod conditions;
 pub mod context;

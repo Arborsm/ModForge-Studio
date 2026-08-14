@@ -1,10 +1,11 @@
 use super::project::{normalize_relative_path, resolve_include_relative_path};
-use super::schema::{parse_json_file, parse_json_str};
+use super::schema::parse_json_file;
 use super::types::{
     ContentPatcherMapDebugSummary, ContentPatcherProjectSnapshot, VirtualPreviewAsset,
 };
 use crate::domain::modding::attached_api::AttachedApiRegistry;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::game_formats::json_relaxed::parse_json_str;
 use crate::infrastructure::game_formats::map::MapDocument;
 use crate::infrastructure::game_formats::parse_map_asset;
 use crate::infrastructure::game_formats::tbin::parse_tbin_map;
