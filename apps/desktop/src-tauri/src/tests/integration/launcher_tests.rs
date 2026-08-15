@@ -39,6 +39,7 @@ use crate::domain::nexusmods::mod_detail::{
     RemoteModDetail, enrich_remote_mod_detail_with_gallery_images,
     parse_public_mod_detail_graphql_response,
 };
+use crate::domain::nexusmods::request::NexusRequestContext;
 use crate::domain::nexusmods::updates::{
     build_update_batch_graphql_payload, parse_update_batch_graphql_response,
 };
@@ -1709,12 +1710,11 @@ fn finalize_remote_mod_details_batch_keeps_resolved_candidates_even_when_some_fa
 
 #[test]
 fn can_use_nexus_graphql_requires_api_key() {
-    assert!(!can_use_nexus_graphql(&LauncherSettings::default()));
+    assert!(!can_use_nexus_graphql(&NexusRequestContext::default()));
 
-    assert!(can_use_nexus_graphql(&LauncherSettings {
-        nexus_api_key: Some("nexus-key".to_string()),
-        ..LauncherSettings::default()
-    }));
+    assert!(can_use_nexus_graphql(&NexusRequestContext::new(Some(
+        "nexus-key".to_string()
+    ))));
 }
 
 #[test]

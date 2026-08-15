@@ -1,8 +1,8 @@
 use super::http::{api_headers, with_nexus_request_slot};
+use super::request::NexusRequestContext;
 use super::routes::{LauncherNexusRoute, launcher_nexus_api_key};
 use super::shared::extract_graphql_error;
 use super::{endpoints, graphql, rest_api};
-use crate::domain::launcher::types::LauncherSettings;
 use anyhow::{Context, bail};
 use reqwest::StatusCode;
 use reqwest::blocking::{Client, Response};
@@ -140,9 +140,9 @@ fn probe_launcher_smapi_route(client: &Client) -> anyhow::Result<()> {
 
 fn probe_launcher_nexus_private_graphql_route(
     client: &Client,
-    settings: &LauncherSettings,
+    context: &NexusRequestContext,
 ) -> anyhow::Result<()> {
-    let headers = graphql::graphql_headers(settings.nexus_api_key.as_deref())?;
+    let headers = graphql::graphql_headers(context.api_key())?;
     let payload = launcher_nexus_graphql_probe_payload(false);
     let response = with_nexus_request_slot(|| {
         client
@@ -157,9 +157,9 @@ fn probe_launcher_nexus_private_graphql_route(
 
 fn probe_launcher_nexus_api_route(
     client: &Client,
-    settings: &LauncherSettings,
+    context: &NexusRequestContext,
 ) -> anyhow::Result<()> {
-    let headers = api_headers(launcher_nexus_api_key(settings)?)?;
+    let headers = api_headers(launcher_nexus_api_key(context)?)?;
     let response = with_nexus_request_slot(|| {
         client
             .get(rest_api::TRENDING_ENDPOINT)
@@ -175,7 +175,7 @@ fn probe_launcher_nexus_api_route(
 
 pub(crate) fn probe_launcher_nexus_route_once(
     client: &Client,
-    settings: Option<&LauncherSettings>,
+    context: Option<&NexusRequestContext>,
     route: LauncherNexusRoute,
 ) -> anyhow::Result<()> {
     match route {
@@ -184,12 +184,12 @@ pub(crate) fn probe_launcher_nexus_route_once(
         LauncherNexusRoute::Smapi => probe_launcher_smapi_route(client),
         LauncherNexusRoute::PrivateGraphql => probe_launcher_nexus_private_graphql_route(
             client,
-            settings
+            context
                 .context("Launcher Nexus private GraphQL reprobe requires configured settings.")?,
         ),
         LauncherNexusRoute::NexusApi => probe_launcher_nexus_api_route(
             client,
-            settings.context("Launcher Nexus REST API reprobe requires configured settings.")?,
+            context.context("Launcher Nexus REST API reprobe requires configured settings.")?,
         ),
     }
 }

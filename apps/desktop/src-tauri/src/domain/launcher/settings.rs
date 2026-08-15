@@ -251,6 +251,7 @@ pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
     app: &AppHandle,
     settings: &LauncherSettings,
 ) {
+    let _ = app;
     LogEvent::new("launcherSettings.nexusDiagnosticsRestart")
         .flag(
             "apiKeyPresent",
@@ -258,8 +259,9 @@ pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
         )
         .emit_info(targets::LAUNCHER_SETTINGS);
     crate::domain::nexusmods::diagnostics::restart_launcher_nexus_diagnostics_with_handle(
-        Some(app),
-        settings,
+        &crate::domain::nexusmods::request::NexusRequestContext::new(
+            settings.nexus_api_key.clone(),
+        ),
     );
 }
 

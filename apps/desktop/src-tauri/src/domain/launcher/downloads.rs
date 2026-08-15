@@ -11,12 +11,12 @@ use crate::AppHandle;
 use crate::domain::app_paths::{
     launcher_backup_dir, launcher_download_queue_path, launcher_settings_path,
 };
-use crate::domain::app_ui::load_app_ui_state;
 use crate::domain::nexusmods::downloads::{
     ResolveDownloadUrlError, download_file_response, fetch_mod_files_payload, resolve_download_url,
     select_download_candidate,
 };
 use crate::domain::nexusmods::http::launcher_http_client;
+use crate::domain::nexusmods::request::NexusRequestContext;
 use crate::infrastructure::fs::pathing::normalize_path;
 use crate::infrastructure::http::resumable_download::{
     PartialRetention, ResumableDownloadRequest, ResumeRequest, download_resumable,
@@ -364,6 +364,7 @@ fn parse_content_disposition_file_name(value: &str) -> Option<String> {
 pub fn download_launcher_mod(
     app: AppHandle,
     request: DownloadLauncherModRequest,
+    force_non_premium: bool,
 ) -> anyhow::Result<DownloadLauncherModResult> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "download_launcher_mod",
@@ -404,7 +405,8 @@ pub fn download_launcher_mod(
             })?;
 
             let client = launcher_http_client()?;
-            let files_payload = fetch_mod_files_payload(&client, &settings, request.mod_id)?;
+            let context = NexusRequestContext::new(settings.nexus_api_key.clone());
+            let files_payload = fetch_mod_files_payload(&client, &context, request.mod_id)?;
             ensure_launcher_download_not_cancelled(download_id)?;
             let candidate = select_download_candidate(
                 &files_payload,
@@ -420,10 +422,7 @@ pub fn download_launcher_mod(
                     .optional("version", candidate.version.as_deref())
             });
 
-            if load_app_ui_state()
-                .map(|state| state.launcher.force_non_premium)
-                .unwrap_or(false)
-            {
+            if force_non_premium {
                 open_nexus_manual_download_page(
                     request.mod_id,
                     candidate.file_id,
@@ -439,7 +438,7 @@ pub fn download_launcher_mod(
             }
 
             let download_url =
-                match resolve_download_url(&client, &settings, request.mod_id, candidate.file_id) {
+                match resolve_download_url(&client, &context, request.mod_id, candidate.file_id) {
                     Ok(download_url) => download_url,
                     Err(ResolveDownloadUrlError::PremiumRequired) => {
                         open_nexus_manual_download_page(

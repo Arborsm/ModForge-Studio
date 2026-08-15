@@ -606,7 +606,7 @@ describe('frontend module architecture', () => {
 
   it('keeps sidecar command dispatch arms in sync with Tauri command function names', async () => {
     const commands = await scanRustCommands()
-    const sidecar = await readFile(sourcePath('src-tauri/src/sidecar.rs'), 'utf8')
+    const sidecar = await readFile(sourcePath('src-tauri/src/host/sidecar.rs'), 'utf8')
     const wireNames = [...sidecar.matchAll(/host_command_wire!\(([a-z][a-z0-9_]*)\)/g)].map((match) => match[1] ?? '')
     const expected = new Set(commands.map(({ name }) => name))
     const actual = new Set(wireNames)
@@ -616,7 +616,7 @@ describe('frontend module architecture', () => {
 
   it('keeps typed host command bindings in canonical form', async () => {
     const commands = await scanRustCommands()
-    const sidecar = await readFile(sourcePath('src-tauri/src/sidecar.rs'), 'utf8')
+    const sidecar = await readFile(sourcePath('src-tauri/src/host/sidecar.rs'), 'utf8')
     const typedArms = new Map<string, { module: string; paramsType: string }>()
     for (const match of sidecar.matchAll(
       /crate::host_command_wire!\(([a-z][a-z0-9_]*)\)\s*=>\s*\{?\s*resolve_typed::<\s*crate::([a-z][a-z0-9_]*(?:::[a-z][a-z0-9_]*)*)::([A-Za-z][A-Za-z0-9_]*)\s*,?\s*>\s*\(\s*ctx\s*,\s*id\s*,\s*args\s*,?\s*\)\s*\}?\s*,?/g,
@@ -669,7 +669,7 @@ describe('frontend module architecture', () => {
 
   it('keeps the generated sidecar dispatch block in sync with typed bindings', async () => {
     const commands = await scanRustCommands()
-    const sidecar = await readFile(sourcePath('src-tauri/src/sidecar.rs'), 'utf8')
+    const sidecar = await readFile(sourcePath('src-tauri/src/host/sidecar.rs'), 'utf8')
     const startMarker = '    match command.as_str() {\n'
     const endMarker = '        _ => ResolvedCommandOrResponse::Response(HostCommandResponse {'
     const start = sidecar.indexOf(startMarker)

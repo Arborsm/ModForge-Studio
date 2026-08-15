@@ -48,6 +48,9 @@ jobs:
       - name: Lint frontend
         run: pnpm lint
 
+      - name: Check backend architecture
+        run: pnpm --filter @modforge/desktop check:backend-architecture
+
       - name: Build frontend
         run: pnpm build
 

@@ -383,7 +383,7 @@ void test('regenerating the real lib.rs handler block is idempotent and sidecar 
   const srcTauriDir = path.join(desktopRoot, 'src-tauri/src')
   const commands = await scanCommandFiles(srcTauriDir)
   const libRs = await readFile(path.join(srcTauriDir, 'lib.rs'), 'utf8')
-  const sidecar = await readFile(path.join(srcTauriDir, 'sidecar.rs'), 'utf8')
+  const sidecar = await readFile(path.join(srcTauriDir, 'host/sidecar.rs'), 'utf8')
 
   assert.equal(regenerateLibRsHandler(libRs, commands), libRs, 'lib.rs handler block drifted from the generator output')
   assert.doesNotThrow(() => validateSidecarDispatch(sidecar, commands), 'sidecar.rs dispatch arms drifted from #[tauri::command] functions')

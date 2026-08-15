@@ -1,11 +1,9 @@
 use super::http::launcher_http_client;
 use super::probes::probe_launcher_nexus_route_once;
+use super::request::NexusRequestContext;
 use super::routes::LauncherNexusRoute;
 use super::types::{NexusDiagnosticsResult, NexusRouteSnapshot, NexusRouteStatus};
 use crate::AppHandle;
-use crate::domain::app_paths::launcher_settings_path;
-use crate::domain::launcher::settings::load_or_create_settings_at_path;
-use crate::domain::launcher::types::LauncherSettings;
 use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 use std::collections::BTreeMap;
@@ -44,10 +42,10 @@ fn launcher_nexus_route_loading_snapshot(route: LauncherNexusRoute) -> NexusRout
 }
 
 fn build_launcher_nexus_route_snapshot_map(
-    settings: &LauncherSettings,
+    context: &NexusRequestContext,
     previous_routes: &BTreeMap<LauncherNexusRoute, NexusRouteSnapshot>,
 ) -> BTreeMap<LauncherNexusRoute, NexusRouteSnapshot> {
-    LauncherNexusRoute::configured_routes(settings)
+    LauncherNexusRoute::configured_routes(context)
         .into_iter()
         .map(|route| {
             (
@@ -124,9 +122,9 @@ fn launcher_nexus_force_offline_snapshot(route: LauncherNexusRoute) -> NexusRout
 }
 
 fn build_launcher_nexus_force_offline_snapshot_map(
-    settings: &LauncherSettings,
+    context: &NexusRequestContext,
 ) -> BTreeMap<LauncherNexusRoute, NexusRouteSnapshot> {
-    LauncherNexusRoute::configured_routes(settings)
+    LauncherNexusRoute::configured_routes(context)
         .into_iter()
         .map(|route| (route, launcher_nexus_force_offline_snapshot(route)))
         .collect()
@@ -285,11 +283,10 @@ fn update_launcher_nexus_route_snapshot_for_generation(
 }
 
 fn retry_launcher_nexus_route_with_settings(
-    _app: Option<&AppHandle>,
-    settings: &LauncherSettings,
+    context: &NexusRequestContext,
     route: LauncherNexusRoute,
 ) -> anyhow::Result<NexusDiagnosticsResult> {
-    ensure_launcher_nexus_route_enabled_in_settings(Some(settings), route)?;
+    ensure_launcher_nexus_route_enabled_in_settings(Some(context), route)?;
 
     if launcher_nexus_force_offline_active() {
         ensure_launcher_nexus_route_available(route)?;
@@ -299,7 +296,7 @@ fn retry_launcher_nexus_route_with_settings(
     let client = launcher_http_client()?;
     let snapshot = probe_launcher_nexus_route_with_runner(
         route,
-        || probe_launcher_nexus_route_once(&client, Some(settings), route),
+        || probe_launcher_nexus_route_once(&client, Some(context), route),
         true,
     );
 
@@ -339,7 +336,7 @@ pub(crate) fn ensure_launcher_nexus_route_available(
 }
 
 fn ensure_launcher_nexus_route_enabled_in_settings(
-    _settings: Option<&LauncherSettings>,
+    _context: Option<&NexusRequestContext>,
     route: LauncherNexusRoute,
 ) -> anyhow::Result<()> {
     let _ = route;
@@ -348,15 +345,15 @@ fn ensure_launcher_nexus_route_enabled_in_settings(
 
 pub(crate) fn probe_blocked_launcher_nexus_route(
     client: &reqwest::blocking::Client,
-    settings: Option<&LauncherSettings>,
+    context: Option<&NexusRequestContext>,
     route: LauncherNexusRoute,
 ) -> anyhow::Result<()> {
-    ensure_launcher_nexus_route_enabled_in_settings(settings, route)?;
+    ensure_launcher_nexus_route_enabled_in_settings(context, route)?;
 
     if is_launcher_nexus_route_blocked(route) {
         probe_blocked_launcher_nexus_route_with_runner(
             route,
-            || probe_launcher_nexus_route_once(client, settings, route),
+            || probe_launcher_nexus_route_once(client, context, route),
             true,
         )?;
     }
@@ -364,15 +361,11 @@ pub(crate) fn probe_blocked_launcher_nexus_route(
     ensure_launcher_nexus_route_available(route)
 }
 
-fn run_launcher_nexus_diagnostics(
-    settings: LauncherSettings,
-    generation: u64,
-    _app: Option<AppHandle>,
-) {
+fn run_launcher_nexus_diagnostics(context: NexusRequestContext, generation: u64) {
     let client = match launcher_http_client() {
         Ok(client) => client,
         Err(error) => {
-            for route in LauncherNexusRoute::configured_routes(&settings) {
+            for route in LauncherNexusRoute::configured_routes(&context) {
                 update_launcher_nexus_route_snapshot_for_generation(
                     generation,
                     launcher_nexus_warning_snapshot(
@@ -386,10 +379,10 @@ fn run_launcher_nexus_diagnostics(
         }
     };
 
-    for route in LauncherNexusRoute::configured_routes(&settings) {
+    for route in LauncherNexusRoute::configured_routes(&context) {
         let snapshot = probe_launcher_nexus_route_with_runner(
             route,
-            || probe_launcher_nexus_route_once(&client, Some(&settings), route),
+            || probe_launcher_nexus_route_once(&client, Some(&context), route),
             true,
         );
 
@@ -398,16 +391,10 @@ fn run_launcher_nexus_diagnostics(
 }
 
 fn start_launcher_nexus_diagnostics_with_settings(
-    settings: LauncherSettings,
+    context: NexusRequestContext,
     force_restart: bool,
-    app: Option<AppHandle>,
 ) {
-    let nexus_api_key_present = settings
-        .nexus_api_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .is_some();
+    let nexus_api_key_present = context.api_key_present();
     let generation = {
         let mut state = launcher_nexus_diagnostics_state()
             .lock()
@@ -421,7 +408,7 @@ fn start_launcher_nexus_diagnostics_with_settings(
         if state.force_offline {
             state.generation = state.generation.saturating_add(1);
             state.started = true;
-            state.routes = build_launcher_nexus_force_offline_snapshot_map(&settings);
+            state.routes = build_launcher_nexus_force_offline_snapshot_map(&context);
             LogEvent::new("nexus.diagnostics.forceOfflineSnapshot")
                 .field("generation", state.generation)
                 .flag("apiKeyPresent", nexus_api_key_present)
@@ -431,7 +418,7 @@ fn start_launcher_nexus_diagnostics_with_settings(
         state.generation = state.generation.saturating_add(1);
         state.started = true;
         let previous_routes = state.routes.clone();
-        state.routes = build_launcher_nexus_route_snapshot_map(&settings, &previous_routes);
+        state.routes = build_launcher_nexus_route_snapshot_map(&context, &previous_routes);
         state.generation
     };
 
@@ -440,25 +427,22 @@ fn start_launcher_nexus_diagnostics_with_settings(
         .flag("forceRestart", force_restart)
         .flag("apiKeyPresent", nexus_api_key_present)
         .emit_info(targets::NEXUS);
-    thread::spawn(move || run_launcher_nexus_diagnostics(settings, generation, app));
+    thread::spawn(move || run_launcher_nexus_diagnostics(context, generation));
 }
 
-pub(crate) fn prime_launcher_nexus_diagnostics(_app: &AppHandle) -> anyhow::Result<()> {
-    let settings_path = launcher_settings_path()?;
-    let settings = load_or_create_settings_at_path(&settings_path)?;
-    start_launcher_nexus_diagnostics_with_settings(settings, false, Some(_app.clone()));
+pub(crate) fn prime_launcher_nexus_diagnostics(
+    context: &NexusRequestContext,
+) -> anyhow::Result<()> {
+    start_launcher_nexus_diagnostics_with_settings(context.clone(), false);
     Ok(())
 }
 
-pub(crate) fn restart_launcher_nexus_diagnostics_with_handle(
-    app: Option<&AppHandle>,
-    settings: &LauncherSettings,
-) {
-    start_launcher_nexus_diagnostics_with_settings(settings.clone(), true, app.cloned());
+pub(crate) fn restart_launcher_nexus_diagnostics_with_handle(context: &NexusRequestContext) {
+    start_launcher_nexus_diagnostics_with_settings(context.clone(), true);
 }
 
 pub(crate) fn set_launcher_nexus_force_offline_with_settings(
-    settings: &LauncherSettings,
+    context: &NexusRequestContext,
     force_offline: bool,
 ) -> NexusDiagnosticsResult {
     let should_restart = {
@@ -468,7 +452,7 @@ pub(crate) fn set_launcher_nexus_force_offline_with_settings(
         if state.force_offline == force_offline {
             if force_offline {
                 state.started = true;
-                state.routes = build_launcher_nexus_force_offline_snapshot_map(settings);
+                state.routes = build_launcher_nexus_force_offline_snapshot_map(context);
             }
             return NexusDiagnosticsResult {
                 routes: state.routes.values().cloned().collect(),
@@ -479,7 +463,7 @@ pub(crate) fn set_launcher_nexus_force_offline_with_settings(
         if force_offline {
             state.generation = state.generation.saturating_add(1);
             state.started = true;
-            state.routes = build_launcher_nexus_force_offline_snapshot_map(settings);
+            state.routes = build_launcher_nexus_force_offline_snapshot_map(context);
             false
         } else {
             state.started = false;
@@ -489,64 +473,61 @@ pub(crate) fn set_launcher_nexus_force_offline_with_settings(
     };
 
     if should_restart {
-        start_launcher_nexus_diagnostics_with_settings(settings.clone(), true, None);
+        start_launcher_nexus_diagnostics_with_settings(context.clone(), true);
     }
 
     snapshot_launcher_nexus_diagnostics()
 }
 
 pub(crate) fn set_launcher_nexus_force_offline(
-    _app: &AppHandle,
+    context: &NexusRequestContext,
     force_offline: bool,
 ) -> anyhow::Result<NexusDiagnosticsResult> {
-    let settings_path = launcher_settings_path()?;
-    let settings = load_or_create_settings_at_path(&settings_path)?;
     Ok(set_launcher_nexus_force_offline_with_settings(
-        &settings,
+        context,
         force_offline,
     ))
 }
 
 pub(crate) fn load_launcher_nexus_diagnostics(
-    app: &AppHandle,
+    context: &NexusRequestContext,
 ) -> anyhow::Result<NexusDiagnosticsResult> {
-    prime_launcher_nexus_diagnostics(app)?;
+    prime_launcher_nexus_diagnostics(context)?;
     Ok(snapshot_launcher_nexus_diagnostics())
 }
 
 pub(crate) fn retry_launcher_nexus_diagnostics_route(
-    app: &AppHandle,
+    context: &NexusRequestContext,
     route_id: String,
 ) -> anyhow::Result<NexusDiagnosticsResult> {
     let route = LauncherNexusRoute::from_route_id(&route_id)
         .with_context(|| format!("Unknown launcher Nexus diagnostics route: {route_id}"))?;
-    let settings_path = launcher_settings_path()?;
-    let settings = load_or_create_settings_at_path(&settings_path)?;
-    retry_launcher_nexus_route_with_settings(Some(app), &settings, route)
+    retry_launcher_nexus_route_with_settings(context, route)
 }
 
 pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
-    _app: &AppHandle,
+    context: &NexusRequestContext,
 ) -> anyhow::Result<NexusDiagnosticsResult> {
-    let settings_path = launcher_settings_path()?;
-    let settings = load_or_create_settings_at_path(&settings_path)?;
-    restart_launcher_nexus_diagnostics_with_handle(Some(_app), &settings);
+    restart_launcher_nexus_diagnostics_with_handle(context);
     Ok(snapshot_launcher_nexus_diagnostics())
 }
 
 /// Runs the shared startup probe once per host process: applies the persisted
 /// force-offline choice or primes the Nexus diagnostics route probe. Both the
-/// Tauri process and the Electron sidecar call this at startup.
-pub(crate) fn prime_nexus_diagnostics_at_startup(host: &AppHandle) {
-    let result = crate::domain::app_ui::load_app_ui_state()
-        .map(|state| state.launcher.force_offline)
-        .and_then(|force_offline| {
-            if force_offline {
-                set_launcher_nexus_force_offline(host, true).map(|_| ())
-            } else {
-                prime_launcher_nexus_diagnostics(host)
-            }
-        });
+/// Tauri process and the Electron sidecar call this at startup; the caller
+/// (host layer) resolves the force-offline flag from the app UI state.
+///
+/// The startup probe runs without an API key context (the host layer only
+/// forwards the force-offline flag), so the private GraphQL and REST API
+/// routes are not probed here; they are probed once a launcher command loads
+/// the settings and restarts the diagnostics with the configured key.
+pub(crate) fn prime_nexus_diagnostics_at_startup(host: &AppHandle, force_offline: bool) {
+    let _ = host;
+    let result = if force_offline {
+        set_launcher_nexus_force_offline(&NexusRequestContext::default(), true).map(|_| ())
+    } else {
+        prime_launcher_nexus_diagnostics(&NexusRequestContext::default())
+    };
     if let Err(error) = result {
         LogEvent::new("nexus.diagnostics.startupProbeFailed")
             .error(format!("{error}"))
@@ -569,10 +550,10 @@ pub(crate) fn snapshot_launcher_nexus_diagnostics_for_test() -> NexusDiagnostics
 
 #[cfg(test)]
 pub(crate) fn set_launcher_nexus_force_offline_with_settings_for_test(
-    settings: &LauncherSettings,
+    context: &NexusRequestContext,
     force_offline: bool,
 ) -> NexusDiagnosticsResult {
-    set_launcher_nexus_force_offline_with_settings(settings, force_offline)
+    set_launcher_nexus_force_offline_with_settings(context, force_offline)
 }
 
 #[cfg(test)]

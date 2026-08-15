@@ -1,6 +1,6 @@
-use crate::domain::launcher::types::LauncherSettings;
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::http::{api_headers, send_nexus_request};
+use crate::domain::nexusmods::request::NexusRequestContext;
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use anyhow::{Context, bail};
 use reqwest::blocking::{Client, Response};
@@ -28,16 +28,13 @@ pub(crate) struct DownloadCandidate {
 
 pub(crate) fn fetch_mod_files_payload(
     client: &Client,
-    settings: &LauncherSettings,
+    context: &NexusRequestContext,
     mod_id: i64,
 ) -> anyhow::Result<Value> {
-    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::NexusApi)?;
+    probe_blocked_launcher_nexus_route(client, Some(context), LauncherNexusRoute::NexusApi)?;
     let response = client.get(super::mod_files_endpoint(mod_id));
-    let api_key = settings
-        .nexus_api_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
+    let api_key = context
+        .api_key()
         .context("Configure a Nexus API key before fetching launcher mod files.")?;
     let headers = api_headers(api_key)?;
     let response = send_nexus_request(|| {
@@ -155,22 +152,17 @@ pub(crate) fn select_download_candidate(
 
 pub(crate) fn resolve_download_url(
     client: &Client,
-    settings: &LauncherSettings,
+    context: &NexusRequestContext,
     mod_id: i64,
     file_id: i64,
 ) -> Result<String, ResolveDownloadUrlError> {
-    let api_key = settings
-        .nexus_api_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| {
-            ResolveDownloadUrlError::Message(
-                "Nexus API key is required to resolve download links.".to_string(),
-            )
-        })?;
+    let api_key = context.api_key().ok_or_else(|| {
+        ResolveDownloadUrlError::Message(
+            "Nexus API key is required to resolve download links.".to_string(),
+        )
+    })?;
 
-    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::NexusApi)
+    probe_blocked_launcher_nexus_route(client, Some(context), LauncherNexusRoute::NexusApi)
         .map_err(|error| ResolveDownloadUrlError::Message(error.to_string()))?;
     let response = client.get(super::download_link_endpoint(mod_id, file_id));
     let headers = api_headers(api_key)

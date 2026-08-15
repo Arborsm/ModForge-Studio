@@ -1,15 +1,25 @@
-use super::{
-    CheckSmapiUpdateResult, GAME_VERSION_SMAPI_TABLE, InstallSmapiUpdateRequest, RemoteModDetail,
-    SMAPI_LATEST_MINIMUM_GAME_VERSION, SMAPI_NEXUS_MOD_ID, SMAPI_NEXUS_MOD_PAGE_URL,
-    SmapiInstallerDownloadCandidate, SmapiInstallerFileKind, SmapiInstallerNaming, SmapiRelease,
-    SmapiUpdateDownloadInfo, SmapiVersionSource, collect_installer_candidates_from_dir,
-    enrich_installer_candidate_flags, max_game_compatible_smapi_version, normalize_expected_sha256,
-    parse_minimum_game_version_from_body, parse_smapi_installer_file_name,
-    resolve_latest_smapi_source, scan_required_smapi_mods, select_smapi_update_target,
-    sha256_hex_of_file, smapi_release_from_nexus_detail, sort_installer_candidates,
-    validate_local_smapi_installer_file,
+use super::installer::{
+    SmapiInstallerFileKind, normalize_expected_sha256, parse_smapi_installer_file_name,
+    sha256_hex_of_file, validate_local_smapi_installer_file,
 };
-use crate::domain::launcher::types::SmapiUpdateRequiredByMod;
+use super::local_scan::{
+    collect_installer_candidates_from_dir, enrich_installer_candidate_flags,
+    sort_installer_candidates,
+};
+use super::release::{
+    SMAPI_NEXUS_MOD_ID, SMAPI_NEXUS_MOD_PAGE_URL, SmapiRelease,
+    parse_minimum_game_version_from_body, resolve_latest_smapi_source,
+    smapi_release_from_nexus_detail,
+};
+use super::versioning::{
+    GAME_VERSION_SMAPI_TABLE, SMAPI_LATEST_MINIMUM_GAME_VERSION, max_game_compatible_smapi_version,
+    scan_required_smapi_mods, select_smapi_update_target,
+};
+use crate::domain::launcher::types::{
+    CheckSmapiUpdateResult, InstallSmapiUpdateRequest, SmapiInstallerDownloadCandidate,
+    SmapiInstallerNaming, SmapiUpdateDownloadInfo, SmapiUpdateRequiredByMod, SmapiVersionSource,
+};
+use crate::domain::nexusmods::mod_detail::RemoteModDetail;
 use crate::infrastructure::http::resumable_download::{
     PartialRetention, ResumableDownloadRequest, download_resumable,
 };

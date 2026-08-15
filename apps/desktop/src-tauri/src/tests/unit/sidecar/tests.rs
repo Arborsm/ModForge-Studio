@@ -318,7 +318,7 @@ fn typed_resolved_dynamic_resources<P: HostCommand>(params: P) -> Vec<SidecarRes
 
 #[test]
 fn resolve_command_declares_lane_at_binding_site() {
-    let sidecar = parse_source("sidecar.rs");
+    let sidecar = parse_source("host/sidecar.rs");
     assert!(sidecar.items.iter().all(|item| {
         !matches!(item, Item::Fn(function) if function.sig.ident == "dispatch_mode")
     }));
@@ -378,8 +378,8 @@ fn resolve_command_declares_lane_at_binding_site() {
 
 #[test]
 fn sidecar_uses_shared_host_runtime_scheduler() {
-    let sidecar = parse_source("sidecar.rs");
-    let host_runtime = parse_source("host_runtime.rs");
+    let sidecar = parse_source("host/sidecar.rs");
+    let host_runtime = parse_source("host/host_runtime/mod.rs");
     assert!(host_runtime.items.iter().any(|item| matches!(
         item,
         Item::Struct(item) if item.ident == "HostCommandScheduler"
@@ -403,7 +403,7 @@ fn sidecar_uses_shared_host_runtime_scheduler() {
 
 #[test]
 fn tauri_host_runtime_waits_on_async_response_channel() {
-    let runtime = parse_source("host_runtime.rs");
+    let runtime = parse_source("host/host_runtime/mod.rs");
     let execute = function_structure(find_function(&runtime, "execute"));
     assert!(execute.calls.contains("recv"));
     assert!(execute.calls.contains("submit"));
@@ -796,7 +796,7 @@ fn localization_review_releases_knowledge_lock_before_ai_network_work() {
 
 #[test]
 fn sidecar_protocol_names_are_derived_from_command_functions() {
-    let sidecar = parse_source("sidecar.rs");
+    let sidecar = parse_source("host/sidecar.rs");
     let resolver = function_structure(find_function(&sidecar, "resolve_command"));
     let wire_names = resolver
         .macros
@@ -825,7 +825,7 @@ fn sidecar_protocol_names_are_derived_from_command_functions() {
 
 #[test]
 fn sidecar_resolver_does_not_call_tauri_command_wrappers() {
-    let sidecar = parse_source("sidecar.rs");
+    let sidecar = parse_source("host/sidecar.rs");
     let resolver = function_structure(find_function(&sidecar, "resolve_command"));
     assert_eq!(resolver.await_count, 0);
     assert!(!resolver.calls.contains("block_on"));
@@ -863,7 +863,8 @@ fn sidecar_resolver_does_not_call_tauri_command_wrappers() {
 #[test]
 fn typed_sidecar_arms_are_canonical_policy_free_pointers() {
     let source =
-        fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/sidecar.rs")).unwrap();
+        fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/host/sidecar.rs"))
+            .unwrap();
     let arm_start = "crate::host_command_wire!(";
     let mut typed_arms = 0;
     let mut cursor = 0;
@@ -899,7 +900,7 @@ fn typed_sidecar_arms_are_canonical_policy_free_pointers() {
 
 #[test]
 fn sidecar_resolver_avoids_async_domain_wrappers_that_spawn_blocking() {
-    let sidecar = parse_source("sidecar.rs");
+    let sidecar = parse_source("host/sidecar.rs");
     let resolver = function_structure(find_function(&sidecar, "resolve_command"));
     assert!(!resolver.calls.contains("block_on"));
     // The blocking domain calls live inside the typed bindings' execution

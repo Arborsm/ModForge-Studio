@@ -1,17 +1,14 @@
-use crate::AppHandle;
-use crate::domain::app_paths::launcher_settings_path;
-use crate::domain::launcher::settings::{load_or_create_settings_at_path, normalize_optional_text};
-use crate::domain::launcher::trace::log_launcher_trace;
-use crate::domain::launcher::types::{
-    LauncherCatalogFacetEntry, LauncherCatalogFacets, LauncherCatalogPageResult,
-    LauncherCatalogResult, LauncherSettings, SearchLauncherCatalogRequest,
-};
 use crate::domain::nexusmods::can_use_nexus_graphql;
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::graphql;
 use crate::domain::nexusmods::http::{api_headers, launcher_http_client, send_nexus_json_request};
+use crate::domain::nexusmods::request::NexusRequestContext;
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{build_mod_page_url, extract_graphql_error, string_field};
+use crate::domain::nexusmods::types::{
+    LauncherCatalogFacetEntry, LauncherCatalogFacets, LauncherCatalogPageResult,
+    LauncherCatalogResult, SearchLauncherCatalogRequest,
+};
 use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 use reqwest::blocking::Client;
@@ -104,6 +101,26 @@ fragment ModTileFragment on Mod {
 "#;
 fn graphql_filter_value(value: &str, op: &str) -> Value {
     json!([{ "value": value, "op": op }])
+}
+
+/// Trims and normalizes an optional text field the same way the launcher
+/// settings normalization does (pure text handling, no launcher dependency).
+fn normalize_optional_text(value: Option<String>) -> Option<String> {
+    value.and_then(|item| {
+        let trimmed = item.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    })
+}
+
+/// Emits a `launcher.catalog.<action>` trace line at the launcher trace level.
+/// The launcher trace helper lives in the launcher domain, so the catalog
+/// emits the same event shape through `LogEvent` directly (R4).
+fn log_catalog_trace(action: &str, build: impl FnOnce(LogEvent) -> LogEvent) {
+    build(LogEvent::new(format!("launcher.{action}"))).emit_debug(targets::LAUNCHER_TRACE);
 }
 
 fn has_catalog_text(value: &Option<String>) -> bool {
@@ -659,17 +676,17 @@ fn load_public_catalog_page(
 
 fn load_catalog_page_from_graphql(
     client: &Client,
-    settings: &LauncherSettings,
+    context: &NexusRequestContext,
     payload: &Value,
     page: usize,
     page_size: usize,
 ) -> anyhow::Result<LauncherCatalogPageResult> {
-    if !can_use_nexus_graphql(settings) {
+    if !can_use_nexus_graphql(context) {
         bail!("Configure a Nexus API key before querying Nexus Mods.");
     }
-    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PrivateGraphql)?;
+    probe_blocked_launcher_nexus_route(client, Some(context), LauncherNexusRoute::PrivateGraphql)?;
 
-    let headers = graphql::graphql_headers(settings.nexus_api_key.as_deref())?;
+    let headers = graphql::graphql_headers(context.api_key())?;
     let (status, response_payload) = send_nexus_json_request(|| {
         client
             .post(graphql::GRAPHQL_ENDPOINT)
@@ -687,12 +704,12 @@ fn load_catalog_page_from_graphql(
 
 fn load_trending_catalog_page(
     client: &Client,
-    settings: &LauncherSettings,
+    context: &NexusRequestContext,
     api_key: &str,
     page: usize,
     ascending: bool,
 ) -> anyhow::Result<LauncherCatalogPageResult> {
-    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::NexusApi)?;
+    probe_blocked_launcher_nexus_route(client, Some(context), LauncherNexusRoute::NexusApi)?;
     let headers = api_headers(api_key)?;
     let (status, response_payload) = send_nexus_json_request(|| {
         client
@@ -710,7 +727,7 @@ fn load_trending_catalog_page(
 
 /// Traces a resolved catalog page, tagged with the source that produced it.
 fn log_catalog_search_complete(result: &LauncherCatalogPageResult, source: &str) {
-    log_launcher_trace("catalog.search.complete", |event| {
+    log_catalog_trace("catalog.search.complete", |event| {
         event
             .field("page", result.page)
             .field("pageSize", result.page_size)
@@ -722,7 +739,7 @@ fn log_catalog_search_complete(result: &LauncherCatalogPageResult, source: &str)
 }
 
 pub(crate) fn search_launcher_catalog_blocking(
-    _app: &AppHandle,
+    context: &NexusRequestContext,
     request: &SearchLauncherCatalogRequest,
 ) -> anyhow::Result<LauncherCatalogPageResult> {
     let page = request.page.unwrap_or(1).max(1);
@@ -730,10 +747,8 @@ pub(crate) fn search_launcher_catalog_blocking(
     let sort = request.sort.clone().unwrap_or_else(|| "newest".to_string());
     let ascending = request.ascending.unwrap_or(false);
     let query = normalize_optional_text(request.query.clone());
-    let settings_path = launcher_settings_path()?;
-    let settings = load_or_create_settings_at_path(&settings_path)?;
     let client = launcher_http_client()?;
-    log_launcher_trace("catalog.search.start", |event| {
+    log_catalog_trace("catalog.search.start", |event| {
         event
             .field("page", page)
             .field("pageSize", page_size)
@@ -743,13 +758,8 @@ pub(crate) fn search_launcher_catalog_blocking(
     });
 
     if query.is_none() && sort == "trending" && !has_catalog_constraints(request) {
-        if let Some(api_key) = settings
-            .nexus_api_key
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-        {
-            let result = load_trending_catalog_page(&client, &settings, api_key, page, ascending)?;
+        if let Some(api_key) = context.api_key() {
+            let result = load_trending_catalog_page(&client, context, api_key, page, ascending)?;
             if !result.facets.categories.is_empty()
                 || !result.facets.languages.is_empty()
                 || !result.facets.tags.is_empty()
@@ -766,15 +776,14 @@ pub(crate) fn search_launcher_catalog_blocking(
         return Ok(result);
     }
 
-    if !can_use_nexus_graphql(&settings) {
+    if !can_use_nexus_graphql(context) {
         let result = load_public_catalog_page(&client, request)?;
         log_catalog_search_complete(&result, "public-graphql");
         return Ok(result);
     }
 
     let payload = build_catalog_graphql_payload(request)?;
-    let result = match load_catalog_page_from_graphql(&client, &settings, &payload, page, page_size)
-    {
+    let result = match load_catalog_page_from_graphql(&client, context, &payload, page, page_size) {
         Ok(result) => {
             log_catalog_search_complete(&result, "graphql");
             result

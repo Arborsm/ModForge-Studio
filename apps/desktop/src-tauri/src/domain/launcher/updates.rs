@@ -23,6 +23,7 @@ use crate::domain::nexusmods::http::launcher_http_client;
 use crate::domain::nexusmods::mod_detail::{
     RemoteModDetail, load_remote_mod_detail_from_public_graphql,
 };
+use crate::domain::nexusmods::request::NexusRequestContext;
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{build_mod_page_url, normalize_nexus_url};
 use crate::domain::nexusmods::updates::load_remote_mod_details_from_graphql;
@@ -596,9 +597,10 @@ fn load_remote_mod_details_batch(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .is_some();
+    let nexus_context = NexusRequestContext::new(settings.nexus_api_key.clone());
     let detail_count_before_graphql = details.len();
     if can_use_graphql {
-        match load_remote_mod_details_from_graphql(client, settings, &mod_ids) {
+        match load_remote_mod_details_from_graphql(client, &nexus_context, &mod_ids) {
             Ok(graphql_details) if !graphql_details.is_empty() => {
                 details.extend(graphql_details);
             }
@@ -636,8 +638,12 @@ fn load_remote_mod_details_batch(
     let mut unresolved_mod_ids = Vec::new();
     let mut public_graphql_resolved = 0usize;
     for candidate in missing_after_graphql {
-        match load_remote_mod_detail_from_public_graphql(client, settings, candidate.mod_id, false)
-        {
+        match load_remote_mod_detail_from_public_graphql(
+            client,
+            &nexus_context,
+            candidate.mod_id,
+            false,
+        ) {
             Ok(detail) => {
                 public_graphql_resolved += 1;
                 details.insert(candidate.mod_id, detail);

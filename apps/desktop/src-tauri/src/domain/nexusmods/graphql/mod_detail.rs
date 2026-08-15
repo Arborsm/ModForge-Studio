@@ -1,18 +1,16 @@
-use crate::AppHandle;
-use crate::domain::app_paths::launcher_settings_path;
-use crate::domain::launcher::settings::load_or_create_settings_at_path;
-use crate::domain::launcher::types::{
-    LauncherRemoteModDetail, LauncherRemoteModFile, LauncherRemoteModRequirement, LauncherSettings,
-    LauncherUpdateChangelogResult, LoadLauncherRemoteModDetailRequest,
-    LoadLauncherUpdateChangelogRequest,
-};
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::graphql;
 use crate::domain::nexusmods::http::{launcher_http_client, send_nexus_json_request};
+use crate::domain::nexusmods::request::NexusRequestContext;
 use crate::domain::nexusmods::rest_api::client::NexusRestError;
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{
     build_mod_page_url, decode_html, extract_graphql_error, normalize_nexus_url, string_field,
+};
+use crate::domain::nexusmods::types::{
+    LauncherRemoteModDetail, LauncherRemoteModFile, LauncherRemoteModRequirement,
+    LauncherUpdateChangelogResult, LoadLauncherRemoteModDetailRequest,
+    LoadLauncherUpdateChangelogRequest,
 };
 use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
@@ -828,15 +826,10 @@ fn timestamp_to_rfc3339(timestamp: u64) -> Option<String> {
 }
 
 fn load_remote_mod_detail_from_rest_api(
-    settings: &LauncherSettings,
+    context: &NexusRequestContext,
     mod_id: i64,
 ) -> anyhow::Result<Option<RemoteModDetail>> {
-    let Some(api_key) = settings
-        .nexus_api_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    else {
+    let Some(api_key) = context.api_key() else {
         return Ok(None);
     };
 
@@ -904,11 +897,11 @@ fn load_remote_mod_detail_from_rest_api(
 
 pub(crate) fn load_remote_mod_detail_from_public_graphql(
     client: &Client,
-    settings: &LauncherSettings,
+    context: &NexusRequestContext,
     mod_id: i64,
     include_files: bool,
 ) -> anyhow::Result<RemoteModDetail> {
-    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PublicGraphql)?;
+    probe_blocked_launcher_nexus_route(client, Some(context), LauncherNexusRoute::PublicGraphql)?;
     let mod_url = build_mod_page_url(mod_id);
     let headers =
         graphql::public_graphql_headers(&mod_url, PUBLIC_MOD_DETAIL_GRAPHQL_OPERATION_HEADER)?;
@@ -1013,7 +1006,7 @@ fn to_launcher_remote_mod_detail(detail: RemoteModDetail) -> LauncherRemoteModDe
 }
 
 pub(crate) fn load_launcher_remote_mod_detail_blocking(
-    _app: &AppHandle,
+    context: &NexusRequestContext,
     request: &LoadLauncherRemoteModDetailRequest,
 ) -> anyhow::Result<LauncherRemoteModDetail> {
     if request.mod_id <= 0 {
@@ -1021,11 +1014,9 @@ pub(crate) fn load_launcher_remote_mod_detail_blocking(
     }
 
     let client = launcher_http_client()?;
-    let settings_path = launcher_settings_path()?;
-    let settings = load_or_create_settings_at_path(&settings_path)?;
     let mut detail = match load_remote_mod_detail_from_public_graphql(
         &client,
-        &settings,
+        context,
         request.mod_id,
         request.include_files,
     ) {
@@ -1037,7 +1028,7 @@ pub(crate) fn load_launcher_remote_mod_detail_blocking(
         ),
         Err(error) => load_remote_mod_detail_with_graphql_fallback(
             || Err(anyhow::anyhow!("{error}")),
-            || load_remote_mod_detail_from_rest_api(&settings, request.mod_id),
+            || load_remote_mod_detail_from_rest_api(context, request.mod_id),
         )?,
     };
     if detail.gallery_images.is_empty() {
@@ -1049,7 +1040,6 @@ pub(crate) fn load_launcher_remote_mod_detail_blocking(
 }
 
 pub(crate) fn load_launcher_update_changelog_blocking(
-    _app: &AppHandle,
     request: &LoadLauncherUpdateChangelogRequest,
 ) -> anyhow::Result<LauncherUpdateChangelogResult> {
     if request.mod_id <= 0 {

@@ -3,7 +3,6 @@ use super::{
     read_nexus_response_body_with_retry, retry_delay_for_policy, retry_delay_from_headers,
     with_nexus_request_slot,
 };
-use crate::domain::launcher::types::LauncherSettings;
 use crate::domain::nexusmods::diagnostics::{
     ensure_launcher_nexus_route_available, launcher_nexus_success_snapshot,
     probe_blocked_launcher_nexus_route_with_runner, probe_launcher_nexus_route_with_runner,
@@ -13,6 +12,7 @@ use crate::domain::nexusmods::diagnostics::{
     set_launcher_nexus_route_snapshot_from_probe_for_test,
     snapshot_launcher_nexus_diagnostics_for_test,
 };
+use crate::domain::nexusmods::request::NexusRequestContext;
 use crate::domain::nexusmods::routes::{LauncherNexusRoute, launcher_nexus_route_for_url};
 use crate::domain::nexusmods::types::{NexusRouteSnapshot, NexusRouteStatus};
 use reqwest::header::{HeaderMap, HeaderValue};
@@ -24,18 +24,8 @@ fn launcher_http_test_guard() -> &'static Mutex<()> {
     GUARD.get_or_init(|| Mutex::new(()))
 }
 
-fn launcher_settings(api_key: Option<&str>) -> LauncherSettings {
-    LauncherSettings {
-        game_path: None,
-        mods_path: None,
-        download_path: None,
-        nexus_api_key: api_key.map(str::to_string),
-        auto_install_downloads: false,
-        keep_downloaded_archives: false,
-        auto_check_mod_updates: true,
-        gmcm_parsing_enabled: true,
-        show_console_window: false,
-    }
+fn request_context(api_key: Option<&str>) -> NexusRequestContext {
+    NexusRequestContext::new(api_key.map(str::to_string))
 }
 
 #[test]
@@ -352,7 +342,7 @@ fn force_offline_override_blocks_all_configured_routes() {
         .expect("launcher http test guard should not be poisoned");
     reset_launcher_nexus_diagnostics_for_test();
 
-    set_launcher_nexus_force_offline_with_settings_for_test(&launcher_settings(None), true);
+    set_launcher_nexus_force_offline_with_settings_for_test(&request_context(None), true);
 
     let diagnostics = snapshot_launcher_nexus_diagnostics_for_test();
     assert_eq!(diagnostics.routes.len(), 3);
@@ -374,7 +364,7 @@ fn force_offline_override_prevents_blocked_route_reprobe_recovery() {
         .expect("launcher http test guard should not be poisoned");
     reset_launcher_nexus_diagnostics_for_test();
 
-    set_launcher_nexus_force_offline_with_settings_for_test(&launcher_settings(None), true);
+    set_launcher_nexus_force_offline_with_settings_for_test(&request_context(None), true);
 
     let mut attempts = 0;
     let error = probe_blocked_launcher_nexus_route_with_runner(
@@ -413,8 +403,8 @@ fn clearing_force_offline_override_unblocks_routes() {
         .expect("launcher http test guard should not be poisoned");
     reset_launcher_nexus_diagnostics_for_test();
 
-    set_launcher_nexus_force_offline_with_settings_for_test(&launcher_settings(None), true);
-    set_launcher_nexus_force_offline_with_settings_for_test(&launcher_settings(None), false);
+    set_launcher_nexus_force_offline_with_settings_for_test(&request_context(None), true);
+    set_launcher_nexus_force_offline_with_settings_for_test(&request_context(None), false);
 
     ensure_launcher_nexus_route_available(LauncherNexusRoute::PublicGraphql)
         .expect("public GraphQL should be available again after clearing force offline");
@@ -428,7 +418,7 @@ fn launcher_nexus_configured_routes_include_smapi_and_image_routes_without_crede
         .lock()
         .expect("launcher http test guard should not be poisoned");
 
-    let routes = LauncherNexusRoute::configured_routes(&launcher_settings(None));
+    let routes = LauncherNexusRoute::configured_routes(&request_context(None));
 
     assert_eq!(
         routes,
@@ -446,7 +436,7 @@ fn launcher_nexus_configured_routes_include_private_graphql_and_api_when_availab
         .lock()
         .expect("launcher http test guard should not be poisoned");
 
-    let routes = LauncherNexusRoute::configured_routes(&launcher_settings(Some("nexus-api-key")));
+    let routes = LauncherNexusRoute::configured_routes(&request_context(Some("nexus-api-key")));
 
     assert_eq!(
         routes,

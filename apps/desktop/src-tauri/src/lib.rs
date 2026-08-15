@@ -2,14 +2,14 @@ extern crate self as modforge_studio_desktop_lib;
 
 mod domain;
 mod host;
-pub mod host_commands;
-pub mod host_runtime;
+pub use host::host_commands;
+pub use host::host_runtime;
 mod infrastructure;
-pub mod sidecar;
+pub use host::sidecar;
 mod support;
 
 #[cfg(any(debug_assertions, feature = "dev-asset-bridge"))]
-pub mod dev_asset_bridge;
+pub use host::dev_asset_bridge;
 
 #[cfg(test)]
 #[path = "../tests/support/mod.rs"]
@@ -105,7 +105,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let host = AppHandle::from_tauri(app.handle().clone());
-            domain::nexusmods::diagnostics::prime_nexus_diagnostics_at_startup(&host);
+            let force_offline = crate::domain::app_ui::load_app_ui_state()
+                .map(|state| state.launcher.force_offline)
+                .unwrap_or(false);
+            domain::nexusmods::diagnostics::prime_nexus_diagnostics_at_startup(&host, force_offline);
 
             let tray_menu = Menu::with_items(
                 app,

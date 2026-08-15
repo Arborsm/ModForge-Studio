@@ -7,8 +7,6 @@ use tungstenite::{Message, WebSocket, connect};
 
 use super::rest_api;
 use crate::AppHandle;
-use crate::domain::app_paths as paths;
-use crate::domain::launcher::settings as launcher_settings;
 use crate::support::logging::{LogEvent, targets};
 use anyhow::bail;
 
@@ -138,7 +136,13 @@ fn store_session_connection_token(generation: u64, connection_token: String) -> 
 
 // ---- Public API ----
 
-pub(crate) fn start_sso(app: &AppHandle) -> anyhow::Result<String> {
+/// Starts the SSO flow. The `save_api_key` callback persists the freshly
+/// authorized API key; the launcher domain provides it so the nexusmods domain
+/// never writes launcher settings itself (R4).
+pub(crate) fn start_sso(
+    app: &AppHandle,
+    save_api_key: impl Fn(&str) -> anyhow::Result<()> + Send + 'static,
+) -> anyhow::Result<String> {
     let mut state = sso_state().lock().expect("sso mutex");
 
     if running_flag().load(Ordering::Relaxed) {
@@ -185,17 +189,13 @@ pub(crate) fn start_sso(app: &AppHandle) -> anyhow::Result<String> {
                 }
 
                 let validation_result = rest_api::validate_user(&api_key);
+                // Persisting the authorized key is best-effort: the SSO flow
+                // itself already succeeded, so a settings write failure must
+                // not fail the authorization.
+                let _ = save_api_key(&api_key);
                 let mut state = sso_state().lock().expect("sso mutex");
                 if state.generation != generation || state.sso_id.as_deref() != Some(tid.as_str()) {
                     return;
-                }
-                if let Ok(path) = paths::launcher_settings_path() {
-                    if let Ok(mut settings) =
-                        launcher_settings::load_or_create_settings_at_path(&path)
-                    {
-                        settings.nexus_api_key = Some(api_key.clone());
-                        let _ = launcher_settings::save_settings_at_path(&path, &settings);
-                    }
                 }
                 state.status = SsoConnectionStatus::Authorized;
                 state.error_kind = None;
@@ -226,8 +226,11 @@ pub(crate) fn start_sso(app: &AppHandle) -> anyhow::Result<String> {
     Ok(sso_id)
 }
 
-pub(crate) fn start_sso_with_status(app: &AppHandle) -> anyhow::Result<SsoStartResult> {
-    let sso_id = start_sso(app)?;
+pub(crate) fn start_sso_with_status(
+    app: &AppHandle,
+    save_api_key: impl Fn(&str) -> anyhow::Result<()> + Send + 'static,
+) -> anyhow::Result<SsoStartResult> {
+    let sso_id = start_sso(app, save_api_key)?;
     std::thread::sleep(std::time::Duration::from_millis(100));
     let status = get_sso_status().status;
     Ok(SsoStartResult { sso_id, status })
