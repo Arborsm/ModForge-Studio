@@ -8,6 +8,7 @@
 - 前端分层、依赖方向和 HostCommandClient 边界以 `docs/frontend-architecture.md` 为准。
 - 构建、发布、CI、签名和维护命令以 `docs/maintenance.md` 为准。
 - Nexus Mods GraphQL 事实以 `docs/nexusmods-graphql/**` 的生成快照为准。
+- 后端分层、域间依赖与共享内核规则以 `docs/backend-architecture.md` 为准。
 - 不要在本文件维护长目录树、依赖清单或迁移流水账；这些内容容易过期。
 
 ## 快速定位
@@ -39,6 +40,8 @@ vp run format:check
 vp test run --configLoader runner
 # 完整 JavaScript gate（Vitest + 独立 Node tests）
 vp run --filter @modforge/desktop test
+# 后端架构规则检查（CI 同款；--strict 会把白名单遗留耦合也报出）
+vp run --filter @modforge/desktop check:backend-architecture
 ```
 
 Rust 后端命令必须显式指定 manifest：
@@ -92,11 +95,13 @@ MODFORGE_COMMAND_TRACE=1 vp run dev
 
 ## 后端硬规则
 
-- 后端 command 执行统一走 Host Runtime：Electron sidecar 和 Tauri command wrapper 都必须通过同一套 `host_runtime` / `commands/runtime.rs` 调度，不允许各自绕过 runtime 直接执行耗时业务。
-- `apps/desktop/src-tauri/src/commands` 只做 Tauri command wrapper：构造 command envelope、调用 shared runtime、错误包装和返回结果；业务逻辑放 `domain`。
-- Host command 协议名等于 Tauri wrapper 函数名：Rust wrapper 用 `host_command_name!(function_name)`，sidecar 分发用 `host_command_wire!(function_name)`，前端 `HOST_COMMANDS` 由 `vp run --filter @modforge/desktop gen:host-commands` 扫描 `#[tauri::command] pub fn` 生成；禁止手写独立 manifest 或字符串清单。
-- `apps/desktop/src-tauri/src/sidecar.rs::resolve_command` 是 Rust command 的唯一绑定点；command 名称、lane、resources、cancel/mutation 策略、参数解析和执行闭包必须在同一个 match arm 声明。
-- 禁止再建 `dispatch_mode(command)`、`defaultHostCommandPolicy` 这类独立硬编码分类表。
+- 后端 command 执行统一走 Host Runtime：Electron sidecar 和 Tauri command wrapper 都必须通过同一套 `host_runtime`（含 Tauri in-process 入口 `host_runtime::execute`）调度，不允许各自绕过 runtime 直接执行耗时业务。
+- 每个 command 的"绑定点"是 `#[host_command(...)]` 属性（由 `host-command-macros` proc-macro 单处生成 wire envelope struct、`const NAME`、`impl HostCommand` 和 `#[tauri::command]` wrapper）：属性声明 lane（control/network/io/mutation）、pool（lane/image_cdn/ai/official_indexing/semantic_indexing/semantic_search）、resources（资源锁）、wrap（ok 默认 / ai 走 `ok_ai` / raw 命令式）与 context（`control_with_context`）。函数签名是唯一参数来源（第一参数 `app: AppHandle` 是宿主句柄，其余是 payload）；函数体只写 domain 调用。业务逻辑放 `domain`。
+- binding 文件贴在各业务目录下的 `commands.rs`（如 `domain/launcher/commands.rs`、`domain/ai/commands.rs`、`infrastructure/game_formats/xact/commands.rs`、`support/logging/commands.rs`），与所服务的域逻辑同目录；父模块用 `pub(crate) mod commands;` 接线。禁止再建集中式 `commands/` 目录。
+- 例外：运行时计算资源锁的命令（resource resolver，如 `save_mod_i18n_files`）保持手写三件套：struct + `impl HostCommand` + `crate::host_runtime::execute(app, <X>Params { .. }).await` wrapper。
+- Host command 协议名等于 wrapper 函数名。前端 `HOST_COMMANDS` 和 lib.rs 的 `generate_handler![...]` 块都由 `vp run --filter @modforge/desktop gen:host-commands` 递归扫描 src 树下所有 `commands.rs` 生成；sidecar 路由 match 由脚本生成，arm 为规范指针 `resolve_typed::<crate::<module::path>::<X>Params>(ctx, id, args)`（module::path 即文件相对 src/ 的模块路径，漂移检查对空白不敏感；宏命令的 `<X>Params` 由 `PascalCase(命令名)+"Params"` 派生，脚本与宏的 case 转换必须一致，两侧各有测试钉住）。`build.rs` 在每次 cargo 构建时执行同一脚本的 `--check`，三份产物任一漂移直接编译失败——新增/改名命令必须跑一次 `gen:host-commands` 再构建。禁止手写独立 manifest 或字符串清单，禁止 `State<DebugLoggingState>` 旧式 wrapper。
+- `apps/desktop/src-tauri/src/host/sidecar.rs::resolve_command` 只是无策略的路由层：match arm 必须是生成器校验的类型指针，lane/resource/pool 等策略只允许出现在 `#[host_command(...)]` 绑定点；禁止在 sidecar arm 里再写策略。
+- lane/pool/resource 选择语义统一在 `host_runtime.rs` 的 typed command binding 段（`HostCommand` trait 提供语义方法：`Self::io` / `Self::mutation_with_resources` / `Self::ai_network` / `Self::mutation_on_semantic_indexing_pool` 等，宏属性映射到这些方法），禁止再建 `dispatch_mode(command)`、`defaultHostCommandPolicy` 这类独立硬编码分类表。
 - Host command lane 语义固定：`Control` 处理取消、日志、SSO 状态、打开路径/URL 等轻量控制；`Network` 处理 Nexus/SMAPI/远程图片/下载/更新/API key 等远程请求；`Io` 处理本地读取、扫描、解析、缓存读取和 archive inspect；`Mutation` 处理保存、安装、恢复、清缓存和持久化写入。
 - 持久化或破坏性写入必须在绑定点声明资源锁；同资源命令必须串行，不同资源不能被无关网络洪峰饿死。
 - `apps/desktop/electron/main.ts` 只做 transport/supervisor：IPC、sidecar 启停、pending promise、stdout frame、stderr log、exit/error reject；禁止在 Electron main 维护 command lane、resource、mutation 或取消策略。
@@ -104,6 +109,7 @@ MODFORGE_COMMAND_TRACE=1 vp run dev
 - Host command tracing 只能通过启动环境变量开启，不要做成前端可调用 command，也不要混入应用 debug diagnostics toggle；UI debug 仍应保留其他 backend debug/trace。
 - `domain` 按业务边界组织 launcher、mods、assets、content_patcher、cp_maker、saves、ai、localization、modding、nexusmods 等领域逻辑（其中 `mods`、`app_ui` 等以单文件形式存在）。
 - `infrastructure` 只放技术实现，如 game formats、filesystem、webview 基础设施；不要混入 launcher/Nexus 等领域规则。
+- 后端分层与域间依赖方向以 `docs/backend-architecture.md` 为准（R1–R6，由 `check:backend-architecture` 强制）；白名单语义是迁移清单——修复耦合时同步删条目，删除前先修代码（R4/R5 已清零，机制保留给未来迁移复用）。
 - 前端 `shared/infra` 对齐 game-format/asset-format 边界，不承载宿主桥、launcher/Nexus 业务规则。
 - 大型 Rust 测试不要新增内联 `#[cfg(test)] mod tests`；单元测试放 `apps/desktop/src-tauri/src/tests/unit/`，跨模块集成测试放 `apps/desktop/src-tauri/src/tests/integration/`，回归测试放 `apps/desktop/src-tauri/tests/`。
 - 修改资产解码、解析、安装、启动、路径安全或 fallback 行为时，必须补充或更新回归测试。

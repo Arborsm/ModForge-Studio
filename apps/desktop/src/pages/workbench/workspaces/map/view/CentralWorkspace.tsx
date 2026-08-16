@@ -40,6 +40,8 @@ type CentralWorkspaceProps = {
   onOpenAtlasTarget: (targetMapName: string) => void
   theme: ThemeMode
   accentColor: string
+  /** Installed Stardew Valley root used to load LooseSprites/Lighting glow textures. */
+  gameRootPath?: string | null
   visibleLayerIds: number[]
   visibleObjectGroupIds: number[]
   focusedObjectTarget: FocusedMapObjectTarget | null
@@ -67,6 +69,7 @@ export default function CentralWorkspace({
   onOpenAtlasTarget,
   theme,
   accentColor,
+  gameRootPath = null,
   visibleLayerIds,
   visibleObjectGroupIds,
   focusedObjectTarget,
@@ -252,6 +255,7 @@ export default function CentralWorkspace({
               mapOverlay={mapOverlay}
               scaleMapOverlayWithViewport
               worldLighting={worldLighting}
+              gameRootPath={gameRootPath}
               onZoomChange={(nextZoom) => setZoomLabel(copy.viewportLabels.zoomLabel(nextZoom))}
               onExportPng={() => {
                 void exportMapPngAtFullSize()

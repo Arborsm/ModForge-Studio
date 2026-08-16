@@ -2,6 +2,18 @@ import { globalTaskRuntime, type TaskScope } from '@shared/lib/task-runtime'
 import type { PlatformPorts } from '@shared/contracts'
 import type { HostCommandName } from '@platform/host-commands'
 
+/**
+ * UI-side request lifecycle policy. This governs how the frontend dedups
+ * in-flight calls, drops stale results and queues/throttles requests; it is
+ * a different namespace from the backend binding's lane/pool/resource
+ * scheduling (see docs/frontend-architecture.md). Pool/resource keys here are
+ * frontend-only throttle domains, not `HostCommandResource` locks.
+ *
+ * Implementation note: `latest`/`keyedLatest`/`serviceGate` all run
+ * through the latest-wins task primitive and differ only by intent;
+ * `exclusiveMutation`/`queuedMutation` both queue behind a key and differ
+ * by the key prefix. `parallelPool` is the only bounded-concurrency kind.
+ */
 export type HostCommandPolicy =
   | { kind: 'latest'; key: string }
   | { kind: 'keyedLatest'; key: string }
@@ -10,17 +22,16 @@ export type HostCommandPolicy =
   | { kind: 'parallelPool'; pool: string; limit?: number }
   | { kind: 'serviceGate'; key: string }
 
-export type HostCommandRequest<TArgs, TResult> = {
+export type HostCommandRequest<TArgs> = {
   command: HostCommandName
   args?: TArgs
   policy: HostCommandPolicy
   signal?: AbortSignal
   scope?: TaskScope
-  readonly resultType?: (_value: TResult) => TResult
 }
 
 export interface HostCommandClient {
-  invoke<TArgs, TResult>(request: HostCommandRequest<TArgs, TResult>): Promise<TResult>
+  invoke<TArgs, TResult>(request: HostCommandRequest<TArgs>): Promise<TResult>
 }
 
 function throwIfAborted(signal?: AbortSignal) {
@@ -45,7 +56,7 @@ function linkAbortSignal(scope: TaskScope, signal?: AbortSignal) {
 }
 
 export function createHostCommandClient(ports: PlatformPorts): HostCommandClient {
-  async function rawInvoke<TArgs, TResult>(request: HostCommandRequest<TArgs, TResult>, scope: TaskScope) {
+  async function rawInvoke<TArgs, TResult>(request: HostCommandRequest<TArgs>, scope: TaskScope) {
     throwIfAborted(request.signal)
     const unlink = linkAbortSignal(scope, request.signal)
     try {
@@ -60,8 +71,8 @@ export function createHostCommandClient(ports: PlatformPorts): HostCommandClient
   }
 
   return {
-    invoke(request) {
-      const task = (scope: TaskScope) => rawInvoke(request, request.scope ?? scope)
+    invoke<TArgs, TResult>(request: HostCommandRequest<TArgs>) {
+      const task = (scope: TaskScope) => rawInvoke<TArgs, TResult>(request, request.scope ?? scope)
 
       switch (request.policy.kind) {
         case 'latest':

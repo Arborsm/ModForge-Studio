@@ -2,13 +2,14 @@ use super::types::{
     ChangeRegistry, ChangeRegistryPatch, CpMakerDependency, CpMakerDraftRecord, CpMakerI18nFile,
     CpMakerMetadata, CustomLocation, DynamicToken,
 };
+use crate::infrastructure::fs::pathing::{logical_path_key, validated_game_relative_path};
 use crate::infrastructure::game_formats::json_relaxed::parse_json_str;
 use crate::infrastructure::text_encoding::read_text_file;
 use anyhow::{Context, bail};
 use serde_json::{Map, Value, json};
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Import a CP mod directory into a draft record.
@@ -315,7 +316,7 @@ fn resolve_changes(
                     continue;
                 }
                 let include_path = resolve_include_path(mod_dir, &from_file)?;
-                let include_key = from_file.replace('\\', "/").to_ascii_lowercase();
+                let include_key = logical_path_key(&from_file);
                 if !visited.insert(include_key.clone()) {
                     bail!("Cyclic include detected: {from_file}");
                 }
@@ -385,14 +386,8 @@ fn parse_include_paths(value: &Value) -> anyhow::Result<Vec<String>> {
 }
 
 fn resolve_include_path(mod_dir: &Path, raw: &str) -> anyhow::Result<PathBuf> {
-    let relative = PathBuf::from(raw.replace('/', "\\"));
-    if relative.is_absolute()
-        || relative
-            .components()
-            .any(|component| !matches!(component, Component::Normal(_)))
-    {
-        bail!("Include path must stay inside the content pack: {raw}");
-    }
+    let relative = validated_game_relative_path(raw)
+        .with_context(|| format!("Include path must stay inside the content pack: {raw}"))?;
     Ok(mod_dir.join(relative))
 }
 

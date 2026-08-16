@@ -1,3 +1,4 @@
+pub(crate) mod commands;
 pub mod corpus;
 pub mod jobs;
 pub mod knowledge;

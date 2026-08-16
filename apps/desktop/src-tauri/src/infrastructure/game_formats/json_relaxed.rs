@@ -245,3 +245,15 @@ pub(crate) fn read_json_file(path: &Path, source_label: &str) -> anyhow::Result<
     let parsed = parse_json_str(&raw, source_label)?;
     Ok((raw, parsed))
 }
+
+/// Reads a relaxed JSON file with the standard path-based error label used by
+/// every domain wrapper, so callers don't re-derive the label string.
+pub(crate) fn read_json_file_labeled(path: &Path) -> anyhow::Result<(String, Value)> {
+    read_json_file(
+        path,
+        &format!(
+            "JSON file {}",
+            crate::infrastructure::fs::pathing::normalize_path(path)
+        ),
+    )
+}

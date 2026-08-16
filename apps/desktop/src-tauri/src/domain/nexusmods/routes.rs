@@ -1,5 +1,5 @@
+use super::request::NexusRequestContext;
 use super::{can_use_nexus_graphql, endpoints, graphql, rest_api};
-use crate::domain::launcher::types::LauncherSettings;
 use anyhow::Context;
 use reqwest::Url;
 
@@ -42,13 +42,13 @@ impl LauncherNexusRoute {
         }
     }
 
-    pub(crate) fn configured_routes(settings: &LauncherSettings) -> Vec<Self> {
+    pub(crate) fn configured_routes(context: &NexusRequestContext) -> Vec<Self> {
         let mut routes = vec![Self::PublicGraphql];
         routes.extend([Self::NexusImages, Self::Smapi]);
-        if can_use_nexus_graphql(settings) {
+        if can_use_nexus_graphql(context) {
             routes.push(Self::PrivateGraphql);
         }
-        if has_launcher_nexus_api_key(settings) {
+        if has_launcher_nexus_api_key(context) {
             routes.push(Self::NexusApi);
         }
         routes
@@ -66,21 +66,13 @@ impl LauncherNexusRoute {
     }
 }
 
-pub(crate) fn has_launcher_nexus_api_key(settings: &LauncherSettings) -> bool {
-    settings
-        .nexus_api_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .is_some()
+pub(crate) fn has_launcher_nexus_api_key(context: &NexusRequestContext) -> bool {
+    context.api_key_present()
 }
 
-pub(crate) fn launcher_nexus_api_key(settings: &LauncherSettings) -> anyhow::Result<&str> {
-    settings
-        .nexus_api_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
+pub(crate) fn launcher_nexus_api_key(context: &NexusRequestContext) -> anyhow::Result<&str> {
+    context
+        .api_key()
         .context("Configure a Nexus API key before querying the Nexus REST API.")
 }
 

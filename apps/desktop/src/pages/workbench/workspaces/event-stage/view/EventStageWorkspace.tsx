@@ -494,6 +494,7 @@ export default function EventStageWorkspace({
             mapOverlay={mapOverlay}
             viewportOverlay={viewportOverlay}
             worldLighting={worldLighting}
+            gameRootPath={directoryInfo?.rootPath ?? null}
             focusWorldPoint={focusWorldPoint}
             onZoomChange={handleZoomChange}
             onHoverChange={setHoverInfo}

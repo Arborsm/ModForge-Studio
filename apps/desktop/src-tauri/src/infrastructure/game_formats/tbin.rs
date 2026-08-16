@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use crate::infrastructure::fs::pathing::normalize_path;
+use crate::infrastructure::fs::pathing::{game_path_to_pathbuf, normalize_path};
 #[allow(unused_imports)]
 pub use crate::infrastructure::game_formats::map::{
     MapDocument, MapFormat, MapLayer, MapLayerDataEncoding, MapLayerOrderEntry, MapObject,
@@ -1058,8 +1058,7 @@ fn resolve_content_root(map_path: &Path) -> PathBuf {
 }
 
 fn resolve_tilesheet_path(map_path: &Path, content_root: &Path, source: &str) -> Option<String> {
-    let normalized = source.replace(['/', '\\'], "\\");
-    let source_path = PathBuf::from(normalized);
+    let source_path = game_path_to_pathbuf(source);
     let mut candidates = Vec::new();
 
     if source_path.is_absolute() {

@@ -7,6 +7,7 @@ import { useNotificationPublisher } from '@shared/ui/notifications'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { cx } from '@shared/lib/helper'
 import { useAiLocalizationPage } from '../model/useAiLocalizationPage'
+import { errorDetail } from '../model/errorDetail'
 
 const assetCategories = ['Strings', 'Characters', 'Data', 'Dialogue', 'Maps', 'Movies']
 
@@ -58,7 +59,7 @@ export function OfficialCorpusView({
     }).catch((error) => {
       if (!(error instanceof TaskCancelledError)) {
         setOverrides([])
-        publish({ id: 'official-overrides-error', level: 'error', title: copy.knowledgeError, description: copy.knowledgeError })
+        publish({ id: 'official-overrides-error', level: 'error', title: copy.knowledgeError, description: errorDetail(error) })
       }
     })
   }, [copy.globalScope, copy.knowledgeError, localization, page.selected, publish, runOverrideLoad, scopes])
@@ -80,8 +81,8 @@ export function OfficialCorpusView({
         },
       ])
       publish({ id: 'official-term-copied', level: 'success', title: copy.termCopied, description: copy.termCopied })
-    } catch {
-      publish({ id: 'official-term-copy-error', level: 'error', title: copy.knowledgeError, description: copy.knowledgeError })
+    } catch (error) {
+      publish({ id: 'official-term-copy-error', level: 'error', title: copy.knowledgeError, description: errorDetail(error) })
     }
   }
   const corpusReady = status?.indexed ?? false
@@ -124,11 +125,6 @@ export function OfficialCorpusView({
             </div>
           </dl>
         </header>
-        {page.error ? (
-          <p role="alert" className="settings-ai-error">
-            {page.error}
-          </p>
-        ) : null}
         {page.loading ? (
           <div className="ai-localization-status-loading" aria-live="polite" aria-busy="true">
             <p>{copy.loadingStatus}</p>

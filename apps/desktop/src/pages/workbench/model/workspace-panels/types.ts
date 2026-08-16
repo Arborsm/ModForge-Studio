@@ -169,6 +169,7 @@ export type BuildMapPanelsOptions = Pick<
   | 'copy'
   | 'theme'
   | 'accentColor'
+  | 'gameRootPath'
   | 'mapAssets'
   | 'filteredAssets'
   | 'mapBrowserSourceMode'

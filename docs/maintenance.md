@@ -34,6 +34,14 @@ web:dev` starts the Vite+ frontend-only path.
 Linux starts Electron, while macOS and Windows start Tauri. `vp run
 desktop:build` uses the same platform split for build mode.
 
+Every cargo build of the desktop host runs the host command drift gate first:
+`build.rs` executes `node scripts/generate-host-commands.mjs --check` (requires
+Node on PATH) and fails the build if the sidecar routing block, the lib.rs
+`generate_handler!` list, or the frontend `HOST_COMMANDS` table drift from the
+scanned `commands.rs` bindings. After adding, renaming, or moving a host
+command, run `vp run --filter @modforge/desktop gen:host-commands` once to
+regenerate the three outputs, then build as usual.
+
 To trace Host Runtime command scheduling, start the desktop host with:
 
 ```bash
@@ -165,9 +173,10 @@ Frontend tests live under `apps/desktop/src/tests/`:
 `test:node`. `test:frontend` drives Vitest through
 `scripts/run-frontend-tests.mjs`, which gates on React `act(...)` warnings: any
 warning in the test output fails the run even when Vitest itself passes.
-`test:node` runs four standalone scripts under `node --test`
+`test:node` runs five standalone scripts under `node --test`
 (`frontend-test-warning-gate.test.mjs`, `linux-cuda-runtime.test.mjs`,
-`scan-gmcm-probe.test.mjs`, and `../../docs/nexusmods-graphql/convert-to-markdown.test.mjs`).
+`scan-gmcm-probe.test.mjs`, `generate-host-commands.test.mjs`, and
+`../../docs/nexusmods-graphql/convert-to-markdown.test.mjs`).
 
 The frontend intentionally keeps no UI/render tests; UI and layout behavior is verified by screenshot, Playwright, or a manual path rather than jsdom render assertions.
 

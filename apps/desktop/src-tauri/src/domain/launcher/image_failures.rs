@@ -1,8 +1,8 @@
-use super::paths::launcher_image_failures_path;
 use super::types::{
     LauncherImageFailureEntry, LauncherImageFailuresState, RecordLauncherImageFailureRequest,
 };
 use crate::AppHandle;
+use crate::domain::app_paths::launcher_image_failures_path;
 use crate::infrastructure::fs::pathing::normalize_path;
 use crate::infrastructure::text_encoding::read_text_file;
 use crate::support::logging::{LogEvent, targets};
@@ -205,7 +205,7 @@ pub(crate) fn record_launcher_image_failure_at_path(
         failure_count,
         blocked,
         last_error: trimmed_error,
-        last_failed_at_ms: crate::domain::launcher::paths::current_timestamp_ms(),
+        last_failed_at_ms: crate::domain::app_paths::current_timestamp_ms(),
     });
 
     let normalized = normalize_state(state);

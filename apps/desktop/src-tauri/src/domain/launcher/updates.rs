@@ -1,5 +1,4 @@
 use super::library::scan_library_at_path;
-use super::paths::{current_timestamp_ms, launcher_settings_path, launcher_updates_cache_path};
 use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
 use super::types::{
@@ -16,11 +15,15 @@ use super::update_cache::{
 };
 pub(crate) use super::versions::version_is_newer;
 use crate::AppHandle;
+use crate::domain::app_paths::{
+    current_timestamp_ms, launcher_settings_path, launcher_updates_cache_path,
+};
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::http::launcher_http_client;
 use crate::domain::nexusmods::mod_detail::{
     RemoteModDetail, load_remote_mod_detail_from_public_graphql,
 };
+use crate::domain::nexusmods::request::NexusRequestContext;
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{build_mod_page_url, normalize_nexus_url};
 use crate::domain::nexusmods::updates::load_remote_mod_details_from_graphql;
@@ -349,7 +352,6 @@ pub(crate) fn build_smapi_update_payload_with_versions(
 }
 
 #[cfg(test)]
-#[allow(dead_code)]
 pub(crate) fn build_smapi_update_payload(candidates: &[UpdateCheckCandidate]) -> Value {
     build_smapi_update_payload_with_versions(candidates, &default_smapi_runtime_versions())
 }
@@ -595,9 +597,10 @@ fn load_remote_mod_details_batch(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .is_some();
+    let nexus_context = NexusRequestContext::new(settings.nexus_api_key.clone());
     let detail_count_before_graphql = details.len();
     if can_use_graphql {
-        match load_remote_mod_details_from_graphql(client, settings, &mod_ids) {
+        match load_remote_mod_details_from_graphql(client, &nexus_context, &mod_ids) {
             Ok(graphql_details) if !graphql_details.is_empty() => {
                 details.extend(graphql_details);
             }
@@ -635,8 +638,12 @@ fn load_remote_mod_details_batch(
     let mut unresolved_mod_ids = Vec::new();
     let mut public_graphql_resolved = 0usize;
     for candidate in missing_after_graphql {
-        match load_remote_mod_detail_from_public_graphql(client, settings, candidate.mod_id, false)
-        {
+        match load_remote_mod_detail_from_public_graphql(
+            client,
+            &nexus_context,
+            candidate.mod_id,
+            false,
+        ) {
             Ok(detail) => {
                 public_graphql_resolved += 1;
                 details.insert(candidate.mod_id, detail);

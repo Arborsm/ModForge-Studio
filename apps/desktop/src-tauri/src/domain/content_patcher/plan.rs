@@ -5,11 +5,11 @@ use super::project::{
     include_from_file, normalize_relative_path, patch_action_is_include,
     resolve_include_relative_path,
 };
-use super::schema::parse_json_str;
 use super::tokens::INVALID_WHEN_TOKEN;
 use super::types::{
     ContentPatcherPatchPlan, ContentPatcherPlannedPatch, ContentPatcherProjectSnapshot,
 };
+use crate::infrastructure::game_formats::json_relaxed::parse_json_str;
 use anyhow::{Context, bail};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -1204,7 +1204,7 @@ fn resolve_dynamic_tokens(
     tokens
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn build_patch_plan(
     snapshot: &ContentPatcherProjectSnapshot,
 ) -> anyhow::Result<ContentPatcherPatchPlan> {

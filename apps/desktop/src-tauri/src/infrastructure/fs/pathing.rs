@@ -8,6 +8,67 @@ pub fn normalize_path(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
+/// Game-format path string (TMX/TBin/TSX source, content.json key) → `PathBuf`.
+/// `\` and `/` are both separators; the result is always relative. Use
+/// [`validated_game_relative_path`] when `..`/absolute paths must be rejected.
+pub fn game_path_to_pathbuf(raw: &str) -> PathBuf {
+    let mut rebuilt = PathBuf::new();
+    for segment in raw.trim().split(|c| c == '\\' || c == '/') {
+        match segment {
+            "" | "." => {}
+            _ => rebuilt.push(segment),
+        }
+    }
+    rebuilt
+}
+
+/// [`game_path_to_pathbuf`] + validation: rejects empty, absolute, `..`, and
+/// drive-letter (`C:`) segments.
+pub fn validated_game_relative_path(raw: &str) -> anyhow::Result<PathBuf> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        anyhow::bail!("game path `{raw}` must not be empty");
+    }
+    if trimmed.starts_with('/') || trimmed.starts_with('\\') {
+        anyhow::bail!("game path `{raw}` must be relative, got an absolute path");
+    }
+
+    let path = game_path_to_pathbuf(raw);
+    if path.as_os_str().is_empty() {
+        anyhow::bail!("game path `{raw}` is empty after normalization");
+    }
+    for component in path.components() {
+        match component {
+            std::path::Component::Normal(segment) => {
+                if segment.to_string_lossy().contains(':') {
+                    anyhow::bail!(
+                        "game path `{raw}` must not contain a drive/prefix segment `{segment:?}`"
+                    );
+                }
+            }
+            other => {
+                anyhow::bail!(
+                    "game path `{raw}` must only contain normal components, got `{other:?}`"
+                );
+            }
+        }
+    }
+    Ok(path)
+}
+
+/// `\` → `/`, nothing else. Display/log normalization only, not a validated path.
+pub fn normalize_separators(raw: &str) -> String {
+    raw.replace('\\', "/")
+}
+
+/// Case-insensitive comparison key: trim + separators + lowercase. Logical key
+/// only — never pass to filesystem APIs.
+pub fn logical_path_key(raw: &str) -> String {
+    normalize_separators(raw.trim())
+        .trim_end_matches('/')
+        .to_ascii_lowercase()
+}
+
 pub fn clean_input_path(path: &str) -> PathBuf {
     let trimmed = path.trim().trim_matches('"');
 
@@ -268,7 +329,7 @@ fn collect_windows_install_paths() -> Vec<PathBuf> {
         r"Software\Valve\Steam",
         "SteamPath",
     ) {
-        let steam_root = PathBuf::from(steam_path.replace('/', "\\"));
+        let steam_root = PathBuf::from(steam_path);
         candidates.push(
             steam_root
                 .join("steamapps")
@@ -506,5 +567,5 @@ fn tokenize_vdf(content: &str) -> Vec<VdfToken> {
 }
 
 #[cfg(test)]
-#[path = "../../tests/integration/pathing_tests.rs"]
+#[path = "../../tests/unit/infrastructure/pathing_tests.rs"]
 mod tests;

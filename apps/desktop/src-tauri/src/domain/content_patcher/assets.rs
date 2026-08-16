@@ -1,10 +1,11 @@
 use super::project::{normalize_relative_path, resolve_include_relative_path};
-use super::schema::{parse_json_file, parse_json_str};
+use super::schema::parse_json_file;
 use super::types::{
     ContentPatcherMapDebugSummary, ContentPatcherProjectSnapshot, VirtualPreviewAsset,
 };
 use crate::domain::modding::attached_api::AttachedApiRegistry;
-use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path, normalize_separators};
+use crate::infrastructure::game_formats::json_relaxed::parse_json_str;
 use crate::infrastructure::game_formats::map::MapDocument;
 use crate::infrastructure::game_formats::parse_map_asset;
 use crate::infrastructure::game_formats::tbin::parse_tbin_map;
@@ -285,11 +286,12 @@ pub struct LoadedBaseImageAsset {
 
 fn describe_base_image_source(game_root_path: &str, candidate: &Path) -> String {
     let root = clean_input_path(game_root_path);
-    let relative = candidate
-        .strip_prefix(&root)
-        .map(normalize_path)
-        .unwrap_or_else(|_| normalize_path(candidate))
-        .replace('\\', "/");
+    let relative = normalize_separators(
+        &candidate
+            .strip_prefix(&root)
+            .map(normalize_path)
+            .unwrap_or_else(|_| normalize_path(candidate)),
+    );
     format!("Game content -> {relative}")
 }
 

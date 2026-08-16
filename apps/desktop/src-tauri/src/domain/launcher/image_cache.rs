@@ -1,6 +1,6 @@
-use super::paths::{launcher_image_cache_dir, launcher_image_failures_path};
 use super::types::{ResolveLauncherImageRequest, ResolveLauncherImageResult};
 use crate::AppHandle;
+use crate::domain::app_paths::{launcher_image_cache_dir, launcher_image_failures_path};
 use crate::domain::launcher::image_failures::{
     clear_launcher_image_failure_entries_at_path, clear_launcher_image_failure_for_mod_at_path,
     is_launcher_image_blocked, load_or_create_image_failures_at_path,

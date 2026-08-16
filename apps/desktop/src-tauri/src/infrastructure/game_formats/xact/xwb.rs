@@ -18,8 +18,6 @@ pub(crate) struct WaveBankInfo {
     pub flags: u32,
     pub entry_count: u32,
     pub entry_meta_size: u32,
-    #[allow(dead_code)]
-    pub entry_name_size: u32,
     pub alignment: u32,
     pub compact_format: MiniWaveFormat,
 }
@@ -29,12 +27,6 @@ pub(crate) struct WaveBankEntry {
     pub format: MiniWaveFormat,
     pub play_offset: u32,
     pub play_length: u32,
-    #[allow(dead_code)]
-    pub loop_start: u32,
-    #[allow(dead_code)]
-    pub loop_length: u32,
-    #[allow(dead_code)]
-    pub duration: u32,
 }
 
 pub(crate) fn parse_wave_bank_header(
@@ -72,7 +64,7 @@ pub(crate) fn parse_wave_bank_header(
     let flags = read_u32_le(&bank_data, 0)?;
     let entry_count = read_u32_le(&bank_data, 4)?;
     let entry_meta_size = read_u32_le(&bank_data, 72)?;
-    let entry_name_size = read_u32_le(&bank_data, 76)?;
+    read_u32_le(&bank_data, 76)?;
     let alignment = read_u32_le(&bank_data, 80)?;
     let compact_format = MiniWaveFormat::from_packed(read_u32_le(&bank_data, 84)?);
 
@@ -82,7 +74,6 @@ pub(crate) fn parse_wave_bank_header(
             flags,
             entry_count,
             entry_meta_size,
-            entry_name_size,
             alignment,
             compact_format,
         },
@@ -144,9 +135,6 @@ pub(crate) fn read_wave_bank_entries(
                 format: bank_info.compact_format,
                 play_offset,
                 play_length,
-                loop_start: 0,
-                loop_length: 0,
-                duration: 0,
             });
         }
 
@@ -165,20 +153,17 @@ pub(crate) fn read_wave_bank_entries(
 
     for index in 0..entry_count {
         let base = index * entry_size;
-        let flags_duration = read_u32_le(&table, base)?;
+        read_u32_le(&table, base)?;
         let format = MiniWaveFormat::from_packed(read_u32_le(&table, base + 4)?);
         let play_offset = read_u32_le(&table, base + 8)?;
         let play_length = read_u32_le(&table, base + 12)?;
-        let loop_start = read_u32_le(&table, base + 16)?;
-        let loop_length = read_u32_le(&table, base + 20)?;
+        read_u32_le(&table, base + 16)?;
+        read_u32_le(&table, base + 20)?;
 
         entries.push(WaveBankEntry {
             format,
             play_offset,
             play_length,
-            loop_start,
-            loop_length,
-            duration: flags_duration >> 4,
         });
     }
 

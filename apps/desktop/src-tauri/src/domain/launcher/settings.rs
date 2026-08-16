@@ -1,6 +1,6 @@
-use super::paths::launcher_settings_path;
 use super::types::{LauncherSettings, NullablePatch, SaveLauncherSettingsRequest};
 use crate::AppHandle;
+use crate::domain::app_paths::launcher_settings_path;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use crate::infrastructure::text_encoding::read_text_file;
 use crate::support::logging::{LogEvent, targets};
@@ -251,6 +251,7 @@ pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
     app: &AppHandle,
     settings: &LauncherSettings,
 ) {
+    let _ = app;
     LogEvent::new("launcherSettings.nexusDiagnosticsRestart")
         .flag(
             "apiKeyPresent",
@@ -258,8 +259,9 @@ pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
         )
         .emit_info(targets::LAUNCHER_SETTINGS);
     crate::domain::nexusmods::diagnostics::restart_launcher_nexus_diagnostics_with_handle(
-        Some(app),
-        settings,
+        &crate::domain::nexusmods::request::NexusRequestContext::new(
+            settings.nexus_api_key.clone(),
+        ),
     );
 }
 

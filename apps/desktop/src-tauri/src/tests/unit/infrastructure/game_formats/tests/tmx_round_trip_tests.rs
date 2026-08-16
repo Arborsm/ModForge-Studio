@@ -228,12 +228,13 @@ fn resolves_external_tsx_relative_to_the_tmx_file() {
         parsed.tilesets[0].source.as_deref(),
         Some("tiles/sheet.tsx")
     );
+    // 修复前 Linux/macOS 会把 `\` 当普通字符拼成单文件名
+    // （如 `tiles\sheet.png`）；现在必须解析为嵌套的正斜杠路径。
+    let resolved_image = Path::new(parsed.tilesets[0].image_path.as_deref().unwrap());
     assert!(
-        parsed.tilesets[0]
-            .image_path
-            .as_deref()
-            .unwrap()
-            .ends_with("tiles\\sheet.png")
+        resolved_image.ends_with(Path::new("tiles").join("sheet.png")),
+        "unexpected resolved image path: {}",
+        resolved_image.display()
     );
 
     std::fs::remove_dir_all(&root).unwrap();

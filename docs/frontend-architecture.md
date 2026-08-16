@@ -284,6 +284,8 @@ Typical policy mapping:
 
 Backend command scheduling is documented as agent/backend rules in `AGENTS.md`; frontend architecture only owns how business code reaches the host and how UI state publication is scoped.
 
+**Policy layers are separate namespaces.** Frontend `HostCommandPolicy` governs the UI request lifecycle (in-flight dedup, stale-result gating, UI queueing, fan-out throttling) and its `parallelPool`/`resource`/`queue` keys are frontend-only throttle domains. The Rust binding independently declares execution scheduling (lane, execution pool, `HostCommandResource` locks, cancel/mutation semantics) inside `impl HostCommand` — see `AGENTS.md` backend rules. The two layers intentionally may differ (e.g. a read command may be UI-throttled through `parallelPool` while the backend runs it on the Io lane); they are not expected to mirror each other, and frontend pool keys are not backend resource locks. The host command generator verifies backend binding drift; frontend policy is reviewed through the architecture tests that scan `HostCommandClient` usage.
+
 ## Implementation Completeness
 
 Architecture boundaries are not a reason to ship hollow slices. Do not add placeholder UI, no-op commands, fake data, TODO flows, silent catches, or happy-path-only implementations just to satisfy a visible acceptance point.

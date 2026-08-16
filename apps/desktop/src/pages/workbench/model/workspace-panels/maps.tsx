@@ -16,6 +16,7 @@ export function buildMapsWorkspacePanels(options: BuildMapPanelsOptions): Worksp
     copy,
     theme,
     accentColor,
+    gameRootPath,
     mapAssets,
     filteredAssets,
     mapBrowserSourceMode,
@@ -126,6 +127,7 @@ export function buildMapsWorkspacePanels(options: BuildMapPanelsOptions): Worksp
                 onOpenAtlasTarget={onOpenAtlasTarget}
                 theme={theme}
                 accentColor={accentColor}
+                gameRootPath={gameRootPath}
                 visibleLayerIds={visibleLayerIds}
                 visibleObjectGroupIds={visibleObjectGroupIds}
                 focusedObjectTarget={focusedObjectTarget}

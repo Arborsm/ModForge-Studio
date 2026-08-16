@@ -6,6 +6,7 @@ import type { AiOfficialCorpusStatus, AiOfficialIndexProgress, AiOfficialUnit } 
 import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { useAiLocalizationPersistentState } from './localizationPageState'
+import { errorDetail } from './errorDetail'
 
 const NOTICE_ID = 'ai-localization-official-error'
 const SEARCH_NOTICE_ID = 'ai-localization-official-search'
@@ -57,21 +58,19 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
   const [indexing, setIndexing] = useState(false)
   const [indexProgress, setIndexProgress] = useState<AiOfficialIndexProgress | null>(null)
   const [searching, setSearching] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const activeJobId = useRef<string | null>(null)
   const cancelledJobId = useRef<string | null>(null)
   const retryRef = useRef<() => void>(() => {})
   const runDirectoryLoad = useLatestTask('ai-localization-game-directories')
   const runInspect = useLatestTask('ai-localization-official-inspect')
   const runSearch = useLatestTask('ai-localization-official-search')
-  const fail = (title: string, retry: () => void) => {
-    setError(title)
+  const fail = (error: unknown, title: string, retry: () => void) => {
     retryRef.current = retry
     publish({
       id: NOTICE_ID,
       level: 'error',
       title,
-      description: title,
+      description: errorDetail(error),
       action: { label: copy.retry, callback: () => retryRef.current(), tone: 'primary' },
     })
   }
@@ -117,16 +116,16 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
         const next = await localization.inspectOfficialIndex(path)
         if (task.isCurrent()) {
           setStatus(next)
-          setError(null)
           setLoading(false)
           dismissNotification(STATUS_NOTICE_ID)
+          dismissNotification(NOTICE_ID)
         }
       })
     } catch (error) {
       if (!(error instanceof TaskCancelledError)) {
         setLoading(false)
         dismissNotification(STATUS_NOTICE_ID)
-        fail(copy.loadError, () => void inspect(path))
+        fail(error, copy.loadError, () => void inspect(path))
       }
     }
   }
@@ -146,7 +145,7 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
       if (!(error instanceof TaskCancelledError)) {
         setLoading(false)
         dismissNotification(STATUS_NOTICE_ID)
-        fail(copy.loadError, () => window.location.reload())
+        fail(error, copy.loadError, () => window.location.reload())
       }
     })
     return () => {
@@ -164,12 +163,12 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
     cancelledJobId.current = null
     setIndexing(true)
     setIndexProgress(null)
-    setError(null)
     try {
       const next = await localization.rebuildOfficialIndex({ jobId, gameDirectory })
       setStatus(next)
-    } catch {
-      if (cancelledJobId.current !== jobId) fail(copy.indexError, () => void rebuild())
+      dismissNotification(NOTICE_ID)
+    } catch (error) {
+      if (cancelledJobId.current !== jobId) fail(error, copy.indexError, () => void rebuild())
     } finally {
       activeJobId.current = null
       setIndexing(false)
@@ -183,8 +182,8 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
       setDirectories((current) => [...new Set([path, ...current])])
       setGameDirectory(path)
       await inspect(path)
-    } catch {
-      fail(copy.loadError, () => void chooseGameDirectory())
+    } catch (error) {
+      fail(error, copy.loadError, () => void chooseGameDirectory())
     }
   }
   const cancel = async () => {
@@ -229,16 +228,16 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
           setRecords(page.records)
           setHasSearched(true)
           setSelected((current) => page.records.find((row) => row.id === current?.id) ?? page.records[0] ?? null)
-          setError(null)
           setSearching(false)
           dismissNotification(SEARCH_NOTICE_ID)
+          dismissNotification(NOTICE_ID)
         }
       })
     } catch (error) {
       if (!(error instanceof TaskCancelledError)) {
         setSearching(false)
         dismissNotification(SEARCH_NOTICE_ID)
-        fail(copy.searchError, () => void search())
+        fail(error, copy.searchError, () => void search())
       }
     }
   }
@@ -293,7 +292,6 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
     indexing,
     indexProgress,
     searching,
-    error,
     rebuild,
     cancel,
     search,

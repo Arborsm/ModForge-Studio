@@ -738,6 +738,7 @@ function MapAssetEditorContent({
               }
               cellOverlay={overlayCells}
               worldLighting={worldLighting}
+              gameRootPath={resources.gameRootPath}
             />
             {editor.overlayActive ? (
               <MapAssetCellOverlayRules activeRule={editor.overlayRule} onRuleChange={editor.setOverlayRule} />

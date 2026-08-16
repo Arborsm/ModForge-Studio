@@ -207,8 +207,6 @@ fn parse_sound_entry_complex_wave(xsb: &[u8], entry: &SoundEntry) -> Option<Soun
 pub(crate) struct XsbHeader {
     pub num_simple_cues: u16,
     pub num_complex_cues: u16,
-    #[allow(dead_code)]
-    pub num_total_cues: u16,
     pub num_wave_banks: u8,
     pub num_sounds: u16,
     pub cue_name_table_len: u32,
@@ -231,7 +229,7 @@ pub(crate) fn parse_xsb_header(bytes: &[u8]) -> anyhow::Result<XsbHeader> {
 
     let num_simple_cues = read_u16_le(bytes, 19)?;
     let num_complex_cues = read_u16_le(bytes, 21)?;
-    let num_total_cues = read_u16_le(bytes, 25)?;
+    read_u16_le(bytes, 25)?;
     let num_wave_banks = bytes[27];
     let num_sounds = read_u16_le(bytes, 28)?;
     let cue_name_table_len = read_u32_le(bytes, 30)?;
@@ -244,7 +242,6 @@ pub(crate) fn parse_xsb_header(bytes: &[u8]) -> anyhow::Result<XsbHeader> {
     Ok(XsbHeader {
         num_simple_cues,
         num_complex_cues,
-        num_total_cues,
         num_wave_banks,
         num_sounds,
         cue_name_table_len,

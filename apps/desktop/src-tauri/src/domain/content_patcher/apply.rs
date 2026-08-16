@@ -6,13 +6,13 @@ use super::common::when_to_value;
 use super::conditions::evaluate_patch_status;
 use super::context::SimulationContext;
 use super::patch_fields::{parse_from_file_values, parse_target_values};
-use super::schema::parse_json_str;
 use super::types::{
     ContentPatcherPatchPlan, ContentPatcherPlannedPatch, ContentPatcherProjectDiagnostic,
     ContentPatcherProjectSnapshot, ContentPatcherResultAsset, ContentPatcherTargetSummary,
     ContentPatcherTraceEntry, LoadContentPatcherResultAssetResult,
 };
 use crate::domain::modding::attached_api::AttachedApiRegistry;
+use crate::infrastructure::game_formats::json_relaxed::parse_json_str;
 use anyhow::{Context, bail};
 use image::RgbaImage;
 use serde_json::{Map, Value};

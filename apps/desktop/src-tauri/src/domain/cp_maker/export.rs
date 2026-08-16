@@ -1,7 +1,7 @@
 use super::builder::validate_i18n_locale;
 use super::project_assets::verify_asset_file;
 use super::types::{CpMakerExportRequest, CpMakerExportResult, CpMakerI18nFile, ProjectAssetRef};
-use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path, normalize_separators};
 use anyhow::{Context, bail};
 use base64::Engine;
 use serde_json::Value;
@@ -174,14 +174,14 @@ fn prepare_project_assets(
         .map(|asset| {
             (
                 comparable_path_key(&asset.relative_path),
-                normalize_path(&asset.relative_path).replace('\\', "/"),
+                normalize_separators(&normalize_path(&asset.relative_path)),
             )
         })
         .collect::<HashMap<_, _>>();
     let mut prepared = Vec::with_capacity(project_assets.len());
     for asset in project_assets {
         let relative_path = validated_export_relative_path(&asset.relative_path, "project asset")?;
-        let normalized = normalize_path(&relative_path).replace('\\', "/");
+        let normalized = normalize_separators(&normalize_path(&relative_path));
         if let Some(virtual_path) = virtual_paths.get(&comparable_path_key(&relative_path)) {
             if virtual_path != &normalized {
                 bail!(
@@ -231,8 +231,7 @@ fn validate_output_path(output_path: &Path) -> anyhow::Result<()> {
     }
 
     let mut has_directory_component = false;
-    for segment in normalized_output_path
-        .replace('\\', "/")
+    for segment in normalize_separators(&normalized_output_path)
         .split('/')
         .filter(|segment| !segment.is_empty())
     {
@@ -392,8 +391,9 @@ fn validate_asset_paths(
 }
 
 fn comparable_path_key(path: &Path) -> String {
-    normalize_path(path)
-        .replace('\\', "/")
+    // Unicode-aware case folding (not ASCII-only) so paths that differ only by
+    // unicode case are treated as colliding, matching `to_lowercase`.
+    normalize_separators(&normalize_path(path))
         .trim_end_matches('/')
         .to_lowercase()
 }

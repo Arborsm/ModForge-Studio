@@ -8,7 +8,9 @@ use super::types::{
     ContentPatcherIncludeEdge, ContentPatcherProjectSnapshot, ContentPatcherProjectSummary,
     ContentPatcherSourceFile,
 };
-use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::fs::pathing::{
+    clean_input_path, game_path_to_pathbuf, normalize_path, normalize_separators,
+};
 use anyhow::Context;
 use anyhow::bail;
 use serde_json::{Map, Value};
@@ -19,11 +21,11 @@ use std::path::{Component, Path, PathBuf};
 const CONTENT_PATCHER_UNIQUE_ID: &str = "Pathoschild.ContentPatcher";
 
 pub(crate) fn normalize_relative_path(path: &Path) -> String {
-    path.to_string_lossy().replace('\\', "/")
+    normalize_separators(&path.to_string_lossy())
 }
 
 fn normalize_include_path(from_file: &str) -> PathBuf {
-    PathBuf::from(from_file.replace('\\', "/"))
+    game_path_to_pathbuf(from_file)
 }
 
 fn is_content_patcher_manifest(manifest: &Value) -> bool {

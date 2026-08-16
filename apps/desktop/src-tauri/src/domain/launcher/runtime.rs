@@ -1,4 +1,3 @@
-use super::paths::{launcher_backup_dir, launcher_settings_path};
 use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
 use super::types::{
@@ -6,6 +5,7 @@ use super::types::{
     OpenLauncherPathRequest, OpenLauncherUrlRequest,
 };
 use crate::AppHandle;
+use crate::domain::app_paths::{launcher_backup_dir, launcher_settings_path};
 use crate::infrastructure::fs::pathing::{
     clean_input_path, normalize_path, smapi_launch_candidates, stardew_game_launch_candidates,
 };

@@ -102,8 +102,8 @@ fn debug_logging_state_does_not_suppress_repeated_third_party_debug_logs() {
         .target(SYSTEM_CERTIFICATE_LOG_TARGET)
         .build();
 
-    assert!(state.should_log_metadata(&metadata));
-    assert!(state.should_log_metadata(&metadata));
+    assert!(state.level_enabled(&metadata));
+    assert!(state.level_enabled(&metadata));
 }
 
 #[test]
@@ -125,9 +125,9 @@ fn command_trace_defaults_to_off_without_environment_flag() {
         .target(targets::HOST_RUNTIME)
         .build();
 
-    assert!(!state.should_log_metadata(&command_trace_metadata));
-    assert!(!state.should_log_metadata(&regular_debug_metadata));
-    assert!(state.should_log_metadata(&info_metadata));
+    assert!(!state.level_enabled(&command_trace_metadata));
+    assert!(!state.level_enabled(&regular_debug_metadata));
+    assert!(state.level_enabled(&info_metadata));
 }
 
 #[test]
@@ -162,8 +162,8 @@ fn command_trace_environment_flag_only_enables_host_runtime_debug_logs() {
         .target(targets::NEXUS)
         .build();
 
-    assert!(state.should_log_metadata(&command_trace_metadata));
-    assert!(!state.should_log_metadata(&regular_debug_metadata));
+    assert!(state.level_enabled(&command_trace_metadata));
+    assert!(!state.level_enabled(&regular_debug_metadata));
     clear_command_trace_env();
 }
 
@@ -183,8 +183,8 @@ fn debug_logging_toggle_does_not_enable_command_trace_logs() {
         .target(targets::NEXUS)
         .build();
 
-    assert!(!state.should_log_metadata(&command_trace_metadata));
-    assert!(state.should_log_metadata(&regular_debug_metadata));
+    assert!(!state.level_enabled(&command_trace_metadata));
+    assert!(state.level_enabled(&regular_debug_metadata));
 }
 
 #[test]

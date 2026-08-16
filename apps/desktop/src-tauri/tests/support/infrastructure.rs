@@ -9,10 +9,10 @@ pub mod fs_pathing;
 #[path = "../../src/infrastructure/game_formats/tbin.rs"]
 pub mod game_formats_tbin;
 #[allow(dead_code, unused_imports)]
-#[path = "../../src/infrastructure/game_formats/xact.rs"]
+#[path = "../../src/infrastructure/game_formats/xact/mod.rs"]
 pub mod game_formats_xact;
 #[allow(dead_code, unused_imports)]
-#[path = "../../src/infrastructure/game_formats/xnb.rs"]
+#[path = "../../src/infrastructure/game_formats/xnb/mod.rs"]
 pub mod game_formats_xnb;
 
 #[allow(unused_imports)]

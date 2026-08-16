@@ -1,4 +1,5 @@
 mod cache;
+pub(crate) mod commands;
 mod exchange;
 mod jobs;
 mod models_dev;
@@ -12,12 +13,13 @@ pub(crate) use settings::validate_base_url;
 use crate::AppHandle;
 use crate::support::logging::{LogEvent, targets};
 use anyhow::Context;
+use serde::Serialize;
 use std::fmt::Display;
 use std::time::Instant;
 use types::{
     AiModelInfo, AiProfileRequest, AiProfileTestResult, AiSettingsSnapshot,
     AiTranslateBatchRequest, AiTranslateBatchResult, AiTranslationProgressPayload,
-    AiTranslationStreamPayload, CancelAiJobRequest, ModelsDevCatalog, SaveAiSettingsRequest,
+    AiTranslationStreamPayload, CancelAiJobRequest, SaveAiSettingsRequest,
 };
 
 pub use cache::{
@@ -93,6 +95,13 @@ pub(crate) fn format_command_error(error: impl Display) -> String {
     format!("AI_ERROR::{}::{detail}", classify_error_message(&detail))
 }
 
+pub(crate) fn ok_ai<T>(result: anyhow::Result<T>) -> crate::host_runtime::HostCommandResult
+where
+    T: Serialize,
+{
+    crate::host_runtime::ok(result.map_err(format_command_error))
+}
+
 pub fn list_ai_models(request: AiProfileRequest) -> anyhow::Result<Vec<AiModelInfo>> {
     let profile = settings::resolve_profile(Some(&request.profile_id))?;
     let mut models = providers::list_models(&profile)?;
@@ -106,10 +115,6 @@ pub fn list_ai_models(request: AiProfileRequest) -> anyhow::Result<Vec<AiModelIn
         }
     }
     Ok(models)
-}
-
-pub fn fetch_models_dev_catalog_for_command() -> anyhow::Result<ModelsDevCatalog> {
-    fetch_models_dev_catalog()
 }
 
 #[cfg(test)]

@@ -11,13 +11,16 @@ export type LauncherArchiveDragDropPayload = PlatformDragDropPayload
 /** Callback returned by desktop listener registrations. */
 export type UnlistenFn = PlatformUnlistenFn
 
+/** Title shown by the native game-directory picker across host surfaces. */
+export const GAME_DIRECTORY_PICKER_TITLE = 'Select the Stardew Valley game folder'
+
 /** Opens the standard game directory picker. */
 export async function chooseGameDirectory() {
   if (!canUseDesktopHost()) {
     throw new Error('Directory selection requires the desktop host.')
   }
 
-  return getPlatformPorts().dialog.chooseDirectory('Select the Stardew Valley game folder')
+  return getPlatformPorts().dialog.chooseDirectory(GAME_DIRECTORY_PICKER_TITLE)
 }
 
 /** Opens a desktop directory picker with a caller-provided title. */
@@ -75,11 +78,6 @@ export async function chooseArchiveFile(title: string) {
     ],
   })
   return typeof selected === 'string' ? selected : null
-}
-
-/** Opens a desktop file picker for a single external mod archive. */
-export async function chooseModArchiveFile(title: string) {
-  return chooseArchiveFile(title)
 }
 
 /** Opens a desktop multi-file picker restricted to launcher archive formats. */

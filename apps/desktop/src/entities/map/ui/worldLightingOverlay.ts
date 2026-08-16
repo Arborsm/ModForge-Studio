@@ -1,7 +1,5 @@
-import indoorWindowLightUrl from '../assets/lighting/indoorWindowLight.png'
-import lanternUrl from '../assets/lighting/lantern.png'
-import sconceLightUrl from '../assets/lighting/sconceLight.png'
-import windowLightUrl from '../assets/lighting/windowLight.png'
+import { buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
+import { loadImageResourceFromPath } from '@shared/lib/assets'
 import { computeLightingOverlayChannel, getLightingGlowTextureSize, type LightingColor, type WorldLightingState } from '../model/lighting'
 
 /**
@@ -20,22 +18,34 @@ import { computeLightingOverlayChannel, getLightingGlowTextureSize, type Lightin
 
 const MAX_BAKE_DIMENSION = 1024
 
-/** Texture index -> bundled asset URL (the game's own glow textures). */
-const LIGHT_GLOW_TEXTURE_URLS: Record<number, string> = {
-  1: lanternUrl,
-  2: windowLightUrl,
-  4: sconceLightUrl,
-  6: indoorWindowLightUrl,
+/** LightSource texture index -> game asset name under Content/LooseSprites/Lighting. */
+const LIGHT_GLOW_TEXTURE_ASSET_NAMES: Record<number, string> = {
+  1: 'LooseSprites\\Lighting\\lantern',
+  2: 'LooseSprites\\Lighting\\windowLight',
+  4: 'LooseSprites\\Lighting\\sconceLight',
+  6: 'LooseSprites\\Lighting\\indoorWindowLight',
 }
-/** Texture indexes without a bundled texture draw with the sconce shape. */
+/** Texture indexes without a real glow texture draw with the sconce shape. */
 const FALLBACK_TEXTURE_INDEX = 4
 
-/** Decoded glow textures by texture index; absent until loaded, null on error. */
-const textureCache = new Map<number, HTMLImageElement | null>()
-/** Tinted glow canvases keyed by `${textureIndex}:${r},${g},${b}` (static assets, never invalidated). */
+/** Decoded glow textures by root-path-qualified key; absent until loaded, null on error. */
+const textureCache = new Map<string, HTMLImageElement | null>()
+/** Tinted glow canvases keyed by root/texture/color (static assets, never invalidated). */
 const tintedTextureCache = new Map<string, HTMLCanvasElement>()
-let texturesRequested = false
+/** Game roots whose glow textures have already been requested. */
+const requestedTextureRoots = new Set<string>()
 const textureReadyListeners = new Set<() => void>()
+
+function getTextureCacheKey(rootPath: string, textureIndex: number) {
+  return `${rootPath.replace(/\\+$/u, '')}\\${textureIndex}`
+}
+
+function getTextureImage(rootPath: string | null, textureIndex: number) {
+  if (!rootPath) {
+    return null
+  }
+  return textureCache.get(getTextureCacheKey(rootPath, textureIndex)) ?? null
+}
 
 function notifyTexturesReady() {
   for (const listener of textureReadyListeners) {
@@ -44,25 +54,28 @@ function notifyTexturesReady() {
 }
 
 /**
- * Starts loading the bundled glow textures (idempotent) and invokes `onReady`
+ * Starts loading the game's LooseSprites/Lighting glow textures from the
+ * installed game directory (idempotent per root) and invokes `onReady`
  * whenever one finishes so callers can re-bake with the sharper texture.
  * Returns an unsubscribe function.
  */
-export function preloadWorldLightingTextures(onReady: () => void): () => void {
+export function preloadWorldLightingTextures(rootPath: string | null, onReady: () => void): () => void {
   textureReadyListeners.add(onReady)
-  if (!texturesRequested) {
-    texturesRequested = true
-    for (const [key, url] of Object.entries(LIGHT_GLOW_TEXTURE_URLS)) {
-      const textureIndex = Number(key)
-      const image = new Image()
-      image.onload = () => {
-        textureCache.set(textureIndex, image)
-        notifyTexturesReady()
+  if (rootPath) {
+    const normalizedRoot = rootPath.replace(/\\+$/u, '')
+    if (!requestedTextureRoots.has(normalizedRoot)) {
+      requestedTextureRoots.add(normalizedRoot)
+      for (const [key, assetName] of Object.entries(LIGHT_GLOW_TEXTURE_ASSET_NAMES)) {
+        const textureIndex = Number(key)
+        const path = buildGameContentPath(normalizedRoot, assetName)
+        if (!path) {
+          continue
+        }
+        void loadImageResourceFromPath(path).then((resource) => {
+          textureCache.set(getTextureCacheKey(normalizedRoot, textureIndex), resource?.image ?? null)
+          notifyTexturesReady()
+        })
       }
-      image.onerror = () => {
-        textureCache.set(textureIndex, null)
-      }
-      image.src = url
     }
   }
   return () => {
@@ -74,8 +87,13 @@ export function preloadWorldLightingTextures(onReady: () => void): () => void {
  * Reproduces the game's `texel × tint` draw: multiplies the texture's RGB by
  * the tint while keeping its alpha, via multiply + destination-in passes.
  */
-function getTintedGlowTexture(textureIndex: number, image: HTMLImageElement, color: LightingColor): HTMLCanvasElement | null {
-  const cacheKey = `${textureIndex}:${color.r},${color.g},${color.b}`
+function getTintedGlowTexture(
+  rootPath: string | null,
+  textureIndex: number,
+  image: HTMLImageElement,
+  color: LightingColor,
+): HTMLCanvasElement | null {
+  const cacheKey = `${rootPath?.replace(/\\+$/u, '') ?? ''}:${textureIndex}:${color.r},${color.g},${color.b}`
   const cached = tintedTextureCache.get(cacheKey)
   if (cached) {
     return cached
@@ -128,7 +146,12 @@ function drawFallbackGlow(
 }
 
 /** Bakes the overlay canvas; null when the state produces no darkening at all. */
-export function bakeWorldLightingCanvas(worldWidthPx: number, worldHeightPx: number, state: WorldLightingState): HTMLCanvasElement | null {
+export function bakeWorldLightingCanvas(
+  worldWidthPx: number,
+  worldHeightPx: number,
+  state: WorldLightingState,
+  rootPath: string | null = null,
+): HTMLCanvasElement | null {
   if (worldWidthPx <= 0 || worldHeightPx <= 0) {
     return null
   }
@@ -159,8 +182,8 @@ export function bakeWorldLightingCanvas(worldWidthPx: number, worldHeightPx: num
     const drawHeight = Math.max(1, size.heightPx * glow.scale * scale)
     const centerX = glow.worldX * scale
     const centerY = glow.worldY * scale
-    const image = textureCache.get(glow.textureIndex) ?? textureCache.get(FALLBACK_TEXTURE_INDEX)
-    const tinted = image ? getTintedGlowTexture(glow.textureIndex, image, glow.color) : null
+    const image = getTextureImage(rootPath, glow.textureIndex) ?? getTextureImage(rootPath, FALLBACK_TEXTURE_INDEX)
+    const tinted = image ? getTintedGlowTexture(rootPath, glow.textureIndex, image, glow.color) : null
     if (tinted) {
       context.drawImage(tinted, centerX - drawWidth / 2, centerY - drawHeight / 2, drawWidth, drawHeight)
     } else {

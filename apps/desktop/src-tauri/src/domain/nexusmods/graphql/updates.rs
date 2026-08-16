@@ -1,4 +1,3 @@
-use crate::domain::launcher::types::LauncherSettings;
 use crate::domain::nexusmods::can_use_nexus_graphql;
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::graphql;
@@ -6,6 +5,7 @@ use crate::domain::nexusmods::graphql::mod_detail::{
     RemoteModDetail, parse_remote_mod_detail_node,
 };
 use crate::domain::nexusmods::http::send_nexus_request;
+use crate::domain::nexusmods::request::NexusRequestContext;
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::extract_graphql_error;
 use anyhow::{Context, bail};
@@ -71,15 +71,15 @@ pub(crate) fn parse_update_batch_graphql_response(
 
 pub(crate) fn load_remote_mod_details_from_graphql(
     client: &Client,
-    settings: &LauncherSettings,
+    context: &NexusRequestContext,
     mod_ids: &[i64],
 ) -> anyhow::Result<HashMap<i64, RemoteModDetail>> {
-    if !can_use_nexus_graphql(settings) {
+    if !can_use_nexus_graphql(context) {
         bail!("Configure a Nexus API key before querying Nexus Mods.");
     }
-    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PrivateGraphql)?;
+    probe_blocked_launcher_nexus_route(client, Some(context), LauncherNexusRoute::PrivateGraphql)?;
 
-    let headers = graphql::graphql_headers(settings.nexus_api_key.as_deref())?;
+    let headers = graphql::graphql_headers(context.api_key())?;
     let payload = build_update_batch_graphql_payload(mod_ids)?;
     let response = send_nexus_request(|| {
         client

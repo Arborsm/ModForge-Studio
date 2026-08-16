@@ -1,9 +1,5 @@
 use super::fs::{discover_project_roots, read_json_file};
 use super::image_cache::resolve_launcher_image_blocking;
-use super::paths::{
-    launcher_library_covers_path, launcher_library_path, launcher_settings_path,
-    launcher_updates_cache_path,
-};
 use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
 use super::types::{
@@ -19,11 +15,15 @@ use super::update_cache::invalidate_launcher_updates_cache_at_path;
 use super::updates::resolve_smapi_runtime_versions;
 use super::versions::version_is_newer;
 use crate::AppHandle;
+use crate::domain::app_paths::{
+    launcher_library_covers_path, launcher_library_path, launcher_settings_path,
+    launcher_updates_cache_path,
+};
 use crate::domain::manifest::{
     manifest_dependencies, normalize_unique_id, project_name_from_manifest,
     required_dependency_ids, string_array_field, string_field,
 };
-use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path, normalize_separators};
 use crate::infrastructure::text_encoding::read_text_file;
 use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
@@ -897,7 +897,7 @@ fn build_mod_summary(
         missing_required_dependencies_for_project(project, dependency_health_graph);
 
     LauncherLibraryModSummary {
-        id: normalize_path(&project.project_path).replace('\\', "/"),
+        id: normalize_separators(&normalize_path(&project.project_path)),
         label_key: preferred_cover_label_key(
             nexus_mod_id,
             string_field(&project.manifest, "UniqueID").as_deref(),

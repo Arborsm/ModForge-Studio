@@ -16,6 +16,7 @@ import { CompactSelect } from '@shared/ui/CompactSelect'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { cx } from '@shared/lib/helper'
 import { ResizableColumnHeader, useAiLocalizationColumnWidths } from '../model/useAiLocalizationColumnWidths'
+import { errorDetail } from '../model/errorDetail'
 
 const NOTICE = 'ai-localization-knowledge-error'
 const PAGE_SIZE = 50
@@ -80,7 +81,6 @@ export function KnowledgeCenterView({
   const [deleteTarget, setDeleteTarget] = useState<'glossary' | 'selected-glossary' | 'memory' | null>(null)
   const deleteDialogTitleId = useId()
   const [memoryTargetScopeId, setMemoryTargetScopeId] = useState('')
-  const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const runKnowledgeLoad = useLatestTask('ai-localization-knowledge-content')
   const glossaryColumns = useAiLocalizationColumnWidths('glossary', {
@@ -98,14 +98,13 @@ export function KnowledgeCenterView({
     sourceScope: 100,
     updated: 120,
   })
-  const fail = (retry?: () => void) => {
-    setError(copy.knowledgeError)
+  const fail = (error: unknown, retry?: () => void) => {
     publish({
       id: NOTICE,
       level: 'error',
       eyebrow: copy.projectMessage,
       title: copy.knowledgeError,
-      description: copy.knowledgeError,
+      description: errorDetail(error),
       action: retry ? { label: copy.retry, callback: retry, tone: 'primary' } : undefined,
     })
   }
@@ -154,7 +153,7 @@ export function KnowledgeCenterView({
             setMemoryTotal(page.total)
             setSelectedMemory((current) => page.records.find((item) => item.id === current?.id) ?? null)
           }
-          setError(null)
+          dismissNotification(NOTICE)
         } finally {
           if (task.isCurrent()) setBusy(false)
         }
@@ -162,7 +161,7 @@ export function KnowledgeCenterView({
     } catch (error) {
       if (!(error instanceof TaskCancelledError)) {
         setBusy(false)
-        fail(load)
+        fail(error, load)
       }
     }
   }
@@ -179,8 +178,8 @@ export function KnowledgeCenterView({
     try {
       await localization.upsertGlossary(scopeId, [selectedGlossary])
       await load()
-    } catch {
-      fail(saveGlossary)
+    } catch (error) {
+      fail(error, saveGlossary)
     } finally {
       setBusy(false)
     }
@@ -192,8 +191,8 @@ export function KnowledgeCenterView({
       setSelectedGlossary(null)
       if (glossary.length === 1 && glossaryOffset > 0) setGlossaryOffset(Math.max(0, glossaryOffset - PAGE_SIZE))
       else await load()
-    } catch {
-      fail(removeGlossary)
+    } catch (error) {
+      fail(error, removeGlossary)
     }
   }
   const removeSelectedGlossary = async () => {
@@ -204,16 +203,17 @@ export function KnowledgeCenterView({
       setSelectedGlossary(null)
       if (selectedGlossaryIds.size >= glossary.length && glossaryOffset > 0) setGlossaryOffset(Math.max(0, glossaryOffset - PAGE_SIZE))
       else await load()
-    } catch {
-      fail(removeSelectedGlossary)
+    } catch (error) {
+      fail(error, removeSelectedGlossary)
     }
   }
   const saveStyle = async () => {
     if (!style) return
     try {
       setStyle(await localization.saveStyle(style))
-    } catch {
-      fail(saveStyle)
+      dismissNotification(NOTICE)
+    } catch (error) {
+      fail(error, saveStyle)
     }
   }
   const effectiveStyle = style
@@ -233,17 +233,18 @@ export function KnowledgeCenterView({
       setSelectedMemory(null)
       if (memory.length === 1 && memoryOffset > 0) setMemoryOffset(Math.max(0, memoryOffset - PAGE_SIZE))
       else await load()
-    } catch {
-      fail(removeMemory)
+    } catch (error) {
+      fail(error, removeMemory)
     }
   }
   const copyMemory = async () => {
     if (!selectedMemory || !memoryTargetScopeId) return
     try {
       await localization.copyMemory(scopeId, memoryTargetScopeId, [selectedMemory.id])
+      dismissNotification(NOTICE)
       publish({ id: 'translation-memory-copied', level: 'success', title: copy.copiedMemory, description: copy.copiedMemory })
-    } catch {
-      fail()
+    } catch (error) {
+      fail(error)
     }
   }
   const confirmDelete = async () => {
@@ -271,8 +272,8 @@ export function KnowledgeCenterView({
           query: format === 'knowledge-pack-json' ? null : query || null,
         })
       await load()
-    } catch {
-      fail(() => void transfer(direction))
+    } catch (error) {
+      fail(error, () => void transfer(direction))
     }
   }
   const pagination = (offset: number, total: number, setOffset: (value: number) => void) => (
@@ -349,11 +350,6 @@ export function KnowledgeCenterView({
                 </>
               ) : null}
             </header>
-          ) : null}
-          {error ? (
-            <p role="alert" className="settings-ai-error">
-              {error}
-            </p>
           ) : null}
           {tab === 'style' ? (
             style ? (
